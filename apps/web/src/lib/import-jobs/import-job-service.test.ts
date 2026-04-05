@@ -446,6 +446,84 @@ describe('import-job-service', () => {
     });
   });
 
+  it('reports total rows before existing data loads finish', async () => {
+    // Deferred promises for orders and products — stay pending until we resolve them
+    let resolveOrders!: (v: unknown) => void;
+    let resolveProducts!: (v: unknown) => void;
+    const ordersDeferred = new Promise((r) => {
+      resolveOrders = r;
+    });
+    const productsDeferred = new Promise((r) => {
+      resolveProducts = r;
+    });
+
+    const download = vi.fn().mockResolvedValue({
+      data: { text: vi.fn().mockResolvedValue('id\norder-1\norder-2') },
+      error: null,
+    });
+    const ordersQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+    };
+    ordersQuery.select.mockReturnValue(ordersQuery);
+    ordersQuery.eq.mockReturnValue(ordersDeferred);
+
+    const productsQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+    };
+    productsQuery.select.mockReturnValue(productsQuery);
+    productsQuery.eq.mockReturnValue(productsDeferred);
+
+    const supabase = {
+      storage: { from: vi.fn(() => ({ download })) },
+      from: vi.fn((table: string) => {
+        if (table === 'orders') return ordersQuery;
+        return productsQuery;
+      }),
+    } as unknown as SupabaseClient;
+
+    vi.mocked(parseCsvText).mockReturnValue({
+      headers: ['id'],
+      rows: [{ id: 'bumpa-1' }, { id: 'bumpa-2' }],
+    });
+    vi.mocked(buildBumpaOrderPreviewChunks).mockImplementation(function* () {
+      yield {
+        rows: [],
+        partialSummary: createPreviewSummary(),
+        processedRows: 2,
+        totalRows: 2,
+      };
+    });
+
+    const onProgress = vi.fn();
+
+    // Start the preview build — it will block on the deferred DB queries
+    const buildPromise = buildImportPreviewForJob(
+      supabase,
+      {
+        entity_type: 'orders',
+        merchant_id: 'merchant-1',
+        storage_path: 'merchant-1/orders/orders.csv',
+      },
+      onProgress
+    );
+
+    // Let microtasks flush so the file download + parse + onProgress fire
+    await vi.waitFor(() => {
+      expect(onProgress).toHaveBeenCalledWith({
+        processedRows: 0,
+        totalRows: 2,
+      });
+    });
+
+    // Now resolve the DB queries so the build can finish
+    resolveOrders({ data: [], error: null });
+    resolveProducts({ data: [], error: null });
+
+    await buildPromise;
+  });
+
   it('rebuilds the latest order preview rows from chunk updates', async () => {
     const supabase = createSupabaseMock();
 
