@@ -15,6 +15,7 @@ import { useState } from 'react';
 import {
   FlatList,
   Modal,
+  Platform,
   StyleSheet,
   Text,
   TextInput,
@@ -430,6 +431,11 @@ export function PhoneInput({
           <FlatList
             data={filteredCountries}
             keyExtractor={(item) => item.code}
+            {/* ⚡ Bolt Performance Optimization: Prevent UI thread blocking during modal open by virtualizing the 200+ country list */}
+            initialNumToRender={20}
+            maxToRenderPerBatch={20}
+            windowSize={10}
+            removeClippedSubviews={Platform.OS === 'android'}
             renderItem={({ item }) => (
               <TouchableOpacity
                 style={[
