@@ -79,7 +79,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
               Negotiate Price
             </h3>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">
+          <button onClick={onClose} className="text-gray-400 hover:text-white" aria-label="Close">
             <X size={20} />
           </button>
         </div>

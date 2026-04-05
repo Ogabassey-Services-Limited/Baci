@@ -72,8 +72,7 @@ export function KycForm({ initialData }: KycFormProps) {
   const [saving, setSaving] = useState(false);
 
   const form = useForm<KycFormValues>({
-    // biome-ignore lint/suspicious/noExplicitAny: library type mismatch
-    resolver: zodResolver(kycSchema as any),
+    resolver: zodResolver(kycSchema),
     defaultValues: {
       nin: initialData.nin || '',
       bvn: initialData.bvn || '',

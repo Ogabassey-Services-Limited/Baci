@@ -174,6 +174,7 @@ export function ProductComparisonTable({
                                         <button
                                             onClick={() => removeProduct(slotIdx)}
                                             className="absolute top-3 right-3 text-gray-400 hover:text-red-600 transition-colors"
+                                            aria-label="Remove product"
                                         >
                                             <X size={16} />
                                         </button>
@@ -200,7 +201,7 @@ export function ProductComparisonTable({
                                             <div className="w-full h-full absolute inset-0 bg-white z-10 p-4 flex flex-col">
                                                 <div className="flex items-center justify-between mb-3">
                                                     <span className="text-xs font-bold text-gray-500 uppercase">Add Product</span>
-                                                    <button onClick={() => setIsSearching(null)}><X size={16} /></button>
+                                                    <button onClick={() => setIsSearching(null)} aria-label="Cancel search"><X size={16} /></button>
                                                 </div>
                                                 <div className="relative">
                                                     <Search size={14} className="absolute left-3 top-3 text-gray-400" />
