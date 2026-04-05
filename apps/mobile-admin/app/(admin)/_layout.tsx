@@ -9,16 +9,27 @@ import { useTheme } from '@/hooks/useTheme';
 
 export default function AdminLayout() {
   const { isAuthenticated, isLoading } = useAuth();
-  const { registerPush, isRegistered } = usePushNotifications();
+  const {
+    registerPush,
+    isRegistered,
+    isLoading: isPushLoading,
+  } = usePushNotifications();
   const { colors } = useTheme();
   const { merchant } = useMerchant();
 
-  // Auto-register for push notifications when authenticated and merchant is loaded
+  // Auto-register for push notifications when authenticated and merchant is loaded.
+  // isPushLoading guards against concurrent calls when registerPush is recreated each render.
   useEffect(() => {
-    if (isAuthenticated && !isRegistered && merchant?.id) {
+    if (isAuthenticated && !isRegistered && !isPushLoading && merchant?.id) {
       registerPush();
     }
-  }, [isAuthenticated, isRegistered, registerPush, merchant?.id]);
+  }, [
+    isAuthenticated,
+    isRegistered,
+    isPushLoading,
+    registerPush,
+    merchant?.id,
+  ]);
 
   if (isLoading) {
     return (
