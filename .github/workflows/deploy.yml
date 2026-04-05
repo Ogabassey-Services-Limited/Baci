@@ -69,7 +69,7 @@ jobs:
           export PNPM_STORE_DIR="${RUNNER_TEMP}/pnpm-store"
           rm -rf "${PNPM_STORE_DIR}" || true
           pnpm config set store-dir "${PNPM_STORE_DIR}"
-      - run: .github/scripts/pnpm-install-with-retry.sh
+      - run: .github/scripts/pnpm-install-with-retry.sh --frozen-lockfile
       - run: pnpm dlx vercel pull --yes --environment=production --token="${{ env.VERCEL_TOKEN }}"
       - run: pnpm dlx vercel build --yes --prod --token="${{ env.VERCEL_TOKEN }}"
       # IMPORTANT: --archive=tgz is required to prevent Vercel upload rate limiting.
@@ -225,7 +225,7 @@ jobs:
           export PNPM_STORE_DIR="${RUNNER_TEMP}/pnpm-store"
           rm -rf "${PNPM_STORE_DIR}" || true
           pnpm config set store-dir "${PNPM_STORE_DIR}"
-      - run: pnpm install
+      - run: .github/scripts/pnpm-install-with-retry.sh --frozen-lockfile
       - name: Pull Vercel Environment Information
         if: ${{ env.VERCEL_TOKEN != '' }}
         run: pnpm dlx vercel pull --yes --environment=preview --token="${{ env.VERCEL_TOKEN }}"
