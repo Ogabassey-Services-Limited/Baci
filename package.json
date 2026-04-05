@@ -28,6 +28,10 @@
     "wait-on": "^9.0.4"
   },
   "pnpm": {
+    "overrideNotes": {
+      "defu": "Pin to 6.1.6 to mitigate GHSA-737v-mqg7-c878 / CVE-2026-35209: replace the vulnerable transitive deep-merge helper.",
+      "@xmldom/xmldom": "Pin to 0.8.12 to mitigate GHSA-wh4c-j3r5-mjhp / CVE-2026-34601: keep Expo plist tooling on the patched 0.8.x line."
+    },
     "overrides": {
       "defu": "6.1.6",
       "@xmldom/xmldom": "0.8.12",
