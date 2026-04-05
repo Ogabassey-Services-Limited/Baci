@@ -134,6 +134,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-font',
     'expo-sharing',
     'react-native-edge-to-edge',
+    './config/withAndroidGradleFixes.js',
     [
       './plugins/with-ios-release-hardening',
       {

@@ -202,4 +202,4 @@ jobs:
         # Pin to full SHA for supply-chain security
         uses: trufflesecurity/trufflehog@6bd2d14f7a4bc1e569fa3550efa7ec632a4fa67b # v3.94.2
         with:
-          extra_args: --only-verified
+          extra_args: --only-verified --exclude-paths=.trufflehogignore
