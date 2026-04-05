@@ -107,8 +107,12 @@ export default function RootLayout() {
   const {
     register: registerPushNotifications,
     isRegistered: isPushRegistered,
+    isLoading: isPushLoading,
   } = usePushNotifications();
   const initPromiseRef = useRef<Promise<void> | null>(null);
+  // Track which userId we've attempted registration for so a failed attempt
+  // doesn't trigger an infinite retry loop on every re-render.
+  const attemptedUserIdRef = useRef<string | null>(null);
   const [showSplash, setShowSplash] = useState(true);
   const [isStorageReady, setIsStorageReady] = useState(false);
 
@@ -152,13 +156,23 @@ export default function RootLayout() {
 
   // Register for push only after auth is fully initialized and user is logged in.
   // merchantId is optional for storefront (single-merchant app).
+  // attemptedUserIdRef prevents retry loops when registration fails — we only
+  // attempt once per userId. The ref resets naturally when the userId changes.
   useEffect(() => {
-    if (isInitialized && storeUser?.id && !isPushRegistered) {
+    if (
+      isInitialized &&
+      storeUser?.id &&
+      !isPushRegistered &&
+      !isPushLoading &&
+      attemptedUserIdRef.current !== storeUser.id
+    ) {
+      attemptedUserIdRef.current = storeUser.id;
       registerPushNotifications();
     }
   }, [
     isInitialized,
     isPushRegistered,
+    isPushLoading,
     registerPushNotifications,
     storeUser?.id,
   ]);

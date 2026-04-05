@@ -1,5 +1,5 @@
 import { Redirect, Stack } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { useAuth } from '@/hooks/useAuth';
@@ -16,11 +16,21 @@ export default function AdminLayout() {
   } = usePushNotifications();
   const { colors } = useTheme();
   const { merchant } = useMerchant();
+  // Track which merchantId we've attempted registration for to prevent retry
+  // loops when registration fails — only attempt once per merchant session.
+  const attemptedMerchantIdRef = useRef<string | null>(null);
 
   // Auto-register for push notifications when authenticated and merchant is loaded.
-  // isPushLoading guards against concurrent calls when registerPush is recreated each render.
+  // isPushLoading guards concurrent calls; attemptedMerchantIdRef prevents retries on failure.
   useEffect(() => {
-    if (isAuthenticated && !isRegistered && !isPushLoading && merchant?.id) {
+    if (
+      isAuthenticated &&
+      !isRegistered &&
+      !isPushLoading &&
+      merchant?.id &&
+      attemptedMerchantIdRef.current !== merchant.id
+    ) {
+      attemptedMerchantIdRef.current = merchant.id;
       registerPush();
     }
   }, [
