@@ -102,7 +102,12 @@ export default function RootLayout() {
   const initialize = useAuthStore((state) => state.initialize);
   const cleanup = useAuthStore((state) => state.cleanup);
   const isInitialized = useAuthStore((state) => state.isInitialized);
-  const { register: registerPushNotifications } = usePushNotifications();
+  const storeUser = useAuthStore((state) => state.user);
+  const _storeMerchantId = useAuthStore((state) => state.merchantId);
+  const {
+    register: registerPushNotifications,
+    isRegistered: isPushRegistered,
+  } = usePushNotifications();
   const initPromiseRef = useRef<Promise<void> | null>(null);
   const [showSplash, setShowSplash] = useState(true);
   const [isStorageReady, setIsStorageReady] = useState(false);
@@ -145,12 +150,18 @@ export default function RootLayout() {
     };
   }, [initialize, cleanup]);
 
+  // Register for push only after auth is fully initialized and user is logged in.
+  // merchantId is optional for storefront (single-merchant app).
   useEffect(() => {
-    const timer = setTimeout(() => {
+    if (isInitialized && storeUser?.id && !isPushRegistered) {
       registerPushNotifications();
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [registerPushNotifications]);
+    }
+  }, [
+    isInitialized,
+    isPushRegistered,
+    registerPushNotifications,
+    storeUser?.id,
+  ]);
 
   useEffect(() => {
     if (error) throw error;
