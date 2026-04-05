@@ -105,10 +105,10 @@ index 80bea6c..257cfaa 100644
 +    return undefined;
 +  }
 +  return {
-+    top: edges.top === false ? 'off' : 'additive',
-+    bottom: edges.bottom === false ? 'off' : 'additive',
-+    left: edges.left === false ? 'off' : 'additive',
-+    right: edges.right === false ? 'off' : 'additive'
++    top: edges.top ? 'additive' : 'off',
++    bottom: edges.bottom ? 'additive' : 'off',
++    left: edges.left ? 'additive' : 'off',
++    right: edges.right ? 'additive' : 'off'
 +  };
 +}
  const styles = _reactNative.StyleSheet.create({
@@ -154,10 +154,10 @@ index aca3ddc..d578223 100644
 +    return undefined;
 +  }
 +  return {
-+    top: edges.top === false ? 'off' : 'additive',
-+    bottom: edges.bottom === false ? 'off' : 'additive',
-+    left: edges.left === false ? 'off' : 'additive',
-+    right: edges.right === false ? 'off' : 'additive'
++    top: edges.top ? 'additive' : 'off',
++    bottom: edges.bottom ? 'additive' : 'off',
++    left: edges.left ? 'additive' : 'off',
++    right: edges.right ? 'additive' : 'off'
 +  };
 +}
  const styles = StyleSheet.create({
@@ -215,10 +215,10 @@ index 27dee11..4a0b0c7 100644
 +  }
 +
 +  return {
-+    top: edges.top === false ? 'off' : 'additive',
-+    bottom: edges.bottom === false ? 'off' : 'additive',
-+    left: edges.left === false ? 'off' : 'additive',
-+    right: edges.right === false ? 'off' : 'additive',
++    top: edges.top ? 'additive' : 'off',
++    bottom: edges.bottom ? 'additive' : 'off',
++    left: edges.left ? 'additive' : 'off',
++    right: edges.right ? 'additive' : 'off',
 +  };
 +}
 +
