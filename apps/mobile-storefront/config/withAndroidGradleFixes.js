@@ -11,98 +11,14 @@
 const { withDangerousMod } = require('@expo/config-plugins');
 const fs = require('node:fs');
 const path = require('node:path');
-
-const GRADLE_DISTRIBUTION = 'gradle-9.3.1-bin.zip';
-const GRADLE_SHA256 =
-  'b266d5ff6b90eada6dc3b20cb090e3731302e553a27c5d3e4df1f0d76beaff06';
-
-function assertReplaceOrThrow(content, pattern, replacement, description) {
-  const updated = content.replace(pattern, replacement);
-  if (updated === content) {
-    throw new Error(
-      `[withAndroidGradleFixes] Failed to update ${description}; upstream Gradle template changed.`
-    );
-  }
-  return updated;
-}
-
-function ensureReleaseSigning(content) {
-  let updated = content;
-
-  if (!updated.includes('ANDROID_KEYSTORE_FILE')) {
-    updated = assertReplaceOrThrow(
-      updated,
-      /signingConfigs\s*\{\s*debug\s*\{[\s\S]*?keyPassword 'android'\s*\n\s*\}\s*\n\s*\}/m,
-      `signingConfigs {
-        debug {
-            storeFile file('debug.keystore')
-            storePassword 'android'
-            keyAlias 'androiddebugkey'
-            keyPassword 'android'
-        }
-        release {
-            def keystorePath = System.getenv("ANDROID_KEYSTORE_FILE") ?: null
-            def keystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD") ?: null
-            def keyAliasVal = System.getenv("ANDROID_KEY_ALIAS") ?: null
-            def keyPasswordVal = System.getenv("ANDROID_KEY_PASSWORD") ?: null
-
-            if (keystorePath != null) {
-                if (!file(keystorePath).exists()) {
-                    throw new GradleException(
-                        "ANDROID_KEYSTORE_FILE is set to '\${keystorePath}' but the file does not exist."
-                    )
-                }
-                if (!keystorePassword || !keyAliasVal || !keyPasswordVal) {
-                    throw new GradleException(
-                        "Release keystore found but signing credentials incomplete. " +
-                        "Missing: " +
-                        (!keystorePassword ? "ANDROID_KEYSTORE_PASSWORD " : "") +
-                        (!keyAliasVal ? "ANDROID_KEY_ALIAS " : "") +
-                        (!keyPasswordVal ? "ANDROID_KEY_PASSWORD " : "")
-                    )
-                }
-                storeFile file(keystorePath)
-                storePassword keystorePassword
-                keyAlias keyAliasVal
-                keyPassword keyPasswordVal
-            }
-        }
-    }`,
-      'signingConfigs injection'
-    );
-  }
-
-  return assertReplaceOrThrow(
-    updated,
-    /release\s*\{\s*(?:\/\/[^\n]*\n\s*)*signingConfig signingConfigs\.debug/m,
-    `release {
-            if (signingConfigs.release.storeFile != null) {
-                signingConfig signingConfigs.release
-            }`,
-    'release signingConfig rewrite'
-  );
-}
-
-function ensureGradleWrapperVersion(content) {
-  let updated = content.replace(
-    /distributionUrl=https\\:\/\/services\.gradle\.org\/distributions\/gradle-[^\n]+/,
-    `distributionUrl=https\\://services.gradle.org/distributions/${GRADLE_DISTRIBUTION}`
-  );
-
-  if (updated.includes('distributionSha256Sum=')) {
-    updated = updated.replace(
-      /distributionSha256Sum=.*\n?/,
-      `distributionSha256Sum=${GRADLE_SHA256}\n`
-    );
-  } else {
-    updated = updated.replace(
-      /(distributionUrl=.*\n)/,
-      `$1distributionSha256Sum=${GRADLE_SHA256}\n`
-    );
-  }
-
-  return updated;
-}
+const {
+  addAsyncStorageRepo,
+  ensureGradleWrapperVersion,
+  ensureReleaseSigning,
+  fixProguardOptimize,
+  removeKotlinAndroidPlugin,
+  removeKotlinGradlePlugin,
+} = require('../../../.github/scripts/expoAndroidGradleFixes');
 
 function withAndroidGradleFixes(config) {
   // Fix root build.gradle
@@ -118,20 +34,19 @@ function withAndroidGradleFixes(config) {
         let content = fs.readFileSync(rootBuildGradle, 'utf-8');
 
         // Remove kotlin-gradle-plugin classpath
-        content = content.replace(
-          /\s*classpath\(['"]org\.jetbrains\.kotlin:kotlin-gradle-plugin['"]\)\s*\n?/g,
-          '\n'
+        content = removeKotlinGradlePlugin(
+          content,
+          `failed to remove kotlin-gradle-plugin from ${rootBuildGradle}`
         );
 
         // Add async-storage local maven repo if not present
         const asyncStorageRepo =
           'maven { url "$rootDir/../../../node_modules/@react-native-async-storage/async-storage/android/local_repo" }';
-        if (!content.includes('async-storage')) {
-          content = content.replace(
-            /(allprojects\s*\{\s*repositories\s*\{)/,
-            `$1\n    ${asyncStorageRepo}`
-          );
-        }
+        content = addAsyncStorageRepo(
+          content,
+          asyncStorageRepo,
+          `failed to inject async-storage repo into ${rootBuildGradle}`
+        );
 
         fs.writeFileSync(rootBuildGradle, content);
       }
@@ -147,15 +62,15 @@ function withAndroidGradleFixes(config) {
         let content = fs.readFileSync(appBuildGradle, 'utf-8');
 
         // Remove kotlin.android plugin
-        content = content.replace(
-          /apply plugin:\s*["']org\.jetbrains\.kotlin\.android["']\s*\n?/g,
-          ''
+        content = removeKotlinAndroidPlugin(
+          content,
+          `failed to remove Kotlin Android plugin from ${appBuildGradle}`
         );
 
         // Fix proguard file name
-        content = content.replace(
-          /proguard-android\.txt/g,
-          'proguard-android-optimize.txt'
+        content = fixProguardOptimize(
+          content,
+          `failed to update Proguard optimize config in ${appBuildGradle}`
         );
 
         content = ensureReleaseSigning(content);

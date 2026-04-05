@@ -11,20 +11,15 @@
 const { withDangerousMod } = require('@expo/config-plugins');
 const fs = require('node:fs');
 const path = require('node:path');
-
-const GRADLE_DISTRIBUTION = 'gradle-9.3.1-bin.zip';
-const GRADLE_SHA256 =
-  'b266d5ff6b90eada6dc3b20cb090e3731302e553a27c5d3e4df1f0d76beaff06';
-
-function assertReplaceOrThrow(content, pattern, replacement, description) {
-  const updated = content.replace(pattern, replacement);
-  if (updated === content) {
-    throw new Error(
-      `[withAndroidGradleFixes] Failed to update ${description}; upstream Gradle template changed.`
-    );
-  }
-  return updated;
-}
+const {
+  addAsyncStorageRepo,
+  assertReplaceOrThrow,
+  ensureGradleWrapperVersion,
+  ensureReleaseSigning,
+  fixProguardOptimize,
+  removeKotlinAndroidPlugin,
+  removeKotlinGradlePlugin,
+} = require('../../../.github/scripts/expoAndroidGradleFixes');
 
 function ensureAdminCodegenOrdering(content) {
   if (content.includes('generateAutolinkingNewArchitectureFiles')) {
@@ -54,63 +49,6 @@ function ensureAdminCodegenOrdering(content) {
   );
 }
 
-function ensureReleaseSigning(content) {
-  let updated = content;
-
-  if (!updated.includes('ANDROID_KEYSTORE_FILE')) {
-    updated = assertReplaceOrThrow(
-      updated,
-      /signingConfigs\s*\{\s*debug\s*\{[\s\S]*?keyPassword 'android'\s*\n\s*\}\s*\n\s*\}/m,
-      `signingConfigs {
-        debug {
-            storeFile file('debug.keystore')
-            storePassword 'android'
-            keyAlias 'androiddebugkey'
-            keyPassword 'android'
-        }
-        release {
-            def keystorePath = System.getenv("ANDROID_KEYSTORE_FILE") ?: null
-            def keystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD") ?: null
-            def keyAliasVal = System.getenv("ANDROID_KEY_ALIAS") ?: null
-            def keyPasswordVal = System.getenv("ANDROID_KEY_PASSWORD") ?: null
-
-            if (keystorePath != null) {
-                if (!file(keystorePath).exists()) {
-                    throw new GradleException(
-                        "ANDROID_KEYSTORE_FILE is set to '\${keystorePath}' but the file does not exist."
-                    )
-                }
-                if (!keystorePassword || !keyAliasVal || !keyPasswordVal) {
-                    throw new GradleException(
-                        "Release keystore found but signing credentials incomplete. " +
-                        "Missing: " +
-                        (!keystorePassword ? "ANDROID_KEYSTORE_PASSWORD " : "") +
-                        (!keyAliasVal ? "ANDROID_KEY_ALIAS " : "") +
-                        (!keyPasswordVal ? "ANDROID_KEY_PASSWORD " : "")
-                    )
-                }
-                storeFile file(keystorePath)
-                storePassword keystorePassword
-                keyAlias keyAliasVal
-                keyPassword keyPasswordVal
-            }
-        }
-    }`,
-      'release signingConfigs injection'
-    );
-  }
-
-  return assertReplaceOrThrow(
-    updated,
-    /release\s*\{\s*(?:\/\/[^\n]*\n\s*)*signingConfig signingConfigs\.debug/m,
-    `release {
-            if (signingConfigs.release.storeFile != null) {
-                signingConfig signingConfigs.release
-            }`,
-    'release signingConfig rewrite'
-  );
-}
-
 function ensureWorkletsPickFirst(content) {
   if (content.includes("pickFirsts += ['**/libworklets.so']")) {
     return content;
@@ -124,33 +62,6 @@ function ensureWorkletsPickFirst(content) {
 `,
     'worklets pickFirsts injection'
   );
-}
-
-function ensureGradleWrapperVersion(content) {
-  let updated = assertReplaceOrThrow(
-    content,
-    /distributionUrl=https\\:\/\/services\.gradle\.org\/distributions\/gradle-[^\n]+/,
-    `distributionUrl=https\\://services.gradle.org/distributions/${GRADLE_DISTRIBUTION}`,
-    'Gradle distributionUrl rewrite'
-  );
-
-  if (updated.includes('distributionSha256Sum=')) {
-    updated = assertReplaceOrThrow(
-      updated,
-      /distributionSha256Sum=.*\n?/,
-      `distributionSha256Sum=${GRADLE_SHA256}\n`,
-      'Gradle distributionSha256Sum rewrite'
-    );
-  } else {
-    updated = assertReplaceOrThrow(
-      updated,
-      /(distributionUrl=.*\n)/,
-      `$1distributionSha256Sum=${GRADLE_SHA256}\n`,
-      'Gradle distributionSha256Sum insertion'
-    );
-  }
-
-  return updated;
 }
 
 function withAndroidGradleFixes(config) {
@@ -167,24 +78,19 @@ function withAndroidGradleFixes(config) {
         let content = fs.readFileSync(rootBuildGradle, 'utf-8');
 
         // Remove kotlin-gradle-plugin classpath
-        content = assertReplaceOrThrow(
+        content = removeKotlinGradlePlugin(
           content,
-          /\s*classpath\(['"]org\.jetbrains\.kotlin:kotlin-gradle-plugin['"]\)\s*\n?/g,
-          '\n',
           'kotlin-gradle-plugin classpath removal'
         );
 
         // Add async-storage local maven repo if not present
         const asyncStorageRepo =
           'maven { url "$rootDir/../../../node_modules/@react-native-async-storage/async-storage/android/local_repo" }';
-        if (!content.includes('async-storage')) {
-          content = assertReplaceOrThrow(
-            content,
-            /(allprojects\s*\{\s*repositories\s*\{)/,
-            `$1\n    ${asyncStorageRepo}`,
-            'async-storage maven repo injection'
-          );
-        }
+        content = addAsyncStorageRepo(
+          content,
+          asyncStorageRepo,
+          'async-storage maven repo injection'
+        );
 
         fs.writeFileSync(rootBuildGradle, content);
       }
@@ -200,20 +106,13 @@ function withAndroidGradleFixes(config) {
         let content = fs.readFileSync(appBuildGradle, 'utf-8');
 
         // Remove kotlin.android plugin
-        content = assertReplaceOrThrow(
+        content = removeKotlinAndroidPlugin(
           content,
-          /apply plugin:\s*["']org\.jetbrains\.kotlin\.android["']\s*\n?/g,
-          '',
           'kotlin.android plugin removal'
         );
 
         // Fix proguard file name
-        content = assertReplaceOrThrow(
-          content,
-          /proguard-android\.txt/g,
-          'proguard-android-optimize.txt',
-          'proguard optimize rewrite'
-        );
+        content = fixProguardOptimize(content, 'proguard optimize rewrite');
 
         content = ensureAdminCodegenOrdering(content);
         content = ensureReleaseSigning(content);
