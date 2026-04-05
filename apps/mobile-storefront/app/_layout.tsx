@@ -110,9 +110,13 @@ export default function RootLayout() {
     isLoading: isPushLoading,
   } = usePushNotifications();
   const initPromiseRef = useRef<Promise<void> | null>(null);
-  // Track which userId we've attempted registration for so a failed attempt
-  // doesn't trigger an infinite retry loop on every re-render.
-  const attemptedUserIdRef = useRef<string | null>(null);
+  // Track push registration attempts per userId. Allows up to 3 retries
+  // (e.g. permissions granted after first attempt) before giving up.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const pushAttemptsRef = useRef<{ userId: string | null; count: number }>({
+    userId: null,
+    count: 0,
+  });
   const [showSplash, setShowSplash] = useState(true);
   const [isStorageReady, setIsStorageReady] = useState(false);
 
@@ -158,23 +162,32 @@ export default function RootLayout() {
   // after signing out and back in.
   useEffect(() => {
     if (!storeUser?.id) {
-      attemptedUserIdRef.current = null;
+      pushAttemptsRef.current = { userId: null, count: 0 };
     }
   }, [storeUser?.id]);
 
   // Register for push only after auth is fully initialized and user is logged in.
   // merchantId is optional for storefront (single-merchant app).
-  // attemptedUserIdRef prevents retry loops when registration fails — we only
-  // attempt once per userId. Cleared on logout (above) so sign-in retries work.
+  // Allows up to 3 attempts per userId to handle cases where permissions are
+  // granted after the first attempt. Stops retrying after success or max attempts.
   useEffect(() => {
+    const maxAttempts = 3;
+    const ref = pushAttemptsRef.current;
+    const isNewUser = ref.userId !== storeUser?.id;
+    const attemptsLeft = isNewUser || ref.count < maxAttempts;
+
     if (
       isInitialized &&
       storeUser?.id &&
       !isPushRegistered &&
       !isPushLoading &&
-      attemptedUserIdRef.current !== storeUser.id
+      attemptsLeft
     ) {
-      attemptedUserIdRef.current = storeUser.id;
+      if (isNewUser) {
+        pushAttemptsRef.current = { userId: storeUser.id, count: 1 };
+      } else {
+        pushAttemptsRef.current.count += 1;
+      }
       void registerPushNotifications();
     }
   }, [
