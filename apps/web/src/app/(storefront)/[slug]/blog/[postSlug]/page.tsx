@@ -317,8 +317,13 @@ export default async function BlogPostPage({ params }: PageProps) {
   let locale: string | undefined;
   if (rawLocale) {
     try {
-      const [canonical] = Intl.getCanonicalLocales(rawLocale);
-      locale = canonical;
+      // Strip quality parameters (e.g. "en-US;q=0.8" → "en-US")
+      const [tag] = rawLocale.split(';');
+      const trimmed = tag.trim();
+      if (trimmed) {
+        const [canonical] = Intl.getCanonicalLocales(trimmed);
+        locale = canonical;
+      }
     } catch {
       locale = undefined;
     }
