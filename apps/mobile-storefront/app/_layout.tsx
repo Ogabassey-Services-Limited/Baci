@@ -188,7 +188,10 @@ export default function RootLayout() {
       } else {
         pushAttemptsRef.current.count += 1;
       }
-      void registerPushNotifications();
+      void registerPushNotifications(
+        storeUser.id,
+        useAuthStore.getState().merchantId ?? undefined
+      );
     }
   }, [
     isInitialized,
