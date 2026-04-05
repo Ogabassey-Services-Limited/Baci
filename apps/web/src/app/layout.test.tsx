@@ -1,10 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-const mockRootDynamicBodyWithRequestProps = vi.fn(
-  ({ children }: { children: ReactNode }) => <>{children}</>
-);
+const mockRootDynamicBody = vi.fn(({ children }: { children: ReactNode }) => (
+  <>{children}</>
+));
 
 vi.mock('next/font/google', () => ({
   Inter: () => ({
@@ -12,18 +12,14 @@ vi.mock('next/font/google', () => ({
   }),
 }));
 
-vi.mock('@/app/root-dynamic-body-with-request-props', () => ({
-  RootDynamicBodyWithRequestProps: (props: { children: ReactNode }) =>
-    mockRootDynamicBodyWithRequestProps(props),
+vi.mock('@/app/root-dynamic-body', () => ({
+  RootDynamicBody: (props: { children: ReactNode }) =>
+    mockRootDynamicBody(props),
 }));
 
 import RootLayout from '@/app/layout';
 
 describe('RootLayout', () => {
-  afterEach(() => {
-    mockRootDynamicBodyWithRequestProps.mockClear();
-  });
-
   it('renders the global app shell through the request-props wrapper', () => {
     render(
       <RootLayout>
@@ -32,8 +28,8 @@ describe('RootLayout', () => {
     );
 
     expect(screen.getByRole('main')).toHaveTextContent('Main content');
-    expect(mockRootDynamicBodyWithRequestProps).toHaveBeenCalledTimes(1);
-    expect(mockRootDynamicBodyWithRequestProps.mock.calls[0]?.[0]).toEqual({
+    expect(mockRootDynamicBody).toHaveBeenCalledTimes(1);
+    expect(mockRootDynamicBody.mock.calls[0]?.[0]).toEqual({
       children: expect.anything(),
     });
   });
