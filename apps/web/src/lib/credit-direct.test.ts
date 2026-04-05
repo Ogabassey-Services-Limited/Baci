@@ -24,11 +24,21 @@ describe('verifyWebhookSignature', () => {
     );
   });
 
+  it('returns false for an empty signature', () => {
+    expect(verifyWebhookSignature(payload, '', secret)).toBe(false);
+  });
+
   it('returns false for an incorrect signature with the expected length', () => {
     const invalidSignature = '0'.repeat(64);
 
     expect(verifyWebhookSignature(payload, invalidSignature, secret)).toBe(
       false
     );
+  });
+
+  it('returns false for a signature longer than expected', () => {
+    const longSignature = '0'.repeat(128);
+
+    expect(verifyWebhookSignature(payload, longSignature, secret)).toBe(false);
   });
 });
