@@ -98,8 +98,7 @@ export default function PagesClient() {
   const [togglingPage, setTogglingPage] = useState<string | null>(null);
 
   const form = useForm<PagesFormValues>({
-    // biome-ignore lint/suspicious/noExplicitAny: library type mismatch
-    resolver: zodResolver(pagesSchema as any),
+    resolver: zodResolver(pagesSchema),
     defaultValues: {
       about: '',
       contact: '',
