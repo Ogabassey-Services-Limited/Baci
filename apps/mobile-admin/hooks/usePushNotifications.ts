@@ -261,18 +261,21 @@ export function usePushNotifications(): UsePushNotificationsResult {
   }, [router]);
 
   /**
-   * Check for stored token on mount
+   * Load cached token on mount for display, but always allow fresh
+   * registration. AsyncStorage persists across TestFlight/App Store
+   * updates, so a stale token would block re-registration forever.
    */
   useEffect(() => {
-    const checkStoredToken = async () => {
+    const loadCachedToken = async () => {
       const storedToken = await AsyncStorage.getItem(PUSH_TOKEN_STORAGE_KEY);
       if (storedToken) {
         setToken(storedToken);
-        setIsRegistered(true);
+        // Intentionally do NOT set isRegistered — always re-register on
+        // launch to ensure the token is fresh and saved to the server.
       }
     };
 
-    checkStoredToken();
+    loadCachedToken();
   }, []);
 
   return {
