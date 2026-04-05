@@ -12,7 +12,7 @@ concurrency:
 jobs:
   unlighthouse:
     name: SEO & Core Web Vitals Audit
-    runs-on: baci-lighthouse
+    runs-on: baci-deploy
     timeout-minutes: 20
 
     permissions:

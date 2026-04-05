@@ -45,7 +45,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.ogabassey.app',
-    buildNumber: '9',
+    buildNumber: '10',
     associatedDomains: [
       'applinks:ogabassey.com',
       'applinks:ogabassey.usebaci.com',
@@ -58,9 +58,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
   },
   android: {
-    ...(androidVersionCode !== undefined
-      ? { versionCode: androidVersionCode }
-      : {}),
+    versionCode: androidVersionCode ?? 159,
     package: 'com.ogabassey.store',
     googleServicesFile: './google-services.json',
     adaptiveIcon: {
@@ -125,6 +123,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     './config/withFirebaseModularHeaders.js',
     './config/withObjCLinkerFlag.js',
     './config/withNoSplashImage.js',
+    './config/withAndroidGradleFixes.js',
     'expo-localization',
     'expo-apple-authentication',
     'react-native-edge-to-edge',

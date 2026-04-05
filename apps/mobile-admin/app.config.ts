@@ -36,7 +36,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   name: 'Baci - The Ecommerce Builder',
   slug: 'baci',
   owner: 'ogabassey-services-limited',
-  version: '1.3.1',
+  version: '2.0.0',
   orientation: 'default',
   icon: './assets/images/icon.png',
   userInterfaceStyle: 'automatic',
@@ -50,7 +50,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.ogabassey.baci',
-    buildNumber: '11',
+    buildNumber: '12',
     // www.usebaci.com excluded: Vercel 308-redirects www → bare domain,
     // and Apple/Android reject redirects for verification files.
     associatedDomains: ['applinks:usebaci.com'],
@@ -65,7 +65,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     package: 'com.ogabassey.baci',
-    versionCode: _androidVersionCode ?? 9,
+    versionCode: _androidVersionCode ?? 10,
     adaptiveIcon: {
       foregroundImage: './assets/images/adaptive-icon.png',
       backgroundColor: '#f0bf58',
@@ -134,6 +134,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-font',
     'expo-sharing',
     'react-native-edge-to-edge',
+    './config/withAndroidGradleFixes.js',
     [
       './plugins/with-ios-release-hardening',
       {
