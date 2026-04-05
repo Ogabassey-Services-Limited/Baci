@@ -125,6 +125,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     './config/withFirebaseModularHeaders.js',
     './config/withObjCLinkerFlag.js',
     './config/withNoSplashImage.js',
+    './config/withAndroidGradleFixes.js',
     'expo-localization',
     'expo-apple-authentication',
     'react-native-edge-to-edge',

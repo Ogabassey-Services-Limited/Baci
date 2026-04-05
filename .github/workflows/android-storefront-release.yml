@@ -156,22 +156,14 @@ jobs:
             echo "::error::ANDROID_STOREFRONT_KEYSTORE_BASE64 secret is empty or not set"
             exit 1
           fi
-          echo "$KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
-
-      - name: Configure release signing
-        working-directory: ${{ env.WORKING_DIR }}
-        run: |
-          # Inject release signingConfig into the existing signingConfigs block
-          sed -i 's|signingConfigs {|signingConfigs {\n        release {\n            storeFile file("release.keystore")\n            storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")\n            keyAlias System.getenv("ANDROID_KEY_ALIAS")\n            keyPassword System.getenv("ANDROID_KEY_PASSWORD")\n        }|' android/app/build.gradle
-
-          # Switch release buildType from debug signing to release signing
-          sed -i 's|signingConfig signingConfigs.debug|signingConfig signingConfigs.release|' android/app/build.gradle
+          mkdir -p credentials
+          echo "$KEYSTORE_BASE64" | base64 -d > credentials/release.keystore
 
       - name: Build Android App Bundle (storefront)
         working-directory: ${{ env.WORKING_DIR }}/android
         env:
           GRADLE_OPTS: "-Xmx4g"
-          ANDROID_KEYSTORE_FILE: ${{ github.workspace }}/${{ env.WORKING_DIR }}/android/app/release.keystore
+          ANDROID_KEYSTORE_FILE: ${{ github.workspace }}/${{ env.WORKING_DIR }}/credentials/release.keystore
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_STOREFRONT_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_STOREFRONT_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_STOREFRONT_KEY_PASSWORD }}
@@ -204,4 +196,4 @@ jobs:
 
       - name: Clean up keystore
         if: always()
-        run: rm -f ${{ env.WORKING_DIR }}/android/app/release.keystore
+        run: rm -f ${{ env.WORKING_DIR }}/credentials/release.keystore
