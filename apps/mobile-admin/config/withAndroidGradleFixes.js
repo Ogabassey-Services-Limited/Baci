@@ -16,12 +16,23 @@ const GRADLE_DISTRIBUTION = 'gradle-9.3.1-bin.zip';
 const GRADLE_SHA256 =
   'b266d5ff6b90eada6dc3b20cb090e3731302e553a27c5d3e4df1f0d76beaff06';
 
+function assertReplaceOrThrow(content, pattern, replacement, description) {
+  const updated = content.replace(pattern, replacement);
+  if (updated === content) {
+    throw new Error(
+      `[withAndroidGradleFixes] Failed to update ${description}; upstream Gradle template changed.`
+    );
+  }
+  return updated;
+}
+
 function ensureAdminCodegenOrdering(content) {
   if (content.includes('generateAutolinkingNewArchitectureFiles')) {
     return content;
   }
 
-  return content.replace(
+  return assertReplaceOrThrow(
+    content,
     /\/\*\*\s*\n \* Set this to true in release builds/m,
     `gradle.projectsEvaluated {
     def autolinkingTask = tasks.named("generateAutolinkingNewArchitectureFiles").get()
@@ -38,7 +49,8 @@ function ensureAdminCodegenOrdering(content) {
 }
 
 /**
- * Set this to true in release builds`
+ * Set this to true in release builds`,
+    'admin codegen ordering injection'
   );
 }
 
@@ -46,7 +58,8 @@ function ensureReleaseSigning(content) {
   let updated = content;
 
   if (!updated.includes('ANDROID_KEYSTORE_FILE')) {
-    updated = updated.replace(
+    updated = assertReplaceOrThrow(
+      updated,
       /signingConfigs\s*\{\s*debug\s*\{[\s\S]*?keyPassword 'android'\s*\n\s*\}\s*\n\s*\}/m,
       `signingConfigs {
         debug {
@@ -82,16 +95,19 @@ function ensureReleaseSigning(content) {
                 keyPassword keyPasswordVal
             }
         }
-    }`
+    }`,
+      'release signingConfigs injection'
     );
   }
 
-  return updated.replace(
+  return assertReplaceOrThrow(
+    updated,
     /release\s*\{\s*(?:\/\/[^\n]*\n\s*)*signingConfig signingConfigs\.debug/m,
     `release {
             if (signingConfigs.release.storeFile != null) {
                 signingConfig signingConfigs.release
-            }`
+            }`,
+    'release signingConfig rewrite'
   );
 }
 
@@ -100,29 +116,37 @@ function ensureWorkletsPickFirst(content) {
     return content;
   }
 
-  return content.replace(
+  return assertReplaceOrThrow(
+    content,
     /useLegacyPackaging enableLegacyPackaging\.toBoolean\(\)\n/m,
     `useLegacyPackaging enableLegacyPackaging.toBoolean()
             pickFirsts += ['**/libworklets.so']
-`
+`,
+    'worklets pickFirsts injection'
   );
 }
 
 function ensureGradleWrapperVersion(content) {
-  let updated = content.replace(
+  let updated = assertReplaceOrThrow(
+    content,
     /distributionUrl=https\\:\/\/services\.gradle\.org\/distributions\/gradle-[^\n]+/,
-    `distributionUrl=https\\://services.gradle.org/distributions/${GRADLE_DISTRIBUTION}`
+    `distributionUrl=https\\://services.gradle.org/distributions/${GRADLE_DISTRIBUTION}`,
+    'Gradle distributionUrl rewrite'
   );
 
   if (updated.includes('distributionSha256Sum=')) {
-    updated = updated.replace(
+    updated = assertReplaceOrThrow(
+      updated,
       /distributionSha256Sum=.*\n?/,
-      `distributionSha256Sum=${GRADLE_SHA256}\n`
+      `distributionSha256Sum=${GRADLE_SHA256}\n`,
+      'Gradle distributionSha256Sum rewrite'
     );
   } else {
-    updated = updated.replace(
+    updated = assertReplaceOrThrow(
+      updated,
       /(distributionUrl=.*\n)/,
-      `$1distributionSha256Sum=${GRADLE_SHA256}\n`
+      `$1distributionSha256Sum=${GRADLE_SHA256}\n`,
+      'Gradle distributionSha256Sum insertion'
     );
   }
 
@@ -143,18 +167,22 @@ function withAndroidGradleFixes(config) {
         let content = fs.readFileSync(rootBuildGradle, 'utf-8');
 
         // Remove kotlin-gradle-plugin classpath
-        content = content.replace(
+        content = assertReplaceOrThrow(
+          content,
           /\s*classpath\(['"]org\.jetbrains\.kotlin:kotlin-gradle-plugin['"]\)\s*\n?/g,
-          '\n'
+          '\n',
+          'kotlin-gradle-plugin classpath removal'
         );
 
         // Add async-storage local maven repo if not present
         const asyncStorageRepo =
           'maven { url "$rootDir/../../../node_modules/@react-native-async-storage/async-storage/android/local_repo" }';
         if (!content.includes('async-storage')) {
-          content = content.replace(
+          content = assertReplaceOrThrow(
+            content,
             /(allprojects\s*\{\s*repositories\s*\{)/,
-            `$1\n    ${asyncStorageRepo}`
+            `$1\n    ${asyncStorageRepo}`,
+            'async-storage maven repo injection'
           );
         }
 
@@ -172,15 +200,19 @@ function withAndroidGradleFixes(config) {
         let content = fs.readFileSync(appBuildGradle, 'utf-8');
 
         // Remove kotlin.android plugin
-        content = content.replace(
+        content = assertReplaceOrThrow(
+          content,
           /apply plugin:\s*["']org\.jetbrains\.kotlin\.android["']\s*\n?/g,
-          ''
+          '',
+          'kotlin.android plugin removal'
         );
 
         // Fix proguard file name
-        content = content.replace(
+        content = assertReplaceOrThrow(
+          content,
           /proguard-android\.txt/g,
-          'proguard-android-optimize.txt'
+          'proguard-android-optimize.txt',
+          'proguard optimize rewrite'
         );
 
         content = ensureAdminCodegenOrdering(content);

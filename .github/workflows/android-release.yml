@@ -135,7 +135,9 @@ jobs:
             exit 1
           fi
 
+          umask 077
           echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 -d > google-services.json
+          chmod 600 google-services.json
 
       - name: Generate Android project via Expo prebuild
         working-directory: ${{ env.WORKING_DIR }}
@@ -162,7 +164,9 @@ jobs:
             exit 1
           fi
           mkdir -p credentials
+          umask 077
           echo "$KEYSTORE_BASE64" | base64 -d > credentials/release.keystore
+          chmod 600 credentials/release.keystore
 
       - name: Build Android App Bundle
         working-directory: ${{ env.WORKING_DIR }}/android
@@ -207,3 +211,4 @@ jobs:
           if ! git -C ${{ github.workspace }} ls-files --error-unmatch ${{ env.WORKING_DIR }}/google-services.json >/dev/null 2>&1; then
             rm -f ${{ env.WORKING_DIR }}/google-services.json
           fi
+          rm -f ${{ env.WORKING_DIR }}/android/app/google-services.json

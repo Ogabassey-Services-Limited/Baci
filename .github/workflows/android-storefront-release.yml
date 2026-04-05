@@ -156,14 +156,17 @@ jobs:
             echo "::error::ANDROID_STOREFRONT_KEYSTORE_BASE64 secret is empty or not set"
             exit 1
           fi
-          mkdir -p credentials
-          echo "$KEYSTORE_BASE64" | base64 -d > credentials/release.keystore
+          KEYSTORE_PATH="$(mktemp "${RUNNER_TEMP}/storefront-release-keystore.XXXXXX")"
+          umask 077
+          echo "$KEYSTORE_BASE64" | base64 -d > "$KEYSTORE_PATH"
+          chmod 600 "$KEYSTORE_PATH"
+          echo "ANDROID_STOREFRONT_KEYSTORE_FILE=$KEYSTORE_PATH" >> "$GITHUB_ENV"
 
       - name: Build Android App Bundle (storefront)
         working-directory: ${{ env.WORKING_DIR }}/android
         env:
           GRADLE_OPTS: "-Xmx4g"
-          ANDROID_KEYSTORE_FILE: ${{ github.workspace }}/${{ env.WORKING_DIR }}/credentials/release.keystore
+          ANDROID_KEYSTORE_FILE: ${{ env.ANDROID_STOREFRONT_KEYSTORE_FILE }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_STOREFRONT_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_STOREFRONT_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_STOREFRONT_KEY_PASSWORD }}
@@ -196,4 +199,4 @@ jobs:
 
       - name: Clean up keystore
         if: always()
-        run: rm -f ${{ env.WORKING_DIR }}/credentials/release.keystore
+        run: rm -f "${{ env.ANDROID_STOREFRONT_KEYSTORE_FILE }}"

@@ -16,11 +16,22 @@ const GRADLE_DISTRIBUTION = 'gradle-9.3.1-bin.zip';
 const GRADLE_SHA256 =
   'b266d5ff6b90eada6dc3b20cb090e3731302e553a27c5d3e4df1f0d76beaff06';
 
+function assertReplaceOrThrow(content, pattern, replacement, description) {
+  const updated = content.replace(pattern, replacement);
+  if (updated === content) {
+    throw new Error(
+      `[withAndroidGradleFixes] Failed to update ${description}; upstream Gradle template changed.`
+    );
+  }
+  return updated;
+}
+
 function ensureReleaseSigning(content) {
   let updated = content;
 
   if (!updated.includes('ANDROID_KEYSTORE_FILE')) {
-    updated = updated.replace(
+    updated = assertReplaceOrThrow(
+      updated,
       /signingConfigs\s*\{\s*debug\s*\{[\s\S]*?keyPassword 'android'\s*\n\s*\}\s*\n\s*\}/m,
       `signingConfigs {
         debug {
@@ -56,16 +67,19 @@ function ensureReleaseSigning(content) {
                 keyPassword keyPasswordVal
             }
         }
-    }`
+    }`,
+      'signingConfigs injection'
     );
   }
 
-  return updated.replace(
+  return assertReplaceOrThrow(
+    updated,
     /release\s*\{\s*(?:\/\/[^\n]*\n\s*)*signingConfig signingConfigs\.debug/m,
     `release {
             if (signingConfigs.release.storeFile != null) {
                 signingConfig signingConfigs.release
-            }`
+            }`,
+    'release signingConfig rewrite'
   );
 }
 
