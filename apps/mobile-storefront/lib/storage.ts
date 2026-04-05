@@ -26,12 +26,8 @@ export async function getStorageEntries(
   }
 
   // Fallback: individual getItem calls
-  return Promise.all(
-    keys.map(
-      async (key) =>
-        [key, await AsyncStorage.getItem(key)] as [string, string | null]
-    )
-  );
+  // @ts-expect-error multiGet is missing from typings but exists and avoids bridge traffic
+  return AsyncStorage.multiGet([...keys]);
 }
 
 export async function removeStorageItems(
@@ -45,7 +41,8 @@ export async function removeStorageItems(
   }
 
   // Fallback: individual removeItem calls
-  await Promise.all(keys.map((key) => AsyncStorage.removeItem(key)));
+  // @ts-expect-error multiRemove is missing from typings but exists and avoids bridge traffic
+  await AsyncStorage.multiRemove([...keys]);
 }
 
 /**
