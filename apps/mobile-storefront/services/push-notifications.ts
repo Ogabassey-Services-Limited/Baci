@@ -84,6 +84,10 @@ export async function requestPermissions(): Promise<PermissionStatus | null> {
  */
 export async function registerForPushNotifications(): Promise<string | null> {
   // Push notifications require a physical device and loaded modules
+  if (!Device || !Notifications) {
+    await loadNativeModules();
+  }
+
   if (!Device || !Notifications) return null;
 
   if (!Device.isDevice) {
