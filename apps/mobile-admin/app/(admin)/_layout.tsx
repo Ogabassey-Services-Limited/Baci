@@ -31,7 +31,7 @@ export default function AdminLayout() {
       attemptedMerchantIdRef.current !== merchant.id
     ) {
       attemptedMerchantIdRef.current = merchant.id;
-      registerPush();
+      void registerPush();
     }
   }, [
     isAuthenticated,

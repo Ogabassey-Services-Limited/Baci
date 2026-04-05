@@ -154,10 +154,18 @@ export default function RootLayout() {
     };
   }, [initialize, cleanup]);
 
+  // Clear attempt tracking on logout so the same account can re-register
+  // after signing out and back in.
+  useEffect(() => {
+    if (!storeUser?.id) {
+      attemptedUserIdRef.current = null;
+    }
+  }, [storeUser?.id]);
+
   // Register for push only after auth is fully initialized and user is logged in.
   // merchantId is optional for storefront (single-merchant app).
   // attemptedUserIdRef prevents retry loops when registration fails — we only
-  // attempt once per userId. The ref resets naturally when the userId changes.
+  // attempt once per userId. Cleared on logout (above) so sign-in retries work.
   useEffect(() => {
     if (
       isInitialized &&
@@ -167,7 +175,7 @@ export default function RootLayout() {
       attemptedUserIdRef.current !== storeUser.id
     ) {
       attemptedUserIdRef.current = storeUser.id;
-      registerPushNotifications();
+      void registerPushNotifications();
     }
   }, [
     isInitialized,
