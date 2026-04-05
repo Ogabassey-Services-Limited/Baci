@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { useAuth } from '@/hooks/useAuth';
+import { useMerchant } from '@/hooks/useMerchant';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useTheme } from '@/hooks/useTheme';
 
@@ -10,13 +11,14 @@ export default function AdminLayout() {
   const { isAuthenticated, isLoading } = useAuth();
   const { registerPush, isRegistered } = usePushNotifications();
   const { colors } = useTheme();
+  const { merchant } = useMerchant();
 
-  // Auto-register for push notifications when authenticated
+  // Auto-register for push notifications when authenticated and merchant is loaded
   useEffect(() => {
-    if (isAuthenticated && !isRegistered) {
+    if (isAuthenticated && !isRegistered && merchant?.id) {
       registerPush();
     }
-  }, [isAuthenticated, isRegistered, registerPush]);
+  }, [isAuthenticated, isRegistered, registerPush, merchant?.id]);
 
   if (isLoading) {
     return (
