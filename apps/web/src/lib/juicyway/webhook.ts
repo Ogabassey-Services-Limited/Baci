@@ -45,7 +45,8 @@ export async function verifyWebhookSignature(
 
   // Constant-time comparison to prevent timing attacks
   return (
-    !(!computedChecksum || !checksum) &&
+    computedChecksum &&
+    checksum &&
     constantTimeEqual(computedChecksum.toLowerCase(), checksum.toLowerCase())
   );
 }
