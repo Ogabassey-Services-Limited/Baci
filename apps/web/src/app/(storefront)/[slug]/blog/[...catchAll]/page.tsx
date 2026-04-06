@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
+import { buildCanonicalBlogPostUrl } from '@/app/(storefront)/[slug]/blog/[postSlug]/blog-post-content';
 import {
   getCachedBlogPost,
   getCachedMerchant,
@@ -8,7 +9,6 @@ import {
 import { asRoute } from '@/lib/routes';
 import { createClient } from '@/lib/supabase/server';
 import { isDomainIdentifier } from '@/lib/validation';
-import { buildCanonicalBlogPostUrl } from '../[postSlug]/blog-post-content';
 
 /**
  * Catch-all route for legacy blog URLs with category prefixes.

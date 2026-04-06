@@ -49,7 +49,7 @@ vi.mock('@/lib/validation', () => ({
   isDomainIdentifier: (value: string) => value.includes('.'),
 }));
 
-vi.mock('../[postSlug]/blog-post-content', () => ({
+vi.mock('@/app/(storefront)/[slug]/blog/[postSlug]/blog-post-content', () => ({
   buildCanonicalBlogPostUrl: (
     merchant: { custom_domain?: string; slug: string },
     postSlug: string
