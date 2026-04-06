@@ -79,6 +79,8 @@ export function AddressCard({
         placeholderTextColor={colors.textMuted}
         value={street}
         onChangeText={onStreetChange}
+        accessibilityLabel="Street address"
+        returnKeyType="next"
       />
 
       <View style={styles.row}>
@@ -99,6 +101,8 @@ export function AddressCard({
             placeholderTextColor={colors.textMuted}
             value={city}
             onChangeText={onCityChange}
+            accessibilityLabel="City"
+            returnKeyType="next"
           />
         </View>
         <View style={styles.halfField}>
@@ -119,6 +123,8 @@ export function AddressCard({
             value={postalCode}
             onChangeText={onPostalCodeChange}
             keyboardType="number-pad"
+            accessibilityLabel="Postal Code"
+            returnKeyType="done"
           />
         </View>
       </View>
@@ -135,6 +141,9 @@ export function AddressCard({
           },
         ]}
         onPress={onOpenStatePicker}
+        accessibilityRole="button"
+        accessibilityLabel="State selector"
+        accessibilityHint="Opens a modal to select your state"
       >
         <Text
           style={[
@@ -153,6 +162,9 @@ export function AddressCard({
         style={[styles.saveButton, { backgroundColor: colors.primary }]}
         onPress={onSave}
         disabled={isPending}
+        accessibilityRole="button"
+        accessibilityLabel="Save Address"
+        accessibilityState={{ disabled: isPending }}
       >
         {isPending ? (
           <ActivityIndicator size="small" color="#FFF" />
