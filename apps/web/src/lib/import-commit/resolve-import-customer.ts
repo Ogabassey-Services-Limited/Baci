@@ -148,7 +148,7 @@ export async function createImportCustomerResolver(
 
           if (retryError || !retried) {
             throw new Error(
-              `Failed to create imported customer: ${retryError?.message}`
+              `Failed to create imported customer: ${retryError?.message ?? insertError.message}`
             );
           }
 
@@ -169,11 +169,12 @@ export async function createImportCustomerResolver(
         customerMaps.customersByEmail.set(emailKey, createdCustomer);
       }
 
-      if (phoneKey) {
+      const insertedPhoneKey = toPhoneKey(createdCustomer.phone);
+      if (insertedPhoneKey) {
         const phoneCustomers =
-          customerMaps.customersByPhone.get(phoneKey) || [];
+          customerMaps.customersByPhone.get(insertedPhoneKey) || [];
         phoneCustomers.push(createdCustomer);
-        customerMaps.customersByPhone.set(phoneKey, phoneCustomers);
+        customerMaps.customersByPhone.set(insertedPhoneKey, phoneCustomers);
       }
 
       return { customerId: createdCustomer.id, createdCustomer: true };
