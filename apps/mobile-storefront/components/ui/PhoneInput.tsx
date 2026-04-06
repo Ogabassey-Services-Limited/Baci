@@ -15,6 +15,7 @@ import { useState } from 'react';
 import {
   FlatList,
   Modal,
+  Platform,
   StyleSheet,
   Text,
   TextInput,
@@ -291,13 +292,19 @@ export function PhoneInput({
 
   return (
     <View style={containerStyle}>
-      {label && <Text style={[styles.label, { color: colors.textSecondary }]}>{label}</Text>}
+      {label && (
+        <Text style={[styles.label, { color: colors.textSecondary }]}>
+          {label}
+        </Text>
+      )}
 
       <View
         style={[
           styles.container,
           {
-            backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : colors.muted,
+            backgroundColor: isDark
+              ? 'rgba(255, 255, 255, 0.05)'
+              : colors.muted,
             borderColor: error ? colors.error : colors.border,
           },
           error && styles.containerError,
@@ -354,7 +361,9 @@ export function PhoneInput({
       </View>
 
       {/* Error Message */}
-      {error && <Text style={[styles.error, { color: colors.error }]}>{error}</Text>}
+      {error && (
+        <Text style={[styles.error, { color: colors.error }]}>{error}</Text>
+      )}
 
       {/* Country Picker Modal */}
       <Modal
@@ -430,6 +439,11 @@ export function PhoneInput({
           <FlatList
             data={filteredCountries}
             keyExtractor={(item) => item.code}
+            // Prevent UI thread blocking during modal open by virtualizing the 200+ country list
+            initialNumToRender={20}
+            maxToRenderPerBatch={20}
+            windowSize={10}
+            removeClippedSubviews={Platform.OS === 'android'}
             renderItem={({ item }) => (
               <TouchableOpacity
                 style={[
