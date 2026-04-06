@@ -128,6 +128,12 @@ export default function OnboardingScreen() {
 
   const viewConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
 
+  const getItemLayout = (_: unknown, index: number) => ({
+    length: width,
+    offset: width * index,
+    index,
+  });
+
   const handleSignIn = async () => {
     try {
       await completeOnboarding();
@@ -199,6 +205,7 @@ export default function OnboardingScreen() {
           pagingEnabled
           bounces={false}
           keyExtractor={(item) => item.id}
+          getItemLayout={getItemLayout}
           onScroll={Animated.event(
             [{ nativeEvent: { contentOffset: { x: scrollX } } }],
             {
