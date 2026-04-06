@@ -17,8 +17,13 @@ import {
 } from '../lib/account-deletion';
 import { CONFIG } from '../lib/config';
 import { createLogger } from '../lib/logger';
+import {
+  clearStoredPushToken,
+  getStoredPushToken,
+} from '../lib/push-token-storage';
 import { supabase } from '../lib/supabase';
 import { CustomerRowSchema, MerchantRowSchema } from '../lib/validation';
+import { removePushTokenFromServer } from '../services/push-notifications';
 import {
   hydrateCustomer,
   initTimeout,
@@ -29,6 +34,22 @@ import { useComparisonStore } from './comparison-store';
 import { useSavedStore } from './saved-store';
 
 const log = createLogger('AuthStore');
+
+// Shared helper: clear local token unconditionally, then await server deactivation.
+// Used by signOut(), deleteAccount(), and the SIGNED_OUT passive fallback so the
+// deactivation is always serialized — no fire-and-forget request left in flight
+// that could clobber a fast re-registration.
+async function _clearLocalAndDeactivatePushToken(
+  token: string | null
+): Promise<void> {
+  await clearStoredPushToken(); // unconditional local clear
+  if (token) {
+    const removed = await removePushTokenFromServer(token);
+    if (!removed) {
+      log.warn('Push token server deactivation failed during auth transition');
+    }
+  }
+}
 
 // Get merchant slug from app config
 const MERCHANT_SLUG = CONFIG.MERCHANT_SLUG;
@@ -338,6 +359,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 );
               }
             } else if (event === 'SIGNED_OUT') {
+              // Passive fallback for session expiry / external revocation.
+              // If explicit signOut()/deleteAccount() already ran, AsyncStorage is
+              // already cleared, so getStoredPushToken() returns null and
+              // clearLocalAndDeactivatePushToken becomes a cheap no-op.
+              const storedToken = await getStoredPushToken();
+              await _clearLocalAndDeactivatePushToken(storedToken);
               // 2026 Critical Fix: Reset user stores to prevent data bleed on session expiry
               useCartStore.getState().clearCart();
               useSavedStore.getState().clearSaved();
@@ -724,6 +751,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signOut: async () => {
     try {
       set({ isLoading: true });
+      // Serialize push token cleanup BEFORE supabase.auth.signOut() so a fast
+      // re-login cannot race a delayed fire-and-forget deactivation request.
+      const storedToken = await getStoredPushToken();
+      await _clearLocalAndDeactivatePushToken(storedToken);
       await supabase.auth.signOut();
       useCartStore.getState().clearCart();
       useSavedStore.getState().clearSaved();
@@ -755,6 +786,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         const message = getDeleteAccountErrorMessage(error);
         return { success: false, error: message };
       }
+
+      // Serialize push token cleanup before local sign-out (same race fix as signOut)
+      const storedToken = await getStoredPushToken();
+      await _clearLocalAndDeactivatePushToken(storedToken);
 
       // Sign out and clear local stores
       await supabase.auth.signOut({ scope: 'local' }).catch((err) => {
