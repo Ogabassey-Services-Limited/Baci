@@ -31,7 +31,9 @@ export default function AdminLayout() {
       attemptedMerchantIdRef.current !== merchant.id
     ) {
       attemptedMerchantIdRef.current = merchant.id;
-      void registerPush(user?.id, merchant.id);
+      void registerPush(user?.id, merchant.id).catch((error) => {
+        console.error('[Push] Failed to trigger registration:', error);
+      });
     }
   }, [
     isAuthenticated,

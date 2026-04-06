@@ -7,20 +7,19 @@ import { RootLayoutNav } from './root-layout-nav';
 const MockText = Text;
 const MockView = View;
 const mockUseAuthGuard = jest.fn();
-const mockQueryProvider = jest.fn(
-  ({
-    children,
-    persistenceEnabled,
-  }: {
-    children?: React.ReactNode;
-    persistenceEnabled?: boolean;
-  }) => (
-    <View>
-      <Text>{persistenceEnabled ? 'persist:on' : 'persist:off'}</Text>
-      {children}
-    </View>
-  )
+const renderMockQueryProvider = ({
+  children,
+  persistenceEnabled,
+}: {
+  children?: React.ReactNode;
+  persistenceEnabled?: boolean;
+}) => (
+  <View>
+    <Text>{persistenceEnabled ? 'persist:on' : 'persist:off'}</Text>
+    {children}
+  </View>
 );
+const mockQueryProvider = jest.fn(renderMockQueryProvider);
 
 jest.mock('@react-navigation/native', () => ({
   DarkTheme: { colors: {} },
@@ -30,7 +29,14 @@ jest.mock('@react-navigation/native', () => ({
 
 jest.mock('expo-router', () => {
   const Stack = ({ children }: { children?: React.ReactNode }) => (
-    <MockView testID="root-stack">{children}</MockView>
+    <MockView
+      accessibilityLabel="root stack"
+      accessibilityRole="summary"
+      accessible
+      testID="root-stack"
+    >
+      {children}
+    </MockView>
   );
 
   Stack.Screen = ({ name }: { name: string }) => <MockText>{name}</MockText>;
@@ -101,12 +107,13 @@ jest.mock('@/lib/QueryProvider', () => ({
 describe('RootLayoutNav', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockQueryProvider.mockImplementation(renderMockQueryProvider);
   });
 
   it('renders the storefront navigator and startup overlays', () => {
     render(<RootLayoutNav />);
 
-    expect(screen.getByTestId('root-stack')).toBeTruthy();
+    expect(screen.getByRole('summary', { name: 'root stack' })).toBeTruthy();
     expect(screen.getByText('(tabs)')).toBeTruthy();
     expect(screen.getByText('checkout')).toBeTruthy();
     expect(screen.getByText('connectivity-banner')).toBeTruthy();
@@ -121,5 +128,13 @@ describe('RootLayoutNav', () => {
 
     expect(screen.getByText('persist:off')).toBeTruthy();
     expect(mockQueryProvider).toHaveBeenCalled();
+  });
+
+  it('surfaces provider failures deterministically', () => {
+    mockQueryProvider.mockImplementation(() => {
+      throw new Error('query provider failed');
+    });
+
+    expect(() => render(<RootLayoutNav />)).toThrow('query provider failed');
   });
 });

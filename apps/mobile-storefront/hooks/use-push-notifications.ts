@@ -5,7 +5,7 @@
 
 import type { EventSubscription } from 'expo-modules-core';
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 import { createLogger } from '@/lib/logger';
@@ -44,6 +44,7 @@ _notificationsReady = loadNativeModules();
 interface UsePushNotificationsReturn {
   pushToken: string | null;
   isRegistered: boolean;
+  registeredUserId: string | null;
   isLoading: boolean;
   error: string | null;
   register: (userId?: string, merchantId?: string) => Promise<void>;
@@ -52,7 +53,7 @@ interface UsePushNotificationsReturn {
 
 export function usePushNotifications(): UsePushNotificationsReturn {
   const [pushToken, setPushToken] = useState<string | null>(null);
-  const [isRegistered, setIsRegistered] = useState(false);
+  const [registeredUserId, setRegisteredUserId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,26 +65,31 @@ export function usePushNotifications(): UsePushNotificationsReturn {
   );
   const notificationListener = useRef<EventSubscription | null>(null);
   const responseListener = useRef<EventSubscription | null>(null);
+  const isRegistered = Boolean(user?.id && registeredUserId === user.id);
 
   // Navigation helper for notification taps
-  const navigate = (screen: string, params?: Record<string, string>) => {
-    switch (screen) {
-      case 'order-details':
-        router.push(`/orders/${params?.id}`);
-        break;
-      case 'orders':
-        router.push('/orders');
-        break;
-      case 'product':
-        router.push(`/product/${params?.slug}`);
-        break;
-      case 'category':
-        router.push(`/category/${params?.slug}` as import('expo-router').Href);
-        break;
-      default:
-        router.push('/');
+  const navigate = useEffectEvent(
+    (screen: string, params?: Record<string, string>) => {
+      switch (screen) {
+        case 'order-details':
+          router.push(`/orders/${params?.id}`);
+          break;
+        case 'orders':
+          router.push('/orders');
+          break;
+        case 'product':
+          router.push(`/product/${params?.slug}`);
+          break;
+        case 'category':
+          router.push(
+            `/category/${params?.slug}` as import('expo-router').Href
+          );
+          break;
+        default:
+          router.push('/');
+      }
     }
-  };
+  );
 
   // Register for push notifications.
   // Accepts explicit userId/merchantId so the caller's values are used
@@ -114,19 +120,21 @@ export function usePushNotifications(): UsePushNotificationsReturn {
             resolvedUserId,
             resolvedMerchantId || undefined
           );
-          setIsRegistered(saved);
+          setRegisteredUserId(saved ? resolvedUserId : null);
 
           if (!saved) {
             setError('Failed to register token with server');
           }
         } else {
           // Token obtained but user not logged in - will save on login
-          setIsRegistered(false);
+          setRegisteredUserId(null);
         }
       } else {
+        setRegisteredUserId(null);
         setError('Failed to get push token');
       }
     } catch (err) {
+      setRegisteredUserId(null);
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setIsLoading(false);
@@ -138,7 +146,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
     if (pushToken) {
       await removePushTokenFromServer(pushToken);
       setPushToken(null);
-      setIsRegistered(false);
+      setRegisteredUserId(null);
     }
   };
 
@@ -199,22 +207,23 @@ export function usePushNotifications(): UsePushNotificationsReturn {
         responseListener.current.remove();
       }
     };
-  }, [navigate]);
+  }, []);
 
   // Auto-register when user logs in
   useEffect(() => {
-    if (user?.id && pushToken && !isRegistered) {
+    if (user?.id && pushToken && registeredUserId !== user.id) {
       savePushTokenToServer(pushToken, user.id, merchantId || undefined).then(
         (saved) => {
-          setIsRegistered(saved);
+          setRegisteredUserId(saved ? user.id : null);
         }
       );
     }
-  }, [isRegistered, merchantId, pushToken, user?.id]);
+  }, [merchantId, pushToken, registeredUserId, user?.id]);
 
   return {
     pushToken,
     isRegistered,
+    registeredUserId,
     isLoading,
     error,
     register,

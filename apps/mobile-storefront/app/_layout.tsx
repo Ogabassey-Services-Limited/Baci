@@ -65,6 +65,7 @@ export default function RootLayout() {
   const {
     register: registerPushNotifications,
     isRegistered: isPushRegistered,
+    registeredUserId,
     isLoading: isPushLoading,
   } = usePushNotifications();
   const initPromiseRef = useRef<Promise<void> | null>(null);
@@ -76,6 +77,9 @@ export default function RootLayout() {
   });
   const [showSplash, setShowSplash] = useState(true);
   const [isStorageReady, setIsStorageReady] = useState(false);
+  const isPushRegisteredForCurrentUser = Boolean(
+    storeUser?.id && isPushRegistered && registeredUserId === storeUser.id
+  );
 
   useEffect(() => {
     if (!isInitialized) {
@@ -136,7 +140,7 @@ export default function RootLayout() {
     if (
       isInitialized &&
       storeUser?.id &&
-      !isPushRegistered &&
+      !isPushRegisteredForCurrentUser &&
       !isPushLoading &&
       attemptsLeft
     ) {
@@ -152,7 +156,7 @@ export default function RootLayout() {
     }
   }, [
     isInitialized,
-    isPushRegistered,
+    isPushRegisteredForCurrentUser,
     isPushLoading,
     registerPushNotifications,
     storeUser?.id,

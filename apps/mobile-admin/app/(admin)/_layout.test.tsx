@@ -1,4 +1,4 @@
-import { render, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -32,7 +32,15 @@ vi.mock('expo-router', async () => {
   const React = await import('react');
 
   const Stack = ({ children }: { children?: React.ReactNode }) =>
-    React.createElement('div', { 'data-testid': 'admin-stack' }, children);
+    React.createElement(
+      'div',
+      {
+        'data-testid': 'admin-stack',
+        'aria-label': 'admin stack',
+        role: 'main',
+      },
+      children
+    );
   Stack.Screen = () => null;
 
   return {
@@ -85,21 +93,47 @@ describe('AdminLayout', () => {
     render(<AdminLayout />);
 
     await waitFor(() => {
-      expect(mocks.push.registerPush).toHaveBeenCalled();
+      expect(mocks.push.registerPush).toHaveBeenCalledTimes(1);
+      expect(mocks.push.registerPush).toHaveBeenCalledWith(
+        'user-1',
+        'merchant-1'
+      );
     });
   });
 
   it('skips registration when the session is already registered', async () => {
     mocks.push.isRegistered = true;
 
-    const { getByTestId } = render(<AdminLayout />);
+    render(<AdminLayout />);
 
-    // Wait for component to stabilize
     await waitFor(() => {
-      expect(getByTestId('admin-stack')).toBeTruthy();
+      expect(screen.getByRole('main', { name: 'admin stack' })).toBeTruthy();
     });
 
-    // Then verify registerPush was never called
     expect(mocks.push.registerPush).not.toHaveBeenCalled();
+  });
+
+  it('does not crash when push registration rejects', async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    mocks.push.registerPush = vi
+      .fn()
+      .mockRejectedValue(new Error('register failed'));
+
+    render(<AdminLayout />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('main', { name: 'admin stack' })).toBeTruthy();
+    });
+
+    expect(mocks.push.registerPush).toHaveBeenCalledTimes(1);
+    expect(mocks.push.registerPush).toHaveBeenCalledWith(
+      'user-1',
+      'merchant-1'
+    );
+
+    consoleErrorSpy.mockRestore();
   });
 });
