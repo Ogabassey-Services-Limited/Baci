@@ -103,7 +103,7 @@ export default function RootLayout() {
   const cleanup = useAuthStore((state) => state.cleanup);
   const isInitialized = useAuthStore((state) => state.isInitialized);
   const storeUser = useAuthStore((state) => state.user);
-  const _storeMerchantId = useAuthStore((state) => state.merchantId);
+  const storeMerchantId = useAuthStore((state) => state.merchantId);
   const {
     register: registerPushNotifications,
     isRegistered: isPushRegistered,
@@ -112,7 +112,6 @@ export default function RootLayout() {
   const initPromiseRef = useRef<Promise<void> | null>(null);
   // Track push registration attempts per userId. Allows up to 3 retries
   // (e.g. permissions granted after first attempt) before giving up.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const pushAttemptsRef = useRef<{ userId: string | null; count: number }>({
     userId: null,
     count: 0,
@@ -190,7 +189,7 @@ export default function RootLayout() {
       }
       void registerPushNotifications(
         storeUser.id,
-        useAuthStore.getState().merchantId ?? undefined
+        storeMerchantId ?? undefined
       );
     }
   }, [
@@ -199,6 +198,7 @@ export default function RootLayout() {
     isPushLoading,
     registerPushNotifications,
     storeUser?.id,
+    storeMerchantId,
   ]);
 
   useEffect(() => {

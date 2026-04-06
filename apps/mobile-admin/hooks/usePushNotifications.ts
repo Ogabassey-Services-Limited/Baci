@@ -272,16 +272,18 @@ export function usePushNotifications(): UsePushNotificationsResult {
    * updates, so a stale token would block re-registration forever.
    */
   useEffect(() => {
-    const loadCachedToken = async () => {
-      const storedToken = await AsyncStorage.getItem(PUSH_TOKEN_STORAGE_KEY);
-      if (storedToken) {
-        setToken(storedToken);
-        // Intentionally do NOT set isRegistered — always re-register on
-        // launch to ensure the token is fresh and saved to the server.
+    void (async () => {
+      try {
+        const storedToken = await AsyncStorage.getItem(PUSH_TOKEN_STORAGE_KEY);
+        if (storedToken) {
+          setToken(storedToken);
+        }
+      } catch (error) {
+        if (__DEV__) {
+          console.debug('[Push] Failed to load cached token:', error);
+        }
       }
-    };
-
-    loadCachedToken();
+    })();
   }, []);
 
   return {

@@ -1,4 +1,5 @@
 import { render, waitFor } from '@testing-library/react';
+import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -91,10 +92,14 @@ describe('AdminLayout', () => {
   it('skips registration when the session is already registered', async () => {
     mocks.push.isRegistered = true;
 
-    render(<AdminLayout />);
+    const { getByTestId } = render(<AdminLayout />);
 
+    // Wait for component to stabilize
     await waitFor(() => {
-      expect(mocks.push.registerPush).not.toHaveBeenCalled();
+      expect(getByTestId('admin-stack')).toBeTruthy();
     });
+
+    // Then verify registerPush was never called
+    expect(mocks.push.registerPush).not.toHaveBeenCalled();
   });
 });
