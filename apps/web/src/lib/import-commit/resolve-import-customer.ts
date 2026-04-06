@@ -91,7 +91,23 @@ export async function createImportCustomerResolver(
         if (safePhoneMatches.length === 1) {
           return { customerId: safePhoneMatches[0].id, createdCustomer: false };
         }
+
+        // No safe match, but the phone is taken by a customer who has email/user_id.
+        // There can be at most one such customer (DB enforces uniqueness).
+        // Link to them rather than inserting a duplicate phone.
+        const allPhoneMatches =
+          customerMaps.customersByPhone.get(phoneKey) || [];
+        if (allPhoneMatches.length > 0) {
+          return { customerId: allPhoneMatches[0].id, createdCustomer: false };
+        }
       }
+
+      // For email-identified orders where the phone is already in use, omit phone
+      // from the INSERT to avoid customers_merchant_phone_unique.
+      const phoneAlreadyTaken =
+        emailKey != null &&
+        phoneKey != null &&
+        (customerMaps.customersByPhone.get(phoneKey)?.length ?? 0) > 0;
 
       const { data: insertedCustomer, error: insertError } =
         await resolverSupabase
@@ -99,7 +115,9 @@ export async function createImportCustomerResolver(
           .insert({
             merchant_id: merchantId,
             email: order.customer.email,
-            phone: order.customer.phone,
+            // Omit phone when it is already taken by a different customer, to avoid
+            // customers_merchant_phone_unique. The existing phone holder is unchanged.
+            phone: phoneAlreadyTaken ? null : order.customer.phone,
             full_name: order.customer.fullName,
             first_name: order.customer.firstName,
             last_name: order.customer.lastName,
@@ -108,6 +126,39 @@ export async function createImportCustomerResolver(
           .single();
 
       if (insertError || !insertedCustomer) {
+        // Safety net for concurrent collisions not covered by the in-memory cache.
+        // On a phone constraint error, retry without phone rather than merging identities.
+        if (
+          insertError?.code === '23505' &&
+          insertError.message.includes('customers_merchant_phone_unique') &&
+          phoneKey
+        ) {
+          const { data: retried, error: retryError } = await resolverSupabase
+            .from('customers')
+            .insert({
+              merchant_id: merchantId,
+              email: order.customer.email,
+              phone: null,
+              full_name: order.customer.fullName,
+              first_name: order.customer.firstName,
+              last_name: order.customer.lastName,
+            })
+            .select('id, email, phone, user_id')
+            .single();
+
+          if (retryError || !retried) {
+            throw new Error(
+              `Failed to create imported customer: ${retryError?.message}`
+            );
+          }
+
+          const retriedCustomer = retried as ExistingCustomerRecord;
+          if (emailKey) {
+            customerMaps.customersByEmail.set(emailKey, retriedCustomer);
+          }
+          return { customerId: retriedCustomer.id, createdCustomer: true };
+        }
+
         throw new Error(
           `Failed to create imported customer: ${insertError?.message}`
         );
