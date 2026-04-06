@@ -46,7 +46,7 @@ interface UsePushNotificationsReturn {
   isRegistered: boolean;
   isLoading: boolean;
   error: string | null;
-  register: () => Promise<void>;
+  register: (userId?: string, merchantId?: string) => Promise<void>;
   unregister: () => Promise<void>;
 }
 
@@ -85,9 +85,18 @@ export function usePushNotifications(): UsePushNotificationsReturn {
     }
   };
 
-  // Register for push notifications
-  const register = async () => {
+  // Register for push notifications.
+  // Accepts explicit userId/merchantId so the caller's values are used
+  // instead of relying on closure state which may be stale due to
+  // React Compiler memoization.
+  const register = async (
+    explicitUserId?: string,
+    explicitMerchantId?: string
+  ) => {
     if (isLoading) return;
+
+    const resolvedUserId = explicitUserId ?? user?.id;
+    const resolvedMerchantId = explicitMerchantId ?? merchantId;
 
     setIsLoading(true);
     setError(null);
@@ -99,11 +108,11 @@ export function usePushNotifications(): UsePushNotificationsReturn {
         setPushToken(token);
 
         // Save to server if user is logged in
-        if (user?.id) {
+        if (resolvedUserId) {
           const saved = await savePushTokenToServer(
             token,
-            user.id,
-            merchantId || undefined
+            resolvedUserId,
+            resolvedMerchantId || undefined
           );
           setIsRegistered(saved);
 

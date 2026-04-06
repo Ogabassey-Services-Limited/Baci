@@ -55,7 +55,7 @@ interface UsePushNotificationsResult {
   token: string | null;
   isRegistered: boolean;
   isLoading: boolean;
-  registerPush: () => Promise<void>;
+  registerPush: (userId?: string, merchantId?: string) => Promise<void>;
   unregisterPush: () => Promise<void>;
 }
 
@@ -122,10 +122,16 @@ export function usePushNotifications(): UsePushNotificationsResult {
   const responseListener = useRef<EventSubscription | null>(null);
 
   /**
-   * Register for push notifications
+   * Register for push notifications.
+   * Accepts explicit userId/merchantId so the caller's values are used
+   * instead of relying on closure state which may be stale due to
+   * React Compiler memoization.
    */
-  async function registerPush() {
-    if (!user?.id || !merchant?.id) {
+  async function registerPush(userId?: string, merchantId?: string) {
+    const resolvedUserId = userId ?? user?.id;
+    const resolvedMerchantId = merchantId ?? merchant?.id;
+
+    if (!resolvedUserId || !resolvedMerchantId) {
       if (__DEV__) {
         console.log('[Push] Cannot register: missing user or merchant');
       }
@@ -149,8 +155,8 @@ export function usePushNotifications(): UsePushNotificationsResult {
       // Save to server
       const saved = await savePushTokenToServer(
         pushToken,
-        user.id,
-        merchant.id
+        resolvedUserId,
+        resolvedMerchantId
       );
 
       if (saved) {
@@ -261,18 +267,21 @@ export function usePushNotifications(): UsePushNotificationsResult {
   }, [router]);
 
   /**
-   * Check for stored token on mount
+   * Load cached token on mount for display, but always allow fresh
+   * registration. AsyncStorage persists across TestFlight/App Store
+   * updates, so a stale token would block re-registration forever.
    */
   useEffect(() => {
-    const checkStoredToken = async () => {
+    const loadCachedToken = async () => {
       const storedToken = await AsyncStorage.getItem(PUSH_TOKEN_STORAGE_KEY);
       if (storedToken) {
         setToken(storedToken);
-        setIsRegistered(true);
+        // Intentionally do NOT set isRegistered — always re-register on
+        // launch to ensure the token is fresh and saved to the server.
       }
     };
 
-    checkStoredToken();
+    loadCachedToken();
   }, []);
 
   return {
