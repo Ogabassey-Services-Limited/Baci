@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => ({
   push: {
     isLoading: false,
     isRegistered: false,
-    registerPush: vi.fn().mockResolvedValue(true),
+    registerPush: vi.fn().mockResolvedValue(undefined),
   },
 }));
 
