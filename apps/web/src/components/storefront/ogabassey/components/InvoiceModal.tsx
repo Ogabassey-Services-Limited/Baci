@@ -7,6 +7,20 @@ import { useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
 import { Logo } from './Logo';
 
+export interface InvoiceItemData {
+  id: string;
+  name: string;
+  price: string;
+  image: string;
+  condition?: string;
+  brand?: string;
+  category?: string;
+  description?: string;
+  rating?: number;
+  reviews: number;
+  countInStock: number;
+}
+
 // Define interface to match the structure in data/orders
 export interface InvoiceOrderData {
   id: string;
@@ -16,7 +30,7 @@ export interface InvoiceOrderData {
   status: string;
   paymentMethod: string;
   shippingAddress: string;
-  items: any[];
+  items: InvoiceItemData[];
   walletDeduction?: number;
 }
 
@@ -53,8 +67,8 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
       category: item.category,
       description: item.description,
       rating: item.rating,
-      reviews: (item as any).numReviews || item.review_count || 0,
-      countInStock: (item as any).countInStock || item.stock || 0,
+      reviews: ('numReviews' in item ? Number(item.numReviews) : ('review_count' in item ? Number(item.review_count) : 0)) || 0,
+      countInStock: item.stock || 0,
     })),
     walletDeduction: 0, // Example, adjust as needed
   };
