@@ -1,11 +1,14 @@
 import { cookies } from 'next/headers';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import {
+  getCachedBlogPost,
   getCachedMerchant,
   getCachedMerchantByDomain,
 } from '@/lib/cached-data';
+import { asRoute } from '@/lib/routes';
 import { createClient } from '@/lib/supabase/server';
 import { isDomainIdentifier } from '@/lib/validation';
+import { buildCanonicalBlogPostUrl } from '../[postSlug]/blog-post-content';
 
 /**
  * Catch-all route for legacy blog URLs with category prefixes.
@@ -25,6 +28,25 @@ export default async function BlogCatchAllPage({
   params: Promise<{ slug: string; catchAll: string[] }>;
 }) {
   const { slug, catchAll } = await params;
+
+  const isDatedBlogPermalink =
+    catchAll.length === 4 &&
+    /^\d{4}$/.test(catchAll[0] ?? '') &&
+    /^\d{2}$/.test(catchAll[1] ?? '') &&
+    /^\d{2}$/.test(catchAll[2] ?? '');
+
+  if (isDatedBlogPermalink) {
+    const postSlug = catchAll[3];
+    const data = await getCachedBlogPost(slug, postSlug, false);
+
+    if (!data) {
+      notFound();
+    }
+
+    permanentRedirect(
+      asRoute(buildCanonicalBlogPostUrl(data.merchant, data.post.slug))
+    );
+  }
 
   // 308 redirect legacy /blog/sitemap.xml → /sitemap.xml (blog entries merged into main sitemap)
   if (catchAll.length === 1 && catchAll[0] === 'sitemap.xml') {
