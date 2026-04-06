@@ -379,7 +379,7 @@ export default function StaffScreen() {
               onPress={() => setInviteModalVisible(true)}
               style={[styles.headerButton, { backgroundColor: colors.primary }]}
             >
-              <Ionicons name="person-add" size={18} color="#FFFFFF" />
+              <Ionicons name="person-add" size={18} color={colors.textOnPrimary} />
             </Pressable>
           ),
         }}
@@ -481,8 +481,8 @@ export default function StaffScreen() {
                   ]}
                   onPress={() => setInviteModalVisible(true)}
                 >
-                  <Ionicons name="person-add" size={18} color="#FFFFFF" />
-                  <Text style={styles.emptyButtonText}>Invite Team Member</Text>
+                  <Ionicons name="person-add" size={18} color={colors.textOnPrimary} />
+                  <Text style={[styles.emptyButtonText, { color: colors.textOnPrimary }]}>Invite Team Member</Text>
                 </Pressable>
               </View>
             ) : null
@@ -586,6 +586,7 @@ export default function StaffScreen() {
                     style={[
                       styles.toggleKnob,
                       {
+                        backgroundColor: colors.textOnPrimary,
                         transform: [{ translateX: autoCreateAccount ? 20 : 0 }],
                       },
                     ]}
@@ -601,8 +602,8 @@ export default function StaffScreen() {
                 onPress={handleInvite}
                 disabled={inviteStaff.isPending}
               >
-                <Ionicons name="mail" size={18} color="#FFFFFF" />
-                <Text style={styles.inviteButtonText}>
+                <Ionicons name="mail" size={18} color={colors.textOnPrimary} />
+                <Text style={[styles.inviteButtonText, { color: colors.textOnPrimary }]}>
                   {inviteStaff.isPending ? 'Sending...' : 'Send Invitation'}
                 </Text>
               </Pressable>
@@ -674,7 +675,7 @@ export default function StaffScreen() {
                 }
                 disabled={updateStaff.isPending}
               >
-                <Text style={styles.inviteButtonText}>
+                <Text style={[styles.inviteButtonText, { color: colors.textOnPrimary }]}>
                   {updateStaff.isPending ? 'Updating...' : 'Update Role'}
                 </Text>
               </Pressable>
@@ -803,7 +804,6 @@ const styles = StyleSheet.create({
     marginTop: SPACING.md,
   },
   emptyButtonText: {
-    color: '#FFFFFF',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
     fontSize: TYPOGRAPHY.size.md,
   },
@@ -870,7 +870,6 @@ const styles = StyleSheet.create({
     marginTop: SPACING.md,
   },
   inviteButtonText: {
-    color: '#FFFFFF',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
     fontSize: TYPOGRAPHY.size.md,
   },
@@ -919,6 +918,5 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: '#FFFFFF',
   },
 });
