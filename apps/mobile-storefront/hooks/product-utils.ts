@@ -433,11 +433,10 @@ export async function fetchProductsPage(
     query = query.eq('category_id', options.category);
   }
   if (options.search) {
-    const escapedSearch = options.search
-      .replace(/\\/g, '\\\\')
-      .replace(/%/g, '\\%')
-      .replace(/_/g, '\\_');
-    query = query.ilike('name', `%${escapedSearch}%`);
+    query = query.textSearch('search_vector', options.search.trim(), {
+      type: 'websearch',
+      config: 'english',
+    });
   }
   const normalizedCondition = normalizeProductConditionFilterValue(
     options.condition
