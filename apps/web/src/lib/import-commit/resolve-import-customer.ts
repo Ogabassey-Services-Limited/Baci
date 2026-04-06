@@ -97,7 +97,7 @@ export async function createImportCustomerResolver(
         // Link to them rather than inserting a duplicate phone.
         const allPhoneMatches =
           customerMaps.customersByPhone.get(phoneKey) || [];
-        if (allPhoneMatches.length > 0) {
+        if (allPhoneMatches.length === 1) {
           return { customerId: allPhoneMatches[0].id, createdCustomer: false };
         }
       }
@@ -133,6 +133,31 @@ export async function createImportCustomerResolver(
           insertError.message.includes('customers_merchant_phone_unique') &&
           phoneKey
         ) {
+          // Phone-only orders: look up the existing phone holder instead of
+          // inserting a null-phone row that would lose the phone identifier.
+          if (!emailKey) {
+            const { data: existing, error: lookupError } =
+              await resolverSupabase
+                .from('customers')
+                .select('id, email, phone, user_id')
+                .eq('merchant_id', merchantId)
+                .eq('phone', order.customer.phone)
+                .single();
+
+            if (lookupError || !existing) {
+              throw new Error(
+                `Failed to resolve conflicting customer by phone: ${lookupError?.message ?? insertError.message}`
+              );
+            }
+
+            const existingCustomer = existing as ExistingCustomerRecord;
+            const phoneCust = customerMaps.customersByPhone.get(phoneKey) || [];
+            phoneCust.push(existingCustomer);
+            customerMaps.customersByPhone.set(phoneKey, phoneCust);
+            return { customerId: existingCustomer.id, createdCustomer: false };
+          }
+
+          // Email-identified orders: retry insert without phone.
           const { data: retried, error: retryError } = await resolverSupabase
             .from('customers')
             .insert({
