@@ -1,3 +1,5 @@
+import { constantTimeEqual } from '@/lib/constant-time-equal';
+
 /**
  * Juicyway Webhook Signature Verification
  * Uses HMAC SHA-256 via Web Crypto API
@@ -42,5 +44,8 @@ export async function verifyWebhookSignature(
     .join('');
 
   // Constant-time comparison to prevent timing attacks
-  return computedChecksum.toLowerCase() === checksum.toLowerCase();
+  return (
+    !(!computedChecksum || !checksum) &&
+    constantTimeEqual(computedChecksum.toLowerCase(), checksum.toLowerCase())
+  );
 }
