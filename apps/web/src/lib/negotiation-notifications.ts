@@ -60,7 +60,8 @@ export async function notifyNegotiationResponse(
   status: 'accepted' | 'rejected',
   negotiationId: string,
   itemName?: string | null,
-  offeredPrice?: number | null
+  offeredPrice?: number | null,
+  _productSlug?: string | null
 ): Promise<void> {
   const isAccepted = status === 'accepted';
   const title = isAccepted ? '✅ Offer Accepted!' : '❌ Offer Declined';
@@ -87,6 +88,7 @@ export async function notifyNegotiationResponse(
       type: 'negotiation_response',
       negotiation_id: negotiationId,
       status,
+      ...(_productSlug ? { product_slug: _productSlug } : {}),
     },
     'orders'
   );
