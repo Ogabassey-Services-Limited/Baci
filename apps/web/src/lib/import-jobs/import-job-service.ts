@@ -233,20 +233,32 @@ async function loadExistingProducts(
 
 async function prepareImportPreviewBuild(
   supabase: SupabaseClient,
-  job: Pick<ImportJobRecord, 'entity_type' | 'merchant_id' | 'storage_path'>
+  job: Pick<ImportJobRecord, 'entity_type' | 'merchant_id' | 'storage_path'>,
+  onProgress?: (progress: PreviewBuildProgress) => Promise<void> | void
 ) {
-  const [orders, products, fileText] = await Promise.all([
+  // Start all I/O in parallel
+  const existingDataPromise = Promise.all([
     job.entity_type === 'orders'
       ? loadExistingOrders(supabase, job.merchant_id)
-      : Promise.resolve([]),
+      : Promise.resolve([] as ExistingImportedOrder[]),
     loadExistingProducts(supabase, job.merchant_id),
-    readImportFileText(supabase, job.storage_path),
   ]);
+  const filePromise = readImportFileText(supabase, job.storage_path);
+
+  // Await the file first — row count is known as soon as it's parsed
+  const fileText = await filePromise;
+  const rawRows = parseCsvText(fileText).rows;
+
+  // Report total rows immediately (existing data queries may still be in flight)
+  await onProgress?.({ processedRows: 0, totalRows: rawRows.length });
+
+  // Now wait for the remaining parallel work
+  const [orders, products] = await existingDataPromise;
 
   return {
     orders,
     products,
-    rawRows: parseCsvText(fileText).rows,
+    rawRows,
   };
 }
 
@@ -273,13 +285,9 @@ export async function* buildImportPreviewChunksForJob(
 ): AsyncGenerator<PreviewBuildChunk> {
   const { orders, products, rawRows } = await prepareImportPreviewBuild(
     supabase,
-    job
+    job,
+    onProgress
   );
-
-  await onProgress?.({
-    processedRows: 0,
-    totalRows: rawRows.length,
-  });
 
   if (job.entity_type === 'orders') {
     for await (const chunk of buildBumpaOrderPreviewChunks({
