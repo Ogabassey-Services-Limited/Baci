@@ -149,7 +149,7 @@ jobs:
 
             // Warm up detail URLs in parallel (best-effort)
             console.log(`Warming up ${detailUrls.length} blog detail URLs...`);
-            await Promise.allSettled(detailUrls.map((u) => fetchText(u).catch(() => {})));
+            await Promise.allSettled(detailUrls.map((u) => fetchText(u)));
 
             console.log(`Smoke checking ${detailUrls.length} blog detail URLs from ${listUrl}`);
 
