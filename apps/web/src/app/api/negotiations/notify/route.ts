@@ -90,11 +90,11 @@ export async function POST(request: NextRequest) {
   }
 
   const itemName = negotiation.item_info?.name ?? null;
-  const productSlug = negotiation.item_info?.slug ?? null;
   const acceptedPrice =
     negotiationStatus === 'accepted' && negotiation.offered_price != null
       ? Number(negotiation.offered_price)
       : null;
+  const productSlug = negotiation.item_info?.product_slug ?? null;
 
   try {
     await notifyNegotiationResponse(
