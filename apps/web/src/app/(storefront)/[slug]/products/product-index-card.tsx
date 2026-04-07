@@ -50,13 +50,12 @@ export function ProductIndexCard({
           )}
           {(product.has_condition_offers ||
             (product.condition && product.condition !== 'New')) && (
-            <span
-              role="status"
+            <output
               aria-label={`Condition: ${product.has_condition_offers ? 'New & Used' : product.condition}`}
               className="absolute top-2 right-2 rounded-full bg-[var(--store-primary)] px-2 py-0.5 text-xs font-bold uppercase text-white"
             >
               {product.has_condition_offers ? 'New & Used' : product.condition}
-            </span>
+            </output>
           )}
         </div>
 
