@@ -1,6 +1,6 @@
 import { cacheLife, cacheTag } from 'next/cache';
 import { createAnonClient } from '@/lib/supabase/anon';
-import type { FeedProduct, ImageManifestMap } from './feed-builder';
+import type { FeedOffer, FeedProduct, ImageManifestMap } from './feed-builder';
 import { FEED_PRODUCTS_SELECT } from './feed-query';
 
 export interface GoogleMerchantFeedData {
@@ -109,10 +109,42 @@ export async function getCachedGoogleMerchantFeedData(
     });
   }
 
+  // Fetch condition offers for products that have them
+  const feedProducts = (products || []) as FeedProduct[];
+  const productsWithOffers = feedProducts.filter((p) => p.has_condition_offers);
+
+  if (productsWithOffers.length > 0) {
+    const offerProductIds = productsWithOffers.map((p) => p.id);
+    const { data: offerRows } = await supabase
+      .from('product_offers')
+      .select('id, product_id, condition, price, stock_quantity')
+      .in('product_id', offerProductIds)
+      .eq('status', 'active');
+
+    if (offerRows && offerRows.length > 0) {
+      const offersByProduct = new Map<string, FeedOffer[]>();
+      for (const row of offerRows) {
+        const pid = row.product_id as string;
+        if (!offersByProduct.has(pid)) {
+          offersByProduct.set(pid, []);
+        }
+        offersByProduct.get(pid)?.push({
+          id: row.id as string,
+          condition: row.condition as FeedOffer['condition'],
+          price: Number(row.price),
+          stock_quantity: row.stock_quantity as number,
+        });
+      }
+      for (const product of feedProducts) {
+        product.offers = offersByProduct.get(product.id);
+      }
+    }
+  }
+
   return {
     custom_domain: primaryDomain?.domain ?? null,
     slug: merchantSlug,
-    products: (products || []) as FeedProduct[],
+    products: feedProducts,
     imageManifest,
   };
 }

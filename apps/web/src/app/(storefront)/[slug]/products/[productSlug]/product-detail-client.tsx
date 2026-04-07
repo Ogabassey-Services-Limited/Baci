@@ -4,6 +4,7 @@ import { Check, Info, Minus, Plus } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Breadcrumbs } from '@/components/storefront/breadcrumbs';
 import { StickyAddToCart } from '@/components/storefront/sticky-add-to-cart';
@@ -152,6 +153,28 @@ export default function ProductDetailClient({
     Record<string, string>
   >({});
 
+  // Condition offer state
+  const searchParams = useSearchParams();
+  const conditionParam = searchParams.get('condition');
+  const validConditions = ['new', 'used', 'open_box', 'refurbished'];
+  const [selectedCondition, setSelectedCondition] = useState(
+    conditionParam && validConditions.includes(conditionParam)
+      ? conditionParam
+      : product.condition || 'new'
+  );
+  const selectedOffer =
+    selectedCondition !== (product.condition || 'new')
+      ? product.offers?.find(
+          (o: { condition: string }) => o.condition === selectedCondition
+        )
+      : null;
+  const conditionLabels: Record<string, string> = {
+    new: 'New',
+    used: 'Premium Used',
+    open_box: 'Open Box',
+    refurbished: 'Refurbished',
+  };
+
   // Initialize variant selection - use product.id to prevent re-running on reference changes
   // biome-ignore lint/correctness/useExhaustiveDependencies: Intentionally using product.id only to prevent re-initialization on object reference changes
   useEffect(() => {
@@ -195,8 +218,10 @@ export default function ProductDetailClient({
     : [];
   const isStockManaged = product.manage_stock ?? true;
 
-  // Get current price and stock based on variant selection
-  const currentPrice = selectedVariant?.price_override ?? product.price;
+  // Get current price based on condition offer or variant selection
+  const currentPrice = selectedOffer
+    ? Number(selectedOffer.price ?? 0)
+    : (selectedVariant?.price_override ?? product.price);
   const currentStock = isStockManaged
     ? getEffectiveStock(
         selectedVariant
@@ -424,15 +449,84 @@ export default function ProductDetailClient({
 
               <div className="prose prose-sm text-muted-foreground text-lg leading-relaxed">
                 <p>{product.description}</p>
-                {product.condition && product.condition !== 'new' && (
-                  <p className="mt-2 text-sm">
-                    <strong>Condition:</strong>{' '}
-                    <span className="capitalize">{product.condition}</span>
-                    {product.condition_detail &&
-                      ` - ${product.condition_detail}`}
-                  </p>
-                )}
               </div>
+
+              {/* Condition Selector */}
+              {product.has_condition_offers &&
+              product.offers &&
+              product.offers.length > 0 ? (
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium block">
+                    Condition:{' '}
+                    <span style={{ color: 'var(--store-primary)' }}>
+                      {conditionLabels[selectedCondition] || selectedCondition}
+                    </span>
+                  </Label>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedCondition(product.condition || 'new')
+                      }
+                      className={cn(
+                        'rounded-lg border-2 px-4 py-2 text-sm font-bold transition-all',
+                        selectedCondition === (product.condition || 'new')
+                          ? 'border-[var(--store-primary)] text-[var(--store-primary)] bg-[var(--store-primary)]/5'
+                          : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                      )}
+                    >
+                      {conditionLabels[product.condition || 'new'] || 'New'}
+                    </button>
+                    {product.offers.map(
+                      (offer: {
+                        id: string;
+                        condition: string;
+                        price?: number;
+                        rawPrice?: number;
+                      }) => (
+                        <button
+                          key={offer.id}
+                          type="button"
+                          onClick={() => setSelectedCondition(offer.condition)}
+                          className={cn(
+                            'rounded-lg border-2 px-4 py-2 text-sm font-bold transition-all',
+                            selectedCondition === offer.condition
+                              ? 'border-[var(--store-primary)] text-[var(--store-primary)] bg-[var(--store-primary)]/5'
+                              : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                          )}
+                        >
+                          {conditionLabels[offer.condition] || offer.condition}
+                        </button>
+                      )
+                    )}
+                  </div>
+                  {selectedOffer && (
+                    <p className="text-sm font-medium text-green-600">
+                      Save{' '}
+                      {formatCurrency(
+                        product.price - Number(selectedOffer.price ?? 0)
+                      )}{' '}
+                      vs New
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    {selectedCondition === 'new' &&
+                      'Factory sealed with full manufacturer warranty'}
+                    {selectedCondition === 'open_box' &&
+                      'Opened but unused, all accessories included'}
+                    {selectedCondition === 'used' &&
+                      'Fully tested and inspected, 30-day warranty'}
+                    {selectedCondition === 'refurbished' &&
+                      'Professionally refurbished to like-new condition'}
+                  </p>
+                </div>
+              ) : product.condition && product.condition !== 'new' ? (
+                <p className="text-sm">
+                  <strong>Condition:</strong>{' '}
+                  <span className="capitalize">{product.condition}</span>
+                  {product.condition_detail && ` - ${product.condition_detail}`}
+                </p>
+              ) : null}
 
               {/* Variant Selection */}
               {product.has_variants && attributeOptions.length > 0 && (

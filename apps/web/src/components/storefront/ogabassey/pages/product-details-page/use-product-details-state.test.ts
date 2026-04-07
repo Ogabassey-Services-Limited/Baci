@@ -9,9 +9,11 @@ const mockRemoveFromCart = vi.fn();
 const mockUpdateQuantity = vi.fn();
 const mockToast = vi.fn();
 
+const mockUseSearchParams = vi.fn(() => new URLSearchParams());
+
 vi.mock('next/navigation', () => ({
   useRouter: vi.fn(() => ({ push: vi.fn() })),
-  useSearchParams: vi.fn(() => new URLSearchParams()),
+  useSearchParams: (...args: unknown[]) => mockUseSearchParams(...args),
 }));
 
 vi.mock('@/hooks/use-cart', () => ({
@@ -133,5 +135,41 @@ describe('useProductDetailsState', () => {
     expect(result.current.isSelectionModalOpen).toBe(true);
     expect(result.current.missingFields).toContain('Color');
     expect(mockApplyNegotiatedPrice).not.toHaveBeenCalled();
+  });
+
+  describe('condition query param', () => {
+    it('initializes selectedCondition from ?condition=used', () => {
+      mockUseSearchParams.mockReturnValue(
+        new URLSearchParams('condition=used')
+      );
+
+      const { result } = renderHook(() =>
+        useProductDetailsState(baseProduct)
+      );
+
+      expect(result.current.selectedCondition).toBe('used');
+    });
+
+    it('defaults to product base condition when no condition param exists', () => {
+      mockUseSearchParams.mockReturnValue(new URLSearchParams());
+
+      const { result } = renderHook(() =>
+        useProductDetailsState(baseProduct)
+      );
+
+      expect(result.current.selectedCondition).toBe('new');
+    });
+
+    it('falls back to base condition for invalid condition param', () => {
+      mockUseSearchParams.mockReturnValue(
+        new URLSearchParams('condition=invalid')
+      );
+
+      const { result } = renderHook(() =>
+        useProductDetailsState(baseProduct)
+      );
+
+      expect(result.current.selectedCondition).toBe('new');
+    });
   });
 });

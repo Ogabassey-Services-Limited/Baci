@@ -54,7 +54,7 @@ export interface ProductsPage {
 
 export const PRODUCT_SELECT = `
   id, name, slug, description, price, compare_at_price,
-  images, brand, condition, average_rating, review_count, status, specifications,
+  images, brand, condition, has_condition_offers, average_rating, review_count, status, specifications,
   has_variants, variant_attributes, manage_stock, stock, stock_quantity,
   variants:product_variants (
     id,
@@ -397,7 +397,9 @@ export function transformProduct(item: unknown): Product | null {
         ? (product.categories as unknown as Category).name
         : '',
     specifications: normalizeProductSpecifications(product.specifications),
-    condition: formatProductConditionDisplay(product.condition),
+    condition: product.has_condition_offers
+      ? 'New & Used'
+      : formatProductConditionDisplay(product.condition),
     rating,
     review_count: reviewCount,
     manage_stock: (product.manage_stock as boolean) ?? false,

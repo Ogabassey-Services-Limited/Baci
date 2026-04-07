@@ -34,6 +34,16 @@ export type ProductDetailsActiveTab =
   | 'reviews'
   | 'specs';
 
+const VALID_CONDITIONS = new Set<string>([
+  'new',
+  'used',
+  'open_box',
+  'refurbished',
+]);
+function isValidConditionParam(value: string): boolean {
+  return VALID_CONDITIONS.has(value);
+}
+
 export function useProductDetailsState(serverProduct: Product) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -64,8 +74,13 @@ export function useProductDetailsState(serverProduct: Product) {
   const colorOptionsKey = productData.colors.map((color) => color.name).join('||');
 
   const buyActionHandled = useRef(false);
+  const conditionParam = searchParams.get('condition');
+  const initialCondition =
+    conditionParam && isValidConditionParam(conditionParam)
+      ? (conditionParam as ConditionType)
+      : productData.condition || 'new';
   const [selectedCondition, setSelectedCondition] = useState<ConditionType>(
-    productData.condition || 'new'
+    initialCondition
   );
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedColor, setSelectedColor] = useState<number | null>(null);
@@ -149,7 +164,12 @@ export function useProductDetailsState(serverProduct: Product) {
   ]);
 
   useEffect(() => {
-    setSelectedCondition(productData.condition || 'new');
+    const paramCondition = searchParams.get('condition');
+    setSelectedCondition(
+      paramCondition && isValidConditionParam(paramCondition)
+        ? (paramCondition as ConditionType)
+        : productData.condition || 'new'
+    );
     if (!defaultVariantSelection) {
       setSelectedColor(null);
       setSecondaryColor(null);
