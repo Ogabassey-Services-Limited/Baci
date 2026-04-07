@@ -45,6 +45,7 @@ export interface RawDbProduct {
   rating?: number;
   merchant_id?: string;
   status?: string;
+  has_condition_offers?: boolean;
   // Allow additional fields
   [key: string]: unknown;
 }
@@ -71,6 +72,7 @@ export interface NormalizedProduct {
   availability: 'InStock' | 'OutOfStock';
   merchant_id?: string;
   status?: string;
+  has_condition_offers?: boolean;
 }
 
 /**
@@ -166,6 +168,7 @@ export function normalizeProduct(raw: RawDbProduct): NormalizedProduct {
     availability,
     merchant_id: raw.merchant_id,
     status: raw.status,
+    has_condition_offers: raw.has_condition_offers ?? false,
   };
 }
 

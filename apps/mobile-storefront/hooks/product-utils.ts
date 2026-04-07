@@ -13,6 +13,9 @@ import { removeProductSlugFromProductsCache } from '@/lib/product-query-cache';
 import { getProductSlugFallbackCandidates } from '@/lib/product-slug-fallback';
 import { supabase } from '@/lib/supabase';
 import { ProductRowSchema } from '@/lib/validation';
+
+const MIXED_CONDITION_LABEL = 'New & Used';
+
 import {
   formatProductConditionDisplay,
   type Product,
@@ -54,7 +57,7 @@ export interface ProductsPage {
 
 export const PRODUCT_SELECT = `
   id, name, slug, description, price, compare_at_price,
-  images, brand, condition, average_rating, review_count, status, specifications,
+  images, brand, condition, has_condition_offers, average_rating, review_count, status, specifications,
   has_variants, variant_attributes, manage_stock, stock, stock_quantity,
   variants:product_variants (
     id,
@@ -397,7 +400,9 @@ export function transformProduct(item: unknown): Product | null {
         ? (product.categories as unknown as Category).name
         : '',
     specifications: normalizeProductSpecifications(product.specifications),
-    condition: formatProductConditionDisplay(product.condition),
+    condition: product.has_condition_offers
+      ? MIXED_CONDITION_LABEL
+      : formatProductConditionDisplay(product.condition),
     rating,
     review_count: reviewCount,
     manage_stock: (product.manage_stock as boolean) ?? false,
@@ -433,11 +438,10 @@ export async function fetchProductsPage(
     query = query.eq('category_id', options.category);
   }
   if (options.search) {
-    const escapedSearch = options.search
-      .replace(/\\/g, '\\\\')
-      .replace(/%/g, '\\%')
-      .replace(/_/g, '\\_');
-    query = query.ilike('name', `%${escapedSearch}%`);
+    query = query.textSearch('search_vector', options.search.trim(), {
+      type: 'websearch',
+      config: 'english',
+    });
   }
   const normalizedCondition = normalizeProductConditionFilterValue(
     options.condition

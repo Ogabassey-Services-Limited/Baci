@@ -386,7 +386,6 @@ export default function BlogListScreen() {
             data={filteredPosts}
             renderItem={renderItem}
             keyExtractor={(item) => item.id}
-            estimatedItemSize={98}
             contentContainerStyle={styles.listContent}
             refreshControl={
               <RefreshControl

@@ -9,7 +9,6 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  type ListRenderItemInfo,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -192,7 +191,7 @@ export default function InventoryScreen() {
     router.push(`/product/${id}`);
   };
 
-  const renderProduct = ({ item }: ListRenderItemInfo<Product>) => (
+  const renderProduct = ({ item }: { item: Product }) => (
     <InventoryProductItem
       item={item}
       colors={colors}
@@ -342,7 +341,6 @@ export default function InventoryScreen() {
         data={products}
         renderItem={renderProduct}
         keyExtractor={productKeyExtractor}
-        estimatedItemSize={80}
         contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl

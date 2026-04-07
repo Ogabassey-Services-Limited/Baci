@@ -350,7 +350,6 @@ export default function BuyDomainScreen() {
             data={results}
             renderItem={renderItem}
             keyExtractor={(item) => item.domain}
-            estimatedItemSize={60}
             contentContainerStyle={{ padding: SPACING.md }}
             ListEmptyComponent={
               results.length === 0 && query.length > 0 ? (

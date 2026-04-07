@@ -2,16 +2,15 @@ import type { QueryClient } from '@tanstack/react-query';
 
 const mockWithSupabaseRetry = jest.fn();
 const mockGetProductSlugFallbackCandidates = jest.fn();
-const mockRemoveProductSlugFromProductsCache = jest.fn(
-  (cached, slug) => ({ cached, slug })
-);
+const mockRemoveProductSlugFromProductsCache = jest.fn((cached, slug) => ({
+  cached,
+  slug,
+}));
 const mockFrom = jest.fn();
 
 jest.mock('@/lib/api', () => ({
-  withSupabaseRetry: (
-    operation: () => Promise<unknown>,
-    options?: unknown
-  ) => mockWithSupabaseRetry(operation, options),
+  withSupabaseRetry: (operation: () => Promise<unknown>, options?: unknown) =>
+    mockWithSupabaseRetry(operation, options),
 }));
 
 jest.mock('@/lib/config', () => ({
@@ -61,6 +60,7 @@ interface MockQueryChain {
   select: jest.Mock;
   eq: jest.Mock;
   ilike: jest.Mock;
+  textSearch: jest.Mock;
   gte: jest.Mock;
   lte: jest.Mock;
   order: jest.Mock;
@@ -76,6 +76,7 @@ function createQueryChain(result: QueryResult): MockQueryChain {
   chain.select = jest.fn(() => chain);
   chain.eq = jest.fn(() => chain);
   chain.ilike = jest.fn(() => chain);
+  chain.textSearch = jest.fn(() => chain);
   chain.gte = jest.fn(() => chain);
   chain.lte = jest.fn(() => chain);
   chain.order = jest.fn(() => chain);
@@ -166,7 +167,10 @@ describe('product-utils', () => {
 
   it('resolveProductRow falls back to legacy slug candidates', async () => {
     const exactQuery = createQueryChain({ data: null, error: null });
-    const fallbackQuery = createQueryChain({ data: validProductRow, error: null });
+    const fallbackQuery = createQueryChain({
+      data: validProductRow,
+      error: null,
+    });
     mockFrom.mockReturnValueOnce(exactQuery).mockReturnValueOnce(fallbackQuery);
     mockGetProductSlugFallbackCandidates.mockReturnValue(['iphone-13-pro']);
 
@@ -293,6 +297,7 @@ describe('product-utils', () => {
       transformProduct({
         ...validProductRow,
         condition: 'refurbished',
+        has_condition_offers: false,
       })
     ).toMatchObject({
       condition: 'Refurbished',
@@ -329,13 +334,18 @@ describe('product-utils', () => {
       0
     );
 
-    expect(query.select).toHaveBeenCalledWith(PRODUCT_SELECT, { count: 'exact' });
+    expect(query.select).toHaveBeenCalledWith(PRODUCT_SELECT, {
+      count: 'exact',
+    });
     expect(query.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
     expect(query.eq).toHaveBeenCalledWith('status', 'active');
     expect(query.eq).toHaveBeenCalledWith('category_id', 'cat-1');
     expect(query.eq).toHaveBeenCalledWith('condition', 'new');
     expect(query.eq).toHaveBeenCalledWith('brand', 'Apple');
-    expect(query.ilike).toHaveBeenCalledWith('name', '%iphone%');
+    expect(query.textSearch).toHaveBeenCalledWith('search_vector', 'iphone', {
+      type: 'websearch',
+      config: 'english',
+    });
     expect(query.gte).toHaveBeenCalledWith('price', 400000);
     expect(query.lte).toHaveBeenCalledWith('price', 600000);
     expect(query.gte).toHaveBeenCalledWith('average_rating', 4);

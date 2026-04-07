@@ -72,7 +72,9 @@ export default function SettingsScreen() {
     haptic();
     try {
       if (enabled) {
-        await registerPush();
+        // force: true clears the per-user opt-out flag so re-enabling works
+        // after the user previously disabled notifications
+        await registerPush(undefined, undefined, { force: true });
       } else {
         await unregisterPush();
       }

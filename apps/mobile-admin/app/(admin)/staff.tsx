@@ -448,7 +448,6 @@ export default function StaffScreen() {
           data={staff}
           renderItem={renderStaffMember}
           keyExtractor={(item) => item.id}
-          estimatedItemSize={80}
           contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl

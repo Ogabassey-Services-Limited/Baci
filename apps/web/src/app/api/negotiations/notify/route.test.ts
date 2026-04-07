@@ -240,7 +240,8 @@ describe('POST /api/negotiations/notify', () => {
       'accepted',
       validBody.negotiationId,
       'Cool Sneakers',
-      5000
+      5000,
+      null
     );
   });
 
@@ -324,6 +325,7 @@ describe('POST /api/negotiations/notify', () => {
       'total',
       'rejected',
       validBody.negotiationId,
+      null,
       null,
       null
     );

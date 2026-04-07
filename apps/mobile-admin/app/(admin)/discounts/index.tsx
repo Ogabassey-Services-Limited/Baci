@@ -164,7 +164,6 @@ export default function DiscountsScreen() {
             data={discounts}
             renderItem={renderItem}
             keyExtractor={(item) => item.id}
-            estimatedItemSize={80}
             contentContainerStyle={styles.listContent}
             ListEmptyComponent={
               <View style={styles.emptyState}>
