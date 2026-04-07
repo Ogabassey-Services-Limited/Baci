@@ -6,7 +6,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/hooks/useAuth';
 
 // Web API base URL - uses the same Supabase project
 const WEB_API_BASE =
@@ -56,18 +56,9 @@ interface ChatMessage {
   timestamp: Date;
 }
 
-/**
- * Helper to get auth token for API calls
- */
-async function getAuthToken(): Promise<string | null> {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  return session?.access_token || null;
-}
-
 export function useBuilderConfig(pageSlug: string = 'home') {
   const queryClient = useQueryClient();
+  const { session } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [currentConfig, setCurrentConfig] = useState<BuilderConfig | null>(
     null
@@ -82,7 +73,7 @@ export function useBuilderConfig(pageSlug: string = 'home') {
   } = useQuery({
     queryKey: ['builderConfig', pageSlug],
     queryFn: async (): Promise<BuilderApiResponse> => {
-      const token = await getAuthToken();
+      const token = session?.access_token;
       if (!token) {
         throw new Error('Not authenticated');
       }
@@ -117,7 +108,7 @@ export function useBuilderConfig(pageSlug: string = 'home') {
   // Update config with AI (Gemini)
   const aiMutation = useMutation({
     mutationFn: async (prompt: string): Promise<BuilderConfig> => {
-      const token = await getAuthToken();
+      const token = session?.access_token;
       if (!token) {
         throw new Error('Not authenticated');
       }
@@ -186,7 +177,7 @@ export function useBuilderConfig(pageSlug: string = 'home') {
   // Save draft
   const saveDraftMutation = useMutation({
     mutationFn: async (): Promise<void> => {
-      const token = await getAuthToken();
+      const token = session?.access_token;
       if (!token) {
         throw new Error('Not authenticated');
       }
@@ -226,7 +217,7 @@ export function useBuilderConfig(pageSlug: string = 'home') {
       // First save the current config as draft
       await saveDraftMutation.mutateAsync();
 
-      const token = await getAuthToken();
+      const token = session?.access_token;
       if (!token) {
         throw new Error('Not authenticated');
       }
