@@ -8,6 +8,29 @@ import {
 import { logger } from '@/lib/logger';
 import { importJobParamsSchema } from '@/schemas/import-jobs';
 
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
+export const revalidate = 0;
+
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'private, no-store, no-cache, max-age=0, must-revalidate',
+} as const;
+
+function applyNoStoreHeaders<T extends Response>(response: T) {
+  Object.entries(NO_STORE_HEADERS).forEach(([key, value]) => {
+    response.headers.set(key, value);
+  });
+
+  return response;
+}
+
+function jsonNoStore(
+  body: Parameters<typeof NextResponse.json>[0],
+  init?: Parameters<typeof NextResponse.json>[1]
+) {
+  return applyNoStoreHeaders(NextResponse.json(body, init));
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ jobId: string }> }
@@ -18,14 +41,14 @@ export async function GET(
     const authResult = await resolveImportRouteContext(request);
     if (!authResult.context) {
       return (
-        authResult.response ??
-        NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        (authResult.response && applyNoStoreHeaders(authResult.response)) ??
+        jsonNoStore({ error: 'Unauthorized' }, { status: 401 })
       );
     }
 
     const parsedParams = importJobParamsSchema.safeParse(await params);
     if (!parsedParams.success) {
-      return NextResponse.json(
+      return jsonNoStore(
         { error: 'Invalid import job id', code: 'invalid_job_id' },
         { status: 400 }
       );
@@ -38,7 +61,7 @@ export async function GET(
     );
 
     if (!job) {
-      return NextResponse.json(
+      return jsonNoStore(
         { error: 'Import job not found', code: 'not_found' },
         { status: 404 }
       );
@@ -50,7 +73,7 @@ export async function GET(
         job.entity_type
       )
     ) {
-      return NextResponse.json(
+      return jsonNoStore(
         { error: 'Forbidden', code: 'forbidden' },
         { status: 403 }
       );
@@ -60,7 +83,7 @@ export async function GET(
     const validRows =
       typeof summary.validRows === 'number' ? summary.validRows : 0;
 
-    return NextResponse.json({
+    return jsonNoStore({
       job: {
         ...job,
         canCommit: job.status === 'preview_ready' && validRows > 0,
@@ -75,7 +98,7 @@ export async function GET(
       message: 'Import job detail route failed',
       error,
     });
-    return NextResponse.json(
+    return jsonNoStore(
       { error: 'Internal server error', code: 'internal_error' },
       { status: 500 }
     );
