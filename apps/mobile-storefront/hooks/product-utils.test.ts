@@ -297,6 +297,7 @@ describe('product-utils', () => {
       transformProduct({
         ...validProductRow,
         condition: 'refurbished',
+        has_condition_offers: false,
       })
     ).toMatchObject({
       condition: 'Refurbished',
