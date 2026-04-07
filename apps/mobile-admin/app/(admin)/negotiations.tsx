@@ -267,7 +267,6 @@ export default function NegotiationsScreen() {
         data={requests}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
-        estimatedItemSize={100}
         contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl

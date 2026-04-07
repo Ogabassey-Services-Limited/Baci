@@ -95,7 +95,6 @@ export default function AnalyticsProductsScreen() {
         data={topProducts}
         renderItem={renderProductItem}
         keyExtractor={(item) => item.id}
-        estimatedItemSize={80}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
           !isLoading ? (

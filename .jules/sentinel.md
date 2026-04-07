@@ -12,3 +12,8 @@
 **Vulnerability:** The MyCover webhook handler used `createAdminClient` instead of `createServiceClient`. `createAdminClient` uses the `anon` key, which respects RLS policies, making it unsuitable for webhook handlers that run without a user context and need to bypass RLS.
 **Learning:** Webhook handlers must always use the service role client (`createServiceClient`) to bypass RLS since they operate outside of an authenticated user session.
 **Prevention:** Ensure all new webhook handlers import and use `createServiceClient` from `@/lib/supabase/service`.
+
+## 2026-04-06 - Timing Attack Vulnerability in Webhook Signature Verification
+**Vulnerability:** A strict equality operator (`===`) was used to compare webhook signature checksums in the Juicyway integration (`apps/web/src/lib/juicyway/webhook.ts`), allowing potential timing attacks to forge signatures.
+**Learning:** Even when the developer correctly adds a comment stating `// Constant-time comparison to prevent timing attacks`, the actual implementation might simply use strict string equality (`===`).
+**Prevention:** Always use the `constantTimeEqual` utility from `@/lib/constant-time-equal` for comparing authentication tokens, hashes, and webhook signatures. Ensure explicitly checking that both inputs are defined before calling the utility.
