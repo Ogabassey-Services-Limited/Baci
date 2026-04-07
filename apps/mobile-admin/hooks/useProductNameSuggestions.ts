@@ -1,23 +1,21 @@
 import { useQuery } from '@tanstack/react-query';
-import { useMerchant } from '@/hooks/useMerchant';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useMerchant } from '@/hooks/useMerchant';
 import {
-  buildProductSuggestionTerms,
-  rankProductMatches,
   type ProductMatchCandidate,
+  rankProductMatches,
 } from '@/lib/product-matching';
 import { supabase } from '@/lib/supabase';
 
 const PRODUCT_SUGGESTION_COLUMNS = 'id,name,sku,price,category';
 
 async function fetchProductNameSuggestions(args: {
-  merchantId: string;
+  merchantId: string | undefined;
   productName: string;
   excludeProductId?: string;
 }) {
-  const searchTerms = buildProductSuggestionTerms(args.productName);
-
-  if (searchTerms.length === 0) {
+  const trimmed = args.productName.trim();
+  if (!args.merchantId || !trimmed || trimmed.length < 2) {
     return [];
   }
 
@@ -26,6 +24,10 @@ async function fetchProductNameSuggestions(args: {
     .select(PRODUCT_SUGGESTION_COLUMNS)
     .eq('merchant_id', args.merchantId)
     .is('parent_product_id', null)
+    .textSearch('search_vector', trimmed, {
+      type: 'websearch',
+      config: 'english',
+    })
     .order('created_at', { ascending: false })
     .limit(12);
 
@@ -33,11 +35,7 @@ async function fetchProductNameSuggestions(args: {
     query = query.neq('id', args.excludeProductId);
   }
 
-  const filter = searchTerms
-    .flatMap((term) => [`name.ilike.%${term}%`, `sku.ilike.%${term}%`])
-    .join(',');
-
-  const { data, error } = await query.or(filter);
+  const { data, error } = await query;
 
   if (error) {
     throw new Error(error.message);
@@ -70,14 +68,14 @@ export function useProductNameSuggestions(args: {
     ],
     queryFn: () =>
       fetchProductNameSuggestions({
-        merchantId: merchant!.id,
+        merchantId: merchant?.id, // eslint-disable-line @typescript-eslint/no-non-null-assertion -- guarded by enabled
         productName: debouncedProductName,
         excludeProductId: args.excludeProductId,
       }),
     enabled:
       (args.enabled ?? true) &&
       !!merchant?.id &&
-      buildProductSuggestionTerms(debouncedProductName).length > 0,
+      debouncedProductName.trim().length >= 2,
     staleTime: 1000 * 30,
   });
 }

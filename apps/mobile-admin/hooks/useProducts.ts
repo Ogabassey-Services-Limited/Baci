@@ -155,7 +155,10 @@ async function fetchProducts(
   if (filters?.search) {
     const term = sanitizeSearchQuery(filters.search);
     if (term) {
-      query = query.or(`name.ilike.%${term}%,sku.ilike.%${term}%`);
+      query = query.textSearch('search_vector', term, {
+        type: 'websearch',
+        config: 'english',
+      });
     }
   }
 
