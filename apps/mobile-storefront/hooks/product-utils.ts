@@ -13,6 +13,9 @@ import { removeProductSlugFromProductsCache } from '@/lib/product-query-cache';
 import { getProductSlugFallbackCandidates } from '@/lib/product-slug-fallback';
 import { supabase } from '@/lib/supabase';
 import { ProductRowSchema } from '@/lib/validation';
+
+const MIXED_CONDITION_LABEL = 'New & Used';
+
 import {
   formatProductConditionDisplay,
   type Product,
@@ -398,7 +401,7 @@ export function transformProduct(item: unknown): Product | null {
         : '',
     specifications: normalizeProductSpecifications(product.specifications),
     condition: product.has_condition_offers
-      ? 'New & Used'
+      ? MIXED_CONDITION_LABEL
       : formatProductConditionDisplay(product.condition),
     rating,
     review_count: reviewCount,

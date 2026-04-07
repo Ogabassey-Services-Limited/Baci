@@ -28,6 +28,8 @@ import type { FAQItem } from '@/types/faq';
 // Placeholder image for products without images
 const PLACEHOLDER_IMAGE = '/placeholder.svg';
 
+const VALID_CONDITIONS = new Set(['new', 'used', 'open_box', 'refurbished']);
+
 // Lazy load heavy components to reduce initial bundle size
 // Lazy load heavy components to reduce initial bundle size
 const ReviewsSection = dynamic(
@@ -156,12 +158,19 @@ export default function ProductDetailClient({
   // Condition offer state
   const searchParams = useSearchParams();
   const conditionParam = searchParams.get('condition');
-  const validConditions = ['new', 'used', 'open_box', 'refurbished'];
   const [selectedCondition, setSelectedCondition] = useState(
-    conditionParam && validConditions.includes(conditionParam)
+    conditionParam && VALID_CONDITIONS.has(conditionParam)
       ? conditionParam
       : product.condition || 'new'
   );
+
+  // Sync selectedCondition when URL param changes (back/forward navigation)
+  useEffect(() => {
+    if (conditionParam && VALID_CONDITIONS.has(conditionParam)) {
+      setSelectedCondition(conditionParam);
+    }
+  }, [conditionParam]);
+
   const selectedOffer =
     selectedCondition !== (product.condition || 'new')
       ? product.offers?.find(
@@ -173,6 +182,12 @@ export default function ProductDetailClient({
     used: 'Premium Used',
     open_box: 'Open Box',
     refurbished: 'Refurbished',
+  };
+  const conditionDescriptions: Record<string, string> = {
+    new: 'Factory sealed with full manufacturer warranty',
+    open_box: 'Opened but unused, all accessories included',
+    used: 'Fully tested and inspected, 30-day warranty',
+    refurbished: 'Professionally refurbished to like-new condition',
   };
 
   // Initialize variant selection - use product.id to prevent re-running on reference changes
@@ -219,9 +234,10 @@ export default function ProductDetailClient({
   const isStockManaged = product.manage_stock ?? true;
 
   // Get current price based on condition offer or variant selection
-  const currentPrice = selectedOffer
-    ? Number(selectedOffer.price ?? 0)
-    : (selectedVariant?.price_override ?? product.price);
+  const currentPrice =
+    selectedOffer?.price != null
+      ? Number(selectedOffer.price)
+      : (selectedVariant?.price_override ?? product.price);
   const currentStock = isStockManaged
     ? getEffectiveStock(
         selectedVariant
@@ -478,12 +494,7 @@ export default function ProductDetailClient({
                       {conditionLabels[product.condition || 'new'] || 'New'}
                     </button>
                     {product.offers.map(
-                      (offer: {
-                        id: string;
-                        condition: string;
-                        price?: number;
-                        rawPrice?: number;
-                      }) => (
+                      (offer: { id: string; condition: string }) => (
                         <button
                           key={offer.id}
                           type="button"
@@ -500,25 +511,20 @@ export default function ProductDetailClient({
                       )
                     )}
                   </div>
-                  {selectedOffer && (
+                  {selectedOffer && selectedOffer.price != null && (
                     <p className="text-sm font-medium text-green-600">
                       Save{' '}
                       {formatCurrency(
-                        product.price - Number(selectedOffer.price ?? 0)
+                        product.price - Number(selectedOffer.price)
                       )}{' '}
                       vs New
                     </p>
                   )}
-                  <p className="text-xs text-muted-foreground">
-                    {selectedCondition === 'new' &&
-                      'Factory sealed with full manufacturer warranty'}
-                    {selectedCondition === 'open_box' &&
-                      'Opened but unused, all accessories included'}
-                    {selectedCondition === 'used' &&
-                      'Fully tested and inspected, 30-day warranty'}
-                    {selectedCondition === 'refurbished' &&
-                      'Professionally refurbished to like-new condition'}
-                  </p>
+                  {conditionDescriptions[selectedCondition] && (
+                    <p className="text-xs text-muted-foreground">
+                      {conditionDescriptions[selectedCondition]}
+                    </p>
+                  )}
                 </div>
               ) : product.condition && product.condition !== 'new' ? (
                 <p className="text-sm">

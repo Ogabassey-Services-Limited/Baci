@@ -50,7 +50,7 @@ export function ProductIndexCard({
           )}
           {(product.has_condition_offers ||
             (product.condition && product.condition !== 'New')) && (
-            <span className="absolute top-2 right-2 rounded-full bg-[var(--store-primary)] px-2 py-0.5 text-[10px] font-bold uppercase text-white">
+            <span className="absolute top-2 right-2 rounded-full bg-[var(--store-primary)] px-2 py-0.5 text-xs font-bold uppercase text-white">
               {product.has_condition_offers ? 'New & Used' : product.condition}
             </span>
           )}

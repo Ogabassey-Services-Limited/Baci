@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeProduct } from './normalize-product';
+import { normalizeProduct } from '@/lib/normalize-product';
 
 describe('normalizeProduct', () => {
   const baseRawProduct = {
@@ -39,12 +39,7 @@ describe('normalizeProduct', () => {
     expect(result.has_condition_offers).toBe(true);
   });
 
-  it('defaults has_condition_offers to false when missing', () => {
-    const result = normalizeProduct(baseRawProduct);
-    expect(result.has_condition_offers).toBe(false);
-  });
-
-  it('defaults has_condition_offers to false when null', () => {
+  it('defaults has_condition_offers to false when undefined', () => {
     const result = normalizeProduct({
       ...baseRawProduct,
       has_condition_offers: undefined,

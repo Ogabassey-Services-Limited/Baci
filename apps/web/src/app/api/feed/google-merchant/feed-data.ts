@@ -115,11 +115,16 @@ export async function getCachedGoogleMerchantFeedData(
 
   if (productsWithOffers.length > 0) {
     const offerProductIds = productsWithOffers.map((p) => p.id);
-    const { data: offerRows } = await supabase
+    const { data: offerRows, error: offersError } = await supabase
       .from('product_offers')
       .select('id, product_id, condition, price, stock_quantity')
       .in('product_id', offerProductIds)
       .eq('status', 'active');
+
+    if (offersError) {
+      console.error('DB_OFFERS_ERROR:', offersError);
+      throw new Error('Failed to fetch product offers');
+    }
 
     if (offerRows && offerRows.length > 0) {
       const offersByProduct = new Map<string, FeedOffer[]>();

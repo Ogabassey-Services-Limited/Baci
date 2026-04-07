@@ -34,14 +34,14 @@ export type ProductDetailsActiveTab =
   | 'reviews'
   | 'specs';
 
-const VALID_CONDITIONS = new Set<string>([
+const VALID_CONDITIONS: ReadonlySet<ConditionType> = new Set<ConditionType>([
   'new',
   'used',
   'open_box',
   'refurbished',
 ]);
-function isValidConditionParam(value: string): boolean {
-  return VALID_CONDITIONS.has(value);
+function isValidConditionParam(value: string): value is ConditionType {
+  return VALID_CONDITIONS.has(value as ConditionType);
 }
 
 export function useProductDetailsState(serverProduct: Product) {
@@ -77,7 +77,7 @@ export function useProductDetailsState(serverProduct: Product) {
   const conditionParam = searchParams.get('condition');
   const initialCondition =
     conditionParam && isValidConditionParam(conditionParam)
-      ? (conditionParam as ConditionType)
+      ? conditionParam
       : productData.condition || 'new';
   const [selectedCondition, setSelectedCondition] = useState<ConditionType>(
     initialCondition
@@ -167,7 +167,7 @@ export function useProductDetailsState(serverProduct: Product) {
     const paramCondition = searchParams.get('condition');
     setSelectedCondition(
       paramCondition && isValidConditionParam(paramCondition)
-        ? (paramCondition as ConditionType)
+        ? paramCondition
         : productData.condition || 'new'
     );
     if (!defaultVariantSelection) {

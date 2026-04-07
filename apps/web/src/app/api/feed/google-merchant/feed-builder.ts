@@ -192,6 +192,7 @@ export function generateGoogleMerchantFeed(
       }
 
       const offerItems = product.offers
+        .filter((offer) => offer.id && offer.price > 0)
         .map((offer) => {
           const gmcCondition =
             offer.condition === 'open_box' ? 'used' : offer.condition;
