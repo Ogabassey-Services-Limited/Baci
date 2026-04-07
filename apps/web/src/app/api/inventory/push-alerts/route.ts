@@ -1,14 +1,30 @@
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
+import { getCronSecret } from '@/env';
+import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { notifyLowStock } from '@/lib/expo-push';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 /**
- * POST /api/inventory/push-alerts
+ * GET /api/inventory/push-alerts
  *
  * Sends push notifications for new low stock alerts that haven't been notified yet.
- * Designed to be called by a cron job or after inventory snapshots are generated.
+ * Called by Vercel cron (every 6 hours).
  */
-export async function POST() {
+export async function GET(request: NextRequest) {
+  const cronSecret = getCronSecret();
+  if (!cronSecret) {
+    return NextResponse.json(
+      { error: 'Server misconfigured' },
+      { status: 500 }
+    );
+  }
+
+  const authHeader = request.headers.get('Authorization');
+  const expectedToken = `Bearer ${cronSecret}`;
+  if (!authHeader || !constantTimeEqual(authHeader, expectedToken)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const supabase = createAdminClient();
 

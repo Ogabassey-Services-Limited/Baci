@@ -68,7 +68,7 @@ export function useProductNameSuggestions(args: {
     ],
     queryFn: () =>
       fetchProductNameSuggestions({
-        merchantId: merchant?.id, // eslint-disable-line @typescript-eslint/no-non-null-assertion -- guarded by enabled
+        merchantId: merchant?.id,
         productName: debouncedProductName,
         excludeProductId: args.excludeProductId,
       }),
