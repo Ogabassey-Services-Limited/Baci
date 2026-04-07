@@ -161,5 +161,5 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     checkAutomatically: 'ON_ERROR_RECOVERY',
     fallbackToCacheTimeout: 0,
   },
-  runtimeVersion: appVersion,
+  runtimeVersion: { policy: 'appVersion' },
 });
