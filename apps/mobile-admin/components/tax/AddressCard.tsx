@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRef } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -38,6 +39,9 @@ export function AddressCard({
   onOpenStatePicker,
   onSave,
 }: AddressCardProps) {
+  const cityRef = useRef<TextInput>(null);
+  const postalCodeRef = useRef<TextInput>(null);
+
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, shadowStyle]}>
       <View style={styles.cardHeader}>
@@ -81,6 +85,7 @@ export function AddressCard({
         onChangeText={onStreetChange}
         accessibilityLabel="Street address"
         returnKeyType="next"
+        onSubmitEditing={() => cityRef.current?.focus()}
       />
 
       <View style={styles.row}>
@@ -89,6 +94,7 @@ export function AddressCard({
             City
           </Text>
           <TextInput
+            ref={cityRef}
             style={[
               styles.textInput,
               {
@@ -103,6 +109,7 @@ export function AddressCard({
             onChangeText={onCityChange}
             accessibilityLabel="City"
             returnKeyType="next"
+            onSubmitEditing={() => postalCodeRef.current?.focus()}
           />
         </View>
         <View style={styles.halfField}>
@@ -110,6 +117,7 @@ export function AddressCard({
             Postal Code
           </Text>
           <TextInput
+            ref={postalCodeRef}
             style={[
               styles.textInput,
               {
@@ -125,6 +133,7 @@ export function AddressCard({
             keyboardType="number-pad"
             accessibilityLabel="Postal Code"
             returnKeyType="done"
+            onSubmitEditing={onSave}
           />
         </View>
       </View>
@@ -142,7 +151,7 @@ export function AddressCard({
         ]}
         onPress={onOpenStatePicker}
         accessibilityRole="button"
-        accessibilityLabel="State selector"
+        accessibilityLabel={`State selector, current value: ${selectedStateName || 'none'}`}
         accessibilityHint="Opens a modal to select your state"
       >
         <Text
