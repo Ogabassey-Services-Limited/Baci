@@ -8,7 +8,7 @@ describe('normalizeProduct', () => {
     slug: 'samsung-galaxy-s25',
     description: 'A flagship phone',
     price: 860000,
-    compare_at_price: null,
+    compare_at_price: undefined,
     condition: 'new',
     brand: 'Samsung',
     category: 'Smartphones',
@@ -47,7 +47,7 @@ describe('normalizeProduct', () => {
   it('defaults has_condition_offers to false when null', () => {
     const result = normalizeProduct({
       ...baseRawProduct,
-      has_condition_offers: null,
+      has_condition_offers: undefined,
     });
     expect(result.has_condition_offers).toBe(false);
   });

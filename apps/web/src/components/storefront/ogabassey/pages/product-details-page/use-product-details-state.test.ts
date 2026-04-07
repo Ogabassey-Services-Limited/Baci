@@ -13,7 +13,7 @@ const mockUseSearchParams = vi.fn(() => new URLSearchParams());
 
 vi.mock('next/navigation', () => ({
   useRouter: vi.fn(() => ({ push: vi.fn() })),
-  useSearchParams: (...args: unknown[]) => mockUseSearchParams(...args),
+  useSearchParams: () => mockUseSearchParams(),
 }));
 
 vi.mock('@/hooks/use-cart', () => ({
