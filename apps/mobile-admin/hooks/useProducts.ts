@@ -44,6 +44,7 @@ export interface Product {
     [key: string]: unknown;
   } | null;
   color: string | null;
+  condition: string | null;
   variant_attributes: Record<string, unknown> | null;
   has_variants: boolean;
   manage_stock: boolean;
@@ -94,6 +95,7 @@ async function assertNoDuplicateProduct(args: {
   const normalizedName = args.productName.trim();
   const normalizedSlug = toProductSlug(normalizedName);
 
+  // Check exact name match (case-insensitive) and slug match
   let nameQuery = supabase
     .from('products')
     .select('id', { count: 'exact', head: true })
@@ -106,21 +108,44 @@ async function assertNoDuplicateProduct(args: {
     .eq('merchant_id', args.merchantId)
     .eq('slug', normalizedSlug);
 
+  // Check full-text similarity — catches "Samsung Z Fold 7" vs "Samsung Galaxy Z Fold 7"
+  let ftsQuery = supabase
+    .from('products')
+    .select('id, name', { count: 'exact' })
+    .eq('merchant_id', args.merchantId)
+    .textSearch('search_vector', normalizedName, {
+      type: 'websearch',
+      config: 'english',
+    })
+    .limit(5);
+
   if (args.excludeProductId) {
     nameQuery = nameQuery.neq('id', args.excludeProductId);
     slugQuery = slugQuery.neq('id', args.excludeProductId);
+    ftsQuery = ftsQuery.neq('id', args.excludeProductId);
   }
 
   const [
     { count: nameMatches, error: nameError },
     { count: slugMatches, error: slugError },
-  ] = await Promise.all([nameQuery, slugQuery]);
+    { data: ftsMatches, error: ftsError },
+  ] = await Promise.all([nameQuery, slugQuery, ftsQuery]);
 
   if (nameError) throw new Error(nameError.message);
   if (slugError) throw new Error(slugError.message);
+  if (ftsError) throw new Error(ftsError.message);
 
   if ((nameMatches ?? 0) > 0 || (slugMatches ?? 0) > 0) {
     throw new Error(DUPLICATE_PRODUCT_ERROR);
+  }
+
+  // Fuzzy check: if FTS returns results whose slug matches closely, block it
+  if (ftsMatches && ftsMatches.length > 0) {
+    const inputSlug = normalizedSlug;
+    const match = ftsMatches.find((p) => toProductSlug(p.name) === inputSlug);
+    if (match) {
+      throw new Error(`A similar product "${match.name}" already exists.`);
+    }
   }
 }
 
