@@ -166,12 +166,38 @@ jest.mock('react-native', () => ({
   Platform: { OS: 'ios' },
 }));
 
+jest.mock('../services/push-notifications', () => ({
+  removePushTokenFromServer: jest.fn().mockResolvedValue(true),
+  savePushTokenToServer: jest.fn().mockResolvedValue(true),
+  registerForPushNotifications: jest.fn().mockResolvedValue(null),
+  handleNotificationResponse: jest.fn(),
+  clearBadge: jest.fn(),
+  setupNotificationChannels: jest.fn(),
+}));
+
+// push-token-storage is mocked via jest.mock() but the factory-closure approach
+// does not reliably intercept module-level imports in all jest-expo configurations.
+// We therefore auto-mock the module and use jest.spyOn() in beforeEach.
+jest.mock('../lib/push-token-storage');
+
 // ---------------------------------------------------------------------------
 // Import the module under test AFTER all mocks are registered
 // ---------------------------------------------------------------------------
 
+import * as pushTokenStorage from '../lib/push-token-storage';
 import { supabase } from '../lib/supabase';
+import * as pushNotificationsService from '../services/push-notifications';
 import { useAuthStore } from './auth-store';
+
+// Spies wired in beforeEach
+let mockGetStoredPushToken: jest.SpyInstance;
+let mockClearStoredPushToken: jest.SpyInstance;
+let mockRemovePushTokenFromServer: jest.SpyInstance;
+
+// Flush all pending promises — needed when async operations inside act() span
+// multiple microtask ticks (e.g. sequential awaits in store actions that include
+// push-token cleanup before other state mutations).
+const _flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 // ---------------------------------------------------------------------------
 // Shared test data
@@ -304,7 +330,9 @@ describe('useAuthStore', () => {
     mockUnsubscribe.mockReset();
     mockClearCart.mockReset();
     // Reset the captured auth listener so no test leaks a stale callback
-    mockAuthListenerCb = async () => {};
+    mockAuthListenerCb = async () => {
+      /* noop default */
+    };
     resetStore();
     resetSupabaseMocks();
     mockMakeRedirectUri.mockReturnValue('ogabassey://auth');
@@ -319,6 +347,17 @@ describe('useAuthStore', () => {
       type: 'success',
       url: 'ogabassey://auth#access_token=oauth-access-token&refresh_token=oauth-refresh-token',
     });
+    // Wire push-token-storage spies — spyOn ensures the module-level import in
+    // auth-store.ts gets intercepted regardless of jest-expo module resolution.
+    mockGetStoredPushToken = jest
+      .spyOn(pushTokenStorage, 'getStoredPushToken')
+      .mockResolvedValue(null);
+    mockClearStoredPushToken = jest
+      .spyOn(pushTokenStorage, 'clearStoredPushToken')
+      .mockResolvedValue(undefined);
+    mockRemovePushTokenFromServer = jest
+      .spyOn(pushNotificationsService, 'removePushTokenFromServer')
+      .mockResolvedValue(true);
   });
 
   // -------------------------------------------------------------------------
@@ -810,6 +849,7 @@ describe('useAuthStore', () => {
       // Act
       await act(async () => {
         await mockAuthListenerCb('SIGNED_OUT', null);
+        await _flushPromises();
       });
 
       // Assert
@@ -1112,6 +1152,7 @@ describe('useAuthStore', () => {
       let result!: { success: boolean; error?: string; usedApple?: boolean };
       await act(async () => {
         result = await useAuthStore.getState().deleteAccount();
+        await _flushPromises();
       });
 
       expect(supabase.rpc).toHaveBeenCalledWith(
@@ -1175,6 +1216,7 @@ describe('useAuthStore', () => {
       let result!: { success: boolean; error?: string; usedApple?: boolean };
       await act(async () => {
         result = await useAuthStore.getState().deleteAccount();
+        await _flushPromises();
       });
 
       expect(supabase.rpc).toHaveBeenCalledWith(
@@ -1190,6 +1232,164 @@ describe('useAuthStore', () => {
       expect(state.user).toBeNull();
       expect(state.session).toBeNull();
       expect(state.customer).toBeNull();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  describe('signOut() — push token cleanup', () => {
+    beforeEach(() => {
+      mockGetStoredPushToken.mockResolvedValue('ExponentPushToken[stored]');
+      mockClearStoredPushToken.mockResolvedValue(undefined);
+      mockRemovePushTokenFromServer.mockResolvedValue(true);
+    });
+
+    it('clears local push token and deactivates server token before supabase.auth.signOut()', async () => {
+      const callOrder: string[] = [];
+      mockClearStoredPushToken.mockImplementation(() => {
+        callOrder.push('clearStoredPushToken');
+        return Promise.resolve();
+      });
+      mockRemovePushTokenFromServer.mockImplementation(() => {
+        callOrder.push('removePushTokenFromServer');
+        return Promise.resolve(true);
+      });
+      (supabase.auth.signOut as jest.Mock).mockImplementation(() => {
+        callOrder.push('supabase.auth.signOut');
+        return Promise.resolve({ error: null });
+      });
+
+      await act(async () => {
+        await useAuthStore.getState().signOut();
+        await _flushPromises();
+      });
+
+      expect(callOrder.indexOf('clearStoredPushToken')).toBeLessThan(
+        callOrder.indexOf('supabase.auth.signOut')
+      );
+      expect(callOrder.indexOf('removePushTokenFromServer')).toBeLessThan(
+        callOrder.indexOf('supabase.auth.signOut')
+      );
+    });
+
+    it('proceeds with sign-out even when removePushTokenFromServer fails', async () => {
+      mockRemovePushTokenFromServer.mockResolvedValue(false);
+
+      await act(async () => {
+        await useAuthStore.getState().signOut();
+        await _flushPromises();
+      });
+
+      expect(supabase.auth.signOut).toHaveBeenCalled();
+      expect(useAuthStore.getState().user).toBeNull();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  describe('onAuthStateChange — SIGNED_OUT push token cleanup (passive fallback)', () => {
+    it('clears stored token and attempts server deactivation on passive SIGNED_OUT', async () => {
+      mockGetStoredPushToken.mockResolvedValue('ExponentPushToken[stored]');
+      mockClearStoredPushToken.mockResolvedValue(undefined);
+      mockRemovePushTokenFromServer.mockResolvedValue(true);
+
+      resetSupabaseMocks({
+        session: mockSession,
+        getUser: { data: { user: mockUser }, error: null },
+        customerResult: { data: mockCustomerRow, error: null },
+      });
+      (supabase.from as jest.Mock).mockImplementation((table: string) =>
+        makeChain(
+          table === 'merchants'
+            ? { data: mockMerchantRow, error: null }
+            : { data: mockCustomerRow, error: null }
+        )
+      );
+
+      await act(async () => {
+        await useAuthStore.getState().initialize();
+      });
+
+      await act(async () => {
+        await mockAuthListenerCb('SIGNED_OUT', null);
+        await _flushPromises();
+      });
+
+      expect(mockClearStoredPushToken).toHaveBeenCalled();
+      expect(mockRemovePushTokenFromServer).toHaveBeenCalledWith(
+        'ExponentPushToken[stored]'
+      );
+    });
+
+    it('is a no-op for push cleanup when no token is stored (explicit sign-out already cleared it)', async () => {
+      mockGetStoredPushToken.mockResolvedValue(null);
+
+      resetSupabaseMocks({
+        session: mockSession,
+        getUser: { data: { user: mockUser }, error: null },
+        customerResult: { data: mockCustomerRow, error: null },
+      });
+
+      await act(async () => {
+        await useAuthStore.getState().initialize();
+      });
+
+      await act(async () => {
+        await mockAuthListenerCb('SIGNED_OUT', null);
+        await _flushPromises();
+      });
+
+      expect(mockClearStoredPushToken).toHaveBeenCalled();
+      expect(mockRemovePushTokenFromServer).not.toHaveBeenCalled();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  describe('deleteAccount() — push token cleanup', () => {
+    beforeEach(() => {
+      mockGetStoredPushToken.mockResolvedValue('ExponentPushToken[stored]');
+      mockClearStoredPushToken.mockResolvedValue(undefined);
+      mockRemovePushTokenFromServer.mockResolvedValue(true);
+      (supabase.rpc as jest.Mock).mockResolvedValue({ error: null });
+    });
+
+    it('clears local push token and deactivates server token before local sign-out', async () => {
+      const callOrder: string[] = [];
+      mockClearStoredPushToken.mockImplementation(() => {
+        callOrder.push('clearStoredPushToken');
+        return Promise.resolve();
+      });
+      mockRemovePushTokenFromServer.mockImplementation(() => {
+        callOrder.push('removePushTokenFromServer');
+        return Promise.resolve(true);
+      });
+      (supabase.auth.signOut as jest.Mock).mockImplementation(() => {
+        callOrder.push('supabase.auth.signOut');
+        return Promise.resolve({ error: null });
+      });
+
+      await act(async () => {
+        await useAuthStore.getState().deleteAccount();
+        await _flushPromises();
+      });
+
+      expect(callOrder.indexOf('clearStoredPushToken')).toBeLessThan(
+        callOrder.indexOf('supabase.auth.signOut')
+      );
+      expect(callOrder.indexOf('removePushTokenFromServer')).toBeLessThan(
+        callOrder.indexOf('supabase.auth.signOut')
+      );
+    });
+
+    it('proceeds with account deletion even when push token cleanup fails', async () => {
+      mockRemovePushTokenFromServer.mockResolvedValue(false);
+
+      let result!: { success: boolean };
+      await act(async () => {
+        result = await useAuthStore.getState().deleteAccount();
+        await _flushPromises();
+      });
+
+      expect(result.success).toBe(true);
+      expect(supabase.auth.signOut).toHaveBeenCalledWith({ scope: 'local' });
     });
   });
 

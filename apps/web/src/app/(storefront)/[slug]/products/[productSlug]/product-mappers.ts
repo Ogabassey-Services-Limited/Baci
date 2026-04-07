@@ -80,6 +80,16 @@ export interface DetailedCachedProduct {
   product_variants?: StorefrontProductVariants;
   specifications?: unknown;
   product_key_specs?: unknown;
+  has_condition_offers?: boolean | null;
+  offers?:
+    | {
+        id: string;
+        condition: 'new' | 'used' | 'open_box' | 'refurbished';
+        price: number;
+        stock_quantity: number;
+        images?: string[];
+      }[]
+    | null;
 }
 
 export function normalizeProductImages(
@@ -212,6 +222,8 @@ export function mapDetailedCachedProductToProduct(
         }
       : null,
     has_variants: normalizedVariants.length > 0,
+    has_condition_offers: detailedProduct.has_condition_offers ?? false,
+    offers: detailedProduct.offers ?? [],
     variants: normalizedVariants,
     specifications: detailedProduct.specifications as Product['specifications'],
     product_key_specs:

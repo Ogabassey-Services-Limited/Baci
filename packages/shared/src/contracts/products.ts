@@ -1,5 +1,5 @@
 export const MOBILE_ADMIN_PRODUCT_COLUMNS =
-  'id, name, description, price, compare_at_price, cost_price, stock_quantity, stock, sku, slug, images, status, category, category_id, brand, brand_id, fulfillment_details, color, variant_attributes, has_variants, manage_stock, low_stock_threshold, created_at, updated_at';
+  'id, name, description, price, compare_at_price, cost_price, stock_quantity, stock, sku, slug, images, status, category, category_id, brand, brand_id, fulfillment_details, color, condition, variant_attributes, has_variants, manage_stock, low_stock_threshold, created_at, updated_at';
 
 export const MOBILE_ADMIN_PRODUCT_WITH_RELATIONS_QUERY = `${MOBILE_ADMIN_PRODUCT_COLUMNS}, categories(name), brands(name)`;
 

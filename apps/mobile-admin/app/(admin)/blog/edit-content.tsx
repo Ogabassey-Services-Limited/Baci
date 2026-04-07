@@ -131,8 +131,10 @@ export default function EditContentScreen() {
 
       const {
         data: { session },
+        error: sessionError,
       } = await supabase.auth.getSession();
-      if (!session) throw new Error('No session');
+      if (sessionError || !session)
+        throw new Error(sessionError?.message || 'No session');
 
       const response = await fetch(
         `${process.env.EXPO_PUBLIC_API_URL || ''}/api/ai/edit-blog`,
@@ -261,12 +263,19 @@ export default function EditContentScreen() {
             console.log('[ImagePick] Uploading via API proxy to:', uploadUrl);
           }
 
-          // Upload via API (Bypassing client-side RLS using Dev Header)
+          const {
+            data: { session },
+            error: sessionError,
+          } = await supabase.auth.getSession();
+          if (sessionError || !session)
+            throw new Error(sessionError?.message || 'No session');
+
+          // Upload via API
           const response = await fetch(uploadUrl, {
             method: 'POST',
             headers: {
               Accept: 'application/json',
-              'x-dev-merchant-id': '6b5cb8a4-5575-456c-b936-8cdfae30db74', // Dev bypass
+              Authorization: `Bearer ${session.access_token}`,
               // Note: Content-Type header is automatically set by fetch for FormData
             },
             body: formData,

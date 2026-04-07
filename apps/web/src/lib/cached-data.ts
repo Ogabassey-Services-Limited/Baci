@@ -1713,18 +1713,31 @@ export async function getCachedBlogListing(
     }
   }
 
-  const { data: posts, count } = await query;
+  const { data: posts, count, error: postsError } = await query;
+  if (postsError) {
+    console.error('Failed to load blog posts', {
+      merchantId: merchant.id,
+      error: postsError,
+    });
+    throw postsError;
+  }
 
-  const { data: categories } = await supabase
+  const { data: categories, error: categoriesError } = await supabase
     .from('blog_posts')
     .select('category')
     .eq('merchant_id', merchant.id)
     .eq('status', 'published')
     .not('category', 'is', null);
+  if (categoriesError) {
+    console.warn('Failed to load blog categories', {
+      merchantId: merchant.id,
+      error: categoriesError,
+    });
+  }
 
-  const uniqueCategories = [
-    ...new Set(categories?.map((entry) => entry.category).filter(Boolean)),
-  ];
+  const uniqueCategories = categoriesError
+    ? []
+    : [...new Set(categories?.map((entry) => entry.category).filter(Boolean))];
 
   return {
     merchant: {
@@ -1732,6 +1745,8 @@ export async function getCachedBlogListing(
       business_name: merchant.business_name,
       slug: merchant.slug,
       logo_url: merchant.logo_url,
+      template_id: merchant.template_id,
+      custom_domain: merchant.custom_domain,
     },
     posts: posts || [],
     totalPosts: count || 0,

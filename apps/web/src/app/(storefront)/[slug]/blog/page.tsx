@@ -1,13 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { cache } from 'react';
-import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
-import {
-  getCachedFeatureSettings,
-  getCachedMerchant,
-  getCachedMerchantByDomain,
-  getPublicSupabaseClient,
-} from '@/lib/cached-data';
+import { getCachedBlogListing } from '@/lib/cached-data';
 import { generateBreadcrumbSchema, generateSlug } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import {
@@ -29,94 +22,6 @@ function parseBlogListingPage(page?: string): number {
   return Number.isNaN(parsedPage) ? 1 : Math.max(1, parsedPage);
 }
 
-const getMerchantAndPosts = cache(
-  async (
-    identifier: string,
-    category?: string,
-    page = 1,
-    searchQuery?: string
-  ) => {
-    const supabase = getPublicSupabaseClient();
-    const limit = BLOG_LISTING_PAGE_SIZE;
-    const offset = (page - 1) * limit;
-    const lookupKey = identifier.toLowerCase();
-    const cachedMerchant = isDomainIdentifier(identifier)
-      ? await getCachedMerchantByDomain(lookupKey)
-      : await getCachedMerchant(lookupKey);
-    if (!cachedMerchant) return null;
-    const merchant = {
-      id: cachedMerchant.id,
-      business_name: cachedMerchant.business_name,
-      slug: cachedMerchant.slug,
-      logo_url: cachedMerchant.logo_url,
-      template_id: cachedMerchant.template_id,
-      custom_domain: cachedMerchant.custom_domain,
-    };
-    const features = await getCachedFeatureSettings(merchant.id);
-    if (!features?.blog_enabled) return null;
-    let query = supabase
-      .from('blog_posts')
-      .select(
-        'id, title, slug, excerpt, featured_image_url, featured_image_alt, category, tags, author_name, published_at, reading_time_minutes, view_count',
-        { count: 'exact' }
-      )
-      .eq('merchant_id', merchant.id)
-      .eq('status', 'published')
-      .order('published_at', { ascending: false })
-      .range(offset, offset + limit - 1);
-
-    if (category) {
-      query = query.eq('category', category);
-    }
-
-    if (searchQuery) {
-      const sanitizedSearch = searchQuery.trim().slice(0, 100);
-      if (sanitizedSearch) {
-        query = query.textSearch('search_vector', sanitizedSearch, {
-          type: 'websearch',
-          config: 'english',
-        });
-      }
-    }
-
-    const { data: posts, count, error: postsError } = await query;
-    if (postsError) {
-      console.error('Failed to load blog posts', {
-        merchantId: merchant.id,
-        error: postsError,
-      });
-      throw postsError;
-    }
-
-    const { data: categories, error: categoriesError } = await supabase
-      .from('blog_posts')
-      .select('category')
-      .eq('merchant_id', merchant.id)
-      .eq('status', 'published')
-      .not('category', 'is', null);
-    if (categoriesError) {
-      console.warn('Failed to load blog categories', {
-        merchantId: merchant.id,
-        error: categoriesError,
-      });
-    }
-
-    const uniqueCategories = categoriesError
-      ? []
-      : [...new Set(categories?.map((c) => c.category).filter(Boolean))];
-
-    return {
-      merchant,
-      posts: posts || [],
-      totalPosts: count || 0,
-      categories: uniqueCategories,
-      currentPage: page,
-      totalPages: Math.ceil((count || 0) / limit),
-      searchQuery,
-    };
-  }
-);
-
 export async function generateMetadata({
   params,
   searchParams,
@@ -124,7 +29,7 @@ export async function generateMetadata({
   const { slug } = await params;
   const { page } = await searchParams;
   const currentPage = parseBlogListingPage(page);
-  const data = await getMerchantAndPosts(slug, undefined, currentPage);
+  const data = await getCachedBlogListing(slug, { page: currentPage });
   if (!data) {
     return { title: 'Blog Not Found' };
   }
@@ -191,7 +96,11 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
   const { category, page, search } = await searchParams;
   const currentPage = parseBlogListingPage(page);
-  const data = await getMerchantAndPosts(slug, category, currentPage, search);
+  const data = await getCachedBlogListing(slug, {
+    category,
+    page: currentPage,
+    searchQuery: search,
+  });
   if (!data) {
     notFound();
   }

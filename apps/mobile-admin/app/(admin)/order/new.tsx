@@ -27,6 +27,7 @@ import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplet
 import PhoneInput from 'react-native-phone-number-input';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import SafeImage from '@/components/ui/SafeImage';
+import { mergeOrderItem } from '@/lib/order-items';
 import {
   sanitizeAddress,
   sanitizeCustomerName,
@@ -35,7 +36,6 @@ import {
   sanitizePhone,
   sanitizeText,
 } from '@/lib/sanitize';
-import { mergeOrderItem } from '@/lib/order-items';
 
 interface ShippingAddress {
   name: string;
@@ -274,10 +274,12 @@ export default function NewOrderScreen() {
 
   const filteredProducts = productSearch
     ? allProducts.filter((p) => {
-        const search = productSearch.toLowerCase();
-        return (
-          p.name.toLowerCase().includes(search) ||
-          p.sku?.toLowerCase().includes(search)
+        const words = productSearch.toLowerCase().split(/\s+/).filter(Boolean);
+        const name = p.name.toLowerCase();
+        const sku = p.sku?.toLowerCase() ?? '';
+        const condition = p.condition?.toLowerCase() ?? '';
+        return words.every(
+          (w) => name.includes(w) || sku.includes(w) || condition.includes(w)
         );
       })
     : allProducts;
@@ -1579,27 +1581,49 @@ export default function NewOrderScreen() {
           <FlatList
             data={filteredProducts}
             keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <Pressable
-                style={[
-                  styles.productItem,
-                  { borderBottomColor: colors.border },
-                ]}
-                onPress={() => handleAddProduct(item)}
-              >
-                <View>
-                  <Text style={{ color: colors.text, fontSize: 16 }}>
-                    {item.name}
+            renderItem={({ item }) => {
+              const conditionLabel = item.condition
+                ? item.condition.replace(/_/g, ' ')
+                : null;
+              const variantSummary = Array.isArray(item.variant_attributes)
+                ? (
+                    item.variant_attributes as Array<{
+                      param: string;
+                      options: string[];
+                    }>
+                  )
+                    .map((v) => v.options.join(', '))
+                    .join(' | ')
+                : null;
+
+              return (
+                <Pressable
+                  style={[
+                    styles.productItem,
+                    { borderBottomColor: colors.border },
+                  ]}
+                  onPress={() => handleAddProduct(item)}
+                >
+                  <View style={{ flex: 1, marginRight: 8 }}>
+                    <Text style={{ color: colors.text, fontSize: 16 }}>
+                      {item.name}
+                    </Text>
+                    <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+                      {[
+                        conditionLabel,
+                        variantSummary,
+                        item.sku ? `SKU: ${item.sku}` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' \u00B7 ') || 'N/A'}
+                    </Text>
+                  </View>
+                  <Text style={{ color: colors.text, fontWeight: '500' }}>
+                    {formatPrice(item.price)}
                   </Text>
-                  <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
-                    SKU: {item.sku || 'N/A'}
-                  </Text>
-                </View>
-                <Text style={{ color: colors.text, fontWeight: '500' }}>
-                  {formatPrice(item.price)}
-                </Text>
-              </Pressable>
-            )}
+                </Pressable>
+              );
+            }}
           />
         </SafeAreaView>
       </Modal>

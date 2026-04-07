@@ -168,4 +168,52 @@ describe('product-mappers', () => {
     });
     expect(product).not.toHaveProperty('internal_only_flag');
   });
+
+  it('maps has_condition_offers and offers from detailed product', () => {
+    const product = mapDetailedCachedProductToProduct(
+      {
+        id: 'prod-4',
+        merchant_id: 'merchant-1',
+        name: 'iPhone 14',
+        description: null,
+        status: 'active',
+        slug: 'iphone-14',
+        price: 800000,
+        compare_at_price: null,
+        manage_stock: false,
+        stock: 10,
+        stock_quantity: 10,
+        images: [],
+        imageHint: null,
+        brand: null,
+        gtin: null,
+        mpn: null,
+        category: 'Phones',
+        categories: null,
+        product_variants: [],
+        specifications: null,
+        product_key_specs: null,
+        has_condition_offers: true,
+        offers: [
+          {
+            id: 'o1',
+            condition: 'used',
+            price: 500000,
+            stock_quantity: 9999,
+          },
+        ],
+      },
+      'merchant-1'
+    );
+
+    expect(product.has_condition_offers).toBe(true);
+    expect(product.offers).toEqual([
+      {
+        id: 'o1',
+        condition: 'used',
+        price: 500000,
+        stock_quantity: 9999,
+      },
+    ]);
+  });
 });
