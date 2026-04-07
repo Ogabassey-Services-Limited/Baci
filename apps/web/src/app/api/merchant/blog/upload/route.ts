@@ -67,15 +67,23 @@ export async function POST(request: NextRequest) {
       }
 
       // Fetch merchant slug if needed
-      const { data: merchantData } = await supabaseClient
+      const { data: merchantData, error: merchantError } = await supabaseClient
         .from('merchants')
         .select('slug')
         .eq('id', access.merchantId)
         .single();
 
+      if (merchantError || !merchantData) {
+        console.error('Merchant query error:', merchantError);
+        return NextResponse.json(
+          { error: 'Failed to fetch merchant data' },
+          { status: 500 }
+        );
+      }
+
       merchant = {
         id: access.merchantId,
-        slug: merchantData?.slug || '',
+        slug: merchantData.slug || '',
       };
     }
 

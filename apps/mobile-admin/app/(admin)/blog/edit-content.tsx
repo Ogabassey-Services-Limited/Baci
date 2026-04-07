@@ -131,8 +131,10 @@ export default function EditContentScreen() {
 
       const {
         data: { session },
+        error: sessionError,
       } = await supabase.auth.getSession();
-      if (!session) throw new Error('No session');
+      if (sessionError || !session)
+        throw new Error(sessionError?.message || 'No session');
 
       const response = await fetch(
         `${process.env.EXPO_PUBLIC_API_URL || ''}/api/ai/edit-blog`,
@@ -263,8 +265,10 @@ export default function EditContentScreen() {
 
           const {
             data: { session },
+            error: sessionError,
           } = await supabase.auth.getSession();
-          if (!session) throw new Error('No session');
+          if (sessionError || !session)
+            throw new Error(sessionError?.message || 'No session');
 
           // Upload via API
           const response = await fetch(uploadUrl, {
