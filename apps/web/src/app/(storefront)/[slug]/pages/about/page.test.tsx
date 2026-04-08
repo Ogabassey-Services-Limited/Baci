@@ -14,6 +14,20 @@ vi.mock('@/lib/store-url', () => ({
   buildStoreUrl: vi.fn(),
 }));
 
+vi.mock('next/navigation', () => ({
+  notFound: vi.fn(() => {
+    throw new Error('NEXT_NOT_FOUND');
+  }),
+}));
+
+vi.mock('@/templates/registry', () => ({
+  getTemplate: vi.fn(() => null),
+}));
+
+vi.mock('./about-page-client', () => ({
+  AboutPageClient: vi.fn(() => null),
+}));
+
 const { generateMetadata } = await import('./page');
 
 describe('pages/about metadata', () => {
@@ -55,5 +69,15 @@ describe('pages/about metadata', () => {
     expect(metadata.openGraph?.url).toBe(
       'https://test-store.usebaci.com/about'
     );
+  });
+
+  it('returns fallback title when merchant is missing', async () => {
+    vi.mocked(getMerchantByIdentifier).mockResolvedValue(null);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'unknown' }),
+    });
+
+    expect(metadata.title).toBe('About Us');
   });
 });

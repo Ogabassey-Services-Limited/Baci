@@ -2,24 +2,13 @@ import { render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 // Mock server-only dependencies
-vi.mock('next/headers', () => ({
-  cookies: vi.fn(() => Promise.resolve(new Map())),
-}));
-vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn(() => ({
-    from: vi.fn(() => ({
-      select: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            order: vi.fn(() => ({
-              limit: vi.fn(() => Promise.resolve({ data: [], error: null })),
-            })),
-          })),
-        })),
-      })),
-    })),
-  })),
-}));
+vi.mock('@/lib/cached-data', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...actual,
+    getCachedStorefrontHomeProducts: vi.fn(() => Promise.resolve([])),
+  };
+});
 vi.mock('@/lib/cached-categories', () => ({
   getCachedNavigationCategories: vi.fn(() => Promise.resolve([])),
 }));

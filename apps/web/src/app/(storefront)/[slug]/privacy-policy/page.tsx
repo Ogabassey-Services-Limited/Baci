@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
-import { StorefrontPageWrapper } from '@/app/(storefront)/[slug]/storefront-page-wrapper';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
+import { getTemplate } from '@/templates/registry';
 import { PrivacyPageClient } from '../pages/privacy/privacy-page-client';
 
 interface PageProps {
@@ -11,8 +11,8 @@ interface PageProps {
 }
 
 /**
- * Normalize domain by stripping protocol and trailing slashes
- * Defense-in-depth: guards against malformed data in database
+ * Normalize domain by stripping protocol and trailing slashes.
+ * Defense-in-depth: guards against malformed data in database.
  */
 function normalizeDomain(domain: string | null | undefined): string | null {
   if (!domain) return null;
@@ -35,7 +35,6 @@ export async function generateMetadata({
     };
   }
 
-  // Derive canonical URL from merchant data (no headers() for PPR compatibility)
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
   const normalizedDomain = normalizeDomain(merchant.custom_domain);
   const host = normalizedDomain || `${slug}.usebaci.com`;
@@ -57,33 +56,48 @@ export async function generateMetadata({
   };
 }
 
-/**
- * Privacy Policy page content - wrapped in Suspense for PPR compatibility
- */
-async function PrivacyPolicyContent({ slug }: { slug: string }) {
+/** Streams JSON-LD separately while the visible page content loads. */
+export default function PrivacyPolicyPage({ params }: PageProps) {
+  return (
+    <>
+      <Suspense fallback={null}>
+        <PrivacyPolicyJsonLd params={params} />
+      </Suspense>
+      <Suspense
+        fallback={
+          <div className="container max-w-4xl mx-auto py-12 px-4 animate-pulse">
+            <div className="h-10 w-64 bg-muted rounded mb-8" />
+            <div className="space-y-4">
+              {['s1', 's2', 's3', 's4', 's5', 's6'].map((id) => (
+                <div key={id} className="h-4 bg-muted rounded w-full" />
+              ))}
+            </div>
+          </div>
+        }
+      >
+        <PrivacyPolicyContent params={params} />
+      </Suspense>
+    </>
+  );
+}
+
+/** Streams JSON-LD structured data independently of page content. */
+async function PrivacyPolicyJsonLd({ params }: PageProps) {
+  const { slug } = await params;
   const merchant = await getMerchantByIdentifier(slug);
 
-  if (!merchant) {
-    notFound();
-  }
+  if (!merchant) return null;
 
-  // Check if privacy policy content exists OR template has Privacy component
-  const merchantPages = merchant.pages;
-  const hasPrivacyContent = merchantPages?.privacy;
+  const hasPrivacyContent = merchant.pages?.privacy;
   const templateHasPrivacyPage = merchant.template_id === 'ogabassey';
+  if (!hasPrivacyContent && !templateHasPrivacyPage) return null;
 
-  if (!hasPrivacyContent && !templateHasPrivacyPage) {
-    notFound();
-  }
-
-  // For JSON-LD, use merchant slug-based URL (custom domain handled by middleware)
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
   const normalizedDomain = normalizeDomain(merchant.custom_domain);
   const baseUrl = normalizedDomain
     ? `${protocol}://${normalizedDomain}`
     : `${protocol}://${slug}.usebaci.com`;
 
-  // Generate WebPage JSON-LD schema for Privacy Policy
   const privacySchema = {
     '@context': 'https://schema.org',
     '@type': 'WebPage',
@@ -102,65 +116,64 @@ async function PrivacyPolicyContent({ slug }: { slug: string }) {
       ...(merchant.logo_url && { logo: merchant.logo_url }),
     },
     inLanguage: 'en',
-    // Only include dateModified when a real timestamp exists (avoid unstable "now" fallback)
-    ...(() => {
-      return merchant.updated_at ? { dateModified: merchant.updated_at } : {};
-    })(),
+    ...(merchant.updated_at ? { dateModified: merchant.updated_at } : {}),
   };
 
   return (
-    <>
-      {/* Privacy Policy JSON-LD Schema */}
-      <script
-        type="application/ld+json"
-        // codeql[js/html-injection] - Safe: JSON-LD sanitized via safeJsonLdStringify
-        // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD is sanitized via safeJsonLdStringify
-        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(privacySchema) }}
-      />
-      <StorefrontPageWrapper
-        pageName="Privacy"
-        merchant={merchant}
-        fallback={
-          <PrivacyPageClient
-            merchant={merchant}
-            content={merchantPages?.privacy}
-          />
-        }
-      />
-    </>
+    <script
+      type="application/ld+json"
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema is sanitized via safeJsonLdStringify
+      dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(privacySchema) }}
+    />
   );
 }
 
-/**
- * Privacy Policy Page - 2026 PPR Pattern
- * Uses cached merchant data and Suspense boundary for optimal streaming
- */
-export default async function PrivacyPolicyPage({ params }: PageProps) {
+async function PrivacyPolicyContent({ params }: PageProps) {
   const { slug } = await params;
+  const merchant = await getMerchantByIdentifier(slug);
+
+  if (!merchant) {
+    notFound();
+  }
+
+  const merchantPages = merchant.pages;
+  const hasPrivacyContent = merchantPages?.privacy;
+  const templateHasPrivacyPage = merchant.template_id === 'ogabassey';
+
+  if (!hasPrivacyContent && !templateHasPrivacyPage) {
+    notFound();
+  }
+
+  // Resolve template component server-side for SEO (H1 in SSR HTML)
+  const templateId = merchant.template_id;
+  if (templateId && templateId !== 'default' && templateId !== 'puck') {
+    const template = getTemplate(templateId);
+    if (template) {
+      try {
+        const components = await template.getComponents();
+        if (components.Privacy) {
+          const PrivacyComponent = components.Privacy;
+          return (
+            <PrivacyComponent
+              // biome-ignore lint/suspicious/noExplicitAny: CachedMerchant is a superset of what template components need
+              merchant={merchant as any}
+              storeSlug={merchant.slug}
+              isPreview={false}
+            />
+          );
+        }
+      } catch (error) {
+        console.error(
+          'Failed to load Privacy component for template',
+          templateId,
+          ':',
+          error
+        );
+      }
+    }
+  }
 
   return (
-    <Suspense fallback={<PrivacyPageSkeleton />}>
-      <PrivacyPolicyContent slug={slug} />
-    </Suspense>
-  );
-}
-
-/**
- * Loading skeleton for privacy policy page
- */
-// Static skeleton line IDs for stable React keys
-const SKELETON_LINES = ['s1', 's2', 's3', 's4', 's5', 's6'] as const;
-
-function PrivacyPageSkeleton() {
-  return (
-    <div className="container max-w-4xl mx-auto py-12 px-4 animate-pulse">
-      <div className="h-10 w-64 bg-muted rounded mb-8" />
-      <div className="space-y-4">
-        {SKELETON_LINES.map((id) => (
-          <div key={id} className="h-4 bg-muted rounded w-full" />
-        ))}
-      </div>
-    </div>
+    <PrivacyPageClient merchant={merchant} content={merchantPages?.privacy} />
   );
 }

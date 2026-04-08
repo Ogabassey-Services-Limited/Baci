@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockHeaders = vi.fn();
-const mockConnection = vi.fn(async () => undefined);
 const mockPermanentRedirect = vi.fn((_url: string) => {
   throw new Error('NEXT_REDIRECT');
 });
@@ -17,10 +16,6 @@ const mockGetCachedProductReviews = vi.fn();
 
 vi.mock('next/headers', () => ({
   headers: () => mockHeaders(),
-}));
-
-vi.mock('next/server', () => ({
-  connection: () => mockConnection(),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -197,8 +192,6 @@ describe('products/[productSlug] page', () => {
     vi.stubEnv('NODE_ENV', 'production');
     mockHeaders.mockReset();
     mockHeaders.mockReturnValue(makeHeaders({}));
-    mockConnection.mockReset();
-    mockConnection.mockImplementation(async () => undefined);
     mockGenerateProductSchema.mockImplementation(() => ({ offers: {} }));
     mockGetProductUrl.mockImplementation(defaultGetProductUrl);
     mockGetRequestScopedMerchant.mockResolvedValue(baseMerchant);
@@ -208,43 +201,21 @@ describe('products/[productSlug] page', () => {
     mockGetCachedProductReviews.mockResolvedValue([]);
   });
 
-  it('waits for a request-time connection before redirecting categorized legacy products', async () => {
+  it('redirects categorized legacy products during page render in development', async () => {
     vi.stubEnv('NODE_ENV', 'development');
     mockGetCachedProduct.mockResolvedValue(categorizedProduct);
     mockHeaders.mockReturnValue(makeHeaders({}));
-    const deferredConnection: {
-      promise: Promise<undefined>;
-      resolve: () => void;
-    } = {
-      promise: Promise.resolve(undefined),
-      resolve: () => undefined,
-    };
-    deferredConnection.promise = new Promise<undefined>((resolve) => {
-      deferredConnection.resolve = () => resolve(undefined);
-    });
-    mockConnection.mockImplementation(() => deferredConnection.promise);
 
-    const pagePromise = ProductPage({
-      params: Promise.resolve({
-        slug: 'teststore',
-        productSlug: 'iphone-15',
-      }),
-      searchParams: Promise.resolve({}),
-    });
-    const settledSpy = vi.fn();
-    pagePromise.then(
-      () => settledSpy('fulfilled'),
-      () => settledSpy('rejected')
-    );
+    await expect(
+      ProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          productSlug: 'iphone-15',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    ).rejects.toThrow('NEXT_REDIRECT');
 
-    await Promise.resolve();
-    expect(mockConnection).toHaveBeenCalledTimes(1);
-    expect(settledSpy).not.toHaveBeenCalled();
-    expect(mockPermanentRedirect).not.toHaveBeenCalled();
-
-    deferredConnection.resolve();
-
-    await expect(pagePromise).rejects.toThrow('NEXT_REDIRECT');
     expect(mockPermanentRedirect).toHaveBeenCalledWith(
       '/teststore/phones/iphone-15'
     );
@@ -411,7 +382,6 @@ describe('products/[productSlug] page', () => {
       })
     ).rejects.toThrow('NEXT_REDIRECT');
 
-    expect(mockConnection).toHaveBeenCalledTimes(1);
     expect(mockGetCachedLegacyProductRedirectTarget).toHaveBeenCalledWith(
       'merchant-1',
       'iphone-13-pro-max-6gb-128gb'
@@ -457,7 +427,6 @@ describe('products/[productSlug] page', () => {
       })
     ).rejects.toThrow('NEXT_NOT_FOUND');
 
-    expect(mockConnection).toHaveBeenCalledTimes(1);
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
   });
 

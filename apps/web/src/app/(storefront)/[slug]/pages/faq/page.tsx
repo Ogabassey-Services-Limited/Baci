@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { StorefrontPageWrapper } from '@/app/(storefront)/[slug]/storefront-page-wrapper';
+import { Suspense } from 'react';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { generateFAQSchema } from '@/lib/seo-utils';
+import { getTemplate } from '@/templates/registry';
 import { type FAQItem, parseLegacyFAQ } from '@/types/faq';
 import { FAQPageClient } from './faq-page-client';
 
@@ -38,7 +39,59 @@ export async function generateMetadata({
   };
 }
 
-export default async function FAQPage({ params }: PageProps) {
+/** Streams JSON-LD separately while the visible page content loads. */
+export default function FAQPage({ params }: PageProps) {
+  return (
+    <>
+      <Suspense fallback={null}>
+        <FAQJsonLd params={params} />
+      </Suspense>
+      <Suspense
+        fallback={
+          <div className="container mx-auto px-4 py-12 flex items-center justify-center">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <span className="sr-only">Loading FAQ...</span>
+          </div>
+        }
+      >
+        <FAQContent params={params} />
+      </Suspense>
+    </>
+  );
+}
+
+/** Streams JSON-LD structured data independently of page content. */
+async function FAQJsonLd({ params }: PageProps) {
+  const { slug } = await params;
+  const merchant = await getMerchantByIdentifier(slug);
+
+  if (!merchant) return null;
+
+  let faqItems: FAQItem[] = [];
+  if (
+    merchant.faq_items &&
+    Array.isArray(merchant.faq_items) &&
+    merchant.faq_items.length > 0
+  ) {
+    faqItems = merchant.faq_items as FAQItem[];
+  } else if (merchant.pages?.faq) {
+    faqItems = parseLegacyFAQ(merchant.pages.faq);
+  }
+
+  if (faqItems.length === 0) return null;
+
+  const faqSchema = generateFAQSchema(faqItems);
+
+  return (
+    <script
+      type="application/ld+json"
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema is sanitized via safeJsonLdStringify
+      dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(faqSchema) }}
+    />
+  );
+}
+
+async function FAQContent({ params }: PageProps) {
   const { slug } = await params;
   const merchant = await getMerchantByIdentifier(slug);
 
@@ -46,48 +99,55 @@ export default async function FAQPage({ params }: PageProps) {
     notFound();
   }
 
-  // Get FAQ items - try structured data first, then parse legacy content
   let faqItems: FAQItem[] = [];
-
   if (
     merchant.faq_items &&
     Array.isArray(merchant.faq_items) &&
     merchant.faq_items.length > 0
   ) {
-    // Use structured FAQ items
     faqItems = merchant.faq_items as FAQItem[];
   } else if (merchant.pages?.faq) {
-    // Parse legacy FAQ content
     faqItems = parseLegacyFAQ(merchant.pages.faq);
   }
 
-  // If no FAQs available, show not found
   if (faqItems.length === 0) {
     notFound();
   }
 
-  // Generate JSON-LD structured data for FAQPage
-  const faqSchema = generateFAQSchema(faqItems);
+  // Resolve template component server-side for SEO (H1 in SSR HTML)
+  const templateId = merchant.template_id;
+  if (templateId && templateId !== 'default' && templateId !== 'puck') {
+    const template = getTemplate(templateId);
+    if (template) {
+      try {
+        const components = await template.getComponents();
+        if (components.Help) {
+          const HelpComponent = components.Help;
+          return (
+            <HelpComponent
+              // biome-ignore lint/suspicious/noExplicitAny: CachedMerchant is a superset of what template components need
+              merchant={merchant as any}
+              storeSlug={merchant.slug}
+              isPreview={false}
+            />
+          );
+        }
+      } catch (error) {
+        console.error(
+          'Failed to load Help component for template',
+          templateId,
+          ':',
+          error
+        );
+      }
+    }
+  }
 
   return (
-    <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(faqSchema) }}
-      />
-      <StorefrontPageWrapper
-        pageName="Help"
-        merchant={merchant}
-        fallback={
-          <FAQPageClient
-            merchant={merchant}
-            faqItems={faqItems}
-            legacyContent={
-              !merchant.faq_items ? merchant.pages?.faq : undefined
-            }
-          />
-        }
-      />
-    </>
+    <FAQPageClient
+      merchant={merchant}
+      faqItems={faqItems}
+      legacyContent={!merchant.faq_items ? merchant.pages?.faq : undefined}
+    />
   );
 }

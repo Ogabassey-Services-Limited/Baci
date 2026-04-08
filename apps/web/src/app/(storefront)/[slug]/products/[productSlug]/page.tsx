@@ -1,6 +1,5 @@
 import type { Metadata, ResolvingMetadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
-import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { ProductDetailSkeleton } from '@/components/ui/skeletons';
 import {
@@ -198,7 +197,6 @@ export async function generateMetadata(
 }
 
 export default async function ProductPage({ params }: PageProps) {
-  await connection();
   const { slug, productSlug } = await params;
   const productResult = await getProductCached(slug, productSlug);
   if (!productResult) {
