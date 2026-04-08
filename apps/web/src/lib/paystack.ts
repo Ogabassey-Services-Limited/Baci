@@ -95,6 +95,22 @@ const CustomerSchema = z.object({
   phone: z.string().nullable(),
 });
 
+const AuthorizationSchema = z.object({
+  authorization_code: z.string(),
+  card_type: z.string().nullable(),
+  last4: z.string().nullable(),
+  exp_month: z.string().nullable(),
+  exp_year: z.string().nullable(),
+  bin: z.string().nullable().optional(),
+  bank: z.string().nullable(),
+  channel: z.string().nullable(),
+  signature: z.string().nullable(),
+  reusable: z.boolean(),
+  country_code: z.string().nullable(),
+  brand: z.string().nullable().optional(),
+  account_name: z.string().nullable().optional(),
+});
+
 const PaymentVerificationSchema = z.object({
   id: z.number(),
   status: z.enum(PAYMENT_STATUSES),
@@ -106,6 +122,7 @@ const PaymentVerificationSchema = z.object({
   created_at: z.string(),
   customer: CustomerSchema,
   metadata: z.record(z.string(), z.unknown()).nullable(),
+  authorization: AuthorizationSchema.nullable().optional(),
   fees: z.number(),
   fees_split: z
     .object({
@@ -125,6 +142,25 @@ export type SubaccountResponse = z.infer<typeof SubaccountResponseSchema>;
 export type PaymentInitResponse = z.infer<typeof PaymentInitResponseSchema>;
 export type PaymentVerificationResponse = z.infer<
   typeof PaymentVerificationSchema
+>;
+export type PaystackAuthorization = z.infer<typeof AuthorizationSchema>;
+
+const ChargeAuthorizationResponseSchema = z.object({
+  amount: z.number(),
+  currency: z.string(),
+  status: z.string(),
+  reference: z.string(),
+  gateway_response: z.string().nullable(),
+  message: z.string().nullable(),
+  authorization_url: z.string().url().optional(),
+  access_code: z.string().optional(),
+  paused: z.boolean().optional(),
+  authorization: AuthorizationSchema.nullable().optional(),
+  customer: CustomerSchema.optional(),
+  id: z.number().optional(),
+});
+export type ChargeAuthorizationResponse = z.infer<
+  typeof ChargeAuthorizationResponseSchema
 >;
 
 export interface Subaccount {
@@ -150,6 +186,15 @@ export interface PaymentInitData {
   bearer?: 'account' | 'subaccount'; // Who bears the transaction charges
   channels?: PaymentChannel[];
   phone?: string; // Optional phone number for customer creation/updates
+}
+
+export interface ChargeAuthorizationData {
+  amount: number;
+  authorization_code: string;
+  callback_url?: string;
+  email: string;
+  metadata?: Record<string, unknown>;
+  reference?: string;
 }
 
 // =============================================================================
@@ -278,10 +323,10 @@ export async function resolveAccountNumber(
     };
   }
 
-  if (!/^\d{3}$/.test(bankCode)) {
+  if (!/^[A-Za-z0-9]{2,16}$/.test(bankCode.trim())) {
     return {
       success: false,
-      error: 'Bank code must be 3 digits',
+      error: 'Bank code is invalid',
       code: 'VALIDATION_ERROR',
     };
   }
@@ -449,6 +494,40 @@ export async function verifyTransaction(
   if (!parsed.success) {
     logger.warn({
       message: 'Payment verification response validation warning',
+      issues: parsed.error.issues,
+    });
+  }
+
+  return { success: true, data: result.data };
+}
+
+export async function chargeAuthorization(
+  payload: ChargeAuthorizationData
+): Promise<PaystackResult<ChargeAuthorizationResponse>> {
+  if (!payload.authorization_code || !payload.email || !payload.amount) {
+    return {
+      success: false,
+      error: 'Authorization code, email, and amount are required',
+      code: 'VALIDATION_ERROR',
+    };
+  }
+
+  const result = await paystackRequest<ChargeAuthorizationResponse>(
+    '/transaction/charge_authorization',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }
+  );
+
+  if (!result.success) {
+    return result;
+  }
+
+  const parsed = ChargeAuthorizationResponseSchema.safeParse(result.data);
+  if (!parsed.success) {
+    logger.warn({
+      message: 'Charge authorization response validation warning',
       issues: parsed.error.issues,
     });
   }

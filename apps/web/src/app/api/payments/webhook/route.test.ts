@@ -126,6 +126,20 @@ vi.mock('@/services/insurance', () => ({
   purchaseInsuranceForPaidOrder: vi.fn(),
 }));
 
+vi.mock('@/lib/customer-saved-payment-methods', () => ({
+  upsertPaystackAuthorization: vi.fn(),
+}));
+
+vi.mock('@/lib/vtu-fulfillment', () => ({
+  fulfillPendingVtuTransaction: vi.fn(() =>
+    Promise.resolve({
+      status: 'successful',
+      reference: 'VTU-123',
+      amount: 1000,
+    })
+  ),
+}));
+
 // Mock reference schema
 vi.mock('@/schemas/payments', () => ({
   referenceSchema: {
@@ -1682,6 +1696,75 @@ describe('GET /api/payments/webhook', () => {
 
       expect(response.status).toBe(200);
       expect(data.gateway).toBe('paystack');
+    });
+  });
+
+  describe('VTU fulfillment', () => {
+    it('fulfills paid VTU transactions from webhook metadata', async () => {
+      const { verifyTransaction } = await import('@/lib/paystack');
+      vi.mocked(verifyTransaction).mockResolvedValue({
+        success: true,
+        data: {
+          id: 1,
+          status: 'success',
+          amount: 100000,
+          reference: 'REF123',
+          currency: 'NGN',
+          channel: 'card',
+          paid_at: '2026-01-01T00:00:00Z',
+          created_at: '2026-01-01T00:00:00Z',
+          customer: {
+            id: 1,
+            email: 'customer@example.com',
+            customer_code: 'CUS_test',
+            first_name: null,
+            last_name: null,
+            phone: null,
+          },
+          metadata: null,
+          authorization: {
+            authorization_code: 'AUTH_123',
+            card_type: 'visa DEBIT',
+            last4: '1234',
+            exp_month: '08',
+            exp_year: '2030',
+            bank: 'Access Bank',
+            channel: 'card',
+            signature: 'SIG_123',
+            reusable: true,
+            country_code: 'NG',
+          },
+          fees: 150,
+          fees_split: null,
+        },
+      });
+
+      setupSuccessfulTransactionMocks({
+        metadata: {
+          transaction_type: 'vtu_purchase',
+          vtu_transaction_id: 'vtu-1',
+          customer_id: 'customer-1',
+          customer_email: 'customer@example.com',
+        },
+      });
+
+      const body = {
+        event: 'charge.success',
+        data: {
+          reference: 'REF123',
+        },
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-paystack-secret');
+      const request = createMockRequest(body, {
+        'x-paystack-signature': signature,
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toEqual({ message: 'VTU payment fulfilled' });
     });
   });
 });

@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { BRAND } from '@/constants/Colors';
+import { useTheme } from '@/hooks/useTheme';
 import { createLogger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 
@@ -18,6 +19,7 @@ const log = createLogger('AuthCallback');
  */
 export default function AuthCallback() {
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
+  const { colors } = useTheme();
 
   useEffect(() => {
     log.debug('AuthCallback route reached. returnTo:', returnTo);
@@ -50,7 +52,7 @@ export default function AuthCallback() {
   }, [returnTo]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ActivityIndicator size="large" color={BRAND.primary} />
     </View>
   );
@@ -61,6 +63,5 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
   },
 });

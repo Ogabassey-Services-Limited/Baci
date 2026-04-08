@@ -73,7 +73,7 @@ afterAll(() => {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockGetUser.mockResolvedValue({ error: null });
+  mockGetUser.mockResolvedValue({ data: { user: { id: 'auth-user-1' } }, error: null });
   mockGetSession.mockResolvedValue({
     data: { session: { access_token: 'token-123' } },
   });
@@ -156,6 +156,34 @@ describe('useVTUPurchase', () => {
     });
 
     expect(mockScheduleLocalNotification).not.toHaveBeenCalled();
+
+    unmount();
+    queryClient.clear();
+  });
+
+  it('throws when no authenticated user is present', async () => {
+    const queryClient = createTestClient();
+    mockGetUser.mockResolvedValue({
+      data: { user: null },
+      error: null,
+    });
+
+    const { result, unmount } = renderHook(() => useVTUPurchase(), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync({
+          type: 'airtime',
+          amount: 1000,
+          phoneNumber: '08012345678',
+          networkProvider: 'mtn',
+        })
+      ).rejects.toThrow('Authentication required. Please sign in again.');
+    });
+
+    expect(mockFetchWithTimeout).not.toHaveBeenCalled();
 
     unmount();
     queryClient.clear();

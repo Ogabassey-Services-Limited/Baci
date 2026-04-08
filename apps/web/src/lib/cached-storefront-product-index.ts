@@ -23,7 +23,7 @@ export async function getCachedStorefrontProductIndex(
   merchantId: string,
   options: StorefrontProductIndexOptions
 ): Promise<StorefrontProductIndexResult> {
-  'use cache';
+  'use cache: remote';
 
   const page = Number.isInteger(options.page) ? options.page : Number.NaN;
   const limit = Number.isInteger(options.limit) ? options.limit : Number.NaN;

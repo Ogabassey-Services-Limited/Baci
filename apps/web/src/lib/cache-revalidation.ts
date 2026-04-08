@@ -36,6 +36,15 @@ export function revalidateProducts(merchantId: string, productSlug?: string) {
   revalidateTag('product-details', 'products');
   revalidateTag('category-page-data', 'storefront-page');
 
+  // Invalidate storefront product index (paginated listing)
+  revalidateTag(`product-index-${merchantId}`, 'products');
+
+  // Invalidate legacy product redirect cache
+  revalidateTag('product-legacy-redirect', 'products');
+
+  // Invalidate merchant feed (OpenAI, Google Merchant)
+  revalidateMerchantFeed(merchantId);
+
   // Dashboard stats may change (revenue, inventory counts)
   revalidateTag(`dashboard-${merchantId}`, 'merchant');
 }
@@ -49,6 +58,7 @@ export function revalidateCategories(
   categorySlug?: string
 ) {
   revalidateTag(`categories-${merchantId}`, 'categories');
+  revalidateTag('navigation-categories', 'categories');
   revalidateTag('category-page-data', 'storefront-page');
 
   if (categorySlug) {

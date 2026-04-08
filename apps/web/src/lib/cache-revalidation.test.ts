@@ -51,10 +51,22 @@ describe('cache-revalidation utilities', () => {
         'storefront-page'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `product-index-${MERCHANT_ID}`,
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'product-legacy-redirect',
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `merchant-feed-${MERCHANT_ID}`,
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
         `dashboard-${MERCHANT_ID}`,
         'merchant'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(4);
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(7);
     });
 
     it('revalidates specific product when slug provided', () => {
@@ -79,10 +91,22 @@ describe('cache-revalidation utilities', () => {
         'storefront-page'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `product-index-${MERCHANT_ID}`,
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'product-legacy-redirect',
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `merchant-feed-${MERCHANT_ID}`,
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
         `dashboard-${MERCHANT_ID}`,
         'merchant'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(5);
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(8);
     });
 
     it('handles empty slug gracefully', () => {
@@ -93,7 +117,7 @@ describe('cache-revalidation utilities', () => {
         `products-${MERCHANT_ID}`,
         'products'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(4);
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(7);
     });
   });
 
@@ -106,10 +130,14 @@ describe('cache-revalidation utilities', () => {
         'categories'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'navigation-categories',
+        'categories'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
         'category-page-data',
         'storefront-page'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(2);
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(3);
     });
 
     it('revalidates specific category when slug provided', () => {
@@ -122,6 +150,10 @@ describe('cache-revalidation utilities', () => {
         'categories'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'navigation-categories',
+        'categories'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
         `category-${MERCHANT_ID}-${categorySlug}`,
         'categories'
       );
@@ -129,7 +161,7 @@ describe('cache-revalidation utilities', () => {
         'category-page-data',
         'storefront-page'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(3);
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(4);
     });
 
     it('handles empty slug gracefully', () => {
@@ -139,7 +171,7 @@ describe('cache-revalidation utilities', () => {
         `categories-${MERCHANT_ID}`,
         'categories'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(2);
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(3);
     });
   });
 
@@ -509,7 +541,7 @@ describe('cache-revalidation utilities', () => {
         }
       }).not.toThrow();
 
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(400); // 4 calls per invocation * 100
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(700); // 7 calls per invocation * 100
     });
 
     it('handles null/undefined merchant IDs gracefully', () => {
