@@ -122,9 +122,9 @@ export function RichTextEditor({
             onClick={() => editor.chain().focus().undo().run()}
             disabled={!editor.can().undo()}
             className="h-8 w-8 p-0"
+            aria-label="Undo"
           >
             <Undo className="h-4 w-4" />
-            <span className="sr-only">Undo</span>
           </Button>
           <Button
             variant="ghost"
@@ -132,9 +132,9 @@ export function RichTextEditor({
             onClick={() => editor.chain().focus().redo().run()}
             disabled={!editor.can().redo()}
             className="h-8 w-8 p-0"
+            aria-label="Redo"
           >
             <Redo className="h-4 w-4" />
-            <span className="sr-only">Redo</span>
           </Button>
         </div>
       </div>
