@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,10 +13,21 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, SPACING } from '@/constants/Colors';
+import { useKeyboard } from '@/hooks/use-keyboard';
+import { useUtilityPayment } from '@/hooks/use-utility-payment';
 import { useVTUBillers } from '@/hooks/use-vtu-billers';
-import { useVTUPurchase } from '@/hooks/use-vtu-purchase';
 import { detectNetwork } from '@/lib/network-utils';
+import {
+  chargeSavedVtuCard,
+  initializeVtuCheckout,
+  isSavedVtuCardChargeProcessing,
+  requiresSavedVtuCardAuthorization,
+  waitForVtuConfirmation,
+} from '@/lib/vtu-checkout';
+import { useAuthStore } from '@/stores/auth-store';
+import { getUtilityFooterOffset } from './get-utility-footer-offset';
 import { ProviderGrid } from './ProviderGrid';
+import { UtilityPaymentOptions } from './UtilityPaymentOptions';
 
 /** Height reserved for the absolutely-positioned payment footer */
 const FOOTER_HEIGHT = 120;
@@ -33,7 +45,9 @@ export function DataForm({ onSuccess }: DataFormProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
-  const purchase = useVTUPurchase();
+  const { isKeyboardVisible, keyboardHeight } = useKeyboard();
+  const customer = useAuthStore((state) => state.customer);
+  const payment = useUtilityPayment();
   const { data: dataPlans, isLoading: plansLoading } = useVTUBillers('data');
 
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
@@ -44,10 +58,15 @@ export function DataForm({ onSuccess }: DataFormProps) {
   const footerSpacerHeight =
     FOOTER_HEIGHT +
     Math.max(insets.bottom - 26, 0) +
-    (purchase.error ? FOOTER_ERROR_BUFFER : 0);
+    FOOTER_ERROR_BUFFER;
+  const footerBottomOffset = getUtilityFooterOffset({
+    bottomInset: insets.bottom,
+    isKeyboardVisible,
+    keyboardHeight,
+  });
 
   // Bug #H18: Guard against double-tap with isSubmitting state (same pattern as AirtimeForm)
-  const isBusy = isSubmitting || purchase.isPending;
+  const isBusy = isSubmitting;
 
   const handlePhoneChange = (text: string) => {
     const digits = text.replace(/\D/g, '');
@@ -75,29 +94,104 @@ export function DataForm({ onSuccess }: DataFormProps) {
       );
       return;
     }
+    if (!payment.selectedSavedCardId && !payment.selectedGateway) {
+      Alert.alert(
+        'Select Payment Method',
+        'Choose a payment method before continuing.'
+      );
+      return;
+    }
 
     setIsSubmitting(true);
     try {
-      const result = await purchase.mutateAsync({
-        type: 'data',
-        phoneNumber,
+      const customerName =
+        [customer?.first_name, customer?.last_name].filter(Boolean).join(' ') ||
+        customer?.email;
+
+      if (payment.selectedSavedCardId) {
+        const result = await chargeSavedVtuCard({
+          amount: planAmount,
+          customerName,
+          customerPhone: customer?.phone,
+          dataPlanCode: selectedPlan,
+          networkProvider: selectedProvider,
+          phoneNumber,
+          savedPaymentMethodId: payment.selectedSavedCardId,
+          type: 'data',
+        });
+
+        if (requiresSavedVtuCardAuthorization(result)) {
+          router.push({
+            pathname: '/payment-gateway',
+            params: {
+              amount: String(planAmount),
+              authorizationUrl: result.authorization_url,
+              customerIdentifier: phoneNumber,
+              gateway: result.gateway,
+              paymentKind: 'vtu',
+              reference: result.reference,
+              utilityType: 'data',
+            },
+          });
+          return;
+        }
+
+        if (isSavedVtuCardChargeProcessing(result)) {
+          const confirmed = await waitForVtuConfirmation({
+            gateway: 'paystack',
+            reference: result.reference,
+          });
+          onSuccess({
+            amount: confirmed.amount ?? planAmount,
+            cashback: confirmed.cashback
+              ? {
+                  amount: confirmed.cashback.amount,
+                  newBalance: confirmed.cashback.newBalance,
+                }
+              : undefined,
+            reference: confirmed.reference,
+          });
+          return;
+        }
+
+        onSuccess({
+          amount: result.amount,
+          cashback: result.cashback
+            ? {
+                amount: result.cashback.amount,
+                newBalance: result.cashback.newBalance,
+              }
+            : undefined,
+          reference: result.reference,
+        });
+        return;
+      }
+
+      const result = await initializeVtuCheckout({
         amount: planAmount,
-        networkProvider: selectedProvider,
+        customerName,
+        customerPhone: customer?.phone,
         dataPlanCode: selectedPlan,
+        gateway: payment.selectedGateway,
+        networkProvider: selectedProvider,
+        phoneNumber,
+        type: 'data',
       });
-      onSuccess({
-        reference: result.reference,
-        amount: result.amount,
-        cashback: result.cashback
-          ? {
-              amount: result.cashback.amount,
-              newBalance: result.cashback.newBalance,
-            }
-          : undefined,
+      router.push({
+        pathname: '/payment-gateway',
+        params: {
+          amount: String(planAmount),
+          authorizationUrl: result.authorization_url,
+          customerIdentifier: phoneNumber,
+          gateway: result.gateway,
+          paymentKind: 'vtu',
+          reference: result.reference,
+          utilityType: 'data',
+        },
       });
     } catch (error) {
       Alert.alert(
-        'Purchase Failed',
+        'Payment Failed',
         error instanceof Error ? error.message : 'Something went wrong.'
       );
     } finally {
@@ -113,6 +207,8 @@ export function DataForm({ onSuccess }: DataFormProps) {
           styles.content,
           { paddingBottom: footerSpacerHeight },
         ]}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
           Select Provider
@@ -213,6 +309,17 @@ export function DataForm({ onSuccess }: DataFormProps) {
             onChangeText={(t) => setPlanAmount(Number(t.replace(/\D/g, '')))}
           />
         </View>
+
+        <UtilityPaymentOptions
+          amount={planAmount}
+          cards={payment.cards}
+          isLoadingCards={payment.isLoadingCards}
+          onSelectGateway={payment.selectGateway}
+          onSelectSavedCard={payment.selectSavedCard}
+          selectedGateway={payment.selectedGateway}
+          selectedSavedCardId={payment.selectedSavedCardId}
+          supportedGateways={payment.supportedGateways}
+        />
       </ScrollView>
 
       <View
@@ -221,18 +328,14 @@ export function DataForm({ onSuccess }: DataFormProps) {
           {
             borderTopColor: colors.border,
             backgroundColor: colors.muted,
-            marginBottom: -Math.max(insets.bottom - 4, 0),
-            paddingBottom: Math.max(insets.bottom - 26, 0),
+            bottom: footerBottomOffset,
+            marginBottom: isKeyboardVisible ? 0 : -Math.max(insets.bottom - 4, 0),
+            paddingBottom: isKeyboardVisible
+              ? SPACING.sm
+              : Math.max(insets.bottom - 26, 0),
           },
         ]}
       >
-        {purchase.error && (
-          <Text style={styles.errorText}>
-            {purchase.error instanceof Error
-              ? purchase.error.message
-              : 'Purchase failed'}
-          </Text>
-        )}
         <Pressable
           style={[
             styles.payButton,
@@ -248,7 +351,9 @@ export function DataForm({ onSuccess }: DataFormProps) {
             <ActivityIndicator color="#FFF" />
           ) : (
             <Text style={styles.payButtonText}>
-              Pay ₦{planAmount ? planAmount.toLocaleString() : '0'}
+              {payment.selectedSavedCardId
+                ? `Pay ₦${planAmount ? planAmount.toLocaleString() : '0'}`
+                : 'Continue to Payment'}
             </Text>
           )}
         </Pressable>
@@ -291,10 +396,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   payButtonText: { color: '#FFF', fontSize: 16, fontWeight: '600' },
-  errorText: {
-    fontSize: 13,
-    color: '#DC2626',
-    textAlign: 'center' as const,
-    marginBottom: 12,
-  },
 });

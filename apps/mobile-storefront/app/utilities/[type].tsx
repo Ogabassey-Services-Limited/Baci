@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { type Href, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -48,6 +48,7 @@ const TYPE_TITLES: Record<ValidType, string> = {
 function UtilityHeader({
   title,
   onBack,
+  onHistory,
   color,
   borderColor,
   topInset,
@@ -55,6 +56,7 @@ function UtilityHeader({
 }: {
   title: string;
   onBack: () => void;
+  onHistory?: () => void;
   color: string;
   borderColor: string;
   topInset: number;
@@ -90,13 +92,33 @@ function UtilityHeader({
         </Text>
       </View>
 
-      <View style={styles.headerSide} />
+      <View style={[styles.headerSide, styles.headerSideRight]}>
+        {onHistory ? (
+          <Pressable
+            style={[styles.headerActionButton, { borderColor }]}
+            onPress={onHistory}
+            accessibilityRole="button"
+            accessibilityLabel="View utility history"
+          >
+            <Text style={[styles.headerActionText, { color }]}>History</Text>
+          </Pressable>
+        ) : null}
+      </View>
     </View>
   );
 }
 
 export default function UtilityPurchaseScreen() {
-  const { type } = useLocalSearchParams<{ type: string }>();
+  const params = useLocalSearchParams<{
+    type: string;
+    paymentStatus?: string;
+    reference?: string;
+    amount?: string;
+    customerIdentifier?: string;
+    cashbackAmount?: string;
+    cashbackNewBalance?: string;
+  }>();
+  const { type } = params;
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -157,7 +179,24 @@ export default function UtilityPurchaseScreen() {
     setSuccessData(data);
   };
 
-  if (successData) {
+  const paramSuccessData =
+    params.paymentStatus === 'successful' && params.reference
+      ? {
+          amount: Number(params.amount ?? 0),
+          cashback:
+            params.cashbackAmount && params.cashbackNewBalance
+              ? {
+                  amount: Number(params.cashbackAmount),
+                  newBalance: Number(params.cashbackNewBalance),
+                }
+              : undefined,
+          customerIdentifier: params.customerIdentifier,
+          reference: params.reference,
+        }
+      : null;
+  const resolvedSuccessData = successData ?? paramSuccessData;
+
+  if (resolvedSuccessData) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <Stack.Screen options={{ headerShown: false }} />
@@ -172,9 +211,9 @@ export default function UtilityPurchaseScreen() {
         >
           <PurchaseSuccess
             type={validType}
-            customerIdentifier={successData.customerIdentifier}
-            txReference={successData.reference}
-            cashback={successData.cashback ?? null}
+            customerIdentifier={resolvedSuccessData.customerIdentifier}
+            txReference={resolvedSuccessData.reference}
+            cashback={resolvedSuccessData.cashback ?? null}
             isAuthenticated={isAuthenticated}
             onCreateAccount={() => router.push('/auth/login')}
           />
@@ -189,6 +228,9 @@ export default function UtilityPurchaseScreen() {
       <UtilityHeader
         title={title}
         onBack={handleGoBack}
+        onHistory={() =>
+          router.push(`/utilities/history?type=${validType}` as Href)
+        }
         color={colors.text}
         borderColor={colors.border}
         topInset={insets.top}
@@ -196,6 +238,7 @@ export default function UtilityPurchaseScreen() {
       />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={headerOffset}
         style={[styles.flex, { paddingTop: headerOffset }]}
       >
         {validType === 'airtime' && <AirtimeForm onSuccess={handleSuccess} />}
@@ -238,6 +281,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  headerSideRight: {
+    justifyContent: 'flex-end',
+  },
   headerTitleWrap: {
     flex: 1,
     alignItems: 'center',
@@ -247,6 +293,18 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
     textAlign: 'center',
+  },
+  headerActionButton: {
+    minHeight: 34,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerActionText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   errorContainer: {
     flex: 1,

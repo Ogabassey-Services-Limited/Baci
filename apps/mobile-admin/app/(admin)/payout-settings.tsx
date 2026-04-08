@@ -22,17 +22,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
+import { usePayoutAccountVerification } from '@/hooks/usePayoutAccountVerification';
 import { usePayouts } from '@/hooks/usePayouts';
+import { type PaystackBank, usePaystackBanks } from '@/hooks/usePaystackBanks';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-
-interface Bank {
-  id: number;
-  name: string;
-  slug: string;
-  code: string;
-  active: boolean;
-}
 
 interface MerchantBankSettings {
   business_name: string | null;
@@ -44,31 +38,16 @@ interface MerchantBankSettings {
 export default function PayoutSettingsScreen() {
   const { colors, shadows } = useTheme();
   const { user, session } = useAuth();
-  const { resolveAccount, savePayoutSettings } = usePayouts();
+  const { savePayoutSettings } = usePayouts();
   const router = useRouter();
 
   const [accountnumber, setAccountNumber] = useState('');
-  const [selectedBank, setSelectedBank] = useState<Bank | null>(null);
+  const [selectedBank, setSelectedBank] = useState<PaystackBank | null>(null);
   const [showBankModal, setShowBankModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [verifiedName, setVerifiedName] = useState<string | null>(null);
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [verifyError, setVerifyError] = useState<string | null>(null);
 
-  // Fetch banks from Paystack (Public Endpoint)
-  const { data: banks, isLoading: isLoadingBanks } = useQuery({
-    queryKey: ['paystack-banks'],
-    queryFn: async () => {
-      const response = await fetch(
-        'https://api.paystack.co/bank?country=nigeria'
-      );
-      const json = await response.json();
-      if (json.status && json.data) {
-        return json.data as Bank[];
-      }
-      throw new Error('Failed to fetch banks');
-    },
-  });
+  // Banks from backend (canonical source, deduplicated)
+  const { data: banks, isLoading: isLoadingBanks } = usePaystackBanks();
 
   // Fetch current merchant settings
   const { data: merchant, isLoading: isLoadingMerchant } = useQuery({
@@ -85,60 +64,15 @@ export default function PayoutSettingsScreen() {
     enabled: !!user?.id,
   });
 
-  useEffect(() => {
-    const verifyAccount = async () => {
-      if (!accountnumber || accountnumber.length !== 10) {
-        setVerifiedName(null);
-        return;
-      }
+  // Account verification — fires once per settled (accountnumber, bank) pair
+  const { accountName, isVerifying, verifyError } =
+    usePayoutAccountVerification({
+      accountNumber: accountnumber,
+      bankCode: selectedBank?.code ?? '',
+      isAuthenticated: !!session?.access_token,
+    });
 
-      if (!selectedBank) return;
-
-      setIsVerifying(true);
-      setVerifyError(null);
-
-      if (!session?.access_token) {
-        setVerifyError('Authentication error');
-        setIsVerifying(false);
-        return;
-      }
-
-      resolveAccount.mutate(
-        {
-          account_number: accountnumber,
-          bank_code: selectedBank.code,
-        },
-        {
-          onSuccess: (data) => {
-            setVerifiedName(data.account_name);
-            setVerifyError(null);
-          },
-          onError: (error) => {
-            console.error('Resolution error:', error);
-            // Fallback for test account - Restricted to DEV
-            if (__DEV__ && accountnumber === '0000000000') {
-              setVerifiedName('Test Account');
-              setVerifyError(null);
-              return;
-            }
-
-            setVerifyError(
-              (error as Error).message || 'Network error checking account'
-            );
-            setVerifiedName(null);
-          },
-          onSettled: () => {
-            setIsVerifying(false);
-          },
-        }
-      );
-    };
-
-    const timeout = setTimeout(verifyAccount, 500); // Debounce
-    return () => clearTimeout(timeout);
-  }, [accountnumber, selectedBank, resolveAccount, session]);
-
-  // Initialize state
+  // Initialize state from saved merchant settings
   useEffect(() => {
     if (merchant) {
       setAccountNumber(merchant.bank_account_number || '');
@@ -146,17 +80,19 @@ export default function PayoutSettingsScreen() {
         const bank = banks.find((b) => b.code === merchant.bank_code);
         if (bank) setSelectedBank(bank);
         else if (merchant.bank_name) {
-          // Fallback if code not found but name exists
           setSelectedBank({
+            id: 0,
             name: merchant.bank_name,
+            slug: '',
             code: merchant.bank_code,
-          } as Bank);
+            active: true,
+          });
         }
       }
     }
   }, [merchant, banks]);
 
-  // Filter banks
+  // Filter banks for the picker modal
   const filteredBanks =
     banks?.filter((bank) =>
       bank.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -175,7 +111,8 @@ export default function PayoutSettingsScreen() {
       Alert.alert('Error', `Cannot save: ${verifyError}`);
       return;
     }
-    if (!verifiedName && !isVerifying) {
+    // Block save when no verified name OR verification is still in progress
+    if (!accountName || isVerifying) {
       Alert.alert('Error', 'Please wait for account verification');
       return;
     }
@@ -215,11 +152,7 @@ export default function PayoutSettingsScreen() {
           title: 'Payout Settings',
           headerLeft: () => (
             <Pressable onPress={() => router.back()} style={styles.backButton}>
-              <Ionicons
-                name="arrow-back"
-                size={24}
-                color={colors.text}
-              />
+              <Ionicons name="arrow-back" size={24} color={colors.text} />
             </Pressable>
           ),
           headerStyle: {
@@ -313,9 +246,7 @@ export default function PayoutSettingsScreen() {
                 ]}
                 value={accountnumber}
                 onChangeText={(text) => {
-                  const cleaned = text.replace(/[^0-9]/g, '');
-                  setAccountNumber(cleaned);
-                  if (cleaned.length !== 10) setVerifiedName(null);
+                  setAccountNumber(text.replace(/[^0-9]/g, ''));
                 }}
                 placeholder="0123456789"
                 placeholderTextColor={colors.textMuted}
@@ -338,7 +269,7 @@ export default function PayoutSettingsScreen() {
                 </View>
               )}
 
-              {verifiedName ? (
+              {accountName ? (
                 <View
                   style={[
                     styles.verificationContainer,
@@ -354,7 +285,7 @@ export default function PayoutSettingsScreen() {
                   <Text
                     style={[styles.verificationText, { color: colors.success }]}
                   >
-                    {verifiedName}
+                    {accountName}
                   </Text>
                 </View>
               ) : null}
@@ -377,10 +308,7 @@ export default function PayoutSettingsScreen() {
           </View>
 
           <View
-            style={[
-              styles.noteCard,
-              { backgroundColor: colors.infoLight },
-            ]}
+            style={[styles.noteCard, { backgroundColor: colors.infoLight }]}
           >
             <Ionicons name="information-circle" size={20} color={colors.info} />
             <Text style={[styles.noteText, { color: colors.info }]}>
@@ -587,7 +515,7 @@ const styles = StyleSheet.create({
     gap: SPACING.xs,
   },
   successContainer: {
-    backgroundColor: undefined, // this will be provided inline to access colors.successLight
+    backgroundColor: undefined, // provided inline to access colors.successLight
     padding: SPACING.xs,
     borderRadius: RADIUS.sm,
     alignSelf: 'flex-start',

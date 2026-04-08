@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
+import { upsertPaystackAuthorization } from '@/lib/customer-saved-payment-methods';
 import { triggerDomainEdgeConfigSync } from '@/lib/edge-config-sync';
 import {
   generateOrderConfirmationEmail,
@@ -19,6 +20,7 @@ import { isValidUuid } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { triggerPurchaseConversion } from '@/lib/trigger-purchase-conversion';
+import { fulfillPendingVtuTransaction } from '@/lib/vtu-fulfillment';
 import { sendEmail } from '@/lib/zeptomail';
 import { referenceSchema } from '@/schemas/payments';
 import { purchaseInsuranceForPaidOrder } from '@/services/insurance';
@@ -804,6 +806,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const metadata = transaction.metadata as Record<string, unknown>;
+
     if (verifiedAmount) {
       const transactionAmount = Number(transaction.amount) || 0;
       const expectedCurrency =
@@ -872,15 +876,85 @@ export async function POST(request: NextRequest) {
     }
 
     if (!updatedTxn) {
+      if (
+        metadata?.transaction_type === 'vtu_purchase' &&
+        typeof metadata.vtu_transaction_id === 'string'
+      ) {
+        const fulfillment = await fulfillPendingVtuTransaction({
+          supabase,
+          transactionId: metadata.vtu_transaction_id,
+        });
+
+        return NextResponse.json({
+          message:
+            fulfillment.status === 'successful'
+              ? 'VTU fulfillment already completed'
+              : 'VTU fulfillment already in progress',
+        });
+      }
+
       logger.info({ message: 'Transaction already processed', reference });
       return NextResponse.json({ message: 'Already processed' });
+    }
+
+    if (
+      gateway === 'paystack' &&
+      typeof metadata?.customer_id === 'string' &&
+      typeof metadata?.customer_email === 'string' &&
+      typeof gatewayResponse.authorization === 'object' &&
+      gatewayResponse.authorization
+    ) {
+      try {
+        await upsertPaystackAuthorization({
+          supabase,
+          merchantId: transaction.merchant_id,
+          customerId: metadata.customer_id,
+          customerEmail: metadata.customer_email,
+          authorization: gatewayResponse.authorization as Parameters<
+            typeof upsertPaystackAuthorization
+          >[0]['authorization'],
+        });
+      } catch (authorizationError) {
+        logger.warn({
+          message: 'Failed to persist reusable Paystack authorization',
+          error:
+            authorizationError instanceof Error
+              ? authorizationError.message
+              : String(authorizationError),
+          reference,
+        });
+      }
+    }
+
+    if (
+      metadata?.transaction_type === 'vtu_purchase' &&
+      typeof metadata.vtu_transaction_id === 'string'
+    ) {
+      const fulfillment = await fulfillPendingVtuTransaction({
+        supabase,
+        transactionId: metadata.vtu_transaction_id,
+      });
+
+      if (fulfillment.status !== 'successful') {
+        console.error('VTU fulfillment failed after payment', {
+          transactionId: metadata.vtu_transaction_id,
+          status: fulfillment.status,
+          reference: fulfillment.reference,
+        });
+      }
+
+      return NextResponse.json({
+        message:
+          fulfillment.status === 'successful'
+            ? 'VTU payment fulfilled'
+            : 'VTU fulfillment failed — requires manual review',
+      });
     }
 
     // ============================================
     // DOMAIN PURCHASE FULFILLMENT
     // ============================================
     // Check metadata for valid domain purchase
-    const metadata = transaction.metadata as Record<string, unknown>;
     if (
       metadata?.transaction_type === 'domain_purchase' &&
       typeof metadata.domain === 'string'

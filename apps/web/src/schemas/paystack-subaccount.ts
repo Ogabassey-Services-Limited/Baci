@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { paystackBankCodeSchema } from './paystack-bank-code';
 
 const payoutModeSchema = z.enum(['manual', 'instant', 'weekly']);
 
@@ -28,7 +29,7 @@ export const paystackSubaccountSchema = z
       account_number: z
         .string()
         .regex(/^\d{10}$/, 'Account number must be 10 digits'),
-      bank_code: z.string().regex(/^\d{3}$/, 'Bank code must be 3 digits'),
+      bank_code: paystackBankCodeSchema,
       business_name: z
         .string()
         .trim()

@@ -16,6 +16,16 @@ export default function UtilitiesLayout() {
       }}
     >
       <Stack.Screen name="[type]" />
+      <Stack.Screen
+        name="history"
+        options={{
+          headerShown: true,
+          title: 'Utility History',
+          contentStyle: {
+            backgroundColor: colors.background,
+          },
+        }}
+      />
     </Stack>
   );
 }

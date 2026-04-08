@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,9 +13,20 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, SPACING } from '@/constants/Colors';
-import { useVTUPurchase } from '@/hooks/use-vtu-purchase';
+import { useKeyboard } from '@/hooks/use-keyboard';
+import { useUtilityPayment } from '@/hooks/use-utility-payment';
 import { detectNetwork } from '@/lib/network-utils';
+import {
+  chargeSavedVtuCard,
+  initializeVtuCheckout,
+  isSavedVtuCardChargeProcessing,
+  requiresSavedVtuCardAuthorization,
+  waitForVtuConfirmation,
+} from '@/lib/vtu-checkout';
+import { useAuthStore } from '@/stores/auth-store';
+import { getUtilityFooterOffset } from './get-utility-footer-offset';
 import { ProviderGrid } from './ProviderGrid';
+import { UtilityPaymentOptions } from './UtilityPaymentOptions';
 
 const QUICK_AMOUNTS = [100, 200, 500, 1000, 2000, 5000];
 
@@ -34,7 +46,9 @@ export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
-  const purchase = useVTUPurchase();
+  const { isKeyboardVisible, keyboardHeight } = useKeyboard();
+  const customer = useAuthStore((state) => state.customer);
+  const payment = useUtilityPayment();
 
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -52,10 +66,15 @@ export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
   const footerSpacerHeight =
     FOOTER_HEIGHT +
     Math.max(insets.bottom - 26, 0) +
-    (purchase.error ? FOOTER_ERROR_BUFFER : 0);
+    FOOTER_ERROR_BUFFER;
+  const footerBottomOffset = getUtilityFooterOffset({
+    bottomInset: insets.bottom,
+    isKeyboardVisible,
+    keyboardHeight,
+  });
 
   // Bug #61: Guard against double-tap with isSubmitting state
-  const isBusy = isSubmitting || purchase.isPending;
+  const isBusy = isSubmitting;
 
   const handlePurchase = async () => {
     if (isBusy) return;
@@ -67,28 +86,102 @@ export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
       Alert.alert('Invalid Amount', 'Amount must be between ₦50 and ₦50,000.');
       return;
     }
+    if (!payment.selectedSavedCardId && !payment.selectedGateway) {
+      Alert.alert(
+        'Select Payment Method',
+        'Choose a payment method before continuing.'
+      );
+      return;
+    }
 
     setIsSubmitting(true);
     try {
-      const result = await purchase.mutateAsync({
+      const customerName =
+        [customer?.first_name, customer?.last_name].filter(Boolean).join(' ') ||
+        customer?.email;
+
+      if (payment.selectedSavedCardId) {
+        const result = await chargeSavedVtuCard({
+          amount: numericAmount,
+          customerName,
+          customerPhone: customer?.phone,
+          networkProvider: selectedProvider,
+          phoneNumber,
+          savedPaymentMethodId: payment.selectedSavedCardId,
+          type: 'airtime',
+        });
+
+        if (requiresSavedVtuCardAuthorization(result)) {
+          router.push({
+            pathname: '/payment-gateway',
+            params: {
+              amount: String(numericAmount),
+              authorizationUrl: result.authorization_url,
+              customerIdentifier: phoneNumber,
+              gateway: result.gateway,
+              paymentKind: 'vtu',
+              reference: result.reference,
+              utilityType: 'airtime',
+            },
+          });
+          return;
+        }
+
+        if (isSavedVtuCardChargeProcessing(result)) {
+          const confirmed = await waitForVtuConfirmation({
+            gateway: 'paystack',
+            reference: result.reference,
+          });
+          onSuccess({
+            amount: confirmed.amount ?? numericAmount,
+            cashback: confirmed.cashback
+              ? {
+                  amount: confirmed.cashback.amount,
+                  newBalance: confirmed.cashback.newBalance,
+                }
+              : undefined,
+            reference: confirmed.reference,
+          });
+          return;
+        }
+
+        onSuccess({
+          amount: result.amount,
+          cashback: result.cashback
+            ? {
+                amount: result.cashback.amount,
+                newBalance: result.cashback.newBalance,
+              }
+            : undefined,
+          reference: result.reference,
+        });
+        return;
+      }
+
+      const result = await initializeVtuCheckout({
         type: 'airtime',
-        phoneNumber,
         amount: numericAmount,
+        customerName,
+        customerPhone: customer?.phone,
+        gateway: payment.selectedGateway,
         networkProvider: selectedProvider,
+        phoneNumber,
       });
-      onSuccess({
-        reference: result.reference,
-        amount: result.amount,
-        cashback: result.cashback
-          ? {
-              amount: result.cashback.amount,
-              newBalance: result.cashback.newBalance,
-            }
-          : undefined,
+      router.push({
+        pathname: '/payment-gateway',
+        params: {
+          amount: String(numericAmount),
+          authorizationUrl: result.authorization_url,
+          customerIdentifier: phoneNumber,
+          gateway: result.gateway,
+          paymentKind: 'vtu',
+          reference: result.reference,
+          utilityType: 'airtime',
+        },
       });
     } catch (error) {
       Alert.alert(
-        'Purchase Failed',
+        'Payment Failed',
         error instanceof Error ? error.message : 'Something went wrong.'
       );
     } finally {
@@ -104,6 +197,8 @@ export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
           styles.content,
           { paddingBottom: footerSpacerHeight },
         ]}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
           Select Provider
@@ -173,6 +268,17 @@ export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
             ))}
           </View>
         </View>
+
+        <UtilityPaymentOptions
+          amount={numericAmount}
+          cards={payment.cards}
+          isLoadingCards={payment.isLoadingCards}
+          onSelectGateway={payment.selectGateway}
+          onSelectSavedCard={payment.selectSavedCard}
+          selectedGateway={payment.selectedGateway}
+          selectedSavedCardId={payment.selectedSavedCardId}
+          supportedGateways={payment.supportedGateways}
+        />
       </ScrollView>
 
       <View
@@ -181,18 +287,14 @@ export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
           {
             borderTopColor: colors.border,
             backgroundColor: colors.muted,
-            marginBottom: -Math.max(insets.bottom - 4, 0),
-            paddingBottom: Math.max(insets.bottom - 26, 0),
+            bottom: footerBottomOffset,
+            marginBottom: isKeyboardVisible ? 0 : -Math.max(insets.bottom - 4, 0),
+            paddingBottom: isKeyboardVisible
+              ? SPACING.sm
+              : Math.max(insets.bottom - 26, 0),
           },
         ]}
       >
-        {purchase.error && (
-          <Text style={styles.errorText}>
-            {purchase.error instanceof Error
-              ? purchase.error.message
-              : 'Purchase failed'}
-          </Text>
-        )}
         <Pressable
           style={[
             styles.payButton,
@@ -208,7 +310,9 @@ export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
             <ActivityIndicator color="#FFF" />
           ) : (
             <Text style={styles.payButtonText}>
-              Pay ₦{numericAmount ? numericAmount.toLocaleString() : '0'}
+              {payment.selectedSavedCardId
+                ? `Pay ₦${numericAmount ? numericAmount.toLocaleString() : '0'}`
+                : 'Continue to Payment'}
             </Text>
           )}
         </Pressable>
@@ -260,10 +364,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   payButtonText: { color: '#FFF', fontSize: 16, fontWeight: '600' },
-  errorText: {
-    fontSize: 13,
-    color: '#DC2626',
-    textAlign: 'center' as const,
-    marginBottom: 12,
-  },
 });
