@@ -17,7 +17,10 @@
         "JUMIA_ENVIRONMENT",
         "EXPO_ACCESS_TOKEN",
         "INTERNAL_API_SECRET",
-        "CRON_SECRET"
+        "CRON_SECRET",
+        "IMPORT_JOB_WORKER_SECRET",
+        "IMPORT_JOB_WORKER_BATCH_SIZE",
+        "IMPORT_JOB_DIRECT_UPLOAD_ENABLED"
       ]
     },
     "dev": {
