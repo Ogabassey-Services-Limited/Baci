@@ -24,6 +24,9 @@ function isPayOnDelivery(paymentMethod: string): boolean {
   return paymentMethod === 'pod' || paymentMethod === 'pay_on_delivery';
 }
 
+/** Server-authoritative assurance rate — never trust the client value. */
+const SERVER_ASSURANCE_RATE = 0.05;
+
 type EmailOrderItem = {
   name?: string;
   productName?: string;
@@ -203,15 +206,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const orderItemsPayload = items.map((item) => ({
-      product_id: item.product_id || item.productId || item.id,
-      variant_id: item.variantId || item.variant_id,
-      variant_attributes:
-        item.variantAttributes || item.variant_attributes || {},
-      quantity: item.quantity,
-      has_assurance: item.has_assurance || false,
-      assurance_fee: item.assurance_fee || 0,
-    }));
+    const orderItemsPayload = items.map((item) => {
+      const hasAssurance = item.has_assurance || false;
+      const itemPrice = item.negotiatedPrice ?? item.price;
+      // SECURITY: Recompute assurance_fee server-side — never trust client values
+      const assuranceFee = hasAssurance ? itemPrice * SERVER_ASSURANCE_RATE : 0;
+
+      return {
+        product_id: item.product_id || item.productId || item.id,
+        variant_id: item.variantId || item.variant_id,
+        variant_attributes:
+          item.variantAttributes || item.variant_attributes || {},
+        quantity: item.quantity,
+        has_assurance: hasAssurance,
+        assurance_fee: assuranceFee,
+      };
+    });
 
     if (orderItemsPayload.some((item) => !item.product_id)) {
       return NextResponse.json(

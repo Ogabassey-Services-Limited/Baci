@@ -30,6 +30,29 @@ type ShippingAddress = {
   state?: string;
 };
 
+function getVerifiedAmount(
+  gateway: string,
+  gatewayResponse: Record<string, unknown>
+): { amount: number; currency?: string } | null {
+  const rawAmount = gatewayResponse.amount;
+  if (
+    typeof rawAmount !== 'number' ||
+    !Number.isFinite(rawAmount) ||
+    rawAmount <= 0
+  ) {
+    return null;
+  }
+
+  const currency =
+    typeof gatewayResponse.currency === 'string'
+      ? gatewayResponse.currency
+      : undefined;
+  // Paystack returns amounts in kobo (smallest unit), divide by 100
+  const amount = gateway === 'paystack' ? rawAmount / 100 : rawAmount;
+
+  return { amount, currency };
+}
+
 async function verifyGatewayPayment(
   gateway: string,
   reference: string
@@ -105,7 +128,13 @@ export async function GET(request: NextRequest) {
         .maybeSingle()
     : { data: null };
 
-  if (transaction.status === 'completed') {
+  // If the transaction is already completed AND the order is fully reconciled,
+  // return early. If the webhook marked the transaction completed but crashed
+  // before updating the order, we must fall through to reconcile the order.
+  if (
+    transaction.status === 'completed' &&
+    existingOrder?.payment_status === 'paid'
+  ) {
     return NextResponse.json({
       success: true,
       status: 'success',
@@ -151,6 +180,50 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  // Verify the gateway-confirmed amount matches our stored transaction amount
+  // (mirrors the webhook's amount/currency checks to prevent partial-pay exploits)
+  const verifiedAmount = getVerifiedAmount(
+    transaction.gateway,
+    verification.gatewayResponse
+  );
+
+  if (verifiedAmount) {
+    const transactionAmount = Number(transaction.amount) || 0;
+    if (Math.abs(verifiedAmount.amount - transactionAmount) > 0.01) {
+      logger.error({
+        message: 'Payment verify route amount mismatch',
+        reference: parsedReference.data,
+        gateway: transaction.gateway,
+        expected: transactionAmount,
+        received: verifiedAmount.amount,
+      });
+      return NextResponse.json(
+        { error: 'Payment amount mismatch' },
+        { status: 400 }
+      );
+    }
+
+    const expectedCurrency =
+      typeof transaction.currency === 'string' ? transaction.currency : null;
+    if (
+      expectedCurrency &&
+      verifiedAmount.currency &&
+      expectedCurrency.toUpperCase() !== verifiedAmount.currency.toUpperCase()
+    ) {
+      logger.error({
+        message: 'Payment verify route currency mismatch',
+        reference: parsedReference.data,
+        gateway: transaction.gateway,
+        expected: expectedCurrency,
+        received: verifiedAmount.currency,
+      });
+      return NextResponse.json(
+        { error: 'Payment currency mismatch' },
+        { status: 400 }
+      );
+    }
+  }
+
   const { data: updatedTxn, error: updateTxnError } = await supabase
     .from('transactions')
     .update({
@@ -173,6 +246,24 @@ export async function GET(request: NextRequest) {
       { error: 'Failed to finalize transaction' },
       { status: 500 }
     );
+  }
+
+  // If updatedTxn is null, another request already claimed this transaction.
+  // Only proceed with order reconciliation if we won the race (or if the
+  // transaction was already completed but the order still needs reconciliation,
+  // which is the fall-through case from the short-circuit check above).
+  const shouldReconcileOrder =
+    updatedTxn !== null || transaction.status === 'completed';
+
+  if (!shouldReconcileOrder) {
+    // Another request won the race — return success without double-updating the order
+    return NextResponse.json({
+      success: true,
+      status: 'success',
+      orderNumber:
+        existingOrder?.order_number ||
+        transaction.gateway_reference.slice(0, 8).toUpperCase(),
+    });
   }
 
   const { data: order, error: orderError } = transaction.order_id
