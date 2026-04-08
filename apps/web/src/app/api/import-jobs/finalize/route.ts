@@ -9,9 +9,9 @@ import {
   hasImportRoutePermission,
   resolveImportRouteContext,
 } from '@/lib/import-jobs/import-job-route-auth';
-import {
-  type ImportJobRecord,
-  type PendingImportUploadRecord,
+import type {
+  ImportJobRecord,
+  PendingImportUploadRecord,
 } from '@/lib/import-jobs/import-job-service';
 import { startImportJob } from '@/lib/import-jobs/kickoff-import-job';
 import { logger } from '@/lib/logger';

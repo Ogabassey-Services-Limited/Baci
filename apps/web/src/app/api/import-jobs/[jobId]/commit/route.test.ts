@@ -208,6 +208,11 @@ describe('POST /api/import-jobs/[jobId]/commit', () => {
   it('returns 202 even when post-response kickoff rejects', async () => {
     vi.mocked(getImportJobForMerchant).mockResolvedValue(makeImportJob());
     vi.mocked(startImportJob).mockRejectedValue(new Error('boom'));
+    const context = createRouteContext();
+    vi.mocked(resolveImportRouteContext).mockResolvedValue({ context });
+    const query = context.supabase.from('import_jobs') as unknown as {
+      update: ReturnType<typeof vi.fn>;
+    };
 
     const response = await POST(
       new NextRequest(`http://localhost/api/import-jobs/${jobId}/commit`, {
@@ -223,6 +228,20 @@ describe('POST /api/import-jobs/[jobId]/commit', () => {
     });
     await flushAfterCallbacks();
     expect(startImportJob).toHaveBeenCalledWith(jobId, 'http://localhost');
+    expect(query.update).toHaveBeenNthCalledWith(1, {
+      status: 'commit_queued',
+      error: null,
+      error_details: null,
+    });
+    expect(query.update).toHaveBeenNthCalledWith(
+      2,
+      {
+        status: 'preview_ready',
+        error: 'Commit kickoff failed — please retry',
+        error_details: null,
+      },
+      { count: 'exact' }
+    );
   });
 
   it('returns 409 when the preview_ready transition does not update any rows', async () => {

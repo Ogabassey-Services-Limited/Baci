@@ -32,9 +32,6 @@ vi.mock('@/lib/import-jobs/import-job-route-auth', () => ({
   resolveImportRouteContext: vi.fn(),
 }));
 
-vi.mock('@/lib/import-jobs/import-job-service', () => ({
-}));
-
 vi.mock('@/lib/import-jobs/kickoff-import-job', () => ({
   startImportJob: vi.fn(),
 }));

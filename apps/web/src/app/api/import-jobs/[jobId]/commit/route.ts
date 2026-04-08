@@ -113,6 +113,46 @@ export async function POST(
           origin: request.nextUrl.origin,
           error: err,
         });
+
+        const supabase = authResult.context?.supabase;
+        const merchantId = authResult.context?.merchantContext.merchantId;
+        if (!supabase || !merchantId) return;
+
+        try {
+          const { error: recoveryError, count } = await supabase
+            .from('import_jobs')
+            .update(
+              {
+                status: 'preview_ready',
+                error: 'Commit kickoff failed — please retry',
+                error_details: null,
+              },
+              { count: 'exact' }
+            )
+            .eq('id', job.id)
+            .eq('merchant_id', merchantId)
+            .eq('status', 'commit_queued');
+
+          if (recoveryError) {
+            logger.error({
+              message: 'Recovery update returned error',
+              jobId: job.id,
+              error: recoveryError,
+            });
+          } else if (count === 0) {
+            logger.warn({
+              message:
+                'Commit kickoff recovery matched zero rows — job may have already transitioned',
+              jobId: job.id,
+            });
+          }
+        } catch (recoveryErr) {
+          logger.error({
+            message: 'Failed to recover commit status after kickoff failure',
+            jobId: job.id,
+            error: recoveryErr,
+          });
+        }
       }
     });
 
