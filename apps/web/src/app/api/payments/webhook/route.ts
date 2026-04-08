@@ -935,11 +935,19 @@ export async function POST(request: NextRequest) {
         transactionId: metadata.vtu_transaction_id,
       });
 
+      if (fulfillment.status !== 'successful') {
+        console.error('VTU fulfillment failed after payment', {
+          transactionId: metadata.vtu_transaction_id,
+          status: fulfillment.status,
+          reference: fulfillment.reference,
+        });
+      }
+
       return NextResponse.json({
         message:
           fulfillment.status === 'successful'
             ? 'VTU payment fulfilled'
-            : 'VTU fulfillment pending',
+            : 'VTU fulfillment failed — requires manual review',
       });
     }
 

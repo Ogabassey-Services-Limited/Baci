@@ -48,8 +48,11 @@ export type VTUHistoryTransaction = z.infer<typeof VTUHistoryTransactionSchema>;
 
 export const vtuHistoryKeys = {
   all: ['vtu', 'history'] as const,
-  byFilter: (filter: UtilityHistoryFilter, limit: number) =>
-    [...vtuHistoryKeys.all, filter, limit] as const,
+  byFilter: (
+    userId: string | null,
+    filter: UtilityHistoryFilter,
+    limit: number
+  ) => [...vtuHistoryKeys.all, userId, filter, limit] as const,
 };
 
 function getApiTypeForFilter(filter: UtilityHistoryFilter) {
@@ -60,7 +63,7 @@ export function useVTUHistory(filter: UtilityHistoryFilter, limit = 20) {
   const userId = useAuthStore((state) => state.user?.id ?? null);
 
   return useQuery({
-    queryKey: vtuHistoryKeys.byFilter(filter, limit),
+    queryKey: vtuHistoryKeys.byFilter(userId, filter, limit),
     enabled: Boolean(userId),
     staleTime: 30_000,
     queryFn: async () => {

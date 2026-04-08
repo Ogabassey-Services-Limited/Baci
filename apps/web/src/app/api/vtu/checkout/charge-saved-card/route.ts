@@ -121,20 +121,40 @@ export async function POST(request: NextRequest) {
       vtu_type: prepared.transaction.type,
     };
 
-    await supabase.from('transactions').insert({
-      merchant_id: prepared.merchant.id,
-      order_id: null,
-      transaction_type: 'payment',
-      amount: parsed.data.amount,
-      currency: 'NGN',
-      status: 'pending',
-      gateway: 'paystack',
-      gateway_reference: paymentReference,
-      description: `VTU checkout for ${prepared.transaction.type}`,
-      metadata,
-      platform_fee: 0,
-      merchant_amount: 0,
-    });
+    const { error: txInsertError } = await supabase
+      .from('transactions')
+      .insert({
+        merchant_id: prepared.merchant.id,
+        order_id: null,
+        transaction_type: 'payment',
+        amount: parsed.data.amount,
+        currency: 'NGN',
+        status: 'pending',
+        gateway: 'paystack',
+        gateway_reference: paymentReference,
+        description: `VTU checkout for ${prepared.transaction.type}`,
+        metadata,
+        platform_fee: 0,
+        merchant_amount: 0,
+      });
+
+    if (txInsertError) {
+      console.error('Failed to create transaction before charging saved card', {
+        error: txInsertError.message,
+        vtuTransactionId: prepared.transaction.id,
+      });
+      await supabase
+        .from('vtu_transactions')
+        .update({
+          status: 'failed',
+          error_message: 'Payment record creation failed',
+        })
+        .eq('id', prepared.transaction.id);
+      return NextResponse.json(
+        { error: 'Failed to create payment record' },
+        { status: 500 }
+      );
+    }
 
     const chargeResult = await chargeAuthorization({
       amount: Math.round(parsed.data.amount * 100),

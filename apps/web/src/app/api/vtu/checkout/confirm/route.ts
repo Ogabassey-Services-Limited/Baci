@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (transaction.status !== 'completed') {
-      await supabase
+      const { data: claimed, error: claimError } = await supabase
         .from('transactions')
         .update({
           gateway_response: verification.data,
@@ -162,7 +162,28 @@ export async function POST(request: NextRequest) {
           updated_at: new Date().toISOString(),
         })
         .eq('id', transaction.id)
-        .neq('status', 'completed');
+        .neq('status', 'completed')
+        .select('id')
+        .maybeSingle();
+
+      if (claimError) {
+        console.error('Failed to claim transaction for VTU confirm', {
+          transactionId: transaction.id,
+          error: claimError.message,
+        });
+        return NextResponse.json(
+          { error: 'Failed to process payment' },
+          { status: 500 }
+        );
+      }
+
+      if (!claimed) {
+        // Another process already completed this transaction
+        return NextResponse.json({
+          status: 'already_completed',
+          message: 'Payment already processed',
+        });
+      }
     }
 
     const customerId =
