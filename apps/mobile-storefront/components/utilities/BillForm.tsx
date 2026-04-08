@@ -1,10 +1,10 @@
+import { router } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -12,14 +12,30 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, SPACING } from '@/constants/Colors';
-import type { Biller } from '@/hooks/use-vtu-billers';
+import type { BillItem, Biller } from '@/hooks/use-vtu-billers';
+import { useUtilityPayment } from '@/hooks/use-utility-payment';
 import { useVTUBillers } from '@/hooks/use-vtu-billers';
-import { useVTUPurchase } from '@/hooks/use-vtu-purchase';
 import { useVTUVerify } from '@/hooks/use-vtu-verify';
+import { useKeyboard } from '@/hooks/use-keyboard';
+import {
+  chargeSavedVtuCard,
+  initializeVtuCheckout,
+  isSavedVtuCardChargeProcessing,
+  requiresSavedVtuCardAuthorization,
+  waitForVtuConfirmation,
+} from '@/lib/vtu-checkout';
+import { useAuthStore } from '@/stores/auth-store';
 import { BillerList } from './BillerList';
+import {
+  getResolvedBillItemCodes,
+  resolveBillItemSelection,
+  updateBillItemSelection,
+} from './bill-item-selection';
+import { billFormStyles as styles } from './bill-form-styles';
+import { getUtilityFooterOffset } from './get-utility-footer-offset';
+import { UtilityPaymentOptions } from './UtilityPaymentOptions';
 import { VerificationCard } from './VerificationCard';
 
-/** Maps mobile route types to API bill types */
 const BILL_TYPE_MAP: Record<string, string> = {
   tv: 'cable_tv',
   power: 'electricity',
@@ -38,7 +54,12 @@ const IDENTIFIER_PLACEHOLDERS: Record<string, string> = {
   gaming: 'Enter account ID',
 };
 
-/** Height reserved for the absolutely-positioned payment footer */
+const BILL_ITEM_LABELS: Record<string, string> = {
+  tv: 'Package',
+  power: 'Meter Type',
+  gaming: 'Service Type',
+};
+
 const FOOTER_HEIGHT = 120;
 const FOOTER_ERROR_BUFFER = 36;
 
@@ -52,11 +73,24 @@ interface BillFormProps {
   }) => void;
 }
 
+function getBillItemLevelLabel(
+  type: BillFormProps['type'],
+  depth: number
+) {
+  return depth === 0 ? BILL_ITEM_LABELS[type] : `Additional Option ${depth}`;
+}
+
+function getAmountForLeaf(billItem: BillItem | null) {
+  return billItem?.isAmountFixed && billItem.amount > 0
+    ? String(billItem.amount)
+    : '';
+}
+
 export function BillForm({ type, onSuccess }: BillFormProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
-
+  const { isKeyboardVisible, keyboardHeight } = useKeyboard();
   const billType = BILL_TYPE_MAP[type];
   const {
     data: billers,
@@ -65,46 +99,112 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
     error: billersErrorObj,
   } = useVTUBillers(billType);
   const verify = useVTUVerify();
-  const purchase = useVTUPurchase();
-
+  const customer = useAuthStore((state) => state.customer);
+  const payment = useUtilityPayment();
   const [selectedBiller, setSelectedBiller] = useState<Biller | null>(null);
+  const [selectedBillItemCodes, setSelectedBillItemCodes] = useState<string[]>(
+    []
+  );
   const [customerId, setCustomerId] = useState('');
   const [amount, setAmount] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const billItemSelection = resolveBillItemSelection(
+    selectedBiller?.billItems,
+    selectedBillItemCodes
+  );
+  const selectedBillItem = billItemSelection.leaf;
+  const selectedBillItemPathLabel = billItemSelection.selectedPath
+    .map((item) => item.itemName)
+    .join(' / ');
+  const requiresBillItemSelection = billItemSelection.levels.length > 0;
+  const isBillItemSelectionComplete =
+    !requiresBillItemSelection || billItemSelection.isComplete;
+  const selectedBillItemIdentifier = requiresBillItemSelection
+    ? selectedBillItem?.itemCode ?? null
+    : selectedBiller?.billerId ?? null;
+  const isFixedAmount = selectedBillItem?.isAmountFixed ?? false;
   const numericAmount = Number(amount.replace(/\D/g, ''));
   const footerSpacerHeight = verify.data?.verified
     ? FOOTER_HEIGHT +
       Math.max(insets.bottom - 26, 0) +
-      (purchase.error ? FOOTER_ERROR_BUFFER : 0)
+      FOOTER_ERROR_BUFFER
     : SPACING.xl;
+  const footerBottomOffset = getUtilityFooterOffset({
+    bottomInset: insets.bottom,
+    isKeyboardVisible,
+    keyboardHeight,
+  });
+  const isBusy = isSubmitting;
 
-  // Bug #M24: Guard against double-tap with isSubmitting state (same pattern as AirtimeForm)
-  const isBusy = isSubmitting || purchase.isPending;
+  const resetVerification = () => {
+    if (!verify.isPending) {
+      verify.reset();
+    }
+  };
 
-  const handleVerify = () => {
-    if (!selectedBiller || !customerId) {
-      Alert.alert(
-        'Missing Information',
-        `Please select a provider and enter your ${IDENTIFIER_LABELS[type].toLowerCase()}.`
-      );
+  const handleBillerSelect = (biller: Biller) => {
+    const nextCodes = getResolvedBillItemCodes(biller.billItems);
+    const nextSelection = resolveBillItemSelection(biller.billItems, nextCodes);
+
+    setSelectedBiller(biller);
+    setSelectedBillItemCodes(nextCodes);
+    setAmount(getAmountForLeaf(nextSelection.leaf));
+    resetVerification();
+  };
+
+  const handleBillItemSelect = (depth: number, billItem: BillItem) => {
+    if (!selectedBiller) {
       return;
     }
+
+    const nextCodes = updateBillItemSelection(
+      selectedBiller.billItems,
+      selectedBillItemCodes,
+      depth,
+      billItem.itemCode
+    );
+    const nextSelection = resolveBillItemSelection(
+      selectedBiller.billItems,
+      nextCodes
+    );
+
+    setSelectedBillItemCodes(nextCodes);
+    setAmount(getAmountForLeaf(nextSelection.leaf));
+    resetVerification();
+  };
+
+  const handleVerify = () => {
+    if (
+      !selectedBiller ||
+      !selectedBillItemIdentifier ||
+      !customerId ||
+      !isBillItemSelectionComplete
+    ) {
+      const identifierLabel = IDENTIFIER_LABELS[type].toLowerCase();
+      const steps = ['select a provider'];
+      if (requiresBillItemSelection) {
+        steps.push('complete the available options');
+      }
+      steps.push(`enter your ${identifierLabel}`);
+      Alert.alert('Missing Information', `Please ${steps.join(', ')}.`);
+      return;
+    }
+
     verify.mutate({
-      billItemIdentifier: selectedBiller.billerId,
+      billItemIdentifier: selectedBillItemIdentifier,
       customerIdentifier: customerId,
     });
   };
 
   const handlePurchase = async () => {
-    // Bug #M24: Prevent double-tap duplicate payments
     if (isBusy) return;
 
-    // Bug #71: Explicitly check verification is complete before allowing purchase
     if (!selectedBiller) {
       Alert.alert('Missing Provider', 'Please select a provider.');
       return;
     }
+
     if (!verify.data?.verified) {
       Alert.alert(
         'Verification Required',
@@ -112,38 +212,117 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
       );
       return;
     }
+
     if (!amount) {
       Alert.alert('Missing Amount', 'Please enter an amount.');
       return;
     }
+
     if (numericAmount < 50 || numericAmount > 500000) {
       Alert.alert('Invalid Amount', 'Amount must be between ₦50 and ₦500,000.');
       return;
     }
+    if (!payment.selectedSavedCardId && !payment.selectedGateway) {
+      Alert.alert(
+        'Select Payment Method',
+        'Choose a payment method before continuing.'
+      );
+      return;
+    }
 
     setIsSubmitting(true);
+
     try {
-      const result = await purchase.mutateAsync({
-        type: billType as 'electricity' | 'cable_tv' | 'betting',
+      const customerName =
+        [customer?.first_name, customer?.last_name].filter(Boolean).join(' ') ||
+        customer?.email;
+      const payload = {
         amount: numericAmount,
-        billItemIdentifier: selectedBiller.billerId,
+        billItemIdentifier: selectedBillItemIdentifier ?? undefined,
+        billerName: selectedBillItemPathLabel
+          ? `${selectedBiller.billerName} - ${selectedBillItemPathLabel}`
+          : selectedBiller.billerName,
         customerIdentifier: customerId,
-        billerName: selectedBiller.billerName,
+        customerName,
+        customerPhone: customer?.phone,
+        type: billType as 'electricity' | 'cable_tv' | 'betting',
+      };
+
+      if (payment.selectedSavedCardId) {
+        const result = await chargeSavedVtuCard({
+          ...payload,
+          savedPaymentMethodId: payment.selectedSavedCardId,
+        });
+
+        if (requiresSavedVtuCardAuthorization(result)) {
+          router.push({
+            pathname: '/payment-gateway',
+            params: {
+              amount: String(numericAmount),
+              authorizationUrl: result.authorization_url,
+              customerIdentifier: customerId,
+              gateway: result.gateway,
+              paymentKind: 'vtu',
+              reference: result.reference,
+              utilityType: type,
+            },
+          });
+          return;
+        }
+
+        if (isSavedVtuCardChargeProcessing(result)) {
+          const confirmed = await waitForVtuConfirmation({
+            gateway: 'paystack',
+            reference: result.reference,
+          });
+          onSuccess({
+            amount: confirmed.amount ?? numericAmount,
+            cashback: confirmed.cashback
+              ? {
+                  amount: confirmed.cashback.amount,
+                  newBalance: confirmed.cashback.newBalance,
+                }
+              : undefined,
+            customerIdentifier: customerId,
+            reference: confirmed.reference,
+          });
+          return;
+        }
+
+        onSuccess({
+          amount: result.amount,
+          cashback: result.cashback
+            ? {
+                amount: result.cashback.amount,
+                newBalance: result.cashback.newBalance,
+              }
+            : undefined,
+          customerIdentifier: customerId,
+          reference: result.reference,
+        });
+        return;
+      }
+
+      const result = await initializeVtuCheckout({
+        ...payload,
+        gateway: payment.selectedGateway,
       });
-      onSuccess({
-        reference: result.reference,
-        amount: result.amount,
-        customerIdentifier: customerId,
-        cashback: result.cashback
-          ? {
-              amount: result.cashback.amount,
-              newBalance: result.cashback.newBalance,
-            }
-          : undefined,
+
+      router.push({
+        pathname: '/payment-gateway',
+        params: {
+          amount: String(numericAmount),
+          authorizationUrl: result.authorization_url,
+          customerIdentifier: customerId,
+          gateway: result.gateway,
+          paymentKind: 'vtu',
+          reference: result.reference,
+          utilityType: type,
+        },
       });
     } catch (error) {
       Alert.alert(
-        'Purchase Failed',
+        'Payment Failed',
         error instanceof Error ? error.message : 'Something went wrong.'
       );
     } finally {
@@ -159,6 +338,8 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
           styles.content,
           { paddingBottom: footerSpacerHeight },
         ]}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
           Select Provider
@@ -166,13 +347,7 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
         <BillerList
           billers={billers || []}
           selectedBillerId={selectedBiller?.billerId ?? null}
-          onSelect={(biller) => {
-            setSelectedBiller(biller);
-            // Bug #72: Only reset verification when not in a pending state
-            if (!verify.isPending) {
-              verify.reset();
-            }
-          }}
+          onSelect={handleBillerSelect}
           isLoading={billersLoading}
           errorMessage={
             billersError
@@ -183,111 +358,198 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
           }
         />
 
-        {selectedBiller && (
+        {selectedBiller ? (
           <>
-            <Text
-              style={[
-                styles.sectionTitle,
-                { color: colors.text, marginTop: 24 },
-              ]}
-            >
-              {IDENTIFIER_LABELS[type]}
-            </Text>
-            <View style={styles.verifyRow}>
+            {billItemSelection.levels.map((level) => (
+              <View
+                key={`${selectedBiller.billerId}-${level.depth}`}
+                style={{ marginTop: 24 }}
+              >
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                  {getBillItemLevelLabel(type, level.depth)}
+                </Text>
+                <View style={styles.optionGrid}>
+                  {level.options.map((billItem) => {
+                    const isSelected = level.selectedCode === billItem.itemCode;
+
+                    return (
+                      <Pressable
+                        key={`${level.depth}-${billItem.itemCode}`}
+                        style={[
+                          styles.optionCard,
+                          {
+                            backgroundColor: isSelected
+                              ? BRAND.primary
+                              : colors.card,
+                            borderColor: isSelected
+                              ? BRAND.primary
+                              : colors.border,
+                          },
+                        ]}
+                        onPress={() =>
+                          handleBillItemSelect(level.depth, billItem)
+                        }
+                      >
+                        <Text
+                          style={[
+                            styles.optionName,
+                            { color: isSelected ? '#FFF' : colors.text },
+                          ]}
+                          numberOfLines={2}
+                        >
+                          {billItem.itemName}
+                        </Text>
+                        {billItem.isAmountFixed && billItem.amount > 0 ? (
+                          <Text
+                            style={[
+                              styles.optionMeta,
+                              {
+                                color: isSelected
+                                  ? 'rgba(255,255,255,0.85)'
+                                  : colors.textSecondary,
+                              },
+                            ]}
+                          >
+                            ₦{billItem.amount.toLocaleString()}
+                          </Text>
+                        ) : null}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            ))}
+
+            {isBillItemSelectionComplete ? (
+              <>
+                <Text
+                  style={[
+                    styles.sectionTitle,
+                    { color: colors.text, marginTop: 24 },
+                  ]}
+                >
+                  {IDENTIFIER_LABELS[type]}
+                </Text>
+                <View style={styles.verifyRow}>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      styles.verifyInput,
+                      {
+                        backgroundColor: colors.muted,
+                        color: colors.text,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                    placeholder={IDENTIFIER_PLACEHOLDERS[type]}
+                    placeholderTextColor={colors.placeholder}
+                    keyboardType="number-pad"
+                    value={customerId}
+                    onChangeText={(text) => {
+                      setCustomerId(text);
+                      resetVerification();
+                    }}
+                  />
+                  <Pressable
+                    style={[
+                      styles.verifyButton,
+                      {
+                        opacity:
+                          !customerId ||
+                          !selectedBillItemIdentifier ||
+                          verify.isPending
+                            ? 0.6
+                            : 1,
+                      },
+                    ]}
+                    onPress={handleVerify}
+                    disabled={
+                      !customerId ||
+                      !selectedBillItemIdentifier ||
+                      verify.isPending
+                    }
+                  >
+                    {verify.isPending ? (
+                      <ActivityIndicator color="#FFF" size="small" />
+                    ) : (
+                      <Text style={styles.verifyButtonText}>Verify</Text>
+                    )}
+                  </Pressable>
+                </View>
+
+                {(verify.data || verify.isPending || verify.error) ? (
+                  <View style={{ marginTop: 12 }}>
+                    <VerificationCard
+                      verified={verify.data?.verified ?? false}
+                      customerName={verify.data?.customerName}
+                      message={verify.data?.message ?? verify.error?.message}
+                      isLoading={verify.isPending}
+                    />
+                  </View>
+                ) : null}
+              </>
+            ) : null}
+          </>
+        ) : null}
+
+        {verify.data?.verified ? (
+          <>
+            <View style={{ marginTop: 24 }}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                Amount (₦)
+              </Text>
               <TextInput
                 style={[
                   styles.input,
-                  styles.verifyInput,
+                  isFixedAmount && styles.inputDisabled,
                   {
                     backgroundColor: colors.muted,
                     color: colors.text,
                     borderColor: colors.border,
                   },
                 ]}
-                placeholder={IDENTIFIER_PLACEHOLDERS[type]}
+                placeholder={
+                  isFixedAmount ? 'Amount set by provider' : 'Enter amount'
+                }
                 placeholderTextColor={colors.placeholder}
                 keyboardType="number-pad"
-                value={customerId}
-                onChangeText={(text) => {
-                  setCustomerId(text);
-                  // Bug #72: Only reset verification when not in a pending state
-                  if (!verify.isPending) {
-                    verify.reset();
-                  }
-                }}
+                value={amount}
+                editable={!isFixedAmount}
+                onChangeText={(text) => setAmount(text.replace(/\D/g, ''))}
               />
-              <Pressable
-                style={[
-                  styles.verifyButton,
-                  { opacity: !customerId || verify.isPending ? 0.6 : 1 },
-                ]}
-                onPress={handleVerify}
-                disabled={!customerId || verify.isPending}
-              >
-                {verify.isPending ? (
-                  <ActivityIndicator color="#FFF" size="small" />
-                ) : (
-                  <Text style={styles.verifyButtonText}>Verify</Text>
-                )}
-              </Pressable>
             </View>
 
-            {(verify.data || verify.isPending) && (
-              <View style={{ marginTop: 12 }}>
-                <VerificationCard
-                  verified={verify.data?.verified ?? false}
-                  customerName={verify.data?.customerName}
-                  message={verify.data?.message}
-                  isLoading={verify.isPending}
-                />
-              </View>
-            )}
-          </>
-        )}
-
-        {verify.data?.verified && (
-          <View style={{ marginTop: 24 }}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Amount (₦)
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.muted,
-                  color: colors.text,
-                  borderColor: colors.border,
-                },
-              ]}
-              placeholder="Enter amount"
-              placeholderTextColor={colors.placeholder}
-              keyboardType="number-pad"
-              value={amount}
-              onChangeText={(t) => setAmount(t.replace(/\D/g, ''))}
+            <UtilityPaymentOptions
+              amount={numericAmount}
+              cards={payment.cards}
+              isLoadingCards={payment.isLoadingCards}
+              onSelectGateway={payment.selectGateway}
+              onSelectSavedCard={payment.selectSavedCard}
+              selectedGateway={payment.selectedGateway}
+              selectedSavedCardId={payment.selectedSavedCardId}
+              supportedGateways={payment.supportedGateways}
             />
-          </View>
-        )}
+          </>
+        ) : null}
       </ScrollView>
 
-      {verify.data?.verified && (
+      {verify.data?.verified ? (
         <View
           style={[
             styles.footer,
             {
               borderTopColor: colors.border,
               backgroundColor: colors.muted,
-              marginBottom: -Math.max(insets.bottom - 4, 0),
-              paddingBottom: Math.max(insets.bottom - 26, 0),
+              bottom: footerBottomOffset,
+              marginBottom: isKeyboardVisible
+                ? 0
+                : -Math.max(insets.bottom - 4, 0),
+              paddingBottom: isKeyboardVisible
+                ? SPACING.sm
+                : Math.max(insets.bottom - 26, 0),
             },
           ]}
         >
-          {purchase.error && (
-            <Text style={styles.errorText}>
-              {purchase.error instanceof Error
-                ? purchase.error.message
-                : 'Purchase failed'}
-            </Text>
-          )}
           <Pressable
             style={[
               styles.payButton,
@@ -303,59 +565,14 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
               <ActivityIndicator color="#FFF" />
             ) : (
               <Text style={styles.payButtonText}>
-                Pay ₦{numericAmount ? numericAmount.toLocaleString() : '0'}
+                {payment.selectedSavedCardId
+                  ? `Pay ₦${numericAmount ? numericAmount.toLocaleString() : '0'}`
+                  : 'Continue to Payment'}
               </Text>
             )}
           </Pressable>
         </View>
-      )}
+      ) : null}
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  scrollView: { flex: 1 },
-  content: { padding: SPACING.md },
-  sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
-  input: {
-    height: 50,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    borderWidth: 1,
-  },
-  verifyRow: { flexDirection: 'row', gap: 10 },
-  verifyInput: { flex: 1 },
-  verifyButton: {
-    backgroundColor: '#1F2937',
-    height: 50,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  verifyButtonText: { color: '#FFF', fontSize: 14, fontWeight: '600' },
-  footer: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingTop: SPACING.md,
-    paddingHorizontal: SPACING.md,
-    paddingBottom: SPACING.sm,
-    borderTopWidth: 1,
-  },
-  payButton: {
-    height: 50,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  payButtonText: { color: '#FFF', fontSize: 16, fontWeight: '600' },
-  errorText: {
-    fontSize: 13,
-    color: '#DC2626',
-    textAlign: 'center' as const,
-    marginBottom: 12,
-  },
-});

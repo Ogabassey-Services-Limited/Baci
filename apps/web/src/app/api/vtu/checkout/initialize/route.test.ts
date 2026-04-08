@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockAuthenticateApiRequest = vi.fn();
 const mockPreparePendingVtuTransaction = vi.fn();
-const mockFulfillPendingVtuTransaction = vi.fn();
+const mockInitializePaystackTransaction = vi.fn();
+const mockInitializeKorapayPayment = vi.fn();
+const mockFrom = vi.fn();
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) =>
@@ -16,38 +18,38 @@ vi.mock('@/lib/csrf', () => ({
   ),
 }));
 
-vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: vi.fn(() => ({})),
-}));
-
 vi.mock('@/lib/vtu-pending-transaction', () => ({
   preparePendingVtuTransaction: (...args: unknown[]) =>
     mockPreparePendingVtuTransaction(...args),
-  VTU_TYPE_LABELS: {
-    airtime: 'Airtime',
-    data: 'Data',
-    electricity: 'Electricity',
-    cable_tv: 'TV Subscription',
-    betting: 'Betting Top-up',
-  },
 }));
 
-vi.mock('@/lib/vtu-fulfillment', () => ({
-  fulfillPendingVtuTransaction: (...args: unknown[]) =>
-    mockFulfillPendingVtuTransaction(...args),
+vi.mock('@/lib/paystack', () => ({
+  initializeTransaction: (...args: unknown[]) =>
+    mockInitializePaystackTransaction(...args),
+}));
+
+vi.mock('@/lib/korapay', () => ({
+  initializePayment: (...args: unknown[]) =>
+    mockInitializeKorapayPayment(...args),
+}));
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => ({
+    from: mockFrom,
+  })),
 }));
 
 import { POST } from './route';
 
 function makeRequest(body: Record<string, unknown>) {
-  return new NextRequest('http://localhost:3000/api/vtu/purchase', {
+  return new NextRequest('http://localhost:3000/api/vtu/checkout/initialize', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
 }
 
-describe('POST /api/vtu/purchase', () => {
+describe('POST /api/vtu/checkout/initialize', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockAuthenticateApiRequest.mockResolvedValue({
@@ -56,18 +58,37 @@ describe('POST /api/vtu/purchase', () => {
       supabase: {},
     });
     mockPreparePendingVtuTransaction.mockResolvedValue({
-      transaction: { id: 'vtu-1' },
-    });
-    mockFulfillPendingVtuTransaction.mockResolvedValue({
-      status: 'successful',
-      amount: 1000,
-      reference: 'VTU-123',
-      cashback: {
-        amount: 50,
-        credited: true,
-        newBalance: 150,
+      customer: {
+        id: 'customer-1',
+        email: 'customer@example.com',
+        first_name: 'Ada',
+        last_name: 'Lovelace',
+        phone: '08012345678',
+      },
+      merchant: {
+        id: 'merchant-1',
+        slug: 'ogabassey',
+      },
+      requestReference: 'REQ-123',
+      transaction: {
+        id: 'vtu-1',
+        metadata: {},
+        type: 'airtime',
       },
     });
+    mockInitializePaystackTransaction.mockResolvedValue({
+      authorization_url: 'https://paystack.com/pay/abc',
+    });
+    mockInitializeKorapayPayment.mockResolvedValue({
+      authorization_url: 'https://korapay.com/pay/abc',
+      checkout_url: 'https://korapay.com/pay/abc',
+    });
+    mockFrom.mockImplementation(() => ({
+      insert: vi.fn().mockResolvedValue({ error: null }),
+      update: vi.fn().mockReturnValue({
+        eq: vi.fn().mockResolvedValue({ error: null }),
+      }),
+    }));
   });
 
   it('returns 401 when unauthenticated', async () => {
@@ -81,66 +102,40 @@ describe('POST /api/vtu/purchase', () => {
       makeRequest({
         merchantSlug: 'ogabassey',
         amount: 1000,
+        gateway: 'paystack',
         type: 'airtime',
         phoneNumber: '08012345678',
         networkProvider: 'MTN',
-        source: 'checkout',
       })
     );
 
     expect(response.status).toBe(401);
   });
 
-  it('returns 409 for blocked direct requests', async () => {
+  it('rejects unsupported bank-transfer utility checkout', async () => {
     const response = await POST(
       makeRequest({
         merchantSlug: 'ogabassey',
         amount: 1000,
+        gateway: 'bank_transfer',
         type: 'airtime',
         phoneNumber: '08012345678',
         networkProvider: 'MTN',
-        source: 'direct',
       })
     );
-    const data = await response.json();
 
-    expect(response.status).toBe(409);
-    expect(data.error).toMatch(/disabled/i);
-  });
-
-  it('maps validation failures to 400', async () => {
-    const response = await POST(makeRequest({ amount: 10 }));
     expect(response.status).toBe(400);
   });
 
-  it('returns 403 when preparation reports a disabled merchant feature', async () => {
-    mockPreparePendingVtuTransaction.mockRejectedValue(
-      new Error('VTU is not enabled for this merchant')
-    );
-
+  it('returns a hosted checkout payload for paystack', async () => {
     const response = await POST(
       makeRequest({
         merchantSlug: 'ogabassey',
         amount: 1000,
+        gateway: 'paystack',
         type: 'airtime',
         phoneNumber: '08012345678',
         networkProvider: 'MTN',
-        source: 'checkout',
-      })
-    );
-
-    expect(response.status).toBe(403);
-  });
-
-  it('returns the shared fulfillment payload on success', async () => {
-    const response = await POST(
-      makeRequest({
-        merchantSlug: 'ogabassey',
-        amount: 1000,
-        type: 'airtime',
-        phoneNumber: '08012345678',
-        networkProvider: 'MTN',
-        source: 'checkout',
       })
     );
     const data = await response.json();
@@ -148,13 +143,9 @@ describe('POST /api/vtu/purchase', () => {
     expect(response.status).toBe(200);
     expect(data).toMatchObject({
       success: true,
-      reference: 'VTU-123',
-      amount: 1000,
-      cashback: {
-        amount: 50,
-        credited: true,
-        newBalance: 150,
-      },
+      authorization_url: 'https://paystack.com/pay/abc',
+      gateway: 'paystack',
+      vtu_reference: 'REQ-123',
     });
   });
 });

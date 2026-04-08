@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import Constants from 'expo-constants';
 import { z } from 'zod';
-import { fetchWithTimeout } from '@/lib/fetch-with-timeout';
+import { fetchWithTimeout, SHORT_TIMEOUT } from '@/lib/fetch-with-timeout';
 
 const API_URL =
   process.env.EXPO_PUBLIC_API_URL ||
@@ -33,6 +33,7 @@ export function useVTUVerify() {
   return useMutation<VerifyResult, Error, VerifyParams>({
     mutationFn: async (params) => {
       const response = await fetchWithTimeout(`${API_URL}/api/vtu/verify`, {
+        timeout: SHORT_TIMEOUT,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(params),

@@ -12,6 +12,7 @@ const KUDA_API_BASE_URL =
   process.env.KUDA_API_BASE_URL || 'https://kuda-openapi.kuda.com/v2.1';
 const KUDA_EMAIL = process.env.KUDA_EMAIL || '';
 const KUDA_API_KEY = process.env.KUDA_API_KEY || '';
+const KUDA_REQUEST_TIMEOUT_MS = 15000;
 
 // Service Types for Kuda API
 export enum KudaServiceType {
@@ -75,6 +76,7 @@ export interface Biller {
   categoryId: string;
   categoryName: string;
   billerIconUrl?: string;
+  billItems?: BillItem[];
 }
 
 /**
@@ -90,6 +92,73 @@ interface KudaRawBiller {
   BillItems?: unknown[];
 }
 
+interface KudaRawBillItem {
+  ItemCode?: string;
+  itemCode?: string;
+  ItemName?: string;
+  itemName?: string;
+  Amount?: number | string;
+  amount?: number | string;
+  ItemCurrencySymbol?: string;
+  itemCurrencySymbol?: string;
+  IsAmountFixed?: boolean;
+  isAmountFixed?: boolean;
+  ItemFee?: number | string;
+  itemFee?: number | string;
+  BillItems?: unknown[];
+  billItems?: unknown[];
+}
+
+function toNumber(value: number | string | undefined, fallback = 0) {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : fallback;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+
+  return fallback;
+}
+
+function mapBillItem(raw: unknown): BillItem | null {
+  if (!raw || typeof raw !== 'object') {
+    return null;
+  }
+
+  const item = raw as KudaRawBillItem;
+  const itemCode = item.ItemCode ?? item.itemCode;
+  const itemName = item.ItemName ?? item.itemName;
+
+  if (!itemCode || !itemName) {
+    return null;
+  }
+
+  return {
+    itemCode,
+    itemName,
+    amount: toNumber(item.Amount ?? item.amount),
+    itemCurrencySymbol:
+      item.ItemCurrencySymbol ?? item.itemCurrencySymbol ?? 'NGN',
+    isAmountFixed: item.IsAmountFixed ?? item.isAmountFixed ?? false,
+    itemFee: toNumber(item.ItemFee ?? item.itemFee),
+    billItems: mapBillItems(item.BillItems ?? item.billItems),
+  };
+}
+
+function mapBillItems(rawItems: unknown[] | undefined): BillItem[] | undefined {
+  if (!rawItems || rawItems.length === 0) {
+    return undefined;
+  }
+
+  const billItems = rawItems
+    .map((rawItem) => mapBillItem(rawItem))
+    .filter((item): item is BillItem => item !== null);
+
+  return billItems.length > 0 ? billItems : undefined;
+}
+
 /**
  * Map a raw Kuda biller (PascalCase) to our normalized Biller interface.
  */
@@ -101,6 +170,7 @@ function mapKudaBiller(raw: KudaRawBiller, categoryName: string): Biller {
     categoryId: raw.BillTypeId,
     categoryName,
     billerIconUrl: raw.BillerIconUrl,
+    billItems: mapBillItems(raw.BillItems),
   };
 }
 
@@ -112,6 +182,7 @@ export interface BillItem {
   itemCurrencySymbol: string;
   isAmountFixed: boolean;
   itemFee: number;
+  billItems?: BillItem[];
 }
 
 // Purchase Result
@@ -136,6 +207,16 @@ interface KudaApiResponse<T = unknown> {
 // Token storage (in production, use Redis or database)
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
+function createTimeoutSignal(timeoutMs: number) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  return {
+    signal: controller.signal,
+    cleanup: () => clearTimeout(timeoutId),
+  };
+}
+
 /**
  * Generate a provider-safe request reference.
  * Kuda bill purchases are sensitive to punctuation-heavy refs.
@@ -153,16 +234,30 @@ async function getToken(): Promise<string> {
     return cachedToken.token;
   }
 
-  const response = await fetch(`${KUDA_API_BASE_URL}/Account/GetToken`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      email: KUDA_EMAIL,
-      apiKey: KUDA_API_KEY,
-    }),
-  });
+  const { signal, cleanup } = createTimeoutSignal(KUDA_REQUEST_TIMEOUT_MS);
+  let response: Response;
+
+  try {
+    response = await fetch(`${KUDA_API_BASE_URL}/Account/GetToken`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: KUDA_EMAIL,
+        apiKey: KUDA_API_KEY,
+      }),
+      signal,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Kuda authentication request timed out');
+    }
+
+    throw error;
+  } finally {
+    cleanup();
+  }
 
   if (!response.ok) {
     throw new Error(`Failed to get Kuda token: ${response.statusText}`);
@@ -200,14 +295,28 @@ export async function kudaRequest<T = unknown>(
     Data: data,
   };
 
-  const response = await fetch(KUDA_API_BASE_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(payload),
-  });
+  const { signal, cleanup } = createTimeoutSignal(KUDA_REQUEST_TIMEOUT_MS);
+  let response: Response;
+
+  try {
+    response = await fetch(KUDA_API_BASE_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+      signal,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`Kuda ${serviceType} request timed out`);
+    }
+
+    throw error;
+  } finally {
+    cleanup();
+  }
 
   if (!response.ok) {
     throw new Error(`Kuda API request failed: ${response.statusText}`);
@@ -282,6 +391,7 @@ export async function getBillersByType(
       description: string;
       billerIconUrl?: string;
       billTypeId: string;
+      billItems?: unknown[];
     }>;
     Billers?: KudaRawBiller[];
   }>(KudaServiceType.GET_BILLERS_BY_TYPE, { BillTypeName: billTypeName });
@@ -296,6 +406,7 @@ export async function getBillersByType(
       categoryId: raw.billTypeId,
       categoryName: billTypeName,
       billerIconUrl: raw.billerIconUrl,
+      billItems: mapBillItems(raw.billItems),
     }));
   }
 
