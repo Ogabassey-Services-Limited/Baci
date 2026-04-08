@@ -29,7 +29,7 @@ vi.mock('@/lib/import-jobs/import-job-service', () => ({
 }));
 
 vi.mock('@/lib/import-jobs/kickoff-import-job', () => ({
-  kickoffImportJob: vi.fn(),
+  startImportJob: vi.fn(),
 }));
 
 vi.mock('@/lib/import-jobs/import-job-route-auth', () => ({
@@ -47,7 +47,7 @@ import {
   createImportStoragePath,
   validateImportFile,
 } from '@/lib/import-jobs/import-job-service';
-import { kickoffImportJob } from '@/lib/import-jobs/kickoff-import-job';
+import { startImportJob } from '@/lib/import-jobs/kickoff-import-job';
 import { checkRateLimit } from '@/lib/rate-limiter';
 import { POST } from './route';
 
@@ -284,7 +284,7 @@ describe('POST /api/import-jobs', () => {
       })
     );
     await flushAfterCallbacks();
-    expect(kickoffImportJob).toHaveBeenCalledWith('job-1', 'http://localhost');
+    expect(startImportJob).toHaveBeenCalledWith('job-1', 'http://localhost');
   });
 
   it('returns 500 when storage upload fails', async () => {
@@ -315,7 +315,7 @@ describe('POST /api/import-jobs', () => {
       error: 'Failed to upload CSV file',
       code: 'upload_failed',
     });
-    expect(kickoffImportJob).not.toHaveBeenCalled();
+    expect(startImportJob).not.toHaveBeenCalled();
   });
 
   it('returns 500 when creating the import job fails', async () => {
@@ -347,7 +347,7 @@ describe('POST /api/import-jobs', () => {
       error: 'Failed to create import job',
       code: 'job_create_failed',
     });
-    expect(kickoffImportJob).not.toHaveBeenCalled();
+    expect(startImportJob).not.toHaveBeenCalled();
   });
 
   it('cleans up the uploaded file when creating the import job fails', async () => {
@@ -378,7 +378,7 @@ describe('POST /api/import-jobs', () => {
     expect(supabaseMock.__mocks.remove).toHaveBeenCalledWith([
       'merchant-1/orders/orders.csv',
     ]);
-    expect(kickoffImportJob).not.toHaveBeenCalled();
+    expect(startImportJob).not.toHaveBeenCalled();
   });
 
   it('returns 202 even when post-response kickoff rejects', async () => {
@@ -390,7 +390,7 @@ describe('POST /api/import-jobs', () => {
         supabase: supabaseMock,
       } as never,
     });
-    vi.mocked(kickoffImportJob).mockRejectedValue(
+    vi.mocked(startImportJob).mockRejectedValue(
       new Error('worker unavailable')
     );
 
@@ -414,6 +414,6 @@ describe('POST /api/import-jobs', () => {
         }),
       })
     );
-    expect(kickoffImportJob).toHaveBeenCalledWith('job-1', 'http://localhost');
+    expect(startImportJob).toHaveBeenCalledWith('job-1', 'http://localhost');
   });
 });

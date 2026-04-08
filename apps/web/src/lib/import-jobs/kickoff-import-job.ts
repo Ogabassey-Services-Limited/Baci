@@ -1,7 +1,50 @@
+import { getImportJobWorkerSecret, isProduction } from '@/env';
 import { triggerImportWorker } from '@/lib/import-jobs/import-job-service';
 import { processImportJobById } from '@/lib/import-jobs/process-import-job';
 import { logger } from '@/lib/logger';
 import { createAdminClient } from '@/lib/supabase/admin';
+
+export async function startImportJob(
+  jobId: string,
+  origin: string
+): Promise<void> {
+  const workerSecret = getImportJobWorkerSecret();
+
+  if (workerSecret) {
+    await triggerImportWorker(origin, jobId);
+    return;
+  }
+
+  if (isProduction()) {
+    const error = new Error('IMPORT_JOB_WORKER_SECRET is not configured');
+    logger.error({
+      message:
+        'Import worker secret is required in production when worker delegation is enabled',
+      jobId,
+      origin,
+      error,
+    });
+    throw error;
+  }
+
+  logger.warn({
+    message:
+      'IMPORT_JOB_WORKER_SECRET is not set in non-production; processing import job inline',
+    jobId,
+    origin,
+  });
+
+  const result = await processImportJobById(createAdminClient(), jobId);
+  if (result) {
+    return;
+  }
+
+  logger.warn({
+    message: 'Non-production inline import processing did not claim the job',
+    jobId,
+    origin,
+  });
+}
 
 export async function kickoffImportJob(
   jobId: string,
