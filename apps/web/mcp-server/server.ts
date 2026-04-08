@@ -2513,7 +2513,7 @@ function createOgabasseyServer() {
         // Find recent chat orders for this customer
         let query = supabase
           .from('chat_orders')
-          .select('*')
+          .select('id, total, status, payment_reference, paid_at, metadata')
           .eq('merchant_id', merchantId)
           .eq('customer_email', customer_email)
           .order('created_at', { ascending: false })
