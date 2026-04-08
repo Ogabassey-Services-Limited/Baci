@@ -42,12 +42,12 @@ function renderSelectors({
   selectedAttributes = {},
   effectiveAxes = ['storage', 'ram'],
   variants = s22Variants,
-  onSelectAttribute = vi.fn(),
+  onSelectAttribute = vi.fn() as (axis: string, value: string) => void,
 }: {
   selectedAttributes?: Record<string, string>;
   effectiveAxes?: string[];
   variants?: typeof s22Variants;
-  onSelectAttribute?: ReturnType<typeof vi.fn>;
+  onSelectAttribute?: (axis: string, value: string) => void;
 } = {}) {
   const productData = buildProductData({ variants });
 
