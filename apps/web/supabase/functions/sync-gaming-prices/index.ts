@@ -29,6 +29,15 @@ interface PriceChange {
   newPrice: number;
 }
 
+interface ExistingProduct {
+  id: string;
+  external_id: string;
+  cost_price: number;
+  price: number;
+  name: string;
+  stock: number;
+}
+
 serve(async (_req) => {
   try {
     const supabaseClient = createClient(
@@ -50,7 +59,7 @@ serve(async (_req) => {
 
     if (fetchError) throw fetchError;
 
-    const productMap = new Map();
+    const productMap = new Map<string, ExistingProduct>();
     // biome-ignore lint/suspicious/useIterableCallbackReturn: forEach with side effects
     existingProducts?.forEach((p) => productMap.set(p.external_id, p));
 
