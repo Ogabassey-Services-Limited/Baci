@@ -10,6 +10,7 @@ import { ProductMediaGallery } from './product-details-page/product-media-galler
 import { ProductMobileActionBar } from './product-details-page/product-mobile-action-bar';
 import { ProductPurchasePanel } from './product-details-page/product-purchase-panel';
 import { SelectionRequiredModal } from './product-details-page/selection-required-modal';
+import { getAvailableOptionsForAxis } from '../variant-attributes';
 import { useProductDetailsState } from './product-details-page/use-product-details-state';
 
 const AdUnit = dynamic(
@@ -132,7 +133,21 @@ export function ProductDetailsPage({ product }: ProductDetailsPageProps) {
   }, []);
 
   const handleAttributeSelection = (axis: string, value: string) => {
-    setSelectedAttributes((prev) => ({ ...prev, [axis]: value }));
+    setSelectedAttributes((prev) => {
+      const next = { ...prev, [axis]: value };
+      // Drop sibling selections that are no longer reachable with the new choice
+      return Object.fromEntries(
+        Object.entries(next).filter(([key, selectedValue]) => {
+          if (key === axis) return true;
+          const reachable = getAvailableOptionsForAxis(
+            key,
+            productData.variants,
+            Object.fromEntries(Object.entries(next).filter(([k]) => k !== key))
+          );
+          return reachable.length === 0 || reachable.includes(selectedValue);
+        })
+      );
+    });
   };
 
   const handleModalColorSelection = (index: number) => {
