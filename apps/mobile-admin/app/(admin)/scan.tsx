@@ -136,7 +136,7 @@ export default function ScanScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom']}>
       <CameraView
         style={styles.camera}
         onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
@@ -173,20 +173,20 @@ export default function ScanScreen() {
           {/* Actions */}
           <View style={styles.actions}>
             <Pressable
-              style={[styles.actionButton, { backgroundColor: '#1E293B' }]}
+              style={[styles.actionButton, { backgroundColor: colors.cardHover }]}
               onPress={() => router.back()}
             >
-              <Ionicons name="close" size={24} color="#FFFFFF" />
-              <Text style={styles.actionButtonText}>Cancel</Text>
+              <Ionicons name="close" size={24} color={colors.text} />
+              <Text style={[styles.actionButtonText, { color: colors.text }]}>Cancel</Text>
             </Pressable>
 
             {scanned && (
               <Pressable
-                style={[styles.actionButton, { backgroundColor: '#3B82F6' }]}
+                style={[styles.actionButton, { backgroundColor: colors.primary }]}
                 onPress={() => setScanned(false)}
               >
-                <Ionicons name="refresh" size={24} color="#FFFFFF" />
-                <Text style={styles.actionButtonText}>Scan Again</Text>
+                <Ionicons name="refresh" size={24} color={colors.textOnPrimary} />
+                <Text style={[styles.actionButtonText, { color: colors.textOnPrimary }]}>Scan Again</Text>
               </Pressable>
             )}
           </View>
@@ -199,7 +199,6 @@ export default function ScanScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
   },
   centerContent: {
     flex: 1,
@@ -222,11 +221,9 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingVertical: 12,
     paddingHorizontal: 24,
-    backgroundColor: '#3B82F6',
     borderRadius: 8,
   },
   backButtonText: {
-    color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '600',
   },
@@ -300,7 +297,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   actionButtonText: {
-    color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '600',
   },
