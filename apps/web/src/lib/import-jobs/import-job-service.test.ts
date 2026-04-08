@@ -745,7 +745,7 @@ describe('import-job-service', () => {
     );
   });
 
-  it('throws when the worker secret is missing', async () => {
+  it('resolves silently when the worker secret is missing', async () => {
     vi.mocked(getImportJobWorkerSecret).mockReturnValueOnce(undefined);
 
     await expect(
