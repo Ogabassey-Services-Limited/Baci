@@ -17,8 +17,8 @@ overrides:
   markdown-it: ^14.1.1
   '@modelcontextprotocol/sdk': ^1.25.2
   react-native-worklets: 0.8.1
-  hono: ^4.12.7
-  '@hono/node-server': ^1.19.10
+  hono: ^4.12.12
+  '@hono/node-server': ^1.19.13
   svgo: ^3.3.3
   underscore: ^1.13.8
   dompurify: 3.3.2
@@ -156,14 +156,14 @@ importers:
         specifier: ^10.0.0
         version: 10.0.1(eslint@10.0.0(jiti@2.6.1))
       '@hono/node-server':
-        specifier: ^1.19.10
-        version: 1.19.11(hono@4.12.8)
+        specifier: ^1.19.13
+        version: 1.19.13(hono@4.12.12)
       '@unlighthouse/cli':
         specifier: ^0.17.7
         version: 0.17.7(@tiptap/extensions@3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))(@tiptap/y-tiptap@3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29))(@vercel/kv@3.0.0)(axios@1.13.5)(embla-carousel@8.6.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(superstruct@2.0.2)(typescript@5.9.3)(vite@8.0.5(@emnapi/core@1.8.1)(@emnapi/runtime@1.8.1)(@types/node@25.5.0)(esbuild@0.25.12)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))(yjs@13.6.29)
       hono:
-        specifier: ^4.12.7
-        version: 4.12.8
+        specifier: ^4.12.12
+        version: 4.12.12
       knip:
         specifier: ^5.83.1
         version: 5.83.1(@types/node@25.5.0)(typescript@5.9.3)
@@ -3009,11 +3009,11 @@ packages:
     peerDependencies:
       vue: ^3.2.0
 
-  '@hono/node-server@1.19.11':
-    resolution: {integrity: sha512-dr8/3zEaB+p0D2n/IUrlPF1HZm586qgJNXK1a9fhg/PzdtkK7Ksd5l312tJX2yBuALqDYBlG20QEbayqPyxn+g==}
+  '@hono/node-server@1.19.13':
+    resolution: {integrity: sha512-TsQLe4i2gvoTtrHje625ngThGBySOgSK3Xo2XRYOdqGN1teR8+I7vchQC46uLJi8OF62YTYA3AhSpumtkhsaKQ==}
     engines: {node: '>=18.14.1'}
     peerDependencies:
-      hono: ^4.12.7
+      hono: ^4.12.12
 
   '@hookform/resolvers@5.2.2':
     resolution: {integrity: sha512-A/IxlMLShx3KjV/HeTcTfaMxdwy690+L/ZADoeaTltLx+CVuzkeVIPuybK3jrRfw7YZnmdKsVVHAlEPIAEUNlA==}
@@ -9742,12 +9742,8 @@ packages:
   hoist-non-react-statics@3.3.2:
     resolution: {integrity: sha512-/gGivxi8JPKWNm/W0jSmzcMPpfpPLc3dY/6GxhX2hQ9iGj3aDfklV4ET7NjKpSinLpJ5vafa9iiGIEZg10SfBw==}
 
-  hono@4.12.7:
-    resolution: {integrity: sha512-jq9l1DM0zVIvsm3lv9Nw9nlJnMNPOcAtsbsgiUhWcFzPE99Gvo6yRTlszSLLYacMeQ6quHD6hMfId8crVHvexw==}
-    engines: {node: '>=16.9.0'}
-
-  hono@4.12.8:
-    resolution: {integrity: sha512-VJCEvtrezO1IAR+kqEYnxUOoStaQPGrCmX3j4wDTNOcD1uRPFpGlwQUIW8niPuvHXaTUxeOUl5MMDGrl+tmO9A==}
+  hono@4.12.12:
+    resolution: {integrity: sha512-p1JfQMKaceuCbpJKAPKVqyqviZdS0eUxH9v82oWo1kb9xjQ5wA6iP3FNVAPDFlz5/p7d45lO+BpSk1tuSZMF4Q==}
     engines: {node: '>=16.9.0'}
 
   hookable@5.5.3:
@@ -16431,7 +16427,7 @@ snapshots:
       '@copilotkitnext/agent': 1.54.0(@cfworker/json-schema@4.1.1)
       '@copilotkitnext/runtime': 1.54.0(@ag-ui/client@0.0.47)(@ag-ui/core@0.0.47)(@ag-ui/encoder@0.0.47)(@cfworker/json-schema@4.1.1)(@copilotkitnext/shared@1.54.0)(zod@3.25.76)
       '@graphql-yoga/plugin-defer-stream': 3.18.1(graphql-yoga@5.18.1(graphql@16.13.1))(graphql@16.13.1)
-      '@hono/node-server': 1.19.11(hono@4.12.8)
+      '@hono/node-server': 1.19.13(hono@4.12.12)
       '@langchain/core': 0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@1.30.1(@opentelemetry/api@1.9.0))(openai@4.104.0(ws@8.20.0)(zod@3.25.76))
       '@scarf/scarf': 1.4.0
       class-transformer: 0.5.1
@@ -16439,7 +16435,7 @@ snapshots:
       graphql: 16.13.1
       graphql-scalars: 1.25.0(graphql@16.13.1)
       graphql-yoga: 5.18.1(graphql@16.13.1)
-      hono: 4.12.8
+      hono: 4.12.12
       partial-json: 0.1.7
       pino: 9.14.0
       pino-pretty: 11.3.0
@@ -16468,7 +16464,7 @@ snapshots:
       '@copilotkitnext/agent': 1.54.0(@cfworker/json-schema@4.1.1)
       '@copilotkitnext/runtime': 1.54.0(@ag-ui/client@0.0.47)(@ag-ui/core@0.0.47)(@ag-ui/encoder@0.0.47)(@cfworker/json-schema@4.1.1)(@copilotkitnext/shared@1.54.0)(zod@3.25.76)
       '@graphql-yoga/plugin-defer-stream': 3.18.1(graphql-yoga@5.18.1(graphql@16.13.1))(graphql@16.13.1)
-      '@hono/node-server': 1.19.11(hono@4.12.8)
+      '@hono/node-server': 1.19.13(hono@4.12.12)
       '@langchain/core': 0.3.80(@opentelemetry/api@1.9.0)(@opentelemetry/sdk-trace-base@1.30.1(@opentelemetry/api@1.9.0))(openai@4.104.0(ws@8.20.0)(zod@3.25.76))
       '@scarf/scarf': 1.4.0
       ai: 6.0.116(zod@3.25.76)
@@ -16477,7 +16473,7 @@ snapshots:
       graphql: 16.13.1
       graphql-scalars: 1.25.0(graphql@16.13.1)
       graphql-yoga: 5.18.1(graphql@16.13.1)
-      hono: 4.12.8
+      hono: 4.12.12
       openai: 4.104.0(ws@8.20.0)(zod@3.25.76)
       partial-json: 0.1.7
       pino: 9.14.0
@@ -16590,7 +16586,7 @@ snapshots:
       '@copilotkitnext/shared': 1.54.0
       cors: 2.8.6
       express: 4.22.1
-      hono: 4.12.8
+      hono: 4.12.12
       phoenix: 1.8.5
       rxjs: 7.8.1
       ws: 8.19.0
@@ -17844,13 +17840,9 @@ snapshots:
       '@tanstack/vue-virtual': 3.13.18(vue@3.5.29(typescript@5.9.3))
       vue: 3.5.29(typescript@5.9.3)
 
-  '@hono/node-server@1.19.11(hono@4.12.7)':
+  '@hono/node-server@1.19.13(hono@4.12.12)':
     dependencies:
-      hono: 4.12.7
-
-  '@hono/node-server@1.19.11(hono@4.12.8)':
-    dependencies:
-      hono: 4.12.8
+      hono: 4.12.12
 
   '@hookform/resolvers@5.2.2(react-hook-form@7.72.0(react@19.2.3))':
     dependencies:
@@ -18409,7 +18401,7 @@ snapshots:
 
   '@modelcontextprotocol/sdk@1.26.0(@cfworker/json-schema@4.1.1)(zod@3.25.76)':
     dependencies:
-      '@hono/node-server': 1.19.11(hono@4.12.7)
+      '@hono/node-server': 1.19.13(hono@4.12.12)
       ajv: 8.18.0
       ajv-formats: 3.0.1(ajv@8.18.0)
       content-type: 1.0.5
@@ -18419,7 +18411,7 @@ snapshots:
       eventsource-parser: 3.0.6
       express: 5.2.1
       express-rate-limit: 8.2.2(express@5.2.1)
-      hono: 4.12.7
+      hono: 4.12.12
       jose: 6.1.3
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
@@ -26744,9 +26736,7 @@ snapshots:
     dependencies:
       react-is: 16.13.1
 
-  hono@4.12.7: {}
-
-  hono@4.12.8: {}
+  hono@4.12.12: {}
 
   hookable@5.5.3: {}
 
