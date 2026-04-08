@@ -59,6 +59,9 @@ describe('GET /api/import-jobs/[jobId]', () => {
 
     expect(response.status).toBe(200);
     expect(noStoreMock).toHaveBeenCalledTimes(1);
+    expect(response.headers.get('Cache-Control')).toBe(
+      'private, no-store, no-cache, max-age=0, must-revalidate'
+    );
   });
 
   it('returns 401 when authentication fails', async () => {
@@ -72,6 +75,9 @@ describe('GET /api/import-jobs/[jobId]', () => {
     );
 
     expect(response.status).toBe(401);
+    expect(response.headers.get('Cache-Control')).toBe(
+      'private, no-store, no-cache, max-age=0, must-revalidate'
+    );
   });
 
   it('returns 400 for an invalid job id', async () => {
