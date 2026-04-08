@@ -262,7 +262,10 @@ export async function fulfillPendingVtuTransaction({
     .eq('id', row.id);
 
   if (metaUpdateError) {
-    console.error('Failed to update VTU transaction metadata:', metaUpdateError);
+    console.error(
+      'Failed to update VTU transaction metadata:',
+      metaUpdateError
+    );
   }
 
   return {

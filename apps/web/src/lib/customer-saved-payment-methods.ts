@@ -2,6 +2,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 const ENCRYPTION_ALGORITHM = 'aes-256-gcm';
+const GCM_AUTH_TAG_LENGTH = 16;
 
 function getEncryptionKey(): Buffer | null {
   const key = process.env.PAYMENT_ENCRYPTION_KEY;
@@ -12,14 +13,23 @@ function getEncryptionKey(): Buffer | null {
 function encryptAuthCode(plaintext: string): string {
   const key = getEncryptionKey();
   if (!key) {
-    console.warn('PAYMENT_ENCRYPTION_KEY not set — storing authorization code unencrypted');
+    console.warn(
+      'PAYMENT_ENCRYPTION_KEY not set — storing authorization code unencrypted'
+    );
     return plaintext;
   }
   const iv = randomBytes(12);
   const cipher = createCipheriv(ENCRYPTION_ALGORITHM, key, iv);
-  const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+  const encrypted = Buffer.concat([
+    cipher.update(plaintext, 'utf8'),
+    cipher.final(),
+  ]);
   const tag = cipher.getAuthTag();
-  return [iv.toString('hex'), encrypted.toString('hex'), tag.toString('hex')].join(':');
+  return [
+    iv.toString('hex'),
+    encrypted.toString('hex'),
+    tag.toString('hex'),
+  ].join(':');
 }
 
 function decryptAuthCode(ciphertext: string): string {
@@ -27,9 +37,16 @@ function decryptAuthCode(ciphertext: string): string {
   if (!key || !ciphertext.includes(':')) return ciphertext;
   const [ivHex, encryptedHex, tagHex] = ciphertext.split(':');
   if (!ivHex || !encryptedHex || !tagHex) return ciphertext;
-  const decipher = createDecipheriv(ENCRYPTION_ALGORITHM, key, Buffer.from(ivHex, 'hex'));
+  const decipher = createDecipheriv(
+    ENCRYPTION_ALGORITHM,
+    key,
+    Buffer.from(ivHex, 'hex'),
+    { authTagLength: GCM_AUTH_TAG_LENGTH }
+  );
   decipher.setAuthTag(Buffer.from(tagHex, 'hex'));
-  return decipher.update(Buffer.from(encryptedHex, 'hex')) + decipher.final('utf8');
+  return (
+    decipher.update(Buffer.from(encryptedHex, 'hex')) + decipher.final('utf8')
+  );
 }
 
 export interface PaystackAuthorization {
@@ -214,7 +231,10 @@ export async function getSavedPaymentMethodById({
   }
 
   if (data?.authorization_code) {
-    return { ...data, authorization_code: decryptAuthCode(data.authorization_code) };
+    return {
+      ...data,
+      authorization_code: decryptAuthCode(data.authorization_code),
+    };
   }
   return data;
 }

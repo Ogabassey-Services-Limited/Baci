@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { logger } from '@/lib/logger';
 import { authenticateApiRequest } from '@/lib/api-auth';
+import { logger } from '@/lib/logger';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { historyQuerySchema } from '@/schemas/vtu';
 
@@ -96,7 +96,13 @@ export async function GET(request: NextRequest) {
       .limit(limit);
 
     if (transactionsError) {
-      logger.error('Failed to fetch customer VTU history:', transactionsError);
+      logger.error({
+        message: 'Failed to fetch customer VTU history',
+        error:
+          transactionsError instanceof Error
+            ? transactionsError
+            : new Error(String(transactionsError)),
+      });
       return NextResponse.json(
         { error: 'Failed to fetch history' },
         { status: 500 }
@@ -114,7 +120,10 @@ export async function GET(request: NextRequest) {
       })),
     });
   } catch (error) {
-    logger.error('Customer VTU history error:', error);
+    logger.error({
+      message: 'Customer VTU history error',
+      error: error instanceof Error ? error : new Error(String(error)),
+    });
     return NextResponse.json(
       { error: 'Failed to fetch history' },
       { status: 500 }

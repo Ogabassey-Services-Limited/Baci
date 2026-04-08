@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   formatSavedPaymentMethodLabel,
+  getSavedPaymentMethodById,
   listSavedPaymentMethods,
   upsertPaystackAuthorization,
 } from '@/lib/customer-saved-payment-methods';
@@ -109,6 +110,7 @@ describe('upsertPaystackAuthorization', () => {
   });
 
   it('stores the reusable authorization and returns its id', async () => {
+    process.env.PAYMENT_ENCRYPTION_KEY = '';
     const single = vi.fn().mockResolvedValue({
       data: { id: 'card-1' },
       error: null,
@@ -165,5 +167,105 @@ describe('upsertPaystackAuthorization', () => {
       }),
       { onConflict: 'customer_id,provider,authorization_signature' }
     );
+  });
+
+  it('decrypts stored authorization codes when a payment method is fetched', async () => {
+    process.env.PAYMENT_ENCRYPTION_KEY = '11'.repeat(32);
+
+    const upsertSingle = vi.fn().mockResolvedValue({
+      data: { id: 'card-1' },
+      error: null,
+    });
+    const maybeSingle = vi.fn();
+    const update = vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({ data: null, error: null }),
+        }),
+      }),
+    });
+    const upsert = vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        single: upsertSingle,
+      }),
+    });
+
+    const supabase = {
+      from: vi.fn((table: string) => {
+        if (table === 'customer_saved_payment_methods') {
+          return {
+            update,
+            upsert,
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  eq: vi.fn().mockReturnValue({
+                    eq: vi.fn().mockReturnValue({
+                      maybeSingle,
+                    }),
+                  }),
+                }),
+              }),
+            }),
+          };
+        }
+
+        return {
+          update,
+          upsert,
+        };
+      }),
+    } as unknown as Parameters<
+      typeof upsertPaystackAuthorization
+    >[0]['supabase'];
+
+    await upsertPaystackAuthorization({
+      supabase,
+      merchantId: 'merchant-1',
+      customerId: 'customer-1',
+      customerEmail: 'customer@example.com',
+      authorization: {
+        authorization_code: 'AUTH_123',
+        card_type: 'visa DEBIT',
+        last4: '1234',
+        exp_month: '08',
+        exp_year: '2030',
+        bank: 'Access Bank',
+        channel: 'card',
+        signature: 'SIG_123',
+        reusable: true,
+        country_code: 'NG',
+        brand: 'visa',
+      },
+    });
+
+    const encryptedCode = upsert.mock.calls[0]?.[0]?.authorization_code;
+    maybeSingle.mockResolvedValue({
+      data: {
+        id: 'card-1',
+        provider: 'paystack',
+        provider_customer_email: 'customer@example.com',
+        authorization_code: encryptedCode,
+        authorization_data: {},
+        brand: 'visa',
+        bank: 'Access Bank',
+        card_type: 'visa DEBIT',
+        last4: '1234',
+        exp_month: '08',
+        exp_year: '2030',
+        is_default: true,
+        is_active: true,
+      },
+      error: null,
+    });
+
+    const result = await getSavedPaymentMethodById({
+      supabase,
+      merchantId: 'merchant-1',
+      customerId: 'customer-1',
+      savedPaymentMethodId: 'card-1',
+    });
+
+    expect(result?.authorization_code).toBe('AUTH_123');
   });
 });
