@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { listSavedVtuCards, type VTUPaymentGateway } from '@/lib/vtu-checkout';
 import {
   getEnabledPaymentMethods,
@@ -27,14 +27,14 @@ export function useUtilityPayment() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const supportedGateways = useMemo<UtilityPaymentGateway[]>(() => {
+  const supportedGateways: UtilityPaymentGateway[] = (() => {
     const enabled = getEnabledPaymentMethods(paymentSettings.data);
     const filtered = enabled.filter((method): method is UtilityPaymentGateway =>
       SUPPORTED_UTILITY_GATEWAYS.some((gateway) => gateway === method)
     );
 
     return filtered.length > 0 ? filtered : ['paystack'];
-  }, [paymentSettings.data]);
+  })();
 
   useEffect(() => {
     if (!supportedGateways.includes(selectedGateway)) {
