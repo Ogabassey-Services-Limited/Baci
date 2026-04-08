@@ -6,6 +6,7 @@ import {
   generateOrderConfirmationText,
 } from '@/lib/email-templates';
 import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
+import { formatVariantAttributesLabel } from '@/lib/format-variant-attributes-label';
 import { detectPrivacyRegion } from '@/lib/geo-privacy';
 import {
   getMerchantForApiRequest,
@@ -22,6 +23,9 @@ import { orderCreateSchema } from '@/schemas/orders';
 function isPayOnDelivery(paymentMethod: string): boolean {
   return paymentMethod === 'pod' || paymentMethod === 'pay_on_delivery';
 }
+
+/** Server-authoritative assurance rate — never trust the client value. */
+const SERVER_ASSURANCE_RATE = 0.05;
 
 type EmailOrderItem = {
   name?: string;
@@ -202,15 +206,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const orderItemsPayload = items.map((item) => ({
-      product_id: item.product_id || item.productId || item.id,
-      variant_id: item.variantId || item.variant_id,
-      variant_attributes:
-        item.variantAttributes || item.variant_attributes || {},
-      quantity: item.quantity,
-      has_assurance: item.has_assurance || false,
-      assurance_fee: item.assurance_fee || 0,
-    }));
+    const orderItemsPayload = items.map((item) => {
+      const hasAssurance = item.has_assurance || false;
+      const itemPrice = item.negotiatedPrice ?? item.price;
+      // SECURITY: Recompute assurance_fee server-side — never trust client values
+      const assuranceFee = hasAssurance ? itemPrice * SERVER_ASSURANCE_RATE : 0;
+
+      return {
+        product_id: item.product_id || item.productId || item.id,
+        variant_id: item.variantId || item.variant_id,
+        variant_attributes:
+          item.variantAttributes || item.variant_attributes || {},
+        quantity: item.quantity,
+        has_assurance: hasAssurance,
+        assurance_fee: assuranceFee,
+      };
+    });
 
     if (orderItemsPayload.some((item) => !item.product_id)) {
       return NextResponse.json(
@@ -455,7 +466,25 @@ export async function POST(request: NextRequest) {
 
           // Format items for email template
           const emailItems = items.map((item: EmailOrderItem) => ({
-            name: item.name || item.productName || 'Product',
+            name: (() => {
+              const baseName = item.name || item.productName || 'Product';
+              const variantLabel = formatVariantAttributesLabel(
+                (
+                  item as EmailOrderItem & {
+                    variantAttributes?: Record<string, string>;
+                    variant_attributes?: Record<string, string>;
+                  }
+                ).variantAttributes ||
+                  (
+                    item as EmailOrderItem & {
+                      variantAttributes?: Record<string, string>;
+                      variant_attributes?: Record<string, string>;
+                    }
+                  ).variant_attributes
+              );
+
+              return variantLabel ? `${baseName} (${variantLabel})` : baseName;
+            })(),
             quantity: item.quantity || 1,
             price: item.price || 0,
           }));

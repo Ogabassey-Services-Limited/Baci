@@ -1,4 +1,5 @@
 import { toast } from '@/hooks/use-toast';
+import { buildCheckoutOrderItems } from '@/lib/checkout/build-order-items';
 import { openCredPalCheckout } from '@/lib/credpal';
 import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
 import { createClient } from '@/lib/supabase/client';
@@ -21,6 +22,8 @@ export interface CheckoutCartItem {
   assuranceRate?: number;
   variantId?: string;
   variantAttributes?: Record<string, string>;
+  selectedColor?: string;
+  selectedStorage?: string;
 }
 
 export interface PlaceOrderOptions {
@@ -245,19 +248,7 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
     shippingQuotes,
   );
 
-  const orderItems = cart.map((item) => ({
-    product_id: String(item.id),
-    name: item.name,
-    quantity: item.quantity,
-    price: item.negotiatedPrice || item.price,
-    value: (item.negotiatedPrice || item.price) * item.quantity,
-    variantId: item.variantId,
-    variantAttributes: item.variantAttributes,
-    has_assurance: item.hasAssurance || false,
-    assurance_fee: item.hasAssurance
-      ? (item.negotiatedPrice || item.price) * (item.assuranceRate || 0.05)
-      : 0,
-  }));
+  const orderItems = buildCheckoutOrderItems(cart);
 
   try {
     // 1. Create order via API

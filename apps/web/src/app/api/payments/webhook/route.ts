@@ -1291,7 +1291,7 @@ export async function POST(request: NextRequest) {
         })
         .eq('id', transaction.order_id)
         .select(
-          'id, order_number, customer_id, total, subtotal, shipping_fee, customer_name, customer_email, customer_phone, shipping_address, currency, payment_status, shipping_status, updated_at, ad_tracking, order_items(id, product_id, name, price, quantity, subtotal)'
+          'id, order_number, customer_id, total, subtotal, shipping_fee, customer_name, customer_email, customer_phone, shipping_address, currency, payment_status, shipping_status, updated_at, ad_tracking, order_items(id, product_id, name, price, quantity, subtotal, variant_name)'
         )
         .single();
 
@@ -1367,7 +1367,11 @@ export async function POST(request: NextRequest) {
 
             const emailItems = (order.order_items || []).map(
               (item: Record<string, unknown>) => ({
-                name: (item.name as string) || 'Product',
+                name:
+                  typeof item.variant_name === 'string' &&
+                  item.variant_name.trim().length > 0
+                    ? `${(item.name as string) || 'Product'} (${item.variant_name})`
+                    : (item.name as string) || 'Product',
                 quantity: (item.quantity as number) || 1,
                 price: (item.price as number) || 0,
               })

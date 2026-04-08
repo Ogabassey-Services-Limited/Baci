@@ -51,6 +51,7 @@ import { useCurrency } from '@/hooks/use-currency';
 import { MerchantProvider, useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
 import { apiPost } from '@/lib/api-client';
+import { buildCheckoutOrderItems } from '@/lib/checkout/build-order-items';
 import { getCountryByCode } from '@/lib/countries';
 import { trackEvent } from '@/lib/event-tracking';
 import { trackServerSideBeginCheckout } from '@/lib/server-side-analytics';
@@ -1183,13 +1184,7 @@ function CheckoutPageContent() {
       }
 
       // Prepare order items
-      const orderItems = cart.map((item) => ({
-        product_id: item.id,
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-        image: item.image,
-      }));
+      const orderItems = buildCheckoutOrderItems(cart);
 
       // Calculate totals - use merchant data from hook directly (no need to query DB again)
       const subtotal = cartTotal;

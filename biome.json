@@ -28,7 +28,8 @@
       "!**/mcp-server",
       "!**/baci-mobile-storefront",
       "!**/baci-mobile-admin",
-      "!process_*.cjs"
+      "!process_*.cjs",
+      "!**/public"
     ]
   },
   "formatter": {
