@@ -38,6 +38,7 @@ import {
   useUpdateProductStatus,
 } from '@/hooks/useProducts';
 import { useTheme } from '@/hooks/useTheme';
+import { formatVariantAttributesSummary } from '@/lib/format-variant-attributes';
 import { normalizeComparableProductName } from '@/lib/product-matching';
 import { runSingleFlight } from '@/lib/single-flight';
 import { supabase } from '@/lib/supabase';
@@ -941,9 +942,9 @@ export default function ProductEditScreen() {
                       fontSize: 15,
                     }}
                   >
-                    {variant.variant_attributes
-                      ? Object.values(variant.variant_attributes).join(' / ')
-                      : variant.name}
+                    {formatVariantAttributesSummary(
+                      variant.variant_attributes
+                    ) || variant.name}
                   </Text>
                   <Text
                     style={{
