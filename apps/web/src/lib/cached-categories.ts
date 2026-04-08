@@ -35,7 +35,7 @@ function getPublicSupabaseClient() {
 export async function getCachedNavigationCategories(
   merchantId: string
 ): Promise<CategoryNavItem[]> {
-  'use cache';
+  'use cache: remote';
   cacheTag('categories', 'navigation-categories');
   // Default cache life is sufficient, or use cacheLife if precise control needed
 

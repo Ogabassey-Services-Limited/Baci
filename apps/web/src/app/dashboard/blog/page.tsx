@@ -19,9 +19,14 @@ export default async function BlogPage() {
     return <div>Merchant not found</div>;
   }
 
-  // Fetch settings to gate access
-  const settings = await getCachedFeatureSettings(merchant.id);
-  const blogEnabled = settings?.blog_enabled ?? false;
+  // Fetch settings to gate access — treat fetch failure as "blog disabled"
+  let blogEnabled = false;
+  try {
+    const settings = await getCachedFeatureSettings(merchant.id);
+    blogEnabled = settings?.blog_enabled ?? false;
+  } catch {
+    // Settings query failed — default to disabled
+  }
 
   if (!blogEnabled) {
     return (

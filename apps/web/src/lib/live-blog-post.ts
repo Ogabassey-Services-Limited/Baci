@@ -17,7 +17,12 @@ export async function getLiveBlogPost(
 
   if (!merchant) return null;
 
-  const features = await getCachedFeatureSettings(merchant.id);
+  let features: Awaited<ReturnType<typeof getCachedFeatureSettings>>;
+  try {
+    features = await getCachedFeatureSettings(merchant.id);
+  } catch {
+    return null; // Treat settings fetch failure as "blog disabled"
+  }
   if (!features?.blog_enabled) return null;
 
   const supabase = createPublicClient({

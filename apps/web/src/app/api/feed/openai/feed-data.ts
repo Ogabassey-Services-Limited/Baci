@@ -48,7 +48,7 @@ export interface OpenAIFeedData {
 export async function getCachedOpenAIFeedData(
   merchantId: string
 ): Promise<OpenAIFeedData> {
-  'use cache';
+  'use cache: remote';
   cacheLife('products');
   cacheTag('openai-product-feed', 'products', `merchant-feed-${merchantId}`);
 

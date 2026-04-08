@@ -214,7 +214,7 @@ export interface CachedMerchant {
 export async function getCachedMerchant(
   slug: string
 ): Promise<CachedMerchant | null> {
-  'use cache';
+  'use cache: remote';
   cacheLife('merchant');
   cacheTag('merchants', `merchant-${slug}`);
 
@@ -340,7 +340,7 @@ export async function getCachedMerchant(
 export async function getCachedMerchantByDomain(
   domain: string
 ): Promise<CachedMerchant | null> {
-  'use cache';
+  'use cache: remote';
   cacheLife('merchant');
   cacheTag('merchants', 'domains', `domain-${domain.toLowerCase()}`);
 
@@ -549,6 +549,28 @@ export async function getMerchantSafe(
 }
 
 /**
+ * Strict merchant lookup with retry — throws on transient failures.
+ * Use inside 'use cache: remote' functions where returning null on a
+ * transient error would cache the failure across instances.
+ * A genuine "merchant not found" still returns null (safe to cache).
+ */
+export async function getMerchantStrict(
+  identifier: string
+): Promise<CachedMerchant | null> {
+  try {
+    return await getMerchantByIdentifier(identifier);
+  } catch {
+    try {
+      return await getMerchantByIdentifier(identifier);
+    } catch (retryError) {
+      const safeId = sanitizeLookupLogValue(identifier);
+      console.error('Merchant fetch failed after retry (strict):', safeId);
+      throw retryError;
+    }
+  }
+}
+
+/**
  * Request-scoped merchant lookup via React cache().
  * Deduplicates getMerchantSafe() calls within a single request — if both
  * layout.tsx and page.tsx call this with the same identifier, only one
@@ -564,7 +586,7 @@ export const getRequestScopedMerchant = cache(
  * Cached merchant data by ID
  */
 export async function getCachedMerchantById(merchantId: string) {
-  'use cache';
+  'use cache: remote';
   cacheLife('merchant');
   cacheTag('merchants', `merchant-id-${merchantId}`);
 
@@ -623,7 +645,7 @@ export async function getCachedProducts(
     featured?: boolean;
   }
 ) {
-  'use cache';
+  'use cache: remote';
   cacheLife('products');
   cacheTag('products', `products-${merchantId}`);
 
@@ -707,7 +729,7 @@ export async function getCachedProduct(
   merchantId: string,
   productSlug: string
 ) {
-  'use cache';
+  'use cache: remote';
   cacheLife('products');
   cacheTag('product', `product-${merchantId}-${productSlug}`);
 
@@ -851,7 +873,7 @@ export async function getCachedProductWithDetails(
   merchantId: string,
   productSlug: string
 ) {
-  'use cache';
+  'use cache: remote';
   cacheLife('products');
   cacheTag(
     'product',
@@ -978,7 +1000,7 @@ export async function getCachedLegacyProductRedirectTarget(
   merchantId: string,
   productSlug: string
 ): Promise<CachedLegacyProductRedirectTarget | null> {
-  'use cache';
+  'use cache: remote';
   cacheLife('products');
   cacheTag(
     'product',
@@ -1067,7 +1089,7 @@ export async function getCachedLegacyProductRedirectTarget(
  * Uses 'categories' cacheLife profile (stale 5min, revalidate 1hr, expire 24hr)
  */
 export async function getCachedCategories(merchantId: string) {
-  'use cache';
+  'use cache: remote';
   cacheLife('categories');
   cacheTag('categories', `categories-${merchantId}`);
 
@@ -1102,7 +1124,7 @@ export async function getCachedCategory(
   merchantId: string,
   categorySlug: string
 ) {
-  'use cache';
+  'use cache: remote';
   cacheLife('categories');
   cacheTag('category', `category-${merchantId}-${categorySlug}`);
 
@@ -1138,7 +1160,7 @@ export async function getCachedPageConfig(
   merchantId: string,
   pageSlug: string = 'home'
 ) {
-  'use cache';
+  'use cache: remote';
   cacheLife('merchant');
   cacheTag('page-config', `page-config-${merchantId}-${pageSlug}`);
 
@@ -1170,7 +1192,7 @@ export async function getCachedCategoryPageData(
   categorySlug: string,
   _storeSlug: string
 ) {
-  'use cache';
+  'use cache: remote';
   cacheLife('storefront-page');
   cacheTag('category-page-data', 'products', 'categories');
 
@@ -1381,7 +1403,7 @@ export async function getCachedProductReviews(
     offset?: number;
   }
 ) {
-  'use cache';
+  'use cache: remote';
   cacheLife('products');
   cacheTag('reviews', `reviews-${productId}`);
 
@@ -1431,7 +1453,7 @@ export async function getCachedProductReviews(
  * Uses 'products' cacheLife profile (stale 5min, revalidate 5min, expire 24hr)
  */
 export async function getCachedProductRatingStats(productId: string) {
-  'use cache';
+  'use cache: remote';
   cacheLife('products');
   cacheTag('reviews', `rating-stats-${productId}`);
 
@@ -1486,7 +1508,7 @@ function getServiceSupabaseClient() {
  * Uses 'merchant' cacheLife profile (revalidate 60s)
  */
 export async function getCachedDashboardStats(merchantId: string) {
-  'use cache';
+  'use cache: remote';
   cacheLife('merchant');
   cacheTag('dashboard', `dashboard-${merchantId}`);
 
@@ -1513,7 +1535,7 @@ export async function getCachedPlatformAnalytics(
   startDate: string,
   endDate: string
 ) {
-  'use cache';
+  'use cache: remote';
   cacheLife('products');
   cacheTag('analytics');
 
@@ -1541,7 +1563,7 @@ export async function getCachedPlatformAnalytics(
  * Uses 'products' cacheLife profile (revalidate 5min)
  */
 export async function getCachedFeatureSettings(merchantId: string) {
-  'use cache';
+  'use cache: remote';
   cacheLife('products');
   cacheTag(`features-${merchantId}`);
 
@@ -1554,28 +1576,23 @@ export async function getCachedFeatureSettings(merchantId: string) {
         'blog_enabled, shipping_insurance_enabled, shipping_insurance_min_order_value, shipping_insurance_opt_in_default'
       )
       .eq('merchant_id', merchantId)
-      .single();
+      .maybeSingle();
 
     if (error) {
-      // If no settings found, default to disabled
-      return {
-        blog_enabled: false,
-        shipping_insurance_enabled: false,
-        shipping_insurance_min_order_value: 5000,
-        shipping_insurance_opt_in_default: false,
-      };
+      // Transient DB failure — throw so remote cache doesn't persist the error state
+      throw error;
+    }
+
+    if (!data) {
+      // No settings row — genuine "disabled" state, safe to cache
+      return null;
     }
 
     return data;
   } catch (error) {
     console.error('Error fetching feature settings:', error);
-    // Fallback to disabled on crash (e.g. missing service key)
-    return {
-      blog_enabled: false,
-      shipping_insurance_enabled: false,
-      shipping_insurance_min_order_value: 5000,
-      shipping_insurance_opt_in_default: false,
-    };
+    // Rethrow so remote cache skips caching this failure
+    throw error;
   }
 }
 
@@ -1588,12 +1605,15 @@ export async function getCachedBlogPost(
   postSlug: string,
   includeDrafts: boolean = false
 ) {
-  'use cache';
+  'use cache: remote';
   cacheLife('merchant');
-  cacheTag('blog-posts', `blog-${identifier}-${postSlug}`);
+  cacheTag(
+    'blog-posts',
+    `blog-${identifier.toLowerCase()}-${postSlug.toLowerCase()}`
+  );
 
   const lookupKey = identifier.toLowerCase();
-  const merchant = await getMerchantSafe(lookupKey);
+  const merchant = await getMerchantStrict(lookupKey);
 
   if (!merchant) return null;
 
@@ -1665,20 +1685,20 @@ export async function getCachedBlogListing(
     searchQuery?: string;
   }
 ) {
-  'use cache';
+  'use cache: remote';
   const category = options?.category;
   const page = options?.page || 1;
   const searchQuery = options?.searchQuery;
   cacheLife('merchant');
   cacheTag(
     'blog-posts',
-    `blog-list-${identifier}-${category || 'all'}-${page}`
+    `blog-list-${identifier.toLowerCase()}-${category || 'all'}-${page}`
   );
 
   const limit = BLOG_LISTING_PAGE_SIZE;
   const offset = (page - 1) * limit;
   const lookupKey = identifier.toLowerCase();
-  const merchant = await getMerchantSafe(lookupKey);
+  const merchant = await getMerchantStrict(lookupKey);
 
   if (!merchant) return null;
 
@@ -1755,4 +1775,40 @@ export async function getCachedBlogListing(
     totalPages: Math.ceil((count || 0) / limit),
     searchQuery,
   };
+}
+
+/**
+ * Cached storefront homepage products.
+ * Uses 'products' cacheLife profile and the standard products-${merchantId} tag
+ * so revalidateProducts() automatically busts this cache.
+ */
+export async function getCachedStorefrontHomeProducts(merchantId: string) {
+  'use cache: remote';
+  cacheLife('products');
+  cacheTag('products', `products-${merchantId}`);
+
+  const supabase = getPublicSupabaseClient();
+  const { data, error } = await supabase
+    .from('products')
+    .select(
+      `
+      id, name, slug, description, price, compare_at_price,
+      images, category, brand, condition, stock,
+      product_categories(categories(name, slug))
+    `
+    )
+    .eq('merchant_id', merchantId)
+    .eq('status', 'active')
+    .order('price', { ascending: false })
+    .limit(50);
+
+  if (error) {
+    console.error('Failed to load storefront home products', {
+      merchantId,
+      error,
+    });
+    throw error;
+  }
+
+  return data ?? [];
 }

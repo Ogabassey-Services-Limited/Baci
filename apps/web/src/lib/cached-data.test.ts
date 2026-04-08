@@ -30,7 +30,7 @@ import {
 
 let harness: CachedDataTestHarness;
 
-const DEFAULT_DISABLED_SETTINGS = {
+const _DEFAULT_DISABLED_SETTINGS = {
   blog_enabled: false,
   shipping_insurance_enabled: false,
   shipping_insurance_min_order_value: 5000,
@@ -152,7 +152,7 @@ describe('getCachedFeatureSettings', () => {
       shipping_insurance_opt_in_default: true,
     };
 
-    harness.mockSingle.mockResolvedValueOnce({
+    harness.mockMaybeSingle.mockResolvedValueOnce({
       data: settings,
       error: null,
       count: null,
@@ -163,19 +163,23 @@ describe('getCachedFeatureSettings', () => {
     expect(result).toEqual(settings);
   });
 
-  it('returns default disabled settings on Supabase error', async () => {
-    harness.mockSingle.mockResolvedValueOnce({
+  it('throws on Supabase error instead of returning defaults', async () => {
+    const consoleSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    harness.mockMaybeSingle.mockResolvedValueOnce({
       data: null,
       error: { message: 'Not found', code: 'PGRST116' },
       count: null,
     });
 
-    const result = await getCachedFeatureSettings('merchant-1');
-
-    expect(result).toEqual(DEFAULT_DISABLED_SETTINGS);
+    await expect(getCachedFeatureSettings('merchant-1')).rejects.toMatchObject({
+      message: 'Not found',
+    });
+    expect(consoleSpy).toHaveBeenCalled();
   });
 
-  it('returns default disabled settings when Supabase client creation throws', async () => {
+  it('throws when Supabase client creation fails', async () => {
     const consoleSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
@@ -183,10 +187,22 @@ describe('getCachedFeatureSettings', () => {
       throw new Error('Missing service key');
     });
 
+    await expect(getCachedFeatureSettings('merchant-1')).rejects.toThrow(
+      'Missing service key'
+    );
+    expect(consoleSpy).toHaveBeenCalled();
+  });
+
+  it('returns null when no settings row exists', async () => {
+    harness.mockMaybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: null,
+      count: null,
+    });
+
     const result = await getCachedFeatureSettings('merchant-1');
 
-    expect(result).toEqual(DEFAULT_DISABLED_SETTINGS);
-    expect(consoleSpy).toHaveBeenCalled();
+    expect(result).toBeNull();
   });
 });
 
