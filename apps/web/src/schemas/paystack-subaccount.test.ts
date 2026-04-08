@@ -63,4 +63,24 @@ describe('paystackSubaccountSchema', () => {
 
     expect(result.success).toBe(false);
   });
+
+  it('accepts alphanumeric bank codes (ALAT 035A)', () => {
+    const result = paystackSubaccountSchema.safeParse({
+      account_number: '1234567890',
+      bank_code: '035A',
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.bank_code).toBe('035A');
+  });
+
+  it('accepts camelCase with fintech bank code (MFB50992)', () => {
+    const result = paystackSubaccountSchema.safeParse({
+      accountNumber: '1234567890',
+      bankCode: 'MFB50992',
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.bank_code).toBe('MFB50992');
+  });
 });

@@ -10,6 +10,40 @@ describe('paystack helpers', () => {
     vi.restoreAllMocks();
   });
 
+  it('resolveAccountNumber accepts alphanumeric bank codes and calls fetch', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          status: true,
+          message: 'ok',
+          data: {
+            account_number: '1234567890',
+            account_name: 'Jane Doe',
+          },
+        }),
+      })
+    );
+
+    const { resolveAccountNumber } = await import('@/lib/paystack');
+    const result = await resolveAccountNumber('1234567890', '035A');
+
+    expect(result.success).toBe(true);
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      expect.stringContaining('bank_code=035A'),
+      expect.any(Object)
+    );
+  });
+
+  it('resolveAccountNumber rejects bank codes with punctuation', async () => {
+    const { resolveAccountNumber } = await import('@/lib/paystack');
+    const result = await resolveAccountNumber('1234567890', 'ABC-123');
+
+    expect(result.success).toBe(false);
+    expect(result).toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+
   it('returns a validation error when saved-card charge payload is incomplete', async () => {
     const { chargeAuthorization } = await import('@/lib/paystack');
     const result = await chargeAuthorization({

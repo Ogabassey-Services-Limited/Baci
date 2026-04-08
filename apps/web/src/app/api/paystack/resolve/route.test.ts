@@ -259,6 +259,26 @@ describe('POST /api/paystack/resolve', () => {
     expect(await response.json()).toEqual({ error: 'Gateway timeout' });
   });
 
+  it('accepts alphanumeric bank_code (035A) and calls resolveAccountNumber', async () => {
+    mockResolveAccountNumber.mockResolvedValueOnce({
+      success: true,
+      data: {
+        account_name: 'Jane Doe',
+        account_number: '1234567890',
+      },
+    });
+
+    const response = await POST(
+      makeRequest(
+        { account_number: '1234567890', bank_code: '035A' },
+        { Authorization: 'Bearer test-token-123' }
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockResolveAccountNumber).toHaveBeenCalledWith('1234567890', '035A');
+  });
+
   it('returns 500 when an unexpected error occurs', async () => {
     mockAuthenticateApiRequest.mockRejectedValueOnce(
       new Error('DB connection failed')

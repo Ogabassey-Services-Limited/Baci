@@ -323,6 +323,22 @@ describe('POST /api/paystack/subaccount', () => {
     expect(mockCreateSubaccount).not.toHaveBeenCalled();
   });
 
+  it('accepts an alphanumeric bankCode (MFB50992) and reaches resolveAccountNumber', async () => {
+    const response = await POST(
+      makeRequest({
+        accountNumber: '1234567890',
+        bankCode: 'MFB50992',
+        businessName: 'Baci Store',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockResolveAccountNumber).toHaveBeenCalledWith(
+      '1234567890',
+      'MFB50992'
+    );
+  });
+
   it('maps configuration failures to 500', async () => {
     mockResolveAccountNumber.mockResolvedValueOnce({
       success: false,

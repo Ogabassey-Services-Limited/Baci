@@ -323,10 +323,10 @@ export async function resolveAccountNumber(
     };
   }
 
-  if (!/^\d{3}$/.test(bankCode)) {
+  if (!/^[A-Za-z0-9]{2,16}$/.test(bankCode.trim())) {
     return {
       success: false,
-      error: 'Bank code must be 3 digits',
+      error: 'Bank code is invalid',
       code: 'VALIDATION_ERROR',
     };
   }
