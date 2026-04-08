@@ -11,10 +11,6 @@ import {
   importJobRowsQuerySchema,
 } from '@/schemas/import-jobs';
 
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
-export const revalidate = 0;
-
 const NO_STORE_HEADERS = {
   'Cache-Control': 'private, no-store, no-cache, max-age=0, must-revalidate',
 } as const;
