@@ -4,6 +4,20 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { activeImageModel } from '@/ai/provider';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
+
+interface GeminiAIResponse {
+  candidates?: Array<{
+    content?: {
+      parts?: Array<{
+        inlineData?: {
+          data: string;
+          mimeType: string;
+        };
+      }>;
+    };
+  }>;
+}
+
 import { createClient } from '@/lib/supabase/server';
 
 // Configure process limit to avoid timeouts
@@ -132,13 +146,10 @@ export async function POST(req: NextRequest) {
             },
           });
 
-          // biome-ignore lint/suspicious/noExplicitAny: Google AI response
-          const content = (response.body as any)?.candidates?.[0]?.content;
-          // biome-ignore lint/suspicious/noExplicitAny: Google AI response
-          const parts = (content?.parts as any[]) || [];
-          const imagePart = (
-            parts as { inlineData: { data: string; mimeType: string } }[]
-          ).find((p) => p.inlineData);
+          const body = response.body as unknown as GeminiAIResponse;
+          const content = body?.candidates?.[0]?.content;
+          const parts = content?.parts || [];
+          const imagePart = parts.find((p) => p.inlineData);
 
           let base64Data = null;
           let contentType = 'image/png';
