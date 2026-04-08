@@ -102,6 +102,7 @@ export default function RewardsPage() {
   if (error) {
     return (
       <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <h1 className="sr-only">Rewards</h1>
         <Card>
           <CardContent className="pt-6">
             <div className="text-center">
@@ -124,6 +125,7 @@ export default function RewardsPage() {
   if (!merchantId) {
     return (
       <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <h1 className="sr-only">Rewards</h1>
         <div className="space-y-6">
           <Skeleton className="h-10 w-48" />
           <Skeleton className="h-48 w-full" />
