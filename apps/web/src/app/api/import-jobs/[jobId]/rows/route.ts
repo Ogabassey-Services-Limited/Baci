@@ -11,6 +11,25 @@ import {
   importJobRowsQuerySchema,
 } from '@/schemas/import-jobs';
 
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'private, no-store, no-cache, max-age=0, must-revalidate',
+} as const;
+
+function applyNoStoreHeaders<T extends Response>(response: T) {
+  Object.entries(NO_STORE_HEADERS).forEach(([key, value]) => {
+    response.headers.set(key, value);
+  });
+
+  return response;
+}
+
+function jsonNoStore(
+  body: Parameters<typeof NextResponse.json>[0],
+  init?: Parameters<typeof NextResponse.json>[1]
+) {
+  return applyNoStoreHeaders(NextResponse.json(body, init));
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ jobId: string }> }
@@ -21,14 +40,14 @@ export async function GET(
     const authResult = await resolveImportRouteContext(request);
     if (!authResult.context) {
       return (
-        authResult.response ??
-        NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        (authResult.response && applyNoStoreHeaders(authResult.response)) ??
+        jsonNoStore({ error: 'Unauthorized' }, { status: 401 })
       );
     }
 
     const parsedParams = importJobParamsSchema.safeParse(await params);
     if (!parsedParams.success) {
-      return NextResponse.json(
+      return jsonNoStore(
         { error: 'Invalid import job id', code: 'invalid_job_id' },
         { status: 400 }
       );
@@ -41,7 +60,7 @@ export async function GET(
     });
 
     if (!parsedQuery.success) {
-      return NextResponse.json(
+      return jsonNoStore(
         { error: 'Invalid pagination query', code: 'invalid_pagination' },
         { status: 400 }
       );
@@ -54,7 +73,7 @@ export async function GET(
     );
 
     if (!job) {
-      return NextResponse.json(
+      return jsonNoStore(
         { error: 'Import job not found', code: 'not_found' },
         { status: 404 }
       );
@@ -66,7 +85,7 @@ export async function GET(
         job.entity_type
       )
     ) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      return jsonNoStore({ error: 'Forbidden' }, { status: 403 });
     }
 
     const from = (parsedQuery.data.page - 1) * parsedQuery.data.pageSize;
@@ -96,7 +115,7 @@ export async function GET(
       throw new Error(error.message);
     }
 
-    return NextResponse.json({
+    return jsonNoStore({
       rows: rows || [],
       pagination: {
         page: parsedQuery.data.page,
@@ -109,7 +128,7 @@ export async function GET(
       message: 'Import job rows route failed',
       error,
     });
-    return NextResponse.json(
+    return jsonNoStore(
       { error: 'Internal server error', code: 'internal_error' },
       { status: 500 }
     );

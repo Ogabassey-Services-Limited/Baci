@@ -58,8 +58,72 @@ import { useSavedStore } from '@/stores/saved-store';
 import {
   formatProductConditionDisplay,
   getDiscountPercentage,
+  type Product,
   type ProductCondition,
 } from '@/types/product';
+
+function getFirstColorOption(product: Product | null) {
+  if (!product) {
+    return null;
+  }
+
+  const imageDrivenColor = Object.keys(product.color_images ?? {}).find(Boolean);
+  if (imageDrivenColor) {
+    return imageDrivenColor;
+  }
+
+  const firstColor = product.colors?.[0];
+  if (typeof firstColor === 'string') {
+    return firstColor;
+  }
+
+  return firstColor?.name ?? null;
+}
+
+function getFallbackVariantSelections(product: Product | null) {
+  if (!product) {
+    return {
+      attributes: {} as Record<string, string>,
+      color: null as string | null,
+      storage: null as string | null,
+    };
+  }
+
+  const fallbackAttributes = Object.fromEntries(
+    Object.entries(product.variant_attributes ?? {})
+      .filter(
+        ([axis, values]) =>
+          axis !== 'color' && axis !== 'storage' && Array.isArray(values)
+      )
+      .map(([axis, values]) => [axis, values[0]])
+      .filter((entry): entry is [string, string] => typeof entry[1] === 'string')
+  );
+
+  return {
+    attributes: fallbackAttributes,
+    color: getFirstColorOption(product),
+    storage: product.variant_attributes?.storage?.[0] ?? null,
+  };
+}
+
+function getSelectionSyncSignature(product: Product | null) {
+  if (!product) {
+    return '';
+  }
+
+  return JSON.stringify({
+    colorImages: product.color_images ?? null,
+    colors: product.colors ?? null,
+    id: product.id,
+    variantAttributes: product.variant_attributes ?? null,
+    variants:
+      product.variants?.map((variant) => ({
+        attributes: variant.attributes ?? null,
+        id: variant.id,
+        stock_quantity: variant.stock_quantity ?? null,
+      })) ?? [],
+  });
+}
 
 export default function ProductDetailScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
@@ -123,7 +187,7 @@ export default function ProductDetailScreen() {
   const [showNegotiationModal, setShowNegotiationModal] = useState(false);
   const [negotiatedPrice, setNegotiatedPrice] = useState<number | null>(null);
   const [showImageZoom, setShowImageZoom] = useState(false);
-  const syncedDefaultSelectionProductIdRef = useRef<string | null>(null);
+  const lastSelectionSyncSignatureRef = useRef<string>('');
 
   const defaultVariantSelection = product
     ? resolveDefaultVariantSelection(product)
@@ -158,6 +222,7 @@ export default function ProductDetailScreen() {
       )
     ),
   };
+  const selectionSyncSignature = getSelectionSyncSignature(product);
 
   // Timer ref for toast cleanup - prevents memory leaks (2026 Best Practice)
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -202,33 +267,54 @@ export default function ProductDetailScreen() {
 
   useEffect(() => {
     if (!product) {
-      syncedDefaultSelectionProductIdRef.current = null;
+      lastSelectionSyncSignatureRef.current = '';
       return;
     }
 
-    if (syncedDefaultSelectionProductIdRef.current === product.id) {
+    if (lastSelectionSyncSignatureRef.current === selectionSyncSignature) {
       return;
     }
 
     const defaultSelection = resolveDefaultVariantSelection(product);
-    setSelectedVariant(defaultSelection?.variant.id ?? null);
-    setSelectedStorage(defaultSelection?.storage ?? null);
-    setSelectedColor(defaultSelection?.color ?? null);
-    setSelectedAttributes(
-      Object.fromEntries(
+    const fallbackSelection = getFallbackVariantSelections(product);
+    const syncedAttributes = {
+      ...fallbackSelection.attributes,
+      ...Object.fromEntries(
         Object.entries(defaultSelection?.attributes ?? {}).filter(
           ([axis]) => axis !== 'color' && axis !== 'storage'
         )
-      )
-    );
-    setColorImages(
-      defaultSelection?.color
-        ? (product.color_images?.[defaultSelection.color] ?? null)
-        : null
-    );
-    setSelectedImageIndex(0);
-    syncedDefaultSelectionProductIdRef.current = product.id;
-  }, [product]);
+      ),
+    };
+    const syncedColor = defaultSelection?.color ?? fallbackSelection.color;
+    const shouldSeedSelection =
+      !selectedVariant &&
+      !selectedStorage &&
+      !selectedColor &&
+      Object.keys(selectedAttributes).length === 0;
+    const shouldRepairInvalidSelection =
+      product.has_variants === true && currentVariantSelection === null;
+
+    if (shouldSeedSelection || shouldRepairInvalidSelection) {
+      setSelectedVariant(defaultSelection?.variant.id ?? null);
+      setSelectedStorage(defaultSelection?.storage ?? fallbackSelection.storage);
+      setSelectedColor(syncedColor);
+      setSelectedAttributes(syncedAttributes);
+      setColorImages(
+        syncedColor ? (product.color_images?.[syncedColor] ?? null) : null
+      );
+      setSelectedImageIndex(0);
+    }
+
+    lastSelectionSyncSignatureRef.current = selectionSyncSignature;
+  }, [
+    currentVariantSelection,
+    product,
+    selectedAttributes,
+    selectedColor,
+    selectedStorage,
+    selectedVariant,
+    selectionSyncSignature,
+  ]);
 
   // Sync quantity with cart store
   const cartItem = (() => {
