@@ -6,6 +6,8 @@ const mockState = {
     supabaseAnonKey?: string;
     supabaseUrl?: string;
   },
+  netInfoFetch: jest.fn(),
+  invoke: jest.fn(),
 };
 
 jest.mock('expo-constants', () => ({
@@ -26,10 +28,7 @@ jest.mock('@supabase/supabase-js', () => ({
 jest.mock('@react-native-community/netinfo', () => ({
   __esModule: true,
   default: {
-    fetch: jest.fn(async () => ({
-      isConnected: true,
-      isInternetReachable: true,
-    })),
+    fetch: (...args: unknown[]) => mockState.netInfoFetch(...args),
   },
 }));
 
@@ -40,6 +39,20 @@ jest.mock('expo-secure-store', () => ({
   deleteItemAsync: jest.fn(),
 }));
 
+jest.mock('./logger', () => ({
+  createLogger: () => ({
+    debug: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  }),
+}));
+
+jest.mock('@/services/analytics', () => ({
+  trackEvent: jest.fn(),
+  trackError: jest.fn(),
+}));
+
 describe('storefront supabase client config', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -48,7 +61,17 @@ describe('storefront supabase client config', () => {
       supabaseAnonKey: 'expo-anon-key',
       supabaseUrl: 'https://expo-project.supabase.co',
     };
-    mockState.createClient.mockReturnValue({ auth: {} });
+    mockState.netInfoFetch.mockResolvedValue({
+      isConnected: true,
+      isInternetReachable: true,
+    });
+    mockState.invoke.mockResolvedValue({ data: null, error: null });
+    mockState.createClient.mockReturnValue({
+      auth: {},
+      functions: {
+        invoke: mockState.invoke,
+      },
+    });
     delete process.env.EXPO_PUBLIC_SUPABASE_URL;
     delete process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
   });
@@ -110,5 +133,51 @@ describe('storefront supabase client config', () => {
     expect(mockState.createClient).not.toHaveBeenCalled();
 
     consoleWarnSpy.mockRestore();
+  });
+
+  it('normalizes order totals to include assurance fees', async () => {
+    mockState.invoke.mockResolvedValue({
+      data: { taxAmount: 75, total: 1575 },
+      error: null,
+    });
+
+    const { calculateCommerce } = await import('./supabase');
+
+    await expect(
+      calculateCommerce('calculate_order', {
+        subtotal: 1000,
+        shippingFee: 500,
+        taxRate: 0.075,
+        assuranceFee: 100,
+      })
+    ).resolves.toEqual({
+      taxAmount: 75,
+      total: 1675,
+    });
+  });
+
+  it('falls back to local order totals when the edge function request cannot be sent', async () => {
+    mockState.invoke.mockRejectedValue(
+      Object.assign(
+        new Error('Failed to send a request to the Edge Function'),
+        {
+          name: 'FunctionsFetchError',
+        }
+      )
+    );
+
+    const { calculateCommerce } = await import('./supabase');
+
+    await expect(
+      calculateCommerce('calculate_order', {
+        subtotal: 1000,
+        shippingFee: 500,
+        taxRate: 0.075,
+        assuranceFee: 100,
+      })
+    ).resolves.toEqual({
+      taxAmount: 75,
+      total: 1675,
+    });
   });
 });

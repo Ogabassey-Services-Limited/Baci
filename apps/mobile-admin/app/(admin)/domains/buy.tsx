@@ -4,13 +4,13 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
+import { FlashList } from '@shopify/flash-list';
 // import { useMerchant } from '@/hooks/useMerchant';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -134,7 +134,9 @@ export default function BuyDomainScreen() {
 
       const data = await response.json();
       if (__DEV__) {
-        console.log(`[Diagnostic] Received ${data.results?.length || 0} results`);
+        console.log(
+          `[Diagnostic] Received ${data.results?.length || 0} results`
+        );
       }
 
       const mappedResults = (data.results || []).map(
@@ -344,7 +346,7 @@ export default function BuyDomainScreen() {
             </Text>
           </View>
         ) : (
-          <FlatList
+          <FlashList
             data={results}
             renderItem={renderItem}
             keyExtractor={(item) => item.domain}

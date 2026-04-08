@@ -975,6 +975,7 @@ describe('POST /api/payments/webhook', () => {
       );
       expect(vi.mocked(notifyNewOrder)).toHaveBeenCalledWith(
         'merchant-123',
+        'order-123',
         'ORD-260323-A7K3-2',
         'Jane Doe',
         11000, // subtotal (10000) + shipping_fee (1000)
@@ -984,7 +985,8 @@ describe('POST /api/payments/webhook', () => {
         'merchant-123',
         11000, // subtotal (10000) + shipping_fee (1000)
         'NGN',
-        'ORD-260323-A7K3-2'
+        'ORD-260323-A7K3-2',
+        'order-123'
       );
       expect(vi.mocked(sendEmail)).toHaveBeenCalledWith(
         expect.objectContaining({

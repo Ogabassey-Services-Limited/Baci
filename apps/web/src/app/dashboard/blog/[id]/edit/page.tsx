@@ -898,6 +898,7 @@ export default function EditBlogPostPage() {
                       src={formData.featured_image_url}
                       alt="Featured image preview"
                       fill
+                      sizes="(max-width: 768px) 100vw, 448px"
                       className="object-cover"
                       unoptimized
                     />

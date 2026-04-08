@@ -24,6 +24,7 @@ import {
   RetryExhaustedError,
   TimeoutError,
 } from '@/lib/api';
+import { resolveApiBaseUrl } from '@/lib/api-url';
 import { createLogger } from '@/lib/logger';
 import { offlineQueue } from '@/lib/offline-queue';
 import { supabase } from '@/lib/supabase';
@@ -34,9 +35,9 @@ import { trackError, trackEvent } from '@/services/analytics';
 
 // Get API URL from config
 const API_URL =
-  process.env.EXPO_PUBLIC_API_URL ||
-  Constants.expoConfig?.extra?.apiUrl ||
-  'https://ogabassey.usebaci.com';
+  resolveApiBaseUrl(
+    process.env.EXPO_PUBLIC_API_URL || Constants.expoConfig?.extra?.apiUrl
+  );
 
 const MERCHANT_ID =
   Constants.expoConfig?.extra?.merchantId ||
@@ -52,6 +53,7 @@ const OrderItemSchema = z.object({
   image_url: z.string().optional(),
   variant: z.string().optional(),
   variant_id: z.string().optional(),
+  variant_attributes: z.record(z.string(), z.string()).optional(),
   has_assurance: z.boolean().optional(),
   assurance_fee: z.number().min(0).optional(),
 });
@@ -75,6 +77,8 @@ const CreateOrderRequestSchema = z.object({
     state: z.string(),
     notes: z.string().optional(),
   }),
+  selected_quote_id: z.string().uuid().optional(),
+  shipping_provider: z.string().optional(),
   source: z.string().default('mobile_app'),
 });
 
@@ -86,7 +90,7 @@ const OrderResponseSchema = z.object({
     total: z.number(),
     payment_status: z.string(),
     shipping_status: z.string(),
-    created_at: z.string(),
+    created_at: z.string().optional(),
     tracking_token: z.string().nullable().optional(),
   }),
   wallet: z
@@ -100,7 +104,9 @@ const OrderResponseSchema = z.object({
 });
 
 export type CreateOrderRequest = z.infer<typeof CreateOrderRequestSchema>;
-export type OrderResponse = z.infer<typeof OrderResponseSchema>;
+export type OrderResponse = z.infer<typeof OrderResponseSchema> & {
+  order: z.infer<typeof OrderResponseSchema>['order'] & { created_at: string };
+};
 export type OrderItem = z.infer<typeof OrderItemSchema>;
 
 // Error types for better handling
@@ -162,17 +168,17 @@ export async function createOrder(
     );
   }
 
-  // 3. Get auth — H6 fix: use getUser() for secure JWT validation, then getSession() for token
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-  if (authError || !user) {
-    throw new Error('Authentication required to place an order');
-  }
+  // 3. Auth is optional because the storefront supports guest checkout.
+  // When a valid session exists, forward it so the server can link the order.
   const {
     data: { session },
   } = await supabase.auth.getSession();
+  const {
+    data: { user },
+    error: authError,
+  } = session?.access_token
+    ? await supabase.auth.getUser()
+    : { data: { user: null }, error: null };
 
   // 4. Prepare order payload matching web API expectations
   const orderPayload = {
@@ -188,6 +194,7 @@ export async function createOrder(
       price: item.price,
       value: Math.round(item.price * item.quantity),
       variant_id: item.variant_id,
+      variant_attributes: item.variant_attributes || {},
       has_assurance: item.has_assurance ?? false,
       assurance_fee: item.assurance_fee ?? 0,
     })),
@@ -196,6 +203,8 @@ export async function createOrder(
     tax_amount: request.tax_amount ?? 0,
     discount_amount: request.discount_amount ?? 0,
     payment_method: request.payment_method,
+    selected_quote_id: request.selected_quote_id ?? null,
+    shipping_provider: request.shipping_provider ?? null,
     payment_status:
       request.payment_method === 'pay_on_delivery' ? 'pending' : 'unpaid',
     shipping_status: 'pending',
@@ -209,7 +218,7 @@ export async function createOrder(
     },
     source: 'mobile_app',
     // Include user_id if authenticated for customer profile linking
-    ...(user?.id && { user_id: user.id }),
+    ...(!authError && user?.id && { user_id: user.id }),
   };
 
   try {
@@ -268,8 +277,11 @@ export async function createOrder(
           'AUTH_ERROR'
         );
       } else if (response.status === 404) {
+        const notFoundMessage = /merchant not found/i.test(errorMessage)
+          ? 'Checkout is temporarily unavailable for this store. Please try again later.'
+          : errorMessage;
         throw new OrderError(
-          'Service unavailable. Please try again later.',
+          notFoundMessage,
           'NOT_FOUND'
         );
       } else if (response.status >= 500) {
@@ -306,18 +318,27 @@ export async function createOrder(
       );
     }
 
+    const normalizedOrderResponse: OrderResponse = {
+      ...orderResponse.data,
+      order: {
+        ...orderResponse.data.order,
+        created_at:
+          orderResponse.data.order.created_at ?? new Date().toISOString(),
+      },
+    };
+
     // 8. Track successful order creation
     trackEvent('order_created', {
-      orderId: orderResponse.data.order.id,
-      orderNumber: orderResponse.data.order.order_number ?? 'N/A',
-      total: orderResponse.data.order.total,
+      orderId: normalizedOrderResponse.order.id,
+      orderNumber: normalizedOrderResponse.order.order_number ?? 'N/A',
+      total: normalizedOrderResponse.order.total,
       itemCount: request.items.length,
       paymentMethod: request.payment_method,
       duration_ms: Date.now() - startTime,
       source: 'mobile_app',
     });
 
-    return orderResponse.data;
+    return normalizedOrderResponse;
   } catch (error) {
     // Re-throw OrderError as-is
     if (error instanceof OrderError) {

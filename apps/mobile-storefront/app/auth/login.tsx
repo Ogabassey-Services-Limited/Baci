@@ -293,7 +293,7 @@ export default function LoginScreen() {
           style={[
             styles.inputContainer,
             {
-              backgroundColor: colors.card,
+              backgroundColor: colors.muted,
               borderColor: emailError ? colors.error : colors.border,
             },
           ]}
@@ -306,7 +306,7 @@ export default function LoginScreen() {
           <TextInput
             style={[styles.input, { color: colors.text }]}
             placeholder="john@example.com"
-            placeholderTextColor={colors.textSecondary}
+            placeholderTextColor={colors.placeholder}
             value={email}
             onChangeText={(text) => {
               setEmail(text);
@@ -445,7 +445,7 @@ export default function LoginScreen() {
           style={[
             styles.inputContainer,
             {
-              backgroundColor: colors.card,
+              backgroundColor: colors.muted,
               borderColor: otpError ? colors.error : colors.border,
             },
           ]}
@@ -459,7 +459,7 @@ export default function LoginScreen() {
             ref={otpInputRef}
             style={[styles.input, styles.otpInput, { color: colors.text }]}
             placeholder="000000"
-            placeholderTextColor={colors.textSecondary}
+            placeholderTextColor={colors.placeholder}
             value={otp}
             onChangeText={(text) => {
               setOtp(text);
@@ -570,7 +570,7 @@ export default function LoginScreen() {
           style={[
             styles.inputContainer,
             {
-              backgroundColor: colors.card,
+              backgroundColor: colors.muted,
               borderColor: passwordError ? colors.error : colors.border,
             },
           ]}
@@ -583,7 +583,7 @@ export default function LoginScreen() {
           <TextInput
             style={[styles.input, { color: colors.text }]}
             placeholder="••••••••"
-            placeholderTextColor={colors.textSecondary}
+            placeholderTextColor={colors.placeholder}
             value={password}
             onChangeText={(text) => {
               setPassword(text);

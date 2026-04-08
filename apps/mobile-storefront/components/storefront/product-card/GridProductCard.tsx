@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import { Pressable, Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import Colors, { BRAND } from '@/constants/Colors';
-import { formatPrice } from '@/types/product';
+import { formatPrice, formatProductConditionDisplay } from '@/types/product';
 import styles from '../ProductCard.styles';
 import type { GridProductCardProps } from './types';
 
@@ -28,6 +28,17 @@ export default function GridProductCard({
   colors = Colors.light,
 }: GridProductCardProps) {
   const rating = product.rating;
+  const conditionLabel = formatProductConditionDisplay(product.condition);
+  const conditionBadgeColors =
+    conditionLabel === 'New'
+      ? {
+          backgroundColor: colors.success,
+          color: colors.background,
+        }
+      : {
+          backgroundColor: BRAND.primary,
+          color: colors.background,
+        };
 
   return (
     <AnimatedPressable
@@ -60,31 +71,33 @@ export default function GridProductCard({
           }
           accessibilityRole="button"
         >
-          <Animated.View style={[heartAnimatedStyle, styles.wishlistBlur]}>
+          <Animated.View style={[heartAnimatedStyle, styles.wishlistBlur, { backgroundColor: colors.card }]}>
             <Ionicons
               name={isSaved ? 'heart' : 'heart-outline'}
-              size={18}
+              size={16}
               color={isSaved ? colors.destructive : colors.mutedForeground}
             />
           </Animated.View>
         </Pressable>
 
-        {product.condition && (
+        {conditionLabel && (
           <View
             style={[
               styles.badgeContainer,
-              product.condition === 'New'
-                ? { backgroundColor: colors.text }
-                : { backgroundColor: colors.primary },
+              { backgroundColor: conditionBadgeColors.backgroundColor },
             ]}
           >
-            <Text style={styles.badgeText}>{product.condition}</Text>
+            <Text
+              style={[styles.badgeText, { color: conditionBadgeColors.color }]}
+            >
+              {conditionLabel}
+            </Text>
           </View>
         )}
 
         {showLocalPlaceholder ? (
           <View
-            style={[styles.gridImage, styles.imagePlaceholder]}
+            style={[styles.gridImage, styles.imagePlaceholder, { backgroundColor: colors.muted }]}
             accessibilityLabel={`No image available for ${product.name}`}
             testID="grid-product-placeholder"
           >
@@ -102,14 +115,14 @@ export default function GridProductCard({
 
         <Pressable
           onPress={handleAddToCart}
-          style={styles.floatingCartBtn}
+          style={[styles.floatingCartBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
           pointerEvents="box-only"
           accessibilityLabel={`Add ${product.name} to cart`}
           accessibilityRole="button"
         >
           <Ionicons name="cart" size={18} color={BRAND.primary} />
           {cartItemCount > 0 && (
-            <View style={styles.cartBadge}>
+            <View style={[styles.cartBadge, { borderColor: colors.card }]}>
               <Text style={styles.badgeTextMini}>{cartItemCount}</Text>
             </View>
           )}
@@ -143,11 +156,11 @@ export default function GridProductCard({
           {product.name}
         </Text>
 
-        <View style={styles.priceRow}>
+        <View style={[styles.priceRow, { borderTopColor: colors.border }]}>
           <Text style={[styles.gridPrice, { color: BRAND.primary }]}>
             {formatPrice(product.price)}
           </Text>
-          <Text style={styles.detailsText}>Details</Text>
+          <Text style={[styles.detailsText, { color: colors.text }]}>Details</Text>
         </View>
       </View>
     </AnimatedPressable>

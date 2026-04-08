@@ -331,7 +331,10 @@ export default function ProductsScreen() {
   const createCategoryMutation = useCreateCategory();
 
   const handleCreateCategory = () => {
-    createCategoryMutation.mutate(newCategoryName, {
+    const trimmedCategoryName = newCategoryName.trim();
+    if (!trimmedCategoryName || createCategoryMutation.isPending) return;
+
+    createCategoryMutation.mutate(trimmedCategoryName, {
       onSuccess: () => {
         setNewCategoryName('');
         setIsCategoryModalVisible(false);
@@ -602,7 +605,7 @@ export default function ProductsScreen() {
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
-      edges={['top']}
+      edges={[]}
     >
       <SystemBars style={isDark ? 'light' : 'dark'} />
 
@@ -640,6 +643,9 @@ export default function ProductsScreen() {
             onChangeText={setSearchQuery}
             autoCapitalize="none"
             autoCorrect={false}
+            accessibilityLabel="Search products"
+            accessibilityRole="search"
+            returnKeyType="search"
           />
           {searchQuery.length > 0 ? (
             <Pressable
@@ -934,6 +940,9 @@ export default function ProductsScreen() {
               onChangeText={setNewCategoryName}
               placeholder="e.g. Electronics"
               placeholderTextColor={colors.textSecondary}
+              accessibilityLabel="Category name"
+              returnKeyType="done"
+              onSubmitEditing={handleCreateCategory}
             />
 
             <View style={{ flexDirection: 'row', gap: 12 }}>
@@ -969,7 +978,10 @@ export default function ProductsScreen() {
                   justifyContent: 'center',
                 }}
                 onPress={handleCreateCategory}
-                disabled={createCategoryMutation.isPending}
+                disabled={
+                  createCategoryMutation.isPending ||
+                  !newCategoryName.trim()
+                }
                 accessibilityLabel={
                   createCategoryMutation.isPending
                     ? 'Creating category'
@@ -977,7 +989,9 @@ export default function ProductsScreen() {
                 }
                 accessibilityRole="button"
                 accessibilityState={{
-                  disabled: createCategoryMutation.isPending,
+                  disabled:
+                    createCategoryMutation.isPending ||
+                    !newCategoryName.trim(),
                 }}
                 accessibilityHint="Creates the new category"
               >

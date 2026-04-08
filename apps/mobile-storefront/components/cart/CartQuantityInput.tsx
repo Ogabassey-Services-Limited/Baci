@@ -30,6 +30,15 @@ export default function CartQuantityInput({
     setLocalValue(value.toString());
   }, [value]);
 
+  const handleCommit = () => {
+    const parsed = Number.parseInt(localValue, 10);
+    if (Number.isNaN(parsed) || parsed <= 0) {
+      setLocalValue(value.toString());
+    } else {
+      onChange(parsed);
+    }
+  };
+
   return (
     <TextInput
       style={[localStyles.input, style]}
@@ -43,14 +52,7 @@ export default function CartQuantityInput({
         const cleanText = text.replace(/[^0-9]/g, '');
         setLocalValue(cleanText);
       }}
-      onBlur={() => {
-        const parsed = Number.parseInt(localValue, 10);
-        if (Number.isNaN(parsed) || parsed <= 0) {
-          setLocalValue(value.toString());
-        } else {
-          onChange(parsed);
-        }
-      }}
+      onEndEditing={handleCommit}
       keyboardType="number-pad"
       returnKeyType="done"
     />

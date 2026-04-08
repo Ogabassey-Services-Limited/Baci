@@ -503,7 +503,7 @@ export default function CustomersScreen() {
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
-      edges={['top']}
+      edges={[]}
     >
       <SystemBars style={isDark ? 'light' : 'dark'} />
 
@@ -541,6 +541,9 @@ export default function CustomersScreen() {
             onChangeText={setSearchQuery}
             autoCapitalize="none"
             autoCorrect={false}
+            accessibilityLabel="Search customers"
+            accessibilityRole="search"
+            returnKeyType="search"
           />
           {searchQuery.length > 0 ? (
             <Pressable

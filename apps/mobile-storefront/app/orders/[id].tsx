@@ -5,7 +5,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import type { RealtimeChannel } from '@supabase/supabase-js';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -18,10 +18,31 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { ReceiptPreviewModal } from '@/components/receipts/ReceiptPreviewModal';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { SUPPORT_WHATSAPP_PHONE } from '@/constants/Support';
+import { useReceiptPreview } from '@/hooks/use-receipt-preview';
+import { useMerchantReceiptInfo } from '@/hooks/use-receipts';
+import {
+  CUSTOMER_ORDER_PROGRESS_STEPS,
+  getCustomerOrderProgressState,
+  getCustomerOrderStatusMeta,
+  isCustomerOrderClosed,
+} from '@/lib/customer-order-status';
 import { createLogger } from '@/lib/logger';
+import {
+  getOrderAssuranceFeeTotal,
+  getOrderSummaryBreakdown,
+} from '@/lib/order-summary';
+import {
+  BACI_GOOGLE_REVIEW_URL,
+  canLeaveStorefrontGoogleReview,
+  canRequestStorefrontOrderReturn,
+  canShowStorefrontRiderContact,
+  isStorefrontReceiptAvailable,
+} from '@/lib/post-purchase-actions';
 import { supabase } from '@/lib/supabase';
 import { isOrderRealtimePayload } from '@/lib/validation';
 import { useAuthStore } from '@/stores/auth-store';
@@ -37,6 +58,7 @@ interface OrderItem {
   price: number;
   image_url?: string;
   has_assurance?: boolean;
+  assurance_fee?: number;
 }
 
 interface InsurancePolicy {
@@ -55,6 +77,7 @@ interface OrderDetails {
   shipping_status: string;
   subtotal: number;
   shipping_fee: number;
+  tax_amount: number;
   discount_amount: number;
   total: number;
   payment_method: string;
@@ -74,20 +97,48 @@ interface OrderDetails {
   items: OrderItem[];
 }
 
-const ORDER_STATUS_STEPS = [
-  { key: 'pending', label: 'Order Placed', icon: 'receipt-outline' },
-  { key: 'confirmed', label: 'Confirmed', icon: 'checkmark-circle-outline' },
-  { key: 'processing', label: 'Processing', icon: 'construct-outline' },
-  { key: 'shipped', label: 'Shipped', icon: 'car-outline' },
-  { key: 'delivered', label: 'Delivered', icon: 'checkmark-done-outline' },
-];
+const ORDER_STATUS_PALETTES = {
+  placed: {
+    accent: BRAND.primary,
+    surface: 'rgba(220, 38, 38, 0.10)',
+    border: 'rgba(220, 38, 38, 0.18)',
+  },
+  confirmed: {
+    accent: '#2563EB',
+    surface: 'rgba(37, 99, 235, 0.10)',
+    border: 'rgba(37, 99, 235, 0.18)',
+  },
+  shipped: {
+    accent: '#7C3AED',
+    surface: 'rgba(124, 58, 237, 0.10)',
+    border: 'rgba(124, 58, 237, 0.18)',
+  },
+  delivered: {
+    accent: '#059669',
+    surface: 'rgba(5, 150, 105, 0.10)',
+    border: 'rgba(5, 150, 105, 0.18)',
+  },
+  cancelled: {
+    accent: '#DC2626',
+    surface: 'rgba(220, 38, 38, 0.10)',
+    border: 'rgba(220, 38, 38, 0.18)',
+  },
+  returned: {
+    accent: '#6B7280',
+    surface: 'rgba(107, 114, 128, 0.12)',
+    border: 'rgba(107, 114, 128, 0.18)',
+  },
+} as const;
 
 export default function OrderDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((state) => state.user);
   const customer = useAuthStore((state) => state.customer);
+  const { data: merchantInfo } = useMerchantReceiptInfo();
+  const receiptPreview = useReceiptPreview();
 
   const [order, setOrder] = useState<OrderDetails | null>(null);
   const [insurancePolicy, setInsurancePolicy] =
@@ -118,6 +169,7 @@ export default function OrderDetailsScreen() {
             shipping_status,
             subtotal,
             shipping_fee,
+            tax_amount,
             discount_amount,
             total,
             payment_method,
@@ -135,6 +187,7 @@ export default function OrderDetailsScreen() {
               quantity,
               price,
               has_assurance,
+              assurance_fee,
               products (
                 slug,
                 images
@@ -163,6 +216,7 @@ export default function OrderDetailsScreen() {
                 price: item.price as number,
                 image_url: (product?.images as string[] | null)?.[0],
                 has_assurance: item.has_assurance as boolean | undefined,
+                assurance_fee: item.assurance_fee as number | undefined,
               };
             }
           ),
@@ -243,10 +297,10 @@ export default function OrderDetailsScreen() {
 
     channelRef.current = channel;
 
-    // Cleanup: unsubscribe on unmount to prevent memory leaks
+    // Cleanup: remove channel on unmount to prevent stale subscription errors
     return () => {
       if (channelRef.current) {
-        channelRef.current.unsubscribe();
+        supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
     };
@@ -269,12 +323,6 @@ export default function OrderDetailsScreen() {
       currency: 'NGN',
       minimumFractionDigits: 0,
     }).format(price);
-  };
-
-  const getCurrentStepIndex = (status: string) => {
-    if (status === 'cancelled' || status === 'refunded') return -1;
-    const index = ORDER_STATUS_STEPS.findIndex((step) => step.key === status);
-    return index >= 0 ? index : 0;
   };
 
   const handleTrackOrder = () => {
@@ -317,441 +365,987 @@ export default function OrderDetailsScreen() {
     );
   };
 
+  const handleOpenReceipt = () => {
+    if (!order) {
+      return;
+    }
+
+    receiptPreview.openPreviewByOrderId(order.id);
+  };
+
+  const handleLeaveGoogleReview = () => {
+    Linking.openURL(BACI_GOOGLE_REVIEW_URL);
+  };
+
+  const handleCallRider = () => {
+    const riderPhone = merchantInfo?.rider_phone_number?.trim();
+
+    if (!riderPhone) {
+      Alert.alert(
+        'Rider Contact Unavailable',
+        'The rider phone number has not been added yet.'
+      );
+      return;
+    }
+
+    Linking.openURL(`tel:${riderPhone}`);
+  };
+
+  const handleReturnOrder = () => {
+    Alert.alert(
+      'Return Order',
+      'In-app returns are coming next. For now, contact support to start a return for this order.',
+      [
+        { text: 'Not now', style: 'cancel' },
+        { text: 'Contact Support', onPress: handleContactSupport },
+      ]
+    );
+  };
+
+  const handleGoBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+
+    router.replace('/orders/index');
+  };
+
   if (isLoading) {
     return (
-      <View
-        style={[
-          styles.container,
-          styles.centered,
-          { backgroundColor: colors.background },
-        ]}
-      >
-        <ActivityIndicator size="large" color={BRAND.primary} />
-      </View>
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <SafeAreaView
+          style={[styles.container, { backgroundColor: colors.background }]}
+          edges={['left', 'right']}
+        >
+          <View
+            style={[
+              styles.container,
+              styles.centered,
+              { backgroundColor: colors.background },
+            ]}
+          >
+            <ActivityIndicator size="large" color={BRAND.primary} />
+          </View>
+        </SafeAreaView>
+      </>
     );
   }
 
   if (error || !order) {
     return (
-      <View
-        style={[
-          styles.container,
-          styles.centered,
-          { backgroundColor: colors.background },
-        ]}
-      >
-        <Ionicons
-          name="alert-circle-outline"
-          size={48}
-          color={colors.textSecondary}
-        />
-        <Text style={[styles.errorText, { color: colors.text }]}>
-          {error || 'Order not found'}
-        </Text>
-        <TouchableOpacity
-          onPress={() =>
-            router.canGoBack() ? router.back() : router.replace('/')
-          }
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <SafeAreaView
+          style={[styles.container, { backgroundColor: colors.background }]}
+          edges={['left', 'right']}
         >
-          <Text style={[styles.retryText, { color: BRAND.primary }]}>
-            Go back
-          </Text>
-        </TouchableOpacity>
-      </View>
+          <View
+            style={[
+              styles.container,
+              styles.centered,
+              { backgroundColor: colors.background },
+            ]}
+          >
+            <Ionicons
+              name="alert-circle-outline"
+              size={48}
+              color={colors.textSecondary}
+            />
+            <Text style={[styles.errorText, { color: colors.text }]}>
+              {error || 'Order not found'}
+            </Text>
+            <TouchableOpacity onPress={handleGoBack}>
+              <Text style={[styles.retryText, { color: BRAND.primary }]}>
+                Go back
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </>
     );
   }
 
-  const currentStepIndex = getCurrentStepIndex(order.shipping_status);
-  const isCancelled =
-    order.shipping_status === 'cancelled' ||
-    order.shipping_status === 'refunded';
+  const statusMeta = getCustomerOrderStatusMeta(order.shipping_status);
+  const statusPalette = ORDER_STATUS_PALETTES[statusMeta.key];
+  const isClosedOrder = isCustomerOrderClosed(order.shipping_status);
+  const orderAssuranceFee = getOrderAssuranceFeeTotal(
+    order.items,
+    insurancePolicy?.premium_amount
+  );
+  const summaryBreakdown = getOrderSummaryBreakdown({
+    subtotal: order.subtotal,
+    shippingFee: order.shipping_fee,
+    taxAmount: order.tax_amount,
+    discountAmount: order.discount_amount,
+    total: order.total,
+    paymentStatus: order.payment_status,
+    assuranceFee: orderAssuranceFee,
+  });
+  const isReceiptReady = isStorefrontReceiptAvailable({
+    paymentStatus: order.payment_status,
+    shippingStatus: order.shipping_status,
+  });
+  const canShowRiderContact =
+    canShowStorefrontRiderContact(order.shipping_status) &&
+    Boolean(merchantInfo?.rider_phone_number);
+  const canLeaveReview = canLeaveStorefrontGoogleReview(order.shipping_status);
+  const canReturnOrder = canRequestStorefrontOrderReturn(order.shipping_status);
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Order Header */}
-      <View style={[styles.card, { backgroundColor: colors.card }]}>
-        <View style={styles.orderHeader}>
-          <Text style={[styles.orderNumber, { color: colors.text }]}>
-            Order #{order.order_number}
+    <>
+      <Stack.Screen
+        options={{
+          headerShown: false,
+          gestureEnabled: true,
+        }}
+      />
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        edges={['left', 'right']}
+      >
+        <View style={[styles.header, { borderBottomColor: colors.border }]}>
+          <TouchableOpacity
+            onPress={handleGoBack}
+            style={[styles.backButton, { borderColor: colors.border }]}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
+            <Ionicons name="chevron-back" size={18} color={colors.text} />
+            <Text style={[styles.backButtonText, { color: colors.text }]}>
+              My Orders
+            </Text>
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>
+            Order Details
           </Text>
-          <Text style={[styles.orderDate, { color: colors.textSecondary }]}>
-            {formatDate(order.created_at)}
-          </Text>
+          <View style={styles.headerSpacer} />
         </View>
-      </View>
 
-      {/* Order Status Timeline */}
-      {!isCancelled && (
-        <View style={[styles.card, { backgroundColor: colors.card }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Order Status
-          </Text>
-          <View style={styles.timeline}>
-            {ORDER_STATUS_STEPS.map((step, index) => {
-              const isCompleted = index <= currentStepIndex;
-              const isCurrent = index === currentStepIndex;
-
-              return (
-                <View key={step.key} style={styles.timelineStep}>
-                  <View style={styles.timelineIconContainer}>
-                    <View
-                      style={[
-                        styles.timelineIcon,
-                        isCompleted && { backgroundColor: BRAND.primary },
-                        !isCompleted && { backgroundColor: colors.border },
-                      ]}
-                    >
-                      <Ionicons
-                        name={
-                          step.icon as React.ComponentProps<
-                            typeof Ionicons
-                          >['name']
-                        }
-                        size={16}
-                        color={isCompleted ? '#FFF' : colors.textSecondary}
-                      />
-                    </View>
-                    {index < ORDER_STATUS_STEPS.length - 1 && (
-                      <View
-                        style={[
-                          styles.timelineLine,
-                          isCompleted && { backgroundColor: BRAND.primary },
-                          !isCompleted && { backgroundColor: colors.border },
-                        ]}
-                      />
-                    )}
-                  </View>
-                  <View style={styles.timelineContent}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Order Header */}
+          <View
+            style={[
+              styles.card,
+              {
+                backgroundColor: colors.card,
+                borderColor: statusPalette.border,
+                borderWidth: 1,
+              },
+            ]}
+          >
+            <View style={styles.orderHeader}>
+              <View
+                style={[
+                  styles.orderHeaderIcon,
+                  { backgroundColor: statusPalette.surface },
+                ]}
+              >
+                <Ionicons
+                  name={
+                    statusMeta.icon as React.ComponentProps<
+                      typeof Ionicons
+                    >['name']
+                  }
+                  size={20}
+                  color={statusPalette.accent}
+                />
+              </View>
+              <View style={styles.orderHeaderCopy}>
+                <View style={styles.orderHeaderTopRow}>
+                  <Text style={[styles.orderNumber, { color: colors.text }]}>
+                    Order #{order.order_number}
+                  </Text>
+                  <View
+                    style={[
+                      styles.statusChip,
+                      { backgroundColor: statusPalette.surface },
+                    ]}
+                  >
                     <Text
                       style={[
-                        styles.timelineLabel,
-                        { color: isCurrent ? BRAND.primary : colors.text },
-                        isCurrent && styles.timelineLabelActive,
+                        styles.statusChipText,
+                        { color: statusPalette.accent },
                       ]}
                     >
-                      {step.label}
+                      {statusMeta.shortLabel}
                     </Text>
                   </View>
                 </View>
-              );
-            })}
-          </View>
-
-          {order.tracking_number && (
-            <TouchableOpacity
-              style={[styles.trackButton, { borderColor: BRAND.primary }]}
-              onPress={handleTrackOrder}
-            >
-              <Ionicons
-                name="location-outline"
-                size={18}
-                color={BRAND.primary}
-              />
-              <Text style={[styles.trackButtonText, { color: BRAND.primary }]}>
-                Track Order
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
-
-      {/* Cancelled/Refunded Status */}
-      {isCancelled && (
-        <View style={[styles.card, { backgroundColor: '#FEE2E2' }]}>
-          <View style={styles.cancelledStatus}>
-            <Ionicons name="close-circle" size={24} color="#EF4444" />
-            <Text style={styles.cancelledText}>
-              This order has been {order.shipping_status}
-            </Text>
-          </View>
-        </View>
-      )}
-
-      {/* Order Items */}
-      <View style={[styles.card, { backgroundColor: colors.card }]}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Items ({order.items.length})
-        </Text>
-        {order.items.map((item) => (
-          <TouchableOpacity
-            key={item.id}
-            style={styles.orderItem}
-            onPress={() => router.push(`/product/${item.product_slug}`)}
-          >
-            <Image
-              source={{
-                uri: item.image_url || 'https://via.placeholder.com/80',
-              }}
-              style={styles.itemImage}
-            />
-            <View style={styles.itemDetails}>
-              <Text
-                style={[styles.itemName, { color: colors.text }]}
-                numberOfLines={2}
-              >
-                {item.product_name}
-              </Text>
-              <View style={styles.itemPriceRow}>
                 <Text
-                  style={[styles.itemQuantity, { color: colors.textSecondary }]}
+                  style={[styles.orderDate, { color: colors.textSecondary }]}
                 >
-                  Qty: {item.quantity}
+                  {formatDate(order.created_at)}
                 </Text>
-                <Text style={[styles.itemPrice, { color: colors.text }]}>
-                  {formatPrice(item.price * item.quantity)}
-                </Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* Insurance Coverage */}
-      {insurancePolicy && (
-        <View style={[styles.card, { backgroundColor: colors.card }]}>
-          <View style={styles.insuranceHeader}>
-            <Ionicons name="shield-checkmark" size={20} color="#059669" />
-            <Text
-              style={[
-                styles.sectionTitle,
-                { color: colors.text, marginBottom: 0, marginLeft: 8 },
-              ]}
-            >
-              Insurance Coverage
-            </Text>
-          </View>
-          <View style={styles.insuranceContent}>
-            {insurancePolicy.mycover_policy_number && (
-              <View style={styles.insuranceRow}>
                 <Text
                   style={[
-                    styles.insuranceLabel,
+                    styles.orderStatusDescription,
                     { color: colors.textSecondary },
                   ]}
                 >
-                  Policy No.
-                </Text>
-                <Text style={[styles.insuranceValue, { color: colors.text }]}>
-                  {insurancePolicy.mycover_policy_number}
+                  {statusMeta.description}
                 </Text>
               </View>
-            )}
-            <View style={styles.insuranceRow}>
-              <Text
-                style={[styles.insuranceLabel, { color: colors.textSecondary }]}
-              >
-                Coverage
-              </Text>
-              <Text style={[styles.insuranceValue, { color: colors.text }]}>
-                {formatPrice(insurancePolicy.coverage_amount)}
-              </Text>
             </View>
-            <View style={styles.insuranceRow}>
-              <Text
-                style={[styles.insuranceLabel, { color: colors.textSecondary }]}
-              >
-                Premium
-              </Text>
-              <Text style={[styles.insuranceValue, { color: colors.text }]}>
-                {formatPrice(insurancePolicy.premium_amount)}
-              </Text>
-            </View>
-            <View style={styles.insuranceRow}>
-              <Text
-                style={[styles.insuranceLabel, { color: colors.textSecondary }]}
-              >
-                Status
+          </View>
+
+          {/* Order Status Timeline */}
+          {!isClosedOrder && (
+            <View style={[styles.card, { backgroundColor: colors.card }]}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                Order Status
               </Text>
               <View
                 style={[
-                  styles.insuranceStatusBadge,
+                  styles.timelineTrack,
+                  { backgroundColor: colors.border },
+                ]}
+              />
+              <View style={styles.timeline}>
+                {CUSTOMER_ORDER_PROGRESS_STEPS.map((step) => {
+                  const progressState = getCustomerOrderProgressState(
+                    order.shipping_status,
+                    step.key
+                  );
+                  const isCompleted = progressState === 'completed';
+                  const isCurrent = progressState === 'current';
+                  const isUpcoming = progressState === 'upcoming';
+
+                  return (
+                    <View key={step.key} style={styles.timelineStep}>
+                      <View
+                        style={[
+                          styles.timelineIcon,
+                          (isCompleted || isCurrent) && {
+                            backgroundColor: isCurrent
+                              ? statusPalette.accent
+                              : statusPalette.surface,
+                            borderColor: isCurrent
+                              ? statusPalette.accent
+                              : statusPalette.border,
+                          },
+                          isUpcoming && {
+                            backgroundColor: colors.muted,
+                            borderColor: colors.border,
+                          },
+                        ]}
+                      >
+                        <Ionicons
+                          name={
+                            step.icon as React.ComponentProps<
+                              typeof Ionicons
+                            >['name']
+                          }
+                          size={16}
+                          color={
+                            isCurrent
+                              ? '#FFF'
+                              : isCompleted
+                                ? statusPalette.accent
+                                : colors.textSecondary
+                          }
+                        />
+                      </View>
+                      <Text
+                        style={[
+                          styles.timelineLabel,
+                          {
+                            color: isCurrent
+                              ? statusPalette.accent
+                              : colors.text,
+                          },
+                          isCurrent && styles.timelineLabelActive,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {step.label}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+
+              <View
+                style={[
+                  styles.timelineSummary,
                   {
-                    backgroundColor:
-                      insurancePolicy.status === 'active'
-                        ? '#DCFCE7'
-                        : '#FEF3C7',
+                    backgroundColor: statusPalette.surface,
+                    borderColor: statusPalette.border,
                   },
                 ]}
               >
-                <Text
-                  style={{
-                    fontSize: 12,
-                    fontWeight: '600',
-                    color:
-                      insurancePolicy.status === 'active'
-                        ? '#059669'
-                        : '#D97706',
-                    textTransform: 'capitalize',
-                  }}
+                <Ionicons
+                  name={
+                    statusMeta.icon as React.ComponentProps<
+                      typeof Ionicons
+                    >['name']
+                  }
+                  size={18}
+                  color={statusPalette.accent}
+                />
+                <View style={styles.timelineSummaryCopy}>
+                  <Text
+                    style={[
+                      styles.timelineSummaryTitle,
+                      { color: statusPalette.accent },
+                    ]}
+                  >
+                    {statusMeta.label}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.timelineSummaryDescription,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    {statusMeta.description}
+                  </Text>
+                </View>
+              </View>
+
+              {order.tracking_number && (
+                <TouchableOpacity
+                  style={[styles.trackButton, { borderColor: BRAND.primary }]}
+                  onPress={handleTrackOrder}
                 >
-                  {insurancePolicy.status}
-                </Text>
+                  <Ionicons
+                    name="location-outline"
+                    size={18}
+                    color={BRAND.primary}
+                  />
+                  <Text
+                    style={[styles.trackButtonText, { color: BRAND.primary }]}
+                  >
+                    Track Order
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+          {/* Cancelled/Refunded Status */}
+          {isClosedOrder && (
+            <View
+              style={[
+                styles.card,
+                {
+                  backgroundColor: statusPalette.surface,
+                  borderColor: statusPalette.border,
+                  borderWidth: 1,
+                },
+              ]}
+            >
+              <View style={styles.cancelledStatus}>
+                <Ionicons
+                  name={
+                    statusMeta.icon as React.ComponentProps<
+                      typeof Ionicons
+                    >['name']
+                  }
+                  size={24}
+                  color={statusPalette.accent}
+                />
+                <View style={styles.cancelledCopy}>
+                  <Text
+                    style={[
+                      styles.cancelledText,
+                      { color: statusPalette.accent },
+                    ]}
+                  >
+                    {statusMeta.label}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.cancelledSubtext,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    {statusMeta.description}
+                  </Text>
+                </View>
               </View>
             </View>
-            {insurancePolicy.claim_status && (
-              <View style={styles.insuranceRow}>
+          )}
+
+          {/* Order Items */}
+          <View style={[styles.card, { backgroundColor: colors.card }]}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Items ({order.items.length})
+            </Text>
+            {order.items.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.orderItem}
+                onPress={() => router.push(`/product/${item.product_slug}`)}
+              >
+                <Image
+                  source={{
+                    uri: item.image_url || 'https://via.placeholder.com/80',
+                  }}
+                  style={styles.itemImage}
+                />
+                <View style={styles.itemDetails}>
+                  <Text
+                    style={[styles.itemName, { color: colors.text }]}
+                    numberOfLines={2}
+                  >
+                    {item.product_name}
+                  </Text>
+                  <View style={styles.itemPriceRow}>
+                    <Text
+                      style={[
+                        styles.itemQuantity,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      Qty: {item.quantity}
+                    </Text>
+                    <Text style={[styles.itemPrice, { color: colors.text }]}>
+                      {formatPrice(item.price * item.quantity)}
+                    </Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Insurance Coverage */}
+          {insurancePolicy && (
+            <View style={[styles.card, { backgroundColor: colors.card }]}>
+              <View style={styles.insuranceHeader}>
+                <Ionicons name="shield-checkmark" size={20} color="#059669" />
                 <Text
                   style={[
-                    styles.insuranceLabel,
+                    styles.sectionTitle,
+                    { color: colors.text, marginBottom: 0, marginLeft: 8 },
+                  ]}
+                >
+                  Insurance Coverage
+                </Text>
+              </View>
+              <View style={styles.insuranceContent}>
+                {insurancePolicy.mycover_policy_number && (
+                  <View style={styles.insuranceRow}>
+                    <Text
+                      style={[
+                        styles.insuranceLabel,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      Policy No.
+                    </Text>
+                    <Text
+                      style={[styles.insuranceValue, { color: colors.text }]}
+                    >
+                      {insurancePolicy.mycover_policy_number}
+                    </Text>
+                  </View>
+                )}
+                <View style={styles.insuranceRow}>
+                  <Text
+                    style={[
+                      styles.insuranceLabel,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    Coverage
+                  </Text>
+                  <Text style={[styles.insuranceValue, { color: colors.text }]}>
+                    {formatPrice(insurancePolicy.coverage_amount)}
+                  </Text>
+                </View>
+                <View style={styles.insuranceRow}>
+                  <Text
+                    style={[
+                      styles.insuranceLabel,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    Premium
+                  </Text>
+                  <Text style={[styles.insuranceValue, { color: colors.text }]}>
+                    {formatPrice(insurancePolicy.premium_amount)}
+                  </Text>
+                </View>
+                <View style={styles.insuranceRow}>
+                  <Text
+                    style={[
+                      styles.insuranceLabel,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    Status
+                  </Text>
+                  <View
+                    style={[
+                      styles.insuranceStatusBadge,
+                      {
+                        backgroundColor:
+                          insurancePolicy.status === 'active'
+                            ? '#DCFCE7'
+                            : '#FEF3C7',
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        fontWeight: '600',
+                        color:
+                          insurancePolicy.status === 'active'
+                            ? '#059669'
+                            : '#D97706',
+                        textTransform: 'capitalize',
+                      }}
+                    >
+                      {insurancePolicy.status}
+                    </Text>
+                  </View>
+                </View>
+                {insurancePolicy.claim_status && (
+                  <View style={styles.insuranceRow}>
+                    <Text
+                      style={[
+                        styles.insuranceLabel,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      Claim
+                    </Text>
+                    <Text
+                      style={[
+                        styles.insuranceValue,
+                        { color: colors.text, textTransform: 'capitalize' },
+                      ]}
+                    >
+                      {insurancePolicy.claim_status}
+                    </Text>
+                  </View>
+                )}
+                <Text
+                  style={[
+                    styles.insuranceProvider,
                     { color: colors.textSecondary },
                   ]}
                 >
-                  Claim
+                  Protected by MyCover.ai / Sovereign Trust Insurance
                 </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Assurance pending state — order has assurance items but no policy yet */}
+          {!insurancePolicy &&
+            order.payment_status === 'paid' &&
+            order.items.some((item) => item.has_assurance) && (
+              <View style={[styles.card, { backgroundColor: colors.card }]}>
+                <View style={styles.insuranceHeader}>
+                  <Ionicons
+                    name="shield-outline"
+                    size={20}
+                    color={colors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.sectionTitle,
+                      { color: colors.text, marginBottom: 0, marginLeft: 8 },
+                    ]}
+                  >
+                    Insurance Coverage
+                  </Text>
+                </View>
                 <Text
                   style={[
-                    styles.insuranceValue,
-                    { color: colors.text, textTransform: 'capitalize' },
+                    styles.insuranceProvider,
+                    { color: colors.textSecondary, marginTop: 12 },
                   ]}
                 >
-                  {insurancePolicy.claim_status}
+                  Your shipping protection is being processed...
                 </Text>
               </View>
             )}
-            <Text
-              style={[
-                styles.insuranceProvider,
-                { color: colors.textSecondary },
-              ]}
-            >
-              Protected by MyCover.ai / Sovereign Trust Insurance
-            </Text>
-          </View>
-        </View>
-      )}
 
-      {/* Assurance pending state — order has assurance items but no policy yet */}
-      {!insurancePolicy &&
-        order.payment_status === 'paid' &&
-        order.items.some((item) => item.has_assurance) && (
+          {/* Shipping Address */}
           <View style={[styles.card, { backgroundColor: colors.card }]}>
-            <View style={styles.insuranceHeader}>
-              <Ionicons
-                name="shield-outline"
-                size={20}
-                color={colors.textSecondary}
-              />
-              <Text
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Shipping Address
+            </Text>
+            <View style={styles.addressContent}>
+              <View
                 style={[
-                  styles.sectionTitle,
-                  { color: colors.text, marginBottom: 0, marginLeft: 8 },
+                  styles.addressIconRail,
+                  {
+                    backgroundColor: isDark
+                      ? 'rgba(217, 59, 48, 0.14)'
+                      : `${BRAND.primary}12`,
+                  },
                 ]}
               >
-                Insurance Coverage
+                <Ionicons
+                  name="location"
+                  size={18}
+                  color={BRAND.primary}
+                  style={{ textAlign: 'center', marginLeft: 1 }}
+                />
+              </View>
+              <View style={styles.addressDetails}>
+                {!!order.shipping_address?.name && (
+                  <Text style={[styles.addressName, { color: colors.text }]}>
+                    {order.shipping_address.name}
+                  </Text>
+                )}
+                {!!order.shipping_address?.phone && (
+                  <Text
+                    style={[
+                      styles.addressLine,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    {order.shipping_address.phone}
+                  </Text>
+                )}
+                {!!order.shipping_address?.address && (
+                  <Text
+                    style={[
+                      styles.addressLine,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    {order.shipping_address.address}
+                  </Text>
+                )}
+                {(!!order.shipping_address?.city ||
+                  !!order.shipping_address?.state) && (
+                  <Text
+                    style={[
+                      styles.addressLine,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    {[
+                      order.shipping_address?.city,
+                      order.shipping_address?.state,
+                    ]
+                      .filter(Boolean)
+                      .join(', ')}
+                  </Text>
+                )}
+              </View>
+            </View>
+          </View>
+
+          {/* Order Summary */}
+          <View style={[styles.card, { backgroundColor: colors.card }]}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Order Summary
+            </Text>
+            <View style={styles.summaryRow}>
+              <Text
+                style={[styles.summaryLabel, { color: colors.textSecondary }]}
+              >
+                Subtotal
+              </Text>
+              <Text style={[styles.summaryValue, { color: colors.text }]}>
+                {formatPrice(summaryBreakdown.itemsSubtotal)}
               </Text>
             </View>
-            <Text
-              style={[
-                styles.insuranceProvider,
-                { color: colors.textSecondary, marginTop: 12 },
-              ]}
-            >
-              Your shipping protection is being processed...
-            </Text>
+            {summaryBreakdown.assuranceFee > 0 && (
+              <View style={styles.summaryRow}>
+                <Text
+                  style={[styles.summaryLabel, { color: colors.textSecondary }]}
+                >
+                  Device Assurance
+                </Text>
+                <Text style={[styles.summaryValue, { color: colors.text }]}>
+                  {formatPrice(summaryBreakdown.assuranceFee)}
+                </Text>
+              </View>
+            )}
+            <View style={styles.summaryRow}>
+              <Text
+                style={[styles.summaryLabel, { color: colors.textSecondary }]}
+              >
+                Shipping
+              </Text>
+              <Text style={[styles.summaryValue, { color: colors.text }]}>
+                {summaryBreakdown.shippingFee === 0
+                  ? 'Free'
+                  : formatPrice(summaryBreakdown.shippingFee)}
+              </Text>
+            </View>
+            {summaryBreakdown.taxAmount > 0 && (
+              <View style={styles.summaryRow}>
+                <Text
+                  style={[styles.summaryLabel, { color: colors.textSecondary }]}
+                >
+                  VAT
+                </Text>
+                <Text style={[styles.summaryValue, { color: colors.text }]}>
+                  {formatPrice(summaryBreakdown.taxAmount)}
+                </Text>
+              </View>
+            )}
+            {summaryBreakdown.discountAmount > 0 && (
+              <View style={styles.summaryRow}>
+                <Text
+                  style={[styles.summaryLabel, { color: colors.textSecondary }]}
+                >
+                  Discount
+                </Text>
+                <Text style={[styles.summaryValue, { color: '#059669' }]}>
+                  -{formatPrice(summaryBreakdown.discountAmount)}
+                </Text>
+              </View>
+            )}
+            <View style={[styles.summaryRow, styles.totalRow]}>
+              <Text style={[styles.totalLabel, { color: colors.text }]}>
+                Total
+              </Text>
+              <Text style={[styles.totalValue, { color: colors.text }]}>
+                {formatPrice(summaryBreakdown.total)}
+              </Text>
+            </View>
+            <View style={styles.paymentInfo}>
+              <Text
+                style={[styles.paymentMethod, { color: colors.textSecondary }]}
+              >
+                {order.payment_status === 'paid'
+                  ? `Paid via ${order.payment_method?.replace('_', ' ')}`
+                  : order.payment_status === 'partially_paid'
+                    ? `Partially paid via ${order.payment_method?.replace('_', ' ')}`
+                    : order.payment_status === 'pending'
+                      ? 'Payment pending'
+                      : `${order.payment_method?.replace('_', ' ')} - ${order.payment_status?.replace('_', ' ')}`}
+              </Text>
+            </View>
           </View>
-        )}
 
-      {/* Shipping Address */}
-      <View style={[styles.card, { backgroundColor: colors.card }]}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Shipping Address
-        </Text>
-        <View style={styles.addressContent}>
-          <Ionicons
-            name="location-outline"
-            size={20}
-            color={colors.textSecondary}
-          />
-          <View style={styles.addressDetails}>
-            <Text style={[styles.addressName, { color: colors.text }]}>
-              {order.shipping_address?.name}
-            </Text>
-            <Text style={[styles.addressLine, { color: colors.textSecondary }]}>
-              {order.shipping_address?.phone}
-            </Text>
-            <Text style={[styles.addressLine, { color: colors.textSecondary }]}>
-              {order.shipping_address?.address}
-            </Text>
-            <Text style={[styles.addressLine, { color: colors.textSecondary }]}>
-              {order.shipping_address?.city}, {order.shipping_address?.state}
-            </Text>
-          </View>
-        </View>
-      </View>
+          {(isReceiptReady ||
+            canShowRiderContact ||
+            canLeaveReview ||
+            canReturnOrder) && (
+            <View style={[styles.card, { backgroundColor: colors.card }]}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                Actions
+              </Text>
+              <View style={styles.actionStack}>
+                {isReceiptReady && (
+                  <TouchableOpacity
+                    style={[
+                      styles.actionButton,
+                      { borderColor: colors.border },
+                    ]}
+                    onPress={handleOpenReceipt}
+                    activeOpacity={0.9}
+                  >
+                    <View
+                      style={[
+                        styles.actionIconWrap,
+                        {
+                          backgroundColor: isDark
+                            ? 'rgba(5, 150, 105, 0.16)'
+                            : 'rgba(5, 150, 105, 0.10)',
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name="receipt-outline"
+                        size={18}
+                        color="#059669"
+                      />
+                    </View>
+                    <View style={styles.actionCopy}>
+                      <Text
+                        style={[styles.actionTitle, { color: colors.text }]}
+                      >
+                        View Receipt
+                      </Text>
+                      <Text
+                        style={[
+                          styles.actionDescription,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        Preview and share your order receipt.
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={18}
+                      color={colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                )}
 
-      {/* Order Summary */}
-      <View style={[styles.card, { backgroundColor: colors.card }]}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Order Summary
-        </Text>
-        <View style={styles.summaryRow}>
-          <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-            Subtotal
-          </Text>
-          <Text style={[styles.summaryValue, { color: colors.text }]}>
-            {formatPrice(order.subtotal)}
-          </Text>
-        </View>
-        <View style={styles.summaryRow}>
-          <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-            Shipping
-          </Text>
-          <Text style={[styles.summaryValue, { color: colors.text }]}>
-            {order.shipping_fee === 0
-              ? 'Free'
-              : formatPrice(order.shipping_fee)}
-          </Text>
-        </View>
-        {order.discount_amount > 0 && (
-          <View style={styles.summaryRow}>
-            <Text
-              style={[styles.summaryLabel, { color: colors.textSecondary }]}
-            >
-              Discount
-            </Text>
-            <Text style={[styles.summaryValue, { color: '#059669' }]}>
-              -{formatPrice(order.discount_amount)}
-            </Text>
-          </View>
-        )}
-        <View style={[styles.summaryRow, styles.totalRow]}>
-          <Text style={[styles.totalLabel, { color: colors.text }]}>Total</Text>
-          <Text style={[styles.totalValue, { color: colors.text }]}>
-            {formatPrice(order.total)}
-          </Text>
-        </View>
-        <View style={styles.paymentInfo}>
-          <Text style={[styles.paymentMethod, { color: colors.textSecondary }]}>
-            {order.payment_status === 'paid'
-              ? `Paid via ${order.payment_method?.replace('_', ' ')}`
-              : order.payment_status === 'partially_paid'
-                ? `Partially paid via ${order.payment_method?.replace('_', ' ')}`
-                : order.payment_status === 'pending'
-                  ? 'Payment pending'
-                  : `${order.payment_method?.replace('_', ' ')} - ${order.payment_status?.replace('_', ' ')}`}
-          </Text>
-        </View>
-      </View>
+                {canShowRiderContact && (
+                  <TouchableOpacity
+                    style={[
+                      styles.actionButton,
+                      { borderColor: colors.border },
+                    ]}
+                    onPress={handleCallRider}
+                    activeOpacity={0.9}
+                  >
+                    <View
+                      style={[
+                        styles.actionIconWrap,
+                        {
+                          backgroundColor: isDark
+                            ? 'rgba(37, 99, 235, 0.18)'
+                            : 'rgba(37, 99, 235, 0.10)',
+                        },
+                      ]}
+                    >
+                      <Ionicons name="call-outline" size={18} color="#2563EB" />
+                    </View>
+                    <View style={styles.actionCopy}>
+                      <Text
+                        style={[styles.actionTitle, { color: colors.text }]}
+                      >
+                        Rider {merchantInfo?.rider_phone_number}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.actionDescription,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        Call the rider directly for a live delivery update.
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={18}
+                      color={colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                )}
 
-      {/* Support Button */}
-      <TouchableOpacity
-        style={[styles.supportButton, { borderColor: colors.border }]}
-        onPress={handleContactSupport}
-      >
-        <Ionicons
-          name="chatbubble-ellipses-outline"
-          size={20}
-          color={BRAND.primary}
-        />
-        <Text style={[styles.supportButtonText, { color: BRAND.primary }]}>
-          Need help with this order?
-        </Text>
-      </TouchableOpacity>
-    </ScrollView>
+                {canLeaveReview && (
+                  <TouchableOpacity
+                    style={[
+                      styles.actionButton,
+                      { borderColor: colors.border },
+                    ]}
+                    onPress={handleLeaveGoogleReview}
+                    activeOpacity={0.9}
+                  >
+                    <View
+                      style={[
+                        styles.actionIconWrap,
+                        {
+                          backgroundColor: isDark
+                            ? 'rgba(245, 158, 11, 0.18)'
+                            : 'rgba(245, 158, 11, 0.10)',
+                        },
+                      ]}
+                    >
+                      <Ionicons name="star-outline" size={18} color="#D97706" />
+                    </View>
+                    <View style={styles.actionCopy}>
+                      <Text
+                        style={[styles.actionTitle, { color: colors.text }]}
+                      >
+                        Leave a Google Review
+                      </Text>
+                      <Text
+                        style={[
+                          styles.actionDescription,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        Share your delivery experience publicly.
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="open-outline"
+                      size={18}
+                      color={colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                )}
+
+                {canReturnOrder && (
+                  <TouchableOpacity
+                    style={[
+                      styles.actionButton,
+                      { borderColor: colors.border },
+                    ]}
+                    onPress={handleReturnOrder}
+                    activeOpacity={0.9}
+                  >
+                    <View
+                      style={[
+                        styles.actionIconWrap,
+                        {
+                          backgroundColor: isDark
+                            ? 'rgba(107, 114, 128, 0.18)'
+                            : 'rgba(107, 114, 128, 0.10)',
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name="return-down-back-outline"
+                        size={18}
+                        color="#6B7280"
+                      />
+                    </View>
+                    <View style={styles.actionCopy}>
+                      <Text
+                        style={[styles.actionTitle, { color: colors.text }]}
+                      >
+                        Return Order
+                      </Text>
+                      <Text
+                        style={[
+                          styles.actionDescription,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        Start a return with support while the in-app flow lands.
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={18}
+                      color={colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          )}
+
+          {/* Support Button */}
+          <TouchableOpacity
+            style={[styles.supportButton, { borderColor: colors.border }]}
+            onPress={handleContactSupport}
+          >
+            <Ionicons
+              name="chatbubble-ellipses-outline"
+              size={20}
+              color={BRAND.primary}
+            />
+            <Text style={[styles.supportButtonText, { color: BRAND.primary }]}>
+              Need help with this order?
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </SafeAreaView>
+
+      <ReceiptPreviewModal
+        visible={receiptPreview.isOpen}
+        html={receiptPreview.html}
+        isPaid={receiptPreview.isPaid}
+        onClose={receiptPreview.closePreview}
+      />
+    </>
   );
 }
 
@@ -759,9 +1353,42 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  backButton: {
+    minHeight: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+  },
+  backButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  headerSpacer: {
+    width: 96,
+  },
   centered: {
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  scrollView: {
+    flex: 1,
   },
   content: {
     padding: 16,
@@ -773,15 +1400,52 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   orderHeader: {
+    flexDirection: 'row',
+    gap: 14,
+    alignItems: 'flex-start',
+  },
+  orderHeaderIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  orderHeaderCopy: {
+    flex: 1,
+  },
+  orderHeaderTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    columnGap: 12,
+    rowGap: 8,
+    alignItems: 'flex-start',
   },
   orderNumber: {
     fontSize: 18,
     fontWeight: '700',
+    flexShrink: 1,
+    minWidth: 0,
   },
   orderDate: {
     fontSize: 14,
     marginTop: 4,
+  },
+  statusChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+    alignSelf: 'flex-start',
+  },
+  statusChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  orderStatusDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 10,
   },
   sectionTitle: {
     fontSize: 16,
@@ -789,15 +1453,19 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   timeline: {
-    marginLeft: 8,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  timelineTrack: {
+    height: 2,
+    marginTop: 15,
+    marginHorizontal: 34,
+    marginBottom: -17,
   },
   timelineStep: {
-    flexDirection: 'row',
-    minHeight: 48,
-  },
-  timelineIconContainer: {
+    flex: 1,
     alignItems: 'center',
-    width: 32,
+    minWidth: 0,
   },
   timelineIcon: {
     width: 32,
@@ -805,22 +1473,39 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  timelineLine: {
-    width: 2,
-    flex: 1,
-    marginVertical: 4,
-  },
-  timelineContent: {
-    flex: 1,
-    paddingLeft: 12,
-    paddingTop: 6,
+    borderWidth: 1,
   },
   timelineLabel: {
-    fontSize: 14,
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 10,
+    lineHeight: 16,
+    width: '100%',
+    paddingHorizontal: 4,
   },
   timelineLabelActive: {
-    fontWeight: '600',
+    fontWeight: '700',
+  },
+  timelineSummary: {
+    marginTop: 18,
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  timelineSummaryCopy: {
+    flex: 1,
+  },
+  timelineSummaryTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  timelineSummaryDescription: {
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 4,
   },
   trackButton: {
     flexDirection: 'row',
@@ -838,13 +1523,20 @@ const styles = StyleSheet.create({
   },
   cancelledStatus: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  cancelledCopy: {
+    flex: 1,
   },
   cancelledText: {
     fontSize: 15,
-    fontWeight: '500',
-    color: '#EF4444',
+    fontWeight: '700',
+  },
+  cancelledSubtext: {
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 4,
   },
   orderItem: {
     flexDirection: 'row',
@@ -879,8 +1571,16 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
   },
+  addressIconRail: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   addressContent: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
   },
   addressDetails: {
@@ -929,6 +1629,36 @@ const styles = StyleSheet.create({
   paymentMethod: {
     fontSize: 13,
     textTransform: 'capitalize',
+  },
+  actionStack: {
+    gap: 12,
+  },
+  actionButton: {
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  actionIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionCopy: {
+    flex: 1,
+  },
+  actionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  actionDescription: {
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 2,
   },
   supportButton: {
     flexDirection: 'row',

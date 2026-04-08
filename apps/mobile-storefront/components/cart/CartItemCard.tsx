@@ -5,6 +5,7 @@ import { SafeImage } from '@/components/ui/SafeImage';
 import { DEFAULT_ASSURANCE_RATE } from '@/constants/assurance';
 import Colors, { BRAND } from '@/constants/Colors';
 import { PLACEHOLDER_IMAGE_URL } from '@/constants/Images';
+import { resolveColorSwatchValue } from '@/lib/cart-display';
 import type { CartItem } from '@/stores/cart-store';
 import AssuranceToggle from './AssuranceToggle';
 import CartQuantityInput from './CartQuantityInput';
@@ -47,6 +48,11 @@ export default function CartItemCard({
   const assuranceCost = item.hasAssurance
     ? Math.round(itemTotal * (item.assuranceRate ?? DEFAULT_ASSURANCE_RATE))
     : 0;
+  const colorText =
+    item.color ?? item.variant_attributes?.color ?? item.variant_attributes?.colour;
+  const colorSwatchValue = colorText
+    ? resolveColorSwatchValue(colorText)
+    : undefined;
 
   return (
     <View
@@ -114,7 +120,7 @@ export default function CartItemCard({
                 {conditionText}
               </Text>
             </View>
-            {item.color && (
+            {colorText && (
               <View
                 style={[
                   styles.colorTag,
@@ -128,13 +134,13 @@ export default function CartItemCard({
                   style={[
                     styles.colorDot,
                     {
-                      backgroundColor: item.color,
+                      backgroundColor: colorSwatchValue || 'transparent',
                       borderColor: colors.border,
                     },
                   ]}
                 />
                 <Text style={[styles.colorTagText, { color: colors.textSecondary }]}>
-                  {item.color}
+                  {colorText}
                 </Text>
               </View>
             )}

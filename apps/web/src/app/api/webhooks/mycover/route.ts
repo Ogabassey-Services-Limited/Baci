@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getMyCoverWebhookSecret } from '@/env';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createServiceClient } from '@/lib/supabase/service';
 import {
   type MyCoverWebhookPayload,
   myCoverWebhookSchema,
@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
     console.log('[MyCover Webhook] Received:', safeEvent);
 
     // Create admin Supabase client (2026 Best Practice: Use centralized factory)
-    const supabase = createAdminClient();
+    const supabase = createServiceClient();
 
     switch (payload.event) {
       case 'policy.purchased':

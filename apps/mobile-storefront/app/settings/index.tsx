@@ -21,6 +21,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { queryClient } from '@/lib/query-client';
+import { removeStorageItems } from '@/lib/storage';
 import { type AppearanceMode, useSettingsStore } from '@/stores/settings-store';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
@@ -71,7 +72,9 @@ export default function SettingsScreen() {
     haptic();
     try {
       if (enabled) {
-        await registerPush();
+        // force: true clears the per-user opt-out flag so re-enabling works
+        // after the user previously disabled notifications
+        await registerPush(undefined, undefined, { force: true });
       } else {
         await unregisterPush();
       }
@@ -103,7 +106,7 @@ export default function SettingsScreen() {
                   key !== 'auth-storage'
               );
               if (cacheKeys.length > 0) {
-                await AsyncStorage.removeMany(cacheKeys);
+                await removeStorageItems(cacheKeys);
               }
 
               toast.success('Cache cleared successfully.');

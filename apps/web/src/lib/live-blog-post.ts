@@ -1,8 +1,4 @@
-import {
-  getCachedFeatureSettings,
-  getCachedMerchant,
-  getCachedMerchantByDomain,
-} from '@/lib/cached-data';
+import { getCachedFeatureSettings, getMerchantSafe } from '@/lib/cached-data';
 import { STOREFRONT_BLOG_POST_SELECT } from '@/lib/storefront-blog-post-select';
 import { createPublicClient } from '@/lib/supabase/anon';
 
@@ -17,10 +13,7 @@ export async function getLiveBlogPost(
   }
 
   const lookupKey = identifier.toLowerCase();
-  const merchant =
-    lookupKey.includes('.') && !lookupKey.includes('/')
-      ? await getCachedMerchantByDomain(lookupKey)
-      : await getCachedMerchant(lookupKey);
+  const merchant = await getMerchantSafe(lookupKey);
 
   if (!merchant) return null;
 

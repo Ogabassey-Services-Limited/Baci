@@ -1,11 +1,11 @@
 import { Expo } from 'expo-server-sdk';
 import { type NextRequest, NextResponse } from 'next/server';
-import { getCronSecret } from '@/env';
+import { getCronSecret, getExpoAccessToken } from '@/env';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { logger } from '@/lib/logger';
 import { createAdminClient } from '@/lib/supabase/admin';
 
-const expo = new Expo({ accessToken: process.env.EXPO_ACCESS_TOKEN });
+const expo = new Expo({ accessToken: getExpoAccessToken() });
 
 export async function GET(request: NextRequest) {
   // Auth: fail-closed when CRON_SECRET is not configured

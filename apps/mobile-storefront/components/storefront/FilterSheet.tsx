@@ -19,6 +19,7 @@ import {
 import Animated, { SlideInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BRAND, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/Colors';
+import { useTheme } from '@/hooks/useTheme';
 
 interface FilterSheetProps {
   visible: boolean;
@@ -38,6 +39,7 @@ export function FilterSheet({
   const insets = useSafeAreaInsets();
   const [tempMinPrice, setTempMinPrice] = useState(minPrice.toString());
   const [tempMaxPrice, setTempMaxPrice] = useState(maxPrice.toString());
+  const { colors, isDark } = useTheme();
 
   // M10 FIX: Sync local state when prop values change from parent
   useEffect(() => {
@@ -74,7 +76,16 @@ export function FilterSheet({
       accessibilityViewIsModal={true}
     >
       {/* M14 FIX: Separate backdrop from sheet content so tapping inside sheet does not close it */}
-      <View style={styles.overlay}>
+      <View
+        style={[
+          styles.overlay,
+          {
+            backgroundColor: isDark
+              ? 'rgba(0, 0, 0, 0.8)'
+              : 'rgba(0, 0, 0, 0.5)',
+          },
+        ]}
+      >
         <TouchableWithoutFeedback
           onPress={onClose}
           accessibilityLabel="Close filter backdrop"
@@ -89,155 +100,251 @@ export function FilterSheet({
         >
           <Animated.View
             entering={SlideInDown.duration(300).springify()}
-            style={[styles.sheet, { paddingBottom: insets.bottom + 20 }]}
+            style={[
+              styles.sheet,
+              {
+                paddingBottom: insets.bottom + 20,
+                backgroundColor: colors.card,
+              },
+            ]}
             accessible={true}
             accessibilityLabel="Filter by price dialog"
             accessibilityViewIsModal={true}
           >
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.title} accessibilityRole="header">
-              Filter by Price
-            </Text>
-            <Pressable
-              onPress={onClose}
-              style={styles.closeButton}
-              accessibilityLabel="Close filter"
-              accessibilityRole="button"
-            >
-              <Ionicons name="close" size={24} color="#666" />
-            </Pressable>
-          </View>
-
-          {/* Price Inputs */}
-          <View style={styles.content}>
-            <View style={styles.inputRow}>
-              <View style={styles.inputContainer}>
-                <Text style={styles.label} nativeID="minPriceLabel">
-                  Min Price
-                </Text>
-                <View style={styles.inputWrapper}>
-                  <Text style={styles.currency} importantForAccessibility="no">
-                    ₦
-                  </Text>
-                  <TextInput
-                    value={tempMinPrice}
-                    onChangeText={setTempMinPrice}
-                    keyboardType="number-pad"
-                    placeholder="0"
-                    style={styles.input}
-                    placeholderTextColor="#999"
-                    accessibilityLabel="Minimum price in Naira"
-                    accessibilityHint="Enter the minimum price for filtering products"
-                    accessibilityLabelledBy="minPriceLabel"
-                    // eslint-disable-next-line jsx-a11y/no-autofocus -- BUG-5-005: focus price input on open
-                    autoFocus
-                  />
-                </View>
-              </View>
-
-              <Text style={styles.separator} importantForAccessibility="no">
-                -
-              </Text>
-
-              <View style={styles.inputContainer}>
-                <Text style={styles.label} nativeID="maxPriceLabel">
-                  Max Price
-                </Text>
-                <View style={styles.inputWrapper}>
-                  <Text style={styles.currency} importantForAccessibility="no">
-                    ₦
-                  </Text>
-                  <TextInput
-                    value={tempMaxPrice}
-                    onChangeText={setTempMaxPrice}
-                    keyboardType="number-pad"
-                    placeholder="3000000"
-                    style={styles.input}
-                    placeholderTextColor="#999"
-                    accessibilityLabel="Maximum price in Naira"
-                    accessibilityHint="Enter the maximum price for filtering products"
-                    accessibilityLabelledBy="maxPriceLabel"
-                  />
-                </View>
-              </View>
-            </View>
-
-            {/* Quick Price Presets */}
-            <View style={styles.presets}>
-              <Text style={styles.presetsLabel}>Quick Select:</Text>
-              <View
-                style={styles.presetButtons}
-                accessibilityRole="summary"
-                accessibilityLabel="Quick price range presets"
+            {/* Header */}
+            <View style={styles.header}>
+              <Text
+                style={[styles.title, { color: colors.text }]}
+                accessibilityRole="header"
               >
-                <Pressable
-                  style={styles.presetButton}
-                  onPress={() => {
-                    setTempMinPrice('0');
-                    setTempMaxPrice('50000');
-                  }}
-                  accessibilityLabel="Under 50,000 Naira"
-                  accessibilityRole="button"
+                Filter by Price
+              </Text>
+              <Pressable
+                onPress={onClose}
+                style={[styles.closeButton, { backgroundColor: colors.muted }]}
+                accessibilityLabel="Close filter"
+                accessibilityRole="button"
+              >
+                <Ionicons name="close" size={24} color={colors.icon} />
+              </Pressable>
+            </View>
+
+            {/* Price Inputs */}
+            <View style={styles.content}>
+              <View style={styles.inputRow}>
+                <View style={styles.inputContainer}>
+                  <Text
+                    style={[styles.label, { color: colors.textSecondary }]}
+                    nativeID="minPriceLabel"
+                  >
+                    Min Price
+                  </Text>
+                  <View
+                    style={[
+                      styles.inputWrapper,
+                      {
+                        backgroundColor: colors.muted,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[styles.currency, { color: colors.textSecondary }]}
+                      importantForAccessibility="no"
+                    >
+                      ₦
+                    </Text>
+                    <TextInput
+                      value={tempMinPrice}
+                      onChangeText={setTempMinPrice}
+                      keyboardType="number-pad"
+                      placeholder="0"
+                      style={[styles.input, { color: colors.text }]}
+                      placeholderTextColor={colors.placeholder}
+                      accessibilityLabel="Minimum price in Naira"
+                      accessibilityHint="Enter the minimum price for filtering products"
+                      accessibilityLabelledBy="minPriceLabel"
+                      // eslint-disable-next-line jsx-a11y/no-autofocus -- BUG-5-005: focus price input on open
+                      autoFocus
+                    />
+                  </View>
+                </View>
+
+                <Text
+                  style={[styles.separator, { color: colors.textSecondary }]}
+                  importantForAccessibility="no"
                 >
-                  <Text style={styles.presetText}>Under ₦50k</Text>
-                </Pressable>
-                <Pressable
-                  style={styles.presetButton}
-                  onPress={() => {
-                    setTempMinPrice('50000');
-                    setTempMaxPrice('150000');
-                  }}
-                  accessibilityLabel="50,000 to 150,000 Naira"
-                  accessibilityRole="button"
+                  -
+                </Text>
+
+                <View style={styles.inputContainer}>
+                  <Text
+                    style={[styles.label, { color: colors.textSecondary }]}
+                    nativeID="maxPriceLabel"
+                  >
+                    Max Price
+                  </Text>
+                  <View
+                    style={[
+                      styles.inputWrapper,
+                      {
+                        backgroundColor: colors.muted,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[styles.currency, { color: colors.textSecondary }]}
+                      importantForAccessibility="no"
+                    >
+                      ₦
+                    </Text>
+                    <TextInput
+                      value={tempMaxPrice}
+                      onChangeText={setTempMaxPrice}
+                      keyboardType="number-pad"
+                      placeholder="3000000"
+                      style={[styles.input, { color: colors.text }]}
+                      placeholderTextColor={colors.placeholder}
+                      accessibilityLabel="Maximum price in Naira"
+                      accessibilityHint="Enter the maximum price for filtering products"
+                      accessibilityLabelledBy="maxPriceLabel"
+                    />
+                  </View>
+                </View>
+              </View>
+
+              {/* Quick Price Presets */}
+              <View style={styles.presets}>
+                <Text
+                  style={[styles.presetsLabel, { color: colors.textSecondary }]}
                 >
-                  <Text style={styles.presetText}>₦50k - ₦150k</Text>
-                </Pressable>
-                <Pressable
-                  style={styles.presetButton}
-                  onPress={() => {
-                    setTempMinPrice('150000');
-                    setTempMaxPrice('300000');
-                  }}
-                  accessibilityLabel="150,000 to 300,000 Naira"
-                  accessibilityRole="button"
+                  Quick Select:
+                </Text>
+                <View
+                  style={styles.presetButtons}
+                  accessibilityRole="summary"
+                  accessibilityLabel="Quick price range presets"
                 >
-                  <Text style={styles.presetText}>₦150k - ₦300k</Text>
-                </Pressable>
-                <Pressable
-                  style={styles.presetButton}
-                  onPress={() => {
-                    setTempMinPrice('300000');
-                    setTempMaxPrice('3000000');
-                  }}
-                  accessibilityLabel="Above 300,000 Naira"
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.presetText}>Above ₦300k</Text>
-                </Pressable>
+                  <Pressable
+                    style={[
+                      styles.presetButton,
+                      {
+                        backgroundColor: colors.muted,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                    onPress={() => {
+                      setTempMinPrice('0');
+                      setTempMaxPrice('50000');
+                    }}
+                    accessibilityLabel="Under 50,000 Naira"
+                    accessibilityRole="button"
+                  >
+                    <Text
+                      style={[
+                        styles.presetText,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      Under ₦50k
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    style={[
+                      styles.presetButton,
+                      {
+                        backgroundColor: colors.muted,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                    onPress={() => {
+                      setTempMinPrice('50000');
+                      setTempMaxPrice('150000');
+                    }}
+                    accessibilityLabel="50,000 to 150,000 Naira"
+                    accessibilityRole="button"
+                  >
+                    <Text
+                      style={[
+                        styles.presetText,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      ₦50k - ₦150k
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    style={[
+                      styles.presetButton,
+                      {
+                        backgroundColor: colors.muted,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                    onPress={() => {
+                      setTempMinPrice('150000');
+                      setTempMaxPrice('300000');
+                    }}
+                    accessibilityLabel="150,000 to 300,000 Naira"
+                    accessibilityRole="button"
+                  >
+                    <Text
+                      style={[
+                        styles.presetText,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      ₦150k - ₦300k
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    style={[
+                      styles.presetButton,
+                      {
+                        backgroundColor: colors.muted,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                    onPress={() => {
+                      setTempMinPrice('300000');
+                      setTempMaxPrice('3000000');
+                    }}
+                    accessibilityLabel="Above 300,000 Naira"
+                    accessibilityRole="button"
+                  >
+                    <Text
+                      style={[
+                        styles.presetText,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      Above ₦300k
+                    </Text>
+                  </Pressable>
+                </View>
               </View>
             </View>
-          </View>
 
-          {/* Actions */}
-          <View style={styles.actions}>
-            <Pressable
-              style={styles.resetButton}
-              onPress={handleReset}
-              accessibilityLabel="Reset price filter"
-              accessibilityRole="button"
-            >
-              <Text style={styles.resetText}>Reset</Text>
-            </Pressable>
-            <Pressable
-              style={styles.applyButton}
-              onPress={handleApply}
-              accessibilityLabel="Apply price filter"
-              accessibilityRole="button"
-            >
-              <Text style={styles.applyText}>Apply Filter</Text>
-            </Pressable>
-          </View>
+            {/* Actions */}
+            <View style={styles.actions}>
+              <Pressable
+                style={styles.resetButton}
+                onPress={handleReset}
+                accessibilityLabel="Reset price filter"
+                accessibilityRole="button"
+              >
+                <Text style={styles.resetText}>Reset</Text>
+              </Pressable>
+              <Pressable
+                style={styles.applyButton}
+                onPress={handleApply}
+                accessibilityLabel="Apply price filter"
+                accessibilityRole="button"
+              >
+                <Text style={styles.applyText}>Apply Filter</Text>
+              </Pressable>
+            </View>
           </Animated.View>
         </KeyboardAvoidingView>
       </View>
@@ -248,7 +355,7 @@ export function FilterSheet({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'transparent', // Overridden by inline style
     justifyContent: 'flex-end',
   },
   keyboardAvoidingView: {
@@ -256,7 +363,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#FFF',
+    backgroundColor: 'transparent', // Overridden by inline style colors.card
     borderTopLeftRadius: RADIUS['2xl'],
     borderTopRightRadius: RADIUS['2xl'],
     paddingTop: SPACING.lg,
@@ -271,7 +378,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: TYPOGRAPHY.size.xl,
     fontFamily: 'Inter_700Bold',
-    color: '#1a1a1a',
+    color: 'transparent', // Overridden by inline style colors.text
   },
   closeButton: {
     width: 44,
@@ -279,7 +386,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: RADIUS.full,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: 'transparent', // Overridden by inline style colors.muted
   },
   content: {
     paddingHorizontal: SPACING.lg,
@@ -296,34 +403,34 @@ const styles = StyleSheet.create({
   label: {
     fontSize: TYPOGRAPHY.size.sm,
     fontFamily: 'Inter_600SemiBold',
-    color: '#4B5563', // gray-600 for WCAG AA contrast
+    color: 'transparent', // Overridden by inline style colors.textSecondary
     marginBottom: SPACING.xs,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: 'transparent', // Overridden by inline style colors.muted
     borderRadius: RADIUS.lg,
     paddingHorizontal: SPACING.md,
     height: 50,
     borderWidth: 1,
-    borderColor: '#E5E5E5',
+    borderColor: 'transparent', // Overridden by inline style colors.border
   },
   currency: {
     fontSize: TYPOGRAPHY.size.base,
     fontFamily: 'Inter_600SemiBold',
-    color: '#4B5563', // gray-600 for WCAG AA contrast
+    color: 'transparent', // Overridden by inline style colors.textSecondary
     marginRight: SPACING.xs,
   },
   input: {
     flex: 1,
     fontSize: TYPOGRAPHY.size.base,
     fontFamily: 'Inter_600SemiBold',
-    color: '#1a1a1a',
+    color: 'transparent', // Overridden by inline style colors.text
   },
   separator: {
     fontSize: TYPOGRAPHY.size.lg,
-    color: '#CCC',
+    color: 'transparent', // Overridden by inline style colors.textSecondary
     marginBottom: 12,
   },
   presets: {
@@ -332,7 +439,7 @@ const styles = StyleSheet.create({
   presetsLabel: {
     fontSize: TYPOGRAPHY.size.sm,
     fontFamily: 'Inter_600SemiBold',
-    color: '#4B5563', // gray-600 for WCAG AA contrast
+    color: 'transparent', // Overridden by inline style colors.textSecondary
     marginBottom: SPACING.sm,
   },
   presetButtons: {
@@ -345,15 +452,15 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
     minHeight: 44,
     justifyContent: 'center',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: 'transparent', // Overridden by inline style colors.muted
     borderRadius: RADIUS.full,
     borderWidth: 1,
-    borderColor: '#E5E5E5',
+    borderColor: 'transparent', // Overridden by inline style colors.border
   },
   presetText: {
     fontSize: TYPOGRAPHY.size.xs,
     fontFamily: 'Inter_600SemiBold',
-    color: '#4B5563', // gray-600 for WCAG AA contrast
+    color: 'transparent', // Overridden by inline style colors.textSecondary
   },
   actions: {
     flexDirection: 'row',
@@ -386,6 +493,6 @@ const styles = StyleSheet.create({
   applyText: {
     fontSize: TYPOGRAPHY.size.base,
     fontFamily: 'Inter_700Bold',
-    color: '#FFF',
+    color: 'white', // Using 'white' instead of hex
   },
 });

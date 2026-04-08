@@ -163,7 +163,9 @@ export async function POST(request: Request) {
     const result = await purchaseAirtime(
       formattedPhone,
       reward.airtime_amount,
-      networkProvider
+      networkProvider,
+      'Customer',
+      requestRef
     );
 
     if (!result.success) {

@@ -1,11 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import { FlashList } from '@shopify/flash-list';
 import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -37,9 +36,8 @@ export default function NegotiationsScreen() {
   const [requests, setRequests] = useState<NegotiationRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [_fetchError, setFetchError] = useState<string | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
-  const _router = useRouter();
 
   // 2026 Best Practice: Removed useCallback wrapper as React Compiler handles memoization (ADR-004)
   const fetchRequests = async () => {
@@ -64,28 +62,7 @@ export default function NegotiationsScreen() {
   };
 
   useEffect(() => {
-    const fetchInitial = async () => {
-      setFetchError(null);
-      try {
-        const { data, error } = await supabase
-          .from('negotiation_requests')
-          .select(
-            'id, customer_id, type, status, offered_price, current_price, item_info, created_at, evidence_url'
-          )
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-        setRequests(data || []);
-      } catch (err) {
-        console.error('Error fetching negotiations:', err);
-        setFetchError('Failed to load negotiations');
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    };
-
-    fetchInitial();
+    fetchRequests();
 
     // Subscribe to real-time updates
     const channel = supabase
@@ -93,7 +70,7 @@ export default function NegotiationsScreen() {
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'negotiation_requests' },
-        () => fetchInitial()
+        () => fetchRequests()
       )
       .subscribe();
 
@@ -265,11 +242,11 @@ export default function NegotiationsScreen() {
     );
   }
 
-  if (_fetchError) {
+  if (fetchError) {
     return (
       <View style={styles.centered}>
         <Ionicons name="alert-circle" size={48} color={palette.red[400]} />
-        <Text style={styles.emptyTitle}>{_fetchError}</Text>
+        <Text style={styles.emptyTitle}>{fetchError}</Text>
         <Pressable
           style={styles.retryButton}
           onPress={() => {
@@ -286,7 +263,7 @@ export default function NegotiationsScreen() {
 
   return (
     <View style={styles.container}>
-      <FlatList
+      <FlashList
         data={requests}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}

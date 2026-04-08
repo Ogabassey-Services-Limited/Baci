@@ -23,12 +23,18 @@
     "knip": "^5.83.1",
     "lefthook": "^2.1.0",
     "next": "^16.1.7",
-    "turbo": "^2.8.10",
+    "turbo": "^2.9.1",
     "typescript": "^5.9.3",
     "wait-on": "^9.0.4"
   },
   "pnpm": {
+    "overrideNotes": {
+      "defu": "Pin to 6.1.6 to mitigate GHSA-737v-mqg7-c878 / CVE-2026-35209: replace the vulnerable transitive deep-merge helper.",
+      "@xmldom/xmldom": "Pin to 0.8.12 to mitigate GHSA-wh4c-j3r5-mjhp / CVE-2026-34601: keep Expo plist tooling on the patched 0.8.x line."
+    },
     "overrides": {
+      "defu": "6.1.6",
+      "@xmldom/xmldom": "0.8.12",
       "smol-toml": ">=1.6.1",
       "picomatch": ">=4.0.4",
       "yaml": ">=2.8.3",
@@ -53,7 +59,8 @@
       "tar": "^7.5.8",
       "fast-xml-parser": "5.5.7",
       "flatted": "3.4.2",
-      "lodash-es": "4.17.23",
+      "lodash": "4.18.1",
+      "lodash-es": "4.18.1",
       "diff": "^8.0.3",
       "react-native-screens": "4.24.0",
       "react-native-reanimated": "4.3.0",

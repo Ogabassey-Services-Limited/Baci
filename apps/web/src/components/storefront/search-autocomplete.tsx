@@ -263,6 +263,7 @@ export function SearchAutocomplete({
                           src={product.image_small}
                           alt=""
                           fill
+                          sizes="40px"
                           className="object-cover"
                           aria-hidden="true"
                         />

@@ -482,3 +482,126 @@ describe('generateGoogleMerchantFeed — stock and availability', () => {
     expect(xml).toContain('<g:quantity>0</g:quantity>');
   });
 });
+
+// ---------- multi-condition offers ----------
+describe('generateGoogleMerchantFeed — multi-condition offers', () => {
+  const defaultManifest: Record<string, FeedImageManifestEntry[]> = {
+    'prod-1': [manifestEntry({ is_primary: true })],
+  };
+
+  it('emits both base item and offer item for products with offers', () => {
+    const xml = generateGoogleMerchantFeed(
+      [
+        product({
+          has_condition_offers: true,
+          offers: [
+            {
+              id: 'offer-1',
+              condition: 'used',
+              price: 710000,
+              stock_quantity: 9999,
+            },
+          ],
+        }),
+      ],
+      merchant(),
+      BASE_URL,
+      defaultManifest
+    );
+    // Base item uses product id
+    expect(xml).toContain('<g:id>prod-1</g:id>');
+    // Offer item uses offer id
+    expect(xml).toContain('<g:id>offer-1</g:id>');
+    // Two <item> blocks total
+    const itemCount = (xml.match(/<item>/g) || []).length;
+    expect(itemCount).toBe(2);
+  });
+
+  it('offer item has correct fields', () => {
+    const xml = generateGoogleMerchantFeed(
+      [
+        product({
+          has_condition_offers: true,
+          offers: [
+            {
+              id: 'offer-1',
+              condition: 'used',
+              price: 710000,
+              stock_quantity: 9999,
+            },
+          ],
+        }),
+      ],
+      merchant(),
+      BASE_URL,
+      defaultManifest
+    );
+    // Offer id
+    expect(xml).toContain('<g:id>offer-1</g:id>');
+    // Item group id links back to product
+    expect(xml).toContain('<g:item_group_id>prod-1</g:item_group_id>');
+    // Condition
+    expect(xml).toContain('<g:condition>used</g:condition>');
+    // Price
+    expect(xml).toContain('<g:price>710000.00 NGN</g:price>');
+    // Link with condition query param
+    expect(xml).toContain('?condition=used</g:link>');
+    // Canonical link without query param
+    expect(xml).toContain(
+      '<g:canonical_link>https://ogabassey.com/products/test-product</g:canonical_link>'
+    );
+  });
+
+  it('maps open_box condition to "used" in GMC output', () => {
+    const xml = generateGoogleMerchantFeed(
+      [
+        product({
+          has_condition_offers: true,
+          offers: [
+            {
+              id: 'offer-ob',
+              condition: 'open_box',
+              price: 500000,
+              stock_quantity: 5,
+            },
+          ],
+        }),
+      ],
+      merchant(),
+      BASE_URL,
+      defaultManifest
+    );
+    // The link should still use the original condition value
+    expect(xml).toContain('?condition=open_box</g:link>');
+    // But the GMC condition element should be "used"
+    // Count occurrences: base item has "new", offer item has "used"
+    const usedMatches = xml.match(/<g:condition>used<\/g:condition>/g) || [];
+    expect(usedMatches.length).toBe(1);
+    // No "open_box" in any g:condition element
+    expect(xml).not.toContain('<g:condition>open_box</g:condition>');
+  });
+
+  it('products without offers emit exactly one item (backward compatibility)', () => {
+    const xml = generateGoogleMerchantFeed(
+      [product()],
+      merchant(),
+      BASE_URL,
+      defaultManifest
+    );
+    const itemCount = (xml.match(/<item>/g) || []).length;
+    expect(itemCount).toBe(1);
+    expect(xml).not.toContain('<g:item_group_id>');
+    expect(xml).not.toContain('<g:canonical_link>');
+  });
+
+  it('products with empty offers array emit exactly one item', () => {
+    const xml = generateGoogleMerchantFeed(
+      [product({ has_condition_offers: true, offers: [] })],
+      merchant(),
+      BASE_URL,
+      defaultManifest
+    );
+    const itemCount = (xml.match(/<item>/g) || []).length;
+    expect(itemCount).toBe(1);
+  });
+});

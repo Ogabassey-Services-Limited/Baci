@@ -10,6 +10,7 @@
  * - DeviceNotRegistered handling
  */
 
+import { getAdminNotificationNavigationTarget } from '@baci/shared/lib';
 import Constants from 'expo-constants';
 import type * as DeviceType from 'expo-device';
 import type * as NotificationsType from 'expo-notifications';
@@ -260,45 +261,11 @@ export function getNotificationNavigationParams(
   response: NotificationsType.NotificationResponse
 ): { screen: string; params?: Record<string, string> } | null {
   const data = response.notification.request.content.data;
-
-  if (!data || !data.type) {
+  if (!data) {
     return null;
   }
 
-  // Route based on notification type
-  switch (data.type) {
-    case 'new_order':
-      return data.order_id
-        ? { screen: 'order', params: { id: data.order_id as string } }
-        : { screen: 'orders' };
-
-    case 'payment_received':
-      return data.order_id
-        ? { screen: 'order', params: { id: data.order_id as string } }
-        : { screen: 'index' };
-
-    case 'low_stock':
-      return data.product_id
-        ? { screen: 'product', params: { id: data.product_id as string } }
-        : { screen: 'products' };
-
-    case 'admin_broadcast':
-      return { screen: 'notifications' };
-
-    case 'jumia_order':
-      return { screen: 'orders' };
-
-    case 'negotiation':
-      return data.negotiation_id
-        ? {
-            screen: 'negotiation',
-            params: { id: data.negotiation_id as string },
-          }
-        : { screen: 'negotiations' };
-
-    default:
-      return { screen: 'index' };
-  }
+  return getAdminNotificationNavigationTarget(data as Record<string, unknown>);
 }
 
 /**

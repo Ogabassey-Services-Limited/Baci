@@ -25,6 +25,7 @@ export const NON_STOREFRONT_TOP_LEVEL_SEGMENTS = new Set([
   'developers',
   'features',
   'features.md',
+  'images',
   'index.html.md',
   'invite',
   'llms-full.txt',

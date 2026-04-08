@@ -15,6 +15,7 @@ import { useState } from 'react';
 import {
   FlatList,
   Modal,
+  Platform,
   StyleSheet,
   Text,
   TextInput,
@@ -23,7 +24,8 @@ import {
   View,
   type ViewStyle,
 } from 'react-native';
-import { palette } from '@/constants/Colors';
+import { useColorScheme } from '@/components/useColorScheme';
+import Colors, { BRAND, palette } from '@/constants/Colors';
 
 // Country data type
 interface Country {
@@ -214,6 +216,7 @@ interface PhoneInputProps
   containerStyle?: ViewStyle;
   error?: string;
   label?: string;
+  returnKeyType?: TextInputProps['returnKeyType'];
 }
 
 export function PhoneInput({
@@ -223,6 +226,7 @@ export function PhoneInput({
   containerStyle,
   error,
   label,
+  returnKeyType = 'next',
   placeholder = '8012345678',
   ...props
 }: PhoneInputProps) {
@@ -231,6 +235,9 @@ export function PhoneInput({
   );
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
+  const isDark = (colorScheme ?? 'light') === 'dark';
 
   // Extract the local number from the full value
   const getLocalNumber = () => {
@@ -285,9 +292,24 @@ export function PhoneInput({
 
   return (
     <View style={containerStyle}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label && (
+        <Text style={[styles.label, { color: colors.textSecondary }]}>
+          {label}
+        </Text>
+      )}
 
-      <View style={[styles.container, error && styles.containerError]}>
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: isDark
+              ? 'rgba(255, 255, 255, 0.05)'
+              : colors.muted,
+            borderColor: error ? colors.error : colors.border,
+          },
+          error && styles.containerError,
+        ]}
+      >
         {/* Country Selector Button */}
         <TouchableOpacity
           style={styles.countryButton}
@@ -307,36 +329,41 @@ export function PhoneInput({
           <Ionicons
             name="chevron-down"
             size={14}
-            color={palette.gray[500]}
+            color={colors.textSecondary}
             accessibilityElementsHidden
             importantForAccessibility="no"
           />
         </TouchableOpacity>
 
         {/* Divider */}
-        <View style={styles.divider} />
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
         {/* Country Code Display */}
-        <Text style={styles.dialCode}>{selectedCountry.dialCode}</Text>
+        <Text style={[styles.dialCode, { color: colors.text }]}>
+          {selectedCountry.dialCode}
+        </Text>
 
         {/* Phone Input */}
         <TextInput
-          style={styles.input}
+          style={[styles.input, { color: colors.text }]}
           value={getLocalNumber()}
           onChangeText={handlePhoneChange}
           placeholder={placeholder}
-          placeholderTextColor={palette.gray[400]}
+          placeholderTextColor={colors.placeholder}
           keyboardType="phone-pad"
           autoComplete="tel"
           textContentType="telephoneNumber"
           accessibilityLabel={label || 'Phone number'}
           maxLength={selectedCountry.maxLength || 15}
+          returnKeyType={returnKeyType}
           {...props}
         />
       </View>
 
       {/* Error Message */}
-      {error && <Text style={styles.error}>{error}</Text>}
+      {error && (
+        <Text style={[styles.error, { color: colors.error }]}>{error}</Text>
+      )}
 
       {/* Country Picker Modal */}
       <Modal
@@ -345,10 +372,20 @@ export function PhoneInput({
         presentationStyle="pageSheet"
         onRequestClose={() => setShowCountryPicker(false)}
       >
-        <View style={styles.modalContainer}>
+        <View
+          style={[
+            styles.modalContainer,
+            { backgroundColor: isDark ? colors.card : colors.background },
+          ]}
+        >
           {/* Header */}
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle} accessibilityRole="header">
+          <View
+            style={[styles.modalHeader, { borderBottomColor: colors.border }]}
+          >
+            <Text
+              style={[styles.modalTitle, { color: colors.text }]}
+              accessibilityRole="header"
+            >
               Select Country
             </Text>
             <TouchableOpacity
@@ -361,28 +398,40 @@ export function PhoneInput({
               accessibilityLabel="Close country picker"
               activeOpacity={0.7}
             >
-              <Ionicons name="close" size={24} color={palette.gray[900]} />
+              <Ionicons name="close" size={24} color={colors.text} />
             </TouchableOpacity>
           </View>
 
           {/* Search Bar */}
-          <View style={styles.searchContainer}>
+          <View
+            style={[
+              styles.searchContainer,
+              {
+                backgroundColor: isDark
+                  ? 'rgba(255, 255, 255, 0.05)'
+                  : colors.muted,
+                borderColor: colors.border,
+              },
+            ]}
+          >
             <Ionicons
               name="search"
               size={18}
-              color={palette.gray[400]}
+              color={colors.textSecondary}
               accessibilityElementsHidden={true}
               importantForAccessibility="no"
             />
             <TextInput
-              style={styles.searchInput}
+              style={[styles.searchInput, { color: colors.text }]}
               placeholder="Search country..."
-              placeholderTextColor={palette.gray[400]}
+              placeholderTextColor={colors.placeholder}
               value={searchQuery}
               onChangeText={setSearchQuery}
               autoCapitalize="none"
               autoCorrect={false}
               accessibilityLabel="Search for a country"
+              returnKeyType="search"
+              clearButtonMode="while-editing"
             />
           </View>
 
@@ -390,12 +439,24 @@ export function PhoneInput({
           <FlatList
             data={filteredCountries}
             keyExtractor={(item) => item.code}
+            // Prevent UI thread blocking during modal open by virtualizing the 200+ country list
+            initialNumToRender={20}
+            maxToRenderPerBatch={20}
+            windowSize={10}
+            removeClippedSubviews={Platform.OS === 'android'}
             renderItem={({ item }) => (
               <TouchableOpacity
                 style={[
                   styles.countryRow,
-                  item.code === selectedCountry.code &&
+                  { borderBottomColor: colors.border },
+                  item.code === selectedCountry.code && [
                     styles.countryRowSelected,
+                    {
+                      backgroundColor: isDark
+                        ? 'rgba(217, 59, 48, 0.16)'
+                        : palette.red[50],
+                    },
+                  ],
                 ]}
                 onPress={() => handleCountrySelect(item)}
                 accessibilityRole="button"
@@ -413,14 +474,17 @@ export function PhoneInput({
                   {item.flag}
                 </Text>
                 <Text
-                  style={styles.countryName}
+                  style={[styles.countryName, { color: colors.text }]}
                   accessibilityElementsHidden={true}
                   importantForAccessibility="no"
                 >
                   {item.name}
                 </Text>
                 <Text
-                  style={styles.countryDialCode}
+                  style={[
+                    styles.countryDialCode,
+                    { color: colors.textSecondary },
+                  ]}
                   accessibilityElementsHidden={true}
                   importantForAccessibility="no"
                 >
@@ -430,7 +494,7 @@ export function PhoneInput({
                   <Ionicons
                     name="checkmark"
                     size={20}
-                    color={palette.red[600]}
+                    color={BRAND.primary}
                     accessibilityElementsHidden={true}
                     importantForAccessibility="no"
                   />
@@ -438,7 +502,9 @@ export function PhoneInput({
               </TouchableOpacity>
             )}
             ListEmptyComponent={
-              <Text style={styles.emptyText}>No countries found</Text>
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                No countries found
+              </Text>
             }
           />
         </View>
@@ -451,20 +517,17 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 13,
     fontWeight: '500',
-    color: palette.gray[700],
     marginBottom: 6,
   },
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: palette.gray[50],
     borderWidth: 1,
-    borderColor: palette.gray[200],
     borderRadius: 12,
     overflow: 'hidden',
   },
   containerError: {
-    borderColor: palette.red[500],
+    borderWidth: 1,
   },
   countryButton: {
     flexDirection: 'row',
@@ -479,31 +542,26 @@ const styles = StyleSheet.create({
   divider: {
     width: 1,
     height: 24,
-    backgroundColor: palette.gray[200],
   },
   dialCode: {
     fontSize: 15,
-    color: palette.gray[900],
     fontWeight: '500',
     paddingLeft: 12,
   },
   input: {
     flex: 1,
     fontSize: 15,
-    color: palette.gray[900],
     paddingVertical: 14,
     paddingHorizontal: 8,
     paddingRight: 12,
   },
   error: {
     fontSize: 12,
-    color: palette.red[500],
     marginTop: 4,
   },
   // Modal styles
   modalContainer: {
     flex: 1,
-    backgroundColor: palette.white,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -512,26 +570,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: palette.gray[100],
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: palette.gray[900],
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: palette.gray[100],
     margin: 16,
     paddingHorizontal: 12,
+    borderWidth: 1,
     borderRadius: 10,
     gap: 8,
   },
   searchInput: {
     flex: 1,
     fontSize: 15,
-    color: palette.gray[900],
     paddingVertical: 12,
   },
   countryRow: {
@@ -540,27 +595,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: palette.gray[100],
     gap: 12,
   },
-  countryRowSelected: {
-    backgroundColor: palette.red[50],
-  },
+  countryRowSelected: {},
   countryFlag: {
     fontSize: 24,
   },
   countryName: {
     flex: 1,
     fontSize: 15,
-    color: palette.gray[900],
   },
   countryDialCode: {
     fontSize: 14,
-    color: palette.gray[500],
   },
   emptyText: {
     textAlign: 'center',
-    color: palette.gray[500],
     paddingVertical: 24,
     fontSize: 15,
   },

@@ -7,8 +7,7 @@ const mockPermanentRedirect = vi.fn((_url: string) => {
 const mockNotFound = vi.fn(() => {
   throw new Error('NEXT_NOT_FOUND');
 });
-const mockGetCachedMerchant = vi.fn();
-const mockGetCachedMerchantByDomain = vi.fn();
+const mockGetRequestScopedMerchant = vi.fn();
 const mockGetCachedLegacyProductRedirectTarget = vi.fn();
 const mockGetCachedProductWithDetails = vi.fn();
 
@@ -28,13 +27,16 @@ vi.mock('@/components/ui/skeletons', () => ({
 }));
 
 vi.mock('@/lib/cached-data', () => ({
-  getCachedMerchant: (...args: unknown[]) => mockGetCachedMerchant(...args),
-  getCachedMerchantByDomain: (...args: unknown[]) =>
-    mockGetCachedMerchantByDomain(...args),
+  getRequestScopedMerchant: (...args: unknown[]) =>
+    mockGetRequestScopedMerchant(...args),
   getCachedLegacyProductRedirectTarget: (...args: unknown[]) =>
     mockGetCachedLegacyProductRedirectTarget(...args),
   getCachedProductWithDetails: (...args: unknown[]) =>
     mockGetCachedProductWithDetails(...args),
+  sanitizeLookupLogValue: (value: unknown) =>
+    String(value ?? '')
+      .replace(/[\r\n\t]/g, '')
+      .substring(0, 100),
 }));
 
 vi.mock('@/lib/product-stock', () => ({
@@ -87,7 +89,16 @@ vi.mock('@/lib/storefront-product-variants', () => ({
 }));
 
 vi.mock('@/lib/validation', () => ({
+  // Keep reserved storefront namespaces aligned with production validation.
   isDomainIdentifier: (value: string) => value.includes('.'),
+  isValidMerchantIdentifier: (value: string) => {
+    const reservedNames = new Set(['images', 'product']);
+    return (
+      (value.includes('.') ||
+        /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/.test(value)) &&
+      !reservedNames.has(value.toLowerCase())
+    );
+  },
 }));
 
 vi.mock(
@@ -141,7 +152,7 @@ const categorizedDetailedProduct = {
 describe('[category]/[productSlug] page metadata', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetCachedMerchant.mockResolvedValue(baseMerchant);
+    mockGetRequestScopedMerchant.mockResolvedValue(baseMerchant);
     mockGetCachedProductWithDetails.mockResolvedValue(null);
     mockGetCachedLegacyProductRedirectTarget.mockResolvedValue(null);
   });
@@ -246,7 +257,7 @@ describe('[category]/[productSlug] page metadata', () => {
 describe('[category]/[productSlug] page render', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetCachedMerchant.mockResolvedValue({
+    mockGetRequestScopedMerchant.mockResolvedValue({
       ...baseMerchant,
       template_id: 'ogabassey',
     });

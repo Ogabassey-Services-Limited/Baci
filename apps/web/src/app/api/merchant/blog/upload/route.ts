@@ -2,14 +2,12 @@ import { nanoid } from 'nanoid';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { isProduction } from '@/env';
 import {
   authenticateApiRequest,
   getUserAccess,
   hasPermission,
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
 const deleteBodySchema = z.object({
@@ -49,73 +47,44 @@ export async function POST(request: NextRequest) {
     const auth = await authenticateApiRequest(request);
     const user = auth.user;
 
-    // Check for Dev Mode Override
-    const devMerchantId = request.headers.get('x-dev-merchant-id');
-    const devOverrideSecret = request.headers.get('x-dev-override-secret');
-    const DEV_MERCHANT_ID = '6b5cb8a4-5575-456c-b936-8cdfae30db74';
-    const isDevEnv = !isProduction();
-    const host = request.headers.get('host') || '';
-    const isLocalhost =
-      host.includes('localhost') || host.startsWith('127.0.0.1');
-    // BACI_DEV_OVERRIDE_SECRET is intentionally not in env.ts - only needed in dev mode
-    const expectedSecret = process.env.BACI_DEV_OVERRIDE_SECRET;
-    const hasValidSecret =
-      expectedSecret && devOverrideSecret === expectedSecret;
-    const isDevOverride =
-      !user &&
-      isDevEnv &&
-      isLocalhost &&
-      devMerchantId === DEV_MERCHANT_ID &&
-      hasValidSecret;
-
-    if (!user && !isDevOverride) {
+    if (!user || !auth.supabase) {
       return NextResponse.json(
         { error: auth.error || 'Unauthorized' },
         { status: 401 }
       );
     }
-    if (user && !auth.supabase) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
 
-    if (isDevOverride) {
-      // Use Admin Client for Dev Mode to bypass RLS
-      const adminSupabase = createAdminClient();
-      const { data } = await adminSupabase
+    // Authenticated User Flow (supports both owners and staff members)
+    const authedSupabase = auth.supabase;
+    const access = await getUserAccess(authedSupabase);
+    if (access) {
+      supabaseClient = authedSupabase;
+      if (!hasPermission(access, 'marketing', 'edit')) {
+        return NextResponse.json(
+          { error: 'Permission denied' },
+          { status: 403 }
+        );
+      }
+
+      // Fetch merchant slug if needed
+      const { data: merchantData, error: merchantError } = await supabaseClient
         .from('merchants')
-        .select('id, slug')
-        .eq('id', DEV_MERCHANT_ID)
+        .select('slug')
+        .eq('id', access.merchantId)
         .single();
-      merchant = data;
-      supabaseClient = adminSupabase;
-    } else {
-      // Authenticated User Flow (supports both owners and staff members)
-      if (!user?.id || !auth.supabase) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      }
-      const authedSupabase = auth.supabase;
-      const access = await getUserAccess(authedSupabase);
-      if (access) {
-        supabaseClient = authedSupabase;
-        if (!hasPermission(access, 'marketing', 'edit')) {
-          return NextResponse.json(
-            { error: 'Permission denied' },
-            { status: 403 }
-          );
-        }
 
-        // Fetch merchant slug if needed
-        const { data: merchantData } = await supabaseClient
-          .from('merchants')
-          .select('slug')
-          .eq('id', access.merchantId)
-          .single();
-
-        merchant = {
-          id: access.merchantId,
-          slug: merchantData?.slug || '',
-        };
+      if (merchantError || !merchantData) {
+        console.error('Merchant query error:', merchantError);
+        return NextResponse.json(
+          { error: 'Failed to fetch merchant data' },
+          { status: 500 }
+        );
       }
+
+      merchant = {
+        id: access.merchantId,
+        slug: merchantData.slug || '',
+      };
     }
 
     if (!merchant) {

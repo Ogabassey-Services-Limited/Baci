@@ -12,6 +12,40 @@ import { createLogger } from './logger';
 const log = createLogger('Storage');
 
 /**
+ * Batch storage helpers
+ * Uses v3 getMany/removeMany when available, falls back to individual calls.
+ */
+export async function getStorageEntries(
+  keys: readonly string[]
+): Promise<[string, string | null][]> {
+  if (keys.length === 0) return [];
+
+  if (typeof AsyncStorage.getMany === 'function') {
+    const record = await AsyncStorage.getMany([...keys]);
+    return Object.entries(record);
+  }
+
+  // Fallback: individual getItem calls
+  // @ts-expect-error multiGet is missing from typings but exists and avoids bridge traffic
+  return AsyncStorage.multiGet([...keys]);
+}
+
+export async function removeStorageItems(
+  keys: readonly string[]
+): Promise<void> {
+  if (keys.length === 0) return;
+
+  if (typeof AsyncStorage.removeMany === 'function') {
+    await AsyncStorage.removeMany([...keys]);
+    return;
+  }
+
+  // Fallback: individual removeItem calls
+  // @ts-expect-error multiRemove is missing from typings but exists and avoids bridge traffic
+  await AsyncStorage.multiRemove([...keys]);
+}
+
+/**
  * AsyncStorage-based storage adapter for Zustand persist middleware
  * Fully compatible with Expo Go
  */
@@ -49,11 +83,17 @@ export const asyncStorage = {
 const memoryCache: Record<string, string> = {};
 let isStorageInitialized = false;
 let initializationPromise: Promise<void> | null = null;
+export const DEFAULT_SYNC_STORAGE_KEYS = [
+  'cart-storage',
+  'saved-storage',
+  'comparison-storage',
+  'search_history',
+] as const;
 
 export const syncStorage = {
   getItem: (name: string): string | null => {
     // BUG-4-007 FIX: Warn if accessed before initialization to help debug race conditions
-    if (!isStorageInitialized) {
+    if (!isStorageInitialized && !initializationPromise) {
       log.warn(
         `Storage accessed ("${name}") before initialization complete. ` +
           'Ensure initializeStorage() is called and awaited in _layout.tsx before Zustand stores are accessed.'
@@ -108,7 +148,7 @@ export async function waitForStorageReady(): Promise<void> {
  *
  * 2026 Critical Fix: Added deduplication to prevent multiple concurrent initializations
  */
-export function initializeStorage(keys: string[]): Promise<void> {
+export function initializeStorage(keys: readonly string[]): Promise<void> {
   // Prevent multiple concurrent initializations
   if (initializationPromise) {
     log.debug('Initialization already in progress, waiting...');
@@ -123,8 +163,8 @@ export function initializeStorage(keys: string[]): Promise<void> {
   initializationPromise = (async () => {
     try {
       log.debug('Initializing with keys:', keys);
-      const pairs = await AsyncStorage.getMany(keys);
-      for (const [key, value] of Object.entries(pairs)) {
+      const pairs = await getStorageEntries(keys);
+      for (const [key, value] of pairs) {
         if (value !== null) {
           memoryCache[key] = value;
           log.debug(`Loaded "${key}" from AsyncStorage`);
@@ -143,3 +183,5 @@ export function initializeStorage(keys: string[]): Promise<void> {
 
   return initializationPromise;
 }
+
+void initializeStorage(DEFAULT_SYNC_STORAGE_KEYS);

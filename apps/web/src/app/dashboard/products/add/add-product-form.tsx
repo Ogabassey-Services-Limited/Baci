@@ -159,8 +159,7 @@ export default function AddProductForm({
 
   // Zod 4 + react-hook-form: specify input, context, and output types
   const form = useForm<AddProductFormInput, unknown, AddProductFormValues>({
-    // biome-ignore lint/suspicious/noExplicitAny: library type mismatch
-    resolver: zodResolver(addProductSchema as any),
+    resolver: zodResolver(addProductSchema),
     defaultValues: {
       name: initialData?.name || '',
       description: initialData?.description || '',
@@ -1247,6 +1246,7 @@ export default function AddProductForm({
                                         src={colorImages[color]}
                                         alt={color}
                                         fill
+                                        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 220px"
                                         className="object-cover"
                                       />
                                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5">

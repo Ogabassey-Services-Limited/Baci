@@ -3,6 +3,10 @@ import type { PaymentStatus, ShippingStatus } from '@baci/shared/types';
 export interface StorefrontOrderItem {
   id: string;
   product_id: string;
+  product_slug?: string;
+  category?: string;
+  category_slug?: string;
+  categories?: { name?: string; slug?: string } | null;
   variant_id?: string;
   variant_name?: string;
   name: string;
@@ -100,6 +104,9 @@ export interface StorefrontOrder {
   customer_name?: string;
   customer_email?: string;
   customer_phone?: string | null;
+  merchant_support_email?: string | null;
+  merchant_support_phone?: string | null;
+  rider_phone_number?: string | null;
   notes?: string | null;
   virtual_account?: StorefrontVirtualAccount | null;
   transactions?: StorefrontTransaction[];

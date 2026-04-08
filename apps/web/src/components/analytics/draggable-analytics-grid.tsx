@@ -443,25 +443,6 @@ export function DraggableAnalyticsGrid({
 
   const [layouts, setLayouts] = useState<Layouts>(DEFAULT_LAYOUTS);
 
-  // Load saved layout from API on mount
-  useEffect(() => {
-    // TEMPORARILY DISABLED: To force new 12-col layout update for all users
-    // async function fetchPreferences() {
-    //     try {
-    //         const response = await fetch('/api/dashboard/preferences');
-    //         if (response.ok) {
-    //             const pref = await response.json();
-    //             if (pref.layout_config && pref.layout_config.length > 0) {
-    //                 setLayouts({ ...layouts, lg: pref.layout_config });
-    //             }
-    //         }
-    //     } catch (error) {
-    //         console.error('Failed to load layout preferences:', error);
-    //     }
-    // }
-    // fetchPreferences();
-  }, []);
-
   useEffect(() => {
     if (CATEGORY_LAYOUTS[activeCategory]) {
       setLayouts(CATEGORY_LAYOUTS[activeCategory]);

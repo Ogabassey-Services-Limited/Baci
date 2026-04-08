@@ -102,6 +102,34 @@ describe('CartItemCard', () => {
     expect(screen.getByText(formatPrice(800 * item.quantity))).toBeTruthy();
   });
 
+  it('renders the selected color label for named merchant colors', () => {
+    const item = createItem({
+      color: 'Blue Titanium',
+      storage: '256GB',
+    });
+
+    renderCard(item);
+
+    expect(screen.getByText('Blue Titanium')).toBeTruthy();
+    expect(screen.getByText('256GB')).toBeTruthy();
+  });
+
+  it('falls back to variant_attributes color text when the top-level color field is missing', () => {
+    const item = createItem({
+      color: undefined,
+      variant_attributes: {
+        color: 'Jet Black',
+        storage: '512GB',
+      },
+      storage: '512GB',
+    });
+
+    renderCard(item);
+
+    expect(screen.getByText('Jet Black')).toBeTruthy();
+    expect(screen.getByText('512GB')).toBeTruthy();
+  });
+
   it('wires quantity controls and quantity input updates', () => {
     const item = createItem();
     const handleQuantityChange = jest.fn();
@@ -116,7 +144,7 @@ describe('CartItemCard', () => {
 
     const quantityInput = screen.getByLabelText('Quantity input');
     fireEvent.changeText(quantityInput, '4');
-    fireEvent(quantityInput, 'blur');
+    fireEvent(quantityInput, 'endEditing');
     expect(updateQuantity).toHaveBeenCalledWith(item.id, 4);
   });
 

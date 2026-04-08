@@ -13,6 +13,7 @@ export interface CartItem {
   product_id: string;
   slug: string;
   variant_id?: string;
+  variant_attributes?: Record<string, string>;
   name: string;
   price: number;
   compare_at_price?: number;
@@ -29,6 +30,26 @@ export interface CartItem {
   // Device assurance support
   hasAssurance?: boolean;
   assuranceRate?: number;
+}
+
+function mergeExistingCartItem(
+  existingItem: CartItem,
+  incomingItem: Omit<CartItem, 'id'>
+): CartItem {
+  const newQuantity = existingItem.quantity + incomingItem.quantity;
+
+  return {
+    ...existingItem,
+    ...incomingItem,
+    id: existingItem.id,
+    quantity: existingItem.max_quantity
+      ? Math.min(newQuantity, existingItem.max_quantity)
+      : newQuantity,
+    negotiatedPrice: existingItem.negotiatedPrice,
+    negotiationStatus: existingItem.negotiationStatus,
+    hasAssurance: existingItem.hasAssurance,
+    assuranceRate: existingItem.assuranceRate,
+  };
 }
 
 interface CartState {
@@ -55,6 +76,56 @@ interface CartState {
   restoreItems: (items: CartItem[]) => void;
   // Device assurance actions
   toggleAssurance: (id: string) => void;
+}
+
+function areEquivalentCartAttributes(
+  existingValue: string | undefined,
+  incomingValue: string | undefined
+) {
+  const normalizedExistingValue = existingValue ?? null;
+  const normalizedIncomingValue = incomingValue ?? null;
+
+  return (
+    normalizedExistingValue === normalizedIncomingValue ||
+    normalizedExistingValue === null ||
+    normalizedIncomingValue === null
+  );
+}
+
+function isSameCartLine(
+  existingItem: CartItem,
+  incomingItem: Omit<CartItem, 'id'>
+) {
+  if (existingItem.product_id !== incomingItem.product_id) {
+    return false;
+  }
+
+  const existingVariantId = existingItem.variant_id ?? null;
+  const incomingVariantId = incomingItem.variant_id ?? null;
+
+  if (existingVariantId !== incomingVariantId) {
+    return false;
+  }
+
+  if (existingVariantId || incomingVariantId) {
+    return (
+      areEquivalentCartAttributes(existingItem.color, incomingItem.color) &&
+      areEquivalentCartAttributes(
+        existingItem.storage,
+        incomingItem.storage
+      ) &&
+      areEquivalentCartAttributes(
+        existingItem.condition,
+        incomingItem.condition
+      )
+    );
+  }
+
+  return (
+    (existingItem.color ?? null) === (incomingItem.color ?? null) &&
+    (existingItem.storage ?? null) === (incomingItem.storage ?? null) &&
+    (existingItem.condition ?? null) === (incomingItem.condition ?? null)
+  );
 }
 
 export const useCartStore = create<CartState>()(
@@ -94,27 +165,17 @@ export const useCartStore = create<CartState>()(
         set((state) => {
           // Check if item already exists (same product + variant + options)
           const existingIndex = state.items.findIndex(
-            (i) =>
-              i.product_id === item.product_id &&
-              i.variant_id === item.variant_id &&
-              (i.color ?? null) === (item.color ?? null) &&
-              (i.storage ?? null) === (item.storage ?? null) &&
-              (i.condition ?? null) === (item.condition ?? null)
+            (existingItem) => isSameCartLine(existingItem, item)
           );
 
           if (existingIndex >= 0) {
-            // Update quantity
+            // Refresh cart metadata from the latest add while preserving cart-only state.
             const updatedItems = [...state.items];
             const existingItem = updatedItems[existingIndex];
-            const newQuantity = existingItem.quantity + item.quantity;
-
-            // Respect max quantity if set
-            updatedItems[existingIndex] = {
-              ...existingItem,
-              quantity: existingItem.max_quantity
-                ? Math.min(newQuantity, existingItem.max_quantity)
-                : newQuantity,
-            };
+            updatedItems[existingIndex] = mergeExistingCartItem(
+              existingItem,
+              item
+            );
 
             return { items: updatedItems };
           }

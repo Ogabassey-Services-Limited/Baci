@@ -93,9 +93,11 @@ describe('Kuda API Client', () => {
 
       const payload = JSON.parse(purchaseCall?.[1]?.body as string);
       expect(payload.serviceType).toBe(KudaServiceType.ADMIN_PURCHASE_BILL);
-      expect(payload.data.BillItemIdentifier).toBe('KD-VTU-MTNNG');
-      expect(payload.data.Amount).toBe('50000'); // 500 Naira = 50000 Kobo
-      expect(payload.data.PhoneNumber).toBe('08030000000');
+      expect(payload.Data.BillItemIdentifier).toBe('KD-VTU-MTNNG');
+      expect(payload.Data.Amount).toBe('50000'); // 500 Naira = 50000 Kobo
+      expect(payload.Data.PhoneNumber).toBe('08030000000');
+      expect(result.reference).toBeDefined();
+      expect(payload.Data.trackingReference).toBe(result.reference);
     });
 
     it('handles API errors gracefully', async () => {
@@ -170,8 +172,9 @@ describe('Kuda API Client', () => {
       );
       const payload = JSON.parse(purchaseCall?.[1]?.body as string);
 
-      expect(payload.data.BillItemIdentifier).toBe(dataPlanCode);
-      expect(payload.data.Amount).toBe('100000'); // 1000 Naira = 100000 Kobo
+      expect(payload.Data.BillItemIdentifier).toBe(dataPlanCode);
+      expect(payload.Data.Amount).toBe('100000'); // 1000 Naira = 100000 Kobo
+      expect(payload.Data.trackingReference).toBe(result.reference);
     });
   });
 });

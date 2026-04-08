@@ -17,8 +17,13 @@ import {
 } from '../lib/account-deletion';
 import { CONFIG } from '../lib/config';
 import { createLogger } from '../lib/logger';
+import {
+  clearStoredPushToken,
+  getStoredPushToken,
+} from '../lib/push-token-storage';
 import { supabase } from '../lib/supabase';
 import { CustomerRowSchema, MerchantRowSchema } from '../lib/validation';
+import { removePushTokenFromServer } from '../services/push-notifications';
 import {
   hydrateCustomer,
   initTimeout,
@@ -29,6 +34,22 @@ import { useComparisonStore } from './comparison-store';
 import { useSavedStore } from './saved-store';
 
 const log = createLogger('AuthStore');
+
+// Shared helper: clear local token unconditionally, then await server deactivation.
+// Used by signOut(), deleteAccount(), and the SIGNED_OUT passive fallback so the
+// deactivation is always serialized — no fire-and-forget request left in flight
+// that could clobber a fast re-registration.
+async function _clearLocalAndDeactivatePushToken(
+  token: string | null
+): Promise<void> {
+  await clearStoredPushToken(); // unconditional local clear
+  if (token) {
+    const removed = await removePushTokenFromServer(token);
+    if (!removed) {
+      log.warn('Push token server deactivation failed during auth transition');
+    }
+  }
+}
 
 // Get merchant slug from app config
 const MERCHANT_SLUG = CONFIG.MERCHANT_SLUG;
@@ -77,6 +98,82 @@ interface AuthState {
     data: Partial<Customer>
   ) => Promise<{ success: boolean; error?: string }>;
   clearError: () => void;
+}
+
+type AuthStoreSet = (state: Partial<AuthState>) => void;
+
+async function syncAuthenticatedState({
+  getInitGen,
+  initGen,
+  merchantId,
+  session,
+  set,
+  skipImmediateState = false,
+  user,
+}: {
+  getInitGen?: () => number;
+  initGen?: number;
+  merchantId: string | null;
+  session: Session | null;
+  set: AuthStoreSet;
+  skipImmediateState?: boolean;
+  user: User;
+}): Promise<void> {
+  const isStale =
+    initGen !== undefined &&
+    getInitGen !== undefined &&
+    getInitGen() !== initGen;
+
+  if (!skipImmediateState) {
+    // Set auth state immediately so auth-gated screens can react to the new
+    // session even if the async browser context is lost during OAuth return.
+    set({
+      error: null,
+      isInitialized: true,
+      session,
+      user,
+    });
+  }
+
+  if (isStale) {
+    return;
+  }
+
+  if (!merchantId) {
+    set({ customer: null });
+    return;
+  }
+
+  try {
+    const customer = await hydrateCustomer({
+      getInitGen,
+      initGen,
+      merchantId,
+      user,
+      useTimeout: false,
+    });
+
+    if (
+      initGen !== undefined &&
+      getInitGen !== undefined &&
+      getInitGen() !== initGen
+    ) {
+      return;
+    }
+
+    set({ customer });
+  } catch (error) {
+    if (
+      initGen !== undefined &&
+      getInitGen !== undefined &&
+      getInitGen() !== initGen
+    ) {
+      return;
+    }
+
+    log.warn('Post-auth customer hydration failed:', error);
+    set({ customer: null });
+  }
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -206,26 +303,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
       }
 
-      if (session?.user && resolvedMerchantId) {
-        const customer = await hydrateCustomer({
-          merchantId: resolvedMerchantId,
-          user: session.user,
-          useTimeout: true,
-          initGen,
-          getInitGen: () => get()._initGen,
-        });
-
-        if (get()._initGen !== initGen) return;
-
-        set({
-          user: session.user,
-          session,
-          customer,
-          isLoading: false,
-          isInitialized: true,
-        });
-      } else if (session?.user) {
-        // Merchant lookup may be unavailable/offline; still preserve auth session.
+      if (session?.user) {
+        // Preserve the authenticated session immediately after app restore so
+        // OAuth round-trips do not block on customer hydration or surface a
+        // false timeout LogBox while the app is already signed in.
         set({
           user: session.user,
           session,
@@ -233,6 +314,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           isLoading: false,
           isInitialized: true,
         });
+
+        if (resolvedMerchantId) {
+          void syncAuthenticatedState({
+            getInitGen: () => get()._initGen,
+            initGen,
+            merchantId: resolvedMerchantId,
+            session,
+            set,
+            skipImmediateState: true,
+            user: session.user,
+          });
+        }
       } else {
         set({
           user: null,
@@ -251,21 +344,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
           try {
             if (event === 'SIGNED_IN' && session?.user) {
-              // Always set user + session immediately so login screen can dismiss
-              set({ user: session.user, session });
-
-              if (!merchantId) {
-                log.warn(
-                  'Auth listener: Skipping customer fetch — no merchantId'
-                );
-                set({ customer: null });
-                return;
-              }
-
-              const customer = await hydrateCustomer({
+              await syncAuthenticatedState({
                 merchantId,
+                session,
+                set,
                 user: session.user,
-                useTimeout: true,
               });
 
               // 2026 Best Practice: Sync guest cart after login
@@ -275,13 +358,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                   `Cart sync: ${guestCartItems.length} items preserved after login`
                 );
               }
-
-              set({
-                user: session.user,
-                session,
-                customer,
-              });
             } else if (event === 'SIGNED_OUT') {
+              // Passive fallback for session expiry / external revocation.
+              // If explicit signOut()/deleteAccount() already ran, AsyncStorage is
+              // already cleared, so getStoredPushToken() returns null and
+              // clearLocalAndDeactivatePushToken becomes a cheap no-op.
+              const storedToken = await getStoredPushToken();
+              await _clearLocalAndDeactivatePushToken(storedToken);
               // 2026 Critical Fix: Reset user stores to prevent data bleed on session expiry
               useCartStore.getState().clearCart();
               useSavedStore.getState().clearSaved();
@@ -507,7 +590,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           return { success: false, error: sessionError.message };
         }
 
-        log.info('Session established for:', sessionData.user?.email);
+        const establishedSession = sessionData.session ?? null;
+        const authenticatedUser =
+          establishedSession?.user ?? sessionData.user ?? null;
+
+        if (!authenticatedUser) {
+          log.error('OAuth session established without a user');
+          set({ isLoading: false });
+          return {
+            success: false,
+            error: 'Unable to complete sign-in. Please try again.',
+          };
+        }
+
+        await syncAuthenticatedState({
+          merchantId: get().merchantId,
+          session: establishedSession,
+          set,
+          user: authenticatedUser,
+        });
+
+        log.info('Session established');
         set({ isLoading: false });
         return { success: true };
       }
@@ -575,6 +678,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return { success: false, error: error.message };
       }
 
+      const authenticatedSession = data.session ?? null;
+      const authenticatedUser = authenticatedSession?.user ?? data.user ?? null;
+
+      if (!authenticatedUser) {
+        log.error('Apple OAuth completed without a user');
+        set({ isLoading: false });
+        return {
+          success: false,
+          error: 'Unable to complete sign-in. Please try again.',
+        };
+      }
+
+      await syncAuthenticatedState({
+        merchantId: get().merchantId,
+        session: authenticatedSession,
+        set,
+        user: authenticatedUser,
+      });
+
       // If we got a name, and it's a new user, update metadata + customer record
       if (fullName && data.user && !data.user.user_metadata?.full_name) {
         log.info('Updating user metadata with Apple name');
@@ -629,6 +751,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signOut: async () => {
     try {
       set({ isLoading: true });
+      // Serialize push token cleanup BEFORE supabase.auth.signOut() so a fast
+      // re-login cannot race a delayed fire-and-forget deactivation request.
+      const storedToken = await getStoredPushToken();
+      await _clearLocalAndDeactivatePushToken(storedToken);
       await supabase.auth.signOut();
       useCartStore.getState().clearCart();
       useSavedStore.getState().clearSaved();
@@ -660,6 +786,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         const message = getDeleteAccountErrorMessage(error);
         return { success: false, error: message };
       }
+
+      // Serialize push token cleanup before local sign-out (same race fix as signOut)
+      const storedToken = await getStoredPushToken();
+      await _clearLocalAndDeactivatePushToken(storedToken);
 
       // Sign out and clear local stores
       await supabase.auth.signOut({ scope: 'local' }).catch((err) => {

@@ -1,5 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { CookieConsent, useCookieConsent } from './cookie-consent';
+
+// Mock dependencies required by module imports for export tests
+vi.mock('@/hooks/use-merchant', () => ({
+  useMerchantSafe: () => ({ basePath: '' }),
+}));
+
+vi.mock('@/lib/consent-mode', () => ({
+  updateConsentMode: vi.fn(),
+}));
 
 describe('CookieConsent', () => {
   it('exports CookieConsent component', () => {

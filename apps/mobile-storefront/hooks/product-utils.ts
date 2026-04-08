@@ -2,16 +2,26 @@ import type { QueryClient } from '@tanstack/react-query';
 import { withSupabaseRetry } from '@/lib/api';
 import { CONFIG } from '@/lib/config';
 import { createLogger } from '@/lib/logger';
+import { normalizeProductConditionFilterValue } from '@/lib/product-filter-options';
 import {
   getPrimaryProductImage,
   normalizeProductImages,
+  normalizeProductSpecifications,
   normalizeVariantAttributes,
 } from '@/lib/product-normalization';
 import { removeProductSlugFromProductsCache } from '@/lib/product-query-cache';
 import { getProductSlugFallbackCandidates } from '@/lib/product-slug-fallback';
 import { supabase } from '@/lib/supabase';
 import { ProductRowSchema } from '@/lib/validation';
-import type { Product } from '@/types/product';
+
+const MIXED_CONDITION_LABEL = 'New & Used';
+
+import {
+  formatProductConditionDisplay,
+  type Product,
+  type ProductVariant,
+} from '@/types/product';
+import { normalizeProductInventory } from '../../../packages/shared/src/lib/product-inventory';
 
 const log = createLogger('Products');
 
@@ -47,8 +57,48 @@ export interface ProductsPage {
 
 export const PRODUCT_SELECT = `
   id, name, slug, description, price, compare_at_price,
-  images, brand, condition, average_rating, review_count, status, specifications,
-  has_variants, variant_attributes, manage_stock, stock_quantity,
+  images, brand, condition, has_condition_offers, average_rating, review_count, status, specifications,
+  has_variants, variant_attributes, manage_stock, stock, stock_quantity,
+  variants:product_variants (
+    id,
+    product_id,
+    merchant_id,
+    sku,
+    price_override,
+    primary_image,
+    images,
+    stock_quantity,
+    attributes
+  ),
+  categories (id, name, slug)
+`;
+
+export const PRODUCT_DETAIL_SELECT = `
+  id, name, slug, description, price, compare_at_price,
+  images, brand, color, condition, average_rating, review_count, status, specifications,
+  has_variants, variant_attributes, manage_stock, stock, stock_quantity,
+  color_images, has_condition_offers,
+  offers:product_offers (
+    id,
+    condition,
+    price,
+    compare_at_price,
+    stock_quantity,
+    images,
+    condition_notes,
+    grade
+  ),
+  variants:product_variants (
+    id,
+    product_id,
+    merchant_id,
+    sku,
+    price_override,
+    primary_image,
+    images,
+    stock_quantity,
+    attributes
+  ),
   categories (id, name, slug)
 `;
 
@@ -58,14 +108,75 @@ export function isUuid(value: string): boolean {
   );
 }
 
-export async function fetchProductRow(
+export function normalizeProductVariants(
+  variants: unknown,
+  options: {
+    basePrice: number;
+    compareAtPrice?: number;
+  }
+): ProductVariant[] {
+  const parsedVariants = ProductRowSchema.shape.variants.safeParse(variants);
+  if (!parsedVariants.success) {
+    return [];
+  }
+
+  return (
+    parsedVariants.data?.map((variant) => {
+      const attributes = variant.attributes ?? undefined;
+      const synthesizedName =
+        [
+          attributes?.storage,
+          attributes?.ram,
+          attributes?.color,
+          attributes?.platform,
+        ]
+          .filter((value): value is string => Boolean(value))
+          .join(' ')
+          .trim() ||
+        variant.sku ||
+        variant.name ||
+        'Variant';
+      const primaryImage = variant.primary_image ?? variant.image ?? undefined;
+      const images = normalizeProductImages(
+        variant.images ?? (primaryImage ? [primaryImage] : undefined)
+      );
+      const stockQuantity = variant.stock_quantity ?? undefined;
+
+      return {
+        id: variant.id,
+        name: synthesizedName,
+        sku: variant.sku ?? undefined,
+        price:
+          variant.price ??
+          variant.price_override ??
+          (typeof variant.price_modifier === 'number'
+            ? Math.max(0, options.basePrice + variant.price_modifier)
+            : options.basePrice),
+        compare_at_price:
+          variant.compare_at_price ?? options.compareAtPrice ?? undefined,
+        price_override: variant.price_override ?? undefined,
+        price_modifier: variant.price_modifier ?? undefined,
+        image: primaryImage,
+        images: images.length > 0 ? images : undefined,
+        in_stock:
+          typeof stockQuantity === 'number'
+            ? stockQuantity > 0
+            : (variant.in_stock ?? undefined),
+        stock_quantity: stockQuantity,
+        attributes,
+      };
+    }) ?? []
+  );
+}
+
+export function fetchProductRow(
   merchantId: string,
   identifier: string,
   context: string
 ) {
   let supabaseQuery = supabase
     .from('products')
-    .select(PRODUCT_SELECT)
+    .select(PRODUCT_DETAIL_SELECT)
     .eq('merchant_id', merchantId)
     .eq('status', 'active');
 
@@ -130,6 +241,81 @@ export async function resolveAndEvictProduct(
   );
 }
 
+export async function fetchAvailableBrands(
+  merchantId: string,
+  options: UseProductsOptions
+): Promise<string[]> {
+  const brands = new Set<string>();
+  const pageSize = 500;
+  let offset = 0;
+
+  while (true) {
+    let query = supabase
+      .from('products')
+      .select('brand')
+      .eq('merchant_id', merchantId)
+      .eq('status', 'active');
+
+    if (options.category) {
+      query = query.eq('category_id', options.category);
+    }
+    if (options.search) {
+      const escapedSearch = options.search
+        .replace(/\\/g, '\\\\')
+        .replace(/%/g, '\\%')
+        .replace(/_/g, '\\_');
+      query = query.ilike('name', `%${escapedSearch}%`);
+    }
+
+    const normalizedCondition = normalizeProductConditionFilterValue(
+      options.condition
+    );
+    if (normalizedCondition) {
+      query = query.eq('condition', normalizedCondition);
+    }
+    if (options.minPrice !== undefined) {
+      query = query.gte('price', options.minPrice);
+    }
+    if (options.maxPrice !== undefined) {
+      query = query.lte('price', options.maxPrice);
+    }
+    if (options.minRating !== undefined && options.minRating > 0) {
+      query = query.gte('average_rating', options.minRating);
+    }
+
+    query = query
+      .order('brand', { ascending: true })
+      .range(offset, offset + pageSize - 1);
+
+    const result = await withSupabaseRetry(async () => await query, {
+      maxRetries: 3,
+      onRetry: (attempt, err) => {
+        log.warn(`Brand retry ${attempt}: ${err.message}`);
+      },
+    });
+
+    if (result.error) {
+      throw result.error;
+    }
+
+    const rows = result.data ?? [];
+    for (const row of rows) {
+      const brand = row?.brand?.trim();
+      if (brand) {
+        brands.add(brand);
+      }
+    }
+
+    if (rows.length < pageSize) {
+      break;
+    }
+
+    offset += pageSize;
+  }
+
+  return Array.from(brands).sort((left, right) => left.localeCompare(right));
+}
+
 export function transformProduct(item: unknown): Product | null {
   const validated = ProductRowSchema.safeParse(item);
   if (!validated.success) {
@@ -147,6 +333,54 @@ export function transformProduct(item: unknown): Product | null {
   const reviewCount = Number.isFinite(product.review_count)
     ? Math.max(0, Math.trunc(product.review_count as number))
     : 0;
+  const colorImages =
+    product.color_images && typeof product.color_images === 'object'
+      ? Object.fromEntries(
+          Object.entries(product.color_images).map(([color, images]) => [
+            color,
+            normalizeProductImages(images),
+          ])
+        )
+      : undefined;
+  const derivedColors = Array.from(
+    new Set([
+      ...(typeof product.color === 'string' && product.color.trim()
+        ? [product.color.trim()]
+        : []),
+      ...Object.keys(colorImages ?? {}),
+    ])
+  );
+  const colors = Array.isArray(product.colors)
+    ? product.colors.map((color) =>
+        typeof color === 'string'
+          ? color
+          : {
+              name: color.name,
+              value: color.value || color.name,
+            }
+      )
+    : derivedColors.length > 0
+      ? derivedColors
+      : undefined;
+  const offers = Array.isArray(product.offers)
+    ? product.offers.map((offer) => ({
+        id: offer.id,
+        condition: offer.condition as NonNullable<
+          Product['offers']
+        >[number]['condition'],
+        price: offer.price,
+        compare_at_price: offer.compare_at_price ?? undefined,
+        stock_quantity: offer.stock_quantity ?? undefined,
+        images: normalizeProductImages(offer.images),
+        condition_notes: offer.condition_notes ?? undefined,
+        grade: offer.grade ?? undefined,
+      }))
+    : undefined;
+  const inventory = normalizeProductInventory({
+    stock: product.stock,
+    stock_quantity: product.stock_quantity,
+    manage_stock: product.manage_stock ?? false,
+  });
 
   return {
     id: String(product.id ?? ''),
@@ -165,13 +399,25 @@ export function transformProduct(item: unknown): Product | null {
       : product.categories != null
         ? (product.categories as unknown as Category).name
         : '',
-    condition: product.condition as Product['condition'],
+    specifications: normalizeProductSpecifications(product.specifications),
+    condition: product.has_condition_offers
+      ? MIXED_CONDITION_LABEL
+      : formatProductConditionDisplay(product.condition),
     rating,
     review_count: reviewCount,
     manage_stock: (product.manage_stock as boolean) ?? false,
-    in_stock:
-      !(product.manage_stock as boolean) ||
-      ((product.stock_quantity as number) ?? 0) > 0,
+    stock_quantity: inventory.stock_quantity,
+    colors,
+    color_images: colorImages,
+    has_variants: product.has_variants ?? false,
+    variant_attributes: normalizeVariantAttributes(product.variant_attributes),
+    variants: normalizeProductVariants(product.variants, {
+      basePrice: Number(product.price ?? 0),
+      compareAtPrice: product.compare_at_price ?? undefined,
+    }),
+    has_condition_offers: product.has_condition_offers ?? false,
+    offers,
+    in_stock: inventory.manage_stock === false || inventory.stock_quantity > 0,
   };
 }
 
@@ -192,14 +438,16 @@ export async function fetchProductsPage(
     query = query.eq('category_id', options.category);
   }
   if (options.search) {
-    const escapedSearch = options.search
-      .replace(/\\/g, '\\\\')
-      .replace(/%/g, '\\%')
-      .replace(/_/g, '\\_');
-    query = query.ilike('name', `%${escapedSearch}%`);
+    query = query.textSearch('search_vector', options.search.trim(), {
+      type: 'websearch',
+      config: 'english',
+    });
   }
-  if (options.condition) {
-    query = query.eq('condition', options.condition);
+  const normalizedCondition = normalizeProductConditionFilterValue(
+    options.condition
+  );
+  if (normalizedCondition) {
+    query = query.eq('condition', normalizedCondition);
   }
   if (options.brand) {
     query = query.eq('brand', options.brand);

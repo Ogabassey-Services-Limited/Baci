@@ -1,6 +1,7 @@
 import { draftMode } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getBlogPreviewSecret } from '@/env';
+import { constantTimeEqual } from '@/lib/constant-time-equal';
 
 /**
  * Preview API Route
@@ -14,7 +15,12 @@ export async function GET(request: Request) {
   const merchantSlug = searchParams.get('merchantSlug');
 
   // Verify secret and required params
-  if (secret !== getBlogPreviewSecret()) {
+  const expectedSecret = getBlogPreviewSecret();
+  if (
+    !secret ||
+    !expectedSecret ||
+    !constantTimeEqual(secret, expectedSecret)
+  ) {
     console.error('Blog Preview Token Mismatch:', {
       receivedLength: secret?.length,
       expectedLength: getBlogPreviewSecret()?.length,

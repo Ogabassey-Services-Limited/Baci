@@ -122,7 +122,7 @@ export function BillPaymentForm({
     <form onSubmit={handleSubmit} className="space-y-5">
       {/* Biller Selection */}
       <div className="space-y-1.5">
-        <label className="text-sm font-medium text-gray-700">
+        <label id="biller-selection-label" className="text-sm font-medium text-gray-700">
           Select {TYPE_LABELS[type]} Provider
         </label>
         {billersLoading ? (
@@ -135,11 +135,13 @@ export function BillPaymentForm({
             No providers available for {TYPE_LABELS[type]}
           </p>
         ) : (
-          <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+          <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto" role="radiogroup" aria-labelledby="biller-selection-label">
             {billers.map((biller) => (
               <button
                 key={biller.billerId}
                 type="button"
+                role="radio"
+                aria-checked={selectedBiller?.billerId === biller.billerId}
                 onClick={() => {
                   setSelectedBiller(biller);
                   setVerification(null);
@@ -161,11 +163,12 @@ export function BillPaymentForm({
       {/* Customer Identifier */}
       {selectedBiller && (
         <div className="space-y-1.5">
-          <label className="text-sm font-medium text-gray-700">
+          <label htmlFor="customer-identifier" className="text-sm font-medium text-gray-700">
             {IDENTIFIER_LABELS[type]}
           </label>
           <div className="flex gap-2">
             <input
+              id="customer-identifier"
               type="text"
               value={customerId}
               onChange={(e) => {
@@ -202,12 +205,13 @@ export function BillPaymentForm({
       {/* Amount (shown after verification) */}
       {verification?.verified && (
         <div className="space-y-1.5">
-          <label className="text-sm font-medium text-gray-700">Amount</label>
+          <label htmlFor="bill-amount" className="text-sm font-medium text-gray-700">Amount</label>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">
               ₦
             </span>
             <input
+              id="bill-amount"
               type="number"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}

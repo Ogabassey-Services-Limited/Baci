@@ -38,24 +38,64 @@ const VariantAttributeEntrySchema = z.object({
   options: z.array(z.string()),
 });
 
+const ProductImageEntrySchema = z.union([
+  z.string(),
+  z
+    .object({
+      url: z.string().optional(),
+      src: z.string().optional(),
+      uri: z.string().optional(),
+    })
+    .refine((value) => Boolean(value.url || value.src || value.uri), {
+      message: 'Expected at least one image source (url, src, or uri)',
+    }),
+]);
+
 const ProductVariantSchema = z.object({
   id: z.string(),
-  name: z.string(),
-  sku: z.string().optional(),
-  price: z.number(),
+  product_id: z.string().optional(),
+  merchant_id: z.string().optional(),
+  name: z.string().optional(),
+  sku: z.string().nullable().optional(),
+  price: z.number().optional(),
   compare_at_price: z.number().nullable().optional(),
   price_override: z.number().nullable().optional(),
   price_modifier: z.number().nullable().optional(),
   image: z.string().nullable().optional(),
-  images: z.array(z.string()).nullable().optional(),
+  primary_image: z.string().nullable().optional(),
+  images: z.array(ProductImageEntrySchema).nullable().optional(),
   in_stock: z.boolean().nullable().optional(),
   stock_quantity: z.number().nullable().optional(),
   attributes: z.record(z.string(), z.string()).nullable().optional(),
 });
 
+const ProductColorSchema = z.union([
+  z.string(),
+  z.object({
+    name: z.string(),
+    value: z.string().optional(),
+  }),
+]);
+
+const ProductConditionOfferSchema = z.object({
+  id: z.string(),
+  condition: z.string(),
+  price: z.number(),
+  compare_at_price: z.number().nullable().optional(),
+  stock_quantity: z.number().nullable().optional(),
+  images: z.array(ProductImageEntrySchema).nullable().optional(),
+  condition_notes: z.string().nullable().optional(),
+  grade: z.enum(['A', 'B', 'C', 'D']).nullable().optional(),
+});
+
 const VariantAttributeRecordSchema = z.record(
   z.string(),
   z.union([z.array(z.string()), z.string(), z.null()])
+);
+
+const ProductSpecificationRecordSchema = z.record(
+  z.string(),
+  z.union([z.string(), z.number(), z.boolean(), z.null(), z.unknown()])
 );
 
 export const ProductRowSchema = z.object({
@@ -65,21 +105,55 @@ export const ProductRowSchema = z.object({
   description: z.string().nullable().optional(),
   price: z.number(),
   compare_at_price: z.number().nullable().optional(),
-  images: z.array(z.string()).nullable().optional(),
+  images: z.array(ProductImageEntrySchema).nullable().optional(),
   brand: z.string().nullable().optional(),
+  color: z.string().nullable().optional(),
   condition: z.string().nullable().optional(),
   average_rating: z.number().nullable().optional(),
   review_count: z.number().int().nonnegative().nullable().optional(),
   manage_stock: z.boolean().nullable().optional(),
+  stock: z.number().nullable().optional(),
   stock_quantity: z.number().nullable().optional(),
   status: z.string().optional(),
-  specifications: z.record(z.string(), z.string()).nullable().optional(),
+  specifications: z
+    .union([
+      ProductSpecificationRecordSchema,
+      z.array(
+        z.object({
+          category: z.string().optional(),
+          items: z
+            .array(
+              z.object({
+                label: z.string().optional(),
+                value: z.unknown().optional(),
+              })
+            )
+            .optional(),
+        })
+      ),
+      z.array(z.unknown()),
+    ])
+    .nullable()
+    .optional(),
   has_variants: z.boolean().nullable().optional(),
   variant_attributes: z
-    .union([z.array(VariantAttributeEntrySchema), VariantAttributeRecordSchema])
+    .union([
+      z.array(VariantAttributeEntrySchema),
+      z.array(z.string()),
+      VariantAttributeRecordSchema,
+      z.record(z.string(), z.unknown()),
+      z.array(z.unknown()),
+    ])
     .nullable()
     .optional(),
   variants: z.array(ProductVariantSchema).nullable().optional(),
+  colors: z.array(ProductColorSchema).nullable().optional(),
+  color_images: z
+    .record(z.string(), z.array(ProductImageEntrySchema).nullable().optional())
+    .nullable()
+    .optional(),
+  has_condition_offers: z.boolean().nullable().optional(),
+  offers: z.array(ProductConditionOfferSchema).nullable().optional(),
   categories: z
     .union([
       z.array(

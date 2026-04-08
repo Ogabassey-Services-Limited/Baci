@@ -1,4 +1,4 @@
-import { sortCategoriesByPriority } from './category-utils';
+import { getProductGridCategories, sortCategoriesByPriority } from './category-utils';
 
 describe('sortCategoriesByPriority', () => {
   it('prioritizes phones, then laptops, then tablets, then accessories', () => {
@@ -40,6 +40,44 @@ describe('sortCategoriesByPriority', () => {
       'Phones',
       'Tablets',
       'Accessories',
+    ]);
+  });
+});
+
+describe('getProductGridCategories', () => {
+  it('returns only shopper-facing top-level categories for the product grid', () => {
+    expect(
+      getProductGridCategories([
+        'Samsung',
+        'HP',
+        'Smartphones',
+        'Gaming Laptops',
+        'MacBook',
+        'Audio',
+        'Accessories',
+        'Printers',
+      ])
+    ).toEqual([
+      'Smartphones',
+      'Gaming Laptops',
+      'Audio',
+      'Accessories',
+      'Printers',
+    ]);
+  });
+
+  it('falls back to sorted categories when no preferred group is present', () => {
+    expect(getProductGridCategories(['Wearables', 'Monitors', 'VR Headsets'])).toEqual([
+      'Monitors',
+      'VR Headsets',
+      'Wearables',
+    ]);
+  });
+
+  it('deduplicates categories case-insensitively before matching product grid groups', () => {
+    expect(getProductGridCategories(['Phones', 'phones', 'Audio'])).toEqual([
+      'Phones',
+      'Audio',
     ]);
   });
 });

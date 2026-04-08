@@ -125,9 +125,11 @@ export async function generateMetadata({
 async function BlogPostContent({
   slug,
   postSlug,
+  locale,
 }: {
   slug: string;
   postSlug: string;
+  locale?: string;
 }) {
   const isDraftMode = (await draftMode()).isEnabled;
   const data = await getResolvedBlogPost(slug, postSlug, isDraftMode);
@@ -144,19 +146,6 @@ async function BlogPostContent({
   const baseUrl = buildStoreUrl(merchant);
   const blogIndexUrl = `${baseUrl}/blog`;
   const postUrl = buildCanonicalBlogPostUrl(merchant, post.slug);
-
-  // Locale from headers (inside Suspense, so PPR-safe)
-  const headersList = await headers();
-  const rawLocale = headersList.get('accept-language')?.split(',')[0];
-  let locale: string | undefined;
-  if (rawLocale) {
-    try {
-      const [canonical] = Intl.getCanonicalLocales(rawLocale);
-      locale = canonical;
-    } catch {
-      locale = undefined;
-    }
-  }
 
   // basePath still needed for internal navigation links
   const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
@@ -323,9 +312,26 @@ async function BlogPostContent({
 
 export default async function BlogPostPage({ params }: PageProps) {
   const { slug, postSlug } = await params;
+  const headersList = await headers();
+  const rawLocale = headersList.get('accept-language')?.split(',')[0];
+  let locale: string | undefined;
+  if (rawLocale) {
+    try {
+      // Strip quality parameters (e.g. "en-US;q=0.8" → "en-US")
+      const [tag] = rawLocale.split(';');
+      const trimmed = tag.trim();
+      if (trimmed) {
+        const [canonical] = Intl.getCanonicalLocales(trimmed);
+        locale = canonical;
+      }
+    } catch {
+      locale = undefined;
+    }
+  }
+
   return (
     <Suspense fallback={<BlogPostPageFallback />}>
-      <BlogPostContent slug={slug} postSlug={postSlug} />
+      <BlogPostContent slug={slug} postSlug={postSlug} locale={locale} />
     </Suspense>
   );
 }

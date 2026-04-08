@@ -7,6 +7,7 @@ import type React from 'react';
 import { useState } from 'react';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
+import { getStorefrontProductHref } from '@/lib/storefront-product-href';
 
 interface SavedProduct {
   id: string;
@@ -99,7 +100,7 @@ export const OgabasseyV2SavedItems: React.FC = () => {
                 className="bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col relative"
               >
                 <Link
-                  href={`/product/${product.id}` as any}
+                  href={asRoute(getStorefrontProductHref(product, basePath))}
                   className="absolute inset-0 z-0"
                 />
 
@@ -107,7 +108,7 @@ export const OgabasseyV2SavedItems: React.FC = () => {
                   <Image
                     src={product.image}
                     alt={product.name}
-                    fill
+                    fill sizes="(max-width: 1024px) 50vw, 25vw"
                     className="object-contain mix-blend-multiply p-4"
                   />
                 </div>

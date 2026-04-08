@@ -310,6 +310,7 @@ export function MediaLibrary({ onSelect, maxSizeMB = 5 }: MediaLibraryProps) {
                     src={file.url}
                     alt={file.name}
                     fill
+                    sizes="(max-width: 768px) 50vw, 384px"
                     className="object-cover"
                   />
 

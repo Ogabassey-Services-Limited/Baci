@@ -3,9 +3,10 @@ import { useIsFocused } from '@react-navigation/native';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ProductGridSkeleton } from '@/components/ui/Skeleton';
-import { SPACING, TYPOGRAPHY, palette } from '@/constants/Colors';
-import { useCategories, useProducts } from '@/hooks';
-import { sortCategoriesByPriority } from '@/lib/category-utils';
+import { palette, SPACING, TYPOGRAPHY } from '@/constants/Colors';
+import { useCategories, useProductBrands, useProducts } from '@/hooks';
+import { getProductGridCategories } from '@/lib/category-utils';
+import { resolveSelectedCategoryId } from '@/lib/product-filter-options';
 import type { ProductGridBlock } from '@/types/blocks';
 import { FilterBar } from './FilterBar';
 import { ProductCard } from './ProductCard';
@@ -44,13 +45,10 @@ export default function ProductGrid({
     isError: isCategoriesError,
   } = useCategories();
 
-  const selectedCategoryIdFromFilter = (() => {
-    if (selectedCategoryName === 'All') return undefined;
-    const cat = (categoriesData as Category[]).find(
-      (category) => category.name === selectedCategoryName
-    );
-    return cat?.id;
-  })();
+  const selectedCategoryIdFromFilter = resolveSelectedCategoryId(
+    selectedCategoryName,
+    categoriesData as Category[]
+  );
 
   const normalizedCategoryId = (() => {
     const id = selectedCategoryIdFromFilter;
@@ -78,6 +76,14 @@ export default function ProductGrid({
     maxPrice: maxPrice < MAX_PRICE_LIMIT ? maxPrice : undefined,
     brand: selectedBrand !== 'All' ? selectedBrand : undefined,
     condition: selectedCondition !== 'All' ? selectedCondition : undefined,
+    minRating: minRating > 0 ? minRating : undefined,
+  });
+  const { brands = [] } = useProductBrands({
+    category: normalizedCategoryId,
+    minPrice: minPrice > 0 ? minPrice : undefined,
+    maxPrice: maxPrice < MAX_PRICE_LIMIT ? maxPrice : undefined,
+    condition: selectedCondition !== 'All' ? selectedCondition : undefined,
+    minRating: minRating > 0 ? minRating : undefined,
   });
 
   useEffect(() => {
@@ -93,22 +99,36 @@ export default function ProductGrid({
     void refetch();
   }, [isFocused, refetch]);
 
+  useEffect(() => {
+    if (selectedBrand !== 'All' && !brands.includes(selectedBrand)) {
+      setSelectedBrand('All');
+    }
+  }, [brands, selectedBrand]);
+
   const categoryNames = (() => {
     if (categoriesData.length > 0) {
-      const allCats = (categoriesData as Category[]).map((category) => category.name);
-      const sorted = sortCategoriesByPriority(allCats);
+      const allCats = (categoriesData as Category[]).map(
+        (category) => category.name
+      );
+      const sorted = getProductGridCategories(allCats);
 
       return ['All', ...sorted];
     }
     return ['All', 'Phones', 'Gaming', 'Laptops', 'Accessories', 'Printers'];
   })();
 
-  const brands = Array.from(
-    new Set(products.map((p) => p.brand).filter(Boolean) as string[])
-  );
   const orderedProducts = shouldPrioritizeSmartphones
     ? prioritizeSmartphoneProducts(products).slice(0, displayLimit)
     : products;
+
+  const handleCategorySelect = (categoryName: string) => {
+    setSelectedCategoryName(categoryName);
+    setMinPrice(0);
+    setMaxPrice(MAX_PRICE_LIMIT);
+    setSelectedBrand('All');
+    setSelectedCondition('All');
+    setMinRating(0);
+  };
 
   const handlePriceChange = (min: number, max: number) => {
     setMinPrice(min);
@@ -152,7 +172,7 @@ export default function ProductGrid({
       <FilterBar
         categories={categoryNames}
         selectedCategory={selectedCategoryName}
-        onSelectCategory={setSelectedCategoryName}
+        onSelectCategory={handleCategorySelect}
         minPrice={minPrice}
         maxPrice={maxPrice}
         onPriceChange={handlePriceChange}
@@ -167,12 +187,7 @@ export default function ProductGrid({
         onViewModeChange={setViewMode}
       />
 
-      <View
-        style={[
-          currentVariant === 'list' ? styles.list : styles.grid,
-          { opacity: isFetching ? 0.6 : 1 },
-        ]}
-      >
+      <View style={currentVariant === 'list' ? styles.list : styles.grid}>
         {orderedProducts.length === 0 && !isFetching ? (
           <View style={styles.emptyState}>
             <Text style={[styles.emptyText, { color: palette.gray[400] }]}>

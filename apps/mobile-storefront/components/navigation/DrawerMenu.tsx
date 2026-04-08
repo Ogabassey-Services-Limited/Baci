@@ -13,6 +13,7 @@ import {
   Alert,
   BackHandler,
   Dimensions,
+  InteractionManager,
   Platform,
   Pressable,
   ScrollView,
@@ -30,14 +31,12 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useShallow } from 'zustand/react/shallow';
 import { Logo } from '@/components/ui/Logo';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 import { useAuthStore } from '@/stores/auth-store';
-
 import { useDrawerStore } from '@/stores/drawer-store';
-import { useShallow } from 'zustand/react/shallow';
-
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const DRAWER_WIDTH = Math.min(SCREEN_WIDTH * 0.85, 320);
@@ -71,8 +70,12 @@ const menuItems: MenuItem[] = [
 export function DrawerMenu() {
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
-  const { isOpen, closeDrawer } = useDrawerStore(useShallow((s) => ({ isOpen: s.isOpen, closeDrawer: s.closeDrawer })));
-  const { user, signOut } = useAuthStore(useShallow((s) => ({ user: s.user, signOut: s.signOut })));
+  const { isOpen, closeDrawer } = useDrawerStore(
+    useShallow((s) => ({ isOpen: s.isOpen, closeDrawer: s.closeDrawer }))
+  );
+  const { user, signOut } = useAuthStore(
+    useShallow((s) => ({ user: s.user, signOut: s.signOut }))
+  );
   const isAuthenticated = !!user;
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -156,6 +159,26 @@ export function DrawerMenu() {
     router.push(path as import('expo-router').Href);
   };
 
+  const confirmSignOut = () => {
+    InteractionManager.runAfterInteractions(() => {
+      signOut()
+        .then(() => {
+          router.replace('/(tabs)');
+        })
+        .catch((err: unknown) => {
+          console.error('Sign-out failed:', err);
+          Alert.alert(
+            'Sign Out Failed',
+            'Unable to complete sign out. Please try again.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Retry', onPress: confirmSignOut },
+            ]
+          );
+        });
+    });
+  };
+
   const handleSignOut = () => {
     closeDrawer();
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -163,9 +186,7 @@ export function DrawerMenu() {
       {
         text: 'Sign Out',
         style: 'destructive',
-        onPress: async () => {
-          await signOut();
-        },
+        onPress: confirmSignOut,
       },
     ]);
   };

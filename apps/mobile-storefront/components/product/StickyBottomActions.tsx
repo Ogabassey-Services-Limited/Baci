@@ -6,7 +6,14 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { type GestureResponderEvent, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  type GestureResponderEvent,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import Animated, { LinearTransition } from 'react-native-reanimated';
 import type Colors from '@/constants/Colors';
 import { BRAND, SHADOWS } from '@/constants/Colors';
@@ -22,7 +29,6 @@ export interface StickyBottomActionsProps {
   onIncrement: (event: GestureResponderEvent) => void;
   onAddToCart: (event: GestureResponderEvent) => void;
   colors: ColorsScheme;
-  paddingBottom: number;
 }
 
 export function StickyBottomActions({
@@ -34,14 +40,12 @@ export function StickyBottomActions({
   onIncrement,
   onAddToCart,
   colors,
-  paddingBottom,
 }: StickyBottomActionsProps) {
   return (
     <View
       style={[
         styles.bottomBar,
         {
-          paddingBottom,
           backgroundColor: colors.card,
           borderTopColor: colors.border,
         },
@@ -141,6 +145,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 20,
     paddingTop: 16,
+    paddingBottom: 16,
     gap: 16,
     borderTopWidth: 1,
   },

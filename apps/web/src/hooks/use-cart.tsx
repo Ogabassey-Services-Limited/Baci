@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { logger } from '@/lib/logger';
 import type { Product } from '@/lib/products';
+import { resolveDefaultVariantSelection } from '../../../../packages/shared/src/lib/product-default-variant';
 
 // ============================================================================
 // TYPES
@@ -37,6 +38,7 @@ export interface CartItem extends Product {
   // Smart Cart Pro: Price Negotiation
   negotiatedPrice?: number;
   negotiationStatus?: 'none' | 'pending' | 'accepted' | 'rejected';
+  cartDiscount?: number;
 
   // Smart Cart Pro: Device Assurance
   hasAssurance?: boolean;
@@ -480,19 +482,59 @@ export const CartProvider = ({
     quantity: number = 1,
     options?: AddToCartOptions
   ) => {
+    const defaultVariantSelection =
+      product.has_variants && !options?.variantId
+        ? resolveDefaultVariantSelection(product)
+        : null;
+    const normalizedOptions =
+      defaultVariantSelection && !options?.variantId
+        ? {
+            ...options,
+            variantId: defaultVariantSelection.variant.id,
+            variantAttributes: defaultVariantSelection.attributes,
+            color: options?.color ?? defaultVariantSelection.color,
+            storage: options?.storage ?? defaultVariantSelection.storage,
+          }
+        : options;
+    const productForCart =
+      defaultVariantSelection && !options?.variantId
+        ? {
+            ...product,
+            price: defaultVariantSelection.price,
+            compare_at_price:
+              defaultVariantSelection.compareAtPrice ??
+              product.compare_at_price,
+            stock:
+              defaultVariantSelection.variant.stock_quantity ?? product.stock,
+          }
+        : product;
+
     // Stock validation: Prevent adding out-of-stock items
-    if (product.manage_stock && (product.stock ?? 0) <= 0) {
+    if (productForCart.manage_stock && (productForCart.stock ?? 0) <= 0) {
       logger.warn({
         message: 'Attempted to add out-of-stock product to cart',
-        productId: product.id,
-        productName: product.name,
-        stock: product.stock,
+        productId: productForCart.id,
+        productName: productForCart.name,
+        stock: productForCart.stock,
       });
       return; // Silently reject - UI should show out of stock state
     }
 
+    // Variant validation: Prevent adding variant products without selection
+    if (product.has_variants && !normalizedOptions?.variantId) {
+      logger.warn({
+        message: 'Attempted to add variant product without selecting variant',
+        productId: productForCart.id,
+        productName: productForCart.name,
+      });
+      return;
+    }
+
     setCart((prev) => {
-      const cartItemId = generateCartItemId(product.id, options);
+      const cartItemId = generateCartItemId(
+        productForCart.id,
+        normalizedOptions
+      );
 
       // Robust duplicate check: Match by cartItemId OR Legacy ID/Variant
       const existingItemIndex = prev.findIndex((item) => {
@@ -513,12 +555,13 @@ export const CartProvider = ({
         // 3. Legacy Match (if item has no cartItemId)
         if (!item.cartItemId && item.id === product.id) {
           const itemVar = item.variantId;
-          const newVar = options?.variantId;
+          const newVar = normalizedOptions?.variantId;
           if (itemVar !== newVar) return false;
 
           // Check if V2 options are used (legacy items have none)
           // If adding item with V2 options, don't match legacy item
-          if (options?.color || options?.storage) return false;
+          if (normalizedOptions?.color || normalizedOptions?.storage)
+            return false;
 
           return true;
         }
@@ -542,17 +585,17 @@ export const CartProvider = ({
       return [
         ...prev,
         {
-          ...product,
+          ...productForCart,
           cartItemId,
           quantity,
-          variantId: options?.variantId,
-          variantAttributes: options?.variantAttributes,
-          selectedColor: options?.color,
-          selectedColorValue: options?.colorValue,
-          secondaryColor: options?.secondaryColor,
-          secondaryColorValue: options?.secondaryColorValue,
-          selectedStorage: options?.storage,
-          condition: options?.condition as
+          variantId: normalizedOptions?.variantId,
+          variantAttributes: normalizedOptions?.variantAttributes,
+          selectedColor: normalizedOptions?.color,
+          selectedColorValue: normalizedOptions?.colorValue,
+          secondaryColor: normalizedOptions?.secondaryColor,
+          secondaryColorValue: normalizedOptions?.secondaryColorValue,
+          selectedStorage: normalizedOptions?.storage,
+          condition: normalizedOptions?.condition as
             | 'new'
             | 'used'
             | 'open_box'
@@ -567,7 +610,7 @@ export const CartProvider = ({
 
     // Smart Cart Pro: Trigger upsell
     if (enableSmartCartPro) {
-      setLastAddedProduct(product);
+      setLastAddedProduct(productForCart);
       upsellTimerRef.current = setTimeout(() => {
         setShowUpsell(true);
       }, 500);

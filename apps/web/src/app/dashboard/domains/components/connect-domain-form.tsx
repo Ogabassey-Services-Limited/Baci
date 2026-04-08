@@ -49,8 +49,7 @@ export function ConnectDomainForm() {
   } | null>(null);
 
   const form = useForm<DomainFormValues>({
-    // biome-ignore lint/suspicious/noExplicitAny: library type mismatch
-    resolver: zodResolver(domainSchema as any),
+    resolver: zodResolver(domainSchema),
     defaultValues: { domain: '' },
   });
 

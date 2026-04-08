@@ -3,6 +3,20 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { POST } from './route';
 
+const {
+  mockNotifyNewOrder,
+  mockNotifyPaymentReceived,
+  mockSendEmail,
+  mockCreateGiglShipment,
+  mockAfter,
+} = vi.hoisted(() => ({
+  mockNotifyNewOrder: vi.fn(() => Promise.resolve()),
+  mockNotifyPaymentReceived: vi.fn(() => Promise.resolve()),
+  mockSendEmail: vi.fn(() => Promise.resolve({ success: true })),
+  mockCreateGiglShipment: vi.fn(),
+  mockAfter: vi.fn((callback: () => unknown) => callback()),
+}));
+
 // Mock env
 vi.mock('@/env', () => ({
   getSupabaseUrl: () => 'https://mock.supabase.co',
@@ -78,10 +92,33 @@ vi.mock('next/headers', () => ({
   }),
 }));
 
+vi.mock('next/server', async () => {
+  const actual =
+    await vi.importActual<typeof import('next/server')>('next/server');
+
+  return {
+    ...actual,
+    after: mockAfter,
+  };
+});
+
 // Mock other dependencies
 vi.mock('@/lib/email-templates', () => ({
   generateOrderConfirmationEmail: vi.fn(),
   generateOrderConfirmationText: vi.fn(),
+}));
+
+vi.mock('@/lib/expo-push', () => ({
+  notifyNewOrder: mockNotifyNewOrder,
+  notifyPaymentReceived: mockNotifyPaymentReceived,
+}));
+
+vi.mock('@/lib/gigl', () => ({
+  createGiglShipment: mockCreateGiglShipment,
+}));
+
+vi.mock('@/lib/zeptomail', () => ({
+  sendEmail: mockSendEmail,
 }));
 
 vi.mock('@/lib/geo-privacy', () => ({
@@ -258,5 +295,214 @@ describe('Order API Security', () => {
         p_user_id: authUserId,
       })
     );
+  });
+
+  it('treats pay_on_delivery like pod for downstream notification handling', async () => {
+    const request = new NextRequest('http://localhost:3000/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...validOrderPayload,
+        payment_method: 'pay_on_delivery',
+        payment_status: 'pending',
+      }),
+    });
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(201);
+    expect(mockSendEmail).toHaveBeenCalledTimes(1);
+    expect(mockNotifyNewOrder).toHaveBeenCalledWith(
+      validOrderPayload.merchant_id,
+      'order-id',
+      'ORD-123',
+      validOrderPayload.customer_name,
+      1000
+    );
+    expect(mockNotifyPaymentReceived).not.toHaveBeenCalled();
+  });
+
+  it('waits for pay_on_delivery confirmation email dispatch before responding', async () => {
+    let signalEmailStarted: (() => void) | undefined;
+    let resolveEmail:
+      | ((value: { success: boolean; messageId: string }) => void)
+      | undefined;
+    const emailStarted = new Promise<void>((resolve) => {
+      signalEmailStarted = resolve;
+    });
+
+    mockSendEmail.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          signalEmailStarted?.();
+          resolveEmail = resolve;
+        })
+    );
+
+    const request = new NextRequest('http://localhost:3000/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...validOrderPayload,
+        payment_method: 'pay_on_delivery',
+        payment_status: 'pending',
+      }),
+    });
+
+    let settled = false;
+    const responsePromise = POST(request).then((response) => {
+      settled = true;
+      return response;
+    });
+
+    await emailStarted;
+    expect(settled).toBe(false);
+
+    resolveEmail?.({ success: true, messageId: 'zepto-msg-1' });
+
+    const response = await responsePromise;
+    expect(response.status).toBe(201);
+  });
+
+  it('does not try to book GIGL shipments during order creation', async () => {
+    const request = new NextRequest('http://localhost:3000/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...validOrderPayload,
+        shipping_provider: 'GIGL',
+        selected_quote_id: '11111111-1111-1111-1111-111111111111',
+      }),
+    });
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(201);
+    expect(mockCreateGiglShipment).not.toHaveBeenCalled();
+    expect(mockSupabase.rpc).toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.objectContaining({
+        p_selected_quote_id: '11111111-1111-1111-1111-111111111111',
+        p_shipping_provider: 'GIGL',
+        p_tracking_number: null,
+      })
+    );
+  });
+
+  describe('Variant attributes handling', () => {
+    beforeEach(() => {
+      vi.mocked(authenticateApiRequest).mockResolvedValue({
+        user: mockAuthUser('123e4567-e89b-12d3-a456-426614174099'),
+        error: null,
+        supabase: mockSupabase as unknown as never,
+      });
+      // Restore mocks cleared by outer beforeEach
+      sharedChainableMock.select.mockReturnThis();
+      sharedChainableMock.eq.mockReturnThis();
+      sharedChainableMock.single.mockResolvedValue({
+        data: {
+          id: '123e4567-e89b-12d3-a456-426614174000',
+          business_name: 'Test Merchant',
+          country: 'NG',
+          slug: 'test-merchant',
+          support_email: 'support@example.com',
+          email_sender_name: 'Test Store',
+          email: 'merchant@example.com',
+        },
+        error: null,
+      });
+      mockSupabase.rpc.mockResolvedValue({
+        data: [
+          {
+            id: 'order-id',
+            order_number: 'ORD-123',
+            total: 1000,
+            subtotal: 1000,
+            shipping_fee: 0,
+            customer_id: 'customer-id',
+          },
+        ],
+        error: null,
+      });
+    });
+
+    it('forwards variantAttributes (camelCase) to RPC', async () => {
+      const payload = {
+        ...validOrderPayload,
+        user_id: '123e4567-e89b-12d3-a456-426614174099',
+        items: [
+          {
+            product_id: 'product-id',
+            quantity: 1,
+            price: 1000,
+            name: 'Test Product',
+            variantId: 'v1',
+            variantAttributes: { color: 'Red', storage: '256GB' },
+          },
+        ],
+      };
+
+      const request = new NextRequest('http://localhost:3000/api/orders', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      await POST(request);
+
+      const rpcArgs = mockSupabase.rpc.mock.calls[0][1];
+      const items = Array.isArray(rpcArgs.p_items)
+        ? rpcArgs.p_items
+        : JSON.parse(rpcArgs.p_items);
+      expect(items[0].variant_attributes).toEqual({
+        color: 'Red',
+        storage: '256GB',
+      });
+    });
+
+    it('forwards variant_attributes (snake_case) to RPC', async () => {
+      const payload = {
+        ...validOrderPayload,
+        user_id: '123e4567-e89b-12d3-a456-426614174099',
+        items: [
+          {
+            product_id: 'product-id',
+            quantity: 1,
+            price: 1000,
+            name: 'Test Product',
+            variant_id: 'v1',
+            variant_attributes: { color: 'Blue' },
+          },
+        ],
+      };
+
+      const request = new NextRequest('http://localhost:3000/api/orders', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBeLessThan(300);
+
+      const rpcArgs = mockSupabase.rpc.mock.calls[0][1];
+      const items = Array.isArray(rpcArgs.p_items)
+        ? rpcArgs.p_items
+        : JSON.parse(rpcArgs.p_items);
+      expect(items[0].variant_attributes).toEqual({ color: 'Blue' });
+    });
+
+    it('defaults variant_attributes to {} when both keys missing', async () => {
+      const request = new NextRequest('http://localhost:3000/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...validOrderPayload,
+          user_id: '123e4567-e89b-12d3-a456-426614174099',
+        }),
+      });
+
+      await POST(request);
+
+      const rpcArgs = mockSupabase.rpc.mock.calls[0][1];
+      const items = Array.isArray(rpcArgs.p_items)
+        ? rpcArgs.p_items
+        : JSON.parse(rpcArgs.p_items);
+      expect(items[0].variant_attributes).toEqual({});
+    });
   });
 });

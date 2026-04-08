@@ -52,7 +52,7 @@ const discountSchema = z
     }
   );
 
-type DiscountFormData = z.infer<typeof discountSchema>;
+type DiscountFormData = z.input<typeof discountSchema>;
 
 export default function NewDiscountScreen() {
   const { colors } = useTheme();
@@ -70,8 +70,8 @@ export default function NewDiscountScreen() {
     setValue,
     formState: { errors },
   } = useForm<DiscountFormData>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(discountSchema as any),
+    // @ts-expect-error -- zodResolver types expect Zod v3 but we use Zod v4; runtime works fine
+    resolver: zodResolver(discountSchema),
     defaultValues: {
       code: '',
       discount_type: 'percentage',

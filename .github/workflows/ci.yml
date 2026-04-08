@@ -32,6 +32,9 @@ jobs:
             web:
               - 'apps/web/**'
               - 'packages/shared/**'
+              - '.github/actions/pnpm-install-cached/**'
+              - '.github/actions/setup-pnpm-store/**'
+              - '.github/workflows/ci.yml'
               - 'package.json'
               - 'pnpm-lock.yaml'
               - 'turbo.json'
@@ -47,14 +50,18 @@ jobs:
       - if: needs.changes.outputs.web == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - if: needs.changes.outputs.web == 'true'
+        name: Clean stale pnpm setup directory
+        run: rm -rf ~/setup-pnpm 2>/dev/null || true
+      - if: needs.changes.outputs.web == 'true'
         uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5.0.0
       - if: needs.changes.outputs.web == 'true'
         uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
         with:
           node-version: "24"
-          cache: "pnpm"
       - if: needs.changes.outputs.web == 'true'
-        run: pnpm install --frozen-lockfile
+        uses: ./.github/actions/pnpm-install-cached
+        with:
+          store-dir: ${{ runner.temp }}/pnpm-store
       # Run monorepo-wide lint/typecheck/test (not filtered to @baci/web)
       # to catch cross-package breakages from shared code changes
       - if: needs.changes.outputs.web == 'true'
@@ -73,12 +80,14 @@ jobs:
       - if: needs.changes.outputs.web == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - if: needs.changes.outputs.web == 'true'
+        name: Clean stale pnpm setup directory
+        run: rm -rf ~/setup-pnpm 2>/dev/null || true
+      - if: needs.changes.outputs.web == 'true'
         uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5.0.0
       - if: needs.changes.outputs.web == 'true'
         uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
         with:
           node-version: "24"
-          cache: "pnpm"
       - if: needs.changes.outputs.web == 'true'
         uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         with:
@@ -90,7 +99,9 @@ jobs:
             ${{ runner.os }}-build-${{ hashFiles('pnpm-lock.yaml') }}-
             ${{ runner.os }}-build-
       - if: needs.changes.outputs.web == 'true'
-        run: pnpm install --frozen-lockfile
+        uses: ./.github/actions/pnpm-install-cached
+        with:
+          store-dir: ${{ runner.temp }}/pnpm-store
       - if: needs.changes.outputs.web == 'true'
         run: pnpm turbo build --filter=@baci/web
         env:

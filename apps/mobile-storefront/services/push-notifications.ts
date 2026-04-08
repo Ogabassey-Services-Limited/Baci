@@ -9,6 +9,7 @@
  * - APNs configured via EAS (iOS - automatic)
  */
 
+import { getStorefrontNotificationNavigationTarget } from '@baci/shared/lib';
 import Constants from 'expo-constants';
 // M32 fix: Use type-only imports for expo-notifications types to avoid evaluation-time crashes.
 // Runtime values (AndroidImportance, SchedulableTriggerInputTypes) are accessed via the
@@ -83,6 +84,10 @@ export async function requestPermissions(): Promise<PermissionStatus | null> {
  */
 export async function registerForPushNotifications(): Promise<string | null> {
   // Push notifications require a physical device and loaded modules
+  if (!Device || !Notifications) {
+    await loadNativeModules();
+  }
+
   if (!Device || !Notifications) return null;
 
   if (!Device.isDevice) {
@@ -205,7 +210,7 @@ export async function removePushTokenFromServer(
   try {
     const { error } = await supabase
       .from('push_tokens')
-      .delete()
+      .update({ is_active: false })
       .eq('token', token);
 
     if (error) {
@@ -227,46 +232,13 @@ export function handleNotificationResponse(
   response: NotificationResponse,
   navigate: (screen: string, params?: Record<string, string>) => void
 ): void {
-  const data = response.notification.request.content.data;
+  const target = getStorefrontNotificationNavigationTarget(
+    response.notification.request.content.data as Record<string, unknown>
+  );
 
-  if (!data) return;
+  if (!target) return;
 
-  // Route based on notification type
-  switch (data.type) {
-    case 'order_update':
-      if (data.orderId) {
-        navigate('order-details', { id: data.orderId as string });
-      } else {
-        navigate('orders');
-      }
-      break;
-
-    case 'promotion':
-      if (data.productSlug) {
-        navigate('product', { slug: data.productSlug as string });
-      } else if (data.categorySlug) {
-        navigate('category', { slug: data.categorySlug as string });
-      }
-      break;
-
-    case 'back_in_stock':
-      if (data.productSlug) {
-        navigate('product', { slug: data.productSlug as string });
-      }
-      break;
-
-    case 'negotiation_response':
-      if (data.productSlug) {
-        navigate('product', { slug: data.productSlug as string });
-      } else {
-        navigate('home');
-      }
-      break;
-
-    default:
-      // Default to home
-      navigate('home');
-  }
+  navigate(target.screen, 'params' in target ? target.params : undefined);
 }
 
 /**

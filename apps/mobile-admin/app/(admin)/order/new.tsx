@@ -27,6 +27,7 @@ import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplet
 import PhoneInput from 'react-native-phone-number-input';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import SafeImage from '@/components/ui/SafeImage';
+import { mergeOrderItem } from '@/lib/order-items';
 import {
   sanitizeAddress,
   sanitizeCustomerName,
@@ -44,24 +45,6 @@ interface ShippingAddress {
   state?: string;
 }
 
-interface CustomerRecord {
-  id: string;
-  first_name?: string;
-  last_name?: string;
-  email: string;
-  phone?: string;
-  address?: string;
-}
-
-interface ProductRecord {
-  id: string;
-  name: string;
-  price: number;
-  images?: string[];
-  sku?: string;
-  stock_quantity?: number;
-}
-
 import {
   BRAND_COLORS,
   ORDER_SOURCE_CONFIG,
@@ -72,10 +55,14 @@ import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
-import { useCreateCustomer, useCustomers } from '@/hooks/useCustomers';
+import {
+  type Customer,
+  useCreateCustomer,
+  useCustomers,
+} from '@/hooks/useCustomers';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useMerchant } from '@/hooks/useMerchant';
-import { useProducts } from '@/hooks/useProducts';
+import { type Product, useProducts } from '@/hooks/useProducts';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 
@@ -97,6 +84,11 @@ interface CustomerInfo {
   phone: string;
   address: string;
 }
+
+type SelectableCustomer = Pick<
+  Customer,
+  'id' | 'first_name' | 'last_name' | 'email' | 'phone' | 'address'
+>;
 
 /**
  * Formats a price string with thousand separators while preserving decimal input
@@ -243,7 +235,7 @@ export default function NewOrderScreen() {
   });
   const [selectedCountryCode, setSelectedCountryCode] = useState<string>('NG'); // For Google Places filtering
   const [duplicateCustomer, setDuplicateCustomer] =
-    useState<CustomerRecord | null>(null); // Found existing customer
+    useState<SelectableCustomer | null>(null);
 
   // Delivery Details
   const [sameAsCustomer, setSameAsCustomer] = useState(true);
@@ -282,10 +274,12 @@ export default function NewOrderScreen() {
 
   const filteredProducts = productSearch
     ? allProducts.filter((p) => {
-        const search = productSearch.toLowerCase();
-        return (
-          p.name.toLowerCase().includes(search) ||
-          p.sku?.toLowerCase().includes(search)
+        const words = productSearch.toLowerCase().split(/\s+/).filter(Boolean);
+        const name = p.name.toLowerCase();
+        const sku = p.sku?.toLowerCase() ?? '';
+        const condition = p.condition?.toLowerCase() ?? '';
+        return words.every(
+          (w) => name.includes(w) || sku.includes(w) || condition.includes(w)
         );
       })
     : allProducts;
@@ -303,43 +297,34 @@ export default function NewOrderScreen() {
   const total = subtotal - discount + shippingFee + taxesToUse;
 
   // Handlers (Same logic, just keeping cleanly separated)
-  const handleAddProduct = (product: ProductRecord) => {
-    setOrderItems((prev) => {
-      const existing = prev.find((item) => item.product_id === product.id);
-      if (existing) {
-        return prev.map((item) =>
-          item.product_id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
-      }
-      return [
-        ...prev,
-        {
-          product_id: product.id,
-          name: product.name,
-          quantity: 1,
-          price: product.price,
-          image_url: product.images?.[0],
-        },
-      ];
-    });
+  const handleAddProduct = (product: Product) => {
+    setOrderItems((prev) =>
+      mergeOrderItem(prev, {
+        product_id: product.id,
+        name: product.name,
+        quantity: 1,
+        price: product.price,
+        image_url: product.images?.[0],
+      })
+    );
     setShowProductModal(false);
     setProductSearch('');
   };
 
   const handleAddCustomItem = () => {
-    if (!customItem.name || !customItem.price) return;
-    setOrderItems((prev) => [
-      ...prev,
-      {
-        product_id: `custom-${Date.now()}`,
-        name: customItem.name,
+    const normalizedName = customItem.name.trim().replace(/\s+/g, ' ');
+
+    if (!normalizedName || !customItem.price) return;
+
+    setOrderItems((prev) =>
+      mergeOrderItem(prev, {
+        product_id: `custom-${Crypto.randomUUID()}`,
+        name: normalizedName,
         quantity: 1,
         price: Number.parseFloat(customItem.price) || 0,
         is_custom: true,
-      },
-    ]);
+      })
+    );
     setCustomItem({ name: '', price: '' });
     setShowCustomItemModal(false);
   };
@@ -355,11 +340,13 @@ export default function NewOrderScreen() {
     );
   };
 
-  const handleSelectCustomer = (item: CustomerRecord) => {
+  const handleSelectCustomer = (item: SelectableCustomer) => {
     const displayName =
       [item.first_name, item.last_name]
         .filter((name): name is string => Boolean(name))
-        .join(' ') || item.email.split('@')[0];
+        .join(' ') ||
+      item.email?.split('@')[0] ||
+      '';
     setCustomer({
       id: item.id,
       name: displayName,
@@ -1594,28 +1581,49 @@ export default function NewOrderScreen() {
           <FlatList
             data={filteredProducts}
             keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <Pressable
-                style={[
-                  styles.productItem,
-                  { borderBottomColor: colors.border },
-                ]}
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onPress={() => handleAddProduct(item as any)}
-              >
-                <View>
-                  <Text style={{ color: colors.text, fontSize: 16 }}>
-                    {item.name}
+            renderItem={({ item }) => {
+              const conditionLabel = item.condition
+                ? item.condition.replace(/_/g, ' ')
+                : null;
+              const variantSummary = Array.isArray(item.variant_attributes)
+                ? (
+                    item.variant_attributes as Array<{
+                      param: string;
+                      options: string[];
+                    }>
+                  )
+                    .map((v) => v.options.join(', '))
+                    .join(' | ')
+                : null;
+
+              return (
+                <Pressable
+                  style={[
+                    styles.productItem,
+                    { borderBottomColor: colors.border },
+                  ]}
+                  onPress={() => handleAddProduct(item)}
+                >
+                  <View style={{ flex: 1, marginRight: 8 }}>
+                    <Text style={{ color: colors.text, fontSize: 16 }}>
+                      {item.name}
+                    </Text>
+                    <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+                      {[
+                        conditionLabel,
+                        variantSummary,
+                        item.sku ? `SKU: ${item.sku}` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' \u00B7 ') || 'N/A'}
+                    </Text>
+                  </View>
+                  <Text style={{ color: colors.text, fontWeight: '500' }}>
+                    {formatPrice(item.price)}
                   </Text>
-                  <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
-                    SKU: {item.sku || 'N/A'}
-                  </Text>
-                </View>
-                <Text style={{ color: colors.text, fontWeight: '500' }}>
-                  {formatPrice(item.price)}
-                </Text>
-              </Pressable>
-            )}
+                </Pressable>
+              );
+            }}
           />
         </SafeAreaView>
       </Modal>
@@ -1751,14 +1759,7 @@ export default function NewOrderScreen() {
                     </Text>
                     <Pressable
                       onPress={() => {
-                        handleSelectCustomer({
-                          id: duplicateCustomer.id,
-                          first_name: duplicateCustomer.first_name,
-                          last_name: duplicateCustomer.last_name,
-                          phone: duplicateCustomer.phone,
-                          email: duplicateCustomer.email,
-                          address: duplicateCustomer.address,
-                        });
+                        handleSelectCustomer(duplicateCustomer);
                         setDuplicateCustomer(null);
                         setIsCreatingCustomer(false);
                         setNewCustomer({
@@ -2074,8 +2075,7 @@ export default function NewOrderScreen() {
                         paddingVertical: 12,
                       },
                     ]}
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    onPress={() => handleSelectCustomer(item as any)}
+                    onPress={() => handleSelectCustomer(item)}
                   >
                     <View
                       style={[

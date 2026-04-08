@@ -36,6 +36,10 @@ const reactDomPackageRoot = resolvePackageRoot('react-dom');
 const reactNativePackageRoot = resolvePackageRoot('react-native');
 const expoPackageRoot = resolvePackageRoot('expo');
 const expoRouterPackageRoot = resolvePackageRoot('expo-router');
+const gestureHandlerPackageRoot = resolvePackageRoot('react-native-gesture-handler');
+const reanimatedPackageRoot = resolvePackageRoot('react-native-reanimated');
+const screensPackageRoot = resolvePackageRoot('react-native-screens');
+const safeAreaContextPackageRoot = resolvePackageRoot('react-native-safe-area-context');
 
 config.watchFolders = [workspaceRoot];
 config.resolver = {
@@ -46,16 +50,22 @@ config.resolver = {
   ],
   // Prefer the app-local core packages first so release bundles stay version-aligned.
   extraNodeModules: {
+    '@baci/shared': path.resolve(workspaceRoot, 'packages/shared'),
     'react-native': reactNativePackageRoot,
     react: reactPackageRoot,
     'react-dom': reactDomPackageRoot,
     expo: expoPackageRoot,
     'expo-router': expoRouterPackageRoot,
+    'react-native-gesture-handler': gestureHandlerPackageRoot,
+    'react-native-reanimated': reanimatedPackageRoot,
+    'react-native-screens': screensPackageRoot,
+    'react-native-safe-area-context': safeAreaContextPackageRoot,
   },
   // Critical for PNPM monorepos to resolve symlinked packages
   unstable_enableSymlinks: true,
-  // 2026: Enable package exports as it is now the standard for modern libraries
-  unstable_enablePackageExports: false,
+  // 2026: Enable package exports so shared-package subpath imports resolve the
+  // same way in Metro as they do in the rest of the monorepo.
+  unstable_enablePackageExports: true,
   // Block test files and Node.js-only modules from being bundled by Metro.
   // This prevents Hermes runtime errors when build tool dependencies pull in
   // modules that use import.meta syntax (which is Node.js-only).
@@ -76,43 +86,6 @@ config.resolver = {
     // Other Node.js-only modules commonly pulled by build tools
     /node_modules[\\/]esbuild[\\/]/,
   ],
-  // Force all React resolutions to the app-selected React package so Metro
-  // cannot accidentally mix the hoisted workspace copy with the app bundle.
-  resolveRequest: (context, moduleName, platform) => {
-    // M27 fix: Wrap in try-catch to prevent metro bundler crash
-    // when react-dom or subpath cannot be resolved (e.g. missing package)
-    try {
-      let forcedRoot = null;
-
-      if (moduleName === 'react') {
-        forcedRoot = reactPackageRoot;
-      } else if (moduleName === 'react-dom') {
-        forcedRoot = reactDomPackageRoot;
-      } else if (moduleName.startsWith('react/')) {
-        forcedRoot = path.resolve(
-          reactPackageRoot,
-          moduleName.slice('react/'.length)
-        );
-      } else if (moduleName.startsWith('react-dom/')) {
-        forcedRoot = path.resolve(
-          reactDomPackageRoot,
-          moduleName.slice('react-dom/'.length)
-        );
-      }
-
-      if (forcedRoot) {
-        return {
-          filePath: require.resolve(forcedRoot),
-          type: 'sourceFile',
-        };
-      }
-    } catch {
-      // If resolution fails (e.g. react-dom not installed for RN),
-      // fall through to default resolution
-    }
-    // Fall back to default resolution for everything else
-    return context.resolveRequest(context, moduleName, platform);
-  },
 };
 
 module.exports = config;

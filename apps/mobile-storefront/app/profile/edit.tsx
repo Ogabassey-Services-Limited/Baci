@@ -147,14 +147,14 @@ export default function ProfileEditScreen() {
           <TextInput
             style={[
               styles.input,
-              { backgroundColor: colors.card, color: colors.text },
+              { backgroundColor: colors.muted, color: colors.text },
               { borderColor: errors[name] ? '#EF4444' : colors.border },
             ]}
             value={value}
             onChangeText={onChange}
             onBlur={onBlur}
             placeholder={placeholder}
-            placeholderTextColor={colors.textSecondary}
+            placeholderTextColor={colors.placeholder}
             keyboardType={keyboardType}
             autoCapitalize={autoCapitalize}
             autoCorrect={false}
@@ -230,7 +230,7 @@ export default function ProfileEditScreen() {
             <View
               style={[
                 styles.emailContainer,
-                { backgroundColor: colors.card, borderColor: colors.border },
+                { backgroundColor: colors.muted, borderColor: colors.border },
               ]}
             >
               <Text style={[styles.emailText, { color: colors.text }]}>

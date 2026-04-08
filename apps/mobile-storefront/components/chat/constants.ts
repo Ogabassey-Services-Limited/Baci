@@ -1,4 +1,5 @@
 import { Dimensions } from 'react-native';
+import { resolveApiBaseUrl } from '@/lib/api-url';
 
 /**
  * Screens where the chat widget should be hidden:
@@ -12,6 +13,8 @@ export const HIDDEN_ROUTES = [
   '/bnpl-checkout',
   '/order-success',
   '/auth/login',
+  '/(tabs)/cart',
+  '/cart',
   '/modal',
   '/orders',
   '/search',
@@ -26,8 +29,7 @@ export const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } =
   Dimensions.get('window');
 
 // API base URL - uses the web app's API
-export const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL ?? 'https://ogabassey.usebaci.com';
+export const API_BASE_URL = resolveApiBaseUrl(process.env.EXPO_PUBLIC_API_URL);
 
 // FAB dimensions and margins
 export const FAB_SIZE = 60;

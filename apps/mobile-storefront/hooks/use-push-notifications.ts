@@ -5,10 +5,17 @@
 
 import type { EventSubscription } from 'expo-modules-core';
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 import { createLogger } from '@/lib/logger';
+import {
+  clearStoredPushToken,
+  getStoredPushToken,
+  isPushOptedOut,
+  setPushOptOut,
+  storeLocalPushToken,
+} from '@/lib/push-token-storage';
 import {
   clearBadge,
   handleNotificationResponse,
@@ -44,15 +51,20 @@ _notificationsReady = loadNativeModules();
 interface UsePushNotificationsReturn {
   pushToken: string | null;
   isRegistered: boolean;
+  registeredUserId: string | null;
   isLoading: boolean;
   error: string | null;
-  register: () => Promise<void>;
+  register: (
+    userId?: string,
+    merchantId?: string,
+    opts?: { force?: boolean }
+  ) => Promise<void>;
   unregister: () => Promise<void>;
 }
 
 export function usePushNotifications(): UsePushNotificationsReturn {
   const [pushToken, setPushToken] = useState<string | null>(null);
-  const [isRegistered, setIsRegistered] = useState(false);
+  const [registeredUserId, setRegisteredUserId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,74 +76,126 @@ export function usePushNotifications(): UsePushNotificationsReturn {
   );
   const notificationListener = useRef<EventSubscription | null>(null);
   const responseListener = useRef<EventSubscription | null>(null);
+  const isRegistered = Boolean(user?.id && registeredUserId === user.id);
 
   // Navigation helper for notification taps
-  const navigate = (screen: string, params?: Record<string, string>) => {
-    switch (screen) {
-      case 'order-details':
-        router.push(`/orders/${params?.id}`);
-        break;
-      case 'orders':
-        router.push('/orders');
-        break;
-      case 'product':
-        router.push(`/product/${params?.slug}`);
-        break;
-      case 'category':
-        router.push(`/category/${params?.slug}` as import('expo-router').Href);
-        break;
-      default:
-        router.push('/');
+  const navigate = useEffectEvent(
+    (screen: string, params?: Record<string, string>) => {
+      switch (screen) {
+        case 'order-details':
+          router.push(`/orders/${params?.id}`);
+          break;
+        case 'orders':
+          router.push('/orders');
+          break;
+        case 'product':
+          router.push(`/product/${params?.slug}`);
+          break;
+        case 'category':
+          router.push(
+            `/category/${params?.slug}` as import('expo-router').Href
+          );
+          break;
+        default:
+          router.push('/');
+      }
     }
-  };
+  );
 
-  // Register for push notifications
-  const register = async () => {
+  // Register for push notifications.
+  // Accepts explicit userId/merchantId so the caller's values are used
+  // instead of relying on closure state which may be stale due to
+  // React Compiler memoization.
+  // opts.force: true clears per-user opt-out (used by settings re-enable toggle).
+  const register = async (
+    explicitUserId?: string,
+    explicitMerchantId?: string,
+    opts?: { force?: boolean }
+  ) => {
     if (isLoading) return;
+    // Idempotent: skip if already server-synced for current user
+    if (isRegistered) return;
+
+    const resolvedUserId = explicitUserId ?? user?.id;
+    const resolvedMerchantId = explicitMerchantId ?? merchantId;
+
+    // Per-user opt-out check. force: true (settings re-enable) clears it first.
+    if (resolvedUserId) {
+      if (opts?.force) {
+        await setPushOptOut(resolvedUserId, false);
+      } else if (await isPushOptedOut(resolvedUserId)) return;
+    }
 
     setIsLoading(true);
     setError(null);
 
     try {
-      const token = await registerForPushNotifications();
+      // 3-step token resolution — guarantees stored token is reused even if
+      // _layout.tsx fires before the hydration effect completes (race fix):
+      //   1. in-memory state (fastest, already hydrated)
+      //   2. AsyncStorage (cold start race — read directly here, not just in effect)
+      //   3. native Expo call (only if nothing stored)
+      let token = pushToken;
+      if (!token) token = await getStoredPushToken();
+      if (!token) token = await registerForPushNotifications();
 
       if (token) {
         setPushToken(token);
+        await storeLocalPushToken(token); // best-effort local persistence
 
-        // Save to server if user is logged in
-        if (user?.id) {
+        if (resolvedUserId) {
           const saved = await savePushTokenToServer(
             token,
-            user.id,
-            merchantId || undefined
+            resolvedUserId,
+            resolvedMerchantId || undefined
           );
-          setIsRegistered(saved);
-
-          if (!saved) {
-            setError('Failed to register token with server');
-          }
+          setRegisteredUserId(saved ? resolvedUserId : null);
+          if (!saved) setError('Failed to register token with server');
         } else {
-          // Token obtained but user not logged in - will save on login
-          setIsRegistered(false);
+          // Token ready; login-sync effect will upsert when user signs in
+          setRegisteredUserId(null);
         }
       } else {
+        setRegisteredUserId(null);
         setError('Failed to get push token');
       }
     } catch (err) {
+      setRegisteredUserId(null);
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Unregister push notifications (on logout)
+  // Unregister push notifications (user-initiated disable from settings).
+  // Records user intent FIRST (clear local + opt-out), then awaits server
+  // deactivation so a fast re-enable cannot race a background disable request.
   const unregister = async () => {
-    if (pushToken) {
-      await removePushTokenFromServer(pushToken);
-      setPushToken(null);
-      setIsRegistered(false);
+    const token = pushToken || (await getStoredPushToken());
+    await clearStoredPushToken(); // always clear local
+    if (user?.id) await setPushOptOut(user.id, true); // always record opt-out
+    setPushToken(null);
+    setRegisteredUserId(null);
+    // Await deactivation so disable → immediate re-enable can't race same token row
+    if (token) {
+      const removed = await removePushTokenFromServer(token);
+      if (!removed) {
+        log.warn('Failed to deactivate push token on server during unregister');
+      }
     }
   };
+
+  // Hydrate token from AsyncStorage on mount — login-sync effect confirms server state.
+  // 2026: cancelled guard mirrors existing listener effect pattern below.
+  useEffect(() => {
+    let cancelled = false;
+    getStoredPushToken().then((stored) => {
+      if (stored && !cancelled) setPushToken(stored);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Set up notification listeners on mount — wait for dynamic import to resolve
   useEffect(() => {
@@ -190,22 +254,35 @@ export function usePushNotifications(): UsePushNotificationsReturn {
         responseListener.current.remove();
       }
     };
-  }, [navigate]);
+  }, []);
 
-  // Auto-register when user logs in
+  // Auto-register when user logs in (login-sync effect)
   useEffect(() => {
-    if (user?.id && pushToken && !isRegistered) {
+    if (user?.id && pushToken && registeredUserId !== user.id) {
       savePushTokenToServer(pushToken, user.id, merchantId || undefined).then(
         (saved) => {
-          setIsRegistered(saved);
+          setRegisteredUserId(saved ? user.id : null);
         }
       );
     }
-  }, [isRegistered, merchantId, pushToken, user?.id]);
+  }, [merchantId, pushToken, registeredUserId, user?.id]);
+
+  // Reset local React state on sign-out (non-null → null transition).
+  // Auth-store owns server cleanup; this effect only resets hook state.
+  const prevUserRef = useRef(user);
+  useEffect(() => {
+    const wasSignedIn = prevUserRef.current !== null;
+    prevUserRef.current = user;
+    if (wasSignedIn && user === null) {
+      setPushToken(null);
+      setRegisteredUserId(null);
+    }
+  }, [user]);
 
   return {
     pushToken,
     isRegistered,
+    registeredUserId,
     isLoading,
     error,
     register,

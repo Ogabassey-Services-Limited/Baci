@@ -94,6 +94,7 @@ export async function POST(request: NextRequest) {
     negotiationStatus === 'accepted' && negotiation.offered_price != null
       ? Number(negotiation.offered_price)
       : null;
+  const productSlug = negotiation.item_info?.product_slug ?? null;
 
   try {
     await notifyNegotiationResponse(
@@ -102,7 +103,8 @@ export async function POST(request: NextRequest) {
       negotiationStatus,
       negotiationId,
       itemName,
-      acceptedPrice
+      acceptedPrice,
+      productSlug
     );
     return NextResponse.json({ notified: true });
   } catch (error) {

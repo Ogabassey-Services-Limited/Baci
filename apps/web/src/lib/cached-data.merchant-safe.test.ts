@@ -106,6 +106,46 @@ describe('cached-data merchant safety helpers', () => {
       );
     });
 
+    it('logs warning after retry failure for transient timeout errors', async () => {
+      const consoleWarnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => undefined);
+      const timeoutError = new Error(
+        'TimeoutError: The operation was aborted due to timeout'
+      );
+      harness.mockMaybeSingle
+        .mockRejectedValueOnce(timeoutError)
+        .mockRejectedValueOnce(timeoutError);
+
+      await getMerchantSafe('test-store');
+
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        'Merchant fetch failed after retry:',
+        'test-store'
+      );
+    });
+
+    it('logs warning after wrapped transient lookup failures', async () => {
+      const consoleWarnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => undefined);
+      harness.mockMaybeSingle.mockResolvedValue({
+        data: null,
+        error: {
+          message: 'TimeoutError: The operation was aborted due to timeout',
+          details:
+            'TimeoutError: The operation was aborted due to timeout at undici',
+        },
+      });
+
+      await getMerchantSafe('test-store');
+
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        'Merchant fetch failed after retry:',
+        'test-store'
+      );
+    });
+
     it('does not throw errors even when lookup fails twice', async () => {
       harness.mockMaybeSingle
         .mockRejectedValueOnce(new Error('Database timeout'))
@@ -179,12 +219,14 @@ describe('cached-data merchant safety helpers', () => {
     });
 
     it('passes identifier to getMerchantSafe correctly', async () => {
-      harness.mockSingle
-        .mockResolvedValueOnce({
-          data: { merchant_id: 'merchant-123', domain: 'shop.example.com' },
-          error: null,
-        })
-        .mockResolvedValueOnce({ data: mockMerchant, error: null });
+      harness.mockMaybeSingle.mockResolvedValueOnce({
+        data: { merchant_id: 'merchant-123', domain: 'shop.example.com' },
+        error: null,
+      });
+      harness.mockSingle.mockResolvedValueOnce({
+        data: mockMerchant,
+        error: null,
+      });
 
       await expect(
         getRequestScopedMerchant('shop.example.com')

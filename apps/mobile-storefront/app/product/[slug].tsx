@@ -24,6 +24,10 @@ import { createLogger } from '@/lib/logger';
 
 const log = createLogger('ProductDetail');
 
+import {
+  resolveDefaultVariantSelection,
+  resolveVariantSelection,
+} from '@baci/shared/lib';
 import Animated, {
   Extrapolate,
   FadeIn,
@@ -34,6 +38,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useShallow } from 'zustand/react/shallow';
 import { OfflineEmptyState } from '@/components/OfflineNotice';
 import { FlyToCartParticle } from '@/components/product/FlyToCartParticle';
 import { NegotiationModal } from '@/components/product/NegotiationModal';
@@ -41,17 +46,20 @@ import { ProductDetailsBody } from '@/components/product/ProductDetailsBody';
 import { ProductImageGallery } from '@/components/product/ProductImageGallery';
 import { StickyBottomActions } from '@/components/product/StickyBottomActions';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
+import Colors, { BRAND, RADIUS } from '@/constants/Colors';
+import { useProduct } from '@/hooks';
 import { useEffectivePrice } from '@/hooks/use-effective-price';
 import { useHaptics } from '@/hooks/use-haptics';
 import { useNetworkState } from '@/hooks/use-network-state';
-import { useProduct } from '@/hooks';
 import { markReviewHelpful, useReviews } from '@/hooks/use-reviews';
+import { resolveCartItemImageUrl } from '@/lib/cart-display';
 import { useCartStore } from '@/stores/cart-store';
 import { useSavedStore } from '@/stores/saved-store';
-import { useShallow } from 'zustand/react/shallow';
-import type { ProductCondition } from '@/types/product';
-import { getDiscountPercentage } from '@/types/product';
+import {
+  formatProductConditionDisplay,
+  getDiscountPercentage,
+  type ProductCondition,
+} from '@/types/product';
 
 export default function ProductDetailScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
@@ -79,7 +87,14 @@ export default function ProductDetailScreen() {
   const { product, isLoading, error, refetch } = useProduct(
     isValidSlug ? slug : ''
   );
-  const { items, addItem, updateQuantity, removeItem } = useCartStore(useShallow((s) => ({ items: s.items, addItem: s.addItem, updateQuantity: s.updateQuantity, removeItem: s.removeItem })));
+  const { items, addItem, updateQuantity, removeItem } = useCartStore(
+    useShallow((s) => ({
+      items: s.items,
+      addItem: s.addItem,
+      updateQuantity: s.updateQuantity,
+      removeItem: s.removeItem,
+    }))
+  );
   const toggleSaved = useSavedStore((state) => state.toggleSaved);
   const isSaved = useSavedStore((state) => state.isSaved);
   const savedToastState = useSavedStore((state) => state.toastState);
@@ -99,12 +114,50 @@ export default function ProductDetailScreen() {
     useState<ProductCondition | null>(null);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedStorage, setSelectedStorage] = useState<string | null>(null);
+  const [selectedAttributes, setSelectedAttributes] = useState<
+    Record<string, string>
+  >({});
   const [colorImages, setColorImages] = useState<string[] | null>(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [showAddedToast, setShowAddedToast] = useState(false);
   const [showNegotiationModal, setShowNegotiationModal] = useState(false);
   const [negotiatedPrice, setNegotiatedPrice] = useState<number | null>(null);
   const [showImageZoom, setShowImageZoom] = useState(false);
+  const syncedDefaultSelectionProductIdRef = useRef<string | null>(null);
+
+  const defaultVariantSelection = product
+    ? resolveDefaultVariantSelection(product)
+    : null;
+  const currentVariantSelection = product?.has_variants
+    ? (resolveVariantSelection(product, {
+        variantId: selectedVariant,
+        attributes: {
+          storage: selectedStorage,
+          color: selectedColor,
+          ...selectedAttributes,
+        },
+      }) ??
+      (!selectedVariant &&
+      !selectedStorage &&
+      !selectedColor &&
+      Object.keys(selectedAttributes).length === 0
+        ? defaultVariantSelection
+        : null))
+    : null;
+  const effectiveSelectedVariantId =
+    currentVariantSelection?.variant.id ?? selectedVariant;
+  const effectiveSelectedStorage =
+    currentVariantSelection?.storage ?? selectedStorage;
+  const effectiveSelectedColor =
+    currentVariantSelection?.color ?? selectedColor;
+  const effectiveSelectedAttributes = {
+    ...selectedAttributes,
+    ...Object.fromEntries(
+      Object.entries(currentVariantSelection?.attributes ?? {}).filter(
+        ([axis]) => axis !== 'color' && axis !== 'storage'
+      )
+    ),
+  };
 
   // Timer ref for toast cleanup - prevents memory leaks (2026 Best Practice)
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -142,17 +195,40 @@ export default function ProductDetailScreen() {
   // Get condition display name for cart
   const getConditionDisplay = (): string | undefined => {
     if (selectedCondition) {
-      const conditionMap: Record<ProductCondition, string> = {
-        new: 'New',
-        used: 'Used',
-        uk_used: 'UK Used',
-        open_box: 'Open Box',
-        refurbished: 'Refurbished',
-      };
-      return conditionMap[selectedCondition];
+      return formatProductConditionDisplay(selectedCondition);
     }
     return product?.condition;
   };
+
+  useEffect(() => {
+    if (!product) {
+      syncedDefaultSelectionProductIdRef.current = null;
+      return;
+    }
+
+    if (syncedDefaultSelectionProductIdRef.current === product.id) {
+      return;
+    }
+
+    const defaultSelection = resolveDefaultVariantSelection(product);
+    setSelectedVariant(defaultSelection?.variant.id ?? null);
+    setSelectedStorage(defaultSelection?.storage ?? null);
+    setSelectedColor(defaultSelection?.color ?? null);
+    setSelectedAttributes(
+      Object.fromEntries(
+        Object.entries(defaultSelection?.attributes ?? {}).filter(
+          ([axis]) => axis !== 'color' && axis !== 'storage'
+        )
+      )
+    );
+    setColorImages(
+      defaultSelection?.color
+        ? (product.color_images?.[defaultSelection.color] ?? null)
+        : null
+    );
+    setSelectedImageIndex(0);
+    syncedDefaultSelectionProductIdRef.current = product.id;
+  }, [product]);
 
   // Sync quantity with cart store
   const cartItem = (() => {
@@ -160,10 +236,10 @@ export default function ProductDetailScreen() {
     return items.find(
       (item) =>
         item.product_id === product.id &&
-        (item.variant_id || null) === (selectedVariant || null) &&
+        (item.variant_id || null) === (effectiveSelectedVariantId || null) &&
         (item.condition || null) === (getConditionDisplay() || null) &&
-        (item.color || null) === (selectedColor || null) &&
-        (item.storage || null) === (selectedStorage || null)
+        (item.color || null) === (effectiveSelectedColor || null) &&
+        (item.storage || null) === (effectiveSelectedStorage || null)
     );
   })();
 
@@ -304,8 +380,8 @@ export default function ProductDetailScreen() {
   const { price: effectivePrice, comparePrice: effectiveComparePrice } =
     useEffectivePrice(
       product ?? null,
-      selectedVariant,
-      selectedStorage,
+      effectiveSelectedVariantId,
+      effectiveSelectedStorage,
       selectedCondition,
       negotiatedPrice
     );
@@ -313,8 +389,8 @@ export default function ProductDetailScreen() {
   // calculatedPrice is the price without negotiation, used in the NegotiationModal
   const { price: calculatedPrice } = useEffectivePrice(
     product ?? null,
-    selectedVariant,
-    selectedStorage,
+    effectiveSelectedVariantId,
+    effectiveSelectedStorage,
     selectedCondition,
     null
   );
@@ -432,23 +508,52 @@ export default function ProductDetailScreen() {
   );
 
   const handleAddToCart = (event?: GestureResponderEvent) => {
+    if (product.has_variants && !currentVariantSelection) {
+      Alert.alert(
+        'Select Variant',
+        'Choose an available storage option before adding this item to your cart.'
+      );
+      return;
+    }
+
     haptics.success(); // Haptic feedback for add to cart
 
     if (event) triggerFlyToCart(event);
+
+    // Build variant_attributes from individual selections
+    const variantAttrs: Record<string, string> = {};
+    if (effectiveSelectedColor) variantAttrs.color = effectiveSelectedColor;
+    if (effectiveSelectedStorage)
+      variantAttrs.storage = effectiveSelectedStorage;
+    for (const [axis, value] of Object.entries(effectiveSelectedAttributes)) {
+      if (value) {
+        variantAttrs[axis] = value;
+      }
+    }
+    const conditionDisplay = getConditionDisplay();
+    if (conditionDisplay) variantAttrs.condition = conditionDisplay;
 
     // Add item with quantity 1
     addItem({
       product_id: product.id,
       slug: product.slug,
-      variant_id: selectedVariant || undefined,
+      variant_id: effectiveSelectedVariantId || undefined,
+      variant_attributes:
+        Object.keys(variantAttrs).length > 0 ? variantAttrs : undefined,
       name: product.name,
       price: effectivePrice,
       compare_at_price: effectiveComparePrice,
       quantity: 1,
-      image_url: images[0] || product.image,
-      color: selectedColor || undefined,
-      storage: selectedStorage || undefined,
-      condition: getConditionDisplay(),
+      image_url: resolveCartItemImageUrl({
+        displayedImageUrl: images[selectedImageIndex] || images[0],
+        variantImageUrl: currentVariantSelection?.variant.image,
+        variantImages: currentVariantSelection?.variant.images,
+        fallbackImageUrl: product.image,
+      }),
+      color: effectiveSelectedColor || undefined,
+      storage: effectiveSelectedStorage || undefined,
+      condition: conditionDisplay,
+      variant_name: currentVariantSelection?.variant.name,
     });
 
     setShowAddedToast(true);
@@ -462,7 +567,10 @@ export default function ProductDetailScreen() {
     }, 2000);
   };
 
-  const handleUpdateQuantity = (newQuantity: number, event?: GestureResponderEvent) => {
+  const handleUpdateQuantity = (
+    newQuantity: number,
+    event?: GestureResponderEvent
+  ) => {
     haptics.light();
 
     if (newQuantity > quantityInCart && event) {
@@ -506,14 +614,23 @@ export default function ProductDetailScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.background,
+          marginTop: -insets.top,
+          marginBottom: -insets.bottom,
+        },
+      ]}
+    >
       <Stack.Screen options={{ headerShown: false }} />
 
       {/* Floating Dynamic Header */}
       <Animated.View
         style={[
           styles.header,
-          { height: insets.top + 50 },
+          { height: insets.top + 46 },
           headerAnimatedStyle,
         ]}
       >
@@ -528,7 +645,9 @@ export default function ProductDetailScreen() {
       </Animated.View>
 
       {/* Static Header Buttons (Always Visible) */}
-      <View style={[styles.headerButtons, { top: insets.top }]}>
+      <View
+        style={[styles.headerButtons, { top: Math.max(insets.top - 4, 0) }]}
+      >
         <Animated.View style={[styles.iconCircle, backButtonAnimatedStyle]}>
           <Pressable
             onPress={() =>
@@ -580,7 +699,10 @@ export default function ProductDetailScreen() {
         onScroll={onScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 120 }}
+        contentInsetAdjustmentBehavior="never"
+        contentContainerStyle={{
+          paddingBottom: 92,
+        }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
@@ -607,14 +729,26 @@ export default function ProductDetailScreen() {
           setSelectedVariant={setSelectedVariant}
           selectedCondition={selectedCondition}
           setSelectedCondition={setSelectedCondition}
+          selectedAttributes={effectiveSelectedAttributes}
           selectedColor={selectedColor}
           selectedStorage={selectedStorage}
+          onSelectAttribute={(axis, value) => {
+            setSelectedAttributes((current) => ({
+              ...current,
+              [axis]: value,
+            }));
+            setSelectedVariant(null);
+          }}
           onSelectColor={(color, imgs) => {
             setSelectedColor(color);
+            setSelectedVariant(null);
             setColorImages(imgs?.length ? imgs : null);
             setSelectedImageIndex(0);
           }}
-          onSelectStorage={setSelectedStorage}
+          onSelectStorage={(storage) => {
+            setSelectedStorage(storage);
+            setSelectedVariant(null);
+          }}
           onOpenNegotiation={() => setShowNegotiationModal(true)}
           reviews={reviews}
           reviewStats={reviewStats}
@@ -640,7 +774,6 @@ export default function ProductDetailScreen() {
         onIncrement={(e) => handleUpdateQuantity(quantityInCart + 1, e)}
         onAddToCart={(e) => handleAddToCart(e)}
         colors={colors}
-        paddingBottom={insets.bottom + SPACING.md}
       />
 
       {/* Fly to Cart Particles */}
@@ -655,7 +788,9 @@ export default function ProductDetailScreen() {
           style={[styles.toast, { backgroundColor: colors.text }]}
         >
           <Ionicons name="checkmark-circle" size={20} color={colors.success} />
-          <Text style={styles.toastText}>Added to your cart!</Text>
+          <Text style={[styles.toastText, { color: colors.background }]}>
+            Added to your cart!
+          </Text>
         </Animated.View>
       )}
 
@@ -669,10 +804,12 @@ export default function ProductDetailScreen() {
             name={savedToastState.type === 'add' ? 'heart' : 'heart-dislike'}
             size={20}
             color={
-              savedToastState.type === 'add' ? '#EF4444' : colors.textSecondary
+              savedToastState.type === 'add' ? '#EF4444' : colors.background
             }
           />
-          <Text style={styles.toastText}>{savedToastState.message}</Text>
+          <Text style={[styles.toastText, { color: colors.background }]}>
+            {savedToastState.message}
+          </Text>
         </Animated.View>
       )}
 
@@ -787,7 +924,6 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   toastText: {
-    color: '#FFF',
     fontSize: 14,
     fontWeight: '600',
   },

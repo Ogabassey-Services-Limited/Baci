@@ -80,6 +80,16 @@ export interface DetailedCachedProduct {
   product_variants?: StorefrontProductVariants;
   specifications?: unknown;
   product_key_specs?: unknown;
+  has_condition_offers?: boolean | null;
+  offers?:
+    | {
+        id: string;
+        condition: 'new' | 'used' | 'open_box' | 'refurbished';
+        price: number;
+        stock_quantity: number;
+        images?: string[];
+      }[]
+    | null;
 }
 
 export function normalizeProductImages(
@@ -143,10 +153,9 @@ export function mapLegacyCachedProductToProduct(
     category_slug: primaryCategory?.slug || undefined,
     has_variants: normalizedVariants.length > 0,
     variants: normalizedVariants,
-    // biome-ignore lint/suspicious/noExplicitAny: Dynamic JSON column from database
-    specifications: cachedProduct.specifications as any,
-    // biome-ignore lint/suspicious/noExplicitAny: Dynamic JSON column from database
-    product_key_specs: cachedProduct.product_key_specs as any,
+    specifications: cachedProduct.specifications as Product['specifications'],
+    product_key_specs:
+      cachedProduct.product_key_specs as Product['product_key_specs'],
   };
 }
 
@@ -213,10 +222,11 @@ export function mapDetailedCachedProductToProduct(
         }
       : null,
     has_variants: normalizedVariants.length > 0,
+    has_condition_offers: detailedProduct.has_condition_offers ?? false,
+    offers: detailedProduct.offers ?? [],
     variants: normalizedVariants,
-    // biome-ignore lint/suspicious/noExplicitAny: Dynamic JSON column from database
-    specifications: detailedProduct.specifications as any,
-    // biome-ignore lint/suspicious/noExplicitAny: Dynamic JSON column from database
-    product_key_specs: detailedProduct.product_key_specs as any,
+    specifications: detailedProduct.specifications as Product['specifications'],
+    product_key_specs:
+      detailedProduct.product_key_specs as Product['product_key_specs'],
   } as Product;
 }

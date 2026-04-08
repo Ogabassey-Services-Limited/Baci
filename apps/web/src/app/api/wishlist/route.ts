@@ -244,7 +244,8 @@ export async function DELETE(request: NextRequest) {
     const { error } = await supabase
       .from('wish_list_items')
       .delete()
-      .eq('id', itemId);
+      .eq('id', itemId)
+      .eq('customer_email', customerIdentifier);
 
     if (error) {
       throw error;

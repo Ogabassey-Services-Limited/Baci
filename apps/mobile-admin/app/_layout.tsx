@@ -25,6 +25,7 @@ import 'react-native-reanimated';
 import { useColorScheme } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { DARK_COLORS, LIGHT_COLORS } from '@/constants/theme';
 import { NetworkProvider } from '@/context/NetworkContext';
 import { OnboardingProvider } from '@/context/OnboardingContext';
@@ -100,17 +101,19 @@ export default function RootLayout() {
   const isDark = colorScheme === 'dark';
 
   return (
-    <QueryProvider>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <ThemeProvider value={isDark ? AdminDarkTheme : AdminLightTheme}>
-          <SystemBars style={isDark ? 'light' : 'dark'} />
-          <NetworkProvider>
-            <OnboardingProvider>
-              <Slot />
-            </OnboardingProvider>
-          </NetworkProvider>
-        </ThemeProvider>
-      </GestureHandlerRootView>
-    </QueryProvider>
+    <SafeAreaProvider>
+      <QueryProvider>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <ThemeProvider value={isDark ? AdminDarkTheme : AdminLightTheme}>
+            <SystemBars style={isDark ? 'light' : 'dark'} />
+            <NetworkProvider>
+              <OnboardingProvider>
+                <Slot />
+              </OnboardingProvider>
+            </NetworkProvider>
+          </ThemeProvider>
+        </GestureHandlerRootView>
+      </QueryProvider>
+    </SafeAreaProvider>
   );
 }

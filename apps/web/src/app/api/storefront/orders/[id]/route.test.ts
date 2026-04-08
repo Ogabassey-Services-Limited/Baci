@@ -57,6 +57,12 @@ describe('GET /api/storefront/orders/[id]', () => {
       name: 'Test Product',
       quantity: 2,
       price: 5000,
+      products: {
+        slug: 'test-product',
+        category: 'smartphones',
+        category_slug: 'smartphones',
+        categories: [{ name: 'Smartphones', slug: 'smartphones' }],
+      },
     },
   ];
 
@@ -74,6 +80,7 @@ describe('GET /api/storefront/orders/[id]', () => {
 
   const mockAnonClient = {
     rpc: vi.fn(),
+    from: vi.fn(),
   };
 
   beforeEach(() => {
@@ -84,6 +91,27 @@ describe('GET /api/storefront/orders/[id]', () => {
     vi.mocked(createAnonClient).mockReturnValue(mockAnonClient as any);
     vi.mocked(isValidUuid).mockReturnValue(true);
     vi.mocked(sanitizeForLog).mockImplementation((value) => String(value));
+
+    const mockAnonProductsQuery = {
+      select: vi.fn().mockReturnThis(),
+      in: vi.fn().mockResolvedValue({
+        data: [
+          {
+            id: 'product-1',
+            slug: 'test-product',
+            category: 'smartphones',
+            category_slug: 'smartphones',
+            categories: [{ name: 'Smartphones', slug: 'smartphones' }],
+          },
+        ],
+        error: null,
+      }),
+    };
+
+    mockAnonClient.from.mockImplementation((table: string) => {
+      if (table === 'products') return mockAnonProductsQuery;
+      return {};
+    });
   });
 
   describe('Input validation', () => {
@@ -153,7 +181,21 @@ describe('GET /api/storefront/orders/[id]', () => {
       expect(data.order_number).toBe(mockOrderData.order_number);
       expect(data.short_id).toBe(mockOrderData.order_number);
       expect(data.shipping_cost).toBe(mockOrderData.shipping_fee);
-      expect(data.items).toEqual(mockItems);
+      expect(data.items).toEqual([
+        {
+          id: 'item-1',
+          product_id: 'product-1',
+          product_name: 'Test Product',
+          name: 'Test Product',
+          quantity: 2,
+          price: 5000,
+          product_images: undefined,
+          product_slug: 'test-product',
+          category: 'smartphones',
+          category_slug: 'smartphones',
+          categories: { name: 'Smartphones', slug: 'smartphones' },
+        },
+      ]);
       expect(mockSupabaseClient.from).toHaveBeenCalledWith('orders');
       expect(mockSupabaseClient.from).toHaveBeenCalledWith('order_items');
     });
@@ -801,6 +843,10 @@ describe('GET /api/storefront/orders/[id]', () => {
         quantity: 2,
         price: 5000,
         product_images: ['image1.jpg', 'image2.jpg'],
+        product_slug: 'test-product',
+        category: 'smartphones',
+        category_slug: 'smartphones',
+        categories: { name: 'Smartphones', slug: 'smartphones' },
       });
     });
   });

@@ -1,22 +1,48 @@
 import { Redirect, Stack } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { useAuth } from '@/hooks/useAuth';
+import { useMerchant } from '@/hooks/useMerchant';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useTheme } from '@/hooks/useTheme';
 
 export default function AdminLayout() {
-  const { isAuthenticated, isLoading } = useAuth();
-  const { registerPush, isRegistered } = usePushNotifications();
+  const { isAuthenticated, isLoading, user } = useAuth();
+  const {
+    registerPush,
+    isRegistered,
+    isLoading: isPushLoading,
+  } = usePushNotifications();
   const { colors } = useTheme();
+  const { merchant } = useMerchant();
+  // Track which merchantId we've attempted registration for to prevent retry
+  // loops when registration fails — only attempt once per merchant session.
+  const attemptedMerchantIdRef = useRef<string | null>(null);
 
-  // Auto-register for push notifications when authenticated
+  // Auto-register for push notifications when authenticated and merchant is loaded.
+  // isPushLoading guards concurrent calls; attemptedMerchantIdRef prevents retries on failure.
   useEffect(() => {
-    if (isAuthenticated && !isRegistered) {
-      registerPush();
+    if (
+      isAuthenticated &&
+      !isRegistered &&
+      !isPushLoading &&
+      merchant?.id &&
+      attemptedMerchantIdRef.current !== merchant.id
+    ) {
+      attemptedMerchantIdRef.current = merchant.id;
+      void registerPush(user?.id, merchant.id).catch((error) => {
+        console.error('[Push] Failed to trigger registration:', error);
+      });
     }
-  }, [isAuthenticated, isRegistered, registerPush]);
+  }, [
+    isAuthenticated,
+    isRegistered,
+    isPushLoading,
+    registerPush,
+    merchant?.id,
+    user?.id,
+  ]);
 
   if (isLoading) {
     return (
