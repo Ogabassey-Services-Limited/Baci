@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { StorefrontPageWrapper } from '@/app/(storefront)/[slug]/storefront-page-wrapper';
+import { Suspense } from 'react';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { buildStoreUrl } from '@/lib/store-url';
+import { getTemplate } from '@/templates/registry';
 import { TermsPageClient } from '../pages/terms/terms-page-client';
 
 interface PageProps {
@@ -40,26 +41,40 @@ export async function generateMetadata({
   };
 }
 
-export default async function TermsOfServicePage({ params }: PageProps) {
+/** Streams JSON-LD separately while the visible page content loads. */
+export default function TermsOfServicePage({ params }: PageProps) {
+  return (
+    <>
+      <Suspense fallback={null}>
+        <TermsOfServiceJsonLd params={params} />
+      </Suspense>
+      <Suspense
+        fallback={
+          <div className="container mx-auto px-4 py-12 flex items-center justify-center">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <span className="sr-only">Loading terms of service...</span>
+          </div>
+        }
+      >
+        <TermsOfServiceContent params={params} />
+      </Suspense>
+    </>
+  );
+}
+
+/** Streams JSON-LD structured data independently of page content. */
+async function TermsOfServiceJsonLd({ params }: PageProps) {
   const { slug } = await params;
   const merchant = await getMerchantByIdentifier(slug);
 
-  if (!merchant) {
-    notFound();
-  }
+  if (!merchant) return null;
 
-  // Check if terms content exists OR template has Terms component
   const hasTermsContent = merchant.pages?.terms;
   const templateHasTermsPage = merchant.template_id === 'ogabassey';
+  if (!hasTermsContent && !templateHasTermsPage) return null;
 
-  if (!hasTermsContent && !templateHasTermsPage) {
-    notFound();
-  }
-
-  // Generate base URL for JSON-LD (supports custom domains)
   const baseUrl = buildStoreUrl(merchant);
 
-  // Generate WebPage JSON-LD schema for Terms of Service
   const termsSchema = {
     '@context': 'https://schema.org',
     '@type': 'WebPage',
@@ -82,25 +97,59 @@ export default async function TermsOfServicePage({ params }: PageProps) {
   };
 
   return (
-    <>
-      {/* Terms of Service JSON-LD Schema */}
-      <script
-        type="application/ld+json"
-        // codeql[js/html-injection] - Safe: JSON-LD sanitized via safeJsonLdStringify
-        // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD is sanitized via safeJsonLdStringify
-        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(termsSchema) }}
-      />
-      <StorefrontPageWrapper
-        pageName="Terms"
-        merchant={merchant}
-        fallback={
-          <TermsPageClient
-            merchant={merchant}
-            content={merchant.pages?.terms}
-          />
+    <script
+      type="application/ld+json"
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema is sanitized via safeJsonLdStringify
+      dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(termsSchema) }}
+    />
+  );
+}
+
+async function TermsOfServiceContent({ params }: PageProps) {
+  const { slug } = await params;
+  const merchant = await getMerchantByIdentifier(slug);
+
+  if (!merchant) {
+    notFound();
+  }
+
+  const hasTermsContent = merchant.pages?.terms;
+  const templateHasTermsPage = merchant.template_id === 'ogabassey';
+
+  if (!hasTermsContent && !templateHasTermsPage) {
+    notFound();
+  }
+
+  // Resolve template component server-side for SEO (H1 in SSR HTML)
+  const templateId = merchant.template_id;
+  if (templateId && templateId !== 'default' && templateId !== 'puck') {
+    const template = getTemplate(templateId);
+    if (template) {
+      try {
+        const components = await template.getComponents();
+        if (components.Terms) {
+          const TermsComponent = components.Terms;
+          return (
+            <TermsComponent
+              // biome-ignore lint/suspicious/noExplicitAny: CachedMerchant is a superset of what template components need
+              merchant={merchant as any}
+              storeSlug={merchant.slug}
+              isPreview={false}
+            />
+          );
         }
-      />
-    </>
+      } catch (error) {
+        console.error(
+          'Failed to load Terms component for template',
+          templateId,
+          ':',
+          error
+        );
+      }
+    }
+  }
+
+  return (
+    <TermsPageClient merchant={merchant} content={merchant.pages?.terms} />
   );
 }
