@@ -942,10 +942,12 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
           (item: {
             product_name?: string;
             name?: string;
+            variant_name?: string;
             quantity: number;
             price: number;
           }) => ({
             product_name: item.product_name || item.name || 'Product',
+            variant_name: item.variant_name,
             quantity: item.quantity,
             price: Number(item.price) || 0,
           })
@@ -1530,6 +1532,16 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
                 >
                   {item.name}
                 </Text>
+                {item.variant_name ? (
+                  <Text
+                    style={[
+                      styles.itemVariant,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    {item.variant_name}
+                  </Text>
+                ) : null}
                 <Text style={[styles.itemRef, { color: colors.textMuted }]}>
                   SKU: {item.product_id?.slice(0, 8)}...
                 </Text>
@@ -2561,6 +2573,10 @@ const styles = StyleSheet.create({
   itemName: {
     fontSize: TYPOGRAPHY.size.sm,
     fontWeight: '600',
+    marginBottom: 4,
+  },
+  itemVariant: {
+    fontSize: TYPOGRAPHY.size.xs,
     marginBottom: 4,
   },
   itemRef: { fontSize: TYPOGRAPHY.size.xs, marginBottom: 6 },

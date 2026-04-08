@@ -42,6 +42,7 @@ export interface OrderItem {
   product_id: string;
   name: string;
   product_name: string;
+  variant_name?: string;
   quantity: number;
   price: number;
   total?: number;

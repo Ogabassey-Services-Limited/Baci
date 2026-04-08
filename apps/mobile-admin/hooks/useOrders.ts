@@ -44,6 +44,7 @@ interface OrdersPage {
 interface OrderItemRow {
   id: string;
   product_id: string | null;
+  variant_name: string | null;
   name: string | null;
   quantity: number;
   price: number;
@@ -357,14 +358,14 @@ export function useOrder(orderId: string) {
         supabase
           .from('order_items')
           .select(
-            'id, product_id, name, quantity, price, products(name, images)'
+            'id, product_id, variant_name, name, quantity, price, products(name, images)'
           )
           .eq('order_id', orderId),
         supabase
           .from('transactions')
           .select('amount')
           .eq('order_id', orderId)
-          .eq('status', 'success'),
+          .in('status', ['success', 'completed']),
         supabase
           .from('order_payment_accounts')
           .select('account_number, bank_name, account_name')
@@ -447,6 +448,7 @@ export function useOrder(orderId: string) {
             product_id: item.product_id ?? `custom-${item.id}`,
             name: itemName,
             product_name: itemName,
+            variant_name: item.variant_name ?? undefined,
             quantity: item.quantity,
             price: item.price,
             image_url: imageUrl,

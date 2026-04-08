@@ -36,6 +36,7 @@ import { asRoute } from '@/lib/routes';
 import { toast } from '@/hooks/use-toast';
 import { createClient } from '@/lib/supabase/client';
 import { calculateCommerce } from '@/lib/supabase/client';
+import { buildCheckoutOrderItems } from '@/lib/checkout/build-order-items';
 import { isValidPhoneNumber } from 'react-phone-number-input';
 
 interface SavedAddress {
@@ -1063,16 +1064,7 @@ export const CheckoutPage: React.FC = () => {
     let trackingNumber = undefined;
 
     // Prepare order items for API
-    const orderItems = cart.map((item) => ({
-      product_id: String(item.id),
-      name: item.name,
-      quantity: item.quantity,
-      price: item.negotiatedPrice || item.price,
-      value: (item.negotiatedPrice || item.price) * item.quantity,
-      // Assurance Integration
-      has_assurance: item.hasAssurance || false,
-      assurance_fee: item.hasAssurance ? ((item.negotiatedPrice || item.price) * (item.assuranceRate || 0.05)) : 0,
-    }));
+    const orderItems = buildCheckoutOrderItems(cart);
 
     if (deliveryMethod === 'door' && selectedQuoteId) {
       const quote = shippingQuotes.find(q => String(q.id) === String(selectedQuoteId));

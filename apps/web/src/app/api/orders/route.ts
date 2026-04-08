@@ -6,6 +6,7 @@ import {
   generateOrderConfirmationText,
 } from '@/lib/email-templates';
 import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
+import { formatVariantAttributesLabel } from '@/lib/format-variant-attributes-label';
 import { detectPrivacyRegion } from '@/lib/geo-privacy';
 import {
   getMerchantForApiRequest,
@@ -455,7 +456,25 @@ export async function POST(request: NextRequest) {
 
           // Format items for email template
           const emailItems = items.map((item: EmailOrderItem) => ({
-            name: item.name || item.productName || 'Product',
+            name: (() => {
+              const baseName = item.name || item.productName || 'Product';
+              const variantLabel = formatVariantAttributesLabel(
+                (
+                  item as EmailOrderItem & {
+                    variantAttributes?: Record<string, string>;
+                    variant_attributes?: Record<string, string>;
+                  }
+                ).variantAttributes ||
+                  (
+                    item as EmailOrderItem & {
+                      variantAttributes?: Record<string, string>;
+                      variant_attributes?: Record<string, string>;
+                    }
+                  ).variant_attributes
+              );
+
+              return variantLabel ? `${baseName} (${variantLabel})` : baseName;
+            })(),
             quantity: item.quantity || 1,
             price: item.price || 0,
           }));
