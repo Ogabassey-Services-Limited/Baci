@@ -10,7 +10,7 @@ export async function startImportJob(
 ): Promise<void> {
   const workerSecret = getImportJobWorkerSecret();
 
-  if (workerSecret) {
+  if (isProduction() && workerSecret) {
     await triggerImportWorker(origin, jobId);
     return;
   }
