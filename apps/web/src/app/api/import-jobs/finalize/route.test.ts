@@ -33,7 +33,7 @@ vi.mock('@/lib/import-jobs/import-job-route-auth', () => ({
 }));
 
 vi.mock('@/lib/import-jobs/kickoff-import-job', () => ({
-  kickoffImportJob: vi.fn(),
+  startImportJob: vi.fn(),
 }));
 
 import type { NextRequest as ActualNextRequest } from 'next/server';
@@ -43,7 +43,7 @@ import {
   hasImportRoutePermission,
   resolveImportRouteContext,
 } from '@/lib/import-jobs/import-job-route-auth';
-import { kickoffImportJob } from '@/lib/import-jobs/kickoff-import-job';
+import { startImportJob } from '@/lib/import-jobs/kickoff-import-job';
 import { checkRateLimit } from '@/lib/rate-limiter';
 import { POST } from './route';
 
@@ -353,7 +353,7 @@ describe('POST /api/import-jobs/finalize', () => {
       null
     );
     await flushAfterCallbacks();
-    expect(kickoffImportJob).toHaveBeenCalledWith('job-1', 'http://localhost');
+    expect(startImportJob).toHaveBeenCalledWith('job-1', 'http://localhost');
   });
 
   it('returns 400 for malformed JSON bodies', async () => {

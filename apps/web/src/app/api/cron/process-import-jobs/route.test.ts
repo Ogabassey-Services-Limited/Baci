@@ -21,7 +21,7 @@ vi.mock('@/lib/supabase/service', () => ({
 import { checkCsrfProtection } from '@/lib/csrf';
 import { processImportJobQueue } from '@/lib/import-jobs/process-import-job';
 import { createServiceClient } from '@/lib/supabase/service';
-import { GET, POST } from './route';
+import { GET, maxDuration, POST } from './route';
 
 describe('/api/cron/process-import-jobs', () => {
   beforeEach(() => {
@@ -115,5 +115,9 @@ describe('/api/cron/process-import-jobs', () => {
       error: 'Internal server error',
       code: 'internal_error',
     });
+  });
+
+  it('exports a long maxDuration for queue rescue runs', () => {
+    expect(maxDuration).toBe(300);
   });
 });
