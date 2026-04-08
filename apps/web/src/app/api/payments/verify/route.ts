@@ -123,7 +123,7 @@ export async function GET(request: NextRequest) {
   const { data: existingOrder } = transaction.order_id
     ? await supabase
         .from('orders')
-        .select('id, order_number, payment_status')
+        .select('id, order_number, payment_status, shipping_status')
         .eq('id', transaction.order_id)
         .maybeSingle()
     : { data: null };
@@ -271,7 +271,12 @@ export async function GET(request: NextRequest) {
         .from('orders')
         .update({
           payment_status: 'paid',
-          shipping_status: 'processing',
+          // Only advance to 'processing' from 'pending' — avoid regressing orders
+          // that the merchant already moved to 'shipped' or 'delivered'.
+          ...((!existingOrder ||
+            existingOrder.shipping_status === 'pending') && {
+            shipping_status: 'processing',
+          }),
           updated_at: new Date().toISOString(),
         })
         .eq('id', transaction.order_id)
