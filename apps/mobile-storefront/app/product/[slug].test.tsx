@@ -2,6 +2,7 @@ import { render, waitFor } from '@testing-library/react-native';
 import type { Product } from '@/types/product';
 import ProductDetailScreen from './[slug]';
 
+const mockProductDetailsBody = jest.fn();
 const mockRouterReplace = jest.fn();
 const mockUseLocalSearchParams = jest.fn();
 const mockUseProduct = jest.fn();
@@ -93,7 +94,10 @@ jest.mock('@/components/product/NegotiationModal', () => ({
 }));
 
 jest.mock('@/components/product/ProductDetailsBody', () => ({
-  ProductDetailsBody: () => null,
+  ProductDetailsBody: (props: unknown) => {
+    mockProductDetailsBody(props);
+    return null;
+  },
 }));
 
 jest.mock('@/components/product/ProductImageGallery', () => ({
@@ -211,6 +215,113 @@ describe('ProductDetailScreen canonical slug redirect', () => {
 
     await waitFor(() => {
       expect(mockRouterReplace).not.toHaveBeenCalled();
+    });
+  });
+
+  it('preselects the first advertised storage option when no default variant can be resolved', async () => {
+    mockUseLocalSearchParams.mockReturnValue({ slug: 'galaxy-tab-a11-plus-5g' });
+    mockUseProduct.mockReturnValue({
+      product: {
+        ...baseProduct,
+        id: 'product-variant-parent',
+        name: 'Samsung Galaxy Tab A11+ 5G',
+        slug: 'galaxy-tab-a11-plus-5g',
+        has_variants: true,
+        variant_attributes: {
+          storage: ['128GB', '256GB'],
+        },
+        variants: [],
+        color_images: {
+          Gray: ['https://cdn.example.com/galaxy-tab-a11-plus-gray.jpg'],
+        },
+      },
+      isLoading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+
+    render(<ProductDetailScreen />);
+
+    await waitFor(() => {
+      expect(mockProductDetailsBody).toHaveBeenCalled();
+    });
+
+    const lastCall =
+      mockProductDetailsBody.mock.calls[mockProductDetailsBody.mock.calls.length - 1];
+    expect(lastCall?.[0]).toMatchObject({
+      selectedColor: 'Gray',
+      selectedStorage: '128GB',
+    });
+  });
+
+  it('re-syncs selection when variant rows arrive later for the same product id', async () => {
+    mockUseLocalSearchParams.mockReturnValue({ slug: 'samsung-galaxy-s26-ultra' });
+
+    let currentProduct: Product | null = {
+      ...baseProduct,
+      id: 'product-s26-ultra',
+      name: 'Samsung Galaxy S26 Ultra',
+      slug: 'samsung-galaxy-s26-ultra',
+      has_variants: true,
+      variant_attributes: {
+        storage: ['256GB', '512GB', '1TB'],
+      },
+      variants: [],
+      color_images: {
+        Black: ['https://cdn.example.com/s26-ultra-black.jpg'],
+      },
+    };
+
+    mockUseProduct.mockImplementation(() => ({
+      product: currentProduct,
+      isLoading: false,
+      error: null,
+      refetch: jest.fn(),
+    }));
+
+    const view = render(<ProductDetailScreen />);
+
+    await waitFor(() => {
+      expect(mockProductDetailsBody).toHaveBeenCalled();
+    });
+
+    const lastCall =
+      mockProductDetailsBody.mock.calls[mockProductDetailsBody.mock.calls.length - 1];
+    expect(lastCall?.[0]).toMatchObject({
+      selectedColor: 'Black',
+      selectedStorage: '256GB',
+    });
+
+    currentProduct = {
+      ...currentProduct,
+      variants: [
+        {
+          id: 'variant-256gb',
+          name: '256GB',
+          price: 1656000,
+          stock_quantity: 5,
+          attributes: { ram: '12GB', storage: '256GB' },
+        },
+        {
+          id: 'variant-512gb',
+          name: '512GB',
+          price: 1892000,
+          stock_quantity: 5,
+          attributes: { ram: '12GB', storage: '512GB' },
+        },
+      ],
+    };
+
+    view.rerender(<ProductDetailScreen />);
+
+    await waitFor(() => {
+      const latestCall =
+        mockProductDetailsBody.mock.calls[mockProductDetailsBody.mock.calls.length - 1];
+      expect(latestCall?.[0]).toMatchObject({
+        selectedColor: 'Black',
+        selectedStorage: '256GB',
+      });
+      expect(latestCall?.[0]?.selectedVariant).toBe('variant-256gb');
     });
   });
 });
