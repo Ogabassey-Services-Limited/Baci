@@ -114,3 +114,7 @@ CREATE TRIGGER trigger_customer_saved_payment_methods_updated_at
 
 COMMENT ON TABLE public.customer_saved_payment_methods IS
   'Reusable customer payment authorizations captured from supported gateways.';
+
+-- Index for customer VTU history queries
+CREATE INDEX IF NOT EXISTS idx_vtu_transactions_customer_history
+  ON public.vtu_transactions(merchant_id, customer_id, created_at DESC);

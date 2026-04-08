@@ -248,7 +248,7 @@ export async function fulfillPendingVtuTransaction({
     }
   }
 
-  await supabase
+  const { error: metaUpdateError } = await supabase
     .from('vtu_transactions')
     .update({
       metadata: {
@@ -260,6 +260,10 @@ export async function fulfillPendingVtuTransaction({
       },
     })
     .eq('id', row.id);
+
+  if (metaUpdateError) {
+    console.error('Failed to update VTU transaction metadata:', metaUpdateError);
+  }
 
   return {
     amount: Number(row.amount) || 0,

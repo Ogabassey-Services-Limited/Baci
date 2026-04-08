@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { historyQuerySchema } from '@/schemas/vtu';
@@ -95,7 +96,7 @@ export async function GET(request: NextRequest) {
       .limit(limit);
 
     if (transactionsError) {
-      console.error('Failed to fetch customer VTU history:', transactionsError);
+      logger.error('Failed to fetch customer VTU history:', transactionsError);
       return NextResponse.json(
         { error: 'Failed to fetch history' },
         { status: 500 }
@@ -113,7 +114,7 @@ export async function GET(request: NextRequest) {
       })),
     });
   } catch (error) {
-    console.error('Customer VTU history error:', error);
+    logger.error('Customer VTU history error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch history' },
       { status: 500 }

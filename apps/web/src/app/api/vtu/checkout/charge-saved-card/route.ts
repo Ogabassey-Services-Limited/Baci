@@ -7,6 +7,7 @@ import {
   type PaystackAuthorization,
   upsertPaystackAuthorization,
 } from '@/lib/customer-saved-payment-methods';
+import { logger } from '@/lib/logger';
 import { chargeAuthorization } from '@/lib/paystack';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fulfillPendingVtuTransaction } from '@/lib/vtu-fulfillment';
@@ -121,20 +122,42 @@ export async function POST(request: NextRequest) {
       vtu_type: prepared.transaction.type,
     };
 
-    await supabase.from('transactions').insert({
-      merchant_id: prepared.merchant.id,
-      order_id: null,
-      transaction_type: 'payment',
-      amount: parsed.data.amount,
-      currency: 'NGN',
-      status: 'pending',
-      gateway: 'paystack',
-      gateway_reference: paymentReference,
-      description: `VTU checkout for ${prepared.transaction.type}`,
-      metadata,
-      platform_fee: 0,
-      merchant_amount: 0,
-    });
+    const { error: txInsertError } = await supabase
+      .from('transactions')
+      .insert({
+        merchant_id: prepared.merchant.id,
+        order_id: null,
+        transaction_type: 'payment',
+        amount: parsed.data.amount,
+        currency: 'NGN',
+        status: 'pending',
+        gateway: 'paystack',
+        gateway_reference: paymentReference,
+        description: `VTU checkout for ${prepared.transaction.type}`,
+        metadata,
+        platform_fee: 0,
+        merchant_amount: 0,
+      });
+
+    if (txInsertError) {
+      logger.error({
+        message:
+          'Failed to insert transaction record before charging saved card',
+        error: txInsertError.message,
+        vtuTransactionId: prepared.transaction.id,
+      });
+      await supabase
+        .from('vtu_transactions')
+        .update({
+          status: 'failed',
+          error_message: 'Payment record creation failed',
+        })
+        .eq('id', prepared.transaction.id);
+      return NextResponse.json(
+        { error: 'Failed to create payment record' },
+        { status: 500 }
+      );
+    }
 
     const chargeResult = await chargeAuthorization({
       amount: Math.round(parsed.data.amount * 100),
@@ -149,7 +172,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: chargeResult.error }, { status: 400 });
     }
 
-    await supabase
+    const { error: postChargeUpdateError } = await supabase
       .from('transactions')
       .update({
         gateway_response: chargeResult.data,
@@ -157,6 +180,14 @@ export async function POST(request: NextRequest) {
           chargeResult.data.status === 'success' ? 'completed' : 'pending',
       })
       .eq('gateway_reference', paymentReference);
+
+    if (postChargeUpdateError) {
+      logger.error({
+        message: 'Failed to update transaction after charge',
+        error: postChargeUpdateError.message,
+        reference: paymentReference,
+      });
+    }
 
     const authorization = chargeResult.data.authorization as
       | PaystackAuthorization

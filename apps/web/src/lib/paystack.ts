@@ -527,12 +527,17 @@ export async function chargeAuthorization(
   const parsed = ChargeAuthorizationResponseSchema.safeParse(result.data);
   if (!parsed.success) {
     logger.warn({
-      message: 'Charge authorization response validation warning',
+      message: 'Charge authorization response validation failed',
       issues: parsed.error.issues,
     });
+    return {
+      success: false,
+      error: 'Invalid response from payment gateway',
+      code: 'VALIDATION_ERROR' as const,
+    };
   }
 
-  return { success: true, data: result.data };
+  return { success: true, data: parsed.data };
 }
 
 /**

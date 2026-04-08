@@ -1,4 +1,36 @@
+import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
+
+const ENCRYPTION_ALGORITHM = 'aes-256-gcm';
+
+function getEncryptionKey(): Buffer | null {
+  const key = process.env.PAYMENT_ENCRYPTION_KEY;
+  if (!key) return null;
+  return Buffer.from(key, 'hex');
+}
+
+function encryptAuthCode(plaintext: string): string {
+  const key = getEncryptionKey();
+  if (!key) {
+    console.warn('PAYMENT_ENCRYPTION_KEY not set — storing authorization code unencrypted');
+    return plaintext;
+  }
+  const iv = randomBytes(12);
+  const cipher = createCipheriv(ENCRYPTION_ALGORITHM, key, iv);
+  const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return [iv.toString('hex'), encrypted.toString('hex'), tag.toString('hex')].join(':');
+}
+
+function decryptAuthCode(ciphertext: string): string {
+  const key = getEncryptionKey();
+  if (!key || !ciphertext.includes(':')) return ciphertext;
+  const [ivHex, encryptedHex, tagHex] = ciphertext.split(':');
+  if (!ivHex || !encryptedHex || !tagHex) return ciphertext;
+  const decipher = createDecipheriv(ENCRYPTION_ALGORITHM, key, Buffer.from(ivHex, 'hex'));
+  decipher.setAuthTag(Buffer.from(tagHex, 'hex'));
+  return decipher.update(Buffer.from(encryptedHex, 'hex')) + decipher.final('utf8');
+}
 
 export interface PaystackAuthorization {
   authorization_code: string;
@@ -123,7 +155,7 @@ export async function upsertPaystackAuthorization({
     customer_id: customerId,
     provider: 'paystack' as const,
     provider_customer_email: customerEmail,
-    authorization_code: authorizationCode,
+    authorization_code: encryptAuthCode(authorizationCode),
     authorization_signature: signature,
     authorization_data: authorization,
     brand: authorization.brand ?? null,
@@ -181,5 +213,8 @@ export async function getSavedPaymentMethodById({
     throw new Error(error.message);
   }
 
+  if (data?.authorization_code) {
+    return { ...data, authorization_code: decryptAuthCode(data.authorization_code) };
+  }
   return data;
 }
