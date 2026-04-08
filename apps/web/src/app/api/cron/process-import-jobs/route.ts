@@ -6,6 +6,8 @@ import { processImportJobQueue } from '@/lib/import-jobs/process-import-job';
 import { logger } from '@/lib/logger';
 import { createServiceClient } from '@/lib/supabase/service';
 
+export const maxDuration = 300;
+
 function hasValidCronSecret(request: Request) {
   const expectedSecret = getCronSecret();
   if (!expectedSecret) {

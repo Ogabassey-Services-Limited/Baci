@@ -17,6 +17,10 @@
     {
       "path": "/api/inventory/push-alerts",
       "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/cron/process-import-jobs",
+      "schedule": "* * * * *"
     }
   ]
 }

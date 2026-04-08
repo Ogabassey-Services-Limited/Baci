@@ -20,7 +20,7 @@ vi.mock('@/lib/csrf', () => ({
 }));
 
 vi.mock('@/lib/import-jobs/kickoff-import-job', () => ({
-  kickoffImportJob: vi.fn(),
+  startImportJob: vi.fn(),
 }));
 
 vi.mock('@/lib/import-jobs/import-job-route-auth', () => ({
@@ -37,7 +37,7 @@ import {
   resolveImportRouteContext,
 } from '@/lib/import-jobs/import-job-route-auth';
 import type { ImportJobRecord } from '@/lib/import-jobs/import-job-service';
-import { kickoffImportJob } from '@/lib/import-jobs/kickoff-import-job';
+import { startImportJob } from '@/lib/import-jobs/kickoff-import-job';
 import { POST } from './route';
 
 const jobId = '00000000-0000-4000-8000-000000000001';
@@ -144,7 +144,7 @@ describe('POST /api/import-jobs/[jobId]/notify-customers', () => {
     );
 
     expect(response.status).toBe(403);
-    expect(kickoffImportJob).not.toHaveBeenCalled();
+    expect(startImportJob).not.toHaveBeenCalled();
   });
 
   it('returns 403 when the merchant lacks permission for the import entity', async () => {
@@ -162,7 +162,7 @@ describe('POST /api/import-jobs/[jobId]/notify-customers', () => {
     );
 
     expect(response.status).toBe(403);
-    expect(kickoffImportJob).not.toHaveBeenCalled();
+    expect(startImportJob).not.toHaveBeenCalled();
   });
 
   it('returns 404 when the job does not exist', async () => {
@@ -179,7 +179,7 @@ describe('POST /api/import-jobs/[jobId]/notify-customers', () => {
     );
 
     expect(response.status).toBe(404);
-    expect(kickoffImportJob).not.toHaveBeenCalled();
+    expect(startImportJob).not.toHaveBeenCalled();
   });
 
   it('returns 409 when the job is not an order import', async () => {
@@ -198,7 +198,7 @@ describe('POST /api/import-jobs/[jobId]/notify-customers', () => {
     );
 
     expect(response.status).toBe(409);
-    expect(kickoffImportJob).not.toHaveBeenCalled();
+    expect(startImportJob).not.toHaveBeenCalled();
   });
 
   it('returns 409 when the job is not yet committed', async () => {
@@ -217,7 +217,7 @@ describe('POST /api/import-jobs/[jobId]/notify-customers', () => {
     );
 
     expect(response.status).toBe(409);
-    expect(kickoffImportJob).not.toHaveBeenCalled();
+    expect(startImportJob).not.toHaveBeenCalled();
   });
 
   it('queues the notification job after commit', async () => {
@@ -239,12 +239,12 @@ describe('POST /api/import-jobs/[jobId]/notify-customers', () => {
       status: 'notify_queued',
     });
     await flushAfterCallbacks();
-    expect(kickoffImportJob).toHaveBeenCalledWith(jobId, 'http://localhost');
+    expect(startImportJob).toHaveBeenCalledWith(jobId, 'http://localhost');
   });
 
   it('returns 202 even when post-response kickoff rejects', async () => {
     vi.mocked(getImportJobForMerchant).mockResolvedValue(createMockImportJob());
-    vi.mocked(kickoffImportJob).mockRejectedValue(new Error('boom'));
+    vi.mocked(startImportJob).mockRejectedValue(new Error('boom'));
 
     const response = await POST(
       new NextRequest(
@@ -262,7 +262,7 @@ describe('POST /api/import-jobs/[jobId]/notify-customers', () => {
       status: 'notify_queued',
     });
     await flushAfterCallbacks();
-    expect(kickoffImportJob).toHaveBeenCalledWith(jobId, 'http://localhost');
+    expect(startImportJob).toHaveBeenCalledWith(jobId, 'http://localhost');
   });
 
   it('returns 409 when the committed transition no longer matches a row', async () => {
@@ -285,6 +285,6 @@ describe('POST /api/import-jobs/[jobId]/notify-customers', () => {
     );
 
     expect(response.status).toBe(409);
-    expect(kickoffImportJob).not.toHaveBeenCalled();
+    expect(startImportJob).not.toHaveBeenCalled();
   });
 });

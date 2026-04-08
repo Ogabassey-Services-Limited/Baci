@@ -27,9 +27,11 @@ vi.mock('@/lib/imports/bumpa/build-bumpa-product-preview', () => ({
 vi.mock('@/lib/logger', () => ({
   logger: {
     error: vi.fn(),
+    warn: vi.fn(),
   },
 }));
 
+import { getImportJobWorkerSecret } from '@/env';
 import { buildBumpaOrderPreviewChunks } from '@/lib/imports/bumpa/build-bumpa-order-preview';
 import { buildBumpaProductPreviewChunks } from '@/lib/imports/bumpa/build-bumpa-product-preview';
 import { parseCsvText } from '@/lib/imports/csv/parse-csv';
@@ -740,6 +742,21 @@ describe('import-job-service', () => {
         body: JSON.stringify({ jobId: 'job-123' }),
         cache: 'no-store',
       }
+    );
+  });
+
+  it('throws when the worker secret is missing', async () => {
+    vi.mocked(getImportJobWorkerSecret).mockReturnValueOnce(undefined);
+
+    await expect(
+      triggerImportWorker('https://usebaci.com', 'job-123')
+    ).resolves.toBeUndefined();
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message:
+          'IMPORT_JOB_WORKER_SECRET is not set — import worker trigger skipped',
+        jobId: 'job-123',
+      })
     );
   });
 
