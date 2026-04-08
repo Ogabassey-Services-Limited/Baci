@@ -58,7 +58,7 @@ interface ChatMessage {
 
 export function useBuilderConfig(pageSlug: string = 'home') {
   const queryClient = useQueryClient();
-  const { session } = useAuth();
+  const { session, isLoading } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [currentConfig, setCurrentConfig] = useState<BuilderConfig | null>(
     null
@@ -72,6 +72,13 @@ export function useBuilderConfig(pageSlug: string = 'home') {
     refetch: refetchConfig,
   } = useQuery({
     queryKey: ['builderConfig', pageSlug],
+    enabled: !!session?.access_token && !isLoading,
+    retry: (failureCount, error) => {
+      if (error instanceof Error && error.message === 'Not authenticated') {
+        return false;
+      }
+      return failureCount < 3;
+    },
     queryFn: async (): Promise<BuilderApiResponse> => {
       const token = session?.access_token;
       if (!token) {
