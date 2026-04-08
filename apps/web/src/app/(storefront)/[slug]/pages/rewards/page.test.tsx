@@ -48,4 +48,30 @@ describe('RewardsPage', () => {
     expect(h1?.textContent).toBe('Rewards');
     expect(h1?.className).toContain('sr-only');
   });
+
+  it('renders sr-only H1 in error state when merchant fetch fails', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+    });
+
+    render(<RewardsPage />);
+
+    // Wait for the error state to appear after the failed fetch
+    const errorHeading = await screen.findByRole('heading', {
+      level: 2,
+      name: /unable to load rewards/i,
+    });
+    expect(errorHeading).toBeDefined();
+
+    // Verify sr-only H1 is present in the error branch
+    const h1 = screen.queryByRole('heading', { level: 1, hidden: true });
+    expect(h1).not.toBeNull();
+    expect(h1?.textContent).toBe('Rewards');
+    expect(h1?.className).toContain('sr-only');
+
+    // Verify retry button is available
+    const retryButton = screen.getByRole('button', { name: /try again/i });
+    expect(retryButton).toBeDefined();
+  });
 });
