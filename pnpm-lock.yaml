@@ -23,7 +23,7 @@ overrides:
   underscore: ^1.13.8
   dompurify: 3.3.2
   rollup: ^4.59.0
-  basic-ftp: ^5.2.0
+  basic-ftp: ^5.2.1
   glob@13: 13.0.6
   minimatch: 10.2.3
   minimatch>brace-expansion: ^5.0.5
@@ -7325,8 +7325,8 @@ packages:
     engines: {node: '>=6.0.0'}
     hasBin: true
 
-  basic-ftp@5.2.0:
-    resolution: {integrity: sha512-VoMINM2rqJwJgfdHq6RiUudKt2BV+FY5ZFezP/ypmwayk68+NzzAQy4XXLlqsGD4MCzq3DrmNFD/uUmBJuGoXw==}
+  basic-ftp@5.2.1:
+    resolution: {integrity: sha512-0yaL8JdxTknKDILitVpfYfV2Ob6yb3udX/hK97M7I3jOeznBNxQPtVvTUtnhUkyHlxFWyr5Lvknmgzoc7jf+1Q==}
     engines: {node: '>=10.0.0'}
 
   better-opn@3.0.2:
@@ -23557,7 +23557,7 @@ snapshots:
 
   baseline-browser-mapping@2.10.7: {}
 
-  basic-ftp@5.2.0: {}
+  basic-ftp@5.2.1: {}
 
   better-opn@3.0.2:
     dependencies:
@@ -26327,7 +26327,7 @@ snapshots:
 
   get-uri@6.0.5:
     dependencies:
-      basic-ftp: 5.2.0
+      basic-ftp: 5.2.1
       data-uri-to-buffer: 6.0.2
       debug: 4.4.3
     transitivePeerDependencies:
