@@ -142,10 +142,10 @@ export function ProductDetailsPage({ product }: ProductDetailsPageProps) {
           const reachable = getAvailableOptionsForAxis(
             key,
             productData.variants,
-            Object.fromEntries(Object.entries(next).filter(([k]) => k !== key))
+            Object.fromEntries(Object.entries(next).filter(([k]) => k !== key)),
           );
           return reachable.length === 0 || reachable.includes(selectedValue);
-        })
+        }),
       );
     });
   };

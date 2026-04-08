@@ -243,7 +243,7 @@ export function ProductOptionSelectors({
                     const availableForAxis = getAvailableOptionsForAxis(
                       axis,
                       productData.variants,
-                      selectedAttributes
+                      selectedAttributes,
                     );
                     const isAvailable =
                       availableForAxis.length === 0 ||
