@@ -3,8 +3,8 @@ import Constants from 'expo-constants';
 import { useEffect } from 'react';
 import { fetchWithRetry } from '@/lib/api';
 import { logger } from '@/lib/logger';
-import { type Biller, BillerListSchema } from '@/lib/vtu-schemas';
-export type { Biller };
+import { type Biller, type BillItem, BillerListSchema } from '@/lib/vtu-schemas';
+export type { Biller, BillItem };
 
 const API_URL =
   process.env.EXPO_PUBLIC_API_URL ||

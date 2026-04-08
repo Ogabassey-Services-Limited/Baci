@@ -12,6 +12,7 @@ describe('Kuda API Client', () => {
     vi.stubEnv('KUDA_API_BASE_URL', MOCK_API_BASE);
     vi.stubEnv('KUDA_EMAIL', 'test@example.com');
     vi.stubEnv('KUDA_API_KEY', 'test-api-key');
+    vi.useRealTimers();
   });
 
   afterEach(() => {
@@ -56,8 +57,38 @@ describe('Kuda API Client', () => {
         expect.objectContaining({
           method: 'POST',
           body: expect.stringContaining('test@example.com'),
+          signal: expect.any(AbortSignal),
         })
       );
+    });
+
+    it('fails fast when the token request times out', async () => {
+      const { purchaseAirtime } = await import('./kuda');
+      vi.useFakeTimers();
+
+      globalThis.fetch = vi.fn().mockImplementation((_url, options) => {
+        const signal = options?.signal as AbortSignal;
+        return new Promise((_resolve, reject) => {
+          signal.addEventListener(
+            'abort',
+            () => reject(new DOMException('Aborted', 'AbortError')),
+            { once: true }
+          );
+        });
+      });
+
+      const purchasePromise = purchaseAirtime(
+        '08012345678',
+        100,
+        NetworkProvider.MTN
+      );
+
+      await vi.advanceTimersByTimeAsync(15000);
+
+      await expect(purchasePromise).resolves.toMatchObject({
+        success: false,
+        message: 'Purchase failed',
+      });
     });
   });
 
@@ -93,6 +124,7 @@ describe('Kuda API Client', () => {
 
       const payload = JSON.parse(purchaseCall?.[1]?.body as string);
       expect(payload.serviceType).toBe(KudaServiceType.ADMIN_PURCHASE_BILL);
+      expect(purchaseCall?.[1]?.signal).toBeInstanceOf(AbortSignal);
       expect(payload.Data.BillItemIdentifier).toBe('KD-VTU-MTNNG');
       expect(payload.Data.Amount).toBe('50000'); // 500 Naira = 50000 Kobo
       expect(payload.Data.PhoneNumber).toBe('08030000000');
@@ -131,6 +163,42 @@ describe('Kuda API Client', () => {
       expect(result.success).toBe(false);
       expect(result.status).toBe('failed');
       expect(result.message).toBe('Insufficient balance');
+    });
+
+    it('returns a timeout error when the purchase request stalls', async () => {
+      const { purchaseAirtime } = await import('./kuda');
+      vi.useFakeTimers();
+
+      globalThis.fetch = vi.fn().mockImplementation((url, options) => {
+        if (url.toString().includes('GetToken')) {
+          return Promise.resolve({
+            ok: true,
+            text: () => Promise.resolve('token'),
+          } as Response);
+        }
+
+        const signal = options?.signal as AbortSignal;
+        return new Promise((_resolve, reject) => {
+          signal.addEventListener(
+            'abort',
+            () => reject(new DOMException('Aborted', 'AbortError')),
+            { once: true }
+          );
+        });
+      });
+
+      const purchasePromise = purchaseAirtime(
+        '08030000000',
+        500,
+        NetworkProvider.MTN
+      );
+
+      await vi.advanceTimersByTimeAsync(15000);
+
+      const result = await purchasePromise;
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe('Purchase failed');
     });
 
     it('returns error for invalid network provider', async () => {
@@ -175,6 +243,80 @@ describe('Kuda API Client', () => {
       expect(payload.Data.BillItemIdentifier).toBe(dataPlanCode);
       expect(payload.Data.Amount).toBe('100000'); // 1000 Naira = 100000 Kobo
       expect(payload.Data.trackingReference).toBe(result.reference);
+    });
+  });
+
+  describe('getBillersByType', () => {
+    it('preserves nested bill items from the provider response', async () => {
+      const { getBillersByType } = await import('./kuda');
+
+      const fetchMock = vi.fn().mockImplementation((url) => {
+        if (url.toString().includes('GetToken')) {
+          return Promise.resolve({
+            ok: true,
+            text: () => Promise.resolve('token'),
+          } as Response);
+        }
+
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              status: true,
+              message: 'Operation successful',
+              data: {
+                billers: [
+                  {
+                    id: 'ekedc',
+                    name: 'EKEDC NG',
+                    description: 'Electricity',
+                    billTypeId: 'electricity',
+                    billItems: [
+                      {
+                        itemCode: 'prepaid',
+                        itemName: 'Prepaid',
+                        amount: 0,
+                        itemCurrencySymbol: 'NGN',
+                        isAmountFixed: false,
+                        itemFee: 0,
+                        billItems: [
+                          {
+                            itemCode: 'residential',
+                            itemName: 'Residential',
+                            amount: 0,
+                            itemCurrencySymbol: 'NGN',
+                            isAmountFixed: false,
+                            itemFee: 0,
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+            }),
+        } as Response);
+      });
+
+      globalThis.fetch = fetchMock;
+
+      const result = await getBillersByType('Electricity');
+
+      expect(result).toEqual([
+        expect.objectContaining({
+          billerId: 'ekedc',
+          billItems: [
+            expect.objectContaining({
+              itemCode: 'prepaid',
+              billItems: [
+                expect.objectContaining({
+                  itemCode: 'residential',
+                }),
+              ],
+            }),
+          ],
+        }),
+      ]);
     });
   });
 });

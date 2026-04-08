@@ -51,8 +51,11 @@ export function useVTUPurchase() {
       params: VTUPurchaseParams
     ): Promise<VTUPurchaseResult> => {
       // H6 fix: Use getUser() for secure JWT validation, then getSession() for access token
-      const { error: userError } = await supabase.auth.getUser();
-      if (userError) {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError || !user) {
         throw new Error('Authentication required. Please sign in again.');
       }
       const {
@@ -77,6 +80,7 @@ export function useVTUPurchase() {
         },
         body: JSON.stringify({
           merchantSlug: CONFIG.MERCHANT_SLUG,
+          source: 'direct',
           type: params.type,
           amount: params.amount,
           phoneNumber: params.phoneNumber,

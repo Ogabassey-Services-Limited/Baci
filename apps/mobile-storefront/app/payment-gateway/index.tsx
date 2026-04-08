@@ -19,10 +19,11 @@ import { WebView, type WebViewNavigation } from 'react-native-webview';
 import { z } from 'zod';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
+import { waitForVtuConfirmation } from '@/lib/vtu-checkout';
 import { useCartStore } from '@/stores/cart-store';
 
 const PaymentGatewayParamsSchema = z.object({
-  orderId: z.string().min(1, 'Order ID is required'),
+  orderId: z.string().optional(),
   orderNumber: z.string().optional(),
   gateway: z.enum(['paystack', 'korapay', 'juicyway'] as const, {
     message: 'Invalid payment gateway',
@@ -30,6 +31,9 @@ const PaymentGatewayParamsSchema = z.object({
   authorizationUrl: z.string().url('Invalid authorization URL'),
   reference: z.string().min(1, 'Reference is required'),
   amount: z.string().optional(),
+  paymentKind: z.enum(['order', 'vtu']).default('order'),
+  utilityType: z.enum(['airtime', 'data', 'tv', 'power', 'gaming']).optional(),
+  customerIdentifier: z.string().optional(),
 });
 
 const GATEWAY_LABELS: Record<string, string> = {
@@ -62,8 +66,17 @@ export default function PaymentGatewayScreen() {
     return { isValid: true, error: null, data: result.data };
   })();
 
-  const { orderId, orderNumber, gateway, authorizationUrl, reference, amount } =
-    validatedParams.data || {};
+  const {
+    orderId,
+    orderNumber,
+    gateway,
+    authorizationUrl,
+    reference,
+    amount,
+    paymentKind,
+    utilityType,
+    customerIdentifier,
+  } = validatedParams.data || {};
 
   const gatewayName = GATEWAY_LABELS[gateway || ''] || 'Payment';
 
@@ -92,8 +105,49 @@ export default function PaymentGatewayScreen() {
     );
   }
 
+  const handleVtuConfirmation = async () => {
+    if (!utilityType || !gateway || gateway === 'juicyway') {
+      setStatus('error');
+      setErrorMessage('Utility payment could not be confirmed.');
+      return;
+    }
+
+    try {
+      const result = await waitForVtuConfirmation({
+        gateway,
+        reference: reference || '',
+      });
+      setStatus('success');
+      setTimeout(() => {
+        router.replace({
+          pathname: '/utilities/[type]',
+          params: {
+            type: utilityType,
+            paymentStatus: 'successful',
+            reference: result.reference,
+            amount: String(result.amount ?? Number(amount || 0)),
+            ...(customerIdentifier && { customerIdentifier }),
+            ...(result.cashback && {
+              cashbackAmount: String(result.cashback.amount),
+              cashbackNewBalance: String(result.cashback.newBalance),
+            }),
+          },
+        });
+      }, 1500);
+    } catch (error) {
+      setStatus('error');
+      setErrorMessage(
+        error instanceof Error ? error.message : 'Payment confirmation failed.'
+      );
+    }
+  };
+
   const handleNavigationChange = (navState: WebViewNavigation) => {
     const { url } = navState;
+
+    if (status === 'processing' || status === 'success') {
+      return;
+    }
 
     // Paystack/Korapay redirect to /checkout/success?reference=...
     // Crypto checkout redirects to /order-success?type=crypto&orderId=...
@@ -102,6 +156,12 @@ export default function PaymentGatewayScreen() {
       url.includes('/order-success') ||
       url.includes('trxref=')
     ) {
+      if (paymentKind === 'vtu') {
+        setStatus('processing');
+        void handleVtuConfirmation();
+        return;
+      }
+
       setStatus('success');
       clearCart();
       setTimeout(() => {
@@ -150,7 +210,9 @@ export default function PaymentGatewayScreen() {
   const handleClose = () => {
     Alert.alert(
       'Cancel Payment?',
-      'Your order has been created. If you leave, you can complete payment later from your orders page.',
+      paymentKind === 'vtu'
+        ? 'If you leave now, this utility payment may remain incomplete until you retry it.'
+        : 'Your order has been created. If you leave, you can complete payment later from your orders page.',
       [
         { text: 'Continue Payment', style: 'cancel' },
         {
@@ -182,7 +244,9 @@ export default function PaymentGatewayScreen() {
             Payment Successful!
           </Text>
           <Text style={[styles.statusMessage, { color: colors.textSecondary }]}>
-            Redirecting to your order confirmation...
+            {paymentKind === 'vtu'
+              ? 'Redirecting to your utility confirmation...'
+              : 'Redirecting to your order confirmation...'}
           </Text>
           <ActivityIndicator
             size="small"
