@@ -129,7 +129,14 @@ describe('POST /api/vtu/checkout/confirm', () => {
         }),
         update: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
-            neq: vi.fn().mockResolvedValue({ error: null }),
+            neq: vi.fn().mockReturnValue({
+              select: vi.fn().mockReturnValue({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: { id: 'txn-1' },
+                  error: null,
+                }),
+              }),
+            }),
           }),
         }),
       };
