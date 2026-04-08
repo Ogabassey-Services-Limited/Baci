@@ -385,6 +385,11 @@ export async function triggerImportWorker(origin: string, jobId?: string) {
   const workerSecret = getImportJobWorkerSecret();
 
   if (!workerSecret) {
+    logger.warn({
+      message:
+        'IMPORT_JOB_WORKER_SECRET is not set — import worker trigger skipped',
+      jobId: jobId ?? null,
+    });
     return;
   }
 

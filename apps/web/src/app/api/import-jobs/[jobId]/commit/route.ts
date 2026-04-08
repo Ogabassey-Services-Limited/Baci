@@ -5,7 +5,7 @@ import {
   hasImportRoutePermission,
   resolveImportRouteContext,
 } from '@/lib/import-jobs/import-job-route-auth';
-import { kickoffImportJob } from '@/lib/import-jobs/kickoff-import-job';
+import { startImportJob } from '@/lib/import-jobs/kickoff-import-job';
 import { logger } from '@/lib/logger';
 import { importJobParamsSchema } from '@/schemas/import-jobs';
 
@@ -105,7 +105,7 @@ export async function POST(
 
     after(async () => {
       try {
-        await kickoffImportJob(job.id, request.nextUrl.origin);
+        await startImportJob(job.id, request.nextUrl.origin);
       } catch (err) {
         logger.error({
           message: 'Background kickoff failed',

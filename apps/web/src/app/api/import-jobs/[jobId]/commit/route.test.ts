@@ -23,7 +23,7 @@ vi.mock('@/lib/csrf', () => ({
 }));
 
 vi.mock('@/lib/import-jobs/kickoff-import-job', () => ({
-  kickoffImportJob: vi.fn(),
+  startImportJob: vi.fn(),
 }));
 
 vi.mock('@/lib/import-jobs/import-job-route-auth', () => ({
@@ -40,7 +40,7 @@ import {
   resolveImportRouteContext,
 } from '@/lib/import-jobs/import-job-route-auth';
 import type { ImportJobRecord } from '@/lib/import-jobs/import-job-service';
-import { kickoffImportJob } from '@/lib/import-jobs/kickoff-import-job';
+import { startImportJob } from '@/lib/import-jobs/kickoff-import-job';
 import { POST } from './route';
 
 const jobId = '00000000-0000-4000-8000-000000000001';
@@ -143,7 +143,7 @@ describe('POST /api/import-jobs/[jobId]/commit', () => {
     );
 
     expect(response.status).toBe(403);
-    expect(kickoffImportJob).not.toHaveBeenCalled();
+    expect(startImportJob).not.toHaveBeenCalled();
   });
 
   it('returns 404 when the job does not exist', async () => {
@@ -157,7 +157,7 @@ describe('POST /api/import-jobs/[jobId]/commit', () => {
     );
 
     expect(response.status).toBe(404);
-    expect(kickoffImportJob).not.toHaveBeenCalled();
+    expect(startImportJob).not.toHaveBeenCalled();
   });
 
   it('returns 403 when the merchant lacks permission for the import entity', async () => {
@@ -172,7 +172,7 @@ describe('POST /api/import-jobs/[jobId]/commit', () => {
     );
 
     expect(response.status).toBe(403);
-    expect(kickoffImportJob).not.toHaveBeenCalled();
+    expect(startImportJob).not.toHaveBeenCalled();
   });
 
   it('returns 409 when the job is not preview ready', async () => {
@@ -202,12 +202,12 @@ describe('POST /api/import-jobs/[jobId]/commit', () => {
 
     expect(response.status).toBe(202);
     await flushAfterCallbacks();
-    expect(kickoffImportJob).toHaveBeenCalledWith(jobId, 'http://localhost');
+    expect(startImportJob).toHaveBeenCalledWith(jobId, 'http://localhost');
   });
 
   it('returns 202 even when post-response kickoff rejects', async () => {
     vi.mocked(getImportJobForMerchant).mockResolvedValue(makeImportJob());
-    vi.mocked(kickoffImportJob).mockRejectedValue(new Error('boom'));
+    vi.mocked(startImportJob).mockRejectedValue(new Error('boom'));
 
     const response = await POST(
       new NextRequest(`http://localhost/api/import-jobs/${jobId}/commit`, {
@@ -222,7 +222,7 @@ describe('POST /api/import-jobs/[jobId]/commit', () => {
       status: 'commit_queued',
     });
     await flushAfterCallbacks();
-    expect(kickoffImportJob).toHaveBeenCalledWith(jobId, 'http://localhost');
+    expect(startImportJob).toHaveBeenCalledWith(jobId, 'http://localhost');
   });
 
   it('returns 409 when the preview_ready transition does not update any rows', async () => {
@@ -242,6 +242,6 @@ describe('POST /api/import-jobs/[jobId]/commit', () => {
     );
 
     expect(response.status).toBe(409);
-    expect(kickoffImportJob).not.toHaveBeenCalled();
+    expect(startImportJob).not.toHaveBeenCalled();
   });
 });

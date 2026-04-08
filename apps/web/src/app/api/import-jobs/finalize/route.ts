@@ -9,11 +9,11 @@ import {
   hasImportRoutePermission,
   resolveImportRouteContext,
 } from '@/lib/import-jobs/import-job-route-auth';
-import type {
-  ImportJobRecord,
-  PendingImportUploadRecord,
+import {
+  type ImportJobRecord,
+  type PendingImportUploadRecord,
 } from '@/lib/import-jobs/import-job-service';
-import { kickoffImportJob } from '@/lib/import-jobs/kickoff-import-job';
+import { startImportJob } from '@/lib/import-jobs/kickoff-import-job';
 import { logger } from '@/lib/logger';
 import { checkRateLimit } from '@/lib/rate-limiter';
 import { importJobFinalizeSchema } from '@/schemas/import-jobs';
@@ -262,7 +262,7 @@ export async function POST(request: NextRequest) {
     const origin = request.nextUrl.origin;
     after(async () => {
       try {
-        await kickoffImportJob(createdJob.id, origin);
+        await startImportJob(createdJob.id, origin);
       } catch (error) {
         logger.error({
           message: 'Background kickoff failed',
