@@ -153,6 +153,10 @@ export function LogoPicker({
         style={[styles.changeLogoButton, { borderColor: colors.border }]}
         onPress={handleImagePick}
         disabled={isUploading}
+        accessibilityRole="button"
+        accessibilityLabel={isUploading ? 'Uploading store logo' : 'Change store logo'}
+        accessibilityHint="Opens image gallery to select a new logo"
+        accessibilityState={{ disabled: isUploading }}
       >
         {isUploading ? (
           <ActivityIndicator size="small" color={colors.primary} />
