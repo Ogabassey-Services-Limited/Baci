@@ -121,6 +121,39 @@ export function mergeVariantAxisOptions(
   return axisOptions;
 }
 
+/**
+ * Returns the reachable option values for a given axis given the current
+ * selections on all other axes. Used to disable impossible combinations in
+ * the variant selector UI.
+ */
+export function getAvailableOptionsForAxis(
+  axis: string,
+  variants: VariantAttributeCarrier[] | null | undefined,
+  currentSelections: Record<string, string>,
+): string[] {
+  const normalizedAxis = canonicalizeVariantAxis(axis);
+  const normalizedSelections = Object.fromEntries(
+    Object.entries(currentSelections)
+      .filter(([k]) => canonicalizeVariantAxis(k) !== normalizedAxis)
+      .map(([k, v]) => [canonicalizeVariantAxis(k), v]),
+  );
+
+  const reachable = new Set<string>();
+  for (const variant of variants ?? []) {
+    const attrs = variant.attributes ?? {};
+    const matchesAll = Object.entries(normalizedSelections).every(
+      ([k, v]) => attrs[k] === v,
+    );
+    if (matchesAll) {
+      const value = attrs[normalizedAxis];
+      if (typeof value === 'string' && value.trim()) {
+        reachable.add(value.trim());
+      }
+    }
+  }
+  return Array.from(reachable);
+}
+
 export function getRenderableVariantAxes(
   variants: VariantAttributeCarrier[] | null | undefined,
   source: VariantAttributeSource

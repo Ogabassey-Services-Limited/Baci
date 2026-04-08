@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  getAvailableOptionsForAxis,
   getRenderableVariantAxes,
   getVariantAttributeOptions,
   mergeVariantAxisOptions,
@@ -83,6 +84,83 @@ describe('variant attributes helpers', () => {
         [{ param: 'storage', options: ['128GB', '256GB', '512GB'] }]
       )
     ).toEqual(['storage', 'sim_type']);
+  });
+
+  describe('getAvailableOptionsForAxis', () => {
+    const s22Variants = [
+      { attributes: { ram: '8GB', storage: '128GB' } },
+      { attributes: { ram: '12GB', storage: '256GB' } },
+      { attributes: { ram: '12GB', storage: '512GB' } },
+    ];
+
+    it('returns all storage values when no selections are made', () => {
+      expect(
+        getAvailableOptionsForAxis('storage', s22Variants, {}),
+      ).toEqual(['128GB', '256GB', '512GB']);
+    });
+
+    it('filters storage to valid pairs when 8GB RAM is selected', () => {
+      expect(
+        getAvailableOptionsForAxis('storage', s22Variants, { ram: '8GB' }),
+      ).toEqual(['128GB']);
+    });
+
+    it('filters storage to valid pairs when 12GB RAM is selected', () => {
+      expect(
+        getAvailableOptionsForAxis('storage', s22Variants, { ram: '12GB' }),
+      ).toEqual(['256GB', '512GB']);
+    });
+
+    it('filters RAM to valid pairs when storage is selected', () => {
+      expect(
+        getAvailableOptionsForAxis('ram', s22Variants, { storage: '128GB' }),
+      ).toEqual(['8GB']);
+      expect(
+        getAvailableOptionsForAxis('ram', s22Variants, { storage: '256GB' }),
+      ).toEqual(['12GB']);
+    });
+
+    it('ignores the queried axis in currentSelections (prevents self-filtering)', () => {
+      expect(
+        getAvailableOptionsForAxis('storage', s22Variants, {
+          ram: '8GB',
+          storage: '128GB',
+        }),
+      ).toEqual(['128GB']);
+    });
+
+    it('returns empty array when no variants match the current selections', () => {
+      expect(
+        getAvailableOptionsForAxis('storage', s22Variants, { ram: '999GB' }),
+      ).toEqual([]);
+    });
+
+    it('returns empty array for null/undefined variants', () => {
+      expect(getAvailableOptionsForAxis('storage', null, {})).toEqual([]);
+      expect(getAvailableOptionsForAxis('storage', undefined, {})).toEqual([]);
+    });
+
+    it('works with three-axis variants (S24 Ultra sim_type)', () => {
+      const s24Variants = [
+        {
+          attributes: { ram: '12GB', storage: '512GB', sim_type: 'Single' },
+        },
+        { attributes: { ram: '12GB', storage: '512GB', sim_type: 'Dual' } },
+        { attributes: { ram: '12GB', storage: '1TB', sim_type: 'Single' } },
+      ];
+
+      expect(
+        getAvailableOptionsForAxis('sim_type', s24Variants, {
+          storage: '1TB',
+        }),
+      ).toEqual(['Single']);
+
+      expect(
+        getAvailableOptionsForAxis('sim_type', s24Variants, {
+          storage: '512GB',
+        }),
+      ).toEqual(['Single', 'Dual']);
+    });
   });
 
   it('handles empty variant rows and empty axis definitions', () => {
