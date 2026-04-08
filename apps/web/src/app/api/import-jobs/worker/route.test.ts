@@ -20,7 +20,7 @@ import {
   processImportJobQueue,
 } from '@/lib/import-jobs/process-import-job';
 import { createServiceClient } from '@/lib/supabase/service';
-import { POST } from './route';
+import { maxDuration, POST } from './route';
 
 describe('POST /api/import-jobs/worker', () => {
   beforeEach(() => {
@@ -189,5 +189,9 @@ describe('POST /api/import-jobs/worker', () => {
       code: 'internal_error',
     });
     expect(createServiceClient).toHaveBeenCalledTimes(1);
+  });
+
+  it('exports a long maxDuration for import processing', () => {
+    expect(maxDuration).toBe(300);
   });
 });

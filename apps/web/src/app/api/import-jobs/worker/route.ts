@@ -12,6 +12,8 @@ import {
   importJobWorkerRequestSchema,
 } from '@/schemas/import-jobs';
 
+export const maxDuration = 300;
+
 function hasValidWorkerSecret(
   authHeader: string | null,
   expectedSecret: string | undefined

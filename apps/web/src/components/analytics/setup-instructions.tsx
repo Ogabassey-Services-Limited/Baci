@@ -58,7 +58,7 @@ const CopyButton = ({
       type="button"
       onClick={handleCopy}
       aria-label={ariaLabel || 'Copy to clipboard'}
-      className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+      className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
     >
       {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
       {copied ? 'Copied!' : 'Copy'}
