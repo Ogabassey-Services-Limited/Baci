@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { StorefrontPageWrapper } from '@/app/(storefront)/[slug]/storefront-page-wrapper';
+import { Suspense } from 'react';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
+import { getTemplate } from '@/templates/registry';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -35,15 +36,33 @@ export async function generateMetadata({
   };
 }
 
-export default async function StorefrontDeleteAccountPage({
-  params,
-}: PageProps) {
+/** Streams JSON-LD separately while the visible page content loads. */
+export default function StorefrontDeleteAccountPage({ params }: PageProps) {
+  return (
+    <>
+      <Suspense fallback={null}>
+        <DeleteAccountJsonLd params={params} />
+      </Suspense>
+      <Suspense
+        fallback={
+          <div className="container mx-auto px-4 py-12 flex items-center justify-center">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <span className="sr-only">Loading...</span>
+          </div>
+        }
+      >
+        <DeleteAccountContent params={params} />
+      </Suspense>
+    </>
+  );
+}
+
+/** Streams JSON-LD structured data independently of page content. */
+async function DeleteAccountJsonLd({ params }: PageProps) {
   const { slug } = await params;
   const merchant = await getMerchantByIdentifier(slug);
 
-  if (!merchant) {
-    notFound();
-  }
+  if (!merchant) return null;
 
   const isDevelopment = process.env.NODE_ENV === 'development';
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
@@ -51,13 +70,12 @@ export default async function StorefrontDeleteAccountPage({
     ? `http://localhost:3000/${merchant.slug}`
     : `https://${merchant.slug}.${rootDomain}`;
 
-  // Schema for the page
   const pageSchema = {
     '@context': 'https://schema.org',
     '@type': 'WebPage',
     name: `Delete Account | ${merchant.business_name}`,
     url: `${baseUrl}/delete-account`,
-    description: `Request request deletion of your ${merchant.business_name} account.`,
+    description: `Request deletion of your ${merchant.business_name} account.`,
     isPartOf: {
       '@type': 'WebSite',
       name: merchant.business_name,
@@ -71,7 +89,54 @@ export default async function StorefrontDeleteAccountPage({
     },
   };
 
-  const DeleteAccountContent = () => (
+  return (
+    <script
+      type="application/ld+json"
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema is sanitized via safeJsonLdStringify
+      dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(pageSchema) }}
+    />
+  );
+}
+
+async function DeleteAccountContent({ params }: PageProps) {
+  const { slug } = await params;
+  const merchant = await getMerchantByIdentifier(slug);
+
+  if (!merchant) {
+    notFound();
+  }
+
+  // Resolve template component server-side for SEO (H1 in SSR HTML)
+  const templateId = merchant.template_id;
+  if (templateId && templateId !== 'default' && templateId !== 'puck') {
+    const template = getTemplate(templateId);
+    if (template) {
+      try {
+        const components = await template.getComponents();
+        if (components.DeleteAccount) {
+          const DeleteAccountComponent = components.DeleteAccount;
+          return (
+            <DeleteAccountComponent
+              // biome-ignore lint/suspicious/noExplicitAny: CachedMerchant is a superset of what template components need
+              merchant={merchant as any}
+              storeSlug={merchant.slug}
+              isPreview={false}
+            />
+          );
+        }
+      } catch (error) {
+        console.error(
+          'Failed to load DeleteAccount component for template',
+          templateId,
+          ':',
+          error
+        );
+      }
+    }
+  }
+
+  // Fallback: inline content
+  return (
     <div className="max-w-3xl mx-auto px-4 py-12 sm:py-16">
       {/* Header */}
       <div className="text-center mb-12">
@@ -118,7 +183,8 @@ export default async function StorefrontDeleteAccountPage({
                 Navigate to Account Settings
               </h3>
               <p className="text-gray-600 mt-1">
-                Go to <strong>My Account</strong> → <strong>Settings</strong>.
+                Go to <strong>My Account</strong> &rarr;{' '}
+                <strong>Settings</strong>.
               </p>
             </div>
           </div>
@@ -132,7 +198,8 @@ export default async function StorefrontDeleteAccountPage({
                 Request Account Deletion
               </h3>
               <p className="text-gray-600 mt-1">
-                Find the "Delete Account" option and confirm your request.
+                Find the &ldquo;Delete Account&rdquo; option and confirm your
+                request.
               </p>
             </div>
           </div>
@@ -211,20 +278,5 @@ export default async function StorefrontDeleteAccountPage({
         </p>
       </section>
     </div>
-  );
-
-  return (
-    <>
-      <script
-        type="application/ld+json"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema is sanitized via safeJsonLdStringify
-        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(pageSchema) }}
-      />
-      <StorefrontPageWrapper
-        pageName="DeleteAccount"
-        merchant={merchant}
-        fallback={<DeleteAccountContent />}
-      />
-    </>
   );
 }
