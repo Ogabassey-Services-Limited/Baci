@@ -125,7 +125,6 @@ export function RichTextEditor({
             aria-label="Undo"
           >
             <Undo className="h-4 w-4" />
-            <span className="sr-only">Undo</span>
           </Button>
           <Button
             variant="ghost"
@@ -136,7 +135,6 @@ export function RichTextEditor({
             aria-label="Redo"
           >
             <Redo className="h-4 w-4" />
-            <span className="sr-only">Redo</span>
           </Button>
         </div>
       </div>
