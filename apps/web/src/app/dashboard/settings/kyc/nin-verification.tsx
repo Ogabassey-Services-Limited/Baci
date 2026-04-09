@@ -28,11 +28,11 @@ const ninFormSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date of birth is required')
     .refine((val) => {
       const [year, month, day] = val.split('-').map(Number);
-      const date = new Date(year, month - 1, day);
+      const date = new Date(Date.UTC(year, month - 1, day));
       return (
-        date.getFullYear() === year &&
-        date.getMonth() === month - 1 &&
-        date.getDate() === day
+        date.getUTCFullYear() === year &&
+        date.getUTCMonth() === month - 1 &&
+        date.getUTCDate() === day
       );
     }, 'Invalid date'),
 });

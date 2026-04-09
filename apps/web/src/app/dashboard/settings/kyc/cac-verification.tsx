@@ -132,6 +132,9 @@ export function CacVerification({
         description: 'Please upload a JPEG, PNG, WebP, or PDF file.',
       });
       e.target.value = '';
+      setSelectedFile(null);
+      if (filePreview) URL.revokeObjectURL(filePreview);
+      setFilePreview(null);
       return;
     }
     if (file.size > MAX_FILE_SIZE) {
@@ -141,6 +144,9 @@ export function CacVerification({
         description: 'Maximum file size is 5 MB.',
       });
       e.target.value = '';
+      setSelectedFile(null);
+      if (filePreview) URL.revokeObjectURL(filePreview);
+      setFilePreview(null);
       return;
     }
     setSelectedFile(file);

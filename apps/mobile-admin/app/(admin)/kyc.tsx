@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import {
   ActivityIndicator,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -134,11 +135,27 @@ export default function KYCScreen() {
                 size={24}
                 color={colors.error}
               />
-              <Text
-                style={[styles.ownerOnlyText, { color: colors.textSecondary }]}
-              >
-                Failed to load verification status. Please try again.
-              </Text>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[
+                    styles.ownerOnlyText,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  Failed to load verification status.
+                </Text>
+                <Pressable onPress={() => refetch()} accessibilityRole="button">
+                  <Text
+                    style={{
+                      color: colors.primary,
+                      marginTop: 8,
+                      fontWeight: '600',
+                    }}
+                  >
+                    Try Again
+                  </Text>
+                </Pressable>
+              </View>
             </View>
           ) : (
             <View style={styles.cards}>

@@ -260,16 +260,8 @@ export async function apiFormData<T = unknown>(
   const { timeout = DEFAULT_TIMEOUT_MS } = options;
 
   const controller = new AbortController();
+  // biome-ignore lint/style/noUnusedTemporaries: used in finally block
   const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-  const headers: Record<string, string> = {};
-
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (session?.access_token) {
-    headers.Authorization = `Bearer ${session.access_token}`;
-  }
 
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   const url = `${BASE_URL}${cleanEndpoint}`;
@@ -279,13 +271,20 @@ export async function apiFormData<T = unknown>(
   }
 
   try {
+    const headers: Record<string, string> = {};
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      headers.Authorization = `Bearer ${session.access_token}`;
+    }
+
     const response = await fetch(url, {
       method: 'POST',
       headers,
       body: formData,
       signal: controller.signal,
     });
-    clearTimeout(timeoutId);
 
     const contentType = response.headers.get('content-type');
     const isJson = contentType?.includes('application/json');
@@ -300,8 +299,6 @@ export async function apiFormData<T = unknown>(
 
     return data as T;
   } catch (error: unknown) {
-    clearTimeout(timeoutId);
-
     if (error instanceof Error && error.name === 'AbortError') {
       console.error('[API FormData Timeout]', String(url));
       throw new NetworkError(
@@ -326,5 +323,7 @@ export async function apiFormData<T = unknown>(
     const message = error instanceof Error ? error.message : String(error);
     console.error('[API FormData Error]', String(url), String(message));
     throw error;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }

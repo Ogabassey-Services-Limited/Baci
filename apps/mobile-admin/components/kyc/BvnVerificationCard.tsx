@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import { apiClient, NetworkError } from '@/lib/api-client';
+import { isValidCalendarDate } from './date-utils';
 import VerificationStatusBadge from './VerificationStatusBadge';
 import { verificationCardStyles as styles } from './verification-card-styles';
 
@@ -30,18 +31,6 @@ interface VerifyBvnResponse {
 
 const MOBILE_REGEX = /^0\d{10}$/;
 
-function isValidCalendarDate(dateStr: string): boolean {
-  const re = /^\d{4}-\d{2}-\d{2}$/;
-  if (!re.test(dateStr)) return false;
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const date = new Date(Date.UTC(y, m - 1, d));
-  return (
-    date.getUTCFullYear() === y &&
-    date.getUTCMonth() === m - 1 &&
-    date.getUTCDate() === d
-  );
-}
-
 export default function BvnVerificationCard({
   verified,
   prefillFirstName,
@@ -58,6 +47,11 @@ export default function BvnVerificationCard({
   const [lastName, setLastName] = useState(prefillLastName ?? '');
   const [dateOfBirth, setDateOfBirth] = useState(prefillDob ?? '');
   const [mobileNo, setMobileNo] = useState(prefillMobileNo ?? '');
+  const inputColors = {
+    color: colors.text,
+    backgroundColor: colors.inputBg,
+    borderColor: colors.border,
+  };
 
   useEffect(() => {
     if (!verified) {
@@ -200,14 +194,7 @@ export default function BvnVerificationCard({
             BVN
           </Text>
           <TextInput
-            style={[
-              styles.input,
-              {
-                color: colors.text,
-                backgroundColor: colors.inputBg,
-                borderColor: colors.border,
-              },
-            ]}
+            style={[styles.input, inputColors]}
             placeholder="12345678901"
             placeholderTextColor={colors.textMuted}
             value={bvn}
@@ -222,14 +209,7 @@ export default function BvnVerificationCard({
             First Name
           </Text>
           <TextInput
-            style={[
-              styles.input,
-              {
-                color: colors.text,
-                backgroundColor: colors.inputBg,
-                borderColor: colors.border,
-              },
-            ]}
+            style={[styles.input, inputColors]}
             placeholder="First name"
             placeholderTextColor={colors.textMuted}
             value={firstName}
@@ -243,14 +223,7 @@ export default function BvnVerificationCard({
             Last Name
           </Text>
           <TextInput
-            style={[
-              styles.input,
-              {
-                color: colors.text,
-                backgroundColor: colors.inputBg,
-                borderColor: colors.border,
-              },
-            ]}
+            style={[styles.input, inputColors]}
             placeholder="Last name"
             placeholderTextColor={colors.textMuted}
             value={lastName}
@@ -264,14 +237,7 @@ export default function BvnVerificationCard({
             Date of Birth
           </Text>
           <TextInput
-            style={[
-              styles.input,
-              {
-                color: colors.text,
-                backgroundColor: colors.inputBg,
-                borderColor: colors.border,
-              },
-            ]}
+            style={[styles.input, inputColors]}
             placeholder="YYYY-MM-DD"
             placeholderTextColor={colors.textMuted}
             value={dateOfBirth}
@@ -284,14 +250,7 @@ export default function BvnVerificationCard({
             Mobile Number
           </Text>
           <TextInput
-            style={[
-              styles.input,
-              {
-                color: colors.text,
-                backgroundColor: colors.inputBg,
-                borderColor: colors.border,
-              },
-            ]}
+            style={[styles.input, inputColors]}
             placeholder="08012345678"
             placeholderTextColor={colors.textMuted}
             value={mobileNo}
