@@ -20,6 +20,7 @@ export interface StorefrontOrderItem {
   product_images?: string[];
   product_image?: string;
   image?: string;
+  has_assurance?: boolean;
 }
 
 export interface StorefrontVirtualAccount {

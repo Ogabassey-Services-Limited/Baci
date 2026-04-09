@@ -9,50 +9,49 @@ export async function GET(
   try {
     const { orderId } = await params;
 
-    // Auth check - Optional but recommended for viewing policies
-    // Or we rely on session checking if user owns the order
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    // Fetch policy linked to this order
-    const { data: policy, error } = await supabase
+    // Fetch all policies for this order (supports gadget + future shipping)
+    const { data: policies, error } = await supabase
       .from('order_insurance_policies')
       .select(
-        'id, order_id, mycover_policy_number, status, policy_start_date, policy_expiry_date, premium_amount, coverage_amount, items_insured, claim_status, certificate_url'
+        'id, order_id, mycover_policy_number, status, policy_start_date, policy_expiry_date, premium_amount, coverage_amount, items_insured, claim_status, certificate_url, provider_name, policy_type'
       )
-      .eq('order_id', orderId)
-      .single();
+      .eq('order_id', orderId);
 
-    if (error || !policy) {
+    if (error) {
+      return NextResponse.json(
+        { error: 'Failed to fetch policies' },
+        { status: 500 }
+      );
+    }
+
+    if (!policies || policies.length === 0) {
       return NextResponse.json({
         found: false,
-        message: 'No insurance policy found for this order',
+        policies: [],
       });
     }
 
-    // Return policy details
-    // We could also do a live check vs MyCover API here if needed to sync status
-    // For MVP, returning stored DB state is faster and sufficient provided webhooks work
-
     return NextResponse.json({
       found: true,
-      policy: {
+      policies: policies.map((policy) => ({
         id: policy.id,
+        policyType: policy.policy_type || 'gadget',
         policyNumber: policy.mycover_policy_number,
-        provider: 'Sovereign Trust Insurance', // Hardcoded as per Gadget product
-        status: policy.status, // active, expired, pending
+        provider: policy.provider_name || 'Sovereign Trust Insurance Plc',
+        status: policy.status,
         startDate: policy.policy_start_date,
         expiryDate: policy.policy_expiry_date,
         premium: policy.premium_amount,
         coverage: policy.coverage_amount,
         itemsInsured: policy.items_insured,
-        claimStatus: policy.claim_status || 'None', // e.g., 'Pending', 'Approved'
-        // Add link to download certificate if available (PDF URL from MyCover?)
+        claimStatus: policy.claim_status || 'None',
         certificateUrl: policy.certificate_url,
-      },
+      })),
     });
-    // biome-ignore lint/suspicious/noExplicitAny: Error from catch block
-  } catch (_error: any) {
+  } catch (_error: unknown) {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

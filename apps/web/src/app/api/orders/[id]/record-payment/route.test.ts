@@ -79,11 +79,6 @@ vi.mock('@/lib/trigger-purchase-conversion', () => ({
   triggerPurchaseConversion: vi.fn(),
 }));
 
-// Mock insurance service
-vi.mock('@/services/insurance', () => ({
-  purchaseInsuranceForPaidOrder: vi.fn(),
-}));
-
 describe('POST /api/orders/[id]/record-payment', () => {
   const mockOrderId = 'order-123';
   const mockMerchantId = 'merchant-456';

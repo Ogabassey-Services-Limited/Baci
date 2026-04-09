@@ -69,6 +69,9 @@ interface InsurancePolicy {
   claim_status: string | null;
   policy_start_date: string | null;
   policy_expiry_date: string | null;
+  certificate_url: string | null;
+  provider_name: string | null;
+  policy_type: string | null;
 }
 
 interface OrderDetails {
@@ -222,22 +225,18 @@ export default function OrderDetailsScreen() {
           ),
         });
 
-        // Fetch insurance policy if any items have assurance
-        const hasAssurance = (data.order_items ?? []).some(
-          (item: { has_assurance?: boolean }) => item.has_assurance
-        );
-        if (hasAssurance) {
-          const { data: policy } = await supabase
-            .from('order_insurance_policies')
-            .select(
-              'mycover_policy_number, coverage_amount, premium_amount, status, claim_status, policy_start_date, policy_expiry_date'
-            )
-            .eq('order_id', id)
-            .maybeSingle();
+        // Fetch insurance policy directly for this order — query unconditionally
+        // so policies are shown even when item has_assurance flags are inconsistent.
+        const { data: policy } = await supabase
+          .from('order_insurance_policies')
+          .select(
+            'mycover_policy_number, coverage_amount, premium_amount, status, claim_status, policy_start_date, policy_expiry_date, certificate_url, provider_name, policy_type'
+          )
+          .eq('order_id', id)
+          .maybeSingle();
 
-          if (policy) {
-            setInsurancePolicy(policy as InsurancePolicy);
-          }
+        if (policy) {
+          setInsurancePolicy(policy as InsurancePolicy);
         }
 
         setError(null);
@@ -934,8 +933,34 @@ export default function OrderDetailsScreen() {
                     { color: colors.textSecondary },
                   ]}
                 >
-                  Protected by MyCover.ai / Sovereign Trust Insurance
+                  Protected by MyCover.ai /{' '}
+                  {insurancePolicy.provider_name ||
+                    'Sovereign Trust Insurance Plc'}
                 </Text>
+                {insurancePolicy.certificate_url && (
+                  <TouchableOpacity
+                    style={[
+                      styles.trackButton,
+                      { borderColor: '#059669', marginTop: 12 },
+                    ]}
+                    onPress={() =>
+                      Linking.openURL(insurancePolicy.certificate_url as string)
+                    }
+                    accessibilityRole="button"
+                    accessibilityLabel="Download insurance certificate"
+                  >
+                    <Ionicons
+                      name="document-text-outline"
+                      size={18}
+                      color="#059669"
+                    />
+                    <Text
+                      style={[styles.trackButtonText, { color: '#059669' }]}
+                    >
+                      Download Certificate
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
           )}

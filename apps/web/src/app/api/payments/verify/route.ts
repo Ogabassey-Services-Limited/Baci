@@ -10,7 +10,6 @@ import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
 import { createServiceClient } from '@/lib/supabase/service';
 import { sendEmail } from '@/lib/zeptomail';
 import { referenceSchema } from '@/schemas/payments';
-import { purchaseInsuranceForPaidOrder } from '@/services/insurance';
 
 type GatewayVerificationResult =
   | {
@@ -453,16 +452,6 @@ export async function GET(request: NextRequest) {
           error,
           orderId: order.id,
         });
-      }
-
-      try {
-        await purchaseInsuranceForPaidOrder(
-          supabase,
-          order.id,
-          transaction.merchant_id
-        );
-      } catch {
-        // Errors are logged in purchaseInsuranceForPaidOrder
       }
     });
   }

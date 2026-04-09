@@ -57,7 +57,12 @@ export default function InsurancePolicyPage() {
         if (!data.found) {
           setError('No active insurance policy found for this order.');
         } else {
-          setPolicy(data.policy);
+          const policy = data.policies?.[0] ?? null;
+          if (!policy) {
+            setError('No active insurance policy found for this order.');
+          } else {
+            setPolicy(policy);
+          }
         }
       } catch (err: unknown) {
         setError(

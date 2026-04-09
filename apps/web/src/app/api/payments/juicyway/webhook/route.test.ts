@@ -80,10 +80,6 @@ vi.mock('@/lib/zeptomail', () => ({
   sendEmail: vi.fn(() => Promise.resolve()),
 }));
 
-vi.mock('@/services/insurance', () => ({
-  purchaseInsuranceForPaidOrder: vi.fn(() => Promise.resolve()),
-}));
-
 // =============================================================================
 // Test Helpers
 // =============================================================================

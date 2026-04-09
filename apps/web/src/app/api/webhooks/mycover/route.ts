@@ -196,6 +196,7 @@ async function handlePolicyPurchased(
       mycover_policy_number: data.policy_number,
       policy_start_date: data.start_date,
       policy_expiry_date: data.expiration_date,
+      certificate_url: data.certificate_url,
       status: 'active',
       updated_at: new Date().toISOString(),
     })

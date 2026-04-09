@@ -5,6 +5,7 @@ import {
   Package,
   Phone,
   RotateCcw,
+  ShieldCheck,
   Star,
   Truck,
 } from 'lucide-react';
@@ -139,6 +140,16 @@ export function CustomerOrderDetailsContent({
                 ))}
               </CardContent>
             </Card>
+
+            {order.items.some((item) => item.has_assurance) && (
+              <Link
+                href="insurance"
+                className="flex items-center gap-2 rounded-md border p-4 text-sm font-medium hover:bg-muted/40"
+              >
+                <ShieldCheck className="h-5 w-5 text-green-600" />
+                View Insurance Policy
+              </Link>
+            )}
 
             <Card>
               <CardHeader>

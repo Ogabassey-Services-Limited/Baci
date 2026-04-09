@@ -122,10 +122,6 @@ vi.mock('@/lib/trigger-purchase-conversion', () => ({
   triggerPurchaseConversion: vi.fn(),
 }));
 
-vi.mock('@/services/insurance', () => ({
-  purchaseInsuranceForPaidOrder: vi.fn(),
-}));
-
 vi.mock('@/lib/customer-saved-payment-methods', () => ({
   upsertPaystackAuthorization: vi.fn(),
 }));
