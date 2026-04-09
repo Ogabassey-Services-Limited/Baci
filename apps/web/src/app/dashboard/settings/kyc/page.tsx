@@ -53,22 +53,32 @@ export default async function KycSettingsPage() {
       console.error('get_merchant_verification_status RPC failed:', error);
     }
 
-    const verificationStatus = error
-      ? {
-          nin_verified: false,
-          bvn_verified: false,
-          cac_verified: false,
-          cac_approved_name: null,
-          first_name: null,
-          last_name: null,
-          date_of_birth: null,
-        }
-      : status;
+    if (error) {
+      return (
+        <div className="container max-w-2xl py-8">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-destructive/10">
+                  <Shield className="h-6 w-6 text-destructive" />
+                </div>
+                <div>
+                  <CardTitle>Unable to load verification status</CardTitle>
+                  <CardDescription>
+                    Please refresh the page to try again.
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+          </Card>
+        </div>
+      );
+    }
 
     return (
       <div className="container max-w-2xl py-8">
         <KycVerification
-          verificationStatus={verificationStatus}
+          verificationStatus={status}
           prefillNin={merchant.nin ?? null}
           prefillBvn={merchant.bvn ?? null}
           prefillRcNumber={merchant.cac_rc_number ?? null}

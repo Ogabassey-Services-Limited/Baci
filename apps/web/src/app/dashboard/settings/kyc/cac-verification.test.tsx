@@ -20,6 +20,10 @@ const baseProps = {
 };
 
 describe('CacVerification', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('shows verified banner with approved name when verified=true', () => {
     // Arrange & Act
     render(

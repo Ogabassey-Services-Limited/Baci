@@ -46,6 +46,7 @@ export default function KYCScreen() {
   const {
     data: status,
     isLoading,
+    isError,
     refetch,
   } = useQuery({
     queryKey: ['verification-status', merchant?.id],
@@ -124,6 +125,21 @@ export default function KYCScreen() {
               color={colors.primary}
               style={styles.loader}
             />
+          ) : isError ? (
+            <View
+              style={[styles.ownerOnlyBanner, { backgroundColor: colors.card }]}
+            >
+              <Ionicons
+                name="alert-circle-outline"
+                size={24}
+                color={colors.error}
+              />
+              <Text
+                style={[styles.ownerOnlyText, { color: colors.textSecondary }]}
+              >
+                Failed to load verification status. Please try again.
+              </Text>
+            </View>
           ) : (
             <View style={styles.cards}>
               <NinVerificationCard

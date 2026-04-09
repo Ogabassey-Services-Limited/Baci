@@ -33,6 +33,7 @@ export default function CacUploadStep({
             source={{ uri: imageUri }}
             style={styles.previewImage}
             resizeMode="contain"
+            accessibilityLabel="Preview of selected CAC certificate"
           />
           <Pressable
             onPress={onPickImage}
@@ -49,6 +50,7 @@ export default function CacUploadStep({
           style={[styles.pickButton, { borderColor: colors.border }]}
           onPress={onPickImage}
           accessibilityRole="button"
+          accessibilityLabel="Select CAC certificate image"
         >
           <Ionicons
             name="image-outline"
@@ -72,6 +74,9 @@ export default function CacUploadStep({
         disabled={!imageUri || isUploading}
         accessibilityRole="button"
         accessibilityState={{ disabled: !imageUri || isUploading }}
+        accessibilityLabel={
+          isUploading ? 'Verifying certificate' : 'Verify Certificate'
+        }
       >
         {isUploading ? (
           <ActivityIndicator size="small" color={colors.textOnPrimary} />

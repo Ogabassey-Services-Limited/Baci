@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -14,6 +15,7 @@ interface DateOfBirthPickerProps {
 function formatDateForDisplay(dateStr: string): string {
   if (!dateStr) return '';
   const [year, month, day] = dateStr.split('-');
+  if (!year || !month || !day) return '';
   return `${day}/${month}/${year}`;
 }
 
@@ -38,17 +40,25 @@ export default function DateOfBirthPicker({
   colors,
 }: DateOfBirthPickerProps) {
   const [showPicker, setShowPicker] = useState(false);
+  const [tempDate, setTempDate] = useState<Date>(parseValue(value));
 
-  const handleChange = (_event: unknown, selectedDate?: Date) => {
+  const handleChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
     if (Platform.OS === 'android') {
       setShowPicker(false);
-    }
-    if (selectedDate) {
-      onChange(toYYYYMMDD(selectedDate));
+      if (event.type === 'dismissed') return;
+      if (selectedDate) onChange(toYYYYMMDD(selectedDate));
+    } else if (selectedDate) {
+      setTempDate(selectedDate);
     }
   };
 
+  const handleOpenPicker = () => {
+    setTempDate(parseValue(value));
+    setShowPicker(true);
+  };
+
   const handleConfirmIOS = () => {
+    onChange(toYYYYMMDD(tempDate));
     setShowPicker(false);
   };
 
@@ -65,7 +75,7 @@ export default function DateOfBirthPicker({
             borderColor: colors.border,
           },
         ]}
-        onPress={() => setShowPicker(true)}
+        onPress={handleOpenPicker}
         accessibilityRole="button"
         accessibilityLabel="Select date of birth"
         accessibilityHint="Opens a date picker"
@@ -88,12 +98,17 @@ export default function DateOfBirthPicker({
               <Pressable
                 onPress={() => setShowPicker(false)}
                 accessibilityRole="button"
+                accessibilityLabel="Cancel date selection"
               >
                 <Text style={[styles.actionText, { color: colors.textMuted }]}>
                   Cancel
                 </Text>
               </Pressable>
-              <Pressable onPress={handleConfirmIOS} accessibilityRole="button">
+              <Pressable
+                onPress={handleConfirmIOS}
+                accessibilityRole="button"
+                accessibilityLabel="Confirm date selection"
+              >
                 <Text style={[styles.actionText, { color: colors.primary }]}>
                   Done
                 </Text>
@@ -101,7 +116,7 @@ export default function DateOfBirthPicker({
             </View>
           )}
           <DateTimePicker
-            value={parseValue(value)}
+            value={Platform.OS === 'ios' ? tempDate : parseValue(value)}
             mode="date"
             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
             maximumDate={eighteenYearsAgo}

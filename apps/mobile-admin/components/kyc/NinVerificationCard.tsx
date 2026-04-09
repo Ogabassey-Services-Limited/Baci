@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -43,6 +43,15 @@ export default function NinVerificationCard({
   const [lastName, setLastName] = useState(prefillLastName ?? '');
   const [dateOfBirth, setDateOfBirth] = useState(prefillDob ?? '');
 
+  useEffect(() => {
+    if (!verified) {
+      setNin(prefillNin ?? '');
+      setFirstName(prefillFirstName ?? '');
+      setLastName(prefillLastName ?? '');
+      setDateOfBirth(prefillDob ?? '');
+    }
+  }, [prefillNin, prefillFirstName, prefillLastName, prefillDob, verified]);
+
   const mutation = useMutation({
     mutationFn: () =>
       apiClient<VerifyNinResponse>('/api/merchant/verify-nin', {
@@ -73,9 +82,11 @@ export default function NinVerificationCard({
         );
         return;
       }
-      const message =
-        error instanceof Error ? error.message : 'An unexpected error occurred';
-      Alert.alert('Error', message);
+      console.error('NIN verification error:', error);
+      Alert.alert(
+        'Verification Error',
+        'Unable to verify NIN. Please check your connection and try again.'
+      );
     },
   });
 
@@ -93,6 +104,10 @@ export default function NinVerificationCard({
         'Invalid Date',
         'Please enter a valid date of birth in YYYY-MM-DD format.'
       );
+      return;
+    }
+    if (new Date(dateOfBirth) >= new Date()) {
+      Alert.alert('Invalid Date', 'Date of birth must be in the past.');
       return;
     }
     mutation.mutate();

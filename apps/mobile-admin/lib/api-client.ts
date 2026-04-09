@@ -303,9 +303,21 @@ export async function apiFormData<T = unknown>(
     clearTimeout(timeoutId);
 
     if (error instanceof Error && error.name === 'AbortError') {
+      console.error('[API FormData Timeout]', String(url));
       throw new NetworkError(
         'Upload timed out. Please check your connection and try again.',
         { isTimeout: true }
+      );
+    }
+
+    if (
+      error instanceof TypeError &&
+      error.message === 'Network request failed'
+    ) {
+      console.error('[API FormData Offline]', String(url));
+      throw new NetworkError(
+        'Unable to connect. Please check your internet connection.',
+        { isOffline: true }
       );
     }
 

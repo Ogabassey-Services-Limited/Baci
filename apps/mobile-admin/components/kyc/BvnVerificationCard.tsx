@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -59,6 +59,23 @@ export default function BvnVerificationCard({
   const [dateOfBirth, setDateOfBirth] = useState(prefillDob ?? '');
   const [mobileNo, setMobileNo] = useState(prefillMobileNo ?? '');
 
+  useEffect(() => {
+    if (!verified) {
+      setBvn(prefillBvn ?? '');
+      setFirstName(prefillFirstName ?? '');
+      setLastName(prefillLastName ?? '');
+      setDateOfBirth(prefillDob ?? '');
+      setMobileNo(prefillMobileNo ?? '');
+    }
+  }, [
+    prefillBvn,
+    prefillFirstName,
+    prefillLastName,
+    prefillDob,
+    prefillMobileNo,
+    verified,
+  ]);
+
   const mutation = useMutation({
     mutationFn: () =>
       apiClient<VerifyBvnResponse>('/api/merchant/verify-bvn', {
@@ -90,9 +107,11 @@ export default function BvnVerificationCard({
         );
         return;
       }
-      const message =
-        error instanceof Error ? error.message : 'An unexpected error occurred';
-      Alert.alert('Error', message);
+      console.error('BVN verification error:', error);
+      Alert.alert(
+        'Verification Error',
+        'Unable to verify BVN. Please check your connection and try again.'
+      );
     },
   });
 
@@ -110,6 +129,10 @@ export default function BvnVerificationCard({
         'Invalid Date',
         'Please enter a valid date of birth in YYYY-MM-DD format.'
       );
+      return;
+    }
+    if (new Date(dateOfBirth) >= new Date()) {
+      Alert.alert('Invalid Date', 'Date of birth must be in the past.');
       return;
     }
     if (!MOBILE_REGEX.test(mobileNo)) {

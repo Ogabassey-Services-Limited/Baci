@@ -26,7 +26,15 @@ const bvnFormSchema = z.object({
   dateOfBirth: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date of birth is required')
-    .refine((val) => !Number.isNaN(Date.parse(val)), 'Invalid date'),
+    .refine((val) => {
+      const [year, month, day] = val.split('-').map(Number);
+      const date = new Date(year, month - 1, day);
+      return (
+        date.getFullYear() === year &&
+        date.getMonth() === month - 1 &&
+        date.getDate() === day
+      );
+    }, 'Invalid date'),
   mobileNo: z
     .string()
     .regex(/^0\d{10}$/, 'Enter a valid 11-digit phone number starting with 0'),

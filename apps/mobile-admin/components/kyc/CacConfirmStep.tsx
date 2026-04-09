@@ -53,6 +53,7 @@ export default function CacConfirmStep({
           style={[styles.buttonOutline, { borderColor: colors.border }]}
           onPress={onBack}
           accessibilityRole="button"
+          accessibilityLabel="Go back to previous step"
         >
           <Text style={[styles.buttonOutlineText, { color: colors.text }]}>
             Back
@@ -62,6 +63,7 @@ export default function CacConfirmStep({
           style={[styles.button, { backgroundColor: colors.primary }]}
           onPress={onConfirm}
           accessibilityRole="button"
+          accessibilityLabel="Confirm company details and upload certificate"
         >
           <Text style={[styles.buttonText, { color: colors.textOnPrimary }]}>
             Confirm & Upload Certificate
@@ -87,6 +89,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: SPACING.sm,
     alignItems: 'center',
+    marginTop: SPACING.lg,
   },
   buttonOutline: {
     borderWidth: 1,

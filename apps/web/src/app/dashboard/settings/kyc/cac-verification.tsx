@@ -9,7 +9,7 @@ import {
   Upload,
   XCircle,
 } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -57,6 +57,12 @@ export function CacVerification({
     verified: boolean;
     reason?: string;
   } | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (filePreview) URL.revokeObjectURL(filePreview);
+    };
+  }, [filePreview]);
 
   if (verified) {
     return (
@@ -138,6 +144,7 @@ export function CacVerification({
       return;
     }
     setSelectedFile(file);
+    if (filePreview) URL.revokeObjectURL(filePreview);
     setFilePreview(
       file.type.startsWith('image/') ? URL.createObjectURL(file) : null
     );
@@ -168,6 +175,7 @@ export function CacVerification({
     setCacStep('search');
     setSelectedCompany(null);
     setSelectedFile(null);
+    if (filePreview) URL.revokeObjectURL(filePreview);
     setFilePreview(null);
     setVerifyResult(null);
     setCompanies([]);
@@ -178,20 +186,20 @@ export function CacVerification({
     <div className="space-y-4">
       {cacStep === 'search' && (
         <>
-          <div className="flex gap-2">
+          <form
+            className="flex gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSearch();
+            }}
+          >
             <Input
               placeholder="Enter RC or BN number"
               value={rcNumber}
               onChange={(e) => setRcNumber(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSearch();
-              }}
               aria-label="RC or BN number"
             />
-            <Button
-              onClick={handleSearch}
-              disabled={searching || !rcNumber.trim()}
-            >
+            <Button type="submit" disabled={searching || !rcNumber.trim()}>
               {searching ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
@@ -199,7 +207,7 @@ export function CacVerification({
               )}
               Search CAC
             </Button>
-          </div>
+          </form>
           {companies.length > 0 && (
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">
