@@ -28,6 +28,10 @@ vi.mock('react-native', async () => {
   };
 });
 
+vi.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 59, right: 0, bottom: 34, left: 0 }),
+}));
+
 vi.mock('expo-router', async () => {
   const React = await import('react');
 

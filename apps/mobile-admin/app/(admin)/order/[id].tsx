@@ -51,7 +51,6 @@ import type { ReceiptMerchant, ReceiptOrder } from '@baci/shared';
 import { generateReceiptHtml, getBankNameFromCode } from '@baci/shared';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { z } from 'zod';
 import {
   OrderItemDetailModal,
@@ -1193,10 +1192,7 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
   };
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      edges={['bottom']}
-    >
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen
         options={{
           headerShown: true,
@@ -1328,7 +1324,9 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
                           styles.progressLine,
                           {
                             backgroundColor:
-                              index < currentStepIndex ? stepColor : colors.border,
+                              index < currentStepIndex
+                                ? stepColor
+                                : colors.border,
                           },
                         ]}
                       />
@@ -2450,7 +2448,7 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
         }
         onClose={() => setSelectedOrderItem(null)}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
