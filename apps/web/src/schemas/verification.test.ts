@@ -66,6 +66,22 @@ describe('cacVerifyFormSchema', () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it('rejects rcNumber exceeding 50 chars', () => {
+    const result = cacVerifyFormSchema.safeParse({
+      rcNumber: 'R'.repeat(51),
+      approvedName: 'Baci Technologies Ltd',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects approvedName exceeding 200 chars', () => {
+    const result = cacVerifyFormSchema.safeParse({
+      rcNumber: 'RC123456',
+      approvedName: 'A'.repeat(201),
+    });
+    expect(result.success).toBe(false);
+  });
 });
 
 describe('bvnVerifySchema', () => {
@@ -150,6 +166,14 @@ describe('bvnVerifySchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it('rejects invalid calendar date (e.g. Feb 31)', () => {
+    const result = bvnVerifySchema.safeParse({
+      ...validBVN,
+      dateOfBirth: '2025-02-31',
+    });
+    expect(result.success).toBe(false);
+  });
+
   it('rejects firstName exceeding 100 chars', () => {
     const result = bvnVerifySchema.safeParse({
       ...validBVN,
@@ -223,6 +247,14 @@ describe('ninVerifySchema', () => {
     const result = ninVerifySchema.safeParse({
       ...validNIN,
       dateOfBirth: '15/05/1992',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects invalid calendar date (e.g. Feb 31)', () => {
+    const result = ninVerifySchema.safeParse({
+      ...validNIN,
+      dateOfBirth: '2025-02-31',
     });
     expect(result.success).toBe(false);
   });

@@ -151,6 +151,21 @@ describe('POST /api/merchant/cac-search', () => {
     await expect(res.json()).resolves.toEqual({ companies: mockCompanies });
   });
 
+  it('returns 502 when CAC API returns a non-OK response', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+      ok: false,
+      status: 503,
+    } as Response);
+
+    const req = makeRequest({ searchTerm: 'Baci Tech' });
+    const res = await POST(req);
+
+    expect(res.status).toBe(502);
+    await expect(res.json()).resolves.toMatchObject({
+      error: 'CAC search service unavailable',
+    });
+  });
+
   it('returns 500 when CAC API fetch throws', async () => {
     vi.spyOn(global, 'fetch').mockRejectedValueOnce(new Error('Network error'));
 

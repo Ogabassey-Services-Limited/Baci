@@ -155,7 +155,7 @@ describe('ProductOptionSelectors — dependent variant filtering', () => {
     expect(onSelectAttribute).not.toHaveBeenCalled();
   });
 
-  it('marks unavailable options as disabled with line-through styling', () => {
+  it('marks unavailable options as disabled', () => {
     renderSelectors({
       selectedAttributes: { ram: '8GB' },
       effectiveAxes: ['storage'],
@@ -165,7 +165,7 @@ describe('ProductOptionSelectors — dependent variant filtering', () => {
     expect(disabled256).toBeDisabled();
   });
 
-  it('disables all storage options when selected combination is impossible', () => {
+  it('disables unreachable storage options, leaving reachable ones enabled', () => {
     // ram=8GB only pairs with 128GB — selecting storage=512GB is impossible
     renderSelectors({
       selectedAttributes: { ram: '8GB', storage: '512GB' },

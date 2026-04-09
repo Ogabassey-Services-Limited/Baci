@@ -240,15 +240,21 @@ export function ProductOptionSelectors({
                 </label>
                 <div className="mt-3 flex flex-wrap gap-3">
                   {(() => {
-                    const availableForAxis = getAvailableOptionsForAxis(
-                      axis,
-                      productData.variants,
-                      selectedAttributes,
-                    );
+                    const hasVariants =
+                      Array.isArray(productData.variants) &&
+                      productData.variants.length > 0;
+                    const availableForAxis = hasVariants
+                      ? getAvailableOptionsForAxis(
+                          axis,
+                          productData.variants,
+                          selectedAttributes,
+                        )
+                      : null;
                     return options.map((value) => {
-                      // An empty availableForAxis means no variants are reachable
-                      // with the current selection — treat all options as unavailable
-                      const isAvailable = availableForAxis.includes(value);
+                      // When no variant rows exist, all options are available
+                      const isAvailable =
+                        availableForAxis === null ||
+                        availableForAxis.includes(value);
                       const isSelected = selectedAttributes[axis] === value;
                       return (
                         <button

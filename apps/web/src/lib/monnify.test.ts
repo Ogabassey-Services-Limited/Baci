@@ -42,6 +42,7 @@ describe('getMonnifyToken', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -148,7 +149,5 @@ describe('getMonnifyToken', () => {
 
     expect(token1).toBe('token-1');
     expect(token2).toBe('token-2');
-
-    vi.useRealTimers();
   });
 });

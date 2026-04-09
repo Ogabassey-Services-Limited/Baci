@@ -45,6 +45,14 @@ CREATE POLICY "owner_read_kyc_docs" ON storage.objects
     )
   );
 
+CREATE POLICY "owner_delete_kyc_docs" ON storage.objects
+  FOR DELETE USING (
+    bucket_id = 'kyc-documents'
+    AND (storage.foldername(name))[1] IN (
+      SELECT id::text FROM merchants WHERE user_id = auth.uid()
+    )
+  );
+
 CREATE OR REPLACE FUNCTION public.record_cac_verification(
   p_merchant_id UUID, p_cac_certificate_path TEXT,
   p_cac_approved_name TEXT, p_rc_number TEXT

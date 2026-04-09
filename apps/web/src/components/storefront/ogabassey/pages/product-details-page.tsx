@@ -133,8 +133,12 @@ export function ProductDetailsPage({ product }: ProductDetailsPageProps) {
   }, []);
 
   const handleAttributeSelection = (axis: string, value: string) => {
+    const hasVariants =
+      Array.isArray(productData.variants) && productData.variants.length > 0;
     setSelectedAttributes((prev) => {
       const next = { ...prev, [axis]: value };
+      // When no variant rows exist, preserve all sibling selections
+      if (!hasVariants) return next;
       // Drop sibling selections that are no longer reachable with the new choice
       return Object.fromEntries(
         Object.entries(next).filter(([key, selectedValue]) => {
