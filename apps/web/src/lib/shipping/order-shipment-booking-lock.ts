@@ -11,9 +11,35 @@ type ClaimOrderShipmentBookingRow = {
 };
 
 export type ClaimOrderShipmentBookingResult =
-  | { status: 'claimed'; lockToken: string }
+  | { status: 'claimed'; lockToken: string | null }
   | { status: 'already_booked' }
   | { status: 'in_progress' };
+
+type RpcErrorLike = {
+  code?: string;
+  message?: string;
+  details?: string;
+  hint?: string;
+};
+
+function isMissingBookingLockInfrastructure(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const rpcError = error as RpcErrorLike;
+  const haystack = [rpcError.message, rpcError.details, rpcError.hint]
+    .filter((value): value is string => typeof value === 'string')
+    .join(' ')
+    .toLowerCase();
+
+  return (
+    rpcError.code === '42883' ||
+    rpcError.code === 'PGRST202' ||
+    haystack.includes('claim_order_shipment_booking') ||
+    haystack.includes('schema cache')
+  );
+}
 
 function getClaimRow(
   value: ClaimOrderShipmentBookingRow[] | ClaimOrderShipmentBookingRow | null
@@ -43,6 +69,16 @@ export async function claimOrderShipmentBooking(
   );
 
   if (error) {
+    if (isMissingBookingLockInfrastructure(error)) {
+      console.warn(
+        '[Shipping] Shipment booking lock infrastructure unavailable; continuing without DB lock.'
+      );
+      return {
+        status: 'claimed',
+        lockToken: null,
+      };
+    }
+
     throw new OrderShipmentBookingError(
       'Failed to reserve this order for shipment booking.',
       500,
