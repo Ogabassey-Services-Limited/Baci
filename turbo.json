@@ -23,6 +23,8 @@
         "IMPORT_JOB_DIRECT_UPLOAD_ENABLED",
         "MONNIFY_API_KEY",
         "MONNIFY_SECRET_KEY",
+        "MONNIFY_BASE_URL",
+        "CAC_API_URL",
         "OLLAMA_BASE_URL",
         "OLLAMA_CAC_MODEL",
         "OLLAMA_BASIC_AUTH"

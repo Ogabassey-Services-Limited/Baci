@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest, getUserAccess } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { checkRateLimit } from '@/lib/rate-limiter';
 import {
   compareCACData,
   extractCACCertificateData,
@@ -57,6 +58,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  const allowed = await checkRateLimit(
+    auth.supabase,
+    auth.user.id,
+    'verify-cac',
+    3,
+    1
+  );
+  if (!allowed) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded', code: 'rate_limited' },
+      { status: 429 }
+    );
+  }
+
   let formData: FormData;
   try {
     formData = await request.formData();
@@ -97,12 +112,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  let storagePath: string | undefined;
   try {
     const arrayBuffer = await file.arrayBuffer();
     const fileBuffer = new Uint8Array(arrayBuffer);
 
     const ext = getExtension(mimeType);
-    const storagePath = `${access.merchantId}/cac-${Date.now()}.${ext}`;
+    storagePath = `${access.merchantId}/cac-${Date.now()}.${ext}`;
 
     const { error: uploadError } = await auth.supabase.storage
       .from('kyc-documents')
@@ -152,6 +168,9 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         );
       }
+    } else {
+      // Certificate didn't match — remove the uploaded file
+      await auth.supabase.storage.from('kyc-documents').remove([storagePath]);
     }
 
     return NextResponse.json({
@@ -160,6 +179,9 @@ export async function POST(request: NextRequest) {
     });
   } catch (err) {
     console.error('verify-cac error:', err);
+    if (storagePath) {
+      await auth.supabase.storage.from('kyc-documents').remove([storagePath]);
+    }
     return NextResponse.json({ error: 'Verification failed' }, { status: 500 });
   }
 }

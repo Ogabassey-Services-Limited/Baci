@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: vi.fn(),
@@ -10,6 +10,10 @@ vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: vi.fn(),
 }));
 
+vi.mock('@/lib/rate-limiter', () => ({
+  checkRateLimit: vi.fn(),
+}));
+
 vi.mock('@/lib/monnify', () => ({
   getMonnifyToken: vi.fn(),
 }));
@@ -17,6 +21,7 @@ vi.mock('@/lib/monnify', () => ({
 import { authenticateApiRequest, getUserAccess } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getMonnifyToken } from '@/lib/monnify';
+import { checkRateLimit } from '@/lib/rate-limiter';
 import { POST } from './route';
 
 const mockOwnerAccess = {
@@ -82,6 +87,7 @@ describe('POST /api/merchant/verify-nin', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(checkCsrfProtection).mockResolvedValue({ valid: true });
+    vi.mocked(checkRateLimit).mockResolvedValue(true);
     vi.mocked(getMonnifyToken).mockResolvedValue('mock-token');
     vi.mocked(authenticateApiRequest).mockResolvedValue({
       user: { id: 'user-1' },
@@ -123,8 +129,24 @@ describe('POST /api/merchant/verify-nin', () => {
     await expect(res.json()).resolves.toEqual({ error: 'Forbidden' });
   });
 
+  it('returns 429 when rate limit is exceeded', async () => {
+    vi.mocked(checkRateLimit).mockResolvedValue(false);
+
+    const res = await POST(makeRequest(validNinBody));
+
+    expect(res.status).toBe(429);
+  });
+
   it('returns 400 when NIN validation fails (10 digits)', async () => {
     const res = await POST(makeRequest({ ...validNinBody, nin: '1234567890' }));
+
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when dateOfBirth is not YYYY-MM-DD format', async () => {
+    const res = await POST(
+      makeRequest({ ...validNinBody, dateOfBirth: '15-01-1990' })
+    );
 
     expect(res.status).toBe(400);
   });

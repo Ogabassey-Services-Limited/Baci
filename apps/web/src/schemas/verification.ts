@@ -1,25 +1,34 @@
 import { z } from 'zod';
+import { sanitizeText } from '@/lib/sanitize-core';
+
+const sanitize = (s: string) => sanitizeText(s);
 
 export const cacSearchSchema = z.object({
-  searchTerm: z.string().min(2).max(200),
+  searchTerm: z.string().min(2).max(200).transform(sanitize),
 });
 
 export const cacVerifyFormSchema = z.object({
-  rcNumber: z.string().min(1),
-  approvedName: z.string().min(1),
+  rcNumber: z.string().min(1).max(50).transform(sanitize),
+  approvedName: z.string().min(1).max(200).transform(sanitize),
 });
 
 export const bvnVerifySchema = z.object({
   bvn: z.string().regex(/^\d{11}$/),
-  firstName: z.string().min(1),
-  lastName: z.string().min(1),
-  dateOfBirth: z.string().min(1),
-  mobileNo: z.string().min(1),
+  firstName: z.string().min(1).max(100).transform(sanitize),
+  lastName: z.string().min(1).max(100).transform(sanitize),
+  dateOfBirth: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
+  mobileNo: z
+    .string()
+    .regex(/^0\d{10}$/, 'Invalid Nigerian mobile number format'),
 });
 
 export const ninVerifySchema = z.object({
   nin: z.string().regex(/^\d{11}$/),
-  firstName: z.string().min(1),
-  lastName: z.string().min(1),
-  dateOfBirth: z.string().min(1),
+  firstName: z.string().min(1).max(100).transform(sanitize),
+  lastName: z.string().min(1).max(100).transform(sanitize),
+  dateOfBirth: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
 });

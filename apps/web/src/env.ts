@@ -52,6 +52,13 @@ const serverSchema = z.object({
   // Monnify (Identity verification)
   MONNIFY_API_KEY: z.string().optional(),
   MONNIFY_SECRET_KEY: z.string().optional(),
+  MONNIFY_BASE_URL: z.string().url().default('https://api.monnify.com'),
+  CAC_API_URL: z
+    .string()
+    .url()
+    .default(
+      'https://icrp.cac.gov.ng/name_similarity_app/api/public_search/search'
+    ),
   // Ollama (CAC certificate OCR — Gemma 4 on VPS)
   OLLAMA_BASE_URL: z
     .string()
@@ -147,6 +154,8 @@ const getEnv = () => {
         EXPO_ACCESS_TOKEN: process.env.EXPO_ACCESS_TOKEN,
         MONNIFY_API_KEY: process.env.MONNIFY_API_KEY,
         MONNIFY_SECRET_KEY: process.env.MONNIFY_SECRET_KEY,
+        MONNIFY_BASE_URL: process.env.MONNIFY_BASE_URL,
+        CAC_API_URL: process.env.CAC_API_URL,
         OLLAMA_BASE_URL: process.env.OLLAMA_BASE_URL,
         OLLAMA_CAC_MODEL: process.env.OLLAMA_CAC_MODEL,
         OLLAMA_BASIC_AUTH: process.env.OLLAMA_BASIC_AUTH,
@@ -337,6 +346,11 @@ export const getMonnifySecretKey = () => {
     throw new Error('MONNIFY_SECRET_KEY cannot be accessed on the client');
   return env?.MONNIFY_SECRET_KEY;
 };
+export const getMonnifyBaseUrl = () =>
+  env?.MONNIFY_BASE_URL ?? 'https://api.monnify.com';
+export const getCacApiUrl = () =>
+  env?.CAC_API_URL ??
+  'https://icrp.cac.gov.ng/name_similarity_app/api/public_search/search';
 export const getOllamaBaseUrl = () => env?.OLLAMA_BASE_URL;
 export const getOllamaCacModel = () => env?.OLLAMA_CAC_MODEL ?? 'gemma4:e4b';
 export const getOllamaBasicAuth = () => {

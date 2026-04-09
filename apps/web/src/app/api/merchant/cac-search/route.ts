@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { getCacApiUrl } from '@/env';
 import { authenticateApiRequest, getUserAccess } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { checkRateLimit } from '@/lib/rate-limiter';
 import { cacSearchSchema } from '@/schemas/verification';
 
 export async function POST(request: NextRequest) {
@@ -29,6 +31,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  const allowed = await checkRateLimit(
+    auth.supabase,
+    auth.user.id,
+    'cac-search',
+    10,
+    1
+  );
+  if (!allowed) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded', code: 'rate_limited' },
+      { status: 429 }
+    );
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -48,9 +64,12 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const cacResponse = await fetch(
-      'https://icrp.cac.gov.ng/name_similarity_app/api/public_search/search',
-      {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10_000);
+
+    let cacResponse: Response;
+    try {
+      cacResponse = await fetch(getCacApiUrl(), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -60,8 +79,11 @@ export async function POST(request: NextRequest) {
           Referer: 'https://icrp.cac.gov.ng/public-search',
         },
         body: JSON.stringify({ searchTerm: parsed.data.searchTerm }),
-      }
-    );
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
 
     if (!cacResponse.ok) {
       return NextResponse.json(

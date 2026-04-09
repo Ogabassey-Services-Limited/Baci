@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: vi.fn(),
@@ -10,8 +10,13 @@ vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: vi.fn(),
 }));
 
+vi.mock('@/lib/rate-limiter', () => ({
+  checkRateLimit: vi.fn(),
+}));
+
 import { authenticateApiRequest, getUserAccess } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { checkRateLimit } from '@/lib/rate-limiter';
 import { POST } from './route';
 
 function makeRequest(body: unknown, headers: Record<string, string> = {}) {
@@ -51,6 +56,7 @@ describe('POST /api/merchant/cac-search', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(checkCsrfProtection).mockResolvedValue({ valid: true });
+    vi.mocked(checkRateLimit).mockResolvedValue(true);
     vi.mocked(authenticateApiRequest).mockResolvedValue({
       user: mockUser,
       error: null,
@@ -95,6 +101,15 @@ describe('POST /api/merchant/cac-search', () => {
 
     expect(res.status).toBe(403);
     await expect(res.json()).resolves.toEqual({ error: 'Forbidden' });
+  });
+
+  it('returns 429 when rate limit is exceeded', async () => {
+    vi.mocked(checkRateLimit).mockResolvedValue(false);
+
+    const req = makeRequest({ searchTerm: 'Baci Tech' });
+    const res = await POST(req);
+
+    expect(res.status).toBe(429);
   });
 
   it('returns 400 when searchTerm is missing', async () => {

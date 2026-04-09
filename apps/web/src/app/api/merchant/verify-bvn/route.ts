@@ -1,7 +1,9 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { getMonnifyBaseUrl } from '@/env';
 import { authenticateApiRequest, getUserAccess } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getMonnifyToken } from '@/lib/monnify';
+import { checkRateLimit } from '@/lib/rate-limiter';
 import { bvnVerifySchema } from '@/schemas/verification';
 import type { MonnifyBVNMatchResponse } from '@/types/monnify';
 
@@ -31,6 +33,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  const allowed = await checkRateLimit(
+    auth.supabase,
+    auth.user.id,
+    'verify-bvn',
+    3,
+    1
+  );
+  if (!allowed) {
+    return NextResponse.json(
+      { error: 'Rate limit exceeded', code: 'rate_limited' },
+      { status: 429 }
+    );
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -54,29 +70,38 @@ export async function POST(request: NextRequest) {
   try {
     const token = await getMonnifyToken();
 
-    const monnifyRes = await fetch(
-      'https://api.monnify.com/api/v1/vas/bvn-details-match',
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          bvn,
-          name: `${firstName} ${lastName}`,
-          dateOfBirth,
-          mobileNo,
-        }),
-      }
-    );
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30_000);
+
+    let monnifyRes: Response;
+    try {
+      monnifyRes = await fetch(
+        `${getMonnifyBaseUrl()}/api/v1/vas/bvn-details-match`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            bvn,
+            name: `${firstName} ${lastName}`,
+            dateOfBirth,
+            mobileNo,
+          }),
+          signal: controller.signal,
+        }
+      );
+    } finally {
+      clearTimeout(timeout);
+    }
 
     if (!monnifyRes.ok) {
       throw new Error(`Monnify BVN check failed: ${monnifyRes.status}`);
     }
 
     const data = (await monnifyRes.json()) as MonnifyBVNMatchResponse;
-    const matched = data.responseBody.matchStatus === 'FULL_MATCH';
+    const matched = data.responseBody?.matchStatus === 'FULL_MATCH';
 
     if (matched) {
       const { error: rpcError } = await auth.supabase.rpc(
@@ -101,7 +126,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ verified: matched });
   } catch (err) {
-    console.error('verify-bvn error:', err);
+    console.error(
+      'verify-bvn error:',
+      err instanceof Error ? err.message : 'Unknown error'
+    );
     return NextResponse.json(
       { error: 'BVN verification failed' },
       { status: 500 }

@@ -1581,6 +1581,12 @@ export default function NewOrderScreen() {
           <FlatList
             data={filteredProducts}
             keyExtractor={(item) => item.id}
+            // ⚡ Bolt: Prevent UI thread blocking during modal open by virtualizing the product list
+            // Expected Impact: Reduces initial render time for the modal and decreases memory footprint
+            initialNumToRender={20}
+            maxToRenderPerBatch={20}
+            windowSize={10}
+            removeClippedSubviews={Platform.OS === 'android'}
             renderItem={({ item }) => {
               const conditionLabel = item.condition
                 ? item.condition.replace(/_/g, ' ')
@@ -2064,6 +2070,12 @@ export default function NewOrderScreen() {
               <FlatList
                 data={customersData?.pages.flatMap((p) => p.customers) || []}
                 keyExtractor={(item) => item.id}
+                // ⚡ Bolt: Prevent UI thread blocking during modal open by virtualizing the customer list
+                // Expected Impact: Reduces initial render time for the modal and decreases memory footprint
+                initialNumToRender={20}
+                maxToRenderPerBatch={20}
+                windowSize={10}
+                removeClippedSubviews={Platform.OS === 'android'}
                 contentContainerStyle={{ paddingBottom: 40 }}
                 renderItem={({ item }) => (
                   <Pressable

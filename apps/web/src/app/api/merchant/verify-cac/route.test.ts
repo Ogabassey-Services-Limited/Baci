@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: vi.fn(),
@@ -10,6 +10,10 @@ vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: vi.fn(),
 }));
 
+vi.mock('@/lib/rate-limiter', () => ({
+  checkRateLimit: vi.fn(),
+}));
+
 vi.mock('@/lib/verify-cac-certificate', () => ({
   extractCACCertificateData: vi.fn(),
   compareCACData: vi.fn(),
@@ -17,6 +21,7 @@ vi.mock('@/lib/verify-cac-certificate', () => ({
 
 import { authenticateApiRequest, getUserAccess } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { checkRateLimit } from '@/lib/rate-limiter';
 import {
   compareCACData,
   extractCACCertificateData,
@@ -37,17 +42,6 @@ function makeRpcMock(error: unknown = null) {
   return vi.fn().mockResolvedValue({ error });
 }
 
-function _makeStorageMock(uploadError: unknown = null) {
-  return {
-    storage: {
-      from: vi.fn(() => ({
-        upload: vi.fn().mockResolvedValue({ error: uploadError }),
-      })),
-    },
-    rpc: makeRpcMock(),
-  };
-}
-
 function makeSupabaseMock(
   uploadError: unknown = null,
   rpcError: unknown = null
@@ -56,9 +50,10 @@ function makeSupabaseMock(
     storage: {
       from: vi.fn(() => ({
         upload: vi.fn().mockResolvedValue({ error: uploadError }),
+        remove: vi.fn().mockResolvedValue({ error: null }),
       })),
     },
-    rpc: vi.fn().mockResolvedValue({ error: rpcError }),
+    rpc: makeRpcMock(rpcError),
   };
 }
 
@@ -88,9 +83,14 @@ function makeValidFile(
 }
 
 describe('POST /api/merchant/verify-cac', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(checkCsrfProtection).mockResolvedValue({ valid: true });
+    vi.mocked(checkRateLimit).mockResolvedValue(true);
     vi.mocked(authenticateApiRequest).mockResolvedValue({
       user: { id: 'user-1' },
       error: null,
@@ -150,6 +150,19 @@ describe('POST /api/merchant/verify-cac', () => {
 
     expect(res.status).toBe(403);
     await expect(res.json()).resolves.toEqual({ error: 'Forbidden' });
+  });
+
+  it('returns 429 when rate limit is exceeded', async () => {
+    vi.mocked(checkRateLimit).mockResolvedValue(false);
+
+    const req = makeFormDataRequest({
+      file: makeValidFile(),
+      rcNumber: 'RC123456',
+      approvedName: 'Baci Technologies',
+    });
+    const res = await POST(req);
+
+    expect(res.status).toBe(429);
   });
 
   it('returns 400 when file is missing', async () => {

@@ -125,6 +125,38 @@ describe('bvnVerifySchema', () => {
     const result = bvnVerifySchema.safeParse({ ...validBVN, mobileNo: '' });
     expect(result.success).toBe(false);
   });
+
+  it('rejects mobileNo without leading 0 (invalid Nigerian format)', () => {
+    const result = bvnVerifySchema.safeParse({
+      ...validBVN,
+      mobileNo: '8012345678',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects mobileNo that is only 10 digits', () => {
+    const result = bvnVerifySchema.safeParse({
+      ...validBVN,
+      mobileNo: '0801234567',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects dateOfBirth not in YYYY-MM-DD format', () => {
+    const result = bvnVerifySchema.safeParse({
+      ...validBVN,
+      dateOfBirth: '01-01-1990',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects firstName exceeding 100 chars', () => {
+    const result = bvnVerifySchema.safeParse({
+      ...validBVN,
+      firstName: 'A'.repeat(101),
+    });
+    expect(result.success).toBe(false);
+  });
 });
 
 describe('ninVerifySchema', () => {
@@ -176,6 +208,22 @@ describe('ninVerifySchema', () => {
 
   it('rejects empty dateOfBirth', () => {
     const result = ninVerifySchema.safeParse({ ...validNIN, dateOfBirth: '' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects dateOfBirth not in YYYY-MM-DD format', () => {
+    const result = ninVerifySchema.safeParse({
+      ...validNIN,
+      dateOfBirth: '15/05/1992',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects firstName exceeding 100 chars', () => {
+    const result = ninVerifySchema.safeParse({
+      ...validNIN,
+      firstName: 'A'.repeat(101),
+    });
     expect(result.success).toBe(false);
   });
 });

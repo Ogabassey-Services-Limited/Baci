@@ -53,6 +53,9 @@ export async function getMonnifyToken(): Promise<string> {
     );
   }
 
+  if (!response.responseBody) {
+    throw new Error('Monnify authentication response missing token');
+  }
   const { accessToken, expiresIn } = response.responseBody;
   const expiresAt = Date.now() + expiresIn * 1000 - EXPIRY_BUFFER_MS;
 
