@@ -53,6 +53,10 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { z } from 'zod';
+import {
+  OrderItemDetailModal,
+  type OrderItemSnapshot,
+} from '@/components/orders/OrderItemDetailModal';
 import { InvalidRouteScreen } from '@/components/ui/InvalidRouteScreen';
 import { ReceiptPreviewModal } from '@/components/ui/ReceiptPreviewModal';
 import SafeImage from '@/components/ui/SafeImage';
@@ -203,6 +207,8 @@ export default function OrderDetailsScreen() {
   const [showReceiptPreview, setShowReceiptPreview] = useState(false);
   const [receiptHtml, setReceiptHtml] = useState('');
   const [isGeneratingReceipt, setIsGeneratingReceipt] = useState(false);
+  const [selectedOrderItem, setSelectedOrderItem] =
+    useState<OrderItemSnapshot | null>(null);
 
   const [successModal, setSuccessModal] = useState({
     visible: false,
@@ -222,7 +228,8 @@ export default function OrderDetailsScreen() {
       showFulfillmentModal ||
       showRiderModal ||
       showPaymentOptionModal ||
-      showRecordPaymentModal;
+      showRecordPaymentModal ||
+      selectedOrderItem !== null;
 
     if (!anyModalOpen) return;
 
@@ -233,6 +240,10 @@ export default function OrderDetailsScreen() {
         if (showRecordPaymentModal) {
           setShowRecordPaymentModal(false);
           return true; // Prevent default back behavior
+        }
+        if (selectedOrderItem) {
+          setSelectedOrderItem(null);
+          return true;
         }
         if (showPaymentOptionModal) {
           setShowPaymentOptionModal(false);
@@ -266,6 +277,7 @@ export default function OrderDetailsScreen() {
     showRiderModal,
     showPaymentOptionModal,
     showRecordPaymentModal,
+    selectedOrderItem,
   ]);
 
   // Formatting Helpers
@@ -942,10 +954,12 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
           (item: {
             product_name?: string;
             name?: string;
+            variant_name?: string;
             quantity: number;
             price: number;
           }) => ({
             product_name: item.product_name || item.name || 'Product',
+            variant_name: item.variant_name,
             quantity: item.quantity,
             price: Number(item.price) || 0,
           })
@@ -1498,11 +1512,7 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
                   borderBottomColor: colors.border,
                 },
               ]}
-              onPress={
-                item.product_id && !item.product_id.startsWith('custom-')
-                  ? () => router.push(`/product/${item.product_id}`)
-                  : undefined
-              }
+              onPress={() => setSelectedOrderItem(item)}
             >
               <View
                 style={[
@@ -1530,6 +1540,16 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
                 >
                   {item.name}
                 </Text>
+                {item.variant_name ? (
+                  <Text
+                    style={[
+                      styles.itemVariant,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    {item.variant_name}
+                  </Text>
+                ) : null}
                 <Text style={[styles.itemRef, { color: colors.textMuted }]}>
                   SKU: {item.product_id?.slice(0, 8)}...
                 </Text>
@@ -2416,6 +2436,20 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
         onShare={handleShareReceiptPdf}
         isPaid={order.payment_status === 'paid'}
       />
+
+      <OrderItemDetailModal
+        visible={selectedOrderItem !== null}
+        item={selectedOrderItem}
+        formattedUnitPrice={
+          selectedOrderItem ? formatPrice(selectedOrderItem.price) : ''
+        }
+        formattedLineTotal={
+          selectedOrderItem
+            ? formatPrice(selectedOrderItem.price * selectedOrderItem.quantity)
+            : ''
+        }
+        onClose={() => setSelectedOrderItem(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -2561,6 +2595,10 @@ const styles = StyleSheet.create({
   itemName: {
     fontSize: TYPOGRAPHY.size.sm,
     fontWeight: '600',
+    marginBottom: 4,
+  },
+  itemVariant: {
+    fontSize: TYPOGRAPHY.size.xs,
     marginBottom: 4,
   },
   itemRef: { fontSize: TYPOGRAPHY.size.xs, marginBottom: 6 },

@@ -140,16 +140,21 @@ export function generateReceiptHtml(
   const itemRows =
     order.items.length > 0
       ? order.items
-          .map(
-            (item, i) => `
+          .map((item, i) => {
+            const baseName = item.product_name || item.name || 'Item';
+            const itemLabel = item.variant_name
+              ? `${baseName} (${item.variant_name})`
+              : baseName;
+
+            return `
       <tr class="${i % 2 === 1 ? 'zebra' : ''}">
         <td class="cell-num">${i + 1}</td>
-        <td class="cell-item">${escapeHtml(item.product_name || item.name || 'Item')}</td>
+        <td class="cell-item">${escapeHtml(itemLabel)}</td>
         <td class="cell-qty">${item.quantity}</td>
         <td class="cell-price">${fmt(item.price)}</td>
         <td class="cell-total">${fmt(item.price * item.quantity)}</td>
-      </tr>`
-          )
+      </tr>`;
+          })
           .join('')
       : '<tr><td colspan="5" style="text-align:center;padding:16px;color:#9ca3af;">No items</td></tr>';
 
