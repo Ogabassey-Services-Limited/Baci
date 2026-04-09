@@ -95,6 +95,12 @@ function normalizeVariantAttributes(attributes?: Record<string, string>) {
   );
 }
 
+/**
+ * Normalizes checkout payment methods to the persisted order values used for
+ * pending-order reuse. Card gateways (`paystack`, `korapay`) are stored as
+ * `card`, methods with distinct downstream handling are persisted as-is, and
+ * anything else falls back to `pod` for pay-on-delivery compatibility.
+ */
 export function normalizeOrderPaymentMethod(paymentMethod: PaymentMethod): string {
   if (paymentMethod === 'paystack' || paymentMethod === 'korapay') {
     return 'card';
