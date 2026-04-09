@@ -1,4 +1,5 @@
 import { SendMailClient } from 'zeptomail';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 // Lazy-initialized client
 let client: SendMailClient | null = null;
@@ -84,6 +85,7 @@ interface SendEmailParams {
   replyTo?: string;
   emailType?: EmailType;
   fromName?: string;
+  auditContext?: EmailAuditContext;
 }
 
 interface SendEmailWithTemplateParams {
@@ -94,6 +96,7 @@ interface SendEmailWithTemplateParams {
   replyTo?: string;
   emailType?: EmailType;
   fromName?: string;
+  auditContext?: EmailAuditContext;
 }
 
 interface EmailResult {
@@ -104,6 +107,35 @@ interface EmailResult {
   errorDetails?: unknown;
 }
 
+interface EmailAuditContext {
+  merchantId?: string | null;
+  orderId?: string | null;
+  customerId?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+interface EmailAttemptRow {
+  transport_type: 'html' | 'template' | 'batch_template';
+  status: 'pending' | 'accepted' | 'failed';
+  email_type: EmailType;
+  recipient_email: string;
+  recipient_name?: string;
+  from_address: string;
+  from_name: string;
+  reply_to?: string;
+  subject?: string;
+  template_key?: string;
+  attempt_count?: number;
+  merchant_id?: string | null;
+  order_id?: string | null;
+  customer_id?: string | null;
+  metadata?: Record<string, unknown>;
+  provider_message_id?: string;
+  provider_error_code?: string;
+  provider_error_message?: string;
+  provider_error_details?: unknown;
+}
+
 interface ZeptoMailError {
   error?: {
     code?: string;
@@ -112,6 +144,10 @@ interface ZeptoMailError {
   };
   message?: string;
 }
+
+type EmailAttemptInsert = EmailAttemptRow & {
+  id?: string;
+};
 
 /**
  * Parse ZeptoMail error response
@@ -135,6 +171,114 @@ function parseError(error: unknown): {
   }
 
   return { message: String(error) };
+}
+
+function buildAuditMetadata(
+  context: EmailAuditContext | undefined,
+  metadata?: Record<string, unknown>
+): Record<string, unknown> {
+  return {
+    ...(context?.metadata ?? {}),
+    ...(metadata ?? {}),
+  };
+}
+
+function getAuditClient() {
+  try {
+    return createAdminClient();
+  } catch (error) {
+    console.error('Email audit client unavailable:', error);
+    return null;
+  }
+}
+
+async function insertEmailAttempts(
+  attempts: EmailAttemptInsert[]
+): Promise<string[]> {
+  if (attempts.length === 0) {
+    return [];
+  }
+
+  const supabase = getAuditClient();
+  if (!supabase) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from('email_send_attempts')
+    .insert(attempts)
+    .select('id');
+
+  if (error) {
+    console.error('Failed to log email attempts:', error);
+    return [];
+  }
+
+  return (data ?? [])
+    .map((row) => row.id)
+    .filter((value): value is string => typeof value === 'string');
+}
+
+async function updateEmailAttempts(
+  ids: string[],
+  patch: Partial<EmailAttemptInsert>
+): Promise<void> {
+  if (ids.length === 0) {
+    return;
+  }
+
+  const supabase = getAuditClient();
+  if (!supabase) {
+    return;
+  }
+
+  const { error } = await supabase
+    .from('email_send_attempts')
+    .update({
+      ...patch,
+      updated_at: new Date().toISOString(),
+    })
+    .in('id', ids);
+
+  if (error) {
+    console.error('Failed to update email attempts:', error);
+  }
+}
+
+function createAuditAttempt(params: {
+  transportType: EmailAttemptRow['transport_type'];
+  emailType: EmailType;
+  recipientEmail: string;
+  recipientName?: string;
+  fromAddress: string;
+  fromName: string;
+  replyTo?: string;
+  subject?: string;
+  templateKey?: string;
+  auditContext?: EmailAuditContext;
+  metadata?: Record<string, unknown>;
+  status?: EmailAttemptRow['status'];
+  providerErrorMessage?: string;
+}): EmailAttemptInsert {
+  return {
+    transport_type: params.transportType,
+    status: params.status ?? 'pending',
+    email_type: params.emailType,
+    recipient_email: params.recipientEmail,
+    recipient_name: params.recipientName,
+    from_address: params.fromAddress,
+    from_name: params.fromName,
+    reply_to: params.replyTo,
+    subject: params.subject,
+    template_key: params.templateKey,
+    merchant_id: params.auditContext?.merchantId ?? null,
+    order_id: params.auditContext?.orderId ?? null,
+    customer_id: params.auditContext?.customerId ?? null,
+    metadata: buildAuditMetadata(params.auditContext, params.metadata),
+    ...(params.providerErrorMessage
+      ? { provider_error_message: params.providerErrorMessage }
+      : {}),
+  };
 }
 
 /**
@@ -176,9 +320,28 @@ export async function sendEmail({
   replyTo,
   emailType = 'noreply',
   fromName,
+  auditContext,
 }: SendEmailParams): Promise<EmailResult> {
+  const sender = getSenderAddress(emailType, fromName);
+
   // Validate email
   if (!isValidEmail(to)) {
+    await insertEmailAttempts([
+      createAuditAttempt({
+        transportType: 'html',
+        emailType,
+        recipientEmail: to,
+        recipientName: toName,
+        fromAddress: sender.address,
+        fromName: sender.name,
+        replyTo,
+        subject,
+        auditContext,
+        status: 'failed',
+        providerErrorMessage: `Invalid email address: ${to}`,
+      }),
+    ]);
+
     return {
       success: false,
       error: `Invalid email address: ${to}`,
@@ -186,6 +349,22 @@ export async function sendEmail({
   }
 
   if (replyTo && !isValidEmail(replyTo)) {
+    await insertEmailAttempts([
+      createAuditAttempt({
+        transportType: 'html',
+        emailType,
+        recipientEmail: to,
+        recipientName: toName,
+        fromAddress: sender.address,
+        fromName: sender.name,
+        replyTo,
+        subject,
+        auditContext,
+        status: 'failed',
+        providerErrorMessage: `Invalid reply-to email address: ${replyTo}`,
+      }),
+    ]);
+
     return {
       success: false,
       error: `Invalid reply-to email address: ${replyTo}`,
@@ -194,11 +373,23 @@ export async function sendEmail({
 
   let lastError: { message: string; code?: string; details?: unknown } | null =
     null;
+  const auditIds = await insertEmailAttempts([
+    createAuditAttempt({
+      transportType: 'html',
+      emailType,
+      recipientEmail: to,
+      recipientName: toName,
+      fromAddress: sender.address,
+      fromName: sender.name,
+      replyTo,
+      subject,
+      auditContext,
+    }),
+  ]);
 
   for (let attempt = 0; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
     try {
       const zeptoClient = getClient();
-      const sender = getSenderAddress(emailType, fromName);
 
       const response = await zeptoClient.sendMail({
         from: sender,
@@ -221,6 +412,12 @@ export async function sendEmail({
             },
           ],
         }),
+      });
+
+      await updateEmailAttempts(auditIds, {
+        status: 'accepted',
+        provider_message_id: response?.request_id || 'unknown',
+        attempt_count: attempt + 1,
       });
 
       return {
@@ -248,6 +445,13 @@ export async function sendEmail({
   }
 
   console.error('ZeptoMail email error:', JSON.stringify(lastError));
+  await updateEmailAttempts(auditIds, {
+    status: 'failed',
+    attempt_count: RETRY_CONFIG.maxRetries + 1,
+    provider_error_code: lastError?.code,
+    provider_error_message: lastError?.message || 'Unknown error',
+    provider_error_details: lastError?.details,
+  });
   return {
     success: false,
     error: lastError?.message || 'Unknown error',
@@ -267,9 +471,28 @@ export async function sendEmailWithTemplate({
   replyTo,
   emailType = 'noreply',
   fromName,
+  auditContext,
 }: SendEmailWithTemplateParams): Promise<EmailResult> {
+  const sender = getSenderAddress(emailType, fromName);
+
   // Validate email
   if (!isValidEmail(to)) {
+    await insertEmailAttempts([
+      createAuditAttempt({
+        transportType: 'template',
+        emailType,
+        recipientEmail: to,
+        recipientName: toName,
+        fromAddress: sender.address,
+        fromName: sender.name,
+        replyTo,
+        templateKey,
+        auditContext,
+        status: 'failed',
+        providerErrorMessage: `Invalid email address: ${to}`,
+      }),
+    ]);
+
     return {
       success: false,
       error: `Invalid email address: ${to}`,
@@ -277,6 +500,22 @@ export async function sendEmailWithTemplate({
   }
 
   if (replyTo && !isValidEmail(replyTo)) {
+    await insertEmailAttempts([
+      createAuditAttempt({
+        transportType: 'template',
+        emailType,
+        recipientEmail: to,
+        recipientName: toName,
+        fromAddress: sender.address,
+        fromName: sender.name,
+        replyTo,
+        templateKey,
+        auditContext,
+        status: 'failed',
+        providerErrorMessage: `Invalid reply-to email address: ${replyTo}`,
+      }),
+    ]);
+
     return {
       success: false,
       error: `Invalid reply-to email address: ${replyTo}`,
@@ -285,11 +524,24 @@ export async function sendEmailWithTemplate({
 
   let lastError: { message: string; code?: string; details?: unknown } | null =
     null;
+  const auditIds = await insertEmailAttempts([
+    createAuditAttempt({
+      transportType: 'template',
+      emailType,
+      recipientEmail: to,
+      recipientName: toName,
+      fromAddress: sender.address,
+      fromName: sender.name,
+      replyTo,
+      templateKey,
+      auditContext,
+      metadata: { mergeInfoKeys: Object.keys(mergeInfo) },
+    }),
+  ]);
 
   for (let attempt = 0; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
     try {
       const zeptoClient = getClient();
-      const sender = getSenderAddress(emailType, fromName);
 
       const response = await zeptoClient.sendMailWithTemplate({
         template_key: templateKey,
@@ -311,6 +563,12 @@ export async function sendEmailWithTemplate({
             },
           ],
         }),
+      });
+
+      await updateEmailAttempts(auditIds, {
+        status: 'accepted',
+        provider_message_id: response?.request_id || 'unknown',
+        attempt_count: attempt + 1,
       });
 
       return {
@@ -337,6 +595,13 @@ export async function sendEmailWithTemplate({
   }
 
   console.error('ZeptoMail template email error:', JSON.stringify(lastError));
+  await updateEmailAttempts(auditIds, {
+    status: 'failed',
+    attempt_count: RETRY_CONFIG.maxRetries + 1,
+    provider_error_code: lastError?.code,
+    provider_error_message: lastError?.message || 'Unknown error',
+    provider_error_details: lastError?.details,
+  });
   return {
     success: false,
     error: lastError?.message || 'Unknown error',
@@ -353,6 +618,7 @@ export async function sendBatchEmailWithTemplate({
   templateKey,
   emailType = 'noreply',
   fromName,
+  auditContext,
 }: {
   recipients: Array<{
     to: string;
@@ -362,10 +628,30 @@ export async function sendBatchEmailWithTemplate({
   templateKey: string;
   emailType?: EmailType;
   fromName?: string;
+  auditContext?: EmailAuditContext;
 }): Promise<EmailResult> {
+  const sender = getSenderAddress(emailType, fromName);
+
   // Validate all emails
   const invalidEmails = recipients.filter((r) => !isValidEmail(r.to));
   if (invalidEmails.length > 0) {
+    await insertEmailAttempts(
+      invalidEmails.map((recipient) =>
+        createAuditAttempt({
+          transportType: 'batch_template',
+          emailType,
+          recipientEmail: recipient.to,
+          recipientName: recipient.toName,
+          fromAddress: sender.address,
+          fromName: sender.name,
+          templateKey,
+          auditContext,
+          status: 'failed',
+          providerErrorMessage: `Invalid email address: ${recipient.to}`,
+        })
+      )
+    );
+
     return {
       success: false,
       error: `Invalid email addresses: ${invalidEmails.map((r) => r.to).join(', ')}`,
@@ -374,11 +660,25 @@ export async function sendBatchEmailWithTemplate({
 
   let lastError: { message: string; code?: string; details?: unknown } | null =
     null;
+  const auditIds = await insertEmailAttempts(
+    recipients.map((recipient) =>
+      createAuditAttempt({
+        transportType: 'batch_template',
+        emailType,
+        recipientEmail: recipient.to,
+        recipientName: recipient.toName,
+        fromAddress: sender.address,
+        fromName: sender.name,
+        templateKey,
+        auditContext,
+        metadata: { mergeInfoKeys: Object.keys(recipient.mergeInfo) },
+      })
+    )
+  );
 
   for (let attempt = 0; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
     try {
       const zeptoClient = getClient();
-      const sender = getSenderAddress(emailType, fromName);
 
       const response = await zeptoClient.mailBatchWithTemplate({
         template_key: templateKey,
@@ -390,6 +690,12 @@ export async function sendBatchEmailWithTemplate({
           },
           merge_info: r.mergeInfo,
         })),
+      });
+
+      await updateEmailAttempts(auditIds, {
+        status: 'accepted',
+        provider_message_id: response?.request_id || 'unknown',
+        attempt_count: attempt + 1,
       });
 
       return {
@@ -416,6 +722,13 @@ export async function sendBatchEmailWithTemplate({
   }
 
   console.error('ZeptoMail batch email error:', JSON.stringify(lastError));
+  await updateEmailAttempts(auditIds, {
+    status: 'failed',
+    attempt_count: RETRY_CONFIG.maxRetries + 1,
+    provider_error_code: lastError?.code,
+    provider_error_message: lastError?.message || 'Unknown error',
+    provider_error_details: lastError?.details,
+  });
   return {
     success: false,
     error: lastError?.message || 'Unknown error',

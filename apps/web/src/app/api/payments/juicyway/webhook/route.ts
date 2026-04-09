@@ -265,6 +265,14 @@ export async function POST(request: NextRequest) {
               replyTo: replyToEmail,
               emailType: 'orders',
               fromName: senderName,
+              auditContext: {
+                merchantId: order.merchant_id,
+                orderId: order.id,
+                customerId: order.customer_id,
+                metadata: {
+                  trigger: 'juicyway_payment_confirmation',
+                },
+              },
             });
 
             if (!emailResult.success) {

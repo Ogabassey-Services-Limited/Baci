@@ -535,6 +535,15 @@ export async function POST(request: NextRequest) {
             replyTo: replyToEmail,
             emailType: 'orders',
             fromName: senderName,
+            auditContext: {
+              merchantId: merchant_id,
+              orderId: order.id,
+              customerId: customer_id,
+              metadata: {
+                trigger: 'order_create_immediate_confirmation',
+                paymentMethod: payment_method,
+              },
+            },
           });
 
           if (!emailResult.success) {

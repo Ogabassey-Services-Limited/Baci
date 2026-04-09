@@ -96,7 +96,7 @@ export async function POST(
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .select(
-        'id, order_number, total, amount_paid, customer_name, customer_email, customer_phone, payment_status'
+        'id, order_number, total, amount_paid, customer_id, customer_name, customer_email, customer_phone, payment_status'
       )
       .eq('id', orderId)
       .eq('merchant_id', merchant.id)
@@ -178,6 +178,15 @@ export async function POST(
           replyTo: merchant.support_email || undefined,
           emailType: 'orders',
           fromName: merchant.email_sender_name || merchant.business_name,
+          auditContext: {
+            merchantId,
+            orderId: order.id,
+            customerId: order.customer_id,
+            metadata: {
+              trigger: 'payment_reminder',
+              channel,
+            },
+          },
         });
         sendResult = { success: true, error: '' };
       } catch (err) {

@@ -102,6 +102,7 @@ interface DashboardOrderRecord {
 interface OrderConfirmationRecord {
   id: string;
   merchant_id: string;
+  customer_id?: string | null;
   order_number: string;
   customer_name: string;
   customer_email?: string;
@@ -597,6 +598,14 @@ export async function resendOrderConfirmation(
       replyTo: replyToEmail,
       emailType: 'orders',
       fromName: senderName,
+      auditContext: {
+        merchantId: merchant.id,
+        orderId: order.id,
+        customerId: order.customer_id,
+        metadata: {
+          trigger: 'manual_resend_order_confirmation',
+        },
+      },
     });
 
     logger.info({
