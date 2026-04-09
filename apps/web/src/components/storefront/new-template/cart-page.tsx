@@ -102,6 +102,7 @@ export const CartPage: React.FC = () => {
                             removeFromCart(item.id, item.variant_id)
                           }
                           className="text-gray-400 hover:text-red-600 transition-colors p-1"
+                          aria-label="Remove item"
                         >
                           <Trash2 size={18} />
                         </button>
@@ -133,6 +134,7 @@ export const CartPage: React.FC = () => {
                           }
                           className="w-8 h-8 flex items-center justify-center rounded-md bg-white text-gray-600 shadow-sm hover:text-red-600 disabled:opacity-50"
                           disabled={item.quantity <= 1}
+                          aria-label="Decrease quantity"
                         >
                           <Minus size={14} />
                         </button>
@@ -148,6 +150,7 @@ export const CartPage: React.FC = () => {
                             )
                           }
                           className="w-8 h-8 flex items-center justify-center rounded-md bg-white text-gray-600 shadow-sm hover:text-red-600"
+                          aria-label="Increase quantity"
                         >
                           <Plus size={14} />
                         </button>
