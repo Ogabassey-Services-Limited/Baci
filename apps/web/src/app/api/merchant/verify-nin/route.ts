@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     const isTimeout = err instanceof Error && err.name === 'AbortError';
     console.error(
-      `verify-nin error${isTimeout ? ' (timeout)' : ''}:`,
+      isTimeout ? 'verify-nin error (timeout):' : 'verify-nin error:',
       err instanceof Error ? err.message : 'Unknown error'
     );
     return NextResponse.json(
