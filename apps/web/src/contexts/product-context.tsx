@@ -134,10 +134,10 @@ export const ProductProvider: React.FC<{
     });
     const paramsString = params.toString();
 
-    // Prevent rapid re-fetching (throttle to 1s)
+    // Prevent rapid re-fetching (throttle to 1s), but allow force refresh
     const now = Date.now();
     const lastFetch = lastFetchTimeRef.current;
-    if (now - lastFetch < 1000) {
+    if (!force && now - lastFetch < 1000) {
       if (process.env.NODE_ENV === 'development') {
         console.log('Throttling product fetch');
       }
