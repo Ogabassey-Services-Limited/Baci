@@ -49,7 +49,14 @@ export function RevenueChart({
         <View>
           <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
           {onPeriodPress ? (
-            <Pressable style={styles.periodButton} onPress={onPeriodPress}>
+            <Pressable
+              style={styles.periodButton}
+              onPress={onPeriodPress}
+              accessibilityRole="button"
+              accessibilityLabel={`Select period, currently showing ${period}`}
+              accessibilityHint="Opens a menu to change the time period for the chart"
+              hitSlop={14}
+            >
               <Text style={[styles.period, { color: colors.primary }]}>
                 {period}
               </Text>
