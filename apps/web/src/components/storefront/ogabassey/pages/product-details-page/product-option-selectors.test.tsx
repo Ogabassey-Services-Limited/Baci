@@ -95,7 +95,7 @@ describe('ProductOptionSelectors — dependent variant filtering', () => {
     ).not.toBeDisabled();
   });
 
-  it('disables storage options that have no variant matching the selected RAM', async () => {
+  it('disables storage options that have no variant matching the selected RAM', () => {
     renderSelectors({
       selectedAttributes: { ram: '8GB' },
       effectiveAxes: ['storage'],
@@ -155,14 +155,26 @@ describe('ProductOptionSelectors — dependent variant filtering', () => {
     expect(onSelectAttribute).not.toHaveBeenCalled();
   });
 
-  it('marks unavailable options with aria-disabled and line-through styling', () => {
+  it('marks unavailable options as disabled', () => {
     renderSelectors({
       selectedAttributes: { ram: '8GB' },
       effectiveAxes: ['storage'],
     });
 
     const disabled256 = screen.getByRole('button', { name: /256GB/i });
-    expect(disabled256).toHaveAttribute('aria-disabled', 'true');
-    expect(disabled256.className).toMatch(/line-through/);
+    expect(disabled256).toBeDisabled();
+  });
+
+  it('disables unreachable storage options, leaving reachable ones enabled', () => {
+    // ram=8GB only pairs with 128GB — selecting storage=512GB is impossible
+    renderSelectors({
+      selectedAttributes: { ram: '8GB', storage: '512GB' },
+      effectiveAxes: ['storage'],
+    });
+
+    // With ram=8GB selected, only 128GB is reachable
+    expect(screen.getByRole('button', { name: /128GB/i })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: /256GB/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /512GB/i })).toBeDisabled();
   });
 });

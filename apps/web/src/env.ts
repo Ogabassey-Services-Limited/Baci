@@ -49,6 +49,35 @@ const serverSchema = z.object({
   // Push Notifications
   EXPO_ACCESS_TOKEN: z.string().optional(),
 
+  // Monnify (Identity verification)
+  MONNIFY_API_KEY: z.string().optional(),
+  MONNIFY_SECRET_KEY: z.string().optional(),
+  MONNIFY_BASE_URL: z.string().url().default('https://api.monnify.com'),
+  CAC_API_URL: z
+    .string()
+    .url()
+    .default(
+      'https://icrp.cac.gov.ng/name_similarity_app/api/public_search/search'
+    ),
+  // Ollama (CAC certificate OCR — Gemma 4 on VPS)
+  OLLAMA_BASE_URL: z
+    .string()
+    .url()
+    .refine(
+      (u) => {
+        const url = new URL(u);
+        const isLocal =
+          url.hostname === 'localhost' ||
+          url.hostname.startsWith('127.') ||
+          url.hostname === '::1';
+        return u.startsWith('https://') || isLocal;
+      },
+      { message: 'OLLAMA_BASE_URL must use HTTPS (except for localhost)' }
+    )
+    .optional(),
+  OLLAMA_CAC_MODEL: z.string().default('gemma4:e4b'),
+  OLLAMA_BASIC_AUTH: z.string().optional(),
+
   // Jumia Marketplace
   JUMIA_ENVIRONMENT: z.enum(['staging', 'production']).default('staging'),
   JUMIA_CLIENT_ID: z.string().optional(),
@@ -131,6 +160,13 @@ const getEnv = () => {
         IMPORT_JOB_DIRECT_UPLOAD_ENABLED:
           process.env.IMPORT_JOB_DIRECT_UPLOAD_ENABLED,
         EXPO_ACCESS_TOKEN: process.env.EXPO_ACCESS_TOKEN,
+        MONNIFY_API_KEY: process.env.MONNIFY_API_KEY,
+        MONNIFY_SECRET_KEY: process.env.MONNIFY_SECRET_KEY,
+        MONNIFY_BASE_URL: process.env.MONNIFY_BASE_URL,
+        CAC_API_URL: process.env.CAC_API_URL,
+        OLLAMA_BASE_URL: process.env.OLLAMA_BASE_URL,
+        OLLAMA_CAC_MODEL: process.env.OLLAMA_CAC_MODEL,
+        OLLAMA_BASIC_AUTH: process.env.OLLAMA_BASIC_AUTH,
       }
     : {};
 
@@ -305,6 +341,38 @@ export const getExpoAccessToken = () => {
   if (typeof window !== 'undefined')
     throw new Error('EXPO_ACCESS_TOKEN cannot be accessed on the client');
   return env?.EXPO_ACCESS_TOKEN;
+};
+
+// Monnify / Ollama (Identity verification)
+export const getMonnifyApiKey = () => {
+  if (typeof window !== 'undefined')
+    throw new Error('MONNIFY_API_KEY cannot be accessed on the client');
+  return env?.MONNIFY_API_KEY;
+};
+export const getMonnifySecretKey = () => {
+  if (typeof window !== 'undefined')
+    throw new Error('MONNIFY_SECRET_KEY cannot be accessed on the client');
+  return env?.MONNIFY_SECRET_KEY;
+};
+export const getMonnifyBaseUrl = () =>
+  env?.MONNIFY_BASE_URL ?? 'https://api.monnify.com';
+export const getCacApiUrl = () =>
+  env?.CAC_API_URL ??
+  'https://icrp.cac.gov.ng/name_similarity_app/api/public_search/search';
+export const getOllamaBaseUrl = () => {
+  if (typeof window !== 'undefined')
+    throw new Error('OLLAMA_BASE_URL cannot be accessed on the client');
+  return env?.OLLAMA_BASE_URL;
+};
+export const getOllamaCacModel = () => {
+  if (typeof window !== 'undefined')
+    throw new Error('OLLAMA_CAC_MODEL cannot be accessed on the client');
+  return env.OLLAMA_CAC_MODEL;
+};
+export const getOllamaBasicAuth = () => {
+  if (typeof window !== 'undefined')
+    throw new Error('OLLAMA_BASIC_AUTH cannot be accessed on the client');
+  return env?.OLLAMA_BASIC_AUTH;
 };
 
 // Deprecated: No longer needed as we validate on import.
