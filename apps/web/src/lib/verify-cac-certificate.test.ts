@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/ai/provider', () => ({
   activeTextModel: {},
@@ -19,7 +19,7 @@ import { getOllamaBaseUrl } from '@/env';
 import {
   compareCACData,
   extractCACCertificateData,
-} from './verify-cac-certificate';
+} from '@/lib/verify-cac-certificate';
 
 const CAC_PROMPT_EXCERPT = 'Extract from this CAC document';
 
@@ -33,6 +33,11 @@ describe('extractCACCertificateData', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(getOllamaBaseUrl).mockReturnValue(undefined);
+    vi.stubGlobal('fetch', vi.fn());
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('uses Gemini for PDF files', async () => {
@@ -60,7 +65,7 @@ describe('extractCACCertificateData', () => {
 
   it('uses Ollama for image files when OLLAMA_BASE_URL is configured', async () => {
     vi.mocked(getOllamaBaseUrl).mockReturnValue('https://ollama.example.com');
-    vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+    vi.mocked(global.fetch).mockResolvedValueOnce({
       ok: true,
       json: async () => ({ response: validJsonResponse }),
     } as Response);
@@ -77,7 +82,7 @@ describe('extractCACCertificateData', () => {
 
   it('falls back to Gemini when Ollama fetch throws', async () => {
     vi.mocked(getOllamaBaseUrl).mockReturnValue('https://ollama.example.com');
-    vi.spyOn(global, 'fetch').mockRejectedValueOnce(
+    vi.mocked(global.fetch).mockRejectedValueOnce(
       new Error('Connection refused')
     );
     vi.mocked(generateText).mockResolvedValueOnce({
@@ -93,7 +98,7 @@ describe('extractCACCertificateData', () => {
 
   it('falls back to Gemini when Ollama returns non-ok response', async () => {
     vi.mocked(getOllamaBaseUrl).mockReturnValue('https://ollama.example.com');
-    vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+    vi.mocked(global.fetch).mockResolvedValueOnce({
       ok: false,
       status: 500,
     } as Response);
@@ -190,21 +195,35 @@ describe('compareCACData', () => {
     expect(result.reason).toBe('Could not extract document data');
   });
 
-  it('matches when extracted name is a substring of expected name', () => {
+  it('returns match: false with specific reason when only RC number is null', () => {
     const result = compareCACData(
       {
-        documentType: 'Certificate of Registration',
-        rcNumber: 'BN123456',
-        businessName: 'BACI TECH',
+        documentType: 'Certificate of Incorporation',
+        rcNumber: null,
+        businessName: 'BACI TECHNOLOGIES LTD',
       },
-      'BN123456',
+      'RC123456',
       'Baci Technologies Ltd'
     );
-    // 'BACI TECHNOLOGIES LTD'.includes('BACI TECH') === true — substring match
-    expect(result.match).toBe(true);
+    expect(result.match).toBe(false);
+    expect(result.reason).toBe('RC number could not be extracted');
   });
 
-  it('matches when expected name is a substring of extracted name', () => {
+  it('returns match: false with specific reason when only business name is null', () => {
+    const result = compareCACData(
+      {
+        documentType: 'Certificate of Incorporation',
+        rcNumber: 'RC123456',
+        businessName: null,
+      },
+      'RC123456',
+      'Baci Technologies Ltd'
+    );
+    expect(result.match).toBe(false);
+    expect(result.reason).toBe('Business name could not be extracted');
+  });
+
+  it('matches when extracted name contains the full expected name', () => {
     const result = compareCACData(
       {
         documentType: 'Certificate of Registration',
@@ -214,6 +233,22 @@ describe('compareCACData', () => {
       'BN123456',
       'Baci Technologies Limited Nigeria'
     );
+    // 'BACI TECHNOLOGIES LIMITED NIGERIA'.includes('BACI TECHNOLOGIES LIMITED NIGERIA') === true
     expect(result.match).toBe(true);
+  });
+
+  it('returns match: false when extracted name is a short subset of expected name', () => {
+    const result = compareCACData(
+      {
+        documentType: 'Certificate of Registration',
+        rcNumber: 'BN123456',
+        businessName: 'BACI TECH',
+      },
+      'BN123456',
+      'Baci Technologies Ltd'
+    );
+    // 'BACI TECH'.includes('BACI TECHNOLOGIES LTD') === false — one-direction check
+    expect(result.match).toBe(false);
+    expect(result.reason).toBe('Business name mismatch');
   });
 });

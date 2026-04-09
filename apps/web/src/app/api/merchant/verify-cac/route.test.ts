@@ -36,7 +36,12 @@ const mockOwnerAccess = {
   permissions: {},
 };
 
-const mockStaffAccess = { ...mockOwnerAccess, isOwner: false, isStaff: true };
+const mockStaffAccess = {
+  ...mockOwnerAccess,
+  role: 'staff',
+  isOwner: false,
+  isStaff: true,
+};
 
 function makeRpcMock(error: unknown = null) {
   return vi.fn().mockResolvedValue({ error });
@@ -73,12 +78,23 @@ function makeFormDataRequest(
   } as unknown as NextRequest;
 }
 
+const MAGIC_BYTES: Record<string, number[]> = {
+  'image/jpeg': [0xff, 0xd8, 0xff],
+  'image/png': [0x89, 0x50, 0x4e, 0x47],
+  'image/webp': [0x52, 0x49, 0x46, 0x46],
+  'application/pdf': [0x25, 0x50, 0x44, 0x46],
+};
+
 function makeValidFile(
   size = 100,
   type = 'image/jpeg',
   name = 'cac.jpg'
 ): File {
-  const buffer = new Uint8Array(size).fill(1);
+  const magic = MAGIC_BYTES[type] ?? [0x01];
+  const buffer = new Uint8Array(Math.max(size, magic.length)).fill(1);
+  magic.forEach((byte, i) => {
+    buffer[i] = byte;
+  });
   return new File([buffer], name, { type });
 }
 
@@ -204,6 +220,24 @@ describe('POST /api/merchant/verify-cac', () => {
     expect(res.status).toBe(400);
     await expect(res.json()).resolves.toMatchObject({
       error: expect.stringContaining('5MB'),
+    });
+  });
+
+  it('returns 400 when file content does not match declared MIME type', async () => {
+    // File claims to be JPEG but has no valid magic bytes
+    const spoofedFile = new File([new Uint8Array(100).fill(0xaa)], 'cac.jpg', {
+      type: 'image/jpeg',
+    });
+    const req = makeFormDataRequest({
+      file: spoofedFile,
+      rcNumber: 'RC123456',
+      approvedName: 'Baci Technologies',
+    });
+    const res = await POST(req);
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toMatchObject({
+      error: expect.stringContaining('does not match'),
     });
   });
 

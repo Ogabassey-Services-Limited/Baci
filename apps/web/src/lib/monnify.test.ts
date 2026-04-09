@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('@/env', () => ({
   getMonnifyApiKey: vi.fn(),
   getMonnifySecretKey: vi.fn(),
+  getMonnifyBaseUrl: vi.fn(() => 'https://api.monnify.com'),
 }));
 
 vi.mock('@/ai/provider', () => ({
@@ -10,7 +11,7 @@ vi.mock('@/ai/provider', () => ({
 }));
 
 import { getMonnifyApiKey, getMonnifySecretKey } from '@/env';
-import * as MonnifyModule from './monnify';
+import * as MonnifyModule from '@/lib/monnify';
 
 const { getMonnifyToken } = MonnifyModule;
 
@@ -78,14 +79,24 @@ describe('getMonnifyToken', () => {
     );
   });
 
-  it('throws when the API returns an error response', async () => {
+  it('throws when the API returns a 4xx error without retrying', async () => {
     vi.spyOn(global, 'fetch').mockResolvedValueOnce({
       ok: false,
       status: 401,
       statusText: 'Unauthorized',
     } as Response);
 
-    await expect(getMonnifyToken()).rejects.toThrow();
+    await expect(getMonnifyToken()).rejects.toThrow('invalid request');
+  });
+
+  it('throws when the API returns an error response', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      statusText: 'Internal Server Error',
+    } as Response);
+
+    await expect(getMonnifyToken()).rejects.toThrow('Monnify auth failed: 500');
   });
 
   it('throws when the API returns requestSuccessful: false', async () => {
@@ -114,6 +125,7 @@ describe('getMonnifyToken', () => {
   });
 
   it('fetches a new token when cached token has expired', async () => {
+    vi.useFakeTimers();
     vi.spyOn(global, 'fetch')
       .mockResolvedValueOnce({
         ok: true,
@@ -130,20 +142,13 @@ describe('getMonnifyToken', () => {
         }),
       } as Response);
 
-    const realNow = Date.now;
-    let callCount = 0;
-    vi.spyOn(Date, 'now').mockImplementation(() => {
-      callCount++;
-      if (callCount <= 4) return realNow();
-      return realNow() + 4_000_000; // far in the future — past 1s expiry
-    });
-
     const token1 = await getMonnifyToken();
+    vi.advanceTimersByTime(4_000_000);
     const token2 = await getMonnifyToken();
 
     expect(token1).toBe('token-1');
     expect(token2).toBe('token-2');
 
-    vi.spyOn(Date, 'now').mockRestore();
+    vi.useRealTimers();
   });
 });

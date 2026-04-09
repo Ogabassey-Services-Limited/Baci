@@ -747,10 +747,13 @@ describe('import-job-service', () => {
 
   it('resolves silently when the worker secret is missing', async () => {
     vi.mocked(getImportJobWorkerSecret).mockReturnValueOnce(undefined);
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
 
     await expect(
       triggerImportWorker('https://usebaci.com', 'job-123')
     ).resolves.toBeUndefined();
+    expect(fetchSpy).not.toHaveBeenCalled();
     expect(logger.warn).toHaveBeenCalledWith(
       expect.objectContaining({
         message:

@@ -121,12 +121,14 @@ describe('variant attributes helpers', () => {
     });
 
     it('ignores the queried axis in currentSelections (prevents self-filtering)', () => {
+      // With ram=12GB, both 256GB and 512GB are reachable.
+      // If storage=256GB were NOT ignored, only ['256GB'] would be returned.
       expect(
         getAvailableOptionsForAxis('storage', s22Variants, {
-          ram: '8GB',
-          storage: '128GB',
+          ram: '12GB',
+          storage: '256GB',
         }),
-      ).toEqual(['128GB']);
+      ).toEqual(['256GB', '512GB']);
     });
 
     it('returns empty array when no variants match the current selections', () => {

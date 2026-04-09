@@ -63,9 +63,17 @@ const serverSchema = z.object({
   OLLAMA_BASE_URL: z
     .string()
     .url()
-    .refine((u) => u.startsWith('https://'), {
-      message: 'OLLAMA_BASE_URL must use HTTPS',
-    })
+    .refine(
+      (u) => {
+        const url = new URL(u);
+        const isLocal =
+          url.hostname === 'localhost' ||
+          url.hostname.startsWith('127.') ||
+          url.hostname === '::1';
+        return u.startsWith('https://') || isLocal;
+      },
+      { message: 'OLLAMA_BASE_URL must use HTTPS (except for localhost)' }
+    )
     .optional(),
   OLLAMA_CAC_MODEL: z.string().default('gemma4:e4b'),
   OLLAMA_BASIC_AUTH: z.string().optional(),
@@ -351,8 +359,16 @@ export const getMonnifyBaseUrl = () =>
 export const getCacApiUrl = () =>
   env?.CAC_API_URL ??
   'https://icrp.cac.gov.ng/name_similarity_app/api/public_search/search';
-export const getOllamaBaseUrl = () => env?.OLLAMA_BASE_URL;
-export const getOllamaCacModel = () => env?.OLLAMA_CAC_MODEL ?? 'gemma4:e4b';
+export const getOllamaBaseUrl = () => {
+  if (typeof window !== 'undefined')
+    throw new Error('OLLAMA_BASE_URL cannot be accessed on the client');
+  return env?.OLLAMA_BASE_URL;
+};
+export const getOllamaCacModel = () => {
+  if (typeof window !== 'undefined')
+    throw new Error('OLLAMA_CAC_MODEL cannot be accessed on the client');
+  return env.OLLAMA_CAC_MODEL;
+};
 export const getOllamaBasicAuth = () => {
   if (typeof window !== 'undefined')
     throw new Error('OLLAMA_BASIC_AUTH cannot be accessed on the client');

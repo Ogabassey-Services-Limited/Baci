@@ -4,7 +4,7 @@ import {
   cacSearchSchema,
   cacVerifyFormSchema,
   ninVerifySchema,
-} from './verification';
+} from '@/schemas/verification';
 
 describe('cacSearchSchema', () => {
   it('parses a valid search term', () => {
@@ -157,6 +157,14 @@ describe('bvnVerifySchema', () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it('rejects lastName exceeding 100 chars', () => {
+    const result = bvnVerifySchema.safeParse({
+      ...validBVN,
+      lastName: 'A'.repeat(101),
+    });
+    expect(result.success).toBe(false);
+  });
 });
 
 describe('ninVerifySchema', () => {
@@ -223,6 +231,14 @@ describe('ninVerifySchema', () => {
     const result = ninVerifySchema.safeParse({
       ...validNIN,
       firstName: 'A'.repeat(101),
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects lastName exceeding 100 chars', () => {
+    const result = ninVerifySchema.safeParse({
+      ...validNIN,
+      lastName: 'A'.repeat(101),
     });
     expect(result.success).toBe(false);
   });

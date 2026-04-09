@@ -140,7 +140,13 @@ export function getAvailableOptionsForAxis(
 
   const reachable = new Set<string>();
   for (const variant of variants ?? []) {
-    const attrs = variant.attributes ?? {};
+    // Canonicalize raw attribute keys so lookups match normalizedSelections keys
+    const attrs = Object.fromEntries(
+      Object.entries(variant.attributes ?? {}).map(([k, v]) => [
+        canonicalizeVariantAxis(k),
+        v,
+      ]),
+    );
     const matchesAll = Object.entries(normalizedSelections).every(
       ([k, v]) => attrs[k] === v,
     );

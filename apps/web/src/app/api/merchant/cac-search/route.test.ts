@@ -91,6 +91,9 @@ describe('POST /api/merchant/cac-search', () => {
     const res = await POST(req);
 
     expect(res.status).toBe(403);
+    await expect(res.json()).resolves.toMatchObject({
+      error: expect.any(String),
+    });
   });
 
   it('returns 403 when user is not merchant owner', async () => {
@@ -110,6 +113,9 @@ describe('POST /api/merchant/cac-search', () => {
     const res = await POST(req);
 
     expect(res.status).toBe(429);
+    await expect(res.json()).resolves.toMatchObject({
+      error: expect.any(String),
+    });
   });
 
   it('returns 400 when searchTerm is missing', async () => {

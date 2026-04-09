@@ -69,6 +69,10 @@ export async function POST(request: NextRequest) {
 
     let cacResponse: Response;
     try {
+      // CAC's public search API validates Origin/Referer/User-Agent to block
+      // non-browser callers. These values intentionally mimic a browser request.
+      // If CAC requests start failing, check whether they changed validation
+      // rules and update these headers accordingly.
       cacResponse = await fetch(getCacApiUrl(), {
         method: 'POST',
         headers: {

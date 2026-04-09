@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import { Info, MapPin } from 'lucide-react';
-import { getAvailableOptionsForAxis } from '../../variant-attributes';
+import { getAvailableOptionsForAxis } from '@/components/storefront/ogabassey/variant-attributes';
 import type { NormalizedProductDetails } from './product-details-helpers';
 
 interface ProductOptionSelectorsProps {
@@ -239,39 +239,40 @@ export function ProductOptionSelectors({
                   )}
                 </label>
                 <div className="mt-3 flex flex-wrap gap-3">
-                  {options.map((value) => {
+                  {(() => {
                     const availableForAxis = getAvailableOptionsForAxis(
                       axis,
                       productData.variants,
                       selectedAttributes,
                     );
-                    const isAvailable =
-                      availableForAxis.length === 0 ||
-                      availableForAxis.includes(value);
-                    const isSelected = selectedAttributes[axis] === value;
-                    return (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() =>
-                          isAvailable && onSelectAttribute(axis, value)
-                        }
-                        disabled={!isAvailable}
-                        aria-disabled={!isAvailable}
-                        className={`rounded-xl border px-4 py-3 text-sm font-bold transition-all ${
-                          !isAvailable
-                            ? 'cursor-not-allowed border-gray-100 text-gray-300 line-through'
-                            : isSelected
-                              ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5 text-[var(--store-primary)] ring-2 ring-[var(--store-primary)]/20 active:scale-95'
-                              : 'border-gray-200 text-gray-700 active:scale-95 md:hover:border-gray-400 md:hover:bg-gray-50'
-                        }`}
-                        aria-label={`Select ${value} ${label.toLowerCase()}${!isAvailable ? ' (unavailable)' : ''}`}
-                        aria-pressed={isSelected}
-                      >
-                        {value}
-                      </button>
-                    );
-                  })}
+                    return options.map((value) => {
+                      // An empty availableForAxis means no variants are reachable
+                      // with the current selection — treat all options as unavailable
+                      const isAvailable = availableForAxis.includes(value);
+                      const isSelected = selectedAttributes[axis] === value;
+                      return (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() =>
+                            isAvailable && onSelectAttribute(axis, value)
+                          }
+                          disabled={!isAvailable}
+                          className={`rounded-xl border px-4 py-3 text-sm font-bold transition-all ${
+                            !isAvailable
+                              ? 'cursor-not-allowed border-gray-100 text-gray-300 line-through'
+                              : isSelected
+                                ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5 text-[var(--store-primary)] ring-2 ring-[var(--store-primary)]/20 active:scale-95'
+                                : 'border-gray-200 text-gray-700 active:scale-95 md:hover:border-gray-400 md:hover:bg-gray-50'
+                          }`}
+                          aria-label={`Select ${value} ${label.toLowerCase()}${!isAvailable ? ' (unavailable)' : ''}`}
+                          aria-pressed={isSelected}
+                        >
+                          {value}
+                        </button>
+                      );
+                    });
+                  })()}
                 </div>
               </div>
             </div>

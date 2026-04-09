@@ -1,5 +1,9 @@
 import { withRetry } from '@/ai/provider';
-import { getMonnifyApiKey, getMonnifySecretKey } from '@/env';
+import {
+  getMonnifyApiKey,
+  getMonnifyBaseUrl,
+  getMonnifySecretKey,
+} from '@/env';
 import type { MonnifyAuthResponse } from '@/types/monnify';
 
 interface CachedToken {
@@ -30,9 +34,10 @@ export async function getMonnifyToken(): Promise<string> {
   }
 
   const credentials = Buffer.from(`${apiKey}:${secretKey}`).toString('base64');
+  const monnifyBase = getMonnifyBaseUrl();
 
   const response = await withRetry(async () => {
-    const res = await fetch('https://api.monnify.com/api/v1/auth/login', {
+    const res = await fetch(`${monnifyBase}/api/v1/auth/login`, {
       method: 'POST',
       headers: {
         Authorization: `Basic ${credentials}`,
@@ -41,6 +46,13 @@ export async function getMonnifyToken(): Promise<string> {
     });
 
     if (!res.ok) {
+      // Don't retry 4xx client errors — credentials won't become valid on retry
+      // and retrying could trigger Monnify rate limits or account lockout
+      if (res.status >= 400 && res.status < 500) {
+        throw new Error(
+          `Monnify auth invalid request: ${res.status} ${res.statusText}`
+        );
+      }
       throw new Error(`Monnify auth failed: ${res.status} ${res.statusText}`);
     }
 
@@ -57,6 +69,13 @@ export async function getMonnifyToken(): Promise<string> {
     throw new Error('Monnify authentication response missing token');
   }
   const { accessToken, expiresIn } = response.responseBody;
+
+  if (!accessToken || typeof expiresIn !== 'number' || expiresIn <= 0) {
+    throw new Error(
+      'Monnify authentication response missing or invalid token data'
+    );
+  }
+
   const expiresAt = Date.now() + expiresIn * 1000 - EXPIRY_BUFFER_MS;
 
   tokenCache.set(CACHE_KEY, { accessToken, expiresAt });

@@ -101,7 +101,16 @@ export async function POST(request: NextRequest) {
     }
 
     const data = (await monnifyRes.json()) as MonnifyBVNMatchResponse;
-    const matched = data.responseBody?.matchStatus === 'FULL_MATCH';
+
+    if (!data.responseBody) {
+      console.error('verify-bvn: unexpected Monnify response structure');
+      return NextResponse.json(
+        { error: 'BVN verification service returned invalid data' },
+        { status: 502 }
+      );
+    }
+
+    const matched = data.responseBody.matchStatus === 'FULL_MATCH';
 
     if (matched) {
       const { error: rpcError } = await auth.supabase.rpc(

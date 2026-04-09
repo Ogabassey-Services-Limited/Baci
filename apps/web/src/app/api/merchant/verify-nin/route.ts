@@ -118,8 +118,17 @@ export async function POST(request: NextRequest) {
     }
 
     const data = (await monnifyRes.json()) as MonnifyNINResponse;
-    const retFirst = data.responseBody?.firstName ?? '';
-    const retLast = data.responseBody?.lastName ?? '';
+
+    if (!data.responseBody) {
+      console.error('verify-nin: unexpected Monnify response structure');
+      return NextResponse.json(
+        { error: 'NIN verification service returned invalid data' },
+        { status: 502 }
+      );
+    }
+
+    const retFirst = data.responseBody.firstName ?? '';
+    const retLast = data.responseBody.lastName ?? '';
 
     const verified = namesMatch(firstName, lastName, retFirst, retLast);
 
@@ -150,12 +159,17 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ verified });
   } catch (err) {
+    const isTimeout = err instanceof Error && err.name === 'AbortError';
     console.error(
-      'verify-nin error:',
+      `verify-nin error${isTimeout ? ' (timeout)' : ''}:`,
       err instanceof Error ? err.message : 'Unknown error'
     );
     return NextResponse.json(
-      { error: 'NIN verification failed' },
+      {
+        error: isTimeout
+          ? 'NIN verification timed out'
+          : 'NIN verification failed',
+      },
       { status: 500 }
     );
   }

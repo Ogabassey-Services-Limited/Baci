@@ -8,14 +8,14 @@ export const cacSearchSchema = z.object({
 });
 
 export const cacVerifyFormSchema = z.object({
-  rcNumber: z.string().min(1).max(50).transform(sanitize),
-  approvedName: z.string().min(1).max(200).transform(sanitize),
+  rcNumber: z.string().trim().min(1).max(50).transform(sanitize),
+  approvedName: z.string().trim().min(1).max(200).transform(sanitize),
 });
 
 export const bvnVerifySchema = z.object({
   bvn: z.string().regex(/^\d{11}$/),
-  firstName: z.string().min(1).max(100).transform(sanitize),
-  lastName: z.string().min(1).max(100).transform(sanitize),
+  firstName: z.string().trim().min(1).max(100).transform(sanitize),
+  lastName: z.string().trim().min(1).max(100).transform(sanitize),
   dateOfBirth: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
@@ -26,8 +26,8 @@ export const bvnVerifySchema = z.object({
 
 export const ninVerifySchema = z.object({
   nin: z.string().regex(/^\d{11}$/),
-  firstName: z.string().min(1).max(100).transform(sanitize),
-  lastName: z.string().min(1).max(100).transform(sanitize),
+  firstName: z.string().trim().min(1).max(100).transform(sanitize),
+  lastName: z.string().trim().min(1).max(100).transform(sanitize),
   dateOfBirth: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),

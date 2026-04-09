@@ -18,23 +18,7 @@ CREATE TABLE merchant_verifications (
 );
 
 ALTER TABLE merchant_verifications ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "owner_select_verification" ON merchant_verifications
-  FOR SELECT USING (
-    merchant_id IN (SELECT id FROM merchants WHERE user_id = auth.uid())
-  );
-
-CREATE POLICY "owner_insert_verification" ON merchant_verifications
-  FOR INSERT WITH CHECK (
-    merchant_id IN (SELECT id FROM merchants WHERE user_id = auth.uid())
-  );
-
-CREATE POLICY "owner_update_verification" ON merchant_verifications
-  FOR UPDATE USING (
-    merchant_id IN (SELECT id FROM merchants WHERE user_id = auth.uid())
-  );
-
-CREATE INDEX idx_merchant_verifications_merchant_id ON merchant_verifications(merchant_id);
+-- No direct RLS policies: all access goes through SECURITY DEFINER RPCs below.
 
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES (
@@ -83,7 +67,10 @@ BEGIN
   UPDATE merchants
   SET legal_entity_name = p_cac_approved_name,
       cac_rc_number = p_rc_number,
-      kyc_status = 'pending'
+      kyc_status = CASE
+        WHEN kyc_status = 'verified' THEN 'verified'
+        ELSE 'pending'
+      END
   WHERE id = p_merchant_id;
 END; $$;
 
