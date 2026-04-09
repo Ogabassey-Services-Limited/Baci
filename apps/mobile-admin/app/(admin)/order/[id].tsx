@@ -57,6 +57,7 @@ import {
   type OrderItemSnapshot,
 } from '@/components/orders/OrderItemDetailModal';
 import { InvalidRouteScreen } from '@/components/ui/InvalidRouteScreen';
+import { KeyboardAwareModalContainer } from '@/components/ui/KeyboardAwareModalContainer';
 import { ReceiptPreviewModal } from '@/components/ui/ReceiptPreviewModal';
 import SafeImage from '@/components/ui/SafeImage';
 import { SuccessModal } from '@/components/ui/SuccessModal';
@@ -1926,74 +1927,81 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
             style={styles.modalBackdrop}
             onPress={() => setShowCreditModal(false)}
           />
-          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
-            <Ionicons
-              name="alert-circle"
-              size={48}
-              color={colors.warning}
-              style={{ alignSelf: 'center', marginBottom: 16 }}
-            />
-            <Text style={[styles.modalTitle, { color: colors.text }]}>
-              Ship on Credit?
-            </Text>
-            <Text
-              style={{
-                color: colors.textSecondary,
-                textAlign: 'center',
-                marginBottom: 20,
-              }}
+          <KeyboardAwareModalContainer
+            align="end"
+            contentContainerStyle={styles.modalKeyboardContent}
+          >
+            <View
+              style={[styles.modalContent, { backgroundColor: colors.card }]}
             >
-              This order has not been paid yet. Confirm to ship on credit and
-              create a virtual account for payment.
-            </Text>
-            <View style={{ marginBottom: 20 }}>
-              <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
-                Add a note (optional)
+              <Ionicons
+                name="alert-circle"
+                size={48}
+                color={colors.warning}
+                style={{ alignSelf: 'center', marginBottom: 16 }}
+              />
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                Ship on Credit?
               </Text>
-              <View
+              <Text
                 style={{
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  borderRadius: RADIUS.md,
-                  padding: 12,
+                  color: colors.textSecondary,
+                  textAlign: 'center',
+                  marginBottom: 20,
                 }}
               >
-                <TextInput
-                  placeholder="e.g., Trusted customer, will pay on delivery"
-                  placeholderTextColor={colors.textSecondary}
-                  value={creditNotes}
-                  onChangeText={setCreditNotes}
-                  multiline
-                  style={{ color: colors.text, minHeight: 60 }}
-                />
+                This order has not been paid yet. Confirm to ship on credit and
+                create a virtual account for payment.
+              </Text>
+              <View style={{ marginBottom: 20 }}>
+                <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
+                  Add a note (optional)
+                </Text>
+                <View
+                  style={{
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: RADIUS.md,
+                    padding: 12,
+                  }}
+                >
+                  <TextInput
+                    multiline
+                    placeholder="e.g., Trusted customer, will pay on delivery"
+                    placeholderTextColor={colors.textSecondary}
+                    style={{ color: colors.text, minHeight: 60 }}
+                    value={creditNotes}
+                    onChangeText={setCreditNotes}
+                  />
+                </View>
               </View>
+              <Pressable
+                style={[
+                  styles.updateButton,
+                  { backgroundColor: colors.warning, marginBottom: 12 },
+                ]}
+                onPress={handleShipOnCredit}
+                disabled={shipOnCreditMutation.isPending}
+              >
+                {shipOnCreditMutation.isPending ? (
+                  <ActivityIndicator color="#FFF" size="small" />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark-circle" size={20} color="#FFF" />
+                    <Text style={styles.updateButtonText}>
+                      Confirm Ship on Credit
+                    </Text>
+                  </>
+                )}
+              </Pressable>
+              <Pressable
+                style={styles.closeButton}
+                onPress={() => setShowCreditModal(false)}
+              >
+                <Text style={{ color: colors.textSecondary }}>Cancel</Text>
+              </Pressable>
             </View>
-            <Pressable
-              style={[
-                styles.updateButton,
-                { backgroundColor: colors.warning, marginBottom: 12 },
-              ]}
-              onPress={handleShipOnCredit}
-              disabled={shipOnCreditMutation.isPending}
-            >
-              {shipOnCreditMutation.isPending ? (
-                <ActivityIndicator color="#FFF" size="small" />
-              ) : (
-                <>
-                  <Ionicons name="checkmark-circle" size={20} color="#FFF" />
-                  <Text style={styles.updateButtonText}>
-                    Confirm Ship on Credit
-                  </Text>
-                </>
-              )}
-            </Pressable>
-            <Pressable
-              style={styles.closeButton}
-              onPress={() => setShowCreditModal(false)}
-            >
-              <Text style={{ color: colors.textSecondary }}>Cancel</Text>
-            </Pressable>
-          </View>
+          </KeyboardAwareModalContainer>
         </View>
       )}
 
@@ -2004,95 +2012,102 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
             style={styles.modalBackdrop}
             onPress={() => setShowFulfillmentModal(false)}
           />
-          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
-            <Ionicons
-              name="barcode-outline"
-              size={48}
-              color={colors.primary}
-              style={{ alignSelf: 'center', marginBottom: 16 }}
-            />
-            <Text style={[styles.modalTitle, { color: colors.text }]}>
-              Fulfillment Details Required
-            </Text>
-            <Text
-              style={{
-                color: colors.textSecondary,
-                textAlign: 'center',
-                marginBottom: 20,
-              }}
+          <KeyboardAwareModalContainer
+            align="end"
+            contentContainerStyle={styles.modalKeyboardContent}
+          >
+            <View
+              style={[styles.modalContent, { backgroundColor: colors.card }]}
             >
-              Enter the device IMEI/serial number before marking as shipped.
-            </Text>
-            <View style={{ marginBottom: 16 }}>
-              <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
-                IMEI Number *
+              <Ionicons
+                name="barcode-outline"
+                size={48}
+                color={colors.primary}
+                style={{ alignSelf: 'center', marginBottom: 16 }}
+              />
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                Fulfillment Details Required
               </Text>
-              <View
+              <Text
                 style={{
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  borderRadius: RADIUS.md,
-                  padding: 12,
+                  color: colors.textSecondary,
+                  textAlign: 'center',
+                  marginBottom: 20,
                 }}
               >
-                <TextInput
-                  placeholder="e.g., 353456789012345"
-                  placeholderTextColor={colors.textSecondary}
-                  value={fulfillmentDetails.imei}
-                  onChangeText={(text) =>
-                    setFulfillmentDetails((prev) => ({ ...prev, imei: text }))
-                  }
-                  keyboardType="numeric"
-                  maxLength={15}
-                  style={{ color: colors.text }}
-                />
-              </View>
-            </View>
-            <View style={{ marginBottom: 20 }}>
-              <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
-                Serial Number (optional)
+                Enter the device IMEI/serial number before marking as shipped.
               </Text>
-              <View
-                style={{
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  borderRadius: RADIUS.md,
-                  padding: 12,
-                }}
+              <View style={{ marginBottom: 16 }}>
+                <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
+                  IMEI Number *
+                </Text>
+                <View
+                  style={{
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: RADIUS.md,
+                    padding: 12,
+                  }}
+                >
+                  <TextInput
+                    keyboardType="numeric"
+                    maxLength={15}
+                    placeholder="e.g., 353456789012345"
+                    placeholderTextColor={colors.textSecondary}
+                    style={{ color: colors.text }}
+                    value={fulfillmentDetails.imei}
+                    onChangeText={(text) =>
+                      setFulfillmentDetails((prev) => ({ ...prev, imei: text }))
+                    }
+                  />
+                </View>
+              </View>
+              <View style={{ marginBottom: 20 }}>
+                <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
+                  Serial Number (optional)
+                </Text>
+                <View
+                  style={{
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: RADIUS.md,
+                    padding: 12,
+                  }}
+                >
+                  <TextInput
+                    placeholder="e.g., ABC123XYZ"
+                    placeholderTextColor={colors.textSecondary}
+                    style={{ color: colors.text }}
+                    value={fulfillmentDetails.serialNumber}
+                    onChangeText={(text) =>
+                      setFulfillmentDetails((prev) => ({
+                        ...prev,
+                        serialNumber: text,
+                      }))
+                    }
+                  />
+                </View>
+              </View>
+              <Pressable
+                style={[
+                  styles.updateButton,
+                  { backgroundColor: colors.success, marginBottom: 12 },
+                ]}
+                onPress={handleSubmitFulfillment}
               >
-                <TextInput
-                  placeholder="e.g., ABC123XYZ"
-                  placeholderTextColor={colors.textSecondary}
-                  value={fulfillmentDetails.serialNumber}
-                  onChangeText={(text) =>
-                    setFulfillmentDetails((prev) => ({
-                      ...prev,
-                      serialNumber: text,
-                    }))
-                  }
-                  style={{ color: colors.text }}
-                />
-              </View>
+                <Ionicons name="checkmark-circle" size={20} color="#FFF" />
+                <Text style={styles.updateButtonText}>
+                  Confirm & Mark Shipped
+                </Text>
+              </Pressable>
+              <Pressable
+                style={styles.closeButton}
+                onPress={() => setShowFulfillmentModal(false)}
+              >
+                <Text style={{ color: colors.textSecondary }}>Cancel</Text>
+              </Pressable>
             </View>
-            <Pressable
-              style={[
-                styles.updateButton,
-                { backgroundColor: colors.success, marginBottom: 12 },
-              ]}
-              onPress={handleSubmitFulfillment}
-            >
-              <Ionicons name="checkmark-circle" size={20} color="#FFF" />
-              <Text style={styles.updateButtonText}>
-                Confirm & Mark Shipped
-              </Text>
-            </Pressable>
-            <Pressable
-              style={styles.closeButton}
-              onPress={() => setShowFulfillmentModal(false)}
-            >
-              <Text style={{ color: colors.textSecondary }}>Cancel</Text>
-            </Pressable>
-          </View>
+          </KeyboardAwareModalContainer>
         </View>
       )}
 
@@ -2103,102 +2118,111 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
             style={styles.modalBackdrop}
             onPress={() => setShowRiderModal(false)}
           />
-          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
-            <Ionicons
-              name="bicycle-outline"
-              size={48}
-              color={colors.primary}
-              style={{ alignSelf: 'center', marginBottom: 16 }}
-            />
-            <Text style={[styles.modalTitle, { color: colors.text }]}>
-              Dispatch Rider
-            </Text>
-            <Text
-              style={{
-                color: colors.textSecondary,
-                textAlign: 'center',
-                marginBottom: 20,
-              }}
+          <KeyboardAwareModalContainer
+            align="end"
+            contentContainerStyle={styles.modalKeyboardContent}
+          >
+            <View
+              style={[styles.modalContent, { backgroundColor: colors.card }]}
             >
-              Enter rider's WhatsApp number to send order details.
-            </Text>
-            <View style={{ marginBottom: 16 }}>
-              <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
-                Rider Phone Number
+              <Ionicons
+                name="bicycle-outline"
+                size={48}
+                color={colors.primary}
+                style={{ alignSelf: 'center', marginBottom: 16 }}
+              />
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                Dispatch Rider
               </Text>
-              <View
+              <Text
                 style={{
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  borderRadius: RADIUS.md,
-                  padding: 12,
+                  color: colors.textSecondary,
+                  textAlign: 'center',
+                  marginBottom: 20,
                 }}
               >
-                <TextInput
-                  placeholder="e.g., +23480..."
-                  placeholderTextColor={colors.textSecondary}
-                  value={riderPhone}
-                  onChangeText={setRiderPhone}
-                  keyboardType="phone-pad"
-                  style={{ color: colors.text }}
-                />
-              </View>
-            </View>
-            {savedRiders.length > 0 && (
-              <View style={{ marginBottom: 20 }}>
-                <Text
+                Enter rider's WhatsApp number to send order details.
+              </Text>
+              <View style={{ marginBottom: 16 }}>
+                <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
+                  Rider Phone Number
+                </Text>
+                <View
                   style={{
-                    color: colors.textSecondary,
-                    marginBottom: 8,
-                    fontSize: 12,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: RADIUS.md,
+                    padding: 12,
                   }}
                 >
-                  Saved Riders
-                </Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{ gap: 8 }}
-                >
-                  {savedRiders.map((phone) => (
-                    <Pressable
-                      key={phone}
-                      style={{
-                        backgroundColor: colors.backgroundLight,
-                        paddingHorizontal: 12,
-                        paddingVertical: 8,
-                        borderRadius: RADIUS.full,
-                        borderWidth: 1,
-                        borderColor:
-                          riderPhone === phone ? colors.primary : 'transparent',
-                      }}
-                      onPress={() => setRiderPhone(phone)}
-                    >
-                      <Text style={{ color: colors.text, fontSize: 12 }}>
-                        {phone}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </ScrollView>
+                  <TextInput
+                    placeholder="e.g., +23480..."
+                    placeholderTextColor={colors.textSecondary}
+                    value={riderPhone}
+                    onChangeText={setRiderPhone}
+                    keyboardType="phone-pad"
+                    style={{ color: colors.text }}
+                  />
+                </View>
               </View>
-            )}
-            <Pressable
-              style={[
-                styles.updateButton,
-                { backgroundColor: colors.success, marginBottom: 12 },
-              ]}
-              onPress={handleSendToRider}
-            >
-              <Ionicons name="logo-whatsapp" size={20} color="#FFF" />
-              <Text style={styles.updateButtonText}>Send & Dispatch</Text>
-            </Pressable>
-            <Pressable
-              style={styles.closeButton}
-              onPress={() => setShowRiderModal(false)}
-            >
-              <Text style={{ color: colors.textSecondary }}>Cancel</Text>
-            </Pressable>
-          </View>
+              {savedRiders.length > 0 && (
+                <View style={{ marginBottom: 20 }}>
+                  <Text
+                    style={{
+                      color: colors.textSecondary,
+                      marginBottom: 8,
+                      fontSize: 12,
+                    }}
+                  >
+                    Saved Riders
+                  </Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ gap: 8 }}
+                  >
+                    {savedRiders.map((phone) => (
+                      <Pressable
+                        key={phone}
+                        style={{
+                          backgroundColor: colors.backgroundLight,
+                          paddingHorizontal: 12,
+                          paddingVertical: 8,
+                          borderRadius: RADIUS.full,
+                          borderWidth: 1,
+                          borderColor:
+                            riderPhone === phone
+                              ? colors.primary
+                              : 'transparent',
+                        }}
+                        onPress={() => setRiderPhone(phone)}
+                      >
+                        <Text style={{ color: colors.text, fontSize: 12 }}>
+                          {phone}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+              <Pressable
+                style={[
+                  styles.updateButton,
+                  { backgroundColor: colors.success, marginBottom: 12 },
+                ]}
+                onPress={handleSendToRider}
+              >
+                <Ionicons name="logo-whatsapp" size={20} color="#FFF" />
+                <Text style={styles.updateButtonText}>Send & Dispatch</Text>
+              </Pressable>
+              <Pressable
+                style={styles.closeButton}
+                onPress={() => setShowRiderModal(false)}
+              >
+                <Text style={{ color: colors.textSecondary }}>Cancel</Text>
+              </Pressable>
+            </View>
+          </KeyboardAwareModalContainer>
         </View>
       )}
 
@@ -2284,138 +2308,146 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
             style={styles.modalBackdrop}
             onPress={() => setShowRecordPaymentModal(false)}
           />
-          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>
-              Record Payment
-            </Text>
-            <Text
-              style={{
-                color: colors.textSecondary,
-                textAlign: 'center',
-                marginBottom: 20,
-              }}
+          <KeyboardAwareModalContainer
+            align="end"
+            contentContainerStyle={styles.modalKeyboardContent}
+          >
+            <View
+              style={[styles.modalContent, { backgroundColor: colors.card }]}
             >
-              Enter payment details manually.
-            </Text>
-            <View style={{ marginBottom: 16 }}>
-              <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
-                Amount Paid
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                Record Payment
               </Text>
-              <View
+              <Text
                 style={{
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  borderRadius: RADIUS.md,
-                  padding: 12,
+                  color: colors.textSecondary,
+                  textAlign: 'center',
+                  marginBottom: 20,
                 }}
               >
-                <TextInput
-                  placeholder={`${currencySymbol}0`}
-                  placeholderTextColor={colors.textSecondary}
-                  value={
-                    paymentAmount ? formatCurrencyInput(paymentAmount) : ''
-                  }
-                  onChangeText={handlePaymentAmountChange}
-                  keyboardType="numeric"
+                Enter payment details manually.
+              </Text>
+              <View style={{ marginBottom: 16 }}>
+                <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
+                  Amount Paid
+                </Text>
+                <View
                   style={{
-                    color: colors.text,
-                    fontSize: 18,
-                    fontWeight: '600',
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: RADIUS.md,
+                    padding: 12,
                   }}
-                />
-              </View>
-            </View>
-            <View style={{ marginBottom: 20 }}>
-              <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
-                Payment Method
-              </Text>
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                {['transfer', 'pos', 'cash'].map((method) => (
-                  <Pressable
-                    key={method}
+                >
+                  <TextInput
+                    placeholder={`${currencySymbol}0`}
+                    placeholderTextColor={colors.textSecondary}
+                    value={
+                      paymentAmount ? formatCurrencyInput(paymentAmount) : ''
+                    }
+                    onChangeText={handlePaymentAmountChange}
+                    keyboardType="numeric"
                     style={{
-                      flex: 1,
-                      paddingVertical: 10,
-                      borderRadius: RADIUS.md,
-                      backgroundColor:
-                        paymentMethod === method
-                          ? colors.primary
-                          : colors.backgroundLight,
-                      alignItems: 'center',
-                      borderWidth: 1,
-                      borderColor:
-                        paymentMethod === method
-                          ? colors.primary
-                          : colors.border,
+                      color: colors.text,
+                      fontSize: 18,
+                      fontWeight: '600',
                     }}
-                    onPress={() => setPaymentMethod(method)}
-                  >
-                    <Text
+                  />
+                </View>
+              </View>
+              <View style={{ marginBottom: 20 }}>
+                <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
+                  Payment Method
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  {['transfer', 'pos', 'cash'].map((method) => (
+                    <Pressable
+                      key={method}
                       style={{
-                        color: paymentMethod === method ? '#FFF' : colors.text,
-                        fontWeight: '500',
-                        textTransform: 'capitalize',
+                        flex: 1,
+                        paddingVertical: 10,
+                        borderRadius: RADIUS.md,
+                        backgroundColor:
+                          paymentMethod === method
+                            ? colors.primary
+                            : colors.backgroundLight,
+                        alignItems: 'center',
+                        borderWidth: 1,
+                        borderColor:
+                          paymentMethod === method
+                            ? colors.primary
+                            : colors.border,
                       }}
+                      onPress={() => setPaymentMethod(method)}
                     >
-                      {method === 'pos' ? 'POS' : method}
-                    </Text>
-                  </Pressable>
-                ))}
+                      <Text
+                        style={{
+                          color:
+                            paymentMethod === method ? '#FFF' : colors.text,
+                          fontWeight: '500',
+                          textTransform: 'capitalize',
+                        }}
+                      >
+                        {method === 'pos' ? 'POS' : method}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
               </View>
-            </View>
-            <View style={{ marginBottom: 24 }}>
-              <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
-                Notes (Optional)
-              </Text>
-              <View
-                style={{
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  borderRadius: RADIUS.md,
-                  padding: 12,
-                }}
+              <View style={{ marginBottom: 24 }}>
+                <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
+                  Notes (Optional)
+                </Text>
+                <View
+                  style={{
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: RADIUS.md,
+                    padding: 12,
+                  }}
+                >
+                  <TextInput
+                    placeholder="E.g., Received by John"
+                    placeholderTextColor={colors.textSecondary}
+                    value={paymentNotes}
+                    onChangeText={setPaymentNotes}
+                    style={{ color: colors.text }}
+                  />
+                </View>
+              </View>
+              <Pressable
+                style={[
+                  styles.updateButton,
+                  {
+                    backgroundColor: colors.success,
+                    marginBottom: 12,
+                    opacity: !paymentMethod || !paymentAmount ? 0.5 : 1,
+                  },
+                ]}
+                onPress={handleRecordPayment}
+                disabled={
+                  recordPaymentMutation.isPending ||
+                  !paymentMethod ||
+                  !paymentAmount
+                }
               >
-                <TextInput
-                  placeholder="E.g., Received by John"
-                  placeholderTextColor={colors.textSecondary}
-                  value={paymentNotes}
-                  onChangeText={setPaymentNotes}
-                  style={{ color: colors.text }}
-                />
-              </View>
+                {recordPaymentMutation.isPending ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark-circle" size={20} color="#FFF" />
+                    <Text style={styles.updateButtonText}>Confirm Payment</Text>
+                  </>
+                )}
+              </Pressable>
+              <Pressable
+                style={styles.closeButton}
+                onPress={() => setShowRecordPaymentModal(false)}
+              >
+                <Text style={{ color: colors.textSecondary }}>Cancel</Text>
+              </Pressable>
             </View>
-            <Pressable
-              style={[
-                styles.updateButton,
-                {
-                  backgroundColor: colors.success,
-                  marginBottom: 12,
-                  opacity: !paymentMethod || !paymentAmount ? 0.5 : 1,
-                },
-              ]}
-              onPress={handleRecordPayment}
-              disabled={
-                recordPaymentMutation.isPending ||
-                !paymentMethod ||
-                !paymentAmount
-              }
-            >
-              {recordPaymentMutation.isPending ? (
-                <ActivityIndicator color="#FFF" />
-              ) : (
-                <>
-                  <Ionicons name="checkmark-circle" size={20} color="#FFF" />
-                  <Text style={styles.updateButtonText}>Confirm Payment</Text>
-                </>
-              )}
-            </Pressable>
-            <Pressable
-              style={styles.closeButton}
-              onPress={() => setShowRecordPaymentModal(false)}
-            >
-              <Text style={{ color: colors.textSecondary }}>Cancel</Text>
-            </Pressable>
-          </View>
+          </KeyboardAwareModalContainer>
         </View>
       )}
 
@@ -2679,6 +2711,10 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     padding: 24,
     paddingBottom: 40,
+  },
+  modalKeyboardContent: {
+    flexGrow: 1,
+    justifyContent: 'flex-end',
   },
   modalTitle: {
     fontSize: 18,

@@ -26,6 +26,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { z } from 'zod';
 import { ExistingProductSuggestions } from '@/components/product/ExistingProductSuggestions';
 import { InvalidRouteScreen } from '@/components/ui/InvalidRouteScreen';
+import { KeyboardAwareModalContainer } from '@/components/ui/KeyboardAwareModalContainer';
 import SafeImage from '@/components/ui/SafeImage';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useProductNameSuggestions } from '@/hooks/useProductNameSuggestions';
@@ -443,7 +444,7 @@ export default function ProductEditScreen() {
     setFormData({ ...formData, variant_attributes: newAttrs });
   };
 
-  const handleImagePick = async () => {
+  const handleImagePick = () => {
     Alert.alert('Upload Image', 'Choose an option', [
       {
         text: 'Take Photo',
@@ -1018,7 +1019,10 @@ export default function ProductEditScreen() {
                 </Text>
               )}
               {formData.variant_attributes.map((attr, index) => (
-                <View key={index} style={[styles.row, { marginBottom: 12 }]}>
+                <View
+                  key={`${attr.key || 'attribute'}-${attr.value || 'value'}`}
+                  style={[styles.row, { marginBottom: 12 }]}
+                >
                   <View style={{ flex: 1 }}>
                     <TextInput
                       style={[
@@ -1397,126 +1401,147 @@ export default function ProductEditScreen() {
         animationType="slide"
         onRequestClose={() => setIsCategoryModalVisible(false)}
       >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => setIsCategoryModalVisible(false)}
-        >
-          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>
-                Select Category
-              </Text>
-              <View
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}
-              >
-                <Pressable
-                  onPress={() => setIsCreatingCategory(!isCreatingCategory)}
+        <View style={styles.modalOverlay}>
+          <Pressable
+            style={styles.modalBackdrop}
+            onPress={() => setIsCategoryModalVisible(false)}
+          />
+          <KeyboardAwareModalContainer
+            align="end"
+            contentContainerStyle={styles.modalKeyboardContent}
+          >
+            <View
+              style={[styles.modalContent, { backgroundColor: colors.card }]}
+            >
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, { color: colors.text }]}>
+                  Select Category
+                </Text>
+                <View
                   style={{
-                    backgroundColor: isCreatingCategory
-                      ? colors.error + '15'
-                      : `${colors.primary}15`,
-                    paddingHorizontal: 12,
-                    paddingVertical: 8,
-                    borderRadius: 20,
                     flexDirection: 'row',
                     alignItems: 'center',
-                    gap: 6,
+                    gap: 12,
                   }}
                 >
-                  <Ionicons
-                    name={isCreatingCategory ? 'close' : 'add'}
-                    size={20}
-                    color={isCreatingCategory ? colors.error : colors.primary}
-                  />
-                  <Text
+                  <Pressable
+                    onPress={() => setIsCreatingCategory(!isCreatingCategory)}
                     style={{
-                      color: isCreatingCategory ? colors.error : colors.primary,
-                      fontWeight: '700',
-                      fontSize: 14,
+                      backgroundColor: isCreatingCategory
+                        ? `${colors.error}15`
+                        : `${colors.primary}15`,
+                      paddingHorizontal: 12,
+                      paddingVertical: 8,
+                      borderRadius: 20,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 6,
                     }}
                   >
-                    {isCreatingCategory ? 'Cancel' : 'Add New'}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => setIsCategoryModalVisible(false)}
-                  style={{ padding: 4 }}
-                >
-                  <Ionicons name="close" size={24} color={colors.text} />
-                </Pressable>
-              </View>
-            </View>
-
-            {isCreatingCategory && (
-              <View style={{ marginBottom: 16, flexDirection: 'row', gap: 8 }}>
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      flex: 1,
-                      backgroundColor: colors.inputBg,
-                      color: colors.text,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                  value={newCategoryName}
-                  onChangeText={setNewCategoryName}
-                  placeholder="New Category Name"
-                  placeholderTextColor={colors.textSecondary}
-                />
-                <Pressable
-                  style={{
-                    backgroundColor: colors.primary,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    paddingHorizontal: 16,
-                    borderRadius: 8,
-                  }}
-                  onPress={handleCreateCategory}
-                  disabled={createCategoryMutation.isPending}
-                >
-                  {createCategoryMutation.isPending ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <Text style={{ color: '#fff', fontWeight: 'bold' }}>
-                      Add
+                    <Ionicons
+                      name={isCreatingCategory ? 'close' : 'add'}
+                      size={20}
+                      color={isCreatingCategory ? colors.error : colors.primary}
+                    />
+                    <Text
+                      style={{
+                        color: isCreatingCategory
+                          ? colors.error
+                          : colors.primary,
+                        fontWeight: '700',
+                        fontSize: 14,
+                      }}
+                    >
+                      {isCreatingCategory ? 'Cancel' : 'Add New'}
                     </Text>
-                  )}
-                </Pressable>
-              </View>
-            )}
-
-            <FlatList
-              data={categories}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <Pressable
-                  style={[
-                    styles.categoryItem,
-                    { borderBottomColor: colors.border },
-                  ]}
-                  onPress={() => {
-                    setFormData({
-                      ...formData,
-                      category: item.name,
-                      category_id: item.id,
-                    });
-                    setIsCategoryModalVisible(false);
-                  }}
-                >
-                  <Text
-                    style={[styles.categoryItemText, { color: colors.text }]}
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setIsCategoryModalVisible(false)}
+                    style={{ padding: 4 }}
                   >
-                    {item.name}
-                  </Text>
-                  {formData.category_id === item.id && (
-                    <Ionicons name="checkmark" size={20} color={colors.text} />
-                  )}
-                </Pressable>
+                    <Ionicons name="close" size={24} color={colors.text} />
+                  </Pressable>
+                </View>
+              </View>
+
+              {isCreatingCategory && (
+                <View
+                  style={{ marginBottom: 16, flexDirection: 'row', gap: 8 }}
+                >
+                  <TextInput
+                    style={[
+                      styles.input,
+                      {
+                        flex: 1,
+                        backgroundColor: colors.inputBg,
+                        color: colors.text,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                    value={newCategoryName}
+                    onChangeText={setNewCategoryName}
+                    placeholder="New Category Name"
+                    placeholderTextColor={colors.textSecondary}
+                  />
+                  <Pressable
+                    style={{
+                      backgroundColor: colors.primary,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      paddingHorizontal: 16,
+                      borderRadius: 8,
+                    }}
+                    onPress={handleCreateCategory}
+                    disabled={createCategoryMutation.isPending}
+                  >
+                    {createCategoryMutation.isPending ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text style={{ color: '#fff', fontWeight: 'bold' }}>
+                        Add
+                      </Text>
+                    )}
+                  </Pressable>
+                </View>
               )}
-            />
-          </View>
-        </Pressable>
+
+              <FlatList
+                data={categories}
+                keyExtractor={(item) => item.id}
+                keyboardShouldPersistTaps="handled"
+                renderItem={({ item }) => (
+                  <Pressable
+                    style={[
+                      styles.categoryItem,
+                      { borderBottomColor: colors.border },
+                    ]}
+                    onPress={() => {
+                      setFormData({
+                        ...formData,
+                        category: item.name,
+                        category_id: item.id,
+                      });
+                      setIsCategoryModalVisible(false);
+                    }}
+                  >
+                    <Text
+                      style={[styles.categoryItemText, { color: colors.text }]}
+                    >
+                      {item.name}
+                    </Text>
+                    {formData.category_id === item.id && (
+                      <Ionicons
+                        name="checkmark"
+                        size={20}
+                        color={colors.text}
+                      />
+                    )}
+                  </Pressable>
+                )}
+              />
+            </View>
+          </KeyboardAwareModalContainer>
+        </View>
       </Modal>
 
       {/* Fulfillment Modal */}
@@ -1527,114 +1552,124 @@ export default function ProductEditScreen() {
         onRequestClose={() => setIsFulfillmentModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View
-            style={[
-              styles.modalContent,
-              { backgroundColor: colors.card, height: '80%' },
-            ]}
+          <Pressable
+            style={styles.modalBackdrop}
+            onPress={() => setIsFulfillmentModalVisible(false)}
+          />
+          <KeyboardAwareModalContainer
+            align="end"
+            contentContainerStyle={styles.modalKeyboardContent}
           >
-            <View style={styles.modalHeader}>
-              <View>
-                <Text style={[styles.modalTitle, { color: colors.text }]}>
-                  Fulfillment Details
-                </Text>
-                <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
-                  Enter details for {formData.stock_quantity} units
-                </Text>
+            <View
+              style={[
+                styles.modalContent,
+                { backgroundColor: colors.card, height: '80%' },
+              ]}
+            >
+              <View style={styles.modalHeader}>
+                <View>
+                  <Text style={[styles.modalTitle, { color: colors.text }]}>
+                    Fulfillment Details
+                  </Text>
+                  <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
+                    Enter details for {formData.stock_quantity} units
+                  </Text>
+                </View>
+                <Pressable onPress={() => setIsFulfillmentModalVisible(false)}>
+                  <Ionicons name="close" size={24} color={colors.text} />
+                </Pressable>
               </View>
-              <Pressable onPress={() => setIsFulfillmentModalVisible(false)}>
-                <Ionicons name="close" size={24} color={colors.text} />
-              </Pressable>
-            </View>
 
-            <FlatList
-              data={formData.fulfillment_details.items}
-              keyExtractor={(_, index) => index.toString()}
-              contentContainerStyle={{ paddingBottom: 24 }}
-              renderItem={({ item, index }) => (
-                <View
-                  style={{
-                    marginBottom: 20,
-                    borderBottomWidth: 1,
-                    borderBottomColor: colors.border,
-                    paddingBottom: 16,
-                  }}
-                >
-                  <Text
+              <FlatList
+                data={formData.fulfillment_details.items}
+                keyExtractor={(_, index) => index.toString()}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{ paddingBottom: 24 }}
+                renderItem={({ item, index }) => (
+                  <View
                     style={{
-                      color: colors.text,
-                      fontWeight: '700',
-                      marginBottom: 8,
+                      marginBottom: 20,
+                      borderBottomWidth: 1,
+                      borderBottomColor: colors.border,
+                      paddingBottom: 16,
                     }}
                   >
-                    Item #{index + 1}
-                  </Text>
+                    <Text
+                      style={{
+                        color: colors.text,
+                        fontWeight: '700',
+                        marginBottom: 8,
+                      }}
+                    >
+                      Item #{index + 1}
+                    </Text>
 
-                  <View style={{ gap: 12 }}>
-                    <View>
-                      <Text
-                        style={[
-                          styles.label,
-                          { color: colors.textSecondary, marginTop: 0 },
-                        ]}
-                      >
-                        IMEI
-                      </Text>
-                      <TextInput
-                        style={[
-                          styles.input,
-                          {
-                            backgroundColor: colors.inputBg,
-                            color: colors.text,
-                            borderColor: colors.border,
-                          },
-                        ]}
-                        value={item.imei}
-                        onChangeText={(text) =>
-                          updateFulfillmentItem(index, 'imei', text)
-                        }
-                        placeholder="Enter IMEI"
-                        placeholderTextColor={colors.textSecondary}
-                      />
-                    </View>
-                    <View>
-                      <Text
-                        style={[
-                          styles.label,
-                          { color: colors.textSecondary, marginTop: 0 },
-                        ]}
-                      >
-                        Serial Number
-                      </Text>
-                      <TextInput
-                        style={[
-                          styles.input,
-                          {
-                            backgroundColor: colors.inputBg,
-                            color: colors.text,
-                            borderColor: colors.border,
-                          },
-                        ]}
-                        value={item.serial_number}
-                        onChangeText={(text) =>
-                          updateFulfillmentItem(index, 'serial_number', text)
-                        }
-                        placeholder="Enter Serial Number"
-                        placeholderTextColor={colors.textSecondary}
-                      />
+                    <View style={{ gap: 12 }}>
+                      <View>
+                        <Text
+                          style={[
+                            styles.label,
+                            { color: colors.textSecondary, marginTop: 0 },
+                          ]}
+                        >
+                          IMEI
+                        </Text>
+                        <TextInput
+                          style={[
+                            styles.input,
+                            {
+                              backgroundColor: colors.inputBg,
+                              color: colors.text,
+                              borderColor: colors.border,
+                            },
+                          ]}
+                          value={item.imei}
+                          onChangeText={(text) =>
+                            updateFulfillmentItem(index, 'imei', text)
+                          }
+                          placeholder="Enter IMEI"
+                          placeholderTextColor={colors.textSecondary}
+                        />
+                      </View>
+                      <View>
+                        <Text
+                          style={[
+                            styles.label,
+                            { color: colors.textSecondary, marginTop: 0 },
+                          ]}
+                        >
+                          Serial Number
+                        </Text>
+                        <TextInput
+                          style={[
+                            styles.input,
+                            {
+                              backgroundColor: colors.inputBg,
+                              color: colors.text,
+                              borderColor: colors.border,
+                            },
+                          ]}
+                          value={item.serial_number}
+                          onChangeText={(text) =>
+                            updateFulfillmentItem(index, 'serial_number', text)
+                          }
+                          placeholder="Enter Serial Number"
+                          placeholderTextColor={colors.textSecondary}
+                        />
+                      </View>
                     </View>
                   </View>
-                </View>
-              )}
-            />
+                )}
+              />
 
-            <Pressable
-              style={[styles.saveButton, { marginTop: 16, marginBottom: 0 }]}
-              onPress={() => setIsFulfillmentModalVisible(false)}
-            >
-              <Text style={styles.saveButtonText}>Done</Text>
-            </Pressable>
-          </View>
+              <Pressable
+                style={[styles.saveButton, { marginTop: 16, marginBottom: 0 }]}
+                onPress={() => setIsFulfillmentModalVisible(false)}
+              >
+                <Text style={styles.saveButtonText}>Done</Text>
+              </Pressable>
+            </View>
+          </KeyboardAwareModalContainer>
         </View>
       </Modal>
     </SafeAreaView>
@@ -1770,11 +1805,18 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
   },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
   modalContent: {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 16,
     maxHeight: '80%',
+  },
+  modalKeyboardContent: {
+    flexGrow: 1,
+    justifyContent: 'flex-end',
   },
   modalHeader: {
     flexDirection: 'row',

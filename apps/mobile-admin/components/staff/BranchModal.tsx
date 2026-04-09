@@ -5,15 +5,14 @@
 
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { KeyboardAwareModalContainer } from '@/components/ui/KeyboardAwareModalContainer';
 import type { ThemeColors } from '@/constants/theme';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 
@@ -49,86 +48,97 @@ export function BranchModal({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <KeyboardAvoidingView
-        style={styles.modalOverlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
-          <Text style={[styles.modalTitle, { color: colors.text }]}>
-            Create Branch
-          </Text>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                backgroundColor: colors.cardHover,
-                color: colors.text,
-                borderColor: colors.border,
-              },
-            ]}
-            placeholder="Branch name (e.g. Lagos Main)"
-            placeholderTextColor={colors.textMuted}
-            value={branchName}
-            onChangeText={onBranchNameChange}
-            accessibilityLabel="Branch name"
-          />
-          <TextInput
-            style={[
-              styles.input,
-              {
-                backgroundColor: colors.cardHover,
-                color: colors.text,
-                borderColor: colors.border,
-              },
-            ]}
-            placeholder="City (optional)"
-            placeholderTextColor={colors.textMuted}
-            value={branchCity}
-            onChangeText={onBranchCityChange}
-            accessibilityLabel="Branch city"
-          />
-          <View style={styles.modalButtons}>
-            <Pressable
+      <View style={styles.modalOverlay}>
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Close modal"
+        />
+        <KeyboardAwareModalContainer
+          align="end"
+          contentContainerStyle={styles.modalKeyboardContent}
+        >
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              Create Branch
+            </Text>
+            <TextInput
               style={[
-                styles.modalButton,
-                { backgroundColor: colors.cardHover },
+                styles.input,
+                {
+                  backgroundColor: colors.cardHover,
+                  color: colors.text,
+                  borderColor: colors.border,
+                },
               ]}
-              onPress={onClose}
-              accessibilityRole="button"
-              accessibilityLabel="Cancel branch creation"
-            >
-              <Text style={[styles.modalButtonText, { color: colors.text }]}>
-                Cancel
-              </Text>
-            </Pressable>
-            <Pressable
+              placeholder="Branch name (e.g. Lagos Main)"
+              placeholderTextColor={colors.textMuted}
+              value={branchName}
+              onChangeText={onBranchNameChange}
+              accessibilityLabel="Branch name"
+            />
+            <TextInput
               style={[
-                styles.modalButton,
-                { backgroundColor: colors.primary },
-                isCreateDisabled && styles.modalButtonDisabled,
+                styles.input,
+                {
+                  backgroundColor: colors.cardHover,
+                  color: colors.text,
+                  borderColor: colors.border,
+                },
               ]}
-              onPress={onSubmit}
-              disabled={isCreateDisabled}
-              accessibilityRole="button"
-              accessibilityLabel="Create branch"
-              accessibilityState={{ disabled: isCreateDisabled }}
-            >
-              {isPending ? (
-                <ActivityIndicator size="small" color={colors.textOnPrimary} />
-              ) : (
-                <Text
-                  style={[
-                    styles.modalButtonText,
-                    { color: colors.textOnPrimary },
-                  ]}
-                >
-                  Create
+              placeholder="City (optional)"
+              placeholderTextColor={colors.textMuted}
+              value={branchCity}
+              onChangeText={onBranchCityChange}
+              accessibilityLabel="Branch city"
+            />
+            <View style={styles.modalButtons}>
+              <Pressable
+                style={[
+                  styles.modalButton,
+                  { backgroundColor: colors.cardHover },
+                ]}
+                onPress={onClose}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel branch creation"
+              >
+                <Text style={[styles.modalButtonText, { color: colors.text }]}>
+                  Cancel
                 </Text>
-              )}
-            </Pressable>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.modalButton,
+                  { backgroundColor: colors.primary },
+                  isCreateDisabled && styles.modalButtonDisabled,
+                ]}
+                onPress={onSubmit}
+                disabled={isCreateDisabled}
+                accessibilityRole="button"
+                accessibilityLabel="Create branch"
+                accessibilityState={{ disabled: isCreateDisabled }}
+              >
+                {isPending ? (
+                  <ActivityIndicator
+                    size="small"
+                    color={colors.textOnPrimary}
+                  />
+                ) : (
+                  <Text
+                    style={[
+                      styles.modalButtonText,
+                      { color: colors.textOnPrimary },
+                    ]}
+                  >
+                    Create
+                  </Text>
+                )}
+              </Pressable>
+            </View>
           </View>
-        </View>
-      </KeyboardAvoidingView>
+        </KeyboardAwareModalContainer>
+      </View>
     </Modal>
   );
 }
@@ -137,6 +147,13 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  modalKeyboardContent: {
+    flexGrow: 1,
     justifyContent: 'flex-end',
   },
   modalContent: {
