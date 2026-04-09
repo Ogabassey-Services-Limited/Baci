@@ -114,6 +114,22 @@ describe('getMonnifyToken', () => {
     await expect(getMonnifyToken()).rejects.toThrow('Invalid credentials');
   });
 
+  it('throws when responseBody has missing or invalid token data', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        requestSuccessful: true,
+        responseMessage: 'success',
+        responseCode: '0',
+        responseBody: { accessToken: '', expiresIn: 0 },
+      }),
+    } as Response);
+
+    await expect(getMonnifyToken()).rejects.toThrow(
+      'missing or invalid token data'
+    );
+  });
+
   it('returns cached token on second call without re-fetching', async () => {
     const fetchSpy = mockFetchSuccess();
 
