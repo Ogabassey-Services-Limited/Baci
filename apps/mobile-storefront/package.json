@@ -60,7 +60,7 @@
     "posthog-react-native": "^4.39.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "react-hook-form": "^7.72.0",
+    "react-hook-form": "^7.72.1",
     "react-native": "0.84.1",
     "react-native-css-interop": "^0.2.3",
     "react-native-edge-to-edge": "^1.8.1",
