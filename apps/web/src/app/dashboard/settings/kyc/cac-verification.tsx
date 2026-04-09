@@ -28,6 +28,12 @@ type CacStep = 'search' | 'confirm' | 'upload' | 'result';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const ACCEPTED_TYPES = 'image/jpeg,image/png,image/webp,application/pdf';
+const ACCEPTED_TYPES_SET = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'application/pdf',
+]);
 
 export function CacVerification({
   verified,
@@ -95,8 +101,9 @@ export function CacVerification({
         JSON.stringify({ searchTerm: term })
       );
       if (!data) return;
-      setCompanies((data as { companies: CacCompany[] }).companies);
-      if (!(data as { companies: CacCompany[] }).companies.length) {
+      const foundCompanies = (data as { companies: CacCompany[] }).companies;
+      setCompanies(foundCompanies);
+      if (!foundCompanies.length) {
         toast({
           title: 'No results',
           description: 'No companies found for that RC/BN number.',
@@ -112,6 +119,15 @@ export function CacVerification({
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!ACCEPTED_TYPES_SET.has(file.type)) {
+      toast({
+        variant: 'destructive',
+        title: 'Invalid file type',
+        description: 'Please upload a JPEG, PNG, WebP, or PDF file.',
+      });
+      e.target.value = '';
+      return;
+    }
     if (file.size > MAX_FILE_SIZE) {
       toast({
         variant: 'destructive',

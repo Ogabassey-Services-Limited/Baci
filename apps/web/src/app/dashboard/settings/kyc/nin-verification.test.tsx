@@ -9,7 +9,6 @@ vi.mock('@/hooks/use-toast', () => ({
 import { NinVerification } from './nin-verification';
 
 const baseProps = {
-  merchantId: 'merchant-1',
   verified: false,
   prefillNin: null,
   prefillFirstName: null,

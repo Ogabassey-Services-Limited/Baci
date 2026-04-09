@@ -49,6 +49,10 @@ export default async function KycSettingsPage() {
       { p_merchant_id: merchant.id }
     );
 
+    if (error) {
+      console.error('get_merchant_verification_status RPC failed:', error);
+    }
+
     const verificationStatus = error
       ? {
           nin_verified: false,
@@ -64,7 +68,6 @@ export default async function KycSettingsPage() {
     return (
       <div className="container max-w-2xl py-8">
         <KycVerification
-          merchantId={merchant.id}
           verificationStatus={verificationStatus}
           prefillNin={merchant.nin ?? null}
           prefillBvn={merchant.bvn ?? null}

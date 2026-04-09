@@ -32,7 +32,7 @@ export function fetchWithCsrf(
   // Set content-type for JSON requests, but skip for FormData (browser sets multipart boundary)
   if (
     options.body &&
-    !(options.body instanceof FormData) &&
+    typeof options.body === 'string' &&
     !headers.has('content-type')
   ) {
     headers.set('content-type', 'application/json');

@@ -25,7 +25,8 @@ const bvnFormSchema = z.object({
   lastName: z.string().trim().min(1, 'Last name is required'),
   dateOfBirth: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date of birth is required'),
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date of birth is required')
+    .refine((val) => !Number.isNaN(Date.parse(val)), 'Invalid date'),
   mobileNo: z
     .string()
     .regex(/^0\d{10}$/, 'Enter a valid 11-digit phone number starting with 0'),
@@ -34,7 +35,6 @@ const bvnFormSchema = z.object({
 type BvnFormValues = z.input<typeof bvnFormSchema>;
 
 interface BvnVerificationProps {
-  merchantId: string;
   verified: boolean;
   prefillBvn: string | null;
   prefillFirstName: string | null;
@@ -84,7 +84,6 @@ export function BvnVerification({
         method: 'POST',
         body: JSON.stringify(values),
       });
-      const data = await res.json();
 
       if (res.status === 429) {
         toast({
@@ -94,6 +93,8 @@ export function BvnVerification({
         });
         return;
       }
+
+      const data = await res.json().catch(() => ({ error: 'Request failed' }));
 
       if (!res.ok) {
         toast({
@@ -206,6 +207,9 @@ export function BvnVerification({
                     placeholder="08012345678"
                     maxLength={11}
                     {...field}
+                    onChange={(e) => {
+                      field.onChange(e.target.value.replace(/\D/g, ''));
+                    }}
                   />
                 </FormControl>
                 <FormMessage />

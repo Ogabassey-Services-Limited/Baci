@@ -28,8 +28,19 @@ interface VerifyBvnResponse {
   verified: boolean;
 }
 
-const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const MOBILE_REGEX = /^0\d{10}$/;
+
+function isValidCalendarDate(dateStr: string): boolean {
+  const re = /^\d{4}-\d{2}-\d{2}$/;
+  if (!re.test(dateStr)) return false;
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  return (
+    date.getUTCFullYear() === y &&
+    date.getUTCMonth() === m - 1 &&
+    date.getUTCDate() === d
+  );
+}
 
 export default function BvnVerificationCard({
   verified,
@@ -54,8 +65,8 @@ export default function BvnVerificationCard({
         method: 'POST',
         body: JSON.stringify({
           bvn,
-          firstName,
-          lastName,
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
           dateOfBirth,
           mobileNo,
         }),
@@ -86,7 +97,7 @@ export default function BvnVerificationCard({
   });
 
   const handleSubmit = () => {
-    if (bvn.length !== 11) {
+    if (!/^\d{11}$/.test(bvn)) {
       Alert.alert('Invalid BVN', 'BVN must be exactly 11 digits.');
       return;
     }
@@ -94,10 +105,10 @@ export default function BvnVerificationCard({
       Alert.alert('Missing Fields', 'Please enter your first and last name.');
       return;
     }
-    if (!DATE_REGEX.test(dateOfBirth)) {
+    if (!isValidCalendarDate(dateOfBirth)) {
       Alert.alert(
         'Invalid Date',
-        'Please enter date of birth in YYYY-MM-DD format.'
+        'Please enter a valid date of birth in YYYY-MM-DD format.'
       );
       return;
     }

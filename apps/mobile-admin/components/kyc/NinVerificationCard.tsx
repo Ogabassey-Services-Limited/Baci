@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import { apiClient, NetworkError } from '@/lib/api-client';
+import { isValidCalendarDate } from './date-utils';
 import VerificationStatusBadge from './VerificationStatusBadge';
 import { verificationCardStyles as styles } from './verification-card-styles';
 
@@ -26,8 +27,6 @@ interface NinVerificationCardProps {
 interface VerifyNinResponse {
   verified: boolean;
 }
-
-const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 export default function NinVerificationCard({
   verified,
@@ -48,7 +47,12 @@ export default function NinVerificationCard({
     mutationFn: () =>
       apiClient<VerifyNinResponse>('/api/merchant/verify-nin', {
         method: 'POST',
-        body: JSON.stringify({ nin, firstName, lastName, dateOfBirth }),
+        body: JSON.stringify({
+          nin,
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          dateOfBirth,
+        }),
       }),
     onSuccess: (data) => {
       if (data.verified) {
@@ -76,7 +80,7 @@ export default function NinVerificationCard({
   });
 
   const handleSubmit = () => {
-    if (nin.length !== 11) {
+    if (!/^\d{11}$/.test(nin)) {
       Alert.alert('Invalid NIN', 'NIN must be exactly 11 digits.');
       return;
     }
@@ -84,10 +88,10 @@ export default function NinVerificationCard({
       Alert.alert('Missing Fields', 'Please enter your first and last name.');
       return;
     }
-    if (!DATE_REGEX.test(dateOfBirth)) {
+    if (!isValidCalendarDate(dateOfBirth)) {
       Alert.alert(
         'Invalid Date',
-        'Please enter date of birth in YYYY-MM-DD format.'
+        'Please enter a valid date of birth in YYYY-MM-DD format.'
       );
       return;
     }

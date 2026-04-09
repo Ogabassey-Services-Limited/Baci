@@ -25,13 +25,13 @@ const ninFormSchema = z.object({
   lastName: z.string().trim().min(1, 'Last name is required'),
   dateOfBirth: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date of birth is required'),
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date of birth is required')
+    .refine((val) => !Number.isNaN(Date.parse(val)), 'Invalid date'),
 });
 
 type NinFormValues = z.input<typeof ninFormSchema>;
 
 interface NinVerificationProps {
-  merchantId: string;
   verified: boolean;
   prefillNin: string | null;
   prefillFirstName: string | null;
@@ -78,7 +78,6 @@ export function NinVerification({
         method: 'POST',
         body: JSON.stringify(values),
       });
-      const data = await res.json();
 
       if (res.status === 429) {
         toast({
@@ -88,6 +87,8 @@ export function NinVerification({
         });
         return;
       }
+
+      const data = await res.json().catch(() => ({ error: 'Request failed' }));
 
       if (!res.ok) {
         toast({

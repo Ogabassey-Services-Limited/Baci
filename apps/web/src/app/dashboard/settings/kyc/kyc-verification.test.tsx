@@ -30,7 +30,6 @@ vi.mock('next/navigation', () => ({
 import { KycVerification } from './kyc-verification';
 
 const baseProps = {
-  merchantId: 'merchant-123',
   verificationStatus: {
     nin_verified: false,
     bvn_verified: false,

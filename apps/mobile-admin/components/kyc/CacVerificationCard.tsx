@@ -35,6 +35,7 @@ export default function CacVerificationCard({
     null
   );
   const [imageUri, setImageUri] = useState<string | null>(null);
+  const [imageMimeType, setImageMimeType] = useState<string>('image/jpeg');
   const [verifyResult, setVerifyResult] = useState<{
     verified: boolean;
     reason?: string;
@@ -44,7 +45,7 @@ export default function CacVerificationCard({
     mutationFn: () =>
       apiClient<{ companies: CacCompany[] }>('/api/merchant/cac-search', {
         method: 'POST',
-        body: JSON.stringify({ searchTerm: rcNumber }),
+        body: JSON.stringify({ searchTerm: rcNumber.trim() }),
       }),
     onError: (error: unknown) => handleMutationError(error),
   });
@@ -53,13 +54,14 @@ export default function CacVerificationCard({
     mutationFn: () => {
       if (!selectedCompany || !imageUri) throw new Error('Missing data');
       const formData = new FormData();
-      const ext = imageUri.split('.').pop()?.toLowerCase() || 'jpg';
+      const subtype = imageMimeType.split('/')[1] || 'jpeg';
+      const ext = subtype === 'jpeg' ? 'jpg' : subtype;
       formData.append(
         'file',
         createUploadFile({
           uri: imageUri,
           name: `cac-certificate.${ext}`,
-          type: `image/${ext === 'jpg' ? 'jpeg' : ext}`,
+          type: imageMimeType,
         }) as unknown as Blob
       );
       formData.append('rcNumber', selectedCompany.rcNumber);
@@ -101,12 +103,21 @@ export default function CacVerificationCard({
   }
 
   async function handlePickImage() {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.8,
-    });
-    if (!result.canceled && result.assets[0]) {
-      setImageUri(result.assets[0].uri);
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        setImageUri(asset.uri);
+        if (asset.mimeType) setImageMimeType(asset.mimeType);
+      }
+    } catch {
+      Alert.alert(
+        'Error',
+        'Unable to access photo library. Please check your permissions.'
+      );
     }
   }
 

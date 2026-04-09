@@ -9,7 +9,6 @@ vi.mock('@/hooks/use-toast', () => ({
 import { BvnVerification } from './bvn-verification';
 
 const baseProps = {
-  merchantId: 'merchant-1',
   verified: false,
   prefillBvn: null,
   prefillFirstName: null,

@@ -45,13 +45,14 @@ export default function CacSearchStep({
         value={rcNumber}
         onChangeText={onChangeRcNumber}
         autoCapitalize="characters"
+        accessibilityLabel="RC or BN number"
       />
       <Pressable
         style={[
           styles.button,
           {
             backgroundColor: colors.primary,
-            opacity: rcNumber.trim() ? 1 : 0.5,
+            opacity: rcNumber.trim() && !isSearching ? 1 : 0.5,
           },
         ]}
         onPress={onSearch}
@@ -71,6 +72,11 @@ export default function CacSearchStep({
           data={results}
           keyExtractor={(item) => item.rcNumber}
           style={styles.resultsList}
+          ListEmptyComponent={
+            <Text style={{ color: colors.textSecondary, padding: SPACING.md }}>
+              No companies found for this RC/BN number.
+            </Text>
+          }
           renderItem={({ item }) => (
             <Pressable
               style={[styles.resultItem, { borderColor: colors.border }]}
