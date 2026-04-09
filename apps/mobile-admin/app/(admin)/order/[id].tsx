@@ -91,6 +91,7 @@ type ShippingAddressObject = {
 };
 
 type ShippingAddress = ShippingAddressObject | string | null | undefined;
+type ShipmentCompletionMode = 'provider' | 'self_fulfillment';
 
 // Helper to get consistent theme colors for statuses
 const getStatusColor = (
@@ -208,6 +209,8 @@ export default function OrderDetailsScreen() {
   const [isGeneratingReceipt, setIsGeneratingReceipt] = useState(false);
   const [selectedOrderItem, setSelectedOrderItem] =
     useState<OrderItemSnapshot | null>(null);
+  const [pendingShipmentMode, setPendingShipmentMode] =
+    useState<ShipmentCompletionMode>('provider');
 
   const [successModal, setSuccessModal] = useState({
     visible: false,
@@ -416,7 +419,7 @@ ${itemsList}
               text: 'Yes, Mark Shipped',
               onPress: () => {
                 setShowRiderModal(false);
-                handleStatusUpdate('shipped');
+                void beginShipmentCompletion('self_fulfillment');
               },
             },
           ]
@@ -526,6 +529,172 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
     }
   };
 
+  const hasShippableGadgetItems = () =>
+    order?.items?.some(
+      (item) =>
+        item.name?.toLowerCase().includes('phone') ||
+        item.name?.toLowerCase().includes('laptop') ||
+        item.name?.toLowerCase().includes('iphone') ||
+        item.name?.toLowerCase().includes('samsung') ||
+        item.name?.toLowerCase().includes('dell') ||
+        item.name?.toLowerCase().includes('hp') ||
+        item.name?.toLowerCase().includes('alienware') ||
+        item.name?.toLowerCase().includes('gaming')
+    ) ?? false;
+
+  const sendShippedEmailNotification = async () => {
+    if (!order) return;
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        return;
+      }
+
+      fetch(`${BASE_URL}/api/orders/${order.id}/shipped`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({}),
+      }).catch(() => {
+        // Silently ignore email errors for now; shipment already succeeded.
+      });
+    } catch {
+      // Ignore email errors - shipment already succeeded.
+    }
+  };
+
+  const saveFulfillmentDetails = async () => {
+    if (!order) return;
+
+    const { error } = await supabase
+      .from('orders')
+      .update({
+        fulfillment_details: fulfillmentDetails,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', order.id);
+
+    if (error) {
+      throw error;
+    }
+  };
+
+  const markOrderShippedWithProvider = async () => {
+    if (!order) return;
+
+    await updateStatusMutation.mutateAsync({
+      orderId: order.id,
+      status: 'shipped',
+    });
+  };
+
+  const markOrderSelfFulfilled = async () => {
+    if (!order) return;
+
+    const dispatchPhone = riderPhone.trim();
+    if (!dispatchPhone) {
+      throw new Error('Please enter a rider phone number');
+    }
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      throw new Error('Unauthorized');
+    }
+
+    const response = await fetch(`${BASE_URL}/api/shipping/self-fulfill`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        orderId: order.id,
+        dispatchPhone,
+        carrierName: 'Dispatch Rider',
+        dispatchNotes: `Self-fulfilled from mobile admin for order ${order.order_number}`,
+      }),
+    });
+
+    const payload = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      const message =
+        payload &&
+        typeof payload === 'object' &&
+        'error' in payload &&
+        typeof payload.error === 'string'
+          ? payload.error
+          : 'Failed to mark order as self-fulfilled';
+      throw new Error(message);
+    }
+  };
+
+  const finalizeShipmentCompletion = async (
+    mode: ShipmentCompletionMode,
+    saveDetails: boolean
+  ) => {
+    if (!order) return;
+
+    if (saveDetails) {
+      await saveFulfillmentDetails();
+    }
+
+    if (mode === 'self_fulfillment') {
+      await markOrderSelfFulfilled();
+    } else {
+      await markOrderShippedWithProvider();
+    }
+
+    setShowFulfillmentModal(false);
+    setShowStatusModal(false);
+    setFulfillmentDetails({ imei: '', serialNumber: '' });
+    setPendingShipmentMode('provider');
+
+    await sendShippedEmailNotification();
+
+    queryClient.invalidateQueries({ queryKey: ['order', order.id] });
+    queryClient.invalidateQueries({ queryKey: ['orders'] });
+    queryClient.invalidateQueries({ queryKey: ['order-counts'] });
+    queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+
+    Alert.alert(
+      'Success',
+      mode === 'self_fulfillment'
+        ? 'Order marked as self-fulfilled with dispatch details'
+        : 'Order marked as shipped with fulfillment details'
+    );
+  };
+
+  const beginShipmentCompletion = async (mode: ShipmentCompletionMode) => {
+    if (!order) return;
+
+    setPendingShipmentMode(mode);
+    setShowStatusModal(false);
+
+    if (hasShippableGadgetItems() && !order.fulfillment_details?.imei) {
+      setShowFulfillmentModal(true);
+      return;
+    }
+
+    try {
+      await finalizeShipmentCompletion(mode, false);
+    } catch (err: unknown) {
+      Alert.alert(
+        'Error',
+        (err as Error).message || 'Failed to mark order as shipped'
+      );
+    }
+  };
+
   const handleStatusUpdate = async (newStatus: ShippingStatus) => {
     if (!order) return;
 
@@ -540,23 +709,8 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
     }
 
     if (newStatus === 'shipped' && order.shipping_status === 'processing') {
-      const hasGadgetItems = order.items?.some(
-        (item) =>
-          item.name?.toLowerCase().includes('phone') ||
-          item.name?.toLowerCase().includes('laptop') ||
-          item.name?.toLowerCase().includes('iphone') ||
-          item.name?.toLowerCase().includes('samsung') ||
-          item.name?.toLowerCase().includes('dell') ||
-          item.name?.toLowerCase().includes('hp') ||
-          item.name?.toLowerCase().includes('alienware') ||
-          item.name?.toLowerCase().includes('gaming')
-      );
-
-      if (hasGadgetItems && !order.fulfillment_details?.imei) {
-        setShowStatusModal(false);
-        setShowFulfillmentModal(true);
-        return;
-      }
+      await beginShipmentCompletion('provider');
+      return;
     }
 
     try {
@@ -565,30 +719,6 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
         status: newStatus,
       });
       setShowStatusModal(false);
-
-      // Send shipped notification email when status changes to 'shipped'
-      if (newStatus === 'shipped') {
-        try {
-          const {
-            data: { session },
-          } = await supabase.auth.getSession();
-          if (session?.access_token) {
-            // Fire and forget - don't block the UI
-            fetch(`${BASE_URL}/api/orders/${order.id}/shipped`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${session.access_token}`,
-              },
-              body: JSON.stringify({}), // Could include tracking_number, courier_name etc.
-            }).catch(() => {
-              // Silently ignore email errors
-            });
-          }
-        } catch {
-          // Ignore email errors - status update already succeeded
-        }
-      }
 
       // Send delivered notification email when status changes to 'delivered'
       if (newStatus === 'delivered') {
@@ -747,49 +877,7 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
     }
 
     try {
-      const { error } = await supabase
-        .from('orders')
-        .update({
-          fulfillment_details: fulfillmentDetails,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', order.id);
-
-      if (error) throw error;
-
-      await updateStatusMutation.mutateAsync({
-        orderId: order.id,
-        status: 'shipped',
-      });
-
-      setShowFulfillmentModal(false);
-      setFulfillmentDetails({ imei: '', serialNumber: '' });
-      Alert.alert(
-        'Success',
-        'Order marked as shipped with fulfillment details'
-      );
-
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (session?.access_token) {
-        fetch(`${BASE_URL}/api/orders/${order.id}/shipped`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({}),
-        }).catch(() => {
-          // Silently ignore email errors
-        });
-      }
-
-      queryClient.invalidateQueries({ queryKey: ['order', order.id] });
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
-      queryClient.invalidateQueries({ queryKey: ['order-counts'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      await finalizeShipmentCompletion(pendingShipmentMode, true);
     } catch (err: unknown) {
       Alert.alert(
         'Error',
