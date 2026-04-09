@@ -102,6 +102,7 @@ export const ProductProvider: React.FC<{
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const fetchInProgressRef = useRef(false);
   const lastFetchParamsRef = useRef<string>('');
+  const lastFetchTimeRef = useRef<number>(0);
 
   const openAddProductDialog = (product: Product | null = null) => {
     setEditingProduct(product);
@@ -135,17 +136,15 @@ export const ProductProvider: React.FC<{
 
     // Prevent rapid re-fetching (throttle to 1s)
     const now = Date.now();
-    // biome-ignore lint/suspicious/noExplicitAny: Using function property for quick throttle patch
-    const lastFetch = (fetchProducts as any).lastFetch || 0;
+    const lastFetch = lastFetchTimeRef.current;
     if (now - lastFetch < 1000) {
       if (process.env.NODE_ENV === 'development') {
         console.log('Throttling product fetch');
       }
       return;
     }
-    // Store timestamp on the function object (or use a ref in real implementation, but this works for quick patch)
-    // biome-ignore lint/suspicious/noExplicitAny: Using function property for quick throttle patch
-    (fetchProducts as any).lastFetch = now;
+
+    lastFetchTimeRef.current = now;
 
     // Prevent duplicate fetches with same parameters
     if (
