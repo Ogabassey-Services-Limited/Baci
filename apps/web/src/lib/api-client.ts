@@ -29,8 +29,12 @@ export function fetchWithCsrf(
     );
   }
 
-  // Always set content-type for JSON requests
-  if (options.body && !headers.has('content-type')) {
+  // Set content-type for JSON requests, but skip for FormData (browser sets multipart boundary)
+  if (
+    options.body &&
+    !(options.body instanceof FormData) &&
+    !headers.has('content-type')
+  ) {
     headers.set('content-type', 'application/json');
   }
 

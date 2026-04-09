@@ -65,4 +65,39 @@ describe('fetchWithCsrf', () => {
     const headers = new Headers(init?.headers);
     expect(headers.get(csrf.CSRF_HEADER_NAME)).toBeNull();
   });
+
+  it('does not set content-type when body is FormData', async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response('{}'));
+    vi.spyOn(csrf, 'getClientCsrfToken').mockReturnValue('csrf-token-value');
+
+    const formData = new FormData();
+    formData.append('file', new Blob(['test']), 'test.jpg');
+
+    await fetchWithCsrf('/api/upload', {
+      method: 'POST',
+      body: formData,
+    });
+
+    const init = fetchSpy.mock.calls[0]?.[1];
+    const headers = new Headers(init?.headers);
+    expect(headers.get('content-type')).toBeNull();
+  });
+
+  it('sets content-type to application/json for non-FormData body', async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response('{}'));
+    vi.spyOn(csrf, 'getClientCsrfToken').mockReturnValue('csrf-token-value');
+
+    await fetchWithCsrf('/api/example', {
+      method: 'POST',
+      body: JSON.stringify({ key: 'value' }),
+    });
+
+    const init = fetchSpy.mock.calls[0]?.[1];
+    const headers = new Headers(init?.headers);
+    expect(headers.get('content-type')).toBe('application/json');
+  });
 });

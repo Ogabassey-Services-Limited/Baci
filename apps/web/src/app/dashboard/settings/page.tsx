@@ -85,6 +85,32 @@ export default async function SettingsPage() {
           </CardContent>
         </Card>
 
+        {/* KYC / Business Verification Card */}
+        <Card className="glass">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Business Verification (KYC)
+            </CardTitle>
+            <CardDescription>
+              Verify your identity with NIN, BVN, and CAC to enable full payment
+              features.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="outline"
+              className="w-full justify-between"
+              asChild
+            >
+              <Link href="/dashboard/settings/kyc">
+                <span>Manage Verification</span>
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+
         {/* Tax Settings Card */}
         <Card className="glass">
           <CardHeader>
