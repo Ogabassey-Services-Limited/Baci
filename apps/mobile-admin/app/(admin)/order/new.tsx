@@ -66,6 +66,13 @@ import { type Product, useProducts } from '@/hooks/useProducts';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 
+const MODAL_FLATLIST_PROPS = {
+  initialNumToRender: 20,
+  maxToRenderPerBatch: 20,
+  windowSize: 10,
+  removeClippedSubviews: Platform.OS === 'android',
+} as const;
+
 // Type definitions
 interface OrderItem {
   product_id: string; // 'custom' for manual items
@@ -1581,12 +1588,7 @@ export default function NewOrderScreen() {
           <FlatList
             data={filteredProducts}
             keyExtractor={(item) => item.id}
-            // ⚡ Bolt: Prevent UI thread blocking during modal open by virtualizing the product list
-            // Expected Impact: Reduces initial render time for the modal and decreases memory footprint
-            initialNumToRender={20}
-            maxToRenderPerBatch={20}
-            windowSize={10}
-            removeClippedSubviews={Platform.OS === 'android'}
+            {...MODAL_FLATLIST_PROPS}
             renderItem={({ item }) => {
               const conditionLabel = item.condition
                 ? item.condition.replace(/_/g, ' ')
@@ -2070,12 +2072,7 @@ export default function NewOrderScreen() {
               <FlatList
                 data={customersData?.pages.flatMap((p) => p.customers) || []}
                 keyExtractor={(item) => item.id}
-                // ⚡ Bolt: Prevent UI thread blocking during modal open by virtualizing the customer list
-                // Expected Impact: Reduces initial render time for the modal and decreases memory footprint
-                initialNumToRender={20}
-                maxToRenderPerBatch={20}
-                windowSize={10}
-                removeClippedSubviews={Platform.OS === 'android'}
+                {...MODAL_FLATLIST_PROPS}
                 contentContainerStyle={{ paddingBottom: 40 }}
                 renderItem={({ item }) => (
                   <Pressable
