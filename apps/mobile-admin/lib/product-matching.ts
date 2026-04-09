@@ -1,3 +1,8 @@
+import {
+  buildProductSearchQuery,
+  normalizeProductSearchText,
+} from '@baci/shared';
+
 export interface ProductMatchCandidate {
   id: string;
   name: string;
@@ -13,12 +18,7 @@ export interface RankedProductMatch<T extends ProductMatchCandidate> {
 }
 
 export function normalizeComparableProductName(value: string): string {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return normalizeProductSearchText(value);
 }
 
 export function buildProductSuggestionTerms(value: string): string[] {
@@ -111,7 +111,8 @@ export function rankProductMatches<T extends ProductMatchCandidate>(
     minScore?: number;
   }
 ): RankedProductMatch<T>[] {
-  const normalizedQuery = normalizeComparableProductName(productName);
+  const query = buildProductSearchQuery(productName);
+  const normalizedQuery = query.normalized;
 
   if (!normalizedQuery) {
     return [];
@@ -122,11 +123,17 @@ export function rankProductMatches<T extends ProductMatchCandidate>(
   const matches = products
     .filter((product) => product.id !== options?.excludeProductId)
     .map((product) => {
-      const normalizedCandidate = normalizeComparableProductName(product.name);
+      const candidate = buildProductSearchQuery(product.name);
+      const normalizedCandidate = candidate.normalized;
       const isExact = normalizedCandidate === normalizedQuery;
+      const hasCompactTerms =
+        Boolean(query.compact) && Boolean(candidate.compact);
       const containsMatch =
         normalizedCandidate.includes(normalizedQuery) ||
-        normalizedQuery.includes(normalizedCandidate);
+        normalizedQuery.includes(normalizedCandidate) ||
+        (hasCompactTerms &&
+          (candidate.compact.includes(query.compact) ||
+            query.compact.includes(candidate.compact)));
       const tokenOverlap = getTokenOverlap(
         normalizedQuery,
         normalizedCandidate

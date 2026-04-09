@@ -78,7 +78,7 @@ describe('Search API Security', () => {
 
       // Verify RPC call
       expect(mockSupabase.rpc).toHaveBeenCalledWith(
-        'smart_product_search',
+        'search_products_v2',
         expect.objectContaining({
           search_query: expect.not.stringContaining('<script>'),
         })
@@ -123,7 +123,7 @@ describe('Search API Security', () => {
 
       // Verify the query was sanitized and passed to the rpc call
       expect(mockSupabase.rpc).toHaveBeenCalledWith(
-        'product_autocomplete',
+        'product_autocomplete_v2',
         expect.objectContaining({
           search_prefix: expect.not.stringContaining('<script>'),
           merchant_id_param: merchantId,

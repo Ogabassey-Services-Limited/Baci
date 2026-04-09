@@ -40,9 +40,9 @@ export async function GET(request: NextRequest) {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    // Use autocomplete function for fast prefix matching
+    // Use shared autocomplete function for normalized prefix/fuzzy matching.
     const { data: productSuggestions, error } = await supabase.rpc(
-      'product_autocomplete',
+      'product_autocomplete_v2',
       {
         search_prefix: query,
         merchant_id_param: merchantId,

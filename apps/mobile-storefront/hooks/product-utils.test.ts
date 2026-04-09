@@ -1,12 +1,14 @@
+import { jest } from '@jest/globals';
 import type { QueryClient } from '@tanstack/react-query';
 
-const mockWithSupabaseRetry = jest.fn();
+const mockWithSupabaseRetry: jest.Mock = jest.fn();
 const mockGetProductSlugFallbackCandidates = jest.fn();
 const mockRemoveProductSlugFromProductsCache = jest.fn((cached, slug) => ({
   cached,
   slug,
 }));
-const mockFrom = jest.fn();
+const mockFrom: jest.Mock = jest.fn();
+const mockRpc: jest.Mock = jest.fn();
 
 jest.mock('@/lib/api', () => ({
   withSupabaseRetry: (operation: () => Promise<unknown>, options?: unknown) =>
@@ -33,6 +35,7 @@ jest.mock('@/lib/product-slug-fallback', () => ({
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     from: (...args: unknown[]) => mockFrom(...args),
+    rpc: (...args: unknown[]) => mockRpc(...args),
   },
 }));
 
@@ -59,6 +62,7 @@ interface MockQueryChain {
   count: number | null;
   select: jest.Mock;
   eq: jest.Mock;
+  in: jest.Mock;
   ilike: jest.Mock;
   textSearch: jest.Mock;
   gte: jest.Mock;
@@ -75,13 +79,14 @@ function createQueryChain(result: QueryResult): MockQueryChain {
   chain.count = result.count ?? null;
   chain.select = jest.fn(() => chain);
   chain.eq = jest.fn(() => chain);
+  chain.in = jest.fn(() => chain);
   chain.ilike = jest.fn(() => chain);
   chain.textSearch = jest.fn(() => chain);
   chain.gte = jest.fn(() => chain);
   chain.lte = jest.fn(() => chain);
   chain.order = jest.fn(() => chain);
   chain.range = jest.fn(() => chain);
-  chain.maybeSingle = jest.fn().mockResolvedValue(result);
+  chain.maybeSingle = jest.fn(async () => result);
 
   return chain;
 }
@@ -143,8 +148,12 @@ describe('product-utils', () => {
     jest.clearAllMocks();
     jest.spyOn(console, 'warn').mockImplementation(() => undefined);
     jest.spyOn(console, 'error').mockImplementation(() => undefined);
-    mockWithSupabaseRetry.mockImplementation(async (operation) => operation());
+    mockWithSupabaseRetry.mockImplementation((...args: unknown[]) => {
+      const operation = args[0] as () => Promise<unknown> | unknown;
+      return operation();
+    });
     mockGetProductSlugFallbackCandidates.mockReturnValue([]);
+    mockRpc.mockReset();
   });
 
   it('fetchProductRow scopes product lookups by merchant, status, and slug', async () => {
@@ -202,7 +211,8 @@ describe('product-utils', () => {
     });
     expect(queryClient.setQueriesData).toHaveBeenCalledTimes(1);
 
-    const updater = (queryClient.setQueriesData as jest.Mock).mock.calls[0][1];
+    const updater = (queryClient.setQueriesData as jest.Mock).mock
+      .calls[0][1] as (cached: unknown) => unknown;
     expect(updater('cached-pages')).toEqual({
       cached: 'cached-pages',
       slug: 'missing-slug',
@@ -305,24 +315,39 @@ describe('product-utils', () => {
   });
 
   it('fetchProductsPage applies filters, paginates, and returns transformed products', async () => {
+    const rankedResults = [
+      {
+        product_id: validProductRow.id,
+        relevance: 9.8,
+        total_count: 3,
+      },
+      {
+        product_id: 'bad-id',
+        relevance: 7.9,
+        total_count: 3,
+      },
+    ];
     const query = createQueryChain({
       data: [
-        validProductRow,
         {
           ...validProductRow,
           id: 'bad-id',
         },
+        validProductRow,
       ],
       error: null,
-      count: 3,
     });
+    mockRpc.mockImplementation(async () => ({
+      data: rankedResults,
+      error: null,
+    }));
     mockFrom.mockReturnValue(query);
 
     const result = await fetchProductsPage(
       'merchant-1',
       {
         category: 'cat-1',
-        search: 'iphone',
+        search: 'iphone14promax',
         condition: 'New',
         brand: 'Apple',
         minPrice: 400000,
@@ -334,23 +359,27 @@ describe('product-utils', () => {
       0
     );
 
-    expect(query.select).toHaveBeenCalledWith(PRODUCT_SELECT, {
-      count: 'exact',
-    });
+    expect(mockRpc).toHaveBeenCalledWith(
+      'search_products_v2',
+      expect.objectContaining({
+        brand_filter: 'Apple',
+        category_id_filter: 'cat-1',
+        condition_filter: 'new',
+        max_price_filter: 600000,
+        merchant_id_param: 'merchant-1',
+        min_price_filter: 400000,
+        min_rating_filter: 4,
+        result_limit: 2,
+        result_offset: 0,
+        search_query: 'iphone 14 pro max',
+        sort_by: 'price_desc',
+        status_filter: 'active',
+      })
+    );
+    expect(query.select).toHaveBeenCalledWith(PRODUCT_SELECT);
     expect(query.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
     expect(query.eq).toHaveBeenCalledWith('status', 'active');
-    expect(query.eq).toHaveBeenCalledWith('category_id', 'cat-1');
-    expect(query.eq).toHaveBeenCalledWith('condition', 'new');
-    expect(query.eq).toHaveBeenCalledWith('brand', 'Apple');
-    expect(query.textSearch).toHaveBeenCalledWith('search_vector', 'iphone', {
-      type: 'websearch',
-      config: 'english',
-    });
-    expect(query.gte).toHaveBeenCalledWith('price', 400000);
-    expect(query.lte).toHaveBeenCalledWith('price', 600000);
-    expect(query.gte).toHaveBeenCalledWith('average_rating', 4);
-    expect(query.order).toHaveBeenCalledWith('price', { ascending: false });
-    expect(query.range).toHaveBeenCalledWith(0, 1);
+    expect(query.in).toHaveBeenCalledWith('id', [validProductRow.id, 'bad-id']);
     expect(result).toMatchObject({
       total: 3,
       nextOffset: 2,
@@ -385,5 +414,37 @@ describe('product-utils', () => {
     expect(query.eq).toHaveBeenCalledWith('category_id', 'cat-1');
     expect(query.eq).toHaveBeenCalledWith('condition', 'open_box');
     expect(query.gte).toHaveBeenCalledWith('price', 100000);
+  });
+
+  it('fetchAvailableBrands normalizes compact search queries before filtering', async () => {
+    const query = createQueryChain({
+      data: [
+        { id: 'prod-2', brand: 'Samsung' },
+        { id: 'prod-1', brand: 'Apple' },
+      ],
+      error: null,
+    });
+    mockRpc.mockImplementation(async () => ({
+      data: [
+        { product_id: 'prod-1', relevance: 9.1, total_count: 2 },
+        { product_id: 'prod-2', relevance: 8.4, total_count: 2 },
+      ],
+      error: null,
+    }));
+    mockFrom.mockReturnValue(query);
+
+    await fetchAvailableBrands('merchant-1', {
+      search: 'iphone14promax',
+    });
+
+    expect(mockRpc).toHaveBeenCalledWith(
+      'search_products_v2',
+      expect.objectContaining({
+        merchant_id_param: 'merchant-1',
+        search_query: 'iphone 14 pro max',
+        status_filter: 'active',
+      })
+    );
+    expect(query.in).toHaveBeenCalledWith('id', ['prod-1', 'prod-2']);
   });
 });

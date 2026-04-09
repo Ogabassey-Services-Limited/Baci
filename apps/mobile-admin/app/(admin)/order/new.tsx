@@ -63,7 +63,7 @@ import {
 } from '@/hooks/useCustomers';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useMerchant } from '@/hooks/useMerchant';
-import { type Product, useProducts } from '@/hooks/useProducts';
+import type { Product } from '@/hooks/useProducts';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 
@@ -179,7 +179,6 @@ export default function NewOrderScreen() {
   const { merchant } = useMerchant();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { data: productsData } = useProducts();
   const createCustomerMutation = useCreateCustomer();
 
   // State
@@ -228,6 +227,13 @@ export default function NewOrderScreen() {
   // Search & Form
   const [productSearch, setProductSearch] = useState('');
   const [customerSearch, setCustomerSearch] = useState('');
+  const {
+    fetchNextPage: fetchMoreProducts,
+    hasNextPage: hasMoreProducts,
+    isFetchingNextPage: isFetchingMoreProducts,
+    isLoading: isProductsLoading,
+    products: filteredProducts,
+  } = useProductPicker(productSearch);
   const debouncedCustomerSearch = useDebounce(customerSearch, 300);
   const { data: customersData } = useCustomers({
     search: debouncedCustomerSearch,
@@ -274,23 +280,6 @@ export default function NewOrderScreen() {
       currency: merchant?.payout_currency || 'NGN',
       minimumFractionDigits: 2,
     }).format(amount);
-
-  // Filter Products
-  const allProducts = productsData?.pages
-    ? productsData.pages.flatMap((page) => page.products || [])
-    : [];
-
-  const filteredProducts = productSearch
-    ? allProducts.filter((p) => {
-        const words = productSearch.toLowerCase().split(/\s+/).filter(Boolean);
-        const name = p.name.toLowerCase();
-        const sku = p.sku?.toLowerCase() ?? '';
-        const condition = p.condition?.toLowerCase() ?? '';
-        return words.every(
-          (w) => name.includes(w) || sku.includes(w) || condition.includes(w)
-        );
-      })
-    : allProducts;
 
   const subtotal = orderItems.reduce(
     (sum, item) => sum + item.price * item.quantity,
@@ -1599,6 +1588,44 @@ export default function NewOrderScreen() {
               }
               keyboardShouldPersistTaps="handled"
               {...MODAL_FLATLIST_PROPS}
+              onEndReached={() => {
+                if (hasMoreProducts && !isFetchingMoreProducts) {
+                  void fetchMoreProducts();
+                }
+              }}
+              onEndReachedThreshold={0.4}
+              ListFooterComponent={
+                isFetchingMoreProducts ? (
+                  <ActivityIndicator
+                    size="small"
+                    color={colors.primary}
+                    style={{ paddingVertical: 16 }}
+                  />
+                ) : null
+              }
+              ListEmptyComponent={
+                isProductsLoading ? (
+                  <ActivityIndicator
+                    size="large"
+                    color={colors.primary}
+                    style={{ paddingVertical: 32 }}
+                  />
+                ) : (
+                  <View style={{ padding: 20 }}>
+                    <Text
+                      style={{
+                        color: colors.textSecondary,
+                        fontSize: 14,
+                        textAlign: 'center',
+                      }}
+                    >
+                      {productSearch.trim()
+                        ? 'No products match that search yet.'
+                        : 'No products available yet.'}
+                    </Text>
+                  </View>
+                )
+              }
               renderItem={({ item }) => {
                 const conditionLabel = item.condition
                   ? item.condition.replace(/_/g, ' ')

@@ -15,12 +15,19 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { normalizeProductInventory } from '@/lib/product-inventory';
-import { sanitizeSearchQuery, sanitizeText } from '@/lib/sanitize';
+import {
+  type AdminProductSearchFilters,
+  type AdminProductStatus,
+  type AdminProductStockFilter,
+  fetchAdminProductSearchRows,
+  fetchAdminProductSuggestionCandidates,
+} from '@/lib/product-search';
+import { sanitizeText } from '@/lib/sanitize';
 import { supabase } from '@/lib/supabase';
 import { getJoinedRecord } from '@/lib/supabase-utils';
 import { useMerchant } from './useMerchant';
 
-export type ProductStatus = 'active' | 'draft' | 'archived';
+export type ProductStatus = AdminProductStatus;
 
 export interface Product {
   id: string;
@@ -108,59 +115,69 @@ async function assertNoDuplicateProduct(args: {
     .eq('merchant_id', args.merchantId)
     .eq('slug', normalizedSlug);
 
-  // Check full-text similarity — catches "Samsung Z Fold 7" vs "Samsung Galaxy Z Fold 7"
-  let ftsQuery = supabase
-    .from('products')
-    .select('id, name', { count: 'exact' })
-    .eq('merchant_id', args.merchantId)
-    .textSearch('search_vector', normalizedName, {
-      type: 'websearch',
-      config: 'english',
-    })
-    .limit(5);
-
   if (args.excludeProductId) {
     nameQuery = nameQuery.neq('id', args.excludeProductId);
     slugQuery = slugQuery.neq('id', args.excludeProductId);
-    ftsQuery = ftsQuery.neq('id', args.excludeProductId);
   }
 
   const [
     { count: nameMatches, error: nameError },
     { count: slugMatches, error: slugError },
-    { data: ftsMatches, error: ftsError },
-  ] = await Promise.all([nameQuery, slugQuery, ftsQuery]);
+    similarProducts,
+  ] = await Promise.all([
+    nameQuery,
+    slugQuery,
+    fetchAdminProductSuggestionCandidates<{ id: string; name: string }>({
+      excludeProductId: args.excludeProductId,
+      limit: 5,
+      merchantId: args.merchantId,
+      productName: normalizedName,
+      selectColumns: 'id, name',
+    }),
+  ]);
 
   if (nameError) throw new Error(nameError.message);
   if (slugError) throw new Error(slugError.message);
-  if (ftsError) throw new Error(ftsError.message);
 
   if ((nameMatches ?? 0) > 0 || (slugMatches ?? 0) > 0) {
     throw new Error(DUPLICATE_PRODUCT_ERROR);
   }
 
-  // Fuzzy check: if FTS returns results whose slug matches closely, block it
-  if (ftsMatches && ftsMatches.length > 0) {
+  // Shared ranked search catches compact model variants like "ProMax".
+  if (similarProducts.length > 0) {
     const inputSlug = normalizedSlug;
-    const match = ftsMatches.find((p) => toProductSlug(p.name) === inputSlug);
+    const match = similarProducts.find((product) => {
+      return toProductSlug(product.name) === inputSlug;
+    });
     if (match) {
       throw new Error(`A similar product "${match.name}" already exists.`);
     }
   }
 }
 
-export type StockFilter = 'in_stock' | 'low_stock' | 'out_of_stock';
+export type StockFilter = AdminProductStockFilter;
 
 async function fetchProducts(
   merchantId: string,
   cursor: number = 0,
-  filters?: {
-    status?: ProductStatus;
-    search?: string;
-    category?: string;
-    stockFilter?: StockFilter;
-  }
+  filters?: AdminProductSearchFilters
 ): Promise<ProductsPage> {
+  if (filters?.search) {
+    const page = await fetchAdminProductSearchRows<Product>({
+      cursor,
+      filters,
+      merchantId,
+      pageSize: PAGE_SIZE,
+      selectColumns: PRODUCT_COLUMNS,
+    });
+
+    return {
+      nextCursor: page.nextCursor,
+      products: page.rows.map((product) => normalizeProductInventory(product)),
+      totalCount: page.totalCount,
+    };
+  }
+
   let query = supabase
     .from('products')
     .select(PRODUCT_COLUMNS, { count: 'exact' })
@@ -175,16 +192,6 @@ async function fetchProducts(
 
   if (filters?.category) {
     query = query.eq('category_id', filters.category);
-  }
-
-  if (filters?.search) {
-    const term = sanitizeSearchQuery(filters.search);
-    if (term) {
-      query = query.textSearch('search_vector', term, {
-        type: 'websearch',
-        config: 'english',
-      });
-    }
   }
 
   // Server-side stock filtering to avoid loading all products client-side
@@ -261,13 +268,18 @@ export function useProducts(filters?: {
 
   return useInfiniteQuery({
     queryKey: ['products', merchantId, filters],
-    queryFn: ({ pageParam = 0 }) =>
-      fetchProducts(merchantId!, pageParam, filters),
+    queryFn: ({ pageParam = 0 }) => {
+      if (!merchantId) {
+        throw new Error('No merchant');
+      }
+
+      return fetchProducts(merchantId, pageParam, filters);
+    },
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     initialPageParam: 0,
     enabled: !!merchantId,
     staleTime: 1000 * 60 * 2, // 2 minutes
-    placeholderData: keepPreviousData,
+    placeholderData: filters?.search ? undefined : keepPreviousData,
   });
 }
 

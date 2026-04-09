@@ -5,7 +5,7 @@ import {
   type ProductMatchCandidate,
   rankProductMatches,
 } from '@/lib/product-matching';
-import { supabase } from '@/lib/supabase';
+import { fetchAdminProductSuggestionCandidates } from '@/lib/product-search';
 
 const PRODUCT_SUGGESTION_COLUMNS = 'id,name,sku,price,category';
 
@@ -18,37 +18,19 @@ async function fetchProductNameSuggestions(args: {
   if (!args.merchantId || !trimmed || trimmed.length < 2) {
     return [];
   }
-
-  let query = supabase
-    .from('products')
-    .select(PRODUCT_SUGGESTION_COLUMNS)
-    .eq('merchant_id', args.merchantId)
-    .is('parent_product_id', null)
-    .textSearch('search_vector', trimmed, {
-      type: 'websearch',
-      config: 'english',
-    })
-    .order('created_at', { ascending: false })
-    .limit(12);
-
-  if (args.excludeProductId) {
-    query = query.neq('id', args.excludeProductId);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return rankProductMatches(
-    args.productName,
-    (data ?? []) as ProductMatchCandidate[],
-    {
+  const data =
+    await fetchAdminProductSuggestionCandidates<ProductMatchCandidate>({
       excludeProductId: args.excludeProductId,
-      limit: 4,
-    }
-  );
+      limit: 12,
+      merchantId: args.merchantId,
+      productName: trimmed,
+      selectColumns: PRODUCT_SUGGESTION_COLUMNS,
+    });
+
+  return rankProductMatches(trimmed, data, {
+    excludeProductId: args.excludeProductId,
+    limit: 4,
+  });
 }
 
 export function useProductNameSuggestions(args: {

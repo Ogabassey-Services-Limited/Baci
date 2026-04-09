@@ -1,5 +1,6 @@
 'use client';
 
+import { orderRecordsByIds } from '@baci/shared';
 import Fuse from 'fuse.js';
 import { useEffect, useState } from 'react';
 import { ThemedButton } from '@/components/themed';
@@ -111,12 +112,11 @@ export function StorefrontProductGrid({
   const [filterType, setFilterType] = useState<'category' | 'brand' | 'price'>(
     'category'
   );
-  const [useServerSearch, setUseServerSearch] = useState(false);
-  const [serverSearchResults, setServerSearchResults] = useState<Product[]>([]);
+  const [serverSearchProductIds, setServerSearchProductIds] = useState<
+    string[]
+  >([]);
   const [didYouMean, setDidYouMean] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
-
-  // Check product count and determine search method
 
   useEffect(() => {
     if (merchant?.id && !isPreviewMode) {
@@ -134,57 +134,40 @@ export function StorefrontProductGrid({
           console.error(err);
           setIsLoading(false);
         });
-
-      // Check if we should use server search
-      apiGet<{ count: number; recommendedMethod: 'client' | 'server' }>(
-        `/api/products/count?merchant_id=${merchant.id}`
-      )
-        .then((data) => {
-          setUseServerSearch(data.recommendedMethod === 'server');
-        })
-        .catch((err) => {
-          console.error('Failed to check product count:', err);
-          setUseServerSearch(false);
-        });
     }
   }, [merchant?.id, isPreviewMode]);
 
-  // Perform server-side search when needed
-  // Note: We use refs to check current state without adding to dependencies
   useEffect(() => {
-    if (!useServerSearch || !searchQuery || !merchant?.id || isPreviewMode) {
-      // Clear previous search results when conditions change
-      setServerSearchResults([]);
+    if (!debouncedSearchQuery || !merchant?.id || isPreviewMode) {
+      setServerSearchProductIds([]);
       setDidYouMean(null);
+      setIsSearching(false);
       return;
     }
 
-    const timeoutId = setTimeout(() => {
-      setIsSearching(true);
-      apiGet<{ results: Product[]; didYouMean: string | null }>(
-        `/api/search?q=${encodeURIComponent(searchQuery)}&merchant_id=${merchant.id}`
-      )
-        .then((data) => {
-          setServerSearchResults(data.results || []);
-          setDidYouMean(data.didYouMean || null);
-          setIsSearching(false);
-        })
-        .catch((err) => {
-          console.error('Search error:', err);
-          setServerSearchResults([]);
-          setDidYouMean(null);
-          setIsSearching(false);
-        });
-    }, 300); // Debounce search
+    let cancelled = false;
+    setIsSearching(true);
+    apiGet<{ didYouMean: string | null; productIds: string[] }>(
+      `/api/search?q=${encodeURIComponent(debouncedSearchQuery)}&merchant_id=${merchant.id}`
+    )
+      .then((data) => {
+        if (cancelled) return;
+        setServerSearchProductIds(data.productIds || []);
+        setDidYouMean(data.didYouMean || null);
+        setIsSearching(false);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error('Search error:', err);
+        setServerSearchProductIds([]);
+        setDidYouMean(null);
+        setIsSearching(false);
+      });
 
-    return () => clearTimeout(timeoutId);
-  }, [
-    searchQuery,
-    useServerSearch,
-    merchant?.id,
-    isPreviewMode,
-    // Removed didYouMean and serverSearchResults.length - they're set by this effect
-  ]);
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedSearchQuery, merchant?.id, isPreviewMode]);
 
   const { formatCurrencyCompact } = useCurrency();
 
@@ -260,15 +243,9 @@ export function StorefrontProductGrid({
   })();
 
   const searchResults = (() => {
-    // Use server search results if available and search is active
-    if (
-      useServerSearch &&
-      debouncedSearchQuery &&
-      serverSearchResults.length > 0
-    ) {
-      let filtered = serverSearchResults;
+    if (debouncedSearchQuery && !isPreviewMode) {
+      let filtered = orderRecordsByIds(products, serverSearchProductIds);
 
-      // Apply category/brand/price filters
       if (selectedCategory !== 'All') {
         if (filterType === 'category') {
           filtered = filtered.filter((p) => p.category === selectedCategory);
@@ -291,10 +268,9 @@ export function StorefrontProductGrid({
       return filtered.slice(0, limit);
     }
 
-    // Fall back to client-side search
     let filtered = products;
 
-    if (debouncedSearchQuery && fuse) {
+    if (debouncedSearchQuery && fuse && isPreviewMode) {
       filtered = fuse.search(debouncedSearchQuery).map((result) => result.item);
     }
 
