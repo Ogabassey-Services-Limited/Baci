@@ -391,7 +391,7 @@ export default function CustomizeScreen() {
       {viewMode === 'chat' ? (
         <KeyboardAvoidingView
           style={styles.chatContainer}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={100}
         >
           {/* Messages */}

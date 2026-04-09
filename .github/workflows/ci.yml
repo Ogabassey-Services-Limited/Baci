@@ -22,6 +22,7 @@ jobs:
   changes:
     runs-on: ubuntu-24.04
     outputs:
+      mobile_admin: ${{ steps.filter.outputs.mobile_admin }}
       web: ${{ steps.filter.outputs.web }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -29,6 +30,17 @@ jobs:
         id: filter
         with:
           filters: |
+            mobile_admin:
+              - 'apps/mobile-admin/**'
+              - 'packages/shared/**'
+              - '.github/actions/pnpm-install-cached/**'
+              - '.github/actions/setup-pnpm-store/**'
+              - '.github/workflows/ci.yml'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'turbo.json'
+              - 'tsconfig*.json'
+              - 'biome.json'
             web:
               - 'apps/web/**'
               - 'packages/shared/**'
@@ -71,9 +83,37 @@ jobs:
       - if: needs.changes.outputs.web != 'true'
         run: echo "No web changes — skipping quality checks"
 
+  mobile-quality:
+    name: Mobile Admin Guardrails
+    needs: [changes]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - if: needs.changes.outputs.mobile_admin == 'true'
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - if: needs.changes.outputs.mobile_admin == 'true'
+        name: Clean stale pnpm setup directory
+        run: rm -rf ~/setup-pnpm 2>/dev/null || true
+      - if: needs.changes.outputs.mobile_admin == 'true'
+        uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5.0.0
+      - if: needs.changes.outputs.mobile_admin == 'true'
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: "24"
+      - if: needs.changes.outputs.mobile_admin == 'true'
+        uses: ./.github/actions/pnpm-install-cached
+        with:
+          store-dir: ${{ runner.temp }}/pnpm-store
+      - if: needs.changes.outputs.mobile_admin == 'true'
+        run: pnpm --dir apps/mobile-admin exec vitest run scripts/check-platform-drift.test.ts
+      - if: needs.changes.outputs.mobile_admin == 'true'
+        run: pnpm --dir apps/mobile-admin check:platform-drift
+      - if: needs.changes.outputs.mobile_admin != 'true'
+        run: echo "No mobile-admin changes — skipping mobile guardrail checks"
+
   build:
     name: Build
-    needs: [changes, quality]
+    needs: [changes, quality, mobile-quality]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
