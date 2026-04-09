@@ -727,7 +727,7 @@ export async function POST(request: NextRequest) {
               fromName: senderName,
               auditContext: {
                 merchantId: chatOrder.merchant_id,
-                orderId: null,
+                orderId: newOrder.id,
                 customerId: chatOrder.customer_id || null,
                 metadata: {
                   trigger: 'paystack_chat_order_confirmation',

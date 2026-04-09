@@ -120,6 +120,55 @@ describe('zeptomail audit logging', () => {
     expect(auditState.updates).toHaveLength(0);
   });
 
+  it('records failed status after all retries are exhausted', async () => {
+    vi.useFakeTimers();
+    const retryableError = {
+      error: { message: 'Server overloaded', code: 'TM_5001', details: null },
+    };
+    sendMailMock.mockRejectedValue(retryableError);
+    const { sendEmail } = await import('./zeptomail');
+
+    const resultPromise = sendEmail({
+      to: 'customer@example.com',
+      toName: 'Customer',
+      subject: 'Retry Test',
+      htmlContent: '<p>Hello</p>',
+      emailType: 'orders',
+      auditContext: {
+        merchantId: 'merchant-1',
+        orderId: 'order-1',
+      },
+    });
+
+    // Advance through all retry delays (1s, 2s, 4s)
+    for (let i = 0; i < 3; i++) {
+      await vi.advanceTimersByTimeAsync(5000);
+    }
+
+    const result = await resultPromise;
+    vi.useRealTimers();
+
+    expect(result.success).toBe(false);
+    expect(result.errorCode).toBe('TM_5001');
+    // 1 initial + 3 retries = 4 calls
+    expect(sendMailMock).toHaveBeenCalledTimes(4);
+    expect(auditState.inserts).toHaveLength(1);
+    expect(auditState.inserts[0]).toMatchObject({
+      status: 'pending',
+      transport_type: 'html',
+    });
+    expect(auditState.updates).toHaveLength(1);
+    expect(auditState.updates[0]).toMatchObject({
+      ids: ['attempt-1'],
+      patch: {
+        status: 'failed',
+        attempt_count: 4,
+        provider_error_code: 'TM_5001',
+        provider_error_message: 'Server overloaded',
+      },
+    });
+  });
+
   it('logs one batch attempt row per recipient', async () => {
     mailBatchWithTemplateMock.mockResolvedValue({ request_id: 'batch-789' });
     const { sendBatchEmailWithTemplate } = await import('./zeptomail');

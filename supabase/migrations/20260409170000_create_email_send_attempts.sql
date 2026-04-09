@@ -40,6 +40,9 @@ CREATE INDEX IF NOT EXISTS idx_email_send_attempts_order_id
 CREATE INDEX IF NOT EXISTS idx_email_send_attempts_merchant_id
   ON public.email_send_attempts (merchant_id);
 
+CREATE INDEX IF NOT EXISTS idx_email_send_attempts_customer_id
+  ON public.email_send_attempts (customer_id);
+
 ALTER TABLE public.email_send_attempts ENABLE ROW LEVEL SECURITY;
 
 COMMENT ON TABLE public.email_send_attempts IS
