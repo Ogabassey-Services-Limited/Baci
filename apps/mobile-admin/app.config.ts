@@ -149,7 +149,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     favicon: './assets/images/favicon.png',
   },
   experiments: {
-    typedRoutes: true,
+    // typedRoutes disabled: generated .expo/types/router.d.ts only includes
+    // (auth) routes and misses all (admin) routes, causing false TS errors.
+    typedRoutes: false,
   },
   extra: {
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
