@@ -92,8 +92,8 @@
       "expo-build-properties>ajv": "^8.18.0",
       "expo-dev-launcher>ajv": "^8.18.0",
       "http-proxy-agent": "^7.0.2",
-      "unhead": "^2.1.12",
-      "@unhead/vue": "^2.1.12",
+      "unhead": "^2.1.13",
+      "@unhead/vue": "^2.1.13",
       "happy-dom": ">=20.8.8",
       "node-forge": "1.4.0",
       "path-to-regexp": ">=8.4.0"
