@@ -3,6 +3,7 @@ import { buildCheckoutOrderItems } from '@/lib/checkout/build-order-items';
 import { openCredPalCheckout } from '@/lib/credpal';
 import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
 import { createClient } from '@/lib/supabase/client';
+import { normalizeOrderPaymentMethod } from '../pending-checkout-order';
 import type {
   SavedAddress,
   ShippingQuote,
@@ -263,17 +264,7 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
         items: orderItems,
         subtotal: cartTotal,
         shipping_fee: deliveryCost,
-        payment_method:
-          paymentMethod === 'paystack' || paymentMethod === 'korapay'
-            ? 'card'
-            : paymentMethod === 'credit_direct' ||
-                paymentMethod === 'credpal'
-              ? paymentMethod
-              : paymentMethod === 'invoice'
-                ? 'invoice'
-                : paymentMethod === 'juicyway'
-                  ? 'juicyway'
-                  : 'pod',
+        payment_method: normalizeOrderPaymentMethod(paymentMethod),
         payment_status: 'unpaid',
         shipping_status: 'pending',
         shipping_address: shippingAddressData,

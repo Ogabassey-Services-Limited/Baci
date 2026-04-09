@@ -137,6 +137,15 @@ export async function sendPushNotifications(
       const chunkTickets = await _getExpo().sendPushNotificationsAsync(chunk);
       sdkTickets.push(...chunkTickets);
     } catch (error) {
+      if (isMixedProjectPushError(error)) {
+        console.warn(
+          '[expo-push] Mixed-project token batch detected, retrying chunk per message'
+        );
+        const fallbackTickets = await sendChunkIndividually(chunk);
+        sdkTickets.push(...fallbackTickets);
+        continue;
+      }
+
       // Synthesize error tickets for the failed chunk
       for (const _ of chunk) {
         sdkTickets.push({
@@ -161,6 +170,33 @@ export async function sendPushNotifications(
   }
 
   return finalTickets;
+}
+
+function isMixedProjectPushError(error: unknown): boolean {
+  const message =
+    error instanceof Error ? error.message : String(error ?? 'Unknown error');
+  return message.includes('same request must be for the same project');
+}
+
+async function sendChunkIndividually(
+  chunk: ExpoPushMessage[]
+): Promise<ExpoPushTicket[]> {
+  const tickets: ExpoPushTicket[] = [];
+
+  for (const message of chunk) {
+    try {
+      const [ticket] = await _getExpo().sendPushNotificationsAsync([message]);
+      tickets.push(ticket);
+    } catch (error) {
+      tickets.push({
+        status: 'error',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        details: { error: 'ExpoError' },
+      });
+    }
+  }
+
+  return tickets;
 }
 
 // ── Merchant / Customer delivery ─────────────────────────────────────────────

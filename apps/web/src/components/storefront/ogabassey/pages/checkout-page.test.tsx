@@ -47,6 +47,7 @@ vi.mock('@/hooks/use-persisted-state', () => ({
     setValues: vi.fn(),
     clear: vi.fn(),
   })),
+  usePersistedState: vi.fn(() => [null, vi.fn(), vi.fn()]),
 }));
 
 vi.mock('@/contexts/auth-context', () => ({

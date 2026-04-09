@@ -130,6 +130,30 @@ export const orderCreateSchema = z.preprocess((input) => {
 
 export type OrderCreateInput = z.infer<typeof orderCreateSchema>;
 
+export const reuseCheckoutOrderSchema = z.object({
+  order_id: z.string().uuid(),
+  merchant_id: z.string().uuid(),
+  tracking_token: z
+    .string()
+    .min(1)
+    .transform((val) => sanitizeText(val, 128)),
+  customer_email: z
+    .string()
+    .email()
+    .transform((val) => sanitizeEmail(val)),
+  payment_method: z
+    .string()
+    .min(1)
+    .transform((val) => sanitizeText(val)),
+  selected_quote_id: z.string().uuid().optional(),
+  shipping_provider: z
+    .string()
+    .optional()
+    .transform((val) => (val ? sanitizeText(val) : val)),
+});
+
+export type ReuseCheckoutOrderInput = z.infer<typeof reuseCheckoutOrderSchema>;
+
 export const orderIdParamsSchema = z.object({
   id: z.string().uuid(),
 });

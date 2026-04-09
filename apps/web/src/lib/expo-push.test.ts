@@ -171,6 +171,34 @@ describe('sendPushNotifications', () => {
     expect(tickets[0]).toHaveProperty('message', 'Network failure');
   });
 
+  it('falls back to per-message sends when Expo rejects a mixed-project chunk', async () => {
+    const msg1: ExpoPushMessage = { to: 'ExponentPushToken[a]', body: 'A' };
+    const msg2: ExpoPushMessage = { to: 'ExponentPushToken[b]', body: 'B' };
+
+    mockChunkPushNotifications.mockReturnValueOnce([[msg1, msg2]]);
+    mockSendPushNotificationsAsync
+      .mockRejectedValueOnce(
+        new Error(
+          'All push notification messages in the same request must be for the same project'
+        )
+      )
+      .mockResolvedValueOnce([{ status: 'ok', id: 'ticket-a' }])
+      .mockResolvedValueOnce([{ status: 'ok', id: 'ticket-b' }]);
+
+    const tickets = await sendPushNotifications([msg1, msg2]);
+
+    expect(mockSendPushNotificationsAsync).toHaveBeenNthCalledWith(1, [
+      msg1,
+      msg2,
+    ]);
+    expect(mockSendPushNotificationsAsync).toHaveBeenNthCalledWith(2, [msg1]);
+    expect(mockSendPushNotificationsAsync).toHaveBeenNthCalledWith(3, [msg2]);
+    expect(tickets).toEqual([
+      { status: 'ok', id: 'ticket-a' },
+      { status: 'ok', id: 'ticket-b' },
+    ]);
+  });
+
   it('returns empty array for empty messages', async () => {
     const tickets = await sendPushNotifications([]);
     expect(tickets).toEqual([]);
