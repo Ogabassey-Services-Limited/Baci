@@ -14,7 +14,7 @@ UPDATE order_insurance_policies
 SET
   policy_type = 'gadget',
   provider_name = 'Sovereign Trust Insurance Plc'
-WHERE policy_type IS NULL;
+WHERE policy_type IS NULL AND created_at < '2026-04-10';
 
 -- Index on policy_type for future queries
 CREATE INDEX IF NOT EXISTS idx_order_insurance_policies_policy_type

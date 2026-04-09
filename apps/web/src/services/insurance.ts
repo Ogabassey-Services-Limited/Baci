@@ -218,11 +218,14 @@ export async function syncClaimsStatus() {
 
       let newClaimStatus = 'pending';
 
+      const approvedStatuses = [
+        'approved',
+        'paid',
+        'settled',
+        'payment initiated',
+      ];
       if (
-        remoteStatus.includes('approved') ||
-        remoteStatus.includes('paid') ||
-        remoteStatus.includes('settled') ||
-        remoteStatus.includes('payment') ||
+        approvedStatuses.some((s) => remoteStatus.includes(s)) ||
         paymentStatus === 'paid'
       ) {
         newClaimStatus = 'approved';
@@ -243,7 +246,7 @@ export async function syncClaimsStatus() {
       }
 
       if (localPolicy.claim_status !== newClaimStatus) {
-        await supabase
+        const { error: updateError } = await supabase
           .from('order_insurance_policies')
           .update({
             claim_status: newClaimStatus,
@@ -251,6 +254,15 @@ export async function syncClaimsStatus() {
             updated_at: new Date().toISOString(),
           })
           .eq('id', localPolicy.id);
+
+        if (updateError) {
+          logger.error({
+            message: '[Insurance] Failed to update claim status',
+            error: updateError,
+            policyId: localPolicy.id,
+          });
+          continue;
+        }
         updateCount++;
       }
     }
