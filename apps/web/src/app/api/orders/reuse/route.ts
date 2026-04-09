@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { createClient } from '@/lib/supabase/server';
 import { reuseCheckoutOrderSchema } from '@/schemas/orders';
 
@@ -28,6 +29,15 @@ function mapReuseOrderError(
 }
 
 export async function POST(request: NextRequest) {
+  const { valid: csrfValid, response: csrfResponse } =
+    await checkCsrfProtection(request);
+  if (!csrfValid) {
+    return (
+      csrfResponse ??
+      NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 })
+    );
+  }
+
   let body: unknown;
 
   try {
@@ -39,8 +49,11 @@ export async function POST(request: NextRequest) {
   const parsed = reuseCheckoutOrderSchema.safeParse(body);
 
   if (!parsed.success) {
+    console.warn('POST /api/orders/reuse validation failed', {
+      errors: parsed.error.flatten(),
+    });
     return NextResponse.json(
-      { error: 'Invalid request data', details: parsed.error.flatten() },
+      { error: 'Invalid request data', code: 'validation_error' },
       { status: 400 }
     );
   }

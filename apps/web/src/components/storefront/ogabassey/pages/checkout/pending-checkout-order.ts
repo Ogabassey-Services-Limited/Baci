@@ -1,3 +1,4 @@
+import { buildCsrfHeaders } from '@/lib/csrf';
 import type { PaymentMethod } from './types';
 
 export const CHECKOUT_PENDING_ORDER_STORAGE_KEY =
@@ -219,7 +220,7 @@ export async function resolvePendingCheckoutOrder({
 
   const reuseResponse = await fetchImpl('/api/orders/reuse', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: buildCsrfHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({
       order_id: pendingOrder.orderId,
       tracking_token: pendingOrder.trackingToken,
@@ -251,7 +252,7 @@ export async function resolvePendingCheckoutOrder({
     reusableOrder: {
       order: reusedOrderData.order,
       amountDueToGateway:
-        pendingOrder.amountDueToGateway ||
+        pendingOrder.amountDueToGateway ??
         Number(existingOrder.total || 0),
     },
     clearStoredOrder: false,
