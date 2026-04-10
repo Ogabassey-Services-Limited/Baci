@@ -9,50 +9,36 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SPACING, TYPOGRAPHY } from '@/constants/theme';
-import { useMerchant } from '@/hooks/useMerchant';
+import { useCurrency } from '@/hooks/useCurrency';
 import {
   type TopSellingProduct,
   useTopSellingProducts,
 } from '@/hooks/useProducts';
 import { useTheme } from '@/hooks/useTheme';
 
-const getCurrencySymbol = (currencyCode: string | null | undefined) => {
-  const symbols: Record<string, string> = {
-    NGN: '\u20A6',
-    USD: '$',
-    GBP: '\u00A3',
-    EUR: '\u20AC',
-  };
-  return symbols[currencyCode || 'NGN'] || '\u20A6';
-};
-
 export default function AnalyticsProductsScreen() {
   const { colors, isDark } = useTheme();
+  const { format: formatCurrency } = useCurrency();
   const router = useRouter();
   const params = useLocalSearchParams<{
     endDate?: string;
     filterLabel?: string;
     startDate?: string;
   }>();
-  const { merchant } = useMerchant();
-  const currencySymbol = getCurrencySymbol(merchant?.payout_currency);
   const parsedStartDate = params.startDate ? new Date(params.startDate) : null;
   const parsedEndDate = params.endDate ? new Date(params.endDate) : null;
   const range =
     parsedStartDate &&
     parsedEndDate &&
     !Number.isNaN(parsedStartDate.getTime()) &&
-    !Number.isNaN(parsedEndDate.getTime())
+    !Number.isNaN(parsedEndDate.getTime()) &&
+    parsedStartDate.getTime() <= parsedEndDate.getTime()
       ? {
           endDate: parsedEndDate,
           startDate: parsedStartDate,
         }
       : undefined;
   const { data: topProducts, isLoading } = useTopSellingProducts(50, range);
-
-  const formatCurrency = (amount: number) => {
-    return `${currencySymbol}${amount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`;
-  };
 
   const renderProductItem = ({
     item,

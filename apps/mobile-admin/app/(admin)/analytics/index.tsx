@@ -23,6 +23,7 @@ import Svg, { Path } from 'react-native-svg';
 import ReportSelectionModal from '@/components/analytics/ReportSelectionModal';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAnalyticsOverview } from '@/hooks/useAnalyticsOverview';
+import { useCurrency } from '@/hooks/useCurrency';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import {
@@ -30,7 +31,6 @@ import {
   getAnalyticsFilterLabel,
   resolveAnalyticsDateRange,
 } from '@/lib/analytics-period';
-import { formatCompactCurrency } from '@/lib/utils';
 
 const DATE_FILTERS: { value: AnalyticsDateFilter; label: string }[] = [
   { value: 'today', label: 'Today' },
@@ -81,9 +81,11 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
 export default function AnalyticsScreen() {
   const { colors, isDark } = useTheme();
   const { merchant } = useMerchant();
+  const { formatCompact } = useCurrency();
   const router = useRouter();
   const [showDateFilter, setShowDateFilter] = useState(false);
-  const [dateFilter, setDateFilter] = useState<AnalyticsDateFilter>('this_year');
+  const [dateFilter, setDateFilter] =
+    useState<AnalyticsDateFilter>('this_year');
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [reportModalVisible, setReportModalVisible] = useState(false);
 
@@ -123,13 +125,11 @@ export default function AnalyticsScreen() {
     setIsRefreshing(false);
   };
 
-  const getFilterLabel = () => {
-    return getAnalyticsFilterLabel(dateFilter);
-  };
-
   const chartRevenue = analytics?.chartData.map((point) => point.revenue) ?? [];
-  const chartOrders = analytics?.chartData.map((point) => point.orders ?? 0) ?? [];
-  const chartProfit = analytics?.chartData.map((point) => point.profit ?? 0) ?? [];
+  const chartOrders =
+    analytics?.chartData.map((point) => point.orders ?? 0) ?? [];
+  const chartProfit =
+    analytics?.chartData.map((point) => point.profit ?? 0) ?? [];
   const chartTax = analytics?.chartData.map((point) => point.tax ?? 0) ?? [];
   const chartAov =
     analytics?.chartData.map((point) =>
@@ -138,7 +138,7 @@ export default function AnalyticsScreen() {
 
   const buildAnalyticsParams = () => ({
     endDate: range.endDate.toISOString(),
-    filterLabel: getFilterLabel(),
+    filterLabel: getAnalyticsFilterLabel(dateFilter),
     startDate: range.startDate.toISOString(),
   });
 
@@ -335,7 +335,7 @@ export default function AnalyticsScreen() {
               style={[styles.yearText, { color: colors.text }]}
               numberOfLines={1}
             >
-              {getFilterLabel()}
+              {getAnalyticsFilterLabel(dateFilter)}
             </Text>
             <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
           </Pressable>
@@ -385,7 +385,7 @@ export default function AnalyticsScreen() {
           {/* Metrics */}
           <MetricRow
             label="Revenue"
-            value={formatCompactCurrency(analytics?.summary.revenue.value ?? 0)}
+            value={formatCompact(analytics?.summary.revenue.value ?? 0)}
             subtitle={`${analytics?.summary.sales.value ?? 0} paid orders`}
             sparklineData={chartRevenue}
             onPress={() => pushMetricDetail('revenue')}
@@ -401,7 +401,7 @@ export default function AnalyticsScreen() {
 
           <MetricRow
             label="Average Order Value"
-            value={formatCompactCurrency(analytics?.summary.aov.value ?? 0)}
+            value={formatCompact(analytics?.summary.aov.value ?? 0)}
             subtitle={`${analytics?.summary.customers.value ?? 0} buying customers`}
             sparklineData={chartAov}
             onPress={() => pushMetricDetail('aov')}
@@ -409,7 +409,7 @@ export default function AnalyticsScreen() {
 
           <MetricRow
             label="Profits"
-            value={formatCompactCurrency(analytics?.summary.profit.value ?? 0)}
+            value={formatCompact(analytics?.summary.profit.value ?? 0)}
             subtitle={`${(analytics?.summary.grossMargin.value ?? 0).toFixed(1)}% gross margin`}
             sparklineData={chartProfit}
             onPress={() => pushMetricDetail('profits')}
@@ -417,7 +417,7 @@ export default function AnalyticsScreen() {
 
           <MetricRow
             label="VAT Due"
-            value={formatCompactCurrency(analytics?.summary.taxDue.value ?? 0)}
+            value={formatCompact(analytics?.summary.taxDue.value ?? 0)}
             subtitle="Calculated VAT"
             sparklineData={chartTax}
             onPress={() => pushMetricDetail('vat')}
@@ -426,7 +426,7 @@ export default function AnalyticsScreen() {
           <MetricRow
             label="Gross Margin"
             value={`${(analytics?.summary.grossMargin.value ?? 0).toFixed(1)}%`}
-            subtitle={formatCompactCurrency(analytics?.summary.profit.value ?? 0)}
+            subtitle={formatCompact(analytics?.summary.profit.value ?? 0)}
             showCircle
             circlePercentage={analytics?.summary.grossMargin.value ?? 0}
             onPress={() => pushMetricDetail('profits')}
@@ -443,7 +443,7 @@ export default function AnalyticsScreen() {
 
           <MetricRow
             label="Blog Views"
-            value={(analytics?.blog.totalViews ?? 0).toLocaleString('en-NG')}
+            value={(analytics?.blog.totalViews ?? 0).toLocaleString()}
             subtitle={`${analytics?.blog.publishedPosts ?? 0} published posts`}
             onPress={() => pushInsightDetail('blog')}
           />
@@ -453,7 +453,7 @@ export default function AnalyticsScreen() {
             <TopItemRow
               label="Top Vendor"
               name={analytics.topBrand.name}
-              subtitle={`#1 in Sales: ${formatCompactCurrency(analytics.topBrand.revenue ?? 0)}`}
+              subtitle={`#1 in Sales: ${formatCompact(analytics.topBrand.revenue ?? 0)}`}
               onPress={() => pushInsightDetail('brands')}
             />
           )}
@@ -462,7 +462,7 @@ export default function AnalyticsScreen() {
             <TopItemRow
               label="Top products"
               name={analytics.topProducts[0].name}
-              subtitle={`#1 in Sales: ${formatCompactCurrency(analytics.topProducts[0].revenue)}`}
+              subtitle={`#1 in Sales: ${formatCompact(analytics.topProducts[0].revenue)}`}
               onPress={pushProducts}
             />
           )}

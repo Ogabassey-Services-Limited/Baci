@@ -26,6 +26,7 @@ import {
   type TimeSeriesDataPoint,
   useAnalyticsDetail,
 } from '@/hooks/useAnalyticsDetail';
+import { useCurrency } from '@/hooks/useCurrency';
 import { useTheme } from '@/hooks/useTheme';
 
 const GRANULARITY_TABS: { value: Granularity; label: string }[] = [
@@ -33,20 +34,6 @@ const GRANULARITY_TABS: { value: Granularity; label: string }[] = [
   { value: 'weekday', label: 'WEEK DAY' },
   { value: 'month', label: 'MONTH' },
 ];
-
-// Format currency
-function formatCurrency(amount: number): string {
-  return `₦${amount.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-// Format compact number
-function formatCompact(amount: number): string {
-  if (amount >= 1_000_000_000)
-    return `₦${(amount / 1_000_000_000).toFixed(1)}B`;
-  if (amount >= 1_000_000) return `₦${(amount / 1_000_000).toFixed(1)}M`;
-  if (amount >= 1_000) return `₦${(amount / 1_000).toFixed(1)}K`;
-  return `₦${amount.toFixed(0)}`;
-}
 
 // Bar Chart Component
 function BarChart({
@@ -58,6 +45,7 @@ function BarChart({
   secondaryColor,
   gridColor,
   labelColor,
+  formatTick,
 }: {
   data: TimeSeriesDataPoint[];
   comparisonData?: TimeSeriesDataPoint[];
@@ -67,6 +55,7 @@ function BarChart({
   secondaryColor: string;
   gridColor: string;
   labelColor: string;
+  formatTick: (amount: number) => string;
 }) {
   const chartWidth = 340;
   const chartHeight = 180;
@@ -107,7 +96,7 @@ function BarChart({
               fill={labelColor}
               textAnchor="end"
             >
-              {formatCompact(tick)}
+              {formatTick(tick)}
             </SvgText>
           </G>
         );
@@ -170,6 +159,7 @@ function BarChart({
 
 export default function AnalyticsDetailScreen() {
   const { colors, isDark } = useTheme();
+  const { format: formatCurrency, formatCompact } = useCurrency();
   const router = useRouter();
   const {
     endDate,
@@ -182,18 +172,25 @@ export default function AnalyticsDetailScreen() {
     metric: string;
     startDate?: string;
   }>();
-  const metric = (metricParam as MetricType) || 'revenue';
+  const metric: MetricType =
+    typeof metricParam === 'string' && metricParam in METRIC_CONFIG
+      ? (metricParam as MetricType)
+      : 'revenue';
 
   const [granularity, setGranularity] = useState<Granularity>('month');
   const [showComparison, setShowComparison] = useState(false);
   const [selectedBarIndex, setSelectedBarIndex] = useState<number | null>(null);
 
+  const now = new Date();
+  const defaultStart = new Date(now);
+  defaultStart.setDate(defaultStart.getDate() - 30);
+
   const { data: analyticsData, isLoading } = useAnalyticsDetail({
-    endDate: endDate ?? new Date().toISOString(),
+    endDate: endDate ?? now.toISOString(),
     filterLabel: filterLabel ?? 'Selected period',
     metric,
     granularity,
-    startDate: startDate ?? new Date().toISOString(),
+    startDate: startDate ?? defaultStart.toISOString(),
     includeComparison: showComparison,
   });
 
@@ -408,6 +405,7 @@ export default function AnalyticsDetailScreen() {
                 secondaryColor={colors.textMuted}
                 gridColor={colors.border}
                 labelColor={colors.textMuted}
+                formatTick={formatCompact}
               />
             </View>
           )}

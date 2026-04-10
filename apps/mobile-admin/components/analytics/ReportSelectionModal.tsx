@@ -9,6 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useCurrency } from '@/hooks/useCurrency';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 import {
@@ -37,6 +38,7 @@ export default function ReportSelectionModal({
   endDate,
 }: ReportSelectionModalProps) {
   const { colors, isDark } = useTheme();
+  const { currency } = useCurrency();
   const [loading, setLoading] = useState(false);
 
   if (!visible) return null;
@@ -71,6 +73,7 @@ export default function ReportSelectionModal({
         startDate,
         endDate,
         merchantName,
+        currency,
         data: analyticsData,
         transactions: transactions as unknown as Transaction[],
       });

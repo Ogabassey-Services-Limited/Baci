@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Modal,
   Pressable,
   ScrollView,
@@ -13,25 +14,23 @@ import {
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { useCurrency } from '@/hooks/useCurrency';
+import { useTheme } from '@/hooks/useTheme';
 import {
   type TransactionReviewItem,
   useTransactionReview,
   useUpdateTransactionCostPrice,
 } from '@/hooks/useTransactionReview';
-import { useTheme } from '@/hooks/useTheme';
-
-function formatCurrency(amount: number) {
-  return `₦${amount.toLocaleString('en-NG', { maximumFractionDigits: 2 })}`;
-}
 
 export default function TransactionsScreen() {
   const { colors, isDark } = useTheme();
-  const { data: orders = [] } = useTransactionReview();
+  const { format: formatCurrency } = useCurrency();
+  const { data: orders = [], isLoading, error } = useTransactionReview();
   const updateCostPrice = useUpdateTransactionCostPrice();
-  const [selectedItem, setSelectedItem] = useState<TransactionReviewItem | null>(
-    null
-  );
+  const [selectedItem, setSelectedItem] =
+    useState<TransactionReviewItem | null>(null);
   const [costPriceInput, setCostPriceInput] = useState('');
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const summary = useMemo(() => {
     return orders.reduce(
@@ -47,6 +46,13 @@ export default function TransactionsScreen() {
   const handleOpenEditor = (item: TransactionReviewItem) => {
     setSelectedItem(item);
     setCostPriceInput(item.costPrice > 0 ? String(item.costPrice) : '');
+    setSaveError(null);
+  };
+
+  const handleCloseEditor = () => {
+    setSelectedItem(null);
+    setCostPriceInput('');
+    setSaveError(null);
   };
 
   const handleSave = async () => {
@@ -56,15 +62,24 @@ export default function TransactionsScreen() {
 
     const nextCostPrice = Number.parseFloat(costPriceInput);
     if (Number.isNaN(nextCostPrice) || nextCostPrice < 0) {
+      setSaveError('Enter a valid cost price (0 or greater).');
       return;
     }
 
-    await updateCostPrice.mutateAsync({
-      costPrice: nextCostPrice,
-      productId: selectedItem.productId,
-    });
-    setSelectedItem(null);
-    setCostPriceInput('');
+    try {
+      setSaveError(null);
+      await updateCostPrice.mutateAsync({
+        costPrice: nextCostPrice,
+        productId: selectedItem.productId,
+      });
+      handleCloseEditor();
+    } catch (err) {
+      setSaveError(
+        err instanceof Error
+          ? err.message
+          : 'Could not update cost price. Please try again.'
+      );
+    }
   };
 
   return (
@@ -92,7 +107,9 @@ export default function TransactionsScreen() {
                 { backgroundColor: colors.card, borderColor: colors.border },
               ]}
             >
-              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
+              <Text
+                style={[styles.summaryLabel, { color: colors.textSecondary }]}
+              >
                 Paid transactions
               </Text>
               <Text style={[styles.summaryValue, { color: colors.text }]}>
@@ -105,7 +122,9 @@ export default function TransactionsScreen() {
                 { backgroundColor: colors.card, borderColor: colors.border },
               ]}
             >
-              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
+              <Text
+                style={[styles.summaryLabel, { color: colors.textSecondary }]}
+              >
                 Missing costs
               </Text>
               <Text style={[styles.summaryValue, { color: colors.error }]}>
@@ -120,16 +139,47 @@ export default function TransactionsScreen() {
               { backgroundColor: colors.card, borderColor: colors.border },
             ]}
           >
-            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
+            <Text
+              style={[styles.summaryLabel, { color: colors.textSecondary }]}
+            >
               Estimated profit
             </Text>
             <Text style={[styles.heroValue, { color: colors.text }]}>
               {formatCurrency(summary.estimatedProfit)}
             </Text>
             <Text style={[styles.heroSubtitle, { color: colors.textMuted }]}>
-              Update product cost prices here so analytics profit stays grounded in actual margins.
+              Update product cost prices here so analytics profit stays grounded
+              in actual margins.
             </Text>
           </View>
+
+          {isLoading && orders.length === 0 ? (
+            <View style={styles.stateContainer}>
+              <ActivityIndicator size="large" color={colors.primary} />
+            </View>
+          ) : error ? (
+            <View style={styles.stateContainer}>
+              <Ionicons
+                name="alert-circle-outline"
+                size={32}
+                color={colors.error}
+              />
+              <Text style={[styles.stateText, { color: colors.textSecondary }]}>
+                Unable to load transactions. Please try again.
+              </Text>
+            </View>
+          ) : orders.length === 0 ? (
+            <View style={styles.stateContainer}>
+              <Ionicons
+                name="receipt-outline"
+                size={32}
+                color={colors.textMuted}
+              />
+              <Text style={[styles.stateText, { color: colors.textSecondary }]}>
+                No transactions yet.
+              </Text>
+            </View>
+          ) : null}
 
           {orders.map((order) => (
             <View
@@ -145,7 +195,10 @@ export default function TransactionsScreen() {
                     {order.orderNumber}
                   </Text>
                   <Text
-                    style={[styles.orderSubtitle, { color: colors.textSecondary }]}
+                    style={[
+                      styles.orderSubtitle,
+                      { color: colors.textSecondary },
+                    ]}
                   >
                     {order.customerName} · {order.paymentMethod}
                   </Text>
@@ -168,10 +221,7 @@ export default function TransactionsScreen() {
               {order.items.map((item) => (
                 <Pressable
                   key={item.id}
-                  style={[
-                    styles.itemRow,
-                    { borderTopColor: colors.border },
-                  ]}
+                  style={[styles.itemRow, { borderTopColor: colors.border }]}
                   onPress={() => handleOpenEditor(item)}
                 >
                   <View style={{ flex: 1 }}>
@@ -179,13 +229,19 @@ export default function TransactionsScreen() {
                       {item.name}
                     </Text>
                     <Text
-                      style={[styles.orderSubtitle, { color: colors.textSecondary }]}
+                      style={[
+                        styles.orderSubtitle,
+                        { color: colors.textSecondary },
+                      ]}
                     >
-                      {item.quantity} units · Revenue {formatCurrency(item.revenue)}
+                      {item.quantity} units · Revenue{' '}
+                      {formatCurrency(item.revenue)}
                     </Text>
                   </View>
                   <View style={styles.itemMeta}>
-                    <Text style={[styles.itemMetaValue, { color: colors.text }]}>
+                    <Text
+                      style={[styles.itemMetaValue, { color: colors.text }]}
+                    >
                       Cost {formatCurrency(item.costPrice)}
                     </Text>
                     <Text
@@ -193,7 +249,9 @@ export default function TransactionsScreen() {
                         styles.orderSubtitle,
                         {
                           color:
-                            item.costPrice <= 0 ? colors.error : colors.textMuted,
+                            item.costPrice <= 0
+                              ? colors.error
+                              : colors.textMuted,
                         },
                       ]}
                     >
@@ -215,19 +273,24 @@ export default function TransactionsScreen() {
           visible={Boolean(selectedItem)}
           animationType="slide"
           transparent
-          onRequestClose={() => setSelectedItem(null)}
+          onRequestClose={handleCloseEditor}
         >
           <View style={styles.modalBackdrop}>
             <View
               style={[
                 styles.modalCard,
-                { backgroundColor: colors.background, borderColor: colors.border },
+                {
+                  backgroundColor: colors.background,
+                  borderColor: colors.border,
+                },
               ]}
             >
               <Text style={[styles.modalTitle, { color: colors.text }]}>
                 Update cost price
               </Text>
-              <Text style={[styles.orderSubtitle, { color: colors.textSecondary }]}>
+              <Text
+                style={[styles.orderSubtitle, { color: colors.textSecondary }]}
+              >
                 {selectedItem?.name}
               </Text>
               <TextInput
@@ -245,20 +308,38 @@ export default function TransactionsScreen() {
                 ]}
                 value={costPriceInput}
               />
+              {saveError ? (
+                <Text style={[styles.errorText, { color: colors.error }]}>
+                  {saveError}
+                </Text>
+              ) : null}
               <View style={styles.modalActions}>
-                <Pressable onPress={() => setSelectedItem(null)}>
-                  <Text style={[styles.cancelText, { color: colors.textSecondary }]}>
+                <Pressable
+                  onPress={handleCloseEditor}
+                  disabled={updateCostPrice.isPending}
+                >
+                  <Text
+                    style={[styles.cancelText, { color: colors.textSecondary }]}
+                  >
                     Cancel
                   </Text>
                 </Pressable>
                 <Pressable
                   onPress={handleSave}
+                  disabled={updateCostPrice.isPending}
                   style={[
                     styles.saveButton,
-                    { backgroundColor: colors.primary },
+                    {
+                      backgroundColor: colors.primary,
+                      opacity: updateCostPrice.isPending ? 0.6 : 1,
+                    },
                   ]}
                 >
-                  <Text style={styles.saveButtonText}>Save</Text>
+                  {updateCostPrice.isPending ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.saveButtonText}>Save</Text>
+                  )}
                 </Pressable>
               </View>
             </View>
@@ -276,6 +357,22 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+  },
+  errorText: {
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    fontSize: TYPOGRAPHY.size.sm,
+    marginTop: SPACING.sm,
+  },
+  stateContainer: {
+    alignItems: 'center',
+    gap: SPACING.md,
+    justifyContent: 'center',
+    padding: SPACING.xl,
+  },
+  stateText: {
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    fontSize: TYPOGRAPHY.size.sm,
+    textAlign: 'center',
   },
   content: {
     gap: SPACING.md,

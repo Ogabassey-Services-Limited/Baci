@@ -6,23 +6,21 @@ interface TransactionOrderRow {
   created_at: string;
   customer_name: string | null;
   id: string;
-  order_items:
-    | Array<{
-        id: string;
-        name: string | null;
-        price: number | null;
-        product_id: string | null;
-        products:
-          | {
-              cost_price: number | null;
-            }
-          | Array<{
-              cost_price: number | null;
-            }>
-          | null;
-        quantity: number | null;
-      }>
-    | null;
+  order_items: Array<{
+    id: string;
+    name: string | null;
+    price: number | null;
+    product_id: string | null;
+    products:
+      | {
+          cost_price: number | null;
+        }
+      | Array<{
+          cost_price: number | null;
+        }>
+      | null;
+    quantity: number | null;
+  }> | null;
   order_number: string | null;
   payment_method: string | null;
   total: number | null;
@@ -56,7 +54,7 @@ function getJoinedProduct(
     | Array<{ cost_price: number | null }>
     | null
 ) {
-  return Array.isArray(value) ? value[0] ?? null : value;
+  return Array.isArray(value) ? (value[0] ?? null) : value;
 }
 
 export function useTransactionReview() {
@@ -126,6 +124,10 @@ export function useUpdateTransactionCostPrice() {
       costPrice: number;
       productId: string;
     }) => {
+      if (!merchant?.id) {
+        throw new Error('Merchant context is not ready');
+      }
+
       const { error } = await supabase
         .from('products')
         .update({
@@ -133,7 +135,7 @@ export function useUpdateTransactionCostPrice() {
           updated_at: new Date().toISOString(),
         })
         .eq('id', productId)
-        .eq('merchant_id', merchant?.id);
+        .eq('merchant_id', merchant.id);
 
       if (error) {
         throw new Error(error.message);

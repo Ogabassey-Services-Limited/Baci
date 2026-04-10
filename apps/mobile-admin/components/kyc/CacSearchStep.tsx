@@ -64,6 +64,7 @@ export default function CacSearchStep({
                 onPress={() => onChangeRegistrationPrefix(prefix)}
                 accessibilityRole="button"
                 accessibilityLabel={`Use ${prefix} registration type`}
+                accessibilityState={{ selected: isSelected }}
               >
                 <Text
                   style={[

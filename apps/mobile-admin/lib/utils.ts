@@ -3,17 +3,15 @@
 const formatterCache = new Map<string, Intl.NumberFormat>();
 
 /**
- * Format amount as currency with caching for performance
- * @param amount - The number to format
- * @param options - Optional Intl.NumberFormatOptions to override defaults
- * @param currency - Currency code (default: 'NGN')
- * @param locale - Locale string (default: 'en-NG')
+ * Format amount as currency with caching for performance.
+ * Locale defaults to the runtime/device locale so the formatter adapts across
+ * markets — currency defaults to NGN only because the pilot launches there.
  */
 export const formatCurrency = (
   amount: number,
   options?: Partial<Intl.NumberFormatOptions>,
   currency = 'NGN',
-  locale = 'en-NG'
+  locale?: string
 ) => {
   const finalOptions: Intl.NumberFormatOptions = {
     style: 'currency',
@@ -25,7 +23,7 @@ export const formatCurrency = (
 
   // Create a cache key based on locale and finalOptions (not caller options)
   // Using finalOptions ensures identical effective formatters share one cache entry
-  const cacheKey = `${locale}-${JSON.stringify(finalOptions)}`;
+  const cacheKey = `${locale ?? 'default'}-${JSON.stringify(finalOptions)}`;
 
   let formatter = formatterCache.get(cacheKey);
   if (!formatter) {
@@ -43,7 +41,7 @@ export const formatCurrency = (
 export const formatCurrencyCompact = (
   amount: number,
   currency = 'NGN',
-  locale = 'en-NG'
+  locale?: string
 ) => {
   return formatCurrency(
     amount,
@@ -112,9 +110,52 @@ export function stripHtmlTags(text: string | null | undefined): string {
   return result.trim();
 }
 
-export const formatCompactCurrency = (amount: number) => {
-  if (amount >= 1000000000) return `₦${(amount / 1000000000).toFixed(2)}B`;
-  if (amount >= 1000000) return `₦${(amount / 1000000).toFixed(2)}M`;
-  if (amount >= 1000) return `₦${amount.toLocaleString()}`;
-  return `₦${amount.toFixed(2)}`;
+/**
+ * Resolve the symbol for a given ISO-4217 currency code using Intl. Falls back
+ * to the code itself when the runtime cannot produce a currency part (e.g.
+ * unsupported currency).
+ */
+export const getCurrencySymbol = (
+  currency = 'NGN',
+  locale?: string
+): string => {
+  try {
+    const parts = new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).formatToParts(1);
+    return parts.find((part) => part.type === 'currency')?.value ?? currency;
+  } catch {
+    return currency;
+  }
+};
+
+/**
+ * Compact currency display (e.g. ₦1.2M, $3.4B). Threads currency and locale
+ * through so merchants in different markets see their own symbol/grouping.
+ */
+export const formatCompactCurrency = (
+  amount: number,
+  currency = 'NGN',
+  locale?: string
+) => {
+  const symbol = getCurrencySymbol(currency, locale);
+  if (amount >= 1_000_000_000) {
+    return `${symbol}${(amount / 1_000_000_000).toFixed(2)}B`;
+  }
+  if (amount >= 1_000_000) {
+    return `${symbol}${(amount / 1_000_000).toFixed(2)}M`;
+  }
+  if (amount >= 1_000) {
+    return `${symbol}${amount.toLocaleString(locale, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    })}`;
+  }
+  return `${symbol}${amount.toLocaleString(locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 };

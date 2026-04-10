@@ -42,6 +42,16 @@ export async function GET(request: NextRequest) {
       ? new Date(parsedQuery.data.endDate)
       : now;
 
+    if (startDate.getTime() > endDate.getTime()) {
+      return NextResponse.json(
+        {
+          code: 'INVALID_DATE_RANGE',
+          error: 'startDate must be on or before endDate',
+        },
+        { status: 400 }
+      );
+    }
+
     const merchantContext = await getMerchantForApiRequest(
       auth.supabase,
       auth.user.id

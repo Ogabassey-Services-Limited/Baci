@@ -1,8 +1,8 @@
 import type { MerchantAnalyticsResponse } from '@baci/shared';
 import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '@/lib/api-client';
+import { useMerchant } from '@/hooks/useMerchant';
 import type { AnalyticsDateRange } from '@/lib/analytics-period';
-import { useMerchant } from './useMerchant';
+import { apiClient } from '@/lib/api-client';
 
 export function useAnalyticsOverview(range: AnalyticsDateRange) {
   const { merchant } = useMerchant();

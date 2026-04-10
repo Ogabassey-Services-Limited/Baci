@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LIGHT_COLORS } from '@/constants/theme';
 import CacSearchStep from './CacSearchStep';
 
@@ -30,11 +30,7 @@ vi.mock('react-native', async () => {
         null,
         data && data.length > 0
           ? data.map((item, index) =>
-              React.createElement(
-                'div',
-                { key: index },
-                renderItem?.({ item })
-              )
+              React.createElement('div', { key: index }, renderItem?.({ item }))
             )
           : ListEmptyComponent
       ),
@@ -104,6 +100,10 @@ describe('CacSearchStep', () => {
     results: undefined,
     onSelect: vi.fn(),
   };
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
 
   it('strips non-digit characters from the registration number input', () => {
     const onChangeRcNumber = vi.fn();

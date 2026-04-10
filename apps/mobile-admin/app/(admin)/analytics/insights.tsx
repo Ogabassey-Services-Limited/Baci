@@ -1,38 +1,48 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAnalyticsOverview } from '@/hooks/useAnalyticsOverview';
-import { useMerchant } from '@/hooks/useMerchant';
+import { useCurrency } from '@/hooks/useCurrency';
 import { useTheme } from '@/hooks/useTheme';
 
-function getCurrencySymbol(currencyCode: string | null | undefined) {
-  const symbols: Record<string, string> = {
-    EUR: '\u20AC',
-    GBP: '\u00A3',
-    NGN: '\u20A6',
-    USD: '$',
-  };
-  return symbols[currencyCode || 'NGN'] || '\u20A6';
+interface InsightRow {
+  id: string;
+  label: string;
+  value: string;
+}
+
+function parseDateParam(value: string | undefined, fallback: Date): Date {
+  if (!value || value.trim() === '') {
+    return fallback;
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? fallback : parsed;
 }
 
 export default function AnalyticsInsightsScreen() {
   const { colors, isDark } = useTheme();
-  const { merchant } = useMerchant();
+  const { format: formatCurrency } = useCurrency();
   const params = useLocalSearchParams<{
     endDate?: string;
     filterLabel?: string;
     kind?: string;
     startDate?: string;
   }>();
-  const currencySymbol = getCurrencySymbol(merchant?.payout_currency);
+  const now = new Date();
   const range = {
-    endDate: new Date(params.endDate ?? new Date().toISOString()),
-    startDate: new Date(params.startDate ?? new Date().toISOString()),
+    endDate: parseDateParam(params.endDate, now),
+    startDate: parseDateParam(params.startDate, now),
   };
-  const { data: analytics } = useAnalyticsOverview(range);
+  const { data: analytics, isLoading, error } = useAnalyticsOverview(range);
 
   const titles: Record<string, string> = {
     blog: 'Blog Analytics',
@@ -41,27 +51,131 @@ export default function AnalyticsInsightsScreen() {
     'payment-methods': 'Payment Methods',
   };
 
-  const rows =
-    params.kind === 'brands'
-      ? (analytics?.brandBreakdown ?? []).map((item) => ({
+  const formatCurrencyCompact = (amount: number) =>
+    formatCurrency(amount, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
+
+  const buildRows = (): InsightRow[] => {
+    switch (params.kind) {
+      case 'brands':
+        return (analytics?.brandBreakdown ?? []).map((item, index) => ({
+          id: `brand-${index}`,
           label: item.name,
-          value: `${currencySymbol}${(item.revenue ?? item.value).toLocaleString('en-NG', {
-            maximumFractionDigits: 0,
-          })}`,
-        }))
-      : params.kind === 'customers'
-        ? (analytics?.customerBreakdown ?? []).map((item) => ({
-            label: item.name,
-            value: `${item.value} orders`,
-          }))
-        : params.kind === 'payment-methods'
-          ? (analytics?.salesByPaymentMethod ?? []).map((item) => ({
-              label: item.name,
-              value: `${currencySymbol}${item.value.toLocaleString('en-NG', {
-                maximumFractionDigits: 0,
-              })}`,
-            }))
-          : [];
+          value: formatCurrencyCompact(item.revenue ?? item.value ?? 0),
+        }));
+      case 'customers':
+        return (analytics?.customerBreakdown ?? []).map((item, index) => ({
+          id: `customer-${index}`,
+          label: item.name,
+          value: `${(item.value ?? 0).toLocaleString()} orders`,
+        }));
+      case 'payment-methods':
+        return (analytics?.salesByPaymentMethod ?? []).map((item, index) => ({
+          id: `payment-${index}`,
+          label: item.name,
+          value: formatCurrencyCompact(item.value ?? 0),
+        }));
+      default:
+        return [];
+    }
+  };
+
+  const rows = buildRows();
+  const blogTotalViews = Number(analytics?.blog?.totalViews ?? 0);
+
+  const renderBody = () => {
+    if (isLoading && !analytics) {
+      return (
+        <View style={styles.stateContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      );
+    }
+
+    if (error) {
+      return (
+        <View style={styles.stateContainer}>
+          <Ionicons
+            name="alert-circle-outline"
+            size={32}
+            color={colors.error}
+          />
+          <Text style={[styles.stateText, { color: colors.textSecondary }]}>
+            Unable to load analytics right now. Pull to refresh or try again.
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <>
+        <View
+          style={[
+            styles.heroCard,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <Text style={[styles.heroEyebrow, { color: colors.textSecondary }]}>
+            {params.filterLabel || 'Selected period'}
+          </Text>
+          {params.kind === 'blog' ? (
+            <>
+              <Text style={[styles.heroValue, { color: colors.text }]}>
+                {blogTotalViews.toLocaleString()}
+              </Text>
+              <Text style={[styles.heroSubtitle, { color: colors.textMuted }]}>
+                {analytics?.blog?.publishedPosts ?? 0} published posts,{' '}
+                {analytics?.blog?.draftPosts ?? 0} drafts
+              </Text>
+              {analytics?.blog?.topPost ? (
+                <View style={styles.inlineRow}>
+                  <Ionicons
+                    name="document-text-outline"
+                    size={16}
+                    color={colors.primary}
+                  />
+                  <Text
+                    style={[styles.inlineText, { color: colors.textSecondary }]}
+                  >
+                    Top post: {analytics.blog.topPost.title}
+                  </Text>
+                </View>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <Text style={[styles.heroValue, { color: colors.text }]}>
+                {rows.length.toLocaleString()}
+              </Text>
+              <Text style={[styles.heroSubtitle, { color: colors.textMuted }]}>
+                Ranked breakdown for{' '}
+                {params.filterLabel || 'the selected period'}
+              </Text>
+            </>
+          )}
+        </View>
+
+        {rows.map((row, index) => (
+          <View
+            key={`${params.kind}-${row.id}-${index}`}
+            style={[
+              styles.row,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.rowLabel, { color: colors.text }]}>
+              {row.label}
+            </Text>
+            <Text style={[styles.rowValue, { color: colors.primary }]}>
+              {row.value}
+            </Text>
+          </View>
+        ))}
+      </>
+    );
+  };
 
   return (
     <>
@@ -81,67 +195,7 @@ export default function AnalyticsInsightsScreen() {
         <SystemBars style={isDark ? 'light' : 'dark'} />
 
         <ScrollView contentContainerStyle={styles.content}>
-          <View
-            style={[
-              styles.heroCard,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-          >
-            <Text style={[styles.heroEyebrow, { color: colors.textSecondary }]}>
-              {params.filterLabel || 'Selected period'}
-            </Text>
-            {params.kind === 'blog' ? (
-              <>
-                <Text style={[styles.heroValue, { color: colors.text }]}>
-                  {analytics?.blog.totalViews.toLocaleString('en-NG') ?? '0'}
-                </Text>
-                <Text style={[styles.heroSubtitle, { color: colors.textMuted }]}>
-                  {analytics?.blog.publishedPosts ?? 0} published posts, {analytics?.blog.draftPosts ?? 0} drafts
-                </Text>
-                {analytics?.blog.topPost ? (
-                  <View style={styles.inlineRow}>
-                    <Ionicons
-                      name="document-text-outline"
-                      size={16}
-                      color={colors.primary}
-                    />
-                    <Text
-                      style={[styles.inlineText, { color: colors.textSecondary }]}
-                    >
-                      Top post: {analytics.blog.topPost.title}
-                    </Text>
-                  </View>
-                ) : null}
-              </>
-            ) : (
-              <>
-                <Text style={[styles.heroValue, { color: colors.text }]}>
-                  {rows.length.toLocaleString('en-NG')}
-                </Text>
-                <Text style={[styles.heroSubtitle, { color: colors.textMuted }]}>
-                  Ranked breakdown for {params.filterLabel || 'the selected period'}
-                </Text>
-              </>
-            )}
-          </View>
-
-          {rows.map((row) => (
-            <View
-              key={`${params.kind}-${row.label}`}
-              style={[
-                styles.row,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-            >
-              <Text style={[styles.rowLabel, { color: colors.text }]}>
-                {row.label}
-              </Text>
-              <Text style={[styles.rowValue, { color: colors.primary }]}>
-                {row.value}
-              </Text>
-            </View>
-          ))}
-
+          {renderBody()}
           <View style={styles.footerSpace} />
         </ScrollView>
       </SafeAreaView>
@@ -161,9 +215,9 @@ const styles = StyleSheet.create({
     height: SPACING.xl,
   },
   heroCard: {
-    borderRadius: 24,
+    borderRadius: RADIUS['2xl'],
     borderWidth: 1,
-    gap: 8,
+    gap: SPACING.sm,
     padding: SPACING.lg,
   },
   heroEyebrow: {
@@ -181,15 +235,15 @@ const styles = StyleSheet.create({
   inlineRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 4,
+    gap: SPACING.sm,
+    marginTop: SPACING.xs,
   },
   inlineText: {
     fontFamily: TYPOGRAPHY.fontFamily.medium,
     fontSize: TYPOGRAPHY.size.sm,
   },
   row: {
-    borderRadius: 20,
+    borderRadius: RADIUS.xl,
     borderWidth: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -205,5 +259,16 @@ const styles = StyleSheet.create({
   rowValue: {
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
     fontSize: TYPOGRAPHY.size.md,
+  },
+  stateContainer: {
+    alignItems: 'center',
+    gap: SPACING.md,
+    justifyContent: 'center',
+    padding: SPACING.xl,
+  },
+  stateText: {
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    fontSize: TYPOGRAPHY.size.sm,
+    textAlign: 'center',
   },
 });

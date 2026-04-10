@@ -53,6 +53,10 @@ interface ReportOptions {
   startDate: Date;
   endDate: Date;
   merchantName: string;
+  /** ISO-4217 currency code resolved from merchant payout currency. */
+  currency?: string;
+  /** Optional locale override; defaults to the runtime/device locale. */
+  locale?: string;
   data: MerchantAnalyticsResponse;
   transactions?: Transaction[]; // Full transaction list for Tax Ledger
 }
@@ -92,8 +96,11 @@ export async function generateReport(type: ReportType, options: ReportOptions) {
 }
 
 function getExecutiveSummaryHTML(options: ReportOptions) {
-  const { title, startDate, endDate, merchantName, data } = options;
-  const period = `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
+  const { title, startDate, endDate, merchantName, currency, locale, data } =
+    options;
+  const money = (amount: number) =>
+    formatCurrency(amount, undefined, currency, locale);
+  const period = `${startDate.toLocaleDateString(locale)} - ${endDate.toLocaleDateString(locale)}`;
   const safeMerchantName = escapeHtml(merchantName);
   const safeTitle = escapeHtml(title);
   const safeTopProduct = escapeHtml(data.topProducts[0]?.name || 'N/A');
@@ -117,7 +124,7 @@ function getExecutiveSummaryHTML(options: ReportOptions) {
                 <div class="kpi-grid">
                     <div class="kpi-card">
                         <div class="kpi-label">Total Revenue</div>
-                        <div class="kpi-value">${formatCurrency(data.summary.revenue.value)}</div>
+                        <div class="kpi-value">${money(data.summary.revenue.value)}</div>
                     </div>
                     <div class="kpi-card">
                         <div class="kpi-label">Total Sales</div>
@@ -125,11 +132,11 @@ function getExecutiveSummaryHTML(options: ReportOptions) {
                     </div>
                     <div class="kpi-card">
                         <div class="kpi-label">Net Profit</div>
-                        <div class="kpi-value">${formatCurrency(data.summary.profit.value)}</div>
+                        <div class="kpi-value">${money(data.summary.profit.value)}</div>
                     </div>
                     <div class="kpi-card">
                         <div class="kpi-label">Avg Order Value</div>
-                        <div class="kpi-value">${formatCurrency(data.summary.aov.value)}</div>
+                        <div class="kpi-value">${money(data.summary.aov.value)}</div>
                     </div>
                 </div>
 
@@ -146,12 +153,12 @@ function getExecutiveSummaryHTML(options: ReportOptions) {
                          <tr>
                             <td>Top Product</td>
                             <td class="bold">${safeTopProduct}</td>
-                            <td class="right">${formatCurrency(data.topProducts[0]?.revenue || 0)}</td>
+                            <td class="right">${money(data.topProducts[0]?.revenue || 0)}</td>
                         </tr>
                         <tr>
                             <td>Top Vendor</td>
                             <td class="bold">${safeTopBrand}</td>
-                            <td class="right">${formatCurrency(data.topBrand?.revenue || 0)}</td>
+                            <td class="right">${money(data.topBrand?.revenue || 0)}</td>
                         </tr>
                          <tr>
                             <td>Top Customer</td>
@@ -162,7 +169,7 @@ function getExecutiveSummaryHTML(options: ReportOptions) {
                 </table>
 
                 <div class="footer">
-                    Report Period: ${period} • Generated on ${new Date().toLocaleString()}
+                    Report Period: ${period} • Generated on ${new Date().toLocaleString(locale)}
                 </div>
             </body>
         </html>
@@ -175,23 +182,32 @@ function getTaxLedgerHTML(options: ReportOptions) {
     startDate,
     endDate,
     merchantName,
+    currency,
+    locale,
     data,
     transactions = [],
   } = options;
-  const period = `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
+  const money = (amount: number) =>
+    formatCurrency(amount, undefined, currency, locale);
+  const period = `${startDate.toLocaleDateString(locale)} - ${endDate.toLocaleDateString(locale)}`;
   const safeMerchantName = escapeHtml(merchantName);
   const safeTitle = escapeHtml(title);
+
+  const taxableSales = data.summary.revenue.value - data.summary.taxDue.value;
+  const taxRatePct =
+    taxableSales > 0 ? (data.summary.taxDue.value / taxableSales) * 100 : 0;
+  const taxRateLabel = taxRatePct > 0 ? ` (${taxRatePct.toFixed(2)}%)` : '';
 
   const rows = transactions
     .map(
       (tx) => `
         <tr>
-            <td>${new Date(tx.created_at).toLocaleDateString()}</td>
+            <td>${new Date(tx.created_at).toLocaleDateString(locale)}</td>
             <td>#${escapeHtml(tx.id.slice(0, 8))}</td>
             <td>${escapeHtml(tx.customer?.first_name || 'Guest')}</td>
-            <td class="right">${formatCurrency(tx.total - (tx.tax_amount || 0))}</td>
-            <td class="right">${formatCurrency(tx.tax_amount || 0)}</td>
-            <td class="right bold">${formatCurrency(tx.total)}</td>
+            <td class="right">${money(tx.total - (tx.tax_amount || 0))}</td>
+            <td class="right">${money(tx.tax_amount || 0)}</td>
+            <td class="right bold">${money(tx.total)}</td>
         </tr>
     `
     )
@@ -214,11 +230,11 @@ function getTaxLedgerHTML(options: ReportOptions) {
                 <div class="kpi-grid" style="grid-template-columns: repeat(2, 1fr);">
                     <div class="kpi-card">
                         <div class="kpi-label">Total Taxable Sales</div>
-                        <div class="kpi-value">${formatCurrency(data.summary.revenue.value - data.summary.taxDue.value)}</div>
+                        <div class="kpi-value">${money(taxableSales)}</div>
                     </div>
                     <div class="kpi-card">
-                        <div class="kpi-label">VAT Collected (7.5%)</div>
-                        <div class="kpi-value">${formatCurrency(data.summary.taxDue.value)}</div>
+                        <div class="kpi-label">Tax Collected${taxRateLabel}</div>
+                        <div class="kpi-value">${money(data.summary.taxDue.value)}</div>
                     </div>
                 </div>
 
@@ -230,7 +246,7 @@ function getTaxLedgerHTML(options: ReportOptions) {
                             <th>Order ID</th>
                             <th>Customer</th>
                             <th class="right">Subtotal</th>
-                            <th class="right">VAT</th>
+                            <th class="right">Tax</th>
                             <th class="right">Total</th>
                         </tr>
                     </thead>
@@ -240,7 +256,7 @@ function getTaxLedgerHTML(options: ReportOptions) {
                 </table>
 
                 <div class="footer">
-                    Report Period: ${period} • Generated on ${new Date().toLocaleString()}
+                    Report Period: ${period} • Generated on ${new Date().toLocaleString(locale)}
                 </div>
             </body>
         </html>

@@ -157,7 +157,7 @@ describe('POST /api/merchant/cac-search', () => {
     await expect(res.json()).resolves.toEqual({ companies: mockCompanies });
   });
 
-  it('normalizes prefixed RC/BN values before sending them to CAC', async () => {
+  it('normalizes prefixed RC values before sending them to CAC', async () => {
     const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce({
       ok: true,
       json: async () => ({ data: [], success: true }),

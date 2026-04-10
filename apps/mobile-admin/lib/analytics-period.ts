@@ -58,6 +58,7 @@ export function resolveAnalyticsDateRange(
       endDate.setHours(23, 59, 59, 999);
       break;
     case 'last_week':
+      endDate.setHours(0, 0, 0, 0);
       endDate.setDate(endDate.getDate() - endDate.getDay());
       endDate.setMilliseconds(-1);
       startDate = new Date(endDate);
@@ -70,7 +71,15 @@ export function resolveAnalyticsDateRange(
       break;
     case 'last_month':
       startDate = new Date(anchor.getFullYear(), anchor.getMonth() - 1, 1);
-      endDate = new Date(anchor.getFullYear(), anchor.getMonth(), 0, 23, 59, 59, 999);
+      endDate = new Date(
+        anchor.getFullYear(),
+        anchor.getMonth(),
+        0,
+        23,
+        59,
+        59,
+        999
+      );
       break;
     case 'this_year':
       startDate = new Date(selectedYear, 0, 1);
@@ -91,7 +100,9 @@ export function resolveAnalyticsDateRange(
   return { endDate, startDate };
 }
 
-export function getPreviousAnalyticsDateRange(range: AnalyticsDateRange): AnalyticsDateRange {
+export function getPreviousAnalyticsDateRange(
+  range: AnalyticsDateRange
+): AnalyticsDateRange {
   const duration = range.endDate.getTime() - range.startDate.getTime() + 1;
   const endDate = new Date(range.startDate.getTime() - 1);
   const startDate = new Date(endDate.getTime() - duration + 1);
