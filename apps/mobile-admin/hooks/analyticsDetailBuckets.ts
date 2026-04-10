@@ -36,6 +36,9 @@ interface BucketDateParts {
   month: number;
 }
 
+const validTimezones = new Set<string>();
+const invalidTimezones = new Set<string>();
+
 function getBucketDateParts(
   date: Date,
   timezone?: string
@@ -48,7 +51,12 @@ function getBucketDateParts(
     };
   }
 
+  if (invalidTimezones.has(timezone)) {
+    return null;
+  }
+
   try {
+    validTimezones.add(timezone);
     const formatter = new Intl.DateTimeFormat('en-US', {
       timeZone: timezone,
       hour: 'numeric',
@@ -64,15 +72,21 @@ function getBucketDateParts(
     const month = monthLabel ? MONTH_LABELS.indexOf(monthLabel) : -1;
 
     if (Number.isNaN(hour) || weekday < 0 || month < 0) {
+      invalidTimezones.add(timezone);
+      validTimezones.delete(timezone);
       return null;
     }
 
     return { hour, weekday, month };
   } catch (error) {
-    console.warn('[analyticsDetailBuckets] Invalid timezone provided:', {
-      timezone,
-      error,
-    });
+    if (!validTimezones.has(timezone) && !invalidTimezones.has(timezone)) {
+      console.warn('[analyticsDetailBuckets] Invalid timezone provided:', {
+        timezone,
+        error,
+      });
+    }
+    invalidTimezones.add(timezone);
+    validTimezones.delete(timezone);
     return null;
   }
 }

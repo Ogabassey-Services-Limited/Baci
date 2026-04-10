@@ -19,8 +19,8 @@ import { useTheme } from '@/hooks/useTheme';
 import {
   type TransactionReviewItem,
   useTransactionReview,
-  useUpdateTransactionCostPrice,
 } from '@/hooks/useTransactionReview';
+import { useUpdateTransactionCostPrice } from '@/hooks/useUpdateTransactionCostPrice';
 
 export default function TransactionsScreen() {
   const { colors, isDark } = useTheme();

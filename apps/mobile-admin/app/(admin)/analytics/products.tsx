@@ -6,7 +6,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -108,6 +108,13 @@ export default function AnalyticsProductsScreen() {
         renderItem={renderProductItem}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
+        ListHeaderComponent={
+          isLoading ? (
+            <View style={styles.emptyState}>
+              <ActivityIndicator size="large" color={colors.primary} />
+            </View>
+          ) : null
+        }
         ListEmptyComponent={
           !isLoading ? (
             <View style={styles.emptyState}>

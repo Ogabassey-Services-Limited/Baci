@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -64,12 +64,6 @@ export default function AnalyticsInsightsScreen() {
     error,
     refetch,
   } = useAnalyticsOverview(range);
-
-  useEffect(() => {
-    if (error) {
-      console.error('[AnalyticsInsightsScreen] failed to load analytics', error);
-    }
-  }, [error]);
 
   const titles: Record<string, string> = {
     blog: 'Blog Analytics',
