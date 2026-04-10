@@ -51,8 +51,6 @@ const bvnFormSchema = z.object({
 
 type BvnFormValues = z.input<typeof bvnFormSchema>;
 
-const TODAY_ISO = new Date().toISOString().slice(0, 10);
-
 interface BvnVerificationProps {
   verified: boolean;
   prefillBvn: string | null;
@@ -74,6 +72,7 @@ export function BvnVerification({
 }: BvnVerificationProps) {
   const { toast } = useToast();
   const [submitting, setSubmitting] = useState(false);
+  const todayIso = new Date().toISOString().slice(0, 10);
 
   const form = useForm<BvnFormValues>({
     resolver: zodResolver(bvnFormSchema),
@@ -207,7 +206,7 @@ export function BvnVerification({
               <FormItem>
                 <FormLabel>Date of Birth</FormLabel>
                 <FormControl>
-                  <Input type="date" max={TODAY_ISO} {...field} />
+                  <Input type="date" max={todayIso} {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

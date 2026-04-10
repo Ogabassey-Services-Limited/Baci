@@ -46,8 +46,6 @@ const ninFormSchema = z.object({
     }, 'Date of birth must be a valid past date'),
 });
 
-const TODAY_ISO = new Date().toISOString().slice(0, 10);
-
 type NinFormValues = z.input<typeof ninFormSchema>;
 
 interface NinVerificationProps {
@@ -69,6 +67,7 @@ export function NinVerification({
 }: NinVerificationProps) {
   const { toast } = useToast();
   const [submitting, setSubmitting] = useState(false);
+  const todayIso = new Date().toISOString().slice(0, 10);
 
   const form = useForm<NinFormValues>({
     resolver: zodResolver(ninFormSchema),
@@ -201,7 +200,7 @@ export function NinVerification({
               <FormItem>
                 <FormLabel>Date of Birth</FormLabel>
                 <FormControl>
-                  <Input type="date" max={TODAY_ISO} {...field} />
+                  <Input type="date" max={todayIso} {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

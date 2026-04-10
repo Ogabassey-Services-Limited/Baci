@@ -64,6 +64,10 @@ export default function DateOfBirthPicker({
 
   const eighteenYearsAgo = new Date();
   eighteenYearsAgo.setFullYear(eighteenYearsAgo.getFullYear() - 18);
+  const oneHundredTwentyYearsAgo = new Date();
+  oneHundredTwentyYearsAgo.setFullYear(
+    oneHundredTwentyYearsAgo.getFullYear() - 120
+  );
 
   return (
     <View>
@@ -120,6 +124,7 @@ export default function DateOfBirthPicker({
             mode="date"
             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
             maximumDate={eighteenYearsAgo}
+            minimumDate={oneHundredTwentyYearsAgo}
             onChange={handleChange}
           />
         </View>

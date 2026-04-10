@@ -51,9 +51,6 @@ export default async function KycSettingsPage() {
 
     if (error) {
       console.error('get_merchant_verification_status RPC failed:', error);
-    }
-
-    if (error) {
       return (
         <div className="container max-w-2xl py-8">
           <Card>

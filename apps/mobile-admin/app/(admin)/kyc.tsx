@@ -52,9 +52,10 @@ export default function KYCScreen() {
   } = useQuery({
     queryKey: ['verification-status', merchant?.id],
     queryFn: async () => {
+      if (!merchant?.id) throw new Error('Merchant ID is required');
       const { data, error } = await supabase.rpc(
         'get_merchant_verification_status',
-        { p_merchant_id: merchant?.id }
+        { p_merchant_id: merchant.id }
       );
       if (error) throw error;
       return data as VerificationStatus;

@@ -101,7 +101,10 @@ export default function BvnVerificationCard({
         );
         return;
       }
-      console.error('BVN verification error:', error);
+      console.error(
+        'BVN verification error:',
+        error instanceof Error ? error.message : 'Unknown error'
+      );
       Alert.alert(
         'Verification Error',
         'Unable to verify BVN. Please check your connection and try again.'

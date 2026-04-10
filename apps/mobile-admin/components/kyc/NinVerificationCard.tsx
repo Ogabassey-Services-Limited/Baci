@@ -82,7 +82,10 @@ export default function NinVerificationCard({
         );
         return;
       }
-      console.error('NIN verification error:', error);
+      console.error(
+        'NIN verification error:',
+        error instanceof Error ? error.message : 'Unknown error'
+      );
       Alert.alert(
         'Verification Error',
         'Unable to verify NIN. Please check your connection and try again.'
