@@ -5,6 +5,17 @@ import { checkCsrfProtection } from '@/lib/csrf';
 import { checkRateLimit } from '@/lib/rate-limiter';
 import { cacSearchSchema } from '@/schemas/verification';
 
+function normalizeCacSearchTerm(searchTerm: string): string {
+  const trimmed = searchTerm.trim();
+  const prefixedRegistrationMatch = trimmed.match(/^(rc|bn)\s*-?\s*(\d+)$/i);
+
+  if (prefixedRegistrationMatch) {
+    return prefixedRegistrationMatch[2];
+  }
+
+  return trimmed;
+}
+
 export async function POST(request: NextRequest) {
   const auth = await authenticateApiRequest(request);
   if (auth.error || !auth.user || !auth.supabase) {
@@ -64,6 +75,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const normalizedSearchTerm = normalizeCacSearchTerm(parsed.data.searchTerm);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10_000);
 
@@ -82,7 +94,7 @@ export async function POST(request: NextRequest) {
           Origin: 'https://icrp.cac.gov.ng',
           Referer: 'https://icrp.cac.gov.ng/public-search',
         },
-        body: JSON.stringify({ searchTerm: parsed.data.searchTerm }),
+        body: JSON.stringify({ searchTerm: normalizedSearchTerm }),
         signal: controller.signal,
       });
     } finally {

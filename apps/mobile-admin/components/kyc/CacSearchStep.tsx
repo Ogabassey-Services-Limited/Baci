@@ -5,12 +5,15 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  View,
 } from 'react-native';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
-import type { CacCompany } from './cac-types';
+import type { CacCompany, CacRegistrationPrefix } from './cac-types';
 
 interface CacSearchStepProps {
+  registrationPrefix: CacRegistrationPrefix;
+  onChangeRegistrationPrefix: (value: CacRegistrationPrefix) => void;
   rcNumber: string;
   onChangeRcNumber: (value: string) => void;
   onSearch: () => void;
@@ -20,6 +23,8 @@ interface CacSearchStepProps {
 }
 
 export default function CacSearchStep({
+  registrationPrefix,
+  onChangeRegistrationPrefix,
   rcNumber,
   onChangeRcNumber,
   onSearch,
@@ -31,26 +36,68 @@ export default function CacSearchStep({
 
   return (
     <>
-      <TextInput
-        style={[
-          styles.input,
-          {
-            backgroundColor: colors.inputBg,
-            color: colors.text,
-            borderColor: colors.border,
-          },
-        ]}
-        placeholder="RC or BN number (e.g. RC1234567)"
-        placeholderTextColor={colors.textMuted}
-        value={rcNumber}
-        onChangeText={onChangeRcNumber}
-        autoCapitalize="characters"
-        returnKeyType="search"
-        onSubmitEditing={() => {
-          if (rcNumber.trim() && !isSearching) onSearch();
-        }}
-        accessibilityLabel="RC or BN number"
-      />
+      <Text style={[styles.helperText, { color: colors.textSecondary }]}>
+        Choose the registration type, then enter only the number.
+      </Text>
+      <View style={styles.inputRow}>
+        <View
+          style={[
+            styles.prefixContainer,
+            {
+              backgroundColor: colors.inputBg,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          {(['RC', 'BN'] as const).map((prefix) => {
+            const isSelected = registrationPrefix === prefix;
+
+            return (
+              <Pressable
+                key={prefix}
+                style={[
+                  styles.prefixButton,
+                  isSelected && {
+                    backgroundColor: colors.primary,
+                  },
+                ]}
+                onPress={() => onChangeRegistrationPrefix(prefix)}
+                accessibilityRole="button"
+                accessibilityLabel={`Use ${prefix} registration type`}
+              >
+                <Text
+                  style={[
+                    styles.prefixButtonText,
+                    { color: isSelected ? colors.textOnPrimary : colors.text },
+                  ]}
+                >
+                  {prefix}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        <TextInput
+          style={[
+            styles.input,
+            {
+              backgroundColor: colors.inputBg,
+              color: colors.text,
+              borderColor: colors.border,
+            },
+          ]}
+          placeholder="7389159"
+          placeholderTextColor={colors.textMuted}
+          value={rcNumber}
+          onChangeText={(value) => onChangeRcNumber(value.replace(/\D/g, ''))}
+          keyboardType="number-pad"
+          returnKeyType="search"
+          onSubmitEditing={() => {
+            if (rcNumber.trim() && !isSearching) onSearch();
+          }}
+          accessibilityLabel={`${registrationPrefix} registration number`}
+        />
+      </View>
       <Pressable
         style={[
           styles.button,
@@ -86,7 +133,7 @@ export default function CacSearchStep({
               style={[styles.resultItem, { borderColor: colors.border }]}
               onPress={() => onSelect(item)}
               accessibilityRole="button"
-              accessibilityLabel={`Select ${item.approvedName}, RC ${item.rcNumber}, status ${item.status}`}
+              accessibilityLabel={`Select ${item.approvedName}, registration number ${item.rcNumber}, status ${item.status}`}
             >
               <Text style={[styles.resultName, { color: colors.text }]}>
                 {item.approvedName}
@@ -105,7 +152,37 @@ export default function CacSearchStep({
 }
 
 const styles = StyleSheet.create({
+  helperText: {
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    fontSize: TYPOGRAPHY.size.sm,
+    marginBottom: SPACING.sm,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    alignItems: 'stretch',
+  },
+  prefixContainer: {
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderRadius: RADIUS.sm,
+    padding: 4,
+    gap: 4,
+  },
+  prefixButton: {
+    minHeight: 44,
+    minWidth: 52,
+    borderRadius: RADIUS.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: SPACING.sm,
+  },
+  prefixButtonText: {
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    fontSize: TYPOGRAPHY.size.sm,
+  },
   input: {
+    flex: 1,
     borderWidth: 1,
     borderRadius: RADIUS.sm,
     paddingHorizontal: SPACING.md,
