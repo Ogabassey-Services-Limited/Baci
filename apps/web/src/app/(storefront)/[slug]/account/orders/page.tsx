@@ -71,7 +71,7 @@ export default function CustomerOrdersPage() {
 
   // Fetch orders
   const fetchOrders = async () => {
-    if (!customer || !merchant || !merchant.slug) return;
+    if (!customer || !merchant?.slug) return;
 
     setIsLoadingOrders(true);
     setOrdersError(null);

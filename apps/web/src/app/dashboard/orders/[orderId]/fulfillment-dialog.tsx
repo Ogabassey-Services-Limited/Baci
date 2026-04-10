@@ -107,8 +107,7 @@ export default function FulfillmentDialog({
     data.groups.forEach((group) => {
       const item = itemsWithFields.find((i) => i.id === group.itemId);
       if (
-        !item ||
-        !item.product.fulfillmentFields ||
+        !item?.product.fulfillmentFields ||
         item.product.fulfillmentFields.length === 0
       )
         return;

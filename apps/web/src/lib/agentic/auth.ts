@@ -10,7 +10,7 @@ import { constantTimeEqual } from '@/lib/constant-time-equal';
 export function verifyAgenticApiKey(request: NextRequest): boolean {
   const authHeader = request.headers.get('authorization');
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (!authHeader?.startsWith('Bearer ')) {
     return false;
   }
 

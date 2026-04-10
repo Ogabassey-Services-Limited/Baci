@@ -415,7 +415,7 @@ export default function AdminDashboardPage() {
                     />
                     <Tooltip
                       content={({ active, payload, label }) => {
-                        if (active && payload && payload.length) {
+                        if (active && payload?.length) {
                           return (
                             <div className="rounded-xl border bg-background/95 backdrop-blur-sm p-3 shadow-xl">
                               <p className="text-xs font-medium text-muted-foreground mb-1">
@@ -475,7 +475,7 @@ export default function AdminDashboardPage() {
                     </Pie>
                     <Tooltip
                       content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
+                        if (active && payload?.length) {
                           const data = payload[0].payload;
                           return (
                             <div className="rounded-xl border bg-background/95 backdrop-blur-sm p-3 shadow-xl">

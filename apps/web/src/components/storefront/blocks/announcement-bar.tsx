@@ -16,7 +16,7 @@ export function AnnouncementBar() {
       }
     | undefined;
 
-  if (!config || !config.enabled) {
+  if (!config?.enabled) {
     return null;
   }
 
