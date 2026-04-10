@@ -41,6 +41,8 @@ export default function CacSearchStep({
       </Text>
       <View style={styles.inputRow}>
         <View
+          accessibilityRole="radiogroup"
+          accessibilityLabel="Registration type"
           style={[
             styles.prefixContainer,
             {
@@ -62,9 +64,9 @@ export default function CacSearchStep({
                   },
                 ]}
                 onPress={() => onChangeRegistrationPrefix(prefix)}
-                accessibilityRole="button"
+                accessibilityRole="radio"
                 accessibilityLabel={`Use ${prefix} registration type`}
-                accessibilityState={{ selected: isSelected }}
+                accessibilityState={{ checked: isSelected }}
               >
                 <Text
                   style={[

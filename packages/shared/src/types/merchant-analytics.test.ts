@@ -56,4 +56,46 @@ describe('merchant analytics types', () => {
     expect(value.summary.revenue.value).toBe(1200);
     expect(value.blog.topPost?.slug).toBe('hello-world');
   });
+
+  it('accepts nullable analytics branches in the shared contract', () => {
+    const value: MerchantAnalyticsResponse = {
+      blog: {
+        draftPosts: 0,
+        publishedPosts: 0,
+        topPost: null,
+        totalPosts: 0,
+        totalViews: 0,
+      },
+      brandBreakdown: [],
+      chartData: [],
+      customerBreakdown: [],
+      recentSales: [],
+      salesByChannel: [],
+      salesByPaymentMethod: [],
+      summary: {
+        activeNow: { change: 0, value: 0 },
+        aov: { change: 0, value: 0 },
+        customers: { change: 0, value: 0 },
+        discounts: 0,
+        grossMargin: { change: 0, value: 0 },
+        revenuePerCustomer: { change: 0, value: 0 },
+        profit: { change: 0, value: 0 },
+        refundRate: { change: 0, value: 0 },
+        revenue: { change: 0, value: 0 },
+        sales: { change: 0, value: 0 },
+        shipping: 0,
+        subtotal: 0,
+        tax: 0,
+        taxDue: { change: 0, value: 0 },
+        totalUnitsSold: 0,
+      },
+      topBrand: null,
+      topCustomer: null,
+      topPaymentMethod: null,
+      topProducts: [],
+    };
+
+    expect(value.blog.topPost).toBeNull();
+    expect(value.topBrand).toBeNull();
+  });
 });

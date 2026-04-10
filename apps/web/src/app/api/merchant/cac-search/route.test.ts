@@ -157,38 +157,25 @@ describe('POST /api/merchant/cac-search', () => {
     await expect(res.json()).resolves.toEqual({ companies: mockCompanies });
   });
 
-  it('normalizes prefixed RC values before sending them to CAC', async () => {
+  it.each([
+    ['RC7389159', '7389159'],
+    ['rc-7389159', '7389159'],
+    ['BN123456', '123456'],
+    ['bn 123456', '123456'],
+  ])('normalizes %s before sending it to CAC', async (searchTerm, normalizedSearchTerm) => {
     const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce({
       ok: true,
       json: async () => ({ data: [], success: true }),
     } as Response);
 
-    const req = makeRequest({ searchTerm: 'RC7389159' });
+    const req = makeRequest({ searchTerm });
     const res = await POST(req);
 
     expect(res.status).toBe(200);
     expect(fetchSpy).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({
-        body: JSON.stringify({ searchTerm: '7389159' }),
-      })
-    );
-  });
-
-  it('normalizes BN-prefixed values before sending them to CAC', async () => {
-    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ data: [], success: true }),
-    } as Response);
-
-    const req = makeRequest({ searchTerm: 'BN123456' });
-    const res = await POST(req);
-
-    expect(res.status).toBe(200);
-    expect(fetchSpy).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({
-        body: JSON.stringify({ searchTerm: '123456' }),
+        body: JSON.stringify({ searchTerm: normalizedSearchTerm }),
       })
     );
   });

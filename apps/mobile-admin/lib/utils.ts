@@ -127,7 +127,7 @@ export const getCurrencySymbol = (
   const cached = currencySymbolCache.get(cacheKey);
   if (cached !== undefined) return cached;
 
-  const cachedFallback = currencyFallbackCache.get(currency);
+  const cachedFallback = currencyFallbackCache.get(cacheKey);
   if (cachedFallback !== undefined) return cachedFallback;
 
   try {
@@ -143,7 +143,7 @@ export const getCurrencySymbol = (
     currencySymbolCache.set(cacheKey, symbol);
     return symbol;
   } catch {
-    currencyFallbackCache.set(currency, currency);
+    currencyFallbackCache.set(cacheKey, currency);
     return currency;
   }
 };
