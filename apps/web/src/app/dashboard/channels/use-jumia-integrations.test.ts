@@ -1,11 +1,20 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/lib/csrf', () => ({
-  buildCsrfHeaders: vi.fn((extra?: Record<string, string>) => ({
-    'x-csrf-token': 'mock-csrf',
-    ...extra,
-  })),
+vi.mock('@/lib/api-client', () => ({
+  fetchWithCsrf: vi.fn((url: string, options: RequestInit = {}) => {
+    const headers = new Headers(options.headers);
+    if (options.body && typeof options.body === 'string') {
+      headers.set('Content-Type', 'application/json');
+    }
+    headers.set('x-csrf-token', 'mock-csrf');
+
+    return fetch(url, {
+      ...options,
+      headers: Object.fromEntries(headers.entries()),
+      credentials: 'include',
+    });
+  }),
 }));
 
 import {
@@ -144,19 +153,23 @@ describe('connectWithToken', () => {
     const result = await connectWithToken('my-token', 'My Shop');
 
     expect(result).toEqual({ ok: true });
-    expect(fetch).toHaveBeenCalledWith('/api/marketplace/jumia/connect', {
-      method: 'POST',
-      headers: {
-        'x-csrf-token': 'mock-csrf',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        connectionType: 'self_authorization',
-        refreshToken: 'my-token',
-        shopName: 'My Shop',
-        countryCode: 'NG',
-      }),
-    });
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/marketplace/jumia/connect',
+      expect.objectContaining({
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'x-csrf-token': 'mock-csrf',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          connectionType: 'self_authorization',
+          refreshToken: 'my-token',
+          shopName: 'My Shop',
+          countryCode: 'NG',
+        }),
+      })
+    );
   });
 
   it('trims token and shop name', async () => {
@@ -234,12 +247,16 @@ describe('disconnectIntegration', () => {
       json: () => Promise.resolve({}),
     } as Response);
 
-    const result = await disconnectIntegration('int-1');
+    const result = await disconnectIntegration('id with spaces');
 
     expect(result).toEqual({ ok: true });
     expect(fetch).toHaveBeenCalledWith(
-      '/api/marketplace/jumia/connect?id=int-1',
-      { method: 'DELETE', headers: { 'x-csrf-token': 'mock-csrf' } }
+      '/api/marketplace/jumia/connect?id=id%20with%20spaces',
+      {
+        method: 'DELETE',
+        headers: { 'x-csrf-token': 'mock-csrf' },
+        credentials: 'include',
+      }
     );
   });
 

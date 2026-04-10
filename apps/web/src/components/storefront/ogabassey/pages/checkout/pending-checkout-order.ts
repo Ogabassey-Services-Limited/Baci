@@ -1,4 +1,4 @@
-import { buildCsrfHeaders } from '@/lib/csrf';
+import { fetchWithCsrf } from '@/lib/api-client';
 import type { PaymentMethod } from './types';
 
 export const CHECKOUT_PENDING_ORDER_STORAGE_KEY =
@@ -224,9 +224,10 @@ export async function resolvePendingCheckoutOrder({
     return { reusableOrder: null, clearStoredOrder: true };
   }
 
-  const reuseResponse = await fetchImpl('/api/orders/reuse', {
+  const mutationFetch = fetchImpl === fetch ? fetchWithCsrf : fetchImpl;
+
+  const reuseResponse = await mutationFetch('/api/orders/reuse', {
     method: 'POST',
-    headers: buildCsrfHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({
       order_id: pendingOrder.orderId,
       tracking_token: pendingOrder.trackingToken,

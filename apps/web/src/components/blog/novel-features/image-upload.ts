@@ -1,20 +1,13 @@
 import { createImageUpload } from 'novel';
 import { toast } from '@/hooks/use-toast';
-import { getClientCsrfToken } from '@/lib/csrf';
+import { fetchWithCsrf } from '@/lib/api-client';
 
 const onUpload = (file: File) => {
   const formData = new FormData();
   formData.append('file', file);
 
-  const csrfToken = getClientCsrfToken();
-  const headers: HeadersInit = {};
-  if (csrfToken) {
-    headers['x-csrf-token'] = csrfToken;
-  }
-
-  const promise = fetch('/api/merchant/blog/upload', {
+  const promise = fetchWithCsrf('/api/merchant/blog/upload', {
     method: 'POST',
-    headers,
     body: formData,
   });
 

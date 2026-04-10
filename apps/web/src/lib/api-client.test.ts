@@ -28,10 +28,10 @@ describe('fetchWithCsrf', () => {
       .spyOn(globalThis, 'fetch')
       .mockImplementation((input) => {
         if (input === '/api/csrf') {
-          return new Response('{}', { status: 200 });
+          return Promise.resolve(new Response('{}', { status: 200 }));
         }
 
-        return new Response('{}');
+        return Promise.resolve(new Response('{}'));
       });
     const tokenSpy = vi
       .spyOn(csrf, 'getClientCsrfToken')
@@ -125,26 +125,28 @@ describe('fetchWithCsrf', () => {
       .spyOn(globalThis, 'fetch')
       .mockImplementation((input, init) => {
         if (input === '/api/csrf') {
-          return new Response('{}', { status: 200 });
+          return Promise.resolve(new Response('{}', { status: 200 }));
         }
 
         const headers = new Headers(init?.headers);
         const csrfHeader = headers.get(csrf.CSRF_HEADER_NAME);
 
         if (csrfHeader === 'stale-token') {
-          return new Response(
-            JSON.stringify({
-              error: 'Invalid CSRF token',
-              message: 'CSRF token validation failed.',
-            }),
-            {
-              status: 403,
-              headers: { 'Content-Type': 'application/json' },
-            }
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                error: 'Invalid CSRF token',
+                message: 'CSRF token validation failed.',
+              }),
+              {
+                status: 403,
+                headers: { 'Content-Type': 'application/json' },
+              }
+            )
           );
         }
 
-        return new Response('{}', { status: 200 });
+        return Promise.resolve(new Response('{}', { status: 200 }));
       });
 
     vi.spyOn(csrf, 'getClientCsrfToken')

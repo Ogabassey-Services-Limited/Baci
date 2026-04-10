@@ -25,7 +25,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { getClientCsrfToken } from '@/lib/csrf';
+import { fetchWithCsrf } from '@/lib/api-client';
 import { stripHtmlTags } from '@/lib/sanitize-core';
 
 function isValidHttpUrl(url: string | undefined): url is string {
@@ -112,13 +112,8 @@ export function OrderManagerModal({
     setBlockedLabelUrl(null);
     setActionLoading(action);
     try {
-      const csrfToken = getClientCsrfToken();
-      const res = await fetch('/api/marketplace/jumia/actions', {
+      const res = await fetchWithCsrf('/api/marketplace/jumia/actions', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(csrfToken && { 'x-csrf-token': csrfToken }),
-        },
         body: JSON.stringify({
           action,
           integrationId,

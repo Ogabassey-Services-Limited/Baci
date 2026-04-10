@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { getClientCsrfToken } from '@/lib/csrf';
+import { fetchWithCsrf } from '@/lib/api-client';
 import { sanitizeText } from '@/lib/sanitize-core';
 import {
   type ConsignmentFormValues,
@@ -55,13 +55,8 @@ export function CreateConsignmentForm({
 
   const onSubmit = async (values: ConsignmentFormValues) => {
     try {
-      const csrfToken = getClientCsrfToken();
-      const res = await fetch('/api/marketplace/jumia/consignment', {
+      const res = await fetchWithCsrf('/api/marketplace/jumia/consignment', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(csrfToken && { 'x-csrf-token': csrfToken }),
-        },
         body: JSON.stringify({
           integrationId,
           businessClientCode,

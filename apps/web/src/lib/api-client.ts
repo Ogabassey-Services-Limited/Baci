@@ -3,30 +3,77 @@
 
 import { CSRF_HEADER_NAME, getClientCsrfToken } from '@/lib/csrf';
 
+async function initializeCsrfToken(): Promise<string | null> {
+  try {
+    const response = await fetch('/api/csrf', {
+      credentials: 'include',
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      console.warn(
+        `[CSRF] Failed to initialize token via /api/csrf (${response.status}).`
+      );
+      return null;
+    }
+  } catch (error) {
+    console.warn('[CSRF] Failed to initialize token via /api/csrf.', error);
+    return null;
+  }
+
+  return getClientCsrfToken();
+}
+
+async function isInvalidCsrfResponse(response: Response): Promise<boolean> {
+  if (response.status !== 403) {
+    return false;
+  }
+
+  try {
+    const data = (await response.clone().json()) as {
+      error?: string;
+      message?: string;
+    };
+
+    return `${data.error ?? ''} ${data.message ?? ''}`
+      .toLowerCase()
+      .includes('csrf');
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Fetch with CSRF protection
  * Use this instead of fetch() for all state-changing API calls
  */
-export function fetchWithCsrf(
+export async function fetchWithCsrf(
   url: string,
   options: RequestInit = {}
 ): Promise<Response> {
-  const csrfToken = getClientCsrfToken();
-
   // Add CSRF token to headers for state-changing methods
   const method = options.method?.toUpperCase() || 'GET';
   const needsCsrf = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
 
   const headers = new Headers(options.headers);
 
-  if (needsCsrf && csrfToken) {
-    headers.set(CSRF_HEADER_NAME, csrfToken);
-  }
+  if (needsCsrf) {
+    let csrfToken = getClientCsrfToken();
 
-  if (needsCsrf && !csrfToken) {
-    console.warn(
-      `[CSRF] Missing csrfToken; ${CSRF_HEADER_NAME} header will not be sent. State-changing requests may fail with 403.`
-    );
+    if (!csrfToken) {
+      console.warn(
+        `[CSRF] Missing csrfToken; attempting to initialize it before sending ${method} ${url}.`
+      );
+      csrfToken = await initializeCsrfToken();
+    }
+
+    if (csrfToken) {
+      headers.set(CSRF_HEADER_NAME, csrfToken);
+    } else {
+      console.warn(
+        `[CSRF] Missing csrfToken after initialization; ${CSRF_HEADER_NAME} header will not be sent. State-changing requests may fail with 403.`
+      );
+    }
   }
 
   // Only set application/json when the body is a string. Non-string bodies
@@ -41,11 +88,28 @@ export function fetchWithCsrf(
     headers.set('content-type', 'application/json');
   }
 
-  return fetch(url, {
+  const requestInit: RequestInit = {
     ...options,
     headers,
     credentials: 'include', // Include cookies for authentication
-  });
+  };
+
+  let response = await fetch(url, requestInit);
+
+  if (needsCsrf && (await isInvalidCsrfResponse(response))) {
+    const refreshedToken = await initializeCsrfToken();
+
+    if (refreshedToken) {
+      const retryHeaders = new Headers(headers);
+      retryHeaders.set(CSRF_HEADER_NAME, refreshedToken);
+      response = await fetch(url, {
+        ...requestInit,
+        headers: retryHeaders,
+      });
+    }
+  }
+
+  return response;
 }
 
 /**
