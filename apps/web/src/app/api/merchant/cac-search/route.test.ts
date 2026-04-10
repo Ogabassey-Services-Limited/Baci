@@ -139,7 +139,7 @@ describe('POST /api/merchant/cac-search', () => {
     const mockCompanies = [
       { approvedName: 'BACI TECHNOLOGIES LTD', rcNumber: 'RC123456' },
     ];
-    vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce({
       ok: true,
       json: async () => ({ data: mockCompanies, success: true }),
     } as Response);
@@ -148,7 +148,49 @@ describe('POST /api/merchant/cac-search', () => {
     const res = await POST(req);
 
     expect(res.status).toBe(200);
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        body: JSON.stringify({ searchTerm: 'Baci Tech' }),
+      })
+    );
     await expect(res.json()).resolves.toEqual({ companies: mockCompanies });
+  });
+
+  it('normalizes prefixed RC/BN values before sending them to CAC', async () => {
+    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ data: [], success: true }),
+    } as Response);
+
+    const req = makeRequest({ searchTerm: 'RC7389159' });
+    const res = await POST(req);
+
+    expect(res.status).toBe(200);
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        body: JSON.stringify({ searchTerm: '7389159' }),
+      })
+    );
+  });
+
+  it('normalizes BN-prefixed values before sending them to CAC', async () => {
+    const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ data: [], success: true }),
+    } as Response);
+
+    const req = makeRequest({ searchTerm: 'BN123456' });
+    const res = await POST(req);
+
+    expect(res.status).toBe(200);
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        body: JSON.stringify({ searchTerm: '123456' }),
+      })
+    );
   });
 
   it('returns 502 when CAC API returns a non-OK response', async () => {

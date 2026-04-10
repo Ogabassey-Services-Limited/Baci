@@ -11,7 +11,12 @@ import CacConfirmStep from './CacConfirmStep';
 import CacResultStep from './CacResultStep';
 import CacSearchStep from './CacSearchStep';
 import CacUploadStep from './CacUploadStep';
-import { type CacCompany, type CacStep, normalizeCacStatus } from './cac-types';
+import {
+  type CacCompany,
+  type CacRegistrationPrefix,
+  type CacStep,
+  normalizeCacStatus,
+} from './cac-types';
 import VerificationStatusBadge from './VerificationStatusBadge';
 
 interface CacVerificationCardProps {
@@ -31,6 +36,8 @@ export default function CacVerificationCard({
   const [expanded, setExpanded] = useState(false);
   const [cacStep, setCacStep] = useState<CacStep>('search');
   const [rcNumber, setRcNumber] = useState(prefillRcNumber ?? '');
+  const [registrationPrefix, setRegistrationPrefix] =
+    useState<CacRegistrationPrefix>('RC');
   const [selectedCompany, setSelectedCompany] = useState<CacCompany | null>(
     null
   );
@@ -55,7 +62,9 @@ export default function CacVerificationCard({
         }>;
       }>('/api/merchant/cac-search', {
         method: 'POST',
-        body: JSON.stringify({ searchTerm: rcNumber.trim() }),
+        body: JSON.stringify({
+          searchTerm: `${registrationPrefix}${rcNumber.trim()}`,
+        }),
       });
       const companies: CacCompany[] = response.companies.map((c) => ({
         approvedName: c.approvedName,
@@ -211,6 +220,8 @@ export default function CacVerificationCard({
         <View style={styles.body}>
           {cacStep === 'search' && (
             <CacSearchStep
+              registrationPrefix={registrationPrefix}
+              onChangeRegistrationPrefix={setRegistrationPrefix}
               rcNumber={rcNumber}
               onChangeRcNumber={setRcNumber}
               onSearch={handleSearch}

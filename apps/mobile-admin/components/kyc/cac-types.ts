@@ -1,4 +1,5 @@
 export type CacStep = 'search' | 'confirm' | 'upload' | 'result';
+export type CacRegistrationPrefix = 'RC' | 'BN';
 
 export type CacStatus = 'ACTIVE' | 'INACTIVE' | 'UNKNOWN';
 
