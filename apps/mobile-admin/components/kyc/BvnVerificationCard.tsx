@@ -79,7 +79,7 @@ export default function BvnVerificationCard({
           firstName: firstName.trim(),
           lastName: lastName.trim(),
           dateOfBirth,
-          mobileNo,
+          mobileNo: mobileNo.trim(),
         }),
       }),
     onSuccess: (data) => {
@@ -278,7 +278,7 @@ export default function BvnVerificationCard({
               accessibilityState={{ disabled: mutation.isPending }}
             >
               {mutation.isPending ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={colors.textOnPrimary} />
               ) : (
                 <Text style={styles.submitButtonText}>Verify BVN</Text>
               )}

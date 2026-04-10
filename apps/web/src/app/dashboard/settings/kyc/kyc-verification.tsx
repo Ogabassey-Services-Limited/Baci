@@ -20,7 +20,7 @@ import { CacVerification } from './cac-verification';
 import { NinVerification } from './nin-verification';
 import { VerificationBadge } from './verification-badge';
 
-interface KycVerificationProps {
+export interface KycVerificationProps {
   verificationStatus: {
     nin_verified: boolean;
     bvn_verified: boolean;

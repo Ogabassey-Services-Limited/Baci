@@ -36,6 +36,7 @@ export default function CacUploadStep({
             accessibilityLabel="Preview of selected CAC certificate"
           />
           <Pressable
+            style={styles.changeButton}
             onPress={onPickImage}
             accessibilityRole="button"
             accessibilityLabel="Change uploaded CAC document"
@@ -110,6 +111,13 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: RADIUS.sm,
   },
+  changeButton: {
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   changeText: {
     fontFamily: TYPOGRAPHY.fontFamily.medium,
     fontSize: TYPOGRAPHY.size.md,
@@ -119,6 +127,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: SPACING.md,
   },
   buttonText: {
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,

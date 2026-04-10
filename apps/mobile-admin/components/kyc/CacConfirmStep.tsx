@@ -50,7 +50,11 @@ export default function CacConfirmStep({
       </View>
       <View style={styles.buttonRow}>
         <Pressable
-          style={[styles.buttonOutline, { borderColor: colors.border }]}
+          style={({ pressed }) => [
+            styles.buttonOutline,
+            { borderColor: colors.border },
+            pressed && styles.pressed,
+          ]}
           onPress={onBack}
           accessibilityRole="button"
           accessibilityLabel="Go back to previous step"
@@ -60,7 +64,11 @@ export default function CacConfirmStep({
           </Text>
         </Pressable>
         <Pressable
-          style={[styles.button, { backgroundColor: colors.primary }]}
+          style={({ pressed }) => [
+            styles.button,
+            { backgroundColor: colors.primary },
+            pressed && styles.pressed,
+          ]}
           onPress={onConfirm}
           accessibilityRole="button"
           accessibilityLabel="Confirm company details and upload certificate"
@@ -83,7 +91,7 @@ const styles = StyleSheet.create({
   value: {
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
     fontSize: TYPOGRAPHY.size.md,
-    marginTop: 2,
+    marginTop: SPACING.xs,
   },
   buttonRow: {
     flexDirection: 'row',
@@ -112,5 +120,8 @@ const styles = StyleSheet.create({
   buttonText: {
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
     fontSize: TYPOGRAPHY.size.md,
+  },
+  pressed: {
+    opacity: 0.7,
   },
 });

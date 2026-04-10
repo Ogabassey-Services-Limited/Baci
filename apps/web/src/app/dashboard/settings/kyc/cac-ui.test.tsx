@@ -1,7 +1,13 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { AlertBanner, CacConfirmStep, StatusBadge } from './cac-ui';
+import type { CacCompany } from './cac-ui';
+import {
+  AlertBanner,
+  CacConfirmStep,
+  normalizeCacStatus,
+  StatusBadge,
+} from './cac-ui';
 
 describe('StatusBadge', () => {
   it('shows green styling for "ACTIVE" status', () => {
@@ -22,13 +28,30 @@ describe('StatusBadge', () => {
     expect(badge).toHaveClass('bg-amber-100', 'text-amber-700');
   });
 
-  it('is case-insensitive for active check', () => {
+  it('shows amber styling for UNKNOWN status', () => {
     // Arrange & Act
-    render(<StatusBadge status="Active" />);
+    render(<StatusBadge status="UNKNOWN" />);
 
     // Assert
-    const badge = screen.getByText('Active');
-    expect(badge).toHaveClass('bg-green-100', 'text-green-700');
+    const badge = screen.getByText('UNKNOWN');
+    expect(badge).toHaveClass('bg-amber-100', 'text-amber-700');
+  });
+});
+
+describe('normalizeCacStatus', () => {
+  it('collapses mixed casing into the canonical uppercase union', () => {
+    // Arrange & Act & Assert
+    expect(normalizeCacStatus('active')).toBe('ACTIVE');
+    expect(normalizeCacStatus('Active')).toBe('ACTIVE');
+    expect(normalizeCacStatus(' INACTIVE ')).toBe('INACTIVE');
+  });
+
+  it('returns UNKNOWN for unrecognized or non-string values', () => {
+    // Arrange & Act & Assert
+    expect(normalizeCacStatus('pending')).toBe('UNKNOWN');
+    expect(normalizeCacStatus('')).toBe('UNKNOWN');
+    expect(normalizeCacStatus(undefined)).toBe('UNKNOWN');
+    expect(normalizeCacStatus(42)).toBe('UNKNOWN');
   });
 });
 
@@ -77,7 +100,7 @@ describe('AlertBanner', () => {
 });
 
 describe('CacConfirmStep', () => {
-  const company = {
+  const company: CacCompany = {
     approvedName: 'Acme Ltd',
     rcNumber: 'RC-123456',
     status: 'ACTIVE',

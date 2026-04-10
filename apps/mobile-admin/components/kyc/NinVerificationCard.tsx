@@ -265,7 +265,7 @@ export default function NinVerificationCard({
               accessibilityState={{ disabled: mutation.isPending }}
             >
               {mutation.isPending ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={colors.textOnPrimary} />
               ) : (
                 <Text style={styles.submitButtonText}>Verify NIN</Text>
               )}

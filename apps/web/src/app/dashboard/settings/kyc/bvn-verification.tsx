@@ -2,7 +2,6 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { CheckCircle2 } from 'lucide-react';
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -71,8 +70,8 @@ export function BvnVerification({
   onVerified,
 }: BvnVerificationProps) {
   const { toast } = useToast();
-  const [submitting, setSubmitting] = useState(false);
-  const todayIso = new Date().toISOString().slice(0, 10);
+  // Use local date (not UTC) so the DOB max matches the user's current day.
+  const todayIso = new Date().toLocaleDateString('en-CA');
 
   const form = useForm<BvnFormValues>({
     resolver: zodResolver(bvnFormSchema),
@@ -96,7 +95,6 @@ export function BvnVerification({
   }
 
   const onSubmit = async (values: BvnFormValues) => {
-    setSubmitting(true);
     try {
       const res = await fetchWithCsrf('/api/merchant/verify-bvn', {
         method: 'POST',
@@ -140,8 +138,6 @@ export function BvnVerification({
         title: 'Error',
         description: 'Network error. Please try again.',
       });
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -235,8 +231,8 @@ export function BvnVerification({
             )}
           />
 
-          <Button type="submit" disabled={submitting}>
-            {submitting ? (
+          <Button type="submit" disabled={form.formState.isSubmitting}>
+            {form.formState.isSubmitting ? (
               <>
                 <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                 Verifying...

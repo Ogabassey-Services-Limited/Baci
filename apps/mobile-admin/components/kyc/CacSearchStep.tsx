@@ -73,7 +73,7 @@ export default function CacSearchStep({
           keyExtractor={(item) => item.rcNumber}
           style={styles.resultsList}
           ListEmptyComponent={
-            <Text style={{ color: colors.textSecondary, padding: SPACING.md }}>
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
               No companies found for this RC/BN number.
             </Text>
           }
@@ -82,6 +82,7 @@ export default function CacSearchStep({
               style={[styles.resultItem, { borderColor: colors.border }]}
               onPress={() => onSelect(item)}
               accessibilityRole="button"
+              accessibilityLabel={`Select ${item.approvedName}, RC ${item.rcNumber}, status ${item.status}`}
             >
               <Text style={[styles.resultName, { color: colors.text }]}>
                 {item.approvedName}
@@ -113,6 +114,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: SPACING.sm,
   },
   buttonText: {
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
@@ -128,5 +130,8 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     fontSize: TYPOGRAPHY.size.sm,
     marginTop: 2,
+  },
+  emptyText: {
+    padding: SPACING.md,
   },
 });

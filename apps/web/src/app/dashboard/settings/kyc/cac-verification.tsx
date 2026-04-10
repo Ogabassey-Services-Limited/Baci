@@ -15,7 +15,12 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { fetchWithCsrf } from '@/lib/api-client';
 import type { CacCompany } from './cac-ui';
-import { AlertBanner, CacConfirmStep, StatusBadge } from './cac-ui';
+import {
+  AlertBanner,
+  CacConfirmStep,
+  normalizeCacStatus,
+  StatusBadge,
+} from './cac-ui';
 
 interface CacVerificationProps {
   verified: boolean;
@@ -107,7 +112,20 @@ export function CacVerification({
         JSON.stringify({ searchTerm: term })
       );
       if (!data) return;
-      const foundCompanies = (data as { companies: CacCompany[] }).companies;
+      const rawCompanies = (
+        data as {
+          companies: Array<{
+            approvedName: string;
+            rcNumber: string;
+            status: unknown;
+          }>;
+        }
+      ).companies;
+      const foundCompanies: CacCompany[] = rawCompanies.map((c) => ({
+        approvedName: c.approvedName,
+        rcNumber: c.rcNumber,
+        status: normalizeCacStatus(c.status),
+      }));
       setCompanies(foundCompanies);
       if (!foundCompanies.length) {
         toast({

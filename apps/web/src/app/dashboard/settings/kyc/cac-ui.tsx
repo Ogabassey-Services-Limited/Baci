@@ -6,6 +6,27 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
+export type CacStatus = 'ACTIVE' | 'INACTIVE' | 'UNKNOWN';
+
+export interface CacCompany {
+  approvedName: string;
+  rcNumber: string;
+  status: CacStatus;
+}
+
+/**
+ * Normalize a raw status string from the CAC search API into a CacStatus
+ * union. The upstream API returns arbitrary casing (e.g. "Active", "active"),
+ * so we collapse everything we don't recognize into "UNKNOWN".
+ */
+export function normalizeCacStatus(raw: unknown): CacStatus {
+  if (typeof raw !== 'string') return 'UNKNOWN';
+  const upper = raw.trim().toUpperCase();
+  if (upper === 'ACTIVE') return 'ACTIVE';
+  if (upper === 'INACTIVE') return 'INACTIVE';
+  return 'UNKNOWN';
+}
+
 export function CacConfirmStep({
   company,
   onBack,
@@ -35,14 +56,8 @@ export function CacConfirmStep({
   );
 }
 
-export interface CacCompany {
-  approvedName: string;
-  rcNumber: string;
-  status: string;
-}
-
-export function StatusBadge({ status }: { status: string }) {
-  const active = status.toLowerCase() === 'active';
+export function StatusBadge({ status }: { status: CacStatus }) {
+  const active = status === 'ACTIVE';
   return (
     <span
       className={cn(

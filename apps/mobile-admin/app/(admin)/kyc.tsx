@@ -147,11 +147,7 @@ export default function KYCScreen() {
                 </Text>
                 <Pressable onPress={() => refetch()} accessibilityRole="button">
                   <Text
-                    style={{
-                      color: colors.primary,
-                      marginTop: 8,
-                      fontWeight: '600',
-                    }}
+                    style={[styles.tryAgainText, { color: colors.primary }]}
                   >
                     Try Again
                   </Text>
@@ -251,5 +247,9 @@ const styles = StyleSheet.create({
   securityNoteText: {
     fontSize: TYPOGRAPHY.size.xs,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
+  },
+  tryAgainText: {
+    marginTop: SPACING.sm,
+    fontWeight: '600',
   },
 });

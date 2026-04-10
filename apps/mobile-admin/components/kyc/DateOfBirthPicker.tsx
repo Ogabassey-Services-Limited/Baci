@@ -34,6 +34,12 @@ function parseValue(value: string): Date {
   return new Date(2000, 0, 1);
 }
 
+function yearsAgo(years: number): Date {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - years);
+  return d;
+}
+
 export default function DateOfBirthPicker({
   value,
   onChange,
@@ -41,6 +47,10 @@ export default function DateOfBirthPicker({
 }: DateOfBirthPickerProps) {
   const [showPicker, setShowPicker] = useState(false);
   const [tempDate, setTempDate] = useState<Date>(parseValue(value));
+  // Computed fresh on each render so the bounds don't go stale if the app
+  // stays open across date boundaries.
+  const maximumDate = yearsAgo(18);
+  const minimumDate = yearsAgo(120);
 
   const handleChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
     if (Platform.OS === 'android') {
@@ -61,13 +71,6 @@ export default function DateOfBirthPicker({
     onChange(toYYYYMMDD(tempDate));
     setShowPicker(false);
   };
-
-  const eighteenYearsAgo = new Date();
-  eighteenYearsAgo.setFullYear(eighteenYearsAgo.getFullYear() - 18);
-  const oneHundredTwentyYearsAgo = new Date();
-  oneHundredTwentyYearsAgo.setFullYear(
-    oneHundredTwentyYearsAgo.getFullYear() - 120
-  );
 
   return (
     <View>
@@ -123,8 +126,8 @@ export default function DateOfBirthPicker({
             value={Platform.OS === 'ios' ? tempDate : parseValue(value)}
             mode="date"
             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            maximumDate={eighteenYearsAgo}
-            minimumDate={oneHundredTwentyYearsAgo}
+            maximumDate={maximumDate}
+            minimumDate={minimumDate}
             onChange={handleChange}
           />
         </View>

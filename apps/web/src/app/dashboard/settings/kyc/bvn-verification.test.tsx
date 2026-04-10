@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/api-client', () => ({ fetchWithCsrf: vi.fn() }));
 vi.mock('@/hooks/use-toast', () => ({
@@ -19,6 +19,10 @@ const baseProps = {
 };
 
 describe('BvnVerification', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('shows verified alert when verified=true', () => {
     // Arrange & Act
     render(<BvnVerification {...baseProps} verified={true} />);

@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock child verification forms to keep tests focused on the orchestrator
 vi.mock('./nin-verification', () => ({
@@ -57,6 +57,10 @@ async function openAllAccordions() {
 }
 
 describe('KycVerification', () => {
+  beforeEach(() => {
+    mockRefresh.mockClear();
+  });
+
   it('renders the card title and description', () => {
     // Arrange & Act
     render(<KycVerification {...baseProps} />);

@@ -42,10 +42,7 @@ export default function CacResultStep({
       </Text>
       {!verified && (
         <Pressable
-          style={[
-            styles.retryButton,
-            { borderColor: colors.error, marginTop: SPACING.md },
-          ]}
+          style={[styles.retryButton, { borderColor: colors.error }]}
           onPress={onTryAgain}
           accessibilityRole="button"
           accessibilityLabel="Try again to resubmit CAC document"
@@ -77,6 +74,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.lg,
     alignItems: 'center',
+    marginTop: SPACING.md,
   },
   retryText: {
     fontFamily: TYPOGRAPHY.fontFamily.medium,

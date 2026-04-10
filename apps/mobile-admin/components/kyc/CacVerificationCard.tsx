@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
@@ -34,6 +34,10 @@ export default function CacVerificationCard({
   const [selectedCompany, setSelectedCompany] = useState<CacCompany | null>(
     null
   );
+
+  useEffect(() => {
+    setRcNumber(prefillRcNumber ?? '');
+  }, [prefillRcNumber]);
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [imageMimeType, setImageMimeType] = useState<string>('image/jpeg');
   const [verifyResult, setVerifyResult] = useState<{
@@ -202,7 +206,9 @@ export default function CacVerificationCard({
             <CacUploadStep
               imageUri={imageUri}
               onPickImage={handlePickImage}
-              onVerify={() => uploadMutation.mutate()}
+              onVerify={() => {
+                if (imageUri) uploadMutation.mutate();
+              }}
               isUploading={uploadMutation.isPending}
             />
           )}
