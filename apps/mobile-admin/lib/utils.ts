@@ -110,15 +110,22 @@ export function stripHtmlTags(text: string | null | undefined): string {
   return result.trim();
 }
 
+const currencySymbolCache = new Map<string, string>();
+
 /**
  * Resolve the symbol for a given ISO-4217 currency code using Intl. Falls back
  * to the code itself when the runtime cannot produce a currency part (e.g.
- * unsupported currency).
+ * unsupported currency). Results are cached per locale+currency because
+ * `new Intl.NumberFormat` is relatively expensive in tight render loops.
  */
 export const getCurrencySymbol = (
   currency = 'NGN',
   locale?: string
 ): string => {
+  const cacheKey = `${locale ?? 'default'}-${currency}`;
+  const cached = currencySymbolCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
   try {
     const parts = new Intl.NumberFormat(locale, {
       style: 'currency',
@@ -126,15 +133,21 @@ export const getCurrencySymbol = (
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).formatToParts(1);
-    return parts.find((part) => part.type === 'currency')?.value ?? currency;
+    const symbol =
+      parts.find((part) => part.type === 'currency')?.value ?? currency;
+    if (currencySymbolCache.size > 50) currencySymbolCache.clear();
+    currencySymbolCache.set(cacheKey, symbol);
+    return symbol;
   } catch {
     return currency;
   }
 };
 
 /**
- * Compact currency display (e.g. ₦1.2M, $3.4B). Threads currency and locale
- * through so merchants in different markets see their own symbol/grouping.
+ * Compact currency display (e.g. ₦1.2M, $3.4B, -₦1.50M for negatives).
+ * Threads currency and locale through so merchants in different markets see
+ * their own symbol/grouping, and uses locale-aware formatting even in the
+ * billion/million branches to keep decimal separators consistent.
  */
 export const formatCompactCurrency = (
   amount: number,
@@ -142,20 +155,24 @@ export const formatCompactCurrency = (
   locale?: string
 ) => {
   const symbol = getCurrencySymbol(currency, locale);
-  if (amount >= 1_000_000_000) {
-    return `${symbol}${(amount / 1_000_000_000).toFixed(2)}B`;
+  const sign = amount < 0 ? '-' : '';
+  const abs = Math.abs(amount);
+  const twoDecimal: Intl.NumberFormatOptions = {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  };
+
+  if (abs >= 1_000_000_000) {
+    return `${sign}${symbol}${(abs / 1_000_000_000).toLocaleString(locale, twoDecimal)}B`;
   }
-  if (amount >= 1_000_000) {
-    return `${symbol}${(amount / 1_000_000).toFixed(2)}M`;
+  if (abs >= 1_000_000) {
+    return `${sign}${symbol}${(abs / 1_000_000).toLocaleString(locale, twoDecimal)}M`;
   }
-  if (amount >= 1_000) {
-    return `${symbol}${amount.toLocaleString(locale, {
+  if (abs >= 1_000) {
+    return `${sign}${symbol}${abs.toLocaleString(locale, {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     })}`;
   }
-  return `${symbol}${amount.toLocaleString(locale, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+  return `${sign}${symbol}${abs.toLocaleString(locale, twoDecimal)}`;
 };

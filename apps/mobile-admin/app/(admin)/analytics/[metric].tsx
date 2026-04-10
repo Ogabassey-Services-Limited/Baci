@@ -181,16 +181,21 @@ export default function AnalyticsDetailScreen() {
   const [showComparison, setShowComparison] = useState(false);
   const [selectedBarIndex, setSelectedBarIndex] = useState<number | null>(null);
 
-  const now = new Date();
-  const defaultStart = new Date(now);
-  defaultStart.setDate(defaultStart.getDate() - 30);
+  // Stable fallback range computed once per mount — recreating `new Date()`
+  // per render would thrash the query key for useAnalyticsDetail.
+  const [defaultRange] = useState(() => {
+    const now = new Date();
+    const start = new Date(now);
+    start.setDate(start.getDate() - 30);
+    return { endIso: now.toISOString(), startIso: start.toISOString() };
+  });
 
   const { data: analyticsData, isLoading } = useAnalyticsDetail({
-    endDate: endDate ?? now.toISOString(),
+    endDate: endDate ?? defaultRange.endIso,
     filterLabel: filterLabel ?? 'Selected period',
     metric,
     granularity,
-    startDate: startDate ?? defaultStart.toISOString(),
+    startDate: startDate ?? defaultRange.startIso,
     includeComparison: showComparison,
   });
 
@@ -528,7 +533,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,

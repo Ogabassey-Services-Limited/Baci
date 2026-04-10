@@ -103,7 +103,7 @@ export default function AnalyticsInsightsScreen() {
             color={colors.error}
           />
           <Text style={[styles.stateText, { color: colors.textSecondary }]}>
-            Unable to load analytics right now. Pull to refresh or try again.
+            Unable to load analytics right now. Please try again.
           </Text>
         </View>
       );
@@ -157,9 +157,9 @@ export default function AnalyticsInsightsScreen() {
           )}
         </View>
 
-        {rows.map((row, index) => (
+        {rows.map((row) => (
           <View
-            key={`${params.kind}-${row.id}-${index}`}
+            key={row.id}
             style={[
               styles.row,
               { backgroundColor: colors.card, borderColor: colors.border },

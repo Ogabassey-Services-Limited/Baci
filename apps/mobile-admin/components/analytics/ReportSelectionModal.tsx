@@ -18,6 +18,35 @@ import {
   type Transaction,
 } from './ReportsGenerator';
 
+interface TaxLedgerOrderRow {
+  id: string;
+  created_at: string;
+  total: number | null;
+  tax_amount: number | null;
+  customer:
+    | { first_name: string | null; last_name: string | null }
+    | Array<{ first_name: string | null; last_name: string | null }>
+    | null;
+}
+
+function mapRowToTransaction(row: TaxLedgerOrderRow): Transaction {
+  const joinedCustomer = Array.isArray(row.customer)
+    ? row.customer[0]
+    : row.customer;
+  return {
+    id: row.id,
+    created_at: row.created_at,
+    total: Number(row.total ?? 0),
+    tax_amount: Number(row.tax_amount ?? 0),
+    customer: joinedCustomer
+      ? {
+          first_name: joinedCustomer.first_name ?? undefined,
+          last_name: joinedCustomer.last_name ?? undefined,
+        }
+      : undefined,
+  };
+}
+
 interface ReportSelectionModalProps {
   visible: boolean;
   onClose: () => void;
@@ -46,7 +75,7 @@ export default function ReportSelectionModal({
   const handleGenerate = async (type: ReportType) => {
     setLoading(true);
     try {
-      let transactions: Record<string, unknown>[] = [];
+      let transactions: Transaction[] = [];
 
       if (type === 'tax_ledger') {
         const { data, error } = await supabase
@@ -65,7 +94,7 @@ export default function ReportSelectionModal({
           .order('created_at', { ascending: false });
 
         if (error) throw error;
-        transactions = data || [];
+        transactions = (data ?? []).map(mapRowToTransaction);
       }
 
       await generateReport(type, {
@@ -75,7 +104,7 @@ export default function ReportSelectionModal({
         merchantName,
         currency,
         data: analyticsData,
-        transactions: transactions as unknown as Transaction[],
+        transactions,
       });
       onClose();
     } catch (error) {

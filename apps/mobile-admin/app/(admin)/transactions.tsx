@@ -181,52 +181,19 @@ export default function TransactionsScreen() {
             </View>
           ) : null}
 
-          {orders.map((order) => (
-            <View
-              key={order.id}
-              style={[
-                styles.orderCard,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-            >
-              <View style={styles.orderHeader}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.orderTitle, { color: colors.text }]}>
-                    {order.orderNumber}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.orderSubtitle,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    {order.customerName} · {order.paymentMethod}
-                  </Text>
-                </View>
-                <View style={styles.orderMeta}>
-                  <Text style={[styles.orderAmount, { color: colors.primary }]}>
-                    {formatCurrency(order.total)}
-                  </Text>
-                  <Text
-                    style={[styles.orderSubtitle, { color: colors.textMuted }]}
-                  >
-                    {new Date(order.createdAt).toLocaleDateString('en-NG', {
-                      day: 'numeric',
-                      month: 'short',
-                    })}
-                  </Text>
-                </View>
-              </View>
-
-              {order.items.map((item) => (
-                <Pressable
-                  key={item.id}
-                  style={[styles.itemRow, { borderTopColor: colors.border }]}
-                  onPress={() => handleOpenEditor(item)}
-                >
+          {!error &&
+            orders.map((order) => (
+              <View
+                key={order.id}
+                style={[
+                  styles.orderCard,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              >
+                <View style={styles.orderHeader}>
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.itemName, { color: colors.text }]}>
-                      {item.name}
+                    <Text style={[styles.orderTitle, { color: colors.text }]}>
+                      {order.orderNumber}
                     </Text>
                     <Text
                       style={[
@@ -234,39 +201,78 @@ export default function TransactionsScreen() {
                         { color: colors.textSecondary },
                       ]}
                     >
-                      {item.quantity} units · Revenue{' '}
-                      {formatCurrency(item.revenue)}
+                      {order.customerName} · {order.paymentMethod}
                     </Text>
                   </View>
-                  <View style={styles.itemMeta}>
+                  <View style={styles.orderMeta}>
                     <Text
-                      style={[styles.itemMetaValue, { color: colors.text }]}
+                      style={[styles.orderAmount, { color: colors.primary }]}
                     >
-                      Cost {formatCurrency(item.costPrice)}
+                      {formatCurrency(order.total)}
                     </Text>
                     <Text
                       style={[
                         styles.orderSubtitle,
-                        {
-                          color:
-                            item.costPrice <= 0
-                              ? colors.error
-                              : colors.textMuted,
-                        },
+                        { color: colors.textMuted },
                       ]}
                     >
-                      Profit {formatCurrency(item.profit)}
+                      {new Date(order.createdAt).toLocaleDateString(undefined, {
+                        day: 'numeric',
+                        month: 'short',
+                      })}
                     </Text>
                   </View>
-                  <Ionicons
-                    name="create-outline"
-                    size={18}
-                    color={colors.textMuted}
-                  />
-                </Pressable>
-              ))}
-            </View>
-          ))}
+                </View>
+
+                {order.items.map((item) => (
+                  <Pressable
+                    key={item.id}
+                    style={[styles.itemRow, { borderTopColor: colors.border }]}
+                    onPress={() => handleOpenEditor(item)}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.itemName, { color: colors.text }]}>
+                        {item.name}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.orderSubtitle,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        {item.quantity} units · Revenue{' '}
+                        {formatCurrency(item.revenue)}
+                      </Text>
+                    </View>
+                    <View style={styles.itemMeta}>
+                      <Text
+                        style={[styles.itemMetaValue, { color: colors.text }]}
+                      >
+                        Cost {formatCurrency(item.costPrice)}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.orderSubtitle,
+                          {
+                            color:
+                              item.costPrice <= 0
+                                ? colors.error
+                                : colors.textMuted,
+                          },
+                        ]}
+                      >
+                        Profit {formatCurrency(item.profit)}
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="create-outline"
+                      size={18}
+                      color={colors.textMuted}
+                    />
+                  </Pressable>
+                ))}
+              </View>
+            ))}
         </ScrollView>
 
         <Modal
@@ -317,6 +323,13 @@ export default function TransactionsScreen() {
                 <Pressable
                   onPress={handleCloseEditor}
                   disabled={updateCostPrice.isPending}
+                  style={({ pressed }) => ({
+                    opacity: updateCostPrice.isPending
+                      ? 0.4
+                      : pressed
+                        ? 0.7
+                        : 1,
+                  })}
                 >
                   <Text
                     style={[styles.cancelText, { color: colors.textSecondary }]}
@@ -336,9 +349,19 @@ export default function TransactionsScreen() {
                   ]}
                 >
                   {updateCostPrice.isPending ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <ActivityIndicator
+                      size="small"
+                      color={colors.textOnPrimary}
+                    />
                   ) : (
-                    <Text style={styles.saveButtonText}>Save</Text>
+                    <Text
+                      style={[
+                        styles.saveButtonText,
+                        { color: colors.textOnPrimary },
+                      ]}
+                    >
+                      Save
+                    </Text>
                   )}
                 </Pressable>
               </View>
@@ -473,7 +496,6 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
   },
   saveButtonText: {
-    color: '#FFFFFF',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
     fontSize: TYPOGRAPHY.size.md,
   },
