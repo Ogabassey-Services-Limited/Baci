@@ -29,8 +29,15 @@ export function fetchWithCsrf(
     );
   }
 
-  // Always set content-type for JSON requests
-  if (options.body && !headers.has('content-type')) {
+  // Only set application/json when the body is a string. Non-string bodies
+  // (FormData, Blob, ArrayBuffer, URLSearchParams, ReadableStream, etc.) are
+  // left alone so the browser/runtime can set the correct content-type and
+  // multipart boundary automatically.
+  if (
+    options.body &&
+    typeof options.body === 'string' &&
+    !headers.has('content-type')
+  ) {
     headers.set('content-type', 'application/json');
   }
 

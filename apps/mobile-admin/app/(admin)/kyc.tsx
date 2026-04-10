@@ -1,104 +1,82 @@
 /**
  * KYC Verification Screen
- * Identity verification for merchants (NIN, BVN, CAC)
+ * Real identity verification for merchants via NIN, BVN, and CAC APIs.
+ * Owner-only: staff users see a read-only message.
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Stack, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Stack } from 'expo-router';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import BvnVerificationCard from '@/components/kyc/BvnVerificationCard';
+import CacVerificationCard from '@/components/kyc/CacVerificationCard';
+import NinVerificationCard from '@/components/kyc/NinVerificationCard';
+import { SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
+import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 
+interface VerificationStatus {
+  nin_verified: boolean;
+  bvn_verified: boolean;
+  cac_verified: boolean;
+  cac_approved_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  date_of_birth: string | null;
+}
+
+function isVerificationStatus(value: unknown): value is VerificationStatus {
+  if (!value || typeof value !== 'object') return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.nin_verified === 'boolean' &&
+    typeof v.bvn_verified === 'boolean' &&
+    typeof v.cac_verified === 'boolean'
+  );
+}
+
 export default function KYCScreen() {
-  const { colors, shadows, isDark } = useTheme();
+  const { colors, isDark } = useTheme();
   const { user } = useAuth();
-  const router = useRouter();
-  const queryClient = useQueryClient();
+  const { merchant } = useMerchant();
 
-  // Form state
-  const [nin, setNin] = useState('');
-  const [bvn, setBvn] = useState('');
-  const [cac, setCac] = useState('');
+  const isOwner =
+    !!user?.id && !!merchant?.user_id && user.id === merchant.user_id;
 
-  // Fetch existing KYC data
-  const { data: merchant, isLoading } = useQuery({
-    queryKey: ['merchant-kyc', user?.id],
+  const {
+    data: status,
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
+    queryKey: ['verification-status', merchant?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('merchants')
-        .select('id, nin, bvn, cac_rc_number')
-        .eq('user_id', user?.id)
-        .single();
+      if (!merchant?.id) throw new Error('Merchant ID is required');
+      const { data, error } = await supabase.rpc(
+        'get_merchant_verification_status',
+        { p_merchant_id: merchant.id }
+      );
       if (error) throw error;
+      if (!isVerificationStatus(data)) {
+        throw new Error(
+          'Invalid verification status payload from get_merchant_verification_status'
+        );
+      }
       return data;
     },
-    enabled: !!user?.id,
+    enabled: isOwner && !!merchant?.id,
   });
-
-  useEffect(() => {
-    if (merchant) {
-      setNin(merchant.nin || '');
-      setBvn(merchant.bvn || '');
-      setCac(merchant.cac_rc_number || '');
-    }
-  }, [merchant]);
-
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      if (!merchant?.id) throw new Error('Merchant not found');
-      const { error } = await supabase
-        .from('merchants')
-        .update({
-          nin: nin.trim() || null,
-          bvn: bvn.trim() || null,
-          cac_rc_number: cac.trim() || null,
-        })
-        .eq('id', merchant.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['merchant'] });
-      queryClient.invalidateQueries({ queryKey: ['merchant-kyc'] });
-      queryClient.invalidateQueries({ queryKey: ['store-readiness'] });
-      Alert.alert('Success', 'Verification details updated successfully');
-      router.back();
-    },
-    onError: (error: unknown) => {
-      Alert.alert(
-        'Error',
-        (error as Error).message || 'Failed to update verification details'
-      );
-    },
-  });
-
-  if (isLoading) {
-    return (
-      <View
-        style={[
-          styles.container,
-          styles.center,
-          { backgroundColor: colors.background },
-        ]}
-      >
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
 
   return (
     <>
@@ -137,120 +115,87 @@ export default function KYCScreen() {
               KYC Verification
             </Text>
             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-              Provide your identification details to enable full payment
-              features and build customer trust.
+              Verify your identity to enable full payment features and build
+              customer trust.
             </Text>
           </View>
 
-          <View style={styles.form}>
-            {/* NIN */}
+          {!isOwner ? (
             <View
-              style={[
-                styles.inputGroup,
-                { backgroundColor: colors.card },
-                shadows.sm,
-              ]}
+              style={[styles.ownerOnlyBanner, { backgroundColor: colors.card }]}
             >
-              <Text style={[styles.label, { color: colors.textSecondary }]}>
-                National Identity Number (NIN)
-              </Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  { color: colors.text, borderColor: colors.border },
-                ]}
-                value={nin}
-                onChangeText={setNin}
-                placeholder="11-digit NIN"
-                placeholderTextColor={colors.textMuted}
-                keyboardType="number-pad"
-                maxLength={11}
+              <Ionicons
+                name="lock-closed-outline"
+                size={24}
+                color={colors.textMuted}
               />
-              <Text style={[styles.helperText, { color: colors.textMuted }]}>
-                Your private 11-digit identification number.
+              <Text
+                style={[styles.ownerOnlyText, { color: colors.textSecondary }]}
+              >
+                Only the store owner can verify identity. Contact your store
+                owner to complete verification.
               </Text>
             </View>
-
-            {/* BVN */}
+          ) : isLoading ? (
+            <ActivityIndicator
+              size="large"
+              color={colors.primary}
+              style={styles.loader}
+            />
+          ) : isError ? (
             <View
-              style={[
-                styles.inputGroup,
-                { backgroundColor: colors.card },
-                shadows.sm,
-              ]}
+              style={[styles.ownerOnlyBanner, { backgroundColor: colors.card }]}
             >
-              <Text style={[styles.label, { color: colors.textSecondary }]}>
-                Bank Verification Number (BVN)
-              </Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  { color: colors.text, borderColor: colors.border },
-                ]}
-                value={bvn}
-                onChangeText={setBvn}
-                placeholder="11-digit BVN"
-                placeholderTextColor={colors.textMuted}
-                keyboardType="number-pad"
-                maxLength={11}
+              <Ionicons
+                name="alert-circle-outline"
+                size={24}
+                color={colors.error}
               />
-              <Text style={[styles.helperText, { color: colors.textMuted }]}>
-                Required for payment settlement verification.
-              </Text>
-            </View>
-
-            {/* CAC */}
-            <View
-              style={[
-                styles.inputGroup,
-                { backgroundColor: colors.card },
-                shadows.sm,
-              ]}
-            >
-              <Text style={[styles.label, { color: colors.textSecondary }]}>
-                CAC Registration Number (RC/BN)
-              </Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  { color: colors.text, borderColor: colors.border },
-                ]}
-                value={cac}
-                onChangeText={setCac}
-                placeholder="RC1234567 or BN1234567"
-                placeholderTextColor={colors.textMuted}
-                autoCapitalize="characters"
-              />
-              <Text style={[styles.helperText, { color: colors.textMuted }]}>
-                Required for registered businesses only.
-              </Text>
-            </View>
-
-            <Pressable
-              style={[
-                styles.submitButton,
-                { backgroundColor: colors.primary },
-                saveMutation.isPending && { opacity: 0.7 },
-              ]}
-              onPress={() => saveMutation.mutate()}
-              disabled={saveMutation.isPending}
-            >
-              {saveMutation.isPending ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <>
-                  <Ionicons
-                    name="checkmark-circle-outline"
-                    size={20}
-                    color="#FFFFFF"
-                  />
-                  <Text style={styles.submitButtonText}>
-                    Submit Verification
+              <View style={styles.errorBody}>
+                <Text
+                  style={[
+                    styles.ownerOnlyText,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  Failed to load verification status.
+                </Text>
+                <Pressable onPress={() => refetch()} accessibilityRole="button">
+                  <Text
+                    style={[styles.tryAgainText, { color: colors.primary }]}
+                  >
+                    Try Again
                   </Text>
-                </>
-              )}
-            </Pressable>
-          </View>
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.cards}>
+              <NinVerificationCard
+                verified={status?.nin_verified ?? false}
+                prefillNin={merchant?.nin}
+                prefillFirstName={status?.first_name}
+                prefillLastName={status?.last_name}
+                prefillDob={status?.date_of_birth}
+                onVerified={refetch}
+              />
+              <BvnVerificationCard
+                verified={status?.bvn_verified ?? false}
+                prefillBvn={merchant?.bvn}
+                prefillFirstName={status?.first_name}
+                prefillLastName={status?.last_name}
+                prefillDob={status?.date_of_birth}
+                prefillMobileNo={merchant?.phone}
+                onVerified={refetch}
+              />
+              <CacVerificationCard
+                verified={status?.cac_verified ?? false}
+                prefillRcNumber={merchant?.cac_rc_number}
+                cacApprovedName={status?.cac_approved_name}
+                onVerified={refetch}
+              />
+            </View>
+          )}
 
           <View style={styles.securityNote}>
             <Ionicons
@@ -272,7 +217,6 @@ export default function KYCScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  center: { justifyContent: 'center', alignItems: 'center' },
   scrollContent: { padding: SPACING.lg, paddingBottom: SPACING['3xl'] },
   header: { alignItems: 'center', marginBottom: SPACING.xl },
   iconCircle: {
@@ -294,38 +238,19 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: SPACING.md,
   },
-  form: { gap: SPACING.lg },
-  inputGroup: { padding: SPACING.lg, borderRadius: RADIUS.lg },
-  label: {
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-    marginBottom: SPACING.sm,
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-  },
-  helperText: {
-    fontSize: TYPOGRAPHY.size.xs,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    marginTop: SPACING.xs,
-  },
-  submitButton: {
+  cards: { gap: SPACING.lg },
+  loader: { marginTop: SPACING['2xl'] },
+  ownerOnlyBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: SPACING.md,
     padding: SPACING.lg,
-    borderRadius: RADIUS.lg,
-    gap: SPACING.sm,
-    marginTop: SPACING.md,
+    borderRadius: 12,
   },
-  submitButtonText: {
-    color: '#FFFFFF',
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
+  ownerOnlyText: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.size.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
   },
   securityNote: {
     flexDirection: 'row',
@@ -337,5 +262,12 @@ const styles = StyleSheet.create({
   securityNoteText: {
     fontSize: TYPOGRAPHY.size.xs,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
+  },
+  tryAgainText: {
+    marginTop: SPACING.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+  },
+  errorBody: {
+    flex: 1,
   },
 });

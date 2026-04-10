@@ -246,3 +246,108 @@ export async function apiClient<T = unknown>(
     throw error;
   }
 }
+
+/**
+ * API client for FormData uploads (e.g., file uploads).
+ * Unlike apiClient, does NOT set Content-Type — lets the runtime
+ * set multipart/form-data with the correct boundary automatically.
+ */
+export async function apiFormData<T = unknown>(
+  endpoint: string,
+  formData: FormData,
+  options: {
+    timeout?: number;
+    requiresAuth?: boolean;
+    signal?: AbortSignal;
+  } = {}
+): Promise<T> {
+  const {
+    timeout = DEFAULT_TIMEOUT_MS,
+    requiresAuth = true,
+    signal: externalSignal,
+  } = options;
+
+  const controller = new AbortController();
+  // timeoutId is cleared in the finally block below to cancel the abort timer
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+  // Mirror any external signal (e.g. component unmount) into the internal
+  // controller so the in-flight fetch is cancelled.
+  const onExternalAbort = () => controller.abort();
+  if (externalSignal) {
+    if (externalSignal.aborted) {
+      controller.abort();
+    } else {
+      externalSignal.addEventListener('abort', onExternalAbort);
+    }
+  }
+
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const url = `${BASE_URL}${cleanEndpoint}`;
+
+  if (IS_DEV) {
+    console.log('[API FormData]', 'POST', String(url));
+  }
+
+  try {
+    const headers: Record<string, string> = {};
+    if (requiresAuth) {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        headers.Authorization = `Bearer ${session.access_token}`;
+      }
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: formData,
+      signal: controller.signal,
+    });
+
+    const contentType = response.headers.get('content-type');
+    const isJson = contentType?.includes('application/json');
+    const data: unknown = isJson
+      ? await response.json()
+      : await response.text();
+
+    if (!response.ok) {
+      const errorMessage = getResponseErrorMessage(data, response.status);
+      throw new NetworkError(errorMessage, { statusCode: response.status });
+    }
+
+    return data as T;
+  } catch (error: unknown) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.error('[API FormData Timeout]', String(url));
+      throw new NetworkError(
+        'Upload timed out. Please check your connection and try again.',
+        { isTimeout: true }
+      );
+    }
+
+    if (
+      error instanceof TypeError &&
+      error.message === 'Network request failed'
+    ) {
+      console.error('[API FormData Offline]', String(url));
+      throw new NetworkError(
+        'Unable to connect. Please check your internet connection.',
+        { isOffline: true }
+      );
+    }
+
+    if (error instanceof NetworkError) throw error;
+
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('[API FormData Error]', String(url), String(message));
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+    if (externalSignal) {
+      externalSignal.removeEventListener('abort', onExternalAbort);
+    }
+  }
+}
