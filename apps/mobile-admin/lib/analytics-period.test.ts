@@ -1,3 +1,5 @@
+process.env.TZ = 'UTC';
+
 import { describe, expect, it } from 'vitest';
 import {
   getAnalyticsFilterLabel,
@@ -6,9 +8,6 @@ import {
 } from '@/lib/analytics-period';
 
 describe('analytics-period', () => {
-  // These expectations reflect the local timezone of the JS runtime used by the
-  // mobile app/tests. In CI today that means midnight local time appears as
-  // `23:00:00.000Z` and end-of-day appears as `22:59:59.999Z` in UTC.
   it('resolves this year using the selected year', () => {
     const range = resolveAnalyticsDateRange(
       'this_year',
@@ -18,14 +17,14 @@ describe('analytics-period', () => {
       new Date('2026-04-10T12:00:00.000Z')
     );
 
-    expect(range.startDate.getUTCFullYear()).toBe(2024);
-    expect(range.startDate.getUTCMonth()).toBe(11);
-    expect(range.startDate.getUTCDate()).toBe(31);
-    expect(range.startDate.getUTCHours()).toBe(23);
+    expect(range.startDate.getUTCFullYear()).toBe(2025);
+    expect(range.startDate.getUTCMonth()).toBe(0);
+    expect(range.startDate.getUTCDate()).toBe(1);
+    expect(range.startDate.getUTCHours()).toBe(0);
     expect(range.endDate.getUTCFullYear()).toBe(2025);
     expect(range.endDate.getUTCMonth()).toBe(11);
     expect(range.endDate.getUTCDate()).toBe(31);
-    expect(range.endDate.getUTCHours()).toBe(22);
+    expect(range.endDate.getUTCHours()).toBe(23);
     expect(range.endDate.getUTCMinutes()).toBe(59);
     expect(range.endDate.getUTCSeconds()).toBe(59);
     expect(range.endDate.getUTCMilliseconds()).toBe(999);
@@ -40,8 +39,8 @@ describe('analytics-period', () => {
       new Date('2026-04-10T12:00:00.000Z')
     );
 
-    expect(range.startDate.toISOString()).toBe('2023-12-31T23:00:00.000Z');
-    expect(range.endDate.toISOString()).toBe('2024-12-31T22:59:59.999Z');
+    expect(range.startDate.toISOString()).toBe('2024-01-01T00:00:00.000Z');
+    expect(range.endDate.toISOString()).toBe('2024-12-31T23:59:59.999Z');
   });
 
   it('normalizes a custom range to day boundaries', () => {
@@ -55,12 +54,12 @@ describe('analytics-period', () => {
 
     expect(range.startDate.getUTCFullYear()).toBe(2026);
     expect(range.startDate.getUTCMonth()).toBe(3);
-    expect(range.startDate.getUTCDate()).toBe(7);
-    expect(range.startDate.getUTCHours()).toBe(23);
+    expect(range.startDate.getUTCDate()).toBe(8);
+    expect(range.startDate.getUTCHours()).toBe(0);
     expect(range.endDate.getUTCFullYear()).toBe(2026);
     expect(range.endDate.getUTCMonth()).toBe(3);
     expect(range.endDate.getUTCDate()).toBe(10);
-    expect(range.endDate.getUTCHours()).toBe(22);
+    expect(range.endDate.getUTCHours()).toBe(23);
     expect(range.endDate.getUTCMinutes()).toBe(59);
     expect(range.endDate.getUTCSeconds()).toBe(59);
     expect(range.endDate.getUTCMilliseconds()).toBe(999);
@@ -75,8 +74,8 @@ describe('analytics-period', () => {
       new Date('2026-04-10T12:00:00.000Z')
     );
 
-    expect(range.startDate.toISOString()).toBe('2024-02-28T23:00:00.000Z');
-    expect(range.endDate.toISOString()).toBe('2024-02-29T22:59:59.999Z');
+    expect(range.startDate.toISOString()).toBe('2024-02-29T00:00:00.000Z');
+    expect(range.endDate.toISOString()).toBe('2024-02-29T23:59:59.999Z');
   });
 
   it('swaps inverted custom date ranges before normalizing', () => {
@@ -89,7 +88,7 @@ describe('analytics-period', () => {
     );
 
     expect(range.startDate.getTime()).toBeLessThan(range.endDate.getTime());
-    expect(range.startDate.getUTCDate()).toBe(7);
+    expect(range.startDate.getUTCDate()).toBe(8);
     expect(range.endDate.getUTCDate()).toBe(10);
   });
 
@@ -102,8 +101,8 @@ describe('analytics-period', () => {
       new Date('2026-04-10T12:00:00.000Z')
     );
 
-    expect(range.startDate.toISOString()).toBe('2024-02-28T23:00:00.000Z');
-    expect(range.endDate.toISOString()).toBe('2024-03-01T22:59:59.999Z');
+    expect(range.startDate.toISOString()).toBe('2024-02-29T00:00:00.000Z');
+    expect(range.endDate.toISOString()).toBe('2024-03-01T23:59:59.999Z');
   });
 
   it('derives the previous range from the current range duration', () => {

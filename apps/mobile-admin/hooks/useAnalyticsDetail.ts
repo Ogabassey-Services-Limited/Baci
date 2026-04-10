@@ -470,11 +470,11 @@ function getBuckets(granularity: Granularity): string[] {
 function getBucketIndex(date: Date, granularity: Granularity): number {
   switch (granularity) {
     case 'hourly':
-      return date.getHours();
+      return date.getUTCHours();
     case 'weekday':
-      return date.getDay();
+      return date.getUTCDay();
     case 'month':
-      return date.getMonth();
+      return date.getUTCMonth();
   }
 }
 

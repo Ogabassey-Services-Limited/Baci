@@ -36,7 +36,7 @@ describe('merchant analytics types', () => {
         customers: { change: 0, value: 1 },
         discounts: 0,
         grossMargin: { change: 0, value: 50 },
-        ltv: { change: 0, value: 1200 },
+        revenuePerCustomer: { change: 0, value: 1200 },
         profit: { change: 0, value: 600 },
         refundRate: { change: 0, value: 0 },
         revenue: { change: 0, value: 1200 },

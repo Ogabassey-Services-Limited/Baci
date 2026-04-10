@@ -323,6 +323,11 @@ function buildCustomerBreakdown(orders: AnalyticsOrderRow[]) {
   });
 }
 
+function getCustomerAnalyticsKey(order: AnalyticsOrderRow) {
+  const trimmedEmail = order.customer_email?.trim();
+  return order.customer_id ?? (trimmedEmail ? trimmedEmail : 'guest');
+}
+
 export async function getMerchantAnalyticsOverview(
   supabase: SupabaseClient,
   merchantId: string,
@@ -455,14 +460,10 @@ export async function getMerchantAnalyticsOverview(
   // "guest" bucket so a burst of anonymous checkouts doesn't look like N
   // different customers.
   const currentCustomers = new Set(
-    currentPaidOrders.map(
-      (order) => (order.customer_id ?? order.customer_email) || 'guest'
-    )
+    currentPaidOrders.map(getCustomerAnalyticsKey)
   ).size;
   const previousCustomers = new Set(
-    previousPaidOrders.map(
-      (order) => (order.customer_id ?? order.customer_email) || 'guest'
-    )
+    previousPaidOrders.map(getCustomerAnalyticsKey)
   ).size;
   const currentTax = currentPaidOrders.reduce(
     (sum, order) => sum + asNumber(order.tax_amount),
@@ -573,7 +574,7 @@ export async function getMerchantAnalyticsOverview(
         change: getPercentChange(currentGrossMargin, previousGrossMargin),
         value: currentGrossMargin,
       },
-      ltv: {
+      revenuePerCustomer: {
         change: getPercentChange(
           currentCustomers > 0 ? currentRevenue / currentCustomers : 0,
           previousCustomers > 0 ? previousRevenue / previousCustomers : 0

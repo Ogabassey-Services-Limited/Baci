@@ -28,9 +28,11 @@ export default function TransactionsScreen() {
   const {
     data: orders = [],
     isLoading,
+    isRefetching,
     error,
     refetch,
   } = useTransactionReview();
+  const isRetrying = isLoading || isRefetching;
   const updateCostPrice = useUpdateTransactionCostPrice();
   const [selectedItem, setSelectedItem] =
     useState<TransactionReviewItem | null>(null);
@@ -175,6 +177,7 @@ export default function TransactionsScreen() {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Retry loading transactions"
+                disabled={isRetrying}
                 onPress={() => {
                   void refetch();
                 }}
@@ -182,18 +185,22 @@ export default function TransactionsScreen() {
                   styles.retryButton,
                   {
                     backgroundColor: colors.primary,
-                    opacity: pressed ? 0.7 : 1,
+                    opacity: isRetrying ? 0.6 : pressed ? 0.7 : 1,
                   },
                 ]}
               >
-                <Text
-                  style={[
-                    styles.retryButtonText,
-                    { color: colors.textOnPrimary },
-                  ]}
-                >
-                  Try again
-                </Text>
+                {isRetrying ? (
+                  <ActivityIndicator color={colors.textOnPrimary} />
+                ) : (
+                  <Text
+                    style={[
+                      styles.retryButtonText,
+                      { color: colors.textOnPrimary },
+                    ]}
+                  >
+                    Try again
+                  </Text>
+                )}
               </Pressable>
             </View>
           ) : orders.length === 0 ? (

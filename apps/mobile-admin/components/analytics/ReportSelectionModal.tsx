@@ -29,8 +29,13 @@ interface TaxLedgerOrderRow {
     | null;
 }
 
+type JoinedCustomer = Extract<
+  TaxLedgerOrderRow['customer'],
+  { first_name: string | null; last_name: string | null }
+>;
+
 function mapRowToTransaction(row: TaxLedgerOrderRow): Transaction {
-  let joinedCustomer: TaxLedgerOrderRow['customer'];
+  let joinedCustomer: JoinedCustomer | null;
   if (Array.isArray(row.customer)) {
     if (row.customer.length > 1) {
       console.warn(

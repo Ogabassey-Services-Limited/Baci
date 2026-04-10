@@ -46,7 +46,7 @@ interface AnalyticsSummary {
   profit?: MetricData;
   taxDue?: MetricData;
   grossMargin?: MetricData;
-  ltv?: MetricData;
+  revenuePerCustomer?: MetricData;
   refundRate?: MetricData;
   // New detailed metrics
   subtotal?: number;
@@ -600,7 +600,7 @@ export function DraggableAnalyticsGrid({
     profit: { value: 0, change: 0 },
     taxDue: { value: 0, change: 0 },
     grossMargin: { value: 0, change: 0 },
-    ltv: { value: 0, change: 0 },
+    revenuePerCustomer: { value: 0, change: 0 },
     refundRate: { value: 0, change: 0 },
   };
 
@@ -787,11 +787,11 @@ export function DraggableAnalyticsGrid({
           {isWidgetVisible('summary-ltv') &&
             renderMetricCard(
               'summary-ltv',
-              'Customer LTV 💎',
-              formatCurrency(summary.ltv?.value || 0),
-              summary.ltv?.change || 0,
+              'Revenue / Customer 💎',
+              formatCurrency(summary.revenuePerCustomer?.value || 0),
+              summary.revenuePerCustomer?.change || 0,
               Users,
-              (summary.ltv?.change || 0) >= 0 ? 'up' : 'down'
+              (summary.revenuePerCustomer?.change || 0) >= 0 ? 'up' : 'down'
             )}
           {isWidgetVisible('summary-units') &&
             renderMetricCard(
@@ -1318,11 +1318,11 @@ export function DraggableAnalyticsGrid({
           {isWidgetVisible('summary-ltv') &&
             renderMetricCard(
               'summary-ltv',
-              'Customer LTV 💎',
-              formatCurrency(summary.ltv?.value || 0),
-              summary.ltv?.change || 0,
+              'Revenue / Customer 💎',
+              formatCurrency(summary.revenuePerCustomer?.value || 0),
+              summary.revenuePerCustomer?.change || 0,
               Users,
-              (summary.ltv?.change || 0) >= 0 ? 'up' : 'down'
+              (summary.revenuePerCustomer?.change || 0) >= 0 ? 'up' : 'down'
             )}
           {isWidgetVisible('summary-profit') &&
             renderMetricCard(

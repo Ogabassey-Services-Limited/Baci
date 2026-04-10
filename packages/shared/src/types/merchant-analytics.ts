@@ -104,8 +104,8 @@ export interface MerchantAnalyticsSummary {
   customers: AnalyticsMetricValue;
   /** Gross margin expressed as a percentage (0-100). */
   grossMargin: AnalyticsMetricValue;
-  /** Lifetime value (revenue ÷ unique customers) for the period. */
-  ltv: AnalyticsMetricValue;
+  /** Average revenue per customer for the period (revenue ÷ unique customers). */
+  revenuePerCustomer: AnalyticsMetricValue;
   /** Profit total in the merchant's payout currency. */
   profit: AnalyticsMetricValue;
   /** Refund rate expressed as a percentage (0-100). */

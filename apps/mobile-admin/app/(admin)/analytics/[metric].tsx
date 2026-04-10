@@ -5,7 +5,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -185,19 +185,19 @@ export default function AnalyticsDetailScreen() {
 
   // Stable fallback range computed once per mount — recreating `new Date()`
   // per render would thrash the query key for useAnalyticsDetail.
-  const defaultRange = useRef((() => {
+  const [defaultRange] = useState(() => {
     const now = new Date();
     const start = new Date(now);
     start.setDate(start.getDate() - 30);
     return { endIso: now.toISOString(), startIso: start.toISOString() };
-  })());
+  });
 
   const { data: analyticsData, isLoading } = useAnalyticsDetail({
-    endDate: endDate ?? defaultRange.current.endIso,
+    endDate: endDate ?? defaultRange.endIso,
     filterLabel: filterLabel ?? DEFAULT_FILTER_LABEL,
     metric,
     granularity,
-    startDate: startDate ?? defaultRange.current.startIso,
+    startDate: startDate ?? defaultRange.startIso,
     includeComparison: showComparison,
   });
 

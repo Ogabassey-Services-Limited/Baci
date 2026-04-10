@@ -123,12 +123,12 @@ export const getCurrencySymbol = (
   currency = 'NGN',
   locale?: string
 ): string => {
-  const cachedFallback = currencyFallbackCache.get(currency);
-  if (cachedFallback !== undefined) return cachedFallback;
-
   const cacheKey = `${locale ?? 'default'}-${currency}`;
   const cached = currencySymbolCache.get(cacheKey);
   if (cached !== undefined) return cached;
+
+  const cachedFallback = currencyFallbackCache.get(currency);
+  if (cachedFallback !== undefined) return cachedFallback;
 
   try {
     const parts = new Intl.NumberFormat(locale, {
