@@ -1554,8 +1554,8 @@ export default function NewOrderScreen() {
             onPress={handleSubmit}
             disabled={isSubmitting || orderItems.length === 0}
           >
-            <Text style={styles.payBtnText}>Save Order</Text>
-            <Ionicons name="arrow-forward" size={20} color="#fff" />
+            <Text style={[styles.payBtnText, { color: colors.textOnPrimary }]}>Save Order</Text>
+            <Ionicons name="arrow-forward" size={20} color={colors.textOnPrimary} />
           </Pressable>
         </View>
       </View>
@@ -1921,7 +1921,7 @@ export default function NewOrderScreen() {
                     { backgroundColor: colors.success, borderRadius: 8 },
                   ]}
                 >
-                  <Text style={{ color: '#fff', fontWeight: 'bold' }}>
+                  <Text style={{ color: colors.textOnPrimary, fontWeight: 'bold' }}>
                     Add to Cart
                   </Text>
                 </Pressable>
@@ -1991,15 +1991,15 @@ export default function NewOrderScreen() {
                 {duplicateCustomer && (
                   <View
                     style={{
-                      backgroundColor: '#FEF3C7',
+                      backgroundColor: colors.warningLight,
                       borderRadius: 12,
                       padding: 12,
                       borderWidth: 1,
-                      borderColor: '#F59E0B',
+                      borderColor: colors.warning,
                       gap: 8,
                     }}
                   >
-                    <Text style={{ color: '#92400E', fontWeight: '600' }}>
+                    <Text style={{ color: colors.warning, fontWeight: '600' }}>
                       ⚠️ Customer Already Exists
                     </Text>
                     <Pressable
@@ -2016,7 +2016,7 @@ export default function NewOrderScreen() {
                         });
                       }}
                       style={{
-                        backgroundColor: '#FFF',
+                        backgroundColor: colors.card,
                         borderRadius: 8,
                         padding: 12,
                         flexDirection: 'row',
@@ -2036,7 +2036,7 @@ export default function NewOrderScreen() {
                       >
                         <Text
                           style={{
-                            color: '#FFF',
+                            color: colors.textOnPrimary,
                             fontWeight: 'bold',
                             fontSize: 16,
                           }}
@@ -2046,11 +2046,11 @@ export default function NewOrderScreen() {
                         </Text>
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={{ fontWeight: '600', color: '#1F2937' }}>
+                        <Text style={{ fontWeight: '600', color: colors.text }}>
                           {duplicateCustomer.first_name}{' '}
                           {duplicateCustomer.last_name}
                         </Text>
-                        <Text style={{ color: '#6B7280', fontSize: 13 }}>
+                        <Text style={{ color: colors.textMuted, fontSize: 13 }}>
                           {duplicateCustomer.phone}
                         </Text>
                       </View>
@@ -2064,7 +2064,7 @@ export default function NewOrderScreen() {
                       >
                         <Text
                           style={{
-                            color: '#FFF',
+                            color: colors.textOnPrimary,
                             fontWeight: '600',
                             fontSize: 13,
                           }}
@@ -2252,9 +2252,9 @@ export default function NewOrderScreen() {
                   disabled={createCustomerMutation.isPending}
                 >
                   {createCustomerMutation.isPending ? (
-                    <ActivityIndicator color="#fff" />
+                    <ActivityIndicator color={colors.textOnPrimary} />
                   ) : (
-                    <Text style={styles.payBtnText}>Save Customer</Text>
+                    <Text style={[styles.payBtnText, { color: colors.textOnPrimary }]}>Save Customer</Text>
                   )}
                 </Pressable>
               </ScrollView>
@@ -2472,7 +2472,7 @@ export default function NewOrderScreen() {
                 }}
               >
                 <Text
-                  style={{ color: '#fff', fontSize: 17, fontWeight: '700' }}
+                  style={{ color: colors.textOnPrimary, fontSize: 17, fontWeight: '700' }}
                 >
                   View Order Details
                 </Text>
@@ -2619,7 +2619,7 @@ export default function NewOrderScreen() {
                         width: 24,
                         height: 24,
                         borderRadius: 12,
-                        backgroundColor: '#fff',
+                        backgroundColor: colors.card,
                         alignSelf: isVatApplied ? 'flex-end' : 'flex-start',
                         ...shadows.sm,
                       }}
@@ -2766,7 +2766,7 @@ export default function NewOrderScreen() {
                   });
                 }}
               >
-                <Text style={{ color: '#fff', fontWeight: '700' }}>Apply</Text>
+                <Text style={{ color: colors.textOnPrimary, fontWeight: '700' }}>Apply</Text>
               </Pressable>
             </View>
           </Pressable>
@@ -3007,7 +3007,7 @@ export default function NewOrderScreen() {
                 }}
               >
                 <Text
-                  style={{ color: '#fff', fontSize: 16, fontWeight: '800' }}
+                  style={{ color: colors.textOnPrimary, fontSize: 16, fontWeight: '800' }}
                 >
                   Save
                 </Text>
@@ -3193,7 +3193,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 100,
   },
-  payBtnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  payBtnText: { fontSize: 16, fontWeight: 'bold' },
 
   // Modal Styles
   modalHeader: {
