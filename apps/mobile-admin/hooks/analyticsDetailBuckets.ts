@@ -1,6 +1,6 @@
 export type Granularity = 'hourly' | 'weekday' | 'month';
 
-const MONTHS = [
+export const MONTHS = [
   'Jan',
   'Feb',
   'Mar',
@@ -13,12 +13,22 @@ const MONTHS = [
   'Oct',
   'Nov',
   'Dec',
-];
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+] as const;
+export const WEEKDAYS = [
+  'Sun',
+  'Mon',
+  'Tue',
+  'Wed',
+  'Thu',
+  'Fri',
+  'Sat',
+] as const;
 export const HOURS = Array.from(
   { length: 24 },
   (_, i) => `${i.toString().padStart(2, '0')}:00`
-);
+) as readonly string[];
+const MONTH_LABELS: readonly string[] = MONTHS;
+const WEEKDAY_LABELS: readonly string[] = WEEKDAYS;
 
 interface BucketDateParts {
   hour: number;
@@ -50,24 +60,24 @@ function getBucketDateParts(
     const hour = Number(parts.find((part) => part.type === 'hour')?.value);
     const weekdayLabel = parts.find((part) => part.type === 'weekday')?.value;
     const monthLabel = parts.find((part) => part.type === 'month')?.value;
-    const weekday = weekdayLabel ? WEEKDAYS.indexOf(weekdayLabel) : -1;
-    const month = monthLabel ? MONTHS.indexOf(monthLabel) : -1;
+    const weekday = weekdayLabel ? WEEKDAY_LABELS.indexOf(weekdayLabel) : -1;
+    const month = monthLabel ? MONTH_LABELS.indexOf(monthLabel) : -1;
 
     if (Number.isNaN(hour) || weekday < 0 || month < 0) {
       return null;
     }
 
     return { hour, weekday, month };
-  } catch {
-    return {
-      hour: date.getHours(),
-      weekday: date.getDay(),
-      month: date.getMonth(),
-    };
+  } catch (error) {
+    console.warn('[analyticsDetailBuckets] Invalid timezone provided:', {
+      timezone,
+      error,
+    });
+    return null;
   }
 }
 
-export function getBuckets(granularity: Granularity): string[] {
+export function getBuckets(granularity: Granularity): readonly string[] {
   switch (granularity) {
     case 'hourly':
       return HOURS;

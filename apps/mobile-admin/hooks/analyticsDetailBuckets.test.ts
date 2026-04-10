@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getBucketIndex } from './useAnalyticsDetailBuckets';
+import { getBucketIndex } from './analyticsDetailBuckets';
 
 describe('getBucketIndex', () => {
   it('assigns hourly buckets using the provided timezone instead of UTC', () => {
@@ -21,5 +21,11 @@ describe('getBucketIndex', () => {
 
     expect(getBucketIndex(date, 'month', 'UTC')).toBe(11);
     expect(getBucketIndex(date, 'month', 'Pacific/Kiritimati')).toBe(0);
+  });
+
+  it('returns -1 when the provided timezone is invalid', () => {
+    const date = new Date('2026-04-10T23:30:00.000Z');
+
+    expect(getBucketIndex(date, 'hourly', 'Invalid/Timezone')).toBe(-1);
   });
 });

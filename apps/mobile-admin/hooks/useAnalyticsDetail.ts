@@ -11,10 +11,10 @@ import {
   getBucketIndex,
   getBuckets,
   type Granularity,
-} from './useAnalyticsDetailBuckets';
-import { useMerchant } from './useMerchant';
+} from '@/hooks/analyticsDetailBuckets';
+import { useMerchant } from '@/hooks/useMerchant';
 
-export type { Granularity } from './useAnalyticsDetailBuckets';
+export type { Granularity } from '@/hooks/analyticsDetailBuckets';
 
 /** Shape returned by the order_items join: products!inner(cost_price) */
 interface JoinedProduct {
