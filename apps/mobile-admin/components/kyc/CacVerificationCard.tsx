@@ -35,9 +35,9 @@ export default function CacVerificationCard({
   const { colors, shadows } = useTheme();
   const [expanded, setExpanded] = useState(false);
   const [cacStep, setCacStep] = useState<CacStep>('search');
-  const [rcNumber, setRcNumber] = useState(prefillRcNumber ?? '');
   const [registrationPrefix, setRegistrationPrefix] =
     useState<CacRegistrationPrefix>('RC');
+  const [rcNumber, setRcNumber] = useState('');
   const [selectedCompany, setSelectedCompany] = useState<CacCompany | null>(
     null
   );
@@ -49,7 +49,18 @@ export default function CacVerificationCard({
   } | null>(null);
 
   useEffect(() => {
-    setRcNumber(prefillRcNumber ?? '');
+    const raw = (prefillRcNumber ?? '').trim();
+    const prefixedMatch = raw.match(/^(RC|BN)\s*-?\s*(\d+)$/i);
+
+    if (prefixedMatch) {
+      setRegistrationPrefix(
+        prefixedMatch[1].toUpperCase() as CacRegistrationPrefix
+      );
+      setRcNumber(prefixedMatch[2]);
+      return;
+    }
+
+    setRcNumber(raw.replace(/\D/g, ''));
   }, [prefillRcNumber]);
 
   const searchMutation = useMutation({
@@ -63,7 +74,7 @@ export default function CacVerificationCard({
       }>('/api/merchant/cac-search', {
         method: 'POST',
         body: JSON.stringify({
-          searchTerm: `${registrationPrefix}${rcNumber.trim()}`,
+          searchTerm: `${registrationPrefix}${rcNumber.replace(/\D/g, '')}`,
         }),
       });
       const companies: CacCompany[] = response.companies.map((c) => ({

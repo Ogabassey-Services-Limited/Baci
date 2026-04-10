@@ -98,6 +98,12 @@ export function resolveAnalyticsDateRange(
     case 'custom':
       startDate = new Date(customStartDate);
       endDate = new Date(customEndDate);
+      if (
+        Number.isNaN(startDate.getTime()) ||
+        Number.isNaN(endDate.getTime())
+      ) {
+        throw new Error('Custom analytics range must use valid dates');
+      }
       // Callers can wire up date pickers in either order; normalize so the
       // earlier date is always the start and the later date is always the
       // end before snapping them to day boundaries.

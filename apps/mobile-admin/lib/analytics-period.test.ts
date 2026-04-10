@@ -105,6 +105,18 @@ describe('analytics-period', () => {
     expect(range.endDate.toISOString()).toBe('2024-03-01T23:59:59.999Z');
   });
 
+  it('throws on malformed custom dates', () => {
+    expect(() =>
+      resolveAnalyticsDateRange(
+        'custom',
+        2026,
+        new Date('invalid'),
+        new Date('2026-04-08T18:45:00.000Z'),
+        new Date('2026-04-10T12:00:00.000Z')
+      )
+    ).toThrow('Custom analytics range must use valid dates');
+  });
+
   it('derives the previous range from the current range duration', () => {
     const currentStart = new Date('2026-04-08T00:00:00.000Z');
     const currentEnd = new Date('2026-04-10T23:59:59.999Z');
@@ -147,6 +159,18 @@ describe('analytics-period', () => {
 
     expect(previous.endDate.getTime()).toBeLessThan(currentStart.getTime());
     expect(previousDuration).toBe(currentDuration);
+  });
+
+  it('handles a zero-length previous range without drifting', () => {
+    const current = {
+      startDate: new Date('2026-04-10T12:00:00.000Z'),
+      endDate: new Date('2026-04-10T12:00:00.000Z'),
+    };
+
+    const previous = getPreviousAnalyticsDateRange(current);
+
+    expect(previous.startDate.toISOString()).toBe('2026-04-10T11:59:59.999Z');
+    expect(previous.endDate.toISOString()).toBe('2026-04-10T11:59:59.999Z');
   });
 
   it('returns readable filter labels', () => {

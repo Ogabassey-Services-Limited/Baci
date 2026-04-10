@@ -133,4 +133,14 @@ describe('CacSearchStep', () => {
 
     expect(onChangeRegistrationPrefix).toHaveBeenCalledWith('BN');
   });
+
+  it('does not trigger search when registration number is empty', () => {
+    const onSearch = vi.fn();
+
+    render(<CacSearchStep {...baseProps} rcNumber="" onSearch={onSearch} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Search CAC' }));
+
+    expect(onSearch).not.toHaveBeenCalled();
+  });
 });

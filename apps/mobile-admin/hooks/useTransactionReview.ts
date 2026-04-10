@@ -2,6 +2,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMerchant } from '@/hooks/useMerchant';
 import { supabase } from '@/lib/supabase';
 
+interface TransactionReviewRange {
+  endDate?: Date;
+  startDate?: Date;
+}
+
 interface TransactionOrderRow {
   created_at: string;
   customer_name: string | null;
@@ -57,25 +62,36 @@ function getJoinedProduct(
   return Array.isArray(value) ? (value[0] ?? null) : value;
 }
 
-export function useTransactionReview() {
+export function useTransactionReview(range?: TransactionReviewRange) {
   const { merchant } = useMerchant();
+  const startDateIso = range?.startDate?.toISOString();
+  const endDateIso = range?.endDate?.toISOString();
 
   return useQuery<TransactionReviewOrder[]>({
-    queryKey: ['transaction-review', merchant?.id],
+    queryKey: ['transaction-review', merchant?.id, startDateIso, endDateIso],
     queryFn: async () => {
       if (!merchant?.id) {
         throw new Error('Merchant context is not ready');
       }
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('orders')
         .select(
           'id, order_number, created_at, customer_name, payment_method, total, order_items(id, product_id, name, price, quantity, products(cost_price))'
         )
         .eq('merchant_id', merchant.id)
         .eq('payment_status', 'paid')
-        .order('created_at', { ascending: false })
-        .limit(40);
+        .order('created_at', { ascending: false });
+
+      if (startDateIso) {
+        query = query.gte('created_at', startDateIso);
+      }
+
+      if (endDateIso) {
+        query = query.lte('created_at', endDateIso);
+      }
+
+      const { data, error } = await query.limit(40);
 
       if (error) {
         throw new Error(error.message);

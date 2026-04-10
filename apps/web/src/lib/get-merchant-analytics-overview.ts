@@ -408,6 +408,8 @@ export async function getMerchantAnalyticsOverview(
       .select('id, created_at, customer_email, customer_name, total')
       .eq('merchant_id', merchantId)
       .eq('payment_status', 'paid')
+      .gte('created_at', startDate.toISOString())
+      .lte('created_at', endDate.toISOString())
       .order('created_at', { ascending: false })
       .limit(5),
     supabase

@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Stack } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -25,13 +25,36 @@ import {
 export default function TransactionsScreen() {
   const { colors, isDark } = useTheme();
   const { format: formatCurrency } = useCurrency();
+  const params = useLocalSearchParams<{
+    endDate?: string | string[];
+    startDate?: string | string[];
+  }>();
+  const startDateParam = Array.isArray(params.startDate)
+    ? params.startDate[0]
+    : params.startDate;
+  const endDateParam = Array.isArray(params.endDate)
+    ? params.endDate[0]
+    : params.endDate;
+  const parsedStartDate = startDateParam ? new Date(startDateParam) : undefined;
+  const parsedEndDate = endDateParam ? new Date(endDateParam) : undefined;
+  const range =
+    parsedStartDate &&
+    parsedEndDate &&
+    !Number.isNaN(parsedStartDate.getTime()) &&
+    !Number.isNaN(parsedEndDate.getTime()) &&
+    parsedStartDate.getTime() <= parsedEndDate.getTime()
+      ? {
+          endDate: parsedEndDate,
+          startDate: parsedStartDate,
+        }
+      : undefined;
   const {
     data: orders = [],
     isLoading,
     isRefetching,
     error,
     refetch,
-  } = useTransactionReview();
+  } = useTransactionReview(range);
   const isRetrying = isLoading || isRefetching;
   const updateCostPrice = useUpdateTransactionCostPrice();
   const [selectedItem, setSelectedItem] =
@@ -49,6 +72,9 @@ export default function TransactionsScreen() {
   );
 
   const handleOpenEditor = (item: TransactionReviewItem) => {
+    if (!item.productId) {
+      return;
+    }
     setSelectedItem(item);
     setCostPriceInput(
       item.costPrice == null ? '' : String(item.costPrice)
@@ -262,11 +288,20 @@ export default function TransactionsScreen() {
                 {order.items.map((item) => (
                   <Pressable
                     key={item.id}
-                    style={[styles.itemRow, { borderTopColor: colors.border }]}
+                    disabled={!item.productId}
+                    style={[
+                      styles.itemRow,
+                      { borderTopColor: colors.border },
+                      !item.productId && styles.itemRowDisabled,
+                    ]}
                     onPress={() => handleOpenEditor(item)}
                     accessibilityRole="button"
                     accessibilityLabel={`${item.name}, ${item.quantity} units, revenue ${formatCurrency(item.revenue)}`}
-                    accessibilityHint="Opens the cost price editor for this item"
+                    accessibilityHint={
+                      item.productId
+                        ? 'Opens the cost price editor for this item'
+                        : 'This line item cannot be edited because it is not linked to a product'
+                    }
                   >
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.itemName, { color: colors.text }]}>
@@ -511,6 +546,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: SPACING.xs,
     paddingTop: SPACING.md,
+  },
+  itemRowDisabled: {
+    opacity: 0.45,
   },
   modalActions: {
     alignItems: 'center',
