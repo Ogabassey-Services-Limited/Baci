@@ -20,6 +20,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { AdUnit } from '@/components/storefront/ogabassey/components/AdUnit';
+import { CHECKOUT_PENDING_ORDER_STORAGE_KEY } from '@/components/storefront/ogabassey/pages/checkout/pending-checkout-order';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { BACI_GOOGLE_REVIEW_URL } from '@/lib/post-purchase-actions';
@@ -101,6 +102,14 @@ export default function CheckoutSuccessPage() {
 
     verifyPayment();
   }, [reference, clearCart, router, basePath]);
+
+  useEffect(() => {
+    if (status !== 'success' || typeof window === 'undefined') {
+      return;
+    }
+
+    sessionStorage.removeItem(CHECKOUT_PENDING_ORDER_STORAGE_KEY);
+  }, [status]);
 
   // Verifying State
   if (status === 'verifying') {

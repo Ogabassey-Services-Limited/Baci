@@ -25,7 +25,10 @@ import type React from 'react';
 import { useEffect, useState, useRef } from 'react';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
-import { usePersistedForm } from '@/hooks/use-persisted-state';
+import {
+  usePersistedForm,
+  usePersistedState,
+} from '@/hooks/use-persisted-state';
 import { useAuthSafe } from '@/contexts/auth-context';
 import { PhoneInput } from '@/components/ui/phone-input';
 import { CheckoutAuthModal } from '@/components/storefront/checkout-auth-modal';
@@ -38,6 +41,13 @@ import { createClient } from '@/lib/supabase/client';
 import { calculateCommerce } from '@/lib/supabase/client';
 import { buildCheckoutOrderItems } from '@/lib/checkout/build-order-items';
 import { isValidPhoneNumber } from 'react-phone-number-input';
+import {
+  buildPendingCheckoutFingerprint,
+  CHECKOUT_PENDING_ORDER_STORAGE_KEY,
+  normalizeOrderPaymentMethod,
+  resolvePendingCheckoutOrder,
+  type PendingCheckoutOrderSnapshot,
+} from './checkout/pending-checkout-order';
 
 interface SavedAddress {
   id: number;
@@ -137,6 +147,14 @@ export const CheckoutPage: React.FC = () => {
       setCheckoutField('completedSteps', v);
     }
   };
+  const [
+    pendingCheckoutOrder,
+    setPendingCheckoutOrder,
+    clearPendingCheckoutOrder,
+  ] = usePersistedState<PendingCheckoutOrderSnapshot | null>(
+    CHECKOUT_PENDING_ORDER_STORAGE_KEY,
+    null
+  );
 
   // Non-persisted UI state
   const [createAccount, setCreateAccount] = useState(false);
@@ -401,6 +419,7 @@ export const CheckoutPage: React.FC = () => {
     if (initialStatus === 'confirmed') {
       setIsVerifyingCrypto(false);
       setCryptoVerificationStatus('confirmed');
+      clearPendingCheckoutOrder();
       clearCheckoutSession();
       clearCart();
       router.push(asRoute(getHref(`/order-success?type=crypto&orderId=${cryptoPaymentData.orderId}&reference=${cryptoPaymentData.reference}`)));
@@ -439,6 +458,7 @@ export const CheckoutPage: React.FC = () => {
         }
         setIsVerifyingCrypto(false);
         setCryptoVerificationStatus('confirmed');
+        clearPendingCheckoutOrder();
         clearCheckoutSession();
         clearCart();
         router.push(asRoute(getHref(`/order-success?type=crypto&orderId=${cryptoPaymentData.orderId}&reference=${cryptoPaymentData.reference}`)));
@@ -975,6 +995,16 @@ export const CheckoutPage: React.FC = () => {
     }
   }, [resumedOrder, preferredGateway]);
 
+  useEffect(() => {
+    if (
+      pendingCheckoutOrder &&
+      merchant?.id &&
+      pendingCheckoutOrder.merchantId !== merchant.id
+    ) {
+      clearPendingCheckoutOrder();
+    }
+  }, [pendingCheckoutOrder, merchant?.id, clearPendingCheckoutOrder]);
+
   const handlePlaceOrder = async () => {
     // Double-submit protection: prevent race conditions from rapid clicks
     if (isOrderInFlightRef.current) {
@@ -1077,59 +1107,108 @@ export const CheckoutPage: React.FC = () => {
       shippingProvider = 'Airport';
     }
 
+    const normalizedPaymentMethod = normalizeOrderPaymentMethod(paymentMethod);
+    const checkoutFingerprint = buildPendingCheckoutFingerprint({
+      merchantId: merchant.id,
+      customerEmail,
+      customerName: `${firstName} ${lastName}`.trim(),
+      customerPhone,
+      deliveryMethod,
+      shippingFee: deliveryCost,
+      shippingProvider,
+      selectedQuoteId:
+        deliveryMethod === 'door' ? selectedQuoteId || undefined : undefined,
+      shippingAddress: shippingAddressData,
+      items: orderItems.map((item) => ({
+        product_id: item.product_id,
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+        has_assurance: item.has_assurance,
+        assurance_fee: item.assurance_fee,
+      })),
+      useWalletCredit: payWithWallet && walletAmountUsed > 0,
+      walletAmountUsed,
+    });
+
     try {
-      // 1. Create order in database via API (with wallet redemption if applicable)
-      const orderResponse = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          merchant_id: merchant.id,
-          customer_email: customerEmail,
-          customer_name: `${firstName} ${lastName}`.trim(),
-          customer_phone: customerPhone,
-          items: orderItems,
-          subtotal: cartTotal,
-          shipping_fee: deliveryCost,
-          payment_method:
-            paymentMethod === 'paystack' || paymentMethod === 'korapay'
-              ? 'card'
-              : paymentMethod === 'credit_direct' || paymentMethod === 'credpal'
-                ? paymentMethod // Pass specific provider: 'credit_direct' or 'credpal'
-                : paymentMethod === 'invoice'
-                  ? 'invoice'
-                  : paymentMethod === 'juicyway'
-                    ? 'juicyway'
-                    : 'pod',
-          payment_status: 'unpaid',
-          shipping_status: 'pending',
-          shipping_address: shippingAddressData,
-          source: 'online_store',
-          shipping_provider: shippingProvider,
-          selected_quote_id:
-            deliveryMethod === 'door' ? selectedQuoteId || undefined : undefined,
-          // Wallet redemption (2025: auto-apply at checkout)
-          use_wallet_credit: payWithWallet && walletAmountUsed > 0,
-          wallet_amount: walletAmountUsed,
-          // Link customer to auth user (2025: unified customer identity)
-          user_id: user?.id,
-          // Marketing Consent
-          accepts_marketing: newsletterOptIn,
-        }),
+      let order: {
+        id: string;
+        order_number?: string;
+        tracking_token?: string;
+      };
+      let walletResult: {
+        amountUsed: number;
+        newBalance: number;
+      } | null = null;
+      let amountDueToGateway = total;
+
+      const reusablePendingOrder = await resolvePendingCheckoutOrder({
+        pendingOrder: pendingCheckoutOrder,
+        merchantId: merchant.id,
+        merchantSlug: merchant.slug,
+        customerEmail,
+        checkoutFingerprint,
+        paymentMethod: normalizedPaymentMethod,
+        shippingProvider,
+        selectedQuoteId:
+          deliveryMethod === 'door' ? selectedQuoteId || undefined : undefined,
       });
 
-      if (!orderResponse.ok) {
-        const errorData = await orderResponse.json();
-        console.error('Order creation failed:', {
-          status: orderResponse.status,
-          error: errorData.error,
-          details: errorData.details,
-          fullResponse: errorData
-        });
-        throw new Error(errorData.details || errorData.error || 'Failed to create order');
+      if (reusablePendingOrder.clearStoredOrder) {
+        clearPendingCheckoutOrder();
       }
 
-      const orderData = await orderResponse.json();
-      const { order, wallet: walletResult, amountDueToGateway } = orderData;
+      if (reusablePendingOrder.reusableOrder) {
+        order = reusablePendingOrder.reusableOrder.order;
+        amountDueToGateway = reusablePendingOrder.reusableOrder.amountDueToGateway;
+      } else {
+        // 1. Create order in database via API (with wallet redemption if applicable)
+        const orderResponse = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            merchant_id: merchant.id,
+            customer_email: customerEmail,
+            customer_name: `${firstName} ${lastName}`.trim(),
+            customer_phone: customerPhone,
+            items: orderItems,
+            subtotal: cartTotal,
+            shipping_fee: deliveryCost,
+            payment_method: normalizedPaymentMethod,
+            payment_status: 'unpaid',
+            shipping_status: 'pending',
+            shipping_address: shippingAddressData,
+            source: 'online_store',
+            shipping_provider: shippingProvider,
+            selected_quote_id:
+              deliveryMethod === 'door' ? selectedQuoteId || undefined : undefined,
+            // Wallet redemption (2025: auto-apply at checkout)
+            use_wallet_credit: payWithWallet && walletAmountUsed > 0,
+            wallet_amount: walletAmountUsed,
+            // Link customer to auth user (2025: unified customer identity)
+            user_id: user?.id,
+            // Marketing Consent
+            accepts_marketing: newsletterOptIn,
+          }),
+        });
+
+        if (!orderResponse.ok) {
+          const errorData = await orderResponse.json();
+          console.error('Order creation failed:', {
+            status: orderResponse.status,
+            error: errorData.error,
+            details: errorData.details,
+            fullResponse: errorData
+          });
+          throw new Error(errorData.details || errorData.error || 'Failed to create order');
+        }
+
+        const orderData = await orderResponse.json();
+        order = orderData.order;
+        walletResult = orderData.wallet;
+        amountDueToGateway = orderData.amountDueToGateway ?? total;
+      }
 
       // 1b. Create account if requested (Awaited to ensure session is set before moving to next page)
       if (createAccount && !user && accountPassword.length >= 6) {
@@ -1155,7 +1234,17 @@ export const CheckoutPage: React.FC = () => {
         }
       }
 
-      // Use gateway amount (accounts for wallet credit) or full total as fallback
+      setPendingCheckoutOrder({
+        orderId: order.id,
+        orderNumber: order.order_number,
+        trackingToken: order.tracking_token,
+        merchantId: merchant.id,
+        customerEmail,
+        checkoutFingerprint,
+        amountDueToGateway,
+        createdAt: new Date().toISOString(),
+      });
+
       const paymentAmount = amountDueToGateway ?? total;
 
       // Update local wallet balance if redemption occurred
@@ -1167,6 +1256,7 @@ export const CheckoutPage: React.FC = () => {
       // Special case: If wallet fully covers the order, no payment gateway needed
       // Order API already marks it as paid, just redirect to success
       if (paymentAmount <= 0) {
+        clearPendingCheckoutOrder();
         clearCheckoutSession();
         // Defer clearCart to avoid flashing empty state before redirect
         router.push(asRoute(getHref(`/order-success?orderId=${order.id}&wallet=true`)));
@@ -1277,6 +1367,7 @@ export const CheckoutPage: React.FC = () => {
           })),
           onSuccess: (transactionId) => {
             console.log('Credit Direct success:', transactionId);
+            clearPendingCheckoutOrder();
             clearCheckoutSession();
             clearCart();
             router.push(asRoute(getHref(`/order-success?type=credit_direct&orderId=${order.id}&sessionId=${transactionId}`)));
@@ -1327,6 +1418,7 @@ export const CheckoutPage: React.FC = () => {
           customerPhone,
           onSuccess: (data) => {
             console.log('CredPal success:', data);
+            clearPendingCheckoutOrder();
             clearCheckoutSession();
             clearCart();
             router.push(asRoute(getHref(`/order-success?type=credpal&orderId=${order.id}&credpalRef=${data.order_no}`)));
@@ -1350,11 +1442,13 @@ export const CheckoutPage: React.FC = () => {
         return;
       } else if (paymentMethod === 'invoice') {
         // Invoice/Pay Later - order created, redirect to success
+        clearPendingCheckoutOrder();
         clearCheckoutSession();
         router.push(asRoute(getHref(`/order-success?type=invoice&orderId=${order.id}`)));
         setTimeout(clearCart, 500);
       } else if (paymentMethod === 'payforme') {
         // Pay For Me - TODO: send payment link
+        clearPendingCheckoutOrder();
         clearCheckoutSession();
         router.push(
           asRoute(getHref(`/order-success?type=payforme&orderId=${order.id}&payerName=${encodeURIComponent(
@@ -1364,6 +1458,7 @@ export const CheckoutPage: React.FC = () => {
         setTimeout(clearCart, 500);
       } else {
         // Default: POD or other
+        clearPendingCheckoutOrder();
         clearCheckoutSession();
         router.push(asRoute(getHref(`/order-success?type=standard&orderId=${order.id}`)));
         setTimeout(clearCart, 500);
