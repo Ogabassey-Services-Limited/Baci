@@ -214,6 +214,7 @@ export async function POST(request: NextRequest) {
 
       return {
         product_id: item.product_id || item.productId || item.id,
+        condition: item.condition,
         variant_id: item.variantId || item.variant_id,
         variant_attributes:
           item.variantAttributes || item.variant_attributes || {},

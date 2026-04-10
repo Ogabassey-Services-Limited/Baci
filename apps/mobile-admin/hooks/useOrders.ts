@@ -43,14 +43,15 @@ interface OrdersPage {
 /** Shape returned by Supabase select on order_items with joined products */
 interface OrderItemRow {
   id: string;
+  condition: string | null;
   product_id: string | null;
   variant_name: string | null;
   name: string | null;
   quantity: number;
   price: number;
   products:
-    | { condition: string | null; name: string; images: string[] | null }
-    | Array<{ condition: string | null; name: string; images: string[] | null }>
+    | { name: string; images: string[] | null }
+    | Array<{ name: string; images: string[] | null }>
     | null;
 }
 
@@ -358,7 +359,7 @@ export function useOrder(orderId: string) {
         supabase
           .from('order_items')
           .select(
-            'id, product_id, variant_name, name, quantity, price, products(name, condition, images)'
+            'id, product_id, condition, variant_name, name, quantity, price, products(name, images)'
           )
           .eq('order_id', orderId),
         supabase
@@ -448,7 +449,7 @@ export function useOrder(orderId: string) {
             product_id: item.product_id ?? `custom-${item.id}`,
             name: itemName,
             product_name: itemName,
-            condition: product?.condition ?? undefined,
+            condition: item.condition ?? undefined,
             variant_name: item.variant_name ?? undefined,
             quantity: item.quantity,
             price: item.price,

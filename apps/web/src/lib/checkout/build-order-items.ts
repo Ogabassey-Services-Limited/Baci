@@ -1,6 +1,9 @@
+type CheckoutOrderItemCondition = 'new' | 'used' | 'open_box' | 'refurbished';
+
 export interface CheckoutOrderItemInput {
   id: string | number;
   product_id?: string | number;
+  condition?: CheckoutOrderItemCondition;
   name: string;
   quantity: number;
   price: number;
@@ -16,6 +19,7 @@ export interface CheckoutOrderItemInput {
 }
 
 export interface CheckoutOrderItem {
+  condition?: CheckoutOrderItemCondition;
   product_id: string;
   name: string;
   quantity: number;
@@ -45,6 +49,7 @@ export function buildCheckoutOrderItems(
     }
 
     return {
+      condition: item.condition,
       product_id: String(item.product_id ?? item.id),
       name: item.name,
       quantity: item.quantity,

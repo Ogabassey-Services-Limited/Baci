@@ -41,6 +41,17 @@ const orderCreateSchemaBase = z.object({
           value: z.number().nonnegative().optional(),
           has_assurance: z.boolean().optional(),
           assurance_fee: z.number().nonnegative().optional(),
+          condition: z
+            .string()
+            .optional()
+            .transform((val) =>
+              val
+                ? sanitizeText(val)
+                    .trim()
+                    .toLowerCase()
+                    .replace(/[\s-]+/g, '_')
+                : val
+            ),
           variantId: z.string().optional(),
           variant_id: z.string().optional(),
           variantAttributes: z

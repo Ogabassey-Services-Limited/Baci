@@ -16,6 +16,7 @@ describe('order column constants', () => {
   it('WEB_ORDER_ITEMS_COLUMNS is a non-empty string', () => {
     expect(typeof WEB_ORDER_ITEMS_COLUMNS).toBe('string');
     expect(WEB_ORDER_ITEMS_COLUMNS.length).toBeGreaterThan(0);
+    expect(WEB_ORDER_ITEMS_COLUMNS).toContain('condition');
     expect(WEB_ORDER_ITEMS_COLUMNS).toContain('fulfillment_data');
     expect(WEB_ORDER_ITEMS_COLUMNS).toContain('variant_name');
   });

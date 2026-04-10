@@ -58,4 +58,23 @@ describe('buildCheckoutOrderItems', () => {
       }),
     ]);
   });
+
+  it('preserves condition on checkout items', () => {
+    const items = buildCheckoutOrderItems([
+      {
+        id: 'prod-1',
+        condition: 'open_box',
+        name: 'Samsung Galaxy S22 Ultra',
+        price: 500000,
+        quantity: 1,
+      },
+    ]);
+
+    expect(items).toEqual([
+      expect.objectContaining({
+        condition: 'open_box',
+        product_id: 'prod-1',
+      }),
+    ]);
+  });
 });

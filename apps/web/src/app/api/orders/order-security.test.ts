@@ -444,7 +444,8 @@ describe('Order API Security', () => {
         body: JSON.stringify(payload),
       });
 
-      await POST(request);
+      const response = await POST(request);
+      expect(response.status).toBeLessThan(300);
 
       const rpcArgs = mockSupabase.rpc.mock.calls[0][1];
       const items = Array.isArray(rpcArgs.p_items)
@@ -503,6 +504,30 @@ describe('Order API Security', () => {
         ? rpcArgs.p_items
         : JSON.parse(rpcArgs.p_items);
       expect(items[0].variant_attributes).toEqual({});
+    });
+
+    it('forwards normalized item condition to RPC', async () => {
+      const request = new NextRequest('http://localhost:3000/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...validOrderPayload,
+          user_id: '123e4567-e89b-12d3-a456-426614174099',
+          items: [
+            {
+              ...validOrderPayload.items[0],
+              condition: 'Open Box',
+            },
+          ],
+        }),
+      });
+
+      await POST(request);
+
+      const rpcArgs = mockSupabase.rpc.mock.calls[0][1];
+      const items = Array.isArray(rpcArgs.p_items)
+        ? rpcArgs.p_items
+        : JSON.parse(rpcArgs.p_items);
+      expect(items[0].condition).toBe('open_box');
     });
   });
 });
