@@ -86,7 +86,7 @@
       "@tiptap/extension-text-style": "^3.20.0",
       "@tiptap/extension-underline": "^3.20.0",
       "@tiptap/extension-youtube": "^3.20.0",
-      "axios": "^1.13.5",
+      "axios": "^1.15.0",
       "langsmith": "^0.4.6",
       "@modelcontextprotocol/sdk>ajv": "^8.18.0",
       "expo-build-properties>ajv": "^8.18.0",

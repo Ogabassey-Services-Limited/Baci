@@ -56,7 +56,7 @@ overrides:
   '@tiptap/extension-text-style': ^3.20.0
   '@tiptap/extension-underline': ^3.20.0
   '@tiptap/extension-youtube': ^3.20.0
-  axios: ^1.13.5
+  axios: ^1.15.0
   langsmith: ^0.4.6
   '@modelcontextprotocol/sdk>ajv': ^8.18.0
   expo-build-properties>ajv: ^8.18.0
@@ -160,7 +160,7 @@ importers:
         version: 1.19.13(hono@4.12.12)
       '@unlighthouse/cli':
         specifier: ^0.17.7
-        version: 0.17.7(@tiptap/extensions@3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))(@tiptap/y-tiptap@3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29))(@vercel/kv@3.0.0)(axios@1.13.5)(embla-carousel@8.6.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(superstruct@2.0.2)(typescript@5.9.3)(vite@8.0.5(@emnapi/core@1.8.1)(@emnapi/runtime@1.8.1)(@types/node@25.5.2)(esbuild@0.25.12)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))(yjs@13.6.29)
+        version: 0.17.7(@tiptap/extensions@3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))(@tiptap/y-tiptap@3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29))(@vercel/kv@3.0.0)(axios@1.15.0)(embla-carousel@8.6.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(superstruct@2.0.2)(typescript@5.9.3)(vite@8.0.5(@emnapi/core@1.8.1)(@emnapi/runtime@1.8.1)(@types/node@25.5.2)(esbuild@0.25.12)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))(yjs@13.6.29)
       hono:
         specifier: ^4.12.12
         version: 4.12.12
@@ -1045,7 +1045,7 @@ importers:
         version: 8.56.1(eslint@10.0.0(jiti@1.21.7))(typescript@5.9.3)
       '@unlighthouse/cli':
         specifier: ^0.17.7
-        version: 0.17.7(@tiptap/extensions@3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))(@tiptap/y-tiptap@3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29))(@upstash/redis@1.36.2)(@vercel/kv@3.0.0)(axios@1.13.5)(change-case@5.4.4)(embla-carousel@8.6.0)(joi@18.0.2)(puppeteer@24.39.0(typescript@5.9.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(superstruct@2.0.2)(tailwindcss@3.4.19(tsx@4.21.0)(yaml@2.8.3))(typescript@5.9.3)(vite@8.0.5(@emnapi/core@1.8.1)(@emnapi/runtime@1.8.1)(@types/node@20.19.32)(esbuild@0.25.12)(jiti@1.21.7)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))(yjs@13.6.29)(zod@3.25.76)
+        version: 0.17.7(@tiptap/extensions@3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))(@tiptap/y-tiptap@3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29))(@upstash/redis@1.36.2)(@vercel/kv@3.0.0)(axios@1.15.0)(change-case@5.4.4)(embla-carousel@8.6.0)(joi@18.0.2)(puppeteer@24.39.0(typescript@5.9.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(superstruct@2.0.2)(tailwindcss@3.4.19(tsx@4.21.0)(yaml@2.8.3))(typescript@5.9.3)(vite@8.0.5(@emnapi/core@1.8.1)(@emnapi/runtime@1.8.1)(@types/node@20.19.32)(esbuild@0.25.12)(jiti@1.21.7)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))(yjs@13.6.29)(zod@3.25.76)
       '@unlighthouse/core':
         specifier: ^0.17.7
         version: 0.17.7(puppeteer@24.39.0(typescript@5.9.3))
@@ -6811,7 +6811,7 @@ packages:
     resolution: {integrity: sha512-2LIUpBi/67PoXJGqSDQUF0pgQWpNHh7beiA+KG2AbybcNm+pTGWT6oPGlBgUoDWmYwfeQqM/uzOHqcILpKL7nA==}
     peerDependencies:
       async-validator: ^4
-      axios: ^1.13.5
+      axios: ^1.15.0
       change-case: ^5
       drauu: ^0.4
       focus-trap: ^7 || ^8
@@ -7127,8 +7127,8 @@ packages:
     resolution: {integrity: sha512-BASOg+YwO2C+346x3LZOeoovTIoTrRqEsqMa6fmfAV0P+U9mFr9NsyOEpiYvFjbc64NMrSswhV50WdXzdb/Z5A==}
     engines: {node: '>=4'}
 
-  axios@1.13.5:
-    resolution: {integrity: sha512-cz4ur7Vb0xS4/KUN0tPWe44eqxrIu31me+fbang3ijiNscE129POzipJJA6zniq2C/Z6sJCjMimjS8Lc/GAs8Q==}
+  axios@1.15.0:
+    resolution: {integrity: sha512-wWyJDlAatxk30ZJer+GeCWS209sA42X+N5jU2jy6oHTp7ufw8uzUTVFBX9+wTfAlhiJXGS0Bq7X6efruWjuK9Q==}
 
   axobject-query@4.1.0:
     resolution: {integrity: sha512-qIj0G9wZbMGNLjLmg1PT6v2mE9AH2zlnADJD/2tC6E00hgmhUOfEB6greHPAfLRSufHqROIUTkw6E+M3lH0PTQ==}
@@ -12600,6 +12600,10 @@ packages:
 
   proxy-from-env@1.1.0:
     resolution: {integrity: sha512-D+zkORCbA9f1tdWRK0RaCR3GPv50cMxcrz4X8k5LTSUD1Dkw47mKJEZQNunItRTkWwgtaUSo1RVFRIG9ZXiFYg==}
+
+  proxy-from-env@2.1.0:
+    resolution: {integrity: sha512-cJ+oHTW1VAEa8cJslgmUZrc+sjRKgAKl3Zyse6+PV38hZe/V6Z14TbCuXcan9F9ghlz4QrFr2c92TNF82UkYHA==}
+    engines: {node: '>=10'}
 
   psl@1.15.0:
     resolution: {integrity: sha512-JZd3gMVBAVQkSs6HdNZo9Sdo0LNcQeMNP3CozBJb3JYC/QUYZTnKxP+f8oWRX4rHP5EurWxqAHTSwUCjlNKa1w==}
@@ -18693,7 +18697,7 @@ snapshots:
       pkg-types: 2.3.0
       std-env: 3.10.0
 
-  '@nuxt/ui@4.5.1(@tiptap/extensions@3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))(@tiptap/y-tiptap@3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29))(@upstash/redis@1.36.2)(@vercel/kv@3.0.0)(axios@1.13.5)(change-case@5.4.4)(embla-carousel@8.6.0)(joi@18.0.2)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(superstruct@2.0.2)(tailwindcss@3.4.19(tsx@4.21.0)(yaml@2.8.3))(typescript@5.9.3)(vite@8.0.5(@emnapi/core@1.8.1)(@emnapi/runtime@1.8.1)(@types/node@20.19.32)(esbuild@0.25.12)(jiti@1.21.7)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))(vue@3.5.29(typescript@5.9.3))(yjs@13.6.29)(zod@3.25.76)':
+  '@nuxt/ui@4.5.1(@tiptap/extensions@3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))(@tiptap/y-tiptap@3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29))(@upstash/redis@1.36.2)(@vercel/kv@3.0.0)(axios@1.15.0)(change-case@5.4.4)(embla-carousel@8.6.0)(joi@18.0.2)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(superstruct@2.0.2)(tailwindcss@3.4.19(tsx@4.21.0)(yaml@2.8.3))(typescript@5.9.3)(vite@8.0.5(@emnapi/core@1.8.1)(@emnapi/runtime@1.8.1)(@types/node@20.19.32)(esbuild@0.25.12)(jiti@1.21.7)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))(vue@3.5.29(typescript@5.9.3))(yjs@13.6.29)(zod@3.25.76)':
     dependencies:
       '@floating-ui/dom': 1.7.5
       '@iconify/vue': 5.0.0(vue@3.5.29(typescript@5.9.3))
@@ -18728,7 +18732,7 @@ snapshots:
       '@tiptap/vue-3': 3.20.0(@floating-ui/dom@1.7.5)(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5)(vue@3.5.29(typescript@5.9.3))
       '@unhead/vue': 2.1.13(vue@3.5.29(typescript@5.9.3))
       '@vueuse/core': 14.2.1(vue@3.5.29(typescript@5.9.3))
-      '@vueuse/integrations': 14.2.1(axios@1.13.5)(change-case@5.4.4)(fuse.js@7.1.0)(vue@3.5.29(typescript@5.9.3))
+      '@vueuse/integrations': 14.2.1(axios@1.15.0)(change-case@5.4.4)(fuse.js@7.1.0)(vue@3.5.29(typescript@5.9.3))
       '@vueuse/shared': 14.2.1(vue@3.5.29(typescript@5.9.3))
       colortranslator: 5.0.0
       consola: 3.4.2
@@ -18807,7 +18811,7 @@ snapshots:
       - vue
       - yjs
 
-  '@nuxt/ui@4.5.1(@tiptap/extensions@3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))(@tiptap/y-tiptap@3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29))(@vercel/kv@3.0.0)(axios@1.13.5)(embla-carousel@8.6.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(superstruct@2.0.2)(typescript@5.9.3)(vite@8.0.5(@emnapi/core@1.8.1)(@emnapi/runtime@1.8.1)(@types/node@25.5.2)(esbuild@0.25.12)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))(vue@3.5.29(typescript@5.9.3))(yjs@13.6.29)':
+  '@nuxt/ui@4.5.1(@tiptap/extensions@3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))(@tiptap/y-tiptap@3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29))(@vercel/kv@3.0.0)(axios@1.15.0)(embla-carousel@8.6.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(superstruct@2.0.2)(typescript@5.9.3)(vite@8.0.5(@emnapi/core@1.8.1)(@emnapi/runtime@1.8.1)(@types/node@25.5.2)(esbuild@0.25.12)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))(vue@3.5.29(typescript@5.9.3))(yjs@13.6.29)':
     dependencies:
       '@floating-ui/dom': 1.7.5
       '@iconify/vue': 5.0.0(vue@3.5.29(typescript@5.9.3))
@@ -18842,7 +18846,7 @@ snapshots:
       '@tiptap/vue-3': 3.20.0(@floating-ui/dom@1.7.5)(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5)(vue@3.5.29(typescript@5.9.3))
       '@unhead/vue': 2.1.13(vue@3.5.29(typescript@5.9.3))
       '@vueuse/core': 14.2.1(vue@3.5.29(typescript@5.9.3))
-      '@vueuse/integrations': 14.2.1(axios@1.13.5)(change-case@5.4.4)(fuse.js@7.1.0)(vue@3.5.29(typescript@5.9.3))
+      '@vueuse/integrations': 14.2.1(axios@1.15.0)(change-case@5.4.4)(fuse.js@7.1.0)(vue@3.5.29(typescript@5.9.3))
       '@vueuse/shared': 14.2.1(vue@3.5.29(typescript@5.9.3))
       colortranslator: 5.0.0
       consola: 3.4.2
@@ -22297,10 +22301,10 @@ snapshots:
       unhead: 2.1.13
       vue: 3.5.29(typescript@5.9.3)
 
-  '@unlighthouse/cli@0.17.7(@tiptap/extensions@3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))(@tiptap/y-tiptap@3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29))(@upstash/redis@1.36.2)(@vercel/kv@3.0.0)(axios@1.13.5)(change-case@5.4.4)(embla-carousel@8.6.0)(joi@18.0.2)(puppeteer@24.39.0(typescript@5.9.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(superstruct@2.0.2)(tailwindcss@3.4.19(tsx@4.21.0)(yaml@2.8.3))(typescript@5.9.3)(vite@8.0.5(@emnapi/core@1.8.1)(@emnapi/runtime@1.8.1)(@types/node@20.19.32)(esbuild@0.25.12)(jiti@1.21.7)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))(yjs@13.6.29)(zod@3.25.76)':
+  '@unlighthouse/cli@0.17.7(@tiptap/extensions@3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))(@tiptap/y-tiptap@3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29))(@upstash/redis@1.36.2)(@vercel/kv@3.0.0)(axios@1.15.0)(change-case@5.4.4)(embla-carousel@8.6.0)(joi@18.0.2)(puppeteer@24.39.0(typescript@5.9.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(superstruct@2.0.2)(tailwindcss@3.4.19(tsx@4.21.0)(yaml@2.8.3))(typescript@5.9.3)(vite@8.0.5(@emnapi/core@1.8.1)(@emnapi/runtime@1.8.1)(@types/node@20.19.32)(esbuild@0.25.12)(jiti@1.21.7)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))(yjs@13.6.29)(zod@3.25.76)':
     dependencies:
       '@lhci/utils': 0.15.1
-      '@unlighthouse/client': 0.17.7(@tiptap/extensions@3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))(@tiptap/y-tiptap@3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29))(@upstash/redis@1.36.2)(@vercel/kv@3.0.0)(axios@1.13.5)(change-case@5.4.4)(embla-carousel@8.6.0)(joi@18.0.2)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(superstruct@2.0.2)(tailwindcss@3.4.19(tsx@4.21.0)(yaml@2.8.3))(typescript@5.9.3)(vite@8.0.5(@emnapi/core@1.8.1)(@emnapi/runtime@1.8.1)(@types/node@20.19.32)(esbuild@0.25.12)(jiti@1.21.7)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))(yjs@13.6.29)(zod@3.25.76)
+      '@unlighthouse/client': 0.17.7(@tiptap/extensions@3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))(@tiptap/y-tiptap@3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29))(@upstash/redis@1.36.2)(@vercel/kv@3.0.0)(axios@1.15.0)(change-case@5.4.4)(embla-carousel@8.6.0)(joi@18.0.2)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(superstruct@2.0.2)(tailwindcss@3.4.19(tsx@4.21.0)(yaml@2.8.3))(typescript@5.9.3)(vite@8.0.5(@emnapi/core@1.8.1)(@emnapi/runtime@1.8.1)(@types/node@20.19.32)(esbuild@0.25.12)(jiti@1.21.7)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))(yjs@13.6.29)(zod@3.25.76)
       '@unlighthouse/core': 0.17.7(puppeteer@24.39.0(typescript@5.9.3))
       '@unlighthouse/server': 0.17.7(puppeteer@24.39.0(typescript@5.9.3))
       better-opn: 3.0.2
@@ -22372,10 +22376,10 @@ snapshots:
       - yup
       - zod
 
-  '@unlighthouse/cli@0.17.7(@tiptap/extensions@3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))(@tiptap/y-tiptap@3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29))(@vercel/kv@3.0.0)(axios@1.13.5)(embla-carousel@8.6.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(superstruct@2.0.2)(typescript@5.9.3)(vite@8.0.5(@emnapi/core@1.8.1)(@emnapi/runtime@1.8.1)(@types/node@25.5.2)(esbuild@0.25.12)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))(yjs@13.6.29)':
+  '@unlighthouse/cli@0.17.7(@tiptap/extensions@3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))(@tiptap/y-tiptap@3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29))(@vercel/kv@3.0.0)(axios@1.15.0)(embla-carousel@8.6.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(superstruct@2.0.2)(typescript@5.9.3)(vite@8.0.5(@emnapi/core@1.8.1)(@emnapi/runtime@1.8.1)(@types/node@25.5.2)(esbuild@0.25.12)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))(yjs@13.6.29)':
     dependencies:
       '@lhci/utils': 0.15.1
-      '@unlighthouse/client': 0.17.7(@tiptap/extensions@3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))(@tiptap/y-tiptap@3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29))(@vercel/kv@3.0.0)(axios@1.13.5)(embla-carousel@8.6.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(superstruct@2.0.2)(typescript@5.9.3)(vite@8.0.5(@emnapi/core@1.8.1)(@emnapi/runtime@1.8.1)(@types/node@25.5.2)(esbuild@0.25.12)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))(yjs@13.6.29)
+      '@unlighthouse/client': 0.17.7(@tiptap/extensions@3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))(@tiptap/y-tiptap@3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29))(@vercel/kv@3.0.0)(axios@1.15.0)(embla-carousel@8.6.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(superstruct@2.0.2)(typescript@5.9.3)(vite@8.0.5(@emnapi/core@1.8.1)(@emnapi/runtime@1.8.1)(@types/node@25.5.2)(esbuild@0.25.12)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))(yjs@13.6.29)
       '@unlighthouse/core': 0.17.7(puppeteer@24.39.0(typescript@5.9.3))
       '@unlighthouse/server': 0.17.7(puppeteer@24.39.0(typescript@5.9.3))
       better-opn: 3.0.2
@@ -22447,10 +22451,10 @@ snapshots:
       - yup
       - zod
 
-  '@unlighthouse/client@0.17.7(@tiptap/extensions@3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))(@tiptap/y-tiptap@3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29))(@upstash/redis@1.36.2)(@vercel/kv@3.0.0)(axios@1.13.5)(change-case@5.4.4)(embla-carousel@8.6.0)(joi@18.0.2)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(superstruct@2.0.2)(tailwindcss@3.4.19(tsx@4.21.0)(yaml@2.8.3))(typescript@5.9.3)(vite@8.0.5(@emnapi/core@1.8.1)(@emnapi/runtime@1.8.1)(@types/node@20.19.32)(esbuild@0.25.12)(jiti@1.21.7)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))(yjs@13.6.29)(zod@3.25.76)':
+  '@unlighthouse/client@0.17.7(@tiptap/extensions@3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))(@tiptap/y-tiptap@3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29))(@upstash/redis@1.36.2)(@vercel/kv@3.0.0)(axios@1.15.0)(change-case@5.4.4)(embla-carousel@8.6.0)(joi@18.0.2)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(superstruct@2.0.2)(tailwindcss@3.4.19(tsx@4.21.0)(yaml@2.8.3))(typescript@5.9.3)(vite@8.0.5(@emnapi/core@1.8.1)(@emnapi/runtime@1.8.1)(@types/node@20.19.32)(esbuild@0.25.12)(jiti@1.21.7)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))(yjs@13.6.29)(zod@3.25.76)':
     dependencies:
       '@headlessui/vue': 1.7.23(vue@3.5.29(typescript@5.9.3))
-      '@nuxt/ui': 4.5.1(@tiptap/extensions@3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))(@tiptap/y-tiptap@3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29))(@upstash/redis@1.36.2)(@vercel/kv@3.0.0)(axios@1.13.5)(change-case@5.4.4)(embla-carousel@8.6.0)(joi@18.0.2)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(superstruct@2.0.2)(tailwindcss@3.4.19(tsx@4.21.0)(yaml@2.8.3))(typescript@5.9.3)(vite@8.0.5(@emnapi/core@1.8.1)(@emnapi/runtime@1.8.1)(@types/node@20.19.32)(esbuild@0.25.12)(jiti@1.21.7)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))(vue@3.5.29(typescript@5.9.3))(yjs@13.6.29)(zod@3.25.76)
+      '@nuxt/ui': 4.5.1(@tiptap/extensions@3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))(@tiptap/y-tiptap@3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29))(@upstash/redis@1.36.2)(@vercel/kv@3.0.0)(axios@1.15.0)(change-case@5.4.4)(embla-carousel@8.6.0)(joi@18.0.2)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(superstruct@2.0.2)(tailwindcss@3.4.19(tsx@4.21.0)(yaml@2.8.3))(typescript@5.9.3)(vite@8.0.5(@emnapi/core@1.8.1)(@emnapi/runtime@1.8.1)(@types/node@20.19.32)(esbuild@0.25.12)(jiti@1.21.7)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))(vue@3.5.29(typescript@5.9.3))(yjs@13.6.29)(zod@3.25.76)
       '@tailwindcss/vite': 4.2.1(vite@8.0.5(@emnapi/core@1.8.1)(@emnapi/runtime@1.8.1)(@types/node@20.19.32)(esbuild@0.25.12)(jiti@1.21.7)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))
       dayjs: 1.11.19
       defu: 6.1.6
@@ -22510,10 +22514,10 @@ snapshots:
       - yup
       - zod
 
-  '@unlighthouse/client@0.17.7(@tiptap/extensions@3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))(@tiptap/y-tiptap@3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29))(@vercel/kv@3.0.0)(axios@1.13.5)(embla-carousel@8.6.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(superstruct@2.0.2)(typescript@5.9.3)(vite@8.0.5(@emnapi/core@1.8.1)(@emnapi/runtime@1.8.1)(@types/node@25.5.2)(esbuild@0.25.12)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))(yjs@13.6.29)':
+  '@unlighthouse/client@0.17.7(@tiptap/extensions@3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))(@tiptap/y-tiptap@3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29))(@vercel/kv@3.0.0)(axios@1.15.0)(embla-carousel@8.6.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(superstruct@2.0.2)(typescript@5.9.3)(vite@8.0.5(@emnapi/core@1.8.1)(@emnapi/runtime@1.8.1)(@types/node@25.5.2)(esbuild@0.25.12)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))(yjs@13.6.29)':
     dependencies:
       '@headlessui/vue': 1.7.23(vue@3.5.29(typescript@5.9.3))
-      '@nuxt/ui': 4.5.1(@tiptap/extensions@3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))(@tiptap/y-tiptap@3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29))(@vercel/kv@3.0.0)(axios@1.13.5)(embla-carousel@8.6.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(superstruct@2.0.2)(typescript@5.9.3)(vite@8.0.5(@emnapi/core@1.8.1)(@emnapi/runtime@1.8.1)(@types/node@25.5.2)(esbuild@0.25.12)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))(vue@3.5.29(typescript@5.9.3))(yjs@13.6.29)
+      '@nuxt/ui': 4.5.1(@tiptap/extensions@3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))(@tiptap/y-tiptap@3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29))(@vercel/kv@3.0.0)(axios@1.15.0)(embla-carousel@8.6.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(superstruct@2.0.2)(typescript@5.9.3)(vite@8.0.5(@emnapi/core@1.8.1)(@emnapi/runtime@1.8.1)(@types/node@25.5.2)(esbuild@0.25.12)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))(vue@3.5.29(typescript@5.9.3))(yjs@13.6.29)
       '@tailwindcss/vite': 4.2.1(vite@8.0.5(@emnapi/core@1.8.1)(@emnapi/runtime@1.8.1)(@types/node@25.5.2)(esbuild@0.25.12)(jiti@2.6.1)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))
       dayjs: 1.11.19
       defu: 6.1.6
@@ -22577,7 +22581,7 @@ snapshots:
     dependencies:
       '@clack/prompts': 1.1.0
       '@puppeteer/browsers': 2.13.0
-      axios: 1.13.5
+      axios: 1.15.0
       c12: 3.3.3
       chrome-launcher: 1.2.1
       consola: 3.4.2
@@ -22938,13 +22942,13 @@ snapshots:
       '@vueuse/shared': 14.2.1(vue@3.5.29(typescript@5.9.3))
       vue: 3.5.29(typescript@5.9.3)
 
-  '@vueuse/integrations@14.2.1(axios@1.13.5)(change-case@5.4.4)(fuse.js@7.1.0)(vue@3.5.29(typescript@5.9.3))':
+  '@vueuse/integrations@14.2.1(axios@1.15.0)(change-case@5.4.4)(fuse.js@7.1.0)(vue@3.5.29(typescript@5.9.3))':
     dependencies:
       '@vueuse/core': 14.2.1(vue@3.5.29(typescript@5.9.3))
       '@vueuse/shared': 14.2.1(vue@3.5.29(typescript@5.9.3))
       vue: 3.5.29(typescript@5.9.3)
     optionalDependencies:
-      axios: 1.13.5
+      axios: 1.15.0
       change-case: 5.4.4
       fuse.js: 7.1.0
 
@@ -23238,11 +23242,11 @@ snapshots:
 
   axe-core@4.11.1: {}
 
-  axios@1.13.5:
+  axios@1.15.0:
     dependencies:
       follow-redirects: 1.15.11
       form-data: 4.0.5
-      proxy-from-env: 1.1.0
+      proxy-from-env: 2.1.0
     transitivePeerDependencies:
       - debug
 
@@ -30669,6 +30673,8 @@ snapshots:
 
   proxy-from-env@1.1.0: {}
 
+  proxy-from-env@2.1.0: {}
+
   psl@1.15.0:
     dependencies:
       punycode: 2.3.1
@@ -33581,7 +33587,7 @@ snapshots:
 
   wait-on@9.0.4:
     dependencies:
-      axios: 1.13.5
+      axios: 1.15.0
       joi: 18.0.2
       lodash: 4.18.1
       minimist: 1.2.8
