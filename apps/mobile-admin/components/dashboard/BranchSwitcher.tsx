@@ -18,6 +18,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { KeyboardAwareModalContainer } from '@/components/ui/KeyboardAwareModalContainer';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import {
   type CreateBranchInput,
@@ -184,7 +185,11 @@ export function BranchSwitcher() {
                 {branch.name}
               </Text>
               {isActive && (
-                <Ionicons name="checkmark-circle" size={14} color={colors.textOnPrimary} />
+                <Ionicons
+                  name="checkmark-circle"
+                  size={14}
+                  color={colors.textOnPrimary}
+                />
               )}
             </Pressable>
           );
@@ -264,115 +269,144 @@ function CreateBranchModal({
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
-        <View
-          style={[styles.modalContent, { backgroundColor: colors.card }]}
-          accessibilityViewIsModal={true}
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Close modal"
+        />
+        <KeyboardAwareModalContainer
+          align="center"
+          contentContainerStyle={styles.modalKeyboardContent}
         >
-          <View style={styles.modalHeader}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>
-              Create Branch
-            </Text>
-            <Pressable
-              onPress={onClose}
-              accessibilityRole="button"
-              accessibilityLabel="Close modal"
-            >
-              <Ionicons name="close" size={24} color={colors.text} />
-            </Pressable>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
-              Branch Name *
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.background,
-                  color: colors.text,
-                  borderColor: nameError ? colors.notification : colors.border,
-                },
-              ]}
-              value={branchName}
-              onChangeText={(text) => {
-                setBranchName(text);
-                setNameError('');
-              }}
-              placeholder="e.g. Lagos Main, Lekki Branch"
-              placeholderTextColor={colors.textMuted}
-              accessibilityLabel="Branch name input"
-              returnKeyType="next"
-              blurOnSubmit={false}
-              onSubmitEditing={() => branchAddressRef.current?.focus()}
-            />
-            {nameError ? (
-              <Text style={[styles.errorText, { color: colors.notification }]}>
-                {nameError}
+          <View
+            style={[styles.modalContent, { backgroundColor: colors.card }]}
+            accessibilityViewIsModal={true}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                Create Branch
               </Text>
-            ) : null}
-          </View>
+              <Pressable
+                onPress={onClose}
+                accessibilityRole="button"
+                accessibilityLabel="Close modal"
+              >
+                <Ionicons name="close" size={24} color={colors.text} />
+              </Pressable>
+            </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
-              Address (Optional)
-            </Text>
-            <TextInput
-              ref={branchAddressRef}
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.background,
-                  color: colors.text,
-                  borderColor: colors.border,
-                },
-              ]}
-              value={branchAddress}
-              onChangeText={setBranchAddress}
-              placeholder="e.g. 123 Main Street, Lekki"
-              placeholderTextColor={colors.textMuted}
-              accessibilityLabel="Branch address input"
-              returnKeyType="done"
-              onSubmitEditing={onSubmit}
-            />
-          </View>
-
-          <View style={styles.modalActions}>
-            <Pressable
-              style={[
-                styles.cancelButton,
-                { backgroundColor: colors.background },
-              ]}
-              onPress={onClose}
-              disabled={isLoading}
-              accessibilityRole="button"
-              accessibilityLabel="Cancel branch creation"
-            >
-              <Text style={[styles.cancelButtonText, { color: colors.text }]}>
-                Cancel
+            <View style={styles.inputGroup}>
+              <Text
+                style={[styles.inputLabel, { color: colors.textSecondary }]}
+              >
+                Branch Name *
               </Text>
-            </Pressable>
-            <Pressable
-              style={[
-                styles.submitButton,
-                { backgroundColor: colors.primary },
-                isLoading && styles.buttonDisabled,
-              ]}
-              onPress={onSubmit}
-              disabled={isLoading}
-              accessibilityRole="button"
-              accessibilityLabel={
-                isLoading ? 'Creating branch' : 'Create branch'
-              }
-            >
-              {isLoading ? (
-                <ActivityIndicator size="small" color={colors.textOnPrimary} />
-              ) : (
-                <Text style={[styles.submitButtonText, { color: colors.textOnPrimary }]}>Create Branch</Text>
-              )}
-            </Pressable>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.background,
+                    color: colors.text,
+                    borderColor: nameError
+                      ? colors.notification
+                      : colors.border,
+                  },
+                ]}
+                value={branchName}
+                onChangeText={(text) => {
+                  setBranchName(text);
+                  setNameError('');
+                }}
+                placeholder="e.g. Lagos Main, Lekki Branch"
+                placeholderTextColor={colors.textMuted}
+                accessibilityLabel="Branch name input"
+                returnKeyType="next"
+                blurOnSubmit={false}
+                onSubmitEditing={() => branchAddressRef.current?.focus()}
+              />
+              {nameError ? (
+                <Text
+                  style={[styles.errorText, { color: colors.notification }]}
+                >
+                  {nameError}
+                </Text>
+              ) : null}
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text
+                style={[styles.inputLabel, { color: colors.textSecondary }]}
+              >
+                Address (Optional)
+              </Text>
+              <TextInput
+                ref={branchAddressRef}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.background,
+                    color: colors.text,
+                    borderColor: colors.border,
+                  },
+                ]}
+                value={branchAddress}
+                onChangeText={setBranchAddress}
+                placeholder="e.g. 123 Main Street, Lekki"
+                placeholderTextColor={colors.textMuted}
+                accessibilityLabel="Branch address input"
+                returnKeyType="done"
+                onSubmitEditing={onSubmit}
+              />
+            </View>
+
+            <View style={styles.modalActions}>
+              <Pressable
+                style={[
+                  styles.cancelButton,
+                  { backgroundColor: colors.background },
+                ]}
+                onPress={onClose}
+                disabled={isLoading}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel branch creation"
+              >
+                <Text style={[styles.cancelButtonText, { color: colors.text }]}>
+                  Cancel
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.submitButton,
+                  { backgroundColor: colors.primary },
+                  isLoading && styles.buttonDisabled,
+                ]}
+                onPress={onSubmit}
+                disabled={isLoading}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  isLoading ? 'Creating branch' : 'Create branch'
+                }
+              >
+                {isLoading ? (
+                  <ActivityIndicator
+                    size="small"
+                    color={colors.textOnPrimary}
+                  />
+                ) : (
+                  <Text
+                    style={[
+                      styles.submitButtonText,
+                      { color: colors.textOnPrimary },
+                    ]}
+                  >
+                    Create Branch
+                  </Text>
+                )}
+              </Pressable>
+            </View>
           </View>
-        </View>
+        </KeyboardAwareModalContainer>
       </View>
     </Modal>
   );
@@ -439,6 +473,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: SPACING.lg,
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  modalKeyboardContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: SPACING.lg,
   },
   modalContent: {
     width: '100%',

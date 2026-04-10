@@ -24,6 +24,7 @@ import {
 } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { KeyboardAwareModalContainer } from '@/components/ui/KeyboardAwareModalContainer';
 import SafeImage from '@/components/ui/SafeImage';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
@@ -898,114 +899,117 @@ export default function ProductsScreen() {
         animationType="slide"
         onRequestClose={() => setIsCategoryModalVisible(false)}
       >
-        <Pressable
+        <View
           style={{
             flex: 1,
             backgroundColor: 'rgba(0,0,0,0.5)',
             justifyContent: 'center',
             padding: 20,
           }}
-          onPress={() => setIsCategoryModalVisible(false)}
         >
           <Pressable
-            style={{
-              backgroundColor: colors.card,
-              borderRadius: 16,
-              padding: 20,
-            }}
-            onPress={(e) => e.stopPropagation()}
-          >
-            <Text
+            style={StyleSheet.absoluteFillObject}
+            onPress={() => setIsCategoryModalVisible(false)}
+          />
+          <KeyboardAwareModalContainer align="center">
+            <Pressable
               style={{
-                fontSize: 18,
-                fontWeight: 'bold',
-                color: colors.text,
-                marginBottom: 16,
+                backgroundColor: colors.card,
+                borderRadius: 16,
+                padding: 20,
               }}
             >
-              Create Category
-            </Text>
-
-            <TextInput
-              style={{
-                backgroundColor: colors.background,
-                color: colors.text,
-                padding: 12,
-                borderRadius: 8,
-                borderWidth: 1,
-                borderColor: colors.border,
-                marginBottom: 16,
-              }}
-              value={newCategoryName}
-              onChangeText={setNewCategoryName}
-              placeholder="e.g. Electronics"
-              placeholderTextColor={colors.textSecondary}
-              accessibilityLabel="Category name"
-              returnKeyType="done"
-              onSubmitEditing={handleCreateCategory}
-            />
-
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              <Pressable
+              <Text
                 style={{
-                  flex: 1,
+                  fontSize: 18,
+                  fontWeight: 'bold',
+                  color: colors.text,
+                  marginBottom: 16,
+                }}
+              >
+                Create Category
+              </Text>
+
+              <TextInput
+                style={{
+                  backgroundColor: colors.background,
+                  color: colors.text,
                   padding: 12,
                   borderRadius: 8,
-                  alignItems: 'center',
                   borderWidth: 1,
                   borderColor: colors.border,
-                  minHeight: 44,
-                  justifyContent: 'center',
+                  marginBottom: 16,
                 }}
-                onPress={() => setIsCategoryModalVisible(false)}
-                accessibilityLabel="Cancel"
-                accessibilityRole="button"
-                accessibilityHint="Closes the create category dialog"
-              >
-                <Text style={{ color: colors.text, fontWeight: '600' }}>
-                  Cancel
-                </Text>
-              </Pressable>
+                value={newCategoryName}
+                onChangeText={setNewCategoryName}
+                placeholder="e.g. Electronics"
+                placeholderTextColor={colors.textSecondary}
+                accessibilityLabel="Category name"
+                returnKeyType="done"
+                onSubmitEditing={handleCreateCategory}
+              />
 
-              <Pressable
-                style={{
-                  flex: 1,
-                  backgroundColor: colors.primary,
-                  padding: 12,
-                  borderRadius: 8,
-                  alignItems: 'center',
-                  minHeight: 44,
-                  justifyContent: 'center',
-                }}
-                onPress={handleCreateCategory}
-                disabled={
-                  createCategoryMutation.isPending ||
-                  !newCategoryName.trim()
-                }
-                accessibilityLabel={
-                  createCategoryMutation.isPending
-                    ? 'Creating category'
-                    : 'Create category'
-                }
-                accessibilityRole="button"
-                accessibilityState={{
-                  disabled:
-                    createCategoryMutation.isPending ||
-                    !newCategoryName.trim(),
-                }}
-                accessibilityHint="Creates the new category"
-              >
-                {createCategoryMutation.isPending ? (
-                  <ActivityIndicator color="#FFF" />
-                ) : (
-                  <Text style={{ color: '#FFF', fontWeight: '600' }}>
-                    Create
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <Pressable
+                  style={{
+                    flex: 1,
+                    padding: 12,
+                    borderRadius: 8,
+                    alignItems: 'center',
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    minHeight: 44,
+                    justifyContent: 'center',
+                  }}
+                  onPress={() => setIsCategoryModalVisible(false)}
+                  accessibilityLabel="Cancel"
+                  accessibilityRole="button"
+                  accessibilityHint="Closes the create category dialog"
+                >
+                  <Text style={{ color: colors.text, fontWeight: '600' }}>
+                    Cancel
                   </Text>
-                )}
-              </Pressable>
-            </View>
-          </Pressable>
-        </Pressable>
+                </Pressable>
+
+                <Pressable
+                  style={{
+                    flex: 1,
+                    backgroundColor: colors.primary,
+                    padding: 12,
+                    borderRadius: 8,
+                    alignItems: 'center',
+                    minHeight: 44,
+                    justifyContent: 'center',
+                  }}
+                  onPress={handleCreateCategory}
+                  disabled={
+                    createCategoryMutation.isPending || !newCategoryName.trim()
+                  }
+                  accessibilityLabel={
+                    createCategoryMutation.isPending
+                      ? 'Creating category'
+                      : 'Create category'
+                  }
+                  accessibilityRole="button"
+                  accessibilityState={{
+                    disabled:
+                      createCategoryMutation.isPending ||
+                      !newCategoryName.trim(),
+                  }}
+                  accessibilityHint="Creates the new category"
+                >
+                  {createCategoryMutation.isPending ? (
+                    <ActivityIndicator color="#FFF" />
+                  ) : (
+                    <Text style={{ color: '#FFF', fontWeight: '600' }}>
+                      Create
+                    </Text>
+                  )}
+                </Pressable>
+              </View>
+            </Pressable>
+          </KeyboardAwareModalContainer>
+        </View>
       </Modal>
     </SafeAreaView>
   );

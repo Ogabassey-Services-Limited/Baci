@@ -6,7 +6,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import {
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -47,122 +49,137 @@ export function CountryPickerModal({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <View
-        style={[styles.modalContainer, { backgroundColor: colors.background }]}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={24}
+        style={styles.modalContainer}
       >
         <View
-          style={[styles.modalHeader, { borderBottomColor: colors.border }]}
+          style={[
+            styles.modalContainer,
+            { backgroundColor: colors.background },
+          ]}
         >
-          <Text style={[styles.modalTitle, { color: colors.text }]}>
-            Select Country
-          </Text>
-          <Pressable
-            onPress={onClose}
-            style={styles.closeButton}
-            accessibilityRole="button"
-            accessibilityLabel="Close country picker"
-            accessibilityHint="Closes the country selection modal"
-          >
-            <Ionicons name="close" size={24} color={colors.text} />
-          </Pressable>
-        </View>
-
-        {/* Search Bar */}
-        <View style={{ padding: SPACING.md, paddingBottom: 0 }}>
           <View
-            style={[
-              styles.searchContainer,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
+            style={[styles.modalHeader, { borderBottomColor: colors.border }]}
           >
-            <Ionicons
-              name="search"
-              size={20}
-              color={colors.textSecondary}
-              style={{ marginRight: 8 }}
-            />
-            <TextInput
-              style={[styles.searchInput, { color: colors.text }]}
-              placeholder="Search country..."
-              placeholderTextColor={colors.textMuted}
-              value={search}
-              onChangeText={setSearch}
-              autoCorrect={false}
-              keyboardType="default"
-              returnKeyType="search"
-              accessibilityLabel="Search countries"
-            />
-            {search.length > 0 && (
-              <Pressable
-                onPress={() => setSearch('')}
-                accessibilityRole="button"
-                accessibilityLabel="Clear search"
-                accessibilityHint="Clears the country search input"
-              >
-                <Ionicons
-                  name="close-circle"
-                  size={18}
-                  color={colors.textMuted}
-                />
-              </Pressable>
-            )}
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              Select Country
+            </Text>
+            <Pressable
+              onPress={onClose}
+              style={styles.closeButton}
+              accessibilityRole="button"
+              accessibilityLabel="Close country picker"
+              accessibilityHint="Closes the country selection modal"
+            >
+              <Ionicons name="close" size={24} color={colors.text} />
+            </Pressable>
           </View>
-        </View>
 
-        <ScrollView contentContainerStyle={{ padding: SPACING.md }}>
-          {filteredCountries.map((item) => {
-            const isSelected =
-              selectedCountry === item.code || selectedCountry === item.name;
-            return (
-              <Pressable
-                key={item.code}
-                style={[
-                  styles.countryItem,
-                  {
-                    backgroundColor: isSelected
-                      ? colors.primaryLight
-                      : colors.card,
-                    borderColor: colors.border,
-                  },
-                ]}
-                onPress={() => onSelect(item)}
-                accessibilityRole="button"
-                accessibilityLabel={item.name}
-                accessibilityState={{ selected: isSelected }}
-              >
-                <View>
-                  <Text
-                    style={[
-                      styles.countryName,
-                      {
-                        color: colors.text,
-                        fontWeight: isSelected ? 'bold' : 'normal',
-                      },
-                    ]}
-                  >
-                    {item.name}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.currencyText,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    {item.currency} ({item.currencySymbol})
-                  </Text>
-                </View>
-                {isSelected && (
+          {/* Search Bar */}
+          <View style={{ padding: SPACING.md, paddingBottom: 0 }}>
+            <View
+              style={[
+                styles.searchContainer,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <Ionicons
+                name="search"
+                size={20}
+                color={colors.textSecondary}
+                style={{ marginRight: 8 }}
+              />
+              <TextInput
+                style={[styles.searchInput, { color: colors.text }]}
+                placeholder="Search country..."
+                placeholderTextColor={colors.textMuted}
+                value={search}
+                onChangeText={setSearch}
+                autoCorrect={false}
+                keyboardType="default"
+                returnKeyType="search"
+                accessibilityLabel="Search countries"
+              />
+              {search.length > 0 && (
+                <Pressable
+                  onPress={() => setSearch('')}
+                  accessibilityRole="button"
+                  accessibilityLabel="Clear search"
+                  accessibilityHint="Clears the country search input"
+                >
                   <Ionicons
-                    name="checkmark-circle"
-                    size={20}
-                    color={colors.primary}
+                    name="close-circle"
+                    size={18}
+                    color={colors.textMuted}
                   />
-                )}
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      </View>
+                </Pressable>
+              )}
+            </View>
+          </View>
+
+          <ScrollView
+            contentContainerStyle={{ padding: SPACING.md }}
+            keyboardDismissMode={
+              Platform.OS === 'ios' ? 'interactive' : 'on-drag'
+            }
+            keyboardShouldPersistTaps="handled"
+          >
+            {filteredCountries.map((item) => {
+              const isSelected =
+                selectedCountry === item.code || selectedCountry === item.name;
+              return (
+                <Pressable
+                  key={item.code}
+                  style={[
+                    styles.countryItem,
+                    {
+                      backgroundColor: isSelected
+                        ? colors.primaryLight
+                        : colors.card,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                  onPress={() => onSelect(item)}
+                  accessibilityRole="button"
+                  accessibilityLabel={item.name}
+                  accessibilityState={{ selected: isSelected }}
+                >
+                  <View>
+                    <Text
+                      style={[
+                        styles.countryName,
+                        {
+                          color: colors.text,
+                          fontWeight: isSelected ? 'bold' : 'normal',
+                        },
+                      ]}
+                    >
+                      {item.name}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.currencyText,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      {item.currency} ({item.currencySymbol})
+                    </Text>
+                  </View>
+                  {isSelected && (
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={20}
+                      color={colors.primary}
+                    />
+                  )}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
