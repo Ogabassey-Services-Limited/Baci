@@ -1,3 +1,5 @@
+import { escapeHtml, sanitizeUrl } from '@/lib/sanitize-core';
+
 interface OrderItem {
   name: string;
   quantity: number;
@@ -7,6 +9,13 @@ interface OrderItem {
 interface MerchantRegistrationInfo {
   merchantTin?: string;
   merchantRcNumber?: string;
+}
+
+function getSafeHttpUrl(value?: string): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+  return sanitizeUrl(value) || undefined;
 }
 
 function buildRegistrationLine(data: MerchantRegistrationInfo): string {
@@ -649,6 +658,7 @@ interface OrderShippedData extends MerchantRegistrationInfo {
     phone: string;
   };
   trackingNumber?: string;
+  trackingUrl?: string;
   courierName?: string;
   estimatedDelivery?: string;
   merchantName: string;
@@ -694,6 +704,24 @@ export function generateOrderShippedEmail(data: OrderShippedData): string {
         `
     : '';
 
+  const safeTrackingUrl = getSafeHttpUrl(data.trackingUrl);
+  const escapedTrackingUrl = safeTrackingUrl
+    ? escapeHtml(safeTrackingUrl)
+    : undefined;
+
+  const trackingLinkHtml = escapedTrackingUrl
+    ? `
+      <div style="margin-top: 16px; text-align: center;">
+        <a href="${escapedTrackingUrl}" style="background: #059669; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 14px; display: inline-block;">
+          Track Package
+        </a>
+      </div>
+      <div style="font-size: 11px; color: #6b7280; text-align: center; margin-top: 8px; word-break: break-all;">
+        ${escapedTrackingUrl}
+      </div>
+      `
+    : '';
+
   const trackingHtml = data.trackingNumber
     ? `
     <div style="background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border-radius: 12px; padding: 20px; margin: 24px 0; border: 1px solid #a7f3d0;">
@@ -708,13 +736,20 @@ export function generateOrderShippedEmail(data: OrderShippedData): string {
         </tr>
         ${estimatedDeliveryRow}
       </table>
+      ${trackingLinkHtml}
     </div>
     `
     : '';
 
-  const whatsNextMessage = data.trackingNumber
-    ? "You can track your package using the tracking number above. We'll deliver it as soon as possible!"
-    : 'Our delivery team will contact you before arrival. Please keep your phone available.';
+  let whatsNextMessage =
+    'Our delivery team will contact you before arrival. Please keep your phone available.';
+  if (data.trackingNumber && safeTrackingUrl) {
+    whatsNextMessage =
+      "You can track your package using the tracking number and link above. We'll deliver it as soon as possible!";
+  } else if (data.trackingNumber) {
+    whatsNextMessage =
+      "You can track your package using the tracking number above. We'll deliver it as soon as possible!";
+  }
 
   const supportEmailHtml = data.supportEmail
     ? `<p style="margin: 0 0 8px 0; font-size: 13px; color: #9ca3af;">Questions? Contact us at ${data.supportEmail}</p>`
@@ -830,16 +865,27 @@ export function generateOrderShippedText(data: OrderShippedData): string {
   const estimatedDeliveryLine = data.estimatedDelivery
     ? `Estimated Delivery: ${data.estimatedDelivery}\n`
     : '';
+  const safeTrackingUrl = getSafeHttpUrl(data.trackingUrl);
+  const trackingLinkLine = safeTrackingUrl
+    ? `Tracking Link: ${safeTrackingUrl}\n`
+    : '';
 
   const trackingSection = data.trackingNumber
     ? `TRACKING INFORMATION
 ${courierLine}Tracking Number: ${data.trackingNumber}
+${trackingLinkLine}
 ${estimatedDeliveryLine}`
     : '';
 
-  const trackingNote = data.trackingNumber
-    ? 'You can track your package using the tracking number above.'
-    : 'Our delivery team will contact you before arrival. Please keep your phone available.';
+  let trackingNote =
+    'Our delivery team will contact you before arrival. Please keep your phone available.';
+  if (data.trackingNumber && safeTrackingUrl) {
+    trackingNote =
+      'You can track your package using the tracking number and link above.';
+  } else if (data.trackingNumber) {
+    trackingNote =
+      'You can track your package using the tracking number above.';
+  }
 
   const supportLine = data.supportEmail
     ? `Questions? Contact us at ${data.supportEmail}`
