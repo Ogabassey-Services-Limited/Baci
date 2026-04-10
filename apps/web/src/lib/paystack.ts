@@ -696,7 +696,7 @@ export async function createDedicatedAccount(
   } = {}
 ): Promise<PaystackResult<DedicatedAccountResponse>> {
   // Validate customer code format
-  if (!customerCode || !customerCode.startsWith('CUS_')) {
+  if (!customerCode?.startsWith('CUS_')) {
     return {
       success: false,
       error: 'Invalid customer code format. Expected CUS_xxx',
@@ -744,7 +744,7 @@ export async function createDedicatedAccount(
 export async function getDedicatedAccounts(
   customerCode: string
 ): Promise<PaystackResult<DedicatedAccountResponse[]>> {
-  if (!customerCode || !customerCode.startsWith('CUS_')) {
+  if (!customerCode?.startsWith('CUS_')) {
     return {
       success: false,
       error: 'Invalid customer code format',
@@ -1161,7 +1161,7 @@ export async function listVirtualTerminals(
 export async function fetchVirtualTerminal(
   code: string
 ): Promise<PaystackResult<VirtualTerminalResponse>> {
-  if (!code || !code.startsWith('VT_')) {
+  if (!code?.startsWith('VT_')) {
     return {
       success: false,
       error: 'Invalid Virtual Terminal code. Expected format: VT_XXXXX',
@@ -1181,7 +1181,7 @@ export async function updateVirtualTerminal(
   code: string,
   name: string
 ): Promise<PaystackResult<VirtualTerminalResponse>> {
-  if (!code || !code.startsWith('VT_')) {
+  if (!code?.startsWith('VT_')) {
     return {
       success: false,
       error: 'Invalid Virtual Terminal code',
@@ -1204,7 +1204,7 @@ export async function updateVirtualTerminal(
 export async function deactivateVirtualTerminal(
   code: string
 ): Promise<PaystackResult<{ message: string }>> {
-  if (!code || !code.startsWith('VT_')) {
+  if (!code?.startsWith('VT_')) {
     return {
       success: false,
       error: 'Invalid Virtual Terminal code',
@@ -1228,7 +1228,7 @@ export async function assignVirtualTerminalDestinations(
   code: string,
   destinations: Array<{ target: string; name: string }>
 ): Promise<PaystackResult<VirtualTerminalDestination[]>> {
-  if (!code || !code.startsWith('VT_')) {
+  if (!code?.startsWith('VT_')) {
     return {
       success: false,
       error: 'Invalid Virtual Terminal code',
@@ -1263,7 +1263,7 @@ export async function unassignVirtualTerminalDestinations(
   code: string,
   targets: string[]
 ): Promise<PaystackResult<{ message: string }>> {
-  if (!code || !code.startsWith('VT_')) {
+  if (!code?.startsWith('VT_')) {
     return {
       success: false,
       error: 'Invalid Virtual Terminal code',
@@ -1288,7 +1288,7 @@ export async function addSplitToVirtualTerminal(
   code: string,
   splitCode: string
 ): Promise<PaystackResult<SplitResponse>> {
-  if (!code || !code.startsWith('VT_')) {
+  if (!code?.startsWith('VT_')) {
     return {
       success: false,
       error: 'Invalid Virtual Terminal code',
@@ -1296,7 +1296,7 @@ export async function addSplitToVirtualTerminal(
     };
   }
 
-  if (!splitCode || !splitCode.startsWith('SPL_')) {
+  if (!splitCode?.startsWith('SPL_')) {
     return {
       success: false,
       error: 'Invalid split code. Expected format: SPL_XXXXX',
@@ -1320,7 +1320,7 @@ export async function removeSplitFromVirtualTerminal(
   code: string,
   splitCode: string
 ): Promise<PaystackResult<{ message: string }>> {
-  if (!code || !code.startsWith('VT_')) {
+  if (!code?.startsWith('VT_')) {
     return {
       success: false,
       error: 'Invalid Virtual Terminal code',

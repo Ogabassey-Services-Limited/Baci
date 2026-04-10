@@ -22,7 +22,7 @@ export async function POST(
     const body = await request.json();
     const { payment_data, buyer } = body;
 
-    if (!payment_data || !payment_data.token) {
+    if (!payment_data?.token) {
       return NextResponse.json(
         { error: 'Payment token required' },
         { status: 400 }

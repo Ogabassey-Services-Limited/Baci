@@ -39,15 +39,15 @@ export function FloatingControls() {
   // biome-ignore lint/suspicious/noExplicitAny: Puck's internal state structure is not exported
   const state = appState as any;
   // Safety check: Ensure state and ui exist before accessing
-  if (!state || !state.ui) return null;
+  if (!state?.ui) return null;
 
   const { selectedItem } = state.ui;
   const { config } = state;
 
-  if (!selectedItem || !selectedItem.props) return null;
+  if (!selectedItem?.props) return null;
 
   // Safety check: Ensure config and components exist
-  if (!config || !config.components) return null;
+  if (!config?.components) return null;
 
   const componentConfig = config.components[selectedItem.type];
 

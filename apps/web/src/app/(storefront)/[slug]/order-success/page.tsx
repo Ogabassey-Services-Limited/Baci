@@ -99,7 +99,7 @@ function OrderSuccessContent() {
   return (
     <div className="min-h-screen bg-gray-50 pb-20 pt-10">
       {/* Google Customer Reviews Opt-in */}
-      {merchant && order && order.customer_email && (
+      {merchant && order?.customer_email && (
         <GoogleCustomerReviews
           merchant={merchant}
           orderId={order.id}

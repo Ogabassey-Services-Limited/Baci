@@ -134,7 +134,7 @@ export default function CustomerOrderDetailsPage() {
     );
   }
 
-  if (!merchant || !merchant.slug) {
+  if (!merchant?.slug) {
     return (
       <OrderStateCard
         title="Store unavailable"

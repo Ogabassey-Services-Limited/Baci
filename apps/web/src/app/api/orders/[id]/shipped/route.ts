@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
@@ -13,9 +14,65 @@ import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 import { sendEmail } from '@/lib/zeptomail';
 
 /** Order item interface for email templates (2026 best practice) */
-interface EmailOrderItem {
-  name: string;
-  quantity: number;
+const optionalTrimmedStringSchema = z.preprocess(
+  (value) =>
+    typeof value === 'string' && value.trim() === '' ? undefined : value,
+  z.string().trim().optional()
+);
+
+const shippedEmailRequestBodySchema = z
+  .object({
+    tracking_number: optionalTrimmedStringSchema,
+    courier_name: optionalTrimmedStringSchema,
+    estimated_delivery: optionalTrimmedStringSchema,
+  })
+  .strict();
+
+const shippedOrderSchema = z.object({
+  id: z.string().min(1),
+  customer_id: z.string().nullable().optional(),
+  order_number: z.string().nullable(),
+  customer_name: z.string().min(1),
+  customer_email: z.string().email(),
+  customer_phone: z.string().nullable(),
+  shipping_status: z.string().min(1),
+  shipping_provider: z.string().nullable(),
+  tracking_number: z.string().nullable(),
+  tracking_token: z.string().nullable(),
+  shipping_address: z
+    .object({
+      address: z.string().nullable().optional(),
+      city: z.string().nullable().optional(),
+      state: z.string().nullable().optional(),
+    })
+    .nullable(),
+  order_items: z
+    .array(
+      z.object({
+        name: z.string().nullable(),
+        quantity: z.number().nullable(),
+      })
+    )
+    .nullable(),
+});
+
+type ShippedOrderRecord = z.infer<typeof shippedOrderSchema>;
+
+function buildTrackingUrl(
+  rootDomain: string,
+  merchantSlug: string,
+  order: ShippedOrderRecord,
+  trackingNumber?: string
+): string | undefined {
+  if (order.tracking_token) {
+    return `https://${merchantSlug}.${rootDomain}/track-order?token=${encodeURIComponent(order.tracking_token)}`;
+  }
+
+  if (trackingNumber) {
+    return `https://${rootDomain}/track/${encodeURIComponent(trackingNumber)}`;
+  }
+
+  return undefined;
 }
 
 /**
@@ -39,13 +96,30 @@ export async function POST(
     let courierName: string | undefined;
     let estimatedDelivery: string | undefined;
 
-    try {
-      const body = await request.json();
-      trackingNumber = body.tracking_number;
-      courierName = body.courier_name;
-      estimatedDelivery = body.estimated_delivery;
-    } catch {
-      // No body provided, that's fine
+    const rawBody = await request.text();
+    if (rawBody.trim().length > 0) {
+      let body: unknown;
+      try {
+        body = JSON.parse(rawBody);
+      } catch {
+        return NextResponse.json(
+          { error: 'Malformed JSON body' },
+          { status: 400 }
+        );
+      }
+      const parsedBody = shippedEmailRequestBodySchema.safeParse(body);
+      if (!parsedBody.success) {
+        return NextResponse.json(
+          {
+            error: 'Invalid request body',
+            details: parsedBody.error.flatten(),
+          },
+          { status: 400 }
+        );
+      }
+      trackingNumber = parsedBody.data.tracking_number;
+      courierName = parsedBody.data.courier_name;
+      estimatedDelivery = parsedBody.data.estimated_delivery;
     }
 
     // Authenticate request
@@ -95,9 +169,22 @@ export async function POST(
     if (orderError || !order) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
+    const parsedOrder = shippedOrderSchema.safeParse(order);
+    if (!parsedOrder.success) {
+      logger.error({
+        message: 'Invalid order payload for shipped email',
+        orderId: id,
+        error: parsedOrder.error.flatten(),
+      });
+      return NextResponse.json(
+        { error: 'Invalid order payload' },
+        { status: 500 }
+      );
+    }
+    const shippedOrder: ShippedOrderRecord = parsedOrder.data;
 
     // Check if order is actually shipped
-    if (order.shipping_status !== 'shipped') {
+    if (shippedOrder.shipping_status !== 'shipped') {
       return NextResponse.json(
         { error: 'Order must be marked as shipped first' },
         { status: 400 }
@@ -107,25 +194,37 @@ export async function POST(
     // Prepare email data
     const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
     const merchantUrl = `https://${merchant.slug}.${rootDomain}`;
+    const resolvedTrackingNumber =
+      trackingNumber || shippedOrder.tracking_number || undefined;
+    const resolvedCourierName =
+      courierName || shippedOrder.shipping_provider || undefined;
+    const trackingUrl = buildTrackingUrl(
+      rootDomain,
+      merchant.slug,
+      shippedOrder,
+      resolvedTrackingNumber
+    );
 
     const emailItems =
-      order.order_items?.map((item: EmailOrderItem) => ({
+      shippedOrder.order_items?.map((item) => ({
         name: item.name || 'Product',
         quantity: item.quantity || 1,
       })) || [];
 
     const shippedData = {
-      orderNumber: order.order_number || order.id.slice(0, 8).toUpperCase(),
-      customerName: order.customer_name,
+      orderNumber:
+        shippedOrder.order_number || shippedOrder.id.slice(0, 8).toUpperCase(),
+      customerName: shippedOrder.customer_name,
       items: emailItems,
       shippingAddress: {
-        address: order.shipping_address?.address || '',
-        city: order.shipping_address?.city || '',
-        state: order.shipping_address?.state || '',
-        phone: order.customer_phone || '',
+        address: shippedOrder.shipping_address?.address || '',
+        city: shippedOrder.shipping_address?.city || '',
+        state: shippedOrder.shipping_address?.state || '',
+        phone: shippedOrder.customer_phone || '',
       },
-      trackingNumber,
-      courierName,
+      trackingNumber: resolvedTrackingNumber,
+      trackingUrl,
+      courierName: resolvedCourierName,
       estimatedDelivery,
       merchantName: merchant.business_name,
       merchantUrl,
@@ -147,8 +246,8 @@ export async function POST(
 
     // Send email
     const emailResult = await sendEmail({
-      to: order.customer_email,
-      toName: order.customer_name,
+      to: shippedOrder.customer_email,
+      toName: shippedOrder.customer_name,
       subject: `Your Order #${shippedData.orderNumber} Has Shipped! 🚚`,
       htmlContent,
       textContent,
@@ -157,8 +256,8 @@ export async function POST(
       fromName: senderName,
       auditContext: {
         merchantId,
-        orderId: order.id,
-        customerId: order.customer_id,
+        orderId: shippedOrder.id,
+        customerId: shippedOrder.customer_id,
         metadata: {
           trigger: 'order_shipped_notification',
         },

@@ -5,6 +5,7 @@ import {
   generateOrderConfirmationText,
   generateOrderDeliveredEmail,
   generateOrderShippedEmail,
+  generateOrderShippedText,
   generatePaymentReceiptEmail,
   generatePaymentReminderEmail,
 } from './email-templates';
@@ -153,6 +154,38 @@ describe('Email Templates', () => {
 
       expect(html).toContain('TIN: 4444444444');
       expect(html).toContain('RC: RC-44444');
+    });
+  });
+
+  describe('Tracking Info in Shipped Emails', () => {
+    it('includes tracking number and tracking link in shipped email', () => {
+      const shippedPayload = {
+        orderNumber: 'ORD-004',
+        customerName: 'Jane Doe',
+        items: [{ name: 'Gadget', quantity: 1 }],
+        shippingAddress: {
+          address: '456 Test Ave',
+          city: 'Abuja',
+          state: 'FCT',
+          phone: '+2349012345678',
+        },
+        trackingNumber: 'T222600389',
+        trackingUrl:
+          'https://testshop.usebaci.com/track-order?token=track-token-123',
+        courierName: 'TOPSHIP',
+        merchantName: 'TestShop',
+        merchantUrl: 'https://testshop.usebaci.com',
+      };
+      const html = generateOrderShippedEmail(shippedPayload);
+      const text = generateOrderShippedText(shippedPayload);
+
+      expect(html).toContain(shippedPayload.trackingNumber);
+      expect(html).toContain(shippedPayload.trackingUrl);
+      expect(html).toContain('Track Package');
+      expect(text).toContain(
+        `Tracking Number: ${shippedPayload.trackingNumber}`
+      );
+      expect(text).toContain(`Tracking Link: ${shippedPayload.trackingUrl}`);
     });
   });
 

@@ -326,11 +326,16 @@ export function createMyCoverClient(): MyCoverClient | null {
 
 // Type exports for use in other modules
 export type {
-  MyCoverConfig,
-  MyCoverResponse,
-  WalletBalance,
-  ListPoliciesParams,
+  ItemDetail,
   ListClaimsParams,
+  ListPoliciesParams,
   MyCoverClaim,
+  MyCoverConfig,
+  MyCoverPolicy,
   MyCoverProduct,
+  MyCoverResponse,
+  PolicySearchParams,
+  PurchaseGadgetParams,
+  PurchaseGITParams,
+  WalletBalance,
 };

@@ -69,7 +69,7 @@ Generate the enhanced product image.`,
       f.mediaType?.startsWith('image/')
     );
 
-    if (!imageFile || !imageFile.base64) {
+    if (!imageFile?.base64) {
       logger.error({
         message: 'No enhanced image returned from AI',
         fileCount: result.files?.length ?? 0,

@@ -164,7 +164,7 @@ Please generate the logo image now.`;
         file.mediaType.startsWith('image/')
       );
 
-      if (!imageFile || !imageFile.base64) {
+      if (!imageFile?.base64) {
         logger.error({ message: 'No image generated in response' });
         throw new Error('No image generated.');
       }

@@ -238,7 +238,7 @@ const NodeRenderer = ({
       const imageSrc = rawSrc ? sanitizeUrl(rawSrc) : '';
 
       // Only allow http/https protocols for blog images in 2026 for security and CDN stability
-      if (!imageSrc || !imageSrc.startsWith('http')) {
+      if (!imageSrc?.startsWith('http')) {
         console.warn('Blog image node missing or invalid src attribute');
         return null;
       }

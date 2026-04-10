@@ -41,6 +41,7 @@ export const gemini25Flash = google('gemini-2.5-flash'); // Legacy Gemini 2.5 Fl
 // Image generation models (December 2025)
 // alias for compatibility
 const gemini25FlashImage = activeImageModel;
+
 export { gemini25FlashImage };
 export const gemini3ProImage = google('gemini-3-pro-image-preview'); // High quality image gen (Nano Banana Pro)
 

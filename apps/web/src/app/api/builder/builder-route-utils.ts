@@ -430,7 +430,7 @@ export async function publishBuilderDraft(
     };
   }
 
-  if (!currentConfig || !currentConfig.draft_config) {
+  if (!currentConfig?.draft_config) {
     return {
       response: NextResponse.json(
         { error: 'No draft to publish' },
