@@ -16,17 +16,24 @@ import {
 } from '@/hooks/useProducts';
 import { useTheme } from '@/hooks/useTheme';
 
+function getSingleParam(value?: string | string[]) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 export default function AnalyticsProductsScreen() {
   const { colors, isDark } = useTheme();
   const { format: formatCurrency } = useCurrency();
   const router = useRouter();
   const params = useLocalSearchParams<{
-    endDate?: string;
-    filterLabel?: string;
-    startDate?: string;
+    endDate?: string | string[];
+    filterLabel?: string | string[];
+    startDate?: string | string[];
   }>();
-  const parsedStartDate = params.startDate ? new Date(params.startDate) : null;
-  const parsedEndDate = params.endDate ? new Date(params.endDate) : null;
+  const startDateParam = getSingleParam(params.startDate);
+  const endDateParam = getSingleParam(params.endDate);
+  const filterLabelParam = getSingleParam(params.filterLabel);
+  const parsedStartDate = startDateParam ? new Date(startDateParam) : null;
+  const parsedEndDate = endDateParam ? new Date(endDateParam) : null;
   const range =
     parsedStartDate &&
     parsedEndDate &&
@@ -86,8 +93,8 @@ export default function AnalyticsProductsScreen() {
       <Stack.Screen
         options={{
           headerShown: true,
-          title: params.filterLabel
-            ? `Top Products · ${params.filterLabel}`
+          title: filterLabelParam
+            ? `Top Products · ${filterLabelParam}`
             : 'Top Products',
           headerStyle: { backgroundColor: colors.background },
           headerTintColor: colors.text,

@@ -139,9 +139,13 @@ function buildChartData(
   startDate: Date,
   endDate: Date
 ) {
+  const startDay = new Date(startDate);
+  startDay.setUTCHours(0, 0, 0, 0);
+  const endDay = new Date(endDate);
+  endDay.setUTCHours(0, 0, 0, 0);
   const days = Math.max(
     1,
-    Math.ceil((endDate.getTime() - startDate.getTime()) / DAY_MS) + 1
+    Math.floor((endDay.getTime() - startDay.getTime()) / DAY_MS) + 1
   );
   const mode = days <= 31 ? 'day' : days <= 180 ? 'week' : 'month';
   const buckets = new Map<string, MerchantAnalyticsChartPoint>();

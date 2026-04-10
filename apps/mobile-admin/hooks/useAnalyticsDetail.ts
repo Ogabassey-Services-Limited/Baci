@@ -101,6 +101,7 @@ export function useAnalyticsDetail({
       granularity,
       startDate,
       endDate,
+      filterLabel,
       includeComparison,
       timezone,
     ],
@@ -290,7 +291,7 @@ export function useAnalyticsDetail({
         let prevOrderItems: OrderItemWithJoins[] = [];
         let prevOrders: AnalyticsOrder[] | null = null;
 
-        if (metric === 'profits') {
+        if (metric === 'profits' || metric === 'revenue') {
           const [
             { data: profitsOrders, error: prevOrdersError },
             { data: profitsOrderItems, error: prevOrderItemsError },
@@ -372,7 +373,7 @@ export function useAnalyticsDetail({
         });
 
         // Calculate profits for comparison period
-        if (metric === 'profits' && comparisonData) {
+        if ((metric === 'profits' || metric === 'revenue') && comparisonData) {
           const comparisonBuckets = comparisonData;
 
           prevOrderItems.forEach((item) => {
@@ -386,9 +387,16 @@ export function useAnalyticsDetail({
             if (bucketIndex >= 0 && bucketIndex < comparisonBuckets.length) {
               const revenue = (item.price || 0) * (item.quantity || 1);
               const cost = (product.cost_price || 0) * (item.quantity || 1);
-              comparisonBuckets[bucketIndex].value += revenue - cost;
-              comparisonBuckets[bucketIndex].secondaryValue =
-                (comparisonBuckets[bucketIndex].secondaryValue || 0) + revenue;
+              if (metric === 'profits') {
+                comparisonBuckets[bucketIndex].value += revenue - cost;
+                comparisonBuckets[bucketIndex].secondaryValue =
+                  (comparisonBuckets[bucketIndex].secondaryValue || 0) +
+                  revenue;
+              } else {
+                comparisonBuckets[bucketIndex].secondaryValue =
+                  (comparisonBuckets[bucketIndex].secondaryValue || 0) +
+                  (revenue - cost);
+              }
             }
           });
         }

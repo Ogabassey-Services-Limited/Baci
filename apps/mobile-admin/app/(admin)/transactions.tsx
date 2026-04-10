@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -39,20 +39,20 @@ export default function TransactionsScreen() {
   const [costPriceInput, setCostPriceInput] = useState('');
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const summary = useMemo(() => {
-    return orders.reduce(
-      (acc, order) => ({
-        estimatedProfit: acc.estimatedProfit + order.estimatedProfit,
-        missingCosts: acc.missingCosts + order.missingCostCount,
-        transactions: acc.transactions + 1,
-      }),
-      { estimatedProfit: 0, missingCosts: 0, transactions: 0 }
-    );
-  }, [orders]);
+  const summary = orders.reduce(
+    (acc, order) => ({
+      estimatedProfit: acc.estimatedProfit + order.estimatedProfit,
+      missingCosts: acc.missingCosts + order.missingCostCount,
+      transactions: acc.transactions + 1,
+    }),
+    { estimatedProfit: 0, missingCosts: 0, transactions: 0 }
+  );
 
   const handleOpenEditor = (item: TransactionReviewItem) => {
     setSelectedItem(item);
-    setCostPriceInput(item.costPrice > 0 ? String(item.costPrice) : '');
+    setCostPriceInput(
+      item.costPrice == null ? '' : String(item.costPrice)
+    );
     setSaveError(null);
   };
 
@@ -286,14 +286,16 @@ export default function TransactionsScreen() {
                       <Text
                         style={[styles.itemMetaValue, { color: colors.text }]}
                       >
-                        Cost {formatCurrency(item.costPrice)}
+                        {item.costPrice == null
+                          ? 'Cost missing'
+                          : `Cost ${formatCurrency(item.costPrice)}`}
                       </Text>
                       <Text
                         style={[
                           styles.orderSubtitle,
                           {
                             color:
-                              item.costPrice <= 0
+                              item.costPrice == null
                                 ? colors.error
                                 : colors.textMuted,
                           },

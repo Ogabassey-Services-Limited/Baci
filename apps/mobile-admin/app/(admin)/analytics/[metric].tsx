@@ -206,7 +206,12 @@ export default function AnalyticsDetailScreen() {
   const handleShare = async () => {
     if (!analyticsData) return;
 
-    const summary = `${config.title} for ${analyticsData.rangeLabel}: ${formatCurrency(analyticsData.total)}${
+    const formattedTotal =
+      metric === 'sales'
+        ? analyticsData.total.toLocaleString()
+        : formatCurrency(analyticsData.total);
+
+    const summary = `${config.title} for ${analyticsData.rangeLabel}: ${formattedTotal}${
       analyticsData.percentChange !== undefined
         ? ` (${analyticsData.percentChange >= 0 ? '+' : ''}${analyticsData.percentChange.toFixed(1)}% vs previous period)`
         : ''

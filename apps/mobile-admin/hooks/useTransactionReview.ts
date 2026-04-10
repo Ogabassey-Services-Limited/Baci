@@ -27,7 +27,7 @@ interface TransactionOrderRow {
 }
 
 export interface TransactionReviewItem {
-  costPrice: number;
+  costPrice: number | null;
   id: string;
   name: string;
   productId: string | null;
@@ -86,13 +86,15 @@ export function useTransactionReview() {
           const product = getJoinedProduct(item.products);
           const quantity = Number(item.quantity ?? 1);
           const revenue = Number(item.price ?? 0) * quantity;
-          const costPrice = Number(product?.cost_price ?? 0);
+          const costPrice =
+            product?.cost_price == null ? null : Number(product.cost_price);
+          const numericCost = Number(product?.cost_price ?? 0);
           return {
             costPrice,
             id: item.id,
             name: item.name ?? 'Product',
             productId: item.product_id,
-            profit: revenue - costPrice * quantity,
+            profit: revenue - numericCost * quantity,
             quantity,
             revenue,
           };
@@ -104,7 +106,8 @@ export function useTransactionReview() {
           estimatedProfit: items.reduce((sum, item) => sum + item.profit, 0),
           id: order.id,
           items,
-          missingCostCount: items.filter((item) => item.costPrice <= 0).length,
+          missingCostCount: items.filter((item) => item.costPrice == null)
+            .length,
           orderNumber: order.order_number ?? order.id.slice(0, 8),
           paymentMethod: order.payment_method ?? 'unknown',
           total: Number(order.total ?? 0),

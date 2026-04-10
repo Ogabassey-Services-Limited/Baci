@@ -3,6 +3,7 @@ import { Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -29,25 +30,40 @@ function parseDateParam(value: string | undefined, fallback: Date): Date {
   return Number.isNaN(parsed.getTime()) ? fallback : parsed;
 }
 
+function getSingleParam(value?: string | string[]) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 export default function AnalyticsInsightsScreen() {
   const { colors, isDark } = useTheme();
   const { format: formatCurrency } = useCurrency();
   const params = useLocalSearchParams<{
-    endDate?: string;
-    filterLabel?: string;
-    kind?: string;
-    startDate?: string;
+    endDate?: string | string[];
+    filterLabel?: string | string[];
+    kind?: string | string[];
+    startDate?: string | string[];
   }>();
-  // Stable fallback timestamp computed once per mount so the range object
-  // passed into useAnalyticsOverview doesn't churn the query key every render.
-  const [fallbackNow] = useState(() => new Date());
+  // Match the API's default analytics window when params are absent so we
+  // never collapse into a zero-width "now to now" request.
+  const [fallbackRange] = useState(() => {
+    const end = new Date();
+    const start = new Date(end.getTime() - 6 * 24 * 60 * 60 * 1000);
+    return { end, start };
+  });
+  const startDateParam = getSingleParam(params.startDate);
+  const endDateParam = getSingleParam(params.endDate);
+  const filterLabelParam = getSingleParam(params.filterLabel);
+  const kind = getSingleParam(params.kind) ?? 'blog';
   const range = {
-    endDate: parseDateParam(params.endDate, fallbackNow),
-    startDate: parseDateParam(params.startDate, fallbackNow),
+    endDate: parseDateParam(endDateParam, fallbackRange.end),
+    startDate: parseDateParam(startDateParam, fallbackRange.start),
   };
-  const { data: analytics, isLoading, error } = useAnalyticsOverview(range);
-
-  const kind = params.kind ?? 'blog';
+  const {
+    data: analytics,
+    isLoading,
+    error,
+    refetch,
+  } = useAnalyticsOverview(range);
 
   useEffect(() => {
     if (error) {
@@ -116,6 +132,19 @@ export default function AnalyticsInsightsScreen() {
           <Text style={[styles.stateText, { color: colors.textSecondary }]}>
             Unable to load analytics right now.
           </Text>
+          <Pressable
+            onPress={() => {
+              void refetch();
+            }}
+            style={[
+              styles.retryButton,
+              { backgroundColor: colors.primary },
+            ]}
+          >
+            <Text style={[styles.retryText, { color: colors.textOnPrimary }]}>
+              Try again
+            </Text>
+          </Pressable>
         </View>
       );
     }
@@ -129,7 +158,7 @@ export default function AnalyticsInsightsScreen() {
           ]}
         >
           <Text style={[styles.heroEyebrow, { color: colors.textSecondary }]}>
-            {params.filterLabel || 'Selected period'}
+            {filterLabelParam || 'Selected period'}
           </Text>
           {kind === 'blog' ? (
             <>
@@ -162,7 +191,7 @@ export default function AnalyticsInsightsScreen() {
               </Text>
               <Text style={[styles.heroSubtitle, { color: colors.textMuted }]}>
                 Ranked breakdown for{' '}
-                {params.filterLabel || 'the selected period'}
+                {filterLabelParam || 'the selected period'}
               </Text>
             </>
           )}
@@ -281,5 +310,15 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     fontSize: TYPOGRAPHY.size.sm,
     textAlign: 'center',
+  },
+  retryButton: {
+    borderRadius: RADIUS.full,
+    marginTop: SPACING.sm,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
+  },
+  retryText: {
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    fontSize: TYPOGRAPHY.size.sm,
   },
 });

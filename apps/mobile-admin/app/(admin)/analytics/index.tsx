@@ -136,9 +136,25 @@ export default function AnalyticsScreen() {
       point.orders ? point.revenue / point.orders : 0
     ) ?? [];
 
+  const getResolvedFilterLabel = () => {
+    if (dateFilter === 'custom') {
+      return `${formatDate(range.startDate)} - ${formatDate(range.endDate)}`;
+    }
+
+    const currentYear = new Date().getFullYear();
+    if (
+      (dateFilter === 'this_year' || dateFilter === 'last_year') &&
+      selectedYear !== currentYear
+    ) {
+      return selectedYear.toString();
+    }
+
+    return getAnalyticsFilterLabel(dateFilter);
+  };
+
   const buildAnalyticsParams = () => ({
     endDate: range.endDate.toISOString(),
-    filterLabel: getAnalyticsFilterLabel(dateFilter),
+    filterLabel: getResolvedFilterLabel(),
     startDate: range.startDate.toISOString(),
   });
 
