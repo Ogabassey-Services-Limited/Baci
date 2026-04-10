@@ -1177,7 +1177,7 @@ function CheckoutPageContent() {
 
     try {
       // Get merchant ID from context (useMerchant hook)
-      if (!merchant || !merchant.id) {
+      if (!merchant?.id) {
         throw new Error(
           'Merchant information not available. Please refresh the page and try again.'
         );

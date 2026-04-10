@@ -13,7 +13,7 @@ export function normalizeSocialUrl(
     | 'linkedin'
     | 'snapchat'
 ): string | undefined {
-  if (!input || !input.trim()) return undefined;
+  if (!input?.trim()) return undefined;
 
   const cleanInput = input.trim();
 

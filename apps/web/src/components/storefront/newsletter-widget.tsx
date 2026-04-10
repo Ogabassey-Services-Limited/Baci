@@ -87,7 +87,7 @@ export function NewsletterWidget({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!email || !email.includes('@')) {
+    if (!email?.includes('@')) {
       toast({
         title: 'Invalid email',
         description: 'Please enter a valid email address.',

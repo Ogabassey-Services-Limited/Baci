@@ -373,59 +373,57 @@ describe('POST /api/payments/initialize', () => {
       expect(json.crypto_address_pending).toBeUndefined();
     });
 
-    it(
-      'returns crypto_address_pending when address not ready after polling',
-      { timeout: 30000 },
-      async () => {
-        mockInitializeJuicyway.mockResolvedValue({
-          id: 'session-123',
+    it('returns crypto_address_pending when address not ready after polling', {
+      timeout: 30000,
+    }, async () => {
+      mockInitializeJuicyway.mockResolvedValue({
+        id: 'session-123',
+        status: 'pending',
+      });
+      mockCapturePaymentWithCrypto.mockResolvedValue({
+        success: true,
+        data: {
+          payment: {
+            id: 'payment-456',
+            amount: 500000,
+            status: 'pending',
+            // No payment_method with address
+          },
+        },
+      });
+      // All polls return pending without address
+      mockGetPaymentSession.mockResolvedValue({
+        success: true,
+        data: {
           status: 'pending',
-        });
-        mockCapturePaymentWithCrypto.mockResolvedValue({
-          success: true,
-          data: {
-            payment: {
-              id: 'payment-456',
-              amount: 500000,
-              status: 'pending',
-              // No payment_method with address
-            },
-          },
-        });
-        // All polls return pending without address
-        mockGetPaymentSession.mockResolvedValue({
-          success: true,
-          data: {
-            status: 'pending',
-            payment: { id: 'payment-456', status: 'pending' },
-          },
-        });
-        mockGetPayment.mockResolvedValue({
-          success: true,
-          data: {
-            status: 'pending',
-            payment_method: { type: 'crypto_address' },
-          },
-        });
+          payment: { id: 'payment-456', status: 'pending' },
+        },
+      });
+      mockGetPayment.mockResolvedValue({
+        success: true,
+        data: {
+          status: 'pending',
+          payment_method: { type: 'crypto_address' },
+        },
+      });
 
-        const res = await POST(
-          makeRequest({
-            ...validBody,
-            gateway: 'juicyway',
-            crypto_chain: 'TRX',
-            crypto_currency: 'USDT',
-          })
-        );
-        const json = await res.json();
+      const res = await POST(
+        makeRequest({
+          ...validBody,
+          gateway: 'juicyway',
+          crypto_chain: 'TRX',
+          crypto_currency: 'USDT',
+        })
+      );
+      const json = await res.json();
 
-        expect(res.status).toBe(200);
-        expect(json.success).toBe(true);
-        expect(json.crypto_address_pending).toBe(true);
-        expect(json.crypto_payment.address).toBe('');
-        expect(json.session_id).toBe('session-123');
-        expect(json.crypto_payment.payment_id).toBe('payment-456');
-      }
-    );
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(json.crypto_address_pending).toBe(true);
+      expect(json.crypto_payment.address).toBe('');
+      expect(json.session_id).toBe('session-123');
+      expect(json.crypto_payment.payment_id).toBe('payment-456');
+    });
 
     it('returns address found during polling', { timeout: 15000 }, async () => {
       mockInitializeJuicyway.mockResolvedValue({

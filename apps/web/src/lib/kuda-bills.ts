@@ -17,10 +17,10 @@ import {
 
 // Re-export for convenience
 export {
-  verifyBillCustomer,
-  getBillersByType,
   type Biller,
+  getBillersByType,
   type PurchaseResult,
+  verifyBillCustomer,
 };
 
 /**

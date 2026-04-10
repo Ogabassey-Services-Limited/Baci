@@ -463,7 +463,7 @@ function calculateEstimatedDelivery(order: {
 }
 
 function maskEmail(email: string): string {
-  if (!email || !email.includes('@')) return '***';
+  if (!email?.includes('@')) return '***';
   const [local, domain] = email.split('@');
   if (local.length <= 2) {
     return `${local[0]}***@${domain}`;

@@ -6,8 +6,7 @@ import { escapeHtml, stripHtmlTags } from './sanitize-core';
 import { sanitizeSchemaMarkup } from './sanitize-json-ld';
 
 // Re-export escapeHtml for use in other modules
-export { escapeHtml };
-export { getEffectiveProductStock };
+export { escapeHtml, getEffectiveProductStock };
 
 /**
  * Generates a URL-friendly slug from a string

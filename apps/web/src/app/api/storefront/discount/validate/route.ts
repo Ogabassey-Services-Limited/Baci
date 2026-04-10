@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     const parsedSingle = parsedArray.success
       ? null
       : storefrontDiscountCodeRowSchema.safeParse(data);
-    if (!parsedArray.success && (!parsedSingle || !parsedSingle.success)) {
+    if (!parsedArray.success && !parsedSingle?.success) {
       return NextResponse.json(
         { valid: false, error: 'Invalid discount code' },
         { status: 200 }

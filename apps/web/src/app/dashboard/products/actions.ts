@@ -472,7 +472,7 @@ export async function fetchGoogleSheet(url: string): Promise<string> {
         /\/d\/e\/([a-zA-Z0-9-_]+)/
       );
 
-      if (!publishedMatch || !publishedMatch[1]) {
+      if (!publishedMatch?.[1]) {
         throw new Error(
           'Invalid Google Sheets URL. Could not extract published spreadsheet ID.'
         );
@@ -513,7 +513,7 @@ export async function fetchGoogleSheet(url: string): Promise<string> {
     // Extract spreadsheet ID using regex from validated pathname
     const match = parsedUrl.pathname.match(/\/d\/([a-zA-Z0-9-_]+)/);
 
-    if (!match || !match[1]) {
+    if (!match?.[1]) {
       throw new Error(
         'Invalid Google Sheets URL. Could not extract spreadsheet ID.'
       );
