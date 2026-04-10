@@ -1,4 +1,11 @@
-import { ChevronRight, CreditCard, Receipt, Shield, Users } from 'lucide-react';
+import {
+  BadgeCheck,
+  ChevronRight,
+  CreditCard,
+  Receipt,
+  Shield,
+  Users,
+} from 'lucide-react';
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
@@ -89,7 +96,7 @@ export default async function SettingsPage() {
         <Card className="glass">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5" />
+              <BadgeCheck className="h-5 w-5" />
               Business Verification (KYC)
             </CardTitle>
             <CardDescription>

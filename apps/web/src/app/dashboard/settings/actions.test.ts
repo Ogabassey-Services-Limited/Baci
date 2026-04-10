@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 vi.mock('next/headers', () => ({ cookies: vi.fn().mockResolvedValue({}) }));
@@ -19,6 +19,10 @@ import { processFavicon } from '@/lib/favicon-processor';
 import { uploadFavicon } from './actions';
 
 describe('uploadFavicon', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('returns error when no file in FormData', async () => {
     // Arrange
     const formData = new FormData();
@@ -70,5 +74,6 @@ describe('uploadFavicon', () => {
 
     // Assert
     expect(result).toEqual({ success: false, error: 'Sharp failed' });
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 });

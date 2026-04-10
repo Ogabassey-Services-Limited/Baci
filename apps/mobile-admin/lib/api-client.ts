@@ -255,12 +255,12 @@ export async function apiClient<T = unknown>(
 export async function apiFormData<T = unknown>(
   endpoint: string,
   formData: FormData,
-  options: { timeout?: number } = {}
+  options: { timeout?: number; requiresAuth?: boolean } = {}
 ): Promise<T> {
-  const { timeout = DEFAULT_TIMEOUT_MS } = options;
+  const { timeout = DEFAULT_TIMEOUT_MS, requiresAuth = true } = options;
 
   const controller = new AbortController();
-  // biome-ignore lint/style/noUnusedTemporaries: used in finally block
+  // timeoutId is cleared in the finally block below to cancel the abort timer
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
@@ -272,11 +272,13 @@ export async function apiFormData<T = unknown>(
 
   try {
     const headers: Record<string, string> = {};
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (session?.access_token) {
-      headers.Authorization = `Bearer ${session.access_token}`;
+    if (requiresAuth) {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        headers.Authorization = `Bearer ${session.access_token}`;
+      }
     }
 
     const response = await fetch(url, {

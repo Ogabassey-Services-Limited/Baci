@@ -29,7 +29,10 @@ export function fetchWithCsrf(
     );
   }
 
-  // Set content-type for JSON requests, but skip for FormData (browser sets multipart boundary)
+  // Only set application/json when the body is a string. Non-string bodies
+  // (FormData, Blob, ArrayBuffer, URLSearchParams, ReadableStream, etc.) are
+  // left alone so the browser/runtime can set the correct content-type and
+  // multipart boundary automatically.
   if (
     options.body &&
     typeof options.body === 'string' &&

@@ -85,7 +85,7 @@ describe('fetchWithCsrf', () => {
     expect(headers.get('content-type')).toBeNull();
   });
 
-  it('sets content-type to application/json for non-FormData body', async () => {
+  it('sets content-type to application/json for stringified JSON body', async () => {
     const fetchSpy = vi
       .spyOn(globalThis, 'fetch')
       .mockResolvedValue(new Response('{}'));
