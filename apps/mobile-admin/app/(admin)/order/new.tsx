@@ -63,6 +63,7 @@ import {
 } from '@/hooks/useCustomers';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useMerchant } from '@/hooks/useMerchant';
+import { useProductPicker } from '@/hooks/useProductPicker';
 import type { Product } from '@/hooks/useProducts';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
@@ -228,11 +229,13 @@ export default function NewOrderScreen() {
   const [productSearch, setProductSearch] = useState('');
   const [customerSearch, setCustomerSearch] = useState('');
   const {
+    error: productsError,
     fetchNextPage: fetchMoreProducts,
     hasNextPage: hasMoreProducts,
     isFetchingNextPage: isFetchingMoreProducts,
     isLoading: isProductsLoading,
     products: filteredProducts,
+    refetch: refetchProducts,
   } = useProductPicker(productSearch);
   const debouncedCustomerSearch = useDebounce(customerSearch, 300);
   const { data: customersData } = useCustomers({
@@ -1604,7 +1607,42 @@ export default function NewOrderScreen() {
                 ) : null
               }
               ListEmptyComponent={
-                isProductsLoading ? (
+                productsError ? (
+                  <View style={{ padding: 20, alignItems: 'center', gap: 12 }}>
+                    <Text
+                      style={{
+                        color: colors.textSecondary,
+                        fontSize: 14,
+                        textAlign: 'center',
+                      }}
+                    >
+                      {productsError instanceof Error
+                        ? productsError.message
+                        : 'Unable to load products right now.'}
+                    </Text>
+                    <Pressable
+                      onPress={() => {
+                        void refetchProducts();
+                      }}
+                      style={{
+                        backgroundColor: colors.primary,
+                        borderRadius: 10,
+                        paddingHorizontal: 16,
+                        paddingVertical: 10,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: colors.background,
+                          fontSize: 14,
+                          fontWeight: '600',
+                        }}
+                      >
+                        Retry
+                      </Text>
+                    </Pressable>
+                  </View>
+                ) : isProductsLoading ? (
                   <ActivityIndicator
                     size="large"
                     color={colors.primary}

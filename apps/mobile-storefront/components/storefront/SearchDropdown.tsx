@@ -205,7 +205,7 @@ export function SearchDropdown({
             <ResultsContent
               products={products}
               isLoading={isLoading}
-              query={activeQuery}
+              query={effectiveQuery}
               colors={colors}
               onProductPress={handleProductPress}
             />

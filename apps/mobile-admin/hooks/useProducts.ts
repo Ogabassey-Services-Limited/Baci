@@ -5,6 +5,7 @@
 
 import {
   MOBILE_ADMIN_PRODUCT_WITH_RELATIONS_QUERY,
+  normalizeProductSearchText,
   MOBILE_ADMIN_PRODUCT_COLUMNS as PRODUCT_COLUMNS,
 } from '@baci/shared';
 import {
@@ -145,9 +146,9 @@ async function assertNoDuplicateProduct(args: {
 
   // Shared ranked search catches compact model variants like "ProMax".
   if (similarProducts.length > 0) {
-    const inputSlug = normalizedSlug;
+    const normalizedSearchName = normalizeProductSearchText(normalizedName);
     const match = similarProducts.find((product) => {
-      return toProductSlug(product.name) === inputSlug;
+      return normalizeProductSearchText(product.name) === normalizedSearchName;
     });
     if (match) {
       throw new Error(`A similar product "${match.name}" already exists.`);

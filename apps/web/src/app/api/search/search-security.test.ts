@@ -52,6 +52,14 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => mockSupabase),
 }));
 
+vi.mock('@/lib/logger', () => ({
+  logger: {
+    error: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+  },
+}));
+
 vi.mock('next/headers', () => ({
   cookies: vi.fn().mockResolvedValue({
     get: vi.fn(),
@@ -104,6 +112,25 @@ describe('Search API Security', () => {
       expect(response.status).toBe(400);
       const data = await response.json();
       expect(data.error).toMatch(/Invalid merchant_id/);
+    });
+
+    it('returns 500 when spelling suggestion lookup fails', async () => {
+      mockSupabase.rpc
+        .mockResolvedValueOnce({ data: [], error: null })
+        .mockResolvedValueOnce({
+          data: null,
+          error: { message: 'suggestion failed' },
+        });
+
+      const request = new NextRequest(
+        'http://localhost:3000/api/search?q=iphone&merchant_id=123e4567-e89b-12d3-a456-426614174000'
+      );
+
+      const response = await searchGET(request);
+
+      expect(response.status).toBe(500);
+      const data = await response.json();
+      expect(data.error).toBe('Failed to perform search');
     });
   });
 

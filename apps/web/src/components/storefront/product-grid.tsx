@@ -117,6 +117,7 @@ export function StorefrontProductGrid({
   >([]);
   const [didYouMean, setDidYouMean] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   useEffect(() => {
     if (merchant?.id && !isPreviewMode) {
@@ -142,11 +143,13 @@ export function StorefrontProductGrid({
       setServerSearchProductIds([]);
       setDidYouMean(null);
       setIsSearching(false);
+      setSearchError(null);
       return;
     }
 
     let cancelled = false;
     setIsSearching(true);
+    setSearchError(null);
     apiGet<{ didYouMean: string | null; productIds: string[] }>(
       `/api/search?q=${encodeURIComponent(debouncedSearchQuery)}&merchant_id=${merchant.id}`
     )
@@ -154,13 +157,17 @@ export function StorefrontProductGrid({
         if (cancelled) return;
         setServerSearchProductIds(data.productIds || []);
         setDidYouMean(data.didYouMean || null);
+        setSearchError(null);
         setIsSearching(false);
       })
       .catch((err) => {
         if (cancelled) return;
         console.error('Search error:', err);
-        setServerSearchProductIds([]);
-        setDidYouMean(null);
+        setSearchError(
+          err instanceof Error
+            ? err.message
+            : 'We could not refresh search results right now.'
+        );
         setIsSearching(false);
       });
 
@@ -424,6 +431,12 @@ export function StorefrontProductGrid({
               </div>
             )}
           </>
+        )}
+        {searchError && debouncedSearchQuery && (
+          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            Search is temporarily unavailable. Showing the last available
+            results. {searchError}
+          </div>
         )}
         {/* Did you mean banner */}
         {didYouMean && searchQuery && (

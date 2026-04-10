@@ -128,4 +128,84 @@ describe('admin product search helpers', () => {
       { id: 'prod-2', name: 'iPhone 14 Pro' },
     ]);
   });
+
+  it('throws when ranked admin product search rpc fails', async () => {
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: { message: 'rpc failed' },
+    });
+
+    await expect(
+      fetchAdminProductSearchRows({
+        cursor: 0,
+        filters: { search: 'iphone 14' },
+        merchantId: 'merchant-1',
+        pageSize: 20,
+        selectColumns: 'id, name',
+      })
+    ).rejects.toThrow('rpc failed');
+  });
+
+  it('throws when ranked admin product row lookup fails', async () => {
+    const query = createQueryChain({
+      data: null,
+      error: { message: 'row fetch failed' },
+    });
+
+    mockRpc.mockResolvedValue({
+      data: [{ product_id: 'prod-1', relevance: 9.5, total_count: 1 }],
+      error: null,
+    });
+    mockFrom.mockReturnValue(query);
+
+    await expect(
+      fetchAdminProductSearchRows({
+        cursor: 0,
+        filters: { search: 'iphone 14' },
+        merchantId: 'merchant-1',
+        pageSize: 20,
+        selectColumns: 'id, name',
+      })
+    ).rejects.toThrow('row fetch failed');
+  });
+
+  it('throws when suggestion rpc fails', async () => {
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: { message: 'suggestion rpc failed' },
+    });
+
+    await expect(
+      fetchAdminProductSuggestionCandidates({
+        excludeProductId: 'prod-1',
+        limit: 2,
+        merchantId: 'merchant-1',
+        productName: 'iphone 14 pro max',
+        selectColumns: 'id, name',
+      })
+    ).rejects.toThrow('suggestion rpc failed');
+  });
+
+  it('throws when suggestion row lookup fails', async () => {
+    const query = createQueryChain({
+      data: null,
+      error: { message: 'suggestion rows failed' },
+    });
+
+    mockRpc.mockResolvedValue({
+      data: [{ product_id: 'prod-3', relevance: 9.1, total_count: 1 }],
+      error: null,
+    });
+    mockFrom.mockReturnValue(query);
+
+    await expect(
+      fetchAdminProductSuggestionCandidates({
+        excludeProductId: 'prod-1',
+        limit: 2,
+        merchantId: 'merchant-1',
+        productName: 'iphone 14 pro max',
+        selectColumns: 'id, name',
+      })
+    ).rejects.toThrow('suggestion rows failed');
+  });
 });

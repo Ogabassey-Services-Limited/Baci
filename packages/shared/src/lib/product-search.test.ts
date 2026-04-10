@@ -42,6 +42,16 @@ describe('search result helpers', () => {
     expect(getProductSearchTotalCount(results)).toBe(2);
   });
 
+  it('parses Postgres string total counts into numbers', () => {
+    const results = [
+      { product_id: 'prod-1', relevance: 8.5, total_count: '2' },
+      { product_id: 'prod-2', relevance: 7.2, total_count: 2 },
+    ];
+
+    expect(extractProductSearchIds(results)).toEqual(['prod-1', 'prod-2']);
+    expect(getProductSearchTotalCount(results)).toBe(2);
+  });
+
   it('reorders records to match ranked ids and drops missing rows', () => {
     expect(
       orderRecordsByIds(

@@ -78,7 +78,8 @@ export default function SearchScreen() {
   const [query, setQuery] = useState('');
   const deferredQuery = useDeferredValue(query);
   const activeQuery = deferredQuery.trim();
-  const hasSearchQuery = activeQuery.length >= 2;
+  const [debouncedQuery, setDebouncedQuery] = useState(activeQuery);
+  const hasSearchQuery = debouncedQuery.length >= 2;
 
   // Filter State
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -94,6 +95,14 @@ export default function SearchScreen() {
     useState<string[]>(DEFAULT_SEARCHES);
 
   // Load search history from storage on mount
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(activeQuery);
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [activeQuery]);
+
   useEffect(() => {
     const loadSearchHistory = () => {
       try {
@@ -152,7 +161,7 @@ export default function SearchScreen() {
   );
 
   const { products, isLoading } = useProducts({
-    search: hasSearchQuery ? activeQuery : undefined,
+    search: hasSearchQuery ? debouncedQuery : undefined,
     limit: 20,
     category: selectedCategoryId,
     brand: selectedBrand !== 'All' ? selectedBrand : undefined,
@@ -162,7 +171,7 @@ export default function SearchScreen() {
     minRating: minRating > 0 ? minRating : undefined,
   });
   const { brands: brandNames } = useProductBrands({
-    search: hasSearchQuery ? activeQuery : undefined,
+    search: hasSearchQuery ? debouncedQuery : undefined,
     category: selectedCategoryId,
     condition: selectedCondition !== 'All' ? selectedCondition : undefined,
     minPrice: minPrice > 0 ? minPrice : undefined,
@@ -193,7 +202,7 @@ export default function SearchScreen() {
 
   const handleProductPress = (product: Product) => {
     if (hasSearchQuery) {
-      saveToHistory(activeQuery);
+      saveToHistory(debouncedQuery);
     }
     router.push(`/product/${product.slug}`);
   };

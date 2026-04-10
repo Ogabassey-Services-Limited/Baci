@@ -205,7 +205,7 @@ export function SearchOverlay({
   );
 
   const renderResults = () => {
-    if (isLoading && query.length >= 2) {
+    if (isLoading && hasSearchQuery) {
       return (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="small" color={BRAND.primary} />

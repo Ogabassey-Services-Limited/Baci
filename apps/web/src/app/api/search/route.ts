@@ -4,6 +4,7 @@ import {
 } from '@baci/shared';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { isValidUuid, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 
@@ -75,13 +76,23 @@ export async function GET(request: NextRequest) {
     // If no results, try to find spelling suggestion
     let didYouMean = null;
     if (productIds.length === 0) {
-      const { data: suggestion } = await supabase.rpc(
+      const { data: suggestion, error: suggestionError } = await supabase.rpc(
         'find_product_search_suggestion_v2',
         {
           search_term: query,
           merchant_id_param: merchantId,
         }
       );
+
+      if (suggestionError) {
+        logger.error({
+          message: 'Search suggestion lookup failed',
+          error: suggestionError.message,
+          merchantId,
+          query,
+        });
+        throw suggestionError;
+      }
 
       if (suggestion && suggestion.length > 0) {
         didYouMean = suggestion[0].suggested_term;

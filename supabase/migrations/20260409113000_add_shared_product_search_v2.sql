@@ -15,7 +15,7 @@ AS $$
               regexp_replace(
                 lower(
                   regexp_replace(
-                    regexp_replace(coalesce(search_text, ''), '([a-z])([0-9])', '\1 \2', 'g'),
+                    regexp_replace(lower(coalesce(search_text, '')), '([a-z])([0-9])', '\1 \2', 'g'),
                     '([0-9])([a-z])',
                     '\1 \2',
                     'g'
@@ -117,19 +117,21 @@ AS $$
     );
 $$;
 
-CREATE INDEX IF NOT EXISTS products_search_name_normalized_trgm
+-- Keep these statements outside an explicit BEGIN/COMMIT block because
+-- CREATE INDEX CONCURRENTLY cannot run inside a transaction block.
+CREATE INDEX CONCURRENTLY IF NOT EXISTS products_search_name_normalized_trgm
   ON public.products
   USING GIN (public.normalize_product_search_text(name) gin_trgm_ops);
 
-CREATE INDEX IF NOT EXISTS products_search_name_compact_trgm
+CREATE INDEX CONCURRENTLY IF NOT EXISTS products_search_name_compact_trgm
   ON public.products
   USING GIN (public.compact_product_search_text(name) gin_trgm_ops);
 
-CREATE INDEX IF NOT EXISTS products_search_sku_trgm
+CREATE INDEX CONCURRENTLY IF NOT EXISTS products_search_sku_trgm
   ON public.products
   USING GIN ((lower(coalesce(sku, ''))) gin_trgm_ops);
 
-CREATE INDEX IF NOT EXISTS products_search_vector_v2_gin
+CREATE INDEX CONCURRENTLY IF NOT EXISTS products_search_vector_v2_gin
   ON public.products
   USING GIN (public.product_search_vector_v2(name, brand, category, sku, description));
 
@@ -215,7 +217,7 @@ BEGIN
     FROM public.products p
     WHERE p.merchant_id = merchant_id_param
       AND (status_filter IS NULL OR p.status = status_filter)
-      AND (NOT parent_only OR p.parent_product_id IS NULL)
+      AND (NOT coalesce(parent_only, false) OR p.parent_product_id IS NULL)
       AND (category_id_filter IS NULL OR p.category_id = category_id_filter)
       AND (brand_filter IS NULL OR p.brand = brand_filter)
       AND (condition_filter IS NULL OR p.condition = condition_filter)

@@ -388,6 +388,54 @@ describe('product-utils', () => {
     expect(result.products[0]?.slug).toBe(validProductRow.slug);
   });
 
+  it('fetchProductsPage throws when the ranked search rpc fails', async () => {
+    mockRpc.mockImplementation(async () => ({
+      data: null,
+      error: new Error('search rpc failed'),
+    }));
+
+    await expect(
+      fetchProductsPage(
+        'merchant-1',
+        {
+          search: 'iphone14promax',
+          limit: 2,
+        },
+        0
+      )
+    ).rejects.toThrow('search rpc failed');
+  });
+
+  it('fetchProductsPage throws when the ranked product row lookup fails', async () => {
+    const query = createQueryChain({
+      data: null,
+      error: new Error('search rows failed'),
+    });
+
+    mockRpc.mockImplementation(async () => ({
+      data: [
+        {
+          product_id: validProductRow.id,
+          relevance: 9.8,
+          total_count: 1,
+        },
+      ],
+      error: null,
+    }));
+    mockFrom.mockReturnValue(query);
+
+    await expect(
+      fetchProductsPage(
+        'merchant-1',
+        {
+          search: 'iphone14promax',
+          limit: 2,
+        },
+        0
+      )
+    ).rejects.toThrow('search rows failed');
+  });
+
   it('fetchAvailableBrands returns unique brands across matching rows', async () => {
     const query = createQueryChain({
       data: [
