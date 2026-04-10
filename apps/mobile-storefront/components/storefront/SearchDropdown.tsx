@@ -11,7 +11,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useDeferredValue, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
@@ -27,11 +27,7 @@ import {
 import { SafeImage } from '@/components/ui/SafeImage';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
-import {
-  type Category,
-  useCategories,
-  useProducts,
-} from '@/hooks';
+import { type Category, useCategories, useProducts } from '@/hooks';
 import { useSearchStorage } from '@/hooks/use-search-storage';
 import { formatPrice, type Product } from '@/types/product';
 
@@ -66,12 +62,15 @@ export function SearchDropdown({
   const [internalQuery, setInternalQuery] = useState('');
 
   // Use external query if provided, otherwise internal
-  const activeQuery = externalQuery !== undefined ? externalQuery : internalQuery;
+  const activeQuery =
+    externalQuery !== undefined ? externalQuery : internalQuery;
+  const deferredQuery = useDeferredValue(activeQuery);
+  const effectiveQuery = deferredQuery.trim();
   const setQuery = onExternalQueryChange || setInternalQuery;
 
   const { recentSearches, saveSearch, clearHistory } = useSearchStorage();
   const { products, isLoading } = useProducts({
-    search: activeQuery.length >= 2 ? activeQuery : undefined,
+    search: effectiveQuery.length >= 2 ? effectiveQuery : undefined,
     limit: MAX_RESULTS,
   });
   const { data: categories = [] } = useCategories();
@@ -118,7 +117,7 @@ export function SearchDropdown({
 
   if (!isVisible) return null;
 
-  const hasQuery = activeQuery.length >= 2;
+  const hasQuery = effectiveQuery.length >= 2;
 
   return (
     <View style={[StyleSheet.absoluteFill, styles.root]}>
@@ -206,13 +205,12 @@ export function SearchDropdown({
             <ResultsContent
               products={products}
               isLoading={isLoading}
-              query={activeQuery}
+              query={effectiveQuery}
               colors={colors}
               onProductPress={handleProductPress}
             />
           )}
         </ScrollView>
-
       </View>
     </View>
   );

@@ -1,0 +1,171 @@
+import {
+  extractProductSearchIds,
+  getProductSearchTotalCount,
+  orderRecordsByIds,
+} from '@baci/shared';
+import { sanitizeSearchQuery } from '@/lib/sanitize';
+import { supabase } from '@/lib/supabase';
+
+export type AdminProductStatus = 'active' | 'draft' | 'archived';
+export type AdminProductStockFilter = 'in_stock' | 'low_stock' | 'out_of_stock';
+
+export interface AdminProductSearchFilters {
+  category?: string;
+  search?: string;
+  status?: AdminProductStatus;
+  stockFilter?: AdminProductStockFilter;
+}
+
+export interface AdminProductSearchPage<T extends { id: string }> {
+  nextCursor: number | null;
+  rows: T[];
+  totalCount: number;
+}
+
+function normalizeAdminSearchInput(search: string | undefined) {
+  return sanitizeSearchQuery(search ?? '').trim();
+}
+
+function clampPositiveInteger(value: number, maximum: number) {
+  const normalizedValue = Number.isFinite(value) ? Math.trunc(value) : 1;
+  return Math.min(Math.max(normalizedValue, 1), maximum);
+}
+
+export async function fetchAdminProductSearchRows<
+  T extends { id: string },
+>(args: {
+  cursor: number;
+  filters: AdminProductSearchFilters;
+  merchantId: string;
+  pageSize: number;
+  selectColumns: string;
+}): Promise<AdminProductSearchPage<T>> {
+  const searchTerm = normalizeAdminSearchInput(args.filters.search);
+  const safePageSize = clampPositiveInteger(args.pageSize, 100);
+  if (!searchTerm) {
+    return {
+      nextCursor: null,
+      rows: [],
+      totalCount: 0,
+    };
+  }
+
+  const { data: searchResults, error: searchError } = await supabase.rpc(
+    'search_products_v2',
+    {
+      brand_filter: null,
+      category_id_filter: args.filters.category ?? null,
+      condition_filter: null,
+      max_price_filter: null,
+      merchant_id_param: args.merchantId,
+      min_price_filter: null,
+      min_rating_filter: null,
+      parent_only: true,
+      result_limit: safePageSize,
+      result_offset: args.cursor,
+      search_query: searchTerm,
+      sort_by: 'relevance',
+      status_filter: args.filters.status ?? null,
+      stock_filter: args.filters.stockFilter ?? null,
+    }
+  );
+
+  if (searchError) {
+    throw new Error(searchError.message);
+  }
+
+  const productIds = extractProductSearchIds(searchResults ?? []);
+  const totalCount = getProductSearchTotalCount(searchResults ?? []);
+  if (productIds.length === 0) {
+    return {
+      nextCursor: null,
+      rows: [],
+      totalCount,
+    };
+  }
+
+  const { data, error } = await supabase
+    .from('products')
+    .select(args.selectColumns)
+    .eq('merchant_id', args.merchantId)
+    .is('parent_product_id', null)
+    .in('id', productIds);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const rowsData = Array.isArray(data) ? (data as unknown as T[]) : [];
+  const rows = orderRecordsByIds(rowsData, productIds);
+  const nextCursor =
+    args.cursor + safePageSize < totalCount ? args.cursor + safePageSize : null;
+
+  return {
+    nextCursor,
+    rows,
+    totalCount,
+  };
+}
+
+export async function fetchAdminProductSuggestionCandidates<
+  T extends { id: string },
+>(args: {
+  excludeProductId?: string;
+  limit: number;
+  merchantId: string;
+  productName: string;
+  selectColumns: string;
+}): Promise<T[]> {
+  const searchTerm = normalizeAdminSearchInput(args.productName);
+  const safeLimit = clampPositiveInteger(args.limit, 50);
+  if (searchTerm.length < 2) {
+    return [];
+  }
+
+  const { data: searchResults, error: searchError } = await supabase.rpc(
+    'search_products_v2',
+    {
+      brand_filter: null,
+      category_id_filter: null,
+      condition_filter: null,
+      max_price_filter: null,
+      merchant_id_param: args.merchantId,
+      min_price_filter: null,
+      min_rating_filter: null,
+      parent_only: true,
+      result_limit: Math.max(safeLimit * 3, 12),
+      result_offset: 0,
+      search_query: searchTerm,
+      sort_by: 'relevance',
+      status_filter: null,
+      stock_filter: null,
+    }
+  );
+
+  if (searchError) {
+    throw new Error(searchError.message);
+  }
+
+  const productIds = extractProductSearchIds(searchResults ?? []).filter(
+    (productId) => productId !== args.excludeProductId
+  );
+
+  if (productIds.length === 0) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from('products')
+    .select(args.selectColumns)
+    .eq('merchant_id', args.merchantId)
+    .is('parent_product_id', null)
+    .in('id', productIds);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const rowsData = Array.isArray(data) ? (data as unknown as T[]) : [];
+
+  return orderRecordsByIds(rowsData, productIds).slice(0, safeLimit);
+}

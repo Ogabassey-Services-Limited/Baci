@@ -218,7 +218,7 @@ export default function StaffScreen() {
   const showStaffActions = (member: StaffMember) => {
     const actions: {
       text: string;
-      onPress: () => void;
+      onPress?: () => void;
       style?: 'destructive' | 'cancel' | 'default';
     }[] = [];
 

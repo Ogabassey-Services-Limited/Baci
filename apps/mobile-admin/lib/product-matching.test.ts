@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   buildProductSuggestionTerms,
   normalizeComparableProductName,
-  rankProductMatches,
   type ProductMatchCandidate,
+  rankProductMatches,
 } from '@/lib/product-matching';
 
 const PRODUCTS: ProductMatchCandidate[] = [
@@ -28,12 +28,25 @@ const PRODUCTS: ProductMatchCandidate[] = [
     price: 10000,
     category: 'Cakes',
   },
+  {
+    id: 'prod-4',
+    name: 'iPhone 14 Pro Max',
+    sku: 'IPHONE-14-PRO-MAX',
+    price: 980000,
+    category: 'Phones',
+  },
 ];
 
 describe('normalizeComparableProductName', () => {
   it('collapses punctuation and whitespace for exact matching', () => {
     expect(normalizeComparableProductName('  Red-Velvet   Cake!! ')).toBe(
       'red velvet cake'
+    );
+  });
+
+  it('normalizes compact device model names for search parity', () => {
+    expect(normalizeComparableProductName('iPhone14ProMax')).toBe(
+      'iphone 14 pro max'
     );
   });
 });
@@ -73,5 +86,13 @@ describe('rankProductMatches', () => {
     });
 
     expect(matches.some((match) => match.product.id === 'prod-1')).toBe(false);
+  });
+
+  it('matches compact promax queries against spaced product names', () => {
+    const matches = rankProductMatches('iphone 14 promax', PRODUCTS);
+
+    expect(matches[0]).toMatchObject({
+      product: { id: 'prod-4' },
+    });
   });
 });

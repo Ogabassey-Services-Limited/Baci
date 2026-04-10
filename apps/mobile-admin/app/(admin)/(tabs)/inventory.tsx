@@ -19,6 +19,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import SafeImage from '@/components/ui/SafeImage';
 import type { ThemeColors } from '@/constants/theme';
+import { useDebounce } from '@/hooks/useDebounce';
 import { useMerchant } from '@/hooks/useMerchant';
 import {
   type Product,
@@ -160,6 +161,8 @@ export default function InventoryScreen() {
   const { merchant } = useMerchant();
   const currencySymbol = getCurrencySymbol(merchant?.payout_currency);
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 250);
+  const activeSearchQuery = debouncedSearchQuery.trim();
 
   // Fetch real products from Supabase
   const {
@@ -170,7 +173,7 @@ export default function InventoryScreen() {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useProducts({ search: searchQuery || undefined });
+  } = useProducts({ search: activeSearchQuery || undefined });
 
   // Use server-side stats for accurate counts across all pages
   const { data: inventoryStats } = useInventoryStats();
@@ -365,7 +368,7 @@ export default function InventoryScreen() {
             <Text
               style={[styles.emptySubtitle, { color: colors.textSecondary }]}
             >
-              {searchQuery
+              {activeSearchQuery
                 ? 'Try a different search term'
                 : 'Add products to get started'}
             </Text>

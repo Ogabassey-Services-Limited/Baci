@@ -16,7 +16,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useDeferredValue, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
@@ -58,13 +58,16 @@ export function SearchOverlay({
   const inputRef = useRef<TextInput>(null);
 
   const [query, setQuery] = useState(initialQuery);
+  const deferredQuery = useDeferredValue(query);
+  const activeSearchQuery = deferredQuery.trim();
+  const hasSearchQuery = activeSearchQuery.length >= 2;
 
   // Custom hook usage
   const { recentSearches, saveSearch, clearHistory } = useSearchStorage();
 
   // Data fetching
   const { products, isLoading } = useProducts({
-    search: query.length >= 2 ? query : undefined,
+    search: activeSearchQuery.length >= 2 ? activeSearchQuery : undefined,
     limit: 10,
   });
 
@@ -137,9 +140,9 @@ export function SearchOverlay({
             </Pressable>
           </View>
           <View style={styles.tagsContainer}>
-            {recentSearches.map((term, index) => (
+            {recentSearches.map((term) => (
               <Pressable
-                key={index}
+                key={term}
                 style={[
                   styles.tag,
                   { backgroundColor: colors.card, borderColor: colors.border },
@@ -202,7 +205,7 @@ export function SearchOverlay({
   );
 
   const renderResults = () => {
-    if (isLoading && query.length >= 2) {
+    if (isLoading && hasSearchQuery) {
       return (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="small" color={BRAND.primary} />
@@ -210,7 +213,7 @@ export function SearchOverlay({
       );
     }
 
-    if (products.length === 0 && query.length >= 2 && !isLoading) {
+    if (products.length === 0 && hasSearchQuery && !isLoading) {
       return (
         <View style={styles.centerContainer}>
           <Ionicons
@@ -318,6 +321,8 @@ export function SearchOverlay({
               returnKeyType="search"
               onSubmitEditing={handleSearchSubmit}
               clearButtonMode="while-editing"
+              autoCapitalize="none"
+              autoCorrect={false}
             />
             {query.length > 0 && (
               <Pressable
@@ -349,7 +354,7 @@ export function SearchOverlay({
 
         {/* Content */}
         <View style={{ flex: 1 }}>
-          {query.length < 2 ? renderEmptyState() : renderResults()}
+          {!hasSearchQuery ? renderEmptyState() : renderResults()}
         </View>
       </Animated.View>
     </View>

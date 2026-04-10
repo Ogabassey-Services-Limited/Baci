@@ -7,7 +7,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { router, Stack } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useDeferredValue, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
@@ -23,10 +23,8 @@ import { ProductCard } from '@/components/storefront/ProductCard';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { useCategories, useProductBrands, useProducts } from '@/hooks';
-import {
-  resolveSelectedCategoryId,
-} from '@/lib/product-filter-options';
 import { useNetworkState } from '@/hooks/use-network-state';
+import { resolveSelectedCategoryId } from '@/lib/product-filter-options';
 import { syncStorage as storage } from '@/lib/storage';
 import type { Product } from '@/types/product';
 
@@ -54,6 +52,20 @@ const CATEGORY_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
 
 import { FilterBar } from '@/components/storefront/FilterBar';
 
+function dedupeRecentSearches(searches: string[]) {
+  const seen = new Set<string>();
+
+  return searches.filter((search) => {
+    const normalizedSearch = search.trim().toLowerCase();
+    if (!normalizedSearch || seen.has(normalizedSearch)) {
+      return false;
+    }
+
+    seen.add(normalizedSearch);
+    return true;
+  });
+}
+
 // ... (imports remain)
 
 export default function SearchScreen() {
@@ -64,7 +76,10 @@ export default function SearchScreen() {
   const { isOnline } = useNetworkState();
 
   const [query, setQuery] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
+  const deferredQuery = useDeferredValue(query);
+  const activeQuery = deferredQuery.trim();
+  const [debouncedQuery, setDebouncedQuery] = useState(activeQuery);
+  const hasSearchQuery = debouncedQuery.length >= 2;
 
   // Filter State
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -81,7 +96,15 @@ export default function SearchScreen() {
 
   // Load search history from storage on mount
   useEffect(() => {
-    const loadSearchHistory = async () => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(activeQuery);
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [activeQuery]);
+
+  useEffect(() => {
+    const loadSearchHistory = () => {
       try {
         const saved = storage.getItem(SEARCH_HISTORY_KEY);
         if (saved) {
@@ -99,7 +122,7 @@ export default function SearchScreen() {
             Array.isArray(parsed) &&
             parsed.every((item): item is string => typeof item === 'string')
           ) {
-            setRecentSearches(parsed);
+            setRecentSearches(dedupeRecentSearches(parsed));
           }
         }
       } catch {
@@ -132,10 +155,13 @@ export default function SearchScreen() {
   };
 
   const { data: categories = [] } = useCategories();
-  const selectedCategoryId = resolveSelectedCategoryId(selectedCategory, categories);
+  const selectedCategoryId = resolveSelectedCategoryId(
+    selectedCategory,
+    categories
+  );
 
   const { products, isLoading } = useProducts({
-    search: query.length >= 2 ? query : undefined,
+    search: hasSearchQuery ? debouncedQuery : undefined,
     limit: 20,
     category: selectedCategoryId,
     brand: selectedBrand !== 'All' ? selectedBrand : undefined,
@@ -145,7 +171,7 @@ export default function SearchScreen() {
     minRating: minRating > 0 ? minRating : undefined,
   });
   const { brands: brandNames } = useProductBrands({
-    search: query.length >= 2 ? query : undefined,
+    search: hasSearchQuery ? debouncedQuery : undefined,
     category: selectedCategoryId,
     condition: selectedCondition !== 'All' ? selectedCondition : undefined,
     minPrice: minPrice > 0 ? minPrice : undefined,
@@ -165,7 +191,6 @@ export default function SearchScreen() {
 
   const handleRecentSearch = (search: string) => {
     setQuery(search);
-    setIsSearching(true);
     saveToHistory(search);
     Keyboard.dismiss();
   };
@@ -176,6 +201,9 @@ export default function SearchScreen() {
   };
 
   const handleProductPress = (product: Product) => {
+    if (hasSearchQuery) {
+      saveToHistory(debouncedQuery);
+    }
     router.push(`/product/${product.slug}`);
   };
 
@@ -190,7 +218,7 @@ export default function SearchScreen() {
 
   const renderSearchResults = () => {
     // 2026 Best Practice: Show offline message when searching without internet
-    if (!isOnline && isSearching) {
+    if (!isOnline && hasSearchQuery) {
       return (
         <View style={styles.emptyContainer}>
           <Ionicons
@@ -219,7 +247,7 @@ export default function SearchScreen() {
       );
     }
 
-    if (products.length === 0 && query.length >= 2) {
+    if (products.length === 0 && hasSearchQuery) {
       return (
         <View style={styles.emptyContainer}>
           <Ionicons
@@ -270,9 +298,9 @@ export default function SearchScreen() {
           Recent Searches
         </Text>
         <View style={styles.recentList}>
-          {recentSearches.map((search, index) => (
+          {recentSearches.map((search) => (
             <Pressable
-              key={index}
+              key={`${search}-${search.toLowerCase()}`}
               style={[styles.recentItem, { borderBottomColor: colors.border }]}
               onPress={() => handleRecentSearch(search)}
               accessibilityRole="button"
@@ -342,26 +370,21 @@ export default function SearchScreen() {
               placeholder="Search products..."
               placeholderTextColor={colors.placeholder}
               value={query}
-              onChangeText={(text) => {
-                setQuery(text);
-                if (text.trim().length === 0) {
-                  setIsSearching(false);
-                }
-              }}
+              onChangeText={setQuery}
               onSubmitEditing={() => {
                 if (query.trim().length >= 2) {
-                  setIsSearching(true);
                   saveToHistory(query);
                 }
               }}
               returnKeyType="search"
+              autoCapitalize="none"
+              autoCorrect={false}
               autoFocus // eslint-disable-line jsx-a11y/no-autofocus -- search screen should focus input on open
             />
             {query.length > 0 && (
               <Pressable
                 onPress={() => {
                   setQuery('');
-                  setIsSearching(false);
                 }}
               >
                 <Ionicons name="close-circle" size={18} color={colors.icon} />
@@ -371,7 +394,7 @@ export default function SearchScreen() {
         </View>
 
         {/* Filter Bar - Show only when searching */}
-        {isSearching && (
+        {hasSearchQuery && (
           <FilterBar
             categories={categoryNames}
             selectedCategory={selectedCategory}
@@ -395,7 +418,7 @@ export default function SearchScreen() {
         )}
 
         {/* Content */}
-        {isSearching ? renderSearchResults() : renderSuggestions()}
+        {hasSearchQuery ? renderSearchResults() : renderSuggestions()}
       </SafeAreaView>
     </>
   );
