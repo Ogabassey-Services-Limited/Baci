@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -37,10 +38,12 @@ export default function AnalyticsInsightsScreen() {
     kind?: string;
     startDate?: string;
   }>();
-  const now = new Date();
+  // Stable fallback timestamp computed once per mount so the range object
+  // passed into useAnalyticsOverview doesn't churn the query key every render.
+  const [fallbackNow] = useState(() => new Date());
   const range = {
-    endDate: parseDateParam(params.endDate, now),
-    startDate: parseDateParam(params.startDate, now),
+    endDate: parseDateParam(params.endDate, fallbackNow),
+    startDate: parseDateParam(params.startDate, fallbackNow),
   };
   const { data: analytics, isLoading, error } = useAnalyticsOverview(range);
 
@@ -103,7 +106,7 @@ export default function AnalyticsInsightsScreen() {
             color={colors.error}
           />
           <Text style={[styles.stateText, { color: colors.textSecondary }]}>
-            Unable to load analytics right now. Please try again.
+            Unable to load analytics right now.
           </Text>
         </View>
       );

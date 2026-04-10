@@ -103,7 +103,7 @@ function getExecutiveSummaryHTML(options: ReportOptions) {
   const period = `${startDate.toLocaleDateString(locale)} - ${endDate.toLocaleDateString(locale)}`;
   const safeMerchantName = escapeHtml(merchantName);
   const safeTitle = escapeHtml(title);
-  const safeTopProduct = escapeHtml(data.topProducts[0]?.name || 'N/A');
+  const safeTopProduct = escapeHtml(data.topProducts?.[0]?.name || 'N/A');
   const safeTopBrand = escapeHtml(data.topBrand?.name || 'N/A');
   const safeTopCustomer = escapeHtml(data.topCustomer?.name || 'N/A');
 
@@ -153,7 +153,7 @@ function getExecutiveSummaryHTML(options: ReportOptions) {
                          <tr>
                             <td>Top Product</td>
                             <td class="bold">${safeTopProduct}</td>
-                            <td class="right">${money(data.topProducts[0]?.revenue || 0)}</td>
+                            <td class="right">${money(data.topProducts?.[0]?.revenue || 0)}</td>
                         </tr>
                         <tr>
                             <td>Top Vendor</td>
@@ -194,9 +194,18 @@ function getTaxLedgerHTML(options: ReportOptions) {
   const safeTitle = escapeHtml(title);
 
   const taxableSales = data.summary.revenue.value - data.summary.taxDue.value;
-  const taxRatePct =
-    taxableSales > 0 ? (data.summary.taxDue.value / taxableSales) * 100 : 0;
-  const taxRateLabel = taxRatePct > 0 ? ` (${taxRatePct.toFixed(2)}%)` : '';
+  // Guard against division-by-zero and non-finite results: if there were no
+  // taxable sales, we can't meaningfully express a rate, so fall back to
+  // either a blank (no tax) or N/A (tax present without taxable sales).
+  let taxRateLabel = '';
+  if (taxableSales > 0) {
+    const taxRatePct = (data.summary.taxDue.value / taxableSales) * 100;
+    if (Number.isFinite(taxRatePct) && taxRatePct > 0) {
+      taxRateLabel = ` (${taxRatePct.toFixed(2)}%)`;
+    }
+  } else if (data.summary.taxDue.value > 0) {
+    taxRateLabel = ' (N/A)';
+  }
 
   const rows = transactions
     .map(

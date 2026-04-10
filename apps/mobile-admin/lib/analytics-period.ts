@@ -81,6 +81,12 @@ export function resolveAnalyticsDateRange(
         999
       );
       break;
+    // `this_year` and `last_year` intentionally use the caller-supplied
+    // `selectedYear` (not derived from `now`) because the analytics UI has
+    // an explicit year picker that lets merchants browse historical years.
+    // This differs from `this_week`/`this_month` which are always relative
+    // to the current moment. If you need period-to-date semantics instead,
+    // that should be a separate filter value (e.g. `ytd`).
     case 'this_year':
       startDate = new Date(selectedYear, 0, 1);
       endDate = new Date(selectedYear, 11, 31, 23, 59, 59, 999);
@@ -92,6 +98,14 @@ export function resolveAnalyticsDateRange(
     case 'custom':
       startDate = new Date(customStartDate);
       endDate = new Date(customEndDate);
+      // Callers can wire up date pickers in either order; normalize so the
+      // earlier date is always the start and the later date is always the
+      // end before snapping them to day boundaries.
+      if (startDate.getTime() > endDate.getTime()) {
+        const swap = startDate;
+        startDate = endDate;
+        endDate = swap;
+      }
       startDate.setHours(0, 0, 0, 0);
       endDate.setHours(23, 59, 59, 999);
       break;

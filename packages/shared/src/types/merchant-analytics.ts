@@ -31,21 +31,27 @@ export interface MerchantAnalyticsBreakdownItem {
   value: number;
 }
 
-export interface MerchantAnalyticsNamedValue {
-  name: string;
+/**
+ * Extends `MerchantAnalyticsBreakdownItem` with an optional revenue column so
+ * the same row shape can be used for "top X" lists that want to render both a
+ * count and a monetary value without introducing a separate type.
+ */
+export interface MerchantAnalyticsNamedValue
+  extends MerchantAnalyticsBreakdownItem {
   revenue?: number;
-  value: number;
+}
+
+export interface MerchantBlogTopPost {
+  id: string;
+  slug: string;
+  title: string;
+  viewCount: number;
 }
 
 export interface MerchantBlogAnalyticsSummary {
   draftPosts: number;
   publishedPosts: number;
-  topPost: {
-    id: string;
-    slug: string;
-    title: string;
-    viewCount: number;
-  } | null;
+  topPost: MerchantBlogTopPost | null;
   totalPosts: number;
   totalViews: number;
 }

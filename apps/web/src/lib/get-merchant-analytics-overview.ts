@@ -5,6 +5,7 @@ import type {
   MerchantAnalyticsTopProduct,
 } from '@baci/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { sanitizeText } from '@/lib/sanitize-core';
 
 interface AnalyticsOrderRow {
   created_at: string;
@@ -64,7 +65,9 @@ function asNumber(value: number | null | undefined) {
 }
 
 function getPercentChange(current: number, previous: number) {
-  if (previous <= 0) {
+  // previous === 0: no baseline to measure against. Report +100% when the
+  // metric actually rose from nothing, 0% when both are zero.
+  if (previous === 0) {
     return current > 0 ? 100 : 0;
   }
 
@@ -100,46 +103,52 @@ function buildChartData(
   const mode = days <= 31 ? 'day' : days <= 180 ? 'week' : 'month';
   const buckets = new Map<string, MerchantAnalyticsChartPoint>();
 
+  // All bucket arithmetic is performed in UTC so bucket keys are stable
+  // regardless of the server's local timezone.
   const cursor = new Date(startDate);
   while (cursor <= endDate) {
     const bucketStart = new Date(cursor);
     if (mode === 'week') {
-      const day = bucketStart.getDay();
-      bucketStart.setDate(bucketStart.getDate() - day);
+      const day = bucketStart.getUTCDay();
+      bucketStart.setUTCDate(bucketStart.getUTCDate() - day);
     } else if (mode === 'month') {
-      bucketStart.setDate(1);
+      bucketStart.setUTCDate(1);
     }
-    bucketStart.setHours(0, 0, 0, 0);
+    bucketStart.setUTCHours(0, 0, 0, 0);
 
     const key = bucketStart.toISOString();
     const day =
       mode === 'month'
-        ? bucketStart.toLocaleDateString('en-US', { month: 'short' })
+        ? bucketStart.toLocaleDateString('en-US', {
+            month: 'short',
+            timeZone: 'UTC',
+          })
         : bucketStart.toLocaleDateString('en-US', {
             day: 'numeric',
             month: 'short',
+            timeZone: 'UTC',
           });
 
     if (!buckets.has(key)) {
       buckets.set(key, { day, orders: 0, profit: 0, revenue: 0, tax: 0 });
     }
 
-    cursor.setDate(
-      cursor.getDate() + (mode === 'month' ? 32 : mode === 'week' ? 7 : 1)
+    cursor.setUTCDate(
+      cursor.getUTCDate() + (mode === 'month' ? 32 : mode === 'week' ? 7 : 1)
     );
     if (mode === 'month') {
-      cursor.setDate(1);
+      cursor.setUTCDate(1);
     }
   }
 
   for (const row of rows) {
     const at = new Date(row.created_at);
     if (mode === 'week') {
-      at.setDate(at.getDate() - at.getDay());
+      at.setUTCDate(at.getUTCDate() - at.getUTCDay());
     } else if (mode === 'month') {
-      at.setDate(1);
+      at.setUTCDate(1);
     }
-    at.setHours(0, 0, 0, 0);
+    at.setUTCHours(0, 0, 0, 0);
     const key = at.toISOString();
     const bucket = buckets.get(key);
     if (bucket) {
@@ -159,18 +168,18 @@ function buildChartData(
 
     const at = new Date(joinedOrder.created_at);
     if (mode === 'week') {
-      at.setDate(at.getDate() - at.getDay());
+      at.setUTCDate(at.getUTCDate() - at.getUTCDay());
     } else if (mode === 'month') {
-      at.setDate(1);
+      at.setUTCDate(1);
     }
-    at.setHours(0, 0, 0, 0);
+    at.setUTCHours(0, 0, 0, 0);
 
     const bucket = buckets.get(at.toISOString());
     if (bucket) {
       const joinedProduct = Array.isArray(item.products)
         ? item.products[0]
         : item.products;
-      const quantity = asNumber(item.quantity || 1);
+      const quantity = asNumber(item.quantity ?? 1);
       bucket.profit =
         asNumber(bucket.profit) +
         (asNumber(item.price) - asNumber(joinedProduct?.cost_price)) * quantity;
@@ -187,7 +196,7 @@ function buildTopEntities(orderItems: AnalyticsOrderItemRow[]) {
   let totalUnitsSold = 0;
 
   for (const item of orderItems) {
-    const quantity = asNumber(item.quantity || 1);
+    const quantity = asNumber(item.quantity ?? 1);
     const price = asNumber(item.price);
     const revenue = quantity * price;
     const joinedProduct = Array.isArray(item.products)
@@ -202,7 +211,7 @@ function buildTopEntities(orderItems: AnalyticsOrderItemRow[]) {
     if (item.product_id) {
       const current = products.get(item.product_id) ?? {
         id: item.product_id,
-        name: item.name?.trim() || 'Product',
+        name: sanitizeText(item.name?.trim() || 'Product'),
         revenue: 0,
         units: 0,
       };
@@ -223,11 +232,15 @@ function buildTopEntities(orderItems: AnalyticsOrderItemRow[]) {
 
   return {
     brandBreakdown: Array.from(brands.entries())
-      .map(([name, value]) => ({ name, revenue: value, value }))
+      .map(([name, value]) => ({
+        name: sanitizeText(name),
+        revenue: value,
+        value,
+      }))
       .sort((left, right) => right.value - left.value),
     topBrand: topBrandEntry
       ? ({
-          name: topBrandEntry[0],
+          name: sanitizeText(topBrandEntry[0]),
           revenue: topBrandEntry[1],
           value: topBrandEntry[1],
         } satisfies MerchantAnalyticsNamedValue)
@@ -239,16 +252,25 @@ function buildTopEntities(orderItems: AnalyticsOrderItemRow[]) {
 }
 
 function buildCustomerBreakdown(orders: AnalyticsOrderRow[]) {
+  // Key customers by stable ID when available so two unrelated customers
+  // with the same display name don't collapse into a single row. Only fall
+  // back to name as a last resort for pre-migration data without identifiers.
   const customers = new Map<string, MerchantAnalyticsNamedValue>();
   for (const order of orders) {
-    const name =
+    const rawName =
       order.customer_name?.trim() ||
       order.customer_email?.trim() ||
       'Guest customer';
-    const current = customers.get(name) ?? { name, value: 0, revenue: 0 };
+    const key =
+      order.customer_id ?? order.customer_email?.trim() ?? `name:${rawName}`;
+    const current = customers.get(key) ?? {
+      name: sanitizeText(rawName),
+      value: 0,
+      revenue: 0,
+    };
     current.value += 1;
     current.revenue = asNumber(current.revenue) + asNumber(order.total);
-    customers.set(name, current);
+    customers.set(key, current);
   }
 
   return Array.from(customers.values()).sort((left, right) => {
@@ -263,10 +285,12 @@ export async function getMerchantAnalyticsOverview(
   startDate: Date,
   endDate: Date
 ): Promise<MerchantAnalyticsResponse> {
-  const previousStart = new Date(
-    startDate.getTime() - (endDate.getTime() - startDate.getTime()) - DAY_MS
-  );
+  // Previous comparison window mirrors the current window's duration so the
+  // two periods span the same number of milliseconds; the off-by-one guard on
+  // previousEnd ensures no overlap with the current range.
+  const duration = endDate.getTime() - startDate.getTime();
   const previousEnd = new Date(startDate.getTime() - 1);
+  const previousStart = new Date(previousEnd.getTime() - duration);
 
   const [
     currentOrdersResult,
@@ -277,6 +301,9 @@ export async function getMerchantAnalyticsOverview(
     blogPostsResult,
     activeOrdersResult,
   ] = await Promise.all([
+    // currentOrdersResult / previousOrdersResult intentionally include every
+    // payment_status (paid, refunded, etc.) so we can compute refund rate
+    // below. Paid-only subsets are derived in-memory via currentPaidOrders.
     supabase
       .from('orders')
       .select(
@@ -322,6 +349,8 @@ export async function getMerchantAnalyticsOverview(
       .from('blog_posts')
       .select('id, title, slug, status, published_at, created_at, view_count')
       .eq('merchant_id', merchantId),
+    // activeOrdersResult is a live "orders in the last hour" pulse; we
+    // include all statuses because an unpaid order still counts as activity.
     supabase
       .from('orders')
       .select('id', { count: 'exact', head: true })
@@ -366,14 +395,17 @@ export async function getMerchantAnalyticsOverview(
     (sum, order) => sum + asNumber(order.total),
     0
   );
+  // Guest orders (no customer_id and no email) are collapsed into a single
+  // "guest" bucket so a burst of anonymous checkouts doesn't look like N
+  // different customers.
   const currentCustomers = new Set(
     currentPaidOrders.map(
-      (order) => order.customer_id ?? order.customer_email ?? order.id
+      (order) => order.customer_id ?? order.customer_email ?? 'guest'
     )
   ).size;
   const previousCustomers = new Set(
     previousPaidOrders.map(
-      (order) => order.customer_id ?? order.customer_email ?? order.id
+      (order) => order.customer_id ?? order.customer_email ?? 'guest'
     )
   ).size;
   const currentTax = currentPaidOrders.reduce(
@@ -440,7 +472,7 @@ export async function getMerchantAnalyticsOverview(
         ? {
             id: topPost.id,
             slug: topPost.slug,
-            title: topPost.title,
+            title: sanitizeText(topPost.title),
             viewCount: asNumber(topPost.view_count),
           }
         : null,
@@ -460,9 +492,9 @@ export async function getMerchantAnalyticsOverview(
     customerBreakdown,
     recentSales: (recentOrdersResult.data ?? []).map((order) => ({
       amount: asNumber(order.total),
-      email: order.customer_email ?? '',
+      email: sanitizeText(order.customer_email ?? ''),
       id: order.id,
-      name: order.customer_name ?? 'Customer',
+      name: sanitizeText(order.customer_name ?? 'Customer'),
       time: order.created_at,
     })),
     salesByChannel: groupBreakdown(currentPaidOrders, 'source'),

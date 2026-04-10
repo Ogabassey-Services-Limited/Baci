@@ -107,6 +107,8 @@ describe('GET /api/analytics', () => {
 
     expect(response.status).toBe(400);
     expect(body.code).toBe('INVALID_QUERY');
+    expect(typeof body.error).toBe('string');
+    expect(body.error.length).toBeGreaterThan(0);
     expect(mockGetMerchantAnalyticsOverview).not.toHaveBeenCalled();
   });
 
@@ -124,8 +126,8 @@ describe('GET /api/analytics', () => {
     expect(mockGetMerchantAnalyticsOverview).toHaveBeenCalledWith(
       expect.anything(),
       'merchant-1',
-      expect.any(Date),
-      expect.any(Date)
+      new Date('2026-04-01T00:00:00.000Z'),
+      new Date('2026-04-10T23:59:59.999Z')
     );
   });
 

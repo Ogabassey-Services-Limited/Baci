@@ -143,36 +143,70 @@ export const getCurrencySymbol = (
   }
 };
 
+const compactCurrencyCache = new Map<string, Intl.NumberFormat>();
+const fullCurrencyCache = new Map<string, Intl.NumberFormat>();
+
+function getOrCreateFormatter(
+  cache: Map<string, Intl.NumberFormat>,
+  key: string,
+  factory: () => Intl.NumberFormat
+): Intl.NumberFormat {
+  const cached = cache.get(key);
+  if (cached) return cached;
+  if (cache.size > 50) cache.clear();
+  const formatter = factory();
+  cache.set(key, formatter);
+  return formatter;
+}
+
 /**
  * Compact currency display (e.g. ₦1.2M, $3.4B, -₦1.50M for negatives).
- * Threads currency and locale through so merchants in different markets see
- * their own symbol/grouping, and uses locale-aware formatting even in the
- * billion/million branches to keep decimal separators consistent.
+ *
+ * Uses Intl.NumberFormat with `notation: 'compact'` so symbol placement,
+ * grouping separators, and abbreviation style follow locale conventions
+ * (e.g. French "1,2 M€" vs. English "€1.2M"). For values below 1,000 we fall
+ * back to standard notation so small amounts display their actual value
+ * rather than "₦500" without decimals.
  */
 export const formatCompactCurrency = (
   amount: number,
   currency = 'NGN',
   locale?: string
 ) => {
-  const symbol = getCurrencySymbol(currency, locale);
-  const sign = amount < 0 ? '-' : '';
   const abs = Math.abs(amount);
-  const twoDecimal: Intl.NumberFormatOptions = {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  };
+  const useCompact = abs >= 1_000;
+  const cache = useCompact ? compactCurrencyCache : fullCurrencyCache;
+  const cacheKey = `${locale ?? 'default'}-${currency}`;
 
-  if (abs >= 1_000_000_000) {
-    return `${sign}${symbol}${(abs / 1_000_000_000).toLocaleString(locale, twoDecimal)}B`;
+  try {
+    const formatter = getOrCreateFormatter(
+      cache,
+      cacheKey,
+      () =>
+        new Intl.NumberFormat(locale, {
+          style: 'currency',
+          currency,
+          notation: useCompact ? 'compact' : 'standard',
+          compactDisplay: 'short',
+          minimumFractionDigits: useCompact ? 1 : 2,
+          maximumFractionDigits: 2,
+        })
+    );
+    return formatter.format(amount);
+  } catch {
+    // Runtime without full Intl data — fall back to a manual format that
+    // still handles the sign correctly.
+    const symbol = getCurrencySymbol(currency, locale);
+    const sign = amount < 0 ? '-' : '';
+    if (abs >= 1_000_000_000) {
+      return `${sign}${symbol}${(abs / 1_000_000_000).toFixed(2)}B`;
+    }
+    if (abs >= 1_000_000) {
+      return `${sign}${symbol}${(abs / 1_000_000).toFixed(2)}M`;
+    }
+    if (abs >= 1_000) {
+      return `${sign}${symbol}${Math.round(abs).toString()}`;
+    }
+    return `${sign}${symbol}${abs.toFixed(2)}`;
   }
-  if (abs >= 1_000_000) {
-    return `${sign}${symbol}${(abs / 1_000_000).toLocaleString(locale, twoDecimal)}M`;
-  }
-  if (abs >= 1_000) {
-    return `${sign}${symbol}${abs.toLocaleString(locale, {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    })}`;
-  }
-  return `${sign}${symbol}${abs.toLocaleString(locale, twoDecimal)}`;
 };

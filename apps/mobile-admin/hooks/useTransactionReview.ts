@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMerchant } from '@/hooks/useMerchant';
 import { supabase } from '@/lib/supabase';
-import { useMerchant } from './useMerchant';
 
 interface TransactionOrderRow {
   created_at: string;
@@ -63,12 +63,16 @@ export function useTransactionReview() {
   return useQuery<TransactionReviewOrder[]>({
     queryKey: ['transaction-review', merchant?.id],
     queryFn: async () => {
+      if (!merchant?.id) {
+        throw new Error('Merchant context is not ready');
+      }
+
       const { data, error } = await supabase
         .from('orders')
         .select(
           'id, order_number, created_at, customer_name, payment_method, total, order_items(id, product_id, name, price, quantity, products(cost_price))'
         )
-        .eq('merchant_id', merchant?.id)
+        .eq('merchant_id', merchant.id)
         .eq('payment_status', 'paid')
         .order('created_at', { ascending: false })
         .limit(40);

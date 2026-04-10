@@ -15,6 +15,7 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
+import type { AnalyticsDateRange } from '@/lib/analytics-period';
 import { normalizeProductInventory } from '@/lib/product-inventory';
 import {
   type AdminProductSearchFilters,
@@ -26,7 +27,6 @@ import {
 import { sanitizeText } from '@/lib/sanitize';
 import { supabase } from '@/lib/supabase';
 import { getJoinedRecord } from '@/lib/supabase-utils';
-import type { AnalyticsDateRange } from '@/lib/analytics-period';
 import { useMerchant } from './useMerchant';
 
 export type ProductStatus = AdminProductStatus;
@@ -589,25 +589,26 @@ export interface TopSellingProduct extends Product {
   totalRevenue: number;
 }
 
+// Stable sentinels for the "all time" fallback so the query key and the
+// actual RPC parameters stay in sync when no range is provided.
+const ALL_TIME_START_ISO = new Date(0).toISOString();
+const ALL_TIME_END_ISO = '9999-12-31T23:59:59.999Z';
+
 export function useTopSellingProducts(
   limit: number = 20,
   range?: AnalyticsDateRange
 ) {
   const { merchant } = useMerchant();
+  const startDate = range?.startDate
+    ? range.startDate.toISOString()
+    : ALL_TIME_START_ISO;
+  const endDate = range?.endDate
+    ? range.endDate.toISOString()
+    : ALL_TIME_END_ISO;
 
   return useQuery({
-    queryKey: [
-      'top-selling-products',
-      merchant?.id,
-      limit,
-      range?.startDate.toISOString() ?? 'all',
-      range?.endDate.toISOString() ?? 'all',
-    ],
+    queryKey: ['top-selling-products', merchant?.id, limit, startDate, endDate],
     queryFn: async () => {
-      const startDate =
-        range?.startDate.toISOString() ?? new Date(0).toISOString();
-      const endDate = range?.endDate.toISOString() ?? new Date().toISOString();
-
       const { data, error } = await supabase.rpc('get_top_products', {
         p_merchant_id: merchant?.id,
         p_start_date: startDate,

@@ -229,6 +229,9 @@ export default function TransactionsScreen() {
                     key={item.id}
                     style={[styles.itemRow, { borderTopColor: colors.border }]}
                     onPress={() => handleOpenEditor(item)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${item.name}, ${item.quantity} units, revenue ${formatCurrency(item.revenue)}`}
+                    accessibilityHint="Opens the cost price editor for this item"
                   >
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.itemName, { color: colors.text }]}>
@@ -409,15 +412,15 @@ const styles = StyleSheet.create({
   heroSubtitle: {
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     fontSize: TYPOGRAPHY.size.sm,
-    marginTop: 6,
+    marginTop: SPACING.xs,
   },
   heroValue: {
     fontFamily: TYPOGRAPHY.fontFamily.bold,
     fontSize: TYPOGRAPHY.size['2xl'],
-    marginTop: 6,
+    marginTop: SPACING.xs,
   },
   input: {
-    borderRadius: 16,
+    borderRadius: RADIUS.lg,
     borderWidth: 1,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
     fontSize: TYPOGRAPHY.size.lg,
@@ -457,7 +460,7 @@ const styles = StyleSheet.create({
     padding: SPACING.lg,
   },
   modalCard: {
-    borderRadius: 24,
+    borderRadius: RADIUS['2xl'],
     borderWidth: 1,
     padding: SPACING.lg,
   },
@@ -491,7 +494,7 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.size.lg,
   },
   saveButton: {
-    borderRadius: 999,
+    borderRadius: RADIUS.full,
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.sm,
   },
@@ -516,6 +519,6 @@ const styles = StyleSheet.create({
   summaryValue: {
     fontFamily: TYPOGRAPHY.fontFamily.bold,
     fontSize: TYPOGRAPHY.size.xl,
-    marginTop: 4,
+    marginTop: SPACING.xs,
   },
 });

@@ -35,6 +35,8 @@ const GRANULARITY_TABS: { value: Granularity; label: string }[] = [
   { value: 'month', label: 'MONTH' },
 ];
 
+const DEFAULT_FILTER_LABEL = 'Selected period';
+
 // Bar Chart Component
 function BarChart({
   data,
@@ -169,7 +171,7 @@ export default function AnalyticsDetailScreen() {
   } = useLocalSearchParams<{
     endDate?: string;
     filterLabel?: string;
-    metric: string;
+    metric?: string;
     startDate?: string;
   }>();
   const metric: MetricType =
@@ -192,7 +194,7 @@ export default function AnalyticsDetailScreen() {
 
   const { data: analyticsData, isLoading } = useAnalyticsDetail({
     endDate: endDate ?? defaultRange.endIso,
-    filterLabel: filterLabel ?? 'Selected period',
+    filterLabel: filterLabel ?? DEFAULT_FILTER_LABEL,
     metric,
     granularity,
     startDate: startDate ?? defaultRange.startIso,
@@ -283,7 +285,7 @@ export default function AnalyticsDetailScreen() {
               color={colors.textSecondary}
             />
             <Text style={[styles.yearText, { color: colors.text }]}>
-              {filterLabel ?? 'Selected period'}
+              {filterLabel ?? DEFAULT_FILTER_LABEL}
             </Text>
           </View>
         </View>

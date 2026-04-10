@@ -82,17 +82,15 @@ const HOURS = Array.from(
 );
 
 interface UseAnalyticsDetailOptions {
-  endDate: string;
-  filterLabel: string;
   metric: MetricType;
   granularity: Granularity;
   startDate: string;
+  endDate: string;
+  filterLabel: string;
   includeComparison?: boolean;
 }
 
-const getJoinedRecord = <T>(
-  value: T | T[] | null | undefined
-): T | null => {
+const getJoinedRecord = <T>(value: T | T[] | null | undefined): T | null => {
   if (Array.isArray(value)) {
     return value[0] ?? null;
   }
@@ -125,6 +123,15 @@ export function useAnalyticsDetail({
       const startDateValue = new Date(startDate);
       const endDateValue = new Date(endDate);
 
+      if (
+        Number.isNaN(startDateValue.getTime()) ||
+        Number.isNaN(endDateValue.getTime())
+      ) {
+        throw new Error(
+          `Invalid analytics date range: startDate=${startDate}, endDate=${endDate}`
+        );
+      }
+
       // Fetch orders and order items concurrently
       const [
         { data: orders, error: ordersError },
@@ -148,7 +155,7 @@ export function useAnalyticsDetail({
           .eq('orders.merchant_id', merchant.id)
           .eq('orders.payment_status', 'paid')
           .gte('orders.created_at', startDateValue.toISOString())
-          .lte('orders.created_at', endDateValue.toISOString())
+          .lte('orders.created_at', endDateValue.toISOString()),
       ]);
 
       if (ordersError) {

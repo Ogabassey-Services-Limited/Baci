@@ -739,6 +739,9 @@ export function DraggableAnalyticsGrid({
               formatCurrency(summary.taxDue?.value || 0),
               summary.taxDue?.change || 0,
               DollarSign,
+              // Tax is a cash-flow cost from the merchant's POV, so a period
+              // with *lower* tax owed is displayed as the "up" (positive)
+              // direction even though the change value itself went down.
               (summary.taxDue?.change || 0) <= 0 ? 'up' : 'down'
             )}
           {isWidgetVisible('summary-active') &&
@@ -1337,6 +1340,9 @@ export function DraggableAnalyticsGrid({
               formatCurrency(summary.taxDue?.value || 0),
               summary.taxDue?.change || 0,
               DollarSign,
+              // Tax is a cash-flow cost from the merchant's POV, so a period
+              // with *lower* tax owed is displayed as the "up" (positive)
+              // direction even though the change value itself went down.
               (summary.taxDue?.change || 0) <= 0 ? 'up' : 'down'
             )}
 
