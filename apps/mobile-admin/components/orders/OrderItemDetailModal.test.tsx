@@ -8,13 +8,7 @@ import {
 } from './OrderItemDetailModal';
 
 vi.mock('@expo/vector-icons', () => ({
-  Ionicons: ({
-    name,
-  }: {
-    color?: string;
-    name: string;
-    size?: number;
-  }) => name,
+  Ionicons: ({ name }: { color?: string; name: string; size?: number }) => name,
 }));
 
 vi.mock('react-native-safe-area-context', () => ({
@@ -77,6 +71,7 @@ function createItem(
 ): OrderItemSnapshot {
   return {
     id: 'item-1',
+    condition: 'open_box',
     image_url: 'https://example.com/s22.png',
     name: 'Samsung Galaxy S22 Ultra',
     price: 500000,
@@ -101,13 +96,17 @@ describe('OrderItemDetailModal', () => {
 
     expect(screen.getByText('Item Details')).toBeTruthy();
     expect(
-      screen.getByText('This is the order snapshot the customer actually bought.')
+      screen.getByText(
+        'This is the order snapshot the customer actually bought.'
+      )
     ).toBeTruthy();
     expect(screen.getByText('Samsung Galaxy S22 Ultra')).toBeTruthy();
     expect(screen.getByText('128GB / Phantom Black')).toBeTruthy();
     expect(screen.getByText('Quantity')).toBeTruthy();
     expect(screen.getByText('Unit price')).toBeTruthy();
     expect(screen.getByText('Line total')).toBeTruthy();
+    expect(screen.getByText('Condition')).toBeTruthy();
+    expect(screen.getByText('Open Box')).toBeTruthy();
     expect(screen.queryByText('Edit Product')).toBeNull();
   });
 

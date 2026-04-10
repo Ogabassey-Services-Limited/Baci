@@ -11,9 +11,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SafeImage from '@/components/ui/SafeImage';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
+import { formatProductCondition } from '@/lib/product-condition';
 
 export interface OrderItemSnapshot {
   id: string;
+  condition?: string;
   image_url?: string;
   name: string;
   price: number;
@@ -43,6 +45,8 @@ export function OrderItemDetailModal({
   if (!visible || !item) {
     return null;
   }
+
+  const conditionLabel = formatProductCondition(item.condition);
 
   return (
     <Modal
@@ -92,7 +96,10 @@ export function OrderItemDetailModal({
               ]}
             >
               {item.image_url ? (
-                <SafeImage source={{ uri: item.image_url }} style={styles.image} />
+                <SafeImage
+                  source={{ uri: item.image_url }}
+                  style={styles.image}
+                />
               ) : (
                 <Ionicons
                   name="image-outline"
@@ -144,6 +151,13 @@ export function OrderItemDetailModal({
               colors={colors}
               isStrong
             />
+            {conditionLabel ? (
+              <DetailRow
+                label="Condition"
+                value={conditionLabel}
+                colors={colors}
+              />
+            ) : null}
             <DetailRow
               label="SKU"
               value={
