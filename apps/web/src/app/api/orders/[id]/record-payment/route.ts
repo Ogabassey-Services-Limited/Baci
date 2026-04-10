@@ -358,6 +358,14 @@ export async function POST(
           replyTo: replyToEmail,
           emailType: 'orders',
           fromName: senderName,
+          auditContext: {
+            merchantId: merchant.id,
+            orderId: order.id,
+            customerId: order.customer_id,
+            metadata: {
+              trigger: 'manual_payment_confirmation',
+            },
+          },
         }).catch((err) =>
           logger.error({
             message: 'Failed to send confirmation email',
@@ -454,6 +462,14 @@ export async function POST(
           replyTo: replyToEmail,
           emailType: 'orders',
           fromName: senderName,
+          auditContext: {
+            merchantId: merchant.id,
+            orderId: order.id,
+            customerId: order.customer_id,
+            metadata: {
+              trigger: 'manual_payment_receipt',
+            },
+          },
         }).catch((err) =>
           logger.error({ message: 'Failed to send receipt email', error: err })
         );

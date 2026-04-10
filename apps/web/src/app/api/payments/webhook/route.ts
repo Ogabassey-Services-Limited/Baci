@@ -725,6 +725,15 @@ export async function POST(request: NextRequest) {
               replyTo: replyToEmail,
               emailType: 'orders',
               fromName: senderName,
+              auditContext: {
+                merchantId: chatOrder.merchant_id,
+                orderId: newOrder.id,
+                customerId: chatOrder.customer_id || null,
+                metadata: {
+                  trigger: 'paystack_chat_order_confirmation',
+                  chatOrderId: chatOrder.id,
+                },
+              },
             });
 
             logger.info({
@@ -1291,7 +1300,7 @@ export async function POST(request: NextRequest) {
         })
         .eq('id', transaction.order_id)
         .select(
-          'id, order_number, customer_id, total, subtotal, shipping_fee, customer_name, customer_email, customer_phone, shipping_address, currency, payment_status, shipping_status, updated_at, ad_tracking, order_items(id, product_id, name, price, quantity, subtotal, variant_name)'
+          'id, merchant_id, order_number, customer_id, total, subtotal, shipping_fee, customer_name, customer_email, customer_phone, shipping_address, currency, payment_status, shipping_status, updated_at, ad_tracking, order_items(id, product_id, name, price, quantity, subtotal, variant_name)'
         )
         .single();
 
@@ -1422,6 +1431,14 @@ export async function POST(request: NextRequest) {
               replyTo: replyToEmail,
               emailType: 'orders',
               fromName: senderName,
+              auditContext: {
+                merchantId: order.merchant_id,
+                orderId: order.id,
+                customerId: order.customer_id,
+                metadata: {
+                  trigger: 'paystack_payment_confirmation',
+                },
+              },
             });
 
             if (!emailResult.success) {

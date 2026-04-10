@@ -11,7 +11,9 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -324,81 +326,94 @@ export default function PayoutSettingsScreen() {
           animationType="slide"
           presentationStyle="pageSheet"
         >
-          <View
-            style={[
-              styles.modalContainer,
-              { backgroundColor: colors.background },
-            ]}
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            keyboardVerticalOffset={24}
+            style={styles.modalContainer}
           >
             <View
-              style={[styles.modalHeader, { borderBottomColor: colors.border }]}
-            >
-              <Text style={[styles.modalTitle, { color: colors.text }]}>
-                Select Bank
-              </Text>
-              <Pressable
-                onPress={() => setShowBankModal(false)}
-                style={styles.closeButton}
-                accessibilityLabel="Close"
-                accessibilityRole="button"
-              >
-                <Ionicons name="close" size={24} color={colors.text} />
-              </Pressable>
-            </View>
-
-            <View
               style={[
-                styles.searchContainer,
-                { borderBottomColor: colors.border },
+                styles.modalContainer,
+                { backgroundColor: colors.background },
               ]}
             >
-              <Ionicons name="search" size={20} color={colors.textMuted} />
-              <TextInput
-                style={[styles.searchInput, { color: colors.text }]}
-                placeholder="Search banks..."
-                placeholderTextColor={colors.textMuted}
-                value={searchTerm}
-                onChangeText={setSearchTerm}
-              />
-            </View>
+              <View
+                style={[
+                  styles.modalHeader,
+                  { borderBottomColor: colors.border },
+                ]}
+              >
+                <Text style={[styles.modalTitle, { color: colors.text }]}>
+                  Select Bank
+                </Text>
+                <Pressable
+                  onPress={() => setShowBankModal(false)}
+                  style={styles.closeButton}
+                  accessibilityLabel="Close"
+                  accessibilityRole="button"
+                >
+                  <Ionicons name="close" size={24} color={colors.text} />
+                </Pressable>
+              </View>
 
-            {isLoadingBanks ? (
-              <ActivityIndicator
-                size="large"
-                color={colors.primary}
-                style={{ marginTop: 20 }}
-              />
-            ) : (
-              <FlatList
-                data={filteredBanks}
-                keyExtractor={(item) => item.code}
-                renderItem={({ item }) => (
-                  <Pressable
-                    style={[
-                      styles.bankItem,
-                      { borderBottomColor: colors.border },
-                    ]}
-                    onPress={() => {
-                      setSelectedBank(item);
-                      setShowBankModal(false);
-                      setSearchTerm('');
-                    }}
-                  >
-                    <Text style={[styles.bankName, { color: colors.text }]}>
-                      {item.name}
-                    </Text>
-                    {selectedBank?.code === item.code && (
-                      <Ionicons
-                        name="checkmark"
-                        size={20}
-                        color={colors.primary}
-                      />
-                    )}
-                  </Pressable>
-                )}
-              />
-            )}
-          </View>
+              <View
+                style={[
+                  styles.searchContainer,
+                  { borderBottomColor: colors.border },
+                ]}
+              >
+                <Ionicons name="search" size={20} color={colors.textMuted} />
+                <TextInput
+                  style={[styles.searchInput, { color: colors.text }]}
+                  placeholder="Search banks..."
+                  placeholderTextColor={colors.textMuted}
+                  value={searchTerm}
+                  onChangeText={setSearchTerm}
+                />
+              </View>
+
+              {isLoadingBanks ? (
+                <ActivityIndicator
+                  size="large"
+                  color={colors.primary}
+                  style={{ marginTop: 20 }}
+                />
+              ) : (
+                <FlatList
+                  data={filteredBanks}
+                  keyExtractor={(item) => item.code}
+                  keyboardDismissMode={
+                    Platform.OS === 'ios' ? 'interactive' : 'on-drag'
+                  }
+                  keyboardShouldPersistTaps="handled"
+                  renderItem={({ item }) => (
+                    <Pressable
+                      style={[
+                        styles.bankItem,
+                        { borderBottomColor: colors.border },
+                      ]}
+                      onPress={() => {
+                        setSelectedBank(item);
+                        setShowBankModal(false);
+                        setSearchTerm('');
+                      }}
+                    >
+                      <Text style={[styles.bankName, { color: colors.text }]}>
+                        {item.name}
+                      </Text>
+                      {selectedBank?.code === item.code && (
+                        <Ionicons
+                          name="checkmark"
+                          size={20}
+                          color={colors.primary}
+                        />
+                      )}
+                    </Pressable>
+                  )}
+                />
+              )}
+            </View>
+          </KeyboardAvoidingView>
         </Modal>
       </SafeAreaView>
     </>

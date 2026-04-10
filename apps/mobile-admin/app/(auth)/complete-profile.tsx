@@ -18,7 +18,8 @@ import {
 } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import SafeImage from '@/components/ui/SafeImage';
-import { DARK_COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 import { useRegistration } from '@/hooks/useRegistration';
 import { supabase } from '@/lib/supabase';
 
@@ -37,6 +38,7 @@ const BUSINESS_TYPES = [
 
 export default function CompleteProfileScreen() {
   const router = useRouter();
+  const { colors, isDark } = useTheme();
 
   const { completeProfile, isLoading } = useRegistration();
   const [isInitializing, setIsInitializing] = useState(true);
@@ -201,29 +203,31 @@ export default function CompleteProfileScreen() {
       <View
         style={{
           flex: 1,
-          backgroundColor: DARK_COLORS.background,
+          backgroundColor: colors.background,
           justifyContent: 'center',
           alignItems: 'center',
         }}
       >
-        <ActivityIndicator size="large" color={DARK_COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <SystemBars style="light" />
-      <LinearGradient
-        colors={['#0D0D1A', '#1A1A2E']}
-        style={StyleSheet.absoluteFillObject}
-      />
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <SystemBars style={isDark ? 'light' : 'dark'} />
+      {isDark && (
+        <LinearGradient
+          colors={['#0D0D1A', '#1A1A2E']}
+          style={StyleSheet.absoluteFillObject}
+        />
+      )}
 
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
           {/* No back button, this is a forced step */}
           <View />
-          <Text style={styles.headerTitle}>Complete Setup</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Complete Setup</Text>
           <View style={{ width: 24 }} />
         </View>
 
@@ -236,47 +240,47 @@ export default function CompleteProfileScreen() {
               {formData.logoUrl ? (
                 <SafeImage
                   source={{ uri: formData.logoUrl }}
-                  style={styles.avatar}
+                  style={[styles.avatar, { borderColor: colors.primary }]}
                 />
               ) : (
-                <View style={styles.avatarPlaceholder}>
+                <View style={[styles.avatarPlaceholder, { backgroundColor: colors.card }]}>
                   <Ionicons
                     name="storefront-outline"
                     size={40}
-                    color={DARK_COLORS.textSecondary}
+                    color={colors.textSecondary}
                   />
                 </View>
               )}
-              <Text style={styles.introTitle}>
+              <Text style={[styles.introTitle, { color: colors.text }]}>
                 Welcome
                 {formData.fullName
                   ? `, ${formData.fullName.split(' ')[0]}`
                   : ''}
                 !
               </Text>
-              <Text style={styles.introText}>
+              <Text style={[styles.introText, { color: colors.textSecondary }]}>
                 Let's finish setting up your profile and store.
               </Text>
             </View>
 
             <View style={styles.formSection}>
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Your Name</Text>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Your Name</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
                   placeholder="John Doe"
-                  placeholderTextColor="#6B7280"
+                  placeholderTextColor={colors.textMuted}
                   value={formData.fullName}
                   onChangeText={(t) => updateForm('fullName', t)}
                 />
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Phone Number (Optional)</Text>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Phone Number (Optional)</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
                   placeholder="+1 234 567 8900"
-                  placeholderTextColor="#6B7280"
+                  placeholderTextColor={colors.textMuted}
                   value={formData.phone}
                   onChangeText={(t) => updateForm('phone', t)}
                   keyboardType="phone-pad"
@@ -284,33 +288,33 @@ export default function CompleteProfileScreen() {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Business Name</Text>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Business Name</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
                   placeholder="My Awesome Store"
-                  placeholderTextColor="#6B7280"
+                  placeholderTextColor={colors.textMuted}
                   value={formData.businessName}
                   onChangeText={(t) => updateForm('businessName', t)}
                 />
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Store Link</Text>
-                <View style={styles.urlInputContainer}>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Store Link</Text>
+                <View style={[styles.urlInputContainer, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
                   <TextInput
-                    style={[styles.urlInput, { textAlign: 'right' }]}
+                    style={[styles.urlInput, { textAlign: 'right', color: colors.text }]}
                     placeholder="my-store"
-                    placeholderTextColor="#6B7280"
+                    placeholderTextColor={colors.textMuted}
                     autoCapitalize="none"
                     value={formData.slug}
                     onChangeText={handleSlugChange}
                   />
-                  <Text style={styles.urlSuffix}>.usebaci.com</Text>
+                  <Text style={[styles.urlSuffix, { color: colors.textSecondary, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}>.usebaci.com</Text>
                 </View>
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Business Type</Text>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Business Type</Text>
                 <View style={styles.typeGrid}>
                   {BUSINESS_TYPES.map((type) => (
                     <Pressable
@@ -323,16 +327,18 @@ export default function CompleteProfileScreen() {
                       }}
                       style={[
                         styles.typeCard,
+                        { borderColor: colors.border, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' },
                         formData.businessType === type.id &&
-                          styles.typeCardSelected,
+                          [styles.typeCardSelected, { backgroundColor: colors.primary, borderColor: colors.primary }],
                       ]}
                       onPress={() => updateForm('businessType', type.id)}
                     >
                       <Text
                         style={[
                           styles.typeText,
+                          { color: colors.textSecondary },
                           formData.businessType === type.id &&
-                            styles.typeTextSelected,
+                            [styles.typeTextSelected, { color: colors.textOnPrimary }],
                         ]}
                       >
                         {type.label}
@@ -344,11 +350,11 @@ export default function CompleteProfileScreen() {
 
               {formData.businessType === 'other' && (
                 <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Please specify</Text>
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>Please specify</Text>
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
                     placeholder="e.g. Pet Supplies"
-                    placeholderTextColor="#6B7280"
+                    placeholderTextColor={colors.textMuted}
                     value={formData.otherBusinessType}
                     onChangeText={(text) =>
                       updateForm('otherBusinessType', text)
@@ -358,7 +364,7 @@ export default function CompleteProfileScreen() {
               )}
 
               <Pressable
-                style={[styles.button, isLoading && { opacity: 0.7 }]}
+                style={[styles.button, { backgroundColor: colors.primary }, isLoading && { opacity: 0.7 }]}
                 onPress={handleCompleteSetup}
                 disabled={isLoading}
                 accessible={true}
@@ -367,26 +373,26 @@ export default function CompleteProfileScreen() {
                 accessibilityState={{ disabled: isLoading }}
               >
                 {isLoading ? (
-                  <ActivityIndicator color="#FFF" />
+                  <ActivityIndicator color={colors.textOnPrimary} />
                 ) : (
                   <>
-                    <Text style={styles.buttonText}>Launch Store</Text>
-                    <Ionicons name="rocket-outline" size={20} color="#FFF" />
+                    <Text style={[styles.buttonText, { color: colors.textOnPrimary }]}>Launch Store</Text>
+                    <Ionicons name="rocket-outline" size={20} color={colors.textOnPrimary} />
                   </>
                 )}
               </Pressable>
 
-              <Text style={styles.termsText}>
+              <Text style={[styles.termsText, { color: colors.textSecondary }]}>
                 By continuing, you agree to our{' '}
                 <Text
-                  style={styles.termsLink}
+                  style={[styles.termsLink, { color: colors.primary }]}
                   onPress={() => Linking.openURL('https://usebaci.com/terms')}
                 >
                   Terms of Service
                 </Text>{' '}
                 and{' '}
                 <Text
-                  style={styles.termsLink}
+                  style={[styles.termsLink, { color: colors.primary }]}
                   onPress={() => Linking.openURL('https://usebaci.com/privacy')}
                 >
                   Privacy Policy
@@ -403,7 +409,6 @@ export default function CompleteProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: DARK_COLORS.background,
   },
   safeArea: {
     flex: 1,
@@ -416,7 +421,6 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
   },
   headerTitle: {
-    color: '#FFF',
     fontSize: TYPOGRAPHY.size.lg,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
@@ -433,25 +437,21 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.full,
     marginBottom: SPACING.md,
     borderWidth: 2,
-    borderColor: DARK_COLORS.primary,
   },
   avatarPlaceholder: {
     width: 80,
     height: 80,
     borderRadius: RADIUS.full,
-    backgroundColor: DARK_COLORS.card,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: SPACING.md,
   },
   introTitle: {
-    color: '#FFF',
     fontSize: TYPOGRAPHY.size.xl,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
     marginBottom: SPACING.xs,
   },
   introText: {
-    color: DARK_COLORS.textSecondary,
     fontSize: TYPOGRAPHY.size.md,
     textAlign: 'center',
   },
@@ -462,21 +462,16 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
   },
   label: {
-    color: '#E2E8F0',
     fontSize: TYPOGRAPHY.size.sm,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
   },
   input: {
-    backgroundColor: DARK_COLORS.inputBg,
     borderRadius: RADIUS.md,
     padding: SPACING.md,
-    color: '#FFF',
     fontSize: TYPOGRAPHY.size.md,
     borderWidth: 1,
-    borderColor: DARK_COLORS.border,
   },
   button: {
-    backgroundColor: DARK_COLORS.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -486,7 +481,6 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
   },
   buttonText: {
-    color: '#FFF',
     fontSize: TYPOGRAPHY.size.lg,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
@@ -500,57 +494,44 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     borderRadius: RADIUS.full,
     borderWidth: 1,
-    borderColor: DARK_COLORS.border,
-    backgroundColor: 'rgba(255,255,255,0.05)',
   },
   typeCardSelected: {
-    backgroundColor: DARK_COLORS.primary,
-    borderColor: DARK_COLORS.primary,
   },
   typeText: {
-    color: '#9CA3AF',
     fontSize: TYPOGRAPHY.size.sm,
   },
   typeTextSelected: {
-    color: '#FFF',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
   urlInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: DARK_COLORS.inputBg,
     borderRadius: RADIUS.md,
     borderWidth: 1,
-    borderColor: DARK_COLORS.border,
     overflow: 'hidden',
   },
   urlSuffix: {
-    color: '#9CA3AF',
     paddingRight: SPACING.md,
     paddingLeft: SPACING.xs,
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
-    backgroundColor: 'rgba(255,255,255,0.05)',
     height: '100%',
     textAlignVertical: 'center',
     paddingVertical: SPACING.md,
   },
   urlInput: {
     flex: 1,
-    color: '#FFF',
     padding: SPACING.md,
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
   },
   termsText: {
-    color: '#9CA3AF',
     fontSize: TYPOGRAPHY.size.sm,
     textAlign: 'center',
     marginTop: SPACING.lg,
     lineHeight: 20,
   },
   termsLink: {
-    color: DARK_COLORS.primary,
     textDecorationLine: 'underline',
   },
 });
