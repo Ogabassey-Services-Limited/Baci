@@ -227,7 +227,7 @@ export function CacVerification({
                     setSelectedCompany(c);
                     setCacStep('confirm');
                   }}
-                  className="w-full rounded-lg border p-3 text-left transition-colors hover:border-primary hover:bg-primary/5"
+                  className="w-full rounded-lg border p-3 text-left transition-colors hover:border-primary hover:bg-primary/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   <p className="font-semibold">{c.approvedName}</p>
                   <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
@@ -259,7 +259,9 @@ export function CacVerification({
             type="file"
             accept={ACCEPTED_TYPES}
             onChange={handleFileChange}
-            className="block w-full text-sm file:mr-4 file:rounded-md file:border-0 file:bg-primary/10 file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary hover:file:bg-primary/20"
+            disabled={uploading}
+            aria-label="CAC certificate file upload"
+            className="block w-full text-sm file:mr-4 file:rounded-md file:border-0 file:bg-primary/10 file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary hover:file:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-50"
           />
           {selectedFile && (
             <div className="rounded-lg border p-3">

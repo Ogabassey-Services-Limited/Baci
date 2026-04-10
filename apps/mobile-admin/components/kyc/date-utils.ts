@@ -10,3 +10,19 @@ export function isValidCalendarDate(dateStr: string): boolean {
     date.getUTCDate() === d
   );
 }
+
+/**
+ * Returns true if the YYYY-MM-DD date is strictly before today (UTC date-only).
+ * Assumes `dateStr` has already passed `isValidCalendarDate`.
+ */
+export function isDateInPast(dateStr: string): boolean {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const inputUtc = Date.UTC(y, m - 1, d);
+  const now = new Date();
+  const todayUtc = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate()
+  );
+  return inputUtc < todayUtc;
+}

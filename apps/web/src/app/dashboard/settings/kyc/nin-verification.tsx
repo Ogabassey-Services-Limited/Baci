@@ -29,13 +29,24 @@ const ninFormSchema = z.object({
     .refine((val) => {
       const [year, month, day] = val.split('-').map(Number);
       const date = new Date(Date.UTC(year, month - 1, day));
-      return (
-        date.getUTCFullYear() === year &&
-        date.getUTCMonth() === month - 1 &&
-        date.getUTCDate() === day
+      if (
+        date.getUTCFullYear() !== year ||
+        date.getUTCMonth() !== month - 1 ||
+        date.getUTCDate() !== day
+      ) {
+        return false;
+      }
+      const now = new Date();
+      const todayUtc = Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate()
       );
-    }, 'Invalid date'),
+      return date.getTime() < todayUtc;
+    }, 'Date of birth must be a valid past date'),
 });
+
+const TODAY_ISO = new Date().toISOString().slice(0, 10);
 
 type NinFormValues = z.input<typeof ninFormSchema>;
 
@@ -190,7 +201,7 @@ export function NinVerification({
               <FormItem>
                 <FormLabel>Date of Birth</FormLabel>
                 <FormControl>
-                  <Input type="date" {...field} />
+                  <Input type="date" max={TODAY_ISO} {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

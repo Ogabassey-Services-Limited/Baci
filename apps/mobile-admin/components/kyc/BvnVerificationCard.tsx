@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import { apiClient, NetworkError } from '@/lib/api-client';
-import { isValidCalendarDate } from './date-utils';
+import { isDateInPast, isValidCalendarDate } from './date-utils';
 import VerificationStatusBadge from './VerificationStatusBadge';
 import { verificationCardStyles as styles } from './verification-card-styles';
 
@@ -125,7 +125,7 @@ export default function BvnVerificationCard({
       );
       return;
     }
-    if (new Date(dateOfBirth) >= new Date()) {
+    if (!isDateInPast(dateOfBirth)) {
       Alert.alert('Invalid Date', 'Date of birth must be in the past.');
       return;
     }
