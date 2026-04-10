@@ -592,7 +592,9 @@ export interface TopSellingProduct extends Product {
 // Stable sentinels for the "all time" fallback so the query key and the
 // actual RPC parameters stay in sync when no range is provided.
 const ALL_TIME_START_ISO = new Date(0).toISOString();
-const ALL_TIME_END_ISO = '9999-12-31T23:59:59.999Z';
+const ALL_TIME_END_ISO = new Date(
+  Date.UTC(9999, 11, 31, 23, 59, 59, 999)
+).toISOString();
 
 export function useTopSellingProducts(
   limit: number = 20,

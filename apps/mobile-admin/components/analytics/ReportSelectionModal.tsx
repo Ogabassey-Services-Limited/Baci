@@ -30,9 +30,17 @@ interface TaxLedgerOrderRow {
 }
 
 function mapRowToTransaction(row: TaxLedgerOrderRow): Transaction {
-  const joinedCustomer = Array.isArray(row.customer)
-    ? row.customer[0]
-    : row.customer;
+  let joinedCustomer: TaxLedgerOrderRow['customer'];
+  if (Array.isArray(row.customer)) {
+    if (row.customer.length > 1) {
+      console.warn(
+        `[ReportSelectionModal] Order ${row.id} returned ${row.customer.length} joined customers; using the first`
+      );
+    }
+    joinedCustomer = row.customer[0] ?? null;
+  } else {
+    joinedCustomer = row.customer;
+  }
   return {
     id: row.id,
     created_at: row.created_at,

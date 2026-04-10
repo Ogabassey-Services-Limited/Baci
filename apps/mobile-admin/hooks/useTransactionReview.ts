@@ -139,17 +139,27 @@ export function useUpdateTransactionCostPrice() {
         throw new Error('Merchant context is not ready');
       }
 
-      const { error } = await supabase
+      // Select the updated row so we can detect the silent-success case
+      // where the update matched zero rows (wrong merchant, stale product id,
+      // or RLS mismatch) and surface it as a clear error to the caller.
+      const { data, error } = await supabase
         .from('products')
         .update({
           cost_price: costPrice,
           updated_at: new Date().toISOString(),
         })
         .eq('id', productId)
-        .eq('merchant_id', merchant.id);
+        .eq('merchant_id', merchant.id)
+        .select('id');
 
       if (error) {
         throw new Error(error.message);
+      }
+
+      if (!data || data.length === 0) {
+        throw new Error(
+          'Product not found for this merchant, or you no longer have permission to update it'
+        );
       }
     },
     onSuccess: () => {

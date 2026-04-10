@@ -36,9 +36,9 @@ export const formatCurrency = (
 };
 
 /**
- * Format currency without decimal places (compact display)
+ * Format currency without decimal places.
  */
-export const formatCurrencyCompact = (
+export const formatCurrencyNoDecimals = (
   amount: number,
   currency = 'NGN',
   locale?: string
@@ -111,6 +111,7 @@ export function stripHtmlTags(text: string | null | undefined): string {
 }
 
 const currencySymbolCache = new Map<string, string>();
+const currencyFallbackCache = new Map<string, string>();
 
 /**
  * Resolve the symbol for a given ISO-4217 currency code using Intl. Falls back
@@ -122,6 +123,9 @@ export const getCurrencySymbol = (
   currency = 'NGN',
   locale?: string
 ): string => {
+  const cachedFallback = currencyFallbackCache.get(currency);
+  if (cachedFallback !== undefined) return cachedFallback;
+
   const cacheKey = `${locale ?? 'default'}-${currency}`;
   const cached = currencySymbolCache.get(cacheKey);
   if (cached !== undefined) return cached;
@@ -139,6 +143,7 @@ export const getCurrencySymbol = (
     currencySymbolCache.set(cacheKey, symbol);
     return symbol;
   } catch {
+    currencyFallbackCache.set(currency, currency);
     return currency;
   }
 };
@@ -168,7 +173,7 @@ function getOrCreateFormatter(
  * back to standard notation so small amounts display their actual value
  * rather than "₦500" without decimals.
  */
-export const formatCompactCurrency = (
+export const formatCurrencyCompactNotation = (
   amount: number,
   currency = 'NGN',
   locale?: string
@@ -196,6 +201,11 @@ export const formatCompactCurrency = (
   } catch {
     // Runtime without full Intl data — fall back to a manual format that
     // still handles the sign correctly.
+    // This uses `amount`, `currency`, `locale`, `abs`, and
+    // `getCurrencySymbol(currency, locale)` to build `${sign}${symbol}${...}`.
+    // It assumes prefix currency placement, so suffix locales (for example
+    // `1,2 M€`) are not preserved. That's acceptable because this only runs
+    // when Intl formatting is unavailable.
     const symbol = getCurrencySymbol(currency, locale);
     const sign = amount < 0 ? '-' : '';
     if (abs >= 1_000_000_000) {

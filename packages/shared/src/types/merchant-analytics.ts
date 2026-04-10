@@ -81,21 +81,51 @@ export interface MerchantBlogAnalyticsSummary {
   totalViews: number;
 }
 
+/**
+ * Period summary for the analytics dashboard.
+ *
+ * Fields typed as `AnalyticsMetricValue` include both the current-period
+ * raw value and a percent change vs. the previous comparison window.
+ *
+ * Fields typed as a plain `number` are raw totals for the current period
+ * with no comparison baseline attached.
+ *
+ * Note the deliberate `tax` vs `taxDue` split:
+ * - `tax` is the raw currency total of tax collected in the period.
+ * - `taxDue` wraps the same amount in an `AnalyticsMetricValue` so UI cards
+ *   can render a trend arrow vs. the previous window without recomputing.
+ */
 export interface MerchantAnalyticsSummary {
+  /** Orders placed within the last hour (live activity pulse). */
   activeNow: AnalyticsMetricValue;
+  /** Average order value in the merchant's payout currency. */
   aov: AnalyticsMetricValue;
+  /** Distinct customer count for the period. */
   customers: AnalyticsMetricValue;
+  /** Gross margin expressed as a percentage (0-100). */
   grossMargin: AnalyticsMetricValue;
+  /** Lifetime value (revenue ÷ unique customers) for the period. */
   ltv: AnalyticsMetricValue;
+  /** Profit total in the merchant's payout currency. */
   profit: AnalyticsMetricValue;
+  /** Refund rate expressed as a percentage (0-100). */
   refundRate: AnalyticsMetricValue;
+  /** Total paid revenue in the merchant's payout currency. */
   revenue: AnalyticsMetricValue;
+  /** Paid order count for the period. */
   sales: AnalyticsMetricValue;
+  /** Tax due as a metric card (same underlying total as `tax` below). */
   taxDue: AnalyticsMetricValue;
+
+  /** Raw discount total in the merchant's payout currency. */
   discounts: number;
+  /** Raw shipping fee total in the merchant's payout currency. */
   shipping: number;
+  /** Raw subtotal (pre-tax, pre-discount) in the merchant's payout currency. */
   subtotal: number;
+  /** Raw tax total in the merchant's payout currency. */
   tax: number;
+  /** Raw count of units sold across all paid orders. */
   totalUnitsSold: number;
 }
 

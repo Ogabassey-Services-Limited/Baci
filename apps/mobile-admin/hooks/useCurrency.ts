@@ -1,7 +1,8 @@
+import { useMemo } from 'react';
 import { useMerchant } from '@/hooks/useMerchant';
 import {
-  formatCompactCurrency,
   formatCurrency,
+  formatCurrencyCompactNotation,
   getCurrencySymbol,
 } from '@/lib/utils';
 
@@ -28,10 +29,15 @@ export function useCurrency(): CurrencyFormatter {
   const { merchant } = useMerchant();
   const currency = merchant?.payout_currency?.trim() || 'NGN';
 
-  return {
-    currency,
-    symbol: getCurrencySymbol(currency),
-    format: (amount, options) => formatCurrency(amount, options, currency),
-    formatCompact: (amount) => formatCompactCurrency(amount, currency),
-  };
+  return useMemo(
+    () => ({
+      currency,
+      symbol: getCurrencySymbol(currency),
+      format: (amount: number, options?: Partial<Intl.NumberFormatOptions>) =>
+        formatCurrency(amount, options, currency),
+      formatCompact: (amount: number) =>
+        formatCurrencyCompactNotation(amount, currency),
+    }),
+    [currency]
+  );
 }

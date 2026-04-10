@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -49,9 +49,11 @@ export default function AnalyticsInsightsScreen() {
 
   const kind = params.kind ?? 'blog';
 
-  if (error) {
-    console.error('[AnalyticsInsightsScreen] failed to load analytics', error);
-  }
+  useEffect(() => {
+    if (error) {
+      console.error('[AnalyticsInsightsScreen] failed to load analytics', error);
+    }
+  }, [error]);
 
   const titles: Record<string, string> = {
     blog: 'Blog Analytics',
@@ -60,7 +62,7 @@ export default function AnalyticsInsightsScreen() {
     'payment-methods': 'Payment Methods',
   };
 
-  const formatCurrencyCompact = (amount: number) =>
+  const formatCurrencyNoDecimals = (amount: number) =>
     formatCurrency(amount, {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
@@ -72,7 +74,7 @@ export default function AnalyticsInsightsScreen() {
         return (analytics?.brandBreakdown ?? []).map((item, index) => ({
           id: `brand-${index}`,
           label: item.name,
-          value: formatCurrencyCompact(item.revenue ?? item.value ?? 0),
+          value: formatCurrencyNoDecimals(item.revenue ?? item.value ?? 0),
         }));
       case 'customers':
         return (analytics?.customerBreakdown ?? []).map((item, index) => ({
@@ -84,7 +86,7 @@ export default function AnalyticsInsightsScreen() {
         return (analytics?.salesByPaymentMethod ?? []).map((item, index) => ({
           id: `payment-${index}`,
           label: item.name,
-          value: formatCurrencyCompact(item.value ?? 0),
+          value: formatCurrencyNoDecimals(item.value ?? 0),
         }));
       default:
         return [];

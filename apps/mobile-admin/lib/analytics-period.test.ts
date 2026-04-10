@@ -6,12 +6,15 @@ import {
 } from '@/lib/analytics-period';
 
 describe('analytics-period', () => {
+  // These expectations reflect the local timezone of the JS runtime used by the
+  // mobile app/tests. In CI today that means midnight local time appears as
+  // `23:00:00.000Z` and end-of-day appears as `22:59:59.999Z` in UTC.
   it('resolves this year using the selected year', () => {
     const range = resolveAnalyticsDateRange(
       'this_year',
       2025,
-      new Date('2025-01-01T00:00:00.000Z'),
-      new Date('2025-01-31T00:00:00.000Z'),
+      new Date(0),
+      new Date(0),
       new Date('2026-04-10T12:00:00.000Z')
     );
 
@@ -26,6 +29,19 @@ describe('analytics-period', () => {
     expect(range.endDate.getUTCMinutes()).toBe(59);
     expect(range.endDate.getUTCSeconds()).toBe(59);
     expect(range.endDate.getUTCMilliseconds()).toBe(999);
+  });
+
+  it('resolves leap-year selected years to full-year boundaries', () => {
+    const range = resolveAnalyticsDateRange(
+      'this_year',
+      2024,
+      new Date(0),
+      new Date(0),
+      new Date('2026-04-10T12:00:00.000Z')
+    );
+
+    expect(range.startDate.toISOString()).toBe('2023-12-31T23:00:00.000Z');
+    expect(range.endDate.toISOString()).toBe('2024-12-31T22:59:59.999Z');
   });
 
   it('normalizes a custom range to day boundaries', () => {
@@ -50,6 +66,19 @@ describe('analytics-period', () => {
     expect(range.endDate.getUTCMilliseconds()).toBe(999);
   });
 
+  it('normalizes a same-day custom range to start and end of that day', () => {
+    const range = resolveAnalyticsDateRange(
+      'custom',
+      2026,
+      new Date('2024-02-29T14:30:00.000Z'),
+      new Date('2024-02-29T14:30:00.000Z'),
+      new Date('2026-04-10T12:00:00.000Z')
+    );
+
+    expect(range.startDate.toISOString()).toBe('2024-02-28T23:00:00.000Z');
+    expect(range.endDate.toISOString()).toBe('2024-02-29T22:59:59.999Z');
+  });
+
   it('swaps inverted custom date ranges before normalizing', () => {
     const range = resolveAnalyticsDateRange(
       'custom',
@@ -64,6 +93,19 @@ describe('analytics-period', () => {
     expect(range.endDate.getUTCDate()).toBe(10);
   });
 
+  it('keeps leap-day custom ranges intact when swapping and normalizing', () => {
+    const range = resolveAnalyticsDateRange(
+      'custom',
+      2026,
+      new Date('2024-03-01T10:10:00.000Z'),
+      new Date('2024-02-29T18:45:00.000Z'),
+      new Date('2026-04-10T12:00:00.000Z')
+    );
+
+    expect(range.startDate.toISOString()).toBe('2024-02-28T23:00:00.000Z');
+    expect(range.endDate.toISOString()).toBe('2024-03-01T22:59:59.999Z');
+  });
+
   it('derives the previous range from the current range duration', () => {
     const currentStart = new Date('2026-04-08T00:00:00.000Z');
     const currentEnd = new Date('2026-04-10T23:59:59.999Z');
@@ -75,6 +117,34 @@ describe('analytics-period', () => {
     const previousDuration =
       previous.endDate.getTime() - previous.startDate.getTime();
     const currentDuration = currentEnd.getTime() - currentStart.getTime();
+
+    expect(previous.endDate.getTime()).toBeLessThan(currentStart.getTime());
+    expect(previousDuration).toBe(currentDuration);
+  });
+
+  it('derives the previous range for a one-minute window', () => {
+    const currentStart = new Date('2026-04-10T12:00:00.000Z');
+    const currentEnd = new Date('2026-04-10T12:00:59.999Z');
+    const previous = getPreviousAnalyticsDateRange({
+      startDate: currentStart,
+      endDate: currentEnd,
+    });
+
+    expect(previous.startDate.toISOString()).toBe('2026-04-10T11:59:00.000Z');
+    expect(previous.endDate.toISOString()).toBe('2026-04-10T11:59:59.999Z');
+  });
+
+  it('derives the previous range for a multi-year window', () => {
+    const currentStart = new Date('2022-01-01T00:00:00.000Z');
+    const currentEnd = new Date('2025-12-31T23:59:59.999Z');
+    const previous = getPreviousAnalyticsDateRange({
+      startDate: currentStart,
+      endDate: currentEnd,
+    });
+
+    const currentDuration = currentEnd.getTime() - currentStart.getTime();
+    const previousDuration =
+      previous.endDate.getTime() - previous.startDate.getTime();
 
     expect(previous.endDate.getTime()).toBeLessThan(currentStart.getTime());
     expect(previousDuration).toBe(currentDuration);

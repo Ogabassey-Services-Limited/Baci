@@ -25,7 +25,12 @@ import {
 export default function TransactionsScreen() {
   const { colors, isDark } = useTheme();
   const { format: formatCurrency } = useCurrency();
-  const { data: orders = [], isLoading, error } = useTransactionReview();
+  const {
+    data: orders = [],
+    isLoading,
+    error,
+    refetch,
+  } = useTransactionReview();
   const updateCostPrice = useUpdateTransactionCostPrice();
   const [selectedItem, setSelectedItem] =
     useState<TransactionReviewItem | null>(null);
@@ -165,8 +170,31 @@ export default function TransactionsScreen() {
                 color={colors.error}
               />
               <Text style={[styles.stateText, { color: colors.textSecondary }]}>
-                Unable to load transactions. Please try again.
+                Unable to load transactions.
               </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Retry loading transactions"
+                onPress={() => {
+                  void refetch();
+                }}
+                style={({ pressed }) => [
+                  styles.retryButton,
+                  {
+                    backgroundColor: colors.primary,
+                    opacity: pressed ? 0.7 : 1,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.retryButtonText,
+                    { color: colors.textOnPrimary },
+                  ]}
+                >
+                  Try again
+                </Text>
+              </Pressable>
             </View>
           ) : orders.length === 0 ? (
             <View style={styles.stateContainer}>
@@ -284,8 +312,17 @@ export default function TransactionsScreen() {
           transparent
           onRequestClose={handleCloseEditor}
         >
-          <View style={styles.modalBackdrop}>
+          <Pressable
+            style={styles.modalBackdrop}
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss cost price editor"
+            onPress={handleCloseEditor}
+          >
             <View
+              // Stop taps on the card itself from bubbling up to the backdrop
+              // Pressable — without this, tapping inside the modal would
+              // unexpectedly dismiss it.
+              onStartShouldSetResponder={() => true}
               style={[
                 styles.modalCard,
                 {
@@ -379,7 +416,7 @@ export default function TransactionsScreen() {
                 </Pressable>
               </View>
             </View>
-          </View>
+          </Pressable>
         </Modal>
       </SafeAreaView>
     </>
@@ -409,6 +446,15 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     fontSize: TYPOGRAPHY.size.sm,
     textAlign: 'center',
+  },
+  retryButton: {
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
+  },
+  retryButtonText: {
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    fontSize: TYPOGRAPHY.size.md,
   },
   content: {
     gap: SPACING.md,

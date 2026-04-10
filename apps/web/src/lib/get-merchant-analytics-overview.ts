@@ -59,6 +59,7 @@ interface BlogPostRow {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const MAX_ANALYTICS_RANGE_DAYS = 366;
 
 function asNumber(value: number | null | undefined) {
   return Number(value ?? 0);
@@ -74,6 +75,48 @@ function getPercentChange(current: number, previous: number) {
   return ((current - previous) / previous) * 100;
 }
 
+function sanitizeBreakdownName(value: unknown) {
+  const normalized = String(value ?? 'unknown')
+    .trim()
+    .toLowerCase();
+
+  const knownLabels: Record<string, string> = {
+    bank_transfer: 'Bank transfer',
+    banktransfer: 'Bank transfer',
+    card: 'Card',
+    cash: 'Cash',
+    offline: 'Offline',
+    online_store: 'Online store',
+    pay_on_delivery: 'Pay on delivery',
+    pos: 'POS',
+    transfer: 'Transfer',
+    unknown: 'Unknown',
+    wallet: 'Wallet',
+    whatsapp: 'WhatsApp',
+  };
+
+  if (knownLabels[normalized]) {
+    return knownLabels[normalized];
+  }
+
+  const withoutControlChars = Array.from(normalized)
+    .filter((char) => {
+      const code = char.charCodeAt(0);
+      return code >= 32 && code !== 127;
+    })
+    .join('');
+
+  const stripped = sanitizeText(withoutControlChars)
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!stripped) {
+    return 'Unknown';
+  }
+
+  return stripped.slice(0, 48);
+}
+
 function groupBreakdown(
   rows: AnalyticsOrderRow[],
   key: keyof AnalyticsOrderRow
@@ -81,7 +124,7 @@ function groupBreakdown(
   const buckets = new Map<string, number>();
 
   for (const row of rows) {
-    const name = String(row[key] ?? 'unknown').trim() || 'unknown';
+    const name = sanitizeBreakdownName(row[key]);
     buckets.set(name, (buckets.get(name) ?? 0) + asNumber(row.total));
   }
 
@@ -261,8 +304,9 @@ function buildCustomerBreakdown(orders: AnalyticsOrderRow[]) {
       order.customer_name?.trim() ||
       order.customer_email?.trim() ||
       'Guest customer';
+    const trimmedEmail = order.customer_email?.trim();
     const key =
-      order.customer_id ?? order.customer_email?.trim() ?? `name:${rawName}`;
+      order.customer_id ?? (trimmedEmail ? trimmedEmail : `name:${rawName}`);
     const current = customers.get(key) ?? {
       name: sanitizeText(rawName),
       value: 0,
@@ -285,10 +329,22 @@ export async function getMerchantAnalyticsOverview(
   startDate: Date,
   endDate: Date
 ): Promise<MerchantAnalyticsResponse> {
+  const requestedRangeMs = endDate.getTime() - startDate.getTime();
+  if (requestedRangeMs < 0) {
+    throw new Error('Analytics start date must be on or before the end date');
+  }
+
+  const maxRangeMs = MAX_ANALYTICS_RANGE_DAYS * DAY_MS;
+  if (requestedRangeMs > maxRangeMs) {
+    throw new Error(
+      `Analytics date range cannot exceed ${MAX_ANALYTICS_RANGE_DAYS} days`
+    );
+  }
+
   // Previous comparison window mirrors the current window's duration so the
   // two periods span the same number of milliseconds; the off-by-one guard on
   // previousEnd ensures no overlap with the current range.
-  const duration = endDate.getTime() - startDate.getTime();
+  const duration = requestedRangeMs;
   const previousEnd = new Date(startDate.getTime() - 1);
   const previousStart = new Date(previousEnd.getTime() - duration);
 
@@ -400,12 +456,12 @@ export async function getMerchantAnalyticsOverview(
   // different customers.
   const currentCustomers = new Set(
     currentPaidOrders.map(
-      (order) => order.customer_id ?? order.customer_email ?? 'guest'
+      (order) => (order.customer_id ?? order.customer_email) || 'guest'
     )
   ).size;
   const previousCustomers = new Set(
     previousPaidOrders.map(
-      (order) => order.customer_id ?? order.customer_email ?? 'guest'
+      (order) => (order.customer_id ?? order.customer_email) || 'guest'
     )
   ).size;
   const currentTax = currentPaidOrders.reduce(

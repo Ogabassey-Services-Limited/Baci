@@ -132,6 +132,18 @@ export function useAnalyticsDetail({
         );
       }
 
+      // Callers sometimes pass a date-only string or a midnight timestamp for
+      // `endDate`. Normalize that to the inclusive end of the same day so the
+      // final calendar day in the selected range is not silently excluded.
+      if (
+        endDateValue.getUTCHours() === 0 &&
+        endDateValue.getUTCMinutes() === 0 &&
+        endDateValue.getUTCSeconds() === 0 &&
+        endDateValue.getUTCMilliseconds() === 0
+      ) {
+        endDateValue.setUTCHours(23, 59, 59, 999);
+      }
+
       // Fetch orders and order items concurrently
       const [
         { data: orders, error: ordersError },
