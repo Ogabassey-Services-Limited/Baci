@@ -49,8 +49,8 @@ interface OrderItemRow {
   quantity: number;
   price: number;
   products:
-    | { name: string; images: string[] | null }
-    | Array<{ name: string; images: string[] | null }>
+    | { condition: string | null; name: string; images: string[] | null }
+    | Array<{ condition: string | null; name: string; images: string[] | null }>
     | null;
 }
 
@@ -358,7 +358,7 @@ export function useOrder(orderId: string) {
         supabase
           .from('order_items')
           .select(
-            'id, product_id, variant_name, name, quantity, price, products(name, images)'
+            'id, product_id, variant_name, name, quantity, price, products(name, condition, images)'
           )
           .eq('order_id', orderId),
         supabase
@@ -448,6 +448,7 @@ export function useOrder(orderId: string) {
             product_id: item.product_id ?? `custom-${item.id}`,
             name: itemName,
             product_name: itemName,
+            condition: product?.condition ?? undefined,
             variant_name: item.variant_name ?? undefined,
             quantity: item.quantity,
             price: item.price,

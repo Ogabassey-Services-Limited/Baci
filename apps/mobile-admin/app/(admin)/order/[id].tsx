@@ -75,6 +75,7 @@ import {
 import { useTheme } from '@/hooks/useTheme';
 import { BASE_URL } from '@/lib/api-client';
 import { extractOrderDeliveryAddress } from '@/lib/orders';
+import { formatProductCondition } from '@/lib/product-condition';
 import { supabase } from '@/lib/supabase';
 import { parseSavedRiders } from '@/lib/validators/storage';
 
@@ -1589,75 +1590,86 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
               Items ({order.items?.length || 0})
             </Text>
           </View>
-          {order.items?.map((item, index: number) => (
-            <Pressable
-              key={item.id}
-              style={[
-                styles.itemRow,
-                index !== (order.items?.length || 0) - 1 && {
-                  borderBottomWidth: 1,
-                  borderBottomColor: colors.border,
-                },
-              ]}
-              onPress={() => setSelectedOrderItem(item)}
-            >
-              <View
+          {order.items?.map((item, index: number) => {
+            const conditionLabel = formatProductCondition(item.condition);
+
+            return (
+              <Pressable
+                key={item.id}
                 style={[
-                  styles.itemImagePlaceholder,
-                  { backgroundColor: colors.backgroundLight },
+                  styles.itemRow,
+                  index !== (order.items?.length || 0) - 1 && {
+                    borderBottomWidth: 1,
+                    borderBottomColor: colors.border,
+                  },
                 ]}
+                onPress={() => setSelectedOrderItem(item)}
               >
-                {item.image_url ? (
-                  <SafeImage
-                    source={{ uri: item.image_url }}
-                    style={styles.itemImage}
-                  />
-                ) : (
-                  <Ionicons
-                    name="image-outline"
-                    size={24}
-                    color={colors.textMuted}
-                  />
-                )}
-              </View>
-              <View style={styles.itemDetails}>
-                <Text
-                  style={[styles.itemName, { color: colors.text }]}
-                  numberOfLines={2}
+                <View
+                  style={[
+                    styles.itemImagePlaceholder,
+                    { backgroundColor: colors.backgroundLight },
+                  ]}
                 >
-                  {item.name}
-                </Text>
-                {item.variant_name ? (
-                  <Text
-                    style={[
-                      styles.itemVariant,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    {item.variant_name}
-                  </Text>
-                ) : null}
-                <Text style={[styles.itemRef, { color: colors.textMuted }]}>
-                  SKU: {item.product_id?.slice(0, 8)}...
-                </Text>
-                <View style={styles.itemPriceRow}>
-                  <Text
-                    style={[styles.itemQty, { color: colors.textSecondary }]}
-                  >
-                    x{item.quantity}
-                  </Text>
-                  <Text style={[styles.itemPrice, { color: colors.text }]}>
-                    {formatPrice(item.price)}
-                  </Text>
+                  {item.image_url ? (
+                    <SafeImage
+                      source={{ uri: item.image_url }}
+                      style={styles.itemImage}
+                    />
+                  ) : (
+                    <Ionicons
+                      name="image-outline"
+                      size={24}
+                      color={colors.textMuted}
+                    />
+                  )}
                 </View>
-              </View>
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                color={colors.textMuted}
-              />
-            </Pressable>
-          ))}
+                <View style={styles.itemDetails}>
+                  <Text
+                    style={[styles.itemName, { color: colors.text }]}
+                    numberOfLines={2}
+                  >
+                    {item.name}
+                  </Text>
+                  {conditionLabel ? (
+                    <Text
+                      style={[styles.itemCondition, { color: colors.primary }]}
+                    >
+                      Condition: {conditionLabel}
+                    </Text>
+                  ) : null}
+                  {item.variant_name ? (
+                    <Text
+                      style={[
+                        styles.itemVariant,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      {item.variant_name}
+                    </Text>
+                  ) : null}
+                  <Text style={[styles.itemRef, { color: colors.textMuted }]}>
+                    SKU: {item.product_id?.slice(0, 8)}...
+                  </Text>
+                  <View style={styles.itemPriceRow}>
+                    <Text
+                      style={[styles.itemQty, { color: colors.textSecondary }]}
+                    >
+                      x{item.quantity}
+                    </Text>
+                    <Text style={[styles.itemPrice, { color: colors.text }]}>
+                      {formatPrice(item.price)}
+                    </Text>
+                  </View>
+                </View>
+                <Ionicons
+                  name="chevron-forward"
+                  size={20}
+                  color={colors.textMuted}
+                />
+              </Pressable>
+            );
+          })}
         </View>
 
         {/* Order Summary */}
@@ -2717,6 +2729,11 @@ const styles = StyleSheet.create({
   },
   itemVariant: {
     fontSize: TYPOGRAPHY.size.xs,
+    marginBottom: 4,
+  },
+  itemCondition: {
+    fontSize: TYPOGRAPHY.size.xs,
+    fontWeight: '700',
     marginBottom: 4,
   },
   itemRef: { fontSize: TYPOGRAPHY.size.xs, marginBottom: 6 },
