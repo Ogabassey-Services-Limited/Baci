@@ -175,6 +175,14 @@ export async function POST(
       replyTo: replyToEmail,
       emailType: 'orders',
       fromName: senderName,
+      auditContext: {
+        merchantId,
+        orderId: order.id,
+        customerId: order.customer_id,
+        metadata: {
+          trigger: 'order_delivered_notification',
+        },
+      },
     });
 
     if (!emailResult.success) {

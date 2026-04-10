@@ -424,6 +424,15 @@ export async function GET(request: NextRequest) {
             replyTo: replyToEmail,
             emailType: 'orders',
             fromName: senderName,
+            auditContext: {
+              merchantId: transaction.merchant_id,
+              orderId: order.id,
+              customerId: order.customer_id,
+              metadata: {
+                trigger: 'payment_verify_confirmation',
+                gateway: transaction.gateway,
+              },
+            },
           });
         }
       } catch (error) {
