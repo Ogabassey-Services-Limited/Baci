@@ -56,7 +56,7 @@ export default function TransactionsScreen() {
   };
 
   const handleSave = async () => {
-    if (!selectedItem?.productId) {
+    if (!selectedItem || selectedItem.productId == null) {
       return;
     }
 
@@ -305,8 +305,10 @@ export default function TransactionsScreen() {
               <TextInput
                 keyboardType="decimal-pad"
                 onChangeText={setCostPriceInput}
+                onSubmitEditing={handleSave}
                 placeholder="Enter cost price"
                 placeholderTextColor={colors.textMuted}
+                returnKeyType="done"
                 style={[
                   styles.input,
                   {
@@ -326,6 +328,8 @@ export default function TransactionsScreen() {
                 <Pressable
                   onPress={handleCloseEditor}
                   disabled={updateCostPrice.isPending}
+                  accessibilityRole="button"
+                  accessibilityLabel="Cancel cost price update"
                   style={({ pressed }) => ({
                     opacity: updateCostPrice.isPending
                       ? 0.4
@@ -343,6 +347,12 @@ export default function TransactionsScreen() {
                 <Pressable
                   onPress={handleSave}
                   disabled={updateCostPrice.isPending}
+                  accessibilityRole="button"
+                  accessibilityLabel="Save cost price"
+                  accessibilityState={{
+                    busy: updateCostPrice.isPending,
+                    disabled: updateCostPrice.isPending,
+                  }}
                   style={[
                     styles.saveButton,
                     {

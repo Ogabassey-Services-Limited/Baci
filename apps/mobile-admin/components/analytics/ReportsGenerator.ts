@@ -124,19 +124,19 @@ function getExecutiveSummaryHTML(options: ReportOptions) {
                 <div class="kpi-grid">
                     <div class="kpi-card">
                         <div class="kpi-label">Total Revenue</div>
-                        <div class="kpi-value">${money(data.summary.revenue.value)}</div>
+                        <div class="kpi-value">${money(data.summary?.revenue?.value ?? 0)}</div>
                     </div>
                     <div class="kpi-card">
                         <div class="kpi-label">Total Sales</div>
-                        <div class="kpi-value">${data.summary.sales.value}</div>
+                        <div class="kpi-value">${data.summary?.sales?.value ?? 0}</div>
                     </div>
                     <div class="kpi-card">
                         <div class="kpi-label">Net Profit</div>
-                        <div class="kpi-value">${money(data.summary.profit.value)}</div>
+                        <div class="kpi-value">${money(data.summary?.profit?.value ?? 0)}</div>
                     </div>
                     <div class="kpi-card">
                         <div class="kpi-label">Avg Order Value</div>
-                        <div class="kpi-value">${money(data.summary.aov.value)}</div>
+                        <div class="kpi-value">${money(data.summary?.aov?.value ?? 0)}</div>
                     </div>
                 </div>
 
@@ -193,17 +193,22 @@ function getTaxLedgerHTML(options: ReportOptions) {
   const safeMerchantName = escapeHtml(merchantName);
   const safeTitle = escapeHtml(title);
 
-  const taxableSales = data.summary.revenue.value - data.summary.taxDue.value;
+  // The backend contract says revenue is gross and taxDue <= revenue, but
+  // refunds or data reconciliation bugs can produce a negative derived value;
+  // clamp to zero so the report never shows nonsense taxable sales.
+  const taxDueValue = data.summary?.taxDue?.value ?? 0;
+  const revenueValue = data.summary?.revenue?.value ?? 0;
+  const taxableSales = Math.max(0, revenueValue - taxDueValue);
   // Guard against division-by-zero and non-finite results: if there were no
   // taxable sales, we can't meaningfully express a rate, so fall back to
   // either a blank (no tax) or N/A (tax present without taxable sales).
   let taxRateLabel = '';
   if (taxableSales > 0) {
-    const taxRatePct = (data.summary.taxDue.value / taxableSales) * 100;
+    const taxRatePct = (taxDueValue / taxableSales) * 100;
     if (Number.isFinite(taxRatePct) && taxRatePct > 0) {
       taxRateLabel = ` (${taxRatePct.toFixed(2)}%)`;
     }
-  } else if (data.summary.taxDue.value > 0) {
+  } else if (taxDueValue > 0) {
     taxRateLabel = ' (N/A)';
   }
 
@@ -243,7 +248,7 @@ function getTaxLedgerHTML(options: ReportOptions) {
                     </div>
                     <div class="kpi-card">
                         <div class="kpi-label">Tax Collected${taxRateLabel}</div>
-                        <div class="kpi-value">${money(data.summary.taxDue.value)}</div>
+                        <div class="kpi-value">${money(taxDueValue)}</div>
                     </div>
                 </div>
 

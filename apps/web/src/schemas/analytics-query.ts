@@ -30,7 +30,9 @@ export const analyticsQuerySchema = z
       return;
     }
 
-    if (new Date(value.startDate) > new Date(value.endDate)) {
+    const startMs = Date.parse(value.startDate);
+    const endMs = Date.parse(value.endDate);
+    if (Number.isFinite(startMs) && Number.isFinite(endMs) && startMs > endMs) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'startDate must be before endDate',

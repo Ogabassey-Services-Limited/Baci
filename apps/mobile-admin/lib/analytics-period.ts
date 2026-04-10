@@ -109,6 +109,12 @@ export function resolveAnalyticsDateRange(
       startDate.setHours(0, 0, 0, 0);
       endDate.setHours(23, 59, 59, 999);
       break;
+    default: {
+      // Exhaustiveness check: TypeScript will flag this assignment if a new
+      // filter value is added but not handled above.
+      const _exhaustive: never = filter;
+      throw new Error(`Unhandled analytics filter: ${String(_exhaustive)}`);
+    }
   }
 
   return { endDate, startDate };

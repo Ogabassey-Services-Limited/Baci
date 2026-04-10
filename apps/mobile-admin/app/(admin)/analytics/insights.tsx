@@ -47,6 +47,12 @@ export default function AnalyticsInsightsScreen() {
   };
   const { data: analytics, isLoading, error } = useAnalyticsOverview(range);
 
+  const kind = params.kind ?? 'blog';
+
+  if (error) {
+    console.error('[AnalyticsInsightsScreen] failed to load analytics', error);
+  }
+
   const titles: Record<string, string> = {
     blog: 'Blog Analytics',
     brands: 'Top Vendors',
@@ -61,7 +67,7 @@ export default function AnalyticsInsightsScreen() {
     });
 
   const buildRows = (): InsightRow[] => {
-    switch (params.kind) {
+    switch (kind) {
       case 'brands':
         return (analytics?.brandBreakdown ?? []).map((item, index) => ({
           id: `brand-${index}`,
@@ -123,7 +129,7 @@ export default function AnalyticsInsightsScreen() {
           <Text style={[styles.heroEyebrow, { color: colors.textSecondary }]}>
             {params.filterLabel || 'Selected period'}
           </Text>
-          {params.kind === 'blog' ? (
+          {kind === 'blog' ? (
             <>
               <Text style={[styles.heroValue, { color: colors.text }]}>
                 {blogTotalViews.toLocaleString()}
@@ -185,7 +191,7 @@ export default function AnalyticsInsightsScreen() {
       <Stack.Screen
         options={{
           headerShown: true,
-          title: titles[params.kind || 'blog'] || 'Analytics',
+          title: titles[kind] || 'Analytics',
           headerStyle: { backgroundColor: colors.background },
           headerTintColor: colors.text,
           headerShadowVisible: false,

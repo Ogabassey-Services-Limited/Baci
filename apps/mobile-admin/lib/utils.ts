@@ -205,7 +205,7 @@ export const formatCompactCurrency = (
       return `${sign}${symbol}${(abs / 1_000_000).toFixed(2)}M`;
     }
     if (abs >= 1_000) {
-      return `${sign}${symbol}${Math.round(abs).toString()}`;
+      return `${sign}${symbol}${(abs / 1_000).toFixed(2)}K`;
     }
     return `${sign}${symbol}${abs.toFixed(2)}`;
   }

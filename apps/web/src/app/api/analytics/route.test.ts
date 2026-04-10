@@ -95,6 +95,7 @@ describe('GET /api/analytics', () => {
 
     expect(response.status).toBe(401);
     expect(body.error).toBe('Invalid or expired token');
+    expect(mockGetMerchantAnalyticsOverview).not.toHaveBeenCalled();
   });
 
   it('returns 400 for an invalid query', async () => {

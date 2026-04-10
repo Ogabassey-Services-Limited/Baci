@@ -128,6 +128,13 @@ export function useUpdateTransactionCostPrice() {
       costPrice: number;
       productId: string;
     }) => {
+      if (
+        typeof costPrice !== 'number' ||
+        !Number.isFinite(costPrice) ||
+        costPrice < 0
+      ) {
+        throw new Error('Cost price must be a non-negative number');
+      }
       if (!merchant?.id) {
         throw new Error('Merchant context is not ready');
       }

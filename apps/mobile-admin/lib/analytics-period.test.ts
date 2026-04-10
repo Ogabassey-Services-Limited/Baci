@@ -81,7 +81,14 @@ describe('analytics-period', () => {
   });
 
   it('returns readable filter labels', () => {
+    expect(getAnalyticsFilterLabel('today')).toBe('Today');
+    expect(getAnalyticsFilterLabel('yesterday')).toBe('Yesterday');
+    expect(getAnalyticsFilterLabel('this_week')).toBe('This week');
+    expect(getAnalyticsFilterLabel('last_week')).toBe('Last week');
     expect(getAnalyticsFilterLabel('this_month')).toBe('This month');
+    expect(getAnalyticsFilterLabel('last_month')).toBe('Last month');
+    expect(getAnalyticsFilterLabel('this_year')).toBe('This year');
+    expect(getAnalyticsFilterLabel('last_year')).toBe('Last year');
     expect(getAnalyticsFilterLabel('custom')).toBe('Custom range');
   });
 });
