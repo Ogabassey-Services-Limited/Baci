@@ -28,13 +28,13 @@ describe('StatusBadge', () => {
     expect(badge).toHaveClass('bg-amber-100', 'text-amber-700');
   });
 
-  it('shows amber styling for UNKNOWN status', () => {
+  it('shows gray styling for UNKNOWN status', () => {
     // Arrange & Act
     render(<StatusBadge status="UNKNOWN" />);
 
     // Assert
     const badge = screen.getByText('UNKNOWN');
-    expect(badge).toHaveClass('bg-amber-100', 'text-amber-700');
+    expect(badge).toHaveClass('bg-gray-100', 'text-gray-700');
   });
 });
 

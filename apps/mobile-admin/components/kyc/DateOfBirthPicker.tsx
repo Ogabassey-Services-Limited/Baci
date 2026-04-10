@@ -26,18 +26,18 @@ function toYYYYMMDD(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-function parseValue(value: string): Date {
-  if (value) {
-    const parsed = new Date(`${value}T00:00:00`);
-    if (!Number.isNaN(parsed.getTime())) return parsed;
-  }
-  return new Date(2000, 0, 1);
-}
-
 function yearsAgo(years: number): Date {
   const d = new Date();
   d.setFullYear(d.getFullYear() - years);
   return d;
+}
+
+function parseValue(value: string, fallback: Date): Date {
+  if (value) {
+    const parsed = new Date(`${value}T00:00:00`);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
+  return fallback;
 }
 
 export default function DateOfBirthPicker({
@@ -45,12 +45,14 @@ export default function DateOfBirthPicker({
   onChange,
   colors,
 }: DateOfBirthPickerProps) {
-  const [showPicker, setShowPicker] = useState(false);
-  const [tempDate, setTempDate] = useState<Date>(parseValue(value));
   // Computed fresh on each render so the bounds don't go stale if the app
   // stays open across date boundaries.
   const maximumDate = yearsAgo(18);
   const minimumDate = yearsAgo(120);
+  const [showPicker, setShowPicker] = useState(false);
+  const [tempDate, setTempDate] = useState<Date>(() =>
+    parseValue(value, maximumDate)
+  );
 
   const handleChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
     if (Platform.OS === 'android') {
@@ -63,7 +65,7 @@ export default function DateOfBirthPicker({
   };
 
   const handleOpenPicker = () => {
-    setTempDate(parseValue(value));
+    setTempDate(parseValue(value, maximumDate));
     setShowPicker(true);
   };
 
@@ -104,6 +106,7 @@ export default function DateOfBirthPicker({
             <View style={styles.iosActions}>
               <Pressable
                 onPress={() => setShowPicker(false)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 accessibilityRole="button"
                 accessibilityLabel="Cancel date selection"
               >
@@ -113,6 +116,7 @@ export default function DateOfBirthPicker({
               </Pressable>
               <Pressable
                 onPress={handleConfirmIOS}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 accessibilityRole="button"
                 accessibilityLabel="Confirm date selection"
               >
@@ -123,7 +127,9 @@ export default function DateOfBirthPicker({
             </View>
           )}
           <DateTimePicker
-            value={Platform.OS === 'ios' ? tempDate : parseValue(value)}
+            value={
+              Platform.OS === 'ios' ? tempDate : parseValue(value, maximumDate)
+            }
             mode="date"
             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
             maximumDate={maximumDate}

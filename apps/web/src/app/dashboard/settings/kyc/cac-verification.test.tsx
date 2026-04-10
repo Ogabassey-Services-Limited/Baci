@@ -27,11 +27,7 @@ describe('CacVerification', () => {
   it('shows verified banner with approved name when verified=true', () => {
     // Arrange & Act
     render(
-      <CacVerification
-        {...baseProps}
-        verified={true}
-        cacApprovedName="Acme Corp"
-      />
+      <CacVerification {...baseProps} verified cacApprovedName="Acme Corp" />
     );
 
     // Assert

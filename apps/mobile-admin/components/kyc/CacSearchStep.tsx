@@ -45,6 +45,10 @@ export default function CacSearchStep({
         value={rcNumber}
         onChangeText={onChangeRcNumber}
         autoCapitalize="characters"
+        returnKeyType="search"
+        onSubmitEditing={() => {
+          if (rcNumber.trim() && !isSearching) onSearch();
+        }}
         accessibilityLabel="RC or BN number"
       />
       <Pressable

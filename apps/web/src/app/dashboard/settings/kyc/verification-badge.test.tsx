@@ -9,7 +9,7 @@ describe('VerificationBadge', () => {
 
     // Assert
     expect(screen.getByText('Verified')).toBeInTheDocument();
-    const badge = screen.getByText('Verified').closest('span');
+    const badge = screen.getByText('Verified').closest('output');
     expect(badge).toHaveClass('bg-green-50', 'text-green-700');
   });
 
@@ -19,7 +19,7 @@ describe('VerificationBadge', () => {
 
     // Assert
     expect(screen.getByText('Not Started')).toBeInTheDocument();
-    const badge = screen.getByText('Not Started').closest('span');
+    const badge = screen.getByText('Not Started').closest('output');
     expect(badge).toHaveClass('bg-gray-100', 'text-gray-500');
   });
 });

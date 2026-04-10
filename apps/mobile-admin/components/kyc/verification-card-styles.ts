@@ -75,6 +75,5 @@ export const verificationCardStyles = StyleSheet.create({
   submitButtonText: {
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
     fontSize: TYPOGRAPHY.size.md,
-    color: '#FFFFFF',
   },
 });

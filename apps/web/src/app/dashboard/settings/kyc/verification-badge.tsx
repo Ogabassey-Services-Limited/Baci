@@ -7,7 +7,8 @@ interface VerificationBadgeProps {
 
 export function VerificationBadge({ verified }: VerificationBadgeProps) {
   return (
-    <span
+    <output
+      aria-label={verified ? 'Verified' : 'Verification not started'}
       className={cn(
         'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
         verified ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'
@@ -21,6 +22,6 @@ export function VerificationBadge({ verified }: VerificationBadgeProps) {
       ) : (
         'Not Started'
       )}
-    </span>
+    </output>
   );
 }

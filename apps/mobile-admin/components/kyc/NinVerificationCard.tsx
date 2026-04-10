@@ -60,7 +60,7 @@ export default function NinVerificationCard({
           nin,
           firstName: firstName.trim(),
           lastName: lastName.trim(),
-          dateOfBirth,
+          dateOfBirth: dateOfBirth.trim(),
         }),
       }),
     onSuccess: (data) => {
@@ -94,6 +94,7 @@ export default function NinVerificationCard({
   });
 
   const handleSubmit = () => {
+    if (mutation.isPending) return;
     if (!/^\d{11}$/.test(nin)) {
       Alert.alert('Invalid NIN', 'NIN must be exactly 11 digits.');
       return;
@@ -206,6 +207,7 @@ export default function NinVerificationCard({
             value={firstName}
             onChangeText={setFirstName}
             autoCapitalize="words"
+            maxLength={50}
             editable={!verified}
             accessibilityLabel="First name input"
           />
@@ -227,6 +229,7 @@ export default function NinVerificationCard({
             value={lastName}
             onChangeText={setLastName}
             autoCapitalize="words"
+            maxLength={50}
             editable={!verified}
             accessibilityLabel="Last name input"
           />
@@ -267,7 +270,14 @@ export default function NinVerificationCard({
               {mutation.isPending ? (
                 <ActivityIndicator size="small" color={colors.textOnPrimary} />
               ) : (
-                <Text style={styles.submitButtonText}>Verify NIN</Text>
+                <Text
+                  style={[
+                    styles.submitButtonText,
+                    { color: colors.textOnPrimary },
+                  ]}
+                >
+                  Verify NIN
+                </Text>
               )}
             </Pressable>
           )}

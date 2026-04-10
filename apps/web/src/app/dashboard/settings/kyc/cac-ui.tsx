@@ -56,13 +56,18 @@ export function CacConfirmStep({
   );
 }
 
+const CAC_STATUS_CLASSES: Record<CacStatus, string> = {
+  ACTIVE: 'bg-green-100 text-green-700',
+  INACTIVE: 'bg-amber-100 text-amber-700',
+  UNKNOWN: 'bg-gray-100 text-gray-700',
+};
+
 export function StatusBadge({ status }: { status: CacStatus }) {
-  const active = status === 'ACTIVE';
   return (
     <span
       className={cn(
         'rounded-full px-2 py-0.5 text-xs font-medium',
-        active ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+        CAC_STATUS_CLASSES[status]
       )}
     >
       {status}

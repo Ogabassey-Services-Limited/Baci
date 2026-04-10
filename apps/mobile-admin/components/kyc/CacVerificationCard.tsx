@@ -11,7 +11,7 @@ import CacConfirmStep from './CacConfirmStep';
 import CacResultStep from './CacResultStep';
 import CacSearchStep from './CacSearchStep';
 import CacUploadStep from './CacUploadStep';
-import type { CacCompany, CacStep } from './cac-types';
+import { type CacCompany, type CacStep, normalizeCacStatus } from './cac-types';
 import VerificationStatusBadge from './VerificationStatusBadge';
 
 interface CacVerificationCardProps {
@@ -34,10 +34,6 @@ export default function CacVerificationCard({
   const [selectedCompany, setSelectedCompany] = useState<CacCompany | null>(
     null
   );
-
-  useEffect(() => {
-    setRcNumber(prefillRcNumber ?? '');
-  }, [prefillRcNumber]);
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [imageMimeType, setImageMimeType] = useState<string>('image/jpeg');
   const [verifyResult, setVerifyResult] = useState<{
@@ -45,23 +41,51 @@ export default function CacVerificationCard({
     reason?: string;
   } | null>(null);
 
+  useEffect(() => {
+    setRcNumber(prefillRcNumber ?? '');
+  }, [prefillRcNumber]);
+
   const searchMutation = useMutation({
-    mutationFn: () =>
-      apiClient<{ companies: CacCompany[] }>('/api/merchant/cac-search', {
+    mutationFn: async () => {
+      const response = await apiClient<{
+        companies: Array<{
+          approvedName: string;
+          rcNumber: string;
+          status: unknown;
+        }>;
+      }>('/api/merchant/cac-search', {
         method: 'POST',
         body: JSON.stringify({ searchTerm: rcNumber.trim() }),
-      }),
+      });
+      const companies: CacCompany[] = response.companies.map((c) => ({
+        approvedName: c.approvedName,
+        rcNumber: c.rcNumber,
+        status: normalizeCacStatus(c.status),
+      }));
+      return { companies };
+    },
     onError: (error: unknown) => handleMutationError(error),
   });
 
   const uploadMutation = useMutation({
     mutationFn: () => {
-      if (!selectedCompany || !imageUri) throw new Error('Missing data');
+      if (!selectedCompany) {
+        throw new Error('Missing selected company for upload.');
+      }
+      if (!imageUri) {
+        throw new Error('Missing image URI for upload.');
+      }
+      if (!imageMimeType) {
+        throw new Error('Missing image MIME type for upload.');
+      }
       const formData = new FormData();
       const subtype = imageMimeType.split('/')[1] || 'jpeg';
       const ext = subtype === 'jpeg' ? 'jpg' : subtype;
       formData.append(
         'file',
+        // React Native's file-like object from ImagePicker does not match the
+        // DOM Blob shape, but FormData on RN accepts { uri, name, type }.
+        // The double cast satisfies TypeScript without changing runtime shape.
         createUploadFile({
           uri: imageUri,
           name: `cac-certificate.${ext}`,

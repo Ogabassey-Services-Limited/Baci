@@ -3,11 +3,9 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 
-interface CacResultStepProps {
-  verified: boolean;
-  reason?: string;
-  onTryAgain: () => void;
-}
+type CacResultStepProps =
+  | { verified: true; reason?: string; onTryAgain?: () => void }
+  | { verified: false; reason?: string; onTryAgain: () => void };
 
 export default function CacResultStep({
   verified,

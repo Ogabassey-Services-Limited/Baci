@@ -27,21 +27,24 @@ const ninFormSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date of birth is required')
     .refine((val) => {
       const [year, month, day] = val.split('-').map(Number);
-      const date = new Date(Date.UTC(year, month - 1, day));
+      // Use local midnight so this matches the HTML max attribute
+      // (which uses toLocaleDateString). Mixing UTC here with local there
+      // causes near-midnight off-by-one rejections for users in +UTC zones.
+      const date = new Date(year, month - 1, day);
       if (
-        date.getUTCFullYear() !== year ||
-        date.getUTCMonth() !== month - 1 ||
-        date.getUTCDate() !== day
+        date.getFullYear() !== year ||
+        date.getMonth() !== month - 1 ||
+        date.getDate() !== day
       ) {
         return false;
       }
       const now = new Date();
-      const todayUtc = Date.UTC(
-        now.getUTCFullYear(),
-        now.getUTCMonth(),
-        now.getUTCDate()
-      );
-      return date.getTime() < todayUtc;
+      const todayLocal = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate()
+      ).getTime();
+      return date.getTime() < todayLocal;
     }, 'Date of birth must be a valid past date'),
 });
 
@@ -203,7 +206,11 @@ export function NinVerification({
             )}
           />
 
-          <Button type="submit" disabled={form.formState.isSubmitting}>
+          <Button
+            type="submit"
+            disabled={form.formState.isSubmitting}
+            aria-busy={form.formState.isSubmitting}
+          >
             {form.formState.isSubmitting ? (
               <>
                 <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />

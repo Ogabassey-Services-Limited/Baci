@@ -100,6 +100,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: SPACING.sm,
+    minHeight: 44,
   },
   pickText: {
     fontFamily: TYPOGRAPHY.fontFamily.medium,

@@ -36,6 +36,16 @@ interface VerificationStatus {
   date_of_birth: string | null;
 }
 
+function isVerificationStatus(value: unknown): value is VerificationStatus {
+  if (!value || typeof value !== 'object') return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.nin_verified === 'boolean' &&
+    typeof v.bvn_verified === 'boolean' &&
+    typeof v.cac_verified === 'boolean'
+  );
+}
+
 export default function KYCScreen() {
   const { colors, isDark } = useTheme();
   const { user } = useAuth();
@@ -58,7 +68,12 @@ export default function KYCScreen() {
         { p_merchant_id: merchant.id }
       );
       if (error) throw error;
-      return data as VerificationStatus;
+      if (!isVerificationStatus(data)) {
+        throw new Error(
+          'Invalid verification status payload from get_merchant_verification_status'
+        );
+      }
+      return data;
     },
     enabled: isOwner && !!merchant?.id,
   });
@@ -136,7 +151,7 @@ export default function KYCScreen() {
                 size={24}
                 color={colors.error}
               />
-              <View style={{ flex: 1 }}>
+              <View style={styles.errorBody}>
                 <Text
                   style={[
                     styles.ownerOnlyText,
@@ -250,6 +265,9 @@ const styles = StyleSheet.create({
   },
   tryAgainText: {
     marginTop: SPACING.sm,
-    fontWeight: '600',
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+  },
+  errorBody: {
+    flex: 1,
   },
 });

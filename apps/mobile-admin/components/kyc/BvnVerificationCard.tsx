@@ -47,6 +47,12 @@ export default function BvnVerificationCard({
   const [lastName, setLastName] = useState(prefillLastName ?? '');
   const [dateOfBirth, setDateOfBirth] = useState(prefillDob ?? '');
   const [mobileNo, setMobileNo] = useState(prefillMobileNo ?? '');
+  // Tracks whether the user has edited any field. Once dirty, prefill props
+  // changing (e.g. the parent refetches) will not clobber user input.
+  const [isDirty, setIsDirty] = useState(false);
+  const markDirty = () => {
+    if (!isDirty) setIsDirty(true);
+  };
   const inputColors = {
     color: colors.text,
     backgroundColor: colors.inputBg,
@@ -54,7 +60,7 @@ export default function BvnVerificationCard({
   };
 
   useEffect(() => {
-    if (!verified) {
+    if (!verified && !isDirty) {
       setBvn(prefillBvn ?? '');
       setFirstName(prefillFirstName ?? '');
       setLastName(prefillLastName ?? '');
@@ -68,6 +74,7 @@ export default function BvnVerificationCard({
     prefillDob,
     prefillMobileNo,
     verified,
+    isDirty,
   ]);
 
   const mutation = useMutation({
@@ -113,6 +120,7 @@ export default function BvnVerificationCard({
   });
 
   const handleSubmit = () => {
+    if (mutation.isPending) return;
     if (!/^\d{11}$/.test(bvn)) {
       Alert.alert('Invalid BVN', 'BVN must be exactly 11 digits.');
       return;
@@ -201,7 +209,10 @@ export default function BvnVerificationCard({
             placeholder="12345678901"
             placeholderTextColor={colors.textMuted}
             value={bvn}
-            onChangeText={(v) => setBvn(v.replace(/\D/g, '').slice(0, 11))}
+            onChangeText={(v) => {
+              markDirty();
+              setBvn(v.replace(/\D/g, '').slice(0, 11));
+            }}
             keyboardType="number-pad"
             maxLength={11}
             editable={!verified}
@@ -216,7 +227,10 @@ export default function BvnVerificationCard({
             placeholder="First name"
             placeholderTextColor={colors.textMuted}
             value={firstName}
-            onChangeText={setFirstName}
+            onChangeText={(v) => {
+              markDirty();
+              setFirstName(v);
+            }}
             autoCapitalize="words"
             editable={!verified}
             accessibilityLabel="First name input"
@@ -230,7 +244,10 @@ export default function BvnVerificationCard({
             placeholder="Last name"
             placeholderTextColor={colors.textMuted}
             value={lastName}
-            onChangeText={setLastName}
+            onChangeText={(v) => {
+              markDirty();
+              setLastName(v);
+            }}
             autoCapitalize="words"
             editable={!verified}
             accessibilityLabel="Last name input"
@@ -244,7 +261,10 @@ export default function BvnVerificationCard({
             placeholder="YYYY-MM-DD"
             placeholderTextColor={colors.textMuted}
             value={dateOfBirth}
-            onChangeText={setDateOfBirth}
+            onChangeText={(v) => {
+              markDirty();
+              setDateOfBirth(v);
+            }}
             editable={!verified}
             accessibilityLabel="Date of birth input"
           />
@@ -257,7 +277,10 @@ export default function BvnVerificationCard({
             placeholder="08012345678"
             placeholderTextColor={colors.textMuted}
             value={mobileNo}
-            onChangeText={(v) => setMobileNo(v.replace(/\D/g, '').slice(0, 11))}
+            onChangeText={(v) => {
+              markDirty();
+              setMobileNo(v.replace(/\D/g, '').slice(0, 11));
+            }}
             keyboardType="phone-pad"
             maxLength={11}
             editable={!verified}
@@ -280,7 +303,14 @@ export default function BvnVerificationCard({
               {mutation.isPending ? (
                 <ActivityIndicator size="small" color={colors.textOnPrimary} />
               ) : (
-                <Text style={styles.submitButtonText}>Verify BVN</Text>
+                <Text
+                  style={[
+                    styles.submitButtonText,
+                    { color: colors.textOnPrimary },
+                  ]}
+                >
+                  Verify BVN
+                </Text>
               )}
             </Pressable>
           )}

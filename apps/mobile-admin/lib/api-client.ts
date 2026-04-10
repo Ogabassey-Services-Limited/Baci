@@ -255,13 +255,32 @@ export async function apiClient<T = unknown>(
 export async function apiFormData<T = unknown>(
   endpoint: string,
   formData: FormData,
-  options: { timeout?: number; requiresAuth?: boolean } = {}
+  options: {
+    timeout?: number;
+    requiresAuth?: boolean;
+    signal?: AbortSignal;
+  } = {}
 ): Promise<T> {
-  const { timeout = DEFAULT_TIMEOUT_MS, requiresAuth = true } = options;
+  const {
+    timeout = DEFAULT_TIMEOUT_MS,
+    requiresAuth = true,
+    signal: externalSignal,
+  } = options;
 
   const controller = new AbortController();
   // timeoutId is cleared in the finally block below to cancel the abort timer
   const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+  // Mirror any external signal (e.g. component unmount) into the internal
+  // controller so the in-flight fetch is cancelled.
+  const onExternalAbort = () => controller.abort();
+  if (externalSignal) {
+    if (externalSignal.aborted) {
+      controller.abort();
+    } else {
+      externalSignal.addEventListener('abort', onExternalAbort);
+    }
+  }
 
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   const url = `${BASE_URL}${cleanEndpoint}`;
@@ -327,5 +346,8 @@ export async function apiFormData<T = unknown>(
     throw error;
   } finally {
     clearTimeout(timeoutId);
+    if (externalSignal) {
+      externalSignal.removeEventListener('abort', onExternalAbort);
+    }
   }
 }
