@@ -37,9 +37,11 @@ export function GET(request: NextRequest) {
         min: estimate.range.min,
         max: estimate.range.max,
       },
+      note: 'Estimate only. Actual premium determined at purchase.',
       coverage: {
-        description: 'Shipping protection against loss or damage in transit',
-        provider: 'MyCover.ai (Sovereign Trust Insurance)',
+        description:
+          'Gadget Cover V2 — device protection against accidental and liquid damage',
+        provider: 'MyCover.ai (Sovereign Trust Insurance Plc)',
       },
     });
   } catch (error) {

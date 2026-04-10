@@ -23,7 +23,6 @@ import { triggerPurchaseConversion } from '@/lib/trigger-purchase-conversion';
 import { fulfillPendingVtuTransaction } from '@/lib/vtu-fulfillment';
 import { sendEmail } from '@/lib/zeptomail';
 import { referenceSchema } from '@/schemas/payments';
-import { purchaseInsuranceForPaidOrder } from '@/services/insurance';
 
 type PaymentGateway = 'paystack' | 'korapay';
 
@@ -1476,19 +1475,6 @@ export async function POST(request: NextRequest) {
           } catch {
             // Errors are already logged inside triggerPurchaseConversion
             // This catch prevents unhandled rejections in the background task
-          }
-        });
-
-        // Auto-purchase MyCover shipping insurance for orders with assurance
-        after(async () => {
-          try {
-            await purchaseInsuranceForPaidOrder(
-              supabase,
-              transaction.order_id,
-              transaction.merchant_id
-            );
-          } catch {
-            // Errors logged inside purchaseInsuranceForPaidOrder
           }
         });
       }

@@ -39,10 +39,6 @@ vi.mock('@/lib/logger', () => ({
   },
 }));
 
-vi.mock('@/services/insurance', () => ({
-  purchaseInsuranceForPaidOrder: vi.fn(() => Promise.resolve()),
-}));
-
 vi.mock('@/lib/zeptomail', () => ({
   sendEmail: vi.fn(() => Promise.resolve()),
 }));

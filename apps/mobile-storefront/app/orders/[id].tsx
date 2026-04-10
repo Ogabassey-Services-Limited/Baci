@@ -69,6 +69,9 @@ interface InsurancePolicy {
   claim_status: string | null;
   policy_start_date: string | null;
   policy_expiry_date: string | null;
+  certificate_url: string | null;
+  provider_name: string | null;
+  policy_type: string | null;
 }
 
 interface OrderDetails {
@@ -222,22 +225,21 @@ export default function OrderDetailsScreen() {
           ),
         });
 
-        // Fetch insurance policy if any items have assurance
-        const hasAssurance = (data.order_items ?? []).some(
-          (item: { has_assurance?: boolean }) => item.has_assurance
-        );
-        if (hasAssurance) {
-          const { data: policy } = await supabase
-            .from('order_insurance_policies')
-            .select(
-              'mycover_policy_number, coverage_amount, premium_amount, status, claim_status, policy_start_date, policy_expiry_date'
-            )
-            .eq('order_id', id)
-            .maybeSingle();
+        // Fetch insurance policy for this order. An order can have multiple
+        // policies (e.g. gadget + shipping), so pick the most recent one as a
+        // summary rather than using .maybeSingle() which would error on
+        // multiple rows.
+        const { data: policies } = await supabase
+          .from('order_insurance_policies')
+          .select(
+            'mycover_policy_number, coverage_amount, premium_amount, status, claim_status, policy_start_date, policy_expiry_date, certificate_url, provider_name, policy_type, created_at'
+          )
+          .eq('order_id', id)
+          .order('created_at', { ascending: false })
+          .limit(1);
 
-          if (policy) {
-            setInsurancePolicy(policy as InsurancePolicy);
-          }
+        if (policies && policies.length > 0) {
+          setInsurancePolicy(policies[0] as InsurancePolicy);
         }
 
         setError(null);
@@ -934,8 +936,34 @@ export default function OrderDetailsScreen() {
                     { color: colors.textSecondary },
                   ]}
                 >
-                  Protected by MyCover.ai / Sovereign Trust Insurance
+                  Protected by MyCover.ai /{' '}
+                  {insurancePolicy.provider_name ||
+                    'Sovereign Trust Insurance Plc'}
                 </Text>
+                {insurancePolicy.certificate_url && (
+                  <TouchableOpacity
+                    style={[
+                      styles.trackButton,
+                      { borderColor: '#059669', marginTop: 12 },
+                    ]}
+                    onPress={() =>
+                      Linking.openURL(insurancePolicy.certificate_url as string)
+                    }
+                    accessibilityRole="button"
+                    accessibilityLabel="Download insurance certificate"
+                  >
+                    <Ionicons
+                      name="document-text-outline"
+                      size={18}
+                      color="#059669"
+                    />
+                    <Text
+                      style={[styles.trackButtonText, { color: '#059669' }]}
+                    >
+                      Download Certificate
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
           )}

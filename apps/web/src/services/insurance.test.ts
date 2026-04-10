@@ -1,33 +1,62 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ---- Mocks ----
 
-// Mock logger to prevent console output during tests
 vi.mock('@/lib/logger', () => ({
-  logger: {
-    warn: vi.fn(),
-    error: vi.fn(),
-    info: vi.fn(),
-  },
+  logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() },
 }));
 
-// Mock MyCover client
-const mockPurchaseShippingInsurance = vi.fn();
+vi.mock('next/headers', () => ({
+  cookies: vi.fn(() => Promise.resolve({})),
+}));
+
+vi.mock('@/lib/phone', () => ({
+  formatPhoneForMyCover: vi.fn((phone: string) => phone),
+}));
+
+const mockServerSupabase = {
+  from: vi.fn(),
+  auth: { getUser: vi.fn() },
+};
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: vi.fn(() => mockServerSupabase),
+}));
+
+const mockPurchaseGadgetInsurance = vi.fn();
+const mockGetClaims = vi.fn();
 const mockCreateMyCoverClient = vi.fn();
 
 vi.mock('@/lib/mycover', () => ({
   createMyCoverClient: () => mockCreateMyCoverClient(),
+  MYCOVER_PRODUCTS: {
+    'eec0711c-1e4a-453b-a26c-2726e0a1a7cc': {
+      providerName: 'Sovereign Trust Insurance Plc',
+      category: 'gadget',
+    },
+  },
 }));
 
-import { logger } from '@/lib/logger';
 // Import after mocks
-import { purchaseInsuranceForPaidOrder } from './insurance';
+import { purchaseOrderInsurance, syncClaimsStatus } from './insurance';
 
 // ---- Test Data ----
 
 const VALID_ORDER_ID = 'order-123';
 const VALID_MERCHANT_ID = 'merchant-456';
+
+const mockDeviceDetails = {
+  imei: '123456789012345',
+  serialNumber: 'SN-ABC-123',
+  deviceColor: 'Black',
+  deviceModel: 'iPhone 15 Pro',
+  deviceMake: 'Apple',
+  deviceType: 'Phone' as const,
+  deviceValue: 500000,
+  purchaseDate: '2024-06-15',
+  devicePhotos: {
+    about: 'https://example.com/device-photo.jpg',
+  },
+};
 
 const mockOrderWithInsurance = {
   id: VALID_ORDER_ID,
@@ -74,810 +103,608 @@ const mockOrderWithoutInsurance = {
   ],
 };
 
-const mockOrderMixedItems = {
-  ...mockOrderWithInsurance,
-  order_items: [
-    {
-      id: 'item-1',
-      name: 'iPhone 15 Pro',
-      price: 500000,
-      quantity: 1,
-      has_assurance: true,
-      assurance_fee: 5000,
-    },
-    {
-      id: 'item-2',
-      name: 'Phone Case',
-      price: 5000,
-      quantity: 2,
-      has_assurance: false,
-      assurance_fee: 0,
-    },
-  ],
-};
-
-const mockMyCoverPolicy = {
-  id: 'policy-789',
-  policy_number: 'POL-2024-001',
-  purchase_id: 'purchase-abc',
+// v2 MyCover response shape -- uses `amount` (string) instead of `genius_price` (number)
+const mockMyCoverGadgetPolicy = {
+  id: 'policy-gadget-001',
+  policy_number: 'POL-GADGET-2024-001',
+  purchase_id: 'purchase-gadget-abc',
   start_date: '2024-01-01',
   expiration_date: '2024-12-31',
-  genius_price: 17000,
+  amount: '25000.0000',
   status: 'active',
   customer_id: 'cust-123',
   distributor_id: 'dist-456',
-  market_price: 20000,
+  certificate_url: 'https://mycover.ai/certificates/POL-GADGET-2024-001.pdf',
+  product_id: 'mycover-gadget-product-id',
+  provider_name: 'Sovereign Trust Insurance Plc',
 };
 
-// ---- Supabase Mock ----
+// ---- Supabase mock helper ----
 
-let mockOrderResult: { data: unknown; error: unknown };
-let mockExistingPolicyResult: { data: unknown; error: unknown };
-let mockInsertResult: { data: unknown; error: unknown };
-
-function createMockSupabase(): SupabaseClient {
-  return {
-    from: (table: string) => {
-      if (table === 'orders') {
-        return {
-          select: () => ({
-            eq: () => ({
-              single: () => Promise.resolve(mockOrderResult),
-            }),
-          }),
-        };
-      }
-      if (table === 'order_insurance_policies') {
-        return {
-          select: () => ({
-            eq: () => ({
-              maybeSingle: () => Promise.resolve(mockExistingPolicyResult),
-            }),
-          }),
-          insert: () => Promise.resolve(mockInsertResult),
-        };
-      }
+function orderSupabaseMock(
+  orderData: unknown,
+  insertSpy?: ReturnType<typeof vi.fn>
+) {
+  mockServerSupabase.from.mockImplementation((table: string) => {
+    if (table === 'orders') {
       return {
         select: () => ({
           eq: () => ({
-            single: () => Promise.resolve({ data: null, error: null }),
-            maybeSingle: () => Promise.resolve({ data: null, error: null }),
+            single: () =>
+              Promise.resolve({
+                data: orderData,
+                error: orderData ? null : { message: 'Not found' },
+              }),
           }),
         }),
-        insert: () => Promise.resolve({ data: null, error: null }),
       };
-    },
-  } as unknown as SupabaseClient;
+    }
+    if (table === 'order_insurance_policies') {
+      return {
+        insert:
+          insertSpy ?? vi.fn().mockResolvedValue({ data: {}, error: null }),
+      };
+    }
+    return {};
+  });
 }
 
-// ---- Tests ----
+// ---- purchaseOrderInsurance (v2 gadget insurance) ----
 
-describe('purchaseInsuranceForPaidOrder', () => {
-  let mockSupabase: SupabaseClient;
-
+describe('purchaseOrderInsurance', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockSupabase = createMockSupabase();
-
-    // Default happy path
-    mockOrderResult = { data: mockOrderWithInsurance, error: null };
-    mockExistingPolicyResult = { data: null, error: null };
-    mockInsertResult = { data: {}, error: null };
-
+    orderSupabaseMock(mockOrderWithInsurance);
     mockCreateMyCoverClient.mockReturnValue({
-      purchaseShippingInsurance: mockPurchaseShippingInsurance,
+      purchaseGadgetInsurance: mockPurchaseGadgetInsurance,
     });
-    mockPurchaseShippingInsurance.mockResolvedValue(mockMyCoverPolicy);
+    mockPurchaseGadgetInsurance.mockResolvedValue(mockMyCoverGadgetPolicy);
   });
 
-  describe('Early Returns', () => {
-    it('returns early when MyCover client is not configured', async () => {
-      mockCreateMyCoverClient.mockReturnValue(null);
-
-      await purchaseInsuranceForPaidOrder(
-        mockSupabase,
-        VALID_ORDER_ID,
-        VALID_MERCHANT_ID
+  describe('v2 field names sent to MyCover API', () => {
+    it('passes "value" instead of "device_value"', async () => {
+      await purchaseOrderInsurance(VALID_ORDER_ID, mockDeviceDetails);
+      expect(mockPurchaseGadgetInsurance).toHaveBeenCalledWith(
+        expect.objectContaining({ value: mockDeviceDetails.deviceValue })
       );
+      const args = mockPurchaseGadgetInsurance.mock.calls[0][0];
+      expect(args).not.toHaveProperty('device_value');
+    });
 
-      expect(logger.warn).toHaveBeenCalledWith(
+    it('passes "serial_number" instead of "device_serial_number"', async () => {
+      await purchaseOrderInsurance(VALID_ORDER_ID, mockDeviceDetails);
+      expect(mockPurchaseGadgetInsurance).toHaveBeenCalledWith(
         expect.objectContaining({
-          message: expect.stringContaining('MyCover not configured'),
-          orderId: VALID_ORDER_ID,
+          serial_number: mockDeviceDetails.serialNumber,
         })
       );
-      expect(mockPurchaseShippingInsurance).not.toHaveBeenCalled();
+      const args = mockPurchaseGadgetInsurance.mock.calls[0][0];
+      expect(args).not.toHaveProperty('device_serial_number');
     });
 
-    it('returns early when order fetch fails', async () => {
-      mockOrderResult = {
-        data: null,
-        error: { message: 'Order not found', code: '404' },
-      };
-
-      await purchaseInsuranceForPaidOrder(
-        mockSupabase,
-        VALID_ORDER_ID,
-        VALID_MERCHANT_ID
-      );
-
-      expect(logger.error).toHaveBeenCalledWith(
+    it('passes "device_purchase_date" instead of "date_of_purchase"', async () => {
+      await purchaseOrderInsurance(VALID_ORDER_ID, mockDeviceDetails);
+      expect(mockPurchaseGadgetInsurance).toHaveBeenCalledWith(
         expect.objectContaining({
-          message: expect.stringContaining('Failed to fetch order'),
-          orderId: VALID_ORDER_ID,
+          device_purchase_date: mockDeviceDetails.purchaseDate,
         })
       );
-      expect(mockPurchaseShippingInsurance).not.toHaveBeenCalled();
+      const args = mockPurchaseGadgetInsurance.mock.calls[0][0];
+      expect(args).not.toHaveProperty('date_of_purchase');
     });
 
-    it('returns early when order has no items', async () => {
-      mockOrderResult = {
-        data: { ...mockOrderWithInsurance, order_items: null },
-        error: null,
-      };
-
-      await purchaseInsuranceForPaidOrder(
-        mockSupabase,
-        VALID_ORDER_ID,
-        VALID_MERCHANT_ID
-      );
-
-      expect(mockPurchaseShippingInsurance).not.toHaveBeenCalled();
-    });
-
-    it('returns early when order has no insured items', async () => {
-      mockOrderResult = { data: mockOrderWithoutInsurance, error: null };
-
-      await purchaseInsuranceForPaidOrder(
-        mockSupabase,
-        VALID_ORDER_ID,
-        VALID_MERCHANT_ID
-      );
-
-      expect(mockPurchaseShippingInsurance).not.toHaveBeenCalled();
-    });
-
-    it('returns early when policy already exists (idempotency)', async () => {
-      mockExistingPolicyResult = {
-        data: { id: 'existing-policy-123' },
-        error: null,
-      };
-
-      await purchaseInsuranceForPaidOrder(
-        mockSupabase,
-        VALID_ORDER_ID,
-        VALID_MERCHANT_ID
-      );
-
-      expect(logger.info).toHaveBeenCalledWith(
+    it('passes "image_url" instead of "device_about_image_url"', async () => {
+      await purchaseOrderInsurance(VALID_ORDER_ID, mockDeviceDetails);
+      expect(mockPurchaseGadgetInsurance).toHaveBeenCalledWith(
         expect.objectContaining({
-          message: expect.stringContaining('Policy already exists'),
-          orderId: VALID_ORDER_ID,
+          image_url: mockDeviceDetails.devicePhotos.about,
         })
       );
-      expect(mockPurchaseShippingInsurance).not.toHaveBeenCalled();
+      const args = mockPurchaseGadgetInsurance.mock.calls[0][0];
+      expect(args).not.toHaveProperty('device_about_image_url');
     });
   });
 
-  describe('Successful Purchase', () => {
-    it('purchases insurance with correct customer details', async () => {
-      await purchaseInsuranceForPaidOrder(
-        mockSupabase,
-        VALID_ORDER_ID,
-        VALID_MERCHANT_ID
+  describe('v2 DB persistence', () => {
+    it('persists policy_type as "gadget"', async () => {
+      const spy = vi.fn().mockResolvedValue({ data: {}, error: null });
+      orderSupabaseMock(mockOrderWithInsurance, spy);
+      await purchaseOrderInsurance(VALID_ORDER_ID, mockDeviceDetails);
+      expect(spy).toHaveBeenCalledWith(
+        expect.objectContaining({ policy_type: 'gadget' })
       );
+    });
 
-      expect(mockPurchaseShippingInsurance).toHaveBeenCalledWith(
+    it('persists certificate_url from MyCover response', async () => {
+      const spy = vi.fn().mockResolvedValue({ data: {}, error: null });
+      orderSupabaseMock(mockOrderWithInsurance, spy);
+      await purchaseOrderInsurance(VALID_ORDER_ID, mockDeviceDetails);
+      expect(spy).toHaveBeenCalledWith(
         expect.objectContaining({
-          first_name: 'John',
-          last_name: 'Doe',
-          email: 'john@example.com',
-          phone_number: '+2348012345678',
+          certificate_url:
+            'https://mycover.ai/certificates/POL-GADGET-2024-001.pdf',
         })
       );
     });
 
-    it('handles customer name with single word (no last name)', async () => {
-      mockOrderResult = {
-        data: { ...mockOrderWithInsurance, customer_name: 'John' },
-        error: null,
-      };
-
-      await purchaseInsuranceForPaidOrder(
-        mockSupabase,
-        VALID_ORDER_ID,
-        VALID_MERCHANT_ID
-      );
-
-      expect(mockPurchaseShippingInsurance).toHaveBeenCalledWith(
+    it('persists provider_name from static config', async () => {
+      const spy = vi.fn().mockResolvedValue({ data: {}, error: null });
+      orderSupabaseMock(mockOrderWithInsurance, spy);
+      await purchaseOrderInsurance(VALID_ORDER_ID, mockDeviceDetails);
+      expect(spy).toHaveBeenCalledWith(
         expect.objectContaining({
-          first_name: 'John',
-          last_name: '.',
+          provider_name: 'Sovereign Trust Insurance Plc',
         })
       );
     });
 
-    it('handles customer name with multiple words', async () => {
-      mockOrderResult = {
-        data: {
-          ...mockOrderWithInsurance,
-          customer_name: 'John Michael Doe',
-        },
-        error: null,
-      };
-
-      await purchaseInsuranceForPaidOrder(
-        mockSupabase,
-        VALID_ORDER_ID,
-        VALID_MERCHANT_ID
-      );
-
-      expect(mockPurchaseShippingInsurance).toHaveBeenCalledWith(
-        expect.objectContaining({
-          first_name: 'John',
-          last_name: 'Michael Doe',
-        })
+    it('persists mycover_product_id', async () => {
+      const spy = vi.fn().mockResolvedValue({ data: {}, error: null });
+      orderSupabaseMock(mockOrderWithInsurance, spy);
+      await purchaseOrderInsurance(VALID_ORDER_ID, mockDeviceDetails);
+      expect(spy).toHaveBeenCalledWith(
+        expect.objectContaining({ mycover_product_id: expect.any(String) })
       );
     });
 
-    it('constructs delivery address from shipping details', async () => {
-      await purchaseInsuranceForPaidOrder(
-        mockSupabase,
-        VALID_ORDER_ID,
-        VALID_MERCHANT_ID
-      );
-
-      expect(mockPurchaseShippingInsurance).toHaveBeenCalledWith(
-        expect.objectContaining({
-          address: '123 Main St, Lagos, Lagos',
-          drop_off_location: '123 Main St, Lagos, Lagos',
-        })
-      );
-    });
-
-    it('uses fallback address when shipping address is null', async () => {
-      mockOrderResult = {
-        data: { ...mockOrderWithInsurance, shipping_address: null },
-        error: null,
-      };
-
-      await purchaseInsuranceForPaidOrder(
-        mockSupabase,
-        VALID_ORDER_ID,
-        VALID_MERCHANT_ID
-      );
-
-      expect(mockPurchaseShippingInsurance).toHaveBeenCalledWith(
-        expect.objectContaining({
-          address: 'Nigeria',
-          drop_off_location: 'Nigeria',
-        })
-      );
-    });
-
-    it('uses fallback address when shipping address fields are empty', async () => {
-      mockOrderResult = {
-        data: { ...mockOrderWithInsurance, shipping_address: {} },
-        error: null,
-      };
-
-      await purchaseInsuranceForPaidOrder(
-        mockSupabase,
-        VALID_ORDER_ID,
-        VALID_MERCHANT_ID
-      );
-
-      expect(mockPurchaseShippingInsurance).toHaveBeenCalledWith(
-        expect.objectContaining({
-          address: 'Nigeria',
-          drop_off_location: 'Nigeria',
-        })
-      );
-    });
-
-    it('calculates total insured value correctly', async () => {
-      await purchaseInsuranceForPaidOrder(
-        mockSupabase,
-        VALID_ORDER_ID,
-        VALID_MERCHANT_ID
-      );
-
-      // item-1: 500000 * 1 = 500000
-      // item-2: 1200000 * 1 = 1200000
-      // Total: 1700000
-      expect(mockPurchaseShippingInsurance).toHaveBeenCalledWith(
-        expect.objectContaining({
-          item_value: 1700000,
-        })
-      );
-    });
-
-    it('handles items with quantity > 1', async () => {
-      mockOrderResult = {
-        data: {
-          ...mockOrderWithInsurance,
-          order_items: [
-            {
-              id: 'item-1',
-              name: 'Phone Case',
-              price: 5000,
-              quantity: 3,
-              has_assurance: true,
-              assurance_fee: 150,
-            },
-          ],
-        },
-        error: null,
-      };
-
-      await purchaseInsuranceForPaidOrder(
-        mockSupabase,
-        VALID_ORDER_ID,
-        VALID_MERCHANT_ID
-      );
-
-      // 5000 * 3 = 15000
-      expect(mockPurchaseShippingInsurance).toHaveBeenCalledWith(
-        expect.objectContaining({
-          item_value: 15000,
-          item_details: [
-            {
-              description: 'Phone Case',
-              value: 15000,
-              quantity: 3,
-            },
-          ],
-        })
-      );
-    });
-
-    it('only includes insured items in calculations (mixed items)', async () => {
-      mockOrderResult = { data: mockOrderMixedItems, error: null };
-
-      await purchaseInsuranceForPaidOrder(
-        mockSupabase,
-        VALID_ORDER_ID,
-        VALID_MERCHANT_ID
-      );
-
-      // Only item-1 is insured: 500000 * 1 = 500000
-      expect(mockPurchaseShippingInsurance).toHaveBeenCalledWith(
-        expect.objectContaining({
-          item_value: 500000,
-          item_details: [
-            {
-              description: 'iPhone 15 Pro',
-              value: 500000,
-              quantity: 1,
-            },
-          ],
-        })
-      );
-    });
-
-    it('constructs item details array correctly', async () => {
-      await purchaseInsuranceForPaidOrder(
-        mockSupabase,
-        VALID_ORDER_ID,
-        VALID_MERCHANT_ID
-      );
-
-      expect(mockPurchaseShippingInsurance).toHaveBeenCalledWith(
-        expect.objectContaining({
-          item_details: [
-            {
-              description: 'iPhone 15 Pro',
-              value: 500000,
-              quantity: 1,
-            },
-            {
-              description: 'MacBook Pro',
-              value: 1200000,
-              quantity: 1,
-            },
-          ],
-        })
-      );
-    });
-
-    it('includes default shipping parameters', async () => {
-      await purchaseInsuranceForPaidOrder(
-        mockSupabase,
-        VALID_ORDER_ID,
-        VALID_MERCHANT_ID
-      );
-
-      expect(mockPurchaseShippingInsurance).toHaveBeenCalledWith(
-        expect.objectContaining({
-          pickup_location: 'Lagos, Nigeria',
-          vehicle_type: 'Car',
-          shipping_date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
-        })
-      );
-    });
-
-    it('includes product_id when DEFAULT_GIT_PRODUCT_ID is set', async () => {
-      const originalEnv = process.env.MYCOVER_GIT_PRODUCT_ID;
-      process.env.MYCOVER_GIT_PRODUCT_ID = 'git-product-123';
-
-      // Re-import to pick up env change
-      vi.resetModules();
-      const { purchaseInsuranceForPaidOrder: reimported } = await import(
-        './insurance'
-      );
-
-      await reimported(mockSupabase, VALID_ORDER_ID, VALID_MERCHANT_ID);
-
-      expect(mockPurchaseShippingInsurance).toHaveBeenCalledWith(
-        expect.objectContaining({
-          product_id: 'git-product-123',
-        })
-      );
-
-      process.env.MYCOVER_GIT_PRODUCT_ID = originalEnv;
-    });
-
-    it('saves policy to database with correct data', async () => {
-      const insertSpy = vi.fn().mockResolvedValue({ data: {}, error: null });
-      mockSupabase.from = ((table: string) => {
-        if (table === 'order_insurance_policies') {
-          return {
-            select: () => ({
-              eq: () => ({
-                maybeSingle: () => Promise.resolve({ data: null, error: null }),
-              }),
-            }),
-            insert: insertSpy,
-          };
-        }
-        if (table === 'orders') {
-          return {
-            select: () => ({
-              eq: () => ({
-                single: () => Promise.resolve(mockOrderResult),
-              }),
-            }),
-          };
-        }
-        return {};
-      }) as never;
-
-      await purchaseInsuranceForPaidOrder(
-        mockSupabase,
-        VALID_ORDER_ID,
-        VALID_MERCHANT_ID
-      );
-
-      expect(insertSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          order_id: VALID_ORDER_ID,
-          merchant_id: VALID_MERCHANT_ID,
-          mycover_policy_id: 'policy-789',
-          mycover_policy_number: 'POL-2024-001',
-          mycover_purchase_id: 'purchase-abc',
-          coverage_amount: 1700000,
-          premium_amount: 17000, // sum of assurance fees
-          status: 'active',
-          customer_name: 'John Doe',
-          customer_email: 'john@example.com',
-          customer_phone: '+2348012345678',
-          policy_start_date: '2024-01-01',
-          policy_expiry_date: '2024-12-31',
-        })
-      );
-    });
-
-    it('logs success message with policy details', async () => {
-      await purchaseInsuranceForPaidOrder(
-        mockSupabase,
-        VALID_ORDER_ID,
-        VALID_MERCHANT_ID
-      );
-
-      expect(logger.info).toHaveBeenCalledWith(
-        expect.objectContaining({
-          message: expect.stringContaining('successfully'),
-          orderId: VALID_ORDER_ID,
-          policyNumber: 'POL-2024-001',
-          premium: 17000,
-          coverage: 1700000,
-        })
+    it('persists premium_amount from response amount string, not assurance_fee', async () => {
+      const spy = vi.fn().mockResolvedValue({ data: {}, error: null });
+      orderSupabaseMock(mockOrderWithInsurance, spy);
+      await purchaseOrderInsurance(VALID_ORDER_ID, mockDeviceDetails);
+      // v2: "25000.0000" -> 25000, NOT item.assurance_fee (5000)
+      expect(spy).toHaveBeenCalledWith(
+        expect.objectContaining({ premium_amount: 25000 })
       );
     });
   });
 
   describe('Error Handling', () => {
-    it('handles MyCover API errors gracefully without throwing', async () => {
-      const myCoverError = new Error('MyCover API error: Insufficient funds');
-      mockPurchaseShippingInsurance.mockRejectedValue(myCoverError);
-
+    it('throws when MyCover client is not configured', async () => {
+      mockCreateMyCoverClient.mockReturnValue(null);
       await expect(
-        purchaseInsuranceForPaidOrder(
-          mockSupabase,
-          VALID_ORDER_ID,
-          VALID_MERCHANT_ID
-        )
-      ).resolves.toBeUndefined();
-
-      expect(logger.error).toHaveBeenCalledWith(
-        expect.objectContaining({
-          message: expect.stringContaining('Failed to purchase'),
-          orderId: VALID_ORDER_ID,
-          error: myCoverError,
-        })
-      );
+        purchaseOrderInsurance(VALID_ORDER_ID, mockDeviceDetails)
+      ).rejects.toThrow(/MyCover/);
     });
 
-    it('handles database insert errors gracefully', async () => {
-      const insertSpy = vi.fn().mockResolvedValue({
-        data: null,
-        error: { message: 'Unique constraint violation', code: '23505' },
-      });
-
-      mockSupabase.from = ((table: string) => {
-        if (table === 'order_insurance_policies') {
-          return {
-            select: () => ({
-              eq: () => ({
-                maybeSingle: () => Promise.resolve({ data: null, error: null }),
-              }),
-            }),
-            insert: insertSpy,
-          };
-        }
-        if (table === 'orders') {
-          return {
-            select: () => ({
-              eq: () => ({
-                single: () => Promise.resolve(mockOrderResult),
-              }),
-            }),
-          };
-        }
-        return {};
-      }) as never;
-
-      await purchaseInsuranceForPaidOrder(
-        mockSupabase,
-        VALID_ORDER_ID,
-        VALID_MERCHANT_ID
-      );
-
-      expect(logger.error).toHaveBeenCalledWith(
-        expect.objectContaining({
-          message: expect.stringContaining('failed to save to DB'),
-          orderId: VALID_ORDER_ID,
-          policyId: 'policy-789',
-        })
-      );
-    });
-
-    it('continues execution after DB save error (does not throw)', async () => {
-      const insertSpy = vi.fn().mockResolvedValue({
-        data: null,
-        error: { message: 'DB error' },
-      });
-
-      mockSupabase.from = ((table: string) => {
-        if (table === 'order_insurance_policies') {
-          return {
-            select: () => ({
-              eq: () => ({
-                maybeSingle: () => Promise.resolve({ data: null, error: null }),
-              }),
-            }),
-            insert: insertSpy,
-          };
-        }
-        if (table === 'orders') {
-          return {
-            select: () => ({
-              eq: () => ({
-                single: () => Promise.resolve(mockOrderResult),
-              }),
-            }),
-          };
-        }
-        return {};
-      }) as never;
-
+    it('throws when order is not found', async () => {
+      orderSupabaseMock(null);
       await expect(
-        purchaseInsuranceForPaidOrder(
-          mockSupabase,
-          VALID_ORDER_ID,
-          VALID_MERCHANT_ID
-        )
-      ).resolves.toBeUndefined();
+        purchaseOrderInsurance(VALID_ORDER_ID, mockDeviceDetails)
+      ).rejects.toThrow(/Order not found/);
     });
 
-    it('handles missing customer email gracefully', async () => {
-      mockOrderResult = {
-        data: { ...mockOrderWithInsurance, customer_email: null },
-        error: null,
-      };
-
-      await purchaseInsuranceForPaidOrder(
-        mockSupabase,
+    it('returns failure when no items have assurance', async () => {
+      orderSupabaseMock(mockOrderWithoutInsurance);
+      const result = await purchaseOrderInsurance(
         VALID_ORDER_ID,
-        VALID_MERCHANT_ID
+        mockDeviceDetails
       );
-
-      expect(mockPurchaseShippingInsurance).toHaveBeenCalledWith(
-        expect.objectContaining({
-          email: '',
-        })
-      );
+      expect(result).toEqual(expect.objectContaining({ success: false }));
     });
+  });
+});
 
-    it('handles missing customer phone gracefully', async () => {
-      mockOrderResult = {
-        data: { ...mockOrderWithInsurance, customer_phone: null },
-        error: null,
-      };
+// ---- syncClaimsStatus (v2 claim status mapping) ----
 
-      await purchaseInsuranceForPaidOrder(
-        mockSupabase,
-        VALID_ORDER_ID,
-        VALID_MERCHANT_ID
-      );
-
-      expect(mockPurchaseShippingInsurance).toHaveBeenCalledWith(
-        expect.objectContaining({
-          phone_number: '',
-        })
-      );
-    });
-
-    it('handles missing customer name gracefully', async () => {
-      mockOrderResult = {
-        data: { ...mockOrderWithInsurance, customer_name: null },
-        error: null,
-      };
-
-      await purchaseInsuranceForPaidOrder(
-        mockSupabase,
-        VALID_ORDER_ID,
-        VALID_MERCHANT_ID
-      );
-
-      expect(mockPurchaseShippingInsurance).toHaveBeenCalledWith(
-        expect.objectContaining({
-          first_name: 'Customer',
-          last_name: '.',
-        })
-      );
+describe('syncClaimsStatus', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockCreateMyCoverClient.mockReturnValue({
+      getClaims: mockGetClaims,
     });
   });
 
-  describe('Edge Cases', () => {
-    it('handles items with missing quantity (defaults to 1)', async () => {
-      mockOrderResult = {
-        data: {
-          ...mockOrderWithInsurance,
-          order_items: [
-            {
-              id: 'item-1',
-              name: 'Product',
-              price: 10000,
-              quantity: undefined,
-              has_assurance: true,
-              assurance_fee: 100,
-            },
-          ],
-        },
-        error: null,
-      };
+  it('returns failure when MyCover client is not configured', async () => {
+    mockCreateMyCoverClient.mockReturnValue(null);
 
-      await purchaseInsuranceForPaidOrder(
-        mockSupabase,
-        VALID_ORDER_ID,
-        VALID_MERCHANT_ID
-      );
+    const result = await syncClaimsStatus();
 
-      expect(mockPurchaseShippingInsurance).toHaveBeenCalledWith(
-        expect.objectContaining({
-          item_value: 10000,
-          item_details: [
-            {
-              description: 'Product',
-              value: 10000,
-              quantity: 1,
-            },
-          ],
-        })
-      );
-    });
+    expect(result).toEqual(
+      expect.objectContaining({
+        success: false,
+        message: expect.stringContaining('config missing'),
+      })
+    );
+  });
 
-    it('handles items with zero assurance fee', async () => {
-      mockOrderResult = {
-        data: {
-          ...mockOrderWithInsurance,
-          order_items: [
-            {
-              id: 'item-1',
-              name: 'Product',
-              price: 10000,
-              quantity: 1,
-              has_assurance: true,
-              assurance_fee: 0,
-            },
-          ],
-        },
-        error: null,
-      };
+  describe('v2 claim status mapping', () => {
+    // v2 defines 12 claim statuses. The sync function must map each to our local statuses.
+    const v2ClaimStatuses = [
+      'Documented',
+      'Inspection submitted',
+      'Offer sent',
+      'Offer accepted',
+      'Payment initiated',
+      'Settled',
+      'Declined',
+      'Repair estimate submitted',
+      'Approved',
+      'Pending',
+      'Processing',
+      'Rejected',
+    ];
 
-      await purchaseInsuranceForPaidOrder(
-        mockSupabase,
-        VALID_ORDER_ID,
-        VALID_MERCHANT_ID
-      );
+    it('recognizes all 12 v2 claim status values without errors', async () => {
+      const claims = v2ClaimStatuses.map((status, i) => ({
+        id: `claim-${i}`,
+        policy_id: `policy-${i}`,
+        claim_status: status,
+      }));
 
-      const insertSpy = vi.fn().mockResolvedValue({ data: {}, error: null });
-      mockSupabase.from = ((table: string) => {
+      mockGetClaims.mockResolvedValue({ claims });
+
+      // Setup the server supabase to return matching local policies
+      mockServerSupabase.from.mockImplementation((table: string) => {
         if (table === 'order_insurance_policies') {
           return {
             select: () => ({
               eq: () => ({
-                maybeSingle: () => Promise.resolve({ data: null, error: null }),
+                single: () =>
+                  Promise.resolve({
+                    data: {
+                      id: 'local-1',
+                      status: 'active',
+                      claim_status: null,
+                    },
+                    error: null,
+                  }),
               }),
             }),
-            insert: insertSpy,
-          };
-        }
-        if (table === 'orders') {
-          return {
-            select: () => ({
-              eq: () => ({
-                single: () => Promise.resolve(mockOrderResult),
-              }),
+            update: () => ({
+              eq: () => Promise.resolve({ data: {}, error: null }),
             }),
           };
         }
         return {};
-      }) as never;
+      });
 
-      await purchaseInsuranceForPaidOrder(
-        mockSupabase,
-        VALID_ORDER_ID,
-        VALID_MERCHANT_ID
-      );
+      const result = await syncClaimsStatus();
 
-      // Should still proceed with premium_amount = 0
-      expect(mockPurchaseShippingInsurance).toHaveBeenCalled();
+      expect(result.success).toBe(true);
     });
 
-    it('handles empty order_items array', async () => {
-      mockOrderResult = {
-        data: { ...mockOrderWithInsurance, order_items: [] },
-        error: null,
-      };
+    it('maps "Documented" to "in_review" status', async () => {
+      const claims = [
+        { id: 'claim-1', policy_id: 'policy-1', claim_status: 'Documented' },
+      ];
+      mockGetClaims.mockResolvedValue({ claims });
 
-      await purchaseInsuranceForPaidOrder(
-        mockSupabase,
-        VALID_ORDER_ID,
-        VALID_MERCHANT_ID
-      );
+      const updateSpy = vi.fn().mockReturnValue({
+        eq: () => Promise.resolve({ data: {}, error: null }),
+      });
 
-      expect(mockPurchaseShippingInsurance).not.toHaveBeenCalled();
-    });
+      mockServerSupabase.from.mockImplementation((table: string) => {
+        if (table === 'order_insurance_policies') {
+          return {
+            select: () => ({
+              eq: () => ({
+                single: () =>
+                  Promise.resolve({
+                    data: {
+                      id: 'local-1',
+                      status: 'active',
+                      claim_status: null,
+                    },
+                    error: null,
+                  }),
+              }),
+            }),
+            update: updateSpy,
+          };
+        }
+        return {};
+      });
 
-    it('generates correct shipping_date in YYYY-MM-DD format', async () => {
-      const mockDate = new Date('2024-06-15T10:30:00Z');
-      vi.setSystemTime(mockDate);
+      await syncClaimsStatus();
 
-      await purchaseInsuranceForPaidOrder(
-        mockSupabase,
-        VALID_ORDER_ID,
-        VALID_MERCHANT_ID
-      );
-
-      expect(mockPurchaseShippingInsurance).toHaveBeenCalledWith(
+      expect(updateSpy).toHaveBeenCalledWith(
         expect.objectContaining({
-          shipping_date: '2024-06-15',
+          claim_status: 'in_review',
         })
       );
+    });
 
-      vi.useRealTimers();
+    it('maps "Inspection submitted" to "in_review" status', async () => {
+      const claims = [
+        {
+          id: 'claim-1',
+          policy_id: 'policy-1',
+          claim_status: 'Inspection submitted',
+        },
+      ];
+      mockGetClaims.mockResolvedValue({ claims });
+
+      const updateSpy = vi.fn().mockReturnValue({
+        eq: () => Promise.resolve({ data: {}, error: null }),
+      });
+
+      mockServerSupabase.from.mockImplementation((table: string) => {
+        if (table === 'order_insurance_policies') {
+          return {
+            select: () => ({
+              eq: () => ({
+                single: () =>
+                  Promise.resolve({
+                    data: {
+                      id: 'local-1',
+                      status: 'active',
+                      claim_status: null,
+                    },
+                    error: null,
+                  }),
+              }),
+            }),
+            update: updateSpy,
+          };
+        }
+        return {};
+      });
+
+      await syncClaimsStatus();
+
+      expect(updateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          claim_status: 'in_review',
+        })
+      );
+    });
+
+    it('maps "Offer sent" to "in_review" status', async () => {
+      const claims = [
+        { id: 'claim-1', policy_id: 'policy-1', claim_status: 'Offer sent' },
+      ];
+      mockGetClaims.mockResolvedValue({ claims });
+
+      const updateSpy = vi.fn().mockReturnValue({
+        eq: () => Promise.resolve({ data: {}, error: null }),
+      });
+
+      mockServerSupabase.from.mockImplementation((table: string) => {
+        if (table === 'order_insurance_policies') {
+          return {
+            select: () => ({
+              eq: () => ({
+                single: () =>
+                  Promise.resolve({
+                    data: {
+                      id: 'local-1',
+                      status: 'active',
+                      claim_status: null,
+                    },
+                    error: null,
+                  }),
+              }),
+            }),
+            update: updateSpy,
+          };
+        }
+        return {};
+      });
+
+      await syncClaimsStatus();
+
+      expect(updateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          claim_status: 'in_review',
+        })
+      );
+    });
+
+    it('maps "Offer accepted" to "in_review" status', async () => {
+      const claims = [
+        {
+          id: 'claim-1',
+          policy_id: 'policy-1',
+          claim_status: 'Offer accepted',
+        },
+      ];
+      mockGetClaims.mockResolvedValue({ claims });
+
+      const updateSpy = vi.fn().mockReturnValue({
+        eq: () => Promise.resolve({ data: {}, error: null }),
+      });
+
+      mockServerSupabase.from.mockImplementation((table: string) => {
+        if (table === 'order_insurance_policies') {
+          return {
+            select: () => ({
+              eq: () => ({
+                single: () =>
+                  Promise.resolve({
+                    data: {
+                      id: 'local-1',
+                      status: 'active',
+                      claim_status: null,
+                    },
+                    error: null,
+                  }),
+              }),
+            }),
+            update: updateSpy,
+          };
+        }
+        return {};
+      });
+
+      await syncClaimsStatus();
+
+      expect(updateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          claim_status: 'in_review',
+        })
+      );
+    });
+
+    it('maps "Payment initiated" to "approved" status', async () => {
+      const claims = [
+        {
+          id: 'claim-1',
+          policy_id: 'policy-1',
+          claim_status: 'Payment initiated',
+        },
+      ];
+      mockGetClaims.mockResolvedValue({ claims });
+
+      const updateSpy = vi.fn().mockReturnValue({
+        eq: () => Promise.resolve({ data: {}, error: null }),
+      });
+
+      mockServerSupabase.from.mockImplementation((table: string) => {
+        if (table === 'order_insurance_policies') {
+          return {
+            select: () => ({
+              eq: () => ({
+                single: () =>
+                  Promise.resolve({
+                    data: {
+                      id: 'local-1',
+                      status: 'active',
+                      claim_status: null,
+                    },
+                    error: null,
+                  }),
+              }),
+            }),
+            update: updateSpy,
+          };
+        }
+        return {};
+      });
+
+      await syncClaimsStatus();
+
+      expect(updateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          claim_status: 'approved',
+        })
+      );
+    });
+
+    it('maps "Settled" to "approved" status', async () => {
+      const claims = [
+        { id: 'claim-1', policy_id: 'policy-1', claim_status: 'Settled' },
+      ];
+      mockGetClaims.mockResolvedValue({ claims });
+
+      const updateSpy = vi.fn().mockReturnValue({
+        eq: () => Promise.resolve({ data: {}, error: null }),
+      });
+
+      mockServerSupabase.from.mockImplementation((table: string) => {
+        if (table === 'order_insurance_policies') {
+          return {
+            select: () => ({
+              eq: () => ({
+                single: () =>
+                  Promise.resolve({
+                    data: {
+                      id: 'local-1',
+                      status: 'active',
+                      claim_status: null,
+                    },
+                    error: null,
+                  }),
+              }),
+            }),
+            update: updateSpy,
+          };
+        }
+        return {};
+      });
+
+      await syncClaimsStatus();
+
+      expect(updateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          claim_status: 'approved',
+        })
+      );
+    });
+
+    it('maps "Declined" to "rejected" status', async () => {
+      const claims = [
+        { id: 'claim-1', policy_id: 'policy-1', claim_status: 'Declined' },
+      ];
+      mockGetClaims.mockResolvedValue({ claims });
+
+      const updateSpy = vi.fn().mockReturnValue({
+        eq: () => Promise.resolve({ data: {}, error: null }),
+      });
+
+      mockServerSupabase.from.mockImplementation((table: string) => {
+        if (table === 'order_insurance_policies') {
+          return {
+            select: () => ({
+              eq: () => ({
+                single: () =>
+                  Promise.resolve({
+                    data: {
+                      id: 'local-1',
+                      status: 'active',
+                      claim_status: null,
+                    },
+                    error: null,
+                  }),
+              }),
+            }),
+            update: updateSpy,
+          };
+        }
+        return {};
+      });
+
+      await syncClaimsStatus();
+
+      expect(updateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          claim_status: 'rejected',
+        })
+      );
+    });
+
+    it('maps "Repair estimate submitted" to "in_review" status', async () => {
+      const claims = [
+        {
+          id: 'claim-1',
+          policy_id: 'policy-1',
+          claim_status: 'Repair estimate submitted',
+        },
+      ];
+      mockGetClaims.mockResolvedValue({ claims });
+
+      const updateSpy = vi.fn().mockReturnValue({
+        eq: () => Promise.resolve({ data: {}, error: null }),
+      });
+
+      mockServerSupabase.from.mockImplementation((table: string) => {
+        if (table === 'order_insurance_policies') {
+          return {
+            select: () => ({
+              eq: () => ({
+                single: () =>
+                  Promise.resolve({
+                    data: {
+                      id: 'local-1',
+                      status: 'active',
+                      claim_status: null,
+                    },
+                    error: null,
+                  }),
+              }),
+            }),
+            update: updateSpy,
+          };
+        }
+        return {};
+      });
+
+      await syncClaimsStatus();
+
+      expect(updateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          claim_status: 'in_review',
+        })
+      );
     });
   });
 });

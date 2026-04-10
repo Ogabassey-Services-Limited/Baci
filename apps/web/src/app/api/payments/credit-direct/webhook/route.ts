@@ -10,7 +10,6 @@ import {
 import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
 import { logger } from '@/lib/logger';
 import { createServiceClient } from '@/lib/supabase/service';
-import { purchaseInsuranceForPaidOrder } from '@/services/insurance';
 
 /**
  * POST /api/payments/credit-direct/webhook
@@ -358,19 +357,6 @@ export async function POST(request: NextRequest) {
           });
           // Don't fail webhook for email errors
         }
-
-        // Auto-purchase MyCover shipping insurance for orders with assurance
-        purchaseInsuranceForPaidOrder(
-          supabase,
-          order.id,
-          order.merchant_id
-        ).catch((err) => {
-          logger.error({
-            message: 'Failed to auto-purchase insurance (Credit Direct)',
-            orderId: order.id,
-            error: err,
-          });
-        });
 
         logger.info({
           message: 'Credit Direct merchant payment completed',

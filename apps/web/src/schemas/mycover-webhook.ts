@@ -19,6 +19,11 @@ export const myCoverWebhookSchema = z.object({
       expiration_date: z.string().optional(),
       genius_price: z.number().optional(),
       market_price: z.number().optional(),
+      amount: z.string().optional(),
+      certificate_url: z.string().optional(),
+      product_id: z.string().optional(),
+      product_category_id: z.string().optional(),
+      provider_id: z.string().optional(),
       claim_id: z.string().optional(),
       claim_status: z.string().optional(),
     })

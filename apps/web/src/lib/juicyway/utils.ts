@@ -36,20 +36,9 @@ export function generatePaymentReference(prefix = 'baci'): string {
 
 /**
  * Format phone number to E.164 format
+ * @deprecated Use `formatPhoneToE164` from `@/lib/phone` instead
  */
-export function formatPhoneToE164(phone: string, countryCode = '+234'): string {
-  const digits = phone.replace(/\D/g, '');
-
-  if (digits.startsWith('234') && digits.length === 13) {
-    return `+${digits}`;
-  }
-
-  const normalized = digits.startsWith('0') ? digits.slice(1) : digits;
-
-  if (!normalized) return '';
-
-  return `${countryCode}${normalized}`;
-}
+export { formatPhoneToE164 } from '@/lib/phone';
 
 /**
  * Check if Juicyway is properly configured
