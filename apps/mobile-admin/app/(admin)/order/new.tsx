@@ -106,18 +106,17 @@ type SelectableCustomer = Pick<
   'id' | 'first_name' | 'last_name' | 'email' | 'phone' | 'address'
 >;
 
-interface SelectableOrderProduct
-  extends Pick<
-    SelectableProductPickerItem,
-    | 'condition'
-    | 'has_variants'
-    | 'id'
-    | 'images'
-    | 'name'
-    | 'price'
-    | 'sku'
-    | 'variant_attributes'
-  > {}
+type SelectableOrderProduct = Pick<
+  SelectableProductPickerItem,
+  | 'condition'
+  | 'has_variants'
+  | 'id'
+  | 'images'
+  | 'name'
+  | 'price'
+  | 'sku'
+  | 'variant_attributes'
+>;
 
 /**
  * Formats a price string with thousand separators while preserving decimal input
