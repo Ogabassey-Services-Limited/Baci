@@ -30,6 +30,11 @@ import { KeyboardAwareModalContainer } from '@/components/ui/KeyboardAwareModalC
 import SafeImage from '@/components/ui/SafeImage';
 import { mergeOrderItem } from '@/lib/order-items';
 import {
+  getProductPickerRowSubtitle,
+  getProductPickerRowTitle,
+} from '@/lib/order-product-picker';
+import type { SelectableProductPickerItem } from '@/lib/product-picker-variant-rows';
+import {
   sanitizeAddress,
   sanitizeCustomerName,
   sanitizeEmail,
@@ -64,6 +69,7 @@ import {
 import { useDebounce } from '@/hooks/useDebounce';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useProductPicker } from '@/hooks/useProductPicker';
+import { useProductPickerVariants } from '@/hooks/useProductPickerVariants';
 import type { Product } from '@/hooks/useProducts';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
@@ -98,6 +104,18 @@ interface CustomerInfo {
 type SelectableCustomer = Pick<
   Customer,
   'id' | 'first_name' | 'last_name' | 'email' | 'phone' | 'address'
+>;
+
+type SelectableOrderProduct = Pick<
+  SelectableProductPickerItem,
+  | 'condition'
+  | 'has_variants'
+  | 'id'
+  | 'images'
+  | 'name'
+  | 'price'
+  | 'sku'
+  | 'variant_attributes'
 >;
 
 /**
@@ -228,6 +246,8 @@ export default function NewOrderScreen() {
 
   // Search & Form
   const [productSearch, setProductSearch] = useState('');
+  const [selectedParentProduct, setSelectedParentProduct] =
+    useState<Product | null>(null);
   const [customerSearch, setCustomerSearch] = useState('');
   const {
     error: productsError,
@@ -238,6 +258,12 @@ export default function NewOrderScreen() {
     products: filteredProducts,
     refetch: refetchProducts,
   } = useProductPicker(productSearch);
+  const {
+    data: selectedParentProductVariants,
+    error: selectedParentProductError,
+    isLoading: isLoadingSelectedParentProduct,
+    refetch: refetchSelectedParentProduct,
+  } = useProductPickerVariants(selectedParentProduct);
   const debouncedCustomerSearch = useDebounce(customerSearch, 300);
   const { data: customersData } = useCustomers({
     search: debouncedCustomerSearch,
@@ -296,9 +322,23 @@ export default function NewOrderScreen() {
   const taxesToUse = isVatApplied ? calculatedVat : taxes;
 
   const total = subtotal - discount + shippingFee + taxesToUse;
+  const isPickingVariant = selectedParentProduct !== null;
+  const selectableProductRows: SelectableOrderProduct[] = isPickingVariant
+    ? (selectedParentProductVariants ?? [])
+    : filteredProducts;
+
+  const resetProductPickerState = () => {
+    setSelectedParentProduct(null);
+  };
+
+  const closeProductModal = () => {
+    resetProductPickerState();
+    setShowProductModal(false);
+    setProductSearch('');
+  };
 
   // Handlers (Same logic, just keeping cleanly separated)
-  const handleAddProduct = (product: Product) => {
+  const handleAddProduct = (product: SelectableOrderProduct) => {
     setOrderItems((prev) =>
       mergeOrderItem(prev, {
         product_id: product.id,
@@ -306,11 +346,19 @@ export default function NewOrderScreen() {
         quantity: 1,
         price: product.price,
         condition: product.condition ?? undefined,
-        image_url: product.images?.[0],
+        image_url: product.images?.[0] ?? selectedParentProduct?.images?.[0],
       })
     );
-    setShowProductModal(false);
-    setProductSearch('');
+    closeProductModal();
+  };
+
+  const handleSelectProduct = (product: SelectableOrderProduct) => {
+    if (!product.has_variants) {
+      handleAddProduct(product);
+      return;
+    }
+
+    setSelectedParentProduct(product as Product);
   };
 
   const handleAddCustomItem = () => {
@@ -985,6 +1033,7 @@ export default function NewOrderScreen() {
                   },
                 ]}
                 onPress={() => {
+                  resetProductPickerState();
                   setProductSearch('');
                   setShowProductModal(true);
                 }}
@@ -1528,66 +1577,105 @@ export default function NewOrderScreen() {
             <View
               style={[styles.modalHeader, { borderBottomColor: colors.border }]}
             >
-              <Text style={[styles.modalTitle, { color: colors.text }]}>
-                Select Item
-              </Text>
-              <Pressable onPress={() => setShowProductModal(false)}>
+              <View
+                style={{
+                  alignItems: 'center',
+                  flex: 1,
+                  flexDirection: 'row',
+                  gap: 12,
+                }}
+              >
+                {isPickingVariant ? (
+                  <Pressable onPress={resetProductPickerState}>
+                    <Ionicons
+                      name="chevron-back"
+                      size={22}
+                      color={colors.text}
+                    />
+                  </Pressable>
+                ) : null}
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.modalTitle, { color: colors.text }]}>
+                    {isPickingVariant ? 'Choose Variant' : 'Select Item'}
+                  </Text>
+                  {selectedParentProduct ? (
+                    <Text
+                      style={{
+                        color: colors.textSecondary,
+                        fontSize: 12,
+                        marginTop: 2,
+                      }}
+                      numberOfLines={1}
+                    >
+                      {selectedParentProduct.name}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+              <Pressable onPress={closeProductModal}>
                 <Ionicons name="close" size={24} color={colors.text} />
               </Pressable>
             </View>
-            <View
-              style={[styles.searchBox, { backgroundColor: colors.cardHover }]}
-            >
-              <Ionicons name="search" size={20} color={colors.textMuted} />
-              <TextInput
-                style={{ flex: 1, color: colors.text, marginLeft: 8 }}
-                placeholder="Search products..."
-                placeholderTextColor={colors.textMuted}
-                value={productSearch}
-                onChangeText={setProductSearch}
-              />
-            </View>
+            {isPickingVariant ? null : (
+              <>
+                <View
+                  style={[
+                    styles.searchBox,
+                    { backgroundColor: colors.cardHover },
+                  ]}
+                >
+                  <Ionicons name="search" size={20} color={colors.textMuted} />
+                  <TextInput
+                    style={{ flex: 1, color: colors.text, marginLeft: 8 }}
+                    placeholder="Search products..."
+                    placeholderTextColor={colors.textMuted}
+                    value={productSearch}
+                    onChangeText={setProductSearch}
+                  />
+                </View>
 
-            {/* Create New Product Action */}
-            <Pressable
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                padding: 16,
-                borderBottomWidth: 1,
-                borderBottomColor: colors.border,
-                backgroundColor: colors.card,
-              }}
-              onPress={() => {
-                setShowProductModal(false);
-                router.push('/product/new');
-              }}
-            >
-              <View
-                style={[
-                  styles.iconBox,
-                  { backgroundColor: `${colors.primary}20` },
-                ]}
-              >
-                <Ionicons name="add" size={20} color={colors.primary} />
-              </View>
-              <View style={{ marginLeft: 12 }}>
-                <Text
+                {/* Create New Product Action */}
+                <Pressable
                   style={{
-                    color: colors.primary,
-                    fontWeight: '600',
-                    fontSize: 16,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    padding: 16,
+                    borderBottomWidth: 1,
+                    borderBottomColor: colors.border,
+                    backgroundColor: colors.card,
+                  }}
+                  onPress={() => {
+                    closeProductModal();
+                    router.push('/product/new');
                   }}
                 >
-                  Create New Product
-                </Text>
-                <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
-                  Add a new item to inventory
-                </Text>
-              </View>
-            </Pressable>
+                  <View
+                    style={[
+                      styles.iconBox,
+                      { backgroundColor: `${colors.primary}20` },
+                    ]}
+                  >
+                    <Ionicons name="add" size={20} color={colors.primary} />
+                  </View>
+                  <View style={{ marginLeft: 12 }}>
+                    <Text
+                      style={{
+                        color: colors.primary,
+                        fontWeight: '600',
+                        fontSize: 16,
+                      }}
+                    >
+                      Create New Product
+                    </Text>
+                    <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+                      Add a new item to inventory
+                    </Text>
+                  </View>
+                </Pressable>
+              </>
+            )}
             <FlatList
-              data={filteredProducts}
+              data={selectableProductRows}
               keyExtractor={(item) => item.id}
               keyboardDismissMode={
                 Platform.OS === 'ios' ? 'interactive' : 'on-drag'
@@ -1595,13 +1683,17 @@ export default function NewOrderScreen() {
               keyboardShouldPersistTaps="handled"
               {...MODAL_FLATLIST_PROPS}
               onEndReached={() => {
-                if (hasMoreProducts && !isFetchingMoreProducts) {
+                if (
+                  !isPickingVariant &&
+                  hasMoreProducts &&
+                  !isFetchingMoreProducts
+                ) {
                   void fetchMoreProducts();
                 }
               }}
               onEndReachedThreshold={0.4}
               ListFooterComponent={
-                isFetchingMoreProducts ? (
+                !isPickingVariant && isFetchingMoreProducts ? (
                   <ActivityIndicator
                     size="small"
                     color={colors.primary}
@@ -1610,7 +1702,60 @@ export default function NewOrderScreen() {
                 ) : null
               }
               ListEmptyComponent={
-                productsError ? (
+                isPickingVariant && selectedParentProductError ? (
+                  <View style={{ padding: 20, alignItems: 'center', gap: 12 }}>
+                    <Text
+                      style={{
+                        color: colors.textSecondary,
+                        fontSize: 14,
+                        textAlign: 'center',
+                      }}
+                    >
+                      {selectedParentProductError instanceof Error
+                        ? selectedParentProductError.message
+                        : 'Unable to load variants right now.'}
+                    </Text>
+                    <Pressable
+                      onPress={() => {
+                        void refetchSelectedParentProduct();
+                      }}
+                      style={{
+                        backgroundColor: colors.primary,
+                        borderRadius: 10,
+                        paddingHorizontal: 16,
+                        paddingVertical: 10,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: colors.background,
+                          fontSize: 14,
+                          fontWeight: '600',
+                        }}
+                      >
+                        Retry
+                      </Text>
+                    </Pressable>
+                  </View>
+                ) : isPickingVariant && isLoadingSelectedParentProduct ? (
+                  <ActivityIndicator
+                    size="large"
+                    color={colors.primary}
+                    style={{ paddingVertical: 32 }}
+                  />
+                ) : isPickingVariant ? (
+                  <View style={{ padding: 20 }}>
+                    <Text
+                      style={{
+                        color: colors.textSecondary,
+                        fontSize: 14,
+                        textAlign: 'center',
+                      }}
+                    >
+                      No sellable variants are available for this product yet.
+                    </Text>
+                  </View>
+                ) : productsError ? (
                   <View style={{ padding: 20, alignItems: 'center', gap: 12 }}>
                     <Text
                       style={{
@@ -1668,19 +1813,11 @@ export default function NewOrderScreen() {
                 )
               }
               renderItem={({ item }) => {
-                const conditionLabel = item.condition
-                  ? item.condition.replace(/_/g, ' ')
-                  : null;
-                const variantSummary = Array.isArray(item.variant_attributes)
-                  ? (
-                      item.variant_attributes as Array<{
-                        param: string;
-                        options: string[];
-                      }>
-                    )
-                      .map((v) => v.options.join(', '))
-                      .join(' | ')
-                  : null;
+                const pickerTitle = getProductPickerRowTitle(
+                  item,
+                  selectedParentProduct?.name
+                );
+                const pickerSubtitle = getProductPickerRowSubtitle(item);
 
                 return (
                   <Pressable
@@ -1688,22 +1825,26 @@ export default function NewOrderScreen() {
                       styles.productItem,
                       { borderBottomColor: colors.border },
                     ]}
-                    onPress={() => handleAddProduct(item)}
+                    onPress={() =>
+                      isPickingVariant
+                        ? handleAddProduct({
+                            ...item,
+                            images:
+                              item.images?.length > 0
+                                ? item.images
+                                : (selectedParentProduct?.images ?? []),
+                          })
+                        : handleSelectProduct(item)
+                    }
                   >
                     <View style={{ flex: 1, marginRight: 8 }}>
                       <Text style={{ color: colors.text, fontSize: 16 }}>
-                        {item.name}
+                        {pickerTitle}
                       </Text>
                       <Text
                         style={{ color: colors.textSecondary, fontSize: 12 }}
                       >
-                        {[
-                          conditionLabel,
-                          variantSummary,
-                          item.sku ? `SKU: ${item.sku}` : null,
-                        ]
-                          .filter(Boolean)
-                          .join(' \u00B7 ') || 'N/A'}
+                        {pickerSubtitle}
                       </Text>
                     </View>
                     <Text style={{ color: colors.text, fontWeight: '500' }}>

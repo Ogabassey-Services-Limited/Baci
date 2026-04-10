@@ -41,6 +41,13 @@ import {
 import { useTheme } from '@/hooks/useTheme';
 import { formatVariantAttributesSummary } from '@/lib/format-variant-attributes';
 import { normalizeComparableProductName } from '@/lib/product-matching';
+import {
+  buildVariantFormValues,
+  createEmptyEditableVariant,
+  createEmptyVariantAttribute,
+  type EditableProductVariant,
+  type VariantAttributeFormValue,
+} from '@/lib/product-variant-form';
 import { runSingleFlight } from '@/lib/single-flight';
 import { supabase } from '@/lib/supabase';
 import { stripHtmlTags } from '@/lib/utils';
@@ -191,6 +198,8 @@ export default function ProductEditScreen() {
     images: [] as string[],
     manage_stock: true,
     status: 'active' as 'active' | 'draft' | 'archived',
+    has_variants: false,
+    variants: [] as EditableProductVariant[],
   });
 
   const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
@@ -273,6 +282,11 @@ export default function ProductEditScreen() {
         images: (product.images as string[]) || [],
         manage_stock: product.manage_stock ?? true,
         status: (product.status as 'active' | 'draft' | 'archived') || 'active',
+        has_variants: product.has_variants || product.variants.length > 0,
+        variants: buildVariantFormValues(product.variants, {
+          costPrice: product.cost_price || 0,
+          price: product.price || 0,
+        }),
       });
       setIsInitialized(true);
     }
@@ -327,17 +341,19 @@ export default function ProductEditScreen() {
       return;
     }
 
-    // Check for duplicate attribute keys (they collapse into one after save+reload)
-    const attrKeys = formData.variant_attributes
-      .map((a) => a.key.trim().toLowerCase())
-      .filter(Boolean);
-    const uniqueKeys = new Set(attrKeys);
-    if (uniqueKeys.size < attrKeys.length) {
-      Alert.alert(
-        'Duplicate Attributes',
-        'Each attribute key must be unique. Please remove or rename duplicate keys.'
-      );
-      return;
+    if (!formData.has_variants) {
+      // Check for duplicate attribute keys (they collapse into one after save+reload)
+      const attrKeys = formData.variant_attributes
+        .map((a) => a.key.trim().toLowerCase())
+        .filter(Boolean);
+      const uniqueKeys = new Set(attrKeys);
+      if (uniqueKeys.size < attrKeys.length) {
+        Alert.alert(
+          'Duplicate Attributes',
+          'Each attribute key must be unique. Please remove or rename duplicate keys.'
+        );
+        return;
+      }
     }
 
     const payload = { ...formData };
@@ -371,6 +387,13 @@ export default function ProductEditScreen() {
         router.back();
       });
     } catch (err: unknown) {
+      if (err instanceof z.ZodError) {
+        Alert.alert(
+          'Validation Error',
+          err.issues[0]?.message || 'Invalid product data'
+        );
+        return;
+      }
       Alert.alert('Error', (err as Error).message);
     }
   };
@@ -442,6 +465,83 @@ export default function ProductEditScreen() {
     const newAttrs = [...formData.variant_attributes];
     newAttrs.splice(index, 1);
     setFormData({ ...formData, variant_attributes: newAttrs });
+  };
+
+  const updateVariant = (
+    index: number,
+    updates: Partial<EditableProductVariant>
+  ) => {
+    const nextVariants = [...formData.variants];
+    nextVariants[index] = {
+      ...nextVariants[index],
+      ...updates,
+    };
+
+    setFormData({ ...formData, variants: nextVariants });
+  };
+
+  const addVariant = () => {
+    const attributeKeys = Array.from(
+      new Set(
+        formData.variants
+          .flatMap((variant) =>
+            variant.attributes.map((attribute) => attribute.key.trim())
+          )
+          .filter(Boolean)
+      )
+    );
+
+    setFormData({
+      ...formData,
+      has_variants: true,
+      variants: [
+        ...formData.variants,
+        createEmptyEditableVariant({
+          attributeKeys,
+          costPrice: formData.cost_price,
+          images: formData.images,
+          price: formData.price,
+        }),
+      ],
+    });
+  };
+
+  const removeVariant = (index: number) => {
+    const nextVariants = [...formData.variants];
+    nextVariants.splice(index, 1);
+    setFormData({ ...formData, variants: nextVariants });
+  };
+
+  const updateVariantAttribute = (
+    variantIndex: number,
+    attributeIndex: number,
+    field: keyof VariantAttributeFormValue,
+    value: string
+  ) => {
+    const nextAttributes = [...formData.variants[variantIndex].attributes];
+    nextAttributes[attributeIndex] = {
+      ...nextAttributes[attributeIndex],
+      [field]: value,
+    };
+    updateVariant(variantIndex, { attributes: nextAttributes });
+  };
+
+  const addVariantAttribute = (variantIndex: number) => {
+    updateVariant(variantIndex, {
+      attributes: [
+        ...formData.variants[variantIndex].attributes,
+        createEmptyVariantAttribute(),
+      ],
+    });
+  };
+
+  const removeVariantAttribute = (
+    variantIndex: number,
+    attributeIndex: number
+  ) => {
+    const nextAttributes = [...formData.variants[variantIndex].attributes];
+    nextAttributes.splice(attributeIndex, 1);
+    updateVariant(variantIndex, { attributes: nextAttributes });
   };
 
   const handleImagePick = () => {
@@ -868,8 +968,64 @@ export default function ProductEditScreen() {
           />
         </View>
 
-        {/* Variants Section - Only if Parent */}
-        {product?.variants && product.variants.length > 0 ? (
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            },
+          ]}
+        >
+          <View style={{ flex: 1, marginRight: 16 }}>
+            <Text
+              style={[
+                styles.cardTitle,
+                { marginBottom: 4, color: colors.text },
+              ]}
+            >
+              This Product Has Variants
+            </Text>
+            <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
+              Use structured variants for combinations like storage, RAM, or
+              color. Orders and storefront selection will read these rows
+              directly.
+            </Text>
+          </View>
+          <Switch
+            value={formData.has_variants}
+            onValueChange={(value) =>
+              setFormData((prev) => ({
+                ...prev,
+                has_variants: value,
+                manage_stock: value ? true : prev.manage_stock,
+                variants:
+                  value && prev.variants.length === 0
+                    ? [
+                        createEmptyEditableVariant({
+                          costPrice: prev.cost_price,
+                          images: prev.images,
+                          price: prev.price,
+                        }),
+                      ]
+                    : prev.variants,
+              }))
+            }
+            trackColor={{ false: colors.border, true: colors.primary }}
+            thumbColor={
+              Platform.OS === 'ios'
+                ? undefined
+                : formData.has_variants
+                  ? colors.primary
+                  : '#f4f3f4'
+            }
+          />
+        </View>
+
+        {formData.has_variants ? (
           <View
             style={[
               styles.card,
@@ -892,24 +1048,20 @@ export default function ProductEditScreen() {
               >
                 Variants
               </Text>
-              <View
-                style={{
-                  backgroundColor: colors.inputBg,
-                  paddingHorizontal: 8,
-                  paddingVertical: 4,
-                  borderRadius: 12,
-                }}
+              <Pressable
+                onPress={addVariant}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
               >
+                <Ionicons name="add" size={20} color={colors.primary} />
                 <Text
                   style={{
-                    color: colors.textSecondary,
-                    fontSize: 12,
+                    color: colors.primary,
                     fontWeight: '600',
                   }}
                 >
-                  {product.variants.length} Items
+                  Add Variant
                 </Text>
-              </View>
+              </Pressable>
             </View>
             <Text
               style={{
@@ -918,53 +1070,326 @@ export default function ProductEditScreen() {
                 fontSize: 13,
               }}
             >
-              This is a parent product. Manage stock, pricing, and specific
-              attributes on the individual variants below.
+              Parent search results stay fast, but pricing and stock now come
+              from the structured variants below. The parent price is used as
+              the default when adding new variants.
             </Text>
 
-            {product.variants.map((variant) => (
-              <Pressable
-                key={variant.id}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  paddingVertical: 12,
-                  borderTopWidth: 1,
-                  borderTopColor: colors.border,
-                }}
-                onPress={() => router.push(`/product/${variant.id}`)}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text
-                    style={{
-                      color: colors.text,
-                      fontWeight: '600',
-                      fontSize: 15,
-                    }}
-                  >
-                    {formatVariantAttributesSummary(
-                      variant.variant_attributes
-                    ) || variant.name}
-                  </Text>
-                  <Text
-                    style={{
-                      color: colors.textSecondary,
-                      fontSize: 12,
-                      marginTop: 2,
-                    }}
-                  >
-                    {variant.sku || 'No SKU'} • Stock:{' '}
-                    {variant.stock_quantity || 0}
-                  </Text>
-                </View>
-                <Ionicons
-                  name="chevron-forward"
-                  size={20}
-                  color={colors.textSecondary}
+            <View style={styles.row}>
+              <View style={[styles.halfInput, { marginRight: 8 }]}>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>
+                  Default Selling Price
+                </Text>
+                <PriceInput
+                  value={formData.price}
+                  onChange={(val) => setFormData({ ...formData, price: val })}
+                  placeholder="0.00"
+                  colors={colors}
+                  currencySymbol={currencySymbol}
                 />
-              </Pressable>
-            ))}
+              </View>
+              <View style={[styles.halfInput, { marginLeft: 8 }]}>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>
+                  Default Cost Price
+                </Text>
+                <PriceInput
+                  value={formData.cost_price}
+                  onChange={(val) =>
+                    setFormData({ ...formData, cost_price: val })
+                  }
+                  placeholder="0.00"
+                  colors={colors}
+                  currencySymbol={currencySymbol}
+                />
+              </View>
+            </View>
+
+            <View
+              style={{
+                backgroundColor: colors.inputBg,
+                borderRadius: 12,
+                marginTop: 16,
+                overflow: 'hidden',
+              }}
+            >
+              {formData.variants.length === 0 ? (
+                <Text
+                  style={{
+                    color: colors.textSecondary,
+                    fontSize: 13,
+                    fontStyle: 'italic',
+                    padding: 16,
+                  }}
+                >
+                  Add at least one variant before saving this parent product.
+                </Text>
+              ) : null}
+
+              {formData.variants.map((variant, variantIndex) => (
+                <View
+                  key={variant.client_id}
+                  style={{
+                    borderTopColor: colors.border,
+                    borderTopWidth: variantIndex === 0 ? 0 : 1,
+                    padding: 16,
+                  }}
+                >
+                  <View
+                    style={{
+                      alignItems: 'center',
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      marginBottom: 16,
+                    }}
+                  >
+                    <View style={{ flex: 1, marginRight: 12 }}>
+                      <Text
+                        style={{
+                          color: colors.text,
+                          fontSize: 15,
+                          fontWeight: '600',
+                        }}
+                      >
+                        {formatVariantAttributesSummary(
+                          Object.fromEntries(
+                            variant.attributes
+                              .map((attribute) => [
+                                attribute.key.trim(),
+                                attribute.value.trim(),
+                              ])
+                              .filter(([key, value]) => key && value)
+                          )
+                        ) || `Variant ${variantIndex + 1}`}
+                      </Text>
+                      <Text
+                        style={{
+                          color: colors.textSecondary,
+                          fontSize: 12,
+                          marginTop: 2,
+                        }}
+                      >
+                        {variant.sku || 'No SKU yet'} • Stock:{' '}
+                        {variant.stock_quantity}
+                      </Text>
+                    </View>
+                    <Pressable
+                      onPress={() => removeVariant(variantIndex)}
+                      style={{
+                        alignItems: 'center',
+                        flexDirection: 'row',
+                        gap: 4,
+                      }}
+                    >
+                      <Ionicons
+                        name="trash-outline"
+                        size={18}
+                        color={colors.error}
+                      />
+                      <Text style={{ color: colors.error, fontWeight: '600' }}>
+                        Remove
+                      </Text>
+                    </Pressable>
+                  </View>
+
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>
+                    Variant SKU
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      {
+                        backgroundColor: colors.card,
+                        borderColor: colors.border,
+                        color: colors.text,
+                      },
+                    ]}
+                    value={variant.sku}
+                    onChangeText={(text) =>
+                      updateVariant(variantIndex, { sku: text })
+                    }
+                    placeholder="Optional variant SKU"
+                    placeholderTextColor={colors.textSecondary}
+                  />
+
+                  <View style={styles.row}>
+                    <View style={[styles.halfInput, { marginRight: 8 }]}>
+                      <Text
+                        style={[styles.label, { color: colors.textSecondary }]}
+                      >
+                        Selling Price
+                      </Text>
+                      <PriceInput
+                        value={variant.price}
+                        onChange={(value) =>
+                          updateVariant(variantIndex, { price: value })
+                        }
+                        placeholder="0.00"
+                        colors={colors}
+                        currencySymbol={currencySymbol}
+                      />
+                    </View>
+                    <View style={[styles.halfInput, { marginLeft: 8 }]}>
+                      <Text
+                        style={[styles.label, { color: colors.textSecondary }]}
+                      >
+                        Cost Price
+                      </Text>
+                      <PriceInput
+                        value={variant.cost_price}
+                        onChange={(value) =>
+                          updateVariant(variantIndex, { cost_price: value })
+                        }
+                        placeholder="0.00"
+                        colors={colors}
+                        currencySymbol={currencySymbol}
+                      />
+                    </View>
+                  </View>
+
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>
+                    Stock Quantity
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      {
+                        backgroundColor: colors.card,
+                        borderColor: colors.border,
+                        color: colors.text,
+                      },
+                    ]}
+                    value={
+                      variant.stock_quantity === 0
+                        ? ''
+                        : variant.stock_quantity.toString()
+                    }
+                    onChangeText={(text) =>
+                      updateVariant(variantIndex, {
+                        stock_quantity: Number.parseInt(text || '0', 10) || 0,
+                      })
+                    }
+                    keyboardType="numeric"
+                    placeholder="0"
+                    placeholderTextColor={colors.textSecondary}
+                  />
+
+                  <View
+                    style={{
+                      alignItems: 'center',
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      marginBottom: 12,
+                      marginTop: 4,
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.cardTitle,
+                        { color: colors.text, fontSize: 16, marginBottom: 0 },
+                      ]}
+                    >
+                      Attributes
+                    </Text>
+                    <Pressable
+                      onPress={() => addVariantAttribute(variantIndex)}
+                      style={{ alignItems: 'center', flexDirection: 'row' }}
+                    >
+                      <Ionicons name="add" size={18} color={colors.primary} />
+                      <Text
+                        style={{
+                          color: colors.primary,
+                          fontWeight: '600',
+                          marginLeft: 4,
+                        }}
+                      >
+                        Add
+                      </Text>
+                    </Pressable>
+                  </View>
+
+                  {variant.attributes.length === 0 ? (
+                    <Text
+                      style={{
+                        color: colors.textSecondary,
+                        fontSize: 13,
+                        fontStyle: 'italic',
+                      }}
+                    >
+                      Add concrete values like Storage 128GB or Color Black.
+                    </Text>
+                  ) : null}
+
+                  {variant.attributes.map((attribute, attributeIndex) => (
+                    <View
+                      key={attribute.id}
+                      style={[styles.row, { marginBottom: 12 }]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <TextInput
+                          style={[
+                            styles.input,
+                            {
+                              backgroundColor: colors.card,
+                              borderColor: colors.border,
+                              color: colors.text,
+                            },
+                          ]}
+                          value={attribute.key}
+                          onChangeText={(text) =>
+                            updateVariantAttribute(
+                              variantIndex,
+                              attributeIndex,
+                              'key',
+                              text
+                            )
+                          }
+                          placeholder="Key (e.g. Storage)"
+                          placeholderTextColor={colors.textSecondary}
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <TextInput
+                          style={[
+                            styles.input,
+                            {
+                              backgroundColor: colors.card,
+                              borderColor: colors.border,
+                              color: colors.text,
+                            },
+                          ]}
+                          value={attribute.value}
+                          onChangeText={(text) =>
+                            updateVariantAttribute(
+                              variantIndex,
+                              attributeIndex,
+                              'value',
+                              text
+                            )
+                          }
+                          placeholder="Value (e.g. 256GB)"
+                          placeholderTextColor={colors.textSecondary}
+                        />
+                      </View>
+                      <Pressable
+                        onPress={() =>
+                          removeVariantAttribute(variantIndex, attributeIndex)
+                        }
+                        style={{
+                          justifyContent: 'center',
+                          paddingHorizontal: 8,
+                        }}
+                      >
+                        <Ionicons
+                          name="trash-outline"
+                          size={20}
+                          color={colors.error}
+                        />
+                      </Pressable>
+                    </View>
+                  ))}
+                </View>
+              ))}
+            </View>
           </View>
         ) : (
           <>

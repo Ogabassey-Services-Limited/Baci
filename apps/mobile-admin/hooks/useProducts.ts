@@ -17,6 +17,7 @@ import {
 } from '@tanstack/react-query';
 import type { AnalyticsDateRange } from '@/lib/analytics-period';
 import { normalizeProductInventory } from '@/lib/product-inventory';
+import type { AdminProductVariant } from '@/lib/product-picker-variant-rows';
 import {
   type AdminProductSearchFilters,
   type AdminProductStatus,
@@ -28,6 +29,7 @@ import { sanitizeText } from '@/lib/sanitize';
 import { supabase } from '@/lib/supabase';
 import { getJoinedRecord } from '@/lib/supabase-utils';
 import { useMerchant } from './useMerchant';
+import { fetchAdminProductVariants } from './useProductPickerVariants';
 
 export type ProductStatus = AdminProductStatus;
 
@@ -77,6 +79,17 @@ interface ProductsPage {
   products: Product[];
   nextCursor: number | null;
   totalCount: number;
+}
+
+interface PersistedProductVariantInput {
+  attributes: Record<string, string>;
+  cost_price: number | null;
+  id?: string;
+  images: string[];
+  primary_image: string | null;
+  price_override: number;
+  sku: string | null;
+  stock_quantity: number;
 }
 
 const PAGE_SIZE = 20;
@@ -259,6 +272,95 @@ async function updateProductStatus(
   return normalizeProductInventory(data);
 }
 
+async function syncStructuredVariants(args: {
+  hasVariants: boolean;
+  merchantId: string;
+  productId: string;
+  variants: PersistedProductVariantInput[];
+}) {
+  if (!args.hasVariants) {
+    const { error } = await supabase
+      .from('product_variants')
+      .delete()
+      .eq('product_id', args.productId)
+      .eq('merchant_id', args.merchantId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return;
+  }
+
+  const { data: existingVariants, error: existingVariantsError } =
+    await supabase
+      .from('product_variants')
+      .select('id')
+      .eq('product_id', args.productId)
+      .eq('merchant_id', args.merchantId);
+
+  if (existingVariantsError) {
+    throw new Error(existingVariantsError.message);
+  }
+
+  const variantIdsToKeep = new Set(
+    args.variants.map((variant) => variant.id).filter(Boolean)
+  );
+  const variantIdsToDelete = (existingVariants ?? [])
+    .map((variant) => variant.id)
+    .filter((id) => !variantIdsToKeep.has(id));
+
+  if (variantIdsToDelete.length > 0) {
+    const { error: deleteError } = await supabase
+      .from('product_variants')
+      .delete()
+      .eq('product_id', args.productId)
+      .eq('merchant_id', args.merchantId)
+      .in('id', variantIdsToDelete);
+
+    if (deleteError) {
+      throw new Error(deleteError.message);
+    }
+  }
+
+  const variantPayloads = args.variants.map((variant) => ({
+    attributes: variant.attributes,
+    cost_price: variant.cost_price,
+    id: variant.id,
+    images: variant.images,
+    merchant_id: args.merchantId,
+    price_override: variant.price_override,
+    primary_image: variant.primary_image,
+    product_id: args.productId,
+    sku: variant.sku,
+    stock_quantity: variant.stock_quantity,
+  }));
+  const variantsToUpdate = variantPayloads.filter((variant) => variant.id);
+  const variantsToInsert = variantPayloads
+    .filter((variant) => !variant.id)
+    .map(({ id, ...variant }) => variant);
+
+  if (variantsToUpdate.length > 0) {
+    const { error: updateError } = await supabase
+      .from('product_variants')
+      .upsert(variantsToUpdate);
+
+    if (updateError) {
+      throw new Error(updateError.message);
+    }
+  }
+
+  if (variantsToInsert.length > 0) {
+    const { error: insertError } = await supabase
+      .from('product_variants')
+      .insert(variantsToInsert);
+
+    if (insertError) {
+      throw new Error(insertError.message);
+    }
+  }
+}
+
 export function useProducts(filters?: {
   status?: ProductStatus;
   search?: string;
@@ -304,38 +406,34 @@ export function useProduct(productId: string) {
 
       if (productError) throw productError;
 
-      // Fetch variants if this is a parent or has_variants is true
-      const { data: variants, error: variantsError } = await supabase
-        .from('products')
-        .select(PRODUCT_COLUMNS)
-        .eq('parent_product_id', productId)
-        .eq('merchant_id', merchant.id); // Ensure variants also belong to the merchant
-
-      if (variantsError && variantsError.code !== 'PGRST116') {
-        // PGRST116 is "No rows found"
-        if (__DEV__) {
-          console.log('Error fetching variants', variantsError);
-        }
-      }
-
       const withRelations = productData as Product & {
         categories?: { name: string } | Array<{ name: string }> | null;
         brands?: { name: string } | Array<{ name: string }> | null;
       };
       const category = getJoinedRecord(withRelations.categories);
       const brand = getJoinedRecord(withRelations.brands);
+      const variants = withRelations.has_variants
+        ? await fetchAdminProductVariants({
+            merchantId: merchant.id,
+            parentProduct: {
+              condition: withRelations.condition,
+              id: withRelations.id,
+              images: withRelations.images,
+              name: withRelations.name,
+              price: withRelations.price,
+            },
+          })
+        : [];
 
       return {
         ...normalizeProductInventory(withRelations),
         categories: category ? { name: category.name } : undefined,
         brands: brand ? { name: brand.name } : undefined,
-        variants: ((variants as Product[] | null) ?? []).map((variant) =>
-          normalizeProductInventory(variant)
-        ),
+        variants,
       } as Product & {
         categories?: { name: string };
         brands?: { name: string };
-        variants: Product[];
+        variants: AdminProductVariant[];
       };
     },
     enabled: !!productId && productId !== 'new' && !!merchant?.id,
@@ -365,17 +463,18 @@ export function useUpdateProduct() {
       // 1. Validate & Transform (Client-side validation)
       // We perform the parse here to ensure the data matches our schema before transform
       const dbPayload = ProductDbSchema.parse(updates);
+      const { variants, ...productPayload } = dbPayload;
 
       await assertNoDuplicateProduct({
         merchantId: merchant.id,
-        productName: dbPayload.name,
+        productName: productPayload.name,
         excludeProductId: id,
       });
 
       const { data, error } = await supabase
         .from('products')
         .update({
-          ...dbPayload,
+          ...productPayload,
           updated_at: new Date().toISOString(),
         })
         .eq('id', id)
@@ -389,6 +488,14 @@ export function useUpdateProduct() {
         }
         throw new Error(error.message);
       }
+
+      await syncStructuredVariants({
+        hasVariants: productPayload.has_variants,
+        merchantId: merchant.id,
+        productId: id,
+        variants,
+      });
+
       return normalizeProductInventory(data);
     },
     onSuccess: (data) => {
@@ -409,17 +516,18 @@ export function useCreateProduct() {
 
       // 1. Validate & Transform
       const dbPayload = ProductDbSchema.parse(newProduct);
+      const { variants, ...productPayload } = dbPayload;
 
       await assertNoDuplicateProduct({
         merchantId: merchant.id,
-        productName: dbPayload.name,
+        productName: productPayload.name,
       });
 
       const { data, error } = await supabase
         .from('products')
         .insert([
           {
-            ...dbPayload,
+            ...productPayload,
             merchant_id: merchant.id,
           },
         ])
@@ -432,6 +540,24 @@ export function useCreateProduct() {
         }
         throw new Error(error.message);
       }
+
+      try {
+        await syncStructuredVariants({
+          hasVariants: productPayload.has_variants,
+          merchantId: merchant.id,
+          productId: data.id,
+          variants,
+        });
+      } catch (variantError) {
+        await supabase
+          .from('products')
+          .delete()
+          .eq('id', data.id)
+          .eq('merchant_id', merchant.id);
+
+        throw variantError;
+      }
+
       return normalizeProductInventory(data);
     },
     onSuccess: () => {
