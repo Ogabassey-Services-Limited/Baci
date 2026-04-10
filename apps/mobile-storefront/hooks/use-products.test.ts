@@ -16,8 +16,9 @@ jest.mock('@/hooks/product-utils', () => ({
 }));
 
 const mockUseMerchant = useMerchant as jest.MockedFunction<typeof useMerchant>;
-const mockFetchAvailableBrands =
-  fetchAvailableBrands as jest.MockedFunction<typeof fetchAvailableBrands>;
+const mockFetchAvailableBrands = fetchAvailableBrands as jest.MockedFunction<
+  typeof fetchAvailableBrands
+>;
 
 function createQueryClient() {
   return new QueryClient({

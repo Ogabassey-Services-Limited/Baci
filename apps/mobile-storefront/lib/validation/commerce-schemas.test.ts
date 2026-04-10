@@ -23,7 +23,9 @@ const validShippingAddress = {
 
 describe('ShippingAddressSchema', () => {
   it('accepts valid shipping address input', () => {
-    expect(ShippingAddressSchema.safeParse(validShippingAddress).success).toBe(true);
+    expect(ShippingAddressSchema.safeParse(validShippingAddress).success).toBe(
+      true
+    );
   });
 
   it.each([
@@ -80,7 +82,9 @@ describe('QuantitySchema', () => {
     expect(tooLow.success).toBe(false);
     expect(tooHigh.success).toBe(false);
     if (!tooLow.success) {
-      expect(tooLow.error.issues[0]?.message).toBe('Quantity must be at least 1');
+      expect(tooLow.error.issues[0]?.message).toBe(
+        'Quantity must be at least 1'
+      );
     }
     if (!tooHigh.success) {
       expect(tooHigh.error.issues[0]?.message).toBe('Maximum quantity is 99');
@@ -214,7 +218,10 @@ describe('ReviewSchema', () => {
 
 describe('validateWithSchema', () => {
   it('returns success data for valid input', () => {
-    const result = validateWithSchema(ShippingAddressSchema, validShippingAddress);
+    const result = validateWithSchema(
+      ShippingAddressSchema,
+      validShippingAddress
+    );
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.email).toBe('customer@example.com');

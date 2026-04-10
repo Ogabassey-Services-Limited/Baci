@@ -142,7 +142,9 @@ export function resolveDefaultVariantSelection<
 
   const purchasableVariants = variants
     .map((variant, index) => ({ variant, index }))
-    .filter(({ variant }) => isVariantPurchasable(product.manage_stock, variant));
+    .filter(({ variant }) =>
+      isVariantPurchasable(product.manage_stock, variant)
+    );
 
   if (purchasableVariants.length === 0) {
     return null;
@@ -176,7 +178,9 @@ export function resolveVariantSelection<
   const attributeKeys = Object.keys(normalizedAttributes);
   const purchasableVariants = variants
     .map((variant, index) => ({ variant, index }))
-    .filter(({ variant }) => isVariantPurchasable(product.manage_stock, variant));
+    .filter(({ variant }) =>
+      isVariantPurchasable(product.manage_stock, variant)
+    );
 
   if (purchasableVariants.length === 0) {
     return null;

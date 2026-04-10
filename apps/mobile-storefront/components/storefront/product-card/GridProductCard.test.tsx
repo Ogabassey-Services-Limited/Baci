@@ -123,7 +123,9 @@ describe('GridProductCard', () => {
     });
 
     fireEvent.press(
-      screen.getByLabelText(`${baseProduct.name}, ${formatPrice(baseProduct.price)}`)
+      screen.getByLabelText(
+        `${baseProduct.name}, ${formatPrice(baseProduct.price)}`
+      )
     );
     fireEvent.press(
       screen.getByLabelText(`Remove ${baseProduct.name} from saved items`)

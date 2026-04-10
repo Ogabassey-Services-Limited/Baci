@@ -14,11 +14,7 @@ describe('PhoneInput', () => {
 
   it('allows callers to override the placeholder', () => {
     render(
-      <PhoneInput
-        value=""
-        onChangeText={() => {}}
-        placeholder="8123456789"
-      />
+      <PhoneInput value="" onChangeText={() => {}} placeholder="8123456789" />
     );
 
     expect(screen.getByPlaceholderText('8123456789')).toBeTruthy();
@@ -35,11 +31,7 @@ describe('PhoneInput', () => {
 
   it('allows callers to override the return key type', () => {
     render(
-      <PhoneInput
-        value=""
-        onChangeText={() => {}}
-        returnKeyType="done"
-      />
+      <PhoneInput value="" onChangeText={() => {}} returnKeyType="done" />
     );
 
     expect(screen.getByLabelText('Phone number').props.returnKeyType).toBe(

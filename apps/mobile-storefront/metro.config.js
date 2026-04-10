@@ -21,7 +21,11 @@ const config = getDefaultConfig(projectRoot);
 const { resolver } = config;
 
 function resolvePackageRoot(packageName) {
-  const projectPackageRoot = path.resolve(projectRoot, 'node_modules', packageName);
+  const projectPackageRoot = path.resolve(
+    projectRoot,
+    'node_modules',
+    packageName
+  );
 
   try {
     require.resolve(path.join(projectPackageRoot, 'package.json'));
@@ -36,10 +40,14 @@ const reactDomPackageRoot = resolvePackageRoot('react-dom');
 const reactNativePackageRoot = resolvePackageRoot('react-native');
 const expoPackageRoot = resolvePackageRoot('expo');
 const expoRouterPackageRoot = resolvePackageRoot('expo-router');
-const gestureHandlerPackageRoot = resolvePackageRoot('react-native-gesture-handler');
+const gestureHandlerPackageRoot = resolvePackageRoot(
+  'react-native-gesture-handler'
+);
 const reanimatedPackageRoot = resolvePackageRoot('react-native-reanimated');
 const screensPackageRoot = resolvePackageRoot('react-native-screens');
-const safeAreaContextPackageRoot = resolvePackageRoot('react-native-safe-area-context');
+const safeAreaContextPackageRoot = resolvePackageRoot(
+  'react-native-safe-area-context'
+);
 
 config.watchFolders = [workspaceRoot];
 config.resolver = {

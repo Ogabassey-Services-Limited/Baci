@@ -27,7 +27,10 @@ export function normalizeProductConditionFilterValue(
     return undefined;
   }
 
-  const normalized = condition.trim().toLowerCase().replace(/[\s-]+/g, '_');
+  const normalized = condition
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
 
   switch (normalized) {
     case 'new':

@@ -1,8 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, Text, View } from 'react-native';
-import {
-  DEFAULT_ASSURANCE_PERCENT_LABEL,
-} from '@/constants/assurance';
+import { DEFAULT_ASSURANCE_PERCENT_LABEL } from '@/constants/assurance';
 import type Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
 import type { CartItem } from '@/stores/cart-store';

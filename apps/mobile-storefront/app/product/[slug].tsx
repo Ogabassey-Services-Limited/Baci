@@ -67,7 +67,9 @@ function getFirstColorOption(product: Product | null) {
     return null;
   }
 
-  const imageDrivenColor = Object.keys(product.color_images ?? {}).find(Boolean);
+  const imageDrivenColor = Object.keys(product.color_images ?? {}).find(
+    Boolean
+  );
   if (imageDrivenColor) {
     return imageDrivenColor;
   }
@@ -96,7 +98,9 @@ function getFallbackVariantSelections(product: Product | null) {
           axis !== 'color' && axis !== 'storage' && Array.isArray(values)
       )
       .map(([axis, values]) => [axis, values[0]])
-      .filter((entry): entry is [string, string] => typeof entry[1] === 'string')
+      .filter(
+        (entry): entry is [string, string] => typeof entry[1] === 'string'
+      )
   );
 
   return {
@@ -296,7 +300,9 @@ export default function ProductDetailScreen() {
 
     if (shouldSeedSelection || shouldRepairInvalidSelection) {
       setSelectedVariant(defaultSelection?.variant.id ?? null);
-      setSelectedStorage(defaultSelection?.storage ?? fallbackSelection.storage);
+      setSelectedStorage(
+        defaultSelection?.storage ?? fallbackSelection.storage
+      );
       setSelectedColor(syncedColor);
       setSelectedAttributes(syncedAttributes);
       setColorImages(

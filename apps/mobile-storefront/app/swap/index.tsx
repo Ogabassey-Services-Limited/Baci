@@ -318,7 +318,9 @@ export default function SwapScreen() {
         <View style={styles.heroCard}>
           <View style={styles.heroBadge}>
             <Ionicons name="sparkles" size={12} color={colors.white} />
-            <Text style={[styles.heroBadgeText, { color: colors.white }]}>Powered by Gemini AI</Text>
+            <Text style={[styles.heroBadgeText, { color: colors.white }]}>
+              Powered by Gemini AI
+            </Text>
           </View>
           <Text style={[styles.heroTitle, { color: colors.white }]}>
             Get an Instant AI{'\n'}Valuation in Seconds
@@ -331,7 +333,9 @@ export default function SwapScreen() {
             style={[styles.heroButton, { backgroundColor: colors.white }]}
             onPress={() => setIsModalOpen(true)}
           >
-            <Text style={[styles.heroButtonText, { color: BRAND.primary }]}>Start AI Trade-in</Text>
+            <Text style={[styles.heroButtonText, { color: BRAND.primary }]}>
+              Start AI Trade-in
+            </Text>
             <Ionicons name="camera" size={18} color={BRAND.primary} />
           </Pressable>
         </View>
@@ -366,7 +370,12 @@ export default function SwapScreen() {
           </Text>
           {ELIGIBLE_DEVICES.map((device, index) => (
             <View key={index} style={styles.eligibleItem}>
-              <View style={[styles.eligibleCheck, { backgroundColor: colors.muted }]}>
+              <View
+                style={[
+                  styles.eligibleCheck,
+                  { backgroundColor: colors.muted },
+                ]}
+              >
                 <Ionicons name="checkmark" size={14} color={colors.success} />
               </View>
               <Text style={[styles.eligibleText, { color: colors.text }]}>
@@ -377,18 +386,32 @@ export default function SwapScreen() {
         </View>
 
         {/* Sustainability Section */}
-        <View style={[styles.sustainabilityCard, { backgroundColor: colors.muted }]}>
-          <View style={[styles.sustainabilityIcon, { backgroundColor: colors.background }]}>
+        <View
+          style={[styles.sustainabilityCard, { backgroundColor: colors.muted }]}
+        >
+          <View
+            style={[
+              styles.sustainabilityIcon,
+              { backgroundColor: colors.background },
+            ]}
+          >
             <Ionicons name="leaf" size={32} color={colors.success} />
           </View>
           <View style={styles.sustainabilityContent}>
             <View style={styles.sustainabilityHeader}>
               <Ionicons name="sync" size={18} color={colors.success} />
-              <Text style={[styles.sustainabilityTitle, { color: colors.success }]}>
+              <Text
+                style={[styles.sustainabilityTitle, { color: colors.success }]}
+              >
                 Trade-in is Recycling
               </Text>
             </View>
-            <Text style={[styles.sustainabilityText, { color: colors.textSecondary }]}>
+            <Text
+              style={[
+                styles.sustainabilityText,
+                { color: colors.textSecondary },
+              ]}
+            >
               By swapping your device, you keep e-waste out of landfills. We
               refurbish and re-home your old gadgets, extending their lifecycle.
               It's a win for your wallet and the planet.
@@ -428,7 +451,12 @@ export default function SwapScreen() {
                   <View
                     style={[styles.uploadArea, { borderColor: colors.border }]}
                   >
-                    <View style={[styles.uploadIconContainer, { backgroundColor: colors.background }]}>
+                    <View
+                      style={[
+                        styles.uploadIconContainer,
+                        { backgroundColor: colors.background },
+                      ]}
+                    >
                       <Ionicons
                         name="videocam"
                         size={32}
@@ -450,18 +478,35 @@ export default function SwapScreen() {
 
                     {videoUri ? (
                       <View style={styles.videoSelected}>
-                        <View style={[styles.videoSelectedBadge, { backgroundColor: colors.muted }]}>
+                        <View
+                          style={[
+                            styles.videoSelectedBadge,
+                            { backgroundColor: colors.muted },
+                          ]}
+                        >
                           <Ionicons
                             name="checkmark"
                             size={14}
                             color={colors.success}
                           />
-                          <Text style={[styles.videoSelectedText, { color: colors.success }]}>
+                          <Text
+                            style={[
+                              styles.videoSelectedText,
+                              { color: colors.success },
+                            ]}
+                          >
                             Video Selected
                           </Text>
                         </View>
                         <Pressable onPress={() => setVideoUri(null)}>
-                          <Text style={[styles.removeVideoText, { color: colors.error }]}>Remove</Text>
+                          <Text
+                            style={[
+                              styles.removeVideoText,
+                              { color: colors.error },
+                            ]}
+                          >
+                            Remove
+                          </Text>
                         </Pressable>
                       </View>
                     ) : (
@@ -473,8 +518,17 @@ export default function SwapScreen() {
                           ]}
                           onPress={pickVideo}
                         >
-                          <Ionicons name="folder" size={18} color={colors.white} />
-                          <Text style={[styles.uploadButtonText, { color: colors.white }]}>
+                          <Ionicons
+                            name="folder"
+                            size={18}
+                            color={colors.white}
+                          />
+                          <Text
+                            style={[
+                              styles.uploadButtonText,
+                              { color: colors.white },
+                            ]}
+                          >
                             Select Video
                           </Text>
                         </Pressable>
@@ -485,8 +539,17 @@ export default function SwapScreen() {
                           ]}
                           onPress={recordVideo}
                         >
-                          <Ionicons name="camera" size={18} color={colors.white} />
-                          <Text style={[styles.uploadButtonText, { color: colors.white }]}>
+                          <Ionicons
+                            name="camera"
+                            size={18}
+                            color={colors.white}
+                          />
+                          <Text
+                            style={[
+                              styles.uploadButtonText,
+                              { color: colors.white },
+                            ]}
+                          >
                             Record Now
                           </Text>
                         </Pressable>
@@ -495,8 +558,15 @@ export default function SwapScreen() {
                   </View>
 
                   {error && (
-                    <View style={[styles.errorContainer, { backgroundColor: colors.muted }]}>
-                      <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+                    <View
+                      style={[
+                        styles.errorContainer,
+                        { backgroundColor: colors.muted },
+                      ]}
+                    >
+                      <Text style={[styles.errorText, { color: colors.error }]}>
+                        {error}
+                      </Text>
                     </View>
                   )}
 
@@ -510,8 +580,19 @@ export default function SwapScreen() {
                     onPress={startAnalysis}
                     disabled={!videoUri || isAnalyzing}
                   >
-                    <Text style={[styles.analyzeButtonText, { color: colors.white }]}>Analyze Device</Text>
-                    <Ionicons name="arrow-forward" size={20} color={colors.white} />
+                    <Text
+                      style={[
+                        styles.analyzeButtonText,
+                        { color: colors.white },
+                      ]}
+                    >
+                      Analyze Device
+                    </Text>
+                    <Ionicons
+                      name="arrow-forward"
+                      size={20}
+                      color={colors.white}
+                    />
                   </Pressable>
                 </>
               )}
@@ -545,15 +626,26 @@ export default function SwapScreen() {
               {step === 'result' && result && (
                 <>
                   {/* Value Display */}
-                  <View style={[styles.valueCard, { backgroundColor: colors.muted }]}>
-                    <Text style={[styles.valueLabel, { color: colors.success }]}>
+                  <View
+                    style={[
+                      styles.valueCard,
+                      { backgroundColor: colors.muted },
+                    ]}
+                  >
+                    <Text
+                      style={[styles.valueLabel, { color: colors.success }]}
+                    >
                       Estimated Trade-in Value
                     </Text>
-                    <Text style={[styles.valueAmount, { color: colors.success }]}>
+                    <Text
+                      style={[styles.valueAmount, { color: colors.success }]}
+                    >
                       N{result.estimatedValue.toLocaleString()}
                     </Text>
                     {result.basePrice > 0 && (
-                      <Text style={[styles.valueBase, { color: colors.success }]}>
+                      <Text
+                        style={[styles.valueBase, { color: colors.success }]}
+                      >
                         Based on market price: N
                         {result.basePrice.toLocaleString()}
                       </Text>
@@ -642,10 +734,15 @@ export default function SwapScreen() {
 
                   {/* Action Buttons */}
                   <Pressable
-                    style={[styles.acceptButton, { backgroundColor: colors.success }]}
+                    style={[
+                      styles.acceptButton,
+                      { backgroundColor: colors.success },
+                    ]}
                     onPress={handleAcceptOffer}
                   >
-                    <Text style={[styles.acceptButtonText, { color: colors.white }]}>
+                    <Text
+                      style={[styles.acceptButtonText, { color: colors.white }]}
+                    >
                       Accept Offer & Chat
                     </Text>
                     <Ionicons name="checkmark" size={20} color={colors.white} />

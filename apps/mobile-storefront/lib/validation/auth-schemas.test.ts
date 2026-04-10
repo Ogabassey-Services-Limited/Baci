@@ -14,7 +14,9 @@ describe('EmailSchema', () => {
 
   it('rejects overly long email values', () => {
     const localPart = 'a'.repeat(250);
-    expect(EmailSchema.safeParse(`${localPart}@example.com`).success).toBe(false);
+    expect(EmailSchema.safeParse(`${localPart}@example.com`).success).toBe(
+      false
+    );
   });
 
   it('accepts valid email input', () => {

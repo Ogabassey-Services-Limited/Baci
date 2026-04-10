@@ -253,9 +253,7 @@ export default function LoginScreen() {
               accessibilityLabel="Forgot password? Reset your password"
               accessibilityState={{ disabled: isAnyLoading }}
             >
-              <Text style={styles.forgotPasswordText}>
-                Forgot Password?
-              </Text>
+              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
             </Pressable>
 
             <Pressable

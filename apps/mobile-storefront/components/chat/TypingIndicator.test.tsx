@@ -16,9 +16,7 @@ describe('TypingIndicator', () => {
 
     render(<TypingIndicator />);
 
-    expect(
-      screen.getByLabelText('Ogabassey AI is typing')
-    ).toBeTruthy();
+    expect(screen.getByLabelText('Ogabassey AI is typing')).toBeTruthy();
     expect(screen.getAllByTestId('typing-indicator-dot')).toHaveLength(3);
   });
 });

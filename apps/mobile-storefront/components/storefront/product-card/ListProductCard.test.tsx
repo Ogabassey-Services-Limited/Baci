@@ -172,10 +172,14 @@ describe('ListProductCard', () => {
     });
 
     fireEvent.press(
-      screen.getByLabelText(`${baseProduct.name}, ${formatPrice(baseProduct.price)}`)
+      screen.getByLabelText(
+        `${baseProduct.name}, ${formatPrice(baseProduct.price)}`
+      )
     );
     fireEvent.press(screen.getByLabelText(`Add ${baseProduct.name} to cart`));
-    fireEvent.press(screen.getByLabelText(`Save ${baseProduct.name} for later`));
+    fireEvent.press(
+      screen.getByLabelText(`Save ${baseProduct.name} for later`)
+    );
 
     expect(handlePress).toHaveBeenCalledTimes(1);
     expect(handleAddToCart).toHaveBeenCalledTimes(1);

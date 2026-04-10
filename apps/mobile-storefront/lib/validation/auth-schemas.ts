@@ -35,15 +35,12 @@ const NigerianPhoneSchema = z
     }
   );
 
-export const OptionalNigerianPhoneSchema = z.preprocess(
-  (value) => {
-    if (typeof value === 'string' && value.trim() === '') {
-      return undefined;
-    }
-    return value;
-  },
-  NigerianPhoneSchema.optional()
-);
+export const OptionalNigerianPhoneSchema = z.preprocess((value) => {
+  if (typeof value === 'string' && value.trim() === '') {
+    return undefined;
+  }
+  return value;
+}, NigerianPhoneSchema.optional());
 
 export const ProfileSchema = z.object({
   firstName: z

@@ -73,10 +73,7 @@ interface BillFormProps {
   }) => void;
 }
 
-function getBillItemLevelLabel(
-  type: BillFormProps['type'],
-  depth: number
-) {
+function getBillItemLevelLabel(type: BillFormProps['type'], depth: number) {
   return depth === 0 ? BILL_ITEM_LABELS[type] : `Additional Option ${depth}`;
 }
 
@@ -121,14 +118,12 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
   const isBillItemSelectionComplete =
     !requiresBillItemSelection || billItemSelection.isComplete;
   const selectedBillItemIdentifier = requiresBillItemSelection
-    ? selectedBillItem?.itemCode ?? null
-    : selectedBiller?.billerId ?? null;
+    ? (selectedBillItem?.itemCode ?? null)
+    : (selectedBiller?.billerId ?? null);
   const isFixedAmount = selectedBillItem?.isAmountFixed ?? false;
   const numericAmount = Number(amount.replace(/\D/g, ''));
   const footerSpacerHeight = verify.data?.verified
-    ? FOOTER_HEIGHT +
-      Math.max(insets.bottom - 26, 0) +
-      FOOTER_ERROR_BUFFER
+    ? FOOTER_HEIGHT + Math.max(insets.bottom - 26, 0) + FOOTER_ERROR_BUFFER
     : SPACING.xl;
   const footerBottomOffset = getUtilityFooterOffset({
     bottomInset: insets.bottom,
@@ -477,7 +472,7 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
                   </Pressable>
                 </View>
 
-                {(verify.data || verify.isPending || verify.error) ? (
+                {verify.data || verify.isPending || verify.error ? (
                   <View style={{ marginTop: 12 }}>
                     <VerificationCard
                       verified={verify.data?.verified ?? false}

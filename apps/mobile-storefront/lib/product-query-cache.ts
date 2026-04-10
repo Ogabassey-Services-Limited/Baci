@@ -93,7 +93,9 @@ export function removeProductSlugFromProductsCache(
 
   let removedCount = 0;
   const pages = cache.pages.map((page) => {
-    const nextProducts = page.products.filter((product) => product.slug !== slug);
+    const nextProducts = page.products.filter(
+      (product) => product.slug !== slug
+    );
     removedCount += page.products.length - nextProducts.length;
 
     if (nextProducts.length === page.products.length) {

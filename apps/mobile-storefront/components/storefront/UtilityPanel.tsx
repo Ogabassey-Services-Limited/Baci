@@ -124,11 +124,7 @@ export function UtilityPanel({
   onCategorySelect,
   slug,
 }: UtilityPanelProps) {
-  const {
-    data: remoteCategories = [],
-    isLoading,
-    error,
-  } = useCategories();
+  const { data: remoteCategories = [], isLoading, error } = useCategories();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
@@ -215,7 +211,12 @@ export function UtilityPanel({
 
   if (isLoading && categories.length === 0) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View
+        style={[
+          styles.container,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
         <ActivityIndicator size="small" color={BRAND.primary} />
       </View>
     );
@@ -248,11 +249,23 @@ export function UtilityPanel({
   }
 
   return (
-    <View style={showContainer ? [styles.container, { backgroundColor: colors.card, borderColor: colors.border }] : styles.minimalContainer}>
+    <View
+      style={
+        showContainer
+          ? [
+              styles.container,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]
+          : styles.minimalContainer
+      }
+    >
       {/* Dynamic Unified Banner */}
       <View
         testID="utility-panel-promo-banner"
-        style={[styles.promoBanner, { backgroundColor: colors.promoBackground }]}
+        style={[
+          styles.promoBanner,
+          { backgroundColor: colors.promoBackground },
+        ]}
       >
         <View style={{ height: 16, justifyContent: 'center' }}>
           <Text style={[styles.promoText, { color: colors.textSecondary }]}>

@@ -87,9 +87,7 @@ interface UseAnalyticsDetailOptions {
   includeComparison?: boolean;
 }
 
-const getJoinedRecord = <T>(
-  value: T | T[] | null | undefined
-): T | null => {
+const getJoinedRecord = <T>(value: T | T[] | null | undefined): T | null => {
   if (Array.isArray(value)) {
     return value[0] ?? null;
   }
@@ -142,7 +140,7 @@ export function useAnalyticsDetail({
           .eq('orders.merchant_id', merchant.id)
           .eq('orders.payment_status', 'paid')
           .gte('orders.created_at', startDate.toISOString())
-          .lte('orders.created_at', endDate.toISOString())
+          .lte('orders.created_at', endDate.toISOString()),
       ]);
 
       if (ordersError) {

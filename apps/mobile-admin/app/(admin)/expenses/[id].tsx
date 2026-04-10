@@ -32,7 +32,9 @@ export default function ExpenseDetailScreen() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('expenses')
-        .select('id, amount, category, date, reference, description, receipt_url')
+        .select(
+          'id, amount, category, date, reference, description, receipt_url'
+        )
         .eq('id', id)
         .single();
       if (error) throw error;

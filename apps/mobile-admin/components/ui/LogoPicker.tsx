@@ -154,7 +154,9 @@ export function LogoPicker({
         onPress={handleImagePick}
         disabled={isUploading}
         accessibilityRole="button"
-        accessibilityLabel={isUploading ? 'Uploading store logo' : 'Change store logo'}
+        accessibilityLabel={
+          isUploading ? 'Uploading store logo' : 'Change store logo'
+        }
         accessibilityHint="Opens image gallery to select a new logo"
         accessibilityState={{ disabled: isUploading }}
       >

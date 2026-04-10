@@ -369,7 +369,10 @@ export default function OrderReportModal({
               disabled={isExporting || isExportingPDF}
               accessibilityRole="button"
               accessibilityLabel="Export as CSV"
-              accessibilityState={{ disabled: isExporting || isExportingPDF, busy: isExporting }}
+              accessibilityState={{
+                disabled: isExporting || isExportingPDF,
+                busy: isExporting,
+              }}
             >
               {isExporting ? (
                 <ActivityIndicator color={colors.text} size="small" />
@@ -394,7 +397,10 @@ export default function OrderReportModal({
               disabled={isExporting || isExportingPDF}
               accessibilityRole="button"
               accessibilityLabel="Download PDF Report"
-              accessibilityState={{ disabled: isExporting || isExportingPDF, busy: isExportingPDF }}
+              accessibilityState={{
+                disabled: isExporting || isExportingPDF,
+                busy: isExportingPDF,
+              }}
             >
               {isExportingPDF ? (
                 <ActivityIndicator color="#FFF" size="small" />

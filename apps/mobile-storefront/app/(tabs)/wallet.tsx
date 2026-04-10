@@ -16,13 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/hooks/useTheme';
-import {
-  BRAND,
-  palette,
-  RADIUS,
-  SHADOWS,
-  SPACING,
-} from '@/constants/Colors';
+import { BRAND, palette, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
 import { useAuthStatus } from '@/hooks/use-auth-guard';
 import { useWallet } from '@/hooks/use-wallet';
 
@@ -113,32 +107,56 @@ export default function WalletTabScreen() {
       >
         {/* Balance Card */}
         <View style={[styles.balanceCard, { backgroundColor: colors.card }]}>
-          <Text style={[styles.balanceLabel, { color: colors.textSecondary }]}>Available Balance</Text>
+          <Text style={[styles.balanceLabel, { color: colors.textSecondary }]}>
+            Available Balance
+          </Text>
           <Text style={[styles.balanceAmount, { color: colors.text }]}>
             {formatPrice(data?.wallet?.balance ?? 0)}
           </Text>
           <View style={styles.balanceActions}>
             <Pressable
-              style={[styles.balanceActionButton, { backgroundColor: colors.muted }]}
+              style={[
+                styles.balanceActionButton,
+                { backgroundColor: colors.muted },
+              ]}
               onPress={() => router.push('/wallet')}
             >
-              <Ionicons name="add-circle-outline" size={20} color={colors.text} />
-              <Text style={[styles.balanceActionText, { color: colors.text }]}>Add Funds</Text>
+              <Ionicons
+                name="add-circle-outline"
+                size={20}
+                color={colors.text}
+              />
+              <Text style={[styles.balanceActionText, { color: colors.text }]}>
+                Add Funds
+              </Text>
             </Pressable>
           </View>
         </View>
 
         {/* Points Card */}
         <View
-          style={[styles.pointsCard, { backgroundColor: isDark ? colors.card : palette.amber[50] }]}
+          style={[
+            styles.pointsCard,
+            { backgroundColor: isDark ? colors.card : palette.amber[50] },
+          ]}
         >
           <View style={styles.pointsHeader}>
             <Ionicons name="sparkles" size={24} color={palette.amber[600]} />
-            <Text style={[styles.pointsLabel, { color: isDark ? palette.amber[400] : palette.amber[800] }]}>
+            <Text
+              style={[
+                styles.pointsLabel,
+                { color: isDark ? palette.amber[400] : palette.amber[800] },
+              ]}
+            >
               Reward Points
             </Text>
           </View>
-          <Text style={[styles.pointsAmount, { color: isDark ? palette.amber[400] : palette.amber[900] }]}>
+          <Text
+            style={[
+              styles.pointsAmount,
+              { color: isDark ? palette.amber[400] : palette.amber[900] },
+            ]}
+          >
             {(data?.wallet?.loyalty_points ?? 0).toLocaleString()} pts
           </Text>
           <Pressable

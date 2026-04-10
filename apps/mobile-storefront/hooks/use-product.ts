@@ -27,7 +27,10 @@ function augmentProduct(item: z.infer<typeof ProductRowSchema>): Product {
   return {
     ...baseProduct,
     has_variants: item.has_variants ?? false,
-    variant_attributes: mergeVariantAttributes(item.variant_attributes, variants),
+    variant_attributes: mergeVariantAttributes(
+      item.variant_attributes,
+      variants
+    ),
     variants,
   };
 }
@@ -46,7 +49,9 @@ export function useProduct(slug: string) {
       const validated = ProductRowSchema.safeParse(data);
       if (!validated.success) {
         log.error('Product validation failed:', validated.error.format());
-        throw new Error(`Product validation failed: ${validated.error.message}`);
+        throw new Error(
+          `Product validation failed: ${validated.error.message}`
+        );
       }
 
       const item = validated.data;
@@ -57,9 +62,9 @@ export function useProduct(slug: string) {
     staleTime: 1000 * 60 * 5,
     refetchOnMount: 'always',
     initialData: () => {
-      const productsCaches = queryClient.getQueriesData<{ pages: ProductsPage[] }>(
-        { queryKey: ['products', merchantId] }
-      );
+      const productsCaches = queryClient.getQueriesData<{
+        pages: ProductsPage[];
+      }>({ queryKey: ['products', merchantId] });
 
       const allPages = productsCaches.flatMap(([, cache]) =>
         cache && Array.isArray(cache.pages) ? cache.pages : []
@@ -109,7 +114,11 @@ export function usePrefetchProduct() {
     return queryClient.prefetchQuery({
       queryKey: ['product', slug, merchantId],
       queryFn: async () => {
-        const data = await resolveAndEvictProduct(merchantId, slug, queryClient);
+        const data = await resolveAndEvictProduct(
+          merchantId,
+          slug,
+          queryClient
+        );
 
         const validated = ProductRowSchema.safeParse(data);
         if (!validated.success) {
@@ -117,7 +126,9 @@ export function usePrefetchProduct() {
             'Prefetch product validation failed:',
             validated.error.format()
           );
-          throw new Error(`Product validation failed: ${validated.error.message}`);
+          throw new Error(
+            `Product validation failed: ${validated.error.message}`
+          );
         }
 
         return augmentProduct(validated.data);

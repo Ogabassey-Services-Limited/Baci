@@ -52,10 +52,7 @@ export function getAutocompleteDropdownFrame({
 
   const maxHeight = Math.max(
     MIN_DROPDOWN_HEIGHT,
-    Math.min(
-      preferredMaxHeight,
-      placeAbove ? availableAbove : availableBelow
-    )
+    Math.min(preferredMaxHeight, placeAbove ? availableAbove : availableBelow)
   );
 
   const top = placeAbove

@@ -25,7 +25,10 @@ jest.mock('@/lib/supabase', () => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null });
+  mockGetUser.mockResolvedValue({
+    data: { user: { id: 'user-1' } },
+    error: null,
+  });
   mockGetSession.mockResolvedValue({
     data: { session: { access_token: 'token-123' } },
   });

@@ -38,14 +38,20 @@ describe('removeProductSlugFromProductsCache', () => {
         {
           products: [
             createProduct({ id: '1', slug: 'iphone-13-pro' }),
-            createProduct({ id: '2', slug: 'iphone-13-pro-128gb-premium-used' }),
+            createProduct({
+              id: '2',
+              slug: 'iphone-13-pro-128gb-premium-used',
+            }),
           ],
           nextOffset: 2,
           total: 3,
         },
         {
           products: [
-            createProduct({ id: '3', slug: 'iphone-13-pro-128gb-premium-used' }),
+            createProduct({
+              id: '3',
+              slug: 'iphone-13-pro-128gb-premium-used',
+            }),
           ],
           nextOffset: null,
           total: 3,
@@ -88,7 +94,9 @@ describe('removeProductSlugFromProductsCache', () => {
       pageParams: [0],
     };
 
-    expect(removeProductSlugFromProductsCache(cache, 'missing-slug')).toBe(cache);
+    expect(removeProductSlugFromProductsCache(cache, 'missing-slug')).toBe(
+      cache
+    );
   });
 
   it('returns the original cache when slug is empty', () => {

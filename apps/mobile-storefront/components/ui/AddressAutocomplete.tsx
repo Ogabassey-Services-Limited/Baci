@@ -410,7 +410,9 @@ export function AddressAutocomplete({
                 styles.modalDropdown,
                 {
                   backgroundColor: colors.card,
-                  borderColor: isDark ? 'rgba(255,255,255,0.08)' : colors.border,
+                  borderColor: isDark
+                    ? 'rgba(255,255,255,0.08)'
+                    : colors.border,
                   left: dropdownFrame.left,
                   maxHeight: dropdownFrame.maxHeight,
                   top: dropdownFrame.top,
@@ -430,7 +432,11 @@ export function AddressAutocomplete({
                     key={item.placeId}
                     style={({ pressed }: { pressed: boolean }) => [
                       styles.predictionItem,
-                      { borderBottomColor: isDark ? 'rgba(255,255,255,0.05)' : colors.border },
+                      {
+                        borderBottomColor: isDark
+                          ? 'rgba(255,255,255,0.05)'
+                          : colors.border,
+                      },
                       pressed && {
                         backgroundColor: isDark
                           ? 'rgba(255,255,255,0.04)'
@@ -442,7 +448,16 @@ export function AddressAutocomplete({
                     accessibilityLabel={`${item.mainText}, ${item.secondaryText}`}
                   >
                     <View style={styles.predictionRow}>
-                      <View style={[styles.predictionPinRail, { backgroundColor: isDark ? 'rgba(217, 59, 48, 0.14)' : `${BRAND.primary}12` }]}>
+                      <View
+                        style={[
+                          styles.predictionPinRail,
+                          {
+                            backgroundColor: isDark
+                              ? 'rgba(217, 59, 48, 0.14)'
+                              : `${BRAND.primary}12`,
+                          },
+                        ]}
+                      >
                         <Ionicons
                           name="location"
                           size={18}

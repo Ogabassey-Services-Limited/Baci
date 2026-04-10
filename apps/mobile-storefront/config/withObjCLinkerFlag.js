@@ -28,7 +28,7 @@ const withObjCLinkerFlag = (config) => {
     // Find configurations belonging to our target
     const targetConfigList =
       project.pbxXCConfigurationList()[
-      project.pbxNativeTargetSection()[targetUuid]?.buildConfigurationList
+        project.pbxNativeTargetSection()[targetUuid]?.buildConfigurationList
       ];
 
     if (targetConfigList?.buildConfigurations) {

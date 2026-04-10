@@ -220,7 +220,10 @@ export default function UtilityHistoryScreen() {
                   <View style={styles.transactionHeader}>
                     <View style={styles.transactionCopy}>
                       <Text
-                        style={[styles.transactionTitle, { color: colors.text }]}
+                        style={[
+                          styles.transactionTitle,
+                          { color: colors.text },
+                        ]}
                         numberOfLines={2}
                       >
                         {getTransactionTitle(transaction)}
@@ -261,7 +264,10 @@ export default function UtilityHistoryScreen() {
                   </View>
 
                   <Text
-                    style={[styles.referenceText, { color: colors.textSecondary }]}
+                    style={[
+                      styles.referenceText,
+                      { color: colors.textSecondary },
+                    ]}
                   >
                     Ref: {transaction.request_reference}
                   </Text>

@@ -218,9 +218,7 @@ describe('createOrder — variant_attributes', () => {
     const fetchCall = (fetchWithRetry as jest.Mock).mock.calls.at(-1);
     const body = JSON.parse(fetchCall?.[1]?.body ?? '{}');
 
-    expect(body.selected_quote_id).toBe(
-      '98dd0f44-d780-4829-9163-3e8a088dcf95'
-    );
+    expect(body.selected_quote_id).toBe('98dd0f44-d780-4829-9163-3e8a088dcf95');
     expect(body.shipping_provider).toBe('TOPSHIP');
   });
 

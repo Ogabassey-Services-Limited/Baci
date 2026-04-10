@@ -69,11 +69,7 @@ describe('StickyBottomActions', () => {
 
   it('renders the active cart CTA with a stable view cart button layout', () => {
     render(
-      <StickyBottomActions
-        {...defaultProps}
-        quantityInCart={2}
-        localQty="2"
-      />
+      <StickyBottomActions {...defaultProps} quantityInCart={2} localQty="2" />
     );
 
     const viewCartButton = screen.getByRole('button', { name: 'View Cart' });
@@ -89,11 +85,7 @@ describe('StickyBottomActions', () => {
 
   it('navigates to cart when the view cart CTA is pressed', () => {
     render(
-      <StickyBottomActions
-        {...defaultProps}
-        quantityInCart={1}
-        localQty="1"
-      />
+      <StickyBottomActions {...defaultProps} quantityInCart={1} localQty="1" />
     );
 
     fireEvent.press(screen.getByRole('button', { name: 'View Cart' }));

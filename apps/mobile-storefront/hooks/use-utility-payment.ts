@@ -18,7 +18,9 @@ export function useUtilityPayment() {
   const isAuthenticated = useAuthStore((state) => !!state.session);
   const [selectedGateway, setSelectedGateway] =
     useState<UtilityPaymentGateway>('paystack');
-  const [selectedSavedCardId, setSelectedSavedCardId] = useState<string | null>(null);
+  const [selectedSavedCardId, setSelectedSavedCardId] = useState<string | null>(
+    null
+  );
   const paymentSettings = useMerchantPaymentSettings();
   const savedCardsQuery = useQuery({
     enabled: isAuthenticated,

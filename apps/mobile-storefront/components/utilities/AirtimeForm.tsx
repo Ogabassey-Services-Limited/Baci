@@ -64,9 +64,7 @@ export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
 
   const numericAmount = Number(amount.replace(/\D/g, ''));
   const footerSpacerHeight =
-    FOOTER_HEIGHT +
-    Math.max(insets.bottom - 26, 0) +
-    FOOTER_ERROR_BUFFER;
+    FOOTER_HEIGHT + Math.max(insets.bottom - 26, 0) + FOOTER_ERROR_BUFFER;
   const footerBottomOffset = getUtilityFooterOffset({
     bottomInset: insets.bottom,
     isKeyboardVisible,
@@ -288,7 +286,9 @@ export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
             borderTopColor: colors.border,
             backgroundColor: colors.muted,
             bottom: footerBottomOffset,
-            marginBottom: isKeyboardVisible ? 0 : -Math.max(insets.bottom - 4, 0),
+            marginBottom: isKeyboardVisible
+              ? 0
+              : -Math.max(insets.bottom - 4, 0),
             paddingBottom: isKeyboardVisible
               ? SPACING.sm
               : Math.max(insets.bottom - 26, 0),

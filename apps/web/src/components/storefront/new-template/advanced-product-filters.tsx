@@ -275,15 +275,17 @@ export const AdvancedProductFilters: React.FC<AdvancedProductFiltersProps> = ({
             <div className="flex items-center bg-gray-100 rounded-lg p-1 border border-gray-200 ml-auto lg:ml-0 z-20 relative">
               <button
                 onClick={() => onViewModeChange('grid')}
-                className={`p-1.5 rounded-md transition-all active:scale-95 ${viewMode === 'grid' ? 'bg-white text-red-600 shadow-sm' : 'text-gray-400 md:hover:text-gray-600'}`}
+                className={`p-1.5 rounded-md transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${viewMode === 'grid' ? 'bg-white text-red-600 shadow-sm' : 'text-gray-400 md:hover:text-gray-600'}`}
                 title="Grid View"
+                aria-label="Grid view"
               >
                 <LayoutGrid size={18} />
               </button>
               <button
                 onClick={() => onViewModeChange('list')}
-                className={`p-1.5 rounded-md transition-all active:scale-95 ${viewMode === 'list' ? 'bg-white text-red-600 shadow-sm' : 'text-gray-400 md:hover:text-gray-600'}`}
+                className={`p-1.5 rounded-md transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${viewMode === 'list' ? 'bg-white text-red-600 shadow-sm' : 'text-gray-400 md:hover:text-gray-600'}`}
                 title="List View"
+                aria-label="List view"
               >
                 <List size={18} />
               </button>

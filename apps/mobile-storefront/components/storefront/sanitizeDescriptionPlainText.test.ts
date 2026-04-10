@@ -7,7 +7,9 @@ describe('sanitizeDescriptionPlainText', () => {
   it('returns empty string for empty, null, and undefined runtime values', () => {
     expect(sanitizeDescriptionPlainText('')).toBe('');
     expect(sanitizeDescriptionPlainText(null as unknown as string)).toBe('');
-    expect(sanitizeDescriptionPlainText(undefined as unknown as string)).toBe('');
+    expect(sanitizeDescriptionPlainText(undefined as unknown as string)).toBe(
+      ''
+    );
   });
 
   it('escapes individual special characters', () => {

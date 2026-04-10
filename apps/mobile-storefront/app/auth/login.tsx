@@ -324,7 +324,11 @@ export default function LoginScreen() {
             blurOnSubmit={false}
           />
         </View>
-        {emailError && <Text style={[styles.errorText, { color: colors.error }]}>{emailError}</Text>}
+        {emailError && (
+          <Text style={[styles.errorText, { color: colors.error }]}>
+            {emailError}
+          </Text>
+        )}
       </View>
 
       <Pressable
@@ -339,7 +343,12 @@ export default function LoginScreen() {
         {isLoading ? (
           <ActivityIndicator color={colors.primaryForeground} />
         ) : (
-          <Text style={[styles.primaryButtonText, { color: colors.primaryForeground }]}>
+          <Text
+            style={[
+              styles.primaryButtonText,
+              { color: colors.primaryForeground },
+            ]}
+          >
             {authMethod === 'otp'
               ? 'Continue with Code'
               : 'Continue with Password'}
@@ -499,7 +508,11 @@ export default function LoginScreen() {
             returnKeyType="done"
           />
         </View>
-        {otpError && <Text style={[styles.errorText, { color: colors.error }]}>{otpError}</Text>}
+        {otpError && (
+          <Text style={[styles.errorText, { color: colors.error }]}>
+            {otpError}
+          </Text>
+        )}
       </View>
 
       <Pressable
@@ -538,7 +551,14 @@ export default function LoginScreen() {
         {isLoading ? (
           <ActivityIndicator color={colors.primaryForeground} />
         ) : (
-          <Text style={[styles.primaryButtonText, { color: colors.primaryForeground }]}>Verify</Text>
+          <Text
+            style={[
+              styles.primaryButtonText,
+              { color: colors.primaryForeground },
+            ]}
+          >
+            Verify
+          </Text>
         )}
       </Pressable>
 
@@ -606,7 +626,11 @@ export default function LoginScreen() {
             />
           </Pressable>
         </View>
-        {passwordError && <Text style={[styles.errorText, { color: colors.error }]}>{passwordError}</Text>}
+        {passwordError && (
+          <Text style={[styles.errorText, { color: colors.error }]}>
+            {passwordError}
+          </Text>
+        )}
       </View>
 
       <Pressable
@@ -621,7 +645,14 @@ export default function LoginScreen() {
         {isLoading ? (
           <ActivityIndicator color={colors.primaryForeground} />
         ) : (
-          <Text style={[styles.primaryButtonText, { color: colors.primaryForeground }]}>Sign In</Text>
+          <Text
+            style={[
+              styles.primaryButtonText,
+              { color: colors.primaryForeground },
+            ]}
+          >
+            Sign In
+          </Text>
         )}
       </Pressable>
 

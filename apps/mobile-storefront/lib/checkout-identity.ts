@@ -10,7 +10,9 @@ export interface CheckoutIdentity {
   phone: string;
 }
 
-function pickFirstNonEmpty(...values: Array<string | null | undefined>): string {
+function pickFirstNonEmpty(
+  ...values: Array<string | null | undefined>
+): string {
   for (const value of values) {
     if (typeof value === 'string' && value.trim()) {
       return value.trim();

@@ -78,7 +78,9 @@ export default function AddressesScreen() {
         : [];
       const normalized = normalizeSavedAddresses(parsed);
       // Sort: default addresses first
-      normalized.sort((a, b) => (b.is_default ? 1 : 0) - (a.is_default ? 1 : 0));
+      normalized.sort(
+        (a, b) => (b.is_default ? 1 : 0) - (a.is_default ? 1 : 0)
+      );
       setAddresses(normalized);
       setError(null);
     } catch (err) {

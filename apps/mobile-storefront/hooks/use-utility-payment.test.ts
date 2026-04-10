@@ -23,8 +23,9 @@ jest.mock('@/lib/vtu-checkout', () => ({
 }));
 
 jest.mock('@/stores/auth-store', () => ({
-  useAuthStore: (selector: (state: { session: { access_token: string } }) => unknown) =>
-    selector({ session: { access_token: 'token-123' } }),
+  useAuthStore: (
+    selector: (state: { session: { access_token: string } }) => unknown
+  ) => selector({ session: { access_token: 'token-123' } }),
 }));
 
 function createWrapper() {

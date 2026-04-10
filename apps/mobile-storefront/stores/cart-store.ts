@@ -110,10 +110,7 @@ function isSameCartLine(
   if (existingVariantId || incomingVariantId) {
     return (
       areEquivalentCartAttributes(existingItem.color, incomingItem.color) &&
-      areEquivalentCartAttributes(
-        existingItem.storage,
-        incomingItem.storage
-      ) &&
+      areEquivalentCartAttributes(existingItem.storage, incomingItem.storage) &&
       areEquivalentCartAttributes(
         existingItem.condition,
         incomingItem.condition
@@ -164,8 +161,8 @@ export const useCartStore = create<CartState>()(
       addItem: (item) => {
         set((state) => {
           // Check if item already exists (same product + variant + options)
-          const existingIndex = state.items.findIndex(
-            (existingItem) => isSameCartLine(existingItem, item)
+          const existingIndex = state.items.findIndex((existingItem) =>
+            isSameCartLine(existingItem, item)
           );
 
           if (existingIndex >= 0) {

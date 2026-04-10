@@ -13,17 +13,22 @@ interface AppleSignInResult {
   user: User | null;
 }
 
-function buildAppleFullName(fullName: {
-  familyName?: string | null;
-  givenName?: string | null;
-} | null): {
+function buildAppleFullName(
+  fullName: {
+    familyName?: string | null;
+    givenName?: string | null;
+  } | null
+): {
   familyName: string | null;
   fullName: string | null;
   givenName: string | null;
 } {
   const givenName = fullName?.givenName?.trim() || null;
   const familyName = fullName?.familyName?.trim() || null;
-  const fullNameValue = [givenName, familyName].filter(Boolean).join(' ').trim();
+  const fullNameValue = [givenName, familyName]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
 
   return {
     familyName,
@@ -95,7 +100,9 @@ export async function signInWithAppleNative(): Promise<AppleSignInResult> {
 
     if (error || !data.session || !data.user) {
       return {
-        code: error ? 'apple_supabase_exchange_failed' : 'apple_missing_session',
+        code: error
+          ? 'apple_supabase_exchange_failed'
+          : 'apple_missing_session',
         error:
           error?.message ?? 'Apple sign-in completed without a valid session.',
         metadata: {

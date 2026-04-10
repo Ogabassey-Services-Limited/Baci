@@ -138,9 +138,7 @@ export default function HomeScreen() {
     }
   };
 
-  const handleListScroll = (
-    event: NativeSyntheticEvent<NativeScrollEvent>
-  ) => {
+  const handleListScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (searchVisible) {
       return;
     }
@@ -187,8 +185,18 @@ export default function HomeScreen() {
   ];
 
   const blocks: Block[] = (() => {
-    const isBlockArray = (arr: unknown[]): arr is Block[] => arr.every(item => typeof item === 'object' && item !== null && 'type' in item && 'props' in item);
-    let content: Block[] = pageConfig?.content && isBlockArray(pageConfig.content) ? pageConfig.content : defaultBlocks;
+    const isBlockArray = (arr: unknown[]): arr is Block[] =>
+      arr.every(
+        (item) =>
+          typeof item === 'object' &&
+          item !== null &&
+          'type' in item &&
+          'props' in item
+      );
+    let content: Block[] =
+      pageConfig?.content && isBlockArray(pageConfig.content)
+        ? pageConfig.content
+        : defaultBlocks;
 
     // Force CategoryRail if it's missing but it's an Elite design context
     if (

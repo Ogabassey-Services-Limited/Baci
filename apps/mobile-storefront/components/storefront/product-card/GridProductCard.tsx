@@ -71,7 +71,13 @@ export default function GridProductCard({
           }
           accessibilityRole="button"
         >
-          <Animated.View style={[heartAnimatedStyle, styles.wishlistBlur, { backgroundColor: colors.card }]}>
+          <Animated.View
+            style={[
+              heartAnimatedStyle,
+              styles.wishlistBlur,
+              { backgroundColor: colors.card },
+            ]}
+          >
             <Ionicons
               name={isSaved ? 'heart' : 'heart-outline'}
               size={16}
@@ -97,11 +103,19 @@ export default function GridProductCard({
 
         {showLocalPlaceholder ? (
           <View
-            style={[styles.gridImage, styles.imagePlaceholder, { backgroundColor: colors.muted }]}
+            style={[
+              styles.gridImage,
+              styles.imagePlaceholder,
+              { backgroundColor: colors.muted },
+            ]}
             accessibilityLabel={`No image available for ${product.name}`}
             testID="grid-product-placeholder"
           >
-            <Ionicons name="image-outline" size={40} color={colors.mutedForeground} />
+            <Ionicons
+              name="image-outline"
+              size={40}
+              color={colors.mutedForeground}
+            />
           </View>
         ) : (
           <Image
@@ -115,7 +129,10 @@ export default function GridProductCard({
 
         <Pressable
           onPress={handleAddToCart}
-          style={[styles.floatingCartBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+          style={[
+            styles.floatingCartBtn,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
           pointerEvents="box-only"
           accessibilityLabel={`Add ${product.name} to cart`}
           accessibilityRole="button"
@@ -147,12 +164,19 @@ export default function GridProductCard({
             <Text style={styles.ratingTextMini}>({rating})</Text>
           </View>
         ) : (
-          <View style={styles.ratingRowMini} accessible accessibilityLabel="No ratings">
+          <View
+            style={styles.ratingRowMini}
+            accessible
+            accessibilityLabel="No ratings"
+          >
             <Text style={styles.ratingTextMini}>No ratings</Text>
           </View>
         )}
 
-        <Text style={[styles.gridName, { color: colors.text }]} numberOfLines={2}>
+        <Text
+          style={[styles.gridName, { color: colors.text }]}
+          numberOfLines={2}
+        >
           {product.name}
         </Text>
 
@@ -160,7 +184,9 @@ export default function GridProductCard({
           <Text style={[styles.gridPrice, { color: BRAND.primary }]}>
             {formatPrice(product.price)}
           </Text>
-          <Text style={[styles.detailsText, { color: colors.text }]}>Details</Text>
+          <Text style={[styles.detailsText, { color: colors.text }]}>
+            Details
+          </Text>
         </View>
       </View>
     </AnimatedPressable>

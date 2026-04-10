@@ -31,16 +31,34 @@ export default function EditorialProductCard({
       onPress={handlePress}
       onPressIn={handleAnimateIn}
       onPressOut={handleAnimateOut}
-      style={[styles.editorialContainer, { width: screenWidth - 32 }, animatedStyle]}
+      style={[
+        styles.editorialContainer,
+        { width: screenWidth - 32 },
+        animatedStyle,
+      ]}
       accessibilityLabel={`${product.name}, ${formatPrice(product.price)}`}
       accessibilityRole="button"
     >
       {showLocalPlaceholder ? (
-        <View style={[styles.editorialImage, styles.imagePlaceholder, { backgroundColor: colors.muted }]}>
-          <Ionicons name="image-outline" size={40} color={colors.mutedForeground} />
+        <View
+          style={[
+            styles.editorialImage,
+            styles.imagePlaceholder,
+            { backgroundColor: colors.muted },
+          ]}
+        >
+          <Ionicons
+            name="image-outline"
+            size={40}
+            color={colors.mutedForeground}
+          />
         </View>
       ) : (
-        <Image {...imageProps} source={imageSource} style={styles.editorialImage} />
+        <Image
+          {...imageProps}
+          source={imageSource}
+          style={styles.editorialImage}
+        />
       )}
       <View style={styles.editorialContent}>
         <Text style={[styles.editorialName, { color: textColor }]}>

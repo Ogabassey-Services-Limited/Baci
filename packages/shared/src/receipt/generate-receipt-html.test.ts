@@ -263,7 +263,8 @@ describe('sanitizeSvg', () => {
   });
 
   it('does not remove tag names that only start with dangerous prefixes', () => {
-    const safeSvg = '<svg><embedded data-safe="1"></embedded><circle r="5"/></svg>';
+    const safeSvg =
+      '<svg><embedded data-safe="1"></embedded><circle r="5"/></svg>';
     const result = sanitizeSvg(safeSvg);
     expect(result).toContain('<embedded data-safe="1"></embedded>');
     expect(result).toContain('<circle r="5"/>');

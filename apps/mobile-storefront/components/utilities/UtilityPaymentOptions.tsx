@@ -53,7 +53,9 @@ export function UtilityPaymentOptions({
                 style={[
                   styles.savedCard,
                   {
-                    backgroundColor: isSelected ? `${BRAND.primary}12` : colors.card,
+                    backgroundColor: isSelected
+                      ? `${BRAND.primary}12`
+                      : colors.card,
                     borderColor: isSelected ? BRAND.primary : colors.border,
                   },
                 ]}

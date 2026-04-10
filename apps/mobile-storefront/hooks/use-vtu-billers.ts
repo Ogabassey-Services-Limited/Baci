@@ -3,7 +3,11 @@ import Constants from 'expo-constants';
 import { useEffect } from 'react';
 import { fetchWithRetry } from '@/lib/api';
 import { logger } from '@/lib/logger';
-import { type Biller, type BillItem, BillerListSchema } from '@/lib/vtu-schemas';
+import {
+  type Biller,
+  type BillItem,
+  BillerListSchema,
+} from '@/lib/vtu-schemas';
 export type { Biller, BillItem };
 
 const API_URL =

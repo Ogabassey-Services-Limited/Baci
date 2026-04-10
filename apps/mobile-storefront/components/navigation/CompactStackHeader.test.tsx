@@ -36,7 +36,9 @@ describe('CompactStackHeader', () => {
       <CompactStackHeader
         {...createProps({
           back: { title: 'Home', href: undefined },
-          navigation: { goBack } as unknown as NativeStackHeaderProps['navigation'],
+          navigation: {
+            goBack,
+          } as unknown as NativeStackHeaderProps['navigation'],
           options: { title: 'Settings' },
         })}
       />

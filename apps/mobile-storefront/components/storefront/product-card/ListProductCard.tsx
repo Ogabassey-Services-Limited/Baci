@@ -40,10 +40,18 @@ export default function ListProductCard({
     >
       {showLocalPlaceholder ? (
         <View
-          style={[styles.listImage, styles.imagePlaceholder, { backgroundColor: colors.muted }]}
+          style={[
+            styles.listImage,
+            styles.imagePlaceholder,
+            { backgroundColor: colors.muted },
+          ]}
           testID="list-product-placeholder"
         >
-          <Ionicons name="image-outline" size={32} color={colors.mutedForeground} />
+          <Ionicons
+            name="image-outline"
+            size={32}
+            color={colors.mutedForeground}
+          />
         </View>
       ) : (
         <Image
@@ -59,7 +67,9 @@ export default function ListProductCard({
             <Ionicons
               key={star}
               name={
-                star <= Math.floor(product.rating || 0) ? 'star' : 'star-outline'
+                star <= Math.floor(product.rating || 0)
+                  ? 'star'
+                  : 'star-outline'
               }
               size={10}
               color={BRAND.secondary}
@@ -67,13 +77,22 @@ export default function ListProductCard({
           ))}
         </View>
 
-        <Text style={[styles.listName, { color: colors.text }]} numberOfLines={1}>
+        <Text
+          style={[styles.listName, { color: colors.text }]}
+          numberOfLines={1}
+        >
           {product.name}
         </Text>
 
         {product.description && (
-          <Text style={[styles.listDescription, { color: colors.textSecondary }]} numberOfLines={2}>
-            {sanitizeDescriptionPlainText(product.description).substring(0, 100)}
+          <Text
+            style={[styles.listDescription, { color: colors.textSecondary }]}
+            numberOfLines={2}
+          >
+            {sanitizeDescriptionPlainText(product.description).substring(
+              0,
+              100
+            )}
           </Text>
         )}
 
@@ -96,7 +115,9 @@ export default function ListProductCard({
                 </View>
               )}
             </View>
-            <Text style={[styles.listCartLabel, { color: colors.background }]}>Add</Text>
+            <Text style={[styles.listCartLabel, { color: colors.background }]}>
+              Add
+            </Text>
           </Pressable>
         </View>
       </View>

@@ -45,7 +45,8 @@ jest.mock('expo-router', () => ({
   Stack: {
     Screen: () => null,
   },
-  useLocalSearchParams: (...args: unknown[]) => mockUseLocalSearchParams(...args),
+  useLocalSearchParams: (...args: unknown[]) =>
+    mockUseLocalSearchParams(...args),
 }));
 
 jest.mock('react-native-reanimated', () => {
@@ -169,7 +170,9 @@ describe('ProductDetailScreen canonical slug redirect', () => {
       hasMore: false,
       loadMore: jest.fn(),
     });
-    mockUseCartStore.mockImplementation((selector) => selector(mockCartStoreState));
+    mockUseCartStore.mockImplementation((selector) =>
+      selector(mockCartStoreState)
+    );
     mockUseSavedStore.mockImplementation((selector) =>
       selector(mockSavedStoreState)
     );
@@ -219,7 +222,9 @@ describe('ProductDetailScreen canonical slug redirect', () => {
   });
 
   it('preselects the first advertised storage option when no default variant can be resolved', async () => {
-    mockUseLocalSearchParams.mockReturnValue({ slug: 'galaxy-tab-a11-plus-5g' });
+    mockUseLocalSearchParams.mockReturnValue({
+      slug: 'galaxy-tab-a11-plus-5g',
+    });
     mockUseProduct.mockReturnValue({
       product: {
         ...baseProduct,
@@ -247,7 +252,9 @@ describe('ProductDetailScreen canonical slug redirect', () => {
     });
 
     const lastCall =
-      mockProductDetailsBody.mock.calls[mockProductDetailsBody.mock.calls.length - 1];
+      mockProductDetailsBody.mock.calls[
+        mockProductDetailsBody.mock.calls.length - 1
+      ];
     expect(lastCall?.[0]).toMatchObject({
       selectedColor: 'Gray',
       selectedStorage: '128GB',
@@ -255,7 +262,9 @@ describe('ProductDetailScreen canonical slug redirect', () => {
   });
 
   it('re-syncs selection when variant rows arrive later for the same product id', async () => {
-    mockUseLocalSearchParams.mockReturnValue({ slug: 'samsung-galaxy-s26-ultra' });
+    mockUseLocalSearchParams.mockReturnValue({
+      slug: 'samsung-galaxy-s26-ultra',
+    });
 
     let currentProduct: Product | null = {
       ...baseProduct,
@@ -286,7 +295,9 @@ describe('ProductDetailScreen canonical slug redirect', () => {
     });
 
     const lastCall =
-      mockProductDetailsBody.mock.calls[mockProductDetailsBody.mock.calls.length - 1];
+      mockProductDetailsBody.mock.calls[
+        mockProductDetailsBody.mock.calls.length - 1
+      ];
     expect(lastCall?.[0]).toMatchObject({
       selectedColor: 'Black',
       selectedStorage: '256GB',
@@ -316,7 +327,9 @@ describe('ProductDetailScreen canonical slug redirect', () => {
 
     await waitFor(() => {
       const latestCall =
-        mockProductDetailsBody.mock.calls[mockProductDetailsBody.mock.calls.length - 1];
+        mockProductDetailsBody.mock.calls[
+          mockProductDetailsBody.mock.calls.length - 1
+        ];
       expect(latestCall?.[0]).toMatchObject({
         selectedColor: 'Black',
         selectedStorage: '256GB',

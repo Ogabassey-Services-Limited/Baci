@@ -49,7 +49,9 @@ export default function CartItemCard({
     ? Math.round(itemTotal * (item.assuranceRate ?? DEFAULT_ASSURANCE_RATE))
     : 0;
   const colorText =
-    item.color ?? item.variant_attributes?.color ?? item.variant_attributes?.colour;
+    item.color ??
+    item.variant_attributes?.color ??
+    item.variant_attributes?.colour;
   const colorSwatchValue = colorText
     ? resolveColorSwatchValue(colorText)
     : undefined;
@@ -84,7 +86,10 @@ export default function CartItemCard({
         </Pressable>
 
         <View style={styles.productInfo}>
-          <Text style={[styles.productName, { color: colors.text }]} numberOfLines={2}>
+          <Text
+            style={[styles.productName, { color: colors.text }]}
+            numberOfLines={2}
+          >
             {item.name}
           </Text>
 
@@ -139,7 +144,9 @@ export default function CartItemCard({
                     },
                   ]}
                 />
-                <Text style={[styles.colorTagText, { color: colors.textSecondary }]}>
+                <Text
+                  style={[styles.colorTagText, { color: colors.textSecondary }]}
+                >
                   {colorText}
                 </Text>
               </View>
@@ -154,7 +161,12 @@ export default function CartItemCard({
                   },
                 ]}
               >
-                <Text style={[styles.storageTagText, { color: colors.textSecondary }]}>
+                <Text
+                  style={[
+                    styles.storageTagText,
+                    { color: colors.textSecondary },
+                  ]}
+                >
                   {item.storage}
                 </Text>
               </View>
@@ -218,7 +230,9 @@ export default function CartItemCard({
         <View style={styles.priceContainer}>
           {item.negotiatedPrice ? (
             <>
-              <Text style={[styles.originalPrice, { color: colors.textSecondary }]}>
+              <Text
+                style={[styles.originalPrice, { color: colors.textSecondary }]}
+              >
                 {formatPrice(item.price * item.quantity)}
               </Text>
               <Text style={[styles.negotiatedPrice, { color: colors.success }]}>
@@ -233,7 +247,9 @@ export default function CartItemCard({
         </View>
       </View>
 
-      <View style={[styles.solidSeparator, { backgroundColor: colors.border }]} />
+      <View
+        style={[styles.solidSeparator, { backgroundColor: colors.border }]}
+      />
 
       <View style={styles.bottomRow}>
         <AssuranceToggle

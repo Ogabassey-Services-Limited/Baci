@@ -92,122 +92,122 @@ export default function TabLayout() {
       <Tabs
         initialRouteName="index"
         screenOptions={{
-        tabBarActiveTintColor: '#FFFFFF',
-        tabBarInactiveTintColor: '#9CA3AF',
-        headerShown: false,
-        tabBarStyle: {
-          backgroundColor: '#0F0F0F', // Matching web bg
-          borderTopWidth: 1,
-          borderTopColor: 'rgba(255, 255, 255, 0.08)',
-          height: 49 + insets.bottom,
-          paddingBottom: Math.max(insets.bottom - 4, 8),
-          paddingTop: 6,
-          elevation: 0,
-          shadowOpacity: 0,
-        },
-        tabBarItemStyle: {
-          height: 49,
-        },
-        headerStyle: {
-          backgroundColor: '#000000',
-        },
-        headerTitleStyle: {
-          fontFamily: 'Inter_600SemiBold',
-          fontSize: 17,
-          color: '#FFFFFF',
-        },
-        headerTintColor: '#FFFFFF',
-        headerShadowVisible: false,
-        lazy: true,
-        tabBarHideOnKeyboard: true,
-        tabBarShowLabel: true, // Needed for our custom label component
+          tabBarActiveTintColor: '#FFFFFF',
+          tabBarInactiveTintColor: '#9CA3AF',
+          headerShown: false,
+          tabBarStyle: {
+            backgroundColor: '#0F0F0F', // Matching web bg
+            borderTopWidth: 1,
+            borderTopColor: 'rgba(255, 255, 255, 0.08)',
+            height: 49 + insets.bottom,
+            paddingBottom: Math.max(insets.bottom - 4, 8),
+            paddingTop: 6,
+            elevation: 0,
+            shadowOpacity: 0,
+          },
+          tabBarItemStyle: {
+            height: 49,
+          },
+          headerStyle: {
+            backgroundColor: '#000000',
+          },
+          headerTitleStyle: {
+            fontFamily: 'Inter_600SemiBold',
+            fontSize: 17,
+            color: '#FFFFFF',
+          },
+          headerTintColor: '#FFFFFF',
+          headerShadowVisible: false,
+          lazy: true,
+          tabBarHideOnKeyboard: true,
+          tabBarShowLabel: true, // Needed for our custom label component
         }}
       >
         <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          headerShown: false,
-          tabBarIcon: ({ focused }) => (
-            <TabBarIcon
-              name={focused ? 'home' : 'home-outline'}
-              focused={focused}
-            />
-          ),
-          tabBarLabel: ({ focused }) =>
-            focused ? <Text style={styles.tabLabel}>Home</Text> : null,
-        }}
-      />
+          name="index"
+          options={{
+            title: 'Home',
+            headerShown: false,
+            tabBarIcon: ({ focused }) => (
+              <TabBarIcon
+                name={focused ? 'home' : 'home-outline'}
+                focused={focused}
+              />
+            ),
+            tabBarLabel: ({ focused }) =>
+              focused ? <Text style={styles.tabLabel}>Home</Text> : null,
+          }}
+        />
         <Tabs.Screen
-        name="saved"
-        options={{
-          title: 'Saved',
-          headerShown: false,
-          tabBarIcon: ({ focused }) => (
-            <TabBarIcon
-              name={focused ? 'heart' : 'heart-outline'}
-              focused={focused}
-              badge={savedCount}
-            />
-          ),
-          tabBarLabel: ({ focused }) =>
-            focused ? <Text style={styles.tabLabel}>Saved</Text> : null,
-        }}
-      />
+          name="saved"
+          options={{
+            title: 'Saved',
+            headerShown: false,
+            tabBarIcon: ({ focused }) => (
+              <TabBarIcon
+                name={focused ? 'heart' : 'heart-outline'}
+                focused={focused}
+                badge={savedCount}
+              />
+            ),
+            tabBarLabel: ({ focused }) =>
+              focused ? <Text style={styles.tabLabel}>Saved</Text> : null,
+          }}
+        />
         <Tabs.Screen
-        name="cart"
-        options={{
-          title: 'Cart',
-          tabBarIcon: ({ focused }) => (
-            <TabBarIcon
-              name={focused ? 'cart' : 'cart-outline'}
-              focused={focused}
-              badge={cartCount}
-            />
-          ),
-          tabBarLabel: ({ focused }) =>
-            focused ? <Text style={styles.tabLabel}>Cart</Text> : null,
-        }}
-      />
+          name="cart"
+          options={{
+            title: 'Cart',
+            tabBarIcon: ({ focused }) => (
+              <TabBarIcon
+                name={focused ? 'cart' : 'cart-outline'}
+                focused={focused}
+                badge={cartCount}
+              />
+            ),
+            tabBarLabel: ({ focused }) =>
+              focused ? <Text style={styles.tabLabel}>Cart</Text> : null,
+          }}
+        />
         <Tabs.Screen
-        name="wallet"
-        options={{
-          title: 'Wallet',
-          headerShown: false,
-          tabBarIcon: ({ focused }) => (
-            <TabBarIcon
-              name={focused ? 'wallet' : 'wallet-outline'}
-              focused={focused}
-            />
-          ),
-          tabBarLabel: ({ focused }) =>
-            focused ? <Text style={styles.tabLabel}>Wallet</Text> : null,
-        }}
-        listeners={createAuthListener('wallet')}
-      />
+          name="wallet"
+          options={{
+            title: 'Wallet',
+            headerShown: false,
+            tabBarIcon: ({ focused }) => (
+              <TabBarIcon
+                name={focused ? 'wallet' : 'wallet-outline'}
+                focused={focused}
+              />
+            ),
+            tabBarLabel: ({ focused }) =>
+              focused ? <Text style={styles.tabLabel}>Wallet</Text> : null,
+          }}
+          listeners={createAuthListener('wallet')}
+        />
         <Tabs.Screen
-        name="account"
-        options={{
-          title: 'Account',
-          headerShown: false,
-          tabBarIcon: ({ focused }) => (
-            <TabBarIcon
-              name={focused ? 'person' : 'person-outline'}
-              focused={focused}
-            />
-          ),
-          tabBarLabel: ({ focused }) =>
-            focused ? <Text style={styles.tabLabel}>Account</Text> : null,
-        }}
-        listeners={createAuthListener('account')}
-      />
-      {/* Categories hidden from tab bar but reachable via route */}
+          name="account"
+          options={{
+            title: 'Account',
+            headerShown: false,
+            tabBarIcon: ({ focused }) => (
+              <TabBarIcon
+                name={focused ? 'person' : 'person-outline'}
+                focused={focused}
+              />
+            ),
+            tabBarLabel: ({ focused }) =>
+              focused ? <Text style={styles.tabLabel}>Account</Text> : null,
+          }}
+          listeners={createAuthListener('account')}
+        />
+        {/* Categories hidden from tab bar but reachable via route */}
         <Tabs.Screen
-        name="categories"
-        options={{
-          href: null,
-          title: 'Explore',
-        }}
+          name="categories"
+          options={{
+            href: null,
+            title: 'Explore',
+          }}
         />
       </Tabs>
     </View>

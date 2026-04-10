@@ -91,10 +91,10 @@ describe('bill-item-selection', () => {
   });
 
   it('keeps the resolved leaf when a full path is selected', () => {
-    const result = resolveBillItemSelection(
-      nestedItems,
-      ['prepaid', 'commercial']
-    );
+    const result = resolveBillItemSelection(nestedItems, [
+      'prepaid',
+      'commercial',
+    ]);
 
     expect(result.isComplete).toBe(true);
     expect(result.leaf?.itemCode).toBe('commercial');

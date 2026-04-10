@@ -33,7 +33,9 @@ describe('AssuranceToggle', () => {
     expect(screen.getByText('Ogabassey Assurance')).toBeTruthy();
     expect(screen.getByText('Screen & Liquid Damage +₦25,000')).toBeTruthy();
 
-    fireEvent.press(screen.getByLabelText('Toggle Ogabassey Assurance for iPhone 13 Pro'));
+    fireEvent.press(
+      screen.getByLabelText('Toggle Ogabassey Assurance for iPhone 13 Pro')
+    );
     expect(toggleAssurance).toHaveBeenCalledWith(item.id);
   });
 

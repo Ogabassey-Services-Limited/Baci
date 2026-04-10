@@ -29,10 +29,9 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 import { resolveApiBaseUrl } from '@/lib/api-url';
 
-const API_BASE_URL =
-  resolveApiBaseUrl(
-    process.env.EXPO_PUBLIC_API_URL || Constants.expoConfig?.extra?.apiUrl
-  );
+const API_BASE_URL = resolveApiBaseUrl(
+  process.env.EXPO_PUBLIC_API_URL || Constants.expoConfig?.extra?.apiUrl
+);
 
 const MERCHANT_SLUG = Constants.expoConfig?.extra?.merchantSlug || 'ogabassey';
 
@@ -320,7 +319,9 @@ export default function TrackOrderScreen() {
               <View style={[styles.badge, { backgroundColor: badge.bg }]}>
                 <Ionicons
                   name={
-                    statusMeta.icon as React.ComponentProps<typeof Ionicons>['name']
+                    statusMeta.icon as React.ComponentProps<
+                      typeof Ionicons
+                    >['name']
                   }
                   size={14}
                   color={badge.color}

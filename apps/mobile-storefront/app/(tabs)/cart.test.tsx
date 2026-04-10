@@ -76,12 +76,12 @@ jest.mock('@/components/useColorScheme', () => ({
 jest.mock('@/components/checkout/checkout-identity', () => {
   const { Text: MockText } = jest.requireActual('react-native');
 
-  return ({
-  CheckoutIdentityModal: ({ isOpen }: { isOpen: boolean }) => {
-    if (!isOpen) return null;
-    return <MockText>Checkout Identity Modal</MockText>;
-  },
-  });
+  return {
+    CheckoutIdentityModal: ({ isOpen }: { isOpen: boolean }) => {
+      if (!isOpen) return null;
+      return <MockText>Checkout Identity Modal</MockText>;
+    },
+  };
 });
 
 jest.mock('@/components/ui/SafeImage', () => ({
@@ -137,8 +137,11 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 
 jest.mock('@/stores/ui-store', () => ({
-  useUIStore: (selector: (state: { openNegotiation: typeof mockOpenNegotiation }) => unknown) =>
-    selector({ openNegotiation: mockOpenNegotiation }),
+  useUIStore: (
+    selector: (state: {
+      openNegotiation: typeof mockOpenNegotiation;
+    }) => unknown
+  ) => selector({ openNegotiation: mockOpenNegotiation }),
 }));
 
 describe('CartScreen theming', () => {
@@ -156,10 +159,14 @@ describe('CartScreen theming', () => {
     render(<CartScreen />);
 
     expect(
-      StyleSheet.flatten(screen.getByText('Lenovo ThinkPad E16 Gen 2').props.style)
+      StyleSheet.flatten(
+        screen.getByText('Lenovo ThinkPad E16 Gen 2').props.style
+      )
     ).toMatchObject({ color: Colors.dark.text });
     expect(
-      StyleSheet.flatten(screen.getByText('Device Protection (+5%)').props.style)
+      StyleSheet.flatten(
+        screen.getByText('Device Protection (+5%)').props.style
+      )
     ).toMatchObject({ color: Colors.dark.textSecondary });
     expect(
       StyleSheet.flatten(screen.getByText('Secure Checkout').props.style)
@@ -175,10 +182,14 @@ describe('CartScreen theming', () => {
     render(<CartScreen />);
 
     expect(
-      StyleSheet.flatten(screen.getByText('Lenovo ThinkPad E16 Gen 2').props.style)
+      StyleSheet.flatten(
+        screen.getByText('Lenovo ThinkPad E16 Gen 2').props.style
+      )
     ).toMatchObject({ color: Colors.light.text });
     expect(
-      StyleSheet.flatten(screen.getByText('Device Protection (+5%)').props.style)
+      StyleSheet.flatten(
+        screen.getByText('Device Protection (+5%)').props.style
+      )
     ).toMatchObject({ color: Colors.light.textSecondary });
   });
 });

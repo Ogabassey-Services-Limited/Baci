@@ -30,8 +30,7 @@ jest.mock('@/hooks/product-utils', () => {
         name:
           (variant.attributes as Record<string, string> | undefined)?.storage ||
           String(variant.sku || 'Variant'),
-        sku:
-          typeof variant.sku === 'string' ? variant.sku : undefined,
+        sku: typeof variant.sku === 'string' ? variant.sku : undefined,
         price:
           typeof variant.price === 'number'
             ? variant.price
@@ -112,43 +111,47 @@ jest.mock('@/hooks/product-utils', () => {
           : '';
 
       const specifications = Array.isArray(item.specifications)
-        ? item.specifications.reduce<Record<string, string>>((result, section) => {
-            if (!section || typeof section !== 'object') {
-              return result;
-            }
-
-            const items = Array.isArray(
-              (section as { items?: unknown }).items
-            )
-              ? ((section as { items: unknown[] }).items ?? [])
-              : [];
-
-            for (const spec of items) {
-              if (!spec || typeof spec !== 'object') {
-                continue;
+        ? item.specifications.reduce<Record<string, string>>(
+            (result, section) => {
+              if (!section || typeof section !== 'object') {
+                return result;
               }
 
-              const label =
-                typeof (spec as { label?: unknown }).label === 'string'
-                  ? (spec as { label: string }).label.trim()
-                  : '';
-              const rawValue = (spec as { value?: unknown }).value;
-              const value =
-                typeof rawValue === 'string'
-                  ? rawValue.trim()
-                  : typeof rawValue === 'number' || typeof rawValue === 'boolean'
-                    ? String(rawValue)
+              const items = Array.isArray(
+                (section as { items?: unknown }).items
+              )
+                ? ((section as { items: unknown[] }).items ?? [])
+                : [];
+
+              for (const spec of items) {
+                if (!spec || typeof spec !== 'object') {
+                  continue;
+                }
+
+                const label =
+                  typeof (spec as { label?: unknown }).label === 'string'
+                    ? (spec as { label: string }).label.trim()
                     : '';
+                const rawValue = (spec as { value?: unknown }).value;
+                const value =
+                  typeof rawValue === 'string'
+                    ? rawValue.trim()
+                    : typeof rawValue === 'number' ||
+                        typeof rawValue === 'boolean'
+                      ? String(rawValue)
+                      : '';
 
-              if (!label || !value) {
-                continue;
+                if (!label || !value) {
+                  continue;
+                }
+
+                result[label] = value;
               }
 
-              result[label] = value;
-            }
-
-            return result;
-          }, {})
+              return result;
+            },
+            {}
+          )
         : item.specifications &&
             typeof item.specifications === 'object' &&
             !Array.isArray(item.specifications)
@@ -182,10 +185,14 @@ jest.mock('@/hooks/product-utils', () => {
         brand: typeof item.brand === 'string' ? item.brand : undefined,
         category: categoryName,
         specifications,
-        condition: typeof item.condition === 'string' ? item.condition : undefined,
+        condition:
+          typeof item.condition === 'string' ? item.condition : undefined,
         rating:
-          typeof item.average_rating === 'number' ? item.average_rating : undefined,
-        review_count: typeof item.review_count === 'number' ? item.review_count : 0,
+          typeof item.average_rating === 'number'
+            ? item.average_rating
+            : undefined,
+        review_count:
+          typeof item.review_count === 'number' ? item.review_count : 0,
         manage_stock:
           typeof item.manage_stock === 'boolean' ? item.manage_stock : false,
         colors: Array.isArray(item.colors) ? item.colors : undefined,
@@ -201,16 +208,17 @@ jest.mock('@/hooks/product-utils', () => {
             : false,
         offers: Array.isArray(item.offers) ? item.offers : undefined,
         in_stock:
-          typeof item.stock_quantity === 'number' ? item.stock_quantity > 0 : true,
+          typeof item.stock_quantity === 'number'
+            ? item.stock_quantity > 0
+            : true,
       };
     },
   };
 });
 
 const mockUseMerchant = useMerchant as jest.MockedFunction<typeof useMerchant>;
-const mockResolveAndEvictProduct = resolveAndEvictProduct as jest.MockedFunction<
-  typeof resolveAndEvictProduct
->;
+const mockResolveAndEvictProduct =
+  resolveAndEvictProduct as jest.MockedFunction<typeof resolveAndEvictProduct>;
 
 const validProductRow = {
   id: '123e4567-e89b-12d3-a456-426614174000',
@@ -507,9 +515,12 @@ describe('useProduct', () => {
       ],
     };
 
-    queryClient.setQueryData(['products', 'merchant-1', { search: 'thinkpad' }], {
-      pages: [{ products: [cachedProduct], nextOffset: null, total: 1 }],
-    });
+    queryClient.setQueryData(
+      ['products', 'merchant-1', { search: 'thinkpad' }],
+      {
+        pages: [{ products: [cachedProduct], nextOffset: null, total: 1 }],
+      }
+    );
 
     const { result } = renderHook(() => useProduct('cached-thinkpad'), {
       wrapper: createWrapper(queryClient),

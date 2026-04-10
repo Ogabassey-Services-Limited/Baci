@@ -24,9 +24,8 @@ jest.mock('@/lib/supabase', () => ({
 
 jest.mock('@/stores/auth-store', () => ({
   useAuthStore: jest.fn(
-    (
-      selector: (state: { user: { id: string } | null }) => unknown
-    ) => selector({ user: { id: 'auth-user-1' } })
+    (selector: (state: { user: { id: string } | null }) => unknown) =>
+      selector({ user: { id: 'auth-user-1' } })
   ),
 }));
 
@@ -64,7 +63,10 @@ afterAll(() => {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockGetUser.mockResolvedValue({ data: { user: { id: 'auth-user-1' } }, error: null });
+  mockGetUser.mockResolvedValue({
+    data: { user: { id: 'auth-user-1' } },
+    error: null,
+  });
   mockGetSession.mockResolvedValue({
     data: { session: { access_token: 'token-123' } },
   });
@@ -112,7 +114,9 @@ describe('useVTUHistory', () => {
         }),
       })
     );
-    expect(mockFetchWithTimeout.mock.calls[0]?.[0]).toContain('type=electricity');
+    expect(mockFetchWithTimeout.mock.calls[0]?.[0]).toContain(
+      'type=electricity'
+    );
 
     unmount();
     queryClient.clear();

@@ -41,13 +41,15 @@ interface WalletQueryData {
 }
 
 const RedeemLoyaltyRpcResponseSchema = z.discriminatedUnion('success', [
-  z.object({
-    success: z.literal(true),
-    wallet_credited: z.number().finite(),
-    points_deducted: z.number().finite(),
-    new_points_balance: z.number().finite(),
-    new_wallet_balance: z.number().finite(),
-  }).strict(),
+  z
+    .object({
+      success: z.literal(true),
+      wallet_credited: z.number().finite(),
+      points_deducted: z.number().finite(),
+      new_points_balance: z.number().finite(),
+      new_wallet_balance: z.number().finite(),
+    })
+    .strict(),
   z.object({
     success: z.literal(false),
     error: z.string().optional(),
@@ -148,10 +150,12 @@ async function fetchWalletData(
  */
 export function useWallet() {
   const queryClient = useQueryClient();
-  const { customer, merchantId } = useAuthStore(useShallow((state) => ({
-    customer: state.customer,
-    merchantId: state.merchantId,
-  })));
+  const { customer, merchantId } = useAuthStore(
+    useShallow((state) => ({
+      customer: state.customer,
+      merchantId: state.merchantId,
+    }))
+  );
   const channelRef = useRef<RealtimeChannel | null>(null);
 
   const query = useQuery({
@@ -233,10 +237,12 @@ export function useWallet() {
  */
 export function useRedeemPoints() {
   const queryClient = useQueryClient();
-  const { customer, merchantId } = useAuthStore(useShallow((state) => ({
-    customer: state.customer,
-    merchantId: state.merchantId,
-  })));
+  const { customer, merchantId } = useAuthStore(
+    useShallow((state) => ({
+      customer: state.customer,
+      merchantId: state.merchantId,
+    }))
+  );
 
   return useMutation({
     mutationFn: async (points: number) => {

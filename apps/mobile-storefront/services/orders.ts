@@ -34,10 +34,9 @@ const log = createLogger('Order');
 import { trackError, trackEvent } from '@/services/analytics';
 
 // Get API URL from config
-const API_URL =
-  resolveApiBaseUrl(
-    process.env.EXPO_PUBLIC_API_URL || Constants.expoConfig?.extra?.apiUrl
-  );
+const API_URL = resolveApiBaseUrl(
+  process.env.EXPO_PUBLIC_API_URL || Constants.expoConfig?.extra?.apiUrl
+);
 
 const MERCHANT_ID =
   Constants.expoConfig?.extra?.merchantId ||
@@ -282,10 +281,7 @@ export async function createOrder(
         const notFoundMessage = /merchant not found/i.test(errorMessage)
           ? 'Checkout is temporarily unavailable for this store. Please try again later.'
           : errorMessage;
-        throw new OrderError(
-          notFoundMessage,
-          'NOT_FOUND'
-        );
+        throw new OrderError(notFoundMessage, 'NOT_FOUND');
       } else if (response.status >= 500) {
         throw new OrderError(
           'Server error. Please try again in a few moments.',

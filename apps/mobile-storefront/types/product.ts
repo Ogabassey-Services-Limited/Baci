@@ -34,7 +34,10 @@ export function formatVariantAxisLabel(
     return undefined;
   }
 
-  const normalized = axis.trim().toLowerCase().replace(/[\s-]+/g, '_');
+  const normalized = axis
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
   if (!normalized) {
     return undefined;
   }
@@ -56,7 +59,10 @@ export function formatProductConditionDisplay(
     return undefined;
   }
 
-  const normalized = condition.trim().toLowerCase().replace(/[\s-]+/g, '_');
+  const normalized = condition
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
 
   switch (normalized) {
     case 'new':
@@ -75,7 +81,9 @@ export function formatProductConditionDisplay(
     default:
       return condition
         .trim()
-        .replace(/\b\w/g, (char) => char.toUpperCase()) as ProductConditionDisplay;
+        .replace(/\b\w/g, (char) =>
+          char.toUpperCase()
+        ) as ProductConditionDisplay;
   }
 }
 

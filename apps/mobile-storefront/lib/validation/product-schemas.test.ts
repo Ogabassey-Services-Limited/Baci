@@ -46,7 +46,9 @@ describe('isOrderRealtimePayload', () => {
   });
 
   it('accepts valid old record when present', () => {
-    expect(isOrderRealtimePayload({ new: validOrder, old: validOrder })).toBe(true);
+    expect(isOrderRealtimePayload({ new: validOrder, old: validOrder })).toBe(
+      true
+    );
   });
 
   it('rejects invalid old record when present', () => {
@@ -67,14 +69,17 @@ describe('isWalletRealtimePayload', () => {
 
   it('rejects invalid new record', () => {
     expect(
-      isWalletRealtimePayload({ new: { id: 'not-uuid', available_balance: 2 }, old: null })
+      isWalletRealtimePayload({
+        new: { id: 'not-uuid', available_balance: 2 },
+        old: null,
+      })
     ).toBe(false);
   });
 
   it('accepts valid old record when present', () => {
-    expect(isWalletRealtimePayload({ new: validWallet, old: validWallet })).toBe(
-      true
-    );
+    expect(
+      isWalletRealtimePayload({ new: validWallet, old: validWallet })
+    ).toBe(true);
   });
 
   it('rejects invalid old record when present', () => {
@@ -100,7 +105,10 @@ describe('isCustomerRealtimePayload', () => {
 
   it('rejects invalid new record', () => {
     expect(
-      isCustomerRealtimePayload({ new: { id: validCustomer.id, email: 'bad' }, old: null })
+      isCustomerRealtimePayload({
+        new: { id: validCustomer.id, email: 'bad' },
+        old: null,
+      })
     ).toBe(false);
   });
 
@@ -130,11 +138,15 @@ describe('parseApiResponse', () => {
   });
 
   it('returns parsed data for valid payload', () => {
-    expect(parseApiResponse(OrderRowSchema, validOrder, 'order')).toEqual(validOrder);
-    expect(parseApiResponse(WalletRowSchema, validWallet, 'wallet')).toEqual(validWallet);
-    expect(parseApiResponse(CustomerRowSchema, validCustomer, 'customer')).toEqual(
-      validCustomer
+    expect(parseApiResponse(OrderRowSchema, validOrder, 'order')).toEqual(
+      validOrder
     );
+    expect(parseApiResponse(WalletRowSchema, validWallet, 'wallet')).toEqual(
+      validWallet
+    );
+    expect(
+      parseApiResponse(CustomerRowSchema, validCustomer, 'customer')
+    ).toEqual(validCustomer);
   });
 
   it('returns null and logs warning for invalid payload', () => {

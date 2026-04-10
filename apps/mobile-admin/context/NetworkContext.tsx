@@ -75,7 +75,12 @@ export function NetworkProvider({ children }: NetworkProviderProps) {
             color={isDark ? colors.background : colors.text}
             style={styles.icon}
           />
-          <Text style={[styles.bannerText, { color: isDark ? colors.background : colors.text }]}>
+          <Text
+            style={[
+              styles.bannerText,
+              { color: isDark ? colors.background : colors.text },
+            ]}
+          >
             No internet connection. Some features may be unavailable.
           </Text>
         </View>

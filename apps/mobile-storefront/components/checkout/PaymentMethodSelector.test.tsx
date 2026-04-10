@@ -25,9 +25,7 @@ describe('PaymentMethodSelector', () => {
     );
 
     expect(screen.getByText('Available in Lagos only.')).toBeTruthy();
-    expect(
-      screen.queryByText(/5% processing fee may apply/i)
-    ).toBeNull();
+    expect(screen.queryByText(/5% processing fee may apply/i)).toBeNull();
   });
 
   it('shows reordered installment providers with the requested messaging', () => {
@@ -50,9 +48,7 @@ describe('PaymentMethodSelector', () => {
     ).toBeTruthy();
     expect(screen.getByText('Credit Direct')).toBeTruthy();
     expect(screen.getByText('CredPal')).toBeTruthy();
-    expect(
-      screen.getByText('Salary Earners and Business Owners')
-    ).toBeTruthy();
+    expect(screen.getByText('Salary Earners and Business Owners')).toBeTruthy();
     expect(screen.getByText('Salary Earners Only')).toBeTruthy();
   });
 

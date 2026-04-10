@@ -37,7 +37,9 @@ export function StatusModal({ status, onClose }: StatusModalProps) {
               styles.iconContainer,
               {
                 backgroundColor:
-                  status.type === 'success' ? colors.successLight : colors.errorLight,
+                  status.type === 'success'
+                    ? colors.successLight
+                    : colors.errorLight,
               },
             ]}
           >

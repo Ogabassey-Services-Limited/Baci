@@ -15,9 +15,7 @@ describe('product inventory helpers', () => {
   });
 
   it('prefers legacy stock when stock_quantity drifted to zero', () => {
-    expect(
-      getEffectiveProductStock({ stock: 9, stock_quantity: 0 })
-    ).toBe(9);
+    expect(getEffectiveProductStock({ stock: 9, stock_quantity: 0 })).toBe(9);
   });
 
   it('falls back to the default low-stock threshold when none is configured', () => {

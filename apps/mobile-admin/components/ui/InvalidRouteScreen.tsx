@@ -43,7 +43,11 @@ export function InvalidRouteScreen({
             { backgroundColor: `${colors.warning}20` },
           ]}
         >
-          <Ionicons name="alert-circle-outline" size={48} color={colors.warning} />
+          <Ionicons
+            name="alert-circle-outline"
+            size={48}
+            color={colors.warning}
+          />
         </View>
 
         <Text style={[styles.title, { color: colors.text }]}>{title}</Text>

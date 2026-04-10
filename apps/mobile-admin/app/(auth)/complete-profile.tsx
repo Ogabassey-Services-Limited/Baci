@@ -227,7 +227,9 @@ export default function CompleteProfileScreen() {
         <View style={styles.header}>
           {/* No back button, this is a forced step */}
           <View />
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Complete Setup</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>
+            Complete Setup
+          </Text>
           <View style={{ width: 24 }} />
         </View>
 
@@ -243,7 +245,12 @@ export default function CompleteProfileScreen() {
                   style={[styles.avatar, { borderColor: colors.primary }]}
                 />
               ) : (
-                <View style={[styles.avatarPlaceholder, { backgroundColor: colors.card }]}>
+                <View
+                  style={[
+                    styles.avatarPlaceholder,
+                    { backgroundColor: colors.card },
+                  ]}
+                >
                   <Ionicons
                     name="storefront-outline"
                     size={40}
@@ -265,9 +272,18 @@ export default function CompleteProfileScreen() {
 
             <View style={styles.formSection}>
               <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: colors.textSecondary }]}>Your Name</Text>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>
+                  Your Name
+                </Text>
                 <TextInput
-                  style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: colors.inputBg,
+                      borderColor: colors.border,
+                      color: colors.text,
+                    },
+                  ]}
                   placeholder="John Doe"
                   placeholderTextColor={colors.textMuted}
                   value={formData.fullName}
@@ -276,9 +292,18 @@ export default function CompleteProfileScreen() {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: colors.textSecondary }]}>Phone Number (Optional)</Text>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>
+                  Phone Number (Optional)
+                </Text>
                 <TextInput
-                  style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: colors.inputBg,
+                      borderColor: colors.border,
+                      color: colors.text,
+                    },
+                  ]}
                   placeholder="+1 234 567 8900"
                   placeholderTextColor={colors.textMuted}
                   value={formData.phone}
@@ -288,9 +313,18 @@ export default function CompleteProfileScreen() {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: colors.textSecondary }]}>Business Name</Text>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>
+                  Business Name
+                </Text>
                 <TextInput
-                  style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: colors.inputBg,
+                      borderColor: colors.border,
+                      color: colors.text,
+                    },
+                  ]}
                   placeholder="My Awesome Store"
                   placeholderTextColor={colors.textMuted}
                   value={formData.businessName}
@@ -299,22 +333,49 @@ export default function CompleteProfileScreen() {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: colors.textSecondary }]}>Store Link</Text>
-                <View style={[styles.urlInputContainer, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>
+                  Store Link
+                </Text>
+                <View
+                  style={[
+                    styles.urlInputContainer,
+                    {
+                      backgroundColor: colors.inputBg,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
                   <TextInput
-                    style={[styles.urlInput, { textAlign: 'right', color: colors.text }]}
+                    style={[
+                      styles.urlInput,
+                      { textAlign: 'right', color: colors.text },
+                    ]}
                     placeholder="my-store"
                     placeholderTextColor={colors.textMuted}
                     autoCapitalize="none"
                     value={formData.slug}
                     onChangeText={handleSlugChange}
                   />
-                  <Text style={[styles.urlSuffix, { color: colors.textSecondary, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}>.usebaci.com</Text>
+                  <Text
+                    style={[
+                      styles.urlSuffix,
+                      {
+                        color: colors.textSecondary,
+                        backgroundColor: isDark
+                          ? 'rgba(255,255,255,0.05)'
+                          : 'rgba(0,0,0,0.05)',
+                      },
+                    ]}
+                  >
+                    .usebaci.com
+                  </Text>
                 </View>
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: colors.textSecondary }]}>Business Type</Text>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>
+                  Business Type
+                </Text>
                 <View style={styles.typeGrid}>
                   {BUSINESS_TYPES.map((type) => (
                     <Pressable
@@ -327,9 +388,19 @@ export default function CompleteProfileScreen() {
                       }}
                       style={[
                         styles.typeCard,
-                        { borderColor: colors.border, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' },
-                        formData.businessType === type.id &&
-                          [styles.typeCardSelected, { backgroundColor: colors.primary, borderColor: colors.primary }],
+                        {
+                          borderColor: colors.border,
+                          backgroundColor: isDark
+                            ? 'rgba(255,255,255,0.05)'
+                            : 'rgba(0,0,0,0.05)',
+                        },
+                        formData.businessType === type.id && [
+                          styles.typeCardSelected,
+                          {
+                            backgroundColor: colors.primary,
+                            borderColor: colors.primary,
+                          },
+                        ],
                       ]}
                       onPress={() => updateForm('businessType', type.id)}
                     >
@@ -337,8 +408,10 @@ export default function CompleteProfileScreen() {
                         style={[
                           styles.typeText,
                           { color: colors.textSecondary },
-                          formData.businessType === type.id &&
-                            [styles.typeTextSelected, { color: colors.textOnPrimary }],
+                          formData.businessType === type.id && [
+                            styles.typeTextSelected,
+                            { color: colors.textOnPrimary },
+                          ],
                         ]}
                       >
                         {type.label}
@@ -350,9 +423,18 @@ export default function CompleteProfileScreen() {
 
               {formData.businessType === 'other' && (
                 <View style={styles.inputGroup}>
-                  <Text style={[styles.label, { color: colors.textSecondary }]}>Please specify</Text>
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>
+                    Please specify
+                  </Text>
                   <TextInput
-                    style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
+                    style={[
+                      styles.input,
+                      {
+                        backgroundColor: colors.inputBg,
+                        borderColor: colors.border,
+                        color: colors.text,
+                      },
+                    ]}
                     placeholder="e.g. Pet Supplies"
                     placeholderTextColor={colors.textMuted}
                     value={formData.otherBusinessType}
@@ -364,7 +446,11 @@ export default function CompleteProfileScreen() {
               )}
 
               <Pressable
-                style={[styles.button, { backgroundColor: colors.primary }, isLoading && { opacity: 0.7 }]}
+                style={[
+                  styles.button,
+                  { backgroundColor: colors.primary },
+                  isLoading && { opacity: 0.7 },
+                ]}
                 onPress={handleCompleteSetup}
                 disabled={isLoading}
                 accessible={true}
@@ -376,8 +462,19 @@ export default function CompleteProfileScreen() {
                   <ActivityIndicator color={colors.textOnPrimary} />
                 ) : (
                   <>
-                    <Text style={[styles.buttonText, { color: colors.textOnPrimary }]}>Launch Store</Text>
-                    <Ionicons name="rocket-outline" size={20} color={colors.textOnPrimary} />
+                    <Text
+                      style={[
+                        styles.buttonText,
+                        { color: colors.textOnPrimary },
+                      ]}
+                    >
+                      Launch Store
+                    </Text>
+                    <Ionicons
+                      name="rocket-outline"
+                      size={20}
+                      color={colors.textOnPrimary}
+                    />
                   </>
                 )}
               </Pressable>
@@ -495,8 +592,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.full,
     borderWidth: 1,
   },
-  typeCardSelected: {
-  },
+  typeCardSelected: {},
   typeText: {
     fontSize: TYPOGRAPHY.size.sm,
   },

@@ -210,11 +210,11 @@ export default function OnboardingScreen() {
           viewabilityConfig={viewConfig}
           ref={slidesRef}
           style={styles.carousel}
-        getItemLayout={(_, index) => ({
-          length: width,
-          offset: width * index,
-          index,
-        })}
+          getItemLayout={(_, index) => ({
+            length: width,
+            offset: width * index,
+            index,
+          })}
         />
 
         {/* Footer with Pagination and Auth Buttons */}
