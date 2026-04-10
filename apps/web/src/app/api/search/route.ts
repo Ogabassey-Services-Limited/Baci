@@ -1,5 +1,10 @@
+import {
+  extractProductSearchIds,
+  getProductSearchTotalCount,
+} from '@baci/shared';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { isValidUuid, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 
@@ -31,17 +36,29 @@ export async function GET(request: NextRequest) {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    // Use smart search function
-    const { data: results, error } = await supabase.rpc(
-      'smart_product_search',
+    const { data: rankedResults, error } = await supabase.rpc(
+      'search_products_v2',
       {
-        search_query: query,
+        brand_filter: null,
+        category_id_filter: null,
+        condition_filter: null,
+        max_price_filter: null,
         merchant_id_param: merchantId,
+        min_price_filter: null,
+        min_rating_filter: null,
+        parent_only: false,
         result_limit: limit,
+        result_offset: 0,
+        search_query: query,
+        sort_by: 'relevance',
+        status_filter: 'active',
+        stock_filter: null,
       }
     );
 
     if (error) throw error;
+    const productIds = extractProductSearchIds(rankedResults ?? []);
+    const totalCount = getProductSearchTotalCount(rankedResults ?? []);
 
     // Track search analytics (fire and forget)
     supabase
@@ -49,7 +66,7 @@ export async function GET(request: NextRequest) {
       .insert({
         merchant_id: merchantId,
         search_query: query,
-        results_count: results?.length || 0,
+        results_count: productIds.length,
         search_method: 'server',
       })
       .then(() => {
@@ -58,14 +75,24 @@ export async function GET(request: NextRequest) {
 
     // If no results, try to find spelling suggestion
     let didYouMean = null;
-    if (!results || results.length === 0) {
-      const { data: suggestion } = await supabase.rpc(
-        'find_spelling_suggestion',
+    if (productIds.length === 0) {
+      const { data: suggestion, error: suggestionError } = await supabase.rpc(
+        'find_product_search_suggestion_v2',
         {
           search_term: query,
           merchant_id_param: merchantId,
         }
       );
+
+      if (suggestionError) {
+        logger.error({
+          message: 'Search suggestion lookup failed',
+          error: suggestionError.message,
+          merchantId,
+          query,
+        });
+        throw suggestionError;
+      }
 
       if (suggestion && suggestion.length > 0) {
         didYouMean = suggestion[0].suggested_term;
@@ -73,9 +100,9 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({
-      results: results || [],
+      productIds,
       didYouMean,
-      count: results?.length || 0,
+      count: totalCount,
       query,
     });
   } catch (error) {

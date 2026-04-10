@@ -1,3 +1,4 @@
+import { buildProductSearchQuery } from '@baci/shared';
 import { sanitizeSearchQuery } from '@/lib/sanitize';
 import { supabase } from '@/lib/supabase';
 
@@ -13,7 +14,9 @@ export async function fetchSelectableItems(params: {
   type: 'product' | 'category';
   search: string;
 }): Promise<SelectableItem[]> {
-  const sanitizedSearch = sanitizeSearchQuery(params.search);
+  const sanitizedSearch = sanitizeSearchQuery(
+    buildProductSearchQuery(params.search).normalized
+  );
   const searchTerm = `%${sanitizedSearch}%`;
 
   if (params.type === 'product') {

@@ -12,14 +12,14 @@
 import {
   keepPreviousData,
   useInfiniteQuery,
-  useQueryClient,
   useQuery,
+  useQueryClient,
 } from '@tanstack/react-query';
 import {
   CONSTANT_MERCHANT_ID,
   fetchAvailableBrands,
-  type UseProductsOptions,
   fetchProductsPage,
+  type UseProductsOptions,
 } from '@/hooks/product-utils';
 import { useMerchant } from '@/hooks/use-merchant';
 
@@ -35,7 +35,7 @@ export function useProducts(options: UseProductsOptions = {}) {
     initialPageParam: 0,
     staleTime: 1000 * 60 * 2,
     refetchOnMount: 'always',
-    placeholderData: keepPreviousData,
+    placeholderData: options.search ? undefined : keepPreviousData,
     enabled: !!merchantId && options.enabled !== false,
   });
 

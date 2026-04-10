@@ -15,8 +15,10 @@
     "submit:ios": "eas submit --platform ios",
     "submit:android": "eas submit --platform android",
     "submit:all": "eas submit --platform all",
+    "check:platform-drift": "node ./scripts/check-platform-drift.mjs",
     "lint": "expo lint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@baci/shared": "workspace:*",
