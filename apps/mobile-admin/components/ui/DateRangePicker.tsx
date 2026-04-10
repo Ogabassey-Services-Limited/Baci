@@ -260,6 +260,9 @@ export default function DateRangePicker({
                     onSelect(null);
                     onClose();
                   }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Clear date filter"
+                  accessibilityHint="Removes the currently selected date range"
                 >
                   <Text style={{ color: colors.textMuted }}>Clear Filter</Text>
                 </Pressable>
