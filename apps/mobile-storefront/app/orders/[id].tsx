@@ -225,18 +225,21 @@ export default function OrderDetailsScreen() {
           ),
         });
 
-        // Fetch insurance policy directly for this order — query unconditionally
-        // so policies are shown even when item has_assurance flags are inconsistent.
-        const { data: policy } = await supabase
+        // Fetch insurance policy for this order. An order can have multiple
+        // policies (e.g. gadget + shipping), so pick the most recent one as a
+        // summary rather than using .maybeSingle() which would error on
+        // multiple rows.
+        const { data: policies } = await supabase
           .from('order_insurance_policies')
           .select(
-            'mycover_policy_number, coverage_amount, premium_amount, status, claim_status, policy_start_date, policy_expiry_date, certificate_url, provider_name, policy_type'
+            'mycover_policy_number, coverage_amount, premium_amount, status, claim_status, policy_start_date, policy_expiry_date, certificate_url, provider_name, policy_type, created_at'
           )
           .eq('order_id', id)
-          .maybeSingle();
+          .order('created_at', { ascending: false })
+          .limit(1);
 
-        if (policy) {
-          setInsurancePolicy(policy as InsurancePolicy);
+        if (policies && policies.length > 0) {
+          setInsurancePolicy(policies[0] as InsurancePolicy);
         }
 
         setError(null);

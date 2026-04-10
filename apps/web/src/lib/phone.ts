@@ -8,7 +8,15 @@
  * Format phone number to E.164 format (+234...)
  */
 export function formatPhoneToE164(phone: string, countryCode = '+234'): string {
-  const digits = phone.replace(/\D/g, '');
+  const trimmed = phone.trim();
+
+  // Preserve already-international numbers (any country code, not just +234)
+  if (trimmed.startsWith('+')) {
+    const digits = trimmed.slice(1).replace(/\D/g, '');
+    return digits ? `+${digits}` : '';
+  }
+
+  const digits = trimmed.replace(/\D/g, '');
 
   if (digits.startsWith('234') && digits.length === 13) {
     return `+${digits}`;

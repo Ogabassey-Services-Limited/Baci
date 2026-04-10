@@ -143,7 +143,7 @@ export function CustomerOrderDetailsContent({
 
             {order.items.some((item) => item.has_assurance) && (
               <Link
-                href="insurance"
+                href={asRoute(getHref(`/account/orders/${order.id}/insurance`))}
                 className="flex items-center gap-2 rounded-md border p-4 text-sm font-medium hover:bg-muted/40"
               >
                 <ShieldCheck className="h-5 w-5 text-green-600" />
