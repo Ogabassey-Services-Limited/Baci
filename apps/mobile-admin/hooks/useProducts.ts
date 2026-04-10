@@ -26,6 +26,7 @@ import {
 import { sanitizeText } from '@/lib/sanitize';
 import { supabase } from '@/lib/supabase';
 import { getJoinedRecord } from '@/lib/supabase-utils';
+import type { AnalyticsDateRange } from '@/lib/analytics-period';
 import { useMerchant } from './useMerchant';
 
 export type ProductStatus = AdminProductStatus;
@@ -588,15 +589,24 @@ export interface TopSellingProduct extends Product {
   totalRevenue: number;
 }
 
-export function useTopSellingProducts(limit: number = 20) {
+export function useTopSellingProducts(
+  limit: number = 20,
+  range?: AnalyticsDateRange
+) {
   const { merchant } = useMerchant();
 
   return useQuery({
-    queryKey: ['top-selling-products', merchant?.id, limit],
+    queryKey: [
+      'top-selling-products',
+      merchant?.id,
+      limit,
+      range?.startDate.toISOString() ?? 'all',
+      range?.endDate.toISOString() ?? 'all',
+    ],
     queryFn: async () => {
-      // 1970-01-01 to now (all time)
-      const startDate = new Date(0).toISOString();
-      const endDate = new Date().toISOString();
+      const startDate =
+        range?.startDate.toISOString() ?? new Date(0).toISOString();
+      const endDate = range?.endDate.toISOString() ?? new Date().toISOString();
 
       const { data, error } = await supabase.rpc('get_top_products', {
         p_merchant_id: merchant?.id,

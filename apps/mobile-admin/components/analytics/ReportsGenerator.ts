@@ -1,3 +1,4 @@
+import type { MerchantAnalyticsResponse } from '@baci/shared';
 import { Platform } from 'react-native';
 
 // 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
@@ -22,7 +23,6 @@ const loadNativeModules = async () => {
 
 loadNativeModules();
 
-import type { AnalyticsData } from '../../app/(admin)/analytics';
 import { formatCurrency } from '../../lib/utils';
 
 /** Escape user-controlled strings to prevent XSS when interpolated into HTML */
@@ -53,7 +53,7 @@ interface ReportOptions {
   startDate: Date;
   endDate: Date;
   merchantName: string;
-  data: AnalyticsData;
+  data: MerchantAnalyticsResponse;
   transactions?: Transaction[]; // Full transaction list for Tax Ledger
 }
 
@@ -96,7 +96,7 @@ function getExecutiveSummaryHTML(options: ReportOptions) {
   const period = `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
   const safeMerchantName = escapeHtml(merchantName);
   const safeTitle = escapeHtml(title);
-  const safeTopProduct = escapeHtml(data.topProduct?.name || 'N/A');
+  const safeTopProduct = escapeHtml(data.topProducts[0]?.name || 'N/A');
   const safeTopBrand = escapeHtml(data.topBrand?.name || 'N/A');
   const safeTopCustomer = escapeHtml(data.topCustomer?.name || 'N/A');
 
@@ -117,19 +117,19 @@ function getExecutiveSummaryHTML(options: ReportOptions) {
                 <div class="kpi-grid">
                     <div class="kpi-card">
                         <div class="kpi-label">Total Revenue</div>
-                        <div class="kpi-value">${formatCurrency(data.revenue)}</div>
+                        <div class="kpi-value">${formatCurrency(data.summary.revenue.value)}</div>
                     </div>
                     <div class="kpi-card">
                         <div class="kpi-label">Total Sales</div>
-                        <div class="kpi-value">${data.sales}</div>
+                        <div class="kpi-value">${data.summary.sales.value}</div>
                     </div>
                     <div class="kpi-card">
                         <div class="kpi-label">Net Profit</div>
-                        <div class="kpi-value">${formatCurrency(data.profit)}</div>
+                        <div class="kpi-value">${formatCurrency(data.summary.profit.value)}</div>
                     </div>
                     <div class="kpi-card">
                         <div class="kpi-label">Avg Order Value</div>
-                        <div class="kpi-value">${formatCurrency(data.avgTicketSize)}</div>
+                        <div class="kpi-value">${formatCurrency(data.summary.aov.value)}</div>
                     </div>
                 </div>
 
@@ -146,7 +146,7 @@ function getExecutiveSummaryHTML(options: ReportOptions) {
                          <tr>
                             <td>Top Product</td>
                             <td class="bold">${safeTopProduct}</td>
-                            <td class="right">${formatCurrency(data.topProduct?.revenue || 0)}</td>
+                            <td class="right">${formatCurrency(data.topProducts[0]?.revenue || 0)}</td>
                         </tr>
                         <tr>
                             <td>Top Vendor</td>
@@ -156,7 +156,7 @@ function getExecutiveSummaryHTML(options: ReportOptions) {
                          <tr>
                             <td>Top Customer</td>
                             <td class="bold">${safeTopCustomer}</td>
-                            <td class="right">${data.topCustomer?.purchases || 0} Orders</td>
+                            <td class="right">${data.topCustomer?.value || 0} Orders</td>
                         </tr>
                     </tbody>
                 </table>
@@ -214,11 +214,11 @@ function getTaxLedgerHTML(options: ReportOptions) {
                 <div class="kpi-grid" style="grid-template-columns: repeat(2, 1fr);">
                     <div class="kpi-card">
                         <div class="kpi-label">Total Taxable Sales</div>
-                        <div class="kpi-value">${formatCurrency(data.revenue - data.salesTax)}</div>
+                        <div class="kpi-value">${formatCurrency(data.summary.revenue.value - data.summary.taxDue.value)}</div>
                     </div>
                     <div class="kpi-card">
                         <div class="kpi-label">VAT Collected (7.5%)</div>
-                        <div class="kpi-value">${formatCurrency(data.salesTax)}</div>
+                        <div class="kpi-value">${formatCurrency(data.summary.taxDue.value)}</div>
                     </div>
                 </div>
 

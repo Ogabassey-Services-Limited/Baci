@@ -5,7 +5,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SPACING, TYPOGRAPHY } from '@/constants/theme';
@@ -29,9 +29,26 @@ const getCurrencySymbol = (currencyCode: string | null | undefined) => {
 export default function AnalyticsProductsScreen() {
   const { colors, isDark } = useTheme();
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    endDate?: string;
+    filterLabel?: string;
+    startDate?: string;
+  }>();
   const { merchant } = useMerchant();
   const currencySymbol = getCurrencySymbol(merchant?.payout_currency);
-  const { data: topProducts, isLoading } = useTopSellingProducts(50);
+  const parsedStartDate = params.startDate ? new Date(params.startDate) : null;
+  const parsedEndDate = params.endDate ? new Date(params.endDate) : null;
+  const range =
+    parsedStartDate &&
+    parsedEndDate &&
+    !Number.isNaN(parsedStartDate.getTime()) &&
+    !Number.isNaN(parsedEndDate.getTime())
+      ? {
+          endDate: parsedEndDate,
+          startDate: parsedStartDate,
+        }
+      : undefined;
+  const { data: topProducts, isLoading } = useTopSellingProducts(50, range);
 
   const formatCurrency = (amount: number) => {
     return `${currencySymbol}${amount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`;
@@ -83,7 +100,9 @@ export default function AnalyticsProductsScreen() {
       <Stack.Screen
         options={{
           headerShown: true,
-          title: 'Top Products',
+          title: params.filterLabel
+            ? `Top Products · ${params.filterLabel}`
+            : 'Top Products',
           headerStyle: { backgroundColor: colors.background },
           headerTintColor: colors.text,
           headerShadowVisible: false,

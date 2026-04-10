@@ -1,3 +1,4 @@
+import type { MerchantAnalyticsResponse } from '@baci/shared';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import {
@@ -10,7 +11,6 @@ import {
 } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-import type { AnalyticsData } from '../../app/(admin)/analytics';
 import {
   generateReport,
   type ReportType,
@@ -20,7 +20,7 @@ import {
 interface ReportSelectionModalProps {
   visible: boolean;
   onClose: () => void;
-  analyticsData: AnalyticsData;
+  analyticsData: MerchantAnalyticsResponse;
   merchantId: string;
   merchantName: string;
   startDate: Date;

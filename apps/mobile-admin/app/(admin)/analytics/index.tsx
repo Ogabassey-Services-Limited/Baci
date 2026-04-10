@@ -5,7 +5,6 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useQuery } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -23,42 +22,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import ReportSelectionModal from '@/components/analytics/ReportSelectionModal';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { useAnalyticsOverview } from '@/hooks/useAnalyticsOverview';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
-import { supabase } from '@/lib/supabase';
+import {
+  type AnalyticsDateFilter,
+  getAnalyticsFilterLabel,
+  resolveAnalyticsDateRange,
+} from '@/lib/analytics-period';
 import { formatCompactCurrency } from '@/lib/utils';
 
-type DateFilter =
-  | 'today'
-  | 'yesterday'
-  | 'this_week'
-  | 'last_week'
-  | 'this_month'
-  | 'last_month'
-  | 'this_year'
-  | 'last_year'
-  | 'custom';
-
-export interface AnalyticsData {
-  revenue: number;
-  sales: number;
-  avgTicketSize: number;
-  salesTax: number;
-  profit: number;
-  bestMonthRevenue: string;
-  bestMonthSales: string;
-  bestMonthAOV: string;
-  topPaymentMethod: { method: string; percentage: number };
-  topProduct: { name: string; revenue: number } | null;
-  topBrand: { name: string; revenue: number } | null; // Added topBrand to interface
-  topCustomer: { name: string; purchases: number } | null;
-  monthlyRevenue: number[];
-  monthlySales: number[];
-  monthlyProfit: number[];
-  monthlyVAT: number[];
-}
-
-const DATE_FILTERS: { value: DateFilter; label: string }[] = [
+const DATE_FILTERS: { value: AnalyticsDateFilter; label: string }[] = [
   { value: 'today', label: 'Today' },
   { value: 'yesterday', label: 'Yesterday' },
   { value: 'this_week', label: 'This week' },
@@ -109,7 +83,7 @@ export default function AnalyticsScreen() {
   const { merchant } = useMerchant();
   const router = useRouter();
   const [showDateFilter, setShowDateFilter] = useState(false);
-  const [dateFilter, setDateFilter] = useState<DateFilter>('this_year');
+  const [dateFilter, setDateFilter] = useState<AnalyticsDateFilter>('this_year');
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [reportModalVisible, setReportModalVisible] = useState(false);
 
@@ -130,348 +104,18 @@ export default function AnalyticsScreen() {
       year: 'numeric',
     });
   };
-
-  // Helper functions to get start and end dates based on filter
-  const getStartDate = (
-    filter: DateFilter,
-    year: number,
-    customStart: Date,
-    _customEnd: Date
-  ): Date => {
-    let startDate: Date;
-
-    switch (filter) {
-      case 'today': {
-        const d = new Date();
-        d.setHours(0, 0, 0, 0);
-        startDate = d;
-        break;
-      }
-      case 'yesterday': {
-        const d = new Date();
-        d.setDate(d.getDate() - 1);
-        d.setHours(0, 0, 0, 0);
-        startDate = d;
-        break;
-      }
-      case 'this_week': {
-        const d = new Date();
-        d.setDate(d.getDate() - d.getDay());
-        d.setHours(0, 0, 0, 0);
-        startDate = d;
-        break;
-      }
-      case 'last_week': {
-        const d = new Date();
-        d.setDate(d.getDate() - d.getDay() - 7);
-        d.setHours(0, 0, 0, 0);
-        startDate = d;
-        break;
-      }
-      case 'this_month':
-        startDate = new Date(
-          new Date().getFullYear(),
-          new Date().getMonth(),
-          1
-        );
-        break;
-      case 'last_month':
-        startDate = new Date(
-          new Date().getFullYear(),
-          new Date().getMonth() - 1,
-          1
-        );
-        break;
-      case 'this_year':
-        startDate = new Date(year, 0, 1);
-        break;
-      case 'last_year':
-        startDate = new Date(year - 1, 0, 1);
-        break;
-      case 'custom':
-        startDate = customStart;
-        break;
-      default:
-        startDate = new Date(year, 0, 1);
-    }
-    return startDate;
-  };
-
-  const getEndDate = (
-    filter: DateFilter,
-    year: number,
-    _customStart: Date,
-    customEnd: Date
-  ): Date => {
-    let endDate: Date;
-
-    switch (filter) {
-      case 'today': {
-        const d = new Date();
-        d.setHours(23, 59, 59, 999);
-        endDate = d;
-        break;
-      }
-      case 'yesterday': {
-        const d = new Date();
-        d.setDate(d.getDate() - 1);
-        d.setHours(23, 59, 59, 999);
-        endDate = d;
-        break;
-      }
-      case 'this_week':
-        endDate = new Date();
-        break;
-      case 'last_week': {
-        const d = new Date();
-        d.setDate(d.getDate() - d.getDay() - 7 + 6);
-        d.setHours(23, 59, 59, 999);
-        endDate = d;
-        break;
-      }
-      case 'this_month':
-        endDate = new Date();
-        break;
-      case 'last_month':
-        endDate = new Date(new Date().getFullYear(), new Date().getMonth(), 0);
-        break;
-      case 'this_year':
-        endDate = new Date(year, 11, 31, 23, 59, 59);
-        break;
-      case 'last_year':
-        endDate = new Date(year - 1, 11, 31, 23, 59, 59);
-        break;
-      case 'custom':
-        endDate = customEnd;
-        break;
-      default:
-        endDate = new Date(year, 11, 31, 23, 59, 59);
-    }
-    return endDate;
-  };
-
-  // Fetch analytics data — uses cached merchant from useMerchant()
+  const range = resolveAnalyticsDateRange(
+    dateFilter,
+    selectedYear,
+    customStartDate,
+    customEndDate
+  );
   const [isRefreshing, setIsRefreshing] = useState(false);
   const {
     data: analytics,
     isLoading: isAnalyticsLoading,
     refetch: refetchAnalytics,
-  } = useQuery<AnalyticsData>({
-    queryKey: [
-      'analytics',
-      merchant?.id,
-      dateFilter,
-      selectedYear,
-      customStartDate,
-      customEndDate,
-    ],
-    queryFn: async () => {
-      if (!merchant?.id) throw new Error('No merchant found');
-
-      const startDate = getStartDate(
-        dateFilter,
-        selectedYear,
-        customStartDate,
-        customEndDate
-      );
-      const endDate = getEndDate(
-        dateFilter,
-        selectedYear,
-        customStartDate,
-        customEndDate
-      );
-
-      // Fetch orders for the period
-      const { data: orders } = await supabase
-        .from('orders')
-        .select(
-          'id, total, tax_amount, payment_status, payment_method, created_at'
-        )
-        .eq('merchant_id', merchant.id)
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', endDate.toISOString());
-
-      const paidOrders =
-        orders?.filter((o) => o.payment_status === 'paid') || [];
-      const revenue = paidOrders.reduce((sum, o) => sum + (o.total || 0), 0);
-      const sales = paidOrders.length;
-      const avgOrderValue = sales > 0 ? revenue / sales : 0;
-      const vatDue = paidOrders.reduce(
-        (sum, o) => sum + (o.tax_amount || 0),
-        0
-      );
-
-      // Calculate monthly breakdown for sparklines
-      const months = [
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dec',
-      ];
-      const monthlyRevenue = new Array(12).fill(0);
-      const monthlySales = new Array(12).fill(0);
-      const monthlyVAT = new Array(12).fill(0);
-
-      paidOrders.forEach((order) => {
-        const month = new Date(order.created_at).getMonth();
-        monthlyRevenue[month] += order.total || 0;
-        monthlySales[month] += 1;
-        monthlyVAT[month] += order.tax_amount || 0;
-      });
-
-      // Find best months
-      const maxRevenueMonth = monthlyRevenue.indexOf(
-        Math.max(...monthlyRevenue)
-      );
-      const maxSalesMonth = monthlySales.indexOf(Math.max(...monthlySales));
-      const monthlyAOV = monthlyRevenue.map((rev, i) =>
-        monthlySales[i] > 0 ? rev / monthlySales[i] : 0
-      );
-      const maxAOVMonth = monthlyAOV.indexOf(Math.max(...monthlyAOV));
-
-      // Payment method breakdown
-      const paymentMethods: Record<string, number> = {};
-      paidOrders.forEach((order) => {
-        const method = order.payment_method || 'Unknown';
-        paymentMethods[method] = (paymentMethods[method] || 0) + 1;
-      });
-      const topMethod = Object.entries(paymentMethods).sort(
-        (a, b) => b[1] - a[1]
-      )[0];
-      const topPaymentMethod = topMethod
-        ? {
-            method: topMethod[0],
-            percentage: sales > 0 ? (topMethod[1] / sales) * 100 : 0,
-          }
-        : { method: 'N/A', percentage: 0 };
-
-      // Top product, Top Brand & Profit Calculation
-      const { data: topProductData } = await supabase
-        .from('order_items')
-        .select(`
-          quantity,
-          price,
-          products!inner(name, cost_price, brand),
-          orders!inner(merchant_id, payment_status, created_at)
-        `)
-        .eq('orders.merchant_id', merchant.id)
-        .eq('orders.payment_status', 'paid')
-        .gte('orders.created_at', startDate.toISOString())
-        .lte('orders.created_at', endDate.toISOString());
-
-      let totalProfit = 0;
-      const monthlyProfit = new Array(12).fill(0);
-      const productRevenue: Record<string, { name: string; revenue: number }> =
-        {};
-      const brandRevenue: Record<string, { name: string; revenue: number }> =
-        {};
-
-      topProductData?.forEach((item) => {
-        const productData = item.products as {
-          name: string;
-          brand: string;
-          cost_price: number;
-        }[];
-        const product = Array.isArray(productData)
-          ? productData[0]
-          : productData;
-        const name = product.name as string;
-        const brand = (product.brand as string) || 'Unknown';
-        const cost = (product.cost_price as number) || 0;
-        const price = item.price || 0;
-        const qty = item.quantity || 1;
-        const itemRevenue = qty * price;
-
-        // Calculate Profit: (Price - Cost) * Quantity
-        const profitValue = (price - cost) * qty;
-        totalProfit += profitValue;
-
-        // Add to monthly profit
-        const orderData = item.orders as unknown as { created_at: string };
-        if (orderData?.created_at) {
-          const month = new Date(orderData.created_at).getMonth();
-          monthlyProfit[month] += profitValue;
-        }
-
-        if (productRevenue[name]) {
-          productRevenue[name].revenue += itemRevenue;
-        } else {
-          productRevenue[name] = { name, revenue: itemRevenue };
-        }
-
-        if (brandRevenue[brand]) {
-          brandRevenue[brand].revenue += itemRevenue;
-        } else {
-          brandRevenue[brand] = { name: brand, revenue: itemRevenue };
-        }
-      });
-
-      const topProduct =
-        Object.values(productRevenue).sort(
-          (a, b) => b.revenue - a.revenue
-        )[0] || null;
-      const topBrand =
-        Object.values(brandRevenue).sort((a, b) => b.revenue - a.revenue)[0] ||
-        null;
-
-      // Top customer
-      const { data: customerData } = await supabase
-        .from('orders')
-        .select('customer_id, total, customers!inner(first_name, last_name)')
-        .eq('merchant_id', merchant.id)
-        .eq('payment_status', 'paid')
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', endDate.toISOString());
-
-      const customerPurchases: Record<
-        string,
-        { name: string; purchases: number }
-      > = {};
-      customerData?.forEach((order) => {
-        const customer = Array.isArray(order.customers)
-          ? order.customers[0]
-          : order.customers;
-        if (!customer) return;
-        const name =
-          `${customer.first_name} ${customer.last_name}`.trim() || 'Guest';
-        if (!customerPurchases[name])
-          customerPurchases[name] = { name, purchases: 0 };
-        customerPurchases[name].purchases += 1;
-      });
-      const topCustomer =
-        Object.values(customerPurchases).sort(
-          (a, b) => b.purchases - a.purchases
-        )[0] || null;
-
-      return {
-        revenue,
-        sales,
-        avgTicketSize: avgOrderValue, // Keeping key for now but value is updated
-        salesTax: vatDue, // Mapped to salesTax for now, but UI will show 'VAT Due'
-        profit: totalProfit,
-        bestMonthRevenue: months[maxRevenueMonth],
-        bestMonthSales: months[maxSalesMonth],
-        bestMonthAOV: months[maxAOVMonth],
-        topPaymentMethod,
-        topProduct,
-        topBrand,
-        topCustomer,
-        monthlyRevenue,
-        monthlySales,
-        monthlyProfit,
-        monthlyVAT,
-      };
-    },
-    enabled: !!merchant?.id,
-  });
+  } = useAnalyticsOverview(range);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -480,9 +124,43 @@ export default function AnalyticsScreen() {
   };
 
   const getFilterLabel = () => {
-    return (
-      DATE_FILTERS.find((f) => f.value === dateFilter)?.label || 'This year'
-    );
+    return getAnalyticsFilterLabel(dateFilter);
+  };
+
+  const chartRevenue = analytics?.chartData.map((point) => point.revenue) ?? [];
+  const chartOrders = analytics?.chartData.map((point) => point.orders ?? 0) ?? [];
+  const chartProfit = analytics?.chartData.map((point) => point.profit ?? 0) ?? [];
+  const chartTax = analytics?.chartData.map((point) => point.tax ?? 0) ?? [];
+  const chartAov =
+    analytics?.chartData.map((point) =>
+      point.orders ? point.revenue / point.orders : 0
+    ) ?? [];
+
+  const buildAnalyticsParams = () => ({
+    endDate: range.endDate.toISOString(),
+    filterLabel: getFilterLabel(),
+    startDate: range.startDate.toISOString(),
+  });
+
+  const pushMetricDetail = (metric: string) => {
+    router.push({
+      pathname: '/analytics/[metric]',
+      params: { metric, ...buildAnalyticsParams() },
+    });
+  };
+
+  const pushInsightDetail = (kind: string) => {
+    router.push({
+      pathname: '/analytics/insights',
+      params: { kind, ...buildAnalyticsParams() },
+    });
+  };
+
+  const pushProducts = () => {
+    router.push({
+      pathname: '/analytics/products',
+      params: buildAnalyticsParams(),
+    });
   };
 
   const MetricRow = ({
@@ -707,53 +385,67 @@ export default function AnalyticsScreen() {
           {/* Metrics */}
           <MetricRow
             label="Revenue"
-            value={formatCompactCurrency(analytics?.revenue ?? 0)}
-            subtitle={`Best month: ${analytics?.bestMonthRevenue ?? 'N/A'}`}
-            sparklineData={analytics?.monthlyRevenue}
-            onPress={() => router.push('/analytics/revenue')}
+            value={formatCompactCurrency(analytics?.summary.revenue.value ?? 0)}
+            subtitle={`${analytics?.summary.sales.value ?? 0} paid orders`}
+            sparklineData={chartRevenue}
+            onPress={() => pushMetricDetail('revenue')}
           />
 
           <MetricRow
             label="Sales"
-            value={String(analytics?.sales ?? 0)}
-            subtitle={`Best month: ${analytics?.bestMonthSales ?? 'N/A'}`}
-            sparklineData={analytics?.monthlySales}
-            onPress={() => router.push('/analytics/sales')}
+            value={String(analytics?.summary.sales.value ?? 0)}
+            subtitle={`${analytics?.summary.totalUnitsSold ?? 0} units sold`}
+            sparklineData={chartOrders}
+            onPress={() => pushMetricDetail('sales')}
           />
 
           <MetricRow
             label="Average Order Value"
-            value={formatCompactCurrency(analytics?.avgTicketSize ?? 0)}
-            subtitle={`Best month: ${analytics?.bestMonthAOV ?? 'N/A'}`}
-            sparklineData={analytics?.monthlyRevenue.map(
-              (rev: number, i: number) =>
-                analytics?.monthlySales[i] ? rev / analytics.monthlySales[i] : 0
-            )}
-            onPress={() => router.push('/analytics/aov')}
+            value={formatCompactCurrency(analytics?.summary.aov.value ?? 0)}
+            subtitle={`${analytics?.summary.customers.value ?? 0} buying customers`}
+            sparklineData={chartAov}
+            onPress={() => pushMetricDetail('aov')}
           />
 
           <MetricRow
             label="Profits"
-            value={formatCompactCurrency(analytics?.profit ?? 0)}
-            subtitle="Net profit"
-            sparklineData={analytics?.monthlyProfit}
-            onPress={() => router.push('/analytics/profits')}
+            value={formatCompactCurrency(analytics?.summary.profit.value ?? 0)}
+            subtitle={`${(analytics?.summary.grossMargin.value ?? 0).toFixed(1)}% gross margin`}
+            sparklineData={chartProfit}
+            onPress={() => pushMetricDetail('profits')}
           />
 
           <MetricRow
             label="VAT Due"
-            value={formatCompactCurrency(analytics?.salesTax ?? 0)}
+            value={formatCompactCurrency(analytics?.summary.taxDue.value ?? 0)}
             subtitle="Calculated VAT"
-            sparklineData={analytics?.monthlyVAT}
-            onPress={() => router.push('/analytics/vat')}
+            sparklineData={chartTax}
+            onPress={() => pushMetricDetail('vat')}
+          />
+
+          <MetricRow
+            label="Gross Margin"
+            value={`${(analytics?.summary.grossMargin.value ?? 0).toFixed(1)}%`}
+            subtitle={formatCompactCurrency(analytics?.summary.profit.value ?? 0)}
+            showCircle
+            circlePercentage={analytics?.summary.grossMargin.value ?? 0}
+            onPress={() => pushMetricDetail('profits')}
           />
 
           <MetricRow
             label="Payment method"
-            value={`${(analytics?.topPaymentMethod.percentage ?? 0).toFixed(2)}%`}
-            subtitle={`Paid by ${analytics?.topPaymentMethod.method ?? 'N/A'}`}
+            value={`${(analytics?.topPaymentMethod?.value ?? 0).toFixed(1)}%`}
+            subtitle={`Paid by ${analytics?.topPaymentMethod?.name ?? 'N/A'}`}
             showCircle
-            circlePercentage={analytics?.topPaymentMethod.percentage ?? 0}
+            circlePercentage={analytics?.topPaymentMethod?.value ?? 0}
+            onPress={() => pushInsightDetail('payment-methods')}
+          />
+
+          <MetricRow
+            label="Blog Views"
+            value={(analytics?.blog.totalViews ?? 0).toLocaleString('en-NG')}
+            subtitle={`${analytics?.blog.publishedPosts ?? 0} published posts`}
+            onPress={() => pushInsightDetail('blog')}
           />
 
           {/* Top Items */}
@@ -761,16 +453,17 @@ export default function AnalyticsScreen() {
             <TopItemRow
               label="Top Vendor"
               name={analytics.topBrand.name}
-              subtitle={`#1 in Sales: ${formatCompactCurrency(analytics.topBrand.revenue)}`}
+              subtitle={`#1 in Sales: ${formatCompactCurrency(analytics.topBrand.revenue ?? 0)}`}
+              onPress={() => pushInsightDetail('brands')}
             />
           )}
 
-          {analytics?.topProduct && (
+          {analytics?.topProducts?.[0] && (
             <TopItemRow
               label="Top products"
-              name={analytics.topProduct.name}
-              subtitle={`#1 in Sales: ${formatCompactCurrency(analytics.topProduct.revenue)}`}
-              onPress={() => router.push('/analytics/products')} // Placeholder route
+              name={analytics.topProducts[0].name}
+              subtitle={`#1 in Sales: ${formatCompactCurrency(analytics.topProducts[0].revenue)}`}
+              onPress={pushProducts}
             />
           )}
 
@@ -778,7 +471,8 @@ export default function AnalyticsScreen() {
             <TopItemRow
               label="Top customers"
               name={analytics.topCustomer.name}
-              subtitle={`#1 in Purchases: ${analytics.topCustomer.purchases} Orders`}
+              subtitle={`#1 in Purchases: ${analytics.topCustomer.value} orders`}
+              onPress={() => pushInsightDetail('customers')}
             />
           )}
 
@@ -1028,18 +722,8 @@ export default function AnalyticsScreen() {
           analyticsData={analytics}
           merchantId={merchant.id}
           merchantName={merchant?.business_name || 'My Store'}
-          startDate={getStartDate(
-            dateFilter,
-            selectedYear,
-            customStartDate,
-            customEndDate
-          )}
-          endDate={getEndDate(
-            dateFilter,
-            selectedYear,
-            customStartDate,
-            customEndDate
-          )}
+          startDate={range.startDate}
+          endDate={range.endDate}
         />
       )}
     </>

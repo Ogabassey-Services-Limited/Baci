@@ -43,6 +43,8 @@ interface AnalyticsSummary {
   sales: MetricData;
   activeNow: MetricData;
   aov?: MetricData;
+  profit?: MetricData;
+  taxDue?: MetricData;
   grossMargin?: MetricData;
   ltv?: MetricData;
   refundRate?: MetricData;
@@ -595,14 +597,12 @@ export function DraggableAnalyticsGrid({
     sales: { value: 0, change: 0 },
     activeNow: { value: 0, change: 0 },
     aov: { value: 0, change: 0 },
+    profit: { value: 0, change: 0 },
+    taxDue: { value: 0, change: 0 },
     grossMargin: { value: 0, change: 0 },
     ltv: { value: 0, change: 0 },
     refundRate: { value: 0, change: 0 },
   };
-
-  // Mock data for finance cards (since API doesn't return these yet)
-  const profit = { value: summary.revenue.value * 0.25, change: 12.5 }; // 25% margin
-  const taxDue = { value: summary.revenue.value * 0.1, change: 5.2 }; // 10% tax
 
   const formatCurrency = (value: number) => {
     const country = merchant?.country
@@ -717,11 +717,11 @@ export function DraggableAnalyticsGrid({
           {isWidgetVisible('summary-profit') &&
             renderMetricCard(
               'summary-profit',
-              'Net Profit (Est.) 📈',
-              formatCurrency(profit.value),
-              profit.change,
+              'Net Profit 📈',
+              formatCurrency(summary.profit?.value || 0),
+              summary.profit?.change || 0,
               DollarSign,
-              'up'
+              (summary.profit?.change || 0) >= 0 ? 'up' : 'down'
             )}
           {isWidgetVisible('summary-customers') &&
             renderMetricCard(
@@ -735,11 +735,11 @@ export function DraggableAnalyticsGrid({
           {isWidgetVisible('summary-tax') &&
             renderMetricCard(
               'summary-tax',
-              'Tax Due (Est.) 🏛️',
-              formatCurrency(taxDue.value),
-              taxDue.change,
+              'Tax Due 🏛️',
+              formatCurrency(summary.taxDue?.value || 0),
+              summary.taxDue?.change || 0,
               DollarSign,
-              'down'
+              (summary.taxDue?.change || 0) <= 0 ? 'up' : 'down'
             )}
           {isWidgetVisible('summary-active') &&
             renderMetricCard(
@@ -1324,20 +1324,20 @@ export function DraggableAnalyticsGrid({
           {isWidgetVisible('summary-profit') &&
             renderMetricCard(
               'summary-profit',
-              'Net Profit (Est.) 📈',
-              formatCurrency(profit.value),
-              profit.change,
+              'Net Profit 📈',
+              formatCurrency(summary.profit?.value || 0),
+              summary.profit?.change || 0,
               DollarSign,
-              'up'
+              (summary.profit?.change || 0) >= 0 ? 'up' : 'down'
             )}
           {isWidgetVisible('summary-tax') &&
             renderMetricCard(
               'summary-tax',
-              'Tax Due (Est.) 🏛️',
-              formatCurrency(taxDue.value),
-              taxDue.change,
+              'Tax Due 🏛️',
+              formatCurrency(summary.taxDue?.value || 0),
+              summary.taxDue?.change || 0,
               DollarSign,
-              'down'
+              (summary.taxDue?.change || 0) <= 0 ? 'up' : 'down'
             )}
 
           {isWidgetVisible('payment-methods') && (

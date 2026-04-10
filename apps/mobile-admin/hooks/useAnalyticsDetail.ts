@@ -5,6 +5,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
+import { getPreviousAnalyticsDateRange } from '@/lib/analytics-period';
 import { supabase } from '@/lib/supabase';
 import { useMerchant } from './useMerchant';
 
@@ -49,8 +50,8 @@ export interface TimeSeriesDataPoint {
 
 export interface AnalyticsDetailData {
   metric: MetricType;
-  year: number;
   granularity: Granularity;
+  rangeLabel: string;
   total: number;
   comparisonTotal?: number;
   percentChange?: number;
@@ -81,9 +82,11 @@ const HOURS = Array.from(
 );
 
 interface UseAnalyticsDetailOptions {
+  endDate: string;
+  filterLabel: string;
   metric: MetricType;
-  year: number;
   granularity: Granularity;
+  startDate: string;
   includeComparison?: boolean;
 }
 
@@ -97,9 +100,11 @@ const getJoinedRecord = <T>(
 };
 
 export function useAnalyticsDetail({
+  endDate,
+  filterLabel,
   metric,
-  year,
   granularity,
+  startDate,
   includeComparison = false,
 }: UseAnalyticsDetailOptions) {
   const { merchant } = useMerchant();
@@ -109,15 +114,16 @@ export function useAnalyticsDetail({
       'analytics-detail',
       merchant?.id,
       metric,
-      year,
       granularity,
+      startDate,
+      endDate,
       includeComparison,
     ],
     queryFn: async () => {
       if (!merchant?.id) throw new Error('No merchant found');
 
-      const startDate = new Date(year, 0, 1);
-      const endDate = new Date(year, 11, 31, 23, 59, 59);
+      const startDateValue = new Date(startDate);
+      const endDateValue = new Date(endDate);
 
       // Fetch orders and order items concurrently
       const [
@@ -129,8 +135,8 @@ export function useAnalyticsDetail({
           .select('id, total, tax_amount, payment_status, created_at')
           .eq('merchant_id', merchant.id)
           .eq('payment_status', 'paid')
-          .gte('created_at', startDate.toISOString())
-          .lte('created_at', endDate.toISOString()),
+          .gte('created_at', startDateValue.toISOString())
+          .lte('created_at', endDateValue.toISOString()),
         supabase
           .from('order_items')
           .select(`
@@ -141,8 +147,8 @@ export function useAnalyticsDetail({
                 `)
           .eq('orders.merchant_id', merchant.id)
           .eq('orders.payment_status', 'paid')
-          .gte('orders.created_at', startDate.toISOString())
-          .lte('orders.created_at', endDate.toISOString())
+          .gte('orders.created_at', startDateValue.toISOString())
+          .lte('orders.created_at', endDateValue.toISOString())
       ]);
 
       if (ordersError) {
@@ -260,9 +266,12 @@ export function useAnalyticsDetail({
       let percentChange: number | undefined;
 
       if (includeComparison) {
-        const prevYear = year - 1;
-        const prevStartDate = new Date(prevYear, 0, 1);
-        const prevEndDate = new Date(prevYear, 11, 31, 23, 59, 59);
+        const previousRange = getPreviousAnalyticsDateRange({
+          endDate: endDateValue,
+          startDate: startDateValue,
+        });
+        const prevStartDate = previousRange.startDate;
+        const prevEndDate = previousRange.endDate;
 
         const prevOrdersQuery = supabase
           .from('orders')
@@ -408,8 +417,8 @@ export function useAnalyticsDetail({
 
       return {
         metric,
-        year,
         granularity,
+        rangeLabel: filterLabel,
         total,
         comparisonTotal,
         percentChange,

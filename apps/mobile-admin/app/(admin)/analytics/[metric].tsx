@@ -171,30 +171,40 @@ function BarChart({
 export default function AnalyticsDetailScreen() {
   const { colors, isDark } = useTheme();
   const router = useRouter();
-  const { metric: metricParam } = useLocalSearchParams<{ metric: string }>();
+  const {
+    endDate,
+    filterLabel,
+    metric: metricParam,
+    startDate,
+  } = useLocalSearchParams<{
+    endDate?: string;
+    filterLabel?: string;
+    metric: string;
+    startDate?: string;
+  }>();
   const metric = (metricParam as MetricType) || 'revenue';
 
-  const [year, setYear] = useState(new Date().getFullYear());
   const [granularity, setGranularity] = useState<Granularity>('month');
   const [showComparison, setShowComparison] = useState(false);
   const [selectedBarIndex, setSelectedBarIndex] = useState<number | null>(null);
 
   const { data: analyticsData, isLoading } = useAnalyticsDetail({
+    endDate: endDate ?? new Date().toISOString(),
+    filterLabel: filterLabel ?? 'Selected period',
     metric,
-    year,
     granularity,
+    startDate: startDate ?? new Date().toISOString(),
     includeComparison: showComparison,
   });
 
   const config = METRIC_CONFIG[metric];
-  const currentYear = new Date().getFullYear();
 
   const handleShare = async () => {
     if (!analyticsData) return;
 
-    const summary = `${config.title} for ${year}: ${formatCurrency(analyticsData.total)}${
+    const summary = `${config.title} for ${analyticsData.rangeLabel}: ${formatCurrency(analyticsData.total)}${
       analyticsData.percentChange !== undefined
-        ? ` (${analyticsData.percentChange >= 0 ? '+' : ''}${analyticsData.percentChange.toFixed(1)}% vs ${year - 1})`
+        ? ` (${analyticsData.percentChange >= 0 ? '+' : ''}${analyticsData.percentChange.toFixed(1)}% vs previous period)`
         : ''
     }`;
 
@@ -205,14 +215,6 @@ export default function AnalyticsDetailScreen() {
     } catch (error) {
       console.error('Share failed:', error);
     }
-  };
-
-  const handlePrevYear = () => {
-    if (year > 2020) setYear((y) => y - 1);
-  };
-
-  const handleNextYear = () => {
-    if (year < currentYear) setYear((y) => y + 1);
   };
 
   // Highlight row in table when bar is selected
@@ -265,20 +267,13 @@ export default function AnalyticsDetailScreen() {
           </View>
         )}
 
-        {/* Year Selector */}
+        {/* Period Selector */}
         <View
           style={[
             styles.yearSelector,
             { backgroundColor: colors.card, borderColor: colors.border },
           ]}
         >
-          <Pressable onPress={handlePrevYear} disabled={year <= 2020}>
-            <Ionicons
-              name="chevron-back"
-              size={24}
-              color={year <= 2020 ? colors.textMuted : colors.text}
-            />
-          </Pressable>
           <View style={styles.yearDisplay}>
             <Ionicons
               name="calendar-outline"
@@ -286,16 +281,9 @@ export default function AnalyticsDetailScreen() {
               color={colors.textSecondary}
             />
             <Text style={[styles.yearText, { color: colors.text }]}>
-              {year}
+              {filterLabel ?? 'Selected period'}
             </Text>
           </View>
-          <Pressable onPress={handleNextYear} disabled={year >= currentYear}>
-            <Ionicons
-              name="chevron-forward"
-              size={24}
-              color={year >= currentYear ? colors.textMuted : colors.text}
-            />
-          </Pressable>
         </View>
 
         {/* Granularity Tabs */}
@@ -400,7 +388,7 @@ export default function AnalyticsDetailScreen() {
             <Text
               style={[styles.comparisonText, { color: colors.textSecondary }]}
             >
-              Compare vs {year - 1}
+              Compare vs previous period
             </Text>
           </Pressable>
 
