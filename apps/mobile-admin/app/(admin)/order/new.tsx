@@ -1517,7 +1517,7 @@ export default function NewOrderScreen() {
         presentationStyle="pageSheet"
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={24}
           style={{ flex: 1 }}
         >
@@ -1796,7 +1796,7 @@ export default function NewOrderScreen() {
         presentationStyle="pageSheet"
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={24}
           style={{ flex: 1 }}
         >
