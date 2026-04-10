@@ -81,6 +81,7 @@ interface OrderItem {
   name: string;
   quantity: number;
   price: number;
+  condition?: string;
   image_url?: string;
   details?: string;
   is_custom?: boolean;
@@ -304,6 +305,7 @@ export default function NewOrderScreen() {
         name: product.name,
         quantity: 1,
         price: product.price,
+        condition: product.condition ?? undefined,
         image_url: product.images?.[0],
       })
     );
@@ -528,6 +530,7 @@ export default function NewOrderScreen() {
           name: sanitizeText(item.name, 200),
           quantity: item.quantity,
           price: item.price,
+          condition: item.condition ?? null,
           item_description: item.details
             ? sanitizeText(item.details, 1000)
             : null,

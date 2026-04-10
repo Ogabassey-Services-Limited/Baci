@@ -16,7 +16,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { getClientCsrfToken } from '@/lib/csrf';
+import { fetchWithCsrf } from '@/lib/api-client';
 
 const updateConsignmentSchema = z
   .object({
@@ -111,13 +111,8 @@ export function UpdateConsignmentForm({
     abortControllerRef.current = controller;
 
     try {
-      const csrfToken = getClientCsrfToken();
-      const res = await fetch('/api/marketplace/jumia/consignment', {
+      const res = await fetchWithCsrf('/api/marketplace/jumia/consignment', {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(csrfToken && { 'x-csrf-token': csrfToken }),
-        },
         signal: controller.signal,
         body: JSON.stringify({
           integrationId,

@@ -126,4 +126,21 @@ describe('orderCreateSchema', () => {
       expect(result.data.selected_quote_id).toBe(selectedQuoteId);
     }
   });
+
+  it('normalizes item condition values', () => {
+    const result = orderCreateSchema.safeParse({
+      ...validOrder,
+      items: [
+        {
+          ...validOrder.items[0],
+          condition: 'Open Box',
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.items[0].condition).toBe('open_box');
+    }
+  });
 });

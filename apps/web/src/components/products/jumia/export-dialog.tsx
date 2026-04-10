@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { getClientCsrfToken } from '@/lib/csrf';
+import { fetchWithCsrf } from '@/lib/api-client';
 import { sanitizeText, stripHtmlTags } from '@/lib/sanitize-core';
 import { JumiaBrandSelector } from './brand-selector';
 import { JumiaCategorySelector } from './category-selector';
@@ -115,15 +115,13 @@ export function ExportToJumiaDialog({
         ],
       };
 
-      const csrfToken = getClientCsrfToken();
-      const res = await fetch('/api/marketplace/jumia/products/export', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(csrfToken && { 'x-csrf-token': csrfToken }),
-        },
-        body: JSON.stringify(payload),
-      });
+      const res = await fetchWithCsrf(
+        '/api/marketplace/jumia/products/export',
+        {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        }
+      );
 
       if (!res.ok) {
         let message = res.statusText || 'Export failed';

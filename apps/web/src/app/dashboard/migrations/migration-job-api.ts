@@ -4,7 +4,7 @@ import type {
   ImportJobRowsResponse,
   MigrationPreviewFilter,
 } from '@/app/dashboard/migrations/migration-types';
-import { buildCsrfHeaders } from '@/lib/csrf';
+import { fetchWithCsrf } from '@/lib/api-client';
 import { createClient } from '@/lib/supabase/client';
 import type {
   ImportJobEntityType,
@@ -71,12 +71,8 @@ export async function createImportJob(input: {
   file: File;
   sourcePlatform: ImportJobSourcePlatform;
 }): Promise<ImportJobListItem> {
-  const initResponse = await fetch('/api/import-jobs/upload-init', {
+  const initResponse = await fetchWithCsrf('/api/import-jobs/upload-init', {
     method: 'POST',
-    headers: {
-      ...buildCsrfHeaders(),
-      'content-type': 'application/json',
-    },
     body: JSON.stringify({
       sourcePlatform: input.sourcePlatform,
       entityType: input.entityType,
@@ -120,12 +116,8 @@ export async function createImportJob(input: {
     throw new Error(uploadError.message || 'Failed to upload CSV file');
   }
 
-  const finalizeResponse = await fetch('/api/import-jobs/finalize', {
+  const finalizeResponse = await fetchWithCsrf('/api/import-jobs/finalize', {
     method: 'POST',
-    headers: {
-      ...buildCsrfHeaders(),
-      'content-type': 'application/json',
-    },
     body: JSON.stringify({
       clientUploadId: initPayload.upload.clientUploadId,
     }),
@@ -140,9 +132,8 @@ export async function createImportJob(input: {
 }
 
 export async function postImportJobAction(path: string) {
-  const response = await fetch(path, {
+  const response = await fetchWithCsrf(path, {
     method: 'POST',
-    headers: buildCsrfHeaders(),
   });
   const payload = await response.json();
 
@@ -152,9 +143,8 @@ export async function postImportJobAction(path: string) {
 }
 
 async function createImportJobMultipart(formData: FormData) {
-  const response = await fetch('/api/import-jobs', {
+  const response = await fetchWithCsrf('/api/import-jobs', {
     method: 'POST',
-    headers: buildCsrfHeaders(),
     body: formData,
   });
   const payload = await response.json();

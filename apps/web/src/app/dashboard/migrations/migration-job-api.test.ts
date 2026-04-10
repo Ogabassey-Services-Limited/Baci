@@ -14,8 +14,20 @@ import type {
 } from '@/app/dashboard/migrations/migration-types';
 import { createClient } from '@/lib/supabase/client';
 
-vi.mock('@/lib/csrf', () => ({
-  buildCsrfHeaders: vi.fn(() => ({ 'x-csrf-token': 'token' })),
+vi.mock('@/lib/api-client', () => ({
+  fetchWithCsrf: vi.fn((url: string, options: RequestInit = {}) => {
+    const headers = new Headers(options.headers);
+    if (options.body && typeof options.body === 'string') {
+      headers.set('content-type', 'application/json');
+    }
+    headers.set('x-csrf-token', 'token');
+
+    return fetch(url, {
+      ...options,
+      headers: Object.fromEntries(headers.entries()),
+      credentials: 'include',
+    });
+  }),
 }));
 
 vi.mock('@/lib/supabase/client', () => ({

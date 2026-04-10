@@ -8,8 +8,20 @@ vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ toast: mockToast }),
 }));
 
-vi.mock('@/lib/csrf', () => ({
-  getClientCsrfToken: () => 'mock-csrf-token',
+vi.mock('@/lib/api-client', () => ({
+  fetchWithCsrf: vi.fn((url: string, options: RequestInit = {}) => {
+    const headers = new Headers(options.headers);
+    if (options.body && typeof options.body === 'string') {
+      headers.set('Content-Type', 'application/json');
+    }
+    headers.set('x-csrf-token', 'mock-csrf-token');
+
+    return fetch(url, {
+      ...options,
+      headers: Object.fromEntries(headers.entries()),
+      credentials: 'include',
+    });
+  }),
 }));
 
 vi.mock('@/lib/sanitize-core', () => ({
@@ -215,19 +227,16 @@ describe('CreateConsignmentForm', () => {
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
         '/api/marketplace/jumia/consignment',
-        expect.objectContaining({ method: 'POST' })
+        expect.objectContaining({ method: 'POST', credentials: 'include' })
       );
     });
 
     // Verify fetch headers and body
     const fetchMock = vi.mocked(fetch);
     const [, options] = fetchMock.mock.calls[0];
-    expect((options?.headers as Record<string, string>)?.['Content-Type']).toBe(
-      'application/json'
-    );
-    expect((options?.headers as Record<string, string>)?.['x-csrf-token']).toBe(
-      'mock-csrf-token'
-    );
+    const headers = options?.headers as Record<string, string>;
+    expect(headers['content-type']).toBe('application/json');
+    expect(headers['x-csrf-token']).toBe('mock-csrf-token');
     const body = JSON.parse(options?.body as string);
     expect(body).toEqual(
       expect.objectContaining({

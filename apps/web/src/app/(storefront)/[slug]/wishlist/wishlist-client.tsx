@@ -21,7 +21,7 @@ import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useCart } from '@/hooks/use-cart';
 import { useCurrencyWithCountry } from '@/hooks/use-currency';
 import { useToast } from '@/hooks/use-toast';
-import { getClientCsrfToken } from '@/lib/csrf';
+import { fetchWithCsrf } from '@/lib/api-client';
 import type { Product } from '@/lib/products';
 
 interface WishListItem {
@@ -151,12 +151,8 @@ export function WishListPageClient({
   const handleRemoveItem = async (itemId: string, productName: string) => {
     setRemovingItemId(itemId);
     try {
-      const csrfToken = getClientCsrfToken();
-      const response = await fetch(`/api/wishlist?id=${itemId}`, {
+      const response = await fetchWithCsrf(`/api/wishlist?id=${itemId}`, {
         method: 'DELETE',
-        headers: {
-          'x-csrf-token': csrfToken || '',
-        },
       });
 
       if (!response.ok) {
@@ -213,12 +209,8 @@ export function WishListPageClient({
       addToCart(product, 1);
 
       // Remove from wishlist
-      const csrfToken = getClientCsrfToken();
-      const response = await fetch(`/api/wishlist?id=${item.id}`, {
+      const response = await fetchWithCsrf(`/api/wishlist?id=${item.id}`, {
         method: 'DELETE',
-        headers: {
-          'x-csrf-token': csrfToken || '',
-        },
       });
 
       if (response.ok) {
@@ -249,13 +241,8 @@ export function WishListPageClient({
     // Generate a share token by creating a server-side shareable link
     // This avoids exposing email addresses in URLs which is a PII concern
     try {
-      const csrfToken = getClientCsrfToken();
-      const response = await fetch('/api/wishlist/share', {
+      const response = await fetchWithCsrf('/api/wishlist/share', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-csrf-token': csrfToken || '',
-        },
         body: JSON.stringify({ email: customerEmail, merchantSlug }),
       });
 

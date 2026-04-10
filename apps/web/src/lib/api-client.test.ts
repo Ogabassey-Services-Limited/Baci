@@ -23,20 +23,39 @@ describe('fetchWithCsrf', () => {
     }
   });
 
-  it('omits CSRF header for state-changing requests when token is missing', async () => {
+  it('initializes a CSRF token before state-changing requests when token is missing', async () => {
     const fetchSpy = vi
       .spyOn(globalThis, 'fetch')
-      .mockResolvedValue(new Response('{}'));
-    vi.spyOn(csrf, 'getClientCsrfToken').mockReturnValue(null);
+      .mockImplementation((input) => {
+        if (input === '/api/csrf') {
+          return Promise.resolve(new Response('{}', { status: 200 }));
+        }
+
+        return Promise.resolve(new Response('{}'));
+      });
+    const tokenSpy = vi
+      .spyOn(csrf, 'getClientCsrfToken')
+      .mockReturnValueOnce(null)
+      .mockReturnValueOnce('fresh-token');
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
       // Intentionally suppress warning output during this assertion.
     });
 
     await fetchWithCsrf('/api/example', { method: 'POST' });
 
-    const init = fetchSpy.mock.calls[0]?.[1];
+    expect(fetchSpy).toHaveBeenNthCalledWith(
+      1,
+      '/api/csrf',
+      expect.objectContaining({
+        cache: 'no-store',
+        credentials: 'include',
+      })
+    );
+
+    const init = fetchSpy.mock.calls[1]?.[1];
     const headers = new Headers(init?.headers);
-    expect(headers.get(csrf.CSRF_HEADER_NAME)).toBeNull();
+    expect(headers.get(csrf.CSRF_HEADER_NAME)).toBe('fresh-token');
+    expect(tokenSpy).toHaveBeenCalledTimes(2);
     expect(warnSpy).toHaveBeenCalledOnce();
   });
 
@@ -99,5 +118,54 @@ describe('fetchWithCsrf', () => {
     const init = fetchSpy.mock.calls[0]?.[1];
     const headers = new Headers(init?.headers);
     expect(headers.get('content-type')).toBe('application/json');
+  });
+
+  it('retries once after an invalid CSRF response', async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation((input, init) => {
+        if (input === '/api/csrf') {
+          return Promise.resolve(new Response('{}', { status: 200 }));
+        }
+
+        const headers = new Headers(init?.headers);
+        const csrfHeader = headers.get(csrf.CSRF_HEADER_NAME);
+
+        if (csrfHeader === 'stale-token') {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                error: 'Invalid CSRF token',
+                message: 'CSRF token validation failed.',
+              }),
+              {
+                status: 403,
+                headers: { 'Content-Type': 'application/json' },
+              }
+            )
+          );
+        }
+
+        return Promise.resolve(new Response('{}', { status: 200 }));
+      });
+
+    vi.spyOn(csrf, 'getClientCsrfToken')
+      .mockReturnValueOnce('stale-token')
+      .mockReturnValueOnce('fresh-token');
+
+    const response = await fetchWithCsrf('/api/example', { method: 'PATCH' });
+
+    expect(response.status).toBe(200);
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+
+    const firstRequestHeaders = new Headers(
+      fetchSpy.mock.calls[0]?.[1]?.headers
+    );
+    expect(firstRequestHeaders.get(csrf.CSRF_HEADER_NAME)).toBe('stale-token');
+
+    const secondRequestHeaders = new Headers(
+      fetchSpy.mock.calls[2]?.[1]?.headers
+    );
+    expect(secondRequestHeaders.get(csrf.CSRF_HEADER_NAME)).toBe('fresh-token');
   });
 });

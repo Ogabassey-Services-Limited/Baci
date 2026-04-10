@@ -16,8 +16,20 @@ vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ toast: toastMock }),
 }));
 
-vi.mock('@/lib/csrf', () => ({
-  getClientCsrfToken: vi.fn(() => 'mock-csrf-token'),
+vi.mock('@/lib/api-client', () => ({
+  fetchWithCsrf: vi.fn((url: string, options: RequestInit = {}) => {
+    const headers = new Headers(options.headers);
+    if (options.body && typeof options.body === 'string') {
+      headers.set('Content-Type', 'application/json');
+    }
+    headers.set('x-csrf-token', 'mock-csrf-token');
+
+    return fetch(url, {
+      ...options,
+      headers: Object.fromEntries(headers.entries()),
+      credentials: 'include',
+    });
+  }),
 }));
 
 vi.mock('@/components/products/jumia-price-form', () => ({
@@ -228,12 +240,14 @@ describe('JumiaProductOverrides', () => {
 
     // Assert
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
+      expect(fetchMock).toHaveBeenNthCalledWith(
+        2,
         '/api/marketplace/jumia/products/update',
         expect.objectContaining({
           method: 'POST',
+          credentials: 'include',
           headers: expect.objectContaining({
-            'Content-Type': 'application/json',
+            'content-type': 'application/json',
             'x-csrf-token': 'mock-csrf-token',
           }),
         })

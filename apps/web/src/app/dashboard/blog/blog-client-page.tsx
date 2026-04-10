@@ -59,7 +59,7 @@ import {
 import { useDebounce } from '@/hooks/use-debounce';
 import { useMerchantFeatures } from '@/hooks/use-merchant-features';
 import { useToast } from '@/hooks/use-toast';
-import { getClientCsrfToken } from '@/lib/csrf';
+import { fetchWithCsrf } from '@/lib/api-client';
 import { asRoute } from '@/lib/routes';
 import { isSafeSlug } from '@/lib/validate-slug';
 import { getPreviewUrl } from './actions';
@@ -209,16 +209,12 @@ export function BlogClientPage({
     setDeletePostId(null);
 
     try {
-      const deleteHeaders: HeadersInit = {};
-      const deleteCsrf = getClientCsrfToken();
-      if (deleteCsrf) {
-        deleteHeaders['x-csrf-token'] = deleteCsrf;
-      }
-
-      const response = await fetch(`/api/merchant/blog/posts/${idToDelete}`, {
-        method: 'DELETE',
-        headers: deleteHeaders,
-      });
+      const response = await fetchWithCsrf(
+        `/api/merchant/blog/posts/${idToDelete}`,
+        {
+          method: 'DELETE',
+        }
+      );
 
       if (!response.ok) {
         throw new Error('Failed to delete post');
@@ -245,17 +241,13 @@ export function BlogClientPage({
     status: 'draft' | 'published' | 'archived'
   ) => {
     try {
-      const patchHeaders: HeadersInit = { 'Content-Type': 'application/json' };
-      const patchCsrf = getClientCsrfToken();
-      if (patchCsrf) {
-        patchHeaders['x-csrf-token'] = patchCsrf;
-      }
-
-      const response = await fetch(`/api/merchant/blog/posts/${postId}`, {
-        method: 'PATCH',
-        headers: patchHeaders,
-        body: JSON.stringify({ status }),
-      });
+      const response = await fetchWithCsrf(
+        `/api/merchant/blog/posts/${postId}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ status }),
+        }
+      );
 
       if (!response.ok) {
         throw new Error('Failed to update post');

@@ -73,6 +73,7 @@ vi.mock('./actions', () => ({
 }));
 
 vi.mock('@/lib/csrf', () => ({
+  CSRF_HEADER_NAME: 'x-csrf-token',
   getClientCsrfToken: vi.fn(() => 'test-csrf-token'),
 }));
 
@@ -458,13 +459,22 @@ describe('BlogClientPage', () => {
       });
 
       // API should be called
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(global.fetch).toHaveBeenNthCalledWith(
+        2,
         '/api/merchant/blog/posts/post-1',
-        {
-          method: 'DELETE',
-          headers: { 'x-csrf-token': 'test-csrf-token' },
-        }
+        expect.anything()
       );
+
+      const deleteInit = (global.fetch as ReturnType<typeof vi.fn>).mock
+        .calls[1]?.[1];
+      const deleteHeaders = new Headers(deleteInit?.headers);
+      expect(deleteInit).toEqual(
+        expect.objectContaining({
+          method: 'DELETE',
+          credentials: 'include',
+        })
+      );
+      expect(deleteHeaders.get('x-csrf-token')).toBe('test-csrf-token');
 
       // Success toast
       expect(mockToast).toHaveBeenCalledWith(
@@ -586,18 +596,25 @@ describe('BlogClientPage', () => {
       await user.click(publishButton);
 
       await waitFor(() => {
-        expect(global.fetch).toHaveBeenCalledWith(
+        expect(global.fetch).toHaveBeenNthCalledWith(
+          2,
           '/api/merchant/blog/posts/post-2',
-          expect.objectContaining({
-            method: 'PATCH',
-            headers: expect.objectContaining({
-              'Content-Type': 'application/json',
-              'x-csrf-token': 'test-csrf-token',
-            }),
-            body: JSON.stringify({ status: 'published' }),
-          })
+          expect.anything()
         );
       });
+
+      const publishInit = (global.fetch as ReturnType<typeof vi.fn>).mock
+        .calls[1]?.[1];
+      const publishHeaders = new Headers(publishInit?.headers);
+      expect(publishInit).toEqual(
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({ status: 'published' }),
+          credentials: 'include',
+        })
+      );
+      expect(publishHeaders.get('content-type')).toBe('application/json');
+      expect(publishHeaders.get('x-csrf-token')).toBe('test-csrf-token');
 
       expect(mockToast).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -705,18 +722,25 @@ describe('BlogClientPage', () => {
       await user.click(unpublishButton);
 
       await waitFor(() => {
-        expect(global.fetch).toHaveBeenCalledWith(
+        expect(global.fetch).toHaveBeenNthCalledWith(
+          2,
           '/api/merchant/blog/posts/post-1',
-          expect.objectContaining({
-            method: 'PATCH',
-            headers: expect.objectContaining({
-              'Content-Type': 'application/json',
-              'x-csrf-token': 'test-csrf-token',
-            }),
-            body: JSON.stringify({ status: 'draft' }),
-          })
+          expect.anything()
         );
       });
+
+      const unpublishInit = (global.fetch as ReturnType<typeof vi.fn>).mock
+        .calls[1]?.[1];
+      const unpublishHeaders = new Headers(unpublishInit?.headers);
+      expect(unpublishInit).toEqual(
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({ status: 'draft' }),
+          credentials: 'include',
+        })
+      );
+      expect(unpublishHeaders.get('content-type')).toBe('application/json');
+      expect(unpublishHeaders.get('x-csrf-token')).toBe('test-csrf-token');
 
       expect(mockToast).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -769,18 +793,25 @@ describe('BlogClientPage', () => {
       await user.click(archiveButton);
 
       await waitFor(() => {
-        expect(global.fetch).toHaveBeenCalledWith(
+        expect(global.fetch).toHaveBeenNthCalledWith(
+          2,
           '/api/merchant/blog/posts/post-1',
-          expect.objectContaining({
-            method: 'PATCH',
-            headers: expect.objectContaining({
-              'Content-Type': 'application/json',
-              'x-csrf-token': 'test-csrf-token',
-            }),
-            body: JSON.stringify({ status: 'archived' }),
-          })
+          expect.anything()
         );
       });
+
+      const archiveInit = (global.fetch as ReturnType<typeof vi.fn>).mock
+        .calls[1]?.[1];
+      const archiveHeaders = new Headers(archiveInit?.headers);
+      expect(archiveInit).toEqual(
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({ status: 'archived' }),
+          credentials: 'include',
+        })
+      );
+      expect(archiveHeaders.get('content-type')).toBe('application/json');
+      expect(archiveHeaders.get('x-csrf-token')).toBe('test-csrf-token');
 
       expect(mockToast).toHaveBeenCalledWith(
         expect.objectContaining({

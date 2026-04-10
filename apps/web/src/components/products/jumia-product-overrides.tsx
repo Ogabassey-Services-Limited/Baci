@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { getClientCsrfToken } from '@/lib/csrf';
+import { fetchWithCsrf } from '@/lib/api-client';
 import type { JumiaMapping } from '@/lib/jumia/types';
 
 interface JumiaProductOverridesProps {
@@ -85,31 +85,29 @@ export function JumiaProductOverrides({
 
     setSaving(true);
     try {
-      const csrfToken = getClientCsrfToken();
-      const response = await fetch('/api/marketplace/jumia/products/update', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(csrfToken && { 'x-csrf-token': csrfToken }),
-        },
-        body: JSON.stringify({
-          productId,
-          integrationId,
-          overrides: {
-            jumia_price: overrides.price
-              ? Number.parseFloat(overrides.price)
-              : null,
-            jumia_sale_price: overrides.salePrice
-              ? Number.parseFloat(overrides.salePrice)
-              : null,
-            jumia_sale_start: overrides.saleStart || null,
-            jumia_sale_end: overrides.saleEnd || null,
-            is_active: overrides.isActive,
-            sync_inventory: overrides.syncInventory,
-            sync_price: overrides.syncPrice,
-          },
-        }),
-      });
+      const response = await fetchWithCsrf(
+        '/api/marketplace/jumia/products/update',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            productId,
+            integrationId,
+            overrides: {
+              jumia_price: overrides.price
+                ? Number.parseFloat(overrides.price)
+                : null,
+              jumia_sale_price: overrides.salePrice
+                ? Number.parseFloat(overrides.salePrice)
+                : null,
+              jumia_sale_start: overrides.saleStart || null,
+              jumia_sale_end: overrides.saleEnd || null,
+              is_active: overrides.isActive,
+              sync_inventory: overrides.syncInventory,
+              sync_price: overrides.syncPrice,
+            },
+          }),
+        }
+      );
 
       if (!response.ok) {
         const errData = await response.json();

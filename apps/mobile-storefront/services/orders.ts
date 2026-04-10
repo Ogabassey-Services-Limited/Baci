@@ -46,6 +46,7 @@ const MERCHANT_ID =
 // Order item schema for validation
 const OrderItemSchema = z.object({
   id: z.string(),
+  condition: z.string().optional(),
   product_id: z.string().optional(),
   name: z.string(),
   quantity: z.number().min(1),
@@ -188,6 +189,7 @@ export async function createOrder(
     customer_phone: request.customer_phone,
     items: request.items.map((item) => ({
       id: item.id,
+      condition: item.condition,
       product_id: item.product_id || item.id,
       name: item.name,
       quantity: item.quantity,
@@ -461,7 +463,7 @@ export async function getCustomerOrders(customerId: string) {
   const { data, error } = await supabase
     .from('orders')
     .select(
-      'id, order_number, total, payment_status, shipping_status, created_at, order_items(id, product_id, name, quantity, price, has_assurance)'
+      'id, order_number, total, payment_status, shipping_status, created_at, order_items(id, product_id, condition, name, quantity, price, has_assurance)'
     )
     .eq('customer_id', customerId)
     .eq('merchant_id', MERCHANT_ID)

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { buildCsrfHeaders } from '@/lib/csrf';
+import { fetchWithCsrf } from '@/lib/api-client';
 
 export interface JumiaIntegration {
   id: string;
@@ -73,9 +73,8 @@ export async function connectWithToken(
   shopName: string
 ): Promise<{ ok: boolean; error?: string }> {
   try {
-    const response = await fetch('/api/marketplace/jumia/connect', {
+    const response = await fetchWithCsrf('/api/marketplace/jumia/connect', {
       method: 'POST',
-      headers: buildCsrfHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({
         connectionType: 'self_authorization',
         refreshToken: refreshToken.trim(),
@@ -98,9 +97,9 @@ export async function disconnectIntegration(
   integrationId: string
 ): Promise<{ ok: boolean; error?: string }> {
   try {
-    const response = await fetch(
-      `/api/marketplace/jumia/connect?id=${integrationId}`,
-      { method: 'DELETE', headers: buildCsrfHeaders() }
+    const response = await fetchWithCsrf(
+      `/api/marketplace/jumia/connect?id=${encodeURIComponent(integrationId)}`,
+      { method: 'DELETE' }
     );
     if (!response.ok) {
       return { ok: false, error: 'Failed to disconnect' };
@@ -115,9 +114,9 @@ export async function syncOrders(
   integrationId: string
 ): Promise<{ ok: boolean; message?: string; error?: string }> {
   try {
-    const response = await fetch(
+    const response = await fetchWithCsrf(
       `/api/marketplace/jumia/orders?integrationId=${encodeURIComponent(integrationId)}`,
-      { method: 'POST', headers: buildCsrfHeaders() }
+      { method: 'POST' }
     );
     const data = await response.json();
     if (!response.ok) {
@@ -139,9 +138,9 @@ export async function syncStock(
   integrationId: string
 ): Promise<{ ok: boolean; message?: string; error?: string }> {
   try {
-    const response = await fetch(
+    const response = await fetchWithCsrf(
       `/api/marketplace/jumia/products/stock?integrationId=${encodeURIComponent(integrationId)}`,
-      { method: 'POST', headers: buildCsrfHeaders() }
+      { method: 'POST' }
     );
     const data = await response.json();
     if (!response.ok) {
