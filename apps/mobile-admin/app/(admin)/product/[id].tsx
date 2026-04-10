@@ -1409,6 +1409,7 @@ export default function ProductEditScreen() {
           <KeyboardAwareModalContainer
             align="end"
             contentContainerStyle={styles.modalKeyboardContent}
+            scrollEnabled={false}
           >
             <View
               style={[styles.modalContent, { backgroundColor: colors.card }]}
@@ -1559,6 +1560,7 @@ export default function ProductEditScreen() {
           <KeyboardAwareModalContainer
             align="end"
             contentContainerStyle={styles.modalKeyboardContent}
+            scrollEnabled={false}
           >
             <View
               style={[
