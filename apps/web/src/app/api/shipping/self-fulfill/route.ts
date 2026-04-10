@@ -3,12 +3,13 @@
  * Mark an order as self-fulfilled with merchant's own shipping
  */
 
-import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import {
+  authenticateApiRequest,
+  getMerchantIdForApiUser,
+} from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
-import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { isValidUuid } from '@/lib/sanitize-core';
-import { createClient } from '@/lib/supabase/server';
 import { SelfFulfillmentSchema } from '@/schemas/shipping';
 
 // =============================================================================
@@ -27,27 +28,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-
-    // Authenticate
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) {
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant (supports both owners and staff)
-    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
-    if (!merchantContext) {
+    const merchantId = await getMerchantIdForApiUser(auth.supabase);
+    if (!merchantId) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
-    const merchantId = merchantContext.merchantId;
+    const supabase = auth.supabase;
+    const user = auth.user;
 
     // Fetch self_fulfillment_enabled for this merchant
     const { data: merchantData, error: merchantDataError } = await supabase
@@ -189,27 +183,19 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-
-    // Authenticate
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) {
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant (supports both owners and staff)
-    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
-    if (!merchantContext) {
+    const merchantId = await getMerchantIdForApiUser(auth.supabase);
+    if (!merchantId) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
-    const merchantId = merchantContext.merchantId;
+    const supabase = auth.supabase;
 
     const body = await request.json();
     const { orderId, ...updates } = body;

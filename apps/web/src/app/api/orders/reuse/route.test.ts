@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST } from './route';
 
@@ -10,7 +10,12 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(),
 }));
 
+vi.mock('@/lib/csrf', () => ({
+  checkCsrfProtection: vi.fn(),
+}));
+
 import { cookies } from 'next/headers';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { createClient } from '@/lib/supabase/server';
 
 describe('POST /api/orders/reuse', () => {
@@ -19,6 +24,7 @@ describe('POST /api/orders/reuse', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(cookies).mockResolvedValue({} as never);
+    vi.mocked(checkCsrfProtection).mockResolvedValue({ valid: true });
     vi.mocked(createClient).mockReturnValue({
       rpc: mockRpc,
     } as never);
@@ -77,7 +83,34 @@ describe('POST /api/orders/reuse', () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data.error).toBe('Invalid request data');
+    expect(data).toEqual({
+      error: 'Invalid request data',
+      code: 'validation_error',
+    });
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 when csrf validation fails', async () => {
+    vi.mocked(checkCsrfProtection).mockResolvedValue({
+      valid: false,
+      response: NextResponse.json(
+        { error: 'Invalid CSRF token' },
+        { status: 403 }
+      ),
+    });
+
+    const request = new NextRequest('http://localhost/api/orders/reuse', {
+      method: 'POST',
+      body: JSON.stringify({
+        order_id: '4dc0ee52-d9c4-406a-b6ca-80c84eef6a8f',
+      }),
+    });
+
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(data).toEqual({ error: 'Invalid CSRF token' });
     expect(mockRpc).not.toHaveBeenCalled();
   });
 

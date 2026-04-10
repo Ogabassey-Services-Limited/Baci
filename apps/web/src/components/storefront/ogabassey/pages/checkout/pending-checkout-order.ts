@@ -1,3 +1,4 @@
+import { buildCsrfHeaders } from '@/lib/csrf';
 import type { PaymentMethod } from './types';
 
 export const CHECKOUT_PENDING_ORDER_STORAGE_KEY =
@@ -94,6 +95,12 @@ function normalizeVariantAttributes(attributes?: Record<string, string>) {
   );
 }
 
+/**
+ * Normalizes checkout payment methods to the persisted order values used for
+ * pending-order reuse. Card gateways (`paystack`, `korapay`) are stored as
+ * `card`, methods with distinct downstream handling are persisted as-is, and
+ * anything else falls back to `pod` for pay-on-delivery compatibility.
+ */
 export function normalizeOrderPaymentMethod(paymentMethod: PaymentMethod): string {
   if (paymentMethod === 'paystack' || paymentMethod === 'korapay') {
     return 'card';
@@ -219,7 +226,7 @@ export async function resolvePendingCheckoutOrder({
 
   const reuseResponse = await fetchImpl('/api/orders/reuse', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: buildCsrfHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({
       order_id: pendingOrder.orderId,
       tracking_token: pendingOrder.trackingToken,
@@ -251,7 +258,7 @@ export async function resolvePendingCheckoutOrder({
     reusableOrder: {
       order: reusedOrderData.order,
       amountDueToGateway:
-        pendingOrder.amountDueToGateway ||
+        pendingOrder.amountDueToGateway ??
         Number(existingOrder.total || 0),
     },
     clearStoredOrder: false,

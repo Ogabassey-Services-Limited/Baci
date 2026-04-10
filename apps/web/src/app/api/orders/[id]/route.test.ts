@@ -336,6 +336,69 @@ describe('PATCH /api/orders/[id]', () => {
     expect(payload).toEqual({ order: updatedOrder });
   });
 
+  it('books provider shipment without lock fields when the database lock is unavailable', async () => {
+    const existingOrder: ExistingOrder = {
+      id: 'order-1',
+      order_number: 'BACI-001',
+      shipping_status: 'processing',
+      payment_status: 'paid',
+      is_credit_order: false,
+      customer_id: null,
+      selected_quote_id: 'quote-1',
+      shipping_provider: 'TOPSHIP',
+      tracking_number: null,
+      shipment_id: null,
+    };
+    const updatedOrder: UpdatedOrder = {
+      id: 'order-1',
+      shipping_status: 'shipped',
+      shipping_provider: 'TOPSHIP',
+      tracking_number: 'TRACK-1',
+    };
+    const { supabase, ordersUpdate } = createSupabaseMock(
+      existingOrder,
+      updatedOrder
+    );
+
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+    vi.mocked(claimOrderShipmentBooking).mockResolvedValue({
+      status: 'claimed',
+      lockToken: null,
+    });
+    vi.mocked(bookOrderShipment).mockResolvedValue({
+      shipmentId: 'shipment-1',
+      provider: 'TOPSHIP',
+      providerShipmentId: 'provider-shipment-1',
+      trackingNumber: 'TRACK-1',
+      carrierName: 'Topship',
+      quoteId: 'quote-2',
+      estimatedDays: 2,
+      shipmentStatus: 'booked',
+    });
+
+    const response = await PATCH(
+      createPatchRequest({ shipping_status: 'shipped' }),
+      {
+        params: Promise.resolve({ id: 'order-1' }),
+      }
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(ordersUpdate).toHaveBeenCalledWith({
+      selected_quote_id: 'quote-2',
+      shipment_id: 'shipment-1',
+      shipping_provider: 'TOPSHIP',
+      shipping_status: 'shipped',
+      tracking_number: 'TRACK-1',
+    });
+    expect(payload).toEqual({ order: updatedOrder });
+  });
+
   it('returns booking errors without updating the order', async () => {
     const existingOrder: ExistingOrder = {
       id: 'order-1',

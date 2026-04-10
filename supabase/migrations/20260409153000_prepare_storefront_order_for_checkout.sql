@@ -63,7 +63,7 @@ BEGIN
   INTO v_order
   FROM public.orders o
   WHERE o.id = p_order_id
-  LIMIT 1;
+  FOR UPDATE;
 
   IF v_order.id IS NULL THEN
     RAISE EXCEPTION 'order_not_found';

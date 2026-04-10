@@ -134,6 +134,102 @@ describe('pending-checkout-order', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
+  it('preserves zero gateway amount when reusing an order', async () => {
+    const pendingOrder: PendingCheckoutOrderSnapshot = {
+      orderId: 'order-123',
+      orderNumber: 'ORD-123',
+      trackingToken: 'tracking-token-123',
+      merchantId: 'merchant-1',
+      customerEmail: 'john@example.com',
+      checkoutFingerprint: 'fingerprint-1',
+      amountDueToGateway: 0,
+      createdAt: '2026-04-09T09:00:00.000Z',
+    };
+
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          id: 'order-123',
+          total: 12000,
+          payment_status: 'pending',
+          shipping_status: 'pending',
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          order: {
+            id: 'order-123',
+            order_number: 'ORD-123',
+            tracking_token: 'tracking-token-123',
+          },
+        }),
+      } as Response);
+
+    const result = await resolvePendingCheckoutOrder({
+      pendingOrder,
+      merchantId: 'merchant-1',
+      merchantSlug: 'ogabassey',
+      customerEmail: 'john@example.com',
+      checkoutFingerprint: 'fingerprint-1',
+      paymentMethod: 'card',
+      shippingProvider: 'GIGL',
+      selectedQuoteId: 'quote-1',
+      fetchImpl,
+    });
+
+    expect(result).toEqual({
+      reusableOrder: {
+        order: {
+          id: 'order-123',
+          order_number: 'ORD-123',
+          tracking_token: 'tracking-token-123',
+        },
+        amountDueToGateway: 0,
+      },
+      clearStoredOrder: false,
+    });
+  });
+
+  it('clears the stored order when shipping has been cancelled', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        id: 'order-123',
+        total: 12000,
+        payment_status: 'pending',
+        shipping_status: 'cancelled',
+      }),
+    } as Response);
+
+    const result = await resolvePendingCheckoutOrder({
+      pendingOrder: {
+        orderId: 'order-123',
+        trackingToken: 'tracking-token-123',
+        merchantId: 'merchant-1',
+        customerEmail: 'john@example.com',
+        checkoutFingerprint: 'fingerprint-1',
+        amountDueToGateway: 12000,
+        createdAt: '2026-04-09T09:00:00.000Z',
+      },
+      merchantId: 'merchant-1',
+      merchantSlug: 'ogabassey',
+      customerEmail: 'john@example.com',
+      checkoutFingerprint: 'fingerprint-1',
+      paymentMethod: 'card',
+      shippingProvider: 'GIGL',
+      fetchImpl,
+    });
+
+    expect(result).toEqual({
+      reusableOrder: null,
+      clearStoredOrder: true,
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
   it('clears the stored order when the fingerprint no longer matches', async () => {
     const result = await resolvePendingCheckoutOrder({
       pendingOrder: {

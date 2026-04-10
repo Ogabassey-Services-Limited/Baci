@@ -9,9 +9,7 @@ import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   Alert,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -23,6 +21,7 @@ import {
 } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { KeyboardAwareModalContainer } from '@/components/ui/KeyboardAwareModalContainer';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import {
   useInviteStaff,
@@ -258,7 +257,7 @@ export default function StaffScreen() {
       style: 'destructive',
     });
 
-    actions.push({ text: 'Cancel', style: 'cancel', onPress: () => {} });
+    actions.push({ text: 'Cancel', style: 'cancel' });
 
     Alert.alert(member.name || member.email, undefined, actions);
   };
@@ -379,7 +378,11 @@ export default function StaffScreen() {
               onPress={() => setInviteModalVisible(true)}
               style={[styles.headerButton, { backgroundColor: colors.primary }]}
             >
-              <Ionicons name="person-add" size={18} color={colors.textOnPrimary} />
+              <Ionicons
+                name="person-add"
+                size={18}
+                color={colors.textOnPrimary}
+              />
             </Pressable>
           ),
         }}
@@ -480,8 +483,19 @@ export default function StaffScreen() {
                   ]}
                   onPress={() => setInviteModalVisible(true)}
                 >
-                  <Ionicons name="person-add" size={18} color={colors.textOnPrimary} />
-                  <Text style={[styles.emptyButtonText, { color: colors.textOnPrimary }]}>Invite Team Member</Text>
+                  <Ionicons
+                    name="person-add"
+                    size={18}
+                    color={colors.textOnPrimary}
+                  />
+                  <Text
+                    style={[
+                      styles.emptyButtonText,
+                      { color: colors.textOnPrimary },
+                    ]}
+                  >
+                    Invite Team Member
+                  </Text>
                 </Pressable>
               </View>
             ) : null
@@ -491,123 +505,143 @@ export default function StaffScreen() {
 
         {/* Invite Modal */}
         <Modal visible={inviteModalVisible} animationType="slide" transparent>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.modalOverlay}
-          >
-            <View
-              style={[styles.modalContent, { backgroundColor: colors.card }]}
+          <View style={styles.modalOverlay}>
+            <Pressable
+              style={styles.modalBackdrop}
+              onPress={() => setInviteModalVisible(false)}
+            />
+            <KeyboardAwareModalContainer
+              align="end"
+              contentContainerStyle={styles.modalKeyboardContent}
             >
-              <View style={styles.modalHeader}>
-                <Text style={[styles.modalTitle, { color: colors.text }]}>
-                  Invite Team Member
-                </Text>
-                <Pressable onPress={() => setInviteModalVisible(false)}>
-                  <Ionicons name="close" size={24} color={colors.textMuted} />
-                </Pressable>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text
-                  style={[styles.inputLabel, { color: colors.textSecondary }]}
-                >
-                  Email *
-                </Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: colors.background,
-                      color: colors.text,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                  placeholder="staff@example.com"
-                  placeholderTextColor={colors.textMuted}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  value={inviteEmail}
-                  onChangeText={setInviteEmail}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text
-                  style={[styles.inputLabel, { color: colors.textSecondary }]}
-                >
-                  Name (optional)
-                </Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: colors.background,
-                      color: colors.text,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                  placeholder="John Doe"
-                  placeholderTextColor={colors.textMuted}
-                  value={inviteName}
-                  onChangeText={setInviteName}
-                />
-              </View>
-
-              <Pressable
-                style={styles.toggleRow}
-                onPress={() => setAutoCreateAccount(!autoCreateAccount)}
-                accessibilityRole="togglebutton"
-                accessibilityState={{ checked: autoCreateAccount }}
-                accessibilityLabel="Generate Staff Account"
-                accessibilityHint="Automatically create a NUBAN for this staff member"
+              <View
+                style={[styles.modalContent, { backgroundColor: colors.card }]}
               >
-                <View style={styles.toggleInfo}>
-                  <Text style={[styles.toggleLabel, { color: colors.text }]}>
-                    Generate Staff Account
+                <View style={styles.modalHeader}>
+                  <Text style={[styles.modalTitle, { color: colors.text }]}>
+                    Invite Team Member
                   </Text>
-                  <Text
-                    style={[styles.toggleDesc, { color: colors.textSecondary }]}
-                  >
-                    Automatically create a NUBAN for this staff member
-                  </Text>
+                  <Pressable onPress={() => setInviteModalVisible(false)}>
+                    <Ionicons name="close" size={24} color={colors.textMuted} />
+                  </Pressable>
                 </View>
-                <View
-                  style={[
-                    styles.toggleSwitch,
-                    {
-                      backgroundColor: autoCreateAccount
-                        ? colors.success
-                        : colors.border,
-                    },
-                  ]}
-                >
-                  <View
+
+                <View style={styles.inputGroup}>
+                  <Text
+                    style={[styles.inputLabel, { color: colors.textSecondary }]}
+                  >
+                    Email *
+                  </Text>
+                  <TextInput
                     style={[
-                      styles.toggleKnob,
+                      styles.input,
                       {
-                        backgroundColor: colors.textOnPrimary,
-                        transform: [{ translateX: autoCreateAccount ? 20 : 0 }],
+                        backgroundColor: colors.background,
+                        color: colors.text,
+                        borderColor: colors.border,
                       },
                     ]}
+                    placeholder="staff@example.com"
+                    placeholderTextColor={colors.textMuted}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    value={inviteEmail}
+                    onChangeText={setInviteEmail}
                   />
                 </View>
-              </Pressable>
 
-              <Pressable
-                style={[
-                  styles.inviteButton,
-                  { backgroundColor: colors.primary },
-                ]}
-                onPress={handleInvite}
-                disabled={inviteStaff.isPending}
-              >
-                <Ionicons name="mail" size={18} color={colors.textOnPrimary} />
-                <Text style={[styles.inviteButtonText, { color: colors.textOnPrimary }]}>
-                  {inviteStaff.isPending ? 'Sending...' : 'Send Invitation'}
-                </Text>
-              </Pressable>
-            </View>
-          </KeyboardAvoidingView>
+                <View style={styles.inputGroup}>
+                  <Text
+                    style={[styles.inputLabel, { color: colors.textSecondary }]}
+                  >
+                    Name (optional)
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      {
+                        backgroundColor: colors.background,
+                        color: colors.text,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                    placeholder="John Doe"
+                    placeholderTextColor={colors.textMuted}
+                    value={inviteName}
+                    onChangeText={setInviteName}
+                  />
+                </View>
+
+                <Pressable
+                  style={styles.toggleRow}
+                  onPress={() => setAutoCreateAccount(!autoCreateAccount)}
+                  accessibilityRole="togglebutton"
+                  accessibilityState={{ checked: autoCreateAccount }}
+                  accessibilityLabel="Generate Staff Account"
+                  accessibilityHint="Automatically create a NUBAN for this staff member"
+                >
+                  <View style={styles.toggleInfo}>
+                    <Text style={[styles.toggleLabel, { color: colors.text }]}>
+                      Generate Staff Account
+                    </Text>
+                    <Text
+                      style={[
+                        styles.toggleDesc,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      Automatically create a NUBAN for this staff member
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.toggleSwitch,
+                      {
+                        backgroundColor: autoCreateAccount
+                          ? colors.success
+                          : colors.border,
+                      },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.toggleKnob,
+                        {
+                          backgroundColor: colors.textOnPrimary,
+                          transform: [
+                            { translateX: autoCreateAccount ? 20 : 0 },
+                          ],
+                        },
+                      ]}
+                    />
+                  </View>
+                </Pressable>
+
+                <Pressable
+                  style={[
+                    styles.inviteButton,
+                    { backgroundColor: colors.primary },
+                  ]}
+                  onPress={handleInvite}
+                  disabled={inviteStaff.isPending}
+                >
+                  <Ionicons
+                    name="mail"
+                    size={18}
+                    color={colors.textOnPrimary}
+                  />
+                  <Text
+                    style={[
+                      styles.inviteButtonText,
+                      { color: colors.textOnPrimary },
+                    ]}
+                  >
+                    {inviteStaff.isPending ? 'Sending...' : 'Send Invitation'}
+                  </Text>
+                </Pressable>
+              </View>
+            </KeyboardAwareModalContainer>
+          </View>
         </Modal>
 
         {/* Role Change Modal */}
@@ -674,7 +708,12 @@ export default function StaffScreen() {
                 }
                 disabled={updateStaff.isPending}
               >
-                <Text style={[styles.inviteButtonText, { color: colors.textOnPrimary }]}>
+                <Text
+                  style={[
+                    styles.inviteButtonText,
+                    { color: colors.textOnPrimary },
+                  ]}
+                >
                   {updateStaff.isPending ? 'Updating...' : 'Update Role'}
                 </Text>
               </Pressable>
@@ -810,6 +849,13 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-end',
     backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  modalKeyboardContent: {
+    flexGrow: 1,
+    justifyContent: 'flex-end',
   },
   modalContent: {
     borderTopLeftRadius: RADIUS.xl,

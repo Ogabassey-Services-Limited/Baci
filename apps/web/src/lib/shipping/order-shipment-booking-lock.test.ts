@@ -125,6 +125,31 @@ describe('claimOrderShipmentBooking', () => {
       status: 500,
     } satisfies Partial<OrderShipmentBookingError>);
   });
+
+  it('degrades gracefully when the claim RPC is unavailable in production', async () => {
+    const { supabase } = createSupabaseMock({
+      rpcResult: {
+        data: null,
+        error: {
+          code: '42883',
+          message:
+            'function public.claim_order_shipment_booking(uuid, uuid, text, integer) does not exist',
+        },
+      },
+    });
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+      // Silence expected warning for the fallback assertion.
+    });
+
+    await expect(
+      claimOrderShipmentBooking(supabase, 'merchant-1', 'order-1')
+    ).resolves.toEqual({
+      status: 'claimed',
+      lockToken: null,
+    });
+
+    warnSpy.mockRestore();
+  });
 });
 
 describe('clearOrderShipmentBookingLock', () => {

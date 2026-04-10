@@ -1,6 +1,7 @@
 import { Redirect, Stack } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { ActivityIndicator, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { useAuth } from '@/hooks/useAuth';
 import { useMerchant } from '@/hooks/useMerchant';
@@ -15,6 +16,7 @@ export default function AdminLayout() {
     isLoading: isPushLoading,
   } = usePushNotifications();
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const { merchant } = useMerchant();
   // Track which merchantId we've attempted registration for to prevent retry
   // loops when registration fails — only attempt once per merchant session.
@@ -70,13 +72,25 @@ export default function AdminLayout() {
           headerStyle: { backgroundColor: colors.background },
           headerTintColor: colors.text,
           headerShadowVisible: false,
-          contentStyle: { backgroundColor: colors.background },
+          contentStyle: {
+            backgroundColor: colors.background,
+            marginTop: -insets.top,
+            marginBottom: -insets.bottom,
+          },
           headerBackTitle: 'Back',
         }}
       >
         <Stack.Screen
           name="(tabs)"
-          options={{ headerShown: false, title: 'Dashboard' }}
+          options={{
+            headerShown: false,
+            title: 'Dashboard',
+            contentStyle: {
+              backgroundColor: colors.background,
+              marginTop: 0,
+              marginBottom: 0,
+            },
+          }}
         />
         <Stack.Screen
           name="order/[id]"

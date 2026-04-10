@@ -26,6 +26,7 @@ import {
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import PhoneInput from 'react-native-phone-number-input';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { KeyboardAwareModalContainer } from '@/components/ui/KeyboardAwareModalContainer';
 import SafeImage from '@/components/ui/SafeImage';
 import { mergeOrderItem } from '@/lib/order-items';
 import {
@@ -1523,180 +1524,201 @@ export default function NewOrderScreen() {
         animationType="slide"
         presentationStyle="pageSheet"
       >
-        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-          <View
-            style={[styles.modalHeader, { borderBottomColor: colors.border }]}
-          >
-            <Text style={[styles.modalTitle, { color: colors.text }]}>
-              Select Item
-            </Text>
-            <Pressable onPress={() => setShowProductModal(false)}>
-              <Ionicons name="close" size={24} color={colors.text} />
-            </Pressable>
-          </View>
-          <View
-            style={[styles.searchBox, { backgroundColor: colors.cardHover }]}
-          >
-            <Ionicons name="search" size={20} color={colors.textMuted} />
-            <TextInput
-              style={{ flex: 1, color: colors.text, marginLeft: 8 }}
-              placeholder="Search products..."
-              placeholderTextColor={colors.textMuted}
-              value={productSearch}
-              onChangeText={setProductSearch}
-            />
-          </View>
-
-          {/* Create New Product Action */}
-          <Pressable
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              padding: 16,
-              borderBottomWidth: 1,
-              borderBottomColor: colors.border,
-              backgroundColor: colors.card,
-            }}
-            onPress={() => {
-              setShowProductModal(false);
-              router.push('/product/new');
-            }}
-          >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={24}
+          style={{ flex: 1 }}
+        >
+          <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
             <View
-              style={[
-                styles.iconBox,
-                { backgroundColor: `${colors.primary}20` },
-              ]}
+              style={[styles.modalHeader, { borderBottomColor: colors.border }]}
             >
-              <Ionicons name="add" size={20} color={colors.primary} />
-            </View>
-            <View style={{ marginLeft: 12 }}>
-              <Text
-                style={{
-                  color: colors.primary,
-                  fontWeight: '600',
-                  fontSize: 16,
-                }}
-              >
-                Create New Product
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                Select Item
               </Text>
-              <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
-                Add a new item to inventory
-              </Text>
+              <Pressable onPress={() => setShowProductModal(false)}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </Pressable>
             </View>
-          </Pressable>
-          <FlatList
-            data={filteredProducts}
-            keyExtractor={(item) => item.id}
-            {...MODAL_FLATLIST_PROPS}
-            renderItem={({ item }) => {
-              const conditionLabel = item.condition
-                ? item.condition.replace(/_/g, ' ')
-                : null;
-              const variantSummary = Array.isArray(item.variant_attributes)
-                ? (
-                    item.variant_attributes as Array<{
-                      param: string;
-                      options: string[];
-                    }>
-                  )
-                    .map((v) => v.options.join(', '))
-                    .join(' | ')
-                : null;
+            <View
+              style={[styles.searchBox, { backgroundColor: colors.cardHover }]}
+            >
+              <Ionicons name="search" size={20} color={colors.textMuted} />
+              <TextInput
+                style={{ flex: 1, color: colors.text, marginLeft: 8 }}
+                placeholder="Search products..."
+                placeholderTextColor={colors.textMuted}
+                value={productSearch}
+                onChangeText={setProductSearch}
+              />
+            </View>
 
-              return (
-                <Pressable
-                  style={[
-                    styles.productItem,
-                    { borderBottomColor: colors.border },
-                  ]}
-                  onPress={() => handleAddProduct(item)}
+            {/* Create New Product Action */}
+            <Pressable
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                padding: 16,
+                borderBottomWidth: 1,
+                borderBottomColor: colors.border,
+                backgroundColor: colors.card,
+              }}
+              onPress={() => {
+                setShowProductModal(false);
+                router.push('/product/new');
+              }}
+            >
+              <View
+                style={[
+                  styles.iconBox,
+                  { backgroundColor: `${colors.primary}20` },
+                ]}
+              >
+                <Ionicons name="add" size={20} color={colors.primary} />
+              </View>
+              <View style={{ marginLeft: 12 }}>
+                <Text
+                  style={{
+                    color: colors.primary,
+                    fontWeight: '600',
+                    fontSize: 16,
+                  }}
                 >
-                  <View style={{ flex: 1, marginRight: 8 }}>
-                    <Text style={{ color: colors.text, fontSize: 16 }}>
-                      {item.name}
+                  Create New Product
+                </Text>
+                <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+                  Add a new item to inventory
+                </Text>
+              </View>
+            </Pressable>
+            <FlatList
+              data={filteredProducts}
+              keyExtractor={(item) => item.id}
+              keyboardDismissMode={
+                Platform.OS === 'ios' ? 'interactive' : 'on-drag'
+              }
+              keyboardShouldPersistTaps="handled"
+              {...MODAL_FLATLIST_PROPS}
+              renderItem={({ item }) => {
+                const conditionLabel = item.condition
+                  ? item.condition.replace(/_/g, ' ')
+                  : null;
+                const variantSummary = Array.isArray(item.variant_attributes)
+                  ? (
+                      item.variant_attributes as Array<{
+                        param: string;
+                        options: string[];
+                      }>
+                    )
+                      .map((v) => v.options.join(', '))
+                      .join(' | ')
+                  : null;
+
+                return (
+                  <Pressable
+                    style={[
+                      styles.productItem,
+                      { borderBottomColor: colors.border },
+                    ]}
+                    onPress={() => handleAddProduct(item)}
+                  >
+                    <View style={{ flex: 1, marginRight: 8 }}>
+                      <Text style={{ color: colors.text, fontSize: 16 }}>
+                        {item.name}
+                      </Text>
+                      <Text
+                        style={{ color: colors.textSecondary, fontSize: 12 }}
+                      >
+                        {[
+                          conditionLabel,
+                          variantSummary,
+                          item.sku ? `SKU: ${item.sku}` : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' \u00B7 ') || 'N/A'}
+                      </Text>
+                    </View>
+                    <Text style={{ color: colors.text, fontWeight: '500' }}>
+                      {formatPrice(item.price)}
                     </Text>
-                    <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
-                      {[
-                        conditionLabel,
-                        variantSummary,
-                        item.sku ? `SKU: ${item.sku}` : null,
-                      ]
-                        .filter(Boolean)
-                        .join(' \u00B7 ') || 'N/A'}
-                    </Text>
-                  </View>
-                  <Text style={{ color: colors.text, fontWeight: '500' }}>
-                    {formatPrice(item.price)}
-                  </Text>
-                </Pressable>
-              );
-            }}
-          />
-        </SafeAreaView>
+                  </Pressable>
+                );
+              }}
+            />
+          </SafeAreaView>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Custom Item Modal */}
       <Modal visible={showCustomItemModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={[styles.dialog, { backgroundColor: colors.card }]}>
-            <Text style={[styles.dialogTitle, { color: colors.text }]}>
-              Quick Add Item
-            </Text>
-            <Text
-              style={{
-                color: colors.textSecondary,
-                fontSize: 13,
-                marginBottom: 16,
-                fontStyle: 'italic',
-              }}
-            >
-              This item will not be saved to your product inventory.
-            </Text>
-            <TextInput
-              style={[
-                styles.dialogInput,
-                { backgroundColor: colors.inputBg, color: colors.text },
-              ]}
-              placeholder="Item Name (e.g. Red Cake, Delivery)"
-              placeholderTextColor={colors.textMuted}
-              value={customItem.name}
-              onChangeText={(t) => setCustomItem((p) => ({ ...p, name: t }))}
-            />
-            <TextInput
-              style={[
-                styles.dialogInput,
-                { backgroundColor: colors.inputBg, color: colors.text },
-              ]}
-              placeholder="Amount (0.00)"
-              placeholderTextColor={colors.textMuted}
-              keyboardType="numeric"
-              value={formatPriceInput(customItem.price)}
-              onChangeText={(t) => {
-                const clean = t.replace(/[^0-9.]/g, '');
-                setCustomItem((p) => ({ ...p, price: clean }));
-              }}
-            />
-            <View style={styles.dialogActions}>
-              <Pressable
-                onPress={() => setShowCustomItemModal(false)}
-                style={styles.dialogBtn}
+          <Pressable
+            style={styles.modalBackdrop}
+            onPress={() => setShowCustomItemModal(false)}
+          />
+          <KeyboardAwareModalContainer
+            align="center"
+            contentContainerStyle={styles.modalKeyboardCenterContent}
+          >
+            <View style={[styles.dialog, { backgroundColor: colors.card }]}>
+              <Text style={[styles.dialogTitle, { color: colors.text }]}>
+                Quick Add Item
+              </Text>
+              <Text
+                style={{
+                  color: colors.textSecondary,
+                  fontSize: 13,
+                  marginBottom: 16,
+                  fontStyle: 'italic',
+                }}
               >
-                <Text style={{ color: colors.textSecondary }}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                onPress={handleAddCustomItem}
+                This item will not be saved to your product inventory.
+              </Text>
+              <TextInput
                 style={[
-                  styles.dialogBtn,
-                  { backgroundColor: colors.success, borderRadius: 8 },
+                  styles.dialogInput,
+                  { backgroundColor: colors.inputBg, color: colors.text },
                 ]}
-              >
-                <Text style={{ color: '#fff', fontWeight: 'bold' }}>
-                  Add to Cart
-                </Text>
-              </Pressable>
+                placeholder="Item Name (e.g. Red Cake, Delivery)"
+                placeholderTextColor={colors.textMuted}
+                value={customItem.name}
+                onChangeText={(t) => setCustomItem((p) => ({ ...p, name: t }))}
+              />
+              <TextInput
+                style={[
+                  styles.dialogInput,
+                  { backgroundColor: colors.inputBg, color: colors.text },
+                ]}
+                placeholder="Amount (0.00)"
+                placeholderTextColor={colors.textMuted}
+                keyboardType="numeric"
+                value={formatPriceInput(customItem.price)}
+                onChangeText={(t) => {
+                  const clean = t.replace(/[^0-9.]/g, '');
+                  setCustomItem((p) => ({ ...p, price: clean }));
+                }}
+              />
+              <View style={styles.dialogActions}>
+                <Pressable
+                  onPress={() => setShowCustomItemModal(false)}
+                  style={styles.dialogBtn}
+                >
+                  <Text style={{ color: colors.textSecondary }}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleAddCustomItem}
+                  style={[
+                    styles.dialogBtn,
+                    { backgroundColor: colors.success, borderRadius: 8 },
+                  ]}
+                >
+                  <Text style={{ color: '#fff', fontWeight: 'bold' }}>
+                    Add to Cart
+                  </Text>
+                </Pressable>
+              </View>
             </View>
-          </View>
+          </KeyboardAwareModalContainer>
         </View>
       </Modal>
 
@@ -1708,48 +1730,54 @@ export default function NewOrderScreen() {
         animationType="slide"
         presentationStyle="pageSheet"
       >
-        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-          <View
-            style={[styles.modalHeader, { borderBottomColor: colors.border }]}
-          >
-            <View>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>
-                {isCreatingCustomer ? 'New Customer' : 'Select Customer'}
-              </Text>
-              {isCreatingCustomer && (
-                <Pressable
-                  onPress={() => setIsCreatingCustomer(false)}
-                  style={{ marginTop: 4 }}
-                >
-                  <Text style={{ color: colors.primary }}>Back to search</Text>
-                </Pressable>
-              )}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={24}
+          style={{ flex: 1 }}
+        >
+          <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+            <View
+              style={[styles.modalHeader, { borderBottomColor: colors.border }]}
+            >
+              <View>
+                <Text style={[styles.modalTitle, { color: colors.text }]}>
+                  {isCreatingCustomer ? 'New Customer' : 'Select Customer'}
+                </Text>
+                {isCreatingCustomer && (
+                  <Pressable
+                    onPress={() => setIsCreatingCustomer(false)}
+                    style={{ marginTop: 4 }}
+                  >
+                    <Text style={{ color: colors.primary }}>
+                      Back to search
+                    </Text>
+                  </Pressable>
+                )}
+              </View>
+              <Pressable
+                onPress={() => {
+                  setShowCustomerModal(false);
+                  setIsCreatingCustomer(false);
+                  setNewCustomer({
+                    firstName: '',
+                    lastName: '',
+                    phone: '',
+                    email: '',
+                    address: '',
+                  });
+                  setSelectedCountryCode('NG');
+                  setDuplicateCustomer(null);
+                }}
+              >
+                <Ionicons name="close" size={24} color={colors.text} />
+              </Pressable>
             </View>
-            <Pressable
-              onPress={() => {
-                setShowCustomerModal(false);
-                setIsCreatingCustomer(false);
-                setNewCustomer({
-                  firstName: '',
-                  lastName: '',
-                  phone: '',
-                  email: '',
-                  address: '',
-                });
-                setSelectedCountryCode('NG');
-                setDuplicateCustomer(null);
-              }}
-            >
-              <Ionicons name="close" size={24} color={colors.text} />
-            </Pressable>
-          </View>
 
-          {isCreatingCustomer ? (
-            <KeyboardAvoidingView
-              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-              style={{ flex: 1 }}
-            >
-              <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
+            {isCreatingCustomer ? (
+              <ScrollView
+                contentContainerStyle={{ padding: 16, gap: 16 }}
+                keyboardShouldPersistTaps="handled"
+              >
                 {/* Duplicate Customer Alert */}
                 {duplicateCustomer && (
                   <View
@@ -2021,127 +2049,133 @@ export default function NewOrderScreen() {
                   )}
                 </Pressable>
               </ScrollView>
-            </KeyboardAvoidingView>
-          ) : (
-            <>
-              <View
-                style={[
-                  styles.searchBox,
-                  { backgroundColor: colors.cardHover },
-                ]}
-              >
-                <Ionicons name="search" size={20} color={colors.textMuted} />
-                <TextInput
-                  style={{ flex: 1, color: colors.text, marginLeft: 8 }}
-                  placeholder="Search name, email, or phone..."
-                  placeholderTextColor={colors.textMuted}
-                  value={customerSearch}
-                  onChangeText={setCustomerSearch}
-                />
-              </View>
-
-              <Pressable
-                style={[
-                  styles.listRow,
-                  { borderBottomWidth: 1, borderBottomColor: colors.border },
-                ]}
-                onPress={() => setIsCreatingCustomer(true)}
-              >
+            ) : (
+              <>
                 <View
                   style={[
-                    styles.iconBox,
-                    { backgroundColor: `${colors.primary}20` },
+                    styles.searchBox,
+                    { backgroundColor: colors.cardHover },
                   ]}
                 >
-                  <Ionicons
-                    name="person-add"
-                    size={18}
-                    color={colors.primary}
+                  <Ionicons name="search" size={20} color={colors.textMuted} />
+                  <TextInput
+                    style={{ flex: 1, color: colors.text, marginLeft: 8 }}
+                    placeholder="Search name, email, or phone..."
+                    placeholderTextColor={colors.textMuted}
+                    value={customerSearch}
+                    onChangeText={setCustomerSearch}
                   />
                 </View>
-                <Text
-                  style={[
-                    styles.listLabel,
-                    { color: colors.primary, fontSize: 16 },
-                  ]}
-                >
-                  Create new customer
-                </Text>
-              </Pressable>
 
-              <FlatList
-                data={customersData?.pages.flatMap((p) => p.customers) || []}
-                keyExtractor={(item) => item.id}
-                {...MODAL_FLATLIST_PROPS}
-                contentContainerStyle={{ paddingBottom: 40 }}
-                renderItem={({ item }) => (
-                  <Pressable
+                <Pressable
+                  style={[
+                    styles.listRow,
+                    { borderBottomWidth: 1, borderBottomColor: colors.border },
+                  ]}
+                  onPress={() => setIsCreatingCustomer(true)}
+                >
+                  <View
                     style={[
-                      styles.listRow,
-                      {
-                        borderBottomColor: colors.border,
-                        borderBottomWidth: 1,
-                        paddingVertical: 12,
-                      },
+                      styles.iconBox,
+                      { backgroundColor: `${colors.primary}20` },
                     ]}
-                    onPress={() => handleSelectCustomer(item)}
                   >
-                    <View
+                    <Ionicons
+                      name="person-add"
+                      size={18}
+                      color={colors.primary}
+                    />
+                  </View>
+                  <Text
+                    style={[
+                      styles.listLabel,
+                      { color: colors.primary, fontSize: 16 },
+                    ]}
+                  >
+                    Create new customer
+                  </Text>
+                </Pressable>
+
+                <FlatList
+                  data={customersData?.pages.flatMap((p) => p.customers) || []}
+                  keyExtractor={(item) => item.id}
+                  keyboardDismissMode={
+                    Platform.OS === 'ios' ? 'interactive' : 'on-drag'
+                  }
+                  keyboardShouldPersistTaps="handled"
+                  {...MODAL_FLATLIST_PROPS}
+                  contentContainerStyle={{ paddingBottom: 40 }}
+                  renderItem={({ item }) => (
+                    <Pressable
                       style={[
-                        styles.iconBox,
-                        { backgroundColor: colors.cardHover },
+                        styles.listRow,
+                        {
+                          borderBottomColor: colors.border,
+                          borderBottomWidth: 1,
+                          paddingVertical: 12,
+                        },
                       ]}
+                      onPress={() => handleSelectCustomer(item)}
                     >
-                      <Text
-                        style={{
-                          fontSize: 14,
-                          fontWeight: 'bold',
-                          color: colors.textSecondary,
-                        }}
-                      >
-                        {(
-                          item.first_name?.[0] ||
-                          item.email?.[0] ||
-                          '?'
-                        ).toUpperCase()}
-                      </Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.itemTitle, { color: colors.text }]}>
-                        {`${item.first_name || ''} ${item.last_name || ''}`.trim() ||
-                          'Unknown'}
-                      </Text>
-                      <Text
-                        style={{ color: colors.textSecondary, fontSize: 13 }}
-                      >
-                        {item.phone || item.email || 'No contact info'}
-                      </Text>
-                    </View>
-                    {item.total_orders > 0 && (
                       <View
                         style={[
-                          styles.qtyBadge,
-                          { backgroundColor: `${colors.success}20` },
+                          styles.iconBox,
+                          { backgroundColor: colors.cardHover },
                         ]}
                       >
-                        <Text style={{ color: colors.success, fontSize: 12 }}>
-                          {item.total_orders} orders
+                        <Text
+                          style={{
+                            fontSize: 14,
+                            fontWeight: 'bold',
+                            color: colors.textSecondary,
+                          }}
+                        >
+                          {(
+                            item.first_name?.[0] ||
+                            item.email?.[0] ||
+                            '?'
+                          ).toUpperCase()}
                         </Text>
                       </View>
-                    )}
-                  </Pressable>
-                )}
-                ListEmptyComponent={
-                  <View style={{ padding: 32, alignItems: 'center' }}>
-                    <Text style={{ color: colors.textMuted }}>
-                      No customers found
-                    </Text>
-                  </View>
-                }
-              />
-            </>
-          )}
-        </SafeAreaView>
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={[styles.itemTitle, { color: colors.text }]}
+                        >
+                          {`${item.first_name || ''} ${item.last_name || ''}`.trim() ||
+                            'Unknown'}
+                        </Text>
+                        <Text
+                          style={{ color: colors.textSecondary, fontSize: 13 }}
+                        >
+                          {item.phone || item.email || 'No contact info'}
+                        </Text>
+                      </View>
+                      {item.total_orders > 0 && (
+                        <View
+                          style={[
+                            styles.qtyBadge,
+                            { backgroundColor: `${colors.success}20` },
+                          ]}
+                        >
+                          <Text style={{ color: colors.success, fontSize: 12 }}>
+                            {item.total_orders} orders
+                          </Text>
+                        </View>
+                      )}
+                    </Pressable>
+                  )}
+                  ListEmptyComponent={
+                    <View style={{ padding: 32, alignItems: 'center' }}>
+                      <Text style={{ color: colors.textMuted }}>
+                        No customers found
+                      </Text>
+                    </View>
+                  }
+                />
+              </>
+            )}
+          </SafeAreaView>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Success Modal */}
@@ -2979,6 +3013,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
     padding: 20,
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  modalKeyboardCenterContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   dialog: {
     padding: 24,

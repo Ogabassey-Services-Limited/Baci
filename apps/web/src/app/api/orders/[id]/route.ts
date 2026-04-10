@@ -235,10 +235,12 @@ export async function PATCH(
           updates.selected_quote_id = booking.quoteId;
           updates.shipment_id = booking.shipmentId;
           updates.tracking_number = booking.trackingNumber;
-          updates.shipment_booking_lock_token = null;
-          updates.shipment_booking_started_at = null;
+          if (shipmentBookingLockToken) {
+            updates.shipment_booking_lock_token = null;
+            updates.shipment_booking_started_at = null;
+          }
         } catch (error) {
-          if (shouldReleaseBookingLock(error)) {
+          if (shipmentBookingLockToken && shouldReleaseBookingLock(error)) {
             try {
               await clearOrderShipmentBookingLock(
                 supabase,

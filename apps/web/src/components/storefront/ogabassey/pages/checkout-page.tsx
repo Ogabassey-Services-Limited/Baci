@@ -419,6 +419,7 @@ export const CheckoutPage: React.FC = () => {
     if (initialStatus === 'confirmed') {
       setIsVerifyingCrypto(false);
       setCryptoVerificationStatus('confirmed');
+      clearPendingCheckoutOrder();
       clearCheckoutSession();
       clearCart();
       router.push(asRoute(getHref(`/order-success?type=crypto&orderId=${cryptoPaymentData.orderId}&reference=${cryptoPaymentData.reference}`)));
@@ -457,6 +458,7 @@ export const CheckoutPage: React.FC = () => {
         }
         setIsVerifyingCrypto(false);
         setCryptoVerificationStatus('confirmed');
+        clearPendingCheckoutOrder();
         clearCheckoutSession();
         clearCart();
         router.push(asRoute(getHref(`/order-success?type=crypto&orderId=${cryptoPaymentData.orderId}&reference=${cryptoPaymentData.reference}`)));

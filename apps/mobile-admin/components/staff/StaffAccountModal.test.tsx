@@ -5,14 +5,17 @@ import { LIGHT_COLORS } from '@/constants/theme';
 import { StaffAccountModal } from './StaffAccountModal';
 import type { Branch } from './types';
 
+vi.mock('@/components/ui/KeyboardAwareModalContainer', () => ({
+  KeyboardAwareModalContainer: ({ children }: { children?: React.ReactNode }) =>
+    children,
+}));
+
 vi.mock('react-native', async () => {
   const React = await import('react');
 
   return {
     ActivityIndicator: ({ color }: { color?: string }) =>
       React.createElement('span', { 'data-color': color }, 'loading'),
-    KeyboardAvoidingView: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('div', null, children),
     Modal: ({
       children,
       visible,

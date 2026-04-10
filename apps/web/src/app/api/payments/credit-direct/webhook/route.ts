@@ -397,6 +397,8 @@ export async function POST(request: NextRequest) {
 async function sendOrderConfirmationEmail(
   order: {
     id: string;
+    merchant_id?: string | null;
+    customer_id?: string | null;
     customer_email: string;
     customer_name: string;
     total: number;
@@ -431,6 +433,14 @@ async function sendOrderConfirmationEmail(
         <p style="color: #666; font-size: 14px;">Thank you for shopping with us!</p>
       </div>
     `,
+    auditContext: {
+      merchantId: order.merchant_id,
+      orderId: order.id,
+      customerId: order.customer_id,
+      metadata: {
+        trigger: 'credit_direct_payment_confirmation',
+      },
+    },
   });
 
   if (!emailResult.success) {

@@ -1,4 +1,11 @@
-import { ChevronRight, CreditCard, Receipt, Shield, Users } from 'lucide-react';
+import {
+  BadgeCheck,
+  ChevronRight,
+  CreditCard,
+  Receipt,
+  Shield,
+  Users,
+} from 'lucide-react';
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
@@ -79,6 +86,32 @@ export default async function SettingsPage() {
             >
               <Link href="/dashboard/settings/payments">
                 <span>Manage Payment Settings</span>
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* KYC / Business Verification Card */}
+        <Card className="glass">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BadgeCheck className="h-5 w-5" />
+              Business Verification (KYC)
+            </CardTitle>
+            <CardDescription>
+              Verify your identity with NIN, BVN, and CAC to enable full payment
+              features.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="outline"
+              className="w-full justify-between"
+              asChild
+            >
+              <Link href="/dashboard/settings/kyc">
+                <span>Manage Verification</span>
                 <ChevronRight className="h-4 w-4" />
               </Link>
             </Button>

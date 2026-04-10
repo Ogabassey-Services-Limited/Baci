@@ -134,6 +134,8 @@ vi.mock('react-native', async () => {
           React.createElement('div', { key: i }, renderItem({ item }))
         )
       ),
+    KeyboardAvoidingView: ({ children }: { children?: React.ReactNode }) =>
+      React.createElement('div', null, children),
     Modal: ({
       children,
       visible,
@@ -158,6 +160,9 @@ vi.mock('react-native', async () => {
         { onClick: onPress, 'aria-label': accessibilityLabel },
         children
       ),
+    Platform: {
+      OS: 'ios',
+    },
     ScrollView: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('div', null, children),
     StyleSheet: { create: (s: unknown) => s, hairlineWidth: 1 },

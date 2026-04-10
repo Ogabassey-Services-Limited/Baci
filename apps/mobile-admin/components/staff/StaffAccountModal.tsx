@@ -5,15 +5,14 @@
 
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { KeyboardAwareModalContainer } from '@/components/ui/KeyboardAwareModalContainer';
 import type { ThemeColors } from '@/constants/theme';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import type { StaffMember } from '@/lib/types/staff';
@@ -76,96 +75,107 @@ export function StaffAccountModal({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <KeyboardAvoidingView
-        style={styles.modalOverlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
-          <Text style={[styles.modalTitle, { color: colors.text }]}>
-            Create Staff Account
-          </Text>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                backgroundColor: colors.cardHover,
-                color: colors.text,
-                borderColor: colors.border,
-              },
-            ]}
-            placeholder="Account name (e.g. Kola's Account)"
-            placeholderTextColor={colors.textMuted}
-            value={accountName}
-            onChangeText={onAccountNameChange}
-          />
-
-          <HorizontalPicker
-            label="Assign to Branch (Optional)"
-            groupAccessibilityLabel="Branch selection"
-            options={branchOptions}
-            selectedId={selectedBranchId}
-            onSelect={onBranchSelect}
-            noneLabel="No Branch"
-            noneAccessibilityLabel="No branch assigned"
-            colors={colors}
-          />
-
-          <HorizontalPicker
-            label="Assign to Staff (Optional)"
-            groupAccessibilityLabel="Staff selection"
-            options={staffOptions}
-            selectedId={selectedStaffId}
-            onSelect={onStaffSelect}
-            noneLabel="No Staff"
-            noneAccessibilityLabel="No staff assigned"
-            colors={colors}
-            isLoading={staffLoading}
-            loadingLabel="Loading staff..."
-            hasError={staffError}
-            errorLabel="Staff unavailable"
-          />
-          <View style={styles.modalButtons}>
-            <Pressable
+      <View style={styles.modalOverlay}>
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Close modal"
+        />
+        <KeyboardAwareModalContainer
+          align="end"
+          contentContainerStyle={styles.modalKeyboardContent}
+        >
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              Create Staff Account
+            </Text>
+            <TextInput
               style={[
-                styles.modalButton,
-                { backgroundColor: colors.cardHover },
+                styles.input,
+                {
+                  backgroundColor: colors.cardHover,
+                  color: colors.text,
+                  borderColor: colors.border,
+                },
               ]}
-              onPress={onClose}
-              accessibilityRole="button"
-              accessibilityLabel="Cancel staff account creation"
-            >
-              <Text style={[styles.modalButtonText, { color: colors.text }]}>
-                Cancel
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[
-                styles.modalButton,
-                { backgroundColor: colors.primary },
-                isPending && styles.modalButtonDisabled,
-              ]}
-              onPress={onSubmit}
-              disabled={isPending}
-              accessibilityRole="button"
-              accessibilityLabel="Create staff account"
-              accessibilityState={{ disabled: isPending }}
-            >
-              {isPending ? (
-                <ActivityIndicator size="small" color={colors.textOnPrimary} />
-              ) : (
-                <Text
-                  style={[
-                    styles.modalButtonText,
-                    { color: colors.textOnPrimary },
-                  ]}
-                >
-                  Create
+              placeholder="Account name (e.g. Kola's Account)"
+              placeholderTextColor={colors.textMuted}
+              value={accountName}
+              onChangeText={onAccountNameChange}
+            />
+
+            <HorizontalPicker
+              label="Assign to Branch (Optional)"
+              groupAccessibilityLabel="Branch selection"
+              options={branchOptions}
+              selectedId={selectedBranchId}
+              onSelect={onBranchSelect}
+              noneLabel="No Branch"
+              noneAccessibilityLabel="No branch assigned"
+              colors={colors}
+            />
+
+            <HorizontalPicker
+              label="Assign to Staff (Optional)"
+              groupAccessibilityLabel="Staff selection"
+              options={staffOptions}
+              selectedId={selectedStaffId}
+              onSelect={onStaffSelect}
+              noneLabel="No Staff"
+              noneAccessibilityLabel="No staff assigned"
+              colors={colors}
+              isLoading={staffLoading}
+              loadingLabel="Loading staff..."
+              hasError={staffError}
+              errorLabel="Staff unavailable"
+            />
+            <View style={styles.modalButtons}>
+              <Pressable
+                style={[
+                  styles.modalButton,
+                  { backgroundColor: colors.cardHover },
+                ]}
+                onPress={onClose}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel staff account creation"
+              >
+                <Text style={[styles.modalButtonText, { color: colors.text }]}>
+                  Cancel
                 </Text>
-              )}
-            </Pressable>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.modalButton,
+                  { backgroundColor: colors.primary },
+                  isPending && styles.modalButtonDisabled,
+                ]}
+                onPress={onSubmit}
+                disabled={isPending}
+                accessibilityRole="button"
+                accessibilityLabel="Create staff account"
+                accessibilityState={{ disabled: isPending }}
+              >
+                {isPending ? (
+                  <ActivityIndicator
+                    size="small"
+                    color={colors.textOnPrimary}
+                  />
+                ) : (
+                  <Text
+                    style={[
+                      styles.modalButtonText,
+                      { color: colors.textOnPrimary },
+                    ]}
+                  >
+                    Create
+                  </Text>
+                )}
+              </Pressable>
+            </View>
           </View>
-        </View>
-      </KeyboardAvoidingView>
+        </KeyboardAwareModalContainer>
+      </View>
     </Modal>
   );
 }
@@ -174,6 +184,13 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  modalKeyboardContent: {
+    flexGrow: 1,
     justifyContent: 'flex-end',
   },
   modalContent: {
