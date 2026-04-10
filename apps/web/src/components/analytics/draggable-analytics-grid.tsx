@@ -188,7 +188,7 @@ const DEFAULT_LAYOUTS: Layouts = {
     { i: 'summary-aov', x: 0, y: 2, w: 3, h: 1 },
     { i: 'summary-margin', x: 3, y: 2, w: 3, h: 1 },
     { i: 'summary-refund-rate', x: 6, y: 2, w: 3, h: 1 },
-    { i: 'summary-ltv', x: 9, y: 2, w: 3, h: 1 },
+    { i: 'summary-revenue-per-customer', x: 9, y: 2, w: 3, h: 1 },
 
     // Row 4: Payment Methods (fits in 4 cols flow?)
     // Payment methods was w:4 h:2. Let's keep it similar or adapt.
@@ -235,7 +235,7 @@ const DEFAULT_LAYOUTS: Layouts = {
     { i: 'summary-aov', x: 0, y: 2, w: 5, h: 1 },
     { i: 'summary-margin', x: 5, y: 2, w: 5, h: 1 },
     { i: 'summary-refund-rate', x: 5, y: 2, w: 5, h: 1 },
-    { i: 'summary-ltv', x: 0, y: 3, w: 5, h: 1 },
+    { i: 'summary-revenue-per-customer', x: 0, y: 3, w: 5, h: 1 },
     { i: 'revenue-chart', x: 0, y: 4, w: 10, h: 3 },
     { i: 'payment-methods', x: 0, y: 7, w: 5, h: 3 },
     { i: 'recent-sales', x: 0, y: 10, w: 5, h: 3 },
@@ -265,7 +265,7 @@ const DEFAULT_LAYOUTS: Layouts = {
     { i: 'summary-aov', x: 3, y: 1, w: 3, h: 1 },
     { i: 'summary-margin', x: 0, y: 2, w: 3, h: 1 },
     { i: 'summary-refund-rate', x: 0, y: 2, w: 3, h: 1 },
-    { i: 'summary-ltv', x: 3, y: 2, w: 3, h: 1 },
+    { i: 'summary-revenue-per-customer', x: 3, y: 2, w: 3, h: 1 },
     { i: 'revenue-chart', x: 0, y: 3, w: 6, h: 3 },
     { i: 'payment-methods', x: 0, y: 6, w: 6, h: 3 },
     { i: 'recent-sales', x: 0, y: 13, w: 6, h: 3 },
@@ -295,7 +295,7 @@ const DEFAULT_LAYOUTS: Layouts = {
     { i: 'summary-aov', x: 2, y: 1, w: 2, h: 1 },
     { i: 'summary-margin', x: 0, y: 2, w: 2, h: 1 },
     { i: 'summary-refund-rate', x: 0, y: 2, w: 2, h: 1 },
-    { i: 'summary-ltv', x: 2, y: 2, w: 2, h: 1 },
+    { i: 'summary-revenue-per-customer', x: 2, y: 2, w: 2, h: 1 },
     { i: 'revenue-chart', x: 0, y: 3, w: 4, h: 3 },
     { i: 'payment-methods', x: 0, y: 6, w: 4, h: 3 },
     { i: 'recent-sales', x: 0, y: 13, w: 4, h: 3 },
@@ -325,7 +325,7 @@ const DEFAULT_LAYOUTS: Layouts = {
     { i: 'summary-aov', x: 0, y: 3, w: 2, h: 1 },
     { i: 'summary-margin', x: 0, y: 4, w: 2, h: 1 },
     { i: 'summary-refund-rate', x: 0, y: 4, w: 2, h: 1 },
-    { i: 'summary-ltv', x: 0, y: 5, w: 2, h: 1 },
+    { i: 'summary-revenue-per-customer', x: 0, y: 5, w: 2, h: 1 },
     { i: 'revenue-chart', x: 0, y: 6, w: 2, h: 3 },
     { i: 'payment-methods', x: 0, y: 9, w: 2, h: 3 },
     { i: 'recent-sales', x: 0, y: 13, w: 2, h: 3 },
@@ -562,7 +562,7 @@ export function DraggableAnalyticsGrid({
         'payment-methods',
         'summary-aov',
         'summary-margin',
-        'summary-ltv',
+        'summary-revenue-per-customer',
         'financial-summary',
       ],
       products: [
@@ -784,9 +784,9 @@ export function DraggableAnalyticsGrid({
               RefreshCcw,
               (summary.refundRate?.change || 0) <= 0 ? 'up' : 'down'
             )}
-          {isWidgetVisible('summary-ltv') &&
+          {isWidgetVisible('summary-revenue-per-customer') &&
             renderMetricCard(
-              'summary-ltv',
+              'summary-revenue-per-customer',
               'Revenue / Customer 💎',
               formatCurrency(summary.revenuePerCustomer?.value || 0),
               summary.revenuePerCustomer?.change || 0,
@@ -1315,9 +1315,9 @@ export function DraggableAnalyticsGrid({
               Percent,
               (summary.grossMargin?.change || 0) >= 0 ? 'up' : 'down'
             )}
-          {isWidgetVisible('summary-ltv') &&
+          {isWidgetVisible('summary-revenue-per-customer') &&
             renderMetricCard(
-              'summary-ltv',
+              'summary-revenue-per-customer',
               'Revenue / Customer 💎',
               formatCurrency(summary.revenuePerCustomer?.value || 0),
               summary.revenuePerCustomer?.change || 0,

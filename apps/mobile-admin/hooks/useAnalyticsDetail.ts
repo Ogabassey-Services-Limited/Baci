@@ -7,7 +7,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { getPreviousAnalyticsDateRange } from '@/lib/analytics-period';
 import { supabase } from '@/lib/supabase';
+import {
+  getBucketIndex,
+  getBuckets,
+  type Granularity,
+} from './useAnalyticsDetailBuckets';
 import { useMerchant } from './useMerchant';
+
+export type { Granularity } from './useAnalyticsDetailBuckets';
 
 /** Shape returned by the order_items join: products!inner(cost_price) */
 interface JoinedProduct {
@@ -39,8 +46,6 @@ interface AnalyticsOrder {
 }
 
 export type MetricType = 'revenue' | 'sales' | 'aov' | 'profits' | 'vat';
-export type Granularity = 'hourly' | 'weekday' | 'month';
-
 export interface TimeSeriesDataPoint {
   label: string;
   value: number;
@@ -60,26 +65,6 @@ export interface AnalyticsDetailData {
   bestPeriod: { label: string; value: number } | null;
   worstPeriod: { label: string; value: number } | null;
 }
-
-const MONTHS = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const HOURS = Array.from(
-  { length: 24 },
-  (_, i) => `${i.toString().padStart(2, '0')}:00`
-);
 
 interface UseAnalyticsDetailOptions {
   metric: MetricType;
@@ -106,6 +91,7 @@ export function useAnalyticsDetail({
   includeComparison = false,
 }: UseAnalyticsDetailOptions) {
   const { merchant } = useMerchant();
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   return useQuery<AnalyticsDetailData>({
     queryKey: [
@@ -116,6 +102,7 @@ export function useAnalyticsDetail({
       startDate,
       endDate,
       includeComparison,
+      timezone,
     ],
     queryFn: async () => {
       if (!merchant?.id) throw new Error('No merchant found');
@@ -195,7 +182,7 @@ export function useAnalyticsDetail({
       // Aggregate orders
       orders?.forEach((order) => {
         const date = new Date(order.created_at);
-        const bucketIndex = getBucketIndex(date, granularity);
+        const bucketIndex = getBucketIndex(date, granularity, timezone);
         if (bucketIndex >= 0 && bucketIndex < data.length) {
           data[bucketIndex].count = (data[bucketIndex].count || 0) + 1;
 
@@ -225,7 +212,7 @@ export function useAnalyticsDetail({
           if (!order || !product) return;
 
           const date = new Date(order.created_at);
-          const bucketIndex = getBucketIndex(date, granularity);
+          const bucketIndex = getBucketIndex(date, granularity, timezone);
 
           if (bucketIndex >= 0 && bucketIndex < data.length) {
             const revenue = (item.price || 0) * (item.quantity || 1);
@@ -359,7 +346,7 @@ export function useAnalyticsDetail({
 
         prevOrders?.forEach((order) => {
           const date = new Date(order.created_at);
-          const bucketIndex = getBucketIndex(date, granularity);
+          const bucketIndex = getBucketIndex(date, granularity, timezone);
 
           if (
             comparisonData &&
@@ -394,7 +381,7 @@ export function useAnalyticsDetail({
             if (!order || !product) return;
 
             const date = new Date(order.created_at);
-            const bucketIndex = getBucketIndex(date, granularity);
+            const bucketIndex = getBucketIndex(date, granularity, timezone);
 
             if (bucketIndex >= 0 && bucketIndex < comparisonBuckets.length) {
               const revenue = (item.price || 0) * (item.quantity || 1);
@@ -454,28 +441,6 @@ export function useAnalyticsDetail({
     enabled: !!merchant?.id,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
-}
-
-function getBuckets(granularity: Granularity): string[] {
-  switch (granularity) {
-    case 'hourly':
-      return HOURS;
-    case 'weekday':
-      return WEEKDAYS;
-    case 'month':
-      return MONTHS;
-  }
-}
-
-function getBucketIndex(date: Date, granularity: Granularity): number {
-  switch (granularity) {
-    case 'hourly':
-      return date.getUTCHours();
-    case 'weekday':
-      return date.getUTCDay();
-    case 'month':
-      return date.getUTCMonth();
-  }
 }
 
 // Metric display configuration

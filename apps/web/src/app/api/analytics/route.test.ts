@@ -123,6 +123,10 @@ describe('GET /api/analytics', () => {
 
     expect(response.status).toBe(200);
     expect(body.summary.profit.value).toBe(600);
+    expect(body.summary.revenuePerCustomer).toEqual({
+      change: 0,
+      value: 1200,
+    });
     expect(body.blog.totalViews).toBe(5);
     expect(mockGetMerchantAnalyticsOverview).toHaveBeenCalledWith(
       expect.anything(),
