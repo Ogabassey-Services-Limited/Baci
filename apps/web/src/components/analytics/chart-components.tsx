@@ -175,8 +175,8 @@ export function SalesByChannelChart({ data, className }: ChartProps) {
           innerRadius={60}
           outerRadius={80}
           paddingAngle={5}
-          dataKey="total_revenue"
-          nameKey="channel"
+          dataKey="value"
+          nameKey="name"
           stroke="none"
         >
           {data.map((_entry, index) => (

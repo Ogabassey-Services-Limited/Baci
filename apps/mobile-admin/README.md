@@ -111,6 +111,16 @@ EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
 EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
+### Firebase iOS Config
+
+`GoogleService-Info.plist` is intentionally tracked for the admin app. Firebase client
+configuration is bundled into the shipped iOS binary anyway, and Xcode Cloud requires a
+deterministic plist at checkout time to archive successfully. The tracked plist must only
+contain standard client-side Firebase identifiers such as bundle ID, app ID, project ID,
+OAuth client IDs, and the restricted mobile API key. Do not commit Firebase Admin SDK
+keys, service account JSON, or any other server-side credentials. Android Firebase config
+stays secret-backed in CI.
+
 ## Development Guidelines
 
 ### Code Standards

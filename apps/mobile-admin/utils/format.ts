@@ -1,5 +1,5 @@
-import { formatCurrencyCompact } from '@/lib/utils';
+import { formatCurrencyNoDecimals } from '@/lib/utils';
 
 // Re-export using the cached implementation (with no decimals as the original behavior)
-export const formatCurrency = (amount: number) => formatCurrencyCompact(amount);
-export { formatCurrencyCompact };
+export const formatCurrency = (amount: number) => formatCurrencyNoDecimals(amount);
+export { formatCurrencyNoDecimals };

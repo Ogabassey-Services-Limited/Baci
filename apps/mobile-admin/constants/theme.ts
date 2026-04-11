@@ -10,6 +10,7 @@ export const DARK_COLORS = {
   backgroundLight: '#12121F',
   card: '#1A1A2E',
   cardHover: '#252542',
+  backdrop: 'rgba(0, 0, 0, 0.55)',
   border: '#2A2A40',
   inputBg: '#252542',
 
@@ -63,6 +64,7 @@ export const LIGHT_COLORS = {
   backgroundLight: '#FFFFFF',
   card: '#FFFFFF',
   cardHover: '#F1F5F9',
+  backdrop: 'rgba(15, 23, 42, 0.35)',
   border: '#E2E8F0',
   inputBg: '#F1F5F9',
 

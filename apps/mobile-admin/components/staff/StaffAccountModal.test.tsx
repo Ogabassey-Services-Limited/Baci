@@ -5,10 +5,31 @@ import { LIGHT_COLORS } from '@/constants/theme';
 import { StaffAccountModal } from './StaffAccountModal';
 import type { Branch } from './types';
 
-vi.mock('@/components/ui/KeyboardAwareModalContainer', () => ({
-  KeyboardAwareModalContainer: ({ children }: { children?: React.ReactNode }) =>
-    children,
-}));
+vi.mock('@/components/ui/AppSheetModal', async () => {
+  const React = await import('react');
+
+  return {
+    AppSheetModal: ({
+      accessibilityLabel,
+      children,
+      visible,
+    }: {
+      accessibilityLabel?: string;
+      children?: React.ReactNode;
+      visible: boolean;
+    }) =>
+      visible
+        ? React.createElement(
+            'div',
+            {
+              'aria-label': accessibilityLabel ?? 'Sheet modal',
+              role: 'dialog',
+            },
+            children
+          )
+        : null,
+  };
+});
 
 vi.mock('react-native', async () => {
   const React = await import('react');
@@ -193,6 +214,9 @@ describe('StaffAccountModal', () => {
 
     render(<StaffAccountModal {...props} />);
 
+    expect(
+      screen.getByRole('dialog', { name: 'Create staff account' })
+    ).toBeTruthy();
     expect(screen.getByText('Create Staff Account')).toBeTruthy();
     expect(screen.getByDisplayValue('Main till')).toBeTruthy();
     expect(screen.getByText('No Branch')).toBeTruthy();
@@ -222,7 +246,9 @@ describe('StaffAccountModal', () => {
 
     fireEvent.click(screen.getByLabelText('Branch: HQ'));
     fireEvent.click(screen.getByLabelText('Staff: Ada'));
-    fireEvent.click(screen.getByLabelText('Create staff account'));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Create staff account' })
+    );
 
     expect(props.onBranchSelect).toHaveBeenCalledWith('branch-1');
     expect(props.onStaffSelect).toHaveBeenCalledWith('staff-1');
@@ -241,5 +267,23 @@ describe('StaffAccountModal', () => {
 
     expect(screen.getByText('Loading staff...')).toBeTruthy();
     expect(screen.getByText('Staff unavailable')).toBeTruthy();
+  });
+
+  it('disables submission until an account name exists', () => {
+    render(
+      <StaffAccountModal
+        {...createProps({
+          accountName: '   ',
+        })}
+      />
+    );
+
+    expect(
+      (
+        screen.getByRole('button', {
+          name: 'Create staff account',
+        }) as HTMLButtonElement
+      ).disabled
+    ).toBe(true);
   });
 });

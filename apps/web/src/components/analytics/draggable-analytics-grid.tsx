@@ -43,8 +43,10 @@ interface AnalyticsSummary {
   sales: MetricData;
   activeNow: MetricData;
   aov?: MetricData;
+  profit?: MetricData;
+  taxDue?: MetricData;
   grossMargin?: MetricData;
-  ltv?: MetricData;
+  revenuePerCustomer?: MetricData;
   refundRate?: MetricData;
   // New detailed metrics
   subtotal?: number;
@@ -186,7 +188,7 @@ const DEFAULT_LAYOUTS: Layouts = {
     { i: 'summary-aov', x: 0, y: 2, w: 3, h: 1 },
     { i: 'summary-margin', x: 3, y: 2, w: 3, h: 1 },
     { i: 'summary-refund-rate', x: 6, y: 2, w: 3, h: 1 },
-    { i: 'summary-ltv', x: 9, y: 2, w: 3, h: 1 },
+    { i: 'summary-revenue-per-customer', x: 9, y: 2, w: 3, h: 1 },
 
     // Row 4: Payment Methods (fits in 4 cols flow?)
     // Payment methods was w:4 h:2. Let's keep it similar or adapt.
@@ -233,7 +235,7 @@ const DEFAULT_LAYOUTS: Layouts = {
     { i: 'summary-aov', x: 0, y: 2, w: 5, h: 1 },
     { i: 'summary-margin', x: 5, y: 2, w: 5, h: 1 },
     { i: 'summary-refund-rate', x: 5, y: 2, w: 5, h: 1 },
-    { i: 'summary-ltv', x: 0, y: 3, w: 5, h: 1 },
+    { i: 'summary-revenue-per-customer', x: 0, y: 3, w: 5, h: 1 },
     { i: 'revenue-chart', x: 0, y: 4, w: 10, h: 3 },
     { i: 'payment-methods', x: 0, y: 7, w: 5, h: 3 },
     { i: 'recent-sales', x: 0, y: 10, w: 5, h: 3 },
@@ -263,7 +265,7 @@ const DEFAULT_LAYOUTS: Layouts = {
     { i: 'summary-aov', x: 3, y: 1, w: 3, h: 1 },
     { i: 'summary-margin', x: 0, y: 2, w: 3, h: 1 },
     { i: 'summary-refund-rate', x: 0, y: 2, w: 3, h: 1 },
-    { i: 'summary-ltv', x: 3, y: 2, w: 3, h: 1 },
+    { i: 'summary-revenue-per-customer', x: 3, y: 2, w: 3, h: 1 },
     { i: 'revenue-chart', x: 0, y: 3, w: 6, h: 3 },
     { i: 'payment-methods', x: 0, y: 6, w: 6, h: 3 },
     { i: 'recent-sales', x: 0, y: 13, w: 6, h: 3 },
@@ -293,7 +295,7 @@ const DEFAULT_LAYOUTS: Layouts = {
     { i: 'summary-aov', x: 2, y: 1, w: 2, h: 1 },
     { i: 'summary-margin', x: 0, y: 2, w: 2, h: 1 },
     { i: 'summary-refund-rate', x: 0, y: 2, w: 2, h: 1 },
-    { i: 'summary-ltv', x: 2, y: 2, w: 2, h: 1 },
+    { i: 'summary-revenue-per-customer', x: 2, y: 2, w: 2, h: 1 },
     { i: 'revenue-chart', x: 0, y: 3, w: 4, h: 3 },
     { i: 'payment-methods', x: 0, y: 6, w: 4, h: 3 },
     { i: 'recent-sales', x: 0, y: 13, w: 4, h: 3 },
@@ -323,7 +325,7 @@ const DEFAULT_LAYOUTS: Layouts = {
     { i: 'summary-aov', x: 0, y: 3, w: 2, h: 1 },
     { i: 'summary-margin', x: 0, y: 4, w: 2, h: 1 },
     { i: 'summary-refund-rate', x: 0, y: 4, w: 2, h: 1 },
-    { i: 'summary-ltv', x: 0, y: 5, w: 2, h: 1 },
+    { i: 'summary-revenue-per-customer', x: 0, y: 5, w: 2, h: 1 },
     { i: 'revenue-chart', x: 0, y: 6, w: 2, h: 3 },
     { i: 'payment-methods', x: 0, y: 9, w: 2, h: 3 },
     { i: 'recent-sales', x: 0, y: 13, w: 2, h: 3 },
@@ -560,7 +562,7 @@ export function DraggableAnalyticsGrid({
         'payment-methods',
         'summary-aov',
         'summary-margin',
-        'summary-ltv',
+        'summary-revenue-per-customer',
         'financial-summary',
       ],
       products: [
@@ -595,14 +597,12 @@ export function DraggableAnalyticsGrid({
     sales: { value: 0, change: 0 },
     activeNow: { value: 0, change: 0 },
     aov: { value: 0, change: 0 },
+    profit: { value: 0, change: 0 },
+    taxDue: { value: 0, change: 0 },
     grossMargin: { value: 0, change: 0 },
-    ltv: { value: 0, change: 0 },
+    revenuePerCustomer: { value: 0, change: 0 },
     refundRate: { value: 0, change: 0 },
   };
-
-  // Mock data for finance cards (since API doesn't return these yet)
-  const profit = { value: summary.revenue.value * 0.25, change: 12.5 }; // 25% margin
-  const taxDue = { value: summary.revenue.value * 0.1, change: 5.2 }; // 10% tax
 
   const formatCurrency = (value: number) => {
     const country = merchant?.country
@@ -717,11 +717,11 @@ export function DraggableAnalyticsGrid({
           {isWidgetVisible('summary-profit') &&
             renderMetricCard(
               'summary-profit',
-              'Net Profit (Est.) 📈',
-              formatCurrency(profit.value),
-              profit.change,
+              'Net Profit 📈',
+              formatCurrency(summary.profit?.value || 0),
+              summary.profit?.change || 0,
               DollarSign,
-              'up'
+              (summary.profit?.change || 0) >= 0 ? 'up' : 'down'
             )}
           {isWidgetVisible('summary-customers') &&
             renderMetricCard(
@@ -735,11 +735,14 @@ export function DraggableAnalyticsGrid({
           {isWidgetVisible('summary-tax') &&
             renderMetricCard(
               'summary-tax',
-              'Tax Due (Est.) 🏛️',
-              formatCurrency(taxDue.value),
-              taxDue.change,
+              'Tax Due 🏛️',
+              formatCurrency(summary.taxDue?.value || 0),
+              Math.abs(summary.taxDue?.change || 0),
               DollarSign,
-              'down'
+              // Tax is a cash-flow cost from the merchant's POV, so a period
+              // with *lower* tax owed is displayed as the "up" (positive)
+              // direction even though the change value itself went down.
+              (summary.taxDue?.change || 0) <= 0 ? 'up' : 'down'
             )}
           {isWidgetVisible('summary-active') &&
             renderMetricCard(
@@ -781,14 +784,14 @@ export function DraggableAnalyticsGrid({
               RefreshCcw,
               (summary.refundRate?.change || 0) <= 0 ? 'up' : 'down'
             )}
-          {isWidgetVisible('summary-ltv') &&
+          {isWidgetVisible('summary-revenue-per-customer') &&
             renderMetricCard(
-              'summary-ltv',
-              'Customer LTV 💎',
-              formatCurrency(summary.ltv?.value || 0),
-              summary.ltv?.change || 0,
+              'summary-revenue-per-customer',
+              'Revenue / Customer 💎',
+              formatCurrency(summary.revenuePerCustomer?.value || 0),
+              summary.revenuePerCustomer?.change || 0,
               Users,
-              (summary.ltv?.change || 0) >= 0 ? 'up' : 'down'
+              (summary.revenuePerCustomer?.change || 0) >= 0 ? 'up' : 'down'
             )}
           {isWidgetVisible('summary-units') &&
             renderMetricCard(
@@ -1312,32 +1315,35 @@ export function DraggableAnalyticsGrid({
               Percent,
               (summary.grossMargin?.change || 0) >= 0 ? 'up' : 'down'
             )}
-          {isWidgetVisible('summary-ltv') &&
+          {isWidgetVisible('summary-revenue-per-customer') &&
             renderMetricCard(
-              'summary-ltv',
-              'Customer LTV 💎',
-              formatCurrency(summary.ltv?.value || 0),
-              summary.ltv?.change || 0,
+              'summary-revenue-per-customer',
+              'Revenue / Customer 💎',
+              formatCurrency(summary.revenuePerCustomer?.value || 0),
+              summary.revenuePerCustomer?.change || 0,
               Users,
-              (summary.ltv?.change || 0) >= 0 ? 'up' : 'down'
+              (summary.revenuePerCustomer?.change || 0) >= 0 ? 'up' : 'down'
             )}
           {isWidgetVisible('summary-profit') &&
             renderMetricCard(
               'summary-profit',
-              'Net Profit (Est.) 📈',
-              formatCurrency(profit.value),
-              profit.change,
+              'Net Profit 📈',
+              formatCurrency(summary.profit?.value || 0),
+              summary.profit?.change || 0,
               DollarSign,
-              'up'
+              (summary.profit?.change || 0) >= 0 ? 'up' : 'down'
             )}
           {isWidgetVisible('summary-tax') &&
             renderMetricCard(
               'summary-tax',
-              'Tax Due (Est.) 🏛️',
-              formatCurrency(taxDue.value),
-              taxDue.change,
+              'Tax Due 🏛️',
+              formatCurrency(summary.taxDue?.value || 0),
+              Math.abs(summary.taxDue?.change || 0),
               DollarSign,
-              'down'
+              // Tax is a cash-flow cost from the merchant's POV, so a period
+              // with *lower* tax owed is displayed as the "up" (positive)
+              // direction even though the change value itself went down.
+              (summary.taxDue?.change || 0) <= 0 ? 'up' : 'down'
             )}
 
           {isWidgetVisible('payment-methods') && (

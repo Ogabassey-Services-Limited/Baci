@@ -503,7 +503,7 @@ export default function CustomersScreen() {
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
-      edges={[]}
+      edges={['top']}
     >
       <SystemBars style={isDark ? 'light' : 'dark'} />
 

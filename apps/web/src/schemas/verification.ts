@@ -33,9 +33,16 @@ export const bvnVerifySchema = z.object({
   firstName: z.string().trim().min(1).max(100).transform(sanitize),
   lastName: z.string().trim().min(1).max(100).transform(sanitize),
   dateOfBirth: dateOfBirthSchema,
-  mobileNo: z
-    .string()
-    .regex(/^0\d{10}$/, 'Invalid Nigerian mobile number format'),
+  mobileNo: z.preprocess(
+    (value) =>
+      typeof value === 'string' && value.trim() === '' ? undefined : value,
+    z
+      .string()
+      .trim()
+      .regex(/^0\d{10}$/, 'Invalid Nigerian mobile number format')
+      .transform(sanitize)
+      .optional()
+  ),
 });
 
 export const ninVerifySchema = z.object({
