@@ -35,8 +35,8 @@ yarn-error.*
 .env.local
 .env.*.local
 
-# Firebase config (injected via EAS Secrets at build time)
-GoogleService-Info.plist
+# Firebase config (Android still comes from secrets; the iOS plist is intentional client
+# config that ships in the app bundle and is tracked so Xcode Cloud can archive reliably)
 google-services.json
 
 # TypeScript

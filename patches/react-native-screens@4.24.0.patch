@@ -1,0 +1,71 @@
+diff --git a/android/build.gradle b/android/build.gradle
+index 885faa6..0063d36 100644
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -20,7 +20,7 @@ buildscript {
+         mavenCentral()
+     }
+     dependencies {
+-        classpath('com.android.tools.build:gradle:8.2.1')
++        classpath('com.android.tools.build:gradle:9.1.0')
+         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${safeExtGet('kotlinVersion', rnsDefaultKotlinVersion)}"
+         classpath "com.diffplug.spotless:spotless-plugin-gradle:6.25.0"
+     }
+@@ -94,7 +94,10 @@ if (isNewArchitectureEnabled()) {
+     apply plugin: "com.facebook.react"
+ }
+ apply plugin: 'com.android.library'
+-apply plugin: 'kotlin-android'
++def builtInKotlinEnabled = !project.hasProperty("android.builtInKotlin") || project.property("android.builtInKotlin").toString().toBoolean()
++if (!builtInKotlinEnabled) {
++    apply plugin: 'org.jetbrains.kotlin.android'
++}
+ 
+ def reactNativeArchitectures() {
+     def value = project.getProperties().get("reactNativeArchitectures")
+@@ -117,7 +120,7 @@ def REACT_NATIVE_MINOR_VERSION = REACT_NATIVE_VERSION.startsWith("0.0.0-") ? 100
+ def IS_NEW_ARCHITECTURE_ENABLED = isNewArchitectureEnabled()
+ 
+ android {
+-    compileSdkVersion safeExtGet('compileSdkVersion', rnsDefaultCompileSdkVersion)
++    compileSdk safeExtGet(['compileSdkVersion', 'compileSdk'], rnsDefaultCompileSdkVersion)
+     namespace "com.swmansion.rnscreens"
+ 
+     // Used to override the NDK path/version on internal CI or by allowing
+@@ -130,8 +133,8 @@ android {
+     }
+ 
+     defaultConfig {
+-        minSdkVersion safeExtGet(['minSdkVersion', 'minSdk'], rnsDefaultMinSdkVersion)
+-        targetSdkVersion safeExtGet(['targetSdkVersion', 'targetSdk'], rnsDefaultTargetSdkVersion)
++        minSdk safeExtGet(['minSdkVersion', 'minSdk'], rnsDefaultMinSdkVersion)
++        targetSdk safeExtGet(['targetSdkVersion', 'targetSdk'], rnsDefaultTargetSdkVersion)
+         versionCode 1
+         versionName "1.0"
+         buildConfigField "boolean", "IS_NEW_ARCHITECTURE_ENABLED", IS_NEW_ARCHITECTURE_ENABLED.toString()
+@@ -157,7 +160,7 @@ android {
+             path "CMakeLists.txt"
+         }
+     }
+-    lintOptions {
++    lint {
+         abortOnError false
+     }
+     compileOptions {
+@@ -193,10 +196,16 @@ android {
+                 srcDirs += [
+                     "src/fabric/java",
+                 ]
++                kotlin.srcDirs += [
++                    "src/fabric/java",
++                ]
+             } else {
+                 srcDirs += [
+                     "src/paper/java",
+                 ]
++                kotlin.srcDirs += [
++                    "src/paper/java",
++                ]
+             }
+         }
+         res {
