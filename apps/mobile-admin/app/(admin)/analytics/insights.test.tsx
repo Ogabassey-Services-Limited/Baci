@@ -234,7 +234,7 @@ describe('AnalyticsInsightsScreen', () => {
     expect(screen.queryByText(/Top post:/i)).toBeNull();
   });
 
-  it('shows the loading indicator while stale analytics data is present', () => {
+  it('keeps stale analytics content visible while a background refetch is running', () => {
     mocks.useAnalyticsOverview.mockReturnValue({
       data: {
         blog: {
@@ -254,7 +254,7 @@ describe('AnalyticsInsightsScreen', () => {
 
     render(<AnalyticsInsightsScreen />);
 
-    expect(screen.getByRole('progressbar')).toBeTruthy();
     expect(screen.getByText('420')).toBeTruthy();
+    expect(screen.queryByRole('progressbar')).toBeNull();
   });
 });

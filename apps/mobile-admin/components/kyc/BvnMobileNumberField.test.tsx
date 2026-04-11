@@ -97,7 +97,7 @@ describe('BvnMobileNumberField', () => {
     );
 
     const input = screen.getByLabelText('Mobile number input');
-    expect(input).toBeDisabled();
+    expect(input).toHaveProperty('disabled', true);
     fireEvent.change(input, { target: { value: '07000000000' } });
     expect(onChangeText).not.toHaveBeenCalled();
   });
