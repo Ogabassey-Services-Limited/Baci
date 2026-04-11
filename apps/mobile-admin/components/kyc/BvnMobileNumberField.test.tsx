@@ -8,6 +8,10 @@ vi.mock('react-native', async () => {
   const React = await import('react');
 
   return {
+    StyleSheet: {
+      create: <T,>(styles: T) => styles,
+      hairlineWidth: 1,
+    },
     Text: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('span', null, children),
     TextInput: ({

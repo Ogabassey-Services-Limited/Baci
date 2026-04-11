@@ -36,6 +36,10 @@ vi.mock('react-native', async () => {
       ),
     ScrollView: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('div', null, children),
+    StyleSheet: {
+      create: <T,>(styles: T) => styles,
+      hairlineWidth: 1,
+    },
     Text: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('span', null, children),
     View: ({ children }: { children?: React.ReactNode }) =>
