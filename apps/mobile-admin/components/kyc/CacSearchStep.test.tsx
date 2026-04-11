@@ -16,24 +16,6 @@ vi.mock('react-native', async () => {
   return {
     ActivityIndicator: ({ color }: { color?: string }) =>
       React.createElement('span', { 'data-color': color }, 'loading'),
-    FlatList: ({
-      ListEmptyComponent,
-      data,
-      renderItem,
-    }: {
-      ListEmptyComponent?: React.ReactNode;
-      data?: unknown[];
-      renderItem?: (item: { item: unknown }) => React.ReactNode;
-    }) =>
-      React.createElement(
-        'div',
-        null,
-        data && data.length > 0
-          ? data.map((item, index) =>
-              React.createElement('div', { key: index }, renderItem?.({ item }))
-            )
-          : ListEmptyComponent
-      ),
     Pressable: ({
       accessibilityLabel,
       accessibilityRole,
@@ -142,5 +124,11 @@ describe('CacSearchStep', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Search CAC' }));
 
     expect(onSearch).not.toHaveBeenCalled();
+  });
+
+  it('renders the empty state after an empty search result', () => {
+    render(<CacSearchStep {...baseProps} results={[]} />);
+
+    screen.getByText('No companies found for this RC/BN number.');
   });
 });

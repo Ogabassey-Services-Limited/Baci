@@ -117,6 +117,21 @@ export interface MerchantData {
   error: Error | null;
 }
 
+function isMerchantNetworkFailure(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+
+  const candidate = error as {
+    details?: unknown;
+    message?: unknown;
+  };
+
+  return [candidate.message, candidate.details].some(
+    (value) =>
+      typeof value === 'string' &&
+      value.toLowerCase().includes('network request failed')
+  );
+}
+
 export async function fetchMerchantData(
   userId: string
 ): Promise<{ merchant: Merchant | null; primaryDomain: Domain | null }> {
@@ -129,6 +144,13 @@ export async function fetchMerchantData(
   const { data, error } = await supabase.rpc('get_user_merchant_context');
 
   if (error) {
+    if (isMerchantNetworkFailure(error)) {
+      console.warn('[Merchant] Network unavailable while fetching context');
+      throw new Error(
+        'Unable to load merchant data right now. Check your connection and try again.'
+      );
+    }
+
     console.error('[Merchant] RPC Error:', error);
     throw new Error(error.message);
   }
@@ -168,7 +190,8 @@ export function useMerchant(): MerchantData {
     },
     enabled: !!user?.id, // Only fetch when user is authenticated
     staleTime: 1000 * 60 * 5, // 5 minutes
-    retry: 1,
+    retry: (failureCount, queryError) =>
+      !isMerchantNetworkFailure(queryError) && failureCount < 1,
   });
 
   const merchant = data?.merchant ?? null;

@@ -35,6 +35,40 @@ function formatBaseUrlHost(host: string): string {
 
 const DEFAULT_PRODUCTION_URL = 'https://usebaci.com';
 
+function isLikelyLocalDevUrl(url: string): boolean {
+  try {
+    const parsedUrl = new URL(url);
+    const hostname = parsedUrl.hostname;
+
+    if (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '0.0.0.0' ||
+      hostname === '::1'
+    ) {
+      return true;
+    }
+
+    if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(hostname)) {
+      return true;
+    }
+
+    if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)) {
+      return true;
+    }
+
+    const privateRange172 = hostname.match(/^172\.(\d{1,3})\./);
+    if (privateRange172) {
+      const secondOctet = Number(privateRange172[1]);
+      return secondOctet >= 16 && secondOctet <= 31;
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 // Centralized Base URL Logic
 // In dev, auto-detect the IP from Expo's debuggerHost so it works
 // regardless of which network the laptop is on (no more hardcoding IPs).
@@ -54,15 +88,36 @@ export function resolveBaseUrl(
   } = options;
 
   if (isDev) {
-    // Prefer explicit API URL (strip trailing slash)
-    if (configuredBaseUrl) return configuredBaseUrl.replace(/\/+$/, '');
-    if (fallbackConfiguredBaseUrl)
-      return fallbackConfiguredBaseUrl.replace(/\/+$/, '');
     // Auto-detect from Expo debugger host
     if (hostUri) {
       const host = getHostFromHostUri(hostUri);
-      return `http://${formatBaseUrlHost(host)}:3000`;
+      const detectedLocalUrl = `http://${formatBaseUrlHost(host)}:3000`;
+
+      if (configuredBaseUrl && isLikelyLocalDevUrl(configuredBaseUrl)) {
+        return configuredBaseUrl.replace(/\/+$/, '');
+      }
+
+      if (
+        fallbackConfiguredBaseUrl &&
+        isLikelyLocalDevUrl(fallbackConfiguredBaseUrl)
+      ) {
+        return fallbackConfiguredBaseUrl.replace(/\/+$/, '');
+      }
+
+      return detectedLocalUrl;
     }
+
+    // Prefer explicit local API URL if Expo host detection is unavailable
+    if (configuredBaseUrl && isLikelyLocalDevUrl(configuredBaseUrl)) {
+      return configuredBaseUrl.replace(/\/+$/, '');
+    }
+    if (
+      fallbackConfiguredBaseUrl &&
+      isLikelyLocalDevUrl(fallbackConfiguredBaseUrl)
+    ) {
+      return fallbackConfiguredBaseUrl.replace(/\/+$/, '');
+    }
+
     return 'http://localhost:3000';
   }
 
@@ -235,7 +290,7 @@ export async function apiClient<T = unknown>(
     // Re-throw NetworkError as-is
     if (error instanceof NetworkError) {
       // Use separate arguments to avoid format string injection
-      console.error('[API Error]', String(url), String(error.message));
+      console.warn('[API Error]', String(url), String(error.message));
       throw error;
     }
 

@@ -11,11 +11,16 @@ vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: vi.fn(),
 }));
 
+vi.mock('@/lib/expo-push', () => ({
+  notifyOrderStatusChange: vi.fn().mockResolvedValue(undefined),
+}));
+
 import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { notifyOrderStatusChange } from '@/lib/expo-push';
 import { POST } from './route';
 
 function createMockUser(): User {
@@ -35,19 +40,21 @@ function createRequest(body: Record<string, unknown>): NextRequest {
 }
 
 function createSupabaseMock() {
-  const merchantSingle = vi.fn().mockResolvedValue({
-    data: { self_fulfillment_enabled: true },
-    error: null,
-  });
   const orderSingle = vi.fn().mockResolvedValue({
     data: {
       id: 'order-1',
       merchant_id: 'merchant-1',
+      order_number: 'ORD-260411-TEST',
       shipping_status: 'processing',
+      customer_id: 'customer-1',
       customer_name: 'Akinola Ogunniran',
       customer_phone: '+2348035962150',
       shipping_address: { address: 'Lekki Phase 1', city: 'Lekki' },
     },
+    error: null,
+  });
+  const customerSingle = vi.fn().mockResolvedValue({
+    data: { user_id: 'customer-user-1' },
     error: null,
   });
   const updateEq = vi.fn().mockResolvedValue({ error: null });
@@ -60,16 +67,6 @@ function createSupabaseMock() {
 
   const supabase = {
     from: vi.fn((table: string) => {
-      if (table === 'merchants') {
-        return {
-          select: vi.fn(() => ({
-            eq: vi.fn(() => ({
-              single: merchantSingle,
-            })),
-          })),
-        };
-      }
-
       if (table === 'orders') {
         return {
           select: vi.fn(() => ({
@@ -80,6 +77,16 @@ function createSupabaseMock() {
             })),
           })),
           update: vi.fn(() => updateBuilder),
+        };
+      }
+
+      if (table === 'customers') {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              single: customerSingle,
+            })),
+          })),
         };
       }
 
@@ -96,6 +103,7 @@ function createSupabaseMock() {
 describe('POST /api/shipping/self-fulfill', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
     vi.mocked(checkCsrfProtection).mockResolvedValue({
       valid: true,
       response: undefined,
@@ -123,6 +131,14 @@ describe('POST /api/shipping/self-fulfill', () => {
 
     expect(response.status).toBe(200);
     expect(updateEq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
+    await vi.waitFor(() => {
+      expect(notifyOrderStatusChange).toHaveBeenCalledWith(
+        'customer-user-1',
+        '11111111-1111-1111-1111-111111111111',
+        'ORD-260411-TEST',
+        'shipped'
+      );
+    });
     expect(payload).toMatchObject({
       success: true,
       message: 'Order marked as self-fulfilled',

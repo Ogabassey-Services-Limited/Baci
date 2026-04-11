@@ -606,7 +606,7 @@ export default function ProductsScreen() {
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
-      edges={[]}
+      edges={['top']}
     >
       <SystemBars style={isDark ? 'light' : 'dark'} />
 

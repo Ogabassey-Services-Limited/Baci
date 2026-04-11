@@ -35,7 +35,8 @@ export const bvnVerifySchema = z.object({
   dateOfBirth: dateOfBirthSchema,
   mobileNo: z
     .string()
-    .regex(/^0\d{10}$/, 'Invalid Nigerian mobile number format'),
+    .regex(/^0\d{10}$/, 'Invalid Nigerian mobile number format')
+    .optional(),
 });
 
 export const ninVerifySchema = z.object({

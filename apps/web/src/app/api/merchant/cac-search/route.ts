@@ -1,20 +1,10 @@
+import { normalizeCacSearchTerm } from '@baci/shared';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getCacApiUrl } from '@/env';
 import { authenticateApiRequest, getUserAccess } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { checkRateLimit } from '@/lib/rate-limiter';
 import { cacSearchSchema } from '@/schemas/verification';
-
-function normalizeCacSearchTerm(searchTerm: string): string {
-  const trimmed = searchTerm.trim();
-  const prefixedRegistrationMatch = trimmed.match(/^(rc|bn)\s*-?\s*(\d+)$/i);
-
-  if (prefixedRegistrationMatch) {
-    return prefixedRegistrationMatch[2];
-  }
-
-  return trimmed;
-}
 
 export async function POST(request: NextRequest) {
   const auth = await authenticateApiRequest(request);

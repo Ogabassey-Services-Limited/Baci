@@ -7,9 +7,10 @@ import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import type { useTheme } from '@/hooks/useTheme';
 
 interface DateOfBirthPickerProps {
-  value: string;
-  onChange: (date: string) => void;
   colors: ReturnType<typeof useTheme>['colors'];
+  disabled?: boolean;
+  onChange: (date: string) => void;
+  value: string;
 }
 
 function formatDateForDisplay(dateStr: string): string {
@@ -44,6 +45,7 @@ export default function DateOfBirthPicker({
   value,
   onChange,
   colors,
+  disabled = false,
 }: DateOfBirthPickerProps) {
   // Computed fresh on each render so the bounds don't go stale if the app
   // stays open across date boundaries.
@@ -85,6 +87,7 @@ export default function DateOfBirthPicker({
           },
         ]}
         onPress={handleOpenPicker}
+        disabled={disabled}
         accessibilityRole="button"
         accessibilityLabel="Select date of birth"
         accessibilityHint="Opens a date picker"

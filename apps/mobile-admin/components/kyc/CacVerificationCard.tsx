@@ -1,29 +1,34 @@
+import { normalizeCacSearchTerm, parseCacRegistration } from '@baci/shared';
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation } from '@tanstack/react-query';
-import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import { apiClient, apiFormData, NetworkError } from '@/lib/api-client';
 import { createUploadFile } from '@/types/upload';
-import CacConfirmStep from './CacConfirmStep';
 import CacResultStep from './CacResultStep';
 import CacSearchStep from './CacSearchStep';
 import CacUploadStep from './CacUploadStep';
+import {
+  chooseCertificateSource,
+  pickCertificateFromFiles,
+  pickCertificateFromGallery,
+} from './cac-certificate-picker';
 import {
   type CacCompany,
   type CacRegistrationPrefix,
   type CacStep,
   normalizeCacStatus,
+  type SelectedCacDocument,
 } from './cac-types';
 import VerificationStatusBadge from './VerificationStatusBadge';
 
 interface CacVerificationCardProps {
-  verified: boolean;
-  prefillRcNumber?: string | null;
   cacApprovedName?: string | null;
   onVerified: () => void;
+  prefillRcNumber?: string | null;
+  verified: boolean;
 }
 
 export default function CacVerificationCard({
@@ -41,26 +46,22 @@ export default function CacVerificationCard({
   const [selectedCompany, setSelectedCompany] = useState<CacCompany | null>(
     null
   );
-  const [imageUri, setImageUri] = useState<string | null>(null);
-  const [imageMimeType, setImageMimeType] = useState<string>('image/jpeg');
+  const [selectedDocument, setSelectedDocument] =
+    useState<SelectedCacDocument | null>(null);
   const [verifyResult, setVerifyResult] = useState<{
     verified: boolean;
     reason?: string;
   } | null>(null);
 
   useEffect(() => {
-    const raw = (prefillRcNumber ?? '').trim();
-    const prefixedMatch = raw.match(/^(RC|BN)\s*-?\s*(\d+)$/i);
+    const parsedRegistration = parseCacRegistration(prefillRcNumber);
 
-    if (prefixedMatch) {
-      setRegistrationPrefix(
-        prefixedMatch[1].toUpperCase() as CacRegistrationPrefix
-      );
-      setRcNumber(prefixedMatch[2]);
-      return;
+    if (parsedRegistration?.prefix) {
+      setRegistrationPrefix(parsedRegistration.prefix as CacRegistrationPrefix);
+      setRcNumber(parsedRegistration.digits);
+    } else {
+      setRcNumber(parsedRegistration?.digits ?? '');
     }
-
-    setRcNumber(raw.replace(/\D/g, ''));
   }, [prefillRcNumber]);
 
   const searchMutation = useMutation({
@@ -74,7 +75,7 @@ export default function CacVerificationCard({
       }>('/api/merchant/cac-search', {
         method: 'POST',
         body: JSON.stringify({
-          searchTerm: `${registrationPrefix}${rcNumber.replace(/\D/g, '')}`,
+          searchTerm: normalizeCacSearchTerm(rcNumber, registrationPrefix),
         }),
       });
       const companies: CacCompany[] = response.companies.map((c) => ({
@@ -84,6 +85,15 @@ export default function CacVerificationCard({
       }));
       return { companies };
     },
+    onSuccess: ({ companies }) => {
+      if (companies.length === 1) {
+        setSelectedCompany(companies[0]);
+        setCacStep('upload');
+      } else {
+        setSelectedCompany(null);
+        setCacStep('search');
+      }
+    },
     onError: (error: unknown) => handleMutationError(error),
   });
 
@@ -92,24 +102,18 @@ export default function CacVerificationCard({
       if (!selectedCompany) {
         throw new Error('Missing selected company for upload.');
       }
-      if (!imageUri) {
-        throw new Error('Missing image URI for upload.');
-      }
-      if (!imageMimeType) {
-        throw new Error('Missing image MIME type for upload.');
+      if (!selectedDocument) {
+        throw new Error('Missing certificate file for upload.');
       }
       const formData = new FormData();
-      const subtype = imageMimeType.split('/')[1] || 'jpeg';
+      const subtype = selectedDocument.mimeType.split('/')[1] || 'jpeg';
       const ext = subtype === 'jpeg' ? 'jpg' : subtype;
       formData.append(
         'file',
-        // React Native's file-like object from ImagePicker does not match the
-        // DOM Blob shape, but FormData on RN accepts { uri, name, type }.
-        // The double cast satisfies TypeScript without changing runtime shape.
         createUploadFile({
-          uri: imageUri,
-          name: `cac-certificate.${ext}`,
-          type: imageMimeType,
+          uri: selectedDocument.uri,
+          name: selectedDocument.name || `cac-certificate.${ext}`,
+          type: selectedDocument.mimeType,
         }) as unknown as Blob
       );
       formData.append('rcNumber', selectedCompany.rcNumber);
@@ -147,32 +151,34 @@ export default function CacVerificationCard({
 
   function handleSelectCompany(company: CacCompany) {
     setSelectedCompany(company);
-    setCacStep('confirm');
+    setCacStep('upload');
   }
 
-  async function handlePickImage() {
+  async function handlePickDocument() {
     try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        quality: 0.8,
-      });
-      if (!result.canceled && result.assets[0]) {
-        const asset = result.assets[0];
-        setImageUri(asset.uri);
-        if (asset.mimeType) setImageMimeType(asset.mimeType);
+      const source = await chooseCertificateSource();
+      if (!source) return;
+      const document =
+        source === 'gallery'
+          ? await pickCertificateFromGallery()
+          : await pickCertificateFromFiles();
+
+      if (document) {
+        setSelectedDocument(document);
       }
-    } catch {
-      Alert.alert(
-        'Error',
-        'Unable to access photo library. Please check your permissions.'
-      );
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Unable to access your selected certificate source. Please try again.';
+      Alert.alert('Error', message);
     }
   }
 
   function handleTryAgain() {
     setVerifyResult(null);
     setSelectedCompany(null);
-    setImageUri(null);
+    setSelectedDocument(null);
     setCacStep('search');
   }
 
@@ -241,19 +247,17 @@ export default function CacVerificationCard({
               onSelect={handleSelectCompany}
             />
           )}
-          {cacStep === 'confirm' && selectedCompany && (
-            <CacConfirmStep
-              company={selectedCompany}
-              onBack={() => setCacStep('search')}
-              onConfirm={() => setCacStep('upload')}
-            />
-          )}
-          {cacStep === 'upload' && (
+          {cacStep === 'upload' && selectedCompany && (
             <CacUploadStep
-              imageUri={imageUri}
-              onPickImage={handlePickImage}
+              company={selectedCompany}
+              document={selectedDocument}
+              onBack={() => {
+                setSelectedDocument(null);
+                setCacStep('search');
+              }}
+              onPickDocument={handlePickDocument}
               onVerify={() => {
-                if (imageUri) uploadMutation.mutate();
+                if (selectedDocument) uploadMutation.mutate();
               }}
               isUploading={uploadMutation.isPending}
             />

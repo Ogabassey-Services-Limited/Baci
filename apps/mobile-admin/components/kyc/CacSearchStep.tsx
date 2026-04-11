@@ -1,7 +1,7 @@
 import {
   ActivityIndicator,
-  FlatList,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -89,7 +89,7 @@ export default function CacSearchStep({
               borderColor: colors.border,
             },
           ]}
-          placeholder="7389159"
+          placeholder="Enter registration number"
           placeholderTextColor={colors.textMuted}
           value={rcNumber}
           onChangeText={(value) => onChangeRcNumber(value.replace(/\D/g, ''))}
@@ -122,33 +122,50 @@ export default function CacSearchStep({
         )}
       </Pressable>
       {results && (
-        <FlatList
-          data={results}
-          keyExtractor={(item) => item.rcNumber}
-          style={styles.resultsList}
-          ListEmptyComponent={
+        <View style={styles.resultsList}>
+          {results.length === 0 ? (
             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
               No companies found for this RC/BN number.
             </Text>
-          }
-          renderItem={({ item }) => (
-            <Pressable
-              style={[styles.resultItem, { borderColor: colors.border }]}
-              onPress={() => onSelect(item)}
-              accessibilityRole="button"
-              accessibilityLabel={`Select ${item.approvedName}, registration number ${item.rcNumber}, status ${item.status}`}
-            >
-              <Text style={[styles.resultName, { color: colors.text }]}>
-                {item.approvedName}
-              </Text>
+          ) : (
+            <>
               <Text
-                style={[styles.resultMeta, { color: colors.textSecondary }]}
+                style={[
+                  styles.resultHelperText,
+                  { color: colors.textSecondary },
+                ]}
               >
-                {item.rcNumber} — {item.status}
+                Tap the company card to continue to certificate upload.
               </Text>
-            </Pressable>
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
+                {results.map((item) => (
+                  <Pressable
+                    key={item.rcNumber}
+                    style={[styles.resultItem, { borderColor: colors.border }]}
+                    onPress={() => onSelect(item)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Select ${item.approvedName}, registration number ${item.rcNumber}, status ${item.status}`}
+                  >
+                    <Text style={[styles.resultName, { color: colors.text }]}>
+                      {item.approvedName}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.resultMeta,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      {registrationPrefix} match — {item.status}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </>
           )}
-        />
+        </View>
       )}
     </>
   );
@@ -217,5 +234,10 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     padding: SPACING.md,
+  },
+  resultHelperText: {
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    fontSize: TYPOGRAPHY.size.sm,
+    marginBottom: SPACING.sm,
   },
 });

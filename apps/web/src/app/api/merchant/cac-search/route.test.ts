@@ -158,10 +158,10 @@ describe('POST /api/merchant/cac-search', () => {
   });
 
   it.each([
-    ['RC7389159', '7389159'],
-    ['rc-7389159', '7389159'],
-    ['BN123456', '123456'],
-    ['bn 123456', '123456'],
+    ['RC7389159', 'RC7389159'],
+    ['rc-7389159', 'RC7389159'],
+    ['BN123456', 'BN123456'],
+    ['bn 123456', 'BN123456'],
   ])('normalizes %s before sending it to CAC', async (searchTerm, normalizedSearchTerm) => {
     const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce({
       ok: true,

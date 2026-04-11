@@ -250,7 +250,8 @@ export default function OrdersScreen() {
   const updateStatus = useUpdateOrderStatus();
 
   // Collapsible search bar animation
-  const searchBarAnim = useRef(new Animated.Value(1)).current;
+  const headerVisibilityAnim = useRef(new Animated.Value(1)).current;
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
   const lastScrollY = useRef(0);
   const isSearchVisible = useRef(true);
 
@@ -261,14 +262,16 @@ export default function OrdersScreen() {
     if (Math.abs(diff) > 10) {
       if (diff > 0 && isSearchVisible.current && currentScrollY > 50) {
         isSearchVisible.current = false;
-        Animated.timing(searchBarAnim, {
+        setIsHeaderCollapsed(true);
+        Animated.timing(headerVisibilityAnim, {
           toValue: 0,
           duration: 200,
           useNativeDriver: true,
         }).start();
       } else if (diff < 0 && !isSearchVisible.current) {
         isSearchVisible.current = true;
-        Animated.timing(searchBarAnim, {
+        setIsHeaderCollapsed(false);
+        Animated.timing(headerVisibilityAnim, {
           toValue: 1,
           duration: 200,
           useNativeDriver: true,
@@ -743,7 +746,7 @@ export default function OrdersScreen() {
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
-      edges={[]}
+      edges={['top']}
     >
       <SystemBars style={isDark ? 'light' : 'dark'} />
 
@@ -780,21 +783,19 @@ export default function OrdersScreen() {
         </View>
       </View>
 
-      {/* Collapsible Search Bar */}
+      {/* Collapsible Search + Filter Header */}
       <Animated.View
         style={[
           styles.searchContainer,
+          isHeaderCollapsed && styles.searchContainerCollapsed,
           {
-            opacity: searchBarAnim,
+            opacity: headerVisibilityAnim,
             transform: [
               {
-                translateY: searchBarAnim.interpolate({
+                translateY: headerVisibilityAnim.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [-60, 0],
+                  outputRange: [-24, 0],
                 }),
-              },
-              {
-                scaleY: searchBarAnim,
               },
             ],
           },
@@ -832,6 +833,21 @@ export default function OrdersScreen() {
             </Pressable>
           ) : null}
         </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterContent}
+          style={styles.filterContainer}
+        >
+          <FilterTab status="all" label="All" />
+          <FilterTab status="pending" label="Pending" />
+          <FilterTab status="processing" label="Processing" />
+          <FilterTab status="shipped" label="Shipped" />
+          <FilterTab status="delivered" label="Delivered" />
+          <FilterTab status="cancelled" label="Cancelled" />
+          <FilterTab status="returned" label="Returned" />
+        </ScrollView>
       </Animated.View>
 
       {/* Date Range Chip */}
@@ -934,24 +950,6 @@ export default function OrdersScreen() {
           </Pressable>
         </View>
       ) : null}
-
-      {/* Filter Tabs - aligned with web app shipping statuses */}
-      <View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterContent}
-          style={styles.filterContainer}
-        >
-          <FilterTab status="all" label="All" />
-          <FilterTab status="pending" label="Pending" />
-          <FilterTab status="processing" label="Processing" />
-          <FilterTab status="shipped" label="Shipped" />
-          <FilterTab status="delivered" label="Delivered" />
-          <FilterTab status="cancelled" label="Cancelled" />
-          <FilterTab status="returned" label="Returned" />
-        </ScrollView>
-      </View>
 
       <SectionList
         sections={sections}
@@ -1204,7 +1202,11 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     paddingHorizontal: SPACING.lg,
-    marginBottom: SPACING.md,
+  },
+  searchContainerCollapsed: {
+    height: 0,
+    marginBottom: 0,
+    overflow: 'hidden',
   },
   searchBar: {
     flexDirection: 'row',
