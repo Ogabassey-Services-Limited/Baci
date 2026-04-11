@@ -96,6 +96,9 @@ runs:
     - if: ${{ steps.pnpm-install.outputs.outcome == 'failure' }}
       name: Retry dependency install with clean pnpm store
       shell: bash
+      env:
+        npm_config_child_concurrency: '1'
+        npm_config_package_import_method: copy
       run: ${{ inputs.install-command }}
 
     - name: Record pnpm store lockfile hash
