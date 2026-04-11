@@ -118,6 +118,40 @@ assert_command() {
   fi
 }
 
+provision_mobile_admin_google_service_info() {
+  if [ "$app_dir" != "apps/mobile-admin" ]; then
+    return
+  fi
+
+  google_service_info_path="$repo_root/$app_dir/GoogleService-Info.plist"
+  if [ -f "$google_service_info_path" ]; then
+    if [ -s "$google_service_info_path" ]; then
+      echo "info: Using existing GoogleService-Info.plist"
+      return
+    fi
+    echo "warning: Existing GoogleService-Info.plist is empty; regenerating." >&2
+  fi
+
+  encoded_google_service_info="${GOOGLE_SERVICE_INFO_PLIST_BASE64:-}"
+  if [ -z "$encoded_google_service_info" ]; then
+    echo "error: '$google_service_info_path' is missing and GOOGLE_SERVICE_INFO_PLIST_BASE64 is not set." >&2
+    exit 1
+  fi
+
+  node -e "
+    const fs = require('fs');
+    const outputPath = process.argv[1];
+    const encoded = process.env.GOOGLE_SERVICE_INFO_PLIST_BASE64 ?? '';
+    if (!encoded.trim()) {
+      console.error('error: GOOGLE_SERVICE_INFO_PLIST_BASE64 is empty.');
+      process.exit(1);
+    }
+    fs.writeFileSync(outputPath, Buffer.from(encoded.trim(), 'base64'));
+  " "$google_service_info_path"
+
+  echo "info: Provisioned GoogleService-Info.plist from GOOGLE_SERVICE_INFO_PLIST_BASE64"
+}
+
 redact_url_credentials() {
   printf '%s' "$1" | sed -E 's#(https?://)[^/@]+@#\1***:***@#'
 }
@@ -247,6 +281,7 @@ cd "$repo_root"
 corepack enable
 pnpm_spec="$(node -p "const pm=require('./package.json').packageManager || ''; if (!pm.startsWith('pnpm@')) { throw new Error('packageManager must start with pnpm@'); } pm")"
 corepack prepare "$pnpm_spec" --activate
+provision_mobile_admin_google_service_info
 pnpm install --frozen-lockfile
 
 escaped_node_bin="$(printf '%s' "$node_bin" | sed "s/'/'\"'\"'/g")"

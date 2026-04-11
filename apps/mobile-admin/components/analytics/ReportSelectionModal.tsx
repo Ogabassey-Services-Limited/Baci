@@ -1,3 +1,4 @@
+import type { MerchantAnalyticsResponse } from '@baci/shared';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import {
@@ -8,19 +9,61 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useCurrency } from '@/hooks/useCurrency';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-import type { AnalyticsData } from '../../app/(admin)/analytics';
 import {
   generateReport,
   type ReportType,
   type Transaction,
 } from './ReportsGenerator';
 
+interface TaxLedgerOrderRow {
+  id: string;
+  created_at: string;
+  total: number | null;
+  tax_amount: number | null;
+  customer:
+    | { first_name: string | null; last_name: string | null }
+    | Array<{ first_name: string | null; last_name: string | null }>
+    | null;
+}
+
+type JoinedCustomer = Extract<
+  TaxLedgerOrderRow['customer'],
+  { first_name: string | null; last_name: string | null }
+>;
+
+function mapRowToTransaction(row: TaxLedgerOrderRow): Transaction {
+  let joinedCustomer: JoinedCustomer | null;
+  if (Array.isArray(row.customer)) {
+    if (row.customer.length > 1) {
+      console.warn(
+        `[ReportSelectionModal] Order ${row.id} returned ${row.customer.length} joined customers; using the first`
+      );
+    }
+    joinedCustomer = row.customer[0] ?? null;
+  } else {
+    joinedCustomer = row.customer;
+  }
+  return {
+    id: row.id,
+    created_at: row.created_at,
+    total: Number(row.total ?? 0),
+    tax_amount: Number(row.tax_amount ?? 0),
+    customer: joinedCustomer
+      ? {
+          first_name: joinedCustomer.first_name ?? undefined,
+          last_name: joinedCustomer.last_name ?? undefined,
+        }
+      : undefined,
+  };
+}
+
 interface ReportSelectionModalProps {
   visible: boolean;
   onClose: () => void;
-  analyticsData: AnalyticsData;
+  analyticsData: MerchantAnalyticsResponse;
   merchantId: string;
   merchantName: string;
   startDate: Date;
@@ -37,6 +80,7 @@ export default function ReportSelectionModal({
   endDate,
 }: ReportSelectionModalProps) {
   const { colors, isDark } = useTheme();
+  const { currency } = useCurrency();
   const [loading, setLoading] = useState(false);
 
   if (!visible) return null;
@@ -44,7 +88,7 @@ export default function ReportSelectionModal({
   const handleGenerate = async (type: ReportType) => {
     setLoading(true);
     try {
-      let transactions: Record<string, unknown>[] = [];
+      let transactions: Transaction[] = [];
 
       if (type === 'tax_ledger') {
         const { data, error } = await supabase
@@ -63,7 +107,7 @@ export default function ReportSelectionModal({
           .order('created_at', { ascending: false });
 
         if (error) throw error;
-        transactions = data || [];
+        transactions = (data ?? []).map(mapRowToTransaction);
       }
 
       await generateReport(type, {
@@ -71,8 +115,9 @@ export default function ReportSelectionModal({
         startDate,
         endDate,
         merchantName,
+        currency,
         data: analyticsData,
-        transactions: transactions as unknown as Transaction[],
+        transactions,
       });
       onClose();
     } catch (error) {

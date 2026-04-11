@@ -137,9 +137,23 @@ describe('bvnVerifySchema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('rejects empty mobileNo', () => {
+  it('treats empty mobileNo as omitted', () => {
     const result = bvnVerifySchema.safeParse({ ...validBVN, mobileNo: '' });
-    expect(result.success).toBe(false);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.mobileNo).toBeUndefined();
+    }
+  });
+
+  it('allows omitting mobileNo field', () => {
+    const { mobileNo: _mobileNo, ...inputWithoutMobileNo } = validBVN;
+    const result = bvnVerifySchema.safeParse(inputWithoutMobileNo);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.mobileNo).toBeUndefined();
+    }
   });
 
   it('rejects mobileNo without leading 0 (invalid Nigerian format)', () => {

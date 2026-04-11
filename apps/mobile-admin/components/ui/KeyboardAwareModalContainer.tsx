@@ -5,6 +5,7 @@ import {
   ScrollView,
   type StyleProp,
   StyleSheet,
+  View,
   type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,6 +16,7 @@ interface KeyboardAwareModalContainerProps {
   children: ReactNode;
   contentContainerStyle?: StyleProp<ViewStyle>;
   keyboardVerticalOffset?: number;
+  scrollEnabled?: boolean;
 }
 
 export function KeyboardAwareModalContainer({
@@ -22,8 +24,17 @@ export function KeyboardAwareModalContainer({
   children,
   contentContainerStyle,
   keyboardVerticalOffset = 24,
+  scrollEnabled = true,
 }: KeyboardAwareModalContainerProps) {
   const insets = useSafeAreaInsets();
+  const contentStyle: StyleProp<ViewStyle> = [
+    styles.content,
+    {
+      justifyContent: align === 'center' ? 'center' : 'flex-end',
+      paddingBottom: Math.max(insets.bottom, SPACING.lg),
+    } satisfies ViewStyle,
+    contentContainerStyle,
+  ];
 
   return (
     <KeyboardAvoidingView
@@ -31,22 +42,19 @@ export function KeyboardAwareModalContainer({
       keyboardVerticalOffset={keyboardVerticalOffset}
       style={styles.container}
     >
-      <ScrollView
-        bounces={false}
-        contentContainerStyle={[
-          styles.content,
-          {
-            justifyContent: align === 'center' ? 'center' : 'flex-end',
-            paddingBottom: Math.max(insets.bottom, SPACING.lg),
-          },
-          contentContainerStyle,
-        ]}
-        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        {children}
-      </ScrollView>
+      {scrollEnabled ? (
+        <ScrollView
+          bounces={false}
+          contentContainerStyle={contentStyle}
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {children}
+        </ScrollView>
+      ) : (
+        <View style={contentStyle}>{children}</View>
+      )}
     </KeyboardAvoidingView>
   );
 }

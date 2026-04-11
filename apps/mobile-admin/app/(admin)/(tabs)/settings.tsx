@@ -97,7 +97,7 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
-      edges={[]}
+      edges={['top']}
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Store Info */}

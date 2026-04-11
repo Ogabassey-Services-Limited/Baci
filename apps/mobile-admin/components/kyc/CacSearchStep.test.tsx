@@ -1,6 +1,7 @@
+import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LIGHT_COLORS } from '@/constants/theme';
 import CacSearchStep from './CacSearchStep';
 
@@ -16,28 +17,6 @@ vi.mock('react-native', async () => {
   return {
     ActivityIndicator: ({ color }: { color?: string }) =>
       React.createElement('span', { 'data-color': color }, 'loading'),
-    FlatList: ({
-      ListEmptyComponent,
-      data,
-      renderItem,
-    }: {
-      ListEmptyComponent?: React.ReactNode;
-      data?: unknown[];
-      renderItem?: (item: { item: unknown }) => React.ReactNode;
-    }) =>
-      React.createElement(
-        'div',
-        null,
-        data && data.length > 0
-          ? data.map((item, index) =>
-              React.createElement(
-                'div',
-                { key: index },
-                renderItem?.({ item })
-              )
-            )
-          : ListEmptyComponent
-      ),
     Pressable: ({
       accessibilityLabel,
       accessibilityRole,
@@ -105,6 +84,10 @@ describe('CacSearchStep', () => {
     onSelect: vi.fn(),
   };
 
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
   it('strips non-digit characters from the registration number input', () => {
     const onChangeRcNumber = vi.fn();
 
@@ -132,5 +115,23 @@ describe('CacSearchStep', () => {
     fireEvent.click(screen.getByLabelText('Use BN registration type'));
 
     expect(onChangeRegistrationPrefix).toHaveBeenCalledWith('BN');
+  });
+
+  it('does not trigger search when registration number is empty', () => {
+    const onSearch = vi.fn();
+
+    render(<CacSearchStep {...baseProps} rcNumber="" onSearch={onSearch} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Search CAC' }));
+
+    expect(onSearch).not.toHaveBeenCalled();
+  });
+
+  it('renders the empty state after an empty search result', () => {
+    render(<CacSearchStep {...baseProps} results={[]} />);
+
+    expect(
+      screen.getByText('No companies found for this RC/BN number.')
+    ).toBeInTheDocument();
   });
 });

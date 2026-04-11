@@ -5,8 +5,16 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
+import {
+  type Granularity,
+  getBucketIndex,
+  getBuckets,
+} from '@/hooks/analyticsDetailBuckets';
+import { useMerchant } from '@/hooks/useMerchant';
+import { getPreviousAnalyticsDateRange } from '@/lib/analytics-period';
 import { supabase } from '@/lib/supabase';
-import { useMerchant } from './useMerchant';
+
+export type { Granularity } from '@/hooks/analyticsDetailBuckets';
 
 /** Shape returned by the order_items join: products!inner(cost_price) */
 interface JoinedProduct {
@@ -38,8 +46,6 @@ interface AnalyticsOrder {
 }
 
 export type MetricType = 'revenue' | 'sales' | 'aov' | 'profits' | 'vat';
-export type Granularity = 'hourly' | 'weekday' | 'month';
-
 export interface TimeSeriesDataPoint {
   label: string;
   value: number;
@@ -49,8 +55,8 @@ export interface TimeSeriesDataPoint {
 
 export interface AnalyticsDetailData {
   metric: MetricType;
-  year: number;
   granularity: Granularity;
+  rangeLabel: string;
   total: number;
   comparisonTotal?: number;
   percentChange?: number;
@@ -60,36 +66,16 @@ export interface AnalyticsDetailData {
   worstPeriod: { label: string; value: number } | null;
 }
 
-const MONTHS = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const HOURS = Array.from(
-  { length: 24 },
-  (_, i) => `${i.toString().padStart(2, '0')}:00`
-);
-
 interface UseAnalyticsDetailOptions {
   metric: MetricType;
-  year: number;
   granularity: Granularity;
+  startDate: string;
+  endDate: string;
+  filterLabel: string;
   includeComparison?: boolean;
 }
 
-const getJoinedRecord = <T>(
-  value: T | T[] | null | undefined
-): T | null => {
+const getJoinedRecord = <T>(value: T | T[] | null | undefined): T | null => {
   if (Array.isArray(value)) {
     return value[0] ?? null;
   }
@@ -97,27 +83,54 @@ const getJoinedRecord = <T>(
 };
 
 export function useAnalyticsDetail({
+  endDate,
+  filterLabel,
   metric,
-  year,
   granularity,
+  startDate,
   includeComparison = false,
 }: UseAnalyticsDetailOptions) {
   const { merchant } = useMerchant();
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   return useQuery<AnalyticsDetailData>({
     queryKey: [
       'analytics-detail',
       merchant?.id,
       metric,
-      year,
       granularity,
+      startDate,
+      endDate,
+      filterLabel,
       includeComparison,
+      timezone,
     ],
     queryFn: async () => {
       if (!merchant?.id) throw new Error('No merchant found');
 
-      const startDate = new Date(year, 0, 1);
-      const endDate = new Date(year, 11, 31, 23, 59, 59);
+      const startDateValue = new Date(startDate);
+      const endDateValue = new Date(endDate);
+
+      if (
+        Number.isNaN(startDateValue.getTime()) ||
+        Number.isNaN(endDateValue.getTime())
+      ) {
+        throw new Error(
+          `Invalid analytics date range: startDate=${startDate}, endDate=${endDate}`
+        );
+      }
+
+      // Callers sometimes pass a date-only string or a midnight timestamp for
+      // `endDate`. Normalize that to the inclusive end of the same day so the
+      // final calendar day in the selected range is not silently excluded.
+      if (
+        endDateValue.getHours() === 0 &&
+        endDateValue.getMinutes() === 0 &&
+        endDateValue.getSeconds() === 0 &&
+        endDateValue.getMilliseconds() === 0
+      ) {
+        endDateValue.setHours(23, 59, 59, 999);
+      }
 
       // Fetch orders and order items concurrently
       const [
@@ -129,8 +142,8 @@ export function useAnalyticsDetail({
           .select('id, total, tax_amount, payment_status, created_at')
           .eq('merchant_id', merchant.id)
           .eq('payment_status', 'paid')
-          .gte('created_at', startDate.toISOString())
-          .lte('created_at', endDate.toISOString()),
+          .gte('created_at', startDateValue.toISOString())
+          .lte('created_at', endDateValue.toISOString()),
         supabase
           .from('order_items')
           .select(`
@@ -141,8 +154,8 @@ export function useAnalyticsDetail({
                 `)
           .eq('orders.merchant_id', merchant.id)
           .eq('orders.payment_status', 'paid')
-          .gte('orders.created_at', startDate.toISOString())
-          .lte('orders.created_at', endDate.toISOString())
+          .gte('orders.created_at', startDateValue.toISOString())
+          .lte('orders.created_at', endDateValue.toISOString()),
       ]);
 
       if (ordersError) {
@@ -170,7 +183,7 @@ export function useAnalyticsDetail({
       // Aggregate orders
       orders?.forEach((order) => {
         const date = new Date(order.created_at);
-        const bucketIndex = getBucketIndex(date, granularity);
+        const bucketIndex = getBucketIndex(date, granularity, timezone);
         if (bucketIndex >= 0 && bucketIndex < data.length) {
           data[bucketIndex].count = (data[bucketIndex].count || 0) + 1;
 
@@ -200,7 +213,7 @@ export function useAnalyticsDetail({
           if (!order || !product) return;
 
           const date = new Date(order.created_at);
-          const bucketIndex = getBucketIndex(date, granularity);
+          const bucketIndex = getBucketIndex(date, granularity, timezone);
 
           if (bucketIndex >= 0 && bucketIndex < data.length) {
             const revenue = (item.price || 0) * (item.quantity || 1);
@@ -242,14 +255,16 @@ export function useAnalyticsDetail({
       }
 
       // Find best and worst periods
-      const nonZeroData = data.filter((d) => d.value > 0);
+      const safeFiniteData = data.filter((d) => Number.isFinite(d.value));
       const bestPeriod =
-        nonZeroData.length > 0
-          ? nonZeroData.reduce((best, d) => (d.value > best.value ? d : best))
+        safeFiniteData.length > 0
+          ? safeFiniteData.reduce((best, d) =>
+              d.value > best.value ? d : best
+            )
           : null;
       const worstPeriod =
-        nonZeroData.length > 0
-          ? nonZeroData.reduce((worst, d) =>
+        safeFiniteData.length > 0
+          ? safeFiniteData.reduce((worst, d) =>
               d.value < worst.value ? d : worst
             )
           : null;
@@ -260,9 +275,12 @@ export function useAnalyticsDetail({
       let percentChange: number | undefined;
 
       if (includeComparison) {
-        const prevYear = year - 1;
-        const prevStartDate = new Date(prevYear, 0, 1);
-        const prevEndDate = new Date(prevYear, 11, 31, 23, 59, 59);
+        const previousRange = getPreviousAnalyticsDateRange({
+          endDate: endDateValue,
+          startDate: startDateValue,
+        });
+        const prevStartDate = previousRange.startDate;
+        const prevEndDate = previousRange.endDate;
 
         const prevOrdersQuery = supabase
           .from('orders')
@@ -275,7 +293,7 @@ export function useAnalyticsDetail({
         let prevOrderItems: OrderItemWithJoins[] = [];
         let prevOrders: AnalyticsOrder[] | null = null;
 
-        if (metric === 'profits') {
+        if (metric === 'profits' || metric === 'revenue') {
           const [
             { data: profitsOrders, error: prevOrdersError },
             { data: profitsOrderItems, error: prevOrderItemsError },
@@ -331,7 +349,7 @@ export function useAnalyticsDetail({
 
         prevOrders?.forEach((order) => {
           const date = new Date(order.created_at);
-          const bucketIndex = getBucketIndex(date, granularity);
+          const bucketIndex = getBucketIndex(date, granularity, timezone);
 
           if (
             comparisonData &&
@@ -357,7 +375,7 @@ export function useAnalyticsDetail({
         });
 
         // Calculate profits for comparison period
-        if (metric === 'profits' && comparisonData) {
+        if ((metric === 'profits' || metric === 'revenue') && comparisonData) {
           const comparisonBuckets = comparisonData;
 
           prevOrderItems.forEach((item) => {
@@ -366,14 +384,21 @@ export function useAnalyticsDetail({
             if (!order || !product) return;
 
             const date = new Date(order.created_at);
-            const bucketIndex = getBucketIndex(date, granularity);
+            const bucketIndex = getBucketIndex(date, granularity, timezone);
 
             if (bucketIndex >= 0 && bucketIndex < comparisonBuckets.length) {
               const revenue = (item.price || 0) * (item.quantity || 1);
               const cost = (product.cost_price || 0) * (item.quantity || 1);
-              comparisonBuckets[bucketIndex].value += revenue - cost;
-              comparisonBuckets[bucketIndex].secondaryValue =
-                (comparisonBuckets[bucketIndex].secondaryValue || 0) + revenue;
+              if (metric === 'profits') {
+                comparisonBuckets[bucketIndex].value += revenue - cost;
+                comparisonBuckets[bucketIndex].secondaryValue =
+                  (comparisonBuckets[bucketIndex].secondaryValue || 0) +
+                  revenue;
+              } else {
+                comparisonBuckets[bucketIndex].secondaryValue =
+                  (comparisonBuckets[bucketIndex].secondaryValue || 0) +
+                  (revenue - cost);
+              }
             }
           });
         }
@@ -408,8 +433,8 @@ export function useAnalyticsDetail({
 
       return {
         metric,
-        year,
         granularity,
+        rangeLabel: filterLabel,
         total,
         comparisonTotal,
         percentChange,
@@ -426,28 +451,6 @@ export function useAnalyticsDetail({
     enabled: !!merchant?.id,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
-}
-
-function getBuckets(granularity: Granularity): string[] {
-  switch (granularity) {
-    case 'hourly':
-      return HOURS;
-    case 'weekday':
-      return WEEKDAYS;
-    case 'month':
-      return MONTHS;
-  }
-}
-
-function getBucketIndex(date: Date, granularity: Granularity): number {
-  switch (granularity) {
-    case 'hourly':
-      return date.getHours();
-    case 'weekday':
-      return date.getDay();
-    case 'month':
-      return date.getMonth();
-  }
 }
 
 // Metric display configuration

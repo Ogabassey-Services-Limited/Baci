@@ -27,6 +27,7 @@
   "components/ui/CountryPickerModal.tsx",
   "components/ui/KeyboardAwareModalContainer.tsx",
   "components/ui/ReceiptPreviewModal.tsx",
+  "components/ui/showChoiceSheet.ts",
   "hooks/usePushNotifications.ts",
   "lib/auth/sign-in-with-apple.ts",
   "lib/auth/sign-in-with-google.ts",

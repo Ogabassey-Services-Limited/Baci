@@ -1,29 +1,52 @@
+import '@testing-library/jest-dom/vitest';
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { KeyboardAwareModalContainer } from './KeyboardAwareModalContainer';
+
+const platform = vi.hoisted(() => ({ OS: 'ios' }));
+const keyboardAvoidingViewProps = vi.hoisted(() => ({
+  behavior: '',
+  keyboardVerticalOffset: 0,
+}));
 
 vi.mock('react-native', async () => {
   const React = await import('react');
 
   return {
-    KeyboardAvoidingView: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement(
+    KeyboardAvoidingView: ({
+      behavior,
+      children,
+      keyboardVerticalOffset,
+    }: {
+      behavior?: string;
+      children?: React.ReactNode;
+      keyboardVerticalOffset?: number;
+    }) => {
+      keyboardAvoidingViewProps.behavior = behavior ?? '';
+      keyboardAvoidingViewProps.keyboardVerticalOffset =
+        keyboardVerticalOffset ?? 0;
+      return React.createElement(
         'div',
-        { 'data-testid': 'keyboard-avoiding-view' },
+        { role: 'region', 'aria-label': 'keyboard-avoiding-view' },
         children
-      ),
-    Platform: {
-      OS: 'ios',
+      );
     },
+    Platform: platform,
     ScrollView: ({ children }: { children?: React.ReactNode }) =>
       React.createElement(
         'div',
-        { 'data-testid': 'keyboard-scroll-view' },
+        { role: 'region', 'aria-label': 'keyboard-scroll-view' },
         children
       ),
     StyleSheet: {
       create: (styles: Record<string, unknown>) => styles,
     },
+    View: ({ children }: { children?: React.ReactNode }) =>
+      React.createElement(
+        'div',
+        { role: 'region', 'aria-label': 'keyboard-view' },
+        children
+      ),
   };
 });
 
@@ -32,6 +55,12 @@ vi.mock('react-native-safe-area-context', () => ({
 }));
 
 describe('KeyboardAwareModalContainer', () => {
+  beforeEach(() => {
+    platform.OS = 'ios';
+    keyboardAvoidingViewProps.behavior = '';
+    keyboardAvoidingViewProps.keyboardVerticalOffset = 0;
+  });
+
   it('renders children inside keyboard-safe wrappers', () => {
     render(
       <KeyboardAwareModalContainer align="center">
@@ -39,8 +68,50 @@ describe('KeyboardAwareModalContainer', () => {
       </KeyboardAwareModalContainer>
     );
 
-    expect(screen.getByTestId('keyboard-avoiding-view')).toBeTruthy();
-    expect(screen.getByTestId('keyboard-scroll-view')).toBeTruthy();
-    expect(screen.getByText('Keyboard-safe child')).toBeTruthy();
+    expect(
+      screen.getByRole('region', { name: 'keyboard-avoiding-view' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('region', { name: 'keyboard-scroll-view' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('Keyboard-safe child')).toBeInTheDocument();
+  });
+
+  it('renders without a scroll view when disabled', () => {
+    render(
+      <KeyboardAwareModalContainer scrollEnabled={false}>
+        <div>Static child</div>
+      </KeyboardAwareModalContainer>
+    );
+
+    expect(
+      screen.getByRole('region', { name: 'keyboard-avoiding-view' })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('region', { name: 'keyboard-scroll-view' })
+    ).toBeNull();
+    expect(
+      screen.getByRole('region', { name: 'keyboard-view' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('Static child')).toBeInTheDocument();
+  });
+
+  it('keeps the keyboard-safe wrappers working on Android', () => {
+    platform.OS = 'android';
+
+    render(
+      <KeyboardAwareModalContainer align="center">
+        <div>Android child</div>
+      </KeyboardAwareModalContainer>
+    );
+
+    expect(
+      screen.getByRole('region', { name: 'keyboard-avoiding-view' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('region', { name: 'keyboard-scroll-view' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('Android child')).toBeInTheDocument();
+    expect(keyboardAvoidingViewProps.behavior).toBe('height');
   });
 });

@@ -9,8 +9,38 @@ import {
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
-import { isValidUuid } from '@/lib/sanitize-core';
-import { SelfFulfillmentSchema } from '@/schemas/shipping';
+import {
+  SelfFulfillmentSchema,
+  SelfFulfillmentUpdateSchema,
+} from '@/schemas/shipping';
+
+async function notifySelfFulfillmentStatusChange(
+  customerUserId: string,
+  orderId: string,
+  orderNumber: string
+) {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.warn(
+      '[self-fulfill] Skipping push notification because SUPABASE_SERVICE_ROLE_KEY is not configured'
+    );
+    return;
+  }
+
+  try {
+    const { notifyOrderStatusChange } = await import('@/lib/expo-push');
+    await notifyOrderStatusChange(
+      customerUserId,
+      orderId,
+      orderNumber,
+      'shipped'
+    );
+  } catch (error) {
+    console.error(
+      'Failed to send self-fulfillment order status push notification:',
+      error
+    );
+  }
+}
 
 // =============================================================================
 // POST /api/shipping/self-fulfill - Mark order as self-fulfilled
@@ -43,40 +73,16 @@ export async function POST(request: NextRequest) {
     const supabase = auth.supabase;
     const user = auth.user;
 
-    // Fetch self_fulfillment_enabled for this merchant
-    const { data: merchantData, error: merchantDataError } = await supabase
-      .from('merchants')
-      .select('self_fulfillment_enabled')
-      .eq('id', merchantId)
-      .single();
-
-    if (merchantDataError || !merchantData) {
-      return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 404 }
-      );
-    }
-
-    // Check if self-fulfillment is enabled for this merchant
-    if (!merchantData.self_fulfillment_enabled) {
-      return NextResponse.json(
-        {
-          error:
-            'Self-fulfillment is not enabled for this merchant. Enable it in settings.',
-        },
-        { status: 403 }
-      );
-    }
-
     const body = await request.json();
 
     // Validate request
     const parseResult = SelfFulfillmentSchema.safeParse(body);
     if (!parseResult.success) {
+      const details = parseResult.error.flatten();
       return NextResponse.json(
         {
           error: 'Invalid request',
-          details: parseResult.error.flatten().fieldErrors,
+          details,
         },
         { status: 400 }
       );
@@ -88,7 +94,7 @@ export async function POST(request: NextRequest) {
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .select(
-        'id, merchant_id, shipping_status, customer_name, customer_phone, shipping_address'
+        'id, merchant_id, order_number, shipping_status, customer_id, customer_name, customer_phone, shipping_address'
       )
       .eq('id', data.orderId)
       .eq('merchant_id', merchantId)
@@ -138,6 +144,29 @@ export async function POST(request: NextRequest) {
         { error: 'Failed to update order' },
         { status: 500 }
       );
+    }
+
+    if (order.customer_id) {
+      const { data: customer, error: customerLookupError } = await supabase
+        .from('customers')
+        .select('user_id')
+        .eq('id', order.customer_id)
+        .maybeSingle();
+
+      if (customerLookupError) {
+        console.error(
+          'Error loading self-fulfillment customer user:',
+          customerLookupError
+        );
+      }
+
+      if (customer?.user_id) {
+        void notifySelfFulfillmentStatusChange(
+          customer.user_id,
+          data.orderId,
+          order.order_number ?? data.orderId
+        );
+      }
     }
 
     return NextResponse.json(
@@ -198,14 +227,20 @@ export async function PATCH(request: NextRequest) {
     const supabase = auth.supabase;
 
     const body = await request.json();
-    const { orderId, ...updates } = body;
+    const parseResult = SelfFulfillmentUpdateSchema.safeParse(body);
 
-    if (!orderId || !isValidUuid(orderId)) {
+    if (!parseResult.success) {
+      const details = parseResult.error.flatten();
       return NextResponse.json(
-        { error: 'Valid order ID required' },
+        {
+          error: 'Invalid request',
+          details,
+        },
         { status: 400 }
       );
     }
+
+    const { orderId, ...updates } = parseResult.data;
 
     // Verify the order belongs to this merchant and is self-fulfilled
     const { data: order, error: orderError } = await supabase
