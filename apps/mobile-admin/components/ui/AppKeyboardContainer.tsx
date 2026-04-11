@@ -40,6 +40,8 @@ export function AppKeyboardContainer({
 
   return (
     <KeyboardAvoidingView
+      // iOS needs padding to keep the active field above the software keyboard,
+      // while Android behaves more reliably when the container resizes by height.
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={keyboardVerticalOffset}
       style={[styles.container, style]}
@@ -49,6 +51,8 @@ export function AppKeyboardContainer({
           bounces={false}
           contentContainerStyle={contentStyle}
           keyboardDismissMode={
+            // iOS supports interactive dismissal that tracks the user's drag,
+            // while Android reliably dismisses on drag in this sheet pattern.
             Platform.OS === 'ios' ? 'interactive' : 'on-drag'
           }
           keyboardShouldPersistTaps="handled"
