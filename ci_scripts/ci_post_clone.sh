@@ -125,8 +125,11 @@ provision_mobile_admin_google_service_info() {
 
   google_service_info_path="$repo_root/$app_dir/GoogleService-Info.plist"
   if [ -f "$google_service_info_path" ]; then
-    echo "info: Using existing GoogleService-Info.plist"
-    return
+    if [ -s "$google_service_info_path" ]; then
+      echo "info: Using existing GoogleService-Info.plist"
+      return
+    fi
+    echo "warning: Existing GoogleService-Info.plist is empty; regenerating." >&2
   fi
 
   encoded_google_service_info="${GOOGLE_SERVICE_INFO_PLIST_BASE64:-}"
@@ -278,8 +281,8 @@ cd "$repo_root"
 corepack enable
 pnpm_spec="$(node -p "const pm=require('./package.json').packageManager || ''; if (!pm.startsWith('pnpm@')) { throw new Error('packageManager must start with pnpm@'); } pm")"
 corepack prepare "$pnpm_spec" --activate
-pnpm install --frozen-lockfile
 provision_mobile_admin_google_service_info
+pnpm install --frozen-lockfile
 
 escaped_node_bin="$(printf '%s' "$node_bin" | sed "s/'/'\"'\"'/g")"
 printf "export NODE_BINARY='%s'\n" "$escaped_node_bin" > "$ios_dir/.xcode.env.local"

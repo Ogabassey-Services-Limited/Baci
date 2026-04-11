@@ -19,7 +19,7 @@ export function getComparisonAnalyticsRange(
     throw new Error('Analytics start date must be on or before the end date');
   }
 
-  const maxRangeMs = MAX_ANALYTICS_RANGE_DAYS * DAY_MS;
+  const maxRangeMs = (MAX_ANALYTICS_RANGE_DAYS - 1) * DAY_MS;
   if (requestedRangeMs > maxRangeMs) {
     throw new Error(
       `Analytics date range cannot exceed ${MAX_ANALYTICS_RANGE_DAYS} days`

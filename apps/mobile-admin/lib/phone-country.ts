@@ -115,15 +115,18 @@ export function formatPhoneNumberForCountry(
     return '';
   }
 
+  const has00Prefix = rawValue.startsWith('00');
   const hasExplicitInternationalPrefix =
-    rawValue.startsWith('+') || rawValue.startsWith('00');
+    rawValue.startsWith('+') || has00Prefix;
+  const internationalDigits = has00Prefix ? digits.slice(2) : digits;
   const hasBareInternationalCallingCode =
-    country.callingCode.length > 1 && digits.startsWith(country.callingCode);
+    country.callingCode.length > 1 &&
+    internationalDigits.startsWith(country.callingCode);
   const nationalDigits =
     ((hasExplicitInternationalPrefix &&
-      digits.startsWith(country.callingCode)) ||
+      internationalDigits.startsWith(country.callingCode)) ||
       hasBareInternationalCallingCode)
-      ? digits.slice(country.callingCode.length)
+      ? internationalDigits.slice(country.callingCode.length)
       : digits.startsWith('0')
         ? digits.slice(1)
         : digits;

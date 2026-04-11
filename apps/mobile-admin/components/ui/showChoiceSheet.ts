@@ -18,6 +18,7 @@ export function showChoiceSheet<TValue extends string>({
   options,
   title,
 }: ShowChoiceSheetOptions<TValue>): Promise<TValue | null> {
+  // iOS gets the native action sheet; other platforms fall back to Alert.
   if (Platform.OS === 'ios') {
     return new Promise((resolve) => {
       ActionSheetIOS.showActionSheetWithOptions(

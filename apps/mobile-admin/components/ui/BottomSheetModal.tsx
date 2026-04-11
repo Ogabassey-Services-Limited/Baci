@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Modal, Pressable } from 'react-native';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RADIUS, SPACING } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
@@ -28,19 +28,25 @@ export function BottomSheetModal({
       onRequestClose={onDismiss}
       statusBarTranslucent
     >
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={accessibilityLabel}
-        onPress={onDismiss}
+      <View
         style={{
-          backgroundColor: 'rgba(0,0,0,0.35)',
           flex: 1,
           justifyContent: 'flex-end',
           padding: SPACING.lg,
         }}
       >
         <Pressable
-          onPress={() => {}}
+          accessibilityElementsHidden
+          accessible={false}
+          onPress={onDismiss}
+          style={[
+            StyleSheet.absoluteFillObject,
+            { backgroundColor: 'rgba(0,0,0,0.35)' },
+          ]}
+        />
+        <View
+          accessibilityLabel={accessibilityLabel}
+          accessibilityViewIsModal
           style={{
             backgroundColor: colors.background,
             borderColor: colors.border,
@@ -51,8 +57,8 @@ export function BottomSheetModal({
           }}
         >
           {children}
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }

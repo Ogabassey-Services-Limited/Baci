@@ -192,7 +192,14 @@ export default function AnalyticsDetailScreen() {
     return { endIso: now.toISOString(), startIso: start.toISOString() };
   });
 
-  const { data: analyticsData, isLoading } = useAnalyticsDetail({
+  const {
+    data: analyticsData,
+    error,
+    isError,
+    isFetching,
+    isLoading,
+    refetch,
+  } = useAnalyticsDetail({
     endDate: endDate ?? defaultRange.endIso,
     filterLabel: filterLabel ?? DEFAULT_FILTER_LABEL,
     metric,
@@ -231,6 +238,81 @@ export default function AnalyticsDetailScreen() {
   // Highlight row in table when bar is selected
   const highlightedLabel =
     selectedBarIndex !== null && analyticsData?.data[selectedBarIndex]?.label;
+
+  if (isError && !analyticsData) {
+    const isRetrying = isFetching;
+
+    return (
+      <>
+        <Stack.Screen
+          options={{
+            headerShown: true,
+            title: config.title,
+            headerStyle: { backgroundColor: colors.background },
+            headerTintColor: colors.text,
+            headerShadowVisible: false,
+          }}
+        />
+        <SafeAreaView
+          style={[styles.container, { backgroundColor: colors.background }]}
+          edges={['bottom']}
+        >
+          <SystemBars style={isDark ? 'light' : 'dark'} />
+          <View style={styles.errorState}>
+            <Ionicons
+              name="alert-circle-outline"
+              size={32}
+              color={colors.error}
+            />
+            <Text style={[styles.errorTitle, { color: colors.text }]}>
+              Unable to load {config.title.toLowerCase()}.
+            </Text>
+            <Text style={[styles.errorBody, { color: colors.textSecondary }]}>
+              {error instanceof Error
+                ? error.message
+                : 'Try again in a moment.'}
+            </Text>
+            <Pressable
+              accessibilityHint={
+                isRetrying
+                  ? 'Analytics data is reloading'
+                  : 'Attempts to reload the analytics data'
+              }
+              accessibilityLabel={
+                isRetrying
+                  ? 'Retrying analytics data request'
+                  : 'Retry fetching analytics data'
+              }
+              accessibilityRole="button"
+              accessible
+              disabled={isRetrying}
+              onPress={() => {
+                void refetch();
+              }}
+              style={[
+                styles.retryButton,
+                { backgroundColor: colors.primary },
+                isRetrying && styles.retryButtonDisabled,
+              ]}
+            >
+              {isRetrying ? (
+                <ActivityIndicator size="small" color={colors.textOnPrimary} />
+              ) : (
+                <Text
+                  style={[
+                    styles.retryButtonText,
+                    { color: colors.textOnPrimary },
+                  ]}
+                >
+                  Try again
+                </Text>
+              )}
+            </Pressable>
+          </View>
+        </SafeAreaView>
+      </>
+    );
+  }
 
   return (
     <>
@@ -550,6 +632,35 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,
+  },
+  errorState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.md,
+    paddingHorizontal: SPACING.xl,
+  },
+  errorTitle: {
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    fontSize: TYPOGRAPHY.size.lg,
+    textAlign: 'center',
+  },
+  errorBody: {
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    fontSize: TYPOGRAPHY.size.sm,
+    textAlign: 'center',
+  },
+  retryButton: {
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
+  },
+  retryButtonDisabled: {
+    opacity: 0.72,
+  },
+  retryButtonText: {
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    fontSize: TYPOGRAPHY.size.sm,
   },
   yearSelector: {
     flexDirection: 'row',

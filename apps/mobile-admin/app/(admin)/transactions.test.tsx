@@ -296,4 +296,26 @@ describe('TransactionsScreen', () => {
       })
     );
   });
+
+  it('shows the async save error and keeps the editor actionable', async () => {
+    mocks.mutateAsync.mockRejectedValueOnce(new Error('save failed'));
+
+    render(<TransactionsScreen />);
+
+    fireEvent.click(screen.getByText('Edit ORD-1'));
+    fireEvent.change(screen.getByLabelText('Cost price input'), {
+      target: { value: '1200' },
+    });
+    fireEvent.click(screen.getByText('Save cost price'));
+
+    await waitFor(() =>
+      expect(mocks.mutateAsync).toHaveBeenCalledWith({
+        costPrice: 1200,
+        productId: 'product-1',
+      })
+    );
+
+    expect(await screen.findByText('save failed')).toBeInTheDocument();
+    expect(screen.getByText('Save cost price')).toBeInTheDocument();
+  });
 });

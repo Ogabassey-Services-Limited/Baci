@@ -194,9 +194,7 @@ export function buildCustomerBreakdown(orders: AnalyticsOrderRow[]) {
       order.customer_name?.trim() ||
       order.customer_email?.trim() ||
       'Guest customer';
-    const trimmedEmail = order.customer_email?.trim();
-    const key =
-      order.customer_id ?? (trimmedEmail ? trimmedEmail : `name:${rawName}`);
+    const key = getCustomerAnalyticsKey(order);
     const current = customers.get(key) ?? {
       name: sanitizeText(rawName),
       value: 0,

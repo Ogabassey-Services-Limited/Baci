@@ -16,6 +16,11 @@ import {
 } from '@/lib/merchant-analytics-utils';
 import { sanitizeText } from '@/lib/sanitize-core';
 
+type RecentOrderRow = Pick<
+  AnalyticsOrderRow,
+  'created_at' | 'customer_email' | 'customer_name' | 'id' | 'total'
+>;
+
 export async function getMerchantAnalyticsOverview(
   supabase: SupabaseClient,
   merchantId: string,
@@ -122,6 +127,7 @@ export async function getMerchantAnalyticsOverview(
     0
   );
   const blogPosts = (blogPostsResult.data ?? []) as BlogPostRow[];
+  const recentOrders = (recentOrdersResult.data ?? []) as RecentOrderRow[];
   const customerBreakdown = buildCustomerBreakdown(currentPaidOrders);
   const topPost =
     [...blogPosts].sort(
@@ -172,7 +178,7 @@ export async function getMerchantAnalyticsOverview(
       endDate
     ),
     customerBreakdown,
-    recentSales: (recentOrdersResult.data ?? []).map((order) => ({
+    recentSales: recentOrders.map((order) => ({
       amount: asNumber(order.total),
       email: sanitizeText(order.customer_email ?? ''),
       id: order.id,

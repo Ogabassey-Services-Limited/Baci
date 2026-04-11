@@ -759,8 +759,11 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
   };
 
   const proceedFromFulfillmentDetails = () => {
-    if (requiresShipmentDetails && !fulfillmentDetails.imei.trim()) {
-      Alert.alert('Required', 'Please enter the IMEI number');
+    if (
+      requiresShipmentDetails &&
+      !shouldPersistFulfillmentDetails(fulfillmentDetails)
+    ) {
+      Alert.alert('Required', 'Please enter the IMEI or serial number');
       return;
     }
 
@@ -1372,6 +1375,7 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
     order.shipping_status === 'shipped' &&
       order.self_fulfillment_data?.dispatchPhone?.trim()
   );
+  const hasCustomerPhone = Boolean(order.customer_phone?.trim());
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -1633,7 +1637,7 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
             </Pressable>
           </View>
 
-          {showPostShipmentActions && (
+          {showPostShipmentActions && hasCustomerPhone && (
             <Pressable
               style={[
                 styles.postShipmentPrimaryAction,
@@ -2215,7 +2219,10 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
         canUseProvider={providerBookingAvailable}
         fulfillmentDetails={fulfillmentDetails}
         hasExistingFulfillment={Boolean(
-          order.fulfillment_details?.imei?.trim()
+          shouldPersistFulfillmentDetails({
+            imei: order.fulfillment_details?.imei ?? '',
+            serialNumber: order.fulfillment_details?.serialNumber ?? '',
+          })
         )}
         isSubmitting={isShipmentSubmitting}
         onClose={closeShipmentFlow}

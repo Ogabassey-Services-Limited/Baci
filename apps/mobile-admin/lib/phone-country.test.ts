@@ -88,6 +88,9 @@ describe('phone-country', () => {
     expect(formatPhoneNumberForCountry('+2347084011480', nigeria)).toBe(
       '+2347084011480'
     );
+    expect(formatPhoneNumberForCountry('002347084011480', nigeria)).toBe(
+      '+2347084011480'
+    );
   });
 
   it('returns an empty string when formatting an invalid local number', () => {

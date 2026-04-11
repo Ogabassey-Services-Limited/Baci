@@ -45,7 +45,12 @@ export default function AnalyticsProductsScreen() {
           startDate: parsedStartDate,
         }
       : undefined;
-  const { data: topProducts, isLoading } = useTopSellingProducts(50, range);
+  const {
+    data: topProducts,
+    isError,
+    isLoading,
+    refetch,
+  } = useTopSellingProducts(50, range);
 
   const renderProductItem = ({
     item,
@@ -116,7 +121,40 @@ export default function AnalyticsProductsScreen() {
           ) : null
         }
         ListEmptyComponent={
-          !isLoading ? (
+          !isLoading && isError ? (
+            <View style={styles.emptyState}>
+              <Ionicons
+                name="alert-circle-outline"
+                size={48}
+                color={colors.error}
+              />
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                Failed to load top products.
+              </Text>
+              <Pressable
+                accessibilityHint="Retries loading the product list"
+                accessibilityLabel="Retry fetching products"
+                accessibilityRole="button"
+                accessible
+                onPress={() => {
+                  void refetch();
+                }}
+                style={[
+                  styles.retryButton,
+                  { backgroundColor: colors.primary },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.retryButtonText,
+                    { color: colors.textOnPrimary },
+                  ]}
+                >
+                  Retry
+                </Text>
+              </Pressable>
+            </View>
+          ) : !isLoading ? (
             <View style={styles.emptyState}>
               <Ionicons
                 name="cube-outline"
@@ -186,5 +224,14 @@ const styles = StyleSheet.create({
   emptyText: {
     textAlign: 'center',
     fontSize: TYPOGRAPHY.size.md,
+  },
+  retryButton: {
+    borderRadius: 999,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
+  },
+  retryButtonText: {
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    fontSize: TYPOGRAPHY.size.sm,
   },
 });

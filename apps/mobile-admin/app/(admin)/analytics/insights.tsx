@@ -53,10 +53,12 @@ export default function AnalyticsInsightsScreen() {
   const endDateParam = getSingleParam(params.endDate);
   const filterLabelParam = getSingleParam(params.filterLabel);
   const kind = getSingleParam(params.kind) ?? 'blog';
-  const range = {
-    endDate: parseDateParam(endDateParam, fallbackRange.end),
-    startDate: parseDateParam(startDateParam, fallbackRange.start),
-  };
+  const parsedStart = parseDateParam(startDateParam, fallbackRange.start);
+  const parsedEnd = parseDateParam(endDateParam, fallbackRange.end);
+  const range =
+    parsedStart.getTime() <= parsedEnd.getTime()
+      ? { endDate: parsedEnd, startDate: parsedStart }
+      : { endDate: parsedStart, startDate: parsedEnd };
   const {
     data: analytics,
     isLoading,

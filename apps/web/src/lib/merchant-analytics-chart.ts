@@ -72,11 +72,10 @@ export function buildChartData(
       });
     }
 
-    cursor.setUTCDate(
-      cursor.getUTCDate() + (mode === 'month' ? 32 : mode === 'week' ? 7 : 1)
-    );
     if (mode === 'month') {
-      cursor.setUTCDate(1);
+      cursor.setUTCMonth(cursor.getUTCMonth() + 1, 1);
+    } else {
+      cursor.setUTCDate(cursor.getUTCDate() + (mode === 'week' ? 7 : 1));
     }
   }
 

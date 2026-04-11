@@ -48,7 +48,7 @@ export async function pickCertificateFromGallery(): Promise<SelectedCacDocument 
   }
 
   const asset = result.assets[0];
-  const mimeType = asset.mimeType || inferMimeTypeFromName(asset.fileName);
+  const mimeType = resolveSupportedMimeType(asset.mimeType, asset.fileName);
 
   if (!mimeType || !SUPPORTED_IMAGE_MIME_TYPES.has(mimeType)) {
     throw new Error(
@@ -67,7 +67,7 @@ export async function pickCertificateFromFiles(): Promise<SelectedCacDocument | 
   const result = await DocumentPicker.getDocumentAsync({
     copyToCacheDirectory: true,
     multiple: false,
-    type: ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'],
+    type: Array.from(SUPPORTED_CAC_MIME_TYPES),
   });
 
   if (result.canceled || !result.assets[0]) {
@@ -75,7 +75,7 @@ export async function pickCertificateFromFiles(): Promise<SelectedCacDocument | 
   }
 
   const asset = result.assets[0];
-  const mimeType = asset.mimeType || inferMimeTypeFromName(asset.name);
+  const mimeType = resolveSupportedMimeType(asset.mimeType, asset.name);
 
   if (!mimeType || !SUPPORTED_CAC_MIME_TYPES.has(mimeType)) {
     throw new Error(
@@ -99,6 +99,18 @@ function inferMimeTypeFromName(fileName?: string | null): string | null {
   if (extension === 'webp') return 'image/webp';
 
   return null;
+}
+
+function resolveSupportedMimeType(
+  rawMimeType: string | null | undefined,
+  fileName?: string | null
+): string | null {
+  const normalizedMimeType = rawMimeType?.toLowerCase() ?? null;
+  if (normalizedMimeType && SUPPORTED_CAC_MIME_TYPES.has(normalizedMimeType)) {
+    return normalizedMimeType;
+  }
+
+  return inferMimeTypeFromName(fileName);
 }
 
 function buildFallbackName(mimeType: string): string {
