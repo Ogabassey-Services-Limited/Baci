@@ -1,20 +1,18 @@
-import type {
-  MerchantAnalyticsResponse,
-} from '@baci/shared';
+import type { MerchantAnalyticsResponse } from '@baci/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { buildChartData } from '@/lib/merchant-analytics-chart';
 import { fetchMerchantAnalyticsData } from '@/lib/merchant-analytics-queries';
 import { getComparisonAnalyticsRange } from '@/lib/merchant-analytics-range';
 import {
+  type AnalyticsOrderItemRow,
+  type AnalyticsOrderRow,
   asNumber,
+  type BlogPostRow,
   buildCustomerBreakdown,
   buildTopEntities,
   getCustomerAnalyticsKey,
   getPercentChange,
   groupBreakdown,
-  type AnalyticsOrderItemRow,
-  type AnalyticsOrderRow,
-  type BlogPostRow,
 } from '@/lib/merchant-analytics-utils';
 import { sanitizeText } from '@/lib/sanitize-core';
 

@@ -1,8 +1,8 @@
 import type { MerchantAnalyticsChartPoint } from '@baci/shared';
 import {
-  asNumber,
   type AnalyticsOrderItemRow,
   type AnalyticsOrderRow,
+  asNumber,
 } from '@/lib/merchant-analytics-utils';
 
 const DAY_MS = 24 * 60 * 60 * 1000;

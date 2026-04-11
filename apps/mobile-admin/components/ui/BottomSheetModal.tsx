@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Modal, Pressable, View } from 'react-native';
+import { Modal, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RADIUS, SPACING } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
