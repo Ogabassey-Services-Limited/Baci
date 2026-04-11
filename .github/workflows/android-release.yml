@@ -29,6 +29,7 @@ permissions:
 env:
   JAVA_VERSION: '21'
   NODE_VERSION: '24'
+  PNPM_STORE_DIR: ${{ github.workspace }}/.pnpm-store
   WORKING_DIR: apps/mobile-admin
   # Offset added to github.run_number to avoid collisions with
   # version codes previously uploaded via EAS (1-9) and earlier runs (10).
@@ -66,6 +67,11 @@ jobs:
         with:
           packages: platform-tools platforms;android-36 build-tools;36.0.0 ndk;27.1.12297006
 
+      - name: Configure pnpm store directory
+        uses: ./.github/actions/setup-pnpm-store
+        with:
+          store-dir: ${{ env.PNPM_STORE_DIR }}
+
       # Node 22+ type stripping breaks expo-modules-core.
       - name: Disable Node type stripping
         run: echo "NODE_OPTIONS=--no-strip-types" >> "$GITHUB_ENV"
@@ -74,7 +80,7 @@ jobs:
       # survive across runs. No actions/cache needed.
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: .github/scripts/pnpm-install-with-retry.sh --frozen-lockfile
 
       - name: Fix Hermes compiler path
         # RN 0.83+ ships hermesc in the hermes-compiler package, but
