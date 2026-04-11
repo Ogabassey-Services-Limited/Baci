@@ -22,13 +22,8 @@ export default function TabLayout() {
 
   return (
     <View
-      style={[
-        styles.shell,
-        {
-          backgroundColor: colors.card,
-          marginBottom: -insets.bottom,
-        },
-      ]}
+      testID="tab-shell"
+      style={[styles.shell, { backgroundColor: colors.card }]}
     >
       <Tabs
         screenOptions={{
@@ -39,12 +34,12 @@ export default function TabLayout() {
             borderTopWidth: 1,
             borderTopColor: colors.border,
             backgroundColor: colors.card,
-            height: 49 + insets.bottom,
-            paddingBottom: Math.max(insets.bottom - 4, 8),
-            paddingTop: 6,
+            height: 58 + insets.bottom,
+            paddingBottom: Math.max(insets.bottom, 10),
+            paddingTop: 8,
           },
           tabBarItemStyle: {
-            height: 49,
+            height: 50,
           },
         }}
       >

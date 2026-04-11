@@ -1,3 +1,4 @@
+import type { MerchantAnalyticsResponse } from '@baci/shared';
 import { Platform } from 'react-native';
 
 // 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
@@ -22,7 +23,6 @@ const loadNativeModules = async () => {
 
 loadNativeModules();
 
-import type { AnalyticsData } from '../../app/(admin)/analytics';
 import { formatCurrency } from '../../lib/utils';
 
 /** Escape user-controlled strings to prevent XSS when interpolated into HTML */
@@ -53,7 +53,11 @@ interface ReportOptions {
   startDate: Date;
   endDate: Date;
   merchantName: string;
-  data: AnalyticsData;
+  /** ISO-4217 currency code resolved from merchant payout currency. */
+  currency?: string;
+  /** Optional locale override; defaults to the runtime/device locale. */
+  locale?: string;
+  data: MerchantAnalyticsResponse;
   transactions?: Transaction[]; // Full transaction list for Tax Ledger
 }
 
@@ -92,11 +96,14 @@ export async function generateReport(type: ReportType, options: ReportOptions) {
 }
 
 function getExecutiveSummaryHTML(options: ReportOptions) {
-  const { title, startDate, endDate, merchantName, data } = options;
-  const period = `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
+  const { title, startDate, endDate, merchantName, currency, locale, data } =
+    options;
+  const money = (amount: number) =>
+    formatCurrency(amount, undefined, currency, locale);
+  const period = `${startDate.toLocaleDateString(locale)} - ${endDate.toLocaleDateString(locale)}`;
   const safeMerchantName = escapeHtml(merchantName);
   const safeTitle = escapeHtml(title);
-  const safeTopProduct = escapeHtml(data.topProduct?.name || 'N/A');
+  const safeTopProduct = escapeHtml(data.topProducts?.[0]?.name || 'N/A');
   const safeTopBrand = escapeHtml(data.topBrand?.name || 'N/A');
   const safeTopCustomer = escapeHtml(data.topCustomer?.name || 'N/A');
 
@@ -117,19 +124,19 @@ function getExecutiveSummaryHTML(options: ReportOptions) {
                 <div class="kpi-grid">
                     <div class="kpi-card">
                         <div class="kpi-label">Total Revenue</div>
-                        <div class="kpi-value">${formatCurrency(data.revenue)}</div>
+                        <div class="kpi-value">${money(data.summary?.revenue?.value ?? 0)}</div>
                     </div>
                     <div class="kpi-card">
                         <div class="kpi-label">Total Sales</div>
-                        <div class="kpi-value">${data.sales}</div>
+                        <div class="kpi-value">${data.summary?.sales?.value ?? 0}</div>
                     </div>
                     <div class="kpi-card">
                         <div class="kpi-label">Net Profit</div>
-                        <div class="kpi-value">${formatCurrency(data.profit)}</div>
+                        <div class="kpi-value">${money(data.summary?.profit?.value ?? 0)}</div>
                     </div>
                     <div class="kpi-card">
                         <div class="kpi-label">Avg Order Value</div>
-                        <div class="kpi-value">${formatCurrency(data.avgTicketSize)}</div>
+                        <div class="kpi-value">${money(data.summary?.aov?.value ?? 0)}</div>
                     </div>
                 </div>
 
@@ -146,23 +153,23 @@ function getExecutiveSummaryHTML(options: ReportOptions) {
                          <tr>
                             <td>Top Product</td>
                             <td class="bold">${safeTopProduct}</td>
-                            <td class="right">${formatCurrency(data.topProduct?.revenue || 0)}</td>
+                            <td class="right">${money(data.topProducts?.[0]?.revenue || 0)}</td>
                         </tr>
                         <tr>
                             <td>Top Vendor</td>
                             <td class="bold">${safeTopBrand}</td>
-                            <td class="right">${formatCurrency(data.topBrand?.revenue || 0)}</td>
+                            <td class="right">${money(data.topBrand?.revenue || 0)}</td>
                         </tr>
                          <tr>
                             <td>Top Customer</td>
                             <td class="bold">${safeTopCustomer}</td>
-                            <td class="right">${data.topCustomer?.purchases || 0} Orders</td>
+                            <td class="right">${data.topCustomer?.value || 0} Orders</td>
                         </tr>
                     </tbody>
                 </table>
 
                 <div class="footer">
-                    Report Period: ${period} • Generated on ${new Date().toLocaleString()}
+                    Report Period: ${period} • Generated on ${new Date().toLocaleString(locale)}
                 </div>
             </body>
         </html>
@@ -175,23 +182,46 @@ function getTaxLedgerHTML(options: ReportOptions) {
     startDate,
     endDate,
     merchantName,
+    currency,
+    locale,
     data,
     transactions = [],
   } = options;
-  const period = `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
+  const money = (amount: number) =>
+    formatCurrency(amount, undefined, currency, locale);
+  const period = `${startDate.toLocaleDateString(locale)} - ${endDate.toLocaleDateString(locale)}`;
   const safeMerchantName = escapeHtml(merchantName);
   const safeTitle = escapeHtml(title);
+
+  // The backend contract says revenue is gross and taxDue <= revenue, but
+  // refunds or data reconciliation bugs can produce a negative derived value;
+  // clamp to zero so the report never shows nonsense taxable sales.
+  const taxDueValue = data.summary?.taxDue?.value ?? 0;
+  const revenueValue = data.summary?.revenue?.value ?? 0;
+  const taxableSales = Math.max(0, revenueValue - taxDueValue);
+  // Guard against division-by-zero and non-finite results: if there were no
+  // taxable sales, we can't meaningfully express a rate, so fall back to
+  // either a blank (no tax) or N/A (tax present without taxable sales).
+  let taxRateLabel = '';
+  if (taxableSales > 0) {
+    const taxRatePct = (taxDueValue / taxableSales) * 100;
+    if (Number.isFinite(taxRatePct) && taxRatePct > 0) {
+      taxRateLabel = ` (${taxRatePct.toFixed(2)}%)`;
+    }
+  } else if (taxDueValue > 0) {
+    taxRateLabel = ' (N/A)';
+  }
 
   const rows = transactions
     .map(
       (tx) => `
         <tr>
-            <td>${new Date(tx.created_at).toLocaleDateString()}</td>
+            <td>${new Date(tx.created_at).toLocaleDateString(locale)}</td>
             <td>#${escapeHtml(tx.id.slice(0, 8))}</td>
             <td>${escapeHtml(tx.customer?.first_name || 'Guest')}</td>
-            <td class="right">${formatCurrency(tx.total - (tx.tax_amount || 0))}</td>
-            <td class="right">${formatCurrency(tx.tax_amount || 0)}</td>
-            <td class="right bold">${formatCurrency(tx.total)}</td>
+            <td class="right">${money(tx.total - (tx.tax_amount || 0))}</td>
+            <td class="right">${money(tx.tax_amount || 0)}</td>
+            <td class="right bold">${money(tx.total)}</td>
         </tr>
     `
     )
@@ -214,11 +244,11 @@ function getTaxLedgerHTML(options: ReportOptions) {
                 <div class="kpi-grid" style="grid-template-columns: repeat(2, 1fr);">
                     <div class="kpi-card">
                         <div class="kpi-label">Total Taxable Sales</div>
-                        <div class="kpi-value">${formatCurrency(data.revenue - data.salesTax)}</div>
+                        <div class="kpi-value">${money(taxableSales)}</div>
                     </div>
                     <div class="kpi-card">
-                        <div class="kpi-label">VAT Collected (7.5%)</div>
-                        <div class="kpi-value">${formatCurrency(data.salesTax)}</div>
+                        <div class="kpi-label">Tax Collected${taxRateLabel}</div>
+                        <div class="kpi-value">${money(taxDueValue)}</div>
                     </div>
                 </div>
 
@@ -230,7 +260,7 @@ function getTaxLedgerHTML(options: ReportOptions) {
                             <th>Order ID</th>
                             <th>Customer</th>
                             <th class="right">Subtotal</th>
-                            <th class="right">VAT</th>
+                            <th class="right">Tax</th>
                             <th class="right">Total</th>
                         </tr>
                     </thead>
@@ -240,7 +270,7 @@ function getTaxLedgerHTML(options: ReportOptions) {
                 </table>
 
                 <div class="footer">
-                    Report Period: ${period} • Generated on ${new Date().toLocaleString()}
+                    Report Period: ${period} • Generated on ${new Date().toLocaleString(locale)}
                 </div>
             </body>
         </html>

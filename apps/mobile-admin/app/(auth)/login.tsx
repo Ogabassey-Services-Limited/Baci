@@ -9,7 +9,6 @@ import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   StyleSheet,
@@ -20,6 +19,7 @@ import {
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
+import { AppKeyboardContainer } from '@/components/ui/AppKeyboardContainer';
 import { getEmailError } from '@/lib/sanitize';
 
 // Multi-colored Google Logo Component
@@ -129,11 +129,12 @@ export default function LoginScreen() {
       style={[styles.container, { backgroundColor: colors.background }]}
     >
       <SystemBars style="auto" />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
+      <AppKeyboardContainer
+        align="center"
+        contentContainerStyle={styles.content}
+        style={styles.contentContainer}
       >
-        <View style={styles.content}>
+        <View>
           {/* Baci Branding */}
           <View style={styles.header}>
             <BaciLogo size={80} borderRadius={20} />
@@ -253,9 +254,7 @@ export default function LoginScreen() {
               accessibilityLabel="Forgot password? Reset your password"
               accessibilityState={{ disabled: isAnyLoading }}
             >
-              <Text style={styles.forgotPasswordText}>
-                Forgot Password?
-              </Text>
+              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
             </Pressable>
 
             <Pressable
@@ -419,7 +418,7 @@ export default function LoginScreen() {
             </Pressable>
           )}
         </View>
-      </KeyboardAvoidingView>
+      </AppKeyboardContainer>
     </SafeAreaView>
   );
 }
@@ -428,12 +427,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  keyboardView: {
+  contentContainer: {
     flex: 1,
   },
   content: {
-    flex: 1,
-    justifyContent: 'center',
     padding: SPACING.xl,
   },
   header: {

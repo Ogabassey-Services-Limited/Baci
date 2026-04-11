@@ -6,6 +6,7 @@ import {
   waitFor,
 } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { APP_KEYBOARD_CONTAINER_LABEL } from './app-keyboard-container.mock';
 
 const mocks = vi.hoisted(() => ({
   activeAuthProvider: null as 'password' | 'google' | 'apple' | null,
@@ -134,6 +135,11 @@ vi.mock('expo-constants', () => ({
   },
 }));
 
+vi.mock('@/components/ui/AppKeyboardContainer', async () => {
+  const module = await import('./app-keyboard-container.mock');
+  return module.createAppKeyboardContainerMock();
+});
+
 vi.mock('@/components/BaciLogo', async () => {
   const React = await import('react');
   return {
@@ -201,9 +207,12 @@ describe('LoginScreen', () => {
     cleanup();
   });
 
-  it('shows the sign-up prompt and link', () => {
+  it('renders the login keyboard container and sign-up prompt', () => {
     render(<LoginScreen />);
 
+    expect(
+      screen.getByRole('region', { name: APP_KEYBOARD_CONTAINER_LABEL })
+    ).toBeTruthy();
     expect(screen.getByText("Don't have an account?")).toBeTruthy();
     expect(screen.getByText('Sign Up')).toBeTruthy();
   });

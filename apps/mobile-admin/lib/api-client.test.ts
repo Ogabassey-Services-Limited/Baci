@@ -17,14 +17,24 @@ vi.mock('./supabase', () => ({
 import { resolveBaseUrl } from './api-client';
 
 describe('resolveBaseUrl', () => {
-  it('prefers an explicitly configured dev API origin', () => {
+  it('prefers an explicitly configured local dev API origin', () => {
+    expect(
+      resolveBaseUrl({
+        isDev: true,
+        configuredBaseUrl: 'http://10.0.0.12:3000/',
+        hostUri: '192.168.1.10:8081',
+      })
+    ).toBe('http://10.0.0.12:3000');
+  });
+
+  it('ignores production origins in dev and uses the local Expo host instead', () => {
     expect(
       resolveBaseUrl({
         isDev: true,
         configuredBaseUrl: 'https://usebaci.com/',
         hostUri: '192.168.1.10:8081',
       })
-    ).toBe('https://usebaci.com');
+    ).toBe('http://192.168.1.10:3000');
   });
 
   it('derives an IPv4 dev origin from Expo hostUri', () => {

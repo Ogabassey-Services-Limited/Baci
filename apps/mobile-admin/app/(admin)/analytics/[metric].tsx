@@ -26,6 +26,7 @@ import {
   type TimeSeriesDataPoint,
   useAnalyticsDetail,
 } from '@/hooks/useAnalyticsDetail';
+import { useCurrency } from '@/hooks/useCurrency';
 import { useTheme } from '@/hooks/useTheme';
 
 const GRANULARITY_TABS: { value: Granularity; label: string }[] = [
@@ -34,19 +35,7 @@ const GRANULARITY_TABS: { value: Granularity; label: string }[] = [
   { value: 'month', label: 'MONTH' },
 ];
 
-// Format currency
-function formatCurrency(amount: number): string {
-  return `₦${amount.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-// Format compact number
-function formatCompact(amount: number): string {
-  if (amount >= 1_000_000_000)
-    return `₦${(amount / 1_000_000_000).toFixed(1)}B`;
-  if (amount >= 1_000_000) return `₦${(amount / 1_000_000).toFixed(1)}M`;
-  if (amount >= 1_000) return `₦${(amount / 1_000).toFixed(1)}K`;
-  return `₦${amount.toFixed(0)}`;
-}
+const DEFAULT_FILTER_LABEL = 'Selected period';
 
 // Bar Chart Component
 function BarChart({
@@ -58,6 +47,7 @@ function BarChart({
   secondaryColor,
   gridColor,
   labelColor,
+  formatTick,
 }: {
   data: TimeSeriesDataPoint[];
   comparisonData?: TimeSeriesDataPoint[];
@@ -67,6 +57,7 @@ function BarChart({
   secondaryColor: string;
   gridColor: string;
   labelColor: string;
+  formatTick: (amount: number) => string;
 }) {
   const chartWidth = 340;
   const chartHeight = 180;
@@ -89,10 +80,10 @@ function BarChart({
   return (
     <Svg width={chartWidth} height={chartHeight}>
       {/* Grid Lines (Horizontal) */}
-      {yTicks.map((tick, i) => {
+      {yTicks.map((tick) => {
         const y = padding.top + innerHeight - (tick / maxValue) * innerHeight;
         return (
-          <G key={i}>
+          <G key={`tick-${tick}`}>
             <Rect
               x={padding.left}
               y={y}
@@ -107,7 +98,7 @@ function BarChart({
               fill={labelColor}
               textAnchor="end"
             >
-              {formatCompact(tick)}
+              {formatTick(tick)}
             </SvgText>
           </G>
         );
@@ -121,7 +112,7 @@ function BarChart({
         const isSelected = selectedIndex === i;
 
         return (
-          <G key={i}>
+          <G key={d.label}>
             {/* Comparison bar (lighter, behind) */}
             {comparisonData?.[i] && (
               <Rect
@@ -170,31 +161,68 @@ function BarChart({
 
 export default function AnalyticsDetailScreen() {
   const { colors, isDark } = useTheme();
+  const { format: formatCurrency, formatCompact } = useCurrency();
   const router = useRouter();
-  const { metric: metricParam } = useLocalSearchParams<{ metric: string }>();
-  const metric = (metricParam as MetricType) || 'revenue';
+  const {
+    endDate,
+    filterLabel,
+    metric: metricParam,
+    startDate,
+  } = useLocalSearchParams<{
+    endDate?: string;
+    filterLabel?: string;
+    metric?: string;
+    startDate?: string;
+  }>();
+  const metric: MetricType =
+    typeof metricParam === 'string' && Object.hasOwn(METRIC_CONFIG, metricParam)
+      ? (metricParam as MetricType)
+      : 'revenue';
 
-  const [year, setYear] = useState(new Date().getFullYear());
   const [granularity, setGranularity] = useState<Granularity>('month');
   const [showComparison, setShowComparison] = useState(false);
   const [selectedBarIndex, setSelectedBarIndex] = useState<number | null>(null);
 
-  const { data: analyticsData, isLoading } = useAnalyticsDetail({
-    metric,
-    year,
-    granularity,
-    includeComparison: showComparison,
+  // Stable fallback range computed once per mount — recreating `new Date()`
+  // per render would thrash the query key for useAnalyticsDetail.
+  const [defaultRange] = useState(() => {
+    const now = new Date();
+    const start = new Date(now);
+    start.setDate(start.getDate() - 30);
+    return { endIso: now.toISOString(), startIso: start.toISOString() };
   });
 
+  const {
+    data: analyticsData,
+    error,
+    isError,
+    isFetching,
+    isLoading,
+    refetch,
+  } = useAnalyticsDetail({
+    endDate: endDate ?? defaultRange.endIso,
+    filterLabel: filterLabel ?? DEFAULT_FILTER_LABEL,
+    metric,
+    granularity,
+    startDate: startDate ?? defaultRange.startIso,
+    includeComparison: showComparison,
+  });
+  const visibleFilterLabel =
+    analyticsData?.rangeLabel ?? filterLabel ?? DEFAULT_FILTER_LABEL;
+
   const config = METRIC_CONFIG[metric];
-  const currentYear = new Date().getFullYear();
 
   const handleShare = async () => {
     if (!analyticsData) return;
 
-    const summary = `${config.title} for ${year}: ${formatCurrency(analyticsData.total)}${
+    const formattedTotal =
+      metric === 'sales'
+        ? analyticsData.total.toLocaleString()
+        : formatCurrency(analyticsData.total);
+
+    const summary = `${config.title} for ${analyticsData.rangeLabel}: ${formattedTotal}${
       analyticsData.percentChange !== undefined
-        ? ` (${analyticsData.percentChange >= 0 ? '+' : ''}${analyticsData.percentChange.toFixed(1)}% vs ${year - 1})`
+        ? ` (${analyticsData.percentChange >= 0 ? '+' : ''}${analyticsData.percentChange.toFixed(1)}% vs previous period)`
         : ''
     }`;
 
@@ -207,17 +235,84 @@ export default function AnalyticsDetailScreen() {
     }
   };
 
-  const handlePrevYear = () => {
-    if (year > 2020) setYear((y) => y - 1);
-  };
-
-  const handleNextYear = () => {
-    if (year < currentYear) setYear((y) => y + 1);
-  };
-
   // Highlight row in table when bar is selected
   const highlightedLabel =
     selectedBarIndex !== null && analyticsData?.data[selectedBarIndex]?.label;
+
+  if (isError && !analyticsData) {
+    const isRetrying = isFetching;
+
+    return (
+      <>
+        <Stack.Screen
+          options={{
+            headerShown: true,
+            title: config.title,
+            headerStyle: { backgroundColor: colors.background },
+            headerTintColor: colors.text,
+            headerShadowVisible: false,
+          }}
+        />
+        <SafeAreaView
+          style={[styles.container, { backgroundColor: colors.background }]}
+          edges={['bottom']}
+        >
+          <SystemBars style={isDark ? 'light' : 'dark'} />
+          <View style={styles.errorState}>
+            <Ionicons
+              name="alert-circle-outline"
+              size={32}
+              color={colors.error}
+            />
+            <Text style={[styles.errorTitle, { color: colors.text }]}>
+              Unable to load {config.title.toLowerCase()}.
+            </Text>
+            <Text style={[styles.errorBody, { color: colors.textSecondary }]}>
+              {error instanceof Error
+                ? error.message
+                : 'Try again in a moment.'}
+            </Text>
+            <Pressable
+              accessibilityHint={
+                isRetrying
+                  ? 'Analytics data is reloading'
+                  : 'Attempts to reload the analytics data'
+              }
+              accessibilityLabel={
+                isRetrying
+                  ? 'Retrying analytics data request'
+                  : 'Retry fetching analytics data'
+              }
+              accessibilityRole="button"
+              accessible
+              disabled={isRetrying}
+              onPress={() => {
+                void refetch();
+              }}
+              style={[
+                styles.retryButton,
+                { backgroundColor: colors.primary },
+                isRetrying && styles.retryButtonDisabled,
+              ]}
+            >
+              {isRetrying ? (
+                <ActivityIndicator size="small" color={colors.textOnPrimary} />
+              ) : (
+                <Text
+                  style={[
+                    styles.retryButtonText,
+                    { color: colors.textOnPrimary },
+                  ]}
+                >
+                  Try again
+                </Text>
+              )}
+            </Pressable>
+          </View>
+        </SafeAreaView>
+      </>
+    );
+  }
 
   return (
     <>
@@ -265,20 +360,13 @@ export default function AnalyticsDetailScreen() {
           </View>
         )}
 
-        {/* Year Selector */}
+        {/* Period Selector */}
         <View
           style={[
             styles.yearSelector,
             { backgroundColor: colors.card, borderColor: colors.border },
           ]}
         >
-          <Pressable onPress={handlePrevYear} disabled={year <= 2020}>
-            <Ionicons
-              name="chevron-back"
-              size={24}
-              color={year <= 2020 ? colors.textMuted : colors.text}
-            />
-          </Pressable>
           <View style={styles.yearDisplay}>
             <Ionicons
               name="calendar-outline"
@@ -286,16 +374,9 @@ export default function AnalyticsDetailScreen() {
               color={colors.textSecondary}
             />
             <Text style={[styles.yearText, { color: colors.text }]}>
-              {year}
+              {visibleFilterLabel}
             </Text>
           </View>
-          <Pressable onPress={handleNextYear} disabled={year >= currentYear}>
-            <Ionicons
-              name="chevron-forward"
-              size={24}
-              color={year >= currentYear ? colors.textMuted : colors.text}
-            />
-          </Pressable>
         </View>
 
         {/* Granularity Tabs */}
@@ -400,7 +481,7 @@ export default function AnalyticsDetailScreen() {
             <Text
               style={[styles.comparisonText, { color: colors.textSecondary }]}
             >
-              Compare vs {year - 1}
+              Compare vs previous period
             </Text>
           </Pressable>
 
@@ -420,6 +501,7 @@ export default function AnalyticsDetailScreen() {
                 secondaryColor={colors.textMuted}
                 gridColor={colors.border}
                 labelColor={colors.textMuted}
+                formatTick={formatCompact}
               />
             </View>
           )}
@@ -542,10 +624,43 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,
+  },
+  errorState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.md,
+    paddingHorizontal: SPACING.xl,
+  },
+  errorTitle: {
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    fontSize: TYPOGRAPHY.size.lg,
+    textAlign: 'center',
+  },
+  errorBody: {
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    fontSize: TYPOGRAPHY.size.sm,
+    textAlign: 'center',
+  },
+  retryButton: {
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
+  },
+  retryButtonDisabled: {
+    opacity: 0.72,
+  },
+  retryButtonText: {
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    fontSize: TYPOGRAPHY.size.sm,
   },
   yearSelector: {
     flexDirection: 'row',

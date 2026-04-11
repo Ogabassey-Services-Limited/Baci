@@ -53,6 +53,8 @@ firestore-debug.log
 
 # Claude Code local settings (may contain credentials)
 .claude/settings.local.json
+# Claude scratch files can include local env dumps and other sensitive temp data
+.claude-scratch/
 src_backup_*.tar.gz
 # Gemini agent artifacts (scripts, logs, configs)
 .gemini/

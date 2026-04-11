@@ -117,6 +117,43 @@ export interface MerchantData {
   error: Error | null;
 }
 
+class MerchantNetworkError extends Error {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = 'MerchantNetworkError';
+  }
+}
+
+function isMerchantNetworkFailure(error: unknown): boolean {
+  if (error instanceof MerchantNetworkError) {
+    return true;
+  }
+
+  if (!error || typeof error !== 'object') return false;
+
+  const candidate = error as {
+    cause?: unknown;
+    details?: unknown;
+    message?: unknown;
+  };
+
+  const cause =
+    candidate.cause && typeof candidate.cause === 'object'
+      ? (candidate.cause as { details?: unknown; message?: unknown })
+      : null;
+
+  return [
+    candidate.message,
+    candidate.details,
+    cause?.message,
+    cause?.details,
+  ].some(
+    (value) =>
+      typeof value === 'string' &&
+      value.toLowerCase().includes('network request failed')
+  );
+}
+
 export async function fetchMerchantData(
   userId: string
 ): Promise<{ merchant: Merchant | null; primaryDomain: Domain | null }> {
@@ -129,6 +166,14 @@ export async function fetchMerchantData(
   const { data, error } = await supabase.rpc('get_user_merchant_context');
 
   if (error) {
+    if (isMerchantNetworkFailure(error)) {
+      console.warn('[Merchant] Network unavailable while fetching context');
+      throw new MerchantNetworkError(
+        'Unable to load merchant data right now. Check your connection and try again.',
+        { cause: error }
+      );
+    }
+
     console.error('[Merchant] RPC Error:', error);
     throw new Error(error.message);
   }
@@ -168,7 +213,8 @@ export function useMerchant(): MerchantData {
     },
     enabled: !!user?.id, // Only fetch when user is authenticated
     staleTime: 1000 * 60 * 5, // 5 minutes
-    retry: 1,
+    retry: (failureCount, queryError) =>
+      !isMerchantNetworkFailure(queryError) && failureCount < 1,
   });
 
   const merchant = data?.merchant ?? null;

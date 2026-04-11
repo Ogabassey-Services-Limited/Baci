@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { APP_KEYBOARD_CONTAINER_LABEL } from './app-keyboard-container.mock';
 
 // --- vi.hoisted: these variables are available inside vi.mock factories ---
 const mocks = vi.hoisted(() => ({
@@ -114,6 +115,11 @@ vi.mock('@/hooks/useRegistration', () => ({
   }),
 }));
 
+vi.mock('@/components/ui/AppKeyboardContainer', async () => {
+  const module = await import('./app-keyboard-container.mock');
+  return module.createAppKeyboardContainerMock();
+});
+
 vi.mock('@/lib/password-utils', () => ({
   validatePassword: () => ({
     isValid: true,
@@ -193,6 +199,9 @@ describe('RegisterScreen', () => {
 
   it('calls register.mutate with form data when submitted', () => {
     render(<RegisterScreen />);
+    expect(
+      screen.getByRole('region', { name: APP_KEYBOARD_CONTAINER_LABEL })
+    ).toBeTruthy();
     fillFormAndSubmit();
 
     expect(mocks.mutate).toHaveBeenCalledTimes(1);

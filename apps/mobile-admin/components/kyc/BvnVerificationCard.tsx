@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation } from '@tanstack/react-query';
+import type React from 'react';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -11,46 +12,43 @@ import {
 } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import { apiClient, NetworkError } from '@/lib/api-client';
+import BvnMobileNumberField from './BvnMobileNumberField';
+import DateOfBirthPicker from './DateOfBirthPicker';
 import { isDateInPast, isValidCalendarDate } from './date-utils';
 import VerificationStatusBadge from './VerificationStatusBadge';
 import { verificationCardStyles as styles } from './verification-card-styles';
+import type { VerificationIdentityDraft } from './verification-identity';
 
 interface BvnVerificationCardProps {
-  verified: boolean;
-  prefillFirstName?: string | null;
-  prefillLastName?: string | null;
-  prefillDob?: string | null;
-  prefillBvn?: string | null;
-  prefillMobileNo?: string | null;
+  dateOfBirth: string;
+  firstName: string;
+  lastName: string;
+  mobileNo: string;
+  onIdentityChange: React.Dispatch<
+    React.SetStateAction<VerificationIdentityDraft>
+  >;
   onVerified: () => void;
-}
-
-interface VerifyBvnResponse {
   verified: boolean;
+  prefillBvn?: string | null;
 }
 
 const MOBILE_REGEX = /^0\d{10}$/;
 
 export default function BvnVerificationCard({
   verified,
-  prefillFirstName,
-  prefillLastName,
-  prefillDob,
   prefillBvn,
-  prefillMobileNo,
+  firstName,
+  lastName,
+  dateOfBirth,
+  mobileNo,
+  onIdentityChange,
   onVerified,
 }: BvnVerificationCardProps) {
   const { colors, shadows } = useTheme();
   const [expanded, setExpanded] = useState(false);
   const [bvn, setBvn] = useState(prefillBvn ?? '');
-  const [firstName, setFirstName] = useState(prefillFirstName ?? '');
-  const [lastName, setLastName] = useState(prefillLastName ?? '');
-  const [dateOfBirth, setDateOfBirth] = useState(prefillDob ?? '');
-  const [mobileNo, setMobileNo] = useState(prefillMobileNo ?? '');
-  // Tracks whether the user has edited any field. Once dirty, prefill props
-  // changing (e.g. the parent refetches) will not clobber user input.
   const [isDirty, setIsDirty] = useState(false);
-  const markDirty = () => {
+  const markBvnDirty = () => {
     if (!isDirty) setIsDirty(true);
   };
   const inputColors = {
@@ -62,24 +60,12 @@ export default function BvnVerificationCard({
   useEffect(() => {
     if (!verified && !isDirty) {
       setBvn(prefillBvn ?? '');
-      setFirstName(prefillFirstName ?? '');
-      setLastName(prefillLastName ?? '');
-      setDateOfBirth(prefillDob ?? '');
-      setMobileNo(prefillMobileNo ?? '');
     }
-  }, [
-    prefillBvn,
-    prefillFirstName,
-    prefillLastName,
-    prefillDob,
-    prefillMobileNo,
-    verified,
-    isDirty,
-  ]);
+  }, [prefillBvn, verified, isDirty]);
 
   const mutation = useMutation({
     mutationFn: () =>
-      apiClient<VerifyBvnResponse>('/api/merchant/verify-bvn', {
+      apiClient<{ verified: boolean }>('/api/merchant/verify-bvn', {
         method: 'POST',
         body: JSON.stringify({
           bvn,
@@ -108,7 +94,37 @@ export default function BvnVerificationCard({
         );
         return;
       }
-      console.error(
+      if (
+        error instanceof NetworkError &&
+        error.statusCode === 503 &&
+        error.message.includes('Monnify account is restricted')
+      ) {
+        Alert.alert(
+          'BVN Verification Unavailable',
+          'Monnify rejected the verification request because the configured account is restricted. This needs to be fixed on the Monnify account, not in the form.'
+        );
+        return;
+      }
+      if (
+        error instanceof NetworkError &&
+        error.statusCode === 503 &&
+        error.message.includes('BVN verification is not configured')
+      ) {
+        Alert.alert(
+          'BVN Verification Unavailable',
+          'BVN verification is not configured on this local environment yet. Add Monnify credentials or test against an environment where Monnify is configured.'
+        );
+        return;
+      }
+      if (
+        error instanceof NetworkError &&
+        !error.isOffline &&
+        !error.isTimeout
+      ) {
+        Alert.alert('Verification Error', error.message);
+        return;
+      }
+      console.warn(
         'BVN verification error:',
         error instanceof Error ? error.message : 'Unknown error'
       );
@@ -210,7 +226,7 @@ export default function BvnVerificationCard({
             placeholderTextColor={colors.textMuted}
             value={bvn}
             onChangeText={(v) => {
-              markDirty();
+              markBvnDirty();
               setBvn(v.replace(/\D/g, '').slice(0, 11));
             }}
             keyboardType="number-pad"
@@ -228,8 +244,7 @@ export default function BvnVerificationCard({
             placeholderTextColor={colors.textMuted}
             value={firstName}
             onChangeText={(v) => {
-              markDirty();
-              setFirstName(v);
+              onIdentityChange((current) => ({ ...current, firstName: v }));
             }}
             autoCapitalize="words"
             editable={!verified}
@@ -245,8 +260,7 @@ export default function BvnVerificationCard({
             placeholderTextColor={colors.textMuted}
             value={lastName}
             onChangeText={(v) => {
-              markDirty();
-              setLastName(v);
+              onIdentityChange((current) => ({ ...current, lastName: v }));
             }}
             autoCapitalize="words"
             editable={!verified}
@@ -256,35 +270,28 @@ export default function BvnVerificationCard({
           <Text style={[styles.label, { color: colors.textSecondary }]}>
             Date of Birth
           </Text>
-          <TextInput
-            style={[styles.input, inputColors]}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor={colors.textMuted}
+          <DateOfBirthPicker
             value={dateOfBirth}
-            onChangeText={(v) => {
-              markDirty();
-              setDateOfBirth(v);
+            onChange={(value) => {
+              onIdentityChange((current) => ({
+                ...current,
+                dateOfBirth: value,
+              }));
             }}
-            editable={!verified}
-            accessibilityLabel="Date of birth input"
+            colors={colors}
+            disabled={verified}
           />
 
-          <Text style={[styles.label, { color: colors.textSecondary }]}>
-            Mobile Number
-          </Text>
-          <TextInput
-            style={[styles.input, inputColors]}
-            placeholder="08012345678"
-            placeholderTextColor={colors.textMuted}
-            value={mobileNo}
-            onChangeText={(v) => {
-              markDirty();
-              setMobileNo(v.replace(/\D/g, '').slice(0, 11));
+          <BvnMobileNumberField
+            colors={colors}
+            disabled={mutation.isPending}
+            mobileNo={mobileNo}
+            onChangeText={(value) => {
+              onIdentityChange((current) => ({
+                ...current,
+                mobileNo: value.replace(/\D/g, '').slice(0, 11),
+              }));
             }}
-            keyboardType="phone-pad"
-            maxLength={11}
-            editable={!verified}
-            accessibilityLabel="Mobile number input"
           />
 
           {!verified && (
@@ -295,10 +302,10 @@ export default function BvnVerificationCard({
                 mutation.isPending && styles.submitButtonDisabled,
               ]}
               onPress={handleSubmit}
-              disabled={mutation.isPending}
+              disabled={mutation.isPending || !mobileNo}
               accessibilityRole="button"
               accessibilityLabel="Verify BVN"
-              accessibilityState={{ disabled: mutation.isPending }}
+              accessibilityState={{ disabled: mutation.isPending || !mobileNo }}
             >
               {mutation.isPending ? (
                 <ActivityIndicator size="small" color={colors.textOnPrimary} />

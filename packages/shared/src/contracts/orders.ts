@@ -7,7 +7,7 @@ export const WEB_ORDER_ITEMS_COLUMNS =
 export const WEB_ORDER_WITH_ITEMS_QUERY = `${WEB_ORDER_COLUMNS}, order_items(${WEB_ORDER_ITEMS_COLUMNS})`;
 
 export const MOBILE_ADMIN_ORDER_COLUMNS =
-  'id, order_number, merchant_id, customer_id, customer_name, customer_email, customer_phone, shipping_status, payment_status, total, subtotal, shipping_fee, tax_amount, discount_amount, currency, source, payment_method, notes, is_credit_order, shipping_address, recorded_by_user_id, wallet_amount_used, fulfillment_details, created_at, updated_at';
+  'id, order_number, merchant_id, customer_id, customer_name, customer_email, customer_phone, shipping_status, payment_status, total, subtotal, shipping_fee, tax_amount, discount_amount, currency, source, payment_method, notes, is_credit_order, shipping_address, recorded_by_user_id, wallet_amount_used, selected_quote_id, shipping_provider, tracking_number, tracking_token, shipment_id, fulfillment_type, fulfillment_details, self_fulfillment_data, created_at, updated_at';
 
 type ShippingAddressLike = {
   address?: unknown;
