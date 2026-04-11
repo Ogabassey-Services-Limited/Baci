@@ -7,8 +7,8 @@ import { StatePickerModal } from './StatePickerModal';
 
 vi.mock('@baci/shared', () => ({
   NIGERIAN_STATES: [
-    { code: 'LA', name: 'Lagos' },
-    { code: 'AB', name: 'Abia' },
+    { code: 'NG-LA', name: 'Lagos' },
+    { code: 'NG-AB', name: 'Abia' },
   ],
 }));
 
@@ -82,7 +82,7 @@ describe('StatePickerModal', () => {
         colors={colors}
         onClose={vi.fn()}
         onSelect={vi.fn()}
-        selectedStateCode="LA"
+        selectedStateCode="NG-LA"
         visible={true}
       />
     );
@@ -102,7 +102,7 @@ describe('StatePickerModal', () => {
         colors={colors}
         onClose={onClose}
         onSelect={onSelect}
-        selectedStateCode="LA"
+        selectedStateCode="NG-LA"
         visible={true}
       />
     );
@@ -111,6 +111,26 @@ describe('StatePickerModal', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Abia' }));
 
     expect(onClose).toHaveBeenCalledTimes(1);
-    expect(onSelect).toHaveBeenCalledWith('AB');
+    expect(onSelect).toHaveBeenCalledWith('NG-AB');
+  });
+
+  it('does not render when hidden', () => {
+    render(
+      <StatePickerModal
+        colors={colors}
+        onClose={vi.fn()}
+        onSelect={vi.fn()}
+        selectedStateCode="NG-LA"
+        visible={false}
+      />
+    );
+
+    expect(screen.queryByLabelText('state-page-sheet')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Lagos' })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Abia' })
+    ).not.toBeInTheDocument();
   });
 });

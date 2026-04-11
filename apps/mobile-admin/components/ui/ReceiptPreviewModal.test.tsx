@@ -84,6 +84,26 @@ vi.mock('react-native', async () => ({
 }));
 
 describe('ReceiptPreviewModal', () => {
+  it('does not render when hidden', () => {
+    pageSheetState.footer = null;
+
+    render(
+      <ReceiptPreviewModal
+        html="<p>Receipt HTML</p>"
+        isPaid={true}
+        onClose={vi.fn()}
+        onShare={vi.fn()}
+        visible={false}
+      />
+    );
+
+    expect(
+      screen.queryByLabelText('receipt-page-sheet')
+    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('receipt-webview')).not.toBeInTheDocument();
+    expect(screen.queryByText('Receipt Preview')).not.toBeInTheDocument();
+  });
+
   it('renders through the shared page-sheet shell', () => {
     render(
       <ReceiptPreviewModal
