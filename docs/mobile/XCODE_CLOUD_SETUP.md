@@ -51,6 +51,15 @@ Common (required by both workflows):
 - `EXPO_PUBLIC_SUPABASE_URL`
 - `EXPO_PUBLIC_SUPABASE_ANON_KEY`
 - `EXPO_PUBLIC_API_URL`
+- `BACI_ASC_KEY_ID`
+- `BACI_ASC_ISSUER_ID`
+- `BACI_ASC_PRIVATE_KEY`
+
+Optional release-version controls:
+
+- `CI_APP_STORE_CONNECT_APP_ID` — override the App Store Connect app ID if the repo default is missing or incorrect.
+- `CI_MARKETING_VERSION` — force an exact marketing version for a release.
+- `CI_MARKETING_BUMP` — one of `patch`, `minor`, or `major` when auto-resolving the next valid marketing version from App Store Connect. Defaults to `patch`.
 
 Admin-specific:
 

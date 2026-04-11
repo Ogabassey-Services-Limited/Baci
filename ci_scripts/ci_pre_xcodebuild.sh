@@ -2,6 +2,16 @@
 
 set -eu
 
+resolve_marketing_version_script() {
+  if [ -n "${CI_PRIMARY_REPOSITORY_PATH:-}" ]; then
+    printf '%s\n' "$CI_PRIMARY_REPOSITORY_PATH/ci_scripts/resolve_app_store_marketing_version.py"
+    return
+  fi
+
+  script_dir="$(cd "$(dirname "$0")" && pwd)"
+  printf '%s\n' "$script_dir/resolve_app_store_marketing_version.py"
+}
+
 resolve_repo_root() {
   if [ -n "${CI_PRIMARY_REPOSITORY_PATH:-}" ]; then
     printf '%s\n' "$CI_PRIMARY_REPOSITORY_PATH"
@@ -59,25 +69,6 @@ resolve_version_files() {
       ;;
     *)
       echo "error: Unsupported app directory '$app_dir_arg'." >&2
-      exit 1
-      ;;
-  esac
-}
-
-default_marketing_version_for_app() {
-  app_dir_arg="$1"
-
-  case "$app_dir_arg" in
-    apps/mobile-storefront)
-      # Must be higher than the previously approved 1.0.0 train.
-      printf '%s\n' "1.0.1"
-      ;;
-    apps/mobile-admin)
-      # Must be higher than the previously approved 1.4.0 train.
-      printf '%s\n' "1.4.1"
-      ;;
-    *)
-      echo "error: Unsupported app directory '$app_dir_arg' for default marketing version." >&2
       exit 1
       ;;
   esac
@@ -153,6 +144,7 @@ marketing_version="${CI_MARKETING_VERSION:-}"
 assert_command grep
 assert_command perl
 assert_command sed
+assert_command python3
 
 if [ ! -x /usr/libexec/PlistBuddy ]; then
   echo "error: /usr/libexec/PlistBuddy is required but not executable." >&2
@@ -167,8 +159,10 @@ fi
 assert_numeric "$build_number" "CI_BUILD_NUMBER"
 
 if [ -z "$marketing_version" ]; then
-  marketing_version="$(default_marketing_version_for_app "$app_dir")"
-  echo "info: CI_MARKETING_VERSION is unset. Using default '$marketing_version' for '$app_dir'."
+  version_resolver="$(resolve_marketing_version_script)"
+  assert_readable_file "$version_resolver" "Marketing version resolver"
+  marketing_version="$(python3 "$version_resolver" "$app_dir")"
+  echo "info: CI_MARKETING_VERSION is unset. Resolved '$marketing_version' for '$app_dir'."
 fi
 
 validate_marketing_version "$marketing_version"
