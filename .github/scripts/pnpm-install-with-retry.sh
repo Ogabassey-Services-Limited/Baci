@@ -20,6 +20,34 @@ cleanup_install_artifacts() {
   fi
 }
 
+cleanup_stale_workspace_install() {
+  local modules_file="node_modules/.modules.yaml"
+
+  if [ ! -f "$modules_file" ]; then
+    return
+  fi
+
+  local recorded_store_dir
+  recorded_store_dir="$(sed -n "s/^storeDir: ['\"]\\{0,1\\}\\(.*\\)['\"]\\{0,1\\}[[:space:]]*$/\\1/p" "$modules_file" | head -n 1)"
+
+  if [ -z "$recorded_store_dir" ]; then
+    return
+  fi
+
+  if [ ! -d "$recorded_store_dir" ]; then
+    echo "Detected stale node_modules metadata for missing pnpm store: $recorded_store_dir"
+    cleanup_install_artifacts
+    return
+  fi
+
+  if [ -n "$STORE_DIR" ] && [ "$recorded_store_dir" != "$STORE_DIR" ]; then
+    echo "Detected node_modules linked to a different pnpm store: $recorded_store_dir"
+    cleanup_install_artifacts
+  fi
+}
+
+cleanup_stale_workspace_install
+
 for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
   echo "pnpm install attempt $attempt/$MAX_ATTEMPTS..."
   log_file=$(mktemp)
