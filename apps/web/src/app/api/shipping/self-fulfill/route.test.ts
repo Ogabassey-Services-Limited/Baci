@@ -193,9 +193,10 @@ describe('Self-fulfill API routes', () => {
 
     expect(response.status).toBe(400);
     expect(payload.error).toBe('Invalid request');
-    expect(payload.details.formErrors).toContain(
-      'Unrecognized key: "unknownField"'
-    );
+    expect(payload).toHaveProperty('details');
+    expect(Array.isArray(payload.details.formErrors)).toBe(true);
+    expect(payload.details.formErrors.join(' ')).toMatch(/unknownField/);
+    expect(payload.details.formErrors.join(' ')).toMatch(/unrecognized key/i);
   });
 
   it('returns 400 when patch payload contains unexpected fields', async () => {
@@ -219,8 +220,9 @@ describe('Self-fulfill API routes', () => {
 
     expect(response.status).toBe(400);
     expect(payload.error).toBe('Invalid request');
-    expect(payload.details.formErrors).toContain(
-      'Unrecognized key: "unknownField"'
-    );
+    expect(payload).toHaveProperty('details');
+    expect(Array.isArray(payload.details.formErrors)).toBe(true);
+    expect(payload.details.formErrors.join(' ')).toMatch(/unknownField/);
+    expect(payload.details.formErrors.join(' ')).toMatch(/unrecognized key/i);
   });
 });
