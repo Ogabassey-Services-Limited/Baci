@@ -1,4 +1,3 @@
-import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -70,6 +69,15 @@ vi.mock('@/hooks/useCurrency', () => ({
   }),
 }));
 
+vi.mock('@/app/(admin)/analytics/analytics-insights.styles', () => ({
+  styles: new Proxy(
+    {},
+    {
+      get: (_target, property) => property,
+    }
+  ),
+}));
+
 vi.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({
     colors: {
@@ -124,7 +132,7 @@ describe('AnalyticsInsightsScreen', () => {
 
     render(<AnalyticsInsightsScreen />);
 
-    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar')).toBeTruthy();
   });
 
   it('renders a retryable error state', () => {
@@ -137,9 +145,7 @@ describe('AnalyticsInsightsScreen', () => {
 
     render(<AnalyticsInsightsScreen />);
 
-    expect(
-      screen.getByText('Unable to load analytics right now.')
-    ).toBeInTheDocument();
+    expect(screen.getByText('Unable to load analytics right now.')).toBeTruthy();
 
     fireEvent.click(screen.getByText('Try again'));
     expect(mocks.refetch).toHaveBeenCalled();
@@ -148,11 +154,9 @@ describe('AnalyticsInsightsScreen', () => {
   it('renders blog analytics success content', () => {
     render(<AnalyticsInsightsScreen />);
 
-    expect(screen.getByText('420')).toBeInTheDocument();
-    expect(
-      screen.getByText(/Top post: How to Sell Faster/i)
-    ).toBeInTheDocument();
-    expect(screen.getByText('This month')).toBeInTheDocument();
+    expect(screen.getByText('420')).toBeTruthy();
+    expect(screen.getByText(/Top post: How to Sell Faster/i)).toBeTruthy();
+    expect(screen.getByText('This month')).toBeTruthy();
   });
 
   it('renders ranked rows for non-blog insights', () => {
@@ -177,10 +181,10 @@ describe('AnalyticsInsightsScreen', () => {
 
     render(<AnalyticsInsightsScreen />);
 
-    expect(screen.getByText('Apple')).toBeInTheDocument();
-    expect(screen.getByText('NGN 120000')).toBeInTheDocument();
-    expect(screen.getByText('Samsung')).toBeInTheDocument();
-    expect(screen.getByText('NGN 80000')).toBeInTheDocument();
+    expect(screen.getByText('Apple')).toBeTruthy();
+    expect(screen.getByText('NGN 120000')).toBeTruthy();
+    expect(screen.getByText('Samsung')).toBeTruthy();
+    expect(screen.getByText('NGN 80000')).toBeTruthy();
   });
 
   it('renders the non-blog empty state when no ranked rows exist', () => {
@@ -202,10 +206,8 @@ describe('AnalyticsInsightsScreen', () => {
 
     render(<AnalyticsInsightsScreen />);
 
-    expect(screen.getByText('0')).toBeInTheDocument();
-    expect(
-      screen.getByText('Ranked breakdown for This month')
-    ).toBeInTheDocument();
+    expect(screen.getByText('0')).toBeTruthy();
+    expect(screen.getByText('Ranked breakdown for This month')).toBeTruthy();
   });
 
   it('renders blog analytics without a top-post row when no top post exists', () => {
@@ -228,8 +230,8 @@ describe('AnalyticsInsightsScreen', () => {
 
     render(<AnalyticsInsightsScreen />);
 
-    expect(screen.getByText('12')).toBeInTheDocument();
-    expect(screen.queryByText(/Top post:/i)).not.toBeInTheDocument();
+    expect(screen.getByText('12')).toBeTruthy();
+    expect(screen.queryByText(/Top post:/i)).toBeNull();
   });
 
   it('shows the loading indicator while stale analytics data is present', () => {
@@ -252,7 +254,7 @@ describe('AnalyticsInsightsScreen', () => {
 
     render(<AnalyticsInsightsScreen />);
 
-    expect(screen.getByRole('progressbar')).toBeInTheDocument();
-    expect(screen.getByText('420')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar')).toBeTruthy();
+    expect(screen.getByText('420')).toBeTruthy();
   });
 });

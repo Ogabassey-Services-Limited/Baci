@@ -33,10 +33,19 @@ vi.mock('react-native', async () => {
         placeholder,
         value: value ?? '',
         onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
-          onChangeText?.(event.target.value),
+          editable === false ? undefined : onChangeText?.(event.target.value),
       }),
   };
 });
+
+vi.mock('./verification-card-styles', () => ({
+  verificationCardStyles: new Proxy(
+    {},
+    {
+      get: (_target, property) => property,
+    }
+  ),
+}));
 
 describe('BvnMobileNumberField', () => {
   it('renders the label, placeholder, and initial value', () => {
@@ -88,7 +97,7 @@ describe('BvnMobileNumberField', () => {
     );
 
     const input = screen.getByLabelText('Mobile number input');
-    expect(input).toHaveProperty('disabled', true);
+    expect(input).toBeDisabled();
     fireEvent.change(input, { target: { value: '07000000000' } });
     expect(onChangeText).not.toHaveBeenCalled();
   });
