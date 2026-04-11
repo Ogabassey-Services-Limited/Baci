@@ -1,3 +1,4 @@
+import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -129,6 +130,8 @@ describe('CacSearchStep', () => {
   it('renders the empty state after an empty search result', () => {
     render(<CacSearchStep {...baseProps} results={[]} />);
 
-    screen.getByText('No companies found for this RC/BN number.');
+    expect(
+      screen.getByText('No companies found for this RC/BN number.')
+    ).toBeInTheDocument();
   });
 });
