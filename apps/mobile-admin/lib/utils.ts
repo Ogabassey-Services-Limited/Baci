@@ -3,17 +3,15 @@
 const formatterCache = new Map<string, Intl.NumberFormat>();
 
 /**
- * Format amount as currency with caching for performance
- * @param amount - The number to format
- * @param options - Optional Intl.NumberFormatOptions to override defaults
- * @param currency - Currency code (default: 'NGN')
- * @param locale - Locale string (default: 'en-NG')
+ * Format amount as currency with caching for performance.
+ * Locale defaults to the runtime/device locale so the formatter adapts across
+ * markets — currency defaults to NGN only because the pilot launches there.
  */
 export const formatCurrency = (
   amount: number,
   options?: Partial<Intl.NumberFormatOptions>,
   currency = 'NGN',
-  locale = 'en-NG'
+  locale?: string
 ) => {
   const finalOptions: Intl.NumberFormatOptions = {
     style: 'currency',
@@ -25,7 +23,7 @@ export const formatCurrency = (
 
   // Create a cache key based on locale and finalOptions (not caller options)
   // Using finalOptions ensures identical effective formatters share one cache entry
-  const cacheKey = `${locale}-${JSON.stringify(finalOptions)}`;
+  const cacheKey = `${locale ?? 'default'}-${JSON.stringify(finalOptions)}`;
 
   let formatter = formatterCache.get(cacheKey);
   if (!formatter) {
@@ -38,12 +36,12 @@ export const formatCurrency = (
 };
 
 /**
- * Format currency without decimal places (compact display)
+ * Format currency without decimal places.
  */
-export const formatCurrencyCompact = (
+export const formatCurrencyNoDecimals = (
   amount: number,
   currency = 'NGN',
-  locale = 'en-NG'
+  locale?: string
 ) => {
   return formatCurrency(
     amount,
@@ -112,9 +110,113 @@ export function stripHtmlTags(text: string | null | undefined): string {
   return result.trim();
 }
 
-export const formatCompactCurrency = (amount: number) => {
-  if (amount >= 1000000000) return `₦${(amount / 1000000000).toFixed(2)}B`;
-  if (amount >= 1000000) return `₦${(amount / 1000000).toFixed(2)}M`;
-  if (amount >= 1000) return `₦${amount.toLocaleString()}`;
-  return `₦${amount.toFixed(2)}`;
+const currencySymbolCache = new Map<string, string>();
+const currencyFallbackCache = new Map<string, string>();
+
+/**
+ * Resolve the symbol for a given ISO-4217 currency code using Intl. Falls back
+ * to the code itself when the runtime cannot produce a currency part (e.g.
+ * unsupported currency). Results are cached per locale+currency because
+ * `new Intl.NumberFormat` is relatively expensive in tight render loops.
+ */
+export const getCurrencySymbol = (
+  currency = 'NGN',
+  locale?: string
+): string => {
+  const cacheKey = `${locale ?? 'default'}-${currency}`;
+  const cached = currencySymbolCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
+  const cachedFallback = currencyFallbackCache.get(cacheKey);
+  if (cachedFallback !== undefined) return cachedFallback;
+
+  try {
+    const parts = new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).formatToParts(1);
+    const symbol =
+      parts.find((part) => part.type === 'currency')?.value ?? currency;
+    if (currencySymbolCache.size > 50) currencySymbolCache.clear();
+    currencySymbolCache.set(cacheKey, symbol);
+    return symbol;
+  } catch {
+    currencyFallbackCache.set(cacheKey, currency);
+    return currency;
+  }
+};
+
+const compactCurrencyCache = new Map<string, Intl.NumberFormat>();
+const fullCurrencyCache = new Map<string, Intl.NumberFormat>();
+
+function getOrCreateFormatter(
+  cache: Map<string, Intl.NumberFormat>,
+  key: string,
+  factory: () => Intl.NumberFormat
+): Intl.NumberFormat {
+  const cached = cache.get(key);
+  if (cached) return cached;
+  if (cache.size > 50) cache.clear();
+  const formatter = factory();
+  cache.set(key, formatter);
+  return formatter;
+}
+
+/**
+ * Compact currency display (e.g. ₦1.2M, $3.4B, -₦1.50M for negatives).
+ *
+ * Uses Intl.NumberFormat with `notation: 'compact'` so symbol placement,
+ * grouping separators, and abbreviation style follow locale conventions
+ * (e.g. French "1,2 M€" vs. English "€1.2M"). For values below 1,000 we fall
+ * back to standard notation so small amounts display their actual value
+ * rather than "₦500" without decimals.
+ */
+export const formatCurrencyCompactNotation = (
+  amount: number,
+  currency = 'NGN',
+  locale?: string
+) => {
+  const abs = Math.abs(amount);
+  const useCompact = abs >= 1_000;
+  const cache = useCompact ? compactCurrencyCache : fullCurrencyCache;
+  const cacheKey = `${locale ?? 'default'}-${currency}`;
+
+  try {
+    const formatter = getOrCreateFormatter(
+      cache,
+      cacheKey,
+      () =>
+        new Intl.NumberFormat(locale, {
+          style: 'currency',
+          currency,
+          notation: useCompact ? 'compact' : 'standard',
+          compactDisplay: 'short',
+          minimumFractionDigits: useCompact ? 1 : 2,
+          maximumFractionDigits: 2,
+        })
+    );
+    return formatter.format(amount);
+  } catch {
+    // Runtime without full Intl data — fall back to a manual format that
+    // still handles the sign correctly.
+    // This uses `amount`, `currency`, `locale`, `abs`, and
+    // `getCurrencySymbol(currency, locale)` to build `${sign}${symbol}${...}`.
+    // It assumes prefix currency placement, so suffix locales (for example
+    // `1,2 M€`) are not preserved. That's acceptable because this only runs
+    // when Intl formatting is unavailable.
+    const symbol = getCurrencySymbol(currency, locale);
+    const sign = amount < 0 ? '-' : '';
+    if (abs >= 1_000_000_000) {
+      return `${sign}${symbol}${(abs / 1_000_000_000).toFixed(2)}B`;
+    }
+    if (abs >= 1_000_000) {
+      return `${sign}${symbol}${(abs / 1_000_000).toFixed(2)}M`;
+    }
+    if (abs >= 1_000) {
+      return `${sign}${symbol}${(abs / 1_000).toFixed(2)}K`;
+    }
+    return `${sign}${symbol}${abs.toFixed(2)}`;
+  }
 };

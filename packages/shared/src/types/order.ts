@@ -43,11 +43,26 @@ export interface OrderItem {
   name: string;
   product_name: string;
   condition?: string;
+  has_assurance?: boolean;
   variant_name?: string;
   quantity: number;
   price: number;
   total?: number;
   image_url?: string;
+}
+
+export interface OrderFulfillmentDetails {
+  imei?: string;
+  serialNumber?: string;
+}
+
+export interface OrderSelfFulfillmentData {
+  carrierName?: string | null;
+  dispatchNotes?: string | null;
+  dispatchPhone?: string | null;
+  fulfilledAt?: string | null;
+  fulfilledBy?: string | null;
+  trackingNumber?: string | null;
 }
 
 export interface Order {
@@ -69,6 +84,14 @@ export interface Order {
   payment_method: string | null;
   notes: string | null;
   is_credit_order?: boolean;
+  selected_quote_id?: string | null;
+  shipping_provider?: string | null;
+  tracking_number?: string | null;
+  tracking_token?: string | null;
+  shipment_id?: string | null;
+  fulfillment_type?: 'provider' | 'self' | null;
+  fulfillment_details?: OrderFulfillmentDetails | null;
+  self_fulfillment_data?: OrderSelfFulfillmentData | null;
   shipping_address?: {
     address_line1?: string;
     address_line2?: string;

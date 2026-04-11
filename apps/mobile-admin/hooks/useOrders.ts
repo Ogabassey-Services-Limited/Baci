@@ -26,7 +26,7 @@ import { getJoinedRecord } from '@/lib/supabase-utils';
 import { useMerchant } from './useMerchant';
 
 // Re-export for backward compatibility
-export type { ShippingStatus, PaymentStatus, Order, OrderItem };
+export type { Order, OrderItem, PaymentStatus, ShippingStatus };
 
 // Extended Order type for mobile app (includes item_count)
 export interface OrderWithCount extends Order {
@@ -43,15 +43,23 @@ interface OrdersPage {
 /** Shape returned by Supabase select on order_items with joined products */
 interface OrderItemRow {
   id: string;
-  condition: string | null;
+  has_assurance: boolean | null;
   product_id: string | null;
   variant_name: string | null;
   name: string | null;
   quantity: number;
   price: number;
   products:
-    | { name: string; images: string[] | null }
-    | Array<{ name: string; images: string[] | null }>
+    | {
+        condition: string | null;
+        images: string[] | null;
+        name: string;
+      }
+    | Array<{
+        condition: string | null;
+        images: string[] | null;
+        name: string;
+      }>
     | null;
 }
 
@@ -242,8 +250,13 @@ export function useOrders(
 
   return useInfiniteQuery({
     queryKey: ['orders', merchantId, filters],
-    queryFn: ({ pageParam = 0 }) =>
-      fetchOrders(merchantId!, pageParam, filters),
+    queryFn: ({ pageParam = 0 }) => {
+      if (!merchantId) {
+        throw new Error('Merchant ID is required');
+      }
+
+      return fetchOrders(merchantId, pageParam, filters);
+    },
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     initialPageParam: 0,
     enabled: !!merchantId,
@@ -352,14 +365,14 @@ export function useOrder(orderId: string) {
 
       // Fetch order items, transactions, and virtual account in parallel
       const [
-        { data: items },
-        { data: transactions },
-        { data: virtualAccount },
+        { data: items, error: itemsError },
+        { data: transactions, error: transactionsError },
+        { data: virtualAccount, error: virtualAccountError },
       ] = await Promise.all([
         supabase
           .from('order_items')
           .select(
-            'id, product_id, condition, variant_name, name, quantity, price, products(name, images)'
+            'id, product_id, has_assurance, variant_name, name, quantity, price, products(name, images, condition)'
           )
           .eq('order_id', orderId),
         supabase
@@ -373,6 +386,18 @@ export function useOrder(orderId: string) {
           .eq('order_id', orderId)
           .maybeSingle(),
       ]);
+
+      if (itemsError) {
+        throw new Error(itemsError.message);
+      }
+
+      if (transactionsError) {
+        throw new Error(transactionsError.message);
+      }
+
+      if (virtualAccountError) {
+        throw new Error(virtualAccountError.message);
+      }
 
       // Fetch recorded_by user info + staff virtual terminal if staff-created
       let recordedByName: string | null = null;
@@ -447,9 +472,10 @@ export function useOrder(orderId: string) {
           return {
             id: item.id,
             product_id: item.product_id ?? `custom-${item.id}`,
+            has_assurance: item.has_assurance ?? undefined,
             name: itemName,
             product_name: itemName,
-            condition: item.condition ?? undefined,
+            condition: product?.condition ?? undefined,
             variant_name: item.variant_name ?? undefined,
             quantity: item.quantity,
             price: item.price,

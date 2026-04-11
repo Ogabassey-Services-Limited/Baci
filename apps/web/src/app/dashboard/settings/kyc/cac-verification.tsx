@@ -1,5 +1,6 @@
 'use client';
 
+import { normalizeCacSearchTerm } from '@baci/shared';
 import {
   ArrowLeft,
   Building2,
@@ -109,7 +110,7 @@ export function CacVerification({
     try {
       const data = await postApi(
         '/api/merchant/cac-search',
-        JSON.stringify({ searchTerm: term })
+        JSON.stringify({ searchTerm: normalizeCacSearchTerm(term) })
       );
       if (!data) return;
       const rawCompanies = (

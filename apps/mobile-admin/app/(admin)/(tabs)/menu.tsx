@@ -137,6 +137,13 @@ export default function MenuScreen() {
           onPress: () => router.push('/analytics'),
         },
         {
+          id: 'transactions',
+          icon: 'cash-outline',
+          label: 'Transactions',
+          description: 'Review paid sales and update cost prices',
+          onPress: () => router.push('/transactions'),
+        },
+        {
           id: 'growth-marketing',
           icon: 'rocket-outline',
           label: 'Growth & Marketing',
@@ -279,7 +286,7 @@ export default function MenuScreen() {
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
-      edges={[]}
+      edges={['top']}
     >
       <SystemBars style={isDark ? 'light' : 'dark'} />
 

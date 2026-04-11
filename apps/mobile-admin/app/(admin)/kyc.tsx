@@ -7,6 +7,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -20,6 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import BvnVerificationCard from '@/components/kyc/BvnVerificationCard';
 import CacVerificationCard from '@/components/kyc/CacVerificationCard';
 import NinVerificationCard from '@/components/kyc/NinVerificationCard';
+import type { VerificationIdentityDraft } from '@/components/kyc/verification-identity';
 import { SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useMerchant } from '@/hooks/useMerchant';
@@ -46,10 +48,31 @@ function isVerificationStatus(value: unknown): value is VerificationStatus {
   );
 }
 
+function normalizeBvnMobileNumber(value: string | null | undefined): string {
+  const digits = value?.replace(/\D/g, '') ?? '';
+
+  if (!digits) return '';
+  if (digits.length === 11 && digits.startsWith('0')) return digits;
+  if (digits.length === 13 && digits.startsWith('234')) {
+    return `0${digits.slice(3)}`;
+  }
+
+  return '';
+}
+
 export default function KYCScreen() {
   const { colors, isDark } = useTheme();
   const { user } = useAuth();
   const { merchant } = useMerchant();
+  const lastMerchantIdRef = useRef<string | null>(null);
+  const [identityDraft, setIdentityDraft] = useState<VerificationIdentityDraft>(
+    {
+      dateOfBirth: '',
+      firstName: '',
+      lastName: '',
+      mobileNo: '',
+    }
+  );
 
   const isOwner =
     !!user?.id && !!merchant?.user_id && user.id === merchant.user_id;
@@ -77,6 +100,33 @@ export default function KYCScreen() {
     },
     enabled: isOwner && !!merchant?.id,
   });
+
+  useEffect(() => {
+    const merchantId = merchant?.id ?? null;
+    const merchantChanged = lastMerchantIdRef.current !== merchantId;
+
+    setIdentityDraft((current) => ({
+      dateOfBirth: merchantChanged
+        ? status?.date_of_birth || ''
+        : current.dateOfBirth || status?.date_of_birth || '',
+      firstName: merchantChanged
+        ? status?.first_name || ''
+        : current.firstName || status?.first_name || '',
+      lastName: merchantChanged
+        ? status?.last_name || ''
+        : current.lastName || status?.last_name || '',
+      mobileNo: merchantChanged
+        ? normalizeBvnMobileNumber(merchant?.phone) || ''
+        : current.mobileNo || normalizeBvnMobileNumber(merchant?.phone) || '',
+    }));
+    lastMerchantIdRef.current = merchantId;
+  }, [
+    merchant?.id,
+    merchant?.phone,
+    status?.date_of_birth,
+    status?.first_name,
+    status?.last_name,
+  ]);
 
   return (
     <>
@@ -174,18 +224,20 @@ export default function KYCScreen() {
               <NinVerificationCard
                 verified={status?.nin_verified ?? false}
                 prefillNin={merchant?.nin}
-                prefillFirstName={status?.first_name}
-                prefillLastName={status?.last_name}
-                prefillDob={status?.date_of_birth}
+                firstName={identityDraft.firstName}
+                lastName={identityDraft.lastName}
+                dateOfBirth={identityDraft.dateOfBirth}
+                onIdentityChange={setIdentityDraft}
                 onVerified={refetch}
               />
               <BvnVerificationCard
                 verified={status?.bvn_verified ?? false}
                 prefillBvn={merchant?.bvn}
-                prefillFirstName={status?.first_name}
-                prefillLastName={status?.last_name}
-                prefillDob={status?.date_of_birth}
-                prefillMobileNo={merchant?.phone}
+                firstName={identityDraft.firstName}
+                lastName={identityDraft.lastName}
+                dateOfBirth={identityDraft.dateOfBirth}
+                mobileNo={identityDraft.mobileNo}
+                onIdentityChange={setIdentityDraft}
                 onVerified={refetch}
               />
               <CacVerificationCard

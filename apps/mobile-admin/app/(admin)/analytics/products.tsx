@@ -5,37 +5,52 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
-import { Stack, useRouter } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SPACING, TYPOGRAPHY } from '@/constants/theme';
-import { useMerchant } from '@/hooks/useMerchant';
+import { useCurrency } from '@/hooks/useCurrency';
 import {
   type TopSellingProduct,
   useTopSellingProducts,
-} from '@/hooks/useProducts';
+} from '@/hooks/useTopSellingProducts';
 import { useTheme } from '@/hooks/useTheme';
 
-const getCurrencySymbol = (currencyCode: string | null | undefined) => {
-  const symbols: Record<string, string> = {
-    NGN: '\u20A6',
-    USD: '$',
-    GBP: '\u00A3',
-    EUR: '\u20AC',
-  };
-  return symbols[currencyCode || 'NGN'] || '\u20A6';
-};
+function getSingleParam(value?: string | string[]) {
+  return Array.isArray(value) ? value[0] : value;
+}
 
 export default function AnalyticsProductsScreen() {
   const { colors, isDark } = useTheme();
+  const { format: formatCurrency } = useCurrency();
   const router = useRouter();
-  const { merchant } = useMerchant();
-  const currencySymbol = getCurrencySymbol(merchant?.payout_currency);
-  const { data: topProducts, isLoading } = useTopSellingProducts(50);
-
-  const formatCurrency = (amount: number) => {
-    return `${currencySymbol}${amount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`;
-  };
+  const params = useLocalSearchParams<{
+    endDate?: string | string[];
+    filterLabel?: string | string[];
+    startDate?: string | string[];
+  }>();
+  const startDateParam = getSingleParam(params.startDate);
+  const endDateParam = getSingleParam(params.endDate);
+  const filterLabelParam = getSingleParam(params.filterLabel);
+  const parsedStartDate = startDateParam ? new Date(startDateParam) : null;
+  const parsedEndDate = endDateParam ? new Date(endDateParam) : null;
+  const range =
+    parsedStartDate &&
+    parsedEndDate &&
+    !Number.isNaN(parsedStartDate.getTime()) &&
+    !Number.isNaN(parsedEndDate.getTime()) &&
+    parsedStartDate.getTime() <= parsedEndDate.getTime()
+      ? {
+          endDate: parsedEndDate,
+          startDate: parsedStartDate,
+        }
+      : undefined;
+  const {
+    data: topProducts,
+    isError,
+    isLoading,
+    refetch,
+  } = useTopSellingProducts(50, range);
 
   const renderProductItem = ({
     item,
@@ -83,7 +98,9 @@ export default function AnalyticsProductsScreen() {
       <Stack.Screen
         options={{
           headerShown: true,
-          title: 'Top Products',
+          title: filterLabelParam
+            ? `Top Products · ${filterLabelParam}`
+            : 'Top Products',
           headerStyle: { backgroundColor: colors.background },
           headerTintColor: colors.text,
           headerShadowVisible: false,
@@ -96,8 +113,48 @@ export default function AnalyticsProductsScreen() {
         renderItem={renderProductItem}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
+        ListHeaderComponent={
+          isLoading ? (
+            <View style={styles.emptyState}>
+              <ActivityIndicator size="large" color={colors.primary} />
+            </View>
+          ) : null
+        }
         ListEmptyComponent={
-          !isLoading ? (
+          !isLoading && isError ? (
+            <View style={styles.emptyState}>
+              <Ionicons
+                name="alert-circle-outline"
+                size={48}
+                color={colors.error}
+              />
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                Failed to load top products.
+              </Text>
+              <Pressable
+                accessibilityHint="Retries loading the product list"
+                accessibilityLabel="Retry fetching products"
+                accessibilityRole="button"
+                accessible
+                onPress={() => {
+                  void refetch();
+                }}
+                style={[
+                  styles.retryButton,
+                  { backgroundColor: colors.primary },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.retryButtonText,
+                    { color: colors.textOnPrimary },
+                  ]}
+                >
+                  Retry
+                </Text>
+              </Pressable>
+            </View>
+          ) : !isLoading ? (
             <View style={styles.emptyState}>
               <Ionicons
                 name="cube-outline"
@@ -167,5 +224,14 @@ const styles = StyleSheet.create({
   emptyText: {
     textAlign: 'center',
     fontSize: TYPOGRAPHY.size.md,
+  },
+  retryButton: {
+    borderRadius: 999,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
+  },
+  retryButtonText: {
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    fontSize: TYPOGRAPHY.size.sm,
   },
 });

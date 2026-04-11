@@ -56,6 +56,7 @@ import {
   OrderItemDetailModal,
   type OrderItemSnapshot,
 } from '@/components/orders/OrderItemDetailModal';
+import { ShipmentFlowSheet } from '@/components/orders/ShipmentFlowSheet';
 import { InvalidRouteScreen } from '@/components/ui/InvalidRouteScreen';
 import { KeyboardAwareModalContainer } from '@/components/ui/KeyboardAwareModalContainer';
 import { ReceiptPreviewModal } from '@/components/ui/ReceiptPreviewModal';
@@ -74,6 +75,16 @@ import {
 } from '@/hooks/useOrders';
 import { useTheme } from '@/hooks/useTheme';
 import { BASE_URL } from '@/lib/api-client';
+import {
+  canUseSelectedShippingProvider,
+  formatShippingProviderName,
+  getDispatchPhoneFromOrder,
+  getInitialFulfillmentDetails,
+  orderRequiresFulfillment,
+  type ShipmentCompletionMode,
+  type ShipmentFlowStep,
+  shouldPersistFulfillmentDetails,
+} from '@/lib/order-shipment';
 import { extractOrderDeliveryAddress } from '@/lib/orders';
 import { formatProductCondition } from '@/lib/product-condition';
 import { supabase } from '@/lib/supabase';
@@ -93,7 +104,6 @@ type ShippingAddressObject = {
 };
 
 type ShippingAddress = ShippingAddressObject | string | null | undefined;
-type ShipmentCompletionMode = 'provider' | 'self_fulfillment';
 
 // Helper to get consistent theme colors for statuses
 const getStatusColor = (
@@ -188,8 +198,10 @@ export default function OrderDetailsScreen() {
 
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showCreditModal, setShowCreditModal] = useState(false);
-  const [showFulfillmentModal, setShowFulfillmentModal] = useState(false);
-  const [showRiderModal, setShowRiderModal] = useState(false);
+  const [showShipmentFlow, setShowShipmentFlow] = useState(false);
+  const [shipmentFlowStep, setShipmentFlowStep] =
+    useState<ShipmentFlowStep>('details');
+  const [isShipmentSubmitting, setIsShipmentSubmitting] = useState(false);
   const [creditNotes, setCreditNotes] = useState('');
   const [fulfillmentDetails, setFulfillmentDetails] = useState({
     imei: '',
@@ -213,12 +225,20 @@ export default function OrderDetailsScreen() {
     useState<OrderItemSnapshot | null>(null);
   const [pendingShipmentMode, setPendingShipmentMode] =
     useState<ShipmentCompletionMode>('provider');
+  const requiresShipmentDetails = orderRequiresFulfillment(order?.items);
+  const providerLabel = formatShippingProviderName(order?.shipping_provider);
+  const providerBookingAvailable = order
+    ? canUseSelectedShippingProvider(order)
+    : false;
 
   const [successModal, setSuccessModal] = useState({
     visible: false,
     title: 'Success!',
     message: '',
     subMessage: '',
+    actionLabel: '',
+    actionVariant: 'default' as 'default' | 'whatsapp',
+    showAction: false,
   });
 
   // Android hardware back button handler for modals
@@ -229,8 +249,7 @@ export default function OrderDetailsScreen() {
     const anyModalOpen =
       showStatusModal ||
       showCreditModal ||
-      showFulfillmentModal ||
-      showRiderModal ||
+      showShipmentFlow ||
       showPaymentOptionModal ||
       showRecordPaymentModal ||
       selectedOrderItem !== null;
@@ -253,12 +272,18 @@ export default function OrderDetailsScreen() {
           setShowPaymentOptionModal(false);
           return true;
         }
-        if (showFulfillmentModal) {
-          setShowFulfillmentModal(false);
-          return true;
-        }
-        if (showRiderModal) {
-          setShowRiderModal(false);
+        if (showShipmentFlow) {
+          if (shipmentFlowStep === 'rider') {
+            setShipmentFlowStep('method');
+            return true;
+          }
+          if (shipmentFlowStep === 'method' && requiresShipmentDetails) {
+            setShipmentFlowStep('details');
+            return true;
+          }
+          setShowShipmentFlow(false);
+          setShipmentFlowStep('details');
+          setIsShipmentSubmitting(false);
           return true;
         }
         if (showCreditModal) {
@@ -277,8 +302,9 @@ export default function OrderDetailsScreen() {
   }, [
     showStatusModal,
     showCreditModal,
-    showFulfillmentModal,
-    showRiderModal,
+    showShipmentFlow,
+    shipmentFlowStep,
+    requiresShipmentDetails,
     showPaymentOptionModal,
     showRecordPaymentModal,
     selectedOrderItem,
@@ -367,7 +393,7 @@ export default function OrderDetailsScreen() {
     await AsyncStorage.setItem('saved_riders', JSON.stringify(newRiders));
   };
 
-  const handleSendToRider = async () => {
+  const handleSendOrderDetailsToRider = async () => {
     if (!riderPhone) {
       Alert.alert('Required', 'Please enter a rider phone number');
       return;
@@ -382,10 +408,10 @@ export default function OrderDetailsScreen() {
     const deliveryCityState = [shippingAddress?.city, shippingAddress?.state]
       .filter((part): part is string => Boolean(part?.trim()))
       .join(' ');
-
-    const itemsList = order?.items
-      ?.map((item) => `- ${item.quantity}x ${item.name}`)
-      .join('\n');
+    const amountToCollect =
+      order?.payment_method === 'pay_on_delivery'
+        ? `\n*Amount to Collect:* ${formatPrice(order?.balance || 0)}`
+        : '';
 
     const message = `
 📦 *New Order Dispatch*
@@ -400,53 +426,45 @@ ${order?.customer_name}
 ${deliveryAddress}
 ${deliveryCityState}
 Phone: ${order?.customer_phone?.trim() || 'N/A'}
-
-*Items:*
-${itemsList}
-
-*Payment Status:* ${order?.payment_status?.toUpperCase()}
-*Total to Collect:* ${formatPrice(order?.balance || 0)}
+${amountToCollect}
 `.trim();
 
     const url = `https://wa.me/${riderPhone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
 
-    Linking.openURL(url)
-      .then(() => {
-        Alert.alert(
-          'Order Sent to Rider',
-          'Have you handed over the items to the rider?',
-          [
-            { text: 'No, invalid dispatch', style: 'cancel' },
-            {
-              text: 'Yes, Mark Shipped',
-              onPress: () => {
-                setShowRiderModal(false);
-                void beginShipmentCompletion('self_fulfillment');
-              },
-            },
-          ]
-        );
-      })
-      .catch(() => {
-        Alert.alert('Error', 'Could not open WhatsApp');
-      });
+    Linking.openURL(url).catch(() => {
+      Alert.alert('Error', 'Could not open WhatsApp');
+    });
   };
 
   const handleSendRiderToCustomer = () => {
-    if (!order?.customer_phone?.trim()) return;
+    const customerPhone = order?.customer_phone?.trim();
+    const dispatchPhone = order?.self_fulfillment_data?.dispatchPhone?.trim();
+    const carrierName =
+      order?.self_fulfillment_data?.carrierName?.trim() || 'Dispatch Rider';
+
+    if (!order || !customerPhone) return;
+    if (!dispatchPhone) {
+      Alert.alert(
+        'Rider details unavailable',
+        'Save a dispatch rider first before sharing rider details with the customer.'
+      );
+      return;
+    }
 
     const message = `
 🚚 *Order Update*
 Your order #${order.order_number} is on the way!
 
-Rider Contact: ${riderPhone || 'Dispatch Rider'}
+${carrierName}: ${dispatchPhone}
 Please keep your phone available.
 
 Thank you for choosing ${merchant?.business_name || 'us'}!
 `.trim();
 
-    const url = `https://wa.me/${order.customer_phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
-    Linking.openURL(url);
+    const url = `https://wa.me/${customerPhone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
+    Linking.openURL(url).catch(() => {
+      Alert.alert('Error', 'Could not open WhatsApp');
+    });
   };
 
   const handleRecordPayment = async () => {
@@ -531,18 +549,54 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
     }
   };
 
-  const hasShippableGadgetItems = () =>
-    order?.items?.some(
-      (item) =>
-        item.name?.toLowerCase().includes('phone') ||
-        item.name?.toLowerCase().includes('laptop') ||
-        item.name?.toLowerCase().includes('iphone') ||
-        item.name?.toLowerCase().includes('samsung') ||
-        item.name?.toLowerCase().includes('dell') ||
-        item.name?.toLowerCase().includes('hp') ||
-        item.name?.toLowerCase().includes('alienware') ||
-        item.name?.toLowerCase().includes('gaming')
-    ) ?? false;
+  const closeShipmentFlow = () => {
+    setShowShipmentFlow(false);
+    setShipmentFlowStep('details');
+    setPendingShipmentMode(
+      providerBookingAvailable ? 'provider' : 'self_fulfillment'
+    );
+    setIsShipmentSubmitting(false);
+  };
+
+  const handleShipmentFlowBack = () => {
+    if (!showShipmentFlow) {
+      return;
+    }
+
+    if (shipmentFlowStep === 'rider') {
+      setShipmentFlowStep('method');
+      return;
+    }
+
+    if (shipmentFlowStep === 'method' && requiresShipmentDetails) {
+      setShipmentFlowStep('details');
+      return;
+    }
+
+    closeShipmentFlow();
+  };
+
+  const openShipmentFlow = () => {
+    if (!order) return;
+
+    setShowStatusModal(false);
+    setFulfillmentDetails(
+      getInitialFulfillmentDetails(order.fulfillment_details)
+    );
+
+    const savedDispatchPhone = getDispatchPhoneFromOrder(order);
+    if (savedDispatchPhone) {
+      setRiderPhone(savedDispatchPhone);
+    } else {
+      setRiderPhone('');
+    }
+
+    setPendingShipmentMode(
+      providerBookingAvailable ? 'provider' : 'self_fulfillment'
+    );
+    setShipmentFlowStep(requiresShipmentDetails ? 'details' : 'method');
+    setShowShipmentFlow(true);
+  };
 
   const sendShippedEmailNotification = async () => {
     if (!order) return;
@@ -589,6 +643,11 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
 
   const markOrderShippedWithProvider = async () => {
     if (!order) return;
+    if (!providerBookingAvailable) {
+      throw new Error(
+        'This order does not have a saved provider quote to book against.'
+      );
+    }
 
     await updateStatusMutation.mutateAsync({
       orderId: order.id,
@@ -646,49 +705,82 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
   ) => {
     if (!order) return;
 
-    if (saveDetails) {
-      await saveFulfillmentDetails();
+    setIsShipmentSubmitting(true);
+
+    try {
+      if (saveDetails) {
+        await saveFulfillmentDetails();
+      }
+
+      if (mode === 'self_fulfillment') {
+        await markOrderSelfFulfilled();
+        if (riderPhone.trim()) {
+          await handleSaveRider(riderPhone.trim());
+        }
+      } else {
+        await markOrderShippedWithProvider();
+      }
+
+      closeShipmentFlow();
+      setFulfillmentDetails({ imei: '', serialNumber: '' });
+      setPendingShipmentMode(
+        providerBookingAvailable ? 'provider' : 'self_fulfillment'
+      );
+
+      await sendShippedEmailNotification();
+
+      queryClient.invalidateQueries({ queryKey: ['order', order.id] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['order-counts'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+
+      setSuccessModal({
+        visible: true,
+        title:
+          mode === 'self_fulfillment' ? 'Order Shipped' : 'Shipment Booked',
+        message:
+          mode === 'self_fulfillment'
+            ? 'The order has been marked shipped. Customer notification has been triggered.'
+            : providerLabel
+              ? `The order has been booked with ${providerLabel} and marked shipped.`
+              : 'The order has been marked shipped.',
+        subMessage:
+          mode === 'self_fulfillment'
+            ? 'You can now send the delivery details to your dispatch rider on WhatsApp.'
+            : 'The customer has been notified of the shipment update.',
+        actionLabel:
+          mode === 'self_fulfillment' ? 'Send Order Details to Rider' : '',
+        actionVariant: mode === 'self_fulfillment' ? 'whatsapp' : 'default',
+        showAction: mode === 'self_fulfillment',
+      });
+    } finally {
+      setIsShipmentSubmitting(false);
     }
-
-    if (mode === 'self_fulfillment') {
-      await markOrderSelfFulfilled();
-    } else {
-      await markOrderShippedWithProvider();
-    }
-
-    setShowFulfillmentModal(false);
-    setShowStatusModal(false);
-    setFulfillmentDetails({ imei: '', serialNumber: '' });
-    setPendingShipmentMode('provider');
-
-    await sendShippedEmailNotification();
-
-    queryClient.invalidateQueries({ queryKey: ['order', order.id] });
-    queryClient.invalidateQueries({ queryKey: ['orders'] });
-    queryClient.invalidateQueries({ queryKey: ['order-counts'] });
-    queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
-
-    Alert.alert(
-      'Success',
-      mode === 'self_fulfillment'
-        ? 'Order marked as self-fulfilled with dispatch details'
-        : 'Order marked as shipped with fulfillment details'
-    );
   };
 
-  const beginShipmentCompletion = async (mode: ShipmentCompletionMode) => {
-    if (!order) return;
+  const proceedFromFulfillmentDetails = () => {
+    if (
+      requiresShipmentDetails &&
+      !shouldPersistFulfillmentDetails(fulfillmentDetails)
+    ) {
+      Alert.alert('Required', 'Please enter the IMEI or serial number');
+      return;
+    }
 
-    setPendingShipmentMode(mode);
-    setShowStatusModal(false);
+    setShipmentFlowStep('method');
+  };
 
-    if (hasShippableGadgetItems() && !order.fulfillment_details?.imei) {
-      setShowFulfillmentModal(true);
+  const proceedFromShipmentMethod = async () => {
+    if (pendingShipmentMode === 'self_fulfillment') {
+      setShipmentFlowStep('rider');
       return;
     }
 
     try {
-      await finalizeShipmentCompletion(mode, false);
+      await finalizeShipmentCompletion(
+        'provider',
+        shouldPersistFulfillmentDetails(fulfillmentDetails)
+      );
     } catch (err: unknown) {
       Alert.alert(
         'Error',
@@ -711,7 +803,7 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
     }
 
     if (newStatus === 'shipped' && order.shipping_status === 'processing') {
-      await beginShipmentCompletion('provider');
+      openShipmentFlow();
       return;
     }
 
@@ -813,6 +905,9 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
           newStatus === 'delivered' ? 'Order Delivered! 🎉' : 'Status Updated',
         message: `Order status updated to ${newStatus}`,
         subMessage,
+        actionLabel: '',
+        actionVariant: 'default',
+        showAction: false,
       });
     } catch (err: unknown) {
       const error = err as Error;
@@ -870,16 +965,12 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
     }
   };
 
-  const handleSubmitFulfillment = async () => {
-    if (!order) return;
-
-    if (!fulfillmentDetails.imei.trim()) {
-      Alert.alert('Required', 'Please enter the IMEI number');
-      return;
-    }
-
+  const handleSubmitSelfFulfillment = async () => {
     try {
-      await finalizeShipmentCompletion(pendingShipmentMode, true);
+      await finalizeShipmentCompletion(
+        'self_fulfillment',
+        shouldPersistFulfillmentDetails(fulfillmentDetails)
+      );
     } catch (err: unknown) {
       Alert.alert(
         'Error',
@@ -1280,6 +1371,11 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
     }
     return 'Invalid address format';
   };
+  const showPostShipmentActions = Boolean(
+    order.shipping_status === 'shipped' &&
+      order.self_fulfillment_data?.dispatchPhone?.trim()
+  );
+  const hasCustomerPhone = Boolean(order.customer_phone?.trim());
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -1541,41 +1637,55 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
             </Pressable>
           </View>
 
-          {/* Rider Actions - Full Width */}
-          {order.shipping_status === 'processing' && (
+          {showPostShipmentActions && hasCustomerPhone && (
             <Pressable
               style={[
-                styles.actionBtn,
+                styles.postShipmentPrimaryAction,
                 {
-                  backgroundColor: `${colors.warning}20`,
+                  backgroundColor: '#F4C95D',
                   marginTop: 12,
-                  width: '100%',
                 },
               ]}
-              onPress={() => setShowRiderModal(true)}
+              onPress={() => {
+                void handleSendOrderDetailsToRider();
+              }}
             >
-              <Ionicons name="bicycle" size={20} color={colors.warning} />
-              <Text style={[styles.actionBtnText, { color: colors.warning }]}>
-                Dispatch Rider
+              <Ionicons
+                name="logo-whatsapp"
+                size={20}
+                color={BRAND_COLORS.whatsapp}
+              />
+              <Text
+                style={[
+                  styles.postShipmentPrimaryActionText,
+                  { color: '#6B4E16' },
+                ]}
+              >
+                Send Order Details to Rider
               </Text>
             </Pressable>
           )}
 
-          {order.shipping_status === 'shipped' && (
+          {showPostShipmentActions && (
             <Pressable
               style={[
-                styles.actionBtn,
+                styles.postShipmentSecondaryAction,
                 {
-                  backgroundColor: `${colors.success}20`,
                   marginTop: 12,
-                  width: '100%',
+                  backgroundColor: colors.backgroundLight,
+                  borderColor: `${colors.success}30`,
                 },
               ]}
               onPress={handleSendRiderToCustomer}
             >
               <Ionicons name="share-social" size={20} color={colors.success} />
-              <Text style={[styles.actionBtnText, { color: colors.success }]}>
-                Share Rider Info
+              <Text
+                style={[
+                  styles.postShipmentSecondaryActionText,
+                  { color: colors.success },
+                ]}
+              >
+                Share Rider Details With Customer
               </Text>
             </Pressable>
           )}
@@ -2105,226 +2215,38 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
         </View>
       )}
 
-      {/* Fulfillment Modal */}
-      {showFulfillmentModal && (
-        <View style={styles.modalOverlay}>
-          <Pressable
-            style={styles.modalBackdrop}
-            onPress={() => setShowFulfillmentModal(false)}
-          />
-          <KeyboardAwareModalContainer
-            align="end"
-            contentContainerStyle={styles.modalKeyboardContent}
-          >
-            <View
-              style={[styles.modalContent, { backgroundColor: colors.card }]}
-            >
-              <Ionicons
-                name="barcode-outline"
-                size={48}
-                color={colors.primary}
-                style={{ alignSelf: 'center', marginBottom: 16 }}
-              />
-              <Text style={[styles.modalTitle, { color: colors.text }]}>
-                Fulfillment Details Required
-              </Text>
-              <Text
-                style={{
-                  color: colors.textSecondary,
-                  textAlign: 'center',
-                  marginBottom: 20,
-                }}
-              >
-                Enter the device IMEI/serial number before marking as shipped.
-              </Text>
-              <View style={{ marginBottom: 16 }}>
-                <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
-                  IMEI Number *
-                </Text>
-                <View
-                  style={{
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    borderRadius: RADIUS.md,
-                    padding: 12,
-                  }}
-                >
-                  <TextInput
-                    keyboardType="numeric"
-                    maxLength={15}
-                    placeholder="e.g., 353456789012345"
-                    placeholderTextColor={colors.textSecondary}
-                    style={{ color: colors.text }}
-                    value={fulfillmentDetails.imei}
-                    onChangeText={(text) =>
-                      setFulfillmentDetails((prev) => ({ ...prev, imei: text }))
-                    }
-                  />
-                </View>
-              </View>
-              <View style={{ marginBottom: 20 }}>
-                <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
-                  Serial Number (optional)
-                </Text>
-                <View
-                  style={{
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    borderRadius: RADIUS.md,
-                    padding: 12,
-                  }}
-                >
-                  <TextInput
-                    placeholder="e.g., ABC123XYZ"
-                    placeholderTextColor={colors.textSecondary}
-                    style={{ color: colors.text }}
-                    value={fulfillmentDetails.serialNumber}
-                    onChangeText={(text) =>
-                      setFulfillmentDetails((prev) => ({
-                        ...prev,
-                        serialNumber: text,
-                      }))
-                    }
-                  />
-                </View>
-              </View>
-              <Pressable
-                style={[
-                  styles.updateButton,
-                  { backgroundColor: colors.success, marginBottom: 12 },
-                ]}
-                onPress={handleSubmitFulfillment}
-              >
-                <Ionicons name="checkmark-circle" size={20} color="#FFF" />
-                <Text style={styles.updateButtonText}>
-                  Confirm & Mark Shipped
-                </Text>
-              </Pressable>
-              <Pressable
-                style={styles.closeButton}
-                onPress={() => setShowFulfillmentModal(false)}
-              >
-                <Text style={{ color: colors.textSecondary }}>Cancel</Text>
-              </Pressable>
-            </View>
-          </KeyboardAwareModalContainer>
-        </View>
-      )}
-
-      {/* Rider Modal */}
-      {showRiderModal && (
-        <View style={styles.modalOverlay}>
-          <Pressable
-            style={styles.modalBackdrop}
-            onPress={() => setShowRiderModal(false)}
-          />
-          <KeyboardAwareModalContainer
-            align="end"
-            contentContainerStyle={styles.modalKeyboardContent}
-          >
-            <View
-              style={[styles.modalContent, { backgroundColor: colors.card }]}
-            >
-              <Ionicons
-                name="bicycle-outline"
-                size={48}
-                color={colors.primary}
-                style={{ alignSelf: 'center', marginBottom: 16 }}
-              />
-              <Text style={[styles.modalTitle, { color: colors.text }]}>
-                Dispatch Rider
-              </Text>
-              <Text
-                style={{
-                  color: colors.textSecondary,
-                  textAlign: 'center',
-                  marginBottom: 20,
-                }}
-              >
-                Enter rider's WhatsApp number to send order details.
-              </Text>
-              <View style={{ marginBottom: 16 }}>
-                <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
-                  Rider Phone Number
-                </Text>
-                <View
-                  style={{
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    borderRadius: RADIUS.md,
-                    padding: 12,
-                  }}
-                >
-                  <TextInput
-                    placeholder="e.g., +23480..."
-                    placeholderTextColor={colors.textSecondary}
-                    value={riderPhone}
-                    onChangeText={setRiderPhone}
-                    keyboardType="phone-pad"
-                    style={{ color: colors.text }}
-                  />
-                </View>
-              </View>
-              {savedRiders.length > 0 && (
-                <View style={{ marginBottom: 20 }}>
-                  <Text
-                    style={{
-                      color: colors.textSecondary,
-                      marginBottom: 8,
-                      fontSize: 12,
-                    }}
-                  >
-                    Saved Riders
-                  </Text>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={{ gap: 8 }}
-                  >
-                    {savedRiders.map((phone) => (
-                      <Pressable
-                        key={phone}
-                        style={{
-                          backgroundColor: colors.backgroundLight,
-                          paddingHorizontal: 12,
-                          paddingVertical: 8,
-                          borderRadius: RADIUS.full,
-                          borderWidth: 1,
-                          borderColor:
-                            riderPhone === phone
-                              ? colors.primary
-                              : 'transparent',
-                        }}
-                        onPress={() => setRiderPhone(phone)}
-                      >
-                        <Text style={{ color: colors.text, fontSize: 12 }}>
-                          {phone}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
-              <Pressable
-                style={[
-                  styles.updateButton,
-                  { backgroundColor: colors.success, marginBottom: 12 },
-                ]}
-                onPress={handleSendToRider}
-              >
-                <Ionicons name="logo-whatsapp" size={20} color="#FFF" />
-                <Text style={styles.updateButtonText}>Send & Dispatch</Text>
-              </Pressable>
-              <Pressable
-                style={styles.closeButton}
-                onPress={() => setShowRiderModal(false)}
-              >
-                <Text style={{ color: colors.textSecondary }}>Cancel</Text>
-              </Pressable>
-            </View>
-          </KeyboardAwareModalContainer>
-        </View>
-      )}
+      <ShipmentFlowSheet
+        canUseProvider={providerBookingAvailable}
+        fulfillmentDetails={fulfillmentDetails}
+        hasExistingFulfillment={Boolean(
+          shouldPersistFulfillmentDetails({
+            imei: order.fulfillment_details?.imei ?? '',
+            serialNumber: order.fulfillment_details?.serialNumber ?? '',
+          })
+        )}
+        isSubmitting={isShipmentSubmitting}
+        onClose={closeShipmentFlow}
+        onContinueFromDetails={proceedFromFulfillmentDetails}
+        onContinueFromMethod={() => {
+          void proceedFromShipmentMethod();
+        }}
+        onConfirmSelfFulfillment={handleSubmitSelfFulfillment}
+        onFulfillmentDetailsChange={(field, value) =>
+          setFulfillmentDetails((prev) => ({ ...prev, [field]: value }))
+        }
+        onModeChange={setPendingShipmentMode}
+        onRiderPhoneChange={setRiderPhone}
+        onSelectSavedRider={setRiderPhone}
+        onStepBack={handleShipmentFlowBack}
+        orderNumber={order.order_number}
+        providerLabel={providerLabel}
+        requiresFulfillment={requiresShipmentDetails}
+        riderPhone={riderPhone}
+        savedRiders={savedRiders}
+        selectedMode={pendingShipmentMode}
+        step={shipmentFlowStep}
+        visible={showShipmentFlow}
+      />
 
       {/* Payment Option Modal */}
       {showPaymentOptionModal && (
@@ -2556,7 +2478,29 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
         title={successModal.title}
         message={successModal.message}
         subMessage={successModal.subMessage}
-        onClose={() => setSuccessModal((prev) => ({ ...prev, visible: false }))}
+        actionIcon={successModal.showAction ? 'logo-whatsapp' : undefined}
+        actionLabel={
+          successModal.showAction ? successModal.actionLabel : undefined
+        }
+        actionVariant={successModal.actionVariant}
+        onActionPress={
+          successModal.showAction
+            ? () => {
+                setSuccessModal((prev) => ({ ...prev, visible: false }));
+                void handleSendOrderDetailsToRider();
+              }
+            : undefined
+        }
+        onClose={() =>
+          setSuccessModal((prev) => ({
+            ...prev,
+            visible: false,
+            showAction: false,
+            actionLabel: '',
+            actionVariant: 'default',
+          }))
+        }
+        closeLabel="Done"
       />
 
       <ReceiptPreviewModal
@@ -2691,6 +2635,37 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   actionBtnText: { fontSize: TYPOGRAPHY.size.xs, fontWeight: '600' },
+  postShipmentPrimaryAction: {
+    width: '100%',
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: RADIUS.md,
+    gap: 8,
+  },
+  postShipmentPrimaryActionText: {
+    fontSize: TYPOGRAPHY.size.sm,
+    fontWeight: '700',
+  },
+  postShipmentSecondaryAction: {
+    width: '100%',
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    gap: 8,
+  },
+  postShipmentSecondaryActionText: {
+    fontSize: TYPOGRAPHY.size.sm,
+    fontWeight: '600',
+  },
 
   receiptBtn: {
     flexDirection: 'row',
