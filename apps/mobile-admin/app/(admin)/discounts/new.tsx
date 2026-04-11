@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Controller, type Resolver, useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import {
   // Switch,
   ActivityIndicator,
@@ -54,12 +54,6 @@ const discountSchema = z
 
 type DiscountFormInput = z.input<typeof discountSchema>;
 type DiscountFormOutput = z.output<typeof discountSchema>;
-const discountResolver =
-  zodResolver(discountSchema) as Resolver<
-    DiscountFormInput,
-    undefined,
-    DiscountFormOutput
-  >;
 
 export default function NewDiscountScreen() {
   const { colors } = useTheme();
@@ -77,7 +71,7 @@ export default function NewDiscountScreen() {
     setValue,
     formState: { errors },
   } = useForm<DiscountFormInput, undefined, DiscountFormOutput>({
-    resolver: discountResolver,
+    resolver: zodResolver(discountSchema),
     defaultValues: {
       code: '',
       discount_type: 'percentage',
