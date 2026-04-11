@@ -13,7 +13,7 @@ export function useRevenueCat() {
     if (needsInit) {
       store.initialize();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- Intentional: one-time mount initialization
+
   }, [store]);
 
   return store;
