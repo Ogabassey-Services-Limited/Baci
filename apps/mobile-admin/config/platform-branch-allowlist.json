@@ -25,6 +25,7 @@
   "components/staff/BranchModal.tsx",
   "components/staff/StaffAccountModal.tsx",
   "components/ui/CountryPickerModal.tsx",
+  "components/ui/AppKeyboardContainer.tsx",
   "components/ui/KeyboardAwareModalContainer.tsx",
   "components/ui/ReceiptPreviewModal.tsx",
   "components/ui/showChoiceSheet.ts",
