@@ -19,8 +19,9 @@ on:
         type: string
 
 concurrency:
-  group: android-storefront-release-${{ github.ref }}
-  cancel-in-progress: true
+  # Shared self-hosted runner serialization prevents pnpm store corruption.
+  group: baci-android-runner
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -187,8 +188,27 @@ jobs:
           path: ${{ env.WORKING_DIR }}/android/app/build/outputs/bundle/release/app-release.aab
           retention-days: 7
 
+      - name: Guard Google Play upload against stale main builds
+        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        id: upload_guard
+        run: |
+          CURRENT_MAIN_SHA="$(git ls-remote origin refs/heads/main | cut -f1)"
+          if [ -z "$CURRENT_MAIN_SHA" ]; then
+            echo "::error::Unable to determine current main HEAD"
+            exit 1
+          fi
+
+          if [ "${GITHUB_SHA}" = "$CURRENT_MAIN_SHA" ]; then
+            echo "allow_upload=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "allow_upload=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping Google Play upload because this run is not for the current main HEAD."
+          fi
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+
       - name: Upload to Google Play (full production rollout)
-        if: success()
+        if: success() && (github.event_name != 'push' || github.ref != 'refs/heads/main' || steps.upload_guard.outputs.allow_upload == 'true')
         uses: r0adkll/upload-google-play@935ef9c68bb393a8e6116b1575626a7f5be3a7fb # v1.1.3
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
