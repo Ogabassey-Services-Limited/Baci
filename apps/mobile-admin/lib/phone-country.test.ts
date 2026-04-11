@@ -15,6 +15,12 @@ describe('phone-country', () => {
     expect(country.flagEmoji).toBe('🇳🇬');
   });
 
+  it('normalizes lowercase and whitespace country codes before lookup', () => {
+    const country = getPhoneCountryByCode(' ng ');
+
+    expect(country.code).toBe('NG');
+  });
+
   it('falls back to the default country for an unknown country code', () => {
     const country = getPhoneCountryByCode('XX');
 

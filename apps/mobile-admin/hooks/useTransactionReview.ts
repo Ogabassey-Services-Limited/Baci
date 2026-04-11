@@ -36,7 +36,7 @@ export interface TransactionReviewItem {
   id: string;
   name: string;
   productId: string | null;
-  profit: number;
+  profit: number | null;
   quantity: number;
   revenue: number;
 }
@@ -64,8 +64,32 @@ function getJoinedProduct(
 
 export function useTransactionReview(range?: TransactionReviewRange) {
   const { merchant } = useMerchant();
-  const startDateIso = range?.startDate?.toISOString();
-  const endDateIso = range?.endDate?.toISOString();
+  const startDateIso = range?.startDate
+    ? new Date(
+        Date.UTC(
+          range.startDate.getUTCFullYear(),
+          range.startDate.getUTCMonth(),
+          range.startDate.getUTCDate(),
+          0,
+          0,
+          0,
+          0
+        )
+      ).toISOString()
+    : undefined;
+  const endDateIso = range?.endDate
+    ? new Date(
+        Date.UTC(
+          range.endDate.getUTCFullYear(),
+          range.endDate.getUTCMonth(),
+          range.endDate.getUTCDate(),
+          23,
+          59,
+          59,
+          999
+        )
+      ).toISOString()
+    : undefined;
 
   return useQuery<TransactionReviewOrder[]>({
     queryKey: ['transaction-review', merchant?.id, startDateIso, endDateIso],
@@ -104,13 +128,12 @@ export function useTransactionReview(range?: TransactionReviewRange) {
           const revenue = Number(item.price ?? 0) * quantity;
           const costPrice =
             product?.cost_price == null ? null : Number(product.cost_price);
-          const numericCost = Number(product?.cost_price ?? 0);
           return {
             costPrice,
             id: item.id,
             name: item.name ?? 'Product',
             productId: item.product_id,
-            profit: revenue - numericCost * quantity,
+            profit: costPrice == null ? null : revenue - costPrice * quantity,
             quantity,
             revenue,
           };
@@ -119,7 +142,10 @@ export function useTransactionReview(range?: TransactionReviewRange) {
         return {
           createdAt: order.created_at,
           customerName: order.customer_name ?? 'Customer',
-          estimatedProfit: items.reduce((sum, item) => sum + item.profit, 0),
+          estimatedProfit: items.reduce(
+            (sum, item) => sum + (item.profit ?? 0),
+            0
+          ),
           id: order.id,
           items,
           missingCostCount: items.filter((item) => item.costPrice == null)

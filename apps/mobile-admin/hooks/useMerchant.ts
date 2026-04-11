@@ -117,15 +117,37 @@ export interface MerchantData {
   error: Error | null;
 }
 
+class MerchantNetworkError extends Error {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = 'MerchantNetworkError';
+  }
+}
+
 function isMerchantNetworkFailure(error: unknown): boolean {
+  if (error instanceof MerchantNetworkError) {
+    return true;
+  }
+
   if (!error || typeof error !== 'object') return false;
 
   const candidate = error as {
+    cause?: unknown;
     details?: unknown;
     message?: unknown;
   };
 
-  return [candidate.message, candidate.details].some(
+  const cause =
+    candidate.cause && typeof candidate.cause === 'object'
+      ? (candidate.cause as { details?: unknown; message?: unknown })
+      : null;
+
+  return [
+    candidate.message,
+    candidate.details,
+    cause?.message,
+    cause?.details,
+  ].some(
     (value) =>
       typeof value === 'string' &&
       value.toLowerCase().includes('network request failed')
@@ -146,8 +168,9 @@ export async function fetchMerchantData(
   if (error) {
     if (isMerchantNetworkFailure(error)) {
       console.warn('[Merchant] Network unavailable while fetching context');
-      throw new Error(
-        'Unable to load merchant data right now. Check your connection and try again.'
+      throw new MerchantNetworkError(
+        'Unable to load merchant data right now. Check your connection and try again.',
+        { cause: error }
       );
     }
 

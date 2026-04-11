@@ -76,9 +76,7 @@ export default function TransactionsScreen() {
       return;
     }
     setSelectedItem(item);
-    setCostPriceInput(
-      item.costPrice == null ? '' : String(item.costPrice)
-    );
+    setCostPriceInput(item.costPrice == null ? '' : String(item.costPrice));
     setSaveError(null);
   };
 
@@ -336,7 +334,9 @@ export default function TransactionsScreen() {
                           },
                         ]}
                       >
-                        Profit {formatCurrency(item.profit)}
+                        {item.profit == null
+                          ? 'Profit unavailable'
+                          : `Profit ${formatCurrency(item.profit)}`}
                       </Text>
                     </View>
                     <Ionicons

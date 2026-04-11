@@ -7,7 +7,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -64,6 +64,7 @@ export default function KYCScreen() {
   const { colors, isDark } = useTheme();
   const { user } = useAuth();
   const { merchant } = useMerchant();
+  const lastMerchantIdRef = useRef<string | null>(null);
   const [identityDraft, setIdentityDraft] = useState<VerificationIdentityDraft>(
     {
       dateOfBirth: '',
@@ -101,14 +102,26 @@ export default function KYCScreen() {
   });
 
   useEffect(() => {
+    const merchantId = merchant?.id ?? null;
+    const merchantChanged = lastMerchantIdRef.current !== merchantId;
+
     setIdentityDraft((current) => ({
-      dateOfBirth: current.dateOfBirth || status?.date_of_birth || '',
-      firstName: current.firstName || status?.first_name || '',
-      lastName: current.lastName || status?.last_name || '',
-      mobileNo:
-        current.mobileNo || normalizeBvnMobileNumber(merchant?.phone) || '',
+      dateOfBirth: merchantChanged
+        ? status?.date_of_birth || ''
+        : current.dateOfBirth || status?.date_of_birth || '',
+      firstName: merchantChanged
+        ? status?.first_name || ''
+        : current.firstName || status?.first_name || '',
+      lastName: merchantChanged
+        ? status?.last_name || ''
+        : current.lastName || status?.last_name || '',
+      mobileNo: merchantChanged
+        ? normalizeBvnMobileNumber(merchant?.phone) || ''
+        : current.mobileNo || normalizeBvnMobileNumber(merchant?.phone) || '',
     }));
+    lastMerchantIdRef.current = merchantId;
   }, [
+    merchant?.id,
     merchant?.phone,
     status?.date_of_birth,
     status?.first_name,

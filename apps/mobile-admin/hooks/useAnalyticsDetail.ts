@@ -5,14 +5,14 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { getPreviousAnalyticsDateRange } from '@/lib/analytics-period';
-import { supabase } from '@/lib/supabase';
 import {
+  type Granularity,
   getBucketIndex,
   getBuckets,
-  type Granularity,
 } from '@/hooks/analyticsDetailBuckets';
 import { useMerchant } from '@/hooks/useMerchant';
+import { getPreviousAnalyticsDateRange } from '@/lib/analytics-period';
+import { supabase } from '@/lib/supabase';
 
 export type { Granularity } from '@/hooks/analyticsDetailBuckets';
 
@@ -255,14 +255,16 @@ export function useAnalyticsDetail({
       }
 
       // Find best and worst periods
-      const nonZeroData = data.filter((d) => d.value > 0);
+      const safeFiniteData = data.filter((d) => Number.isFinite(d.value));
       const bestPeriod =
-        nonZeroData.length > 0
-          ? nonZeroData.reduce((best, d) => (d.value > best.value ? d : best))
+        safeFiniteData.length > 0
+          ? safeFiniteData.reduce((best, d) =>
+              d.value > best.value ? d : best
+            )
           : null;
       const worstPeriod =
-        nonZeroData.length > 0
-          ? nonZeroData.reduce((worst, d) =>
+        safeFiniteData.length > 0
+          ? safeFiniteData.reduce((worst, d) =>
               d.value < worst.value ? d : worst
             )
           : null;

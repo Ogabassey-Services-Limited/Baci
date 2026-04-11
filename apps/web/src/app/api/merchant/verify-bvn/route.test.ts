@@ -55,17 +55,20 @@ function makeSupabaseMock(
   rpcError: unknown = null,
   merchantPhone: string | null = '08012345678'
 ) {
+  const merchantMaybeSingle = vi.fn().mockResolvedValue({
+    data: merchantPhone ? { phone: merchantPhone } : null,
+    error: null,
+  });
+
   return {
     from: vi.fn(() => ({
       select: vi.fn(() => ({
         eq: vi.fn(() => ({
-          maybeSingle: vi.fn().mockResolvedValue({
-            data: merchantPhone ? { phone: merchantPhone } : null,
-            error: null,
-          }),
+          maybeSingle: merchantMaybeSingle,
         })),
       })),
     })),
+    merchantMaybeSingle,
     rpc: makeRpcMock(rpcError),
   };
 }
@@ -189,6 +192,12 @@ describe('POST /api/merchant/verify-bvn', () => {
   });
 
   it('uses the merchant phone number when mobileNo is omitted', async () => {
+    const supabaseMock = makeSupabaseMock();
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: { id: 'user-1' },
+      error: null,
+      supabase: supabaseMock,
+    } as unknown as Awaited<ReturnType<typeof authenticateApiRequest>>);
     vi.spyOn(global, 'fetch').mockResolvedValueOnce({
       ok: true,
       json: async () => fullMatchResponse,
@@ -215,6 +224,25 @@ describe('POST /api/merchant/verify-bvn', () => {
         }),
       })
     );
+    expect(supabaseMock.merchantMaybeSingle).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not query the merchant phone when mobileNo is provided', async () => {
+    const supabaseMock = makeSupabaseMock();
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: { id: 'user-1' },
+      error: null,
+      supabase: supabaseMock,
+    } as unknown as Awaited<ReturnType<typeof authenticateApiRequest>>);
+    vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: async () => fullMatchResponse,
+    } as Response);
+
+    const res = await POST(makeRequest(validBvnBody));
+
+    expect(res.status).toBe(200);
+    expect(supabaseMock.merchantMaybeSingle).not.toHaveBeenCalled();
   });
 
   it('returns 400 with Monnify validation message when the upstream request is rejected', async () => {
@@ -253,6 +281,44 @@ describe('POST /api/merchant/verify-bvn', () => {
       error:
         'BVN verification is temporarily unavailable because the Monnify account is restricted.',
       code: 'bvn_verification_provider_restricted',
+    });
+  });
+
+  it('returns 502 when Monnify rejects provider authentication', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      json: async () => ({
+        requestSuccessful: false,
+        responseMessage: 'Unauthorized',
+      }),
+    } as Response);
+
+    const res = await POST(makeRequest(validBvnBody));
+
+    expect(res.status).toBe(502);
+    await expect(res.json()).resolves.toEqual({
+      error: 'BVN verification provider authentication failed.',
+      code: 'bvn_verification_provider_auth_failed',
+    });
+  });
+
+  it('returns 503 when Monnify rate limits the request', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+      ok: false,
+      status: 429,
+      json: async () => ({
+        requestSuccessful: false,
+        responseMessage: 'Too many requests',
+      }),
+    } as Response);
+
+    const res = await POST(makeRequest(validBvnBody));
+
+    expect(res.status).toBe(503);
+    await expect(res.json()).resolves.toEqual({
+      error: 'BVN verification is temporarily unavailable.',
+      code: 'bvn_verification_provider_rate_limited',
     });
   });
 

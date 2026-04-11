@@ -103,15 +103,29 @@ export function ShipmentFlowSheet({
     return null;
   }
 
+  const handleRequestClose = () => {
+    if (isSubmitting) return;
+    onClose();
+  };
+
+  const handleBack = () => {
+    if (isSubmitting) return;
+    onStepBack();
+  };
+
   return (
     <Modal
       animationType="slide"
-      onRequestClose={onClose}
+      onRequestClose={handleRequestClose}
       transparent
       visible={visible}
     >
       <View style={styles.overlay}>
-        <Pressable style={styles.backdrop} onPress={onClose} />
+        <Pressable
+          disabled={isSubmitting}
+          style={styles.backdrop}
+          onPress={handleRequestClose}
+        />
         <KeyboardAwareModalContainer
           align="end"
           contentContainerStyle={styles.keyboardContent}
@@ -141,8 +155,9 @@ export function ShipmentFlowSheet({
               </View>
               <Pressable
                 accessibilityLabel="Close shipment flow"
+                disabled={isSubmitting}
                 hitSlop={8}
-                onPress={onClose}
+                onPress={handleRequestClose}
                 style={[
                   styles.closeButton,
                   { backgroundColor: colors.backgroundLight },
@@ -235,7 +250,8 @@ export function ShipmentFlowSheet({
               {showBack ? (
                 <Pressable
                   accessibilityLabel="Back"
-                  onPress={onStepBack}
+                  disabled={isSubmitting}
+                  onPress={handleBack}
                   style={[
                     styles.secondaryButton,
                     { backgroundColor: colors.backgroundLight },

@@ -9,8 +9,10 @@ import {
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
-import { isValidUuid } from '@/lib/sanitize-core';
-import { SelfFulfillmentSchema } from '@/schemas/shipping';
+import {
+  SelfFulfillmentSchema,
+  SelfFulfillmentUpdateSchema,
+} from '@/schemas/shipping';
 
 async function notifySelfFulfillmentStatusChange(
   customerUserId: string,
@@ -76,10 +78,11 @@ export async function POST(request: NextRequest) {
     // Validate request
     const parseResult = SelfFulfillmentSchema.safeParse(body);
     if (!parseResult.success) {
+      const details = parseResult.error.flatten();
       return NextResponse.json(
         {
           error: 'Invalid request',
-          details: parseResult.error.flatten().fieldErrors,
+          details,
         },
         { status: 400 }
       );
@@ -148,7 +151,7 @@ export async function POST(request: NextRequest) {
         .from('customers')
         .select('user_id')
         .eq('id', order.customer_id)
-        .single();
+        .maybeSingle();
 
       if (customerLookupError) {
         console.error(
@@ -224,14 +227,20 @@ export async function PATCH(request: NextRequest) {
     const supabase = auth.supabase;
 
     const body = await request.json();
-    const { orderId, ...updates } = body;
+    const parseResult = SelfFulfillmentUpdateSchema.safeParse(body);
 
-    if (!orderId || !isValidUuid(orderId)) {
+    if (!parseResult.success) {
+      const details = parseResult.error.flatten();
       return NextResponse.json(
-        { error: 'Valid order ID required' },
+        {
+          error: 'Invalid request',
+          details,
+        },
         { status: 400 }
       );
     }
+
+    const { orderId, ...updates } = parseResult.data;
 
     // Verify the order belongs to this merchant and is self-fulfilled
     const { data: order, error: orderError } = await supabase

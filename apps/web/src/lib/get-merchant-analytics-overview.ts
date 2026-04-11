@@ -152,8 +152,9 @@ function buildChartData(
 
   // All bucket arithmetic is performed in UTC so bucket keys are stable
   // regardless of the server's local timezone.
-  const cursor = new Date(startDate);
-  while (cursor <= endDate) {
+  const cursor = new Date(startDay);
+  const loopEnd = new Date(endDay);
+  while (cursor <= loopEnd) {
     const bucketStart = new Date(cursor);
     if (mode === 'week') {
       const day = bucketStart.getUTCDay();

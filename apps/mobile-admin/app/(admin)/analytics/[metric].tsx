@@ -80,10 +80,10 @@ function BarChart({
   return (
     <Svg width={chartWidth} height={chartHeight}>
       {/* Grid Lines (Horizontal) */}
-      {yTicks.map((tick, i) => {
+      {yTicks.map((tick) => {
         const y = padding.top + innerHeight - (tick / maxValue) * innerHeight;
         return (
-          <G key={i}>
+          <G key={`tick-${tick}`}>
             <Rect
               x={padding.left}
               y={y}
@@ -112,7 +112,7 @@ function BarChart({
         const isSelected = selectedIndex === i;
 
         return (
-          <G key={i}>
+          <G key={d.label}>
             {/* Comparison bar (lighter, behind) */}
             {comparisonData?.[i] && (
               <Rect
@@ -175,7 +175,7 @@ export default function AnalyticsDetailScreen() {
     startDate?: string;
   }>();
   const metric: MetricType =
-    typeof metricParam === 'string' && metricParam in METRIC_CONFIG
+    typeof metricParam === 'string' && Object.hasOwn(METRIC_CONFIG, metricParam)
       ? (metricParam as MetricType)
       : 'revenue';
 

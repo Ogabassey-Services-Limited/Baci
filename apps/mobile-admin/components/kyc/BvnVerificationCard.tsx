@@ -48,7 +48,7 @@ export default function BvnVerificationCard({
   const [expanded, setExpanded] = useState(false);
   const [bvn, setBvn] = useState(prefillBvn ?? '');
   const [isDirty, setIsDirty] = useState(false);
-  const markDirty = () => {
+  const markBvnDirty = () => {
     if (!isDirty) setIsDirty(true);
   };
   const inputColors = {
@@ -226,7 +226,7 @@ export default function BvnVerificationCard({
             placeholderTextColor={colors.textMuted}
             value={bvn}
             onChangeText={(v) => {
-              markDirty();
+              markBvnDirty();
               setBvn(v.replace(/\D/g, '').slice(0, 11));
             }}
             keyboardType="number-pad"
@@ -244,7 +244,6 @@ export default function BvnVerificationCard({
             placeholderTextColor={colors.textMuted}
             value={firstName}
             onChangeText={(v) => {
-              markDirty();
               onIdentityChange((current) => ({ ...current, firstName: v }));
             }}
             autoCapitalize="words"
@@ -261,7 +260,6 @@ export default function BvnVerificationCard({
             placeholderTextColor={colors.textMuted}
             value={lastName}
             onChangeText={(v) => {
-              markDirty();
               onIdentityChange((current) => ({ ...current, lastName: v }));
             }}
             autoCapitalize="words"
@@ -275,7 +273,6 @@ export default function BvnVerificationCard({
           <DateOfBirthPicker
             value={dateOfBirth}
             onChange={(value) => {
-              markDirty();
               onIdentityChange((current) => ({
                 ...current,
                 dateOfBirth: value,
@@ -290,7 +287,6 @@ export default function BvnVerificationCard({
             disabled={mutation.isPending}
             mobileNo={mobileNo}
             onChangeText={(value) => {
-              markDirty();
               onIdentityChange((current) => ({
                 ...current,
                 mobileNo: value.replace(/\D/g, '').slice(0, 11),

@@ -23,6 +23,16 @@ const MONNIFY_MONTHS = [
   'Dec',
 ];
 
+const SAFE_MONNIFY_VALIDATION_MESSAGES = new Set([
+  'Invalid date format supplied. Accepted date format - dd-MMM-yyyy',
+]);
+
+function getSafeMonnifyValidationMessage(message: string) {
+  return SAFE_MONNIFY_VALIDATION_MESSAGES.has(message)
+    ? message
+    : 'Invalid BVN verification details provided.';
+}
+
 function formatDateOfBirthForMonnify(dateOfBirth: string): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth)) {
     throw new Error('Invalid date of birth format');
@@ -99,22 +109,28 @@ export async function POST(request: NextRequest) {
   const monnifyDateOfBirth = formatDateOfBirthForMonnify(dateOfBirth);
 
   try {
-    const { data: merchantRecord, error: merchantError } = await auth.supabase
-      .from('merchants')
-      .select('phone')
-      .eq('id', access.merchantId)
-      .maybeSingle();
+    let effectiveMobileNo = mobileNo?.trim() ?? '';
 
-    if (merchantError) {
-      console.error('verify-bvn: failed to load merchant phone', merchantError);
-      return NextResponse.json(
-        { error: 'Unable to load merchant verification details' },
-        { status: 500 }
-      );
+    if (!effectiveMobileNo) {
+      const { data: merchantRecord, error: merchantError } = await auth.supabase
+        .from('merchants')
+        .select('phone')
+        .eq('id', access.merchantId)
+        .maybeSingle();
+
+      if (merchantError) {
+        console.error(
+          'verify-bvn: failed to load merchant phone',
+          merchantError
+        );
+        return NextResponse.json(
+          { error: 'Unable to load merchant verification details' },
+          { status: 500 }
+        );
+      }
+
+      effectiveMobileNo = merchantRecord?.phone?.trim() ?? '';
     }
-
-    const effectiveMobileNo =
-      mobileNo?.trim() || merchantRecord?.phone?.trim() || '';
 
     if (!MOBILE_REGEX.test(effectiveMobileNo)) {
       return NextResponse.json(
@@ -167,22 +183,51 @@ export async function POST(request: NextRequest) {
         // Ignore parse failures and fall back to the HTTP status message.
       }
 
-      if (monnifyRes.status >= 400 && monnifyRes.status < 500) {
-        if (upstreamMessage.toLowerCase().includes('restricted account')) {
-          return NextResponse.json(
-            {
-              error:
-                'BVN verification is temporarily unavailable because the Monnify account is restricted.',
-              code: 'bvn_verification_provider_restricted',
-            },
-            { status: 503 }
-          );
-        }
-
-        return NextResponse.json({ error: upstreamMessage }, { status: 400 });
+      if (upstreamMessage.toLowerCase().includes('restricted account')) {
+        return NextResponse.json(
+          {
+            error:
+              'BVN verification is temporarily unavailable because the Monnify account is restricted.',
+            code: 'bvn_verification_provider_restricted',
+          },
+          { status: 503 }
+        );
       }
 
-      throw new Error(upstreamMessage);
+      if (monnifyRes.status === 400 || monnifyRes.status === 422) {
+        return NextResponse.json(
+          { error: getSafeMonnifyValidationMessage(upstreamMessage) },
+          { status: 400 }
+        );
+      }
+
+      if (monnifyRes.status === 401 || monnifyRes.status === 403) {
+        return NextResponse.json(
+          {
+            error: 'BVN verification provider authentication failed.',
+            code: 'bvn_verification_provider_auth_failed',
+          },
+          { status: 502 }
+        );
+      }
+
+      if (monnifyRes.status === 429) {
+        return NextResponse.json(
+          {
+            error: 'BVN verification is temporarily unavailable.',
+            code: 'bvn_verification_provider_rate_limited',
+          },
+          { status: 503 }
+        );
+      }
+
+      return NextResponse.json(
+        {
+          error: 'BVN verification is temporarily unavailable.',
+          code: 'bvn_verification_provider_unavailable',
+        },
+        { status: 502 }
+      );
     }
 
     const data = (await monnifyRes.json()) as MonnifyBVNMatchResponse;

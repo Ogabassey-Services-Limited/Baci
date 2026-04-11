@@ -85,10 +85,12 @@ export default function DateOfBirthPicker({
             backgroundColor: colors.inputBg,
             borderColor: colors.border,
           },
+          disabled && styles.inputDisabled,
         ]}
         onPress={handleOpenPicker}
         disabled={disabled}
         accessibilityRole="button"
+        accessibilityState={{ disabled }}
         accessibilityLabel="Select date of birth"
         accessibilityHint="Opens a date picker"
       >
@@ -155,6 +157,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.md,
     minHeight: 48,
+  },
+  inputDisabled: {
+    opacity: 0.55,
   },
   inputText: {
     fontFamily: TYPOGRAPHY.fontFamily.regular,

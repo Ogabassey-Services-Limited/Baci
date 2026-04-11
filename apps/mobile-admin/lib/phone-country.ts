@@ -64,8 +64,9 @@ function getCandidateInternationalDigits(value: string): string {
 export function getPhoneCountryByCode(
   countryCode?: string | null
 ): PhoneCountry {
+  const normalizedCode = countryCode?.trim().toUpperCase();
   return (
-    PHONE_COUNTRIES.find((country) => country.code === countryCode) ??
+    PHONE_COUNTRIES.find((country) => country.code === normalizedCode) ??
     defaultPhoneCountry
   );
 }

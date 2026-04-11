@@ -57,9 +57,10 @@ export default function CacVerificationCard({
     const parsedRegistration = parseCacRegistration(prefillRcNumber);
 
     if (parsedRegistration?.prefix) {
-      setRegistrationPrefix(parsedRegistration.prefix as CacRegistrationPrefix);
+      setRegistrationPrefix(parsedRegistration.prefix);
       setRcNumber(parsedRegistration.digits);
     } else {
+      setRegistrationPrefix('RC');
       setRcNumber(parsedRegistration?.digits ?? '');
     }
   }, [prefillRcNumber]);

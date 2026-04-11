@@ -730,6 +730,9 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
 
       if (mode === 'self_fulfillment') {
         await markOrderSelfFulfilled();
+        if (riderPhone.trim()) {
+          await handleSaveRider(riderPhone.trim());
+        }
       } else {
         await markOrderShippedWithProvider();
       }

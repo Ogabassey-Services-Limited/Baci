@@ -1,6 +1,6 @@
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import { ActionSheetIOS, Alert, Platform } from 'react-native';
+import { ActionSheetIOS, Alert } from 'react-native';
 import type { SelectedCacDocument } from './cac-types';
 
 type CertificateSource = 'gallery' | 'files';
@@ -16,7 +16,7 @@ const SUPPORTED_CAC_MIME_TYPES = new Set([
 ]);
 
 export function chooseCertificateSource(): Promise<CertificateSource | null> {
-  if (Platform.OS === 'ios') {
+  if (typeof ActionSheetIOS.showActionSheetWithOptions === 'function') {
     return new Promise((resolve) => {
       ActionSheetIOS.showActionSheetWithOptions(
         {

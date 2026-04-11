@@ -121,8 +121,11 @@ export default function AnalyticsScreen() {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await refetchAnalytics();
-    setIsRefreshing(false);
+    try {
+      await refetchAnalytics();
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const chartRevenue = analytics?.chartData.map((point) => point.revenue) ?? [];
@@ -351,7 +354,7 @@ export default function AnalyticsScreen() {
               style={[styles.yearText, { color: colors.text }]}
               numberOfLines={1}
             >
-              {getAnalyticsFilterLabel(dateFilter)}
+              {getResolvedFilterLabel()}
             </Text>
             <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
           </Pressable>

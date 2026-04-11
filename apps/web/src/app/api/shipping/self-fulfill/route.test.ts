@@ -21,7 +21,7 @@ import {
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { notifyOrderStatusChange } from '@/lib/expo-push';
-import { POST } from './route';
+import { PATCH, POST } from './route';
 
 function createMockUser(): User {
   return {
@@ -33,8 +33,12 @@ function createMockUser(): User {
   } as User;
 }
 
-function createRequest(body: Record<string, unknown>): NextRequest {
+function createRequest(
+  body: Record<string, unknown>,
+  method: 'PATCH' | 'POST' = 'POST'
+): NextRequest {
   return {
+    method,
     json: async () => body,
   } as NextRequest;
 }
@@ -49,7 +53,13 @@ function createSupabaseMock() {
       customer_id: 'customer-1',
       customer_name: 'Akinola Ogunniran',
       customer_phone: '+2348035962150',
+      fulfillment_type: 'self',
       shipping_address: { address: 'Lekki Phase 1', city: 'Lekki' },
+      self_fulfillment_data: {
+        carrierName: 'Dispatch Rider',
+        dispatchPhone: '+2348035962150',
+        trackingNumber: 'TRACK-1',
+      },
     },
     error: null,
   });
@@ -84,7 +94,7 @@ function createSupabaseMock() {
         return {
           select: vi.fn(() => ({
             eq: vi.fn(() => ({
-              single: customerSingle,
+              maybeSingle: customerSingle,
             })),
           })),
         };
@@ -100,7 +110,7 @@ function createSupabaseMock() {
   };
 }
 
-describe('POST /api/shipping/self-fulfill', () => {
+describe('Self-fulfill API routes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
@@ -162,5 +172,55 @@ describe('POST /api/shipping/self-fulfill', () => {
 
     expect(response.status).toBe(401);
     expect(payload).toEqual({ error: 'Unauthorized' });
+  });
+
+  it('returns 400 when post payload contains unexpected fields', async () => {
+    const { supabase } = createSupabaseMock();
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+
+    const response = await POST(
+      createRequest({
+        orderId: '11111111-1111-1111-1111-111111111111',
+        dispatchPhone: '+2348035962150',
+        unknownField: 'nope',
+      })
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(payload.error).toBe('Invalid request');
+    expect(payload.details.formErrors).toContain(
+      'Unrecognized key: "unknownField"'
+    );
+  });
+
+  it('returns 400 when patch payload contains unexpected fields', async () => {
+    const { supabase } = createSupabaseMock();
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+
+    const response = await PATCH(
+      createRequest(
+        {
+          orderId: '11111111-1111-1111-1111-111111111111',
+          unknownField: 'nope',
+        },
+        'PATCH'
+      )
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(payload.error).toBe('Invalid request');
+    expect(payload.details.formErrors).toContain(
+      'Unrecognized key: "unknownField"'
+    );
   });
 });

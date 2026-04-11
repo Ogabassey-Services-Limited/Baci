@@ -1,4 +1,4 @@
-import { Platform, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 
 const SHEET_BACKDROP_COLOR = 'rgba(10, 18, 32, 0.48)';
@@ -28,7 +28,7 @@ export const styles = StyleSheet.create({
     borderTopRightRadius: RADIUS.xl,
     borderWidth: StyleSheet.hairlineWidth,
     gap: SPACING.md,
-    maxHeight: Platform.OS === 'web' ? 720 : '84%',
+    maxHeight: '84%',
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.lg,
   },
@@ -80,7 +80,7 @@ export const styles = StyleSheet.create({
     fontWeight: '600',
   },
   content: {
-    maxHeight: Platform.OS === 'web' ? 420 : undefined,
+    flexGrow: 0,
   },
   infoCard: {
     borderRadius: RADIUS.lg,

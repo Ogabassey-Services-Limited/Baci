@@ -52,7 +52,8 @@ const discountSchema = z
     }
   );
 
-type DiscountFormData = z.input<typeof discountSchema>;
+type DiscountFormInput = z.input<typeof discountSchema>;
+type DiscountFormOutput = z.output<typeof discountSchema>;
 
 export default function NewDiscountScreen() {
   const { colors } = useTheme();
@@ -69,7 +70,7 @@ export default function NewDiscountScreen() {
     watch,
     setValue,
     formState: { errors },
-  } = useForm<DiscountFormData>({
+  } = useForm<DiscountFormInput, undefined, DiscountFormOutput>({
     resolver: zodResolver(discountSchema),
     defaultValues: {
       code: '',
@@ -90,7 +91,7 @@ export default function NewDiscountScreen() {
   const startsAt = watch('starts_at');
   const expiresAt = watch('expires_at');
 
-  const onSubmit = async (data: DiscountFormData) => {
+  const onSubmit = async (data: DiscountFormOutput) => {
     try {
       await createDiscount({
         ...data,

@@ -113,6 +113,20 @@ describe('GET /api/analytics', () => {
     expect(mockGetMerchantAnalyticsOverview).not.toHaveBeenCalled();
   });
 
+  it('returns 400 when startDate is after endDate', async () => {
+    const response = await GET(
+      createRequest(
+        'http://localhost/api/analytics?startDate=2026-04-10T00:00:00.000Z&endDate=2026-04-01T00:00:00.000Z'
+      )
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.code).toBe('INVALID_QUERY');
+    expect(typeof body.error).toBe('string');
+    expect(mockGetMerchantAnalyticsOverview).not.toHaveBeenCalled();
+  });
+
   it('returns analytics data for a valid request', async () => {
     const response = await GET(
       createRequest(
