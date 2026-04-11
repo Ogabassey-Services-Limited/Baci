@@ -22,17 +22,23 @@ APP_STORE_CONNECT_API_BASE = "https://api.appstoreconnect.apple.com/v1"
 @dataclass(frozen=True)
 class AppConfig:
     app_store_connect_app_id: str | None
-    info_plist_path: str
+    info_plist_paths: tuple[str, ...]
 
 
 APP_CONFIGS: dict[str, AppConfig] = {
     "apps/mobile-admin": AppConfig(
         app_store_connect_app_id="6757810806",
-        info_plist_path="apps/mobile-admin/ios/BaciTheEcommerceBuilder/Info.plist",
+        info_plist_paths=(
+            "apps/mobile-admin/ios/Baci/Info.plist",
+            "apps/mobile-admin/ios/BaciTheEcommerceBuilder/Info.plist",
+        ),
     ),
     "apps/mobile-storefront": AppConfig(
         app_store_connect_app_id=None,
-        info_plist_path="apps/mobile-storefront/ios/OgabasseyEasybuyGadgets/Info.plist",
+        info_plist_paths=(
+            "apps/mobile-storefront/ios/OgabasseyEasybuyGadgets/Info.plist",
+            "apps/mobile-storefront/ios/Ogabassey/Info.plist",
+        ),
     ),
 }
 
@@ -177,6 +183,21 @@ def resolve_app_store_connect_app_id(app_dir: str) -> str | None:
     return config.app_store_connect_app_id if config else None
 
 
+def resolve_info_plist_path(app_dir: str) -> Path:
+    config = APP_CONFIGS.get(app_dir)
+    if not config:
+        raise ValueError(f"Unsupported app_dir for repo version resolution: {app_dir}")
+
+    for candidate in config.info_plist_paths:
+        candidate_path = Path(candidate)
+        if candidate_path.exists():
+            return candidate_path
+
+    raise ValueError(
+        f"Info.plist not found for {app_dir}. Checked: {', '.join(config.info_plist_paths)}"
+    )
+
+
 def fetch_latest_app_store_version(token: str, app_id: str) -> str | None:
     query = urllib.parse.urlencode(
         {
@@ -207,24 +228,18 @@ def fetch_latest_app_store_version(token: str, app_id: str) -> str | None:
 
 
 def current_repo_version(app_dir: str) -> str:
-    config = APP_CONFIGS.get(app_dir)
-    if not config:
-        raise ValueError(f"Unsupported app_dir for repo version resolution: {app_dir}")
-
-    plist_path = Path(config.info_plist_path)
-    if not plist_path.exists():
-        raise ValueError(f"Info.plist not found for {app_dir}: {config.info_plist_path}")
+    plist_path = resolve_info_plist_path(app_dir)
 
     content = plist_path.read_text(encoding="utf-8")
     marker = "<key>CFBundleShortVersionString</key>"
     if marker not in content:
-        raise ValueError(f"CFBundleShortVersionString missing in {config.info_plist_path}")
+        raise ValueError(f"CFBundleShortVersionString missing in {plist_path}")
 
     tail = content.split(marker, 1)[1]
     start = tail.find("<string>")
     end = tail.find("</string>", start)
     if start == -1 or end == -1:
-        raise ValueError(f"Unable to parse CFBundleShortVersionString from {config.info_plist_path}")
+        raise ValueError(f"Unable to parse CFBundleShortVersionString from {plist_path}")
 
     return tail[start + 8 : end].strip()
 
@@ -261,8 +276,12 @@ def resolve_marketing_version(app_dir: str) -> str:
         )
         return repo_version
 
-    token = build_jwt(key_id, issuer_id, load_private_key_bytes(private_key_raw))
-    latest_version = fetch_latest_app_store_version(token, app_store_connect_app_id)
+    try:
+        token = build_jwt(key_id, issuer_id, load_private_key_bytes(private_key_raw))
+        latest_version = fetch_latest_app_store_version(token, app_store_connect_app_id)
+    except Exception as exc:
+        eprint(f"warning: App Store Connect version lookup failed ({exc}); using repo version.")
+        return repo_version
 
     if latest_version is None:
         eprint("warning: App Store Connect returned no existing app store versions; using repo version.")
@@ -286,13 +305,6 @@ def main() -> int:
 
     try:
         resolved_version = resolve_marketing_version(app_dir)
-    except urllib.error.HTTPError as exc:
-        body = exc.read().decode("utf-8", errors="replace")
-        eprint(f"error: App Store Connect version lookup failed with HTTP {exc.code}: {body}")
-        return 1
-    except urllib.error.URLError as exc:
-        eprint(f"error: App Store Connect version lookup failed: {exc.reason}")
-        return 1
     except Exception as exc:
         eprint(f"error: Unable to resolve marketing version: {exc}")
         return 1

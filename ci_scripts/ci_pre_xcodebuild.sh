@@ -55,23 +55,47 @@ resolve_app_dir() {
   exit 1
 }
 
+resolve_existing_path() {
+  while [ "$#" -gt 0 ]; do
+    candidate="$1"
+    shift
+    if [ -f "$repo_root/$candidate" ]; then
+      printf '%s\n' "$candidate"
+      return
+    fi
+  done
+
+  echo "error: Unable to locate an expected project file in '$repo_root'." >&2
+  exit 1
+}
+
 resolve_version_files() {
   app_dir_arg="$1"
 
   case "$app_dir_arg" in
     apps/mobile-storefront)
-      printf '%s\n' "apps/mobile-storefront/ios/Ogabassey.xcodeproj/project.pbxproj"
-      printf '%s\n' "apps/mobile-storefront/ios/Ogabassey/Info.plist"
+      project_pbxproj="$(resolve_existing_path \
+        'apps/mobile-storefront/ios/OgabasseyEasybuyGadgets.xcodeproj/project.pbxproj' \
+        'apps/mobile-storefront/ios/Ogabassey.xcodeproj/project.pbxproj')"
+      info_plist="$(resolve_existing_path \
+        'apps/mobile-storefront/ios/OgabasseyEasybuyGadgets/Info.plist' \
+        'apps/mobile-storefront/ios/Ogabassey/Info.plist')"
       ;;
     apps/mobile-admin)
-      printf '%s\n' "apps/mobile-admin/ios/Baci.xcodeproj/project.pbxproj"
-      printf '%s\n' "apps/mobile-admin/ios/Baci/Info.plist"
+      project_pbxproj="$(resolve_existing_path \
+        'apps/mobile-admin/ios/Baci.xcodeproj/project.pbxproj')"
+      info_plist="$(resolve_existing_path \
+        'apps/mobile-admin/ios/Baci/Info.plist' \
+        'apps/mobile-admin/ios/BaciTheEcommerceBuilder/Info.plist')"
       ;;
     *)
       echo "error: Unsupported app directory '$app_dir_arg'." >&2
       exit 1
       ;;
   esac
+
+  printf '%s\n' "$project_pbxproj"
+  printf '%s\n' "$info_plist"
 }
 
 assert_readable_file() {
