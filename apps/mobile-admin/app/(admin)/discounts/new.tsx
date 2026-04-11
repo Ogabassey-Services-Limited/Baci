@@ -1,9 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { zodResolver } from '@hookform/resolvers/zod';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, type FieldErrors, type Resolver, useForm } from 'react-hook-form';
 import {
   // Switch,
   ActivityIndicator,
@@ -54,6 +53,42 @@ const discountSchema = z
 
 type DiscountFormInput = z.input<typeof discountSchema>;
 type DiscountFormOutput = z.output<typeof discountSchema>;
+const discountResolver: Resolver<
+  DiscountFormInput,
+  undefined,
+  DiscountFormOutput
+> = async (values) => {
+  const result = discountSchema.safeParse(values);
+
+  if (result.success) {
+    return {
+      values: result.data,
+      errors: {},
+    };
+  }
+
+  const { fieldErrors } = result.error.flatten();
+  const errors = Object.entries(fieldErrors).reduce((accumulator, entry) => {
+    const [fieldName, messages] = entry;
+    const message = messages?.[0];
+
+    if (!message) {
+      return accumulator;
+    }
+
+    accumulator[fieldName as keyof DiscountFormInput] = {
+      type: 'manual',
+      message,
+    };
+
+    return accumulator;
+  }, {} as FieldErrors<DiscountFormInput>);
+
+  return {
+    values: {} as never,
+    errors,
+  };
+};
 
 export default function NewDiscountScreen() {
   const { colors } = useTheme();
@@ -71,7 +106,7 @@ export default function NewDiscountScreen() {
     setValue,
     formState: { errors },
   } = useForm<DiscountFormInput, undefined, DiscountFormOutput>({
-    resolver: zodResolver(discountSchema),
+    resolver: discountResolver,
     defaultValues: {
       code: '',
       discount_type: 'percentage',
