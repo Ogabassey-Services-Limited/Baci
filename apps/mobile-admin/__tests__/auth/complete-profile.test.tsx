@@ -1,5 +1,12 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { APP_KEYBOARD_CONTAINER_LABEL } from './app-keyboard-container.mock';
 
 const mocks = vi.hoisted(() => ({
   alert: vi.fn(),
@@ -87,16 +94,8 @@ vi.mock('expo-router', () => ({
 }));
 
 vi.mock('@/components/ui/AppKeyboardContainer', async () => {
-  const React = await import('react');
-
-  return {
-    AppKeyboardContainer: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement(
-        'div',
-        { 'aria-label': 'Keyboard container', role: 'region' },
-        children
-      ),
-  };
+  const module = await import('./app-keyboard-container.mock');
+  return module.createAppKeyboardContainerMock();
 });
 
 vi.mock('@/components/ui/SafeImage', async () => {
@@ -167,7 +166,7 @@ describe('CompleteProfileScreen', () => {
     render(<CompleteProfileScreen />);
 
     expect(
-      await screen.findByRole('region', { name: 'Keyboard container' })
+      await screen.findByRole('region', { name: APP_KEYBOARD_CONTAINER_LABEL })
     ).toBeTruthy();
     expect(screen.getByText('Complete Setup')).toBeTruthy();
   });
@@ -193,6 +192,33 @@ describe('CompleteProfileScreen', () => {
       email: 'merchant@example.com',
       businessName: 'Jane Gadgets',
       businessType: 'electronics',
+    });
+  });
+
+  it('shows an error alert when profile completion fails', async () => {
+    mocks.completeProfile.mockImplementation((_payload, callbacks) => {
+      callbacks?.onError?.(new Error('Network unavailable'));
+    });
+
+    render(<CompleteProfileScreen />);
+
+    await screen.findByText('Launch Store');
+
+    fireEvent.change(screen.getByPlaceholderText('John Doe'), {
+      target: { value: 'Jane Doe' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('My Awesome Store'), {
+      target: { value: 'Jane Gadgets' },
+    });
+    fireEvent.click(screen.getByText('Electronics & Gadgets'));
+    fireEvent.click(screen.getByText('Launch Store'));
+
+    await waitFor(() => {
+      expect(mocks.completeProfile).toHaveBeenCalledTimes(1);
+      expect(mocks.alert).toHaveBeenCalledWith(
+        'Setup Failed',
+        'Network unavailable'
+      );
     });
   });
 });

@@ -542,6 +542,11 @@ export default function RegisterScreen() {
                   {BUSINESS_TYPES.map((type) => (
                     <Pressable
                       key={type.id}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${type.label} business type`}
+                      accessibilityState={{
+                        selected: formData.businessType === type.id,
+                      }}
                       style={[
                         styles.typeCard,
                         formData.businessType === type.id &&
