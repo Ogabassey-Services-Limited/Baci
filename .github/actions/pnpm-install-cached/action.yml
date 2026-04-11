@@ -88,6 +88,12 @@ runs:
         reset: 'true'
 
     - if: ${{ steps.pnpm-install.outputs.outcome == 'failure' }}
+      name: Clear partial workspace install state
+      shell: bash
+      run: |
+        find . -mindepth 1 \( -type d -name node_modules -o -type d -name .pnpm \) -prune -exec rm -rf '{}' +
+
+    - if: ${{ steps.pnpm-install.outputs.outcome == 'failure' }}
       name: Retry dependency install with clean pnpm store
       shell: bash
       run: ${{ inputs.install-command }}
