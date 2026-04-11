@@ -118,6 +118,7 @@
       "react-native-phone-number-input@2.1.0": "patches/react-native-phone-number-input@2.1.0.patch",
       "react-native-purchases@9.15.0": "patches/react-native-purchases@9.15.0.patch",
       "react-native-safe-area-context@5.7.0": "patches/react-native-safe-area-context@5.7.0.patch",
+      "react-native-screens@4.24.0": "patches/react-native-screens@4.24.0.patch",
       "react-native-tiktok-business@0.2.0": "patches/react-native-tiktok-business@0.2.0.patch",
       "react-native-webview@13.16.1": "patches/react-native-webview@13.16.1.patch",
       "react-native-worklets@0.8.1": "patches/react-native-worklets@0.8.1.patch",
