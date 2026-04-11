@@ -919,7 +919,7 @@ export default function NewOrderScreen() {
                     styles={{
                       container: { flex: 0 },
                       listView: {
-                        backgroundColor: colors.card,
+                        backgroundColor: colors.textOnPrimary,
                         borderRadius: 8,
                         marginTop: 4,
                         borderWidth: 1,
