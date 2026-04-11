@@ -11,6 +11,17 @@ const FROM_EMAIL = 'notifications@usebaci.com';
 const FROM_NAME = 'Baci Notifications';
 const ADMIN_EMAIL = 'admin@ogabassey.com'; // Configure this
 
+interface NewProduct {
+  name: string;
+  costPrice: number;
+}
+
+interface PriceChange {
+  name: string;
+  oldPrice: number;
+  newPrice: number;
+}
+
 serve(async (_req) => {
   try {
     const supabaseClient = createClient(
@@ -37,8 +48,8 @@ serve(async (_req) => {
     existingProducts?.forEach((p) => productMap.set(p.external_id, p));
 
     const updates = [];
-    const newProducts = [];
-    const priceChanges = [];
+    const newProducts: NewProduct[] = [];
+    const priceChanges: PriceChange[] = [];
 
     const startIdx = lines[0].includes('PRICE') ? 1 : 0;
 
@@ -122,8 +133,10 @@ serve(async (_req) => {
   }
 });
 
-// biome-ignore lint/suspicious/noExplicitAny: Dynamic product and price data
-async function sendNotification(newProducts: any[], priceChanges: any[]) {
+async function sendNotification(
+  newProducts: NewProduct[],
+  priceChanges: PriceChange[]
+) {
   if (!ZEPTOMAIL_TOKEN) {
     console.error('Missing ZEPTOMAIL_TOKEN');
     return;
