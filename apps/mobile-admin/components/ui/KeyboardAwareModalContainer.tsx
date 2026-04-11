@@ -1,20 +1,13 @@
 import type { ReactNode } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  type StyleProp,
-  StyleSheet,
-  type ViewStyle,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { SPACING } from '@/constants/theme';
+import type { StyleProp, ViewStyle } from 'react-native';
+import { AppKeyboardContainer } from './AppKeyboardContainer';
 
 interface KeyboardAwareModalContainerProps {
   align?: 'center' | 'end';
   children: ReactNode;
   contentContainerStyle?: StyleProp<ViewStyle>;
   keyboardVerticalOffset?: number;
+  scrollEnabled?: boolean;
 }
 
 export function KeyboardAwareModalContainer({
@@ -22,41 +15,24 @@ export function KeyboardAwareModalContainer({
   children,
   contentContainerStyle,
   keyboardVerticalOffset = 24,
+  scrollEnabled = true,
 }: KeyboardAwareModalContainerProps) {
-  const insets = useSafeAreaInsets();
-
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    <AppKeyboardContainer
+      align={align}
+      contentContainerStyle={contentContainerStyle}
       keyboardVerticalOffset={keyboardVerticalOffset}
+      scrollEnabled={scrollEnabled}
       style={styles.container}
     >
-      <ScrollView
-        bounces={false}
-        contentContainerStyle={[
-          styles.content,
-          {
-            justifyContent: align === 'center' ? 'center' : 'flex-end',
-            paddingBottom: Math.max(insets.bottom, SPACING.lg),
-          },
-          contentContainerStyle,
-        ]}
-        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        {children}
-      </ScrollView>
-    </KeyboardAvoidingView>
+      {children}
+    </AppKeyboardContainer>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = {
   container: {
     flex: 1,
     width: '100%',
   },
-  content: {
-    flexGrow: 1,
-  },
-});
+} satisfies Record<string, ViewStyle>;

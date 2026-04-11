@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation } from '@tanstack/react-query';
+import type React from 'react';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -11,17 +12,22 @@ import {
 } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import { apiClient, NetworkError } from '@/lib/api-client';
+import DateOfBirthPicker from './DateOfBirthPicker';
 import { isDateInPast, isValidCalendarDate } from './date-utils';
 import VerificationStatusBadge from './VerificationStatusBadge';
 import { verificationCardStyles as styles } from './verification-card-styles';
+import type { VerificationIdentityDraft } from './verification-identity';
 
 interface NinVerificationCardProps {
-  verified: boolean;
-  prefillFirstName?: string | null;
-  prefillLastName?: string | null;
-  prefillDob?: string | null;
-  prefillNin?: string | null;
+  dateOfBirth: string;
+  firstName: string;
+  lastName: string;
+  onIdentityChange: React.Dispatch<
+    React.SetStateAction<VerificationIdentityDraft>
+  >;
   onVerified: () => void;
+  verified: boolean;
+  prefillNin?: string | null;
 }
 
 interface VerifyNinResponse {
@@ -30,27 +36,22 @@ interface VerifyNinResponse {
 
 export default function NinVerificationCard({
   verified,
-  prefillFirstName,
-  prefillLastName,
-  prefillDob,
   prefillNin,
+  firstName,
+  lastName,
+  dateOfBirth,
+  onIdentityChange,
   onVerified,
 }: NinVerificationCardProps) {
   const { colors, shadows } = useTheme();
   const [expanded, setExpanded] = useState(false);
   const [nin, setNin] = useState(prefillNin ?? '');
-  const [firstName, setFirstName] = useState(prefillFirstName ?? '');
-  const [lastName, setLastName] = useState(prefillLastName ?? '');
-  const [dateOfBirth, setDateOfBirth] = useState(prefillDob ?? '');
 
   useEffect(() => {
     if (!verified) {
       setNin(prefillNin ?? '');
-      setFirstName(prefillFirstName ?? '');
-      setLastName(prefillLastName ?? '');
-      setDateOfBirth(prefillDob ?? '');
     }
-  }, [prefillNin, prefillFirstName, prefillLastName, prefillDob, verified]);
+  }, [prefillNin, verified]);
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -205,7 +206,9 @@ export default function NinVerificationCard({
             placeholder="First name"
             placeholderTextColor={colors.textMuted}
             value={firstName}
-            onChangeText={setFirstName}
+            onChangeText={(value) =>
+              onIdentityChange((current) => ({ ...current, firstName: value }))
+            }
             autoCapitalize="words"
             maxLength={50}
             editable={!verified}
@@ -227,7 +230,9 @@ export default function NinVerificationCard({
             placeholder="Last name"
             placeholderTextColor={colors.textMuted}
             value={lastName}
-            onChangeText={setLastName}
+            onChangeText={(value) =>
+              onIdentityChange((current) => ({ ...current, lastName: value }))
+            }
             autoCapitalize="words"
             maxLength={50}
             editable={!verified}
@@ -237,21 +242,16 @@ export default function NinVerificationCard({
           <Text style={[styles.label, { color: colors.textSecondary }]}>
             Date of Birth
           </Text>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                color: colors.text,
-                backgroundColor: colors.inputBg,
-                borderColor: colors.border,
-              },
-            ]}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor={colors.textMuted}
+          <DateOfBirthPicker
             value={dateOfBirth}
-            onChangeText={setDateOfBirth}
-            editable={!verified}
-            accessibilityLabel="Date of birth input"
+            onChange={(value) =>
+              onIdentityChange((current) => ({
+                ...current,
+                dateOfBirth: value,
+              }))
+            }
+            colors={colors}
+            disabled={verified}
           />
 
           {!verified && (

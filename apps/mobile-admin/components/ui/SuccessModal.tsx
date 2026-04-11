@@ -4,6 +4,11 @@ import Animated, { FadeInUp } from 'react-native-reanimated';
 import { useTheme } from '@/hooks/useTheme';
 
 interface SuccessModalProps {
+  actionIcon?: keyof typeof Ionicons.glyphMap;
+  actionLabel?: string;
+  actionVariant?: 'default' | 'whatsapp';
+  closeLabel?: string;
+  onActionPress?: () => void;
   visible: boolean;
   title?: string;
   message: string;
@@ -12,6 +17,11 @@ interface SuccessModalProps {
 }
 
 export function SuccessModal({
+  actionIcon,
+  actionLabel,
+  actionVariant = 'default',
+  closeLabel = 'Done',
+  onActionPress,
   visible,
   title = 'Success!',
   message,
@@ -93,18 +103,51 @@ export function SuccessModal({
             </View>
           ) : null}
 
-          <Pressable
-            style={({ pressed }) => [
-              styles.button,
-              { backgroundColor: colors.success },
-              pressed && styles.buttonPressed,
-            ]}
-            onPress={onClose}
-            accessibilityRole="button"
-            accessibilityLabel="Dismiss success message"
-          >
-            <Text style={styles.buttonText}>Beautiful!</Text>
-          </Pressable>
+          <View style={styles.buttonStack}>
+            {actionLabel && onActionPress ? (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.button,
+                  {
+                    backgroundColor:
+                      actionVariant === 'whatsapp' ? '#25D366' : colors.primary,
+                  },
+                  pressed && styles.buttonPressed,
+                ]}
+                onPress={onActionPress}
+                accessibilityRole="button"
+                accessibilityLabel={actionLabel}
+              >
+                <View style={styles.buttonContent}>
+                  {actionIcon ? (
+                    <Ionicons name={actionIcon} size={18} color="#FFF" />
+                  ) : null}
+                  <Text style={styles.buttonText}>{actionLabel}</Text>
+                </View>
+              </Pressable>
+            ) : null}
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.button,
+                styles.secondaryButton,
+                {
+                  backgroundColor: colors.backgroundLight,
+                  borderColor: colors.border,
+                },
+                pressed && styles.buttonPressed,
+              ]}
+              onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel={closeLabel}
+            >
+              <Text
+                style={[styles.secondaryButtonText, { color: colors.text }]}
+              >
+                {closeLabel}
+              </Text>
+            </Pressable>
+          </View>
         </Animated.View>
       </View>
     </Modal>
@@ -179,17 +222,34 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 18,
   },
+  buttonStack: {
+    gap: 12,
+    width: '100%',
+  },
   button: {
     width: '100%',
     paddingVertical: 16,
     borderRadius: 16,
     alignItems: 'center',
   },
+  buttonContent: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'center',
+  },
   buttonPressed: {
     opacity: 0.85,
   },
   buttonText: {
     color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  secondaryButton: {
+    borderWidth: 1,
+  },
+  secondaryButtonText: {
     fontSize: 16,
     fontWeight: '600',
   },

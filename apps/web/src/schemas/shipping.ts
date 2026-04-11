@@ -55,18 +55,35 @@ export const BookingRequestSchema = z.object({
 /**
  * Schema for self-fulfillment (merchant's own shipping)
  */
-export const SelfFulfillmentSchema = z.object({
-  // Order ID (required)
-  orderId: z.string().refine(isValidUuid, { message: 'Invalid order ID' }),
-  // Tracking number (optional but recommended)
-  trackingNumber: z.string().min(1).optional(),
-  // Dispatch phone number (required for self-fulfillment)
-  dispatchPhone: z.string().min(10, 'Phone number must be at least 10 digits'),
-  // Carrier name (optional)
-  carrierName: z.string().optional(),
-  // Notes for dispatch/rider
-  dispatchNotes: z.string().optional(),
-});
+export const SelfFulfillmentSchema = z
+  .object({
+    // Order ID (required)
+    orderId: z.string().refine(isValidUuid, { message: 'Invalid order ID' }),
+    // Tracking number (optional but recommended)
+    trackingNumber: z.string().min(1).optional(),
+    // Dispatch phone number (required for self-fulfillment)
+    dispatchPhone: z
+      .string()
+      .min(10, 'Phone number must be at least 10 digits'),
+    // Carrier name (optional)
+    carrierName: z.string().optional(),
+    // Notes for dispatch/rider
+    dispatchNotes: z.string().optional(),
+  })
+  .strict();
+
+export const SelfFulfillmentUpdateSchema = z
+  .object({
+    orderId: z.string().refine(isValidUuid, { message: 'Invalid order ID' }),
+    carrierName: z.string().optional(),
+    dispatchNotes: z.string().optional(),
+    dispatchPhone: z
+      .string()
+      .min(10, 'Phone number must be at least 10 digits')
+      .optional(),
+    trackingNumber: z.string().min(1).optional(),
+  })
+  .strict();
 
 /**
  * Schema for shipping locations query params
@@ -78,4 +95,7 @@ export const locationsQuerySchema = z.object({
 
 export type BookingRequestInput = z.infer<typeof BookingRequestSchema>;
 export type SelfFulfillmentInput = z.infer<typeof SelfFulfillmentSchema>;
+export type SelfFulfillmentUpdateInput = z.infer<
+  typeof SelfFulfillmentUpdateSchema
+>;
 export type LocationsQueryInput = z.infer<typeof locationsQuerySchema>;

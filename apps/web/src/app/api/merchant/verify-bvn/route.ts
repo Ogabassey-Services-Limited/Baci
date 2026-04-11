@@ -7,6 +7,46 @@ import { checkRateLimit } from '@/lib/rate-limiter';
 import { bvnVerifySchema } from '@/schemas/verification';
 import type { MonnifyBVNMatchResponse } from '@/types/monnify';
 
+const MOBILE_REGEX = /^0\d{10}$/;
+const MONNIFY_MONTHS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+const SAFE_MONNIFY_VALIDATION_MESSAGES = new Set([
+  'Invalid date format supplied. Accepted date format - dd-MMM-yyyy',
+]);
+
+function getSafeMonnifyValidationMessage(message: string) {
+  return SAFE_MONNIFY_VALIDATION_MESSAGES.has(message)
+    ? message
+    : 'Invalid BVN verification details provided.';
+}
+
+function formatDateOfBirthForMonnify(dateOfBirth: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth)) {
+    throw new Error('Invalid date of birth format');
+  }
+
+  const [year, month, day] = dateOfBirth.split('-').map(Number);
+  if (!year || month < 1 || month > 12 || day < 1 || day > 31) {
+    throw new Error('Invalid date of birth format');
+  }
+
+  const monthLabel = MONNIFY_MONTHS[month - 1];
+  return `${String(day).padStart(2, '0')}-${monthLabel}-${year}`;
+}
+
 export async function POST(request: NextRequest) {
   const auth = await authenticateApiRequest(request);
   if (auth.error || !auth.user || !auth.supabase) {
@@ -66,8 +106,39 @@ export async function POST(request: NextRequest) {
   }
 
   const { bvn, firstName, lastName, dateOfBirth, mobileNo } = parsed.data;
+  const monnifyDateOfBirth = formatDateOfBirthForMonnify(dateOfBirth);
 
   try {
+    let effectiveMobileNo = mobileNo?.trim() ?? '';
+
+    if (!effectiveMobileNo) {
+      const { data: merchantRecord, error: merchantError } = await auth.supabase
+        .from('merchants')
+        .select('phone')
+        .eq('id', access.merchantId)
+        .maybeSingle();
+
+      if (merchantError) {
+        console.error(
+          'verify-bvn: failed to load merchant phone',
+          merchantError
+        );
+        return NextResponse.json(
+          { error: 'Unable to load merchant verification details' },
+          { status: 500 }
+        );
+      }
+
+      effectiveMobileNo = merchantRecord?.phone?.trim() ?? '';
+    }
+
+    if (!MOBILE_REGEX.test(effectiveMobileNo)) {
+      return NextResponse.json(
+        { error: 'Add a valid store phone number before verifying BVN' },
+        { status: 400 }
+      );
+    }
+
     const token = await getMonnifyToken();
 
     const controller = new AbortController();
@@ -86,8 +157,8 @@ export async function POST(request: NextRequest) {
           body: JSON.stringify({
             bvn,
             name: `${firstName} ${lastName}`,
-            dateOfBirth,
-            mobileNo,
+            dateOfBirth: monnifyDateOfBirth,
+            mobileNo: effectiveMobileNo,
           }),
           signal: controller.signal,
         }
@@ -97,7 +168,66 @@ export async function POST(request: NextRequest) {
     }
 
     if (!monnifyRes.ok) {
-      throw new Error(`Monnify BVN check failed: ${monnifyRes.status}`);
+      let upstreamMessage = `Monnify BVN check failed: ${monnifyRes.status}`;
+
+      try {
+        const errorPayload = (await monnifyRes.json()) as {
+          message?: string;
+          responseMessage?: string;
+        };
+        upstreamMessage =
+          errorPayload.responseMessage?.trim() ||
+          errorPayload.message?.trim() ||
+          upstreamMessage;
+      } catch {
+        // Ignore parse failures and fall back to the HTTP status message.
+      }
+
+      if (upstreamMessage.toLowerCase().includes('restricted account')) {
+        return NextResponse.json(
+          {
+            error:
+              'BVN verification is temporarily unavailable because the Monnify account is restricted.',
+            code: 'bvn_verification_provider_restricted',
+          },
+          { status: 503 }
+        );
+      }
+
+      if (monnifyRes.status === 400 || monnifyRes.status === 422) {
+        return NextResponse.json(
+          { error: getSafeMonnifyValidationMessage(upstreamMessage) },
+          { status: 400 }
+        );
+      }
+
+      if (monnifyRes.status === 401 || monnifyRes.status === 403) {
+        return NextResponse.json(
+          {
+            error: 'BVN verification provider authentication failed.',
+            code: 'bvn_verification_provider_auth_failed',
+          },
+          { status: 502 }
+        );
+      }
+
+      if (monnifyRes.status === 429) {
+        return NextResponse.json(
+          {
+            error: 'BVN verification is temporarily unavailable.',
+            code: 'bvn_verification_provider_rate_limited',
+          },
+          { status: 503 }
+        );
+      }
+
+      return NextResponse.json(
+        {
+          error: 'BVN verification is temporarily unavailable.',
+          code: 'bvn_verification_provider_unavailable',
+        },
+        { status: 502 }
+      );
     }
 
     const data = (await monnifyRes.json()) as MonnifyBVNMatchResponse;
@@ -135,10 +265,28 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ verified: matched });
   } catch (err) {
-    console.error(
-      'verify-bvn error:',
-      err instanceof Error ? err.message : 'Unknown error'
-    );
+    const errorMessage =
+      err instanceof Error ? err.message : 'Unknown BVN verification error';
+    console.error('verify-bvn error:', errorMessage);
+
+    if (errorMessage === 'Invalid date of birth format') {
+      return NextResponse.json(
+        { error: 'Date of birth must use YYYY-MM-DD format' },
+        { status: 400 }
+      );
+    }
+
+    if (errorMessage === 'Monnify credentials not configured') {
+      return NextResponse.json(
+        {
+          error:
+            'BVN verification is not configured on this environment yet. Add Monnify credentials to continue.',
+          code: 'bvn_verification_unconfigured',
+        },
+        { status: 503 }
+      );
+    }
+
     return NextResponse.json(
       { error: 'BVN verification failed' },
       { status: 500 }

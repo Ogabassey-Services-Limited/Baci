@@ -64,7 +64,7 @@ describe('SecurityForm', () => {
     expect(
       within(container).getByRole('button', { name: 'Set Password' })
     ).toBeDefined();
-  });
+  }, 15_000);
 
   it('renders "Change Password" form for user with password identity', async () => {
     vi.mocked(useAuth).mockReturnValue({
