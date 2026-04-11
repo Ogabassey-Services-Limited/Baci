@@ -1,0 +1,106 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+interface QueryResultLike {
+  count?: number | null;
+  data: unknown;
+  error: { message: string } | null;
+}
+
+export interface MerchantAnalyticsQueryResults {
+  activeOrdersResult: QueryResultLike;
+  blogPostsResult: QueryResultLike;
+  currentOrderItemsResult: QueryResultLike;
+  currentOrdersResult: QueryResultLike;
+  previousOrderItemsResult: QueryResultLike;
+  previousOrdersResult: QueryResultLike;
+  recentOrdersResult: QueryResultLike;
+}
+
+/**
+ * Returns the raw Supabase result objects so the overview layer can preserve
+ * the existing single-point error handling and response shaping behavior.
+ */
+export async function fetchMerchantAnalyticsData(
+  supabase: SupabaseClient,
+  merchantId: string,
+  startDate: Date,
+  endDate: Date,
+  previousStart: Date,
+  previousEnd: Date
+): Promise<MerchantAnalyticsQueryResults> {
+  const [
+    currentOrdersResult,
+    previousOrdersResult,
+    currentOrderItemsResult,
+    previousOrderItemsResult,
+    recentOrdersResult,
+    blogPostsResult,
+    activeOrdersResult,
+  ] = await Promise.all([
+    // These two queries intentionally include refunded orders so the overview
+    // layer can compute refund-rate deltas from the same dataset.
+    supabase
+      .from('orders')
+      .select(
+        'id, created_at, customer_email, customer_id, customer_name, discount_amount, payment_method, payment_status, shipping_fee, source, subtotal, tax_amount, total'
+      )
+      .eq('merchant_id', merchantId)
+      .gte('created_at', startDate.toISOString())
+      .lte('created_at', endDate.toISOString()),
+    supabase
+      .from('orders')
+      .select(
+        'id, created_at, customer_email, customer_id, customer_name, discount_amount, payment_method, payment_status, shipping_fee, source, subtotal, tax_amount, total'
+      )
+      .eq('merchant_id', merchantId)
+      .gte('created_at', previousStart.toISOString())
+      .lte('created_at', previousEnd.toISOString()),
+    supabase
+      .from('order_items')
+      .select(
+        'product_id, name, price, quantity, products(brand, cost_price), orders!inner(merchant_id, payment_status, created_at)'
+      )
+      .eq('orders.merchant_id', merchantId)
+      .eq('orders.payment_status', 'paid')
+      .gte('orders.created_at', startDate.toISOString())
+      .lte('orders.created_at', endDate.toISOString()),
+    supabase
+      .from('order_items')
+      .select(
+        'product_id, name, price, quantity, products(brand, cost_price), orders!inner(merchant_id, payment_status, created_at)'
+      )
+      .eq('orders.merchant_id', merchantId)
+      .eq('orders.payment_status', 'paid')
+      .gte('orders.created_at', previousStart.toISOString())
+      .lte('orders.created_at', previousEnd.toISOString()),
+    supabase
+      .from('orders')
+      .select('id, created_at, customer_email, customer_name, total')
+      .eq('merchant_id', merchantId)
+      .eq('payment_status', 'paid')
+      .gte('created_at', startDate.toISOString())
+      .lte('created_at', endDate.toISOString())
+      .order('created_at', { ascending: false })
+      .limit(5),
+    supabase
+      .from('blog_posts')
+      .select('id, title, slug, status, published_at, created_at, view_count')
+      .eq('merchant_id', merchantId),
+    // This is a last-hour activity pulse, not a paid-orders metric.
+    supabase
+      .from('orders')
+      .select('id', { count: 'exact', head: true })
+      .eq('merchant_id', merchantId)
+      .gte('created_at', new Date(Date.now() - 60 * 60 * 1000).toISOString()),
+  ]);
+
+  return {
+    activeOrdersResult,
+    blogPostsResult,
+    currentOrderItemsResult,
+    currentOrdersResult,
+    previousOrderItemsResult,
+    previousOrdersResult,
+    recentOrdersResult,
+  };
+}

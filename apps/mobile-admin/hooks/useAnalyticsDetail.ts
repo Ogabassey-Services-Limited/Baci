@@ -124,12 +124,12 @@ export function useAnalyticsDetail({
       // `endDate`. Normalize that to the inclusive end of the same day so the
       // final calendar day in the selected range is not silently excluded.
       if (
-        endDateValue.getUTCHours() === 0 &&
-        endDateValue.getUTCMinutes() === 0 &&
-        endDateValue.getUTCSeconds() === 0 &&
-        endDateValue.getUTCMilliseconds() === 0
+        endDateValue.getHours() === 0 &&
+        endDateValue.getMinutes() === 0 &&
+        endDateValue.getSeconds() === 0 &&
+        endDateValue.getMilliseconds() === 0
       ) {
-        endDateValue.setUTCHours(23, 59, 59, 999);
+        endDateValue.setHours(23, 59, 59, 999);
       }
 
       // Fetch orders and order items concurrently

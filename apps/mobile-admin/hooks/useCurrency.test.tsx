@@ -28,8 +28,11 @@ describe('useCurrency', () => {
       currency === 'USD' ? '$' : '₦'
     );
     mocks.formatCurrency.mockImplementation(
-      (amount: number, options: Partial<Intl.NumberFormatOptions>, currency: string) =>
-        `${currency}:${amount}:${JSON.stringify(options ?? {})}`
+      (
+        amount: number,
+        options: Partial<Intl.NumberFormatOptions>,
+        currency: string
+      ) => `${currency}:${amount}:${JSON.stringify(options ?? {})}`
     );
     mocks.formatCurrencyCompactNotation.mockImplementation(
       (amount: number, currency: string) => `${currency}:compact:${amount}`
@@ -51,6 +54,39 @@ describe('useCurrency', () => {
   it('falls back to NGN when the merchant currency is missing', () => {
     mocks.useMerchant.mockReturnValue({
       merchant: { payout_currency: null },
+    });
+
+    const { result } = renderHook(() => useCurrency());
+
+    expect(result.current.currency).toBe('NGN');
+    expect(result.current.symbol).toBe('₦');
+  });
+
+  it('handles undefined merchant gracefully', () => {
+    mocks.useMerchant.mockReturnValue({
+      merchant: undefined,
+    });
+
+    const { result } = renderHook(() => useCurrency());
+
+    expect(result.current.currency).toBe('NGN');
+    expect(result.current.symbol).toBe('₦');
+  });
+
+  it('handles null merchant gracefully', () => {
+    mocks.useMerchant.mockReturnValue({
+      merchant: null,
+    });
+
+    const { result } = renderHook(() => useCurrency());
+
+    expect(result.current.currency).toBe('NGN');
+    expect(result.current.symbol).toBe('₦');
+  });
+
+  it('falls back to NGN when the merchant currency is empty', () => {
+    mocks.useMerchant.mockReturnValue({
+      merchant: { payout_currency: '' },
     });
 
     const { result } = renderHook(() => useCurrency());

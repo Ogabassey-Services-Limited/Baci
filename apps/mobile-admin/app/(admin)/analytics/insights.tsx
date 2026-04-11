@@ -5,16 +5,15 @@ import {
   ActivityIndicator,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAnalyticsOverview } from '@/hooks/useAnalyticsOverview';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useTheme } from '@/hooks/useTheme';
+import { styles } from '@/app/(admin)/analytics/analytics-insights.styles';
 
 interface InsightRow {
   id: string;
@@ -115,7 +114,7 @@ export default function AnalyticsInsightsScreen() {
       );
     }
 
-    if (error) {
+    if (error && !analytics) {
       return (
         <View style={styles.stateContainer}>
           <Ionicons
@@ -130,10 +129,7 @@ export default function AnalyticsInsightsScreen() {
             onPress={() => {
               void refetch();
             }}
-            style={[
-              styles.retryButton,
-              { backgroundColor: colors.primary },
-            ]}
+            style={[styles.retryButton, { backgroundColor: colors.primary }]}
           >
             <Text style={[styles.retryText, { color: colors.textOnPrimary }]}>
               Try again
@@ -184,8 +180,7 @@ export default function AnalyticsInsightsScreen() {
                 {rows.length.toLocaleString()}
               </Text>
               <Text style={[styles.heroSubtitle, { color: colors.textMuted }]}>
-                Ranked breakdown for{' '}
-                {filterLabelParam || 'the selected period'}
+                Ranked breakdown for {filterLabelParam || 'the selected period'}
               </Text>
             </>
           )}
@@ -236,83 +231,3 @@ export default function AnalyticsInsightsScreen() {
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
-    padding: SPACING.lg,
-    gap: SPACING.md,
-  },
-  footerSpace: {
-    height: SPACING.xl,
-  },
-  heroCard: {
-    borderRadius: RADIUS['2xl'],
-    borderWidth: 1,
-    gap: SPACING.sm,
-    padding: SPACING.lg,
-  },
-  heroEyebrow: {
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    fontSize: TYPOGRAPHY.size.sm,
-  },
-  heroSubtitle: {
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    fontSize: TYPOGRAPHY.size.sm,
-  },
-  heroValue: {
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-    fontSize: TYPOGRAPHY.size['3xl'],
-  },
-  inlineRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: SPACING.sm,
-    marginTop: SPACING.xs,
-  },
-  inlineText: {
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    fontSize: TYPOGRAPHY.size.sm,
-  },
-  row: {
-    borderRadius: RADIUS.xl,
-    borderWidth: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
-  },
-  rowLabel: {
-    flex: 1,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    fontSize: TYPOGRAPHY.size.md,
-    paddingRight: SPACING.md,
-  },
-  rowValue: {
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-    fontSize: TYPOGRAPHY.size.md,
-  },
-  stateContainer: {
-    alignItems: 'center',
-    gap: SPACING.md,
-    justifyContent: 'center',
-    padding: SPACING.xl,
-  },
-  stateText: {
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    fontSize: TYPOGRAPHY.size.sm,
-    textAlign: 'center',
-  },
-  retryButton: {
-    borderRadius: RADIUS.full,
-    marginTop: SPACING.sm,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.sm,
-  },
-  retryText: {
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-    fontSize: TYPOGRAPHY.size.sm,
-  },
-});

@@ -221,6 +221,9 @@ export const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.size.md,
     fontWeight: '600',
   },
+  secondaryButtonDisabled: {
+    opacity: 0.5,
+  },
   riderWhatsAppButton: {
     marginBottom: SPACING.md,
   },

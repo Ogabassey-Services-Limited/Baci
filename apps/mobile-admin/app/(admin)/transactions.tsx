@@ -3,17 +3,17 @@ import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  Modal,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { styles } from '@/app/(admin)/transactions.styles';
+import { CostPriceEditorModal } from '@/components/transactions/CostPriceEditorModal';
+import { TransactionOrderCard } from '@/components/transactions/TransactionOrderCard';
+import { TransactionsSummary } from '@/components/transactions/TransactionsSummary';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useTheme } from '@/hooks/useTheme';
 import {
@@ -131,64 +131,17 @@ export default function TransactionsScreen() {
         <SystemBars style={isDark ? 'light' : 'dark'} />
 
         <ScrollView contentContainerStyle={styles.content}>
-          <View style={styles.summaryRow}>
-            <View
-              style={[
-                styles.summaryCard,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-            >
-              <Text
-                style={[styles.summaryLabel, { color: colors.textSecondary }]}
-              >
-                Paid transactions
-              </Text>
-              <Text style={[styles.summaryValue, { color: colors.text }]}>
-                {summary.transactions}
-              </Text>
-            </View>
-            <View
-              style={[
-                styles.summaryCard,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-            >
-              <Text
-                style={[styles.summaryLabel, { color: colors.textSecondary }]}
-              >
-                Missing costs
-              </Text>
-              <Text style={[styles.summaryValue, { color: colors.error }]}>
-                {summary.missingCosts}
-              </Text>
-            </View>
-          </View>
-
-          <View
-            style={[
-              styles.heroCard,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-          >
-            <Text
-              style={[styles.summaryLabel, { color: colors.textSecondary }]}
-            >
-              Estimated profit
-            </Text>
-            <Text style={[styles.heroValue, { color: colors.text }]}>
-              {formatCurrency(summary.estimatedProfit)}
-            </Text>
-            <Text style={[styles.heroSubtitle, { color: colors.textMuted }]}>
-              Update product cost prices here so analytics profit stays grounded
-              in actual margins.
-            </Text>
-          </View>
+          <TransactionsSummary
+            colors={colors}
+            estimatedProfitLabel={formatCurrency(summary.estimatedProfit)}
+            summary={summary}
+          />
 
           {isLoading && orders.length === 0 ? (
             <View style={styles.stateContainer}>
               <ActivityIndicator size="large" color={colors.primary} />
             </View>
-          ) : error ? (
+          ) : error && orders.length === 0 ? (
             <View style={styles.stateContainer}>
               <Ionicons
                 name="alert-circle-outline"
@@ -206,7 +159,7 @@ export default function TransactionsScreen() {
                   void refetch();
                 }}
                 style={({ pressed }) => [
-                  styles.retryButton,
+                  styles.actionButton,
                   {
                     backgroundColor: colors.primary,
                     opacity: isRetrying ? 0.6 : pressed ? 0.7 : 1,
@@ -218,7 +171,7 @@ export default function TransactionsScreen() {
                 ) : (
                   <Text
                     style={[
-                      styles.retryButtonText,
+                      styles.actionButtonText,
                       { color: colors.textOnPrimary },
                     ]}
                   >
@@ -240,388 +193,45 @@ export default function TransactionsScreen() {
             </View>
           ) : null}
 
-          {!error &&
-            orders.map((order) => (
-              <View
-                key={order.id}
-                style={[
-                  styles.orderCard,
-                  { backgroundColor: colors.card, borderColor: colors.border },
-                ]}
-              >
-                <View style={styles.orderHeader}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.orderTitle, { color: colors.text }]}>
-                      {order.orderNumber}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.orderSubtitle,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      {order.customerName} · {order.paymentMethod}
-                    </Text>
-                  </View>
-                  <View style={styles.orderMeta}>
-                    <Text
-                      style={[styles.orderAmount, { color: colors.primary }]}
-                    >
-                      {formatCurrency(order.total)}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.orderSubtitle,
-                        { color: colors.textMuted },
-                      ]}
-                    >
-                      {new Date(order.createdAt).toLocaleDateString(undefined, {
-                        day: 'numeric',
-                        month: 'short',
-                      })}
-                    </Text>
-                  </View>
-                </View>
-
-                {order.items.map((item) => (
-                  <Pressable
-                    key={item.id}
-                    disabled={!item.productId}
-                    style={[
-                      styles.itemRow,
-                      { borderTopColor: colors.border },
-                      !item.productId && styles.itemRowDisabled,
-                    ]}
-                    onPress={() => handleOpenEditor(item)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${item.name}, ${item.quantity} units, revenue ${formatCurrency(item.revenue)}`}
-                    accessibilityHint={
-                      item.productId
-                        ? 'Opens the cost price editor for this item'
-                        : 'This line item cannot be edited because it is not linked to a product'
-                    }
-                  >
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.itemName, { color: colors.text }]}>
-                        {item.name}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.orderSubtitle,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        {item.quantity} units · Revenue{' '}
-                        {formatCurrency(item.revenue)}
-                      </Text>
-                    </View>
-                    <View style={styles.itemMeta}>
-                      <Text
-                        style={[styles.itemMetaValue, { color: colors.text }]}
-                      >
-                        {item.costPrice == null
-                          ? 'Cost missing'
-                          : `Cost ${formatCurrency(item.costPrice)}`}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.orderSubtitle,
-                          {
-                            color:
-                              item.costPrice == null
-                                ? colors.error
-                                : colors.textMuted,
-                          },
-                        ]}
-                      >
-                        {item.profit == null
-                          ? 'Profit unavailable'
-                          : `Profit ${formatCurrency(item.profit)}`}
-                      </Text>
-                    </View>
-                    <Ionicons
-                      name="create-outline"
-                      size={18}
-                      color={colors.textMuted}
-                    />
-                  </Pressable>
-                ))}
-              </View>
-            ))}
-        </ScrollView>
-
-        <Modal
-          visible={Boolean(selectedItem)}
-          animationType="slide"
-          transparent
-          onRequestClose={handleCloseEditor}
-        >
-          <Pressable
-            style={styles.modalBackdrop}
-            accessibilityRole="button"
-            accessibilityLabel="Dismiss cost price editor"
-            onPress={handleCloseEditor}
-          >
+          {error && orders.length > 0 ? (
             <View
-              // Stop taps on the card itself from bubbling up to the backdrop
-              // Pressable — without this, tapping inside the modal would
-              // unexpectedly dismiss it.
-              onStartShouldSetResponder={() => true}
               style={[
-                styles.modalCard,
+                styles.heroCard,
                 {
-                  backgroundColor: colors.background,
-                  borderColor: colors.border,
+                  backgroundColor: colors.warning + '12',
+                  borderColor: colors.warning + '30',
                 },
               ]}
             >
-              <Text style={[styles.modalTitle, { color: colors.text }]}>
-                Update cost price
+              <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
+                Unable to refresh transactions. Showing the last loaded data.
               </Text>
-              <Text
-                style={[styles.orderSubtitle, { color: colors.textSecondary }]}
-              >
-                {selectedItem?.name}
-              </Text>
-              <TextInput
-                keyboardType="decimal-pad"
-                onChangeText={setCostPriceInput}
-                onSubmitEditing={handleSave}
-                placeholder="Enter cost price"
-                placeholderTextColor={colors.textMuted}
-                returnKeyType="done"
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: colors.card,
-                    borderColor: colors.border,
-                    color: colors.text,
-                  },
-                ]}
-                value={costPriceInput}
-              />
-              {saveError ? (
-                <Text style={[styles.errorText, { color: colors.error }]}>
-                  {saveError}
-                </Text>
-              ) : null}
-              <View style={styles.modalActions}>
-                <Pressable
-                  onPress={handleCloseEditor}
-                  disabled={updateCostPrice.isPending}
-                  accessibilityRole="button"
-                  accessibilityLabel="Cancel cost price update"
-                  style={({ pressed }) => ({
-                    opacity: updateCostPrice.isPending
-                      ? 0.4
-                      : pressed
-                        ? 0.7
-                        : 1,
-                  })}
-                >
-                  <Text
-                    style={[styles.cancelText, { color: colors.textSecondary }]}
-                  >
-                    Cancel
-                  </Text>
-                </Pressable>
-                <Pressable
-                  onPress={handleSave}
-                  disabled={updateCostPrice.isPending}
-                  accessibilityRole="button"
-                  accessibilityLabel="Save cost price"
-                  accessibilityState={{
-                    busy: updateCostPrice.isPending,
-                    disabled: updateCostPrice.isPending,
-                  }}
-                  style={[
-                    styles.saveButton,
-                    {
-                      backgroundColor: colors.primary,
-                      opacity: updateCostPrice.isPending ? 0.6 : 1,
-                    },
-                  ]}
-                >
-                  {updateCostPrice.isPending ? (
-                    <ActivityIndicator
-                      size="small"
-                      color={colors.textOnPrimary}
-                    />
-                  ) : (
-                    <Text
-                      style={[
-                        styles.saveButtonText,
-                        { color: colors.textOnPrimary },
-                      ]}
-                    >
-                      Save
-                    </Text>
-                  )}
-                </Pressable>
-              </View>
             </View>
-          </Pressable>
-        </Modal>
+          ) : null}
+
+          {orders.map((order) => (
+            <TransactionOrderCard
+              key={order.id}
+              colors={colors}
+              formatCurrency={formatCurrency}
+              onOpenEditor={handleOpenEditor}
+              order={order}
+            />
+          ))}
+        </ScrollView>
+
+        <CostPriceEditorModal
+          colors={colors}
+          costPriceInput={costPriceInput}
+          onChangeCostPrice={setCostPriceInput}
+          onClose={handleCloseEditor}
+          onSave={handleSave}
+          pending={updateCostPrice.isPending}
+          saveError={saveError}
+          selectedItem={selectedItem}
+          visible={Boolean(selectedItem)}
+        />
       </SafeAreaView>
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  cancelText: {
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    fontSize: TYPOGRAPHY.size.md,
-  },
-  container: {
-    flex: 1,
-  },
-  errorText: {
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    fontSize: TYPOGRAPHY.size.sm,
-    marginTop: SPACING.sm,
-  },
-  stateContainer: {
-    alignItems: 'center',
-    gap: SPACING.md,
-    justifyContent: 'center',
-    padding: SPACING.xl,
-  },
-  stateText: {
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    fontSize: TYPOGRAPHY.size.sm,
-    textAlign: 'center',
-  },
-  retryButton: {
-    borderRadius: RADIUS.full,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.sm,
-  },
-  retryButtonText: {
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-    fontSize: TYPOGRAPHY.size.md,
-  },
-  content: {
-    gap: SPACING.md,
-    padding: SPACING.lg,
-  },
-  heroCard: {
-    borderRadius: RADIUS.lg,
-    borderWidth: 1,
-    padding: SPACING.lg,
-  },
-  heroSubtitle: {
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    fontSize: TYPOGRAPHY.size.sm,
-    marginTop: SPACING.xs,
-  },
-  heroValue: {
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-    fontSize: TYPOGRAPHY.size['2xl'],
-    marginTop: SPACING.xs,
-  },
-  input: {
-    borderRadius: RADIUS.lg,
-    borderWidth: 1,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    fontSize: TYPOGRAPHY.size.lg,
-    marginTop: SPACING.md,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.md,
-  },
-  itemMeta: {
-    alignItems: 'flex-end',
-    paddingHorizontal: SPACING.sm,
-  },
-  itemMetaValue: {
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    fontSize: TYPOGRAPHY.size.sm,
-  },
-  itemName: {
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    fontSize: TYPOGRAPHY.size.md,
-  },
-  itemRow: {
-    alignItems: 'center',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    flexDirection: 'row',
-    gap: SPACING.xs,
-    paddingTop: SPACING.md,
-  },
-  itemRowDisabled: {
-    opacity: 0.45,
-  },
-  modalActions: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: SPACING.lg,
-  },
-  modalBackdrop: {
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    flex: 1,
-    justifyContent: 'flex-end',
-    padding: SPACING.lg,
-  },
-  modalCard: {
-    borderRadius: RADIUS['2xl'],
-    borderWidth: 1,
-    padding: SPACING.lg,
-  },
-  modalTitle: {
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-    fontSize: TYPOGRAPHY.size.xl,
-  },
-  orderAmount: {
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-    fontSize: TYPOGRAPHY.size.md,
-  },
-  orderCard: {
-    borderRadius: RADIUS.lg,
-    borderWidth: 1,
-    gap: SPACING.md,
-    padding: SPACING.lg,
-  },
-  orderHeader: {
-    alignItems: 'center',
-    flexDirection: 'row',
-  },
-  orderMeta: {
-    alignItems: 'flex-end',
-  },
-  orderSubtitle: {
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    fontSize: TYPOGRAPHY.size.sm,
-  },
-  orderTitle: {
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-    fontSize: TYPOGRAPHY.size.lg,
-  },
-  saveButton: {
-    borderRadius: RADIUS.full,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.sm,
-  },
-  saveButtonText: {
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-    fontSize: TYPOGRAPHY.size.md,
-  },
-  summaryCard: {
-    borderRadius: RADIUS.lg,
-    borderWidth: 1,
-    flex: 1,
-    padding: SPACING.md,
-  },
-  summaryLabel: {
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    fontSize: TYPOGRAPHY.size.sm,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    gap: SPACING.md,
-  },
-  summaryValue: {
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-    fontSize: TYPOGRAPHY.size.xl,
-    marginTop: SPACING.xs,
-  },
-});

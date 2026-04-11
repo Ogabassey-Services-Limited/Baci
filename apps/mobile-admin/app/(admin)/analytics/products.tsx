@@ -13,7 +13,7 @@ import { useCurrency } from '@/hooks/useCurrency';
 import {
   type TopSellingProduct,
   useTopSellingProducts,
-} from '@/hooks/useProducts';
+} from '@/hooks/useTopSellingProducts';
 import { useTheme } from '@/hooks/useTheme';
 
 function getSingleParam(value?: string | string[]) {

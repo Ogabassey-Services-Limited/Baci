@@ -115,9 +115,14 @@ export function formatPhoneNumberForCountry(
     return '';
   }
 
+  const hasExplicitInternationalPrefix =
+    rawValue.startsWith('+') || rawValue.startsWith('00');
+  const hasBareInternationalCallingCode =
+    country.callingCode.length > 1 && digits.startsWith(country.callingCode);
   const nationalDigits =
-    (rawValue.startsWith('+') && digits.startsWith(country.callingCode)) ||
-    digits.startsWith(country.callingCode)
+    ((hasExplicitInternationalPrefix &&
+      digits.startsWith(country.callingCode)) ||
+      hasBareInternationalCallingCode)
       ? digits.slice(country.callingCode.length)
       : digits.startsWith('0')
         ? digits.slice(1)

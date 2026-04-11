@@ -15,7 +15,6 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import type { AnalyticsDateRange } from '@/lib/analytics-period';
 import { normalizeProductInventory } from '@/lib/product-inventory';
 import type { AdminProductVariant } from '@/lib/product-picker-variant-rows';
 import {
@@ -700,95 +699,6 @@ export function useCreateCategory() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
     },
-  });
-}
-
-interface TopProductRpcResult {
-  id: string;
-  name: string;
-  revenue: number;
-  units: number;
-}
-
-export interface TopSellingProduct extends Product {
-  totalSold: number;
-  totalRevenue: number;
-}
-
-// Stable sentinels for the "all time" fallback so the query key and the
-// actual RPC parameters stay in sync when no range is provided.
-const ALL_TIME_START_ISO = new Date(0).toISOString();
-const ALL_TIME_END_ISO = '9999-12-31T23:59:59.999Z';
-
-export function useTopSellingProducts(
-  limit: number = 20,
-  range?: AnalyticsDateRange
-) {
-  const { merchant } = useMerchant();
-  const startDate = range?.startDate
-    ? range.startDate.toISOString()
-    : ALL_TIME_START_ISO;
-  const endDate = range?.endDate
-    ? range.endDate.toISOString()
-    : ALL_TIME_END_ISO;
-
-  return useQuery({
-    queryKey: ['top-selling-products', merchant?.id, limit, startDate, endDate],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_top_products', {
-        p_merchant_id: merchant?.id,
-        p_start_date: startDate,
-        p_end_date: endDate,
-        p_limit: limit,
-      });
-
-      if (error) throw error;
-
-      // Transform RPC result to match TopSellingProduct interface
-      // RPC returns { id, name, revenue, units }
-      // We need to fetch full product details or map accordingly.
-      // Ideally RPC should return full details, but for now we can map partial product.
-      // Or we can fetch product details for these IDs.
-      // But for speed, let's just return what we have and maybe fetch images?
-
-      // Wait, the UI expects full Product object + totalSold/Revenue.
-      // The RPC `get_top_products` returns `id`, `name`, `revenue`, `units`.
-      // It DOES NOT return price, images, stock etc.
-      // So detailed view might break.
-
-      // Let's modify the RPC later to return more info, OR fetch product details here.
-      // Fetching details for 20 products is much faster than fetching 10,000 order items.
-
-      const rpcData = data as TopProductRpcResult[];
-      if (!rpcData?.length) return [];
-
-      const productIds = rpcData.map((d) => d.id);
-
-      const { data: productsData, error: productsError } = await supabase
-        .from('products')
-        .select(PRODUCT_COLUMNS)
-        .in('id', productIds)
-        .eq('merchant_id', merchant?.id);
-
-      if (productsError) throw productsError;
-
-      const productsMap = new Map(productsData?.map((p) => [p.id, p]));
-
-      return rpcData
-        .map((item) => {
-          const product = productsMap.get(item.id);
-          if (!product) return null;
-          return {
-            ...normalizeProductInventory(product),
-            totalSold: Number(item.units),
-            totalRevenue: Number(item.revenue),
-          };
-        })
-        .filter(Boolean) as TopSellingProduct[];
-    },
-    enabled: !!merchant?.id,
-    staleTime: 1000 * 60 * 5, // 5 minutes — analytics data doesn't change rapidly
-    placeholderData: keepPreviousData,
   });
 }
 

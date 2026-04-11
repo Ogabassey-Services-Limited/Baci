@@ -116,6 +116,7 @@ export default function AnalyticsScreen() {
   const {
     data: analytics,
     isLoading: isAnalyticsLoading,
+    error: analyticsError,
     refetch: refetchAnalytics,
   } = useAnalyticsOverview(range);
 
@@ -401,98 +402,179 @@ export default function AnalyticsScreen() {
             </View>
           )}
 
-          {/* Metrics */}
-          <MetricRow
-            label="Revenue"
-            value={formatCompact(analytics?.summary.revenue.value ?? 0)}
-            subtitle={`${analytics?.summary.sales.value ?? 0} paid orders`}
-            sparklineData={chartRevenue}
-            onPress={() => pushMetricDetail('revenue')}
-          />
-
-          <MetricRow
-            label="Sales"
-            value={String(analytics?.summary.sales.value ?? 0)}
-            subtitle={`${analytics?.summary.totalUnitsSold ?? 0} units sold`}
-            sparklineData={chartOrders}
-            onPress={() => pushMetricDetail('sales')}
-          />
-
-          <MetricRow
-            label="Average Order Value"
-            value={formatCompact(analytics?.summary.aov.value ?? 0)}
-            subtitle={`${analytics?.summary.customers.value ?? 0} buying customers`}
-            sparklineData={chartAov}
-            onPress={() => pushMetricDetail('aov')}
-          />
-
-          <MetricRow
-            label="Profits"
-            value={formatCompact(analytics?.summary.profit.value ?? 0)}
-            subtitle={`${(analytics?.summary.grossMargin.value ?? 0).toFixed(1)}% gross margin`}
-            sparklineData={chartProfit}
-            onPress={() => pushMetricDetail('profits')}
-          />
-
-          <MetricRow
-            label="VAT Due"
-            value={formatCompact(analytics?.summary.taxDue.value ?? 0)}
-            subtitle="Calculated VAT"
-            sparklineData={chartTax}
-            onPress={() => pushMetricDetail('vat')}
-          />
-
-          <MetricRow
-            label="Gross Margin"
-            value={`${(analytics?.summary.grossMargin.value ?? 0).toFixed(1)}%`}
-            subtitle={formatCompact(analytics?.summary.profit.value ?? 0)}
-            showCircle
-            circlePercentage={analytics?.summary.grossMargin.value ?? 0}
-            onPress={() => pushMetricDetail('profits')}
-          />
-
-          <MetricRow
-            label="Payment method"
-            value={`${(analytics?.topPaymentMethod?.value ?? 0).toFixed(1)}%`}
-            subtitle={`Paid by ${analytics?.topPaymentMethod?.name ?? 'N/A'}`}
-            showCircle
-            circlePercentage={analytics?.topPaymentMethod?.value ?? 0}
-            onPress={() => pushInsightDetail('payment-methods')}
-          />
-
-          <MetricRow
-            label="Blog Views"
-            value={(analytics?.blog.totalViews ?? 0).toLocaleString()}
-            subtitle={`${analytics?.blog.publishedPosts ?? 0} published posts`}
-            onPress={() => pushInsightDetail('blog')}
-          />
-
-          {/* Top Items */}
-          {analytics?.topBrand && (
-            <TopItemRow
-              label="Top Vendor"
-              name={analytics.topBrand.name}
-              subtitle={`#1 in Sales: ${formatCompact(analytics.topBrand.revenue ?? 0)}`}
-              onPress={() => pushInsightDetail('brands')}
-            />
+          {!isAnalyticsLoading && !analytics && (
+            <View style={styles.loadingContainer}>
+              <Ionicons
+                name="alert-circle-outline"
+                size={32}
+                color={colors.error}
+              />
+              <Text
+                style={[
+                  styles.retryStateText,
+                  { color: colors.textSecondary, marginBottom: 12 },
+                ]}
+              >
+                {analyticsError
+                  ? 'Unable to load analytics right now.'
+                  : 'Analytics are unavailable right now.'}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Retry loading analytics"
+                onPress={() => {
+                  void refetchAnalytics();
+                }}
+                style={[
+                  styles.retryButton,
+                  {
+                    alignSelf: 'center',
+                    backgroundColor: colors.primary,
+                    paddingHorizontal: 18,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.retryButtonText,
+                    { color: colors.textOnPrimary },
+                  ]}
+                >
+                  Try again
+                </Text>
+              </Pressable>
+            </View>
           )}
 
-          {analytics?.topProducts?.[0] && (
-            <TopItemRow
-              label="Top products"
-              name={analytics.topProducts[0].name}
-              subtitle={`#1 in Sales: ${formatCompact(analytics.topProducts[0].revenue)}`}
-              onPress={pushProducts}
-            />
+          {analyticsError && analytics && (
+            <View
+              style={[
+                styles.retryBanner,
+                {
+                  backgroundColor: colors.warningLight,
+                  borderColor: colors.warning,
+                },
+              ]}
+            >
+              <Text style={[styles.retryStateText, { color: colors.text }]}>
+                Unable to refresh analytics. Showing the last loaded data.
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Retry refreshing analytics"
+                onPress={() => {
+                  void refetchAnalytics();
+                }}
+                style={[
+                  styles.retryButton,
+                  { backgroundColor: colors.primary, marginTop: 12 },
+                ]}
+              >
+                <Text
+                  style={[styles.retryButtonText, { color: colors.textOnPrimary }]}
+                >
+                  Try again
+                </Text>
+              </Pressable>
+            </View>
           )}
 
-          {analytics?.topCustomer && (
-            <TopItemRow
-              label="Top customers"
-              name={analytics.topCustomer.name}
-              subtitle={`#1 in Purchases: ${analytics.topCustomer.value} orders`}
-              onPress={() => pushInsightDetail('customers')}
-            />
+          {analytics && (
+            <>
+              {/* Metrics */}
+              <MetricRow
+                label="Revenue"
+                value={formatCompact(analytics.summary.revenue.value)}
+                subtitle={`${analytics.summary.sales.value} paid orders`}
+                sparklineData={chartRevenue}
+                onPress={() => pushMetricDetail('revenue')}
+              />
+
+              <MetricRow
+                label="Sales"
+                value={String(analytics.summary.sales.value)}
+                subtitle={`${analytics.summary.totalUnitsSold} units sold`}
+                sparklineData={chartOrders}
+                onPress={() => pushMetricDetail('sales')}
+              />
+
+              <MetricRow
+                label="Average Order Value"
+                value={formatCompact(analytics.summary.aov.value)}
+                subtitle={`${analytics.summary.customers.value} buying customers`}
+                sparklineData={chartAov}
+                onPress={() => pushMetricDetail('aov')}
+              />
+
+              <MetricRow
+                label="Profits"
+                value={formatCompact(analytics.summary.profit.value)}
+                subtitle={`${analytics.summary.grossMargin.value.toFixed(1)}% gross margin`}
+                sparklineData={chartProfit}
+                onPress={() => pushMetricDetail('profits')}
+              />
+
+              <MetricRow
+                label="VAT Due"
+                value={formatCompact(analytics.summary.taxDue.value)}
+                subtitle="Calculated VAT"
+                sparklineData={chartTax}
+                onPress={() => pushMetricDetail('vat')}
+              />
+
+              <MetricRow
+                label="Gross Margin"
+                value={`${analytics.summary.grossMargin.value.toFixed(1)}%`}
+                subtitle={formatCompact(analytics.summary.profit.value)}
+                showCircle
+                circlePercentage={analytics.summary.grossMargin.value}
+                onPress={() => pushMetricDetail('profits')}
+              />
+
+              <MetricRow
+                label="Payment method"
+                value={`${(analytics.topPaymentMethod?.value ?? 0).toFixed(1)}%`}
+                subtitle={`Paid by ${analytics.topPaymentMethod?.name ?? 'N/A'}`}
+                showCircle
+                circlePercentage={analytics.topPaymentMethod?.value ?? 0}
+                onPress={() => pushInsightDetail('payment-methods')}
+              />
+
+              <MetricRow
+                label="Blog Views"
+                value={analytics.blog.totalViews.toLocaleString()}
+                subtitle={`${analytics.blog.publishedPosts} published posts`}
+                onPress={() => pushInsightDetail('blog')}
+              />
+
+              {/* Top Items */}
+              {analytics.topBrand && (
+                <TopItemRow
+                  label="Top Vendor"
+                  name={analytics.topBrand.name}
+                  subtitle={`#1 in Sales: ${formatCompact(analytics.topBrand.revenue ?? 0)}`}
+                  onPress={() => pushInsightDetail('brands')}
+                />
+              )}
+
+              {analytics.topProducts[0] && (
+                <TopItemRow
+                  label="Top products"
+                  name={analytics.topProducts[0].name}
+                  subtitle={`#1 in Sales: ${formatCompact(analytics.topProducts[0].revenue)}`}
+                  onPress={pushProducts}
+                />
+              )}
+
+              {analytics.topCustomer && (
+                <TopItemRow
+                  label="Top customers"
+                  name={analytics.topCustomer.name}
+                  subtitle={`#1 in Purchases: ${analytics.topCustomer.value} orders`}
+                  onPress={() => pushInsightDetail('customers')}
+                />
+              )}
+            </>
           )}
 
           <View style={styles.bottomSpacer} />
@@ -756,6 +838,27 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING['3xl'],
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  retryStateText: {
+    fontSize: TYPOGRAPHY.size.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    textAlign: 'center',
+  },
+  retryButton: {
+    alignItems: 'center',
+    borderRadius: RADIUS.md,
+    paddingVertical: SPACING.md,
+  },
+  retryButtonText: {
+    fontSize: TYPOGRAPHY.size.md,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+  },
+  retryBanner: {
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    marginHorizontal: SPACING.lg,
+    marginBottom: SPACING.md,
+    padding: SPACING.md,
   },
   header: {
     flexDirection: 'row',

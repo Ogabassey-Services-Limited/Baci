@@ -1,6 +1,6 @@
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import { ActionSheetIOS, Alert } from 'react-native';
+import { showChoiceSheet } from '@/components/ui/showChoiceSheet';
 import type { SelectedCacDocument } from './cac-types';
 
 type CertificateSource = 'gallery' | 'files';
@@ -16,47 +16,14 @@ const SUPPORTED_CAC_MIME_TYPES = new Set([
 ]);
 
 export function chooseCertificateSource(): Promise<CertificateSource | null> {
-  if (typeof ActionSheetIOS.showActionSheetWithOptions === 'function') {
-    return new Promise((resolve) => {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          cancelButtonIndex: 2,
-          options: ['Choose from Gallery', 'Choose File or PDF', 'Cancel'],
-          title: 'Select certificate source',
-        },
-        (buttonIndex) => {
-          if (buttonIndex === 0) resolve('gallery');
-          else if (buttonIndex === 1) resolve('files');
-          else resolve(null);
-        }
-      );
-    });
-  }
-
-  return new Promise((resolve) => {
-    Alert.alert(
-      'Select certificate source',
-      'Choose how to upload your CAC certificate.',
-      [
-        {
-          text: 'Gallery',
-          onPress: () => resolve('gallery'),
-        },
-        {
-          text: 'File or PDF',
-          onPress: () => resolve('files'),
-        },
-        {
-          style: 'cancel',
-          text: 'Cancel',
-          onPress: () => resolve(null),
-        },
-      ],
-      {
-        cancelable: true,
-        onDismiss: () => resolve(null),
-      }
-    );
+  return showChoiceSheet<CertificateSource>({
+    cancelText: 'Cancel',
+    message: 'Choose how to upload your CAC certificate.',
+    options: [
+      { label: 'Choose from Gallery', value: 'gallery' },
+      { label: 'Choose File or PDF', value: 'files' },
+    ],
+    title: 'Select certificate source',
   });
 }
 

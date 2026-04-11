@@ -1,12 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
-import {
-  ActivityIndicator,
-  Modal,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-} from 'react-native';
+import { Modal, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardAwareModalContainer } from '@/components/ui/KeyboardAwareModalContainer';
 import { useTheme } from '@/hooks/useTheme';
@@ -14,6 +6,9 @@ import type {
   ShipmentCompletionMode,
   ShipmentFlowStep,
 } from '@/lib/order-shipment';
+import { ShipmentFlowFooter } from './ShipmentFlowFooter';
+import { ShipmentFlowHeader } from './ShipmentFlowHeader';
+import { ShipmentFlowProgress } from './ShipmentFlowProgress';
 import { styles } from './ShipmentFlowSheet.styles';
 import {
   ShipmentFlowDetailsStep,
@@ -113,6 +108,13 @@ export function ShipmentFlowSheet({
     onStepBack();
   };
 
+  const handlePrimaryAction =
+    step === 'details'
+      ? onContinueFromDetails
+      : step === 'method'
+        ? onContinueFromMethod
+        : onConfirmSelfFulfillment;
+
   return (
     <Modal
       animationType="slide"
@@ -140,79 +142,19 @@ export function ShipmentFlowSheet({
               },
             ]}
           >
-            <View style={styles.header}>
-              <View>
-                <Text style={[styles.eyebrow, { color: colors.textSecondary }]}>
-                  Ship {orderNumber}
-                </Text>
-                <Text style={[styles.title, { color: colors.text }]}>
-                  {step === 'details'
-                    ? 'Fulfillment Details'
-                    : step === 'method'
-                      ? 'Choose Shipping Method'
-                      : 'Dispatch Rider'}
-                </Text>
-              </View>
-              <Pressable
-                accessibilityLabel="Close shipment flow"
-                disabled={isSubmitting}
-                hitSlop={8}
-                onPress={handleRequestClose}
-                style={[
-                  styles.closeButton,
-                  { backgroundColor: colors.backgroundLight },
-                ]}
-              >
-                <Ionicons name="close" size={18} color={colors.text} />
-              </Pressable>
-            </View>
+            <ShipmentFlowHeader
+              colors={colors}
+              isSubmitting={isSubmitting}
+              onClose={handleRequestClose}
+              orderNumber={orderNumber}
+              step={step}
+            />
 
-            <View style={styles.stepRow}>
-              {steps.map((item, index) => {
-                const isActive = index <= currentStepIndex;
-                const isCurrent = index === currentStepIndex;
-                return (
-                  <View key={item.id} style={styles.stepItem}>
-                    <View
-                      style={[
-                        styles.stepDot,
-                        {
-                          backgroundColor: isActive
-                            ? colors.primary
-                            : colors.backgroundLight,
-                          borderColor: isCurrent
-                            ? colors.primary
-                            : colors.border,
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.stepDotText,
-                          {
-                            color: isActive
-                              ? colors.textOnPrimary
-                              : colors.textSecondary,
-                          },
-                        ]}
-                      >
-                        {index + 1}
-                      </Text>
-                    </View>
-                    <Text
-                      style={[
-                        styles.stepLabel,
-                        {
-                          color: isCurrent ? colors.text : colors.textSecondary,
-                        },
-                      ]}
-                    >
-                      {item.label}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
+            <ShipmentFlowProgress
+              colors={colors}
+              currentStepIndex={currentStepIndex}
+              steps={steps}
+            />
 
             <ScrollView
               bounces={false}
@@ -246,73 +188,16 @@ export function ShipmentFlowSheet({
               ) : null}
             </ScrollView>
 
-            <View style={styles.footer}>
-              {showBack ? (
-                <Pressable
-                  accessibilityLabel="Back"
-                  disabled={isSubmitting}
-                  onPress={handleBack}
-                  style={[
-                    styles.secondaryButton,
-                    { backgroundColor: colors.backgroundLight },
-                  ]}
-                >
-                  <Text
-                    style={[styles.secondaryButtonText, { color: colors.text }]}
-                  >
-                    Back
-                  </Text>
-                </Pressable>
-              ) : null}
-
-              <Pressable
-                accessibilityLabel={primaryActionLabel}
-                disabled={isSubmitting}
-                onPress={
-                  step === 'details'
-                    ? onContinueFromDetails
-                    : step === 'method'
-                      ? onContinueFromMethod
-                      : onConfirmSelfFulfillment
-                }
-                style={[
-                  styles.primaryButton,
-                  { backgroundColor: colors.primary },
-                  showBack ? null : styles.primaryButtonFull,
-                  isSubmitting ? styles.primaryButtonDisabled : null,
-                ]}
-              >
-                {isSubmitting ? (
-                  <ActivityIndicator
-                    color={colors.textOnPrimary}
-                    size="small"
-                  />
-                ) : (
-                  <>
-                    <Ionicons
-                      color={colors.textOnPrimary}
-                      name={
-                        step === 'details'
-                          ? 'arrow-forward'
-                          : step === 'method' &&
-                              selectedMode === 'self_fulfillment'
-                            ? 'bicycle-outline'
-                            : 'checkmark-circle-outline'
-                      }
-                      size={18}
-                    />
-                    <Text
-                      style={[
-                        styles.primaryButtonText,
-                        { color: colors.textOnPrimary },
-                      ]}
-                    >
-                      {primaryActionLabel}
-                    </Text>
-                  </>
-                )}
-              </Pressable>
-            </View>
+            <ShipmentFlowFooter
+              colors={colors}
+              isSubmitting={isSubmitting}
+              onBack={handleBack}
+              onPrimaryAction={handlePrimaryAction}
+              primaryActionLabel={primaryActionLabel}
+              selectedMode={selectedMode}
+              showBack={showBack}
+              step={step}
+            />
           </View>
         </KeyboardAwareModalContainer>
       </View>

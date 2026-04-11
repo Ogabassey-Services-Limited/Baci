@@ -200,6 +200,8 @@ export default function AnalyticsDetailScreen() {
     startDate: startDate ?? defaultRange.startIso,
     includeComparison: showComparison,
   });
+  const visibleFilterLabel =
+    analyticsData?.rangeLabel ?? filterLabel ?? DEFAULT_FILTER_LABEL;
 
   const config = METRIC_CONFIG[metric];
 
@@ -290,7 +292,7 @@ export default function AnalyticsDetailScreen() {
               color={colors.textSecondary}
             />
             <Text style={[styles.yearText, { color: colors.text }]}>
-              {filterLabel ?? DEFAULT_FILTER_LABEL}
+              {visibleFilterLabel}
             </Text>
           </View>
         </View>

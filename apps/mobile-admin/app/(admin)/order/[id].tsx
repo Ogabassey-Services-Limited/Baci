@@ -671,14 +671,6 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
       throw new Error('Unauthorized');
     }
 
-    if (__DEV__) {
-      console.log('[OrderShipment] Self-fulfill base URL:', BASE_URL);
-      console.log(
-        '[OrderShipment] Self-fulfill request URL:',
-        `${BASE_URL}/api/shipping/self-fulfill`
-      );
-    }
-
     const response = await fetch(`${BASE_URL}/api/shipping/self-fulfill`, {
       method: 'POST',
       headers: {
@@ -694,14 +686,6 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
     });
 
     const payload = await response.json().catch(() => null);
-
-    if (__DEV__) {
-      console.log(
-        '[OrderShipment] Self-fulfill response status:',
-        response.status
-      );
-      console.log('[OrderShipment] Self-fulfill response payload:', payload);
-    }
 
     if (!response.ok) {
       const message =

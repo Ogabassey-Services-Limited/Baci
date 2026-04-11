@@ -71,6 +71,14 @@ describe('phone-country', () => {
     );
   });
 
+  it('keeps national input that happens to start with a single-digit calling code', () => {
+    const unitedStates = getPhoneCountryByCode('US');
+
+    expect(formatPhoneNumberForCountry('14155552671', unitedStates)).toBe(
+      '+114155552671'
+    );
+  });
+
   it('does not double-prefix numbers that already include the country code', () => {
     const nigeria = getPhoneCountryByCode('NG');
 

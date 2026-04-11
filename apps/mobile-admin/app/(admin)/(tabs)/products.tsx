@@ -31,13 +31,15 @@ import { useMerchant } from '@/hooks/useMerchant';
 import {
   type Product,
   type StockFilter,
-  type TopSellingProduct,
   useCategories,
   useCreateCategory,
   useInventoryStats,
   useProducts,
-  useTopSellingProducts,
 } from '@/hooks/useProducts';
+import {
+  type TopSellingProduct,
+  useTopSellingProducts,
+} from '@/hooks/useTopSellingProducts';
 import { useTheme } from '@/hooks/useTheme';
 import {
   getEffectiveProductStock,
