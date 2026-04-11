@@ -114,6 +114,19 @@ vi.mock('@/hooks/useRegistration', () => ({
   }),
 }));
 
+vi.mock('@/components/ui/AppKeyboardContainer', async () => {
+  const React = await import('react');
+
+  return {
+    AppKeyboardContainer: ({ children }: { children?: React.ReactNode }) =>
+      React.createElement(
+        'div',
+        { 'aria-label': 'Keyboard container', role: 'region' },
+        children
+      ),
+  };
+});
+
 vi.mock('@/lib/password-utils', () => ({
   validatePassword: () => ({
     isValid: true,
@@ -193,6 +206,9 @@ describe('RegisterScreen', () => {
 
   it('calls register.mutate with form data when submitted', () => {
     render(<RegisterScreen />);
+    expect(
+      screen.getByRole('region', { name: 'Keyboard container' })
+    ).toBeTruthy();
     fillFormAndSubmit();
 
     expect(mocks.mutate).toHaveBeenCalledTimes(1);

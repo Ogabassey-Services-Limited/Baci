@@ -5,18 +5,16 @@ import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
   Linking,
-  Platform,
   Pressable,
   SafeAreaView,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
+import { AppKeyboardContainer } from '@/components/ui/AppKeyboardContainer';
 import { DARK_COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme'; // Adjust import path if needed
 import { useRegistration } from '@/hooks/useRegistration';
 import type { NetworkError } from '@/lib/api-client';
@@ -149,7 +147,7 @@ export default function RegisterScreen() {
     }
   };
 
-  const handleRegister = async () => {
+  const handleRegister = () => {
     if (!formData.businessName || !formData.businessType) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
@@ -252,376 +250,368 @@ export default function RegisterScreen() {
           <View style={{ width: 24 }} />
         </View>
 
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1 }}
+        <AppKeyboardContainer
+          contentContainerStyle={styles.content}
+          style={styles.formContainer}
         >
-          <ScrollView contentContainerStyle={styles.content}>
-            {/* Progress Indicator */}
-            <View style={styles.progressContainer}>
-              <View
-                style={[
-                  styles.progressBar,
-                  { width: step === 1 ? '50%' : '100%' },
-                ]}
-              />
-            </View>
-            <Text style={styles.stepText}>Step {step} of 2</Text>
+          {/* Progress Indicator */}
+          <View style={styles.progressContainer}>
+            <View
+              style={[
+                styles.progressBar,
+                { width: step === 1 ? '50%' : '100%' },
+              ]}
+            />
+          </View>
+          <Text style={styles.stepText}>Step {step} of 2</Text>
 
-            {step === 1 ? (
-              // Step 1: Account Info
-              <View style={styles.formSection}>
-                <Text style={styles.sectionTitle}>Account Details</Text>
-                <Text style={styles.sectionValidation}>Required</Text>
+          {step === 1 ? (
+            // Step 1: Account Info
+            <View style={styles.formSection}>
+              <Text style={styles.sectionTitle}>Account Details</Text>
+              <Text style={styles.sectionValidation}>Required</Text>
 
-                <View style={styles.nameRow}>
-                  <View style={styles.nameInputGroup}>
-                    <Text style={styles.label}>First Name</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="John"
-                      placeholderTextColor="#6B7280"
-                      autoCapitalize="words"
-                      value={formData.firstName}
-                      onChangeText={(t) => updateForm('firstName', t)}
-                    />
-                  </View>
-                  <View style={styles.nameInputGroup}>
-                    <Text style={styles.label}>Last Name</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Doe"
-                      placeholderTextColor="#6B7280"
-                      autoCapitalize="words"
-                      value={formData.lastName}
-                      onChangeText={(t) => updateForm('lastName', t)}
-                    />
-                  </View>
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Email Address</Text>
+              <View style={styles.nameRow}>
+                <View style={styles.nameInputGroup}>
+                  <Text style={styles.label}>First Name</Text>
                   <TextInput
                     style={styles.input}
-                    placeholder="you@example.com"
+                    placeholder="John"
                     placeholderTextColor="#6B7280"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    value={formData.email}
-                    onChangeText={(t) => updateForm('email', t)}
+                    autoCapitalize="words"
+                    value={formData.firstName}
+                    onChangeText={(t) => updateForm('firstName', t)}
                   />
                 </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Password</Text>
-                  <View style={styles.passwordContainer}>
-                    <TextInput
-                      style={styles.passwordInput}
-                      placeholder="••••••••"
-                      placeholderTextColor="#6B7280"
-                      secureTextEntry={!showPassword}
-                      value={formData.password}
-                      onChangeText={(t) => updateForm('password', t)}
-                    />
-                    <Pressable
-                      onPress={() => setShowPassword(!showPassword)}
-                      style={styles.eyeButton}
-                      accessibilityRole="button"
-                      accessibilityLabel={
-                        showPassword ? 'Hide password' : 'Show password'
-                      }
-                    >
-                      <Ionicons
-                        name={showPassword ? 'eye-off' : 'eye'}
-                        size={20}
-                        color="#9CA3AF"
-                      />
-                    </Pressable>
-                  </View>
-
-                  {/* Password Strength Meter & Checklist */}
-                  <View style={styles.validationContainer}>
-                    <Text style={styles.validationTitle}>
-                      Password Strength
-                    </Text>
-
-                    <View style={styles.strengthMeter}>
-                      <View
-                        style={[
-                          styles.strengthBar,
-                          {
-                            backgroundColor:
-                              passwordState.strength > 0
-                                ? passwordState.strength === 1
-                                  ? '#EF4444'
-                                  : passwordState.strength === 2
-                                    ? '#F59E0B'
-                                    : '#10B981'
-                                : '#374151',
-                            width: '32%',
-                          },
-                        ]}
-                      />
-                      <View
-                        style={[
-                          styles.strengthBar,
-                          {
-                            backgroundColor:
-                              passwordState.strength > 1
-                                ? passwordState.strength === 2
-                                  ? '#F59E0B'
-                                  : '#10B981'
-                                : '#374151',
-                            width: '32%',
-                          },
-                        ]}
-                      />
-                      <View
-                        style={[
-                          styles.strengthBar,
-                          {
-                            backgroundColor:
-                              passwordState.strength > 2
-                                ? '#10B981'
-                                : '#374151',
-                            width: '32%',
-                          },
-                        ]}
-                      />
-                    </View>
-
-                    <View style={styles.checklist}>
-                      <View style={styles.checkItem}>
-                        <Ionicons
-                          name={
-                            passwordState.requirements.length
-                              ? 'checkmark-circle'
-                              : 'ellipse-outline'
-                          }
-                          size={14}
-                          color={
-                            passwordState.requirements.length
-                              ? '#10B981'
-                              : '#9CA3AF'
-                          }
-                        />
-                        <Text
-                          style={
-                            passwordState.requirements.length
-                              ? styles.checkTextValid
-                              : styles.checkText
-                          }
-                        >
-                          At least 8 characters
-                        </Text>
-                      </View>
-                      <View style={styles.checkItem}>
-                        <Ionicons
-                          name={
-                            passwordState.requirements.complexity
-                              ? 'checkmark-circle'
-                              : 'ellipse-outline'
-                          }
-                          size={14}
-                          color={
-                            passwordState.requirements.complexity
-                              ? '#10B981'
-                              : '#9CA3AF'
-                          }
-                        />
-                        <Text
-                          style={
-                            passwordState.requirements.complexity
-                              ? styles.checkTextValid
-                              : styles.checkText
-                          }
-                        >
-                          Complexity (longer or mixed types)
-                        </Text>
-                      </View>
-                      <View style={styles.checkItem}>
-                        <Ionicons
-                          name={
-                            passwordState.requirements.notCommon
-                              ? 'checkmark-circle'
-                              : formData.password.length > 0
-                                ? 'alert-circle-outline'
-                                : 'ellipse-outline'
-                          }
-                          size={14}
-                          color={
-                            passwordState.requirements.notCommon
-                              ? '#10B981'
-                              : formData.password.length > 0
-                                ? '#EF4444'
-                                : '#9CA3AF'
-                          }
-                        />
-                        <Text
-                          style={
-                            passwordState.requirements.notCommon
-                              ? styles.checkTextValid
-                              : formData.password.length > 0
-                                ? styles.checkTextError
-                                : styles.checkText
-                          }
-                        >
-                          Not a common password
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
+                <View style={styles.nameInputGroup}>
+                  <Text style={styles.label}>Last Name</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Doe"
+                    placeholderTextColor="#6B7280"
+                    autoCapitalize="words"
+                    value={formData.lastName}
+                    onChangeText={(t) => updateForm('lastName', t)}
+                  />
                 </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Confirm Password</Text>
-                  <View style={styles.passwordContainer}>
-                    <TextInput
-                      style={styles.passwordInput}
-                      placeholder="••••••••"
-                      placeholderTextColor="#6B7280"
-                      secureTextEntry={!showPassword}
-                      value={formData.confirmPassword}
-                      onChangeText={(t) => updateForm('confirmPassword', t)}
-                    />
-                    <Pressable
-                      onPress={() => setShowPassword(!showPassword)}
-                      style={styles.eyeButton}
-                      accessibilityRole="button"
-                      accessibilityLabel={
-                        showPassword ? 'Hide password' : 'Show password'
-                      }
-                    >
-                      <Ionicons
-                        name={showPassword ? 'eye-off' : 'eye'}
-                        size={20}
-                        color="#9CA3AF"
-                      />
-                    </Pressable>
-                  </View>
-                  {confirmError ? (
-                    <Text style={styles.errorText}>{confirmError}</Text>
-                  ) : null}
-                </View>
-
-                <Pressable style={styles.button} onPress={handleNext}>
-                  <Text style={styles.buttonText}>Next Step</Text>
-                  <Ionicons name="arrow-forward" size={20} color="#FFF" />
-                </Pressable>
               </View>
-            ) : (
-              // Step 2: Business Info
-              <View style={styles.formSection}>
-                <Text style={styles.sectionTitle}>Business Info</Text>
-                <Text style={styles.sectionValidation}>
-                  Tell us about your store
-                </Text>
 
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Business Name</Text>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Email Address</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="you@example.com"
+                  placeholderTextColor="#6B7280"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  value={formData.email}
+                  onChangeText={(t) => updateForm('email', t)}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Password</Text>
+                <View style={styles.passwordContainer}>
                   <TextInput
-                    style={styles.input}
-                    placeholder="My Awesome Store"
+                    style={styles.passwordInput}
+                    placeholder="••••••••"
                     placeholderTextColor="#6B7280"
-                    value={formData.businessName}
-                    onChangeText={(t) => updateForm('businessName', t)}
+                    secureTextEntry={!showPassword}
+                    value={formData.password}
+                    onChangeText={(t) => updateForm('password', t)}
                   />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Store Link</Text>
-                  <View style={styles.urlInputContainer}>
-                    <TextInput
-                      style={[styles.urlInput, { textAlign: 'right' }]}
-                      placeholder="my-store"
-                      placeholderTextColor="#6B7280"
-                      autoCapitalize="none"
-                      value={formData.slug}
-                      onChangeText={handleSlugChange}
-                    />
-                    <Text style={styles.urlSuffix}>.usebaci.com</Text>
-                  </View>
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Business Type</Text>
-                  <View style={styles.typeGrid}>
-                    {BUSINESS_TYPES.map((type) => (
-                      <Pressable
-                        key={type.id}
-                        style={[
-                          styles.typeCard,
-                          formData.businessType === type.id &&
-                            styles.typeCardSelected,
-                        ]}
-                        onPress={() => updateForm('businessType', type.id)}
-                      >
-                        <Text
-                          style={[
-                            styles.typeText,
-                            formData.businessType === type.id &&
-                              styles.typeTextSelected,
-                          ]}
-                        >
-                          {type.label}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                </View>
-
-                {formData.businessType === 'other' && (
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Please specify</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="e.g. Pet Supplies"
-                      placeholderTextColor="#6B7280"
-                      value={formData.otherBusinessType}
-                      onChangeText={(text) =>
-                        updateForm('otherBusinessType', text)
-                      }
-                    />
-                  </View>
-                )}
-
-                <Pressable
-                  style={[styles.button, isLoading && { opacity: 0.7 }]}
-                  onPress={handleRegister}
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <ActivityIndicator color="#FFF" />
-                  ) : (
-                    <>
-                      <Text style={styles.buttonText}>Launch Store</Text>
-                      <Ionicons name="rocket-outline" size={20} color="#FFF" />
-                    </>
-                  )}
-                </Pressable>
-
-                <Text style={styles.termsText}>
-                  By creating an account, you agree to our{' '}
-                  <Text
-                    style={styles.termsLink}
-                    onPress={() => Linking.openURL('https://usebaci.com/terms')}
-                  >
-                    Terms of Service
-                  </Text>{' '}
-                  and{' '}
-                  <Text
-                    style={styles.termsLink}
-                    onPress={() =>
-                      Linking.openURL('https://usebaci.com/privacy')
+                  <Pressable
+                    onPress={() => setShowPassword(!showPassword)}
+                    style={styles.eyeButton}
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      showPassword ? 'Hide password' : 'Show password'
                     }
                   >
-                    Privacy Policy
-                  </Text>
-                </Text>
+                    <Ionicons
+                      name={showPassword ? 'eye-off' : 'eye'}
+                      size={20}
+                      color="#9CA3AF"
+                    />
+                  </Pressable>
+                </View>
+
+                {/* Password Strength Meter & Checklist */}
+                <View style={styles.validationContainer}>
+                  <Text style={styles.validationTitle}>Password Strength</Text>
+
+                  <View style={styles.strengthMeter}>
+                    <View
+                      style={[
+                        styles.strengthBar,
+                        {
+                          backgroundColor:
+                            passwordState.strength > 0
+                              ? passwordState.strength === 1
+                                ? '#EF4444'
+                                : passwordState.strength === 2
+                                  ? '#F59E0B'
+                                  : '#10B981'
+                              : '#374151',
+                          width: '32%',
+                        },
+                      ]}
+                    />
+                    <View
+                      style={[
+                        styles.strengthBar,
+                        {
+                          backgroundColor:
+                            passwordState.strength > 1
+                              ? passwordState.strength === 2
+                                ? '#F59E0B'
+                                : '#10B981'
+                              : '#374151',
+                          width: '32%',
+                        },
+                      ]}
+                    />
+                    <View
+                      style={[
+                        styles.strengthBar,
+                        {
+                          backgroundColor:
+                            passwordState.strength > 2 ? '#10B981' : '#374151',
+                          width: '32%',
+                        },
+                      ]}
+                    />
+                  </View>
+
+                  <View style={styles.checklist}>
+                    <View style={styles.checkItem}>
+                      <Ionicons
+                        name={
+                          passwordState.requirements.length
+                            ? 'checkmark-circle'
+                            : 'ellipse-outline'
+                        }
+                        size={14}
+                        color={
+                          passwordState.requirements.length
+                            ? '#10B981'
+                            : '#9CA3AF'
+                        }
+                      />
+                      <Text
+                        style={
+                          passwordState.requirements.length
+                            ? styles.checkTextValid
+                            : styles.checkText
+                        }
+                      >
+                        At least 8 characters
+                      </Text>
+                    </View>
+                    <View style={styles.checkItem}>
+                      <Ionicons
+                        name={
+                          passwordState.requirements.complexity
+                            ? 'checkmark-circle'
+                            : 'ellipse-outline'
+                        }
+                        size={14}
+                        color={
+                          passwordState.requirements.complexity
+                            ? '#10B981'
+                            : '#9CA3AF'
+                        }
+                      />
+                      <Text
+                        style={
+                          passwordState.requirements.complexity
+                            ? styles.checkTextValid
+                            : styles.checkText
+                        }
+                      >
+                        Complexity (longer or mixed types)
+                      </Text>
+                    </View>
+                    <View style={styles.checkItem}>
+                      <Ionicons
+                        name={
+                          passwordState.requirements.notCommon
+                            ? 'checkmark-circle'
+                            : formData.password.length > 0
+                              ? 'alert-circle-outline'
+                              : 'ellipse-outline'
+                        }
+                        size={14}
+                        color={
+                          passwordState.requirements.notCommon
+                            ? '#10B981'
+                            : formData.password.length > 0
+                              ? '#EF4444'
+                              : '#9CA3AF'
+                        }
+                      />
+                      <Text
+                        style={
+                          passwordState.requirements.notCommon
+                            ? styles.checkTextValid
+                            : formData.password.length > 0
+                              ? styles.checkTextError
+                              : styles.checkText
+                        }
+                      >
+                        Not a common password
+                      </Text>
+                    </View>
+                  </View>
+                </View>
               </View>
-            )}
-          </ScrollView>
-        </KeyboardAvoidingView>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Confirm Password</Text>
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    style={styles.passwordInput}
+                    placeholder="••••••••"
+                    placeholderTextColor="#6B7280"
+                    secureTextEntry={!showPassword}
+                    value={formData.confirmPassword}
+                    onChangeText={(t) => updateForm('confirmPassword', t)}
+                  />
+                  <Pressable
+                    onPress={() => setShowPassword(!showPassword)}
+                    style={styles.eyeButton}
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      showPassword ? 'Hide password' : 'Show password'
+                    }
+                  >
+                    <Ionicons
+                      name={showPassword ? 'eye-off' : 'eye'}
+                      size={20}
+                      color="#9CA3AF"
+                    />
+                  </Pressable>
+                </View>
+                {confirmError ? (
+                  <Text style={styles.errorText}>{confirmError}</Text>
+                ) : null}
+              </View>
+
+              <Pressable style={styles.button} onPress={handleNext}>
+                <Text style={styles.buttonText}>Next Step</Text>
+                <Ionicons name="arrow-forward" size={20} color="#FFF" />
+              </Pressable>
+            </View>
+          ) : (
+            // Step 2: Business Info
+            <View style={styles.formSection}>
+              <Text style={styles.sectionTitle}>Business Info</Text>
+              <Text style={styles.sectionValidation}>
+                Tell us about your store
+              </Text>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Business Name</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="My Awesome Store"
+                  placeholderTextColor="#6B7280"
+                  value={formData.businessName}
+                  onChangeText={(t) => updateForm('businessName', t)}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Store Link</Text>
+                <View style={styles.urlInputContainer}>
+                  <TextInput
+                    style={[styles.urlInput, { textAlign: 'right' }]}
+                    placeholder="my-store"
+                    placeholderTextColor="#6B7280"
+                    autoCapitalize="none"
+                    value={formData.slug}
+                    onChangeText={handleSlugChange}
+                  />
+                  <Text style={styles.urlSuffix}>.usebaci.com</Text>
+                </View>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Business Type</Text>
+                <View style={styles.typeGrid}>
+                  {BUSINESS_TYPES.map((type) => (
+                    <Pressable
+                      key={type.id}
+                      style={[
+                        styles.typeCard,
+                        formData.businessType === type.id &&
+                          styles.typeCardSelected,
+                      ]}
+                      onPress={() => updateForm('businessType', type.id)}
+                    >
+                      <Text
+                        style={[
+                          styles.typeText,
+                          formData.businessType === type.id &&
+                            styles.typeTextSelected,
+                        ]}
+                      >
+                        {type.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+
+              {formData.businessType === 'other' && (
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Please specify</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="e.g. Pet Supplies"
+                    placeholderTextColor="#6B7280"
+                    value={formData.otherBusinessType}
+                    onChangeText={(text) =>
+                      updateForm('otherBusinessType', text)
+                    }
+                  />
+                </View>
+              )}
+
+              <Pressable
+                style={[styles.button, isLoading && { opacity: 0.7 }]}
+                onPress={handleRegister}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <>
+                    <Text style={styles.buttonText}>Launch Store</Text>
+                    <Ionicons name="rocket-outline" size={20} color="#FFF" />
+                  </>
+                )}
+              </Pressable>
+
+              <Text style={styles.termsText}>
+                By creating an account, you agree to our{' '}
+                <Text
+                  style={styles.termsLink}
+                  onPress={() => Linking.openURL('https://usebaci.com/terms')}
+                >
+                  Terms of Service
+                </Text>{' '}
+                and{' '}
+                <Text
+                  style={styles.termsLink}
+                  onPress={() => Linking.openURL('https://usebaci.com/privacy')}
+                >
+                  Privacy Policy
+                </Text>
+              </Text>
+            </View>
+          )}
+        </AppKeyboardContainer>
       </SafeAreaView>
     </View>
   );
@@ -633,6 +623,9 @@ const styles = StyleSheet.create({
     backgroundColor: DARK_COLORS.background,
   },
   safeArea: {
+    flex: 1,
+  },
+  formContainer: {
     flex: 1,
   },
   header: {

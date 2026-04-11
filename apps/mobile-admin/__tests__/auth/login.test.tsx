@@ -134,6 +134,19 @@ vi.mock('expo-constants', () => ({
   },
 }));
 
+vi.mock('@/components/ui/AppKeyboardContainer', async () => {
+  const React = await import('react');
+
+  return {
+    AppKeyboardContainer: ({ children }: { children?: React.ReactNode }) =>
+      React.createElement(
+        'div',
+        { 'aria-label': 'Keyboard container', role: 'region' },
+        children
+      ),
+  };
+});
+
 vi.mock('@/components/BaciLogo', async () => {
   const React = await import('react');
   return {
@@ -201,9 +214,12 @@ describe('LoginScreen', () => {
     cleanup();
   });
 
-  it('shows the sign-up prompt and link', () => {
+  it('renders the login keyboard container and sign-up prompt', () => {
     render(<LoginScreen />);
 
+    expect(
+      screen.getByRole('region', { name: 'Keyboard container' })
+    ).toBeTruthy();
     expect(screen.getByText("Don't have an account?")).toBeTruthy();
     expect(screen.getByText('Sign Up')).toBeTruthy();
   });
