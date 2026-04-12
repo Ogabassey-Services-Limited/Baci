@@ -201,4 +201,30 @@ describe('CustomerEditScreen', () => {
     successCall?.[2]?.[0]?.onPress?.();
     expect(mocks.back).toHaveBeenCalled();
   });
+
+  it('shows an error alert and stays on the form when save fails', async () => {
+    mocks.mutateAsync.mockRejectedValueOnce(new Error('save failed'));
+
+    render(<CustomerEditScreen />);
+
+    fireEvent.change(screen.getByDisplayValue('John'), {
+      target: { value: 'Jane' },
+    });
+    fireEvent.click(screen.getByText('Save Changes'));
+
+    await waitFor(() => {
+      expect(mocks.mutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'customer-1',
+          first_name: 'Jane',
+        })
+      );
+    });
+
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'Error',
+      'Failed to update customer'
+    );
+    expect(mocks.back).not.toHaveBeenCalled();
+  });
 });

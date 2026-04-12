@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { APP_KEYBOARD_CONTAINER_LABEL } from '../auth/app-keyboard-container.mock';
 
 const mocks = vi.hoisted(() => ({
@@ -105,13 +105,13 @@ vi.mock('@/lib/supabase', () => ({
 }));
 
 const fetchMock = vi.fn();
-vi.stubGlobal('fetch', fetchMock);
 
 import ConnectDomainScreen from '@/app/(admin)/domains/connect';
 
 describe('ConnectDomainScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubGlobal('fetch', fetchMock);
     mocks.getSession.mockResolvedValue({
       data: {
         session: {
@@ -126,6 +126,10 @@ describe('ConnectDomainScreen', () => {
         verification: { value: 'verify-token' },
       }),
     });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('renders the connect form inside the shared form shell', () => {
@@ -154,5 +158,25 @@ describe('ConnectDomainScreen', () => {
     expect(
       screen.getByText(/please add the following TXT record/i)
     ).toBeTruthy();
+  });
+
+  it('shows an error alert when the domain request fails', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      json: async () => ({ error: 'Domain already exists' }),
+    });
+
+    render(<ConnectDomainScreen />);
+
+    fireEvent.change(screen.getByPlaceholderText('example.com'), {
+      target: { value: 'example.com' },
+    });
+    fireEvent.click(screen.getByText('Connect Domain'));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled();
+    });
+
+    expect(mocks.alert).toHaveBeenCalledWith('Error', 'Domain already exists');
   });
 });

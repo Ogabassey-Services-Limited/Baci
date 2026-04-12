@@ -214,6 +214,7 @@ export default function ConnectDomainScreen() {
     <AppFormScreen
       style={[styles.container, { backgroundColor: colors.background }]}
       contentContainerStyle={styles.content}
+      // iOS needs a slightly larger offset to clear the native header inset; Android is lower because its keyboard shifts content more aggressively.
       keyboardVerticalOffset={Platform.OS === 'ios' ? 24 : 16}
     >
       <Text style={[styles.title, { color: colors.text }]}>
