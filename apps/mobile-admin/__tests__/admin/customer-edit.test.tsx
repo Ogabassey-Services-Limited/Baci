@@ -233,10 +233,12 @@ describe('CustomerEditScreen', () => {
       );
     });
 
-    expect(mocks.alert).toHaveBeenCalledWith(
-      'Error',
-      'Failed to update customer'
-    );
+    await waitFor(() => {
+      expect(mocks.alert).toHaveBeenCalledWith(
+        'Error',
+        'Failed to update customer'
+      );
+    });
     expect(mocks.back).not.toHaveBeenCalled();
   });
 
