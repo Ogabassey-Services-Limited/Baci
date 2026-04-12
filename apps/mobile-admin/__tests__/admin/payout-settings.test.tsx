@@ -48,6 +48,47 @@ vi.mock('@/hooks/usePaystackBanks', () => ({
 vi.mock('@/hooks/usePayouts', () => ({
   usePayouts: () => ({ savePayoutSettings: mocks.savePayoutSettings }),
 }));
+vi.mock('@/components/payouts/BankPickerSheet', () => ({
+  BankPickerSheet: ({
+    banks,
+    onClose,
+    onSearchChange,
+    onSelect,
+    searchTerm,
+    visible,
+  }: {
+    banks: Array<{ code: string; name: string }>;
+    onClose: () => void;
+    onSearchChange: (value: string) => void;
+    onSelect: (bank: { code: string; name: string }) => void;
+    searchTerm: string;
+    visible: boolean;
+  }) =>
+    visible ? (
+      <section aria-label="bank-picker-sheet">
+        <button aria-label="Close bank picker" onClick={onClose} type="button">
+          close
+        </button>
+        <input
+          aria-label="Search banks"
+          onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+            onSearchChange(event.target.value)
+          }
+          value={searchTerm}
+        />
+        {banks.map((bank) => (
+          <button
+            key={bank.code}
+            aria-label={bank.name}
+            onClick={() => onSelect(bank)}
+            type="button"
+          >
+            {bank.name}
+          </button>
+        ))}
+      </section>
+    ) : null,
+}));
 vi.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({
     colors: {
@@ -120,32 +161,6 @@ vi.mock('react-native', async () => {
   return {
     ActivityIndicator: () => null,
     Alert: mocks.Alert,
-    FlatList: ({
-      data,
-      renderItem,
-    }: {
-      data: unknown[];
-      renderItem: (info: { item: unknown }) => React.ReactNode;
-    }) =>
-      React.createElement(
-        'div',
-        null,
-        data.map((item, i) =>
-          React.createElement('div', { key: i }, renderItem({ item }))
-        )
-      ),
-    KeyboardAvoidingView: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('div', null, children),
-    Modal: ({
-      children,
-      visible,
-    }: {
-      children?: React.ReactNode;
-      visible?: boolean;
-    }) =>
-      visible
-        ? React.createElement('div', { 'data-testid': 'modal' }, children)
-        : null,
     Pressable: ({
       children,
       onPress,
@@ -288,5 +303,17 @@ describe('PayoutSettingsScreen', () => {
       expect.objectContaining({ accountNumber: '0141691337', bankCode: '058' }),
       expect.any(Object)
     );
+  });
+
+  it('opens the shared bank picker and filters via the search field', () => {
+    render(<PayoutSettingsScreen />);
+
+    fireEvent.click(screen.getByLabelText('Select bank'));
+    fireEvent.change(screen.getByLabelText('Search banks'), {
+      target: { value: 'gt' },
+    });
+
+    expect(screen.getByLabelText('bank-picker-sheet')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'GTBank' })).toBeTruthy();
   });
 });
