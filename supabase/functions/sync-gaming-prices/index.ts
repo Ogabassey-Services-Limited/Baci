@@ -11,6 +11,33 @@ const FROM_EMAIL = 'notifications@usebaci.com';
 const FROM_NAME = 'Baci Notifications';
 const ADMIN_EMAIL = 'admin@ogabassey.com'; // Configure this
 
+interface NewProduct {
+  name: string;
+  costPrice: number;
+}
+
+interface PriceChange {
+  name: string;
+  oldPrice: number;
+  newPrice: number;
+}
+
+interface ExistingProduct {
+  id: string;
+  external_id: string;
+  cost_price: number;
+  price: number;
+  name: string;
+  stock: number | null;
+}
+
+interface ProductUpdate {
+  id: string;
+  cost_price: number;
+  price: number;
+  last_price_sync: string;
+}
+
 serve(async (_req) => {
   try {
     const supabaseClient = createClient(
@@ -32,13 +59,13 @@ serve(async (_req) => {
 
     if (fetchError) throw fetchError;
 
-    const productMap = new Map();
+    const productMap = new Map<string, ExistingProduct>();
     // biome-ignore lint/suspicious/useIterableCallbackReturn: forEach with side effects
     existingProducts?.forEach((p) => productMap.set(p.external_id, p));
 
-    const updates = [];
-    const newProducts = [];
-    const priceChanges = [];
+    const updates: ProductUpdate[] = [];
+    const newProducts: NewProduct[] = [];
+    const priceChanges: PriceChange[] = [];
 
     const startIdx = lines[0].includes('PRICE') ? 1 : 0;
 
@@ -65,6 +92,10 @@ serve(async (_req) => {
       // Check Existing
       if (productMap.has(externalId)) {
         const existing = productMap.get(externalId);
+
+        if (!existing) {
+          continue;
+        }
 
         // Check for significant price difference (> 100 NGN)
         if (Math.abs(existing.cost_price - costPrice) > 100) {
@@ -122,8 +153,10 @@ serve(async (_req) => {
   }
 });
 
-// biome-ignore lint/suspicious/noExplicitAny: Dynamic product and price data
-async function sendNotification(newProducts: any[], priceChanges: any[]) {
+async function sendNotification(
+  newProducts: NewProduct[],
+  priceChanges: PriceChange[]
+) {
   if (!ZEPTOMAIL_TOKEN) {
     console.error('Missing ZEPTOMAIL_TOKEN');
     return;
