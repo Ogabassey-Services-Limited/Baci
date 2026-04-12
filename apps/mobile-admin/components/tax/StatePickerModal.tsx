@@ -1,6 +1,7 @@
 import { NIGERIAN_STATES } from '@baci/shared';
 import { Ionicons } from '@expo/vector-icons';
-import { FlatList, Modal, Platform, Pressable, Text, View } from 'react-native';
+import { FlatList, Platform, Pressable, Text, View } from 'react-native';
+import { AppPageSheet } from '@/components/ui/AppPageSheet';
 import { SPACING } from '@/constants/theme';
 import { styles } from './styles';
 import type { TaxColors } from './types';
@@ -21,25 +22,16 @@ export function StatePickerModal({
   onSelect,
 }: StatePickerModalProps) {
   return (
-    <Modal
+    <AppPageSheet
+      closeLabel="Close state picker"
+      onClose={onClose}
+      scrollEnabled={false}
+      title="Select State"
       visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onClose}
     >
       <View
         style={[styles.modalContainer, { backgroundColor: colors.background }]}
       >
-        <View
-          style={[styles.modalHeader, { borderBottomColor: colors.border }]}
-        >
-          <Text style={[styles.modalTitle, { color: colors.text }]}>
-            Select State
-          </Text>
-          <Pressable onPress={onClose} style={styles.closeButton}>
-            <Ionicons name="close" size={24} color={colors.text} />
-          </Pressable>
-        </View>
         <FlatList
           data={NIGERIAN_STATES}
           keyExtractor={(item) => item.code}
@@ -67,6 +59,11 @@ export function StatePickerModal({
                 },
               ]}
               onPress={() => onSelect(item.code)}
+              accessibilityRole="button"
+              accessibilityLabel={item.name}
+              accessibilityState={{
+                selected: selectedStateCode === item.code,
+              }}
             >
               <Text
                 style={[
@@ -92,6 +89,6 @@ export function StatePickerModal({
           )}
         />
       </View>
-    </Modal>
+    </AppPageSheet>
   );
 }
