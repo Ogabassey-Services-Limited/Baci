@@ -142,6 +142,12 @@ vi.mock('@/lib/sanitize', () => ({
 
 import CustomerEditScreen from '@/app/(admin)/customer/edit/[id]';
 
+function invokeAlertButton(title: string, buttonIndex = 0) {
+  const matchingCall = mocks.alert.mock.calls.find((call) => call[0] === title);
+  expect(matchingCall).toBeTruthy();
+  matchingCall?.[2]?.[buttonIndex]?.onPress?.();
+}
+
 describe('CustomerEditScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -194,11 +200,7 @@ describe('CustomerEditScreen', () => {
       );
     });
 
-    const successCall = mocks.alert.mock.calls.find(
-      (call) => call[0] === 'Success'
-    );
-    expect(successCall).toBeTruthy();
-    successCall?.[2]?.[0]?.onPress?.();
+    invokeAlertButton('Success');
     expect(mocks.back).toHaveBeenCalled();
   });
 
