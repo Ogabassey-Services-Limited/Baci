@@ -52,15 +52,21 @@ vi.mock('react-native', async () => {
           onChangeText?.(e.target.value),
       }),
     Pressable: ({
+      accessibilityLabel,
       children,
       onPress,
       disabled,
     }: {
+      accessibilityLabel?: string;
       children?: React.ReactNode;
       onPress?: () => void;
       disabled?: boolean;
     }) =>
-      React.createElement('button', { onClick: onPress, disabled }, children),
+      React.createElement(
+        'button',
+        { onClick: onPress, disabled, 'aria-label': accessibilityLabel },
+        children
+      ),
     ScrollView: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('div', null, children),
     ActivityIndicator: () => null,
@@ -207,6 +213,7 @@ describe('RegisterScreen', () => {
     expect(
       screen.getByRole('region', { name: APP_KEYBOARD_CONTAINER_LABEL })
     ).toBeTruthy();
+    expect(screen.getByLabelText('Back')).toBeTruthy();
     fillFormAndSubmit();
 
     expect(mocks.mutate).toHaveBeenCalledTimes(1);

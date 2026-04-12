@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
+import { BusinessTypeSelector } from '@/components/auth/BusinessTypeSelector';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
 import { DARK_COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme'; // Adjust import path if needed
 import { useRegistration } from '@/hooks/useRegistration';
@@ -22,19 +23,6 @@ import {
   validatePassword,
 } from '@/lib/password-utils';
 import { getEmailError } from '@/lib/sanitize';
-
-// Simplified Business Types from Web Config
-const BUSINESS_TYPES = [
-  { id: 'fashion', label: 'Fashion & Apparel' },
-  { id: 'electronics', label: 'Electronics & Gadgets' },
-  { id: 'home-goods', label: 'Home Goods & Decor' },
-  { id: 'health-beauty', label: 'Health & Beauty' },
-  { id: 'handmade', label: 'Handmade & Crafts' },
-  { id: 'food-beverage', label: 'Food & Beverage' },
-  { id: 'hair-extensions', label: 'Hair & Extensions' },
-  { id: 'pharmaceuticals', label: 'Pharmaceuticals & Medical' },
-  { id: 'other', label: 'Other' },
-];
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -244,6 +232,8 @@ export default function RegisterScreen() {
             <Pressable
               onPress={() => (step === 1 ? router.back() : setStep(1))}
               style={styles.backButton}
+              accessibilityLabel="Back"
+              accessibilityRole="button"
             >
               <Ionicons name="arrow-back" size={24} color="#FFF" />
             </Pressable>
@@ -534,34 +524,16 @@ export default function RegisterScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Business Type</Text>
-              <View style={styles.typeGrid}>
-                {BUSINESS_TYPES.map((type) => (
-                  <Pressable
-                    key={type.id}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${type.label} business type`}
-                    accessibilityState={{
-                      selected: formData.businessType === type.id,
-                    }}
-                    style={[
-                      styles.typeCard,
-                      formData.businessType === type.id &&
-                        styles.typeCardSelected,
-                    ]}
-                    onPress={() => updateForm('businessType', type.id)}
-                  >
-                    <Text
-                      style={[
-                        styles.typeText,
-                        formData.businessType === type.id &&
-                          styles.typeTextSelected,
-                      ]}
-                    >
-                      {type.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
+              <BusinessTypeSelector
+                borderColor={DARK_COLORS.border}
+                cardBackgroundColor="rgba(255,255,255,0.05)"
+                onSelect={(typeId) => updateForm('businessType', typeId)}
+                selectedBackgroundColor={DARK_COLORS.primary}
+                selectedBorderColor={DARK_COLORS.primary}
+                selectedTextColor="#FFF"
+                selectedType={formData.businessType}
+                textColor="#9CA3AF"
+              />
             </View>
 
             {formData.businessType === 'other' && (
@@ -732,31 +704,6 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: TYPOGRAPHY.size.lg,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
-  },
-  typeGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.sm,
-  },
-  typeCard: {
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    borderRadius: RADIUS.full,
-    borderWidth: 1,
-    borderColor: DARK_COLORS.border,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-  },
-  typeCardSelected: {
-    backgroundColor: DARK_COLORS.primary,
-    borderColor: DARK_COLORS.primary,
-  },
-  typeText: {
-    color: '#9CA3AF',
-    fontSize: TYPOGRAPHY.size.sm,
-  },
-  typeTextSelected: {
-    color: '#FFF',
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
   urlInputContainer: {
     flexDirection: 'row',
