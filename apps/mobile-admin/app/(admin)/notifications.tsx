@@ -4,12 +4,12 @@ import { Stack, useRouter } from 'expo-router';
 import { Alert, Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { styles } from '@/components/notifications/notifications.styles';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-import { styles } from './notifications.styles';
 
 interface NotificationPreferences {
   merchant_id: string;

@@ -176,7 +176,7 @@ vi.mock('@/types/upload', () => ({
   asUploadFile: vi.fn(),
 }));
 
-import HomeScreen from './index';
+import HomeScreen from '@/app/(admin)/(tabs)/index';
 
 describe('HomeScreen', () => {
   it('reserves the top safe area on the dashboard tab', () => {

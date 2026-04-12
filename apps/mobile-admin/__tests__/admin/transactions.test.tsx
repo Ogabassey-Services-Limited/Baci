@@ -13,7 +13,8 @@ vi.mock('react-native', async () => {
   const React = await import('react');
 
   return {
-    ActivityIndicator: () => React.createElement('div', { role: 'progressbar' }),
+    ActivityIndicator: () =>
+      React.createElement('div', { role: 'progressbar' }),
     Pressable: ({
       accessibilityLabel,
       children,
@@ -139,7 +140,7 @@ vi.mock('@/components/transactions/TransactionOrderCard', () => ({
       orderNumber: string;
     };
   }) => (
-    <button onClick={() => onOpenEditor(order.items[0])}>
+    <button type="button" onClick={() => onOpenEditor(order.items[0])}>
       Edit {order.orderNumber}
     </button>
   ),
@@ -169,13 +170,17 @@ vi.mock('@/components/transactions/CostPriceEditorModal', () => ({
           onChange={(event) => onChangeCostPrice(event.target.value)}
         />
         {saveError ? <span>{saveError}</span> : null}
-        <button onClick={onSave}>Save cost price</button>
-        <button onClick={onClose}>Close editor</button>
+        <button type="button" onClick={onSave}>
+          Save cost price
+        </button>
+        <button type="button" onClick={onClose}>
+          Close editor
+        </button>
       </div>
     ) : null,
 }));
 
-import TransactionsScreen from './transactions';
+import TransactionsScreen from '@/app/(admin)/transactions';
 
 const sampleOrders = [
   {

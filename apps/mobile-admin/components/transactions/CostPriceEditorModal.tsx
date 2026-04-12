@@ -5,7 +5,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { styles } from '@/app/(admin)/transactions.styles';
+import { styles } from '@/components/transactions/transactions.styles';
 import { BottomSheetModal } from '@/components/ui/BottomSheetModal';
 import type { ThemeColors } from '@/constants/theme';
 import type { TransactionReviewItem } from '@/hooks/useTransactionReview';

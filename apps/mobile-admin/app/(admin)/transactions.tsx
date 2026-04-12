@@ -10,10 +10,10 @@ import {
 } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { styles } from '@/app/(admin)/transactions.styles';
 import { CostPriceEditorModal } from '@/components/transactions/CostPriceEditorModal';
 import { TransactionOrderCard } from '@/components/transactions/TransactionOrderCard';
 import { TransactionsSummary } from '@/components/transactions/TransactionsSummary';
+import { styles } from '@/components/transactions/transactions.styles';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useTheme } from '@/hooks/useTheme';
 import {
@@ -198,12 +198,14 @@ export default function TransactionsScreen() {
               style={[
                 styles.heroCard,
                 {
-                  backgroundColor: colors.warning + '12',
-                  borderColor: colors.warning + '30',
+                  backgroundColor: `${colors.warning}12`,
+                  borderColor: `${colors.warning}30`,
                 },
               ]}
             >
-              <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
+              <Text
+                style={[styles.heroSubtitle, { color: colors.textSecondary }]}
+              >
                 Unable to refresh transactions. Showing the last loaded data.
               </Text>
             </View>

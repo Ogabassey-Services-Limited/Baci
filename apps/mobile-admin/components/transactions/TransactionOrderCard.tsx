@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, Text, View } from 'react-native';
-import { styles } from '@/app/(admin)/transactions.styles';
+import { styles } from '@/components/transactions/transactions.styles';
 import type { ThemeColors } from '@/constants/theme';
 import type {
   TransactionReviewItem,

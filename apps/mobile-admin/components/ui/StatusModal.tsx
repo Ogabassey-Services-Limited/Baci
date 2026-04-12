@@ -4,7 +4,8 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppDialogModal } from '@/components/ui/AppDialogModal';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 
@@ -24,63 +25,63 @@ export function StatusModal({ status, onClose }: StatusModalProps) {
   const { colors } = useTheme();
 
   return (
-    <Modal
+    <AppDialogModal
+      contentContainerStyle={styles.contentContainer}
+      onClose={onClose}
       visible={status.visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
-        <View style={[styles.card, { backgroundColor: colors.card }]}>
-          <View
-            style={[
-              styles.iconContainer,
-              {
-                backgroundColor:
-                  status.type === 'success' ? colors.successLight : colors.errorLight,
-              },
-            ]}
-          >
-            <Ionicons
-              name={status.type === 'success' ? 'checkmark' : 'alert'}
-              size={32}
-              color={status.type === 'success' ? colors.success : colors.error}
-            />
-          </View>
-          <Text style={[styles.title, { color: colors.text }]}>
-            {status.title}
-          </Text>
-          <Text style={[styles.message, { color: colors.textSecondary }]}>
-            {status.message}
-          </Text>
-          <Pressable
-            style={[
-              styles.button,
-              {
-                backgroundColor:
-                  status.type === 'success' ? colors.primary : colors.error,
-              },
-            ]}
-            onPress={onClose}
-            accessibilityRole="button"
-            accessibilityLabel="Dismiss status message"
-            accessibilityHint="Closes the status message"
-          >
-            <Text style={styles.buttonText}>Okay</Text>
-          </Pressable>
+      <View
+        accessible={true}
+        accessibilityLabel={`${status.title} dialog. ${status.message}`}
+        accessibilityViewIsModal={true}
+        style={[styles.card, { backgroundColor: colors.card }]}
+      >
+        <View
+          style={[
+            styles.iconContainer,
+            {
+              backgroundColor:
+                status.type === 'success'
+                  ? colors.successLight
+                  : colors.errorLight,
+            },
+          ]}
+        >
+          <Ionicons
+            name={status.type === 'success' ? 'checkmark' : 'alert'}
+            size={32}
+            color={status.type === 'success' ? colors.success : colors.error}
+          />
         </View>
+        <Text style={[styles.title, { color: colors.text }]}>
+          {status.title}
+        </Text>
+        <Text style={[styles.message, { color: colors.textSecondary }]}>
+          {status.message}
+        </Text>
+        <Pressable
+          style={[
+            styles.button,
+            {
+              backgroundColor:
+                status.type === 'success' ? colors.primary : colors.error,
+            },
+          ]}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Dismiss status message"
+          accessibilityHint="Closes the status message"
+        >
+          <Text style={styles.buttonText}>Okay</Text>
+        </Pressable>
       </View>
-    </Modal>
+    </AppDialogModal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
+  contentContainer: {
     alignItems: 'center',
-    padding: SPACING.xl,
   },
   card: {
     width: '100%',
