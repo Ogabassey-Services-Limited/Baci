@@ -17,9 +17,8 @@ import {
   View,
 } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
-import { AppKeyboardContainer } from '@/components/ui/AppKeyboardContainer';
+import { AppFormScreen } from '@/components/ui/AppFormScreen';
 import { getEmailError } from '@/lib/sanitize';
 
 // Multi-colored Google Logo Component
@@ -125,301 +124,292 @@ export default function LoginScreen() {
   const isAnyLoading = isAuthenticating;
 
   return (
-    <SafeAreaView
+    <AppFormScreen
+      contentContainerStyle={styles.content}
+      scrollEnabled={false}
       style={[styles.container, { backgroundColor: colors.background }]}
     >
       <SystemBars style="auto" />
-      <AppKeyboardContainer
-        align="center"
-        contentContainerStyle={styles.content}
-        style={styles.contentContainer}
-      >
-        <View>
-          {/* Baci Branding */}
-          <View style={styles.header}>
-            <BaciLogo size={80} borderRadius={20} />
-            <Text style={[styles.title, { color: BRAND.navy }]}>Baci</Text>
-            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-              Manage your store on the go
+      <View style={styles.contentContainer}>
+        {/* Baci Branding */}
+        <View style={styles.header}>
+          <BaciLogo size={80} borderRadius={20} />
+          <Text style={[styles.title, { color: BRAND.navy }]}>Baci</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+            Manage your store on the go
+          </Text>
+        </View>
+
+        {/* Form */}
+        <View style={styles.form}>
+          {error ? (
+            <View
+              style={[styles.errorCard, { backgroundColor: colors.errorLight }]}
+            >
+              <Ionicons name="alert-circle" size={20} color={colors.error} />
+              <Text style={[styles.errorText, { color: colors.error }]}>
+                {error}
+              </Text>
+            </View>
+          ) : null}
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>
+              Email
             </Text>
+            <View
+              style={[
+                styles.inputWrapper,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <Ionicons
+                name="mail-outline"
+                size={20}
+                color={colors.textMuted}
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={[styles.input, { color: colors.text }]}
+                placeholder="you@example.com"
+                placeholderTextColor={colors.textMuted}
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                autoComplete="email"
+                keyboardType="email-address"
+                textContentType="emailAddress"
+                editable={!isAnyLoading}
+                returnKeyType="next"
+                blurOnSubmit={false}
+                onSubmitEditing={() => passwordRef.current?.focus()}
+              />
+            </View>
           </View>
 
-          {/* Form */}
-          <View style={styles.form}>
-            {error ? (
-              <View
-                style={[
-                  styles.errorCard,
-                  { backgroundColor: colors.errorLight },
-                ]}
-              >
-                <Ionicons name="alert-circle" size={20} color={colors.error} />
-                <Text style={[styles.errorText, { color: colors.error }]}>
-                  {error}
-                </Text>
-              </View>
-            ) : null}
-
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>
-                Email
-              </Text>
-              <View
-                style={[
-                  styles.inputWrapper,
-                  { backgroundColor: colors.card, borderColor: colors.border },
-                ]}
-              >
-                <Ionicons
-                  name="mail-outline"
-                  size={20}
-                  color={colors.textMuted}
-                  style={styles.inputIcon}
-                />
-                <TextInput
-                  style={[styles.input, { color: colors.text }]}
-                  placeholder="you@example.com"
-                  placeholderTextColor={colors.textMuted}
-                  value={email}
-                  onChangeText={setEmail}
-                  autoCapitalize="none"
-                  autoComplete="email"
-                  keyboardType="email-address"
-                  textContentType="emailAddress"
-                  editable={!isAnyLoading}
-                  returnKeyType="next"
-                  blurOnSubmit={false}
-                  onSubmitEditing={() => passwordRef.current?.focus()}
-                />
-              </View>
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>
-                Password
-              </Text>
-              <View
-                style={[
-                  styles.inputWrapper,
-                  { backgroundColor: colors.card, borderColor: colors.border },
-                ]}
-              >
-                <Ionicons
-                  name="lock-closed-outline"
-                  size={20}
-                  color={colors.textMuted}
-                  style={styles.inputIcon}
-                />
-                <TextInput
-                  ref={passwordRef}
-                  style={[styles.input, { color: colors.text }]}
-                  placeholder="••••••••"
-                  placeholderTextColor={colors.textMuted}
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={!showPassword}
-                  autoComplete="password"
-                  textContentType="password"
-                  editable={!isAnyLoading}
-                  returnKeyType="go"
-                  onSubmitEditing={handleLogin}
-                />
-                <Pressable
-                  onPress={() => setShowPassword((prev) => !prev)}
-                  style={styles.eyeButton}
-                  accessibilityRole="button"
-                  accessibilityLabel={
-                    showPassword ? 'Hide password' : 'Show password'
-                  }
-                >
-                  <Ionicons
-                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                    size={20}
-                    color={colors.textMuted}
-                  />
-                </Pressable>
-              </View>
-            </View>
-            <Pressable
-              onPress={() => {
-                if (isAnyLoading) {
-                  return;
-                }
-
-                push('/(auth)/forgot-password');
-              }}
-              style={styles.forgotPassword}
-              disabled={isAnyLoading}
-              accessibilityRole="link"
-              accessibilityLabel="Forgot password? Reset your password"
-              accessibilityState={{ disabled: isAnyLoading }}
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>
+              Password
+            </Text>
+            <View
+              style={[
+                styles.inputWrapper,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
             >
-              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-            </Pressable>
+              <Ionicons
+                name="lock-closed-outline"
+                size={20}
+                color={colors.textMuted}
+                style={styles.inputIcon}
+              />
+              <TextInput
+                ref={passwordRef}
+                style={[styles.input, { color: colors.text }]}
+                placeholder="••••••••"
+                placeholderTextColor={colors.textMuted}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                autoComplete="password"
+                textContentType="password"
+                editable={!isAnyLoading}
+                returnKeyType="go"
+                onSubmitEditing={handleLogin}
+              />
+              <Pressable
+                onPress={() => setShowPassword((prev) => !prev)}
+                style={styles.eyeButton}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  showPassword ? 'Hide password' : 'Show password'
+                }
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={20}
+                  color={colors.textMuted}
+                />
+              </Pressable>
+            </View>
+          </View>
+          <Pressable
+            onPress={() => {
+              if (isAnyLoading) {
+                return;
+              }
 
+              push('/(auth)/forgot-password');
+            }}
+            style={styles.forgotPassword}
+            disabled={isAnyLoading}
+            accessibilityRole="link"
+            accessibilityLabel="Forgot password? Reset your password"
+            accessibilityState={{ disabled: isAnyLoading }}
+          >
+            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+          </Pressable>
+
+          <Pressable
+            style={[
+              styles.loginButton,
+              { backgroundColor: BRAND.yellow },
+              isAnyLoading && styles.loginButtonDisabled,
+            ]}
+            onPress={handleLogin}
+            disabled={isAnyLoading}
+            accessibilityRole="button"
+            accessibilityLabel={
+              isPasswordLoading ? 'Signing in' : 'Sign in to your account'
+            }
+            accessibilityState={{ disabled: isAnyLoading }}
+          >
+            {isPasswordLoading ? (
+              <ActivityIndicator color={BRAND.navy} />
+            ) : (
+              <Text style={[styles.loginButtonText, { color: BRAND.navy }]}>
+                Sign In
+              </Text>
+            )}
+          </Pressable>
+
+          {/* Divider */}
+          <View style={styles.divider}>
+            <View
+              style={[styles.dividerLine, { backgroundColor: colors.border }]}
+            />
+            <Text style={[styles.dividerText, { color: colors.textMuted }]}>
+              or continue with
+            </Text>
+            <View
+              style={[styles.dividerLine, { backgroundColor: colors.border }]}
+            />
+          </View>
+
+          {/* Social Login Buttons */}
+          <View style={styles.socialButtons}>
+            {/* Google Sign-In */}
             <Pressable
               style={[
-                styles.loginButton,
-                { backgroundColor: BRAND.yellow },
-                isAnyLoading && styles.loginButtonDisabled,
+                styles.socialButton,
+                { backgroundColor: colors.card, borderColor: colors.border },
               ]}
-              onPress={handleLogin}
+              onPress={handleGoogleSignIn}
               disabled={isAnyLoading}
               accessibilityRole="button"
               accessibilityLabel={
-                isPasswordLoading ? 'Signing in' : 'Sign in to your account'
+                isGoogleLoading
+                  ? 'Signing in with Google'
+                  : 'Sign in with Google'
               }
               accessibilityState={{ disabled: isAnyLoading }}
             >
-              {isPasswordLoading ? (
-                <ActivityIndicator color={BRAND.navy} />
+              {isGoogleLoading ? (
+                <ActivityIndicator size="small" color={colors.text} />
               ) : (
-                <Text style={[styles.loginButtonText, { color: BRAND.navy }]}>
-                  Sign In
-                </Text>
+                <>
+                  <GoogleLogo size={20} />
+                  <Text
+                    style={[styles.socialButtonText, { color: colors.text }]}
+                  >
+                    Google
+                  </Text>
+                </>
               )}
             </Pressable>
 
-            {/* Divider */}
-            <View style={styles.divider}>
-              <View
-                style={[styles.dividerLine, { backgroundColor: colors.border }]}
-              />
-              <Text style={[styles.dividerText, { color: colors.textMuted }]}>
-                or continue with
-              </Text>
-              <View
-                style={[styles.dividerLine, { backgroundColor: colors.border }]}
-              />
-            </View>
-
-            {/* Social Login Buttons */}
-            <View style={styles.socialButtons}>
-              {/* Google Sign-In */}
+            {/* Apple Sign-In (iOS only) */}
+            {Platform.OS === 'ios' && (
               <Pressable
                 style={[
                   styles.socialButton,
-                  { backgroundColor: colors.card, borderColor: colors.border },
+                  { backgroundColor: '#000', borderColor: '#000' },
                 ]}
-                onPress={handleGoogleSignIn}
+                onPress={handleAppleSignIn}
                 disabled={isAnyLoading}
                 accessibilityRole="button"
                 accessibilityLabel={
-                  isGoogleLoading
-                    ? 'Signing in with Google'
-                    : 'Sign in with Google'
+                  isAppleLoading
+                    ? 'Signing in with Apple'
+                    : 'Sign in with Apple'
                 }
                 accessibilityState={{ disabled: isAnyLoading }}
               >
-                {isGoogleLoading ? (
-                  <ActivityIndicator size="small" color={colors.text} />
+                {isAppleLoading ? (
+                  <ActivityIndicator size="small" color="#FFF" />
                 ) : (
                   <>
-                    <GoogleLogo size={20} />
-                    <Text
-                      style={[styles.socialButtonText, { color: colors.text }]}
-                    >
-                      Google
+                    <Ionicons name="logo-apple" size={20} color="#FFF" />
+                    <Text style={[styles.socialButtonText, { color: '#FFF' }]}>
+                      Apple
                     </Text>
                   </>
                 )}
               </Pressable>
-
-              {/* Apple Sign-In (iOS only) */}
-              {Platform.OS === 'ios' && (
-                <Pressable
-                  style={[
-                    styles.socialButton,
-                    { backgroundColor: '#000', borderColor: '#000' },
-                  ]}
-                  onPress={handleAppleSignIn}
-                  disabled={isAnyLoading}
-                  accessibilityRole="button"
-                  accessibilityLabel={
-                    isAppleLoading
-                      ? 'Signing in with Apple'
-                      : 'Sign in with Apple'
-                  }
-                  accessibilityState={{ disabled: isAnyLoading }}
-                >
-                  {isAppleLoading ? (
-                    <ActivityIndicator size="small" color="#FFF" />
-                  ) : (
-                    <>
-                      <Ionicons name="logo-apple" size={20} color="#FFF" />
-                      <Text
-                        style={[styles.socialButtonText, { color: '#FFF' }]}
-                      >
-                        Apple
-                      </Text>
-                    </>
-                  )}
-                </Pressable>
-              )}
-            </View>
+            )}
           </View>
-
-          {/* Footer */}
-          <View style={styles.signUpContainer}>
-            <Text style={[styles.signUpText, { color: colors.textMuted }]}>
-              Don&apos;t have an account?
-            </Text>
-            <Pressable
-              onPress={() => push('/(auth)/register')}
-              disabled={isAnyLoading}
-              accessibilityRole="link"
-              accessibilityLabel="Sign up for a new merchant account"
-              accessibilityState={{ disabled: isAnyLoading }}
-            >
-              <Text
-                style={[
-                  styles.signUpLink,
-                  isAnyLoading && styles.signUpLinkDisabled,
-                ]}
-              >
-                Sign Up
-              </Text>
-            </Pressable>
-          </View>
-
-          {/* DEV: Reset Onboarding */}
-          {__DEV__ && (
-            <Pressable
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: 12,
-                borderRadius: RADIUS.md,
-                borderWidth: 1,
-                gap: 8,
-                marginTop: SPACING.xl,
-                backgroundColor: '#FEF3C7',
-                borderColor: '#F59E0B',
-              }}
-              onPress={async () => {
-                await resetOnboarding();
-                Alert.alert(
-                  'Onboarding Reset',
-                  'You will now be taken to the onboarding screen.',
-                  [
-                    {
-                      text: 'OK',
-                      onPress: () => replace('/(auth)/onboarding'),
-                    },
-                  ]
-                );
-              }}
-            >
-              <Ionicons name="refresh-outline" size={20} color="#D97706" />
-              <Text style={{ color: '#D97706', fontWeight: '600' }}>
-                Reset Onboarding (Dev)
-              </Text>
-            </Pressable>
-          )}
         </View>
-      </AppKeyboardContainer>
-    </SafeAreaView>
+
+        {/* Footer */}
+        <View style={styles.signUpContainer}>
+          <Text style={[styles.signUpText, { color: colors.textMuted }]}>
+            Don&apos;t have an account?
+          </Text>
+          <Pressable
+            onPress={() => push('/(auth)/register')}
+            disabled={isAnyLoading}
+            accessibilityRole="link"
+            accessibilityLabel="Sign up for a new merchant account"
+            accessibilityState={{ disabled: isAnyLoading }}
+          >
+            <Text
+              style={[
+                styles.signUpLink,
+                isAnyLoading && styles.signUpLinkDisabled,
+              ]}
+            >
+              Sign Up
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* DEV: Reset Onboarding */}
+        {__DEV__ && (
+          <Pressable
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 12,
+              borderRadius: RADIUS.md,
+              borderWidth: 1,
+              gap: 8,
+              marginTop: SPACING.xl,
+              backgroundColor: '#FEF3C7',
+              borderColor: '#F59E0B',
+            }}
+            onPress={async () => {
+              await resetOnboarding();
+              Alert.alert(
+                'Onboarding Reset',
+                'You will now be taken to the onboarding screen.',
+                [
+                  {
+                    text: 'OK',
+                    onPress: () => replace('/(auth)/onboarding'),
+                  },
+                ]
+              );
+            }}
+          >
+            <Ionicons name="refresh-outline" size={20} color="#D97706" />
+            <Text style={{ color: '#D97706', fontWeight: '600' }}>
+              Reset Onboarding (Dev)
+            </Text>
+          </Pressable>
+        )}
+      </View>
+    </AppFormScreen>
   );
 }
 
@@ -427,11 +417,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  contentContainer: {
-    flex: 1,
-  },
   content: {
     padding: SPACING.xl,
+  },
+  contentContainer: {
+    flex: 1,
+    justifyContent: 'center',
   },
   header: {
     alignItems: 'center',
