@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SPACING } from '@/constants/theme';
 
 interface AppKeyboardContainerProps {
-  align?: 'center' | 'end';
+  align?: 'start' | 'center' | 'end';
   children: ReactNode;
   contentContainerStyle?: StyleProp<ViewStyle>;
   keyboardVerticalOffset?: number;
@@ -29,10 +29,16 @@ export function AppKeyboardContainer({
   style,
 }: AppKeyboardContainerProps) {
   const insets = useSafeAreaInsets();
+  const justifyContent =
+    align === 'start'
+      ? 'flex-start'
+      : align === 'center'
+        ? 'center'
+        : 'flex-end';
   const contentStyle: StyleProp<ViewStyle> = [
     styles.content,
     {
-      justifyContent: align === 'center' ? 'center' : 'flex-end',
+      justifyContent,
       paddingBottom: Math.max(insets.bottom, SPACING.lg),
     } satisfies ViewStyle,
     contentContainerStyle,

@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
 
 const keyboardProps = vi.hoisted(() => ({
+  align: 'end' as 'start' | 'center' | 'end',
   contentContainerStyle: undefined as unknown,
   keyboardVerticalOffset: 0,
   scrollEnabled: true,
@@ -12,16 +13,19 @@ const keyboardProps = vi.hoisted(() => ({
 
 vi.mock('@/components/ui/AppKeyboardContainer', () => ({
   AppKeyboardContainer: ({
+    align,
     children,
     contentContainerStyle,
     keyboardVerticalOffset,
     scrollEnabled,
   }: {
+    align?: 'start' | 'center' | 'end';
     children?: ReactNode;
     contentContainerStyle?: unknown;
     keyboardVerticalOffset?: number;
     scrollEnabled?: boolean;
   }) => {
+    keyboardProps.align = align ?? 'end';
     keyboardProps.contentContainerStyle = contentContainerStyle;
     keyboardProps.keyboardVerticalOffset = keyboardVerticalOffset ?? 0;
     keyboardProps.scrollEnabled = scrollEnabled ?? true;
@@ -44,6 +48,7 @@ vi.mock('react-native', async () => ({
 
 describe('AppFormScreen', () => {
   beforeEach(() => {
+    keyboardProps.align = 'end';
     keyboardProps.contentContainerStyle = undefined;
     keyboardProps.keyboardVerticalOffset = 0;
     keyboardProps.scrollEnabled = true;
@@ -75,6 +80,7 @@ describe('AppFormScreen', () => {
       </AppFormScreen>
     );
 
+    expect(keyboardProps.align).toBe('start');
     expect(keyboardProps.keyboardVerticalOffset).toBe(64);
     expect(keyboardProps.scrollEnabled).toBe(false);
     expect(keyboardProps.contentContainerStyle).toEqual({ padding: 24 });

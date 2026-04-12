@@ -111,6 +111,19 @@ EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
 EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
+### Simulator and Emulator Keyboards
+
+If an input focuses but the on-screen keyboard does not appear, treat that as a simulator or emulator setting first.
+
+- iOS Simulator:
+  - Turn off `Hardware > Keyboard > Connect Hardware Keyboard` when you need the software keyboard.
+  - Use `Cmd-K` to toggle the on-screen keyboard.
+- Android Emulator:
+  - Enable the virtual keyboard when a hardware keyboard is attached.
+  - Typical path: `Settings > System > Languages & input > Physical keyboard > Show virtual keyboard`.
+
+This is a simulator or emulator configuration issue unless `TextInput` focus itself is failing.
+
 ### Firebase iOS Config
 
 `GoogleService-Info.plist` is intentionally tracked for the admin app. Firebase client

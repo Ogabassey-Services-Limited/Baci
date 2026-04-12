@@ -26,6 +26,7 @@ export function AppFormScreen({
     <SafeAreaView edges={edges} style={[styles.container, style]}>
       {header ? <View style={styles.header}>{header}</View> : null}
       <AppKeyboardContainer
+        align="start"
         contentContainerStyle={contentContainerStyle}
         keyboardVerticalOffset={keyboardVerticalOffset}
         scrollEnabled={scrollEnabled}

@@ -10,6 +10,7 @@
   - update `config/platform-branch-allowlist.json`
   - run `pnpm check:platform-drift`
 - Do not disable Android keyboard avoidance with an iOS-only `KeyboardAvoidingView` behavior.
+- If a simulator or emulator keyboard does not appear but `TextInput` focus still works, treat that as an environment/config issue first before changing app code.
 - Any bug caused by iOS/Android drift must include either:
   - a regression test, or
   - a shared abstraction change that prevents the same class of bug elsewhere.
