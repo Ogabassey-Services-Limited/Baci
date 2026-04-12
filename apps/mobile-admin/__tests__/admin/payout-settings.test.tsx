@@ -51,6 +51,7 @@ vi.mock('@/hooks/usePayouts', () => ({
 vi.mock('@/components/payouts/BankPickerSheet', () => ({
   BankPickerSheet: ({
     banks,
+    isLoading,
     onClose,
     onSearchChange,
     onSelect,
@@ -58,6 +59,7 @@ vi.mock('@/components/payouts/BankPickerSheet', () => ({
     visible,
   }: {
     banks: Array<{ code: string; name: string }>;
+    isLoading: boolean;
     onClose: () => void;
     onSearchChange: (value: string) => void;
     onSelect: (bank: { code: string; name: string }) => void;
@@ -76,6 +78,8 @@ vi.mock('@/components/payouts/BankPickerSheet', () => ({
           }
           value={searchTerm}
         />
+        {isLoading ? <div>loading banks</div> : null}
+        {!isLoading && banks.length === 0 ? <div>No banks found</div> : null}
         {banks.map((bank) => (
           <button
             key={bank.code}
@@ -229,6 +233,10 @@ describe('PayoutSettingsScreen', () => {
     mocks.verification.accountName = null;
     mocks.verification.isVerifying = false;
     mocks.verification.verifyError = null;
+    mocks.banks.data = [
+      { id: 1, name: 'GTBank', slug: 'gtbank', code: '058', active: true },
+    ];
+    mocks.banks.isLoading = false;
     mocks.savePayoutSettings.isPending = false;
   });
 
@@ -315,5 +323,18 @@ describe('PayoutSettingsScreen', () => {
 
     expect(screen.getByLabelText('bank-picker-sheet')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'GTBank' })).toBeTruthy();
+  });
+
+  it('shows the bank picker loading state when banks are still loading', () => {
+    mocks.banks.data = [];
+    mocks.banks.isLoading = true;
+
+    render(<PayoutSettingsScreen />);
+
+    fireEvent.click(screen.getByLabelText('Select bank'));
+
+    expect(screen.getByLabelText('bank-picker-sheet')).toBeTruthy();
+    expect(screen.getByText('loading banks')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'GTBank' })).toBeNull();
   });
 });

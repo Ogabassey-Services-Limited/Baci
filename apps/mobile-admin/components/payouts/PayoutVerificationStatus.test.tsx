@@ -41,6 +41,19 @@ describe('PayoutVerificationStatus', () => {
       <PayoutVerificationStatus
         accountName="John Doe"
         colors={colors}
+        isVerifying={true}
+        verifyError="Invalid account"
+      />
+    );
+
+    expect(screen.getByText('Verifying account...')).toBeInTheDocument();
+    expect(screen.queryByText('John Doe')).not.toBeInTheDocument();
+    expect(screen.queryByText('Invalid account')).not.toBeInTheDocument();
+
+    rerender(
+      <PayoutVerificationStatus
+        accountName="John Doe"
+        colors={colors}
         isVerifying={false}
         verifyError={null}
       />
@@ -50,7 +63,7 @@ describe('PayoutVerificationStatus', () => {
 
     rerender(
       <PayoutVerificationStatus
-        accountName={null}
+        accountName="John Doe"
         colors={colors}
         isVerifying={false}
         verifyError="Invalid account"
@@ -58,5 +71,6 @@ describe('PayoutVerificationStatus', () => {
     );
 
     expect(screen.getByText('Invalid account')).toBeInTheDocument();
+    expect(screen.queryByText('John Doe')).not.toBeInTheDocument();
   });
 });

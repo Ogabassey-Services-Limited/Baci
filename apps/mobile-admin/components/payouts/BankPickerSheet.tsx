@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   FlatList,
   Pressable,
+  StyleSheet,
   Text,
   TextInput,
   View,
@@ -99,6 +100,13 @@ export function BankPickerSheet({
             keyboardDismissMode="on-drag"
             keyboardShouldPersistTaps="handled"
             keyExtractor={(item) => item.code}
+            ListEmptyComponent={
+              <Text
+                style={[styles.emptyStateText, { color: colors.textMuted }]}
+              >
+                No banks found
+              </Text>
+            }
             renderItem={({ item }) => {
               const isSelected = selectedBankCode === item.code;
 
@@ -146,7 +154,7 @@ export function BankPickerSheet({
   );
 }
 
-const styles = {
+const styles = StyleSheet.create({
   pageSheetContent: {
     padding: 0,
   },
@@ -191,4 +199,10 @@ const styles = {
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
   },
-};
+  emptyStateText: {
+    padding: SPACING.lg,
+    textAlign: 'center',
+    fontSize: TYPOGRAPHY.size.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+  },
+});

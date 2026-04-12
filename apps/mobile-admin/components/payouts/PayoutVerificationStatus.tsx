@@ -21,42 +21,46 @@ export function PayoutVerificationStatus({
   isVerifying,
   verifyError,
 }: PayoutVerificationStatusProps) {
-  return (
-    <>
-      {isVerifying ? (
-        <View style={styles.verificationContainer}>
-          <ActivityIndicator color={colors.textSecondary} size="small" />
-          <Text
-            style={[styles.verificationText, { color: colors.textSecondary }]}
-          >
-            Verifying account...
-          </Text>
-        </View>
-      ) : null}
-
-      {accountName ? (
-        <View
-          style={[
-            styles.verificationContainer,
-            styles.successContainer,
-            { backgroundColor: colors.successLight },
-          ]}
+  if (isVerifying) {
+    return (
+      <View style={styles.verificationContainer}>
+        <ActivityIndicator color={colors.textSecondary} size="small" />
+        <Text
+          style={[styles.verificationText, { color: colors.textSecondary }]}
         >
-          <Ionicons color={colors.success} name="checkmark-circle" size={16} />
-          <Text style={[styles.verificationText, { color: colors.success }]}>
-            {accountName}
-          </Text>
-        </View>
-      ) : null}
+          Verifying account...
+        </Text>
+      </View>
+    );
+  }
 
-      {verifyError ? (
-        <View style={styles.verificationContainer}>
-          <Ionicons color={colors.error} name="alert-circle" size={16} />
-          <Text style={[styles.verificationText, { color: colors.error }]}>
-            {verifyError}
-          </Text>
-        </View>
-      ) : null}
-    </>
-  );
+  if (verifyError) {
+    return (
+      <View style={styles.verificationContainer}>
+        <Ionicons color={colors.error} name="alert-circle" size={16} />
+        <Text style={[styles.verificationText, { color: colors.error }]}>
+          {verifyError}
+        </Text>
+      </View>
+    );
+  }
+
+  if (accountName) {
+    return (
+      <View
+        style={[
+          styles.verificationContainer,
+          styles.successContainer,
+          { backgroundColor: colors.successLight },
+        ]}
+      >
+        <Ionicons color={colors.success} name="checkmark-circle" size={16} />
+        <Text style={[styles.verificationText, { color: colors.success }]}>
+          {accountName}
+        </Text>
+      </View>
+    );
+  }
+
+  return null;
 }

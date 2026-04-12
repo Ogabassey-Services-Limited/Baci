@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DiscountItemSelector } from './DiscountItemSelector';
 
 const mocks = vi.hoisted(() => ({
@@ -133,6 +133,31 @@ vi.mock('react-native', () => ({
 }));
 
 describe('DiscountItemSelector', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.clearAllMocks();
+    mocks.fetchSelectableItems.mockResolvedValue([]);
+  });
+
+  it('renders an error message when loading selectable items fails', async () => {
+    mocks.fetchSelectableItems.mockRejectedValueOnce(new Error('boom'));
+
+    render(
+      <DiscountItemSelector
+        initialIds={[]}
+        onClose={vi.fn()}
+        onSelect={vi.fn()}
+        type="product"
+        visible={true}
+      />
+    );
+
+    expect(await screen.findByText('Failed to load items')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Laptop' })
+    ).not.toBeInTheDocument();
+  });
+
   it('renders through the shared page-sheet shell and saves selections', async () => {
     mocks.fetchSelectableItems.mockResolvedValue([
       { description: 'Phone', id: 'product-1', images: [], name: 'Phone' },

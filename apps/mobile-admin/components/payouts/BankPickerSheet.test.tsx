@@ -55,11 +55,19 @@ vi.mock('react-native', () => ({
   ActivityIndicator: () => <div>loading</div>,
   FlatList: ({
     data,
+    ListEmptyComponent,
     renderItem,
   }: {
     data: Array<{ code: string; name: string }>;
+    ListEmptyComponent?: ReactNode;
     renderItem: (item: { item: { code: string; name: string } }) => ReactNode;
-  }) => <div>{data.map((item) => renderItem({ item }))}</div>,
+  }) => (
+    <div>
+      {data.length === 0
+        ? (ListEmptyComponent ?? null)
+        : data.map((item) => renderItem({ item }))}
+    </div>
+  ),
   Pressable: ({
     accessibilityLabel,
     children,
@@ -73,6 +81,9 @@ vi.mock('react-native', () => ({
       {children}
     </button>
   ),
+  StyleSheet: {
+    create: (styles: Record<string, unknown>) => styles,
+  },
   Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
   TextInput: ({
     accessibilityLabel,
@@ -155,5 +166,38 @@ describe('BankPickerSheet', () => {
     );
 
     expect(screen.queryByLabelText('bank-page-sheet')).not.toBeInTheDocument();
+  });
+
+  it('shows loading and empty states for the picker body', () => {
+    const { rerender } = render(
+      <BankPickerSheet
+        banks={[]}
+        isLoading={true}
+        onClose={vi.fn()}
+        onSearchChange={vi.fn()}
+        onSelect={vi.fn()}
+        searchTerm=""
+        selectedBankCode={null}
+        visible={true}
+      />
+    );
+
+    expect(screen.getByText('loading')).toBeInTheDocument();
+    expect(screen.queryByText('No banks found')).not.toBeInTheDocument();
+
+    rerender(
+      <BankPickerSheet
+        banks={[]}
+        isLoading={false}
+        onClose={vi.fn()}
+        onSearchChange={vi.fn()}
+        onSelect={vi.fn()}
+        searchTerm=""
+        selectedBankCode={null}
+        visible={true}
+      />
+    );
+
+    expect(screen.getByText('No banks found')).toBeInTheDocument();
   });
 });
