@@ -13,10 +13,14 @@ import {
 } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { DARK_COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import type { ThemeColors } from '@/constants/theme';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 
 export default function VerifyScreen() {
+  const { colors, isDark } = useTheme();
+  const styles = getStyles(colors);
   const router = useRouter();
   const { email } = useLocalSearchParams<{ email: string }>();
   const [code, setCode] = useState(['', '', '', '', '', '']); // 6 digits
@@ -186,20 +190,22 @@ export default function VerifyScreen() {
 
   return (
     <View style={styles.container}>
-      <SystemBars style="light" />
+      <SystemBars style={isDark ? 'light' : 'dark'} />
       <LinearGradient
-        colors={['#0D0D1A', '#1A1A2E']}
+        colors={[colors.background, colors.backgroundLight]}
         style={StyleSheet.absoluteFillObject}
       />
       <SafeAreaView style={styles.content}>
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#FFF" />
+            <Ionicons name="arrow-back" size={24} color={colors.text} />
           </Pressable>
           <Text style={styles.title}>Check your email</Text>
           <Text style={styles.subtitle}>
             We sent a code to{' '}
-            <Text style={{ fontWeight: 'bold', color: '#FFF' }}>{email}</Text>
+            <Text style={{ fontWeight: 'bold', color: colors.text }}>
+              {email}
+            </Text>
           </Text>
         </View>
 
@@ -217,7 +223,7 @@ export default function VerifyScreen() {
               onChangeText={(text) => handleCodeChange(text, index)}
               onKeyPress={(e) => handleKeyPress(e, index)}
               placeholder="-"
-              placeholderTextColor="#4B5563"
+              placeholderTextColor={colors.textMuted}
               textContentType="oneTimeCode"
               autoComplete="one-time-code"
             />
@@ -230,7 +236,7 @@ export default function VerifyScreen() {
           disabled={isLoading}
         >
           {isLoading ? (
-            <ActivityIndicator color="#FFF" />
+            <ActivityIndicator color={colors.textOnPrimary} />
           ) : (
             <Text style={styles.buttonText}>Verify Email</Text>
           )}
@@ -241,7 +247,12 @@ export default function VerifyScreen() {
           disabled={timer > 0 || isLoading}
           style={styles.resendButton}
         >
-          <Text style={[styles.resendText, timer > 0 && { color: '#6B7280' }]}>
+          <Text
+            style={[
+              styles.resendText,
+              timer > 0 && { color: colors.textMuted },
+            ]}
+          >
             {timer > 0 ? `Resend code in ${timer}s` : "I didn't receive a code"}
           </Text>
         </Pressable>
@@ -252,7 +263,11 @@ export default function VerifyScreen() {
         <View style={[StyleSheet.absoluteFill, styles.successOverlay]}>
           <View style={styles.successCard}>
             <View style={styles.iconContainer}>
-              <Ionicons name="checkmark" size={40} color="#FFF" />
+              <Ionicons
+                name="checkmark"
+                size={40}
+                color={colors.textOnPrimary}
+              />
             </View>
             <Text style={styles.successTitle}>Verified!</Text>
             <Text style={styles.successMessage}>
@@ -267,7 +282,11 @@ export default function VerifyScreen() {
               }}
             >
               <Text style={styles.successButtonText}>Enter Dashboard</Text>
-              <Ionicons name="arrow-forward" size={20} color="#000" />
+              <Ionicons
+                name="arrow-forward"
+                size={20}
+                color={colors.textOnPrimary}
+              />
             </Pressable>
           </View>
         </View>
@@ -276,136 +295,137 @@ export default function VerifyScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: DARK_COLORS.background,
-  },
-  content: {
-    flex: 1,
-    padding: SPACING.lg,
-    paddingTop: SPACING['3xl'], // Extra top padding
-  },
-  header: {
-    marginBottom: SPACING['3xl'],
-  },
-  backButton: {
-    marginBottom: SPACING.lg,
-  },
-  title: {
-    color: '#FFF',
-    fontSize: TYPOGRAPHY.size['3xl'], // 30px
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-    marginBottom: SPACING.sm,
-  },
-  subtitle: {
-    color: '#9CA3AF',
-    fontSize: TYPOGRAPHY.size.md,
-    lineHeight: 24,
-  },
-  otpContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: SPACING.xs,
-    marginBottom: SPACING.xl,
-  },
-  otpInput: {
-    width: 45,
-    height: 55,
-    borderWidth: 1,
-    borderColor: DARK_COLORS.border,
-    borderRadius: RADIUS.md,
-    backgroundColor: DARK_COLORS.inputBg,
-    color: '#FFF',
-    fontSize: TYPOGRAPHY.size.xl,
-    textAlign: 'center',
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-  },
-  button: {
-    backgroundColor: DARK_COLORS.primary,
-    paddingVertical: 16,
-    borderRadius: RADIUS.full,
-    alignItems: 'center',
-    marginBottom: SPACING.lg,
-  },
-  buttonText: {
-    color: '#FFF',
-    fontSize: TYPOGRAPHY.size.lg,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-  },
-  resendButton: {
-    alignItems: 'center',
-    padding: SPACING.md,
-  },
-  resendText: {
-    color: DARK_COLORS.primary, // Brand color for link
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-  },
-  // Success Modal Styles
-  successOverlay: {
-    backgroundColor: 'rgba(0,0,0,0.85)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SPACING.xl,
-    zIndex: 100, // Ensure it sits on top
-  },
-  successCard: {
-    width: '100%',
-    backgroundColor: '#1E1E2E', // Slightly lighter than background
-    borderRadius: RADIUS.xl,
-    padding: SPACING['2xl'],
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 10,
+const getStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
     },
-    shadowOpacity: 0.51,
-    shadowRadius: 13.16,
-    elevation: 20,
-  },
-  iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#10B981', // Emerald Green for success
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: SPACING.xl,
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  successTitle: {
-    color: '#FFF',
-    fontSize: TYPOGRAPHY.size['2xl'],
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-    marginBottom: SPACING.sm,
-  },
-  successMessage: {
-    color: '#9CA3AF',
-    fontSize: TYPOGRAPHY.size.md,
-    textAlign: 'center',
-    marginBottom: SPACING['2xl'],
-    lineHeight: 24,
-  },
-  successButton: {
-    width: '100%',
-    backgroundColor: '#FFF', // High contrast white button
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: RADIUS.full,
-    gap: SPACING.sm,
-  },
-  successButtonText: {
-    color: '#000',
-    fontSize: TYPOGRAPHY.size.lg,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-  },
-});
+    content: {
+      flex: 1,
+      padding: SPACING.lg,
+      paddingTop: SPACING['3xl'], // Extra top padding
+    },
+    header: {
+      marginBottom: SPACING['3xl'],
+    },
+    backButton: {
+      marginBottom: SPACING.lg,
+    },
+    title: {
+      color: colors.text,
+      fontSize: TYPOGRAPHY.size['3xl'], // 30px
+      fontFamily: TYPOGRAPHY.fontFamily.bold,
+      marginBottom: SPACING.sm,
+    },
+    subtitle: {
+      color: colors.textSecondary,
+      fontSize: TYPOGRAPHY.size.md,
+      lineHeight: 24,
+    },
+    otpContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: SPACING.xs,
+      marginBottom: SPACING.xl,
+    },
+    otpInput: {
+      width: 45,
+      height: 55,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: RADIUS.md,
+      backgroundColor: colors.inputBg,
+      color: colors.text,
+      fontSize: TYPOGRAPHY.size.xl,
+      textAlign: 'center',
+      fontFamily: TYPOGRAPHY.fontFamily.bold,
+    },
+    button: {
+      backgroundColor: colors.primary,
+      paddingVertical: 16,
+      borderRadius: RADIUS.full,
+      alignItems: 'center',
+      marginBottom: SPACING.lg,
+    },
+    buttonText: {
+      color: colors.textOnPrimary,
+      fontSize: TYPOGRAPHY.size.lg,
+      fontFamily: TYPOGRAPHY.fontFamily.bold,
+    },
+    resendButton: {
+      alignItems: 'center',
+      padding: SPACING.md,
+    },
+    resendText: {
+      color: colors.primary, // Brand color for link
+      fontSize: TYPOGRAPHY.size.md,
+      fontFamily: TYPOGRAPHY.fontFamily.medium,
+    },
+    // Success Modal Styles
+    successOverlay: {
+      backgroundColor: 'rgba(0,0,0,0.85)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: SPACING.xl,
+      zIndex: 100, // Ensure it sits on top
+    },
+    successCard: {
+      width: '100%',
+      backgroundColor: colors.card, // Slightly lighter than background
+      borderRadius: RADIUS.xl,
+      padding: SPACING['2xl'],
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.1)',
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 10,
+      },
+      shadowOpacity: 0.51,
+      shadowRadius: 13.16,
+      elevation: 20,
+    },
+    iconContainer: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      backgroundColor: colors.success, // Emerald Green for success
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: SPACING.xl,
+      shadowColor: colors.success,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+    },
+    successTitle: {
+      color: colors.text,
+      fontSize: TYPOGRAPHY.size['2xl'],
+      fontFamily: TYPOGRAPHY.fontFamily.bold,
+      marginBottom: SPACING.sm,
+    },
+    successMessage: {
+      color: colors.textSecondary,
+      fontSize: TYPOGRAPHY.size.md,
+      textAlign: 'center',
+      marginBottom: SPACING['2xl'],
+      lineHeight: 24,
+    },
+    successButton: {
+      width: '100%',
+      backgroundColor: colors.primary,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 16,
+      borderRadius: RADIUS.full,
+      gap: SPACING.sm,
+    },
+    successButtonText: {
+      color: colors.textOnPrimary,
+      fontSize: TYPOGRAPHY.size.lg,
+      fontFamily: TYPOGRAPHY.fontFamily.bold,
+    },
+  });
