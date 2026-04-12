@@ -217,6 +217,8 @@ describe('ContactInfoForm', () => {
       .getByLabelText('Phone Number')
       .getAttribute('data-mount-id');
 
+    expect(firstMountId).not.toBeNull();
+    expect(secondMountId).not.toBeNull();
     expect(firstMountId).toBe(secondMountId);
   });
 });

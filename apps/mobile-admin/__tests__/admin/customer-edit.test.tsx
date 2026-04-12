@@ -229,4 +229,20 @@ describe('CustomerEditScreen', () => {
     );
     expect(mocks.back).not.toHaveBeenCalled();
   });
+
+  it('blocks submission and shows a validation alert for an invalid email', () => {
+    render(<CustomerEditScreen />);
+
+    fireEvent.change(screen.getByDisplayValue('john@example.com'), {
+      target: { value: 'not-an-email' },
+    });
+    fireEvent.click(screen.getByText('Save Changes'));
+
+    expect(mocks.mutateAsync).not.toHaveBeenCalled();
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'Invalid Email',
+      'Please enter a valid email address'
+    );
+    expect(mocks.back).not.toHaveBeenCalled();
+  });
 });
