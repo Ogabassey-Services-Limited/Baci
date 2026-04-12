@@ -273,6 +273,7 @@ fi
 install_node_if_missing
 assert_command corepack
 assert_command pod
+assert_command python3
 
 node_bin="$(command -v node)"
 echo "info: Using node at '$node_bin'"
@@ -344,16 +345,23 @@ fi
 
 echo "info: CocoaPods installation finished for '$app_dir'"
 
-# --- Auto-bump version metadata from Xcode Cloud ---
+# --- Resolve version metadata from Xcode Cloud / App Store Connect ---
 # - CFBundleVersion comes from CI_BUILD_NUMBER.
-# - CFBundleShortVersionString can be supplied explicitly via CI_MARKETING_VERSION
-#   or auto-generated as <CI_MARKETING_VERSION_BASE>.<CI_BUILD_NUMBER>.
+# - CFBundleShortVersionString can be supplied explicitly via CI_MARKETING_VERSION.
+# - Otherwise we resolve it from App Store Connect and the repo default to avoid
+#   submitting builds to a closed marketing-version train.
 if [ -n "${CI_BUILD_NUMBER:-}" ]; then
   plist_path="$(resolve_info_plist_path "$ios_dir" "$app_dir")"
   marketing_version="${CI_MARKETING_VERSION:-}"
+  version_resolver="$repo_root/ci_scripts/resolve_app_store_marketing_version.py"
 
-  if [ -z "$marketing_version" ] && [ -n "${CI_MARKETING_VERSION_BASE:-}" ]; then
-    marketing_version="${CI_MARKETING_VERSION_BASE}.${CI_BUILD_NUMBER}"
+  if [ -z "$marketing_version" ]; then
+    if [ ! -f "$version_resolver" ]; then
+      echo "error: Marketing version resolver not found at '$version_resolver'." >&2
+      exit 1
+    fi
+    marketing_version="$(python3 "$version_resolver" "$app_dir")"
+    echo "info: Resolved CFBundleShortVersionString to '$marketing_version'"
   fi
 
   if [ -f "$plist_path" ]; then
@@ -377,7 +385,7 @@ if [ -n "${CI_BUILD_NUMBER:-}" ]; then
         exit 1
       fi
     else
-      echo "warning: CI_MARKETING_VERSION / CI_MARKETING_VERSION_BASE not set; keeping existing CFBundleShortVersionString." >&2
+      echo "warning: CI_MARKETING_VERSION is not set; keeping existing CFBundleShortVersionString." >&2
     fi
   else
     echo "warning: Info.plist not found at '$plist_path', skipping version bump."
