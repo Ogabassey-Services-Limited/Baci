@@ -1,14 +1,11 @@
-import { Ionicons } from '@expo/vector-icons';
 import { splitCustomerFullName } from '@baci/shared';
+import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -16,7 +13,7 @@ import {
 } from 'react-native';
 import PhoneInput from 'react-native-phone-number-input';
 import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { AppFormScreen } from '@/components/ui/AppFormScreen';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useCustomer, useUpdateCustomer } from '@/hooks/useCustomers';
 import { useTheme } from '@/hooks/useTheme';
@@ -130,8 +127,9 @@ export default function CustomerEditScreen() {
   ];
 
   return (
-    <SafeAreaView
+    <AppFormScreen
       style={[styles.container, { backgroundColor: colors.background }]}
+      contentContainerStyle={styles.scrollContent}
       edges={['bottom']}
     >
       <Stack.Screen
@@ -164,229 +162,189 @@ export default function CustomerEditScreen() {
         }}
       />
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
+      {/* Profile Header */}
+      <Animated.View
+        entering={FadeIn.duration(600)}
+        style={styles.profileHeader}
       >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+        <View
+          style={[styles.avatarOuter, { backgroundColor: colors.primaryLight }]}
         >
-          {/* Profile Header */}
-          <Animated.View
-            entering={FadeIn.duration(600)}
-            style={styles.profileHeader}
+          <View
+            style={[styles.avatarInner, { backgroundColor: colors.primary }]}
           >
-            <View
-              style={[
-                styles.avatarOuter,
-                { backgroundColor: colors.primaryLight },
-              ]}
-            >
-              <View
-                style={[
-                  styles.avatarInner,
-                  { backgroundColor: colors.primary },
-                ]}
-              >
-                <Text style={styles.avatarText}>{getInitials()}</Text>
-              </View>
-            </View>
-            <Text style={[styles.headerName, { color: colors.text }]}>
-              {firstName} {lastName}
-            </Text>
-            <Text
-              style={[styles.headerSubtext, { color: colors.textSecondary }]}
-            >
-              {email}
-            </Text>
-          </Animated.View>
+            <Text style={styles.avatarText}>{getInitials()}</Text>
+          </View>
+        </View>
+        <Text style={[styles.headerName, { color: colors.text }]}>
+          {firstName} {lastName}
+        </Text>
+        <Text style={[styles.headerSubtext, { color: colors.textSecondary }]}>
+          {email}
+        </Text>
+      </Animated.View>
 
-          {/* Personal Info Section */}
-          <Animated.View
-            entering={FadeInUp.delay(200).duration(500)}
-            style={[
-              styles.section,
-              { backgroundColor: colors.card },
-              shadows.sm,
+      {/* Personal Info Section */}
+      <Animated.View
+        entering={FadeInUp.delay(200).duration(500)}
+        style={[styles.section, { backgroundColor: colors.card }, shadows.sm]}
+      >
+        <View style={styles.sectionHeader}>
+          <Ionicons name="person-outline" size={18} color={colors.primary} />
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            Personal Details
+          </Text>
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={[styles.label, { color: colors.textSecondary }]}>
+            First Name
+          </Text>
+          <TextInput
+            style={getInputStyle('firstName')}
+            value={firstName}
+            onChangeText={setFirstName}
+            onFocus={() => setFocusedField('firstName')}
+            onBlur={() => setFocusedField(null)}
+            placeholder="First Name"
+            placeholderTextColor={colors.textMuted}
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={[styles.label, { color: colors.textSecondary }]}>
+            Last Name
+          </Text>
+          <TextInput
+            style={getInputStyle('lastName')}
+            value={lastName}
+            onChangeText={setLastName}
+            onFocus={() => setFocusedField('lastName')}
+            onBlur={() => setFocusedField(null)}
+            placeholder="Last Name"
+            placeholderTextColor={colors.textMuted}
+          />
+        </View>
+      </Animated.View>
+
+      {/* Contact Info Section */}
+      <Animated.View
+        entering={FadeInUp.delay(300).duration(500)}
+        style={[styles.section, { backgroundColor: colors.card }, shadows.sm]}
+      >
+        <View style={styles.sectionHeader}>
+          <Ionicons name="call-outline" size={18} color={colors.primary} />
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            Contact Info
+          </Text>
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={[styles.label, { color: colors.textSecondary }]}>
+            Email Address *
+          </Text>
+          <TextInput
+            style={getInputStyle('email')}
+            value={email}
+            onChangeText={setEmail}
+            onFocus={() => setFocusedField('email')}
+            onBlur={() => setFocusedField(null)}
+            placeholder="Email"
+            placeholderTextColor={colors.textMuted}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={[styles.label, { color: colors.textSecondary }]}>
+            Phone Number
+          </Text>
+          <PhoneInput
+            key={`phone-${customer?.id}-${phone}`}
+            defaultValue={phone}
+            defaultCode="NG"
+            layout="first"
+            onChangeFormattedText={(text) => {
+              setPhone(text);
+              setPhoneModified(true);
+            }}
+            containerStyle={[
+              styles.phoneContainer,
+              {
+                backgroundColor:
+                  focusedField === 'phone'
+                    ? colors.background
+                    : colors.backgroundLight,
+                borderColor:
+                  focusedField === 'phone' ? colors.primary : colors.border,
+              },
             ]}
-          >
-            <View style={styles.sectionHeader}>
-              <Ionicons
-                name="person-outline"
-                size={18}
-                color={colors.primary}
-              />
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                Personal Details
-              </Text>
-            </View>
+            textContainerStyle={styles.phoneTextContainer}
+            textInputStyle={[styles.phoneTextInput, { color: colors.text }]}
+            codeTextStyle={[styles.phoneCodeText, { color: colors.text }]}
+            withDarkTheme={isDark}
+            withShadow={false}
+            textInputProps={{
+              onFocus: () => setFocusedField('phone'),
+              onBlur: () => setFocusedField(null),
+              placeholderTextColor: colors.textMuted,
+            }}
+          />
+        </View>
+      </Animated.View>
 
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>
-                First Name
-              </Text>
-              <TextInput
-                style={getInputStyle('firstName')}
-                value={firstName}
-                onChangeText={setFirstName}
-                onFocus={() => setFocusedField('firstName')}
-                onBlur={() => setFocusedField(null)}
-                placeholder="First Name"
-                placeholderTextColor={colors.textMuted}
-              />
-            </View>
+      {/* Address Section */}
+      <Animated.View
+        entering={FadeInUp.delay(400).duration(500)}
+        style={[styles.section, { backgroundColor: colors.card }, shadows.sm]}
+      >
+        <View style={styles.sectionHeader}>
+          <Ionicons name="location-outline" size={18} color={colors.primary} />
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            Location
+          </Text>
+        </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>
-                Last Name
-              </Text>
-              <TextInput
-                style={getInputStyle('lastName')}
-                value={lastName}
-                onChangeText={setLastName}
-                onFocus={() => setFocusedField('lastName')}
-                onBlur={() => setFocusedField(null)}
-                placeholder="Last Name"
-                placeholderTextColor={colors.textMuted}
-              />
-            </View>
-          </Animated.View>
+        <View style={styles.inputGroup}>
+          <Text style={[styles.label, { color: colors.textSecondary }]}>
+            Shipping Address
+          </Text>
+          <TextInput
+            style={[...getInputStyle('address'), styles.textArea]}
+            value={address}
+            onChangeText={setAddress}
+            onFocus={() => setFocusedField('address')}
+            onBlur={() => setFocusedField(null)}
+            placeholder="Street address, City, State"
+            placeholderTextColor={colors.textMuted}
+            multiline
+            numberOfLines={3}
+          />
+        </View>
+      </Animated.View>
 
-          {/* Contact Info Section */}
-          <Animated.View
-            entering={FadeInUp.delay(300).duration(500)}
-            style={[
-              styles.section,
-              { backgroundColor: colors.card },
-              shadows.sm,
-            ]}
-          >
-            <View style={styles.sectionHeader}>
-              <Ionicons name="call-outline" size={18} color={colors.primary} />
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                Contact Info
-              </Text>
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>
-                Email Address *
-              </Text>
-              <TextInput
-                style={getInputStyle('email')}
-                value={email}
-                onChangeText={setEmail}
-                onFocus={() => setFocusedField('email')}
-                onBlur={() => setFocusedField(null)}
-                placeholder="Email"
-                placeholderTextColor={colors.textMuted}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>
-                Phone Number
-              </Text>
-              <PhoneInput
-                key={`phone-${customer?.id}-${phone}`}
-                defaultValue={phone}
-                defaultCode="NG"
-                layout="first"
-                onChangeFormattedText={(text) => {
-                  setPhone(text);
-                  setPhoneModified(true);
-                }}
-                containerStyle={[
-                  styles.phoneContainer,
-                  {
-                    backgroundColor:
-                      focusedField === 'phone'
-                        ? colors.background
-                        : colors.backgroundLight,
-                    borderColor:
-                      focusedField === 'phone' ? colors.primary : colors.border,
-                  },
-                ]}
-                textContainerStyle={styles.phoneTextContainer}
-                textInputStyle={[styles.phoneTextInput, { color: colors.text }]}
-                codeTextStyle={[styles.phoneCodeText, { color: colors.text }]}
-                withDarkTheme={isDark}
-                withShadow={false}
-                // autoFocus={false}
-                textInputProps={{
-                  onFocus: () => setFocusedField('phone'),
-                  onBlur: () => setFocusedField(null),
-                  placeholderTextColor: colors.textMuted,
-                }}
-              />
-            </View>
-          </Animated.View>
-
-          {/* Address Section */}
-          <Animated.View
-            entering={FadeInUp.delay(400).duration(500)}
-            style={[
-              styles.section,
-              { backgroundColor: colors.card },
-              shadows.sm,
-            ]}
-          >
-            <View style={styles.sectionHeader}>
-              <Ionicons
-                name="location-outline"
-                size={18}
-                color={colors.primary}
-              />
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                Location
-              </Text>
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>
-                Shipping Address
-              </Text>
-              <TextInput
-                style={[...getInputStyle('address'), styles.textArea]}
-                value={address}
-                onChangeText={setAddress}
-                onFocus={() => setFocusedField('address')}
-                onBlur={() => setFocusedField(null)}
-                placeholder="Street address, City, State"
-                placeholderTextColor={colors.textMuted}
-                multiline
-                numberOfLines={3}
-              />
-            </View>
-          </Animated.View>
-
-          <Animated.View
-            entering={FadeInUp.delay(500).duration(500)}
-            style={styles.buttonContainer}
-          >
-            <Pressable
-              style={[
-                styles.saveButton,
-                { backgroundColor: colors.primary },
-                shadows.md,
-              ]}
-              onPress={handleSave}
-              disabled={updateCustomer.isPending}
-            >
-              {updateCustomer.isPending ? (
-                <ActivityIndicator color="#FFF" />
-              ) : (
-                <Text style={styles.saveButtonText}>Save Changes</Text>
-              )}
-            </Pressable>
-          </Animated.View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      <Animated.View
+        entering={FadeInUp.delay(500).duration(500)}
+        style={styles.buttonContainer}
+      >
+        <Pressable
+          style={[
+            styles.saveButton,
+            { backgroundColor: colors.primary },
+            shadows.md,
+          ]}
+          onPress={handleSave}
+          disabled={updateCustomer.isPending}
+        >
+          {updateCustomer.isPending ? (
+            <ActivityIndicator color="#FFF" />
+          ) : (
+            <Text style={styles.saveButtonText}>Save Changes</Text>
+          )}
+        </Pressable>
+      </Animated.View>
+    </AppFormScreen>
   );
 }
 

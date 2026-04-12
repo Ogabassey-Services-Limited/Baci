@@ -25,7 +25,6 @@ import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
@@ -34,6 +33,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { AppFormScreen } from '@/components/ui/AppFormScreen';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
@@ -211,61 +211,57 @@ export default function ConnectDomainScreen() {
 
   // Render Input Step
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={{ flex: 1 }}
+    <AppFormScreen
+      style={[styles.container, { backgroundColor: colors.background }]}
+      contentContainerStyle={styles.content}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 24 : 16}
     >
-      <ScrollView
-        style={[styles.container, { backgroundColor: colors.background }]}
-        contentContainerStyle={styles.content}
-      >
-        <Text style={[styles.title, { color: colors.text }]}>
-          Connect Existing Domain
-        </Text>
-        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          Enter the domain name you own (e.g. example.com) to connect it to your
-          store.
-        </Text>
+      <Text style={[styles.title, { color: colors.text }]}>
+        Connect Existing Domain
+      </Text>
+      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+        Enter the domain name you own (e.g. example.com) to connect it to your
+        store.
+      </Text>
 
-        <View style={{ marginTop: SPACING.xl }}>
-          <Text style={[styles.inputLabel, { color: colors.text }]}>
-            Domain Name
-          </Text>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                backgroundColor: colors.card,
-                color: colors.text,
-                borderColor: colors.border,
-              },
-            ]}
-            placeholder="example.com"
-            placeholderTextColor={colors.textSecondary}
-            value={domain}
-            onChangeText={setDomain}
-            autoCapitalize="none"
-            autoCorrect={false}
-            editable={!loading}
-          />
-        </View>
-
-        <Pressable
+      <View style={{ marginTop: SPACING.xl }}>
+        <Text style={[styles.inputLabel, { color: colors.text }]}>
+          Domain Name
+        </Text>
+        <TextInput
           style={[
-            styles.button,
-            { backgroundColor: colors.primary, opacity: loading ? 0.7 : 1 },
+            styles.input,
+            {
+              backgroundColor: colors.card,
+              color: colors.text,
+              borderColor: colors.border,
+            },
           ]}
-          onPress={handleConnect}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text style={styles.buttonText}>Connect Domain</Text>
-          )}
-        </Pressable>
-      </ScrollView>
-    </KeyboardAvoidingView>
+          placeholder="example.com"
+          placeholderTextColor={colors.textSecondary}
+          value={domain}
+          onChangeText={setDomain}
+          autoCapitalize="none"
+          autoCorrect={false}
+          editable={!loading}
+        />
+      </View>
+
+      <Pressable
+        style={[
+          styles.button,
+          { backgroundColor: colors.primary, opacity: loading ? 0.7 : 1 },
+        ]}
+        onPress={handleConnect}
+        disabled={loading}
+      >
+        {loading ? (
+          <ActivityIndicator color="white" />
+        ) : (
+          <Text style={styles.buttonText}>Connect Domain</Text>
+        )}
+      </Pressable>
+    </AppFormScreen>
   );
 }
 
