@@ -10,6 +10,11 @@ const mocks = vi.hoisted(() => ({
   mutate: vi.fn(),
 }));
 
+vi.mock('@/components/ui/AppFormScreen', async () => {
+  const { createAppFormScreenMock } = await import('./app-form-screen.mock');
+  return createAppFormScreenMock();
+});
+
 // --- Mock react-native with HTML-compatible components ---
 vi.mock('react-native', async () => {
   const React = await import('react');
@@ -47,15 +52,21 @@ vi.mock('react-native', async () => {
           onChangeText?.(e.target.value),
       }),
     Pressable: ({
+      accessibilityLabel,
       children,
       onPress,
       disabled,
     }: {
+      accessibilityLabel?: string;
       children?: React.ReactNode;
       onPress?: () => void;
       disabled?: boolean;
     }) =>
-      React.createElement('button', { onClick: onPress, disabled }, children),
+      React.createElement(
+        'button',
+        { onClick: onPress, disabled, 'aria-label': accessibilityLabel },
+        children
+      ),
     ScrollView: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('div', null, children),
     ActivityIndicator: () => null,
@@ -202,6 +213,7 @@ describe('RegisterScreen', () => {
     expect(
       screen.getByRole('region', { name: APP_KEYBOARD_CONTAINER_LABEL })
     ).toBeTruthy();
+    expect(screen.getByLabelText('Back')).toBeTruthy();
     fillFormAndSubmit();
 
     expect(mocks.mutate).toHaveBeenCalledTimes(1);
@@ -212,6 +224,45 @@ describe('RegisterScreen', () => {
       lastName: 'User',
       businessName: 'Test Store',
       businessType: 'fashion',
+    });
+  });
+
+  it('clears stale otherBusinessType when switching away from Other', () => {
+    render(<RegisterScreen />);
+
+    fireEvent.change(screen.getByPlaceholderText('John'), {
+      target: { value: 'Test' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('Doe'), {
+      target: { value: 'User' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('you@example.com'), {
+      target: { value: 'test@example.com' },
+    });
+    const passwordFields = screen.getAllByPlaceholderText('••••••••');
+    fireEvent.change(passwordFields[0], {
+      target: { value: 'StrongP@ss123!' },
+    });
+    fireEvent.change(passwordFields[1], {
+      target: { value: 'StrongP@ss123!' },
+    });
+
+    fireEvent.click(screen.getByText('Next Step'));
+    fireEvent.change(screen.getByPlaceholderText('My Awesome Store'), {
+      target: { value: 'Test Store' },
+    });
+
+    fireEvent.click(screen.getByText('Other'));
+    fireEvent.change(screen.getByPlaceholderText('e.g. Pet Supplies'), {
+      target: { value: 'Custom Type' },
+    });
+    fireEvent.click(screen.getByText('Fashion & Apparel'));
+    fireEvent.click(screen.getByText('Launch Store'));
+
+    const [payload] = mocks.mutate.mock.calls[0];
+    expect(payload).toMatchObject({
+      businessType: 'fashion',
+      otherBusinessType: '',
     });
   });
 

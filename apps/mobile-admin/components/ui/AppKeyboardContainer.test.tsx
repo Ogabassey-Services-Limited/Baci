@@ -165,6 +165,26 @@ describe('AppKeyboardContainer', () => {
     expect(resolvedStyle?.paddingBottom).toBe(16);
   });
 
+  it('top-aligns content when align is start', () => {
+    render(
+      <AppKeyboardContainer align="start">
+        <div>Top aligned</div>
+      </AppKeyboardContainer>
+    );
+
+    const scrollView = screen.getByRole('region', {
+      name: 'Keyboard scroll view',
+    });
+    const contentContainer = JSON.parse(
+      scrollView.getAttribute('data-content-container-style') ?? '[]'
+    ) as Record<string, unknown>[];
+    const resolvedStyle = contentContainer.find(
+      (value) => typeof value?.justifyContent === 'string'
+    );
+
+    expect(resolvedStyle?.justifyContent).toBe('flex-start');
+  });
+
   it('renders a non-scroll content view when scrolling is disabled', () => {
     render(
       <AppKeyboardContainer scrollEnabled={false}>

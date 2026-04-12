@@ -5,34 +5,21 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Linking,
   Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
-import { AppKeyboardContainer } from '@/components/ui/AppKeyboardContainer';
+import { BusinessTypeSelector } from '@/components/auth/BusinessTypeSelector';
+import { RegisterLegalText } from '@/components/auth/register/RegisterLegalText';
+import { AppFormScreen } from '@/components/ui/AppFormScreen';
 import SafeImage from '@/components/ui/SafeImage';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useRegistration } from '@/hooks/useRegistration';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-
-// Simplified Business Types
-const BUSINESS_TYPES = [
-  { id: 'fashion', label: 'Fashion & Apparel' },
-  { id: 'electronics', label: 'Electronics & Gadgets' },
-  { id: 'home-goods', label: 'Home Goods & Decor' },
-  { id: 'health-beauty', label: 'Health & Beauty' },
-  { id: 'handmade', label: 'Handmade & Crafts' },
-  { id: 'food-beverage', label: 'Food & Beverage' },
-  { id: 'hair-extensions', label: 'Hair & Extensions' },
-  { id: 'pharmaceuticals', label: 'Pharmaceuticals & Medical' },
-  { id: 'other', label: 'Other' },
-];
 
 export default function CompleteProfileScreen() {
   const router = useRouter();
@@ -113,6 +100,10 @@ export default function CompleteProfileScreen() {
           .replace(/[^a-z0-9]+/g, '-')
           .replace(/(^-|-$)/g, '');
         updates.slug = slugBase;
+      }
+
+      if (key === 'businessType' && value !== 'other') {
+        updates.otherBusinessType = '';
       }
 
       return { ...prev, ...updates };
@@ -221,272 +212,235 @@ export default function CompleteProfileScreen() {
         />
       )}
 
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          {/* No back button, this is a forced step */}
-          <View />
-          <Text style={[styles.headerTitle, { color: colors.text }]}>
-            Complete Setup
+      <AppFormScreen
+        contentContainerStyle={styles.content}
+        header={
+          <View style={styles.header}>
+            {/* No back button, this is a forced step */}
+            <View />
+            <Text style={[styles.headerTitle, { color: colors.text }]}>
+              Complete Setup
+            </Text>
+            <View style={{ width: 24 }} />
+          </View>
+        }
+        style={styles.safeArea}
+      >
+        <View style={styles.introSection}>
+          {formData.logoUrl ? (
+            <SafeImage
+              source={{ uri: formData.logoUrl }}
+              style={[styles.avatar, { borderColor: colors.primary }]}
+            />
+          ) : (
+            <View
+              style={[
+                styles.avatarPlaceholder,
+                { backgroundColor: colors.card },
+              ]}
+            >
+              <Ionicons
+                name="storefront-outline"
+                size={40}
+                color={colors.textSecondary}
+              />
+            </View>
+          )}
+          <Text style={[styles.introTitle, { color: colors.text }]}>
+            Welcome
+            {formData.fullName ? `, ${formData.fullName.split(' ')[0]}` : ''}!
           </Text>
-          <View style={{ width: 24 }} />
+          <Text style={[styles.introText, { color: colors.textSecondary }]}>
+            Let's finish setting up your profile and store.
+          </Text>
         </View>
 
-        <AppKeyboardContainer
-          contentContainerStyle={styles.content}
-          style={styles.formContainer}
-        >
-          <View style={styles.introSection}>
-            {formData.logoUrl ? (
-              <SafeImage
-                source={{ uri: formData.logoUrl }}
-                style={[styles.avatar, { borderColor: colors.primary }]}
-              />
-            ) : (
-              <View
-                style={[
-                  styles.avatarPlaceholder,
-                  { backgroundColor: colors.card },
-                ]}
-              >
-                <Ionicons
-                  name="storefront-outline"
-                  size={40}
-                  color={colors.textSecondary}
-                />
-              </View>
-            )}
-            <Text style={[styles.introTitle, { color: colors.text }]}>
-              Welcome
-              {formData.fullName ? `, ${formData.fullName.split(' ')[0]}` : ''}!
+        <View style={styles.formSection}>
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>
+              Your Name
             </Text>
-            <Text style={[styles.introText, { color: colors.textSecondary }]}>
-              Let's finish setting up your profile and store.
-            </Text>
-          </View>
-
-          <View style={styles.formSection}>
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>
-                Your Name
-              </Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: colors.inputBg,
-                    borderColor: colors.border,
-                    color: colors.text,
-                  },
-                ]}
-                placeholder="John Doe"
-                placeholderTextColor={colors.textMuted}
-                value={formData.fullName}
-                onChangeText={(t) => updateForm('fullName', t)}
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>
-                Phone Number (Optional)
-              </Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: colors.inputBg,
-                    borderColor: colors.border,
-                    color: colors.text,
-                  },
-                ]}
-                placeholder="+1 234 567 8900"
-                placeholderTextColor={colors.textMuted}
-                value={formData.phone}
-                onChangeText={(t) => updateForm('phone', t)}
-                keyboardType="phone-pad"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>
-                Business Name
-              </Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: colors.inputBg,
-                    borderColor: colors.border,
-                    color: colors.text,
-                  },
-                ]}
-                placeholder="My Awesome Store"
-                placeholderTextColor={colors.textMuted}
-                value={formData.businessName}
-                onChangeText={(t) => updateForm('businessName', t)}
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>
-                Store Link
-              </Text>
-              <View
-                style={[
-                  styles.urlInputContainer,
-                  {
-                    backgroundColor: colors.inputBg,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <TextInput
-                  style={[
-                    styles.urlInput,
-                    { textAlign: 'right', color: colors.text },
-                  ]}
-                  placeholder="my-store"
-                  placeholderTextColor={colors.textMuted}
-                  autoCapitalize="none"
-                  value={formData.slug}
-                  onChangeText={handleSlugChange}
-                />
-                <Text
-                  style={[
-                    styles.urlSuffix,
-                    {
-                      color: colors.textSecondary,
-                      backgroundColor: isDark
-                        ? 'rgba(255,255,255,0.05)'
-                        : 'rgba(0,0,0,0.05)',
-                    },
-                  ]}
-                >
-                  .usebaci.com
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>
-                Business Type
-              </Text>
-              <View style={styles.typeGrid}>
-                {BUSINESS_TYPES.map((type) => (
-                  <Pressable
-                    key={type.id}
-                    accessible={true}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${type.label} business type`}
-                    accessibilityState={{
-                      selected: formData.businessType === type.id,
-                    }}
-                    style={[
-                      styles.typeCard,
-                      {
-                        borderColor: colors.border,
-                        backgroundColor: isDark
-                          ? 'rgba(255,255,255,0.05)'
-                          : 'rgba(0,0,0,0.05)',
-                      },
-                      formData.businessType === type.id && [
-                        styles.typeCardSelected,
-                        {
-                          backgroundColor: colors.primary,
-                          borderColor: colors.primary,
-                        },
-                      ],
-                    ]}
-                    onPress={() => updateForm('businessType', type.id)}
-                  >
-                    <Text
-                      style={[
-                        styles.typeText,
-                        { color: colors.textSecondary },
-                        formData.businessType === type.id && [
-                          styles.typeTextSelected,
-                          { color: colors.textOnPrimary },
-                        ],
-                      ]}
-                    >
-                      {type.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-
-            {formData.businessType === 'other' && (
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: colors.textSecondary }]}>
-                  Please specify
-                </Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: colors.inputBg,
-                      borderColor: colors.border,
-                      color: colors.text,
-                    },
-                  ]}
-                  placeholder="e.g. Pet Supplies"
-                  placeholderTextColor={colors.textMuted}
-                  value={formData.otherBusinessType}
-                  onChangeText={(text) => updateForm('otherBusinessType', text)}
-                />
-              </View>
-            )}
-
-            <Pressable
+            <TextInput
+              accessibilityLabel="Your Name"
               style={[
-                styles.button,
-                { backgroundColor: colors.primary },
-                isLoading && { opacity: 0.7 },
+                styles.input,
+                {
+                  backgroundColor: colors.inputBg,
+                  borderColor: colors.border,
+                  color: colors.text,
+                },
               ]}
-              onPress={handleCompleteSetup}
-              disabled={isLoading}
-              accessible={true}
-              accessibilityRole="button"
-              accessibilityLabel="Launch Store"
-              accessibilityState={{ disabled: isLoading }}
-            >
-              {isLoading ? (
-                <ActivityIndicator color={colors.textOnPrimary} />
-              ) : (
-                <>
-                  <Text
-                    style={[styles.buttonText, { color: colors.textOnPrimary }]}
-                  >
-                    Launch Store
-                  </Text>
-                  <Ionicons
-                    name="rocket-outline"
-                    size={20}
-                    color={colors.textOnPrimary}
-                  />
-                </>
-              )}
-            </Pressable>
-
-            <Text style={[styles.termsText, { color: colors.textSecondary }]}>
-              By continuing, you agree to our{' '}
-              <Text
-                style={[styles.termsLink, { color: colors.primary }]}
-                onPress={() => Linking.openURL('https://usebaci.com/terms')}
-              >
-                Terms of Service
-              </Text>{' '}
-              and{' '}
-              <Text
-                style={[styles.termsLink, { color: colors.primary }]}
-                onPress={() => Linking.openURL('https://usebaci.com/privacy')}
-              >
-                Privacy Policy
-              </Text>
-            </Text>
+              placeholder="John Doe"
+              placeholderTextColor={colors.textMuted}
+              value={formData.fullName}
+              onChangeText={(t) => updateForm('fullName', t)}
+            />
           </View>
-        </AppKeyboardContainer>
-      </SafeAreaView>
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>
+              Phone Number (Optional)
+            </Text>
+            <TextInput
+              accessibilityLabel="Phone Number (Optional)"
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.inputBg,
+                  borderColor: colors.border,
+                  color: colors.text,
+                },
+              ]}
+              placeholder="+1 234 567 8900"
+              placeholderTextColor={colors.textMuted}
+              value={formData.phone}
+              onChangeText={(t) => updateForm('phone', t)}
+              keyboardType="phone-pad"
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>
+              Business Name
+            </Text>
+            <TextInput
+              accessibilityLabel="Business Name"
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.inputBg,
+                  borderColor: colors.border,
+                  color: colors.text,
+                },
+              ]}
+              placeholder="My Awesome Store"
+              placeholderTextColor={colors.textMuted}
+              value={formData.businessName}
+              onChangeText={(t) => updateForm('businessName', t)}
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>
+              Store Link
+            </Text>
+            <View
+              style={[
+                styles.urlInputContainer,
+                {
+                  backgroundColor: colors.inputBg,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
+              <TextInput
+                accessibilityLabel="Store Link"
+                style={[
+                  styles.urlInput,
+                  { textAlign: 'right', color: colors.text },
+                ]}
+                placeholder="my-store"
+                placeholderTextColor={colors.textMuted}
+                autoCapitalize="none"
+                value={formData.slug}
+                onChangeText={handleSlugChange}
+              />
+              <Text
+                style={[
+                  styles.urlSuffix,
+                  {
+                    color: colors.textSecondary,
+                    backgroundColor: isDark
+                      ? 'rgba(255,255,255,0.05)'
+                      : 'rgba(0,0,0,0.05)',
+                  },
+                ]}
+              >
+                .usebaci.com
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>
+              Business Type
+            </Text>
+            <BusinessTypeSelector
+              accessibilityLabelSuffix="business type"
+              borderColor={colors.border}
+              cardBackgroundColor={
+                isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'
+              }
+              onSelect={(typeId) => updateForm('businessType', typeId)}
+              selectedBackgroundColor={colors.primary}
+              selectedBorderColor={colors.primary}
+              selectedTextColor={colors.textOnPrimary}
+              selectedType={formData.businessType}
+              textColor={colors.textSecondary}
+            />
+          </View>
+
+          {formData.businessType === 'other' && (
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>
+                Please specify
+              </Text>
+              <TextInput
+                accessibilityLabel="Please specify"
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.inputBg,
+                    borderColor: colors.border,
+                    color: colors.text,
+                  },
+                ]}
+                placeholder="e.g. Pet Supplies"
+                placeholderTextColor={colors.textMuted}
+                value={formData.otherBusinessType}
+                onChangeText={(text) => updateForm('otherBusinessType', text)}
+              />
+            </View>
+          )}
+
+          <Pressable
+            style={[
+              styles.button,
+              { backgroundColor: colors.primary },
+              isLoading && { opacity: 0.7 },
+            ]}
+            onPress={handleCompleteSetup}
+            disabled={isLoading}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="Launch Store"
+            accessibilityState={{ disabled: isLoading }}
+          >
+            {isLoading ? (
+              <ActivityIndicator color={colors.textOnPrimary} />
+            ) : (
+              <>
+                <Text
+                  style={[styles.buttonText, { color: colors.textOnPrimary }]}
+                >
+                  Launch Store
+                </Text>
+                <Ionicons
+                  name="rocket-outline"
+                  size={20}
+                  color={colors.textOnPrimary}
+                />
+              </>
+            )}
+          </Pressable>
+
+          <RegisterLegalText
+            linkColor={colors.primary}
+            prefixText="By continuing, you agree to our"
+            textColor={colors.textSecondary}
+          />
+        </View>
+      </AppFormScreen>
     </View>
   );
 }
@@ -496,9 +450,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   safeArea: {
-    flex: 1,
-  },
-  formContainer: {
     flex: 1,
   },
   header: {
@@ -571,24 +522,6 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: TYPOGRAPHY.size.lg,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
-  },
-  typeGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.sm,
-  },
-  typeCard: {
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    borderRadius: RADIUS.full,
-    borderWidth: 1,
-  },
-  typeCardSelected: {},
-  typeText: {
-    fontSize: TYPOGRAPHY.size.sm,
-  },
-  typeTextSelected: {
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
   urlInputContainer: {
     flexDirection: 'row',

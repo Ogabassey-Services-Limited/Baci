@@ -20,6 +20,11 @@ const mocks = vi.hoisted(() => ({
   alert: vi.fn(),
 }));
 
+vi.mock('@/components/ui/AppFormScreen', async () => {
+  const { createAppFormScreenMock } = await import('./app-form-screen.mock');
+  return createAppFormScreenMock();
+});
+
 vi.mock('react-native', async () => {
   const React = await import('react');
 

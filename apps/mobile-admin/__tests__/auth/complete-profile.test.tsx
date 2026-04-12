@@ -1,3 +1,4 @@
+import '@testing-library/jest-dom/vitest';
 import {
   cleanup,
   fireEvent,
@@ -6,38 +7,46 @@ import {
   waitFor,
 } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { APP_KEYBOARD_CONTAINER_LABEL } from './app-keyboard-container.mock';
 
 const mocks = vi.hoisted(() => ({
   alert: vi.fn(),
-  completeProfile: vi.fn(),
-  openURL: vi.fn(),
+  mutate: vi.fn(),
   replace: vi.fn(),
+  push: vi.fn(),
 }));
+
+vi.mock('@/components/ui/AppFormScreen', async () => {
+  const { createAppFormScreenMock } = await import('./app-form-screen.mock');
+  return createAppFormScreenMock();
+});
 
 vi.mock('react-native', async () => {
   const React = await import('react');
 
   return {
-    ActivityIndicator: () => null,
+    ActivityIndicator: () => React.createElement('span', null, 'loading'),
     Alert: { alert: mocks.alert },
-    Linking: { openURL: mocks.openURL },
+    Linking: { openURL: vi.fn() },
     Pressable: ({
+      accessibilityLabel,
       children,
-      onPress,
       disabled,
+      onPress,
     }: {
+      accessibilityLabel?: string;
       children?: React.ReactNode;
-      onPress?: () => void;
       disabled?: boolean;
+      onPress?: () => void;
     }) =>
-      React.createElement('button', { onClick: onPress, disabled }, children),
+      React.createElement(
+        'button',
+        { 'aria-label': accessibilityLabel, disabled, onClick: onPress },
+        children
+      ),
     StyleSheet: {
       absoluteFillObject: {},
       create: (styles: Record<string, unknown>) => styles,
     },
-    SafeAreaView: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('div', null, children),
     Text: ({
       children,
       onPress,
@@ -65,22 +74,18 @@ vi.mock('react-native', async () => {
   };
 });
 
-vi.mock('react-native-edge-to-edge', () => ({
-  SystemBars: () => null,
-}));
-
 vi.mock('expo-linear-gradient', async () => {
   const React = await import('react');
-
   return {
     LinearGradient: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('div', null, children),
   };
 });
 
+vi.mock('react-native-edge-to-edge', () => ({ SystemBars: () => null }));
+
 vi.mock('@expo/vector-icons', async () => {
   const React = await import('react');
-
   return {
     Ionicons: ({ name }: { name: string }) =>
       React.createElement('span', null, name),
@@ -90,20 +95,14 @@ vi.mock('@expo/vector-icons', async () => {
 vi.mock('expo-router', () => ({
   useRouter: () => ({
     replace: mocks.replace,
+    push: mocks.push,
   }),
 }));
 
-vi.mock('@/components/ui/AppKeyboardContainer', async () => {
-  const module = await import('./app-keyboard-container.mock');
-  return module.createAppKeyboardContainerMock();
-});
-
 vi.mock('@/components/ui/SafeImage', async () => {
   const React = await import('react');
-
   return {
-    __esModule: true,
-    default: () => React.createElement('img', { alt: 'safe image' }),
+    default: () => React.createElement('div', null, 'SafeImage'),
   };
 });
 
@@ -111,10 +110,10 @@ vi.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({
     colors: {
       background: '#ffffff',
-      border: '#dddddd',
+      border: '#d5d5d5',
       card: '#f5f5f5',
-      inputBg: '#f8f8f8',
-      primary: '#1d4ed8',
+      inputBg: '#f8fafc',
+      primary: '#2563eb',
       text: '#111111',
       textMuted: '#666666',
       textOnPrimary: '#ffffff',
@@ -126,9 +125,7 @@ vi.mock('@/hooks/useTheme', () => ({
 
 vi.mock('@/hooks/useRegistration', () => ({
   useRegistration: () => ({
-    completeProfile: {
-      mutate: mocks.completeProfile,
-    },
+    completeProfile: { mutate: mocks.mutate },
     isLoading: false,
   }),
 }));
@@ -141,8 +138,8 @@ vi.mock('@/lib/supabase', () => ({
           user: {
             email: 'merchant@example.com',
             user_metadata: {
-              avatar_url: '',
-              full_name: 'Jane Doe',
+              avatar_url: 'https://example.com/avatar.png',
+              full_name: 'Akin John',
             },
           },
         },
@@ -153,6 +150,12 @@ vi.mock('@/lib/supabase', () => ({
 
 import CompleteProfileScreen from '../../app/(auth)/complete-profile';
 
+async function waitForPrefill() {
+  await waitFor(() => {
+    expect(screen.getByDisplayValue('Akin John')).toBeInTheDocument();
+  });
+}
+
 describe('CompleteProfileScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -162,63 +165,63 @@ describe('CompleteProfileScreen', () => {
     cleanup();
   });
 
-  it('renders inside the shared keyboard container after initialization', async () => {
+  it('submits the completed profile payload from the form', async () => {
     render(<CompleteProfileScreen />);
-
-    expect(
-      await screen.findByRole('region', { name: APP_KEYBOARD_CONTAINER_LABEL })
-    ).toBeTruthy();
-    expect(screen.getByText('Complete Setup')).toBeTruthy();
-  });
-
-  it('submits the completed profile payload', async () => {
-    render(<CompleteProfileScreen />);
-
-    await screen.findByText('Launch Store');
+    await waitForPrefill();
 
     fireEvent.change(screen.getByPlaceholderText('John Doe'), {
-      target: { value: 'Jane Doe' },
+      target: { value: 'Akin John' },
     });
     fireEvent.change(screen.getByPlaceholderText('My Awesome Store'), {
-      target: { value: 'Jane Gadgets' },
+      target: { value: 'Akin Gadgets' },
     });
     fireEvent.click(screen.getByText('Electronics & Gadgets'));
-    fireEvent.click(screen.getByText('Launch Store'));
+    fireEvent.click(screen.getByRole('button', { name: 'Launch Store' }));
 
-    expect(mocks.completeProfile).toHaveBeenCalledTimes(1);
-    expect(mocks.completeProfile.mock.calls[0][0]).toMatchObject({
-      firstName: 'Jane',
-      lastName: 'Doe',
-      email: 'merchant@example.com',
-      businessName: 'Jane Gadgets',
+    expect(mocks.mutate).toHaveBeenCalledTimes(1);
+    expect(mocks.mutate.mock.calls[0][0]).toMatchObject({
+      businessName: 'Akin Gadgets',
       businessType: 'electronics',
+      email: 'merchant@example.com',
+      firstName: 'Akin',
+      lastName: 'John',
     });
   });
 
-  it('shows an error alert when profile completion fails', async () => {
-    mocks.completeProfile.mockImplementation((_payload, callbacks) => {
-      callbacks?.onError?.(new Error('Network unavailable'));
-    });
-
+  it('blocks submission when required fields are missing', async () => {
     render(<CompleteProfileScreen />);
+    await waitForPrefill();
 
-    await screen.findByText('Launch Store');
-
-    fireEvent.change(screen.getByPlaceholderText('John Doe'), {
-      target: { value: 'Jane Doe' },
-    });
     fireEvent.change(screen.getByPlaceholderText('My Awesome Store'), {
-      target: { value: 'Jane Gadgets' },
+      target: { value: '' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Launch Store' }));
+
+    expect(mocks.mutate).not.toHaveBeenCalled();
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'Error',
+      'Please fill in all required fields (Name, Business Name, Type)'
+    );
+  });
+
+  it('clears stale otherBusinessType when switching away from Other', async () => {
+    render(<CompleteProfileScreen />);
+    await waitForPrefill();
+
+    fireEvent.change(screen.getByPlaceholderText('My Awesome Store'), {
+      target: { value: 'Akin Gadgets' },
+    });
+    fireEvent.click(screen.getByText('Other'));
+    fireEvent.change(screen.getByPlaceholderText('e.g. Pet Supplies'), {
+      target: { value: 'Custom Type' },
     });
     fireEvent.click(screen.getByText('Electronics & Gadgets'));
-    fireEvent.click(screen.getByText('Launch Store'));
+    fireEvent.click(screen.getByRole('button', { name: 'Launch Store' }));
 
-    await waitFor(() => {
-      expect(mocks.completeProfile).toHaveBeenCalledTimes(1);
-      expect(mocks.alert).toHaveBeenCalledWith(
-        'Setup Failed',
-        'Network unavailable'
-      );
+    expect(mocks.mutate).toHaveBeenCalledTimes(1);
+    expect(mocks.mutate.mock.calls[0][0]).toMatchObject({
+      businessType: 'electronics',
+      otherBusinessType: '',
     });
   });
 });
