@@ -127,4 +127,23 @@ describe('OrderItemDetailModal', () => {
 
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it('exposes accessible button controls for both dismissal actions', () => {
+    render(
+      <OrderItemDetailModal
+        formattedLineTotal="₦500,000"
+        formattedUnitPrice="₦500,000"
+        item={createItem()}
+        onClose={vi.fn()}
+        visible
+      />
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Close item details' })
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Close item detail sheet' })
+    ).toBeTruthy();
+  });
 });

@@ -72,6 +72,7 @@ export function OrderItemDetailModal({
               Item Details
             </Text>
             <Pressable
+              accessibilityRole="button"
               accessibilityLabel="Close item details"
               hitSlop={8}
               onPress={onClose}
@@ -170,6 +171,7 @@ export function OrderItemDetailModal({
           </View>
 
           <Pressable
+            accessibilityRole="button"
             accessibilityLabel="Close item detail sheet"
             onPress={onClose}
             style={[styles.doneButton, { backgroundColor: colors.primary }]}

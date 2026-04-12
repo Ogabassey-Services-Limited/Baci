@@ -93,7 +93,6 @@ export default function AddressesScreen() {
   // biome-ignore lint/correctness/useExhaustiveDependencies: fetchAddresses used in multiple places; React Compiler handles memoization (ADR-004)
   useEffect(() => {
     fetchAddresses();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customer?.id, merchantId]);
 
   const handleRefresh = () => {
