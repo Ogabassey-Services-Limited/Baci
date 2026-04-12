@@ -97,9 +97,13 @@ export function BankPickerSheet({
           <FlatList
             contentContainerStyle={styles.bankList}
             data={banks}
+            initialNumToRender={15}
             keyboardDismissMode="on-drag"
             keyboardShouldPersistTaps="handled"
             keyExtractor={(item) => item.code}
+            maxToRenderPerBatch={10}
+            removeClippedSubviews={Platform.OS === 'android'}
+            windowSize={5}
             ListEmptyComponent={
               <Text
                 style={[styles.emptyStateText, { color: colors.textMuted }]}

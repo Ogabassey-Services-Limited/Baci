@@ -219,9 +219,13 @@ export function DiscountItemSelector({
           <FlatList
             contentContainerStyle={styles.list}
             data={items}
-            keyExtractor={(item) => item.id}
+            initialNumToRender={15}
             keyboardDismissMode="on-drag"
             keyboardShouldPersistTaps="handled"
+            keyExtractor={(item) => item.id}
+            maxToRenderPerBatch={10}
+            removeClippedSubviews={Platform.OS === 'android'}
+            windowSize={5}
             renderItem={({ item }) => {
               const isSelected = selectedIds.has(item.id);
 
