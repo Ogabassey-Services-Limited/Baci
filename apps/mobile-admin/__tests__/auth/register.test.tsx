@@ -227,6 +227,45 @@ describe('RegisterScreen', () => {
     });
   });
 
+  it('clears stale otherBusinessType when switching away from Other', () => {
+    render(<RegisterScreen />);
+
+    fireEvent.change(screen.getByPlaceholderText('John'), {
+      target: { value: 'Test' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('Doe'), {
+      target: { value: 'User' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('you@example.com'), {
+      target: { value: 'test@example.com' },
+    });
+    const passwordFields = screen.getAllByPlaceholderText('••••••••');
+    fireEvent.change(passwordFields[0], {
+      target: { value: 'StrongP@ss123!' },
+    });
+    fireEvent.change(passwordFields[1], {
+      target: { value: 'StrongP@ss123!' },
+    });
+
+    fireEvent.click(screen.getByText('Next Step'));
+    fireEvent.change(screen.getByPlaceholderText('My Awesome Store'), {
+      target: { value: 'Test Store' },
+    });
+
+    fireEvent.click(screen.getByText('Other'));
+    fireEvent.change(screen.getByPlaceholderText('e.g. Pet Supplies'), {
+      target: { value: 'Custom Type' },
+    });
+    fireEvent.click(screen.getByText('Fashion & Apparel'));
+    fireEvent.click(screen.getByText('Launch Store'));
+
+    const [payload] = mocks.mutate.mock.calls[0];
+    expect(payload).toMatchObject({
+      businessType: 'fashion',
+      otherBusinessType: '',
+    });
+  });
+
   describe('onSuccess', () => {
     it('navigates to dashboard via router.replace', () => {
       render(<RegisterScreen />);

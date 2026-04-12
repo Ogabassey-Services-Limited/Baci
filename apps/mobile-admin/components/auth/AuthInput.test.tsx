@@ -1,9 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import {
-  AuthInput,
-  PasswordVisibilityToggle,
-} from '@/components/auth/AuthInput';
+import { AuthInput } from '@/components/auth/AuthInput';
+import { PasswordVisibilityToggle } from '@/components/auth/PasswordVisibilityToggle';
 
 vi.mock('react-native', async () => {
   const React = await import('react');
@@ -29,15 +27,18 @@ vi.mock('react-native', async () => {
     Text: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('span', null, children),
     TextInput: ({
+      accessibilityLabel,
       onChangeText,
       placeholder,
       value,
     }: {
+      accessibilityLabel?: string;
       onChangeText?: (text: string) => void;
       placeholder?: string;
       value?: string;
     }) =>
       React.createElement('input', {
+        'aria-label': accessibilityLabel,
         placeholder,
         value: value ?? '',
         onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
@@ -78,7 +79,7 @@ describe('AuthInput', () => {
     );
 
     expect(screen.getByText('Email')).toBeTruthy();
-    fireEvent.change(screen.getByPlaceholderText('you@example.com'), {
+    fireEvent.change(screen.getByLabelText('Email'), {
       target: { value: 'merchant@example.com' },
     });
 

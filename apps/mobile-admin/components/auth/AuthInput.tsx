@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import type { ReactNode, Ref } from 'react';
 import {
   TextInput as NativeTextInput,
-  Pressable,
   StyleSheet,
   Text,
   type TextInput,
@@ -77,6 +76,7 @@ export function AuthInput({
         />
         <NativeTextInput
           ref={inputRef}
+          accessibilityLabel={label}
           style={[styles.input, { color: textColor }]}
           placeholder={placeholder}
           placeholderTextColor={placeholderTextColor}
@@ -95,29 +95,6 @@ export function AuthInput({
         {rightAccessory}
       </View>
     </View>
-  );
-}
-
-export function PasswordVisibilityToggle({
-  accessibilityLabel,
-  iconColor,
-  iconName,
-  onPress,
-}: {
-  accessibilityLabel: string;
-  iconColor: string;
-  iconName: React.ComponentProps<typeof Ionicons>['name'];
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={styles.eyeButton}
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
-    >
-      <Ionicons name={iconName} size={20} color={iconColor} />
-    </Pressable>
   );
 }
 
@@ -146,8 +123,5 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
-  },
-  eyeButton: {
-    padding: SPACING.xs,
   },
 });

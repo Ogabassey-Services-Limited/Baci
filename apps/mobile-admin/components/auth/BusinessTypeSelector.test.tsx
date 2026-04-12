@@ -8,16 +8,22 @@ vi.mock('react-native', async () => {
   return {
     Pressable: ({
       accessibilityLabel,
+      accessibilityState,
       children,
       onPress,
     }: {
       accessibilityLabel?: string;
+      accessibilityState?: { selected?: boolean };
       children?: React.ReactNode;
       onPress?: () => void;
     }) =>
       React.createElement(
         'button',
-        { 'aria-label': accessibilityLabel, onClick: onPress },
+        {
+          'aria-label': accessibilityLabel,
+          'aria-pressed': accessibilityState?.selected ? 'true' : 'false',
+          onClick: onPress,
+        },
         children
       ),
     StyleSheet: {
@@ -52,5 +58,26 @@ describe('BusinessTypeSelector', () => {
     );
 
     expect(onSelect).toHaveBeenCalledWith('electronics');
+  });
+
+  it('marks the selected business type for assistive tech', () => {
+    render(
+      <BusinessTypeSelector
+        borderColor="#ddd"
+        cardBackgroundColor="#fff"
+        onSelect={vi.fn()}
+        selectedBackgroundColor="#2563eb"
+        selectedBorderColor="#2563eb"
+        selectedTextColor="#fff"
+        selectedType="electronics"
+        textColor="#111"
+      />
+    );
+
+    expect(
+      screen
+        .getByLabelText('Electronics & Gadgets business type')
+        .getAttribute('aria-pressed')
+    ).toBe('true');
   });
 });

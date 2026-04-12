@@ -203,4 +203,25 @@ describe('CompleteProfileScreen', () => {
       'Please fill in all required fields (Name, Business Name, Type)'
     );
   });
+
+  it('clears stale otherBusinessType when switching away from Other', async () => {
+    render(<CompleteProfileScreen />);
+    await waitForPrefill();
+
+    fireEvent.change(screen.getByPlaceholderText('My Awesome Store'), {
+      target: { value: 'Akin Gadgets' },
+    });
+    fireEvent.click(screen.getByText('Other'));
+    fireEvent.change(screen.getByPlaceholderText('e.g. Pet Supplies'), {
+      target: { value: 'Custom Type' },
+    });
+    fireEvent.click(screen.getByText('Electronics & Gadgets'));
+    fireEvent.click(screen.getByRole('button', { name: 'Launch Store' }));
+
+    expect(mocks.mutate).toHaveBeenCalledTimes(1);
+    expect(mocks.mutate.mock.calls[0][0]).toMatchObject({
+      businessType: 'electronics',
+      otherBusinessType: '',
+    });
+  });
 });

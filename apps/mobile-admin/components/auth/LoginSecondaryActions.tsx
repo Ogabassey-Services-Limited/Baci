@@ -7,9 +7,9 @@ import {
   Text,
   View,
 } from 'react-native';
-import { BRAND } from '@/constants/brand';
-import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { RADIUS, SPACING } from '@/constants/theme';
 import { GoogleLogo } from './GoogleLogo';
+import { styles as loginStyles } from './login.styles';
 
 interface LoginSecondaryActionsProps {
   colors: {
@@ -43,22 +43,22 @@ export function LoginSecondaryActions({
 }: LoginSecondaryActionsProps) {
   return (
     <>
-      <View style={styles.divider}>
+      <View style={loginStyles.divider}>
         <View
-          style={[styles.dividerLine, { backgroundColor: colors.border }]}
+          style={[loginStyles.dividerLine, { backgroundColor: colors.border }]}
         />
-        <Text style={[styles.dividerText, { color: colors.textMuted }]}>
+        <Text style={[loginStyles.dividerText, { color: colors.textMuted }]}>
           or continue with
         </Text>
         <View
-          style={[styles.dividerLine, { backgroundColor: colors.border }]}
+          style={[loginStyles.dividerLine, { backgroundColor: colors.border }]}
         />
       </View>
 
-      <View style={styles.socialButtons}>
+      <View style={loginStyles.socialButtons}>
         <Pressable
           style={[
-            styles.socialButton,
+            loginStyles.socialButton,
             { backgroundColor: colors.card, borderColor: colors.border },
           ]}
           onPress={onGoogleSignIn}
@@ -74,7 +74,9 @@ export function LoginSecondaryActions({
           ) : (
             <>
               <GoogleLogo size={20} />
-              <Text style={[styles.socialButtonText, { color: colors.text }]}>
+              <Text
+                style={[loginStyles.socialButtonText, { color: colors.text }]}
+              >
                 Google
               </Text>
             </>
@@ -84,7 +86,7 @@ export function LoginSecondaryActions({
         {showAppleSignIn ? (
           <Pressable
             style={[
-              styles.socialButton,
+              loginStyles.socialButton,
               { backgroundColor: '#000', borderColor: '#000' },
             ]}
             onPress={onAppleSignIn}
@@ -100,7 +102,7 @@ export function LoginSecondaryActions({
             ) : (
               <>
                 <Ionicons name="logo-apple" size={20} color="#FFF" />
-                <Text style={[styles.socialButtonText, { color: '#FFF' }]}>
+                <Text style={[loginStyles.socialButtonText, { color: '#FFF' }]}>
                   Apple
                 </Text>
               </>
@@ -109,8 +111,8 @@ export function LoginSecondaryActions({
         ) : null}
       </View>
 
-      <View style={styles.signUpContainer}>
-        <Text style={[styles.signUpText, { color: colors.textMuted }]}>
+      <View style={loginStyles.signUpContainer}>
+        <Text style={[loginStyles.signUpText, { color: colors.textMuted }]}>
           Don&apos;t have an account?
         </Text>
         <Pressable
@@ -122,8 +124,8 @@ export function LoginSecondaryActions({
         >
           <Text
             style={[
-              styles.signUpLink,
-              isAnyLoading && styles.signUpLinkDisabled,
+              loginStyles.signUpLink,
+              isAnyLoading && loginStyles.signUpLinkDisabled,
             ]}
           >
             Sign Up
@@ -152,58 +154,6 @@ export function LoginSecondaryActions({
 }
 
 const styles = StyleSheet.create({
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: SPACING.md,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-  },
-  dividerText: {
-    marginHorizontal: SPACING.md,
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-  },
-  socialButtons: {
-    flexDirection: 'row',
-    gap: SPACING.md,
-  },
-  socialButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: SPACING.md,
-    borderRadius: RADIUS.md,
-    borderCurve: 'continuous',
-    borderWidth: 1,
-    gap: SPACING.sm,
-  },
-  socialButtonText: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-  },
-  signUpContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: SPACING['3xl'],
-    gap: SPACING.xs,
-  },
-  signUpText: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-  },
-  signUpLink: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-    color: BRAND.yellow,
-  },
-  signUpLinkDisabled: {
-    opacity: 0.5,
-  },
   devResetButton: {
     flexDirection: 'row',
     alignItems: 'center',

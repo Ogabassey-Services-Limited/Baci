@@ -15,12 +15,10 @@ import {
   View,
 } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
-import {
-  AuthInput,
-  PasswordVisibilityToggle,
-} from '@/components/auth/AuthInput';
+import { AuthInput } from '@/components/auth/AuthInput';
 import { LoginSecondaryActions } from '@/components/auth/LoginSecondaryActions';
 import { styles } from '@/components/auth/login.styles';
+import { PasswordVisibilityToggle } from '@/components/auth/PasswordVisibilityToggle';
 import { BaciLogo } from '@/components/BaciLogo';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
 import { BRAND } from '@/constants/brand';

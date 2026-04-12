@@ -102,6 +102,10 @@ export default function CompleteProfileScreen() {
         updates.slug = slugBase;
       }
 
+      if (key === 'businessType' && value !== 'other') {
+        updates.otherBusinessType = '';
+      }
+
       return { ...prev, ...updates };
     });
   };
