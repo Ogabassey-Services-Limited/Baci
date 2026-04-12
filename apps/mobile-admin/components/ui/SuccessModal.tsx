@@ -93,7 +93,7 @@ export function SuccessModal({
               name="mail-outline"
               size={16}
               color={colors.textMuted}
-              style={{ marginTop: 2 }}
+              style={styles.subMessageIcon}
             />
             <Text style={[styles.subMessage, { color: colors.textMuted }]}>
               {subMessage}
@@ -212,6 +212,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     flex: 1,
     lineHeight: 18,
+  },
+  subMessageIcon: {
+    marginTop: 2,
   },
   buttonStack: {
     gap: 12,
