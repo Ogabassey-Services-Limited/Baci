@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { ComponentProps } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 import { SPACING } from '@/constants/theme';
 
 interface PasswordVisibilityToggleProps {
   accessibilityLabel: string;
   iconColor: string;
-  iconName: React.ComponentProps<typeof Ionicons>['name'];
+  iconName: ComponentProps<typeof Ionicons>['name'];
   onPress: () => void;
 }
 

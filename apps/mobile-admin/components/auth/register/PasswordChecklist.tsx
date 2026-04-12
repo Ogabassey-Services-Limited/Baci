@@ -1,6 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
 import { Text, View } from 'react-native';
 import type { PasswordValidationResult } from '@/lib/password-utils';
+import { ChecklistItem } from './ChecklistItem';
 import { registerStyles as styles } from './register.styles';
 
 interface PasswordChecklistProps {
@@ -76,35 +76,6 @@ export function PasswordChecklist({
           text="Not a common password"
         />
       </View>
-    </View>
-  );
-}
-
-function ChecklistItem({
-  isError = false,
-  isValid,
-  text,
-}: {
-  isError?: boolean;
-  isValid: boolean;
-  text: string;
-}) {
-  const iconName = isValid
-    ? 'checkmark-circle'
-    : isError
-      ? 'alert-circle-outline'
-      : 'ellipse-outline';
-  const iconColor = isValid ? '#10B981' : isError ? '#EF4444' : '#9CA3AF';
-  const textStyle = isValid
-    ? styles.checkTextValid
-    : isError
-      ? styles.checkTextError
-      : styles.checkText;
-
-  return (
-    <View style={styles.checkItem}>
-      <Ionicons name={iconName} size={14} color={iconColor} />
-      <Text style={textStyle}>{text}</Text>
     </View>
   );
 }

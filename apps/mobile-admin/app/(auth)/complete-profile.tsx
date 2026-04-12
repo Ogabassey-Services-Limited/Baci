@@ -5,7 +5,6 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Linking,
   Pressable,
   StyleSheet,
   Text,
@@ -14,6 +13,7 @@ import {
 } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { BusinessTypeSelector } from '@/components/auth/BusinessTypeSelector';
+import { RegisterLegalText } from '@/components/auth/register/RegisterLegalText';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
 import SafeImage from '@/components/ui/SafeImage';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
@@ -261,6 +261,7 @@ export default function CompleteProfileScreen() {
               Your Name
             </Text>
             <TextInput
+              accessibilityLabel="Your Name"
               style={[
                 styles.input,
                 {
@@ -281,6 +282,7 @@ export default function CompleteProfileScreen() {
               Phone Number (Optional)
             </Text>
             <TextInput
+              accessibilityLabel="Phone Number (Optional)"
               style={[
                 styles.input,
                 {
@@ -302,6 +304,7 @@ export default function CompleteProfileScreen() {
               Business Name
             </Text>
             <TextInput
+              accessibilityLabel="Business Name"
               style={[
                 styles.input,
                 {
@@ -331,6 +334,7 @@ export default function CompleteProfileScreen() {
               ]}
             >
               <TextInput
+                accessibilityLabel="Store Link"
                 style={[
                   styles.urlInput,
                   { textAlign: 'right', color: colors.text },
@@ -362,6 +366,7 @@ export default function CompleteProfileScreen() {
               Business Type
             </Text>
             <BusinessTypeSelector
+              accessibilityLabelSuffix="business type"
               borderColor={colors.border}
               cardBackgroundColor={
                 isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'
@@ -381,6 +386,7 @@ export default function CompleteProfileScreen() {
                 Please specify
               </Text>
               <TextInput
+                accessibilityLabel="Please specify"
                 style={[
                   styles.input,
                   {
@@ -428,22 +434,11 @@ export default function CompleteProfileScreen() {
             )}
           </Pressable>
 
-          <Text style={[styles.termsText, { color: colors.textSecondary }]}>
-            By continuing, you agree to our{' '}
-            <Text
-              style={[styles.termsLink, { color: colors.primary }]}
-              onPress={() => Linking.openURL('https://usebaci.com/terms')}
-            >
-              Terms of Service
-            </Text>{' '}
-            and{' '}
-            <Text
-              style={[styles.termsLink, { color: colors.primary }]}
-              onPress={() => Linking.openURL('https://usebaci.com/privacy')}
-            >
-              Privacy Policy
-            </Text>
-          </Text>
+          <RegisterLegalText
+            linkColor={colors.primary}
+            prefixText="By continuing, you agree to our"
+            textColor={colors.textSecondary}
+          />
         </View>
       </AppFormScreen>
     </View>

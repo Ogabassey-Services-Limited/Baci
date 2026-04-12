@@ -137,12 +137,21 @@ export function LoginSecondaryActions({
         <Pressable
           style={styles.devResetButton}
           onPress={async () => {
-            await onResetOnboarding();
-            Alert.alert(
-              'Onboarding Reset',
-              'You will now be taken to the onboarding screen.',
-              [{ text: 'OK', onPress: () => replace('/(auth)/onboarding') }]
-            );
+            try {
+              await onResetOnboarding();
+              Alert.alert(
+                'Onboarding Reset',
+                'You will now be taken to the onboarding screen.',
+                [{ text: 'OK', onPress: () => replace('/(auth)/onboarding') }]
+              );
+            } catch (error) {
+              const message =
+                error instanceof Error ? error.message : 'Please try again.';
+              Alert.alert(
+                'Reset Failed',
+                `Could not reset onboarding. ${message}`
+              );
+            }
           }}
         >
           <Ionicons name="refresh-outline" size={20} color="#D97706" />

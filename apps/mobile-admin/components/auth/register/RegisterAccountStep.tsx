@@ -44,6 +44,7 @@ export function RegisterAccountStep({
         <View style={styles.nameInputGroup}>
           <Text style={styles.label}>First Name</Text>
           <TextInput
+            accessibilityLabel="First Name"
             style={styles.input}
             placeholder="John"
             placeholderTextColor="#6B7280"
@@ -55,6 +56,7 @@ export function RegisterAccountStep({
         <View style={styles.nameInputGroup}>
           <Text style={styles.label}>Last Name</Text>
           <TextInput
+            accessibilityLabel="Last Name"
             style={styles.input}
             placeholder="Doe"
             placeholderTextColor="#6B7280"
@@ -68,6 +70,7 @@ export function RegisterAccountStep({
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Email Address</Text>
         <TextInput
+          accessibilityLabel="Email Address"
           style={styles.input}
           placeholder="you@example.com"
           placeholderTextColor="#6B7280"
@@ -82,6 +85,7 @@ export function RegisterAccountStep({
         <Text style={styles.label}>Password</Text>
         <View style={styles.passwordContainer}>
           <TextInput
+            accessibilityLabel="Password"
             style={styles.passwordInput}
             placeholder="••••••••"
             placeholderTextColor="#6B7280"
@@ -109,6 +113,7 @@ export function RegisterAccountStep({
         <Text style={styles.label}>Confirm Password</Text>
         <View style={styles.passwordContainer}>
           <TextInput
+            accessibilityLabel="Confirm Password"
             style={styles.passwordInput}
             placeholder="••••••••"
             placeholderTextColor="#6B7280"

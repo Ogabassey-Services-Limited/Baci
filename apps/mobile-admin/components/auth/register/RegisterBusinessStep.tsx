@@ -46,6 +46,7 @@ export function RegisterBusinessStep({
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Business Name</Text>
         <TextInput
+          accessibilityLabel="Business Name"
           style={styles.input}
           placeholder="My Awesome Store"
           placeholderTextColor="#6B7280"
@@ -58,6 +59,7 @@ export function RegisterBusinessStep({
         <Text style={styles.label}>Store Link</Text>
         <View style={styles.urlInputContainer}>
           <TextInput
+            accessibilityLabel="Store Link"
             style={[styles.urlInput, { textAlign: 'right' }]}
             placeholder="my-store"
             placeholderTextColor="#6B7280"
@@ -87,6 +89,7 @@ export function RegisterBusinessStep({
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Please specify</Text>
           <TextInput
+            accessibilityLabel="Please specify"
             style={styles.input}
             placeholder="e.g. Pet Supplies"
             placeholderTextColor="#6B7280"
