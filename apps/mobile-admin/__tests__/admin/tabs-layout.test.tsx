@@ -76,7 +76,7 @@ vi.mock('@/hooks/useTheme', () => ({
   }),
 }));
 
-import TabLayout from './_layout';
+import TabLayout from '@/app/(admin)/(tabs)/_layout';
 
 describe('TabLayout', () => {
   beforeEach(() => {

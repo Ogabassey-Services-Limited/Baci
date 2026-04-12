@@ -23,11 +23,11 @@ import {
   type PaymentSettings,
   paymentMethods,
 } from '@/components/payment-methods/payment-methods';
+import { styles } from '@/components/payment-methods/payment-methods.styles';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-import { styles } from './payment-methods.styles';
 
 export default function PaymentMethodsScreen() {
   const { colors, shadows, isDark } = useTheme();

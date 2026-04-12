@@ -204,7 +204,7 @@ vi.mock('@/constants/theme', () => ({
 
 // ─── Import under test (after all mocks) ────────────────────────────────────
 
-import PayoutSettingsScreen from './payout-settings';
+import PayoutSettingsScreen from '@/app/(admin)/payout-settings';
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
 

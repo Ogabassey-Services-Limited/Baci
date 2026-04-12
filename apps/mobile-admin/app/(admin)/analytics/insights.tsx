@@ -10,10 +10,10 @@ import {
 } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { styles } from '@/components/analytics/analytics-insights.styles';
 import { useAnalyticsOverview } from '@/hooks/useAnalyticsOverview';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useTheme } from '@/hooks/useTheme';
-import { styles } from '@/app/(admin)/analytics/analytics-insights.styles';
 
 interface InsightRow {
   id: string;

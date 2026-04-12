@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
+import { AppDialogModal } from '@/components/ui/AppDialogModal';
 import { useTheme } from '@/hooks/useTheme';
 
 interface SuccessModalProps {
@@ -31,136 +32,126 @@ export function SuccessModal({
   const { colors } = useTheme();
 
   return (
-    <Modal
-      transparent
+    <AppDialogModal
+      contentContainerStyle={styles.contentContainer}
+      onClose={onClose}
       visible={visible}
-      animationType="fade"
-      statusBarTranslucent
-      onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
-        <Animated.View
-          entering={FadeInUp.springify().damping(15)}
-          style={[styles.container, { backgroundColor: colors.card }]}
-          accessible={true}
-          accessibilityViewIsModal={true}
-          accessibilityLabel={`${title} dialog. ${message}`}
-        >
-          <View style={styles.iconContainer}>
-            <View
-              style={[
-                styles.iconBg,
-                {
-                  backgroundColor: colors.successLight,
-                  borderColor: colors.successLight,
-                },
-              ]}
-            >
-              <Ionicons name="checkmark" size={40} color={colors.success} />
-            </View>
-            <View
-              style={[
-                styles.particle,
-                { top: 0, left: 10, backgroundColor: colors.success },
-              ]}
-            />
-            <View
-              style={[
-                styles.particle,
-                { top: 10, right: 0, backgroundColor: colors.successLight },
-              ]}
-            />
-            <View
-              style={[
-                styles.particle,
-                { bottom: 0, left: 20, backgroundColor: colors.success },
-              ]}
-            />
+      <Animated.View
+        entering={FadeInUp.springify().damping(15)}
+        style={[styles.container, { backgroundColor: colors.card }]}
+        accessible={true}
+        accessibilityViewIsModal={true}
+        accessibilityLabel={`${title} dialog. ${message}`}
+      >
+        <View style={styles.iconContainer}>
+          <View
+            style={[
+              styles.iconBg,
+              {
+                backgroundColor: colors.successLight,
+                borderColor: colors.successLight,
+              },
+            ]}
+          >
+            <Ionicons name="checkmark" size={40} color={colors.success} />
           </View>
+          <View
+            style={[
+              styles.particle,
+              { top: 0, left: 10, backgroundColor: colors.success },
+            ]}
+          />
+          <View
+            style={[
+              styles.particle,
+              { top: 10, right: 0, backgroundColor: colors.successLight },
+            ]}
+          />
+          <View
+            style={[
+              styles.particle,
+              { bottom: 0, left: 20, backgroundColor: colors.success },
+            ]}
+          />
+        </View>
 
-          <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
 
-          <Text style={[styles.message, { color: colors.textSecondary }]}>
-            {message}
-          </Text>
+        <Text style={[styles.message, { color: colors.textSecondary }]}>
+          {message}
+        </Text>
 
-          {subMessage ? (
-            <View
-              style={[
-                styles.subMessageContainer,
-                { backgroundColor: colors.backgroundLight },
-              ]}
-            >
-              <Ionicons
-                name="mail-outline"
-                size={16}
-                color={colors.textMuted}
-                style={{ marginTop: 2 }}
-              />
-              <Text style={[styles.subMessage, { color: colors.textMuted }]}>
-                {subMessage}
-              </Text>
-            </View>
-          ) : null}
+        {subMessage ? (
+          <View
+            style={[
+              styles.subMessageContainer,
+              { backgroundColor: colors.backgroundLight },
+            ]}
+          >
+            <Ionicons
+              name="mail-outline"
+              size={16}
+              color={colors.textMuted}
+              style={styles.subMessageIcon}
+            />
+            <Text style={[styles.subMessage, { color: colors.textMuted }]}>
+              {subMessage}
+            </Text>
+          </View>
+        ) : null}
 
-          <View style={styles.buttonStack}>
-            {actionLabel && onActionPress ? (
-              <Pressable
-                style={({ pressed }) => [
-                  styles.button,
-                  {
-                    backgroundColor:
-                      actionVariant === 'whatsapp' ? '#25D366' : colors.primary,
-                  },
-                  pressed && styles.buttonPressed,
-                ]}
-                onPress={onActionPress}
-                accessibilityRole="button"
-                accessibilityLabel={actionLabel}
-              >
-                <View style={styles.buttonContent}>
-                  {actionIcon ? (
-                    <Ionicons name={actionIcon} size={18} color="#FFF" />
-                  ) : null}
-                  <Text style={styles.buttonText}>{actionLabel}</Text>
-                </View>
-              </Pressable>
-            ) : null}
-
+        <View style={styles.buttonStack}>
+          {actionLabel && onActionPress ? (
             <Pressable
               style={({ pressed }) => [
                 styles.button,
-                styles.secondaryButton,
                 {
-                  backgroundColor: colors.backgroundLight,
-                  borderColor: colors.border,
+                  backgroundColor:
+                    actionVariant === 'whatsapp' ? '#25D366' : colors.primary,
                 },
                 pressed && styles.buttonPressed,
               ]}
-              onPress={onClose}
+              onPress={onActionPress}
               accessibilityRole="button"
-              accessibilityLabel={closeLabel}
+              accessibilityLabel={actionLabel}
             >
-              <Text
-                style={[styles.secondaryButtonText, { color: colors.text }]}
-              >
-                {closeLabel}
-              </Text>
+              <View style={styles.buttonContent}>
+                {actionIcon ? (
+                  <Ionicons name={actionIcon} size={18} color="#FFF" />
+                ) : null}
+                <Text style={styles.buttonText}>{actionLabel}</Text>
+              </View>
             </Pressable>
-          </View>
-        </Animated.View>
-      </View>
-    </Modal>
+          ) : null}
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.button,
+              styles.secondaryButton,
+              {
+                backgroundColor: colors.backgroundLight,
+                borderColor: colors.border,
+              },
+              pressed && styles.buttonPressed,
+            ]}
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel={closeLabel}
+          >
+            <Text style={[styles.secondaryButtonText, { color: colors.text }]}>
+              {closeLabel}
+            </Text>
+          </Pressable>
+        </View>
+      </Animated.View>
+    </AppDialogModal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
+  contentContainer: {
     alignItems: 'center',
-    padding: 24,
   },
   container: {
     width: '100%',
@@ -221,6 +212,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     flex: 1,
     lineHeight: 18,
+  },
+  subMessageIcon: {
+    marginTop: 2,
   },
   buttonStack: {
     gap: 12,

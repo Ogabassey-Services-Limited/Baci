@@ -19,11 +19,11 @@ import { BranchCard } from '@/components/staff/BranchCard';
 import { BranchModal } from '@/components/staff/BranchModal';
 import { StaffAccountCard } from '@/components/staff/StaffAccountCard';
 import { StaffAccountModal } from '@/components/staff/StaffAccountModal';
+import styles from '@/components/staff/staff-accounts.styles';
 import { SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useStaff } from '@/hooks/useStaff';
 import { useStaffAccounts } from '@/hooks/useStaffAccounts';
 import { useTheme } from '@/hooks/useTheme';
-import styles from './staff-accounts.styles';
 
 type TabType = 'accounts' | 'branches';
 

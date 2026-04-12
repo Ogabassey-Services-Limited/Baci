@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 
 export const styles = StyleSheet.create({
   container: { flex: 1 },
@@ -13,7 +13,7 @@ export const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
   },
   retryButtonText: {
-    color: '#FFFFFF',
+    color: COLORS.textOnPrimary,
     fontSize: TYPOGRAPHY.size.sm,
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
@@ -53,7 +53,7 @@ export const styles = StyleSheet.create({
   settingDesc: {
     fontSize: TYPOGRAPHY.size.xs,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
-    marginTop: 2,
+    marginTop: SPACING.xs,
   },
   divider: { height: 1, marginHorizontal: SPACING.lg },
   noteSection: {

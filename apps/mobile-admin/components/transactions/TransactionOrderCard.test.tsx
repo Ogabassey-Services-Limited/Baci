@@ -48,7 +48,7 @@ vi.mock('@expo/vector-icons', async () => {
   };
 });
 
-vi.mock('@/app/(admin)/transactions.styles', () => ({
+vi.mock('@/components/transactions/transactions.styles', () => ({
   styles: new Proxy(
     {},
     {

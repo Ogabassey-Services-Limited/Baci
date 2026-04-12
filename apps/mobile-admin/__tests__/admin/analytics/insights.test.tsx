@@ -12,7 +12,8 @@ vi.mock('react-native', async () => {
   const React = await import('react');
 
   return {
-    ActivityIndicator: () => React.createElement('div', { role: 'progressbar' }),
+    ActivityIndicator: () =>
+      React.createElement('div', { role: 'progressbar' }),
     Pressable: ({
       children,
       onPress,
@@ -41,7 +42,9 @@ vi.mock('react-native-edge-to-edge', () => ({
 }));
 
 vi.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
+  SafeAreaView: ({ children }: { children?: React.ReactNode }) => (
+    <>{children}</>
+  ),
 }));
 
 vi.mock('@expo/vector-icons', () => ({
@@ -69,7 +72,7 @@ vi.mock('@/hooks/useCurrency', () => ({
   }),
 }));
 
-vi.mock('@/app/(admin)/analytics/analytics-insights.styles', () => ({
+vi.mock('@/components/analytics/analytics-insights.styles', () => ({
   styles: new Proxy(
     {},
     {
@@ -95,7 +98,7 @@ vi.mock('@/hooks/useTheme', () => ({
   }),
 }));
 
-import AnalyticsInsightsScreen from './insights';
+import AnalyticsInsightsScreen from '@/app/(admin)/analytics/insights';
 
 describe('AnalyticsInsightsScreen', () => {
   beforeEach(() => {
@@ -145,7 +148,9 @@ describe('AnalyticsInsightsScreen', () => {
 
     render(<AnalyticsInsightsScreen />);
 
-    expect(screen.getByText('Unable to load analytics right now.')).toBeTruthy();
+    expect(
+      screen.getByText('Unable to load analytics right now.')
+    ).toBeTruthy();
 
     fireEvent.click(screen.getByText('Try again'));
     expect(mocks.refetch).toHaveBeenCalled();

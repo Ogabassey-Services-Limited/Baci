@@ -80,7 +80,7 @@ vi.mock('@/hooks/useTheme', () => ({
   }),
 }));
 
-import AdminLayout from './_layout';
+import AdminLayout from '@/app/(admin)/_layout';
 
 describe('AdminLayout', () => {
   beforeEach(() => {
