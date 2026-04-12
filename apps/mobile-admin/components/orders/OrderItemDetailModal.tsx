@@ -1,13 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import {
-  Modal,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AppSheetModal } from '@/components/ui/AppSheetModal';
 import SafeImage from '@/components/ui/SafeImage';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
@@ -49,138 +43,133 @@ export function OrderItemDetailModal({
   const conditionLabel = formatProductCondition(item.condition);
 
   return (
-    <Modal
+    <AppSheetModal
+      accessibilityLabel="Order item details"
+      onClose={onClose}
+      sheetStyle={[
+        styles.sheet,
+        {
+          backgroundColor: colors.card,
+          borderColor: colors.border,
+          paddingBottom: Math.max(insets.bottom, SPACING.lg),
+        },
+      ]}
       visible={visible}
-      animationType="slide"
-      transparent
-      onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
-        <Pressable style={styles.backdrop} onPress={onClose} />
-        <View
-          style={[
-            styles.sheet,
-            {
-              backgroundColor: colors.card,
-              borderColor: colors.border,
-              paddingBottom: Math.max(insets.bottom, SPACING.lg),
-            },
-          ]}
-        >
-          <View style={styles.header}>
-            <Text style={[styles.title, { color: colors.text }]}>
-              Item Details
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Close item details"
-              hitSlop={8}
-              onPress={onClose}
-              style={[
-                styles.closeButton,
-                { backgroundColor: colors.backgroundLight },
-              ]}
-            >
-              <Ionicons name="close" size={18} color={colors.text} />
-            </Pressable>
-          </View>
-
-          <Text style={[styles.note, { color: colors.textSecondary }]}>
-            This is the order snapshot the customer actually bought.
+      <View style={styles.content}>
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: colors.text }]}>
+            Item Details
           </Text>
-
-          <View style={styles.heroRow}>
-            <View
-              style={[
-                styles.imageWrap,
-                { backgroundColor: colors.backgroundLight },
-              ]}
-            >
-              {item.image_url ? (
-                <SafeImage
-                  source={{ uri: item.image_url }}
-                  style={styles.image}
-                />
-              ) : (
-                <Ionicons
-                  name="image-outline"
-                  size={28}
-                  color={colors.textMuted}
-                />
-              )}
-            </View>
-
-            <View style={styles.heroDetails}>
-              <Text style={[styles.itemName, { color: colors.text }]}>
-                {item.name}
-              </Text>
-              {item.variant_name ? (
-                <Text
-                  style={[styles.variantName, { color: colors.textSecondary }]}
-                >
-                  {item.variant_name}
-                </Text>
-              ) : (
-                <Text
-                  style={[styles.variantName, { color: colors.textSecondary }]}
-                >
-                  No variant snapshot
-                </Text>
-              )}
-            </View>
-          </View>
-
-          <View
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close item details"
+            hitSlop={8}
+            onPress={onClose}
             style={[
-              styles.summaryCard,
+              styles.closeButton,
               { backgroundColor: colors.backgroundLight },
             ]}
           >
-            <DetailRow
-              label="Quantity"
-              value={`x${item.quantity}`}
-              colors={colors}
-            />
-            <DetailRow
-              label="Unit price"
-              value={formattedUnitPrice}
-              colors={colors}
-            />
-            <DetailRow
-              label="Line total"
-              value={formattedLineTotal}
-              colors={colors}
-              isStrong
-            />
-            {conditionLabel ? (
-              <DetailRow
-                label="Condition"
-                value={conditionLabel}
-                colors={colors}
-              />
-            ) : null}
-            <DetailRow
-              label="SKU"
-              value={
-                item.product_id && !item.product_id.startsWith('custom-')
-                  ? item.product_id.slice(0, 8).toUpperCase()
-                  : 'Custom item'
-              }
-              colors={colors}
-            />
-          </View>
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Close item detail sheet"
-            onPress={onClose}
-            style={[styles.doneButton, { backgroundColor: colors.primary }]}
-          >
-            <Text style={styles.doneButtonText}>Done</Text>
+            <Ionicons name="close" size={18} color={colors.text} />
           </Pressable>
         </View>
+
+        <Text style={[styles.note, { color: colors.textSecondary }]}>
+          This is the order snapshot the customer actually bought.
+        </Text>
+
+        <View style={styles.heroRow}>
+          <View
+            style={[
+              styles.imageWrap,
+              { backgroundColor: colors.backgroundLight },
+            ]}
+          >
+            {item.image_url ? (
+              <SafeImage
+                source={{ uri: item.image_url }}
+                style={styles.image}
+              />
+            ) : (
+              <Ionicons
+                name="image-outline"
+                size={28}
+                color={colors.textMuted}
+              />
+            )}
+          </View>
+
+          <View style={styles.heroDetails}>
+            <Text style={[styles.itemName, { color: colors.text }]}>
+              {item.name}
+            </Text>
+            {item.variant_name ? (
+              <Text
+                style={[styles.variantName, { color: colors.textSecondary }]}
+              >
+                {item.variant_name}
+              </Text>
+            ) : (
+              <Text
+                style={[styles.variantName, { color: colors.textSecondary }]}
+              >
+                No variant snapshot
+              </Text>
+            )}
+          </View>
+        </View>
+
+        <View
+          style={[
+            styles.summaryCard,
+            { backgroundColor: colors.backgroundLight },
+          ]}
+        >
+          <DetailRow
+            label="Quantity"
+            value={`x${item.quantity}`}
+            colors={colors}
+          />
+          <DetailRow
+            label="Unit price"
+            value={formattedUnitPrice}
+            colors={colors}
+          />
+          <DetailRow
+            label="Line total"
+            value={formattedLineTotal}
+            colors={colors}
+            isStrong
+          />
+          {conditionLabel ? (
+            <DetailRow
+              label="Condition"
+              value={conditionLabel}
+              colors={colors}
+            />
+          ) : null}
+          <DetailRow
+            label="SKU"
+            value={
+              item.product_id && !item.product_id.startsWith('custom-')
+                ? item.product_id.slice(0, 8).toUpperCase()
+                : 'Custom item'
+            }
+            colors={colors}
+          />
+        </View>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close item detail sheet"
+          onPress={onClose}
+          style={[styles.doneButton, { backgroundColor: colors.primary }]}
+        >
+          <Text style={styles.doneButtonText}>Done</Text>
+        </Pressable>
       </View>
-    </Modal>
+    </AppSheetModal>
   );
 }
 
@@ -214,22 +203,16 @@ function DetailRow({
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.48)',
+  content: {
+    gap: SPACING.md,
   },
   sheet: {
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.lg,
     borderTopLeftRadius: RADIUS.xl,
     borderTopRightRadius: RADIUS.xl,
     borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.lg,
-    gap: SPACING.md,
-    maxHeight: Platform.OS === 'web' ? 560 : '72%',
+    maxHeight: '72%',
   },
   header: {
     alignItems: 'center',
