@@ -1,11 +1,27 @@
+import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import type React from 'react';
+import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { LIGHT_COLORS } from '@/constants/theme';
 import {
   OrderItemDetailModal,
   type OrderItemSnapshot,
 } from './OrderItemDetailModal';
+
+vi.mock('@/components/ui/AppSheetModal', () => ({
+  AppSheetModal: ({
+    accessibilityLabel,
+    children,
+    visible,
+  }: {
+    accessibilityLabel: string;
+    children?: ReactNode;
+    visible: boolean;
+  }) =>
+    visible ? (
+      <section aria-label={accessibilityLabel}>{children}</section>
+    ) : null,
+}));
 
 vi.mock('@expo/vector-icons', () => ({
   Ionicons: ({ name }: { color?: string; name: string; size?: number }) => name,
@@ -25,44 +41,27 @@ vi.mock('@/hooks/useTheme', () => ({
   }),
 }));
 
-vi.mock('react-native', async () => {
-  const React = await import('react');
-
+vi.mock('react-native', () => {
   return {
-    Modal: ({
-      children,
-      visible,
-    }: {
-      children?: React.ReactNode;
-      visible?: boolean;
-    }) => (visible ? React.createElement('div', null, children) : null),
-    Platform: { OS: 'ios' },
     Pressable: ({
       accessibilityLabel,
       children,
       onPress,
     }: {
       accessibilityLabel?: string;
-      children?: React.ReactNode;
+      children?: ReactNode;
       onPress?: () => void;
-    }) =>
-      React.createElement(
-        'button',
-        {
-          'aria-label': accessibilityLabel,
-          onClick: onPress,
-        },
-        children
-      ),
+    }) => (
+      <button aria-label={accessibilityLabel} onClick={onPress} type="button">
+        {children}
+      </button>
+    ),
     StyleSheet: {
-      absoluteFillObject: {},
       create: (styles: Record<string, unknown>) => styles,
       hairlineWidth: 1,
     },
-    Text: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('span', null, children),
-    View: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('div', null, children),
+    Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
+    View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   };
 });
 
@@ -83,7 +82,7 @@ function createItem(
 }
 
 describe('OrderItemDetailModal', () => {
-  it('renders the order snapshot details instead of an edit flow', () => {
+  it('renders the order snapshot details through the shared sheet shell', () => {
     render(
       <OrderItemDetailModal
         formattedLineTotal="₦500,000"
@@ -94,20 +93,23 @@ describe('OrderItemDetailModal', () => {
       />
     );
 
-    expect(screen.getByText('Item Details')).toBeTruthy();
+    expect(
+      screen.getByRole('region', { name: 'Order item details' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('Item Details')).toBeInTheDocument();
     expect(
       screen.getByText(
         'This is the order snapshot the customer actually bought.'
       )
-    ).toBeTruthy();
-    expect(screen.getByText('Samsung Galaxy S22 Ultra')).toBeTruthy();
-    expect(screen.getByText('128GB / Phantom Black')).toBeTruthy();
-    expect(screen.getByText('Quantity')).toBeTruthy();
-    expect(screen.getByText('Unit price')).toBeTruthy();
-    expect(screen.getByText('Line total')).toBeTruthy();
-    expect(screen.getByText('Condition')).toBeTruthy();
-    expect(screen.getByText('Open Box')).toBeTruthy();
-    expect(screen.queryByText('Edit Product')).toBeNull();
+    ).toBeInTheDocument();
+    expect(screen.getByText('Samsung Galaxy S22 Ultra')).toBeInTheDocument();
+    expect(screen.getByText('128GB / Phantom Black')).toBeInTheDocument();
+    expect(screen.getByText('Quantity')).toBeInTheDocument();
+    expect(screen.getByText('Unit price')).toBeInTheDocument();
+    expect(screen.getByText('Line total')).toBeInTheDocument();
+    expect(screen.getByText('Condition')).toBeInTheDocument();
+    expect(screen.getByText('Open Box')).toBeInTheDocument();
+    expect(screen.queryByText('Edit Product')).not.toBeInTheDocument();
   });
 
   it('closes when the user presses the close control', () => {
@@ -141,9 +143,39 @@ describe('OrderItemDetailModal', () => {
 
     expect(
       screen.getByRole('button', { name: 'Close item details' })
-    ).toBeTruthy();
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Close item detail sheet' })
-    ).toBeTruthy();
+    ).toBeInTheDocument();
+  });
+
+  it('does not render when hidden or when no item is available', () => {
+    const { rerender } = render(
+      <OrderItemDetailModal
+        formattedLineTotal="₦500,000"
+        formattedUnitPrice="₦500,000"
+        item={createItem()}
+        onClose={vi.fn()}
+        visible={false}
+      />
+    );
+
+    expect(
+      screen.queryByRole('region', { name: 'Order item details' })
+    ).not.toBeInTheDocument();
+
+    rerender(
+      <OrderItemDetailModal
+        formattedLineTotal="₦500,000"
+        formattedUnitPrice="₦500,000"
+        item={null}
+        onClose={vi.fn()}
+        visible={true}
+      />
+    );
+
+    expect(
+      screen.queryByRole('region', { name: 'Order item details' })
+    ).not.toBeInTheDocument();
   });
 });
