@@ -69,6 +69,9 @@ vi.mock('react-native', async () => ({
   StyleSheet: {
     create: (styles: Record<string, unknown>) => styles,
   },
+  Platform: {
+    OS: 'ios',
+  },
   Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
   View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
 }));
