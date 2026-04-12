@@ -142,9 +142,19 @@ vi.mock('@/lib/sanitize', () => ({
 
 import CustomerEditScreen from '@/app/(admin)/customer/edit/[id]';
 
-function invokeAlertButton(title: string, buttonIndex = 0) {
-  const matchingCall = mocks.alert.mock.calls.find((call) => call[0] === title);
-  expect(matchingCall).toBeTruthy();
+async function invokeAlertButton(title: string, buttonIndex = 0) {
+  let matchingCall:
+    | [string, string?, Array<{ onPress?: () => void }>?]
+    | undefined;
+
+  await waitFor(() => {
+    matchingCall = mocks.alert.mock.calls.find(
+      (call): call is [string, string?, Array<{ onPress?: () => void }>?] =>
+        call[0] === title
+    );
+    expect(matchingCall).toBeTruthy();
+  });
+
   matchingCall?.[2]?.[buttonIndex]?.onPress?.();
 }
 
@@ -200,7 +210,7 @@ describe('CustomerEditScreen', () => {
       );
     });
 
-    invokeAlertButton('Success');
+    await invokeAlertButton('Success');
     expect(mocks.back).toHaveBeenCalled();
   });
 
