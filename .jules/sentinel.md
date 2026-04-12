@@ -17,3 +17,8 @@
 **Vulnerability:** A strict equality operator (`===`) was used to compare webhook signature checksums in the Juicyway integration (`apps/web/src/lib/juicyway/webhook.ts`), allowing potential timing attacks to forge signatures.
 **Learning:** Even when the developer correctly adds a comment stating `// Constant-time comparison to prevent timing attacks`, the actual implementation might simply use strict string equality (`===`).
 **Prevention:** Always use the `constantTimeEqual` utility from `@/lib/constant-time-equal` for comparing authentication tokens, hashes, and webhook signatures. Ensure explicitly checking that both inputs are defined before calling the utility.
+
+## YYYY-MM-DD - Missing Merchant Scope on Staff Update
+**Vulnerability:** IDOR vulnerability in `PATCH /api/staff/[id]` where the update query lacks `.eq('merchant_id', merchantId)`, potentially allowing an authenticated user with staff edit permissions on their own merchant to modify staff members belonging to other merchants by guessing their ID.
+**Learning:** Even if a prior `SELECT` query verifies the entity belongs to the correct merchant, the subsequent `UPDATE` or `DELETE` query MUST also include the `.eq('merchant_id', merchantId)` scoping. Without it, race conditions or bypassed checks could lead to cross-tenant data modification.
+**Prevention:** Always apply the `.eq('merchant_id', user.id)` (or contextual merchant ID) to EVERY mutating database operation (`.update`, `.delete`, `.insert`), regardless of previous validation checks in the same route. Defense in depth requires each database operation to be independently secure.

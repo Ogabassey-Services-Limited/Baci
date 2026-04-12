@@ -165,6 +165,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .from('staff_members')
       .update(updateData)
       .eq('id', id)
+      .eq('merchant_id', merchantId)
       .select(STAFF_COLUMNS)
       .single();
 
