@@ -53,6 +53,9 @@ vi.mock('react-native', async () => ({
     data: Array<{ code: string; name: string }>;
     renderItem: (item: { item: { code: string; name: string } }) => ReactNode;
   }) => <div>{data.map((item) => renderItem({ item }))}</div>,
+  Platform: {
+    OS: 'ios',
+  },
   Pressable: ({
     accessibilityLabel,
     children,
