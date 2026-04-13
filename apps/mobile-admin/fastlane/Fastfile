@@ -36,14 +36,12 @@ platform :ios do
       output_name: "#{SCHEME}.ipa",
       clean: true,
       silent: false,
-      xcargs: "DEVELOPMENT_TEAM=6QLNK7TXM3 CODE_SIGN_STYLE=Manual",
+      api_key: api_key,
+      xcargs: "DEVELOPMENT_TEAM=6QLNK7TXM3 CODE_SIGN_STYLE=Automatic -allowProvisioningUpdates",
       export_options: {
         method: "app-store",
-        signingStyle: "manual",
-        teamID: "6QLNK7TXM3",
-        provisioningProfiles: {
-          BUNDLE_ID => "match AppStore #{BUNDLE_ID}"
-        }
+        signingStyle: "automatic",
+        teamID: "6QLNK7TXM3"
       }
     )
 
