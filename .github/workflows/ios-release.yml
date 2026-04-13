@@ -27,8 +27,8 @@ permissions:
 
 env:
   NODE_VERSION: '24'
-  RUBY_VERSION: '3.3'
-  XCODE_VERSION: '16.2'
+  RUBY_VERSION: '3.4'
+  XCODE_VERSION: '26.2'
   WORKING_DIR: apps/mobile-admin
   # Offset added to github.run_number to avoid collisions with
   # build numbers previously uploaded via EAS or manual Xcode archives.
@@ -37,7 +37,7 @@ env:
 jobs:
   build-and-submit:
     name: Build IPA & Submit to App Store Connect
-    runs-on: macos-14
+    runs-on: macos-26
     timeout-minutes: 90
 
     steps:
@@ -58,7 +58,7 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Setup Ruby
-        uses: ruby/setup-ruby@a2bbe5b1b236842c1cb7dd11e8e3b51e0a616acc # v1.202.0
+        uses: ruby/setup-ruby@4c56a21280b36d862b5fc31348f463d60bdc55d5 # v1.301.0
         with:
           ruby-version: ${{ env.RUBY_VERSION }}
           bundler-cache: true

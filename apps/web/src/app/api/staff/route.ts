@@ -47,11 +47,34 @@ const inviteStaffSchema = z.object({
   role: z.enum(STAFF_ROLE_VALUES),
 });
 
+const requestedMerchantSchema = z.string().uuid();
+
+function parseRequestedMerchantId(request: Request | NextRequest) {
+  const headerValue = request.headers.get('x-baci-merchant-id');
+
+  if (!headerValue) {
+    return { merchantId: null, error: null };
+  }
+
+  const parsed = requestedMerchantSchema.safeParse(headerValue);
+  if (!parsed.success) {
+    return {
+      merchantId: null,
+      error: NextResponse.json(
+        { error: 'Invalid merchant context' },
+        { status: 400 }
+      ),
+    };
+  }
+
+  return { merchantId: parsed.data, error: null };
+}
+
 /**
  * GET /api/staff
  * Returns all staff members for the merchant
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
@@ -64,7 +87,14 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    const requestedMerchant = parseRequestedMerchantId(request);
+    if (requestedMerchant.error) {
+      return requestedMerchant.error;
+    }
+
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id, {
+      requestedMerchantId: requestedMerchant.merchantId,
+    });
     if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
@@ -139,7 +169,14 @@ export async function POST(request: NextRequest) {
 
     const { user, supabase } = auth;
 
-    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    const requestedMerchant = parseRequestedMerchantId(request);
+    if (requestedMerchant.error) {
+      return requestedMerchant.error;
+    }
+
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id, {
+      requestedMerchantId: requestedMerchant.merchantId,
+    });
     if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
@@ -215,15 +252,21 @@ export async function POST(request: NextRequest) {
           token: invitationToken,
         });
 
-        void sendEmail(inviteEmail).catch((error) => {
-          console.error('Staff invitation email error:', error);
-        });
+        const delivery = await sendEmail(inviteEmail);
+        if (!delivery.success) {
+          console.error('Staff invitation email error:', delivery.error);
+        }
 
         return NextResponse.json({
           staff: reactivated,
           inviteUrl,
           invitationToken,
-          message: 'Staff member re-invited successfully',
+          emailDelivery: delivery.success
+            ? { status: 'sent' as const }
+            : { status: 'failed' as const },
+          message: delivery.success
+            ? 'Staff member re-invited successfully'
+            : 'Invitation created, but the email could not be delivered',
         });
       }
 
@@ -271,17 +314,22 @@ export async function POST(request: NextRequest) {
       token: invitationToken,
     });
 
-    // Send invitation email (fire and forget)
-    void sendEmail(inviteEmail).catch((error) => {
-      console.error('Staff invitation email error:', error);
-    });
+    const delivery = await sendEmail(inviteEmail);
+    if (!delivery.success) {
+      console.error('Staff invitation email error:', delivery.error);
+    }
 
     return NextResponse.json(
       {
         staff: newStaff,
         inviteUrl,
         invitationToken,
-        message: 'Staff member invited successfully',
+        emailDelivery: delivery.success
+          ? { status: 'sent' as const }
+          : { status: 'failed' as const },
+        message: delivery.success
+          ? 'Staff member invited successfully'
+          : 'Invitation created, but the email could not be delivered',
       },
       { status: 201 }
     );

@@ -1,3 +1,4 @@
+import { rewriteBaciDeepLinkPath } from '@/lib/baci-deep-link';
 import { rewriteJumiaDeepLinkPath } from '@/lib/jumia-deep-link';
 
 export function redirectSystemPath({
@@ -6,5 +7,5 @@ export function redirectSystemPath({
   path: string;
   initial: boolean;
 }) {
-  return rewriteJumiaDeepLinkPath(path);
+  return rewriteBaciDeepLinkPath(rewriteJumiaDeepLinkPath(path));
 }

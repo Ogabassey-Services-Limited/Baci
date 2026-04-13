@@ -4,6 +4,8 @@ import AcceptInvitePage from './page';
 
 const mockUseParams = vi.fn();
 const mockPush = vi.fn();
+const mockReplace = vi.fn();
+const mockUseSearchParams = vi.fn();
 const mockGetUser = vi.fn();
 const mockFetch = vi.fn();
 const mockToast = vi.fn();
@@ -32,7 +34,9 @@ vi.mock('next/navigation', () => ({
   useParams: () => mockUseParams(),
   useRouter: () => ({
     push: mockPush,
+    replace: mockReplace,
   }),
+  useSearchParams: () => mockUseSearchParams(),
 }));
 
 vi.mock('@/hooks/use-toast', () => ({
@@ -45,11 +49,14 @@ describe('AcceptInvitePage', () => {
   beforeEach(() => {
     mockUseParams.mockReset();
     mockPush.mockReset();
+    mockReplace.mockReset();
+    mockUseSearchParams.mockReset();
     mockGetUser.mockReset();
     mockFetch.mockReset();
     mockToast.mockReset();
 
     mockUseParams.mockReturnValue({ token: 'invite-token' });
+    mockUseSearchParams.mockReturnValue(new URLSearchParams());
     mockGetUser.mockResolvedValue({ data: { user: null } });
     mockFetch.mockImplementation(
       () =>

@@ -118,6 +118,39 @@ describe('GET /api/staff/accept-invite', () => {
     });
   });
 
+  it('falls back to the merchant slug when the business name is missing', async () => {
+    mockRpc.mockResolvedValue({
+      data: [
+        {
+          email: 'staff@example.com',
+          role: 'sales_rep',
+          merchant_business_name: null,
+          merchant_slug: 'tgw-enterprise',
+          invitation_expires_at: '2026-04-20T13:46:35.999Z',
+        },
+      ],
+      error: null,
+    });
+
+    const response = await GET(
+      createNextRequest(
+        'https://usebaci.com/api/staff/accept-invite?token=abcdef1234567890'
+      )
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      valid: true,
+      email: 'staff@example.com',
+      role: 'sales_rep',
+      merchantName: 'tgw-enterprise',
+      expiresAt: '2026-04-20T13:46:35.999Z',
+    });
+    expect(mockRpc).toHaveBeenCalledWith('get_staff_invite_preview', {
+      p_token: 'abcdef1234567890',
+    });
+  });
+
   it('returns 500 when the invitation preview RPC fails', async () => {
     mockRpc.mockResolvedValue({
       data: null,

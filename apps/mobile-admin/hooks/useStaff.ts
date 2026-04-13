@@ -73,10 +73,16 @@ interface InviteStaffParams {
   autoCreateAccount?: boolean;
 }
 
+interface EmailDelivery {
+  status: 'sent' | 'failed';
+  error?: string;
+}
+
 interface InviteStaffResponse {
   inviteUrl?: string;
   invitationToken?: string;
   message?: string;
+  emailDelivery?: EmailDelivery;
   staff?: {
     id: string;
   };
@@ -86,6 +92,7 @@ interface ResendInvitationResponse {
   inviteUrl?: string;
   invitationToken?: string;
   message?: string;
+  emailDelivery?: EmailDelivery;
   success: boolean;
 }
 
@@ -107,6 +114,9 @@ export function useInviteStaff() {
 
       const response = await apiClient<InviteStaffResponse>('/api/staff', {
         method: 'POST',
+        headers: {
+          'x-baci-merchant-id': merchant.id,
+        },
         body: JSON.stringify({
           email: normalizedEmail,
           name: normalizedName,
@@ -166,6 +176,7 @@ export function useInviteStaff() {
         success: true,
         inviteUrl: response.inviteUrl,
         invitationToken: response.invitationToken,
+        emailDelivery: response.emailDelivery,
       };
     },
     onSuccess: () => {
@@ -234,6 +245,9 @@ export function useResendInvitation() {
         `/api/staff/${staffId}`,
         {
           method: 'POST',
+          headers: {
+            'x-baci-merchant-id': merchant.id,
+          },
         }
       );
 
@@ -241,6 +255,7 @@ export function useResendInvitation() {
         success: true,
         inviteUrl: response.inviteUrl,
         invitationToken: response.invitationToken,
+        emailDelivery: response.emailDelivery,
       };
     },
     onSuccess: () => {

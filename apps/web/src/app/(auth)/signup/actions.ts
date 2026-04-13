@@ -3,6 +3,10 @@
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import {
+  buildAbsoluteAppRedirectUrl,
+  sanitizeRelativeRedirectPath,
+} from '@/lib/auth-redirect';
 import { checkPasswordBreach } from '@/lib/password-breach';
 import { createClient } from '@/lib/supabase/server';
 import { signupSchema } from '@/schemas/auth';
@@ -35,7 +39,11 @@ export async function signupAction(
   }
 
   const { email, password } = validatedFields.data;
-  const _redirectTo = (formData.get('redirectTo') as string) || '/dashboard';
+  const redirectEntry = formData.get('redirectTo');
+  const redirectTo = sanitizeRelativeRedirectPath(
+    typeof redirectEntry === 'string' ? redirectEntry : null,
+    '/dashboard'
+  );
 
   // 1.5 Check if password is breached
   const { isBreached, count } = await checkPasswordBreach(password);
@@ -58,11 +66,11 @@ export async function signupAction(
   const supabase = createClient(cookieStore);
 
   // 3. Sign up the user
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_ROOT_DOMAIN}/auth/callback`,
+      emailRedirectTo: buildAbsoluteAppRedirectUrl(redirectTo),
     },
   });
 
@@ -72,8 +80,16 @@ export async function signupAction(
     };
   }
 
+  if (data.session) {
+    revalidatePath('/', 'layout');
+    // biome-ignore lint/suspicious/noExplicitAny: Next.js redirect needs Route type if typed routes are enabled
+    redirect(redirectTo as any);
+  }
+
   // 4. Revalidate and Redirect
   // Note: We don't create a merchant here. That's the key difference.
   revalidatePath('/', 'layout');
-  redirect(`/verify?email=${encodeURIComponent(email)}`);
+  redirect(
+    `/verify?email=${encodeURIComponent(email)}&redirect=${encodeURIComponent(redirectTo)}`
+  );
 }
