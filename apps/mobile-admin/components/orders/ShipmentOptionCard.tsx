@@ -29,12 +29,12 @@ export function ShipmentOptionCard({
       accessibilityState={{ disabled, selected }}
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [
+      style={[
         styles.optionCard,
         {
           backgroundColor: selected ? colors.primaryLight : colors.card,
           borderColor: selected ? colors.primary : colors.border,
-          opacity: disabled ? 0.48 : pressed ? 0.7 : 1,
+          opacity: disabled ? 0.48 : 1,
         },
       ]}
     >

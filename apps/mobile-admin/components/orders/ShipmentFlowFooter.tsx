@@ -52,11 +52,10 @@ export function ShipmentFlowFooter({
           accessibilityState={{ disabled: isSubmitting }}
           disabled={isSubmitting}
           onPress={onBack}
-          style={({ pressed }) => [
+          style={[
             styles.secondaryButton,
             { backgroundColor: colors.backgroundLight },
             isSubmitting ? styles.secondaryButtonDisabled : null,
-            pressed && { opacity: 0.7 },
           ]}
         >
           <Text style={[styles.secondaryButtonText, { color: colors.text }]}>
@@ -71,12 +70,11 @@ export function ShipmentFlowFooter({
         accessibilityState={{ disabled: isSubmitting }}
         disabled={isSubmitting}
         onPress={onPrimaryAction}
-        style={({ pressed }) => [
+        style={[
           styles.primaryButton,
           { backgroundColor: colors.primary },
           showBack ? null : styles.primaryButtonFull,
           isSubmitting ? styles.primaryButtonDisabled : null,
-          pressed && !isSubmitting && { opacity: 0.8 },
         ]}
       >
         {isSubmitting ? (
