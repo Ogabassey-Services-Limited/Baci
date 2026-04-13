@@ -183,8 +183,6 @@ jobs:
           ASC_API_KEY_PATH: ${{ env.ASC_API_KEY_PATH }}
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-          MATCH_KEYCHAIN_NAME: fastlane_match_keychain
-          MATCH_KEYCHAIN_PASSWORD: ${{ github.run_id }}
         run: bundle exec fastlane ios release
 
       - name: Upload IPA artifact
