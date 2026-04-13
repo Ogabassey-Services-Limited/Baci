@@ -61,7 +61,7 @@ export function ExpenseCategorySheet({
               expenseFormStyles.categoryOption,
               { borderBottomColor: colors.border },
               selectedCategory === category && {
-                backgroundColor: `${colors.primary}10`,
+                backgroundColor: colors.primaryLight,
               },
             ]}
           >

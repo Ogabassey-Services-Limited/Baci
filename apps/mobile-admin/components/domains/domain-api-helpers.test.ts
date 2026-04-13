@@ -39,21 +39,46 @@ describe('domain-api-helpers', () => {
 
   it('normalizes domain results to the default currency when it is missing', () => {
     expect(
+      normalizeDomainSearchResults(
+        [
+          {
+            available: true,
+            currency: '',
+            domain: 'baci.com',
+            popular: true,
+            price: 25000,
+          },
+        ],
+        'USD'
+      )
+    ).toEqual([
+      {
+        available: true,
+        currency: 'USD',
+        domain: 'baci.com',
+        popular: true,
+        price: 25000,
+      },
+    ]);
+  });
+
+  it('preserves non-empty currencies during normalization', () => {
+    expect(
       normalizeDomainSearchResults([
         {
           available: true,
-          currency: '',
+          currency: 'EUR',
           domain: 'baci.com',
-          popular: true,
+          popular: false,
           price: 25000,
         },
       ])
     ).toEqual([
       {
         available: true,
-        currency: 'NGN',
+        currency: 'EUR',
         domain: 'baci.com',
-        popular: true,
+        popular: false,
         price: 25000,
       },
     ]);

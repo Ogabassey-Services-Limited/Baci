@@ -5,6 +5,8 @@ import { expenseFormStyles } from '@/components/expenses/expense-form.styles';
 import SafeImage from '@/components/ui/SafeImage';
 import { useTheme } from '@/hooks/useTheme';
 
+const CATEGORY_PLACEHOLDER = 'Select a category';
+
 interface ExpenseFormFieldsProps {
   amount: string;
   description: string;
@@ -13,7 +15,7 @@ interface ExpenseFormFieldsProps {
   onOpenCategorySheet: () => void;
   onReceiptPress: () => void;
   receiptUri: string | null;
-  selectedCategory: ExpenseCategory;
+  selectedCategory: ExpenseCategory | '' | null;
 }
 
 export function ExpenseFormFields({
@@ -30,6 +32,11 @@ export function ExpenseFormFields({
   const formattedAmount = amount
     ? amount.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
     : '';
+  const selectedCategoryLabel =
+    typeof selectedCategory === 'string' && selectedCategory.trim().length > 0
+      ? selectedCategory
+      : CATEGORY_PLACEHOLDER;
+  const hasSelectedCategory = selectedCategoryLabel !== CATEGORY_PLACEHOLDER;
 
   return (
     <>
@@ -78,9 +85,14 @@ export function ExpenseFormFields({
           ]}
         >
           <Text
-            style={[expenseFormStyles.selectorText, { color: colors.text }]}
+            style={[
+              expenseFormStyles.selectorText,
+              {
+                color: hasSelectedCategory ? colors.text : colors.textSecondary,
+              },
+            ]}
           >
-            {selectedCategory}
+            {selectedCategoryLabel}
           </Text>
           <Ionicons name="chevron-down" size={20} color={colors.textMuted} />
         </Pressable>
@@ -129,6 +141,7 @@ export function ExpenseFormFields({
           {receiptUri ? (
             <>
               <SafeImage
+                accessibilityLabel="Receipt preview"
                 contentFit="cover"
                 source={{ uri: receiptUri }}
                 style={expenseFormStyles.receiptPreview}

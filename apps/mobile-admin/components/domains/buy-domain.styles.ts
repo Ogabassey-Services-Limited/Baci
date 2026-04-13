@@ -90,6 +90,9 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: SPACING.sm,
   },
+  buyButtonPressed: {
+    transform: [{ scale: 0.98 }],
+  },
   buyText: {
     fontFamily: TYPOGRAPHY.fontFamily.bold,
     fontSize: TYPOGRAPHY.size.sm,

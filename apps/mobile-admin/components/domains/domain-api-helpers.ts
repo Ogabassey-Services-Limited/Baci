@@ -1,6 +1,26 @@
 import type { DomainSearchResult } from './domain-search-result';
 
-const DOMAIN_API_BASE_URL = 'https://usebaci.com';
+const FALLBACK_DOMAIN_API_BASE_URL = 'https://usebaci.com';
+
+function resolveDomainApiBaseUrl(): string {
+  const configuredBaseUrl = process.env.EXPO_PUBLIC_WEB_API_URL?.trim();
+
+  if (!configuredBaseUrl) {
+    return FALLBACK_DOMAIN_API_BASE_URL;
+  }
+
+  try {
+    const normalizedBaseUrl = configuredBaseUrl.startsWith('http')
+      ? configuredBaseUrl
+      : `https://${configuredBaseUrl}`;
+
+    return new URL(normalizedBaseUrl).toString().replace(/\/$/, '');
+  } catch {
+    return FALLBACK_DOMAIN_API_BASE_URL;
+  }
+}
+
+const DOMAIN_API_BASE_URL = resolveDomainApiBaseUrl();
 
 export const API_URL = getApiUrl();
 
@@ -49,13 +69,14 @@ export function getPaymentInitializationErrorMessage(
 }
 
 export function normalizeDomainSearchResults(
-  results: DomainSearchResult[]
+  results: DomainSearchResult[],
+  defaultCurrency: string = 'NGN'
 ): DomainSearchResult[] {
   return results.map((result) => ({
     domain: result.domain,
     available: result.available,
     price: result.price,
-    currency: result.currency || 'NGN',
+    currency: result.currency || defaultCurrency,
     popular: result.popular,
   }));
 }

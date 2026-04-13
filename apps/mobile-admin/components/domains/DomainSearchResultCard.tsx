@@ -11,15 +11,22 @@ const DOMAIN_PRICE_LOCALE_BY_CURRENCY: Record<string, string> = {
 };
 
 function formatDomainPrice(price: number, currency: string): string {
-  return new Intl.NumberFormat(
-    DOMAIN_PRICE_LOCALE_BY_CURRENCY[currency] ?? 'en-US',
-    {
+  const locale = DOMAIN_PRICE_LOCALE_BY_CURRENCY[currency] ?? 'en-US';
+
+  try {
+    return new Intl.NumberFormat(locale, {
       style: 'currency',
       currency,
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }
-  ).format(price);
+    }).format(price);
+  } catch {
+    const formattedNumber = new Intl.NumberFormat(locale, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(price);
+    return currency ? `${currency} ${formattedNumber}` : formattedNumber;
+  }
 }
 
 interface DomainSearchResultCardProps {
@@ -85,12 +92,13 @@ export function DomainSearchResultCard({
             accessibilityRole="button"
             disabled={isPurchasing}
             onPress={onBuy}
-            style={[
+            style={({ pressed }) => [
               styles.buyButton,
               {
                 backgroundColor: colors.primary,
-                opacity: isPurchasing ? 0.5 : 1,
+                opacity: isPurchasing ? 0.5 : pressed ? 0.85 : 1,
               },
+              pressed && !isPurchasing ? styles.buyButtonPressed : null,
             ]}
           >
             {isPurchasing ? (

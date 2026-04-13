@@ -126,4 +126,47 @@ describe('ExpenseFormFields', () => {
     );
     expect(screen.getByText('Change')).toBeInTheDocument();
   });
+
+  it('shows the category placeholder and labeled controls when no category is selected', () => {
+    render(
+      <ExpenseFormFields
+        amount=""
+        description=""
+        onAmountChange={vi.fn()}
+        onDescriptionChange={vi.fn()}
+        onOpenCategorySheet={vi.fn()}
+        onReceiptPress={vi.fn()}
+        receiptUri={null}
+        selectedCategory={null}
+      />
+    );
+
+    expect(screen.getByText('Select a category')).toBeInTheDocument();
+    expect(screen.getByLabelText('Expense amount')).toBeInTheDocument();
+    expect(screen.getByLabelText('Expense description')).toBeInTheDocument();
+    expect(
+      screen.getByLabelText('Select expense category')
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('Add expense receipt')).toBeInTheDocument();
+  });
+
+  it('keeps the category control accessible when the selected category is empty', () => {
+    render(
+      <ExpenseFormFields
+        amount=""
+        description=""
+        onAmountChange={vi.fn()}
+        onDescriptionChange={vi.fn()}
+        onOpenCategorySheet={vi.fn()}
+        onReceiptPress={vi.fn()}
+        receiptUri={null}
+        selectedCategory=""
+      />
+    );
+
+    expect(screen.getByText('Select a category')).toBeInTheDocument();
+    expect(
+      screen.getByLabelText('Select expense category')
+    ).toBeInTheDocument();
+  });
 });
