@@ -252,15 +252,21 @@ export async function POST(request: NextRequest) {
           token: invitationToken,
         });
 
-        void sendEmail(inviteEmail).catch((error) => {
-          console.error('Staff invitation email error:', error);
-        });
+        const delivery = await sendEmail(inviteEmail);
+        if (!delivery.success) {
+          console.error('Staff invitation email error:', delivery.error);
+        }
 
         return NextResponse.json({
           staff: reactivated,
           inviteUrl,
           invitationToken,
-          message: 'Staff member re-invited successfully',
+          emailDelivery: delivery.success
+            ? { status: 'sent' as const }
+            : { status: 'failed' as const },
+          message: delivery.success
+            ? 'Staff member re-invited successfully'
+            : 'Invitation created, but the email could not be delivered',
         });
       }
 

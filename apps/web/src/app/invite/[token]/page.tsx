@@ -99,7 +99,14 @@ function AcceptInvitePageContent() {
     process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
   );
-  const inviteClient = requestedClient ?? (isMobileBrowser ? 'mobile' : 'web');
+  const normalizedRequestedClient = requestedClient?.trim().toLowerCase();
+  const inviteClient =
+    normalizedRequestedClient === 'mobile' ||
+    normalizedRequestedClient === 'web'
+      ? normalizedRequestedClient
+      : isMobileBrowser
+        ? 'mobile'
+        : 'web';
   const postAuthRedirect = buildStaffInvitePath(token, {
     autoAccept: true,
     client: inviteClient,

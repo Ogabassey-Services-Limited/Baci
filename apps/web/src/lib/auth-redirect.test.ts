@@ -87,6 +87,12 @@ describe('buildAuthConfirmRedirectUrl', () => {
     );
   });
 
+  it('preserves mobile deep links', () => {
+    expect(buildAuthConfirmRedirectUrl('baciadmin://')).toBe(
+      'https://usebaci.com/auth/confirm?next=baciadmin%3A%2F%2F'
+    );
+  });
+
   it('falls back to the dashboard for unsafe next paths', () => {
     expect(buildAuthConfirmRedirectUrl('https://evil.example.com')).toBe(
       'https://usebaci.com/auth/confirm?next=%2Fdashboard'

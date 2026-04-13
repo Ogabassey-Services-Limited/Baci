@@ -2,7 +2,7 @@
 
 import type { User } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
-import { getAppUrl, getRootDomain } from '@/env';
+import { getConfiguredAppUrl, getRootDomain } from '@/env';
 import { sendWelcomeEmail } from '@/lib/email';
 import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
@@ -20,7 +20,13 @@ export type ServerActionState = {
 };
 
 function buildOnboardingRedirectUrl(search: string = ''): string {
-  const url = new URL('/onboarding', getAppUrl());
+  const appUrl = getConfiguredAppUrl();
+
+  if (!appUrl) {
+    throw new Error('NEXT_PUBLIC_APP_URL must be configured');
+  }
+
+  const url = new URL('/onboarding', appUrl);
   url.search = search;
   return url.toString();
 }

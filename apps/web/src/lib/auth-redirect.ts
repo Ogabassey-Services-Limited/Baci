@@ -68,8 +68,13 @@ export function normalizeAuthNextTarget(
 }
 
 export function buildAuthConfirmRedirectUrl(nextPath: string): string {
-  const url = new URL('/auth/confirm', getAppUrl());
-  url.searchParams.set('next', sanitizeRelativeRedirectPath(nextPath));
+  const appUrl = getAppUrl();
+  const url = new URL('/auth/confirm', appUrl);
+  const next = /^[a-z][a-z0-9+.-]*:\/\//i.test(nextPath)
+    ? normalizeAuthNextTarget(nextPath, url.origin)
+    : sanitizeRelativeRedirectPath(nextPath);
+
+  url.searchParams.set('next', next);
   return url.toString();
 }
 

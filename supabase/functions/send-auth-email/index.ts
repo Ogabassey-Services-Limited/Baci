@@ -2,9 +2,6 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { Webhook } from 'https://esm.sh/standardwebhooks@1.0.0';
 
-const ZEPTOMAIL_TOKEN = Deno.env.get('ZEPTOMAIL_TOKEN') || '';
-const SEND_EMAIL_HOOK_SECRET = Deno.env.get('SEND_EMAIL_HOOK_SECRET') || '';
-
 function getRequiredEnv(name: string): string {
   const value = Deno.env.get(name);
 
@@ -15,6 +12,8 @@ function getRequiredEnv(name: string): string {
   return value;
 }
 
+const ZEPTOMAIL_TOKEN = getRequiredEnv('ZEPTOMAIL_TOKEN');
+const SEND_EMAIL_HOOK_SECRET = getRequiredEnv('SEND_EMAIL_HOOK_SECRET');
 const SUPABASE_URL = getRequiredEnv('SUPABASE_URL');
 const SUPABASE_SERVICE_ROLE_KEY = getRequiredEnv('SUPABASE_SERVICE_ROLE_KEY');
 
@@ -326,14 +325,18 @@ Deno.serve(async (req) => {
     });
   }
 
-  const { user, email_data } = data;
-  const emailType = email_data.email_action_type;
-
-  if (!email_data.site_url || !email_data.token_hash || !emailType) {
+  const { user, email_data: emailData } = data;
+  if (
+    !emailData ||
+    typeof emailData !== 'object' ||
+    !emailData.site_url ||
+    !emailData.token_hash ||
+    !emailData.email_action_type
+  ) {
     console.error('Missing auth email redirect inputs', {
-      siteUrl: email_data.site_url,
-      hasTokenHash: Boolean(email_data.token_hash),
-      emailType,
+      siteUrl: emailData?.site_url,
+      hasTokenHash: Boolean(emailData?.token_hash),
+      emailType: emailData?.email_action_type,
     });
     return new Response(
       JSON.stringify({ error: 'Invalid email configuration' }),
@@ -343,9 +346,10 @@ Deno.serve(async (req) => {
       }
     );
   }
+  const emailType = emailData.email_action_type;
 
   // Resolve merchant branding from redirect URL (customer storefront auth)
-  const merchantSlug = extractMerchantSlug(email_data.redirect_to);
+  const merchantSlug = extractMerchantSlug(emailData.redirect_to);
   let branding = BACI_BRANDING;
 
   if (merchantSlug) {
@@ -361,11 +365,11 @@ Deno.serve(async (req) => {
 
   let confirmationUrl: URL;
   try {
-    confirmationUrl = new URL('/auth/confirm', email_data.site_url);
+    confirmationUrl = new URL('/auth/confirm', emailData.site_url);
   } catch (error) {
     console.error(
       'Invalid site URL for auth email:',
-      email_data.site_url,
+      emailData.site_url,
       error
     );
     return new Response(
@@ -377,23 +381,27 @@ Deno.serve(async (req) => {
     );
   }
 
-  confirmationUrl.searchParams.set('token_hash', email_data.token_hash);
+  confirmationUrl.searchParams.set('token_hash', emailData.token_hash);
   confirmationUrl.searchParams.set('type', emailType);
 
-  if (email_data.redirect_to) {
-    try {
-      const nextUrl = new URL(email_data.redirect_to);
-      const siteUrl = new URL(email_data.site_url);
+  if (emailData.redirect_to) {
+    if (/^https?:\/\//i.test(emailData.redirect_to)) {
+      try {
+        const nextUrl = new URL(emailData.redirect_to);
+        const siteUrl = new URL(emailData.site_url);
 
-      if (nextUrl.origin === siteUrl.origin) {
-        confirmationUrl.searchParams.set('next', nextUrl.toString());
+        if (nextUrl.origin === siteUrl.origin) {
+          confirmationUrl.searchParams.set('next', nextUrl.toString());
+        }
+      } catch (error) {
+        console.warn(
+          'Ignoring invalid redirect_to URL:',
+          emailData.redirect_to,
+          error
+        );
       }
-    } catch (error) {
-      console.warn(
-        'Ignoring invalid redirect_to URL:',
-        email_data.redirect_to,
-        error
-      );
+    } else {
+      confirmationUrl.searchParams.set('next', emailData.redirect_to);
     }
   }
 
@@ -401,7 +409,7 @@ Deno.serve(async (req) => {
     config,
     confirmationUrl.toString(),
     branding,
-    email_data.token
+    emailData.token
   );
 
   // Sender: use merchant name for merchant emails, "Baci" for platform emails
@@ -418,7 +426,7 @@ Deno.serve(async (req) => {
     'Brand:',
     branding.businessName
   );
-  console.log('generated_otp:', email_data.token);
+  console.log('generated_otp:', emailData.token);
 
   // Send via ZeptoMail
   try {

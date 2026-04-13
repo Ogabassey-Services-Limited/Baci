@@ -24,4 +24,18 @@ describe('rewriteBaciDeepLinkPath', () => {
       'https://usebaci.com/orders'
     );
   });
+
+  it('does not rewrite relative or partial dashboard paths', () => {
+    expect(rewriteBaciDeepLinkPath('/dashboard')).toBe('/dashboard');
+    expect(rewriteBaciDeepLinkPath('baciadmin://dashboarding')).toBe(
+      'baciadmin://dashboarding'
+    );
+    expect(rewriteBaciDeepLinkPath('https://usebaci.com/dashboarding')).toBe(
+      'https://usebaci.com/dashboarding'
+    );
+  });
+
+  it('returns the original path when url parsing fails', () => {
+    expect(rewriteBaciDeepLinkPath('https://%')).toBe('https://%');
+  });
 });

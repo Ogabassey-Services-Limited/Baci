@@ -10,10 +10,25 @@ function getRouteKey(url: URL): string {
   return segments.join('/');
 }
 
+function getPrimaryRouteSegment(url: URL): string {
+  if (url.protocol === `${BACI_ADMIN_SCHEME}:`) {
+    return getRouteKey(url).split('/')[0] ?? '';
+  }
+
+  return (
+    url.pathname
+      .split('/')
+      .map((segment) => segment.trim().toLowerCase())
+      .filter(Boolean)[0] ?? ''
+  );
+}
+
 function shouldLaunchRootApp(url: URL): boolean {
   if (url.protocol === `${BACI_ADMIN_SCHEME}:`) {
-    const routeKey = getRouteKey(url);
-    return routeKey.startsWith('dashboard') || routeKey.startsWith('admin');
+    const primaryRouteSegment = getPrimaryRouteSegment(url);
+    return (
+      primaryRouteSegment === 'dashboard' || primaryRouteSegment === 'admin'
+    );
   }
 
   if (!['http:', 'https:'].includes(url.protocol)) {
@@ -24,21 +39,34 @@ function shouldLaunchRootApp(url: URL): boolean {
     return false;
   }
 
-  const normalizedPathname = url.pathname.toLowerCase();
+  const primaryRouteSegment = getPrimaryRouteSegment(url);
+  return primaryRouteSegment === 'dashboard' || primaryRouteSegment === 'admin';
+}
 
-  return (
-    normalizedPathname === '/dashboard' ||
-    normalizedPathname.startsWith('/dashboard/') ||
-    normalizedPathname === '/admin' ||
-    normalizedPathname.startsWith('/admin/')
-  );
+function parseSupportedAbsoluteUrl(path: string): URL | null {
+  try {
+    const url = new URL(path);
+
+    if (
+      url.protocol !== `${BACI_ADMIN_SCHEME}:` &&
+      url.protocol !== 'http:' &&
+      url.protocol !== 'https:'
+    ) {
+      return null;
+    }
+
+    return url;
+  } catch {
+    return null;
+  }
 }
 
 export function rewriteBaciDeepLinkPath(path: string): string {
-  try {
-    const url = new URL(path, 'https://usebaci.com');
-    return shouldLaunchRootApp(url) ? '/' : path;
-  } catch {
+  const url = parseSupportedAbsoluteUrl(path);
+
+  if (!url) {
     return path;
   }
+
+  return shouldLaunchRootApp(url) ? '/' : path;
 }
