@@ -124,7 +124,11 @@ const categoryPageData = {
   name: null,
 };
 
-const { default: CategoryPageRoute, generateMetadata } = await import('./page');
+const {
+  default: CategoryPageRoute,
+  CategoryPageContent,
+  generateMetadata,
+} = await import('./page');
 
 describe('category page route', () => {
   beforeEach(() => {
@@ -145,7 +149,7 @@ describe('category page route', () => {
   });
 
   it('passes the current page through to the category page component', async () => {
-    const ui = await CategoryPageRoute({
+    const ui = await CategoryPageContent({
       params: Promise.resolve({ slug: 'test-store', category: 'smartphones' }),
       searchParams: Promise.resolve({ page: '2' }),
     });
@@ -194,7 +198,7 @@ describe('category page route', () => {
   });
 
   it('returns notFound for out-of-range category pages', async () => {
-    const outOfRangePage = CategoryPageRoute({
+    const outOfRangePage = CategoryPageContent({
       params: Promise.resolve({
         slug: 'test-store',
         category: 'smartphones',

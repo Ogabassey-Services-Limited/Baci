@@ -1,35 +1,16 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { Suspense } from 'react';
 import SignupForm from '@/components/auth/signup-form';
 import { createClient } from '@/lib/supabase/server';
 
-function SignupLoadingFallback() {
-  return (
-    <div
-      aria-busy="true"
-      aria-live="polite"
-      className="flex min-h-[50vh] items-center justify-center"
-      role="status"
-    >
-      <span className="sr-only">Loading sign up…</span>
-      <div
-        aria-hidden="true"
-        className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-primary"
-      />
-    </div>
-  );
-}
+// Signup is a per-request page (reads the session cookie and may redirect
+// already-authenticated users). Opt out of static generation so `await cookies()`
+// and the redirect happen in the top-level request scope, above any Suspense
+// boundary, and don't trip Cache Components' "uncached data outside Suspense"
+// guard during prerender.
+export const dynamic = 'force-dynamic';
 
-export default function SignupPage() {
-  return (
-    <Suspense fallback={<SignupLoadingFallback />}>
-      <SignupPageContent />
-    </Suspense>
-  );
-}
-
-async function SignupPageContent() {
+export default async function SignupPage() {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 

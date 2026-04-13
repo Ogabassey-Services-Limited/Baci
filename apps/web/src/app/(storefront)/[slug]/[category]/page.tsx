@@ -168,7 +168,7 @@ export default function CategoryPageRoute(props: PageProps) {
   );
 }
 
-async function CategoryPageContent({ params, searchParams }: PageProps) {
+export async function CategoryPageContent({ params, searchParams }: PageProps) {
   const { slug, category } = await params;
   const { page } = await searchParams;
   const currentPage = parseStorefrontPageParam(page);
