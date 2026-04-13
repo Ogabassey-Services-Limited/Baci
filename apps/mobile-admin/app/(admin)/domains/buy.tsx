@@ -116,7 +116,10 @@ export default function BuyDomainScreen() {
       }
 
       const data = await response.json();
-      const nextResults = normalizeDomainSearchResults(data.results || []);
+      const nextResults = normalizeDomainSearchResults(
+        data.results || [],
+        'NGN'
+      );
 
       if (
         activeSearchRequestIdRef.current !== requestId ||

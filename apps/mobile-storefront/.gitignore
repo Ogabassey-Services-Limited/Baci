@@ -39,3 +39,12 @@ yarn-error.*
 # generated native folders — kept in git for Xcode Cloud & CI
 # /ios
 # /android
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+build/
+*.ipa
+*.app.dSYM.zip
