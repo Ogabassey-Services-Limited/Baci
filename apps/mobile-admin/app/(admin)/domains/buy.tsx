@@ -1,69 +1,65 @@
-/**
- * Domain Search & Buy Screen
- * Real-time availability checks and native purchase flow
- */
-
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
-// import { useMerchant } from '@/hooks/useMerchant';
 import * as WebBrowser from 'expo-web-browser';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
-  StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
-import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
-// import { useRouter } from 'expo-router';
+import { styles } from '@/components/domains/buy-domain.styles';
+import { DomainSearchResultCard } from '@/components/domains/DomainSearchResultCard';
+import {
+  API_URL,
+  getPaymentInitializationErrorMessage,
+  normalizeDomainSearchResults,
+} from '@/components/domains/domain-api-helpers';
+import type { DomainSearchResult } from '@/components/domains/domain-search-result';
+import { AppFormScreen } from '@/components/ui/AppFormScreen';
 import { useTheme } from '@/hooks/useTheme';
-// import {
-//   DOMAIN_PRICING,
-//   calculateDomainPrice,
-// } from '@/constants/domain-pricing';
 import { supabase } from '@/lib/supabase';
 
-// Construct API URL safely
-const getApiUrl = () => {
-  // FORCE Production URL for reliability as local IP in .env is often unreachable
-  const base = 'https://usebaci.com';
-  if (__DEV__) {
-    console.log(`[Diagnostic] Base API URL forced to: "${base}"`);
-  }
-  // Ensure it has protocol
-  const url = base.startsWith('http') ? base : `https://${base}`;
-  // Ensure it ends with /api but not /api/
-  const final = url.endsWith('/api') ? url : `${url.replace(/\/$/, '')}/api`;
-  if (__DEV__) {
-    console.log(`[Diagnostic] Final computed API URL: "${final}"`);
-  }
-  return final;
-};
-
-const API_URL = getApiUrl();
-
-interface SearchResult {
-  domain: string;
-  available: boolean;
-  price: number;
-  currency: string;
-  popular?: boolean;
-}
-
 export default function BuyDomainScreen() {
-  const { colors, shadows } = useTheme();
+  const { colors } = useTheme();
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState<SearchResult[]>([]);
+  const [lastLookupSucceeded, setLastLookupSucceeded] = useState<
+    boolean | null
+  >(null);
+  const [results, setResults] = useState<DomainSearchResult[]>([]);
   const [purchasing, setPurchasing] = useState<string | null>(null);
+  const activeSearchControllerRef = useRef<AbortController | null>(null);
+  const activeSearchRequestIdRef = useRef(0);
+  const latestQueryRef = useRef('');
+
+  const handleQueryChange = (nextQuery: string) => {
+    const normalizedNextQuery = nextQuery.trim().toLowerCase();
+
+    latestQueryRef.current = nextQuery;
+    setQuery(nextQuery);
+
+    if (activeSearchControllerRef.current) {
+      activeSearchRequestIdRef.current += 1;
+      activeSearchControllerRef.current.abort();
+      activeSearchControllerRef.current = null;
+      setLoading(false);
+    }
+
+    if (!normalizedNextQuery) {
+      setResults([]);
+      setLastLookupSucceeded(null);
+    }
+  };
 
   const handleSearch = async () => {
-    const cleanQuery = query.trim().toLowerCase();
+    const cleanQuery = (latestQueryRef.current || query).trim().toLowerCase();
+    let controller: AbortController | null = null;
+    let didTimeout = false;
+    let requestId = 0;
+
     if (__DEV__) {
       console.log(`[Diagnostic] User search query: "${cleanQuery}"`);
     }
@@ -79,117 +75,113 @@ export default function BuyDomainScreen() {
     }
 
     setLoading(true);
-    setResults([]); // Clear previous results
+    setResults([]);
+    setLastLookupSucceeded(null);
+
     try {
       const {
         data: { session },
       } = await supabase.auth.getSession();
 
       if (!session) throw new Error('You must be signed in to search domains');
-      if (__DEV__) {
-        console.log(
-          `[Diagnostic] Auth session token present: ${!!session.access_token}`
-        );
-      }
 
-      const controller = new AbortController();
+      activeSearchControllerRef.current?.abort();
+      const nextController = new AbortController();
+      controller = nextController;
+      requestId = activeSearchRequestIdRef.current + 1;
+      activeSearchControllerRef.current = nextController;
+      activeSearchRequestIdRef.current = requestId;
       const timeoutId = setTimeout(() => {
-        if (__DEV__) {
-          console.log(
-            `[Diagnostic] Reached 20s timeout for: ${API_URL}/domains/check-availability`
-          );
-        }
-        controller.abort();
+        didTimeout = true;
+        nextController.abort();
       }, 20000);
 
-      const targetUrl = `${API_URL}/domains/check-availability`;
-      if (__DEV__) {
-        console.log(`[Diagnostic] Fetching: ${targetUrl}`);
-      }
-
-      const response = await fetch(targetUrl, {
+      const response = await fetch(`${API_URL}/domains/check-availability`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ searchTerm: cleanQuery }),
-        signal: controller.signal,
+        signal: nextController.signal,
       });
 
       clearTimeout(timeoutId);
-      if (__DEV__) {
-        console.log(`[Diagnostic] Fetch response status: ${response.status}`);
-      }
 
       if (!response.ok) {
         const err = await response
           .json()
           .catch(() => ({ error: 'Search failed' }));
-        if (__DEV__) {
-          console.log(`[Diagnostic] Fetch error body:`, err);
-        }
         throw new Error(err.error || `Server error (${response.status})`);
       }
 
       const data = await response.json();
-      if (__DEV__) {
-        console.log(
-          `[Diagnostic] Received ${data.results?.length || 0} results`
-        );
+      const nextResults = normalizeDomainSearchResults(data.results || []);
+
+      if (
+        activeSearchRequestIdRef.current !== requestId ||
+        latestQueryRef.current.trim().toLowerCase() !== cleanQuery
+      ) {
+        return;
       }
 
-      const mappedResults = (data.results || []).map(
-        (r: {
-          domain: string;
-          available: boolean;
-          price: number;
-          popular?: boolean;
-        }) => ({
-          domain: r.domain,
-          available: r.available,
-          price: r.price,
-          currency: 'NGN',
-          popular: r.popular,
-        })
-      );
-
-      setResults(mappedResults);
+      setResults(nextResults);
+      setLastLookupSucceeded(true);
     } catch (error: unknown) {
       console.error('[Diagnostic] Full search error:', error);
+      const isCurrentRequest =
+        requestId > 0 &&
+        activeSearchRequestIdRef.current === requestId &&
+        latestQueryRef.current.trim().toLowerCase() === cleanQuery;
+
       if (error instanceof Error && error.name === 'AbortError') {
-        Alert.alert(
-          'Timeout',
-          'Domain search took too long. Please try again.'
-        );
+        if (didTimeout) {
+          setLastLookupSucceeded(false);
+          Alert.alert(
+            'Timeout',
+            'Domain search took too long. Please try again.'
+          );
+        }
       } else {
+        if (!isCurrentRequest) {
+          return;
+        }
         const rawMessage =
           error instanceof Error
             ? error.message
             : 'An unexpected error occurred';
-        const userMessage = __DEV__
-          ? rawMessage
-          : 'Please try again in a moment.';
-        Alert.alert('Search Failed', userMessage);
+        setLastLookupSucceeded(false);
+        Alert.alert(
+          'Search Failed',
+          __DEV__ ? rawMessage : 'Please try again in a moment.'
+        );
       }
     } finally {
-      setLoading(false);
+      if (activeSearchControllerRef.current?.signal === controller?.signal) {
+        activeSearchControllerRef.current = null;
+      }
+      if (requestId > 0 && activeSearchRequestIdRef.current === requestId) {
+        setLoading(false);
+      }
     }
   };
 
   const handleBuy = async (domain: string, _price: number) => {
     setPurchasing(domain);
+
     try {
       const {
         data: { session },
       } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('You must be signed in to buy domains');
+      }
 
-      // 1. Initialize Payment
       const response = await fetch(`${API_URL}/domains/initialize-payment`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.access_token}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           domain,
@@ -198,20 +190,25 @@ export default function BuyDomainScreen() {
         }),
       });
 
-      const data = await response.json();
-      if (!data.authorization_url)
-        throw new Error('Payment initialization failed');
+      if (!response.ok) {
+        const rawErrorBody = await response.text().catch(() => '');
+        throw new Error(
+          getPaymentInitializationErrorMessage(response, rawErrorBody)
+        );
+      }
 
-      // 2. Open Web Browser for Payment (No "Sign In" prompt)
+      const data = (await response.json()) as {
+        authorization_url?: string;
+      };
+      if (!data.authorization_url) {
+        throw new Error('Payment initialization failed');
+      }
+
       await WebBrowser.openBrowserAsync(data.authorization_url, {
         presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
         controlsColor: colors.primary,
         toolbarColor: colors.card,
       });
-
-      // Note: We don't get a 'success' callback from openBrowserAsync like we do with AuthSession
-      // We assume user completed or cancelled when they close the browser.
-      setPurchasing(null);
     } catch (error: unknown) {
       Alert.alert(
         'Purchase Failed',
@@ -222,200 +219,78 @@ export default function BuyDomainScreen() {
     }
   };
 
-  const renderItem = ({ item }: { item: SearchResult }) => (
-    <View
-      style={[
-        styles.resultCard,
-        { backgroundColor: colors.card, borderColor: colors.border },
-        shadows.sm,
-      ]}
-    >
-      <View style={{ flex: 1 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text style={[styles.domainName, { color: colors.text }]}>
-            {item.domain}
-          </Text>
-          {item.popular && (
-            <View
-              style={{
-                backgroundColor: colors.primary,
-                paddingHorizontal: 6,
-                paddingVertical: 2,
-                borderRadius: 4,
-              }}
-            >
-              <Text
-                style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}
-              >
-                POPULAR
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {item.available ? (
-          <Text
-            style={{
-              color: colors.success,
-              fontSize: 13,
-              marginTop: 4,
-              fontFamily: TYPOGRAPHY.fontFamily.medium,
-            }}
-          >
-            Available
-          </Text>
-        ) : (
-          <Text
-            style={{ color: colors.textSecondary, fontSize: 13, marginTop: 4 }}
-          >
-            Unavailable
-          </Text>
-        )}
-      </View>
-
-      <View style={{ alignItems: 'flex-end' }}>
-        <Text style={[styles.price, { color: colors.text }]}>
-          ₦{item.price.toLocaleString()}
-        </Text>
-        {item.available && (
-          <Pressable
-            style={[
-              styles.buyButton,
-              {
-                backgroundColor: colors.primary,
-                opacity: purchasing ? 0.5 : 1,
-              },
-            ]}
-            onPress={() => handleBuy(item.domain, item.price)}
-            disabled={!!purchasing}
-          >
-            {purchasing === item.domain ? (
-              <ActivityIndicator size="small" color="white" />
-            ) : (
-              <Text style={styles.buyText}>Buy</Text>
-            )}
-          </Pressable>
-        )}
-      </View>
-    </View>
-  );
-
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={{ flex: 1 }}
+    <AppFormScreen
+      scrollEnabled={false}
+      style={[styles.screen, { backgroundColor: colors.background }]}
     >
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={styles.container}>
         <View
           style={[styles.searchContainer, { backgroundColor: colors.card }]}
         >
           <Ionicons name="search" size={20} color={colors.textSecondary} />
           <TextInput
-            style={[styles.input, { color: colors.text }]}
-            placeholder="Search domain (e.g. mybrand.com)"
-            placeholderTextColor={colors.textSecondary}
-            value={query}
-            onChangeText={setQuery}
+            accessibilityLabel="Search domain"
             autoCapitalize="none"
             autoCorrect={false}
-            returnKeyType="search"
+            onChangeText={handleQueryChange}
             onSubmitEditing={handleSearch}
+            placeholder="Search domain (e.g. mybrand.com)"
+            placeholderTextColor={colors.textSecondary}
+            returnKeyType="search"
+            style={[styles.input, { color: colors.text }]}
+            value={query}
           />
-          {query.length > 0 && (
-            <Pressable onPress={() => setQuery('')}>
+          {query.length > 0 ? (
+            <Pressable
+              accessibilityLabel="Clear domain search"
+              onPress={() => handleQueryChange('')}
+            >
               <Ionicons
                 name="close-circle"
                 size={20}
                 color={colors.textSecondary}
               />
             </Pressable>
-          )}
+          ) : null}
         </View>
 
         {loading ? (
-          <View style={{ padding: 40 }}>
+          <View style={styles.loadingState}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text
-              style={{
-                textAlign: 'center',
-                marginTop: 20,
-                color: colors.textSecondary,
-              }}
-            >
+            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
               Checking availability...
             </Text>
           </View>
         ) : (
           <FlashList
+            contentContainerStyle={styles.resultsContent}
             data={results}
-            renderItem={renderItem}
             keyExtractor={(item) => item.domain}
-            contentContainerStyle={{ padding: SPACING.md }}
             ListEmptyComponent={
-              results.length === 0 && query.length > 0 ? (
+              results.length === 0 &&
+              query.length > 0 &&
+              lastLookupSucceeded === true ? (
                 <Text
-                  style={{
-                    textAlign: 'center',
-                    marginTop: 40,
-                    color: colors.textSecondary,
-                  }}
+                  style={[
+                    styles.emptyStateText,
+                    { color: colors.textSecondary },
+                  ]}
                 >
                   No results found.
                 </Text>
               ) : null
             }
+            renderItem={({ item }) => (
+              <DomainSearchResultCard
+                domain={item}
+                isPurchasing={purchasing === item.domain}
+                onBuy={() => handleBuy(item.domain, item.price)}
+              />
+            )}
           />
         )}
       </View>
-    </KeyboardAvoidingView>
+    </AppFormScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: SPACING.md,
-    margin: SPACING.md,
-    borderRadius: RADIUS.lg,
-    gap: SPACING.sm,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    paddingVertical: 8,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-  },
-  resultCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: SPACING.md,
-    borderRadius: RADIUS.md,
-    marginBottom: SPACING.sm,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  domainName: {
-    fontSize: 16,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-  },
-  price: {
-    fontSize: 16,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-    marginBottom: 8,
-  },
-  buyButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: RADIUS.full,
-    minWidth: 70,
-    alignItems: 'center',
-  },
-  buyText: {
-    color: 'white',
-    fontSize: 12,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-  },
-});
