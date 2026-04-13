@@ -70,13 +70,16 @@ export function getPaymentInitializationErrorMessage(
 
 export function normalizeDomainSearchResults(
   results: DomainSearchResult[],
-  defaultCurrency: string = 'NGN'
+  defaultCurrency: string
 ): DomainSearchResult[] {
-  return results.map((result) => ({
-    domain: result.domain,
-    available: result.available,
-    price: result.price,
-    currency: result.currency || defaultCurrency,
-    popular: result.popular,
-  }));
+  return results.map((result) => {
+    const normalizedCurrency = (result.currency || '').trim();
+    return {
+      domain: result.domain,
+      available: result.available,
+      price: result.price,
+      currency: normalizedCurrency || defaultCurrency,
+      popular: result.popular,
+    };
+  });
 }

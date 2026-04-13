@@ -87,7 +87,12 @@ describe('ExpenseFormFields', () => {
       />
     );
 
-    expect(screen.getByDisplayValue('12,500')).toBeInTheDocument();
+    const amountInput = screen.getByLabelText('Expense amount');
+
+    expect(amountInput).toBeInTheDocument();
+    expect((amountInput as HTMLInputElement).value.replace(/\D/g, '')).toBe(
+      '12500'
+    );
     expect(screen.getByDisplayValue('Office internet')).toBeInTheDocument();
     expect(screen.getByText('Marketing')).toBeInTheDocument();
 

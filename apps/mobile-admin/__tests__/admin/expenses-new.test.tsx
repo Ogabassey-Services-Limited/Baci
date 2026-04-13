@@ -7,13 +7,18 @@ const mocks = vi.hoisted(() => ({
   alert: vi.fn(),
   expenseFieldsProps: {
     amount: '',
+    description: '',
     onAmountChange: ((_: string) => undefined) as (value: string) => void,
+    onDescriptionChange: ((_: string) => undefined) as (value: string) => void,
+    onOpenCategorySheet: (() => undefined) as () => void,
+    onReceiptPress: (() => undefined) as () => void,
   },
   imagePicker: vi.fn(),
   insert: vi.fn(),
   invalidateQueries: vi.fn(),
   merchant: { id: 'merchant-1' },
   router: { back: vi.fn() },
+  upload: vi.fn(),
 }));
 
 function createMutationMock() {
@@ -94,17 +99,46 @@ vi.mock('@/components/ui/AppFormScreen', () => ({
 vi.mock('@/components/expenses/ExpenseFormFields', () => ({
   ExpenseFormFields: (props: {
     amount: string;
+    description: string;
     onAmountChange: (value: string) => void;
+    onDescriptionChange: (value: string) => void;
+    onOpenCategorySheet: () => void;
+    onReceiptPress: () => void;
   }) => {
     mocks.expenseFieldsProps.amount = props.amount;
+    mocks.expenseFieldsProps.description = props.description;
     mocks.expenseFieldsProps.onAmountChange = props.onAmountChange;
+    mocks.expenseFieldsProps.onDescriptionChange = props.onDescriptionChange;
+    mocks.expenseFieldsProps.onOpenCategorySheet = props.onOpenCategorySheet;
+    mocks.expenseFieldsProps.onReceiptPress = props.onReceiptPress;
 
     return (
-      <input
-        aria-label="Expense amount"
-        onChange={(event) => props.onAmountChange(event.target.value)}
-        value={props.amount}
-      />
+      <>
+        <input
+          aria-label="Expense amount"
+          onChange={(event) => props.onAmountChange(event.target.value)}
+          value={props.amount}
+        />
+        <input
+          aria-label="Expense description"
+          onChange={(event) => props.onDescriptionChange(event.target.value)}
+          value={props.description}
+        />
+        <button
+          aria-label="Select expense category"
+          onClick={props.onOpenCategorySheet}
+          type="button"
+        >
+          Select category
+        </button>
+        <button
+          aria-label="Add expense receipt"
+          onClick={props.onReceiptPress}
+          type="button"
+        >
+          Add receipt
+        </button>
+      </>
     );
   },
 }));
@@ -124,7 +158,7 @@ vi.mock('@/lib/supabase', () => ({
         getPublicUrl: () => ({
           data: { publicUrl: 'https://example.com/file' },
         }),
-        upload: vi.fn(),
+        upload: mocks.upload,
       }),
     },
   },
@@ -143,11 +177,16 @@ vi.mock('expo-router', async () => {
         Screen: ({
           options,
         }: {
-          options?: { headerLeft?: () => React.ReactNode };
+          options?: { headerLeft?: () => React.ReactNode; title?: string };
         }) =>
-          options?.headerLeft
-            ? React.createElement('div', null, options.headerLeft())
-            : null,
+          React.createElement(
+            'div',
+            null,
+            options?.title
+              ? React.createElement('span', null, options.title)
+              : null,
+            options?.headerLeft ? options.headerLeft() : null
+          ),
       }
     ),
     useRouter: () => mocks.router,
@@ -193,31 +232,76 @@ import AddExpenseScreen from '@/app/(admin)/expenses/new';
 describe('AddExpenseScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.expenseFieldsProps.amount = '';
+    mocks.expenseFieldsProps.description = '';
     mocks.insert.mockResolvedValue({ error: null });
     mocks.imagePicker.mockResolvedValue({ assets: [], canceled: true });
+    mocks.upload.mockResolvedValue({ error: null });
   });
 
-  it('saves an expense through the shared form shell', async () => {
+  it('renders the add expense screen shell and opens the category sheet', () => {
     render(<AddExpenseScreen />);
 
+    expect(screen.getByText('Add Expense')).toBeInTheDocument();
     expect(
       screen.getByRole('region', { name: 'expense-form-screen' })
     ).toBeInTheDocument();
+    expect(screen.getByLabelText('Expense amount')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Save expense' })
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText('Select expense category'));
+
+    expect(screen.getByText('Category sheet')).toBeInTheDocument();
+  });
+
+  it('rejects invalid amount input and keeps save disabled for invalid numeric values', () => {
+    render(<AddExpenseScreen />);
+
+    const amountInput = screen.getByLabelText('Expense amount');
+    const saveButton = screen.getByRole('button', { name: 'Save expense' });
+
+    fireEvent.change(amountInput, { target: { value: '12a3' } });
+
+    expect((amountInput as HTMLInputElement).value).toBe('');
+
+    fireEvent.change(amountInput, { target: { value: '.' } });
+
+    expect(saveButton).toBeDisabled();
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
+  it('selects a receipt and saves a complete expense payload through the shared form shell', async () => {
+    mocks.imagePicker.mockResolvedValueOnce({
+      assets: [{ uri: 'file:///receipt.jpg' }],
+      canceled: false,
+    });
+
+    render(<AddExpenseScreen />);
 
     fireEvent.change(screen.getByLabelText('Expense amount'), {
       target: { value: '12500' },
     });
+    fireEvent.change(screen.getByLabelText('Expense description'), {
+      target: { value: 'Office internet' },
+    });
+    fireEvent.click(screen.getByLabelText('Add expense receipt'));
+    await waitFor(() => {
+      expect(mocks.imagePicker).toHaveBeenCalled();
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Save expense' }));
 
     await waitFor(() => {
-      expect(mocks.insert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          amount: 12500,
-          category: 'Inventory',
-          merchant_id: 'merchant-1',
-          receipt_url: null,
-        })
-      );
+      expect(mocks.upload).toHaveBeenCalled();
+      expect(mocks.insert).toHaveBeenCalledWith({
+        amount: 12500,
+        category: 'Inventory',
+        description: 'Office internet',
+        date: expect.any(String),
+        merchant_id: 'merchant-1',
+        receipt_url: 'https://example.com/file',
+      });
     });
 
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({
@@ -227,10 +311,13 @@ describe('AddExpenseScreen', () => {
     expect(mocks.router.back).toHaveBeenCalledTimes(1);
   });
 
-  it('shows an error alert when saving fails', async () => {
+  it('shows a generic error alert when saving fails', async () => {
     mocks.insert.mockResolvedValue({
       error: new Error('Insert failed'),
     });
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
 
     render(<AddExpenseScreen />);
 
@@ -240,8 +327,14 @@ describe('AddExpenseScreen', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save expense' }));
 
     await waitFor(() => {
-      expect(mocks.alert).toHaveBeenCalledWith('Error', 'Insert failed');
+      expect(mocks.alert).toHaveBeenCalledWith(
+        'Error',
+        'Something went wrong. Please try again.'
+      );
+      expect(consoleErrorSpy).toHaveBeenCalled();
     });
     expect(mocks.router.back).not.toHaveBeenCalled();
+
+    consoleErrorSpy.mockRestore();
   });
 });

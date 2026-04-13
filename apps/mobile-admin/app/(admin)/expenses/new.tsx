@@ -31,11 +31,13 @@ export default function AddExpenseScreen() {
   );
   const [receiptUri, setReceiptUri] = useState<string | null>(null);
   const [isCategorySheetVisible, setCategorySheetVisible] = useState(false);
+  const parsedAmount = Number.parseFloat(amount);
+  const hasValidAmount = Number.isFinite(parsedAmount) && parsedAmount > 0;
 
   const createExpenseMutation = useMutation({
     mutationFn: async () => {
       if (!merchant?.id) throw new Error('Merchant ID missing');
-      if (!amount) throw new Error('Amount is required');
+      if (!hasValidAmount) throw new Error('Invalid expense amount');
 
       let uploadedReceiptUrl: string | null = null;
 
@@ -77,7 +79,7 @@ export default function AddExpenseScreen() {
 
       const { error } = await supabase.from('expenses').insert({
         merchant_id: merchant.id,
-        amount: Number.parseFloat(amount),
+        amount: parsedAmount,
         category: selectedCategory,
         description: description || null,
         date: new Date().toISOString(),
@@ -95,7 +97,8 @@ export default function AddExpenseScreen() {
       ]);
     },
     onError: (error: Error) => {
-      Alert.alert('Error', error.message);
+      console.error('Failed to save expense:', error);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
     },
   });
 
@@ -121,6 +124,15 @@ export default function AddExpenseScreen() {
     } catch {
       Alert.alert('Error', 'Failed to pick image');
     }
+  };
+
+  const handleSaveExpense = () => {
+    if (!hasValidAmount) {
+      Alert.alert('Invalid Amount', 'Enter a valid amount greater than zero.');
+      return;
+    }
+
+    createExpenseMutation.mutate();
   };
 
   return (
@@ -157,13 +169,16 @@ export default function AddExpenseScreen() {
             <Pressable
               accessibilityLabel="Save expense"
               accessibilityRole="button"
-              disabled={!amount || createExpenseMutation.isPending}
-              onPress={() => createExpenseMutation.mutate()}
+              disabled={!hasValidAmount || createExpenseMutation.isPending}
+              onPress={handleSaveExpense}
               style={[
                 expenseFormStyles.saveButton,
                 {
                   backgroundColor: colors.primary,
-                  opacity: !amount || createExpenseMutation.isPending ? 0.7 : 1,
+                  opacity:
+                    !hasValidAmount || createExpenseMutation.isPending
+                      ? 0.7
+                      : 1,
                 },
               ]}
             >
