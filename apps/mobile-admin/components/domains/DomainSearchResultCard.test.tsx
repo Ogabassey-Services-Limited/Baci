@@ -16,6 +16,7 @@ vi.mock('@/hooks/useTheme', () => ({
       primary: '#3b82f6',
       success: '#16a34a',
       text: '#f8fafc',
+      textOnPrimary: '#ffffff',
       textSecondary: '#94a3b8',
     },
     shadows: {
@@ -98,5 +99,23 @@ describe('DomainSearchResultCard', () => {
     expect(
       screen.queryByRole('button', { name: 'Buy baci.com' })
     ).not.toBeInTheDocument();
+  });
+
+  it('shows the loading state and disables the buy button while purchasing', () => {
+    render(
+      <DomainSearchResultCard
+        domain={{
+          available: true,
+          currency: 'NGN',
+          domain: 'baci.com',
+          price: 25000,
+        }}
+        isPurchasing={true}
+        onBuy={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('loading')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Buy baci.com' })).toBeDisabled();
   });
 });

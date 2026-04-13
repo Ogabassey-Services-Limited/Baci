@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { DomainSearchResult } from '@/components/domains/domain-search-result';
 import { APP_KEYBOARD_CONTAINER_LABEL } from '../auth/app-keyboard-container.mock';
 
 const mocks = vi.hoisted(() => ({
@@ -10,17 +11,8 @@ const mocks = vi.hoisted(() => ({
   openBrowserAsync: vi.fn(),
 }));
 
-function getFlashListItemKey(item: unknown): string {
-  if (
-    typeof item === 'object' &&
-    item !== null &&
-    'domain' in item &&
-    typeof item.domain === 'string'
-  ) {
-    return item.domain;
-  }
-
-  return JSON.stringify(item);
+function getFlashListItemKey(item: DomainSearchResult): string {
+  return item.domain;
 }
 
 vi.mock('@/components/ui/AppFormScreen', async () => {
@@ -98,9 +90,9 @@ vi.mock('@shopify/flash-list', () => ({
     ListEmptyComponent,
     renderItem,
   }: {
-    data: unknown[];
+    data: DomainSearchResult[];
     ListEmptyComponent?: ReactNode;
-    renderItem: ({ item }: { item: unknown }) => ReactNode;
+    renderItem: ({ item }: { item: DomainSearchResult }) => ReactNode;
   }) => (
     <div>
       {data.length === 0 ? ListEmptyComponent : null}
@@ -129,6 +121,7 @@ vi.mock('@/hooks/useTheme', () => ({
       primary: '#3b82f6',
       success: '#16a34a',
       text: '#f8fafc',
+      textOnPrimary: '#ffffff',
       textSecondary: '#94a3b8',
     },
     shadows: {

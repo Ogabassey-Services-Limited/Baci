@@ -19,14 +19,14 @@ export const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
-    fontSize: 16,
-    paddingVertical: 8,
+    fontSize: TYPOGRAPHY.size.lg,
+    paddingVertical: SPACING.sm,
   },
   loadingState: {
-    padding: 40,
+    padding: SPACING['3xl'],
   },
   loadingText: {
-    marginTop: 20,
+    marginTop: SPACING.xl,
     textAlign: 'center',
   },
   resultsContent: {
@@ -53,47 +53,45 @@ export const styles = StyleSheet.create({
   resultHeader: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 8,
+    gap: SPACING.sm,
   },
   domainName: {
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-    fontSize: 16,
+    fontSize: TYPOGRAPHY.size.lg,
   },
   popularBadge: {
-    borderRadius: 4,
-    paddingHorizontal: 6,
+    borderRadius: SPACING.xs,
+    paddingHorizontal: SPACING.xs,
     paddingVertical: 2,
   },
   popularBadgeText: {
-    color: '#FFF',
-    fontSize: 10,
-    fontWeight: 'bold',
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    fontSize: TYPOGRAPHY.size.xs,
   },
   availabilityText: {
     fontFamily: TYPOGRAPHY.fontFamily.medium,
-    fontSize: 13,
-    marginTop: 4,
+    fontSize: TYPOGRAPHY.size.sm,
+    marginTop: SPACING.xs,
   },
   priceColumn: {
     alignItems: 'flex-end',
   },
   price: {
     fontFamily: TYPOGRAPHY.fontFamily.bold,
-    fontSize: 16,
-    marginBottom: 8,
+    fontSize: TYPOGRAPHY.size.lg,
+    marginBottom: SPACING.sm,
   },
   buyButton: {
     alignItems: 'center',
     borderRadius: RADIUS.full,
     flexDirection: 'row',
-    gap: 6,
+    gap: SPACING.xs,
     minWidth: 70,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: SPACING.sm,
   },
   buyText: {
-    color: '#FFF',
     fontFamily: TYPOGRAPHY.fontFamily.bold,
-    fontSize: 12,
+    fontSize: TYPOGRAPHY.size.sm,
   },
 });

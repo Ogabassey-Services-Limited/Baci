@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { styles } from '@/components/domains/buy-domain.styles';
 import { DomainSearchResultCard } from '@/components/domains/DomainSearchResultCard';
+import type { DomainSearchResult } from '@/components/domains/domain-search-result';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
@@ -38,19 +39,36 @@ const getApiUrl = () => {
 
 const API_URL = getApiUrl();
 
-interface SearchResult {
-  available: boolean;
-  currency: string;
-  domain: string;
-  popular?: boolean;
-  price: number;
+function getPaymentInitializationErrorMessage(
+  response: Response,
+  rawBody: string
+): string {
+  const fallbackMessage = `Payment initialization failed (${response.status})`;
+
+  if (!rawBody) {
+    return fallbackMessage;
+  }
+
+  try {
+    const parsed = JSON.parse(rawBody) as { error?: string; message?: string };
+    const details =
+      typeof parsed.error === 'string'
+        ? parsed.error
+        : typeof parsed.message === 'string'
+          ? parsed.message
+          : rawBody;
+
+    return `${fallbackMessage}: ${details}`;
+  } catch {
+    return `${fallbackMessage}: ${rawBody}`;
+  }
 }
 
 export default function BuyDomainScreen() {
   const { colors } = useTheme();
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState<SearchResult[]>([]);
+  const [results, setResults] = useState<DomainSearchResult[]>([]);
   const [purchasing, setPurchasing] = useState<string | null>(null);
 
   const handleSearch = async () => {
@@ -103,20 +121,13 @@ export default function BuyDomainScreen() {
 
       const data = await response.json();
       setResults(
-        (data.results || []).map(
-          (result: {
-            available: boolean;
-            domain: string;
-            popular?: boolean;
-            price: number;
-          }) => ({
-            domain: result.domain,
-            available: result.available,
-            price: result.price,
-            currency: 'NGN',
-            popular: result.popular,
-          })
-        )
+        (data.results || []).map((result: DomainSearchResult) => ({
+          domain: result.domain,
+          available: result.available,
+          price: result.price,
+          currency: 'NGN',
+          popular: result.popular,
+        }))
       );
     } catch (error: unknown) {
       console.error('[Diagnostic] Full search error:', error);
@@ -147,12 +158,15 @@ export default function BuyDomainScreen() {
       const {
         data: { session },
       } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('You must be signed in to buy domains');
+      }
 
       const response = await fetch(`${API_URL}/domains/initialize-payment`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.access_token}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           domain,
@@ -161,7 +175,16 @@ export default function BuyDomainScreen() {
         }),
       });
 
-      const data = await response.json();
+      if (!response.ok) {
+        const rawErrorBody = await response.text().catch(() => '');
+        throw new Error(
+          getPaymentInitializationErrorMessage(response, rawErrorBody)
+        );
+      }
+
+      const data = (await response.json()) as {
+        authorization_url?: string;
+      };
       if (!data.authorization_url) {
         throw new Error('Payment initialization failed');
       }

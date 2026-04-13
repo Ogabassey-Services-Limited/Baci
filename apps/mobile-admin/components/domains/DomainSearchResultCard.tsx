@@ -1,15 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { styles } from '@/components/domains/buy-domain.styles';
+import type { DomainSearchResult } from '@/components/domains/domain-search-result';
 import { useTheme } from '@/hooks/useTheme';
-
-interface DomainSearchResult {
-  available: boolean;
-  currency: string;
-  domain: string;
-  popular?: boolean;
-  price: number;
-}
 
 interface DomainSearchResultCardProps {
   domain: DomainSearchResult;
@@ -23,6 +16,7 @@ export function DomainSearchResultCard({
   onBuy,
 }: DomainSearchResultCardProps) {
   const { colors, shadows } = useTheme();
+  const formattedPrice = domain.price.toLocaleString('en-NG');
 
   return (
     <View
@@ -41,7 +35,14 @@ export function DomainSearchResultCard({
             <View
               style={[styles.popularBadge, { backgroundColor: colors.primary }]}
             >
-              <Text style={styles.popularBadgeText}>POPULAR</Text>
+              <Text
+                style={[
+                  styles.popularBadgeText,
+                  { color: colors.textOnPrimary },
+                ]}
+              >
+                POPULAR
+              </Text>
             </View>
           ) : null}
         </View>
@@ -58,7 +59,7 @@ export function DomainSearchResultCard({
 
       <View style={styles.priceColumn}>
         <Text style={[styles.price, { color: colors.text }]}>
-          ₦{domain.price.toLocaleString()}
+          ₦{formattedPrice}
         </Text>
         {domain.available ? (
           <Pressable
@@ -75,11 +76,17 @@ export function DomainSearchResultCard({
             ]}
           >
             {isPurchasing ? (
-              <ActivityIndicator size="small" color="#FFF" />
+              <ActivityIndicator size="small" color={colors.textOnPrimary} />
             ) : (
               <>
-                <Text style={styles.buyText}>Buy</Text>
-                <Ionicons color="#FFF" name="arrow-forward" size={14} />
+                <Text style={[styles.buyText, { color: colors.textOnPrimary }]}>
+                  Buy
+                </Text>
+                <Ionicons
+                  color={colors.textOnPrimary}
+                  name="arrow-forward"
+                  size={14}
+                />
               </>
             )}
           </Pressable>
