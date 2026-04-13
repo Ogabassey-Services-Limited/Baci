@@ -4,9 +4,26 @@ import { Suspense } from 'react';
 import SignupForm from '@/components/auth/signup-form';
 import { createClient } from '@/lib/supabase/server';
 
+function SignupLoadingFallback() {
+  return (
+    <div
+      aria-busy="true"
+      aria-live="polite"
+      className="flex min-h-[50vh] items-center justify-center"
+      role="status"
+    >
+      <span className="sr-only">Loading sign up…</span>
+      <div
+        aria-hidden="true"
+        className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-primary"
+      />
+    </div>
+  );
+}
+
 export default function SignupPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<SignupLoadingFallback />}>
       <SignupPageContent />
     </Suspense>
   );

@@ -162,7 +162,7 @@ export async function generateMetadata({
 
 export default function CategoryPageRoute(props: PageProps) {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<ProductGridSkeleton />}>
       <CategoryPageContent {...props} />
     </Suspense>
   );
