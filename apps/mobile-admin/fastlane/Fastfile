@@ -16,7 +16,7 @@ platform :ios do
       key_id: ENV.fetch("ASC_API_KEY_ID"),
       issuer_id: ENV.fetch("ASC_API_ISSUER_ID"),
       key_filepath: ENV.fetch("ASC_API_KEY_PATH"),
-      duration: 1800,
+      duration: 1200,
       in_house: false
     )
 
