@@ -68,7 +68,7 @@
       "ios": {
         "appleId": "basseybjohn@yahoo.co.uk",
         "appleTeamId": "6QLNK7TXM3",
-        "ascAppId": "TODO_ADD_APP_STORE_CONNECT_APP_ID"
+        "ascAppId": "6472735367"
       },
       "android": {
         "serviceAccountKeyPath": "./play-store-service-account.json",

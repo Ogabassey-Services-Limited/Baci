@@ -28,6 +28,20 @@ if (rawAndroidVersionCode !== undefined) {
   }
 }
 
+const rawIosBuildNumber = process.env.IOS_BUILD_NUMBER;
+let _iosBuildNumber: string | undefined;
+
+if (rawIosBuildNumber !== undefined) {
+  const parsed = Number(rawIosBuildNumber);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    console.warn(
+      `[app.config] Ignoring IOS_BUILD_NUMBER="${rawIosBuildNumber}" because it must be a positive integer.`
+    );
+  } else {
+    _iosBuildNumber = String(parsed);
+  }
+}
+
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'Ogabassey',
@@ -45,7 +59,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.ogabassey.app',
-    buildNumber: '9',
+    buildNumber: iosBuildNumber ?? '9',
     associatedDomains: [
       'applinks:ogabassey.com',
       'applinks:ogabassey.usebaci.com',
