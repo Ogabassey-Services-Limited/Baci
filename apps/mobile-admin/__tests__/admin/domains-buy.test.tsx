@@ -219,6 +219,91 @@ describe('BuyDomainScreen', () => {
     ).toBeInTheDocument();
   });
 
+  it('shows the empty state only after a successful lookup with no results', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ results: [] }),
+    });
+
+    render(<BuyDomainScreen />);
+
+    const input = screen.getByPlaceholderText(
+      'Search domain (e.g. mybrand.com)'
+    );
+    fireEvent.change(input, { target: { value: 'missing.com' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled();
+    });
+
+    expect(screen.getByText('No results found.')).toBeInTheDocument();
+  });
+
+  it('clears results and ignores stale responses when the search input is cleared', async () => {
+    type LookupResponse = {
+      json: () => Promise<{
+        results: DomainSearchResult[];
+      }>;
+      ok: boolean;
+    };
+
+    let resolveLookup: ((value: LookupResponse) => void) | undefined;
+
+    fetchMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveLookup = resolve;
+        })
+    );
+
+    render(<BuyDomainScreen />);
+
+    const input = screen.getByPlaceholderText(
+      'Search domain (e.g. mybrand.com)'
+    );
+    fireEvent.change(input, { target: { value: 'baci.com' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled();
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Clear domain search' })
+    );
+
+    if (!resolveLookup) {
+      throw new Error('Lookup resolver was not set');
+    }
+
+    resolveLookup({
+      ok: true,
+      json: async () => ({
+        results: [
+          {
+            available: true,
+            currency: 'NGN',
+            domain: 'baci.com',
+            popular: true,
+            price: 25000,
+          },
+        ],
+      }),
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('button', { name: 'Clear domain search' })
+      ).not.toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('baci.com')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Buy baci.com' })
+    ).not.toBeInTheDocument();
+  });
+
   it('shows an error alert when the lookup fails', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: false,
@@ -238,5 +323,6 @@ describe('BuyDomainScreen', () => {
     });
 
     expect(mocks.alert).toHaveBeenCalledWith('Search Failed', 'Lookup failed');
+    expect(screen.queryByText('No results found.')).not.toBeInTheDocument();
   });
 });

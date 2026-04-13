@@ -6,7 +6,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import * as WebBrowser from 'expo-web-browser';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -68,11 +68,40 @@ export default function BuyDomainScreen() {
   const { colors } = useTheme();
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
+  const [lastLookupSucceeded, setLastLookupSucceeded] = useState<
+    boolean | null
+  >(null);
   const [results, setResults] = useState<DomainSearchResult[]>([]);
   const [purchasing, setPurchasing] = useState<string | null>(null);
+  const activeSearchControllerRef = useRef<AbortController | null>(null);
+  const activeSearchRequestIdRef = useRef(0);
+  const latestQueryRef = useRef('');
+
+  const handleQueryChange = (nextQuery: string) => {
+    const normalizedNextQuery = nextQuery.trim().toLowerCase();
+
+    latestQueryRef.current = nextQuery;
+    setQuery(nextQuery);
+
+    if (activeSearchControllerRef.current) {
+      activeSearchRequestIdRef.current += 1;
+      activeSearchControllerRef.current.abort();
+      activeSearchControllerRef.current = null;
+      setLoading(false);
+    }
+
+    if (!normalizedNextQuery) {
+      setResults([]);
+      setLastLookupSucceeded(null);
+    }
+  };
 
   const handleSearch = async () => {
-    const cleanQuery = query.trim().toLowerCase();
+    const cleanQuery = (latestQueryRef.current || query).trim().toLowerCase();
+    let controller: AbortController | null = null;
+    let didTimeout = false;
+    let requestId = 0;
+
     if (__DEV__) {
       console.log(`[Diagnostic] User search query: "${cleanQuery}"`);
     }
@@ -89,6 +118,7 @@ export default function BuyDomainScreen() {
 
     setLoading(true);
     setResults([]);
+    setLastLookupSucceeded(null);
 
     try {
       const {
@@ -97,8 +127,16 @@ export default function BuyDomainScreen() {
 
       if (!session) throw new Error('You must be signed in to search domains');
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 20000);
+      activeSearchControllerRef.current?.abort();
+      const nextController = new AbortController();
+      controller = nextController;
+      requestId = activeSearchRequestIdRef.current + 1;
+      activeSearchControllerRef.current = nextController;
+      activeSearchRequestIdRef.current = requestId;
+      const timeoutId = setTimeout(() => {
+        didTimeout = true;
+        nextController.abort();
+      }, 20000);
 
       const response = await fetch(`${API_URL}/domains/check-availability`, {
         method: 'POST',
@@ -107,7 +145,7 @@ export default function BuyDomainScreen() {
           Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ searchTerm: cleanQuery }),
-        signal: controller.signal,
+        signal: nextController.signal,
       });
 
       clearTimeout(timeoutId);
@@ -120,34 +158,61 @@ export default function BuyDomainScreen() {
       }
 
       const data = await response.json();
-      setResults(
-        (data.results || []).map((result: DomainSearchResult) => ({
+      const nextResults = (data.results || []).map(
+        (result: DomainSearchResult) => ({
           domain: result.domain,
           available: result.available,
           price: result.price,
-          currency: 'NGN',
+          currency: result.currency || 'NGN',
           popular: result.popular,
-        }))
+        })
       );
+
+      if (
+        activeSearchRequestIdRef.current !== requestId ||
+        latestQueryRef.current.trim().toLowerCase() !== cleanQuery
+      ) {
+        return;
+      }
+
+      setResults(nextResults);
+      setLastLookupSucceeded(true);
     } catch (error: unknown) {
       console.error('[Diagnostic] Full search error:', error);
+      const isCurrentRequest =
+        requestId > 0 &&
+        activeSearchRequestIdRef.current === requestId &&
+        latestQueryRef.current.trim().toLowerCase() === cleanQuery;
+
       if (error instanceof Error && error.name === 'AbortError') {
-        Alert.alert(
-          'Timeout',
-          'Domain search took too long. Please try again.'
-        );
+        if (didTimeout) {
+          setLastLookupSucceeded(false);
+          Alert.alert(
+            'Timeout',
+            'Domain search took too long. Please try again.'
+          );
+        }
       } else {
+        if (!isCurrentRequest) {
+          return;
+        }
         const rawMessage =
           error instanceof Error
             ? error.message
             : 'An unexpected error occurred';
+        setLastLookupSucceeded(false);
         Alert.alert(
           'Search Failed',
           __DEV__ ? rawMessage : 'Please try again in a moment.'
         );
       }
     } finally {
-      setLoading(false);
+      if (activeSearchControllerRef.current?.signal === controller?.signal) {
+        activeSearchControllerRef.current = null;
+      }
+      if (requestId > 0 && activeSearchRequestIdRef.current === requestId) {
+        setLoading(false);
+      }
     }
   };
 
@@ -218,7 +283,7 @@ export default function BuyDomainScreen() {
             accessibilityLabel="Search domain"
             autoCapitalize="none"
             autoCorrect={false}
-            onChangeText={setQuery}
+            onChangeText={handleQueryChange}
             onSubmitEditing={handleSearch}
             placeholder="Search domain (e.g. mybrand.com)"
             placeholderTextColor={colors.textSecondary}
@@ -229,7 +294,7 @@ export default function BuyDomainScreen() {
           {query.length > 0 ? (
             <Pressable
               accessibilityLabel="Clear domain search"
-              onPress={() => setQuery('')}
+              onPress={() => handleQueryChange('')}
             >
               <Ionicons
                 name="close-circle"
@@ -253,7 +318,9 @@ export default function BuyDomainScreen() {
             data={results}
             keyExtractor={(item) => item.domain}
             ListEmptyComponent={
-              results.length === 0 && query.length > 0 ? (
+              results.length === 0 &&
+              query.length > 0 &&
+              lastLookupSucceeded === true ? (
                 <Text
                   style={[
                     styles.emptyStateText,

@@ -101,6 +101,23 @@ describe('DomainSearchResultCard', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('formats the displayed price using the domain currency', () => {
+    render(
+      <DomainSearchResultCard
+        domain={{
+          available: true,
+          currency: 'USD',
+          domain: 'baci.com',
+          price: 25000,
+        }}
+        isPurchasing={false}
+        onBuy={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('$25,000')).toBeInTheDocument();
+  });
+
   it('shows the loading state and disables the buy button while purchasing', () => {
     render(
       <DomainSearchResultCard

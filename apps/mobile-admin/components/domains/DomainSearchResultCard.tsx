@@ -4,6 +4,24 @@ import { styles } from '@/components/domains/buy-domain.styles';
 import type { DomainSearchResult } from '@/components/domains/domain-search-result';
 import { useTheme } from '@/hooks/useTheme';
 
+const DOMAIN_PRICE_LOCALE_BY_CURRENCY: Record<string, string> = {
+  GBP: 'en-GB',
+  NGN: 'en-NG',
+  USD: 'en-US',
+};
+
+function formatDomainPrice(price: number, currency: string): string {
+  return new Intl.NumberFormat(
+    DOMAIN_PRICE_LOCALE_BY_CURRENCY[currency] ?? 'en-US',
+    {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }
+  ).format(price);
+}
+
 interface DomainSearchResultCardProps {
   domain: DomainSearchResult;
   isPurchasing: boolean;
@@ -16,7 +34,7 @@ export function DomainSearchResultCard({
   onBuy,
 }: DomainSearchResultCardProps) {
   const { colors, shadows } = useTheme();
-  const formattedPrice = domain.price.toLocaleString('en-NG');
+  const formattedPrice = formatDomainPrice(domain.price, domain.currency);
 
   return (
     <View
@@ -59,7 +77,7 @@ export function DomainSearchResultCard({
 
       <View style={styles.priceColumn}>
         <Text style={[styles.price, { color: colors.text }]}>
-          ₦{formattedPrice}
+          {formattedPrice}
         </Text>
         {domain.available ? (
           <Pressable
