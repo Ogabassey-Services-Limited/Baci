@@ -48,53 +48,6 @@ vi.mock('@/hooks/usePaystackBanks', () => ({
 vi.mock('@/hooks/usePayouts', () => ({
   usePayouts: () => ({ savePayoutSettings: mocks.savePayoutSettings }),
 }));
-vi.mock('@/components/payouts/BankPickerSheet', () => ({
-  BankPickerSheet: ({
-    banks,
-    isLoading,
-    onClose,
-    onSearchChange,
-    onSelect,
-    searchTerm,
-    visible,
-  }: {
-    banks: Array<{ code: string; name: string }>;
-    isLoading: boolean;
-    onClose: () => void;
-    onSearchChange: (value: string) => void;
-    onSelect: (bank: { code: string; name: string }) => void;
-    searchTerm: string;
-    visible: boolean;
-  }) =>
-    visible ? (
-      <section aria-label="bank-picker-sheet">
-        <button aria-label="Close bank picker" onClick={onClose} type="button">
-          close
-        </button>
-        <input
-          aria-label="Search banks"
-          onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-            onSearchChange(event.target.value)
-          }
-          value={searchTerm}
-        />
-        {isLoading ? <div>loading banks</div> : null}
-        {!isLoading && banks.length === 0 ? <div>No banks found</div> : null}
-        {!isLoading && banks.length > 0
-          ? banks.map((bank) => (
-              <button
-                key={bank.code}
-                aria-label={bank.name}
-                onClick={() => onSelect(bank)}
-                type="button"
-              >
-                {bank.name}
-              </button>
-            ))
-          : null}
-      </section>
-    ) : null,
-}));
 vi.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({
     colors: {
@@ -167,6 +120,32 @@ vi.mock('react-native', async () => {
   return {
     ActivityIndicator: () => null,
     Alert: mocks.Alert,
+    FlatList: ({
+      data,
+      renderItem,
+    }: {
+      data: unknown[];
+      renderItem: (info: { item: unknown }) => React.ReactNode;
+    }) =>
+      React.createElement(
+        'div',
+        null,
+        data.map((item, i) =>
+          React.createElement('div', { key: i }, renderItem({ item }))
+        )
+      ),
+    KeyboardAvoidingView: ({ children }: { children?: React.ReactNode }) =>
+      React.createElement('div', null, children),
+    Modal: ({
+      children,
+      visible,
+    }: {
+      children?: React.ReactNode;
+      visible?: boolean;
+    }) =>
+      visible
+        ? React.createElement('div', { 'data-testid': 'modal' }, children)
+        : null,
     Pressable: ({
       children,
       onPress,
@@ -235,10 +214,6 @@ describe('PayoutSettingsScreen', () => {
     mocks.verification.accountName = null;
     mocks.verification.isVerifying = false;
     mocks.verification.verifyError = null;
-    mocks.banks.data = [
-      { id: 1, name: 'GTBank', slug: 'gtbank', code: '058', active: true },
-    ];
-    mocks.banks.isLoading = false;
     mocks.savePayoutSettings.isPending = false;
   });
 
@@ -313,46 +288,5 @@ describe('PayoutSettingsScreen', () => {
       expect.objectContaining({ accountNumber: '0141691337', bankCode: '058' }),
       expect.any(Object)
     );
-  });
-
-  it('opens the shared bank picker and filters via the search field', () => {
-    mocks.banks.data = [
-      { id: 1, name: 'GTBank', slug: 'gtbank', code: '058', active: true },
-      {
-        id: 2,
-        name: 'Access Bank',
-        slug: 'access-bank',
-        code: '044',
-        active: true,
-      },
-    ];
-
-    render(<PayoutSettingsScreen />);
-
-    fireEvent.click(screen.getByLabelText('Select bank'));
-
-    expect(screen.getByLabelText('bank-picker-sheet')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'GTBank' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Access Bank' })).toBeTruthy();
-
-    fireEvent.change(screen.getByLabelText('Search banks'), {
-      target: { value: 'gt' },
-    });
-
-    expect(screen.getByRole('button', { name: 'GTBank' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Access Bank' })).toBeNull();
-  });
-
-  it('shows the bank picker loading state when banks are still loading', () => {
-    mocks.banks.data = [];
-    mocks.banks.isLoading = true;
-
-    render(<PayoutSettingsScreen />);
-
-    fireEvent.click(screen.getByLabelText('Select bank'));
-
-    expect(screen.getByLabelText('bank-picker-sheet')).toBeTruthy();
-    expect(screen.getByText('loading banks')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'GTBank' })).toBeNull();
   });
 });

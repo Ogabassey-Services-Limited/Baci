@@ -1935,6 +1935,16 @@ export default function ProductEditScreen() {
                 data={categories}
                 keyExtractor={(item) => item.id}
                 keyboardShouldPersistTaps="handled"
+                // ⚡ Bolt Performance Optimization
+                // Applying standard windowing props to optimize Modal render cycles and prevent UI thread blocking
+                // initialNumToRender: Keeps initial mount fast by limiting items rendered on first pass
+                // maxToRenderPerBatch: Prevents dropping frames when rendering subsequent items
+                // windowSize: Reduces memory footprint by keeping only a small buffer of items outside the viewport
+                // removeClippedSubviews: Frees memory for off-screen views (Android only due to iOS clipping bugs)
+                initialNumToRender={15}
+                maxToRenderPerBatch={10}
+                windowSize={5}
+                removeClippedSubviews={Platform.OS === 'android'}
                 renderItem={({ item }) => (
                   <Pressable
                     style={[
@@ -2012,6 +2022,16 @@ export default function ProductEditScreen() {
                 keyExtractor={(_, index) => index.toString()}
                 keyboardShouldPersistTaps="handled"
                 contentContainerStyle={{ paddingBottom: 24 }}
+                // ⚡ Bolt Performance Optimization
+                // Applying standard windowing props to optimize Modal render cycles and prevent UI thread blocking
+                // initialNumToRender: Keeps initial mount fast by limiting items rendered on first pass
+                // maxToRenderPerBatch: Prevents dropping frames when rendering subsequent items
+                // windowSize: Reduces memory footprint by keeping only a small buffer of items outside the viewport
+                // removeClippedSubviews: Frees memory for off-screen views (Android only due to iOS clipping bugs)
+                initialNumToRender={15}
+                maxToRenderPerBatch={10}
+                windowSize={5}
+                removeClippedSubviews={Platform.OS === 'android'}
                 renderItem={({ item, index }) => (
                   <View
                     style={{
