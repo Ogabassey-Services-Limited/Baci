@@ -209,7 +209,7 @@ export default function InventoryScreen() {
     if (!isFetchingNextPage) return null;
     return (
       <View style={styles.loadingFooter}>
-        <ActivityIndicator size="small" color={colors.primary} />
+        <ActivityIndicator size="small" color="#3B82F6" />
       </View>
     );
   };
@@ -234,7 +234,7 @@ export default function InventoryScreen() {
         ]}
         edges={['top']}
       >
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color="#3B82F6" />
         <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
           Loading inventory...
         </Text>
@@ -267,13 +267,13 @@ export default function InventoryScreen() {
           />
         </View>
         <Pressable
-          style={[styles.scanButton, { backgroundColor: colors.primary }]}
+          style={[styles.scanButton, { backgroundColor: '#3B82F6' }]}
           onPress={() => router.push('/scan')}
           accessibilityLabel="Scan barcode"
           accessibilityRole="button"
           accessibilityHint="Opens barcode scanner to find products"
         >
-          <Ionicons name="barcode-outline" size={24} color={colors.textOnPrimary} />
+          <Ionicons name="barcode-outline" size={24} color="#FFFFFF" />
         </Pressable>
       </View>
 
@@ -312,7 +312,7 @@ export default function InventoryScreen() {
           ]}
           accessibilityLabel={`${lowStockCount} products with low stock`}
         >
-          <Text style={[styles.statValue, { color: colors.warning }]}>
+          <Text style={[styles.statValue, { color: '#D97706' }]}>
             {lowStockCount}
           </Text>
           <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
@@ -330,7 +330,7 @@ export default function InventoryScreen() {
           ]}
           accessibilityLabel={`${outOfStockCount} products out of stock`}
         >
-          <Text style={[styles.statValue, { color: colors.error }]}>
+          <Text style={[styles.statValue, { color: '#DC2626' }]}>
             {outOfStockCount}
           </Text>
           <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
@@ -349,7 +349,7 @@ export default function InventoryScreen() {
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={handleRefresh}
-            tintColor={colors.primary}
+            tintColor="#3B82F6"
           />
         }
         onEndReached={handleLoadMore}
