@@ -1,3 +1,4 @@
+import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
@@ -16,6 +17,11 @@ vi.mock('@/components/storefront/page-view-tracker', () => ({
 
 vi.mock('@/components/storefront/store-not-published', () => ({
   StoreNotPublished: () => null,
+}));
+
+vi.mock('@/components/ui/skeletons', () => ({
+  ProductGridSkeleton: () => <div>Storefront grid loading</div>,
+  Skeleton: () => <div>Storefront shell loading</div>,
 }));
 
 vi.mock('@/hooks/use-cart', () => ({
@@ -46,11 +52,29 @@ vi.mock('@/lib/validation', () => ({
   isValidMerchantIdentifier: () => true,
 }));
 
-const { generateMetadata } = await import('./layout');
+const { default: StorefrontLayout, generateMetadata } = await import(
+  './layout'
+);
 
 describe('storefront layout metadata', () => {
   beforeEach(() => {
     vi.mocked(getRequestScopedMerchant).mockReset();
+  });
+
+  it('renders a local storefront fallback while the layout content is loading', () => {
+    vi.mocked(getRequestScopedMerchant).mockReturnValue(
+      new Promise(() => {
+        // Keep the layout content pending so the Suspense fallback renders.
+      }) as Awaited<ReturnType<typeof getRequestScopedMerchant>>
+    );
+
+    render(
+      <StorefrontLayout params={Promise.resolve({ slug: 'test-store' })}>
+        <main>Storefront content</main>
+      </StorefrontLayout>
+    );
+
+    expect(screen.getByText('Storefront grid loading')).toBeInTheDocument();
   });
 
   it('uses the merchant domain as metadataBase for custom domains', async () => {
