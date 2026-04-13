@@ -36,12 +36,8 @@ export default function ForgotPasswordScreen() {
 
     setIsLoading(true);
     try {
-      // This will send an email with a link to the web update-password page
-      // Make sure the "Reset Password" template in Supabase points to:
-      // {{ .SiteURL }}/auth/callback?next=/update-password
-      // OR simply your web update password page if handling hash fragments.
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: 'https://usebaci.com/auth/update-password', // Update this if testing locally or have a specific URL
+        redirectTo: 'https://usebaci.com/update-password',
       });
 
       if (error) throw error;

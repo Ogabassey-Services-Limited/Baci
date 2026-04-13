@@ -3,6 +3,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import z from 'zod';
+import { sanitizeRelativeRedirectPath } from '@/lib/auth-redirect';
 import { createClient } from '@/lib/supabase/server';
 
 export type AuthActionState = {
@@ -40,7 +41,11 @@ export async function loginAction(
   }
 
   const { email, password } = result.data;
-  const redirectTo = (formData.get('redirectTo') as string) || '/dashboard';
+  const redirectEntry = formData.get('redirectTo');
+  const redirectTo = sanitizeRelativeRedirectPath(
+    typeof redirectEntry === 'string' ? redirectEntry : null,
+    '/dashboard'
+  );
 
   try {
     const cookieStore = await cookies();

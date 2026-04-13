@@ -2,12 +2,20 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { Webhook } from 'https://esm.sh/standardwebhooks@1.0.0';
 
-const ZEPTOMAIL_TOKEN = Deno.env.get('ZEPTOMAIL_TOKEN') || '';
-const SEND_EMAIL_HOOK_SECRET = Deno.env.get('SEND_EMAIL_HOOK_SECRET') || '';
-// biome-ignore lint/style/noNonNullAssertion: Required environment variables
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-// biome-ignore lint/style/noNonNullAssertion: Required environment variables
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+function getRequiredEnv(name: string): string {
+  const value = Deno.env.get(name);
+
+  if (!value) {
+    throw new Error(`${name} is required`);
+  }
+
+  return value;
+}
+
+const ZEPTOMAIL_TOKEN = getRequiredEnv('ZEPTOMAIL_TOKEN');
+const SEND_EMAIL_HOOK_SECRET = getRequiredEnv('SEND_EMAIL_HOOK_SECRET');
+const SUPABASE_URL = getRequiredEnv('SUPABASE_URL');
+const SUPABASE_SERVICE_ROLE_KEY = getRequiredEnv('SUPABASE_SERVICE_ROLE_KEY');
 
 const BACI_LOGO_URL =
   'https://aivqthbxdshhltbwipbr.supabase.co/storage/v1/object/public/media/platform/baci-logo.png';
@@ -317,11 +325,31 @@ Deno.serve(async (req) => {
     });
   }
 
-  const { user, email_data } = data;
-  const emailType = email_data.email_action_type;
+  const { user, email_data: emailData } = data;
+  if (
+    !emailData ||
+    typeof emailData !== 'object' ||
+    !emailData.site_url ||
+    !emailData.token_hash ||
+    !emailData.email_action_type
+  ) {
+    console.error('Missing auth email redirect inputs', {
+      siteUrl: emailData?.site_url,
+      hasTokenHash: Boolean(emailData?.token_hash),
+      emailType: emailData?.email_action_type,
+    });
+    return new Response(
+      JSON.stringify({ error: 'Invalid email configuration' }),
+      {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
+  const emailType = emailData.email_action_type;
 
   // Resolve merchant branding from redirect URL (customer storefront auth)
-  const merchantSlug = extractMerchantSlug(email_data.redirect_to);
+  const merchantSlug = extractMerchantSlug(emailData.redirect_to);
   let branding = BACI_BRANDING;
 
   if (merchantSlug) {
@@ -334,14 +362,54 @@ Deno.serve(async (req) => {
   }
 
   const config = getEmailConfig(emailType, branding.businessName);
-  const safeTokenHash = encodeURIComponent(email_data.token_hash || '');
-  const safeEmailType = encodeURIComponent(emailType || '');
-  const confirmationUrl = `${email_data.site_url}/auth/confirm?token_hash=${safeTokenHash}&type=${safeEmailType}`;
+
+  let confirmationUrl: URL;
+  try {
+    confirmationUrl = new URL('/auth/confirm', emailData.site_url);
+  } catch (error) {
+    console.error(
+      'Invalid site URL for auth email:',
+      emailData.site_url,
+      error
+    );
+    return new Response(
+      JSON.stringify({ error: 'Invalid email configuration' }),
+      {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
+  confirmationUrl.searchParams.set('token_hash', emailData.token_hash);
+  confirmationUrl.searchParams.set('type', emailType);
+
+  if (emailData.redirect_to) {
+    if (/^https?:\/\//i.test(emailData.redirect_to)) {
+      try {
+        const nextUrl = new URL(emailData.redirect_to);
+        const siteUrl = new URL(emailData.site_url);
+
+        if (nextUrl.origin === siteUrl.origin) {
+          confirmationUrl.searchParams.set('next', nextUrl.toString());
+        }
+      } catch (error) {
+        console.warn(
+          'Ignoring invalid redirect_to URL:',
+          emailData.redirect_to,
+          error
+        );
+      }
+    } else {
+      confirmationUrl.searchParams.set('next', emailData.redirect_to);
+    }
+  }
+
   const htmlBody = generateEmailHtml(
     config,
-    confirmationUrl,
+    confirmationUrl.toString(),
     branding,
-    email_data.token
+    emailData.token
   );
 
   // Sender: use merchant name for merchant emails, "Baci" for platform emails
@@ -358,7 +426,7 @@ Deno.serve(async (req) => {
     'Brand:',
     branding.businessName
   );
-  console.log('generated_otp:', email_data.token);
+  console.log('generated_otp:', emailData.token);
 
   // Send via ZeptoMail
   try {

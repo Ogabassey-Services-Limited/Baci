@@ -8,6 +8,7 @@ import { useActionState, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import type { z } from 'zod';
 import { type SignupState, signupAction } from '@/app/(auth)/signup/actions';
+import { formatInviteEmail } from '@/components/auth/format-invite-email';
 import { Logo } from '@/components/logo';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,8 +33,12 @@ export default function SignupForm() {
   const searchParams = useSearchParams();
 
   // Get email and redirect from URL (e.g., from an invite link)
-  const defaultEmail = searchParams.get('email') || '';
+  const { value: defaultEmail, label: inviteEmailLabel } = formatInviteEmail(
+    searchParams.get('email') || ''
+  );
   const redirectTo = searchParams.get('redirect') || '/dashboard';
+  const isStaffInviteSignup =
+    searchParams.get('type') === 'staff' || redirectTo.startsWith('/invite/');
 
   const [state, formAction] = useActionState(signupAction, initialState);
 
@@ -120,9 +125,16 @@ export default function SignupForm() {
                               placeholder="name@example.com"
                               className="pl-10 h-11 bg-white/50 dark:bg-black/20 border-primary/10 focus:border-primary/50 transition-all"
                               autoComplete="email"
+                              readOnly={isStaffInviteSignup && !!defaultEmail}
+                              autoCapitalize="none"
                             />
                           </FormControl>
                         </div>
+                        {isStaffInviteSignup && defaultEmail ? (
+                          <p className="text-xs text-muted-foreground">
+                            This invite is locked to {inviteEmailLabel}.
+                          </p>
+                        ) : null}
                         <FormMessage />
                       </FormItem>
                     )}

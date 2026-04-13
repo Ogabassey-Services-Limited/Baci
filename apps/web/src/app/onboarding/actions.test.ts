@@ -2,6 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // --- Mock setup ---
 
+const { mockGetConfiguredAppUrl, mockGetRootDomain } = vi.hoisted(() => ({
+  mockGetConfiguredAppUrl: vi.fn(),
+  mockGetRootDomain: vi.fn(),
+}));
+
 const mockGetUser = vi.fn();
 const mockSignInWithPassword = vi.fn();
 const mockSignUp = vi.fn();
@@ -38,6 +43,11 @@ vi.mock('@/lib/supabase/server', () => ({
 
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: vi.fn(() => mockAdminClient),
+}));
+
+vi.mock('@/env', () => ({
+  getConfiguredAppUrl: mockGetConfiguredAppUrl,
+  getRootDomain: mockGetRootDomain,
 }));
 
 vi.mock('@/lib/email', () => ({
@@ -105,6 +115,8 @@ function setupChainedMock(
 describe('submitOnboarding', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetConfiguredAppUrl.mockReturnValue('https://usebaci.com');
+    mockGetRootDomain.mockReturnValue('usebaci.com');
 
     // Default: no existing auth session
     mockGetUser.mockResolvedValue({ data: { user: null } });

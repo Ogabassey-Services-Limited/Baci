@@ -15,6 +15,48 @@ vi.mock('@/lib/cache-revalidation', () => ({
   revalidateProducts: (...args: unknown[]) => mockRevalidateProducts(...args),
 }));
 
+type MerchantContextMock = {
+  merchantId: string;
+  businessName: string;
+  staffAccess: {
+    isOwner: boolean;
+    isStaff: boolean;
+    role: string | null;
+    permissions: Record<string, Record<string, boolean>>;
+  };
+};
+
+const merchantContextMock = {
+  current: {
+    merchantId: 'merchant-123',
+    businessName: 'Test Store',
+    staffAccess: {
+      isOwner: true,
+      isStaff: false,
+      role: null,
+      permissions: { full_access: { all: true } },
+    },
+  } as MerchantContextMock | null,
+};
+vi.mock('@/lib/get-merchant-for-api-request', () => ({
+  getMerchantForApiRequest: vi.fn(() =>
+    Promise.resolve(merchantContextMock.current)
+  ),
+  toUserAccess: vi.fn((ctx: MerchantContextMock | null) => {
+    if (!ctx) {
+      throw new Error('Merchant context is required');
+    }
+
+    return {
+      merchantId: ctx.merchantId,
+      role: ctx.staffAccess.role ?? (ctx.staffAccess.isOwner ? 'owner' : null),
+      isOwner: ctx.staffAccess.isOwner,
+      isStaff: ctx.staffAccess.isStaff,
+      permissions: ctx.staffAccess.permissions,
+    };
+  }),
+}));
+
 vi.mock('@/lib/seo-utils', () => ({
   generateProductSlug: (name: string) =>
     name.toLowerCase().replace(/\s+/g, '-'),
@@ -142,6 +184,16 @@ describe('POST /api/products/bulk-import', () => {
     vi.clearAllMocks();
     authUser = { id: USER_ID };
     merchant = { id: MERCHANT_ID };
+    merchantContextMock.current = {
+      merchantId: MERCHANT_ID,
+      businessName: 'Test Store',
+      staffAccess: {
+        isOwner: true,
+        isStaff: false,
+        role: null,
+        permissions: { full_access: { all: true } },
+      },
+    };
     insertError = null;
   });
 
@@ -158,7 +210,7 @@ describe('POST /api/products/bulk-import', () => {
 
   it('returns 404 when merchant not found', async () => {
     const { POST } = await import('./route');
-    merchant = null;
+    merchantContextMock.current = null;
 
     const res = await POST(makeImportRequest('name,price\nTest,100'));
     const json = await res.json();

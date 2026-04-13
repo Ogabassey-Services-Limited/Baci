@@ -2,6 +2,7 @@
 
 import type { User } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
+import { getConfiguredAppUrl, getRootDomain } from '@/env';
 import { sendWelcomeEmail } from '@/lib/email';
 import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
@@ -17,6 +18,18 @@ export type ServerActionState = {
     fieldErrors: Record<string, string[] | undefined>;
   };
 };
+
+function buildOnboardingRedirectUrl(search: string = ''): string {
+  const appUrl = getConfiguredAppUrl();
+
+  if (!appUrl) {
+    throw new Error('NEXT_PUBLIC_APP_URL must be configured');
+  }
+
+  const url = new URL('/onboarding', appUrl);
+  url.search = search;
+  return url.toString();
+}
 
 export async function submitOnboarding(
   _prevState: ServerActionState,
@@ -82,6 +95,7 @@ export async function submitOnboarding(
     const {
       data: { user: authUser },
     } = await supabase.auth.getUser();
+    const onboardingRedirectUrl = buildOnboardingRedirectUrl();
 
     if (authUser) {
       // Check if form email matches session email
@@ -98,7 +112,7 @@ export async function submitOnboarding(
             email,
             password,
             options: {
-              emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/auth/callback`,
+              emailRedirectTo: onboardingRedirectUrl,
             },
           });
 
@@ -140,7 +154,7 @@ export async function submitOnboarding(
             email,
             password,
             options: {
-              emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/auth/callback`,
+              emailRedirectTo: onboardingRedirectUrl,
             },
           });
 
@@ -247,11 +261,13 @@ export async function submitOnboarding(
 
     if (!merchant) throw new Error('Failed to create merchant record.');
 
+    const rootDomain = getRootDomain() || 'usebaci.com';
+
     // Create Domain
     const { error: domainError } = await adminSupabase.from('domains').insert({
       merchant_id: merchant.id,
-      domain: `${merchant.slug}.${process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com'}`,
-      tld: `.${process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com'}`,
+      domain: `${merchant.slug}.${rootDomain}`,
+      tld: `.${rootDomain}`,
       domain_type: 'subdomain',
       status: 'active',
       is_primary: true,
@@ -335,7 +351,7 @@ export async function sendMagicLink(
       email,
       options: {
         shouldCreateUser: true,
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback?next=/onboarding?fromMagicLink=true`,
+        emailRedirectTo: buildOnboardingRedirectUrl('fromMagicLink=true'),
       },
     });
     if (error) throw error;
