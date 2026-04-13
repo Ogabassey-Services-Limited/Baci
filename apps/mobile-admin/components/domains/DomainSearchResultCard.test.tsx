@@ -118,6 +118,40 @@ describe('DomainSearchResultCard', () => {
     expect(screen.getByText('$25,000')).toBeInTheDocument();
   });
 
+  it('formats NGN prices with the expected currency symbol', () => {
+    render(
+      <DomainSearchResultCard
+        domain={{
+          available: true,
+          currency: 'NGN',
+          domain: 'baci.com',
+          price: 25000,
+        }}
+        isPurchasing={false}
+        onBuy={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('₦25,000')).toBeInTheDocument();
+  });
+
+  it('falls back safely when the currency code is invalid', () => {
+    render(
+      <DomainSearchResultCard
+        domain={{
+          available: true,
+          currency: 'INVALID',
+          domain: 'baci.com',
+          price: 25000,
+        }}
+        isPurchasing={false}
+        onBuy={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('INVALID 25,000')).toBeInTheDocument();
+  });
+
   it('shows the loading state and disables the buy button while purchasing', () => {
     render(
       <DomainSearchResultCard

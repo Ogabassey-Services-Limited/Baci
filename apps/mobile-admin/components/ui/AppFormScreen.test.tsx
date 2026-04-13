@@ -56,7 +56,10 @@ describe('AppFormScreen', () => {
 
   it('renders the safe-area shell, optional header, and content', () => {
     render(
-      <AppFormScreen header={<div>Header content</div>}>
+      <AppFormScreen
+        footer={<div>Footer content</div>}
+        header={<div>Header content</div>}
+      >
         <div>Form content</div>
       </AppFormScreen>
     );
@@ -67,6 +70,7 @@ describe('AppFormScreen', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('Header content')).toBeInTheDocument();
     expect(screen.getByText('Form content')).toBeInTheDocument();
+    expect(screen.getByText('Footer content')).toBeInTheDocument();
   });
 
   it('forwards keyboard container configuration', () => {
