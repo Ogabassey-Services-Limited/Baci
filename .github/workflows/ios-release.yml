@@ -27,7 +27,7 @@ permissions:
 
 env:
   NODE_VERSION: '24'
-  RUBY_VERSION: '3.3'
+  RUBY_VERSION: '4.0'
   XCODE_VERSION: '26.2'
   WORKING_DIR: apps/mobile-admin
   # Offset added to github.run_number to avoid collisions with
