@@ -80,16 +80,18 @@ vi.mock('@/components/payouts/BankPickerSheet', () => ({
         />
         {isLoading ? <div>loading banks</div> : null}
         {!isLoading && banks.length === 0 ? <div>No banks found</div> : null}
-        {banks.map((bank) => (
-          <button
-            key={bank.code}
-            aria-label={bank.name}
-            onClick={() => onSelect(bank)}
-            type="button"
-          >
-            {bank.name}
-          </button>
-        ))}
+        {!isLoading && banks.length > 0
+          ? banks.map((bank) => (
+              <button
+                key={bank.code}
+                aria-label={bank.name}
+                onClick={() => onSelect(bank)}
+                type="button"
+              >
+                {bank.name}
+              </button>
+            ))
+          : null}
       </section>
     ) : null,
 }));

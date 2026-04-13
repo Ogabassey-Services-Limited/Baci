@@ -25,8 +25,8 @@ describe('PayoutVerificationStatus', () => {
     textSecondary: '#475569',
   };
 
-  it('renders verification, success, and error states', () => {
-    const { rerender } = render(
+  it('renders the verifying state', () => {
+    render(
       <PayoutVerificationStatus
         accountName={null}
         colors={colors}
@@ -36,21 +36,25 @@ describe('PayoutVerificationStatus', () => {
     );
 
     expect(screen.getByText('Verifying account...')).toBeInTheDocument();
+    expect(screen.queryByText('John Doe')).not.toBeInTheDocument();
+    expect(screen.queryByText('Invalid account')).not.toBeInTheDocument();
+  });
 
-    rerender(
+  it('renders no output in the idle state', () => {
+    const { container } = render(
       <PayoutVerificationStatus
-        accountName="John Doe"
+        accountName={null}
         colors={colors}
-        isVerifying={true}
-        verifyError="Invalid account"
+        isVerifying={false}
+        verifyError={null}
       />
     );
 
-    expect(screen.getByText('Verifying account...')).toBeInTheDocument();
-    expect(screen.queryByText('John Doe')).not.toBeInTheDocument();
-    expect(screen.queryByText('Invalid account')).not.toBeInTheDocument();
+    expect(container).toBeEmptyDOMElement();
+  });
 
-    rerender(
+  it('renders the success state', () => {
+    render(
       <PayoutVerificationStatus
         accountName="John Doe"
         colors={colors}
@@ -60,8 +64,12 @@ describe('PayoutVerificationStatus', () => {
     );
 
     expect(screen.getByText('John Doe')).toBeInTheDocument();
+    expect(screen.queryByText('Verifying account...')).not.toBeInTheDocument();
+    expect(screen.queryByText('Invalid account')).not.toBeInTheDocument();
+  });
 
-    rerender(
+  it('renders the error state', () => {
+    render(
       <PayoutVerificationStatus
         accountName="John Doe"
         colors={colors}
@@ -72,5 +80,6 @@ describe('PayoutVerificationStatus', () => {
 
     expect(screen.getByText('Invalid account')).toBeInTheDocument();
     expect(screen.queryByText('John Doe')).not.toBeInTheDocument();
+    expect(screen.queryByText('Verifying account...')).not.toBeInTheDocument();
   });
 });
