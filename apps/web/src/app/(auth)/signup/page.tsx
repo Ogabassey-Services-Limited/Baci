@@ -1,16 +1,41 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 import SignupForm from '@/components/auth/signup-form';
 import { createClient } from '@/lib/supabase/server';
 
-// Signup is a per-request page (reads the session cookie and may redirect
-// already-authenticated users). Opt out of static generation so `await cookies()`
-// and the redirect happen in the top-level request scope, above any Suspense
-// boundary, and don't trip Cache Components' "uncached data outside Suspense"
-// guard during prerender.
-export const dynamic = 'force-dynamic';
+function SignupLoadingFallback() {
+  return (
+    <div
+      aria-busy="true"
+      aria-live="polite"
+      className="flex min-h-[50vh] items-center justify-center"
+      role="status"
+    >
+      <span className="sr-only">Loading sign up…</span>
+      <div
+        aria-hidden="true"
+        className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-primary"
+      />
+    </div>
+  );
+}
 
-export default async function SignupPage() {
+// Cache Components mode disallows `export const dynamic = 'force-dynamic'`,
+// so the only way to satisfy the prerender's "uncached data outside Suspense"
+// guard is to wrap the request-scoped work (await cookies(), auth check,
+// redirect) in a Suspense boundary. The redirect() call inside throws
+// NEXT_REDIRECT which is an Error (not a thenable), so it bubbles past
+// Suspense and is handled by Next.js as a normal server-side redirect.
+export default function SignupPage() {
+  return (
+    <Suspense fallback={<SignupLoadingFallback />}>
+      <SignupPageContent />
+    </Suspense>
+  );
+}
+
+async function SignupPageContent() {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
