@@ -160,10 +160,15 @@ export async function generateMetadata({
   };
 }
 
-export default async function CategoryPageRoute({
-  params,
-  searchParams,
-}: PageProps) {
+export default function CategoryPageRoute(props: PageProps) {
+  return (
+    <Suspense fallback={null}>
+      <CategoryPageContent {...props} />
+    </Suspense>
+  );
+}
+
+async function CategoryPageContent({ params, searchParams }: PageProps) {
   const { slug, category } = await params;
   const { page } = await searchParams;
   const currentPage = parseStorefrontPageParam(page);

@@ -1,9 +1,18 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 import SignupForm from '@/components/auth/signup-form';
 import { createClient } from '@/lib/supabase/server';
 
-export default async function SignupPage() {
+export default function SignupPage() {
+  return (
+    <Suspense fallback={null}>
+      <SignupPageContent />
+    </Suspense>
+  );
+}
+
+async function SignupPageContent() {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
