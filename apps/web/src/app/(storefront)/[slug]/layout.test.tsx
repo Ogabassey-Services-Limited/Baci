@@ -1,7 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getRequestScopedMerchant } from '@/lib/cached-data';
+import {
+  type CachedMerchant,
+  getRequestScopedMerchant,
+} from '@/lib/cached-data';
 
 vi.mock('@/components/storefront/merchant-slug-sync', () => ({
   MerchantSlugSync: () => null,
@@ -63,9 +66,9 @@ describe('storefront layout metadata', () => {
 
   it('renders a local storefront fallback while the layout content is loading', () => {
     vi.mocked(getRequestScopedMerchant).mockReturnValue(
-      new Promise(() => {
+      new Promise<CachedMerchant | null>(() => {
         // Keep the layout content pending so the Suspense fallback renders.
-      }) as Awaited<ReturnType<typeof getRequestScopedMerchant>>
+      })
     );
 
     render(
