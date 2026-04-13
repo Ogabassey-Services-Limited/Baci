@@ -83,8 +83,8 @@ export default function StaffScreen() {
       // Offer to share the link
       if (result?.inviteUrl) {
         Alert.alert(
-          'Invitation Sent',
-          `We've sent an email to ${inviteEmail}. Would you like to share the link manually?`,
+          'Invitation Ready',
+          `The invite link is ready for ${inviteEmail}. Share it directly if the email doesn't arrive.`,
           [
             { text: 'Done', style: 'cancel' },
             {
@@ -189,8 +189,8 @@ export default function StaffScreen() {
 
       if (result?.inviteUrl) {
         Alert.alert(
-          'Invitation Resent',
-          `We've sent a new email to ${member.email}.`,
+          'Invitation Updated',
+          `A new invite link is ready for ${member.email}. Share it directly if the email doesn't arrive.`,
           [
             { text: 'Done', style: 'cancel' },
             {
