@@ -68,6 +68,36 @@ describe('GET /auth/confirm', () => {
     );
   });
 
+  it('falls back to the default dashboard redirect when next is missing', async () => {
+    mockVerifyOtp.mockResolvedValue({ error: null });
+
+    const response = await GET(
+      new Request(
+        'https://usebaci.com/auth/confirm?token_hash=hash-123&type=signup'
+      )
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toBe(
+      'https://usebaci.com/dashboard'
+    );
+  });
+
+  it('blocks external next redirects and falls back to the dashboard', async () => {
+    mockVerifyOtp.mockResolvedValue({ error: null });
+
+    const response = await GET(
+      new Request(
+        'https://usebaci.com/auth/confirm?token_hash=hash-123&type=signup&next=https%3A%2F%2Fevil.example%2Fpwnd'
+      )
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toBe(
+      'https://usebaci.com/dashboard'
+    );
+  });
+
   it('normalizes legacy update-password routes before redirecting', async () => {
     mockVerifyOtp.mockResolvedValue({ error: null });
 

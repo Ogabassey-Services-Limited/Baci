@@ -320,7 +320,7 @@ export async function POST(request: NextRequest) {
         invitationToken,
         emailDelivery: delivery.success
           ? { status: 'sent' as const }
-          : { status: 'failed' as const, error: delivery.error },
+          : { status: 'failed' as const },
         message: delivery.success
           ? 'Staff member invited successfully'
           : 'Invitation created, but the email could not be delivered',

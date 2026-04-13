@@ -49,7 +49,7 @@ type MerchantContextMock = {
   staffAccess: {
     isOwner: boolean;
     isStaff: boolean;
-    role: null;
+    role: string | null;
     permissions: Record<string, Record<string, boolean>>;
   };
 };
@@ -70,12 +70,16 @@ vi.mock('@/lib/get-merchant-for-api-request', () => ({
   getMerchantForApiRequest: vi.fn(() =>
     Promise.resolve(merchantContextMock.current)
   ),
-  toUserAccess: vi.fn((ctx: MerchantContextMock) => {
+  toUserAccess: vi.fn((ctx: MerchantContextMock | null) => {
+    if (!ctx) {
+      throw new Error('Merchant context is required');
+    }
+
     return {
       merchantId: ctx.merchantId,
-      role: 'owner',
-      isOwner: true,
-      isStaff: false,
+      role: ctx.staffAccess.role ?? (ctx.staffAccess.isOwner ? 'owner' : null),
+      isOwner: ctx.staffAccess.isOwner,
+      isStaff: ctx.staffAccess.isStaff,
       permissions: ctx.staffAccess.permissions,
     };
   }),

@@ -6,6 +6,16 @@ export const STAFF_INVITE_MOBILE_CLIENT = 'mobile';
 
 export type StaffInviteClient = 'mobile' | 'web';
 
+function normalizeStaffInviteToken(token: string): string {
+  const normalizedToken = token.trim();
+
+  if (!normalizedToken) {
+    throw new TypeError('Staff invite token is required');
+  }
+
+  return normalizedToken;
+}
+
 export function buildStaffInvitePath(
   token: string,
   options: {
@@ -13,8 +23,9 @@ export function buildStaffInvitePath(
     client?: string | null;
   } = {}
 ): string {
+  const normalizedToken = normalizeStaffInviteToken(token);
   const url = new URL(
-    `/invite/${encodeURIComponent(token)}`,
+    `/invite/${encodeURIComponent(normalizedToken)}`,
     'https://usebaci.local'
   );
 
@@ -22,7 +33,7 @@ export function buildStaffInvitePath(
     url.searchParams.set(STAFF_INVITE_ACCEPT_QUERY_PARAM, '1');
   }
 
-  if (options.client === STAFF_INVITE_MOBILE_CLIENT) {
+  if (resolveStaffInviteClient(options.client) === 'mobile') {
     url.searchParams.set(
       STAFF_INVITE_CLIENT_QUERY_PARAM,
       STAFF_INVITE_MOBILE_CLIENT
@@ -35,7 +46,9 @@ export function buildStaffInvitePath(
 export function resolveStaffInviteClient(
   client: string | null | undefined
 ): StaffInviteClient {
-  return client === STAFF_INVITE_MOBILE_CLIENT ? 'mobile' : 'web';
+  return client?.trim().toLowerCase() === STAFF_INVITE_MOBILE_CLIENT
+    ? 'mobile'
+    : 'web';
 }
 
 export function resolveStaffPostAcceptRedirect(

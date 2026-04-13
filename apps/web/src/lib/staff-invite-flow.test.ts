@@ -3,6 +3,7 @@ import {
   buildStaffInvitePath,
   resolveStaffInviteClient,
   resolveStaffPostAcceptRedirect,
+  STAFF_INVITE_MOBILE_CLIENT,
 } from '@/lib/staff-invite-flow';
 
 describe('buildStaffInvitePath', () => {
@@ -14,7 +15,7 @@ describe('buildStaffInvitePath', () => {
     expect(
       buildStaffInvitePath('token-123', {
         autoAccept: true,
-        client: 'mobile',
+        client: STAFF_INVITE_MOBILE_CLIENT,
       })
     ).toBe('/invite/token-123?accept=1&client=mobile');
   });
@@ -23,11 +24,22 @@ describe('buildStaffInvitePath', () => {
     expect(buildStaffInvitePath('token-123', { autoAccept: true })).toBe(
       '/invite/token-123?accept=1'
     );
-    expect(buildStaffInvitePath('token-123', { client: 'mobile' })).toBe(
-      '/invite/token-123?client=mobile'
-    );
+    expect(
+      buildStaffInvitePath('token-123', {
+        client: STAFF_INVITE_MOBILE_CLIENT,
+      })
+    ).toBe('/invite/token-123?client=mobile');
     expect(buildStaffInvitePath('token/with spaces')).toBe(
       '/invite/token%2Fwith%20spaces'
+    );
+    expect(buildStaffInvitePath('token+plus?equals=1')).toBe(
+      '/invite/token%2Bplus%3Fequals%3D1'
+    );
+  });
+
+  it('rejects blank invite tokens', () => {
+    expect(() => buildStaffInvitePath('   ')).toThrowError(
+      'Staff invite token is required'
     );
   });
 });
@@ -38,14 +50,17 @@ describe('resolveStaffInviteClient', () => {
     expect(resolveStaffInviteClient('tablet')).toBe('web');
   });
 
-  it('preserves the mobile client marker', () => {
-    expect(resolveStaffInviteClient('mobile')).toBe('mobile');
+  it('normalizes the mobile client marker case-insensitively', () => {
+    expect(resolveStaffInviteClient(STAFF_INVITE_MOBILE_CLIENT)).toBe('mobile');
+    expect(resolveStaffInviteClient(' MOBILE ')).toBe('mobile');
   });
 });
 
 describe('resolveStaffPostAcceptRedirect', () => {
   it('routes mobile invite completions back to the app', () => {
-    expect(resolveStaffPostAcceptRedirect('mobile')).toBe('baciadmin://');
+    expect(resolveStaffPostAcceptRedirect(STAFF_INVITE_MOBILE_CLIENT)).toBe(
+      'baciadmin://'
+    );
   });
 
   it('routes web invite completions to the dashboard', () => {

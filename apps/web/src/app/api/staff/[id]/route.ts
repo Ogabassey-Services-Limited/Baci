@@ -415,7 +415,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       invitationToken,
       emailDelivery: delivery.success
         ? { status: 'sent' as const }
-        : { status: 'failed' as const, error: delivery.error },
+        : { status: 'failed' as const },
     });
   } catch (error) {
     console.error('Resend invitation error:', error);

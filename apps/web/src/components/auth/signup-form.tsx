@@ -8,6 +8,7 @@ import { useActionState, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import type { z } from 'zod';
 import { type SignupState, signupAction } from '@/app/(auth)/signup/actions';
+import { formatInviteEmail } from '@/components/auth/format-invite-email';
 import { Logo } from '@/components/logo';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,7 +33,9 @@ export default function SignupForm() {
   const searchParams = useSearchParams();
 
   // Get email and redirect from URL (e.g., from an invite link)
-  const defaultEmail = searchParams.get('email') || '';
+  const { value: defaultEmail, label: inviteEmailLabel } = formatInviteEmail(
+    searchParams.get('email') || ''
+  );
   const redirectTo = searchParams.get('redirect') || '/dashboard';
   const isStaffInviteSignup =
     searchParams.get('type') === 'staff' || redirectTo.startsWith('/invite/');
@@ -129,7 +132,7 @@ export default function SignupForm() {
                         </div>
                         {isStaffInviteSignup && defaultEmail ? (
                           <p className="text-xs text-muted-foreground">
-                            This invite is locked to {defaultEmail}.
+                            This invite is locked to {inviteEmailLabel}.
                           </p>
                         ) : null}
                         <FormMessage />

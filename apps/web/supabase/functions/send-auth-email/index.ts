@@ -4,10 +4,19 @@ import { Webhook } from 'https://esm.sh/standardwebhooks@1.0.0';
 
 const ZEPTOMAIL_TOKEN = Deno.env.get('ZEPTOMAIL_TOKEN') || '';
 const SEND_EMAIL_HOOK_SECRET = Deno.env.get('SEND_EMAIL_HOOK_SECRET') || '';
-// biome-ignore lint/style/noNonNullAssertion: Required environment variables
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-// biome-ignore lint/style/noNonNullAssertion: Required environment variables
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+function getRequiredEnv(name: string): string {
+  const value = Deno.env.get(name);
+
+  if (!value) {
+    throw new Error(`${name} is required`);
+  }
+
+  return value;
+}
+
+const SUPABASE_URL = getRequiredEnv('SUPABASE_URL');
+const SUPABASE_SERVICE_ROLE_KEY = getRequiredEnv('SUPABASE_SERVICE_ROLE_KEY');
 
 const BACI_LOGO_URL =
   'https://aivqthbxdshhltbwipbr.supabase.co/storage/v1/object/public/media/platform/baci-logo.png';
@@ -320,20 +329,6 @@ Deno.serve(async (req) => {
   const { user, email_data } = data;
   const emailType = email_data.email_action_type;
 
-  // Resolve merchant branding from redirect URL (customer storefront auth)
-  const merchantSlug = extractMerchantSlug(email_data.redirect_to);
-  let branding = BACI_BRANDING;
-
-  if (merchantSlug) {
-    console.log('Detected merchant slug from redirect_to:', merchantSlug);
-    const merchantBranding = await fetchMerchantBranding(merchantSlug);
-    if (merchantBranding) {
-      branding = merchantBranding;
-      console.log('Using merchant branding:', branding.businessName);
-    }
-  }
-
-  const config = getEmailConfig(emailType, branding.businessName);
   if (!email_data.site_url || !email_data.token_hash || !emailType) {
     console.error('Missing auth email redirect inputs', {
       siteUrl: email_data.site_url,
@@ -348,6 +343,21 @@ Deno.serve(async (req) => {
       }
     );
   }
+
+  // Resolve merchant branding from redirect URL (customer storefront auth)
+  const merchantSlug = extractMerchantSlug(email_data.redirect_to);
+  let branding = BACI_BRANDING;
+
+  if (merchantSlug) {
+    console.log('Detected merchant slug from redirect_to:', merchantSlug);
+    const merchantBranding = await fetchMerchantBranding(merchantSlug);
+    if (merchantBranding) {
+      branding = merchantBranding;
+      console.log('Using merchant branding:', branding.businessName);
+    }
+  }
+
+  const config = getEmailConfig(emailType, branding.businessName);
 
   let confirmationUrl: URL;
   try {

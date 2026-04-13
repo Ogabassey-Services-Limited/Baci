@@ -146,6 +146,9 @@ describe('GET /api/staff/accept-invite', () => {
       merchantName: 'tgw-enterprise',
       expiresAt: '2026-04-20T13:46:35.999Z',
     });
+    expect(mockRpc).toHaveBeenCalledWith('get_staff_invite_preview', {
+      p_token: 'abcdef1234567890',
+    });
   });
 
   it('returns 500 when the invitation preview RPC fails', async () => {
