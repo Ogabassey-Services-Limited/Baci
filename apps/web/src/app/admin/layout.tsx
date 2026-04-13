@@ -49,6 +49,31 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
+  return (
+    <Suspense fallback={<AdminLayoutFallback />}>
+      <AdminLayoutContent>{children}</AdminLayoutContent>
+    </Suspense>
+  );
+}
+
+function AdminLayoutFallback() {
+  return (
+    <div
+      className="flex min-h-screen w-full items-center justify-center bg-background"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+    >
+      <CsrfInitializer />
+      <div className="flex flex-col items-center gap-4">
+        <Loader2 className="h-8 w-8 motion-safe:animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Loading admin panel...</p>
+      </div>
+    </div>
+  );
+}
+
+function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, loading: authLoading, signOut } = useAuth();

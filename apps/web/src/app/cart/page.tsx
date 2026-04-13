@@ -10,6 +10,7 @@ import { ShoppingCart, Store } from 'lucide-react';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 
 export const metadata = {
@@ -17,7 +18,18 @@ export const metadata = {
   description: 'View your shopping cart',
 };
 
-export default async function RootCartPage() {
+function RootCartPageFallback() {
+  return (
+    <div
+      className="flex min-h-screen items-center justify-center bg-gradient-to-b from-gray-50 to-white text-sm text-gray-500"
+      role="status"
+    >
+      Loading cart...
+    </div>
+  );
+}
+
+export async function RootCartPageContent() {
   // Check if user has a recent merchant stored in cookies
   const cookieStore = await cookies();
   const recentMerchant = cookieStore.get('recent-merchant')?.value;
@@ -54,5 +66,13 @@ export default async function RootCartPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function RootCartPage() {
+  return (
+    <Suspense fallback={<RootCartPageFallback />}>
+      <RootCartPageContent />
+    </Suspense>
   );
 }

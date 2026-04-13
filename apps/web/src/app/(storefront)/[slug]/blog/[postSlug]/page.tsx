@@ -122,6 +122,33 @@ export async function generateMetadata({
   };
 }
 
+async function BlogPostPageContent({
+  params,
+}: {
+  params: Promise<{ slug: string; postSlug: string }>;
+}) {
+  const { slug, postSlug } = await params;
+  const headersList = await headers();
+  const rawLocale = headersList.get('accept-language')?.split(',')[0];
+  let locale: string | undefined;
+
+  if (rawLocale) {
+    try {
+      // Strip quality parameters (e.g. "en-US;q=0.8" → "en-US")
+      const [tag] = rawLocale.split(';');
+      const trimmed = tag.trim();
+      if (trimmed) {
+        const [canonical] = Intl.getCanonicalLocales(trimmed);
+        locale = canonical;
+      }
+    } catch {
+      locale = undefined;
+    }
+  }
+
+  return <BlogPostContent slug={slug} postSlug={postSlug} locale={locale} />;
+}
+
 async function BlogPostContent({
   slug,
   postSlug,
@@ -310,28 +337,10 @@ async function BlogPostContent({
   );
 }
 
-export default async function BlogPostPage({ params }: PageProps) {
-  const { slug, postSlug } = await params;
-  const headersList = await headers();
-  const rawLocale = headersList.get('accept-language')?.split(',')[0];
-  let locale: string | undefined;
-  if (rawLocale) {
-    try {
-      // Strip quality parameters (e.g. "en-US;q=0.8" → "en-US")
-      const [tag] = rawLocale.split(';');
-      const trimmed = tag.trim();
-      if (trimmed) {
-        const [canonical] = Intl.getCanonicalLocales(trimmed);
-        locale = canonical;
-      }
-    } catch {
-      locale = undefined;
-    }
-  }
-
+export default function BlogPostPage({ params }: PageProps) {
   return (
     <Suspense fallback={<BlogPostPageFallback />}>
-      <BlogPostContent slug={slug} postSlug={postSlug} locale={locale} />
+      <BlogPostPageContent params={params} />
     </Suspense>
   );
 }
