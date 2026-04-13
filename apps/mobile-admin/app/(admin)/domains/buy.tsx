@@ -1,8 +1,3 @@
-/**
- * Domain Search & Buy Screen
- * Real-time availability checks and native purchase flow
- */
-
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import * as WebBrowser from 'expo-web-browser';
@@ -17,52 +12,15 @@ import {
 } from 'react-native';
 import { styles } from '@/components/domains/buy-domain.styles';
 import { DomainSearchResultCard } from '@/components/domains/DomainSearchResultCard';
+import {
+  API_URL,
+  getPaymentInitializationErrorMessage,
+  normalizeDomainSearchResults,
+} from '@/components/domains/domain-api-helpers';
 import type { DomainSearchResult } from '@/components/domains/domain-search-result';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-
-// Construct API URL safely
-const getApiUrl = () => {
-  // FORCE Production URL for reliability as local IP in .env is often unreachable
-  const base = 'https://usebaci.com';
-  if (__DEV__) {
-    console.log(`[Diagnostic] Base API URL forced to: "${base}"`);
-  }
-  const url = base.startsWith('http') ? base : `https://${base}`;
-  const final = url.endsWith('/api') ? url : `${url.replace(/\/$/, '')}/api`;
-  if (__DEV__) {
-    console.log(`[Diagnostic] Final computed API URL: "${final}"`);
-  }
-  return final;
-};
-
-const API_URL = getApiUrl();
-
-function getPaymentInitializationErrorMessage(
-  response: Response,
-  rawBody: string
-): string {
-  const fallbackMessage = `Payment initialization failed (${response.status})`;
-
-  if (!rawBody) {
-    return fallbackMessage;
-  }
-
-  try {
-    const parsed = JSON.parse(rawBody) as { error?: string; message?: string };
-    const details =
-      typeof parsed.error === 'string'
-        ? parsed.error
-        : typeof parsed.message === 'string'
-          ? parsed.message
-          : rawBody;
-
-    return `${fallbackMessage}: ${details}`;
-  } catch {
-    return `${fallbackMessage}: ${rawBody}`;
-  }
-}
 
 export default function BuyDomainScreen() {
   const { colors } = useTheme();
@@ -158,15 +116,7 @@ export default function BuyDomainScreen() {
       }
 
       const data = await response.json();
-      const nextResults = (data.results || []).map(
-        (result: DomainSearchResult) => ({
-          domain: result.domain,
-          available: result.available,
-          price: result.price,
-          currency: result.currency || 'NGN',
-          popular: result.popular,
-        })
-      );
+      const nextResults = normalizeDomainSearchResults(data.results || []);
 
       if (
         activeSearchRequestIdRef.current !== requestId ||
