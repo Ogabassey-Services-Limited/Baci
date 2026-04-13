@@ -51,6 +51,8 @@ jobs:
         uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Setup Ruby
         uses: ruby/setup-ruby@a2bbe5b1b236842c1cb7dd11e8e3b51e0a616acc # v1.202.0
@@ -113,9 +115,10 @@ jobs:
         env:
           ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
           ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
         run: |
-          if [ -z "$ASC_API_KEY_P8_BASE64" ] || [ -z "$ASC_API_KEY_ID" ]; then
-            echo "::error::ASC_API_KEY_P8_BASE64 and ASC_API_KEY_ID secrets must be set"
+          if [ -z "$ASC_API_KEY_P8_BASE64" ] || [ -z "$ASC_API_KEY_ID" ] || [ -z "$ASC_API_ISSUER_ID" ]; then
+            echo "::error::ASC_API_KEY_P8_BASE64, ASC_API_KEY_ID, and ASC_API_ISSUER_ID secrets must be set"
             exit 1
           fi
           KEY_DIR="$HOME/.appstoreconnect/private_keys"

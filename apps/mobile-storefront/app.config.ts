@@ -29,7 +29,7 @@ if (rawAndroidVersionCode !== undefined) {
 }
 
 const rawIosBuildNumber = process.env.IOS_BUILD_NUMBER;
-let _iosBuildNumber: string | undefined;
+let iosBuildNumber: string | undefined;
 
 if (rawIosBuildNumber !== undefined) {
   const parsed = Number(rawIosBuildNumber);
@@ -38,7 +38,7 @@ if (rawIosBuildNumber !== undefined) {
       `[app.config] Ignoring IOS_BUILD_NUMBER="${rawIosBuildNumber}" because it must be a positive integer.`
     );
   } else {
-    _iosBuildNumber = String(parsed);
+    iosBuildNumber = String(parsed);
   }
 }
 
