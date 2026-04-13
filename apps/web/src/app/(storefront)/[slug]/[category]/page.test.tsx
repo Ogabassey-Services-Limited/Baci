@@ -124,11 +124,7 @@ const categoryPageData = {
   name: null,
 };
 
-const {
-  default: CategoryPageRoute,
-  CategoryPageContent,
-  generateMetadata,
-} = await import('./page');
+const { CategoryPageContent, generateMetadata } = await import('./page');
 
 describe('category page route', () => {
   beforeEach(() => {
