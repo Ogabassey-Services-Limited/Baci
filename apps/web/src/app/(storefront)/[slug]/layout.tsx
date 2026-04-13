@@ -2,10 +2,12 @@ import type { Metadata, Viewport } from 'next';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type React from 'react';
+import { Suspense } from 'react';
 import { MerchantSlugSync } from '@/components/storefront/merchant-slug-sync';
 import { OgabasseyLayout } from '@/components/storefront/ogabassey/layout';
 import { PageViewTracker } from '@/components/storefront/page-view-tracker';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
+import { ProductGridSkeleton, Skeleton } from '@/components/ui/skeletons';
 import { MOBILE_APPS } from '@/config/platform';
 import { CartProvider } from '@/hooks/use-cart';
 import { type MerchantData, MerchantProvider } from '@/hooks/use-merchant';
@@ -167,7 +169,24 @@ export function generateViewport(): Viewport {
   };
 }
 
-export default async function StorefrontLayout({
+function StorefrontLayoutFallback() {
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="border-b bg-background/95">
+        <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-4 sm:px-6 lg:px-8">
+          <Skeleton className="h-10 w-32" />
+          <Skeleton className="h-10 flex-1 max-w-xl" />
+          <Skeleton className="h-10 w-24" />
+        </div>
+      </div>
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <ProductGridSkeleton count={8} />
+      </main>
+    </div>
+  );
+}
+
+async function StorefrontLayoutContent({
   children,
   params,
 }: {
@@ -234,5 +253,16 @@ export default async function StorefrontLayout({
         </StorefrontLayoutRenderer>
       </CartProvider>
     </MerchantProvider>
+  );
+}
+
+export default function StorefrontLayout(props: {
+  children: React.ReactNode;
+  params: Promise<{ slug: string }>;
+}) {
+  return (
+    <Suspense fallback={<StorefrontLayoutFallback />}>
+      <StorefrontLayoutContent {...props} />
+    </Suspense>
   );
 }

@@ -125,7 +125,7 @@ const DEFAULT_FEATURES: StorefrontFeatures = {
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
+    const { searchParams } = request.nextUrl;
     const merchantId = searchParams.get('merchantId');
     const slug = searchParams.get('slug');
 

@@ -27,6 +27,20 @@ if (rawAndroidVersionCode !== undefined) {
   }
 }
 
+const rawIosBuildNumber = process.env.IOS_BUILD_NUMBER;
+let _iosBuildNumber: string | undefined;
+
+if (rawIosBuildNumber !== undefined) {
+  const parsed = Number(rawIosBuildNumber);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    console.warn(
+      `[app.config] Ignoring IOS_BUILD_NUMBER="${rawIosBuildNumber}" because it must be a positive integer.`
+    );
+  } else {
+    _iosBuildNumber = String(parsed);
+  }
+}
+
 /**
  * Expo App Configuration
  * Using app.config.ts to properly inject environment variables
@@ -50,7 +64,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.ogabassey.baci',
-    buildNumber: '13',
+    buildNumber: _iosBuildNumber ?? '13',
     // www.usebaci.com excluded: Vercel 308-redirects www → bare domain,
     // and Apple/Android reject redirects for verification files.
     associatedDomains: ['applinks:usebaci.com'],

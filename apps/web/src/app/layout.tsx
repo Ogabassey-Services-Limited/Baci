@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import { Suspense } from 'react';
-import { RootDynamicBodyWithRequestProps } from '@/app/root-dynamic-body-with-request-props';
+import { RootDynamicBody } from '@/app/root-dynamic-body';
 import { PLATFORM_CONFIG } from '@/config/platform';
 import './globals.css';
 
@@ -100,6 +100,19 @@ export const viewport: Viewport = {
   colorScheme: 'light dark',
 };
 
+function RootLayoutFallback() {
+  return (
+    <div
+      className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+    >
+      Loading application...
+    </div>
+  );
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -129,10 +142,8 @@ export default function RootLayout({
         >
           Skip to main content
         </a>
-        <Suspense fallback={null}>
-          <RootDynamicBodyWithRequestProps>
-            {children}
-          </RootDynamicBodyWithRequestProps>
+        <Suspense fallback={<RootLayoutFallback />}>
+          <RootDynamicBody>{children}</RootDynamicBody>
         </Suspense>
       </body>
     </html>
