@@ -1,3 +1,4 @@
+import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -76,7 +77,7 @@ vi.mock('./BlogPostBodyFallback', () => ({
 }));
 
 vi.mock('./BlogPostPageFallback', () => ({
-  BlogPostPageFallback: () => null,
+  BlogPostPageFallback: () => <div>Blog post page loading</div>,
 }));
 
 vi.mock('./BlogPostHeader', () => ({
@@ -102,7 +103,7 @@ vi.mock('./view-counter', () => ({
   ViewCounter: () => null,
 }));
 
-import { generateMetadata } from './page';
+import BlogPostPage, { generateMetadata } from './page';
 
 const liveBlogPost = {
   merchant: {
@@ -139,6 +140,25 @@ const liveBlogPost = {
 describe('storefront blog post page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('renders the page fallback while request headers are still pending', () => {
+    mockHeaders.mockReturnValue(
+      new Promise(() => {
+        // Keep the request-scoped content pending so the Suspense fallback renders.
+      })
+    );
+
+    render(
+      <BlogPostPage
+        params={Promise.resolve({
+          slug: 'ogabassey.com',
+          postSlug: 'apple-studio-display-review',
+        })}
+      />
+    );
+
+    expect(screen.getByText('Blog post page loading')).toBeInTheDocument();
   });
 
   it('falls back to a live blog query for metadata when the cached lookup misses', async () => {
