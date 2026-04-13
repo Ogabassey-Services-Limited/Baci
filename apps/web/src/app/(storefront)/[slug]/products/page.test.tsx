@@ -103,7 +103,11 @@ const productIndex = {
   totalPages: 2,
 };
 
-const { default: ProductsPage, generateMetadata } = await import('./page');
+const {
+  default: ProductsPage,
+  generateMetadata,
+  ProductsPageContent,
+} = await import('./page');
 
 describe('products index page', () => {
   beforeEach(() => {
@@ -131,12 +135,12 @@ describe('products index page', () => {
   });
 
   it('renders product and category links for crawlable discovery', async () => {
-    const ui = await ProductsPage({
-      params: Promise.resolve({ slug: 'test-store' }),
-      searchParams: Promise.resolve({ page: '2' }),
-    });
-
-    render(ui);
+    render(
+      await ProductsPageContent({
+        params: Promise.resolve({ slug: 'test-store' }),
+        searchParams: Promise.resolve({ page: '2' }),
+      })
+    );
 
     expect(
       screen.getByRole('heading', { name: 'Products' })
@@ -156,12 +160,12 @@ describe('products index page', () => {
   });
 
   it('renders the first page without a previous pagination link', async () => {
-    const ui = await ProductsPage({
-      params: Promise.resolve({ slug: 'test-store' }),
-      searchParams: Promise.resolve({ page: '1' }),
-    });
-
-    render(ui);
+    render(
+      await ProductsPageContent({
+        params: Promise.resolve({ slug: 'test-store' }),
+        searchParams: Promise.resolve({ page: '1' }),
+      })
+    );
 
     expect(
       screen.getByRole('heading', { name: 'Products' })
@@ -184,7 +188,7 @@ describe('products index page', () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValueOnce(null);
 
     await expect(
-      ProductsPage({
+      ProductsPageContent({
         params: Promise.resolve({ slug: 'missing-store' }),
         searchParams: Promise.resolve({}),
       })
@@ -195,7 +199,7 @@ describe('products index page', () => {
 
   it('calls notFound when the slug is invalid before lookup', async () => {
     await expect(
-      ProductsPage({
+      ProductsPageContent({
         params: Promise.resolve({ slug: 'images' }),
         searchParams: Promise.resolve({}),
       })
@@ -213,13 +217,30 @@ describe('products index page', () => {
     });
 
     await expect(
-      ProductsPage({
+      ProductsPageContent({
         params: Promise.resolve({ slug: 'test-store' }),
         searchParams: Promise.resolve({ page: '2' }),
       })
     ).resolves.toBeDefined();
 
     expect(notFound).not.toHaveBeenCalled();
+  });
+
+  it('renders the local fallback while the product listing is pending', () => {
+    vi.mocked(getRequestScopedMerchant).mockReturnValue(
+      new Promise(() => {
+        // Intentionally never resolves to keep the local fallback visible.
+      })
+    );
+
+    render(
+      <ProductsPage
+        params={Promise.resolve({ slug: 'test-store' })}
+        searchParams={Promise.resolve({})}
+      />
+    );
+
+    expect(screen.getByText('Loading products...')).toBeInTheDocument();
   });
 
   it('uses a self-referencing canonical on paginated product index pages', async () => {
@@ -294,12 +315,12 @@ describe('products index page', () => {
       ],
     });
 
-    const ui = await ProductsPage({
-      params: Promise.resolve({ slug: 'test-store' }),
-      searchParams: Promise.resolve({ page: '1' }),
-    });
-
-    render(ui);
+    render(
+      await ProductsPageContent({
+        params: Promise.resolve({ slug: 'test-store' }),
+        searchParams: Promise.resolve({ page: '1' }),
+      })
+    );
 
     expect(
       screen.getByLabelText('No image available for iPhone 16')

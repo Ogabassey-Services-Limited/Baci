@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { Suspense } from 'react';
 import { StorefrontPagination } from '@/components/storefront/ogabassey/components/StorefrontPagination';
+import { ProductGridSkeleton } from '@/components/ui/skeletons';
 import {
   getCachedCategories,
   getRequestScopedMerchant,
@@ -36,6 +38,19 @@ interface PageProps {
 
 function getStorefrontPathPrefix(slug: string, merchantSlug: string) {
   return isDomainIdentifier(slug) ? '' : `/${merchantSlug}`;
+}
+
+function ProductsPageFallback() {
+  return (
+    <div className="min-h-screen bg-[color:color-mix(in_srgb,var(--store-background,#ffffff)_94%,var(--store-background-text,#111827)_6%)] pb-20 pt-6">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mb-6 text-sm text-[var(--store-muted-text,#6b7280)]">
+          Loading products...
+        </div>
+        <ProductGridSkeleton count={8} columns={4} />
+      </div>
+    </div>
+  );
 }
 
 export async function generateMetadata({
@@ -117,10 +132,7 @@ export async function generateMetadata({
   };
 }
 
-export default async function ProductsPage({
-  params,
-  searchParams,
-}: PageProps) {
+export async function ProductsPageContent({ params, searchParams }: PageProps) {
   const { slug } = await params;
   const resolvedSearchParams = await searchParams;
   const currentPage = parseStorefrontPageParam(resolvedSearchParams.page);
@@ -300,5 +312,13 @@ export default async function ProductsPage({
         </div>
       </div>
     </>
+  );
+}
+
+export default function ProductsPage(props: PageProps) {
+  return (
+    <Suspense fallback={<ProductsPageFallback />}>
+      <ProductsPageContent {...props} />
+    </Suspense>
   );
 }

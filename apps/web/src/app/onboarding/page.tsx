@@ -1,9 +1,21 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import OnboardingPageContent from './onboarding-page-content';
 
-export default async function OnboardingPage() {
+function OnboardingPageFallback() {
+  return (
+    <div
+      className="flex min-h-screen items-center justify-center text-sm text-muted-foreground"
+      role="status"
+    >
+      Loading onboarding...
+    </div>
+  );
+}
+
+export async function OnboardingPageContentServer() {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
@@ -27,4 +39,12 @@ export default async function OnboardingPage() {
   }
 
   return <OnboardingPageContent />;
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense fallback={<OnboardingPageFallback />}>
+      <OnboardingPageContentServer />
+    </Suspense>
+  );
 }

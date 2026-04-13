@@ -124,7 +124,7 @@ const categoryPageData = {
   name: null,
 };
 
-const { default: CategoryPageRoute, generateMetadata } = await import('./page');
+const { CategoryPageContent, generateMetadata } = await import('./page');
 
 describe('category page route', () => {
   beforeEach(() => {
@@ -145,14 +145,14 @@ describe('category page route', () => {
   });
 
   it('passes the current page through to the category page component', async () => {
-    const ui = await CategoryPageRoute({
+    const ui = await CategoryPageContent({
       params: Promise.resolve({ slug: 'test-store', category: 'smartphones' }),
       searchParams: Promise.resolve({ page: '2' }),
     });
 
     render(ui);
 
-    expect(screen.getByText('Category page 2')).toBeInTheDocument();
+    expect(await screen.findByText('Category page 2')).toBeInTheDocument();
     expect(categoryPageSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         currentPage: 2,
@@ -194,15 +194,15 @@ describe('category page route', () => {
   });
 
   it('returns notFound for out-of-range category pages', async () => {
-    await expect(
-      CategoryPageRoute({
-        params: Promise.resolve({
-          slug: 'test-store',
-          category: 'smartphones',
-        }),
-        searchParams: Promise.resolve({ page: '3' }),
-      })
-    ).rejects.toThrow('NEXT_NOT_FOUND');
+    const outOfRangePage = CategoryPageContent({
+      params: Promise.resolve({
+        slug: 'test-store',
+        category: 'smartphones',
+      }),
+      searchParams: Promise.resolve({ page: '3' }),
+    });
+
+    await expect(outOfRangePage).rejects.toThrow('NEXT_NOT_FOUND');
 
     expect(notFound).toHaveBeenCalled();
   });
