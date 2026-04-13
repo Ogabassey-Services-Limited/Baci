@@ -154,4 +154,21 @@ describe('AdminLayout', () => {
     expect(screen.getByTestId('csrf-initializer')).toBeInTheDocument();
     expect(mockPush).not.toHaveBeenCalled();
   });
+
+  it('renders the local admin fallback while auth context is pending', () => {
+    mockUseAuth.mockImplementation(() => {
+      throw new Promise(() => {
+        // Intentionally never resolves to keep the local fallback visible.
+      });
+    });
+
+    render(
+      <AdminLayout>
+        <div>Admin content</div>
+      </AdminLayout>
+    );
+
+    expect(screen.getByRole('status')).toHaveTextContent('Loading admin panel');
+    expect(screen.getByTestId('csrf-initializer')).toBeInTheDocument();
+  });
 });
