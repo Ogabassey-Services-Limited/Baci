@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { Suspense } from 'react';
 import { getCachedBlogListing } from '@/lib/cached-data';
 import { generateBreadcrumbSchema, generateSlug } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
@@ -20,6 +21,17 @@ interface PageProps {
 function parseBlogListingPage(page?: string): number {
   const parsedPage = Number.parseInt(String(page ?? '1'), 10);
   return Number.isNaN(parsedPage) ? 1 : Math.max(1, parsedPage);
+}
+
+function BlogPageFallback() {
+  return (
+    <div
+      className="mx-auto max-w-6xl px-4 py-12 text-sm text-[var(--store-muted-text,#6b7280)]"
+      role="status"
+    >
+      Loading blog posts...
+    </div>
+  );
 }
 
 export async function generateMetadata({
@@ -92,7 +104,7 @@ export async function generateMetadata({
   };
 }
 
-export default async function BlogPage({ params, searchParams }: PageProps) {
+async function BlogPageContent({ params, searchParams }: PageProps) {
   const { slug } = await params;
   const { category, page, search } = await searchParams;
   const currentPage = parseBlogListingPage(page);
@@ -205,5 +217,13 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
       slug={slug}
       totalPosts={totalPosts}
     />
+  );
+}
+
+export default function BlogPage(props: PageProps) {
+  return (
+    <Suspense fallback={<BlogPageFallback />}>
+      <BlogPageContent {...props} />
+    </Suspense>
   );
 }
