@@ -34,6 +34,8 @@ export default function SignupForm() {
   // Get email and redirect from URL (e.g., from an invite link)
   const defaultEmail = searchParams.get('email') || '';
   const redirectTo = searchParams.get('redirect') || '/dashboard';
+  const isStaffInviteSignup =
+    searchParams.get('type') === 'staff' || redirectTo.startsWith('/invite/');
 
   const [state, formAction] = useActionState(signupAction, initialState);
 
@@ -120,9 +122,16 @@ export default function SignupForm() {
                               placeholder="name@example.com"
                               className="pl-10 h-11 bg-white/50 dark:bg-black/20 border-primary/10 focus:border-primary/50 transition-all"
                               autoComplete="email"
+                              readOnly={isStaffInviteSignup && !!defaultEmail}
+                              autoCapitalize="none"
                             />
                           </FormControl>
                         </div>
+                        {isStaffInviteSignup && defaultEmail ? (
+                          <p className="text-xs text-muted-foreground">
+                            This invite is locked to {defaultEmail}.
+                          </p>
+                        ) : null}
                         <FormMessage />
                       </FormItem>
                     )}

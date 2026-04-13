@@ -98,7 +98,7 @@ export async function submitOnboarding(
             email,
             password,
             options: {
-              emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/auth/callback`,
+              emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/onboarding`,
             },
           });
 
@@ -140,7 +140,7 @@ export async function submitOnboarding(
             email,
             password,
             options: {
-              emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/auth/callback`,
+              emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/onboarding`,
             },
           });
 
@@ -335,7 +335,7 @@ export async function sendMagicLink(
       email,
       options: {
         shouldCreateUser: true,
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback?next=/onboarding?fromMagicLink=true`,
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/onboarding?fromMagicLink=true`,
       },
     });
     if (error) throw error;

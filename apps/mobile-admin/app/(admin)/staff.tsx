@@ -80,11 +80,14 @@ export default function StaffScreen() {
       setSelectedRole('sales_rep');
       setAutoCreateAccount(true);
 
-      // Offer to share the link
+      const emailDeliveryFailed = result?.emailDelivery?.status === 'failed';
+
       if (result?.inviteUrl) {
         Alert.alert(
-          'Invitation Ready',
-          `The invite link is ready for ${inviteEmail}. Share it directly if the email doesn't arrive.`,
+          emailDeliveryFailed ? 'Invite Link Ready' : 'Invitation Sent',
+          emailDeliveryFailed
+            ? `We couldn't deliver the invite email to ${inviteEmail}. Share the link directly to finish setup.`
+            : `The invite email was sent to ${inviteEmail}. Share the link directly if they don't receive it.`,
           [
             { text: 'Done', style: 'cancel' },
             {
@@ -99,7 +102,12 @@ export default function StaffScreen() {
           ]
         );
       } else {
-        Alert.alert('Success', 'Invitation sent successfully');
+        Alert.alert(
+          emailDeliveryFailed ? 'Invite Created' : 'Success',
+          emailDeliveryFailed
+            ? 'The invitation was created, but the email could not be delivered.'
+            : 'Invitation sent successfully'
+        );
       }
     } catch (error) {
       Alert.alert(
@@ -186,11 +194,14 @@ export default function StaffScreen() {
   const handleResendInvitation = async (member: StaffMember) => {
     try {
       const result = await resendInvitation.mutateAsync(member.id);
+      const emailDeliveryFailed = result?.emailDelivery?.status === 'failed';
 
       if (result?.inviteUrl) {
         Alert.alert(
-          'Invitation Updated',
-          `A new invite link is ready for ${member.email}. Share it directly if the email doesn't arrive.`,
+          emailDeliveryFailed ? 'Invite Link Updated' : 'Invitation Resent',
+          emailDeliveryFailed
+            ? `We couldn't deliver the invite email to ${member.email}. Share the link directly instead.`
+            : `A new invite email was sent to ${member.email}. Share the link directly if it doesn't arrive.`,
           [
             { text: 'Done', style: 'cancel' },
             {
@@ -205,7 +216,12 @@ export default function StaffScreen() {
           ]
         );
       } else {
-        Alert.alert('Success', 'Invitation renewed');
+        Alert.alert(
+          emailDeliveryFailed ? 'Invite Renewed' : 'Success',
+          emailDeliveryFailed
+            ? 'The invitation was renewed, but the email could not be delivered.'
+            : 'Invitation renewed'
+        );
       }
     } catch (error) {
       Alert.alert(

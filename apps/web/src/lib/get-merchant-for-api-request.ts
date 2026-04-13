@@ -32,19 +32,36 @@ export function toUserAccess(ctx: MerchantContext): UserAccess {
  */
 export async function getMerchantForApiRequest(
   supabase: SupabaseClient,
-  userId: string
+  userId: string,
+  options: {
+    requestedMerchantId?: string | null;
+  } = {}
 ): Promise<{
   merchantId: string;
   merchantSlug?: string;
   businessName?: string;
   staffAccess: StaffAccess;
 } | null> {
+  const requestedMerchantId = options.requestedMerchantId?.trim() || null;
+
   // First, try to find merchant where user is owner
-  const { data: ownedMerchant, error: ownerError } = await supabase
+  let ownerQuery = supabase
     .from('merchants')
     .select('id, slug, business_name')
-    .eq('user_id', userId)
-    .maybeSingle();
+    .eq('user_id', userId);
+
+  if (requestedMerchantId) {
+    ownerQuery = ownerQuery.eq('id', requestedMerchantId);
+  } else {
+    ownerQuery = ownerQuery
+      .or('business_name.not.is.null,slug.not.is.null')
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+      .limit(1);
+  }
+
+  const { data: ownedMerchant, error: ownerError } =
+    await ownerQuery.maybeSingle();
 
   if (ownedMerchant && !ownerError) {
     return {
@@ -61,7 +78,7 @@ export async function getMerchantForApiRequest(
   }
 
   // User is not a merchant owner (or has an incomplete merchant), check if they're staff
-  const { data: staffMember, error: staffError } = await supabase
+  let staffQuery = supabase
     .from('staff_members')
     .select(
       `
@@ -74,8 +91,19 @@ export async function getMerchantForApiRequest(
     `
     )
     .eq('user_id', userId)
-    .eq('status', 'active')
-    .maybeSingle();
+    .eq('status', 'active');
+
+  if (requestedMerchantId) {
+    staffQuery = staffQuery.eq('merchant_id', requestedMerchantId).limit(1);
+  } else {
+    staffQuery = staffQuery
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+      .limit(1);
+  }
+
+  const { data: staffMember, error: staffError } =
+    await staffQuery.maybeSingle();
 
   if (staffMember && !staffError && staffMember.merchants) {
     // Handle join result (could be array or object depending on Supabase version)

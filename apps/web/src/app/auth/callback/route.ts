@@ -1,12 +1,13 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { normalizeAuthNextTarget } from '@/lib/auth-redirect';
 import { createClient } from '@/lib/supabase/server';
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
   // if "next" is in param, use it as the redirect URL
-  const next = searchParams.get('next') ?? '/dashboard';
+  const next = normalizeAuthNextTarget(searchParams.get('next'), origin);
 
   if (code) {
     const cookieStore = await cookies();

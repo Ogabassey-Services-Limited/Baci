@@ -334,12 +334,62 @@ Deno.serve(async (req) => {
   }
 
   const config = getEmailConfig(emailType, branding.businessName);
-  const safeTokenHash = encodeURIComponent(email_data.token_hash || '');
-  const safeEmailType = encodeURIComponent(emailType || '');
-  const confirmationUrl = `${email_data.site_url}/auth/confirm?token_hash=${safeTokenHash}&type=${safeEmailType}`;
+  if (!email_data.site_url || !email_data.token_hash || !emailType) {
+    console.error('Missing auth email redirect inputs', {
+      siteUrl: email_data.site_url,
+      hasTokenHash: Boolean(email_data.token_hash),
+      emailType,
+    });
+    return new Response(
+      JSON.stringify({ error: 'Invalid email configuration' }),
+      {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
+  let confirmationUrl: URL;
+  try {
+    confirmationUrl = new URL('/auth/confirm', email_data.site_url);
+  } catch (error) {
+    console.error(
+      'Invalid site URL for auth email:',
+      email_data.site_url,
+      error
+    );
+    return new Response(
+      JSON.stringify({ error: 'Invalid email configuration' }),
+      {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
+  confirmationUrl.searchParams.set('token_hash', email_data.token_hash);
+  confirmationUrl.searchParams.set('type', emailType);
+
+  if (email_data.redirect_to) {
+    try {
+      const nextUrl = new URL(email_data.redirect_to);
+      const siteUrl = new URL(email_data.site_url);
+
+      if (nextUrl.origin === siteUrl.origin) {
+        confirmationUrl.searchParams.set('next', nextUrl.toString());
+      }
+    } catch (error) {
+      console.warn(
+        'Ignoring invalid redirect_to URL:',
+        email_data.redirect_to,
+        error
+      );
+    }
+  }
+
   const htmlBody = generateEmailHtml(
     config,
-    confirmationUrl,
+    confirmationUrl.toString(),
     branding,
     email_data.token
   );

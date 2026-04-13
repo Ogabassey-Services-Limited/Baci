@@ -14,6 +14,7 @@ interface InvitePreview {
   email: string;
   role: string;
   merchant_business_name: string | null;
+  merchant_slug?: string | null;
   invitation_expires_at: string;
 }
 
@@ -193,7 +194,10 @@ export async function GET(request: NextRequest) {
       valid: true,
       email: invitation.email,
       role: invitation.role,
-      merchantName: invitation.merchant_business_name ?? 'Unknown Store',
+      merchantName:
+        invitation.merchant_business_name ||
+        invitation.merchant_slug ||
+        'Unknown Store',
       expiresAt: invitation.invitation_expires_at,
     });
   } catch (error) {
