@@ -1,7 +1,9 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const mockAuthenticateApiRequest = vi.fn();
 const mockGetUser = vi.fn();
+const mockGetMerchantForApiRequest = vi.fn();
 const mockFrom = vi.fn();
 const mockSupabase = {
   auth: { getUser: mockGetUser },
@@ -14,6 +16,34 @@ vi.mock('next/headers', () => ({
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => mockSupabase),
+}));
+
+vi.mock('@/lib/api-auth', () => ({
+  authenticateApiRequest: (...args: unknown[]) =>
+    mockAuthenticateApiRequest(...args),
+  hasPermission: vi.fn(() => true),
+}));
+
+vi.mock('@/lib/get-merchant-for-api-request', () => ({
+  getMerchantForApiRequest: (...args: unknown[]) =>
+    mockGetMerchantForApiRequest(...args),
+  toUserAccess: vi.fn(
+    (ctx: {
+      merchantId: string;
+      staffAccess: {
+        isOwner: boolean;
+        isStaff: boolean;
+        role: string | null;
+        permissions: Record<string, Record<string, boolean>>;
+      };
+    }) => ({
+      merchantId: ctx.merchantId,
+      role: ctx.staffAccess.role ?? (ctx.staffAccess.isOwner ? 'owner' : null),
+      isOwner: ctx.staffAccess.isOwner,
+      isStaff: ctx.staffAccess.isStaff,
+      permissions: ctx.staffAccess.permissions,
+    })
+  ),
 }));
 
 vi.mock('@/lib/paystack', () => ({
@@ -43,9 +73,28 @@ function createGetRequest(): NextRequest {
   });
 }
 
+function resetMerchantContext() {
+  mockGetMerchantForApiRequest.mockResolvedValue({
+    merchantId: 'm-1',
+    businessName: 'Test Biz',
+    staffAccess: {
+      isOwner: true,
+      isStaff: false,
+      role: null,
+      permissions: { full_access: { all: true } },
+    },
+  });
+}
+
 describe('POST /api/paystack/virtual-terminal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetMerchantContext();
+    mockAuthenticateApiRequest.mockResolvedValue({
+      error: null,
+      user: { id: 'u-1' },
+      supabase: mockSupabase,
+    });
   });
 
   it('returns 401 when not authenticated', async () => {
@@ -59,6 +108,7 @@ describe('POST /api/paystack/virtual-terminal', () => {
     mockGetUser.mockResolvedValue({
       data: { user: { id: 'u-1' } },
     });
+    mockGetMerchantForApiRequest.mockResolvedValue(null);
     const eqChain: Record<string, unknown> = {
       maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
       single: vi.fn().mockResolvedValue({ data: null, error: null }),
@@ -207,10 +257,20 @@ describe('POST /api/paystack/virtual-terminal', () => {
 describe('GET /api/paystack/virtual-terminal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetMerchantContext();
+    mockAuthenticateApiRequest.mockResolvedValue({
+      error: null,
+      user: { id: 'u-1' },
+      supabase: mockSupabase,
+    });
   });
 
   it('returns 401 when not authenticated', async () => {
-    mockGetUser.mockResolvedValue({ data: { user: null } });
+    mockAuthenticateApiRequest.mockResolvedValue({
+      error: 'Unauthorized',
+      user: null,
+      supabase: null,
+    });
 
     const res = await GET(createGetRequest());
     expect(res.status).toBe(401);
