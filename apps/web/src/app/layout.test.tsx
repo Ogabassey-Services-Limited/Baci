@@ -12,15 +12,15 @@ vi.mock('next/font/google', () => ({
   }),
 }));
 
-vi.mock('@/app/root-dynamic-body-with-request-props', () => ({
-  RootDynamicBodyWithRequestProps: (props: { children: ReactNode }) =>
+vi.mock('@/app/root-dynamic-body', () => ({
+  RootDynamicBody: (props: { children: ReactNode }) =>
     mockRootDynamicBody(props),
 }));
 
 import RootLayout from '@/app/layout';
 
 describe('RootLayout', () => {
-  it('renders the global app shell through the dynamic body wrapper', () => {
+  it('renders the global app shell through the root dynamic body', () => {
     render(
       <RootLayout>
         <main>Main content</main>
