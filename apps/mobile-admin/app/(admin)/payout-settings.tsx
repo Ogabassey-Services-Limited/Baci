@@ -10,19 +10,17 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { BankPickerSheet } from '@/components/payouts/BankPickerSheet';
+import { PayoutVerificationStatus } from '@/components/payouts/PayoutVerificationStatus';
+import { styles } from '@/components/payouts/payout-settings.styles';
+import { TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { usePayoutAccountVerification } from '@/hooks/usePayoutAccountVerification';
 import { usePayouts } from '@/hooks/usePayouts';
@@ -256,56 +254,12 @@ export default function PayoutSettingsScreen() {
                 maxLength={10}
               />
 
-              {/* Verification Status */}
-              {isVerifying && (
-                <View style={styles.verificationContainer}>
-                  <ActivityIndicator size="small" color={colors.primary} />
-                  <Text
-                    style={[
-                      styles.verificationText,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    Verifying account...
-                  </Text>
-                </View>
-              )}
-
-              {accountName ? (
-                <View
-                  style={[
-                    styles.verificationContainer,
-                    styles.successContainer,
-                    { backgroundColor: colors.successLight },
-                  ]}
-                >
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={16}
-                    color={colors.success}
-                  />
-                  <Text
-                    style={[styles.verificationText, { color: colors.success }]}
-                  >
-                    {accountName}
-                  </Text>
-                </View>
-              ) : null}
-
-              {verifyError ? (
-                <View style={styles.verificationContainer}>
-                  <Ionicons
-                    name="alert-circle"
-                    size={16}
-                    color={colors.error}
-                  />
-                  <Text
-                    style={[styles.verificationText, { color: colors.error }]}
-                  >
-                    {verifyError}
-                  </Text>
-                </View>
-              ) : null}
+              <PayoutVerificationStatus
+                accountName={accountName}
+                colors={colors}
+                isVerifying={isVerifying}
+                verifyError={verifyError}
+              />
             </View>
           </View>
 
@@ -320,223 +274,21 @@ export default function PayoutSettingsScreen() {
           </View>
         </ScrollView>
 
-        {/* Bank Picker Modal */}
-        <Modal
+        <BankPickerSheet
+          banks={filteredBanks}
+          isLoading={isLoadingBanks}
+          onClose={() => setShowBankModal(false)}
+          onSearchChange={setSearchTerm}
+          onSelect={(bank) => {
+            setSelectedBank(bank);
+            setShowBankModal(false);
+            setSearchTerm('');
+          }}
+          searchTerm={searchTerm}
+          selectedBankCode={selectedBank?.code ?? null}
           visible={showBankModal}
-          animationType="slide"
-          presentationStyle="pageSheet"
-        >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={24}
-            style={styles.modalContainer}
-          >
-            <View
-              style={[
-                styles.modalContainer,
-                { backgroundColor: colors.background },
-              ]}
-            >
-              <View
-                style={[
-                  styles.modalHeader,
-                  { borderBottomColor: colors.border },
-                ]}
-              >
-                <Text style={[styles.modalTitle, { color: colors.text }]}>
-                  Select Bank
-                </Text>
-                <Pressable
-                  onPress={() => setShowBankModal(false)}
-                  style={styles.closeButton}
-                  accessibilityLabel="Close"
-                  accessibilityRole="button"
-                >
-                  <Ionicons name="close" size={24} color={colors.text} />
-                </Pressable>
-              </View>
-
-              <View
-                style={[
-                  styles.searchContainer,
-                  { borderBottomColor: colors.border },
-                ]}
-              >
-                <Ionicons name="search" size={20} color={colors.textMuted} />
-                <TextInput
-                  style={[styles.searchInput, { color: colors.text }]}
-                  placeholder="Search banks..."
-                  placeholderTextColor={colors.textMuted}
-                  value={searchTerm}
-                  onChangeText={setSearchTerm}
-                />
-              </View>
-
-              {isLoadingBanks ? (
-                <ActivityIndicator
-                  size="large"
-                  color={colors.primary}
-                  style={{ marginTop: 20 }}
-                />
-              ) : (
-                <FlatList
-                  data={filteredBanks}
-                  keyExtractor={(item) => item.code}
-                  keyboardDismissMode={
-                    Platform.OS === 'ios' ? 'interactive' : 'on-drag'
-                  }
-                  keyboardShouldPersistTaps="handled"
-                  renderItem={({ item }) => (
-                    <Pressable
-                      style={[
-                        styles.bankItem,
-                        { borderBottomColor: colors.border },
-                      ]}
-                      onPress={() => {
-                        setSelectedBank(item);
-                        setShowBankModal(false);
-                        setSearchTerm('');
-                      }}
-                    >
-                      <Text style={[styles.bankName, { color: colors.text }]}>
-                        {item.name}
-                      </Text>
-                      {selectedBank?.code === item.code && (
-                        <Ionicons
-                          name="checkmark"
-                          size={20}
-                          color={colors.primary}
-                        />
-                      )}
-                    </Pressable>
-                  )}
-                />
-              )}
-            </View>
-          </KeyboardAvoidingView>
-        </Modal>
+        />
       </SafeAreaView>
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  scrollView: { flex: 1 },
-  scrollContent: { padding: SPACING.lg },
-  backButton: { padding: SPACING.sm, marginLeft: -SPACING.sm },
-  saveButton: { padding: SPACING.sm, marginRight: -SPACING.sm },
-  saveText: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-  },
-  card: {
-    borderRadius: RADIUS.lg,
-    padding: SPACING.lg,
-    marginBottom: SPACING.lg,
-  },
-  sectionTitle: {
-    fontSize: TYPOGRAPHY.size.lg,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-    marginBottom: SPACING.xs,
-  },
-  subtitle: {
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    marginBottom: SPACING.xl,
-  },
-  inputGroup: {
-    marginBottom: SPACING.lg,
-  },
-  label: {
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    marginBottom: SPACING.xs,
-  },
-  input: {
-    height: 48,
-    borderWidth: 1,
-    borderRadius: RADIUS.md,
-    paddingHorizontal: SPACING.md,
-    fontSize: TYPOGRAPHY.size.md,
-  },
-  selectRef: {
-    height: 48,
-    borderWidth: 1,
-    borderRadius: RADIUS.md,
-    paddingHorizontal: SPACING.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  noteCard: {
-    flexDirection: 'row',
-    padding: SPACING.md,
-    borderRadius: RADIUS.md,
-    gap: SPACING.sm,
-  },
-  noteText: {
-    flex: 1,
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    lineHeight: 20,
-  },
-  modalContainer: {
-    flex: 1,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: SPACING.md,
-    borderBottomWidth: 1,
-  },
-  modalTitle: {
-    fontSize: TYPOGRAPHY.size.lg,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-  },
-  closeButton: {
-    position: 'absolute',
-    right: SPACING.md,
-    padding: SPACING.sm,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: SPACING.md,
-    borderBottomWidth: 1,
-    gap: SPACING.sm,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: TYPOGRAPHY.size.md,
-    height: 40,
-  },
-  bankItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: SPACING.lg,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  bankName: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-  },
-  verificationContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: SPACING.xs,
-    gap: SPACING.xs,
-  },
-  successContainer: {
-    backgroundColor: undefined, // provided inline to access colors.successLight
-    padding: SPACING.xs,
-    borderRadius: RADIUS.sm,
-    alignSelf: 'flex-start',
-  },
-  verificationText: {
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-  },
-});
