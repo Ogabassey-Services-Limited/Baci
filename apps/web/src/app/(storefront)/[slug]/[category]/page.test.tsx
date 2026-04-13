@@ -152,7 +152,7 @@ describe('category page route', () => {
 
     render(ui);
 
-    expect(screen.getByText('Category page 2')).toBeInTheDocument();
+    expect(await screen.findByText('Category page 2')).toBeInTheDocument();
     expect(categoryPageSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         currentPage: 2,
@@ -194,15 +194,15 @@ describe('category page route', () => {
   });
 
   it('returns notFound for out-of-range category pages', async () => {
-    await expect(
-      CategoryPageRoute({
-        params: Promise.resolve({
-          slug: 'test-store',
-          category: 'smartphones',
-        }),
-        searchParams: Promise.resolve({ page: '3' }),
-      })
-    ).rejects.toThrow('NEXT_NOT_FOUND');
+    const outOfRangePage = CategoryPageRoute({
+      params: Promise.resolve({
+        slug: 'test-store',
+        category: 'smartphones',
+      }),
+      searchParams: Promise.resolve({ page: '3' }),
+    });
+
+    await expect(outOfRangePage).rejects.toThrow('NEXT_NOT_FOUND');
 
     expect(notFound).toHaveBeenCalled();
   });
