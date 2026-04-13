@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { getAppUrl } from '@/env';
 import { ensurePermission } from '@/lib/merchant-server';
+import { buildStaffInviteEmail } from '@/lib/staff-invite-email';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
@@ -110,7 +111,7 @@ export async function inviteStaffMember(rawData: InviteStaffData) {
   if (existing) {
     if (existing.status === 'removed') {
       // Reactivate removed staff member
-      const invitationToken = crypto.randomBytes(32).toString('hex');
+      const invitationToken = crypto.randomUUID();
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiry
 
@@ -151,7 +152,7 @@ export async function inviteStaffMember(rawData: InviteStaffData) {
   }
 
   // Generate invitation token
-  const invitationToken = crypto.randomBytes(32).toString('hex');
+  const invitationToken = crypto.randomUUID();
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiry
 
@@ -257,7 +258,7 @@ export async function resendInvitation(id: string) {
   }
 
   // Generate new invitation token
-  const invitationToken = crypto.randomBytes(32).toString('hex');
+  const invitationToken = crypto.randomUUID();
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + 7);
 
@@ -378,48 +379,16 @@ async function sendInviteEmail(
   businessName: string,
   token: string
 ) {
-  const inviteUrl = `${getAppUrl()}/invite/${token}`;
-
-  // Escape user-controlled values to prevent HTML injection
-  const safeName = escapeHtmlForEmail(name) || 'there';
-  const safeBusinessName = escapeHtmlForEmail(businessName);
-  const safeRole = escapeHtmlForEmail(role.replaceAll('_', ' '));
+  const { email: inviteEmail } = buildStaffInviteEmail({
+    businessName,
+    role,
+    to: email,
+    toName: name,
+    token,
+  });
 
   try {
-    await sendEmail({
-      to: email,
-      toName: name,
-      subject: `You've been invited to join ${businessName}`,
-      htmlContent: `
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          </head>
-          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="text-align: center; margin-bottom: 30px;">
-              <h1 style="color: #6366f1; margin: 0;">You're Invited!</h1>
-            </div>
-            <p>Hi ${safeName},</p>
-            <p>You've been invited to join <strong>${safeBusinessName}</strong> as a <strong>${safeRole}</strong>.</p>
-            <p>Click the button below to accept your invitation and set up your account:</p>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${inviteUrl}" style="display: inline-block; background: #6366f1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 500;">Accept Invitation</a>
-            </div>
-            <p style="font-size: 12px; color: #666;">
-              This invitation will expire in 7 days. If you didn't expect this invitation, you can safely ignore this email.
-            </p>
-            <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-            <p style="font-size: 12px; color: #666; text-align: center;">
-              This invitation was sent by ${safeBusinessName} via Baci.
-            </p>
-          </body>
-          </html>
-        `,
-      textContent: `Hi ${name || 'there'},\n\nYou've been invited to join ${businessName} as a ${role.replaceAll('_', ' ')}.\n\nClick the link below to accept your invitation:\n${inviteUrl}\n\nThis invitation will expire in 7 days.\n\nIf you didn't expect this invitation, you can safely ignore this email.`,
-      emailType: 'team',
-    });
+    await sendEmail(inviteEmail);
   } catch {
     console.error('Failed to send invite email');
     // Silent fail on email shouldn't break the action
