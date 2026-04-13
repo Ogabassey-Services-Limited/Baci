@@ -316,15 +316,31 @@ describe('PayoutSettingsScreen', () => {
   });
 
   it('opens the shared bank picker and filters via the search field', () => {
+    mocks.banks.data = [
+      { id: 1, name: 'GTBank', slug: 'gtbank', code: '058', active: true },
+      {
+        id: 2,
+        name: 'Access Bank',
+        slug: 'access-bank',
+        code: '044',
+        active: true,
+      },
+    ];
+
     render(<PayoutSettingsScreen />);
 
     fireEvent.click(screen.getByLabelText('Select bank'));
+
+    expect(screen.getByLabelText('bank-picker-sheet')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'GTBank' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Access Bank' })).toBeTruthy();
+
     fireEvent.change(screen.getByLabelText('Search banks'), {
       target: { value: 'gt' },
     });
 
-    expect(screen.getByLabelText('bank-picker-sheet')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'GTBank' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Access Bank' })).toBeNull();
   });
 
   it('shows the bank picker loading state when banks are still loading', () => {
