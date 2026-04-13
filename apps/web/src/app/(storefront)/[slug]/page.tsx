@@ -116,7 +116,7 @@ export async function generateMetadata({
  * Heavy data fetching (products, categories) is deferred to StorefrontContent
  * which streams in via Suspense.
  */
-export default async function StorefrontPage({
+export async function StorefrontPageContent({
   params,
 }: {
   params: Promise<{ slug: string }>;
@@ -246,5 +246,17 @@ export default async function StorefrontPage({
         <StorefrontContent merchant={merchant} />
       </Suspense>
     </>
+  );
+}
+
+export default function StorefrontPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  return (
+    <Suspense fallback={<StorefrontPageSkeleton />}>
+      <StorefrontPageContent params={params} />
+    </Suspense>
   );
 }

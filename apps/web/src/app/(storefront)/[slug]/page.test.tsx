@@ -73,7 +73,9 @@ const baseMerchant = {
   country: 'NG',
 };
 
-const { default: StorefrontPage } = await import('./page');
+const { default: StorefrontPage, StorefrontPageContent } = await import(
+  './page'
+);
 
 describe('Storefront homepage structured data', () => {
   beforeEach(() => {
@@ -96,7 +98,9 @@ describe('Storefront homepage structured data', () => {
     );
 
     render(
-      await StorefrontPage({ params: Promise.resolve({ slug: 'ogabassey' }) })
+      await StorefrontPageContent({
+        params: Promise.resolve({ slug: 'ogabassey' }),
+      })
     );
 
     expect(screen.getByText('Ogabassey storefront')).toBeInTheDocument();
@@ -145,8 +149,12 @@ describe('Storefront homepage structured data', () => {
     } as unknown as Awaited<ReturnType<typeof getRequestScopedMerchant>>);
 
     render(
-      await StorefrontPage({ params: Promise.resolve({ slug: 'ogabassey' }) })
+      await StorefrontPageContent({
+        params: Promise.resolve({ slug: 'ogabassey' }),
+      })
     );
+
+    expect(screen.getByText('Ogabassey storefront')).toBeInTheDocument();
 
     const schemaScript = document.querySelector(
       'script[type="application/ld+json"]'
@@ -165,5 +173,22 @@ describe('Storefront homepage structured data', () => {
     expect(schema['@graph'].some((item) => item['@type'] === 'WebSite')).toBe(
       true
     );
+  });
+
+  it('renders the storefront fallback while request headers are still pending', () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue(
+      baseMerchant as unknown as Awaited<
+        ReturnType<typeof getRequestScopedMerchant>
+      >
+    );
+    mockHeaders.mockReturnValue(
+      new Promise(() => {
+        // Intentionally never resolves to keep the local fallback visible.
+      })
+    );
+
+    render(<StorefrontPage params={Promise.resolve({ slug: 'ogabassey' })} />);
+
+    expect(screen.getByTestId('skeleton')).toBeInTheDocument();
   });
 });

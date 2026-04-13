@@ -1,3 +1,4 @@
+import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getCachedBlogListing } from '@/lib/cached-data';
 
@@ -15,6 +16,7 @@ vi.mock('@/lib/sanitize-json-ld', () => ({
 
 vi.mock('@/lib/seo-utils', () => ({
   generateBreadcrumbSchema: vi.fn(() => ({})),
+  generateSlug: (value: string) => value.toLowerCase().replace(/\s+/g, '-'),
 }));
 
 vi.mock('@/lib/store-url', () => ({
@@ -26,6 +28,20 @@ vi.mock('@/lib/store-url', () => ({
 
 vi.mock('@/lib/validation', () => ({
   isDomainIdentifier: (value: string) => value.includes('.'),
+}));
+
+vi.mock('@/templates/registry', () => ({
+  getTemplate: vi.fn(() => null),
+}));
+
+vi.mock('./default-blog-ui', () => ({
+  DefaultBlogUi: ({ merchant }: { merchant: { business_name: string } }) => (
+    <div>{merchant.business_name} blog</div>
+  ),
+}));
+
+vi.mock('./template-blog-renderer', () => ({
+  TemplateBlogRenderer: () => <div>Template blog</div>,
 }));
 
 const merchant: {
@@ -79,7 +95,7 @@ function buildListingResult(
   };
 }
 
-const { generateMetadata } = await import('./page');
+const { default: BlogPage, generateMetadata } = await import('./page');
 
 describe('blog page metadata', () => {
   beforeEach(() => {
@@ -181,5 +197,22 @@ describe('blog page metadata', () => {
       'https://test-store.usebaci.com/blog'
     );
     expect(metadata.openGraph?.url).toBe('https://test-store.usebaci.com/blog');
+  });
+
+  it('renders the local fallback while the blog listing is pending', () => {
+    vi.mocked(getCachedBlogListing).mockReturnValue(
+      new Promise(() => {
+        // Intentionally never resolves to keep the local fallback visible.
+      })
+    );
+
+    render(
+      <BlogPage
+        params={Promise.resolve({ slug: 'test-store' })}
+        searchParams={Promise.resolve({})}
+      />
+    );
+
+    expect(screen.getByRole('status')).toHaveTextContent('Loading blog posts');
   });
 });

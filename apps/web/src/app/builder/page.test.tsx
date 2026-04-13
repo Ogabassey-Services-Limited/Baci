@@ -1,6 +1,8 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import BuilderPage from './page';
+
+const mockBuilderClient = vi.fn(() => <div data-testid="builder-client" />);
 
 vi.mock('@/components/csrf-initializer', () => ({
   CsrfInitializer: () => <div data-testid="csrf-initializer" />,
@@ -25,14 +27,33 @@ vi.mock('@/components/builder/copilot-builder-wrapper', () => ({
 }));
 
 vi.mock('./builder-client', () => ({
-  default: () => <div data-testid="builder-client" />,
+  default: () => mockBuilderClient(),
 }));
 
 describe('BuilderPage', () => {
+  beforeEach(() => {
+    mockBuilderClient.mockReset();
+    mockBuilderClient.mockImplementation(() => (
+      <div data-testid="builder-client" />
+    ));
+  });
+
   it('mounts CsrfInitializer for builder mutations', () => {
     render(<BuilderPage />);
 
     expect(screen.getByTestId('csrf-initializer')).toBeInTheDocument();
     expect(screen.getByTestId('builder-client')).toBeInTheDocument();
+  });
+
+  it('renders a local fallback while the builder client is pending', () => {
+    mockBuilderClient.mockImplementation(() => {
+      throw new Promise(() => {
+        // Intentionally never resolves to keep the local fallback visible.
+      });
+    });
+
+    render(<BuilderPage />);
+
+    expect(screen.getByRole('status')).toHaveTextContent('Loading builder');
   });
 });
