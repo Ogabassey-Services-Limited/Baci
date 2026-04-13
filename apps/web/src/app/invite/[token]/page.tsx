@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -43,6 +43,34 @@ const roleLabels: Record<string, string> = {
 };
 
 export default function AcceptInvitePage() {
+  return (
+    <Suspense fallback={<AcceptInvitePageFallback />}>
+      <AcceptInvitePageContent />
+    </Suspense>
+  );
+}
+
+function AcceptInvitePageFallback() {
+  return (
+    <div
+      className="flex min-h-screen items-center justify-center bg-gray-50 p-4"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+    >
+      <Card className="w-full max-w-md">
+        <CardContent className="pt-6">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-muted-foreground">Loading invitation...</p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function AcceptInvitePageContent() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
