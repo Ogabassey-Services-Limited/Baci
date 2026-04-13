@@ -79,7 +79,12 @@ export function CryptoSelectionModal({
               <Ionicons name="card-outline" size={20} color="#FFFFFF" />
               <Text style={styles.headerTitle}>Select Crypto Payment</Text>
             </View>
-            <Pressable onPress={onClose} style={styles.closeBtn}>
+            <Pressable
+              onPress={onClose}
+              style={styles.closeBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Close modal"
+            >
               <Ionicons name="close" size={24} color="#FFFFFF" />
             </Pressable>
           </View>
@@ -94,6 +99,9 @@ export function CryptoSelectionModal({
                 <Pressable
                   key={coin}
                   onPress={() => handleCoinSelect(coin)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: selectedCoin === coin }}
+                  accessibilityLabel={`Select ${coin}`}
                   style={[
                     styles.optionCard,
                     {
@@ -144,6 +152,9 @@ export function CryptoSelectionModal({
                     <Pressable
                       key={network}
                       onPress={() => setSelectedNetwork(network)}
+                      accessibilityRole="radio"
+                      accessibilityState={{ checked: isSelected }}
+                      accessibilityLabel={`Select ${network} network`}
                       style={[
                         styles.networkCard,
                         {
@@ -218,6 +229,9 @@ export function CryptoSelectionModal({
             <Pressable
               onPress={handleConfirm}
               disabled={isProcessing}
+              accessibilityRole="button"
+              accessibilityLabel={`Continue with ${selectedCoin} on ${selectedNetwork}`}
+              accessibilityState={{ disabled: isProcessing }}
               style={[
                 styles.confirmBtn,
                 {
