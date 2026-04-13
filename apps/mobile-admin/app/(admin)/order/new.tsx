@@ -28,6 +28,7 @@ import PhoneInput from 'react-native-phone-number-input';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAwareModalContainer } from '@/components/ui/KeyboardAwareModalContainer';
 import SafeImage from '@/components/ui/SafeImage';
+import { createManualOrderWithItems } from '@/lib/manual-order-persistence';
 import { mergeOrderItem } from '@/lib/order-items';
 import {
   getProductPickerRowSubtitle,
@@ -488,6 +489,13 @@ export default function NewOrderScreen() {
       Alert.alert('Required', 'Please select a customer for this order');
       return;
     }
+    if (!merchant?.id) {
+      Alert.alert(
+        'Unavailable',
+        'Merchant information is still loading. Please try again.'
+      );
+      return;
+    }
     if (orderItems.length === 0) {
       Alert.alert('Required', 'Please add at least one product');
       return;
@@ -521,77 +529,78 @@ export default function NewOrderScreen() {
       const sanitizedDeliveryCity = sanitizeText(deliveryInfo.city, 100);
       const sanitizedDeliveryState = sanitizeText(deliveryInfo.state, 100);
 
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          merchant_id: merchant?.id,
-          customer_id: customer.id,
-          order_number: orderNumber,
-          customer_name: sanitizedCustomerName,
-          customer_email: sanitizedCustomerEmail,
-          customer_phone: sanitizedCustomerPhone,
-          shipping_status: 'pending',
-          payment_status: paymentStatus,
-          amount_paid:
-            paymentStatus === 'partially_paid'
-              ? Number.parseFloat(partialAmount) || 0
-              : paymentStatus === 'paid'
-                ? total
-                : 0,
-          payment_method:
-            paymentStatus === 'paid' || paymentStatus === 'partially_paid'
-              ? paymentMethod
-              : null,
-          total: total,
-          subtotal: subtotal,
-          discount_amount: discount,
-          shipping_fee: shippingFee,
-          tax_amount: taxesToUse,
-          currency: merchant?.payout_currency || 'NGN',
-          source: selectedChannel,
-          recorded_by_user_id: user?.id || null,
-          notes: sanitizedNotes,
-          shipping_address: sameAsCustomer
-            ? ({
-                name: sanitizedCustomerName,
-                phone: sanitizedCustomerPhone || '',
-                address: sanitizedCustomerAddress,
-              } satisfies ShippingAddress)
-            : ({
-                name: sanitizedDeliveryName,
-                phone: sanitizedDeliveryPhone,
-                address: sanitizedDeliveryAddress,
-                city: sanitizedDeliveryCity,
-                state: sanitizedDeliveryState,
-              } satisfies ShippingAddress),
-        })
-        .select('id')
-        .single();
-
-      if (orderError) throw orderError;
-
-      // Sanitize order item names and descriptions
-      const { error: itemsError } = await supabase.from('order_items').insert(
-        orderItems.map((item) => ({
-          order_id: order.id,
-          product_id: item.is_custom ? null : item.product_id,
-          name: sanitizeText(item.name, 200),
-          quantity: item.quantity,
-          price: item.price,
-          condition: item.condition ?? null,
-          item_description: item.details
-            ? sanitizeText(item.details, 1000)
-            : null,
-        }))
+      const createdOrder = await createManualOrderWithItems(
+        {
+          insertOrder: (order) =>
+            supabase.from('orders').insert(order).select('id').single(),
+          insertOrderItems: (items) =>
+            supabase.from('order_items').insert(items),
+          deleteOrder: (orderId) =>
+            supabase.from('orders').delete().eq('id', orderId),
+        },
+        {
+          order: {
+            merchant_id: merchant.id,
+            customer_id: customer.id,
+            order_number: orderNumber,
+            customer_name: sanitizedCustomerName,
+            customer_email: sanitizedCustomerEmail,
+            customer_phone: sanitizedCustomerPhone,
+            shipping_status: 'pending',
+            payment_status: paymentStatus,
+            amount_paid:
+              paymentStatus === 'partially_paid'
+                ? Number.parseFloat(partialAmount) || 0
+                : paymentStatus === 'paid'
+                  ? total
+                  : 0,
+            payment_method:
+              paymentStatus === 'paid' || paymentStatus === 'partially_paid'
+                ? paymentMethod
+                : null,
+            total: total,
+            subtotal: subtotal,
+            discount_amount: discount,
+            shipping_fee: shippingFee,
+            tax_amount: taxesToUse,
+            currency: merchant?.payout_currency || 'NGN',
+            source: selectedChannel,
+            recorded_by_user_id: user?.id || null,
+            notes: sanitizedNotes,
+            shipping_address: sameAsCustomer
+              ? ({
+                  name: sanitizedCustomerName,
+                  phone: sanitizedCustomerPhone || '',
+                  address: sanitizedCustomerAddress,
+                } satisfies ShippingAddress)
+              : ({
+                  name: sanitizedDeliveryName,
+                  phone: sanitizedDeliveryPhone,
+                  address: sanitizedDeliveryAddress,
+                  city: sanitizedDeliveryCity,
+                  state: sanitizedDeliveryState,
+                } satisfies ShippingAddress),
+          },
+          buildItems: (orderId) =>
+            orderItems.map((item) => ({
+              order_id: orderId,
+              product_id: item.is_custom ? null : item.product_id,
+              name: sanitizeText(item.name, 200),
+              quantity: item.quantity,
+              price: item.price,
+              condition: item.condition ?? null,
+              item_description: item.details
+                ? sanitizeText(item.details, 1000)
+                : null,
+            })),
+        }
       );
-
-      if (itemsError) throw itemsError;
 
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       queryClient.invalidateQueries({ queryKey: ['order-counts'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
 
-      setLastOrderId(order.id);
+      setLastOrderId(createdOrder.id);
       setShowSuccessModal(true);
     } catch (error: unknown) {
       Alert.alert('Error', (error as Error).message);
