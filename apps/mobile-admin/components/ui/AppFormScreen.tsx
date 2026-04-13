@@ -7,6 +7,8 @@ interface AppFormScreenProps {
   children: ReactNode;
   contentContainerStyle?: StyleProp<ViewStyle>;
   edges?: Edge[];
+  footer?: ReactNode;
+  footerStyle?: StyleProp<ViewStyle>;
   header?: ReactNode;
   keyboardVerticalOffset?: number;
   scrollEnabled?: boolean;
@@ -17,6 +19,8 @@ export function AppFormScreen({
   children,
   contentContainerStyle,
   edges,
+  footer,
+  footerStyle,
   header,
   keyboardVerticalOffset = 24,
   scrollEnabled = true,
@@ -34,6 +38,9 @@ export function AppFormScreen({
       >
         {children}
       </AppKeyboardContainer>
+      {footer ? (
+        <View style={[styles.footer, footerStyle]}>{footer}</View>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -47,5 +54,8 @@ const styles = StyleSheet.create({
   },
   keyboardContainer: {
     flex: 1,
+  },
+  footer: {
+    width: '100%',
   },
 });
