@@ -18,7 +18,7 @@ interface InvitePreview {
 }
 
 const acceptInviteSchema = z.object({
-  token: z.string().uuid('Invalid invitation token'),
+  token: z.string().trim().min(1, 'Invitation token is required').max(255),
 });
 
 /**
@@ -174,7 +174,15 @@ export async function GET(request: NextRequest) {
         ? previewRows[0]
         : null;
 
-    if (error || !invitation) {
+    if (error) {
+      console.error('Validate invitation RPC error:', error);
+      return NextResponse.json(
+        { error: 'Invitation service unavailable' },
+        { status: 500 }
+      );
+    }
+
+    if (!invitation) {
       return NextResponse.json(
         { error: 'Invalid invitation' },
         { status: 404 }

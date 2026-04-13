@@ -10,6 +10,16 @@ interface SanitizeHtmlOptions {
   headingLevelOffset?: number;
 }
 
+const ESCAPE_HTML_TEXT_OPTIONS: sanitizeLib.IOptions = {
+  allowedTags: [],
+  allowedAttributes: {},
+  disallowedTagsMode: 'escape',
+  parser: {
+    lowerCaseAttributeNames: false,
+    lowerCaseTags: false,
+  },
+};
+
 function clampHeadingLevel(level: number) {
   return Math.min(6, Math.max(1, level));
 }
@@ -152,6 +162,11 @@ export function sanitizeHtml(
     },
     allowProtocolRelative: false,
   });
+}
+
+export function escapeHtmlText(value: string): string {
+  if (!value) return '';
+  return sanitizeLib(value, ESCAPE_HTML_TEXT_OPTIONS);
 }
 
 /**

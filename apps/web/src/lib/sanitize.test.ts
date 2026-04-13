@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sanitizeHtml, sanitizeSvg } from './sanitize';
+import { escapeHtmlText, sanitizeHtml, sanitizeSvg } from './sanitize';
 
 describe('sanitize', () => {
   it('removes unsafe scripts and javascript URLs from HTML', () => {
@@ -48,5 +48,11 @@ describe('sanitize', () => {
     );
 
     expect(output).toContain('viewBox="0 0 32 32"');
+  });
+
+  it('escapes plain text without dropping literal angle-bracket content', () => {
+    const output = escapeHtmlText('TGW <Store> & "quotes"');
+
+    expect(output).toBe('TGW &lt;Store&gt; &amp; "quotes"');
   });
 });
