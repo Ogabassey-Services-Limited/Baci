@@ -5,9 +5,9 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '@/lib/api-client';
 import { supabase } from '@/lib/supabase';
 import type { StaffMember, StaffRole, StaffStatus } from '@/lib/types/staff';
-import { generateUUID } from '@/utils/uuid';
 import { useMerchant } from './useMerchant';
 
 // ============================================================
@@ -34,7 +34,12 @@ export function useStaff() {
 
   return useQuery({
     queryKey: ['staff', merchantId],
-    queryFn: () => fetchStaffMembers(merchantId!),
+    queryFn: () => {
+      if (!merchantId) {
+        throw new Error('Merchant not found');
+      }
+      return fetchStaffMembers(merchantId);
+    },
     enabled: !!merchantId,
     staleTime: 1000 * 60 * 2, // 2 minutes
   });
@@ -68,6 +73,22 @@ interface InviteStaffParams {
   autoCreateAccount?: boolean;
 }
 
+interface InviteStaffResponse {
+  inviteUrl?: string;
+  invitationToken?: string;
+  message?: string;
+  staff?: {
+    id: string;
+  };
+}
+
+interface ResendInvitationResponse {
+  inviteUrl?: string;
+  invitationToken?: string;
+  message?: string;
+  success: boolean;
+}
+
 export function useInviteStaff() {
   const { merchant } = useMerchant();
   const queryClient = useQueryClient();
@@ -78,128 +99,74 @@ export function useInviteStaff() {
 
       // Validate email format
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(params.email)) {
+      const normalizedEmail = params.email.trim().toLowerCase();
+      if (!emailRegex.test(normalizedEmail)) {
         throw new Error('Invalid email format');
       }
+      const normalizedName = params.name?.trim() || undefined;
 
-      // Check for existing staff member
-      const { data: existing } = await supabase
-        .from('staff_members')
-        .select('id, status')
-        .eq('merchant_id', merchant.id)
-        .eq('email', params.email.toLowerCase())
-        .single();
-
-      if (existing && existing.status !== 'removed') {
-        throw new Error('This email is already on your team');
-      }
-
-      // Generate invitation token (simplified for mobile - web handles email sending)
-      const invitationToken = generateUUID();
-
-      if (existing?.status === 'removed') {
-        // Reactivate removed staff member
-        const { error } = await supabase
-          .from('staff_members')
-          .update({
-            name: params.name,
-            role: params.role,
-            status: 'pending',
-            invitation_token: invitationToken,
-            // Expiry and invited_at handled by DB trigger
-            accepted_at: null,
-            user_id: null,
-          })
-          .eq('id', existing.id);
-
-        if (error) throw new Error('Failed to invite staff member');
-      } else {
-        // Create new staff member
-        const { error } = await supabase.from('staff_members').insert({
-          merchant_id: merchant.id,
-          email: params.email.toLowerCase(),
-          name: params.name,
+      const response = await apiClient<InviteStaffResponse>('/api/staff', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: normalizedEmail,
+          name: normalizedName,
           role: params.role,
-          invitation_token: invitationToken,
-          // Expiry handled by DB trigger
-        });
-
-        if (error) {
-          console.error(
-            '[InviteStaff] Supabase insert failed:',
-            error.message,
-            error.details,
-            error.hint
-          );
-          throw new Error(error.message || 'Failed to invite staff member');
-        }
-      }
+        }),
+      });
 
       // Multi-terminal: Auto-create Staff Account if requested
-      if (params.autoCreateAccount) {
+      if (params.autoCreateAccount && response.staff?.id) {
         try {
-          // Get the newly created/reactivated staff member ID
-          const { data: newStaff } = await supabase
-            .from('staff_members')
-            .select('id')
-            .eq('merchant_id', merchant.id)
-            .eq('email', params.email.toLowerCase())
-            .single();
+          const accountName = normalizedName
+            ? `${normalizedName}'s Account`
+            : `${normalizedEmail.split('@')[0]}'s Account`;
 
-          if (newStaff) {
-            // Mobile app uses Paystack API directly via edge function or server action
-            // Since we're in the hook using supabase client, we can call the same logic
-            // or use a helper. For now, let's keep it consistent with the web action.
-            // However, mobile doesn't have direct access to 'lib/paystack.ts' if it's node-only.
-            // We should use the API route we created: /api/paystack/virtual-terminal
+          const apiUrl = (
+            process.env.EXPO_PUBLIC_API_URL || 'https://usebaci.com'
+          )
+            .trim()
+            .replace(/\/+$/, '');
 
-            const accountName = params.name
-              ? `${params.name}'s Account`
-              : `${params.email.split('@')[0]}'s Account`;
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
 
-            // We use fetch to call our own API
-            const apiUrl = (
-              process.env.EXPO_PUBLIC_API_URL || 'https://usebaci.com'
-            )
-              .trim()
-              .replace(/\/+$/, '');
-
-            // Get the current session for auth
-            const {
-              data: { session },
-            } = await supabase.auth.getSession();
-
-            const response = await fetch(
-              `${apiUrl}/api/paystack/virtual-terminal`,
-              {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  ...(session?.access_token && {
-                    Authorization: `Bearer ${session.access_token}`,
-                  }),
-                },
-                body: JSON.stringify({
-                  name: accountName,
-                  staffId: newStaff.id,
+          const accountResponse = await fetch(
+            `${apiUrl}/api/paystack/virtual-terminal`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(session?.access_token && {
+                  Authorization: `Bearer ${session.access_token}`,
                 }),
+              },
+              body: JSON.stringify({
+                name: accountName,
+                staffId: response.staff.id,
+              }),
+            }
+          );
+
+          if (!accountResponse.ok) {
+            console.warn(
+              '[InviteStaff] Failed to auto-create account number via API',
+              {
+                status: accountResponse.status,
+                statusText: accountResponse.statusText,
               }
             );
-
-            if (!response.ok) {
-              console.warn(
-                '[InviteStaff] Failed to auto-create account number via API',
-                { status: response.status, statusText: response.statusText }
-              );
-            }
           }
         } catch (err) {
           console.error('[InviteStaff] Error auto-creating account:', err);
         }
       }
 
-      const inviteUrl = `https://usebaci.com/invite/${invitationToken}`;
-      return { success: true, inviteUrl, invitationToken };
+      return {
+        success: true,
+        inviteUrl: response.inviteUrl,
+        invitationToken: response.invitationToken,
+      };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['staff'] });
@@ -263,62 +230,18 @@ export function useResendInvitation() {
       }
       if (!merchant?.id) throw new Error('Merchant not found');
 
-      // Verify staff member exists and is pending
-      const { data: staff, error: fetchError } = await supabase
-        .from('staff_members')
-        .select('id, status, merchant_id')
-        .eq('id', staffId)
-        .single();
+      const response = await apiClient<ResendInvitationResponse>(
+        `/api/staff/${staffId}`,
+        {
+          method: 'POST',
+        }
+      );
 
-      if (__DEV__) {
-        console.log(
-          '[ResendInvite] DB Lookup result:',
-          staff,
-          'Error:',
-          fetchError
-        );
-      }
-
-      if (fetchError || !staff) {
-        console.error(
-          '[ResendInvite] Error: Staff not found or fetch error.',
-          fetchError
-        );
-        throw new Error('Staff member not found');
-      }
-
-      if (staff.merchant_id !== merchant.id) {
-        console.error(
-          '[ResendInvite] Merchant ID mismatch. Staff Merchant:',
-          staff.merchant_id,
-          'My Merchant:',
-          merchant.id
-        );
-        throw new Error('Staff member not associated with this merchant');
-      }
-
-      if (staff.status !== 'pending') {
-        console.warn(
-          '[ResendInvite] Status is not pending. Status:',
-          staff.status
-        );
-        throw new Error('Can only resend invitation to pending members');
-      }
-
-      // Generate new invitation token
-      const invitationToken = generateUUID();
-
-      const { error } = await supabase
-        .from('staff_members')
-        .update({
-          invitation_token: invitationToken,
-          // Expiry and invited_at handled by DB trigger
-        })
-        .eq('id', staffId);
-
-      if (error) throw new Error('Failed to resend invitation');
-      const inviteUrl = `https://usebaci.com/invite/${invitationToken}`;
-      return { success: true, inviteUrl, invitationToken };
+      return {
+        success: true,
+        inviteUrl: response.inviteUrl,
+        invitationToken: response.invitationToken,
+      };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['staff'] });

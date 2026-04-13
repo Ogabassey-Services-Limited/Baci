@@ -1,26 +1,30 @@
 import crypto from 'node:crypto';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { getAppUrl } from '@/env';
-import { hasPermission } from '@/lib/api-auth';
+import { z } from 'zod';
+import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
+import { buildStaffInviteEmail } from '@/lib/staff-invite-email';
 import { STAFF_COLUMNS } from '@/lib/staff-queries';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
 
-export type StaffRole =
-  | 'admin'
-  | 'manager'
-  | 'sales_rep'
-  | 'inventory'
-  | 'accountant'
-  | 'customer_service'
-  | 'marketing'
-  | 'fulfillment';
+const STAFF_ROLE_VALUES = [
+  'admin',
+  'manager',
+  'sales_rep',
+  'inventory',
+  'accountant',
+  'customer_service',
+  'marketing',
+  'fulfillment',
+] as const;
+
+export type StaffRole = (typeof STAFF_ROLE_VALUES)[number];
 
 export interface StaffMember {
   id: string;
@@ -36,6 +40,12 @@ export interface StaffMember {
   last_login_at: string | null;
   created_at: string;
 }
+
+const inviteStaffSchema = z.object({
+  email: z.string().trim().email('Invalid email format').max(254),
+  name: z.string().trim().max(120).optional(),
+  role: z.enum(STAFF_ROLE_VALUES),
+});
 
 /**
  * GET /api/staff
@@ -119,16 +129,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-
-    // Get authenticated user
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user || !auth.supabase) {
+      return NextResponse.json(
+        { error: auth.error || 'Unauthorized' },
+        { status: 401 }
+      );
     }
+
+    const { user, supabase } = auth;
 
     const merchantContext = await getMerchantForApiRequest(supabase, user.id);
     if (!merchantContext) {
@@ -146,44 +155,31 @@ export async function POST(request: NextRequest) {
     const merchantId = merchantContext.merchantId;
     const businessName = merchantContext.businessName;
 
-    // Parse request body
-    const body = await request.json();
-    const { email, name, role } = body;
-
-    // Validate required fields
-    if (!email || !role) {
+    const body: unknown = await request.json();
+    const parsed = inviteStaffSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Email and role are required' },
+        { error: parsed.error.issues[0]?.message || 'Invalid input' },
         { status: 400 }
       );
     }
 
-    // Validate email format with length limit to prevent ReDoS
-    const isValidEmail =
-      email.length <= 254 &&
-      email.includes('@') &&
-      email.indexOf('@') > 0 &&
-      email.lastIndexOf('.') > email.indexOf('@') + 1 &&
-      !/\s/.test(email);
-    if (!isValidEmail) {
-      return NextResponse.json(
-        { error: 'Invalid email format' },
-        { status: 400 }
-      );
-    }
+    const email = parsed.data.email.toLowerCase();
+    const name = parsed.data.name?.trim() || undefined;
+    const role = parsed.data.role;
 
     // Check if staff member already exists
     const { data: existing } = await supabase
       .from('staff_members')
       .select('id, status')
       .eq('merchant_id', merchantId)
-      .eq('email', email.toLowerCase())
+      .eq('email', email)
       .single();
 
     if (existing) {
       if (existing.status === 'removed') {
         // Reactivate removed staff member
-        const invitationToken = crypto.randomBytes(32).toString('hex');
+        const invitationToken = crypto.randomUUID();
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiry
 
@@ -211,8 +207,21 @@ export async function POST(request: NextRequest) {
           );
         }
 
+        const { inviteUrl, email: inviteEmail } = buildStaffInviteEmail({
+          businessName: businessName || 'Your Store',
+          role,
+          to: email,
+          toName: name,
+          token: invitationToken,
+        });
+
+        void sendEmail(inviteEmail).catch((error) => {
+          console.error('Staff invitation email error:', error);
+        });
+
         return NextResponse.json({
           staff: reactivated,
+          inviteUrl,
           invitationToken,
           message: 'Staff member re-invited successfully',
         });
@@ -228,7 +237,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate invitation token
-    const invitationToken = crypto.randomBytes(32).toString('hex');
+    const invitationToken = crypto.randomUUID();
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiry
 
@@ -237,7 +246,7 @@ export async function POST(request: NextRequest) {
       .from('staff_members')
       .insert({
         merchant_id: merchantId,
-        email: email.toLowerCase(),
+        email,
         name,
         role,
         invitation_token: invitationToken,
@@ -254,49 +263,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Build invitation URL
-    const inviteUrl = `${getAppUrl()}/invite/${invitationToken}`;
+    const { inviteUrl, email: inviteEmail } = buildStaffInviteEmail({
+      businessName: businessName || 'Your Store',
+      role,
+      to: email,
+      toName: name,
+      token: invitationToken,
+    });
 
     // Send invitation email (fire and forget)
-    sendEmail({
-      to: email.toLowerCase(),
-      toName: name,
-      subject: `You've been invited to join ${businessName}`,
-      htmlContent: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #6366f1; margin: 0;">You're Invited!</h1>
-          </div>
-          <p>Hi ${name},</p>
-          <p>You've been invited to join <strong>${businessName}</strong> as a <strong>${role.replace('_', ' ')}</strong>.</p>
-          <p>Click the button below to accept your invitation and set up your account:</p>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${inviteUrl}" style="display: inline-block; background: #6366f1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 500;">Accept Invitation</a>
-          </div>
-          <p style="font-size: 12px; color: #666;">
-            This invitation will expire in 7 days. If you didn't expect this invitation, you can safely ignore this email.
-          </p>
-          <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-          <p style="font-size: 12px; color: #666; text-align: center;">
-            This invitation was sent by ${businessName} via Baci.
-          </p>
-        </body>
-        </html>
-      `,
-      textContent: `Hi ${name},\n\nYou've been invited to join ${businessName} as a ${role.replace('_', ' ')}.\n\nClick the link below to accept your invitation:\n${inviteUrl}\n\nThis invitation will expire in 7 days.\n\nIf you didn't expect this invitation, you can safely ignore this email.`,
-      emailType: 'team',
-    }).catch((err) => console.error('Staff invitation email error:', err));
+    void sendEmail(inviteEmail).catch((error) => {
+      console.error('Staff invitation email error:', error);
+    });
 
     return NextResponse.json(
       {
         staff: newStaff,
         inviteUrl,
+        invitationToken,
         message: 'Staff member invited successfully',
       },
       { status: 201 }
