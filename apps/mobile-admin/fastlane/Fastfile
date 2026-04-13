@@ -27,6 +27,16 @@ platform :ios do
       api_key: api_key
     )
 
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: "ios/#{SCHEME}.xcodeproj",
+      team_id: "6QLNK7TXM3",
+      code_sign_identity: "Apple Distribution",
+      targets: [SCHEME],
+      profile_name: "match AppStore #{BUNDLE_ID}",
+      bundle_identifier: BUNDLE_ID
+    )
+
     build_app(
       workspace: WORKSPACE,
       scheme: SCHEME,
@@ -36,7 +46,6 @@ platform :ios do
       output_name: "#{SCHEME}.ipa",
       clean: true,
       silent: false,
-      xcargs: "DEVELOPMENT_TEAM=6QLNK7TXM3 CODE_SIGN_STYLE=Manual",
       export_options: {
         method: "app-store",
         signingStyle: "manual",
