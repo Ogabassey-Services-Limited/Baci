@@ -169,9 +169,7 @@ describe('formatMerchantSettingsErrors', () => {
     // Construct a ZodError manually with a nested path
     const zodError = new ZodError([
       {
-        code: 'invalid_type',
-        expected: 'string',
-        received: 'number',
+        code: 'custom',
         path: ['social_media', 'twitter'],
         message: 'Expected string, received number',
       },
@@ -185,18 +183,12 @@ describe('formatMerchantSettingsErrors', () => {
   it('collects multiple errors for the same path', () => {
     const zodError = new ZodError([
       {
-        code: 'too_small',
-        minimum: 1,
-        type: 'string',
-        inclusive: true,
-        exact: false,
+        code: 'custom',
         path: ['legal_entity_name'],
         message: 'Too short',
       },
       {
-        code: 'invalid_type',
-        expected: 'string',
-        received: 'undefined',
+        code: 'custom',
         path: ['legal_entity_name'],
         message: 'Required',
       },

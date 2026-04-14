@@ -4,16 +4,16 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs, router } from 'expo-router';
+import { router, Tabs } from 'expo-router';
 import type React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useShallow } from 'zustand/react/shallow';
 import { ErrorFallback } from '@/components/ErrorBoundary';
 import { BRAND } from '@/constants/Colors';
+import { useAuthStore } from '@/stores/auth-store';
 import { useCartStore } from '@/stores/cart-store';
 import { useSavedStore } from '@/stores/saved-store';
-import { useAuthStore } from '@/stores/auth-store';
-import { useShallow } from 'zustand/react/shallow';
 
 export function ErrorBoundary({
   error,
@@ -80,18 +80,9 @@ export default function TabLayout() {
   });
 
   return (
-    <View
-      style={[
-        styles.navigatorShell,
-        {
-          marginTop: -insets.top,
-          marginBottom: -insets.bottom,
-        },
-      ]}
-    >
-      <Tabs
-        initialRouteName="index"
-        screenOptions={{
+    <Tabs
+      initialRouteName="index"
+      screenOptions={{
         tabBarActiveTintColor: '#FFFFFF',
         tabBarInactiveTintColor: '#9CA3AF',
         headerShown: false,
@@ -121,9 +112,9 @@ export default function TabLayout() {
         lazy: true,
         tabBarHideOnKeyboard: true,
         tabBarShowLabel: true, // Needed for our custom label component
-        }}
-      >
-        <Tabs.Screen
+      }}
+    >
+      <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
@@ -138,7 +129,7 @@ export default function TabLayout() {
             focused ? <Text style={styles.tabLabel}>Home</Text> : null,
         }}
       />
-        <Tabs.Screen
+      <Tabs.Screen
         name="saved"
         options={{
           title: 'Saved',
@@ -154,7 +145,7 @@ export default function TabLayout() {
             focused ? <Text style={styles.tabLabel}>Saved</Text> : null,
         }}
       />
-        <Tabs.Screen
+      <Tabs.Screen
         name="cart"
         options={{
           title: 'Cart',
@@ -169,7 +160,7 @@ export default function TabLayout() {
             focused ? <Text style={styles.tabLabel}>Cart</Text> : null,
         }}
       />
-        <Tabs.Screen
+      <Tabs.Screen
         name="wallet"
         options={{
           title: 'Wallet',
@@ -185,7 +176,7 @@ export default function TabLayout() {
         }}
         listeners={createAuthListener('wallet')}
       />
-        <Tabs.Screen
+      <Tabs.Screen
         name="account"
         options={{
           title: 'Account',
@@ -202,22 +193,18 @@ export default function TabLayout() {
         listeners={createAuthListener('account')}
       />
       {/* Categories hidden from tab bar but reachable via route */}
-        <Tabs.Screen
+      <Tabs.Screen
         name="categories"
         options={{
           href: null,
           title: 'Explore',
         }}
-        />
-      </Tabs>
-    </View>
+      />
+    </Tabs>
   );
 }
 
 const styles = StyleSheet.create({
-  navigatorShell: {
-    flex: 1,
-  },
   iconContainer: {
     height: 32,
     alignItems: 'center',
