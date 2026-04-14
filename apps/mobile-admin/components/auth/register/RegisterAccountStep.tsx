@@ -135,7 +135,10 @@ export function RegisterAccountStep({
         ) : null}
       </View>
 
-      <Pressable style={styles.button} onPress={onNext}>
+      <Pressable
+        style={({ pressed }) => [styles.button, pressed && { opacity: 0.7 }]}
+        onPress={onNext}
+      >
         <Text style={styles.buttonText}>Next Step</Text>
         <Ionicons name="arrow-forward" size={20} color="#FFF" />
       </Pressable>

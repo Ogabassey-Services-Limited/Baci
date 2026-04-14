@@ -100,7 +100,11 @@ export function RegisterBusinessStep({
       ) : null}
 
       <Pressable
-        style={[styles.button, isLoading && { opacity: 0.7 }]}
+        style={({ pressed }) => [
+          styles.button,
+          isLoading && { opacity: 0.7 },
+          pressed && !isLoading && { opacity: 0.7 }
+        ]}
         onPress={onLaunchStore}
         disabled={isLoading}
       >
