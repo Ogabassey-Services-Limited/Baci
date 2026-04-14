@@ -56,7 +56,7 @@ describe('sanitize', () => {
     expect(output).toBe('TGW &lt;Store&gt; &amp; "quotes"');
   });
 
-  it('escapes single quotes in plain text content', () => {
+  it('preserves single quotes and escapes angle brackets in plain text content', () => {
     const output = escapeHtmlText("Baci's <Store>");
 
     expect(output).toBe("Baci's &lt;Store&gt;");

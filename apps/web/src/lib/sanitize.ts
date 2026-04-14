@@ -165,9 +165,12 @@ export function sanitizeHtml(
 }
 
 /**
- * Escapes plain text for safe HTML interpolation without preserving markup.
+ * Escapes plain text for HTML text-node interpolation without preserving markup.
  *
- * Use this when a value should remain text-only inside HTML emails or templates.
+ * Use this only for plain text inserted inside element bodies in HTML emails or
+ * templates. Quotes are intentionally preserved, so this helper is not safe for
+ * HTML attribute interpolation; use an attribute-specific escaper or a proper
+ * templating/serialization layer when writing attribute values instead.
  */
 export function escapeHtmlText(value: string): string {
   if (!value) return '';

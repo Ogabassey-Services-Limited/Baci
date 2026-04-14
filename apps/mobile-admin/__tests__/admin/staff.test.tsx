@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { StaffMember } from '@/lib/types/staff';
@@ -25,10 +25,14 @@ const mocks = vi.hoisted(() => ({
   share: vi.fn(),
   staffQuery: {
     data: [] as StaffMember[] | undefined,
+    error: null as Error | null,
+    isError: false,
     isLoading: false,
     isRefetching: false,
   },
   statsQuery: {
+    error: null as Error | null,
+    isError: false,
     stats: {
       active: 0,
       pending: 0,
@@ -44,13 +48,19 @@ const mocks = vi.hoisted(() => ({
 function setStaffState(
   staff: StaffMember[] | undefined,
   options: {
+    error?: Error | null;
     isLoading?: boolean;
     isRefetching?: boolean;
+    statsError?: Error | null;
   } = {}
 ) {
   mocks.staffQuery.data = staff;
+  mocks.staffQuery.error = options.error ?? null;
+  mocks.staffQuery.isError = Boolean(options.error);
   mocks.staffQuery.isLoading = options.isLoading ?? false;
   mocks.staffQuery.isRefetching = options.isRefetching ?? false;
+  mocks.statsQuery.error = options.statsError ?? null;
+  mocks.statsQuery.isError = Boolean(options.statsError);
   mocks.statsQuery.stats = {
     active: staff?.filter((member) => member.status === 'active').length ?? 0,
     pending: staff?.filter((member) => member.status === 'pending').length ?? 0,
@@ -120,6 +130,8 @@ vi.mock('@/hooks/useStaff', () => ({
   useResendInvitation: () => mocks.resendInvitation,
   useStaff: () => ({
     data: mocks.staffQuery.data,
+    error: mocks.staffQuery.error,
+    isError: mocks.staffQuery.isError,
     isLoading: mocks.staffQuery.isLoading,
     isRefetching: mocks.staffQuery.isRefetching,
     refetch: mocks.refetch,
@@ -353,5 +365,79 @@ describe('StaffScreen', () => {
     expect(
       screen.getByRole('button', { name: 'Send invitation' })
     ).toBeDisabled();
+  });
+
+  it('renders a retryable error state instead of the empty state', () => {
+    setStaffState([], { error: new Error('Staff query failed') });
+
+    render(<StaffScreen />);
+
+    expect(
+      screen.getByText('Unable to load team members.')
+    ).toBeInTheDocument();
+    expect(screen.getByText('Staff query failed')).toBeInTheDocument();
+    expect(screen.queryByText('No team members yet')).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Retry loading team members' })
+    );
+
+    expect(mocks.refetch).toHaveBeenCalled();
+  });
+
+  it('shows a pending state for invite submission and prevents duplicate sends', () => {
+    setStaffState([], { isLoading: false });
+    mocks.inviteStaff.isPending = true;
+
+    render(<StaffScreen />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Invite team member' }));
+    fireEvent.change(screen.getByLabelText('Invite email'), {
+      target: { value: 'staff@example.com' },
+    });
+
+    const sendButton = screen.getByRole('button', { name: 'Send invitation' });
+    expect(sendButton).toBeDisabled();
+    expect(screen.getByText('loading')).toBeInTheDocument();
+
+    fireEvent.click(sendButton);
+    expect(mocks.inviteStaff.mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('returns the invite button from pending to enabled when invite submission fails', async () => {
+    setStaffState([], { isLoading: false });
+    let rejectInvite: ((reason?: unknown) => void) | undefined;
+    mocks.inviteStaff.mutateAsync.mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          rejectInvite = reject;
+        })
+    );
+
+    const { rerender } = render(<StaffScreen />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Invite team member' }));
+    fireEvent.change(screen.getByLabelText('Invite email'), {
+      target: { value: 'staff@example.com' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Send invitation' }));
+
+    mocks.inviteStaff.isPending = true;
+    rerender(<StaffScreen />);
+
+    let sendButton = screen.getByRole('button', { name: 'Send invitation' });
+    expect(sendButton).toBeDisabled();
+
+    rejectInvite?.(new Error('Invite failed'));
+    mocks.inviteStaff.isPending = false;
+    rerender(<StaffScreen />);
+
+    await waitFor(() => {
+      expect(mocks.alert).toHaveBeenCalledWith('Error', 'Invite failed');
+    });
+
+    sendButton = screen.getByRole('button', { name: 'Send invitation' });
+    expect(sendButton).not.toBeDisabled();
   });
 });

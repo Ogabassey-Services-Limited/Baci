@@ -176,20 +176,31 @@ export default function StoreSettingsScreen() {
     );
   }
 
+  // Platform-specific billing copy is required so the CTA matches the native
+  // subscription surface users are sent to on each store.
   const manageSubscriptionLabel =
     Platform.OS === 'ios' ? 'Manage in App Store' : 'Manage in Google Play';
 
+  const showSubscriptionManagementError = () => {
+    setStatusModal({
+      visible: true,
+      type: 'error',
+      title: 'Unable to Open',
+      message: 'Could not open subscription management. Please try again.',
+    });
+  };
+
   const handleManageSubscription = async () => {
     try {
-      await SubscriptionManagement.openNativeManagement();
+      const opened = await SubscriptionManagement.openNativeManagement();
+
+      if (!opened) {
+        console.error('Subscription management returned false');
+        showSubscriptionManagementError();
+      }
     } catch (error) {
       console.error('Failed to open subscription management:', error);
-      setStatusModal({
-        visible: true,
-        type: 'error',
-        title: 'Unable to Open',
-        message: 'Could not open subscription management. Please try again.',
-      });
+      showSubscriptionManagementError();
     }
   };
 

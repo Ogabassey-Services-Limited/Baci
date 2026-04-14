@@ -6,27 +6,23 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { Stack, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
-  Animated,
-  Modal,
   Pressable,
   RefreshControl,
-  ScrollView,
   Share,
   StyleSheet,
-  Text,
-  TextInput,
-  View,
 } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { KeyboardAwareModalContainer } from '@/components/ui/KeyboardAwareModalContainer';
-import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { StaffInviteSheet } from '@/components/staff/StaffInviteSheet';
+import { StaffListPlaceholder } from '@/components/staff/StaffListPlaceholder';
+import { StaffMemberCard } from '@/components/staff/StaffMemberCard';
+import { StaffRoleModal } from '@/components/staff/StaffRoleModal';
+import { StaffSummaryCards } from '@/components/staff/StaffSummaryCards';
+import { RADIUS, SPACING } from '@/constants/theme';
 import {
-  useInviteStaff,
   useRemoveStaff,
   useResendInvitation,
   useStaff,
@@ -34,111 +30,39 @@ import {
   useUpdateStaff,
 } from '@/hooks/useStaff';
 import { useTheme } from '@/hooks/useTheme';
-import {
-  ROLE_DESCRIPTIONS,
-  ROLE_LABELS,
-  type StaffMember,
-  type StaffRole,
-  VALID_ROLES,
-} from '@/lib/types/staff';
+import type { StaffMember, StaffRole } from '@/lib/types/staff';
 
-const BADGE_GAP = 4;
-const BADGE_HORIZONTAL_PADDING = 6;
-const BADGE_VERTICAL_PADDING = 2;
-const EMPTY_EMAIL_LABEL = 'Email unavailable';
-const TOGGLE_KNOB_TRAVEL = 20;
+function getDisplayIdentity(member: StaffMember) {
+  return member.name?.trim() || member.email?.trim() || 'Unknown User';
+}
 
 export default function StaffScreen() {
-  const { colors, shadows, isDark } = useTheme();
+  const { colors, isDark } = useTheme();
   const router = useRouter();
-
-  const { data: staff, isLoading, isRefetching, refetch } = useStaff();
-  const { stats } = useStaffStats();
-
-  const inviteStaff = useInviteStaff();
+  const {
+    data: staff,
+    error: staffError,
+    isError: isStaffError,
+    isLoading,
+    isRefetching,
+    refetch,
+  } = useStaff();
+  const { error: statsError, isError: isStatsError, stats } = useStaffStats();
   const updateStaff = useUpdateStaff();
   const removeStaff = useRemoveStaff();
   const resendInvitation = useResendInvitation();
-
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
   const [roleModalVisible, setRoleModalVisible] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null);
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteName, setInviteName] = useState('');
   const [selectedRole, setSelectedRole] = useState<StaffRole>('sales_rep');
-  const [autoCreateAccount, setAutoCreateAccount] = useState(true);
-  const toggleTranslateX = useRef(
-    new Animated.Value(autoCreateAccount ? TOGGLE_KNOB_TRAVEL : 0)
-  ).current;
-  const isInviteDisabled =
-    inviteStaff.isPending || inviteEmail.trim().length === 0;
 
-  useEffect(() => {
-    Animated.spring(toggleTranslateX, {
-      damping: 16,
-      mass: 0.9,
-      stiffness: 220,
-      toValue: autoCreateAccount ? TOGGLE_KNOB_TRAVEL : 0,
-      useNativeDriver: true,
-    }).start();
-  }, [autoCreateAccount, toggleTranslateX]);
-
-  const handleInvite = async () => {
-    if (!inviteEmail.trim()) {
-      Alert.alert('Error', 'Please enter an email address');
-      return;
-    }
-
-    try {
-      const result = await inviteStaff.mutateAsync({
-        email: inviteEmail.trim(),
-        name: inviteName.trim() || undefined,
-        role: selectedRole,
-        autoCreateAccount,
-      });
-
-      setInviteModalVisible(false);
-      setInviteEmail('');
-      setInviteName('');
-      setSelectedRole('sales_rep');
-      setAutoCreateAccount(true);
-
-      const emailDeliveryFailed = result?.emailDelivery?.status === 'failed';
-
-      if (result?.inviteUrl) {
-        Alert.alert(
-          emailDeliveryFailed ? 'Invite Link Ready' : 'Invitation Sent',
-          emailDeliveryFailed
-            ? `We couldn't deliver the invite email to ${inviteEmail}. Share the link directly to finish setup.`
-            : `The invite email was sent to ${inviteEmail}. Share the link directly if they don't receive it.`,
-          [
-            { text: 'Done', style: 'cancel' },
-            {
-              text: 'Share Link',
-              onPress: () => {
-                Share.share({
-                  message: `You've been invited to join the team! Accept here: ${result.inviteUrl}`,
-                  url: result.inviteUrl, // iOS only
-                });
-              },
-            },
-          ]
-        );
-      } else {
-        Alert.alert(
-          emailDeliveryFailed ? 'Invite Created' : 'Success',
-          emailDeliveryFailed
-            ? 'The invitation was created, but the email could not be delivered.'
-            : 'Invitation sent successfully'
-        );
-      }
-    } catch (error) {
-      Alert.alert(
-        'Error',
-        error instanceof Error ? error.message : 'Failed to send invitation'
-      );
-    }
-  };
+  const loadError = isStaffError
+    ? staffError
+    : isStatsError
+      ? statsError
+      : null;
+  const loadErrorMessage =
+    loadError instanceof Error ? loadError.message : undefined;
 
   const handleChangeRole = async (staffId: string, newRole: StaffRole) => {
     try {
@@ -155,12 +79,13 @@ export default function StaffScreen() {
   };
 
   const handleSuspend = (member: StaffMember) => {
+    const displayIdentity = getDisplayIdentity(member);
     const newStatus = member.status === 'suspended' ? 'active' : 'suspended';
     const action = newStatus === 'suspended' ? 'suspend' : 'reactivate';
 
     Alert.alert(
       `${action.charAt(0).toUpperCase() + action.slice(1)} Member`,
-      `Are you sure you want to ${action} ${member.name || member.email}?`,
+      `Are you sure you want to ${action} ${displayIdentity}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -188,9 +113,11 @@ export default function StaffScreen() {
   };
 
   const handleRemove = (member: StaffMember) => {
+    const displayIdentity = getDisplayIdentity(member);
+
     Alert.alert(
       'Remove Team Member',
-      `Are you sure you want to remove ${member.name || member.email} from your team?`,
+      `Are you sure you want to remove ${displayIdentity} from your team?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -215,6 +142,8 @@ export default function StaffScreen() {
   };
 
   const handleResendInvitation = async (member: StaffMember) => {
+    const displayIdentity = getDisplayIdentity(member);
+
     try {
       const result = await resendInvitation.mutateAsync(member.id);
       const emailDeliveryFailed = result?.emailDelivery?.status === 'failed';
@@ -223,8 +152,8 @@ export default function StaffScreen() {
         Alert.alert(
           emailDeliveryFailed ? 'Invite Link Updated' : 'Invitation Resent',
           emailDeliveryFailed
-            ? `We couldn't deliver the invite email to ${member.email}. Share the link directly instead.`
-            : `A new invite email was sent to ${member.email}. Share the link directly if it doesn't arrive.`,
+            ? `We couldn't deliver the invite email to ${displayIdentity}. Share the link directly instead.`
+            : `A new invite email was sent to ${displayIdentity}. Share the link directly if it doesn't arrive.`,
           [
             { text: 'Done', style: 'cancel' },
             {
@@ -232,20 +161,21 @@ export default function StaffScreen() {
               onPress: () => {
                 Share.share({
                   message: `Here is your new invitation link: ${result.inviteUrl}`,
-                  url: result.inviteUrl, // iOS only
+                  url: result.inviteUrl,
                 });
               },
             },
           ]
         );
-      } else {
-        Alert.alert(
-          emailDeliveryFailed ? 'Invite Renewed' : 'Success',
-          emailDeliveryFailed
-            ? 'The invitation was renewed, but the email could not be delivered.'
-            : 'Invitation renewed'
-        );
+        return;
       }
+
+      Alert.alert(
+        emailDeliveryFailed ? 'Invite Renewed' : 'Success',
+        emailDeliveryFailed
+          ? 'The invitation was renewed, but the email could not be delivered.'
+          : 'Invitation renewed'
+      );
     } catch (error) {
       Alert.alert(
         'Error',
@@ -255,16 +185,19 @@ export default function StaffScreen() {
   };
 
   const showStaffActions = (member: StaffMember) => {
+    const displayIdentity = getDisplayIdentity(member);
     const actions: {
       text: string;
       onPress?: () => void;
-      style?: 'destructive' | 'cancel' | 'default';
+      style?: 'cancel' | 'default' | 'destructive';
     }[] = [];
 
     if (member.status === 'pending') {
       actions.push({
         text: 'Resend Invitation',
-        onPress: () => handleResendInvitation(member),
+        onPress: () => {
+          void handleResendInvitation(member);
+        },
       });
     }
 
@@ -295,118 +228,9 @@ export default function StaffScreen() {
       onPress: () => handleRemove(member),
       style: 'destructive',
     });
-
     actions.push({ text: 'Cancel', style: 'cancel' });
 
-    Alert.alert(
-      member.name || member.email || 'Unknown User',
-      undefined,
-      actions
-    );
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'active':
-        return {
-          bg: colors.successLight,
-          text: colors.success,
-          label: 'Active',
-          icon: 'checkmark-circle',
-        };
-      case 'pending':
-        return {
-          bg: colors.warningLight,
-          text: colors.warning,
-          label: 'Pending',
-          icon: 'time',
-        };
-      case 'suspended':
-        return {
-          bg: colors.errorLight,
-          text: colors.error,
-          label: 'Suspended',
-          icon: 'close-circle',
-        };
-      default:
-        return {
-          bg: colors.border,
-          text: colors.textMuted,
-          label: status,
-          icon: 'help-circle',
-        };
-    }
-  };
-
-  const renderStaffMember = ({ item }: { item: StaffMember }) => {
-    const statusBadge = getStatusBadge(item.status);
-    const emailPrefix = item.email?.trim()
-      ? item.email.split('@')[0]
-      : undefined;
-    const displayName = item.name?.trim() || emailPrefix || 'Unknown User';
-    const displayEmail = item.email?.trim() || EMPTY_EMAIL_LABEL;
-
-    return (
-      <Pressable
-        accessibilityLabel={`Team member ${displayName}`}
-        accessibilityRole="button"
-        style={({ pressed }) => [
-          styles.staffCard,
-          { backgroundColor: colors.card },
-          shadows.sm,
-          pressed && { backgroundColor: colors.cardHover },
-        ]}
-        onPress={() => showStaffActions(item)}
-      >
-        <View
-          style={[styles.avatar, { backgroundColor: `${colors.primary}20` }]}
-        >
-          <Text style={[styles.avatarText, { color: colors.primary }]}>
-            {displayName.charAt(0).toUpperCase()}
-          </Text>
-        </View>
-
-        <View style={styles.staffInfo}>
-          <Text style={[styles.staffName, { color: colors.text }]}>
-            {displayName}
-          </Text>
-          <Text
-            style={[
-              styles.staffEmail,
-              {
-                color: item.email?.trim()
-                  ? colors.textSecondary
-                  : colors.textMuted,
-              },
-            ]}
-          >
-            {displayEmail}
-          </Text>
-
-          <View style={styles.badgeRow}>
-            <View style={[styles.badge, { backgroundColor: colors.goldLight }]}>
-              <Ionicons name="shield-outline" size={10} color={colors.gold} />
-              <Text style={[styles.badgeText, { color: colors.gold }]}>
-                {ROLE_LABELS[item.role]}
-              </Text>
-            </View>
-
-            <View style={[styles.badge, { backgroundColor: statusBadge.bg }]}>
-              <Ionicons
-                name={statusBadge.icon as keyof typeof Ionicons.glyphMap}
-                size={10}
-                color={statusBadge.text}
-              />
-              <Text style={[styles.badgeText, { color: statusBadge.text }]}>
-                {statusBadge.label}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-      </Pressable>
-    );
+    Alert.alert(displayIdentity, undefined, actions);
   };
 
   return (
@@ -423,7 +247,7 @@ export default function StaffScreen() {
               accessibilityLabel="Back"
               accessibilityRole="button"
               onPress={() => router.back()}
-              style={{ marginRight: SPACING.md }}
+              style={styles.backButton}
             >
               <Ionicons name="arrow-back" size={24} color={colors.text} />
             </Pressable>
@@ -451,62 +275,20 @@ export default function StaffScreen() {
       >
         <SystemBars style={isDark ? 'light' : 'dark'} />
 
-        {/* Stats Summary */}
-        <View style={styles.summaryRow}>
-          <View
-            style={[
-              styles.summaryCard,
-              { backgroundColor: colors.card },
-              shadows.sm,
-            ]}
-          >
-            <Text style={[styles.summaryValue, { color: colors.text }]}>
-              {stats.total}
-            </Text>
-            <Text
-              style={[styles.summaryLabel, { color: colors.textSecondary }]}
-            >
-              Total
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.summaryCard,
-              { backgroundColor: colors.card },
-              shadows.sm,
-            ]}
-          >
-            <Text style={[styles.summaryValue, { color: colors.success }]}>
-              {stats.active}
-            </Text>
-            <Text
-              style={[styles.summaryLabel, { color: colors.textSecondary }]}
-            >
-              Active
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.summaryCard,
-              { backgroundColor: colors.card },
-              shadows.sm,
-            ]}
-          >
-            <Text style={[styles.summaryValue, { color: colors.warning }]}>
-              {stats.pending}
-            </Text>
-            <Text
-              style={[styles.summaryLabel, { color: colors.textSecondary }]}
-            >
-              Pending
-            </Text>
-          </View>
-        </View>
+        <StaffSummaryCards
+          active={stats?.active ?? 0}
+          pending={stats?.pending ?? 0}
+          total={stats?.total ?? 0}
+        />
 
-        {/* Staff List */}
         <FlashList
           data={staff}
-          renderItem={renderStaffMember}
+          renderItem={({ item }) => (
+            <StaffMemberCard
+              member={item}
+              onPress={() => showStaffActions(item)}
+            />
+          )}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           refreshControl={
@@ -518,318 +300,46 @@ export default function StaffScreen() {
             />
           }
           ListEmptyComponent={
-            isLoading ? (
-              <View
-                accessibilityRole="progressbar"
-                style={styles.emptyContainer}
-              >
-                <Ionicons
-                  name="reload-outline"
-                  size={40}
-                  color={colors.textMuted}
-                />
-                <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                  Loading team members...
-                </Text>
-                <Text
-                  style={[styles.emptyText, { color: colors.textSecondary }]}
-                >
-                  Checking your current staff list
-                </Text>
-              </View>
-            ) : (
-              <View style={styles.emptyContainer}>
-                <Ionicons
-                  name="people-outline"
-                  size={56}
-                  color={colors.textMuted}
-                />
-                <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                  No team members yet
-                </Text>
-                <Text
-                  style={[styles.emptyText, { color: colors.textSecondary }]}
-                >
-                  Invite staff to help manage your store
-                </Text>
-                <Pressable
-                  accessibilityLabel="Invite team member"
-                  accessibilityRole="button"
-                  style={[
-                    styles.emptyButton,
-                    { backgroundColor: colors.primary },
-                  ]}
-                  onPress={() => setInviteModalVisible(true)}
-                >
-                  <Ionicons
-                    name="person-add"
-                    size={18}
-                    color={colors.textOnPrimary}
-                  />
-                  <Text
-                    style={[
-                      styles.emptyButtonText,
-                      { color: colors.textOnPrimary },
-                    ]}
-                  >
-                    Invite Team Member
-                  </Text>
-                </Pressable>
-              </View>
-            )
+            <StaffListPlaceholder
+              mode={isLoading ? 'loading' : loadError ? 'error' : 'empty'}
+              message={loadErrorMessage}
+              onInvite={() => setInviteModalVisible(true)}
+              onRetry={() => {
+                void refetch();
+              }}
+            />
           }
           showsVerticalScrollIndicator={false}
         />
 
-        {/* Invite Modal */}
-        <Modal visible={inviteModalVisible} animationType="slide" transparent>
-          <View style={styles.modalOverlay}>
-            <Pressable
-              style={styles.modalBackdrop}
-              onPress={() => setInviteModalVisible(false)}
-            />
-            <KeyboardAwareModalContainer
-              align="end"
-              contentContainerStyle={styles.modalKeyboardContent}
-            >
-              <View
-                style={[styles.modalContent, { backgroundColor: colors.card }]}
-              >
-                <View style={styles.modalHeader}>
-                  <Text style={[styles.modalTitle, { color: colors.text }]}>
-                    Invite Team Member
-                  </Text>
-                  <Pressable
-                    accessibilityLabel="Close invite team member sheet"
-                    accessibilityRole="button"
-                    onPress={() => setInviteModalVisible(false)}
-                  >
-                    <Ionicons name="close" size={24} color={colors.textMuted} />
-                  </Pressable>
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text
-                    style={[styles.inputLabel, { color: colors.textSecondary }]}
-                  >
-                    Email *
-                  </Text>
-                  <TextInput
-                    accessibilityLabel="Invite email"
-                    style={[
-                      styles.input,
-                      {
-                        backgroundColor: colors.background,
-                        color: colors.text,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                    placeholder="staff@example.com"
-                    placeholderTextColor={colors.textMuted}
-                    keyboardType="email-address"
-                    autoComplete="email"
-                    autoCorrect={false}
-                    autoCapitalize="none"
-                    importantForAutofill="yes"
-                    textContentType="emailAddress"
-                    value={inviteEmail}
-                    onChangeText={setInviteEmail}
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text
-                    style={[styles.inputLabel, { color: colors.textSecondary }]}
-                  >
-                    Name (optional)
-                  </Text>
-                  <TextInput
-                    accessibilityLabel="Invite name"
-                    style={[
-                      styles.input,
-                      {
-                        backgroundColor: colors.background,
-                        color: colors.text,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                    placeholder="John Doe"
-                    placeholderTextColor={colors.textMuted}
-                    autoComplete="name"
-                    autoCapitalize="words"
-                    importantForAutofill="yes"
-                    textContentType="name"
-                    value={inviteName}
-                    onChangeText={setInviteName}
-                  />
-                </View>
-
-                <Pressable
-                  style={styles.toggleRow}
-                  onPress={() => setAutoCreateAccount(!autoCreateAccount)}
-                  accessibilityRole="togglebutton"
-                  accessibilityState={{ checked: autoCreateAccount }}
-                  accessibilityLabel="Generate staff account"
-                  accessibilityHint="Automatically create a NUBAN for this staff member"
-                >
-                  <View style={styles.toggleInfo}>
-                    <Text style={[styles.toggleLabel, { color: colors.text }]}>
-                      Generate Staff Account
-                    </Text>
-                    <Text
-                      style={[
-                        styles.toggleDesc,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      Automatically create a NUBAN for this staff member
-                    </Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.toggleSwitch,
-                      {
-                        backgroundColor: autoCreateAccount
-                          ? colors.success
-                          : colors.border,
-                      },
-                    ]}
-                  >
-                    <Animated.View
-                      style={[
-                        styles.toggleKnob,
-                        {
-                          backgroundColor: colors.textOnPrimary,
-                          transform: [{ translateX: toggleTranslateX }],
-                        },
-                      ]}
-                    />
-                  </View>
-                </Pressable>
-
-                <Pressable
-                  style={[
-                    styles.inviteButton,
-                    { backgroundColor: colors.primary },
-                    isInviteDisabled && styles.inviteButtonDisabled,
-                  ]}
-                  onPress={handleInvite}
-                  accessibilityLabel="Send invitation"
-                  accessibilityRole="button"
-                  accessibilityState={{ disabled: isInviteDisabled }}
-                  disabled={isInviteDisabled}
-                >
-                  {inviteStaff.isPending ? (
-                    <ActivityIndicator
-                      color={colors.textOnPrimary}
-                      size="small"
-                    />
-                  ) : (
-                    <>
-                      <Ionicons
-                        name="mail"
-                        size={18}
-                        color={colors.textOnPrimary}
-                      />
-                      <Text
-                        style={[
-                          styles.inviteButtonText,
-                          { color: colors.textOnPrimary },
-                        ]}
-                      >
-                        Send Invitation
-                      </Text>
-                    </>
-                  )}
-                </Pressable>
-              </View>
-            </KeyboardAwareModalContainer>
-          </View>
-        </Modal>
-
-        {/* Role Change Modal */}
-        <Modal visible={roleModalVisible} animationType="slide" transparent>
-          <View style={styles.modalOverlay}>
-            <View
-              style={[styles.modalContent, { backgroundColor: colors.card }]}
-            >
-              <View style={styles.modalHeader}>
-                <Text style={[styles.modalTitle, { color: colors.text }]}>
-                  Change Role
-                </Text>
-                <Pressable onPress={() => setRoleModalVisible(false)}>
-                  <Ionicons name="close" size={24} color={colors.textMuted} />
-                </Pressable>
-              </View>
-
-              <ScrollView style={styles.roleList}>
-                {VALID_ROLES.map((role) => (
-                  <Pressable
-                    key={role}
-                    style={[
-                      styles.roleListItem,
-                      selectedRole === role && {
-                        backgroundColor: `${colors.primary}10`,
-                      },
-                    ]}
-                    onPress={() => setSelectedRole(role)}
-                  >
-                    <View>
-                      <Text
-                        style={[styles.roleListLabel, { color: colors.text }]}
-                      >
-                        {ROLE_LABELS[role]}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.roleListDesc,
-                          { color: colors.textMuted },
-                        ]}
-                      >
-                        {ROLE_DESCRIPTIONS[role]}
-                      </Text>
-                    </View>
-                    {selectedRole === role && (
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={22}
-                        color={colors.primary}
-                      />
-                    )}
-                  </Pressable>
-                ))}
-              </ScrollView>
-
-              <Pressable
-                style={[
-                  styles.inviteButton,
-                  { backgroundColor: colors.primary },
-                ]}
-                onPress={() =>
-                  selectedStaff &&
-                  handleChangeRole(selectedStaff.id, selectedRole)
-                }
-                disabled={updateStaff.isPending}
-              >
-                <Text
-                  style={[
-                    styles.inviteButtonText,
-                    { color: colors.textOnPrimary },
-                  ]}
-                >
-                  {updateStaff.isPending ? 'Updating...' : 'Update Role'}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        </Modal>
+        <StaffInviteSheet
+          visible={inviteModalVisible}
+          onClose={() => setInviteModalVisible(false)}
+        />
+        <StaffRoleModal
+          visible={roleModalVisible}
+          selectedRole={selectedRole}
+          onSelectRole={setSelectedRole}
+          isPending={updateStaff.isPending}
+          onClose={() => setRoleModalVisible(false)}
+          onSubmit={() => {
+            if (selectedStaff) {
+              void handleChangeRole(selectedStaff.id, selectedRole);
+            }
+          }}
+        />
       </SafeAreaView>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: {
+    flex: 1,
+  },
+  backButton: {
+    marginRight: SPACING.md,
+  },
   headerButton: {
     width: 36,
     height: 36,
@@ -837,225 +347,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  summaryRow: {
-    flexDirection: 'row',
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
-    gap: SPACING.sm,
-  },
-  summaryCard: {
-    flex: 1,
-    borderRadius: RADIUS.lg,
-    padding: SPACING.md,
-    alignItems: 'center',
-  },
-  summaryValue: {
-    fontSize: TYPOGRAPHY.size.lg,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-  },
-  summaryLabel: {
-    fontSize: TYPOGRAPHY.size.xs,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    marginTop: 2,
-  },
   listContent: {
     padding: SPACING.lg,
     paddingTop: 0,
     gap: SPACING.md,
-  },
-  staffCard: {
-    borderRadius: RADIUS.lg,
-    padding: SPACING.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: RADIUS.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: SPACING.md,
-  },
-  avatarText: {
-    fontSize: TYPOGRAPHY.size.lg,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-  },
-  staffInfo: { flex: 1 },
-  staffName: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-  },
-  staffEmail: {
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    marginBottom: 6,
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    gap: SPACING.xs,
-    flexWrap: 'wrap',
-  },
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: BADGE_HORIZONTAL_PADDING,
-    paddingVertical: BADGE_VERTICAL_PADDING,
-    borderRadius: RADIUS.sm,
-    gap: BADGE_GAP,
-  },
-  badgeText: {
-    fontSize: 10,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    paddingVertical: 60,
-    gap: SPACING.sm,
-  },
-  emptyTitle: {
-    fontSize: TYPOGRAPHY.size.lg,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-    marginTop: SPACING.md,
-  },
-  emptyText: {
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    textAlign: 'center',
-  },
-  emptyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
-    borderRadius: RADIUS.lg,
-    gap: SPACING.sm,
-    marginTop: SPACING.md,
-  },
-  emptyButtonText: {
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-    fontSize: TYPOGRAPHY.size.md,
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  modalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  modalKeyboardContent: {
-    flexGrow: 1,
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    borderTopLeftRadius: RADIUS.xl,
-    borderTopRightRadius: RADIUS.xl,
-    padding: SPACING.lg,
-    paddingBottom: SPACING['3xl'],
-    maxHeight: '80%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.lg,
-  },
-  modalTitle: {
-    fontSize: TYPOGRAPHY.size.xl,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-  },
-  inputGroup: { marginBottom: SPACING.lg },
-  inputLabel: {
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    marginBottom: SPACING.xs,
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: RADIUS.md,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-  },
-  roleScroll: { marginBottom: SPACING.xs },
-  roleOption: {
-    borderWidth: 1,
-    borderRadius: RADIUS.md,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    marginRight: SPACING.sm,
-  },
-  roleOptionText: {
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-  },
-  roleDescription: {
-    fontSize: TYPOGRAPHY.size.xs,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    marginTop: SPACING.xs,
-  },
-  inviteButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: SPACING.md,
-    borderRadius: RADIUS.lg,
-    gap: SPACING.sm,
-    marginTop: SPACING.md,
-  },
-  inviteButtonDisabled: {
-    opacity: 0.5,
-  },
-  inviteButtonText: {
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-    fontSize: TYPOGRAPHY.size.md,
-  },
-  roleList: { maxHeight: 300 },
-  roleListItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.sm,
-    borderRadius: RADIUS.md,
-  },
-  roleListLabel: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-  },
-  roleListDesc: {
-    fontSize: TYPOGRAPHY.size.xs,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    marginTop: 2,
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: SPACING.md,
-    marginTop: SPACING.sm,
-  },
-  toggleInfo: { flex: 1, marginRight: SPACING.md },
-  toggleLabel: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-  },
-  toggleDesc: {
-    fontSize: TYPOGRAPHY.size.xs,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    marginTop: 2,
-  },
-  toggleSwitch: {
-    width: 44,
-    height: 24,
-    borderRadius: 12,
-    padding: 2,
-  },
-  toggleKnob: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
   },
 });
