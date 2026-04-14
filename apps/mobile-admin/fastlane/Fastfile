@@ -5,6 +5,16 @@ SCHEME = "BaciTheEcommerceBuilder"
 BUNDLE_ID = "com.ogabassey.baci"
 OUTPUT_DIR = File.expand_path("../build", __dir__)
 
+def ensure_required_env!(keys)
+  missing = keys.select { |key| ENV[key].to_s.strip.empty? }
+  return if missing.empty?
+
+  UI.user_error!(
+    "Missing required build environment variables: #{missing.join(', ')}. " \
+    "These values must be present during xcodebuild so Expo can embed the release JS bundle correctly."
+  )
+end
+
 def asc_api_key
   app_store_connect_api_key(
     key_id: ENV.fetch("ASC_API_KEY_ID"),
@@ -23,6 +33,10 @@ platform :ios do
   desc "Build signed IPA and upload to TestFlight (no review submission)"
   lane :release do
     api_key = asc_api_key
+    ensure_required_env!(%w[
+      EXPO_PUBLIC_SUPABASE_URL
+      EXPO_PUBLIC_SUPABASE_ANON_KEY
+    ])
 
     match(
       type: "appstore",
