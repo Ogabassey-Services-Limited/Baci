@@ -182,7 +182,7 @@ describe('GET /api/wallet/transactions', () => {
     const json = await response.json();
 
     expect(response.status).toBe(400);
-    expect(json.error).toBe('Number must be greater than or equal to 1');
+    expect(json.error).toMatch(/>=1|greater than or equal to 1/);
     expect(getMerchantForApiRequest).not.toHaveBeenCalled();
   });
 

@@ -368,7 +368,7 @@ describe('Order API Security', () => {
       body: JSON.stringify({
         ...validOrderPayload,
         shipping_provider: 'GIGL',
-        selected_quote_id: '11111111-1111-1111-1111-111111111111',
+        selected_quote_id: '11111111-1111-4111-8111-111111111111',
       }),
     });
 
@@ -379,7 +379,7 @@ describe('Order API Security', () => {
     expect(mockSupabase.rpc).toHaveBeenCalledWith(
       'create_storefront_order',
       expect.objectContaining({
-        p_selected_quote_id: '11111111-1111-1111-1111-111111111111',
+        p_selected_quote_id: '11111111-1111-4111-8111-111111111111',
         p_shipping_provider: 'GIGL',
         p_tracking_number: null,
       })
