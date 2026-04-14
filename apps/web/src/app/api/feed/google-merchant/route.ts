@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
   const parsed = _FeedQuerySchema.safeParse(rawParams);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: parsed.error.errors[0]?.message || 'Invalid query parameters' },
+      { error: parsed.error.issues[0]?.message || 'Invalid query parameters' },
       { status: 400 }
     );
   }
