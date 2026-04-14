@@ -54,9 +54,9 @@ jobs:
             echo "::error::ASC_API_KEY_P8_BASE64, ASC_API_KEY_ID, and ASC_API_ISSUER_ID secrets must be set"
             exit 1
           fi
+          umask 077
           KEY_DIR="$HOME/.appstoreconnect/private_keys"
           mkdir -p "$KEY_DIR"
-          umask 077
           KEY_PATH="$KEY_DIR/AuthKey_${ASC_API_KEY_ID}.p8"
           echo "$ASC_API_KEY_P8_BASE64" | base64 -d > "$KEY_PATH"
           chmod 600 "$KEY_PATH"
@@ -69,7 +69,7 @@ jobs:
         run: |
           NOTES="${WORKFLOW_NOTES:-Bug fixes and performance improvements.}"
           NOTES="${NOTES:0:4000}"
-          DELIM="EOF_$(date +%s%N)_$RANDOM"
+          DELIM="EOF_$(uuidgen | tr -d -)"
           {
             echo "IOS_RELEASE_NOTES<<$DELIM"
             echo "$NOTES"

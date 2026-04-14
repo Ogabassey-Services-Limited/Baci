@@ -97,17 +97,22 @@ platform :ios do
     }
 
     build_number = ENV["SUBMIT_BUILD_NUMBER"].to_s.strip
-    deliver_opts[:build_number] = build_number unless build_number.empty?
-
     app_version = ENV["SUBMIT_APP_VERSION"].to_s.strip
+
+    if build_number.empty? ^ app_version.empty?
+      UI.user_error!(
+        "SUBMIT_BUILD_NUMBER and SUBMIT_APP_VERSION must be set together or both left empty. " \
+        "Setting only one creates ambiguity about which version to attach the changelog to."
+      )
+    end
+
+    deliver_opts[:build_number] = build_number unless build_number.empty?
     deliver_opts[:app_version] = app_version unless app_version.empty?
 
     # Set the release notes via direct ASC API so we don't touch other metadata.
-    set_changelog(
-      api_key: api_key,
-      changelog: release_notes_text,
-      version: app_version.empty? ? nil : app_version
-    )
+    changelog_opts = { api_key: api_key, changelog: release_notes_text }
+    changelog_opts[:version] = app_version unless app_version.empty?
+    set_changelog(changelog_opts)
 
     deliver(deliver_opts)
   end
