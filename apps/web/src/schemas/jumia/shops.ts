@@ -20,9 +20,7 @@ export const JumiaBusinessClientSchema = z.object({
   status: z.preprocess(
     (value) => (typeof value === 'string' ? value.toLowerCase() : value),
     z.enum(['active', 'inactive', 'pending'], {
-      errorMap: () => ({
-        message: 'Status must be active, inactive, or pending',
-      }),
+      message: 'Status must be active, inactive, or pending',
     })
   ),
   shortCode: z.string().trim().min(1, 'Short code is required'),

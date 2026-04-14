@@ -93,13 +93,16 @@ const ImageUrlSchema = z.string()
   })
   .pipe(z.string());
 
-const ColorImagesSchema = z.record(z.array(ImageUrlSchema).nullish())
+const ColorImagesSchema = z
+  .record(z.string(), z.array(ImageUrlSchema).nullish())
   .nullish()
   .transform((val) => {
     if (!val) return {};
     const result: Record<string, string[]> = {};
     for (const [color, images] of Object.entries(val)) {
-      result[color] = (images || []).filter((url) => url !== '/placeholder.svg');
+      result[color] = (images || []).filter(
+        (url) => url !== '/placeholder.svg'
+      );
     }
     return result;
   });
@@ -139,8 +142,10 @@ export function normalizeProductDetails(
     : [];
 
   // Start with sanitized main images
-  const mainImages = z.array(ImageUrlSchema).parse(product.images || [])
-    .filter(url => url !== '/placeholder.svg');
+  const mainImages = z
+    .array(ImageUrlSchema)
+    .parse(product.images || [])
+    .filter((url) => url !== '/placeholder.svg');
 
   // Fallback to sanitized single image
   const singleImage = ImageUrlSchema.parse(product.image);

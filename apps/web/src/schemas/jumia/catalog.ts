@@ -124,7 +124,7 @@ const JumiaAttributeTranslation = z.object({
 });
 
 // Intentionally flexible: Jumia API docs don't specify a fixed validation shape
-const JumiaAttributeValidation = z.record(z.unknown());
+const JumiaAttributeValidation = z.record(z.string(), z.unknown());
 
 const JumiaAttributeDefinition = z.object({
   code: z.number(),
