@@ -51,7 +51,7 @@ export function StaffSummaryCards({
       {summaryCards.map((card) => (
         <View
           accessibilityLabel={`${card.label} ${card.value} staff`}
-          accessibilityRole="text"
+          accessibilityRole="summary"
           accessible={true}
           key={card.key}
           style={[
@@ -59,7 +59,6 @@ export function StaffSummaryCards({
             { backgroundColor: colors.card },
             shadowStyle,
           ]}
-          testID={`${card.key}-card`}
         >
           <Text style={[styles.summaryValue, { color: card.color }]}>
             {card.value}

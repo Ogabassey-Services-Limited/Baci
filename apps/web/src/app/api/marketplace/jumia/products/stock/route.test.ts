@@ -83,8 +83,8 @@ vi.mock('@/lib/jumia/feeds', () => ({
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
-const INT_ID = '00000000-0000-0000-0000-000000000099';
-const MERCHANT_ID = '00000000-0000-0000-0000-000000000001';
+const INT_ID = '00000000-0000-4000-8000-000000000099';
+const MERCHANT_ID = '00000000-0000-4000-8000-000000000001';
 
 function makeRequest(integrationId?: string): NextRequest {
   const url = integrationId

@@ -72,7 +72,7 @@ vi.mock('@/lib/sanitize-core', () => ({
 /* ------------------------------------------------------------------ */
 
 const MERCHANT_CTX = {
-  merchantId: '00000000-0000-0000-0000-000000000001',
+  merchantId: '00000000-0000-4000-8000-000000000001',
   staffAccess: {
     role: 'owner',
     isOwner: true,
@@ -81,7 +81,7 @@ const MERCHANT_CTX = {
   },
 };
 
-const INT_ID = '00000000-0000-0000-0000-000000000099';
+const INT_ID = '00000000-0000-4000-8000-000000000099';
 
 function makeGetRequest(params: Record<string, string>) {
   const url = new URL('http://localhost/api/marketplace/jumia/consignment');

@@ -2,6 +2,8 @@ import { Alert, Share } from 'react-native';
 import { getStaffInviteFeedback } from '@/components/staff/staff-feedback';
 import type { StaffMember, StaffRole, StaffStatus } from '@/lib/types/staff';
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 interface InviteResult {
   emailDelivery?: {
     status?: 'failed' | 'sent';
@@ -58,6 +60,12 @@ export function useStaffScreenActions({
   setSelectedStaff,
   updateStaff,
 }: UseStaffScreenActionsProps) {
+  const getDisplayIdentity = ({
+    email,
+    name,
+  }: Pick<StaffMember, 'email' | 'name'>) =>
+    name?.trim() || email?.trim() || 'Unknown User';
+
   const showShareableAlert = ({
     message,
     shareMessage,
@@ -74,11 +82,19 @@ export function useStaffScreenActions({
         { text: 'Done', style: 'cancel' },
         {
           text: 'Share Link',
-          onPress: () => {
-            Share.share({
-              message: shareMessage,
-              url: shareUrl,
-            });
+          onPress: async () => {
+            try {
+              await Share.share({
+                message: shareMessage,
+                url: shareUrl,
+              });
+            } catch (error) {
+              console.error('Failed to open share sheet:', error);
+              Alert.alert(
+                'Unable to Share',
+                'Could not open the share sheet. Please try again.'
+              );
+            }
           },
         },
       ]);
@@ -89,15 +105,22 @@ export function useStaffScreenActions({
   };
 
   const handleInvite = async () => {
-    if (!inviteEmail.trim()) {
+    const normalizedEmail = inviteEmail.trim();
+
+    if (!normalizedEmail) {
       Alert.alert('Error', 'Please enter an email address');
+      return;
+    }
+
+    if (!EMAIL_REGEX.test(normalizedEmail)) {
+      Alert.alert('Error', 'Please enter a valid email address');
       return;
     }
 
     try {
       const result = await inviteStaff.mutateAsync({
         autoCreateAccount,
-        email: inviteEmail.trim(),
+        email: normalizedEmail,
         name: inviteName.trim() || undefined,
         role: 'sales_rep',
       });
@@ -109,7 +132,7 @@ export function useStaffScreenActions({
 
       showShareableAlert(
         getStaffInviteFeedback({
-          email: inviteEmail,
+          email: normalizedEmail,
           emailDeliveryFailed: result?.emailDelivery?.status === 'failed',
           inviteUrl: result?.inviteUrl,
           kind: 'invite',
@@ -138,12 +161,17 @@ export function useStaffScreenActions({
   };
 
   const handleSuspend = (member: StaffMember) => {
+    const displayIdentity = getDisplayIdentity(member);
     const newStatus = member.status === 'suspended' ? 'active' : 'suspended';
     const action = newStatus === 'suspended' ? 'suspend' : 'reactivate';
+    const successMessage =
+      newStatus === 'suspended'
+        ? `${displayIdentity} suspended`
+        : `${displayIdentity} reactivated`;
 
     Alert.alert(
       `${action.charAt(0).toUpperCase() + action.slice(1)} Member`,
-      `Are you sure you want to ${action} ${member.name || member.email}?`,
+      `Are you sure you want to ${action} ${displayIdentity}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -155,7 +183,7 @@ export function useStaffScreenActions({
                 id: member.id,
                 status: newStatus,
               });
-              Alert.alert('Success', `Team member ${action}d`);
+              Alert.alert('Success', successMessage);
             } catch (error) {
               Alert.alert(
                 'Error',
@@ -171,9 +199,11 @@ export function useStaffScreenActions({
   };
 
   const handleRemove = (member: StaffMember) => {
+    const displayIdentity = getDisplayIdentity(member);
+
     Alert.alert(
       'Remove Team Member',
-      `Are you sure you want to remove ${member.name || member.email} from your team?`,
+      `Are you sure you want to remove ${displayIdentity} from your team?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -182,7 +212,7 @@ export function useStaffScreenActions({
           onPress: async () => {
             try {
               await removeStaff.mutateAsync(member.id);
-              Alert.alert('Success', 'Team member removed');
+              Alert.alert('Success', `${displayIdentity} removed`);
             } catch (error) {
               Alert.alert(
                 'Error',
@@ -202,7 +232,7 @@ export function useStaffScreenActions({
       const result = await resendInvitation.mutateAsync(member.id);
       showShareableAlert(
         getStaffInviteFeedback({
-          email: member.email,
+          email: member.email ?? '',
           emailDeliveryFailed: result?.emailDelivery?.status === 'failed',
           inviteUrl: result?.inviteUrl,
           kind: 'resend',
@@ -217,6 +247,7 @@ export function useStaffScreenActions({
   };
 
   const showStaffActions = (member: StaffMember) => {
+    const displayIdentity = getDisplayIdentity(member);
     const actions: {
       text: string;
       onPress?: () => void;
@@ -259,7 +290,7 @@ export function useStaffScreenActions({
     });
     actions.push({ text: 'Cancel', style: 'cancel' });
 
-    Alert.alert(member.name || member.email, undefined, actions);
+    Alert.alert(displayIdentity, undefined, actions);
   };
 
   return {

@@ -60,7 +60,7 @@ vi.mock('@/lib/api-auth', () => ({
   }),
   getMerchantIdForApiUser: vi
     .fn()
-    .mockResolvedValue('00000000-0000-0000-0000-000000000001'),
+    .mockResolvedValue('00000000-0000-4000-8000-000000000001'),
 }));
 
 vi.mock('@/lib/jumia/catalog', () => ({
@@ -97,7 +97,7 @@ vi.mock('@/lib/sanitize-core', () => ({
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
-const INT_ID = '00000000-0000-0000-0000-000000000099';
+const INT_ID = '00000000-0000-4000-8000-000000000099';
 
 function makePostRequest(body: unknown) {
   return new NextRequest(

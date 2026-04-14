@@ -50,7 +50,14 @@ export function useStaff() {
 // ============================================================
 
 export function useStaffStats() {
-  const { data: staff, isLoading } = useStaff();
+  const {
+    data: staff,
+    error,
+    isError,
+    isLoading,
+    isRefetching,
+    refetch,
+  } = useStaff();
 
   const stats = {
     total: staff?.length ?? 0,
@@ -59,7 +66,7 @@ export function useStaffStats() {
     suspended: staff?.filter((s) => s.status === 'suspended').length ?? 0,
   };
 
-  return { stats, isLoading };
+  return { error, isError, isLoading, isRefetching, refetch, stats };
 }
 
 // ============================================================

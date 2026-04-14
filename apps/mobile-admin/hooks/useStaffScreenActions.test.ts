@@ -57,6 +57,28 @@ describe('useStaffScreenActions', () => {
     );
   });
 
+  it('blocks invite submission when the email format is invalid', async () => {
+    const inviteStaff = vi.fn();
+    const { result } = renderHook(() =>
+      useStaffScreenActions(
+        createMockProps({
+          inviteEmail: 'not-an-email',
+          inviteStaff: { mutateAsync: inviteStaff },
+        })
+      )
+    );
+
+    await act(async () => {
+      await result.current.handleInvite();
+    });
+
+    expect(inviteStaff).not.toHaveBeenCalled();
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'Error',
+      'Please enter a valid email address'
+    );
+  });
+
   it('resets invite form state and exposes share action on success', async () => {
     const inviteStaff = vi.fn().mockResolvedValue({
       emailDelivery: { status: 'sent' },
@@ -109,6 +131,64 @@ describe('useStaffScreenActions', () => {
         "You've been invited to join the team! Accept here: https://usebaci.com/invite",
       url: 'https://usebaci.com/invite',
     });
+  });
+
+  it('shows an alert when the share sheet cannot be opened', async () => {
+    const inviteStaff = vi.fn().mockResolvedValue({
+      emailDelivery: { status: 'failed' },
+      inviteUrl: 'https://usebaci.com/invite',
+    });
+    mocks.share.mockRejectedValueOnce(new Error('Share unavailable'));
+
+    const { result } = renderHook(() =>
+      useStaffScreenActions(
+        createMockProps({
+          inviteStaff: { mutateAsync: inviteStaff },
+        })
+      )
+    );
+
+    await act(async () => {
+      await result.current.handleInvite();
+    });
+
+    const shareAction = mocks.alert.mock.calls[0]?.[2]?.[1];
+
+    await act(async () => {
+      await shareAction.onPress?.();
+    });
+
+    expect(mocks.alert).toHaveBeenLastCalledWith(
+      'Unable to Share',
+      'Could not open the share sheet. Please try again.'
+    );
+  });
+
+  it('keeps unknown users readable in the staff action sheet', () => {
+    const { result } = renderHook(() =>
+      useStaffScreenActions(createMockProps())
+    );
+
+    act(() => {
+      result.current.showStaffActions({
+        accepted_at: null,
+        created_at: '2026-04-13T10:00:00.000Z',
+        email: '',
+        id: 'staff-unknown',
+        invited_at: '2026-04-13T10:00:00.000Z',
+        merchant_id: 'merchant-1',
+        name: '',
+        role: 'sales_rep',
+        status: 'pending',
+        user_id: null,
+      });
+    });
+
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'Unknown User',
+      undefined,
+      expect.any(Array)
+    );
   });
 
   it('opens the role sheet when the change-role action is selected', () => {

@@ -96,7 +96,7 @@ vi.mock('@/env', () => ({
 }));
 
 const MERCHANT_CTX = {
-  merchantId: '00000000-0000-0000-0000-000000000001',
+  merchantId: '00000000-0000-4000-8000-000000000001',
   staffAccess: {
     role: 'owner',
     isOwner: true,
