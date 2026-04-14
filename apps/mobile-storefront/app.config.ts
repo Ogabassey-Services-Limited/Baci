@@ -42,12 +42,25 @@ if (rawIosBuildNumber !== undefined) {
   }
 }
 
+const rawIosAppVersion = process.env.IOS_APP_VERSION;
+let _iosAppVersion: string | undefined;
+
+if (rawIosAppVersion !== undefined && rawIosAppVersion.trim().length > 0) {
+  if (/^\d+\.\d+(\.\d+)?$/.test(rawIosAppVersion.trim())) {
+    _iosAppVersion = rawIosAppVersion.trim();
+  } else {
+    console.warn(
+      `[app.config] Ignoring IOS_APP_VERSION="${rawIosAppVersion}" because it must match major.minor[.patch].`
+    );
+  }
+}
+
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'Ogabassey',
   slug: 'ogabassey-store',
   owner: 'ogabassey',
-  version: appVersion,
+  version: _iosAppVersion ?? appVersion,
   orientation: 'portrait',
   icon: './assets/images/icon.png',
   userInterfaceStyle: 'automatic',

@@ -17,6 +17,10 @@ on:
         description: 'iOS build number override (leave empty for auto)'
         required: false
         type: string
+      release_notes:
+        description: 'What''s New in This Version (leave empty for commit subject)'
+        required: false
+        type: string
 
 concurrency:
   group: ios-release-${{ github.ref }}
@@ -33,6 +37,9 @@ env:
   # Offset added to github.run_number to avoid collisions with
   # build numbers previously uploaded via EAS or manual Xcode archives.
   BUILD_NUMBER_BASE: '30'
+  # Major.minor for App Store version. Patch auto-appends build number.
+  # Bump manually when releasing a breaking/feature change (e.g., 2.0 -> 2.1).
+  APP_VERSION_MAJOR_MINOR: '2.0'
 
 jobs:
   build-and-submit:
@@ -96,7 +103,35 @@ jobs:
           fi
 
           echo "IOS_BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
+          echo "IOS_APP_VERSION=${{ env.APP_VERSION_MAJOR_MINOR }}.$BUILD_NUMBER" >> "$GITHUB_ENV"
           echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve release notes
+        id: notes
+        shell: bash
+        env:
+          GH_EVENT_NAME: ${{ github.event_name }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          WORKFLOW_NOTES: ${{ inputs.release_notes }}
+        run: |
+          if [ "$GH_EVENT_NAME" = "workflow_dispatch" ] && [ -n "$WORKFLOW_NOTES" ]; then
+            NOTES="$WORKFLOW_NOTES"
+          elif [ "$GH_EVENT_NAME" = "push" ] && [ -n "$COMMIT_MESSAGE" ]; then
+            # Use first line of latest commit message (PR title for squash merges)
+            NOTES=$(printf '%s' "$COMMIT_MESSAGE" | head -n1)
+            # Strip conventional commit prefix like "feat:", "fix(scope):" etc
+            NOTES="${NOTES#*: }"
+          else
+            NOTES="Bug fixes and performance improvements."
+          fi
+          # Apple caps at 4000 chars
+          NOTES="${NOTES:0:4000}"
+          # Multi-line safe write
+          {
+            echo "IOS_RELEASE_NOTES<<NOTES_EOF"
+            echo "$NOTES"
+            echo "NOTES_EOF"
+          } >> "$GITHUB_ENV"
 
       - name: Materialize iOS Firebase config
         working-directory: ${{ env.WORKING_DIR }}
@@ -153,6 +188,7 @@ jobs:
         env:
           CI: '1'
           IOS_BUILD_NUMBER: ${{ env.IOS_BUILD_NUMBER }}
+          IOS_APP_VERSION: ${{ env.IOS_APP_VERSION }}
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           EXPO_PUBLIC_WEB_API_URL: https://usebaci.com
@@ -193,6 +229,7 @@ jobs:
           ASC_API_KEY_PATH: ${{ env.ASC_API_KEY_PATH }}
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          IOS_RELEASE_NOTES: ${{ env.IOS_RELEASE_NOTES }}
         run: bundle exec fastlane ios release
 
       - name: Upload IPA artifact
