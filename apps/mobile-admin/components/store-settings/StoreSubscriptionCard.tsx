@@ -45,9 +45,15 @@ export function StoreSubscriptionCard({
   planLabel,
   shadowStyle,
 }: StoreSubscriptionCardProps) {
+  const primaryAccentBackground =
+    colors.primaryLight ?? colors.cardHover ?? colors.background;
+  const secondaryAccentBackground =
+    colors.backgroundLight ?? colors.cardHover ?? colors.background;
   const actionCardBackground = colors.cardHover ?? colors.background;
-  const pressedActionCardBackground =
-    colors.backgroundLight ?? actionCardBackground;
+  const pressedActionCardBackground = secondaryAccentBackground;
+  const planBadgeBackground = isPro
+    ? primaryAccentBackground
+    : actionCardBackground;
   const primaryActionCopy = isPro
     ? SUBSCRIPTION_COPY.pro
     : SUBSCRIPTION_COPY.upgrade;
@@ -62,9 +68,7 @@ export function StoreSubscriptionCard({
           style={[
             styles.planBadge,
             {
-              backgroundColor: isPro
-                ? (colors.primaryLight ?? colors.cardHover ?? colors.background)
-                : (colors.cardHover ?? colors.background),
+              backgroundColor: planBadgeBackground,
             },
           ]}
         >
@@ -97,8 +101,7 @@ export function StoreSubscriptionCard({
             style={[
               styles.iconContainer,
               {
-                backgroundColor:
-                  colors.primaryLight ?? colors.cardHover ?? colors.background,
+                backgroundColor: primaryAccentBackground,
               },
             ]}
           >
@@ -142,10 +145,7 @@ export function StoreSubscriptionCard({
               style={[
                 styles.iconContainer,
                 {
-                  backgroundColor:
-                    colors.backgroundLight ??
-                    colors.cardHover ??
-                    colors.background,
+                  backgroundColor: secondaryAccentBackground,
                 },
               ]}
             >
