@@ -14,6 +14,7 @@ describe('formatInviteEmail', () => {
     const result = formatInviteEmail(rawEmail);
 
     expect(result.value).toBe(rawEmail);
+    expect(result.label).toBe(`${'a'.repeat(61)}...`);
     expect(result.label).toHaveLength(64);
     expect(result.label.endsWith('...')).toBe(true);
   });

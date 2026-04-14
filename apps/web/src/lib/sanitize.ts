@@ -164,6 +164,11 @@ export function sanitizeHtml(
   });
 }
 
+/**
+ * Escapes plain text for safe HTML interpolation without preserving markup.
+ *
+ * Use this when a value should remain text-only inside HTML emails or templates.
+ */
 export function escapeHtmlText(value: string): string {
   if (!value) return '';
   return sanitizeLib(value, ESCAPE_HTML_TEXT_OPTIONS);

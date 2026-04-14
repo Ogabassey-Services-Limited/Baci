@@ -6,9 +6,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { Stack, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
+  Animated,
   Modal,
   Pressable,
   RefreshControl,
@@ -40,11 +42,17 @@ import {
   VALID_ROLES,
 } from '@/lib/types/staff';
 
+const BADGE_GAP = 4;
+const BADGE_HORIZONTAL_PADDING = 6;
+const BADGE_VERTICAL_PADDING = 2;
+const EMPTY_EMAIL_LABEL = 'Email unavailable';
+const TOGGLE_KNOB_TRAVEL = 20;
+
 export default function StaffScreen() {
   const { colors, shadows, isDark } = useTheme();
   const router = useRouter();
 
-  const { data: staff, isLoading, refetch } = useStaff();
+  const { data: staff, isLoading, isRefetching, refetch } = useStaff();
   const { stats } = useStaffStats();
 
   const inviteStaff = useInviteStaff();
@@ -59,6 +67,21 @@ export default function StaffScreen() {
   const [inviteName, setInviteName] = useState('');
   const [selectedRole, setSelectedRole] = useState<StaffRole>('sales_rep');
   const [autoCreateAccount, setAutoCreateAccount] = useState(true);
+  const toggleTranslateX = useRef(
+    new Animated.Value(autoCreateAccount ? TOGGLE_KNOB_TRAVEL : 0)
+  ).current;
+  const isInviteDisabled =
+    inviteStaff.isPending || inviteEmail.trim().length === 0;
+
+  useEffect(() => {
+    Animated.spring(toggleTranslateX, {
+      damping: 16,
+      mass: 0.9,
+      stiffness: 220,
+      toValue: autoCreateAccount ? TOGGLE_KNOB_TRAVEL : 0,
+      useNativeDriver: true,
+    }).start();
+  }, [autoCreateAccount, toggleTranslateX]);
 
   const handleInvite = async () => {
     if (!inviteEmail.trim()) {
@@ -275,7 +298,11 @@ export default function StaffScreen() {
 
     actions.push({ text: 'Cancel', style: 'cancel' });
 
-    Alert.alert(member.name || member.email, undefined, actions);
+    Alert.alert(
+      member.name || member.email || 'Unknown User',
+      undefined,
+      actions
+    );
   };
 
   const getStatusBadge = (status: string) => {
@@ -313,9 +340,16 @@ export default function StaffScreen() {
 
   const renderStaffMember = ({ item }: { item: StaffMember }) => {
     const statusBadge = getStatusBadge(item.status);
+    const emailPrefix = item.email?.trim()
+      ? item.email.split('@')[0]
+      : undefined;
+    const displayName = item.name?.trim() || emailPrefix || 'Unknown User';
+    const displayEmail = item.email?.trim() || EMPTY_EMAIL_LABEL;
 
     return (
       <Pressable
+        accessibilityLabel={`Team member ${displayName}`}
+        accessibilityRole="button"
         style={({ pressed }) => [
           styles.staffCard,
           { backgroundColor: colors.card },
@@ -328,39 +362,42 @@ export default function StaffScreen() {
           style={[styles.avatar, { backgroundColor: `${colors.primary}20` }]}
         >
           <Text style={[styles.avatarText, { color: colors.primary }]}>
-            {(item.name || item.email).charAt(0).toUpperCase()}
+            {displayName.charAt(0).toUpperCase()}
           </Text>
         </View>
 
         <View style={styles.staffInfo}>
           <Text style={[styles.staffName, { color: colors.text }]}>
-            {item.name || item.email.split('@')[0]}
+            {displayName}
           </Text>
-          <Text style={[styles.staffEmail, { color: colors.textSecondary }]}>
-            {item.email}
+          <Text
+            style={[
+              styles.staffEmail,
+              {
+                color: item.email?.trim()
+                  ? colors.textSecondary
+                  : colors.textMuted,
+              },
+            ]}
+          >
+            {displayEmail}
           </Text>
 
           <View style={styles.badgeRow}>
-            <View
-              style={[styles.roleBadge, { backgroundColor: colors.goldLight }]}
-            >
+            <View style={[styles.badge, { backgroundColor: colors.goldLight }]}>
               <Ionicons name="shield-outline" size={10} color={colors.gold} />
-              <Text style={[styles.roleBadgeText, { color: colors.gold }]}>
+              <Text style={[styles.badgeText, { color: colors.gold }]}>
                 {ROLE_LABELS[item.role]}
               </Text>
             </View>
 
-            <View
-              style={[styles.statusBadge, { backgroundColor: statusBadge.bg }]}
-            >
+            <View style={[styles.badge, { backgroundColor: statusBadge.bg }]}>
               <Ionicons
                 name={statusBadge.icon as keyof typeof Ionicons.glyphMap}
                 size={10}
                 color={statusBadge.text}
               />
-              <Text
-                style={[styles.statusBadgeText, { color: statusBadge.text }]}
-              >
+              <Text style={[styles.badgeText, { color: statusBadge.text }]}>
                 {statusBadge.label}
               </Text>
             </View>
@@ -383,6 +420,8 @@ export default function StaffScreen() {
           headerShadowVisible: false,
           headerLeft: () => (
             <Pressable
+              accessibilityLabel="Back"
+              accessibilityRole="button"
               onPress={() => router.back()}
               style={{ marginRight: SPACING.md }}
             >
@@ -391,6 +430,8 @@ export default function StaffScreen() {
           ),
           headerRight: () => (
             <Pressable
+              accessibilityLabel="Open invite team member sheet"
+              accessibilityRole="button"
               onPress={() => setInviteModalVisible(true)}
               style={[styles.headerButton, { backgroundColor: colors.primary }]}
             >
@@ -470,14 +511,33 @@ export default function StaffScreen() {
           contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl
-              refreshing={isLoading}
+              refreshing={isRefetching}
               onRefresh={refetch}
               tintColor={colors.gold}
               colors={[colors.gold]}
             />
           }
           ListEmptyComponent={
-            !isLoading ? (
+            isLoading ? (
+              <View
+                accessibilityRole="progressbar"
+                style={styles.emptyContainer}
+              >
+                <Ionicons
+                  name="reload-outline"
+                  size={40}
+                  color={colors.textMuted}
+                />
+                <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                  Loading team members...
+                </Text>
+                <Text
+                  style={[styles.emptyText, { color: colors.textSecondary }]}
+                >
+                  Checking your current staff list
+                </Text>
+              </View>
+            ) : (
               <View style={styles.emptyContainer}>
                 <Ionicons
                   name="people-outline"
@@ -493,6 +553,8 @@ export default function StaffScreen() {
                   Invite staff to help manage your store
                 </Text>
                 <Pressable
+                  accessibilityLabel="Invite team member"
+                  accessibilityRole="button"
                   style={[
                     styles.emptyButton,
                     { backgroundColor: colors.primary },
@@ -514,7 +576,7 @@ export default function StaffScreen() {
                   </Text>
                 </Pressable>
               </View>
-            ) : null
+            )
           }
           showsVerticalScrollIndicator={false}
         />
@@ -537,7 +599,11 @@ export default function StaffScreen() {
                   <Text style={[styles.modalTitle, { color: colors.text }]}>
                     Invite Team Member
                   </Text>
-                  <Pressable onPress={() => setInviteModalVisible(false)}>
+                  <Pressable
+                    accessibilityLabel="Close invite team member sheet"
+                    accessibilityRole="button"
+                    onPress={() => setInviteModalVisible(false)}
+                  >
                     <Ionicons name="close" size={24} color={colors.textMuted} />
                   </Pressable>
                 </View>
@@ -549,6 +615,7 @@ export default function StaffScreen() {
                     Email *
                   </Text>
                   <TextInput
+                    accessibilityLabel="Invite email"
                     style={[
                       styles.input,
                       {
@@ -560,7 +627,11 @@ export default function StaffScreen() {
                     placeholder="staff@example.com"
                     placeholderTextColor={colors.textMuted}
                     keyboardType="email-address"
+                    autoComplete="email"
+                    autoCorrect={false}
                     autoCapitalize="none"
+                    importantForAutofill="yes"
+                    textContentType="emailAddress"
                     value={inviteEmail}
                     onChangeText={setInviteEmail}
                   />
@@ -573,6 +644,7 @@ export default function StaffScreen() {
                     Name (optional)
                   </Text>
                   <TextInput
+                    accessibilityLabel="Invite name"
                     style={[
                       styles.input,
                       {
@@ -583,6 +655,10 @@ export default function StaffScreen() {
                     ]}
                     placeholder="John Doe"
                     placeholderTextColor={colors.textMuted}
+                    autoComplete="name"
+                    autoCapitalize="words"
+                    importantForAutofill="yes"
+                    textContentType="name"
                     value={inviteName}
                     onChangeText={setInviteName}
                   />
@@ -593,7 +669,7 @@ export default function StaffScreen() {
                   onPress={() => setAutoCreateAccount(!autoCreateAccount)}
                   accessibilityRole="togglebutton"
                   accessibilityState={{ checked: autoCreateAccount }}
-                  accessibilityLabel="Generate Staff Account"
+                  accessibilityLabel="Generate staff account"
                   accessibilityHint="Automatically create a NUBAN for this staff member"
                 >
                   <View style={styles.toggleInfo}>
@@ -619,14 +695,12 @@ export default function StaffScreen() {
                       },
                     ]}
                   >
-                    <View
+                    <Animated.View
                       style={[
                         styles.toggleKnob,
                         {
                           backgroundColor: colors.textOnPrimary,
-                          transform: [
-                            { translateX: autoCreateAccount ? 20 : 0 },
-                          ],
+                          transform: [{ translateX: toggleTranslateX }],
                         },
                       ]}
                     />
@@ -637,23 +711,36 @@ export default function StaffScreen() {
                   style={[
                     styles.inviteButton,
                     { backgroundColor: colors.primary },
+                    isInviteDisabled && styles.inviteButtonDisabled,
                   ]}
                   onPress={handleInvite}
-                  disabled={inviteStaff.isPending}
+                  accessibilityLabel="Send invitation"
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: isInviteDisabled }}
+                  disabled={isInviteDisabled}
                 >
-                  <Ionicons
-                    name="mail"
-                    size={18}
-                    color={colors.textOnPrimary}
-                  />
-                  <Text
-                    style={[
-                      styles.inviteButtonText,
-                      { color: colors.textOnPrimary },
-                    ]}
-                  >
-                    {inviteStaff.isPending ? 'Sending...' : 'Send Invitation'}
-                  </Text>
+                  {inviteStaff.isPending ? (
+                    <ActivityIndicator
+                      color={colors.textOnPrimary}
+                      size="small"
+                    />
+                  ) : (
+                    <>
+                      <Ionicons
+                        name="mail"
+                        size={18}
+                        color={colors.textOnPrimary}
+                      />
+                      <Text
+                        style={[
+                          styles.inviteButtonText,
+                          { color: colors.textOnPrimary },
+                        ]}
+                      >
+                        Send Invitation
+                      </Text>
+                    </>
+                  )}
                 </Pressable>
               </View>
             </KeyboardAwareModalContainer>
@@ -809,27 +896,15 @@ const styles = StyleSheet.create({
     gap: SPACING.xs,
     flexWrap: 'wrap',
   },
-  roleBadge: {
+  badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: BADGE_HORIZONTAL_PADDING,
+    paddingVertical: BADGE_VERTICAL_PADDING,
     borderRadius: RADIUS.sm,
-    gap: 4,
+    gap: BADGE_GAP,
   },
-  roleBadgeText: {
-    fontSize: 10,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: RADIUS.sm,
-    gap: 4,
-  },
-  statusBadgeText: {
+  badgeText: {
     fontSize: 10,
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
@@ -929,6 +1004,9 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.lg,
     gap: SPACING.sm,
     marginTop: SPACING.md,
+  },
+  inviteButtonDisabled: {
+    opacity: 0.5,
   },
   inviteButtonText: {
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,

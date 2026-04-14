@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { StoreSubscriptionCard } from '@/components/store-settings/StoreSubscriptionCard';
 import { CountryPickerModal } from '@/components/ui/CountryPickerModal';
 import { LogoPicker } from '@/components/ui/LogoPicker';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
@@ -174,6 +175,22 @@ export default function StoreSettingsScreen() {
       </SafeAreaView>
     );
   }
+
+  const manageSubscriptionLabel =
+    Platform.OS === 'ios' ? 'Manage in App Store' : 'Manage in Google Play';
+
+  const handleManageSubscription = async () => {
+    try {
+      await SubscriptionManagement.openNativeManagement();
+    } catch {
+      setStatusModal({
+        visible: true,
+        type: 'error',
+        title: 'Unable to Open',
+        message: 'Could not open subscription management. Please try again.',
+      });
+    }
+  };
 
   return (
     <>
@@ -391,157 +408,15 @@ export default function StoreSettingsScreen() {
             </View>
           </View>
 
-          {/* Subscription Plan */}
-          <View
-            style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}
-          >
-            <View
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: SPACING.md,
-              }}
-            >
-              <Text
-                style={[
-                  styles.label,
-                  { color: colors.textSecondary, marginBottom: 0 },
-                ]}
-              >
-                Subscription Plan
-              </Text>
-              <View
-                style={[
-                  styles.planBadge,
-                  {
-                    backgroundColor: isPro
-                      ? `${colors.primary}20`
-                      : colors.cardHover,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.planBadgeText,
-                    { color: isPro ? colors.primary : colors.textSecondary },
-                  ]}
-                >
-                  {SubscriptionManagement.getPlanLabel(isPro)}
-                </Text>
-              </View>
-            </View>
-
-            <Pressable
-              style={[
-                styles.inputContainer,
-                {
-                  backgroundColor: colors.cardHover,
-                  marginBottom: SPACING.sm,
-                  borderWidth: 0,
-                  justifyContent: 'space-between',
-                  paddingRight: SPACING.md,
-                },
-              ]}
-              onPress={() => router.push('/(admin)/subscribe')}
-            >
-              <View style={styles.subscriptionButton}>
-                <View
-                  style={[
-                    styles.subscriptionIconContainer,
-                    { backgroundColor: `${colors.primary}20` },
-                  ]}
-                >
-                  <Ionicons name="star" size={20} color={colors.primary} />
-                </View>
-                <View style={styles.subscriptionTextContainer}>
-                  <Text
-                    style={[styles.subscriptionTitle, { color: colors.text }]}
-                  >
-                    {isPro ? 'Baci Pro' : 'Upgrade to Pro'}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.subscriptionSubtitle,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    {isPro ? 'View plan features' : 'Unlock premium features'}
-                  </Text>
-                </View>
-              </View>
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                color={colors.textSecondary}
-              />
-            </Pressable>
-
-            {isPro && (
-              <Pressable
-                style={[
-                  styles.inputContainer,
-                  {
-                    backgroundColor: colors.cardHover,
-                    marginBottom: 0,
-                    borderWidth: 0,
-                    justifyContent: 'space-between',
-                    paddingRight: SPACING.md,
-                  },
-                ]}
-                onPress={async () => {
-                  try {
-                    await SubscriptionManagement.openNativeManagement();
-                  } catch {
-                    setStatusModal({
-                      visible: true,
-                      type: 'error',
-                      title: 'Unable to Open',
-                      message:
-                        'Could not open subscription management. Please try again.',
-                    });
-                  }
-                }}
-              >
-                <View style={styles.subscriptionButton}>
-                  <View
-                    style={[
-                      styles.subscriptionIconContainer,
-                      { backgroundColor: `${colors.textSecondary}20` },
-                    ]}
-                  >
-                    <Ionicons
-                      name="settings-outline"
-                      size={20}
-                      color={colors.textSecondary}
-                    />
-                  </View>
-                  <View style={styles.subscriptionTextContainer}>
-                    <Text
-                      style={[styles.subscriptionTitle, { color: colors.text }]}
-                    >
-                      {Platform.OS === 'ios'
-                        ? 'Manage in App Store'
-                        : 'Manage in Google Play'}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.subscriptionSubtitle,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      Cancel or change tiers
-                    </Text>
-                  </View>
-                </View>
-                <Ionicons
-                  name="open-outline"
-                  size={18}
-                  color={colors.textSecondary}
-                />
-              </Pressable>
-            )}
-          </View>
+          <StoreSubscriptionCard
+            colors={colors}
+            isPro={isPro}
+            manageSubscriptionLabel={manageSubscriptionLabel}
+            onManageSubscription={handleManageSubscription}
+            onOpenSubscriptionPlans={() => router.push('/(admin)/subscribe')}
+            planLabel={SubscriptionManagement.getPlanLabel(isPro)}
+            shadowStyle={shadows.sm}
+          />
 
           {/* Store URL (Editable) */}
           <View
