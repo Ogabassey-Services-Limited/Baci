@@ -177,18 +177,18 @@ export class JumiaClient {
     schema?: undefined,
     body?: unknown
   ): Promise<unknown>;
-  async request<T>(
+  async request<TSchema extends z.ZodTypeAny>(
     method: JumiaRequestMethod,
     path: string,
-    schema: z.ZodType<T>,
+    schema: TSchema,
     body?: unknown
-  ): Promise<T>;
-  async request<T = unknown>(
+  ): Promise<z.infer<TSchema>>;
+  async request<TSchema extends z.ZodTypeAny>(
     method: JumiaRequestMethod,
     path: string,
-    schema?: z.ZodType<T>,
+    schema?: TSchema,
     body?: unknown
-  ): Promise<T | unknown> {
+  ): Promise<unknown> {
     const token = await this.getValidToken();
     const url = `${this.apiBase}${path}`;
     const headers: Record<string, string> = {
@@ -251,7 +251,10 @@ export class JumiaClient {
           'Response body is not valid JSON'
         );
       }
-      return schema ? schema.parse(json) : json;
+      if (schema) {
+        return schema.parse(json);
+      }
+      return json;
     } catch (error) {
       if (error instanceof JumiaApiError) throw error;
       if (
@@ -267,9 +270,11 @@ export class JumiaClient {
   }
 
   async getShops(): Promise<JumiaShop[]> {
-    const response = await this.request<
-      z.infer<typeof JumiaShopsResponseSchema>
-    >('GET', '/shops', JumiaShopsResponseSchema);
+    const response = await this.request(
+      'GET',
+      '/shops',
+      JumiaShopsResponseSchema
+    );
     return response.shops;
   }
 }
