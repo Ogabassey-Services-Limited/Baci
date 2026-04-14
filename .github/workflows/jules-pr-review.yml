@@ -1,0 +1,460 @@
+name: Jules PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: jules-pr-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: Jules review
+    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    steps:
+      - name: Run Jules review
+        continue-on-error: true
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          GITHUB_API_URL: ${{ github.api_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          REPO_OWNER: ${{ github.event.repository.owner.login }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          body_file="$RUNNER_TEMP/jules-review.md"
+          review_marker="<!-- jules-pr-review sha:${HEAD_SHA} -->"
+          session_id=""
+          state="NOT_STARTED"
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}"
+
+          uri_encode() {
+            jq -rn --arg value "$1" '$value | @uri'
+          }
+
+          if [[ -z "${JULES_API_KEY:-}" ]]; then
+            cat > "$body_file" <<EOF
+          ${review_marker}
+          ## Jules PR review
+
+          Jules did not run because the `JULES_API_KEY` secret is not configured for this repository.
+          EOF
+            exit 0
+          fi
+
+          matched_source=""
+          next_sources_page=""
+
+          while :; do
+            sources_url="https://jules.googleapis.com/v1alpha/sources?pageSize=100"
+
+            if [[ -n "${next_sources_page}" ]]; then
+              sources_url="${sources_url}&pageToken=$(uri_encode "${next_sources_page}")"
+            fi
+
+            sources_response="$(
+              curl -fsSL \
+                -H "x-goog-api-key: ${JULES_API_KEY}" \
+                "${sources_url}"
+            )"
+
+            matched_source="$(
+              jq -c \
+                --arg owner "${REPO_OWNER}" \
+                --arg repo "${REPO_NAME}" \
+                '
+                  .sources
+                  | map(select(.githubRepo.owner == $owner and .githubRepo.repo == $repo))
+                  | first // empty
+                ' \
+                <<<"${sources_response}"
+            )"
+
+            if [[ -n "${matched_source}" ]]; then
+              break
+            fi
+
+            next_sources_page="$(jq -r '.nextPageToken // empty' <<<"${sources_response}")"
+
+            if [[ -z "${next_sources_page}" ]]; then
+              break
+            fi
+          done
+
+          source_name=""
+
+          if [[ -n "${matched_source}" ]]; then
+            source_name="$(jq -r '.name // empty' <<<"${matched_source}")"
+          fi
+
+          if [[ -z "${source_name}" ]]; then
+            cat > "$body_file" <<EOF
+          ${review_marker}
+          ## Jules PR review
+
+          Jules could not find a connected source for \`${GITHUB_REPOSITORY}\`.
+
+          Install the Jules GitHub app for this repository in the Jules web UI, then rerun this workflow.
+          EOF
+            exit 0
+          fi
+
+          branch_visible="$(
+            jq -r \
+              --arg branch "${HEAD_REF}" \
+              '
+                .
+                | [(.githubRepo.branches[]?.displayName)]
+                | index($branch) != null
+              ' \
+              <<<"${matched_source}"
+          )"
+
+          if [[ "${branch_visible}" != "true" ]]; then
+            cat > "$body_file" <<EOF
+          ${review_marker}
+          ## Jules PR review
+
+          Jules can only review branches that are visible on the connected repository source.
+
+          The branch \`${HEAD_REF}\` was not returned by the Jules Sources API for \`${GITHUB_REPOSITORY}\`, so this run was skipped.
+          EOF
+            exit 0
+          fi
+
+          prompt="$(
+            jq -nr \
+              --arg pr_number "${PR_NUMBER}" \
+              --arg base_ref "${BASE_REF}" \
+              --arg head_ref "${HEAD_REF}" \
+              --arg pr_title "${PR_TITLE}" \
+              --arg pr_body "${PR_BODY:-}" \
+              '
+                [
+                  "Review GitHub pull request #\($pr_number).",
+                  "Base branch: \($base_ref).",
+                  "Head branch: \($head_ref).",
+                  "Title: \($pr_title)",
+                  "",
+                  "PR description:",
+                  (if $pr_body == "" then "(empty)" else $pr_body end),
+                  "",
+                  "Compare the head branch against the base branch and perform a code review.",
+                  "Do not modify code, do not create commits, and do not open a pull request.",
+                  "Do not ask follow-up questions.",
+                  "Return only concise Markdown with exactly these sections:",
+                  "## Verdict",
+                  "## Findings",
+                  "## Suggested next steps",
+                  "In Findings, use flat bullets. For each issue include severity (high, medium, or low) and file paths when possible.",
+                  "If you find no meaningful issues, say so explicitly."
+                ]
+                | join("\n")
+              '
+          )"
+
+          session_payload="$(
+            jq -n \
+              --arg prompt "${prompt}" \
+              --arg session_title "PR Review #${PR_NUMBER}" \
+              --arg source_name "${source_name}" \
+              --arg head_ref "${HEAD_REF}" \
+              '{
+                prompt: $prompt,
+                title: $session_title,
+                requirePlanApproval: false,
+                sourceContext: {
+                  source: $source_name,
+                  githubRepoContext: {
+                    startingBranch: $head_ref
+                  }
+                }
+              }'
+          )"
+
+          session_response="$(
+            curl -fsSL \
+              -X POST \
+              -H "Content-Type: application/json" \
+              -H "x-goog-api-key: ${JULES_API_KEY}" \
+              -d "${session_payload}" \
+              "https://jules.googleapis.com/v1alpha/sessions"
+          )"
+
+          session_id="$(jq -r '.id // empty' <<<"${session_response}")"
+
+          if [[ -z "${session_id}" ]]; then
+            cat > "$body_file" <<EOF
+          ${review_marker}
+          ## Jules PR review
+
+          Jules did not return a session ID, so the review could not be started.
+
+          Workflow run: ${run_url}
+          EOF
+            exit 0
+          fi
+
+          for _ in $(seq 1 60); do
+            session_status="$(
+              curl -fsSL \
+                -H "x-goog-api-key: ${JULES_API_KEY}" \
+                "https://jules.googleapis.com/v1alpha/sessions/${session_id}"
+            )"
+
+            state="$(jq -r '.state // "STATE_UNSPECIFIED"' <<<"${session_status}")"
+
+            case "${state}" in
+              COMPLETED|FAILED|AWAITING_USER_FEEDBACK|AWAITING_PLAN_APPROVAL|PAUSED)
+                break
+                ;;
+            esac
+
+            sleep 20
+          done
+
+          all_activities='[]'
+          next_activities_page=""
+
+          while :; do
+            activities_url="https://jules.googleapis.com/v1alpha/sessions/${session_id}/activities?pageSize=100"
+
+            if [[ -n "${next_activities_page}" ]]; then
+              activities_url="${activities_url}&pageToken=$(uri_encode "${next_activities_page}")"
+            fi
+
+            activities_response="$(
+              curl -fsSL \
+                -H "x-goog-api-key: ${JULES_API_KEY}" \
+                "${activities_url}"
+            )"
+
+            all_activities="$(
+              jq -c \
+                --argjson existing "${all_activities}" \
+                '
+                  $existing + (.activities // [])
+                ' \
+                <<<"${activities_response}"
+            )"
+
+            next_activities_page="$(jq -r '.nextPageToken // empty' <<<"${activities_response}")"
+
+            if [[ -z "${next_activities_page}" ]]; then
+              break
+            fi
+          done
+
+          review_markdown="$(
+            jq -r \
+              --argjson activities "${all_activities}" \
+              '
+                [
+                  ($activities | sort_by(.createTime)[])
+                  | select(.agentMessaged.agentMessage != null)
+                  | .agentMessaged.agentMessage
+                ]
+                | map(select(length > 0))
+                | last // empty
+              ' \
+              <<<"{}"
+          )"
+
+          failure_reason="$(
+            jq -r \
+              --argjson activities "${all_activities}" \
+              '
+                [
+                  ($activities | sort_by(.createTime)[])
+                  | select(.sessionFailed.reason != null)
+                  | .sessionFailed.reason
+                ]
+                | map(select(length > 0))
+                | last // empty
+              ' \
+              <<<"{}"
+          )"
+
+          case "${state}" in
+            COMPLETED)
+              if [[ -z "${review_markdown}" ]]; then
+                review_markdown="$(
+                  cat <<'EOF'
+          ## Verdict
+
+          Jules completed the session but did not return a final review message.
+
+          ## Findings
+
+          - low: No actionable review content was returned.
+
+          ## Suggested next steps
+
+          Re-run the workflow or inspect the Jules session manually.
+          EOF
+                )"
+              fi
+              ;;
+            FAILED)
+              review_markdown="$(
+                cat <<EOF
+          ## Verdict
+
+          Jules failed before completing the review.
+
+          ## Findings
+
+          - medium: ${failure_reason:-No failure reason was returned by the Activities API.}
+
+          ## Suggested next steps
+
+          Re-run the workflow after checking the Jules integration and repository source setup.
+          EOF
+              )"
+              ;;
+            AWAITING_USER_FEEDBACK|AWAITING_PLAN_APPROVAL|PAUSED)
+              review_markdown="$(
+                cat <<EOF
+          ## Verdict
+
+          Jules stopped in \`${state}\` instead of producing a final review.
+
+          ## Findings
+
+          - medium: The session requires manual intervention before it can finish.
+
+          ## Suggested next steps
+
+          Open the Jules session and complete the requested action, or adjust the prompt to avoid follow-up questions.
+          EOF
+              )"
+              ;;
+            *)
+              review_markdown="$(
+                cat <<EOF
+          ## Verdict
+
+          Jules did not finish within the workflow polling window.
+
+          ## Findings
+
+          - low: Final session state was \`${state}\`.
+
+          ## Suggested next steps
+
+          Re-run the workflow later if the branch is still under review.
+          EOF
+              )"
+              ;;
+          esac
+
+          cat > "$body_file" <<EOF
+          ${review_marker}
+          ## Jules PR review
+
+          Session: \`${session_id}\`
+          State: \`${state}\`
+          Workflow: ${run_url}
+
+          ${review_markdown}
+          EOF
+
+      - name: Submit Jules review
+        if: ${{ always() && !cancelled() }}
+        env:
+          GITHUB_API_URL: ${{ github.api_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+
+          body_file="$RUNNER_TEMP/jules-review.md"
+          marker="<!-- jules-pr-review sha:${HEAD_SHA} -->"
+
+          if [[ ! -f "${body_file}" ]]; then
+            cat > "${body_file}" <<EOF
+          ${marker}
+          ## Jules PR review
+
+          The workflow did not produce a review body. Check the workflow logs for the failure point.
+          EOF
+          fi
+
+          existing_review_id=""
+          reviews_page=1
+
+          while :; do
+            reviews_response="$(
+              curl -fsSL \
+                -H "Accept: application/vnd.github+json" \
+                -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews?per_page=100&page=${reviews_page}"
+            )"
+
+            existing_review_id="$(
+              jq -r \
+                --arg marker "${marker}" \
+                '
+                  [
+                    .[]
+                    | select(.user.login == "github-actions[bot]")
+                    | select((.body // "") | contains($marker))
+                  ]
+                  | last
+                  | .id // empty
+                ' \
+                <<<"${reviews_response}"
+            )"
+
+            if [[ -n "${existing_review_id}" ]]; then
+              break
+            fi
+
+            if [[ "$(jq 'length' <<<"${reviews_response}")" -lt 100 ]]; then
+              break
+            fi
+
+            reviews_page=$((reviews_page + 1))
+          done
+
+          if [[ -n "${existing_review_id}" ]]; then
+            exit 0
+          fi
+
+          review_payload="$(
+            jq -n \
+              --arg commit_id "${HEAD_SHA}" \
+              --rawfile body "${body_file}" \
+              '{
+                body: $body,
+                event: "COMMENT",
+                commit_id: $commit_id
+              }'
+          )"
+
+          curl -fsSL \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -d "${review_payload}" \
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews" >/dev/null
