@@ -182,7 +182,8 @@ export default function StoreSettingsScreen() {
   const handleManageSubscription = async () => {
     try {
       await SubscriptionManagement.openNativeManagement();
-    } catch {
+    } catch (error) {
+      console.error('Failed to open subscription management:', error);
       setStatusModal({
         visible: true,
         type: 'error',
