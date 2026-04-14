@@ -63,7 +63,7 @@ describe('purchaseSchema', () => {
       if (!result.success) {
         expect(result.error.issues[0].path).toContain('phoneNumber');
         expect(result.error.issues[0].message).toContain(
-          'phoneNumber and networkProvider are required'
+          'phoneNumber is required'
         );
       }
     });

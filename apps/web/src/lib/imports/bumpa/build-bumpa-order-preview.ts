@@ -172,7 +172,7 @@ export async function* buildBumpaOrderPreviewChunks({
         rowNumber,
         sourceExternalId: null,
         rowStatus: 'invalid',
-        errors: validationResult.error.errors.map((error) => error.message),
+        errors: validationResult.error.issues.map((error) => error.message),
         payload: null,
         meta: {},
       } satisfies ImportPreviewRow<NormalizedImportedOrder>;
