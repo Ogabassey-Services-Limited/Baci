@@ -46,6 +46,10 @@ jobs:
           state="NOT_STARTED"
           run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}"
 
+          uri_encode() {
+            jq -rn --arg value "$1" '$value | @uri'
+          }
+
           if [[ -z "${JULES_API_KEY:-}" ]]; then
             cat > "$body_file" <<EOF
           ${review_marker}
@@ -56,24 +60,50 @@ jobs:
             exit 0
           fi
 
-          sources_response="$(
-            curl -fsSL \
-              -H "x-goog-api-key: ${JULES_API_KEY}" \
-              "https://jules.googleapis.com/v1alpha/sources?pageSize=100"
-          )"
+          matched_source=""
+          next_sources_page=""
 
-          source_name="$(
-            jq -r \
-              --arg owner "${REPO_OWNER}" \
-              --arg repo "${REPO_NAME}" \
-              '
-                .sources
-                | map(select(.githubRepo.owner == $owner and .githubRepo.repo == $repo))
-                | first
-                | .name // empty
-              ' \
-              <<<"${sources_response}"
-          )"
+          while :; do
+            sources_url="https://jules.googleapis.com/v1alpha/sources?pageSize=100"
+
+            if [[ -n "${next_sources_page}" ]]; then
+              sources_url="${sources_url}&pageToken=$(uri_encode "${next_sources_page}")"
+            fi
+
+            sources_response="$(
+              curl -fsSL \
+                -H "x-goog-api-key: ${JULES_API_KEY}" \
+                "${sources_url}"
+            )"
+
+            matched_source="$(
+              jq -c \
+                --arg owner "${REPO_OWNER}" \
+                --arg repo "${REPO_NAME}" \
+                '
+                  .sources
+                  | map(select(.githubRepo.owner == $owner and .githubRepo.repo == $repo))
+                  | first // empty
+                ' \
+                <<<"${sources_response}"
+            )"
+
+            if [[ -n "${matched_source}" ]]; then
+              break
+            fi
+
+            next_sources_page="$(jq -r '.nextPageToken // empty' <<<"${sources_response}")"
+
+            if [[ -z "${next_sources_page}" ]]; then
+              break
+            fi
+          done
+
+          source_name=""
+
+          if [[ -n "${matched_source}" ]]; then
+            source_name="$(jq -r '.name // empty' <<<"${matched_source}")"
+          fi
 
           if [[ -z "${source_name}" ]]; then
             cat > "$body_file" <<EOF
@@ -89,17 +119,13 @@ jobs:
 
           branch_visible="$(
             jq -r \
-              --arg owner "${REPO_OWNER}" \
-              --arg repo "${REPO_NAME}" \
               --arg branch "${HEAD_REF}" \
               '
-                .sources
-                | map(select(.githubRepo.owner == $owner and .githubRepo.repo == $repo))
-                | first
+                .
                 | [(.githubRepo.branches[]?.displayName)]
                 | index($branch) != null
               ' \
-              <<<"${sources_response}"
+              <<<"${matched_source}"
           )"
 
           if [[ "${branch_visible}" != "true" ]]; then
@@ -205,38 +231,66 @@ jobs:
             sleep 20
           done
 
-          activities_response="$(
-            curl -fsSL \
-              -H "x-goog-api-key: ${JULES_API_KEY}" \
-              "https://jules.googleapis.com/v1alpha/sessions/${session_id}/activities?pageSize=100"
-          )"
+          all_activities='[]'
+          next_activities_page=""
+
+          while :; do
+            activities_url="https://jules.googleapis.com/v1alpha/sessions/${session_id}/activities?pageSize=100"
+
+            if [[ -n "${next_activities_page}" ]]; then
+              activities_url="${activities_url}&pageToken=$(uri_encode "${next_activities_page}")"
+            fi
+
+            activities_response="$(
+              curl -fsSL \
+                -H "x-goog-api-key: ${JULES_API_KEY}" \
+                "${activities_url}"
+            )"
+
+            all_activities="$(
+              jq -c \
+                --argjson existing "${all_activities}" \
+                '
+                  $existing + (.activities // [])
+                ' \
+                <<<"${activities_response}"
+            )"
+
+            next_activities_page="$(jq -r '.nextPageToken // empty' <<<"${activities_response}")"
+
+            if [[ -z "${next_activities_page}" ]]; then
+              break
+            fi
+          done
 
           review_markdown="$(
             jq -r \
+              --argjson activities "${all_activities}" \
               '
                 [
-                  .activities[]?
+                  ($activities | sort_by(.createTime)[])
                   | select(.agentMessaged.agentMessage != null)
                   | .agentMessaged.agentMessage
                 ]
                 | map(select(length > 0))
                 | last // empty
               ' \
-              <<<"${activities_response}"
+              <<<"{}"
           )"
 
           failure_reason="$(
             jq -r \
+              --argjson activities "${all_activities}" \
               '
                 [
-                  .activities[]?
+                  ($activities | sort_by(.createTime)[])
                   | select(.sessionFailed.reason != null)
                   | .sessionFailed.reason
                 ]
                 | map(select(length > 0))
                 | last // empty
               ' \
-              <<<"${activities_response}"
+              <<<"{}"
           )"
 
           if [[ -z "${review_markdown}" ]]; then
