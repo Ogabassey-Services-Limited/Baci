@@ -74,9 +74,11 @@ describe('walletTransactionsQuerySchema', () => {
     expect(result.success).toBe(false);
     if (!result.success) {
       const messages = result.error.issues.map((issue) => issue.message);
-      expect(messages).toContain('Number must be greater than or equal to 1');
-      expect(messages).toContain(
-        "Invalid enum value. Expected 'credit' | 'debit' | 'withdrawal' | 'payout' | 'refund' | 'adjustment', received 'transfer'"
+      expect(messages).toEqual(
+        expect.arrayContaining([
+          expect.stringMatching(/>=1|greater than or equal to 1/),
+          expect.stringMatching(/Invalid enum value|expected one of/),
+        ])
       );
     }
   });

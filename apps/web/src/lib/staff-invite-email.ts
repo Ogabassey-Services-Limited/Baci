@@ -1,5 +1,5 @@
 import { getAppUrl } from '@/env';
-import { escapeHtmlText } from '@/lib/sanitize';
+import { escapeHtmlAttribute, escapeHtmlText } from '@/lib/sanitize';
 import { buildStaffInvitePath } from '@/lib/staff-invite-flow';
 
 interface BuildStaffInviteEmailOptions {
@@ -40,7 +40,7 @@ export function buildStaffInviteEmail({
   const safeBusinessName = escapeHtml(resolvedBusinessName);
   const safeName = escapeHtml(toName?.trim() || 'there');
   const safeRole = escapeHtml(role.replaceAll('_', ' '));
-  const safeInviteUrl = escapeHtml(inviteUrl);
+  const safeInviteUrl = escapeHtmlAttribute(inviteUrl);
 
   return {
     inviteUrl,

@@ -26,6 +26,7 @@ import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useCachedImageUri } from '@/hooks/useCachedImageUri';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
+import { useSubscriptionManagement } from '@/hooks/useSubscriptionManagement';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 import { SubscriptionManagement } from '@/utils/SubscriptionManagement';
@@ -52,6 +53,10 @@ export default function StoreSettingsScreen() {
   const [currency, setCurrency] = useState(COUNTRIES[0].currency);
   const [slug, setSlug] = useState('');
   const [isSlugEdited, setIsSlugEdited] = useState(false);
+  const { handleManageSubscription } = useSubscriptionManagement({
+    setStatusModal,
+  });
+
   useEffect(() => {
     if (merchant) {
       setBusinessName(merchant.business_name || '');
@@ -246,19 +251,7 @@ export default function StoreSettingsScreen() {
           colors={colors}
           isPro={isPro}
           manageSubscriptionLabel={manageSubscriptionLabel}
-          onManageSubscription={async () => {
-            try {
-              await SubscriptionManagement.openNativeManagement();
-            } catch {
-              setStatusModal({
-                visible: true,
-                type: 'error',
-                title: 'Unable to Open',
-                message:
-                  'Could not open subscription management. Please try again.',
-              });
-            }
-          }}
+          onManageSubscription={handleManageSubscription}
           onOpenSubscriptionPlans={() => router.push('/(admin)/subscribe')}
           planLabel={planLabel}
           shadowStyle={shadows.sm}
