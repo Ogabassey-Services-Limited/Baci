@@ -400,27 +400,42 @@ jobs:
           EOF
           fi
 
-          reviews_response="$(
-            curl -fsSL \
-              -H "Accept: application/vnd.github+json" \
-              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-              "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews?per_page=100"
-          )"
+          existing_review_id=""
+          reviews_page=1
 
-          existing_review_id="$(
-            jq -r \
-              --arg marker "${marker}" \
-              '
-                [
-                  .[]
-                  | select(.user.login == "github-actions[bot]")
-                  | select((.body // "") | contains($marker))
-                ]
-                | last
-                | .id // empty
-              ' \
-              <<<"${reviews_response}"
-          )"
+          while :; do
+            reviews_response="$(
+              curl -fsSL \
+                -H "Accept: application/vnd.github+json" \
+                -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews?per_page=100&page=${reviews_page}"
+            )"
+
+            existing_review_id="$(
+              jq -r \
+                --arg marker "${marker}" \
+                '
+                  [
+                    .[]
+                    | select(.user.login == "github-actions[bot]")
+                    | select((.body // "") | contains($marker))
+                  ]
+                  | last
+                  | .id // empty
+                ' \
+                <<<"${reviews_response}"
+            )"
+
+            if [[ -n "${existing_review_id}" ]]; then
+              break
+            fi
+
+            if [[ "$(jq 'length' <<<"${reviews_response}")" -lt 100 ]]; then
+              break
+            fi
+
+            reviews_page=$((reviews_page + 1))
+          done
 
           if [[ -n "${existing_review_id}" ]]; then
             exit 0
