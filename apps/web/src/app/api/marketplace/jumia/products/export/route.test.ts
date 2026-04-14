@@ -52,7 +52,7 @@ vi.mock('@/lib/api-auth', () => ({
   }),
   getMerchantIdForApiUser: vi
     .fn()
-    .mockResolvedValue('00000000-0000-0000-0000-000000000001'),
+    .mockResolvedValue('00000000-0000-4000-8000-000000000001'),
 }));
 
 vi.mock('@/lib/jumia/feeds', () => ({
@@ -75,7 +75,7 @@ vi.mock('@/lib/sanitize-core', () => ({
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
-const INT_ID = '00000000-0000-0000-0000-000000000099';
+const INT_ID = '00000000-0000-4000-8000-000000000099';
 
 const VALID_BODY = {
   integrationId: INT_ID,
@@ -171,7 +171,7 @@ describe('Products Export POST', () => {
     expect(authenticateApiRequest).toHaveBeenCalled();
     expect(mockForIntegration).toHaveBeenCalledWith(
       expect.anything(),
-      '00000000-0000-0000-0000-000000000001',
+      '00000000-0000-4000-8000-000000000001',
       INT_ID
     );
     expect(mockCreateProduct).toHaveBeenCalledWith(
