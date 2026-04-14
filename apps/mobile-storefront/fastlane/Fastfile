@@ -62,12 +62,24 @@ platform :ios do
     upload_to_app_store(
       api_key: api_key,
       ipa: File.join(OUTPUT_DIR, "#{SCHEME}.ipa"),
-      skip_metadata: false,
+      skip_metadata: true,
       skip_screenshots: true,
       skip_app_version_update: false,
-      release_notes: {
-        "en-US" => release_notes_text
-      },
+      submit_for_review: false,
+      force: true,
+      reject_if_possible: true
+    )
+
+    set_changelog(
+      api_key: api_key,
+      changelog: release_notes_text
+    )
+
+    deliver(
+      api_key: api_key,
+      skip_binary_upload: true,
+      skip_metadata: true,
+      skip_screenshots: true,
       submit_for_review: true,
       automatic_release: true,
       force: true,

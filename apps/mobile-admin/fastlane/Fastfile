@@ -59,15 +59,32 @@ platform :ios do
     release_notes_text = ENV["IOS_RELEASE_NOTES"].to_s.strip
     release_notes_text = "Bug fixes and performance improvements." if release_notes_text.empty?
 
+    # Upload binary only. Keep skip_metadata: true so we don't clobber
+    # app-level metadata (description, keywords, category) with blanks.
     upload_to_app_store(
       api_key: api_key,
       ipa: File.join(OUTPUT_DIR, "#{SCHEME}.ipa"),
-      skip_metadata: false,
+      skip_metadata: true,
       skip_screenshots: true,
       skip_app_version_update: false,
-      release_notes: {
-        "en-US" => release_notes_text
-      },
+      submit_for_review: false,
+      force: true,
+      reject_if_possible: true
+    )
+
+    # Set the "What's New" for the just-uploaded version via direct ASC API
+    # (doesn't touch any other metadata).
+    set_changelog(
+      api_key: api_key,
+      changelog: release_notes_text
+    )
+
+    # Now submit the version for review with auto-release.
+    deliver(
+      api_key: api_key,
+      skip_binary_upload: true,
+      skip_metadata: true,
+      skip_screenshots: true,
       submit_for_review: true,
       automatic_release: true,
       force: true,
