@@ -38,6 +38,7 @@
     "overrides": {
       "defu": "6.1.6",
       "@xmldom/xmldom": "0.8.12",
+      "follow-redirects": "^1.16.0",
       "@types/react": "19.2.14",
       "smol-toml": ">=1.6.1",
       "picomatch": ">=4.0.4",
