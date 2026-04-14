@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { escapeHtmlText, sanitizeHtml, sanitizeSvg } from './sanitize';
+import {
+  escapeHtmlAttribute,
+  escapeHtmlText,
+  sanitizeHtml,
+  sanitizeSvg,
+} from '@/lib/sanitize';
 
 describe('sanitize', () => {
   it('removes unsafe scripts and javascript URLs from HTML', () => {
@@ -54,5 +59,17 @@ describe('sanitize', () => {
     const output = escapeHtmlText('TGW <Store> & "quotes"');
 
     expect(output).toBe('TGW &lt;Store&gt; &amp; "quotes"');
+  });
+
+  it('preserves single quotes and escapes angle brackets in plain text content', () => {
+    const output = escapeHtmlText("Baci's <Store>");
+
+    expect(output).toBe("Baci's &lt;Store&gt;");
+  });
+
+  it('escapes quotes for safe HTML attribute interpolation', () => {
+    const output = escapeHtmlAttribute(`"Baci's" & <Store>`);
+
+    expect(output).toBe('&quot;Baci&#39;s&quot; &amp; &lt;Store&gt;');
   });
 });
