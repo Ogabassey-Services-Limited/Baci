@@ -4,6 +4,12 @@ import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { AppDialogModal } from '@/components/ui/AppDialogModal';
 
+vi.mock('@/components/ui/AppKeyboardContainer', () => ({
+  AppKeyboardContainer: ({ children }: { children?: ReactNode }) => (
+    <section aria-label="dialog-keyboard-shell">{children}</section>
+  ),
+}));
+
 vi.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({
     colors: {
@@ -96,5 +102,18 @@ describe('AppDialogModal', () => {
 
     expect(screen.queryByLabelText('dialog-modal')).toBeNull();
     expect(screen.queryByText('Should not appear')).toBeNull();
+  });
+
+  it('can render inside the shared keyboard shell when keyboardAware is enabled', () => {
+    render(
+      <AppDialogModal keyboardAware onClose={vi.fn()} visible={true}>
+        <div>Keyboard dialog</div>
+      </AppDialogModal>
+    );
+
+    expect(
+      screen.getByRole('region', { name: 'dialog-keyboard-shell' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('Keyboard dialog')).toBeInTheDocument();
   });
 });
