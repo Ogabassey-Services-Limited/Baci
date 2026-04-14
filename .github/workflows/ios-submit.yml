@@ -69,7 +69,7 @@ jobs:
         run: |
           NOTES="${WORKFLOW_NOTES:-Bug fixes and performance improvements.}"
           NOTES="${NOTES:0:4000}"
-          DELIM="EOF_$(uuidgen | tr -d -)"
+          DELIM="EOF_$(uuidgen | tr -d '-')"
           {
             echo "IOS_RELEASE_NOTES<<$DELIM"
             echo "$NOTES"
