@@ -6,7 +6,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs, router } from 'expo-router';
 import type React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorFallback } from '@/components/ErrorBoundary';
 import { BRAND } from '@/constants/Colors';
@@ -80,16 +80,7 @@ export default function TabLayout() {
   });
 
   return (
-    <View
-      style={[
-        styles.navigatorShell,
-        {
-          marginTop: -insets.top,
-          marginBottom: -insets.bottom,
-        },
-      ]}
-    >
-      <Tabs
+    <Tabs
         initialRouteName="index"
         screenOptions={{
         tabBarActiveTintColor: '#FFFFFF',
@@ -210,14 +201,10 @@ export default function TabLayout() {
         }}
         />
       </Tabs>
-    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  navigatorShell: {
-    flex: 1,
-  },
   iconContainer: {
     height: 32,
     alignItems: 'center',

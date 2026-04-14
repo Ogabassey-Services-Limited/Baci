@@ -36,10 +36,19 @@ const reactDomClientPath = testingLibraryRequire.resolve('react-dom/client');
 const reactDomTestUtilsPath = testingLibraryRequire.resolve(
   'react-dom/test-utils'
 );
+const reactNativeWebPath = require.resolve('react-native-web');
+const reactNativePhoneInputMockPath = path.resolve(
+  __dirname,
+  'test/mocks/react-native-phone-number-input.tsx'
+);
 
 export default defineConfig({
   define: {
     __DEV__: true,
+  },
+  esbuild: {
+    jsx: 'automatic',
+    jsxImportSource: 'react',
   },
   resolve: {
     alias: [
@@ -58,8 +67,13 @@ export default defineConfig({
       { find: /^react-dom$/, replacement: reactDomPath },
       { find: /^react-dom\/client$/, replacement: reactDomClientPath },
       { find: /^react-dom\/test-utils$/, replacement: reactDomTestUtilsPath },
+      { find: /^react-native$/, replacement: reactNativeWebPath },
+      {
+        find: /^react-native-phone-number-input$/,
+        replacement: reactNativePhoneInputMockPath,
+      },
     ],
-    dedupe: ['react', 'react-dom'],
+    dedupe: ['react', 'react-dom', 'react-native-web'],
   },
   ssr: {
     noExternal: [
@@ -67,6 +81,7 @@ export default defineConfig({
       '@testing-library/react',
       'react',
       'react-dom',
+      'react-native-web',
     ],
   },
   test: {
@@ -80,11 +95,11 @@ export default defineConfig({
           /@testing-library\/react/,
           /^react$/,
           /^react-dom$/,
+          /^react-native-web$/,
         ],
         external: [
           /expo-linear-gradient/,
           /@expo\/vector-icons/,
-          /react-native$/,
           /react-native\//,
         ],
       },
