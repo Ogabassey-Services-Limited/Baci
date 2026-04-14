@@ -71,7 +71,7 @@ export const merchantFeatureSettingsSchema = z.object({
   vtu_customer_cashback_enabled: z.boolean(),
   vtu_customer_cashback_rate: z.number(),
   // Custom
-  custom_settings: z.record(z.unknown()),
+  custom_settings: z.record(z.string(), z.unknown()),
 });
 
 export type MerchantFeatureSettingsInput = z.infer<

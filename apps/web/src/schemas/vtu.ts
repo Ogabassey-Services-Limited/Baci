@@ -29,41 +29,56 @@ const purchaseSchemaBase = z.object({
     .default('direct'),
 });
 
-function withPurchaseRequirements<T extends z.ZodTypeAny>(schema: T) {
-  return schema
-    .refine(
-      (data) => {
-        if (data.type === 'airtime' || data.type === 'data') {
-          return !!data.phoneNumber && !!data.networkProvider;
-        }
-        return true;
-      },
-      {
-        message:
-          'phoneNumber and networkProvider are required for airtime/data',
+type PurchaseRequirementValues = z.infer<typeof purchaseSchemaBase>;
+
+function applyPurchaseRequirements(
+  data: PurchaseRequirementValues,
+  ctx: z.RefinementCtx
+) {
+  if (data.type === 'airtime' || data.type === 'data') {
+    if (!data.phoneNumber) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'phoneNumber is required for airtime/data',
         path: ['phoneNumber'],
-      }
-    )
-    .refine(
-      (data) => {
-        if (
-          data.type === 'electricity' ||
-          data.type === 'cable_tv' ||
-          data.type === 'betting'
-        ) {
-          return !!data.billItemIdentifier && !!data.customerIdentifier;
-        }
-        return true;
-      },
-      {
-        message:
-          'billItemIdentifier and customerIdentifier are required for bill payments',
+      });
+    }
+
+    if (!data.networkProvider) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'networkProvider is required for airtime/data',
+        path: ['networkProvider'],
+      });
+    }
+  }
+
+  if (
+    data.type === 'electricity' ||
+    data.type === 'cable_tv' ||
+    data.type === 'betting'
+  ) {
+    if (!data.billItemIdentifier) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'billItemIdentifier is required for bill payments',
         path: ['billItemIdentifier'],
-      }
-    );
+      });
+    }
+
+    if (!data.customerIdentifier) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'customerIdentifier is required for bill payments',
+        path: ['customerIdentifier'],
+      });
+    }
+  }
 }
 
-export const purchaseSchema = withPurchaseRequirements(purchaseSchemaBase);
+export const purchaseSchema = purchaseSchemaBase.superRefine(
+  applyPurchaseRequirements
+);
 
 export type PurchaseInput = z.infer<typeof purchaseSchema>;
 
@@ -90,13 +105,13 @@ export const vtuCheckoutGatewayEnum = z.enum([
   'bank_transfer',
 ]);
 
-export const vtuCheckoutInitializeSchema = withPurchaseRequirements(
-  purchaseSchemaBase.extend({
+export const vtuCheckoutInitializeSchema = purchaseSchemaBase
+  .extend({
     customerName: z.string().min(1).optional(),
     customerPhone: z.string().min(1).optional(),
     gateway: vtuCheckoutGatewayEnum,
   })
-);
+  .superRefine(applyPurchaseRequirements);
 
 export const vtuCheckoutConfirmSchema = z.object({
   merchantSlug: z.string().min(1, 'Merchant slug is required'),
@@ -108,14 +123,14 @@ export const vtuSavedPaymentMethodsQuerySchema = z.object({
   merchantSlug: z.string().min(1, 'Merchant slug is required'),
 });
 
-export const vtuSavedCardChargeSchema = withPurchaseRequirements(
-  purchaseSchemaBase.extend({
+export const vtuSavedCardChargeSchema = purchaseSchemaBase
+  .extend({
     customerName: z.string().min(1).optional(),
     customerPhone: z.string().min(1).optional(),
     gateway: vtuCheckoutGatewayEnum,
     savedPaymentMethodId: z.string().uuid('Saved payment method id is invalid'),
   })
-);
+  .superRefine(applyPurchaseRequirements);
 
 /** Maps our bill type enum to commission calculation categories */
 export const COMMISSION_CATEGORY_MAP: Record<BillType, string> = {

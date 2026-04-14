@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertCircle } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
+import type { z } from 'zod';
 import { ThemedInput } from '@/components/themed/themed-input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Label } from '@/components/ui/label';
@@ -44,7 +45,7 @@ export function JumiaPriceForm({
     reset,
     getValues,
     formState: { errors },
-  } = useForm<JumiaPriceFormValues>({
+  } = useForm<z.input<typeof jumiaPriceSchema>, unknown, JumiaPriceFormValues>({
     resolver: zodResolver(jumiaPriceSchema),
     mode: 'onChange',
     defaultValues: {
