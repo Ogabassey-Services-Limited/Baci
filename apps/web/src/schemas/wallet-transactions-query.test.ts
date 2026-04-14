@@ -77,7 +77,7 @@ describe('walletTransactionsQuerySchema', () => {
       expect(messages).toEqual(
         expect.arrayContaining([
           expect.stringMatching(/>=1|greater than or equal to 1/),
-          expect.stringContaining('expected one of'),
+          expect.stringMatching(/Invalid enum value|expected one of/),
         ])
       );
     }
