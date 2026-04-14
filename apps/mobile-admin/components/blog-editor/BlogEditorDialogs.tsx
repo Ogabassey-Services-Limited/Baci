@@ -62,7 +62,6 @@ export function BlogEditorDialogs({
             accessibilityLabel="Link URL"
             autoCapitalize="none"
             autoCorrect={false}
-            autoFocus
             keyboardType="url"
             onChangeText={onLinkUrlChange}
             onSubmitEditing={onConfirmLink}
@@ -146,7 +145,6 @@ export function BlogEditorDialogs({
 
           <TextInput
             accessibilityLabel="AI instruction"
-            autoFocus
             blurOnSubmit
             onChangeText={onAiInstructionChange}
             onSubmitEditing={onConfirmAI}
