@@ -57,7 +57,7 @@ describe('StoreSubscriptionCard', () => {
       screen.queryByRole('button', { name: 'Manage in App Store' })
     ).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Upgrade to pro' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Upgrade to Pro' }));
 
     expect(onOpenSubscriptionPlans).toHaveBeenCalledTimes(1);
   });

@@ -91,6 +91,6 @@ const styles = StyleSheet.create({
   summaryLabel: {
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     fontSize: TYPOGRAPHY.size.xs,
-    marginTop: 2,
+    marginTop: SPACING.xs / 2,
   },
 });

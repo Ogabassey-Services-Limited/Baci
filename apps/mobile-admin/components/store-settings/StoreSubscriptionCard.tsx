@@ -10,6 +10,9 @@ import {
 import type { ThemeColors } from '@/constants/theme';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 
+const PLAN_BADGE_VERTICAL_PADDING = SPACING.xs / 2;
+const ACTION_ICON_CONTAINER_SIZE = SPACING.xl * 2;
+
 interface StoreSubscriptionCardProps {
   colors: ThemeColors;
   isPro: boolean;
@@ -58,7 +61,7 @@ export function StoreSubscriptionCard({
 
       <Pressable
         accessibilityLabel={
-          isPro ? 'View current subscription' : 'Upgrade to pro'
+          isPro ? 'View current subscription' : 'Upgrade to Pro'
         }
         accessibilityRole="button"
         onPress={onOpenSubscriptionPlans}
@@ -169,7 +172,7 @@ const styles = StyleSheet.create({
   planBadge: {
     borderRadius: RADIUS.sm,
     paddingHorizontal: SPACING.sm,
-    paddingVertical: 2,
+    paddingVertical: PLAN_BADGE_VERTICAL_PADDING,
   },
   planBadgeText: {
     fontFamily: TYPOGRAPHY.fontFamily.bold,
@@ -192,10 +195,10 @@ const styles = StyleSheet.create({
   iconContainer: {
     alignItems: 'center',
     borderRadius: RADIUS.md,
-    height: 40,
+    height: ACTION_ICON_CONTAINER_SIZE,
     justifyContent: 'center',
     marginRight: SPACING.md,
-    width: 40,
+    width: ACTION_ICON_CONTAINER_SIZE,
   },
   actionTitle: {
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,

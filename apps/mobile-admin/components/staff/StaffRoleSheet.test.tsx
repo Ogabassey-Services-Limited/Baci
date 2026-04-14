@@ -7,18 +7,27 @@ import { StaffRoleSheet } from './StaffRoleSheet';
 vi.mock('@/components/ui/AppPageSheet', () => ({
   AppPageSheet: ({
     children,
+    closeLabel,
     footer,
+    onClose,
     title,
     visible,
   }: {
     children?: React.ReactNode;
+    closeLabel?: string;
     footer?: React.ReactNode;
+    onClose?: () => void;
     title: string;
     visible: boolean;
   }) =>
     visible ? (
       <div role="dialog">
         <span>{title}</span>
+        <button
+          aria-label={closeLabel}
+          onClick={() => onClose?.()}
+          type="button"
+        />
         {children}
         {footer}
       </div>
@@ -123,5 +132,27 @@ describe('StaffRoleSheet', () => {
 
     expect(screen.getByRole('button', { name: 'Update role' })).toBeDisabled();
     expect(screen.getByText('Updating...')).toBeInTheDocument();
+  });
+
+  it('forwards sheet close actions', () => {
+    const onClose = vi.fn();
+
+    render(
+      <StaffRoleSheet
+        colors={LIGHT_COLORS}
+        isPending={false}
+        onClose={onClose}
+        onRoleSelect={vi.fn()}
+        onSubmit={vi.fn()}
+        selectedRole="sales_rep"
+        visible={true}
+      />
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Close role change sheet' })
+    );
+
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

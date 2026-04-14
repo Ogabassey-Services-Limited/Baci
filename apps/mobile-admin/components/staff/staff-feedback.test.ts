@@ -82,4 +82,49 @@ describe('getStaffInviteFeedback', () => {
       message: 'Invitation sent successfully',
     });
   });
+
+  it('builds resend failure feedback with a share link when delivery fails', () => {
+    expect(
+      getStaffInviteFeedback({
+        email: 'ada@example.com',
+        emailDeliveryFailed: true,
+        inviteUrl: 'https://usebaci.com/invite',
+        kind: 'resend',
+      })
+    ).toEqual({
+      title: 'Invite Link Updated',
+      message:
+        "We couldn't deliver the invite email to ada@example.com. Share the link directly instead.",
+      shareMessage:
+        'Here is your new invitation link: https://usebaci.com/invite',
+      shareUrl: 'https://usebaci.com/invite',
+    });
+  });
+
+  it('builds resend success feedback without a share link when none exists', () => {
+    expect(
+      getStaffInviteFeedback({
+        email: 'ada@example.com',
+        emailDeliveryFailed: false,
+        kind: 'resend',
+      })
+    ).toEqual({
+      title: 'Success',
+      message: 'Invitation renewed',
+    });
+  });
+
+  it('builds invite failure feedback without a share link when none exists', () => {
+    expect(
+      getStaffInviteFeedback({
+        email: 'ada@example.com',
+        emailDeliveryFailed: true,
+        kind: 'invite',
+      })
+    ).toEqual({
+      title: 'Invite Created',
+      message:
+        'The invitation was created, but the email could not be delivered.',
+    });
+  });
 });

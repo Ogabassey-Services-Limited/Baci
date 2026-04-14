@@ -166,6 +166,7 @@ export function StoreSettingsDetailsCard({
             </Text>
             <View
               accessibilityLabel="Selected currency"
+              accessibilityRole="text"
               style={[
                 styles.readOnlyInput,
                 {
