@@ -180,13 +180,13 @@ export class JumiaClient {
   async request<T>(
     method: JumiaRequestMethod,
     path: string,
-    schema: z.ZodType<T>,
+    schema: z.ZodType<T, unknown>,
     body?: unknown
   ): Promise<T>;
   async request<T = unknown>(
     method: JumiaRequestMethod,
     path: string,
-    schema?: z.ZodType<T>,
+    schema?: z.ZodType<T, unknown>,
     body?: unknown
   ): Promise<T | unknown> {
     const token = await this.getValidToken();
