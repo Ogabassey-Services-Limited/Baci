@@ -109,7 +109,6 @@ platform :ios do
     deliver_opts[:build_number] = build_number unless build_number.empty?
     deliver_opts[:app_version] = app_version unless app_version.empty?
 
-    # Set the release notes via direct ASC API so we don't touch other metadata.
     changelog_opts = { api_key: api_key, changelog: release_notes_text }
     changelog_opts[:version] = app_version unless app_version.empty?
     set_changelog(changelog_opts)
