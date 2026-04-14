@@ -1,0 +1,217 @@
+name: iOS Storefront Production Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/mobile-storefront/**'
+      - 'packages/shared/**'
+      - 'pnpm-lock.yaml'
+    tags:
+      - 'v*-storefront-ios'
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: 'iOS build number override (leave empty for auto)'
+        required: false
+        type: string
+
+concurrency:
+  group: ios-storefront-release-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '24'
+  RUBY_VERSION: '3.4'
+  XCODE_VERSION: '26.2'
+  WORKING_DIR: apps/mobile-storefront
+  BUILD_NUMBER_BASE: '30'
+  # Major.minor for App Store version. Patch auto-appends build number.
+  APP_VERSION_MAJOR_MINOR: '2.1'
+
+jobs:
+  build-and-submit:
+    name: Build Storefront IPA & Submit to App Store Connect
+    runs-on: macos-26
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Select Xcode ${{ env.XCODE_VERSION }}
+        run: sudo xcode-select -s "/Applications/Xcode_${{ env.XCODE_VERSION }}.app/Contents/Developer"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5.0.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@4c56a21280b36d862b5fc31348f463d60bdc55d5 # v1.301.0
+        with:
+          ruby-version: ${{ env.RUBY_VERSION }}
+          bundler-cache: true
+          working-directory: ${{ env.WORKING_DIR }}
+
+      - name: Disable Node type stripping
+        run: echo "NODE_OPTIONS=--no-strip-types" >> "$GITHUB_ENV"
+
+      - name: Install JS dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Resolve build number
+        id: version
+        shell: bash
+        env:
+          GH_EVENT_NAME: ${{ github.event_name }}
+          GH_REF_TYPE: ${{ github.ref_type }}
+          GH_REF_NAME: ${{ github.ref_name }}
+          GH_RUN_NUMBER: ${{ github.run_number }}
+          INPUT_BUILD_NUMBER: ${{ inputs.build_number }}
+          BUILD_NUMBER_BASE: ${{ env.BUILD_NUMBER_BASE }}
+          APP_VERSION_MAJOR_MINOR: ${{ env.APP_VERSION_MAJOR_MINOR }}
+        run: |
+          if [ "$GH_EVENT_NAME" = "workflow_dispatch" ] && [ -n "$INPUT_BUILD_NUMBER" ]; then
+            BUILD_NUMBER="$INPUT_BUILD_NUMBER"
+          elif [ "$GH_REF_TYPE" = "tag" ]; then
+            BUILD_NUMBER="${GH_REF_NAME#v}"
+            BUILD_NUMBER="${BUILD_NUMBER%-storefront-ios}"
+          else
+            BUILD_NUMBER=$(( GH_RUN_NUMBER + BUILD_NUMBER_BASE ))
+          fi
+
+          if ! [[ "$BUILD_NUMBER" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::Invalid build number '$BUILD_NUMBER'. Use a positive integer (>=1)."
+            exit 1
+          fi
+
+          if ! [[ "$APP_VERSION_MAJOR_MINOR" =~ ^[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Invalid APP_VERSION_MAJOR_MINOR '$APP_VERSION_MAJOR_MINOR'. Must match <major>.<minor> (e.g., 2.1)." >&2
+            exit 1
+          fi
+
+          echo "IOS_BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
+          echo "IOS_APP_VERSION=${APP_VERSION_MAJOR_MINOR}.$BUILD_NUMBER" >> "$GITHUB_ENV"
+          echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Materialize iOS Firebase config
+        working-directory: ${{ env.WORKING_DIR }}
+        env:
+          GOOGLE_SERVICES_PLIST_BASE64: ${{ secrets.IOS_STOREFRONT_GOOGLE_SERVICE_INFO_PLIST_BASE64 }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_PLIST_BASE64" ]; then
+            umask 077
+            echo "$GOOGLE_SERVICES_PLIST_BASE64" | base64 -d > GoogleService-Info.plist
+            chmod 600 GoogleService-Info.plist
+          elif [ -f GoogleService-Info.plist ]; then
+            echo "Using tracked GoogleService-Info.plist"
+          else
+            echo "::error::Missing GoogleService-Info.plist and secret"
+            exit 1
+          fi
+
+      - name: Materialize App Store Connect API key
+        env:
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+        run: |
+          if [ -z "$ASC_API_KEY_P8_BASE64" ] || [ -z "$ASC_API_KEY_ID" ] || [ -z "$ASC_API_ISSUER_ID" ]; then
+            echo "::error::ASC_API_KEY_P8_BASE64, ASC_API_KEY_ID, and ASC_API_ISSUER_ID secrets must be set"
+            exit 1
+          fi
+          KEY_DIR="$HOME/.appstoreconnect/private_keys"
+          mkdir -p "$KEY_DIR"
+          umask 077
+          KEY_PATH="$KEY_DIR/AuthKey_${ASC_API_KEY_ID}.p8"
+          echo "$ASC_API_KEY_P8_BASE64" | base64 -d > "$KEY_PATH"
+          chmod 600 "$KEY_PATH"
+          echo "ASC_API_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
+
+      - name: Configure match SSH deploy key
+        env:
+          MATCH_DEPLOY_KEY: ${{ secrets.MATCH_DEPLOY_KEY }}
+        run: |
+          if [ -z "$MATCH_DEPLOY_KEY" ]; then
+            echo "::error::MATCH_DEPLOY_KEY secret is required"
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          umask 077
+          printf '%s\n' "$MATCH_DEPLOY_KEY" > ~/.ssh/match_deploy_key
+          chmod 600 ~/.ssh/match_deploy_key
+          ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
+          echo "GIT_SSH_COMMAND=ssh -i ~/.ssh/match_deploy_key -o IdentitiesOnly=yes" >> "$GITHUB_ENV"
+
+      - name: Generate iOS project via Expo prebuild
+        working-directory: ${{ env.WORKING_DIR }}
+        env:
+          CI: '1'
+          IOS_BUILD_NUMBER: ${{ env.IOS_BUILD_NUMBER }}
+          IOS_APP_VERSION: ${{ env.IOS_APP_VERSION }}
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          EXPO_PUBLIC_WEB_API_URL: https://usebaci.com
+          EXPO_PUBLIC_API_URL: https://usebaci.com
+          EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
+        run: pnpm exec expo prebuild --platform ios --clean
+
+      - name: Fix prebuild signing style for archive
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          PBXPROJ="ios/Ogabassey.xcodeproj/project.pbxproj"
+          if [ -f "$PBXPROJ" ]; then
+            sed -i '' 's/"Apple Distribution"/"Apple Development"/g' "$PBXPROJ" || true
+          fi
+
+      - name: Install CocoaPods
+        working-directory: ${{ env.WORKING_DIR }}/ios
+        env:
+          LANG: en_US.UTF-8
+        run: bundle exec pod install --repo-update
+
+      - name: Fastlane release
+        working-directory: ${{ env.WORKING_DIR }}
+        env:
+          CI: '1'
+          FASTLANE_DISABLE_COLORS: '1'
+          FASTLANE_HIDE_CHANGELOG: '1'
+          FASTLANE_SKIP_UPDATE_CHECK: '1'
+          FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: '120'
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+          ASC_API_KEY_PATH: ${{ env.ASC_API_KEY_PATH }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+        run: bundle exec fastlane ios release
+
+      - name: Upload IPA artifact
+        if: success() || failure()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: ios-storefront-release-${{ github.sha }}
+          path: |
+            ${{ env.WORKING_DIR }}/build/*.ipa
+            ${{ env.WORKING_DIR }}/build/*.app.dSYM.zip
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Clean up secrets
+        if: always()
+        run: |
+          rm -f "$HOME/.appstoreconnect/private_keys/AuthKey_"*.p8
+          rm -f ~/.ssh/match_deploy_key
+          security delete-keychain fastlane_match_keychain 2>/dev/null || true
+          if ! git -C "$GITHUB_WORKSPACE" ls-files --error-unmatch "$WORKING_DIR/GoogleService-Info.plist" >/dev/null 2>&1; then
+            rm -f "$GITHUB_WORKSPACE/$WORKING_DIR/GoogleService-Info.plist"
+          fi

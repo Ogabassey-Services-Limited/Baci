@@ -43,6 +43,48 @@ vi.mock('@/lib/countries', () => ({
   }),
 }));
 
+type MerchantContextMock = {
+  merchantId: string;
+  businessName: string;
+  staffAccess: {
+    isOwner: boolean;
+    isStaff: boolean;
+    role: string | null;
+    permissions: Record<string, Record<string, boolean>>;
+  };
+};
+
+const merchantContextMock = {
+  current: {
+    merchantId: 'merchant-123',
+    businessName: 'Test Store',
+    staffAccess: {
+      isOwner: true,
+      isStaff: false,
+      role: null,
+      permissions: { full_access: { all: true } },
+    },
+  } as MerchantContextMock | null,
+};
+vi.mock('@/lib/get-merchant-for-api-request', () => ({
+  getMerchantForApiRequest: vi.fn(() =>
+    Promise.resolve(merchantContextMock.current)
+  ),
+  toUserAccess: vi.fn((ctx: MerchantContextMock | null) => {
+    if (!ctx) {
+      throw new Error('Merchant context is required');
+    }
+
+    return {
+      merchantId: ctx.merchantId,
+      role: ctx.staffAccess.role ?? (ctx.staffAccess.isOwner ? 'owner' : null),
+      isOwner: ctx.staffAccess.isOwner,
+      isStaff: ctx.staffAccess.isStaff,
+      permissions: ctx.staffAccess.permissions,
+    };
+  }),
+}));
+
 // Supabase mock
 const MERCHANT_ID = 'merchant-123';
 const USER_ID = 'user-123';
@@ -142,6 +184,16 @@ describe('POST /api/products/bulk-update', () => {
     vi.clearAllMocks();
     authUser = { id: USER_ID };
     merchant = { id: MERCHANT_ID, business_name: 'Test Store', country: 'NG' };
+    merchantContextMock.current = {
+      merchantId: MERCHANT_ID,
+      businessName: 'Test Store',
+      staffAccess: {
+        isOwner: true,
+        isStaff: false,
+        role: null,
+        permissions: { full_access: { all: true } },
+      },
+    };
     updateError = null;
     insertError = null;
     csrfValid = true;
@@ -160,7 +212,7 @@ describe('POST /api/products/bulk-update', () => {
 
   it('returns 404 when merchant not found', async () => {
     const { POST } = await import('./route');
-    merchant = null;
+    merchantContextMock.current = null;
 
     const res = await POST(makeRequest({ changes: [] }));
     const json = await res.json();

@@ -434,7 +434,8 @@ function Section({
       <button
         type="button"
         onClick={onToggle}
-        className="w-full px-4 py-3 flex items-center justify-between hover:bg-muted/50 transition-colors"
+        aria-expanded={isExpanded}
+        className="w-full px-4 py-3 flex items-center justify-between hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       >
         <span className="text-sm font-medium">{title}</span>
         {isExpanded ? (

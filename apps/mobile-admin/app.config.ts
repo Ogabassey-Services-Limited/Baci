@@ -27,6 +27,33 @@ if (rawAndroidVersionCode !== undefined) {
   }
 }
 
+const rawIosBuildNumber = process.env.IOS_BUILD_NUMBER;
+let _iosBuildNumber: string | undefined;
+
+if (rawIosBuildNumber !== undefined) {
+  const parsed = Number(rawIosBuildNumber);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    console.warn(
+      `[app.config] Ignoring IOS_BUILD_NUMBER="${rawIosBuildNumber}" because it must be a positive integer.`
+    );
+  } else {
+    _iosBuildNumber = String(parsed);
+  }
+}
+
+const rawIosAppVersion = process.env.IOS_APP_VERSION;
+let _iosAppVersion: string | undefined;
+
+if (rawIosAppVersion !== undefined && rawIosAppVersion.trim().length > 0) {
+  const trimmed = rawIosAppVersion.trim();
+  if (!/^\d+\.\d+\.\d+$/.test(trimmed)) {
+    throw new Error(
+      `[app.config] Invalid IOS_APP_VERSION="${rawIosAppVersion}". Must be semantic version major.minor.patch (e.g., 2.0.31).`
+    );
+  }
+  _iosAppVersion = trimmed;
+}
+
 /**
  * Expo App Configuration
  * Using app.config.ts to properly inject environment variables
@@ -36,7 +63,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   name: 'Baci - The Ecommerce Builder',
   slug: 'baci',
   owner: 'ogabassey-services-limited',
-  version: '2.0.1',
+  version: _iosAppVersion ?? '2.0.1',
   orientation: 'default',
   icon: './assets/images/icon.png',
   userInterfaceStyle: 'automatic',
@@ -50,7 +77,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.ogabassey.baci',
-    buildNumber: '13',
+    buildNumber: _iosBuildNumber ?? '13',
     // www.usebaci.com excluded: Vercel 308-redirects www → bare domain,
     // and Apple/Android reject redirects for verification files.
     associatedDomains: ['applinks:usebaci.com'],

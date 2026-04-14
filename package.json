@@ -32,11 +32,13 @@
   "pnpm": {
     "overrideNotes": {
       "defu": "Pin to 6.1.6 to mitigate GHSA-737v-mqg7-c878 / CVE-2026-35209: replace the vulnerable transitive deep-merge helper.",
-      "@xmldom/xmldom": "Pin to 0.8.12 to mitigate GHSA-wh4c-j3r5-mjhp / CVE-2026-34601: keep Expo plist tooling on the patched 0.8.x line."
+      "@xmldom/xmldom": "Pin to 0.8.12 to mitigate GHSA-wh4c-j3r5-mjhp / CVE-2026-34601: keep Expo plist tooling on the patched 0.8.x line.",
+      "@types/react": "Dedupe to a single version. Without this, pnpm hoists 19.2.13 at the root and nested copies at 19.2.14, causing TS2769 'two different types with this name' errors on react-native ref props."
     },
     "overrides": {
       "defu": "6.1.6",
       "@xmldom/xmldom": "0.8.12",
+      "@types/react": "19.2.14",
       "smol-toml": ">=1.6.1",
       "picomatch": ">=4.0.4",
       "yaml": ">=2.8.3",

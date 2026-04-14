@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { Suspense } from 'react';
 import AppBody from '@/components/app-body';
 import { PlatformFooter } from '@/components/platform/footer';
 import { PlatformHeader } from '@/components/platform/header';
@@ -105,7 +106,29 @@ function formatDate(dateString: string): string {
   });
 }
 
-export default async function BlogPostPage({ params }: PageProps) {
+function BlogPostPageFallback() {
+  return (
+    <AppBody>
+      <div className="flex min-h-screen flex-col bg-background font-sans">
+        <PlatformHeader />
+        <main className="flex-1 px-4 pb-16 pt-24 md:px-6">
+          <div className="mx-auto max-w-4xl">
+            <p className="mb-4 text-sm text-muted-foreground">
+              Loading article…
+            </p>
+            <div className="mb-8 h-5 w-32 rounded bg-muted" />
+            <div className="mb-4 h-12 w-full max-w-3xl rounded bg-muted" />
+            <div className="mb-8 h-4 w-64 rounded bg-muted" />
+            <div className="aspect-video w-full rounded-2xl bg-muted" />
+          </div>
+        </main>
+        <PlatformFooter />
+      </div>
+    </AppBody>
+  );
+}
+
+async function BlogPostPageContent({ params }: PageProps) {
   const { slug } = await params;
   const post = await getBlogPost(slug);
 
@@ -257,5 +280,13 @@ export default async function BlogPostPage({ params }: PageProps) {
         <PlatformFooter />
       </div>
     </AppBody>
+  );
+}
+
+export default function BlogPostPage({ params }: PageProps) {
+  return (
+    <Suspense fallback={<BlogPostPageFallback />}>
+      <BlogPostPageContent params={params} />
+    </Suspense>
   );
 }

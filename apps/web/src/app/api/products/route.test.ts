@@ -26,6 +26,36 @@ vi.mock('@/lib/cache-revalidation', () => ({
   revalidateProducts: vi.fn(),
 }));
 
+type MerchantContextMock = {
+  merchantId: string;
+  businessName: string;
+  staffAccess: {
+    isOwner: boolean;
+    isStaff: boolean;
+    role: string | null;
+    permissions: Record<string, Record<string, boolean>>;
+  };
+};
+
+const merchantContextMock = {
+  current: {
+    merchantId: 'merchant-123',
+    businessName: 'Test Store',
+    staffAccess: {
+      isOwner: true,
+      isStaff: false,
+      role: null,
+      permissions: { full_access: { all: true } },
+    },
+  } as MerchantContextMock | null,
+};
+
+vi.mock('@/lib/get-merchant-for-api-request', () => ({
+  getMerchantForApiRequest: vi.fn(() =>
+    Promise.resolve(merchantContextMock.current)
+  ),
+}));
+
 let csrfValid = true;
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: vi.fn(() =>
@@ -256,6 +286,16 @@ function resetMocks() {
     business_name: 'Test Store',
     country: 'NG',
   };
+  merchantContextMock.current = {
+    merchantId: MERCHANT_ID,
+    businessName: 'Test Store',
+    staffAccess: {
+      isOwner: true,
+      isStaff: false,
+      role: null,
+      permissions: { full_access: { all: true } },
+    },
+  };
   products = [];
   productsCount = 0;
   productsError = null;
@@ -294,7 +334,7 @@ describe('GET /api/products', () => {
 
   describe('merchant lookup', () => {
     it('returns 404 when merchant not found', async () => {
-      merchant = null;
+      merchantContextMock.current = null;
 
       const res = await GET(makeGetRequest());
       const json = await res.json();
@@ -448,7 +488,7 @@ describe('POST /api/products', () => {
 
   describe('merchant lookup', () => {
     it('returns 404 when merchant not found', async () => {
-      merchant = null;
+      merchantContextMock.current = null;
 
       const res = await POST(makePostRequest(validCreateBody));
       const json = await res.json();

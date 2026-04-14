@@ -11,8 +11,8 @@ import {
   XCircle,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useEffectEvent, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -22,6 +22,12 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import {
+  buildStaffInvitePath,
+  resolveStaffPostAcceptRedirect,
+  STAFF_INVITE_ACCEPT_QUERY_PARAM,
+  STAFF_INVITE_CLIENT_QUERY_PARAM,
+} from '@/lib/staff-invite-flow';
 
 interface InvitationDetails {
   valid: boolean;
@@ -43,10 +49,42 @@ const roleLabels: Record<string, string> = {
 };
 
 export default function AcceptInvitePage() {
+  return (
+    <Suspense fallback={<AcceptInvitePageFallback />}>
+      <AcceptInvitePageContent />
+    </Suspense>
+  );
+}
+
+function AcceptInvitePageFallback() {
+  return (
+    <div
+      className="flex min-h-screen items-center justify-center bg-gray-50 p-4"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+    >
+      <Card className="w-full max-w-md">
+        <CardContent className="pt-6">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-muted-foreground">Loading invitation...</p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function AcceptInvitePageContent() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const token = params.token as string;
+  const acceptRequested =
+    searchParams.get(STAFF_INVITE_ACCEPT_QUERY_PARAM) === '1';
+  const requestedClient = searchParams.get(STAFF_INVITE_CLIENT_QUERY_PARAM);
 
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState(false);
@@ -54,11 +92,33 @@ export default function AcceptInvitePage() {
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<{ email: string } | null>(null);
   const [accepted, setAccepted] = useState(false);
+  const [isMobileBrowser, setIsMobileBrowser] = useState(false);
+  const autoAcceptAttemptedRef = useRef(false);
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
   );
+  const normalizedRequestedClient = requestedClient?.trim().toLowerCase();
+  const inviteClient =
+    normalizedRequestedClient === 'mobile' ||
+    normalizedRequestedClient === 'web'
+      ? normalizedRequestedClient
+      : isMobileBrowser
+        ? 'mobile'
+        : 'web';
+  const postAuthRedirect = buildStaffInvitePath(token, {
+    autoAccept: true,
+    client: inviteClient,
+  });
+  const emailMismatch =
+    user &&
+    invitation &&
+    user.email.toLowerCase() !== invitation.email.toLowerCase();
+
+  useEffect(() => {
+    setIsMobileBrowser(/android|iphone|ipad|ipod/i.test(navigator.userAgent));
+  }, []);
 
   useEffect(() => {
     const checkAuthAndValidate = async () => {
@@ -72,7 +132,9 @@ export default function AcceptInvitePage() {
         }
 
         // Validate the invitation token
-        const response = await fetch(`/api/staff/accept-invite?token=${token}`);
+        const response = await fetch(
+          `/api/staff/accept-invite?token=${encodeURIComponent(token)}`
+        );
         const data = await response.json();
 
         if (!response.ok) {
@@ -92,17 +154,36 @@ export default function AcceptInvitePage() {
     checkAuthAndValidate();
   }, [token, supabase.auth]);
 
-  const handleAcceptInvitation = async () => {
-    if (!user) {
-      // Redirect to login with return URL and pre-filled email
-      const searchParams = new URLSearchParams({
-        redirect: `/invite/${token}`,
-        email: invitation?.email || '',
-      });
-      router.push(`/login?${searchParams.toString()}`);
+  const redirectAfterAcceptance = () => {
+    const redirectTarget = resolveStaffPostAcceptRedirect(inviteClient);
+
+    if (redirectTarget === '/dashboard' || typeof window === 'undefined') {
+      router.replace('/dashboard');
       return;
     }
 
+    window.location.assign(redirectTarget);
+    const fallbackTimeout = window.setTimeout(() => {
+      if (!document.hidden) {
+        router.replace('/dashboard');
+      }
+      document.removeEventListener('visibilitychange', clearFallbackOnAppOpen);
+    }, 2500);
+
+    function clearFallbackOnAppOpen() {
+      if (document.hidden) {
+        window.clearTimeout(fallbackTimeout);
+        document.removeEventListener(
+          'visibilitychange',
+          clearFallbackOnAppOpen
+        );
+      }
+    }
+
+    document.addEventListener('visibilitychange', clearFallbackOnAppOpen);
+  };
+
+  const acceptInvitation = async () => {
     setAccepting(true);
     try {
       const response = await fetch('/api/staff/accept-invite', {
@@ -128,10 +209,9 @@ export default function AcceptInvitePage() {
         description: `You've joined ${invitation?.merchantName} as ${roleLabels[invitation?.role || ''] || invitation?.role}.`,
       });
 
-      // Redirect to dashboard after a short delay
-      setTimeout(() => {
-        router.push('/dashboard');
-      }, 2000);
+      window.setTimeout(() => {
+        redirectAfterAcceptance();
+      }, 800);
     } catch (err) {
       console.error('Error accepting invitation:', err);
       toast({
@@ -143,6 +223,40 @@ export default function AcceptInvitePage() {
       setAccepting(false);
     }
   };
+
+  const handleAcceptInvitation = async () => {
+    if (!user) {
+      const loginParams = new URLSearchParams({
+        redirect: postAuthRedirect,
+        email: invitation?.email || '',
+      });
+      router.push(`/login?${loginParams.toString()}`);
+      return;
+    }
+
+    await acceptInvitation();
+  };
+
+  const autoAcceptInvitation = useEffectEvent(() => {
+    void acceptInvitation();
+  });
+
+  useEffect(() => {
+    if (
+      !acceptRequested ||
+      autoAcceptAttemptedRef.current ||
+      !user ||
+      !invitation ||
+      emailMismatch ||
+      accepted ||
+      accepting
+    ) {
+      return;
+    }
+
+    autoAcceptAttemptedRef.current = true;
+    autoAcceptInvitation();
+  }, [acceptRequested, accepted, accepting, emailMismatch, invitation, user]);
 
   if (loading) {
     return (
@@ -199,7 +313,9 @@ export default function AcceptInvitePage() {
           </CardHeader>
           <CardContent className="text-center">
             <p className="text-sm text-muted-foreground mb-4">
-              Redirecting you to the dashboard...
+              {inviteClient === 'mobile'
+                ? 'Opening the Baci app...'
+                : 'Redirecting you to the dashboard...'}
             </p>
             <Loader2 className="h-5 w-5 animate-spin mx-auto text-primary" />
           </CardContent>
@@ -207,11 +323,6 @@ export default function AcceptInvitePage() {
       </div>
     );
   }
-
-  const emailMismatch =
-    user &&
-    invitation &&
-    user.email.toLowerCase() !== invitation.email.toLowerCase();
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
@@ -280,7 +391,7 @@ export default function AcceptInvitePage() {
             {user ? (
               emailMismatch ? (
                 <Link
-                  href={`/login?redirect=/invite/${token}&email=${encodeURIComponent(invitation?.email || '')}`}
+                  href={`/login?redirect=${encodeURIComponent(postAuthRedirect)}&email=${encodeURIComponent(invitation?.email || '')}`}
                 >
                   <Button className="w-full">
                     <LogIn className="mr-2 h-4 w-4" />
@@ -312,7 +423,7 @@ export default function AcceptInvitePage() {
                   Create an account to accept this invitation
                 </p>
                 <Link
-                  href={`/signup?redirect=/invite/${token}&email=${encodeURIComponent(invitation?.email || '')}&type=staff`}
+                  href={`/signup?redirect=${encodeURIComponent(postAuthRedirect)}&email=${encodeURIComponent(invitation?.email || '')}&type=staff`}
                 >
                   <Button className="w-full">Create Account</Button>
                 </Link>
@@ -327,7 +438,7 @@ export default function AcceptInvitePage() {
                   </div>
                 </div>
                 <Link
-                  href={`/login?redirect=/invite/${token}&email=${encodeURIComponent(invitation?.email || '')}`}
+                  href={`/login?redirect=${encodeURIComponent(postAuthRedirect)}&email=${encodeURIComponent(invitation?.email || '')}`}
                 >
                   <Button variant="outline" className="w-full">
                     <LogIn className="mr-2 h-4 w-4" />

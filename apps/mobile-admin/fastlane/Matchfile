@@ -1,0 +1,6 @@
+git_url(ENV["MATCH_GIT_URL"])
+storage_mode("git")
+type("appstore")
+app_identifier(["com.ogabassey.baci"])
+team_id("6QLNK7TXM3")
+readonly(true)

@@ -1,18 +1,43 @@
 import crypto from 'node:crypto';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { getAppUrl } from '@/env';
-import { hasPermission } from '@/lib/api-auth';
+import { z } from 'zod';
+import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
+import { buildStaffInviteEmail } from '@/lib/staff-invite-email';
 import { STAFF_COLUMNS } from '@/lib/staff-queries';
 import { createClient } from '@/lib/supabase/server';
+import { sendEmail } from '@/lib/zeptomail';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
+}
+
+const requestedMerchantSchema = z.string().uuid();
+
+function parseRequestedMerchantId(request: Request | NextRequest) {
+  const headerValue = request.headers.get('x-baci-merchant-id');
+
+  if (!headerValue) {
+    return { merchantId: null, error: null };
+  }
+
+  const parsed = requestedMerchantSchema.safeParse(headerValue);
+  if (!parsed.success) {
+    return {
+      merchantId: null,
+      error: NextResponse.json(
+        { error: 'Invalid merchant context' },
+        { status: 400 }
+      ),
+    };
+  }
+
+  return { merchantId: parsed.data, error: null };
 }
 
 /**
@@ -33,7 +58,14 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    const requestedMerchant = parseRequestedMerchantId(_request);
+    if (requestedMerchant.error) {
+      return requestedMerchant.error;
+    }
+
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id, {
+      requestedMerchantId: requestedMerchant.merchantId,
+    });
     if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
@@ -110,7 +142,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    const requestedMerchant = parseRequestedMerchantId(request);
+    if (requestedMerchant.error) {
+      return requestedMerchant.error;
+    }
+
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id, {
+      requestedMerchantId: requestedMerchant.merchantId,
+    });
     if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
@@ -214,7 +253,14 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    const requestedMerchant = parseRequestedMerchantId(_request);
+    if (requestedMerchant.error) {
+      return requestedMerchant.error;
+    }
+
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id, {
+      requestedMerchantId: requestedMerchant.merchantId,
+    });
     if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
@@ -271,18 +317,24 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     }
 
     const { id } = await params;
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-
-    // Get authenticated user
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await authenticateApiRequest(_request);
+    if (auth.error || !auth.user || !auth.supabase) {
+      return NextResponse.json(
+        { error: auth.error || 'Unauthorized' },
+        { status: 401 }
+      );
     }
 
-    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    const { user, supabase } = auth;
+
+    const requestedMerchant = parseRequestedMerchantId(_request);
+    if (requestedMerchant.error) {
+      return requestedMerchant.error;
+    }
+
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id, {
+      requestedMerchantId: requestedMerchant.merchantId,
+    });
     if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
@@ -301,7 +353,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     // Get staff member
     const { data: staff } = await supabase
       .from('staff_members')
-      .select('id, email, status')
+      .select('id, email, name, role, status')
       .eq('id', id)
       .eq('merchant_id', merchantId)
       .single();
@@ -321,7 +373,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     }
 
     // Generate new invitation token
-    const invitationToken = crypto.randomBytes(32).toString('hex');
+    const invitationToken = crypto.randomUUID();
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
 
@@ -344,16 +396,26 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const inviteUrl = `${getAppUrl()}/invite/${invitationToken}`;
+    const { inviteUrl, email: inviteEmail } = buildStaffInviteEmail({
+      businessName: businessName || 'Your Store',
+      role: staff.role,
+      to: staff.email,
+      toName: staff.name,
+      token: invitationToken,
+    });
 
-    // Note: businessName may be undefined if not set on merchant record
-    // The email send is intentionally not included here (matching original behavior)
-    // where the resend only returns the new inviteUrl without sending an email
-    void businessName; // acknowledge the variable is available if needed
+    const delivery = await sendEmail(inviteEmail);
+    if (!delivery.success) {
+      console.error('Resend invitation email error:', delivery.error);
+    }
 
     return NextResponse.json({
       success: true,
       inviteUrl,
+      invitationToken,
+      emailDelivery: delivery.success
+        ? { status: 'sent' as const }
+        : { status: 'failed' as const },
     });
   } catch (error) {
     console.error('Resend invitation error:', error);

@@ -1,0 +1,96 @@
+name: iOS Storefront Submit for Review
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: 'TestFlight build number to submit (leave empty for latest)'
+        required: false
+        type: string
+      app_version:
+        description: 'App Store version (leave empty for latest editable)'
+        required: false
+        type: string
+      release_notes:
+        description: 'What''s New in This Version (leave empty for default)'
+        required: false
+        type: string
+
+concurrency:
+  group: ios-storefront-submit-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  RUBY_VERSION: '3.4'
+  WORKING_DIR: apps/mobile-storefront
+
+jobs:
+  submit:
+    name: Submit Storefront to App Store Review
+    runs-on: macos-26
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@4c56a21280b36d862b5fc31348f463d60bdc55d5 # v1.301.0
+        with:
+          ruby-version: ${{ env.RUBY_VERSION }}
+          bundler-cache: true
+          working-directory: ${{ env.WORKING_DIR }}
+
+      - name: Materialize App Store Connect API key
+        env:
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+        run: |
+          if [ -z "$ASC_API_KEY_P8_BASE64" ] || [ -z "$ASC_API_KEY_ID" ] || [ -z "$ASC_API_ISSUER_ID" ]; then
+            echo "::error::ASC_API_KEY_P8_BASE64, ASC_API_KEY_ID, and ASC_API_ISSUER_ID secrets must be set"
+            exit 1
+          fi
+          KEY_DIR="$HOME/.appstoreconnect/private_keys"
+          mkdir -p "$KEY_DIR"
+          umask 077
+          KEY_PATH="$KEY_DIR/AuthKey_${ASC_API_KEY_ID}.p8"
+          echo "$ASC_API_KEY_P8_BASE64" | base64 -d > "$KEY_PATH"
+          chmod 600 "$KEY_PATH"
+          echo "ASC_API_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
+
+      - name: Resolve release notes
+        shell: bash
+        env:
+          WORKFLOW_NOTES: ${{ inputs.release_notes }}
+        run: |
+          NOTES="${WORKFLOW_NOTES:-Bug fixes and performance improvements.}"
+          NOTES="${NOTES:0:4000}"
+          DELIM="EOF_$(date +%s%N)_$RANDOM"
+          {
+            echo "IOS_RELEASE_NOTES<<$DELIM"
+            echo "$NOTES"
+            echo "$DELIM"
+          } >> "$GITHUB_ENV"
+
+      - name: Fastlane submit
+        working-directory: ${{ env.WORKING_DIR }}
+        env:
+          CI: '1'
+          FASTLANE_DISABLE_COLORS: '1'
+          FASTLANE_HIDE_CHANGELOG: '1'
+          FASTLANE_SKIP_UPDATE_CHECK: '1'
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+          ASC_API_KEY_PATH: ${{ env.ASC_API_KEY_PATH }}
+          IOS_RELEASE_NOTES: ${{ env.IOS_RELEASE_NOTES }}
+          SUBMIT_BUILD_NUMBER: ${{ inputs.build_number }}
+          SUBMIT_APP_VERSION: ${{ inputs.app_version }}
+        run: bundle exec fastlane ios submit
+
+      - name: Clean up secrets
+        if: always()
+        run: rm -f "$HOME/.appstoreconnect/private_keys/AuthKey_"*.p8

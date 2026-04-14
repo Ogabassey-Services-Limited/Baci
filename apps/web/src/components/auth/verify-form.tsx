@@ -23,6 +23,7 @@ import {
   InputOTPSlot,
 } from '@/components/ui/input-otp';
 import { useToast } from '@/hooks/use-toast';
+import { sanitizeRelativeRedirectPath } from '@/lib/auth-redirect';
 import { createClient } from '@/lib/supabase/client';
 
 const verifySchema = z.object({
@@ -35,6 +36,10 @@ export default function VerifyForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get('email');
+  const redirectTo = sanitizeRelativeRedirectPath(
+    searchParams.get('redirect'),
+    '/dashboard'
+  );
   const { toast } = useToast();
   const supabase = createClient();
   const [isLoading, setIsLoading] = useState(false);
@@ -97,7 +102,8 @@ export default function VerifyForm() {
 
       // Force refresh to update auth state
       router.refresh();
-      router.replace('/dashboard');
+      // biome-ignore lint/suspicious/noExplicitAny: typed routes require a Route-compatible string at runtime
+      router.replace(redirectTo as any);
     } catch (error: unknown) {
       toast({
         variant: 'destructive',
@@ -119,6 +125,9 @@ export default function VerifyForm() {
       const { error } = await supabase.auth.resend({
         email,
         type: 'signup',
+        options: {
+          emailRedirectTo: `${window.location.origin}${redirectTo}`,
+        },
       });
 
       if (error) throw error;
@@ -232,7 +241,7 @@ export default function VerifyForm() {
 
             <div className="mt-4 text-center text-sm">
               <Link
-                href="/login"
+                href={`/login?redirect=${encodeURIComponent(redirectTo)}`}
                 className="text-muted-foreground hover:text-foreground transition-colors"
               >
                 Back to Sign In

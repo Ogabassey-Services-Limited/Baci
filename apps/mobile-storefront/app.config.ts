@@ -28,12 +28,39 @@ if (rawAndroidVersionCode !== undefined) {
   }
 }
 
+const rawIosBuildNumber = process.env.IOS_BUILD_NUMBER;
+let iosBuildNumber: string | undefined;
+
+if (rawIosBuildNumber !== undefined) {
+  const parsed = Number(rawIosBuildNumber);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    console.warn(
+      `[app.config] Ignoring IOS_BUILD_NUMBER="${rawIosBuildNumber}" because it must be a positive integer.`
+    );
+  } else {
+    iosBuildNumber = String(parsed);
+  }
+}
+
+const rawIosAppVersion = process.env.IOS_APP_VERSION;
+let _iosAppVersion: string | undefined;
+
+if (rawIosAppVersion !== undefined && rawIosAppVersion.trim().length > 0) {
+  const trimmed = rawIosAppVersion.trim();
+  if (!/^\d+\.\d+\.\d+$/.test(trimmed)) {
+    throw new Error(
+      `[app.config] Invalid IOS_APP_VERSION="${rawIosAppVersion}". Must be semantic version major.minor.patch (e.g., 2.1.31).`
+    );
+  }
+  _iosAppVersion = trimmed;
+}
+
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'Ogabassey',
   slug: 'ogabassey-store',
   owner: 'ogabassey',
-  version: appVersion,
+  version: _iosAppVersion ?? appVersion,
   orientation: 'portrait',
   icon: './assets/images/icon.png',
   userInterfaceStyle: 'automatic',
@@ -45,7 +72,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.ogabassey.app',
-    buildNumber: '9',
+    buildNumber: iosBuildNumber ?? '9',
     associatedDomains: [
       'applinks:ogabassey.com',
       'applinks:ogabassey.usebaci.com',
