@@ -26,6 +26,7 @@ import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useCachedImageUri } from '@/hooks/useCachedImageUri';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
+import { useSubscriptionManagement } from '@/hooks/useSubscriptionManagement';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 import { SubscriptionManagement } from '@/utils/SubscriptionManagement';
@@ -52,6 +53,9 @@ export default function StoreSettingsScreen() {
   const [currency, setCurrency] = useState(COUNTRIES[0].currency);
   const [slug, setSlug] = useState('');
   const [isSlugEdited, setIsSlugEdited] = useState(false);
+  const { handleManageSubscription } = useSubscriptionManagement({
+    setStatusModal,
+  });
 
   useEffect(() => {
     if (merchant) {
@@ -168,29 +172,6 @@ export default function StoreSettingsScreen() {
   // Native subscription management opens a different store on each platform.
   const manageSubscriptionLabel =
     Platform.OS === 'ios' ? 'Manage in App Store' : 'Manage in Google Play';
-
-  const showSubscriptionManagementError = () => {
-    setStatusModal({
-      visible: true,
-      type: 'error',
-      title: 'Unable to Open',
-      message: 'Could not open subscription management. Please try again.',
-    });
-  };
-
-  const handleManageSubscription = async () => {
-    try {
-      const opened = await SubscriptionManagement.openNativeManagement();
-
-      if (!opened) {
-        console.error('Subscription management returned false');
-        showSubscriptionManagementError();
-      }
-    } catch (error) {
-      console.error('Failed to open subscription management:', error);
-      showSubscriptionManagementError();
-    }
-  };
 
   return (
     <>

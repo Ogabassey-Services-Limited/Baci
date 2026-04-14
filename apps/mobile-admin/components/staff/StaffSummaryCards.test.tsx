@@ -12,12 +12,12 @@ vi.mock('react-native', () => ({
     <span>{children}</span>
   ),
   View: ({
+    accessibilityRole,
     children,
-    testID,
   }: {
+    accessibilityRole?: string;
     children?: React.ReactNode;
-    testID?: string;
-  }) => <div data-testid={testID}>{children}</div>,
+  }) => <div role={accessibilityRole}>{children}</div>,
 }));
 
 describe('StaffSummaryCards', () => {
@@ -30,9 +30,7 @@ describe('StaffSummaryCards', () => {
       />
     );
 
-    const totalCard = screen.getByTestId('total-card');
-    const activeCard = screen.getByTestId('active-card');
-    const pendingCard = screen.getByTestId('pending-card');
+    const [totalCard, activeCard, pendingCard] = screen.getAllByRole('summary');
 
     expect(within(totalCard).getByText('6')).toBeInTheDocument();
     expect(within(totalCard).getByText('Total')).toBeInTheDocument();
@@ -51,11 +49,7 @@ describe('StaffSummaryCards', () => {
       />
     );
 
-    const cards = [
-      screen.getByTestId('total-card'),
-      screen.getByTestId('active-card'),
-      screen.getByTestId('pending-card'),
-    ];
+    const cards = screen.getAllByRole('summary');
 
     cards.forEach((card) => {
       expect(within(card).getByText('0')).toBeInTheDocument();

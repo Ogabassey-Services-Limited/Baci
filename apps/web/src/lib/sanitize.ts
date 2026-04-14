@@ -20,6 +20,15 @@ const ESCAPE_HTML_TEXT_OPTIONS: sanitizeLib.IOptions = {
   },
 };
 
+const HTML_ATTRIBUTE_ESCAPE_REGEX = /[&<>"']/g;
+const HTML_ATTRIBUTE_ESCAPE_MAP: Record<string, string> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;',
+};
+
 function clampHeadingLevel(level: number) {
   return Math.min(6, Math.max(1, level));
 }
@@ -175,6 +184,21 @@ export function sanitizeHtml(
 export function escapeHtmlText(value: string): string {
   if (!value) return '';
   return sanitizeLib(value, ESCAPE_HTML_TEXT_OPTIONS);
+}
+
+/**
+ * Escapes plain text for safe HTML attribute interpolation.
+ *
+ * Use this for values inserted inside quoted attributes such as href, src,
+ * title, alt, and aria-* values. Unlike escapeHtmlText, this also escapes
+ * quotes so the attribute boundary cannot be broken.
+ */
+export function escapeHtmlAttribute(value: string): string {
+  if (!value) return '';
+  return value.replace(
+    HTML_ATTRIBUTE_ESCAPE_REGEX,
+    (match) => HTML_ATTRIBUTE_ESCAPE_MAP[match]
+  );
 }
 
 /**
