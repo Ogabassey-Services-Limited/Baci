@@ -33,6 +33,9 @@ env:
   # Offset added to github.run_number to avoid collisions with
   # build numbers previously uploaded via EAS or manual Xcode archives.
   BUILD_NUMBER_BASE: '30'
+  # Major.minor for App Store version. Patch auto-appends build number.
+  # Bump manually when releasing a breaking/feature change (e.g., 2.0 -> 2.1).
+  APP_VERSION_MAJOR_MINOR: '2.0'
 
 jobs:
   build-and-submit:
@@ -80,6 +83,7 @@ jobs:
           GH_RUN_NUMBER: ${{ github.run_number }}
           INPUT_BUILD_NUMBER: ${{ inputs.build_number }}
           BUILD_NUMBER_BASE: ${{ env.BUILD_NUMBER_BASE }}
+          APP_VERSION_MAJOR_MINOR: ${{ env.APP_VERSION_MAJOR_MINOR }}
         run: |
           if [ "$GH_EVENT_NAME" = "workflow_dispatch" ] && [ -n "$INPUT_BUILD_NUMBER" ]; then
             BUILD_NUMBER="$INPUT_BUILD_NUMBER"
@@ -95,7 +99,13 @@ jobs:
             exit 1
           fi
 
+          if ! [[ "$APP_VERSION_MAJOR_MINOR" =~ ^[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Invalid APP_VERSION_MAJOR_MINOR '$APP_VERSION_MAJOR_MINOR'. Must match <major>.<minor> (e.g., 2.0)." >&2
+            exit 1
+          fi
+
           echo "IOS_BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
+          echo "IOS_APP_VERSION=${APP_VERSION_MAJOR_MINOR}.$BUILD_NUMBER" >> "$GITHUB_ENV"
           echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
 
       - name: Materialize iOS Firebase config
@@ -153,6 +163,7 @@ jobs:
         env:
           CI: '1'
           IOS_BUILD_NUMBER: ${{ env.IOS_BUILD_NUMBER }}
+          IOS_APP_VERSION: ${{ env.IOS_APP_VERSION }}
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           EXPO_PUBLIC_WEB_API_URL: https://usebaci.com
