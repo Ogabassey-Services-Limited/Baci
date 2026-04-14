@@ -56,12 +56,18 @@ platform :ios do
       }
     )
 
+    release_notes_text = ENV["IOS_RELEASE_NOTES"].to_s.strip
+    release_notes_text = "Bug fixes and performance improvements." if release_notes_text.empty?
+
     upload_to_app_store(
       api_key: api_key,
       ipa: File.join(OUTPUT_DIR, "#{SCHEME}.ipa"),
-      skip_metadata: true,
+      skip_metadata: false,
       skip_screenshots: true,
       skip_app_version_update: false,
+      release_notes: {
+        "en-US" => release_notes_text
+      },
       submit_for_review: true,
       automatic_release: true,
       force: true,
