@@ -57,9 +57,10 @@ export function LoginSecondaryActions({
 
       <View style={loginStyles.socialButtons}>
         <Pressable
-          style={[
+          style={({ pressed }) => [
             loginStyles.socialButton,
             { backgroundColor: colors.card, borderColor: colors.border },
+            pressed && { opacity: 0.7 }
           ]}
           onPress={onGoogleSignIn}
           disabled={isAnyLoading}
@@ -85,9 +86,10 @@ export function LoginSecondaryActions({
 
         {showAppleSignIn ? (
           <Pressable
-            style={[
+            style={({ pressed }) => [
               loginStyles.socialButton,
               { backgroundColor: '#000', borderColor: '#000' },
+              pressed && { opacity: 0.7 }
             ]}
             onPress={onAppleSignIn}
             disabled={isAnyLoading}
@@ -116,6 +118,7 @@ export function LoginSecondaryActions({
           Don&apos;t have an account?
         </Text>
         <Pressable
+          style={({ pressed }) => pressed && { opacity: 0.7 }}
           onPress={onSignUp}
           disabled={isAnyLoading}
           accessibilityRole="link"
