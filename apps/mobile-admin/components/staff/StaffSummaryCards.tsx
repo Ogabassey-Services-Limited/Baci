@@ -8,6 +8,8 @@ import {
 import type { ThemeColors } from '@/constants/theme';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 
+const SUMMARY_LABEL_MARGIN_TOP = SPACING.xs / 2;
+
 interface StaffSummaryCardsProps {
   colors: ThemeColors;
   shadowStyle: StyleProp<ViewStyle>;
@@ -91,6 +93,6 @@ const styles = StyleSheet.create({
   summaryLabel: {
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     fontSize: TYPOGRAPHY.size.xs,
-    marginTop: SPACING.xs / 2,
+    marginTop: SUMMARY_LABEL_MARGIN_TOP,
   },
 });

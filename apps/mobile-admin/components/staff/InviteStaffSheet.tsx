@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Pressable,
   StyleSheet,
   Text,
@@ -10,6 +12,8 @@ import {
 import { AppSheetModal } from '@/components/ui/AppSheetModal';
 import type { ThemeColors } from '@/constants/theme';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+
+const TOGGLE_KNOB_TRAVEL = 20;
 
 interface InviteStaffSheetProps {
   autoCreateAccount: boolean;
@@ -39,6 +43,19 @@ export function InviteStaffSheet({
   visible,
 }: InviteStaffSheetProps) {
   const isInviteDisabled = isPending || inviteEmail.trim().length === 0;
+  const toggleTranslateX = useRef(
+    new Animated.Value(autoCreateAccount ? TOGGLE_KNOB_TRAVEL : 0)
+  ).current;
+
+  useEffect(() => {
+    Animated.spring(toggleTranslateX, {
+      damping: 16,
+      mass: 0.9,
+      stiffness: 220,
+      toValue: autoCreateAccount ? TOGGLE_KNOB_TRAVEL : 0,
+      useNativeDriver: true,
+    }).start();
+  }, [autoCreateAccount, toggleTranslateX]);
 
   return (
     <AppSheetModal
@@ -67,8 +84,11 @@ export function InviteStaffSheet({
         <TextInput
           accessibilityLabel="Invite email"
           autoCapitalize="none"
+          autoComplete="email"
+          autoCorrect={false}
           keyboardType="email-address"
           onChangeText={onEmailChange}
+          importantForAutofill="yes"
           placeholder="staff@example.com"
           placeholderTextColor={colors.textMuted}
           style={[
@@ -79,6 +99,7 @@ export function InviteStaffSheet({
               color: colors.text,
             },
           ]}
+          textContentType="emailAddress"
           value={inviteEmail}
         />
       </View>
@@ -89,7 +110,10 @@ export function InviteStaffSheet({
         </Text>
         <TextInput
           accessibilityLabel="Invite name"
+          autoCapitalize="words"
+          autoComplete="name"
           onChangeText={onNameChange}
+          importantForAutofill="yes"
           placeholder="John Doe"
           placeholderTextColor={colors.textMuted}
           style={[
@@ -100,6 +124,7 @@ export function InviteStaffSheet({
               color: colors.text,
             },
           ]}
+          textContentType="name"
           value={inviteName}
         />
       </View>
@@ -130,12 +155,12 @@ export function InviteStaffSheet({
             },
           ]}
         >
-          <View
+          <Animated.View
             style={[
               styles.toggleKnob,
               {
                 backgroundColor: colors.textOnPrimary,
-                transform: [{ translateX: autoCreateAccount ? 20 : 0 }],
+                transform: [{ translateX: toggleTranslateX }],
               },
             ]}
           />

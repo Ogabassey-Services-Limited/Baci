@@ -13,12 +13,18 @@ import type { ThemeColors } from '@/constants/theme';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { ROLE_LABELS, type StaffMember } from '@/lib/types/staff';
 
+const BADGE_GAP = 4;
+const BADGE_HORIZONTAL_PADDING = 6;
+const BADGE_VERTICAL_PADDING = 2;
+const EMPTY_EMAIL_LABEL = 'Email unavailable';
+
 interface StaffListSectionProps {
   colors: ThemeColors;
   isLoading: boolean;
   onInvitePress: () => void;
   onMemberPress: (member: StaffMember) => void;
   onRefresh: () => void;
+  refreshing: boolean;
   shadowStyle: StyleProp<ViewStyle>;
   staff: StaffMember[] | undefined;
 }
@@ -29,6 +35,7 @@ export function StaffListSection({
   onInvitePress,
   onMemberPress,
   onRefresh,
+  refreshing,
   shadowStyle,
   staff,
 }: StaffListSectionProps) {
@@ -71,7 +78,21 @@ export function StaffListSection({
       data={staff}
       keyExtractor={(item) => item.id}
       ListEmptyComponent={
-        !isLoading ? (
+        isLoading ? (
+          <View accessibilityRole="progressbar" style={styles.emptyContainer}>
+            <Ionicons
+              name="reload-outline"
+              size={40}
+              color={colors.textMuted}
+            />
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>
+              Loading team members...
+            </Text>
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+              Checking your current staff list
+            </Text>
+          </View>
+        ) : (
           <View style={styles.emptyContainer}>
             <Ionicons
               name="people-outline"
@@ -105,13 +126,13 @@ export function StaffListSection({
               </Text>
             </Pressable>
           </View>
-        ) : null
+        )
       }
       refreshControl={
         <RefreshControl
           colors={[colors.gold]}
           onRefresh={onRefresh}
-          refreshing={isLoading}
+          refreshing={refreshing}
           tintColor={colors.gold}
         />
       }
@@ -121,6 +142,7 @@ export function StaffListSection({
           ? item.email.split('@')[0]
           : undefined;
         const displayName = item.name?.trim() || emailPrefix || 'Unknown User';
+        const displayEmail = item.email?.trim() || EMPTY_EMAIL_LABEL;
         const roleLabel = ROLE_LABELS[item.role] ?? 'Unknown';
 
         return (
@@ -155,15 +177,22 @@ export function StaffListSection({
                 {displayName}
               </Text>
               <Text
-                style={[styles.staffEmail, { color: colors.textSecondary }]}
+                style={[
+                  styles.staffEmail,
+                  {
+                    color: item.email?.trim()
+                      ? colors.textSecondary
+                      : colors.textMuted,
+                  },
+                ]}
               >
-                {item.email}
+                {displayEmail}
               </Text>
 
               <View style={styles.badgeRow}>
                 <View
                   style={[
-                    styles.roleBadge,
+                    styles.badge,
                     { backgroundColor: colors.goldLight },
                   ]}
                 >
@@ -172,14 +201,14 @@ export function StaffListSection({
                     size={10}
                     color={colors.gold}
                   />
-                  <Text style={[styles.roleBadgeText, { color: colors.gold }]}>
+                  <Text style={[styles.badgeText, { color: colors.gold }]}>
                     {roleLabel}
                   </Text>
                 </View>
 
                 <View
                   style={[
-                    styles.statusBadge,
+                    styles.badge,
                     { backgroundColor: statusBadge.bg },
                   ]}
                 >
@@ -190,7 +219,7 @@ export function StaffListSection({
                   />
                   <Text
                     style={[
-                      styles.statusBadgeText,
+                      styles.badgeText,
                       { color: statusBadge.text },
                     ]}
                   >
@@ -254,27 +283,15 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: SPACING.xs,
   },
-  roleBadge: {
+  badge: {
     alignItems: 'center',
     borderRadius: RADIUS.sm,
     flexDirection: 'row',
-    gap: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    gap: BADGE_GAP,
+    paddingHorizontal: BADGE_HORIZONTAL_PADDING,
+    paddingVertical: BADGE_VERTICAL_PADDING,
   },
-  roleBadgeText: {
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-    fontSize: TYPOGRAPHY.size.xs,
-  },
-  statusBadge: {
-    alignItems: 'center',
-    borderRadius: RADIUS.sm,
-    flexDirection: 'row',
-    gap: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  statusBadgeText: {
+  badgeText: {
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
     fontSize: TYPOGRAPHY.size.xs,
   },

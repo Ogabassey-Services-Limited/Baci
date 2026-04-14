@@ -79,6 +79,9 @@ describe('StoreSubscriptionCard', () => {
 
     expect(screen.getByText('Pro')).toBeInTheDocument();
     expect(screen.getByText('Baci Pro')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Upgrade to Pro' })
+    ).not.toBeInTheDocument();
 
     fireEvent.click(
       screen.getByRole('button', { name: 'Manage in App Store' })

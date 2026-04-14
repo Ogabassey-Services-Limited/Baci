@@ -13,19 +13,29 @@ vi.mock('@shopify/flash-list', () => ({
     data,
     ListEmptyComponent,
     renderItem,
+    refreshControl,
   }: {
-    data?: Array<{ id: string }>;
+    data?: Array<{ id: string; [key: string]: unknown }>;
     ListEmptyComponent?: React.ReactNode;
-    renderItem: ({ item }: { item: { id: string } }) => React.ReactNode;
+    refreshControl?: React.ReactNode;
+    renderItem: ({
+      item,
+    }: {
+      item: { id: string; [key: string]: unknown };
+    }) => React.ReactNode;
   }) =>
     data && data.length > 0 ? (
       <div>
+        {refreshControl}
         {data.map((item) => (
           <div key={item.id}>{renderItem({ item })}</div>
         ))}
       </div>
     ) : (
-      <div>{ListEmptyComponent}</div>
+      <div>
+        {refreshControl}
+        {ListEmptyComponent}
+      </div>
     ),
 }));
 
@@ -68,6 +78,7 @@ describe('StaffListSection', () => {
         onInvitePress={vi.fn()}
         onMemberPress={onMemberPress}
         onRefresh={vi.fn()}
+        refreshing={false}
         shadowStyle={SHADOWS.sm}
         staff={[
           {
@@ -108,6 +119,7 @@ describe('StaffListSection', () => {
         onInvitePress={onInvitePress}
         onMemberPress={vi.fn()}
         onRefresh={vi.fn()}
+        refreshing={false}
         shadowStyle={SHADOWS.sm}
         staff={[]}
       />
@@ -118,5 +130,56 @@ describe('StaffListSection', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Invite team member' }));
 
     expect(onInvitePress).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders a loading state before staff data is ready', () => {
+    render(
+      <StaffListSection
+        colors={LIGHT_COLORS}
+        isLoading={true}
+        onInvitePress={vi.fn()}
+        onMemberPress={vi.fn()}
+        onRefresh={vi.fn()}
+        refreshing={false}
+        shadowStyle={SHADOWS.sm}
+        staff={[]}
+      />
+    );
+
+    expect(screen.getByText('Loading team members...')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Invite team member' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows a fallback label when a member email is missing', () => {
+    render(
+      <StaffListSection
+        colors={LIGHT_COLORS}
+        isLoading={false}
+        onInvitePress={vi.fn()}
+        onMemberPress={vi.fn()}
+        onRefresh={vi.fn()}
+        refreshing={false}
+        shadowStyle={SHADOWS.sm}
+        staff={[
+          {
+            id: 'staff-2',
+            merchant_id: 'merchant-1',
+            user_id: 'user-2',
+            email: '',
+            name: '',
+            role: 'sales_rep',
+            status: 'pending',
+            created_at: '2026-04-13T10:00:00.000Z',
+            invited_at: '2026-04-13T10:00:00.000Z',
+            accepted_at: null,
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByText('Unknown User')).toBeInTheDocument();
+    expect(screen.getByText('Email unavailable')).toBeInTheDocument();
   });
 });

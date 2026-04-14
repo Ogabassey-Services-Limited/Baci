@@ -12,6 +12,19 @@ import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 
 const PLAN_BADGE_VERTICAL_PADDING = SPACING.xs / 2;
 const ACTION_ICON_CONTAINER_SIZE = SPACING.xl * 2;
+const SUBSCRIPTION_COPY = {
+  manageSubtitle: 'Cancel or change tiers',
+  pro: {
+    accessibilityLabel: 'View current subscription',
+    subtitle: 'View plan features',
+    title: 'Baci Pro',
+  },
+  upgrade: {
+    accessibilityLabel: 'Upgrade to Pro',
+    subtitle: 'Unlock premium features',
+    title: 'Upgrade to Pro',
+  },
+} as const;
 
 interface StoreSubscriptionCardProps {
   colors: ThemeColors;
@@ -32,6 +45,13 @@ export function StoreSubscriptionCard({
   planLabel,
   shadowStyle,
 }: StoreSubscriptionCardProps) {
+  const actionCardBackground = colors.cardHover ?? colors.background;
+  const pressedActionCardBackground =
+    colors.backgroundLight ?? actionCardBackground;
+  const primaryActionCopy = isPro
+    ? SUBSCRIPTION_COPY.pro
+    : SUBSCRIPTION_COPY.upgrade;
+
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, shadowStyle]}>
       <View style={styles.headerRow}>
@@ -60,14 +80,16 @@ export function StoreSubscriptionCard({
       </View>
 
       <Pressable
-        accessibilityLabel={
-          isPro ? 'View current subscription' : 'Upgrade to Pro'
-        }
+        accessibilityLabel={primaryActionCopy.accessibilityLabel}
         accessibilityRole="button"
         onPress={onOpenSubscriptionPlans}
-        style={[
+        style={({ pressed }) => [
           styles.actionCard,
-          { backgroundColor: colors.cardHover ?? colors.background },
+          {
+            backgroundColor: pressed
+              ? pressedActionCardBackground
+              : actionCardBackground,
+          },
         ]}
       >
         <View style={styles.actionCopy}>
@@ -84,12 +106,12 @@ export function StoreSubscriptionCard({
           </View>
           <View>
             <Text style={[styles.actionTitle, { color: colors.text }]}>
-              {isPro ? 'Baci Pro' : 'Upgrade to Pro'}
+              {primaryActionCopy.title}
             </Text>
             <Text
               style={[styles.actionSubtitle, { color: colors.textSecondary }]}
             >
-              {isPro ? 'View plan features' : 'Unlock premium features'}
+              {primaryActionCopy.subtitle}
             </Text>
           </View>
         </View>
@@ -105,10 +127,12 @@ export function StoreSubscriptionCard({
           accessibilityLabel={manageSubscriptionLabel}
           accessibilityRole="button"
           onPress={onManageSubscription}
-          style={[
+          style={({ pressed }) => [
             styles.actionCard,
             {
-              backgroundColor: colors.cardHover ?? colors.background,
+              backgroundColor: pressed
+                ? pressedActionCardBackground
+                : actionCardBackground,
               marginBottom: 0,
             },
           ]}
@@ -138,7 +162,7 @@ export function StoreSubscriptionCard({
               <Text
                 style={[styles.actionSubtitle, { color: colors.textSecondary }]}
               >
-                Cancel or change tiers
+                {SUBSCRIPTION_COPY.manageSubtitle}
               </Text>
             </View>
           </View>

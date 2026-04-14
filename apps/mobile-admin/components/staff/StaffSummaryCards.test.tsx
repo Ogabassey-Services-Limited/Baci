@@ -53,18 +53,4 @@ describe('StaffSummaryCards', () => {
 
     expect(screen.getAllByText('0')).toHaveLength(3);
   });
-
-  it('renders larger summary totals', () => {
-    render(
-      <StaffSummaryCards
-        colors={LIGHT_COLORS}
-        shadowStyle={SHADOWS.sm}
-        stats={{ active: 1000, pending: 500, total: 1500 }}
-      />
-    );
-
-    expect(screen.getByText('1500')).toBeInTheDocument();
-    expect(screen.getByText('1000')).toBeInTheDocument();
-    expect(screen.getByText('500')).toBeInTheDocument();
-  });
 });

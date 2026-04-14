@@ -25,7 +25,7 @@ export default function StaffScreen() {
   const { colors, shadows, isDark } = useTheme();
   const router = useRouter();
 
-  const { data: staff, isLoading, refetch } = useStaff();
+  const { data: staff, isLoading, isRefetching, refetch } = useStaff();
   const { stats } = useStaffStats();
 
   const inviteStaff = useInviteStaff();
@@ -112,6 +112,7 @@ export default function StaffScreen() {
           onInvitePress={() => setInviteModalVisible(true)}
           onMemberPress={showStaffActions}
           onRefresh={refetch}
+          refreshing={isRefetching}
           shadowStyle={shadows.sm}
           staff={staff}
         />

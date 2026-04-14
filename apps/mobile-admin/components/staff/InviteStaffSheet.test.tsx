@@ -34,6 +34,15 @@ vi.mock('@expo/vector-icons', () => ({
 
 vi.mock('react-native', () => ({
   ActivityIndicator: () => <span>loading</span>,
+  Animated: {
+    Value: class {
+      constructor(public value: number) {}
+    },
+    spring: () => ({
+      start: () => undefined,
+    }),
+    View: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  },
   Pressable: ({
     accessibilityLabel,
     children,
@@ -62,15 +71,27 @@ vi.mock('react-native', () => ({
   ),
   TextInput: ({
     accessibilityLabel,
+    autoCapitalize,
+    autoComplete,
+    importantForAutofill,
     onChangeText,
+    textContentType,
     value,
   }: {
     accessibilityLabel?: string;
+    autoCapitalize?: string;
+    autoComplete?: string;
+    importantForAutofill?: string;
     onChangeText?: (text: string) => void;
+    textContentType?: string;
     value?: string;
   }) => (
     <input
       aria-label={accessibilityLabel}
+      autoCapitalize={autoCapitalize}
+      autoComplete={autoComplete}
+      data-important-for-autofill={importantForAutofill}
+      data-text-content-type={textContentType}
       onChange={(event) => onChangeText?.(event.target.value)}
       value={value ?? ''}
     />
@@ -136,6 +157,41 @@ describe('InviteStaffSheet', () => {
     expect(onNameChange).toHaveBeenCalledWith('Kola');
     expect(onToggleAutoCreateAccount).toHaveBeenCalledTimes(1);
     expect(onSubmit).toHaveBeenCalledTimes(1);
+  });
+
+  it('exposes autofill metadata for invite name and email inputs', () => {
+    render(
+      <InviteStaffSheet
+        autoCreateAccount={true}
+        colors={LIGHT_COLORS}
+        inviteEmail="ada@example.com"
+        inviteName="Ada"
+        isPending={false}
+        onClose={vi.fn()}
+        onEmailChange={vi.fn()}
+        onNameChange={vi.fn()}
+        onSubmit={vi.fn()}
+        onToggleAutoCreateAccount={vi.fn()}
+        visible={true}
+      />
+    );
+
+    expect(screen.getByLabelText('Invite email')).toHaveAttribute(
+      'autocomplete',
+      'email'
+    );
+    expect(screen.getByLabelText('Invite email')).toHaveAttribute(
+      'data-text-content-type',
+      'emailAddress'
+    );
+    expect(screen.getByLabelText('Invite name')).toHaveAttribute(
+      'autocomplete',
+      'name'
+    );
+    expect(screen.getByLabelText('Invite name')).toHaveAttribute(
+      'data-text-content-type',
+      'name'
+    );
   });
 
   it('disables submit when email is empty', () => {
