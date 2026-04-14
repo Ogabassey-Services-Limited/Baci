@@ -293,9 +293,9 @@ jobs:
               <<<"{}"
           )"
 
-          if [[ -z "${review_markdown}" ]]; then
-            case "${state}" in
-              COMPLETED)
+          case "${state}" in
+            COMPLETED)
+              if [[ -z "${review_markdown}" ]]; then
                 review_markdown="$(
                   cat <<'EOF'
           ## Verdict
@@ -311,10 +311,11 @@ jobs:
           Re-run the workflow or inspect the Jules session manually.
           EOF
                 )"
-                ;;
-              FAILED)
-                review_markdown="$(
-                  cat <<EOF
+              fi
+              ;;
+            FAILED)
+              review_markdown="$(
+                cat <<EOF
           ## Verdict
 
           Jules failed before completing the review.
@@ -327,11 +328,11 @@ jobs:
 
           Re-run the workflow after checking the Jules integration and repository source setup.
           EOF
-                )"
-                ;;
-              AWAITING_USER_FEEDBACK|AWAITING_PLAN_APPROVAL|PAUSED)
-                review_markdown="$(
-                  cat <<EOF
+              )"
+              ;;
+            AWAITING_USER_FEEDBACK|AWAITING_PLAN_APPROVAL|PAUSED)
+              review_markdown="$(
+                cat <<EOF
           ## Verdict
 
           Jules stopped in \`${state}\` instead of producing a final review.
@@ -344,11 +345,11 @@ jobs:
 
           Open the Jules session and complete the requested action, or adjust the prompt to avoid follow-up questions.
           EOF
-                )"
-                ;;
-              *)
-                review_markdown="$(
-                  cat <<EOF
+              )"
+              ;;
+            *)
+              review_markdown="$(
+                cat <<EOF
           ## Verdict
 
           Jules did not finish within the workflow polling window.
@@ -361,10 +362,9 @@ jobs:
 
           Re-run the workflow later if the branch is still under review.
           EOF
-                )"
-                ;;
-            esac
-          fi
+              )"
+              ;;
+          esac
 
           cat > "$body_file" <<EOF
           ${review_marker}
@@ -378,7 +378,7 @@ jobs:
           EOF
 
       - name: Submit Jules review
-        if: always()
+        if: ${{ always() && !cancelled() }}
         env:
           GITHUB_API_URL: ${{ github.api_url }}
           GITHUB_REPOSITORY: ${{ github.repository }}
