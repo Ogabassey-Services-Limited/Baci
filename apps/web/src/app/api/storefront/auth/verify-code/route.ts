@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     // Validate input with Zod schema - this ensures proper types and formats
     const validationResult = verifyCodeSchema.safeParse(body);
     if (!validationResult.success) {
-      const firstError = validationResult.error.errors[0];
+      const firstError = validationResult.error.issues[0];
       return NextResponse.json(
         { error: firstError?.message || 'Invalid input' },
         { status: 400 }
