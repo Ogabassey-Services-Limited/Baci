@@ -1,54 +1,74 @@
-import { StyleSheet, Text, View } from 'react-native';
+import {
+  type StyleProp,
+  StyleSheet,
+  Text,
+  View,
+  type ViewStyle,
+} from 'react-native';
+import type { ThemeColors } from '@/constants/theme';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
-import { useTheme } from '@/hooks/useTheme';
 
 const SUMMARY_LABEL_MARGIN_TOP = SPACING.xs / 2;
 
 interface StaffSummaryCardsProps {
-  active: number;
-  pending: number;
-  total: number;
-}
-
-interface SummaryCardProps {
-  label: string;
-  value: number;
-  valueColor: string;
-}
-
-function SummaryCard({ label, value, valueColor }: SummaryCardProps) {
-  const { colors, shadows } = useTheme();
-
-  return (
-    <View
-      accessible
-      accessibilityLabel={`${label} staff: ${value}`}
-      style={[styles.summaryCard, { backgroundColor: colors.card }, shadows.sm]}
-    >
-      <Text style={[styles.summaryValue, { color: valueColor }]}>{value}</Text>
-      <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-        {label}
-      </Text>
-    </View>
-  );
+  colors: ThemeColors;
+  shadowStyle: StyleProp<ViewStyle>;
+  stats: {
+    active: number;
+    pending: number;
+    total: number;
+  };
 }
 
 export function StaffSummaryCards({
-  active,
-  pending,
-  total,
+  colors,
+  shadowStyle,
+  stats,
 }: StaffSummaryCardsProps) {
-  const { colors } = useTheme();
+  const summaryCards = [
+    {
+      color: colors.text,
+      key: 'total',
+      label: 'Total',
+      value: stats.total,
+    },
+    {
+      color: colors.success,
+      key: 'active',
+      label: 'Active',
+      value: stats.active,
+    },
+    {
+      color: colors.warning,
+      key: 'pending',
+      label: 'Pending',
+      value: stats.pending,
+    },
+  ] as const;
 
   return (
     <View style={styles.summaryRow}>
-      <SummaryCard label="Total" value={total} valueColor={colors.text} />
-      <SummaryCard label="Active" value={active} valueColor={colors.success} />
-      <SummaryCard
-        label="Pending"
-        value={pending}
-        valueColor={colors.warning}
-      />
+      {summaryCards.map((card) => (
+        <View
+          accessibilityLabel={`${card.label} ${card.value} staff`}
+          accessibilityRole="text"
+          accessible={true}
+          key={card.key}
+          style={[
+            styles.summaryCard,
+            { backgroundColor: colors.card },
+            shadowStyle,
+          ]}
+          testID={`${card.key}-card`}
+        >
+          <Text style={[styles.summaryValue, { color: card.color }]}>
+            {card.value}
+          </Text>
+          <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
+            {card.label}
+          </Text>
+        </View>
+      ))}
     </View>
   );
 }
@@ -56,23 +76,23 @@ export function StaffSummaryCards({
 const styles = StyleSheet.create({
   summaryRow: {
     flexDirection: 'row',
+    gap: SPACING.sm,
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.md,
-    gap: SPACING.sm,
   },
   summaryCard: {
-    flex: 1,
-    borderRadius: RADIUS.lg,
-    padding: SPACING.md,
     alignItems: 'center',
+    borderRadius: RADIUS.lg,
+    flex: 1,
+    padding: SPACING.md,
   },
   summaryValue: {
-    fontSize: TYPOGRAPHY.size.lg,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
+    fontSize: TYPOGRAPHY.size.lg,
   },
   summaryLabel: {
-    fontSize: TYPOGRAPHY.size.xs,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
+    fontSize: TYPOGRAPHY.size.xs,
     marginTop: SUMMARY_LABEL_MARGIN_TOP,
   },
 });

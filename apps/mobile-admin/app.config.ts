@@ -41,6 +41,19 @@ if (rawIosBuildNumber !== undefined) {
   }
 }
 
+const rawIosAppVersion = process.env.IOS_APP_VERSION;
+let _iosAppVersion: string | undefined;
+
+if (rawIosAppVersion !== undefined && rawIosAppVersion.trim().length > 0) {
+  const trimmed = rawIosAppVersion.trim();
+  if (!/^\d+\.\d+\.\d+$/.test(trimmed)) {
+    throw new Error(
+      `[app.config] Invalid IOS_APP_VERSION="${rawIosAppVersion}". Must be semantic version major.minor.patch (e.g., 2.0.31).`
+    );
+  }
+  _iosAppVersion = trimmed;
+}
+
 /**
  * Expo App Configuration
  * Using app.config.ts to properly inject environment variables
@@ -50,7 +63,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   name: 'Baci - The Ecommerce Builder',
   slug: 'baci',
   owner: 'ogabassey-services-limited',
-  version: '2.0.1',
+  version: _iosAppVersion ?? '2.0.1',
   orientation: 'default',
   icon: './assets/images/icon.png',
   userInterfaceStyle: 'automatic',
