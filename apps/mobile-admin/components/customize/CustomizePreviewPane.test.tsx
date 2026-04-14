@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { useRef } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -19,10 +19,16 @@ vi.mock('react-native-webview', () => {
 
   return {
     WebView: ({
+      onError,
       renderLoading,
       source,
       startInLoadingState,
     }: {
+      onError?: (event: {
+        nativeEvent: {
+          description: string;
+        };
+      }) => void;
       renderLoading?: () => ReactNode;
       source?: {
         uri?: string;
@@ -34,6 +40,19 @@ vi.mock('react-native-webview', () => {
       return (
         <div>
           {startInLoadingState ? renderLoading?.() : null}
+          <button
+            aria-label="trigger preview error"
+            onClick={() =>
+              onError?.({
+                nativeEvent: {
+                  description: 'Preview failed',
+                },
+              })
+            }
+            type="button"
+          >
+            fail preview
+          </button>
           <iframe
             data-mount-id={String(mountId.current)}
             src={source?.uri}
@@ -106,6 +125,22 @@ describe('CustomizePreviewPane', () => {
 
     rerender(
       <CustomizePreviewPane colors={DARK_COLORS} previewKey={1} previewUrl="" />
+    );
+
+    expect(screen.getByText('Preview not available')).toBeInTheDocument();
+  });
+
+  it('shows a fallback when the preview webview fails at runtime', () => {
+    render(
+      <CustomizePreviewPane
+        colors={LIGHT_COLORS}
+        previewKey={1}
+        previewUrl="https://example.com?preview=true"
+      />
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'trigger preview error' })
     );
 
     expect(screen.getByText('Preview not available')).toBeInTheDocument();

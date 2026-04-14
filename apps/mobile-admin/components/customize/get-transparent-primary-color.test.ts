@@ -10,7 +10,7 @@ describe('getTransparentPrimaryColor', () => {
 
   it('sanitizes unsupported primaryLight values', () => {
     expect(getTransparentPrimaryColor('url(javascript:1)', '#3B82F6')).toBe(
-      'rgba(59, 130, 246, 0.125)'
+      '#3B82F6'
     );
   });
 

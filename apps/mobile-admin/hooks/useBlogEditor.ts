@@ -19,6 +19,7 @@ import {
 } from '@/components/blog-editor/blog-editor-commands';
 import { normalizeBlogPostId } from '@/components/blog-editor/blog-editor-helpers';
 import { sanitizeEditorHtml } from '@/components/blog-editor/sanitize-editor-html';
+import { useMerchant } from '@/hooks/useMerchant';
 import { supabase } from '@/lib/supabase';
 import { parseWebViewEditorMessage } from '@/lib/validators/storage';
 
@@ -30,6 +31,7 @@ interface UseBlogEditorOptions {
 export function useBlogEditor({ id, webViewRef }: UseBlogEditorOptions) {
   const postId = normalizeBlogPostId(id);
   const [content, setContent] = useState('');
+  const [initialEditorContent, setInitialEditorContent] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isAIProcessing, setIsAIProcessing] = useState(false);
@@ -40,17 +42,30 @@ export function useBlogEditor({ id, webViewRef }: UseBlogEditorOptions) {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const { isLoading: isMerchantLoading, merchant } = useMerchant();
+  const merchantId = merchant?.id ?? null;
 
   useEffect(() => {
     void reloadKey;
 
-    async function fetchContent() {
-      if (!postId) {
-        setErrorMessage('Missing blog post id');
-        setIsLoading(false);
-        return;
-      }
+    if (!postId) {
+      setErrorMessage('Missing blog post id');
+      setIsLoading(false);
+      return;
+    }
 
+    if (isMerchantLoading) {
+      setIsLoading(true);
+      return;
+    }
+
+    if (!merchantId) {
+      setErrorMessage('Missing merchant id');
+      setIsLoading(false);
+      return;
+    }
+
+    async function fetchContent() {
       setIsLoading(true);
       setErrorMessage(null);
 
@@ -59,11 +74,17 @@ export function useBlogEditor({ id, webViewRef }: UseBlogEditorOptions) {
           .from('blog_posts')
           .select('content')
           .eq('id', postId)
+          .eq('merchant_id', merchantId)
           .single();
-        if (error) {
-          throw error;
+
+        if (error || !data) {
+          throw error ?? new Error('Failed to load content');
         }
-        setContent(data.content || '');
+
+        const nextContent = sanitizeEditorHtml(data.content || '');
+
+        setContent(nextContent);
+        setInitialEditorContent(nextContent);
       } catch (error) {
         console.error(error);
         setErrorMessage(
@@ -74,13 +95,23 @@ export function useBlogEditor({ id, webViewRef }: UseBlogEditorOptions) {
       }
     }
 
-    fetchContent();
-  }, [postId, reloadKey]);
+    void fetchContent();
+  }, [isMerchantLoading, merchantId, postId, reloadKey]);
 
   const handleSave = () => {
+    const editorWebView = webViewRef.current;
+
+    if (!editorWebView) {
+      Alert.alert(
+        'Editor unavailable',
+        'Please wait for the editor to finish loading.'
+      );
+      return;
+    }
+
     setIsSaving(true);
     try {
-      webViewRef.current?.injectJavaScript(buildSaveRequestScript());
+      editorWebView.injectJavaScript(buildSaveRequestScript());
     } catch (error: unknown) {
       Alert.alert('Error', (error as Error).message);
       setIsSaving(false);
@@ -94,19 +125,32 @@ export function useBlogEditor({ id, webViewRef }: UseBlogEditorOptions) {
       return;
     }
 
+    if (!merchantId) {
+      Alert.alert('Error', 'Missing merchant id');
+      setIsSaving(false);
+      return;
+    }
+
+    const sanitizedHtml = sanitizeEditorHtml(html);
+
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('blog_posts')
         .update({
-          content: sanitizeEditorHtml(html),
+          content: sanitizedHtml,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', postId);
+        .eq('id', postId)
+        .eq('merchant_id', merchantId)
+        .select('id')
+        .single();
 
-      if (error) {
-        throw error;
+      if (error || !data) {
+        throw error ?? new Error('Failed to save content');
       }
 
+      setContent(sanitizedHtml);
+      setInitialEditorContent(sanitizedHtml);
       router.back();
     } catch (error: unknown) {
       Alert.alert('Error', (error as Error).message);
@@ -138,11 +182,19 @@ export function useBlogEditor({ id, webViewRef }: UseBlogEditorOptions) {
         content: sanitizedHtml,
         instruction: aiInstruction,
       });
-      const escapedContent = JSON.stringify(nextContent);
-      webViewRef.current?.injectJavaScript(`
+      const nextEditorContent = sanitizeEditorHtml(nextContent);
+      const escapedContent = JSON.stringify(nextEditorContent);
+      const editorWebView = webViewRef.current;
+
+      if (!editorWebView) {
+        throw new Error('Editor unavailable');
+      }
+
+      editorWebView.injectJavaScript(`
         document.getElementById('editor').innerHTML = ${escapedContent};
         true;
       `);
+      setContent(nextEditorContent);
 
       Alert.alert('Success', 'Content has been polished by AI!');
       setAiInstruction('');
@@ -275,12 +327,29 @@ export function useBlogEditor({ id, webViewRef }: UseBlogEditorOptions) {
     isUploadingImage,
     linkUrl,
     onWebViewMessage,
+    initialEditorContent,
     openAIModal: () => setIsAIModalVisible(true),
     openLinkModal: () => setIsLinkModalVisible(true),
     requestAIEdit: () => {
+      const editorWebView = webViewRef.current;
+
+      if (!editorWebView) {
+        Alert.alert(
+          'Editor unavailable',
+          'Please wait for the editor to finish loading.'
+        );
+        return;
+      }
+
       setIsAIModalVisible(false);
       setIsAIProcessing(true);
-      webViewRef.current?.injectJavaScript(buildAiRequestScript());
+
+      try {
+        editorWebView.injectJavaScript(buildAiRequestScript());
+      } catch (error) {
+        setIsAIProcessing(false);
+        Alert.alert('Error', (error as Error).message);
+      }
     },
     closeAIModal: () => setIsAIModalVisible(false),
     closeLinkModal: () => setIsLinkModalVisible(false),

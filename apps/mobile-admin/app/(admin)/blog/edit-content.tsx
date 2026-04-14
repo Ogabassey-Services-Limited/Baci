@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { BlogEditorDialogs } from '@/components/blog-editor/BlogEditorDialogs';
@@ -21,7 +21,6 @@ export default function EditContentScreen() {
   const webViewRef = useRef<WebView>(null);
   const {
     aiInstruction,
-    content,
     closeAIModal,
     closeLinkModal,
     errorMessage,
@@ -37,6 +36,7 @@ export default function EditContentScreen() {
     isLoading,
     isSaving,
     isUploadingImage,
+    initialEditorContent,
     linkUrl,
     onWebViewMessage,
     openAIModal,
@@ -46,8 +46,21 @@ export default function EditContentScreen() {
     setAiInstruction,
     setLinkUrl,
   } = useBlogEditor({ id, webViewRef });
+  const [editorHtml, setEditorHtml] = useState(() =>
+    createEditorHtml({ colors, content: initialEditorContent })
+  );
 
-  const editorHtml = createEditorHtml({ colors, content });
+  useEffect(() => {
+    setEditorHtml(createEditorHtml({ colors, content: initialEditorContent }));
+  }, [
+    colors.background,
+    colors.border,
+    colors.card,
+    colors.primary,
+    colors.text,
+    colors.textMuted,
+    initialEditorContent,
+  ]);
 
   if (isLoading) {
     return (

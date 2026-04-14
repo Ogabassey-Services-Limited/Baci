@@ -65,6 +65,16 @@ export function AppDialogModal({
             scrollEnabled={false}
             style={styles.keyboardContainer}
           >
+            <Pressable
+              accessibilityElementsHidden
+              accessible={false}
+              onPress={handleBackdropPress}
+              style={[
+                styles.backdrop,
+                { backgroundColor: colors.backdrop ?? 'rgba(0, 0, 0, 0.5)' },
+              ]}
+              testID="app-dialog-keyboard-backdrop"
+            />
             <View style={[styles.contentContainer, contentContainerStyle]}>
               {children}
             </View>
@@ -95,9 +105,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexGrow: 1,
     justifyContent: 'center',
+    position: 'relative',
+    width: '100%',
   },
   contentContainer: {
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 1,
   },
 });

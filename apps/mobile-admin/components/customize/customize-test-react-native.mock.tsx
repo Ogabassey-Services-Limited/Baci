@@ -35,9 +35,9 @@ export function createCustomizeReactNativeMock(
             <button
               aria-label={accessibilityLabel}
               aria-pressed={accessibilityState?.selected}
-              data-role={accessibilityRole}
               disabled={accessibilityState?.disabled}
               onClick={() => onPress?.()}
+              role={accessibilityRole}
               type="button"
             >
               {children}

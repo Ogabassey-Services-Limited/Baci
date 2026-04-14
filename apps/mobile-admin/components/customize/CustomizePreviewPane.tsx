@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import type { ThemeColors } from '@/constants/theme';
@@ -15,13 +16,23 @@ export function CustomizePreviewPane({
   previewKey,
   previewUrl,
 }: CustomizePreviewPaneProps) {
-  const canRenderPreview = isValidPreviewUrl(previewUrl);
+  const [failedPreviewSignature, setFailedPreviewSignature] = useState<
+    string | null
+  >(null);
+  const previewSignature = `${previewKey}:${previewUrl}`;
+  const canRenderPreview =
+    isValidPreviewUrl(previewUrl) &&
+    failedPreviewSignature !== previewSignature;
 
   return (
     <View style={styles.container}>
       {canRenderPreview ? (
         <WebView
           key={previewKey}
+          onError={(event) => {
+            console.error('Preview WebView failed to load', event.nativeEvent);
+            setFailedPreviewSignature(previewSignature);
+          }}
           onShouldStartLoadWithRequest={(request) =>
             isValidPreviewUrl(request.url)
           }

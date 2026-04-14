@@ -45,7 +45,7 @@ describe('blog-editor-helpers', () => {
     });
 
     await expect(readEditorApiError(response, 'AI edit failed')).resolves.toBe(
-      'AI edit failed (400)'
+      'AI edit failed (400): {"message":"oops"}'
     );
   });
 });

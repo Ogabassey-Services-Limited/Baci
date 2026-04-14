@@ -112,6 +112,10 @@ export function CustomizeChatPanel({
             value={inputText}
           />
           <Pressable
+            accessibilityRole="button"
+            accessibilityState={{
+              disabled: !hasInput || isProcessingAI,
+            }}
             accessibilityLabel="Send customize message"
             disabled={!hasInput || isProcessingAI}
             onPress={onSend}
@@ -125,7 +129,7 @@ export function CustomizeChatPanel({
             <Ionicons
               name="send"
               size={20}
-              color={hasInput ? '#FFFFFF' : colors.textMuted}
+              color={hasInput ? colors.textOnPrimary : colors.textMuted}
             />
           </Pressable>
         </View>
@@ -170,10 +174,10 @@ function ChatBubble({ colors, message }: ChatBubbleProps) {
         style={[
           styles.messageText,
           isUser
-            ? styles.userText
+            ? { color: colors.textOnPrimary }
             : isSystem
-              ? [styles.assistantText, { color: colors.error }]
-              : [styles.assistantText, { color: colors.text }],
+              ? { color: colors.error }
+              : { color: colors.text },
         ]}
       >
         {message.content}
@@ -220,10 +224,6 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.size.md,
     lineHeight: 21,
   },
-  userText: {
-    color: '#FFFFFF',
-  },
-  assistantText: {},
   processingContainer: {
     alignItems: 'center',
     borderRadius: RADIUS.full,

@@ -28,4 +28,63 @@ describe('sanitize-editor-html', () => {
       '<SVG></SVG><p>Safe text</p><a href="#">Link</a>'
     );
   });
+
+  it('preserves safe YouTube embeds', () => {
+    const safeHtml =
+      '<div class="video-container"><iframe src="https://www.youtube.com/embed/ABCDEFGHIJK" allowfullscreen></iframe></div>';
+
+    expect(sanitizeEditorHtml(safeHtml)).toBe(
+      '<div class="video-container"><iframe src="https://www.youtube.com/embed/ABCDEFGHIJK" allowfullscreen></iframe></div>'
+    );
+  });
+
+  it('preserves safe YouTube embeds for supported host variants', () => {
+    expect(
+      sanitizeEditorHtml(
+        '<iframe src="https://youtube.com/embed/ABCDEFGHIJK"></iframe>'
+      )
+    ).toBe(
+      '<iframe src="https://youtube.com/embed/ABCDEFGHIJK" allowfullscreen></iframe>'
+    );
+
+    expect(
+      sanitizeEditorHtml(
+        '<iframe src="https://www.youtube-nocookie.com/embed/ABCDEFGHIJK"></iframe>'
+      )
+    ).toBe(
+      '<iframe src="https://www.youtube-nocookie.com/embed/ABCDEFGHIJK" allowfullscreen></iframe>'
+    );
+
+    expect(
+      sanitizeEditorHtml(
+        '<iframe src="https://www.youtube.com/embed/ABCDEFGHIJK?autoplay=1&mute=1"></iframe>'
+      )
+    ).toBe(
+      '<iframe src="https://www.youtube.com/embed/ABCDEFGHIJK" allowfullscreen></iframe>'
+    );
+
+    expect(
+      sanitizeEditorHtml(
+        '<iframe src="https://www.YouTube.com/embed/ABCDEFGHIJK"></iframe>'
+      )
+    ).toBe(
+      '<iframe src="https://www.youtube.com/embed/ABCDEFGHIJK" allowfullscreen></iframe>'
+    );
+  });
+
+  it('removes unsafe iframe embeds while preserving the surrounding content', () => {
+    const dirtyHtml =
+      '<div class="video-container"><iframe src="https://example.com/embed/ABCDEFGHIJK"></iframe></div><p>Keep me</p>';
+
+    expect(sanitizeEditorHtml(dirtyHtml)).toBe(
+      '<div class="video-container"></div><p>Keep me</p>'
+    );
+  });
+
+  it('removes iframe variants that do not expose a safe YouTube src', () => {
+    const dirtyHtml =
+      '<iframe srcdoc="<p>Injected</p>"></iframe><p>Keep me</p>';
+
+    expect(sanitizeEditorHtml(dirtyHtml)).toBe('<p>Keep me</p>');
+  });
 });

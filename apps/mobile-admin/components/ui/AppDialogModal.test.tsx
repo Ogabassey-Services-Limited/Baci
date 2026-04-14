@@ -105,8 +105,10 @@ describe('AppDialogModal', () => {
   });
 
   it('can render inside the shared keyboard shell when keyboardAware is enabled', () => {
+    const onClose = vi.fn();
+
     render(
-      <AppDialogModal keyboardAware onClose={vi.fn()} visible={true}>
+      <AppDialogModal keyboardAware onClose={onClose} visible={true}>
         <div>Keyboard dialog</div>
       </AppDialogModal>
     );
@@ -115,5 +117,9 @@ describe('AppDialogModal', () => {
       screen.getByRole('region', { name: 'dialog-keyboard-shell' })
     ).toBeInTheDocument();
     expect(screen.getByText('Keyboard dialog')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('app-dialog-keyboard-backdrop'));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

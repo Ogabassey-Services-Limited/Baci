@@ -43,6 +43,7 @@ vi.mock('@/hooks/useBlogEditor', () => ({
     isLoading: false,
     isSaving: false,
     isUploadingImage: false,
+    initialEditorContent: '<p>Hello</p>',
     linkUrl: '',
     onWebViewMessage: vi.fn(),
     openAIModal: mocks.openAIModal,

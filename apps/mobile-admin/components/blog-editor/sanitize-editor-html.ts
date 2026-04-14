@@ -1,10 +1,45 @@
 const BLOCKED_TAG_PATTERN =
-  /<\/?(?:script|style|object|embed|applet|iframe|meta|link|form|input|button|textarea|select|base)[^>]*>/gi;
+  /<\/?(?:script|style|object|embed|applet|meta|link|form|input|button|textarea|select|base)[^>]*>/gi;
 const BLOCKED_BLOCK_PATTERN =
-  /<(script|style|object|embed|applet|iframe)[^>]*>[\s\S]*?<\/\1>/gi;
+  /<(script|style|object|embed|applet)[^>]*>[\s\S]*?<\/\1>/gi;
 const EVENT_HANDLER_PATTERN =
   /\s+on[a-z-]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi;
 const URL_ATTRIBUTE_PATTERN = /\s+(href|src)\s*=\s*(["'])(.*?)\2/gi;
+const IFRAME_PATTERN =
+  /<iframe\b[^>]*\bsrc=(["'])(.*?)\1[^>]*>[\s\S]*?<\/iframe>/gi;
+const REMAINING_IFRAME_PATTERN =
+  /<iframe\b[\s\S]*?<\/iframe>|<iframe\b[^>]*\/?>/gi;
+const SAFE_IFRAME_PLACEHOLDER_PREFIX = '__BACI_SAFE_IFRAME_';
+
+function sanitizeIframeSrc(value: string): string | null {
+  try {
+    const parsedUrl = new URL(value.trim());
+    const allowedHostnames = new Set([
+      'www.youtube.com',
+      'youtube.com',
+      'www.youtube-nocookie.com',
+      'youtube-nocookie.com',
+    ]);
+
+    if (
+      parsedUrl.protocol !== 'https:' ||
+      !allowedHostnames.has(parsedUrl.hostname)
+    ) {
+      return null;
+    }
+
+    const pathSegments = parsedUrl.pathname.split('/').filter(Boolean);
+    const videoId = pathSegments.at(-1) ?? '';
+
+    if (pathSegments[0] !== 'embed' || !/^[A-Za-z0-9_-]{11}$/.test(videoId)) {
+      return null;
+    }
+
+    return `https://${parsedUrl.hostname}/embed/${videoId}`;
+  } catch {
+    return null;
+  }
+}
 
 function sanitizeUrlAttribute(attribute: string, value: string): string {
   const trimmedValue = value.trim();
@@ -26,13 +61,34 @@ export function sanitizeEditorHtml(html: string): string {
     return '';
   }
 
-  return html
+  const safeIframes: string[] = [];
+  const sanitizedHtml = html
     .replace(BLOCKED_BLOCK_PATTERN, '')
     .replace(BLOCKED_TAG_PATTERN, '')
     .replace(EVENT_HANDLER_PATTERN, '')
+    .replace(IFRAME_PATTERN, (_, __: string, value: string) => {
+      const safeSrc = sanitizeIframeSrc(value);
+
+      if (!safeSrc) {
+        return '';
+      }
+
+      const placeholder = `${SAFE_IFRAME_PLACEHOLDER_PREFIX}${safeIframes.length}__`;
+
+      safeIframes.push(`<iframe src="${safeSrc}" allowfullscreen></iframe>`);
+
+      return placeholder;
+    })
+    .replace(REMAINING_IFRAME_PATTERN, '')
     .replace(
       URL_ATTRIBUTE_PATTERN,
       (_, attribute: string, __: string, value: string) =>
         sanitizeUrlAttribute(attribute, value)
     );
+
+  return safeIframes.reduce(
+    (result, iframe, index) =>
+      result.replace(`${SAFE_IFRAME_PLACEHOLDER_PREFIX}${index}__`, iframe),
+    sanitizedHtml
+  );
 }

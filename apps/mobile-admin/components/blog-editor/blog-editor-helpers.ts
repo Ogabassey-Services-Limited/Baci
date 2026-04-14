@@ -14,27 +14,23 @@ export async function readEditorApiError(
 ): Promise<string> {
   const statusPrefix = `${fallbackMessage} (${response.status})`;
   const contentType = response.headers.get('content-type') ?? '';
+  const bufferedBody = await response.text();
+  const trimmedBody = bufferedBody.trim();
 
-  if (contentType.includes('application/json')) {
+  if (contentType.includes('application/json') && trimmedBody.length > 0) {
     try {
-      const data = await response.json();
+      const data = JSON.parse(bufferedBody);
 
       if (typeof data?.error === 'string' && data.error.trim().length > 0) {
         return `${statusPrefix}: ${data.error.trim()}`;
       }
     } catch {
-      return statusPrefix;
+      return `${statusPrefix}: ${trimmedBody}`;
     }
   }
 
-  try {
-    const text = await response.text();
-
-    if (text.trim().length > 0) {
-      return `${statusPrefix}: ${text.trim()}`;
-    }
-  } catch {
-    return statusPrefix;
+  if (trimmedBody.length > 0) {
+    return `${statusPrefix}: ${trimmedBody}`;
   }
 
   return statusPrefix;

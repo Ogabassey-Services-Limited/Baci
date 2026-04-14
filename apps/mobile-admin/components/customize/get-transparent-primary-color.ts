@@ -9,9 +9,11 @@ export function getTransparentPrimaryColor(
   primaryLight: string | undefined,
   primary: string
 ): string {
+  const derivedFallback = sanitizeCssColor(primary, PRIMARY_FALLBACK);
+
   if (primaryLight?.trim()) {
-    return sanitizeCssColor(primaryLight, PRIMARY_FALLBACK);
+    return sanitizeCssColor(primaryLight, derivedFallback);
   }
 
-  return getTranslucentColor(primary, PRIMARY_FALLBACK, 0.125);
+  return getTranslucentColor(primary, derivedFallback, 0.125);
 }

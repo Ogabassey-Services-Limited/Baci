@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
+  alert: vi.fn(),
   back: vi.fn(),
   config: { root: { title: 'Store' } },
   messages: [] as never[],
@@ -83,7 +84,7 @@ vi.mock('@expo/vector-icons', () => ({
 vi.mock('react-native', () => ({
   ActivityIndicator: () => <span>loading</span>,
   Alert: {
-    alert: vi.fn(),
+    alert: mocks.alert,
   },
   FlatList: () => null,
   Pressable: ({
@@ -137,6 +138,27 @@ describe('CustomizeScreen', () => {
         onSuccess: expect.any(Function),
       })
     );
+  });
+
+  it('surfaces save draft errors through the alert handler', () => {
+    mocks.saveDraft.mockImplementationOnce(
+      (_: unknown, callbacks?: unknown) => {
+        if (
+          callbacks &&
+          typeof callbacks === 'object' &&
+          'onError' in callbacks &&
+          typeof callbacks.onError === 'function'
+        ) {
+          callbacks.onError(new Error('Save failed'));
+        }
+      }
+    );
+
+    render(<CustomizeScreen />);
+
+    fireEvent.click(screen.getByText('Save'));
+
+    expect(mocks.alert).toHaveBeenCalledWith('Error', 'Save failed');
   });
 
   it('switches to the preview pane', () => {

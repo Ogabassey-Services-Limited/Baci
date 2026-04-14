@@ -15,6 +15,7 @@ describe('sanitize-css-color', () => {
 
   it('rejects unsupported and malicious CSS values', () => {
     expect(isValidCssColor('')).toBe(false);
+    expect(isValidCssColor('banana')).toBe(false);
     expect(isValidCssColor('not-a-color')).toBe(false);
     expect(isValidCssColor('expression(alert(1))')).toBe(false);
     expect(isValidCssColor('var(--accent)')).toBe(false);

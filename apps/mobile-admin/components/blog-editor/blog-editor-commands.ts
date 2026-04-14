@@ -11,19 +11,69 @@ export type FormatCommand =
   | 'insertUnorderedList'
   | 'insertOrderedList'
   | 'insertHorizontalRule';
+const YOUTUBE_VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
 
 function escapeScriptValue(value: string): string {
   return JSON.stringify(value);
 }
 
-export function buildAiRequestScript(): string {
+function buildEditorContentPostMessageScript(
+  type: 'ai_request' | 'save'
+): string {
   return `
+    const editor = document.getElementById('editor');
+    const content = editor instanceof HTMLElement ? editor.innerHTML : '';
     window.ReactNativeWebView.postMessage(JSON.stringify({
-      type: 'ai_request',
-      content: document.getElementById('editor').innerHTML
+      type: ${escapeScriptValue(type)},
+      content
     }));
     true;
   `;
+}
+
+function extractYouTubeVideoId(url: string): string | null {
+  const trimmedUrl = url.trim();
+  if (YOUTUBE_VIDEO_ID_PATTERN.test(trimmedUrl)) {
+    return trimmedUrl;
+  }
+
+  const normalizeVideoId = (value: string | null | undefined): string | null =>
+    value && YOUTUBE_VIDEO_ID_PATTERN.test(value) ? value : null;
+
+  try {
+    const parsedUrl = new URL(trimmedUrl);
+    const hostname = parsedUrl.hostname.replace(/^www\./, '').toLowerCase();
+    const pathSegments = parsedUrl.pathname.split('/').filter(Boolean);
+
+    if (hostname === 'youtu.be') {
+      return normalizeVideoId(pathSegments[0] ?? null);
+    }
+
+    if (
+      hostname === 'youtube.com' ||
+      hostname === 'm.youtube.com' ||
+      hostname === 'youtube-nocookie.com'
+    ) {
+      if (parsedUrl.pathname === '/watch') {
+        return normalizeVideoId(parsedUrl.searchParams.get('v'));
+      }
+
+      if (
+        pathSegments[0] &&
+        ['embed', 'live', 'shorts', 'v'].includes(pathSegments[0])
+      ) {
+        return normalizeVideoId(pathSegments[1] ?? null);
+      }
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+export function buildAiRequestScript(): string {
+  return buildEditorContentPostMessageScript('ai_request');
 }
 
 export function buildCreateLinkScript(url: string): string {
@@ -68,12 +118,13 @@ export function buildInsertTableScript(): string {
 }
 
 export function buildInsertVideoScript(url: string): string {
-  const videoId =
-    url.match(
-      /(?:youtu\.be\/|youtube\.com(?:\/embed\/|\/v\/|\/watch\?v=|\/user\/\S+|\/ytscreeningroom\?v=|\/sandaylm\?v=))([\w-]{11})/
-    )?.[1] || url;
+  const videoId = extractYouTubeVideoId(url);
 
-  const embedHtml = `<div class="video-container"><iframe src="https://www.youtube.com/embed/${videoId}" allowfullscreen></iframe></div><p></p>`;
+  if (!videoId) {
+    return 'true;';
+  }
+
+  const embedHtml = `<div class="video-container"><iframe src="https://www.youtube.com/embed/${videoId}" title="YouTube video" loading="lazy" sandbox="allow-scripts allow-same-origin allow-presentation" allowfullscreen></iframe></div><p></p>`;
 
   return `
     document.execCommand('insertHTML', false, ${escapeScriptValue(embedHtml)});
@@ -82,11 +133,5 @@ export function buildInsertVideoScript(url: string): string {
 }
 
 export function buildSaveRequestScript(): string {
-  return `
-    window.ReactNativeWebView.postMessage(JSON.stringify({
-      type: 'save',
-      content: document.getElementById('editor').innerHTML
-    }));
-    true;
-  `;
+  return buildEditorContentPostMessageScript('save');
 }

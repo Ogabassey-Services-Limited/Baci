@@ -14,8 +14,8 @@ describe('blog-editor-commands', () => {
     const saveScript = buildSaveRequestScript();
     const aiScript = buildAiRequestScript();
 
-    expect(saveScript).toContain("type: 'save'");
-    expect(aiScript).toContain("type: 'ai_request'");
+    expect(saveScript).toContain('type: "save"');
+    expect(aiScript).toContain('type: "ai_request"');
     expect(() => new Function(saveScript)).not.toThrow();
     expect(() => new Function(aiScript)).not.toThrow();
   });
@@ -52,5 +52,11 @@ describe('blog-editor-commands', () => {
     expect(
       buildInsertVideoScript('https://www.youtube.com/embed/WXYZABCDE12')
     ).toContain('WXYZABCDE12');
+  });
+
+  it('aborts video insertion for unsupported video URLs', () => {
+    expect(buildInsertVideoScript('https://example.com/watch?v=123')).toBe(
+      'true;'
+    );
   });
 });
