@@ -87,6 +87,7 @@ jobs:
           GH_RUN_NUMBER: ${{ github.run_number }}
           INPUT_BUILD_NUMBER: ${{ inputs.build_number }}
           BUILD_NUMBER_BASE: ${{ env.BUILD_NUMBER_BASE }}
+          APP_VERSION_MAJOR_MINOR: ${{ env.APP_VERSION_MAJOR_MINOR }}
         run: |
           if [ "$GH_EVENT_NAME" = "workflow_dispatch" ] && [ -n "$INPUT_BUILD_NUMBER" ]; then
             BUILD_NUMBER="$INPUT_BUILD_NUMBER"
@@ -102,8 +103,13 @@ jobs:
             exit 1
           fi
 
+          if ! [[ "$APP_VERSION_MAJOR_MINOR" =~ ^[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Invalid APP_VERSION_MAJOR_MINOR '$APP_VERSION_MAJOR_MINOR'. Must match <major>.<minor> (e.g., 2.0)." >&2
+            exit 1
+          fi
+
           echo "IOS_BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
-          echo "IOS_APP_VERSION=${{ env.APP_VERSION_MAJOR_MINOR }}.$BUILD_NUMBER" >> "$GITHUB_ENV"
+          echo "IOS_APP_VERSION=${APP_VERSION_MAJOR_MINOR}.$BUILD_NUMBER" >> "$GITHUB_ENV"
           echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
 
       - name: Resolve release notes
@@ -126,11 +132,12 @@ jobs:
           fi
           # Apple caps at 4000 chars
           NOTES="${NOTES:0:4000}"
-          # Multi-line safe write
+          # Unique heredoc delimiter to avoid collision with commit message content
+          DELIM="EOF_$(date +%s%N)_$RANDOM"
           {
-            echo "IOS_RELEASE_NOTES<<NOTES_EOF"
+            echo "IOS_RELEASE_NOTES<<$DELIM"
             echo "$NOTES"
-            echo "NOTES_EOF"
+            echo "$DELIM"
           } >> "$GITHUB_ENV"
 
       - name: Materialize iOS Firebase config

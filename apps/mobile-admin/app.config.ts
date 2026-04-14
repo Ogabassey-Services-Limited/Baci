@@ -45,13 +45,13 @@ const rawIosAppVersion = process.env.IOS_APP_VERSION;
 let _iosAppVersion: string | undefined;
 
 if (rawIosAppVersion !== undefined && rawIosAppVersion.trim().length > 0) {
-  if (/^\d+\.\d+(\.\d+)?$/.test(rawIosAppVersion.trim())) {
-    _iosAppVersion = rawIosAppVersion.trim();
-  } else {
-    console.warn(
-      `[app.config] Ignoring IOS_APP_VERSION="${rawIosAppVersion}" because it must match major.minor[.patch].`
+  const trimmed = rawIosAppVersion.trim();
+  if (!/^\d+\.\d+\.\d+$/.test(trimmed)) {
+    throw new Error(
+      `[app.config] Invalid IOS_APP_VERSION="${rawIosAppVersion}". Must be semantic version major.minor.patch (e.g., 2.0.31).`
     );
   }
+  _iosAppVersion = trimmed;
 }
 
 /**
