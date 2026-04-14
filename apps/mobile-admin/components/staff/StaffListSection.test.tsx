@@ -40,6 +40,7 @@ vi.mock('@shopify/flash-list', () => ({
 }));
 
 vi.mock('react-native', () => ({
+  ActivityIndicator: () => <span>loading-spinner</span>,
   Pressable: ({
     accessibilityLabel,
     children,
@@ -74,6 +75,7 @@ describe('StaffListSection', () => {
     render(
       <StaffListSection
         colors={LIGHT_COLORS}
+        hasError={false}
         isLoading={false}
         onInvitePress={vi.fn()}
         onMemberPress={onMemberPress}
@@ -115,6 +117,7 @@ describe('StaffListSection', () => {
     render(
       <StaffListSection
         colors={LIGHT_COLORS}
+        hasError={false}
         isLoading={false}
         onInvitePress={onInvitePress}
         onMemberPress={vi.fn()}
@@ -136,6 +139,7 @@ describe('StaffListSection', () => {
     render(
       <StaffListSection
         colors={LIGHT_COLORS}
+        hasError={false}
         isLoading={true}
         onInvitePress={vi.fn()}
         onMemberPress={vi.fn()}
@@ -147,6 +151,7 @@ describe('StaffListSection', () => {
     );
 
     expect(screen.getByText('Loading team members...')).toBeInTheDocument();
+    expect(screen.getByText('loading-spinner')).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Invite team member' })
     ).not.toBeInTheDocument();
@@ -156,6 +161,7 @@ describe('StaffListSection', () => {
     render(
       <StaffListSection
         colors={LIGHT_COLORS}
+        hasError={false}
         isLoading={false}
         onInvitePress={vi.fn()}
         onMemberPress={vi.fn()}
@@ -181,5 +187,33 @@ describe('StaffListSection', () => {
 
     expect(screen.getByText('Unknown User')).toBeInTheDocument();
     expect(screen.getByText('Email unavailable')).toBeInTheDocument();
+  });
+
+  it('renders an error state and retries the fetch when loading fails', () => {
+    const onRefresh = vi.fn();
+
+    render(
+      <StaffListSection
+        colors={LIGHT_COLORS}
+        errorMessage="Network request failed"
+        hasError={true}
+        isLoading={false}
+        onInvitePress={vi.fn()}
+        onMemberPress={vi.fn()}
+        onRefresh={onRefresh}
+        refreshing={false}
+        shadowStyle={SHADOWS.sm}
+        staff={[]}
+      />
+    );
+
+    expect(screen.getByText('Unable to load team members')).toBeInTheDocument();
+    expect(screen.getByText('Network request failed')).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Retry loading team members' })
+    );
+
+    expect(onRefresh).toHaveBeenCalledTimes(1);
   });
 });

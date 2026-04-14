@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import {
+  ActivityIndicator,
   Pressable,
   RefreshControl,
   type StyleProp,
@@ -20,6 +21,8 @@ const EMPTY_EMAIL_LABEL = 'Email unavailable';
 
 interface StaffListSectionProps {
   colors: ThemeColors;
+  errorMessage?: string;
+  hasError?: boolean;
   isLoading: boolean;
   onInvitePress: () => void;
   onMemberPress: (member: StaffMember) => void;
@@ -31,6 +34,8 @@ interface StaffListSectionProps {
 
 export function StaffListSection({
   colors,
+  errorMessage,
+  hasError = false,
   isLoading,
   onInvitePress,
   onMemberPress,
@@ -39,6 +44,8 @@ export function StaffListSection({
   shadowStyle,
   staff,
 }: StaffListSectionProps) {
+  const hasStaff = Boolean(staff && staff.length > 0);
+
   const getStatusBadge = (status: StaffMember['status']) => {
     switch (status) {
       case 'active':
@@ -72,62 +79,66 @@ export function StaffListSection({
     }
   };
 
+  const emptyState = isLoading ? (
+    <View accessibilityRole="progressbar" style={styles.emptyContainer}>
+      <ActivityIndicator color={colors.primary} size="large" />
+      <Text style={[styles.emptyTitle, { color: colors.text }]}>
+        Loading team members...
+      </Text>
+      <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+        Checking your current staff list
+      </Text>
+    </View>
+  ) : hasError ? (
+    <View style={styles.emptyContainer}>
+      <Ionicons name="alert-circle-outline" size={56} color={colors.error} />
+      <Text style={[styles.emptyTitle, { color: colors.text }]}>
+        Unable to load team members
+      </Text>
+      <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+        {errorMessage ?? 'Please try again.'}
+      </Text>
+      <Pressable
+        accessibilityLabel="Retry loading team members"
+        accessibilityRole="button"
+        onPress={onRefresh}
+        style={[styles.emptyButton, { backgroundColor: colors.primary }]}
+      >
+        <Ionicons color={colors.textOnPrimary} name="refresh" size={18} />
+        <Text style={[styles.emptyButtonText, { color: colors.textOnPrimary }]}>
+          Retry
+        </Text>
+      </Pressable>
+    </View>
+  ) : (
+    <View style={styles.emptyContainer}>
+      <Ionicons name="people-outline" size={56} color={colors.textMuted} />
+      <Text style={[styles.emptyTitle, { color: colors.text }]}>
+        No team members yet
+      </Text>
+      <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+        Invite staff to help manage your store
+      </Text>
+      <Pressable
+        accessibilityLabel="Invite team member"
+        accessibilityRole="button"
+        onPress={onInvitePress}
+        style={[styles.emptyButton, { backgroundColor: colors.primary }]}
+      >
+        <Ionicons name="person-add" size={18} color={colors.textOnPrimary} />
+        <Text style={[styles.emptyButtonText, { color: colors.textOnPrimary }]}>
+          Invite Team Member
+        </Text>
+      </Pressable>
+    </View>
+  );
+
   return (
     <FlashList
       contentContainerStyle={styles.listContent}
       data={staff}
       keyExtractor={(item) => item.id}
-      ListEmptyComponent={
-        isLoading ? (
-          <View accessibilityRole="progressbar" style={styles.emptyContainer}>
-            <Ionicons
-              name="reload-outline"
-              size={40}
-              color={colors.textMuted}
-            />
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>
-              Loading team members...
-            </Text>
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              Checking your current staff list
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.emptyContainer}>
-            <Ionicons
-              name="people-outline"
-              size={56}
-              color={colors.textMuted}
-            />
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>
-              No team members yet
-            </Text>
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              Invite staff to help manage your store
-            </Text>
-            <Pressable
-              accessibilityLabel="Invite team member"
-              accessibilityRole="button"
-              onPress={onInvitePress}
-              style={[styles.emptyButton, { backgroundColor: colors.primary }]}
-            >
-              <Ionicons
-                name="person-add"
-                size={18}
-                color={colors.textOnPrimary}
-              />
-              <Text
-                style={[
-                  styles.emptyButtonText,
-                  { color: colors.textOnPrimary },
-                ]}
-              >
-                Invite Team Member
-              </Text>
-            </Pressable>
-          </View>
-        )
-      }
+      ListEmptyComponent={emptyState}
       refreshControl={
         <RefreshControl
           colors={[colors.gold]}
@@ -191,10 +202,7 @@ export function StaffListSection({
 
               <View style={styles.badgeRow}>
                 <View
-                  style={[
-                    styles.badge,
-                    { backgroundColor: colors.goldLight },
-                  ]}
+                  style={[styles.badge, { backgroundColor: colors.goldLight }]}
                 >
                   <Ionicons
                     name="shield-outline"
@@ -207,22 +215,14 @@ export function StaffListSection({
                 </View>
 
                 <View
-                  style={[
-                    styles.badge,
-                    { backgroundColor: statusBadge.bg },
-                  ]}
+                  style={[styles.badge, { backgroundColor: statusBadge.bg }]}
                 >
                   <Ionicons
                     color={statusBadge.text}
                     name={statusBadge.icon as keyof typeof Ionicons.glyphMap}
                     size={10}
                   />
-                  <Text
-                    style={[
-                      styles.badgeText,
-                      { color: statusBadge.text },
-                    ]}
-                  >
+                  <Text style={[styles.badgeText, { color: statusBadge.text }]}>
                     {statusBadge.label}
                   </Text>
                 </View>
@@ -238,6 +238,7 @@ export function StaffListSection({
         );
       }}
       showsVerticalScrollIndicator={false}
+      extraData={`${hasError}:${errorMessage}:${hasStaff ? 'data' : 'empty'}`}
     />
   );
 }

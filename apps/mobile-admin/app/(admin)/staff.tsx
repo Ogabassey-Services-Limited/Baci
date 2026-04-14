@@ -25,8 +25,15 @@ export default function StaffScreen() {
   const { colors, shadows, isDark } = useTheme();
   const router = useRouter();
 
-  const { data: staff, isLoading, isRefetching, refetch } = useStaff();
-  const { stats } = useStaffStats();
+  const {
+    data: staff,
+    error: staffError,
+    isError: isStaffError,
+    isLoading,
+    isRefetching,
+    refetch,
+  } = useStaff();
+  const { error: statsError, isError: isStatsError, stats } = useStaffStats();
 
   const inviteStaff = useInviteStaff();
   const updateStaff = useUpdateStaff();
@@ -40,6 +47,7 @@ export default function StaffScreen() {
   const [inviteName, setInviteName] = useState('');
   const [selectedRole, setSelectedRole] = useState<StaffRole>('sales_rep');
   const [autoCreateAccount, setAutoCreateAccount] = useState(true);
+
   const { handleChangeRole, handleInvite, showStaffActions } =
     useStaffScreenActions({
       autoCreateAccount,
@@ -57,6 +65,14 @@ export default function StaffScreen() {
       setSelectedStaff,
       updateStaff,
     });
+
+  const loadError = isStaffError
+    ? staffError
+    : isStatsError
+      ? statsError
+      : null;
+  const loadErrorMessage =
+    loadError instanceof Error ? loadError.message : undefined;
 
   return (
     <>
@@ -108,6 +124,8 @@ export default function StaffScreen() {
 
         <StaffListSection
           colors={colors}
+          errorMessage={loadErrorMessage}
+          hasError={Boolean(loadError)}
           isLoading={isLoading}
           onInvitePress={() => setInviteModalVisible(true)}
           onMemberPress={showStaffActions}
@@ -139,7 +157,9 @@ export default function StaffScreen() {
           onClose={() => setRoleModalVisible(false)}
           onRoleSelect={setSelectedRole}
           onSubmit={() =>
-            selectedStaff && handleChangeRole(selectedStaff.id, selectedRole)
+            selectedStaff
+              ? handleChangeRole(selectedStaff.id, selectedRole)
+              : undefined
           }
           selectedRole={selectedRole}
           visible={roleModalVisible}

@@ -131,7 +131,7 @@ function makeCallbackRequest({
   code = 'auth-code',
   state = 'test-state',
   cookieState = 'test-state',
-  merchantCookie = '00000000-0000-0000-0000-000000000001',
+  merchantCookie = '00000000-0000-4000-8000-000000000001',
   ticketCookie,
   platform,
 }: {
@@ -182,7 +182,7 @@ describe('Jumia callback route', () => {
     });
     mockUpsert.mockResolvedValue({ error: null });
     mockGetMerchantIdForApiUser.mockResolvedValue(
-      '00000000-0000-0000-0000-000000000001'
+      '00000000-0000-4000-8000-000000000001'
     );
     mockExchangeJumiaCode.mockResolvedValue({
       access_token: 'access',
@@ -242,7 +242,7 @@ describe('Jumia callback route', () => {
     expect(mockUpsert).toHaveBeenCalledWith(
       expect.arrayContaining([
         expect.objectContaining({
-          merchant_id: '00000000-0000-0000-0000-000000000001',
+          merchant_id: '00000000-0000-4000-8000-000000000001',
           platform: 'jumia',
           shop_id: 'shop-1',
           shop_name: 'Jumia Shop',

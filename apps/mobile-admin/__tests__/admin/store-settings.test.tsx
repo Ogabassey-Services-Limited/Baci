@@ -82,14 +82,23 @@ vi.mock('@/components/store-settings/StoreSettingsDetailsCard', () => ({
 vi.mock('@/components/store-settings/StoreSubscriptionCard', () => ({
   StoreSubscriptionCard: ({
     manageSubscriptionLabel,
+    onManageSubscription,
     planLabel,
   }: {
     manageSubscriptionLabel: string;
+    onManageSubscription: () => void;
     planLabel: string;
   }) => (
     <div>
       <span>Plan: {planLabel}</span>
       <span>Manage label: {manageSubscriptionLabel}</span>
+      <button
+        aria-label={manageSubscriptionLabel}
+        onClick={onManageSubscription}
+        type="button"
+      >
+        Manage subscription
+      </button>
     </div>
   ),
 }));
@@ -275,6 +284,7 @@ vi.mock('react-native', () => ({
 }));
 
 import StoreSettingsScreen from '@/app/(admin)/store-settings';
+import { SubscriptionManagement } from '@/utils/SubscriptionManagement';
 
 describe('StoreSettingsScreen', () => {
   beforeEach(() => {
@@ -340,6 +350,52 @@ describe('StoreSettingsScreen', () => {
     expect(screen.getByText('Success!')).toBeInTheDocument();
     expect(
       screen.getByText('Store settings updated successfully.')
+    ).toBeInTheDocument();
+  });
+
+  it('does not show the status modal when native subscription management returns false', async () => {
+    vi.mocked(
+      SubscriptionManagement.openNativeManagement
+    ).mockResolvedValueOnce(false);
+
+    render(<StoreSettingsScreen />);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Manage in App Store' })
+    );
+
+    await waitFor(() => {
+      expect(SubscriptionManagement.openNativeManagement).toHaveBeenCalledTimes(
+        1
+      );
+    });
+
+    expect(
+      screen.queryByText(
+        'Could not open subscription management. Please try again.'
+      )
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows an error modal when native subscription management rejects', async () => {
+    vi.mocked(
+      SubscriptionManagement.openNativeManagement
+    ).mockRejectedValueOnce(new Error('fail'));
+
+    render(<StoreSettingsScreen />);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Manage in App Store' })
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Unable to Open')).toBeInTheDocument();
+    });
+
+    expect(
+      screen.getByText(
+        'Could not open subscription management. Please try again.'
+      )
     ).toBeInTheDocument();
   });
 });
