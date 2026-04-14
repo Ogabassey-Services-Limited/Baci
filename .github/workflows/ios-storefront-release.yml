@@ -16,10 +16,6 @@ on:
         description: 'iOS build number override (leave empty for auto)'
         required: false
         type: string
-      release_notes:
-        description: 'What''s New in This Version (leave empty for commit subject)'
-        required: false
-        type: string
 
 concurrency:
   group: ios-storefront-release-${{ github.ref }}
@@ -107,30 +103,6 @@ jobs:
           echo "IOS_BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
           echo "IOS_APP_VERSION=${APP_VERSION_MAJOR_MINOR}.$BUILD_NUMBER" >> "$GITHUB_ENV"
           echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
-
-      - name: Resolve release notes
-        id: notes
-        shell: bash
-        env:
-          GH_EVENT_NAME: ${{ github.event_name }}
-          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
-          WORKFLOW_NOTES: ${{ inputs.release_notes }}
-        run: |
-          if [ "$GH_EVENT_NAME" = "workflow_dispatch" ] && [ -n "$WORKFLOW_NOTES" ]; then
-            NOTES="$WORKFLOW_NOTES"
-          elif [ "$GH_EVENT_NAME" = "push" ] && [ -n "$COMMIT_MESSAGE" ]; then
-            NOTES=$(printf '%s' "$COMMIT_MESSAGE" | head -n1)
-            NOTES="${NOTES#*: }"
-          else
-            NOTES="Bug fixes and performance improvements."
-          fi
-          NOTES="${NOTES:0:4000}"
-          DELIM="EOF_$(date +%s%N)_$RANDOM"
-          {
-            echo "IOS_RELEASE_NOTES<<$DELIM"
-            echo "$NOTES"
-            echo "$DELIM"
-          } >> "$GITHUB_ENV"
 
       - name: Materialize iOS Firebase config
         working-directory: ${{ env.WORKING_DIR }}
@@ -221,7 +193,6 @@ jobs:
           ASC_API_KEY_PATH: ${{ env.ASC_API_KEY_PATH }}
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-          IOS_RELEASE_NOTES: ${{ env.IOS_RELEASE_NOTES }}
         run: bundle exec fastlane ios release
 
       - name: Upload IPA artifact
