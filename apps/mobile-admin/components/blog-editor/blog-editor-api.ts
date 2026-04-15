@@ -18,6 +18,17 @@ interface UploadBlogEditorImageOptions {
   };
 }
 
+interface UploadedBlogEditorImage {
+  path: string;
+  url: string;
+}
+
+interface DeleteBlogEditorImageOptions {
+  accessToken: string;
+  apiUrl: string;
+  path: string;
+}
+
 export async function requestBlogEditorAiEdit({
   accessToken,
   apiUrl,
@@ -45,11 +56,11 @@ export async function requestBlogEditorAiEdit({
   return data.content;
 }
 
-export async function uploadBlogEditorImage({
+export async function uploadBlogEditorImageDetails({
   accessToken,
   apiUrl,
   asset,
-}: UploadBlogEditorImageOptions): Promise<string> {
+}: UploadBlogEditorImageOptions): Promise<UploadedBlogEditorImage> {
   const formData = new FormData();
   formData.append(
     'file',
@@ -74,9 +85,41 @@ export async function uploadBlogEditorImage({
   }
 
   const data = await response.json();
-  if (typeof data?.url !== 'string' || data.url.length === 0) {
-    throw new Error('No URL returned from upload API');
+  if (
+    typeof data?.url !== 'string' ||
+    data.url.length === 0 ||
+    typeof data?.path !== 'string' ||
+    data.path.length === 0
+  ) {
+    throw new Error('Upload API response did not include file details');
   }
 
-  return data.url;
+  return { path: data.path, url: data.url };
+}
+
+export async function uploadBlogEditorImage(
+  options: UploadBlogEditorImageOptions
+): Promise<string> {
+  const { url } = await uploadBlogEditorImageDetails(options);
+  return url;
+}
+
+export async function deleteBlogEditorImage({
+  accessToken,
+  apiUrl,
+  path,
+}: DeleteBlogEditorImageOptions): Promise<void> {
+  const response = await fetch(`${apiUrl}/api/merchant/blog/upload`, {
+    body: JSON.stringify({ path }),
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    throw new Error(await readEditorApiError(response, 'Delete failed'));
+  }
 }

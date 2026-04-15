@@ -12,6 +12,7 @@ export type FormatCommand =
   | 'insertOrderedList'
   | 'insertHorizontalRule';
 const YOUTUBE_VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
+const MAX_TABLE_DIMENSION = 100;
 
 function escapeScriptValue(value: string): string {
   return JSON.stringify(value);
@@ -99,10 +100,23 @@ export function buildInsertImageScript(url: string): string {
   `;
 }
 
-export function buildInsertTableScript(): string {
+export function buildInsertTableScript(rows = 2, cols = 2): string {
+  if (!Number.isFinite(rows) || !Number.isFinite(cols)) {
+    throw new RangeError('Table dimensions must be finite numbers.');
+  }
+
+  const normalizedRows = Math.max(
+    1,
+    Math.min(MAX_TABLE_DIMENSION, Math.floor(rows))
+  );
+  const normalizedCols = Math.max(
+    1,
+    Math.min(MAX_TABLE_DIMENSION, Math.floor(cols))
+  );
+
   return `
-    const rows = 2;
-    const cols = 2;
+    const rows = ${normalizedRows};
+    const cols = ${normalizedCols};
     let table = '<table>';
     for (let i = 0; i < rows; i++) {
       table += '<tr>';

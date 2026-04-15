@@ -34,9 +34,11 @@ describe('blog-editor-commands', () => {
 
   it('builds format and table scripts as valid JavaScript', () => {
     const formatScript = buildFormatActionScript('formatBlock', 'h2');
-    const tableScript = buildInsertTableScript();
+    const tableScript = buildInsertTableScript(3, 4);
 
     expect(formatScript).toContain('"formatBlock"');
+    expect(tableScript).toContain('const rows = 3;');
+    expect(tableScript).toContain('const cols = 4;');
     expect(tableScript).toContain("document.execCommand('insertHTML'");
     expect(() => new Function(formatScript)).not.toThrow();
     expect(() => new Function(tableScript)).not.toThrow();
@@ -57,6 +59,27 @@ describe('blog-editor-commands', () => {
   it('aborts video insertion for unsupported video URLs', () => {
     expect(buildInsertVideoScript('https://example.com/watch?v=123')).toBe(
       'true;'
+    );
+  });
+
+  it('rejects non-finite table dimensions', () => {
+    expect(() => buildInsertTableScript(Number.NaN, 2)).toThrow(
+      'Table dimensions must be finite numbers.'
+    );
+    expect(() => buildInsertTableScript(2, Number.NaN)).toThrow(
+      'Table dimensions must be finite numbers.'
+    );
+    expect(() => buildInsertTableScript(Number.POSITIVE_INFINITY, 2)).toThrow(
+      'Table dimensions must be finite numbers.'
+    );
+    expect(() => buildInsertTableScript(2, Number.POSITIVE_INFINITY)).toThrow(
+      'Table dimensions must be finite numbers.'
+    );
+    expect(() => buildInsertTableScript(Number.NEGATIVE_INFINITY, 2)).toThrow(
+      'Table dimensions must be finite numbers.'
+    );
+    expect(() => buildInsertTableScript(2, Number.NEGATIVE_INFINITY)).toThrow(
+      'Table dimensions must be finite numbers.'
     );
   });
 });

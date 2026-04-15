@@ -34,8 +34,15 @@ describe('sanitize-editor-html', () => {
       '<SVG onload="alert(1)"></SVG><iframe src="javascript:alert(2)"></iframe><p ONFOCUS="alert(3)" onmouseover="alert(4)">Safe text</p><a href="vbscript:msgbox(1)">Link</a>';
 
     expect(sanitizeEditorHtml(dirtyHtml)).toBe(
-      '<SVG></SVG><p>Safe text</p><a href="#">Link</a>'
+      '<p>Safe text</p><a href="#">Link</a>'
     );
+  });
+
+  it('removes scriptable svg, mathml, and namespaced attributes', () => {
+    const dirtyHtml =
+      '<svg><a xlink:href="javascript:alert(1)">Bad</a></svg><math><mi>x</mi></math><p xml:lang="en" data-safe="1">Keep me</p>';
+
+    expect(sanitizeEditorHtml(dirtyHtml)).toBe('<p data-safe="1">Keep me</p>');
   });
 
   it('preserves safe YouTube embeds', () => {

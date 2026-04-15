@@ -38,7 +38,6 @@ vi.mock('expo-image-picker', () => ({
 vi.mock('react-native', () => ({
   Alert: {
     alert: mocks.alert,
-    prompt: vi.fn(),
   },
 }));
 
@@ -294,6 +293,41 @@ describe('useBlogEditor', () => {
       );
       expect(mocks.updateSelect).toHaveBeenCalledWith('id');
       expect(mocks.back).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('opens a cross-platform video dialog and inserts videos through the WebView', async () => {
+    const webViewRef = {
+      current: { injectJavaScript: mocks.injectJavaScript },
+    } as unknown as RefObject<WebView | null>;
+
+    const { result } = renderHook(() =>
+      useBlogEditor({ id: 'post-1', webViewRef })
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    act(() => {
+      result.current.handleInsertVideo();
+      result.current.setVideoUrl('https://youtu.be/ABCDEFGHIJK');
+    });
+
+    await waitFor(() => {
+      expect(result.current.isVideoModalVisible).toBe(true);
+    });
+
+    act(() => {
+      result.current.confirmInsertVideo();
+    });
+
+    await waitFor(() => {
+      expect(mocks.injectJavaScript).toHaveBeenCalledWith(
+        expect.stringContaining('ABCDEFGHIJK')
+      );
+      expect(result.current.videoUrl).toBe('');
+      expect(result.current.isVideoModalVisible).toBe(false);
     });
   });
 });

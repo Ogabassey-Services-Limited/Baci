@@ -1,9 +1,11 @@
 const BLOCKED_TAG_PATTERN =
-  /<\/?(?:script|style|object|embed|applet|meta|link|form|input|button|textarea|select|base)[^>]*>/gi;
+  /<\/?(?:script|style|object|embed|applet|meta|link|form|input|button|textarea|select|base|svg|math)[^>]*>/gi;
 const BLOCKED_BLOCK_PATTERN =
-  /<(script|style|object|embed|applet)[^>]*>[\s\S]*?<\/\1>/gi;
+  /<(script|style|object|embed|applet|svg|math)[^>]*>[\s\S]*?<\/\1>/gi;
 const EVENT_HANDLER_PATTERN =
   /\s+on[a-z-]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi;
+const NAMESPACED_ATTRIBUTE_PATTERN =
+  /\s+[a-z0-9_-]+:[a-z0-9_-]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi;
 const URL_ATTRIBUTE_PATTERN =
   /\s+(href|src)\s*=\s*(?:(["'])(.*?)\2|([^\s>]+))/gi;
 const IFRAME_PATTERN =
@@ -67,6 +69,7 @@ export function sanitizeEditorHtml(html: string): string {
     .replace(BLOCKED_BLOCK_PATTERN, '')
     .replace(BLOCKED_TAG_PATTERN, '')
     .replace(EVENT_HANDLER_PATTERN, '')
+    .replace(NAMESPACED_ATTRIBUTE_PATTERN, '')
     .replace(IFRAME_PATTERN, (_, __: string, value: string) => {
       const safeSrc = sanitizeIframeSrc(value);
 

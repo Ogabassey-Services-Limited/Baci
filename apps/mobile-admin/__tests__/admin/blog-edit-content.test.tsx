@@ -30,6 +30,8 @@ vi.mock('@/hooks/useBlogEditor', () => ({
     content: '<p>Hello</p>',
     closeAIModal: vi.fn(),
     closeLinkModal: vi.fn(),
+    closeVideoModal: vi.fn(),
+    confirmInsertVideo: vi.fn(),
     errorMessage: mocks.errorMessage,
     formatAction: vi.fn(),
     handleImagePick: vi.fn(),
@@ -43,6 +45,7 @@ vi.mock('@/hooks/useBlogEditor', () => ({
     isLoading: false,
     isSaving: false,
     isUploadingImage: false,
+    isVideoModalVisible: false,
     initialEditorContent: '<p>Hello</p>',
     linkUrl: '',
     onWebViewMessage: vi.fn(),
@@ -52,6 +55,8 @@ vi.mock('@/hooks/useBlogEditor', () => ({
     retryLoad: mocks.retryLoad,
     setAiInstruction: vi.fn(),
     setLinkUrl: vi.fn(),
+    setVideoUrl: vi.fn(),
+    videoUrl: '',
   }),
 }));
 
@@ -87,7 +92,7 @@ vi.mock('@expo/vector-icons', () => ({
 vi.mock('react-native', () => ({
   ActivityIndicator: () => <span>loading</span>,
   Alert: {
-    prompt: vi.fn(),
+    alert: vi.fn(),
   },
   Pressable: ({
     accessibilityLabel,

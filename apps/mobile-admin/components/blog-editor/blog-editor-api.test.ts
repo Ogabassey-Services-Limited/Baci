@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  deleteBlogEditorImage,
   requestBlogEditorAiEdit,
   uploadBlogEditorImage,
+  uploadBlogEditorImageDetails,
 } from '@/components/blog-editor/blog-editor-api';
 
 vi.mock('@/types/upload', () => ({
@@ -39,7 +41,10 @@ describe('blog-editor-api', () => {
       'fetch',
       vi.fn().mockResolvedValue(
         new Response(
-          JSON.stringify({ url: 'https://cdn.usebaci.com/image.png' }),
+          JSON.stringify({
+            path: 'merchant-1/blog/hero.png',
+            url: 'https://cdn.usebaci.com/image.png',
+          }),
           {
             headers: { 'content-type': 'application/json' },
             status: 200,
@@ -59,6 +64,39 @@ describe('blog-editor-api', () => {
         },
       })
     ).resolves.toBe('https://cdn.usebaci.com/image.png');
+  });
+
+  it('returns uploaded image details for cleanup flows', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            path: 'merchant-1/blog/hero.png',
+            url: 'https://cdn.usebaci.com/image.png',
+          }),
+          {
+            headers: { 'content-type': 'application/json' },
+            status: 200,
+          }
+        )
+      )
+    );
+
+    await expect(
+      uploadBlogEditorImageDetails({
+        accessToken: 'token',
+        apiUrl: 'https://api.usebaci.com',
+        asset: {
+          fileName: 'hero.png',
+          mimeType: 'image/png',
+          uri: 'file:///hero.png',
+        },
+      })
+    ).resolves.toEqual({
+      path: 'merchant-1/blog/hero.png',
+      url: 'https://cdn.usebaci.com/image.png',
+    });
   });
 
   it('surfaces upload API errors', async () => {
@@ -83,6 +121,70 @@ describe('blog-editor-api', () => {
         },
       })
     ).rejects.toThrow('Upload failed (500): Upload failed');
+  });
+
+  it('surfaces upload detail API errors', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ error: 'Upload failed' }), {
+          headers: { 'content-type': 'application/json' },
+          status: 500,
+        })
+      )
+    );
+
+    await expect(
+      uploadBlogEditorImageDetails({
+        accessToken: 'token',
+        apiUrl: 'https://api.usebaci.com',
+        asset: {
+          fileName: 'hero.png',
+          mimeType: 'image/png',
+          uri: 'file:///hero.png',
+        },
+      })
+    ).rejects.toThrow('Upload failed (500): Upload failed');
+  });
+
+  it('deletes uploaded blog images when cleanup is required', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ success: true }), {
+          headers: { 'content-type': 'application/json' },
+          status: 200,
+        })
+      )
+    );
+
+    await expect(
+      deleteBlogEditorImage({
+        accessToken: 'token',
+        apiUrl: 'https://api.usebaci.com',
+        path: 'merchant-1/blog/hero.png',
+      })
+    ).resolves.toBeUndefined();
+  });
+
+  it('surfaces delete API errors', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ error: 'Image not found' }), {
+          headers: { 'content-type': 'application/json' },
+          status: 404,
+        })
+      )
+    );
+
+    await expect(
+      deleteBlogEditorImage({
+        accessToken: 'token',
+        apiUrl: 'https://api.usebaci.com',
+        path: 'merchant-1/blog/hero.png',
+      })
+    ).rejects.toThrow('Delete failed (404): Image not found');
   });
 
   it('surfaces server-side API errors', async () => {

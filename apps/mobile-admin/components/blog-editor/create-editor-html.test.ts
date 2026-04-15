@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { DARK_COLORS, LIGHT_COLORS } from '@/constants/theme';
-import { createEditorHtml } from './create-editor-html';
+import {
+  buildApplyEditorThemeScript,
+  createEditorHtml,
+} from './create-editor-html';
 
 describe('createEditorHtml', () => {
   it('renders sanitized editor content and placeholder styles', () => {
@@ -40,5 +43,18 @@ describe('createEditorHtml', () => {
     expect(document.querySelector('p')?.textContent).toBe(
       'Fish & Chips "Special"'
     );
+  });
+
+  it('builds a theme update script without rebuilding the document shell', () => {
+    const script = buildApplyEditorThemeScript(DARK_COLORS);
+
+    expect(() => new Function(script)).not.toThrow();
+    expect(script).toContain('window.__baciApplyEditorTheme');
+    expect(script).toContain(DARK_COLORS.background);
+    expect(script).toContain(DARK_COLORS.border);
+    expect(script).toContain(DARK_COLORS.card);
+    expect(script).toContain(DARK_COLORS.primary);
+    expect(script).toContain(DARK_COLORS.text);
+    expect(script).toContain(DARK_COLORS.textMuted);
   });
 });

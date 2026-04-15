@@ -75,13 +75,18 @@ describe('BlogEditorDialogs', () => {
         colors={LIGHT_COLORS}
         isAIModalVisible={false}
         isLinkModalVisible={true}
+        isVideoModalVisible={false}
         linkUrl="example.com"
+        onCloseVideoModal={vi.fn()}
         onAiInstructionChange={vi.fn()}
         onCloseAIModal={vi.fn()}
         onCloseLinkModal={vi.fn()}
         onConfirmAI={vi.fn()}
         onConfirmLink={onConfirmLink}
+        onConfirmVideo={vi.fn()}
         onLinkUrlChange={onLinkUrlChange}
+        onVideoUrlChange={vi.fn()}
+        videoUrl=""
       />
     );
 
@@ -110,13 +115,18 @@ describe('BlogEditorDialogs', () => {
         colors={LIGHT_COLORS}
         isAIModalVisible={true}
         isLinkModalVisible={false}
+        isVideoModalVisible={false}
         linkUrl=""
+        onCloseVideoModal={vi.fn()}
         onAiInstructionChange={vi.fn()}
         onCloseAIModal={vi.fn()}
         onCloseLinkModal={vi.fn()}
         onConfirmAI={onConfirmAI}
         onConfirmLink={vi.fn()}
+        onConfirmVideo={vi.fn()}
         onLinkUrlChange={vi.fn()}
+        onVideoUrlChange={vi.fn()}
+        videoUrl=""
       />
     );
 
@@ -129,5 +139,51 @@ describe('BlogEditorDialogs', () => {
     fireEvent.click(screen.getByText('Transform'));
 
     expect(onConfirmAI).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders the video dialog and forwards insert interactions', () => {
+    const onConfirmVideo = vi.fn();
+    const onVideoUrlChange = vi.fn();
+
+    render(
+      <BlogEditorDialogs
+        aiInstruction=""
+        colors={LIGHT_COLORS}
+        isAIModalVisible={false}
+        isLinkModalVisible={false}
+        isVideoModalVisible={true}
+        linkUrl=""
+        onCloseVideoModal={vi.fn()}
+        onAiInstructionChange={vi.fn()}
+        onCloseAIModal={vi.fn()}
+        onCloseLinkModal={vi.fn()}
+        onConfirmAI={vi.fn()}
+        onConfirmLink={vi.fn()}
+        onConfirmVideo={onConfirmVideo}
+        onLinkUrlChange={vi.fn()}
+        onVideoUrlChange={onVideoUrlChange}
+        videoUrl="https://youtu.be/ABCDEFGHIJK"
+      />
+    );
+
+    expect(
+      screen.getByRole('group', { name: 'Insert video dialog' })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('group', { name: 'Insert link dialog' })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('group', { name: 'AI edit dialog' })
+    ).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Video URL'), {
+      target: { value: 'https://youtu.be/LMNOPQRSTUV' },
+    });
+    fireEvent.click(screen.getByText('Insert'));
+
+    expect(onVideoUrlChange).toHaveBeenCalledWith(
+      'https://youtu.be/LMNOPQRSTUV'
+    );
+    expect(onConfirmVideo).toHaveBeenCalledTimes(1);
   });
 });

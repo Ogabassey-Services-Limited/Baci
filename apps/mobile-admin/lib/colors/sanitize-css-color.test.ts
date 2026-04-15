@@ -40,4 +40,10 @@ describe('sanitize-css-color', () => {
       getTranslucentColor('#3B82F6', 'rgba(59, 130, 246, 0.16)', 0.2)
     ).toBe('rgba(59, 130, 246, 0.2)');
   });
+
+  it('returns the fallback when translucent colors cannot be derived', () => {
+    expect(getTranslucentColor('not-a-color', 'rgba(0, 0, 0, 0)', 0.2)).toBe(
+      'rgba(0, 0, 0, 0)'
+    );
+  });
 });

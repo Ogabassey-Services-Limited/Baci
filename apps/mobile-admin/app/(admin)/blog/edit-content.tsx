@@ -9,7 +9,10 @@ import {
   BLOG_EDITOR_AI_COLOR,
   blogEditorStyles,
 } from '@/components/blog-editor/blog-editor.styles';
-import { createEditorHtml } from '@/components/blog-editor/create-editor-html';
+import {
+  buildApplyEditorThemeScript,
+  createEditorHtml,
+} from '@/components/blog-editor/create-editor-html';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
 import { SPACING } from '@/constants/theme';
 import { useBlogEditor } from '@/hooks/useBlogEditor';
@@ -19,10 +22,13 @@ export default function EditContentScreen() {
   const { id } = useLocalSearchParams();
   const { colors } = useTheme();
   const webViewRef = useRef<WebView>(null);
+  const initialThemeRef = useRef(colors);
   const {
     aiInstruction,
     closeAIModal,
     closeLinkModal,
+    closeVideoModal,
+    confirmInsertVideo,
     errorMessage,
     formatAction,
     handleImagePick,
@@ -36,6 +42,7 @@ export default function EditContentScreen() {
     isLoading,
     isSaving,
     isUploadingImage,
+    isVideoModalVisible,
     initialEditorContent,
     linkUrl,
     onWebViewMessage,
@@ -45,14 +52,28 @@ export default function EditContentScreen() {
     retryLoad,
     setAiInstruction,
     setLinkUrl,
+    setVideoUrl,
+    videoUrl,
   } = useBlogEditor({ id, webViewRef });
   const [editorHtml, setEditorHtml] = useState(() =>
-    createEditorHtml({ colors, content: initialEditorContent })
+    createEditorHtml({
+      colors: initialThemeRef.current,
+      content: initialEditorContent,
+    })
   );
 
   useEffect(() => {
-    setEditorHtml(createEditorHtml({ colors, content: initialEditorContent }));
-  }, [colors, initialEditorContent]);
+    setEditorHtml(
+      createEditorHtml({
+        colors: initialThemeRef.current,
+        content: initialEditorContent,
+      })
+    );
+  }, [initialEditorContent]);
+
+  useEffect(() => {
+    webViewRef.current?.injectJavaScript(buildApplyEditorThemeScript(colors));
+  }, [colors]);
 
   if (isLoading) {
     return (
@@ -160,13 +181,18 @@ export default function EditContentScreen() {
         colors={colors}
         isAIModalVisible={isAIModalVisible}
         isLinkModalVisible={isLinkModalVisible}
+        isVideoModalVisible={isVideoModalVisible}
         linkUrl={linkUrl}
+        onCloseVideoModal={closeVideoModal}
         onAiInstructionChange={setAiInstruction}
         onCloseAIModal={closeAIModal}
         onCloseLinkModal={closeLinkModal}
         onConfirmAI={requestAIEdit}
         onConfirmLink={handleInsertLink}
+        onConfirmVideo={confirmInsertVideo}
         onLinkUrlChange={setLinkUrl}
+        onVideoUrlChange={setVideoUrl}
+        videoUrl={videoUrl}
       />
 
       <AppFormScreen
@@ -227,6 +253,11 @@ export default function EditContentScreen() {
         <View style={blogEditorStyles.editorContainer}>
           <WebView
             keyboardDisplayRequiresUserAction={false}
+            onLoadEnd={() =>
+              webViewRef.current?.injectJavaScript(
+                buildApplyEditorThemeScript(colors)
+              )
+            }
             onMessage={onWebViewMessage}
             originWhitelist={['*']}
             ref={webViewRef}

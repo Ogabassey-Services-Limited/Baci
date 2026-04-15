@@ -10,10 +10,7 @@ interface CreateEditorHtmlOptions {
   content: string;
 }
 
-export function createEditorHtml({
-  colors,
-  content,
-}: CreateEditorHtmlOptions): string {
+export function buildEditorTheme(colors: ThemeColors) {
   const safeColors = {
     background: sanitizeCssColor(colors.background, '#0F172A'),
     border: sanitizeCssColor(colors.border, '#334155'),
@@ -22,12 +19,30 @@ export function createEditorHtml({
     text: sanitizeCssColor(colors.text, '#F8FAFC'),
     textMuted: sanitizeCssColor(colors.textMuted, '#94A3B8'),
   };
+
+  return {
+    ...safeColors,
+    blockquoteBackground: getTranslucentColor(
+      safeColors.card,
+      'rgba(148, 163, 184, 0.16)',
+      0.25
+    ),
+  };
+}
+
+export function buildApplyEditorThemeScript(colors: ThemeColors): string {
+  return `
+    window.__baciApplyEditorTheme?.(${JSON.stringify(buildEditorTheme(colors))});
+    true;
+  `;
+}
+
+export function createEditorHtml({
+  colors,
+  content,
+}: CreateEditorHtmlOptions): string {
+  const editorTheme = buildEditorTheme(colors);
   const sanitizedContent = sanitizeEditorHtml(content);
-  const blockquoteBackground = getTranslucentColor(
-    safeColors.card,
-    'rgba(148, 163, 184, 0.16)',
-    0.25
-  );
 
   return `
     <!DOCTYPE html>
@@ -38,10 +53,19 @@ export function createEditorHtml({
           content="width=device-width, initial-scale=1.0"
         >
         <style>
+          :root {
+            --editor-background: ${editorTheme.background};
+            --editor-blockquote-background: ${editorTheme.blockquoteBackground};
+            --editor-border: ${editorTheme.border};
+            --editor-card: ${editorTheme.card};
+            --editor-primary: ${editorTheme.primary};
+            --editor-text: ${editorTheme.text};
+            --editor-text-muted: ${editorTheme.textMuted};
+          }
           * { box-sizing: border-box; margin: 0; padding: 0; }
           body {
-            background: ${safeColors.background};
-            color: ${safeColors.text};
+            background: var(--editor-background);
+            color: var(--editor-text);
             font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
             font-size: 17px;
             line-height: 1.7;
@@ -55,11 +79,11 @@ export function createEditorHtml({
             padding-bottom: 100px;
           }
           #editor:empty:before {
-            color: ${safeColors.textMuted};
+            color: var(--editor-text-muted);
             content: 'Start writing your story...';
           }
           h1, h2, h3 {
-            color: ${safeColors.text};
+            color: var(--editor-text);
             font-family: 'Inter', sans-serif;
             font-weight: 700;
             margin-top: 24px;
@@ -71,7 +95,7 @@ export function createEditorHtml({
           ul, ol { margin: 16px 0; padding-left: 28px; }
           li { margin-bottom: 8px; }
           a {
-            color: ${safeColors.primary};
+            color: var(--editor-primary);
             text-decoration: underline;
             text-underline-offset: 4px;
           }
@@ -83,17 +107,17 @@ export function createEditorHtml({
             max-width: 100%;
           }
           blockquote {
-            background: ${blockquoteBackground};
-            border-left: 4px solid ${safeColors.primary};
+            background: var(--editor-blockquote-background);
+            border-left: 4px solid var(--editor-primary);
             border-radius: 0 8px 8px 0;
-            color: ${safeColors.textMuted};
+            color: var(--editor-text-muted);
             font-style: italic;
             margin: 20px 0;
             padding-bottom: 4px;
             padding-left: 20px;
             padding-top: 4px;
           }
-          hr { border: 0; border-top: 1px solid ${safeColors.border}; margin: 24px 0; }
+          hr { border: 0; border-top: 1px solid var(--editor-border); margin: 24px 0; }
           table {
             border-collapse: collapse;
             font-size: 15px;
@@ -101,12 +125,12 @@ export function createEditorHtml({
             width: 100%;
           }
           th, td {
-            border: 1px solid ${safeColors.border};
+            border: 1px solid var(--editor-border);
             padding: 12px;
             text-align: left;
           }
           th {
-            background: ${safeColors.card};
+            background: var(--editor-card);
             font-weight: 600;
           }
           .video-container {
@@ -133,6 +157,29 @@ export function createEditorHtml({
         <script>
           const editor = document.getElementById('editor');
           let changeTimeout = null;
+          const themeVariables = {
+            background: '--editor-background',
+            blockquoteBackground: '--editor-blockquote-background',
+            border: '--editor-border',
+            card: '--editor-card',
+            primary: '--editor-primary',
+            text: '--editor-text',
+            textMuted: '--editor-text-muted'
+          };
+
+          window.__baciApplyEditorTheme = function(theme) {
+            if (!theme || typeof theme !== 'object') {
+              return;
+            }
+
+            Object.entries(themeVariables).forEach(([key, variableName]) => {
+              const value = theme[key];
+
+              if (typeof value === 'string') {
+                document.documentElement.style.setProperty(variableName, value);
+              }
+            });
+          };
 
           if (editor && window.ReactNativeWebView?.postMessage) {
             editor.addEventListener('input', function() {
