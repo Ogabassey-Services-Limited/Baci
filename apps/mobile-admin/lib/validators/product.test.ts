@@ -145,6 +145,7 @@ describe('ProductDbSchema', () => {
     expect(parsed.variants).toEqual([
       {
         attributes: { color: 'Black', storage: '128GB' },
+        condition: null,
         cost_price: 700000,
         id: undefined,
         images: [],
@@ -155,6 +156,7 @@ describe('ProductDbSchema', () => {
       },
       {
         attributes: { color: 'Silver', storage: '256GB' },
+        condition: null,
         cost_price: 750000,
         id: undefined,
         images: [],
@@ -211,5 +213,148 @@ describe('ProductDbSchema', () => {
         ],
       })
     ).toThrow('Duplicate variants must be merged or changed.');
+  });
+
+  it('allows duplicate attributes across different conditions for sku_matrix variants', () => {
+    const parsed = ProductDbSchema.parse({
+      name: 'iPad 11th Gen',
+      sku: 'IPAD11',
+      price: 0,
+      stock_quantity: 0,
+      category_id: '',
+      manage_stock: true,
+      status: 'active',
+      images: [],
+      has_variants: true,
+      variant_attributes: [],
+      variants: [
+        {
+          attributes: [
+            { key: 'storage', value: '128GB' },
+            { key: 'connectivity', value: 'WiFi' },
+          ],
+          condition: 'new',
+          price: 550000,
+          stock_quantity: 3,
+        },
+        {
+          attributes: [
+            { key: 'storage', value: '128GB' },
+            { key: 'connectivity', value: 'WiFi' },
+          ],
+          condition: 'used',
+          price: 500000,
+          stock_quantity: 1,
+        },
+      ],
+    });
+
+    expect(parsed.variant_model).toBe('sku_matrix');
+    expect(parsed.migration_status).toBe('migrated');
+    expect(parsed.condition).toBe('new');
+    expect(parsed.price).toBe(550000);
+    expect(parsed.stock_quantity).toBe(3);
+    expect(parsed.variants).toEqual([
+      expect.objectContaining({
+        attributes: { connectivity: 'WiFi', storage: '128GB' },
+        condition: 'new',
+      }),
+      expect.objectContaining({
+        attributes: { connectivity: 'WiFi', storage: '128GB' },
+        condition: 'used',
+      }),
+    ]);
+  });
+
+  it('rejects sku_matrix variants when one row is missing condition', () => {
+    expect(() =>
+      ProductDbSchema.parse({
+        name: 'Apple Watch Series 11',
+        sku: 'AWS11',
+        price: 0,
+        stock_quantity: 0,
+        category_id: '',
+        manage_stock: true,
+        status: 'active',
+        images: [],
+        has_variants: true,
+        variant_attributes: [],
+        variants: [
+          {
+            attributes: [{ key: 'size', value: '41mm' }],
+            condition: 'new',
+            price: 400000,
+            stock_quantity: 2,
+          },
+          {
+            attributes: [{ key: 'size', value: '45mm' }],
+            price: 450000,
+            stock_quantity: 1,
+          },
+        ],
+      })
+    ).toThrow('Every sku_matrix variant must include a condition.');
+  });
+
+  it('allows condition-only sku_matrix variants without extra attributes', () => {
+    const parsed = ProductDbSchema.parse({
+      name: 'MacBook Air M2',
+      sku: 'MBA-M2',
+      price: 0,
+      stock_quantity: 0,
+      category_id: '',
+      manage_stock: true,
+      status: 'active',
+      images: [],
+      has_variants: true,
+      variant_attributes: [],
+      variants: [
+        {
+          attributes: [],
+          condition: 'refurbished',
+          price: 900000,
+          stock_quantity: 2,
+        },
+      ],
+    });
+
+    expect(parsed.variant_model).toBe('sku_matrix');
+    expect(parsed.condition).toBe('refurbished');
+    expect(parsed.variants[0]).toEqual(
+      expect.objectContaining({
+        attributes: {},
+        condition: 'refurbished',
+        price_override: 900000,
+      })
+    );
+  });
+
+  it('preserves zero cost prices and omits ids for unsaved variants', () => {
+    const parsed = ProductDbSchema.parse({
+      name: 'Galaxy S25',
+      sku: 'GAL-S25',
+      price: 500000,
+      cost_price: 0,
+      stock_quantity: 2,
+      category_id: '',
+      manage_stock: true,
+      status: 'active',
+      images: [],
+      has_variants: true,
+      variant_attributes: [],
+      variants: [
+        {
+          attributes: [{ key: 'storage', value: '128GB' }],
+          condition: 'used',
+          cost_price: 0,
+          price: 450000,
+          sku: 'GAL-S25-USED-128',
+          stock_quantity: 2,
+        },
+      ],
+    });
+
+    expect(parsed.variants[0]?.cost_price).toBe(0);
+    expect(parsed.variants[0]?.id).toBeUndefined();
   });
 });

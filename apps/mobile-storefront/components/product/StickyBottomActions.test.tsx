@@ -31,6 +31,7 @@ jest.mock('react-native-reanimated', () => {
 });
 
 const defaultProps = {
+  canPurchase: true,
   quantityInCart: 0,
   localQty: '1',
   onLocalQtyChange: jest.fn(),
@@ -69,6 +70,15 @@ describe('StickyBottomActions', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Add to Cart' }));
 
     expect(defaultProps.onAddToCart).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders a disabled out-of-stock CTA when purchase is not allowed', () => {
+    render(<StickyBottomActions {...defaultProps} canPurchase={false} />);
+
+    const button = screen.getByRole('button', { name: 'Product out of stock' });
+
+    expect(button.props.accessibilityState?.disabled).toBe(true);
+    expect(screen.getByText('Out of Stock')).toBeTruthy();
   });
 
   it('renders the active cart CTA with a stable view cart button layout', () => {

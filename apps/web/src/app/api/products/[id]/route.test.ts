@@ -505,6 +505,38 @@ describe('PUT /api/products/[id]', () => {
       expect(res.status).toBe(400);
       expect(json.error).toBe('Validation failed');
     });
+
+    it('rejects sku_matrix updates when a variant lacks condition', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Product',
+        condition: 'new',
+        has_variants: true,
+        variant_model: 'legacy',
+      };
+
+      const res = await PUT(
+        makePutRequest(PRODUCT_ID, {
+          has_variants: true,
+          variant_model: 'sku_matrix',
+          variants: [
+            {
+              price_override: 7000,
+              stock_quantity: 5,
+            },
+          ],
+        }),
+        {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        }
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.error).toBe(
+        'Every sku_matrix variant must include a condition.'
+      );
+    });
   });
 
   describe('product lookup', () => {

@@ -59,8 +59,34 @@ describe('buildStructuredVariantPickerItems', () => {
     });
 
     expect(rows[0]).toMatchObject({
+      condition: 'open_box',
       images: ['variant.jpg'],
       price: 800000,
+    });
+  });
+
+  it('prefers the structured variant condition when it is present', () => {
+    const rows = buildStructuredVariantPickerItems({
+      parentProduct: {
+        condition: 'new',
+        images: ['parent.jpg'],
+        name: 'iPad 11th Gen',
+        price: 550000,
+      },
+      variants: [
+        {
+          attributes: { connectivity: 'WiFi', storage: '128GB' },
+          condition: 'used',
+          id: 'variant-3',
+          price_override: '500000',
+          sku: 'IPAD11-USED-128-WIFI',
+        },
+      ],
+    });
+
+    expect(rows[0]).toMatchObject({
+      condition: 'used',
+      price: 500000,
     });
   });
 });

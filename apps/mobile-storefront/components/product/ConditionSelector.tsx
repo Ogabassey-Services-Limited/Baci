@@ -9,13 +9,14 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { RADIUS, SPACING } from '@/constants/Colors';
 import {
-  formatProductConditionDisplay,
   formatPrice,
+  formatProductConditionDisplay,
   type ProductCondition,
   type ProductConditionOffer,
 } from '@/types/product';
 
 interface ConditionSelectorProps {
+  availableConditions?: ProductCondition[];
   currentCondition: string | undefined;
   offers: ProductConditionOffer[];
   selectedCondition: ProductCondition | null;
@@ -62,6 +63,7 @@ const GRADE_LABELS: Record<string, string> = {
 };
 
 export function ConditionSelector({
+  availableConditions,
   currentCondition,
   offers,
   selectedCondition,
@@ -84,8 +86,8 @@ export function ConditionSelector({
 
   const baseCondition = normalizeCondition(currentCondition);
 
-  // Build available conditions from offers + base condition
-  const availableConditions: Array<{
+  // Build available conditions from explicit list + offers + base condition
+  const renderedConditions: Array<{
     condition: ProductCondition;
     price: number;
     comparePrice?: number;
@@ -94,29 +96,30 @@ export function ConditionSelector({
     notes?: string;
   }> = [];
 
-  // Add base condition (the product's default)
-  availableConditions.push({
-    condition: baseCondition,
-    price: basePrice,
-    stock: undefined,
-  });
+  const conditionList = Array.from(
+    new Set([
+      baseCondition,
+      ...(availableConditions ?? []),
+      ...offers.map((offer) => offer.condition),
+    ])
+  ).filter(
+    (condition): condition is ProductCondition => condition in CONDITION_CONFIG
+  );
 
-  // Add offers that differ from base condition
-  for (const offer of offers) {
-    if (offer.condition !== baseCondition) {
-      availableConditions.push({
-        condition: offer.condition,
-        price: offer.price,
-        comparePrice: offer.compare_at_price,
-        stock: offer.stock_quantity,
-        grade: offer.grade,
-        notes: offer.condition_notes,
-      });
-    }
+  for (const condition of conditionList) {
+    const offer = offers.find((candidate) => candidate.condition === condition);
+    renderedConditions.push({
+      condition,
+      price: offer?.price ?? basePrice,
+      comparePrice: offer?.compare_at_price,
+      stock: offer?.stock_quantity,
+      grade: offer?.grade,
+      notes: offer?.condition_notes,
+    });
   }
 
   // If only one condition available, don't show selector
-  if (availableConditions.length <= 1) {
+  if (renderedConditions.length <= 1) {
     return null;
   }
 
@@ -126,7 +129,7 @@ export function ConditionSelector({
     <View style={styles.container}>
       <Text style={[styles.title, { color: colors.text }]}>Condition</Text>
       <View style={styles.optionsContainer}>
-        {availableConditions.map((item) => {
+        {renderedConditions.map((item) => {
           const config = CONDITION_CONFIG[item.condition];
           const displayLabel = formatProductConditionDisplay(item.condition);
           const isSelected = effectiveSelected === item.condition;

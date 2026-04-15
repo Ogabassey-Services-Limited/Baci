@@ -605,3 +605,120 @@ describe('generateGoogleMerchantFeed — multi-condition offers', () => {
     expect(itemCount).toBe(1);
   });
 });
+
+describe('generateGoogleMerchantFeed — conditioned variants', () => {
+  const defaultManifest: Record<string, FeedImageManifestEntry[]> = {
+    'prod-1': [manifestEntry({ is_primary: true })],
+  };
+
+  it('emits one GMC row per conditioned variant when the rollout flag is enabled', () => {
+    const xml = generateGoogleMerchantFeed(
+      [
+        product({
+          price: 700000,
+          variant_model: 'sku_matrix',
+          variants: [
+            {
+              id: 'variant-new-128',
+              condition: 'new',
+              price_override: 550000,
+              stock_quantity: 4,
+              attributes: { connectivity: 'WiFi', storage: '128GB' },
+            },
+            {
+              id: 'variant-used-256',
+              condition: 'used',
+              price_override: 600000,
+              stock_quantity: 2,
+              attributes: {
+                connectivity: 'WiFi+Cellular',
+                storage: '256GB',
+              },
+            },
+          ],
+        }),
+      ],
+      merchant({ gmc_variants_enabled: true }),
+      BASE_URL,
+      defaultManifest
+    );
+
+    expect(xml).toContain('<g:id>variant-new-128</g:id>');
+    expect(xml).toContain('<g:id>variant-used-256</g:id>');
+    expect((xml.match(/<item>/g) || []).length).toBe(2);
+    expect(xml).toContain('<g:item_group_id>prod-1</g:item_group_id>');
+    expect(xml).toContain(
+      'variantId=variant-new-128&amp;condition=new&amp;connectivity=WiFi&amp;storage=128GB</g:link>'
+    );
+    expect(xml).toContain(
+      'variantId=variant-used-256&amp;condition=used&amp;connectivity=WiFi%2BCellular&amp;storage=256GB</g:link>'
+    );
+    expect(xml).toContain(
+      '<g:canonical_link>https://ogabassey.com/products/test-product</g:canonical_link>'
+    );
+  });
+
+  it('normalizes open_box feed conditions to used for GMC output', () => {
+    const xml = generateGoogleMerchantFeed(
+      [
+        product({
+          price: 700000,
+          variant_model: 'sku_matrix',
+          variants: [
+            {
+              id: 'variant-open-box',
+              condition: 'open_box',
+              price_override: 640000,
+              stock_quantity: 1,
+              attributes: { storage: '256GB' },
+            },
+          ],
+        }),
+      ],
+      merchant({ gmc_variants_enabled: true }),
+      BASE_URL,
+      defaultManifest
+    );
+
+    expect(xml).toContain('<g:condition>used</g:condition>');
+    expect(xml).not.toContain('<g:condition>open_box</g:condition>');
+  });
+
+  it('falls back to one conservative family row when conditioned variants exist but the rollout flag is disabled', () => {
+    const xml = generateGoogleMerchantFeed(
+      [
+        product({
+          price: 700000,
+          variant_model: 'sku_matrix',
+          variants: [
+            {
+              id: 'variant-new-128',
+              condition: 'new',
+              price_override: 550000,
+              stock_quantity: 4,
+              attributes: { storage: '128GB' },
+            },
+            {
+              id: 'variant-used-256',
+              condition: 'used',
+              price_override: 600000,
+              stock_quantity: 2,
+              attributes: { storage: '256GB' },
+            },
+          ],
+        }),
+      ],
+      merchant({ gmc_variants_enabled: false }),
+      BASE_URL,
+      defaultManifest
+    );
+
+    const itemCount = (xml.match(/<item>/g) || []).length;
+    expect(itemCount).toBe(1);
+    expect(xml).toContain('<g:id>prod-1</g:id>');
+    expect(xml).toContain('<g:price>550000.00 NGN</g:price>');
+    expect(xml).toContain('<g:condition>new</g:condition>');
+    expect(xml).not.toContain('<g:id>variant-new-128</g:id>');
+    expect(xml).not.toContain('<g:item_group_id>');
+  });
+});

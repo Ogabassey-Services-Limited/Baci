@@ -4,8 +4,10 @@
  */
 
 import {
+  inferProductVariantModel,
   MOBILE_ADMIN_PRODUCT_WITH_RELATIONS_QUERY,
   normalizeProductSearchText,
+  normalizeProductVariantModel,
   MOBILE_ADMIN_PRODUCT_COLUMNS as PRODUCT_COLUMNS,
 } from '@baci/shared';
 import {
@@ -27,6 +29,10 @@ import {
 import { sanitizeText } from '@/lib/sanitize';
 import { supabase } from '@/lib/supabase';
 import { getJoinedRecord } from '@/lib/supabase-utils';
+import {
+  ProductDbSchema,
+  type ProductFormValues,
+} from '@/lib/validators/product';
 import { useMerchant } from './useMerchant';
 import { fetchAdminProductVariants } from './useProductPickerVariants';
 
@@ -59,6 +65,12 @@ export interface Product {
   has_variants: boolean;
   manage_stock: boolean;
   low_stock_threshold: number | null;
+  variant_model: 'legacy' | 'sku_matrix' | null;
+  migration_status: 'pending' | 'needs_review' | 'migrated' | null;
+  default_variant_id: string | null;
+  available_conditions: string[] | null;
+  min_variant_price: number | null;
+  max_variant_price: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -82,6 +94,7 @@ interface ProductsPage {
 
 interface PersistedProductVariantInput {
   attributes: Record<string, string>;
+  condition?: string | null;
   cost_price: number | null;
   id?: string;
   images: string[];
@@ -324,6 +337,7 @@ async function syncStructuredVariants(args: {
 
   const variantPayloads = args.variants.map((variant) => ({
     attributes: variant.attributes,
+    condition: variant.condition ?? null,
     cost_price: variant.cost_price,
     id: variant.id,
     images: variant.images,
@@ -426,6 +440,9 @@ export function useProduct(productId: string) {
 
       return {
         ...normalizeProductInventory(withRelations),
+        variant_model: normalizeProductVariantModel(
+          withRelations.variant_model
+        ),
         categories: category ? { name: category.name } : undefined,
         brands: brand ? { name: brand.name } : undefined,
         variants,
@@ -438,11 +455,6 @@ export function useProduct(productId: string) {
     enabled: !!productId && productId !== 'new' && !!merchant?.id,
   });
 }
-
-import {
-  ProductDbSchema,
-  type ProductFormValues,
-} from '@/lib/validators/product';
 
 export function useUpdateProduct() {
   const queryClient = useQueryClient();
@@ -463,6 +475,10 @@ export function useUpdateProduct() {
       // We perform the parse here to ensure the data matches our schema before transform
       const dbPayload = ProductDbSchema.parse(updates);
       const { variants, ...productPayload } = dbPayload;
+      const variantModel = inferProductVariantModel({
+        variantModel: productPayload.variant_model,
+        variants,
+      });
 
       await assertNoDuplicateProduct({
         merchantId: merchant.id,
@@ -474,6 +490,9 @@ export function useUpdateProduct() {
         .from('products')
         .update({
           ...productPayload,
+          migration_status:
+            variantModel === 'sku_matrix' ? 'migrated' : 'pending',
+          variant_model: variantModel,
           updated_at: new Date().toISOString(),
         })
         .eq('id', id)
@@ -516,6 +535,10 @@ export function useCreateProduct() {
       // 1. Validate & Transform
       const dbPayload = ProductDbSchema.parse(newProduct);
       const { variants, ...productPayload } = dbPayload;
+      const variantModel = inferProductVariantModel({
+        variantModel: productPayload.variant_model,
+        variants,
+      });
 
       await assertNoDuplicateProduct({
         merchantId: merchant.id,
@@ -527,7 +550,10 @@ export function useCreateProduct() {
         .insert([
           {
             ...productPayload,
+            migration_status:
+              variantModel === 'sku_matrix' ? 'migrated' : 'pending',
             merchant_id: merchant.id,
+            variant_model: variantModel,
           },
         ])
         .select(PRODUCT_COLUMNS)

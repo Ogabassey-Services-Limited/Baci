@@ -39,6 +39,39 @@ const baseProduct: Product = {
   images: ['https://cdn.example.com/iphone-13-pro.jpg'],
 };
 
+const variantProduct: Product = {
+  ...baseProduct,
+  has_variants: true,
+  variant_attributes: {
+    storage: ['128GB'],
+    connectivity: ['WiFi'],
+  },
+  variants: [
+    {
+      id: 'variant-new-128',
+      name: '128GB WiFi',
+      condition: 'new',
+      price: 552000,
+      stock_quantity: 5,
+      attributes: {
+        storage: '128GB',
+        connectivity: 'WiFi',
+      },
+    },
+    {
+      id: 'variant-used-128',
+      name: '128GB WiFi Used',
+      condition: 'used',
+      price: 500000,
+      stock_quantity: 3,
+      attributes: {
+        storage: '128GB',
+        connectivity: 'WiFi',
+      },
+    },
+  ],
+};
+
 jest.mock('expo-router', () => ({
   router: {
     replace: (...args: unknown[]) => mockRouterReplace(...args),
@@ -225,6 +258,53 @@ describe('ProductDetailScreen canonical slug redirect', () => {
       isLoading: false,
       error: 'Not found',
       refetch: jest.fn(),
+    });
+
+    render(<ProductDetailScreen />);
+
+    await waitFor(() => {
+      expect(mockRouterReplace).not.toHaveBeenCalled();
+    });
+  });
+
+  it('resets attribute-only variant params back to the bare product route', async () => {
+    mockUseLocalSearchParams.mockReturnValue({
+      slug: 'iphone-13-pro',
+      storage: '128GB',
+      utm_source: 'google',
+    });
+    mockUseProduct.mockReturnValue({
+      product: variantProduct,
+      isLoading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+    mockUseEffectivePrice.mockReturnValue({
+      price: variantProduct.price,
+      comparePrice: undefined,
+    });
+
+    render(<ProductDetailScreen />);
+
+    await waitFor(() => {
+      expect(mockRouterReplace).toHaveBeenCalledWith('/product/iphone-13-pro');
+    });
+  });
+
+  it('ignores unrelated route params when deciding whether to reset selection', async () => {
+    mockUseLocalSearchParams.mockReturnValue({
+      slug: 'iphone-13-pro',
+      utm_source: 'google',
+    });
+    mockUseProduct.mockReturnValue({
+      product: variantProduct,
+      isLoading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+    mockUseEffectivePrice.mockReturnValue({
+      price: variantProduct.price,
+      comparePrice: undefined,
     });
 
     render(<ProductDetailScreen />);

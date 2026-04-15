@@ -78,6 +78,7 @@ function getServiceRoleSupabaseClient() {
 
 interface PublicStorefrontProductVariant {
   attributes: Record<string, string> | null;
+  condition?: string | null;
   created_at?: string | null;
   id: string;
   images?: unknown;
@@ -761,6 +762,8 @@ export async function getCachedProduct(
         product_key_specs,
         specifications,
         condition,
+        variant_model,
+        available_conditions,
         has_condition_offers,
         offers:product_offers (
           id,
@@ -825,6 +828,11 @@ const STOREFRONT_PRODUCT_DETAIL_COLUMNS = `
   slug,
   condition,
   condition_detail,
+  variant_model,
+  default_variant_id,
+  available_conditions,
+  min_variant_price,
+  max_variant_price,
   brand,
   category,
   color,

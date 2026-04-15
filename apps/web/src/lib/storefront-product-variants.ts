@@ -1,7 +1,21 @@
-import type { ProductVariant } from '@/lib/products';
+import type { ProductCondition, ProductVariant } from '@/lib/products';
+
+const ALLOWED_PRODUCT_CONDITIONS = [
+  'new',
+  'used',
+  'open_box',
+  'refurbished',
+] as const satisfies readonly ProductCondition[];
+
+function isAllowedProductCondition(
+  condition: string | null | undefined
+): condition is ProductCondition {
+  return ALLOWED_PRODUCT_CONDITIONS.includes(condition as ProductCondition);
+}
 
 interface StorefrontVariantRecord {
   attributes?: Record<string, unknown> | null;
+  condition?: string | null;
   id: string;
   images?: unknown;
   merchant_id?: string | null;
@@ -69,6 +83,9 @@ export function normalizeStorefrontProductVariants(
     id: variant.id,
     product_id: variant.product_id || options.productId,
     merchant_id: variant.merchant_id || options.merchantId,
+    condition: isAllowedProductCondition(variant.condition)
+      ? variant.condition
+      : undefined,
     attributes: normalizeVariantAttributes(variant.attributes),
     price_override: normalizeOptionalNumber(variant.price_override),
     stock_quantity:

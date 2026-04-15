@@ -17,7 +17,7 @@ async function fetchAdminProductVariants(args: {
     await supabase
       .from('product_variants')
       .select(
-        'id, attributes, cost_price, images, price_override, primary_image, sku, stock_quantity'
+        'id, attributes, condition, cost_price, images, price_override, primary_image, sku, stock_quantity'
       )
       .eq('merchant_id', args.merchantId)
       .eq('product_id', args.parentProduct.id);

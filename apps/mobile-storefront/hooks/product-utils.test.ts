@@ -62,6 +62,7 @@ interface MockQueryChain {
   count: number | null;
   select: jest.Mock;
   eq: jest.Mock;
+  or: jest.Mock;
   in: jest.Mock;
   ilike: jest.Mock;
   textSearch: jest.Mock;
@@ -79,6 +80,7 @@ function createQueryChain(result: QueryResult): MockQueryChain {
   chain.count = result.count ?? null;
   chain.select = jest.fn(() => chain);
   chain.eq = jest.fn(() => chain);
+  chain.or = jest.fn(() => chain);
   chain.in = jest.fn(() => chain);
   chain.ilike = jest.fn(() => chain);
   chain.textSearch = jest.fn(() => chain);
@@ -110,6 +112,8 @@ const validProductRow = {
   status: 'active',
   specifications: { ram: '6GB' },
   has_variants: true,
+  variant_model: 'legacy',
+  available_conditions: ['new'],
   colors: ['Blue'],
   color_images: { Blue: ['https://cdn.example.com/iphone-13-pro-blue.jpg'] },
   has_condition_offers: true,
@@ -314,6 +318,22 @@ describe('product-utils', () => {
     });
   });
 
+  it('transformProduct treats multi-condition sku_matrix products as mixed-condition labels', () => {
+    expect(
+      transformProduct({
+        ...validProductRow,
+        condition: 'new',
+        has_condition_offers: false,
+        available_conditions: ['new', 'used'],
+        variant_model: 'sku_matrix',
+      })
+    ).toMatchObject({
+      condition: 'New & Used',
+      variant_model: 'sku_matrix',
+      available_conditions: ['new', 'used'],
+    });
+  });
+
   it('fetchProductsPage applies filters, paginates, and returns transformed products', async () => {
     const rankedResults = [
       {
@@ -460,7 +480,9 @@ describe('product-utils', () => {
     expect(query.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
     expect(query.eq).toHaveBeenCalledWith('status', 'active');
     expect(query.eq).toHaveBeenCalledWith('category_id', 'cat-1');
-    expect(query.eq).toHaveBeenCalledWith('condition', 'open_box');
+    expect(query.or).toHaveBeenCalledWith(
+      'condition.eq.open_box,available_conditions.cs.{open_box}'
+    );
     expect(query.gte).toHaveBeenCalledWith('price', 100000);
   });
 

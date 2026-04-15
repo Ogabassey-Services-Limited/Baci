@@ -6,6 +6,7 @@ const CONDITION_LABELS: Record<ConditionType, string> = {
   open_box: 'Open Box',
   refurbished: 'Refurbished',
 };
+const CONDITION_VALUES = Object.keys(CONDITION_LABELS) as ConditionType[];
 
 export function normalizeConditionType(
   condition?: string | null
@@ -22,6 +23,15 @@ export function normalizeConditionType(
   }
 
   return 'new';
+}
+
+export function isConditionType(
+  condition?: string | null
+): condition is ConditionType {
+  return (
+    typeof condition === 'string' &&
+    CONDITION_VALUES.includes(condition as ConditionType)
+  );
 }
 
 export function formatConditionLabel(condition?: string | null): string {

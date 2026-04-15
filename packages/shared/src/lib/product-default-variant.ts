@@ -2,6 +2,7 @@ export interface ProductDefaultVariantLike {
   id: string;
   attributes?: Record<string, string> | null;
   compare_at_price?: number | null;
+  condition?: string | null;
   in_stock?: boolean | null;
   price?: number | null;
   price_modifier?: number | null;
@@ -13,6 +14,7 @@ export interface ProductWithDefaultVariantLike<
   TVariant extends ProductDefaultVariantLike = ProductDefaultVariantLike,
 > {
   compare_at_price?: number | null;
+  condition?: string | null;
   manage_stock?: boolean | null;
   price: number;
   variants?: TVariant[] | null;
@@ -24,6 +26,7 @@ export interface ResolvedProductVariantSelection<
   attributes: Record<string, string>;
   color?: string;
   compareAtPrice?: number;
+  condition?: string;
   price: number;
   storage?: string;
   variant: TVariant;
@@ -32,6 +35,24 @@ export interface ResolvedProductVariantSelection<
 interface VariantCandidate<TVariant extends ProductDefaultVariantLike> {
   index: number;
   variant: TVariant;
+}
+
+const DEFAULT_CONDITION_ORDER = [
+  'new',
+  'open_box',
+  'refurbished',
+  'used',
+] as const;
+
+function normalizeConditionValue(value: string | null | undefined) {
+  if (typeof value !== 'string') {
+    return '';
+  }
+
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
 }
 
 function normalizeAttributeValue(value: string | null | undefined) {
@@ -93,11 +114,72 @@ function isVariantPurchasable(
   return true;
 }
 
+function getVariantCondition<TVariant extends ProductDefaultVariantLike>(
+  product: ProductWithDefaultVariantLike<TVariant>,
+  variant: TVariant
+) {
+  return normalizeConditionValue(variant.condition ?? product.condition);
+}
+
+function getConditionPreferenceRank(condition: string) {
+  const rank = DEFAULT_CONDITION_ORDER.indexOf(
+    condition as (typeof DEFAULT_CONDITION_ORDER)[number]
+  );
+
+  return rank >= 0 ? rank : DEFAULT_CONDITION_ORDER.length;
+}
+
+export function hasVariantConditionAxis<
+  TVariant extends ProductDefaultVariantLike,
+>(product: ProductWithDefaultVariantLike<TVariant>) {
+  return (product.variants || []).some(
+    (variant) => normalizeConditionValue(variant.condition).length > 0
+  );
+}
+
+export function getVariantConditionOptions<
+  TVariant extends ProductDefaultVariantLike,
+>(product: ProductWithDefaultVariantLike<TVariant>) {
+  const explicitConditions = Array.from(
+    new Set(
+      (product.variants || [])
+        .map((variant) => normalizeConditionValue(variant.condition))
+        .filter(Boolean)
+    )
+  );
+
+  if (explicitConditions.length === 0) {
+    const normalizedProductCondition = normalizeConditionValue(
+      product.condition
+    );
+    return normalizedProductCondition ? [normalizedProductCondition] : [];
+  }
+
+  return explicitConditions.sort((left, right) => {
+    const leftRank = getConditionPreferenceRank(left);
+    const rightRank = getConditionPreferenceRank(right);
+
+    if (leftRank !== rightRank) {
+      return leftRank - rightRank;
+    }
+
+    return left.localeCompare(right);
+  });
+}
+
 function sortByDefaultPreference<TVariant extends ProductDefaultVariantLike>(
   basePrice: number,
+  getCondition: (candidate: VariantCandidate<TVariant>) => string,
   candidates: VariantCandidate<TVariant>[]
 ) {
   return [...candidates].sort((left, right) => {
+    const leftConditionRank = getConditionPreferenceRank(getCondition(left));
+    const rightConditionRank = getConditionPreferenceRank(getCondition(right));
+
+    if (leftConditionRank !== rightConditionRank) {
+      return leftConditionRank - rightConditionRank;
+    }
+
     const leftPrice = getVariantPrice(basePrice, left.variant);
     const rightPrice = getVariantPrice(basePrice, right.variant);
 
@@ -116,12 +198,14 @@ function toResolvedSelection<TVariant extends ProductDefaultVariantLike>(
   const attributes = normalizeSelectedAttributes(variant.attributes);
   const storage = normalizeAttributeValue(attributes.storage);
   const color = normalizeAttributeValue(attributes.color);
+  const condition = getVariantCondition(product, variant);
 
   return {
     variant,
     attributes,
     storage: storage || undefined,
     color: color || undefined,
+    condition: condition || undefined,
     price: getVariantPrice(product.price, variant),
     compareAtPrice:
       typeof variant.compare_at_price === 'number'
@@ -134,15 +218,29 @@ function toResolvedSelection<TVariant extends ProductDefaultVariantLike>(
 
 export function resolveDefaultVariantSelection<
   TVariant extends ProductDefaultVariantLike,
->(product: ProductWithDefaultVariantLike<TVariant>) {
+>(
+  product: ProductWithDefaultVariantLike<TVariant>,
+  options?: { condition?: string | null }
+) {
   const variants = product.variants || [];
   if (variants.length === 0) {
     return null;
   }
 
+  const requestedCondition = normalizeConditionValue(options?.condition);
+  const usesConditionAxis = hasVariantConditionAxis(product);
   const purchasableVariants = variants
     .map((variant, index) => ({ variant, index }))
-    .filter(({ variant }) => isVariantPurchasable(product.manage_stock, variant));
+    .filter(({ variant }) =>
+      isVariantPurchasable(product.manage_stock, variant)
+    )
+    .filter(({ variant }) => {
+      if (!usesConditionAxis || !requestedCondition) {
+        return true;
+      }
+
+      return getVariantCondition(product, variant) === requestedCondition;
+    });
 
   if (purchasableVariants.length === 0) {
     return null;
@@ -150,6 +248,7 @@ export function resolveDefaultVariantSelection<
 
   const [defaultVariant] = sortByDefaultPreference(
     product.price,
+    (candidate) => getVariantCondition(product, candidate.variant),
     purchasableVariants
   );
 
@@ -158,13 +257,17 @@ export function resolveDefaultVariantSelection<
     : null;
 }
 
-export function resolveVariantSelection<
+function resolveVariantSelectionInternal<
   TVariant extends ProductDefaultVariantLike,
 >(
   product: ProductWithDefaultVariantLike<TVariant>,
   options: {
     attributes?: Record<string, string | null | undefined> | null;
+    condition?: string | null;
     variantId?: string | null;
+  },
+  config: {
+    includeOutOfStock: boolean;
   }
 ) {
   const variants = product.variants || [];
@@ -173,17 +276,33 @@ export function resolveVariantSelection<
   }
 
   const normalizedAttributes = normalizeSelectedAttributes(options.attributes);
+  const requestedCondition = normalizeConditionValue(options.condition);
   const attributeKeys = Object.keys(normalizedAttributes);
-  const purchasableVariants = variants
+  const usesConditionAxis = hasVariantConditionAxis(product);
+  const variantCandidates = variants
     .map((variant, index) => ({ variant, index }))
-    .filter(({ variant }) => isVariantPurchasable(product.manage_stock, variant));
+    .filter(({ variant }) =>
+      config.includeOutOfStock
+        ? true
+        : isVariantPurchasable(product.manage_stock, variant)
+    );
 
-  if (purchasableVariants.length === 0) {
+  if (variantCandidates.length === 0) {
     return null;
   }
 
+  if (options.variantId) {
+    const exactVariant = variantCandidates.find(
+      ({ variant }) => variant.id === options.variantId
+    );
+
+    if (exactVariant) {
+      return toResolvedSelection(product, exactVariant.variant);
+    }
+  }
+
   if (attributeKeys.length > 0) {
-    const matchingVariants = purchasableVariants.filter(({ variant }) => {
+    const matchingVariants = variantCandidates.filter(({ variant }) => {
       const variantAttributes = normalizeSelectedAttributes(variant.attributes);
 
       return attributeKeys.every(
@@ -195,29 +314,89 @@ export function resolveVariantSelection<
       return null;
     }
 
-    const exactVariant = matchingVariants.find(
-      ({ variant }) => options.variantId && variant.id === options.variantId
-    );
+    const conditionScopedMatches =
+      usesConditionAxis && requestedCondition
+        ? matchingVariants.filter(
+            ({ variant }) =>
+              getVariantCondition(product, variant) === requestedCondition
+          )
+        : matchingVariants;
 
-    if (exactVariant) {
-      return toResolvedSelection(product, exactVariant.variant);
+    if (conditionScopedMatches.length === 0) {
+      return null;
+    }
+
+    if (usesConditionAxis && !requestedCondition) {
+      const distinctConditions = new Set(
+        conditionScopedMatches
+          .map(({ variant }) => getVariantCondition(product, variant))
+          .filter(Boolean)
+      );
+
+      if (distinctConditions.size > 1) {
+        return null;
+      }
     }
 
     return toResolvedSelection(
       product,
-      sortByDefaultPreference(product.price, matchingVariants)[0].variant
+      sortByDefaultPreference(
+        product.price,
+        (candidate) => getVariantCondition(product, candidate.variant),
+        conditionScopedMatches
+      )[0].variant
     );
   }
 
-  if (options.variantId) {
-    const variant = purchasableVariants.find(
-      ({ variant: candidate }) => candidate.id === options.variantId
+  if (requestedCondition && usesConditionAxis) {
+    const conditionMatches = variantCandidates.filter(
+      ({ variant }) =>
+        getVariantCondition(product, variant) === requestedCondition
     );
 
-    if (variant) {
-      return toResolvedSelection(product, variant.variant);
+    if (conditionMatches.length === 0) {
+      return null;
     }
+
+    return toResolvedSelection(
+      product,
+      sortByDefaultPreference(
+        product.price,
+        (candidate) => getVariantCondition(product, candidate.variant),
+        conditionMatches
+      )[0].variant
+    );
   }
 
   return null;
+}
+
+export function resolveVariantDisplaySelection<
+  TVariant extends ProductDefaultVariantLike,
+>(
+  product: ProductWithDefaultVariantLike<TVariant>,
+  options: {
+    attributes?: Record<string, string | null | undefined> | null;
+    condition?: string | null;
+    variantId?: string | null;
+  }
+) {
+  return resolveVariantSelectionInternal(product, options, {
+    includeOutOfStock: true,
+  });
+}
+
+export function resolveVariantSelection<
+  TVariant extends ProductDefaultVariantLike,
+>(
+  product: ProductWithDefaultVariantLike<TVariant>,
+  options: {
+    attributes?: Record<string, string | null | undefined> | null;
+    condition?: string | null;
+    variantId?: string | null;
+  }
+) {
+  return resolveVariantSelectionInternal(product, options, {
+    includeOutOfStock: false,
+  });
 }

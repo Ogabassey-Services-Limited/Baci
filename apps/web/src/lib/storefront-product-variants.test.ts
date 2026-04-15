@@ -10,6 +10,7 @@ describe('normalizeStorefrontProductVariants', () => {
             id: 'variant-1',
             product_id: 'product-1',
             merchant_id: 'merchant-1',
+            condition: 'used',
             attributes: {
               sim_type: ' eSIM Only ',
               storage: '256GB',
@@ -31,6 +32,7 @@ describe('normalizeStorefrontProductVariants', () => {
         id: 'variant-1',
         product_id: 'product-1',
         merchant_id: 'merchant-1',
+        condition: 'used',
         attributes: {
           sim_type: 'eSIM Only',
           storage: '256GB',
@@ -91,5 +93,30 @@ describe('normalizeStorefrontProductVariants', () => {
         stock_quantity: 0,
       }),
     ]);
+  });
+
+  it.each([
+    ['new', 'new'],
+    ['used', 'used'],
+    ['refurbished', 'refurbished'],
+    [undefined, undefined],
+    ['unexpected', undefined],
+  ] as const)('normalizes condition %s to %s', (inputCondition, expectedCondition) => {
+    expect(
+      normalizeStorefrontProductVariants(
+        [
+          {
+            id: 'variant-condition',
+            attributes: { storage: '128GB' },
+            condition: inputCondition,
+            stock_quantity: 3,
+          },
+        ],
+        {
+          merchantId: 'merchant-4',
+          productId: 'product-4',
+        }
+      )[0]?.condition
+    ).toBe(expectedCondition);
   });
 });

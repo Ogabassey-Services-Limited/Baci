@@ -56,6 +56,8 @@ function mapProduct(p: Record<string, unknown>) {
     specifications: p.specifications,
     // Condition Offers & Colors
     has_condition_offers: p.has_condition_offers,
+    available_conditions: p.available_conditions,
+    variant_model: p.variant_model,
     offers: p.offers,
     // Map colors from color_images keys if distinct colors column is missing/empty
     colors:
@@ -137,7 +139,9 @@ function createCachedProductsFetcher(
       }
 
       if (filters.condition && filters.condition !== 'all') {
-        query = query.eq('condition', filters.condition);
+        query = query.or(
+          `condition.eq.${filters.condition},available_conditions.cs.{${filters.condition}}`
+        );
       }
 
       if (filters.min_price !== undefined) {

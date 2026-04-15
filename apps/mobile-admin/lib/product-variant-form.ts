@@ -1,3 +1,7 @@
+import {
+  type EditableProductCondition,
+  isEditableProductCondition,
+} from '@/lib/product-condition';
 import type { AdminProductVariant } from '@/lib/product-picker-variant-rows';
 
 export interface VariantAttributeFormValue {
@@ -9,6 +13,7 @@ export interface VariantAttributeFormValue {
 export interface EditableProductVariant {
   attributes: VariantAttributeFormValue[];
   client_id: string;
+  condition?: EditableProductCondition;
   cost_price: number;
   id?: string;
   images: string[];
@@ -56,6 +61,16 @@ function normalizeFiniteNumber(value: unknown, fallback: number): number {
   }
 
   return fallback;
+}
+
+function normalizeVariantCondition(
+  condition: unknown
+): EditableProductCondition | undefined {
+  const normalizedCondition =
+    typeof condition === 'string' ? condition.trim() : '';
+  return isEditableProductCondition(normalizedCondition)
+    ? normalizedCondition
+    : undefined;
 }
 
 let nextProductVariantFormToken = 0;
@@ -122,6 +137,7 @@ export function buildVariantFormValues(
   }
 ): EditableProductVariant[] {
   return variants.map((variant) => ({
+    condition: normalizeVariantCondition(variant.condition),
     attributes: toVariantAttributeFormValues(variant.variant_attributes),
     client_id: variant.id ?? createProductVariantFormToken('variant'),
     cost_price: normalizeFiniteNumber(
@@ -144,6 +160,7 @@ export function buildVariantFormValues(
 
 export function createEmptyEditableVariant(defaults?: {
   attributeKeys?: string[];
+  condition?: EditableProductCondition;
   costPrice?: number;
   images?: string[];
   price?: number;
@@ -153,6 +170,7 @@ export function createEmptyEditableVariant(defaults?: {
       defaults?.attributeKeys?.map((key) => createEmptyVariantAttribute(key)) ??
       [],
     client_id: createProductVariantFormToken('variant'),
+    condition: defaults?.condition,
     cost_price: defaults?.costPrice ?? 0,
     images: defaults?.images ?? [],
     price: defaults?.price ?? 0,

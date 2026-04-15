@@ -15,6 +15,7 @@ import Link from 'next/link';
 
 interface ProductCartActionsProps {
   cartHref: Route;
+  canPurchase: boolean;
   inputValue: string;
   onAddToCart: () => void;
   onDecrement: () => void;
@@ -27,6 +28,7 @@ interface ProductCartActionsProps {
 
 export function ProductCartActions({
   cartHref,
+  canPurchase,
   inputValue,
   onAddToCart,
   onDecrement,
@@ -91,9 +93,14 @@ export function ProductCartActions({
           <button
             type="button"
             onClick={onAddToCart}
-            className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-[var(--store-primary)] font-bold text-[var(--store-primary-text,#ffffff)] shadow-lg transition-all hover:bg-[var(--store-primary)]/90 hover:shadow-[var(--store-primary)]/20"
+            disabled={!canPurchase}
+            className={`flex h-14 w-full items-center justify-center gap-2 rounded-xl font-bold shadow-lg transition-all ${
+              canPurchase
+                ? 'bg-[var(--store-primary)] text-[var(--store-primary-text,#ffffff)] hover:bg-[var(--store-primary)]/90 hover:shadow-[var(--store-primary)]/20'
+                : 'cursor-not-allowed bg-gray-300 text-gray-600 shadow-none'
+            }`}
           >
-            Add to Cart
+            {canPurchase ? 'Add to Cart' : 'Out of Stock'}
           </button>
         )}
       </div>

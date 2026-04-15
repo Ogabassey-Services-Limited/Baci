@@ -63,12 +63,13 @@ export interface ProductsPage {
 
 export const PRODUCT_SELECT = `
   id, name, slug, description, price, compare_at_price,
-  images, brand, condition, has_condition_offers, average_rating, review_count, status, specifications,
+  images, brand, condition, has_condition_offers, variant_model, available_conditions, average_rating, review_count, status, specifications,
   has_variants, variant_attributes, manage_stock, stock, stock_quantity,
   variants:product_variants (
     id,
     product_id,
     merchant_id,
+    condition,
     sku,
     price_override,
     primary_image,
@@ -83,7 +84,7 @@ export const PRODUCT_DETAIL_SELECT = `
   id, name, slug, description, price, compare_at_price,
   images, brand, color, condition, average_rating, review_count, status, specifications,
   has_variants, variant_attributes, manage_stock, stock, stock_quantity,
-  color_images, has_condition_offers,
+  color_images, has_condition_offers, variant_model, available_conditions,
   offers:product_offers (
     id,
     condition,
@@ -98,6 +99,7 @@ export const PRODUCT_DETAIL_SELECT = `
     id,
     product_id,
     merchant_id,
+    condition,
     sku,
     price_override,
     primary_image,
@@ -151,6 +153,10 @@ export function normalizeProductVariants(
       return {
         id: variant.id,
         name: synthesizedName,
+        condition:
+          normalizeProductConditionFilterValue(
+            variant.condition ?? undefined
+          ) ?? undefined,
         sku: variant.sku ?? undefined,
         price:
           variant.price ??
@@ -347,7 +353,9 @@ export async function fetchAvailableBrands(
       query = query.eq('category_id', options.category);
     }
     if (normalizedCondition) {
-      query = query.eq('condition', normalizedCondition);
+      query = query.or(
+        `condition.eq.${normalizedCondition},available_conditions.cs.{${normalizedCondition}}`
+      );
     }
     if (options.minPrice !== undefined) {
       query = query.gte('price', options.minPrice);
@@ -476,9 +484,13 @@ export function transformProduct(item: unknown): Product | null {
         ? (product.categories as unknown as Category).name
         : '',
     specifications: normalizeProductSpecifications(product.specifications),
-    condition: product.has_condition_offers
-      ? MIXED_CONDITION_LABEL
-      : formatProductConditionDisplay(product.condition),
+    condition:
+      Array.isArray(product.available_conditions) &&
+      product.available_conditions.length > 1
+        ? MIXED_CONDITION_LABEL
+        : product.has_condition_offers
+          ? MIXED_CONDITION_LABEL
+          : formatProductConditionDisplay(product.condition),
     rating,
     review_count: reviewCount,
     manage_stock: (product.manage_stock as boolean) ?? false,
@@ -486,6 +498,13 @@ export function transformProduct(item: unknown): Product | null {
     colors,
     color_images: colorImages,
     has_variants: product.has_variants ?? false,
+    variant_model:
+      product.variant_model === 'sku_matrix' ? 'sku_matrix' : 'legacy',
+    available_conditions:
+      Array.isArray(product.available_conditions) &&
+      product.available_conditions.every((value) => typeof value === 'string')
+        ? (product.available_conditions as Product['available_conditions'])
+        : undefined,
     variant_attributes: normalizeVariantAttributes(product.variant_attributes),
     variants: normalizeProductVariants(product.variants, {
       basePrice: Number(product.price ?? 0),
@@ -592,7 +611,9 @@ export async function fetchProductsPage(
     query = query.eq('category_id', options.category);
   }
   if (normalizedCondition) {
-    query = query.eq('condition', normalizedCondition);
+    query = query.or(
+      `condition.eq.${normalizedCondition},available_conditions.cs.{${normalizedCondition}}`
+    );
   }
   if (options.brand) {
     query = query.eq('brand', options.brand);

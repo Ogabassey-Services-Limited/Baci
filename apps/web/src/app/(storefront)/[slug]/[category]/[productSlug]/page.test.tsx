@@ -1,7 +1,16 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const { mockNormalizeStorefrontProductVariants } = vi.hoisted(() => ({
+  mockNormalizeStorefrontProductVariants: vi.fn<
+    (...args: unknown[]) => Record<string, unknown>[]
+  >(() => []),
+}));
+
 const mockPermanentRedirect = vi.fn((_url: string) => {
+  throw new Error('NEXT_REDIRECT');
+});
+const mockRedirect = vi.fn((_url: string) => {
   throw new Error('NEXT_REDIRECT');
 });
 const mockNotFound = vi.fn(() => {
@@ -14,6 +23,7 @@ const mockGetCachedProductWithDetails = vi.fn();
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
   permanentRedirect: (url: string) => mockPermanentRedirect(url),
+  redirect: (url: string) => mockRedirect(url),
 }));
 
 vi.mock('@/components/storefront/ogabassey/pages/product-details-page', () => ({
@@ -85,7 +95,7 @@ vi.mock('@/lib/store-url', () => ({
 }));
 
 vi.mock('@/lib/storefront-product-variants', () => ({
-  normalizeStorefrontProductVariants: () => [],
+  normalizeStorefrontProductVariants: mockNormalizeStorefrontProductVariants,
 }));
 
 vi.mock('@/lib/validation', () => ({
@@ -152,6 +162,8 @@ const categorizedDetailedProduct = {
 describe('[category]/[productSlug] page metadata', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockNormalizeStorefrontProductVariants.mockReset();
+    mockNormalizeStorefrontProductVariants.mockReturnValue([]);
     mockGetRequestScopedMerchant.mockResolvedValue(baseMerchant);
     mockGetCachedProductWithDetails.mockResolvedValue(null);
     mockGetCachedLegacyProductRedirectTarget.mockResolvedValue(null);
@@ -252,6 +264,44 @@ describe('[category]/[productSlug] page metadata', () => {
       '/laptops/hp-laptop-14-ep0063nia'
     );
   });
+
+  it('redirects attribute-only variant params to the bare family URL', async () => {
+    mockGetCachedProductWithDetails.mockResolvedValue(
+      categorizedDetailedProduct
+    );
+    mockNormalizeStorefrontProductVariants.mockReturnValue([
+      {
+        id: 'variant-new-128',
+        attributes: { storage: '128GB', connectivity: 'WiFi' },
+        condition: 'new',
+        stock_quantity: 5,
+      },
+      {
+        id: 'variant-used-128',
+        attributes: { storage: '128GB', connectivity: 'WiFi' },
+        condition: 'used',
+        stock_quantity: 3,
+      },
+    ]);
+
+    await expect(
+      generateMetadata({
+        params: Promise.resolve({
+          slug: 'teststore',
+          category: 'laptops',
+          productSlug: 'hp-laptop-14-ep0063nia',
+        }),
+        searchParams: Promise.resolve({
+          storage: '128GB',
+          utm_source: 'google',
+        }),
+      })
+    ).rejects.toThrow('NEXT_REDIRECT');
+
+    expect(mockRedirect).toHaveBeenCalledWith(
+      '/laptops/hp-laptop-14-ep0063nia'
+    );
+  });
 });
 
 describe('[category]/[productSlug] page render', () => {
@@ -286,5 +336,24 @@ describe('[category]/[productSlug] page render', () => {
       })
     ).toBeInTheDocument();
     expect(container.querySelectorAll('h1')).toHaveLength(1);
+  });
+
+  it('keeps the canonical URL on the bare family path', async () => {
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'laptops',
+        productSlug: 'hp-laptop-14-ep0063nia',
+      }),
+      searchParams: Promise.resolve({
+        condition: 'used',
+        storage: '128GB',
+        utm_source: 'google',
+      }),
+    });
+
+    expect(metadata.alternates?.canonical).toBe(
+      'https://teststore.usebaci.com/laptops/hp-laptop-14-ep0063nia'
+    );
   });
 });

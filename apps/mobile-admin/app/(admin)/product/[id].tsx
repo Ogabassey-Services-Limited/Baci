@@ -40,6 +40,11 @@ import {
 } from '@/hooks/useProducts';
 import { useTheme } from '@/hooks/useTheme';
 import { formatVariantAttributesSummary } from '@/lib/format-variant-attributes';
+import {
+  EDITABLE_PRODUCT_CONDITIONS,
+  type EditableProductCondition,
+  formatProductCondition,
+} from '@/lib/product-condition';
 import { normalizeComparableProductName } from '@/lib/product-matching';
 import {
   buildVariantFormValues,
@@ -158,6 +163,25 @@ const PriceInput = ({
     </View>
   );
 };
+
+function getVariantSummaryLabel(
+  variant: EditableProductVariant,
+  index: number
+) {
+  const conditionLabel = formatProductCondition(variant.condition);
+  const attributeSummary = formatVariantAttributesSummary(
+    Object.fromEntries(
+      variant.attributes
+        .map((attribute) => [attribute.key.trim(), attribute.value.trim()])
+        .filter(([key, value]) => key && value)
+    )
+  );
+
+  return (
+    [conditionLabel, attributeSummary].filter(Boolean).join(' • ') ||
+    `Variant ${index + 1}`
+  );
+}
 
 export default function ProductEditScreen() {
   const rawParams = useLocalSearchParams<{ id: string; sku?: string }>();
@@ -308,6 +332,10 @@ export default function ProductEditScreen() {
       normalizeComparableProductName(suggestion.product.name) ===
         normalizeComparableProductName(formData.name)
   )?.product;
+  const hasVariantConditionAxis = formData.variants.some(
+    (variant) =>
+      typeof variant.condition === 'string' && variant.condition.trim() !== ''
+  );
 
   // Show error screen for invalid route params (after all hooks)
   if (!validatedParams || !id) {
@@ -354,6 +382,21 @@ export default function ProductEditScreen() {
         );
         return;
       }
+    }
+
+    if (
+      hasVariantConditionAxis &&
+      formData.variants.some(
+        (variant) =>
+          typeof variant.condition !== 'string' ||
+          variant.condition.trim() === ''
+      )
+    ) {
+      Alert.alert(
+        'Validation Error',
+        'Every variant row needs a condition when condition-based pricing is enabled.'
+      );
+      return;
     }
 
     const payload = { ...formData };
@@ -480,6 +523,13 @@ export default function ProductEditScreen() {
     setFormData({ ...formData, variants: nextVariants });
   };
 
+  const updateVariantCondition = (
+    index: number,
+    condition?: EditableProductCondition
+  ) => {
+    updateVariant(index, { condition });
+  };
+
   const addVariant = () => {
     const attributeKeys = Array.from(
       new Set(
@@ -498,6 +548,8 @@ export default function ProductEditScreen() {
         ...formData.variants,
         createEmptyEditableVariant({
           attributeKeys,
+          condition: formData.variants.find((variant) => variant.condition)
+            ?.condition,
           costPrice: formData.cost_price,
           images: formData.images,
           price: formData.price,
@@ -1074,6 +1126,19 @@ export default function ProductEditScreen() {
               from the structured variants below. The parent price is used as
               the default when adding new variants.
             </Text>
+            {hasVariantConditionAxis ? (
+              <Text
+                style={{
+                  color: colors.textSecondary,
+                  marginBottom: 16,
+                  fontSize: 13,
+                }}
+              >
+                Condition is now part of the variant identity. Every variant row
+                needs a condition when you price by new, used, open box, or
+                refurbished.
+              </Text>
+            ) : null}
 
             <View style={styles.row}>
               <View style={[styles.halfInput, { marginRight: 8 }]}>
@@ -1150,16 +1215,7 @@ export default function ProductEditScreen() {
                           fontWeight: '600',
                         }}
                       >
-                        {formatVariantAttributesSummary(
-                          Object.fromEntries(
-                            variant.attributes
-                              .map((attribute) => [
-                                attribute.key.trim(),
-                                attribute.value.trim(),
-                              ])
-                              .filter(([key, value]) => key && value)
-                          )
-                        ) || `Variant ${variantIndex + 1}`}
+                        {getVariantSummaryLabel(variant, variantIndex)}
                       </Text>
                       <Text
                         style={{
@@ -1190,6 +1246,96 @@ export default function ProductEditScreen() {
                       </Text>
                     </Pressable>
                   </View>
+
+                  <Text style={[styles.label, { color: colors.textSecondary }]}>
+                    Condition
+                  </Text>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      flexWrap: 'wrap',
+                      gap: 8,
+                      marginBottom: 4,
+                    }}
+                  >
+                    {EDITABLE_PRODUCT_CONDITIONS.map((conditionOption) => {
+                      const isSelected = variant.condition === conditionOption;
+
+                      return (
+                        <Pressable
+                          key={conditionOption}
+                          onPress={() =>
+                            updateVariantCondition(
+                              variantIndex,
+                              conditionOption
+                            )
+                          }
+                          accessibilityRole="radio"
+                          accessibilityLabel={`${formatProductCondition(conditionOption)} condition`}
+                          accessibilityState={{ selected: isSelected }}
+                          style={{
+                            backgroundColor: isSelected
+                              ? colors.primary
+                              : colors.card,
+                            borderColor: isSelected
+                              ? colors.primary
+                              : colors.border,
+                            borderRadius: 999,
+                            borderWidth: 1,
+                            paddingHorizontal: 12,
+                            paddingVertical: 8,
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: isSelected ? '#FFF' : colors.text,
+                              fontSize: 13,
+                              fontWeight: '600',
+                            }}
+                          >
+                            {formatProductCondition(conditionOption)}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                    {variant.condition ? (
+                      <Pressable
+                        onPress={() =>
+                          updateVariantCondition(variantIndex, undefined)
+                        }
+                        accessibilityRole="button"
+                        accessibilityLabel="Clear selected condition"
+                        style={{
+                          backgroundColor: colors.card,
+                          borderColor: colors.border,
+                          borderRadius: 999,
+                          borderWidth: 1,
+                          paddingHorizontal: 12,
+                          paddingVertical: 8,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: colors.textSecondary,
+                            fontSize: 13,
+                            fontWeight: '600',
+                          }}
+                        >
+                          Clear
+                        </Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
+                  <Text
+                    style={{
+                      color: colors.textSecondary,
+                      fontSize: 12,
+                      marginBottom: 12,
+                    }}
+                  >
+                    Leave blank unless this variant needs its own condition
+                    price or stock.
+                  </Text>
 
                   <Text style={[styles.label, { color: colors.textSecondary }]}>
                     Variant SKU
@@ -1630,7 +1776,10 @@ export default function ProductEditScreen() {
               <View
                 style={[
                   styles.card,
-                  { backgroundColor: colors.card, borderColor: colors.border },
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                  },
                 ]}
               >
                 <View style={[styles.row, { marginBottom: 16 }]}>

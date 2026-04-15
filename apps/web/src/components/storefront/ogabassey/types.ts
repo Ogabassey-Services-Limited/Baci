@@ -112,6 +112,7 @@ export interface Product {
 export interface ProductVariant {
   id: string;
   name?: string;
+  condition?: ProductCondition;
   price_override?: number;
   price_modifier?: number;
   stock?: number;

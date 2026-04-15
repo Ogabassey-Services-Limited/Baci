@@ -46,6 +46,8 @@ export interface RawDbProduct {
   merchant_id?: string;
   status?: string;
   has_condition_offers?: boolean;
+  available_conditions?: string[] | null;
+  variant_model?: 'legacy' | 'sku_matrix' | null;
   // Allow additional fields
   [key: string]: unknown;
 }
@@ -73,6 +75,8 @@ export interface NormalizedProduct {
   merchant_id?: string;
   status?: string;
   has_condition_offers?: boolean;
+  available_conditions: string[];
+  variant_model: 'legacy' | 'sku_matrix';
 }
 
 /**
@@ -169,6 +173,12 @@ export function normalizeProduct(raw: RawDbProduct): NormalizedProduct {
     merchant_id: raw.merchant_id,
     status: raw.status,
     has_condition_offers: raw.has_condition_offers ?? false,
+    available_conditions:
+      Array.isArray(raw.available_conditions) &&
+      raw.available_conditions.every((value) => typeof value === 'string')
+        ? raw.available_conditions
+        : [],
+    variant_model: raw.variant_model === 'sku_matrix' ? 'sku_matrix' : 'legacy',
   };
 }
 

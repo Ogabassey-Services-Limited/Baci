@@ -21,6 +21,7 @@ import { BRAND, SHADOWS } from '@/constants/Colors';
 type ColorsScheme = (typeof Colors)['light'];
 
 export interface StickyBottomActionsProps {
+  canPurchase: boolean;
   quantityInCart: number;
   localQty: string;
   onLocalQtyChange: (text: string) => void;
@@ -33,6 +34,7 @@ export interface StickyBottomActionsProps {
 }
 
 export function StickyBottomActions({
+  canPurchase,
   quantityInCart,
   localQty,
   onLocalQtyChange,
@@ -119,19 +121,32 @@ export function StickyBottomActions({
           </View>
         ) : (
           <Pressable
-            key="cart-empty"
-            style={[styles.addToCartBtn, { backgroundColor: BRAND.primary }]}
-            onPress={(e) => onAddToCart(e)}
+            style={[
+              styles.addToCartBtn,
+              { backgroundColor: canPurchase ? BRAND.primary : colors.border },
+              canPurchase ? SHADOWS.md : null,
+            ]}
+            disabled={!canPurchase}
+            onPress={onAddToCart}
             accessibilityRole="button"
-            accessibilityLabel="Add to Cart"
+            accessibilityLabel={
+              canPurchase ? 'Add to Cart' : 'Product out of stock'
+            }
           >
             <Ionicons
               name="cart-outline"
               size={22}
-              color="#FFF"
+              color={canPurchase ? '#FFF' : colors.textSecondary}
               style={{ marginRight: 8 }}
             />
-            <Text style={styles.addToCartBtnText}>Add to Cart</Text>
+            <Text
+              style={[
+                styles.addToCartBtnText,
+                { color: canPurchase ? '#FFF' : colors.textSecondary },
+              ]}
+            >
+              {canPurchase ? 'Add to Cart' : 'Out of Stock'}
+            </Text>
           </Pressable>
         )}
       </Animated.View>
@@ -223,7 +238,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'row',
-    ...SHADOWS.md,
   },
   addToCartBtnText: {
     color: '#FFF',

@@ -35,11 +35,25 @@ const variantAttributesSchema = z.record(
 );
 
 /**
+ * Product condition type
+ * Matches Product.condition from @/lib/products
+ */
+const productConditionSchema = z.enum([
+  'new',
+  'refurbished',
+  'used',
+  'open_box',
+]);
+
+const productVariantModelSchema = z.enum(['legacy', 'sku_matrix']);
+
+/**
  * Product variant schema
  */
 const productVariantSchema = z.object({
   id: z.string().uuid().optional(),
   attributes: variantAttributesSchema.optional(),
+  condition: productConditionSchema.optional().nullable(),
   price_override: z
     .number()
     .min(0)
@@ -88,17 +102,6 @@ const dimensionsSchema = z.object({
   height: z.number().min(0).optional(),
   unit: z.enum(['cm', 'in', 'm']).optional().default('cm'),
 });
-
-/**
- * Product condition type
- * Matches Product.condition from @/lib/products
- */
-const productConditionSchema = z.enum([
-  'new',
-  'refurbished',
-  'used',
-  'open_box',
-]);
 
 /**
  * Product status type
@@ -256,6 +259,7 @@ const baseProductFields = {
   // Variants
   has_variants: z.boolean().optional().default(false),
   variants: z.array(productVariantSchema).optional(),
+  variant_model: productVariantModelSchema.default('legacy'),
 
   // Fulfillment
   fulfillment_details: fulfillmentDetailsSchema.optional(),
@@ -433,6 +437,7 @@ export const updateProductSchema = z.object({
   // Variants
   has_variants: z.boolean().optional(),
   variants: z.array(productVariantSchema).optional(),
+  variant_model: productVariantModelSchema.optional(),
 
   // Fulfillment
   fulfillment_details: fulfillmentDetailsSchema.optional(),

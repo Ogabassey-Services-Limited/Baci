@@ -1,3 +1,22 @@
+export const EDITABLE_PRODUCT_CONDITIONS = [
+  'new',
+  'open_box',
+  'refurbished',
+  'used',
+] as const;
+
+export type EditableProductCondition =
+  (typeof EDITABLE_PRODUCT_CONDITIONS)[number];
+
+export function isEditableProductCondition(
+  value: string | null | undefined
+): value is EditableProductCondition {
+  return (
+    typeof value === 'string' &&
+    (EDITABLE_PRODUCT_CONDITIONS as readonly string[]).includes(value)
+  );
+}
+
 const CONDITION_LABELS: Record<string, string> = {
   new: 'New',
   new_and_used: 'New & Used',

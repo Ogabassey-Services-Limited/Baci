@@ -14,6 +14,7 @@ interface ProductCartHandlersArgs {
   applyNegotiatedPrice?: (cartItemId: string, price: number) => void;
   currentCartItemId: string;
   currentOffer: ProductDetailsCurrentOffer;
+  canPurchase: boolean;
   getMissingFields: () => string[];
   inputValue: string;
   productData: NormalizedProductDetails;
@@ -43,6 +44,7 @@ interface ProductCartHandlersArgs {
 export function createProductCartHandlers({
   addToCart,
   applyNegotiatedPrice,
+  canPurchase,
   currentCartItemId,
   currentOffer,
   getMissingFields,
@@ -88,6 +90,16 @@ export function createProductCartHandlers({
     if (missing.length > 0) {
       setMissingFields(missing);
       setIsSelectionModalOpen(true);
+      return false;
+    }
+
+    if (!canPurchase) {
+      toast({
+        title: 'Selection unavailable',
+        description: 'This exact selection is currently out of stock.',
+        className:
+          'border-2 border-[var(--store-primary)] bg-white text-[var(--store-background-text,#111827)]',
+      });
       return false;
     }
 

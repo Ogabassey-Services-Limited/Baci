@@ -14,6 +14,45 @@ function hasRenderableImage(image?: string | null) {
   return typeof image === 'string' && image.trim() !== '';
 }
 
+function getConditionBadgeLabel(product: NormalizedProduct) {
+  const formatConditionBadgeLabel = (condition: string) =>
+    condition
+      .split('_')
+      .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+      .join(' ');
+
+  if (Array.isArray(product.available_conditions)) {
+    const normalizedConditions = product.available_conditions
+      .filter((condition): condition is string => typeof condition === 'string')
+      .map((condition) => condition.trim().toLowerCase())
+      .filter(Boolean);
+
+    if (
+      normalizedConditions.length > 1 &&
+      normalizedConditions.includes('new') &&
+      normalizedConditions.includes('used')
+    ) {
+      return 'New & Used';
+    }
+
+    if (normalizedConditions.length === 1) {
+      return formatConditionBadgeLabel(normalizedConditions[0]);
+    }
+
+    if (normalizedConditions.length > 1) {
+      return 'Multiple Conditions';
+    }
+  }
+
+  if (product.has_condition_offers) {
+    return 'New & Used';
+  }
+
+  return product.condition && product.condition !== 'New'
+    ? formatConditionBadgeLabel(product.condition)
+    : null;
+}
+
 export function ProductIndexCard({
   formattedPrice,
   pathPrefix,
@@ -26,6 +65,7 @@ export function ProductIndexCard({
     category: product.category,
     category_slug: product.category_slug,
   })}`;
+  const conditionBadgeLabel = getConditionBadgeLabel(product);
 
   return (
     <article className="overflow-hidden rounded-3xl border border-[var(--store-background-text,#111827)]/10 bg-[var(--store-background,#ffffff)] shadow-sm transition-shadow hover:shadow-lg">
@@ -48,14 +88,10 @@ export function ProductIndexCard({
               Image coming soon
             </div>
           )}
-          {(product.has_condition_offers ||
-            (product.condition && product.condition !== 'New')) && (
-            <output
-              aria-label={`Condition: ${product.has_condition_offers ? 'New & Used' : product.condition}`}
-              className="absolute top-2 right-2 rounded-full bg-[var(--store-primary)] px-2 py-0.5 text-xs font-bold uppercase text-white"
-            >
-              {product.has_condition_offers ? 'New & Used' : product.condition}
-            </output>
+          {conditionBadgeLabel && (
+            <span className="absolute top-2 right-2 rounded-full bg-[var(--store-primary)] px-2 py-0.5 text-xs font-bold uppercase text-white">
+              {conditionBadgeLabel}
+            </span>
           )}
         </div>
 

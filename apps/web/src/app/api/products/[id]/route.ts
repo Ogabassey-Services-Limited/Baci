@@ -20,6 +20,11 @@ import {
   PRODUCT_VARIANT_COLUMNS,
 } from '@/lib/product-queries';
 import { getEffectiveStock } from '@/lib/product-stock';
+import {
+  getSkuMatrixValidationError,
+  inferProductVariantModel,
+  normalizeProductVariantModel,
+} from '@/lib/product-variant-model';
 import type { Product, ProductVariant } from '@/lib/products';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { sanitizeText } from '@/lib/sanitize-core';
@@ -133,6 +138,28 @@ export async function GET(
         ? Number.parseFloat(product.cost_price)
         : undefined,
       low_stock_threshold: product.low_stock_threshold,
+      variant_model:
+        product.variant_model === 'sku_matrix' ? 'sku_matrix' : 'legacy',
+      migration_status:
+        product.migration_status === 'needs_review' ||
+        product.migration_status === 'migrated'
+          ? product.migration_status
+          : 'pending',
+      default_variant_id:
+        typeof product.default_variant_id === 'string'
+          ? product.default_variant_id
+          : undefined,
+      available_conditions: Array.isArray(product.available_conditions)
+        ? (product.available_conditions as Product['available_conditions'])
+        : undefined,
+      min_variant_price:
+        product.min_variant_price != null
+          ? Number.parseFloat(String(product.min_variant_price))
+          : undefined,
+      max_variant_price:
+        product.max_variant_price != null
+          ? Number.parseFloat(String(product.max_variant_price))
+          : undefined,
 
       weight_value: product.weight_value
         ? Number.parseFloat(product.weight_value)
@@ -156,6 +183,7 @@ export async function GET(
         id: v.id,
         product_id: v.product_id,
         merchant_id: v.merchant_id,
+        condition: v.condition,
         attributes: v.attributes,
         price_override: v.price_override,
         cost_price: v.cost_price,
@@ -231,13 +259,46 @@ export async function PUT(
     // Verify product belongs to merchant
     const { data: existingProduct, error: fetchError } = await supabase
       .from('products')
-      .select('id, name, description, condition, condition_detail')
+      .select(
+        'id, name, description, condition, condition_detail, has_variants, variant_model'
+      )
       .eq('id', id)
       .eq('merchant_id', merchantId)
       .single();
 
     if (fetchError || !existingProduct) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+    }
+
+    const existingVariantModel = normalizeProductVariantModel(
+      existingProduct.variant_model
+    );
+    const variantModel =
+      body.variant_model !== undefined
+        ? normalizeProductVariantModel(body.variant_model)
+        : existingVariantModel === 'sku_matrix'
+          ? 'sku_matrix'
+          : body.variants !== undefined
+            ? inferProductVariantModel({ variants: body.variants })
+            : existingVariantModel;
+    const shouldValidateSkuMatrixInput =
+      variantModel === 'sku_matrix' &&
+      (body.variant_model !== undefined ||
+        body.has_variants !== undefined ||
+        body.variants !== undefined);
+    const skuMatrixValidationError = shouldValidateSkuMatrixInput
+      ? getSkuMatrixValidationError({
+          variantModel,
+          hasVariants: body.has_variants ?? existingProduct.has_variants,
+          variants: body.variants,
+        })
+      : null;
+
+    if (skuMatrixValidationError) {
+      return NextResponse.json(
+        { error: skuMatrixValidationError },
+        { status: 400 }
+      );
     }
 
     // Build updates object conditionally (2026 best practice: only update provided fields)
@@ -255,8 +316,12 @@ export async function PUT(
     if (body.description !== undefined)
       updates.description =
         body.description !== null ? sanitizeHtml(body.description) : null;
-    if (body.price !== undefined) updates.price = body.price;
-    if (body.stock !== undefined) updates.stock_quantity = body.stock;
+    if (variantModel !== 'sku_matrix' && body.price !== undefined) {
+      updates.price = body.price;
+    }
+    if (variantModel !== 'sku_matrix' && body.stock !== undefined) {
+      updates.stock_quantity = body.stock;
+    }
 
     // Generate slug only if name or condition changed
     if (body.slug !== undefined) {
@@ -264,7 +329,9 @@ export async function PUT(
     } else if (body.name !== undefined) {
       updates.slug = generateProductSlug(
         body.name,
-        body.condition ?? existingProduct.condition,
+        variantModel === 'sku_matrix'
+          ? existingProduct.condition
+          : (body.condition ?? existingProduct.condition),
         body.condition_detail ?? existingProduct.condition_detail
       );
     }
@@ -347,7 +414,9 @@ export async function PUT(
     if (body.tax_code !== undefined) updates.tax_code = body.tax_code;
 
     // Condition fields
-    if (body.condition !== undefined) updates.condition = body.condition;
+    if (variantModel !== 'sku_matrix' && body.condition !== undefined) {
+      updates.condition = body.condition;
+    }
     if (body.condition_detail !== undefined)
       updates.condition_detail = body.condition_detail;
 
@@ -380,6 +449,11 @@ export async function PUT(
       updates.fulfillment_details = body.fulfillment_details;
     if (body.has_variants !== undefined)
       updates.has_variants = body.has_variants;
+    if (body.variant_model !== undefined || body.variants !== undefined) {
+      updates.variant_model = variantModel;
+      updates.migration_status =
+        variantModel === 'sku_matrix' ? 'migrated' : 'pending';
+    }
     if (body.category !== undefined) updates.category = body.category;
     if (body.color !== undefined) updates.color = body.color;
 
@@ -482,6 +556,7 @@ export async function PUT(
         id: v.id,
         product_id: id,
         merchant_id: merchantId,
+        condition: v.condition,
         attributes: v.attributes,
         price_override: v.price_override,
         cost_price: v.cost_price, // New field

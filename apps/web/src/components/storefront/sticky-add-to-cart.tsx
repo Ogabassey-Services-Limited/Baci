@@ -17,6 +17,10 @@ interface StickyAddToCartProps {
   selectedVariant?: ProductVariant | null;
   /** Selected variant attributes */
   selectedAttributes?: Record<string, string>;
+  /** Selected condition for offer-driven or conditioned variant products */
+  selectedCondition?: string;
+  /** Selected display price for the current condition / variant */
+  selectedPrice?: number;
   /** Minimum distance from top before showing (default: 400px) */
   showAfterScroll?: number;
   /** Custom class name */
@@ -41,6 +45,8 @@ export function StickyAddToCart({
   product,
   selectedVariant,
   selectedAttributes,
+  selectedCondition,
+  selectedPrice,
   showAfterScroll = 400,
   className,
 }: StickyAddToCartProps) {
@@ -85,11 +91,16 @@ export function StickyAddToCart({
     if (selectedVariant) {
       return item.id === product.id && item.variantId === selectedVariant.id;
     }
-    return item.id === product.id && !item.variantId;
+    return (
+      item.id === product.id &&
+      !item.variantId &&
+      (item.condition ?? undefined) === (selectedCondition ?? undefined)
+    );
   });
 
   // Get current price and stock based on variant selection
-  const currentPrice = selectedVariant?.price_override ?? product.price;
+  const currentPrice =
+    selectedPrice ?? selectedVariant?.price_override ?? product.price;
   const currentStock = selectedVariant?.stock_quantity ?? product.stock;
   const isOutOfStock = product.manage_stock && currentStock === 0;
 
@@ -101,19 +112,23 @@ export function StickyAddToCart({
   };
 
   const handleAddToCart = () => {
-    const productToAdd = selectedVariant
-      ? { ...product, price: currentPrice }
-      : product;
+    const productToAdd =
+      selectedVariant || selectedCondition
+        ? { ...product, price: currentPrice }
+        : product;
 
     addToCart(
       productToAdd,
       quantity,
       selectedVariant
         ? {
+            condition: selectedCondition,
             variantId: selectedVariant.id,
             variantAttributes: selectedAttributes || {},
           }
-        : undefined
+        : selectedCondition
+          ? { condition: selectedCondition }
+          : undefined
     );
 
     const variantInfo = selectedVariant
@@ -176,7 +191,7 @@ export function StickyAddToCart({
                   type="minus"
                   onClick={() =>
                     updateQuantity(
-                      product.id,
+                      cartItem.cartItemId ?? product.id,
                       cartItem.quantity - 1,
                       selectedVariant?.id
                     )
@@ -191,7 +206,7 @@ export function StickyAddToCart({
                   type="plus"
                   onClick={() =>
                     updateQuantity(
-                      product.id,
+                      cartItem.cartItemId ?? product.id,
                       cartItem.quantity + 1,
                       selectedVariant?.id
                     )

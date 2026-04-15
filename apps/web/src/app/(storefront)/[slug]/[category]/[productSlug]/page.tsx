@@ -1,5 +1,6 @@
+import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
 import type { Metadata } from 'next';
-import { notFound, permanentRedirect } from 'next/navigation';
+import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import ProductDetailClient from '@/app/(storefront)/[slug]/products/[productSlug]/product-detail-client';
 import { ProductDetailsPage as OgabasseyProductPage } from '@/components/storefront/ogabassey/pages/product-details-page';
@@ -24,7 +25,6 @@ import type { Product } from '@/lib/products';
 import { escapeHtml } from '@/lib/sanitize-core';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
-  constructCanonicalUrl,
   generateBreadcrumbSchema,
   generateProductSchema,
   generateSlug,
@@ -583,6 +583,30 @@ function getRedirectTargetPath(
   return productPath as `/${string}`;
 }
 
+function redirectInvalidVariantSelectionParams(
+  storeSlug: string,
+  product: Product,
+  searchParams: Awaited<PageProps['searchParams']>
+) {
+  if (!product.variants || product.variants.length === 0) {
+    return;
+  }
+
+  const selectionResolution = resolveVariantSelectionParamResolution(
+    product,
+    searchParams
+  );
+
+  if (
+    selectionResolution.type === 'attribute_only' ||
+    selectionResolution.type === 'ambiguous' ||
+    selectionResolution.type === 'invalid_variant_id' ||
+    selectionResolution.type === 'zero_match'
+  ) {
+    redirect(getRedirectTargetPath(storeSlug, product));
+  }
+}
+
 type CategoryProductResult =
   | {
       product: Product;
@@ -752,6 +776,8 @@ export async function generateMetadata({
     permanentRedirect(getRedirectTargetPath(slug, product));
   }
 
+  redirectInvalidVariantSelectionParams(slug, product, resolvedSearchParams);
+
   const baseUrl = buildStoreUrl(merchant);
 
   // Construct canonical URL:
@@ -762,15 +788,7 @@ export async function generateMetadata({
   if (!canonicalUrl) {
     // Generate the correct path (e.g. /category/product)
     const productPath = getProductUrl(product);
-
-    // Construct full URL
-    const basePath = `${baseUrl}${productPath}`;
-
-    // Clean params for canonical
-    // We import constructCanonicalUrl from seo-utils
-    canonicalUrl = constructCanonicalUrl(basePath, resolvedSearchParams, [
-      'variant',
-    ]);
+    canonicalUrl = `${baseUrl}${productPath}`;
   }
 
   const socialMedia = merchant?.social_media as
@@ -827,11 +845,15 @@ export async function generateMetadata({
   };
 }
 
-export default async function CategoryProductPage({ params }: PageProps) {
+export default async function CategoryProductPage({
+  params,
+  searchParams,
+}: PageProps) {
   const { slug, category, productSlug } = await params;
   if (!isValidMerchantIdentifier(slug)) {
     notFound();
   }
+  const resolvedSearchParams = await searchParams;
   const result = await getProduct(slug, category, productSlug);
 
   if (!result) {
@@ -850,6 +872,8 @@ export default async function CategoryProductPage({ params }: PageProps) {
   if (categoryMismatch || needsValuesRedirect) {
     permanentRedirect(getRedirectTargetPath(slug, product));
   }
+
+  redirectInvalidVariantSelectionParams(slug, product, resolvedSearchParams);
 
   const baseUrl = buildStoreUrl(merchant);
 
