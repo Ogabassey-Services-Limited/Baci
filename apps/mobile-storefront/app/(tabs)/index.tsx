@@ -1,4 +1,3 @@
-import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
 import type { Block } from '@/types/blocks';
 import { Image } from 'expo-image';
 import { router, Stack } from 'expo-router';
@@ -12,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OfflineNotice } from '@/components/OfflineNotice';
 import { BlockRenderer } from '@/components/storefront/BlockRenderer';
 import { Header } from '@/components/storefront/Header';
@@ -23,6 +23,7 @@ import { HeroSkeleton, ProductGridSkeleton } from '@/components/ui/Skeleton';
 import { SnowEffect } from '@/components/ui/SnowEffect';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
+import { getHomeContentBottomPadding } from '@/constants/layout';
 import { useNetworkState } from '@/hooks/use-network-state';
 import { usePermissionBooster } from '@/hooks/use-permission-booster';
 import { usePageConfig } from '@/hooks';
@@ -36,6 +37,7 @@ const PATTERN_URI =
 export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const insets = useSafeAreaInsets();
 
   const template = getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID);
 
@@ -214,14 +216,6 @@ export default function HomeScreen() {
     return content;
   })();
 
-  const renderItem = ({ item }: ListRenderItemInfo<Block>) => (
-    <BlockRenderer
-      blocks={[item]}
-      selectedCategoryId={selectedCategoryId}
-      onCategorySelect={handleCategorySelect}
-    />
-  );
-
   const resolvedHeaderHeight = headerHeight > 0 ? headerHeight : 150;
   const headerOverlayAnimatedStyle = {
     opacity: headerVisibility.interpolate({
@@ -244,11 +238,8 @@ export default function HomeScreen() {
     }),
   };
 
-  const renderListHeader = () => (
-    <Animated.View style={headerSpacerAnimatedStyle} />
-  );
-
   const isElite = template.headerStyle === 'elite';
+  const homeContentBottomPadding = getHomeContentBottomPadding(insets.bottom);
 
   if (isConfigLoading && !refreshing) {
     return (
@@ -316,13 +307,12 @@ export default function HomeScreen() {
         </View>
       </Animated.View>
 
-      <FlashList
-        data={blocks}
-        renderItem={renderItem}
-        keyExtractor={(item: Block, index: number) =>
-          item.props?.id || `block-${index}`
-        }
-        ListHeaderComponent={renderListHeader}
+      <Animated.ScrollView
+        testID="home-scroll-view"
+        contentContainerStyle={[
+          styles.contentContainer,
+          { paddingBottom: homeContentBottomPadding },
+        ]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -335,7 +325,18 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         onScroll={handleListScroll}
         scrollEventThrottle={16}
-      />
+      >
+        <Animated.View style={headerSpacerAnimatedStyle} />
+        {blocks.map((block: Block, index: number) => (
+          <View key={block.props?.id || `block-${index}`}>
+            <BlockRenderer
+              blocks={[block]}
+              selectedCategoryId={selectedCategoryId}
+              onCategorySelect={handleCategorySelect}
+            />
+          </View>
+        ))}
+      </Animated.ScrollView>
       <PermissionModal
         visible={showPermissionModal}
         type="tracking"
@@ -358,9 +359,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  headerContainer: {
-    marginBottom: 0,
-  },
   headerOverlay: {
     position: 'absolute',
     top: 0,
@@ -375,5 +373,8 @@ const styles = StyleSheet.create({
     height: 260, // Refined for horizontal rectangle hero
     backgroundColor: '#000',
     zIndex: 0,
+  },
+  contentContainer: {
+    flexGrow: 1,
   },
 });

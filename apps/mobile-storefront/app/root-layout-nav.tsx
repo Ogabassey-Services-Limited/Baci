@@ -15,6 +15,7 @@ import { NegotiationModal } from '@/components/modals/NegotiationModal';
 import { CompactStackHeader } from '@/components/navigation/CompactStackHeader';
 import { DrawerMenu } from '@/components/navigation/DrawerMenu';
 import { useColorScheme } from '@/components/useColorScheme';
+import { CHAT_WIDGET_DEFAULT_BOTTOM_OFFSET } from '@/constants/layout';
 import Colors, { BRAND } from '@/constants/Colors';
 import { useAuthGuard } from '@/hooks/use-auth-guard';
 import { QueryProvider } from '@/lib/QueryProvider';
@@ -282,7 +283,9 @@ export function RootLayoutNav({
                 </Stack>
               </GlobalErrorBoundary>
               {enableConnectivityBanner ? <ConnectivityBanner /> : null}
-              {enableChatWidget ? <ChatWidget bottomOffset={140} /> : null}
+              {enableChatWidget ? (
+                <ChatWidget bottomOffset={CHAT_WIDGET_DEFAULT_BOTTOM_OFFSET} />
+              ) : null}
               {enableNegotiationModal ? <NegotiationModal /> : null}
               {enableDrawerMenu ? <DrawerMenu /> : null}
             </View>

@@ -4,16 +4,17 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { router, Tabs } from 'expo-router';
+import { Tabs, router } from 'expo-router';
 import type React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useShallow } from 'zustand/react/shallow';
 import { ErrorFallback } from '@/components/ErrorBoundary';
 import { BRAND } from '@/constants/Colors';
-import { useAuthStore } from '@/stores/auth-store';
+import { TAB_BAR_BASE_HEIGHT } from '@/constants/layout';
 import { useCartStore } from '@/stores/cart-store';
 import { useSavedStore } from '@/stores/saved-store';
+import { useAuthStore } from '@/stores/auth-store';
+import { useShallow } from 'zustand/react/shallow';
 
 export function ErrorBoundary({
   error,
@@ -81,8 +82,8 @@ export default function TabLayout() {
 
   return (
     <Tabs
-      initialRouteName="index"
-      screenOptions={{
+        initialRouteName="index"
+        screenOptions={{
         tabBarActiveTintColor: '#FFFFFF',
         tabBarInactiveTintColor: '#9CA3AF',
         headerShown: false,
@@ -90,14 +91,14 @@ export default function TabLayout() {
           backgroundColor: '#0F0F0F', // Matching web bg
           borderTopWidth: 1,
           borderTopColor: 'rgba(255, 255, 255, 0.08)',
-          height: 49 + insets.bottom,
+          height: TAB_BAR_BASE_HEIGHT + insets.bottom,
           paddingBottom: Math.max(insets.bottom - 4, 8),
           paddingTop: 6,
           elevation: 0,
           shadowOpacity: 0,
         },
         tabBarItemStyle: {
-          height: 49,
+          height: TAB_BAR_BASE_HEIGHT,
         },
         headerStyle: {
           backgroundColor: '#000000',
@@ -112,9 +113,9 @@ export default function TabLayout() {
         lazy: true,
         tabBarHideOnKeyboard: true,
         tabBarShowLabel: true, // Needed for our custom label component
-      }}
-    >
-      <Tabs.Screen
+        }}
+      >
+        <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
@@ -129,7 +130,7 @@ export default function TabLayout() {
             focused ? <Text style={styles.tabLabel}>Home</Text> : null,
         }}
       />
-      <Tabs.Screen
+        <Tabs.Screen
         name="saved"
         options={{
           title: 'Saved',
@@ -145,7 +146,7 @@ export default function TabLayout() {
             focused ? <Text style={styles.tabLabel}>Saved</Text> : null,
         }}
       />
-      <Tabs.Screen
+        <Tabs.Screen
         name="cart"
         options={{
           title: 'Cart',
@@ -160,7 +161,7 @@ export default function TabLayout() {
             focused ? <Text style={styles.tabLabel}>Cart</Text> : null,
         }}
       />
-      <Tabs.Screen
+        <Tabs.Screen
         name="wallet"
         options={{
           title: 'Wallet',
@@ -176,7 +177,7 @@ export default function TabLayout() {
         }}
         listeners={createAuthListener('wallet')}
       />
-      <Tabs.Screen
+        <Tabs.Screen
         name="account"
         options={{
           title: 'Account',
@@ -193,14 +194,14 @@ export default function TabLayout() {
         listeners={createAuthListener('account')}
       />
       {/* Categories hidden from tab bar but reachable via route */}
-      <Tabs.Screen
+        <Tabs.Screen
         name="categories"
         options={{
           href: null,
           title: 'Explore',
         }}
-      />
-    </Tabs>
+        />
+      </Tabs>
   );
 }
 
