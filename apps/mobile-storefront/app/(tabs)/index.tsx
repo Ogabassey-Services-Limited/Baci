@@ -40,6 +40,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
 
   const template = getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID);
+  const isChatWidgetEnabled = template.features?.chatWidget ?? true;
 
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
     template.headerStyle === 'elite' ? 'u-airtime' : null
@@ -239,7 +240,10 @@ export default function HomeScreen() {
   };
 
   const isElite = template.headerStyle === 'elite';
-  const homeContentBottomPadding = getHomeContentBottomPadding(insets.bottom);
+  const homeContentBottomPadding = getHomeContentBottomPadding(
+    insets.bottom,
+    isChatWidgetEnabled
+  );
 
   if (isConfigLoading && !refreshing) {
     return (

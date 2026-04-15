@@ -2,11 +2,30 @@ import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals
 import { render, screen } from '@testing-library/react-native';
 import { StyleSheet, Text, View } from 'react-native';
 import { getHomeContentBottomPadding } from '@/constants/layout';
+import type { MobileTemplateConfig } from '@/lib/templates';
 import HomeScreen from './index';
+
+function createTemplateConfig(
+  overrides: Partial<MobileTemplateConfig> = {}
+): MobileTemplateConfig {
+  return {
+    headerStyle: 'standard',
+    heroVariant: 'standard',
+    categoryStyle: 'pill',
+    cardVariant: 'grid',
+    spacing: 'compact',
+    borderRadius: 'md',
+    ...overrides,
+  };
+}
 
 const mockUsePageConfig = jest.fn();
 const mockUseColorScheme = jest.fn(() => 'dark');
 const mockRequestPermission = jest.fn(async () => 'granted');
+const mockGetTemplateConfig = jest.fn(
+  (_businessType?: string, _manualTemplateId?: string) =>
+    createTemplateConfig()
+);
 const MockText = Text;
 const MockView = View;
 
@@ -111,10 +130,9 @@ jest.mock('@/lib/scroll-header-visibility', () => ({
 }));
 
 jest.mock('@/lib/templates', () => ({
-  getTemplateConfig: () => ({
-    headerStyle: 'standard',
-    cardVariant: 'grid',
-  }),
+  __esModule: true,
+  getTemplateConfig: (businessType?: string, manualTemplateId?: string) =>
+    mockGetTemplateConfig(businessType, manualTemplateId),
 }));
 
 describe('HomeScreen', () => {
@@ -123,6 +141,7 @@ describe('HomeScreen', () => {
     jest.clearAllMocks();
     mockUseColorScheme.mockReturnValue('dark');
     mockRequestPermission.mockResolvedValue('granted');
+    mockGetTemplateConfig.mockReturnValue(createTemplateConfig());
     mockUsePageConfig.mockReturnValue({
       data: {
         content: [
@@ -152,7 +171,24 @@ describe('HomeScreen', () => {
         screen.getByTestId('home-scroll-view').props.contentContainerStyle
       )
     ).toMatchObject({
-      paddingBottom: getHomeContentBottomPadding(34),
+      paddingBottom: getHomeContentBottomPadding(34, true),
+    });
+  });
+
+  it('uses tab-bar clearance only when the chat widget is disabled', () => {
+    mockGetTemplateConfig.mockReturnValue({
+      ...createTemplateConfig(),
+      features: { chatWidget: false },
+    });
+
+    render(<HomeScreen />);
+
+    expect(
+      StyleSheet.flatten(
+        screen.getByTestId('home-scroll-view').props.contentContainerStyle
+      )
+    ).toMatchObject({
+      paddingBottom: getHomeContentBottomPadding(34, false),
     });
   });
 });

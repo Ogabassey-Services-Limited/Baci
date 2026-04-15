@@ -82,8 +82,8 @@ export default function TabLayout() {
 
   return (
     <Tabs
-        initialRouteName="index"
-        screenOptions={{
+      initialRouteName="index"
+      screenOptions={{
         tabBarActiveTintColor: '#FFFFFF',
         tabBarInactiveTintColor: '#9CA3AF',
         headerShown: false,
@@ -113,9 +113,9 @@ export default function TabLayout() {
         lazy: true,
         tabBarHideOnKeyboard: true,
         tabBarShowLabel: true, // Needed for our custom label component
-        }}
-      >
-        <Tabs.Screen
+      }}
+    >
+      <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
@@ -130,7 +130,7 @@ export default function TabLayout() {
             focused ? <Text style={styles.tabLabel}>Home</Text> : null,
         }}
       />
-        <Tabs.Screen
+      <Tabs.Screen
         name="saved"
         options={{
           title: 'Saved',
@@ -146,7 +146,7 @@ export default function TabLayout() {
             focused ? <Text style={styles.tabLabel}>Saved</Text> : null,
         }}
       />
-        <Tabs.Screen
+      <Tabs.Screen
         name="cart"
         options={{
           title: 'Cart',
@@ -161,7 +161,7 @@ export default function TabLayout() {
             focused ? <Text style={styles.tabLabel}>Cart</Text> : null,
         }}
       />
-        <Tabs.Screen
+      <Tabs.Screen
         name="wallet"
         options={{
           title: 'Wallet',
@@ -177,7 +177,7 @@ export default function TabLayout() {
         }}
         listeners={createAuthListener('wallet')}
       />
-        <Tabs.Screen
+      <Tabs.Screen
         name="account"
         options={{
           title: 'Account',
@@ -194,14 +194,14 @@ export default function TabLayout() {
         listeners={createAuthListener('account')}
       />
       {/* Categories hidden from tab bar but reachable via route */}
-        <Tabs.Screen
+      <Tabs.Screen
         name="categories"
         options={{
           href: null,
           title: 'Explore',
         }}
-        />
-      </Tabs>
+      />
+    </Tabs>
   );
 }
 
