@@ -334,6 +334,40 @@ describe('useBlogEditor', () => {
     expect(mocks.back).not.toHaveBeenCalled();
   });
 
+  it('aborts save when the editor bridge reports a missing editor element', async () => {
+    const webViewRef = {
+      current: { injectJavaScript: mocks.injectJavaScript },
+    } as unknown as RefObject<WebView | null>;
+
+    const { result } = renderHook(() =>
+      useBlogEditor({ id: 'post-1', webViewRef })
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    act(() => {
+      result.current.onWebViewMessage({
+        nativeEvent: {
+          data: JSON.stringify({
+            type: 'save_error',
+            message: 'Editor unavailable',
+          }),
+        },
+      });
+    });
+
+    expect(mocks.update).not.toHaveBeenCalled();
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'Editor unavailable',
+      'Editor unavailable'
+    );
+    expect(result.current.errorMessage).toBeNull();
+    expect(result.current.saveErrorMessage).toBeNull();
+    expect(mocks.back).not.toHaveBeenCalled();
+  });
+
   it('opens a cross-platform video dialog and inserts videos through the WebView', async () => {
     const webViewRef = {
       current: { injectJavaScript: mocks.injectJavaScript },

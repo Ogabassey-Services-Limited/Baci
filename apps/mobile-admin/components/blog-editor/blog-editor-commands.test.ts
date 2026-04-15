@@ -15,6 +15,7 @@ describe('blog-editor-commands', () => {
     const aiScript = buildAiRequestScript();
 
     expect(saveScript).toContain('type: "save"');
+    expect(saveScript).toContain('type: "save_error"');
     expect(aiScript).toContain('type: "ai_request"');
     expect(() => new Function(saveScript)).not.toThrow();
     expect(() => new Function(aiScript)).not.toThrow();

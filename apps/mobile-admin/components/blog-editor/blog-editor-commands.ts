@@ -19,7 +19,7 @@ function escapeScriptValue(value: string): string {
 }
 
 function buildEditorContentPostMessageScript(
-  type: 'ai_request' | 'save'
+  type: 'ai_request'
 ): string {
   return `
     const editor = document.getElementById('editor');
@@ -147,5 +147,20 @@ export function buildInsertVideoScript(url: string): string {
 }
 
 export function buildSaveRequestScript(): string {
-  return buildEditorContentPostMessageScript('save');
+  return `
+    const editor = document.getElementById('editor');
+    if (!(editor instanceof HTMLElement)) {
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        type: "save_error",
+        message: "Editor unavailable"
+      }));
+      true;
+    } else {
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        type: "save",
+        content: editor.innerHTML
+      }));
+      true;
+    }
+  `;
 }

@@ -142,6 +142,10 @@ export function useBlogEditor({ id, webViewRef }: UseBlogEditorOptions) {
           Alert.alert('Error', errorMessage);
         });
         break;
+      case 'save_error':
+        setIsSaveRequested(false);
+        Alert.alert('Editor unavailable', message.message);
+        break;
       case 'ai_request':
         void processAIRequest(message.content);
         break;

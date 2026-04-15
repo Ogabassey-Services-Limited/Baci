@@ -61,12 +61,21 @@ export const WebViewContentChangeMessageSchema = z.object({
 });
 
 /**
+ * Schema for save errors from the blog editor WebView.
+ */
+export const WebViewSaveErrorMessageSchema = z.object({
+  type: z.literal('save_error'),
+  message: z.string(),
+});
+
+/**
  * Union schema for all possible WebView editor messages.
  */
 export const WebViewEditorMessageSchema = z.discriminatedUnion('type', [
   WebViewSaveMessageSchema,
   WebViewAIRequestMessageSchema,
   WebViewContentChangeMessageSchema,
+  WebViewSaveErrorMessageSchema,
 ]);
 
 export type WebViewEditorMessage = z.infer<typeof WebViewEditorMessageSchema>;
