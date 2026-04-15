@@ -94,10 +94,12 @@ export function StickyAddToCart({
     if (selectedVariant) {
       return item.id === product.id && item.variantId === selectedVariant.id;
     }
+    const effectiveSelectedCondition = selectedCondition ?? product.condition;
     return (
       item.id === product.id &&
       !item.variantId &&
-      (item.condition ?? undefined) === (selectedCondition ?? undefined)
+      (item.condition ?? product.condition ?? undefined) ===
+        (effectiveSelectedCondition ?? undefined)
     );
   });
 

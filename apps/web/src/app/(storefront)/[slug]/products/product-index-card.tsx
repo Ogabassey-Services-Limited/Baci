@@ -44,7 +44,9 @@ function getConditionBadgeLabel(product: NormalizedProduct) {
     }
 
     if (normalizedConditions.length === 1) {
-      return formatConditionBadgeLabel(normalizedConditions[0]);
+      return normalizedConditions[0] === 'new'
+        ? null
+        : formatConditionBadgeLabel(normalizedConditions[0]);
     }
 
     if (normalizedConditions.length > 1) {

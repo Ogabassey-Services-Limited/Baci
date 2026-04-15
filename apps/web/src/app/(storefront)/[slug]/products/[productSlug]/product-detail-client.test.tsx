@@ -210,6 +210,7 @@ describe('ProductDetailClient', () => {
         expect.objectContaining({
           selectedCondition: 'used',
           selectedPrice: 600000,
+          selectedStock: 3,
           selectedVariant: expect.objectContaining({ id: 'variant-used-256' }),
         })
       );
@@ -243,6 +244,7 @@ describe('ProductDetailClient', () => {
         expect.objectContaining({
           selectedCondition: 'used',
           selectedPrice: 400000,
+          selectedStock: 2,
           selectedVariant: null,
         })
       );
@@ -294,6 +296,7 @@ describe('ProductDetailClient', () => {
         expect.objectContaining({
           selectedCondition: 'new',
           selectedPrice: 550000,
+          selectedStock: 5,
           selectedVariant: expect.objectContaining({ id: 'variant-new-128' }),
         })
       );

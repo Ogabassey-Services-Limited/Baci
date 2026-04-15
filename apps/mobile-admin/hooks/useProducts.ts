@@ -490,8 +490,9 @@ export function useUpdateProduct() {
         .from('products')
         .update({
           ...productPayload,
-          migration_status:
-            variantModel === 'sku_matrix' ? 'migrated' : 'pending',
+          ...(variantModel === 'sku_matrix'
+            ? { migration_status: 'migrated' as const }
+            : {}),
           variant_model: variantModel,
           updated_at: new Date().toISOString(),
         })

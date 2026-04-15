@@ -524,7 +524,7 @@ export async function PUT(
         .update(updates)
         .eq('id', id)
         .eq('merchant_id', merchantId)
-        .select()
+        .select(PRODUCT_COLUMNS)
         .single();
 
       if (updateError) {
@@ -647,7 +647,7 @@ export async function PUT(
           })
           .eq('id', id)
           .eq('merchant_id', merchantId)
-          .select()
+          .select(PRODUCT_COLUMNS)
           .single();
 
       if (variantModelError) {
@@ -669,7 +669,7 @@ export async function PUT(
       const { data: refreshedProduct, error: refreshedProductError } =
         await supabase
           .from('products')
-          .select()
+          .select(PRODUCT_COLUMNS)
           .eq('id', id)
           .eq('merchant_id', merchantId)
           .single();

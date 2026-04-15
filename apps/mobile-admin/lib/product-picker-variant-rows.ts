@@ -82,7 +82,7 @@ export function buildStructuredVariantPickerItems(args: {
 
     return {
       cost_price: normalizePrice(variant.cost_price, 0) || null,
-      condition: variant.condition ?? args.parentProduct.condition ?? null,
+      condition: variant.condition ?? null,
       has_variants: false,
       id: variant.id,
       images: normalizeImages({

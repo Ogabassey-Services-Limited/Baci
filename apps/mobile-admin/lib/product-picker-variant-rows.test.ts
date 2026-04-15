@@ -22,7 +22,7 @@ describe('buildStructuredVariantPickerItems', () => {
 
     expect(rows).toEqual([
       {
-        condition: 'new',
+        condition: null,
         cost_price: null,
         has_variants: false,
         id: 'variant-1',
@@ -39,7 +39,7 @@ describe('buildStructuredVariantPickerItems', () => {
     ]);
   });
 
-  it('prefers variant images and falls back to parent price when needed', () => {
+  it('prefers variant images and falls back to parent price without inheriting the parent condition', () => {
     const rows = buildStructuredVariantPickerItems({
       parentProduct: {
         condition: 'open_box',
@@ -59,7 +59,7 @@ describe('buildStructuredVariantPickerItems', () => {
     });
 
     expect(rows[0]).toMatchObject({
-      condition: 'open_box',
+      condition: null,
       images: ['variant.jpg'],
       price: 800000,
     });

@@ -225,7 +225,9 @@ function getConditionedVariants(product: FeedProduct) {
 }
 
 function resolveSkuMatrixFallback(product: FeedProduct) {
-  const conditionedVariants = getConditionedVariants(product);
+  const conditionedVariants = getConditionedVariants(product).filter(
+    (variant) => (variant.price_override ?? product.price) > 0
+  );
   if (conditionedVariants.length === 0) {
     return null;
   }
@@ -369,49 +371,55 @@ export function generateGoogleMerchantFeed(
         conditionedVariants.length > 0;
 
       if (shouldEmitVariantRows) {
-        return conditionedVariants
-          .filter((variant) => variant.id)
-          .map((variant) => {
-            const stockCount = getVariantStockCount(
-              product.manage_stock,
-              variant
-            );
-            const availability = stockCount > 0 ? 'in_stock' : 'out_of_stock';
-            const lines = [
-              `        <g:id>${escapeXml(variant.id)}</g:id>`,
-              `        <g:item_group_id>${escapeXml(product.id)}</g:item_group_id>`,
-              `        <g:title>${escapeXml(buildVariantTitle(product, variant))}</g:title>`,
-              `        <g:description>${escapeXml(description)}</g:description>`,
-              `        <g:link>${escapeXml(buildVariantUrl(productUrl, variant))}</g:link>`,
-              `        <g:canonical_link>${escapeXml(productUrl)}</g:canonical_link>`,
-              `        <g:image_link>${escapeXml(primaryImageUrl)}</g:image_link>`,
-              additionalImagesXml,
-              `        <g:availability>${availability}</g:availability>`,
-              `        <g:quantity>${stockCount}</g:quantity>`,
-              `        <g:price>${(variant.price_override ?? product.price).toFixed(2)} ${currency}</g:price>`,
-              `        <g:brand>${escapeXml(effectiveBrand)}</g:brand>`,
-              `        <g:condition>${toGmcCondition(variant.condition)}</g:condition>`,
-              product.gtin
-                ? `        <g:gtin>${escapeXml(product.gtin)}</g:gtin>`
-                : '',
-              product.mpn
-                ? `        <g:mpn>${escapeXml(product.mpn)}</g:mpn>`
-                : '',
-              product.gtin || (product.mpn && effectiveBrand)
-                ? '        <g:identifier_exists>yes</g:identifier_exists>'
-                : '        <g:identifier_exists>no</g:identifier_exists>',
-              product.google_product_category
-                ? `        <g:google_product_category>${escapeXml(product.google_product_category)}</g:google_product_category>`
-                : '',
-              product.category
-                ? `        <g:product_type>${escapeXml(product.category)}</g:product_type>`
-                : '',
-              shippingWeight,
-            ].filter(Boolean);
+        const eligibleVariants = conditionedVariants.filter((variant) => {
+          const effectivePrice = variant.price_override ?? product.price;
+          return Boolean(variant.id) && effectivePrice > 0;
+        });
 
-            return `    <item>\n${lines.join('\n')}\n    </item>`;
-          })
-          .join('\n');
+        if (eligibleVariants.length > 0) {
+          return eligibleVariants
+            .map((variant) => {
+              const stockCount = getVariantStockCount(
+                product.manage_stock,
+                variant
+              );
+              const availability = stockCount > 0 ? 'in_stock' : 'out_of_stock';
+              const lines = [
+                `        <g:id>${escapeXml(variant.id)}</g:id>`,
+                `        <g:item_group_id>${escapeXml(product.id)}</g:item_group_id>`,
+                `        <g:title>${escapeXml(buildVariantTitle(product, variant))}</g:title>`,
+                `        <g:description>${escapeXml(description)}</g:description>`,
+                `        <g:link>${escapeXml(buildVariantUrl(productUrl, variant))}</g:link>`,
+                `        <g:canonical_link>${escapeXml(productUrl)}</g:canonical_link>`,
+                `        <g:image_link>${escapeXml(primaryImageUrl)}</g:image_link>`,
+                additionalImagesXml,
+                `        <g:availability>${availability}</g:availability>`,
+                `        <g:quantity>${stockCount}</g:quantity>`,
+                `        <g:price>${(variant.price_override ?? product.price).toFixed(2)} ${currency}</g:price>`,
+                `        <g:brand>${escapeXml(effectiveBrand)}</g:brand>`,
+                `        <g:condition>${toGmcCondition(variant.condition)}</g:condition>`,
+                product.gtin
+                  ? `        <g:gtin>${escapeXml(product.gtin)}</g:gtin>`
+                  : '',
+                product.mpn
+                  ? `        <g:mpn>${escapeXml(product.mpn)}</g:mpn>`
+                  : '',
+                product.gtin || (product.mpn && effectiveBrand)
+                  ? '        <g:identifier_exists>yes</g:identifier_exists>'
+                  : '        <g:identifier_exists>no</g:identifier_exists>',
+                product.google_product_category
+                  ? `        <g:google_product_category>${escapeXml(product.google_product_category)}</g:google_product_category>`
+                  : '',
+                product.category
+                  ? `        <g:product_type>${escapeXml(product.category)}</g:product_type>`
+                  : '',
+                shippingWeight,
+              ].filter(Boolean);
+
+              return `    <item>\n${lines.join('\n')}\n    </item>`;
+            })
+            .join('\n');
+        }
       }
 
       const skuMatrixFallback =

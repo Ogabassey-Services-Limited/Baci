@@ -528,6 +528,8 @@ export default function ProductDetailClient({
     }
   };
 
+  const effectiveSelectedCondition = selectedCondition ?? product.condition;
+
   // Find cart item matching product and variant
   const cartItem = cart.find((item) => {
     if (effectiveVariantId) {
@@ -539,9 +541,8 @@ export default function ProductDetailClient({
     return (
       item.id === product.id &&
       !item.variantId &&
-      (selectedOffer
-        ? (item.condition ?? undefined) === (selectedCondition ?? undefined)
-        : true)
+      (item.condition ?? product.condition ?? undefined) ===
+        (effectiveSelectedCondition ?? undefined)
     );
   });
 

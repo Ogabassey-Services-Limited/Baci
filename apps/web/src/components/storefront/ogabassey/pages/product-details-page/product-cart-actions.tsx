@@ -77,9 +77,9 @@ export function ProductCartActions({
               <button
                 type="button"
                 onClick={onIncrement}
-                  disabled={!canPurchase}
-                  className="flex h-full w-14 items-center justify-center border-l border-[var(--store-primary)]/15 text-[var(--store-primary)] transition-colors hover:bg-[var(--store-primary)]/5"
-                  aria-label="Increase quantity"
+                disabled={!canPurchase}
+                className="flex h-full w-14 items-center justify-center border-l border-[var(--store-primary)]/15 text-[var(--store-primary)] transition-colors hover:bg-[var(--store-primary)]/5"
+                aria-label="Increase quantity"
               >
                 <Plus size={20} />
               </button>

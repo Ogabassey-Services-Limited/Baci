@@ -74,14 +74,17 @@ export function ConditionSelector({
   const colors = Colors[colorScheme ?? 'light'];
 
   // Normalize current condition to match our condition type
-  const normalizeCondition = (cond: string | undefined): ProductCondition => {
-    if (!cond) return 'new';
+  const normalizeCondition = (
+    cond: string | undefined
+  ): ProductCondition | null => {
+    if (!cond) return null;
     const lower = cond.toLowerCase().replace(/\s+/g, '_');
     if (lower.includes('uk')) return 'uk_used';
     if (lower.includes('refurb')) return 'refurbished';
     if (lower.includes('open')) return 'open_box';
     if (lower.includes('used')) return 'used';
-    return 'new';
+    if (lower === 'new') return 'new';
+    return null;
   };
 
   const baseCondition = normalizeCondition(currentCondition);
@@ -98,7 +101,7 @@ export function ConditionSelector({
 
   const conditionList = Array.from(
     new Set([
-      baseCondition,
+      ...(baseCondition ? [baseCondition] : []),
       ...(availableConditions ?? []),
       ...offers.map((offer) => offer.condition),
     ])
@@ -123,7 +126,8 @@ export function ConditionSelector({
     return null;
   }
 
-  const effectiveSelected = selectedCondition || baseCondition;
+  const effectiveSelected =
+    selectedCondition ?? baseCondition ?? renderedConditions[0]?.condition;
 
   return (
     <View style={styles.container}>

@@ -18,9 +18,29 @@ const variantAttributeSchema = z.object({
   value: z.string(),
 });
 
+const normalizedConditionSchema = z.preprocess((value) => {
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+  return normalized || null;
+}, z.string().min(1).optional().nullable());
+
+function isEditableCondition(
+  value: string
+): value is (typeof EDITABLE_PRODUCT_CONDITIONS)[number] {
+  return EDITABLE_PRODUCT_CONDITIONS.includes(
+    value as (typeof EDITABLE_PRODUCT_CONDITIONS)[number]
+  );
+}
+
 const productVariantSchema = z.object({
   attributes: z.array(variantAttributeSchema).default([]),
-  condition: z.enum(EDITABLE_PRODUCT_CONDITIONS).optional().nullable(),
+  condition: normalizedConditionSchema,
   cost_price: z.number().min(0).optional().default(0),
   id: z.string().uuid().optional(),
   images: z.array(z.string()).default([]),
@@ -54,7 +74,12 @@ export const ProductSchema = z
       .optional()
       .or(z.literal('')),
     color: z.string().optional(),
-    condition: z.enum(EDITABLE_PRODUCT_CONDITIONS).optional().nullable(),
+    condition: normalizedConditionSchema.refine(
+      (value) => value == null || isEditableCondition(value),
+      {
+        message: 'Condition must be a supported editable condition.',
+      }
+    ),
     manage_stock: z.boolean().default(true),
     status: z.enum(['active', 'draft', 'archived']).default('active'),
     images: z.array(z.string()).default([]),

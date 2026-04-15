@@ -1,11 +1,12 @@
-import { act, renderHook } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, cleanup, renderHook } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product } from '../../types';
 import { useProductDetailsState } from './use-product-details-state';
 
 const mockAddToCart = vi.fn();
 const mockApplyNegotiatedPrice = vi.fn();
 const mockRemoveFromCart = vi.fn();
+const mockShareProductLink = vi.fn().mockResolvedValue(undefined);
 const mockUpdateQuantity = vi.fn();
 const mockToast = vi.fn();
 
@@ -41,6 +42,10 @@ vi.mock('@/hooks/use-toast', () => ({
   useToast: vi.fn(() => ({ toast: mockToast })),
 }));
 
+vi.mock('./product-share', () => ({
+  shareProductLink: (args: unknown) => mockShareProductLink(args),
+}));
+
 vi.mock('../../providers/v2-saved-context', () => ({
   useV2Saved: vi.fn(() => ({
     isSaved: vi.fn(() => false),
@@ -73,16 +78,11 @@ const baseProduct: Product = {
 describe('useProductDetailsState', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    Object.defineProperty(window, 'location', {
-      writable: true,
-      value: { href: 'https://ogabassey.com/phones/pixel-9' },
-    });
-    Object.defineProperty(navigator, 'clipboard', {
-      writable: true,
-      value: {
-        writeText: vi.fn().mockResolvedValue(undefined),
-      },
-    });
+    mockUseSearchParams.mockReturnValue(new URLSearchParams());
+  });
+
+  afterEach(() => {
+    cleanup();
   });
 
   it('updates the selected color and matching image when a color is chosen', () => {
@@ -117,11 +117,13 @@ describe('useProductDetailsState', () => {
       await result.current.handleShare();
     });
 
-    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
-      'https://ogabassey.com/phones/pixel-9'
-    );
-    expect(mockToast).toHaveBeenCalledWith(
-      expect.objectContaining({ title: 'Link copied!' })
+    expect(mockShareProductLink).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchantName: 'Ogabassey',
+        productName: 'Pixel 9',
+        toast: mockToast,
+        url: window.location.href,
+      })
     );
   });
 

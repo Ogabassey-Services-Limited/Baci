@@ -1,7 +1,3 @@
-import {
-  type EditableProductCondition,
-  isEditableProductCondition,
-} from '@/lib/product-condition';
 import type { AdminProductVariant } from '@/lib/product-picker-variant-rows';
 
 export interface VariantAttributeFormValue {
@@ -13,7 +9,7 @@ export interface VariantAttributeFormValue {
 export interface EditableProductVariant {
   attributes: VariantAttributeFormValue[];
   client_id: string;
-  condition?: EditableProductCondition;
+  condition?: string;
   cost_price: number;
   id?: string;
   images: string[];
@@ -63,14 +59,15 @@ function normalizeFiniteNumber(value: unknown, fallback: number): number {
   return fallback;
 }
 
-function normalizeVariantCondition(
-  condition: unknown
-): EditableProductCondition | undefined {
+function normalizeVariantCondition(condition: unknown): string | undefined {
   const normalizedCondition =
-    typeof condition === 'string' ? condition.trim() : '';
-  return isEditableProductCondition(normalizedCondition)
-    ? normalizedCondition
-    : undefined;
+    typeof condition === 'string'
+      ? condition
+          .trim()
+          .toLowerCase()
+          .replace(/[\s-]+/g, '_')
+      : '';
+  return normalizedCondition || undefined;
 }
 
 let nextProductVariantFormToken = 0;
@@ -160,7 +157,7 @@ export function buildVariantFormValues(
 
 export function createEmptyEditableVariant(defaults?: {
   attributeKeys?: string[];
-  condition?: EditableProductCondition;
+  condition?: string;
   costPrice?: number;
   images?: string[];
   price?: number;

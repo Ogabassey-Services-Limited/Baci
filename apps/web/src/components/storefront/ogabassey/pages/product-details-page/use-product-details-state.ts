@@ -55,6 +55,20 @@ function getValidAvailableConditions(values: Array<string | null | undefined>) {
   );
 }
 
+function areSelectionAttributesEqual(
+  left: Record<string, string>,
+  right: Record<string, string>
+) {
+  const leftEntries = Object.entries(left);
+  const rightEntries = Object.entries(right);
+
+  if (leftEntries.length !== rightEntries.length) {
+    return false;
+  }
+
+  return leftEntries.every(([key, value]) => right[key] === value);
+}
+
 export function useProductDetailsState(serverProduct: Product) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -127,6 +141,18 @@ export function useProductDetailsState(serverProduct: Product) {
     usesVariantRouteSelection && routeSelectionInput.variantId
       ? routeSelectionInput.variantId
       : undefined;
+  const productColorsKey = JSON.stringify(
+    productData.colors.map((color) => color.name)
+  );
+  const productVariantSeedKey = JSON.stringify(
+    (productData.variants ?? []).map((variant) => ({
+      attributes: variant.attributes ?? {},
+      condition: variant.condition ?? null,
+      id: variant.id ?? null,
+      price_override: variant.price_override ?? null,
+      stock_quantity: variant.stock_quantity ?? null,
+    }))
+  );
   const initialCondition =
     routeCondition
       ? routeCondition
@@ -263,38 +289,61 @@ export function useProductDetailsState(serverProduct: Product) {
       ) ?? defaultVariantSelection;
 
     setSelectedCondition(
-      routeCondition
-        ? routeCondition
-        : (seedSelection?.condition as ConditionType | undefined) ||
-            productData.condition ||
-            'new'
+      (previousCondition) => {
+        const nextCondition =
+          routeCondition
+            ? routeCondition
+            : (seedSelection?.condition as ConditionType | undefined) ||
+              productData.condition ||
+              'new';
+
+        return previousCondition === nextCondition
+          ? previousCondition
+          : nextCondition;
+      }
     );
 
     if (!seedSelection) {
-      setSelectedColor(null);
-      setSecondaryColor(null);
-      setSelectedAttributes({});
+      setSelectedColor((previousColor) =>
+        previousColor === null ? previousColor : null
+      );
+      setSecondaryColor((previousColor) =>
+        previousColor === null ? previousColor : null
+      );
+      setSelectedAttributes((previousAttributes) =>
+        Object.keys(previousAttributes).length === 0 ? previousAttributes : {}
+      );
       return;
     }
 
-    setSelectedAttributes({
+    const nextAttributes = {
       ...routeSelectionAttributes,
       ...seedSelection.attributes,
-    });
+    };
+
+    setSelectedAttributes((previousAttributes) =>
+      areSelectionAttributesEqual(previousAttributes, nextAttributes)
+        ? previousAttributes
+        : nextAttributes
+    );
     const defaultColorIndex = seedSelection.color
       ? productData.colors.findIndex(
           (color) => color.name === seedSelection.color
         )
       : -1;
-    setSelectedColor(defaultColorIndex >= 0 ? defaultColorIndex : null);
-    setSecondaryColor(null);
+    const nextColor = defaultColorIndex >= 0 ? defaultColorIndex : null;
+    setSelectedColor((previousColor) =>
+      previousColor === nextColor ? previousColor : nextColor
+    );
+    setSecondaryColor((previousColor) =>
+      previousColor === null ? previousColor : null
+    );
   }, [
-    defaultVariantSelection,
     productData.condition,
-    productData.colors,
     productData.id,
     productData.manage_stock,
-    productData.variants,
+    productColorsKey,
+    productVariantSeedKey,
     relatedProductsProduct.price,
     routeCondition,
     routeSelectionAttributesKey,

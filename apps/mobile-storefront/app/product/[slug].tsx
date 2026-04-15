@@ -665,13 +665,16 @@ export default function ProductDetailScreen() {
       : null;
   const canPurchase =
     product?.has_variants === true
-      ? Boolean(currentVariantSelection)
+      ? Boolean(currentVariantSelection) &&
+        (product.manage_stock === false ||
+          (currentVariantSelection?.variant.stock_quantity ?? 0) >
+            quantityInCart)
       : product
         ? product.manage_stock === false ||
           (typeof selectedConditionOffer?.stock_quantity === 'number'
-            ? selectedConditionOffer.stock_quantity > 0
+            ? selectedConditionOffer.stock_quantity > quantityInCart
             : typeof product.stock_quantity === 'number'
-              ? product.stock_quantity > 0
+              ? product.stock_quantity > quantityInCart
               : product.in_stock === true)
         : false;
   const conditionOffersForDisplay = (() => {

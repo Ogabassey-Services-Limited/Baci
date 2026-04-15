@@ -710,6 +710,34 @@ describe('generateGoogleMerchantFeed — conditioned variants', () => {
     expect(xml).not.toContain('<g:condition>uk_used</g:condition>');
   });
 
+  it('skips zero-priced conditioned variants and falls back to the conservative family row', () => {
+    const xml = generateGoogleMerchantFeed(
+      [
+        product({
+          price: 700000,
+          variant_model: 'sku_matrix',
+          variants: [
+            {
+              id: 'variant-zero-priced',
+              condition: 'used',
+              price_override: 0,
+              stock_quantity: 1,
+              attributes: { storage: '256GB' },
+            },
+          ],
+        }),
+      ],
+      merchant({ gmc_variants_enabled: true }),
+      BASE_URL,
+      defaultManifest
+    );
+
+    expect((xml.match(/<item>/g) || []).length).toBe(1);
+    expect(xml).toContain('<g:id>prod-1</g:id>');
+    expect(xml).not.toContain('<g:id>variant-zero-priced</g:id>');
+    expect(xml).toContain('<g:price>700000.00 NGN</g:price>');
+  });
+
   it('falls back to one conservative family row when conditioned variants exist but the rollout flag is disabled', () => {
     const xml = generateGoogleMerchantFeed(
       [

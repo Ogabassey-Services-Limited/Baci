@@ -43,7 +43,6 @@ import { useTheme } from '@/hooks/useTheme';
 import { formatVariantAttributesSummary } from '@/lib/format-variant-attributes';
 import {
   EDITABLE_PRODUCT_CONDITIONS,
-  type EditableProductCondition,
   formatProductCondition,
 } from '@/lib/product-condition';
 import { normalizeComparableProductName } from '@/lib/product-matching';
@@ -525,10 +524,7 @@ export default function ProductEditScreen() {
     setFormData({ ...formData, variants: nextVariants });
   };
 
-  const updateVariantCondition = (
-    index: number,
-    condition?: EditableProductCondition
-  ) => {
+  const updateVariantCondition = (index: number, condition?: string) => {
     updateVariant(index, { condition });
   };
 
