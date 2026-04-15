@@ -43,6 +43,10 @@ export const ShippingAddressSchema = z.object({
 
 export type ShippingAddressInput = z.infer<typeof ShippingAddressSchema>;
 
+type SchemaSafeParseResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: z.ZodError<T> };
+
 export const QuantitySchema = z
   .number()
   .int('Quantity must be a whole number')
@@ -87,7 +91,7 @@ export function validateWithSchema<T>(
 }
 
 export function getFirstError<T>(
-  result: z.ZodSafeParseResult<T>
+  result: SchemaSafeParseResult<T>
 ): string | null {
   if (result.success) return null;
   return result.error.issues[0]?.message || 'Validation failed';

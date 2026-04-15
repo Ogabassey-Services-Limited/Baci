@@ -141,10 +141,17 @@ export function useReviews({
         setHasMore(pageNum < totalPages);
       } else {
         // Use validated data
+        const validatedReviews: Review[] = (validatedData.reviews ?? []).map(
+          (review) => ({
+            ...review,
+            helpful_count: review.helpful_count ?? 0,
+          })
+        );
+
         if (append) {
-          setReviews((prev) => [...prev, ...validatedData.reviews]);
+          setReviews((prev) => [...prev, ...validatedReviews]);
         } else {
-          setReviews(validatedData.reviews);
+          setReviews(validatedReviews);
         }
 
         if (validatedData.stats) {
