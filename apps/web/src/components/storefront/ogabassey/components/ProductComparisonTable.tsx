@@ -6,7 +6,10 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
-import { normalizeProductCondition, type Product } from '../types';
+import {
+  normalizeProductCondition,
+  type Product,
+} from '@/components/storefront/ogabassey/types';
 
 /** Minimal shape returned by the storefront products search API */
 interface SearchResultProduct {

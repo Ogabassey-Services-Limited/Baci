@@ -122,7 +122,11 @@ describe('product-selection-params', () => {
     );
 
     expect(resolution.type).toBe('attribute_only');
-    expect(resolution.selectionInput).toEqual({});
+    expect(resolution.selectionInput).toEqual({
+      attributes: {
+        storage: '128GB',
+      },
+    });
   });
 
   it('returns zero_match when condition params do not resolve a variant', () => {

@@ -8,7 +8,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -224,13 +224,8 @@ export default function ProductDetailScreen() {
       ? resolveVariantSelectionParamResolution(product, routeParams)
       : null;
   const routeSelectionInput = routeSelectionResolution?.selectionInput ?? {};
-  const routeSelectionAttributesKey = JSON.stringify(
-    routeSelectionInput.attributes ?? {}
-  );
-  const routeSelectionAttributes = useMemo(
-    () => JSON.parse(routeSelectionAttributesKey) as Record<string, string>,
-    [routeSelectionAttributesKey]
-  );
+  const routeSelectionAttributes = (routeSelectionInput.attributes ??
+    {}) as Record<string, string>;
   const routeCondition = normalizeRouteCondition(
     routeSelectionInput.condition ??
       (!usesVariantRouteSelection ? routeConditionParam : undefined)
@@ -252,6 +247,7 @@ export default function ProductDetailScreen() {
   const [negotiatedPrice, setNegotiatedPrice] = useState<number | null>(null);
   const [showImageZoom, setShowImageZoom] = useState(false);
   const lastSelectionSyncSignatureRef = useRef<string>('');
+  const hasInvalidSelectionRedirectedRef = useRef(false);
 
   const defaultVariantSelection = product
     ? resolveDefaultVariantSelection(product)
@@ -436,13 +432,26 @@ export default function ProductDetailScreen() {
   ]);
 
   useEffect(() => {
-    if (availableConditions.length === 0) {
+    const nextAvailableConditions = product
+      ? ((usesVariantConditions
+          ? (getVariantConditionOptions(product) as ProductCondition[])
+          : Array.from(
+              new Set(
+                [
+                  normalizeRouteCondition(product.condition),
+                  ...(product.offers?.map((offer) => offer.condition) || []),
+                ].filter(Boolean)
+              )
+            )) as ProductCondition[])
+      : [];
+
+    if (nextAvailableConditions.length === 0) {
       return;
     }
 
     if (
       selectedCondition &&
-      availableConditions.includes(selectedCondition as ProductCondition)
+      nextAvailableConditions.includes(selectedCondition as ProductCondition)
     ) {
       return;
     }
@@ -450,12 +459,13 @@ export default function ProductDetailScreen() {
     setSelectedCondition(
       (currentVariantDisplaySelection?.condition as
         | ProductCondition
-        | undefined) ?? availableConditions[0]
+        | undefined) ?? nextAvailableConditions[0]
     );
   }, [
-    availableConditions,
     currentVariantDisplaySelection?.condition,
+    product,
     selectedCondition,
+    usesVariantConditions,
   ]);
 
   // Sync quantity with cart store
@@ -497,15 +507,27 @@ export default function ProductDetailScreen() {
       return;
     }
 
+    if (!routeSelectionResolution?.extracted.hasRecognizedSelectionParams) {
+      hasInvalidSelectionRedirectedRef.current = false;
+      return;
+    }
+
     if (
-      routeSelectionResolution?.type === 'attribute_only' ||
-      routeSelectionResolution?.type === 'ambiguous' ||
-      routeSelectionResolution?.type === 'invalid_variant_id' ||
-      routeSelectionResolution?.type === 'zero_match'
+      !hasInvalidSelectionRedirectedRef.current &&
+      (routeSelectionResolution?.type === 'attribute_only' ||
+        routeSelectionResolution?.type === 'ambiguous' ||
+        routeSelectionResolution?.type === 'invalid_variant_id' ||
+        routeSelectionResolution?.type === 'zero_match')
     ) {
+      hasInvalidSelectionRedirectedRef.current = true;
       router.replace(`/product/${product.slug}`);
     }
-  }, [product?.slug, routeSelectionResolution?.type, slug]);
+  }, [
+    product?.slug,
+    routeSelectionResolution?.extracted.hasRecognizedSelectionParams,
+    routeSelectionResolution?.type,
+    slug,
+  ]);
 
   const handleLocalQtyChange = (text: string) => {
     // Only allow numeric input

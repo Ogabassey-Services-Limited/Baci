@@ -94,10 +94,16 @@ describe('product column constants', () => {
 
   it('WEB_PRODUCT_COLUMNS includes sku_matrix projection fields', () => {
     const webTokens = tokenizeColumns(WEB_PRODUCT_COLUMNS);
+    const expectedFields = [
+      'variant_model',
+      'migration_status',
+      'default_variant_id',
+      'available_conditions',
+      'min_variant_price',
+      'max_variant_price',
+    ];
 
-    expect(webTokens).toContain('variant_model');
-    expect(webTokens).toContain('default_variant_id');
-    expect(webTokens).toContain('available_conditions');
+    expect(webTokens).toEqual(expect.arrayContaining(expectedFields));
   });
 
   it('WEB_PRODUCT_COLUMNS does not include unsupported production columns', () => {

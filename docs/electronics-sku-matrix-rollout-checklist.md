@@ -19,16 +19,16 @@ This rollout covers:
 - `sku_matrix` DB projections and source-of-truth enforcement
 - safe legacy backfill for products that can be converted without inventing attribute combinations
 
-This rollout does not complete every future item in [electronics-sku-matrix-plan.md](/Users/mac/Baci-app/.worktrees/electronics-sku-matrix/docs/electronics-sku-matrix-plan.md). Remaining phase-2 items are listed at the end of this document.
+This rollout does not complete every future item in [electronics-sku-matrix-plan.md](./electronics-sku-matrix-plan.md). Remaining phase-2 items are listed at the end of this document.
 
 ## Migrations
 
 Apply these in this exact order:
 
-1. [20260415103000_add_variant_condition_feed_rpcs.sql](/Users/mac/Baci-app/.worktrees/electronics-sku-matrix/supabase/migrations/20260415103000_add_variant_condition_feed_rpcs.sql)
-2. [20260415110000_prepare_legacy_products_for_sku_matrix.sql](/Users/mac/Baci-app/.worktrees/electronics-sku-matrix/supabase/migrations/20260415110000_prepare_legacy_products_for_sku_matrix.sql)
-3. [20260415123000_add_sku_matrix_product_projections.sql](/Users/mac/Baci-app/.worktrees/electronics-sku-matrix/supabase/migrations/20260415123000_add_sku_matrix_product_projections.sql)
-4. [20260415150000_mark_legacy_sku_matrix_needs_review.sql](/Users/mac/Baci-app/.worktrees/electronics-sku-matrix/supabase/migrations/20260415150000_mark_legacy_sku_matrix_needs_review.sql)
+1. [20260415103000_add_variant_condition_feed_rpcs.sql](../supabase/migrations/20260415103000_add_variant_condition_feed_rpcs.sql)
+2. [20260415110000_prepare_legacy_products_for_sku_matrix.sql](../supabase/migrations/20260415110000_prepare_legacy_products_for_sku_matrix.sql)
+3. [20260415123000_add_sku_matrix_product_projections.sql](../supabase/migrations/20260415123000_add_sku_matrix_product_projections.sql)
+4. [20260415150000_mark_legacy_sku_matrix_needs_review.sql](../supabase/migrations/20260415150000_mark_legacy_sku_matrix_needs_review.sql)
 
 ## Release Preconditions
 
@@ -324,9 +324,9 @@ This release is not a clean “rollback everything” deployment. Treat it as a 
 
 ### Safe rollback facts
 
-- [20260415103000_add_variant_condition_feed_rpcs.sql](/Users/mac/Baci-app/.worktrees/electronics-sku-matrix/supabase/migrations/20260415103000_add_variant_condition_feed_rpcs.sql) is additive.
-- [20260415110000_prepare_legacy_products_for_sku_matrix.sql](/Users/mac/Baci-app/.worktrees/electronics-sku-matrix/supabase/migrations/20260415110000_prepare_legacy_products_for_sku_matrix.sql) converts data, but it archives converted `product_offers` rows into `product_offer_migration_archive`.
-- [20260415123000_add_sku_matrix_product_projections.sql](/Users/mac/Baci-app/.worktrees/electronics-sku-matrix/supabase/migrations/20260415123000_add_sku_matrix_product_projections.sql) adds triggers, unique constraints, and behavior changes. Do not partially “undo” this in production unless you are deliberately authoring a forward corrective migration.
+- [20260415103000_add_variant_condition_feed_rpcs.sql](../supabase/migrations/20260415103000_add_variant_condition_feed_rpcs.sql) is additive.
+- [20260415110000_prepare_legacy_products_for_sku_matrix.sql](../supabase/migrations/20260415110000_prepare_legacy_products_for_sku_matrix.sql) converts data, but it archives converted `product_offers` rows into `product_offer_migration_archive`.
+- [20260415123000_add_sku_matrix_product_projections.sql](../supabase/migrations/20260415123000_add_sku_matrix_product_projections.sql) adds triggers, unique constraints, and behavior changes. Do not partially “undo” this in production unless you are deliberately authoring a forward corrective migration.
 
 ### Practical rollback guidance
 

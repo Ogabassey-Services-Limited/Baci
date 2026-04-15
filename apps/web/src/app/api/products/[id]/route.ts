@@ -451,8 +451,9 @@ export async function PUT(
       updates.has_variants = body.has_variants;
     if (body.variant_model !== undefined || body.variants !== undefined) {
       updates.variant_model = variantModel;
-      updates.migration_status =
-        variantModel === 'sku_matrix' ? 'migrated' : 'pending';
+      if (variantModel === 'sku_matrix') {
+        updates.migration_status = 'migrated';
+      }
     }
     if (body.category !== undefined) updates.category = body.category;
     if (body.color !== undefined) updates.color = body.color;
@@ -537,18 +538,35 @@ export async function PUT(
 
       // 2. Delete variants not in the list
       if (variantIdsToKeep.length > 0) {
-        await supabase
+        const { error: deleteVariantsError } = await supabase
           .from('product_variants')
           .delete()
           .eq('product_id', id)
           .eq('merchant_id', merchantId)
           .not('id', 'in', `(${variantIdsToKeep.join(',')})`);
+        if (deleteVariantsError) {
+          console.error('Error deleting stale variants:', deleteVariantsError);
+          return NextResponse.json(
+            { error: 'Failed to sync product variants' },
+            { status: 500 }
+          );
+        }
       } else {
-        await supabase
+        const { error: deleteVariantsError } = await supabase
           .from('product_variants')
           .delete()
           .eq('product_id', id)
           .eq('merchant_id', merchantId);
+        if (deleteVariantsError) {
+          console.error(
+            'Error deleting product variants:',
+            deleteVariantsError
+          );
+          return NextResponse.json(
+            { error: 'Failed to sync product variants' },
+            { status: 500 }
+          );
+        }
       }
 
       // 3. Separate updates and inserts
@@ -573,23 +591,40 @@ export async function PUT(
         const { error: updateVarError } = await supabase
           .from('product_variants')
           .upsert(variantsToUpdate);
-        if (updateVarError)
+        if (updateVarError) {
           console.error('Error updating variants:', updateVarError);
+          return NextResponse.json(
+            { error: 'Failed to update product variants' },
+            { status: 500 }
+          );
+        }
       }
 
       if (variantsToInsert.length > 0) {
         const { error: insertVarError } = await supabase
           .from('product_variants')
           .insert(variantsToInsert);
-        if (insertVarError)
+        if (insertVarError) {
           console.error('Error inserting variants:', insertVarError);
+          return NextResponse.json(
+            { error: 'Failed to create product variants' },
+            { status: 500 }
+          );
+        }
       }
     } else if (body.has_variants === false) {
-      await supabase
+      const { error: deleteVariantsError } = await supabase
         .from('product_variants')
         .delete()
         .eq('product_id', id)
         .eq('merchant_id', merchantId);
+      if (deleteVariantsError) {
+        console.error('Error deleting product variants:', deleteVariantsError);
+        return NextResponse.json(
+          { error: 'Failed to delete product variants' },
+          { status: 500 }
+        );
+      }
     }
 
     // Regenerate embedding if name or description changed

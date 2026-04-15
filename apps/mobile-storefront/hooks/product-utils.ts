@@ -19,9 +19,6 @@ import { removeProductSlugFromProductsCache } from '@/lib/product-query-cache';
 import { getProductSlugFallbackCandidates } from '@/lib/product-slug-fallback';
 import { supabase } from '@/lib/supabase';
 import { ProductRowSchema } from '@/lib/validation';
-
-const MIXED_CONDITION_LABEL = 'New & Used';
-
 import {
   formatProductConditionDisplay,
   type Product,
@@ -30,6 +27,40 @@ import {
 import { normalizeProductInventory } from '../../../packages/shared/src/lib/product-inventory';
 
 const log = createLogger('Products');
+
+function getMixedConditionLabel(availableConditions?: unknown) {
+  if (!Array.isArray(availableConditions)) {
+    return 'Multiple Conditions';
+  }
+
+  const labels = Array.from(
+    new Set(
+      availableConditions
+        .map((condition) =>
+          typeof condition === 'string'
+            ? formatProductConditionDisplay(condition)
+            : undefined
+        )
+        .filter(
+          (
+            value
+          ): value is NonNullable<
+            ReturnType<typeof formatProductConditionDisplay>
+          > => Boolean(value)
+        )
+    )
+  );
+
+  if (labels.length === 0) {
+    return 'Multiple Conditions';
+  }
+
+  return labels.length === 2 &&
+    labels.includes('New') &&
+    labels.includes('Used')
+    ? 'New & Used'
+    : 'Multiple Conditions';
+}
 
 export const MERCHANT_SLUG = CONFIG.MERCHANT_SLUG || 'ogabassey';
 export const CONSTANT_MERCHANT_ID = CONFIG.MERCHANT_ID;
@@ -487,9 +518,9 @@ export function transformProduct(item: unknown): Product | null {
     condition:
       Array.isArray(product.available_conditions) &&
       product.available_conditions.length > 1
-        ? MIXED_CONDITION_LABEL
+        ? getMixedConditionLabel(product.available_conditions)
         : product.has_condition_offers
-          ? MIXED_CONDITION_LABEL
+          ? 'New & Used'
           : formatProductConditionDisplay(product.condition),
     rating,
     review_count: reviewCount,

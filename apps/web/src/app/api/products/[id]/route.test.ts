@@ -661,6 +661,50 @@ describe('PUT /api/products/[id]', () => {
       expect(res.status).toBe(200);
     });
 
+    it('does not send migration_status on legacy-variant updates', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Product',
+        condition: 'used',
+        variant_model: 'legacy',
+        migration_status: 'needs_review',
+      };
+
+      updateResult = {
+        id: PRODUCT_ID,
+        name: 'Updated Product',
+        price: '6000',
+        slug: 'updated-product',
+      };
+
+      const res = await PUT(
+        makePutRequest(PRODUCT_ID, {
+          name: 'Updated Product',
+          variants: [
+            {
+              id: 'variant-1',
+              attributes: { storage: '128GB' },
+              price_override: 6000,
+              stock_quantity: 5,
+            },
+          ],
+        }),
+        {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        }
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.product).toBeDefined();
+      expect(lastProductUpdatePayload).toEqual(
+        expect.objectContaining({
+          variant_model: 'legacy',
+        })
+      );
+      expect(lastProductUpdatePayload).not.toHaveProperty('migration_status');
+    });
+
     it('deletes variants when has_variants is set to false', async () => {
       product = {
         id: PRODUCT_ID,

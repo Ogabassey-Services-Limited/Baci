@@ -17,6 +17,8 @@ function hasRenderableImage(image?: string | null) {
 function getConditionBadgeLabel(product: NormalizedProduct) {
   const formatConditionBadgeLabel = (condition: string) =>
     condition
+      .trim()
+      .toLowerCase()
       .split('_')
       .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
       .join(' ');
@@ -48,8 +50,13 @@ function getConditionBadgeLabel(product: NormalizedProduct) {
     return 'New & Used';
   }
 
-  return product.condition && product.condition !== 'New'
-    ? formatConditionBadgeLabel(product.condition)
+  const normalizedProductCondition =
+    typeof product.condition === 'string'
+      ? product.condition.trim().toLowerCase()
+      : '';
+
+  return normalizedProductCondition && normalizedProductCondition !== 'new'
+    ? formatConditionBadgeLabel(normalizedProductCondition)
     : null;
 }
 

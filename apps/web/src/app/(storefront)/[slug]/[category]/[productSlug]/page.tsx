@@ -1,6 +1,6 @@
 import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
 import type { Metadata } from 'next';
-import { notFound, permanentRedirect, redirect } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { Suspense } from 'react';
 import ProductDetailClient from '@/app/(storefront)/[slug]/products/[productSlug]/product-detail-client';
 import { ProductDetailsPage as OgabasseyProductPage } from '@/components/storefront/ogabassey/pages/product-details-page';
@@ -603,7 +603,7 @@ function redirectInvalidVariantSelectionParams(
     selectionResolution.type === 'invalid_variant_id' ||
     selectionResolution.type === 'zero_match'
   ) {
-    redirect(getRedirectTargetPath(storeSlug, product));
+    permanentRedirect(getRedirectTargetPath(storeSlug, product));
   }
 }
 

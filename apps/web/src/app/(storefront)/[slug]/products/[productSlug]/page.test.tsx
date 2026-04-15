@@ -382,7 +382,9 @@ describe('products/[productSlug] page', () => {
       )
     ).rejects.toThrow('NEXT_REDIRECT');
 
-    expect(mockRedirect).toHaveBeenCalledWith('/products/mystery-item');
+    expect(mockRedirect).toHaveBeenCalledWith(
+      '/products/mystery-item?utm_source=google'
+    );
   });
 
   it('redirects legacy archived variant slugs to the active parent product', async () => {

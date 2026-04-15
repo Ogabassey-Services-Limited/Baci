@@ -391,7 +391,9 @@ export function resolveVariantSelectionParamResolution<
   return {
     extracted,
     matches: [],
-    selectionInput: {},
+    selectionInput: {
+      attributes: extracted.attributes,
+    },
     type: 'attribute_only',
   };
 }

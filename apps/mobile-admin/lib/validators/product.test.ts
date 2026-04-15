@@ -329,6 +329,27 @@ describe('ProductDbSchema', () => {
     );
   });
 
+  it('preserves legacy condition and omits migration_status outside sku_matrix', () => {
+    const parsed = ProductDbSchema.parse({
+      name: 'Legacy Used Phone',
+      sku: 'LEG-USED',
+      price: 200000,
+      stock_quantity: 4,
+      category_id: '',
+      condition: 'used',
+      manage_stock: true,
+      status: 'active',
+      images: [],
+      has_variants: false,
+      variant_attributes: [],
+      variants: [],
+    });
+
+    expect(parsed.variant_model).toBe('legacy');
+    expect(parsed.condition).toBe('used');
+    expect(parsed).not.toHaveProperty('migration_status');
+  });
+
   it('preserves zero cost prices and omits ids for unsaved variants', () => {
     const parsed = ProductDbSchema.parse({
       name: 'Galaxy S25',

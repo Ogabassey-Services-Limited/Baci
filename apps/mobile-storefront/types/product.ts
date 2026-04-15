@@ -15,6 +15,7 @@ export type ProductConditionDisplay =
   | 'UK Used'
   | 'Refurbished'
   | 'Open Box'
+  | 'Multiple Conditions'
   | 'Used'
   | 'New & Used';
 
@@ -76,12 +77,15 @@ export function formatProductConditionDisplay(
       return 'Open Box';
     case 'refurbished':
       return 'Refurbished';
+    case 'multiple_conditions':
+      return 'Multiple Conditions';
     case 'new_and_used':
     case 'new_&_used':
       return 'New & Used';
     default:
-      return String(condition)
+      return normalized
         .trim()
+        .replace(/_/g, ' ')
         .replace(/\b\w/g, (char) =>
           char.toUpperCase()
         ) as ProductConditionDisplay;

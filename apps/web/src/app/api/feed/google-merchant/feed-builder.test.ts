@@ -684,6 +684,32 @@ describe('generateGoogleMerchantFeed — conditioned variants', () => {
     expect(xml).not.toContain('<g:condition>open_box</g:condition>');
   });
 
+  it('normalizes uk_used feed conditions to used for GMC output', () => {
+    const xml = generateGoogleMerchantFeed(
+      [
+        product({
+          price: 700000,
+          variant_model: 'sku_matrix',
+          variants: [
+            {
+              id: 'variant-uk-used',
+              condition: 'uk_used',
+              price_override: 610000,
+              stock_quantity: 1,
+              attributes: { storage: '256GB' },
+            },
+          ],
+        }),
+      ],
+      merchant({ gmc_variants_enabled: true }),
+      BASE_URL,
+      defaultManifest
+    );
+
+    expect(xml).toContain('<g:condition>used</g:condition>');
+    expect(xml).not.toContain('<g:condition>uk_used</g:condition>');
+  });
+
   it('falls back to one conservative family row when conditioned variants exist but the rollout flag is disabled', () => {
     const xml = generateGoogleMerchantFeed(
       [

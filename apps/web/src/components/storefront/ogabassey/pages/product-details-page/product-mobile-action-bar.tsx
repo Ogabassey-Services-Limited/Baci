@@ -50,7 +50,9 @@ export function ProductMobileActionBar({
             </div>
             <button
               type="button"
-              onClick={onIncrement}
+              onClick={canPurchase ? onIncrement : undefined}
+              disabled={!canPurchase}
+              aria-disabled={!canPurchase}
               className="flex h-full w-14 items-center justify-center rounded-r-xl border-l border-[var(--store-primary)]/15 text-[var(--store-primary)] active:bg-[var(--store-primary)]/5"
               aria-label="Increase quantity"
             >
@@ -76,7 +78,7 @@ export function ProductMobileActionBar({
           className={`flex h-14 w-full items-center justify-center gap-2 rounded-xl font-bold shadow-lg transition-all ${
             canPurchase
               ? 'bg-[var(--store-primary)] text-[var(--store-primary-text,#ffffff)] active:scale-[0.98] active:bg-[var(--store-primary)]/90 active:shadow-none'
-              : 'cursor-not-allowed bg-gray-300 text-gray-600 shadow-none'
+              : 'cursor-not-allowed bg-[var(--store-background-text,#111827)]/10 text-[var(--store-background-text,#111827)]/45 shadow-none'
           }`}
         >
           <ShoppingCart size={20} />

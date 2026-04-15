@@ -13,7 +13,7 @@ import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Breadcrumbs } from '@/components/storefront/breadcrumbs';
 import { StickyAddToCart } from '@/components/storefront/sticky-add-to-cart';
 import { ThemedBadge, ThemedButton } from '@/components/themed';
@@ -50,6 +50,20 @@ function getValidConditionOptions(values: string[]) {
   return values.filter((value): value is ProductCondition =>
     isValidCondition(value)
   );
+}
+
+function areSelectionAttributesEqual(
+  left: Record<string, string>,
+  right: Record<string, string>
+) {
+  const leftEntries = Object.entries(left);
+  const rightEntries = Object.entries(right);
+
+  if (leftEntries.length !== rightEntries.length) {
+    return false;
+  }
+
+  return leftEntries.every(([key, value]) => right[key] === value);
 }
 
 // Lazy load heavy components to reduce initial bundle size
@@ -203,13 +217,8 @@ export default function ProductDetailClient({
     ? resolveVariantSelectionParamResolution(product, searchParams)
     : null;
   const routeSelectionInput = routeSelectionResolution?.selectionInput ?? {};
-  const routeSelectionAttributesKey = JSON.stringify(
-    routeSelectionInput.attributes ?? {}
-  );
-  const routeSelectionAttributes = useMemo(
-    () => JSON.parse(routeSelectionAttributesKey) as Record<string, string>,
-    [routeSelectionAttributesKey]
-  );
+  const routeSelectionAttributes = (routeSelectionInput.attributes ??
+    {}) as Record<string, string>;
   const routeConditionSource =
     routeSelectionInput.condition ??
     (!usesVariantRouteSelection ? conditionParam : undefined);
@@ -270,36 +279,49 @@ export default function ProductDetailClient({
         variantId: routeVariantId,
       }) ?? fallbackVariantSelection;
 
-    setSelectedCondition(
+    const nextCondition =
       routeCondition ||
-        (seedSelection?.condition as ProductCondition | undefined) ||
-        product.condition ||
-        'new'
+      (seedSelection?.condition as ProductCondition | undefined) ||
+      product.condition ||
+      'new';
+    setSelectedCondition((current) =>
+      current === nextCondition ? current : nextCondition
     );
 
     if (!seedSelection) {
-      setSelectedVariant(null);
-      setSelectedAttributes({});
-      setSelectedImage(
-        product.imageLarge || product.image || PLACEHOLDER_IMAGE
+      setSelectedVariant((current) => (current ? null : current));
+      setSelectedAttributes((current) =>
+        Object.keys(current).length === 0 ? current : {}
+      );
+      const fallbackImage =
+        product.imageLarge || product.image || PLACEHOLDER_IMAGE;
+      setSelectedImage((current) =>
+        current === fallbackImage ? current : fallbackImage
       );
       return;
     }
 
-    setSelectedVariant(seedSelection.variant);
-    setSelectedAttributes(seedSelection.attributes);
-    if (seedSelection.variant.primary_image) {
-      setSelectedImage(seedSelection.variant.primary_image);
-    } else {
-      setSelectedImage(
-        product.imageLarge || product.image || PLACEHOLDER_IMAGE
-      );
-    }
+    setSelectedVariant((current) =>
+      current?.id === seedSelection.variant.id ? current : seedSelection.variant
+    );
+    setSelectedAttributes((current) =>
+      areSelectionAttributesEqual(current, seedSelection.attributes)
+        ? current
+        : seedSelection.attributes
+    );
+    const nextImage =
+      seedSelection.variant.primary_image ||
+      product.imageLarge ||
+      product.image ||
+      PLACEHOLDER_IMAGE;
+    setSelectedImage((current) =>
+      current === nextImage ? current : nextImage
+    );
   }, [
     product,
     routeCondition,
-    routeVariantId,
     routeSelectionAttributes,
+    routeVariantId,
     usesVariantRouteSelection,
   ]);
 
@@ -455,6 +477,11 @@ export default function ProductDetailClient({
     }
 
     if (product.has_variants && !variantForCart) {
+      toast({
+        title: 'Select a variant',
+        description: 'Please select a valid variant before adding this item.',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -504,8 +531,7 @@ export default function ProductDetailClient({
     return (
       item.id === product.id &&
       !item.variantId &&
-      (item.condition ?? undefined) ===
-        (selectedOffer ? selectedCondition : undefined)
+      (item.condition ?? undefined) === (selectedCondition ?? undefined)
     );
   });
 
@@ -870,7 +896,9 @@ export default function ProductDetailClient({
                         className="h-10 w-10"
                         onClick={() =>
                           updateQuantity(
-                            cartItem.cartItemId ?? product.id,
+                            effectiveVariantId
+                              ? product.id
+                              : (cartItem.cartItemId ?? product.id),
                             cartItem.quantity - 1,
                             effectiveVariantId
                           )
@@ -884,7 +912,9 @@ export default function ProductDetailClient({
                         value={cartItem.quantity}
                         onChange={(e) =>
                           updateQuantity(
-                            cartItem.cartItemId ?? product.id,
+                            effectiveVariantId
+                              ? product.id
+                              : (cartItem.cartItemId ?? product.id),
                             Math.max(
                               Number.parseInt(e.target.value, 10) ||
                                 product.minimum_order_quantity ||
@@ -905,7 +935,9 @@ export default function ProductDetailClient({
                         className="h-10 w-10"
                         onClick={() =>
                           updateQuantity(
-                            cartItem.cartItemId ?? product.id,
+                            effectiveVariantId
+                              ? product.id
+                              : (cartItem.cartItemId ?? product.id),
                             cartItem.quantity + 1,
                             effectiveVariantId
                           )

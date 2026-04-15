@@ -504,7 +504,7 @@ describe('POST /api/products', () => {
 
       expect(res.status).toBe(400);
       expect(json.error).toBe(
-        'Every sku_matrix variant must include an explicit price_override.'
+        'Every sku_matrix variant must include a non-negative price_override.'
       );
     });
 

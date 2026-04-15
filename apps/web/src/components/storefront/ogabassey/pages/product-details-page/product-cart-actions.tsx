@@ -69,6 +69,7 @@ export function ProductCartActions({
                   onChange={onInputChange}
                   onBlur={onInputBlur}
                   onKeyDown={onInputKeyDown}
+                  disabled={!canPurchase}
                   className="w-12 border-none bg-transparent p-0 text-center text-lg font-bold text-gray-900 outline-none focus:border-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
                   aria-label="Quantity"
                 />
@@ -76,8 +77,9 @@ export function ProductCartActions({
               <button
                 type="button"
                 onClick={onIncrement}
-                className="flex h-full w-14 items-center justify-center border-l border-[var(--store-primary)]/15 text-[var(--store-primary)] transition-colors hover:bg-[var(--store-primary)]/5"
-                aria-label="Increase quantity"
+                  disabled={!canPurchase}
+                  className="flex h-full w-14 items-center justify-center border-l border-[var(--store-primary)]/15 text-[var(--store-primary)] transition-colors hover:bg-[var(--store-primary)]/5"
+                  aria-label="Increase quantity"
               >
                 <Plus size={20} />
               </button>
@@ -99,7 +101,7 @@ export function ProductCartActions({
               'flex h-14 w-full items-center justify-center gap-2 rounded-xl font-bold shadow-lg transition-all',
               canPurchase
                 ? 'bg-[var(--store-primary)] text-[var(--store-primary-text,#ffffff)] hover:bg-[var(--store-primary)]/90 hover:shadow-[var(--store-primary)]/20'
-                : 'cursor-not-allowed bg-gray-300 text-gray-600 shadow-none'
+                : 'cursor-not-allowed bg-[var(--store-background-text,#111827)]/10 text-[var(--store-background-text,#111827)]/45 shadow-none'
             )}
           >
             {canPurchase ? 'Add to Cart' : 'Out of Stock'}

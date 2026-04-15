@@ -54,6 +54,7 @@ export const ProductSchema = z
       .optional()
       .or(z.literal('')),
     color: z.string().optional(),
+    condition: z.enum(EDITABLE_PRODUCT_CONDITIONS).optional().nullable(),
     manage_stock: z.boolean().default(true),
     status: z.enum(['active', 'draft', 'archived']).default('active'),
     images: z.array(z.string()).default([]),
@@ -232,18 +233,20 @@ export const ProductDbSchema = ProductSchema.transform((data) => {
       ? (defaultSelection?.condition ??
         normalizedVariants[0]?.condition ??
         null)
-      : null;
+      : (rest.condition ?? null);
 
   return {
     ...rest,
     condition: nextCondition,
     has_variants,
-    migration_status: variantModel === 'sku_matrix' ? 'migrated' : 'pending',
     manage_stock: has_variants ? true : rest.manage_stock,
     price: nextPrice,
     stock: nextStock,
     stock_quantity: nextStock,
     variant_model: variantModel,
+    ...(variantModel === 'sku_matrix'
+      ? { migration_status: 'migrated' as const }
+      : {}),
     variant_attributes: has_variants
       ? buildParentVariantAttributes(variants)
       : attributesRecord,

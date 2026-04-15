@@ -21,7 +21,7 @@ describe('formatProductConditionDisplay', () => {
     expect(formatProductConditionDisplay(null)).toBeUndefined();
     expect(formatProductConditionDisplay('ReFuRbIsHeD')).toBe('Refurbished');
     expect(formatProductConditionDisplay('premium-used 2')).toBe(
-      'Premium-Used 2'
+      'Premium Used 2'
     );
   });
 });

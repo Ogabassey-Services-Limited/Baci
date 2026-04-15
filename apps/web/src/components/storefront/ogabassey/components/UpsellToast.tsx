@@ -4,7 +4,10 @@ import { Plus, Sparkles, X } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
-import { normalizeProductCondition, type Product } from '../types';
+import {
+  normalizeProductCondition,
+  type Product,
+} from '@/components/storefront/ogabassey/types';
 
 interface UpsellToastProps {
   isVisible: boolean;

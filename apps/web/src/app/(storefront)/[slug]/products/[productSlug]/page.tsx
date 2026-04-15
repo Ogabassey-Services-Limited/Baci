@@ -50,6 +50,82 @@ interface ProductLookupResult {
   product: Product | null;
 }
 
+type ResolvedSearchParams = Awaited<PageProps['searchParams']>;
+
+const LEGACY_SELECTION_PARAM_KEYS = new Set([
+  'selectedoptions',
+  'variant',
+  'variantid',
+  'variant_id',
+]);
+
+function normalizeSearchParamKey(key: string) {
+  return key
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+}
+
+function appendSearchParamValue(
+  params: URLSearchParams,
+  key: string,
+  value: string | string[] | undefined
+) {
+  if (typeof value === 'string') {
+    params.append(key, value);
+    return;
+  }
+
+  if (!Array.isArray(value)) {
+    return;
+  }
+
+  for (const entry of value) {
+    if (typeof entry === 'string') {
+      params.append(key, entry);
+    }
+  }
+}
+
+function buildRedirectSearchParams(searchParams: ResolvedSearchParams) {
+  const nextParams = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(searchParams)) {
+    appendSearchParamValue(nextParams, key, value);
+  }
+
+  return nextParams;
+}
+
+function buildSelectionSafeRedirectPath(
+  storeSlug: string,
+  product: Product,
+  searchParams: ResolvedSearchParams,
+  recognizedParamKeys: string[]
+) {
+  const targetPath = buildProductRedirectPath(
+    storeSlug,
+    getProductUrl(product)
+  );
+  const nextParams = buildRedirectSearchParams(searchParams);
+  const removableKeys = new Set(
+    recognizedParamKeys.map((key) => normalizeSearchParamKey(key))
+  );
+
+  for (const key of Array.from(nextParams.keys())) {
+    const normalizedKey = normalizeSearchParamKey(key);
+    if (
+      removableKeys.has(normalizedKey) ||
+      LEGACY_SELECTION_PARAM_KEYS.has(normalizedKey)
+    ) {
+      nextParams.delete(key);
+    }
+  }
+
+  const queryString = nextParams.toString();
+  return queryString ? `${targetPath}?${queryString}` : targetPath;
+}
+
 async function getProductCached(
   storeSlug: string,
   productSlug: string
@@ -107,7 +183,7 @@ function redirectLegacyProductRouteIfCategorized(
 function redirectInvalidVariantSelectionParams(
   storeSlug: string,
   product: Product,
-  searchParams: Awaited<PageProps['searchParams']>
+  searchParams: ResolvedSearchParams
 ) {
   if (!product.variants || product.variants.length === 0) {
     return;
@@ -124,9 +200,11 @@ function redirectInvalidVariantSelectionParams(
     selectionResolution.type === 'invalid_variant_id' ||
     selectionResolution.type === 'zero_match'
   ) {
-    const targetPath = buildProductRedirectPath(
+    const targetPath = buildSelectionSafeRedirectPath(
       storeSlug,
-      getProductUrl(product)
+      product,
+      searchParams,
+      selectionResolution.extracted.recognizedParamKeys
     );
     redirect(targetPath);
   }

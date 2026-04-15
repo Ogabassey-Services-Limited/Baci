@@ -1333,8 +1333,8 @@ export default function ProductEditScreen() {
                       marginBottom: 12,
                     }}
                   >
-                    Leave blank unless this variant needs its own condition
-                    price or stock.
+                    If any variant uses condition-based pricing, all variants
+                    must have a condition; otherwise leave blank.
                   </Text>
 
                   <Text style={[styles.label, { color: colors.textSecondary }]}>

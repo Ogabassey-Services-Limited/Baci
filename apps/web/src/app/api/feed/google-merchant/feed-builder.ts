@@ -33,7 +33,7 @@ export interface FeedProduct {
   stock: number;
   stock_quantity?: number;
   manage_stock?: boolean;
-  condition?: 'new' | 'used' | 'refurbished';
+  condition?: 'new' | 'used' | 'refurbished' | 'uk_used';
   condition_detail?: string;
   variant_model?: 'legacy' | 'sku_matrix';
   google_product_category?: string;
@@ -53,7 +53,7 @@ export interface FeedProduct {
 
 export interface FeedOffer {
   id: string;
-  condition: 'new' | 'used' | 'refurbished' | 'open_box';
+  condition: 'new' | 'used' | 'refurbished' | 'open_box' | 'uk_used';
   price: number;
   stock_quantity: number;
 }
@@ -61,7 +61,7 @@ export interface FeedOffer {
 export interface FeedVariant {
   id: string;
   attributes?: Record<string, string> | null;
-  condition?: 'new' | 'used' | 'refurbished' | 'open_box' | null;
+  condition?: 'new' | 'used' | 'refurbished' | 'open_box' | 'uk_used' | null;
   price_override?: number | null;
   sku?: string | null;
   stock_quantity?: number | null;
@@ -154,7 +154,9 @@ function normalizeCondition(condition?: string | null) {
 function toGmcCondition(condition?: string | null) {
   const normalizedCondition = normalizeCondition(condition);
   const gmcCondition =
-    normalizedCondition === 'open_box' ? 'used' : normalizedCondition;
+    normalizedCondition === 'open_box' || normalizedCondition === 'uk_used'
+      ? 'used'
+      : normalizedCondition;
   return VALID_GMC_CONDITIONS.has(
     gmcCondition as 'new' | 'used' | 'refurbished'
   )
@@ -166,6 +168,7 @@ function formatConditionTitle(condition?: string | null) {
   const normalizedCondition = normalizeCondition(condition);
   switch (normalizedCondition) {
     case 'used':
+    case 'uk_used':
       return 'Used';
     case 'refurbished':
       return 'Refurbished';

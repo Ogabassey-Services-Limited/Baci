@@ -191,7 +191,9 @@ export function StickyAddToCart({
                   type="minus"
                   onClick={() =>
                     updateQuantity(
-                      cartItem.cartItemId ?? product.id,
+                      selectedVariant?.id
+                        ? product.id
+                        : (cartItem.cartItemId ?? product.id),
                       cartItem.quantity - 1,
                       selectedVariant?.id
                     )
@@ -206,7 +208,9 @@ export function StickyAddToCart({
                   type="plus"
                   onClick={() =>
                     updateQuantity(
-                      cartItem.cartItemId ?? product.id,
+                      selectedVariant?.id
+                        ? product.id
+                        : (cartItem.cartItemId ?? product.id),
                       cartItem.quantity + 1,
                       selectedVariant?.id
                     )

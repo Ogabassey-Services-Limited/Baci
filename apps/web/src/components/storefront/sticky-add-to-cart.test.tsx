@@ -190,4 +190,89 @@ describe('StickyAddToCart', () => {
       undefined
     );
   });
+
+  it('updates variant cart entries with product id plus variant id', async () => {
+    const cartItem = {
+      ...makeProduct(),
+      cartItemId: 'product-1::variant=variant-256',
+      variantId: 'variant-256',
+      quantity: 2,
+    } as CartItem;
+    const { useCart } = await import('@/hooks/use-cart');
+    vi.mocked(useCart).mockReturnValue({
+      addToCart: mockAddToCart,
+      applyCartWideNegotiation: vi.fn(),
+      applyNegotiatedPrice: vi.fn(),
+      cart: [cartItem],
+      cartCount: 1,
+      cartTotal: 0,
+      clearCart: vi.fn(),
+      dismissUpsell: vi.fn(),
+      hasSmartCartPro: true,
+      isCartOpen: false,
+      isHydrated: true,
+      lastAddedProduct: null,
+      merchantSlug: null,
+      removeFromCart: vi.fn(),
+      setIsCartOpen: vi.fn(),
+      setMerchantSlug: vi.fn(),
+      showUpsell: false,
+      subtotal: 0,
+      toggleAssurance: vi.fn(),
+      totalItems: 2,
+      updateQuantity: mockUpdateQuantity,
+    });
+
+    render(
+      <StickyAddToCart
+        product={makeProduct()}
+        selectedVariant={{
+          id: 'variant-256',
+          product_id: 'product-1',
+          merchant_id: 'merchant-1',
+          attributes: { storage: '256GB' },
+          price_override: 600000,
+          stock_quantity: 4,
+        }}
+        selectedAttributes={{ storage: '256GB' }}
+        selectedPrice={600000}
+      />
+    );
+
+    fireEvent.scroll(window);
+
+    await waitFor(() => {
+      expect(screen.getByText('2')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'plus' }));
+
+    expect(mockUpdateQuantity).toHaveBeenCalledWith(
+      'product-1',
+      3,
+      'variant-256'
+    );
+  });
+
+  it('does not mutate the cart when the current selection is unavailable', async () => {
+    render(
+      <StickyAddToCart
+        product={{
+          ...makeProduct(),
+          stock: 0,
+        }}
+        selectedCondition="used"
+        selectedPrice={400000}
+      />
+    );
+
+    fireEvent.scroll(window);
+
+    const button = await screen.findByRole('button', { name: 'Out of Stock' });
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+
+    expect(mockAddToCart).not.toHaveBeenCalled();
+    expect(mockUpdateQuantity).not.toHaveBeenCalled();
+  });
 });

@@ -47,16 +47,16 @@ describe('product-variant-model', () => {
     ).toBe('sku_matrix');
   });
 
-  it('prefers the explicit variant_model when provided', () => {
+  it('does not let an explicit legacy model override conditioned variants', () => {
     expect(
       inferProductVariantModel({
         variantModel: 'legacy',
         variants: [{ condition: 'used', price_override: 600000 }],
       })
-    ).toBe('legacy');
+    ).toBe('sku_matrix');
   });
 
-  it('validates sku_matrix condition and price requirements', () => {
+  it('returns null for legacy products without variants', () => {
     expect(
       getSkuMatrixValidationError({
         variantModel: 'legacy',
@@ -64,7 +64,9 @@ describe('product-variant-model', () => {
         variants: [],
       })
     ).toBeNull();
+  });
 
+  it('returns null for a valid sku_matrix product', () => {
     expect(
       getSkuMatrixValidationError({
         variantModel: 'sku_matrix',
@@ -72,7 +74,9 @@ describe('product-variant-model', () => {
         variants: [{ condition: 'used', price_override: 550000 }],
       })
     ).toBeNull();
+  });
 
+  it('requires variants to be enabled for sku_matrix products', () => {
     expect(
       getSkuMatrixValidationError({
         variantModel: 'sku_matrix',
@@ -80,7 +84,9 @@ describe('product-variant-model', () => {
         variants: [],
       })
     ).toBe('sku_matrix products must enable variants.');
+  });
 
+  it('requires every sku_matrix variant to include a condition', () => {
     expect(
       getSkuMatrixValidationError({
         variantModel: 'sku_matrix',
@@ -88,14 +94,18 @@ describe('product-variant-model', () => {
         variants: [{ price_override: 550000 }],
       })
     ).toBe('Every sku_matrix variant must include a condition.');
+  });
 
+  it('requires every sku_matrix variant to include a non-negative price_override when missing', () => {
     expect(
       getSkuMatrixValidationError({
         variantModel: 'sku_matrix',
         hasVariants: true,
         variants: [{ condition: 'used' }],
       })
-    ).toBe('Every sku_matrix variant must include a non-negative price_override.');
+    ).toBe(
+      'Every sku_matrix variant must include a non-negative price_override.'
+    );
 
     expect(
       getSkuMatrixValidationError({
@@ -103,14 +113,20 @@ describe('product-variant-model', () => {
         hasVariants: true,
         variants: [{ condition: 'used', price_override: Number.NaN }],
       })
-    ).toBe('Every sku_matrix variant must include a non-negative price_override.');
+    ).toBe(
+      'Every sku_matrix variant must include a non-negative price_override.'
+    );
+  });
 
+  it('requires every sku_matrix variant to include a non-negative price_override when negative', () => {
     expect(
       getSkuMatrixValidationError({
         variantModel: 'sku_matrix',
         hasVariants: true,
         variants: [{ condition: 'used', price_override: -1 }],
       })
-    ).toBe('Every sku_matrix variant must include a non-negative price_override.');
+    ).toBe(
+      'Every sku_matrix variant must include a non-negative price_override.'
+    );
   });
 });

@@ -19,16 +19,18 @@ export function inferProductVariantModel(options: {
     options.variantModel
   );
 
-  if (options.variantModel != null) {
+  if (explicitVariantModel === 'sku_matrix') {
     return explicitVariantModel;
   }
 
-  return (options.variants || []).some(
+  const inferredVariantModel = (options.variants || []).some(
     (variant) =>
       typeof variant.condition === 'string' && variant.condition.trim() !== ''
   )
     ? 'sku_matrix'
     : 'legacy';
+
+  return inferredVariantModel;
 }
 
 export function getSkuMatrixValidationError(options: {

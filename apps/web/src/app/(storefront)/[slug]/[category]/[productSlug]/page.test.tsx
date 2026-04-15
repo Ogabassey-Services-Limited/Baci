@@ -298,7 +298,7 @@ describe('[category]/[productSlug] page metadata', () => {
       })
     ).rejects.toThrow('NEXT_REDIRECT');
 
-    expect(mockRedirect).toHaveBeenCalledWith(
+    expect(mockPermanentRedirect).toHaveBeenCalledWith(
       '/laptops/hp-laptop-14-ep0063nia'
     );
   });

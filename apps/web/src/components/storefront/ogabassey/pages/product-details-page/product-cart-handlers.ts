@@ -145,7 +145,7 @@ export function createProductCartHandlers({
   };
 
   const handleIncrement = () => {
-    if (currentCartItemId && quantityInCart < 99) {
+    if (canPurchase && currentCartItemId && quantityInCart < 99) {
       updateQuantity(currentCartItemId, quantityInCart + 1);
     }
   };
@@ -163,7 +163,8 @@ export function createProductCartHandlers({
 
   const handleMobileAddToCart = (startRect: DOMRect) => {
     const missing = getMissingFields();
-    if (missing.length === 0) {
+    const canAnimate = missing.length === 0 && canPurchase;
+    if (canAnimate) {
       triggerFlyToCart(startRect);
     }
     validateAndAddToCart(missing);

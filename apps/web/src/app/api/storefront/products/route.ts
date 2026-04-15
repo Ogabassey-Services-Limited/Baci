@@ -85,6 +85,45 @@ const querySchema = z.object({
 
 type ProductFilters = z.infer<typeof querySchema>;
 
+const STOREFRONT_PRODUCTS_SELECT = `
+  id,
+  created_at,
+  name,
+  description,
+  price,
+  compare_at_price,
+  images,
+  image_hint,
+  category,
+  category_id,
+  brand,
+  stock,
+  stock_quantity,
+  slug,
+  status,
+  condition,
+  has_variants,
+  sku,
+  manage_stock,
+  low_stock_threshold,
+  specifications,
+  has_condition_offers,
+  available_conditions,
+  variant_model,
+  offers,
+  colors,
+  color_images,
+  variant_attributes,
+  categories:category_id(id, name, slug),
+  product_categories (
+    categories (
+      id,
+      name,
+      slug
+    )
+  )
+`;
+
 // Factory function that creates a cached function for each merchant + filters combination
 function createCachedProductsFetcher(
   merchantId: string,
@@ -111,18 +150,7 @@ function createCachedProductsFetcher(
 
       let query = supabase
         .from('products')
-        .select(`
-          *,
-          category_id,
-          categories:category_id(id, name, slug),
-          product_categories (
-            categories (
-              id,
-              name,
-              slug
-            )
-          )
-        `)
+        .select(STOREFRONT_PRODUCTS_SELECT)
         .eq('merchant_id', merchantId)
         .eq('status', 'active');
 
@@ -200,18 +228,7 @@ async function fetchProductsByIds(merchantId: string, ids: string[]) {
 
   const { data: products, error } = await supabase
     .from('products')
-    .select(`
-      *,
-      category_id,
-      categories:category_id(id, name, slug),
-      product_categories (
-        categories (
-          id,
-          name,
-          slug
-        )
-      )
-    `)
+    .select(STOREFRONT_PRODUCTS_SELECT)
     .eq('merchant_id', merchantId)
     .in('id', ids);
 
