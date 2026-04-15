@@ -1,4 +1,6 @@
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { render, waitFor } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import type { Product } from '@/types/product';
 import ProductDetailScreen from './[slug]';
 
@@ -10,6 +12,8 @@ const mockUseEffectivePrice = jest.fn();
 const mockUseReviews = jest.fn();
 const mockUseCartStore = jest.fn();
 const mockUseSavedStore = jest.fn();
+const mockStickyBottomActions = jest.fn();
+const mockInsets = { top: 59, bottom: 34, left: 0, right: 0 };
 
 const mockCartStoreState = {
   items: [],
@@ -45,11 +49,13 @@ jest.mock('expo-router', () => ({
   Stack: {
     Screen: () => null,
   },
-  useLocalSearchParams: (...args: unknown[]) => mockUseLocalSearchParams(...args),
+  useLocalSearchParams: (...args: unknown[]) =>
+    mockUseLocalSearchParams(...args),
 }));
 
 jest.mock('react-native-reanimated', () => {
-  const { View, ScrollView } = jest.requireActual('react-native');
+  const { View, ScrollView } =
+    jest.requireActual<typeof import('react-native')>('react-native');
 
   return {
     __esModule: true,
@@ -69,7 +75,7 @@ jest.mock('react-native-reanimated', () => {
 });
 
 jest.mock('react-native-safe-area-context', () => ({
-  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+  useSafeAreaInsets: () => mockInsets,
 }));
 
 jest.mock('@/lib/logger', () => ({
@@ -105,7 +111,10 @@ jest.mock('@/components/product/ProductImageGallery', () => ({
 }));
 
 jest.mock('@/components/product/StickyBottomActions', () => ({
-  StickyBottomActions: () => null,
+  StickyBottomActions: (props: unknown) => {
+    mockStickyBottomActions(props);
+    return null;
+  },
 }));
 
 jest.mock('@/components/useColorScheme', () => ({
@@ -151,6 +160,7 @@ jest.mock('zustand/react/shallow', () => ({
 describe('ProductDetailScreen canonical slug redirect', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockStickyBottomActions.mockClear();
     mockUseLocalSearchParams.mockReturnValue({ slug: 'legacy-iphone-13-pro' });
     mockUseProduct.mockReturnValue({
       product: baseProduct,
@@ -169,9 +179,15 @@ describe('ProductDetailScreen canonical slug redirect', () => {
       hasMore: false,
       loadMore: jest.fn(),
     });
-    mockUseCartStore.mockImplementation((selector) => selector(mockCartStoreState));
-    mockUseSavedStore.mockImplementation((selector) =>
-      selector(mockSavedStoreState)
+    mockUseCartStore.mockImplementation((selector: unknown) =>
+      (selector as (state: typeof mockCartStoreState) => unknown)(
+        mockCartStoreState
+      )
+    );
+    mockUseSavedStore.mockImplementation((selector: unknown) =>
+      (selector as (state: typeof mockSavedStoreState) => unknown)(
+        mockSavedStoreState
+      )
     );
   });
 
@@ -219,7 +235,9 @@ describe('ProductDetailScreen canonical slug redirect', () => {
   });
 
   it('preselects the first advertised storage option when no default variant can be resolved', async () => {
-    mockUseLocalSearchParams.mockReturnValue({ slug: 'galaxy-tab-a11-plus-5g' });
+    mockUseLocalSearchParams.mockReturnValue({
+      slug: 'galaxy-tab-a11-plus-5g',
+    });
     mockUseProduct.mockReturnValue({
       product: {
         ...baseProduct,
@@ -247,7 +265,9 @@ describe('ProductDetailScreen canonical slug redirect', () => {
     });
 
     const lastCall =
-      mockProductDetailsBody.mock.calls[mockProductDetailsBody.mock.calls.length - 1];
+      mockProductDetailsBody.mock.calls[
+        mockProductDetailsBody.mock.calls.length - 1
+      ];
     expect(lastCall?.[0]).toMatchObject({
       selectedColor: 'Gray',
       selectedStorage: '128GB',
@@ -255,7 +275,9 @@ describe('ProductDetailScreen canonical slug redirect', () => {
   });
 
   it('re-syncs selection when variant rows arrive later for the same product id', async () => {
-    mockUseLocalSearchParams.mockReturnValue({ slug: 'samsung-galaxy-s26-ultra' });
+    mockUseLocalSearchParams.mockReturnValue({
+      slug: 'samsung-galaxy-s26-ultra',
+    });
 
     let currentProduct: Product | null = {
       ...baseProduct,
@@ -286,7 +308,9 @@ describe('ProductDetailScreen canonical slug redirect', () => {
     });
 
     const lastCall =
-      mockProductDetailsBody.mock.calls[mockProductDetailsBody.mock.calls.length - 1];
+      mockProductDetailsBody.mock.calls[
+        mockProductDetailsBody.mock.calls.length - 1
+      ];
     expect(lastCall?.[0]).toMatchObject({
       selectedColor: 'Black',
       selectedStorage: '256GB',
@@ -316,12 +340,31 @@ describe('ProductDetailScreen canonical slug redirect', () => {
 
     await waitFor(() => {
       const latestCall =
-        mockProductDetailsBody.mock.calls[mockProductDetailsBody.mock.calls.length - 1];
+        mockProductDetailsBody.mock.calls[
+          mockProductDetailsBody.mock.calls.length - 1
+        ];
       expect(latestCall?.[0]).toMatchObject({
         selectedColor: 'Black',
         selectedStorage: '256GB',
+        selectedVariant: 'variant-256gb',
       });
-      expect(latestCall?.[0]?.selectedVariant).toBe('variant-256gb');
     });
+  });
+
+  it('keeps the product screen inside safe-area bounds and forwards the bottom inset to the sticky cart bar', async () => {
+    const view = render(<ProductDetailScreen />);
+
+    await waitFor(() => {
+      expect(mockStickyBottomActions).toHaveBeenCalledWith(
+        expect.objectContaining({
+          paddingBottom: 34,
+        })
+      );
+    });
+
+    const containerStyle = StyleSheet.flatten(view.toJSON()?.props.style);
+
+    expect(containerStyle?.marginTop).toBeUndefined();
+    expect(containerStyle?.marginBottom).toBeUndefined();
   });
 });
