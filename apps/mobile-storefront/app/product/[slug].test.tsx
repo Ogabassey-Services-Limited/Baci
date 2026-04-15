@@ -534,4 +534,46 @@ describe('ProductDetailScreen canonical slug redirect', () => {
       );
     });
   });
+
+  it('keeps the selected variant purchasable when stock quantity is unknown but in_stock is true', async () => {
+    expect(primaryVariant).toBeDefined();
+    expect(secondaryVariant).toBeDefined();
+
+    mockUseLocalSearchParams.mockReturnValue({
+      slug: 'iphone-13-pro',
+      condition: 'used',
+      connectivity: 'WiFi',
+      storage: '128GB',
+    });
+    mockUseProduct.mockReturnValue({
+      product: {
+        ...variantProduct,
+        variants: [
+          primaryVariant,
+          {
+            ...secondaryVariant,
+            in_stock: true,
+            stock_quantity: undefined,
+          },
+        ],
+      },
+      isLoading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+    mockUseEffectivePrice.mockReturnValue({
+      price: 500000,
+      comparePrice: undefined,
+    });
+
+    render(<ProductDetailScreen />);
+
+    await waitFor(() => {
+      expect(mockStickyBottomActions).toHaveBeenCalledWith(
+        expect.objectContaining({
+          canPurchase: true,
+        })
+      );
+    });
+  });
 });

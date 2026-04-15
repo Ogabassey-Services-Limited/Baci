@@ -649,12 +649,17 @@ export default function ProductDetailScreen() {
           (offer) => offer.condition === selectedCondition
         ) ?? null)
       : null;
+  const selectedVariantCanPurchase =
+    product?.has_variants === true && currentVariantSelection
+      ? product.manage_stock === false
+        ? true
+        : typeof currentVariantSelection.variant.stock_quantity === 'number'
+          ? currentVariantSelection.variant.stock_quantity > quantityInCart
+          : currentVariantSelection.variant.in_stock !== false
+      : false;
   const canPurchase =
     product?.has_variants === true
-      ? Boolean(currentVariantSelection) &&
-        (product.manage_stock === false ||
-          (currentVariantSelection?.variant.stock_quantity ?? 0) >
-            quantityInCart)
+      ? Boolean(currentVariantSelection) && selectedVariantCanPurchase
       : product
         ? product.manage_stock === false ||
           (typeof selectedConditionOffer?.stock_quantity === 'number'
