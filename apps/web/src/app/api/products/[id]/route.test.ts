@@ -708,6 +708,43 @@ describe('PUT /api/products/[id]', () => {
       expect(lastProductUpdatePayload).not.toHaveProperty('variant_model');
     });
 
+    it('syncs variants when the variants payload is provided without has_variants', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Product',
+        slug: 'product',
+        condition: 'new',
+        has_variants: false,
+        variant_model: 'legacy',
+      };
+
+      updateResult = {
+        id: PRODUCT_ID,
+        slug: 'product',
+        name: 'Product',
+      };
+      variantInsertError = { message: 'insert failed' };
+
+      const res = await PUT(
+        makePutRequest(PRODUCT_ID, {
+          variants: [
+            {
+              attributes: { storage: '128GB' },
+              price_override: 7000,
+              stock_quantity: 5,
+            },
+          ],
+        }),
+        {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        }
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(500);
+      expect(json.error).toBe('Failed to create product variants');
+    });
+
     it('does not send migration_status on legacy-variant updates', async () => {
       product = {
         id: PRODUCT_ID,

@@ -541,8 +541,11 @@ export async function PUT(
       hasFreshProductRow = true;
     }
 
+    const shouldSyncVariants =
+      body.variants !== undefined && body.has_variants !== false;
+
     // Handle Variants
-    if (body.has_variants && body.variants) {
+    if (shouldSyncVariants) {
       type RequestVariant = NonNullable<typeof body.variants>[number];
 
       // 1. Get IDs of variants to keep

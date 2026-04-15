@@ -27,11 +27,12 @@ Apply these in this exact order:
 
 1. [20260415103000_add_variant_condition_feed_rpcs.sql](../supabase/migrations/20260415103000_add_variant_condition_feed_rpcs.sql)
 2. [20260415110000_prepare_legacy_products_for_sku_matrix.sql](../supabase/migrations/20260415110000_prepare_legacy_products_for_sku_matrix.sql)
-3. [20260415123000_add_sku_matrix_product_projections.sql](../supabase/migrations/20260415123000_add_sku_matrix_product_projections.sql)
-4. [20260415150000_mark_legacy_sku_matrix_needs_review.sql](../supabase/migrations/20260415150000_mark_legacy_sku_matrix_needs_review.sql)
-5. [20260415191430_dedupe_product_offer_condition_aliases.sql](../supabase/migrations/20260415191430_dedupe_product_offer_condition_aliases.sql)
-6. [20260415191445_dedupe_product_variant_condition_aliases.sql](../supabase/migrations/20260415191445_dedupe_product_variant_condition_aliases.sql)
-7. [20260415191500_canonicalize_product_condition_values.sql](../supabase/migrations/20260415191500_canonicalize_product_condition_values.sql)
+3. [20260415122950_dedupe_product_variant_keys_before_unique_index.sql](../supabase/migrations/20260415122950_dedupe_product_variant_keys_before_unique_index.sql)
+4. [20260415123000_add_sku_matrix_product_projections.sql](../supabase/migrations/20260415123000_add_sku_matrix_product_projections.sql)
+5. [20260415150000_mark_legacy_sku_matrix_needs_review.sql](../supabase/migrations/20260415150000_mark_legacy_sku_matrix_needs_review.sql)
+6. [20260415191430_dedupe_product_offer_condition_aliases.sql](../supabase/migrations/20260415191430_dedupe_product_offer_condition_aliases.sql)
+7. [20260415191445_dedupe_product_variant_condition_aliases.sql](../supabase/migrations/20260415191445_dedupe_product_variant_condition_aliases.sql)
+8. [20260415191500_canonicalize_product_condition_values.sql](../supabase/migrations/20260415191500_canonicalize_product_condition_values.sql)
 
 ## Release Preconditions
 
@@ -195,9 +196,10 @@ If these numbers move slightly before rollout, that is acceptable. The load-bear
 ## Migration Window Steps
 
 1. Confirm the production deployment is ready.
-2. Run the seven migrations in order:
+2. Run the eight migrations in order:
    - `20260415103000_add_variant_condition_feed_rpcs.sql`
    - `20260415110000_prepare_legacy_products_for_sku_matrix.sql`
+   - `20260415122950_dedupe_product_variant_keys_before_unique_index.sql`
    - `20260415123000_add_sku_matrix_product_projections.sql`
    - `20260415150000_mark_legacy_sku_matrix_needs_review.sql`
    - `20260415191430_dedupe_product_offer_condition_aliases.sql`
@@ -361,7 +363,7 @@ This release is not a clean “rollback everything” deployment. Treat it as a 
 This rollout is ready when all are true:
 
 - preflight safety checks pass
-- the seven migrations apply cleanly
+- the eight migrations apply cleanly
 - post-migration verification checks pass
 - web storefront, mobile storefront, web admin, and mobile admin smoke tests pass
 - one flag-on and one flag-off GMC feed merchant behave as expected
