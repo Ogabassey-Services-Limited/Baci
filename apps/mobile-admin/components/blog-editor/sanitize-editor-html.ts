@@ -4,7 +4,8 @@ const BLOCKED_BLOCK_PATTERN =
   /<(script|style|object|embed|applet)[^>]*>[\s\S]*?<\/\1>/gi;
 const EVENT_HANDLER_PATTERN =
   /\s+on[a-z-]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi;
-const URL_ATTRIBUTE_PATTERN = /\s+(href|src)\s*=\s*(["'])(.*?)\2/gi;
+const URL_ATTRIBUTE_PATTERN =
+  /\s+(href|src)\s*=\s*(?:(["'])(.*?)\2|([^\s>]+))/gi;
 const IFRAME_PATTERN =
   /<iframe\b[^>]*\bsrc=(["'])(.*?)\1[^>]*>[\s\S]*?<\/iframe>/gi;
 const REMAINING_IFRAME_PATTERN =
@@ -82,8 +83,13 @@ export function sanitizeEditorHtml(html: string): string {
     .replace(REMAINING_IFRAME_PATTERN, '')
     .replace(
       URL_ATTRIBUTE_PATTERN,
-      (_, attribute: string, __: string, value: string) =>
-        sanitizeUrlAttribute(attribute, value)
+      (
+        _match: string,
+        attribute: string,
+        _quote: string | undefined,
+        quotedValue: string | undefined,
+        unquotedValue: string | undefined
+      ) => sanitizeUrlAttribute(attribute, quotedValue ?? unquotedValue ?? '')
     );
 
   return safeIframes.reduce(

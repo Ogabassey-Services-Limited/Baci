@@ -52,15 +52,7 @@ export default function EditContentScreen() {
 
   useEffect(() => {
     setEditorHtml(createEditorHtml({ colors, content: initialEditorContent }));
-  }, [
-    colors.background,
-    colors.border,
-    colors.card,
-    colors.primary,
-    colors.text,
-    colors.textMuted,
-    initialEditorContent,
-  ]);
+  }, [colors, initialEditorContent]);
 
   if (isLoading) {
     return (
