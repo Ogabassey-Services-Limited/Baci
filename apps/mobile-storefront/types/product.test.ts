@@ -24,6 +24,12 @@ describe('formatProductConditionDisplay', () => {
       'Premium Used 2'
     );
   });
+
+  it('formats multiple_conditions explicitly', () => {
+    expect(formatProductConditionDisplay('multiple_conditions')).toBe(
+      'Multiple Conditions'
+    );
+  });
 });
 
 describe('formatVariantAxisLabel', () => {

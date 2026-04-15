@@ -543,10 +543,12 @@ export async function PUT(
 
     // Handle Variants
     if (body.has_variants && body.variants) {
+      type RequestVariant = NonNullable<typeof body.variants>[number];
+
       // 1. Get IDs of variants to keep
       const variantIdsToKeep = body.variants
-        .filter((v) => v.id)
-        .map((v) => v.id);
+        .filter((v: RequestVariant) => v.id)
+        .map((v: RequestVariant) => v.id);
 
       // 2. Delete variants not in the list
       if (variantIdsToKeep.length > 0) {
@@ -582,7 +584,7 @@ export async function PUT(
       }
 
       // 3. Separate updates and inserts
-      const variantsToUpsert = body.variants.map((v) => ({
+      const variantsToUpsert = body.variants.map((v: RequestVariant) => ({
         id: v.id,
         product_id: id,
         merchant_id: merchantId,
@@ -596,8 +598,12 @@ export async function PUT(
         images: v.images || [],
       }));
 
-      const variantsToUpdate = variantsToUpsert.filter((v) => v.id);
-      const variantsToInsert = variantsToUpsert.filter((v) => !v.id);
+      const variantsToUpdate = variantsToUpsert.filter(
+        (v: (typeof variantsToUpsert)[number]) => v.id
+      );
+      const variantsToInsert = variantsToUpsert.filter(
+        (v: (typeof variantsToUpsert)[number]) => !v.id
+      );
 
       if (variantsToUpdate.length > 0) {
         const { error: updateVarError } = await supabase

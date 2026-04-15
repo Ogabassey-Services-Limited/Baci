@@ -120,7 +120,9 @@ export function ConditionSelector({
   }
 
   const effectiveSelected =
-    selectedCondition ?? baseCondition ?? renderedConditions[0]?.condition;
+    normalizeCondition(selectedCondition ?? undefined) ??
+    baseCondition ??
+    renderedConditions[0]?.condition;
 
   return (
     <View style={styles.container}>

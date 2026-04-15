@@ -64,6 +64,8 @@ export interface FeedVariant {
   id: string;
   attributes?: Record<string, string> | null;
   condition?: 'new' | 'used' | 'refurbished' | 'open_box' | 'uk_used' | null;
+  compare_at_price?: number | null;
+  price?: number | null;
   price_override?: number | null;
   sku?: string | null;
   stock_quantity?: number | null;
@@ -148,7 +150,9 @@ function normalizeCondition(condition?: string | null) {
 
 function toGmcCondition(condition?: string | null) {
   const gmcCondition = toGoogleListingCondition(condition);
-  return VALID_GMC_CONDITIONS.has(gmcCondition) ? gmcCondition : 'new';
+  return gmcCondition && VALID_GMC_CONDITIONS.has(gmcCondition)
+    ? gmcCondition
+    : 'new';
 }
 
 function formatConditionTitle(condition?: string | null) {
@@ -304,6 +308,26 @@ function buildBaseItemXml(args: {
   return `    <item>\n${lines.join('\n')}\n    </item>`;
 }
 
+function buildPriceLines(args: {
+  compareAtPrice?: number | null;
+  currency: string;
+  price: number;
+}) {
+  const formattedPrice = args.price.toFixed(2);
+
+  if (
+    typeof args.compareAtPrice === 'number' &&
+    args.compareAtPrice > args.price
+  ) {
+    return [
+      `        <g:sale_price>${formattedPrice} ${args.currency}</g:sale_price>`,
+      `        <g:price>${args.compareAtPrice.toFixed(2)} ${args.currency}</g:price>`,
+    ];
+  }
+
+  return [`        <g:price>${formattedPrice} ${args.currency}</g:price>`];
+}
+
 /**
  * Generate Google Merchant Center XML feed.
  *
@@ -363,6 +387,10 @@ export function generateGoogleMerchantFeed(
         if (eligibleVariants.length > 0) {
           return eligibleVariants
             .map((variant) => {
+              const effectivePrice =
+                variant.price_override ?? variant.price ?? product.price;
+              const effectiveCompareAtPrice =
+                variant.compare_at_price ?? product.compare_at_price;
               const stockCount = getVariantStockCount(
                 product.manage_stock,
                 variant
@@ -379,7 +407,11 @@ export function generateGoogleMerchantFeed(
                 additionalImagesXml,
                 `        <g:availability>${availability}</g:availability>`,
                 `        <g:quantity>${stockCount}</g:quantity>`,
-                `        <g:price>${(variant.price_override ?? product.price).toFixed(2)} ${currency}</g:price>`,
+                ...buildPriceLines({
+                  compareAtPrice: effectiveCompareAtPrice,
+                  currency,
+                  price: effectivePrice,
+                }),
                 `        <g:brand>${escapeXml(effectiveBrand)}</g:brand>`,
                 `        <g:condition>${toGmcCondition(variant.condition)}</g:condition>`,
                 product.gtin

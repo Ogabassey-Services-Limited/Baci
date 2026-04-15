@@ -4,6 +4,7 @@
 -- Legacy aliases still appear in migrated rows today:
 --   uk_used      -> used
 --   refurbished -> open_box
+-- Unsupported values are cleared to NULL instead of being propagated.
 --
 -- Google-facing feeds and schema keep their own mapping layer. This migration
 -- only fixes the internal catalog truth and rebuilds sku_matrix projections.
@@ -23,7 +24,10 @@ AS $$
   SELECT CASE normalized_value
     WHEN 'uk_used' THEN 'used'
     WHEN 'refurbished' THEN 'open_box'
-    ELSE normalized_value
+    WHEN 'new' THEN 'new'
+    WHEN 'used' THEN 'used'
+    WHEN 'open_box' THEN 'open_box'
+    ELSE NULL
   END
   FROM normalized_input;
 $$;

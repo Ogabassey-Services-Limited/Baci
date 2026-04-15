@@ -193,7 +193,12 @@ If these numbers move slightly before rollout, that is acceptable. The load-bear
 ## Migration Window Steps
 
 1. Confirm the production deployment is ready.
-2. Run the four migrations in order.
+2. Run the five migrations in order:
+   - `20260415103000_add_variant_condition_feed_rpcs.sql`
+   - `20260415110000_prepare_legacy_products_for_sku_matrix.sql`
+   - `20260415123000_add_sku_matrix_product_projections.sql`
+   - `20260415150000_mark_legacy_sku_matrix_needs_review.sql`
+   - `20260415191500_canonicalize_product_condition_values.sql`
 3. Merge/deploy immediately after the last migration succeeds.
 4. Run the post-migration SQL verification below.
 5. Run the app smoke tests below.
@@ -352,7 +357,7 @@ This release is not a clean “rollback everything” deployment. Treat it as a 
 This rollout is ready when all are true:
 
 - preflight safety checks pass
-- the four migrations apply cleanly
+- the five migrations apply cleanly
 - post-migration verification checks pass
 - web storefront, mobile storefront, web admin, and mobile admin smoke tests pass
 - one flag-on and one flag-off GMC feed merchant behave as expected

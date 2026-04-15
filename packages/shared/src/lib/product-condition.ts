@@ -57,17 +57,23 @@ export function formatCanonicalProductConditionLabel(
 
 export function toGoogleListingCondition(
   value: string | null | undefined
-): GoogleListingCondition {
+): GoogleListingCondition | undefined {
   switch (normalizeCanonicalProductCondition(value)) {
+    case 'new':
+      return 'new';
     case 'used':
       return 'used';
     case 'open_box':
       return 'refurbished';
     default:
-      return 'new';
+      return undefined;
   }
 }
 
 export function toSchemaItemConditionUri(value: string | null | undefined) {
-  return SCHEMA_ITEM_CONDITION_URIS[toGoogleListingCondition(value)];
+  const googleListingCondition = toGoogleListingCondition(value);
+
+  return googleListingCondition
+    ? SCHEMA_ITEM_CONDITION_URIS[googleListingCondition]
+    : undefined;
 }

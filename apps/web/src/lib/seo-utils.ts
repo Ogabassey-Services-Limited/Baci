@@ -701,9 +701,6 @@ export function generateProductSchema(
       }
     }
 
-    // Determine item condition from parent product
-    const parentCondition = getSchemaItemCondition(product.condition);
-
     // Shared shipping + return policy for all variant Offers (2026 best practice)
     const variantShippingDetails = {
       '@type': 'OfferShippingDetails',
@@ -750,6 +747,9 @@ export function generateProductSchema(
     // Build hasVariant array — each variant becomes a @type Product
     schema.hasVariant = product.variants.map((variant) => {
       const variantPrice = variant.price_override ?? product.price;
+      const variantCondition = getSchemaItemCondition(
+        variant.condition ?? product.condition
+      );
       const attrValues = variant.attributes
         ? Object.values(variant.attributes).join(' / ')
         : '';
@@ -783,7 +783,7 @@ export function generateProductSchema(
             variant.stock_quantity > 0
               ? 'https://schema.org/InStock'
               : 'https://schema.org/OutOfStock',
-          itemCondition: parentCondition,
+          itemCondition: variantCondition,
           priceValidUntil: variantPriceValidUntil,
           seller: {
             '@type': 'Organization',

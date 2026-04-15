@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeProductCondition } from './types';
+import { normalizeProductCondition } from '@/components/storefront/ogabassey/types';
 
 describe('normalizeProductCondition', () => {
   it('returns canonical values unchanged', () => {

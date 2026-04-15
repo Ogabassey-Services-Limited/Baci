@@ -48,6 +48,11 @@ describe('toGoogleListingCondition', () => {
     expect(toGoogleListingCondition('uk_used')).toBe('used');
     expect(toGoogleListingCondition('refurbished')).toBe('refurbished');
   });
+
+  it('returns undefined for unsupported values', () => {
+    expect(toGoogleListingCondition('premium_used')).toBeUndefined();
+    expect(toGoogleListingCondition(undefined)).toBeUndefined();
+  });
 });
 
 describe('toSchemaItemConditionUri', () => {
@@ -61,5 +66,9 @@ describe('toSchemaItemConditionUri', () => {
     expect(toSchemaItemConditionUri('open_box')).toBe(
       'https://schema.org/RefurbishedCondition'
     );
+  });
+
+  it('returns undefined for unsupported values', () => {
+    expect(toSchemaItemConditionUri('premium_used')).toBeUndefined();
   });
 });

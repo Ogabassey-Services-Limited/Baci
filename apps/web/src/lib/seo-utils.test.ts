@@ -458,6 +458,46 @@ describe('generateProductSchema - condition mapping', () => {
       ).itemCondition
     ).toBe('https://schema.org/RefurbishedCondition');
   });
+
+  it('maps per-variant offer conditions independently inside ProductGroup schema', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        condition: 'new',
+        variants: [
+          {
+            id: 'variant-open-box',
+            product_id: 'test-123',
+            merchant_id: 'm1',
+            condition: 'open_box',
+            attributes: { storage: '128GB' },
+            price_override: 500000,
+            stock_quantity: 3,
+          },
+          {
+            id: 'variant-new',
+            product_id: 'test-123',
+            merchant_id: 'm1',
+            condition: 'new',
+            attributes: { storage: '256GB' },
+            price_override: 650000,
+            stock_quantity: 5,
+          },
+        ],
+      }),
+      'TestStore',
+      'NGN',
+      'NG'
+    );
+
+    const variants = schema.hasVariant as Record<string, unknown>[];
+    const firstOffer = variants[0]?.offers as Record<string, unknown>;
+    const secondOffer = variants[1]?.offers as Record<string, unknown>;
+
+    expect(firstOffer.itemCondition).toBe(
+      'https://schema.org/RefurbishedCondition'
+    );
+    expect(secondOffer.itemCondition).toBe('https://schema.org/NewCondition');
+  });
 });
 
 describe('generateSlug', () => {

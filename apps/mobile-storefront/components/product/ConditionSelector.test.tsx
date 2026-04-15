@@ -127,4 +127,34 @@ describe('ConditionSelector', () => {
       expect.objectContaining({ checked: false })
     );
   });
+
+  it('normalizes aliased selected conditions before computing the checked option', () => {
+    render(
+      <ConditionSelector
+        availableConditions={['used', 'open_box']}
+        currentCondition="Used"
+        offers={[
+          {
+            id: 'offer-used',
+            condition: 'used',
+            price: 480000,
+            stock_quantity: 2,
+          },
+          {
+            id: 'offer-open-box',
+            condition: 'open_box',
+            price: 520000,
+            stock_quantity: 1,
+          },
+        ]}
+        selectedCondition="refurbished"
+        onSelect={noop}
+        basePrice={550000}
+      />
+    );
+
+    expect(screen.getByLabelText(/Open Box/).props.accessibilityState).toEqual(
+      expect.objectContaining({ checked: true })
+    );
+  });
 });
