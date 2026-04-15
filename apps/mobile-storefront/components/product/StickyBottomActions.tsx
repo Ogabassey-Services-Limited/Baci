@@ -29,6 +29,7 @@ export interface StickyBottomActionsProps {
   onIncrement: (event: GestureResponderEvent) => void;
   onAddToCart: (event: GestureResponderEvent) => void;
   colors: ColorsScheme;
+  paddingBottom?: number;
 }
 
 export function StickyBottomActions({
@@ -40,6 +41,7 @@ export function StickyBottomActions({
   onIncrement,
   onAddToCart,
   colors,
+  paddingBottom = 16,
 }: StickyBottomActionsProps) {
   return (
     <View
@@ -48,6 +50,7 @@ export function StickyBottomActions({
         {
           backgroundColor: colors.card,
           borderTopColor: colors.border,
+          paddingBottom,
         },
       ]}
     >
