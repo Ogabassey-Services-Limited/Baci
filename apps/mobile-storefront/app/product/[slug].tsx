@@ -67,7 +67,9 @@ function getFirstColorOption(product: Product | null) {
     return null;
   }
 
-  const imageDrivenColor = Object.keys(product.color_images ?? {}).find(Boolean);
+  const imageDrivenColor = Object.keys(product.color_images ?? {}).find(
+    Boolean
+  );
   if (imageDrivenColor) {
     return imageDrivenColor;
   }
@@ -96,7 +98,9 @@ function getFallbackVariantSelections(product: Product | null) {
           axis !== 'color' && axis !== 'storage' && Array.isArray(values)
       )
       .map(([axis, values]) => [axis, values[0]])
-      .filter((entry): entry is [string, string] => typeof entry[1] === 'string')
+      .filter(
+        (entry): entry is [string, string] => typeof entry[1] === 'string'
+      )
   );
 
   return {
@@ -296,7 +300,9 @@ export default function ProductDetailScreen() {
 
     if (shouldSeedSelection || shouldRepairInvalidSelection) {
       setSelectedVariant(defaultSelection?.variant.id ?? null);
-      setSelectedStorage(defaultSelection?.storage ?? fallbackSelection.storage);
+      setSelectedStorage(
+        defaultSelection?.storage ?? fallbackSelection.storage
+      );
       setSelectedColor(syncedColor);
       setSelectedAttributes(syncedAttributes);
       setColorImages(
@@ -705,8 +711,6 @@ export default function ProductDetailScreen() {
         styles.container,
         {
           backgroundColor: colors.background,
-          marginTop: -insets.top,
-          marginBottom: -insets.bottom,
         },
       ]}
     >
@@ -787,7 +791,7 @@ export default function ProductDetailScreen() {
         showsVerticalScrollIndicator={false}
         contentInsetAdjustmentBehavior="never"
         contentContainerStyle={{
-          paddingBottom: 92,
+          paddingBottom: 92 + insets.bottom,
         }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
@@ -860,6 +864,7 @@ export default function ProductDetailScreen() {
         onIncrement={(e) => handleUpdateQuantity(quantityInCart + 1, e)}
         onAddToCart={(e) => handleAddToCart(e)}
         colors={colors}
+        paddingBottom={Math.max(insets.bottom, 16)}
       />
 
       {/* Fly to Cart Particles */}
@@ -871,7 +876,10 @@ export default function ProductDetailScreen() {
       {showAddedToast && (
         <Animated.View
           entering={FadeIn.duration(300)}
-          style={[styles.toast, { backgroundColor: colors.text }]}
+          style={[
+            styles.toast,
+            { backgroundColor: colors.text, bottom: 110 + insets.bottom },
+          ]}
         >
           <Ionicons name="checkmark-circle" size={20} color={colors.success} />
           <Text style={[styles.toastText, { color: colors.background }]}>
@@ -884,7 +892,10 @@ export default function ProductDetailScreen() {
       {savedToastState.show && (
         <Animated.View
           entering={FadeIn.duration(300)}
-          style={[styles.toast, { backgroundColor: colors.text }]}
+          style={[
+            styles.toast,
+            { backgroundColor: colors.text, bottom: 110 + insets.bottom },
+          ]}
         >
           <Ionicons
             name={savedToastState.type === 'add' ? 'heart' : 'heart-dislike'}
