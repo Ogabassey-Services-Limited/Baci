@@ -38,6 +38,15 @@ describe('sanitize-editor-html', () => {
     );
   });
 
+  it('neutralizes semicolon-less numeric entity schemes in href and src attributes', () => {
+    const dirtyHtml =
+      '<a href="java&#115cript:alert(1)">Click</a><img src="data&#58text/html,alert(1)">';
+
+    expect(sanitizeEditorHtml(dirtyHtml)).toBe(
+      '<a href="#">Click</a><img src="">'
+    );
+  });
+
   it('removes blocked tags and handlers across additional XSS vectors', () => {
     const dirtyHtml =
       '<SVG onload="alert(1)"></SVG><iframe src="javascript:alert(2)"></iframe><p ONFOCUS="alert(3)" onmouseover="alert(4)">Safe text</p><a href="vbscript:msgbox(1)">Link</a>';

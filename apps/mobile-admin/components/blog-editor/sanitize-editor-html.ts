@@ -123,23 +123,33 @@ function buildSafeIframeHtml(match: string, safeSrc: string): string {
 }
 
 function decodeHtmlEntities(value: string): string {
-  return value.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (match, entity: string) => {
-    if (entity.startsWith('#x') || entity.startsWith('#X')) {
-      const codePoint = Number.parseInt(entity.slice(2), 16);
-      return isValidCodePoint(codePoint)
-        ? String.fromCodePoint(codePoint)
-        : match;
-    }
+  return value.replace(
+    /&(#x[0-9a-f]+;?|#[0-9]+;?|[a-z]+;)/gi,
+    (match, entity: string) => {
+      const normalizedEntity = entity.endsWith(';')
+        ? entity.slice(0, -1)
+        : entity;
 
-    if (entity.startsWith('#')) {
-      const codePoint = Number.parseInt(entity.slice(1), 10);
-      return isValidCodePoint(codePoint)
-        ? String.fromCodePoint(codePoint)
-        : match;
-    }
+      if (
+        normalizedEntity.startsWith('#x') ||
+        normalizedEntity.startsWith('#X')
+      ) {
+        const codePoint = Number.parseInt(normalizedEntity.slice(2), 16);
+        return isValidCodePoint(codePoint)
+          ? String.fromCodePoint(codePoint)
+          : match;
+      }
 
-    return HTML_ENTITY_MAP[entity.toLowerCase()] ?? match;
-  });
+      if (normalizedEntity.startsWith('#')) {
+        const codePoint = Number.parseInt(normalizedEntity.slice(1), 10);
+        return isValidCodePoint(codePoint)
+          ? String.fromCodePoint(codePoint)
+          : match;
+      }
+
+      return HTML_ENTITY_MAP[normalizedEntity.toLowerCase()] ?? match;
+    }
+  );
 }
 
 function sanitizeIframeSrc(value: string): string | null {
