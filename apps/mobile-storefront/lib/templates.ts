@@ -15,6 +15,9 @@ export interface MobileTemplateConfig {
   cardVariant: CardVariant;
   spacing: 'compact' | 'relaxed';
   borderRadius: 'none' | 'md' | 'xl' | 'full';
+  features?: {
+    chatWidget?: boolean;
+  };
 }
 
 export const CATEGORY_TEMPLATES: Record<string, MobileTemplateConfig> = {

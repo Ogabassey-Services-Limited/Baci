@@ -4,16 +4,17 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { router, Tabs } from 'expo-router';
+import { Tabs, router } from 'expo-router';
 import type React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useShallow } from 'zustand/react/shallow';
 import { ErrorFallback } from '@/components/ErrorBoundary';
 import { BRAND } from '@/constants/Colors';
-import { useAuthStore } from '@/stores/auth-store';
+import { TAB_BAR_BASE_HEIGHT } from '@/constants/layout';
 import { useCartStore } from '@/stores/cart-store';
 import { useSavedStore } from '@/stores/saved-store';
+import { useAuthStore } from '@/stores/auth-store';
+import { useShallow } from 'zustand/react/shallow';
 
 export function ErrorBoundary({
   error,
@@ -90,14 +91,14 @@ export default function TabLayout() {
           backgroundColor: '#0F0F0F', // Matching web bg
           borderTopWidth: 1,
           borderTopColor: 'rgba(255, 255, 255, 0.08)',
-          height: 49 + insets.bottom,
+          height: TAB_BAR_BASE_HEIGHT + insets.bottom,
           paddingBottom: Math.max(insets.bottom - 4, 8),
           paddingTop: 6,
           elevation: 0,
           shadowOpacity: 0,
         },
         tabBarItemStyle: {
-          height: 49,
+          height: TAB_BAR_BASE_HEIGHT,
         },
         headerStyle: {
           backgroundColor: '#000000',
