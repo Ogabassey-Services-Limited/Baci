@@ -25,6 +25,24 @@ interface UseBlogEditorOptions {
   webViewRef: RefObject<WebView | null>;
 }
 
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    typeof error.message === 'string' &&
+    error.message.trim()
+  ) {
+    return error.message;
+  }
+
+  return fallback;
+}
+
 function normalizeSafeLinkUrl(value: string): string | null {
   const trimmedValue = value.trim();
 
@@ -96,7 +114,7 @@ export function useBlogEditor({ id, webViewRef }: UseBlogEditorOptions) {
     try {
       editorWebView.injectJavaScript(buildSaveRequestScript());
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
+      const message = getErrorMessage(error, 'Unknown error');
       Alert.alert('Error', message);
       setIsSaveRequested(false);
     }
@@ -144,7 +162,7 @@ export function useBlogEditor({ id, webViewRef }: UseBlogEditorOptions) {
       setAiInstruction('');
     } catch (error: unknown) {
       console.error(error);
-      Alert.alert('AI Error', (error as Error).message);
+      Alert.alert('AI Error', getErrorMessage(error, 'Unknown error'));
     } finally {
       setIsAIProcessing(false);
     }
@@ -161,8 +179,7 @@ export function useBlogEditor({ id, webViewRef }: UseBlogEditorOptions) {
       case 'save':
         setIsSaveRequested(false);
         void saveContent(message.content).catch((error: unknown) => {
-          const errorMessage =
-            error instanceof Error ? error.message : 'Unknown error';
+          const errorMessage = getErrorMessage(error, 'Unknown error');
           Alert.alert('Error', errorMessage);
         });
         break;
@@ -312,8 +329,7 @@ export function useBlogEditor({ id, webViewRef }: UseBlogEditorOptions) {
         editorWebView.injectJavaScript(buildAiRequestScript());
       } catch (error: unknown) {
         setIsAIProcessing(false);
-        const message =
-          error instanceof Error ? error.message : 'Unknown error';
+        const message = getErrorMessage(error, 'Unknown error');
         Alert.alert('Error', message);
       }
     },

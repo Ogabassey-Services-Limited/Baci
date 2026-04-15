@@ -9,6 +9,24 @@ interface UseBlogEditorDataOptions {
   postId: string | null;
 }
 
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    typeof error.message === 'string' &&
+    error.message.trim()
+  ) {
+    return error.message;
+  }
+
+  return fallback;
+}
+
 export function useBlogEditorData({
   isMerchantLoading,
   merchantId,
@@ -86,9 +104,7 @@ export function useBlogEditorData({
         if (!isActive) {
           return;
         }
-        setErrorMessage(
-          error instanceof Error ? error.message : 'Failed to load content'
-        );
+        setErrorMessage(getErrorMessage(error, 'Failed to load content'));
       } finally {
         if (isActive) {
           setIsLoading(false);
@@ -136,8 +152,7 @@ export function useBlogEditorData({
       setInitialEditorContent(sanitizedHtml);
       onSaveSuccess?.();
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Failed to save content';
+      const message = getErrorMessage(error, 'Failed to save content');
       setSaveErrorMessage(message);
       throw error;
     } finally {

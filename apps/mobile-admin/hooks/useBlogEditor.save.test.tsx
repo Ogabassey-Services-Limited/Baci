@@ -81,6 +81,45 @@ describe('useBlogEditor save flows', () => {
     expect(mocks.back).not.toHaveBeenCalled();
   });
 
+  it('preserves plain-object Supabase save errors in the alert message', async () => {
+    mocks.updateSingle.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'row update blocked by policy' },
+    });
+
+    const { result } = renderHook(() =>
+      useBlogEditor({ id: 'post-1', webViewRef: createWebViewRef() })
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    act(() => {
+      result.current.onWebViewMessage({
+        nativeEvent: {
+          data: JSON.stringify({
+            type: 'save',
+            content: '<p>Hello</p>',
+          }),
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(mocks.alert).toHaveBeenCalledWith(
+        'Error',
+        'row update blocked by policy'
+      );
+    });
+
+    expect(result.current.errorMessage).toBeNull();
+    expect(result.current.saveErrorMessage).toBe(
+      'row update blocked by policy'
+    );
+    expect(mocks.back).not.toHaveBeenCalled();
+  });
+
   it('aborts save when the editor bridge reports a missing editor element', async () => {
     const { result } = renderHook(() =>
       useBlogEditor({ id: 'post-1', webViewRef: createWebViewRef() })
