@@ -552,7 +552,7 @@ describe('generateGoogleMerchantFeed — multi-condition offers', () => {
     );
   });
 
-  it('maps open_box condition to "used" in GMC output', () => {
+  it('maps open_box condition to "refurbished" in GMC output', () => {
     const xml = generateGoogleMerchantFeed(
       [
         product({
@@ -573,10 +573,10 @@ describe('generateGoogleMerchantFeed — multi-condition offers', () => {
     );
     // The link should still use the original condition value
     expect(xml).toContain('?condition=open_box</g:link>');
-    // But the GMC condition element should be "used"
-    // Count occurrences: base item has "new", offer item has "used"
-    const usedMatches = xml.match(/<g:condition>used<\/g:condition>/g) || [];
-    expect(usedMatches.length).toBe(1);
+    // But the GMC condition element should be "refurbished"
+    const refurbishedMatches =
+      xml.match(/<g:condition>refurbished<\/g:condition>/g) || [];
+    expect(refurbishedMatches.length).toBe(1);
     // No "open_box" in any g:condition element
     expect(xml).not.toContain('<g:condition>open_box</g:condition>');
   });
@@ -658,7 +658,7 @@ describe('generateGoogleMerchantFeed — conditioned variants', () => {
     );
   });
 
-  it('normalizes open_box feed conditions to used for GMC output', () => {
+  it('normalizes open_box feed conditions to refurbished for GMC output', () => {
     const xml = generateGoogleMerchantFeed(
       [
         product({
@@ -680,7 +680,7 @@ describe('generateGoogleMerchantFeed — conditioned variants', () => {
       defaultManifest
     );
 
-    expect(xml).toContain('<g:condition>used</g:condition>');
+    expect(xml).toContain('<g:condition>refurbished</g:condition>');
     expect(xml).not.toContain('<g:condition>open_box</g:condition>');
   });
 

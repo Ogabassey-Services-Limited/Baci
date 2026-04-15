@@ -6,7 +6,8 @@ describe('normalizeProductCondition', () => {
     expect(normalizeProductCondition('new')).toBe('new');
     expect(normalizeProductCondition('used')).toBe('used');
     expect(normalizeProductCondition('open_box')).toBe('open_box');
-    expect(normalizeProductCondition('refurbished')).toBe('refurbished');
+    expect(normalizeProductCondition('refurbished')).toBe('open_box');
+    expect(normalizeProductCondition('uk_used')).toBe('used');
   });
 
   it('trims, lowercases, and normalizes separators', () => {

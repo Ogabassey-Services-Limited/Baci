@@ -417,6 +417,49 @@ describe('generateCollectionPageSchema', () => {
   });
 });
 
+describe('generateProductSchema - condition mapping', () => {
+  it('maps open_box product conditions to RefurbishedCondition', () => {
+    const schema = generateProductSchema(
+      makeProduct({ condition: 'open_box' }),
+      'TestStore',
+      'NGN',
+      'NG'
+    );
+
+    expect((schema.offers as Record<string, unknown>).itemCondition).toBe(
+      'https://schema.org/RefurbishedCondition'
+    );
+  });
+
+  it('maps open_box offer conditions to RefurbishedCondition', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        has_condition_offers: true,
+        offers: [
+          {
+            id: 'offer-open-box',
+            condition: 'open_box',
+            price: 500000,
+            stock_quantity: 3,
+          },
+        ],
+      }),
+      'TestStore',
+      'NGN',
+      'NG'
+    );
+
+    expect(
+      (
+        (schema.offers as Record<string, unknown>[])[0] as Record<
+          string,
+          unknown
+        >
+      ).itemCondition
+    ).toBe('https://schema.org/RefurbishedCondition');
+  });
+});
+
 describe('generateSlug', () => {
   it('should convert a simple string to a slug', () => {
     expect(generateSlug('Hello World')).toBe('hello-world');

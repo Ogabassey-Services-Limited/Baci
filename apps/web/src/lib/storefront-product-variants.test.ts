@@ -98,7 +98,8 @@ describe('normalizeStorefrontProductVariants', () => {
   it.each([
     ['new', 'new'],
     ['used', 'used'],
-    ['refurbished', 'refurbished'],
+    ['refurbished', 'open_box'],
+    ['uk_used', 'used'],
     [undefined, undefined],
     ['unexpected', undefined],
   ] as const)('normalizes condition %s to %s', (inputCondition, expectedCondition) => {

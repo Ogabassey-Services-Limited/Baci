@@ -1,16 +1,21 @@
+import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
 import type { ProductCondition, ProductVariant } from '@/lib/products';
 
-const ALLOWED_PRODUCT_CONDITIONS = [
-  'new',
-  'used',
-  'open_box',
-  'refurbished',
-] as const satisfies readonly ProductCondition[];
+const ALLOWED_PRODUCT_CONDITIONS = ['new', 'used', 'open_box'] as const;
 
 function isAllowedProductCondition(
   condition: string | null | undefined
 ): condition is ProductCondition {
-  return ALLOWED_PRODUCT_CONDITIONS.includes(condition as ProductCondition);
+  return ALLOWED_PRODUCT_CONDITIONS.includes(
+    normalizeCanonicalProductCondition(
+      condition
+    ) as (typeof ALLOWED_PRODUCT_CONDITIONS)[number]
+  );
+}
+
+function normalizeStorefrontCondition(condition: string | null | undefined) {
+  const normalized = normalizeCanonicalProductCondition(condition);
+  return isAllowedProductCondition(normalized) ? normalized : undefined;
 }
 
 interface StorefrontVariantRecord {
@@ -83,9 +88,7 @@ export function normalizeStorefrontProductVariants(
     id: variant.id,
     product_id: variant.product_id || options.productId,
     merchant_id: variant.merchant_id || options.merchantId,
-    condition: isAllowedProductCondition(variant.condition)
-      ? variant.condition
-      : undefined,
+    condition: normalizeStorefrontCondition(variant.condition),
     attributes: normalizeVariantAttributes(variant.attributes),
     price_override: normalizeOptionalNumber(variant.price_override),
     stock_quantity:

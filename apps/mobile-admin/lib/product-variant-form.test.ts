@@ -50,7 +50,7 @@ describe('product-variant-form', () => {
     ]);
   });
 
-  it('preserves normalized migrated variant conditions when building editable form values', () => {
+  it('canonicalizes migrated variant conditions when building editable form values', () => {
     const variants = buildVariantFormValues(
       [
         {
@@ -72,7 +72,7 @@ describe('product-variant-form', () => {
       { costPrice: 700000, price: 850000 }
     );
 
-    expect(variants[0]?.condition).toBe('uk_used');
+    expect(variants[0]?.condition).toBe('used');
   });
 
   it('builds parent variant attribute summaries with unique values', () => {

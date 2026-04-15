@@ -4,6 +4,8 @@ import type React from 'react';
 /**
  * Product condition enum - shared across the application
  */
+import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
+
 export type ProductCondition = 'new' | 'used' | 'open_box' | 'refurbished';
 
 /**
@@ -116,17 +118,7 @@ export function normalizeProductCondition(
     return undefined;
   }
 
-  const normalized = condition.trim().toLowerCase().replace(/[\s-]+/g, '_');
-
-  switch (normalized) {
-    case 'new':
-    case 'used':
-    case 'open_box':
-    case 'refurbished':
-      return normalized;
-    default:
-      return undefined;
-  }
+  return normalizeCanonicalProductCondition(condition) || undefined;
 }
 
 export interface ProductVariant {

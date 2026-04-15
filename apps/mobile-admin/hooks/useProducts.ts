@@ -474,11 +474,20 @@ export function useUpdateProduct() {
       // 1. Validate & Transform (Client-side validation)
       // We perform the parse here to ensure the data matches our schema before transform
       const dbPayload = ProductDbSchema.parse(updates);
-      const { variants, ...productPayload } = dbPayload;
-      const variantModel = inferProductVariantModel({
-        variantModel: productPayload.variant_model,
+      const {
         variants,
-      });
+        variant_model: persistedVariantModel,
+        migration_status: _migrationStatus,
+        ...productPayload
+      } = dbPayload;
+      const variantsForSync = productPayload.has_variants ? variants : [];
+      const variantModel =
+        productPayload.has_variants === false
+          ? normalizeProductVariantModel(persistedVariantModel)
+          : inferProductVariantModel({
+              variantModel: persistedVariantModel,
+              variants: variantsForSync,
+            });
 
       await assertNoDuplicateProduct({
         merchantId: merchant.id,
@@ -490,10 +499,6 @@ export function useUpdateProduct() {
         .from('products')
         .update({
           ...productPayload,
-          ...(variantModel === 'sku_matrix'
-            ? { migration_status: 'migrated' as const }
-            : {}),
-          variant_model: variantModel,
           updated_at: new Date().toISOString(),
         })
         .eq('id', id)
@@ -512,10 +517,28 @@ export function useUpdateProduct() {
         hasVariants: productPayload.has_variants,
         merchantId: merchant.id,
         productId: id,
-        variants,
+        variants: variantsForSync,
       });
 
-      return normalizeProductInventory(data);
+      const { data: rolloutProduct, error: rolloutError } = await supabase
+        .from('products')
+        .update({
+          variant_model: variantModel,
+          ...(variantModel === 'sku_matrix'
+            ? { migration_status: 'migrated' as const }
+            : {}),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .eq('merchant_id', merchant.id)
+        .select(PRODUCT_COLUMNS)
+        .single();
+
+      if (rolloutError) {
+        throw new Error(rolloutError.message);
+      }
+
+      return normalizeProductInventory(rolloutProduct ?? data);
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['product', data.id] });
@@ -535,11 +558,20 @@ export function useCreateProduct() {
 
       // 1. Validate & Transform
       const dbPayload = ProductDbSchema.parse(newProduct);
-      const { variants, ...productPayload } = dbPayload;
-      const variantModel = inferProductVariantModel({
-        variantModel: productPayload.variant_model,
+      const {
         variants,
-      });
+        variant_model: persistedVariantModel,
+        migration_status: _migrationStatus,
+        ...productPayload
+      } = dbPayload;
+      const variantsForSync = productPayload.has_variants ? variants : [];
+      const variantModel =
+        productPayload.has_variants === false
+          ? normalizeProductVariantModel(persistedVariantModel)
+          : inferProductVariantModel({
+              variantModel: persistedVariantModel,
+              variants: variantsForSync,
+            });
 
       await assertNoDuplicateProduct({
         merchantId: merchant.id,
@@ -551,10 +583,7 @@ export function useCreateProduct() {
         .insert([
           {
             ...productPayload,
-            migration_status:
-              variantModel === 'sku_matrix' ? 'migrated' : 'pending',
             merchant_id: merchant.id,
-            variant_model: variantModel,
           },
         ])
         .select(PRODUCT_COLUMNS)
@@ -572,8 +601,28 @@ export function useCreateProduct() {
           hasVariants: productPayload.has_variants,
           merchantId: merchant.id,
           productId: data.id,
-          variants,
+          variants: variantsForSync,
         });
+
+        const { data: rolloutProduct, error: rolloutError } = await supabase
+          .from('products')
+          .update({
+            variant_model: variantModel,
+            ...(variantModel === 'sku_matrix'
+              ? { migration_status: 'migrated' as const }
+              : {}),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', data.id)
+          .eq('merchant_id', merchant.id)
+          .select(PRODUCT_COLUMNS)
+          .single();
+
+        if (rolloutError) {
+          throw new Error(rolloutError.message);
+        }
+
+        return normalizeProductInventory(rolloutProduct ?? data);
       } catch (variantError) {
         await supabase
           .from('products')
@@ -583,8 +632,6 @@ export function useCreateProduct() {
 
         throw variantError;
       }
-
-      return normalizeProductInventory(data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });

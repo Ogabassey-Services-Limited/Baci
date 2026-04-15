@@ -1,3 +1,4 @@
+import { normalizeCanonicalProductCondition } from './product-condition';
 import type {
   ProductDefaultVariantLike,
   ProductWithDefaultVariantLike,
@@ -76,16 +77,7 @@ function normalizeParamValue(value: SearchParamValue) {
 }
 
 function normalizeConditionValue(value: string | null | undefined) {
-  if (typeof value !== 'string') {
-    return undefined;
-  }
-
-  const normalized = value
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, '_');
-
-  return normalized || undefined;
+  return normalizeCanonicalProductCondition(value) || undefined;
 }
 
 function toSearchParamEntries(searchParams: SearchParamSource) {

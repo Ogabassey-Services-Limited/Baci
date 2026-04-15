@@ -28,7 +28,6 @@ import { ExistingProductSuggestions } from '@/components/product/ExistingProduct
 import { InvalidRouteScreen } from '@/components/ui/InvalidRouteScreen';
 import { KeyboardAwareModalContainer } from '@/components/ui/KeyboardAwareModalContainer';
 import SafeImage from '@/components/ui/SafeImage';
-import { RADIUS, SPACING } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useProductNameSuggestions } from '@/hooks/useProductNameSuggestions';
 import {
@@ -42,6 +41,7 @@ import {
 import { useTheme } from '@/hooks/useTheme';
 import { formatVariantAttributesSummary } from '@/lib/format-variant-attributes';
 import {
+  type EditableProductCondition,
   EDITABLE_PRODUCT_CONDITIONS,
   formatProductCondition,
 } from '@/lib/product-condition';
@@ -56,6 +56,7 @@ import {
 import { runSingleFlight } from '@/lib/single-flight';
 import { supabase } from '@/lib/supabase';
 import { stripHtmlTags } from '@/lib/utils';
+import { VariantConditionEditor } from './VariantConditionEditor';
 
 // Route param validation - accepts UUID or 'new' for creating new products
 const routeParamsSchema = z.object({
@@ -524,7 +525,10 @@ export default function ProductEditScreen() {
     setFormData({ ...formData, variants: nextVariants });
   };
 
-  const updateVariantCondition = (index: number, condition?: string) => {
+  const updateVariantCondition = (
+    index: number,
+    condition?: EditableProductCondition
+  ) => {
     updateVariant(index, { condition });
   };
 
@@ -1144,8 +1148,7 @@ export default function ProductEditScreen() {
                 }}
               >
                 Condition is now part of the variant identity. Every variant row
-                needs a condition when you price by new, used, open box, or
-                refurbished.
+                needs a condition when you price by new, used, or open box.
               </Text>
             ) : null}
 
@@ -1256,103 +1259,14 @@ export default function ProductEditScreen() {
                     </Pressable>
                   </View>
 
-                  <Text style={[styles.label, { color: colors.textSecondary }]}>
-                    Condition
-                  </Text>
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      flexWrap: 'wrap',
-                      gap: SPACING.sm,
-                      marginBottom: SPACING.xs,
-                    }}
-                  >
-                    {EDITABLE_PRODUCT_CONDITIONS.map((conditionOption) => {
-                      const isSelected = variant.condition === conditionOption;
-
-                      return (
-                        <Pressable
-                          key={conditionOption}
-                          onPress={() =>
-                            updateVariantCondition(
-                              variantIndex,
-                              conditionOption
-                            )
-                          }
-                          accessibilityRole="radio"
-                          accessibilityLabel={`${formatProductCondition(conditionOption)} condition`}
-                          accessibilityState={{ selected: isSelected }}
-                          style={{
-                            backgroundColor: isSelected
-                              ? colors.primary
-                              : colors.card,
-                            borderColor: isSelected
-                              ? colors.primary
-                              : colors.border,
-                            borderRadius: RADIUS.full,
-                            borderWidth: 1,
-                            paddingHorizontal: SPACING.md,
-                            paddingVertical: SPACING.sm,
-                          }}
-                        >
-                          <Text
-                            style={{
-                              color: isSelected
-                                ? colors.textOnPrimary
-                                : colors.text,
-                              fontSize: 13,
-                              fontWeight: '600',
-                            }}
-                          >
-                            {formatProductCondition(conditionOption)}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                    {variant.condition ? (
-                      <Pressable
-                        onPress={() =>
-                          updateVariantCondition(variantIndex, undefined)
-                        }
-                        hitSlop={{
-                          top: 10,
-                          bottom: 10,
-                          left: 10,
-                          right: 10,
-                        }}
-                        accessibilityRole="button"
-                        accessibilityLabel="Clear selected condition"
-                        style={{
-                          backgroundColor: colors.card,
-                          borderColor: colors.border,
-                          borderRadius: RADIUS.full,
-                          borderWidth: 1,
-                          paddingHorizontal: SPACING.md,
-                          paddingVertical: SPACING.sm,
-                        }}
-                      >
-                        <Text
-                          style={{
-                            color: colors.textSecondary,
-                            fontSize: 13,
-                            fontWeight: '600',
-                          }}
-                        >
-                          Clear
-                        </Text>
-                      </Pressable>
-                    ) : null}
-                  </View>
-                  <Text
-                    style={{
-                      color: colors.textSecondary,
-                      fontSize: 12,
-                      marginBottom: 12,
-                    }}
-                  >
-                    If any variant uses condition-based pricing, all variants
-                    must have a condition; otherwise leave blank.
-                  </Text>
+                  <VariantConditionEditor
+                    colors={colors}
+                    conditionOptions={EDITABLE_PRODUCT_CONDITIONS}
+                    formatConditionLabel={formatProductCondition}
+                    updateVariantCondition={updateVariantCondition}
+                    variant={variant}
+                    variantIndex={variantIndex}
+                  />
 
                   <Text style={[styles.label, { color: colors.textSecondary }]}>
                     Variant SKU

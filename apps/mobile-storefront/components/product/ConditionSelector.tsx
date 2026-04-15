@@ -4,6 +4,10 @@
  * Updates pricing based on selected condition offer
  */
 
+import {
+  type CanonicalProductCondition,
+  normalizeCanonicalProductCondition,
+} from '@baci/shared/lib';
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -25,7 +29,7 @@ interface ConditionSelectorProps {
 }
 
 const CONDITION_CONFIG: Record<
-  ProductCondition,
+  CanonicalProductCondition,
   { icon: string; color: string; description: string }
 > = {
   new: {
@@ -38,20 +42,10 @@ const CONDITION_CONFIG: Record<
     color: '#F59E0B',
     description: 'Pre-owned, tested',
   },
-  uk_used: {
-    icon: 'airplane',
-    color: '#3B82F6',
-    description: 'Imported, pre-owned',
-  },
   open_box: {
     icon: 'cube-outline',
     color: '#8B5CF6',
-    description: 'Opened, never used',
-  },
-  refurbished: {
-    icon: 'construct',
-    color: '#06B6D4',
-    description: 'Restored to like-new',
+    description: 'Certified open-box stock',
   },
 };
 
@@ -76,22 +70,16 @@ export function ConditionSelector({
   // Normalize current condition to match our condition type
   const normalizeCondition = (
     cond: string | undefined
-  ): ProductCondition | null => {
-    if (!cond) return null;
-    const lower = cond.toLowerCase().replace(/\s+/g, '_');
-    if (lower.includes('uk')) return 'uk_used';
-    if (lower.includes('refurb')) return 'refurbished';
-    if (lower.includes('open')) return 'open_box';
-    if (lower.includes('used')) return 'used';
-    if (lower === 'new') return 'new';
-    return null;
+  ): CanonicalProductCondition | null => {
+    const normalized = normalizeCanonicalProductCondition(cond);
+    return normalized || null;
   };
 
   const baseCondition = normalizeCondition(currentCondition);
 
   // Build available conditions from explicit list + offers + base condition
   const renderedConditions: Array<{
-    condition: ProductCondition;
+    condition: CanonicalProductCondition;
     price: number;
     comparePrice?: number;
     stock?: number;
@@ -102,15 +90,20 @@ export function ConditionSelector({
   const conditionList = Array.from(
     new Set([
       ...(baseCondition ? [baseCondition] : []),
-      ...(availableConditions ?? []),
-      ...offers.map((offer) => offer.condition),
+      ...(availableConditions ?? []).map((condition) =>
+        normalizeCondition(condition)
+      ),
+      ...offers.map((offer) => normalizeCondition(offer.condition)),
     ])
   ).filter(
-    (condition): condition is ProductCondition => condition in CONDITION_CONFIG
+    (condition): condition is CanonicalProductCondition =>
+      condition !== null && condition in CONDITION_CONFIG
   );
 
   for (const condition of conditionList) {
-    const offer = offers.find((candidate) => candidate.condition === condition);
+    const offer = offers.find(
+      (candidate) => normalizeCondition(candidate.condition) === condition
+    );
     renderedConditions.push({
       condition,
       price: offer?.price ?? basePrice,

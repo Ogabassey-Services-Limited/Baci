@@ -1,17 +1,18 @@
-export type ConditionType = 'new' | 'used' | 'open_box' | 'refurbished';
+import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
+
+export type ConditionType = 'new' | 'used' | 'open_box';
 
 const CONDITION_LABELS: Record<ConditionType, string> = {
   new: 'New',
   used: 'Premium Used',
   open_box: 'Open Box',
-  refurbished: 'Refurbished',
 };
 const CONDITION_VALUES = Object.keys(CONDITION_LABELS) as ConditionType[];
 
 export function normalizeConditionType(
   condition?: string | null
 ): ConditionType {
-  const normalized = condition?.toLowerCase().trim().replace(/[\s-]+/g, '_');
+  const normalized = normalizeCanonicalProductCondition(condition);
 
   if (isConditionType(normalized)) {
     return normalized;

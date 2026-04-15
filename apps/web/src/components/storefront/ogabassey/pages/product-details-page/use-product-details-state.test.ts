@@ -127,6 +127,58 @@ describe('useProductDetailsState', () => {
     );
   });
 
+  it('surfaces share failures without emitting a success toast', async () => {
+    mockShareProductLink.mockRejectedValueOnce(new Error('share failed'));
+
+    const { result } = renderHook(() => useProductDetailsState(baseProduct));
+
+    await expect(result.current.handleShare()).rejects.toThrow('share failed');
+    expect(mockToast).not.toHaveBeenCalled();
+  });
+
+  it('lets live selection move away from the seeded route variant', () => {
+    mockUseSearchParams.mockReturnValue(
+      new URLSearchParams('variantId=variant-new')
+    );
+
+    const { result } = renderHook(() =>
+      useProductDetailsState({
+        ...baseProduct,
+        variant_attributes: {
+          storage: ['128GB'],
+        },
+        variants: [
+          {
+            id: 'variant-new',
+            condition: 'new',
+            attributes: { storage: '128GB' },
+            price_override: 5000,
+            stock_quantity: 4,
+          },
+          {
+            id: 'variant-used',
+            condition: 'used',
+            attributes: { storage: '128GB' },
+            price_override: 4200,
+            stock_quantity: 2,
+          },
+        ],
+      } as Product)
+    );
+
+    expect(result.current.currentVariantDisplaySelection?.variant.id).toBe(
+      'variant-new'
+    );
+
+    act(() => {
+      result.current.setSelectedCondition('used');
+    });
+
+    expect(result.current.currentVariantDisplaySelection?.variant.id).toBe(
+      'variant-used'
+    );
+  });
+
   it('reopens selection before applying a negotiated price when choices are missing', () => {
     const { result } = renderHook(() => useProductDetailsState(baseProduct));
 

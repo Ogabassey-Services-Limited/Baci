@@ -13,6 +13,7 @@ import {
   sanitizeLookupLogValue,
 } from '@/lib/cached-data';
 import type { Product } from '@/lib/products';
+import { asRoute } from '@/lib/routes';
 import { escapeHtml } from '@/lib/sanitize-core';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
@@ -206,7 +207,7 @@ function redirectInvalidVariantSelectionParams(
       searchParams,
       selectionResolution.extracted.recognizedParamKeys
     );
-    redirect(targetPath);
+    redirect(asRoute(targetPath));
   }
 }
 

@@ -9,11 +9,11 @@ describe('isConditionType', () => {
     expect(isConditionType('new')).toBe(true);
     expect(isConditionType('used')).toBe(true);
     expect(isConditionType('open_box')).toBe(true);
-    expect(isConditionType('refurbished')).toBe(true);
   });
 
   it('returns false for unsupported or empty values', () => {
     expect(isConditionType('open-box')).toBe(false);
+    expect(isConditionType('refurbished')).toBe(false);
     expect(isConditionType('unknown')).toBe(false);
     expect(isConditionType(null)).toBe(false);
     expect(isConditionType(undefined)).toBe(false);
@@ -25,7 +25,8 @@ describe('normalizeConditionType', () => {
     expect(normalizeConditionType('new')).toBe('new');
     expect(normalizeConditionType('used')).toBe('used');
     expect(normalizeConditionType('open_box')).toBe('open_box');
-    expect(normalizeConditionType('refurbished')).toBe('refurbished');
+    expect(normalizeConditionType('refurbished')).toBe('open_box');
+    expect(normalizeConditionType('uk_used')).toBe('used');
   });
 
   it('normalizes hyphens, spaces, and casing for open_box', () => {

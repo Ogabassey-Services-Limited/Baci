@@ -1,3 +1,5 @@
+import { normalizeCanonicalProductCondition } from './product-condition';
+
 export interface ProductDefaultVariantLike {
   id: string;
   attributes?: Record<string, string> | null;
@@ -37,22 +39,10 @@ interface VariantCandidate<TVariant extends ProductDefaultVariantLike> {
   variant: TVariant;
 }
 
-const DEFAULT_CONDITION_ORDER = [
-  'new',
-  'open_box',
-  'refurbished',
-  'used',
-] as const;
+const DEFAULT_CONDITION_ORDER = ['new', 'open_box', 'used'] as const;
 
 function normalizeConditionValue(value: string | null | undefined) {
-  if (typeof value !== 'string') {
-    return '';
-  }
-
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, '_');
+  return normalizeCanonicalProductCondition(value);
 }
 
 function normalizeAttributeValue(value: string | null | undefined) {

@@ -1,3 +1,4 @@
+import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
 import { createClient as createStaticClient } from '@supabase/supabase-js';
 import { unstable_cache } from 'next/cache';
 import { cookies } from 'next/headers';
@@ -69,12 +70,27 @@ function mapProduct(p: Record<string, unknown>) {
   };
 }
 
+const storefrontConditionFilterSchema = z.preprocess(
+  (value) => {
+    if (typeof value !== 'string') {
+      return value;
+    }
+
+    if (value === 'all') {
+      return value;
+    }
+
+    return normalizeCanonicalProductCondition(value) || value;
+  },
+  z.enum(['new', 'used', 'open_box', 'all'])
+);
+
 // Zod schema for query parameters
 const querySchema = z.object({
   merchant_id: z.string().uuid().optional(),
   category: z.string().optional(),
   brand: z.string().optional(),
-  condition: z.enum(['new', 'used', 'refurbished', 'all']).optional(),
+  condition: storefrontConditionFilterSchema.optional(),
   min_price: z.coerce.number().nonnegative().optional(),
   max_price: z.coerce.number().nonnegative().optional(),
   sort: z.enum(['newest', 'price-asc', 'price-desc']).default('newest'),

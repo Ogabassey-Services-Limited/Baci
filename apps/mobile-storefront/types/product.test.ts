@@ -5,9 +5,9 @@ import {
 
 describe('formatProductConditionDisplay', () => {
   it('formats normalized condition keys into display labels', () => {
-    expect(formatProductConditionDisplay('refurbished')).toBe('Refurbished');
+    expect(formatProductConditionDisplay('refurbished')).toBe('Open Box');
     expect(formatProductConditionDisplay('open_box')).toBe('Open Box');
-    expect(formatProductConditionDisplay('uk_used')).toBe('UK Used');
+    expect(formatProductConditionDisplay('uk_used')).toBe('Used');
     expect(formatProductConditionDisplay('new')).toBe('New');
   });
 
@@ -19,7 +19,7 @@ describe('formatProductConditionDisplay', () => {
     expect(formatProductConditionDisplay('')).toBeUndefined();
     expect(formatProductConditionDisplay(undefined)).toBeUndefined();
     expect(formatProductConditionDisplay(null)).toBeUndefined();
-    expect(formatProductConditionDisplay('ReFuRbIsHeD')).toBe('Refurbished');
+    expect(formatProductConditionDisplay('ReFuRbIsHeD')).toBe('Open Box');
     expect(formatProductConditionDisplay('premium-used 2')).toBe(
       'Premium Used 2'
     );

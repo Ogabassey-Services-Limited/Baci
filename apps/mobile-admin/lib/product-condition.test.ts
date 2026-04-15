@@ -5,8 +5,8 @@ describe('formatProductCondition', () => {
   it('formats known condition values for display', () => {
     expect(formatProductCondition('new')).toBe('New');
     expect(formatProductCondition('open_box')).toBe('Open Box');
-    expect(formatProductCondition('refurbished')).toBe('Refurbished');
-    expect(formatProductCondition('uk_used')).toBe('UK Used');
+    expect(formatProductCondition('refurbished')).toBe('Open Box');
+    expect(formatProductCondition('uk_used')).toBe('Used');
     expect(formatProductCondition('used')).toBe('Used');
   });
 

@@ -1,3 +1,7 @@
+import {
+  formatCanonicalProductConditionLabel,
+  normalizeCanonicalProductCondition,
+} from '@baci/shared/lib';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { NormalizedProduct } from '@/lib/normalize-product';
@@ -15,14 +19,6 @@ function hasRenderableImage(image?: string | null) {
 }
 
 function getConditionBadgeLabel(product: NormalizedProduct) {
-  const formatConditionBadgeLabel = (condition: string) =>
-    condition
-      .trim()
-      .toLowerCase()
-      .split('_')
-      .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
-      .join(' ');
-
   if (Array.isArray(product.available_conditions)) {
     const normalizedConditions = Array.from(
       new Set(
@@ -30,7 +26,7 @@ function getConditionBadgeLabel(product: NormalizedProduct) {
           .filter(
             (condition): condition is string => typeof condition === 'string'
           )
-          .map((condition) => condition.trim().toLowerCase())
+          .map((condition) => normalizeCanonicalProductCondition(condition))
           .filter(Boolean)
       )
     );
@@ -46,7 +42,8 @@ function getConditionBadgeLabel(product: NormalizedProduct) {
     if (normalizedConditions.length === 1) {
       return normalizedConditions[0] === 'new'
         ? null
-        : formatConditionBadgeLabel(normalizedConditions[0]);
+        : (formatCanonicalProductConditionLabel(normalizedConditions[0]) ??
+            null);
     }
 
     if (normalizedConditions.length > 1) {
@@ -60,11 +57,11 @@ function getConditionBadgeLabel(product: NormalizedProduct) {
 
   const normalizedProductCondition =
     typeof product.condition === 'string'
-      ? product.condition.trim().toLowerCase()
+      ? normalizeCanonicalProductCondition(product.condition)
       : '';
 
   return normalizedProductCondition && normalizedProductCondition !== 'new'
-    ? formatConditionBadgeLabel(normalizedProductCondition)
+    ? (formatCanonicalProductConditionLabel(normalizedProductCondition) ?? null)
     : null;
 }
 

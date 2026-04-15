@@ -306,7 +306,7 @@ describe('product-utils', () => {
     });
   });
 
-  it('transformProduct normalizes lowercase condition labels to sentence case', () => {
+  it('transformProduct canonicalizes legacy condition aliases into display labels', () => {
     expect(
       transformProduct({
         ...validProductRow,
@@ -314,7 +314,7 @@ describe('product-utils', () => {
         has_condition_offers: false,
       })
     ).toMatchObject({
-      condition: 'Refurbished',
+      condition: 'Open Box',
     });
   });
 

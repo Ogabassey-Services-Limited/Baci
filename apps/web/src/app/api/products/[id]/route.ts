@@ -276,11 +276,13 @@ export async function PUT(
     const variantModel =
       body.variant_model !== undefined
         ? normalizeProductVariantModel(body.variant_model)
-        : existingVariantModel === 'sku_matrix'
-          ? 'sku_matrix'
-          : body.variants !== undefined
-            ? inferProductVariantModel({ variants: body.variants })
-            : existingVariantModel;
+        : body.has_variants === false
+          ? existingVariantModel
+          : existingVariantModel === 'sku_matrix'
+            ? 'sku_matrix'
+            : body.variants !== undefined
+              ? inferProductVariantModel({ variants: body.variants })
+              : existingVariantModel;
     const shouldValidateSkuMatrixInput =
       variantModel === 'sku_matrix' &&
       (body.variant_model !== undefined ||

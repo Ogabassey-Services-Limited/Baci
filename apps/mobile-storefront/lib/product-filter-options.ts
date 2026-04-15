@@ -1,3 +1,4 @@
+import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
 import type { ProductCondition } from '@/types/product';
 
 interface NamedCategory {
@@ -27,20 +28,7 @@ export function normalizeProductConditionFilterValue(
     return undefined;
   }
 
-  const normalized = condition.trim().toLowerCase().replace(/[\s-]+/g, '_');
-
-  switch (normalized) {
-    case 'new':
-      return 'new';
-    case 'used':
-      return 'used';
-    case 'open_box':
-      return 'open_box';
-    case 'refurbished':
-      return 'refurbished';
-    case 'uk_used':
-      return 'uk_used';
-    default:
-      return undefined;
-  }
+  return (normalizeCanonicalProductCondition(condition) || undefined) as
+    | ProductCondition
+    | undefined;
 }

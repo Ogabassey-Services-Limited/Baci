@@ -12,8 +12,6 @@ export type ProductCondition =
 
 export type ProductConditionDisplay =
   | 'New'
-  | 'UK Used'
-  | 'Refurbished'
   | 'Open Box'
   | 'Multiple Conditions'
   | 'Used'
@@ -72,11 +70,11 @@ export function formatProductConditionDisplay(
     case 'used':
       return 'Used';
     case 'uk_used':
-      return 'UK Used';
+      return 'Used';
     case 'open_box':
       return 'Open Box';
     case 'refurbished':
-      return 'Refurbished';
+      return 'Open Box';
     case 'multiple_conditions':
       return 'Multiple Conditions';
     case 'new_and_used':

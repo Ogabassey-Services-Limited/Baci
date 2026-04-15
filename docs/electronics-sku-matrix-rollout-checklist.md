@@ -29,6 +29,7 @@ Apply these in this exact order:
 2. [20260415110000_prepare_legacy_products_for_sku_matrix.sql](../supabase/migrations/20260415110000_prepare_legacy_products_for_sku_matrix.sql)
 3. [20260415123000_add_sku_matrix_product_projections.sql](../supabase/migrations/20260415123000_add_sku_matrix_product_projections.sql)
 4. [20260415150000_mark_legacy_sku_matrix_needs_review.sql](../supabase/migrations/20260415150000_mark_legacy_sku_matrix_needs_review.sql)
+5. [20260415191500_canonicalize_product_condition_values.sql](../supabase/migrations/20260415191500_canonicalize_product_condition_values.sql)
 
 ## Release Preconditions
 

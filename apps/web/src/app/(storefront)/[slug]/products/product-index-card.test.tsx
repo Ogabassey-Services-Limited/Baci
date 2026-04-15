@@ -44,6 +44,38 @@ function makeProduct(
 }
 
 describe('ProductIndexCard', () => {
+  it('falls back to condition-offer metadata when available_conditions is empty', () => {
+    render(
+      <ProductIndexCard
+        formattedPrice="₦550,000"
+        pathPrefix=""
+        product={makeProduct({
+          available_conditions: [],
+          condition: undefined,
+          has_condition_offers: true,
+        })}
+      />
+    );
+
+    expect(screen.getByText('New & Used')).toBeInTheDocument();
+  });
+
+  it('falls back to the legacy product condition when available_conditions is empty', () => {
+    render(
+      <ProductIndexCard
+        formattedPrice="₦550,000"
+        pathPrefix=""
+        product={makeProduct({
+          available_conditions: [],
+          condition: ' refurbished ',
+          has_condition_offers: false,
+        })}
+      />
+    );
+
+    expect(screen.getByText('Open Box')).toBeInTheDocument();
+  });
+
   it('does not render a badge when no condition metadata is available', () => {
     render(
       <ProductIndexCard
@@ -94,7 +126,7 @@ describe('ProductIndexCard', () => {
       />
     );
 
-    expect(screen.getByText('Refurbished')).toBeInTheDocument();
+    expect(screen.getByText('Open Box')).toBeInTheDocument();
   });
 
   it('renders a generic multiple-conditions badge for mixed condition sets', () => {

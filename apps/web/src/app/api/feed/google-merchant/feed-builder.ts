@@ -7,8 +7,10 @@
  */
 
 import {
+  normalizeCanonicalProductCondition,
   type ProductWithDefaultVariantLike,
   resolveDefaultVariantSelection,
+  toGoogleListingCondition,
 } from '@baci/shared/lib';
 import type { FeedImageManifestEntry } from '@/lib/gmc-feed-images';
 import {
@@ -33,7 +35,7 @@ export interface FeedProduct {
   stock: number;
   stock_quantity?: number;
   manage_stock?: boolean;
-  condition?: 'new' | 'used' | 'refurbished' | 'uk_used';
+  condition?: 'new' | 'used' | 'refurbished' | 'open_box' | 'uk_used';
   condition_detail?: string;
   variant_model?: 'legacy' | 'sku_matrix';
   google_product_category?: string;
@@ -141,37 +143,19 @@ function getVariantStockCount(
 }
 
 function normalizeCondition(condition?: string | null) {
-  if (!condition) {
-    return 'new';
-  }
-
-  return condition
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, '_');
+  return normalizeCanonicalProductCondition(condition) || 'new';
 }
 
 function toGmcCondition(condition?: string | null) {
-  const normalizedCondition = normalizeCondition(condition);
-  const gmcCondition =
-    normalizedCondition === 'open_box' || normalizedCondition === 'uk_used'
-      ? 'used'
-      : normalizedCondition;
-  return VALID_GMC_CONDITIONS.has(
-    gmcCondition as 'new' | 'used' | 'refurbished'
-  )
-    ? gmcCondition
-    : 'new';
+  const gmcCondition = toGoogleListingCondition(condition);
+  return VALID_GMC_CONDITIONS.has(gmcCondition) ? gmcCondition : 'new';
 }
 
 function formatConditionTitle(condition?: string | null) {
   const normalizedCondition = normalizeCondition(condition);
   switch (normalizedCondition) {
     case 'used':
-    case 'uk_used':
       return 'Used';
-    case 'refurbished':
-      return 'Refurbished';
     case 'open_box':
       return 'Open Box';
     default:

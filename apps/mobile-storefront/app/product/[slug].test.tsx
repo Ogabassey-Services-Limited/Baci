@@ -72,6 +72,8 @@ const variantProduct: Product = {
   ],
 };
 
+const [primaryVariant, secondaryVariant] = variantProduct.variants ?? [];
+
 jest.mock('expo-router', () => ({
   router: {
     replace: (...args: unknown[]) => mockRouterReplace(...args),
@@ -493,6 +495,9 @@ describe('ProductDetailScreen canonical slug redirect', () => {
   });
 
   it('blocks purchase when the selected variant is out of stock', async () => {
+    expect(primaryVariant).toBeDefined();
+    expect(secondaryVariant).toBeDefined();
+
     mockUseLocalSearchParams.mockReturnValue({
       slug: 'iphone-13-pro',
       condition: 'used',
@@ -503,9 +508,9 @@ describe('ProductDetailScreen canonical slug redirect', () => {
       product: {
         ...variantProduct,
         variants: [
-          variantProduct.variants?.[0] ?? {},
+          primaryVariant,
           {
-            ...(variantProduct.variants?.[1] ?? {}),
+            ...secondaryVariant,
             stock_quantity: 0,
           },
         ],

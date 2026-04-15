@@ -1,6 +1,7 @@
 import {
   getSkuMatrixValidationError,
   inferProductVariantModel,
+  normalizeCanonicalProductCondition,
   resolveDefaultVariantSelection,
 } from '@baci/shared';
 import { z } from 'zod';
@@ -23,12 +24,14 @@ const normalizedConditionSchema = z.preprocess((value) => {
     return value;
   }
 
-  const normalized = value
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, '_');
-  return normalized || null;
-}, z.string().min(1).optional().nullable());
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const normalized = normalizeCanonicalProductCondition(trimmed);
+  return normalized || trimmed;
+}, z.enum(EDITABLE_PRODUCT_CONDITIONS).optional().nullable());
 
 function isEditableCondition(
   value: string

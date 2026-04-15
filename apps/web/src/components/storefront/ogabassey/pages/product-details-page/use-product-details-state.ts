@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   getVariantConditionOptions,
   hasVariantConditionAxis,
+  normalizeCanonicalProductCondition,
   resolveDefaultVariantSelection,
   resolveVariantDisplaySelection,
   resolveVariantSelection,
@@ -42,16 +43,23 @@ const VALID_CONDITIONS: ReadonlySet<ConditionType> = new Set<ConditionType>([
   'new',
   'used',
   'open_box',
-  'refurbished',
 ]);
 
 function isValidConditionParam(value: string): value is ConditionType {
-  return VALID_CONDITIONS.has(value as ConditionType);
+  const normalized = normalizeCanonicalProductCondition(value);
+  return normalized !== '' && VALID_CONDITIONS.has(normalized);
 }
 
 function getValidAvailableConditions(values: Array<string | null | undefined>) {
   return Array.from(
-    new Set(values.filter((value): value is ConditionType => !!value && isValidConditionParam(value)))
+    new Set(
+      values
+        .map((value) => normalizeCanonicalProductCondition(value))
+        .filter(
+          (value): value is ConditionType =>
+            value !== '' && VALID_CONDITIONS.has(value)
+        )
+    )
   );
 }
 
@@ -133,10 +141,7 @@ export function useProductDetailsState(serverProduct: Product) {
   const routeConditionSource =
     routeSelectionInput.condition ??
     (!usesVariantRouteSelection ? rawConditionParam : undefined);
-  const routeCondition =
-    routeConditionSource && isValidConditionParam(routeConditionSource)
-      ? routeConditionSource
-      : undefined;
+  const routeCondition = normalizeCanonicalProductCondition(routeConditionSource);
   const routeVariantId =
     usesVariantRouteSelection && routeSelectionInput.variantId
       ? routeSelectionInput.variantId
@@ -155,11 +160,14 @@ export function useProductDetailsState(serverProduct: Product) {
   );
   const initialCondition =
     routeCondition
-      ? routeCondition
+      ? (routeCondition as ConditionType)
       : defaultVariantSelection?.condition &&
           isValidConditionParam(defaultVariantSelection.condition)
-        ? defaultVariantSelection.condition
-        : productData.condition || 'new';
+        ? (normalizeCanonicalProductCondition(
+            defaultVariantSelection.condition
+          ) as ConditionType)
+        : (normalizeCanonicalProductCondition(productData.condition) as ConditionType) ||
+          'new';
   const [selectedCondition, setSelectedCondition] = useState<ConditionType>(
     initialCondition
   );
@@ -198,7 +206,6 @@ export function useProductDetailsState(serverProduct: Product) {
     {
       condition: selectedCondition,
       attributes: variantSelectionAttributes,
-      variantId: routeVariantId,
     }
   );
   const currentVariantSelection = resolveVariantSelection(
@@ -211,7 +218,6 @@ export function useProductDetailsState(serverProduct: Product) {
     {
       condition: selectedCondition,
       attributes: variantSelectionAttributes,
-      variantId: routeVariantId,
     }
   );
 
@@ -219,11 +225,25 @@ export function useProductDetailsState(serverProduct: Product) {
     const action = searchParams.get('action');
     if (action === 'buy' && !buyActionHandled.current) {
       buyActionHandled.current = true;
-      const defaultAttributes = defaultVariantSelection?.attributes || {};
+      const selectedVariantSelection =
+        resolveVariantDisplaySelection(
+          {
+            price: relatedProductsProduct.price,
+            condition: productData.condition,
+            manage_stock: productData.manage_stock,
+            variants: productData.variants,
+          },
+          {
+            attributes: routeSelectionAttributes,
+            condition: routeCondition,
+            variantId: routeVariantId,
+          }
+        ) ?? defaultVariantSelection;
+      const selectedAttributesForBuy = selectedVariantSelection?.attributes || {};
       const defaultColorIndex =
-        defaultVariantSelection?.color != null
+        selectedVariantSelection?.color != null
           ? productData.colors.findIndex(
-              (color) => color.name === defaultVariantSelection.color
+              (color) => color.name === selectedVariantSelection.color
             )
           : -1;
       addToCart(
@@ -231,25 +251,25 @@ export function useProductDetailsState(serverProduct: Product) {
           productData,
           resolveCurrentOffer(
             productData,
-            (defaultVariantSelection?.condition as ConditionType | undefined) ||
+            (selectedVariantSelection?.condition as ConditionType | undefined) ||
               'new',
-            defaultAttributes,
-            defaultVariantSelection
+            selectedAttributesForBuy,
+            selectedVariantSelection
           ),
           defaultColorIndex >= 0 ? defaultColorIndex : 0,
-          (defaultVariantSelection?.condition as ConditionType | undefined) ||
+          (selectedVariantSelection?.condition as ConditionType | undefined) ||
             'new',
-          defaultAttributes
+          selectedAttributesForBuy
         ),
         1,
         {
-          ...defaultAttributes,
-          variantId: defaultVariantSelection?.variant.id,
-          variantAttributes: defaultAttributes,
-          color: defaultVariantSelection?.color,
-          storage: defaultVariantSelection?.storage,
+          ...selectedAttributesForBuy,
+          variantId: selectedVariantSelection?.variant.id,
+          variantAttributes: selectedAttributesForBuy,
+          color: selectedVariantSelection?.color,
+          storage: selectedVariantSelection?.storage,
           condition:
-            (defaultVariantSelection?.condition as ConditionType | undefined) ||
+            (selectedVariantSelection?.condition as ConditionType | undefined) ||
             'new',
         }
       );

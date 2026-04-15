@@ -7,6 +7,7 @@
  * @see https://zod.dev for Zod documentation
  */
 
+import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
 import { z } from 'zod';
 import { sanitizePrice, sanitizeText, sanitizeUrl } from '@/lib/sanitize-core';
 
@@ -38,12 +39,15 @@ const variantAttributesSchema = z.record(
  * Product condition type
  * Matches Product.condition from @/lib/products
  */
-const productConditionSchema = z.enum([
-  'new',
-  'refurbished',
-  'used',
-  'open_box',
-]);
+const productConditionSchema = z.enum(['new', 'used', 'open_box']);
+
+const normalizedProductConditionSchema = z.preprocess((value) => {
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  return normalizeCanonicalProductCondition(value) || value;
+}, productConditionSchema);
 
 const productVariantModelSchema = z.enum(['legacy', 'sku_matrix']);
 
@@ -53,7 +57,7 @@ const productVariantModelSchema = z.enum(['legacy', 'sku_matrix']);
 const productVariantSchema = z.object({
   id: z.string().uuid().optional(),
   attributes: variantAttributesSchema.optional(),
-  condition: productConditionSchema.optional().nullable(),
+  condition: normalizedProductConditionSchema.optional().nullable(),
   price_override: z
     .number()
     .min(0)
@@ -192,7 +196,7 @@ const baseProductFields = {
     .transform((val) => (val ? sanitizeText(val, 50) : undefined)),
 
   // Condition
-  condition: productConditionSchema.optional().default('new'),
+  condition: normalizedProductConditionSchema.optional().default('new'),
   condition_detail: z
     .string()
     .max(500)
@@ -369,7 +373,7 @@ export const updateProductSchema = z.object({
     .optional(),
 
   // Condition
-  condition: productConditionSchema.optional(),
+  condition: normalizedProductConditionSchema.optional(),
   condition_detail: z
     .string()
     .max(500)

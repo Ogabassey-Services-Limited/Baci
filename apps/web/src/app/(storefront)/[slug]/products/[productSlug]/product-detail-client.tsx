@@ -1,8 +1,10 @@
 'use client';
 
 import {
+  type CanonicalProductCondition,
   getVariantConditionOptions,
   hasVariantConditionAxis,
+  normalizeCanonicalProductCondition,
   resolveDefaultVariantSelection,
   resolveVariantDisplaySelection,
   resolveVariantSelection,
@@ -36,20 +38,21 @@ import type { FAQItem } from '@/types/faq';
 // Placeholder image for products without images
 const PLACEHOLDER_IMAGE = '/placeholder.svg';
 
-const VALID_CONDITIONS = new Set(['new', 'used', 'open_box', 'refurbished']);
+const VALID_CONDITIONS = new Set<CanonicalProductCondition>([
+  'new',
+  'used',
+  'open_box',
+]);
 
-type ProductCondition = NonNullable<Product['condition']>;
-
-function isValidCondition(
-  value: string | null | undefined
-): value is ProductCondition {
-  return typeof value === 'string' && VALID_CONDITIONS.has(value);
-}
+type ProductCondition = CanonicalProductCondition;
 
 function getValidConditionOptions(values: string[]) {
-  return values.filter((value): value is ProductCondition =>
-    isValidCondition(value)
-  );
+  return values
+    .map((value) => normalizeCanonicalProductCondition(value))
+    .filter(
+      (value): value is ProductCondition =>
+        value !== '' && VALID_CONDITIONS.has(value)
+    );
 }
 
 function areSelectionAttributesEqual(
@@ -222,9 +225,8 @@ export default function ProductDetailClient({
   const routeConditionSource =
     routeSelectionInput.condition ??
     (!usesVariantRouteSelection ? conditionParam : undefined);
-  const routeCondition = isValidCondition(routeConditionSource)
-    ? routeConditionSource
-    : undefined;
+  const routeCondition =
+    normalizeCanonicalProductCondition(routeConditionSource);
   const routeVariantId = routeSelectionInput.variantId ?? undefined;
   const defaultVariantSelection = usesVariantRouteSelection
     ? resolveDefaultVariantSelection(product, { condition: routeCondition })
@@ -235,30 +237,32 @@ export default function ProductDetailClient({
   const availableConditionOptions = usesVariantConditions
     ? getValidConditionOptions(getVariantConditionOptions(product))
     : [];
-  const [selectedCondition, setSelectedCondition] = useState(
-    routeCondition ||
+  const [selectedCondition, setSelectedCondition] = useState<ProductCondition>(
+    (routeCondition as ProductCondition | undefined) ||
       (defaultVariantSelection?.condition as ProductCondition | undefined) ||
-      product.condition ||
+      normalizeCanonicalProductCondition(product.condition) ||
       'new'
   );
 
   const selectedOffer =
-    !usesVariantConditions && selectedCondition !== (product.condition || 'new')
+    !usesVariantConditions &&
+    selectedCondition !==
+      (normalizeCanonicalProductCondition(product.condition) || 'new')
       ? product.offers?.find(
-          (o: { condition: string }) => o.condition === selectedCondition
+          (o: { condition: string }) =>
+            normalizeCanonicalProductCondition(o.condition) ===
+            selectedCondition
         )
       : null;
   const conditionLabels: Record<string, string> = {
     new: 'New',
     used: 'Premium Used',
     open_box: 'Open Box',
-    refurbished: 'Refurbished',
   };
   const conditionDescriptions: Record<string, string> = {
     new: 'Factory sealed with full manufacturer warranty',
     open_box: 'Opened but unused, all accessories included',
     used: 'Fully tested and inspected, 30-day warranty',
-    refurbished: 'Professionally refurbished to like-new condition',
   };
 
   useEffect(() => {
@@ -282,7 +286,7 @@ export default function ProductDetailClient({
     const nextCondition =
       routeCondition ||
       (seedSelection?.condition as ProductCondition | undefined) ||
-      product.condition ||
+      normalizeCanonicalProductCondition(product.condition) ||
       'new';
     setSelectedCondition((current) =>
       current === nextCondition ? current : nextCondition

@@ -1,9 +1,4 @@
-export const EDITABLE_PRODUCT_CONDITIONS = [
-  'new',
-  'open_box',
-  'refurbished',
-  'used',
-] as const;
+export const EDITABLE_PRODUCT_CONDITIONS = ['new', 'open_box', 'used'] as const;
 
 export type EditableProductCondition =
   (typeof EDITABLE_PRODUCT_CONDITIONS)[number];
@@ -22,8 +17,8 @@ const CONDITION_LABELS: Record<string, string> = {
   new_and_used: 'New & Used',
   'new_&_used': 'New & Used',
   open_box: 'Open Box',
-  refurbished: 'Refurbished',
-  uk_used: 'UK Used',
+  refurbished: 'Open Box',
+  uk_used: 'Used',
   used: 'Used',
 };
 

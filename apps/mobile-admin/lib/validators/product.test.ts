@@ -296,7 +296,7 @@ describe('ProductDbSchema', () => {
     ).toThrow('Every sku_matrix variant must include a condition.');
   });
 
-  it('allows condition-only sku_matrix variants without extra attributes', () => {
+  it('canonicalizes condition-only sku_matrix variants without extra attributes', () => {
     const parsed = ProductDbSchema.parse({
       name: 'MacBook Air M2',
       sku: 'MBA-M2',
@@ -319,14 +319,39 @@ describe('ProductDbSchema', () => {
     });
 
     expect(parsed.variant_model).toBe('sku_matrix');
-    expect(parsed.condition).toBe('refurbished');
+    expect(parsed.condition).toBe('open_box');
     expect(parsed.variants[0]).toEqual(
       expect.objectContaining({
         attributes: {},
-        condition: 'refurbished',
+        condition: 'open_box',
         price_override: 900000,
       })
     );
+  });
+
+  it('rejects unsupported variant conditions at the schema boundary', () => {
+    expect(() =>
+      ProductDbSchema.parse({
+        name: 'Galaxy S24',
+        sku: 'GAL-S24',
+        price: 0,
+        stock_quantity: 0,
+        category_id: '',
+        manage_stock: true,
+        status: 'active',
+        images: [],
+        has_variants: true,
+        variant_attributes: [],
+        variants: [
+          {
+            attributes: [],
+            condition: 'scratch_and_dent',
+            price: 350000,
+            stock_quantity: 1,
+          },
+        ],
+      })
+    ).toThrow();
   });
 
   it('preserves legacy condition and omits migration_status outside sku_matrix', () => {

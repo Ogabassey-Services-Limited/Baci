@@ -27,6 +27,7 @@ const log = createLogger('ProductDetail');
 import {
   getVariantConditionOptions,
   hasVariantConditionAxis,
+  normalizeCanonicalProductCondition,
   resolveDefaultVariantSelection,
   resolveVariantDisplaySelection,
   resolveVariantSelection,
@@ -136,25 +137,10 @@ function getSelectionSyncSignature(product: Product | null) {
 function normalizeRouteCondition(
   value: string | string[] | null | undefined
 ): ProductCondition | null {
-  if (typeof value !== 'string') {
-    return null;
-  }
-
-  const normalized = value
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, '_');
-  if (
-    normalized === 'new' ||
-    normalized === 'used' ||
-    normalized === 'open_box' ||
-    normalized === 'refurbished' ||
-    normalized === 'uk_used'
-  ) {
-    return normalized;
-  }
-
-  return null;
+  const normalized = normalizeCanonicalProductCondition(
+    typeof value === 'string' ? value : null
+  );
+  return normalized || null;
 }
 
 function getFirstRouteParamValue(
