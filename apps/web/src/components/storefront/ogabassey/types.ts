@@ -109,6 +109,26 @@ export interface Product {
   attributeAxes?: string[];
 }
 
+export function normalizeProductCondition(
+  condition: Product['condition'] | string | null | undefined
+): ProductCondition | undefined {
+  if (typeof condition !== 'string') {
+    return undefined;
+  }
+
+  const normalized = condition.trim().toLowerCase().replace(/[\s-]+/g, '_');
+
+  switch (normalized) {
+    case 'new':
+    case 'used':
+    case 'open_box':
+    case 'refurbished':
+      return normalized;
+    default:
+      return undefined;
+  }
+}
+
 export interface ProductVariant {
   id: string;
   name?: string;

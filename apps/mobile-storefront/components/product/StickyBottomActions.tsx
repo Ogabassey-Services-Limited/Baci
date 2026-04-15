@@ -129,6 +129,7 @@ export function StickyBottomActions({
             disabled={!canPurchase}
             onPress={onAddToCart}
             accessibilityRole="button"
+            accessibilityState={{ disabled: !canPurchase }}
             accessibilityLabel={
               canPurchase ? 'Add to Cart' : 'Product out of stock'
             }

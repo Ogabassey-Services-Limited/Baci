@@ -95,7 +95,7 @@ describe('product-variant-model', () => {
         hasVariants: true,
         variants: [{ condition: 'used' }],
       })
-    ).toBe('Every sku_matrix variant must include an explicit price_override.');
+    ).toBe('Every sku_matrix variant must include a non-negative price_override.');
 
     expect(
       getSkuMatrixValidationError({
@@ -103,6 +103,14 @@ describe('product-variant-model', () => {
         hasVariants: true,
         variants: [{ condition: 'used', price_override: Number.NaN }],
       })
-    ).toBe('Every sku_matrix variant must include an explicit price_override.');
+    ).toBe('Every sku_matrix variant must include a non-negative price_override.');
+
+    expect(
+      getSkuMatrixValidationError({
+        variantModel: 'sku_matrix',
+        hasVariants: true,
+        variants: [{ condition: 'used', price_override: -1 }],
+      })
+    ).toBe('Every sku_matrix variant must include a non-negative price_override.');
   });
 });

@@ -4,7 +4,7 @@ import { Plus, Sparkles, X } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
-import type { Product } from '../types';
+import { normalizeProductCondition, type Product } from '../types';
 
 interface UpsellToastProps {
   isVisible: boolean;
@@ -74,7 +74,7 @@ export const UpsellToast: React.FC<UpsellToastProps> = ({
               rating: rawProduct.rating || 0,
               category: rawProduct.category,
               categorySlug: rawProduct.categorySlug,
-              condition: rawProduct.condition || 'New',
+              condition: normalizeProductCondition(rawProduct.condition) || 'new',
               brand: rawProduct.brand,
               merchantId: rawProduct.merchantId,
             };

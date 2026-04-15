@@ -76,6 +76,8 @@ export interface ProductSchemaMarkup {
   [key: string]: unknown;
 }
 
+export type ProductCondition = 'new' | 'used' | 'open_box' | 'refurbished';
+
 export interface ProductVariant {
   id: string;
   product_id: string;
@@ -90,8 +92,6 @@ export interface ProductVariant {
   sku?: string;
   inventory_items?: VariantInventoryItem[]; // Loaded on demand
 }
-
-export type ProductCondition = 'new' | 'used' | 'open_box' | 'refurbished';
 
 export type ProductVariantModel = 'legacy' | 'sku_matrix';
 

@@ -44,6 +44,8 @@ AS $$
     ON m.id = p.merchant_id
   WHERE COALESCE(array_length(p_product_ids, 1), 0) <= 10000
     AND pv.product_id = ANY(COALESCE(p_product_ids, ARRAY[]::UUID[]))
+    -- Keep the denormalized merchant guard even though pv joins through p.
+    -- This prevents stray cross-merchant rows from surfacing if legacy data drift exists.
     AND pv.merchant_id = p.merchant_id
     AND p.status = 'active'
     AND COALESCE(m.is_published, FALSE) = TRUE
@@ -109,7 +111,7 @@ GRANT EXECUTE ON FUNCTION public.get_feed_product_variants(UUID[], UUID) TO auth
 GRANT EXECUTE ON FUNCTION public.get_feed_product_variants(UUID[], UUID) TO service_role;
 
 COMMENT ON FUNCTION public.get_feed_product_variants(UUID[], UUID) IS
-  'Returns feed-safe product variants, including condition, for a single merchant. Allows platform-admin merchants alongside published merchants.';
+  'Returns feed-safe product variants, including condition, for a single merchant. A NULL p_merchant_id returns no rows. Allows platform-admin merchants alongside published merchants.';
 
 DROP FUNCTION IF EXISTS public.resolve_public_feed_merchant(TEXT, BOOLEAN);
 

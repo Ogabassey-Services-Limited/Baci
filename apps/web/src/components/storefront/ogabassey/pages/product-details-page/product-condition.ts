@@ -11,14 +11,9 @@ const CONDITION_VALUES = Object.keys(CONDITION_LABELS) as ConditionType[];
 export function normalizeConditionType(
   condition?: string | null
 ): ConditionType {
-  const normalized = condition?.toLowerCase().trim().replace(/\s+/g, '_');
+  const normalized = condition?.toLowerCase().trim().replace(/[\s-]+/g, '_');
 
-  if (
-    normalized === 'new' ||
-    normalized === 'used' ||
-    normalized === 'open_box' ||
-    normalized === 'refurbished'
-  ) {
+  if (isConditionType(normalized)) {
     return normalized;
   }
 

@@ -1,6 +1,6 @@
 export type ProductVariantModel = 'legacy' | 'sku_matrix';
 
-interface ProductVariantModelInput {
+export interface ProductVariantModelInput {
   condition?: string | null;
   price_override?: number | null;
 }
@@ -61,10 +61,11 @@ export function getSkuMatrixValidationError(options: {
     options.variants.some(
       (variant) =>
         typeof variant.price_override !== 'number' ||
-        Number.isNaN(variant.price_override)
+        Number.isNaN(variant.price_override) ||
+        variant.price_override < 0
     )
   ) {
-    return 'Every sku_matrix variant must include an explicit price_override.';
+    return 'Every sku_matrix variant must include a non-negative price_override.';
   }
 
   return null;

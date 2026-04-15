@@ -12,6 +12,7 @@ import {
   Truck,
 } from 'lucide-react';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
 
 interface ProductCartActionsProps {
   cartHref: Route;
@@ -94,11 +95,12 @@ export function ProductCartActions({
             type="button"
             onClick={onAddToCart}
             disabled={!canPurchase}
-            className={`flex h-14 w-full items-center justify-center gap-2 rounded-xl font-bold shadow-lg transition-all ${
+            className={cn(
+              'flex h-14 w-full items-center justify-center gap-2 rounded-xl font-bold shadow-lg transition-all',
               canPurchase
                 ? 'bg-[var(--store-primary)] text-[var(--store-primary-text,#ffffff)] hover:bg-[var(--store-primary)]/90 hover:shadow-[var(--store-primary)]/20'
                 : 'cursor-not-allowed bg-gray-300 text-gray-600 shadow-none'
-            }`}
+            )}
           >
             {canPurchase ? 'Add to Cart' : 'Out of Stock'}
           </button>

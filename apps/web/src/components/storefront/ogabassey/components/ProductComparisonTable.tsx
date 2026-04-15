@@ -6,7 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
-import type { Product } from '../types';
+import { normalizeProductCondition, type Product } from '../types';
 
 /** Minimal shape returned by the storefront products search API */
 interface SearchResultProduct {
@@ -110,7 +110,7 @@ export function ProductComparisonTable({
             description: rawProduct.description || '',
             rating: rawProduct.rating || 0,
             category: rawProduct.category,
-            condition: (rawProduct.condition || 'New') as Product['condition'],
+            condition: normalizeProductCondition(rawProduct.condition) || 'new',
             brand: rawProduct.brand,
             detailedSpecs: rawProduct.specifications || [],
         };
