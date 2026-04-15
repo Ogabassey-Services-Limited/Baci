@@ -1,5 +1,6 @@
 'use client';
 
+import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
 import { ChevronUp, ShoppingCart } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ThemedButton } from '@/components/themed';
@@ -94,12 +95,16 @@ export function StickyAddToCart({
     if (selectedVariant) {
       return item.id === product.id && item.variantId === selectedVariant.id;
     }
-    const effectiveSelectedCondition = selectedCondition ?? product.condition;
+    const effectiveSelectedCondition =
+      normalizeCanonicalProductCondition(
+        selectedCondition ?? product.condition
+      ) || 'new';
     return (
       item.id === product.id &&
       !item.variantId &&
-      (item.condition ?? product.condition ?? undefined) ===
-        (effectiveSelectedCondition ?? undefined)
+      (normalizeCanonicalProductCondition(
+        item.condition ?? product.condition
+      ) || 'new') === effectiveSelectedCondition
     );
   });
 

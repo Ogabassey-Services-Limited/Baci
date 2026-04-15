@@ -383,7 +383,7 @@ describe('ProductDetailClient', () => {
     );
   });
 
-  it('matches simple in-cart rows without forcing base-condition equality', async () => {
+  it('matches simple in-cart rows when the stored product condition is null', async () => {
     mockUseCart.mockReturnValue({
       addToCart: mockAddToCart,
       cart: [
@@ -409,7 +409,14 @@ describe('ProductDetailClient', () => {
       updateQuantity: mockUpdateQuantity,
     });
 
-    render(<ProductDetailClient product={makeBaseProduct()} />);
+    render(
+      <ProductDetailClient
+        product={{
+          ...makeBaseProduct(),
+          condition: undefined,
+        }}
+      />
+    );
 
     const increaseButton = await screen.findByLabelText(
       'Increase quantity of iPad 11th Gen'

@@ -191,6 +191,58 @@ describe('StickyAddToCart', () => {
     );
   });
 
+  it('matches simple cart entries when the stored product condition is null', async () => {
+    const cartItem = {
+      ...makeProduct(),
+      cartItemId: 'product-1',
+      condition: undefined,
+      quantity: 2,
+    } as CartItem;
+    const { useCart } = await import('@/hooks/use-cart');
+    vi.mocked(useCart).mockReturnValue({
+      addToCart: mockAddToCart,
+      applyCartWideNegotiation: vi.fn(),
+      applyNegotiatedPrice: vi.fn(),
+      cart: [cartItem],
+      cartCount: 1,
+      cartTotal: 0,
+      clearCart: vi.fn(),
+      dismissUpsell: vi.fn(),
+      hasSmartCartPro: true,
+      isCartOpen: false,
+      isHydrated: true,
+      lastAddedProduct: null,
+      merchantSlug: null,
+      removeFromCart: vi.fn(),
+      setIsCartOpen: vi.fn(),
+      setMerchantSlug: vi.fn(),
+      showUpsell: false,
+      subtotal: 0,
+      toggleAssurance: vi.fn(),
+      totalItems: 2,
+      updateQuantity: mockUpdateQuantity,
+    });
+
+    render(
+      <StickyAddToCart
+        product={{
+          ...makeProduct(),
+          condition: undefined,
+        }}
+      />
+    );
+
+    fireEvent.scroll(window);
+
+    await waitFor(() => {
+      expect(screen.getByText('2')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'plus' }));
+
+    expect(mockUpdateQuantity).toHaveBeenCalledWith('product-1', 3, undefined);
+  });
+
   it('updates variant cart entries with product id plus variant id', async () => {
     const cartItem = {
       ...makeProduct(),
