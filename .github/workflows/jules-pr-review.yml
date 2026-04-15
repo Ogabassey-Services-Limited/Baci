@@ -45,6 +45,8 @@ jobs:
           session_id=""
           state="NOT_STARTED"
           run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}"
+          # Stop polling shortly before the 6-hour job timeout so fallback review posting still runs.
+          poll_deadline_epoch=$(( $(date +%s) + 21000 ))
 
           uri_encode() {
             jq -rn --arg value "$1" '$value | @uri'
@@ -214,6 +216,10 @@ jobs:
           fi
 
           while :; do
+            if (( $(date +%s) >= poll_deadline_epoch )); then
+              break
+            fi
+
             session_status="$(
               curl -fsSL \
                 -H "x-goog-api-key: ${JULES_API_KEY}" \
