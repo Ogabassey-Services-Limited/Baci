@@ -61,7 +61,7 @@ vi.mock('react-native', () => ({
   }: {
     accessibilityLabel?: string;
     children?: React.ReactNode;
-  }) => <fieldset aria-label={accessibilityLabel}>{children}</fieldset>,
+  }) => <section aria-label={accessibilityLabel}>{children}</section>,
 }));
 
 describe('BlogEditorDialogs', () => {
@@ -90,12 +90,8 @@ describe('BlogEditorDialogs', () => {
       />
     );
 
-    expect(
-      screen.getByRole('group', { name: 'Insert link dialog' })
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole('group', { name: 'AI edit dialog' })
-    ).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Insert link dialog')).toBeInTheDocument();
+    expect(screen.queryByLabelText('AI edit dialog')).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Link URL'), {
       target: { value: 'baci.com' },
@@ -130,11 +126,9 @@ describe('BlogEditorDialogs', () => {
       />
     );
 
+    expect(screen.getByLabelText('AI edit dialog')).toBeInTheDocument();
     expect(
-      screen.getByRole('group', { name: 'AI edit dialog' })
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole('group', { name: 'Insert link dialog' })
+      screen.queryByLabelText('Insert link dialog')
     ).not.toBeInTheDocument();
     fireEvent.click(screen.getByText('Transform'));
 
@@ -198,15 +192,11 @@ describe('BlogEditorDialogs', () => {
       />
     );
 
+    expect(screen.getByLabelText('Insert video dialog')).toBeInTheDocument();
     expect(
-      screen.getByRole('group', { name: 'Insert video dialog' })
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole('group', { name: 'Insert link dialog' })
+      screen.queryByLabelText('Insert link dialog')
     ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('group', { name: 'AI edit dialog' })
-    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('AI edit dialog')).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Video URL'), {
       target: { value: 'https://youtu.be/LMNOPQRSTUV' },

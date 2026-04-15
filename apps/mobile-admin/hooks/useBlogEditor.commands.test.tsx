@@ -186,4 +186,50 @@ describe('useBlogEditor command flows', () => {
       expect(result.current.isVideoModalVisible).toBe(false);
     });
   });
+
+  it('alerts when formatting is requested before the editor is ready', async () => {
+    const { result } = renderHook(() =>
+      useBlogEditor({
+        id: 'post-1',
+        webViewRef: { current: null },
+      })
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    act(() => {
+      result.current.formatAction('bold');
+    });
+
+    expect(mocks.injectJavaScript).not.toHaveBeenCalled();
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'Editor unavailable',
+      'Please wait for the editor to finish loading.'
+    );
+  });
+
+  it('alerts when inserting a table before the editor is ready', async () => {
+    const { result } = renderHook(() =>
+      useBlogEditor({
+        id: 'post-1',
+        webViewRef: { current: null },
+      })
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    act(() => {
+      result.current.handleInsertTable();
+    });
+
+    expect(mocks.injectJavaScript).not.toHaveBeenCalled();
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'Editor unavailable',
+      'Please wait for the editor to finish loading.'
+    );
+  });
 });

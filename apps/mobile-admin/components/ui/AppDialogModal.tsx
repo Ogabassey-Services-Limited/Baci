@@ -47,17 +47,18 @@ export function AppDialogModal({
       visible={visible}
     >
       <View style={styles.overlay}>
-        <Pressable
-          accessibilityHint="Closes this dialog"
-          accessibilityLabel="Dismiss dialog"
-          accessibilityRole="button"
-          onPress={handleBackdropPress}
-          style={[
-            styles.backdrop,
-            { backgroundColor: colors.backdrop ?? 'rgba(0, 0, 0, 0.5)' },
-          ]}
-          testID="app-dialog-backdrop"
-        />
+        {keyboardAware ? null : (
+          <Pressable
+            accessibilityElementsHidden={true}
+            accessible={false}
+            onPress={handleBackdropPress}
+            style={[
+              styles.backdrop,
+              { backgroundColor: colors.backdrop ?? 'rgba(0, 0, 0, 0.5)' },
+            ]}
+            testID="app-dialog-backdrop"
+          />
+        )}
         {keyboardAware ? (
           <AppKeyboardContainer
             align="center"
@@ -67,9 +68,8 @@ export function AppDialogModal({
             style={styles.keyboardContainer}
           >
             <Pressable
-              accessibilityHint="Closes this dialog"
-              accessibilityLabel="Dismiss dialog"
-              accessibilityRole="button"
+              accessibilityElementsHidden={true}
+              accessible={false}
               onPress={handleBackdropPress}
               style={[
                 styles.backdrop,

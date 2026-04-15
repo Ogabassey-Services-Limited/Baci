@@ -168,6 +168,6 @@ describe('CustomizeScreen', () => {
 
     expect(
       screen.getByRole('region', { name: 'customize-preview-pane' })
-    ).toHaveTextContent('https://store.usebaci.com?preview=true&t=');
+    ).toHaveTextContent('https://store.usebaci.com/?preview=true&t=');
   });
 });

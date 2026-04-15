@@ -62,6 +62,10 @@ export async function requestBlogEditorAiEdit({
       throw new Error('AI edit failed: response did not include content');
     }
 
+    if (data.content.trim().length === 0) {
+      throw new Error('AI edit failed: empty content');
+    }
+
     return data.content;
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {

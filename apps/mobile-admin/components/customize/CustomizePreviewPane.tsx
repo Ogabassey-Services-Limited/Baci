@@ -1,5 +1,11 @@
 import { useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { WebView } from 'react-native-webview';
 import type { ThemeColors } from '@/constants/theme';
 import { SPACING, TYPOGRAPHY } from '@/constants/theme';
@@ -20,9 +26,10 @@ export function CustomizePreviewPane({
     string | null
   >(null);
   const previewSignature = `${previewKey}:${previewUrl}`;
-  const canRenderPreview =
-    isValidPreviewUrl(previewUrl) &&
-    failedPreviewSignature !== previewSignature;
+  const hasValidPreviewUrl = isValidPreviewUrl(previewUrl);
+  const hasRecoverablePreviewError =
+    hasValidPreviewUrl && failedPreviewSignature === previewSignature;
+  const canRenderPreview = hasValidPreviewUrl && !hasRecoverablePreviewError;
 
   return (
     <View style={styles.container}>
@@ -56,6 +63,23 @@ export function CustomizePreviewPane({
           <Text style={[styles.emptyTitle, { color: colors.textSecondary }]}>
             Preview not available
           </Text>
+          {hasRecoverablePreviewError ? (
+            <Pressable
+              accessibilityLabel="Retry preview"
+              accessibilityRole="button"
+              onPress={() => setFailedPreviewSignature(null)}
+              style={[styles.retryButton, { backgroundColor: colors.primary }]}
+            >
+              <Text
+                style={[
+                  styles.retryButtonText,
+                  { color: colors.textOnPrimary },
+                ]}
+              >
+                Retry
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
       )}
     </View>
@@ -87,5 +111,16 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontFamily: TYPOGRAPHY.fontFamily.medium,
     fontSize: TYPOGRAPHY.size.lg,
+  },
+  retryButton: {
+    borderRadius: 999,
+    marginTop: SPACING.lg,
+    minHeight: 44,
+    paddingHorizontal: SPACING.lg,
+    justifyContent: 'center',
+  },
+  retryButtonText: {
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    fontSize: TYPOGRAPHY.size.md,
   },
 });

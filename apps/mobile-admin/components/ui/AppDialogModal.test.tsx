@@ -117,6 +117,10 @@ describe('AppDialogModal', () => {
       screen.getByRole('region', { name: 'dialog-keyboard-shell' })
     ).toBeInTheDocument();
     expect(screen.getByText('Keyboard dialog')).toBeInTheDocument();
+    expect(screen.queryByTestId('app-dialog-backdrop')).toBeNull();
+    expect(
+      screen.getByTestId('app-dialog-keyboard-backdrop')
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId('app-dialog-keyboard-backdrop'));
 

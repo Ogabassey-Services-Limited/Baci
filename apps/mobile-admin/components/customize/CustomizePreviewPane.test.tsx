@@ -11,7 +11,10 @@ vi.mock('react-native', async () => {
     './customize-test-react-native.mock'
   );
 
-  return createCustomizeReactNativeMock({ includeActivityIndicator: true });
+  return createCustomizeReactNativeMock({
+    includeActivityIndicator: true,
+    includePressable: true,
+  });
 });
 
 vi.mock('react-native-webview', () => {
@@ -144,5 +147,27 @@ describe('CustomizePreviewPane', () => {
     );
 
     expect(screen.getByText('Preview not available')).toBeInTheDocument();
+  });
+
+  it('allows retrying the same preview after a transient load failure', () => {
+    render(
+      <CustomizePreviewPane
+        colors={LIGHT_COLORS}
+        previewKey={1}
+        previewUrl="https://example.com?preview=true"
+      />
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'trigger preview error' })
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Retry preview' })
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry preview' }));
+
+    expect(screen.getByTitle('store-preview')).toBeInTheDocument();
   });
 });

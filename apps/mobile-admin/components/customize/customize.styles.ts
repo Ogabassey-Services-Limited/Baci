@@ -28,6 +28,8 @@ export const customizeStyles = StyleSheet.create({
     gap: SPACING.sm,
   },
   headerButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
     minHeight: 44,
     minWidth: 44,
   },

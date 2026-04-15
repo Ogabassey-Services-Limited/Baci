@@ -15,6 +15,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { buildPreviewUrl } from '@/components/customize/build-preview-url';
 import {
   CustomizeChatPanel,
   type CustomizeMessage,
@@ -138,9 +139,7 @@ export default function CustomizeScreen() {
     );
   };
 
-  const previewUrl = storeUrl
-    ? `${storeUrl.startsWith('http') ? storeUrl : `https://${storeUrl}`}?preview=true&t=${previewKey}`
-    : '';
+  const previewUrl = buildPreviewUrl(storeUrl, previewKey);
 
   if (isLoadingConfig) {
     return (

@@ -1,5 +1,10 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useBlogEditorData } from '@/hooks/blog-editor/useBlogEditorData';
+import {
+  createDeferred,
+  setupUseBlogEditorDataSupabaseMocks,
+} from '@/hooks/blog-editor/useBlogEditorData.test-utils';
 
 const mocks = vi.hoisted(() => ({
   from: vi.fn(),
@@ -19,55 +24,10 @@ vi.mock('@/lib/supabase', () => ({
   },
 }));
 
-import { useBlogEditorData } from '@/hooks/blog-editor/useBlogEditorData';
-
-function createDeferred<T>() {
-  let resolvePromise!: (value: T) => void;
-  const promise = new Promise<T>((resolve) => {
-    resolvePromise = resolve;
-  });
-
-  return { promise, resolve: resolvePromise };
-}
-
 describe('useBlogEditorData', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-
-    mocks.selectSingle.mockResolvedValue({
-      data: { content: '<p>Hello world</p>' },
-      error: null,
-    });
-    mocks.selectEqMerchant.mockReturnValue({
-      single: mocks.selectSingle,
-    });
-    mocks.selectEqId.mockReturnValue({
-      eq: mocks.selectEqMerchant,
-    });
-
-    mocks.updateSingle.mockResolvedValue({
-      data: { id: 'post-1' },
-      error: null,
-    });
-    mocks.updateSelect.mockReturnValue({
-      single: mocks.updateSingle,
-    });
-    mocks.updateEqMerchant.mockReturnValue({
-      select: mocks.updateSelect,
-    });
-    mocks.updateEqId.mockReturnValue({
-      eq: mocks.updateEqMerchant,
-    });
-    mocks.update.mockReturnValue({
-      eq: mocks.updateEqId,
-    });
-
-    mocks.from.mockReturnValue({
-      select: () => ({
-        eq: mocks.selectEqId,
-      }),
-      update: mocks.update,
-    });
+    setupUseBlogEditorDataSupabaseMocks(mocks);
   });
 
   it('loads content with merchant-scoped queries', async () => {

@@ -62,6 +62,19 @@ describe('blog-editor-api', () => {
     ).rejects.toThrow('AI edit failed: response did not include content');
   });
 
+  it('rejects AI responses that contain only whitespace content', async () => {
+    stubFetch({ content: '   ' });
+
+    await expect(
+      requestBlogEditorAiEdit({
+        accessToken: ACCESS_TOKEN,
+        apiUrl: API_URL,
+        content: '<p>Hello</p>',
+        instruction: 'Make it warmer',
+      })
+    ).rejects.toThrow('AI edit failed: empty content');
+  });
+
   it('returns an uploaded image URL on success', async () => {
     stubFetch({ path: DEFAULT_PATH, url: DEFAULT_URL });
 

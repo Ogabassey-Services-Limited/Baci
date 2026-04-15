@@ -238,13 +238,31 @@ export function useBlogEditor({ id, webViewRef }: UseBlogEditorOptions) {
   };
 
   const formatAction = (command: FormatCommand, value?: string) => {
-    webViewRef.current?.injectJavaScript(
-      buildFormatActionScript(command, value)
-    );
+    const editorWebView = webViewRef.current;
+
+    if (!editorWebView) {
+      Alert.alert(
+        'Editor unavailable',
+        'Please wait for the editor to finish loading.'
+      );
+      return;
+    }
+
+    editorWebView.injectJavaScript(buildFormatActionScript(command, value));
   };
 
   const handleInsertTable = (rows = 2, cols = 2) => {
-    webViewRef.current?.injectJavaScript(buildInsertTableScript(rows, cols));
+    const editorWebView = webViewRef.current;
+
+    if (!editorWebView) {
+      Alert.alert(
+        'Editor unavailable',
+        'Please wait for the editor to finish loading.'
+      );
+      return;
+    }
+
+    editorWebView.injectJavaScript(buildInsertTableScript(rows, cols));
   };
 
   return {
