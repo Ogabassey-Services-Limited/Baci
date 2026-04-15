@@ -16,9 +16,11 @@ import {
 } from 'react-native';
 import Animated, { LinearTransition } from 'react-native-reanimated';
 import type Colors from '@/constants/Colors';
-import { BRAND, SHADOWS } from '@/constants/Colors';
+import { BRAND, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
 
 type ColorsScheme = (typeof Colors)['light'];
+const ACTION_ROW_GAP = SPACING.md - SPACING.xs;
+const EMPHASIS_BORDER_WIDTH = SPACING.xs / 2;
 
 export interface StickyBottomActionsProps {
   canPurchase: boolean;
@@ -63,13 +65,22 @@ export function StickyBottomActions({
         {quantityInCart > 0 ? (
           <View
             key="cart-active"
-            style={{ flexDirection: 'row', gap: 12, paddingHorizontal: 0 }}
+            style={{
+              flexDirection: 'row',
+              gap: ACTION_ROW_GAP,
+              paddingHorizontal: 0,
+            }}
           >
             {/* Quantity Controller */}
-            <View style={styles.qtyController}>
+            <View
+              style={[styles.qtyController, { backgroundColor: colors.card }]}
+            >
               <Pressable
                 onPress={(e) => onDecrement(e)}
-                style={styles.qtyButton}
+                style={({ pressed }) => [
+                  styles.qtyButton,
+                  pressed ? styles.pressedAction : null,
+                ]}
                 hitSlop={10}
                 accessibilityLabel={
                   quantityInCart === 1
@@ -99,7 +110,10 @@ export function StickyBottomActions({
 
               <Pressable
                 onPress={(e) => onIncrement(e)}
-                style={styles.qtyButtonRight}
+                style={({ pressed }) => [
+                  styles.qtyButtonRight,
+                  pressed ? styles.pressedAction : null,
+                ]}
                 hitSlop={10}
                 accessibilityLabel="Increase quantity"
                 accessibilityRole="button"
@@ -111,20 +125,35 @@ export function StickyBottomActions({
             {/* View Cart Button */}
             <Pressable
               onPress={() => router.push('/(tabs)/cart')}
-              style={styles.viewCartBtn}
+              style={({ pressed }) => [
+                styles.viewCartBtn,
+                pressed ? styles.pressedAction : null,
+              ]}
               accessibilityRole="button"
               accessibilityLabel="View Cart"
             >
-              <Ionicons name="cart-outline" size={20} color="#FFF" />
-              <Text style={styles.viewCartText}>View Cart</Text>
+              <Ionicons
+                name="cart-outline"
+                size={20}
+                color={colors.primaryForeground}
+              />
+              <Text
+                style={[
+                  styles.viewCartText,
+                  { color: colors.primaryForeground },
+                ]}
+              >
+                View Cart
+              </Text>
             </Pressable>
           </View>
         ) : (
           <Pressable
-            style={[
+            style={({ pressed }) => [
               styles.addToCartBtn,
               { backgroundColor: canPurchase ? BRAND.primary : colors.border },
               canPurchase ? SHADOWS.md : null,
+              pressed ? styles.pressedAction : null,
             ]}
             disabled={!canPurchase}
             onPress={onAddToCart}
@@ -137,13 +166,19 @@ export function StickyBottomActions({
             <Ionicons
               name="cart-outline"
               size={22}
-              color={canPurchase ? '#FFF' : colors.textSecondary}
-              style={{ marginRight: 8 }}
+              color={
+                canPurchase ? colors.primaryForeground : colors.textSecondary
+              }
+              style={{ marginRight: SPACING.sm }}
             />
             <Text
               style={[
                 styles.addToCartBtnText,
-                { color: canPurchase ? '#FFF' : colors.textSecondary },
+                {
+                  color: canPurchase
+                    ? colors.primaryForeground
+                    : colors.textSecondary,
+                },
               ]}
             >
               {canPurchase ? 'Add to Cart' : 'Out of Stock'}
@@ -163,9 +198,9 @@ const styles = StyleSheet.create({
     right: 0,
     flexDirection: 'row',
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 16,
-    gap: 16,
+    paddingTop: SPACING.md,
+    paddingBottom: SPACING.md,
+    gap: SPACING.md,
     borderTopWidth: 1,
   },
   qtyController: {
@@ -173,9 +208,8 @@ const styles = StyleSheet.create({
     height: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF',
-    borderRadius: 12,
-    borderWidth: 2,
+    borderRadius: RADIUS.xl,
+    borderWidth: EMPHASIS_BORDER_WIDTH,
     borderColor: BRAND.primary,
   },
   qtyButton: {
@@ -220,29 +254,30 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 56,
     backgroundColor: BRAND.primary,
-    borderRadius: 12,
+    borderRadius: RADIUS.xl,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
+    gap: SPACING.sm,
     ...SHADOWS.md,
   },
   viewCartText: {
-    color: '#FFF',
     fontSize: 16,
     fontWeight: '800',
   },
   addToCartBtn: {
     flex: 1,
     height: 54,
-    borderRadius: 12,
+    borderRadius: RADIUS.xl,
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'row',
   },
   addToCartBtnText: {
-    color: '#FFF',
     fontSize: 16,
     fontWeight: '800',
+  },
+  pressedAction: {
+    opacity: 0.88,
   },
 });

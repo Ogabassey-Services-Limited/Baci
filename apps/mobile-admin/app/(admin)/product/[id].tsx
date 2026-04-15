@@ -28,6 +28,7 @@ import { ExistingProductSuggestions } from '@/components/product/ExistingProduct
 import { InvalidRouteScreen } from '@/components/ui/InvalidRouteScreen';
 import { KeyboardAwareModalContainer } from '@/components/ui/KeyboardAwareModalContainer';
 import SafeImage from '@/components/ui/SafeImage';
+import { RADIUS, SPACING } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useProductNameSuggestions } from '@/hooks/useProductNameSuggestions';
 import {
@@ -806,8 +807,19 @@ export default function ProductEditScreen() {
                 transition={200}
               />
               <View style={styles.imageOverlay}>
-                <Ionicons name="camera" size={24} color="#FFF" />
-                <Text style={styles.imageOverlayText}>Change Image</Text>
+                <Ionicons
+                  name="camera"
+                  size={24}
+                  color={colors.textOnPrimary}
+                />
+                <Text
+                  style={[
+                    styles.imageOverlayText,
+                    { color: colors.textOnPrimary },
+                  ]}
+                >
+                  Change Image
+                </Text>
               </View>
             </View>
           ) : (
@@ -1255,8 +1267,8 @@ export default function ProductEditScreen() {
                     style={{
                       flexDirection: 'row',
                       flexWrap: 'wrap',
-                      gap: 8,
-                      marginBottom: 4,
+                      gap: SPACING.sm,
+                      marginBottom: SPACING.xs,
                     }}
                   >
                     {EDITABLE_PRODUCT_CONDITIONS.map((conditionOption) => {
@@ -1281,15 +1293,17 @@ export default function ProductEditScreen() {
                             borderColor: isSelected
                               ? colors.primary
                               : colors.border,
-                            borderRadius: 999,
+                            borderRadius: RADIUS.full,
                             borderWidth: 1,
-                            paddingHorizontal: 12,
-                            paddingVertical: 8,
+                            paddingHorizontal: SPACING.md,
+                            paddingVertical: SPACING.sm,
                           }}
                         >
                           <Text
                             style={{
-                              color: isSelected ? '#FFF' : colors.text,
+                              color: isSelected
+                                ? colors.textOnPrimary
+                                : colors.text,
                               fontSize: 13,
                               fontWeight: '600',
                             }}
@@ -1304,15 +1318,21 @@ export default function ProductEditScreen() {
                         onPress={() =>
                           updateVariantCondition(variantIndex, undefined)
                         }
+                        hitSlop={{
+                          top: 10,
+                          bottom: 10,
+                          left: 10,
+                          right: 10,
+                        }}
                         accessibilityRole="button"
                         accessibilityLabel="Clear selected condition"
                         style={{
                           backgroundColor: colors.card,
                           borderColor: colors.border,
-                          borderRadius: 999,
+                          borderRadius: RADIUS.full,
                           borderWidth: 1,
-                          paddingHorizontal: 12,
-                          paddingVertical: 8,
+                          paddingHorizontal: SPACING.md,
+                          paddingVertical: SPACING.sm,
                         }}
                       >
                         <Text
@@ -1912,7 +1932,11 @@ export default function ProductEditScreen() {
                         ]}
                         onPress={() => adjustStock(formData.stock_quantity - 1)}
                       >
-                        <Ionicons name="remove" size={20} color="#FFFFFF" />
+                        <Ionicons
+                          name="remove"
+                          size={20}
+                          color={colors.textOnPrimary}
+                        />
                       </Pressable>
                       <Pressable
                         style={[
@@ -1921,7 +1945,11 @@ export default function ProductEditScreen() {
                         ]}
                         onPress={() => adjustStock(formData.stock_quantity + 1)}
                       >
-                        <Ionicons name="add" size={20} color="#FFFFFF" />
+                        <Ionicons
+                          name="add"
+                          size={20}
+                          color={colors.textOnPrimary}
+                        />
                       </Pressable>
                     </View>
                   </View>
@@ -2263,7 +2291,14 @@ export default function ProductEditScreen() {
                 style={[styles.saveButton, { marginTop: 16, marginBottom: 0 }]}
                 onPress={() => setIsFulfillmentModalVisible(false)}
               >
-                <Text style={styles.saveButtonText}>Done</Text>
+                <Text
+                  style={[
+                    styles.saveButtonText,
+                    { color: colors.textOnPrimary },
+                  ]}
+                >
+                  Done
+                </Text>
               </Pressable>
             </View>
           </KeyboardAwareModalContainer>
@@ -2307,7 +2342,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   imageOverlayText: {
-    color: '#FFFFFF',
     fontWeight: '600',
     fontSize: 14,
   },
@@ -2393,7 +2427,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   saveButtonText: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
   },
