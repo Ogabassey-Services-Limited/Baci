@@ -17,7 +17,7 @@ jobs:
     name: Jules review
     if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 360
 
     steps:
       - name: Run Jules review
@@ -213,7 +213,7 @@ jobs:
             exit 0
           fi
 
-          for _ in $(seq 1 60); do
+          while :; do
             session_status="$(
               curl -fsSL \
                 -H "x-goog-api-key: ${JULES_API_KEY}" \
