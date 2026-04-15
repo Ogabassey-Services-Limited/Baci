@@ -259,16 +259,17 @@ describe('StickyAddToCart', () => {
       <StickyAddToCart
         product={{
           ...makeProduct(),
-          stock: 0,
+          stock: 10,
         }}
         selectedCondition="used"
         selectedPrice={400000}
+        selectedStock={0}
       />
     );
 
     fireEvent.scroll(window);
 
-    const button = await screen.findByRole('button', { name: 'Out of Stock' });
+    const button = await screen.findByRole('button', { name: 'Unavailable' });
     expect(button).toBeDisabled();
     fireEvent.click(button);
 

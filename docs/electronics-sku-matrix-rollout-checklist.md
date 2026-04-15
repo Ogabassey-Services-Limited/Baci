@@ -240,6 +240,7 @@ where p.variant_model = 'sku_matrix'
     select 1
     from public.product_variants pv
     where pv.id = p.default_variant_id
+      and pv.product_id = p.id
   );
 ```
 
@@ -327,6 +328,7 @@ This release is not a clean “rollback everything” deployment. Treat it as a 
 - [20260415103000_add_variant_condition_feed_rpcs.sql](../supabase/migrations/20260415103000_add_variant_condition_feed_rpcs.sql) is additive.
 - [20260415110000_prepare_legacy_products_for_sku_matrix.sql](../supabase/migrations/20260415110000_prepare_legacy_products_for_sku_matrix.sql) converts data, but it archives converted `product_offers` rows into `product_offer_migration_archive`.
 - [20260415123000_add_sku_matrix_product_projections.sql](../supabase/migrations/20260415123000_add_sku_matrix_product_projections.sql) adds triggers, unique constraints, and behavior changes. Do not partially “undo” this in production unless you are deliberately authoring a forward corrective migration.
+- [20260415150000_mark_legacy_sku_matrix_needs_review.sql](../supabase/migrations/20260415150000_mark_legacy_sku_matrix_needs_review.sql) only marks products for manual review. It does not archive or delete data, so any rollback should be a targeted status clear on the specific rows you intentionally want to unmark.
 
 ### Practical rollback guidance
 

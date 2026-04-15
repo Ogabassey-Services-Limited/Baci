@@ -10,6 +10,16 @@ export interface ProductDetailsCurrentOffer {
   stock: number;
 }
 
+const NGN_FORMATTER = new Intl.NumberFormat('en-NG', {
+  style: 'currency',
+  currency: 'NGN',
+  maximumFractionDigits: 0,
+});
+
+function formatNgnCurrency(value: number): string {
+  return NGN_FORMATTER.format(value);
+}
+
 export function resolveCurrentOffer(
   productData: NormalizedProductDetails,
   selectedCondition: ConditionType,
@@ -47,11 +57,7 @@ export function resolveCurrentOffer(
     price = variantSelection.price;
     stock = getEffectiveStock(variantSelection.variant);
     return {
-      price: new Intl.NumberFormat('en-NG', {
-        style: 'currency',
-        currency: 'NGN',
-        maximumFractionDigits: 0,
-      }).format(price),
+      price: formatNgnCurrency(price),
       rawPrice: price,
       stock,
       id: productData.id,
@@ -84,11 +90,7 @@ export function resolveCurrentOffer(
   }
 
   return {
-    price: new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
-      maximumFractionDigits: 0,
-    }).format(price),
+    price: formatNgnCurrency(price),
     rawPrice: price,
     stock,
     id: productData.id,

@@ -260,7 +260,7 @@ export async function PUT(
     const { data: existingProduct, error: fetchError } = await supabase
       .from('products')
       .select(
-        'id, name, description, condition, condition_detail, has_variants, variant_model'
+        'id, name, description, brand, slug, condition, condition_detail, has_variants, variant_model'
       )
       .eq('id', id)
       .eq('merchant_id', merchantId)
@@ -449,12 +449,15 @@ export async function PUT(
       updates.fulfillment_details = body.fulfillment_details;
     if (body.has_variants !== undefined)
       updates.has_variants = body.has_variants;
-    if (body.variant_model !== undefined || body.variants !== undefined) {
-      updates.variant_model = variantModel;
-      if (variantModel === 'sku_matrix') {
-        updates.migration_status = 'migrated';
-      }
-    }
+    const deferredVariantModelUpdates =
+      body.variant_model !== undefined || body.variants !== undefined
+        ? {
+            variant_model: variantModel,
+            ...(variantModel === 'sku_matrix'
+              ? { migration_status: 'migrated' as const }
+              : {}),
+          }
+        : null;
     if (body.category !== undefined) updates.category = body.category;
     if (body.color !== undefined) updates.color = body.color;
 
@@ -513,20 +516,27 @@ export async function PUT(
       );
     }
 
-    const { data: updatedProduct, error: updateError } = await supabase
-      .from('products')
-      .update(updates)
-      .eq('id', id)
-      .eq('merchant_id', merchantId)
-      .select()
-      .single();
+    let updatedProduct = existingProduct;
+    let hasFreshProductRow = false;
+    if (Object.keys(updates).length > 1) {
+      const { data: persistedProduct, error: updateError } = await supabase
+        .from('products')
+        .update(updates)
+        .eq('id', id)
+        .eq('merchant_id', merchantId)
+        .select()
+        .single();
 
-    if (updateError) {
-      console.error('Error updating product:', updateError);
-      return NextResponse.json(
-        { error: 'Failed to update product' },
-        { status: 500 }
-      );
+      if (updateError) {
+        console.error('Error updating product:', updateError);
+        return NextResponse.json(
+          { error: 'Failed to update product' },
+          { status: 500 }
+        );
+      }
+
+      updatedProduct = persistedProduct;
+      hasFreshProductRow = true;
     }
 
     // Handle Variants
@@ -625,6 +635,57 @@ export async function PUT(
           { status: 500 }
         );
       }
+    }
+
+    if (deferredVariantModelUpdates) {
+      const { data: variantModelProduct, error: variantModelError } =
+        await supabase
+          .from('products')
+          .update({
+            ...deferredVariantModelUpdates,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', id)
+          .eq('merchant_id', merchantId)
+          .select()
+          .single();
+
+      if (variantModelError) {
+        console.error(
+          'Error updating product variant model state:',
+          variantModelError
+        );
+        return NextResponse.json(
+          { error: 'Failed to sync product variant model' },
+          { status: 500 }
+        );
+      }
+
+      updatedProduct = variantModelProduct;
+      hasFreshProductRow = true;
+    }
+
+    if (!hasFreshProductRow) {
+      const { data: refreshedProduct, error: refreshedProductError } =
+        await supabase
+          .from('products')
+          .select()
+          .eq('id', id)
+          .eq('merchant_id', merchantId)
+          .single();
+
+      if (refreshedProductError) {
+        console.error(
+          'Error refreshing updated product:',
+          refreshedProductError
+        );
+        return NextResponse.json(
+          { error: 'Failed to load updated product' },
+          { status: 500 }
+        );
+      }
+
+      updatedProduct = refreshedProduct;
     }
 
     // Regenerate embedding if name or description changed

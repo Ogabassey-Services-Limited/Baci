@@ -200,11 +200,12 @@ export const ProductDbSchema = ProductSchema.transform((data) => {
     sku: variant.sku.trim() || null,
     stock_quantity: variant.stock_quantity,
   }));
+  const persistedVariants = has_variants ? normalizedVariants : [];
 
   const variantModel = inferProductVariantModel({
-    variants: normalizedVariants,
+    variants: persistedVariants,
   });
-  const defaultSelectionVariants = normalizedVariants.map((variant, index) => ({
+  const defaultSelectionVariants = persistedVariants.map((variant, index) => ({
     ...variant,
     id: variant.id ?? `draft-variant-${index}`,
   }));
@@ -230,9 +231,7 @@ export const ProductDbSchema = ProductSchema.transform((data) => {
         : rest.stock_quantity;
   const nextCondition =
     variantModel === 'sku_matrix'
-      ? (defaultSelection?.condition ??
-        normalizedVariants[0]?.condition ??
-        null)
+      ? (defaultSelection?.condition ?? persistedVariants[0]?.condition ?? null)
       : (rest.condition ?? null);
 
   return {
@@ -250,7 +249,7 @@ export const ProductDbSchema = ProductSchema.transform((data) => {
     variant_attributes: has_variants
       ? buildParentVariantAttributes(variants)
       : attributesRecord,
-    variants: has_variants ? normalizedVariants : [],
+    variants: persistedVariants,
     // Ensure category_id is null if empty string
     category_id: rest.category_id === '' ? null : rest.category_id,
   };

@@ -104,7 +104,7 @@ export function ProductCartActions({
                 : 'cursor-not-allowed bg-[var(--store-background-text,#111827)]/10 text-[var(--store-background-text,#111827)]/45 shadow-none'
             )}
           >
-            {canPurchase ? 'Add to Cart' : 'Out of Stock'}
+            {canPurchase ? 'Add to Cart' : 'Unavailable'}
           </button>
         )}
       </div>

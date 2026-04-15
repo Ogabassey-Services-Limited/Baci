@@ -33,13 +33,13 @@ describe('product variant model helpers', () => {
     ).toBe('legacy');
   });
 
-  it('returns the explicit variant model when provided', () => {
+  it('does not let an explicit legacy model override conditioned variants', () => {
     expect(
       inferProductVariantModel({
         variantModel: 'legacy',
         variants: [{ condition: 'used', price_override: 600000 }],
       })
-    ).toBe('legacy');
+    ).toBe('sku_matrix');
   });
 
   it('validates required sku_matrix variant fields', () => {
@@ -73,6 +73,8 @@ describe('product variant model helpers', () => {
         hasVariants: true,
         variants: [{ condition: 'used' }],
       })
-    ).toBe('Every sku_matrix variant must include an explicit price_override.');
+    ).toBe(
+      'Every sku_matrix variant must include a non-negative price_override.'
+    );
   });
 });

@@ -657,14 +657,22 @@ export default function ProductDetailScreen() {
     selectedCondition,
     null
   );
+  const selectedConditionOffer =
+    !product?.has_variants && selectedCondition
+      ? (product?.offers?.find(
+          (offer) => offer.condition === selectedCondition
+        ) ?? null)
+      : null;
   const canPurchase =
     product?.has_variants === true
       ? Boolean(currentVariantSelection)
       : product
         ? product.manage_stock === false ||
-          (typeof product.stock_quantity === 'number'
-            ? product.stock_quantity > 0
-            : product.in_stock === true)
+          (typeof selectedConditionOffer?.stock_quantity === 'number'
+            ? selectedConditionOffer.stock_quantity > 0
+            : typeof product.stock_quantity === 'number'
+              ? product.stock_quantity > 0
+              : product.in_stock === true)
         : false;
   const conditionOffersForDisplay = (() => {
     if (!product) {

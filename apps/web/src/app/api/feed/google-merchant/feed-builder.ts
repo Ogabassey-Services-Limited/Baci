@@ -414,7 +414,10 @@ export function generateGoogleMerchantFeed(
           .join('\n');
       }
 
-      const skuMatrixFallback = resolveSkuMatrixFallback(product);
+      const skuMatrixFallback =
+        product.variant_model === 'sku_matrix'
+          ? resolveSkuMatrixFallback(product)
+          : null;
       if (skuMatrixFallback) {
         return buildBaseItemXml({
           additionalImagesXml,

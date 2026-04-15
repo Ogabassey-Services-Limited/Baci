@@ -21,6 +21,8 @@ interface StickyAddToCartProps {
   selectedCondition?: string;
   /** Selected display price for the current condition / variant */
   selectedPrice?: number;
+  /** Selected stock for the current condition / variant */
+  selectedStock?: number;
   /** Minimum distance from top before showing (default: 400px) */
   showAfterScroll?: number;
   /** Custom class name */
@@ -47,6 +49,7 @@ export function StickyAddToCart({
   selectedAttributes,
   selectedCondition,
   selectedPrice,
+  selectedStock,
   showAfterScroll = 400,
   className,
 }: StickyAddToCartProps) {
@@ -101,7 +104,8 @@ export function StickyAddToCart({
   // Get current price and stock based on variant selection
   const currentPrice =
     selectedPrice ?? selectedVariant?.price_override ?? product.price;
-  const currentStock = selectedVariant?.stock_quantity ?? product.stock;
+  const currentStock =
+    selectedStock ?? selectedVariant?.stock_quantity ?? product.stock;
   const isOutOfStock = product.manage_stock && currentStock === 0;
 
   const handleQuantityChange = (newQuantity: number) => {
@@ -247,7 +251,7 @@ export function StickyAddToCart({
                   disabled={isOutOfStock}
                 >
                   <ShoppingCart className="w-4 h-4" />
-                  {isOutOfStock ? 'Out of Stock' : 'Add'}
+                  {isOutOfStock ? 'Unavailable' : 'Add'}
                 </ThemedButton>
               </div>
             )}

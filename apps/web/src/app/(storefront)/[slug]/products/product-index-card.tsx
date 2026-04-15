@@ -24,13 +24,19 @@ function getConditionBadgeLabel(product: NormalizedProduct) {
       .join(' ');
 
   if (Array.isArray(product.available_conditions)) {
-    const normalizedConditions = product.available_conditions
-      .filter((condition): condition is string => typeof condition === 'string')
-      .map((condition) => condition.trim().toLowerCase())
-      .filter(Boolean);
+    const normalizedConditions = Array.from(
+      new Set(
+        product.available_conditions
+          .filter(
+            (condition): condition is string => typeof condition === 'string'
+          )
+          .map((condition) => condition.trim().toLowerCase())
+          .filter(Boolean)
+      )
+    );
 
     if (
-      normalizedConditions.length > 1 &&
+      normalizedConditions.length === 2 &&
       normalizedConditions.includes('new') &&
       normalizedConditions.includes('used')
     ) {

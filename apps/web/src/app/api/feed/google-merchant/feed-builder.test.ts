@@ -747,4 +747,42 @@ describe('generateGoogleMerchantFeed — conditioned variants', () => {
     expect(xml).not.toContain('<g:id>variant-new-128</g:id>');
     expect(xml).not.toContain('<g:item_group_id>');
   });
+
+  it('does not apply the sku_matrix fallback to legacy offer-driven products', () => {
+    const xml = generateGoogleMerchantFeed(
+      [
+        // Edge/migration state: both offers and variants exist, but legacy
+        // offer-driven emission must still win when variant_model is legacy
+        // and gmc_variants_enabled is disabled.
+        product({
+          has_condition_offers: true,
+          offers: [
+            {
+              id: 'offer-used',
+              condition: 'used',
+              price: 610000,
+              stock_quantity: 2,
+            },
+          ],
+          variant_model: 'legacy',
+          variants: [
+            {
+              id: 'variant-used-256',
+              condition: 'used',
+              price_override: 610000,
+              stock_quantity: 2,
+              attributes: { storage: '256GB' },
+            },
+          ],
+        }),
+      ],
+      merchant({ gmc_variants_enabled: false }),
+      BASE_URL,
+      defaultManifest
+    );
+
+    expect((xml.match(/<item>/g) || []).length).toBe(2);
+    expect(xml).toContain('<g:id>prod-1</g:id>');
+    expect(xml).toContain('<g:id>offer-used</g:id>');
+  });
 });

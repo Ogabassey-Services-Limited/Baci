@@ -447,4 +447,48 @@ describe('ProductDetailScreen canonical slug redirect', () => {
     expect(containerStyle?.marginTop).toBeUndefined();
     expect(containerStyle?.marginBottom).toBeUndefined();
   });
+
+  it('blocks purchase when the selected legacy condition offer is out of stock', async () => {
+    mockUseLocalSearchParams.mockReturnValue({
+      slug: 'iphone-13-pro',
+      condition: 'used',
+    });
+    mockUseProduct.mockReturnValue({
+      product: {
+        ...baseProduct,
+        has_condition_offers: true,
+        stock_quantity: 10,
+        offers: [
+          {
+            id: 'offer-used',
+            condition: 'used',
+            price: 500000,
+            stock_quantity: 0,
+          },
+        ],
+      },
+      isLoading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+    mockUseEffectivePrice.mockReturnValue({
+      price: 500000,
+      comparePrice: undefined,
+    });
+
+    render(<ProductDetailScreen />);
+
+    await waitFor(() => {
+      expect(mockProductDetailsBody).toHaveBeenCalledWith(
+        expect.objectContaining({
+          selectedCondition: 'used',
+        })
+      );
+      expect(mockStickyBottomActions).toHaveBeenCalledWith(
+        expect.objectContaining({
+          canPurchase: false,
+        })
+      );
+    });
+  });
 });

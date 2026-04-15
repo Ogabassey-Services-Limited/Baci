@@ -385,6 +385,7 @@ export default function ProductEditScreen() {
     }
 
     if (
+      formData.has_variants &&
       hasVariantConditionAxis &&
       formData.variants.some(
         (variant) =>

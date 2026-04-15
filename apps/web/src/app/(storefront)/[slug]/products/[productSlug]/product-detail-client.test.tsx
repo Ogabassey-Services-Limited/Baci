@@ -379,4 +379,40 @@ describe('ProductDetailClient', () => {
       'variant-used-256'
     );
   });
+
+  it('matches simple in-cart rows without forcing base-condition equality', async () => {
+    mockUseCart.mockReturnValue({
+      addToCart: mockAddToCart,
+      cart: [
+        {
+          id: 'product-1',
+          name: 'iPad 11th Gen',
+          description: 'Tablet',
+          status: 'active',
+          price: 550000,
+          manage_stock: true,
+          stock: 10,
+          image: '/ipad.jpg',
+          imageLarge: '/ipad.jpg',
+          imageHint: 'ipad',
+          brand: 'Apple',
+          gtin: '',
+          mpn: '',
+          slug: 'ipad-11th-gen',
+          quantity: 2,
+        } as CartItem,
+      ],
+      setMerchantSlug: mockSetMerchantSlug,
+      updateQuantity: mockUpdateQuantity,
+    });
+
+    render(<ProductDetailClient product={makeBaseProduct()} />);
+
+    const increaseButton = await screen.findByLabelText(
+      'Increase quantity of iPad 11th Gen'
+    );
+    increaseButton.click();
+
+    expect(mockUpdateQuantity).toHaveBeenCalledWith('product-1', 3, undefined);
+  });
 });

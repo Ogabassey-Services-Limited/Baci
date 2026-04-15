@@ -350,6 +350,35 @@ describe('ProductDbSchema', () => {
     expect(parsed).not.toHaveProperty('migration_status');
   });
 
+  it('keeps products legacy when variants are disabled even if stale rows still carry conditions', () => {
+    const parsed = ProductDbSchema.parse({
+      name: 'Legacy Phone',
+      sku: 'LEG-STILL',
+      price: 250000,
+      stock_quantity: 4,
+      category_id: '',
+      condition: 'used',
+      manage_stock: true,
+      status: 'active',
+      images: [],
+      has_variants: false,
+      variant_attributes: [],
+      variants: [
+        {
+          attributes: [{ key: 'storage', value: '128GB' }],
+          condition: 'new',
+          price: 300000,
+          stock_quantity: 2,
+        },
+      ],
+    });
+
+    expect(parsed.variant_model).toBe('legacy');
+    expect(parsed.condition).toBe('used');
+    expect(parsed.variants).toEqual([]);
+    expect(parsed).not.toHaveProperty('migration_status');
+  });
+
   it('preserves zero cost prices and omits ids for unsaved variants', () => {
     const parsed = ProductDbSchema.parse({
       name: 'Galaxy S25',

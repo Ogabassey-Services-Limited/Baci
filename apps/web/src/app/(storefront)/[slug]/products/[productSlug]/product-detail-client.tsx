@@ -391,7 +391,12 @@ export default function ProductDetailClient({
               stock_quantity:
                 effectiveVariant.stock_quantity ?? product.stock ?? undefined,
             }
-          : product
+          : selectedOffer
+            ? {
+                stock: selectedOffer.stock_quantity ?? 0,
+                stock_quantity: selectedOffer.stock_quantity ?? 0,
+              }
+            : product
       )
     : Number.POSITIVE_INFINITY;
   const isOutOfStock = isStockManaged ? currentStock === 0 : false;
@@ -528,10 +533,15 @@ export default function ProductDetailClient({
     if (effectiveVariantId) {
       return item.id === product.id && item.variantId === effectiveVariantId;
     }
+
+    // Base/simple products store no condition in cart. Only offer-driven
+    // selections need an explicit condition match on non-variant rows.
     return (
       item.id === product.id &&
       !item.variantId &&
-      (item.condition ?? undefined) === (selectedCondition ?? undefined)
+      (selectedOffer
+        ? (item.condition ?? undefined) === (selectedCondition ?? undefined)
+        : true)
     );
   });
 
@@ -1051,6 +1061,7 @@ export default function ProductDetailClient({
           selectedOffer || usesVariantConditions ? selectedCondition : undefined
         }
         selectedPrice={currentPrice}
+        selectedStock={currentStock}
         selectedVariant={currentVariantSelection?.variant ?? effectiveVariant}
       />
     </>
