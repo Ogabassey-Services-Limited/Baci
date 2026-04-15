@@ -1,4 +1,8 @@
 import { Dimensions } from 'react-native';
+import {
+  CHAT_WIDGET_DEFAULT_BOTTOM_OFFSET,
+  CHAT_WIDGET_FAB_SIZE,
+} from '@/constants/layout';
 import { resolveApiBaseUrl } from '@/lib/api-url';
 
 /**
@@ -32,9 +36,10 @@ export const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } =
 export const API_BASE_URL = resolveApiBaseUrl(process.env.EXPO_PUBLIC_API_URL);
 
 // FAB dimensions and margins
-export const FAB_SIZE = 60;
+export const FAB_SIZE = CHAT_WIDGET_FAB_SIZE;
 export const EDGE_MARGIN = 16;
 export const SNAP_THRESHOLD = SCREEN_WIDTH / 2;
+export { CHAT_WIDGET_DEFAULT_BOTTOM_OFFSET };
 
 // Intermittent nudge constants
 export const NUDGE_VISIBLE_DURATION = 10000; // 10 seconds
