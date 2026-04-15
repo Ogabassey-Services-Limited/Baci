@@ -17,7 +17,7 @@ jobs:
     name: Jules review
     if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 360
 
     steps:
       - name: Run Jules review
@@ -45,6 +45,8 @@ jobs:
           session_id=""
           state="NOT_STARTED"
           run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}"
+          # Stop polling shortly before the 6-hour job timeout so fallback review posting still runs.
+          poll_deadline_epoch=$(( $(date +%s) + 21000 ))
 
           uri_encode() {
             jq -rn --arg value "$1" '$value | @uri'
@@ -213,7 +215,11 @@ jobs:
             exit 0
           fi
 
-          for _ in $(seq 1 60); do
+          while :; do
+            if (( $(date +%s) >= poll_deadline_epoch )); then
+              break
+            fi
+
             session_status="$(
               curl -fsSL \
                 -H "x-goog-api-key: ${JULES_API_KEY}" \
