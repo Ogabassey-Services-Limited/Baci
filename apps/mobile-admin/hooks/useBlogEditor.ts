@@ -25,6 +25,30 @@ interface UseBlogEditorOptions {
   webViewRef: RefObject<WebView | null>;
 }
 
+function normalizeSafeLinkUrl(value: string): string | null {
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return null;
+  }
+
+  const candidate = /^[a-z][a-z0-9+.-]*:/i.test(trimmedValue)
+    ? trimmedValue
+    : `https://${trimmedValue}`;
+
+  try {
+    const parsedUrl = new URL(candidate);
+
+    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+      return null;
+    }
+
+    return parsedUrl.toString();
+  } catch {
+    return null;
+  }
+}
+
 export function useBlogEditor({ id, webViewRef }: UseBlogEditorOptions) {
   const postId = normalizeBlogPostId(id);
   const [isAIModalVisible, setIsAIModalVisible] = useState(false);
@@ -160,9 +184,13 @@ export function useBlogEditor({ id, webViewRef }: UseBlogEditorOptions) {
       return;
     }
 
-    const normalizedUrl = linkUrl.startsWith('http')
-      ? linkUrl
-      : `https://${linkUrl}`;
+    const normalizedUrl = normalizeSafeLinkUrl(linkUrl);
+
+    if (!normalizedUrl) {
+      Alert.alert('Invalid link', 'Enter a valid http or https URL.');
+      return;
+    }
+
     webViewRef.current?.injectJavaScript(buildCreateLinkScript(normalizedUrl));
     setLinkUrl('');
     setIsLinkModalVisible(false);

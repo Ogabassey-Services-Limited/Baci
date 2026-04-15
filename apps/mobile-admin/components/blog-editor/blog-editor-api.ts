@@ -122,4 +122,9 @@ export async function deleteBlogEditorImage({
   if (!response.ok) {
     throw new Error(await readEditorApiError(response, 'Delete failed'));
   }
+
+  const data = await response.json();
+  if (data?.success !== true) {
+    throw new Error('Delete API response did not confirm success');
+  }
 }

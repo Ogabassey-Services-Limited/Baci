@@ -40,6 +40,18 @@ vi.mock('@/components/blog-editor/blog-editor-api', () => ({
 
 import { useBlogImageUpload } from '@/hooks/blog-editor/useBlogImageUpload';
 
+function createWebViewRef(): RefObject<WebView | null> {
+  return {
+    current: {
+      injectJavaScript: (...args: unknown[]) => mocks.injectJavaScript(...args),
+    } as unknown as WebView,
+  };
+}
+
+function renderImageUploadHook(webViewRef: RefObject<WebView | null>) {
+  return renderHook(() => useBlogImageUpload({ webViewRef }));
+}
+
 describe('useBlogImageUpload', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -67,7 +79,7 @@ describe('useBlogImageUpload', () => {
 
   it('alerts and aborts before upload when the editor is unavailable', async () => {
     const webViewRef = { current: null } as RefObject<WebView | null>;
-    const { result } = renderHook(() => useBlogImageUpload({ webViewRef }));
+    const { result } = renderImageUploadHook(webViewRef);
 
     await act(async () => {
       await result.current.handleImagePick();
@@ -81,12 +93,7 @@ describe('useBlogImageUpload', () => {
   });
 
   it('cleans up uploaded assets when the editor disappears before insertion', async () => {
-    const webViewRef = {
-      current: {
-        injectJavaScript: (...args: unknown[]) =>
-          mocks.injectJavaScript(...args),
-      },
-    } as unknown as RefObject<WebView | null>;
+    const webViewRef = createWebViewRef();
 
     mocks.uploadBlogEditorImageDetails.mockImplementationOnce(() =>
       Promise.resolve({
@@ -98,7 +105,7 @@ describe('useBlogImageUpload', () => {
       })
     );
 
-    const { result } = renderHook(() => useBlogImageUpload({ webViewRef }));
+    const { result } = renderImageUploadHook(webViewRef);
 
     await act(async () => {
       await result.current.handleImagePick();
@@ -117,14 +124,9 @@ describe('useBlogImageUpload', () => {
   });
 
   it('uploads and inserts the image when the editor remains mounted', async () => {
-    const webViewRef = {
-      current: {
-        injectJavaScript: (...args: unknown[]) =>
-          mocks.injectJavaScript(...args),
-      },
-    } as unknown as RefObject<WebView | null>;
+    const webViewRef = createWebViewRef();
 
-    const { result } = renderHook(() => useBlogImageUpload({ webViewRef }));
+    const { result } = renderImageUploadHook(webViewRef);
 
     await act(async () => {
       await result.current.handleImagePick();
@@ -137,12 +139,7 @@ describe('useBlogImageUpload', () => {
   });
 
   it('continues gracefully when cleanup deletion fails', async () => {
-    const webViewRef = {
-      current: {
-        injectJavaScript: (...args: unknown[]) =>
-          mocks.injectJavaScript(...args),
-      },
-    } as unknown as RefObject<WebView | null>;
+    const webViewRef = createWebViewRef();
     mocks.uploadBlogEditorImageDetails.mockImplementationOnce(() =>
       Promise.resolve({
         path: 'merchant-1/blog/hero.png',
@@ -156,7 +153,7 @@ describe('useBlogImageUpload', () => {
       new Error('Cleanup failed')
     );
 
-    const { result } = renderHook(() => useBlogImageUpload({ webViewRef }));
+    const { result } = renderImageUploadHook(webViewRef);
 
     await act(async () => {
       await result.current.handleImagePick();
@@ -170,17 +167,12 @@ describe('useBlogImageUpload', () => {
   });
 
   it('surfaces permission denial without attempting upload', async () => {
-    const webViewRef = {
-      current: {
-        injectJavaScript: (...args: unknown[]) =>
-          mocks.injectJavaScript(...args),
-      },
-    } as unknown as RefObject<WebView | null>;
+    const webViewRef = createWebViewRef();
     mocks.requestMediaLibraryPermissionsAsync.mockResolvedValueOnce({
       granted: false,
     });
 
-    const { result } = renderHook(() => useBlogImageUpload({ webViewRef }));
+    const { result } = renderImageUploadHook(webViewRef);
 
     await act(async () => {
       await result.current.handleImagePick();
@@ -194,17 +186,12 @@ describe('useBlogImageUpload', () => {
   });
 
   it('stops quietly when the picker is cancelled', async () => {
-    const webViewRef = {
-      current: {
-        injectJavaScript: (...args: unknown[]) =>
-          mocks.injectJavaScript(...args),
-      },
-    } as unknown as RefObject<WebView | null>;
+    const webViewRef = createWebViewRef();
     mocks.launchImageLibraryAsync.mockResolvedValueOnce({
       canceled: true,
     });
 
-    const { result } = renderHook(() => useBlogImageUpload({ webViewRef }));
+    const { result } = renderImageUploadHook(webViewRef);
 
     await act(async () => {
       await result.current.handleImagePick();
@@ -215,18 +202,13 @@ describe('useBlogImageUpload', () => {
   });
 
   it('ignores malformed picker assets without uploading', async () => {
-    const webViewRef = {
-      current: {
-        injectJavaScript: (...args: unknown[]) =>
-          mocks.injectJavaScript(...args),
-      },
-    } as unknown as RefObject<WebView | null>;
+    const webViewRef = createWebViewRef();
     mocks.launchImageLibraryAsync.mockResolvedValueOnce({
       assets: [{ uri: undefined }],
       canceled: false,
     });
 
-    const { result } = renderHook(() => useBlogImageUpload({ webViewRef }));
+    const { result } = renderImageUploadHook(webViewRef);
 
     await act(async () => {
       await result.current.handleImagePick();
@@ -237,18 +219,13 @@ describe('useBlogImageUpload', () => {
   });
 
   it('shows an error when the session cannot be loaded', async () => {
-    const webViewRef = {
-      current: {
-        injectJavaScript: (...args: unknown[]) =>
-          mocks.injectJavaScript(...args),
-      },
-    } as unknown as RefObject<WebView | null>;
+    const webViewRef = createWebViewRef();
     mocks.getSession.mockResolvedValueOnce({
       data: { session: null },
       error: new Error('Missing session'),
     });
 
-    const { result } = renderHook(() => useBlogImageUpload({ webViewRef }));
+    const { result } = renderImageUploadHook(webViewRef);
 
     await act(async () => {
       await result.current.handleImagePick();
@@ -262,17 +239,12 @@ describe('useBlogImageUpload', () => {
   });
 
   it('shows an error when the upload fails', async () => {
-    const webViewRef = {
-      current: {
-        injectJavaScript: (...args: unknown[]) =>
-          mocks.injectJavaScript(...args),
-      },
-    } as unknown as RefObject<WebView | null>;
+    const webViewRef = createWebViewRef();
     mocks.uploadBlogEditorImageDetails.mockRejectedValueOnce(
       new Error('Upload failed')
     );
 
-    const { result } = renderHook(() => useBlogImageUpload({ webViewRef }));
+    const { result } = renderImageUploadHook(webViewRef);
 
     await act(async () => {
       await result.current.handleImagePick();
@@ -280,6 +252,23 @@ describe('useBlogImageUpload', () => {
 
     expect(mocks.deleteBlogEditorImage).not.toHaveBeenCalled();
     expect(mocks.injectJavaScript).not.toHaveBeenCalled();
+    expect(mocks.alert).toHaveBeenCalledWith('Upload Failed', 'Upload failed');
+  });
+
+  it('falls back to the error message when upload serialization fails', async () => {
+    const webViewRef = createWebViewRef();
+    const circularError: { message: string; self?: unknown } = {
+      message: 'Upload failed',
+    };
+    circularError.self = circularError;
+    mocks.uploadBlogEditorImageDetails.mockRejectedValueOnce(circularError);
+
+    const { result } = renderImageUploadHook(webViewRef);
+
+    await act(async () => {
+      await result.current.handleImagePick();
+    });
+
     expect(mocks.alert).toHaveBeenCalledWith('Upload Failed', 'Upload failed');
   });
 });

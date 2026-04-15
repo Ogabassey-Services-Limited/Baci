@@ -13,6 +13,32 @@ const IFRAME_PATTERN =
 const REMAINING_IFRAME_PATTERN =
   /<iframe\b[\s\S]*?<\/iframe>|<iframe\b[^>]*\/?>/gi;
 const SAFE_IFRAME_PLACEHOLDER_PREFIX = '__BACI_SAFE_IFRAME_';
+const HTML_ENTITY_MAP: Record<string, string> = {
+  amp: '&',
+  apos: "'",
+  colon: ':',
+  gt: '>',
+  lt: '<',
+  newline: '\n',
+  quot: '"',
+  tab: '\t',
+};
+
+function decodeHtmlEntities(value: string): string {
+  return value.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (match, entity: string) => {
+    if (entity.startsWith('#x') || entity.startsWith('#X')) {
+      const codePoint = Number.parseInt(entity.slice(2), 16);
+      return Number.isNaN(codePoint) ? match : String.fromCodePoint(codePoint);
+    }
+
+    if (entity.startsWith('#')) {
+      const codePoint = Number.parseInt(entity.slice(1), 10);
+      return Number.isNaN(codePoint) ? match : String.fromCodePoint(codePoint);
+    }
+
+    return HTML_ENTITY_MAP[entity.toLowerCase()] ?? match;
+  });
+}
 
 function sanitizeIframeSrc(value: string): string | null {
   try {
@@ -44,14 +70,26 @@ function sanitizeIframeSrc(value: string): string | null {
   }
 }
 
+function normalizeUrlSchemeValue(value: string): string {
+  return Array.from(value)
+    .filter((character) => {
+      const codePoint = character.codePointAt(0) ?? 0;
+      return codePoint > 31 && codePoint !== 127 && !/\s/u.test(character);
+    })
+    .join('')
+    .toLowerCase();
+}
+
 function sanitizeUrlAttribute(attribute: string, value: string): string {
   const trimmedValue = value.trim();
-  const lowerValue = trimmedValue.toLowerCase();
+  const normalizedValue = normalizeUrlSchemeValue(
+    decodeHtmlEntities(trimmedValue)
+  );
 
   if (
-    lowerValue.startsWith('javascript:') ||
-    lowerValue.startsWith('vbscript:') ||
-    lowerValue.startsWith('data:')
+    normalizedValue.startsWith('javascript:') ||
+    normalizedValue.startsWith('vbscript:') ||
+    normalizedValue.startsWith('data:')
   ) {
     return attribute === 'href' ? ' href="#"' : ' src=""';
   }

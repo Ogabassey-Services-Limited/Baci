@@ -141,6 +141,38 @@ describe('BlogEditorDialogs', () => {
     expect(onConfirmAI).toHaveBeenCalledTimes(1);
   });
 
+  it('uses the auto-polish action label when no AI instruction is provided', () => {
+    const onConfirmAI = vi.fn();
+
+    render(
+      <BlogEditorDialogs
+        aiInstruction=""
+        colors={LIGHT_COLORS}
+        isAIModalVisible={true}
+        isLinkModalVisible={false}
+        isVideoModalVisible={false}
+        linkUrl=""
+        onCloseVideoModal={vi.fn()}
+        onAiInstructionChange={vi.fn()}
+        onCloseAIModal={vi.fn()}
+        onCloseLinkModal={vi.fn()}
+        onConfirmAI={onConfirmAI}
+        onConfirmLink={vi.fn()}
+        onConfirmVideo={vi.fn()}
+        onLinkUrlChange={vi.fn()}
+        onVideoUrlChange={vi.fn()}
+        videoUrl=""
+      />
+    );
+
+    const actionButton = screen.getByText('Auto Polish');
+
+    expect(actionButton).toBeInTheDocument();
+    fireEvent.click(actionButton);
+
+    expect(onConfirmAI).toHaveBeenCalledTimes(1);
+  });
+
   it('renders the video dialog and forwards insert interactions', () => {
     const onConfirmVideo = vi.fn();
     const onVideoUrlChange = vi.fn();

@@ -21,6 +21,15 @@ vi.mock('@/lib/supabase', () => ({
 
 import { useBlogEditorData } from '@/hooks/blog-editor/useBlogEditorData';
 
+function createDeferred<T>() {
+  let resolvePromise!: (value: T) => void;
+  const promise = new Promise<T>((resolve) => {
+    resolvePromise = resolve;
+  });
+
+  return { promise, resolve: resolvePromise };
+}
+
 describe('useBlogEditorData', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -194,5 +203,62 @@ describe('useBlogEditorData', () => {
     expect(result.current.errorMessage).toBeNull();
     expect(result.current.saveErrorMessage).toBe('Failed to save');
     expect(onSaveSuccess).not.toHaveBeenCalled();
+  });
+
+  it('ignores stale load responses after a newer request resolves', async () => {
+    const firstRequest = createDeferred<{
+      data: { content: string };
+      error: null;
+    }>();
+    const secondRequest = createDeferred<{
+      data: { content: string };
+      error: null;
+    }>();
+
+    mocks.selectSingle
+      .mockImplementationOnce(() => firstRequest.promise)
+      .mockImplementationOnce(() => secondRequest.promise);
+
+    const { result, rerender } = renderHook(
+      ({ postId }) =>
+        useBlogEditorData({
+          isMerchantLoading: false,
+          merchantId: 'merchant-1',
+          postId,
+        }),
+      {
+        initialProps: { postId: 'post-1' },
+      }
+    );
+
+    act(() => {
+      rerender({ postId: 'post-2' });
+    });
+
+    await act(async () => {
+      secondRequest.resolve({
+        data: { content: '<p>Fresh</p>' },
+        error: null,
+      });
+      await secondRequest.promise;
+    });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(result.current.content).toBe('<p>Fresh</p>');
+    expect(result.current.initialEditorContent).toBe('<p>Fresh</p>');
+
+    await act(async () => {
+      firstRequest.resolve({
+        data: { content: '<p>Stale</p>' },
+        error: null,
+      });
+      await firstRequest.promise;
+    });
+
+    expect(result.current.content).toBe('<p>Fresh</p>');
+    expect(result.current.initialEditorContent).toBe('<p>Fresh</p>');
   });
 });

@@ -24,23 +24,30 @@ export function useBlogEditorData({
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    let isActive = true;
     void reloadKey;
 
     if (!postId) {
       setErrorMessage('Missing blog post id');
       setIsLoading(false);
-      return;
+      return () => {
+        isActive = false;
+      };
     }
 
     if (isMerchantLoading) {
       setIsLoading(true);
-      return;
+      return () => {
+        isActive = false;
+      };
     }
 
     if (!merchantId) {
       setErrorMessage('Missing merchant id');
       setIsLoading(false);
-      return;
+      return () => {
+        isActive = false;
+      };
     }
 
     async function fetchContent(validPostId: string, validMerchantId: string) {
@@ -61,19 +68,32 @@ export function useBlogEditorData({
 
         const nextContent = sanitizeEditorHtml(data.content || '');
 
+        if (!isActive) {
+          return;
+        }
+
         setContent(nextContent);
         setInitialEditorContent(nextContent);
       } catch (error) {
         console.error(error);
+        if (!isActive) {
+          return;
+        }
         setErrorMessage(
           error instanceof Error ? error.message : 'Failed to load content'
         );
       } finally {
-        setIsLoading(false);
+        if (isActive) {
+          setIsLoading(false);
+        }
       }
     }
 
     void fetchContent(postId, merchantId);
+
+    return () => {
+      isActive = false;
+    };
   }, [isMerchantLoading, merchantId, postId, reloadKey]);
 
   const saveContent = async (html: string) => {

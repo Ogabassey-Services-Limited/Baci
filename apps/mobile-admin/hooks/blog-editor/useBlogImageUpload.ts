@@ -27,13 +27,23 @@ function getErrorMessage(error: unknown): string {
   }
 
   if (error && typeof error === 'object') {
-    const serializedError = JSON.stringify(
-      error,
-      Object.getOwnPropertyNames(error)
-    );
+    try {
+      const serializedError = JSON.stringify(
+        error,
+        Object.getOwnPropertyNames(error)
+      );
 
-    if (serializedError) {
-      return serializedError;
+      if (serializedError) {
+        return serializedError;
+      }
+    } catch {
+      const errorRecord = error as { message?: unknown };
+
+      if (typeof errorRecord.message === 'string' && errorRecord.message) {
+        return errorRecord.message;
+      }
+
+      return String(error) || 'An unknown error occurred';
     }
   }
 
