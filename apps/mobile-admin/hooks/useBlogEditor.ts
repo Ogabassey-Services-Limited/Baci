@@ -44,6 +44,7 @@ export function useBlogEditor({ id, webViewRef }: UseBlogEditorOptions) {
     isLoading,
     isSaving: isPersistingContent,
     retryLoad,
+    saveErrorMessage,
     saveContent,
     setContent,
   } = useBlogEditorData({
@@ -257,6 +258,7 @@ export function useBlogEditor({ id, webViewRef }: UseBlogEditorOptions) {
       }
     },
     retryLoad,
+    saveErrorMessage,
     setAiInstruction,
     setLinkUrl,
     setVideoUrl,

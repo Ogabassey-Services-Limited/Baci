@@ -154,6 +154,7 @@ describe('useBlogEditorData', () => {
     expect(result.current.content).toBe('<p>Hello</p>');
     expect(result.current.initialEditorContent).toBe('<p>Hello</p>');
     expect(result.current.isSaving).toBe(false);
+    expect(result.current.saveErrorMessage).toBeNull();
     expect(onSaveSuccess).toHaveBeenCalledTimes(1);
   });
 
@@ -190,7 +191,8 @@ describe('useBlogEditorData', () => {
     expect(saveError).toBeInstanceOf(Error);
     expect((saveError as Error).message).toBe('Failed to save');
     expect(result.current.isSaving).toBe(false);
-    expect(result.current.errorMessage).toBe('Failed to save');
+    expect(result.current.errorMessage).toBeNull();
+    expect(result.current.saveErrorMessage).toBe('Failed to save');
     expect(onSaveSuccess).not.toHaveBeenCalled();
   });
 });

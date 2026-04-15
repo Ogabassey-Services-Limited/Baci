@@ -20,6 +20,7 @@ export function useBlogEditorData({
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
@@ -77,7 +78,7 @@ export function useBlogEditorData({
 
   const saveContent = async (html: string) => {
     setIsSaving(true);
-    setErrorMessage(null);
+    setSaveErrorMessage(null);
 
     try {
       if (!postId) {
@@ -110,7 +111,7 @@ export function useBlogEditorData({
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Failed to save content';
-      setErrorMessage(message);
+      setSaveErrorMessage(message);
       throw error;
     } finally {
       setIsSaving(false);
@@ -124,6 +125,7 @@ export function useBlogEditorData({
     isLoading,
     isSaving,
     retryLoad: () => setReloadKey((currentKey) => currentKey + 1),
+    saveErrorMessage,
     saveContent,
     setContent,
   };

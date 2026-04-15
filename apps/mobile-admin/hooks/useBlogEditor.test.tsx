@@ -296,6 +296,44 @@ describe('useBlogEditor', () => {
     });
   });
 
+  it('keeps save failures out of the fatal load-error state', async () => {
+    mocks.updateSingle.mockResolvedValueOnce({
+      data: null,
+      error: new Error('Failed to save'),
+    });
+
+    const webViewRef = {
+      current: { injectJavaScript: mocks.injectJavaScript },
+    } as unknown as RefObject<WebView | null>;
+
+    const { result } = renderHook(() =>
+      useBlogEditor({ id: 'post-1', webViewRef })
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    act(() => {
+      result.current.onWebViewMessage({
+        nativeEvent: {
+          data: JSON.stringify({
+            type: 'save',
+            content: '<p>Hello</p>',
+          }),
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(mocks.alert).toHaveBeenCalledWith('Error', 'Failed to save');
+    });
+
+    expect(result.current.errorMessage).toBeNull();
+    expect(result.current.saveErrorMessage).toBe('Failed to save');
+    expect(mocks.back).not.toHaveBeenCalled();
+  });
+
   it('opens a cross-platform video dialog and inserts videos through the WebView', async () => {
     const webViewRef = {
       current: { injectJavaScript: mocks.injectJavaScript },
