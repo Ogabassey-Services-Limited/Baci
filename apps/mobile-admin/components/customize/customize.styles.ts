@@ -44,7 +44,6 @@ export const customizeStyles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
   },
   publishButtonText: {
-    color: '#FFFFFF',
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
     fontSize: TYPOGRAPHY.size.md,
   },

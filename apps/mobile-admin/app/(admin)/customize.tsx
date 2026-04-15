@@ -245,9 +245,19 @@ export default function CustomizeScreen() {
                 ]}
               >
                 {isPublishing ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <ActivityIndicator
+                    size="small"
+                    color={colors.textOnPrimary}
+                  />
                 ) : (
-                  <Text style={customizeStyles.publishButtonText}>Publish</Text>
+                  <Text
+                    style={[
+                      customizeStyles.publishButtonText,
+                      { color: colors.textOnPrimary },
+                    ]}
+                  >
+                    Publish
+                  </Text>
                 )}
               </Pressable>
             </View>

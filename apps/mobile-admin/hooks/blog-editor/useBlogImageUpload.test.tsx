@@ -216,6 +216,7 @@ describe('useBlogImageUpload', () => {
 
     expect(mocks.uploadBlogEditorImageDetails).not.toHaveBeenCalled();
     expect(mocks.injectJavaScript).not.toHaveBeenCalled();
+    expect(result.current.isUploadingImage).toBe(false);
   });
 
   it('shows an error when the session cannot be loaded', async () => {

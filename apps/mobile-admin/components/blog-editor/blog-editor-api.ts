@@ -6,6 +6,7 @@ interface RequestBlogEditorAiEditOptions {
   apiUrl: string;
   content: string;
   instruction: string;
+  timeoutMs?: number;
 }
 
 interface UploadBlogEditorImageOptions {
@@ -34,26 +35,45 @@ export async function requestBlogEditorAiEdit({
   apiUrl,
   content,
   instruction,
+  timeoutMs = 15000,
 }: RequestBlogEditorAiEditOptions): Promise<string> {
-  const response = await fetch(`${apiUrl}/api/ai/edit-blog`, {
-    body: JSON.stringify({ content, instruction }),
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
-    },
-    method: 'POST',
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
 
-  if (!response.ok) {
-    throw new Error(await readEditorApiError(response, 'AI edit failed'));
+  try {
+    const response = await fetch(`${apiUrl}/api/ai/edit-blog`, {
+      body: JSON.stringify({ content, instruction }),
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      method: 'POST',
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(await readEditorApiError(response, 'AI edit failed'));
+    }
+
+    const data = await response.json();
+    if (typeof data?.content !== 'string') {
+      throw new Error('AI edit failed: response did not include content');
+    }
+
+    return data.content;
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`AI edit timed out after ${timeoutMs}ms`, {
+        cause: error,
+      });
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  const data = await response.json();
-  if (typeof data?.content !== 'string') {
-    throw new Error('AI edit failed: response did not include content');
-  }
-
-  return data.content;
 }
 
 export async function uploadBlogEditorImageDetails({

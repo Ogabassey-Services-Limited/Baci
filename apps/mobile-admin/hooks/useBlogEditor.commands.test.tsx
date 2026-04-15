@@ -126,6 +126,36 @@ describe('useBlogEditor command flows', () => {
     expect(result.current.isLinkModalVisible).toBe(true);
   });
 
+  it('keeps the link modal open when the editor is unavailable', async () => {
+    const { result } = renderHook(() =>
+      useBlogEditor({
+        id: 'post-1',
+        webViewRef: { current: null },
+      })
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    act(() => {
+      result.current.openLinkModal();
+      result.current.setLinkUrl('https://baci.com');
+    });
+
+    act(() => {
+      result.current.handleInsertLink();
+    });
+
+    expect(mocks.injectJavaScript).not.toHaveBeenCalled();
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'Editor unavailable',
+      'Please wait for the editor to finish loading.'
+    );
+    expect(result.current.linkUrl).toBe('https://baci.com');
+    expect(result.current.isLinkModalVisible).toBe(true);
+  });
+
   it('opens a cross-platform video dialog and inserts videos through the WebView', async () => {
     const { result } = renderHook(() =>
       useBlogEditor({ id: 'post-1', webViewRef: createWebViewRef() })

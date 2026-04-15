@@ -23,17 +23,119 @@ const HTML_ENTITY_MAP: Record<string, string> = {
   quot: '"',
   tab: '\t',
 };
+const IFRAME_ATTRIBUTE_PATTERN =
+  /\s+([a-z-]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/gi;
+const ALLOWED_IFRAME_LOADING_VALUES = new Set(['eager', 'lazy']);
+const ALLOWED_IFRAME_SANDBOX_TOKENS = new Set([
+  'allow-forms',
+  'allow-presentation',
+  'allow-same-origin',
+  'allow-scripts',
+]);
+
+function isValidCodePoint(codePoint: number): boolean {
+  return Number.isFinite(codePoint) && codePoint >= 0 && codePoint <= 0x10ffff;
+}
+
+function escapeHtmlAttribute(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('"', '&quot;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;');
+}
+
+function sanitizeIframeAttribute(name: string, value: string): string | null {
+  if (name === 'loading') {
+    const normalizedValue = value.trim().toLowerCase();
+
+    if (!ALLOWED_IFRAME_LOADING_VALUES.has(normalizedValue)) {
+      return null;
+    }
+
+    return ` loading="${normalizedValue}"`;
+  }
+
+  if (name === 'sandbox') {
+    const normalizedTokens = value
+      .split(/\s+/u)
+      .map((token) => token.trim().toLowerCase())
+      .filter((token) => ALLOWED_IFRAME_SANDBOX_TOKENS.has(token));
+
+    if (normalizedTokens.length === 0) {
+      return null;
+    }
+
+    return ` sandbox="${normalizedTokens.join(' ')}"`;
+  }
+
+  if (name === 'title') {
+    const normalizedValue = value.trim();
+
+    if (!normalizedValue) {
+      return null;
+    }
+
+    return ` title="${escapeHtmlAttribute(normalizedValue)}"`;
+  }
+
+  return null;
+}
+
+function buildSafeIframeHtml(match: string, safeSrc: string): string {
+  const attributes: string[] = [];
+  const seenAttributes = new Set<string>();
+
+  match.replace(
+    IFRAME_ATTRIBUTE_PATTERN,
+    (
+      _attributeMatch: string,
+      rawName: string,
+      doubleQuotedValue: string | undefined,
+      singleQuotedValue: string | undefined,
+      unquotedValue: string | undefined
+    ) => {
+      const name = rawName.toLowerCase();
+
+      if (
+        name === 'src' ||
+        name === 'allowfullscreen' ||
+        seenAttributes.has(name)
+      ) {
+        return '';
+      }
+
+      const sanitizedAttribute = sanitizeIframeAttribute(
+        name,
+        doubleQuotedValue ?? singleQuotedValue ?? unquotedValue ?? ''
+      );
+
+      if (sanitizedAttribute) {
+        seenAttributes.add(name);
+        attributes.push(sanitizedAttribute);
+      }
+
+      return '';
+    }
+  );
+
+  return `<iframe src="${safeSrc}"${attributes.join('')} allowfullscreen></iframe>`;
+}
 
 function decodeHtmlEntities(value: string): string {
   return value.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (match, entity: string) => {
     if (entity.startsWith('#x') || entity.startsWith('#X')) {
       const codePoint = Number.parseInt(entity.slice(2), 16);
-      return Number.isNaN(codePoint) ? match : String.fromCodePoint(codePoint);
+      return isValidCodePoint(codePoint)
+        ? String.fromCodePoint(codePoint)
+        : match;
     }
 
     if (entity.startsWith('#')) {
       const codePoint = Number.parseInt(entity.slice(1), 10);
-      return Number.isNaN(codePoint) ? match : String.fromCodePoint(codePoint);
+      return isValidCodePoint(codePoint)
+        ? String.fromCodePoint(codePoint)
+        : match;
     }
 
     return HTML_ENTITY_MAP[entity.toLowerCase()] ?? match;
@@ -108,7 +210,7 @@ export function sanitizeEditorHtml(html: string): string {
     .replace(BLOCKED_TAG_PATTERN, '')
     .replace(EVENT_HANDLER_PATTERN, '')
     .replace(NAMESPACED_ATTRIBUTE_PATTERN, '')
-    .replace(IFRAME_PATTERN, (_, __: string, value: string) => {
+    .replace(IFRAME_PATTERN, (match: string, __: string, value: string) => {
       const safeSrc = sanitizeIframeSrc(value);
 
       if (!safeSrc) {
@@ -117,7 +219,7 @@ export function sanitizeEditorHtml(html: string): string {
 
       const placeholder = `${SAFE_IFRAME_PLACEHOLDER_PREFIX}${safeIframes.length}__`;
 
-      safeIframes.push(`<iframe src="${safeSrc}" allowfullscreen></iframe>`);
+      safeIframes.push(buildSafeIframeHtml(match, safeSrc));
 
       return placeholder;
     })

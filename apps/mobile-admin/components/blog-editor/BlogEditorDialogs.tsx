@@ -90,6 +90,7 @@ export function BlogEditorDialogs({
 
           <View style={blogEditorStyles.dialogActions}>
             <Pressable
+              accessibilityLabel="Cancel link insertion"
               accessibilityRole="button"
               onPress={onCloseLinkModal}
               style={[
@@ -107,6 +108,7 @@ export function BlogEditorDialogs({
               </Text>
             </Pressable>
             <Pressable
+              accessibilityLabel="Insert link"
               accessibilityRole="button"
               onPress={onConfirmLink}
               style={[
@@ -175,6 +177,7 @@ export function BlogEditorDialogs({
 
           <View style={blogEditorStyles.dialogActions}>
             <Pressable
+              accessibilityLabel="Cancel video insertion"
               accessibilityRole="button"
               onPress={onCloseVideoModal}
               style={[
@@ -192,6 +195,7 @@ export function BlogEditorDialogs({
               </Text>
             </Pressable>
             <Pressable
+              accessibilityLabel="Insert video"
               accessibilityRole="button"
               onPress={onConfirmVideo}
               style={[
@@ -259,6 +263,7 @@ export function BlogEditorDialogs({
 
           <View style={blogEditorStyles.dialogActions}>
             <Pressable
+              accessibilityLabel="Cancel AI edit"
               accessibilityRole="button"
               onPress={onCloseAIModal}
               style={[
@@ -276,6 +281,7 @@ export function BlogEditorDialogs({
               </Text>
             </Pressable>
             <Pressable
+              accessibilityLabel="Apply AI edit"
               accessibilityRole="button"
               onPress={onConfirmAI}
               style={[

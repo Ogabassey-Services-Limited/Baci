@@ -5,6 +5,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   errorMessage: null as string | null,
   handleSave: vi.fn(),
+  initialEditorContent: '<p>Hello</p>',
+  isLoading: false,
   openAIModal: vi.fn(),
   retryLoad: vi.fn(),
 }));
@@ -42,11 +44,11 @@ vi.mock('@/hooks/useBlogEditor', () => ({
     isAIModalVisible: false,
     isAIProcessing: false,
     isLinkModalVisible: false,
-    isLoading: false,
+    isLoading: mocks.isLoading,
     isSaving: false,
     isUploadingImage: false,
     isVideoModalVisible: false,
-    initialEditorContent: '<p>Hello</p>',
+    initialEditorContent: mocks.initialEditorContent,
     linkUrl: '',
     onWebViewMessage: vi.fn(),
     openAIModal: mocks.openAIModal,
@@ -125,7 +127,9 @@ vi.mock('react-native', () => ({
 }));
 
 vi.mock('react-native-webview', () => ({
-  WebView: () => <iframe title="blog-editor-webview" />,
+  WebView: ({ source }: { source?: { html?: string } }) => (
+    <iframe data-source-html={source?.html ?? ''} title="blog-editor-webview" />
+  ),
 }));
 
 import EditContentScreen from '@/app/(admin)/blog/edit-content';
@@ -135,6 +139,8 @@ describe('EditContentScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.errorMessage = null;
+    mocks.initialEditorContent = '<p>Hello</p>';
+    mocks.isLoading = false;
   });
 
   it('renders inside the shared form shell with the editor toolbar', () => {
@@ -150,6 +156,10 @@ describe('EditContentScreen', () => {
     expect(
       screen.getByRole('region', { name: 'blog-editor-dialogs' })
     ).toBeInTheDocument();
+    expect(screen.getByTitle('blog-editor-webview')).toHaveAttribute(
+      'data-source-html',
+      expect.stringContaining('<p>Hello</p>')
+    );
   });
 
   it('forwards header and AI button actions', () => {
@@ -175,5 +185,21 @@ describe('EditContentScreen', () => {
     );
 
     expect(mocks.retryLoad).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders the loaded editor html on the first non-loading frame', () => {
+    mocks.isLoading = true;
+    mocks.initialEditorContent = '';
+
+    const { rerender } = render(<EditContentScreen />);
+
+    mocks.isLoading = false;
+    mocks.initialEditorContent = '<p>Loaded</p>';
+    rerender(<EditContentScreen />);
+
+    expect(screen.getByTitle('blog-editor-webview')).toHaveAttribute(
+      'data-source-html',
+      expect.stringContaining('<p>Loaded</p>')
+    );
   });
 });

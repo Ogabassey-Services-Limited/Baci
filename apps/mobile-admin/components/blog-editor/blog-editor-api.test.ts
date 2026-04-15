@@ -198,4 +198,41 @@ describe('blog-editor-api', () => {
       })
     ).rejects.toThrow('Network request failed');
   });
+
+  it('surfaces timeout-specific AI edit failures', async () => {
+    vi.useFakeTimers();
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((_url, init) => {
+        const signal = init?.signal;
+
+        return new Promise((_resolve, reject) => {
+          signal?.addEventListener('abort', () => {
+            reject(
+              Object.assign(new Error('The operation was aborted'), {
+                name: 'AbortError',
+              })
+            );
+          });
+        });
+      })
+    );
+
+    const requestPromise = requestBlogEditorAiEdit({
+      accessToken: ACCESS_TOKEN,
+      apiUrl: API_URL,
+      content: '<p>Hello</p>',
+      instruction: 'Retry',
+      timeoutMs: 50,
+    });
+    const assertion = expect(requestPromise).rejects.toThrow(
+      'AI edit timed out after 50ms'
+    );
+
+    await vi.advanceTimersByTimeAsync(50);
+    await assertion;
+
+    vi.useRealTimers();
+  });
 });

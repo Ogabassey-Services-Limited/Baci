@@ -63,6 +63,15 @@ describe('sanitize-editor-html', () => {
     );
   });
 
+  it('preserves vetted iframe accessibility and sandbox attributes', () => {
+    const safeHtml =
+      '<iframe src="https://www.youtube.com/embed/ABCDEFGHIJK" title="YouTube video" loading="lazy" sandbox="allow-scripts allow-same-origin allow-presentation" allowfullscreen></iframe>';
+
+    expect(sanitizeEditorHtml(safeHtml)).toBe(
+      '<iframe src="https://www.youtube.com/embed/ABCDEFGHIJK" title="YouTube video" loading="lazy" sandbox="allow-scripts allow-same-origin allow-presentation" allowfullscreen></iframe>'
+    );
+  });
+
   it('preserves safe YouTube embeds for supported host variants', () => {
     expect(
       sanitizeEditorHtml(
@@ -111,5 +120,19 @@ describe('sanitize-editor-html', () => {
       '<iframe srcdoc="<p>Injected</p>"></iframe><p>Keep me</p>';
 
     expect(sanitizeEditorHtml(dirtyHtml)).toBe('<p>Keep me</p>');
+  });
+
+  it('does not throw when numeric entities contain out-of-range code points', () => {
+    expect(() =>
+      sanitizeEditorHtml(
+        '<a href="https://usebaci.com?q=&#1114112;&#x110000;">Link</a>'
+      )
+    ).not.toThrow();
+
+    expect(
+      sanitizeEditorHtml(
+        '<a href="https://usebaci.com?q=&#1114112;&#x110000;">Link</a>'
+      )
+    ).toBe('<a href="https://usebaci.com?q=&#1114112;&#x110000;">Link</a>');
   });
 });

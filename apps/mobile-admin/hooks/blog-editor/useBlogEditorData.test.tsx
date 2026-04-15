@@ -261,4 +261,67 @@ describe('useBlogEditorData', () => {
     expect(result.current.content).toBe('<p>Fresh</p>');
     expect(result.current.initialEditorContent).toBe('<p>Fresh</p>');
   });
+
+  it('clears previously loaded content when the post id becomes unavailable', async () => {
+    const { result, rerender } = renderHook(
+      ({ postId }: { postId: string | null }) =>
+        useBlogEditorData({
+          isMerchantLoading: false,
+          merchantId: 'merchant-1',
+          postId,
+        }),
+      {
+        initialProps: { postId: 'post-1' as string | null },
+      }
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(result.current.content).toBe('<p>Hello world</p>');
+
+    act(() => {
+      rerender({ postId: null });
+    });
+
+    expect(result.current.content).toBe('');
+    expect(result.current.initialEditorContent).toBe('');
+    expect(result.current.errorMessage).toBe('Missing blog post id');
+  });
+
+  it('clears previously loaded content while merchant context is reloading', async () => {
+    const { result, rerender } = renderHook(
+      ({ isMerchantLoading, merchantId }) =>
+        useBlogEditorData({
+          isMerchantLoading,
+          merchantId,
+          postId: 'post-1',
+        }),
+      {
+        initialProps: {
+          isMerchantLoading: false,
+          merchantId: 'merchant-1',
+        },
+      }
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(result.current.content).toBe('<p>Hello world</p>');
+
+    act(() => {
+      rerender({
+        isMerchantLoading: true,
+        merchantId: 'merchant-1',
+      });
+    });
+
+    expect(result.current.content).toBe('');
+    expect(result.current.initialEditorContent).toBe('');
+    expect(result.current.errorMessage).toBeNull();
+    expect(result.current.isLoading).toBe(true);
+  });
 });

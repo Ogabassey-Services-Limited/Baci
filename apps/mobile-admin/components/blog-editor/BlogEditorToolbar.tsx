@@ -43,6 +43,7 @@ export function BlogEditorToolbar({
       >
         <Pressable
           accessibilityLabel="Undo"
+          accessibilityRole="button"
           onPress={() => onFormatAction('undo')}
           style={blogEditorStyles.toolbarButton}
         >
@@ -50,6 +51,7 @@ export function BlogEditorToolbar({
         </Pressable>
         <Pressable
           accessibilityLabel="Redo"
+          accessibilityRole="button"
           onPress={() => onFormatAction('redo')}
           style={blogEditorStyles.toolbarButton}
         >
@@ -60,6 +62,7 @@ export function BlogEditorToolbar({
         />
         <Pressable
           accessibilityLabel="Bold"
+          accessibilityRole="button"
           onPress={() => onFormatAction('bold')}
           style={blogEditorStyles.toolbarButton}
         >
@@ -74,6 +77,7 @@ export function BlogEditorToolbar({
         </Pressable>
         <Pressable
           accessibilityLabel="Italic"
+          accessibilityRole="button"
           onPress={() => onFormatAction('italic')}
           style={blogEditorStyles.toolbarButton}
         >
@@ -88,6 +92,7 @@ export function BlogEditorToolbar({
         </Pressable>
         <Pressable
           accessibilityLabel="Underline"
+          accessibilityRole="button"
           onPress={() => onFormatAction('underline')}
           style={blogEditorStyles.toolbarButton}
         >
@@ -105,6 +110,7 @@ export function BlogEditorToolbar({
         />
         <Pressable
           accessibilityLabel="Heading 1"
+          accessibilityRole="button"
           onPress={() => onFormatAction('formatBlock', 'h1')}
           style={blogEditorStyles.toolbarButton}
         >
@@ -119,6 +125,7 @@ export function BlogEditorToolbar({
         </Pressable>
         <Pressable
           accessibilityLabel="Heading 2"
+          accessibilityRole="button"
           onPress={() => onFormatAction('formatBlock', 'h2')}
           style={blogEditorStyles.toolbarButton}
         >
@@ -133,6 +140,7 @@ export function BlogEditorToolbar({
         </Pressable>
         <Pressable
           accessibilityLabel="Heading 3"
+          accessibilityRole="button"
           onPress={() => onFormatAction('formatBlock', 'h3')}
           style={blogEditorStyles.toolbarButton}
         >
@@ -147,6 +155,7 @@ export function BlogEditorToolbar({
         </Pressable>
         <Pressable
           accessibilityLabel="Paragraph"
+          accessibilityRole="button"
           onPress={() => onFormatAction('formatBlock', 'p')}
           style={blogEditorStyles.toolbarButton}
         >
@@ -159,6 +168,7 @@ export function BlogEditorToolbar({
         />
         <Pressable
           accessibilityLabel="Align left"
+          accessibilityRole="button"
           onPress={() => onFormatAction('justifyLeft')}
           style={blogEditorStyles.toolbarButton}
         >
@@ -166,6 +176,7 @@ export function BlogEditorToolbar({
         </Pressable>
         <Pressable
           accessibilityLabel="Align center"
+          accessibilityRole="button"
           onPress={() => onFormatAction('justifyCenter')}
           style={blogEditorStyles.toolbarButton}
         >
@@ -177,6 +188,7 @@ export function BlogEditorToolbar({
         </Pressable>
         <Pressable
           accessibilityLabel="Align right"
+          accessibilityRole="button"
           onPress={() => onFormatAction('justifyRight')}
           style={blogEditorStyles.toolbarButton}
         >
@@ -187,6 +199,7 @@ export function BlogEditorToolbar({
         />
         <Pressable
           accessibilityLabel="Bulleted list"
+          accessibilityRole="button"
           onPress={() => onFormatAction('insertUnorderedList')}
           style={blogEditorStyles.toolbarButton}
         >
@@ -194,6 +207,7 @@ export function BlogEditorToolbar({
         </Pressable>
         <Pressable
           accessibilityLabel="Numbered list"
+          accessibilityRole="button"
           onPress={() => onFormatAction('insertOrderedList')}
           style={blogEditorStyles.toolbarButton}
         >
@@ -201,6 +215,7 @@ export function BlogEditorToolbar({
         </Pressable>
         <Pressable
           accessibilityLabel="Insert divider"
+          accessibilityRole="button"
           onPress={() => onFormatAction('insertHorizontalRule')}
           style={blogEditorStyles.toolbarButton}
         >
@@ -208,6 +223,7 @@ export function BlogEditorToolbar({
         </Pressable>
         <Pressable
           accessibilityLabel="Insert link"
+          accessibilityRole="button"
           onPress={onInsertLink}
           style={blogEditorStyles.toolbarButton}
         >
@@ -218,6 +234,7 @@ export function BlogEditorToolbar({
         />
         <Pressable
           accessibilityLabel="Insert table"
+          accessibilityRole="button"
           onPress={onInsertTable}
           style={blogEditorStyles.toolbarButton}
         >
@@ -225,6 +242,7 @@ export function BlogEditorToolbar({
         </Pressable>
         <Pressable
           accessibilityLabel="Insert video"
+          accessibilityRole="button"
           onPress={onInsertVideo}
           style={blogEditorStyles.toolbarButton}
         >
@@ -235,6 +253,7 @@ export function BlogEditorToolbar({
         />
         <Pressable
           accessibilityLabel="Insert image"
+          accessibilityRole="button"
           accessibilityState={{ disabled: isUploadingImage }}
           disabled={isUploadingImage}
           onPress={onInsertImage}

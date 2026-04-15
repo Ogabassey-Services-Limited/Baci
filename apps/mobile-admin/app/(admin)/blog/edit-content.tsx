@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { BlogEditorDialogs } from '@/components/blog-editor/BlogEditorDialogs';
@@ -55,21 +55,10 @@ export default function EditContentScreen() {
     setVideoUrl,
     videoUrl,
   } = useBlogEditor({ id, webViewRef });
-  const [editorHtml, setEditorHtml] = useState(() =>
-    createEditorHtml({
-      colors: initialThemeRef.current,
-      content: initialEditorContent,
-    })
-  );
-
-  useEffect(() => {
-    setEditorHtml(
-      createEditorHtml({
-        colors: initialThemeRef.current,
-        content: initialEditorContent,
-      })
-    );
-  }, [initialEditorContent]);
+  const editorHtml = createEditorHtml({
+    colors: initialThemeRef.current,
+    content: initialEditorContent,
+  });
 
   useEffect(() => {
     webViewRef.current?.injectJavaScript(buildApplyEditorThemeScript(colors));
@@ -125,6 +114,7 @@ export default function EditContentScreen() {
         </Text>
         <Pressable
           accessibilityLabel="Retry loading editor"
+          accessibilityRole="button"
           onPress={retryLoad}
           style={[
             blogEditorStyles.dialogButton,
@@ -217,6 +207,7 @@ export default function EditContentScreen() {
           >
             <Pressable
               accessibilityLabel="Close editor"
+              accessibilityRole="button"
               onPress={() => router.back()}
               style={blogEditorStyles.backButton}
             >
@@ -229,6 +220,7 @@ export default function EditContentScreen() {
             </Text>
             <Pressable
               accessibilityLabel="Save content"
+              accessibilityRole="button"
               disabled={isSaving || isAIProcessing}
               onPress={handleSave}
             >
@@ -270,6 +262,7 @@ export default function EditContentScreen() {
 
       <Pressable
         accessibilityLabel="Open AI editor"
+        accessibilityRole="button"
         disabled={isAIProcessing}
         onPress={openAIModal}
         style={[

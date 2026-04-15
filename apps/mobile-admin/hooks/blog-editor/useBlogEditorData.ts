@@ -28,6 +28,8 @@ export function useBlogEditorData({
     void reloadKey;
 
     if (!postId) {
+      setContent('');
+      setInitialEditorContent('');
       setErrorMessage('Missing blog post id');
       setIsLoading(false);
       return () => {
@@ -36,6 +38,9 @@ export function useBlogEditorData({
     }
 
     if (isMerchantLoading) {
+      setContent('');
+      setInitialEditorContent('');
+      setErrorMessage(null);
       setIsLoading(true);
       return () => {
         isActive = false;
@@ -43,6 +48,8 @@ export function useBlogEditorData({
     }
 
     if (!merchantId) {
+      setContent('');
+      setInitialEditorContent('');
       setErrorMessage('Missing merchant id');
       setIsLoading(false);
       return () => {

@@ -80,12 +80,13 @@ export function useBlogImageUpload({ webViewRef }: UseBlogImageUploadOptions) {
         return;
       }
 
-      setIsUploadingImage(true);
       const asset = result.assets[0];
 
       if (!asset?.uri) {
         return;
       }
+
+      setIsUploadingImage(true);
 
       const {
         data: { session },

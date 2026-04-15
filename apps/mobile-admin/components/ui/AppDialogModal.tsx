@@ -48,8 +48,9 @@ export function AppDialogModal({
     >
       <View style={styles.overlay}>
         <Pressable
-          accessibilityElementsHidden
-          accessible={false}
+          accessibilityHint="Closes this dialog"
+          accessibilityLabel="Dismiss dialog"
+          accessibilityRole="button"
           onPress={handleBackdropPress}
           style={[
             styles.backdrop,
@@ -66,8 +67,9 @@ export function AppDialogModal({
             style={styles.keyboardContainer}
           >
             <Pressable
-              accessibilityElementsHidden
-              accessible={false}
+              accessibilityHint="Closes this dialog"
+              accessibilityLabel="Dismiss dialog"
+              accessibilityRole="button"
               onPress={handleBackdropPress}
               style={[
                 styles.backdrop,

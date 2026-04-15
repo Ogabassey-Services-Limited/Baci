@@ -191,7 +191,17 @@ export function useBlogEditor({ id, webViewRef }: UseBlogEditorOptions) {
       return;
     }
 
-    webViewRef.current?.injectJavaScript(buildCreateLinkScript(normalizedUrl));
+    const editorWebView = webViewRef.current;
+
+    if (!editorWebView) {
+      Alert.alert(
+        'Editor unavailable',
+        'Please wait for the editor to finish loading.'
+      );
+      return;
+    }
+
+    editorWebView.injectJavaScript(buildCreateLinkScript(normalizedUrl));
     setLinkUrl('');
     setIsLinkModalVisible(false);
   };
