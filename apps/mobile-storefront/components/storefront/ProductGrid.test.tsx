@@ -1,18 +1,17 @@
-import { prioritizeSmartphoneProducts } from '@baci/shared';
-import { useIsFocused } from '@react-navigation/native';
-import { act, render, screen } from '@testing-library/react-native';
-import { useCategories, useProductBrands, useProducts } from '@/hooks';
-import { getProductGridCategories } from '@/lib/category-utils';
+import { jest } from '@jest/globals';
+import { act, render, screen, waitFor } from '@testing-library/react-native';
+import { Text } from 'react-native';
 import type { ProductGridBlock } from '@/types/blocks';
 import type { Product } from '@/types/product';
 import ProductGrid from './ProductGrid';
 
-const mockProductGridSkeleton = jest.fn(
-  ({ count }: { count: number }) => `skeleton-${count}`
-);
-const mockProductCard = jest.fn(
-  ({ product }: { product: Product }) => product.name
-);
+const MockText = Text;
+const mockProductGridSkeleton = jest.fn(({ count }: { count: number }) => (
+  <MockText>{`skeleton-${count}`}</MockText>
+));
+const mockProductCard = jest.fn(({ product }: { product: Product }) => (
+  <MockText>{product.name}</MockText>
+));
 let mockFilterBarProps: {
   onSelectCategory: (category: string) => void;
   onSelectBrand: (brand: string) => void;
@@ -32,23 +31,65 @@ const mockFilterBar = jest.fn(
     return null;
   }
 );
+type UseCategoriesResult = {
+  data: Array<{ id: string; name: string; slug: string }>;
+  isLoading?: boolean;
+  isError: boolean;
+  error?: unknown;
+};
+
+type UseProductBrandsResult = {
+  brands: string[];
+  isLoading: boolean;
+  isError: boolean;
+  error: unknown;
+  refetch: ReturnType<typeof jest.fn>;
+};
+
+type UseProductsResult = {
+  products: Product[];
+  total: number;
+  isLoading: boolean;
+  isFetching: boolean;
+  isError: boolean;
+  error: unknown;
+  hasMore: boolean;
+  refetch: ReturnType<typeof jest.fn>;
+  loadMore: ReturnType<typeof jest.fn>;
+  isLoadingMore: boolean;
+};
+
+const mockUseIsFocusedHook = jest.fn<() => boolean>();
+const mockPrioritizeSmartphoneProductsFactory = jest.fn(
+  (products: Product[]) => products
+);
+const mockGetProductGridCategoriesFactory = jest.fn(
+  (categories: string[]) => categories
+);
+const mockUseCategoriesFactory = jest.fn<() => UseCategoriesResult>();
+const mockUseProductsFactory =
+  jest.fn<(options: unknown) => UseProductsResult>();
+const mockUseProductBrandsFactory =
+  jest.fn<(options: unknown) => UseProductBrandsResult>();
 
 jest.mock('@react-navigation/native', () => ({
-  useIsFocused: jest.fn(),
+  useIsFocused: () => mockUseIsFocusedHook(),
 }));
 
 jest.mock('@baci/shared', () => ({
-  prioritizeSmartphoneProducts: jest.fn((products: Product[]) => products),
+  prioritizeSmartphoneProducts: (products: Product[]) =>
+    mockPrioritizeSmartphoneProductsFactory(products),
 }));
 
 jest.mock('@/lib/category-utils', () => ({
-  getProductGridCategories: jest.fn((categories: string[]) => categories),
+  getProductGridCategories: (categories: string[]) =>
+    mockGetProductGridCategoriesFactory(categories),
 }));
 
 jest.mock('@/hooks', () => ({
-  useCategories: jest.fn(),
-  useProducts: jest.fn(),
-  useProductBrands: jest.fn(() => ({ brands: [] })),
+  useCategories: () => mockUseCategoriesFactory(),
+  useProducts: (options: unknown) => mockUseProductsFactory(options),
+  useProductBrands: (options: unknown) => mockUseProductBrandsFactory(options),
 }));
 
 jest.mock('@/components/ui/Skeleton', () => ({
@@ -67,28 +108,8 @@ jest.mock('./FilterBar', () => ({
     onSelectCondition?: (condition: string) => void;
     onPriceChange?: (min: number, max: number) => void;
     onSelectRating?: (rating: number) => void;
-  }) =>
-    mockFilterBar(props),
+  }) => mockFilterBar(props),
 }));
-
-const mockUseCategories = useCategories as jest.MockedFunction<
-  typeof useCategories
->;
-const mockUseProducts = useProducts as jest.MockedFunction<typeof useProducts>;
-const mockUseProductBrands = useProductBrands as jest.MockedFunction<
-  typeof useProductBrands
->;
-const mockUseIsFocused = useIsFocused as jest.MockedFunction<
-  typeof useIsFocused
->;
-const mockGetProductGridCategories =
-  getProductGridCategories as jest.MockedFunction<
-    typeof getProductGridCategories
-  >;
-const mockPrioritizeSmartphoneProducts =
-  prioritizeSmartphoneProducts as jest.MockedFunction<
-    typeof prioritizeSmartphoneProducts
-  >;
 
 const sampleProducts: Product[] = [
   {
@@ -119,6 +140,23 @@ const sampleProducts: Product[] = [
   },
 ];
 
+const extendedSampleProducts: Product[] = [
+  ...sampleProducts,
+  {
+    id: '3',
+    name: 'Galaxy S24 Ultra',
+    slug: 'galaxy-s24-ultra',
+    description: 'Phone',
+    price: 610000,
+    image: 'https://cdn.example.com/galaxy-s24-ultra.jpg',
+    images: ['https://cdn.example.com/galaxy-s24-ultra.jpg'],
+    category: 'Phones',
+    rating: 4.8,
+    review_count: 14,
+    in_stock: true,
+  },
+];
+
 const block: ProductGridBlock = {
   type: 'ProductGrid',
   props: {
@@ -128,9 +166,9 @@ const block: ProductGridBlock = {
   },
 };
 
-function mockProductsHook(overrides?: Partial<ReturnType<typeof useProducts>>) {
+function mockProductsHook(overrides?: Partial<UseProductsResult>) {
   const refetch = jest.fn();
-  mockUseProducts.mockReturnValue({
+  mockUseProductsFactory.mockReturnValue({
     products: sampleProducts,
     total: sampleProducts.length,
     isLoading: false,
@@ -150,15 +188,15 @@ describe('ProductGrid', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockFilterBarProps = null;
-    mockUseIsFocused.mockReturnValue(true);
-    mockUseCategories.mockReturnValue({
+    mockUseIsFocusedHook.mockReturnValue(true);
+    mockUseCategoriesFactory.mockReturnValue({
       data: [
         { id: 'cat-phones', name: 'Phones', slug: 'phones' },
         { id: 'cat-laptops', name: 'Laptops', slug: 'laptops' },
       ],
       isError: false,
-    } as unknown as ReturnType<typeof useCategories>);
-    mockUseProductBrands.mockReturnValue({
+    });
+    mockUseProductBrandsFactory.mockReturnValue({
       brands: ['Samsung', 'Apple'],
       isLoading: false,
       isError: false,
@@ -204,11 +242,11 @@ describe('ProductGrid', () => {
       <ProductGrid block={block} selectedCategoryId={null} variant="grid" />
     );
 
-    expect(mockGetProductGridCategories).toHaveBeenCalledWith([
+    expect(mockGetProductGridCategoriesFactory).toHaveBeenCalledWith([
       'Phones',
       'Laptops',
     ]);
-    expect(mockPrioritizeSmartphoneProducts).toHaveBeenCalledWith(
+    expect(mockPrioritizeSmartphoneProductsFactory).toHaveBeenCalledWith(
       sampleProducts
     );
   });
@@ -223,7 +261,9 @@ describe('ProductGrid', () => {
     });
 
     const latestOptions =
-      mockUseProducts.mock.calls[mockUseProducts.mock.calls.length - 1]?.[0];
+      mockUseProductsFactory.mock.calls[
+        mockUseProductsFactory.mock.calls.length - 1
+      ]?.[0];
     expect(latestOptions).toMatchObject({ category: 'cat-phones' });
   });
 
@@ -246,7 +286,9 @@ describe('ProductGrid', () => {
     });
 
     let latestOptions =
-      mockUseProducts.mock.calls[mockUseProducts.mock.calls.length - 1]?.[0];
+      mockUseProductsFactory.mock.calls[
+        mockUseProductsFactory.mock.calls.length - 1
+      ]?.[0];
     expect(latestOptions).toMatchObject({
       brand: 'Samsung',
       condition: 'Used',
@@ -260,7 +302,9 @@ describe('ProductGrid', () => {
     });
 
     latestOptions =
-      mockUseProducts.mock.calls[mockUseProducts.mock.calls.length - 1]?.[0];
+      mockUseProductsFactory.mock.calls[
+        mockUseProductsFactory.mock.calls.length - 1
+      ]?.[0];
     expect(latestOptions).toMatchObject({
       category: 'cat-phones',
       brand: undefined,
@@ -272,7 +316,7 @@ describe('ProductGrid', () => {
   });
 
   it('refetches when focus is regained after initial mount', () => {
-    mockUseIsFocused
+    mockUseIsFocusedHook
       .mockReturnValueOnce(true)
       .mockReturnValueOnce(false)
       .mockReturnValue(true);
@@ -293,11 +337,11 @@ describe('ProductGrid', () => {
   });
 
   it('renders fallback UI when categories query errors', () => {
-    mockUseCategories.mockReturnValue({
+    mockUseCategoriesFactory.mockReturnValue({
       data: [],
       isError: true,
       error: new Error('cats'),
-    } as unknown as ReturnType<typeof useCategories>);
+    });
     mockProductsHook({ isLoading: false, isError: false });
 
     render(
@@ -324,5 +368,264 @@ describe('ProductGrid', () => {
     expect(screen.getByTestId('product-grid-error')).toBeTruthy();
     expect(mockProductCard).not.toHaveBeenCalled();
     expect(mockProductGridSkeleton).not.toHaveBeenCalled();
+  });
+
+  it('reveals more buffered products when the home scroll requests more items', () => {
+    const loadMore = jest.fn();
+    const incrementalBlock: ProductGridBlock = {
+      ...block,
+      props: {
+        ...block.props,
+        limit: 1,
+      },
+    };
+
+    mockProductsHook({
+      products: sampleProducts,
+      hasMore: true,
+      loadMore,
+    });
+
+    const { rerender } = render(
+      <ProductGrid
+        block={incrementalBlock}
+        loadMoreSignal={0}
+        selectedCategoryId={null}
+        variant="grid"
+      />
+    );
+
+    expect(screen.queryByText('Pixel 8')).toBeNull();
+
+    rerender(
+      <ProductGrid
+        block={incrementalBlock}
+        loadMoreSignal={1}
+        selectedCategoryId={null}
+        variant="grid"
+      />
+    );
+
+    expect(screen.getByText('Pixel 8')).toBeTruthy();
+    expect(loadMore).not.toHaveBeenCalled();
+  });
+
+  it('fetches another page when the home scroll requests more items than are buffered', () => {
+    const loadMore = jest.fn();
+    const incrementalBlock: ProductGridBlock = {
+      ...block,
+      props: {
+        ...block.props,
+        limit: 1,
+      },
+    };
+
+    mockProductsHook({
+      products: [sampleProducts[0]],
+      hasMore: true,
+      loadMore,
+    });
+
+    const { rerender } = render(
+      <ProductGrid
+        block={incrementalBlock}
+        loadMoreSignal={0}
+        selectedCategoryId={null}
+        variant="grid"
+      />
+    );
+
+    rerender(
+      <ProductGrid
+        block={incrementalBlock}
+        loadMoreSignal={1}
+        selectedCategoryId={null}
+        variant="grid"
+      />
+    );
+
+    expect(loadMore).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not replay a stale load-more signal after pagination resets', async () => {
+    const incrementalBlock: ProductGridBlock = {
+      ...block,
+      props: {
+        ...block.props,
+        limit: 1,
+      },
+    };
+
+    const view = render(
+      <ProductGrid
+        block={incrementalBlock}
+        loadMoreSignal={0}
+        selectedCategoryId={null}
+        variant="grid"
+      />
+    );
+
+    expect(screen.getByText('iPhone 13 Pro')).toBeTruthy();
+    expect(screen.queryByText('Pixel 8')).toBeNull();
+
+    view.rerender(
+      <ProductGrid
+        block={incrementalBlock}
+        loadMoreSignal={1}
+        selectedCategoryId={null}
+        variant="grid"
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Pixel 8')).toBeTruthy();
+    });
+
+    view.rerender(
+      <ProductGrid
+        block={incrementalBlock}
+        loadMoreSignal={1}
+        selectedCategoryId="cat-phones"
+        variant="grid"
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('iPhone 13 Pro')).toBeTruthy();
+      expect(screen.queryByText('Pixel 8')).toBeNull();
+    });
+  });
+
+  it('processes queued load-more signals after an in-flight page finishes', async () => {
+    const incrementalBlock: ProductGridBlock = {
+      ...block,
+      props: {
+        ...block.props,
+        limit: 1,
+      },
+    };
+    const loadMore = jest.fn();
+    let productsResult: UseProductsResult = {
+      products: [sampleProducts[0]],
+      total: 1,
+      isLoading: false,
+      isFetching: false,
+      isError: false,
+      error: null,
+      hasMore: true,
+      refetch: jest.fn(),
+      loadMore,
+      isLoadingMore: true,
+    };
+    mockUseProductsFactory.mockImplementation(() => productsResult);
+
+    const view = render(
+      <ProductGrid
+        block={incrementalBlock}
+        loadMoreSignal={0}
+        selectedCategoryId={null}
+        variant="grid"
+      />
+    );
+
+    view.rerender(
+      <ProductGrid
+        block={incrementalBlock}
+        loadMoreSignal={1}
+        selectedCategoryId={null}
+        variant="grid"
+      />
+    );
+
+    view.rerender(
+      <ProductGrid
+        block={incrementalBlock}
+        loadMoreSignal={2}
+        selectedCategoryId={null}
+        variant="grid"
+      />
+    );
+
+    productsResult = {
+      ...productsResult,
+      products: sampleProducts,
+      total: sampleProducts.length,
+      isLoadingMore: false,
+    };
+
+    view.rerender(
+      <ProductGrid
+        block={incrementalBlock}
+        loadMoreSignal={2}
+        selectedCategoryId={null}
+        variant="grid"
+      />
+    );
+
+    await waitFor(() => {
+      expect(loadMore).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('keeps backfilling when a batched signal jump requests multiple pages', async () => {
+    const loadMore = jest.fn();
+    const incrementalBlock: ProductGridBlock = {
+      ...block,
+      props: {
+        ...block.props,
+        limit: 1,
+      },
+    };
+    let productsResult: UseProductsResult = {
+      products: [extendedSampleProducts[0]],
+      total: 1,
+      isLoading: false,
+      isFetching: false,
+      isError: false,
+      error: null,
+      hasMore: true,
+      refetch: jest.fn(),
+      loadMore,
+      isLoadingMore: false,
+    };
+    mockUseProductsFactory.mockImplementation(() => productsResult);
+
+    const view = render(
+      <ProductGrid
+        block={incrementalBlock}
+        loadMoreSignal={0}
+        selectedCategoryId={null}
+        variant="grid"
+      />
+    );
+
+    view.rerender(
+      <ProductGrid
+        block={incrementalBlock}
+        loadMoreSignal={2}
+        selectedCategoryId={null}
+        variant="grid"
+      />
+    );
+
+    expect(loadMore).toHaveBeenCalledTimes(1);
+
+    productsResult = {
+      ...productsResult,
+      products: extendedSampleProducts.slice(0, 2),
+    };
+
+    view.rerender(
+      <ProductGrid
+        block={incrementalBlock}
+        loadMoreSignal={2}
+        selectedCategoryId={null}
+        variant="grid"
+      />
+    );
+
+    await waitFor(() => {
+      expect(loadMore).toHaveBeenCalledTimes(2);
+    });
   });
 });
