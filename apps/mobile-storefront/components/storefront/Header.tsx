@@ -7,15 +7,15 @@ import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 
 import { type Href, router } from 'expo-router';
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Logo } from '@/components/ui/Logo';
 import { BRAND, RADIUS, SPACING } from '@/constants/Colors';
+import { useTheme } from '@/hooks/useTheme';
 import { CONFIG } from '@/lib/config';
 import { SEASONAL } from '@/lib/seasonal';
 import { getTemplateConfig } from '@/lib/templates';
-import { useTheme } from '@/hooks/useTheme';
 import { useCartStore } from '@/stores/cart-store';
 import { useDrawerStore } from '@/stores/drawer-store';
 import { useThemeStore } from '@/stores/theme-store';
@@ -45,10 +45,9 @@ export function Header({
   const openDrawer = useDrawerStore((state) => state.openDrawer);
   const template = getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID);
   const theme = useThemeStore((state) => state.theme);
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
 
-  // Memoize stylesheet computation to avoid generating large object every keystroke when typing in search
-  const styles = useMemo(() => getStyles(colors), [colors]);
+  const styles = getStyles(colors);
 
   // Focus the search input when search mode activates (ref-based to avoid autoFocus a11y warning)
   useEffect(() => {
@@ -104,7 +103,7 @@ export function Header({
                 accessibilityLabel="Open navigation menu"
                 accessibilityRole="button"
               >
-                <Ionicons name="menu-outline" size={28} color={colors.text} />
+                <Ionicons name="menu-outline" size={28} color="#FFF" />
               </Pressable>
 
               <Pressable
@@ -113,7 +112,7 @@ export function Header({
                 accessibilityLabel={`${storeName}, go to home`}
                 accessibilityRole="button"
               >
-                <Logo width={140} height={25} color={isDark ? 'white' : 'black'} />
+                <Logo width={140} height={25} color="white" />
               </Pressable>
             </View>
 
@@ -135,7 +134,7 @@ export function Header({
                 }
                 accessibilityRole="button"
               >
-                <Ionicons name="cart-outline" size={26} color={colors.text} />
+                <Ionicons name="cart-outline" size={26} color="#FFF" />
                 {itemCount > 0 && (
                   <View style={styles.badge} accessibilityElementsHidden={true}>
                     <Text style={styles.badgeText}>{itemCount}</Text>
@@ -163,7 +162,9 @@ export function Header({
                 <Ionicons
                   name="search-outline"
                   size={20}
-                  color={isSearchActive ? colors.textSecondary : colors.placeholder}
+                  color={
+                    isSearchActive ? colors.textSecondary : colors.placeholder
+                  }
                 />
                 {!isSearchActive ? (
                   <Pressable
@@ -259,7 +260,11 @@ export function Header({
                   style={[styles.badge, { backgroundColor: colors.text }]}
                   accessibilityElementsHidden={true}
                 >
-                  <Text style={[styles.badgeText, { color: colors.background }]}>{itemCount}</Text>
+                  <Text
+                    style={[styles.badgeText, { color: colors.background }]}
+                  >
+                    {itemCount}
+                  </Text>
                 </View>
               )}
             </Pressable>
@@ -330,188 +335,189 @@ export function Header({
 // Extract ThemeColors type from useTheme return
 type ThemeColors = ReturnType<typeof useTheme>['colors'];
 
-const getStyles = (colors: ThemeColors) => StyleSheet.create({
-  // Elite Styles
-  eliteContainer: {
-    backgroundColor: 'transparent', // Transparent to allow Hero to sit ON TOP of index.tsx background
-    paddingBottom: SPACING.md,
-    borderBottomWidth: 0,
-    zIndex: 10,
-  },
-  santaText: {
-    color: colors.foreground,
-  },
-  eliteContent: {
-    flexDirection: 'column', // Changed from row to column
-    paddingHorizontal: SPACING.md,
-    gap: SPACING.sm,
-    zIndex: 10,
-  },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginBottom: 4, // Slight spacing before search
-    height: 44, // Nav height
-  },
-  leftGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-  },
-  menuBtn: {
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 4,
-  },
-  logoContainer: {
-    // No margin right needed if in group
-  },
-  logoText: {
-    fontSize: 24, // Larger
-    fontFamily: 'Inter_900Black', // Heaviest weight
-    letterSpacing: -1,
-  },
-  searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    width: '100%',
-  },
-  searchRowActive: {
-    paddingVertical: 2,
-  },
-  searchPill: {
-    flex: 1, // Allow row to handle button
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    height: 48,
-    borderRadius: RADIUS.md,
-    paddingHorizontal: 16,
-    gap: 12,
-  },
-  activeSearchPill: {
-    borderWidth: 1.5,
-    borderColor: BRAND.primary,
-  },
-  searchPillPressable: {
-    flex: 1,
-    height: '100%',
-    justifyContent: 'center',
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    fontFamily: 'serif',
-    height: '100%',
-    padding: 0,
-  },
-  santaSearchPill: {
-    backgroundColor: colors.card,
-  },
-  searchPlaceholder: {
-    color: colors.textSecondary,
-    fontSize: 15, // Exact match to web text-[15px]
-    fontFamily: 'serif', // System serif to match web's Times font
-    lineHeight: 20,
-  },
-  santaPlaceholder: {
-    color: colors.textSecondary,
-  },
-  cancelText: {
-    color: colors.foreground,
-    fontSize: 15,
-    fontWeight: '600',
-  },
+const getStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    // Elite Styles
+    eliteContainer: {
+      backgroundColor: 'transparent', // Transparent to allow Hero to sit ON TOP of index.tsx background
+      paddingBottom: SPACING.md,
+      borderBottomWidth: 0,
+      zIndex: 10,
+    },
+    santaText: {
+      color: colors.foreground,
+    },
+    eliteContent: {
+      flexDirection: 'column', // Changed from row to column
+      paddingHorizontal: SPACING.md,
+      gap: SPACING.sm,
+      zIndex: 10,
+    },
+    topRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      width: '100%',
+      marginBottom: 4, // Slight spacing before search
+      height: 44, // Nav height
+    },
+    leftGroup: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: SPACING.sm,
+    },
+    menuBtn: {
+      width: 44,
+      height: 44,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 4,
+    },
+    logoContainer: {
+      // No margin right needed if in group
+    },
+    logoText: {
+      fontSize: 24, // Larger
+      fontFamily: 'Inter_900Black', // Heaviest weight
+      letterSpacing: -1,
+    },
+    searchRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      width: '100%',
+    },
+    searchRowActive: {
+      paddingVertical: 2,
+    },
+    searchPill: {
+      flex: 1, // Allow row to handle button
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.card,
+      height: 48,
+      borderRadius: RADIUS.md,
+      paddingHorizontal: 16,
+      gap: 12,
+    },
+    activeSearchPill: {
+      borderWidth: 1.5,
+      borderColor: BRAND.primary,
+    },
+    searchPillPressable: {
+      flex: 1,
+      height: '100%',
+      justifyContent: 'center',
+    },
+    searchInput: {
+      flex: 1,
+      fontSize: 15,
+      fontFamily: 'serif',
+      height: '100%',
+      padding: 0,
+    },
+    santaSearchPill: {
+      backgroundColor: colors.card,
+    },
+    searchPlaceholder: {
+      color: colors.textSecondary,
+      fontSize: 15, // Exact match to web text-[15px]
+      fontFamily: 'serif', // System serif to match web's Times font
+      lineHeight: 20,
+    },
+    santaPlaceholder: {
+      color: colors.textSecondary,
+    },
+    cancelText: {
+      color: colors.foreground,
+      fontSize: 15,
+      fontWeight: '600',
+    },
 
-  // Minimal Styles
-  minimalContainer: {
-    backgroundColor: 'transparent',
-    paddingBottom: SPACING.sm,
-  },
-  minimalContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-  },
-  minimalLogoText: {
-    fontSize: 22,
-    fontFamily: 'Inter_700Bold',
-    color: colors.text,
-    textTransform: 'uppercase',
-    letterSpacing: 2,
-  },
+    // Minimal Styles
+    minimalContainer: {
+      backgroundColor: 'transparent',
+      paddingBottom: SPACING.sm,
+    },
+    minimalContent: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: SPACING.md,
+    },
+    minimalLogoText: {
+      fontSize: 22,
+      fontFamily: 'Inter_700Bold',
+      color: colors.text,
+      textTransform: 'uppercase',
+      letterSpacing: 2,
+    },
 
-  // Default Styles
-  defaultContainer: {
-    backgroundColor: colors.background,
-    paddingHorizontal: SPACING.md,
-    paddingBottom: SPACING.sm,
-  },
-  defaultTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
-  },
-  defaultLogoText: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.text,
-  },
-  defaultSearchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.muted,
-    borderRadius: RADIUS.lg,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 8,
-  },
-  defaultSearchPlaceholder: {
-    color: colors.placeholder,
-    fontSize: 14,
-  },
+    // Default Styles
+    defaultContainer: {
+      backgroundColor: colors.background,
+      paddingHorizontal: SPACING.md,
+      paddingBottom: SPACING.sm,
+    },
+    defaultTopRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: SPACING.sm,
+    },
+    defaultLogoText: {
+      fontSize: 20,
+      fontWeight: '800',
+      color: colors.text,
+    },
+    defaultSearchBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.muted,
+      borderRadius: RADIUS.lg,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      gap: 8,
+    },
+    defaultSearchPlaceholder: {
+      color: colors.placeholder,
+      fontSize: 14,
+    },
 
-  // Common
-  actionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  iconBtn: {
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-  },
-  badge: {
-    position: 'absolute',
-    top: 2,
-    right: 2,
-    backgroundColor: BRAND.primary,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: colors.background,
-  },
-  badgeText: {
-    color: colors.background,
-    fontSize: 9,
-    fontWeight: '900',
-  },
-  extensionArea: {
-    height: 80, // Space for Hero overlap
-    backgroundColor: colors.background,
-    width: '100%',
-  },
-});
+    // Common
+    actionRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    iconBtn: {
+      width: 44,
+      height: 44,
+      justifyContent: 'center',
+      alignItems: 'center',
+      position: 'relative',
+    },
+    badge: {
+      position: 'absolute',
+      top: 2,
+      right: 2,
+      backgroundColor: BRAND.primary,
+      minWidth: 16,
+      height: 16,
+      borderRadius: 8,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderWidth: 1.5,
+      borderColor: '#FFF',
+    },
+    badgeText: {
+      color: '#FFF',
+      fontSize: 9,
+      fontWeight: '900',
+    },
+    extensionArea: {
+      height: 80, // Space for Hero overlap
+      backgroundColor: colors.background,
+      width: '100%',
+    },
+  });
