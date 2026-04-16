@@ -1,21 +1,22 @@
 import { prioritizeSmartphoneProducts } from '@baci/shared';
 import { useIsFocused } from '@react-navigation/native';
-import { useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { useEffect, useRef } from 'react';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { ProductGridSkeleton } from '@/components/ui/Skeleton';
-import { palette, SPACING, TYPOGRAPHY } from '@/constants/Colors';
+import { palette } from '@/constants/Colors';
+import {
+  PRODUCT_GRID_LOADING_MORE_LABEL,
+  PRODUCT_GRID_MAX_PRICE_LIMIT,
+} from '@/constants/product-grid';
 import { useCategories, useProductBrands, useProducts } from '@/hooks';
 import { getProductGridCategories } from '@/lib/category-utils';
 import { resolveSelectedCategoryId } from '@/lib/product-filter-options';
 import type { ProductGridBlock } from '@/types/blocks';
 import { FilterBar } from './FilterBar';
 import { ProductCard } from './ProductCard';
+import { styles } from './ProductGrid.styles';
+import { useProductGridFilters } from './use-product-grid-filters';
+import { useProductGridPagination } from './use-product-grid-pagination';
 
 interface Category {
   id: string;
@@ -31,24 +32,27 @@ interface ProductGridProps {
   variant: 'grid' | 'editorial' | 'list';
 }
 
-const MAX_PRICE_LIMIT = 3000000;
-const LOADING_MORE_PRODUCTS_LABEL = 'Loading more products';
-
 export default function ProductGrid({
   block,
   loadMoreSignal = 0,
   selectedCategoryId,
   variant,
 }: ProductGridProps) {
-  const [selectedCategoryName, setSelectedCategoryName] = useState('All');
-  const [minPrice, setMinPrice] = useState(0);
-  const [maxPrice, setMaxPrice] = useState(MAX_PRICE_LIMIT);
-  const [selectedBrand, setSelectedBrand] = useState('All');
-  const [selectedCondition, setSelectedCondition] = useState('All');
-  const [minRating, setMinRating] = useState(0);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [visibleCount, setVisibleCount] = useState(block.props.limit ?? 12);
-
+  const {
+    handleCategorySelect,
+    handlePriceChange,
+    maxPrice,
+    minPrice,
+    minRating,
+    selectedBrand,
+    selectedCategoryName,
+    selectedCondition,
+    setMinRating,
+    setSelectedBrand,
+    setSelectedCondition,
+    setViewMode,
+    viewMode,
+  } = useProductGridFilters();
   const {
     data: categoriesData = [],
     isLoading: isCategoriesLoading,
@@ -78,13 +82,6 @@ export default function ProductGrid({
     : displayLimit;
   const isFocused = useIsFocused();
   const hasFocusedOnceRef = useRef(false);
-  const lastHandledLoadMoreSignalRef = useRef(0);
-  const lastPaginationResetKeyRef = useRef('');
-  const pendingLoadMoreSignalRef = useRef<number | null>(null);
-  const lastBackfillRequestRef = useRef<{
-    productCount: number;
-    visibleCount: number;
-  } | null>(null);
 
   const {
     products,
@@ -99,7 +96,7 @@ export default function ProductGrid({
     limit: fetchLimit,
     category: normalizedCategoryId,
     minPrice: minPrice > 0 ? minPrice : undefined,
-    maxPrice: maxPrice < MAX_PRICE_LIMIT ? maxPrice : undefined,
+    maxPrice: maxPrice < PRODUCT_GRID_MAX_PRICE_LIMIT ? maxPrice : undefined,
     brand: selectedBrand !== 'All' ? selectedBrand : undefined,
     condition: selectedCondition !== 'All' ? selectedCondition : undefined,
     minRating: minRating > 0 ? minRating : undefined,
@@ -107,7 +104,7 @@ export default function ProductGrid({
   const { brands = [] } = useProductBrands({
     category: normalizedCategoryId,
     minPrice: minPrice > 0 ? minPrice : undefined,
-    maxPrice: maxPrice < MAX_PRICE_LIMIT ? maxPrice : undefined,
+    maxPrice: maxPrice < PRODUCT_GRID_MAX_PRICE_LIMIT ? maxPrice : undefined,
     condition: selectedCondition !== 'All' ? selectedCondition : undefined,
     minRating: minRating > 0 ? minRating : undefined,
   });
@@ -139,19 +136,7 @@ export default function ProductGrid({
     if (selectedBrand !== 'All' && !brands.includes(selectedBrand)) {
       setSelectedBrand('All');
     }
-  }, [brands, selectedBrand]);
-
-  useEffect(() => {
-    if (lastPaginationResetKeyRef.current === paginationResetKey) {
-      return;
-    }
-
-    lastPaginationResetKeyRef.current = paginationResetKey;
-    setVisibleCount(displayLimit);
-    lastHandledLoadMoreSignalRef.current = loadMoreSignal;
-    pendingLoadMoreSignalRef.current = null;
-    lastBackfillRequestRef.current = null;
-  }, [displayLimit, loadMoreSignal, paginationResetKey]);
+  }, [brands, selectedBrand, setSelectedBrand]);
 
   const categoryNames = (() => {
     if (categoriesData.length > 0) {
@@ -168,99 +153,15 @@ export default function ProductGrid({
   const orderedProducts = shouldPrioritizeSmartphones
     ? prioritizeSmartphoneProducts(products)
     : products;
-
-  useEffect(() => {
-    const nextSignal = Math.max(
-      pendingLoadMoreSignalRef.current ?? 0,
-      loadMoreSignal
-    );
-
-    if (nextSignal <= 0 || nextSignal <= lastHandledLoadMoreSignalRef.current) {
-      return;
-    }
-
-    if (isLoadingMore) {
-      pendingLoadMoreSignalRef.current = nextSignal;
-      return;
-    }
-
-    pendingLoadMoreSignalRef.current = null;
-    const signalDelta = nextSignal - lastHandledLoadMoreSignalRef.current;
-    const nextVisibleCount = visibleCount + signalDelta * displayLimit;
-    setVisibleCount(nextVisibleCount);
-    lastHandledLoadMoreSignalRef.current = nextSignal;
-
-    if (orderedProducts.length < nextVisibleCount && hasMore) {
-      lastBackfillRequestRef.current = {
-        productCount: orderedProducts.length,
-        visibleCount: nextVisibleCount,
-      };
-      void loadMore();
-    }
-  }, [
+  const { visibleProducts } = useProductGridPagination({
     displayLimit,
     hasMore,
     isLoadingMore,
     loadMore,
     loadMoreSignal,
-    orderedProducts.length,
-    visibleCount,
-  ]);
-
-  useEffect(() => {
-    const shouldResetBackfillRequest =
-      visibleCount <= displayLimit || orderedProducts.length >= visibleCount;
-
-    if (shouldResetBackfillRequest) {
-      lastBackfillRequestRef.current = null;
-    }
-
-    if (
-      visibleCount <= displayLimit ||
-      orderedProducts.length >= visibleCount ||
-      !hasMore ||
-      isLoadingMore
-    ) {
-      return;
-    }
-
-    const isDuplicateBackfillRequest =
-      lastBackfillRequestRef.current?.productCount === orderedProducts.length &&
-      lastBackfillRequestRef.current?.visibleCount === visibleCount;
-
-    if (isDuplicateBackfillRequest) {
-      return;
-    }
-
-    lastBackfillRequestRef.current = {
-      productCount: orderedProducts.length,
-      visibleCount,
-    };
-    void loadMore();
-  }, [
-    displayLimit,
-    hasMore,
-    isLoadingMore,
-    loadMore,
-    orderedProducts.length,
-    visibleCount,
-  ]);
-
-  const visibleProducts = orderedProducts.slice(0, visibleCount);
-
-  const handleCategorySelect = (categoryName: string) => {
-    setSelectedCategoryName(categoryName);
-    setMinPrice(0);
-    setMaxPrice(MAX_PRICE_LIMIT);
-    setSelectedBrand('All');
-    setSelectedCondition('All');
-    setMinRating(0);
-  };
-
-  const handlePriceChange = (min: number, max: number) => {
-    setMinPrice(min);
-    setMaxPrice(max);
-  };
+    orderedProducts,
+    paginationResetKey,
+  });
 
   const currentVariant = viewMode === 'list' ? 'list' : variant;
 
@@ -342,7 +243,7 @@ export default function ProductGrid({
         <View
           style={styles.loadingMore}
           accessible
-          accessibilityLabel={LOADING_MORE_PRODUCTS_LABEL}
+          accessibilityLabel={PRODUCT_GRID_LOADING_MORE_LABEL}
           accessibilityRole="progressbar"
         >
           <ActivityIndicator
@@ -355,61 +256,3 @@ export default function ProductGrid({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  section: {
-    paddingVertical: SPACING.md,
-  },
-  sectionTitle: {
-    fontSize: TYPOGRAPHY.size.lg,
-    fontFamily: 'Inter_700Bold',
-    marginBottom: SPACING.md,
-    paddingHorizontal: SPACING.md,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: 8,
-  },
-  list: {
-    flexDirection: 'column',
-  },
-  gridWrapper: {
-    width: '50%',
-    paddingHorizontal: 8,
-  },
-  editorialWrapper: {
-    width: '100%',
-  },
-  listWrapper: {
-    width: '100%',
-  },
-  emptyState: {
-    width: '100%',
-    paddingVertical: 60,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyText: {
-    fontSize: 14,
-    fontFamily: 'Inter_500Medium',
-    textAlign: 'center',
-  },
-  retryButton: {
-    marginTop: SPACING.sm,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: palette.gray[300],
-  },
-  retryButtonText: {
-    color: palette.gray[700],
-    fontFamily: 'Inter_700Bold',
-    fontSize: 12,
-  },
-  loadingMore: {
-    alignItems: 'center',
-    paddingVertical: SPACING.md,
-  },
-});

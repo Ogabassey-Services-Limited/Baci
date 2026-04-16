@@ -95,4 +95,26 @@ describe('useEffectivePrice', () => {
       comparePrice: 575000,
     });
   });
+
+  it('uses a negotiated price of 0 instead of the calculated price', () => {
+    const { result } = renderHook(() =>
+      useEffectivePrice(baseProduct, null, 'open_box', 0)
+    );
+
+    expect(result.current).toEqual({
+      price: 0,
+      comparePrice: 560000,
+    });
+  });
+
+  it('uses a positive negotiated price instead of the calculated price', () => {
+    const { result } = renderHook(() =>
+      useEffectivePrice(baseProduct, null, 'open_box', 123456)
+    );
+
+    expect(result.current).toEqual({
+      price: 123456,
+      comparePrice: 560000,
+    });
+  });
 });
