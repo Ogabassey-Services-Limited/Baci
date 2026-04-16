@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { render, waitFor } from '@testing-library/react-native';
+import { render, screen, waitFor } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import type { Product } from '@/types/product';
 import {
@@ -44,8 +44,10 @@ describe('ProductDetailScreen routing and selection sync', () => {
     render(<ProductDetailScreen />);
 
     await waitFor(() => {
-      expect(mockRouterReplace).not.toHaveBeenCalled();
+      expect(mockProductDetailsBody).toHaveBeenCalled();
     });
+
+    expect(mockRouterReplace).not.toHaveBeenCalled();
   });
 
   it('does not redirect when product data is unavailable', async () => {
@@ -59,8 +61,12 @@ describe('ProductDetailScreen routing and selection sync', () => {
     render(<ProductDetailScreen />);
 
     await waitFor(() => {
-      expect(mockRouterReplace).not.toHaveBeenCalled();
+      expect(screen.getAllByText('Product not found').length).toBeGreaterThan(
+        0
+      );
     });
+
+    expect(mockRouterReplace).not.toHaveBeenCalled();
   });
 
   it('resets attribute-only variant params back to the bare product route', async () => {
@@ -106,8 +112,10 @@ describe('ProductDetailScreen routing and selection sync', () => {
     render(<ProductDetailScreen />);
 
     await waitFor(() => {
-      expect(mockRouterReplace).not.toHaveBeenCalled();
+      expect(mockProductDetailsBody).toHaveBeenCalled();
     });
+
+    expect(mockRouterReplace).not.toHaveBeenCalled();
   });
 
   it('preselects the first advertised storage option when no default variant can be resolved', async () => {

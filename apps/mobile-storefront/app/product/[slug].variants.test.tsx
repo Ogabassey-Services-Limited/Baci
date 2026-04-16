@@ -152,4 +152,32 @@ describe('ProductDetailScreen variant stock behavior', () => {
       );
     });
   });
+
+  it('passes the effective selected condition into price resolution after selection settles', async () => {
+    mockUseLocalSearchParams.mockReturnValue({
+      slug: 'iphone-13-pro',
+      condition: 'used',
+      variantId: primaryVariant.id,
+    });
+    mockUseProduct.mockReturnValue({
+      product: variantProduct,
+      isLoading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+    mockUseEffectivePrice.mockReturnValue({
+      price: primaryVariant.price,
+      comparePrice: undefined,
+    });
+
+    render(<ProductDetailScreen />);
+
+    await waitFor(() => {
+      const latestCall =
+        mockUseEffectivePrice.mock.calls[
+          mockUseEffectivePrice.mock.calls.length - 1
+        ];
+      expect(latestCall?.[2]).toBe('new');
+    });
+  });
 });

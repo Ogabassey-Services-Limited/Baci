@@ -80,6 +80,7 @@ export default function ProductGrid({
   const hasFocusedOnceRef = useRef(false);
   const lastHandledLoadMoreSignalRef = useRef(0);
   const lastPaginationResetKeyRef = useRef('');
+  const pendingLoadMoreSignalRef = useRef<number | null>(null);
 
   const {
     products,
@@ -143,8 +144,9 @@ export default function ProductGrid({
 
     lastPaginationResetKeyRef.current = paginationResetKey;
     setVisibleCount(displayLimit);
-    lastHandledLoadMoreSignalRef.current = 0;
-  }, [displayLimit, paginationResetKey]);
+    lastHandledLoadMoreSignalRef.current = loadMoreSignal;
+    pendingLoadMoreSignalRef.current = null;
+  }, [displayLimit, loadMoreSignal, paginationResetKey]);
 
   const categoryNames = (() => {
     if (categoriesData.length > 0) {
@@ -163,23 +165,28 @@ export default function ProductGrid({
     : products;
 
   useEffect(() => {
-    if (
-      loadMoreSignal <= 0 ||
-      loadMoreSignal === lastHandledLoadMoreSignalRef.current
-    ) {
+    const nextSignal = Math.max(
+      pendingLoadMoreSignalRef.current ?? 0,
+      loadMoreSignal
+    );
+
+    if (nextSignal <= 0 || nextSignal <= lastHandledLoadMoreSignalRef.current) {
       return;
     }
 
-    lastHandledLoadMoreSignalRef.current = loadMoreSignal;
-    const nextVisibleCount = visibleCount + displayLimit;
-    setVisibleCount(nextVisibleCount);
+    if (isLoadingMore) {
+      pendingLoadMoreSignalRef.current = nextSignal;
+      return;
+    }
 
-    if (
-      orderedProducts.length < nextVisibleCount &&
-      hasMore &&
-      !isLoadingMore
-    ) {
-      loadMore();
+    pendingLoadMoreSignalRef.current = null;
+    const signalDelta = nextSignal - lastHandledLoadMoreSignalRef.current;
+    const nextVisibleCount = visibleCount + signalDelta * displayLimit;
+    setVisibleCount(nextVisibleCount);
+    lastHandledLoadMoreSignalRef.current = nextSignal;
+
+    if (orderedProducts.length < nextVisibleCount && hasMore) {
+      void loadMore();
     }
   }, [
     displayLimit,

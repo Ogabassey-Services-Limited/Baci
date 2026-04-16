@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { act, render, screen } from '@testing-library/react-native';
+import { act, render, screen, waitFor } from '@testing-library/react-native';
 import { Text } from 'react-native';
 import type { ProductGridBlock } from '@/types/blocks';
 import type { Product } from '@/types/product';
@@ -428,5 +428,125 @@ describe('ProductGrid', () => {
     );
 
     expect(loadMore).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not replay a stale load-more signal after pagination resets', async () => {
+    const incrementalBlock: ProductGridBlock = {
+      ...block,
+      props: {
+        ...block.props,
+        limit: 1,
+      },
+    };
+
+    const view = render(
+      <ProductGrid
+        block={incrementalBlock}
+        loadMoreSignal={0}
+        selectedCategoryId={null}
+        variant="grid"
+      />
+    );
+
+    expect(screen.getByText('iPhone 13 Pro')).toBeTruthy();
+    expect(screen.queryByText('Pixel 8')).toBeNull();
+
+    view.rerender(
+      <ProductGrid
+        block={incrementalBlock}
+        loadMoreSignal={1}
+        selectedCategoryId={null}
+        variant="grid"
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Pixel 8')).toBeTruthy();
+    });
+
+    view.rerender(
+      <ProductGrid
+        block={incrementalBlock}
+        loadMoreSignal={1}
+        selectedCategoryId="cat-phones"
+        variant="grid"
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('iPhone 13 Pro')).toBeTruthy();
+      expect(screen.queryByText('Pixel 8')).toBeNull();
+    });
+  });
+
+  it('processes queued load-more signals after an in-flight page finishes', async () => {
+    const incrementalBlock: ProductGridBlock = {
+      ...block,
+      props: {
+        ...block.props,
+        limit: 1,
+      },
+    };
+    const loadMore = jest.fn();
+    let productsResult: UseProductsResult = {
+      products: [sampleProducts[0]],
+      total: 1,
+      isLoading: false,
+      isFetching: false,
+      isError: false,
+      error: null,
+      hasMore: true,
+      refetch: jest.fn(),
+      loadMore,
+      isLoadingMore: true,
+    };
+    mockUseProductsFactory.mockImplementation(() => productsResult);
+
+    const view = render(
+      <ProductGrid
+        block={incrementalBlock}
+        loadMoreSignal={0}
+        selectedCategoryId={null}
+        variant="grid"
+      />
+    );
+
+    view.rerender(
+      <ProductGrid
+        block={incrementalBlock}
+        loadMoreSignal={1}
+        selectedCategoryId={null}
+        variant="grid"
+      />
+    );
+
+    view.rerender(
+      <ProductGrid
+        block={incrementalBlock}
+        loadMoreSignal={2}
+        selectedCategoryId={null}
+        variant="grid"
+      />
+    );
+
+    productsResult = {
+      ...productsResult,
+      products: sampleProducts,
+      total: sampleProducts.length,
+      isLoadingMore: false,
+    };
+
+    view.rerender(
+      <ProductGrid
+        block={incrementalBlock}
+        loadMoreSignal={2}
+        selectedCategoryId={null}
+        variant="grid"
+      />
+    );
+
+    await waitFor(() => {
+      expect(loadMore).toHaveBeenCalledTimes(1);
+    });
   });
 });

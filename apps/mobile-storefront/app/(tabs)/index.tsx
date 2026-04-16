@@ -120,7 +120,6 @@ export default function HomeScreen() {
     setRefreshing(true);
     try {
       lastLoadMoreContentHeightRef.current = 0;
-      setProductGridLoadMoreSignal(0);
       await refetch();
     } finally {
       setRefreshing(false);
@@ -241,6 +240,17 @@ export default function HomeScreen() {
     if (isConfigLoading && !pageConfig) return [];
     return content;
   })();
+  const productGridDatasetKey = JSON.stringify({
+    selectedCategoryId,
+    productGridBlockIds: blocks
+      .filter((block) => block.type === 'ProductGrid')
+      .map((block) => block.props.id ?? block.type),
+  });
+
+  useEffect(() => {
+    void productGridDatasetKey;
+    lastLoadMoreContentHeightRef.current = 0;
+  }, [productGridDatasetKey]);
 
   const resolvedHeaderHeight = headerHeight > 0 ? headerHeight : 150;
   const headerOverlayAnimatedStyle = {
