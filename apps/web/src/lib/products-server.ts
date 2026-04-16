@@ -4,6 +4,13 @@ import {
   PRODUCT_IMAGE_LARGE_PLACEHOLDER_URL,
   PRODUCT_IMAGE_PLACEHOLDER_URL,
 } from '@/lib/product-image';
+import {
+  DEFAULT_PRODUCT_LIST_FILTERS,
+  type MigrationFilterValue,
+  type ProductListFilters,
+  type StatusFilterValue,
+  type StockFilterValue,
+} from '@/lib/product-list-filters';
 import { PRODUCT_WITH_VARIANTS_QUERY } from '@/lib/product-queries';
 import {
   getEffectiveStock,
@@ -39,16 +46,17 @@ function extractVariantAttributes(variants: Record<string, unknown>[]): {
 }
 
 export interface GetProductsParams {
-  migration?: string;
+  migration?: MigrationFilterValue;
   page?: number;
   limit?: number;
   search?: string;
-  status?: string;
-  stock?: string;
+  status?: StatusFilterValue;
+  stock?: StockFilterValue;
 }
 
 export interface ProductsResult {
   products: Product[];
+  filters: ProductListFilters;
   pagination: {
     page: number;
     limit: number;
@@ -68,12 +76,12 @@ export async function getProducts(
   params: GetProductsParams
 ): Promise<ProductsResult> {
   const {
-    migration = 'All',
+    migration = DEFAULT_PRODUCT_LIST_FILTERS.migration,
     page = 1,
     limit = 10,
-    search: searchRaw = '',
-    status = 'All',
-    stock = 'All',
+    search: searchRaw = DEFAULT_PRODUCT_LIST_FILTERS.search,
+    status = DEFAULT_PRODUCT_LIST_FILTERS.status,
+    stock = DEFAULT_PRODUCT_LIST_FILTERS.stock,
   } = params;
 
   // Sanitize search input
@@ -293,6 +301,12 @@ export async function getProducts(
 
   return {
     products: paginatedProducts,
+    filters: {
+      migration,
+      status,
+      stock,
+      search,
+    },
     pagination: {
       page,
       limit,

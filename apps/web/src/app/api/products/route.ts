@@ -31,6 +31,7 @@ import {
   generateSlug,
 } from '@/lib/seo-utils';
 import { createClient } from '@/lib/supabase/server';
+import { productListQuerySchema } from '@/schemas/product-list-query';
 import { createProductSchema, formatZodErrors } from '@/schemas/products';
 
 /**
@@ -101,16 +102,30 @@ export async function GET(request: NextRequest) {
     const merchantId = merchantContext.merchantId;
 
     // Parse query parameters
-    const searchParams = request.nextUrl.searchParams;
-    const page = Number.parseInt(searchParams.get('page') || '1', 10);
-    const limit = Number.parseInt(searchParams.get('limit') || '10', 10);
-    const searchRaw = searchParams.get('search') || '';
+    const queryParams = productListQuerySchema.safeParse(
+      Object.fromEntries(request.nextUrl.searchParams.entries())
+    );
+    if (!queryParams.success) {
+      return NextResponse.json(
+        {
+          error: 'Invalid query parameters',
+          details: queryParams.error.flatten(),
+        },
+        { status: 400 }
+      );
+    }
+
+    const {
+      page,
+      limit,
+      search: searchRaw,
+      migration,
+      status,
+      stock,
+      ids,
+    } = queryParams.data;
     // Sanitize search input to prevent SQL injection
     const search = searchRaw ? sanitizeSearchQuery(searchRaw) : '';
-    const migration = searchParams.get('migration') || 'All';
-    const status = searchParams.get('status') || 'All';
-    const stock = searchParams.get('stock') || 'All';
-    const ids = searchParams.get('ids');
 
     const offset = (page - 1) * limit;
     const shouldPaginateInDatabase = !ids && stock === 'All';

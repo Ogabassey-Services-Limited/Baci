@@ -252,10 +252,10 @@ describe('getProducts', () => {
     });
 
     // Act
-    await getProducts(client as never, merchantId, { status: 'active' });
+    await getProducts(client as never, merchantId, { status: 'published' });
 
     // Assert
-    expect(queryBuilder.eq).toHaveBeenCalledWith('status', 'active');
+    expect(queryBuilder.eq).toHaveBeenCalledWith('status', 'published');
   });
 
   it('filters by migration_status when a concrete migration filter is provided', async () => {

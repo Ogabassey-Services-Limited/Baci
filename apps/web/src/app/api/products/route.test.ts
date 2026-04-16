@@ -138,7 +138,7 @@ vi.mock('@/lib/product-variant-model', () => ({
         return 'sku_matrix';
       }
 
-      return hasVariants ? 'legacy' : 'legacy';
+      return hasVariants ? 'legacy' : 'simple';
     }
   ),
   getSkuMatrixValidationError: vi.fn(
@@ -474,6 +474,14 @@ describe('GET /api/products', () => {
       expect(lastProductsQueryChain?.or).toHaveBeenCalledWith(
         'migration_status.eq.pending,migration_status.is.null'
       );
+    });
+
+    it('rejects invalid migration filters', async () => {
+      const res = await GET(makeGetRequest({ migration: 'broken' }));
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.error).toBe('Invalid query parameters');
     });
   });
 

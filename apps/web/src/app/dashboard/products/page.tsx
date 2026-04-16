@@ -5,6 +5,7 @@ import { BagLoader } from '@/components/ui/bag-loader';
 import { getMerchantForUser } from '@/lib/merchant-server';
 import { getProducts } from '@/lib/products-server';
 import { createClient } from '@/lib/supabase/server';
+import { productListQuerySchema } from '@/schemas/product-list-query';
 import ProductsClientPage from './client-page';
 
 export const metadata = {
@@ -36,15 +37,10 @@ export default async function ProductsPage({
 
   // 2. Parse Params
   const params = await searchParams;
-  const page =
-    typeof params.page === 'string' ? Number.parseInt(params.page, 10) : 1;
-  const limit =
-    typeof params.limit === 'string' ? Number.parseInt(params.limit, 10) : 10;
-  const status = typeof params.status === 'string' ? params.status : 'All';
-  const stock = typeof params.stock === 'string' ? params.stock : 'All';
-  const migration =
-    typeof params.migration === 'string' ? params.migration : 'All';
-  const search = typeof params.search === 'string' ? params.search : undefined;
+  const parsedParams = productListQuerySchema.safeParse(params);
+  const { page, limit, status, stock, migration, search } = parsedParams.success
+    ? parsedParams.data
+    : productListQuerySchema.parse({});
 
   // 3. Fetch Products (Server-Side)
   // This runs directly on the server, bypassing the API route limit

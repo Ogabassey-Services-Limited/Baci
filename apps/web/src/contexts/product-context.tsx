@@ -1,18 +1,18 @@
 'use client';
 
-import {
-  createContext,
-  type ReactNode,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import { createContext, type ReactNode, useContext, useState } from 'react';
 import type { AIResponse, Change } from '@/app/dashboard/products/actions';
 import { useToast } from '@/hooks/use-toast';
 import { apiDelete, apiPost, apiPut } from '@/lib/api-client';
+import {
+  DEFAULT_PRODUCT_LIST_FILTERS,
+  type MigrationFilterValue,
+  type StatusFilterValue,
+  type StockFilterValue,
+} from '@/lib/product-list-filters';
 import type { Product } from '@/lib/products';
 import { useAuth } from './auth-context'; // Import the useAuth hook
+import { useProductFetch } from './use-product-fetch';
 
 export type WorkflowStep =
   | 'view'
@@ -35,16 +35,16 @@ interface ProductStats {
 }
 
 interface ProductContextType {
-  migrationFilter: string;
+  migrationFilter: MigrationFilterValue;
   products: Product[];
   isLoading: boolean;
   pagination: PaginationInfo;
   stats: ProductStats;
-  statusFilter: string;
-  stockFilter: string;
-  setMigrationFilter: (migration: string) => void;
-  setStatusFilter: (status: string) => void;
-  setStockFilter: (stock: string) => void;
+  statusFilter: StatusFilterValue;
+  stockFilter: StockFilterValue;
+  setMigrationFilter: (migration: MigrationFilterValue) => void;
+  setStatusFilter: (status: StatusFilterValue) => void;
+  setStockFilter: (stock: StockFilterValue) => void;
   setPage: (page: number) => void;
   setLimit: (limit: number) => void;
   refetchProducts: () => Promise<void>;
@@ -93,19 +93,24 @@ export const ProductProvider: React.FC<{
       categoryCount: 0,
     }
   );
-  const [migrationFilter, setMigrationFilter] = useState('All');
-  const [statusFilter, setStatusFilter] = useState('All');
-  const [stockFilter, setStockFilter] = useState('All');
+  const [migrationFilter, setMigrationFilter] = useState<MigrationFilterValue>(
+    initialData?.filters?.migration ?? DEFAULT_PRODUCT_LIST_FILTERS.migration
+  );
+  const [statusFilter, setStatusFilter] = useState<StatusFilterValue>(
+    initialData?.filters?.status ?? DEFAULT_PRODUCT_LIST_FILTERS.status
+  );
+  const [stockFilter, setStockFilter] = useState<StockFilterValue>(
+    initialData?.filters?.stock ?? DEFAULT_PRODUCT_LIST_FILTERS.stock
+  );
   const [workflowStep, setWorkflowStep] = useState<WorkflowStep>('view');
   const [aiResponse, setAiResponse] = useState<AIResponse | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(
+    initialData?.filters?.search ?? DEFAULT_PRODUCT_LIST_FILTERS.search
+  );
   const { toast } = useToast();
 
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const fetchInProgressRef = useRef(false);
-  const lastFetchParamsRef = useRef<string>('');
-  const lastFetchTimeRef = useRef<number>(0);
 
   const openAddProductDialog = (product: Product | null = null) => {
     setEditingProduct(product);
@@ -117,118 +122,21 @@ export const ProductProvider: React.FC<{
     setEditingProduct(null);
   };
 
-  const fetchProducts = async (force = false) => {
-    // **FIX**: Do not fetch if auth is still loading or if there's no user
-    if (authLoading || !user) {
-      // If we know there's no user, stop loading and clear data.
-      if (!authLoading && !user) {
-        setProducts([]);
-        setIsLoading(false);
-      }
-      return;
-    }
-
-    const params = new URLSearchParams({
-      page: pagination.page.toString(),
-      limit: pagination.limit.toString(),
-      migration: migrationFilter,
-      search: searchTerm,
-      status: statusFilter,
-      stock: stockFilter,
-    });
-    const paramsString = params.toString();
-
-    // Prevent rapid re-fetching (throttle to 1s), but allow force refresh
-    const now = Date.now();
-    const lastFetch = lastFetchTimeRef.current;
-    if (!force && now - lastFetch < 1000) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Throttling product fetch');
-      }
-      return;
-    }
-
-    lastFetchTimeRef.current = now;
-
-    // Prevent duplicate fetches with same parameters
-    if (
-      !force &&
-      (fetchInProgressRef.current ||
-        paramsString === lastFetchParamsRef.current)
-    ) {
-      return;
-    }
-
-    fetchInProgressRef.current = true;
-    lastFetchParamsRef.current = paramsString;
-    setIsLoading(true);
-    try {
-      const response = await fetch(`/api/products?${params}`);
-      if (!response.ok) {
-        // Silently fail on 401/403/404/500/429
-        if ([401, 403, 404, 500, 429].includes(response.status)) {
-          if (response.status === 429) {
-            console.warn(
-              'Rate limit hit for products fetch. Retrying in 5s...'
-            );
-            // Optional: Validation or backoff logic here
-          }
-          fetchInProgressRef.current = false;
-          setIsLoading(false);
-          return;
-        }
-        console.error(
-          `Fetch failed with status: ${response.status} ${response.statusText}`
-        );
-        throw new Error(`Failed to fetch products: ${response.status}`);
-      }
-
-      const data = await response.json();
-      setProducts(data.products || []);
-      setPagination(data.pagination);
-      setStats(
-        data.stats || {
-          inventoryValue: 0,
-          outOfStockCount: 0,
-          categoryCount: 0,
-        }
-      );
-    } catch (error) {
-      console.error('Error fetching products:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load products',
-        variant: 'destructive',
-      });
-    } finally {
-      fetchInProgressRef.current = false;
-      setIsLoading(false);
-    }
-  };
-
-  // Removed automatic fetch on mount since we hydrate from server data
-  // Only re-fetch when filters/pagination change AFTER initial load
-  // We use a ref to track if it's the first render
-  const isFirstRender = useRef(true);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: fetchProducts is stable, dependencies managed explicitly
-  useEffect(() => {
-    // Skip the first render if we have initialData, as it matches the server state
-    if (initialData && isFirstRender.current) {
-      isFirstRender.current = false;
-      return;
-    }
-    fetchProducts();
-  }, [
+  const { fetchProducts } = useProductFetch<Product>({
+    authLoading,
+    user,
+    initialData,
     pagination,
     migrationFilter,
     searchTerm,
     statusFilter,
     stockFilter,
-    user,
-    authLoading,
-    initialData,
-  ]);
+    setProducts,
+    setPagination,
+    setStats,
+    setIsLoading,
+    toast,
+  });
 
   const setPage = (page: number) => {
     setPagination((prev) => ({ ...prev, page }));
