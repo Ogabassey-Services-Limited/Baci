@@ -494,6 +494,186 @@ describe('ProductDetailScreen canonical slug redirect', () => {
     });
   });
 
+  it('matches legacy offer condition aliases when computing canPurchase', async () => {
+    mockUseLocalSearchParams.mockReturnValue({
+      slug: 'iphone-13-pro',
+      condition: 'open_box',
+    });
+    mockUseProduct.mockReturnValue({
+      product: {
+        ...baseProduct,
+        has_condition_offers: true,
+        stock_quantity: 0,
+        offers: [
+          {
+            id: 'offer-refurbished',
+            condition: 'refurbished',
+            price: 510000,
+            stock_quantity: 2,
+          },
+        ],
+      },
+      isLoading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+    mockUseEffectivePrice.mockReturnValue({
+      price: 510000,
+      comparePrice: undefined,
+    });
+
+    render(<ProductDetailScreen />);
+
+    await waitFor(() => {
+      expect(mockProductDetailsBody).toHaveBeenCalledWith(
+        expect.objectContaining({
+          selectedCondition: 'open_box',
+        })
+      );
+      expect(mockStickyBottomActions).toHaveBeenCalledWith(
+        expect.objectContaining({
+          canPurchase: true,
+        })
+      );
+    });
+  });
+
+  it('keeps alias-derived selectedCondition purchasable for legacy offer rows', async () => {
+    mockUseLocalSearchParams.mockReturnValue({
+      slug: 'iphone-13-pro',
+    });
+    mockUseProduct.mockReturnValue({
+      product: {
+        ...baseProduct,
+        has_condition_offers: true,
+        stock_quantity: 0,
+        offers: [
+          {
+            id: 'offer-refurbished',
+            condition: 'refurbished',
+            price: 510000,
+            stock_quantity: 2,
+          },
+        ],
+      },
+      isLoading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+    mockUseEffectivePrice.mockReturnValue({
+      price: 510000,
+      comparePrice: undefined,
+    });
+
+    render(<ProductDetailScreen />);
+
+    await waitFor(() => {
+      expect(mockProductDetailsBody).toHaveBeenCalledWith(
+        expect.objectContaining({
+          selectedCondition: 'refurbished',
+        })
+      );
+      expect(mockStickyBottomActions).toHaveBeenCalledWith(
+        expect.objectContaining({
+          canPurchase: true,
+        })
+      );
+    });
+  });
+
+  it('keeps raw legacy offer conditions purchasable even when they are not canonical', async () => {
+    mockUseLocalSearchParams.mockReturnValue({
+      slug: 'iphone-13-pro',
+    });
+    mockUseProduct.mockReturnValue({
+      product: {
+        ...baseProduct,
+        has_condition_offers: true,
+        stock_quantity: 0,
+        offers: [
+          {
+            id: 'offer-scratch-and-dent',
+            condition: 'scratch_and_dent',
+            price: 470000,
+            stock_quantity: 2,
+          },
+        ],
+      },
+      isLoading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+    mockUseEffectivePrice.mockReturnValue({
+      price: 470000,
+      comparePrice: undefined,
+    });
+
+    render(<ProductDetailScreen />);
+
+    await waitFor(() => {
+      expect(mockProductDetailsBody).toHaveBeenCalledWith(
+        expect.objectContaining({
+          selectedCondition: 'scratch_and_dent',
+        })
+      );
+      expect(mockStickyBottomActions).toHaveBeenCalledWith(
+        expect.objectContaining({
+          canPurchase: true,
+        })
+      );
+    });
+  });
+
+  it('prefers the exact selected condition offer over a canonical alias row for stock gating', async () => {
+    mockUseLocalSearchParams.mockReturnValue({
+      slug: 'iphone-13-pro',
+      condition: 'open_box',
+    });
+    mockUseProduct.mockReturnValue({
+      product: {
+        ...baseProduct,
+        has_condition_offers: true,
+        stock_quantity: 0,
+        offers: [
+          {
+            id: 'offer-refurbished',
+            condition: 'refurbished',
+            price: 510000,
+            stock_quantity: 0,
+          },
+          {
+            id: 'offer-open-box',
+            condition: 'open_box',
+            price: 520000,
+            stock_quantity: 2,
+          },
+        ],
+      },
+      isLoading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+    mockUseEffectivePrice.mockReturnValue({
+      price: 520000,
+      comparePrice: undefined,
+    });
+
+    render(<ProductDetailScreen />);
+
+    await waitFor(() => {
+      expect(mockProductDetailsBody).toHaveBeenCalledWith(
+        expect.objectContaining({
+          selectedCondition: 'open_box',
+        })
+      );
+      expect(mockStickyBottomActions).toHaveBeenCalledWith(
+        expect.objectContaining({
+          canPurchase: true,
+        })
+      );
+    });
+  });
+
   it('blocks purchase when the selected variant is out of stock', async () => {
     expect(primaryVariant).toBeDefined();
     expect(secondaryVariant).toBeDefined();
