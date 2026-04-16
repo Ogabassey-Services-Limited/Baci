@@ -581,6 +581,49 @@ describe('ProductDetailScreen canonical slug redirect', () => {
     });
   });
 
+  it('keeps raw legacy offer conditions purchasable even when they are not canonical', async () => {
+    mockUseLocalSearchParams.mockReturnValue({
+      slug: 'iphone-13-pro',
+    });
+    mockUseProduct.mockReturnValue({
+      product: {
+        ...baseProduct,
+        has_condition_offers: true,
+        stock_quantity: 0,
+        offers: [
+          {
+            id: 'offer-scratch-and-dent',
+            condition: 'scratch_and_dent',
+            price: 470000,
+            stock_quantity: 2,
+          },
+        ],
+      },
+      isLoading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+    mockUseEffectivePrice.mockReturnValue({
+      price: 470000,
+      comparePrice: undefined,
+    });
+
+    render(<ProductDetailScreen />);
+
+    await waitFor(() => {
+      expect(mockProductDetailsBody).toHaveBeenCalledWith(
+        expect.objectContaining({
+          selectedCondition: 'scratch_and_dent',
+        })
+      );
+      expect(mockStickyBottomActions).toHaveBeenCalledWith(
+        expect.objectContaining({
+          canPurchase: true,
+        })
+      );
+    });
+  });
+
   it('prefers the exact selected condition offer over a canonical alias row for stock gating', async () => {
     mockUseLocalSearchParams.mockReturnValue({
       slug: 'iphone-13-pro',
