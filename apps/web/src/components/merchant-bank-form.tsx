@@ -4,7 +4,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertCircle, Check, CheckCircle2, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import z from 'zod';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -20,18 +19,13 @@ import { useToast } from '@/hooks/use-toast';
 import { apiPost } from '@/lib/api-client';
 import type { Bank } from '@/lib/paystack';
 import { cn } from '@/lib/utils';
-
-const bankSchema = z.object({
-  accountNumber: z
-    .string()
-    .regex(/^\d{10}$/, 'Account number must be exactly 10 digits'),
-  bankCode: z.string().min(1, 'Please select your bank'),
-  businessName: z.string().min(2, 'Business name is required'),
-  autoPayoutEnabled: z.boolean().optional(),
-});
-
-export type BankFormInput = z.input<typeof bankSchema>;
-type BankFormValues = z.infer<typeof bankSchema>;
+import {
+  type MerchantBankFormInput,
+  type MerchantBankFormValues,
+  merchantBankSchema,
+} from '@/schemas/merchant-bank';
+export type BankFormInput = MerchantBankFormInput;
+type BankFormValues = MerchantBankFormValues;
 
 interface MerchantBankFormProps {
   initialData?: {
@@ -67,7 +61,7 @@ export function MerchantBankForm({
     typeof initialData?.autoPayoutEnabled === 'boolean';
 
   const form = useForm<BankFormInput, unknown, BankFormValues>({
-    resolver: zodResolver(bankSchema),
+    resolver: zodResolver(merchantBankSchema),
     defaultValues: {
       accountNumber: initialData?.accountNumber || '',
       bankCode: initialData?.bankCode || '',
