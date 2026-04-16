@@ -7,10 +7,12 @@ import {
   View,
 } from 'react-native';
 import type { BusinessTypeId } from '@/constants/business-types';
-import { DARK_COLORS } from '@/constants/theme';
+
 import { BusinessTypeSelector } from '../BusinessTypeSelector';
 import { RegisterLegalText } from './RegisterLegalText';
-import { registerStyles as styles } from './register.styles';
+import { useMemo } from 'react';
+import { useTheme } from '@/hooks/useTheme';
+import { getStyles } from './register.styles';
 
 interface RegisterFormData {
   businessName: string;
@@ -38,6 +40,8 @@ export function RegisterBusinessStep({
   onOtherBusinessTypeChange,
   onSlugChange,
 }: RegisterBusinessStepProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
   return (
     <View style={styles.formSection}>
       <Text style={styles.sectionTitle}>Business Info</Text>
@@ -49,7 +53,7 @@ export function RegisterBusinessStep({
           accessibilityLabel="Business Name"
           style={styles.input}
           placeholder="My Awesome Store"
-          placeholderTextColor="#6B7280"
+          placeholderTextColor={colors.textMuted}
           value={formData.businessName}
           onChangeText={onBusinessNameChange}
         />
@@ -62,7 +66,7 @@ export function RegisterBusinessStep({
             accessibilityLabel="Store Link"
             style={[styles.urlInput, { textAlign: 'right' }]}
             placeholder="my-store"
-            placeholderTextColor="#6B7280"
+            placeholderTextColor={colors.textMuted}
             autoCapitalize="none"
             value={formData.slug}
             onChangeText={onSlugChange}
@@ -74,14 +78,14 @@ export function RegisterBusinessStep({
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Business Type</Text>
         <BusinessTypeSelector
-          borderColor={DARK_COLORS.border}
-          cardBackgroundColor="rgba(255,255,255,0.05)"
+          borderColor={colors.border}
+          cardBackgroundColor={colors.card}
           onSelect={onBusinessTypeChange}
-          selectedBackgroundColor={DARK_COLORS.primary}
-          selectedBorderColor={DARK_COLORS.primary}
-          selectedTextColor="#FFF"
+          selectedBackgroundColor={colors.primary}
+          selectedBorderColor={colors.primary}
+          selectedTextColor={colors.textOnPrimary}
           selectedType={formData.businessType}
-          textColor="#9CA3AF"
+          textColor={colors.textSecondary}
         />
       </View>
 
@@ -92,7 +96,7 @@ export function RegisterBusinessStep({
             accessibilityLabel="Please specify"
             style={styles.input}
             placeholder="e.g. Pet Supplies"
-            placeholderTextColor="#6B7280"
+            placeholderTextColor={colors.textMuted}
             value={formData.otherBusinessType}
             onChangeText={onOtherBusinessTypeChange}
           />
@@ -109,11 +113,11 @@ export function RegisterBusinessStep({
         disabled={isLoading}
       >
         {isLoading ? (
-          <ActivityIndicator color="#FFF" />
+          <ActivityIndicator color={colors.textOnPrimary} />
         ) : (
           <>
             <Text style={styles.buttonText}>Launch Store</Text>
-            <Ionicons name="rocket-outline" size={20} color="#FFF" />
+            <Ionicons name="rocket-outline" size={20} color={colors.textOnPrimary} />
           </>
         )}
       </Pressable>
