@@ -12,6 +12,8 @@ interface OrderItemInsertRow {
   price: number;
   product_id: string | null;
   quantity: number;
+  variant_id?: string | null;
+  variant_name?: string | null;
 }
 
 type DeleteOrder = (
