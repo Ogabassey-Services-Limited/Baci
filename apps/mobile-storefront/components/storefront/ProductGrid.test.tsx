@@ -546,7 +546,7 @@ describe('ProductGrid', () => {
     );
 
     await waitFor(() => {
-      expect(loadMore).toHaveBeenCalledTimes(1);
+      expect(loadMore).toHaveBeenCalledTimes(2);
     });
   });
 });

@@ -152,6 +152,13 @@ export default function HomeScreen() {
 
     const currentState = headerScrollState.current;
     const currentOffsetY = event.nativeEvent.contentOffset.y;
+    const currentContentHeight = event.nativeEvent.contentSize.height;
+
+    if (currentContentHeight < lastLoadMoreContentHeightRef.current) {
+      lastLoadMoreContentHeightRef.current = 0;
+      headerScrollState.current.previousOffsetY = currentOffsetY;
+    }
+
     const isScrollingDown = currentOffsetY >= currentState.previousOffsetY;
     const nextState = resolveScrollHeaderVisibility({
       currentOffsetY,

@@ -20,6 +20,10 @@ import {
   variantProduct,
 } from './product-detail-screen.test-utils';
 
+function getLastMockProps<T>(mockFn: { mock: { calls: unknown[][] } }) {
+  return mockFn.mock.calls.at(-1)?.[0] as T | undefined;
+}
+
 describe('ProductDetailScreen variant stock behavior', () => {
   beforeAll(() => {
     expect(primaryVariant).toBeDefined();
@@ -60,7 +64,7 @@ describe('ProductDetailScreen variant stock behavior', () => {
     render(<ProductDetailScreen />);
 
     await waitFor(() => {
-      expect(mockStickyBottomActions).toHaveBeenCalledWith(
+      expect(getLastMockProps(mockStickyBottomActions)).toEqual(
         expect.objectContaining({
           canPurchase: false,
         })
@@ -99,7 +103,7 @@ describe('ProductDetailScreen variant stock behavior', () => {
     render(<ProductDetailScreen />);
 
     await waitFor(() => {
-      expect(mockStickyBottomActions).toHaveBeenCalledWith(
+      expect(getLastMockProps(mockStickyBottomActions)).toEqual(
         expect.objectContaining({
           canPurchase: true,
         })
@@ -139,13 +143,13 @@ describe('ProductDetailScreen variant stock behavior', () => {
     render(<ProductDetailScreen />);
 
     await waitFor(() => {
-      expect(mockProductDetailsBody).toHaveBeenCalledWith(
+      expect(getLastMockProps(mockProductDetailsBody)).toEqual(
         expect.objectContaining({
           selectedCondition: 'new',
           selectedStorage: '128GB',
         })
       );
-      expect(mockStickyBottomActions).toHaveBeenCalledWith(
+      expect(getLastMockProps(mockStickyBottomActions)).toEqual(
         expect.objectContaining({
           canPurchase: true,
         })

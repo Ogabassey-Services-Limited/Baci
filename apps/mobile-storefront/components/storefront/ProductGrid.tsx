@@ -81,6 +81,7 @@ export default function ProductGrid({
   const lastHandledLoadMoreSignalRef = useRef(0);
   const lastPaginationResetKeyRef = useRef('');
   const pendingLoadMoreSignalRef = useRef<number | null>(null);
+  const lastBackfillRequestProductCountRef = useRef(-1);
 
   const {
     products,
@@ -146,6 +147,7 @@ export default function ProductGrid({
     setVisibleCount(displayLimit);
     lastHandledLoadMoreSignalRef.current = loadMoreSignal;
     pendingLoadMoreSignalRef.current = null;
+    lastBackfillRequestProductCountRef.current = -1;
   }, [displayLimit, loadMoreSignal, paginationResetKey]);
 
   const categoryNames = (() => {
@@ -186,6 +188,7 @@ export default function ProductGrid({
     lastHandledLoadMoreSignalRef.current = nextSignal;
 
     if (orderedProducts.length < nextVisibleCount && hasMore) {
+      lastBackfillRequestProductCountRef.current = orderedProducts.length;
       void loadMore();
     }
   }, [
@@ -194,6 +197,34 @@ export default function ProductGrid({
     isLoadingMore,
     loadMore,
     loadMoreSignal,
+    orderedProducts.length,
+    visibleCount,
+  ]);
+
+  useEffect(() => {
+    if (
+      visibleCount <= displayLimit ||
+      orderedProducts.length >= visibleCount ||
+      !hasMore ||
+      isLoadingMore ||
+      orderedProducts.length <= lastBackfillRequestProductCountRef.current
+    ) {
+      if (
+        orderedProducts.length >= visibleCount ||
+        visibleCount <= displayLimit
+      ) {
+        lastBackfillRequestProductCountRef.current = -1;
+      }
+      return;
+    }
+
+    lastBackfillRequestProductCountRef.current = orderedProducts.length;
+    void loadMore();
+  }, [
+    displayLimit,
+    hasMore,
+    isLoadingMore,
+    loadMore,
     orderedProducts.length,
     visibleCount,
   ]);

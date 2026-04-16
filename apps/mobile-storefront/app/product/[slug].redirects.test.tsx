@@ -15,6 +15,10 @@ import {
   variantProduct,
 } from './product-detail-screen.test-utils';
 
+function getLastMockProps<T>(mockFn: { mock: { calls: unknown[][] } }) {
+  return mockFn.mock.calls.at(-1)?.[0] as T | undefined;
+}
+
 describe('ProductDetailScreen routing and selection sync', () => {
   beforeEach(() => {
     resetProductDetailScreenMocks();
@@ -145,16 +149,12 @@ describe('ProductDetailScreen routing and selection sync', () => {
     render(<ProductDetailScreen />);
 
     await waitFor(() => {
-      expect(mockProductDetailsBody).toHaveBeenCalled();
-    });
-
-    const lastCall =
-      mockProductDetailsBody.mock.calls[
-        mockProductDetailsBody.mock.calls.length - 1
-      ];
-    expect(lastCall?.[0]).toMatchObject({
-      selectedColor: 'Gray',
-      selectedStorage: '128GB',
+      expect(getLastMockProps(mockProductDetailsBody)).toEqual(
+        expect.objectContaining({
+          selectedColor: 'Gray',
+          selectedStorage: '128GB',
+        })
+      );
     });
   });
 
@@ -188,16 +188,12 @@ describe('ProductDetailScreen routing and selection sync', () => {
     const view = render(<ProductDetailScreen />);
 
     await waitFor(() => {
-      expect(mockProductDetailsBody).toHaveBeenCalled();
-    });
-
-    const lastCall =
-      mockProductDetailsBody.mock.calls[
-        mockProductDetailsBody.mock.calls.length - 1
-      ];
-    expect(lastCall?.[0]).toMatchObject({
-      selectedColor: 'Black',
-      selectedStorage: '256GB',
+      expect(getLastMockProps(mockProductDetailsBody)).toEqual(
+        expect.objectContaining({
+          selectedColor: 'Black',
+          selectedStorage: '256GB',
+        })
+      );
     });
 
     currentProduct = {
@@ -239,7 +235,7 @@ describe('ProductDetailScreen routing and selection sync', () => {
     const view = render(<ProductDetailScreen />);
 
     await waitFor(() => {
-      expect(mockStickyBottomActions).toHaveBeenCalledWith(
+      expect(getLastMockProps(mockStickyBottomActions)).toEqual(
         expect.objectContaining({
           paddingBottom: 34,
         })
