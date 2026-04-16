@@ -178,6 +178,15 @@ describe('product-utils', () => {
     expect(query.eq).toHaveBeenCalledWith('slug', 'iphone-13-pro');
   });
 
+  it('pins product variant embeds to the product_id relationship', () => {
+    expect(PRODUCT_SELECT).toContain(
+      'variants:product_variants!product_variants_product_id_fkey ('
+    );
+    expect(PRODUCT_DETAIL_SELECT).toContain(
+      'variants:product_variants!product_variants_product_id_fkey ('
+    );
+  });
+
   it('resolveProductRow falls back to legacy slug candidates', async () => {
     const exactQuery = createQueryChain({ data: null, error: null });
     const fallbackQuery = createQueryChain({
