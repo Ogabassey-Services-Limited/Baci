@@ -3,7 +3,9 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import type { PasswordValidationResult } from '@/lib/password-utils';
 import { PasswordVisibilityToggle } from '../PasswordVisibilityToggle';
 import { PasswordChecklist } from './PasswordChecklist';
-import { registerStyles as styles } from './register.styles';
+import { useMemo } from 'react';
+import { useTheme } from '@/hooks/useTheme';
+import { getStyles } from './register.styles';
 
 interface RegisterFormData {
   confirmPassword: string;
@@ -35,6 +37,8 @@ export function RegisterAccountStep({
   updateForm,
   onTogglePassword,
 }: RegisterAccountStepProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
   return (
     <View style={styles.formSection}>
       <Text style={styles.sectionTitle}>Account Details</Text>
@@ -47,7 +51,7 @@ export function RegisterAccountStep({
             accessibilityLabel="First Name"
             style={styles.input}
             placeholder="John"
-            placeholderTextColor="#6B7280"
+            placeholderTextColor={colors.textMuted}
             autoCapitalize="words"
             value={formData.firstName}
             onChangeText={(text) => updateForm('firstName', text)}
@@ -59,7 +63,7 @@ export function RegisterAccountStep({
             accessibilityLabel="Last Name"
             style={styles.input}
             placeholder="Doe"
-            placeholderTextColor="#6B7280"
+            placeholderTextColor={colors.textMuted}
             autoCapitalize="words"
             value={formData.lastName}
             onChangeText={(text) => updateForm('lastName', text)}
@@ -73,7 +77,7 @@ export function RegisterAccountStep({
           accessibilityLabel="Email Address"
           style={styles.input}
           placeholder="you@example.com"
-          placeholderTextColor="#6B7280"
+          placeholderTextColor={colors.textMuted}
           keyboardType="email-address"
           autoCapitalize="none"
           value={formData.email}
@@ -88,7 +92,7 @@ export function RegisterAccountStep({
             accessibilityLabel="Password"
             style={styles.passwordInput}
             placeholder="••••••••"
-            placeholderTextColor="#6B7280"
+            placeholderTextColor={colors.textMuted}
             secureTextEntry={!showPassword}
             value={formData.password}
             onChangeText={(text) => updateForm('password', text)}
@@ -97,7 +101,7 @@ export function RegisterAccountStep({
             accessibilityLabel={
               showPassword ? 'Hide password' : 'Show password'
             }
-            iconColor="#9CA3AF"
+            iconColor={colors.textSecondary}
             iconName={showPassword ? 'eye-off' : 'eye'}
             onPress={onTogglePassword}
           />
@@ -116,7 +120,7 @@ export function RegisterAccountStep({
             accessibilityLabel="Confirm Password"
             style={styles.passwordInput}
             placeholder="••••••••"
-            placeholderTextColor="#6B7280"
+            placeholderTextColor={colors.textMuted}
             secureTextEntry={!showPassword}
             value={formData.confirmPassword}
             onChangeText={(text) => updateForm('confirmPassword', text)}
@@ -125,7 +129,7 @@ export function RegisterAccountStep({
             accessibilityLabel={
               showPassword ? 'Hide password' : 'Show password'
             }
-            iconColor="#9CA3AF"
+            iconColor={colors.textSecondary}
             iconName={showPassword ? 'eye-off' : 'eye'}
             onPress={onTogglePassword}
           />
@@ -140,7 +144,7 @@ export function RegisterAccountStep({
         onPress={onNext}
       >
         <Text style={styles.buttonText}>Next Step</Text>
-        <Ionicons name="arrow-forward" size={20} color="#FFF" />
+        <Ionicons name="arrow-forward" size={20} color={colors.textOnPrimary} />
       </Pressable>
     </View>
   );
