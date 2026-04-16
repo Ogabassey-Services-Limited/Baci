@@ -22,7 +22,10 @@ import { HeroSkeleton, ProductGridSkeleton } from '@/components/ui/Skeleton';
 import { SnowEffect } from '@/components/ui/SnowEffect';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
-import { getHomeContentBottomPadding } from '@/constants/layout';
+import {
+  getHomeContentBottomPadding,
+  HOME_LOAD_MORE_THRESHOLD_PX,
+} from '@/constants/layout';
 import { usePageConfig } from '@/hooks';
 import { useNetworkState } from '@/hooks/use-network-state';
 import { usePermissionBooster } from '@/hooks/use-permission-booster';
@@ -33,8 +36,6 @@ import type { Block } from '@/types/blocks';
 
 const PATTERN_URI =
   'https://www.transparenttextures.com/patterns/carbon-fibre.png';
-const LOAD_MORE_THRESHOLD_PX = 240;
-
 export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -179,7 +180,7 @@ export default function HomeScreen() {
 
     if (
       isScrollingDown &&
-      distanceFromBottom <= LOAD_MORE_THRESHOLD_PX &&
+      distanceFromBottom <= HOME_LOAD_MORE_THRESHOLD_PX &&
       contentSize.height > lastLoadMoreContentHeightRef.current
     ) {
       lastLoadMoreContentHeightRef.current = contentSize.height;
