@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react-native';
+import { baseProduct } from './product-detail-screen.fixtures';
 import {
-  baseProduct,
+  getLastMockProps,
   mockProductDetailsBody,
   mockStickyBottomActions,
   mockUseEffectivePrice,
@@ -10,10 +11,6 @@ import {
   ProductDetailScreen,
   resetProductDetailScreenMocks,
 } from './product-detail-screen.test-utils';
-
-function getLastMockProps<T>(mockFn: { mock: { calls: unknown[][] } }) {
-  return mockFn.mock.calls.at(-1)?.[0] as T | undefined;
-}
 
 describe('ProductDetailScreen condition offer stock gating', () => {
   beforeEach(() => {

@@ -8,21 +8,20 @@ import {
 } from '@jest/globals';
 import { render, waitFor } from '@testing-library/react-native';
 import {
+  primaryVariant,
+  secondaryVariant,
+  variantProduct,
+} from './product-detail-screen.fixtures';
+import {
+  getLastMockProps,
   mockProductDetailsBody,
   mockStickyBottomActions,
   mockUseEffectivePrice,
   mockUseLocalSearchParams,
   mockUseProduct,
   ProductDetailScreen,
-  primaryVariant,
   resetProductDetailScreenMocks,
-  secondaryVariant,
-  variantProduct,
 } from './product-detail-screen.test-utils';
-
-function getLastMockProps<T>(mockFn: { mock: { calls: unknown[][] } }) {
-  return mockFn.mock.calls.at(-1)?.[0] as T | undefined;
-}
 
 describe('ProductDetailScreen variant stock behavior', () => {
   beforeAll(() => {

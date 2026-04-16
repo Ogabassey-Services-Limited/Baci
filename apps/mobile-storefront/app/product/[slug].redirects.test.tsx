@@ -2,8 +2,9 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import type { Product } from '@/types/product';
+import { baseProduct, variantProduct } from './product-detail-screen.fixtures';
 import {
-  baseProduct,
+  getLastMockProps,
   mockProductDetailsBody,
   mockRouterReplace,
   mockStickyBottomActions,
@@ -12,12 +13,7 @@ import {
   mockUseProduct,
   ProductDetailScreen,
   resetProductDetailScreenMocks,
-  variantProduct,
 } from './product-detail-screen.test-utils';
-
-function getLastMockProps<T>(mockFn: { mock: { calls: unknown[][] } }) {
-  return mockFn.mock.calls.at(-1)?.[0] as T | undefined;
-}
 
 describe('ProductDetailScreen routing and selection sync', () => {
   beforeEach(() => {

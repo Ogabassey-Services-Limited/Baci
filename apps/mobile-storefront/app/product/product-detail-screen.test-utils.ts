@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import type { Product } from '@/types/product';
+import { baseProduct } from './product-detail-screen.fixtures';
 
 export const mockProductDetailsBody = jest.fn();
 export const mockRouterReplace = jest.fn();
@@ -25,60 +25,6 @@ const mockSavedStoreState = {
   toastState: { show: false, type: 'add', message: '' },
   dismissToast: jest.fn(),
 };
-
-export const baseProduct: Product = {
-  id: 'product-1',
-  merchant_id: 'merchant-1',
-  name: 'iPhone 13 Pro',
-  slug: 'iphone-13-pro',
-  price: 552000,
-  image: 'https://cdn.example.com/iphone-13-pro.jpg',
-  images: ['https://cdn.example.com/iphone-13-pro.jpg'],
-};
-
-export const variantProduct: Product = {
-  ...baseProduct,
-  has_variants: true,
-  variant_attributes: {
-    storage: ['128GB'],
-    connectivity: ['WiFi'],
-  },
-  variants: [
-    {
-      id: 'variant-new-128',
-      name: '128GB WiFi',
-      condition: 'new',
-      price: 552000,
-      stock_quantity: 5,
-      attributes: {
-        storage: '128GB',
-        connectivity: 'WiFi',
-      },
-    },
-    {
-      id: 'variant-used-128',
-      name: '128GB WiFi Used',
-      condition: 'used',
-      price: 500000,
-      stock_quantity: 3,
-      attributes: {
-        storage: '128GB',
-        connectivity: 'WiFi',
-      },
-    },
-  ],
-};
-
-const variantFixtures = variantProduct.variants ?? [];
-
-if (variantFixtures.length < 2) {
-  throw new Error('variantProduct must include at least two variants');
-}
-
-export const [primaryVariant, secondaryVariant] = variantFixtures as [
-  (typeof variantFixtures)[number],
-  (typeof variantFixtures)[number],
-];
 
 jest.mock('expo-router', () => ({
   router: {
@@ -200,6 +146,10 @@ jest.mock('zustand/react/shallow', () => ({
 
 export const ProductDetailScreen =
   jest.requireActual<typeof import('./[slug]')>('./[slug]').default;
+
+export function getLastMockProps<T>(mockFn: { mock: { calls: unknown[][] } }) {
+  return mockFn.mock.calls.at(-1)?.[0] as T | undefined;
+}
 
 export function resetProductDetailScreenMocks() {
   jest.clearAllMocks();
