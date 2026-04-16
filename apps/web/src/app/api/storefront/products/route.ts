@@ -1,3 +1,4 @@
+import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
 import { createClient as createStaticClient } from '@supabase/supabase-js';
 import { unstable_cache } from 'next/cache';
 import { cookies } from 'next/headers';
@@ -56,6 +57,8 @@ function mapProduct(p: Record<string, unknown>) {
     specifications: p.specifications,
     // Condition Offers & Colors
     has_condition_offers: p.has_condition_offers,
+    available_conditions: p.available_conditions,
+    variant_model: p.variant_model,
     offers: p.offers,
     // Map colors from color_images keys if distinct colors column is missing/empty
     colors:
@@ -67,12 +70,27 @@ function mapProduct(p: Record<string, unknown>) {
   };
 }
 
+const storefrontConditionFilterSchema = z.preprocess(
+  (value) => {
+    if (typeof value !== 'string') {
+      return value;
+    }
+
+    if (value === 'all') {
+      return value;
+    }
+
+    return normalizeCanonicalProductCondition(value) || value;
+  },
+  z.enum(['new', 'used', 'open_box', 'all'])
+);
+
 // Zod schema for query parameters
 const querySchema = z.object({
   merchant_id: z.string().uuid().optional(),
   category: z.string().optional(),
   brand: z.string().optional(),
-  condition: z.enum(['new', 'used', 'refurbished', 'all']).optional(),
+  condition: storefrontConditionFilterSchema.optional(),
   min_price: z.coerce.number().nonnegative().optional(),
   max_price: z.coerce.number().nonnegative().optional(),
   sort: z.enum(['newest', 'price-asc', 'price-desc']).default('newest'),
@@ -82,6 +100,45 @@ const querySchema = z.object({
 });
 
 type ProductFilters = z.infer<typeof querySchema>;
+
+const STOREFRONT_PRODUCTS_SELECT = `
+  id,
+  created_at,
+  name,
+  description,
+  price,
+  compare_at_price,
+  images,
+  image_hint,
+  category,
+  category_id,
+  brand,
+  stock,
+  stock_quantity,
+  slug,
+  status,
+  condition,
+  has_variants,
+  sku,
+  manage_stock,
+  low_stock_threshold,
+  specifications,
+  has_condition_offers,
+  available_conditions,
+  variant_model,
+  offers,
+  colors,
+  color_images,
+  variant_attributes,
+  categories:category_id(id, name, slug),
+  product_categories (
+    categories (
+      id,
+      name,
+      slug
+    )
+  )
+`;
 
 // Factory function that creates a cached function for each merchant + filters combination
 function createCachedProductsFetcher(
@@ -109,18 +166,7 @@ function createCachedProductsFetcher(
 
       let query = supabase
         .from('products')
-        .select(`
-          *,
-          category_id,
-          categories:category_id(id, name, slug),
-          product_categories (
-            categories (
-              id,
-              name,
-              slug
-            )
-          )
-        `)
+        .select(STOREFRONT_PRODUCTS_SELECT)
         .eq('merchant_id', merchantId)
         .eq('status', 'active');
 
@@ -137,7 +183,9 @@ function createCachedProductsFetcher(
       }
 
       if (filters.condition && filters.condition !== 'all') {
-        query = query.eq('condition', filters.condition);
+        query = query.or(
+          `condition.eq.${filters.condition},available_conditions.cs.{${filters.condition}}`
+        );
       }
 
       if (filters.min_price !== undefined) {
@@ -196,18 +244,7 @@ async function fetchProductsByIds(merchantId: string, ids: string[]) {
 
   const { data: products, error } = await supabase
     .from('products')
-    .select(`
-      *,
-      category_id,
-      categories:category_id(id, name, slug),
-      product_categories (
-        categories (
-          id,
-          name,
-          slug
-        )
-      )
-    `)
+    .select(STOREFRONT_PRODUCTS_SELECT)
     .eq('merchant_id', merchantId)
     .in('id', ids);
 

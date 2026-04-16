@@ -196,14 +196,14 @@ describe('ProductDetailsTabs — description tab panel', () => {
       displaySize: '6.7 inches',
       ram: '12GB',
       storage: ['256GB'],
-      condition: 'refurbished',
+      condition: 'open_box',
       brand: 'Samsung',
     });
 
     expect(screen.getByText('6.7 inches Display')).toBeInTheDocument();
     expect(screen.getByText('12GB RAM')).toBeInTheDocument();
     expect(screen.getByText('256GB Storage')).toBeInTheDocument();
-    expect(screen.getByText('Condition: refurbished')).toBeInTheDocument();
+    expect(screen.getByText('Condition: Open Box')).toBeInTheDocument();
     expect(screen.getByText('Samsung Official Warranty')).toBeInTheDocument();
   });
 

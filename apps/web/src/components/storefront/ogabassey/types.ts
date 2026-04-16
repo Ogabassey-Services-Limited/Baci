@@ -4,6 +4,8 @@ import type React from 'react';
 /**
  * Product condition enum - shared across the application
  */
+import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
+
 export type ProductCondition = 'new' | 'used' | 'open_box' | 'refurbished';
 
 /**
@@ -109,9 +111,20 @@ export interface Product {
   attributeAxes?: string[];
 }
 
+export function normalizeProductCondition(
+  condition: Product['condition'] | string | null | undefined
+): ProductCondition | undefined {
+  if (typeof condition !== 'string') {
+    return undefined;
+  }
+
+  return normalizeCanonicalProductCondition(condition) || undefined;
+}
+
 export interface ProductVariant {
   id: string;
   name?: string;
+  condition?: ProductCondition;
   price_override?: number;
   price_modifier?: number;
   stock?: number;

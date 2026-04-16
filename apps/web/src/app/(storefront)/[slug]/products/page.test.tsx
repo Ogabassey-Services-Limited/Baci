@@ -97,6 +97,8 @@ const productIndex = {
       stock: 5,
       rating: 0,
       availability: 'InStock' as const,
+      available_conditions: [],
+      variant_model: 'legacy' as const,
     },
   ],
   totalCount: 21,

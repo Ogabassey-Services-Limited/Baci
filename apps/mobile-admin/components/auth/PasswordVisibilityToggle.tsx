@@ -19,7 +19,11 @@ export function PasswordVisibilityToggle({
   return (
     <Pressable
       onPress={onPress}
-      style={styles.eyeButton}
+      style={({ pressed }) => [
+        styles.eyeButton,
+        pressed && { opacity: 0.7 }
+      ]}
+      hitSlop={12}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
     >

@@ -417,6 +417,89 @@ describe('generateCollectionPageSchema', () => {
   });
 });
 
+describe('generateProductSchema - condition mapping', () => {
+  it('maps open_box product conditions to RefurbishedCondition', () => {
+    const schema = generateProductSchema(
+      makeProduct({ condition: 'open_box' }),
+      'TestStore',
+      'NGN',
+      'NG'
+    );
+
+    expect((schema.offers as Record<string, unknown>).itemCondition).toBe(
+      'https://schema.org/RefurbishedCondition'
+    );
+  });
+
+  it('maps open_box offer conditions to RefurbishedCondition', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        has_condition_offers: true,
+        offers: [
+          {
+            id: 'offer-open-box',
+            condition: 'open_box',
+            price: 500000,
+            stock_quantity: 3,
+          },
+        ],
+      }),
+      'TestStore',
+      'NGN',
+      'NG'
+    );
+
+    expect(
+      (
+        (schema.offers as Record<string, unknown>[])[0] as Record<
+          string,
+          unknown
+        >
+      ).itemCondition
+    ).toBe('https://schema.org/RefurbishedCondition');
+  });
+
+  it('maps per-variant offer conditions independently inside ProductGroup schema', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        condition: 'new',
+        variants: [
+          {
+            id: 'variant-open-box',
+            product_id: 'test-123',
+            merchant_id: 'm1',
+            condition: 'open_box',
+            attributes: { storage: '128GB' },
+            price_override: 500000,
+            stock_quantity: 3,
+          },
+          {
+            id: 'variant-new',
+            product_id: 'test-123',
+            merchant_id: 'm1',
+            condition: 'new',
+            attributes: { storage: '256GB' },
+            price_override: 650000,
+            stock_quantity: 5,
+          },
+        ],
+      }),
+      'TestStore',
+      'NGN',
+      'NG'
+    );
+
+    const variants = schema.hasVariant as Record<string, unknown>[];
+    const firstOffer = variants[0]?.offers as Record<string, unknown>;
+    const secondOffer = variants[1]?.offers as Record<string, unknown>;
+
+    expect(firstOffer.itemCondition).toBe(
+      'https://schema.org/RefurbishedCondition'
+    );
+    expect(secondOffer.itemCondition).toBe('https://schema.org/NewCondition');
+  });
+});
+
 describe('generateSlug', () => {
   it('should convert a simple string to a slug', () => {
     expect(generateSlug('Hello World')).toBe('hello-world');

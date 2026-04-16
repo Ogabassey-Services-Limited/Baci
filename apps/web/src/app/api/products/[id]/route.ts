@@ -20,6 +20,11 @@ import {
   PRODUCT_VARIANT_COLUMNS,
 } from '@/lib/product-queries';
 import { getEffectiveStock } from '@/lib/product-stock';
+import {
+  getSkuMatrixValidationError,
+  inferProductVariantModel,
+  normalizeProductVariantModel,
+} from '@/lib/product-variant-model';
 import type { Product, ProductVariant } from '@/lib/products';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { sanitizeText } from '@/lib/sanitize-core';
@@ -133,6 +138,28 @@ export async function GET(
         ? Number.parseFloat(product.cost_price)
         : undefined,
       low_stock_threshold: product.low_stock_threshold,
+      variant_model:
+        product.variant_model === 'sku_matrix' ? 'sku_matrix' : 'legacy',
+      migration_status:
+        product.migration_status === 'needs_review' ||
+        product.migration_status === 'migrated'
+          ? product.migration_status
+          : 'pending',
+      default_variant_id:
+        typeof product.default_variant_id === 'string'
+          ? product.default_variant_id
+          : undefined,
+      available_conditions: Array.isArray(product.available_conditions)
+        ? (product.available_conditions as Product['available_conditions'])
+        : undefined,
+      min_variant_price:
+        product.min_variant_price != null
+          ? Number.parseFloat(String(product.min_variant_price))
+          : undefined,
+      max_variant_price:
+        product.max_variant_price != null
+          ? Number.parseFloat(String(product.max_variant_price))
+          : undefined,
 
       weight_value: product.weight_value
         ? Number.parseFloat(product.weight_value)
@@ -156,6 +183,7 @@ export async function GET(
         id: v.id,
         product_id: v.product_id,
         merchant_id: v.merchant_id,
+        condition: v.condition,
         attributes: v.attributes,
         price_override: v.price_override,
         cost_price: v.cost_price,
@@ -231,13 +259,48 @@ export async function PUT(
     // Verify product belongs to merchant
     const { data: existingProduct, error: fetchError } = await supabase
       .from('products')
-      .select('id, name, description, condition, condition_detail')
+      .select(
+        'id, name, description, brand, slug, condition, condition_detail, has_variants, variant_model'
+      )
       .eq('id', id)
       .eq('merchant_id', merchantId)
       .single();
 
     if (fetchError || !existingProduct) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+    }
+
+    const existingVariantModel = normalizeProductVariantModel(
+      existingProduct.variant_model
+    );
+    const variantModel =
+      body.variant_model !== undefined
+        ? normalizeProductVariantModel(body.variant_model)
+        : body.has_variants === false
+          ? existingVariantModel
+          : existingVariantModel === 'sku_matrix'
+            ? 'sku_matrix'
+            : body.variants !== undefined
+              ? inferProductVariantModel({ variants: body.variants })
+              : existingVariantModel;
+    const shouldValidateSkuMatrixInput =
+      variantModel === 'sku_matrix' &&
+      (body.variant_model !== undefined ||
+        body.variants !== undefined ||
+        body.has_variants === false);
+    const skuMatrixValidationError = shouldValidateSkuMatrixInput
+      ? getSkuMatrixValidationError({
+          variantModel,
+          hasVariants: body.has_variants ?? existingProduct.has_variants,
+          variants: body.variants,
+        })
+      : null;
+
+    if (skuMatrixValidationError) {
+      return NextResponse.json(
+        { error: skuMatrixValidationError },
+        { status: 400 }
+      );
     }
 
     // Build updates object conditionally (2026 best practice: only update provided fields)
@@ -255,8 +318,12 @@ export async function PUT(
     if (body.description !== undefined)
       updates.description =
         body.description !== null ? sanitizeHtml(body.description) : null;
-    if (body.price !== undefined) updates.price = body.price;
-    if (body.stock !== undefined) updates.stock_quantity = body.stock;
+    if (variantModel !== 'sku_matrix' && body.price !== undefined) {
+      updates.price = body.price;
+    }
+    if (variantModel !== 'sku_matrix' && body.stock !== undefined) {
+      updates.stock_quantity = body.stock;
+    }
 
     // Generate slug only if name or condition changed
     if (body.slug !== undefined) {
@@ -264,7 +331,9 @@ export async function PUT(
     } else if (body.name !== undefined) {
       updates.slug = generateProductSlug(
         body.name,
-        body.condition ?? existingProduct.condition,
+        variantModel === 'sku_matrix'
+          ? existingProduct.condition
+          : (body.condition ?? existingProduct.condition),
         body.condition_detail ?? existingProduct.condition_detail
       );
     }
@@ -347,7 +416,9 @@ export async function PUT(
     if (body.tax_code !== undefined) updates.tax_code = body.tax_code;
 
     // Condition fields
-    if (body.condition !== undefined) updates.condition = body.condition;
+    if (variantModel !== 'sku_matrix' && body.condition !== undefined) {
+      updates.condition = body.condition;
+    }
     if (body.condition_detail !== undefined)
       updates.condition_detail = body.condition_detail;
 
@@ -380,6 +451,15 @@ export async function PUT(
       updates.fulfillment_details = body.fulfillment_details;
     if (body.has_variants !== undefined)
       updates.has_variants = body.has_variants;
+    const deferredVariantModelUpdates =
+      body.variant_model !== undefined || body.variants !== undefined
+        ? {
+            variant_model: variantModel,
+            ...(variantModel === 'sku_matrix'
+              ? { migration_status: 'migrated' as const }
+              : {}),
+          }
+        : null;
     if (body.category !== undefined) updates.category = body.category;
     if (body.color !== undefined) updates.color = body.color;
 
@@ -438,50 +518,80 @@ export async function PUT(
       );
     }
 
-    const { data: updatedProduct, error: updateError } = await supabase
-      .from('products')
-      .update(updates)
-      .eq('id', id)
-      .eq('merchant_id', merchantId)
-      .select()
-      .single();
+    let updatedProduct = existingProduct;
+    let hasFreshProductRow = false;
+    if (Object.keys(updates).length > 1) {
+      const { data: persistedProduct, error: updateError } = await supabase
+        .from('products')
+        .update(updates)
+        .eq('id', id)
+        .eq('merchant_id', merchantId)
+        .select(PRODUCT_COLUMNS)
+        .single();
 
-    if (updateError) {
-      console.error('Error updating product:', updateError);
-      return NextResponse.json(
-        { error: 'Failed to update product' },
-        { status: 500 }
-      );
+      if (updateError) {
+        console.error('Error updating product:', updateError);
+        return NextResponse.json(
+          { error: 'Failed to update product' },
+          { status: 500 }
+        );
+      }
+
+      updatedProduct = persistedProduct;
+      hasFreshProductRow = true;
     }
 
+    const shouldSyncVariants =
+      body.variants !== undefined && body.has_variants !== false;
+
     // Handle Variants
-    if (body.has_variants && body.variants) {
+    if (shouldSyncVariants) {
+      type RequestVariant = NonNullable<typeof body.variants>[number];
+
       // 1. Get IDs of variants to keep
       const variantIdsToKeep = body.variants
-        .filter((v) => v.id)
-        .map((v) => v.id);
+        .filter((v: RequestVariant) => v.id)
+        .map((v: RequestVariant) => v.id);
 
       // 2. Delete variants not in the list
       if (variantIdsToKeep.length > 0) {
-        await supabase
+        const { error: deleteVariantsError } = await supabase
           .from('product_variants')
           .delete()
           .eq('product_id', id)
           .eq('merchant_id', merchantId)
           .not('id', 'in', `(${variantIdsToKeep.join(',')})`);
+        if (deleteVariantsError) {
+          console.error('Error deleting stale variants:', deleteVariantsError);
+          return NextResponse.json(
+            { error: 'Failed to sync product variants' },
+            { status: 500 }
+          );
+        }
       } else {
-        await supabase
+        const { error: deleteVariantsError } = await supabase
           .from('product_variants')
           .delete()
           .eq('product_id', id)
           .eq('merchant_id', merchantId);
+        if (deleteVariantsError) {
+          console.error(
+            'Error deleting product variants:',
+            deleteVariantsError
+          );
+          return NextResponse.json(
+            { error: 'Failed to sync product variants' },
+            { status: 500 }
+          );
+        }
       }
 
       // 3. Separate updates and inserts
-      const variantsToUpsert = body.variants.map((v) => ({
+      const variantsToUpsert = body.variants.map((v: RequestVariant) => ({
         id: v.id,
         product_id: id,
         merchant_id: merchantId,
+        condition: v.condition,
         attributes: v.attributes,
         price_override: v.price_override,
         cost_price: v.cost_price, // New field
@@ -491,30 +601,102 @@ export async function PUT(
         images: v.images || [],
       }));
 
-      const variantsToUpdate = variantsToUpsert.filter((v) => v.id);
-      const variantsToInsert = variantsToUpsert.filter((v) => !v.id);
+      const variantsToUpdate = variantsToUpsert.filter(
+        (v: (typeof variantsToUpsert)[number]) => v.id
+      );
+      const variantsToInsert = variantsToUpsert.filter(
+        (v: (typeof variantsToUpsert)[number]) => !v.id
+      );
 
       if (variantsToUpdate.length > 0) {
         const { error: updateVarError } = await supabase
           .from('product_variants')
           .upsert(variantsToUpdate);
-        if (updateVarError)
+        if (updateVarError) {
           console.error('Error updating variants:', updateVarError);
+          return NextResponse.json(
+            { error: 'Failed to update product variants' },
+            { status: 500 }
+          );
+        }
       }
 
       if (variantsToInsert.length > 0) {
         const { error: insertVarError } = await supabase
           .from('product_variants')
           .insert(variantsToInsert);
-        if (insertVarError)
+        if (insertVarError) {
           console.error('Error inserting variants:', insertVarError);
+          return NextResponse.json(
+            { error: 'Failed to create product variants' },
+            { status: 500 }
+          );
+        }
       }
     } else if (body.has_variants === false) {
-      await supabase
+      const { error: deleteVariantsError } = await supabase
         .from('product_variants')
         .delete()
         .eq('product_id', id)
         .eq('merchant_id', merchantId);
+      if (deleteVariantsError) {
+        console.error('Error deleting product variants:', deleteVariantsError);
+        return NextResponse.json(
+          { error: 'Failed to delete product variants' },
+          { status: 500 }
+        );
+      }
+    }
+
+    if (deferredVariantModelUpdates) {
+      const { data: variantModelProduct, error: variantModelError } =
+        await supabase
+          .from('products')
+          .update({
+            ...deferredVariantModelUpdates,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', id)
+          .eq('merchant_id', merchantId)
+          .select(PRODUCT_COLUMNS)
+          .single();
+
+      if (variantModelError) {
+        console.error(
+          'Error updating product variant model state:',
+          variantModelError
+        );
+        return NextResponse.json(
+          { error: 'Failed to sync product variant model' },
+          { status: 500 }
+        );
+      }
+
+      updatedProduct = variantModelProduct;
+      hasFreshProductRow = true;
+    }
+
+    if (!hasFreshProductRow) {
+      const { data: refreshedProduct, error: refreshedProductError } =
+        await supabase
+          .from('products')
+          .select(PRODUCT_COLUMNS)
+          .eq('id', id)
+          .eq('merchant_id', merchantId)
+          .single();
+
+      if (refreshedProductError) {
+        console.error(
+          'Error refreshing updated product:',
+          refreshedProductError
+        );
+        return NextResponse.json(
+          { error: 'Failed to load updated product' },
+          { status: 500 }
+        );
+      }
+
+      updatedProduct = refreshedProduct;
     }
 
     // Regenerate embedding if name or description changed

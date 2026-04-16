@@ -60,7 +60,7 @@ export async function getCachedOpenAIFeedData(
       `id, name, description, slug, price, compare_at_price, images,
        brand, gtin, mpn, sku, stock, stock_quantity, manage_stock, condition, google_product_category, category,
        weight_value, weight_unit, updated_at,
-       variants:product_variants(id, attributes, price_override, stock_quantity, sku, primary_image)`
+       variants:product_variants!product_variants_product_id_fkey(id, attributes, price_override, stock_quantity, sku, primary_image)`
     )
     .eq('merchant_id', merchantId)
     .eq('status', 'active')

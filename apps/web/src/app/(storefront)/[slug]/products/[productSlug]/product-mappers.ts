@@ -81,6 +81,8 @@ export interface DetailedCachedProduct {
   specifications?: unknown;
   product_key_specs?: unknown;
   has_condition_offers?: boolean | null;
+  variant_model?: 'legacy' | 'sku_matrix' | null;
+  available_conditions?: string[] | null;
   offers?:
     | {
         id: string;
@@ -223,6 +225,15 @@ export function mapDetailedCachedProductToProduct(
       : null,
     has_variants: normalizedVariants.length > 0,
     has_condition_offers: detailedProduct.has_condition_offers ?? false,
+    variant_model:
+      detailedProduct.variant_model === 'sku_matrix' ? 'sku_matrix' : 'legacy',
+    available_conditions:
+      Array.isArray(detailedProduct.available_conditions) &&
+      detailedProduct.available_conditions.every(
+        (value) => typeof value === 'string'
+      )
+        ? (detailedProduct.available_conditions as Product['available_conditions'])
+        : undefined,
     offers: detailedProduct.offers ?? [],
     variants: normalizedVariants,
     specifications: detailedProduct.specifications as Product['specifications'],

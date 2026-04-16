@@ -3,9 +3,14 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import {
+  getVariantConditionOptions,
+  hasVariantConditionAxis,
+  normalizeCanonicalProductCondition,
   resolveDefaultVariantSelection,
+  resolveVariantDisplaySelection,
   resolveVariantSelection,
-} from '../../../../../../../../packages/shared/src/lib/product-default-variant';
+  resolveVariantSelectionParamResolution,
+} from '@baci/shared/lib';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
@@ -38,10 +43,38 @@ const VALID_CONDITIONS: ReadonlySet<ConditionType> = new Set<ConditionType>([
   'new',
   'used',
   'open_box',
-  'refurbished',
 ]);
+
 function isValidConditionParam(value: string): value is ConditionType {
-  return VALID_CONDITIONS.has(value as ConditionType);
+  const normalized = normalizeCanonicalProductCondition(value);
+  return normalized !== '' && VALID_CONDITIONS.has(normalized);
+}
+
+function getValidAvailableConditions(values: Array<string | null | undefined>) {
+  return Array.from(
+    new Set(
+      values
+        .map((value) => normalizeCanonicalProductCondition(value))
+        .filter(
+          (value): value is ConditionType =>
+            value !== '' && VALID_CONDITIONS.has(value)
+        )
+    )
+  );
+}
+
+function areSelectionAttributesEqual(
+  left: Record<string, string>,
+  right: Record<string, string>
+) {
+  const leftEntries = Object.entries(left);
+  const rightEntries = Object.entries(right);
+
+  if (leftEntries.length !== rightEntries.length) {
+    return false;
+  }
+
+  return leftEntries.every(([key, value]) => right[key] === value);
 }
 
 export function useProductDetailsState(serverProduct: Product) {
@@ -63,22 +96,78 @@ export function useProductDetailsState(serverProduct: Product) {
   const effectiveAxes = getEffectiveAxes(serverProduct, productData);
   const defaultVariantSelection = resolveDefaultVariantSelection({
     price: relatedProductsProduct.price,
+    condition: productData.condition,
     manage_stock: productData.manage_stock,
     variants: productData.variants,
   });
-  const defaultVariantAttributesKey = JSON.stringify(
-    defaultVariantSelection?.attributes ?? {}
-  );
-  const defaultVariantColorName = defaultVariantSelection?.color ?? null;
-  const defaultVariantId = defaultVariantSelection?.variant.id ?? null;
-  const colorOptionsKey = productData.colors.map((color) => color.name).join('||');
-
+  const usesVariantConditions = hasVariantConditionAxis({
+    price: relatedProductsProduct.price,
+    condition: productData.condition,
+    variants: productData.variants,
+  });
+  const availableConditions = usesVariantConditions
+    ? getValidAvailableConditions(
+        getVariantConditionOptions({
+          price: relatedProductsProduct.price,
+          condition: productData.condition,
+          variants: productData.variants,
+        })
+      )
+    : getValidAvailableConditions(
+        [
+          productData.condition,
+          ...(productData.offers?.map((offer) => offer.condition) || []),
+        ]
+      );
   const buyActionHandled = useRef(false);
-  const conditionParam = searchParams.get('condition');
+  const rawConditionParam = searchParams.get('condition');
+  const usesVariantRouteSelection = Boolean(productData.variants?.length);
+  const routeSelectionResolution = usesVariantRouteSelection
+    ? resolveVariantSelectionParamResolution(
+        {
+          attributeAxes: effectiveAxes,
+          condition: productData.condition,
+          manage_stock: productData.manage_stock,
+          price: relatedProductsProduct.price,
+          variant_attributes: serverProduct.variant_attributes,
+          variants: productData.variants,
+        },
+        searchParams
+      )
+    : null;
+  const routeSelectionInput = routeSelectionResolution?.selectionInput ?? {};
+  const routeSelectionAttributes = routeSelectionInput.attributes || {};
+  const routeSelectionAttributesKey = JSON.stringify(routeSelectionAttributes);
+  const routeConditionSource =
+    routeSelectionInput.condition ??
+    (!usesVariantRouteSelection ? rawConditionParam : undefined);
+  const routeCondition = normalizeCanonicalProductCondition(routeConditionSource);
+  const routeVariantId =
+    usesVariantRouteSelection && routeSelectionInput.variantId
+      ? routeSelectionInput.variantId
+      : undefined;
+  const productColorsKey = JSON.stringify(
+    productData.colors.map((color) => color.name)
+  );
+  const productVariantSeedKey = JSON.stringify(
+    (productData.variants ?? []).map((variant) => ({
+      attributes: variant.attributes ?? {},
+      condition: variant.condition ?? null,
+      id: variant.id ?? null,
+      price_override: variant.price_override ?? null,
+      stock_quantity: variant.stock_quantity ?? null,
+    }))
+  );
   const initialCondition =
-    conditionParam && isValidConditionParam(conditionParam)
-      ? conditionParam
-      : productData.condition || 'new';
+    routeCondition
+      ? (routeCondition as ConditionType)
+      : defaultVariantSelection?.condition &&
+          isValidConditionParam(defaultVariantSelection.condition)
+        ? (normalizeCanonicalProductCondition(
+            defaultVariantSelection.condition
+          ) as ConditionType)
+        : (normalizeCanonicalProductCondition(productData.condition) as ConditionType) ||
+          'new';
   const [selectedCondition, setSelectedCondition] = useState<ConditionType>(
     initialCondition
   );
@@ -99,49 +188,91 @@ export function useProductDetailsState(serverProduct: Product) {
   const [animatingParticles, setAnimatingParticles] = useState<DOMRect[]>([]);
   const [inputValue, setInputValue] = useState('');
   const selectedColorName =
-    selectedColor !== null ? productData.colors[selectedColor]?.name : undefined;
+    selectedColor !== null
+      ? productData.colors[selectedColor]?.name
+      : routeSelectionAttributes.color;
   const variantSelectionAttributes = {
+    ...routeSelectionAttributes,
     ...selectedAttributes,
     ...(selectedColorName ? { color: selectedColorName } : {}),
   };
-  const currentVariantSelection = resolveVariantSelection(
+  const currentVariantDisplaySelection = resolveVariantDisplaySelection(
     {
       price: relatedProductsProduct.price,
+      condition: productData.condition,
       manage_stock: productData.manage_stock,
       variants: productData.variants,
     },
     {
+      condition: selectedCondition,
       attributes: variantSelectionAttributes,
     }
   );
+  const currentVariantSelection = resolveVariantSelection(
+    {
+      price: relatedProductsProduct.price,
+      condition: productData.condition,
+      manage_stock: productData.manage_stock,
+      variants: productData.variants,
+    },
+    {
+      condition: selectedCondition,
+      attributes: variantSelectionAttributes,
+    }
+  );
+  const currentCartVariantSelection =
+    currentVariantSelection ?? currentVariantDisplaySelection;
 
   useEffect(() => {
     const action = searchParams.get('action');
     if (action === 'buy' && !buyActionHandled.current) {
       buyActionHandled.current = true;
-      const defaultAttributes = defaultVariantSelection?.attributes || {};
+      const selectedVariantSelection =
+        resolveVariantDisplaySelection(
+          {
+            price: relatedProductsProduct.price,
+            condition: productData.condition,
+            manage_stock: productData.manage_stock,
+            variants: productData.variants,
+          },
+          {
+            attributes: routeSelectionAttributes,
+            condition: routeCondition,
+            variantId: routeVariantId,
+          }
+        ) ?? defaultVariantSelection;
+      const selectedAttributesForBuy = selectedVariantSelection?.attributes || {};
       const defaultColorIndex =
-        defaultVariantSelection?.color != null
+        selectedVariantSelection?.color != null
           ? productData.colors.findIndex(
-              (color) => color.name === defaultVariantSelection.color
+              (color) => color.name === selectedVariantSelection.color
             )
           : -1;
       addToCart(
         buildCartProduct(
           productData,
-          resolveCurrentOffer(productData, 'new', defaultAttributes),
+          resolveCurrentOffer(
+            productData,
+            (selectedVariantSelection?.condition as ConditionType | undefined) ||
+              'new',
+            selectedAttributesForBuy,
+            selectedVariantSelection
+          ),
           defaultColorIndex >= 0 ? defaultColorIndex : 0,
-          'new',
-          defaultAttributes
+          (selectedVariantSelection?.condition as ConditionType | undefined) ||
+            'new',
+          selectedAttributesForBuy
         ),
         1,
         {
-          ...defaultAttributes,
-          variantId: defaultVariantSelection?.variant.id,
-          variantAttributes: defaultAttributes,
-          color: defaultVariantSelection?.color,
-          storage: defaultVariantSelection?.storage,
-          condition: 'new',
+          ...selectedAttributesForBuy,
+          variantId: selectedVariantSelection?.variant.id,
+          variantAttributes: selectedAttributesForBuy,
+          color: selectedVariantSelection?.color,
+          storage: selectedVariantSelection?.storage,
+          condition:
+            (selectedVariantSelection?.condition as ConditionType | undefined) ||
+            'new',
         }
       );
       toast({
@@ -164,36 +295,81 @@ export function useProductDetailsState(serverProduct: Product) {
   ]);
 
   useEffect(() => {
-    const paramCondition = searchParams.get('condition');
+    const seedSelection =
+      resolveVariantDisplaySelection(
+        {
+          price: relatedProductsProduct.price,
+          condition: productData.condition,
+          manage_stock: productData.manage_stock,
+          variants: productData.variants,
+        },
+        {
+          attributes: routeSelectionAttributes,
+          condition: routeCondition,
+          variantId: routeVariantId,
+        }
+      ) ?? defaultVariantSelection;
+
     setSelectedCondition(
-      paramCondition && isValidConditionParam(paramCondition)
-        ? paramCondition
-        : productData.condition || 'new'
+      (previousCondition) => {
+        const nextCondition =
+          routeCondition
+            ? routeCondition
+            : (seedSelection?.condition as ConditionType | undefined) ||
+              productData.condition ||
+              'new';
+
+        return previousCondition === nextCondition
+          ? previousCondition
+          : nextCondition;
+      }
     );
-    if (!defaultVariantSelection) {
-      setSelectedColor(null);
-      setSecondaryColor(null);
-      setSelectedAttributes({});
+
+    if (!seedSelection) {
+      setSelectedColor((previousColor) =>
+        previousColor === null ? previousColor : null
+      );
+      setSecondaryColor((previousColor) =>
+        previousColor === null ? previousColor : null
+      );
+      setSelectedAttributes((previousAttributes) =>
+        Object.keys(previousAttributes).length === 0 ? previousAttributes : {}
+      );
       return;
     }
 
-    setSelectedAttributes(
-      JSON.parse(defaultVariantAttributesKey) as Record<string, string>
+    const nextAttributes = {
+      ...routeSelectionAttributes,
+      ...seedSelection.attributes,
+    };
+
+    setSelectedAttributes((previousAttributes) =>
+      areSelectionAttributesEqual(previousAttributes, nextAttributes)
+        ? previousAttributes
+        : nextAttributes
     );
-    const defaultColorIndex = defaultVariantColorName
+    const defaultColorIndex = seedSelection.color
       ? productData.colors.findIndex(
-          (color) => color.name === defaultVariantColorName
+          (color) => color.name === seedSelection.color
         )
       : -1;
-    setSelectedColor(defaultColorIndex >= 0 ? defaultColorIndex : null);
-    setSecondaryColor(null);
+    const nextColor = defaultColorIndex >= 0 ? defaultColorIndex : null;
+    setSelectedColor((previousColor) =>
+      previousColor === nextColor ? previousColor : nextColor
+    );
+    setSecondaryColor((previousColor) =>
+      previousColor === null ? previousColor : null
+    );
   }, [
-    colorOptionsKey,
-    defaultVariantAttributesKey,
-    defaultVariantColorName,
-    defaultVariantId,
     productData.condition,
     productData.id,
+    productData.manage_stock,
+    productColorsKey,
+    productVariantSeedKey,
+    relatedProductsProduct.price,
+    routeCondition,
+    routeSelectionAttributesKey,
+    routeVariantId,
   ]);
 
   const currentCartItemId = buildCartItemId(productData.id, {
@@ -202,7 +378,7 @@ export function useProductDetailsState(serverProduct: Product) {
     secondaryColor:
       secondaryColor !== null ? productData.colors[secondaryColor]?.name : undefined,
     condition: selectedCondition,
-    variantId: currentVariantSelection?.variant.id,
+    variantId: currentCartVariantSelection?.variant.id,
     selectedAttributes,
   });
 
@@ -225,8 +401,21 @@ export function useProductDetailsState(serverProduct: Product) {
   const currentOffer = resolveCurrentOffer(
     productData,
     selectedCondition,
-    variantSelectionAttributes
+    variantSelectionAttributes,
+    currentVariantDisplaySelection
   );
+  const currentCartOffer = resolveCurrentOffer(
+    productData,
+    selectedCondition,
+    variantSelectionAttributes,
+    currentCartVariantSelection
+  );
+  const managesStock = productData.manage_stock !== false;
+  const canPurchase =
+    (productData.variants?.length ?? 0) > 0
+      ? Boolean(currentVariantSelection) &&
+        (!managesStock || currentCartOffer.stock > 0)
+      : !managesStock || currentOffer.stock > 0;
 
   const normalizedReviewRating = Math.max(
     0,
@@ -325,7 +514,7 @@ export function useProductDetailsState(serverProduct: Product) {
     addToCart,
     applyNegotiatedPrice,
     currentCartItemId,
-    currentOffer,
+    currentOffer: currentCartOffer,
     getMissingFields,
     inputValue,
     productData,
@@ -336,7 +525,8 @@ export function useProductDetailsState(serverProduct: Product) {
     selectedColor,
     selectedCondition,
     selectedImage,
-    selectedVariantId: currentVariantSelection?.variant.id,
+    selectedVariantId: currentCartVariantSelection?.variant.id,
+    canPurchase,
     setInputValue,
     setIsNegotiationOpen,
     setIsSelectionModalOpen,
@@ -348,10 +538,13 @@ export function useProductDetailsState(serverProduct: Product) {
 
   return {
     activeTab,
+    availableConditions,
     animatingParticles,
     basePath,
+    canPurchase,
     cartHref,
     currentOffer,
+    currentVariantDisplaySelection,
     deliveryEstimate: getDeliveryEstimate(deliveryLocation),
     deliveryLocation,
     effectiveAxes,

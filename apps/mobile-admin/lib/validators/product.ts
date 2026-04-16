@@ -1,4 +1,11 @@
+import {
+  getSkuMatrixValidationError,
+  inferProductVariantModel,
+  normalizeCanonicalProductCondition,
+  resolveDefaultVariantSelection,
+} from '@baci/shared';
 import { z } from 'zod';
+import { EDITABLE_PRODUCT_CONDITIONS } from '@/lib/product-condition';
 import {
   buildParentVariantAttributes,
   buildVariantAttributeRecord,
@@ -12,8 +19,31 @@ const variantAttributeSchema = z.object({
   value: z.string(),
 });
 
+const normalizedConditionSchema = z.preprocess((value) => {
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const normalized = normalizeCanonicalProductCondition(trimmed);
+  return normalized || trimmed;
+}, z.enum(EDITABLE_PRODUCT_CONDITIONS).optional().nullable());
+
+function isEditableCondition(
+  value: string
+): value is (typeof EDITABLE_PRODUCT_CONDITIONS)[number] {
+  return EDITABLE_PRODUCT_CONDITIONS.includes(
+    value as (typeof EDITABLE_PRODUCT_CONDITIONS)[number]
+  );
+}
+
 const productVariantSchema = z.object({
   attributes: z.array(variantAttributeSchema).default([]),
+  condition: normalizedConditionSchema,
   cost_price: z.number().min(0).optional().default(0),
   id: z.string().uuid().optional(),
   images: z.array(z.string()).default([]),
@@ -30,6 +60,10 @@ export const ProductSchema = z
       .string()
       .min(1, 'Product name is required')
       .transform((val) => sanitizeText(val, 200)),
+    brand: z
+      .string()
+      .optional()
+      .transform((val) => (val ? sanitizeText(val, 200) : val)),
     sku: z.string().min(1, 'SKU is required'),
     price: z.number().min(0),
     cost_price: z.number().min(0).optional().default(0),
@@ -47,6 +81,12 @@ export const ProductSchema = z
       .optional()
       .or(z.literal('')),
     color: z.string().optional(),
+    condition: normalizedConditionSchema.refine(
+      (value) => value == null || isEditableCondition(value),
+      {
+        message: 'Condition must be a supported editable condition.',
+      }
+    ),
     manage_stock: z.boolean().default(true),
     status: z.enum(['active', 'draft', 'archived']).default('active'),
     images: z.array(z.string()).default([]),
@@ -93,17 +133,40 @@ export const ProductSchema = z
     }
 
     const seenSignatures = new Set<string>();
+    const variantModel = inferProductVariantModel({
+      variants: data.variants.map((variant) => ({
+        condition: variant.condition,
+        price_override: variant.price,
+      })),
+    });
+    const skuMatrixValidationError = getSkuMatrixValidationError({
+      hasVariants: data.has_variants,
+      variantModel,
+      variants: data.variants.map((variant) => ({
+        condition: variant.condition,
+        price_override: variant.price,
+      })),
+    });
+
+    if (skuMatrixValidationError) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: skuMatrixValidationError,
+        path: ['variants'],
+      });
+    }
 
     for (const [variantIndex, variant] of data.variants.entries()) {
+      const normalizedCondition = variant.condition?.trim().toLowerCase() ?? '';
       const normalizedKeys = variant.attributes
         .map((attribute) => attribute.key.trim().toLowerCase())
         .filter(Boolean);
 
-      if (normalizedKeys.length === 0) {
+      if (normalizedKeys.length === 0 && !normalizedCondition) {
         context.addIssue({
           code: z.ZodIssueCode.custom,
-          message: 'Each variant needs at least one attribute.',
-          path: ['variants', variantIndex, 'attributes'],
+          message: 'Each variant needs at least one attribute or condition.',
+          path: ['variants', variantIndex],
         });
       }
 
@@ -121,12 +184,13 @@ export const ProductSchema = z
         .sort(([left], [right]) => left.localeCompare(right))
         .map(([key, value]) => `${key.toLowerCase()}:${value.toLowerCase()}`)
         .join('|');
+      const variantKey = `condition:${normalizedCondition}|${signature}`;
 
-      if (!signature) {
+      if (!variantKey.replace('condition:|', '')) {
         continue;
       }
 
-      if (seenSignatures.has(signature)) {
+      if (seenSignatures.has(variantKey)) {
         context.addIssue({
           code: z.ZodIssueCode.custom,
           message: 'Duplicate variants must be merged or changed.',
@@ -134,7 +198,7 @@ export const ProductSchema = z
         });
       }
 
-      seenSignatures.add(signature);
+      seenSignatures.add(variantKey);
     }
   });
 
@@ -159,7 +223,8 @@ export const ProductDbSchema = ProductSchema.transform((data) => {
 
   const normalizedVariants = variants.map((variant) => ({
     attributes: buildVariantAttributeRecord(variant.attributes),
-    cost_price: variant.cost_price || null,
+    condition: variant.condition ?? null,
+    cost_price: variant.cost_price ?? null,
     id: variant.id,
     images: variant.images,
     primary_image: variant.primary_image || null,
@@ -167,25 +232,56 @@ export const ProductDbSchema = ProductSchema.transform((data) => {
     sku: variant.sku.trim() || null,
     stock_quantity: variant.stock_quantity,
   }));
+  const persistedVariants = has_variants ? normalizedVariants : [];
 
-  const nextPrice = has_variants
-    ? getLowestVariantPrice(variants, rest.price)
-    : rest.price;
-  const nextStock = has_variants
-    ? getTotalVariantStock(variants)
-    : rest.stock_quantity;
+  const variantModel = inferProductVariantModel({
+    variants: persistedVariants,
+  });
+  const defaultSelectionVariants = persistedVariants.map((variant, index) => ({
+    ...variant,
+    id: variant.id ?? `draft-variant-${index}`,
+  }));
+  const defaultSelection =
+    variantModel === 'sku_matrix'
+      ? resolveDefaultVariantSelection({
+          price: rest.price,
+          manage_stock: true,
+          variants: defaultSelectionVariants,
+        })
+      : null;
+  const nextPrice =
+    variantModel === 'sku_matrix'
+      ? (defaultSelection?.price ?? rest.price)
+      : has_variants
+        ? getLowestVariantPrice(variants, rest.price)
+        : rest.price;
+  const nextStock =
+    variantModel === 'sku_matrix'
+      ? (defaultSelection?.variant.stock_quantity ?? 0)
+      : has_variants
+        ? getTotalVariantStock(variants)
+        : rest.stock_quantity;
+  const nextCondition =
+    variantModel === 'sku_matrix'
+      ? (defaultSelection?.condition ?? persistedVariants[0]?.condition ?? null)
+      : (rest.condition ?? null);
 
   return {
     ...rest,
+    condition: nextCondition,
     has_variants,
     manage_stock: has_variants ? true : rest.manage_stock,
     price: nextPrice,
     stock: nextStock,
     stock_quantity: nextStock,
+    variant_model: variantModel,
+    ...(variantModel === 'sku_matrix'
+      ? { migration_status: 'migrated' as const }
+      : {}),
     variant_attributes: has_variants
       ? buildParentVariantAttributes(variants)
       : attributesRecord,
-    variants: has_variants ? normalizedVariants : [],
+    variants: persistedVariants,
     // Ensure category_id is null if empty string
     category_id: rest.category_id === '' ? null : rest.category_id,
   };
