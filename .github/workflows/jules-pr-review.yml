@@ -15,7 +15,9 @@ concurrency:
     jules-pr-review-${{ github.event.pull_request.number || github.event.issue.number }}-${{
       github.event_name == 'pull_request' && 'fast' ||
       (github.event.issue.pull_request &&
-      startsWith(github.event.comment.body, '/jules deep review') &&
+      (github.event.comment.body == '/jules deep review' ||
+      startsWith(toJSON(github.event.comment.body), '"/jules deep review\n') ||
+      startsWith(toJSON(github.event.comment.body), '"/jules deep review\r\n')) &&
       (github.event.comment.author_association == 'OWNER' ||
       github.event.comment.author_association == 'MEMBER' ||
       github.event.comment.author_association == 'COLLABORATOR') &&
@@ -35,7 +37,9 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository) ||
       (github.event_name == 'issue_comment' &&
       github.event.issue.pull_request &&
-      startsWith(github.event.comment.body, '/jules deep review') &&
+      (github.event.comment.body == '/jules deep review' ||
+      startsWith(toJSON(github.event.comment.body), '"/jules deep review\n') ||
+      startsWith(toJSON(github.event.comment.body), '"/jules deep review\r\n')) &&
       (github.event.comment.author_association == 'OWNER' ||
       github.event.comment.author_association == 'MEMBER' ||
       github.event.comment.author_association == 'COLLABORATOR'))
@@ -74,7 +78,7 @@ jobs:
           if [[ "${REVIEW_MODE}" == "deep" ]]; then
             normalized_comment_body="$(printf '%s' "${COMMENT_BODY:-}" | tr -d '\r')"
 
-            if [[ "${normalized_comment_body}" != "/jules deep review"* ]]; then
+            if [[ "${normalized_comment_body}" != "/jules deep review" && "${normalized_comment_body}" != "/jules deep review"$'\n'* ]]; then
               review_marker="<!-- jules-pr-review mode:${REVIEW_MODE} command:ignored -->"
               cat > "$body_file" <<EOF
           ${review_marker}
@@ -120,7 +124,7 @@ jobs:
             local url="$1"
 
             curl "${curl_common_args[@]}" "${curl_retry_args[@]}" \
-              -H "Accept: application/vnd.github.raw+json" \
+              -H "Accept: application/vnd.github.raw" \
               -H "Authorization: Bearer ${GITHUB_TOKEN}" \
               "${url}"
           }
