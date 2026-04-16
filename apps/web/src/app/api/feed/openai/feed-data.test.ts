@@ -30,13 +30,14 @@ interface ProductFixture {
 }
 
 let productsResult: { data: ProductFixture[] | null; error: unknown };
+const mockProductSelect = vi.fn();
 
 function createMockSupabase() {
   return {
     from: (table: string) => {
       if (table === 'products') {
         return {
-          select: () => ({
+          select: mockProductSelect.mockImplementation(() => ({
             eq: () => ({
               eq: () => ({
                 order: () => ({
@@ -44,7 +45,7 @@ function createMockSupabase() {
                 }),
               }),
             }),
-          }),
+          })),
         };
       }
       throw new Error(`Unexpected table: ${table}`);
@@ -54,6 +55,7 @@ function createMockSupabase() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockProductSelect.mockReset();
 
   productsResult = {
     data: [
@@ -104,6 +106,11 @@ describe('getCachedOpenAIFeedData', () => {
         stock_quantity: 3,
         sku: 'SKU-RED',
       })
+    );
+    expect(mockProductSelect).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'variants:product_variants!product_variants_product_id_fkey('
+      )
     );
   });
 

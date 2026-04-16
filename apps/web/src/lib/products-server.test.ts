@@ -8,7 +8,7 @@ import {
 
 vi.mock('@/lib/product-queries', () => ({
   PRODUCT_WITH_VARIANTS_QUERY:
-    'id, name, description, price, stock, stock_quantity, status, manage_stock, sku, slug, compare_at_price, cost_price, low_stock_threshold, brand, category, color, has_variants, variant_model, migration_status, default_variant_id, available_conditions, min_variant_price, max_variant_price, images, image_hint, weight_value, weight_unit, dimensions, taxable, tax_code, condition, condition_detail, meta_title, meta_description, keywords, canonical_url, schema_markup, gtin, mpn, google_product_category, created_at, updated_at, merchant_id, fulfillment_details, variants:product_variants(id, product_id, merchant_id, condition, attributes, price_override, cost_price, stock_quantity, sku, primary_image, images, created_at, updated_at)',
+    'id, name, description, price, stock, stock_quantity, status, manage_stock, sku, slug, compare_at_price, cost_price, low_stock_threshold, brand, category, color, has_variants, variant_model, migration_status, default_variant_id, available_conditions, min_variant_price, max_variant_price, images, image_hint, weight_value, weight_unit, dimensions, taxable, tax_code, condition, condition_detail, meta_title, meta_description, keywords, canonical_url, schema_markup, gtin, mpn, google_product_category, created_at, updated_at, merchant_id, fulfillment_details, variants:product_variants!product_variants_product_id_fkey(id, product_id, merchant_id, condition, attributes, price_override, cost_price, stock_quantity, sku, primary_image, images, created_at, updated_at)',
 }));
 
 vi.mock('@/lib/sanitize-core', () => ({
