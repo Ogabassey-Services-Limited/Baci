@@ -245,6 +245,36 @@ describe('HomeScreen', () => {
     });
   });
 
+  it('does not emit another load-more signal when the user scrolls upward near the bottom', () => {
+    render(<HomeScreen />);
+
+    const scrollView = screen.getByTestId('home-scroll-view');
+
+    fireEvent.scroll(scrollView, {
+      nativeEvent: {
+        contentOffset: { x: 0, y: 1100 },
+        contentSize: { width: 375, height: 1600 },
+        layoutMeasurement: { width: 375, height: 300 },
+      },
+    });
+
+    fireEvent.scroll(scrollView, {
+      nativeEvent: {
+        contentOffset: { x: 0, y: 1080 },
+        contentSize: { width: 375, height: 1700 },
+        layoutMeasurement: { width: 375, height: 300 },
+      },
+    });
+
+    const productGridCalls = mockBlockRenderer.mock.calls.filter(
+      ([props]) => props.blocks[0]?.type === 'ProductGrid'
+    );
+
+    expect(productGridCalls[productGridCalls.length - 1]?.[0]).toMatchObject({
+      productGridLoadMoreSignal: 1,
+    });
+  });
+
   it('keeps load-more signals monotonic across pull-to-refresh', async () => {
     const refetch = jest.fn(async () => undefined);
     mockUsePageConfig.mockReturnValue({
@@ -343,6 +373,43 @@ describe('HomeScreen', () => {
 
     expect(productGridCalls[productGridCalls.length - 1]?.[0]).toMatchObject({
       productGridLoadMoreSignal: 2,
+    });
+  });
+
+  it('scopes the load-more signal to the primary ProductGrid block', () => {
+    mockUsePageConfig.mockReturnValue({
+      data: {
+        content: [
+          { type: 'HeroCarousel', props: { id: 'hero-1', slides: [] } },
+          { type: 'ProductGrid', props: { id: 'products-1', limit: 12 } },
+          { type: 'ProductGrid', props: { id: 'products-2', limit: 12 } },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      refetch: jest.fn(),
+    });
+
+    render(<HomeScreen />);
+
+    fireEvent.scroll(screen.getByTestId('home-scroll-view'), {
+      nativeEvent: {
+        contentOffset: { x: 0, y: 1100 },
+        contentSize: { width: 375, height: 1600 },
+        layoutMeasurement: { width: 375, height: 300 },
+      },
+    });
+
+    const productGridCalls = mockBlockRenderer.mock.calls.filter(
+      ([props]) => props.blocks[0]?.type === 'ProductGrid'
+    );
+
+    expect(productGridCalls).toHaveLength(4);
+    expect(productGridCalls[2]?.[0]).toMatchObject({
+      productGridLoadMoreSignal: 1,
+    });
+    expect(productGridCalls[3]?.[0]).toMatchObject({
+      productGridLoadMoreSignal: 0,
     });
   });
 });

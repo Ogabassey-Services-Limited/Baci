@@ -151,8 +151,10 @@ export default function HomeScreen() {
     }
 
     const currentState = headerScrollState.current;
+    const currentOffsetY = event.nativeEvent.contentOffset.y;
+    const isScrollingDown = currentOffsetY >= currentState.previousOffsetY;
     const nextState = resolveScrollHeaderVisibility({
-      currentOffsetY: event.nativeEvent.contentOffset.y,
+      currentOffsetY,
       previousOffsetY: currentState.previousOffsetY,
       isVisible: currentState.isVisible,
     });
@@ -169,6 +171,7 @@ export default function HomeScreen() {
       contentSize.height - (contentOffset.y + layoutMeasurement.height);
 
     if (
+      isScrollingDown &&
       distanceFromBottom <= LOAD_MORE_THRESHOLD_PX &&
       contentSize.height > lastLoadMoreContentHeightRef.current
     ) {
@@ -246,10 +249,13 @@ export default function HomeScreen() {
       .filter((block) => block.type === 'ProductGrid')
       .map((block) => block.props.id ?? block.type),
   });
+  const primaryProductGridId =
+    blocks.find((block) => block.type === 'ProductGrid')?.props.id ?? null;
 
   useEffect(() => {
     void productGridDatasetKey;
     lastLoadMoreContentHeightRef.current = 0;
+    headerScrollState.current.previousOffsetY = 0;
   }, [productGridDatasetKey]);
 
   const resolvedHeaderHeight = headerHeight > 0 ? headerHeight : 150;
@@ -370,7 +376,12 @@ export default function HomeScreen() {
           <View key={block.props?.id || `block-${index}`}>
             <BlockRenderer
               blocks={[block]}
-              productGridLoadMoreSignal={productGridLoadMoreSignal}
+              productGridLoadMoreSignal={
+                block.type === 'ProductGrid' &&
+                block.props?.id === primaryProductGridId
+                  ? productGridLoadMoreSignal
+                  : 0
+              }
               selectedCategoryId={selectedCategoryId}
               onCategorySelect={handleCategorySelect}
             />
