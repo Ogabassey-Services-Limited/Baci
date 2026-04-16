@@ -241,6 +241,7 @@ describe('useProductDetailsState', () => {
     );
     expect(result.current.canPurchase).toBe(true);
   });
+
   it('reopens selection before applying a negotiated price when choices are missing', () => {
     const { result } = renderHook(() => useProductDetailsState(baseProduct));
 
