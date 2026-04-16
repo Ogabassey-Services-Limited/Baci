@@ -61,4 +61,38 @@ describe('useEffectivePrice', () => {
       comparePrice: 560000,
     });
   });
+
+  it('prefers an exact open_box offer over a canonical refurbished alias', () => {
+    const { result } = renderHook(() =>
+      useEffectivePrice(
+        {
+          ...baseProduct,
+          offers: [
+            {
+              id: 'offer-refurbished',
+              condition: 'refurbished',
+              price: 510000,
+              compare_at_price: 560000,
+              stock_quantity: 2,
+            },
+            {
+              id: 'offer-open-box',
+              condition: 'open_box',
+              price: 525000,
+              compare_at_price: 575000,
+              stock_quantity: 3,
+            },
+          ],
+        },
+        null,
+        'open_box',
+        null
+      )
+    );
+
+    expect(result.current).toEqual({
+      price: 525000,
+      comparePrice: 575000,
+    });
+  });
 });

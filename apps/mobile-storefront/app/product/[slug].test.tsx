@@ -581,6 +581,56 @@ describe('ProductDetailScreen canonical slug redirect', () => {
     });
   });
 
+  it('prefers the exact selected condition offer over a canonical alias row for stock gating', async () => {
+    mockUseLocalSearchParams.mockReturnValue({
+      slug: 'iphone-13-pro',
+      condition: 'open_box',
+    });
+    mockUseProduct.mockReturnValue({
+      product: {
+        ...baseProduct,
+        has_condition_offers: true,
+        stock_quantity: 0,
+        offers: [
+          {
+            id: 'offer-refurbished',
+            condition: 'refurbished',
+            price: 510000,
+            stock_quantity: 0,
+          },
+          {
+            id: 'offer-open-box',
+            condition: 'open_box',
+            price: 520000,
+            stock_quantity: 2,
+          },
+        ],
+      },
+      isLoading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+    mockUseEffectivePrice.mockReturnValue({
+      price: 520000,
+      comparePrice: undefined,
+    });
+
+    render(<ProductDetailScreen />);
+
+    await waitFor(() => {
+      expect(mockProductDetailsBody).toHaveBeenCalledWith(
+        expect.objectContaining({
+          selectedCondition: 'open_box',
+        })
+      );
+      expect(mockStickyBottomActions).toHaveBeenCalledWith(
+        expect.objectContaining({
+          canPurchase: true,
+        })
+      );
+    });
+  });
+
   it('blocks purchase when the selected variant is out of stock', async () => {
     expect(primaryVariant).toBeDefined();
     expect(secondaryVariant).toBeDefined();

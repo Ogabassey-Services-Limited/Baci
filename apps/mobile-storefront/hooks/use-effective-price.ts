@@ -40,13 +40,18 @@ function calculateEffectivePrice(
   if (selectedCondition && product.offers) {
     const normalizedSelectedCondition =
       normalizeCanonicalProductCondition(selectedCondition);
-    const offer = normalizedSelectedCondition
-      ? product.offers.find(
-          (o) =>
-            normalizeCanonicalProductCondition(o.condition) ===
-            normalizedSelectedCondition
-        )
-      : undefined;
+    const exactOffer = product.offers.find(
+      (o) => o.condition === selectedCondition
+    );
+    const offer =
+      exactOffer ||
+      (normalizedSelectedCondition
+        ? product.offers.find(
+            (o) =>
+              normalizeCanonicalProductCondition(o.condition) ===
+              normalizedSelectedCondition
+          )
+        : undefined);
 
     if (offer) {
       price = offer.price;
