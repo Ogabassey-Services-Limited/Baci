@@ -16,6 +16,10 @@ import {
   getEffectiveStock,
   matchesProductStockFilter,
 } from '@/lib/product-stock';
+import {
+  getSkuMatrixValidationError,
+  inferProductVariantModel,
+} from '@/lib/product-variant-model';
 import type { Product } from '@/lib/products';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
@@ -201,6 +205,7 @@ export async function GET(request: NextRequest) {
               id: v.id as string,
               product_id: v.product_id as string,
               merchant_id: v.merchant_id as string,
+              condition: v.condition as Product['condition'] | undefined,
               attributes: v.attributes as Record<string, string>,
               price_override: v.price_override as number | undefined,
               cost_price: v.cost_price as number | undefined,
@@ -240,6 +245,28 @@ export async function GET(request: NextRequest) {
             ? Number.parseFloat(p.cost_price)
             : undefined,
           low_stock_threshold: p.low_stock_threshold,
+          variant_model:
+            p.variant_model === 'sku_matrix' ? 'sku_matrix' : 'legacy',
+          migration_status:
+            p.migration_status === 'needs_review' ||
+            p.migration_status === 'migrated'
+              ? p.migration_status
+              : 'pending',
+          default_variant_id:
+            typeof p.default_variant_id === 'string'
+              ? p.default_variant_id
+              : undefined,
+          available_conditions: Array.isArray(p.available_conditions)
+            ? (p.available_conditions as Product['available_conditions'])
+            : undefined,
+          min_variant_price:
+            p.min_variant_price != null
+              ? Number.parseFloat(String(p.min_variant_price))
+              : undefined,
+          max_variant_price:
+            p.max_variant_price != null
+              ? Number.parseFloat(String(p.max_variant_price))
+              : undefined,
 
           weight_value: p.weight_value
             ? Number.parseFloat(p.weight_value)
@@ -407,6 +434,22 @@ export async function POST(request: NextRequest) {
 
     // Use sanitized data from Zod transform
     const body = parseResult.data;
+    const variantModel = inferProductVariantModel({
+      variantModel: body.variant_model,
+      variants: body.variants,
+    });
+    const skuMatrixValidationError = getSkuMatrixValidationError({
+      variantModel,
+      hasVariants: body.has_variants,
+      variants: body.variants,
+    });
+
+    if (skuMatrixValidationError) {
+      return NextResponse.json(
+        { error: skuMatrixValidationError },
+        { status: 400 }
+      );
+    }
 
     // Prepare data for insertion using sanitized values
     // Generate slug with condition if not 'new'
@@ -517,6 +560,9 @@ export async function POST(request: NextRequest) {
 
         fulfillment_details: body.fulfillment_details,
         has_variants: body.has_variants || false,
+        variant_model: variantModel,
+        migration_status:
+          variantModel === 'sku_matrix' ? 'migrated' : 'pending',
         category: body.category,
         color: body.color,
       })
@@ -537,12 +583,13 @@ export async function POST(request: NextRequest) {
         (v: Record<string, unknown>) => ({
           product_id: product.id,
           merchant_id: merchantId,
+          condition: v.condition,
           attributes: v.attributes,
-          price_override: v.price,
+          price_override: v.price_override,
           cost_price: v.cost_price, // New field
           stock_quantity: v.stock_quantity,
           sku: v.sku,
-          primary_image: v.image,
+          primary_image: v.primary_image,
           images: v.images || [],
         })
       );

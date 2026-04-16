@@ -28,6 +28,7 @@ describe('product column constants', () => {
   it('WEB_PRODUCT_VARIANT_COLUMNS is a non-empty string', () => {
     expect(typeof WEB_PRODUCT_VARIANT_COLUMNS).toBe('string');
     expect(WEB_PRODUCT_VARIANT_COLUMNS.length).toBeGreaterThan(0);
+    expect(tokenizeColumns(WEB_PRODUCT_VARIANT_COLUMNS)).toContain('condition');
   });
 
   it('no constant contains select(*)', () => {
@@ -89,6 +90,20 @@ describe('product column constants', () => {
     for (const field of seoFields) {
       expect(webTokens).toContain(field);
     }
+  });
+
+  it('WEB_PRODUCT_COLUMNS includes sku_matrix projection fields', () => {
+    const webTokens = tokenizeColumns(WEB_PRODUCT_COLUMNS);
+    const expectedFields = [
+      'variant_model',
+      'migration_status',
+      'default_variant_id',
+      'available_conditions',
+      'min_variant_price',
+      'max_variant_price',
+    ];
+
+    expect(webTokens).toEqual(expect.arrayContaining(expectedFields));
   });
 
   it('WEB_PRODUCT_COLUMNS does not include unsupported production columns', () => {

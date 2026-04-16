@@ -1,5 +1,8 @@
+import {
+  getEffectiveProductStock,
+  toSchemaItemConditionUri,
+} from '@baci/shared/lib';
 import type { Route } from 'next';
-import { getEffectiveProductStock } from '../../../../packages/shared/src/lib/product-inventory';
 import type { Product, ProductSchemaMarkup, Review } from './products';
 // Import from sanitize-core to avoid loading jsdom on server components
 import { escapeHtml, stripHtmlTags } from './sanitize-core';
@@ -7,6 +10,10 @@ import { sanitizeSchemaMarkup } from './sanitize-json-ld';
 
 // Re-export escapeHtml for use in other modules
 export { escapeHtml, getEffectiveProductStock };
+
+function getSchemaItemCondition(condition?: string | null) {
+  return toSchemaItemConditionUri(condition);
+}
 
 /**
  * Generates a URL-friendly slug from a string
@@ -245,14 +252,7 @@ export function generateProductSchema(
               offer.stock_quantity > 0
                 ? 'https://schema.org/InStock'
                 : 'https://schema.org/OutOfStock',
-            itemCondition:
-              offer.condition === 'new'
-                ? 'https://schema.org/NewCondition'
-                : offer.condition === 'open_box'
-                  ? 'https://schema.org/UsedCondition' // Open box treated as Used per Schema.org spec
-                  : offer.condition === 'refurbished'
-                    ? 'https://schema.org/RefurbishedCondition'
-                    : 'https://schema.org/UsedCondition',
+            itemCondition: getSchemaItemCondition(offer.condition),
             seller: {
               '@type': 'Organization',
               name: safeMerchantName,
@@ -304,14 +304,7 @@ export function generateProductSchema(
             availability: getEffectiveProductStock(product)
               ? 'https://schema.org/InStock'
               : 'https://schema.org/OutOfStock',
-            itemCondition:
-              product.condition === 'used'
-                ? 'https://schema.org/UsedCondition'
-                : product.condition === 'open_box'
-                  ? 'https://schema.org/UsedCondition' // Open box treated as Used per Schema.org spec
-                  : product.condition === 'refurbished'
-                    ? 'https://schema.org/RefurbishedCondition'
-                    : 'https://schema.org/NewCondition',
+            itemCondition: getSchemaItemCondition(product.condition),
             seller: {
               '@type': 'Organization',
               name: safeMerchantName,
@@ -708,16 +701,6 @@ export function generateProductSchema(
       }
     }
 
-    // Determine item condition from parent product
-    const parentCondition =
-      product.condition === 'used'
-        ? 'https://schema.org/UsedCondition'
-        : product.condition === 'open_box'
-          ? 'https://schema.org/UsedCondition'
-          : product.condition === 'refurbished'
-            ? 'https://schema.org/RefurbishedCondition'
-            : 'https://schema.org/NewCondition';
-
     // Shared shipping + return policy for all variant Offers (2026 best practice)
     const variantShippingDetails = {
       '@type': 'OfferShippingDetails',
@@ -764,6 +747,9 @@ export function generateProductSchema(
     // Build hasVariant array — each variant becomes a @type Product
     schema.hasVariant = product.variants.map((variant) => {
       const variantPrice = variant.price_override ?? product.price;
+      const variantCondition = getSchemaItemCondition(
+        variant.condition ?? product.condition
+      );
       const attrValues = variant.attributes
         ? Object.values(variant.attributes).join(' / ')
         : '';
@@ -797,7 +783,7 @@ export function generateProductSchema(
             variant.stock_quantity > 0
               ? 'https://schema.org/InStock'
               : 'https://schema.org/OutOfStock',
-          itemCondition: parentCondition,
+          itemCondition: variantCondition,
           priceValidUntil: variantPriceValidUntil,
           seller: {
             '@type': 'Organization',

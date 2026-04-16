@@ -1,5 +1,6 @@
+import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
 import type { Metadata, ResolvingMetadata } from 'next';
-import { notFound, permanentRedirect } from 'next/navigation';
+import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { ProductDetailSkeleton } from '@/components/ui/skeletons';
 import {
@@ -12,10 +13,10 @@ import {
   sanitizeLookupLogValue,
 } from '@/lib/cached-data';
 import type { Product } from '@/lib/products';
+import { asRoute } from '@/lib/routes';
 import { escapeHtml } from '@/lib/sanitize-core';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
-  constructCanonicalUrl,
   generateAggregateRating,
   generateBreadcrumbSchema,
   generateFAQSchema,
@@ -48,6 +49,82 @@ type ResolvedMerchant = NonNullable<
 interface ProductLookupResult {
   merchant: ResolvedMerchant;
   product: Product | null;
+}
+
+type ResolvedSearchParams = Awaited<PageProps['searchParams']>;
+
+const LEGACY_SELECTION_PARAM_KEYS = new Set([
+  'selectedoptions',
+  'variant',
+  'variantid',
+  'variant_id',
+]);
+
+function normalizeSearchParamKey(key: string) {
+  return key
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+}
+
+function appendSearchParamValue(
+  params: URLSearchParams,
+  key: string,
+  value: string | string[] | undefined
+) {
+  if (typeof value === 'string') {
+    params.append(key, value);
+    return;
+  }
+
+  if (!Array.isArray(value)) {
+    return;
+  }
+
+  for (const entry of value) {
+    if (typeof entry === 'string') {
+      params.append(key, entry);
+    }
+  }
+}
+
+function buildRedirectSearchParams(searchParams: ResolvedSearchParams) {
+  const nextParams = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(searchParams)) {
+    appendSearchParamValue(nextParams, key, value);
+  }
+
+  return nextParams;
+}
+
+function buildSelectionSafeRedirectPath(
+  storeSlug: string,
+  product: Product,
+  searchParams: ResolvedSearchParams,
+  recognizedParamKeys: string[]
+) {
+  const targetPath = buildProductRedirectPath(
+    storeSlug,
+    getProductUrl(product)
+  );
+  const nextParams = buildRedirectSearchParams(searchParams);
+  const removableKeys = new Set(
+    recognizedParamKeys.map((key) => normalizeSearchParamKey(key))
+  );
+
+  for (const key of Array.from(nextParams.keys())) {
+    const normalizedKey = normalizeSearchParamKey(key);
+    if (
+      removableKeys.has(normalizedKey) ||
+      LEGACY_SELECTION_PARAM_KEYS.has(normalizedKey)
+    ) {
+      nextParams.delete(key);
+    }
+  }
+
+  const queryString = nextParams.toString();
+  return queryString ? `${targetPath}?${queryString}` : targetPath;
 }
 
 async function getProductCached(
@@ -104,6 +181,36 @@ function redirectLegacyProductRouteIfCategorized(
   permanentRedirect(targetPath);
 }
 
+function redirectInvalidVariantSelectionParams(
+  storeSlug: string,
+  product: Product,
+  searchParams: ResolvedSearchParams
+) {
+  if (!product.variants || product.variants.length === 0) {
+    return;
+  }
+
+  const selectionResolution = resolveVariantSelectionParamResolution(
+    product,
+    searchParams
+  );
+
+  if (
+    selectionResolution.type === 'attribute_only' ||
+    selectionResolution.type === 'ambiguous' ||
+    selectionResolution.type === 'invalid_variant_id' ||
+    selectionResolution.type === 'zero_match'
+  ) {
+    const targetPath = buildSelectionSafeRedirectPath(
+      storeSlug,
+      product,
+      searchParams,
+      selectionResolution.extracted.recognizedParamKeys
+    );
+    redirect(asRoute(targetPath));
+  }
+}
+
 async function redirectLegacyVariantProductRoute(
   storeSlug: string,
   productSlug: string,
@@ -136,15 +243,13 @@ export async function generateMetadata(
     await redirectLegacyVariantProductRoute(slug, productSlug, merchant);
     notFound();
   }
-  await redirectLegacyProductRouteIfCategorized(slug, product);
+  redirectLegacyProductRouteIfCategorized(slug, product);
+  redirectInvalidVariantSelectionParams(slug, product, resolvedSearchParams);
   const baseUrl = buildStoreUrl(merchant);
   let canonicalUrl = product.canonical_url;
   if (!canonicalUrl) {
     const productPath = getProductUrl(product);
-    const basePath = `${baseUrl}${productPath}`;
-    canonicalUrl = constructCanonicalUrl(basePath, resolvedSearchParams, [
-      'variant',
-    ]);
+    canonicalUrl = `${baseUrl}${productPath}`;
   }
   const socialMedia = merchant.social_media as
     | Record<string, string>
@@ -196,8 +301,9 @@ export async function generateMetadata(
   };
 }
 
-export default async function ProductPage({ params }: PageProps) {
+export default async function ProductPage({ params, searchParams }: PageProps) {
   const { slug, productSlug } = await params;
+  const resolvedSearchParams = await searchParams;
   const productResult = await getProductCached(slug, productSlug);
   if (!productResult) {
     notFound();
@@ -207,7 +313,8 @@ export default async function ProductPage({ params }: PageProps) {
     await redirectLegacyVariantProductRoute(slug, productSlug, merchant);
     notFound();
   }
-  await redirectLegacyProductRouteIfCategorized(slug, product);
+  redirectLegacyProductRouteIfCategorized(slug, product);
+  redirectInvalidVariantSelectionParams(slug, product, resolvedSearchParams);
   const [reviewStats, recentReviews] = await Promise.all([
     getCachedProductRatingStats(product.id),
     getCachedProductReviews(product.id, { limit: 10 }),

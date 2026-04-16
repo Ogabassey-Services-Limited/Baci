@@ -5,8 +5,18 @@ import type {
   ConditionType,
   NormalizedProductDetails,
 } from '@/components/storefront/ogabassey/pages/product-details-page/product-details-helpers';
+import { isConditionType } from '@/components/storefront/ogabassey/pages/product-details-page/product-details-helpers';
+
+function asConditionType(
+  value: string | null | undefined
+): ConditionType | null {
+  return isConditionType(value)
+    ? value
+    : null;
+}
 
 interface ProductSummaryPanelProps {
+  availableConditions: ConditionType[];
   currentOfferPrice: string;
   isLiked: boolean;
   onShare: () => void;
@@ -33,6 +43,7 @@ function formatConditionLabel(condition?: string | null) {
 }
 
 export function ProductSummaryPanel({
+  availableConditions,
   currentOfferPrice,
   isLiked,
   onShare,
@@ -41,7 +52,9 @@ export function ProductSummaryPanel({
   selectedCondition,
   setSelectedCondition,
 }: ProductSummaryPanelProps) {
-  const baseCondition = productData.condition || 'new';
+  const baseCondition = asConditionType(productData.condition) ?? 'new';
+  const conditionOptions =
+    availableConditions.length > 0 ? availableConditions : [baseCondition];
 
   return (
     <>
@@ -121,8 +134,7 @@ export function ProductSummaryPanel({
         {currentOfferPrice}
       </div>
 
-      {(productData.has_condition_offers ||
-        (productData.offers && productData.offers.length > 0)) && (
+      {conditionOptions.length > 1 && (
         <div className="mb-6">
           <label className="mb-3 block text-sm font-bold text-[var(--store-background-text,#111827)]">
             Condition:{' '}
@@ -131,32 +143,19 @@ export function ProductSummaryPanel({
             </span>
           </label>
           <div role="group" aria-label="Product condition" className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => setSelectedCondition(baseCondition)}
-              aria-pressed={selectedCondition === baseCondition}
-              className={`rounded-lg border-2 px-4 py-2 text-sm font-bold transition-all ${
-                selectedCondition === baseCondition
-                  ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5 text-[var(--store-primary)]'
-                  : 'border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_15%,transparent)] text-[color:color-mix(in_srgb,var(--store-background-text,#111827)_70%,transparent)] hover:border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_30%,transparent)]'
-              }`}
-            >
-              {formatConditionLabel(baseCondition)}
-            </button>
-
-            {productData.offers?.map((offer) => (
+            {conditionOptions.map((condition) => (
               <button
-                key={offer.id}
+                key={condition}
                 type="button"
-                onClick={() => setSelectedCondition(offer.condition)}
-                aria-pressed={selectedCondition === offer.condition}
+                onClick={() => setSelectedCondition(condition)}
+                aria-pressed={selectedCondition === condition}
                 className={`rounded-lg border-2 px-4 py-2 text-sm font-bold transition-all ${
-                  selectedCondition === offer.condition
+                  selectedCondition === condition
                     ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5 text-[var(--store-primary)]'
                     : 'border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_15%,transparent)] text-[color:color-mix(in_srgb,var(--store-background-text,#111827)_70%,transparent)] hover:border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_30%,transparent)]'
                 }`}
               >
-                {formatConditionLabel(offer.condition)}
+                {formatConditionLabel(condition)}
               </button>
             ))}
           </div>

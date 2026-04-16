@@ -1,3 +1,4 @@
+import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
 import type { Product as CartProduct } from '@/lib/products';
 import type { Product } from '../../types';
 
@@ -8,14 +9,7 @@ function normalizeRelatedProductCondition(
     return undefined;
   }
 
-  const normalized = condition.toLowerCase().replace(/\s+/g, '_');
-
-  return normalized === 'new' ||
-    normalized === 'used' ||
-    normalized === 'open_box' ||
-    normalized === 'refurbished'
-    ? normalized
-    : undefined;
+  return normalizeCanonicalProductCondition(condition) || undefined;
 }
 
 function parseRelatedProductPrice(product: Product): number {

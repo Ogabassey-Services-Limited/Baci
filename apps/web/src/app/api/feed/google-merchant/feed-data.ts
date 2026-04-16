@@ -1,6 +1,11 @@
 import { cacheLife, cacheTag } from 'next/cache';
 import { createAnonClient } from '@/lib/supabase/anon';
-import type { FeedOffer, FeedProduct, ImageManifestMap } from './feed-builder';
+import type {
+  FeedOffer,
+  FeedProduct,
+  FeedVariant,
+  ImageManifestMap,
+} from './feed-builder';
 import { FEED_PRODUCTS_SELECT } from './feed-query';
 
 export interface GoogleMerchantFeedData {
@@ -8,6 +13,31 @@ export interface GoogleMerchantFeedData {
   slug: string;
   products: FeedProduct[];
   imageManifest: ImageManifestMap;
+}
+
+interface FeedVariantRow {
+  attributes: Record<string, string> | null;
+  condition?: FeedVariant['condition'];
+  id: string;
+  price_override?: number | string | null;
+  product_id: string;
+  sku?: string | null;
+  stock_quantity?: number | null;
+}
+
+function normalizeFeedVariantPrice(
+  value: number | string | null | undefined
+): number | null {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
 }
 
 /**
@@ -109,9 +139,51 @@ export async function getCachedGoogleMerchantFeedData(
     });
   }
 
-  // Fetch condition offers for products that have them
-  const feedProducts = (products || []) as FeedProduct[];
-  const productsWithOffers = feedProducts.filter((p) => p.has_condition_offers);
+  const feedProducts: FeedProduct[] = ((products || []) as FeedProduct[]).map(
+    (product) => ({
+      ...product,
+      variants: [],
+    })
+  );
+
+  const { data: variantRows, error: variantsError } = await supabase.rpc(
+    'get_feed_product_variants',
+    {
+      p_merchant_id: merchantId,
+      p_product_ids: productIds,
+    }
+  );
+
+  if (variantsError) {
+    console.error('DB_VARIANTS_ERROR:', variantsError);
+    throw new Error('Failed to fetch product variants');
+  }
+
+  if (variantRows && variantRows.length > 0) {
+    const variantsByProduct = new Map<string, FeedVariant[]>();
+
+    for (const row of variantRows as FeedVariantRow[]) {
+      const productVariants = variantsByProduct.get(row.product_id) ?? [];
+      productVariants.push({
+        id: row.id,
+        attributes: row.attributes,
+        condition: row.condition,
+        price_override: normalizeFeedVariantPrice(row.price_override),
+        sku: row.sku ?? null,
+        stock_quantity: row.stock_quantity ?? null,
+      });
+      variantsByProduct.set(row.product_id, productVariants);
+    }
+
+    for (const product of feedProducts) {
+      product.variants = variantsByProduct.get(product.id) ?? [];
+    }
+  }
+
+  // Fetch condition offers for legacy products that still use them
+  const productsWithOffers = feedProducts.filter(
+    (p) => p.variant_model !== 'sku_matrix' && p.has_condition_offers
+  );
 
   if (productsWithOffers.length > 0) {
     const offerProductIds = productsWithOffers.map((p) => p.id);

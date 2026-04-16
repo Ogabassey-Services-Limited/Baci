@@ -6,6 +6,7 @@ import Link from 'next/link';
 
 interface ProductMobileActionBarProps {
   cartHref: Route;
+  canPurchase: boolean;
   onDecrement: () => void;
   onIncrement: () => void;
   onMobileAddToCart: (startRect: DOMRect) => void;
@@ -14,6 +15,7 @@ interface ProductMobileActionBarProps {
 
 export function ProductMobileActionBar({
   cartHref,
+  canPurchase,
   onDecrement,
   onIncrement,
   onMobileAddToCart,
@@ -48,7 +50,9 @@ export function ProductMobileActionBar({
             </div>
             <button
               type="button"
-              onClick={onIncrement}
+              onClick={canPurchase ? onIncrement : undefined}
+              disabled={!canPurchase}
+              aria-disabled={!canPurchase}
               className="flex h-full w-14 items-center justify-center rounded-r-xl border-l border-[var(--store-primary)]/15 text-[var(--store-primary)] active:bg-[var(--store-primary)]/5"
               aria-label="Increase quantity"
             >
@@ -69,11 +73,16 @@ export function ProductMobileActionBar({
           onClick={(event) =>
             onMobileAddToCart(event.currentTarget.getBoundingClientRect())
           }
-          aria-label="Add this product to cart"
-          className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-[var(--store-primary)] font-bold text-[var(--store-primary-text,#ffffff)] shadow-lg transition-all active:scale-[0.98] active:bg-[var(--store-primary)]/90 active:shadow-none"
+          disabled={!canPurchase}
+          aria-label={canPurchase ? 'Add this product to cart' : 'Product out of stock'}
+          className={`flex h-14 w-full items-center justify-center gap-2 rounded-xl font-bold shadow-lg transition-all ${
+            canPurchase
+              ? 'bg-[var(--store-primary)] text-[var(--store-primary-text,#ffffff)] active:scale-[0.98] active:bg-[var(--store-primary)]/90 active:shadow-none'
+              : 'cursor-not-allowed bg-[var(--store-background-text,#111827)]/10 text-[var(--store-background-text,#111827)]/45 shadow-none'
+          }`}
         >
           <ShoppingCart size={20} />
-          Add to Cart
+          {canPurchase ? 'Add to Cart' : 'Out of Stock'}
         </button>
       )}
     </div>

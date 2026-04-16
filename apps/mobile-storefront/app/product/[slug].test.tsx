@@ -39,6 +39,41 @@ const baseProduct: Product = {
   images: ['https://cdn.example.com/iphone-13-pro.jpg'],
 };
 
+const variantProduct: Product = {
+  ...baseProduct,
+  has_variants: true,
+  variant_attributes: {
+    storage: ['128GB'],
+    connectivity: ['WiFi'],
+  },
+  variants: [
+    {
+      id: 'variant-new-128',
+      name: '128GB WiFi',
+      condition: 'new',
+      price: 552000,
+      stock_quantity: 5,
+      attributes: {
+        storage: '128GB',
+        connectivity: 'WiFi',
+      },
+    },
+    {
+      id: 'variant-used-128',
+      name: '128GB WiFi Used',
+      condition: 'used',
+      price: 500000,
+      stock_quantity: 3,
+      attributes: {
+        storage: '128GB',
+        connectivity: 'WiFi',
+      },
+    },
+  ],
+};
+
+const [primaryVariant, secondaryVariant] = variantProduct.variants ?? [];
+
 jest.mock('expo-router', () => ({
   router: {
     replace: (...args: unknown[]) => mockRouterReplace(...args),
@@ -234,6 +269,53 @@ describe('ProductDetailScreen canonical slug redirect', () => {
     });
   });
 
+  it('resets attribute-only variant params back to the bare product route', async () => {
+    mockUseLocalSearchParams.mockReturnValue({
+      slug: 'iphone-13-pro',
+      storage: '128GB',
+      utm_source: 'google',
+    });
+    mockUseProduct.mockReturnValue({
+      product: variantProduct,
+      isLoading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+    mockUseEffectivePrice.mockReturnValue({
+      price: variantProduct.price,
+      comparePrice: undefined,
+    });
+
+    render(<ProductDetailScreen />);
+
+    await waitFor(() => {
+      expect(mockRouterReplace).toHaveBeenCalledWith('/product/iphone-13-pro');
+    });
+  });
+
+  it('ignores unrelated route params when deciding whether to reset selection', async () => {
+    mockUseLocalSearchParams.mockReturnValue({
+      slug: 'iphone-13-pro',
+      utm_source: 'google',
+    });
+    mockUseProduct.mockReturnValue({
+      product: variantProduct,
+      isLoading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+    mockUseEffectivePrice.mockReturnValue({
+      price: variantProduct.price,
+      comparePrice: undefined,
+    });
+
+    render(<ProductDetailScreen />);
+
+    await waitFor(() => {
+      expect(mockRouterReplace).not.toHaveBeenCalled();
+    });
+  });
+
   it('preselects the first advertised storage option when no default variant can be resolved', async () => {
     mockUseLocalSearchParams.mockReturnValue({
       slug: 'galaxy-tab-a11-plus-5g',
@@ -366,5 +448,132 @@ describe('ProductDetailScreen canonical slug redirect', () => {
 
     expect(containerStyle?.marginTop).toBeUndefined();
     expect(containerStyle?.marginBottom).toBeUndefined();
+  });
+
+  it('blocks purchase when the selected legacy condition offer is out of stock', async () => {
+    mockUseLocalSearchParams.mockReturnValue({
+      slug: 'iphone-13-pro',
+      condition: 'used',
+    });
+    mockUseProduct.mockReturnValue({
+      product: {
+        ...baseProduct,
+        has_condition_offers: true,
+        stock_quantity: 10,
+        offers: [
+          {
+            id: 'offer-used',
+            condition: 'used',
+            price: 500000,
+            stock_quantity: 0,
+          },
+        ],
+      },
+      isLoading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+    mockUseEffectivePrice.mockReturnValue({
+      price: 500000,
+      comparePrice: undefined,
+    });
+
+    render(<ProductDetailScreen />);
+
+    await waitFor(() => {
+      expect(mockProductDetailsBody).toHaveBeenCalledWith(
+        expect.objectContaining({
+          selectedCondition: 'used',
+        })
+      );
+      expect(mockStickyBottomActions).toHaveBeenCalledWith(
+        expect.objectContaining({
+          canPurchase: false,
+        })
+      );
+    });
+  });
+
+  it('blocks purchase when the selected variant is out of stock', async () => {
+    expect(primaryVariant).toBeDefined();
+    expect(secondaryVariant).toBeDefined();
+
+    mockUseLocalSearchParams.mockReturnValue({
+      slug: 'iphone-13-pro',
+      condition: 'used',
+      connectivity: 'WiFi',
+      storage: '128GB',
+    });
+    mockUseProduct.mockReturnValue({
+      product: {
+        ...variantProduct,
+        variants: [
+          primaryVariant,
+          {
+            ...secondaryVariant,
+            stock_quantity: 0,
+          },
+        ],
+      },
+      isLoading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+    mockUseEffectivePrice.mockReturnValue({
+      price: 500000,
+      comparePrice: undefined,
+    });
+
+    render(<ProductDetailScreen />);
+
+    await waitFor(() => {
+      expect(mockStickyBottomActions).toHaveBeenCalledWith(
+        expect.objectContaining({
+          canPurchase: false,
+        })
+      );
+    });
+  });
+
+  it('keeps the selected variant purchasable when stock quantity is unknown but in_stock is true', async () => {
+    expect(primaryVariant).toBeDefined();
+    expect(secondaryVariant).toBeDefined();
+
+    mockUseLocalSearchParams.mockReturnValue({
+      slug: 'iphone-13-pro',
+      condition: 'used',
+      connectivity: 'WiFi',
+      storage: '128GB',
+    });
+    mockUseProduct.mockReturnValue({
+      product: {
+        ...variantProduct,
+        variants: [
+          primaryVariant,
+          {
+            ...secondaryVariant,
+            in_stock: true,
+            stock_quantity: undefined,
+          },
+        ],
+      },
+      isLoading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+    mockUseEffectivePrice.mockReturnValue({
+      price: 500000,
+      comparePrice: undefined,
+    });
+
+    render(<ProductDetailScreen />);
+
+    await waitFor(() => {
+      expect(mockStickyBottomActions).toHaveBeenCalledWith(
+        expect.objectContaining({
+          canPurchase: true,
+        })
+      );
+    });
   });
 });

@@ -20,6 +20,8 @@ import { formatPrice } from '@/types/product';
 type ColorsScheme = (typeof Colors)['light'];
 
 export interface ProductDetailsBodyProps {
+  availableConditions: ProductCondition[];
+  conditionOffers: NonNullable<Product['offers']>;
   product: Product;
   effectivePrice: number;
   effectiveComparePrice: number | undefined;
@@ -45,6 +47,8 @@ export interface ProductDetailsBodyProps {
 }
 
 export function ProductDetailsBody({
+  availableConditions,
+  conditionOffers,
   product,
   effectivePrice,
   effectiveComparePrice,
@@ -173,10 +177,11 @@ export function ProductDetailsBody({
       <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
       {/* Condition Selector */}
-      {product.has_condition_offers && product.offers && (
+      {availableConditions.length > 1 && (
         <ConditionSelector
           currentCondition={product.condition}
-          offers={product.offers}
+          offers={conditionOffers}
+          availableConditions={availableConditions}
           selectedCondition={selectedCondition}
           onSelect={setSelectedCondition}
           basePrice={product.price}

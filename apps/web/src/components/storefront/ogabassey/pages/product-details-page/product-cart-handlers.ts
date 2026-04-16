@@ -14,6 +14,7 @@ interface ProductCartHandlersArgs {
   applyNegotiatedPrice?: (cartItemId: string, price: number) => void;
   currentCartItemId: string;
   currentOffer: ProductDetailsCurrentOffer;
+  canPurchase: boolean;
   getMissingFields: () => string[];
   inputValue: string;
   productData: NormalizedProductDetails;
@@ -43,6 +44,7 @@ interface ProductCartHandlersArgs {
 export function createProductCartHandlers({
   addToCart,
   applyNegotiatedPrice,
+  canPurchase,
   currentCartItemId,
   currentOffer,
   getMissingFields,
@@ -91,6 +93,16 @@ export function createProductCartHandlers({
       return false;
     }
 
+    if (!canPurchase) {
+      toast({
+        title: 'Selection unavailable',
+        description: 'This exact selection is currently out of stock.',
+        className:
+          'border-2 border-[var(--store-primary)] bg-white text-[var(--store-background-text,#111827)]',
+      });
+      return false;
+    }
+
     addToCart(
       buildCartProduct(
         productData,
@@ -133,7 +145,7 @@ export function createProductCartHandlers({
   };
 
   const handleIncrement = () => {
-    if (currentCartItemId && quantityInCart < 99) {
+    if (canPurchase && currentCartItemId && quantityInCart < 99) {
       updateQuantity(currentCartItemId, quantityInCart + 1);
     }
   };
@@ -151,7 +163,8 @@ export function createProductCartHandlers({
 
   const handleMobileAddToCart = (startRect: DOMRect) => {
     const missing = getMissingFields();
-    if (missing.length === 0) {
+    const canAnimate = missing.length === 0 && canPurchase;
+    if (canAnimate) {
       triggerFlyToCart(startRect);
     }
     validateAndAddToCart(missing);

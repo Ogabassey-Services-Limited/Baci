@@ -12,9 +12,11 @@ import {
   Truck,
 } from 'lucide-react';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
 
 interface ProductCartActionsProps {
   cartHref: Route;
+  canPurchase: boolean;
   inputValue: string;
   onAddToCart: () => void;
   onDecrement: () => void;
@@ -27,6 +29,7 @@ interface ProductCartActionsProps {
 
 export function ProductCartActions({
   cartHref,
+  canPurchase,
   inputValue,
   onAddToCart,
   onDecrement,
@@ -66,6 +69,7 @@ export function ProductCartActions({
                   onChange={onInputChange}
                   onBlur={onInputBlur}
                   onKeyDown={onInputKeyDown}
+                  disabled={!canPurchase}
                   className="w-12 border-none bg-transparent p-0 text-center text-lg font-bold text-gray-900 outline-none focus:border-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
                   aria-label="Quantity"
                 />
@@ -73,6 +77,7 @@ export function ProductCartActions({
               <button
                 type="button"
                 onClick={onIncrement}
+                disabled={!canPurchase}
                 className="flex h-full w-14 items-center justify-center border-l border-[var(--store-primary)]/15 text-[var(--store-primary)] transition-colors hover:bg-[var(--store-primary)]/5"
                 aria-label="Increase quantity"
               >
@@ -91,9 +96,15 @@ export function ProductCartActions({
           <button
             type="button"
             onClick={onAddToCart}
-            className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-[var(--store-primary)] font-bold text-[var(--store-primary-text,#ffffff)] shadow-lg transition-all hover:bg-[var(--store-primary)]/90 hover:shadow-[var(--store-primary)]/20"
+            disabled={!canPurchase}
+            className={cn(
+              'flex h-14 w-full items-center justify-center gap-2 rounded-xl font-bold shadow-lg transition-all',
+              canPurchase
+                ? 'bg-[var(--store-primary)] text-[var(--store-primary-text,#ffffff)] hover:bg-[var(--store-primary)]/90 hover:shadow-[var(--store-primary)]/20'
+                : 'cursor-not-allowed bg-[var(--store-background-text,#111827)]/10 text-[var(--store-background-text,#111827)]/45 shadow-none'
+            )}
           >
-            Add to Cart
+            {canPurchase ? 'Add to Cart' : 'Unavailable'}
           </button>
         )}
       </div>

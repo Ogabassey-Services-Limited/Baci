@@ -25,8 +25,13 @@ import { createLogger } from '@/lib/logger';
 const log = createLogger('ProductDetail');
 
 import {
+  getVariantConditionOptions,
+  hasVariantConditionAxis,
+  normalizeCanonicalProductCondition,
   resolveDefaultVariantSelection,
+  resolveVariantDisplaySelection,
   resolveVariantSelection,
+  resolveVariantSelectionParamResolution,
 } from '@baci/shared/lib';
 import Animated, {
   Extrapolate,
@@ -129,8 +134,29 @@ function getSelectionSyncSignature(product: Product | null) {
   });
 }
 
+function normalizeRouteCondition(
+  value: string | string[] | null | undefined
+): ProductCondition | null {
+  const normalized = normalizeCanonicalProductCondition(
+    typeof value === 'string' ? value : null
+  );
+  return normalized || null;
+}
+
+function getFirstRouteParamValue(
+  value: string | string[] | null | undefined
+): string | undefined {
+  if (Array.isArray(value)) {
+    return value.find((entry): entry is string => typeof entry === 'string');
+  }
+
+  return typeof value === 'string' ? value : undefined;
+}
+
 export default function ProductDetailScreen() {
-  const { slug } = useLocalSearchParams<{ slug: string }>();
+  const routeParams = useLocalSearchParams();
+  const slug = getFirstRouteParamValue(routeParams.slug);
+  const routeConditionParam = getFirstRouteParamValue(routeParams.condition);
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -153,7 +179,7 @@ export default function ProductDetailScreen() {
 
   // Only fetch if we have a valid slug
   const { product, isLoading, error, refetch } = useProduct(
-    isValidSlug ? slug : ''
+    isValidSlug ? (slug ?? '') : ''
   );
   const { items, addItem, updateQuantity, removeItem } = useCartStore(
     useShallow((s) => ({
@@ -176,10 +202,25 @@ export default function ProductDetailScreen() {
     hasMore: hasMoreReviews,
     loadMore: loadMoreReviews,
   } = useReviews({ productId: product?.id || '' });
+  const usesVariantRouteSelection = Boolean(
+    product?.has_variants && product.variants && product.variants.length > 0
+  );
+  const routeSelectionResolution =
+    usesVariantRouteSelection && product
+      ? resolveVariantSelectionParamResolution(product, routeParams)
+      : null;
+  const routeSelectionInput = routeSelectionResolution?.selectionInput ?? {};
+  const routeSelectionAttributes = (routeSelectionInput.attributes ??
+    {}) as Record<string, string>;
+  const routeCondition = normalizeRouteCondition(
+    routeSelectionInput.condition ??
+      (!usesVariantRouteSelection ? routeConditionParam : undefined)
+  );
+  const routeVariantId = routeSelectionInput.variantId ?? null;
 
   const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
   const [selectedCondition, setSelectedCondition] =
-    useState<ProductCondition | null>(null);
+    useState<ProductCondition | null>(routeCondition);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedStorage, setSelectedStorage] = useState<string | null>(null);
   const [selectedAttributes, setSelectedAttributes] = useState<
@@ -192,16 +233,34 @@ export default function ProductDetailScreen() {
   const [negotiatedPrice, setNegotiatedPrice] = useState<number | null>(null);
   const [showImageZoom, setShowImageZoom] = useState(false);
   const lastSelectionSyncSignatureRef = useRef<string>('');
+  const hasInvalidSelectionRedirectedRef = useRef(false);
 
   const defaultVariantSelection = product
     ? resolveDefaultVariantSelection(product)
     : null;
-  const currentVariantSelection = product?.has_variants
-    ? (resolveVariantSelection(product, {
-        variantId: selectedVariant,
+  const usesVariantConditions = product
+    ? hasVariantConditionAxis(product)
+    : false;
+  const availableConditions = product
+    ? ((usesVariantConditions
+        ? (getVariantConditionOptions(product) as ProductCondition[])
+        : Array.from(
+            new Set(
+              [
+                normalizeRouteCondition(product.condition),
+                ...(product.offers?.map((offer) => offer.condition) || []),
+              ].filter(Boolean)
+            )
+          )) as ProductCondition[])
+    : [];
+  const currentVariantDisplaySelection = product?.has_variants
+    ? (resolveVariantDisplaySelection(product, {
+        condition: selectedCondition ?? routeCondition,
+        variantId: selectedVariant ?? routeVariantId,
         attributes: {
-          storage: selectedStorage,
-          color: selectedColor,
+          storage: selectedStorage ?? routeSelectionAttributes.storage ?? null,
+          color: selectedColor ?? routeSelectionAttributes.color ?? null,
+          ...routeSelectionAttributes,
           ...selectedAttributes,
         },
       }) ??
@@ -212,16 +271,36 @@ export default function ProductDetailScreen() {
         ? defaultVariantSelection
         : null))
     : null;
+  const currentVariantSelection = product?.has_variants
+    ? resolveVariantSelection(product, {
+        condition: selectedCondition ?? routeCondition,
+        variantId: selectedVariant ?? routeVariantId,
+        attributes: {
+          storage: selectedStorage ?? routeSelectionAttributes.storage ?? null,
+          color: selectedColor ?? routeSelectionAttributes.color ?? null,
+          ...routeSelectionAttributes,
+          ...selectedAttributes,
+        },
+      })
+    : null;
   const effectiveSelectedVariantId =
-    currentVariantSelection?.variant.id ?? selectedVariant;
+    currentVariantDisplaySelection?.variant.id ??
+    selectedVariant ??
+    (typeof routeVariantId === 'string' ? routeVariantId : null);
   const effectiveSelectedStorage =
-    currentVariantSelection?.storage ?? selectedStorage;
+    currentVariantDisplaySelection?.storage ??
+    selectedStorage ??
+    routeSelectionAttributes.storage ??
+    null;
   const effectiveSelectedColor =
-    currentVariantSelection?.color ?? selectedColor;
+    currentVariantDisplaySelection?.color ??
+    selectedColor ??
+    routeSelectionAttributes.color ??
+    null;
   const effectiveSelectedAttributes = {
     ...selectedAttributes,
     ...Object.fromEntries(
-      Object.entries(currentVariantSelection?.attributes ?? {}).filter(
+      Object.entries(currentVariantDisplaySelection?.attributes ?? {}).filter(
         ([axis]) => axis !== 'color' && axis !== 'storage'
       )
     ),
@@ -263,6 +342,11 @@ export default function ProductDetailScreen() {
 
   // Get condition display name for cart
   const getConditionDisplay = (): string | undefined => {
+    if (currentVariantDisplaySelection?.condition) {
+      return formatProductConditionDisplay(
+        currentVariantDisplaySelection.condition
+      );
+    }
     if (selectedCondition) {
       return formatProductConditionDisplay(selectedCondition);
     }
@@ -279,7 +363,12 @@ export default function ProductDetailScreen() {
       return;
     }
 
-    const defaultSelection = resolveDefaultVariantSelection(product);
+    const defaultSelection =
+      resolveVariantDisplaySelection(product, {
+        condition: routeCondition,
+        variantId: typeof routeVariantId === 'string' ? routeVariantId : null,
+        attributes: routeSelectionAttributes,
+      }) ?? resolveDefaultVariantSelection(product);
     const fallbackSelection = getFallbackVariantSelections(product);
     const syncedAttributes = {
       ...fallbackSelection.attributes,
@@ -296,7 +385,7 @@ export default function ProductDetailScreen() {
       !selectedColor &&
       Object.keys(selectedAttributes).length === 0;
     const shouldRepairInvalidSelection =
-      product.has_variants === true && currentVariantSelection === null;
+      product.has_variants === true && currentVariantDisplaySelection === null;
 
     if (shouldSeedSelection || shouldRepairInvalidSelection) {
       setSelectedVariant(defaultSelection?.variant.id ?? null);
@@ -309,17 +398,60 @@ export default function ProductDetailScreen() {
         syncedColor ? (product.color_images?.[syncedColor] ?? null) : null
       );
       setSelectedImageIndex(0);
+      if (defaultSelection?.condition) {
+        setSelectedCondition(defaultSelection.condition as ProductCondition);
+      }
     }
 
     lastSelectionSyncSignatureRef.current = selectionSyncSignature;
   }, [
-    currentVariantSelection,
+    currentVariantDisplaySelection,
     product,
+    routeCondition,
     selectedAttributes,
     selectedColor,
     selectedStorage,
     selectedVariant,
     selectionSyncSignature,
+    routeVariantId,
+    routeSelectionAttributes,
+  ]);
+
+  useEffect(() => {
+    const nextAvailableConditions = product
+      ? ((usesVariantConditions
+          ? (getVariantConditionOptions(product) as ProductCondition[])
+          : Array.from(
+              new Set(
+                [
+                  normalizeRouteCondition(product.condition),
+                  ...(product.offers?.map((offer) => offer.condition) || []),
+                ].filter(Boolean)
+              )
+            )) as ProductCondition[])
+      : [];
+
+    if (nextAvailableConditions.length === 0) {
+      return;
+    }
+
+    if (
+      selectedCondition &&
+      nextAvailableConditions.includes(selectedCondition as ProductCondition)
+    ) {
+      return;
+    }
+
+    setSelectedCondition(
+      (currentVariantDisplaySelection?.condition as
+        | ProductCondition
+        | undefined) ?? nextAvailableConditions[0]
+    );
+  }, [
+    currentVariantDisplaySelection?.condition,
+    product,
+    selectedCondition,
+    usesVariantConditions,
   ]);
 
   // Sync quantity with cart store
@@ -355,6 +487,33 @@ export default function ProductDetailScreen() {
       router.replace(`/product/${product.slug}`);
     }
   }, [isValidSlug, product?.slug, slug]);
+
+  useEffect(() => {
+    if (!product?.slug || product.slug !== slug) {
+      return;
+    }
+
+    if (!routeSelectionResolution?.extracted.hasRecognizedSelectionParams) {
+      hasInvalidSelectionRedirectedRef.current = false;
+      return;
+    }
+
+    if (
+      !hasInvalidSelectionRedirectedRef.current &&
+      (routeSelectionResolution?.type === 'attribute_only' ||
+        routeSelectionResolution?.type === 'ambiguous' ||
+        routeSelectionResolution?.type === 'invalid_variant_id' ||
+        routeSelectionResolution?.type === 'zero_match')
+    ) {
+      hasInvalidSelectionRedirectedRef.current = true;
+      router.replace(`/product/${product.slug}`);
+    }
+  }, [
+    product?.slug,
+    routeSelectionResolution?.extracted.hasRecognizedSelectionParams,
+    routeSelectionResolution?.type,
+    slug,
+  ]);
 
   const handleLocalQtyChange = (text: string) => {
     // Only allow numeric input
@@ -472,8 +631,7 @@ export default function ProductDetailScreen() {
   const { price: effectivePrice, comparePrice: effectiveComparePrice } =
     useEffectivePrice(
       product ?? null,
-      effectiveSelectedVariantId,
-      effectiveSelectedStorage,
+      currentVariantDisplaySelection,
       selectedCondition,
       negotiatedPrice
     );
@@ -481,11 +639,80 @@ export default function ProductDetailScreen() {
   // calculatedPrice is the price without negotiation, used in the NegotiationModal
   const { price: calculatedPrice } = useEffectivePrice(
     product ?? null,
-    effectiveSelectedVariantId,
-    effectiveSelectedStorage,
+    currentVariantDisplaySelection,
     selectedCondition,
     null
   );
+  const selectedConditionOffer =
+    !product?.has_variants && selectedCondition
+      ? (product?.offers?.find(
+          (offer) => offer.condition === selectedCondition
+        ) ?? null)
+      : null;
+  const selectedVariantCanPurchase =
+    product?.has_variants === true && currentVariantSelection
+      ? product.manage_stock === false
+        ? true
+        : typeof currentVariantSelection.variant.stock_quantity === 'number'
+          ? currentVariantSelection.variant.stock_quantity > quantityInCart
+          : currentVariantSelection.variant.in_stock !== false
+      : false;
+  const canPurchase =
+    product?.has_variants === true
+      ? Boolean(currentVariantSelection) && selectedVariantCanPurchase
+      : product
+        ? product.manage_stock === false ||
+          (typeof selectedConditionOffer?.stock_quantity === 'number'
+            ? selectedConditionOffer.stock_quantity > quantityInCart
+            : typeof product.stock_quantity === 'number'
+              ? product.stock_quantity > quantityInCart
+              : product.in_stock === true)
+        : false;
+  const conditionOffersForDisplay = (() => {
+    if (!product) {
+      return [];
+    }
+
+    if (!usesVariantConditions) {
+      return product.offers ?? [];
+    }
+
+    const grouped = new Map<
+      ProductCondition,
+      {
+        price: number;
+        stock_quantity: number;
+      }
+    >();
+
+    for (const variant of product.variants ?? []) {
+      const condition = normalizeRouteCondition(variant.condition);
+      if (!condition) {
+        continue;
+      }
+
+      const price = variant.price_override ?? variant.price ?? product.price;
+      const stockQuantity = variant.stock_quantity ?? 0;
+      const existing = grouped.get(condition);
+
+      if (!existing || price < existing.price) {
+        grouped.set(condition, {
+          price,
+          stock_quantity: (existing?.stock_quantity ?? 0) + stockQuantity,
+        });
+        continue;
+      }
+
+      existing.stock_quantity += stockQuantity;
+    }
+
+    return Array.from(grouped.entries()).map(([condition, summary]) => ({
+      id: `variant-condition-${condition}`,
+      condition,
+      price: summary.price,
+      stock_quantity: summary.stock_quantity,
+    }));
+  })();
 
   // 2026 Critical Fix: Handle invalid slug parameter
   if (!isValidSlug) {
@@ -608,6 +835,14 @@ export default function ProductDetailScreen() {
       return;
     }
 
+    if (!canPurchase) {
+      Alert.alert(
+        'Out of Stock',
+        'This exact selection is currently unavailable. Try a different condition or variant.'
+      );
+      return;
+    }
+
     haptics.success(); // Haptic feedback for add to cart
 
     if (event) triggerFlyToCart(event);
@@ -638,14 +873,14 @@ export default function ProductDetailScreen() {
       quantity: 1,
       image_url: resolveCartItemImageUrl({
         displayedImageUrl: images[selectedImageIndex] || images[0],
-        variantImageUrl: currentVariantSelection?.variant.image,
-        variantImages: currentVariantSelection?.variant.images,
+        variantImageUrl: currentVariantDisplaySelection?.variant.image,
+        variantImages: currentVariantDisplaySelection?.variant.images,
         fallbackImageUrl: product.image,
       }),
       color: effectiveSelectedColor || undefined,
       storage: effectiveSelectedStorage || undefined,
       condition: conditionDisplay,
-      variant_name: currentVariantSelection?.variant.name,
+      variant_name: currentVariantDisplaySelection?.variant.name,
     });
 
     setShowAddedToast(true);
@@ -811,6 +1046,8 @@ export default function ProductDetailScreen() {
 
         {/* Product Details Content */}
         <ProductDetailsBody
+          availableConditions={availableConditions}
+          conditionOffers={conditionOffersForDisplay}
           product={product}
           effectivePrice={effectivePrice}
           effectiveComparePrice={effectiveComparePrice}
@@ -856,6 +1093,7 @@ export default function ProductDetailScreen() {
 
       {/* Sticky Bottom Actions */}
       <StickyBottomActions
+        canPurchase={canPurchase}
         quantityInCart={quantityInCart}
         localQty={localQty}
         onLocalQtyChange={handleLocalQtyChange}

@@ -13,6 +13,7 @@ describe('product-variant-form', () => {
     const variants = buildVariantFormValues(
       [
         {
+          condition: 'used',
           cost_price: 720000,
           has_variants: false,
           id: 'variant-1',
@@ -37,6 +38,7 @@ describe('product-variant-form', () => {
           expect.objectContaining({ key: 'color', value: 'Black' }),
         ],
         client_id: 'variant-1',
+        condition: 'used',
         cost_price: 720000,
         id: 'variant-1',
         images: ['https://example.com/variant-1.png'],
@@ -46,6 +48,31 @@ describe('product-variant-form', () => {
         stock_quantity: 4,
       },
     ]);
+  });
+
+  it('canonicalizes migrated variant conditions when building editable form values', () => {
+    const variants = buildVariantFormValues(
+      [
+        {
+          condition: 'UK Used',
+          cost_price: 720000,
+          has_variants: false,
+          id: 'variant-invalid',
+          images: [],
+          name: 'Unknown condition variant',
+          parent_product_id: 'product-2',
+          price: 900000,
+          primary_image: null,
+          sku: 'INVALID',
+          source: 'structured',
+          stock_quantity: 1,
+          variant_attributes: { storage: '256GB' },
+        },
+      ],
+      { costPrice: 700000, price: 850000 }
+    );
+
+    expect(variants[0]?.condition).toBe('used');
   });
 
   it('builds parent variant attribute summaries with unique values', () => {
@@ -87,6 +114,7 @@ describe('product-variant-form', () => {
     expect(
       createEmptyEditableVariant({
         attributeKeys: ['storage', 'color'],
+        condition: 'new',
         costPrice: 200,
         images: ['https://example.com/default.png'],
         price: 500,
@@ -97,6 +125,7 @@ describe('product-variant-form', () => {
         expect.objectContaining({ key: 'color', value: '' }),
       ],
       client_id: expect.any(String),
+      condition: 'new',
       cost_price: 200,
       images: ['https://example.com/default.png'],
       price: 500,

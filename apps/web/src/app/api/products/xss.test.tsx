@@ -180,6 +180,31 @@ describe('Product API XSS Prevention', () => {
         expect(errors.price).toBeDefined();
       }
     });
+
+    it('rejects sku_matrix variants without conditions', () => {
+      const payload = {
+        name: 'Variant Product',
+        price: 1000,
+        has_variants: true,
+        variant_model: 'sku_matrix' as const,
+        variants: [
+          {
+            price_override: 900,
+            stock_quantity: 2,
+          },
+        ],
+      };
+
+      const result = createProductSchema.safeParse(payload);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        const errors = formatZodErrors(result.error);
+        expect(errors.variants).toContain(
+          'sku_matrix products require every variant to include a condition.'
+        );
+      }
+    });
   });
 
   describe('updateProductSchema sanitization', () => {
@@ -241,6 +266,29 @@ describe('Product API XSS Prevention', () => {
         expect(result.data.price).toBe(29.99);
         // Other fields should not exist in the result
         expect('name' in result.data).toBe(false);
+      }
+    });
+
+    it('rejects sku_matrix updates with conditionless variants', () => {
+      const update = {
+        variant_model: 'sku_matrix' as const,
+        variants: [
+          {
+            id: '4d3558bf-3013-476d-8efa-162d85b8f3fd',
+            price_override: 800,
+            stock_quantity: 1,
+          },
+        ],
+      };
+
+      const result = updateProductSchema.safeParse(update);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        const errors = formatZodErrors(result.error);
+        expect(errors.variants).toContain(
+          'sku_matrix products require every variant to include a condition.'
+        );
       }
     });
   });

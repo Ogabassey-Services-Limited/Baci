@@ -3,6 +3,7 @@
  * options (condition, storage, variant) and any negotiated price.
  */
 
+import type { ResolvedProductVariantSelection } from '@baci/shared/lib';
 import type { Product, ProductCondition } from '@/types/product';
 
 export interface EffectivePrice {
@@ -12,10 +13,23 @@ export interface EffectivePrice {
 
 function calculateEffectivePrice(
   product: Product,
-  selectedVariant: string | null,
-  selectedStorage: string | null,
+  resolvedVariantSelection:
+    | ResolvedProductVariantSelection<{
+        compare_at_price?: number;
+        id: string;
+        stock_quantity?: number;
+      }>
+    | null
+    | undefined,
   selectedCondition: ProductCondition | null
 ): EffectivePrice {
+  if (resolvedVariantSelection) {
+    return {
+      price: resolvedVariantSelection.price,
+      comparePrice: resolvedVariantSelection.compareAtPrice,
+    };
+  }
+
   let price = product.price;
   let comparePrice = product.compare_at_price;
 
@@ -28,41 +42,19 @@ function calculateEffectivePrice(
     }
   }
 
-  // Apply storage-based variant price modifier
-  if (selectedStorage && product.variants) {
-    const variant = product.variants.find(
-      (v) =>
-        v.attributes?.storage === selectedStorage ||
-        v.name?.includes(selectedStorage)
-    );
-    if (variant) {
-      if (variant.price_override !== undefined) {
-        price = variant.price_override;
-      } else if (variant.price_modifier !== undefined) {
-        price += variant.price_modifier;
-      }
-    }
-  }
-
-  // Apply variant price modifier if variant selected (fallback for legacy)
-  if (selectedVariant && product.variants) {
-    const variant = product.variants.find((v) => v.id === selectedVariant);
-    if (variant) {
-      if (variant.price_override !== undefined) {
-        price = variant.price_override;
-      } else if (variant.price_modifier !== undefined) {
-        price += variant.price_modifier;
-      }
-    }
-  }
-
   return { price, comparePrice };
 }
 
 export function useEffectivePrice(
   product: Product | null | undefined,
-  selectedVariant: string | null,
-  selectedStorage: string | null,
+  resolvedVariantSelection:
+    | ResolvedProductVariantSelection<{
+        compare_at_price?: number;
+        id: string;
+        stock_quantity?: number;
+      }>
+    | null
+    | undefined,
   selectedCondition: ProductCondition | null,
   negotiatedPrice: number | null
 ): EffectivePrice {
@@ -72,8 +64,7 @@ export function useEffectivePrice(
 
   const { price: calculatedPrice, comparePrice } = calculateEffectivePrice(
     product,
-    selectedVariant,
-    selectedStorage,
+    resolvedVariantSelection,
     selectedCondition
   );
 
