@@ -42,6 +42,8 @@ export default async function ProductsPage({
     typeof params.limit === 'string' ? Number.parseInt(params.limit, 10) : 10;
   const status = typeof params.status === 'string' ? params.status : 'All';
   const stock = typeof params.stock === 'string' ? params.stock : 'All';
+  const migration =
+    typeof params.migration === 'string' ? params.migration : 'All';
   const search = typeof params.search === 'string' ? params.search : undefined;
 
   // 3. Fetch Products (Server-Side)
@@ -49,6 +51,7 @@ export default async function ProductsPage({
   const initialData = await getProducts(supabase, merchant.id, {
     page,
     limit,
+    migration,
     status,
     stock,
     search,

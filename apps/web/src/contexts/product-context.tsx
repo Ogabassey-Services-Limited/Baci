@@ -35,12 +35,14 @@ interface ProductStats {
 }
 
 interface ProductContextType {
+  migrationFilter: string;
   products: Product[];
   isLoading: boolean;
   pagination: PaginationInfo;
   stats: ProductStats;
   statusFilter: string;
   stockFilter: string;
+  setMigrationFilter: (migration: string) => void;
   setStatusFilter: (status: string) => void;
   setStockFilter: (stock: string) => void;
   setPage: (page: number) => void;
@@ -91,6 +93,7 @@ export const ProductProvider: React.FC<{
       categoryCount: 0,
     }
   );
+  const [migrationFilter, setMigrationFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
   const [stockFilter, setStockFilter] = useState('All');
   const [workflowStep, setWorkflowStep] = useState<WorkflowStep>('view');
@@ -128,6 +131,7 @@ export const ProductProvider: React.FC<{
     const params = new URLSearchParams({
       page: pagination.page.toString(),
       limit: pagination.limit.toString(),
+      migration: migrationFilter,
       search: searchTerm,
       status: statusFilter,
       stock: stockFilter,
@@ -217,6 +221,7 @@ export const ProductProvider: React.FC<{
     fetchProducts();
   }, [
     pagination,
+    migrationFilter,
     searchTerm,
     statusFilter,
     stockFilter,
@@ -327,8 +332,10 @@ export const ProductProvider: React.FC<{
         isLoading: isLoading || authLoading, // Combine loading states
         pagination,
         stats,
+        migrationFilter,
         statusFilter,
         stockFilter,
+        setMigrationFilter,
         setStatusFilter,
         setStockFilter,
         setPage,

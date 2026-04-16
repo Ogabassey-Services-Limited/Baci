@@ -94,10 +94,12 @@ function ProductsPageContent() {
   const {
     products,
     isLoading,
+    migrationFilter,
     pagination,
     stats,
     workflowStep,
     setWorkflowStep,
+    setMigrationFilter,
     searchTerm,
     setSearchTerm,
     setAiResponse,
@@ -334,6 +336,13 @@ function ProductsPageContent() {
     { value: 'infinite', label: 'Infinite' },
   ];
 
+  const migrationFilterOptions = [
+    { value: 'All', label: 'All Migration States', icon: ListFilter },
+    { value: 'needs_review', label: 'Needs Review', icon: RefreshCw },
+    { value: 'migrated', label: 'Migrated', icon: CheckCircle },
+    { value: 'pending', label: 'Pending', icon: Archive },
+  ];
+
   const renderContent = () => {
     switch (workflowStep) {
       case 'upload':
@@ -394,12 +403,18 @@ function ProductsPageContent() {
         <DialogContent className="sm:max-w-[625px]">
           <DialogHeader>
             <DialogTitle>
-              {editingProduct ? 'Edit Product' : 'Add New Product'}
+              {editingProduct?.migration_status === 'needs_review'
+                ? 'Resolve SKU Matrix Review'
+                : editingProduct
+                  ? 'Edit Product'
+                  : 'Add New Product'}
             </DialogTitle>
             <DialogDescription>
-              {editingProduct
-                ? 'Update product details below.'
-                : 'Fill in the details below to add a new product to your catalog.'}
+              {editingProduct?.migration_status === 'needs_review'
+                ? 'This product was flagged during SKU matrix rollout. Review the matrix data, fix any ambiguity, and save to clear the review flag.'
+                : editingProduct
+                  ? 'Update product details below.'
+                  : 'Fill in the details below to add a new product to your catalog.'}
             </DialogDescription>
           </DialogHeader>
           <AddProductForm
@@ -704,6 +719,32 @@ function ProductsPageContent() {
             </form>
 
             <div className="flex gap-2 items-center text-sm text-muted-foreground">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="gap-1 border-primary/20 bg-blue-50/50 text-blue-800 hover:bg-blue-100 hover:text-blue-900 dark:bg-blue-950/20 dark:text-blue-300 dark:hover:bg-blue-900/40 dark:hover:text-blue-100"
+                  >
+                    <ListFilter className="h-4 w-4" />
+                    <span>Migration: {migrationFilter.replace('_', ' ')}</span>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  {migrationFilterOptions.map((option) => (
+                    <DropdownMenuCheckboxItem
+                      key={option.value}
+                      checked={migrationFilter === option.value}
+                      onCheckedChange={() => setMigrationFilter(option.value)}
+                      className="text-blue-800 dark:text-blue-100 capitalize"
+                    >
+                      <option.icon className="mr-2 h-4 w-4" />
+                      {option.label}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button

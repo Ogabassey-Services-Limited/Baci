@@ -107,6 +107,7 @@ export async function GET(request: NextRequest) {
     const searchRaw = searchParams.get('search') || '';
     // Sanitize search input to prevent SQL injection
     const search = searchRaw ? sanitizeSearchQuery(searchRaw) : '';
+    const migration = searchParams.get('migration') || 'All';
     const status = searchParams.get('status') || 'All';
     const stock = searchParams.get('stock') || 'All';
     const ids = searchParams.get('ids');
@@ -132,6 +133,13 @@ export async function GET(request: NextRequest) {
       // Apply filters only if not fetching by ID
       if (status !== 'All') {
         query = query.eq('status', status);
+      }
+
+      if (migration !== 'All') {
+        query =
+          migration === 'pending'
+            ? query.or('migration_status.eq.pending,migration_status.is.null')
+            : query.eq('migration_status', migration);
       }
 
       if (search?.trim()) {

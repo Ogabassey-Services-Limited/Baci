@@ -45,6 +45,7 @@ import { getCountryByCode } from '@/lib/countries';
 import type { Product } from '@/lib/products';
 import { cn } from '@/lib/utils';
 import { ExportToJumiaDialog } from './jumia/export-dialog';
+import { ProductMigrationBadges } from './product-migration-badges';
 
 interface ProductCatalogProps {
   statusFilter: string;
@@ -336,6 +337,12 @@ export function ProductCatalog({
                               />
                               {product.name}
                             </span>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <ProductMigrationBadges
+                                migrationStatus={product.migration_status}
+                                variantModel={product.variant_model}
+                              />
+                            </div>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
                               {product.sku && (
                                 <span className="text-[11px] text-muted-foreground font-mono">
@@ -447,7 +454,9 @@ export function ProductCatalog({
                               onClick={() => onEditProduct?.(product)}
                             >
                               <Edit className="mr-2 h-4 w-4" />
-                              Edit Product
+                              {product.migration_status === 'needs_review'
+                                ? 'Resolve Review'
+                                : 'Edit Product'}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             {jumiaIntegrations.length > 1 &&

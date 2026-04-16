@@ -39,6 +39,7 @@ function extractVariantAttributes(variants: Record<string, unknown>[]): {
 }
 
 export interface GetProductsParams {
+  migration?: string;
   page?: number;
   limit?: number;
   search?: string;
@@ -67,6 +68,7 @@ export async function getProducts(
   params: GetProductsParams
 ): Promise<ProductsResult> {
   const {
+    migration = 'All',
     page = 1,
     limit = 10,
     search: searchRaw = '',
@@ -89,6 +91,13 @@ export async function getProducts(
   // Apply filters
   if (status !== 'All') {
     query = query.eq('status', status);
+  }
+
+  if (migration !== 'All') {
+    query =
+      migration === 'pending'
+        ? query.or('migration_status.eq.pending,migration_status.is.null')
+        : query.eq('migration_status', migration);
   }
 
   if (search?.trim()) {
@@ -156,6 +165,7 @@ export async function getProducts(
             id: v.id as string,
             product_id: v.product_id as string,
             merchant_id: v.merchant_id as string,
+            condition: v.condition as Product['condition'] | undefined,
             attributes: v.attributes as Record<string, string>,
             price_override: v.price_override
               ? Number(v.price_override)
@@ -195,6 +205,28 @@ export async function getProducts(
           : undefined,
         cost_price: p.cost_price ? Number.parseFloat(p.cost_price) : undefined,
         low_stock_threshold: p.low_stock_threshold,
+        variant_model:
+          p.variant_model === 'sku_matrix' ? 'sku_matrix' : 'legacy',
+        migration_status:
+          p.migration_status === 'needs_review' ||
+          p.migration_status === 'migrated'
+            ? p.migration_status
+            : 'pending',
+        default_variant_id:
+          typeof p.default_variant_id === 'string'
+            ? p.default_variant_id
+            : undefined,
+        available_conditions: Array.isArray(p.available_conditions)
+          ? (p.available_conditions as Product['available_conditions'])
+          : undefined,
+        min_variant_price:
+          p.min_variant_price != null
+            ? Number.parseFloat(String(p.min_variant_price))
+            : undefined,
+        max_variant_price:
+          p.max_variant_price != null
+            ? Number.parseFloat(String(p.max_variant_price))
+            : undefined,
 
         weight_value: p.weight_value
           ? Number.parseFloat(p.weight_value)
