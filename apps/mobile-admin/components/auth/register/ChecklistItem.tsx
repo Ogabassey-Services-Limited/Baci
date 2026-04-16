@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Text, View } from 'react-native';
-import { registerStyles as styles } from './register.styles';
+import { useMemo } from 'react';
+import { useTheme } from '@/hooks/useTheme';
+import { getStyles } from './register.styles';
 
 interface ChecklistItemProps {
   isError?: boolean;
@@ -13,12 +15,14 @@ export function ChecklistItem({
   isValid,
   text,
 }: ChecklistItemProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
   const iconName = isValid
     ? 'checkmark-circle'
     : isError
       ? 'alert-circle-outline'
       : 'ellipse-outline';
-  const iconColor = isValid ? '#10B981' : isError ? '#EF4444' : '#9CA3AF';
+  const iconColor = isValid ? colors.success : isError ? colors.error : colors.textSecondary;
   const textStyle = isValid
     ? styles.checkTextValid
     : isError

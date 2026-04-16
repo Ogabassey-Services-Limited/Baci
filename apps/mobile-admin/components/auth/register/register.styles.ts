@@ -1,10 +1,10 @@
 import { StyleSheet } from 'react-native';
-import { DARK_COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { RADIUS, SPACING, ThemeColors, TYPOGRAPHY } from '@/constants/theme';
 
-export const registerStyles = StyleSheet.create({
+export const getStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: DARK_COLORS.background,
+    backgroundColor: colors.background,
   },
   safeArea: {
     flex: 1,
@@ -20,7 +20,7 @@ export const registerStyles = StyleSheet.create({
     padding: SPACING.xs,
   },
   headerTitle: {
-    color: '#FFF',
+    color: colors.textOnPrimary,
     fontSize: TYPOGRAPHY.size.lg,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
@@ -29,17 +29,17 @@ export const registerStyles = StyleSheet.create({
   },
   progressContainer: {
     height: 4,
-    backgroundColor: '#2A2A40',
+    backgroundColor: colors.border,
     borderRadius: 2,
     marginBottom: SPACING.xs,
     overflow: 'hidden',
   },
   progressBar: {
     height: '100%',
-    backgroundColor: DARK_COLORS.primary,
+    backgroundColor: colors.primary,
   },
   stepText: {
-    color: '#9CA3AF',
+    color: colors.textSecondary,
     fontSize: TYPOGRAPHY.size.sm,
     marginBottom: SPACING.xl,
     textAlign: 'right',
@@ -48,12 +48,12 @@ export const registerStyles = StyleSheet.create({
     gap: SPACING.xl,
   },
   sectionTitle: {
-    color: '#FFF',
+    color: colors.textOnPrimary,
     fontSize: TYPOGRAPHY.size['3xl'],
     fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
   sectionValidation: {
-    color: '#9CA3AF',
+    color: colors.textSecondary,
     fontSize: TYPOGRAPHY.size.md,
     marginTop: -SPACING.lg,
   },
@@ -69,38 +69,38 @@ export const registerStyles = StyleSheet.create({
     gap: SPACING.sm,
   },
   label: {
-    color: '#E2E8F0',
+    color: colors.text,
     fontSize: TYPOGRAPHY.size.sm,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
   },
   input: {
-    backgroundColor: DARK_COLORS.inputBg,
+    backgroundColor: colors.inputBg,
     borderRadius: RADIUS.md,
     padding: SPACING.md,
-    color: '#FFF',
+    color: colors.textOnPrimary,
     fontSize: TYPOGRAPHY.size.md,
     borderWidth: 1,
-    borderColor: DARK_COLORS.border,
+    borderColor: colors.border,
   },
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: DARK_COLORS.inputBg,
+    backgroundColor: colors.inputBg,
     borderRadius: RADIUS.md,
     borderWidth: 1,
-    borderColor: DARK_COLORS.border,
+    borderColor: colors.border,
   },
   passwordInput: {
     flex: 1,
     padding: SPACING.md,
-    color: '#FFF',
+    color: colors.textOnPrimary,
     fontSize: TYPOGRAPHY.size.md,
   },
   eyeButton: {
     padding: SPACING.md,
   },
   button: {
-    backgroundColor: DARK_COLORS.primary,
+    backgroundColor: colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -108,57 +108,57 @@ export const registerStyles = StyleSheet.create({
     borderRadius: RADIUS.full,
     marginTop: SPACING.lg,
     gap: SPACING.sm,
-    shadowColor: DARK_COLORS.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
   },
   buttonText: {
-    color: '#FFF',
+    color: colors.textOnPrimary,
     fontSize: TYPOGRAPHY.size.lg,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
   urlInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: DARK_COLORS.inputBg,
+    backgroundColor: colors.inputBg,
     borderRadius: RADIUS.md,
     borderWidth: 1,
-    borderColor: DARK_COLORS.border,
+    borderColor: colors.border,
     overflow: 'hidden',
   },
   urlSuffix: {
-    color: '#9CA3AF',
+    color: colors.textSecondary,
     paddingRight: SPACING.md,
     paddingLeft: SPACING.xs,
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.card,
     height: '100%',
     textAlignVertical: 'center',
     paddingVertical: SPACING.md,
   },
   urlInput: {
     flex: 1,
-    color: '#FFF',
+    color: colors.textOnPrimary,
     padding: SPACING.md,
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
   },
   termsText: {
-    color: '#9CA3AF',
+    color: colors.textSecondary,
     fontSize: TYPOGRAPHY.size.sm,
     textAlign: 'center',
     marginTop: SPACING.lg,
     lineHeight: 20,
   },
   termsLink: {
-    color: DARK_COLORS.primary,
+    color: colors.primary,
     textDecorationLine: 'underline',
   },
   errorText: {
-    color: '#EF4444',
+    color: colors.error,
     fontSize: 12,
     marginTop: 4,
   },
@@ -167,7 +167,7 @@ export const registerStyles = StyleSheet.create({
     gap: 8,
   },
   validationTitle: {
-    color: '#9CA3AF',
+    color: colors.textSecondary,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -191,15 +191,15 @@ export const registerStyles = StyleSheet.create({
     gap: 6,
   },
   checkText: {
-    color: '#6B7280',
+    color: colors.textMuted,
     fontSize: 12,
   },
   checkTextValid: {
-    color: '#10B981',
+    color: colors.success,
     fontSize: 12,
   },
   checkTextError: {
-    color: '#EF4444',
+    color: colors.error,
     fontSize: 12,
   },
 });
