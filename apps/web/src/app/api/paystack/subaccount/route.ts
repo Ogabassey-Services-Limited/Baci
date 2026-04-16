@@ -65,13 +65,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const {
-      account_number,
-      bank_code,
-      business_name,
-      payout_mode,
-      auto_payout_enabled,
-    } = parseResult.data;
+    const { account_number, bank_code, business_name } = parseResult.data;
 
     // 1. Get Merchant Context (supports both owners and staff)
     const merchantContext = await getMerchantForApiRequest(
@@ -201,10 +195,9 @@ export async function POST(request: NextRequest) {
       .update({
         paystack_subaccount_code: subaccountCode,
         bank_account_number: account_number,
+        bank_account_name: accountDetails.account_name,
         bank_code: bank_code,
         bank_name: 'Unknown Bank', // resolve endpoint doesn't return bank name
-        payout_mode,
-        auto_payout_enabled,
       })
       .eq('id', merchantId);
 

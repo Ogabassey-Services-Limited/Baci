@@ -285,10 +285,9 @@ describe('POST /api/paystack/subaccount', () => {
     expect(mockMerchantUpdate).toHaveBeenCalledWith({
       paystack_subaccount_code: 'ACCT_new123',
       bank_account_number: '1234567890',
+      bank_account_name: 'Jane Doe',
       bank_code: '044',
       bank_name: 'Unknown Bank',
-      payout_mode: 'weekly',
-      auto_payout_enabled: true,
     });
   });
 
