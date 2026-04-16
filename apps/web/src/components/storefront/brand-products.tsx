@@ -76,20 +76,15 @@ export function BrandProducts({
 
     setIsLoading(true);
 
-    // Fetch products from same category, then filter by brand client-side
-    // API filters by category; we filter by brand here
+    // Fetch products from the same category and brand using the storefront
+    // API so web behavior matches the mobile filter path.
     apiGet<{ products: Product[] }>(
-      `/api/storefront/products?merchant_id=${merchant.id}&category=${encodeURIComponent(categorySlug)}`
+      `/api/storefront/products?merchant_id=${merchant.id}&category=${encodeURIComponent(categorySlug)}&brand=${encodeURIComponent(productBrand)}`
     )
       .then((data) => {
         if (data.products) {
-          // Filter to same brand, exclude current product
           const sameBrand = data.products.filter(
-            (p) =>
-              p.id !== product.id &&
-              p.brand &&
-              p.brand.toLowerCase() === productBrand.toLowerCase() &&
-              p.status === 'active'
+            (p) => p.id !== product.id && p.status === 'active'
           );
           setBrandProducts(sameBrand.slice(0, maxProducts));
         }

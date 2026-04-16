@@ -164,6 +164,8 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
                 ? 'bg-indigo-600'
                 : product.condition === 'New & Used'
                   ? 'bg-purple-600'
+                  : product.condition === 'Multiple Conditions'
+                    ? 'bg-fuchsia-600'
                   : 'bg-stone-500'
               }`}
           >

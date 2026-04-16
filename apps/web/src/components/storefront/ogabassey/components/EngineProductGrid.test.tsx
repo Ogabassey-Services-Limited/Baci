@@ -1,6 +1,6 @@
 import type { Product } from '@/lib/products';
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@baci/shared', () => ({
@@ -37,8 +37,18 @@ vi.mock('../providers/v2-saved-context', () => ({
   })),
 }));
 vi.mock('./AdUnit', () => ({ AdUnit: () => null }));
+let mockAdvancedProductFilterProps: {
+  onSelectCondition: (condition: string) => void;
+} | null = null;
 vi.mock('./AdvancedProductFilters', () => ({
-  AdvancedProductFilters: () => null,
+  AdvancedProductFilters: (props: {
+    onSelectCondition: (condition: string) => void;
+  }) => {
+    mockAdvancedProductFilterProps = {
+      onSelectCondition: props.onSelectCondition,
+    };
+    return null;
+  },
 }));
 vi.mock('./FloatingParticles', () => ({
   FloatingParticles: () => null,
@@ -60,6 +70,7 @@ import { EngineProductGrid } from './EngineProductGrid';
 
 afterEach(() => {
   vi.resetAllMocks();
+  mockAdvancedProductFilterProps = null;
   vi.mocked(useSearchParams).mockReturnValue(
     new URLSearchParams() as ReturnType<typeof useSearchParams>
   );
@@ -239,5 +250,43 @@ describe('EngineProductGrid', () => {
     expect(
       screen.getByRole('link', { name: 'View all products' })
     ).toHaveAttribute('href', '/products');
+  });
+
+  it('matches condition filters against available_conditions for mixed-condition families', async () => {
+    render(
+      <EngineProductGrid
+        externalProducts={[
+          createTestProduct({
+            id: 'family-1',
+            name: 'Galaxy S24 Family',
+            category: 'Smartphones',
+            stock: 4,
+            condition: 'new',
+            available_conditions: ['new', 'used'],
+          }),
+          createTestProduct({
+            id: 'family-2',
+            name: 'iPhone 16 New',
+            category: 'Smartphones',
+            stock: 3,
+            condition: 'new',
+            available_conditions: ['new'],
+          }),
+        ]}
+        categories={[{ name: 'Smartphones', slug: 'smartphones' }]}
+      />
+    );
+
+    expect(screen.getAllByRole('article')).toHaveLength(2);
+
+    await act(async () => {
+      mockAdvancedProductFilterProps?.onSelectCondition('Used');
+    });
+
+    await waitFor(() => {
+      const articles = screen.getAllByRole('article');
+      expect(articles).toHaveLength(1);
+      expect(articles[0].textContent).toBe('Galaxy S24 Family');
+    });
   });
 });

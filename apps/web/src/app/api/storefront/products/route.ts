@@ -1,4 +1,3 @@
-import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
 import { createClient as createStaticClient } from '@supabase/supabase-js';
 import { unstable_cache } from 'next/cache';
 import { cookies } from 'next/headers';
@@ -6,6 +5,12 @@ import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { normalizeProduct, type RawDbProduct } from '@/lib/normalize-product';
+import {
+  matchesStorefrontBrandFilter,
+  matchesStorefrontCategoryFilter,
+  matchesStorefrontConditionFilter,
+  normalizeStorefrontConditionValue,
+} from '@/lib/storefront-product-filters';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -80,7 +85,7 @@ const storefrontConditionFilterSchema = z.preprocess(
       return value;
     }
 
-    return normalizeCanonicalProductCondition(value) || value;
+    return normalizeStorefrontConditionValue(value) || value;
   },
   z.enum(['new', 'used', 'open_box', 'all'])
 );
@@ -170,18 +175,6 @@ function createCachedProductsFetcher(
         .eq('merchant_id', merchantId)
         .eq('status', 'active');
 
-      // Apply category filter - match by category name (case-insensitive)
-      // Products store category as a direct text field (e.g., "Laptops", "Smartphones")
-      if (filters.category && filters.category !== 'all') {
-        query = query.ilike('category', filters.category);
-      }
-
-      if (filters.brand && filters.brand !== 'all') {
-        // TODO: Implement brand filtering once products.brand_id relation is established
-        // For now, skip brand filtering to avoid incorrect results
-        // console.warn('Brand filtering not yet implemented');
-      }
-
       if (filters.condition && filters.condition !== 'all') {
         query = query.or(
           `condition.eq.${filters.condition},available_conditions.cs.{${filters.condition}}`
@@ -227,7 +220,27 @@ function createCachedProductsFetcher(
 
       if (error) throw error;
 
-      return (products || []).map(mapProduct);
+      let mappedProducts = (products || []).map(mapProduct);
+
+      if (filters.category && filters.category !== 'all') {
+        mappedProducts = mappedProducts.filter((product) =>
+          matchesStorefrontCategoryFilter(product, filters.category as string)
+        );
+      }
+
+      if (filters.brand && filters.brand !== 'all') {
+        mappedProducts = mappedProducts.filter((product) =>
+          matchesStorefrontBrandFilter(product, filters.brand as string)
+        );
+      }
+
+      if (filters.condition && filters.condition !== 'all') {
+        mappedProducts = mappedProducts.filter((product) =>
+          matchesStorefrontConditionFilter(product, filters.condition as string)
+        );
+      }
+
+      return mappedProducts;
     },
     cacheKeyParts,
     {

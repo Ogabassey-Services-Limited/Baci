@@ -80,6 +80,7 @@ export interface Product {
   | 'Used'
   | 'Open Box'
   | 'New & Used'
+  | 'Multiple Conditions'
   | ProductCondition;
   // Detailed specs for filtering
   brand?: string;
@@ -103,6 +104,7 @@ export interface Product {
   // Phase 7: Condition Deduplication
   // Phase 7: Condition Deduplication
   has_condition_offers?: boolean;
+  available_conditions?: ProductCondition[];
   offers?: ProductConditionOffer[];
   // Phase 4: Product Variants (Storage/Color/etc)
   variants?: ProductVariant[];
