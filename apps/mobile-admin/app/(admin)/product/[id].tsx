@@ -24,7 +24,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { z } from 'zod';
-import { ExistingProductSuggestions } from '@/components/product/ExistingProductSuggestions';
+import { ProductBasicInformationCard } from '@/components/product/ProductBasicInformationCard';
 import { InvalidRouteScreen } from '@/components/ui/InvalidRouteScreen';
 import { KeyboardAwareModalContainer } from '@/components/ui/KeyboardAwareModalContainer';
 import SafeImage from '@/components/ui/SafeImage';
@@ -206,6 +206,7 @@ export default function ProductEditScreen() {
   };
 
   const [formData, setFormData] = useState({
+    brand: '',
     name: '',
     sku: isEditing ? '' : rawParams.sku || generateSKU(),
     price: 0,
@@ -270,6 +271,7 @@ export default function ProductEditScreen() {
   useEffect(() => {
     if (product && !isInitialized) {
       setFormData({
+        brand: product.brand || product.brands?.name || '',
         name: product.name || '',
         sku: product.sku || '',
         price: product.price || 0,
@@ -901,137 +903,26 @@ export default function ProductEditScreen() {
           />
         </View>
 
-        {/* Basic Info */}
-        <View
-          style={[
-            styles.card,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.cardTitle, { color: colors.text }]}>
-            Basic Information
-          </Text>
-
-          <Text style={[styles.label, { color: colors.textSecondary }]}>
-            Product Name <Text style={{ color: colors.error }}>*</Text>
-          </Text>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                backgroundColor: colors.inputBg,
-                color: colors.text,
-                borderColor: colors.border,
-              },
-            ]}
-            value={formData.name}
-            onChangeText={(text) => setFormData({ ...formData, name: text })}
-            placeholder="Enter product name"
-            placeholderTextColor={colors.textSecondary}
-          />
-          {!isEditing ? (
-            <ExistingProductSuggestions
-              colors={colors}
-              suggestions={productNameSuggestions}
-              onOpenProduct={(productId) =>
-                router.push(`/product/${productId}`)
-              }
-            />
-          ) : null}
-
-          <Text style={[styles.label, { color: colors.textSecondary }]}>
-            SKU <Text style={{ color: colors.error }}>*</Text>
-          </Text>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                backgroundColor: colors.inputBg,
-                color: colors.text,
-                borderColor: colors.border,
-              },
-            ]}
-            value={formData.sku}
-            onChangeText={(text) => setFormData({ ...formData, sku: text })}
-            placeholder="Enter SKU"
-            placeholderTextColor={colors.textSecondary}
-          />
-
-          <Text style={[styles.label, { color: colors.textSecondary }]}>
-            Category <Text style={{ color: colors.error }}>*</Text>
-          </Text>
-          <Pressable
-            style={[
-              styles.input,
-              {
-                backgroundColor: colors.inputBg,
-                borderColor: colors.border,
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              },
-            ]}
-            onPress={() => setIsCategoryModalVisible(true)}
-          >
-            <Text
-              style={{
-                color: formData.category_id
-                  ? colors.text
-                  : colors.textSecondary,
-              }}
-            >
-              {categories.find((c) => c.id === formData.category_id)?.name ||
-                formData.category ||
-                'Select Category'}
-            </Text>
-            <Ionicons
-              name="chevron-down"
-              size={20}
-              color={colors.textSecondary}
-            />
-          </Pressable>
-
-          <Text style={[styles.label, { color: colors.textSecondary }]}>
-            Color
-          </Text>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                backgroundColor: colors.inputBg,
-                color: colors.text,
-                borderColor: colors.border,
-              },
-            ]}
-            value={formData.color}
-            onChangeText={(text) => setFormData({ ...formData, color: text })}
-            placeholder="e.g. Midnight Blue"
-            placeholderTextColor={colors.textSecondary}
-          />
-
-          <Text style={[styles.label, { color: colors.textSecondary }]}>
-            Description
-          </Text>
-          <TextInput
-            style={[
-              styles.input,
-              styles.textArea,
-              {
-                backgroundColor: colors.inputBg,
-                color: colors.text,
-                borderColor: colors.border,
-              },
-            ]}
-            value={formData.description}
-            onChangeText={(text) =>
-              setFormData({ ...formData, description: text })
-            }
-            placeholder="Enter product description"
-            placeholderTextColor={colors.textSecondary}
-            multiline
-            numberOfLines={4}
-          />
-        </View>
+        <ProductBasicInformationCard
+          categories={categories}
+          colors={colors}
+          formData={{
+            brand: formData.brand,
+            category: formData.category,
+            category_id: formData.category_id,
+            color: formData.color,
+            description: formData.description,
+            name: formData.name,
+            sku: formData.sku,
+          }}
+          isEditing={isEditing}
+          onChange={(updates) =>
+            setFormData((previous) => ({ ...previous, ...updates }))
+          }
+          onOpenCategoryModal={() => setIsCategoryModalVisible(true)}
+          onOpenProduct={(productId) => router.push(`/product/${productId}`)}
+          productNameSuggestions={productNameSuggestions}
+        />
 
         <View
           style={[

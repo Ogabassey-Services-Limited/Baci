@@ -4,6 +4,7 @@ import { ProductDbSchema } from '@/lib/validators/product';
 describe('ProductDbSchema', () => {
   it('keeps stock and stock_quantity in sync for inserts and updates', () => {
     const parsed = ProductDbSchema.parse({
+      brand: 'Apple',
       name: 'Phone',
       sku: 'SKU-123',
       price: 1000,
@@ -22,6 +23,7 @@ describe('ProductDbSchema', () => {
 
     expect(parsed.stock_quantity).toBe(8);
     expect(parsed.stock).toBe(8);
+    expect(parsed.brand).toBe('Apple');
     expect(parsed.category_id).toBeNull();
   });
 
@@ -63,6 +65,23 @@ describe('ProductDbSchema', () => {
     expect(parsed.stock_quantity).toBe(0);
     expect(parsed.stock).toBe(0);
     expect(parsed.category_id).toBeNull();
+  });
+
+  it('sanitizes and preserves the brand field for product writes', () => {
+    const parsed = ProductDbSchema.parse({
+      brand: '  <b>Apple</b>  ',
+      name: 'Apple Watch',
+      sku: 'WATCH-001',
+      price: 100,
+      stock_quantity: 2,
+      category_id: '',
+      manage_stock: true,
+      status: 'active',
+      images: [],
+      variant_attributes: [],
+    });
+
+    expect(parsed.brand).toBe('Apple');
   });
 
   it('rejects missing stock_quantity values', () => {

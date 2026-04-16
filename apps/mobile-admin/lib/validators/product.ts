@@ -60,6 +60,10 @@ export const ProductSchema = z
       .string()
       .min(1, 'Product name is required')
       .transform((val) => sanitizeText(val, 200)),
+    brand: z
+      .string()
+      .optional()
+      .transform((val) => (val ? sanitizeText(val, 200) : val)),
     sku: z.string().min(1, 'SKU is required'),
     price: z.number().min(0),
     cost_price: z.number().min(0).optional().default(0),
