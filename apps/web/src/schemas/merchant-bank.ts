@@ -5,7 +5,7 @@ export const merchantBankSchema = z.object({
     .string()
     .regex(/^\d{10}$/, 'Account number must be exactly 10 digits'),
   bankCode: z.string().min(1, 'Please select your bank'),
-  businessName: z.string().min(2, 'Business name is required'),
+  businessName: z.string().trim().min(2, 'Business name is required'),
   autoPayoutEnabled: z.boolean().optional(),
 });
 

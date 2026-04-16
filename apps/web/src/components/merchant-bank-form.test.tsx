@@ -184,4 +184,112 @@ describe('MerchantBankForm', () => {
       );
     });
   });
+
+  it('shows a save error and recovers on a subsequent submit', async () => {
+    const user = userEvent.setup();
+    const onSuccess = vi.fn();
+    let subaccountAttempts = 0;
+
+    apiPostMock.mockImplementation((endpoint: string) => {
+      if (endpoint === '/api/paystack/resolve') {
+        return Promise.resolve({
+          account_name: 'Jane Doe',
+          account_number: '1234567890',
+          bank_id: 1,
+        });
+      }
+
+      if (endpoint === '/api/paystack/subaccount') {
+        subaccountAttempts += 1;
+
+        if (subaccountAttempts === 1) {
+          return Promise.reject(new Error('Failed to save bank details'));
+        }
+
+        return Promise.resolve({
+          success: true,
+          accountName: 'Jane Doe',
+          subaccountCode: 'ACCT_test123',
+        });
+      }
+
+      throw new Error(`Unexpected endpoint: ${endpoint}`);
+    });
+
+    render(
+      <MerchantBankForm
+        initialData={{
+          accountNumber: '1234567890',
+          bankCode: '044',
+          businessName: 'Baci Store',
+          autoPayoutEnabled: true,
+        }}
+        onSuccess={onSuccess}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Account Verified')).toBeTruthy();
+    });
+
+    await user.click(screen.getByRole('checkbox'));
+
+    const saveButton = screen.getByRole('button', {
+      name: /save bank details/i,
+    });
+    await user.click(saveButton);
+
+    await waitFor(() => {
+      expect(toastSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          variant: 'destructive',
+          title: 'Save Failed',
+          description: 'Failed to save bank details',
+        })
+      );
+    });
+
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(toastSpy).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Bank Details Saved',
+      })
+    );
+
+    const firstSubmitPayload = apiPostMock.mock.calls.findLast(
+      ([endpoint]) => endpoint === '/api/paystack/subaccount'
+    )?.[1];
+
+    expect(firstSubmitPayload).toMatchObject({
+      accountNumber: '1234567890',
+      bankCode: '044',
+      businessName: 'Baci Store',
+      autoPayoutEnabled: false,
+    });
+
+    await user.click(saveButton);
+
+    await waitFor(() => {
+      expect(onSuccess).toHaveBeenCalledTimes(1);
+    });
+
+    expect(toastSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Bank Details Saved',
+        description: 'Verified: Jane Doe',
+      })
+    );
+
+    const subaccountCalls = apiPostMock.mock.calls.filter(
+      ([endpoint]) => endpoint === '/api/paystack/subaccount'
+    );
+
+    expect(subaccountCalls).toHaveLength(2);
+    expect(subaccountCalls[1]?.[1]).toMatchObject({
+      accountNumber: '1234567890',
+      bankCode: '044',
+      businessName: 'Baci Store',
+      autoPayoutEnabled: false,
+    });
+  });
 });

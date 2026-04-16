@@ -82,6 +82,16 @@ export async function POST(request: NextRequest) {
       hasRequestField(body, 'payoutMode') ||
       hasRequestField(body, 'payout_mode');
 
+    if (hasExplicitPayoutMode) {
+      return NextResponse.json(
+        {
+          error:
+            'Payout mode is no longer supported in the bank details save flow',
+        },
+        { status: 400 }
+      );
+    }
+
     // 1. Get Merchant Context (supports both owners and staff)
     const merchantContext = await getMerchantForApiRequest(
       auth.supabase,
@@ -97,16 +107,6 @@ export async function POST(request: NextRequest) {
     const access = toUserAccess(merchantContext);
     if (!hasPermission(access, 'integrations', 'manage')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
-    if (hasExplicitPayoutMode) {
-      return NextResponse.json(
-        {
-          error:
-            'Payout mode is no longer supported in the bank details save flow',
-        },
-        { status: 400 }
-      );
     }
 
     if (shouldPersistAutoPayoutEnabled && !access.isOwner) {

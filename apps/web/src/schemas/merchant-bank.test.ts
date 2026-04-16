@@ -41,4 +41,24 @@ describe('merchantBankSchema', () => {
 
     expect(result.success).toBe(false);
   });
+
+  it('rejects whitespace-only business names', () => {
+    const result = merchantBankSchema.safeParse({
+      accountNumber: '1234567890',
+      bankCode: '044',
+      businessName: '   ',
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('trims business names before returning parsed data', () => {
+    const result = merchantBankSchema.parse({
+      accountNumber: '1234567890',
+      bankCode: '044',
+      businessName: '  Baci Store  ',
+    });
+
+    expect(result.businessName).toBe('Baci Store');
+  });
 });

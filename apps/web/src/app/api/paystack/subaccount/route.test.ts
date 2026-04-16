@@ -392,6 +392,7 @@ describe('POST /api/paystack/subaccount', () => {
     expect(await response.json()).toEqual({
       error: 'Payout mode is no longer supported in the bank details save flow',
     });
+    expect(mockGetMerchantForApiRequest).not.toHaveBeenCalled();
     expect(mockResolveAccountNumber).not.toHaveBeenCalled();
     expect(mockCreateSubaccount).not.toHaveBeenCalled();
   });
