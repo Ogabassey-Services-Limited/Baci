@@ -34,7 +34,9 @@ Apply these in this exact order:
 7. [20260415191430_dedupe_product_offer_condition_aliases.sql](../supabase/migrations/20260415191430_dedupe_product_offer_condition_aliases.sql)
 8. [20260415191440_repoint_order_item_variant_links_before_alias_dedupe.sql](../supabase/migrations/20260415191440_repoint_order_item_variant_links_before_alias_dedupe.sql)
 9. [20260415191445_dedupe_product_variant_condition_aliases.sql](../supabase/migrations/20260415191445_dedupe_product_variant_condition_aliases.sql)
-10. [20260415191500_canonicalize_product_condition_values.sql](../supabase/migrations/20260415191500_canonicalize_product_condition_values.sql)
+10. [20260415191450_prepare_product_condition_constraint_for_open_box.sql](../supabase/migrations/20260415191450_prepare_product_condition_constraint_for_open_box.sql)
+11. [20260415191500_canonicalize_product_condition_values.sql](../supabase/migrations/20260415191500_canonicalize_product_condition_values.sql)
+12. [20260415191510_validate_product_condition_constraint.sql](../supabase/migrations/20260415191510_validate_product_condition_constraint.sql)
 
 ## Release Preconditions
 
@@ -198,7 +200,7 @@ If these numbers move slightly before rollout, that is acceptable. The load-bear
 ## Migration Window Steps
 
 1. Confirm the production deployment is ready.
-2. Run the ten migrations in order:
+2. Run the twelve migrations in order:
    - `20260415103000_add_variant_condition_feed_rpcs.sql`
    - `20260415110000_prepare_legacy_products_for_sku_matrix.sql`
    - `20260415122940_repoint_order_item_variant_links_before_dedupe.sql`
@@ -208,7 +210,9 @@ If these numbers move slightly before rollout, that is acceptable. The load-bear
    - `20260415191430_dedupe_product_offer_condition_aliases.sql`
    - `20260415191440_repoint_order_item_variant_links_before_alias_dedupe.sql`
    - `20260415191445_dedupe_product_variant_condition_aliases.sql`
+   - `20260415191450_prepare_product_condition_constraint_for_open_box.sql`
    - `20260415191500_canonicalize_product_condition_values.sql`
+   - `20260415191510_validate_product_condition_constraint.sql`
 3. Merge/deploy immediately after the last migration succeeds.
 4. Run the post-migration SQL verification below.
 5. Run the app smoke tests below.
@@ -367,7 +371,7 @@ This release is not a clean “rollback everything” deployment. Treat it as a 
 This rollout is ready when all are true:
 
 - preflight safety checks pass
-- the ten migrations apply cleanly
+- the twelve migrations apply cleanly
 - post-migration verification checks pass
 - web storefront, mobile storefront, web admin, and mobile admin smoke tests pass
 - one flag-on and one flag-off GMC feed merchant behave as expected
