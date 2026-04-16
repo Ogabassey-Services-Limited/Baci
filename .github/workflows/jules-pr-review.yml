@@ -54,6 +54,7 @@ jobs:
           set -euo pipefail
 
           body_file="$RUNNER_TEMP/jules-review.md"
+          meta_file="$RUNNER_TEMP/jules-review-meta.env"
           run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}"
 
           if [[ "${REVIEW_MODE}" == "fast" ]]; then
@@ -101,6 +102,8 @@ jobs:
           review_marker="<!-- jules-pr-review mode:${REVIEW_MODE} sha:${head_sha} -->"
           session_id=""
           state="NOT_STARTED"
+
+          printf 'REVIEWED_SHA=%s\n' "${head_sha}" > "${meta_file}"
 
           if [[ -z "${JULES_API_KEY:-}" ]]; then
             cat > "$body_file" <<EOF
@@ -614,14 +617,24 @@ jobs:
           set -euo pipefail
 
           body_file="$RUNNER_TEMP/jules-review.md"
-          pr_response="$(
-            curl -fsSL \
-              -H "Accept: application/vnd.github+json" \
-              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-              "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}"
-          )"
-          head_sha="$(jq -r '.head.sha' <<<"${pr_response}")"
-          marker="<!-- jules-pr-review mode:${REVIEW_MODE} sha:${head_sha} -->"
+          meta_file="$RUNNER_TEMP/jules-review-meta.env"
+          reviewed_sha=""
+
+          if [[ -f "${meta_file}" ]]; then
+            reviewed_sha="$(sed -n 's/^REVIEWED_SHA=//p' "${meta_file}" | tail -n 1)"
+          fi
+
+          if [[ -z "${reviewed_sha}" ]]; then
+            pr_response="$(
+              curl -fsSL \
+                -H "Accept: application/vnd.github+json" \
+                -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+                "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}"
+            )"
+            reviewed_sha="$(jq -r '.head.sha' <<<"${pr_response}")"
+          fi
+
+          marker="<!-- jules-pr-review mode:${REVIEW_MODE} sha:${reviewed_sha} -->"
 
           if [[ ! -f "${body_file}" ]]; then
             cat > "${body_file}" <<EOF
@@ -677,7 +690,7 @@ jobs:
 
           review_payload="$(
             jq -n \
-              --arg commit_id "${head_sha}" \
+              --arg commit_id "${reviewed_sha}" \
               --rawfile body "${body_file}" \
               '{
                 body: $body,
