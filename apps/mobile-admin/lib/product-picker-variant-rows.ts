@@ -25,6 +25,7 @@ export interface SelectableProductPickerItem {
   id: string;
   images: string[];
   name: string;
+  parent_product_id?: string | null;
   price: number;
   sku: string | null;
   variant_attributes: unknown;
