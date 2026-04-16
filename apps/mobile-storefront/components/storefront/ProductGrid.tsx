@@ -4,6 +4,10 @@ import { useEffect, useRef } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { ProductGridSkeleton } from '@/components/ui/Skeleton';
 import { palette } from '@/constants/Colors';
+import {
+  PRODUCT_GRID_LOADING_MORE_LABEL,
+  PRODUCT_GRID_MAX_PRICE_LIMIT,
+} from '@/constants/product-grid';
 import { useCategories, useProductBrands, useProducts } from '@/hooks';
 import { getProductGridCategories } from '@/lib/category-utils';
 import { resolveSelectedCategoryId } from '@/lib/product-filter-options';
@@ -11,10 +15,6 @@ import type { ProductGridBlock } from '@/types/blocks';
 import { FilterBar } from './FilterBar';
 import { ProductCard } from './ProductCard';
 import { styles } from './ProductGrid.styles';
-import {
-  PRODUCT_GRID_LOADING_MORE_LABEL,
-  PRODUCT_GRID_MAX_PRICE_LIMIT,
-} from './product-grid.constants';
 import { useProductGridFilters } from './use-product-grid-filters';
 import { useProductGridPagination } from './use-product-grid-pagination';
 

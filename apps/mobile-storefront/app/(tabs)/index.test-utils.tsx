@@ -30,7 +30,7 @@ export const mockBlockRenderer = jest.fn(
     blocks,
     productGridLoadMoreSignal,
   }: {
-    blocks: Array<{ type: string }>;
+    blocks: Array<{ props?: { id?: string }; type: string }>;
     productGridLoadMoreSignal?: number;
   }) => (
     <MockView testID="block-renderer">
@@ -72,7 +72,7 @@ jest.mock('@/components/OfflineNotice', () => ({
 
 jest.mock('@/components/storefront/BlockRenderer', () => ({
   BlockRenderer: (props: {
-    blocks: Array<{ type: string }>;
+    blocks: Array<{ props?: { id?: string }; type: string }>;
     productGridLoadMoreSignal?: number;
   }) => mockBlockRenderer(props),
 }));

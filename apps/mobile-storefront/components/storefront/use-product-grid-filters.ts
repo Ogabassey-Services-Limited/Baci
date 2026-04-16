@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { PRODUCT_GRID_MAX_PRICE_LIMIT } from './product-grid.constants';
+import { PRODUCT_GRID_MAX_PRICE_LIMIT } from '@/constants/product-grid';
 
 export function useProductGridFilters() {
   const [selectedCategoryName, setSelectedCategoryName] = useState('All');

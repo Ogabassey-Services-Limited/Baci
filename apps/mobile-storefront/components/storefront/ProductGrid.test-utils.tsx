@@ -1,5 +1,6 @@
 import { jest } from '@jest/globals';
 import { Text } from 'react-native';
+import { PRODUCT_GRID_MAX_PRICE_LIMIT } from '@/constants/product-grid';
 import type { ProductGridBlock } from '@/types/blocks';
 import type { Product } from '@/types/product';
 
@@ -201,3 +202,4 @@ export function resetProductGridTestState() {
 }
 
 export { default as ProductGrid } from './ProductGrid';
+export { PRODUCT_GRID_MAX_PRICE_LIMIT };

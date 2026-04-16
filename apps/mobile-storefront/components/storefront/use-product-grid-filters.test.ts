@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 import { act, renderHook } from '@testing-library/react-native';
-import { PRODUCT_GRID_MAX_PRICE_LIMIT } from './product-grid.constants';
+import { PRODUCT_GRID_MAX_PRICE_LIMIT } from './ProductGrid.test-utils';
 import { useProductGridFilters } from './use-product-grid-filters';
 
 describe('useProductGridFilters', () => {

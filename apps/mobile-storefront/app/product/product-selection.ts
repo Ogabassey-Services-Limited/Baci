@@ -86,10 +86,10 @@ export function computeProductSelectionState({
     availableConditions[0] ??
     normalizeRouteCondition(product?.condition);
   const selectionAttributes = {
-    storage: selectedStorage ?? routeSelectionAttributes.storage ?? null,
-    color: selectedColor ?? routeSelectionAttributes.color ?? null,
     ...routeSelectionAttributes,
     ...selectedAttributes,
+    storage: selectedStorage ?? routeSelectionAttributes.storage ?? null,
+    color: selectedColor ?? routeSelectionAttributes.color ?? null,
   };
   const shouldUseDefaultVariantSelection =
     !selectedVariant &&

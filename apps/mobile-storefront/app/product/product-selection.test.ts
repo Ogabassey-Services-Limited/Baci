@@ -33,6 +33,26 @@ describe('product selection', () => {
     expect(result.effectiveSelectedVariantId).toBe(primaryVariant.id);
   });
 
+  it('returns empty selection state when product is null', () => {
+    const result = computeProductSelectionState({
+      defaultVariantSelection: null,
+      product: null,
+      routeCondition: null,
+      routeSelectionAttributes: {},
+      routeVariantId: null,
+      selectedAttributes: {},
+      selectedColor: null,
+      selectedCondition: null,
+      selectedStorage: null,
+      selectedVariant: null,
+    });
+
+    expect(result.availableConditions).toEqual([]);
+    expect(result.currentVariantDisplaySelection).toBeNull();
+    expect(result.currentVariantSelection).toBeNull();
+    expect(result.effectiveSelectedVariantId).toBeNull();
+  });
+
   it('resolves the variant display selection from the route condition and attributes', () => {
     const result = computeProductSelectionState({
       defaultVariantSelection: resolveDefaultVariantSelection(variantProduct),
@@ -120,5 +140,47 @@ describe('product selection', () => {
     expect(result.usesVariantConditions).toBe(false);
     expect(result.availableConditions).toEqual(['used']);
     expect(result.effectiveSelectedCondition).toBe('used');
+  });
+
+  it('lets explicit storage and color selections override route attributes', () => {
+    const coloredVariantProduct: Product = {
+      ...variantProduct,
+      color_images: {
+        Silver: ['https://cdn.example.com/silver.jpg'],
+      },
+      variant_attributes: {
+        ...(variantProduct.variant_attributes ?? {}),
+        color: ['Silver'],
+      },
+      variants: (variantProduct.variants ?? []).map((variant) => ({
+        ...variant,
+        attributes: {
+          ...(variant.attributes ?? {}),
+          color: 'Silver',
+        },
+      })),
+    };
+
+    const result = computeProductSelectionState({
+      defaultVariantSelection: resolveDefaultVariantSelection(
+        coloredVariantProduct
+      ),
+      product: coloredVariantProduct,
+      routeCondition: 'new',
+      routeSelectionAttributes: {
+        color: 'Gold',
+        connectivity: 'WiFi',
+        storage: '64GB',
+      },
+      routeVariantId: null,
+      selectedAttributes: {},
+      selectedColor: 'Silver',
+      selectedCondition: null,
+      selectedStorage: '128GB',
+      selectedVariant: null,
+    });
+
+    expect(result.effectiveSelectedStorage).toBe('128GB');
+    expect(result.effectiveSelectedColor).toBe('Silver');
   });
 });

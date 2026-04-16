@@ -25,7 +25,6 @@ import { createLogger } from '@/lib/logger';
 const log = createLogger('ProductDetail');
 
 import {
-  getVariantConditionOptions,
   normalizeCanonicalProductCondition,
   resolveDefaultVariantSelection,
   resolveVariantDisplaySelection,
@@ -364,26 +363,13 @@ export default function ProductDetailScreen() {
   ]);
 
   useEffect(() => {
-    const nextAvailableConditions = product
-      ? ((usesVariantConditions
-          ? (getVariantConditionOptions(product) as ProductCondition[])
-          : Array.from(
-              new Set(
-                [
-                  normalizeRouteCondition(product.condition),
-                  ...(product.offers?.map((offer) => offer.condition) || []),
-                ].filter(Boolean)
-              )
-            )) as ProductCondition[])
-      : [];
-
-    if (nextAvailableConditions.length === 0) {
+    if (availableConditions.length === 0) {
       return;
     }
 
     if (
       selectedCondition &&
-      nextAvailableConditions.includes(selectedCondition as ProductCondition)
+      availableConditions.includes(selectedCondition as ProductCondition)
     ) {
       return;
     }
@@ -391,13 +377,14 @@ export default function ProductDetailScreen() {
     setSelectedCondition(
       (currentVariantDisplaySelection?.condition as
         | ProductCondition
-        | undefined) ?? nextAvailableConditions[0]
+        | undefined) ??
+        normalizeRouteCondition(availableConditions[0] ?? product?.condition)
     );
   }, [
+    availableConditions,
     currentVariantDisplaySelection?.condition,
     product,
     selectedCondition,
-    usesVariantConditions,
   ]);
 
   // Sync quantity with cart store

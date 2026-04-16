@@ -7,17 +7,17 @@ interface BackfillRequest {
   visibleCount: number;
 }
 
-interface UseProductGridPaginationOptions<Product> {
+interface UseProductGridPaginationOptions<TProduct> {
   displayLimit: number;
   hasMore: boolean;
   isLoadingMore: boolean;
   loadMore: LoadMoreFn;
   loadMoreSignal: number;
-  orderedProducts: Product[];
+  orderedProducts: TProduct[];
   paginationResetKey: string;
 }
 
-export function useProductGridPagination<Product>({
+export function useProductGridPagination<TProduct>({
   displayLimit,
   hasMore,
   isLoadingMore,
@@ -25,7 +25,7 @@ export function useProductGridPagination<Product>({
   loadMoreSignal,
   orderedProducts,
   paginationResetKey,
-}: UseProductGridPaginationOptions<Product>) {
+}: UseProductGridPaginationOptions<TProduct>) {
   const [visibleCount, setVisibleCount] = useState(displayLimit);
   const lastHandledLoadMoreSignalRef = useRef(0);
   const lastPaginationResetKeyRef = useRef('');

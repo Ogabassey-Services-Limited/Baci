@@ -252,11 +252,17 @@ describe('HomeScreen pagination', () => {
     });
 
     const productGridCalls = getProductGridCalls();
-    expect(productGridCalls).toHaveLength(4);
-    expect(productGridCalls[2]?.[0]).toMatchObject({
+    const primaryGridCalls = productGridCalls.filter(
+      ([props]) => props.blocks[0]?.props?.id === 'products-1'
+    );
+    const secondaryGridCalls = productGridCalls.filter(
+      ([props]) => props.blocks[0]?.props?.id === 'products-2'
+    );
+
+    expect(primaryGridCalls.at(-1)?.[0]).toMatchObject({
       productGridLoadMoreSignal: 1,
     });
-    expect(productGridCalls[3]?.[0]).toMatchObject({
+    expect(secondaryGridCalls.at(-1)?.[0]).toMatchObject({
       productGridLoadMoreSignal: 0,
     });
   });
