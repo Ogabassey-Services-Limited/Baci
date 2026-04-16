@@ -28,13 +28,16 @@ import PhoneInput from 'react-native-phone-number-input';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAwareModalContainer } from '@/components/ui/KeyboardAwareModalContainer';
 import SafeImage from '@/components/ui/SafeImage';
+import {
+  buildManualOrderLineItem,
+  type SelectableManualOrderProduct,
+} from '@/lib/manual-order-line-item';
 import { createManualOrderWithItems } from '@/lib/manual-order-persistence';
 import { mergeOrderItem } from '@/lib/order-items';
 import {
   getProductPickerRowSubtitle,
   getProductPickerRowTitle,
 } from '@/lib/order-product-picker';
-import type { SelectableProductPickerItem } from '@/lib/product-picker-variant-rows';
 import {
   sanitizeAddress,
   sanitizeCustomerName,
@@ -110,18 +113,7 @@ type SelectableCustomer = Pick<
   'id' | 'first_name' | 'last_name' | 'email' | 'phone' | 'address'
 >;
 
-type SelectableOrderProduct = Pick<
-  SelectableProductPickerItem,
-  | 'condition'
-  | 'has_variants'
-  | 'id'
-  | 'images'
-  | 'name'
-  | 'parent_product_id'
-  | 'price'
-  | 'sku'
-  | 'variant_attributes'
->;
+type SelectableOrderProduct = SelectableManualOrderProduct;
 
 /**
  * Formats a price string with thousand separators while preserving decimal input
@@ -344,24 +336,15 @@ export default function NewOrderScreen() {
 
   // Handlers (Same logic, just keeping cleanly separated)
   const handleAddProduct = (product: SelectableOrderProduct) => {
-    const parentProductId = product.parent_product_id ?? product.id;
-    const variantId = product.parent_product_id ? product.id : null;
-    const itemId = `${parentProductId}::${variantId ?? 'base'}`;
-
     setOrderItems((prev) =>
-      mergeOrderItem(prev, {
-        id: itemId,
-        product_id: parentProductId,
-        name: product.name,
-        quantity: 1,
-        price: product.price,
-        condition: product.condition ?? undefined,
-        image_url: product.images?.[0] ?? selectedParentProduct?.images?.[0],
-        variant_id: variantId,
-        variant_name: variantId
-          ? getProductPickerRowTitle(product, selectedParentProduct?.name)
-          : null,
-      })
+      mergeOrderItem(
+        prev,
+        buildManualOrderLineItem({
+          fallbackImageUrl: selectedParentProduct?.images?.[0],
+          parentProductName: selectedParentProduct?.name,
+          product,
+        })
+      )
     );
     closeProductModal();
   };
