@@ -64,10 +64,8 @@ import {
   type Product,
   type ProductCondition,
 } from '@/types/product';
-import {
-  computeProductSelectionState,
-  normalizeRouteCondition,
-} from './product-selection';
+import { normalizeRouteCondition } from './normalize-route-condition';
+import { computeProductSelectionState } from './product-selection';
 
 function getFirstColorOption(product: Product | null) {
   if (!product) {
