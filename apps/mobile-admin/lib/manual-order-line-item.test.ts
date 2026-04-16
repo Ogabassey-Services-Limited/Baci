@@ -68,4 +68,36 @@ describe('buildManualOrderLineItem', () => {
       variant_name: null,
     });
   });
+
+  it('omits variant_name when the derived picker label matches the parent product name', () => {
+    const product: SelectableManualOrderProduct = {
+      condition: 'new',
+      has_variants: false,
+      id: 'variant_2',
+      images: ['parent.jpg'],
+      name: 'Sony WH-1000XM6',
+      parent_product_id: 'product_3',
+      price: 455000,
+      sku: 'SONY-WH1000XM6',
+      variant_attributes: null,
+    };
+
+    expect(
+      buildManualOrderLineItem({
+        fallbackImageUrl: 'fallback.jpg',
+        parentProductName: 'Sony WH-1000XM6',
+        product,
+      })
+    ).toEqual({
+      condition: 'new',
+      id: 'product_3::variant_2',
+      image_url: 'parent.jpg',
+      name: 'Sony WH-1000XM6',
+      price: 455000,
+      product_id: 'product_3',
+      quantity: 1,
+      variant_id: 'variant_2',
+      variant_name: null,
+    });
+  });
 });

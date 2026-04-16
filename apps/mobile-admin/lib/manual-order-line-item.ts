@@ -34,20 +34,26 @@ export function buildManualOrderLineItem(args: {
   const parentProductId = args.product.parent_product_id ?? args.product.id;
   const variantId = args.product.parent_product_id ? args.product.id : null;
   const normalizedParentName = args.parentProductName?.trim();
+  const displayName = variantId
+    ? normalizedParentName || args.product.name
+    : args.product.name;
+  const variantLabel = variantId
+    ? getProductPickerRowTitle(args.product, normalizedParentName)
+    : null;
+  const normalizedVariantLabel = variantLabel?.trim();
 
   return {
     id: `${parentProductId}::${variantId ?? 'base'}`,
     product_id: parentProductId,
-    name: variantId
-      ? normalizedParentName || args.product.name
-      : args.product.name,
+    name: displayName,
     quantity: 1,
     price: args.product.price,
     condition: args.product.condition ?? undefined,
     image_url: args.product.images?.[0] ?? args.fallbackImageUrl ?? undefined,
     variant_id: variantId,
-    variant_name: variantId
-      ? getProductPickerRowTitle(args.product, normalizedParentName)
-      : null,
+    variant_name:
+      normalizedVariantLabel && normalizedVariantLabel !== displayName
+        ? normalizedVariantLabel
+        : null,
   };
 }
