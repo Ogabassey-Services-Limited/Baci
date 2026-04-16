@@ -572,7 +572,7 @@ export default function ProductDetailScreen() {
     useEffectivePrice(
       product ?? null,
       currentVariantDisplaySelection,
-      offerConditionKey,
+      effectiveSelectedCondition,
       negotiatedPrice
     );
 
@@ -580,7 +580,7 @@ export default function ProductDetailScreen() {
   const { price: calculatedPrice } = useEffectivePrice(
     product ?? null,
     currentVariantDisplaySelection,
-    offerConditionKey,
+    effectiveSelectedCondition,
     null
   );
   const normalizedSelectedCondition =

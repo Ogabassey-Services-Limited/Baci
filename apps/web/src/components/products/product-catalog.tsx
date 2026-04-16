@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getCountryByCode } from '@/lib/countries';
 import type { Product } from '@/lib/products';
 import { ExportToJumiaDialog } from './jumia/export-dialog';
+import { mergeLocalProducts } from './merge-local-products';
 import { ProductCatalogTable } from './product-catalog-table';
 import { useJumiaIntegrations } from './use-jumia-integrations';
 
@@ -56,23 +57,11 @@ export function ProductCatalog({
 
   useEffect(() => {
     setLocalProducts((current) => {
-      const currentById = new Map(
-        current.map((product) => [product.id, product])
-      );
-      const mergedProducts = products.map((product) =>
-        dirtyProducts.has(product.id)
-          ? (currentById.get(product.id) ?? product)
-          : product
-      );
-
-      for (const product of current) {
-        if (!dirtyProducts.has(product.id)) continue;
-        if (!products.some((incoming) => incoming.id === product.id)) {
-          mergedProducts.push(product);
-        }
-      }
-
-      return mergedProducts;
+      return mergeLocalProducts({
+        current,
+        dirtyProductIds: dirtyProducts,
+        incoming: products,
+      });
     });
   }, [dirtyProducts, products]);
 

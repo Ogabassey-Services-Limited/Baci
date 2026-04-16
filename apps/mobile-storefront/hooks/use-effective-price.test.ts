@@ -89,6 +89,33 @@ describe('useEffectivePrice', () => {
     });
   });
 
+  it('falls back to a single raw legacy offer when no condition is selected', () => {
+    const { result } = renderHook(() =>
+      useEffectivePrice(
+        {
+          ...baseProduct,
+          offers: [
+            {
+              id: 'offer-scratch-and-dent',
+              condition: 'scratch_and_dent' as never,
+              price: 470000,
+              compare_at_price: 520000,
+              stock_quantity: 2,
+            },
+          ],
+        },
+        null,
+        null,
+        null
+      )
+    );
+
+    expect(result.current).toEqual({
+      price: 470000,
+      comparePrice: 520000,
+    });
+  });
+
   it('prefers an exact open_box offer over a canonical refurbished alias', () => {
     const { result } = renderHook(() =>
       useEffectivePrice(

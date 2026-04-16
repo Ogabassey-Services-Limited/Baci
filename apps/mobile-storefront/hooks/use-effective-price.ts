@@ -40,22 +40,27 @@ function calculateEffectivePrice(
   let price = product.price;
   let comparePrice = product.compare_at_price;
 
-  // Apply condition price if different condition selected
-  if (selectedCondition && product.offers) {
-    const normalizedSelectedCondition =
-      normalizeCanonicalProductCondition(selectedCondition);
-    const exactOffer = product.offers.find(
-      (o) => o.condition === selectedCondition
-    );
-    const offer =
-      exactOffer ||
-      (normalizedSelectedCondition
-        ? product.offers.find(
-            (o) =>
-              normalizeCanonicalProductCondition(o.condition) ===
-              normalizedSelectedCondition
-          )
-        : undefined);
+  if (product.offers) {
+    let offer: (typeof product.offers)[number] | undefined;
+
+    if (selectedCondition) {
+      const normalizedSelectedCondition =
+        normalizeCanonicalProductCondition(selectedCondition);
+      const exactOffer = product.offers.find(
+        (o) => o.condition === selectedCondition
+      );
+      offer =
+        exactOffer ||
+        (normalizedSelectedCondition
+          ? product.offers.find(
+              (o) =>
+                normalizeCanonicalProductCondition(o.condition) ===
+                normalizedSelectedCondition
+            )
+          : undefined);
+    } else if (product.offers.length === 1) {
+      offer = product.offers[0];
+    }
 
     if (offer) {
       price = offer.price;
