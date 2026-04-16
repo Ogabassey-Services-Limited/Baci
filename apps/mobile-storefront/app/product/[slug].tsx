@@ -251,6 +251,13 @@ export default function ProductDetailScreen() {
     selectedVariant,
   });
   const selectionSyncSignature = getSelectionSyncSignature(product);
+  const offerConditionKey =
+    product?.has_variants === true
+      ? null
+      : effectiveSelectedCondition ||
+        (product?.offers?.length === 1
+          ? (product.offers[0]?.condition ?? null)
+          : null);
 
   // Timer ref for toast cleanup - prevents memory leaks (2026 Best Practice)
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -292,8 +299,8 @@ export default function ProductDetailScreen() {
         currentVariantDisplaySelection.condition
       );
     }
-    if (effectiveSelectedCondition) {
-      return formatProductConditionDisplay(effectiveSelectedCondition);
+    if (offerConditionKey) {
+      return formatProductConditionDisplay(offerConditionKey);
     }
     return product?.condition;
   };
@@ -565,7 +572,7 @@ export default function ProductDetailScreen() {
     useEffectivePrice(
       product ?? null,
       currentVariantDisplaySelection,
-      effectiveSelectedCondition,
+      offerConditionKey,
       negotiatedPrice
     );
 
@@ -573,16 +580,15 @@ export default function ProductDetailScreen() {
   const { price: calculatedPrice } = useEffectivePrice(
     product ?? null,
     currentVariantDisplaySelection,
-    effectiveSelectedCondition,
+    offerConditionKey,
     null
   );
-  const normalizedSelectedCondition = normalizeCanonicalProductCondition(
-    effectiveSelectedCondition
-  );
+  const normalizedSelectedCondition =
+    normalizeCanonicalProductCondition(offerConditionKey);
   const selectedConditionOffer =
-    !product?.has_variants && effectiveSelectedCondition
+    !product?.has_variants && offerConditionKey
       ? (product?.offers?.find(
-          (offer) => offer.condition === effectiveSelectedCondition
+          (offer) => offer.condition === offerConditionKey
         ) ??
         (normalizedSelectedCondition
           ? product?.offers?.find(
