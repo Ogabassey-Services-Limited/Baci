@@ -1,7 +1,13 @@
 import { prioritizeSmartphoneProducts } from '@baci/shared';
 import { useIsFocused } from '@react-navigation/native';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { ProductGridSkeleton } from '@/components/ui/Skeleton';
 import { palette, SPACING, TYPOGRAPHY } from '@/constants/Colors';
 import { useCategories, useProductBrands, useProducts } from '@/hooks';
@@ -20,14 +26,17 @@ interface Category {
 
 interface ProductGridProps {
   block: ProductGridBlock;
+  loadMoreSignal?: number;
   selectedCategoryId: string | null;
   variant: 'grid' | 'editorial' | 'list';
 }
 
 const MAX_PRICE_LIMIT = 3000000;
+const LOADING_MORE_PRODUCTS_LABEL = 'Loading more products';
 
 export default function ProductGrid({
   block,
+  loadMoreSignal = 0,
   selectedCategoryId,
   variant,
 }: ProductGridProps) {
@@ -38,6 +47,7 @@ export default function ProductGrid({
   const [selectedCondition, setSelectedCondition] = useState('All');
   const [minRating, setMinRating] = useState(0);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [visibleCount, setVisibleCount] = useState(block.props.limit ?? 12);
 
   const {
     data: categoriesData = [],
@@ -68,8 +78,19 @@ export default function ProductGrid({
     : displayLimit;
   const isFocused = useIsFocused();
   const hasFocusedOnceRef = useRef(false);
+  const lastHandledLoadMoreSignalRef = useRef(0);
+  const lastPaginationResetKeyRef = useRef('');
 
-  const { products, isLoading, isFetching, isError, refetch } = useProducts({
+  const {
+    products,
+    hasMore,
+    isLoading,
+    isLoadingMore,
+    isFetching,
+    isError,
+    loadMore,
+    refetch,
+  } = useProducts({
     limit: fetchLimit,
     category: normalizedCategoryId,
     minPrice: minPrice > 0 ? minPrice : undefined,
@@ -84,6 +105,16 @@ export default function ProductGrid({
     maxPrice: maxPrice < MAX_PRICE_LIMIT ? maxPrice : undefined,
     condition: selectedCondition !== 'All' ? selectedCondition : undefined,
     minRating: minRating > 0 ? minRating : undefined,
+  });
+  const paginationResetKey = JSON.stringify({
+    category: normalizedCategoryId ?? null,
+    displayLimit,
+    maxPrice,
+    minPrice,
+    minRating,
+    selectedBrand,
+    selectedCategoryName,
+    selectedCondition,
   });
 
   useEffect(() => {
@@ -105,6 +136,16 @@ export default function ProductGrid({
     }
   }, [brands, selectedBrand]);
 
+  useEffect(() => {
+    if (lastPaginationResetKeyRef.current === paginationResetKey) {
+      return;
+    }
+
+    lastPaginationResetKeyRef.current = paginationResetKey;
+    setVisibleCount(displayLimit);
+    lastHandledLoadMoreSignalRef.current = 0;
+  }, [displayLimit, paginationResetKey]);
+
   const categoryNames = (() => {
     if (categoriesData.length > 0) {
       const allCats = (categoriesData as Category[]).map(
@@ -118,8 +159,39 @@ export default function ProductGrid({
   })();
 
   const orderedProducts = shouldPrioritizeSmartphones
-    ? prioritizeSmartphoneProducts(products).slice(0, displayLimit)
+    ? prioritizeSmartphoneProducts(products)
     : products;
+
+  useEffect(() => {
+    if (
+      loadMoreSignal <= 0 ||
+      loadMoreSignal === lastHandledLoadMoreSignalRef.current
+    ) {
+      return;
+    }
+
+    lastHandledLoadMoreSignalRef.current = loadMoreSignal;
+    const nextVisibleCount = visibleCount + displayLimit;
+    setVisibleCount(nextVisibleCount);
+
+    if (
+      orderedProducts.length < nextVisibleCount &&
+      hasMore &&
+      !isLoadingMore
+    ) {
+      loadMore();
+    }
+  }, [
+    displayLimit,
+    hasMore,
+    isLoadingMore,
+    loadMore,
+    loadMoreSignal,
+    orderedProducts.length,
+    visibleCount,
+  ]);
+
+  const visibleProducts = orderedProducts.slice(0, visibleCount);
 
   const handleCategorySelect = (categoryName: string) => {
     setSelectedCategoryName(categoryName);
@@ -188,14 +260,14 @@ export default function ProductGrid({
       />
 
       <View style={currentVariant === 'list' ? styles.list : styles.grid}>
-        {orderedProducts.length === 0 && !isFetching ? (
+        {visibleProducts.length === 0 && !isFetching ? (
           <View style={styles.emptyState}>
             <Text style={[styles.emptyText, { color: palette.gray[400] }]}>
               No products match your criteria.
             </Text>
           </View>
         ) : (
-          orderedProducts.map((product) => (
+          visibleProducts.map((product) => (
             <View
               key={product.id}
               style={
@@ -211,6 +283,20 @@ export default function ProductGrid({
           ))
         )}
       </View>
+      {isLoadingMore ? (
+        <View
+          style={styles.loadingMore}
+          accessible
+          accessibilityLabel={LOADING_MORE_PRODUCTS_LABEL}
+          accessibilityRole="progressbar"
+        >
+          <ActivityIndicator
+            size="small"
+            color={palette.gray[400]}
+            accessibilityElementsHidden
+          />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -266,5 +352,9 @@ const styles = StyleSheet.create({
     color: palette.gray[700],
     fontFamily: 'Inter_700Bold',
     fontSize: 12,
+  },
+  loadingMore: {
+    alignItems: 'center',
+    paddingVertical: SPACING.md,
   },
 });

@@ -1,4 +1,3 @@
-import type { Block } from '@/types/blocks';
 import { Image } from 'expo-image';
 import { router, Stack } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -24,15 +23,17 @@ import { SnowEffect } from '@/components/ui/SnowEffect';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { getHomeContentBottomPadding } from '@/constants/layout';
+import { usePageConfig } from '@/hooks';
 import { useNetworkState } from '@/hooks/use-network-state';
 import { usePermissionBooster } from '@/hooks/use-permission-booster';
-import { usePageConfig } from '@/hooks';
 import { CONFIG } from '@/lib/config';
 import { resolveScrollHeaderVisibility } from '@/lib/scroll-header-visibility';
 import { getTemplateConfig } from '@/lib/templates';
+import type { Block } from '@/types/blocks';
 
 const PATTERN_URI =
   'https://www.transparenttextures.com/patterns/carbon-fibre.png';
+const LOAD_MORE_THRESHOLD_PX = 240;
 
 export default function HomeScreen() {
   const colorScheme = useColorScheme();
@@ -45,6 +46,8 @@ export default function HomeScreen() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
     template.headerStyle === 'elite' ? 'u-airtime' : null
   );
+  const [productGridLoadMoreSignal, setProductGridLoadMoreSignal] = useState(0);
+  const lastLoadMoreContentHeightRef = useRef(0);
 
   const { requestPermission, triggerSystemPrompt, markDenied } =
     usePermissionBooster();
@@ -116,6 +119,8 @@ export default function HomeScreen() {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
+      lastLoadMoreContentHeightRef.current = 0;
+      setProductGridLoadMoreSignal(0);
       await refetch();
     } finally {
       setRefreshing(false);
@@ -141,9 +146,7 @@ export default function HomeScreen() {
     }
   };
 
-  const handleListScroll = (
-    event: NativeSyntheticEvent<NativeScrollEvent>
-  ) => {
+  const handleListScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (searchVisible) {
       return;
     }
@@ -160,6 +163,18 @@ export default function HomeScreen() {
     if (nextState.isVisible !== currentState.isVisible) {
       headerScrollState.current.isVisible = nextState.isVisible;
       animateHeaderVisibility(nextState.isVisible);
+    }
+
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const distanceFromBottom =
+      contentSize.height - (contentOffset.y + layoutMeasurement.height);
+
+    if (
+      distanceFromBottom <= LOAD_MORE_THRESHOLD_PX &&
+      contentSize.height > lastLoadMoreContentHeightRef.current
+    ) {
+      lastLoadMoreContentHeightRef.current = contentSize.height;
+      setProductGridLoadMoreSignal((current) => current + 1);
     }
   };
 
@@ -190,8 +205,18 @@ export default function HomeScreen() {
   ];
 
   const blocks: Block[] = (() => {
-    const isBlockArray = (arr: unknown[]): arr is Block[] => arr.every(item => typeof item === 'object' && item !== null && 'type' in item && 'props' in item);
-    let content: Block[] = pageConfig?.content && isBlockArray(pageConfig.content) ? pageConfig.content : defaultBlocks;
+    const isBlockArray = (arr: unknown[]): arr is Block[] =>
+      arr.every(
+        (item) =>
+          typeof item === 'object' &&
+          item !== null &&
+          'type' in item &&
+          'props' in item
+      );
+    let content: Block[] =
+      pageConfig?.content && isBlockArray(pageConfig.content)
+        ? pageConfig.content
+        : defaultBlocks;
 
     // Force CategoryRail if it's missing but it's an Elite design context
     if (
@@ -335,6 +360,7 @@ export default function HomeScreen() {
           <View key={block.props?.id || `block-${index}`}>
             <BlockRenderer
               blocks={[block]}
+              productGridLoadMoreSignal={productGridLoadMoreSignal}
               selectedCategoryId={selectedCategoryId}
               onCategorySelect={handleCategorySelect}
             />

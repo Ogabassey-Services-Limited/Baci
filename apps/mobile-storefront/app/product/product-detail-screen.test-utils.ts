@@ -1,0 +1,234 @@
+import { jest } from '@jest/globals';
+import type { Product } from '@/types/product';
+
+export const mockProductDetailsBody = jest.fn();
+export const mockRouterReplace = jest.fn();
+export const mockUseLocalSearchParams = jest.fn();
+export const mockUseProduct = jest.fn();
+export const mockUseEffectivePrice = jest.fn();
+export const mockUseReviews = jest.fn();
+export const mockUseCartStore = jest.fn();
+export const mockUseSavedStore = jest.fn();
+export const mockStickyBottomActions = jest.fn();
+export const mockInsets = { top: 59, bottom: 34, left: 0, right: 0 };
+
+const mockCartStoreState = {
+  items: [],
+  addItem: jest.fn(),
+  updateQuantity: jest.fn(),
+  removeItem: jest.fn(),
+};
+
+const mockSavedStoreState = {
+  toggleSaved: jest.fn(),
+  isSaved: jest.fn(() => false),
+  toastState: { show: false, type: 'add', message: '' },
+  dismissToast: jest.fn(),
+};
+
+export const baseProduct: Product = {
+  id: 'product-1',
+  merchant_id: 'merchant-1',
+  name: 'iPhone 13 Pro',
+  slug: 'iphone-13-pro',
+  price: 552000,
+  image: 'https://cdn.example.com/iphone-13-pro.jpg',
+  images: ['https://cdn.example.com/iphone-13-pro.jpg'],
+};
+
+export const variantProduct: Product = {
+  ...baseProduct,
+  has_variants: true,
+  variant_attributes: {
+    storage: ['128GB'],
+    connectivity: ['WiFi'],
+  },
+  variants: [
+    {
+      id: 'variant-new-128',
+      name: '128GB WiFi',
+      condition: 'new',
+      price: 552000,
+      stock_quantity: 5,
+      attributes: {
+        storage: '128GB',
+        connectivity: 'WiFi',
+      },
+    },
+    {
+      id: 'variant-used-128',
+      name: '128GB WiFi Used',
+      condition: 'used',
+      price: 500000,
+      stock_quantity: 3,
+      attributes: {
+        storage: '128GB',
+        connectivity: 'WiFi',
+      },
+    },
+  ],
+};
+
+const variantFixtures = variantProduct.variants ?? [];
+
+if (variantFixtures.length < 2) {
+  throw new Error('variantProduct must include at least two variants');
+}
+
+export const [primaryVariant, secondaryVariant] = variantFixtures as [
+  (typeof variantFixtures)[number],
+  (typeof variantFixtures)[number],
+];
+
+jest.mock('expo-router', () => ({
+  router: {
+    replace: (...args: unknown[]) => mockRouterReplace(...args),
+    back: jest.fn(),
+    push: jest.fn(),
+    canGoBack: jest.fn(() => false),
+  },
+  Stack: {
+    Screen: () => null,
+  },
+  useLocalSearchParams: (...args: unknown[]) =>
+    mockUseLocalSearchParams(...args),
+}));
+
+jest.mock('react-native-reanimated', () => {
+  const { View, ScrollView } =
+    jest.requireActual<typeof import('react-native')>('react-native');
+
+  return {
+    __esModule: true,
+    default: {
+      View,
+      ScrollView,
+      createAnimatedComponent: (component: unknown) => component,
+    },
+    Extrapolate: { CLAMP: 'clamp' },
+    FadeIn: { duration: () => ({}) },
+    interpolate: () => 0,
+    useAnimatedScrollHandler: () => jest.fn(),
+    useAnimatedStyle: () => ({}),
+    useSharedValue: () => ({ value: 0 }),
+    withTiming: (value: unknown) => value,
+  };
+});
+
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => mockInsets,
+}));
+
+jest.mock('@/lib/logger', () => ({
+  createLogger: () => ({
+    debug: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  }),
+}));
+
+jest.mock('@/components/OfflineNotice', () => ({
+  OfflineEmptyState: () => null,
+}));
+
+jest.mock('@/components/product/FlyToCartParticle', () => ({
+  FlyToCartParticle: () => null,
+}));
+
+jest.mock('@/components/product/NegotiationModal', () => ({
+  NegotiationModal: () => null,
+}));
+
+jest.mock('@/components/product/ProductDetailsBody', () => ({
+  ProductDetailsBody: (props: unknown) => {
+    mockProductDetailsBody(props);
+    return null;
+  },
+}));
+
+jest.mock('@/components/product/ProductImageGallery', () => ({
+  ProductImageGallery: () => null,
+}));
+
+jest.mock('@/components/product/StickyBottomActions', () => ({
+  StickyBottomActions: (props: unknown) => {
+    mockStickyBottomActions(props);
+    return null;
+  },
+}));
+
+jest.mock('@/components/useColorScheme', () => ({
+  useColorScheme: () => 'light',
+}));
+
+jest.mock('@/hooks', () => ({
+  useProduct: (...args: unknown[]) => mockUseProduct(...args),
+}));
+
+jest.mock('@/hooks/use-effective-price', () => ({
+  useEffectivePrice: (...args: unknown[]) => mockUseEffectivePrice(...args),
+}));
+
+jest.mock('@/hooks/use-haptics', () => ({
+  useHaptics: () => ({
+    success: jest.fn(),
+    light: jest.fn(),
+  }),
+}));
+
+jest.mock('@/hooks/use-network-state', () => ({
+  useNetworkState: () => ({ isOnline: true }),
+}));
+
+jest.mock('@/hooks/use-reviews', () => ({
+  markReviewHelpful: jest.fn(),
+  useReviews: (...args: unknown[]) => mockUseReviews(...args),
+}));
+
+jest.mock('@/stores/cart-store', () => ({
+  useCartStore: (...args: unknown[]) => mockUseCartStore(...args),
+}));
+
+jest.mock('@/stores/saved-store', () => ({
+  useSavedStore: (...args: unknown[]) => mockUseSavedStore(...args),
+}));
+
+jest.mock('zustand/react/shallow', () => ({
+  useShallow: (selector: unknown) => selector,
+}));
+
+export const ProductDetailScreen =
+  jest.requireActual<typeof import('./[slug]')>('./[slug]').default;
+
+export function resetProductDetailScreenMocks() {
+  jest.clearAllMocks();
+  mockUseLocalSearchParams.mockReturnValue({ slug: 'legacy-iphone-13-pro' });
+  mockUseProduct.mockReturnValue({
+    product: baseProduct,
+    isLoading: false,
+    error: null,
+    refetch: jest.fn(),
+  });
+  mockUseEffectivePrice.mockReturnValue({
+    price: baseProduct.price,
+    comparePrice: undefined,
+  });
+  mockUseReviews.mockReturnValue({
+    reviews: [],
+    stats: null,
+    isLoading: false,
+    hasMore: false,
+    loadMore: jest.fn(),
+  });
+  mockUseCartStore.mockImplementation((selector: unknown) =>
+    (selector as (state: typeof mockCartStoreState) => unknown)(
+      mockCartStoreState
+    )
+  );
+  mockUseSavedStore.mockImplementation((selector: unknown) =>
+    (selector as (state: typeof mockSavedStoreState) => unknown)(
+      mockSavedStoreState
+    )
+  );
+}

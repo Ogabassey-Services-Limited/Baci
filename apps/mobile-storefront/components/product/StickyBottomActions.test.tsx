@@ -60,6 +60,7 @@ describe('StickyBottomActions', () => {
       alignItems: 'center',
       flexDirection: 'row',
       justifyContent: 'center',
+      width: '100%',
     });
     expect(containerStyle?.paddingBottom).toBe(16);
   });

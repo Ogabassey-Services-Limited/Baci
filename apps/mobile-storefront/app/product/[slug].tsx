@@ -253,9 +253,13 @@ export default function ProductDetailScreen() {
             )
           )) as ProductCondition[])
     : [];
+  const fallbackSelectedCondition =
+    routeCondition ??
+    availableConditions[0] ??
+    normalizeRouteCondition(product?.condition);
   const currentVariantDisplaySelection = product?.has_variants
     ? (resolveVariantDisplaySelection(product, {
-        condition: selectedCondition ?? routeCondition,
+        condition: selectedCondition ?? fallbackSelectedCondition,
         variantId: selectedVariant ?? routeVariantId,
         attributes: {
           storage: selectedStorage ?? routeSelectionAttributes.storage ?? null,
@@ -271,9 +275,13 @@ export default function ProductDetailScreen() {
         ? defaultVariantSelection
         : null))
     : null;
+  const effectiveSelectedCondition =
+    normalizeRouteCondition(currentVariantDisplaySelection?.condition) ??
+    selectedCondition ??
+    fallbackSelectedCondition;
   const currentVariantSelection = product?.has_variants
     ? resolveVariantSelection(product, {
-        condition: selectedCondition ?? routeCondition,
+        condition: effectiveSelectedCondition,
         variantId: selectedVariant ?? routeVariantId,
         attributes: {
           storage: selectedStorage ?? routeSelectionAttributes.storage ?? null,
@@ -347,8 +355,8 @@ export default function ProductDetailScreen() {
         currentVariantDisplaySelection.condition
       );
     }
-    if (selectedCondition) {
-      return formatProductConditionDisplay(selectedCondition);
+    if (effectiveSelectedCondition) {
+      return formatProductConditionDisplay(effectiveSelectedCondition);
     }
     return product?.condition;
   };
@@ -643,12 +651,13 @@ export default function ProductDetailScreen() {
     selectedCondition,
     null
   );
-  const normalizedSelectedCondition =
-    normalizeCanonicalProductCondition(selectedCondition);
+  const normalizedSelectedCondition = normalizeCanonicalProductCondition(
+    effectiveSelectedCondition
+  );
   const selectedConditionOffer =
-    !product?.has_variants && selectedCondition
+    !product?.has_variants && effectiveSelectedCondition
       ? (product?.offers?.find(
-          (offer) => offer.condition === selectedCondition
+          (offer) => offer.condition === effectiveSelectedCondition
         ) ??
         (normalizedSelectedCondition
           ? product?.offers?.find(
@@ -1064,11 +1073,11 @@ export default function ProductDetailScreen() {
           negotiatedPrice={negotiatedPrice}
           selectedVariant={selectedVariant}
           setSelectedVariant={setSelectedVariant}
-          selectedCondition={selectedCondition}
+          selectedCondition={effectiveSelectedCondition}
           setSelectedCondition={setSelectedCondition}
           selectedAttributes={effectiveSelectedAttributes}
-          selectedColor={selectedColor}
-          selectedStorage={selectedStorage}
+          selectedColor={effectiveSelectedColor}
+          selectedStorage={effectiveSelectedStorage}
           onSelectAttribute={(axis, value) => {
             setSelectedAttributes((current) => ({
               ...current,
