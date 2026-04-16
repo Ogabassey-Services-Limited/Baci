@@ -25,12 +25,32 @@ describe('storefront-product-filters', () => {
     ).toEqual(['new', 'used']);
   });
 
+  it('filters invalid available_conditions entries while preserving valid strings', () => {
+    expect(
+      getNormalizedStorefrontConditions({
+        available_conditions: [42, null, ' new '],
+      })
+    ).toEqual(['new']);
+  });
+
   it('returns a multi-condition badge label when the family spans more than new and used', () => {
     expect(
       getStorefrontConditionBadgeLabel({
         available_conditions: ['new', 'open_box'],
       })
     ).toBe('Multiple Conditions');
+  });
+
+  it('returns a new-and-used badge label when those are the only normalized conditions', () => {
+    expect(
+      getStorefrontConditionBadgeLabel({
+        available_conditions: ['new', 'used'],
+      })
+    ).toBe('New & Used');
+  });
+
+  it('returns undefined when there is no condition data', () => {
+    expect(getStorefrontConditionBadgeLabel({})).toBeUndefined();
   });
 
   it('matches condition filters against normalized available conditions', () => {
@@ -51,6 +71,26 @@ describe('storefront-product-filters', () => {
           condition: 'new',
         },
         'Used'
+      )
+    ).toBe(false);
+  });
+
+  it('treats All as a pass-through condition filter and rejects invalid condition filters', () => {
+    expect(
+      matchesStorefrontConditionFilter(
+        {
+          available_conditions: ['new'],
+        },
+        'All'
+      )
+    ).toBe(true);
+
+    expect(
+      matchesStorefrontConditionFilter(
+        {
+          available_conditions: ['new'],
+        },
+        'not-a-condition'
       )
     ).toBe(false);
   });
@@ -85,5 +125,25 @@ describe('storefront-product-filters', () => {
         'sony'
       )
     ).toBe(true);
+  });
+
+  it('treats All as a pass-through brand filter and rejects missing brands for specific selections', () => {
+    expect(
+      matchesStorefrontBrandFilter(
+        {
+          brand: 'Sony',
+        },
+        'All'
+      )
+    ).toBe(true);
+
+    expect(
+      matchesStorefrontBrandFilter(
+        {
+          brand: undefined,
+        },
+        'sony'
+      )
+    ).toBe(false);
   });
 });

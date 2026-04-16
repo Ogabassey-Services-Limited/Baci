@@ -1,7 +1,7 @@
 import type { Product } from '@/lib/products';
 import React from 'react';
 import { act, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@baci/shared', () => ({
   prioritizeSmartphoneProducts: vi.fn(
@@ -62,11 +62,14 @@ vi.mock('./ProductListItem', () => ({
   ProductListItem: () => <div data-testid="list-item" />,
 }));
 
-import { afterEach } from 'vitest';
 import { prioritizeSmartphoneProducts } from '@baci/shared';
 import { useSearchParams } from 'next/navigation';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { EngineProductGrid } from './EngineProductGrid';
+
+beforeEach(() => {
+  mockAdvancedProductFilterProps = null;
+});
 
 afterEach(() => {
   vi.resetAllMocks();
@@ -287,6 +290,47 @@ describe('EngineProductGrid', () => {
       const articles = screen.getAllByRole('article');
       expect(articles).toHaveLength(1);
       expect(articles[0].textContent).toBe('Galaxy S24 Family');
+    });
+  });
+
+  it('keeps legacy condition-offer families visible when filtering by new or used', async () => {
+    render(
+      <EngineProductGrid
+        externalProducts={[
+          createTestProduct({
+            id: 'family-1',
+            name: 'PlayStation 5 Family',
+            category: 'Consoles',
+            stock: 2,
+            condition: 'new',
+            has_condition_offers: true,
+            available_conditions: [],
+          }),
+          createTestProduct({
+            id: 'family-2',
+            name: 'Nintendo Switch',
+            category: 'Consoles',
+            stock: 2,
+            condition: 'new',
+            available_conditions: ['new'],
+          }),
+        ]}
+        categories={[{ name: 'Consoles', slug: 'consoles' }]}
+      />
+    );
+
+    await waitFor(() => {
+      expect(mockAdvancedProductFilterProps).not.toBeNull();
+    });
+
+    await act(async () => {
+      mockAdvancedProductFilterProps?.onSelectCondition('Used');
+    });
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('article').map((item) => item.textContent)).toEqual([
+        'PlayStation 5 Family',
+      ]);
     });
   });
 });

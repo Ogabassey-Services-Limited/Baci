@@ -1,42 +1,58 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockCreateStaticClient, mockProductsResult } = vi.hoisted(() => {
-  const mockProductsResult = {
-    current: {
-      data: [] as Record<string, unknown>[],
-      error: null as { message: string } | null,
-    },
-  };
-
-  function createProductsQuery() {
-    const query = {
-      select: vi.fn(() => query),
-      eq: vi.fn(() => query),
-      or: vi.fn(() => query),
-      gte: vi.fn(() => query),
-      lte: vi.fn(() => query),
-      order: vi.fn(() => Promise.resolve(mockProductsResult.current)),
+const { mockCreateStaticClient, mockProductsQuery, mockProductsResult } =
+  vi.hoisted(() => {
+    const mockProductsResult = {
+      current: {
+        data: [] as Record<string, unknown>[],
+        error: null as { message: string } | null,
+      },
+    };
+    const mockProductsQuery = {
+      current: null as {
+        eq: ReturnType<typeof vi.fn>;
+        gte: ReturnType<typeof vi.fn>;
+        ilike: ReturnType<typeof vi.fn>;
+        lte: ReturnType<typeof vi.fn>;
+        or: ReturnType<typeof vi.fn>;
+        order: ReturnType<typeof vi.fn>;
+        select: ReturnType<typeof vi.fn>;
+      } | null,
     };
 
-    return query;
-  }
+    function createProductsQuery() {
+      const query = {
+        select: vi.fn(() => query),
+        eq: vi.fn(() => query),
+        or: vi.fn(() => query),
+        ilike: vi.fn(() => query),
+        gte: vi.fn(() => query),
+        lte: vi.fn(() => query),
+        order: vi.fn(() => Promise.resolve(mockProductsResult.current)),
+      };
 
-  const mockCreateStaticClient = vi.fn(() => ({
-    from: vi.fn((table: string) => {
-      if (table === 'products') {
-        return createProductsQuery();
-      }
+      mockProductsQuery.current = query;
 
-      throw new Error(`Unexpected table: ${table}`);
-    }),
-  }));
+      return query;
+    }
 
-  return {
-    mockCreateStaticClient,
-    mockProductsResult,
-  };
-});
+    const mockCreateStaticClient = vi.fn(() => ({
+      from: vi.fn((table: string) => {
+        if (table === 'products') {
+          return createProductsQuery();
+        }
+
+        throw new Error(`Unexpected table: ${table}`);
+      }),
+    }));
+
+    return {
+      mockCreateStaticClient,
+      mockProductsQuery,
+      mockProductsResult,
+    };
+  });
 
 vi.mock('@supabase/supabase-js', () => ({
   createClient: mockCreateStaticClient,
@@ -85,7 +101,7 @@ function createRawProduct(overrides: Partial<Record<string, unknown>>) {
     sku: 'TV-1',
     manage_stock: true,
     low_stock_threshold: 1,
-    color: 'Black',
+    colors: ['Black'],
     has_condition_offers: false,
     available_conditions: ['new'],
     ...overrides,
@@ -95,10 +111,21 @@ function createRawProduct(overrides: Partial<Record<string, unknown>>) {
 describe('GET /api/storefront/products', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockProductsQuery.current = null;
     mockProductsResult.current = {
       data: [],
       error: null,
     };
+  });
+
+  it('returns 400 when merchant_id is missing', async () => {
+    const response = await GET(
+      new NextRequest('http://localhost/api/storefront/products')
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(payload.error).toBe('Merchant ID is required');
   });
 
   it('matches category filters against category slugs as well as names', async () => {
@@ -127,6 +154,10 @@ describe('GET /api/storefront/products', () => {
     expect(response.status).toBe(200);
     expect(payload.products).toHaveLength(1);
     expect(payload.products[0].id).toBe('tv-1');
+    expect(mockProductsQuery.current?.ilike).toHaveBeenCalledWith(
+      'category',
+      '%smart tvs%'
+    );
   });
 
   it('applies brand filters case-insensitively', async () => {
@@ -153,6 +184,10 @@ describe('GET /api/storefront/products', () => {
     expect(response.status).toBe(200);
     expect(payload.products).toHaveLength(1);
     expect(payload.products[0].brand).toBe('Sony');
+    expect(mockProductsQuery.current?.ilike).toHaveBeenCalledWith(
+      'brand',
+      '%sony%'
+    );
   });
 
   it('matches condition filters against available_conditions for migrated families', async () => {
@@ -185,5 +220,59 @@ describe('GET /api/storefront/products', () => {
     expect(response.status).toBe(200);
     expect(payload.products).toHaveLength(1);
     expect(payload.products[0].id).toBe('family-1');
+  });
+
+  it('broadens open_box condition prefilters to include refurbished aliases', async () => {
+    mockProductsResult.current = {
+      data: [
+        createRawProduct({
+          id: 'family-1',
+          name: 'MacBook Air Refurbished',
+          condition: 'refurbished',
+          available_conditions: [],
+        }),
+      ],
+      error: null,
+    };
+
+    const response = await GET(
+      new NextRequest(
+        'http://localhost/api/storefront/products?merchant_id=00000000-0000-0000-0000-000000000001&condition=open_box'
+      )
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.products).toHaveLength(1);
+    expect(mockProductsQuery.current?.or).toHaveBeenCalledTimes(1);
+    expect(mockProductsQuery.current?.or.mock.calls[0]?.[0]).toContain(
+      'condition.eq.open_box'
+    );
+    expect(mockProductsQuery.current?.or.mock.calls[0]?.[0]).toContain(
+      'condition.eq.refurbished'
+    );
+    expect(mockProductsQuery.current?.or.mock.calls[0]?.[0]).toContain(
+      'available_conditions.cs.{open_box}'
+    );
+    expect(mockProductsQuery.current?.or.mock.calls[0]?.[0]).toContain(
+      'available_conditions.cs.{refurbished}'
+    );
+  });
+
+  it('returns 500 when the products query fails', async () => {
+    mockProductsResult.current = {
+      data: null as never,
+      error: { message: 'db failure' },
+    };
+
+    const response = await GET(
+      new NextRequest(
+        'http://localhost/api/storefront/products?merchant_id=00000000-0000-0000-0000-000000000001'
+      )
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(payload.error).toBe('Internal server error');
   });
 });

@@ -76,6 +76,7 @@ function toTemplateProducts(baciProducts: BaciProduct[]): Product[] {
       categorySlug: categoryObj?.slug || p.category_slug,
       condition,
       available_conditions: p.available_conditions,
+      has_condition_offers: p.has_condition_offers,
       brand: p.brand,
       colors: p.colors,
       storage: p.storage_options?.[0],

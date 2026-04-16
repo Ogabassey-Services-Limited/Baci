@@ -61,8 +61,15 @@ function mapProduct(p: Record<string, unknown>) {
     low_stock_threshold: p.low_stock_threshold,
     specifications: p.specifications,
     // Condition Offers & Colors
-    has_condition_offers: p.has_condition_offers,
-    available_conditions: p.available_conditions,
+    has_condition_offers:
+      typeof p.has_condition_offers === 'boolean'
+        ? p.has_condition_offers
+        : false,
+    available_conditions: Array.isArray(p.available_conditions)
+      ? p.available_conditions.filter(
+          (condition): condition is string => typeof condition === 'string'
+        )
+      : [],
     variant_model: p.variant_model,
     offers: p.offers,
     // Map colors from color_images keys if distinct colors column is missing/empty
@@ -105,6 +112,40 @@ const querySchema = z.object({
 });
 
 type ProductFilters = z.infer<typeof querySchema>;
+
+function escapeLikePattern(value: string) {
+  return value
+    .replaceAll('\\', '\\\\')
+    .replaceAll('%', '\\%')
+    .replaceAll('_', '\\_');
+}
+
+function getConditionPrefilterClauses(condition: string) {
+  const normalized = normalizeStorefrontConditionValue(condition);
+
+  if (!normalized) {
+    return [];
+  }
+
+  const rawConditions =
+    normalized === 'open_box'
+      ? ['open_box', 'refurbished']
+      : normalized === 'used'
+        ? ['used', 'uk_used']
+        : ['new'];
+  const clauses = new Set<string>();
+
+  for (const rawCondition of rawConditions) {
+    clauses.add(`condition.eq.${rawCondition}`);
+    clauses.add(`available_conditions.cs.{${rawCondition}}`);
+  }
+
+  if (normalized === 'new' || normalized === 'used') {
+    clauses.add('has_condition_offers.eq.true');
+  }
+
+  return Array.from(clauses);
+}
 
 const STOREFRONT_PRODUCTS_SELECT = `
   id,
@@ -175,10 +216,25 @@ function createCachedProductsFetcher(
         .eq('merchant_id', merchantId)
         .eq('status', 'active');
 
-      if (filters.condition && filters.condition !== 'all') {
-        query = query.or(
-          `condition.eq.${filters.condition},available_conditions.cs.{${filters.condition}}`
+      if (filters.category && filters.category !== 'all') {
+        query = query.ilike(
+          'category',
+          `%${escapeLikePattern(filters.category.trim().replace(/[\s-]+/g, ' '))}%`
         );
+      }
+
+      if (filters.brand && filters.brand !== 'all') {
+        query = query.ilike(
+          'brand',
+          `%${escapeLikePattern(filters.brand.trim())}%`
+        );
+      }
+
+      if (filters.condition && filters.condition !== 'all') {
+        const clauses = getConditionPrefilterClauses(filters.condition);
+        if (clauses.length > 0) {
+          query = query.or(clauses.join(','));
+        }
       }
 
       if (filters.min_price !== undefined) {
@@ -223,20 +279,23 @@ function createCachedProductsFetcher(
       let mappedProducts = (products || []).map(mapProduct);
 
       if (filters.category && filters.category !== 'all') {
+        const category = filters.category;
         mappedProducts = mappedProducts.filter((product) =>
-          matchesStorefrontCategoryFilter(product, filters.category as string)
+          matchesStorefrontCategoryFilter(product, category)
         );
       }
 
       if (filters.brand && filters.brand !== 'all') {
+        const brand = filters.brand;
         mappedProducts = mappedProducts.filter((product) =>
-          matchesStorefrontBrandFilter(product, filters.brand as string)
+          matchesStorefrontBrandFilter(product, brand)
         );
       }
 
       if (filters.condition && filters.condition !== 'all') {
+        const condition = filters.condition;
         mappedProducts = mappedProducts.filter((product) =>
-          matchesStorefrontConditionFilter(product, filters.condition as string)
+          matchesStorefrontConditionFilter(product, condition)
         );
       }
 

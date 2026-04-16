@@ -54,7 +54,7 @@ function toComparableTokens(value: string | null | undefined) {
 
 export function normalizeStorefrontConditionValue(
   value: string | null | undefined
-) {
+): '' | CanonicalCondition {
   if (typeof value !== 'string') {
     return '';
   }
@@ -88,8 +88,8 @@ export function getNormalizedStorefrontConditions(source: ConditionSource) {
       }
 
       const normalized = normalizeStorefrontConditionValue(condition);
-      if (normalized && normalized in CONDITION_LABELS) {
-        normalizedConditions.add(normalized as CanonicalCondition);
+      if (normalized) {
+        normalizedConditions.add(normalized);
       }
     }
   }
@@ -101,8 +101,8 @@ export function getNormalizedStorefrontConditions(source: ConditionSource) {
 
   if (normalizedConditions.size === 0 && typeof source.condition === 'string') {
     const normalized = normalizeStorefrontConditionValue(source.condition);
-    if (normalized && normalized in CONDITION_LABELS) {
-      normalizedConditions.add(normalized as CanonicalCondition);
+    if (normalized) {
+      normalizedConditions.add(normalized);
     }
   }
 
@@ -138,13 +138,11 @@ export function matchesStorefrontConditionFilter(
   const normalizedFilter =
     normalizeStorefrontConditionValue(selectedCondition) || undefined;
 
-  if (!normalizedFilter || !(normalizedFilter in CONDITION_LABELS)) {
+  if (!normalizedFilter) {
     return false;
   }
 
-  return getNormalizedStorefrontConditions(source).includes(
-    normalizedFilter as CanonicalCondition
-  );
+  return getNormalizedStorefrontConditions(source).includes(normalizedFilter);
 }
 
 export function matchesStorefrontBrandFilter(
