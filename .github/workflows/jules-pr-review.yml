@@ -17,6 +17,8 @@ concurrency:
 jobs:
   review:
     name: Jules review
+    # Keep automatic fast reviews same-repo only: forked pull_request runs do not receive
+    # JULES_API_KEY, so running them would only post noisy fallback reviews instead of useful output.
     if: >-
       (github.event_name == 'pull_request' &&
       github.event.pull_request.draft == false &&
@@ -265,7 +267,7 @@ jobs:
                 printf -- '- deletions: %s\n' "${deletions}"
                 printf '```diff\n%s\n```\n\n' "${rendered_patch}"
               } >> "${patch_sections_file}"
-            done < <(jq -r '.[] | @base64' <<<"${all_files}")
+            done < <(jq -r '.[] | tojson | @base64' <<<"${all_files}")
 
             cat > "${prompt_file}" <<EOF
           Review GitHub pull request #${PR_NUMBER} in repoless fast-review mode.
