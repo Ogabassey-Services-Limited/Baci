@@ -643,12 +643,14 @@ export default function ProductDetailScreen() {
     selectedCondition,
     null
   );
+  const normalizedSelectedCondition =
+    normalizeCanonicalProductCondition(selectedCondition);
   const selectedConditionOffer =
-    !product?.has_variants && selectedCondition
+    !product?.has_variants && normalizedSelectedCondition
       ? (product?.offers?.find(
           (offer) =>
             normalizeCanonicalProductCondition(offer.condition) ===
-            selectedCondition
+            normalizedSelectedCondition
         ) ?? null)
       : null;
   const selectedVariantCanPurchase =
