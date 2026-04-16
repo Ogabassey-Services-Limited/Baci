@@ -24,12 +24,14 @@ interface BlockRendererProps {
   blocks: Block[];
   selectedCategoryId: string | null;
   onCategorySelect: (id: string | null) => void;
+  productGridLoadMoreSignal?: number;
 }
 
 export const BlockRenderer: React.FC<BlockRendererProps> = ({
   blocks,
   selectedCategoryId,
   onCategorySelect,
+  productGridLoadMoreSignal = 0,
 }) => {
   const template = getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID);
   const { data: categories = [] } = useCategories();
@@ -96,6 +98,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
               <ProductGrid
                 key={block.props.id}
                 block={block as ProductGridBlock}
+                loadMoreSignal={productGridLoadMoreSignal}
                 selectedCategoryId={selectedCategoryId}
                 variant={template.cardVariant}
               />

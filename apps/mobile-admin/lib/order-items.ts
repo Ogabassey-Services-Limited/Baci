@@ -1,11 +1,13 @@
 import { normalizeComparableProductName } from '@/lib/product-matching';
 
 interface MergeableOrderItem {
-  product_id: string;
+  id: string;
+  product_id: string | null;
   quantity: number;
   name: string;
   price: number;
   is_custom?: boolean;
+  variant_id?: string | null;
 }
 
 function getCustomItemKey(item: Pick<MergeableOrderItem, 'name' | 'price'>) {
@@ -25,7 +27,13 @@ export function mergeOrderItem<T extends MergeableOrderItem>(
           item.is_custom &&
           getCustomItemKey(item) === getCustomItemKey(nextItem)
       )
-    : orderItems.findIndex((item) => item.product_id === nextItem.product_id);
+    : orderItems.findIndex(
+        (item) =>
+          item.product_id !== null &&
+          nextItem.product_id !== null &&
+          item.product_id === nextItem.product_id &&
+          (item.variant_id ?? null) === (nextItem.variant_id ?? null)
+      );
 
   if (existingIndex === -1) {
     return [...orderItems, nextItem];

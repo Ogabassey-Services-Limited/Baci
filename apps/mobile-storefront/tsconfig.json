@@ -4,7 +4,9 @@
     "strict": true,
     "types": ["jest", "node", "react", "react-native"],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@baci/shared": ["../../packages/shared/src"],
+      "@baci/shared/*": ["../../packages/shared/src/*"]
     }
   },
   "include": [

@@ -4,7 +4,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertCircle, Check, CheckCircle2, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import z from 'zod';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -20,19 +19,13 @@ import { useToast } from '@/hooks/use-toast';
 import { apiPost } from '@/lib/api-client';
 import type { Bank } from '@/lib/paystack';
 import { cn } from '@/lib/utils';
-
-const bankSchema = z.object({
-  accountNumber: z
-    .string()
-    .regex(/^\d{10}$/, 'Account number must be exactly 10 digits'),
-  bankCode: z.string().min(1, 'Please select your bank'),
-  businessName: z.string().min(2, 'Business name is required'),
-  payoutMode: z.enum(['manual', 'instant', 'weekly']).default('manual'),
-  autoPayoutEnabled: z.boolean().default(false),
-});
-
-export type BankFormInput = z.input<typeof bankSchema>;
-type BankFormValues = z.infer<typeof bankSchema>;
+import {
+  type MerchantBankFormInput,
+  type MerchantBankFormValues,
+  merchantBankSchema,
+} from '@/schemas/merchant-bank';
+export type BankFormInput = MerchantBankFormInput;
+type BankFormValues = MerchantBankFormValues;
 
 interface MerchantBankFormProps {
   initialData?: {
@@ -41,7 +34,6 @@ interface MerchantBankFormProps {
     accountNumber?: string;
     bankCode?: string;
     businessName?: string;
-    payoutMode?: 'manual' | 'instant' | 'weekly';
     autoPayoutEnabled?: boolean;
   };
   onSuccess?: () => void;
@@ -65,15 +57,16 @@ export function MerchantBankForm({
     null
   );
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const hasHydratedAutoPayoutSetting =
+    typeof initialData?.autoPayoutEnabled === 'boolean';
 
   const form = useForm<BankFormInput, unknown, BankFormValues>({
-    resolver: zodResolver(bankSchema),
+    resolver: zodResolver(merchantBankSchema),
     defaultValues: {
       accountNumber: initialData?.accountNumber || '',
       bankCode: initialData?.bankCode || '',
       businessName: initialData?.businessName || '',
-      payoutMode: initialData?.payoutMode || 'manual',
-      autoPayoutEnabled: initialData?.autoPayoutEnabled || false,
+      autoPayoutEnabled: initialData?.autoPayoutEnabled,
     },
   });
 
@@ -188,17 +181,29 @@ export function MerchantBankForm({
     setIsSubmitting(true);
 
     try {
+      const payload: {
+        accountNumber: string;
+        bankCode: string;
+        businessName: string;
+        autoPayoutEnabled?: boolean;
+      } = {
+        accountNumber: data.accountNumber,
+        bankCode: data.bankCode,
+        businessName: data.businessName,
+      };
+
+      if (
+        hasHydratedAutoPayoutSetting &&
+        form.formState.dirtyFields.autoPayoutEnabled
+      ) {
+        payload.autoPayoutEnabled = data.autoPayoutEnabled ?? false;
+      }
+
       const result = await apiPost<{
         success: boolean;
         accountName: string;
         subaccountCode: string;
-      }>('/api/paystack/subaccount', {
-        accountNumber: data.accountNumber,
-        bankCode: data.bankCode,
-        businessName: data.businessName,
-        payoutMode: data.payoutMode,
-        autoPayoutEnabled: data.autoPayoutEnabled,
-      });
+      }>('/api/paystack/subaccount', payload);
 
       if (result.success) {
         toast({
@@ -466,87 +471,46 @@ export function MerchantBankForm({
               </span>
             </h3>
 
-            <FormField
-              control={form.control}
-              name="autoPayoutEnabled"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm">
-                  <div className="space-y-0.5">
-                    <FormLabel className="text-sm font-medium">
-                      Automatic Settlements
-                    </FormLabel>
-                    <FormDescription className="text-xs">
-                      Baci will automatically transfer your earnings to this
-                      bank account.
-                    </FormDescription>
-                  </div>
-                  <FormControl>
-                    <input
-                      type="checkbox"
-                      className="h-5 w-5 rounded border-gray-300 text-[var(--store-primary)] focus:ring-[var(--store-primary)]"
-                      checked={field.value}
-                      onChange={field.onChange}
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-
-            {form.watch('autoPayoutEnabled') && (
-              <FormField
-                control={form.control}
-                name="payoutMode"
-                render={({ field }) => (
-                  <FormItem className="space-y-3">
-                    <FormLabel className="text-sm font-medium">
-                      Settlement Frequency
-                    </FormLabel>
-                    <FormControl>
-                      <div
-                        role="radiogroup"
-                        aria-label="Settlement frequency"
-                        className="grid grid-cols-1 md:grid-cols-2 gap-3"
-                      >
-                        <label
-                          className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${field.value === 'instant' ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5' : 'border-gray-200 hover:border-gray-300'}`}
-                        >
-                          <input
-                            type="radio"
-                            className="sr-only"
-                            {...field}
-                            value="instant"
-                            checked={field.value === 'instant'}
-                          />
-                          <div className="flex-1">
-                            <p className="text-sm font-bold">Instant Payout</p>
-                            <p className="text-[10px] text-gray-500">
-                              2% fee, disbursed same-day
-                            </p>
-                          </div>
-                        </label>
-                        <label
-                          className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${field.value === 'weekly' ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5' : 'border-gray-200 hover:border-gray-300'}`}
-                        >
-                          <input
-                            type="radio"
-                            className="sr-only"
-                            {...field}
-                            value="weekly"
-                            checked={field.value === 'weekly'}
-                          />
-                          <div className="flex-1">
-                            <p className="text-sm font-bold">Weekly Batch</p>
-                            <p className="text-[10px] text-gray-500">
-                              Free, disbursed every Monday
-                            </p>
-                          </div>
-                        </label>
+            {hasHydratedAutoPayoutSetting ? (
+              <>
+                <FormField
+                  control={form.control}
+                  name="autoPayoutEnabled"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-sm font-medium">
+                          Automatic Settlements
+                        </FormLabel>
+                        <FormDescription className="text-xs">
+                          Baci will automatically transfer your earnings to this
+                          bank account.
+                        </FormDescription>
                       </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+                      <FormControl>
+                        <input
+                          type="checkbox"
+                          className="h-5 w-5 rounded border-gray-300 text-[var(--store-primary)] focus:ring-[var(--store-primary)]"
+                          checked={field.value ?? false}
+                          onChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+
+                {form.watch('autoPayoutEnabled') && (
+                  <p className="text-xs text-muted-foreground">
+                    Weekly auto-payouts will run using your wallet settings
+                    after this bank account is connected.
+                  </p>
                 )}
-              />
+              </>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Auto-payout preferences are managed from Wallet settings after
+                your bank account is connected.
+              </p>
             )}
           </div>
         )}
