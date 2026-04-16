@@ -14,7 +14,12 @@ concurrency:
   group: >-
     jules-pr-review-${{ github.event.pull_request.number || github.event.issue.number }}-${{
       github.event_name == 'pull_request' && 'fast' ||
-      (github.event.issue.pull_request && startsWith(github.event.comment.body, '/jules deep review') && 'deep') ||
+      (github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/jules deep review') &&
+      (github.event.comment.author_association == 'OWNER' ||
+      github.event.comment.author_association == 'MEMBER' ||
+      github.event.comment.author_association == 'COLLABORATOR') &&
+      'deep') ||
       format('comment-{0}', github.event.comment.id)
     }}
   cancel-in-progress: true
@@ -38,11 +43,6 @@ jobs:
     timeout-minutes: 360
 
     steps:
-      - name: Checkout repository guidance
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 1
-
       - name: Run Jules review
         continue-on-error: true
         env:
@@ -72,9 +72,9 @@ jobs:
           fi
 
           if [[ "${REVIEW_MODE}" == "deep" ]]; then
-            deep_review_command="$(printf '%s' "${COMMENT_BODY:-}" | tr -d '\r' | awk 'NF { print; exit }')"
+            normalized_comment_body="$(printf '%s' "${COMMENT_BODY:-}" | tr -d '\r')"
 
-            if [[ "${deep_review_command}" != "/jules deep review" ]]; then
+            if [[ "${normalized_comment_body}" != "/jules deep review"* ]]; then
               review_marker="<!-- jules-pr-review mode:${REVIEW_MODE} command:ignored -->"
               cat > "$body_file" <<EOF
           ${review_marker}
@@ -82,7 +82,7 @@ jobs:
 
           Mode: \`${REVIEW_MODE}\`
 
-          Jules skipped this run because the comment did not start with the exact deep-review command \`/jules deep review\`.
+          Jules skipped this run because the comment did not start with \`/jules deep review\`.
           EOF
               exit 0
             fi
@@ -92,11 +92,35 @@ jobs:
             jq -rn --arg value "$1" '$value | @uri'
           }
 
+          curl_common_args=(
+            --fail
+            --silent
+            --show-error
+            --location
+            --connect-timeout 10
+            --max-time 60
+          )
+
+          curl_retry_args=(
+            --retry 3
+            --retry-delay 2
+            --retry-all-errors
+          )
+
           github_api_get() {
             local url="$1"
 
-            curl -fsSL \
+            curl "${curl_common_args[@]}" "${curl_retry_args[@]}" \
               -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              "${url}"
+          }
+
+          github_api_get_raw() {
+            local url="$1"
+
+            curl "${curl_common_args[@]}" "${curl_retry_args[@]}" \
+              -H "Accept: application/vnd.github.raw+json" \
               -H "Authorization: Bearer ${GITHUB_TOKEN}" \
               "${url}"
           }
@@ -104,8 +128,20 @@ jobs:
           jules_api_get() {
             local url="$1"
 
-            curl -fsSL \
+            curl "${curl_common_args[@]}" "${curl_retry_args[@]}" \
               -H "x-goog-api-key: ${JULES_API_KEY}" \
+              "${url}"
+          }
+
+          jules_api_post_json() {
+            local url="$1"
+            local payload="$2"
+
+            curl "${curl_common_args[@]}" \
+              -X POST \
+              -H "Content-Type: application/json" \
+              -H "x-goog-api-key: ${JULES_API_KEY}" \
+              -d "${payload}" \
               "${url}"
           }
 
@@ -205,11 +241,13 @@ jobs:
             fi
 
             guidance_file="$RUNNER_TEMP/jules-guidance.md"
+            guidance_ref="${base_ref:-$(jq -r '.base.repo.default_branch // empty' <<<"${pr_response}")}"
+            guidance_url="${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/contents/AGENTS.md?ref=$(uri_encode "${guidance_ref}")"
 
-            if [[ -f AGENTS.md ]]; then
-              cp AGENTS.md "${guidance_file}"
+            if [[ -n "${guidance_ref}" ]] && github_api_get_raw "${guidance_url}" > "${guidance_file}"; then
+              :
             else
-              printf '%s\n' "AGENTS.md was not available in the workflow checkout." > "${guidance_file}"
+              printf '%s\n' "AGENTS.md was not available at ref ${guidance_ref:-unknown}." > "${guidance_file}"
             fi
 
             patch_sections_file="$RUNNER_TEMP/jules-patch-context.md"
@@ -446,14 +484,7 @@ jobs:
             )"
           fi
 
-          session_response="$(
-            curl -fsSL \
-              -X POST \
-              -H "Content-Type: application/json" \
-              -H "x-goog-api-key: ${JULES_API_KEY}" \
-              -d "${session_payload}" \
-              "https://jules.googleapis.com/v1alpha/sessions"
-          )"
+          session_response="$(jules_api_post_json "https://jules.googleapis.com/v1alpha/sessions" "${session_payload}")"
 
           session_id="$(jq -r '.id // empty' <<<"${session_response}")"
 
@@ -644,17 +675,48 @@ jobs:
           meta_file="$RUNNER_TEMP/jules-review-meta.env"
           reviewed_sha=""
 
+          curl_common_args=(
+            --fail
+            --silent
+            --show-error
+            --location
+            --connect-timeout 10
+            --max-time 60
+          )
+
+          curl_retry_args=(
+            --retry 3
+            --retry-delay 2
+            --retry-all-errors
+          )
+
+          github_api_get() {
+            local url="$1"
+
+            curl "${curl_common_args[@]}" "${curl_retry_args[@]}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              "${url}"
+          }
+
+          github_api_post_json() {
+            local url="$1"
+            local payload="$2"
+
+            curl "${curl_common_args[@]}" \
+              -X POST \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -d "${payload}" \
+              "${url}"
+          }
+
           if [[ -f "${meta_file}" ]]; then
             reviewed_sha="$(sed -n 's/^REVIEWED_SHA=//p' "${meta_file}" | tail -n 1)"
           fi
 
           if [[ -z "${reviewed_sha}" ]]; then
-            pr_response="$(
-              curl -fsSL \
-                -H "Accept: application/vnd.github+json" \
-                -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-                "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}"
-            )"
+            pr_response="$(github_api_get "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")"
             reviewed_sha="$(jq -r '.head.sha' <<<"${pr_response}")"
           fi
 
@@ -675,12 +737,7 @@ jobs:
           reviews_page=1
 
           while :; do
-            reviews_response="$(
-              curl -fsSL \
-                -H "Accept: application/vnd.github+json" \
-                -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-                "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews?per_page=100&page=${reviews_page}"
-            )"
+            reviews_response="$(github_api_get "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews?per_page=100&page=${reviews_page}")"
 
             existing_review_id="$(
               jq -r \
@@ -723,9 +780,4 @@ jobs:
               }'
           )"
 
-          curl -fsSL \
-            -X POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-            -d "${review_payload}" \
-            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews" >/dev/null
+          github_api_post_json "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews" "${review_payload}" >/dev/null
