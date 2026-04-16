@@ -646,7 +646,9 @@ export default function ProductDetailScreen() {
   const selectedConditionOffer =
     !product?.has_variants && selectedCondition
       ? (product?.offers?.find(
-          (offer) => offer.condition === selectedCondition
+          (offer) =>
+            normalizeCanonicalProductCondition(offer.condition) ===
+            selectedCondition
         ) ?? null)
       : null;
   const selectedVariantCanPurchase =
