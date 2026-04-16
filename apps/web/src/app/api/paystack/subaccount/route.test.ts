@@ -64,7 +64,11 @@ describe('POST /api/paystack/subaccount', () => {
   const mockMerchantUpdate = vi.fn(() => ({ eq: mockMerchantUpdateEq }));
   const mockMerchantSelectEq = vi.fn(() => ({ single: mockMerchantSingle }));
   const mockMerchantSelect = vi.fn(() => ({ eq: mockMerchantSelectEq }));
-  const mockWalletUpdateEq = vi.fn();
+  const mockWalletUpdateMaybeSingle = vi.fn();
+  const mockWalletUpdateSelect = vi.fn(() => ({
+    maybeSingle: mockWalletUpdateMaybeSingle,
+  }));
+  const mockWalletUpdateEq = vi.fn(() => ({ select: mockWalletUpdateSelect }));
   const mockWalletUpdate = vi.fn(() => ({ eq: mockWalletUpdateEq }));
   const mockRpc = vi.fn();
   const mockSupabase = {
@@ -135,7 +139,10 @@ describe('POST /api/paystack/subaccount', () => {
       error: null,
     });
     mockMerchantUpdateEq.mockResolvedValue({ error: null });
-    mockWalletUpdateEq.mockResolvedValue({ error: null });
+    mockWalletUpdateMaybeSingle.mockResolvedValue({
+      data: { id: 'wallet-123' },
+      error: null,
+    });
     mockRpc.mockResolvedValue({ data: 'wallet-123', error: null });
     mockResolveAccountNumber.mockResolvedValue({
       success: true,
@@ -293,7 +300,6 @@ describe('POST /api/paystack/subaccount', () => {
         accountNumber: '1234567890',
         bankCode: '044',
         businessName: 'Baci Store',
-        payoutMode: 'weekly',
         autoPayoutEnabled: true,
       })
     );
@@ -370,6 +376,75 @@ describe('POST /api/paystack/subaccount', () => {
     expect(response.status).toBe(200);
     expect(mockRpc).not.toHaveBeenCalled();
     expect(mockWalletUpdate).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 when payout mode is explicitly provided', async () => {
+    const response = await POST(
+      makeRequest({
+        accountNumber: '1234567890',
+        bankCode: '044',
+        businessName: 'Baci Store',
+        payoutMode: 'weekly',
+      })
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: 'Payout mode is no longer supported in the bank details save flow',
+    });
+    expect(mockResolveAccountNumber).not.toHaveBeenCalled();
+    expect(mockCreateSubaccount).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 when a staff member tries to update auto payout settings', async () => {
+    mockGetMerchantForApiRequest.mockResolvedValueOnce({
+      merchantId: 'merchant-456',
+      staffAccess: { role: 'admin', isOwner: false, isStaff: true },
+    });
+    mockToUserAccess.mockReturnValueOnce({
+      merchantId: 'merchant-456',
+      role: 'admin',
+      isOwner: false,
+      isStaff: true,
+      permissions: { integrations: { manage: true } },
+    });
+
+    const response = await POST(
+      makeRequest({
+        accountNumber: '1234567890',
+        bankCode: '044',
+        businessName: 'Baci Store',
+        autoPayoutEnabled: true,
+      })
+    );
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({
+      error: 'Only merchant owners can update auto-payout settings',
+    });
+    expect(mockResolveAccountNumber).not.toHaveBeenCalled();
+    expect(mockCreateSubaccount).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 when the wallet update affects no rows', async () => {
+    mockWalletUpdateMaybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: null,
+    });
+
+    const response = await POST(
+      makeRequest({
+        accountNumber: '1234567890',
+        bankCode: '044',
+        businessName: 'Baci Store',
+        autoPayoutEnabled: true,
+      })
+    );
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      error: 'Failed to update auto-payout settings',
+    });
   });
 
   it('accepts an alphanumeric bankCode (MFB50992) and reaches resolveAccountNumber', async () => {

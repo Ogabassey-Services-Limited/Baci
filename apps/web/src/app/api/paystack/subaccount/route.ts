@@ -78,6 +78,9 @@ export async function POST(request: NextRequest) {
     const shouldPersistAutoPayoutEnabled =
       hasRequestField(body, 'autoPayoutEnabled') ||
       hasRequestField(body, 'auto_payout_enabled');
+    const hasExplicitPayoutMode =
+      hasRequestField(body, 'payoutMode') ||
+      hasRequestField(body, 'payout_mode');
 
     // 1. Get Merchant Context (supports both owners and staff)
     const merchantContext = await getMerchantForApiRequest(
@@ -94,6 +97,23 @@ export async function POST(request: NextRequest) {
     const access = toUserAccess(merchantContext);
     if (!hasPermission(access, 'integrations', 'manage')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    if (hasExplicitPayoutMode) {
+      return NextResponse.json(
+        {
+          error:
+            'Payout mode is no longer supported in the bank details save flow',
+        },
+        { status: 400 }
+      );
+    }
+
+    if (shouldPersistAutoPayoutEnabled && !access.isOwner) {
+      return NextResponse.json(
+        { error: 'Only merchant owners can update auto-payout settings' },
+        { status: 403 }
+      );
     }
 
     const merchantId = merchantContext.merchantId;
@@ -229,15 +249,25 @@ export async function POST(request: NextRequest) {
         throw walletInitError;
       }
 
-      const { error: walletUpdateError } = await auth.supabase
-        .from('merchant_wallets')
-        .update({
-          auto_payout_enabled,
-        })
-        .eq('merchant_id', merchantId);
+      const { data: updatedWallet, error: walletUpdateError } =
+        await auth.supabase
+          .from('merchant_wallets')
+          .update({
+            auto_payout_enabled,
+          })
+          .eq('merchant_id', merchantId)
+          .select('id')
+          .maybeSingle();
 
       if (walletUpdateError) {
         throw walletUpdateError;
+      }
+
+      if (!updatedWallet) {
+        return NextResponse.json(
+          { error: 'Failed to update auto-payout settings' },
+          { status: 500 }
+        );
       }
     }
 

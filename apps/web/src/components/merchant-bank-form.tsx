@@ -27,7 +27,6 @@ const bankSchema = z.object({
     .regex(/^\d{10}$/, 'Account number must be exactly 10 digits'),
   bankCode: z.string().min(1, 'Please select your bank'),
   businessName: z.string().min(2, 'Business name is required'),
-  payoutMode: z.enum(['manual', 'instant', 'weekly']).default('manual'),
   autoPayoutEnabled: z.boolean().default(false),
 });
 
@@ -41,7 +40,6 @@ interface MerchantBankFormProps {
     accountNumber?: string;
     bankCode?: string;
     businessName?: string;
-    payoutMode?: 'manual' | 'instant' | 'weekly';
     autoPayoutEnabled?: boolean;
   };
   onSuccess?: () => void;
@@ -72,7 +70,6 @@ export function MerchantBankForm({
       accountNumber: initialData?.accountNumber || '',
       bankCode: initialData?.bankCode || '',
       businessName: initialData?.businessName || '',
-      payoutMode: initialData?.payoutMode || 'manual',
       autoPayoutEnabled: initialData?.autoPayoutEnabled || false,
     },
   });
@@ -196,7 +193,6 @@ export function MerchantBankForm({
         accountNumber: data.accountNumber,
         bankCode: data.bankCode,
         businessName: data.businessName,
-        payoutMode: data.payoutMode,
         autoPayoutEnabled: data.autoPayoutEnabled,
       });
 
@@ -493,60 +489,10 @@ export function MerchantBankForm({
             />
 
             {form.watch('autoPayoutEnabled') && (
-              <FormField
-                control={form.control}
-                name="payoutMode"
-                render={({ field }) => (
-                  <FormItem className="space-y-3">
-                    <FormLabel className="text-sm font-medium">
-                      Settlement Frequency
-                    </FormLabel>
-                    <FormControl>
-                      <div
-                        role="radiogroup"
-                        aria-label="Settlement frequency"
-                        className="grid grid-cols-1 md:grid-cols-2 gap-3"
-                      >
-                        <label
-                          className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${field.value === 'instant' ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5' : 'border-gray-200 hover:border-gray-300'}`}
-                        >
-                          <input
-                            type="radio"
-                            className="sr-only"
-                            {...field}
-                            value="instant"
-                            checked={field.value === 'instant'}
-                          />
-                          <div className="flex-1">
-                            <p className="text-sm font-bold">Instant Payout</p>
-                            <p className="text-[10px] text-gray-500">
-                              2% fee, disbursed same-day
-                            </p>
-                          </div>
-                        </label>
-                        <label
-                          className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${field.value === 'weekly' ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5' : 'border-gray-200 hover:border-gray-300'}`}
-                        >
-                          <input
-                            type="radio"
-                            className="sr-only"
-                            {...field}
-                            value="weekly"
-                            checked={field.value === 'weekly'}
-                          />
-                          <div className="flex-1">
-                            <p className="text-sm font-bold">Weekly Batch</p>
-                            <p className="text-[10px] text-gray-500">
-                              Free, disbursed every Monday
-                            </p>
-                          </div>
-                        </label>
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <p className="text-xs text-muted-foreground">
+                Weekly auto-payouts will run using your wallet settings after
+                this bank account is connected.
+              </p>
             )}
           </div>
         )}
