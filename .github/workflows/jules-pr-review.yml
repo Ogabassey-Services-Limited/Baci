@@ -23,7 +23,9 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository) ||
       (github.event_name == 'issue_comment' &&
       github.event.issue.pull_request &&
-      contains(github.event.comment.body, '/jules deep review') &&
+      (github.event.comment.body == '/jules deep review' ||
+      startsWith(github.event.comment.body, '/jules deep review\n') ||
+      startsWith(github.event.comment.body, '/jules deep review\r\n')) &&
       (github.event.comment.author_association == 'OWNER' ||
       github.event.comment.author_association == 'MEMBER' ||
       github.event.comment.author_association == 'COLLABORATOR'))
@@ -62,6 +64,23 @@ jobs:
           else
             # Stop polling shortly before the 6-hour job timeout so fallback review posting still runs.
             poll_deadline_epoch=$(( $(date +%s) + 21000 ))
+          fi
+
+          if [[ "${REVIEW_MODE}" == "deep" ]]; then
+            deep_review_command="$(printf '%s' "${COMMENT_BODY:-}" | tr -d '\r' | awk 'NF { print; exit }')"
+
+            if [[ "${deep_review_command}" != "/jules deep review" ]]; then
+              review_marker="<!-- jules-pr-review mode:${REVIEW_MODE} command:ignored -->"
+              cat > "$body_file" <<EOF
+          ${review_marker}
+          ## Jules PR review
+
+          Mode: \`${REVIEW_MODE}\`
+
+          Jules skipped this run because the comment did not start with the exact deep-review command \`/jules deep review\`.
+          EOF
+              exit 0
+            fi
           fi
 
           uri_encode() {
