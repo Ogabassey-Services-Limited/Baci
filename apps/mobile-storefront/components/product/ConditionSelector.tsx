@@ -30,21 +30,25 @@ interface ConditionSelectorProps {
 
 const CONDITION_CONFIG: Record<
   CanonicalProductCondition,
-  { icon: string; color: string; description: string }
+  {
+    colorToken: 'primary' | 'success' | 'warning';
+    description: string;
+    icon: string;
+  }
 > = {
   new: {
+    colorToken: 'success',
     icon: 'sparkles',
-    color: '#10B981',
     description: 'Brand new, sealed',
   },
   used: {
+    colorToken: 'warning',
     icon: 'refresh',
-    color: '#F59E0B',
     description: 'Pre-owned, tested',
   },
   open_box: {
+    colorToken: 'primary',
     icon: 'cube-outline',
-    color: '#8B5CF6',
     description: 'Certified open-box stock',
   },
 };
@@ -130,6 +134,7 @@ export function ConditionSelector({
       <View style={styles.optionsContainer}>
         {renderedConditions.map((item) => {
           const config = CONDITION_CONFIG[item.condition];
+          const accentColor = colors[config.colorToken];
           const displayLabel = formatProductConditionDisplay(item.condition);
           const isSelected = effectiveSelected === item.condition;
           const savings = basePrice - item.price;
@@ -143,9 +148,9 @@ export function ConditionSelector({
                 styles.optionCard,
                 {
                   backgroundColor: isSelected
-                    ? `${config.color}15`
+                    ? `${accentColor}15`
                     : colors.card,
-                  borderColor: isSelected ? config.color : colors.border,
+                  borderColor: isSelected ? accentColor : colors.border,
                 },
               ]}
               accessibilityRole="radio"
@@ -156,7 +161,7 @@ export function ConditionSelector({
                 <View
                   style={[
                     styles.iconContainer,
-                    { backgroundColor: `${config.color}20` },
+                    { backgroundColor: `${accentColor}20` },
                   ]}
                 >
                   <Ionicons
@@ -166,14 +171,14 @@ export function ConditionSelector({
                       >['name']
                     }
                     size={16}
-                    color={config.color}
+                    color={accentColor}
                   />
                 </View>
                 <View style={styles.labelContainer}>
                   <Text
                     style={[
                       styles.conditionLabel,
-                      { color: isSelected ? config.color : colors.text },
+                      { color: isSelected ? accentColor : colors.text },
                     ]}
                   >
                     {displayLabel}
@@ -193,7 +198,7 @@ export function ConditionSelector({
                   <Ionicons
                     name="checkmark-circle"
                     size={20}
-                    color={config.color}
+                    color={accentColor}
                   />
                 )}
               </View>
@@ -202,7 +207,7 @@ export function ConditionSelector({
                 <Text
                   style={[
                     styles.priceText,
-                    { color: isSelected ? config.color : colors.text },
+                    { color: isSelected ? accentColor : colors.text },
                   ]}
                 >
                   {formatPrice(item.price)}
@@ -211,10 +216,10 @@ export function ConditionSelector({
                   <View
                     style={[
                       styles.savingsBadge,
-                      { backgroundColor: `${config.color}20` },
+                      { backgroundColor: `${accentColor}20` },
                     ]}
                   >
-                    <Text style={[styles.savingsText, { color: config.color }]}>
+                    <Text style={[styles.savingsText, { color: accentColor }]}>
                       Save {formatPrice(savings)}
                     </Text>
                   </View>
