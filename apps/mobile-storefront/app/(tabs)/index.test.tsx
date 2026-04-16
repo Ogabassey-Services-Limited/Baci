@@ -1,5 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { render, screen } from '@testing-library/react-native';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  jest,
+} from '@jest/globals';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { StyleSheet, Text, View } from 'react-native';
 import { getHomeContentBottomPadding } from '@/constants/layout';
 import type { MobileTemplateConfig } from '@/lib/templates';
@@ -23,8 +30,21 @@ const mockUsePageConfig = jest.fn();
 const mockUseColorScheme = jest.fn(() => 'dark');
 const mockRequestPermission = jest.fn(async () => 'granted');
 const mockGetTemplateConfig = jest.fn(
-  (_businessType?: string, _manualTemplateId?: string) =>
-    createTemplateConfig()
+  (_businessType?: string, _manualTemplateId?: string) => createTemplateConfig()
+);
+const mockBlockRenderer = jest.fn(
+  ({
+    blocks,
+    productGridLoadMoreSignal,
+  }: {
+    blocks: Array<{ type: string }>;
+    productGridLoadMoreSignal?: number;
+  }) => (
+    <MockView testID="block-renderer">
+      <MockText>{blocks[0]?.type}</MockText>
+      <MockText>{String(productGridLoadMoreSignal ?? 0)}</MockText>
+    </MockView>
+  )
 );
 const MockText = Text;
 const MockView = View;
@@ -60,11 +80,10 @@ jest.mock('@/components/OfflineNotice', () => ({
 }));
 
 jest.mock('@/components/storefront/BlockRenderer', () => ({
-  BlockRenderer: ({ blocks }: { blocks: Array<{ type: string }> }) => (
-    <MockView testID="block-renderer">
-      <MockText>{blocks[0]?.type}</MockText>
-    </MockView>
-  ),
+  BlockRenderer: (props: {
+    blocks: Array<{ type: string }>;
+    productGridLoadMoreSignal?: number;
+  }) => mockBlockRenderer(props),
 }));
 
 jest.mock('@/components/storefront/Header', () => ({
@@ -189,6 +208,276 @@ describe('HomeScreen', () => {
       )
     ).toMatchObject({
       paddingBottom: getHomeContentBottomPadding(34, false),
+    });
+  });
+
+  it('signals the product grid to load more when the home scroll reaches the bottom', () => {
+    render(<HomeScreen />);
+
+    const initialProductGridCalls = mockBlockRenderer.mock.calls.filter(
+      ([props]) => props.blocks[0]?.type === 'ProductGrid'
+    );
+    expect(initialProductGridCalls.length).toBeGreaterThan(0);
+    expect(
+      initialProductGridCalls[initialProductGridCalls.length - 1]?.[0]
+    ).toMatchObject({
+      productGridLoadMoreSignal: 0,
+    });
+
+    fireEvent.scroll(screen.getByTestId('home-scroll-view'), {
+      nativeEvent: {
+        contentOffset: { x: 0, y: 1100 },
+        contentSize: { width: 375, height: 1600 },
+        layoutMeasurement: { width: 375, height: 300 },
+      },
+    });
+
+    const productGridCalls = mockBlockRenderer.mock.calls.filter(
+      ([props]) => props.blocks[0]?.type === 'ProductGrid'
+    );
+    expect(productGridCalls.length).toBeGreaterThan(0);
+
+    const latestProductGridProps =
+      productGridCalls[productGridCalls.length - 1]?.[0];
+
+    expect(latestProductGridProps).toMatchObject({
+      productGridLoadMoreSignal: 1,
+    });
+  });
+
+  it('does not emit another load-more signal when the user scrolls upward near the bottom', () => {
+    render(<HomeScreen />);
+
+    const scrollView = screen.getByTestId('home-scroll-view');
+
+    fireEvent.scroll(scrollView, {
+      nativeEvent: {
+        contentOffset: { x: 0, y: 1100 },
+        contentSize: { width: 375, height: 1600 },
+        layoutMeasurement: { width: 375, height: 300 },
+      },
+    });
+
+    fireEvent.scroll(scrollView, {
+      nativeEvent: {
+        contentOffset: { x: 0, y: 1080 },
+        contentSize: { width: 375, height: 1700 },
+        layoutMeasurement: { width: 375, height: 300 },
+      },
+    });
+
+    const productGridCalls = mockBlockRenderer.mock.calls.filter(
+      ([props]) => props.blocks[0]?.type === 'ProductGrid'
+    );
+
+    expect(productGridCalls[productGridCalls.length - 1]?.[0]).toMatchObject({
+      productGridLoadMoreSignal: 1,
+    });
+  });
+
+  it('keeps load-more signals monotonic across pull-to-refresh', async () => {
+    const refetch = jest.fn(async () => undefined);
+    mockUsePageConfig.mockReturnValue({
+      data: {
+        content: [
+          { type: 'HeroCarousel', props: { id: 'hero-1', slides: [] } },
+          { type: 'CategoryRail', props: { id: 'categories-1' } },
+          { type: 'ProductGrid', props: { id: 'products-1', limit: 12 } },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      refetch,
+    });
+
+    render(<HomeScreen />);
+
+    const scrollView = screen.getByTestId('home-scroll-view');
+
+    fireEvent.scroll(scrollView, {
+      nativeEvent: {
+        contentOffset: { x: 0, y: 1100 },
+        contentSize: { width: 375, height: 1600 },
+        layoutMeasurement: { width: 375, height: 300 },
+      },
+    });
+
+    await act(async () => {
+      await scrollView.props.refreshControl.props.onRefresh();
+    });
+
+    fireEvent.scroll(scrollView, {
+      nativeEvent: {
+        contentOffset: { x: 0, y: 1100 },
+        contentSize: { width: 375, height: 1600 },
+        layoutMeasurement: { width: 375, height: 300 },
+      },
+    });
+
+    const productGridCalls = mockBlockRenderer.mock.calls.filter(
+      ([props]) => props.blocks[0]?.type === 'ProductGrid'
+    );
+
+    expect(productGridCalls[productGridCalls.length - 1]?.[0]).toMatchObject({
+      productGridLoadMoreSignal: 2,
+    });
+  });
+
+  it('allows retrying load-more after leaving the bottom zone without content growth', () => {
+    render(<HomeScreen />);
+
+    const scrollView = screen.getByTestId('home-scroll-view');
+
+    fireEvent.scroll(scrollView, {
+      nativeEvent: {
+        contentOffset: { x: 0, y: 1100 },
+        contentSize: { width: 375, height: 1600 },
+        layoutMeasurement: { width: 375, height: 300 },
+      },
+    });
+
+    fireEvent.scroll(scrollView, {
+      nativeEvent: {
+        contentOffset: { x: 0, y: 600 },
+        contentSize: { width: 375, height: 1600 },
+        layoutMeasurement: { width: 375, height: 300 },
+      },
+    });
+
+    fireEvent.scroll(scrollView, {
+      nativeEvent: {
+        contentOffset: { x: 0, y: 1100 },
+        contentSize: { width: 375, height: 1600 },
+        layoutMeasurement: { width: 375, height: 300 },
+      },
+    });
+
+    const productGridCalls = mockBlockRenderer.mock.calls.filter(
+      ([props]) => props.blocks[0]?.type === 'ProductGrid'
+    );
+
+    expect(productGridCalls[productGridCalls.length - 1]?.[0]).toMatchObject({
+      productGridLoadMoreSignal: 2,
+    });
+  });
+
+  it('resets the load-more baseline when the active home dataset changes', () => {
+    const refetch = jest.fn();
+    let pageConfig = {
+      content: [
+        { type: 'HeroCarousel', props: { id: 'hero-1', slides: [] } },
+        { type: 'CategoryRail', props: { id: 'categories-1' } },
+        { type: 'ProductGrid', props: { id: 'products-1', limit: 12 } },
+      ],
+    };
+    mockUsePageConfig.mockImplementation(() => ({
+      data: pageConfig,
+      isLoading: false,
+      isError: false,
+      refetch,
+    }));
+
+    const view = render(<HomeScreen />);
+
+    fireEvent.scroll(screen.getByTestId('home-scroll-view'), {
+      nativeEvent: {
+        contentOffset: { x: 0, y: 1100 },
+        contentSize: { width: 375, height: 1600 },
+        layoutMeasurement: { width: 375, height: 300 },
+      },
+    });
+
+    pageConfig = {
+      content: [
+        { type: 'HeroCarousel', props: { id: 'hero-2', slides: [] } },
+        { type: 'CategoryRail', props: { id: 'categories-2' } },
+        { type: 'ProductGrid', props: { id: 'products-2', limit: 12 } },
+      ],
+    };
+
+    view.rerender(<HomeScreen />);
+
+    fireEvent.scroll(screen.getByTestId('home-scroll-view'), {
+      nativeEvent: {
+        contentOffset: { x: 0, y: 700 },
+        contentSize: { width: 375, height: 1200 },
+        layoutMeasurement: { width: 375, height: 300 },
+      },
+    });
+
+    const productGridCalls = mockBlockRenderer.mock.calls.filter(
+      ([props]) => props.blocks[0]?.type === 'ProductGrid'
+    );
+
+    expect(productGridCalls[productGridCalls.length - 1]?.[0]).toMatchObject({
+      productGridLoadMoreSignal: 2,
+    });
+  });
+
+  it('adapts the load-more baseline when the current content height shrinks', () => {
+    render(<HomeScreen />);
+
+    const scrollView = screen.getByTestId('home-scroll-view');
+
+    fireEvent.scroll(scrollView, {
+      nativeEvent: {
+        contentOffset: { x: 0, y: 1100 },
+        contentSize: { width: 375, height: 1600 },
+        layoutMeasurement: { width: 375, height: 300 },
+      },
+    });
+
+    fireEvent.scroll(scrollView, {
+      nativeEvent: {
+        contentOffset: { x: 0, y: 700 },
+        contentSize: { width: 375, height: 1200 },
+        layoutMeasurement: { width: 375, height: 300 },
+      },
+    });
+
+    const productGridCalls = mockBlockRenderer.mock.calls.filter(
+      ([props]) => props.blocks[0]?.type === 'ProductGrid'
+    );
+
+    expect(productGridCalls[productGridCalls.length - 1]?.[0]).toMatchObject({
+      productGridLoadMoreSignal: 2,
+    });
+  });
+
+  it('scopes the load-more signal to the primary ProductGrid block', () => {
+    mockUsePageConfig.mockReturnValue({
+      data: {
+        content: [
+          { type: 'HeroCarousel', props: { id: 'hero-1', slides: [] } },
+          { type: 'ProductGrid', props: { id: 'products-1', limit: 12 } },
+          { type: 'ProductGrid', props: { id: 'products-2', limit: 12 } },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      refetch: jest.fn(),
+    });
+
+    render(<HomeScreen />);
+
+    fireEvent.scroll(screen.getByTestId('home-scroll-view'), {
+      nativeEvent: {
+        contentOffset: { x: 0, y: 1100 },
+        contentSize: { width: 375, height: 1600 },
+        layoutMeasurement: { width: 375, height: 300 },
+      },
+    });
+
+    const productGridCalls = mockBlockRenderer.mock.calls.filter(
+      ([props]) => props.blocks[0]?.type === 'ProductGrid'
+    );
+
+    expect(productGridCalls).toHaveLength(4);
+    expect(productGridCalls[2]?.[0]).toMatchObject({
+      productGridLoadMoreSignal: 1,
+    });
+    expect(productGridCalls[3]?.[0]).toMatchObject({
+      productGridLoadMoreSignal: 0,
     });
   });
 });
