@@ -79,16 +79,16 @@ describe('MerchantBankForm', () => {
       />
     );
 
+    await waitFor(() => {
+      expect(screen.getByText('Account Verified')).toBeTruthy();
+    });
+
     expect(screen.queryByText('Automatic Settlements')).toBeNull();
     expect(
       screen.getByText(
         /auto-payout preferences are managed from wallet settings/i
       )
     ).toBeTruthy();
-
-    await waitFor(() => {
-      expect(screen.getByText('Account Verified')).toBeTruthy();
-    });
 
     await user.click(
       screen.getByRole('button', { name: /save bank details/i })
@@ -113,7 +113,7 @@ describe('MerchantBankForm', () => {
     expect(submitPayload).not.toHaveProperty('autoPayoutEnabled');
   });
 
-  it('submits auto payout settings only when they were hydrated into the form', async () => {
+  it('omits hydrated auto payout settings when the toggle was not changed', async () => {
     const user = userEvent.setup();
 
     render(
@@ -127,11 +127,11 @@ describe('MerchantBankForm', () => {
       />
     );
 
-    expect(screen.getByText('Automatic Settlements')).toBeTruthy();
-
     await waitFor(() => {
       expect(screen.getByText('Account Verified')).toBeTruthy();
     });
+
+    expect(screen.getByText('Automatic Settlements')).toBeTruthy();
 
     await user.click(
       screen.getByRole('button', { name: /save bank details/i })
@@ -140,8 +140,46 @@ describe('MerchantBankForm', () => {
     await waitFor(() => {
       expect(apiPostMock).toHaveBeenCalledWith(
         '/api/paystack/subaccount',
-        expect.objectContaining({
+        expect.any(Object)
+      );
+    });
+
+    const submitPayload = apiPostMock.mock.calls.find(
+      ([endpoint]) => endpoint === '/api/paystack/subaccount'
+    )?.[1];
+
+    expect(submitPayload).not.toHaveProperty('autoPayoutEnabled');
+  });
+
+  it('submits auto payout settings only when the hydrated toggle was changed', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <MerchantBankForm
+        initialData={{
+          accountNumber: '1234567890',
+          bankCode: '044',
+          businessName: 'Baci Store',
           autoPayoutEnabled: true,
+        }}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Account Verified')).toBeTruthy();
+    });
+
+    expect(screen.getByText('Automatic Settlements')).toBeTruthy();
+    await user.click(screen.getByRole('checkbox'));
+    await user.click(
+      screen.getByRole('button', { name: /save bank details/i })
+    );
+
+    await waitFor(() => {
+      expect(apiPostMock).toHaveBeenCalledWith(
+        '/api/paystack/subaccount',
+        expect.objectContaining({
+          autoPayoutEnabled: false,
         })
       );
     });

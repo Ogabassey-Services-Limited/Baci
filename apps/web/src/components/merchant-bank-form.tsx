@@ -198,7 +198,10 @@ export function MerchantBankForm({
         businessName: data.businessName,
       };
 
-      if (hasHydratedAutoPayoutSetting) {
+      if (
+        hasHydratedAutoPayoutSetting &&
+        form.formState.dirtyFields.autoPayoutEnabled
+      ) {
         payload.autoPayoutEnabled = data.autoPayoutEnabled ?? false;
       }
 
