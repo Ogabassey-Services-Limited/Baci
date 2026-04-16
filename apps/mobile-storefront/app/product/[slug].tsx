@@ -25,7 +25,6 @@ import { createLogger } from '@/lib/logger';
 const log = createLogger('ProductDetail');
 
 import {
-  normalizeCanonicalProductCondition,
   resolveDefaultVariantSelection,
   resolveVariantDisplaySelection,
   resolveVariantSelectionParamResolution,
@@ -55,6 +54,7 @@ import { useHaptics } from '@/hooks/use-haptics';
 import { useNetworkState } from '@/hooks/use-network-state';
 import { markReviewHelpful, useReviews } from '@/hooks/use-reviews';
 import { resolveCartItemImageUrl } from '@/lib/cart-display';
+import { findMatchingConditionOffer } from '@/lib/product-condition-offers';
 import { useCartStore } from '@/stores/cart-store';
 import { useSavedStore } from '@/stores/saved-store';
 import {
@@ -576,23 +576,12 @@ export default function ProductDetailScreen() {
     effectiveSelectedCondition,
     null
   );
-  const normalizedSelectedCondition = normalizeCanonicalProductCondition(
-    effectiveSelectedCondition
-  );
-  const selectedConditionOffer =
-    !product?.has_variants && effectiveSelectedCondition
-      ? (product?.offers?.find(
-          (offer) => offer.condition === effectiveSelectedCondition
-        ) ??
-        (normalizedSelectedCondition
-          ? product?.offers?.find(
-              (offer) =>
-                normalizeCanonicalProductCondition(offer.condition) ===
-                normalizedSelectedCondition
-            )
-          : null) ??
-        null)
-      : null;
+  const selectedConditionOffer = !product?.has_variants
+    ? findMatchingConditionOffer(
+        product?.offers,
+        effectiveSelectedCondition ?? null
+      )
+    : null;
   const selectedVariantCanPurchase =
     product?.has_variants === true && currentVariantSelection
       ? product.manage_stock === false

@@ -1,5 +1,5 @@
 import { renderHook } from '@testing-library/react-native';
-import type { Product } from '@/types/product';
+import type { Product, ProductCondition } from '@/types/product';
 import { useEffectivePrice } from './use-effective-price';
 
 const baseProduct: Product = {
@@ -59,6 +59,33 @@ describe('useEffectivePrice', () => {
     expect(result.current).toEqual({
       price: 510000,
       comparePrice: 560000,
+    });
+  });
+
+  it('falls back to a single non-canonical offer when no canonical condition is selected', () => {
+    const { result } = renderHook(() =>
+      useEffectivePrice(
+        {
+          ...baseProduct,
+          offers: [
+            {
+              id: 'offer-scratch-and-dent',
+              condition: 'scratch_and_dent' as unknown as ProductCondition,
+              price: 470000,
+              compare_at_price: 520000,
+              stock_quantity: 2,
+            },
+          ],
+        },
+        null,
+        null,
+        null
+      )
+    );
+
+    expect(result.current).toEqual({
+      price: 470000,
+      comparePrice: 520000,
     });
   });
 
