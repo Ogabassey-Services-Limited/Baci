@@ -286,8 +286,8 @@ export async function PUT(
     const shouldValidateSkuMatrixInput =
       variantModel === 'sku_matrix' &&
       (body.variant_model !== undefined ||
-        body.has_variants !== undefined ||
-        body.variants !== undefined);
+        body.variants !== undefined ||
+        body.has_variants === false);
     const skuMatrixValidationError = shouldValidateSkuMatrixInput
       ? getSkuMatrixValidationError({
           variantModel,

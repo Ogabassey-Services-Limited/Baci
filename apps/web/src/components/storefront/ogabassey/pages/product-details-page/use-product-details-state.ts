@@ -220,6 +220,8 @@ export function useProductDetailsState(serverProduct: Product) {
       attributes: variantSelectionAttributes,
     }
   );
+  const currentCartVariantSelection =
+    currentVariantSelection ?? currentVariantDisplaySelection;
 
   useEffect(() => {
     const action = searchParams.get('action');
@@ -376,7 +378,7 @@ export function useProductDetailsState(serverProduct: Product) {
     secondaryColor:
       secondaryColor !== null ? productData.colors[secondaryColor]?.name : undefined,
     condition: selectedCondition,
-    variantId: currentVariantDisplaySelection?.variant.id,
+    variantId: currentCartVariantSelection?.variant.id,
     selectedAttributes,
   });
 
@@ -402,9 +404,15 @@ export function useProductDetailsState(serverProduct: Product) {
     variantSelectionAttributes,
     currentVariantDisplaySelection
   );
+  const currentCartOffer = resolveCurrentOffer(
+    productData,
+    selectedCondition,
+    variantSelectionAttributes,
+    currentCartVariantSelection
+  );
   const canPurchase =
     (productData.variants?.length ?? 0) > 0
-      ? Boolean(currentVariantSelection) && currentOffer.stock > 0
+      ? Boolean(currentVariantSelection) && currentCartOffer.stock > 0
       : currentOffer.stock > 0;
 
   const normalizedReviewRating = Math.max(
@@ -504,7 +512,7 @@ export function useProductDetailsState(serverProduct: Product) {
     addToCart,
     applyNegotiatedPrice,
     currentCartItemId,
-    currentOffer,
+    currentOffer: currentCartOffer,
     getMissingFields,
     inputValue,
     productData,
@@ -515,7 +523,7 @@ export function useProductDetailsState(serverProduct: Product) {
     selectedColor,
     selectedCondition,
     selectedImage,
-    selectedVariantId: currentVariantSelection?.variant.id,
+    selectedVariantId: currentCartVariantSelection?.variant.id,
     canPurchase,
     setInputValue,
     setIsNegotiationOpen,

@@ -542,6 +542,44 @@ describe('PUT /api/products/[id]', () => {
       );
       expect(lastProductUpdatePayload).toBeNull();
     });
+
+    it('allows partial updates on existing sku_matrix products without resending variants', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Product',
+        condition: 'new',
+        has_variants: true,
+        variant_model: 'sku_matrix',
+      };
+
+      updateResult = {
+        id: PRODUCT_ID,
+        name: 'Updated Product',
+        slug: 'updated-product',
+        has_variants: true,
+        variant_model: 'sku_matrix',
+      };
+
+      const res = await PUT(
+        makePutRequest(PRODUCT_ID, {
+          has_variants: true,
+          name: 'Updated Product',
+        }),
+        {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        }
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.product).toBeDefined();
+      expect(lastProductUpdatePayload).toEqual(
+        expect.objectContaining({
+          has_variants: true,
+          name: 'Updated Product',
+        })
+      );
+    });
   });
 
   describe('product lookup', () => {

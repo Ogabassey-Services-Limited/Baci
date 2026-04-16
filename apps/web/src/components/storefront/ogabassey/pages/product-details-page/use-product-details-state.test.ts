@@ -179,6 +179,41 @@ describe('useProductDetailsState', () => {
     );
   });
 
+  it('keeps canPurchase true when a purchasable variant exists even if the display-preferred match is out of stock', () => {
+    mockUseSearchParams.mockReturnValue(
+      new URLSearchParams('variantId=used-cheap-out-of-stock')
+    );
+
+    const { result } = renderHook(() =>
+      useProductDetailsState({
+        ...baseProduct,
+        condition: 'new',
+        has_variants: true,
+        variants: [
+          {
+            id: 'used-cheap-out-of-stock',
+            condition: 'used',
+            attributes: { storage: '128GB' },
+            price_override: 4200,
+            stock_quantity: 0,
+          },
+          {
+            id: 'used-in-stock',
+            condition: 'used',
+            attributes: { storage: '128GB' },
+            price_override: 4800,
+            stock_quantity: 3,
+          },
+        ],
+      } as Product)
+    );
+
+    expect(result.current.currentVariantDisplaySelection?.variant.id).toBe(
+      'used-cheap-out-of-stock'
+    );
+    expect(result.current.canPurchase).toBe(true);
+  });
+
   it('reopens selection before applying a negotiated price when choices are missing', () => {
     const { result } = renderHook(() => useProductDetailsState(baseProduct));
 
