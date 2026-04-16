@@ -22,6 +22,14 @@ import { paystackSubaccountSchema } from '@/schemas/paystack-subaccount';
 // Setting to 0 as fallback since we calculate fee dynamically
 const PLATFORM_COMMISSION_PERCENTAGE = 0;
 
+function hasRequestField(value: unknown, property: string): boolean {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    Object.hasOwn(value, property)
+  );
+}
+
 export async function POST(request: NextRequest) {
   try {
     const auth = await authenticateApiRequest(request);
@@ -65,7 +73,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { account_number, bank_code, business_name } = parseResult.data;
+    const { account_number, bank_code, business_name, auto_payout_enabled } =
+      parseResult.data;
+    const shouldPersistAutoPayoutEnabled =
+      hasRequestField(body, 'autoPayoutEnabled') ||
+      hasRequestField(body, 'auto_payout_enabled');
 
     // 1. Get Merchant Context (supports both owners and staff)
     const merchantContext = await getMerchantForApiRequest(
@@ -203,6 +215,30 @@ export async function POST(request: NextRequest) {
 
     if (updateError) {
       throw updateError;
+    }
+
+    if (shouldPersistAutoPayoutEnabled) {
+      const { error: walletInitError } = await auth.supabase.rpc(
+        'get_or_create_merchant_wallet',
+        {
+          p_merchant_id: merchantId,
+        }
+      );
+
+      if (walletInitError) {
+        throw walletInitError;
+      }
+
+      const { error: walletUpdateError } = await auth.supabase
+        .from('merchant_wallets')
+        .update({
+          auto_payout_enabled,
+        })
+        .eq('merchant_id', merchantId);
+
+      if (walletUpdateError) {
+        throw walletUpdateError;
+      }
     }
 
     return NextResponse.json({

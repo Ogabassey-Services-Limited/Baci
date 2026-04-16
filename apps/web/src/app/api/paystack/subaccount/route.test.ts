@@ -64,20 +64,48 @@ describe('POST /api/paystack/subaccount', () => {
   const mockMerchantUpdate = vi.fn(() => ({ eq: mockMerchantUpdateEq }));
   const mockMerchantSelectEq = vi.fn(() => ({ single: mockMerchantSingle }));
   const mockMerchantSelect = vi.fn(() => ({ eq: mockMerchantSelectEq }));
+  const mockWalletUpdateEq = vi.fn();
+  const mockWalletUpdate = vi.fn(() => ({ eq: mockWalletUpdateEq }));
+  const mockRpc = vi.fn();
   const mockSupabase = {
-    from: vi.fn(() => ({
-      select: mockMerchantSelect,
-      update: mockMerchantUpdate,
-    })),
+    from: vi.fn((table: string) => {
+      if (table === 'merchants') {
+        return {
+          select: mockMerchantSelect,
+          update: mockMerchantUpdate,
+        };
+      }
+
+      if (table === 'merchant_wallets') {
+        return {
+          update: mockWalletUpdate,
+        };
+      }
+
+      throw new Error(`Unexpected table ${table}`);
+    }),
+    rpc: mockRpc,
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockSupabase.from.mockImplementation(() => ({
-      select: mockMerchantSelect,
-      update: mockMerchantUpdate,
-    }));
+    mockSupabase.from.mockImplementation((table: string) => {
+      if (table === 'merchants') {
+        return {
+          select: mockMerchantSelect,
+          update: mockMerchantUpdate,
+        };
+      }
+
+      if (table === 'merchant_wallets') {
+        return {
+          update: mockWalletUpdate,
+        };
+      }
+
+      throw new Error(`Unexpected table ${table}`);
+    });
 
     mockAuthenticateApiRequest.mockResolvedValue({
       user: { id: 'user-123', email: 'owner@example.com' },
@@ -107,6 +135,8 @@ describe('POST /api/paystack/subaccount', () => {
       error: null,
     });
     mockMerchantUpdateEq.mockResolvedValue({ error: null });
+    mockWalletUpdateEq.mockResolvedValue({ error: null });
+    mockRpc.mockResolvedValue({ data: 'wallet-123', error: null });
     mockResolveAccountNumber.mockResolvedValue({
       success: true,
       data: {
@@ -289,6 +319,12 @@ describe('POST /api/paystack/subaccount', () => {
       bank_code: '044',
       bank_name: 'Unknown Bank',
     });
+    expect(mockRpc).toHaveBeenCalledWith('get_or_create_merchant_wallet', {
+      p_merchant_id: 'merchant-456',
+    });
+    expect(mockWalletUpdate).toHaveBeenCalledWith({
+      auto_payout_enabled: true,
+    });
   });
 
   it('updates an existing subaccount instead of creating a new one', async () => {
@@ -320,6 +356,20 @@ describe('POST /api/paystack/subaccount', () => {
       })
     );
     expect(mockCreateSubaccount).not.toHaveBeenCalled();
+  });
+
+  it('does not update wallet settings when auto payout preferences are omitted', async () => {
+    const response = await POST(
+      makeRequest({
+        accountNumber: '1234567890',
+        bankCode: '044',
+        businessName: 'Baci Store',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockRpc).not.toHaveBeenCalled();
+    expect(mockWalletUpdate).not.toHaveBeenCalled();
   });
 
   it('accepts an alphanumeric bankCode (MFB50992) and reaches resolveAccountNumber', async () => {
