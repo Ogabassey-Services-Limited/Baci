@@ -1,7 +1,7 @@
 import type { Product } from '@/lib/products';
 import React from 'react';
-import { act, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@baci/shared', () => ({
   prioritizeSmartphoneProducts: vi.fn(
@@ -37,17 +37,16 @@ vi.mock('../providers/v2-saved-context', () => ({
   })),
 }));
 vi.mock('./AdUnit', () => ({ AdUnit: () => null }));
-let mockAdvancedProductFilterProps: {
-  onSelectCondition: (condition: string) => void;
-} | null = null;
 vi.mock('./AdvancedProductFilters', () => ({
   AdvancedProductFilters: (props: {
     onSelectCondition: (condition: string) => void;
   }) => {
-    mockAdvancedProductFilterProps = {
-      onSelectCondition: props.onSelectCondition,
-    };
-    return null;
+    return (
+      <div>
+        <button onClick={() => props.onSelectCondition('New')}>Filter New</button>
+        <button onClick={() => props.onSelectCondition('Used')}>Filter Used</button>
+      </div>
+    );
   },
 }));
 vi.mock('./FloatingParticles', () => ({
@@ -67,13 +66,8 @@ import { useSearchParams } from 'next/navigation';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { EngineProductGrid } from './EngineProductGrid';
 
-beforeEach(() => {
-  mockAdvancedProductFilterProps = null;
-});
-
 afterEach(() => {
   vi.resetAllMocks();
-  mockAdvancedProductFilterProps = null;
   vi.mocked(useSearchParams).mockReturnValue(
     new URLSearchParams() as ReturnType<typeof useSearchParams>
   );
@@ -282,9 +276,7 @@ describe('EngineProductGrid', () => {
 
     expect(screen.getAllByRole('article')).toHaveLength(2);
 
-    await act(async () => {
-      mockAdvancedProductFilterProps?.onSelectCondition('Used');
-    });
+    fireEvent.click(screen.getByRole('button', { name: 'Filter Used' }));
 
     await waitFor(() => {
       const articles = screen.getAllByRole('article');
@@ -319,13 +311,7 @@ describe('EngineProductGrid', () => {
       />
     );
 
-    await waitFor(() => {
-      expect(mockAdvancedProductFilterProps).not.toBeNull();
-    });
-
-    await act(async () => {
-      mockAdvancedProductFilterProps?.onSelectCondition('Used');
-    });
+    fireEvent.click(screen.getByRole('button', { name: 'Filter Used' }));
 
     await waitFor(() => {
       expect(screen.getAllByRole('article').map((item) => item.textContent)).toEqual([

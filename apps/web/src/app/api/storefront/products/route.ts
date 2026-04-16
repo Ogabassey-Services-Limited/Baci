@@ -2,7 +2,6 @@ import { createClient as createStaticClient } from '@supabase/supabase-js';
 import { unstable_cache } from 'next/cache';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import z from 'zod';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { normalizeProduct, type RawDbProduct } from '@/lib/normalize-product';
 import {
@@ -12,6 +11,10 @@ import {
   normalizeStorefrontConditionValue,
 } from '@/lib/storefront-product-filters';
 import { createClient } from '@/lib/supabase/server';
+import {
+  type StorefrontProductsQuery,
+  storefrontProductsQuerySchema,
+} from '@/schemas/storefront-products-query';
 
 /**
  * Map database product to API response format
@@ -82,36 +85,7 @@ function mapProduct(p: Record<string, unknown>) {
   };
 }
 
-const storefrontConditionFilterSchema = z.preprocess(
-  (value) => {
-    if (typeof value !== 'string') {
-      return value;
-    }
-
-    if (value === 'all') {
-      return value;
-    }
-
-    return normalizeStorefrontConditionValue(value) || value;
-  },
-  z.enum(['new', 'used', 'open_box', 'all'])
-);
-
-// Zod schema for query parameters
-const querySchema = z.object({
-  merchant_id: z.string().uuid().optional(),
-  category: z.string().optional(),
-  brand: z.string().optional(),
-  condition: storefrontConditionFilterSchema.optional(),
-  min_price: z.coerce.number().nonnegative().optional(),
-  max_price: z.coerce.number().nonnegative().optional(),
-  sort: z.enum(['newest', 'price-asc', 'price-desc']).default('newest'),
-  q: z.string().max(100).optional(),
-  ids: z.string().optional(),
-  has_images: z.coerce.boolean().optional(),
-});
-
-type ProductFilters = z.infer<typeof querySchema>;
+type ProductFilters = StorefrontProductsQuery;
 
 function escapeLikePattern(value: string) {
   return value
@@ -330,7 +304,9 @@ export async function GET(request: NextRequest) {
 
   try {
     // Validate parameters
-    const parsed = querySchema.safeParse(Object.fromEntries(searchParams));
+    const parsed = storefrontProductsQuerySchema.safeParse(
+      Object.fromEntries(searchParams)
+    );
 
     if (!parsed.success) {
       console.error(
