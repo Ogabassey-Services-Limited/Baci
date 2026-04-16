@@ -410,10 +410,12 @@ export function useProductDetailsState(serverProduct: Product) {
     variantSelectionAttributes,
     currentCartVariantSelection
   );
+  const managesStock = productData.manage_stock !== false;
   const canPurchase =
     (productData.variants?.length ?? 0) > 0
-      ? Boolean(currentVariantSelection) && currentCartOffer.stock > 0
-      : currentOffer.stock > 0;
+      ? Boolean(currentVariantSelection) &&
+        (!managesStock || currentCartOffer.stock > 0)
+      : !managesStock || currentOffer.stock > 0;
 
   const normalizedReviewRating = Math.max(
     0,

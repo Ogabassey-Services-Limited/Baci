@@ -214,6 +214,34 @@ describe('useProductDetailsState', () => {
     expect(result.current.canPurchase).toBe(true);
   });
 
+  it('keeps unmanaged variant selections purchasable even when stock is zero', () => {
+    mockUseSearchParams.mockReturnValue(
+      new URLSearchParams('variantId=variant-unmanaged')
+    );
+
+    const { result } = renderHook(() =>
+      useProductDetailsState({
+        ...baseProduct,
+        has_variants: true,
+        manage_stock: false,
+        variants: [
+          {
+            id: 'variant-unmanaged',
+            condition: 'new',
+            attributes: { storage: '128GB' },
+            price_override: 5000,
+            stock_quantity: 0,
+          },
+        ],
+      } as Product)
+    );
+
+    expect(result.current.currentVariantDisplaySelection?.variant.id).toBe(
+      'variant-unmanaged'
+    );
+    expect(result.current.canPurchase).toBe(true);
+  });
+
   it('reopens selection before applying a negotiated price when choices are missing', () => {
     const { result } = renderHook(() => useProductDetailsState(baseProduct));
 
