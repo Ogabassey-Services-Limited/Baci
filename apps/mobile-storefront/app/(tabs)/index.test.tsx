@@ -323,6 +323,44 @@ describe('HomeScreen', () => {
     });
   });
 
+  it('allows retrying load-more after leaving the bottom zone without content growth', () => {
+    render(<HomeScreen />);
+
+    const scrollView = screen.getByTestId('home-scroll-view');
+
+    fireEvent.scroll(scrollView, {
+      nativeEvent: {
+        contentOffset: { x: 0, y: 1100 },
+        contentSize: { width: 375, height: 1600 },
+        layoutMeasurement: { width: 375, height: 300 },
+      },
+    });
+
+    fireEvent.scroll(scrollView, {
+      nativeEvent: {
+        contentOffset: { x: 0, y: 600 },
+        contentSize: { width: 375, height: 1600 },
+        layoutMeasurement: { width: 375, height: 300 },
+      },
+    });
+
+    fireEvent.scroll(scrollView, {
+      nativeEvent: {
+        contentOffset: { x: 0, y: 1100 },
+        contentSize: { width: 375, height: 1600 },
+        layoutMeasurement: { width: 375, height: 300 },
+      },
+    });
+
+    const productGridCalls = mockBlockRenderer.mock.calls.filter(
+      ([props]) => props.blocks[0]?.type === 'ProductGrid'
+    );
+
+    expect(productGridCalls[productGridCalls.length - 1]?.[0]).toMatchObject({
+      productGridLoadMoreSignal: 2,
+    });
+  });
+
   it('resets the load-more baseline when the active home dataset changes', () => {
     const refetch = jest.fn();
     let pageConfig = {

@@ -140,6 +140,23 @@ const sampleProducts: Product[] = [
   },
 ];
 
+const extendedSampleProducts: Product[] = [
+  ...sampleProducts,
+  {
+    id: '3',
+    name: 'Galaxy S24 Ultra',
+    slug: 'galaxy-s24-ultra',
+    description: 'Phone',
+    price: 610000,
+    image: 'https://cdn.example.com/galaxy-s24-ultra.jpg',
+    images: ['https://cdn.example.com/galaxy-s24-ultra.jpg'],
+    category: 'Phones',
+    rating: 4.8,
+    review_count: 14,
+    in_stock: true,
+  },
+];
+
 const block: ProductGridBlock = {
   type: 'ProductGrid',
   props: {
@@ -534,6 +551,68 @@ describe('ProductGrid', () => {
       products: sampleProducts,
       total: sampleProducts.length,
       isLoadingMore: false,
+    };
+
+    view.rerender(
+      <ProductGrid
+        block={incrementalBlock}
+        loadMoreSignal={2}
+        selectedCategoryId={null}
+        variant="grid"
+      />
+    );
+
+    await waitFor(() => {
+      expect(loadMore).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('keeps backfilling when a batched signal jump requests multiple pages', async () => {
+    const loadMore = jest.fn();
+    const incrementalBlock: ProductGridBlock = {
+      ...block,
+      props: {
+        ...block.props,
+        limit: 1,
+      },
+    };
+    let productsResult: UseProductsResult = {
+      products: [extendedSampleProducts[0]],
+      total: 1,
+      isLoading: false,
+      isFetching: false,
+      isError: false,
+      error: null,
+      hasMore: true,
+      refetch: jest.fn(),
+      loadMore,
+      isLoadingMore: false,
+    };
+    mockUseProductsFactory.mockImplementation(() => productsResult);
+
+    const view = render(
+      <ProductGrid
+        block={incrementalBlock}
+        loadMoreSignal={0}
+        selectedCategoryId={null}
+        variant="grid"
+      />
+    );
+
+    view.rerender(
+      <ProductGrid
+        block={incrementalBlock}
+        loadMoreSignal={2}
+        selectedCategoryId={null}
+        variant="grid"
+      />
+    );
+
+    expect(loadMore).toHaveBeenCalledTimes(1);
+
+    productsResult = {
+      ...productsResult,
+      products: extendedSampleProducts.slice(0, 2),
     };
 
     view.rerender(

@@ -49,6 +49,7 @@ export default function HomeScreen() {
   );
   const [productGridLoadMoreSignal, setProductGridLoadMoreSignal] = useState(0);
   const lastLoadMoreContentHeightRef = useRef(0);
+  const hasExitedLoadMoreZoneRef = useRef(true);
 
   const { requestPermission, triggerSystemPrompt, markDenied } =
     usePermissionBooster();
@@ -121,6 +122,7 @@ export default function HomeScreen() {
     setRefreshing(true);
     try {
       lastLoadMoreContentHeightRef.current = 0;
+      hasExitedLoadMoreZoneRef.current = true;
       await refetch();
     } finally {
       setRefreshing(false);
@@ -157,6 +159,7 @@ export default function HomeScreen() {
 
     if (currentContentHeight < lastLoadMoreContentHeightRef.current) {
       lastLoadMoreContentHeightRef.current = 0;
+      hasExitedLoadMoreZoneRef.current = true;
       headerScrollState.current.previousOffsetY = currentOffsetY;
     }
 
@@ -177,13 +180,25 @@ export default function HomeScreen() {
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
     const distanceFromBottom =
       contentSize.height - (contentOffset.y + layoutMeasurement.height);
+    const isNearBottom = distanceFromBottom <= HOME_LOAD_MORE_THRESHOLD_PX;
+
+    if (!isNearBottom) {
+      hasExitedLoadMoreZoneRef.current = true;
+    }
+
+    const hasNewContentHeight =
+      contentSize.height > lastLoadMoreContentHeightRef.current;
+    const canRetryCurrentHeight =
+      hasExitedLoadMoreZoneRef.current &&
+      contentSize.height === lastLoadMoreContentHeightRef.current;
 
     if (
       isScrollingDown &&
-      distanceFromBottom <= HOME_LOAD_MORE_THRESHOLD_PX &&
-      contentSize.height > lastLoadMoreContentHeightRef.current
+      isNearBottom &&
+      (hasNewContentHeight || canRetryCurrentHeight)
     ) {
       lastLoadMoreContentHeightRef.current = contentSize.height;
+      hasExitedLoadMoreZoneRef.current = false;
       setProductGridLoadMoreSignal((current) => current + 1);
     }
   };
@@ -263,6 +278,7 @@ export default function HomeScreen() {
   useEffect(() => {
     void productGridDatasetKey;
     lastLoadMoreContentHeightRef.current = 0;
+    hasExitedLoadMoreZoneRef.current = true;
     headerScrollState.current.previousOffsetY = 0;
   }, [productGridDatasetKey]);
 

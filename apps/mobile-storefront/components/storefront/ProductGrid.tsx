@@ -81,7 +81,10 @@ export default function ProductGrid({
   const lastHandledLoadMoreSignalRef = useRef(0);
   const lastPaginationResetKeyRef = useRef('');
   const pendingLoadMoreSignalRef = useRef<number | null>(null);
-  const lastBackfillRequestProductCountRef = useRef(-1);
+  const lastBackfillRequestRef = useRef<{
+    productCount: number;
+    visibleCount: number;
+  } | null>(null);
 
   const {
     products,
@@ -147,7 +150,7 @@ export default function ProductGrid({
     setVisibleCount(displayLimit);
     lastHandledLoadMoreSignalRef.current = loadMoreSignal;
     pendingLoadMoreSignalRef.current = null;
-    lastBackfillRequestProductCountRef.current = -1;
+    lastBackfillRequestRef.current = null;
   }, [displayLimit, loadMoreSignal, paginationResetKey]);
 
   const categoryNames = (() => {
@@ -188,7 +191,10 @@ export default function ProductGrid({
     lastHandledLoadMoreSignalRef.current = nextSignal;
 
     if (orderedProducts.length < nextVisibleCount && hasMore) {
-      lastBackfillRequestProductCountRef.current = orderedProducts.length;
+      lastBackfillRequestRef.current = {
+        productCount: orderedProducts.length,
+        visibleCount: nextVisibleCount,
+      };
       void loadMore();
     }
   }, [
@@ -202,23 +208,34 @@ export default function ProductGrid({
   ]);
 
   useEffect(() => {
+    const shouldResetBackfillRequest =
+      visibleCount <= displayLimit || orderedProducts.length >= visibleCount;
+
+    if (shouldResetBackfillRequest) {
+      lastBackfillRequestRef.current = null;
+    }
+
     if (
       visibleCount <= displayLimit ||
       orderedProducts.length >= visibleCount ||
       !hasMore ||
-      isLoadingMore ||
-      orderedProducts.length <= lastBackfillRequestProductCountRef.current
+      isLoadingMore
     ) {
-      if (
-        orderedProducts.length >= visibleCount ||
-        visibleCount <= displayLimit
-      ) {
-        lastBackfillRequestProductCountRef.current = -1;
-      }
       return;
     }
 
-    lastBackfillRequestProductCountRef.current = orderedProducts.length;
+    const isDuplicateBackfillRequest =
+      lastBackfillRequestRef.current?.productCount === orderedProducts.length &&
+      lastBackfillRequestRef.current?.visibleCount === visibleCount;
+
+    if (isDuplicateBackfillRequest) {
+      return;
+    }
+
+    lastBackfillRequestRef.current = {
+      productCount: orderedProducts.length,
+      visibleCount,
+    };
     void loadMore();
   }, [
     displayLimit,
