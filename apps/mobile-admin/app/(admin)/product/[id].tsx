@@ -271,7 +271,7 @@ export default function ProductEditScreen() {
   useEffect(() => {
     if (product && !isInitialized) {
       setFormData({
-        brand: product.brand || product.brands?.name || '',
+        brand: product.brand ?? product.brands?.name ?? '',
         name: product.name || '',
         sku: product.sku || '',
         price: product.price || 0,

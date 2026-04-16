@@ -118,12 +118,43 @@ describe('ProductBasicInformationCard', () => {
       />
     );
 
-    expect(screen.getByDisplayValue('Apple')).toBeTruthy();
+    expect(screen.getByDisplayValue('Apple')).toBeInTheDocument();
 
     fireEvent.change(screen.getByDisplayValue('Apple'), {
       target: { value: 'Samsung' },
     });
 
     expect(onChange).toHaveBeenCalledWith({ brand: 'Samsung' });
+  });
+
+  it('falls back to the default category label and opens the category modal', () => {
+    const onOpenCategoryModal = vi.fn();
+
+    render(
+      <ProductBasicInformationCard
+        categories={[{ id: 'smartwatch', name: 'Smartwatches' }]}
+        colors={colors}
+        formData={{
+          brand: 'Apple',
+          category: '',
+          category_id: 'unknown',
+          color: 'Midnight',
+          description: 'Fitness watch',
+          name: 'Apple Watch SE 3',
+          sku: 'WATCH-001',
+        }}
+        isEditing
+        onChange={vi.fn()}
+        onOpenCategoryModal={onOpenCategoryModal}
+        onOpenProduct={vi.fn()}
+        productNameSuggestions={[]}
+      />
+    );
+
+    expect(screen.getByText('Select Category')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select category' }));
+
+    expect(onOpenCategoryModal).toHaveBeenCalledTimes(1);
   });
 });
