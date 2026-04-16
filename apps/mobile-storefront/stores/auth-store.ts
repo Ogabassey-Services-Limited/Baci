@@ -29,6 +29,7 @@ import {
   initTimeout,
   shouldInvalidateSessionOnGetUserError,
 } from './auth-helpers';
+import { queryClient } from '../lib/query-client';
 import { useCartStore } from './cart-store';
 import { useComparisonStore } from './comparison-store';
 import { useSavedStore } from './saved-store';
@@ -366,6 +367,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               const storedToken = await getStoredPushToken();
               await _clearLocalAndDeactivatePushToken(storedToken);
               // 2026 Critical Fix: Reset user stores to prevent data bleed on session expiry
+              queryClient.clear();
               useCartStore.getState().clearCart();
               useSavedStore.getState().clearSaved();
               useComparisonStore.getState().clearComparison();
@@ -756,6 +758,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const storedToken = await getStoredPushToken();
       await _clearLocalAndDeactivatePushToken(storedToken);
       await supabase.auth.signOut();
+      queryClient.clear();
       useCartStore.getState().clearCart();
       useSavedStore.getState().clearSaved();
       useComparisonStore.getState().clearComparison();
@@ -795,6 +798,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       await supabase.auth.signOut({ scope: 'local' }).catch((err) => {
         log.warn('Local signOut failed after account deletion:', err);
       });
+      queryClient.clear();
       useCartStore.getState().clearCart();
       useSavedStore.getState().clearSaved();
       useComparisonStore.getState().clearComparison();
