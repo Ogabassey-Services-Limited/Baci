@@ -9,4 +9,4 @@ export const WEB_PRODUCT_COLUMNS =
 export const WEB_PRODUCT_VARIANT_COLUMNS =
   'id, created_at, updated_at, product_id, merchant_id, condition, attributes, price_override, cost_price, stock_quantity, sku, primary_image, images';
 
-export const WEB_PRODUCT_WITH_VARIANTS_QUERY = `${WEB_PRODUCT_COLUMNS}, variants:product_variants(${WEB_PRODUCT_VARIANT_COLUMNS})`;
+export const WEB_PRODUCT_WITH_VARIANTS_QUERY = `${WEB_PRODUCT_COLUMNS}, variants:product_variants!product_variants_product_id_fkey(${WEB_PRODUCT_VARIANT_COLUMNS})`;

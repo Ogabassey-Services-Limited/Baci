@@ -57,7 +57,7 @@ describe('product column constants', () => {
   it('WEB_PRODUCT_WITH_VARIANTS_QUERY includes base columns and variant columns', () => {
     expect(WEB_PRODUCT_WITH_VARIANTS_QUERY).toContain(WEB_PRODUCT_COLUMNS);
     expect(WEB_PRODUCT_WITH_VARIANTS_QUERY).toContain(
-      'variants:product_variants('
+      'variants:product_variants!product_variants_product_id_fkey('
     );
     expect(WEB_PRODUCT_WITH_VARIANTS_QUERY).toContain(
       WEB_PRODUCT_VARIANT_COLUMNS
