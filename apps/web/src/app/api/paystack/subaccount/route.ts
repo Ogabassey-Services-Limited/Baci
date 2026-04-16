@@ -22,6 +22,14 @@ import { paystackSubaccountSchema } from '@/schemas/paystack-subaccount';
 // Setting to 0 as fallback since we calculate fee dynamically
 const PLATFORM_COMMISSION_PERCENTAGE = 0;
 
+function hasRequestField(value: unknown, property: string): boolean {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    Object.hasOwn(value, property)
+  );
+}
+
 export async function POST(request: NextRequest) {
   try {
     const auth = await authenticateApiRequest(request);
@@ -65,13 +73,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const {
-      account_number,
-      bank_code,
-      business_name,
-      payout_mode,
-      auto_payout_enabled,
-    } = parseResult.data;
+    const { account_number, bank_code, business_name, auto_payout_enabled } =
+      parseResult.data;
+    const shouldPersistAutoPayoutEnabled =
+      hasRequestField(body, 'autoPayoutEnabled') ||
+      hasRequestField(body, 'auto_payout_enabled');
+    const hasExplicitPayoutMode =
+      hasRequestField(body, 'payoutMode') ||
+      hasRequestField(body, 'payout_mode');
+
+    if (hasExplicitPayoutMode) {
+      return NextResponse.json(
+        {
+          error:
+            'Payout mode is no longer supported in the bank details save flow',
+        },
+        { status: 400 }
+      );
+    }
 
     // 1. Get Merchant Context (supports both owners and staff)
     const merchantContext = await getMerchantForApiRequest(
@@ -88,6 +107,13 @@ export async function POST(request: NextRequest) {
     const access = toUserAccess(merchantContext);
     if (!hasPermission(access, 'integrations', 'manage')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    if (shouldPersistAutoPayoutEnabled && !access.isOwner) {
+      return NextResponse.json(
+        { error: 'Only merchant owners can update auto-payout settings' },
+        { status: 403 }
+      );
     }
 
     const merchantId = merchantContext.merchantId;
@@ -201,15 +227,48 @@ export async function POST(request: NextRequest) {
       .update({
         paystack_subaccount_code: subaccountCode,
         bank_account_number: account_number,
+        bank_account_name: accountDetails.account_name,
         bank_code: bank_code,
         bank_name: 'Unknown Bank', // resolve endpoint doesn't return bank name
-        payout_mode,
-        auto_payout_enabled,
       })
       .eq('id', merchantId);
 
     if (updateError) {
       throw updateError;
+    }
+
+    if (shouldPersistAutoPayoutEnabled) {
+      const { error: walletInitError } = await auth.supabase.rpc(
+        'get_or_create_merchant_wallet',
+        {
+          p_merchant_id: merchantId,
+        }
+      );
+
+      if (walletInitError) {
+        throw walletInitError;
+      }
+
+      const { data: updatedWallet, error: walletUpdateError } =
+        await auth.supabase
+          .from('merchant_wallets')
+          .update({
+            auto_payout_enabled,
+          })
+          .eq('merchant_id', merchantId)
+          .select('id')
+          .maybeSingle();
+
+      if (walletUpdateError) {
+        throw walletUpdateError;
+      }
+
+      if (!updatedWallet) {
+        return NextResponse.json(
+          { error: 'Failed to update auto-payout settings' },
+          { status: 500 }
+        );
+      }
     }
 
     return NextResponse.json({

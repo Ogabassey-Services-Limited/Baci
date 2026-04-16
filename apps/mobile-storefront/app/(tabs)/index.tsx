@@ -1,4 +1,3 @@
-import type { Block } from '@/types/blocks';
 import { Image } from 'expo-image';
 import { router, Stack } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -23,17 +22,20 @@ import { HeroSkeleton, ProductGridSkeleton } from '@/components/ui/Skeleton';
 import { SnowEffect } from '@/components/ui/SnowEffect';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
-import { getHomeContentBottomPadding } from '@/constants/layout';
+import {
+  getHomeContentBottomPadding,
+  HOME_LOAD_MORE_THRESHOLD_PX,
+} from '@/constants/layout';
+import { usePageConfig } from '@/hooks';
 import { useNetworkState } from '@/hooks/use-network-state';
 import { usePermissionBooster } from '@/hooks/use-permission-booster';
-import { usePageConfig } from '@/hooks';
 import { CONFIG } from '@/lib/config';
 import { resolveScrollHeaderVisibility } from '@/lib/scroll-header-visibility';
 import { getTemplateConfig } from '@/lib/templates';
+import type { Block } from '@/types/blocks';
 
 const PATTERN_URI =
   'https://www.transparenttextures.com/patterns/carbon-fibre.png';
-
 export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -45,6 +47,9 @@ export default function HomeScreen() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
     template.headerStyle === 'elite' ? 'u-airtime' : null
   );
+  const [productGridLoadMoreSignal, setProductGridLoadMoreSignal] = useState(0);
+  const lastLoadMoreContentHeightRef = useRef(0);
+  const hasExitedLoadMoreZoneRef = useRef(true);
 
   const { requestPermission, triggerSystemPrompt, markDenied } =
     usePermissionBooster();
@@ -116,6 +121,8 @@ export default function HomeScreen() {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
+      lastLoadMoreContentHeightRef.current = 0;
+      hasExitedLoadMoreZoneRef.current = true;
       await refetch();
     } finally {
       setRefreshing(false);
@@ -141,16 +148,24 @@ export default function HomeScreen() {
     }
   };
 
-  const handleListScroll = (
-    event: NativeSyntheticEvent<NativeScrollEvent>
-  ) => {
+  const handleListScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (searchVisible) {
       return;
     }
 
     const currentState = headerScrollState.current;
+    const currentOffsetY = event.nativeEvent.contentOffset.y;
+    const currentContentHeight = event.nativeEvent.contentSize.height;
+
+    if (currentContentHeight < lastLoadMoreContentHeightRef.current) {
+      lastLoadMoreContentHeightRef.current = 0;
+      hasExitedLoadMoreZoneRef.current = true;
+      headerScrollState.current.previousOffsetY = currentOffsetY;
+    }
+
+    const isScrollingDown = currentOffsetY >= currentState.previousOffsetY;
     const nextState = resolveScrollHeaderVisibility({
-      currentOffsetY: event.nativeEvent.contentOffset.y,
+      currentOffsetY,
       previousOffsetY: currentState.previousOffsetY,
       isVisible: currentState.isVisible,
     });
@@ -160,6 +175,31 @@ export default function HomeScreen() {
     if (nextState.isVisible !== currentState.isVisible) {
       headerScrollState.current.isVisible = nextState.isVisible;
       animateHeaderVisibility(nextState.isVisible);
+    }
+
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const distanceFromBottom =
+      contentSize.height - (contentOffset.y + layoutMeasurement.height);
+    const isNearBottom = distanceFromBottom <= HOME_LOAD_MORE_THRESHOLD_PX;
+
+    if (!isNearBottom) {
+      hasExitedLoadMoreZoneRef.current = true;
+    }
+
+    const hasNewContentHeight =
+      contentSize.height > lastLoadMoreContentHeightRef.current;
+    const canRetryCurrentHeight =
+      hasExitedLoadMoreZoneRef.current &&
+      contentSize.height === lastLoadMoreContentHeightRef.current;
+
+    if (
+      isScrollingDown &&
+      isNearBottom &&
+      (hasNewContentHeight || canRetryCurrentHeight)
+    ) {
+      lastLoadMoreContentHeightRef.current = contentSize.height;
+      hasExitedLoadMoreZoneRef.current = false;
+      setProductGridLoadMoreSignal((current) => current + 1);
     }
   };
 
@@ -190,8 +230,18 @@ export default function HomeScreen() {
   ];
 
   const blocks: Block[] = (() => {
-    const isBlockArray = (arr: unknown[]): arr is Block[] => arr.every(item => typeof item === 'object' && item !== null && 'type' in item && 'props' in item);
-    let content: Block[] = pageConfig?.content && isBlockArray(pageConfig.content) ? pageConfig.content : defaultBlocks;
+    const isBlockArray = (arr: unknown[]): arr is Block[] =>
+      arr.every(
+        (item) =>
+          typeof item === 'object' &&
+          item !== null &&
+          'type' in item &&
+          'props' in item
+      );
+    let content: Block[] =
+      pageConfig?.content && isBlockArray(pageConfig.content)
+        ? pageConfig.content
+        : defaultBlocks;
 
     // Force CategoryRail if it's missing but it's an Elite design context
     if (
@@ -216,6 +266,21 @@ export default function HomeScreen() {
     if (isConfigLoading && !pageConfig) return [];
     return content;
   })();
+  const productGridDatasetKey = JSON.stringify({
+    selectedCategoryId,
+    productGridBlockIds: blocks
+      .filter((block) => block.type === 'ProductGrid')
+      .map((block) => block.props.id ?? block.type),
+  });
+  const primaryProductGridId =
+    blocks.find((block) => block.type === 'ProductGrid')?.props.id ?? null;
+
+  useEffect(() => {
+    void productGridDatasetKey;
+    lastLoadMoreContentHeightRef.current = 0;
+    hasExitedLoadMoreZoneRef.current = true;
+    headerScrollState.current.previousOffsetY = 0;
+  }, [productGridDatasetKey]);
 
   const resolvedHeaderHeight = headerHeight > 0 ? headerHeight : 150;
   const headerOverlayAnimatedStyle = {
@@ -335,6 +400,12 @@ export default function HomeScreen() {
           <View key={block.props?.id || `block-${index}`}>
             <BlockRenderer
               blocks={[block]}
+              productGridLoadMoreSignal={
+                block.type === 'ProductGrid' &&
+                block.props?.id === primaryProductGridId
+                  ? productGridLoadMoreSignal
+                  : 0
+              }
               selectedCategoryId={selectedCategoryId}
               onCategorySelect={handleCategorySelect}
             />

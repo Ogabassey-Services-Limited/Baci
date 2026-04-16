@@ -1,15 +1,22 @@
 import { prioritizeSmartphoneProducts } from '@baci/shared';
 import { useIsFocused } from '@react-navigation/native';
-import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { ProductGridSkeleton } from '@/components/ui/Skeleton';
-import { palette, SPACING, TYPOGRAPHY } from '@/constants/Colors';
+import { palette } from '@/constants/Colors';
+import {
+  PRODUCT_GRID_LOADING_MORE_LABEL,
+  PRODUCT_GRID_MAX_PRICE_LIMIT,
+} from '@/constants/product-grid';
 import { useCategories, useProductBrands, useProducts } from '@/hooks';
 import { getProductGridCategories } from '@/lib/category-utils';
 import { resolveSelectedCategoryId } from '@/lib/product-filter-options';
 import type { ProductGridBlock } from '@/types/blocks';
 import { FilterBar } from './FilterBar';
 import { ProductCard } from './ProductCard';
+import { styles } from './ProductGrid.styles';
+import { useProductGridFilters } from './use-product-grid-filters';
+import { useProductGridPagination } from './use-product-grid-pagination';
 
 interface Category {
   id: string;
@@ -20,25 +27,32 @@ interface Category {
 
 interface ProductGridProps {
   block: ProductGridBlock;
+  loadMoreSignal?: number;
   selectedCategoryId: string | null;
   variant: 'grid' | 'editorial' | 'list';
 }
 
-const MAX_PRICE_LIMIT = 3000000;
-
 export default function ProductGrid({
   block,
+  loadMoreSignal = 0,
   selectedCategoryId,
   variant,
 }: ProductGridProps) {
-  const [selectedCategoryName, setSelectedCategoryName] = useState('All');
-  const [minPrice, setMinPrice] = useState(0);
-  const [maxPrice, setMaxPrice] = useState(MAX_PRICE_LIMIT);
-  const [selectedBrand, setSelectedBrand] = useState('All');
-  const [selectedCondition, setSelectedCondition] = useState('All');
-  const [minRating, setMinRating] = useState(0);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-
+  const {
+    handleCategorySelect,
+    handlePriceChange,
+    maxPrice,
+    minPrice,
+    minRating,
+    selectedBrand,
+    selectedCategoryName,
+    selectedCondition,
+    setMinRating,
+    setSelectedBrand,
+    setSelectedCondition,
+    setViewMode,
+    viewMode,
+  } = useProductGridFilters();
   const {
     data: categoriesData = [],
     isLoading: isCategoriesLoading,
@@ -69,11 +83,20 @@ export default function ProductGrid({
   const isFocused = useIsFocused();
   const hasFocusedOnceRef = useRef(false);
 
-  const { products, isLoading, isFetching, isError, refetch } = useProducts({
+  const {
+    products,
+    hasMore,
+    isLoading,
+    isLoadingMore,
+    isFetching,
+    isError,
+    loadMore,
+    refetch,
+  } = useProducts({
     limit: fetchLimit,
     category: normalizedCategoryId,
     minPrice: minPrice > 0 ? minPrice : undefined,
-    maxPrice: maxPrice < MAX_PRICE_LIMIT ? maxPrice : undefined,
+    maxPrice: maxPrice < PRODUCT_GRID_MAX_PRICE_LIMIT ? maxPrice : undefined,
     brand: selectedBrand !== 'All' ? selectedBrand : undefined,
     condition: selectedCondition !== 'All' ? selectedCondition : undefined,
     minRating: minRating > 0 ? minRating : undefined,
@@ -81,9 +104,19 @@ export default function ProductGrid({
   const { brands = [] } = useProductBrands({
     category: normalizedCategoryId,
     minPrice: minPrice > 0 ? minPrice : undefined,
-    maxPrice: maxPrice < MAX_PRICE_LIMIT ? maxPrice : undefined,
+    maxPrice: maxPrice < PRODUCT_GRID_MAX_PRICE_LIMIT ? maxPrice : undefined,
     condition: selectedCondition !== 'All' ? selectedCondition : undefined,
     minRating: minRating > 0 ? minRating : undefined,
+  });
+  const paginationResetKey = JSON.stringify({
+    category: normalizedCategoryId ?? null,
+    displayLimit,
+    maxPrice,
+    minPrice,
+    minRating,
+    selectedBrand,
+    selectedCategoryName,
+    selectedCondition,
   });
 
   useEffect(() => {
@@ -103,7 +136,7 @@ export default function ProductGrid({
     if (selectedBrand !== 'All' && !brands.includes(selectedBrand)) {
       setSelectedBrand('All');
     }
-  }, [brands, selectedBrand]);
+  }, [brands, selectedBrand, setSelectedBrand]);
 
   const categoryNames = (() => {
     if (categoriesData.length > 0) {
@@ -118,22 +151,17 @@ export default function ProductGrid({
   })();
 
   const orderedProducts = shouldPrioritizeSmartphones
-    ? prioritizeSmartphoneProducts(products).slice(0, displayLimit)
+    ? prioritizeSmartphoneProducts(products)
     : products;
-
-  const handleCategorySelect = (categoryName: string) => {
-    setSelectedCategoryName(categoryName);
-    setMinPrice(0);
-    setMaxPrice(MAX_PRICE_LIMIT);
-    setSelectedBrand('All');
-    setSelectedCondition('All');
-    setMinRating(0);
-  };
-
-  const handlePriceChange = (min: number, max: number) => {
-    setMinPrice(min);
-    setMaxPrice(max);
-  };
+  const { visibleProducts } = useProductGridPagination({
+    displayLimit,
+    hasMore,
+    isLoadingMore,
+    loadMore,
+    loadMoreSignal,
+    orderedProducts,
+    paginationResetKey,
+  });
 
   const currentVariant = viewMode === 'list' ? 'list' : variant;
 
@@ -188,14 +216,14 @@ export default function ProductGrid({
       />
 
       <View style={currentVariant === 'list' ? styles.list : styles.grid}>
-        {orderedProducts.length === 0 && !isFetching ? (
+        {visibleProducts.length === 0 && !isFetching ? (
           <View style={styles.emptyState}>
             <Text style={[styles.emptyText, { color: palette.gray[400] }]}>
               No products match your criteria.
             </Text>
           </View>
         ) : (
-          orderedProducts.map((product) => (
+          visibleProducts.map((product) => (
             <View
               key={product.id}
               style={
@@ -211,60 +239,20 @@ export default function ProductGrid({
           ))
         )}
       </View>
+      {isLoadingMore ? (
+        <View
+          style={styles.loadingMore}
+          accessible
+          accessibilityLabel={PRODUCT_GRID_LOADING_MORE_LABEL}
+          accessibilityRole="progressbar"
+        >
+          <ActivityIndicator
+            size="small"
+            color={palette.gray[400]}
+            accessibilityElementsHidden
+          />
+        </View>
+      ) : null}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  section: {
-    paddingVertical: SPACING.md,
-  },
-  sectionTitle: {
-    fontSize: TYPOGRAPHY.size.lg,
-    fontFamily: 'Inter_700Bold',
-    marginBottom: SPACING.md,
-    paddingHorizontal: SPACING.md,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: 8,
-  },
-  list: {
-    flexDirection: 'column',
-  },
-  gridWrapper: {
-    width: '50%',
-    paddingHorizontal: 8,
-  },
-  editorialWrapper: {
-    width: '100%',
-  },
-  listWrapper: {
-    width: '100%',
-  },
-  emptyState: {
-    width: '100%',
-    paddingVertical: 60,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyText: {
-    fontSize: 14,
-    fontFamily: 'Inter_500Medium',
-    textAlign: 'center',
-  },
-  retryButton: {
-    marginTop: SPACING.sm,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: palette.gray[300],
-  },
-  retryButtonText: {
-    color: palette.gray[700],
-    fontFamily: 'Inter_700Bold',
-    fontSize: 12,
-  },
-});

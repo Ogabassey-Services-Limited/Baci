@@ -24,6 +24,8 @@ function buildItems(orderId: string) {
     {
       order_id: orderId,
       product_id: 'product_1',
+      variant_id: 'variant_1',
+      variant_name: 'iPhone 12 128GB · Used',
       name: 'iPhone 12 128GB',
       quantity: 1,
       price: 280000,
@@ -42,9 +44,9 @@ function createDependencies(options?: {
     data: options?.insertOrderError ? null : { id: 'order_1' },
     error: options?.insertOrderError ?? null,
   });
-  const insertOrderItems = vi.fn().mockImplementation(async () => {
+  const insertOrderItems = vi.fn().mockImplementation(() => {
     const nextResult = options?.insertOrderItemsResults?.shift();
-    return nextResult ?? { error: null };
+    return Promise.resolve(nextResult ?? { error: null });
   });
   const deleteOrder = vi.fn().mockResolvedValue({
     error: options?.deleteOrderError ?? null,
@@ -80,7 +82,9 @@ describe('createManualOrderWithItems', () => {
   });
 
   it('retries item insert without condition when the schema cache is behind', async () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
     const dependencies = createDependencies({
       insertOrderItemsResults: [
         {
@@ -107,6 +111,8 @@ describe('createManualOrderWithItems', () => {
       {
         order_id: 'order_1',
         product_id: 'product_1',
+        variant_id: 'variant_1',
+        variant_name: 'iPhone 12 128GB · Used',
         name: 'iPhone 12 128GB',
         quantity: 1,
         price: 280000,
@@ -137,7 +143,9 @@ describe('createManualOrderWithItems', () => {
   });
 
   it('surfaces cleanup failure if rollback of the incomplete order fails', async () => {
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
     const dependencies = createDependencies({
       insertOrderItemsResults: [
         {
