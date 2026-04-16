@@ -19,6 +19,7 @@ vi.mock('@/components/ui/AppFormScreen', async () => {
 vi.mock('react-native', async () => {
   const React = await import('react');
   return {
+    useColorScheme: vi.fn(() => 'light'),
     Alert: { alert: mocks.alert },
     StyleSheet: {
       create: (s: Record<string, unknown>) => s,
@@ -82,6 +83,7 @@ vi.mock('react-native', async () => {
 vi.mock('expo-linear-gradient', async () => {
   const React = await import('react');
   return {
+    useColorScheme: vi.fn(() => 'light'),
     LinearGradient: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('div', null, children),
   };
@@ -92,6 +94,7 @@ vi.mock('react-native-edge-to-edge', () => ({ SystemBars: () => null }));
 vi.mock('@expo/vector-icons', async () => {
   const React = await import('react');
   return {
+    useColorScheme: vi.fn(() => 'light'),
     Ionicons: ({ name }: { name: string }) =>
       React.createElement('span', null, name),
   };
