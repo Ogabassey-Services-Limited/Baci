@@ -18,8 +18,12 @@ function calculateEffectivePrice(
   product: Product,
   resolvedVariantSelection:
     | ResolvedProductVariantSelection<{
-        compare_at_price?: number;
+        compare_at_price?: number | null;
         id: string;
+        image?: string;
+        images?: string[];
+        in_stock?: boolean;
+        name?: string;
         stock_quantity?: number;
       }>
     | null
@@ -66,8 +70,12 @@ export function useEffectivePrice(
   product: Product | null | undefined,
   resolvedVariantSelection:
     | ResolvedProductVariantSelection<{
-        compare_at_price?: number;
+        compare_at_price?: number | null;
         id: string;
+        image?: string;
+        images?: string[];
+        in_stock?: boolean;
+        name?: string;
         stock_quantity?: number;
       }>
     | null

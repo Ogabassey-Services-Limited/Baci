@@ -26,11 +26,9 @@ const log = createLogger('ProductDetail');
 
 import {
   getVariantConditionOptions,
-  hasVariantConditionAxis,
   normalizeCanonicalProductCondition,
   resolveDefaultVariantSelection,
   resolveVariantDisplaySelection,
-  resolveVariantSelection,
   resolveVariantSelectionParamResolution,
 } from '@baci/shared/lib';
 import Animated, {
@@ -66,6 +64,10 @@ import {
   type Product,
   type ProductCondition,
 } from '@/types/product';
+import {
+  computeProductSelectionState,
+  normalizeRouteCondition,
+} from './product-selection';
 
 function getFirstColorOption(product: Product | null) {
   if (!product) {
@@ -132,15 +134,6 @@ function getSelectionSyncSignature(product: Product | null) {
         stock_quantity: variant.stock_quantity ?? null,
       })) ?? [],
   });
-}
-
-function normalizeRouteCondition(
-  value: string | string[] | null | undefined
-): ProductCondition | null {
-  const normalized = normalizeCanonicalProductCondition(
-    typeof value === 'string' ? value : null
-  );
-  return normalized || null;
 }
 
 function getFirstRouteParamValue(
@@ -238,81 +231,28 @@ export default function ProductDetailScreen() {
   const defaultVariantSelection = product
     ? resolveDefaultVariantSelection(product)
     : null;
-  const usesVariantConditions = product
-    ? hasVariantConditionAxis(product)
-    : false;
-  const availableConditions = product
-    ? ((usesVariantConditions
-        ? (getVariantConditionOptions(product) as ProductCondition[])
-        : Array.from(
-            new Set(
-              [
-                normalizeRouteCondition(product.condition),
-                ...(product.offers?.map((offer) => offer.condition) || []),
-              ].filter(Boolean)
-            )
-          )) as ProductCondition[])
-    : [];
-  const fallbackSelectedCondition =
-    routeCondition ??
-    availableConditions[0] ??
-    normalizeRouteCondition(product?.condition);
-  const currentVariantDisplaySelection = product?.has_variants
-    ? (resolveVariantDisplaySelection(product, {
-        condition: selectedCondition ?? fallbackSelectedCondition,
-        variantId: selectedVariant ?? routeVariantId,
-        attributes: {
-          storage: selectedStorage ?? routeSelectionAttributes.storage ?? null,
-          color: selectedColor ?? routeSelectionAttributes.color ?? null,
-          ...routeSelectionAttributes,
-          ...selectedAttributes,
-        },
-      }) ??
-      (!selectedVariant &&
-      !selectedStorage &&
-      !selectedColor &&
-      Object.keys(selectedAttributes).length === 0
-        ? defaultVariantSelection
-        : null))
-    : null;
-  const effectiveSelectedCondition =
-    normalizeRouteCondition(currentVariantDisplaySelection?.condition) ??
-    selectedCondition ??
-    fallbackSelectedCondition;
-  const currentVariantSelection = product?.has_variants
-    ? resolveVariantSelection(product, {
-        condition: effectiveSelectedCondition,
-        variantId: selectedVariant ?? routeVariantId,
-        attributes: {
-          storage: selectedStorage ?? routeSelectionAttributes.storage ?? null,
-          color: selectedColor ?? routeSelectionAttributes.color ?? null,
-          ...routeSelectionAttributes,
-          ...selectedAttributes,
-        },
-      })
-    : null;
-  const effectiveSelectedVariantId =
-    currentVariantDisplaySelection?.variant.id ??
-    selectedVariant ??
-    (typeof routeVariantId === 'string' ? routeVariantId : null);
-  const effectiveSelectedStorage =
-    currentVariantDisplaySelection?.storage ??
-    selectedStorage ??
-    routeSelectionAttributes.storage ??
-    null;
-  const effectiveSelectedColor =
-    currentVariantDisplaySelection?.color ??
-    selectedColor ??
-    routeSelectionAttributes.color ??
-    null;
-  const effectiveSelectedAttributes = {
-    ...selectedAttributes,
-    ...Object.fromEntries(
-      Object.entries(currentVariantDisplaySelection?.attributes ?? {}).filter(
-        ([axis]) => axis !== 'color' && axis !== 'storage'
-      )
-    ),
-  };
+  const {
+    availableConditions,
+    currentVariantDisplaySelection,
+    currentVariantSelection,
+    effectiveSelectedAttributes,
+    effectiveSelectedColor,
+    effectiveSelectedCondition,
+    effectiveSelectedStorage,
+    effectiveSelectedVariantId,
+    usesVariantConditions,
+  } = computeProductSelectionState({
+    defaultVariantSelection,
+    product,
+    routeCondition,
+    routeSelectionAttributes,
+    routeVariantId,
+    selectedAttributes,
+    selectedColor,
+    selectedCondition,
+    selectedStorage,
+    selectedVariant,
+  });
   const selectionSyncSignature = getSelectionSyncSignature(product);
 
   // Timer ref for toast cleanup - prevents memory leaks (2026 Best Practice)

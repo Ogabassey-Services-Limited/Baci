@@ -1,0 +1,87 @@
+import { resolveDefaultVariantSelection } from '@baci/shared/lib';
+import { describe, expect, it } from '@jest/globals';
+import {
+  baseProduct,
+  primaryVariant,
+  variantProduct,
+} from './product-detail-screen.fixtures';
+import {
+  computeProductSelectionState,
+  normalizeRouteCondition,
+} from './product-selection';
+
+describe('product selection', () => {
+  it('uses the default variant selection when no explicit selection is present', () => {
+    const defaultVariantSelection =
+      resolveDefaultVariantSelection(variantProduct);
+    const result = computeProductSelectionState({
+      defaultVariantSelection,
+      product: variantProduct,
+      routeCondition: null,
+      routeSelectionAttributes: {},
+      routeVariantId: null,
+      selectedAttributes: {},
+      selectedColor: null,
+      selectedCondition: null,
+      selectedStorage: null,
+      selectedVariant: null,
+    });
+
+    expect(result.currentVariantDisplaySelection?.variant.id).toBe(
+      primaryVariant.id
+    );
+    expect(result.effectiveSelectedCondition).toBe('new');
+    expect(result.effectiveSelectedVariantId).toBe(primaryVariant.id);
+  });
+
+  it('resolves the variant display selection from the route condition and attributes', () => {
+    const result = computeProductSelectionState({
+      defaultVariantSelection: resolveDefaultVariantSelection(variantProduct),
+      product: variantProduct,
+      routeCondition: 'used',
+      routeSelectionAttributes: {
+        connectivity: 'WiFi',
+        storage: '128GB',
+      },
+      routeVariantId: null,
+      selectedAttributes: {},
+      selectedColor: null,
+      selectedCondition: null,
+      selectedStorage: null,
+      selectedVariant: null,
+    });
+
+    expect(result.currentVariantDisplaySelection?.variant.id).toBe(
+      'variant-used-128'
+    );
+    expect(result.effectiveSelectedCondition).toBe('used');
+  });
+
+  it('normalizes non-variant fallback conditions from legacy aliases', () => {
+    const result = computeProductSelectionState({
+      defaultVariantSelection: null,
+      product: {
+        ...baseProduct,
+        offers: [
+          {
+            id: 'offer-1',
+            condition: 'refurbished',
+            price: 400000,
+          },
+        ],
+      },
+      routeCondition: null,
+      routeSelectionAttributes: {},
+      routeVariantId: null,
+      selectedAttributes: {},
+      selectedColor: null,
+      selectedCondition: null,
+      selectedStorage: null,
+      selectedVariant: null,
+    });
+
+    expect(result.availableConditions).toEqual(['open_box']);
+    expect(result.fallbackSelectedCondition).toBe('open_box');
+    expect(normalizeRouteCondition('refurbished')).toBe('open_box');
+  });
+});
