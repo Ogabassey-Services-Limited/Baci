@@ -155,6 +155,7 @@ export const Navbar: React.FC = () => {
               <button
                 className="md:hidden p-2 -ml-2 text-white"
                 onClick={() => setIsMenuOpen(true)}
+                aria-label="Open mobile menu"
               >
                 <Menu size={24} />
               </button>
@@ -191,6 +192,7 @@ export const Navbar: React.FC = () => {
                 <button
                   className="p-2.5 rounded-full hover:bg-white/10 text-white transition-colors relative"
                   onClick={() => setShowNotifications(!showNotifications)}
+                  aria-label="Toggle notifications"
                 >
                   <Bell size={22} />
                   {/* TODO: notification badge when implemented
