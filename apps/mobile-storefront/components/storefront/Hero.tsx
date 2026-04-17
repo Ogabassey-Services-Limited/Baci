@@ -19,6 +19,8 @@ import Animated, {
   useSharedValue,
 } from 'react-native-reanimated';
 import { BRAND, RADIUS, SPACING } from '@/constants/Colors';
+import { useTheme } from '@/hooks/useTheme';
+type ThemeColors = ReturnType<typeof useTheme>['colors'];
 import { CONFIG } from '@/lib/config';
 import { getTemplateConfig } from '@/lib/templates';
 
@@ -55,16 +57,22 @@ const heroImageProps = {
 const EliteSlide = ({
   item,
   screenWidth,
+  colors,
+  isDark,
+  styles,
 }: {
   item: HeroSlide;
   screenWidth: number;
+  colors: ThemeColors;
+  isDark: boolean;
+  styles: ReturnType<typeof getStyles>;
 }) => {
   return (
     <View style={[styles.eliteSlideContainer, { width: screenWidth }]}>
       <View style={styles.eliteCard}>
         {/* Background Image/Gradient - mocked as light gradient for now */}
         <LinearGradient
-          colors={['#F3F4F6', '#E5E7EB']}
+          colors={isDark ? [colors.card, colors.background] : [colors.muted, colors.border]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
@@ -106,9 +114,11 @@ const EliteSlide = ({
 const FashionSlide = ({
   item,
   screenWidth,
+  styles,
 }: {
   item: HeroSlide;
   screenWidth: number;
+  styles: ReturnType<typeof getStyles>;
 }) => (
   <View style={[styles.slide, { width: screenWidth, height: CAROUSEL_HEIGHT }]}>
     <Image
@@ -118,7 +128,7 @@ const FashionSlide = ({
       {...heroImageProps}
     />
     <LinearGradient
-      colors={['transparent', 'rgba(0,0,0,0.5)']}
+      colors={['transparent', 'rgba(0,0,0,0.8)']}
       style={styles.gradient}
     />
     <View style={styles.fashionContent}>
@@ -139,9 +149,11 @@ const FashionSlide = ({
 const StandardSlide = ({
   item,
   screenWidth,
+  styles,
 }: {
   item: HeroSlide;
   screenWidth: number;
+  styles: ReturnType<typeof getStyles>;
 }) => (
   <View
     style={[
@@ -156,7 +168,7 @@ const StandardSlide = ({
       {...heroImageProps}
     />
     <LinearGradient
-      colors={['rgba(0,0,0,0.6)', 'transparent']}
+      colors={['rgba(0,0,0,0.7)', 'transparent']}
       style={[StyleSheet.absoluteFill, { borderRadius: RADIUS.xl }]}
     />
     <View style={styles.standardContent}>
@@ -177,6 +189,8 @@ export function Hero({
   slides = DEFAULT_SLIDES,
   autoplayDelay = 5000,
 }: HeroProps) {
+  const { colors, isDark } = useTheme();
+  const styles = getStyles(colors, isDark);
   const { width: screenWidth } = useWindowDimensions();
   const template = getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID);
   const scrollX = useSharedValue(0);
@@ -210,11 +224,11 @@ export function Hero({
   const renderSlide = ({ item }: { item: HeroSlide }) => {
     switch (template.heroVariant) {
       case 'parallax':
-        return <EliteSlide item={item} screenWidth={screenWidth} />;
+        return <EliteSlide item={item} screenWidth={screenWidth} colors={colors} isDark={isDark} styles={styles} />;
       case 'carousel':
-        return <FashionSlide item={item} screenWidth={screenWidth} />;
+        return <FashionSlide item={item} screenWidth={screenWidth} styles={styles} />;
       default:
-        return <StandardSlide item={item} screenWidth={screenWidth} />;
+        return <StandardSlide item={item} screenWidth={screenWidth} styles={styles} />;
     }
   };
 
@@ -251,7 +265,7 @@ export function Hero({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
   slide: { position: 'relative', overflow: 'hidden' },
   imageWrapper: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
   imageContainer: {
@@ -272,7 +286,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.xl, // 24px or similar
     overflow: 'hidden',
     position: 'relative',
-    backgroundColor: '#F3F4F6', // Fallback
+    backgroundColor: colors.card,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
@@ -303,13 +317,13 @@ const styles = StyleSheet.create({
   eliteTitle: {
     fontSize: 24, // Optimized for horizontal layout
     fontFamily: 'Inter_900Black',
-    color: '#111',
+    color: colors.text,
     textAlign: 'left',
     lineHeight: 28,
   },
   eliteSubtitle: {
     fontSize: 12,
-    color: '#4B5563', // gray-600 for WCAG AA contrast
+    color: colors.textSecondary,
     textAlign: 'left',
     fontFamily: 'serif',
     lineHeight: 16,
@@ -317,16 +331,16 @@ const styles = StyleSheet.create({
   },
   eliteCta: {
     alignSelf: 'flex-start',
-    backgroundColor: '#FFF', // White pill matching web
+    backgroundColor: colors.primaryForeground,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: RADIUS.full,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.border,
   },
   eliteCtaText: {
     fontWeight: '700',
-    color: '#111',
+    color: colors.text,
     fontSize: 12,
     fontFamily: 'serif',
   },
@@ -378,7 +392,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: 'rgba(0,0,0,0.1)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
   },
-  dotActive: { width: 20, backgroundColor: '#111' },
+  dotActive: { width: 20, backgroundColor: colors.text },
 });
