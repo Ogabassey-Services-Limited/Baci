@@ -827,6 +827,55 @@ describe('PUT /api/products/[id]', () => {
       expect(lastProductUpdatePayload).not.toHaveProperty('migration_status');
     });
 
+    it('marks reviewed sku_matrix products as migrated after a successful variant save', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Product',
+        slug: 'product',
+        condition: 'new',
+        has_variants: true,
+        variant_model: 'legacy',
+        migration_status: 'needs_review',
+      };
+
+      updateResult = {
+        id: PRODUCT_ID,
+        slug: 'product',
+        name: 'Product',
+        has_variants: true,
+        variant_model: 'sku_matrix',
+      };
+
+      const res = await PUT(
+        makePutRequest(PRODUCT_ID, {
+          has_variants: true,
+          variant_model: 'sku_matrix',
+          variants: [
+            {
+              id: 'variant-1',
+              attributes: { storage: '128GB' },
+              condition: 'used',
+              price_override: 7000,
+              stock_quantity: 5,
+            },
+          ],
+        }),
+        {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        }
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.product).toBeDefined();
+      expect(lastProductUpdatePayload).toEqual(
+        expect.objectContaining({
+          variant_model: 'sku_matrix',
+          migration_status: 'migrated',
+        })
+      );
+    });
+
     it('deletes variants when has_variants is set to false', async () => {
       product = {
         id: PRODUCT_ID,
