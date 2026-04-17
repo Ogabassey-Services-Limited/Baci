@@ -111,6 +111,9 @@ export function RegisterBusinessStep({
         ]}
         onPress={onLaunchStore}
         disabled={isLoading}
+        accessibilityRole="button"
+        accessibilityLabel={isLoading ? "Launching store..." : "Launch Store"}
+        accessibilityState={{ disabled: isLoading, busy: isLoading }}
       >
         {isLoading ? (
           <ActivityIndicator color={colors.textOnPrimary} />
