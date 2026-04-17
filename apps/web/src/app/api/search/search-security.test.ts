@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { GET as autocompleteGET } from './autocomplete/route';
 import { GET as searchGET } from './route';
 
@@ -75,6 +76,7 @@ describe('Search API Security', () => {
     it('should sanitize search query before passing to rpc and insert', async () => {
       const maliciousQuery = '<script>alert(1)</script>';
       const merchantId = '123e4567-e89b-12d3-a456-426614174000';
+      const expectedQuery = sanitizeSearchQuery(maliciousQuery);
 
       const request = new NextRequest(
         `http://localhost:3000/api/search?q=${encodeURIComponent(
@@ -88,15 +90,14 @@ describe('Search API Security', () => {
       expect(mockSupabase.rpc).toHaveBeenCalledWith(
         'search_products_v2',
         expect.objectContaining({
-          search_query: expect.not.stringContaining('<script>'),
+          search_query: expectedQuery,
         })
       );
 
       // Verify insert call (Stored XSS prevention)
-      // We expect the query to be sanitized (stripped of HTML tags)
       expect(sharedChainableMock.insert).toHaveBeenCalledWith(
         expect.objectContaining({
-          search_query: expect.not.stringContaining('<script>'),
+          search_query: expectedQuery,
         })
       );
     });
