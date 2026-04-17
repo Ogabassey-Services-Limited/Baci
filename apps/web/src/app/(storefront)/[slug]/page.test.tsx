@@ -73,9 +73,8 @@ const baseMerchant = {
   country: 'NG',
 };
 
-const { default: StorefrontPage, StorefrontPageContent } = await import(
-  './page'
-);
+const { default: StorefrontPage } = await import('./page');
+const { StorefrontPageContent } = await import('./storefront-page-content');
 
 describe('Storefront homepage structured data', () => {
   beforeEach(() => {

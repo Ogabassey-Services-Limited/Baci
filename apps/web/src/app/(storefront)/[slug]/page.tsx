@@ -6,8 +6,6 @@ import { buildStoreUrl } from '@/lib/store-url';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 import { StorefrontPageContent } from './storefront-page-content';
 
-export { StorefrontPageContent } from './storefront-page-content';
-
 export async function generateMetadata({
   params,
 }: {
