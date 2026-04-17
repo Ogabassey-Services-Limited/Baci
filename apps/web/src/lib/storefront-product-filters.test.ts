@@ -25,6 +25,15 @@ describe('storefront-product-filters', () => {
     ).toEqual(['new', 'used']);
   });
 
+  it('prefers an explicit condition over generic legacy offer inference', () => {
+    expect(
+      getNormalizedStorefrontConditions({
+        condition: 'refurbished',
+        has_condition_offers: true,
+      })
+    ).toEqual(['open_box']);
+  });
+
   it('filters invalid available_conditions entries while preserving valid strings', () => {
     expect(
       getNormalizedStorefrontConditions({
@@ -75,13 +84,22 @@ describe('storefront-product-filters', () => {
     ).toBe(false);
   });
 
-  it('treats All as a pass-through condition filter and rejects invalid condition filters', () => {
+  it('treats all as a pass-through condition filter and rejects invalid condition filters', () => {
     expect(
       matchesStorefrontConditionFilter(
         {
           available_conditions: ['new'],
         },
         'All'
+      )
+    ).toBe(true);
+
+    expect(
+      matchesStorefrontConditionFilter(
+        {
+          available_conditions: ['new'],
+        },
+        'all'
       )
     ).toBe(true);
 
@@ -127,7 +145,7 @@ describe('storefront-product-filters', () => {
     ).toBe(true);
   });
 
-  it('treats All as a pass-through brand filter and rejects missing brands for specific selections', () => {
+  it('treats all as a pass-through brand filter and rejects missing brands for specific selections', () => {
     expect(
       matchesStorefrontBrandFilter(
         {
@@ -140,10 +158,31 @@ describe('storefront-product-filters', () => {
     expect(
       matchesStorefrontBrandFilter(
         {
+          brand: 'Sony',
+        },
+        'all'
+      )
+    ).toBe(true);
+
+    expect(
+      matchesStorefrontBrandFilter(
+        {
           brand: undefined,
         },
         'sony'
       )
     ).toBe(false);
+  });
+
+  it('treats all as a pass-through category filter', () => {
+    expect(
+      matchesStorefrontCategoryFilter(
+        {
+          category: 'Smart TVs',
+          category_slug: 'smart-tvs',
+        },
+        'all'
+      )
+    ).toBe(true);
   });
 });

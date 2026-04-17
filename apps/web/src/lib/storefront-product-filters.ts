@@ -42,6 +42,10 @@ function normalizeToken(value: string) {
   return value.trim().toLowerCase();
 }
 
+function isAllFilter(value: string | null | undefined) {
+  return typeof value === 'string' && normalizeToken(value) === 'all';
+}
+
 function slugifyToken(value: string) {
   return value
     .trim()
@@ -81,16 +85,16 @@ export function getNormalizedStorefrontConditions(source: ConditionSource) {
     }
   }
 
-  if (normalizedConditions.size === 0 && source.has_condition_offers) {
-    normalizedConditions.add('new');
-    normalizedConditions.add('used');
-  }
-
-  if (normalizedConditions.size === 0 && typeof source.condition === 'string') {
+  if (typeof source.condition === 'string') {
     const normalized = normalizeCanonicalProductCondition(source.condition);
     if (normalized) {
       normalizedConditions.add(normalized);
     }
+  }
+
+  if (normalizedConditions.size === 0 && source.has_condition_offers) {
+    normalizedConditions.add('new');
+    normalizedConditions.add('used');
   }
 
   return Array.from(normalizedConditions);
@@ -120,7 +124,7 @@ export function matchesStorefrontConditionFilter(
   source: ConditionSource,
   selectedCondition: string
 ) {
-  if (!selectedCondition || selectedCondition === 'All') {
+  if (!selectedCondition || isAllFilter(selectedCondition)) {
     return true;
   }
 
@@ -138,7 +142,7 @@ export function matchesStorefrontBrandFilter(
   source: BrandSource,
   selectedBrand: string
 ) {
-  if (!selectedBrand || selectedBrand === 'All') {
+  if (!selectedBrand || isAllFilter(selectedBrand)) {
     return true;
   }
 
@@ -149,7 +153,7 @@ export function matchesStorefrontCategoryFilter(
   source: CategorySource,
   selectedCategory: string
 ) {
-  if (!selectedCategory || selectedCategory === 'All') {
+  if (!selectedCategory || isAllFilter(selectedCategory)) {
     return true;
   }
 

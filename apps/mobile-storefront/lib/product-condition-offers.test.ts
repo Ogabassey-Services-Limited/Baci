@@ -39,7 +39,7 @@ describe('findMatchingConditionOffer', () => {
     const singleOffer = [
       {
         id: 'offer-scratch-and-dent',
-        condition: 'scratch_and_dent' as never,
+        condition: 'refurbished' as const,
         price: 470000,
         stock_quantity: 2,
       },
@@ -52,5 +52,11 @@ describe('findMatchingConditionOffer', () => {
 
   it('does not guess across multiple offers when no condition is selected', () => {
     expect(findMatchingConditionOffer(offers, null)).toBeNull();
+  });
+
+  it('returns null when offers are missing or empty', () => {
+    expect(findMatchingConditionOffer(null, 'open_box')).toBeNull();
+    expect(findMatchingConditionOffer(undefined, 'open_box')).toBeNull();
+    expect(findMatchingConditionOffer([], 'open_box')).toBeNull();
   });
 });

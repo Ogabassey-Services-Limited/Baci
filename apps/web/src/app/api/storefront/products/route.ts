@@ -94,16 +94,6 @@ function escapeLikePattern(value: string) {
     .replaceAll('_', '\\_');
 }
 
-function buildLooseLikePattern(value: string) {
-  const tokens = value
-    .trim()
-    .split(/[\s-]+/)
-    .map((token) => escapeLikePattern(token))
-    .filter(Boolean);
-
-  return tokens.length > 0 ? `%${tokens.join('%')}%` : undefined;
-}
-
 function getConditionPrefilterClauses(condition: string) {
   const normalized = normalizeCanonicalProductCondition(condition);
 
@@ -200,12 +190,10 @@ function createCachedProductsFetcher(
         .eq('merchant_id', merchantId)
         .eq('status', 'active');
 
-      if (filters.category && filters.category !== 'all') {
-        const categoryPattern = buildLooseLikePattern(filters.category);
-        if (categoryPattern) {
-          query = query.ilike('category', categoryPattern);
-        }
-      }
+      // Category matching needs to stay relation-aware across the legacy text
+      // field, primary category join, and many-to-many product_categories join.
+      // A SQL prefilter on the legacy text column would drop valid relation
+      // matches before the in-memory compatibility matcher sees them.
 
       if (filters.brand && filters.brand !== 'all') {
         query = query.ilike(

@@ -53,6 +53,19 @@ describe('storefrontProductsQuerySchema', () => {
     }
   });
 
+  it('coerces explicit false-like has_images values to false', () => {
+    const result = storefrontProductsQuerySchema.safeParse({
+      merchant_id: '00000000-0000-0000-0000-000000000001',
+      has_images: 'false',
+    });
+
+    expect(result.success).toBe(true);
+
+    if (result.success) {
+      expect(result.data.has_images).toBe(false);
+    }
+  });
+
   it('rejects invalid merchant ids and invalid condition values', () => {
     expect(
       storefrontProductsQuerySchema.safeParse({
