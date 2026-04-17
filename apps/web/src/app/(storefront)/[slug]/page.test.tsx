@@ -73,9 +73,8 @@ const baseMerchant = {
   country: 'NG',
 };
 
-const { default: StorefrontPage, StorefrontPageContent } = await import(
-  './page'
-);
+const { default: StorefrontPage, generateMetadata } = await import('./page');
+const { StorefrontPageContent } = await import('./storefront-page-content');
 
 describe('Storefront homepage structured data', () => {
   beforeEach(() => {
@@ -139,7 +138,17 @@ describe('Storefront homepage structured data', () => {
       url: 'https://ogabassey.com',
       name: 'Ogabassey',
     });
-    expect(website).not.toHaveProperty('potentialAction');
+    expect(website).toMatchObject({
+      '@type': 'WebSite',
+      potentialAction: {
+        '@type': 'SearchAction',
+        target: {
+          '@type': 'EntryPoint',
+          urlTemplate: 'https://ogabassey.com/search?q={search_term_string}',
+        },
+        'query-input': 'required name=search_term_string',
+      },
+    });
   });
 
   it('falls back to Organization + WebSite when no business address is available', async () => {
@@ -190,5 +199,33 @@ describe('Storefront homepage structured data', () => {
     render(<StorefrontPage params={Promise.resolve({ slug: 'ogabassey' })} />);
 
     expect(screen.getByTestId('skeleton')).toBeInTheDocument();
+  });
+
+  it('uses an absolute storefront title and plain-text description metadata', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue({
+      ...baseMerchant,
+      site_title: 'Ogabassey - Buy Phones, Laptops & More',
+      site_description:
+        '<p>Shop <strong>phones</strong>, laptops, consoles and accessories with nationwide delivery.</p>',
+    } as unknown as Awaited<ReturnType<typeof getRequestScopedMerchant>>);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+    });
+
+    expect(metadata.title).toEqual({
+      absolute: 'Ogabassey - Buy Phones, Laptops & More',
+    });
+    expect(metadata.description).toBe(
+      'Shop phones, laptops, consoles and accessories with nationwide delivery.'
+    );
+    expect(metadata.robots).toMatchObject({
+      index: true,
+      follow: true,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+      'max-video-preview': -1,
+    });
+    expect(metadata.alternates?.canonical).toBe('https://ogabassey.com');
   });
 });
