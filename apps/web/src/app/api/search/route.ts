@@ -1,6 +1,9 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { searchStorefrontProducts } from '@/lib/storefront-search';
+import {
+  InvalidMerchantIdError,
+  searchStorefrontProducts,
+} from '@/lib/storefront-search';
 import { createClient } from '@/lib/supabase/server';
 
 export async function GET(request: NextRequest) {
@@ -28,12 +31,15 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(result);
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Failed to perform search';
-    const status = message === 'Invalid merchant_id format' ? 400 : 500;
+    const status = error instanceof InvalidMerchantIdError ? 400 : 500;
 
     return NextResponse.json(
-      { error: status === 400 ? message : 'Failed to perform search' },
+      {
+        error:
+          status === 400
+            ? 'Invalid merchant_id format'
+            : 'Failed to perform search',
+      },
       { status }
     );
   }

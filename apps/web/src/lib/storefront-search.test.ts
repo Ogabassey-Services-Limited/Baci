@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockSupabase = {
   rpc: vi.fn(),
@@ -14,9 +14,16 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 import { sanitizeSearchQuery } from '@/lib/sanitize-core';
-import { searchStorefrontProducts } from './storefront-search';
+import {
+  InvalidMerchantIdError,
+  searchStorefrontProducts,
+} from './storefront-search';
 
 describe('searchStorefrontProducts', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('sanitizes the query before calling the search rpc', async () => {
     mockSupabase.rpc.mockResolvedValueOnce({
       data: [{ product_id: 'prod-1', total_count: 1 }],
@@ -39,6 +46,38 @@ describe('searchStorefrontProducts', () => {
         search_query: expectedQuery,
       })
     );
+  });
+
+  it('returns the shaped success response', async () => {
+    mockSupabase.rpc.mockResolvedValueOnce({
+      data: [{ product_id: 'prod-1', total_count: 2 }],
+      error: null,
+    });
+
+    const result = await searchStorefrontProducts({
+      supabase: mockSupabase as never,
+      merchantId: '123e4567-e89b-12d3-a456-426614174000',
+      query: 'iphone',
+      limit: 20,
+    });
+
+    expect(result).toEqual({
+      count: 2,
+      didYouMean: null,
+      productIds: ['prod-1'],
+      query: 'iphone',
+    });
+  });
+
+  it('throws InvalidMerchantIdError for invalid merchant ids', async () => {
+    await expect(
+      searchStorefrontProducts({
+        supabase: mockSupabase as never,
+        merchantId: 'not-a-uuid',
+        query: 'iphone',
+        limit: 20,
+      })
+    ).rejects.toBeInstanceOf(InvalidMerchantIdError);
   });
 
   it('returns didYouMean when the first search has no matches', async () => {

@@ -5,6 +5,13 @@ import {
 import { logger } from './logger';
 import { isValidUuid, sanitizeSearchQuery } from './sanitize-core';
 
+export class InvalidMerchantIdError extends Error {
+  constructor() {
+    super('Invalid merchant_id format');
+    this.name = 'InvalidMerchantIdError';
+  }
+}
+
 interface SearchStorefrontProductsArgs {
   supabase: {
     rpc: (
@@ -37,7 +44,7 @@ export async function searchStorefrontProducts({
   limit,
 }: SearchStorefrontProductsArgs): Promise<StorefrontSearchResult> {
   if (!isValidUuid(merchantId)) {
-    throw new Error('Invalid merchant_id format');
+    throw new InvalidMerchantIdError();
   }
 
   const sanitizedQuery = sanitizeSearchQuery(query);
