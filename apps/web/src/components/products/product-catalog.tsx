@@ -18,6 +18,7 @@ import type { Product } from '@/lib/products';
 import { ExportToJumiaDialog } from './jumia/export-dialog';
 import { mergeLocalProducts } from './merge-local-products';
 import { ProductCatalogTable } from './product-catalog-table';
+import { saveDirtyProducts } from './save-dirty-products';
 import { useJumiaIntegrations } from './use-jumia-integrations';
 
 interface ProductCatalogProps {
@@ -71,23 +72,45 @@ export function ProductCatalog({
     setIsSaving(true);
     const saveChanges = async () => {
       try {
-        const promises = Array.from(debouncedDirtyProducts).map(async (id) => {
-          const product = localProductsRef.current.find(
-            (item) => item.id === id
-          );
-          if (product) {
-            await updateProduct(product);
+        const { failedIds, fulfilledIds, skippedIds } = await saveDirtyProducts(
+          {
+            dirtyProductIds: debouncedDirtyProducts,
+            localProducts: localProductsRef.current,
+            updateProduct,
           }
-        });
+        );
 
-        await Promise.all(promises);
-        toast({
-          title: 'Changes Saved',
-          description: `Updated ${debouncedDirtyProducts.size} product(s).`,
-        });
-        setDirtyProducts(new Set());
-      } catch (error) {
-        console.error('Failed to save changes', error);
+        if (failedIds.length > 0) {
+          console.error('Failed to save products', failedIds);
+        }
+
+        if (fulfilledIds.length > 0) {
+          setDirtyProducts((current) => {
+            const next = new Set(current);
+            for (const id of fulfilledIds) {
+              next.delete(id);
+            }
+            return next;
+          });
+        }
+
+        if (failedIds.length === 0 && skippedIds.length === 0) {
+          toast({
+            title: 'Changes Saved',
+            description: `Updated ${fulfilledIds.length} product(s).`,
+          });
+          return;
+        }
+
+        if (fulfilledIds.length > 0) {
+          toast({
+            title: 'Partial Save',
+            description: `Saved ${fulfilledIds.length} product(s). ${failedIds.length + skippedIds.length} change(s) are still pending.`,
+            variant: 'destructive',
+          });
+          return;
+        }
+
         toast({
           title: 'Save Failed',
           description: 'Could not save changes. Please try again.',
