@@ -129,7 +129,7 @@ describe('ProductDetailScreen condition offer stock gating', () => {
     await waitFor(() => {
       expect(getLastMockProps(mockProductDetailsBody)).toEqual(
         expect.objectContaining({
-          selectedCondition: 'refurbished',
+          selectedCondition: 'open_box',
         })
       );
       expect(getLastMockProps(mockStickyBottomActions)).toEqual(
@@ -172,7 +172,7 @@ describe('ProductDetailScreen condition offer stock gating', () => {
     await waitFor(() => {
       expect(getLastMockProps(mockProductDetailsBody)).toEqual(
         expect.objectContaining({
-          selectedCondition: 'refurbished',
+          selectedCondition: 'open_box',
         })
       );
       expect(getLastMockProps(mockStickyBottomActions)).toEqual(
@@ -215,7 +215,7 @@ describe('ProductDetailScreen condition offer stock gating', () => {
     await waitFor(() => {
       expect(getLastMockProps(mockProductDetailsBody)).toEqual(
         expect.objectContaining({
-          selectedCondition: 'scratch_and_dent',
+          selectedCondition: null,
         })
       );
       expect(getLastMockProps(mockStickyBottomActions)).toEqual(

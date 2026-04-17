@@ -4,6 +4,13 @@ import {
   PRODUCT_IMAGE_LARGE_PLACEHOLDER_URL,
   PRODUCT_IMAGE_PLACEHOLDER_URL,
 } from '@/lib/product-image';
+import {
+  DEFAULT_PRODUCT_LIST_FILTERS,
+  type MigrationFilterValue,
+  type ProductListFilters,
+  type StatusFilterValue,
+  type StockFilterValue,
+} from '@/lib/product-list-filters';
 import { PRODUCT_WITH_VARIANTS_QUERY } from '@/lib/product-queries';
 import {
   getEffectiveStock,
@@ -39,15 +46,17 @@ function extractVariantAttributes(variants: Record<string, unknown>[]): {
 }
 
 export interface GetProductsParams {
+  migration?: MigrationFilterValue;
   page?: number;
   limit?: number;
   search?: string;
-  status?: string;
-  stock?: string;
+  status?: StatusFilterValue;
+  stock?: StockFilterValue;
 }
 
 export interface ProductsResult {
   products: Product[];
+  filters: ProductListFilters;
   pagination: {
     page: number;
     limit: number;
@@ -67,11 +76,12 @@ export async function getProducts(
   params: GetProductsParams
 ): Promise<ProductsResult> {
   const {
+    migration = DEFAULT_PRODUCT_LIST_FILTERS.migration,
     page = 1,
     limit = 10,
-    search: searchRaw = '',
-    status = 'All',
-    stock = 'All',
+    search: searchRaw = DEFAULT_PRODUCT_LIST_FILTERS.search,
+    status = DEFAULT_PRODUCT_LIST_FILTERS.status,
+    stock = DEFAULT_PRODUCT_LIST_FILTERS.stock,
   } = params;
 
   // Sanitize search input
@@ -89,6 +99,13 @@ export async function getProducts(
   // Apply filters
   if (status !== 'All') {
     query = query.eq('status', status);
+  }
+
+  if (migration !== 'All') {
+    query =
+      migration === 'pending'
+        ? query.or('migration_status.eq.pending,migration_status.is.null')
+        : query.eq('migration_status', migration);
   }
 
   if (search?.trim()) {
@@ -156,6 +173,7 @@ export async function getProducts(
             id: v.id as string,
             product_id: v.product_id as string,
             merchant_id: v.merchant_id as string,
+            condition: v.condition as Product['condition'] | undefined,
             attributes: v.attributes as Record<string, string>,
             price_override: v.price_override
               ? Number(v.price_override)
@@ -195,6 +213,28 @@ export async function getProducts(
           : undefined,
         cost_price: p.cost_price ? Number.parseFloat(p.cost_price) : undefined,
         low_stock_threshold: p.low_stock_threshold,
+        variant_model:
+          p.variant_model === 'sku_matrix' ? 'sku_matrix' : 'legacy',
+        migration_status:
+          p.migration_status === 'needs_review' ||
+          p.migration_status === 'migrated'
+            ? p.migration_status
+            : 'pending',
+        default_variant_id:
+          typeof p.default_variant_id === 'string'
+            ? p.default_variant_id
+            : undefined,
+        available_conditions: Array.isArray(p.available_conditions)
+          ? (p.available_conditions as Product['available_conditions'])
+          : undefined,
+        min_variant_price:
+          p.min_variant_price != null
+            ? Number.parseFloat(String(p.min_variant_price))
+            : undefined,
+        max_variant_price:
+          p.max_variant_price != null
+            ? Number.parseFloat(String(p.max_variant_price))
+            : undefined,
 
         weight_value: p.weight_value
           ? Number.parseFloat(p.weight_value)
@@ -261,6 +301,12 @@ export async function getProducts(
 
   return {
     products: paginatedProducts,
+    filters: {
+      migration,
+      status,
+      stock,
+      search,
+    },
     pagination: {
       page,
       limit,
