@@ -14,6 +14,7 @@ import { prioritizeSmartphoneProducts } from '@baci/shared';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import type { Product as BaciProduct } from '@/lib/products';
+import { storefrontProductFilters } from '@/lib/storefront-product-filters';
 import { products as mockProducts } from '../data/products';
 import { useV2Saved } from '../providers/v2-saved-context';
 import type { Product } from '../types';
@@ -22,18 +23,6 @@ import { AdvancedProductFilters } from './AdvancedProductFilters';
 import { FloatingParticles, type Particle } from './FloatingParticles';
 import { ProductGridItem } from './ProductGridItem';
 import { ProductListItem } from './ProductListItem';
-
-type ConditionLabel = 'New' | 'Used' | 'Open Box' | 'New & Used';
-
-const CONDITION_LABELS: Record<string, ConditionLabel> = {
-  open_box: 'Open Box',
-  new: 'New',
-  used: 'Used',
-};
-
-const mapCondition = (condition?: string): ConditionLabel => {
-  return CONDITION_LABELS[condition || ''] || 'New';
-};
 
 function toTemplateProducts(baciProducts: BaciProduct[]): Product[] {
   return baciProducts.map((p) => {
@@ -59,9 +48,11 @@ function toTemplateProducts(baciProducts: BaciProduct[]): Product[] {
       }
     }
     const mainImage = p.image || images[0];
-    const condition: ConditionLabel = p.has_condition_offers
-      ? 'New & Used'
-      : mapCondition(p.condition);
+    const condition = storefrontProductFilters.getStorefrontConditionBadgeLabel({
+      available_conditions: p.available_conditions,
+      condition: p.condition,
+      has_condition_offers: p.has_condition_offers,
+    });
 
     const rawCategories = p.categories;
     const categoryObj = Array.isArray(rawCategories) ? rawCategories[0] : rawCategories;
@@ -80,6 +71,8 @@ function toTemplateProducts(baciProducts: BaciProduct[]): Product[] {
       categories: categoryObj,
       categorySlug: categoryObj?.slug || p.category_slug,
       condition,
+      available_conditions: p.available_conditions,
+      has_condition_offers: p.has_condition_offers,
       brand: p.brand,
       colors: p.colors,
       storage: p.storage_options?.[0],
@@ -182,7 +175,12 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
       }
 
       // Condition filter
-      if (selectedCondition !== 'All' && p.condition !== selectedCondition) {
+      if (
+        !storefrontProductFilters.matchesStorefrontConditionFilter(
+          p,
+          selectedCondition
+        )
+      ) {
         continue;
       }
 

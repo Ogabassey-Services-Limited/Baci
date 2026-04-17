@@ -75,12 +75,15 @@ export interface Product {
   category_id?: string; // FK to categories table
   categories?: Category; // Joined category object (Supabase convention: singular)
   categorySlug?: string;
-  condition:
-  | 'New'
-  | 'Used'
-  | 'Open Box'
-  | 'New & Used'
-  | ProductCondition;
+  condition?:
+    | 'New'
+    | 'Used'
+    | 'Open Box'
+    | 'New & Used'
+    | 'New & Open Box'
+    | 'Used & Open Box'
+    | 'Multiple Conditions'
+    | ProductCondition;
   // Detailed specs for filtering
   brand?: string;
   storage?: string | string[];
@@ -103,6 +106,7 @@ export interface Product {
   // Phase 7: Condition Deduplication
   // Phase 7: Condition Deduplication
   has_condition_offers?: boolean;
+  available_conditions?: ProductCondition[];
   offers?: ProductConditionOffer[];
   // Phase 4: Product Variants (Storage/Color/etc)
   variants?: ProductVariant[];

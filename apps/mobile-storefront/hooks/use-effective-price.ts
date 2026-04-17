@@ -3,10 +3,8 @@
  * options (condition, storage, variant) and any negotiated price.
  */
 
-import {
-  normalizeCanonicalProductCondition,
-  type ResolvedProductVariantSelection,
-} from '@baci/shared/lib';
+import type { ResolvedProductVariantSelection } from '@baci/shared/lib';
+import { findMatchingConditionOffer } from '@/lib/product-condition-offers';
 import type { Product } from '@/types/product';
 
 export interface EffectivePrice {
@@ -40,32 +38,11 @@ function calculateEffectivePrice(
   let price = product.price;
   let comparePrice = product.compare_at_price;
 
-  if (product.offers) {
-    let offer: (typeof product.offers)[number] | undefined;
+  const offer = findMatchingConditionOffer(product.offers, selectedCondition);
 
-    if (selectedCondition) {
-      const normalizedSelectedCondition =
-        normalizeCanonicalProductCondition(selectedCondition);
-      const exactOffer = product.offers.find(
-        (o) => o.condition === selectedCondition
-      );
-      offer =
-        exactOffer ||
-        (normalizedSelectedCondition
-          ? product.offers.find(
-              (o) =>
-                normalizeCanonicalProductCondition(o.condition) ===
-                normalizedSelectedCondition
-            )
-          : undefined);
-    } else if (product.offers.length === 1) {
-      offer = product.offers[0];
-    }
-
-    if (offer) {
-      price = offer.price;
-      comparePrice = offer.compare_at_price;
-    }
+  if (offer) {
+    price = offer.price;
+    comparePrice = offer.compare_at_price;
   }
 
   return { price, comparePrice };

@@ -1,7 +1,7 @@
 import type { Product } from '@/lib/products';
 import React from 'react';
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@baci/shared', () => ({
   prioritizeSmartphoneProducts: vi.fn(
@@ -38,21 +38,33 @@ vi.mock('../providers/v2-saved-context', () => ({
 }));
 vi.mock('./AdUnit', () => ({ AdUnit: () => null }));
 vi.mock('./AdvancedProductFilters', () => ({
-  AdvancedProductFilters: () => null,
+  AdvancedProductFilters: (props: {
+    onSelectCondition: (condition: string) => void;
+  }) => {
+    return (
+      <div>
+        <button onClick={() => props.onSelectCondition('New')}>Filter New</button>
+        <button onClick={() => props.onSelectCondition('Used')}>Filter Used</button>
+      </div>
+    );
+  },
 }));
 vi.mock('./FloatingParticles', () => ({
   FloatingParticles: () => null,
 }));
 vi.mock('./ProductGridItem', () => ({
-  ProductGridItem: ({ product }: { product: { name: string } }) => (
-    <article>{product.name}</article>
+  ProductGridItem: ({
+    product,
+  }: {
+    product: { name: string; condition?: string };
+  }) => (
+    <article data-condition={product.condition ?? ''}>{product.name}</article>
   ),
 }));
 vi.mock('./ProductListItem', () => ({
   ProductListItem: () => <div data-testid="list-item" />,
 }));
 
-import { afterEach } from 'vitest';
 import { prioritizeSmartphoneProducts } from '@baci/shared';
 import { useSearchParams } from 'next/navigation';
 import { useMerchantSafe } from '@/hooks/use-merchant';
@@ -127,6 +139,27 @@ describe('EngineProductGrid', () => {
     expect(screen.getAllByRole('article').map((item) => item.textContent)).toEqual(
       ['Samsung TV', 'iPhone 16']
     );
+  });
+
+  it('does not invent a New badge when a product has no condition data', () => {
+    render(
+      <EngineProductGrid
+        externalProducts={[
+          createTestProduct({
+            id: 'accessory-1',
+            name: 'Phone Grip',
+            price: 8000,
+            stock: 5,
+            condition: undefined,
+            available_conditions: undefined,
+            has_condition_offers: false,
+          }),
+        ]}
+        categories={[]}
+      />
+    );
+
+    expect(screen.getByRole('article')).toHaveAttribute('data-condition', '');
   });
 
   it('initializes category from ?category= URL param when valid', () => {
@@ -239,5 +272,76 @@ describe('EngineProductGrid', () => {
     expect(
       screen.getByRole('link', { name: 'View all products' })
     ).toHaveAttribute('href', '/products');
+  });
+
+  it('matches condition filters against available_conditions for mixed-condition families', async () => {
+    render(
+      <EngineProductGrid
+        externalProducts={[
+          createTestProduct({
+            id: 'family-1',
+            name: 'Galaxy S24 Family',
+            category: 'Smartphones',
+            stock: 4,
+            condition: 'new',
+            available_conditions: ['new', 'used'],
+          }),
+          createTestProduct({
+            id: 'family-2',
+            name: 'iPhone 16 New',
+            category: 'Smartphones',
+            stock: 3,
+            condition: 'new',
+            available_conditions: ['new'],
+          }),
+        ]}
+        categories={[{ name: 'Smartphones', slug: 'smartphones' }]}
+      />
+    );
+
+    expect(screen.getAllByRole('article')).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Filter Used' }));
+
+    await waitFor(() => {
+      const articles = screen.getAllByRole('article');
+      expect(articles).toHaveLength(1);
+      expect(articles[0].textContent).toBe('Galaxy S24 Family');
+    });
+  });
+
+  it('keeps legacy condition-offer families visible when filtering by new or used', async () => {
+    render(
+      <EngineProductGrid
+        externalProducts={[
+          createTestProduct({
+            id: 'family-1',
+            name: 'PlayStation 5 Family',
+            category: 'Consoles',
+            stock: 2,
+            condition: 'new',
+            has_condition_offers: true,
+            available_conditions: [],
+          }),
+          createTestProduct({
+            id: 'family-2',
+            name: 'Nintendo Switch',
+            category: 'Consoles',
+            stock: 2,
+            condition: 'new',
+            available_conditions: ['new'],
+          }),
+        ]}
+        categories={[{ name: 'Consoles', slug: 'consoles' }]}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Filter Used' }));
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('article').map((item) => item.textContent)).toEqual([
+        'PlayStation 5 Family',
+      ]);
+    });
   });
 });
