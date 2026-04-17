@@ -176,7 +176,6 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
 
       // Condition filter
       if (
-        selectedCondition !== 'All' &&
         !storefrontProductFilters.matchesStorefrontConditionFilter(
           p,
           selectedCondition

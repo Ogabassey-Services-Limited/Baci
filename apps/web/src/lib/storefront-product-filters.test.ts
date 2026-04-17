@@ -51,7 +51,15 @@ describe('storefront-product-filters', () => {
       storefrontProductFilters.getStorefrontConditionBadgeLabel({
         available_conditions: ['new', 'open_box'],
       })
-    ).toBe('Multiple Conditions');
+    ).toBe('New & Open Box');
+  });
+
+  it('returns a used-and-open-box badge label for that exact pair', () => {
+    expect(
+      storefrontProductFilters.getStorefrontConditionBadgeLabel({
+        available_conditions: ['used', 'open_box'],
+      })
+    ).toBe('Used & Open Box');
   });
 
   it('returns a new-and-used badge label when those are the only normalized conditions', () => {
@@ -189,6 +197,17 @@ describe('storefront-product-filters', () => {
         'sony'
       )
     ).toBe(false);
+  });
+
+  it('treats blank brand filters as pass-through', () => {
+    expect(
+      storefrontProductFilters.matchesStorefrontBrandFilter(
+        {
+          brand: 'Sony',
+        },
+        '   '
+      )
+    ).toBe(true);
   });
 
   it('treats all as a pass-through category filter', () => {

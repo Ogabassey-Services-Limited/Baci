@@ -79,6 +79,74 @@ describe('BrandProducts', () => {
     vi.clearAllMocks();
   });
 
+  it('filters mismatched brands locally for normal brand names', async () => {
+    mockApiGet.mockResolvedValue({
+      products: [
+        {
+          id: 'current-product',
+          name: 'Current Product',
+          brand: 'Sony',
+          status: 'active',
+          price: 1000,
+          image: '/current.jpg',
+          imageLarge: '/current.jpg',
+        },
+        {
+          id: 'same-brand',
+          name: 'Sony Accessory',
+          brand: 'Sony',
+          status: 'active',
+          price: 2000,
+          image: '/sony.jpg',
+          imageLarge: '/sony.jpg',
+        },
+        {
+          id: 'different-brand',
+          name: 'LG Accessory',
+          brand: 'LG',
+          status: 'active',
+          price: 3000,
+          image: '/lg.jpg',
+          imageLarge: '/lg.jpg',
+        },
+      ],
+    });
+
+    render(
+      <BrandProducts
+        product={{
+          id: 'current-product',
+          name: 'Current Product',
+          description: 'desc',
+          status: 'active',
+          price: 1000,
+          manage_stock: true,
+          stock: 3,
+          image: '/current.jpg',
+          imageLarge: '/current.jpg',
+          imageHint: '',
+          brand: 'Sony',
+          gtin: '',
+          mpn: '',
+          category: 'Accessories',
+          category_slug: 'accessories',
+          categories: {
+            id: 'cat-1',
+            name: 'Accessories',
+            slug: 'accessories',
+          },
+          slug: 'current-product',
+        }}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Sony Accessory')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('LG Accessory')).not.toBeInTheDocument();
+  });
+
   it('keeps the exact local brand guard when the product brand is literal All', async () => {
     mockApiGet.mockResolvedValue({
       products: [
@@ -148,5 +216,45 @@ describe('BrandProducts', () => {
     expect(mockApiGet).toHaveBeenCalledWith(
       '/api/storefront/products?merchant_id=merchant-1&category=accessories&brand=All'
     );
+  });
+
+  it('returns no recommendations when the API request fails', async () => {
+    mockApiGet.mockRejectedValue(new Error('network failure'));
+
+    const { container } = render(
+      <BrandProducts
+        product={{
+          id: 'current-product',
+          name: 'Current Product',
+          description: 'desc',
+          status: 'active',
+          price: 1000,
+          manage_stock: true,
+          stock: 3,
+          image: '/current.jpg',
+          imageLarge: '/current.jpg',
+          imageHint: '',
+          brand: 'Sony',
+          gtin: '',
+          mpn: '',
+          category: 'Accessories',
+          category_slug: 'accessories',
+          categories: {
+            id: 'cat-1',
+            name: 'Accessories',
+            slug: 'accessories',
+          },
+          slug: 'current-product',
+        }}
+      />
+    );
+
+    await waitFor(() => {
+      expect(mockApiGet).toHaveBeenCalled();
+    });
+
+    await waitFor(() => {
+      expect(container.firstChild).toBeNull();
+    });
   });
 });

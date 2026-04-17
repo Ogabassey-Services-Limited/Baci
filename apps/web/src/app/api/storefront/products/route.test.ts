@@ -130,12 +130,12 @@ describe('GET /api/storefront/products', () => {
     expect(payload.products[0].id).toBe('tv-2');
   });
 
-  it('applies brand filters case-insensitively', async () => {
+  it('matches slug-form brand filters without relying on a SQL ilike prefilter', async () => {
     storefrontProductsRouteTestHarness.mockProductsResult.current = {
       data: [
         storefrontProductsRouteTestHarness.createRawProduct({
-          id: 'sony-1',
-          brand: 'Sony',
+          id: 'sony-ericsson-1',
+          brand: 'Sony Ericsson',
         }),
         storefrontProductsRouteTestHarness.createRawProduct({
           id: 'lg-1',
@@ -147,15 +147,17 @@ describe('GET /api/storefront/products', () => {
       error: null,
     };
 
-    const response = await GET(new NextRequest(createRequestUrl('brand=sony')));
+    const response = await GET(
+      new NextRequest(createRequestUrl('brand=sony-ericsson'))
+    );
     const payload = await response.json();
 
     expect(response.status).toBe(200);
     expect(payload.products).toHaveLength(1);
-    expect(payload.products[0].brand).toBe('Sony');
+    expect(payload.products[0].brand).toBe('Sony Ericsson');
     expect(
       storefrontProductsRouteTestHarness.mockProductsQuery.current?.ilike
-    ).toHaveBeenCalledWith('brand', '%sony%');
+    ).not.toHaveBeenCalledWith('brand', expect.any(String));
   });
 
   it('treats brand=All as no SQL brand prefilter', async () => {

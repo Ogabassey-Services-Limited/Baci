@@ -80,6 +80,8 @@ export interface Product {
     | 'Used'
     | 'Open Box'
     | 'New & Used'
+    | 'New & Open Box'
+    | 'Used & Open Box'
     | 'Multiple Conditions'
     | ProductCondition;
   // Detailed specs for filtering

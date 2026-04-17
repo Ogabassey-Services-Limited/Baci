@@ -3,11 +3,13 @@ import {
   normalizeCanonicalProductCondition,
 } from '@baci/shared/lib';
 
-type StorefrontConditionBadgeLabel =
+export type StorefrontConditionBadgeLabel =
   | 'New'
   | 'Open Box'
   | 'Used'
   | 'New & Used'
+  | 'New & Open Box'
+  | 'Used & Open Box'
   | 'Multiple Conditions';
 
 const CONDITION_LABELS = {
@@ -119,11 +121,30 @@ function getStorefrontConditionBadgeLabel(
     return CONDITION_LABELS[normalizedConditions[0]];
   }
 
-  return normalizedConditions.length === 2 &&
-    normalizedConditions.includes('new') &&
-    normalizedConditions.includes('used')
-    ? 'New & Used'
-    : 'Multiple Conditions';
+  if (normalizedConditions.length === 2) {
+    if (
+      normalizedConditions.includes('new') &&
+      normalizedConditions.includes('used')
+    ) {
+      return 'New & Used';
+    }
+
+    if (
+      normalizedConditions.includes('new') &&
+      normalizedConditions.includes('open_box')
+    ) {
+      return 'New & Open Box';
+    }
+
+    if (
+      normalizedConditions.includes('used') &&
+      normalizedConditions.includes('open_box')
+    ) {
+      return 'Used & Open Box';
+    }
+  }
+
+  return 'Multiple Conditions';
 }
 
 function matchesStorefrontConditionFilter(
@@ -148,15 +169,19 @@ function matchesStorefrontBrandFilter(
   source: BrandSource,
   selectedBrand: string
 ) {
-  if (!selectedBrand || isAllFilter(selectedBrand)) {
+  const selectedBrandTokens = toComparableTokens(selectedBrand);
+
+  if (
+    !selectedBrand ||
+    isAllFilter(selectedBrand) ||
+    selectedBrandTokens.length === 0
+  ) {
     return true;
   }
 
   const brandTokens = new Set(toComparableTokens(source.brand || ''));
 
-  return toComparableTokens(selectedBrand).some((token) =>
-    brandTokens.has(token)
-  );
+  return selectedBrandTokens.some((token) => brandTokens.has(token));
 }
 
 function matchesStorefrontCategoryFilter(

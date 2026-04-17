@@ -7,7 +7,12 @@ export function buildStorefrontProductsCacheKeyParts(
   const cacheKeyParts = ['storefront-products', merchantId];
 
   if (filters.category) cacheKeyParts.push(`cat-${filters.category}`);
-  if (filters.brand) cacheKeyParts.push(`brand-${filters.brand}`);
+  if (filters.brand) {
+    const normalizedBrand = filters.brand.trim().toLowerCase();
+    if (normalizedBrand) {
+      cacheKeyParts.push(`brand-${normalizedBrand}`);
+    }
+  }
   if (filters.condition) cacheKeyParts.push(`cond-${filters.condition}`);
   if (filters.min_price !== undefined) {
     cacheKeyParts.push(`min-${filters.min_price}`);

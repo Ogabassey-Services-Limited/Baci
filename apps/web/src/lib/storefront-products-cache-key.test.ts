@@ -35,4 +35,20 @@ describe('buildStorefrontProductsCacheKeyParts', () => {
       expect.arrayContaining(['min-0', 'max-0', `q-${'a'.repeat(100)}`])
     );
   });
+
+  it('normalizes brand casing and ignores blank brand filters', () => {
+    expect(
+      buildStorefrontProductsCacheKeyParts('merchant-1', {
+        sort: 'newest',
+        brand: ' Sony ',
+      })
+    ).toContain('brand-sony');
+
+    expect(
+      buildStorefrontProductsCacheKeyParts('merchant-1', {
+        sort: 'newest',
+        brand: '   ',
+      })
+    ).not.toContain(expect.stringMatching(/^brand-/));
+  });
 });

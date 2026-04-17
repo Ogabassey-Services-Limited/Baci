@@ -35,18 +35,6 @@ function createCachedProductsFetcher(
         .eq('status', 'active');
 
       if (
-        filters.brand &&
-        !storefrontProductFilters.isAllFilter(filters.brand)
-      ) {
-        query = query.ilike(
-          'brand',
-          `%${storefrontProductsRouteData.escapeLikePattern(
-            filters.brand.trim()
-          )}%`
-        );
-      }
-
-      if (
         filters.condition &&
         !storefrontProductFilters.isAllFilter(filters.condition)
       ) {
