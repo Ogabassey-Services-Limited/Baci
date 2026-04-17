@@ -34,6 +34,16 @@ describe('storefront-product-filters', () => {
     ).toEqual(['new', 'used', 'open_box']);
   });
 
+  it('does not broaden explicit available conditions just because legacy offers exist', () => {
+    expect(
+      getNormalizedStorefrontConditions({
+        available_conditions: ['open_box'],
+        has_condition_offers: true,
+        condition: 'new',
+      })
+    ).toEqual(['open_box']);
+  });
+
   it('filters invalid available_conditions entries while preserving valid strings', () => {
     expect(
       getNormalizedStorefrontConditions({

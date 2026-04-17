@@ -85,7 +85,11 @@ export function getNormalizedStorefrontConditions(source: ConditionSource) {
     }
   }
 
-  if (source.has_condition_offers) {
+  if (normalizedConditions.size > 0) {
+    return Array.from(normalizedConditions);
+  }
+
+  if (normalizedConditions.size === 0 && source.has_condition_offers) {
     // Legacy offer families imply both new and used availability even when the
     // parent product row still carries a single explicit condition value.
     normalizedConditions.add('new');

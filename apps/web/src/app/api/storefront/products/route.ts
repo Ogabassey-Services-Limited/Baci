@@ -94,6 +94,10 @@ function escapeLikePattern(value: string) {
     .replaceAll('_', '\\_');
 }
 
+function isAllQueryFilter(value: string | undefined) {
+  return value?.trim().toLowerCase() === 'all';
+}
+
 function getConditionPrefilterClauses(condition: string) {
   const normalized = normalizeCanonicalProductCondition(condition);
 
@@ -195,7 +199,7 @@ function createCachedProductsFetcher(
       // A SQL prefilter on the legacy text column would drop valid relation
       // matches before the in-memory compatibility matcher sees them.
 
-      if (filters.brand && filters.brand !== 'all') {
+      if (filters.brand && !isAllQueryFilter(filters.brand)) {
         query = query.ilike(
           'brand',
           `%${escapeLikePattern(filters.brand.trim())}%`
@@ -257,7 +261,7 @@ function createCachedProductsFetcher(
         );
       }
 
-      if (filters.brand && filters.brand !== 'all') {
+      if (filters.brand && !isAllQueryFilter(filters.brand)) {
         const brand = filters.brand;
         mappedProducts = mappedProducts.filter((product) =>
           matchesStorefrontBrandFilter(product, brand)

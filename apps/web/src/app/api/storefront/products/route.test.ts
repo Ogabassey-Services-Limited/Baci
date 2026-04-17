@@ -194,6 +194,35 @@ describe('GET /api/storefront/products', () => {
     );
   });
 
+  it('treats brand=All as no SQL brand prefilter', async () => {
+    mockProductsResult.current = {
+      data: [
+        createRawProduct({ id: 'sony-1', brand: 'Sony' }),
+        createRawProduct({
+          id: 'lg-1',
+          name: 'LG C3',
+          brand: 'LG',
+          slug: 'lg-c3',
+        }),
+      ],
+      error: null,
+    };
+
+    const response = await GET(
+      new NextRequest(
+        'http://localhost/api/storefront/products?merchant_id=00000000-0000-0000-0000-000000000001&brand=All'
+      )
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.products).toHaveLength(2);
+    expect(mockProductsQuery.current?.ilike).not.toHaveBeenCalledWith(
+      'brand',
+      expect.any(String)
+    );
+  });
+
   it('matches condition filters against available_conditions for migrated families', async () => {
     mockProductsResult.current = {
       data: [
