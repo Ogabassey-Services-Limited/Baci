@@ -2,8 +2,15 @@ import {
   extractProductSearchIds,
   getProductSearchTotalCount,
 } from '@baci/shared';
+import { cookies } from 'next/headers';
+import {
+  mapStorefrontProduct,
+  STOREFRONT_PRODUCTS_COMPACT_SELECT,
+} from '@/app/api/storefront/products/product-response';
 import { logger } from './logger';
 import { isValidUuid, sanitizeSearchQuery } from './sanitize-core';
+import { createPublicClient } from './supabase/public';
+import { createClient } from './supabase/server';
 
 export class InvalidMerchantIdError extends Error {
   constructor() {
@@ -35,6 +42,10 @@ export interface StorefrontSearchResult {
   didYouMean: string | null;
   productIds: string[];
   query: string;
+}
+
+export interface StorefrontSearchProductsPage extends StorefrontSearchResult {
+  products: ReturnType<typeof mapStorefrontProduct>[];
 }
 
 export async function searchStorefrontProducts({
@@ -115,5 +126,53 @@ export async function searchStorefrontProducts({
     didYouMean,
     productIds,
     query: sanitizedQuery,
+  };
+}
+
+export async function getStorefrontSearchProducts(args: {
+  merchantId: string;
+  query: string;
+  limit: number;
+}): Promise<StorefrontSearchProductsPage> {
+  const publicSupabase = createPublicClient({
+    clientInfo: 'baci-storefront-search-page',
+  });
+  const serverSupabase = createClient(await cookies());
+
+  const searchResult = await searchStorefrontProducts({
+    supabase: serverSupabase,
+    merchantId: args.merchantId,
+    query: args.query,
+    limit: args.limit,
+  });
+
+  if (searchResult.productIds.length === 0) {
+    return {
+      ...searchResult,
+      products: [],
+    };
+  }
+
+  const { data, error } = await publicSupabase
+    .from('products')
+    .select(STOREFRONT_PRODUCTS_COMPACT_SELECT)
+    .in('id', searchResult.productIds)
+    .eq('merchant_id', args.merchantId)
+    .eq('status', 'active');
+
+  if (error) {
+    throw error;
+  }
+
+  const mapped = (data ?? []).map((row) => mapStorefrontProduct(row as never));
+  const order = new Map(
+    searchResult.productIds.map((id, index) => [id, index] as const)
+  );
+
+  mapped.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+
+  return {
+    ...searchResult,
+    products: mapped,
   };
 }

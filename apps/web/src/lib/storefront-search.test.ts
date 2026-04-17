@@ -7,6 +7,35 @@ const mockSupabase = {
   })),
 };
 
+const mockCookies = vi.fn();
+
+vi.mock('next/headers', () => ({
+  cookies: () => mockCookies(),
+}));
+
+vi.mock('@/lib/supabase/public', () => ({
+  createPublicClient: vi.fn(),
+}));
+
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: vi.fn(),
+}));
+
+vi.mock('@/app/api/storefront/products/product-response', () => ({
+  STOREFRONT_PRODUCTS_COMPACT_SELECT: 'compact-select',
+  mapStorefrontProduct: (product: {
+    id: string;
+    name: string;
+    price: number;
+    slug: string;
+  }) => ({
+    id: product.id,
+    name: product.name,
+    price: product.price,
+    slug: product.slug,
+  }),
+}));
+
 vi.mock('@/lib/logger', () => ({
   logger: {
     error: vi.fn(),
@@ -14,7 +43,10 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 import { sanitizeSearchQuery } from '@/lib/sanitize-core';
+import { createPublicClient } from '@/lib/supabase/public';
+import { createClient } from '@/lib/supabase/server';
 import {
+  getStorefrontSearchProducts,
   InvalidMerchantIdError,
   searchStorefrontProducts,
 } from './storefront-search';
@@ -96,5 +128,76 @@ describe('searchStorefrontProducts', () => {
     });
 
     expect(result.didYouMean).toBe('iphone');
+  });
+});
+
+describe('getStorefrontSearchProducts', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockCookies.mockResolvedValue({});
+  });
+
+  it('hydrates search results and preserves the ranked order', async () => {
+    vi.mocked(createClient).mockReturnValue({
+      rpc: vi.fn().mockResolvedValue({
+        data: [
+          { product_id: 'product-2', total_count: 2 },
+          { product_id: 'product-1', total_count: 2 },
+        ],
+        error: null,
+      }),
+      from: vi.fn(() => ({
+        insert: vi.fn().mockResolvedValue({ error: null }),
+      })),
+    } as never);
+
+    vi.mocked(createPublicClient).mockReturnValue({
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          in: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              eq: vi.fn().mockResolvedValue({
+                data: [
+                  {
+                    id: 'product-1',
+                    name: 'Phone One',
+                    price: 1000,
+                    slug: 'phone-one',
+                  },
+                  {
+                    id: 'product-2',
+                    name: 'Phone Two',
+                    price: 2000,
+                    slug: 'phone-two',
+                  },
+                ],
+                error: null,
+              }),
+            })),
+          })),
+        })),
+      })),
+    } as never);
+
+    const result = await getStorefrontSearchProducts({
+      merchantId: '123e4567-e89b-12d3-a456-426614174000',
+      query: 'phone',
+      limit: 20,
+    });
+
+    expect(result.products).toEqual([
+      {
+        id: 'product-2',
+        name: 'Phone Two',
+        price: 2000,
+        slug: 'phone-two',
+      },
+      {
+        id: 'product-1',
+        name: 'Phone One',
+        price: 1000,
+        slug: 'phone-one',
+      },
+    ]);
   });
 });
