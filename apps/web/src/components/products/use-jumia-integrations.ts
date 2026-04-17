@@ -14,7 +14,7 @@ interface JumiaIntegration {
 }
 
 export function useJumiaIntegrations(
-  merchantId: string | undefined,
+  merchantIdTrigger: string | undefined,
   toast: ToastApi
 ) {
   const [jumiaIntegrations, setJumiaIntegrations] = useState<
@@ -26,7 +26,7 @@ export function useJumiaIntegrations(
   const [jumiaLoading, setJumiaLoading] = useState(false);
 
   useEffect(() => {
-    if (!merchantId) return;
+    if (!merchantIdTrigger) return;
 
     setJumiaIntegrations([]);
     setJumiaIntegrationId(null);
@@ -83,7 +83,7 @@ export function useJumiaIntegrations(
       });
 
     return () => controller.abort();
-  }, [merchantId, toast]);
+  }, [merchantIdTrigger, toast]);
 
   return {
     jumiaIntegrations,

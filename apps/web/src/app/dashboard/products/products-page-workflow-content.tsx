@@ -8,12 +8,16 @@ import { ProductCatalog } from '@/components/products/product-catalog';
 import { ReviewChanges } from '@/components/products/review-changes';
 import { Button } from '@/components/ui/button';
 import type { WorkflowStep } from '@/contexts/product-context';
+import type {
+  StatusFilterValue,
+  StockFilterValue,
+} from '@/lib/product-list-filters';
 import type { Product } from '@/lib/products';
 
 interface ProductsPageWorkflowContentProps {
   workflowStep: WorkflowStep;
-  statusFilter: string;
-  stockFilter: string;
+  statusFilter: StatusFilterValue;
+  stockFilter: StockFilterValue;
   onSetWorkflowStep: (step: WorkflowStep) => void;
   onReviewComplete: () => Promise<void>;
   onEditProduct: (product: Product | null) => void;

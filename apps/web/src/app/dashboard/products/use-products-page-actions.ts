@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { AIResponse } from '@/app/dashboard/products/actions';
 import type { WorkflowStep } from '@/contexts/product-context';
+import { apiPost } from '@/lib/api-client';
 import type { Product } from '@/lib/products';
 
 type ToastApi = (args: {
@@ -57,12 +58,15 @@ export function useProductsPageActions({
         !directResult ||
         directResult.summary?.includes('Could not find') ||
         directResult.summary?.includes('No data rows');
+      const structuralSummary =
+        directResult?.summary ??
+        'Could not parse the pasted content. Please check the format.';
 
       let response: AIResponse;
 
       if (hasStructuralError) {
         if (lines.length > 50) {
-          throw new Error(directResult.summary);
+          throw new Error(structuralSummary);
         }
 
         response = await processPriceList(products, data, vendor, fileType);
@@ -95,13 +99,10 @@ export function useProductsPageActions({
 
   const handleBulkPublish = async () => {
     try {
-      const response = await fetch('/api/products/bulk-publish', {
-        method: 'POST',
-      });
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.error);
-      }
+      const result = await apiPost<{
+        deletedDrafts: number;
+        publishedProducts: number;
+      }>('/api/products/bulk-publish');
 
       toast({
         title: 'Products Updated',
@@ -171,15 +172,12 @@ export function useProductsPageActions({
     });
 
     try {
-      const response = await fetch('/api/marketplace/jumia/products/import', {
-        method: 'POST',
-        body: JSON.stringify({ merchantId }),
-      });
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error);
-      }
+      const data = await apiPost<{
+        summary: {
+          created: number;
+          linked: number;
+        };
+      }>('/api/marketplace/jumia/products/import', { merchantId });
 
       toast({
         title: 'Import Successful',

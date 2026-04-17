@@ -16,6 +16,7 @@ import type { Product } from '@/lib/products';
 import { cn } from '@/lib/utils';
 import { ProductCatalogRowActions } from './product-catalog-row-actions';
 import { ProductCatalogVariantRow } from './product-catalog-variant-row';
+import { formatPriceInput, parsePriceInput } from './product-currency-input';
 import { ProductMigrationBadges } from './product-migration-badges';
 
 interface ProductCatalogRowProps {
@@ -37,6 +38,8 @@ interface ProductCatalogRowProps {
   onEditProduct?: (product: Product) => void;
   onExportProduct: (product: Product) => void;
   onSelectJumiaIntegration: (integrationId: string, product: Product) => void;
+  currencySymbol: string;
+  locale: string;
   formatCurrency: (amount: number) => string;
 }
 
@@ -55,11 +58,13 @@ export function ProductCatalogRow({
   onEditProduct,
   onExportProduct,
   onSelectJumiaIntegration,
+  currencySymbol,
+  locale,
   formatCurrency,
 }: ProductCatalogRowProps) {
   const isLowStock = !product.manage_stock
     ? false
-    : product.stock <= (product.low_stock_threshold || 5);
+    : product.stock <= (product.low_stock_threshold ?? 5);
 
   return (
     <>
@@ -148,26 +153,18 @@ export function ProductCatalogRow({
         <TableCell className="text-right">
           <div className="relative ml-auto w-40 group/input">
             <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-muted-foreground/70 font-medium">
-              {formatCurrency(0).replace(/[0-9.,\s]/g, '')}
+              {currencySymbol}
             </span>
             <Input
               id={`price-${product.id}`}
               name={`price-${product.id}`}
               type="text"
-              defaultValue={product.price.toLocaleString('en-US', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
+              defaultValue={formatPriceInput(product.price, locale)}
               onBlur={(event) => {
                 onPriceChange(product.id, event.target.value);
-                const value = Number.parseFloat(
-                  event.target.value.replace(/[^0-9.]/g, '')
-                );
+                const value = parsePriceInput(event.target.value, locale);
                 if (!Number.isNaN(value)) {
-                  event.target.value = value.toLocaleString('en-US', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  });
+                  event.target.value = formatPriceInput(value, locale);
                 }
               }}
               className="h-9 text-right pr-3 pl-6 font-mono text-sm bg-transparent border-transparent hover:border-border/60 focus:border-primary/50 focus:bg-background transition-all shadow-none focus:shadow-sm"
@@ -203,7 +200,7 @@ export function ProductCatalogRow({
               {isLowStock && (
                 <div
                   className="absolute -right-6 top-1/2 -translate-y-1/2"
-                  title={`Low Stock (Threshold: ${product.low_stock_threshold || 5})`}
+                  title={`Low Stock (Threshold: ${product.low_stock_threshold ?? 5})`}
                 >
                   <AlertTriangle className="h-4 w-4 text-amber-500" />
                 </div>

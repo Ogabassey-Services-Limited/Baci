@@ -41,13 +41,17 @@ export function ProductCatalogRowActions({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-        <DropdownMenuItem onClick={() => onEditProduct?.(product)}>
-          <Edit className="mr-2 h-4 w-4" />
-          {product.migration_status === 'needs_review'
-            ? 'Resolve Review'
-            : 'Edit Product'}
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
+        {onEditProduct ? (
+          <>
+            <DropdownMenuItem onClick={() => onEditProduct(product)}>
+              <Edit className="mr-2 h-4 w-4" />
+              {product.migration_status === 'needs_review'
+                ? 'Resolve Review'
+                : 'Edit Product'}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        ) : null}
         {jumiaIntegrations.length > 1 && !jumiaIntegrationId ? (
           <>
             <DropdownMenuLabel className="text-xs text-muted-foreground">

@@ -2,6 +2,7 @@ import type { Product } from '@/lib/products';
 
 interface SaveDirtyProductsOptions {
   dirtyProductIds: Iterable<string>;
+  dirtyProductSnapshots?: ReadonlyMap<string, Product>;
   localProducts: Product[];
   updateProduct: (product: Product) => Promise<unknown>;
 }
@@ -14,6 +15,7 @@ export interface SaveDirtyProductsResult {
 
 export async function saveDirtyProducts({
   dirtyProductIds,
+  dirtyProductSnapshots,
   localProducts,
   updateProduct,
 }: SaveDirtyProductsOptions): Promise<SaveDirtyProductsResult> {
@@ -23,7 +25,7 @@ export async function saveDirtyProducts({
   );
   const settled = await Promise.allSettled(
     dirtyIds.map(async (id) => {
-      const product = productsById.get(id);
+      const product = productsById.get(id) ?? dirtyProductSnapshots?.get(id);
 
       if (!product) {
         return { id, outcome: 'skipped' as const };

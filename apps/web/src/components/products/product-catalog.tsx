@@ -18,6 +18,7 @@ import type { Product } from '@/lib/products';
 import { ExportToJumiaDialog } from './jumia/export-dialog';
 import { mergeLocalProducts } from './merge-local-products';
 import { ProductCatalogTable } from './product-catalog-table';
+import { getCurrencySymbol } from './product-currency-input';
 import { saveDirtyProducts } from './save-dirty-products';
 import { useJumiaIntegrations } from './use-jumia-integrations';
 
@@ -45,6 +46,7 @@ export function ProductCatalog({
   );
   const [exportProduct, setExportProduct] = useState<Product | null>(null);
   const localProductsRef = useRef(localProducts);
+  const dirtyProductSnapshotsRef = useRef<Map<string, Product>>(new Map());
   const {
     jumiaIntegrations,
     jumiaIntegrationId,
@@ -55,6 +57,28 @@ export function ProductCatalog({
   useEffect(() => {
     localProductsRef.current = localProducts;
   }, [localProducts]);
+
+  useEffect(() => {
+    const nextSnapshots = new Map(dirtyProductSnapshotsRef.current);
+    const productsById = new Map(
+      localProducts.map((product) => [product.id, product])
+    );
+
+    for (const productId of dirtyProducts) {
+      const product = productsById.get(productId);
+      if (product) {
+        nextSnapshots.set(productId, product);
+      }
+    }
+
+    for (const productId of Array.from(nextSnapshots.keys())) {
+      if (!dirtyProducts.has(productId)) {
+        nextSnapshots.delete(productId);
+      }
+    }
+
+    dirtyProductSnapshotsRef.current = nextSnapshots;
+  }, [dirtyProducts, localProducts]);
 
   useEffect(() => {
     setLocalProducts((current) => {
@@ -75,6 +99,7 @@ export function ProductCatalog({
         const { failedIds, fulfilledIds, skippedIds } = await saveDirtyProducts(
           {
             dirtyProductIds: debouncedDirtyProducts,
+            dirtyProductSnapshots: dirtyProductSnapshotsRef.current,
             localProducts: localProductsRef.current,
             updateProduct,
           }
@@ -85,6 +110,9 @@ export function ProductCatalog({
         }
 
         if (fulfilledIds.length > 0) {
+          for (const id of fulfilledIds) {
+            dirtyProductSnapshotsRef.current.delete(id);
+          }
           setDirtyProducts((current) => {
             const next = new Set(current);
             for (const id of fulfilledIds) {
@@ -190,6 +218,12 @@ export function ProductCatalog({
       currencyDisplay: 'symbol',
     }).format(amount);
   };
+  const country = merchant?.country
+    ? getCountryByCode(merchant.country)
+    : undefined;
+  const locale = country ? `en-${country.code}` : 'en-US';
+  const currency = country ? country.currency : 'USD';
+  const currencySymbol = getCurrencySymbol(locale, currency);
 
   return (
     <Card className="flex-1 flex flex-col border border-border/40 shadow-sm bg-white/50 dark:bg-card/30 backdrop-blur-sm">
@@ -224,6 +258,8 @@ export function ProductCatalog({
             setJumiaIntegrationId(integrationId);
             setExportProduct(product);
           }}
+          currencySymbol={currencySymbol}
+          locale={locale}
           formatCurrency={formatCurrency}
         />
       </CardContent>

@@ -38,6 +38,12 @@ export default async function ProductsPage({
   // 2. Parse Params
   const params = await searchParams;
   const parsedParams = productListQuerySchema.safeParse(params);
+  if (!parsedParams.success) {
+    console.warn(
+      'Invalid product list query params',
+      parsedParams.error.flatten()
+    );
+  }
   const { page, limit, status, stock, migration, search } = parsedParams.success
     ? parsedParams.data
     : productListQuerySchema.parse({});

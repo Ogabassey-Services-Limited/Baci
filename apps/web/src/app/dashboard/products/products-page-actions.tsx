@@ -53,7 +53,9 @@ export function ProductsPageActions({
         size="sm"
         variant="outline"
         className="h-9 gap-1 text-green-600 border-green-300 hover:bg-green-50"
-        onClick={onBulkPublish}
+        onClick={() => {
+          void onBulkPublish();
+        }}
       >
         <CheckCircle className="h-3.5 w-3.5" />
         <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
@@ -88,7 +90,9 @@ export function ProductsPageActions({
             size="sm"
             variant="outline"
             className="h-9 gap-1 text-blue-600 border-blue-200 hover:bg-blue-50 rounded-r-none border-r-0"
-            onClick={onSyncGoogleSheet}
+            onClick={() => {
+              void onSyncGoogleSheet();
+            }}
             disabled={isSyncing || isLoading}
           >
             <RefreshCw
@@ -112,7 +116,9 @@ export function ProductsPageActions({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem
-                onClick={onDisconnectSheet}
+                onClick={() => {
+                  void onDisconnectSheet();
+                }}
                 className="text-red-600 focus:text-red-600"
               >
                 <Trash2 className="mr-2 h-4 w-4" />
@@ -138,7 +144,9 @@ export function ProductsPageActions({
         size="sm"
         variant="outline"
         className="h-9 gap-1 text-orange-600 border-orange-200 hover:bg-orange-50"
-        onClick={onJumiaImport}
+        onClick={() => {
+          void onJumiaImport();
+        }}
       >
         <RefreshCw className="h-3.5 w-3.5" />
         <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">

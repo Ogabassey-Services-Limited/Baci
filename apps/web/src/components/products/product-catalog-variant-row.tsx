@@ -25,7 +25,7 @@ export function ProductCatalogVariantRow({
   onStockChange,
 }: ProductCatalogVariantRowProps) {
   const isVariantLowStock =
-    variant.stock_quantity <= (product.low_stock_threshold || 5);
+    variant.stock_quantity <= (product.low_stock_threshold ?? 5);
 
   return (
     <TableRow className="bg-muted/10 hover:bg-muted/20 border-b border-border/40">
@@ -61,7 +61,7 @@ export function ProductCatalogVariantRow({
         </div>
       </TableCell>
       <TableCell className="text-right">
-        {variant.price_override && (
+        {variant.price_override != null && (
           <span className="text-sm text-muted-foreground font-mono">
             {formatCurrency(variant.price_override)}
           </span>
@@ -94,7 +94,7 @@ export function ProductCatalogVariantRow({
           {isVariantLowStock && (
             <div
               className="absolute -right-6 top-1/2 -translate-y-1/2"
-              title={`Low Stock (Threshold: ${product.low_stock_threshold || 5})`}
+              title={`Low Stock (Threshold: ${product.low_stock_threshold ?? 5})`}
             >
               <AlertTriangle className="h-3 w-3 text-amber-500" />
             </div>

@@ -30,6 +30,8 @@ interface ProductCatalogTableProps {
   onEditProduct?: (product: Product) => void;
   onExportProduct: (product: Product) => void;
   onSelectJumiaIntegration: (integrationId: string, product: Product) => void;
+  currencySymbol: string;
+  locale: string;
   formatCurrency: (amount: number) => string;
 }
 
@@ -48,44 +50,52 @@ export function ProductCatalogTable({
   onEditProduct,
   onExportProduct,
   onSelectJumiaIntegration,
+  currencySymbol,
+  locale,
   formatCurrency,
 }: ProductCatalogTableProps) {
+  const shouldRenderTable = !isLoading || products.length > 0;
+
   return (
     <div className="h-full overflow-y-auto overflow-x-auto">
-      <Table className="min-w-[800px]">
-        <TableHeader className="sticky top-0 bg-white/95 dark:bg-background/95 backdrop-blur-md z-10 shadow-sm">
-          <TableRow className="hover:bg-transparent border-b border-primary/10">
-            <TableHead className="w-[400px]">Product</TableHead>
-            <TableHead className="text-right">Price</TableHead>
-            <TableHead className="text-center">Stock</TableHead>
-            <TableHead className="w-[50px]">
-              <span className="sr-only">Actions</span>
-            </TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {products.map((product, index) => (
-            <ProductCatalogRow
-              key={product.id}
-              product={product}
-              index={index}
-              isExpanded={expandedProducts.has(product.id)}
-              isSaving={isSaving}
-              isDirty={dirtyProducts.has(product.id)}
-              jumiaLoading={jumiaLoading}
-              jumiaIntegrationId={jumiaIntegrationId}
-              jumiaIntegrations={jumiaIntegrations}
-              onToggleProduct={onToggleProduct}
-              onPriceChange={onPriceChange}
-              onStockChange={onStockChange}
-              onEditProduct={onEditProduct}
-              onExportProduct={onExportProduct}
-              onSelectJumiaIntegration={onSelectJumiaIntegration}
-              formatCurrency={formatCurrency}
-            />
-          ))}
-        </TableBody>
-      </Table>
+      {shouldRenderTable ? (
+        <Table className="min-w-[800px]">
+          <TableHeader className="sticky top-0 bg-white/95 dark:bg-background/95 backdrop-blur-md z-10 shadow-sm">
+            <TableRow className="hover:bg-transparent border-b border-primary/10">
+              <TableHead className="w-[400px]">Product</TableHead>
+              <TableHead className="text-right">Price</TableHead>
+              <TableHead className="text-center">Stock</TableHead>
+              <TableHead className="w-[50px]">
+                <span className="sr-only">Actions</span>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {products.map((product, index) => (
+              <ProductCatalogRow
+                key={product.id}
+                product={product}
+                index={index}
+                isExpanded={expandedProducts.has(product.id)}
+                isSaving={isSaving}
+                isDirty={dirtyProducts.has(product.id)}
+                jumiaLoading={jumiaLoading}
+                jumiaIntegrationId={jumiaIntegrationId}
+                jumiaIntegrations={jumiaIntegrations}
+                onToggleProduct={onToggleProduct}
+                onPriceChange={onPriceChange}
+                onStockChange={onStockChange}
+                onEditProduct={onEditProduct}
+                onExportProduct={onExportProduct}
+                onSelectJumiaIntegration={onSelectJumiaIntegration}
+                currencySymbol={currencySymbol}
+                locale={locale}
+                formatCurrency={formatCurrency}
+              />
+            ))}
+          </TableBody>
+        </Table>
+      ) : null}
       {isLoading && (
         <div className="flex flex-col items-center justify-center py-12 text-muted-foreground/50">
           <Loader2 className="h-8 w-8 animate-spin mb-2" />

@@ -17,7 +17,7 @@ export function ProductsPageStats({
 }: ProductsPageStatsProps) {
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      <Card className="bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800 transition-transform transform hover:scale-105">
+      <Card className="bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800 transition-transform">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium text-blue-800 dark:text-blue-300">
             Total Products
@@ -33,7 +33,7 @@ export function ProductsPageStats({
           </p>
         </CardContent>
       </Card>
-      <Card className="bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800 transition-transform transform hover:scale-105">
+      <Card className="bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800 transition-transform">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium text-green-800 dark:text-green-300">
             Inventory Value
@@ -49,7 +49,7 @@ export function ProductsPageStats({
           </p>
         </CardContent>
       </Card>
-      <Card className="bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-800 transition-transform transform hover:scale-105">
+      <Card className="bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-800 transition-transform">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium text-red-800 dark:text-red-300">
             Out of Stock
@@ -66,7 +66,7 @@ export function ProductsPageStats({
         </CardContent>
       </Card>
       <Link href="/dashboard/categories" className="contents">
-        <Card className="bg-yellow-50 border-yellow-200 dark:bg-yellow-950/20 dark:border-yellow-800 transition-transform transform hover:scale-105 cursor-pointer">
+        <Card className="bg-yellow-50 border-yellow-200 dark:bg-yellow-950/20 dark:border-yellow-800 transition-transform hover:scale-105">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-yellow-800 dark:text-yellow-300">
               Categories

@@ -7,11 +7,16 @@ const baseProduct: Product = {
   name: 'Test Product',
   description: '',
   price: 1000,
+  manage_stock: true,
   stock: 5,
   minimum_order_quantity: 1,
   status: 'active',
   image: '',
   imageLarge: '',
+  imageHint: 'test product',
+  brand: 'Baci',
+  gtin: '1234567890123',
+  mpn: 'TEST-PRODUCT',
 };
 
 describe('saveDirtyProducts', () => {
@@ -68,6 +73,30 @@ describe('saveDirtyProducts', () => {
       failedIds: [],
       fulfilledIds: ['product-1'],
       skippedIds: ['missing-product'],
+    });
+  });
+
+  it('saves dirty ids from preserved snapshots when they leave the current page', async () => {
+    const updateProduct = vi.fn().mockResolvedValue(undefined);
+    const offPageProduct = {
+      ...baseProduct,
+      id: 'product-2',
+      name: 'Off Page Product',
+      price: 1500,
+    };
+
+    const result = await saveDirtyProducts({
+      dirtyProductIds: ['product-2'],
+      dirtyProductSnapshots: new Map([[offPageProduct.id, offPageProduct]]),
+      localProducts: [baseProduct],
+      updateProduct,
+    });
+
+    expect(updateProduct).toHaveBeenCalledWith(offPageProduct);
+    expect(result).toEqual({
+      failedIds: [],
+      fulfilledIds: ['product-2'],
+      skippedIds: [],
     });
   });
 });
