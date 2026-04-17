@@ -6,10 +6,11 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { RegisterAccountStep } from '@/components/auth/register/RegisterAccountStep';
 import { RegisterBusinessStep } from '@/components/auth/register/RegisterBusinessStep';
-import { registerStyles as styles } from '@/components/auth/register/register.styles';
+import { getStyles } from '@/components/auth/register/register.styles';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
 import type { BusinessTypeId } from '@/constants/business-types';
 import { useRegistration } from '@/hooks/useRegistration';
+import { useTheme } from '@/hooks/useTheme';
 import type { NetworkError } from '@/lib/api-client';
 import {
   type PasswordValidationResult,
@@ -18,6 +19,8 @@ import {
 import { getEmailError } from '@/lib/sanitize';
 
 export default function RegisterScreen() {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   const router = useRouter();
   const { register, isLoading } = useRegistration();
   const [step, setStep] = useState(1);

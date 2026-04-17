@@ -251,6 +251,13 @@ export default function ProductDetailScreen() {
     selectedVariant,
   });
   const selectionSyncSignature = getSelectionSyncSignature(product);
+  const offerConditionKey =
+    product?.has_variants === true
+      ? null
+      : effectiveSelectedCondition ||
+        (product?.offers?.length === 1
+          ? (product.offers[0]?.condition ?? null)
+          : null);
 
   // Timer ref for toast cleanup - prevents memory leaks (2026 Best Practice)
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -292,8 +299,8 @@ export default function ProductDetailScreen() {
         currentVariantDisplaySelection.condition
       );
     }
-    if (effectiveSelectedCondition) {
-      return formatProductConditionDisplay(effectiveSelectedCondition);
+    if (offerConditionKey) {
+      return formatProductConditionDisplay(offerConditionKey);
     }
     return product?.condition;
   };
@@ -577,10 +584,7 @@ export default function ProductDetailScreen() {
     null
   );
   const selectedConditionOffer = !product?.has_variants
-    ? findMatchingConditionOffer(
-        product?.offers,
-        effectiveSelectedCondition ?? null
-      )
+    ? findMatchingConditionOffer(product?.offers, offerConditionKey)
     : null;
   const selectedVariantCanPurchase =
     product?.has_variants === true && currentVariantSelection

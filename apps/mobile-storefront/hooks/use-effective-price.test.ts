@@ -1,5 +1,5 @@
 import { renderHook } from '@testing-library/react-native';
-import type { Product, ProductCondition } from '@/types/product';
+import type { Product } from '@/types/product';
 import { useEffectivePrice } from './use-effective-price';
 
 const baseProduct: Product = {
@@ -62,7 +62,7 @@ describe('useEffectivePrice', () => {
     });
   });
 
-  it('falls back to a single non-canonical offer when no canonical condition is selected', () => {
+  it('uses an exact raw legacy offer condition when canonical normalization is unavailable', () => {
     const { result } = renderHook(() =>
       useEffectivePrice(
         {
@@ -70,7 +70,34 @@ describe('useEffectivePrice', () => {
           offers: [
             {
               id: 'offer-scratch-and-dent',
-              condition: 'scratch_and_dent' as unknown as ProductCondition,
+              condition: 'scratch_and_dent' as never,
+              price: 470000,
+              compare_at_price: 520000,
+              stock_quantity: 2,
+            },
+          ],
+        },
+        null,
+        'scratch_and_dent',
+        null
+      )
+    );
+
+    expect(result.current).toEqual({
+      price: 470000,
+      comparePrice: 520000,
+    });
+  });
+
+  it('falls back to a single raw legacy offer when no condition is selected', () => {
+    const { result } = renderHook(() =>
+      useEffectivePrice(
+        {
+          ...baseProduct,
+          offers: [
+            {
+              id: 'offer-scratch-and-dent',
+              condition: 'scratch_and_dent' as never,
               price: 470000,
               compare_at_price: 520000,
               stock_quantity: 2,

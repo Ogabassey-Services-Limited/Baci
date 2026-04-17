@@ -5,7 +5,7 @@
 
 import type { ResolvedProductVariantSelection } from '@baci/shared/lib';
 import { findMatchingConditionOffer } from '@/lib/product-condition-offers';
-import type { Product, ProductCondition } from '@/types/product';
+import type { Product } from '@/types/product';
 
 export interface EffectivePrice {
   price: number;
@@ -26,7 +26,7 @@ function calculateEffectivePrice(
       }>
     | null
     | undefined,
-  selectedCondition: ProductCondition | null
+  selectedCondition: string | null
 ): EffectivePrice {
   if (resolvedVariantSelection) {
     return {
@@ -62,7 +62,7 @@ export function useEffectivePrice(
       }>
     | null
     | undefined,
-  selectedCondition: ProductCondition | null,
+  selectedCondition: string | null,
   negotiatedPrice: number | null
 ): EffectivePrice {
   if (!product) {

@@ -1,9 +1,9 @@
 import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
-import type { ProductCondition, ProductConditionOffer } from '@/types/product';
+import type { ProductConditionOffer } from '@/types/product';
 
 export function findMatchingConditionOffer(
   offers: ProductConditionOffer[] | null | undefined,
-  selectedCondition: ProductCondition | null
+  selectedCondition: string | null
 ): ProductConditionOffer | null {
   if (!offers?.length) {
     return null;
