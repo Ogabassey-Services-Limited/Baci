@@ -186,6 +186,73 @@ describe('SearchPageContent', () => {
     expect(screen.getByText('Start a search')).toBeInTheDocument();
   });
 
+  it('treats a query that sanitizes to empty as an empty search', async () => {
+    mockHeaders.mockResolvedValue(
+      new Headers([
+        ['host', 'proxy.internal'],
+        ['x-custom-domain', 'shop.example.ng'],
+        ['x-pathname', '/search'],
+      ])
+    );
+
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+      custom_domain: 'ogabassey.com',
+      business_name: 'Ogabassey',
+      payout_currency: 'NGN',
+    } as never);
+
+    const result = await SearchPageContent({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+      searchParams: Promise.resolve({ q: '< >', page: '1' }),
+    });
+
+    render(result as React.ReactElement);
+
+    expect(
+      screen.getByText(/Enter a search term to browse matching products\./i)
+    ).toBeInTheDocument();
+    expect(getStorefrontSearchProducts).not.toHaveBeenCalled();
+    expect(screen.getByText('Start a search')).toBeInTheDocument();
+
+    const schemas = Array.from(
+      document.querySelectorAll('script[type="application/ld+json"]')
+    ).map(
+      (script) =>
+        JSON.parse(script.textContent || '{}') as {
+          '@type'?: string;
+        }
+    );
+
+    const collectionSchema = schemas.find(
+      (schema) => schema['@type'] === 'CollectionPage'
+    );
+    const breadcrumbSchema = schemas.find(
+      (schema) => schema['@type'] === 'BreadcrumbList'
+    );
+
+    expect(collectionSchema).toMatchObject({
+      '@type': 'CollectionPage',
+      url: 'https://shop.example.ng/search',
+    });
+    expect(breadcrumbSchema).toMatchObject({
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        {
+          item: {
+            '@id': 'https://shop.example.ng',
+          },
+        },
+        {
+          item: {
+            '@id': 'https://shop.example.ng/search',
+          },
+        },
+      ],
+    });
+  });
+
   it('shows a no-results state and suggestion when nothing matches', async () => {
     mockHeaders.mockResolvedValue(
       new Headers([

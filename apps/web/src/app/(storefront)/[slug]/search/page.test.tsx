@@ -47,4 +47,32 @@ describe('storefront search page metadata', () => {
       canonical: 'https://shop.example.ng/search?q=iphone%2016',
     });
   });
+
+  it('treats a query that sanitizes to empty as an empty search', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+      custom_domain: 'ogabassey.com',
+      business_name: 'Ogabassey',
+      payout_currency: 'NGN',
+    } as never);
+
+    mockHeaders.mockResolvedValue(
+      new Headers([
+        ['host', 'proxy.internal'],
+        ['x-custom-domain', 'shop.example.ng'],
+        ['x-pathname', '/search'],
+      ])
+    );
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+      searchParams: Promise.resolve({ q: '< >' }),
+    });
+
+    expect(metadata.title).toBe('Search | Ogabassey');
+    expect(metadata.alternates).toMatchObject({
+      canonical: 'https://shop.example.ng/search',
+    });
+  });
 });

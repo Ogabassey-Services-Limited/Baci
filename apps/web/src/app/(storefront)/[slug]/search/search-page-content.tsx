@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { asRoute } from '@/lib/routes';
+import { sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { generateBreadcrumbSchema, getProductUrl } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
@@ -56,7 +57,7 @@ export async function SearchPageContent({
 }: SearchPageProps) {
   const { slug } = await params;
   const { q } = await searchParams;
-  const query = (q || '').trim();
+  const query = sanitizeSearchQuery(q || '');
 
   if (!isValidMerchantIdentifier(slug)) {
     notFound();
@@ -80,11 +81,12 @@ export async function SearchPageContent({
         products: [],
         query: '',
       };
+  const searchQuery = searchResult.query;
 
   const pathPrefix = getStorefrontPathPrefix(slug, merchant.slug);
   const storeUrl = buildRequestScopedStoreUrl(merchant, await headers());
-  const pageUrl = query
-    ? `${storeUrl}/search?q=${encodeURIComponent(query)}`
+  const pageUrl = searchQuery
+    ? `${storeUrl}/search?q=${encodeURIComponent(searchQuery)}`
     : `${storeUrl}/search`;
   const priceFormatter = new Intl.NumberFormat('en-NG', {
     style: 'currency',
@@ -99,8 +101,8 @@ export async function SearchPageContent({
   const searchResultsSchema = {
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
-    name: query
-      ? `Search results for ${query}`
+    name: searchQuery
+      ? `Search results for ${searchQuery}`
       : `Search results | ${merchant.business_name}`,
     url: pageUrl,
     mainEntity: {
@@ -181,7 +183,7 @@ export async function SearchPageContent({
             </p>
           )}
 
-          {query ? (
+          {searchQuery ? (
             searchResult.products.length > 0 ? (
               <div className="mt-10 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
                 {searchResult.products.map((product) => (
@@ -199,8 +201,7 @@ export async function SearchPageContent({
                   No products found
                 </h2>
                 <p className="mt-2 text-sm text-[var(--store-background-text,#111827)]/55">
-                  We could not find any products matching “{searchResult.query}
-                  ”.
+                  We could not find any products matching “{searchQuery}”.
                 </p>
               </div>
             )
