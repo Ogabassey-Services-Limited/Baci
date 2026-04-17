@@ -138,8 +138,15 @@ describe('Storefront homepage structured data', () => {
       '@type': 'WebSite',
       url: 'https://ogabassey.com',
       name: 'Ogabassey',
+      potentialAction: {
+        '@type': 'SearchAction',
+        target: {
+          '@type': 'EntryPoint',
+          urlTemplate: 'https://ogabassey.com/search?q={search_term_string}',
+        },
+        'query-input': 'required name=search_term_string',
+      },
     });
-    expect(website).not.toHaveProperty('potentialAction');
   });
 
   it('falls back to Organization + WebSite when no business address is available', async () => {
@@ -173,6 +180,42 @@ describe('Storefront homepage structured data', () => {
     expect(schema['@graph'].some((item) => item['@type'] === 'WebSite')).toBe(
       true
     );
+  });
+
+  it('adds SearchAction to the homepage WebSite schema once search is enabled', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue(
+      baseMerchant as unknown as Awaited<
+        ReturnType<typeof getRequestScopedMerchant>
+      >
+    );
+
+    render(
+      await StorefrontPageContent({
+        params: Promise.resolve({ slug: 'ogabassey' }),
+      })
+    );
+
+    const schemaScript = document.querySelector(
+      'script[type="application/ld+json"]'
+    );
+    const schema = JSON.parse(schemaScript?.textContent || '{}') as {
+      '@graph': Record<string, unknown>[];
+    };
+    const website = schema['@graph'].find(
+      (item) => item['@type'] === 'WebSite'
+    );
+
+    expect(website).toMatchObject({
+      '@type': 'WebSite',
+      potentialAction: {
+        '@type': 'SearchAction',
+        target: {
+          '@type': 'EntryPoint',
+          urlTemplate: 'https://ogabassey.com/search?q={search_term_string}',
+        },
+        'query-input': 'required name=search_term_string',
+      },
+    });
   });
 
   it('renders the storefront fallback while request headers are still pending', () => {

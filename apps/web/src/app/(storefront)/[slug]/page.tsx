@@ -215,7 +215,12 @@ export async function StorefrontPageContent({
   const localBusinessSchema = merchant.business_address
     ? generateLocalBusinessSchema(businessData)
     : null;
-  const webSiteSchema = generateWebSiteSchema(merchant.business_name, baseUrl);
+  const searchUrlTemplate = `${baseUrl}/search?q={search_term_string}`;
+  const webSiteSchema = generateWebSiteSchema(
+    merchant.business_name,
+    baseUrl,
+    searchUrlTemplate
+  );
 
   return (
     <>
