@@ -24,7 +24,10 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { checkPasswordStrength } from '@/lib/utils';
+import {
+  checkPasswordStrength,
+  MIN_ACCEPTABLE_PASSWORD_STRENGTH,
+} from '@/lib/utils';
 import type { OnboardingFormValues } from '@/schemas/onboarding';
 
 interface Step3Props {
@@ -50,7 +53,9 @@ export default function Step3_Account({
   const password = useWatch({ control, name: 'password' }) || '';
   const confirmPassword = useWatch({ control, name: 'confirmPassword' }) || '';
   const passwordStrength = checkPasswordStrength(password);
-  const isPasswordStrong = passwordStrength >= 3;
+  // Keep the client-side gate aligned with onboardingSchema/account-security validation.
+  const hasAcceptablePasswordStrength =
+    passwordStrength >= MIN_ACCEPTABLE_PASSWORD_STRENGTH;
 
   // Re-validate confirmPassword when password changes (proper cross-field validation)
   // biome-ignore lint/correctness/useExhaustiveDependencies: password triggers re-validation of confirmPassword match
@@ -219,7 +224,7 @@ export default function Step3_Account({
             )}
           />
 
-          {isPasswordStrong && (
+          {hasAcceptablePasswordStrength && (
             <FormField
               control={control}
               name="confirmPassword"

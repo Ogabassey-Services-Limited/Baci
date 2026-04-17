@@ -1,11 +1,16 @@
 import z from 'zod';
-import { checkPasswordStrength, isCommonPassword } from '@/lib/utils';
+import {
+  checkPasswordStrength,
+  isCommonPassword,
+  MIN_ACCEPTABLE_PASSWORD_STRENGTH,
+} from '@/lib/utils';
 
 const newPasswordField = z
   .string()
   .min(8, 'Password must be at least 8 characters.')
-  .refine((p) => checkPasswordStrength(p) >= 2, {
-    message: 'Password is not strong enough. Use at least 10 characters.',
+  .refine((p) => checkPasswordStrength(p) >= MIN_ACCEPTABLE_PASSWORD_STRENGTH, {
+    message:
+      'Password is not strong enough. Add more characters or mix letters, numbers, and symbols.',
   })
   .refine((p) => !isCommonPassword(p), {
     message:
