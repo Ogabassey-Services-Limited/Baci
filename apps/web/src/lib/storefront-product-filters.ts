@@ -1,3 +1,10 @@
+export type StorefrontConditionBadgeLabel =
+  | 'New'
+  | 'Open Box'
+  | 'Used'
+  | 'New & Used'
+  | 'Multiple Conditions';
+
 import {
   type CanonicalProductCondition,
   normalizeCanonicalProductCondition,
@@ -7,7 +14,10 @@ const CONDITION_LABELS = {
   new: 'New',
   open_box: 'Open Box',
   used: 'Used',
-} satisfies Record<CanonicalProductCondition, string>;
+} as const satisfies Record<
+  CanonicalProductCondition,
+  Exclude<StorefrontConditionBadgeLabel, 'New & Used' | 'Multiple Conditions'>
+>;
 
 interface ConditionSource {
   available_conditions?: unknown;
@@ -86,7 +96,9 @@ export function getNormalizedStorefrontConditions(source: ConditionSource) {
   return Array.from(normalizedConditions);
 }
 
-export function getStorefrontConditionBadgeLabel(source: ConditionSource) {
+export function getStorefrontConditionBadgeLabel(
+  source: ConditionSource
+): StorefrontConditionBadgeLabel | undefined {
   const normalizedConditions = getNormalizedStorefrontConditions(source);
 
   if (normalizedConditions.length === 0) {
