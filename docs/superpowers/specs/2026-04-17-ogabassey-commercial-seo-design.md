@@ -10,7 +10,7 @@ Raise Ogabassey's commercial SEO maturity beyond technical metadata/schema corre
 
 The implementation order is intentionally fixed:
 
-1. Add `SearchAction` to the storefront homepage `WebSite` schema.
+1. Complete `SearchAction` enablement for the storefront homepage `WebSite` schema.
 2. Build the commercial semantic SEO foundation in four phases:
    - Phase 1: crawlable compare/support pages
    - Phase 2: category hub enrichment
@@ -39,14 +39,24 @@ The implementation order is intentionally fixed:
 - PDPs are strong as standalone URLs, but weak as nodes in a deliberate semantic decision graph.
 - Blog/support content exists, but it is not yet systematically reinforcing the commercial pages.
 
-## Phase 0: Homepage `SearchAction`
+## Phase 0: Homepage `SearchAction` Enablement
 
 ### Objective
 
 Expose the storefront's on-site search to crawlers through `WebSite` + `SearchAction` on the homepage.
 
+### Important Reality Check
+
+The current branch does not yet expose a crawlable public storefront search results page, even though the navbar currently pushes to `/search?q=...`.
+
+That means `SearchAction` cannot safely ship as only a schema change. It must ship as an enablement pair:
+
+1. a real public storefront search results route
+2. the homepage `WebSite` schema pointing to that route
+
 ### Scope
 
+- Add or confirm a real public storefront search results route under the storefront app routes
 - Update `apps/web/src/app/(storefront)/[slug]/storefront-page-content.tsx`
 - Reuse `generateWebSiteSchema()` in `apps/web/src/lib/seo-utils.ts`
 - Pass a request-scoped search URL template, using the public storefront search destination
@@ -62,14 +72,17 @@ Expose the storefront's on-site search to crawlers through `WebSite` + `SearchAc
 ### Constraints
 
 - Must use request-scoped/canonical storefront URLs, not guessed relative URLs
-- Must not emit invalid templates for merchants without a search route
+- Must not emit `SearchAction` until a valid public search destination exists
 - Must not regress existing homepage schema graph
+- The search results route must be crawl-safe and useful, not a client-only autocomplete shell
 
 ### Verification
 
 - Update/add homepage schema tests
+- Add route tests for the storefront search page if it does not already exist
 - Validate rendered HTML for the homepage route
 - Ensure no duplicate or conflicting `WebSite` schema objects are created
+- Confirm `SearchAction.urlTemplate` resolves to a valid public URL pattern
 
 ## Phase 1: Crawlable Compare and Commercial Support Pages
 
@@ -99,6 +112,28 @@ This is the largest semantic gap remaining. Ogabassey currently has comparison b
 - buyer FAQ
 - internal links to source PDPs, category hub, and support guides
 
+### Eligibility Rules
+
+Compare/support pages must not be generated indiscriminately.
+
+Allowed compare candidates:
+
+- same-category products only
+- comparable price band or market position
+- same merchant inventory and active products only
+- minimum spec coverage threshold so the page is not mostly blank
+
+Canonicalization rules:
+
+- product-vs-product ordering must be deterministic
+- one canonical URL per pair
+- redirects or canonical tags must collapse reversed duplicates
+- no indexation for thin or low-data combinations
+
+Publishing threshold:
+
+- do not publish a compare page unless it has enough differentiating content, specs, and internal-link context to stand alone
+
 ### SEO Requirements
 
 - unique canonical URL per comparison page
@@ -112,6 +147,8 @@ This is the largest semantic gap remaining. Ogabassey currently has comparison b
 - render tests for compare pages
 - schema validation for compare pages
 - internal-link coverage checks from PDPs and category hubs
+- pair-order canonicalization tests
+- thin-page guard tests
 
 ## Phase 2: Category Hub Enrichment
 
@@ -135,6 +172,16 @@ Turn major categories into stronger commercial landing pages, not just product l
 - stronger FAQ coverage
 - clearer hub-to-subhub link structure
 
+### Content Source Policy
+
+Category hub copy must come from a controlled source, in this order:
+
+1. merchant-authored category SEO content when present
+2. curated category-level defaults/config for high-priority categories
+3. tightly bounded generated/computed fallback only for non-critical gaps
+
+Generated fallback copy must never be used to create large volumes of vague, repetitive hub text.
+
 ### Key Principle
 
 The category page must become the main commercial entity hub for the topic, not just the page that happens to list products.
@@ -152,6 +199,16 @@ Make PDPs better connected commercial decision pages instead of isolated product
 - links to same-brand and same-price decision pages
 - stronger trust/buying context modules
 - semantic support sections tied to the product category
+
+### Content Source Policy
+
+PDP semantic enrichment should be assembled from:
+
+- existing normalized product/spec data
+- merchant-authored PDP content where available
+- deterministic product-derived modules such as same-brand, same-price, and same-category links
+
+It should not depend on free-form generated copy at render time.
 
 ### Important Note
 
@@ -188,6 +245,7 @@ Use informational/support content to reinforce the commercial graph after the co
 - reuse normalized product/spec data already present in the storefront
 - reuse comparison/spec utilities where possible
 - avoid introducing duplicate product-shaping logic
+- prefer deterministic assembled content over open-ended generated copy
 
 ### Rendering Strategy
 
@@ -216,7 +274,7 @@ Use informational/support content to reinforce the commercial graph after the co
 
 ### Technical
 
-- homepage emits valid `SearchAction`
+- homepage emits valid `SearchAction` only after a real storefront search results route exists
 - compare pages are crawlable and indexable
 - category hubs expose richer commercial structure
 - PDPs participate in an intentional internal-link graph
