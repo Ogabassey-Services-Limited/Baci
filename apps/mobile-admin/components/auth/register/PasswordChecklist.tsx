@@ -1,7 +1,6 @@
 import { Text, View } from 'react-native';
 import type { PasswordValidationResult } from '@/lib/password-utils';
 import { ChecklistItem } from './ChecklistItem';
-import { useMemo } from 'react';
 import { useTheme } from '@/hooks/useTheme';
 import { getStyles } from './register.styles';
 
@@ -15,7 +14,7 @@ export function PasswordChecklist({
   passwordValue,
 }: PasswordChecklistProps) {
   const { colors } = useTheme();
-  const styles = useMemo(() => getStyles(colors), [colors]);
+  const styles = getStyles(colors);
   return (
     <View style={styles.validationContainer}>
       <Text style={styles.validationTitle}>Password Strength</Text>
