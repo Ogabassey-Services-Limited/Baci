@@ -1,8 +1,10 @@
 'use client';
 
+import { AlertCircle } from 'lucide-react';
 import AddProductForm from '@/app/dashboard/products/add/add-product-form';
 import { CSVBulkImportDialog } from '@/components/products/csv-bulk-import-dialog';
 import { GoogleSheetImportDialog } from '@/components/products/google-sheet-import-dialog';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Dialog,
   DialogContent,
@@ -59,6 +61,17 @@ export function ProductsPageDialogs({
                   : 'Fill in the details below to add a new product to your catalog.'}
             </DialogDescription>
           </DialogHeader>
+          {editingProduct?.migration_status === 'needs_review' ? (
+            <Alert className="border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
+              <AlertCircle className="h-4 w-4 text-amber-700 dark:text-amber-300" />
+              <AlertTitle>Review before saving</AlertTitle>
+              <AlertDescription>
+                Confirm the default variant, variant conditions, and price/stock
+                values. Saving a valid SKU matrix will clear this review item
+                from the queue.
+              </AlertDescription>
+            </Alert>
+          ) : null}
           <AddProductForm
             onProductAdded={onProductSaved}
             onCancel={onCancelAddProduct}
