@@ -26,6 +26,30 @@ function formatResultCount(count: number) {
   return new Intl.NumberFormat('en-NG').format(count);
 }
 
+function formatSearchSummary({
+  query,
+  totalCount,
+  visibleCount,
+}: {
+  query: string;
+  totalCount: number;
+  visibleCount: number;
+}) {
+  if (!query) {
+    return 'Enter a search term to browse matching products.';
+  }
+
+  if (totalCount === 0) {
+    return `No results found for “${query}”`;
+  }
+
+  if (totalCount > visibleCount) {
+    return `Showing first ${formatResultCount(visibleCount)} of ${formatResultCount(totalCount)} results for “${query}”`;
+  }
+
+  return `${formatResultCount(totalCount)} result${totalCount === 1 ? '' : 's'} for “${query}”`;
+}
+
 export async function SearchPageContent({
   params,
   searchParams,
@@ -67,6 +91,7 @@ export async function SearchPageContent({
     currency: merchant.payout_currency || 'NGN',
     maximumFractionDigits: 0,
   });
+  const visibleCount = searchResult.products.length;
   const breadcrumbSchema = generateBreadcrumbSchema([
     { name: merchant.business_name, url: storeUrl },
     { name: 'Search Results', url: pageUrl },
@@ -141,9 +166,11 @@ export async function SearchPageContent({
               Search Results
             </h1>
             <p className="max-w-2xl text-sm text-[var(--store-background-text,#111827)]/60 md:text-base">
-              {query
-                ? `${formatResultCount(searchResult.count)} result${searchResult.count === 1 ? '' : 's'} for “${searchResult.query}”`
-                : 'Enter a search term to browse matching products.'}
+              {formatSearchSummary({
+                query,
+                totalCount: searchResult.count,
+                visibleCount,
+              })}
             </p>
           </div>
 

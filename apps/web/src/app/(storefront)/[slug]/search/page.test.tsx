@@ -17,7 +17,7 @@ vi.mock('./search-page-content', () => ({
 const { generateMetadata } = await import('./page');
 
 describe('storefront search page metadata', () => {
-  it('emits noindex,follow metadata for search results', async () => {
+  it('emits noindex,follow metadata with a request-scoped canonical URL', async () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValue({
       id: 'merchant-1',
       slug: 'ogabassey',
@@ -28,19 +28,23 @@ describe('storefront search page metadata', () => {
 
     mockHeaders.mockResolvedValue(
       new Headers([
-        ['host', 'ogabassey.com'],
+        ['host', 'proxy.internal'],
+        ['x-custom-domain', 'shop.example.ng'],
         ['x-pathname', '/search'],
       ])
     );
 
     const metadata = await generateMetadata({
       params: Promise.resolve({ slug: 'ogabassey' }),
-      searchParams: Promise.resolve({ q: 'iphone' }),
+      searchParams: Promise.resolve({ q: 'iphone 16' }),
     });
 
     expect(metadata.robots).toMatchObject({
       index: false,
       follow: true,
+    });
+    expect(metadata.alternates).toMatchObject({
+      canonical: 'https://shop.example.ng/search?q=iphone%2016',
     });
   });
 });
