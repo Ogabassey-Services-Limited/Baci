@@ -1,14 +1,14 @@
+import {
+  type CanonicalProductCondition,
+  normalizeCanonicalProductCondition,
+} from '@baci/shared/lib';
+
 export type StorefrontConditionBadgeLabel =
   | 'New'
   | 'Open Box'
   | 'Used'
   | 'New & Used'
   | 'Multiple Conditions';
-
-import {
-  type CanonicalProductCondition,
-  normalizeCanonicalProductCondition,
-} from '@baci/shared/lib';
 
 const CONDITION_LABELS = {
   new: 'New',
@@ -89,7 +89,7 @@ export function getNormalizedStorefrontConditions(source: ConditionSource) {
     return Array.from(normalizedConditions);
   }
 
-  if (normalizedConditions.size === 0 && source.has_condition_offers) {
+  if (source.has_condition_offers) {
     // Legacy offer families imply both new and used availability even when the
     // parent product row still carries a single explicit condition value.
     normalizedConditions.add('new');
