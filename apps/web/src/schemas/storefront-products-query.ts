@@ -1,5 +1,5 @@
+import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
 import { z } from 'zod';
-import { normalizeStorefrontConditionValue } from '@/lib/storefront-product-filters';
 
 export const storefrontConditionFilterSchema = z.preprocess(
   (value) => {
@@ -11,7 +11,7 @@ export const storefrontConditionFilterSchema = z.preprocess(
       return value;
     }
 
-    return normalizeStorefrontConditionValue(value) || value;
+    return normalizeCanonicalProductCondition(value) || value;
   },
   z.enum(['new', 'used', 'open_box', 'all'])
 );

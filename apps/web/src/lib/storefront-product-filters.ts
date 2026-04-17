@@ -1,10 +1,13 @@
+import {
+  type CanonicalProductCondition,
+  normalizeCanonicalProductCondition,
+} from '@baci/shared/lib';
+
 const CONDITION_LABELS = {
   new: 'New',
   open_box: 'Open Box',
   used: 'Used',
-} as const;
-
-type CanonicalCondition = keyof typeof CONDITION_LABELS;
+} satisfies Record<CanonicalProductCondition, string>;
 
 interface ConditionSource {
   available_conditions?: unknown;
@@ -52,34 +55,8 @@ function toComparableTokens(value: string | null | undefined) {
   return slug && slug !== normalized ? [normalized, slug] : [normalized];
 }
 
-export function normalizeStorefrontConditionValue(
-  value: string | null | undefined
-): '' | CanonicalCondition {
-  if (typeof value !== 'string') {
-    return '';
-  }
-
-  const normalized = value
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, '_');
-
-  switch (normalized) {
-    case 'new':
-      return 'new';
-    case 'used':
-    case 'uk_used':
-      return 'used';
-    case 'open_box':
-    case 'refurbished':
-      return 'open_box';
-    default:
-      return '';
-  }
-}
-
 export function getNormalizedStorefrontConditions(source: ConditionSource) {
-  const normalizedConditions = new Set<CanonicalCondition>();
+  const normalizedConditions = new Set<CanonicalProductCondition>();
 
   if (Array.isArray(source.available_conditions)) {
     for (const condition of source.available_conditions) {
@@ -87,7 +64,7 @@ export function getNormalizedStorefrontConditions(source: ConditionSource) {
         continue;
       }
 
-      const normalized = normalizeStorefrontConditionValue(condition);
+      const normalized = normalizeCanonicalProductCondition(condition);
       if (normalized) {
         normalizedConditions.add(normalized);
       }
@@ -100,7 +77,7 @@ export function getNormalizedStorefrontConditions(source: ConditionSource) {
   }
 
   if (normalizedConditions.size === 0 && typeof source.condition === 'string') {
-    const normalized = normalizeStorefrontConditionValue(source.condition);
+    const normalized = normalizeCanonicalProductCondition(source.condition);
     if (normalized) {
       normalizedConditions.add(normalized);
     }
@@ -136,7 +113,7 @@ export function matchesStorefrontConditionFilter(
   }
 
   const normalizedFilter =
-    normalizeStorefrontConditionValue(selectedCondition) || undefined;
+    normalizeCanonicalProductCondition(selectedCondition) || undefined;
 
   if (!normalizedFilter) {
     return false;

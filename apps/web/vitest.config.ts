@@ -26,6 +26,45 @@ const reactDomPath = appRequire.resolve('react-dom');
 const reactDomClientPath = appRequire.resolve('react-dom/client');
 const reactDomTestUtilsPath = appRequire.resolve('react-dom/test-utils');
 const reactDomServerPath = appRequire.resolve('react-dom/server');
+const sharedPackagePath = path.resolve(__dirname, '../../packages/shared/src');
+const sharedAliases = [
+  {
+    find: /^@baci\/shared$/,
+    replacement: path.join(sharedPackagePath, 'index.ts'),
+  },
+  {
+    find: /^@baci\/shared\/types$/,
+    replacement: path.join(sharedPackagePath, 'types/index.ts'),
+  },
+  {
+    find: /^@baci\/shared\/constants$/,
+    replacement: path.join(sharedPackagePath, 'constants/index.ts'),
+  },
+  {
+    find: /^@baci\/shared\/contracts$/,
+    replacement: path.join(sharedPackagePath, 'contracts/index.ts'),
+  },
+  {
+    find: /^@baci\/shared\/lib$/,
+    replacement: path.join(sharedPackagePath, 'lib/index.ts'),
+  },
+  {
+    find: /^@baci\/shared\/schemas$/,
+    replacement: path.join(sharedPackagePath, 'schemas/index.ts'),
+  },
+  {
+    find: /^@baci\/shared\/schemas\/merchant-settings$/,
+    replacement: path.join(sharedPackagePath, 'schemas/merchant-settings.ts'),
+  },
+  {
+    find: /^@baci\/shared\/receipt$/,
+    replacement: path.join(sharedPackagePath, 'receipt/index.ts'),
+  },
+  {
+    find: /^@baci\/shared\/gmc-feed$/,
+    replacement: path.join(sharedPackagePath, 'gmc-feed/index.ts'),
+  },
+];
 
 export default defineConfig({
   plugins: [react()],
@@ -40,6 +79,7 @@ export default defineConfig({
       { find: /^react-dom\/client$/, replacement: reactDomClientPath },
       { find: /^react-dom\/test-utils$/, replacement: reactDomTestUtilsPath },
       { find: /^react-dom\/server$/, replacement: reactDomServerPath },
+      ...sharedAliases,
     ],
     dedupe: ['react', 'react-dom', '@testing-library/react'],
   },

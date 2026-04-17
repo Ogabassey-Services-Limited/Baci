@@ -1,3 +1,4 @@
+import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
 import { createClient as createStaticClient } from '@supabase/supabase-js';
 import { unstable_cache } from 'next/cache';
 import { cookies } from 'next/headers';
@@ -8,7 +9,6 @@ import {
   matchesStorefrontBrandFilter,
   matchesStorefrontCategoryFilter,
   matchesStorefrontConditionFilter,
-  normalizeStorefrontConditionValue,
 } from '@/lib/storefront-product-filters';
 import { createClient } from '@/lib/supabase/server';
 import {
@@ -94,8 +94,18 @@ function escapeLikePattern(value: string) {
     .replaceAll('_', '\\_');
 }
 
+function buildLooseLikePattern(value: string) {
+  const tokens = value
+    .trim()
+    .split(/[\s-]+/)
+    .map((token) => escapeLikePattern(token))
+    .filter(Boolean);
+
+  return tokens.length > 0 ? `%${tokens.join('%')}%` : undefined;
+}
+
 function getConditionPrefilterClauses(condition: string) {
-  const normalized = normalizeStorefrontConditionValue(condition);
+  const normalized = normalizeCanonicalProductCondition(condition);
 
   if (!normalized) {
     return [];
@@ -191,10 +201,10 @@ function createCachedProductsFetcher(
         .eq('status', 'active');
 
       if (filters.category && filters.category !== 'all') {
-        query = query.ilike(
-          'category',
-          `%${escapeLikePattern(filters.category.trim().replace(/[\s-]+/g, ' '))}%`
-        );
+        const categoryPattern = buildLooseLikePattern(filters.category);
+        if (categoryPattern) {
+          query = query.ilike('category', categoryPattern);
+        }
       }
 
       if (filters.brand && filters.brand !== 'all') {

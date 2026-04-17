@@ -156,7 +156,37 @@ describe('GET /api/storefront/products', () => {
     expect(payload.products[0].id).toBe('tv-1');
     expect(mockProductsQuery.current?.ilike).toHaveBeenCalledWith(
       'category',
-      '%smart tvs%'
+      '%smart%tvs%'
+    );
+  });
+
+  it('keeps hyphenated category values eligible for SQL prefiltering', async () => {
+    mockProductsResult.current = {
+      data: [
+        createRawProduct({
+          id: 'pre-owned-1',
+          name: 'Pre-Owned Console',
+          category: 'Pre-Owned',
+          categories: { id: 'cat-3', name: 'Pre-Owned', slug: 'pre-owned' },
+          slug: 'pre-owned-console',
+        }),
+      ],
+      error: null,
+    };
+
+    const response = await GET(
+      new NextRequest(
+        'http://localhost/api/storefront/products?merchant_id=00000000-0000-0000-0000-000000000001&category=pre-owned'
+      )
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.products).toHaveLength(1);
+    expect(payload.products[0].id).toBe('pre-owned-1');
+    expect(mockProductsQuery.current?.ilike).toHaveBeenCalledWith(
+      'category',
+      '%pre%owned%'
     );
   });
 
