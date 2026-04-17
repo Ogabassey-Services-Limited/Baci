@@ -51,4 +51,20 @@ describe('matchesProductStockFilter', () => {
       )
     ).toBe(false);
   });
+
+  it('matches infinite stock only for unmanaged products', () => {
+    expect(
+      matchesProductStockFilter(
+        { manage_stock: false, stock: 0, stock_quantity: 0 },
+        'infinite'
+      )
+    ).toBe(true);
+
+    expect(
+      matchesProductStockFilter(
+        { manage_stock: true, stock: 7, stock_quantity: 7 },
+        'infinite'
+      )
+    ).toBe(false);
+  });
 });
