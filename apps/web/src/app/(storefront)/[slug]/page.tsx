@@ -1,13 +1,8 @@
 import type { Metadata } from 'next';
-import { headers } from 'next/headers';
 import { Suspense } from 'react';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
-import {
-  generateMetaDescription,
-  getIndexableRobotsMetadata,
-} from '@/lib/seo-utils';
-import { buildRequestScopedStoreUrl } from '@/lib/store-url';
+import { buildStoreUrl } from '@/lib/store-url';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 import { StorefrontPageContent } from './storefront-page-content';
 
@@ -43,35 +38,33 @@ export async function generateMetadata({
     (merchant?.business_name
       ? `${merchant.business_name} - Official Online Store`
       : 'Official Online Store');
-  const description = generateMetaDescription(
+  const description =
     merchant.site_description ||
-      merchant.site_tagline ||
-      `Shop at ${merchant.business_name}. Browse our collection and enjoy convenient delivery.`
-  );
+    merchant.site_tagline ||
+    `Shop at ${merchant.business_name}. Browse our collection and enjoy convenient delivery.`;
 
-  const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
+  const baseUrl = buildStoreUrl(merchant);
 
   const socialMedia = merchant.social_media as Record<string, string> | null;
 
   return {
     metadataBase: new URL(baseUrl),
-    title: {
-      absolute: title,
-    },
+    title: title,
     description: description,
     keywords: [
+      'Showmax Subscription',
+      'Buy Showmax Online',
+      'Cheap Airtime',
+      'Buy Data Bundle',
+      'Pay Electricity Bill',
+      'Utility Payment',
       merchant.business_name,
-      `${merchant.business_name} online store`,
-      `${merchant.business_name} Nigeria`,
       'Online Shopping',
-      'Electronics',
-      'Gadgets',
       'Nigeria',
     ],
     alternates: {
       canonical: baseUrl,
     },
-    robots: getIndexableRobotsMetadata(),
     openGraph: {
       title: title,
       description: description,
