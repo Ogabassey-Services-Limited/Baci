@@ -25,13 +25,13 @@ describe('storefront-product-filters', () => {
     ).toEqual(['new', 'used']);
   });
 
-  it('prefers an explicit condition over generic legacy offer inference', () => {
+  it('merges an explicit condition with legacy offer inference when available conditions are absent', () => {
     expect(
       getNormalizedStorefrontConditions({
         condition: 'refurbished',
         has_condition_offers: true,
       })
-    ).toEqual(['open_box']);
+    ).toEqual(['new', 'used', 'open_box']);
   });
 
   it('filters invalid available_conditions entries while preserving valid strings', () => {

@@ -85,16 +85,18 @@ export function getNormalizedStorefrontConditions(source: ConditionSource) {
     }
   }
 
+  if (source.has_condition_offers) {
+    // Legacy offer families imply both new and used availability even when the
+    // parent product row still carries a single explicit condition value.
+    normalizedConditions.add('new');
+    normalizedConditions.add('used');
+  }
+
   if (typeof source.condition === 'string') {
     const normalized = normalizeCanonicalProductCondition(source.condition);
     if (normalized) {
       normalizedConditions.add(normalized);
     }
-  }
-
-  if (normalizedConditions.size === 0 && source.has_condition_offers) {
-    normalizedConditions.add('new');
-    normalizedConditions.add('used');
   }
 
   return Array.from(normalizedConditions);
