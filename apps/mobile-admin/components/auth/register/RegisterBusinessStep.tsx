@@ -10,7 +10,6 @@ import type { BusinessTypeId } from '@/constants/business-types';
 
 import { BusinessTypeSelector } from '../BusinessTypeSelector';
 import { RegisterLegalText } from './RegisterLegalText';
-import { useMemo } from 'react';
 import { useTheme } from '@/hooks/useTheme';
 import { getStyles } from './register.styles';
 
@@ -41,7 +40,7 @@ export function RegisterBusinessStep({
   onSlugChange,
 }: RegisterBusinessStepProps) {
   const { colors } = useTheme();
-  const styles = useMemo(() => getStyles(colors), [colors]);
+  const styles = getStyles(colors);
   return (
     <View style={styles.formSection}>
       <Text style={styles.sectionTitle}>Business Info</Text>

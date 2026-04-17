@@ -3,7 +3,6 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import type { PasswordValidationResult } from '@/lib/password-utils';
 import { PasswordVisibilityToggle } from '../PasswordVisibilityToggle';
 import { PasswordChecklist } from './PasswordChecklist';
-import { useMemo } from 'react';
 import { useTheme } from '@/hooks/useTheme';
 import { getStyles } from './register.styles';
 
@@ -38,7 +37,7 @@ export function RegisterAccountStep({
   onTogglePassword,
 }: RegisterAccountStepProps) {
   const { colors } = useTheme();
-  const styles = useMemo(() => getStyles(colors), [colors]);
+  const styles = getStyles(colors);
   return (
     <View style={styles.formSection}>
       <Text style={styles.sectionTitle}>Account Details</Text>
