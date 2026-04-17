@@ -1,7 +1,7 @@
 function normalizeRoundedChange(value: number) {
   if (!Number.isFinite(value)) return 0;
 
-  const rounded = Math.round(value * 10) / 10;
+  const rounded = (Math.sign(value) * Math.round(Math.abs(value) * 10)) / 10;
   return Object.is(rounded, -0) ? 0 : rounded;
 }
 

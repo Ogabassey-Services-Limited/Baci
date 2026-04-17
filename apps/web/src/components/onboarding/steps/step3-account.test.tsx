@@ -54,16 +54,33 @@ describe('Step3_Account', () => {
     );
 
     await user.type(
-      screen.getByPlaceholderText('you@example.com'),
+      screen.getByRole('textbox', { name: /email address/i }),
       'user@example.com'
     );
-    await user.type(
-      screen.getByPlaceholderText('Create a strong password'),
-      'Longpass10'
-    );
+    await user.type(screen.getByLabelText(/^password$/i), 'Longpass10');
 
     expect(
-      await screen.findByPlaceholderText('Re-enter your password')
+      await screen.findByLabelText(/^confirm password$/i)
     ).toBeInTheDocument();
+  });
+
+  it('keeps confirm password hidden for weak passwords', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <TestWrapper>
+        <Step3_Account
+          onKeyDown={vi.fn()}
+          onMagicLinkSent={vi.fn()}
+          user={null}
+        />
+      </TestWrapper>
+    );
+
+    await user.type(screen.getByLabelText(/^password$/i), 'short');
+
+    expect(
+      screen.queryByLabelText(/^confirm password$/i)
+    ).not.toBeInTheDocument();
   });
 });

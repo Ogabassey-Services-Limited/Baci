@@ -55,14 +55,19 @@ vi.mock('@/components/ui/select', () => ({
     children,
     onValueChange,
     value,
+    name,
   }: {
     children: React.ReactNode;
     onValueChange: (value: string) => void;
     value: string;
+    name?: string;
   }) => (
+    // Native <select> preserves combobox semantics while still exercising
+    // the react-hook-form onValueChange path in this unit test.
     <div>
       <select
-        data-testid="business-type-select"
+        aria-label={name === 'businessType' ? 'Business type' : name}
+        name={name}
         value={value || ''}
         onChange={(e) => onValueChange(e.target.value)}
       >
@@ -96,6 +101,13 @@ vi.mock('@/components/ui/typing-placeholder-input', () => ({
   }) => (
     <input
       data-testid={name}
+      aria-label={
+        name === 'businessName'
+          ? 'Business name'
+          : name === 'otherBusinessType'
+            ? 'Please specify'
+            : undefined
+      }
       name={name}
       value={value as string}
       onChange={onChange}
@@ -281,10 +293,13 @@ describe('OnboardingForm', () => {
     ).toBeInTheDocument();
 
     await user.selectOptions(
-      screen.getByTestId('business-type-select'),
+      screen.getByRole('combobox', { name: /business type/i }),
       'electronics'
     );
-    await user.type(screen.getByTestId('businessName'), 'Audit Store');
+    await user.type(
+      screen.getByRole('textbox', { name: /business name/i }),
+      'Audit Store'
+    );
 
     await waitFor(() => {
       expect(
