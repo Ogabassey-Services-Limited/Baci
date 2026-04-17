@@ -214,6 +214,33 @@ describe('getProducts', () => {
     expect(result.pagination.totalPages).toBe(0);
   });
 
+  it('maps sku_matrix projection fields onto returned products', async () => {
+    const raw = makeRawProduct({
+      available_conditions: ['new', 'used'],
+      default_variant_id: 'variant-1',
+      max_variant_price: '3200.00',
+      migration_status: 'needs_review',
+      min_variant_price: '2500.00',
+      variant_model: 'sku_matrix',
+    });
+    const { client } = createMockSupabase({
+      data: [raw],
+      error: null,
+      count: 1,
+    });
+
+    const result = await getProducts(client as never, merchantId, {});
+
+    expect(result.products[0]).toMatchObject({
+      available_conditions: ['new', 'used'],
+      default_variant_id: 'variant-1',
+      max_variant_price: 3200,
+      migration_status: 'needs_review',
+      min_variant_price: 2500,
+      variant_model: 'sku_matrix',
+    });
+  });
+
   // --- Filtering ---
 
   it('filters by status when not "All"', async () => {
@@ -229,6 +256,39 @@ describe('getProducts', () => {
 
     // Assert
     expect(queryBuilder.eq).toHaveBeenCalledWith('status', 'active');
+  });
+
+  it('filters by migration_status when a concrete migration filter is provided', async () => {
+    const { client, queryBuilder } = createMockSupabase({
+      data: [],
+      error: null,
+      count: 0,
+    });
+
+    await getProducts(client as never, merchantId, {
+      migration: 'needs_review',
+    });
+
+    expect(queryBuilder.eq).toHaveBeenCalledWith(
+      'migration_status',
+      'needs_review'
+    );
+  });
+
+  it('treats pending migration filter as pending or null rows', async () => {
+    const { client, queryBuilder } = createMockSupabase({
+      data: [],
+      error: null,
+      count: 0,
+    });
+
+    await getProducts(client as never, merchantId, {
+      migration: 'pending',
+    });
+
+    expect(queryBuilder.or).toHaveBeenCalledWith(
+      'migration_status.eq.pending,migration_status.is.null'
+    );
   });
 
   it('does not filter status when "All"', async () => {
@@ -307,6 +367,29 @@ describe('getProducts', () => {
       'legacy-drift',
       'unmanaged',
     ]);
+    expect(queryBuilder.range).not.toHaveBeenCalled();
+  });
+
+  it('filters infinite stock to unmanaged products only', async () => {
+    const { client, queryBuilder } = createMockSupabase({
+      data: [
+        makeRawProduct({ id: 'managed', manage_stock: true, stock: 5 }),
+        makeRawProduct({
+          id: 'unmanaged',
+          manage_stock: false,
+          stock: 0,
+          stock_quantity: 0,
+        }),
+      ],
+      error: null,
+      count: 2,
+    });
+
+    const result = await getProducts(client as never, merchantId, {
+      stock: 'infinite',
+    });
+
+    expect(result.products.map((product) => product.id)).toEqual(['unmanaged']);
     expect(queryBuilder.range).not.toHaveBeenCalled();
   });
 
