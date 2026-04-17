@@ -40,6 +40,10 @@ import { toast } from '@/hooks/use-toast';
 import { createClient } from '@/lib/supabase/client';
 import { calculateCommerce } from '@/lib/supabase/client';
 import { buildCheckoutOrderItems } from '@/lib/checkout/build-order-items';
+import {
+  isBankTransferCheckoutAvailable,
+  isPaystackCheckoutAvailable,
+} from '@/lib/checkout/payment-gateway-availability';
 import { isValidPhoneNumber } from 'react-phone-number-input';
 import {
   buildPendingCheckoutFingerprint,
@@ -85,6 +89,9 @@ export const CheckoutPage: React.FC = () => {
   const { cart, cartTotal, clearCart, isHydrated } = useCart();
   const merchantContext = useMerchantSafe();
   const merchant = merchantContext?.merchant;
+  const paystackCheckoutAvailable = isPaystackCheckoutAvailable(merchant);
+  const bankTransferCheckoutAvailable =
+    isBankTransferCheckoutAvailable(merchant);
   const basePath = merchantContext?.basePath;
   const router = useRouter();
 
@@ -2771,7 +2778,7 @@ export const CheckoutPage: React.FC = () => {
                         <p className="text-xs text-gray-500">Select a payment gateway:</p>
                         <div className="grid grid-cols-1 gap-3">
                           {/* Paystack */}
-                          {(!merchant?.feature_settings || merchant.feature_settings.paystack_enabled !== false) && (
+                          {paystackCheckoutAvailable && (
                             <label
                               className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'paystack'
                                 ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5'
@@ -2801,7 +2808,7 @@ export const CheckoutPage: React.FC = () => {
                           )}
 
                           {/* Bank Transfer (DVA) - Premium Option */}
-                          {(!merchant?.feature_settings || merchant.feature_settings.paystack_enabled !== false) && (
+                          {bankTransferCheckoutAvailable && (
                             <label
                               className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'bank_transfer'
                                 ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5'

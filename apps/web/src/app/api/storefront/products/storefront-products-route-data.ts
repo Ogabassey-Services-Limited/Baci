@@ -53,7 +53,9 @@ function mapProduct(product: RawStorefrontProductRow) {
     variant_model: product.variant_model,
     offers: product.offers,
     colors:
-      (product.colors as string[]) ||
+      (typeof product.color === 'string' && product.color
+        ? [product.color]
+        : undefined) ||
       (product.color_images ? Object.keys(product.color_images as object) : []),
     variant_attributes: product.variant_attributes,
   };
@@ -164,7 +166,7 @@ const STOREFRONT_PRODUCTS_SELECT = `
   available_conditions,
   variant_model,
   offers,
-  colors,
+  color,
   color_images,
   variant_attributes,
   categories:category_id(id, name, slug),

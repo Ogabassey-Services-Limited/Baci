@@ -100,6 +100,49 @@ describe('storefrontProductsRouteData', () => {
     ).toEqual(['Black', 'White']);
   });
 
+  it('falls back to the singular color field when denormalized colors are absent', () => {
+    expect(
+      storefrontProductsRouteData.mapProduct({
+        id: 'product-1b',
+        name: 'Pepper Mix',
+        description: null,
+        price: 4500,
+        compare_at_price: null,
+        images: ['https://example.com/pepper-mix.jpg'],
+        image_hint: null,
+        category: 'Spices',
+        categories: { id: 'cat-2', name: 'Spices', slug: 'spices' },
+        category_id: 'cat-2',
+        brand: 'Foodseed',
+        stock: 12,
+        stock_quantity: 12,
+        slug: 'pepper-mix',
+        status: 'active',
+        condition: 'new',
+        has_variants: false,
+        sku: 'PM-1',
+        manage_stock: true,
+        low_stock_threshold: 2,
+        specifications: null,
+        has_condition_offers: false,
+        available_conditions: [],
+        variant_model: 'single',
+        offers: [],
+        color: 'Red',
+        variant_attributes: [],
+      }).colors
+    ).toEqual(['Red']);
+  });
+
+  it('selects the singular color column for storefront queries', () => {
+    expect(storefrontProductsRouteData.STOREFRONT_PRODUCTS_SELECT).toMatch(
+      /\bcolor\b/
+    );
+    expect(storefrontProductsRouteData.STOREFRONT_PRODUCTS_SELECT).not.toMatch(
+      /\bcolors\b/
+    );
+  });
+
   it('preserves explicit image order zero values', () => {
     expect(
       storefrontProductsRouteData.mapProduct({

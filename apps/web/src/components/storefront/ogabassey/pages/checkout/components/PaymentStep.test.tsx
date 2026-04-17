@@ -45,7 +45,7 @@ describe('PaymentStep', () => {
     setNewsletterOptIn: vi.fn(),
     handlePlaceOrder: vi.fn(),
     setCurrentStep: vi.fn(),
-    merchant: null,
+    merchant: { paystack_subaccount_code: 'ACCT_123' },
     user: null,
     remainingAmount: 10000,
   };
@@ -165,7 +165,7 @@ describe('PaymentStep', () => {
   });
 
   describe('Pay in Full Options', () => {
-    it('shows Paystack by default when no feature settings', () => {
+    it('shows Paystack when the merchant has a Paystack subaccount', () => {
       // Arrange & Act
       render(<PaymentStep {...defaultProps} />);
 
@@ -174,7 +174,7 @@ describe('PaymentStep', () => {
       expect(screen.getByTestId('paystack-logo')).toBeInTheDocument();
     });
 
-    it('shows Bank Transfer by default when no feature settings', () => {
+    it('shows Bank Transfer when the merchant has a Paystack subaccount', () => {
       // Arrange & Act
       render(<PaymentStep {...defaultProps} />);
 
@@ -186,6 +186,7 @@ describe('PaymentStep', () => {
     it('hides Paystack when explicitly disabled in feature settings', () => {
       // Arrange
       const merchant = {
+        paystack_subaccount_code: 'ACCT_123',
         feature_settings: { paystack_enabled: false } as FeatureSettings,
       };
 
@@ -194,6 +195,22 @@ describe('PaymentStep', () => {
 
       // Assert
       expect(screen.queryByText('Paystack')).not.toBeInTheDocument();
+      expect(screen.queryByText('Bank Transfer')).not.toBeInTheDocument();
+    });
+
+    it('hides Paystack and Bank Transfer when the merchant has no Paystack subaccount', () => {
+      // Arrange
+      const merchant = {
+        paystack_subaccount_code: null,
+        feature_settings: { paystack_enabled: true } as FeatureSettings,
+      };
+
+      // Act
+      render(<PaymentStep {...defaultProps} merchant={merchant} />);
+
+      // Assert
+      expect(screen.queryByText('Paystack')).not.toBeInTheDocument();
+      expect(screen.queryByText('Bank Transfer')).not.toBeInTheDocument();
     });
 
     it('shows Juicyway when enabled in feature settings', () => {
@@ -622,7 +639,7 @@ describe('PaymentStep', () => {
       render(<PaymentStep {...defaultProps} merchant={null} />);
 
       // Assert
-      expect(screen.getByText('Paystack')).toBeInTheDocument();
+      expect(screen.queryByText('Paystack')).not.toBeInTheDocument();
     });
 
     it('handles undefined merchant gracefully', () => {
@@ -630,12 +647,15 @@ describe('PaymentStep', () => {
       render(<PaymentStep {...defaultProps} merchant={undefined} />);
 
       // Assert
-      expect(screen.getByText('Paystack')).toBeInTheDocument();
+      expect(screen.queryByText('Paystack')).not.toBeInTheDocument();
     });
 
     it('handles merchant with null feature_settings', () => {
       // Arrange
-      const merchant = { feature_settings: null };
+      const merchant = {
+        paystack_subaccount_code: 'ACCT_123',
+        feature_settings: null,
+      };
 
       // Act
       render(<PaymentStep {...defaultProps} merchant={merchant} />);
@@ -646,7 +666,10 @@ describe('PaymentStep', () => {
 
     it('handles merchant with undefined feature_settings', () => {
       // Arrange
-      const merchant = { feature_settings: undefined };
+      const merchant = {
+        paystack_subaccount_code: 'ACCT_123',
+        feature_settings: undefined,
+      };
 
       // Act
       render(<PaymentStep {...defaultProps} merchant={merchant} />);

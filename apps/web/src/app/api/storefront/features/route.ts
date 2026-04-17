@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { isPaystackCheckoutAvailable } from '@/lib/checkout/payment-gateway-availability';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -140,22 +141,37 @@ export async function GET(request: NextRequest) {
     const supabase = createClient(cookieStore);
 
     // Get merchant ID from slug if needed
-    let resolvedMerchantId = merchantId;
-    if (!resolvedMerchantId && slug) {
-      const { data: merchant } = await supabase
-        .from('merchants')
-        .select('id')
-        .eq('slug', slug)
-        .single();
+    const merchantLookup = slug
+      ? await supabase
+          .from('merchants')
+          .select('id, paystack_subaccount_code')
+          .eq('slug', slug)
+          .single()
+      : await supabase
+          .from('merchants')
+          .select('id, paystack_subaccount_code')
+          .eq('id', merchantId)
+          .single();
 
-      if (!merchant) {
+    if (merchantLookup.error) {
+      if (merchantLookup.error.code === 'PGRST116') {
         return NextResponse.json({ error: 'Store not found' }, { status: 404 });
       }
-      resolvedMerchantId = merchant.id;
+
+      return NextResponse.json(
+        { error: merchantLookup.error.message },
+        { status: 500 }
+      );
     }
 
+    const merchant = merchantLookup.data;
+    if (!merchant) {
+      return NextResponse.json({ error: 'Store not found' }, { status: 404 });
+    }
+    const resolvedMerchantId = merchant.id;
+
     // Get feature settings
-    const { data: settings } = await supabase
+    const { data: settings, error: settingsError } = await supabase
       .from('merchant_feature_settings')
       .select(
         'loyalty_enabled, reviews_enabled, wishlist_enabled, order_tracking_enabled, discount_codes_enabled, guest_checkout_enabled, paystack_enabled, korapay_enabled, pay_on_delivery_enabled, credit_direct_enabled, credpal_enabled, credit_direct_min_amount, credit_direct_max_amount, preferred_local_gateway, preferred_international_gateway, shipping_providers, free_shipping_threshold, checkout_collect_phone, checkout_require_account, checkout_show_order_notes, about_page_enabled, contact_page_enabled, faq_page_enabled, privacy_page_enabled, terms_page_enabled, rewards_page_enabled, show_recent_purchases, show_stock_levels, low_stock_threshold, google_analytics_id, facebook_pixel_id, tiktok_pixel_id, vtu_enabled, vtu_airtime_enabled, vtu_data_enabled, vtu_checkout_addon_enabled, vtu_checkout_addon_amounts, vtu_loyalty_reward_enabled, blog_enabled, auto_blog_enabled'
@@ -163,9 +179,24 @@ export async function GET(request: NextRequest) {
       .eq('merchant_id', resolvedMerchantId)
       .single();
 
+    if (settingsError && settingsError.code !== 'PGRST116') {
+      return NextResponse.json(
+        { error: settingsError.message },
+        { status: 500 }
+      );
+    }
+
     // If no settings, return defaults
     if (!settings) {
-      return NextResponse.json(DEFAULT_FEATURES);
+      return NextResponse.json({
+        ...DEFAULT_FEATURES,
+        paystackEnabled: isPaystackCheckoutAvailable({
+          paystack_subaccount_code: merchant.paystack_subaccount_code,
+          feature_settings: {
+            paystack_enabled: DEFAULT_FEATURES.paystackEnabled,
+          },
+        }),
+      });
     }
 
     // Transform to public format (hide sensitive data like pixel IDs)
@@ -177,7 +208,12 @@ export async function GET(request: NextRequest) {
       discountCodesEnabled: settings.discount_codes_enabled ?? true,
       guestCheckoutEnabled: settings.guest_checkout_enabled ?? true,
       // Payment gateways
-      paystackEnabled: settings.paystack_enabled ?? true,
+      paystackEnabled: isPaystackCheckoutAvailable({
+        paystack_subaccount_code: merchant.paystack_subaccount_code,
+        feature_settings: {
+          paystack_enabled: settings.paystack_enabled ?? true,
+        },
+      }),
       korapayEnabled: settings.korapay_enabled ?? true,
       payOnDeliveryEnabled: settings.pay_on_delivery_enabled ?? false,
       creditDirectEnabled: settings.credit_direct_enabled ?? false,

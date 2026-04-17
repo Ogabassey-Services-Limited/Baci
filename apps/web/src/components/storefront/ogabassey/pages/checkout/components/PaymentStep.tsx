@@ -8,6 +8,10 @@ import {
   JuicywayLogo,
   BankTransferLogo,
 } from '../../../components/PaymentLogos';
+import {
+  isBankTransferCheckoutAvailable,
+  isPaystackCheckoutAvailable,
+} from '@/lib/checkout/payment-gateway-availability';
 import type { PaymentMethod, PaymentTab } from '../types';
 
 type StepName = 'contact' | 'delivery' | 'payment';
@@ -42,7 +46,13 @@ interface PaymentStepProps {
   setNewsletterOptIn: (v: boolean) => void;
   handlePlaceOrder: () => void;
   setCurrentStep: (step: StepName) => void;
-  merchant: { feature_settings?: FeatureSettings | null } | null | undefined;
+  merchant:
+    | {
+        paystack_subaccount_code?: string | null;
+        feature_settings?: FeatureSettings | null;
+      }
+    | null
+    | undefined;
   user: { id: string } | null | undefined;
   remainingAmount: number;
 }
@@ -68,6 +78,10 @@ export function PaymentStep({
   user,
   remainingAmount,
 }: PaymentStepProps) {
+  const paystackCheckoutAvailable = isPaystackCheckoutAvailable(merchant);
+  const bankTransferCheckoutAvailable =
+    isBankTransferCheckoutAvailable(merchant);
+
   return (
     <div className={`bg-white rounded-2xl shadow-sm border ${currentStep === 'payment' ? 'border-[var(--store-primary)] ring-1 ring-[var(--store-primary)]/20' : 'border-gray-100'} overflow-hidden transition-all duration-300`}>
       <button
@@ -118,7 +132,7 @@ export function PaymentStep({
                 <p className="text-xs text-gray-500">Select a payment gateway:</p>
                 <div className="grid grid-cols-1 gap-3">
                   {/* Paystack */}
-                  {(!merchant?.feature_settings || merchant.feature_settings.paystack_enabled !== false) && (
+                  {paystackCheckoutAvailable && (
                     <label
                       className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'paystack'
                         ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5'
@@ -148,7 +162,7 @@ export function PaymentStep({
                   )}
 
                   {/* Bank Transfer (DVA) - Premium Option */}
-                  {(!merchant?.feature_settings || merchant.feature_settings.paystack_enabled !== false) && (
+                  {bankTransferCheckoutAvailable && (
                     <label
                       className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'bank_transfer'
                         ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5'

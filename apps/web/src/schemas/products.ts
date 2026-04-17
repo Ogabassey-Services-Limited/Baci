@@ -125,6 +125,31 @@ const fulfillmentDetailsSchema = z.object({
     .transform((val) => (val ? sanitizeText(val, 500) : undefined)),
 });
 
+const productFulfillmentDetailsSchema = z.preprocess((value) => {
+  // Legacy dashboard clients still send inventory identifier rows here as an
+  // array of { key, value }. Product fulfillment metadata is object-shaped, so
+  // ignore that stale payload instead of rejecting the whole product request.
+  if (Array.isArray(value)) {
+    return undefined;
+  }
+
+  return value;
+}, fulfillmentDetailsSchema.optional());
+
+const optionalSanitizedUrlSchema = z.preprocess(
+  (value) => {
+    if (value == null) {
+      return undefined;
+    }
+
+    return value;
+  },
+  z
+    .string()
+    .transform((val) => sanitizeUrl(val) || undefined)
+    .optional()
+);
+
 /**
  * Dimensions schema
  */
@@ -236,14 +261,8 @@ const baseProductFields = {
 
   // Images
   images: z.array(productImageSchema).optional(),
-  image: z
-    .string()
-    .optional()
-    .transform((val) => (val ? sanitizeUrl(val) : undefined)),
-  imageLarge: z
-    .string()
-    .optional()
-    .transform((val) => (val ? sanitizeUrl(val) : undefined)),
+  image: optionalSanitizedUrlSchema,
+  imageLarge: optionalSanitizedUrlSchema,
   imageHint: z
     .string()
     .max(200)
@@ -294,7 +313,7 @@ const baseProductFields = {
   variant_model: productVariantModelSchema.default('legacy'),
 
   // Fulfillment
-  fulfillment_details: fulfillmentDetailsSchema.optional(),
+  fulfillment_details: productFulfillmentDetailsSchema,
 };
 
 /**
@@ -417,14 +436,8 @@ export const updateProductSchema = withSkuMatrixVariantConditionValidation(
 
     // Images
     images: z.array(productImageSchema).optional(),
-    image: z
-      .string()
-      .transform((val) => sanitizeUrl(val))
-      .optional(),
-    imageLarge: z
-      .string()
-      .transform((val) => sanitizeUrl(val))
-      .optional(),
+    image: optionalSanitizedUrlSchema,
+    imageLarge: optionalSanitizedUrlSchema,
     imageHint: z
       .string()
       .max(200)
@@ -475,7 +488,7 @@ export const updateProductSchema = withSkuMatrixVariantConditionValidation(
     variant_model: productVariantModelSchema.optional(),
 
     // Fulfillment
-    fulfillment_details: fulfillmentDetailsSchema.optional(),
+    fulfillment_details: productFulfillmentDetailsSchema,
   })
 );
 
