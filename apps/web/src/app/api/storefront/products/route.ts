@@ -10,6 +10,7 @@ import {
   matchesStorefrontCategoryFilter,
   matchesStorefrontConditionFilter,
 } from '@/lib/storefront-product-filters';
+import { buildStorefrontProductsCacheKeyParts } from '@/lib/storefront-products-cache-key';
 import { createClient } from '@/lib/supabase/server';
 import {
   type StorefrontProductsQuery,
@@ -214,17 +215,10 @@ function createCachedProductsFetcher(
   merchantId: string,
   filters: ProductFilters = { sort: 'newest' }
 ) {
-  // Create a cache key based on merchant and all active filters
-  const cacheKeyParts = ['storefront-products', merchantId];
-  if (filters.category) cacheKeyParts.push(`cat-${filters.category}`);
-  if (filters.brand) cacheKeyParts.push(`brand-${filters.brand}`);
-  if (filters.condition) cacheKeyParts.push(`cond-${filters.condition}`);
-  if (filters.min_price) cacheKeyParts.push(`min-${filters.min_price}`);
-  if (filters.max_price) cacheKeyParts.push(`max-${filters.max_price}`);
-  if (filters.sort) cacheKeyParts.push(`sort-${filters.sort}`);
-  if (filters.has_images) cacheKeyParts.push(`img-${filters.has_images}`);
-  if (filters.q)
-    cacheKeyParts.push(`q-${filters.q.slice(0, 100).toLowerCase().trim()}`);
+  const cacheKeyParts = buildStorefrontProductsCacheKeyParts(
+    merchantId,
+    filters
+  );
 
   return unstable_cache(
     async () => {
