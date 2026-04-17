@@ -17,6 +17,11 @@ vi.mock('@/lib/sanitize-json-ld', () => ({
   safeJsonLdStringify: (value: unknown) => JSON.stringify(value),
 }));
 
+const mockHeaders = vi.fn();
+vi.mock('next/headers', () => ({
+  headers: () => mockHeaders(),
+}));
+
 vi.mock('next/link', () => ({
   default: ({
     children,
@@ -38,6 +43,14 @@ const { SearchPageContent } = await import('./search-page-content');
 
 describe('SearchPageContent', () => {
   it('renders the search query and result count', async () => {
+    mockHeaders.mockResolvedValue(
+      new Headers([
+        ['host', 'proxy.internal'],
+        ['x-custom-domain', 'shop.example.ng'],
+        ['x-pathname', '/search'],
+      ])
+    );
+
     vi.mocked(getRequestScopedMerchant).mockResolvedValue({
       id: 'merchant-1',
       slug: 'ogabassey',
@@ -100,19 +113,39 @@ describe('SearchPageContent', () => {
     const collectionSchema = schemas.find(
       (schema) => schema['@type'] === 'CollectionPage'
     );
+    const breadcrumbSchema = schemas.find(
+      (schema) => schema['@type'] === 'BreadcrumbList'
+    );
 
     expect(collectionSchema).toMatchObject({
       '@type': 'CollectionPage',
+      url: 'https://shop.example.ng/search?q=iphone',
       numberOfItems: 1,
       mainEntity: {
         itemListElement: [
           {
             item: {
-              url: 'https://ogabassey.com/phones/iphone-16',
+              url: 'https://shop.example.ng/phones/iphone-16',
             },
           },
         ],
       },
+    });
+
+    expect(breadcrumbSchema).toMatchObject({
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        {
+          item: {
+            '@id': 'https://shop.example.ng',
+          },
+        },
+        {
+          item: {
+            '@id': 'https://shop.example.ng/search?q=iphone',
+          },
+        },
+      ],
     });
   });
 });

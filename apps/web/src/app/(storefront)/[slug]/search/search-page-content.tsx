@@ -1,10 +1,11 @@
+import { headers } from 'next/headers';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { asRoute } from '@/lib/routes';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { generateBreadcrumbSchema, getProductUrl } from '@/lib/seo-utils';
-import { buildStoreUrl } from '@/lib/store-url';
+import { buildRequestScopedStoreUrl } from '@/lib/store-url';
 import { getStorefrontSearchProducts } from '@/lib/storefront-search';
 import {
   isDomainIdentifier,
@@ -57,7 +58,7 @@ export async function SearchPageContent({
       };
 
   const pathPrefix = getStorefrontPathPrefix(slug, merchant.slug);
-  const storeUrl = buildStoreUrl(merchant);
+  const storeUrl = buildRequestScopedStoreUrl(merchant, await headers());
   const pageUrl = query
     ? `${storeUrl}/search?q=${encodeURIComponent(query)}`
     : `${storeUrl}/search`;
