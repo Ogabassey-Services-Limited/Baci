@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils';
 import { AIInsightsPanel } from './ai-insights-panel';
 import type { AnalyticsCategory } from './analytics-category-nav';
 import { RevenueChart, SalesByChannelChart } from './chart-components';
+import { formatMetricChange } from './format-metric-change';
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
@@ -653,10 +654,7 @@ export function DraggableAnalyticsGrid({
                 : 'bg-red-500/10 text-red-600 dark:text-red-400'
             )}
           >
-            <span>
-              {change >= 0 ? '+' : ''}
-              {change}%
-            </span>
+            <span>{formatMetricChange(change)}</span>
           </div>
         }
       >

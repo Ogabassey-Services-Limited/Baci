@@ -18,6 +18,7 @@ function ThemedDashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <AppBody
       merchant={merchant}
+      showCookieConsent={false}
       showNewsletterWidget={false}
       applyMerchantCoreThemeVariables={false}
     >
