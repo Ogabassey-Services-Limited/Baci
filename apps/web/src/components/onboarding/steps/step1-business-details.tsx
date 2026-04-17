@@ -64,7 +64,13 @@ export default function Step1_BusinessDetails({ onKeyDown }: Step1Props) {
               What's the nature of your business?
             </FormLabel>
             <Select
-              onValueChange={field.onChange}
+              onValueChange={(value) => {
+                setValue('businessType', value, {
+                  shouldDirty: true,
+                  shouldTouch: true,
+                  shouldValidate: true,
+                });
+              }}
               value={field.value}
               name="businessType"
             >
@@ -129,6 +135,13 @@ export default function Step1_BusinessDetails({ onKeyDown }: Step1Props) {
                     'Tutoring',
                   ]}
                   {...field}
+                  onChange={(e) => {
+                    setValue('otherBusinessType', e.target.value, {
+                      shouldDirty: true,
+                      shouldTouch: true,
+                      shouldValidate: true,
+                    });
+                  }}
                   onKeyDown={onKeyDown}
                   name="otherBusinessType"
                   autoComplete="organization"
@@ -171,7 +184,11 @@ export default function Step1_BusinessDetails({ onKeyDown }: Step1Props) {
                       );
                     })
                     .join(' ');
-                  field.onChange(titleCased);
+                  setValue('businessName', titleCased, {
+                    shouldDirty: true,
+                    shouldTouch: true,
+                    shouldValidate: true,
+                  });
                 }}
                 onKeyDown={onKeyDown}
                 name="businessName"
@@ -199,7 +216,11 @@ export default function Step1_BusinessDetails({ onKeyDown }: Step1Props) {
         isOpen={isGeneratorOpen}
         onOpenChange={setIsGeneratorOpen}
         onNameSelect={(name) => {
-          setValue('businessName', name, { shouldValidate: true });
+          setValue('businessName', name, {
+            shouldDirty: true,
+            shouldTouch: true,
+            shouldValidate: true,
+          });
         }}
         businessType={businessTypeValue}
       />

@@ -29,7 +29,11 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { createClient } from '@/lib/supabase/client';
-import { cn } from '@/lib/utils';
+import {
+  checkPasswordStrength,
+  cn,
+  MIN_ACCEPTABLE_PASSWORD_STRENGTH,
+} from '@/lib/utils';
 import {
   type OnboardingFormValues,
   onboardingSchema,
@@ -171,7 +175,7 @@ export default function OnboardingForm() {
     // biome-ignore lint/suspicious/noExplicitAny: library type mismatch
     resolver: zodResolver(onboardingSchema as any),
     mode: 'onBlur',
-    reValidateMode: 'onBlur',
+    reValidateMode: 'onChange',
     shouldUnregister: false,
     defaultValues: {
       email: '',
@@ -404,14 +408,16 @@ export default function OnboardingForm() {
     if (user) {
       isCurrentStepValid = hasValidEmail;
     } else {
-      // If no user, check password strong enough (8+ chars), and passwords match
-      const hasStrongPassword = !!formPassword && formPassword.length >= 8;
+      // Keep the final-step gating aligned with the onboarding schema.
+      const hasAcceptablePasswordStrength =
+        !!formPassword &&
+        checkPasswordStrength(formPassword) >= MIN_ACCEPTABLE_PASSWORD_STRENGTH;
       const passwordsMatch = formPassword === formConfirmPassword;
       const noPasswordErrors = !errors.password && !errors.confirmPassword;
 
       isCurrentStepValid =
         hasValidEmail &&
-        hasStrongPassword &&
+        hasAcceptablePasswordStrength &&
         passwordsMatch &&
         noPasswordErrors;
     }

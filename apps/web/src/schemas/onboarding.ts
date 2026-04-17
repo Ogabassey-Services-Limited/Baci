@@ -1,6 +1,10 @@
 import z from 'zod';
 import { sanitizePhone, sanitizeText, sanitizeUrl } from '@/lib/sanitize-core';
-import { checkPasswordStrength, isCommonPassword } from '@/lib/utils';
+import {
+  checkPasswordStrength,
+  isCommonPassword,
+  MIN_ACCEPTABLE_PASSWORD_STRENGTH,
+} from '@/lib/utils';
 
 /**
  * --- PREPROCESSOR HELPERS ---
@@ -137,7 +141,7 @@ const refineStep3Password = (
     }
 
     const strength = checkPasswordStrength(password);
-    if (strength < 2) {
+    if (strength < MIN_ACCEPTABLE_PASSWORD_STRENGTH) {
       ctx.addIssue({
         code: 'custom',
         path: ['password'],

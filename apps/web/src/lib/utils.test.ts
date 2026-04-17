@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { checkPasswordStrength, isCommonPassword } from './utils';
+import {
+  checkPasswordStrength,
+  isCommonPassword,
+  MIN_ACCEPTABLE_PASSWORD_STRENGTH,
+} from '@/lib/utils';
 
 describe('utils', () => {
   describe('isCommonPassword', () => {
@@ -62,6 +66,13 @@ describe('utils', () => {
 
     it('should return 2 (Medium) for medium length passwords (10-11 chars)', () => {
       expect(checkPasswordStrength('MyUniquePa')).toBe(2);
+    });
+
+    it('documents the minimum acceptable password strength score', () => {
+      expect(MIN_ACCEPTABLE_PASSWORD_STRENGTH).toBe(2);
+      expect(checkPasswordStrength('Longpass10')).toBe(
+        MIN_ACCEPTABLE_PASSWORD_STRENGTH
+      );
     });
 
     it('should return 3 (Strong) for strong passwords (12+ chars)', () => {

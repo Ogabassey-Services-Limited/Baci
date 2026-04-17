@@ -22,15 +22,23 @@ import { Input } from '@/components/ui/input';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { useToast } from '@/hooks/use-toast';
 import { createClient } from '@/lib/supabase/client';
-import { checkPasswordStrength } from '@/lib/utils';
+import {
+  checkPasswordStrength,
+  MIN_ACCEPTABLE_PASSWORD_STRENGTH,
+} from '@/lib/utils';
 
 const resetPasswordSchema = z
   .object({
     password: z
       .string()
-      .refine((password) => checkPasswordStrength(password) >= 2, {
-        message: 'Password is not strong enough. Use at least 10 characters.',
-      }),
+      .refine(
+        (password) =>
+          checkPasswordStrength(password) >= MIN_ACCEPTABLE_PASSWORD_STRENGTH,
+        {
+          message:
+            'Password is not strong enough. Add more characters or mix letters, numbers, and symbols.',
+        }
+      ),
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {

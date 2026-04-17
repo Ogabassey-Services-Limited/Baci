@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // --- Module Mocks (hoisted before all imports) ---
@@ -49,8 +50,71 @@ vi.mock('@/components/logo', () => ({
   Logo: () => <div data-testid="logo">Logo</div>,
 }));
 
-vi.mock('@/components/onboarding/steps/step1-business-details', () => ({
-  default: () => <div data-testid="step1">Step 1 Content</div>,
+vi.mock('@/components/ui/select', () => ({
+  Select: ({
+    children,
+    onValueChange,
+    value,
+    name,
+  }: {
+    children: React.ReactNode;
+    onValueChange: (value: string) => void;
+    value: string;
+    name?: string;
+  }) => (
+    // Native <select> preserves combobox semantics while still exercising
+    // the react-hook-form onValueChange path in this unit test.
+    <div>
+      <select
+        aria-label={name === 'businessType' ? 'Business type' : name}
+        name={name}
+        value={value || ''}
+        onChange={(e) => onValueChange(e.target.value)}
+      >
+        <option value="">Select type</option>
+        {children}
+      </select>
+    </div>
+  ),
+  SelectContent: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
+  SelectItem: ({ value }: { children: React.ReactNode; value: string }) => (
+    <option value={value}>{value}</option>
+  ),
+  SelectTrigger: () => null,
+  SelectValue: () => null,
+}));
+
+vi.mock('@/components/ui/typing-placeholder-input', () => ({
+  TypingPlaceholderInput: ({
+    value,
+    onChange,
+    onKeyDown,
+    name,
+    staticPrefix: _staticPrefix,
+    placeholders: _placeholders,
+    ...props
+  }: React.InputHTMLAttributes<HTMLInputElement> & {
+    staticPrefix?: string;
+    placeholders?: string[];
+  }) => (
+    <input
+      data-testid={name}
+      aria-label={
+        name === 'businessName'
+          ? 'Business name'
+          : name === 'otherBusinessType'
+            ? 'Please specify'
+            : undefined
+      }
+      name={name}
+      value={value as string}
+      onChange={onChange}
+      onKeyDown={onKeyDown}
+      {...props}
+    />
+  ),
 }));
 
 vi.mock('@/components/onboarding/steps/step2-branding', () => ({
@@ -139,6 +203,19 @@ import OnboardingForm from './onboarding-form';
 describe('OnboardingForm', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    });
   });
 
   it('renders the welcome heading', () => {
@@ -150,7 +227,10 @@ describe('OnboardingForm', () => {
 
   it('renders step 1 content initially', () => {
     render(<OnboardingForm />);
-    expect(screen.getByTestId('step1')).toBeInTheDocument();
+    expect(
+      screen.getByText(/what's the nature of your business/i)
+    ).toBeInTheDocument();
+    expect(screen.getByText(/what is your business name/i)).toBeInTheDocument();
     expect(screen.queryByTestId('step2')).not.toBeInTheDocument();
     expect(screen.queryByTestId('step3')).not.toBeInTheDocument();
   });
@@ -196,5 +276,38 @@ describe('OnboardingForm', () => {
     expect(
       screen.getByRole('form', { name: /store onboarding form/i })
     ).toBeInTheDocument();
+  });
+
+  it('clears step 1 validation errors when the user fixes the inputs', async () => {
+    const user = userEvent.setup();
+
+    render(<OnboardingForm />);
+
+    await user.click(screen.getByRole('button', { name: /next/i }));
+
+    expect(
+      screen.getByText('Please select a business type.')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Business name must be at least 2 characters.')
+    ).toBeInTheDocument();
+
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: /business type/i }),
+      'electronics'
+    );
+    await user.type(
+      screen.getByRole('textbox', { name: /business name/i }),
+      'Audit Store'
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText('Please select a business type.')
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByText('Business name must be at least 2 characters.')
+      ).not.toBeInTheDocument();
+    });
   });
 });

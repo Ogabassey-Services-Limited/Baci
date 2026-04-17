@@ -36,12 +36,14 @@ export default function AppBody({
   children,
   merchant,
   showNewsletterWidget = true,
+  showCookieConsent = true,
   showPlatformAnalytics = false,
   applyMerchantCoreThemeVariables = true,
 }: {
   children: React.ReactNode;
   merchant?: MerchantData | null;
   showNewsletterWidget?: boolean;
+  showCookieConsent?: boolean;
   showPlatformAnalytics?: boolean;
   /**
    * Storefront pages can opt in to overriding core shadcn variables
@@ -124,7 +126,7 @@ export default function AppBody({
       {showNewsletterWidget && (
         <NewsletterWidget position="bottom-left" showDelay={5000} />
       )}
-      <CookieConsent />
+      {showCookieConsent && <CookieConsent />}
     </div>
   );
 }
