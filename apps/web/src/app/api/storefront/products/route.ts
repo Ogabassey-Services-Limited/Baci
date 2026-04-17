@@ -238,7 +238,10 @@ function createCachedProductsFetcher(
         );
       }
 
-      if (filters.condition && filters.condition !== 'all') {
+      if (
+        filters.condition &&
+        !storefrontProductFilters.isAllFilter(filters.condition)
+      ) {
         const clauses = getConditionPrefilterClauses(filters.condition);
         if (clauses.length > 0) {
           query = query.or(clauses.join(','));
@@ -286,7 +289,10 @@ function createCachedProductsFetcher(
 
       let filteredProducts = products || [];
 
-      if (filters.category && filters.category !== 'all') {
+      if (
+        filters.category &&
+        !storefrontProductFilters.isAllFilter(filters.category)
+      ) {
         const category = filters.category;
         filteredProducts = filteredProducts.filter((product) =>
           storefrontProductFilters.matchesStorefrontCategoryFilter(
@@ -308,7 +314,10 @@ function createCachedProductsFetcher(
         );
       }
 
-      if (filters.condition && filters.condition !== 'all') {
+      if (
+        filters.condition &&
+        !storefrontProductFilters.isAllFilter(filters.condition)
+      ) {
         const condition = filters.condition;
         mappedProducts = mappedProducts.filter((product) =>
           storefrontProductFilters.matchesStorefrontConditionFilter(

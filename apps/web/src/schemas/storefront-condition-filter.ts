@@ -7,8 +7,10 @@ export const storefrontConditionFilterSchema = z.preprocess(
       return value;
     }
 
-    if (value === 'all') {
-      return value;
+    const normalized = value.trim().toLowerCase();
+
+    if (normalized === 'all') {
+      return 'all';
     }
 
     return normalizeCanonicalProductCondition(value) || value;

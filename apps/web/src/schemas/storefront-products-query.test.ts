@@ -7,9 +7,11 @@ describe('storefrontConditionFilterSchema', () => {
     const refurbished =
       storefrontConditionFilterSchema.safeParse('refurbished');
     const ukUsed = storefrontConditionFilterSchema.safeParse('uk_used');
+    const all = storefrontConditionFilterSchema.safeParse('All');
 
     expect(refurbished.success).toBe(true);
     expect(ukUsed.success).toBe(true);
+    expect(all.success).toBe(true);
 
     if (refurbished.success) {
       expect(refurbished.data).toBe('open_box');
@@ -17,6 +19,10 @@ describe('storefrontConditionFilterSchema', () => {
 
     if (ukUsed.success) {
       expect(ukUsed.data).toBe('used');
+    }
+
+    if (all.success) {
+      expect(all.data).toBe('all');
     }
   });
 
