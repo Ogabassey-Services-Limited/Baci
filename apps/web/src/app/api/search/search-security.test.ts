@@ -82,7 +82,8 @@ describe('Search API Security', () => {
         )}&merchant_id=${merchantId}&limit=10`
       );
 
-      await searchGET(request);
+      const response = await searchGET(request);
+      const data = await response.json();
 
       // Verify RPC call
       expect(mockSupabase.rpc).toHaveBeenCalledWith(
@@ -99,6 +100,8 @@ describe('Search API Security', () => {
           search_query: expect.not.stringContaining('<script>'),
         })
       );
+
+      expect(data.query).not.toContain('<script>');
     });
 
     it('should validate merchant_id UUID', async () => {
