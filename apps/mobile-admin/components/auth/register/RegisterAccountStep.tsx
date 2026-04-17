@@ -142,6 +142,8 @@ export function RegisterAccountStep({
       <Pressable
         style={({ pressed }) => [styles.button, pressed && { opacity: 0.7 }]}
         onPress={onNext}
+        accessibilityRole="button"
+        accessibilityLabel="Proceed to next step"
       >
         <Text style={styles.buttonText}>Next Step</Text>
         <Ionicons name="arrow-forward" size={20} color={colors.textOnPrimary} />
