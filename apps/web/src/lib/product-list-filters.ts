@@ -7,7 +7,7 @@ export const migrationFilterValues = [
 
 export const statusFilterValues = [
   'All',
-  'published',
+  'active',
   'draft',
   'archived',
 ] as const;
@@ -52,8 +52,8 @@ export function getMigrationFilterLabel(value: MigrationFilterValue): string {
 
 export function getStatusFilterLabel(value: StatusFilterValue): string {
   switch (value) {
-    case 'published':
-      return 'Published';
+    case 'active':
+      return 'Active';
     case 'draft':
       return 'Draft';
     case 'archived':

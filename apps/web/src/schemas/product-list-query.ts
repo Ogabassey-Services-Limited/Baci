@@ -16,6 +16,14 @@ const stringParamSchema = z.preprocess((value) => {
 const MAX_PAGE = 10_000;
 const MAX_LIMIT = 100;
 
+function normalizeStatusFilterParam(value: string | undefined) {
+  if (!value) {
+    return 'All';
+  }
+
+  return value === 'published' ? 'active' : value;
+}
+
 const positiveIntegerSchema = (defaultValue: number, maxValue: number) =>
   z.preprocess((value) => {
     if (Array.isArray(value)) {
@@ -46,7 +54,7 @@ export const productListQuerySchema = z.object({
     .transform((value) => value ?? 'All')
     .pipe(z.enum(migrationFilterValues)),
   status: stringParamSchema
-    .transform((value) => value ?? 'All')
+    .transform(normalizeStatusFilterParam)
     .pipe(z.enum(statusFilterValues)),
   stock: stringParamSchema
     .transform((value) => value ?? 'All')

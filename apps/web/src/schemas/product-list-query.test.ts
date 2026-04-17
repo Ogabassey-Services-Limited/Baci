@@ -23,6 +23,14 @@ describe('productListQuerySchema', () => {
     });
   });
 
+  it('normalizes legacy published status to active', () => {
+    const parsed = productListQuerySchema.parse({
+      status: 'published',
+    });
+
+    expect(parsed.status).toBe('active');
+  });
+
   it('rejects unknown enum filters', () => {
     expect(() =>
       productListQuerySchema.parse({

@@ -252,10 +252,10 @@ describe('getProducts', () => {
     });
 
     // Act
-    await getProducts(client as never, merchantId, { status: 'published' });
+    await getProducts(client as never, merchantId, { status: 'active' });
 
     // Assert
-    expect(queryBuilder.eq).toHaveBeenCalledWith('status', 'published');
+    expect(queryBuilder.eq).toHaveBeenCalledWith('status', 'active');
   });
 
   it('filters by migration_status when a concrete migration filter is provided', async () => {
@@ -367,6 +367,29 @@ describe('getProducts', () => {
       'legacy-drift',
       'unmanaged',
     ]);
+    expect(queryBuilder.range).not.toHaveBeenCalled();
+  });
+
+  it('filters infinite stock to unmanaged products only', async () => {
+    const { client, queryBuilder } = createMockSupabase({
+      data: [
+        makeRawProduct({ id: 'managed', manage_stock: true, stock: 5 }),
+        makeRawProduct({
+          id: 'unmanaged',
+          manage_stock: false,
+          stock: 0,
+          stock_quantity: 0,
+        }),
+      ],
+      error: null,
+      count: 2,
+    });
+
+    const result = await getProducts(client as never, merchantId, {
+      stock: 'infinite',
+    });
+
+    expect(result.products.map((product) => product.id)).toEqual(['unmanaged']);
     expect(queryBuilder.range).not.toHaveBeenCalled();
   });
 

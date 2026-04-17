@@ -23,7 +23,7 @@ export interface ProductsFilterOption<T extends string> {
 
 export const statusFilterOptions: ProductsFilterOption<StatusFilterValue>[] = [
   { value: 'All', label: 'All Statuses', icon: ListFilter },
-  { value: 'published', label: 'Published', icon: CheckCircle },
+  { value: 'active', label: 'Active', icon: CheckCircle },
   { value: 'draft', label: 'Draft', icon: Edit },
   { value: 'archived', label: 'Archived', icon: Trash2 },
 ];
