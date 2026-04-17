@@ -22,7 +22,7 @@ describe('storefront-product-filters', () => {
   it('merges an explicit condition with legacy offer inference when available conditions are absent', () => {
     expect(
       storefrontProductFilters.getNormalizedStorefrontConditions({
-        condition: 'refurbished',
+        condition: 'open_box',
         has_condition_offers: true,
       })
     ).toEqual(['new', 'used', 'open_box']);
@@ -147,6 +147,17 @@ describe('storefront-product-filters', () => {
           brand: 'Sony',
         },
         'sony'
+      )
+    ).toBe(true);
+  });
+
+  it('matches brand filters across slug and display-form brand values', () => {
+    expect(
+      storefrontProductFilters.matchesStorefrontBrandFilter(
+        {
+          brand: 'Sony Ericsson',
+        },
+        'sony-ericsson'
       )
     ).toBe(true);
   });

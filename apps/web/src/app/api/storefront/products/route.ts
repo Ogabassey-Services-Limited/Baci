@@ -109,16 +109,12 @@ function createCachedProductsFetcher(
         );
       }
 
-      let mappedProducts = filteredProducts.map(
-        storefrontProductsRouteData.mapProduct
-      );
-
       if (
         filters.brand &&
         !storefrontProductFilters.isAllFilter(filters.brand)
       ) {
         const brand = filters.brand;
-        mappedProducts = mappedProducts.filter((product) =>
+        filteredProducts = filteredProducts.filter((product) =>
           storefrontProductFilters.matchesStorefrontBrandFilter(product, brand)
         );
       }
@@ -128,7 +124,7 @@ function createCachedProductsFetcher(
         !storefrontProductFilters.isAllFilter(filters.condition)
       ) {
         const condition = filters.condition;
-        mappedProducts = mappedProducts.filter((product) =>
+        filteredProducts = filteredProducts.filter((product) =>
           storefrontProductFilters.matchesStorefrontConditionFilter(
             product,
             condition
@@ -136,7 +132,7 @@ function createCachedProductsFetcher(
         );
       }
 
-      return mappedProducts;
+      return filteredProducts.map(storefrontProductsRouteData.mapProduct);
     },
     cacheKeyParts,
     {

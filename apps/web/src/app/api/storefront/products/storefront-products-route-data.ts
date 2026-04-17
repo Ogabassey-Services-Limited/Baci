@@ -15,7 +15,7 @@ function mapProduct(product: RawStorefrontProductRow) {
     return {
       url: image.url || '',
       alt: image.alt || (product.name as string) || '',
-      order: image.order || index,
+      order: image.order ?? index,
     };
   });
 

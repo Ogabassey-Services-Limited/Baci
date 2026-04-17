@@ -75,13 +75,13 @@ export interface Product {
   category_id?: string; // FK to categories table
   categories?: Category; // Joined category object (Supabase convention: singular)
   categorySlug?: string;
-  condition:
-  | 'New'
-  | 'Used'
-  | 'Open Box'
-  | 'New & Used'
-  | 'Multiple Conditions'
-  | ProductCondition;
+  condition?:
+    | 'New'
+    | 'Used'
+    | 'Open Box'
+    | 'New & Used'
+    | 'Multiple Conditions'
+    | ProductCondition;
   // Detailed specs for filtering
   brand?: string;
   storage?: string | string[];

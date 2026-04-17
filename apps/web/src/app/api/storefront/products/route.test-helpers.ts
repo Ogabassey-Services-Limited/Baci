@@ -5,6 +5,7 @@ type MockProductsQuery = {
   gte: ReturnType<typeof vi.fn>;
   ilike: ReturnType<typeof vi.fn>;
   lte: ReturnType<typeof vi.fn>;
+  not: ReturnType<typeof vi.fn>;
   or: ReturnType<typeof vi.fn>;
   order: ReturnType<typeof vi.fn>;
   select: ReturnType<typeof vi.fn>;
@@ -29,6 +30,7 @@ function createProductsQuery() {
     ilike: vi.fn(() => query),
     gte: vi.fn(() => query),
     lte: vi.fn(() => query),
+    not: vi.fn(() => query),
     order: vi.fn(() => Promise.resolve(mockProductsResult.current)),
   };
 

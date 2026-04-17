@@ -152,7 +152,11 @@ function matchesStorefrontBrandFilter(
     return true;
   }
 
-  return normalizeToken(source.brand || '') === normalizeToken(selectedBrand);
+  const brandTokens = new Set(toComparableTokens(source.brand || ''));
+
+  return toComparableTokens(selectedBrand).some((token) =>
+    brandTokens.has(token)
+  );
 }
 
 function matchesStorefrontCategoryFilter(

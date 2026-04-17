@@ -9,14 +9,21 @@ export function buildStorefrontProductsCacheKeyParts(
   if (filters.category) cacheKeyParts.push(`cat-${filters.category}`);
   if (filters.brand) cacheKeyParts.push(`brand-${filters.brand}`);
   if (filters.condition) cacheKeyParts.push(`cond-${filters.condition}`);
-  if (filters.min_price) cacheKeyParts.push(`min-${filters.min_price}`);
-  if (filters.max_price) cacheKeyParts.push(`max-${filters.max_price}`);
+  if (filters.min_price !== undefined) {
+    cacheKeyParts.push(`min-${filters.min_price}`);
+  }
+  if (filters.max_price !== undefined) {
+    cacheKeyParts.push(`max-${filters.max_price}`);
+  }
   if (filters.sort) cacheKeyParts.push(`sort-${filters.sort}`);
   if (filters.has_images) {
     cacheKeyParts.push('img-true');
   }
   if (filters.q) {
-    cacheKeyParts.push(`q-${filters.q.slice(0, 100).toLowerCase().trim()}`);
+    const normalizedQuery = filters.q.trim().toLowerCase().slice(0, 100);
+    if (normalizedQuery) {
+      cacheKeyParts.push(`q-${normalizedQuery}`);
+    }
   }
 
   return cacheKeyParts;

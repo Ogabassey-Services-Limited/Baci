@@ -48,12 +48,11 @@ function toTemplateProducts(baciProducts: BaciProduct[]): Product[] {
       }
     }
     const mainImage = p.image || images[0];
-    const condition =
-      storefrontProductFilters.getStorefrontConditionBadgeLabel({
-        available_conditions: p.available_conditions,
-        condition: p.condition,
-        has_condition_offers: p.has_condition_offers,
-      }) ?? 'New';
+    const condition = storefrontProductFilters.getStorefrontConditionBadgeLabel({
+      available_conditions: p.available_conditions,
+      condition: p.condition,
+      has_condition_offers: p.has_condition_offers,
+    });
 
     const rawCategories = p.categories;
     const categoryObj = Array.isArray(rawCategories) ? rawCategories[0] : rawCategories;

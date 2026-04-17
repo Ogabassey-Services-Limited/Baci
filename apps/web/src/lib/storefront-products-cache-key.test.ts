@@ -22,4 +22,17 @@ describe('buildStorefrontProductsCacheKeyParts', () => {
     expect(enabled).not.toEqual(unset);
     expect(enabled).not.toEqual(disabled);
   });
+
+  it('preserves zero price bounds and normalizes search queries before truncation', () => {
+    expect(
+      buildStorefrontProductsCacheKeyParts('merchant-1', {
+        sort: 'newest',
+        min_price: 0,
+        max_price: 0,
+        q: `  ${'A'.repeat(120)}  `,
+      })
+    ).toEqual(
+      expect.arrayContaining(['min-0', 'max-0', `q-${'a'.repeat(100)}`])
+    );
+  });
 });

@@ -28,6 +28,23 @@ vi.mock('@/lib/supabase/server', () => ({
 
 import { GET } from './route';
 
+const VALID_MERCHANT_ID = '00000000-0000-4000-8000-000000000001';
+
+function createRequestUrl(query = '') {
+  const params = new URLSearchParams({
+    merchant_id: VALID_MERCHANT_ID,
+  });
+
+  if (query) {
+    const extraParams = new URLSearchParams(query);
+    for (const [key, value] of extraParams.entries()) {
+      params.set(key, value);
+    }
+  }
+
+  return `http://localhost/api/storefront/products?${params.toString()}`;
+}
+
 describe('GET /api/storefront/products', () => {
   beforeEach(() => {
     storefrontProductsRouteTestHarness.reset();
@@ -64,9 +81,7 @@ describe('GET /api/storefront/products', () => {
     };
 
     const response = await GET(
-      new NextRequest(
-        'http://localhost/api/storefront/products?merchant_id=00000000-0000-0000-0000-000000000001&category=smart-tvs'
-      )
+      new NextRequest(createRequestUrl('category=smart-tvs'))
     );
     const payload = await response.json();
 
@@ -106,9 +121,7 @@ describe('GET /api/storefront/products', () => {
     };
 
     const response = await GET(
-      new NextRequest(
-        'http://localhost/api/storefront/products?merchant_id=00000000-0000-0000-0000-000000000001&category=smart-tvs'
-      )
+      new NextRequest(createRequestUrl('category=smart-tvs'))
     );
     const payload = await response.json();
 
@@ -134,11 +147,7 @@ describe('GET /api/storefront/products', () => {
       error: null,
     };
 
-    const response = await GET(
-      new NextRequest(
-        'http://localhost/api/storefront/products?merchant_id=00000000-0000-0000-0000-000000000001&brand=sony'
-      )
-    );
+    const response = await GET(new NextRequest(createRequestUrl('brand=sony')));
     const payload = await response.json();
 
     expect(response.status).toBe(200);
@@ -166,11 +175,7 @@ describe('GET /api/storefront/products', () => {
       error: null,
     };
 
-    const response = await GET(
-      new NextRequest(
-        'http://localhost/api/storefront/products?merchant_id=00000000-0000-0000-0000-000000000001&brand=All'
-      )
-    );
+    const response = await GET(new NextRequest(createRequestUrl('brand=All')));
     const payload = await response.json();
 
     expect(response.status).toBe(200);
@@ -178,6 +183,29 @@ describe('GET /api/storefront/products', () => {
     expect(
       storefrontProductsRouteTestHarness.mockProductsQuery.current?.ilike
     ).not.toHaveBeenCalledWith('brand', expect.any(String));
+  });
+
+  it('applies the image-presence filter when has_images=true', async () => {
+    storefrontProductsRouteTestHarness.mockProductsResult.current = {
+      data: [
+        storefrontProductsRouteTestHarness.createRawProduct({
+          id: 'with-image-1',
+          images: ['https://cdn.example.com/with-image.jpg'],
+        }),
+      ],
+      error: null,
+    };
+
+    const response = await GET(
+      new NextRequest(createRequestUrl('has_images=true'))
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.products).toHaveLength(1);
+    expect(
+      storefrontProductsRouteTestHarness.mockProductsQuery.current?.not
+    ).toHaveBeenCalledWith('images->0', 'is', null);
   });
 
   it('matches condition filters against available_conditions for migrated families', async () => {
@@ -201,9 +229,7 @@ describe('GET /api/storefront/products', () => {
     };
 
     const response = await GET(
-      new NextRequest(
-        'http://localhost/api/storefront/products?merchant_id=00000000-0000-0000-0000-000000000001&condition=open_box'
-      )
+      new NextRequest(createRequestUrl('condition=open_box'))
     );
     const payload = await response.json();
 
@@ -226,9 +252,7 @@ describe('GET /api/storefront/products', () => {
     };
 
     const response = await GET(
-      new NextRequest(
-        'http://localhost/api/storefront/products?merchant_id=00000000-0000-0000-0000-000000000001&condition=open_box'
-      )
+      new NextRequest(createRequestUrl('condition=open_box'))
     );
     const payload = await response.json();
 
@@ -261,11 +285,7 @@ describe('GET /api/storefront/products', () => {
       error: { message: 'db failure' },
     };
 
-    const response = await GET(
-      new NextRequest(
-        'http://localhost/api/storefront/products?merchant_id=00000000-0000-0000-0000-000000000001'
-      )
-    );
+    const response = await GET(new NextRequest(createRequestUrl()));
     const payload = await response.json();
 
     expect(response.status).toBe(500);

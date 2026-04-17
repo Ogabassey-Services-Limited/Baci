@@ -15,6 +15,36 @@ describe('storefrontProductsRouteData', () => {
     );
   });
 
+  it('includes legacy offer fallbacks for new and used prefilters', () => {
+    expect(
+      storefrontProductsRouteData.getConditionPrefilterClauses('new')
+    ).toEqual(
+      expect.arrayContaining([
+        'condition.eq.new',
+        'available_conditions.cs.{new}',
+        'has_condition_offers.eq.true',
+      ])
+    );
+
+    expect(
+      storefrontProductsRouteData.getConditionPrefilterClauses('used')
+    ).toEqual(
+      expect.arrayContaining([
+        'condition.eq.used',
+        'condition.eq.uk_used',
+        'available_conditions.cs.{used}',
+        'available_conditions.cs.{uk_used}',
+        'has_condition_offers.eq.true',
+      ])
+    );
+  });
+
+  it('returns no SQL condition prefilter clauses for unsupported values', () => {
+    expect(
+      storefrontProductsRouteData.getConditionPrefilterClauses('bogus')
+    ).toEqual([]);
+  });
+
   it('preserves primary and secondary category memberships', () => {
     expect(
       storefrontProductsRouteData.buildCategoryFilterSource({
@@ -68,5 +98,45 @@ describe('storefrontProductsRouteData', () => {
         variant_attributes: [],
       }).colors
     ).toEqual(['Black', 'White']);
+  });
+
+  it('preserves explicit image order zero values', () => {
+    expect(
+      storefrontProductsRouteData.mapProduct({
+        id: 'product-2',
+        name: 'DualSense Controller',
+        description: '',
+        price: 85000,
+        compare_at_price: null,
+        images: [
+          {
+            url: 'https://example.com/controller.jpg',
+            alt: 'Controller',
+            order: 0,
+          },
+        ],
+        image_hint: null,
+        category: 'Gaming',
+        categories: { id: 'cat-1', name: 'Gaming', slug: 'gaming' },
+        category_id: 'cat-1',
+        brand: 'Sony',
+        stock: 5,
+        stock_quantity: 5,
+        slug: 'dualsense-controller',
+        status: 'active',
+        condition: 'new',
+        has_variants: false,
+        sku: 'DS-1',
+        manage_stock: true,
+        low_stock_threshold: 1,
+        specifications: null,
+        has_condition_offers: false,
+        available_conditions: [],
+        variant_model: 'single',
+        offers: [],
+        colors: ['White'],
+        variant_attributes: [],
+      }).images[0]?.order
+    ).toBe(0);
   });
 });

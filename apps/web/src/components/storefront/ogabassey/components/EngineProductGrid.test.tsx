@@ -53,8 +53,12 @@ vi.mock('./FloatingParticles', () => ({
   FloatingParticles: () => null,
 }));
 vi.mock('./ProductGridItem', () => ({
-  ProductGridItem: ({ product }: { product: { name: string } }) => (
-    <article>{product.name}</article>
+  ProductGridItem: ({
+    product,
+  }: {
+    product: { name: string; condition?: string };
+  }) => (
+    <article data-condition={product.condition ?? ''}>{product.name}</article>
   ),
 }));
 vi.mock('./ProductListItem', () => ({
@@ -135,6 +139,27 @@ describe('EngineProductGrid', () => {
     expect(screen.getAllByRole('article').map((item) => item.textContent)).toEqual(
       ['Samsung TV', 'iPhone 16']
     );
+  });
+
+  it('does not invent a New badge when a product has no condition data', () => {
+    render(
+      <EngineProductGrid
+        externalProducts={[
+          createTestProduct({
+            id: 'accessory-1',
+            name: 'Phone Grip',
+            price: 8000,
+            stock: 5,
+            condition: undefined,
+            available_conditions: undefined,
+            has_condition_offers: false,
+          }),
+        ]}
+        categories={[]}
+      />
+    );
+
+    expect(screen.getByRole('article')).toHaveAttribute('data-condition', '');
   });
 
   it('initializes category from ?category= URL param when valid', () => {
