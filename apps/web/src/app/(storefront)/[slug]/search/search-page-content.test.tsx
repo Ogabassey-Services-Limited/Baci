@@ -13,6 +13,10 @@ vi.mock('@/lib/storefront-search', () => ({
   getStorefrontSearchProducts: vi.fn(),
 }));
 
+vi.mock('@/lib/sanitize-json-ld', () => ({
+  safeJsonLdStringify: (value: unknown) => JSON.stringify(value),
+}));
+
 vi.mock('next/link', () => ({
   default: ({
     children,
@@ -73,5 +77,42 @@ describe('SearchPageContent', () => {
       screen.getByText(/Did you mean/i, { selector: 'p' })
     ).toBeInTheDocument();
     expect(screen.getByText('iPhone 16')).toBeInTheDocument();
+
+    const schemas = Array.from(
+      document.querySelectorAll('script[type="application/ld+json"]')
+    ).map(
+      (script) =>
+        JSON.parse(script.textContent || '{}') as {
+          '@type'?: string;
+          mainEntity?: {
+            itemListElement?: Array<{
+              item?: { url?: string };
+            }>;
+          };
+        }
+    );
+
+    expect(schemas).toHaveLength(2);
+    expect(schemas.some((schema) => schema['@type'] === 'BreadcrumbList')).toBe(
+      true
+    );
+
+    const collectionSchema = schemas.find(
+      (schema) => schema['@type'] === 'CollectionPage'
+    );
+
+    expect(collectionSchema).toMatchObject({
+      '@type': 'CollectionPage',
+      numberOfItems: 1,
+      mainEntity: {
+        itemListElement: [
+          {
+            item: {
+              url: 'https://ogabassey.com/phones/iphone-16',
+            },
+          },
+        ],
+      },
+    });
   });
 });
