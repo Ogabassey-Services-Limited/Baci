@@ -84,7 +84,11 @@ export function BrandProducts({
       .then((data) => {
         if (data.products) {
           const sameBrand = data.products.filter(
-            (p) => p.id !== product.id && p.status === 'active'
+            (p) =>
+              p.id !== product.id &&
+              p.status === 'active' &&
+              p.brand &&
+              p.brand.toLowerCase() === productBrand.toLowerCase()
           );
           setBrandProducts(sameBrand.slice(0, maxProducts));
         }

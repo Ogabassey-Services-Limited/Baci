@@ -11,7 +11,20 @@ type MockProductsQuery = {
   select: ReturnType<typeof vi.fn>;
 };
 
+type MockProductsByIdsQuery = {
+  eq: ReturnType<typeof vi.fn>;
+  in: ReturnType<typeof vi.fn>;
+  select: ReturnType<typeof vi.fn>;
+};
+
 const mockProductsResult = {
+  current: {
+    data: [] as Record<string, unknown>[],
+    error: null as { message: string } | null,
+  },
+};
+
+const mockProductsByIdsResult = {
   current: {
     data: [] as Record<string, unknown>[],
     error: null as { message: string } | null,
@@ -20,6 +33,10 @@ const mockProductsResult = {
 
 const mockProductsQuery = {
   current: null as MockProductsQuery | null,
+};
+
+const mockProductsByIdsQuery = {
+  current: null as MockProductsByIdsQuery | null,
 };
 
 function createProductsQuery() {
@@ -39,10 +56,32 @@ function createProductsQuery() {
   return query;
 }
 
+function createProductsByIdsQuery() {
+  const query = {
+    select: vi.fn(() => query),
+    eq: vi.fn(() => query),
+    in: vi.fn(() => Promise.resolve(mockProductsByIdsResult.current)),
+  };
+
+  mockProductsByIdsQuery.current = query;
+
+  return query;
+}
+
 const mockCreateStaticClient = vi.fn(() => ({
   from: vi.fn((table: string) => {
     if (table === 'products') {
       return createProductsQuery();
+    }
+
+    throw new Error(`Unexpected table: ${table}`);
+  }),
+}));
+
+const mockCreateServerClient = vi.fn(() => ({
+  from: vi.fn((table: string) => {
+    if (table === 'products') {
+      return createProductsByIdsQuery();
     }
 
     throw new Error(`Unexpected table: ${table}`);
@@ -80,7 +119,12 @@ function createRawProduct(overrides: Partial<Record<string, unknown>>) {
 function reset() {
   vi.clearAllMocks();
   mockProductsQuery.current = null;
+  mockProductsByIdsQuery.current = null;
   mockProductsResult.current = {
+    data: [],
+    error: null,
+  };
+  mockProductsByIdsResult.current = {
     data: [],
     error: null,
   };
@@ -88,6 +132,9 @@ function reset() {
 
 export const storefrontProductsRouteTestHarness = {
   mockCreateStaticClient,
+  mockCreateServerClient,
+  mockProductsByIdsQuery,
+  mockProductsByIdsResult,
   mockProductsQuery,
   mockProductsResult,
   createRawProduct,

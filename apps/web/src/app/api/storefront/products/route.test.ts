@@ -23,7 +23,7 @@ vi.mock('@/env', () => ({
 }));
 
 vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn(),
+  createClient: storefrontProductsRouteTestHarness.mockCreateServerClient,
 }));
 
 import { GET } from './route';

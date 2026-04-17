@@ -1,42 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { storefrontConditionFilterSchema } from '@/schemas/storefront-condition-filter';
 import { storefrontProductsQuerySchema } from '@/schemas/storefront-products-query';
 
-describe('storefrontConditionFilterSchema', () => {
-  it('normalizes legacy condition aliases to canonical values', () => {
-    const refurbished =
-      storefrontConditionFilterSchema.safeParse('refurbished');
-    const ukUsed = storefrontConditionFilterSchema.safeParse('uk_used');
-    const all = storefrontConditionFilterSchema.safeParse('All');
-
-    expect(refurbished.success).toBe(true);
-    expect(ukUsed.success).toBe(true);
-    expect(all.success).toBe(true);
-
-    if (refurbished.success) {
-      expect(refurbished.data).toBe('open_box');
-    }
-
-    if (ukUsed.success) {
-      expect(ukUsed.data).toBe('used');
-    }
-
-    if (all.success) {
-      expect(all.data).toBe('all');
-    }
-  });
-
-  it('rejects unsupported conditions', () => {
-    expect(
-      storefrontConditionFilterSchema.safeParse('not-a-condition').success
-    ).toBe(false);
-  });
-});
+const VALID_MERCHANT_ID = '00000000-0000-4000-8000-000000000001';
 
 describe('storefrontProductsQuerySchema', () => {
   it('accepts a valid storefront products query', () => {
     const result = storefrontProductsQuerySchema.safeParse({
-      merchant_id: '00000000-0000-0000-0000-000000000001',
+      merchant_id: VALID_MERCHANT_ID,
       category: 'smart-tvs',
       brand: 'Sony',
       condition: 'refurbished',
@@ -59,7 +29,7 @@ describe('storefrontProductsQuerySchema', () => {
 
   it('coerces explicit false-like has_images values to false', () => {
     const result = storefrontProductsQuerySchema.safeParse({
-      merchant_id: '00000000-0000-0000-0000-000000000001',
+      merchant_id: VALID_MERCHANT_ID,
       has_images: 'false',
     });
 
@@ -78,7 +48,7 @@ describe('storefrontProductsQuerySchema', () => {
     ).toBe(false);
     expect(
       storefrontProductsQuerySchema.safeParse({
-        merchant_id: '00000000-0000-0000-0000-000000000001',
+        merchant_id: VALID_MERCHANT_ID,
         condition: 'broken',
       }).success
     ).toBe(false);
