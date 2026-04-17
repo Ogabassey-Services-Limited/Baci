@@ -75,6 +75,8 @@ That means `SearchAction` cannot safely ship as only a schema change. It must sh
 - Must not emit `SearchAction` until a valid public search destination exists
 - Must not regress existing homepage schema graph
 - The search results route must be crawl-safe and useful, not a client-only autocomplete shell
+- The search results route should be crawlable but `noindex,follow`, so Google can use it as a valid search target without turning internal search results into indexed thin pages
+- The search results route must not be blocked in `robots.txt`
 
 ### Verification
 
@@ -83,6 +85,7 @@ That means `SearchAction` cannot safely ship as only a schema change. It must sh
 - Validate rendered HTML for the homepage route
 - Ensure no duplicate or conflicting `WebSite` schema objects are created
 - Confirm `SearchAction.urlTemplate` resolves to a valid public URL pattern
+- Confirm the search results route emits `noindex,follow`
 
 ## Phase 1: Crawlable Compare and Commercial Support Pages
 
@@ -123,16 +126,35 @@ Allowed compare candidates:
 - same merchant inventory and active products only
 - minimum spec coverage threshold so the page is not mostly blank
 
+Allowed brand-vs-brand pages:
+
+- same category only
+- both brands must have enough active products in that category to justify a landing page
+- start with a hard minimum of 3 active products per brand in the target category
+- only create the page when both brands have enough structured spec coverage and visible differentiation to support useful copy and tables
+
+Allowed price-band pages:
+
+- only use curated bands, not arbitrary generated numeric ranges
+- one canonical band taxonomy per major category
+- publish only when the category has enough active products in that band to avoid sparse pages
+- start with a hard minimum of 6 active products in the band for the target category
+- do not create overlapping near-duplicate bands that compete with each other
+
 Canonicalization rules:
 
 - product-vs-product ordering must be deterministic
 - one canonical URL per pair
 - redirects or canonical tags must collapse reversed duplicates
 - no indexation for thin or low-data combinations
+- brand-vs-brand ordering must also be deterministic, using one canonical alphabetical order
+- price-band pages must have one canonical URL per category + curated band, with no alternate numeric spellings competing for the same intent
 
 Publishing threshold:
 
 - do not publish a compare page unless it has enough differentiating content, specs, and internal-link context to stand alone
+- do not publish brand-vs-brand pages that are mostly interchangeable product lists with shallow commentary
+- do not publish price-band pages if they cannot support a useful intro, enough products, and at least one meaningful internal-link cluster
 
 ### SEO Requirements
 
@@ -149,6 +171,8 @@ Publishing threshold:
 - internal-link coverage checks from PDPs and category hubs
 - pair-order canonicalization tests
 - thin-page guard tests
+- brand threshold tests
+- price-band threshold and overlap tests
 
 ## Phase 2: Category Hub Enrichment
 
