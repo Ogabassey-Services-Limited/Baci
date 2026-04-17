@@ -164,6 +164,45 @@ describe('GET /api/storefront/products', () => {
     );
   });
 
+  it('preserves secondary category memberships during in-memory category filtering', async () => {
+    mockProductsResult.current = {
+      data: [
+        createRawProduct({
+          id: 'tv-2',
+          category: 'Gaming',
+          categories: { id: 'cat-3', name: 'Consoles', slug: 'consoles' },
+          product_categories: [
+            {
+              categories: {
+                id: 'cat-1',
+                name: 'Smart TVs',
+                slug: 'smart-tvs',
+              },
+            },
+          ],
+        }),
+        createRawProduct({
+          id: 'console-1',
+          category: 'Consoles',
+          categories: { id: 'cat-3', name: 'Consoles', slug: 'consoles' },
+          slug: 'console-1',
+        }),
+      ],
+      error: null,
+    };
+
+    const response = await GET(
+      new NextRequest(
+        'http://localhost/api/storefront/products?merchant_id=00000000-0000-0000-0000-000000000001&category=smart-tvs'
+      )
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.products).toHaveLength(1);
+    expect(payload.products[0].id).toBe('tv-2');
+  });
+
   it('applies brand filters case-insensitively', async () => {
     mockProductsResult.current = {
       data: [

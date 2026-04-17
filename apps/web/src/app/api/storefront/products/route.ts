@@ -85,6 +85,51 @@ function mapProduct(p: Record<string, unknown>) {
   };
 }
 
+function buildCategoryFilterSource(product: Record<string, unknown>) {
+  const primaryCategory = Array.isArray(product.categories)
+    ? product.categories[0]
+    : product.categories;
+  const relationCategories = Array.isArray(product.product_categories)
+    ? product.product_categories.flatMap((entry) => {
+        if (!entry || typeof entry !== 'object' || !('categories' in entry)) {
+          return [];
+        }
+
+        const category = entry.categories;
+        return category && typeof category === 'object'
+          ? [
+              {
+                name:
+                  typeof category.name === 'string' ? category.name : undefined,
+                slug:
+                  typeof category.slug === 'string' ? category.slug : undefined,
+              },
+            ]
+          : [];
+      })
+    : [];
+  const normalizedPrimaryCategory =
+    primaryCategory && typeof primaryCategory === 'object'
+      ? [
+          {
+            name:
+              typeof primaryCategory.name === 'string'
+                ? primaryCategory.name
+                : undefined,
+            slug:
+              typeof primaryCategory.slug === 'string'
+                ? primaryCategory.slug
+                : undefined,
+          },
+        ]
+      : [];
+
+  return {
+    category: typeof product.category === 'string' ? product.category : null,
+    categories: [...normalizedPrimaryCategory, ...relationCategories],
+  };
+}
+
 type ProductFilters = StorefrontProductsQuery;
 
 function escapeLikePattern(value: string) {
@@ -252,14 +297,19 @@ function createCachedProductsFetcher(
 
       if (error) throw error;
 
-      let mappedProducts = (products || []).map(mapProduct);
+      let filteredProducts = products || [];
 
       if (filters.category && filters.category !== 'all') {
         const category = filters.category;
-        mappedProducts = mappedProducts.filter((product) =>
-          matchesStorefrontCategoryFilter(product, category)
+        filteredProducts = filteredProducts.filter((product) =>
+          matchesStorefrontCategoryFilter(
+            buildCategoryFilterSource(product),
+            category
+          )
         );
       }
+
+      let mappedProducts = filteredProducts.map(mapProduct);
 
       if (filters.brand && !isAllQueryFilter(filters.brand)) {
         const brand = filters.brand;
