@@ -20,7 +20,9 @@ import Animated, {
 } from 'react-native-reanimated';
 import { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 import { useTheme } from '@/hooks/useTheme';
+
 type ThemeColors = ReturnType<typeof useTheme>['colors'];
+
 import { CONFIG } from '@/lib/config';
 import { getTemplateConfig } from '@/lib/templates';
 
@@ -72,7 +74,11 @@ const EliteSlide = ({
       <View style={styles.eliteCard}>
         {/* Background Image/Gradient - mocked as light gradient for now */}
         <LinearGradient
-          colors={isDark ? [colors.card, colors.background] : [colors.muted, colors.border]}
+          colors={
+            isDark
+              ? [colors.card, colors.background]
+              : [colors.muted, colors.border]
+          }
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
@@ -224,11 +230,27 @@ export function Hero({
   const renderSlide = ({ item }: { item: HeroSlide }) => {
     switch (template.heroVariant) {
       case 'parallax':
-        return <EliteSlide item={item} screenWidth={screenWidth} colors={colors} isDark={isDark} styles={styles} />;
+        return (
+          <EliteSlide
+            item={item}
+            screenWidth={screenWidth}
+            colors={colors}
+            isDark={isDark}
+            styles={styles}
+          />
+        );
       case 'carousel':
-        return <FashionSlide item={item} screenWidth={screenWidth} styles={styles} />;
+        return (
+          <FashionSlide item={item} screenWidth={screenWidth} styles={styles} />
+        );
       default:
-        return <StandardSlide item={item} screenWidth={screenWidth} styles={styles} />;
+        return (
+          <StandardSlide
+            item={item}
+            screenWidth={screenWidth}
+            styles={styles}
+          />
+        );
     }
   };
 
@@ -265,134 +287,141 @@ export function Hero({
   );
 }
 
-const getStyles = (colors: ThemeColors, isDark: boolean) => StyleSheet.create({
-  slide: { position: 'relative', overflow: 'hidden' },
-  imageWrapper: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
-  imageContainer: {
-    height: '100%',
-  },
-  slideImage: { width: '100%', height: '100%' },
-  gradient: { position: 'absolute', inset: 0 },
+const getStyles = (colors: ThemeColors, isDark: boolean) =>
+  StyleSheet.create({
+    slide: { position: 'relative', overflow: 'hidden' },
+    imageWrapper: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
+    imageContainer: {
+      height: '100%',
+    },
+    slideImage: { width: '100%', height: '100%' },
+    gradient: { position: 'absolute', inset: 0 },
 
-  // Elite Web-Alike Styles
-  eliteSlideContainer: {
-    height: ELITE_HEIGHT,
-    paddingHorizontal: SPACING.md,
-    marginTop: 0, // Removed negative margin to sit BELOW searchbar
-    paddingBottom: SPACING.lg, // Space for dots
-  },
-  eliteCard: {
-    flex: 1,
-    borderRadius: RADIUS.xl, // 24px or similar
-    overflow: 'hidden',
-    position: 'relative',
-    backgroundColor: colors.card,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  eliteCardContent: {
-    flex: 1,
-    flexDirection: 'row',
-    padding: SPACING.lg, // 24px
-  },
-  eliteTextColumn: {
-    flex: 0.6,
-    justifyContent: 'center',
-    gap: 8,
-    zIndex: 2,
-  },
-  eliteImageColumn: {
-    flex: 0.4,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  eliteProductImage: {
-    width: '120%', // Refined for horizontal aspect
-    height: '120%',
-    transform: [{ rotate: '-12deg' }, { translateX: 10 }, { translateY: 5 }],
-  },
-  eliteTitle: {
-    fontSize: 24, // Optimized for horizontal layout
-    fontFamily: 'Inter_900Black',
-    color: colors.text,
-    textAlign: 'left',
-    lineHeight: 28,
-  },
-  eliteSubtitle: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    textAlign: 'left',
-    fontFamily: 'serif',
-    lineHeight: 16,
-    marginBottom: 8,
-  },
-  eliteCta: {
-    alignSelf: 'flex-start',
-    backgroundColor: colors.primaryForeground,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: RADIUS.full,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  eliteCtaText: {
-    fontWeight: '700',
-    color: colors.text,
-    fontSize: 12,
-    fontFamily: 'serif',
-  },
+    // Elite Web-Alike Styles
+    eliteSlideContainer: {
+      height: ELITE_HEIGHT,
+      paddingHorizontal: SPACING.md,
+      marginTop: 0, // Removed negative margin to sit BELOW searchbar
+      paddingBottom: SPACING.lg, // Space for dots
+    },
+    eliteCard: {
+      flex: 1,
+      borderRadius: RADIUS.xl, // 24px or similar
+      overflow: 'hidden',
+      position: 'relative',
+      backgroundColor: colors.card,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.05,
+      shadowRadius: 8,
+      elevation: 2,
+    },
+    eliteCardContent: {
+      flex: 1,
+      flexDirection: 'row',
+      padding: SPACING.lg, // 24px
+    },
+    eliteTextColumn: {
+      flex: 0.6,
+      justifyContent: 'center',
+      gap: 8,
+      zIndex: 2,
+    },
+    eliteImageColumn: {
+      flex: 0.4,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    eliteProductImage: {
+      width: '120%', // Refined for horizontal aspect
+      height: '120%',
+      transform: [{ rotate: '-12deg' }, { translateX: 10 }, { translateY: 5 }],
+    },
+    eliteTitle: {
+      fontSize: 24, // Optimized for horizontal layout
+      fontFamily: 'Inter_900Black',
+      color: colors.text,
+      textAlign: 'left',
+      lineHeight: 28,
+    },
+    eliteSubtitle: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      textAlign: 'left',
+      fontFamily: 'serif',
+      lineHeight: 16,
+      marginBottom: 8,
+    },
+    eliteCta: {
+      alignSelf: 'flex-start',
+      // Use `muted` (subtle surface) instead of `primaryForeground` so the CTA
+      // pill stays visually distinct from the elite card background in BOTH
+      // themes. primaryForeground was white/black, which collapsed against the
+      // similarly-toned card surface (white-on-white in light, black-on-dark
+      // in dark). Muted is a half-step contrast that preserves the subtle look
+      // while keeping the pill clearly clickable.
+      backgroundColor: colors.muted,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: RADIUS.full,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    eliteCtaText: {
+      fontWeight: '700',
+      color: colors.text,
+      fontSize: 12,
+      fontFamily: 'serif',
+    },
 
-  // Fashion
-  fashionContent: { flex: 1, justifyContent: 'flex-end', padding: 32 },
-  fashionTitle: {
-    fontSize: 32,
-    fontWeight: '300',
-    color: '#FFF',
-    marginBottom: 16,
-    letterSpacing: 1,
-  },
-  fashionCta: { alignSelf: 'flex-start' },
-  fashionCtaText: {
-    color: '#FFF',
-    fontWeight: '600',
-    fontSize: 16,
-    textDecorationLine: 'underline',
-  },
+    // Fashion
+    fashionContent: { flex: 1, justifyContent: 'flex-end', padding: 32 },
+    fashionTitle: {
+      fontSize: 32,
+      fontWeight: '300',
+      color: '#FFF',
+      marginBottom: 16,
+      letterSpacing: 1,
+    },
+    fashionCta: { alignSelf: 'flex-start' },
+    fashionCtaText: {
+      color: '#FFF',
+      fontWeight: '600',
+      fontSize: 16,
+      textDecorationLine: 'underline',
+    },
 
-  // Standard
-  standardContent: { flex: 1, justifyContent: 'center', padding: 20 },
-  standardTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#FFF',
-    marginBottom: 12,
-  },
-  standardCta: {
-    backgroundColor: BRAND.primary,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: RADIUS.md,
-    alignSelf: 'flex-start',
-  },
-  standardCtaText: { color: '#FFF', fontWeight: '700' },
+    // Standard
+    standardContent: { flex: 1, justifyContent: 'center', padding: 20 },
+    standardTitle: {
+      fontSize: 24,
+      fontWeight: '800',
+      color: '#FFF',
+      marginBottom: 12,
+    },
+    standardCta: {
+      backgroundColor: BRAND.primary,
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      borderRadius: RADIUS.md,
+      alignSelf: 'flex-start',
+    },
+    standardCtaText: { color: '#FFF', fontWeight: '700' },
 
-  // Common
-  dotsContainer: {
-    position: 'absolute',
-    bottom: 20,
-    width: '100%',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
-  },
-  dotActive: { width: 20, backgroundColor: colors.text },
-});
+    // Common
+    dotsContainer: {
+      position: 'absolute',
+      bottom: 20,
+      width: '100%',
+      flexDirection: 'row',
+      justifyContent: 'center',
+      gap: 8,
+    },
+    dot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
+    },
+    dotActive: { width: 20, backgroundColor: colors.text },
+  });
