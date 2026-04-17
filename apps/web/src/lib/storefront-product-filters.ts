@@ -3,7 +3,7 @@ import {
   normalizeCanonicalProductCondition,
 } from '@baci/shared/lib';
 
-export type StorefrontConditionBadgeLabel =
+type StorefrontConditionBadgeLabel =
   | 'New'
   | 'Open Box'
   | 'Used'
@@ -69,7 +69,7 @@ function toComparableTokens(value: string | null | undefined) {
   return slug && slug !== normalized ? [normalized, slug] : [normalized];
 }
 
-export function getNormalizedStorefrontConditions(source: ConditionSource) {
+function getNormalizedStorefrontConditions(source: ConditionSource) {
   const normalizedConditions = new Set<CanonicalProductCondition>();
 
   if (Array.isArray(source.available_conditions)) {
@@ -106,7 +106,7 @@ export function getNormalizedStorefrontConditions(source: ConditionSource) {
   return Array.from(normalizedConditions);
 }
 
-export function getStorefrontConditionBadgeLabel(
+function getStorefrontConditionBadgeLabel(
   source: ConditionSource
 ): StorefrontConditionBadgeLabel | undefined {
   const normalizedConditions = getNormalizedStorefrontConditions(source);
@@ -126,7 +126,7 @@ export function getStorefrontConditionBadgeLabel(
     : 'Multiple Conditions';
 }
 
-export function matchesStorefrontConditionFilter(
+function matchesStorefrontConditionFilter(
   source: ConditionSource,
   selectedCondition: string
 ) {
@@ -144,7 +144,7 @@ export function matchesStorefrontConditionFilter(
   return getNormalizedStorefrontConditions(source).includes(normalizedFilter);
 }
 
-export function matchesStorefrontBrandFilter(
+function matchesStorefrontBrandFilter(
   source: BrandSource,
   selectedBrand: string
 ) {
@@ -155,7 +155,7 @@ export function matchesStorefrontBrandFilter(
   return normalizeToken(source.brand || '') === normalizeToken(selectedBrand);
 }
 
-export function matchesStorefrontCategoryFilter(
+function matchesStorefrontCategoryFilter(
   source: CategorySource,
   selectedCategory: string
 ) {
@@ -187,3 +187,12 @@ export function matchesStorefrontCategoryFilter(
     categoryTokens.has(token)
   );
 }
+
+export const storefrontProductFilters = {
+  getNormalizedStorefrontConditions,
+  getStorefrontConditionBadgeLabel,
+  matchesStorefrontConditionFilter,
+  matchesStorefrontBrandFilter,
+  matchesStorefrontCategoryFilter,
+  isAllFilter,
+} as const;

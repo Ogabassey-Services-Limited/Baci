@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  storefrontConditionFilterSchema,
-  storefrontProductsQuerySchema,
-} from '@/schemas/storefront-products-query';
+import { storefrontConditionFilterSchema } from '@/schemas/storefront-condition-filter';
+import { storefrontProductsQuerySchema } from '@/schemas/storefront-products-query';
 
 describe('storefrontConditionFilterSchema', () => {
   it('normalizes legacy condition aliases to canonical values', () => {

@@ -1,16 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import {
-  getNormalizedStorefrontConditions,
-  getStorefrontConditionBadgeLabel,
-  matchesStorefrontBrandFilter,
-  matchesStorefrontCategoryFilter,
-  matchesStorefrontConditionFilter,
-} from './storefront-product-filters';
+import { storefrontProductFilters } from './storefront-product-filters';
 
 describe('storefront-product-filters', () => {
   it('derives normalized conditions from available_conditions first', () => {
     expect(
-      getNormalizedStorefrontConditions({
+      storefrontProductFilters.getNormalizedStorefrontConditions({
         available_conditions: [' New ', 'uk_used', 'refurbished'],
         condition: 'new',
       })
@@ -19,7 +13,7 @@ describe('storefront-product-filters', () => {
 
   it('falls back to legacy condition offers when explicit conditions are absent', () => {
     expect(
-      getNormalizedStorefrontConditions({
+      storefrontProductFilters.getNormalizedStorefrontConditions({
         has_condition_offers: true,
       })
     ).toEqual(['new', 'used']);
@@ -27,7 +21,7 @@ describe('storefront-product-filters', () => {
 
   it('merges an explicit condition with legacy offer inference when available conditions are absent', () => {
     expect(
-      getNormalizedStorefrontConditions({
+      storefrontProductFilters.getNormalizedStorefrontConditions({
         condition: 'refurbished',
         has_condition_offers: true,
       })
@@ -36,7 +30,7 @@ describe('storefront-product-filters', () => {
 
   it('does not broaden explicit available conditions just because legacy offers exist', () => {
     expect(
-      getNormalizedStorefrontConditions({
+      storefrontProductFilters.getNormalizedStorefrontConditions({
         available_conditions: ['open_box'],
         has_condition_offers: true,
         condition: 'new',
@@ -46,7 +40,7 @@ describe('storefront-product-filters', () => {
 
   it('filters invalid available_conditions entries while preserving valid strings', () => {
     expect(
-      getNormalizedStorefrontConditions({
+      storefrontProductFilters.getNormalizedStorefrontConditions({
         available_conditions: [42, null, ' new '],
       })
     ).toEqual(['new']);
@@ -54,7 +48,7 @@ describe('storefront-product-filters', () => {
 
   it('returns a multi-condition badge label when the family spans more than new and used', () => {
     expect(
-      getStorefrontConditionBadgeLabel({
+      storefrontProductFilters.getStorefrontConditionBadgeLabel({
         available_conditions: ['new', 'open_box'],
       })
     ).toBe('Multiple Conditions');
@@ -62,19 +56,21 @@ describe('storefront-product-filters', () => {
 
   it('returns a new-and-used badge label when those are the only normalized conditions', () => {
     expect(
-      getStorefrontConditionBadgeLabel({
+      storefrontProductFilters.getStorefrontConditionBadgeLabel({
         available_conditions: ['new', 'used'],
       })
     ).toBe('New & Used');
   });
 
   it('returns undefined when there is no condition data', () => {
-    expect(getStorefrontConditionBadgeLabel({})).toBeUndefined();
+    expect(
+      storefrontProductFilters.getStorefrontConditionBadgeLabel({})
+    ).toBeUndefined();
   });
 
   it('matches condition filters against normalized available conditions', () => {
     expect(
-      matchesStorefrontConditionFilter(
+      storefrontProductFilters.matchesStorefrontConditionFilter(
         {
           available_conditions: ['new', 'refurbished'],
           condition: 'new',
@@ -84,7 +80,7 @@ describe('storefront-product-filters', () => {
     ).toBe(true);
 
     expect(
-      matchesStorefrontConditionFilter(
+      storefrontProductFilters.matchesStorefrontConditionFilter(
         {
           available_conditions: ['new'],
           condition: 'new',
@@ -96,7 +92,7 @@ describe('storefront-product-filters', () => {
 
   it('treats all as a pass-through condition filter and rejects invalid condition filters', () => {
     expect(
-      matchesStorefrontConditionFilter(
+      storefrontProductFilters.matchesStorefrontConditionFilter(
         {
           available_conditions: ['new'],
         },
@@ -105,7 +101,7 @@ describe('storefront-product-filters', () => {
     ).toBe(true);
 
     expect(
-      matchesStorefrontConditionFilter(
+      storefrontProductFilters.matchesStorefrontConditionFilter(
         {
           available_conditions: ['new'],
         },
@@ -114,7 +110,7 @@ describe('storefront-product-filters', () => {
     ).toBe(true);
 
     expect(
-      matchesStorefrontConditionFilter(
+      storefrontProductFilters.matchesStorefrontConditionFilter(
         {
           available_conditions: ['new'],
         },
@@ -125,7 +121,7 @@ describe('storefront-product-filters', () => {
 
   it('matches category filters against both category names and slugs', () => {
     expect(
-      matchesStorefrontCategoryFilter(
+      storefrontProductFilters.matchesStorefrontCategoryFilter(
         {
           category: 'Smart TVs',
           category_slug: 'smart-tvs',
@@ -135,7 +131,7 @@ describe('storefront-product-filters', () => {
     ).toBe(true);
 
     expect(
-      matchesStorefrontCategoryFilter(
+      storefrontProductFilters.matchesStorefrontCategoryFilter(
         {
           categories: [{ name: 'Smart TVs', slug: 'smart-tvs' }],
         },
@@ -146,7 +142,7 @@ describe('storefront-product-filters', () => {
 
   it('matches brand filters case-insensitively', () => {
     expect(
-      matchesStorefrontBrandFilter(
+      storefrontProductFilters.matchesStorefrontBrandFilter(
         {
           brand: 'Sony',
         },
@@ -157,7 +153,7 @@ describe('storefront-product-filters', () => {
 
   it('treats all as a pass-through brand filter and rejects missing brands for specific selections', () => {
     expect(
-      matchesStorefrontBrandFilter(
+      storefrontProductFilters.matchesStorefrontBrandFilter(
         {
           brand: 'Sony',
         },
@@ -166,7 +162,7 @@ describe('storefront-product-filters', () => {
     ).toBe(true);
 
     expect(
-      matchesStorefrontBrandFilter(
+      storefrontProductFilters.matchesStorefrontBrandFilter(
         {
           brand: 'Sony',
         },
@@ -175,7 +171,7 @@ describe('storefront-product-filters', () => {
     ).toBe(true);
 
     expect(
-      matchesStorefrontBrandFilter(
+      storefrontProductFilters.matchesStorefrontBrandFilter(
         {
           brand: undefined,
         },
@@ -186,7 +182,7 @@ describe('storefront-product-filters', () => {
 
   it('treats all as a pass-through category filter', () => {
     expect(
-      matchesStorefrontCategoryFilter(
+      storefrontProductFilters.matchesStorefrontCategoryFilter(
         {
           category: 'Smart TVs',
           category_slug: 'smart-tvs',

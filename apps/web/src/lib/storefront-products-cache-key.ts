@@ -1,4 +1,4 @@
-import type { StorefrontProductsQuery } from '@/schemas/storefront-products-query';
+import type { StorefrontProductsQuery } from '@/schemas/storefront-products-query.types';
 
 export function buildStorefrontProductsCacheKeyParts(
   merchantId: string,

@@ -14,10 +14,7 @@ import { prioritizeSmartphoneProducts } from '@baci/shared';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import type { Product as BaciProduct } from '@/lib/products';
-import {
-  getStorefrontConditionBadgeLabel,
-  matchesStorefrontConditionFilter,
-} from '@/lib/storefront-product-filters';
+import { storefrontProductFilters } from '@/lib/storefront-product-filters';
 import { products as mockProducts } from '../data/products';
 import { useV2Saved } from '../providers/v2-saved-context';
 import type { Product } from '../types';
@@ -52,7 +49,7 @@ function toTemplateProducts(baciProducts: BaciProduct[]): Product[] {
     }
     const mainImage = p.image || images[0];
     const condition =
-      getStorefrontConditionBadgeLabel({
+      storefrontProductFilters.getStorefrontConditionBadgeLabel({
         available_conditions: p.available_conditions,
         condition: p.condition,
         has_condition_offers: p.has_condition_offers,
@@ -181,7 +178,10 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
       // Condition filter
       if (
         selectedCondition !== 'All' &&
-        !matchesStorefrontConditionFilter(p, selectedCondition)
+        !storefrontProductFilters.matchesStorefrontConditionFilter(
+          p,
+          selectedCondition
+        )
       ) {
         continue;
       }

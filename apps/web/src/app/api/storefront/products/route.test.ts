@@ -1,61 +1,9 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-const { mockCreateStaticClient, mockProductsQuery, mockProductsResult } =
-  vi.hoisted(() => {
-    const mockProductsResult = {
-      current: {
-        data: [] as Record<string, unknown>[],
-        error: null as { message: string } | null,
-      },
-    };
-    const mockProductsQuery = {
-      current: null as {
-        eq: ReturnType<typeof vi.fn>;
-        gte: ReturnType<typeof vi.fn>;
-        ilike: ReturnType<typeof vi.fn>;
-        lte: ReturnType<typeof vi.fn>;
-        or: ReturnType<typeof vi.fn>;
-        order: ReturnType<typeof vi.fn>;
-        select: ReturnType<typeof vi.fn>;
-      } | null,
-    };
-
-    function createProductsQuery() {
-      const query = {
-        select: vi.fn(() => query),
-        eq: vi.fn(() => query),
-        or: vi.fn(() => query),
-        ilike: vi.fn(() => query),
-        gte: vi.fn(() => query),
-        lte: vi.fn(() => query),
-        order: vi.fn(() => Promise.resolve(mockProductsResult.current)),
-      };
-
-      mockProductsQuery.current = query;
-
-      return query;
-    }
-
-    const mockCreateStaticClient = vi.fn(() => ({
-      from: vi.fn((table: string) => {
-        if (table === 'products') {
-          return createProductsQuery();
-        }
-
-        throw new Error(`Unexpected table: ${table}`);
-      }),
-    }));
-
-    return {
-      mockCreateStaticClient,
-      mockProductsQuery,
-      mockProductsResult,
-    };
-  });
+import { storefrontProductsRouteTestHarness } from './route.test-helpers';
 
 vi.mock('@supabase/supabase-js', () => ({
-  createClient: mockCreateStaticClient,
+  createClient: storefrontProductsRouteTestHarness.mockCreateStaticClient,
 }));
 
 vi.mock('next/cache', () => ({
@@ -80,42 +28,9 @@ vi.mock('@/lib/supabase/server', () => ({
 
 import { GET } from './route';
 
-function createRawProduct(overrides: Partial<Record<string, unknown>>) {
-  return {
-    id: 'product-1',
-    name: 'Sony Bravia',
-    description: '4K TV',
-    price: 900000,
-    compare_at_price: null,
-    images: ['https://cdn.example.com/tv.jpg'],
-    image_hint: 'television',
-    category: 'Smart TVs',
-    categories: { id: 'cat-1', name: 'Smart TVs', slug: 'smart-tvs' },
-    brand: 'Sony',
-    stock: 4,
-    stock_quantity: 4,
-    slug: 'sony-bravia',
-    status: 'active',
-    condition: 'new',
-    has_variants: false,
-    sku: 'TV-1',
-    manage_stock: true,
-    low_stock_threshold: 1,
-    colors: ['Black'],
-    has_condition_offers: false,
-    available_conditions: ['new'],
-    ...overrides,
-  };
-}
-
 describe('GET /api/storefront/products', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    mockProductsQuery.current = null;
-    mockProductsResult.current = {
-      data: [],
-      error: null,
-    };
+    storefrontProductsRouteTestHarness.reset();
   });
 
   it('returns 400 when merchant_id is missing', async () => {
@@ -129,14 +44,14 @@ describe('GET /api/storefront/products', () => {
   });
 
   it('matches category filters against category slugs as well as names', async () => {
-    mockProductsResult.current = {
+    storefrontProductsRouteTestHarness.mockProductsResult.current = {
       data: [
-        createRawProduct({
+        storefrontProductsRouteTestHarness.createRawProduct({
           id: 'tv-1',
           category: 'Televisions',
           categories: { id: 'cat-1', name: 'Smart TVs', slug: 'smart-tvs' },
         }),
-        createRawProduct({
+        storefrontProductsRouteTestHarness.createRawProduct({
           id: 'phone-1',
           name: 'Galaxy S24',
           category: 'Phones',
@@ -158,16 +73,15 @@ describe('GET /api/storefront/products', () => {
     expect(response.status).toBe(200);
     expect(payload.products).toHaveLength(1);
     expect(payload.products[0].id).toBe('tv-1');
-    expect(mockProductsQuery.current?.ilike).not.toHaveBeenCalledWith(
-      'category',
-      expect.any(String)
-    );
+    expect(
+      storefrontProductsRouteTestHarness.mockProductsQuery.current?.ilike
+    ).not.toHaveBeenCalledWith('category', expect.any(String));
   });
 
   it('preserves secondary category memberships during in-memory category filtering', async () => {
-    mockProductsResult.current = {
+    storefrontProductsRouteTestHarness.mockProductsResult.current = {
       data: [
-        createRawProduct({
+        storefrontProductsRouteTestHarness.createRawProduct({
           id: 'tv-2',
           category: 'Gaming',
           categories: { id: 'cat-3', name: 'Consoles', slug: 'consoles' },
@@ -181,7 +95,7 @@ describe('GET /api/storefront/products', () => {
             },
           ],
         }),
-        createRawProduct({
+        storefrontProductsRouteTestHarness.createRawProduct({
           id: 'console-1',
           category: 'Consoles',
           categories: { id: 'cat-3', name: 'Consoles', slug: 'consoles' },
@@ -204,10 +118,13 @@ describe('GET /api/storefront/products', () => {
   });
 
   it('applies brand filters case-insensitively', async () => {
-    mockProductsResult.current = {
+    storefrontProductsRouteTestHarness.mockProductsResult.current = {
       data: [
-        createRawProduct({ id: 'sony-1', brand: 'Sony' }),
-        createRawProduct({
+        storefrontProductsRouteTestHarness.createRawProduct({
+          id: 'sony-1',
+          brand: 'Sony',
+        }),
+        storefrontProductsRouteTestHarness.createRawProduct({
           id: 'lg-1',
           name: 'LG C3',
           brand: 'LG',
@@ -227,17 +144,19 @@ describe('GET /api/storefront/products', () => {
     expect(response.status).toBe(200);
     expect(payload.products).toHaveLength(1);
     expect(payload.products[0].brand).toBe('Sony');
-    expect(mockProductsQuery.current?.ilike).toHaveBeenCalledWith(
-      'brand',
-      '%sony%'
-    );
+    expect(
+      storefrontProductsRouteTestHarness.mockProductsQuery.current?.ilike
+    ).toHaveBeenCalledWith('brand', '%sony%');
   });
 
   it('treats brand=All as no SQL brand prefilter', async () => {
-    mockProductsResult.current = {
+    storefrontProductsRouteTestHarness.mockProductsResult.current = {
       data: [
-        createRawProduct({ id: 'sony-1', brand: 'Sony' }),
-        createRawProduct({
+        storefrontProductsRouteTestHarness.createRawProduct({
+          id: 'sony-1',
+          brand: 'Sony',
+        }),
+        storefrontProductsRouteTestHarness.createRawProduct({
           id: 'lg-1',
           name: 'LG C3',
           brand: 'LG',
@@ -256,22 +175,21 @@ describe('GET /api/storefront/products', () => {
 
     expect(response.status).toBe(200);
     expect(payload.products).toHaveLength(2);
-    expect(mockProductsQuery.current?.ilike).not.toHaveBeenCalledWith(
-      'brand',
-      expect.any(String)
-    );
+    expect(
+      storefrontProductsRouteTestHarness.mockProductsQuery.current?.ilike
+    ).not.toHaveBeenCalledWith('brand', expect.any(String));
   });
 
   it('matches condition filters against available_conditions for migrated families', async () => {
-    mockProductsResult.current = {
+    storefrontProductsRouteTestHarness.mockProductsResult.current = {
       data: [
-        createRawProduct({
+        storefrontProductsRouteTestHarness.createRawProduct({
           id: 'family-1',
           name: 'MacBook Air Family',
           available_conditions: ['new', 'open_box'],
           condition: 'new',
         }),
-        createRawProduct({
+        storefrontProductsRouteTestHarness.createRawProduct({
           id: 'family-2',
           name: 'MacBook Air New',
           available_conditions: ['new'],
@@ -295,9 +213,9 @@ describe('GET /api/storefront/products', () => {
   });
 
   it('broadens open_box condition prefilters to include refurbished aliases', async () => {
-    mockProductsResult.current = {
+    storefrontProductsRouteTestHarness.mockProductsResult.current = {
       data: [
-        createRawProduct({
+        storefrontProductsRouteTestHarness.createRawProduct({
           id: 'family-1',
           name: 'MacBook Air Refurbished',
           condition: 'refurbished',
@@ -316,23 +234,29 @@ describe('GET /api/storefront/products', () => {
 
     expect(response.status).toBe(200);
     expect(payload.products).toHaveLength(1);
-    expect(mockProductsQuery.current?.or).toHaveBeenCalledTimes(1);
-    expect(mockProductsQuery.current?.or.mock.calls[0]?.[0]).toContain(
-      'condition.eq.open_box'
-    );
-    expect(mockProductsQuery.current?.or.mock.calls[0]?.[0]).toContain(
-      'condition.eq.refurbished'
-    );
-    expect(mockProductsQuery.current?.or.mock.calls[0]?.[0]).toContain(
-      'available_conditions.cs.{open_box}'
-    );
-    expect(mockProductsQuery.current?.or.mock.calls[0]?.[0]).toContain(
-      'available_conditions.cs.{refurbished}'
-    );
+    expect(
+      storefrontProductsRouteTestHarness.mockProductsQuery.current?.or
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      storefrontProductsRouteTestHarness.mockProductsQuery.current?.or.mock
+        .calls[0]?.[0]
+    ).toContain('condition.eq.open_box');
+    expect(
+      storefrontProductsRouteTestHarness.mockProductsQuery.current?.or.mock
+        .calls[0]?.[0]
+    ).toContain('condition.eq.refurbished');
+    expect(
+      storefrontProductsRouteTestHarness.mockProductsQuery.current?.or.mock
+        .calls[0]?.[0]
+    ).toContain('available_conditions.cs.{open_box}');
+    expect(
+      storefrontProductsRouteTestHarness.mockProductsQuery.current?.or.mock
+        .calls[0]?.[0]
+    ).toContain('available_conditions.cs.{refurbished}');
   });
 
   it('returns 500 when the products query fails', async () => {
-    mockProductsResult.current = {
+    storefrontProductsRouteTestHarness.mockProductsResult.current = {
       data: null as never,
       error: { message: 'db failure' },
     };

@@ -1,20 +1,5 @@
-import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
 import { z } from 'zod';
-
-export const storefrontConditionFilterSchema = z.preprocess(
-  (value) => {
-    if (typeof value !== 'string') {
-      return value;
-    }
-
-    if (value === 'all') {
-      return value;
-    }
-
-    return normalizeCanonicalProductCondition(value) || value;
-  },
-  z.enum(['new', 'used', 'open_box', 'all'])
-);
+import { storefrontConditionFilterSchema } from '@/schemas/storefront-condition-filter';
 
 const storefrontBooleanQuerySchema = z.preprocess((value) => {
   if (typeof value !== 'string') {
@@ -46,7 +31,3 @@ export const storefrontProductsQuerySchema = z.object({
   ids: z.string().optional(),
   has_images: storefrontBooleanQuerySchema.optional(),
 });
-
-export type StorefrontProductsQuery = z.infer<
-  typeof storefrontProductsQuerySchema
->;

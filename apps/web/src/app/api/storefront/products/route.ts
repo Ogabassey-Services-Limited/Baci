@@ -5,17 +5,11 @@ import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { normalizeProduct, type RawDbProduct } from '@/lib/normalize-product';
-import {
-  matchesStorefrontBrandFilter,
-  matchesStorefrontCategoryFilter,
-  matchesStorefrontConditionFilter,
-} from '@/lib/storefront-product-filters';
+import { storefrontProductFilters } from '@/lib/storefront-product-filters';
 import { buildStorefrontProductsCacheKeyParts } from '@/lib/storefront-products-cache-key';
 import { createClient } from '@/lib/supabase/server';
-import {
-  type StorefrontProductsQuery,
-  storefrontProductsQuerySchema,
-} from '@/schemas/storefront-products-query';
+import { storefrontProductsQuerySchema } from '@/schemas/storefront-products-query';
+import type { StorefrontProductsQuery } from '@/schemas/storefront-products-query.types';
 
 /**
  * Map database product to API response format
@@ -140,10 +134,6 @@ function escapeLikePattern(value: string) {
     .replaceAll('_', '\\_');
 }
 
-function isAllQueryFilter(value: string | undefined) {
-  return value?.trim().toLowerCase() === 'all';
-}
-
 function getConditionPrefilterClauses(condition: string) {
   const normalized = normalizeCanonicalProductCondition(condition);
 
@@ -238,7 +228,10 @@ function createCachedProductsFetcher(
       // A SQL prefilter on the legacy text column would drop valid relation
       // matches before the in-memory compatibility matcher sees them.
 
-      if (filters.brand && !isAllQueryFilter(filters.brand)) {
+      if (
+        filters.brand &&
+        !storefrontProductFilters.isAllFilter(filters.brand)
+      ) {
         query = query.ilike(
           'brand',
           `%${escapeLikePattern(filters.brand.trim())}%`
@@ -296,7 +289,7 @@ function createCachedProductsFetcher(
       if (filters.category && filters.category !== 'all') {
         const category = filters.category;
         filteredProducts = filteredProducts.filter((product) =>
-          matchesStorefrontCategoryFilter(
+          storefrontProductFilters.matchesStorefrontCategoryFilter(
             buildCategoryFilterSource(product),
             category
           )
@@ -305,17 +298,23 @@ function createCachedProductsFetcher(
 
       let mappedProducts = filteredProducts.map(mapProduct);
 
-      if (filters.brand && !isAllQueryFilter(filters.brand)) {
+      if (
+        filters.brand &&
+        !storefrontProductFilters.isAllFilter(filters.brand)
+      ) {
         const brand = filters.brand;
         mappedProducts = mappedProducts.filter((product) =>
-          matchesStorefrontBrandFilter(product, brand)
+          storefrontProductFilters.matchesStorefrontBrandFilter(product, brand)
         );
       }
 
       if (filters.condition && filters.condition !== 'all') {
         const condition = filters.condition;
         mappedProducts = mappedProducts.filter((product) =>
-          matchesStorefrontConditionFilter(product, condition)
+          storefrontProductFilters.matchesStorefrontConditionFilter(
+            product,
+            condition
+          )
         );
       }
 
