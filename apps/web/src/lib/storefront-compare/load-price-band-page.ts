@@ -10,6 +10,7 @@ import {
 } from '@/lib/normalize-product';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildCommercialGuideLinks } from '@/lib/storefront-content/build-commercial-guide-links';
+import type { SupportedClusterCategory } from '@/lib/storefront-content/content-cluster-types';
 import { getPublishedClusterPosts } from '@/lib/storefront-content/get-published-cluster-posts';
 import { isDomainIdentifier } from '@/lib/validation';
 import { buildPriceBandCandidate } from './compare-eligibility';
@@ -55,6 +56,14 @@ function getStorefrontPathPrefix(
   merchantSlug: string
 ) {
   return isDomainIdentifier(routeIdentifier) ? '' : `/${merchantSlug}`;
+}
+
+function getSupportedClusterCategory(
+  categorySlug: string
+): SupportedClusterCategory | null {
+  return categorySlug in CONTENT_CLUSTER_SUPPORT
+    ? (categorySlug as SupportedClusterCategory)
+    : null;
 }
 
 export async function loadPriceBandPage(args: {
@@ -128,6 +137,9 @@ export async function loadPriceBandPage(args: {
   const categoryName = categoryData.fallbackName || args.categorySlug;
   const canonicalUrl = `${storeUrl}/${args.categorySlug}/best-under/${band.slug}`;
   const labelWithoutBest = band.label.replace(/^Best\s+/i, '');
+  const supportedClusterCategory = getSupportedClusterCategory(
+    args.categorySlug
+  );
 
   return {
     merchant,
@@ -142,18 +154,17 @@ export async function loadPriceBandPage(args: {
       { name: band.label, url: canonicalUrl },
     ],
     products,
-    guideLinks:
-      args.categorySlug in CONTENT_CLUSTER_SUPPORT
-        ? buildCommercialGuideLinks({
-            storeUrl,
-            posts: guidePosts,
-            context: {
-              pageKind: 'price-band',
-              categorySlug: args.categorySlug,
-              priceBandSlug: band.slug,
-            },
-          })
-        : [],
+    guideLinks: supportedClusterCategory
+      ? buildCommercialGuideLinks({
+          storeUrl,
+          posts: guidePosts,
+          context: {
+            pageKind: 'price-band',
+            categorySlug: supportedClusterCategory,
+            priceBandSlug: band.slug,
+          },
+        })
+      : [],
     isIndexable: bandCandidate.isIndexable,
     pathPrefix: getStorefrontPathPrefix(args.merchantSlug, merchant.slug),
     payoutCurrency: merchant.payout_currency || 'NGN',

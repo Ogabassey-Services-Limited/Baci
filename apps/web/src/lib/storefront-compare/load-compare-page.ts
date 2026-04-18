@@ -10,7 +10,10 @@ import { normalizeProduct, type RawDbProduct } from '@/lib/normalize-product';
 import { generateSlug } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildCommercialGuideLinks } from '@/lib/storefront-content/build-commercial-guide-links';
-import type { InformationalGuideLink } from '@/lib/storefront-content/content-cluster-types';
+import type {
+  InformationalGuideLink,
+  SupportedClusterCategory,
+} from '@/lib/storefront-content/content-cluster-types';
 import { getPublishedClusterPosts } from '@/lib/storefront-content/get-published-cluster-posts';
 import {
   buildBrandCompareCandidate,
@@ -206,6 +209,14 @@ function selectByPrice(
   );
 }
 
+function getSupportedClusterCategory(
+  categorySlug: string
+): SupportedClusterCategory | null {
+  return categorySlug in CONTENT_CLUSTER_SUPPORT
+    ? (categorySlug as SupportedClusterCategory)
+    : null;
+}
+
 export async function loadComparePage(args: {
   merchantSlug: string;
   categorySlug: string;
@@ -252,6 +263,9 @@ export async function loadComparePage(args: {
   const categoryName = categoryData.fallbackName || args.categorySlug;
   const canonicalUrl = `${storeUrl}/${args.categorySlug}/compare/${parsed.canonicalSlug}`;
   const guidePosts = await getPublishedClusterPosts(merchant.id);
+  const supportedClusterCategory = getSupportedClusterCategory(
+    args.categorySlug
+  );
   const payoutCurrency = merchant.payout_currency || 'NGN';
   const priceFormatter = new Intl.NumberFormat('en-NG', {
     style: 'currency',
@@ -353,21 +367,20 @@ export async function loadComparePage(args: {
         },
       ],
       breadcrumbItems,
-      guideLinks:
-        args.categorySlug in CONTENT_CLUSTER_SUPPORT
-          ? buildCommercialGuideLinks({
-              storeUrl,
-              posts: guidePosts,
-              context: {
-                pageKind: 'compare',
-                categorySlug: args.categorySlug,
-                productSlugs: [
-                  leftDetails.slug || parsed.leftKey,
-                  rightDetails.slug || parsed.rightKey,
-                ],
-              },
-            })
-          : [],
+      guideLinks: supportedClusterCategory
+        ? buildCommercialGuideLinks({
+            storeUrl,
+            posts: guidePosts,
+            context: {
+              pageKind: 'compare',
+              categorySlug: supportedClusterCategory,
+              productSlugs: [
+                leftDetails.slug || parsed.leftKey,
+                rightDetails.slug || parsed.rightKey,
+              ],
+            },
+          })
+        : [],
       merchant,
       isIndexable: candidate.isIndexable,
       leftProduct: leftDetails,
@@ -450,18 +463,17 @@ export async function loadComparePage(args: {
       },
     ],
     breadcrumbItems,
-    guideLinks:
-      args.categorySlug in CONTENT_CLUSTER_SUPPORT
-        ? buildCommercialGuideLinks({
-            storeUrl,
-            posts: guidePosts,
-            context: {
-              pageKind: 'compare',
-              categorySlug: args.categorySlug,
-              brands: [brandCandidate.leftBrand, brandCandidate.rightBrand],
-            },
-          })
-        : [],
+    guideLinks: supportedClusterCategory
+      ? buildCommercialGuideLinks({
+          storeUrl,
+          posts: guidePosts,
+          context: {
+            pageKind: 'compare',
+            categorySlug: supportedClusterCategory,
+            brands: [brandCandidate.leftBrand, brandCandidate.rightBrand],
+          },
+        })
+      : [],
     merchant,
     isIndexable: brandCandidate.isIndexable,
     leftBrand: brandCandidate.leftBrand,
