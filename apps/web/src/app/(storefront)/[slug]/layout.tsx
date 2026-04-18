@@ -26,9 +26,11 @@ import { StorefrontLayoutFallback } from './storefront-layout-fallback';
  */
 function StorefrontLayoutRenderer({
   merchant,
+  routingMode,
   children,
 }: {
   merchant: MerchantData;
+  routingMode: 'domain' | 'path';
   children: React.ReactNode;
 }) {
   // Theme is handled client-side by V2ThemeProvider (reads cookie on mount).
@@ -41,7 +43,7 @@ function StorefrontLayoutRenderer({
 
   if (templateId === 'ogabassey') {
     return (
-      <OgabasseyStorefrontLayout merchant={merchant}>
+      <OgabasseyStorefrontLayout merchant={merchant} routingMode={routingMode}>
         {children}
       </OgabasseyStorefrontLayout>
     );
@@ -229,7 +231,10 @@ async function StorefrontLayoutContent({
           - Keeps layout persistent across route changes (seamless navigation)
           - Prevents header flashing/re-rendering
         */}
-        <StorefrontLayoutRenderer merchant={templateMerchant}>
+        <StorefrontLayoutRenderer
+          merchant={templateMerchant}
+          routingMode={routingMode}
+        >
           {children}
         </StorefrontLayoutRenderer>
       </StorefrontCartProvider>

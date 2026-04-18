@@ -13,8 +13,11 @@ const DEFAULT_PRIMARY_COLOR = '#d62027';
 const DEFAULT_BACKGROUND_HSL = '0 0% 6%';
 const DEFAULT_FOREGROUND_HSL = '0 0% 98%';
 
-export function getOgabasseyBasePath(slug?: string | null) {
-  return `/${slug || 'ogabassey'}`;
+export function getOgabasseyBasePath(
+  slug?: string | null,
+  routingMode: 'domain' | 'path' = 'path'
+) {
+  return routingMode === 'domain' ? '' : `/${slug || 'ogabassey'}`;
 }
 
 export function shouldEnableOgabasseyGoogleStoreWidget(

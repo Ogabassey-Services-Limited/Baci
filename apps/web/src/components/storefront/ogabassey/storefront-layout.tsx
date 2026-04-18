@@ -17,6 +17,7 @@ interface OgabasseyStorefrontLayoutProps {
   merchant?: MerchantData;
   initialTheme?: V2ThemeMode;
   hideNavigation?: boolean;
+  routingMode?: 'domain' | 'path';
 }
 
 export function OgabasseyStorefrontLayout({
@@ -24,13 +25,14 @@ export function OgabasseyStorefrontLayout({
   merchant,
   initialTheme,
   hideNavigation = false,
+  routingMode = 'path',
 }: OgabasseyStorefrontLayoutProps) {
   ReactDOM.prefetchDNS('https://cdn.ogabassey.com');
   ReactDOM.preconnect('https://cdn.ogabassey.com', {
     crossOrigin: '',
   });
 
-  const basePath = getOgabasseyBasePath(merchant?.slug);
+  const basePath = getOgabasseyBasePath(merchant?.slug, routingMode);
   const shouldEnableGoogleStoreWidget =
     shouldEnableOgabasseyGoogleStoreWidget(merchant);
 

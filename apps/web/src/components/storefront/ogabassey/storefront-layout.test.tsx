@@ -124,6 +124,25 @@ describe('OgabasseyStorefrontLayout', () => {
     expect(screen.getByText('Storefront body')).toBeInTheDocument();
   });
 
+  it('passes domain routing mode through to the base-path helper', () => {
+    mocks.getOgabasseyBasePath.mockReturnValue('');
+
+    render(
+      <OgabasseyStorefrontLayout merchant={merchant} routingMode="domain">
+        <div>Storefront body</div>
+      </OgabasseyStorefrontLayout>
+    );
+
+    expect(mocks.getOgabasseyBasePath).toHaveBeenCalledWith(
+      'ogabassey',
+      'domain'
+    );
+    expect(screen.getByTestId('layout-chrome')).toHaveAttribute(
+      'data-base-path',
+      ''
+    );
+  });
+
   it('keeps the Google widget mounted but marks it disabled when the setting is off', () => {
     mocks.shouldEnableOgabasseyGoogleStoreWidget.mockReturnValue(false);
 

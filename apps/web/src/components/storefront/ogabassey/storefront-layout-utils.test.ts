@@ -17,9 +17,13 @@ const baseMerchant: MerchantData = {
 };
 
 describe('storefront-layout-utils', () => {
-  it('builds the storefront base path from the merchant slug', () => {
-    expect(getOgabasseyBasePath('ogabassey')).toBe('/ogabassey');
-    expect(getOgabasseyBasePath(undefined)).toBe('/ogabassey');
+  it('builds the storefront base path from the merchant slug for path-routed stores', () => {
+    expect(getOgabasseyBasePath('ogabassey', 'path')).toBe('/ogabassey');
+    expect(getOgabasseyBasePath(undefined, 'path')).toBe('/ogabassey');
+  });
+
+  it('returns an empty base path for domain-routed stores', () => {
+    expect(getOgabasseyBasePath('ogabassey', 'domain')).toBe('');
   });
 
   it('enables the Google store widget for the Ogabassey storefront fallback case', () => {
