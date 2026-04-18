@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
+import { InformationalClusterPanel } from '@/components/storefront/ogabassey/seo/informational-cluster-panel';
 import { Button } from '@/components/ui/button';
 import { getCachedBlogPost } from '@/lib/cached-data';
 import { getLiveBlogPost } from '@/lib/live-blog-post';
@@ -15,6 +16,7 @@ import {
   generateBreadcrumbSchema,
 } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
+import { buildInformationalClusterModel } from '@/lib/storefront-content/build-informational-cluster-model';
 import {
   getStorefrontOpenGraphImages,
   getStorefrontTwitterImages,
@@ -122,7 +124,7 @@ export async function generateMetadata({
   };
 }
 
-async function BlogPostPageContent({
+export async function BlogPostPageContent({
   params,
 }: {
   params: Promise<{ slug: string; postSlug: string }>;
@@ -149,7 +151,7 @@ async function BlogPostPageContent({
   return <BlogPostContent slug={slug} postSlug={postSlug} locale={locale} />;
 }
 
-async function BlogPostContent({
+export async function BlogPostContent({
   slug,
   postSlug,
   locale,
@@ -220,6 +222,22 @@ async function BlogPostContent({
       url: postUrl,
     },
   ]);
+  const clusterModel = await buildInformationalClusterModel({
+    merchantId: merchant.id,
+    merchantSlug: merchant.slug,
+    storeUrl: baseUrl,
+    post: {
+      slug: post.slug,
+      title: post.title,
+      excerpt: post.excerpt,
+      category: post.category,
+      tags: post.tags,
+      keywords: post.keywords,
+      featured_image_url: post.featured_image_url,
+      published_at: post.published_at,
+      reading_time_minutes: post.reading_time_minutes,
+    },
+  });
 
   return (
     <>
@@ -318,6 +336,8 @@ async function BlogPostContent({
                 relatedPosts={relatedPosts}
               />
             </Suspense>
+
+            <InformationalClusterPanel model={clusterModel} />
           </article>
         </main>
 
