@@ -1,49 +1,148 @@
 # yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
-# CodeRabbit Configuration - 2025 Best Practices (Holistic SEO & Performance)
+# CodeRabbit Configuration - 2026 Best Practices (Baci: Next.js 16 Cache Components,
+# React 19 Server Components, React Compiler, Biome, Supabase+RLS)
 
 language: "en-US"
-early_access: true # Enable latest AI features
+early_access: true
 reviews:
-  profile: "assertive" # Be critical and direct
+  profile: "assertive"
   request_changes_workflow: true
   high_level_summary: true
   auto_review:
     enabled: true
     drafts: false
     base_branches: ["main", "develop"]
+
+  # Exclude low-signal/generated paths so CR stays under its 150-file cap on
+  # large refactors. These paths add noise without meaningful review value.
+  # See https://docs.coderabbit.ai/guides/configure-coderabbit#path-filters
+  path_filters:
+    - "!**/pnpm-lock.yaml"
+    - "!**/yarn.lock"
+    - "!**/package-lock.json"
+    - "!**/*.snap"
+    - "!**/__snapshots__/**"
+    - "!**/*.generated.ts"
+    - "!**/*.gen.ts"
+    - "!**/database.types.ts"
+    - "!**/*.d.ts"
+    - "!supabase/migrations-archive/**"
+    - "!apps/**/android/app/build/**"
+    - "!apps/**/ios/Pods/**"
+    - "!apps/**/ios/build/**"
+    - "!**/.expo/**"
+    - "!**/expo-env.d.ts"
+    - "!**/node_modules/**"
+    - "!**/.next/**"
+    - "!**/dist/**"
+    - "!**/build/**"
+    - "!**/coverage/**"
+    - "!patches/**"
+    - "!**/*.patch"
+    - "!**/fixtures/**"
+    - "!**/*.fixture.ts"
+    - "!**/*.fixture.tsx"
+    - "!docs/**/*.md"
+    # Keep authoritative root docs (CLAUDE.md / AGENTS.md) in scope — they
+    # define the review rules the instruction block refers to. Exclude any
+    # other root-level markdown (READMEs, changelogs) that is pure prose.
+    - "!README.md"
+    - "!CHANGELOG.md"
+    - "!CONTRIBUTING.md"
+    - "!LICENSE.md"
+    - "!**/*.png"
+    - "!**/*.jpg"
+    - "!**/*.jpeg"
+    - "!**/*.gif"
+    - "!**/*.webp"
+    - "!**/*.svg"
+
   # Custom Instructions for the AI Reviewer
   instructions: |
-    You are a senior holistic SEO and full-stack engineer expert in Next.js 16 (App Router), TypeScript, and Web Performance.
-    
-    Your goal is to enforce 2025 best practices. FAILURE TO FOLLOW THESE RULES IS CRITICAL.
+    You are a senior full-stack engineer reviewing the Baci monorepo. Enforce
+    2026 best practices. FAILURE TO FOLLOW THESE RULES IS CRITICAL.
 
-    ## 1. 🚀 Performance & Architecture (CRITICAL)
-    - **Server Components By Default:** Flag ANY 'use client' directive that isn't absolutely necessary.
-    - **Zero Client-Side Waterfalls:** Component-level data fetching must be Server-Side. REJECT `useEffect` fetching.
-    - **Image Optimization:** Enforce `next/image` with explicit sizes. REJECT standard `<img>` tags.
-    - **Font Loading:** Ensure `next/font` is used.
+    Authoritative guidance lives in `CLAUDE.md` at the repo root and app root
+    (`apps/web/CLAUDE.md`, `apps/mobile-admin/CLAUDE.md`). When repo guidance
+    disagrees with these instructions, prefer the more specific CLAUDE.md.
 
-    ## 2. 🔍 Holistic SEO
-    - **Semantic HTML:** Enforce specific tags (`<article>`, `<section>`, `<aside>`, `<nav>`). Reject generic `<div>` soup.
-    - **Heading Hierarchy:** One `<h1>` per page. Sequential order (`<h2>`, then `<h3>`).
-    - **Internal Linking:** Links must use dynamic `href` (e.g., `asRoute(basePath + '/slug')`).
-    - **Metadata:** Ensure dynamic pages implement `generateMetadata`.
+    ## 1. 🚀 Next.js 16 + React 19 (Cache Components)
+    - **Server Components by default.** Flag ANY `'use client'` directive that
+      isn't justified by hooks, event handlers, or browser-only APIs.
+    - **Cache Components rules:** In Cache Components mode (`nextConfig.cacheComponents`),
+      `export const dynamic = 'force-dynamic'` is DISALLOWED. Uncached data
+      access (`await cookies()`, `await headers()`, `await params`,
+      `await searchParams`) must be inside a `<Suspense>` boundary.
+    - **No client-side waterfalls.** Component-level data fetching must be
+      server-side. REJECT `useEffect` for fetching.
+    - **No manual memoization.** React Compiler is enabled — REJECT any
+      `React.memo`, `useMemo`, `useCallback` unless there is a documented
+      non-memoization reason (e.g. referential identity for deps).
+    - **Image + font:** `next/image` with explicit `width`/`height` or `sizes`;
+      `next/font/google` — REJECT raw `<img>` and CDN font links.
+    - **'use cache' and 'use cache: remote':** Prefer `'use cache: remote'` for
+      cross-instance cached data (homepage, storefront product lists).
 
-    ## 3. 🛡️ Security & Stability
-    - **Input Validation:** Zod schemas required for all server actions/API routes.
-    - **Type Safety:** "Any" type is strictly forbidden. Use proper interfaces.
-    - **Error Handling:** Server Actions must allow graceful failure UI (useActionState).
+    ## 2. 🛡️ Security & Stability
+    - **Input validation:** Every API route and server action must validate
+      with Zod BEFORE any database operation.
+    - **Auth first:** `const { data: { user } } = await supabase.auth.getUser()`
+      is the FIRST operation in every protected route.
+    - **CSRF:** Non-GET API routes must validate CSRF (see `lib/csrf.ts`).
+    - **Supabase clients:** Use `@/lib/supabase/server` (SSR), `@/lib/supabase/client`
+      (browser), `@/lib/supabase/admin` (service-role, server-only). NEVER use
+      admin client in client bundles.
+    - **Scoped queries:** Always `.eq('merchant_id', user.id)` — never
+      `select('*')`, always explicit columns.
+    - **No `any`.** Use `unknown` or explicit interfaces/Zod schemas.
+    - **HTML sanitization:** Use `lib/sanitize*.ts` — NEVER `dangerouslySetInnerHTML`
+      on unsanitized input.
+    - **Payments:** Webhooks (Korapay/Paystack/Kuda) must verify HMAC-SHA256
+      signature and fail-closed if secret missing. Amount/currency must be
+      validated server-side against the stored transaction.
 
-    ## 4. ♿ Accessibility (WCAG 2.1 AA)
-    - **Interactive Elements:** Buttons must have `aria-label` if icon-only.
-    - **Forms:** Labels are mandatory.
-    - **Color Contrast:** Flag low contrast colors if visible in Tailwind/CSS variables.
+    ## 3. 🗄️ Database
+    - **RLS required** on all new Supabase tables.
+    - **Migrations are append-only** — NEVER edit existing files in
+      `supabase/migrations/`.
+    - **TOCTOU:** Any SELECT→UPDATE pattern inside a PL/pgSQL function must use
+      `SELECT ... FOR UPDATE` to serialize concurrent writers.
+    - Always add indexes on foreign keys.
 
-    ## 5. 🧹 Code Cleanliness
-    - **Dead Code:** Identify unused exports (suggest running `knip`).
-    - **Hardcoded Strings:** Flag hardcoded URLs or secrets.
+    ## 4. 🔍 Holistic SEO (storefront-facing)
+    - **Semantic HTML:** `<article>`, `<section>`, `<nav>`, `<aside>` — not
+      generic `<div>` soup.
+    - **Heading hierarchy:** One `<h1>` per page; no skipped levels.
+    - **Dynamic `href`:** Use `asRoute(getHref(...))` / `buildStoreUrl(...)`,
+      never hardcoded URLs.
+    - **Metadata:** Dynamic pages must implement `generateMetadata`.
+    - **Structured data:** Public storefront pages should emit JSON-LD via
+      `lib/seo-utils.ts` helpers + `safeJsonLdStringify`.
 
-    Review tone: Direct, constructive, and uncompromising on performance/SEO.
+    ## 5. ♿ Accessibility (WCAG 2.2 AA — 2026 target)
+    - **Icon-only buttons:** require `aria-label`.
+    - **Forms:** every `<Input>` needs an associated `<Label>`; FormField
+      wiring must forward `id`/`aria-describedby` to the actual input, not a
+      wrapper `<div>`.
+    - **Color contrast:** Reject fixed hex colors on themed surfaces; use
+      `colors.text` / `colors.muted` / etc. tokens. In mobile apps, check
+      both light and dark palette contrast against card/background.
+    - **Focus state:** interactive elements need a visible focus ring; don't
+      rely on color alone.
+
+    ## 6. 🧰 Tooling + Style
+    - **Biome** (not ESLint/Prettier). No `.eslintrc*` files in new PRs.
+    - **pnpm + Turborepo** — NEVER npm/yarn. Use `pnpm turbo <cmd>`.
+    - **Max 300 lines per file.** Split god components/routes.
+    - **Colocated tests** mandatory for new/modified source files
+      (`Component.test.tsx`, `route.test.ts`, etc.). Both success AND error
+      paths must be covered.
+    - **Prefer `getByRole`** over `getByTestId`/`getByPlaceholderText`.
+    - **React Testing Library** idioms — no implementation-detail assertions.
+
+    Review tone: Direct, surgical, and uncompromising on correctness,
+    security, and accessibility. For each finding include severity (Critical,
+    Major, Minor, Trivial) and file path + line.
 
 chat:
   auto_reply: true
