@@ -29,6 +29,20 @@ describe('compare slug canonicalization', () => {
     });
   });
 
+  it('escapes product keys that already contain the compare delimiter', () => {
+    const slug = buildCanonicalProductCompareSlug(
+      'galaxy-vs-ultra',
+      'iphone-17-pro-max'
+    );
+
+    expect(slug).toBe('~67616c6178792d76732d756c747261-vs-iphone-17-pro-max');
+    expect(parseCompareSlug(slug)).toEqual({
+      leftKey: 'galaxy-vs-ultra',
+      rightKey: 'iphone-17-pro-max',
+      canonicalSlug: slug,
+    });
+  });
+
   it('returns null for invalid compare slugs', () => {
     expect(parseCompareSlug('apple')).toBeNull();
   });
