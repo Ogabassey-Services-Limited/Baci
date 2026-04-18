@@ -73,6 +73,7 @@ export function StorefrontPagination({
       {safeCurrentPage > 1 && (
         <Link
           href={asRoute(buildStorefrontPageHref(basePath, safeCurrentPage - 1))}
+          prefetch={false}
           className="inline-flex items-center gap-2 rounded-xl border border-[var(--store-background-text)]/10 bg-[var(--store-background)] px-4 py-2 text-sm font-medium text-[var(--store-background-text)] transition-colors hover:border-[var(--store-primary)] hover:text-[var(--store-primary)]"
         >
           <ChevronLeft size={16} />
@@ -100,6 +101,7 @@ export function StorefrontPagination({
               <Link
                 aria-current={page === safeCurrentPage ? 'page' : undefined}
                 href={asRoute(buildStorefrontPageHref(basePath, page))}
+                prefetch={false}
                 className={`inline-flex h-10 min-w-10 items-center justify-center rounded-xl px-3 text-sm font-semibold transition-colors ${
                   page === safeCurrentPage
                     ? 'bg-[var(--store-primary)] text-[var(--store-primary-text)]'
@@ -116,6 +118,7 @@ export function StorefrontPagination({
       {safeCurrentPage < safeTotalPages && (
         <Link
           href={asRoute(buildStorefrontPageHref(basePath, safeCurrentPage + 1))}
+          prefetch={false}
           className="inline-flex items-center gap-2 rounded-xl border border-[var(--store-background-text)]/10 bg-[var(--store-background)] px-4 py-2 text-sm font-medium text-[var(--store-background-text)] transition-colors hover:border-[var(--store-primary)] hover:text-[var(--store-primary)]"
         >
           Next

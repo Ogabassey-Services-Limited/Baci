@@ -5,9 +5,12 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('next/link', () => ({
   default: ({
     children,
+    prefetch,
     ...props
-  }: { children: ReactNode; href: string }) => (
-    <a {...props}>{children}</a>
+  }: { children: ReactNode; href: string; prefetch?: boolean }) => (
+    <a data-prefetch={String(prefetch)} {...props}>
+      {children}
+    </a>
   ),
 }));
 
@@ -172,6 +175,28 @@ describe('StorefrontPagination', () => {
     );
     const nextLink = screen.getByText('Next').closest('a');
     expect(nextLink?.getAttribute('href')).toBe('/store/products?page=3');
+  });
+
+  it('disables prefetch for pagination links', () => {
+    render(
+      <StorefrontPagination
+        basePath="/store/products"
+        currentPage={3}
+        totalPages={5}
+      />
+    );
+
+    expect(screen.getByText('Previous').closest('a')).toHaveAttribute(
+      'data-prefetch',
+      'false'
+    );
+    expect(screen.getByText('2')).toHaveAttribute('data-prefetch', 'false');
+    expect(screen.getByText('3')).toHaveAttribute('data-prefetch', 'false');
+    expect(screen.getByText('4')).toHaveAttribute('data-prefetch', 'false');
+    expect(screen.getByText('Next').closest('a')).toHaveAttribute(
+      'data-prefetch',
+      'false'
+    );
   });
 
   it('shows ellipsis gaps for many pages', () => {
