@@ -65,7 +65,7 @@ export default function Step1_BusinessDetails({ onKeyDown }: Step1Props) {
             </FormLabel>
             <Select
               onValueChange={(value) => {
-                setValue('businessType', value, {
+                setValue(field.name, value, {
                   shouldDirty: true,
                   shouldTouch: true,
                   shouldValidate: true,
@@ -136,7 +136,7 @@ export default function Step1_BusinessDetails({ onKeyDown }: Step1Props) {
                   ]}
                   {...field}
                   onChange={(e) => {
-                    setValue('otherBusinessType', e.target.value, {
+                    setValue(field.name, e.target.value, {
                       shouldDirty: true,
                       shouldTouch: true,
                       shouldValidate: true,
@@ -184,7 +184,7 @@ export default function Step1_BusinessDetails({ onKeyDown }: Step1Props) {
                       );
                     })
                     .join(' ');
-                  setValue('businessName', titleCased, {
+                  setValue(field.name, titleCased, {
                     shouldDirty: true,
                     shouldTouch: true,
                     shouldValidate: true,

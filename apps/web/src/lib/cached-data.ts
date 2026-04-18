@@ -172,6 +172,7 @@ export interface CachedMerchant {
   slug: string;
   business_address: string;
   payout_currency: string;
+  paystack_subaccount_code?: string | null;
   is_published: boolean;
   template_id: string;
   plan_tier: string;
@@ -238,6 +239,7 @@ export async function getCachedMerchant(
         slug,
         business_address,
         payout_currency,
+        paystack_subaccount_code,
         is_published,
         template_id,
         plan_tier,
@@ -395,6 +397,7 @@ export async function getCachedMerchantByDomain(
         slug,
         business_address,
         payout_currency,
+        paystack_subaccount_code,
         is_published,
         template_id,
         plan_tier,
@@ -586,7 +589,9 @@ export const getRequestScopedMerchant = cache(
 /**
  * Cached merchant data by ID
  */
-export async function getCachedMerchantById(merchantId: string) {
+export async function getCachedMerchantById(
+  merchantId: string
+): Promise<CachedMerchant | null> {
   'use cache: remote';
   cacheLife('merchant');
   cacheTag('merchants', `merchant-id-${merchantId}`);
@@ -609,7 +614,12 @@ export async function getCachedMerchantById(merchantId: string) {
         brand_colors,
         slug,
         business_address,
-        country,
+        payout_currency,
+        paystack_subaccount_code,
+        is_published,
+        template_id,
+        plan_tier,
+        premium_features,
         country,
         hero_slides,
         favicon_svg_url,

@@ -21,15 +21,18 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { type Layout, Responsive, WidthProvider } from 'react-grid-layout';
+import { AIInsightsPanel } from '@/components/analytics/ai-insights-panel';
+import type { AnalyticsCategory } from '@/components/analytics/analytics-category-nav';
+import {
+  RevenueChart,
+  SalesByChannelChart,
+} from '@/components/analytics/chart-components';
+import { formatMetricChange } from '@/components/analytics/format-metric-change';
 import { BentoCard } from '@/components/ui/bento-card';
 import { Button } from '@/components/ui/button';
 import type { MerchantData } from '@/hooks/use-merchant';
 import { getCountryByCode } from '@/lib/countries';
 import { cn } from '@/lib/utils';
-import { AIInsightsPanel } from './ai-insights-panel';
-import type { AnalyticsCategory } from './analytics-category-nav';
-import { RevenueChart, SalesByChannelChart } from './chart-components';
-import { formatMetricChange } from './format-metric-change';
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 

@@ -127,7 +127,6 @@ export async function GET(request: NextRequest) {
           products:products!order_items_product_id_fkey (
             slug,
             category,
-            category_slug,
             categories:categories (
               name,
               slug
@@ -187,6 +186,10 @@ export async function GET(request: NextRequest) {
         }),
         items: (order.order_items || []).map((item) => {
           const product = extractJoinedProduct(item.products);
+          const primaryCategory = Array.isArray(product?.categories)
+            ? product.categories[0] || null
+            : product?.categories || null;
+
           return {
             id: item.id,
             product_id: item.product_id,
@@ -196,10 +199,8 @@ export async function GET(request: NextRequest) {
             has_assurance: item.has_assurance,
             product_slug: product?.slug,
             category: product?.category,
-            category_slug: product?.category_slug,
-            categories: Array.isArray(product?.categories)
-              ? product.categories[0] || null
-              : product?.categories || null,
+            category_slug: primaryCategory?.slug,
+            categories: primaryCategory,
           };
         }),
       };

@@ -181,6 +181,86 @@ describe('cached-data getMerchantByIdentifier behavior', () => {
     });
   });
 
+  describe('paystack_subaccount_code projection', () => {
+    it('preserves paystack_subaccount_code for slug lookups', async () => {
+      harness.mockMaybeSingle.mockResolvedValueOnce({
+        data: {
+          ...mockMerchant,
+          paystack_subaccount_code: 'ACCT_test_123',
+        },
+        error: null,
+      });
+      harness.mockSingle.mockResolvedValueOnce({
+        data: null,
+        error: { code: 'PGRST116' },
+      });
+
+      const result = await getMerchantByIdentifier('test-store');
+
+      expect(result?.paystack_subaccount_code).toBe('ACCT_test_123');
+    });
+
+    it('selects paystack_subaccount_code for slug lookups', async () => {
+      harness.mockMaybeSingle.mockResolvedValueOnce({
+        data: mockMerchant,
+        error: null,
+      });
+      harness.mockSingle.mockResolvedValueOnce({
+        data: null,
+        error: { code: 'PGRST116' },
+      });
+
+      await getMerchantByIdentifier('test-store');
+
+      expect(
+        harness.mockSelect.mock.calls.some(
+          ([projection]) =>
+            typeof projection === 'string' &&
+            projection.includes('paystack_subaccount_code')
+        )
+      ).toBe(true);
+    });
+
+    it('preserves paystack_subaccount_code for domain lookups', async () => {
+      harness.mockMaybeSingle.mockResolvedValueOnce({
+        data: { merchant_id: 'merchant-123', domain: 'store.com' },
+        error: null,
+      });
+      harness.mockSingle.mockResolvedValueOnce({
+        data: {
+          ...mockMerchant,
+          paystack_subaccount_code: 'ACCT_domain_456',
+        },
+        error: null,
+      });
+
+      const result = await getMerchantByIdentifier('store.com');
+
+      expect(result?.paystack_subaccount_code).toBe('ACCT_domain_456');
+    });
+
+    it('selects paystack_subaccount_code for domain lookups', async () => {
+      harness.mockMaybeSingle.mockResolvedValueOnce({
+        data: { merchant_id: 'merchant-123', domain: 'store.com' },
+        error: null,
+      });
+      harness.mockSingle.mockResolvedValueOnce({
+        data: mockMerchant,
+        error: null,
+      });
+
+      await getMerchantByIdentifier('store.com');
+
+      expect(
+        harness.mockSelect.mock.calls.some(
+          ([projection]) =>
+            typeof projection === 'string' &&
+            projection.includes('paystack_subaccount_code')
+        )
+      ).toBe(true);
+    });
+  });
+
   describe('edge cases and boundary conditions', () => {
     it('handles identifier with only dots (invalid)', async () => {
       await expect(getMerchantByIdentifier('...')).resolves.toBeNull();

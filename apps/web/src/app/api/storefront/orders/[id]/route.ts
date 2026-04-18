@@ -1,8 +1,8 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isValidUuid, sanitizeForLog } from '@/lib/sanitize-core';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { createAnonClient } from '@/lib/supabase/anon';
 import { createClient } from '@/lib/supabase/server';
 
@@ -64,7 +64,7 @@ function flattenOrderItemProductData(item: OrderItem) {
   return {
     product_slug: product?.slug || item.product_slug,
     category: product?.category || item.category,
-    category_slug: product?.category_slug || item.category_slug,
+    category_slug: categories?.slug || item.category_slug,
     categories,
   };
 }
@@ -76,7 +76,6 @@ async function fetchProductRouteDetails(
       id: string;
       slug: string | null;
       category: string | null;
-      category_slug: string | null;
       categories?:
         | { name?: string; slug?: string }[]
         | { name?: string; slug?: string }
@@ -113,13 +112,36 @@ async function fetchProductRouteDetails(
       {
         product_slug: product.slug,
         category: product.category,
-        category_slug: product.category_slug,
+        category_slug: Array.isArray(product.categories)
+          ? product.categories[0]?.slug || null
+          : product.categories?.slug || null,
         categories: Array.isArray(product.categories)
           ? product.categories[0] || null
           : product.categories || null,
       },
     ])
   );
+}
+
+async function resolveMerchantIdBySlug(
+  merchantSlug: string,
+  supabase: Pick<SupabaseClient, 'from'>
+) {
+  const { data: merchant, error } = await supabase
+    .from('merchants')
+    .select('id')
+    .eq('slug', merchantSlug)
+    .single();
+
+  if (error || !merchant) {
+    console.debug('[API/Orders] Failed to resolve merchant slug', {
+      merchantSlug: sanitizeForLog(merchantSlug),
+      error: error?.message ? sanitizeForLog(error.message) : null,
+    });
+    return null;
+  }
+
+  return merchant.id;
 }
 
 function mapOrderItemsWithRoutes(
@@ -235,6 +257,23 @@ export async function GET(
           orderError?.message
         );
       } else {
+        if (merchantSlug) {
+          const requestedMerchantId = await resolveMerchantIdBySlug(
+            merchantSlug,
+            supabase
+          );
+
+          if (
+            !requestedMerchantId ||
+            requestedMerchantId !== order.merchant_id
+          ) {
+            return NextResponse.json(
+              { error: 'Order not found' },
+              { status: 404 }
+            );
+          }
+        }
+
         console.log(
           '[API/Orders] Found order %s via session lookup.',
           sanitizeForLog(id)
@@ -252,7 +291,6 @@ export async function GET(
               products:products!order_items_product_id_fkey (
                 slug,
                 category,
-                category_slug,
                 categories:categories (
                   name,
                   slug
@@ -278,182 +316,11 @@ export async function GET(
       }
     }
 
-    // Subdomain requests: the proxy sets x-merchant-slug for storefront subdomains.
-    // Use admin client to fetch order by ID, validating merchant ownership.
-    // This enables BNPL launcher and other checkout flows that don't have
-    // auth cookies or tracking tokens (e.g. mobile WebView, guest checkout).
-    const rawProxySlug = request.headers.get('x-merchant-slug');
-    // Sanitize header value before logging to prevent log injection
-    const proxyMerchantSlug = rawProxySlug
-      ? rawProxySlug.replace(/[\n\r\t]/g, '').slice(0, 100)
-      : null;
-    if (proxyMerchantSlug && isValidUuid(id)) {
-      console.log(
-        '[API/Orders] Attempting header-based lookup for slug:',
-        proxyMerchantSlug
-      );
-      const admin = createAdminClient();
-
-      const { data: merchant } = await admin
-        .from('merchants')
-        .select('id')
-        .eq('slug', proxyMerchantSlug)
-        .single();
-
-      if (merchant) {
-        console.log(
-          '[API/Orders] Found merchant %s for slug %s',
-          merchant.id,
-          proxyMerchantSlug
-        );
-        const { data: order, error: orderError } = await admin
-          .from('orders')
-          .select(
-            `id, order_number, tracking_token, subtotal, shipping_fee, total,
-             customer_name, customer_email, customer_phone, shipping_address,
-             payment_status, shipping_status, payment_method, merchant_id`
-          )
-          .eq('id', id)
-          .eq('merchant_id', merchant.id)
-          .single();
-
-        if (!orderError && order) {
-          console.log(
-            '[API/Orders] Found order %s via header-based lookup.',
-            sanitizeForLog(id)
-          );
-          const { data: items } = await admin
-            .from('order_items')
-            .select(
-              `
-                id,
-                product_id,
-                variant_name,
-                product_name:name,
-                quantity,
-                price,
-                products:products!order_items_product_id_fkey (
-                  slug,
-                  category,
-                  category_slug,
-                  categories:categories (
-                    name,
-                    slug
-                  )
-                )
-              `
-            )
-            .eq('order_id', order.id);
-
-          return NextResponse.json({
-            ...order,
-            shipping_cost: order.shipping_fee,
-            short_id: order.order_number,
-            items: mapOrderItemsWithRoutes(items || []),
-          });
-        } else {
-          console.debug(
-            '[API/Orders] Order %s not found for merchant %s via header.',
-            sanitizeForLog(id),
-            merchant.id
-          );
-        }
-      } else {
-        console.debug(
-          '[API/Orders] Merchant not found for header slug: %s',
-          proxyMerchantSlug
-        );
-      }
-      // Fall through to other lookup methods if merchant/order not found
-    }
-
     if (!merchantSlug) {
       return NextResponse.json(
         { error: 'merchant_slug is required for public order lookup' },
         { status: 400 }
       );
-    }
-
-    // Direct lookup by merchant_slug + order UUID (for BNPL launcher, guest checkout flows)
-    if (!token && !email && isValidUuid(id)) {
-      console.log(
-        '[API/Orders] Attempting slug-based public lookup for merchant_slug: %s',
-        sanitizeForLog(merchantSlug)
-      );
-      const admin = createAdminClient();
-      const { data: merchantRow } = await admin
-        .from('merchants')
-        .select('id')
-        .eq('slug', merchantSlug)
-        .single();
-
-      if (merchantRow) {
-        console.log(
-          '[API/Orders] Found merchant %s for slug %s',
-          sanitizeForLog(merchantRow.id),
-          sanitizeForLog(merchantSlug)
-        );
-        const { data: order, error: orderError } = await admin
-          .from('orders')
-          .select(
-            `id, order_number, tracking_token, subtotal, shipping_fee, total,
-             customer_name, customer_email, customer_phone, shipping_address,
-             payment_status, shipping_status, payment_method, merchant_id`
-          )
-          .eq('id', id)
-          .eq('merchant_id', merchantRow.id)
-          .single();
-
-        if (!orderError && order) {
-          console.log(
-            '[API/Orders] Found order %s via slug-based lookup.',
-            sanitizeForLog(id)
-          );
-          const { data: items } = await admin
-            .from('order_items')
-            .select(
-              `
-                id,
-                product_id,
-                variant_name,
-                product_name:name,
-                quantity,
-                price,
-                products:products!order_items_product_id_fkey (
-                  slug,
-                  category,
-                  category_slug,
-                  categories:categories (
-                    name,
-                    slug
-                  )
-                )
-              `
-            )
-            .eq('order_id', order.id);
-
-          return NextResponse.json({
-            ...order,
-            shipping_cost: order.shipping_fee,
-            short_id: order.order_number,
-            items: mapOrderItemsWithRoutes(items || []),
-          });
-        } else {
-          console.warn(
-            '[API/Orders] Order %s not found for merchant %s via slug. Error:',
-            sanitizeForLog(id),
-            merchantRow.id,
-            orderError?.message
-          );
-        }
-      } else {
-        console.warn(
-          '[API/Orders] Merchant row not found for slug: %s',
-          sanitizeForLog(merchantSlug)
-        );
-      }
-
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
     if (!token && !email) {
@@ -467,13 +334,14 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid order ID' }, { status: 400 });
     }
 
+    const preferEmailLookup = Boolean(email && isValidUuid(id));
     const anon = createAnonClient();
     const { data: orders, error } = await anon.rpc('get_order_tracking', {
       p_merchant_slug: merchantSlug,
-      p_order_id: token ? null : id,
+      p_order_id: preferEmailLookup ? id : token ? null : id,
       p_order_number: null,
-      p_email: token ? null : email,
-      p_tracking_token: token || null,
+      p_email: preferEmailLookup ? email : token ? null : email,
+      p_tracking_token: preferEmailLookup ? null : token || null,
     });
 
     const order = Array.isArray(orders) ? orders[0] : null;
@@ -493,7 +361,6 @@ export async function GET(
             id,
             slug,
             category,
-            category_slug,
             categories:categories (
               name,
               slug

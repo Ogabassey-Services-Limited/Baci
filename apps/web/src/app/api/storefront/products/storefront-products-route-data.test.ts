@@ -100,6 +100,191 @@ describe('storefrontProductsRouteData', () => {
     ).toEqual(['Black', 'White']);
   });
 
+  it('prefers color_images keys over the singular color field when both are present', () => {
+    expect(
+      storefrontProductsRouteData.mapProduct({
+        id: 'product-1a',
+        name: 'Gamepad',
+        description: null,
+        price: 12000,
+        compare_at_price: null,
+        images: ['https://example.com/image.jpg'],
+        image_hint: null,
+        category: 'Gaming',
+        categories: { id: 'cat-1', name: 'Gaming', slug: 'gaming' },
+        category_id: 'cat-1',
+        brand: 'Sony',
+        stock: 5,
+        stock_quantity: 5,
+        slug: 'gamepad',
+        status: 'active',
+        condition: 'new',
+        has_variants: false,
+        sku: 'GP-1',
+        manage_stock: true,
+        low_stock_threshold: 1,
+        specifications: null,
+        has_condition_offers: false,
+        available_conditions: [],
+        variant_model: 'single',
+        offers: [],
+        color: 'Black',
+        color_images: {
+          White: 'https://example.com/white.jpg',
+          Blue: 'https://example.com/blue.jpg',
+        },
+        variant_attributes: [],
+      }).colors
+    ).toEqual(['White', 'Blue']);
+  });
+
+  it('falls back to the singular color field when denormalized colors are absent', () => {
+    expect(
+      storefrontProductsRouteData.mapProduct({
+        id: 'product-1b',
+        name: 'Pepper Mix',
+        description: null,
+        price: 4500,
+        compare_at_price: null,
+        images: ['https://example.com/pepper-mix.jpg'],
+        image_hint: null,
+        category: 'Spices',
+        categories: { id: 'cat-2', name: 'Spices', slug: 'spices' },
+        category_id: 'cat-2',
+        brand: 'Foodseed',
+        stock: 12,
+        stock_quantity: 12,
+        slug: 'pepper-mix',
+        status: 'active',
+        condition: 'new',
+        has_variants: false,
+        sku: 'PM-1',
+        manage_stock: true,
+        low_stock_threshold: 2,
+        specifications: null,
+        has_condition_offers: false,
+        available_conditions: [],
+        variant_model: 'single',
+        offers: [],
+        color: 'Red',
+        variant_attributes: [],
+      }).colors
+    ).toEqual(['Red']);
+  });
+
+  it('splits comma-delimited color fallback values into discrete colors', () => {
+    expect(
+      storefrontProductsRouteData.mapProduct({
+        id: 'product-1bb',
+        name: 'Travel Mug',
+        description: null,
+        price: 4500,
+        compare_at_price: null,
+        images: ['https://example.com/travel-mug.jpg'],
+        image_hint: null,
+        category: 'Kitchen',
+        categories: { id: 'cat-2b', name: 'Kitchen', slug: 'kitchen' },
+        category_id: 'cat-2b',
+        brand: 'Homeware',
+        stock: 12,
+        stock_quantity: 12,
+        slug: 'travel-mug',
+        status: 'active',
+        condition: 'new',
+        has_variants: false,
+        sku: 'TM-1',
+        manage_stock: true,
+        low_stock_threshold: 2,
+        specifications: null,
+        has_condition_offers: false,
+        available_conditions: [],
+        variant_model: 'single',
+        offers: [],
+        color: 'Black, Red',
+        variant_attributes: [],
+      }).colors
+    ).toEqual(['Black', 'Red']);
+  });
+
+  it('ignores malformed color_images values and falls back to the singular color field', () => {
+    expect(
+      storefrontProductsRouteData.mapProduct({
+        id: 'product-1c',
+        name: 'Body Lotion',
+        description: null,
+        price: 4500,
+        compare_at_price: null,
+        images: ['https://example.com/body-lotion.jpg'],
+        image_hint: null,
+        category: 'Beauty',
+        categories: { id: 'cat-3', name: 'Beauty', slug: 'beauty' },
+        category_id: 'cat-3',
+        brand: 'Glow',
+        stock: 12,
+        stock_quantity: 12,
+        slug: 'body-lotion',
+        status: 'active',
+        condition: 'new',
+        has_variants: false,
+        sku: 'BL-1',
+        manage_stock: true,
+        low_stock_threshold: 2,
+        specifications: null,
+        has_condition_offers: false,
+        available_conditions: [],
+        variant_model: 'single',
+        offers: [],
+        color: 'Gold',
+        color_images: 'not-a-map',
+        variant_attributes: [],
+      }).colors
+    ).toEqual(['Gold']);
+  });
+
+  it('falls back to the singular color field when color_images has no usable keys', () => {
+    expect(
+      storefrontProductsRouteData.mapProduct({
+        id: 'product-1ca',
+        name: 'Yoga Mat',
+        description: null,
+        price: 6500,
+        compare_at_price: null,
+        images: ['https://example.com/yoga-mat.jpg'],
+        image_hint: null,
+        category: 'Fitness',
+        categories: { id: 'cat-3a', name: 'Fitness', slug: 'fitness' },
+        category_id: 'cat-3a',
+        brand: 'Zen',
+        stock: 12,
+        stock_quantity: 12,
+        slug: 'yoga-mat',
+        status: 'active',
+        condition: 'new',
+        has_variants: false,
+        sku: 'YM-1',
+        manage_stock: true,
+        low_stock_threshold: 2,
+        specifications: null,
+        has_condition_offers: false,
+        available_conditions: [],
+        variant_model: 'single',
+        offers: [],
+        color: 'Green',
+        color_images: {},
+        variant_attributes: [],
+      }).colors
+    ).toEqual(['Green']);
+  });
+
+  it('selects the singular color column for storefront queries', () => {
+    expect(storefrontProductsRouteData.STOREFRONT_PRODUCTS_SELECT).toMatch(
+      /\bcolor\b/
+    );
+    expect(storefrontProductsRouteData.STOREFRONT_PRODUCTS_SELECT).not.toMatch(
+      /\bcolors\b/
+    );
+  });
+
   it('preserves explicit image order zero values', () => {
     expect(
       storefrontProductsRouteData.mapProduct({

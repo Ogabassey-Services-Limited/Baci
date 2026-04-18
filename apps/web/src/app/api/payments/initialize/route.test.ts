@@ -172,7 +172,13 @@ function makeRequest(body: Record<string, unknown>) {
 
 function setupDefaults() {
   rpcResult = {
-    data: [{ merchant_id: MERCHANT_ID, total: 5000 }],
+    data: [
+      {
+        merchant_id: MERCHANT_ID,
+        total: 5000,
+        tracking_token: 'track-token-123',
+      },
+    ],
     error: null,
   };
   rpcTransactionResult = { data: null, error: null };
@@ -327,6 +333,25 @@ describe('POST /api/payments/initialize', () => {
       const json = await res.json();
       expect(res.status).toBe(400);
       expect(json.code).toBe('GATEWAY_NOT_CONFIGURED');
+    });
+  });
+
+  describe('bnpl gateways', () => {
+    it.each([
+      'credit_direct',
+      'credpal',
+    ] as const)('includes the tracking token in %s BNPL launcher URLs', async (gateway) => {
+      const res = await POST(makeRequest({ ...validBody, gateway }));
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(json.gateway).toBe(gateway);
+      expect(json.authorization_url).toContain(
+        'orderId=a1b2c3d4-e5f6-7890-abcd-ef1234567890'
+      );
+      expect(json.authorization_url).toContain('trackingToken=track-token-123');
+      expect(json.checkout_url).toContain('trackingToken=track-token-123');
     });
   });
 

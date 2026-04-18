@@ -321,6 +321,146 @@ describe('Order API Security', () => {
     expect(mockNotifyPaymentReceived).not.toHaveBeenCalled();
   });
 
+  it('returns 400 when create_storefront_order rejects an unsupported payment_status', async () => {
+    mockSupabase.rpc.mockResolvedValueOnce({
+      data: null,
+      error: {
+        message: 'invalid_payment_status',
+      },
+    });
+
+    const request = new NextRequest('http://localhost:3000/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...validOrderPayload,
+        payment_status: 'paid',
+      }),
+    });
+
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data.details).toBe('invalid_payment_status');
+  });
+
+  it('returns 400 when create_storefront_order rejects an unsupported payment_status via error code', async () => {
+    mockSupabase.rpc.mockResolvedValueOnce({
+      data: null,
+      error: {
+        code: 'invalid_payment_status',
+      },
+    });
+
+    const request = new NextRequest('http://localhost:3000/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...validOrderPayload,
+        payment_status: 'paid',
+      }),
+    });
+
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data.details).toBe('invalid_payment_status');
+  });
+
+  it('returns 400 when create_storefront_order rejects an unsupported payment_status via PostgREST error shape', async () => {
+    mockSupabase.rpc.mockResolvedValueOnce({
+      data: null,
+      error: {
+        code: 'P0001',
+        message: 'invalid_payment_status',
+      },
+    });
+
+    const request = new NextRequest('http://localhost:3000/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...validOrderPayload,
+        payment_status: 'paid',
+      }),
+    });
+
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data.details).toBe('invalid_payment_status');
+  });
+
+  it('returns 400 when create_storefront_order rejects a raw discount amount', async () => {
+    mockSupabase.rpc.mockResolvedValueOnce({
+      data: null,
+      error: {
+        message: 'discount_amount_not_supported',
+      },
+    });
+
+    const request = new NextRequest('http://localhost:3000/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...validOrderPayload,
+        discount_amount: 500,
+      }),
+    });
+
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data.details).toBe('discount_amount_not_supported');
+  });
+
+  it('returns 400 when create_storefront_order rejects a raw discount amount via error code', async () => {
+    mockSupabase.rpc.mockResolvedValueOnce({
+      data: null,
+      error: {
+        code: 'discount_amount_not_supported',
+      },
+    });
+
+    const request = new NextRequest('http://localhost:3000/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...validOrderPayload,
+        discount_amount: 500,
+      }),
+    });
+
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data.details).toBe('discount_amount_not_supported');
+  });
+
+  it('returns 400 when create_storefront_order rejects a raw discount amount via PostgREST error shape', async () => {
+    mockSupabase.rpc.mockResolvedValueOnce({
+      data: null,
+      error: {
+        code: 'P0001',
+        message: 'discount_amount_not_supported',
+      },
+    });
+
+    const request = new NextRequest('http://localhost:3000/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...validOrderPayload,
+        discount_amount: 500,
+      }),
+    });
+
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data.details).toBe('discount_amount_not_supported');
+  });
+
   it('waits for pay_on_delivery confirmation email dispatch before responding', async () => {
     let signalEmailStarted: (() => void) | undefined;
     let resolveEmail:

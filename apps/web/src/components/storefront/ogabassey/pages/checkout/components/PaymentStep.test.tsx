@@ -45,7 +45,7 @@ describe('PaymentStep', () => {
     setNewsletterOptIn: vi.fn(),
     handlePlaceOrder: vi.fn(),
     setCurrentStep: vi.fn(),
-    merchant: null,
+    merchant: { paystack_subaccount_code: 'ACCT_123' },
     user: null,
     remainingAmount: 10000,
   };
@@ -165,7 +165,7 @@ describe('PaymentStep', () => {
   });
 
   describe('Pay in Full Options', () => {
-    it('shows Paystack by default when no feature settings', () => {
+    it('shows Paystack when the merchant has a Paystack subaccount', () => {
       // Arrange & Act
       render(<PaymentStep {...defaultProps} />);
 
@@ -174,7 +174,7 @@ describe('PaymentStep', () => {
       expect(screen.getByTestId('paystack-logo')).toBeInTheDocument();
     });
 
-    it('shows Bank Transfer by default when no feature settings', () => {
+    it('shows Bank Transfer when the merchant has a Paystack subaccount', () => {
       // Arrange & Act
       render(<PaymentStep {...defaultProps} />);
 
@@ -186,6 +186,7 @@ describe('PaymentStep', () => {
     it('hides Paystack when explicitly disabled in feature settings', () => {
       // Arrange
       const merchant = {
+        paystack_subaccount_code: 'ACCT_123',
         feature_settings: { paystack_enabled: false } as FeatureSettings,
       };
 
@@ -194,6 +195,22 @@ describe('PaymentStep', () => {
 
       // Assert
       expect(screen.queryByText('Paystack')).not.toBeInTheDocument();
+      expect(screen.queryByText('Bank Transfer')).not.toBeInTheDocument();
+    });
+
+    it('hides Paystack and Bank Transfer when the merchant has no Paystack subaccount', () => {
+      // Arrange
+      const merchant = {
+        paystack_subaccount_code: null,
+        feature_settings: { paystack_enabled: true } as FeatureSettings,
+      };
+
+      // Act
+      render(<PaymentStep {...defaultProps} merchant={merchant} />);
+
+      // Assert
+      expect(screen.queryByText('Paystack')).not.toBeInTheDocument();
+      expect(screen.queryByText('Bank Transfer')).not.toBeInTheDocument();
     });
 
     it('shows Juicyway when enabled in feature settings', () => {
@@ -262,6 +279,69 @@ describe('PaymentStep', () => {
       // Assert
       expect(setPaymentMethod).toHaveBeenCalledWith('bank_transfer');
     });
+
+    it('clears a stale Paystack selection when Paystack is unavailable', () => {
+      const setPaymentMethod = vi.fn();
+
+      render(
+        <PaymentStep
+          {...defaultProps}
+          merchant={null}
+          paymentMethod="paystack"
+          setPaymentMethod={setPaymentMethod}
+        />
+      );
+
+      expect(setPaymentMethod).toHaveBeenCalledWith('');
+    });
+
+    it('clears a stale bank transfer selection when bank transfer is unavailable', () => {
+      const setPaymentMethod = vi.fn();
+
+      render(
+        <PaymentStep
+          {...defaultProps}
+          merchant={null}
+          paymentMethod="bank_transfer"
+          setPaymentMethod={setPaymentMethod}
+        />
+      );
+
+      expect(setPaymentMethod).toHaveBeenCalledWith('');
+    });
+
+    it.each([
+      [
+        'juicyway',
+        {
+          feature_settings: { juicyway_enabled: false } as FeatureSettings,
+        },
+      ],
+      [
+        'pod',
+        {
+          feature_settings: {
+            pay_on_delivery_enabled: false,
+          } as FeatureSettings,
+        },
+      ],
+    ] as const)(
+      'clears a stale %s selection when that gateway is unavailable',
+      (paymentMethod, merchant) => {
+        const setPaymentMethod = vi.fn();
+
+        render(
+          <PaymentStep
+            {...defaultProps}
+            merchant={merchant}
+            paymentMethod={paymentMethod}
+            setPaymentMethod={setPaymentMethod}
+          />
+        );
+
+        expect(setPaymentMethod).toHaveBeenCalledWith('');
+      }
+    );
   });
 
   describe('Pay in Installments Options', () => {
@@ -391,6 +471,40 @@ describe('PaymentStep', () => {
       // Assert
       expect(setPaymentMethod).toHaveBeenCalledWith('credpal');
     });
+
+    it.each([
+      [
+        'credpal',
+        {
+          feature_settings: { credpal_enabled: false } as FeatureSettings,
+        },
+      ],
+      [
+        'credit_direct',
+        {
+          feature_settings: {
+            credit_direct_enabled: false,
+          } as FeatureSettings,
+        },
+      ],
+    ] as const)(
+      'clears a stale %s selection when that installment option is unavailable',
+      (paymentMethod, merchant) => {
+        const setPaymentMethod = vi.fn();
+
+        render(
+          <PaymentStep
+            {...defaultProps}
+            merchant={merchant}
+            paymentTab="installments"
+            paymentMethod={paymentMethod}
+            setPaymentMethod={setPaymentMethod}
+          />
+        );
+
+        expect(setPaymentMethod).toHaveBeenCalledWith('');
+      }
+    );
   });
 
   describe('Mobile Place Order Button', () => {
@@ -443,6 +557,35 @@ describe('PaymentStep', () => {
       );
 
       // Assert
+      const button = screen.getByRole('button', { name: /place order/i });
+      expect(button).toBeDisabled();
+    });
+
+    it('disables button when the selected gateway is no longer available', () => {
+      render(
+        <PaymentStep
+          {...defaultProps}
+          merchant={null}
+          paymentMethod="paystack"
+        />
+      );
+
+      const button = screen.getByRole('button', { name: /place order/i });
+      expect(button).toBeDisabled();
+    });
+
+    it('disables button when a stale installment gateway is selected', () => {
+      render(
+        <PaymentStep
+          {...defaultProps}
+          merchant={{
+            feature_settings: { credpal_enabled: false } as FeatureSettings,
+          }}
+          paymentTab="installments"
+          paymentMethod="credpal"
+        />
+      );
+
       const button = screen.getByRole('button', { name: /place order/i });
       expect(button).toBeDisabled();
     });
@@ -622,7 +765,7 @@ describe('PaymentStep', () => {
       render(<PaymentStep {...defaultProps} merchant={null} />);
 
       // Assert
-      expect(screen.getByText('Paystack')).toBeInTheDocument();
+      expect(screen.queryByText('Paystack')).not.toBeInTheDocument();
     });
 
     it('handles undefined merchant gracefully', () => {
@@ -630,12 +773,15 @@ describe('PaymentStep', () => {
       render(<PaymentStep {...defaultProps} merchant={undefined} />);
 
       // Assert
-      expect(screen.getByText('Paystack')).toBeInTheDocument();
+      expect(screen.queryByText('Paystack')).not.toBeInTheDocument();
     });
 
     it('handles merchant with null feature_settings', () => {
       // Arrange
-      const merchant = { feature_settings: null };
+      const merchant = {
+        paystack_subaccount_code: 'ACCT_123',
+        feature_settings: null,
+      };
 
       // Act
       render(<PaymentStep {...defaultProps} merchant={merchant} />);
@@ -646,7 +792,10 @@ describe('PaymentStep', () => {
 
     it('handles merchant with undefined feature_settings', () => {
       // Arrange
-      const merchant = { feature_settings: undefined };
+      const merchant = {
+        paystack_subaccount_code: 'ACCT_123',
+        feature_settings: undefined,
+      };
 
       // Act
       render(<PaymentStep {...defaultProps} merchant={merchant} />);

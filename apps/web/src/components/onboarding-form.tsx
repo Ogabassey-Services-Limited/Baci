@@ -36,7 +36,7 @@ import {
 } from '@/lib/utils';
 import {
   type OnboardingFormValues,
-  onboardingSchema,
+  onboardingFormSchema,
 } from '@/schemas/onboarding';
 import { useOnboardingUIStore } from '@/store/onboarding-ui-store';
 import type { BrandColors } from '@/types';
@@ -173,7 +173,7 @@ export default function OnboardingForm() {
 
   const form = useForm<OnboardingFormValues>({
     // biome-ignore lint/suspicious/noExplicitAny: library type mismatch
-    resolver: zodResolver(onboardingSchema as any),
+    resolver: zodResolver(onboardingFormSchema as any),
     mode: 'onBlur',
     reValidateMode: 'onChange',
     shouldUnregister: false,

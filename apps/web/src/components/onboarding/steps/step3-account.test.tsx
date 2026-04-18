@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type z from 'zod';
 import {
   type OnboardingFormValues,
-  onboardingSchema,
+  onboardingFormSchema,
 } from '@/schemas/onboarding';
 import Step3_Account from './step3-account';
 
@@ -20,11 +20,11 @@ vi.mock('@/hooks/use-toast', () => ({
 
 function TestWrapper({ children }: { children: React.ReactNode }) {
   const methods = useForm<
-    z.input<typeof onboardingSchema>,
+    z.input<typeof onboardingFormSchema>,
     unknown,
     OnboardingFormValues
   >({
-    resolver: zodResolver(onboardingSchema),
+    resolver: zodResolver(onboardingFormSchema),
     defaultValues: {
       email: '',
       password: '',

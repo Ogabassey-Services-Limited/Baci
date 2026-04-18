@@ -17,6 +17,8 @@ describe('formatMetricChange', () => {
 
   it('normalizes invalid and zero deltas', () => {
     expect(formatMetricChange(Number.NaN)).toBe('0%');
+    expect(formatMetricChange(Number.POSITIVE_INFINITY)).toBe('0%');
+    expect(formatMetricChange(Number.NEGATIVE_INFINITY)).toBe('0%');
     expect(formatMetricChange(-0)).toBe('0%');
   });
 });

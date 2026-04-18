@@ -321,25 +321,31 @@ export async function POST(request: NextRequest) {
 
     if (orderError || !order) {
       logger.error({ message: 'Error creating order', error: orderError });
-      const message = orderError?.message || 'Failed to create order';
       const code =
         typeof orderError?.code === 'string' ? orderError.code : null;
+      const message =
+        typeof orderError?.message === 'string'
+          ? orderError.message
+          : code || 'Failed to create order';
       const clientErrorCodes = [
         'invalid_items',
         'invalid_quantity',
         'invalid_variant',
         'insufficient_stock',
+        'insufficient_variant_stock',
         'merchant_not_found',
         'customer_email_required',
         'customer_name_required',
         'items_required',
         'user_id_mismatch',
+        'invalid_payment_status',
+        'discount_amount_not_supported',
         '22P02', // PostgreSQL: Invalid text representation (e.g. invalid UUID format)
       ];
       // create_storefront_order should return { message, code } for client errors.
-      const isClientError = code
-        ? clientErrorCodes.includes(code)
-        : clientErrorCodes.includes(message);
+      const isClientError =
+        (code ? clientErrorCodes.includes(code) : false) ||
+        clientErrorCodes.includes(message);
       return NextResponse.json(
         { error: 'Failed to create order', details: message },
         { status: isClientError ? 400 : 500 }
