@@ -1,5 +1,3 @@
-'use client';
-
 import { Construction, Store } from 'lucide-react';
 
 interface StoreNotPublishedProps {

@@ -30,6 +30,7 @@ vi.mock('next/link', () => ({
   }: {
     children: React.ReactNode;
     href: string;
+    prefetch?: boolean;
   }) => <a {...props}>{children}</a>,
 }));
 

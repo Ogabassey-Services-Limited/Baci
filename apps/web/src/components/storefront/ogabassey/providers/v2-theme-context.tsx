@@ -62,14 +62,9 @@ export const V2ThemeProvider: React.FC<V2ThemeProviderProps> = ({
     initialTheme ?? 'standard'
   );
 
-  // Track if we've completed hydration
-  const [_isHydrated, setIsHydrated] = useState(false);
-
   // On mount (client-side only), apply date-based default or cookie preference
   // This runs AFTER hydration to avoid mismatch
   useEffect(() => {
-    setIsHydrated(true);
-
     // Automatic festive mode check
     const currentMonth = new Date().getMonth();
     const isDecember = currentMonth === 11;

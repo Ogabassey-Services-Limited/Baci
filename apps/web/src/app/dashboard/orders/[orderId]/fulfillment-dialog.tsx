@@ -173,7 +173,7 @@ export default function FulfillmentDialog({
 
                             return (
                               <FormField
-                                key={`${item.id}-${quantityIndex}-${field.name}`}
+                                key={fieldName}
                                 control={form.control}
                                 // biome-ignore lint/suspicious/noExplicitAny: Legacy code using any
                                 name={fieldName as any}
