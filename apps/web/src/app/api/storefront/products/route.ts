@@ -12,6 +12,21 @@ import { storefrontProductsRouteData } from './storefront-products-route-data';
 
 type ProductFilters = StorefrontProductsQuery;
 
+function hasInMemoryStorefrontFilters(filters: ProductFilters): boolean {
+  return Boolean(
+    (filters.category &&
+      !storefrontProductFilters.isAllFilter(filters.category)) ||
+      (filters.brand && !storefrontProductFilters.isAllFilter(filters.brand))
+  );
+}
+
+function escapeStorefrontSearchPattern(value: string) {
+  return value
+    .replaceAll('\\', '\\\\')
+    .replaceAll('%', '\\%')
+    .replaceAll('_', '\\_');
+}
+
 function createCachedProductsFetcher(
   merchantId: string,
   filters: ProductFilters = { sort: 'newest' }
@@ -27,6 +42,7 @@ function createCachedProductsFetcher(
         getSupabaseUrl(),
         getSupabaseAnonKey()
       );
+      const hasInMemoryFilters = hasInMemoryStorefrontFilters(filters);
 
       let query = supabase
         .from('products')
@@ -60,10 +76,16 @@ function createCachedProductsFetcher(
       }
 
       if (filters.q) {
-        const sanitizedQuery = filters.q.slice(0, 100);
+        const sanitizedQuery = escapeStorefrontSearchPattern(
+          filters.q.slice(0, 100)
+        );
         query = query.or(
           `name.ilike.%${sanitizedQuery}%,description.ilike.%${sanitizedQuery}%`
         );
+      }
+
+      if (filters.limit !== undefined && !hasInMemoryFilters) {
+        query = query.limit(filters.limit);
       }
 
       switch (filters.sort) {
@@ -120,7 +142,12 @@ function createCachedProductsFetcher(
         );
       }
 
-      return filteredProducts.map(storefrontProductsRouteData.mapProduct);
+      const limitedProducts =
+        filters.limit !== undefined && hasInMemoryFilters
+          ? filteredProducts.slice(0, filters.limit)
+          : filteredProducts;
+
+      return limitedProducts.map(storefrontProductsRouteData.mapProduct);
     },
     cacheKeyParts,
     {
@@ -170,6 +197,8 @@ export async function GET(request: NextRequest) {
       category,
       brand,
       condition,
+      compact,
+      limit,
       min_price,
       max_price,
       sort,
@@ -211,6 +240,8 @@ export async function GET(request: NextRequest) {
       category: category || undefined,
       brand: brand || undefined,
       condition: condition || undefined,
+      compact: compact || undefined,
+      limit,
       min_price,
       max_price,
       sort,

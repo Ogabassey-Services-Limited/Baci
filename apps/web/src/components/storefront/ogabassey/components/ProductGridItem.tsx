@@ -1,22 +1,32 @@
 'use client';
 // Template preview
 
-import {
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  Heart,
-  ShoppingCart,
-  Star,
-} from 'lucide-react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import Image from 'next/image';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import type { Product } from '../types';
+import { useViewportActivation } from '@/components/storefront/use-viewport-activation';
 import { getProductUrl } from '@/lib/seo-utils';
-import { useMerchantSafe } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
+import { useDeferredActivation } from './deferred-shell-feature';
+
+const DeferredProductGridImageChrome = dynamic(
+  () =>
+    import('./ProductGridItemChrome').then(
+      (mod) => mod.ProductGridImageChrome
+    ),
+  { loading: () => null }
+);
+
+const DeferredProductGridContentChrome = dynamic(
+  () =>
+    import('./ProductGridItemChrome').then(
+      (mod) => mod.ProductGridContentChrome
+    ),
+  { loading: () => null }
+);
 
 /**
  * Safely strips HTML tags from a string using iterative approach
@@ -33,7 +43,7 @@ function stripHtml(html: string): string {
   return result;
 }
 
-interface ProductGridItemProps {
+export interface ProductGridItemProps {
   product: Product;
   onAddToCart: (e: React.MouseEvent, product: Product) => void;
   isAdded: boolean;
@@ -41,7 +51,11 @@ interface ProductGridItemProps {
   viewMode?: 'grid' | 'list';
   isWishlisted: boolean;
   onToggleWishlist: (e: React.MouseEvent) => void;
-  storeSlug?: string;
+  basePath?: string;
+  deferInteractiveChrome?: boolean;
+  interactiveChromeTimeoutMs?: number;
+  interactiveChromeActivateOnIdle?: boolean;
+  deferImageLoading?: boolean;
 }
 
 export const ProductGridItem: React.FC<ProductGridItemProps> = ({
@@ -52,17 +66,31 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
   viewMode = 'grid',
   isWishlisted,
   onToggleWishlist,
-  storeSlug,
+  basePath = '',
+  deferInteractiveChrome = false,
+  interactiveChromeTimeoutMs = 1400,
+  interactiveChromeActivateOnIdle = true,
+  deferImageLoading = false,
 }) => {
-  const merchantContext = useMerchantSafe();
-  const basePath = merchantContext?.basePath || '';
-
-  // Use slightly larger icons in the mobile list feed
   const iconSize = viewMode === 'list' ? 22 : 18;
 
   // State to track selected color
   const [activeColorIndex, setActiveColorIndex] = useState(0);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
+  const interactiveChromeActivated = useDeferredActivation({
+    enabled: deferInteractiveChrome,
+    timeoutMs: interactiveChromeTimeoutMs,
+    activateOnIdle: interactiveChromeActivateOnIdle,
+  });
+  const { ref: imageViewportRef, isActive: isImageViewportActive } =
+    useViewportActivation<HTMLDivElement>({
+      enabled: deferImageLoading,
+      rootMargin: '150px 0px',
+      timeoutMs: 6000,
+    });
+  const showInteractiveChrome =
+    !deferInteractiveChrome || interactiveChromeActivated;
+  const shouldRenderImage = !deferImageLoading || isImageViewportActive;
 
   // Fallback placeholder for products without images
   const PLACEHOLDER_IMAGE =
@@ -71,11 +99,14 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
   // Determine current image: use the specific color image if available, otherwise fallback to main image or placeholder
   const currentImage =
     product.images?.[activeColorIndex] || product.image || PLACEHOLDER_IMAGE;
+  const teaserDescription = stripHtml(product.description || '')
+    .replace(/What is the .*? Price in Nigeria\??/i, '')
+    .trim();
 
   // Reset loading state when image source changes
   useEffect(() => {
     setIsImageLoaded(false);
-  }, []);
+  }, [currentImage]);
 
   const handlePrevColor = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -100,9 +131,15 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
   };
 
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm md:hover:shadow-xl active:shadow-md active:scale-[0.99] transition-all duration-300 group flex flex-col h-full relative">
+    <div
+      className={`bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm md:hover:shadow-xl active:shadow-md active:scale-[0.99] transition-all duration-300 group flex flex-col h-full relative [content-visibility:auto] ${viewMode === 'list'
+        ? '[contain-intrinsic-size:auto_220px]'
+        : '[contain-intrinsic-size:auto_360px]'
+        }`}
+    >
       <Link
         href={asRoute(`${basePath}${getProductUrl({ ...product, id: String(product.id) })}`)}
+        prefetch={false}
         className="absolute inset-0 z-0"
       >
         <span className="sr-only">
@@ -112,27 +149,10 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
 
       {/* Image Container - Gray Box with Overlapping Button */}
       {/* overflow-visible needed for the button to hang off the edge */}
-      <div className="relative aspect-square mb-3 md:mb-4 bg-gray-50 rounded-2xl flex items-center justify-center overflow-visible z-10 pointer-events-none">
-        {/* Navigation Arrows (Transparent on Mobile, Glassy on Desktop) */}
-        {product.colors && product.colors.length > 1 && (
-          <>
-            <button
-              onClick={handlePrevColor}
-              className="absolute -left-2 md:left-2 top-1/2 -translate-y-1/2 z-30 p-2 md:p-1.5 bg-transparent md:bg-white/40 md:backdrop-blur-md border-0 md:border md:border-white/50 rounded-full shadow-none md:shadow-sm text-gray-500 md:text-gray-700 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-200 md:hover:bg-white/60 hover:text-gray-900 pointer-events-auto active:scale-95 touch-manipulation"
-              aria-label="Previous color"
-            >
-              <ChevronLeft size={24} className="md:w-[18px] md:h-[18px]" />
-            </button>
-            <button
-              onClick={handleNextColor}
-              className="absolute -right-2 md:right-2 top-1/2 -translate-y-1/2 z-30 p-2 md:p-1.5 bg-transparent md:bg-white/40 md:backdrop-blur-md border-0 md:border md:border-white/50 rounded-full shadow-none md:shadow-sm text-gray-500 md:text-gray-700 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-200 md:hover:bg-white/60 hover:text-gray-900 pointer-events-auto active:scale-95 touch-manipulation"
-              aria-label="Next color"
-            >
-              <ChevronRight size={24} className="md:w-[18px] md:h-[18px]" />
-            </button>
-          </>
-        )}
-
+      <div
+        ref={imageViewportRef}
+        className="relative aspect-square mb-3 md:mb-4 bg-gray-50 rounded-2xl flex items-center justify-center overflow-visible z-10 pointer-events-none"
+      >
         {/* Skeleton Loader */}
         {!isImageLoaded && (
           <div className="absolute inset-0 flex items-center justify-center z-0">
@@ -140,20 +160,24 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
           </div>
         )}
 
-        <Image
-          src={currentImage}
-          alt={product.name}
-          fill
-          sizes="(max-width: 480px) 40vw, (max-width: 768px) 33vw, (max-width: 1200px) 25vw, 20vw"
-          onLoad={() => setIsImageLoaded(true)}
-          onError={(e) => {
-            // Note: `next/image` handles fallbacks differently, usually via `blurDataURL` or state.
-            // For now, simpler error handling or ensuring data is good is preferred.
-            // If strictly needed, we'd switch src state. However, next/image validates src.
-            setIsImageLoaded(true);
-          }}
-          className={`object-contain p-4 transition-all duration-500 z-10 ${isImageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}
-        />
+        {shouldRenderImage && (
+          <Image
+            src={currentImage}
+            alt={product.name}
+            fill
+            sizes="(max-width: 480px) 40vw, (max-width: 768px) 33vw, (max-width: 1200px) 25vw, 20vw"
+            loading="lazy"
+            fetchPriority="low"
+            onLoad={() => setIsImageLoaded(true)}
+            onError={() => {
+              // Note: `next/image` handles fallbacks differently, usually via `blurDataURL` or state.
+              // For now, simpler error handling or ensuring data is good is preferred.
+              // If strictly needed, we'd switch src state. However, next/image validates src.
+              setIsImageLoaded(true);
+            }}
+            className={`object-contain p-4 transition-all duration-500 z-10 ${isImageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}
+          />
+        )}
 
         {/* Condition Badge - Top Left */}
         {product.condition && (
@@ -173,113 +197,25 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
           </div>
         )}
 
-        {/* Platform Badging (Sony Style) - Bottom Left of Image */}
-        {product.variant_attributes?.Platform && product.variant_attributes.Platform.length > 0 && (
-          <div className="absolute bottom-2 left-3 flex gap-1 z-10 flex-wrap max-w-[70%]">
-            {product.variant_attributes.Platform.slice(0, 3).map((platform) => (
-              <span
-                key={platform}
-                className="bg-white/90 backdrop-blur-sm text-gray-900 text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm border border-gray-100 uppercase tracking-tighter"
-              >
-                {platform.replace('PlayStation ', 'PS').replace('Nintendo Switch', 'Switch')}
-              </span>
-            ))}
-            {product.variant_attributes.Platform.length > 3 && (
-              <span className="bg-white/90 backdrop-blur-sm text-gray-500 text-[9px] px-1 py-0.5 rounded">+</span>
-            )}
-          </div>
-        )}
-
-        {/* Colors Swatches - Bottom Middle - INTERACTIVE */}
-        {product.colors && product.colors.length > 0 && (
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center -space-x-1.5 z-20 pointer-events-auto">
-            {product.colors.slice(0, 4).map((color, idx) => {
-              const hexColor = typeof color === 'string'
-                ? (color.startsWith('#') ? color : '#cccccc')
-                : color.value;
-              const isSelected = idx === activeColorIndex;
-              return (
-                <button
-                  key={idx}
-                  onClick={(e) => handleColorSelect(e, idx)}
-                  className={`rounded-full border border-white shadow-sm transition-all duration-300 ease-out ${isSelected
-                    ? 'w-4 h-4 ring-2 ring-gray-300 ring-offset-1 z-30 scale-110'
-                    : 'w-3.5 h-3.5 hover:scale-110 hover:z-20 opacity-90 hover:opacity-100'
-                    }`}
-                  style={{ backgroundColor: hexColor }}
-                  title={typeof color === 'string' ? color : color.name}
-                  aria-label={`Select color ${typeof color === 'string' ? color : color.name}`}
-                />
-              );
-            })}
-            {product.colors.length > 4 && (
-              <div className="w-3.5 h-3.5 rounded-full bg-gray-100 border border-white flex items-center justify-center text-[8px] font-bold text-gray-500 shadow-sm ml-0.5">
-                +
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Wishlist Button - Top Right */}
-        <button
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onToggleWishlist(e);
-          }}
-          aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
-          className="absolute top-2 right-2 z-20 p-2 rounded-full bg-white/50 md:hover:bg-white active:bg-white backdrop-blur-sm shadow-sm transition-all duration-200 pointer-events-auto group/heart active:scale-90"
-        >
-          <Heart
-            size={18}
-            className={`transition-all duration-200 ${isWishlisted
-              ? 'fill-primary text-primary scale-110'
-              : 'text-gray-400 md:group-hover/heart:text-primary'
-              }`}
+        {showInteractiveChrome && (
+          <DeferredProductGridImageChrome
+            activeColorIndex={activeColorIndex}
+            cartQuantity={cartQuantity}
+            iconSize={iconSize}
+            isAdded={isAdded}
+            isWishlisted={isWishlisted}
+            onAddToCart={onAddToCart}
+            onNextColor={handleNextColor}
+            onPrevColor={handlePrevColor}
+            onSelectColor={handleColorSelect}
+            onToggleWishlist={onToggleWishlist}
+            product={product}
           />
-        </button>
-
-        {/* Floating Cart Button - Inside Bottom Right */}
-        <button
-          onClick={(e) => onAddToCart(e, product)}
-          aria-label={isAdded ? `${product.name} added to cart` : `Add ${product.name} to cart`}
-          className={`absolute bottom-3 right-3 z-20 h-10 w-10 flex items-center justify-center rounded-full shadow-md border border-gray-100 transition-all duration-200 pointer-events-auto active:scale-90 ${isAdded
-            ? 'bg-primary text-white md:hover:bg-primary/90'
-            : 'bg-white text-gray-900 md:hover:text-primary md:hover:border-primary/10'
-            }`}
-        >
-          {isAdded ? (
-            <Check size={iconSize} />
-          ) : (
-            <ShoppingCart size={iconSize} />
-          )}
-          {/* Quantity Badge */}
-          {cartQuantity > 0 && (
-            <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 flex items-center justify-center bg-primary text-white text-[10px] font-bold rounded-full border-2 border-white shadow-sm">
-              {cartQuantity > 99 ? '99+' : cartQuantity}
-            </span>
-          )}
-        </button>
+        )}
       </div>
 
       {/* Content */}
       <div className="flex flex-col flex-1 pointer-events-none px-1 pt-1">
-        {/* Ratings */}
-        <div className="flex items-center mb-1.5 flex-wrap gap-y-1">
-          <div className="flex items-center gap-1">
-            {[...Array(5)].map((_, i) => (
-              <Star
-                key={i}
-                size={12}
-                className={`${i < Math.floor(product.rating ?? 0) ? 'fill-amber-400 text-amber-400' : 'text-gray-300'}`}
-              />
-            ))}
-            <span className="text-[10px] text-gray-400 ml-1">
-              ({product.rating})
-            </span>
-          </div>
-        </div>
-
         {/* Title - Dark Gray (Standard) with Red Hover */}
         <h3 className="font-bold text-base text-gray-900 mb-1 leading-tight line-clamp-2 md:group-hover:text-primary transition-colors">
           {product.name}
@@ -290,14 +226,16 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
           )}
         </h3>
 
-        {/* Short Teaser - Single line */}
-        <p
-          className={`text-gray-400 text-[11px] mb-2 line-clamp-1 ${viewMode === 'list' ? 'block' : 'hidden md:block'}`}
-        >
-          {stripHtml(product.description || '').replace(/What is the .*? Price in Nigeria\??/i, '').trim().slice(0, 60)}
-          {stripHtml(product.description || '').replace(/What is the .*? Price in Nigeria\??/i, '').trim().length > 60 ? '...' : ''}
-          <span className="text-primary font-medium ml-1">View specs →</span>
-        </p>
+        {showInteractiveChrome && (
+          <DeferredProductGridContentChrome
+            basePath={basePath}
+            cartQuantity={cartQuantity}
+            isAdded={isAdded}
+            product={product}
+            teaserDescription={teaserDescription}
+            viewMode={viewMode}
+          />
+        )}
 
         {/* Price & Details */}
         <div className="mt-auto flex items-end justify-between border-t border-dashed border-gray-100 pt-3">
@@ -308,18 +246,6 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
             Details
           </span>
         </div>
-
-        {/* View Cart Button - Desktop only, shown after adding to cart */}
-        {(cartQuantity > 0 || isAdded) && (
-          <Link
-            href={asRoute(`${basePath}/cart`)}
-            className="hidden md:flex items-center justify-center gap-2 mt-3 py-2.5 px-4 bg-primary hover:bg-primary/90 text-white text-sm font-semibold rounded-xl transition-all duration-200 pointer-events-auto relative z-20"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <ShoppingCart size={16} />
-            View Cart{cartQuantity > 0 ? ` (${cartQuantity})` : ''}
-          </Link>
-        )}
       </div>
     </div>
   );

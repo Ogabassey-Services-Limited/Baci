@@ -88,6 +88,9 @@ vi.mock('@/components/ui/tooltip', () => ({
 }));
 
 vi.mock('@/contexts/auth-context', () => ({
+  AuthProvider: ({ children }: { children: ReactNode }) => (
+    <div data-testid="auth-provider">{children}</div>
+  ),
   useAuth: () => mockUseAuth(),
 }));
 
@@ -137,6 +140,7 @@ describe('AdminLayout', () => {
     );
 
     expect(screen.getByTestId('csrf-initializer')).toBeInTheDocument();
+    expect(screen.getByTestId('auth-provider')).toBeInTheDocument();
     expect(screen.getByText('Verifying admin access...')).toBeInTheDocument();
   });
 

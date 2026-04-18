@@ -17,7 +17,7 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => mockUseSearchParams(),
 }));
 
-vi.mock('@/hooks/use-cart', () => ({
+vi.mock('@/hooks/cart', () => ({
   useCart: vi.fn(() => ({
     addToCart: mockAddToCart,
     applyNegotiatedPrice: mockApplyNegotiatedPrice,

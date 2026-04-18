@@ -4,7 +4,7 @@ import { Download, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import type React from 'react';
 import { useState } from 'react';
-import { useCart } from '@/hooks/use-cart';
+import { useCart } from '@/hooks/cart';
 import { Logo } from './Logo';
 
 export interface InvoiceItemData {

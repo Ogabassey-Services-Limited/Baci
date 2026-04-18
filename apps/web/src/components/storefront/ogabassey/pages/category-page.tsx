@@ -4,10 +4,10 @@ import { ChevronRight, Filter, LayoutGrid, List, X } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
-import { useCart } from '@/hooks/use-cart';
+import { useCart } from '@/hooks/cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
-import { SafeHtml } from '@/components/ui/safe-html';
 import { asRoute } from '@/lib/routes';
+import type { CategoryHubModel } from '@/lib/storefront-category/category-hub-types';
 import { STOREFRONT_PRODUCTS_PER_PAGE } from '@/lib/storefront-pagination';
 import { AdUnit } from '../components/AdUnit';
 import { BannerCarousel } from '../components/BannerCarousel';
@@ -17,21 +17,16 @@ import {
 } from '../components/CategoryFiltersSidebar';
 import { ProductCard } from '../components/ProductCard';
 import { StorefrontPagination } from '../components/StorefrontPagination';
+import { CategoryHubSections } from '../seo/category-hub-sections';
 import type { Product } from '../types';
-
-import { CheckCircle } from 'lucide-react';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
+import { toRelatedProductsProduct } from './product-details-page/related-product';
 
 export interface CategorySEOProps {
   seoHeading?: string;
   seoDescription?: string;
   seoFeatures?: string[];
   seoFaqs?: { question: string; answer: string }[];
+  hubContent?: CategoryHubModel;
   /** Products fetched from Supabase by the server page */
   products?: Product[];
   /** Optional category image URL from database */
@@ -50,11 +45,25 @@ function getColorName(color: CategoryPageColor): string | null {
   return typeof color === 'string' ? color : color.name || null;
 }
 
+const INITIAL_FILTER_STATE: FilterState = {
+  brand: [],
+  condition: [],
+  storage: [],
+  ram: [],
+  colors: [],
+  simType: [],
+  displayType: [],
+  displaySize: [],
+  minPrice: 0,
+  maxPrice: 3000000,
+};
+
 export const CategoryPage: React.FC<CategorySEOProps> = ({
   seoHeading,
   seoDescription,
   seoFeatures = [],
   seoFaqs = [],
+  hubContent,
   products = [],
   categoryImage,
   currentPage = 1,
@@ -65,7 +74,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
   const categoryName = (params?.category || 'All') as string;
   const _router = useRouter();
   const { addToCart } = useCart();
-  const [addedItems, setAddedItems] = useState<number[]>([]);
+  const [addedItems, setAddedItems] = useState<string[]>([]);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [showDesktopBanner, setShowDesktopBanner] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -76,27 +85,14 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
     Number.isInteger(itemsPerPage) && itemsPerPage > 0
       ? itemsPerPage
       : STOREFRONT_PRODUCTS_PER_PAGE;
-
-  // Initial Filter State
-  const initialFilterState: FilterState = {
-    brand: [],
-    condition: [],
-    storage: [],
-    ram: [],
-    colors: [],
-    simType: [],
-    displayType: [],
-    displaySize: [],
-    minPrice: 0,
-    maxPrice: 3000000,
-  };
-
-  const [filters, setFilters] = useState<FilterState>(initialFilterState);
+  const [filters, setFilters] = useState<FilterState>(INITIAL_FILTER_STATE);
 
   // Scroll to top when category changes & Reset filters
   useEffect(() => {
-    window.scrollTo(0, 0);
-    setFilters(initialFilterState);
+    if (categoryName) {
+      window.scrollTo(0, 0);
+      setFilters(INITIAL_FILTER_STATE);
+    }
   }, [categoryName]); // Add categoryName dependency for proper reset
 
   useEffect(() => {
@@ -154,7 +150,9 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
       if (p.condition) options.condition.add(p.condition);
       if (p.storage) {
         if (Array.isArray(p.storage)) {
-          p.storage.forEach((s) => options.storage.add(s));
+          p.storage.forEach((s) => {
+            options.storage.add(s);
+          });
         } else {
           options.storage.add(p.storage);
         }
@@ -234,8 +232,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
       // Colors: If product has ANY of the selected colors
       if (filters.colors.length > 0) {
         if (
-          !p.colors ||
-          !p.colors.some((color: CategoryPageColor) => {
+          !p.colors?.some((color: CategoryPageColor) => {
             const colorName = getColorName(color);
             return colorName ? filters.colors.includes(colorName) : false;
           })
@@ -255,8 +252,8 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
     filters.simType.length > 0 ||
     filters.displayType.length > 0 ||
     filters.displaySize.length > 0 ||
-    filters.minPrice !== initialFilterState.minPrice ||
-    filters.maxPrice !== initialFilterState.maxPrice;
+    filters.minPrice !== INITIAL_FILTER_STATE.minPrice ||
+    filters.maxPrice !== INITIAL_FILTER_STATE.maxPrice;
 
   const totalPages = Math.max(
     1,
@@ -295,15 +292,12 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
     // e.preventDefault(); // handled in ProductCard
     // e.stopPropagation();
 
-    addToCart(product as any, 1);
+    addToCart(toRelatedProductsProduct(product), 1);
 
-    const pid =
-      typeof product.id === 'string'
-        ? Number.parseInt(product.id, 10)
-        : product.id;
-    setAddedItems((prev) => [...prev, pid]);
+    const productId = String(product.id);
+    setAddedItems((prev) => [...prev, productId]);
     setTimeout(() => {
-      setAddedItems((prev) => prev.filter((id) => id !== pid));
+      setAddedItems((prev) => prev.filter((id) => id !== productId));
     }, 2000);
   };
 
@@ -319,15 +313,30 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
   // SEO heading is only for the SEO content block at the bottom, not the H1
   const pageTitle = displayTitle;
   const categoryPath = asRoute(`${basePath}/${categoryName}`);
+  const legacyHubModel: CategoryHubModel = {
+    intro: {
+      heading:
+        seoHeading || (seoDescription ? `Buy ${pageTitle} in Nigeria` : ''),
+      description: seoDescription || '',
+      source: seoHeading || seoDescription ? 'merchant' : 'fallback',
+    },
+    trustFeatures: seoFeatures,
+    bestForCards: [],
+    brandCards: [],
+    priceBandCards: [],
+    comparisonLinks: [],
+    guideLinks: [],
+    faqItems: seoFaqs,
+  };
+  const hubModel = hubContent ?? legacyHubModel;
 
   return (
     <div className="min-h-screen bg-[color:color-mix(in_srgb,var(--store-background,#ffffff)_94%,var(--store-background-text,#111827)_6%)] pb-20 pt-4">
       {/* Header Ad replaced with Banner Carousel */}
-      <div className="mx-auto mb-4 hidden min-h-[208px] max-w-[1400px] px-4 md:block md:px-6">
+      <section className="mx-auto mb-4 hidden min-h-[208px] max-w-[1400px] px-4 md:block md:px-6">
         {showDesktopBanner && (
-          <div
+          <section
             data-testid="category-banner-carousel"
-            role="region"
             aria-label="Category banner carousel"
           >
             <BannerCarousel
@@ -336,9 +345,9 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
               title={displayTitle}
               description={seoDescription}
             />
-          </div>
+          </section>
         )}
-      </div>
+      </section>
 
       {/* Breadcrumb & Header */}
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 mb-6">
@@ -369,12 +378,14 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
           <div className="flex items-center gap-2">
             <div className="hidden md:flex items-center bg-[var(--store-background,#ffffff)] rounded-lg p-1 border border-[var(--store-background-text,#111827)]/15">
               <button
+                type="button"
                 onClick={() => setViewMode('grid')}
                 className={`p-2 rounded-md transition-all ${viewMode === 'grid' ? 'bg-[var(--store-background-text,#111827)]/10 text-[var(--store-background-text,#111827)] shadow-sm' : 'text-[var(--store-background-text,#111827)]/40 hover:text-[var(--store-background-text,#111827)]/70'}`}
               >
                 <LayoutGrid size={18} />
               </button>
               <button
+                type="button"
                 onClick={() => setViewMode('list')}
                 className={`p-2 rounded-md transition-all ${viewMode === 'list' ? 'bg-[var(--store-background-text,#111827)]/10 text-[var(--store-background-text,#111827)] shadow-sm' : 'text-[var(--store-background-text,#111827)]/40 hover:text-[var(--store-background-text,#111827)]/70'}`}
               >
@@ -383,6 +394,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
             </div>
 
             <button
+              type="button"
               onClick={() => setIsMobileFilterOpen(true)}
               className="flex items-center gap-2 rounded-xl bg-[var(--store-primary)] px-4 py-2.5 text-sm font-bold text-[var(--store-primary-text,#ffffff)] shadow-md active:scale-95 md:hidden"
             >
@@ -401,7 +413,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
                 filters={filters}
                 availableOptions={availableOptions}
                 onFilterChange={handleFilterChange}
-                onClearFilters={() => setFilters(initialFilterState)}
+                onClearFilters={() => setFilters(INITIAL_FILTER_STATE)}
               />
               <div className="mt-6">
                 <AdUnit placementKey="PRODUCT_SIDEBAR" />
@@ -414,7 +426,10 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
             {filteredProducts.length === 0 ? (
               <div className="text-center py-20 bg-[var(--store-background,#ffffff)] rounded-2xl border border-[var(--store-background-text,#111827)]/10 shadow-sm">
                 <div className="w-16 h-16 bg-[var(--store-background-text,#111827)]/5 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Filter className="text-[var(--store-background-text,#111827)]/40" size={32} />
+                  <Filter
+                    className="text-[var(--store-background-text,#111827)]/40"
+                    size={32}
+                  />
                 </div>
                 <h3 className="text-lg font-bold text-[var(--store-background-text,#111827)] mb-1">
                   No products found
@@ -423,7 +438,8 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
                   Try adjusting your filters to find what you're looking for.
                 </p>
                 <button
-                  onClick={() => setFilters(initialFilterState)}
+                  type="button"
+                  onClick={() => setFilters(INITIAL_FILTER_STATE)}
                   className="font-bold text-[var(--store-primary)] hover:underline"
                 >
                   Clear all filters
@@ -438,11 +454,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
                 }
               >
                 {visibleProducts.map((product, index) => {
-                  const isAdded = addedItems.includes(
-                    typeof product.id === 'string'
-                      ? Number.parseInt(product.id, 10)
-                      : product.id
-                  );
+                  const isAdded = addedItems.includes(String(product.id));
                   return (
                     <React.Fragment key={product.id}>
                       <ProductCard
@@ -497,100 +509,63 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
         </div>
       </div>
 
-      {/* SEO Content & FAQs - Moved to Bottom (Best Practice) */}
-      <div className="max-w-[1400px] mx-auto px-4 md:px-6 mt-16 border-t border-[var(--store-background-text,#111827)]/10 pt-16 [content-visibility:auto] [contain-intrinsic-size:1400px_900px]">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-          {/* SEO Text */}
-          {(seoHeading || seoDescription) && (
-            <div>
-              <h2 className="text-2xl font-bold text-[var(--store-background-text,#111827)] mb-4">
-                {seoHeading || `Buy ${pageTitle} in Nigeria`}
-              </h2>
-              {seoDescription && (
-                <div className="prose text-[var(--store-background-text,#111827)] text-[var(--store-background-text,#111827)]/50 leading-relaxed text-sm">
-                  <p>{seoDescription}</p>
-                </div>
-              )}
-              {/* Features Grid */}
-              {seoFeatures && seoFeatures.length > 0 && (
-                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6">
-                  {seoFeatures.map((feature, idx) => (
-                    <li key={idx} className="flex items-center gap-2 text-sm text-[var(--store-background-text,#111827)]/70">
-                      <CheckCircle size={16} className="text-[var(--store-primary)] shrink-0" />
-                      <span className="font-medium">{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
-
-          {/* FAQs */}
-          {seoFaqs && seoFaqs.length > 0 && (
-            <div>
-              <h3 className="text-xl font-bold text-[var(--store-background-text,#111827)] mb-4">Frequently Asked Questions</h3>
-              <Accordion type="single" collapsible className="w-full">
-                {seoFaqs.map((faq, idx) => (
-                  <AccordionItem value={`item-${idx}`} key={idx} className="border-b border-b-[color:var(--store-background-text,#111827)]/10">
-                    <AccordionTrigger className="py-3 text-left text-sm font-semibold text-[var(--store-background-text,#111827)]/80 hover:text-[var(--store-primary)] hover:no-underline">
-                      {faq.question}
-                    </AccordionTrigger>
-                    <AccordionContent className="text-[var(--store-background-text,#111827)]/50 text-sm leading-relaxed">
-                      <SafeHtml html={faq.answer} />
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
-            </div>
-          )}
-        </div>
-      </div>
+      <CategoryHubSections hub={hubModel} />
 
       {/* Mobile Filter Drawer */}
-      {
-        isMobileFilterOpen && (
-          <div className="fixed inset-0 z-[60] flex justify-end">
-            <div
-              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-              onClick={() => setIsMobileFilterOpen(false)}
-            />
-            <div
-              className="relative w-full max-w-xs bg-[var(--store-background,#ffffff)] h-full shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-300"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="mobile-filter-heading"
-            >
-              <div className="sticky top-0 bg-[var(--store-background,#ffffff)] z-10 px-5 py-4 border-b border-[var(--store-background-text,#111827)]/10 flex items-center justify-between">
-                <h3 id="mobile-filter-heading" className="font-bold text-lg text-[var(--store-background-text,#111827)]">Filters</h3>
-                <button
-                  onClick={() => setIsMobileFilterOpen(false)}
-                  className="p-1 hover:bg-[var(--store-background-text,#111827)]/10 rounded-full"
-                  aria-label="Close filters"
-                >
-                  <X size={24} className="text-[var(--store-background-text,#111827)]/50" />
-                </button>
-              </div>
-              <div className="p-5 pb-24">
-                <CategoryFiltersSidebar
-                  filters={filters}
-                  availableOptions={availableOptions}
-                  onFilterChange={handleFilterChange}
-                  onClearFilters={() => setFilters(initialFilterState)}
-                  className="border-none shadow-none p-0"
+      {isMobileFilterOpen && (
+        <div className="fixed inset-0 z-[60] flex justify-end">
+          <button
+            type="button"
+            aria-label="Close filters"
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setIsMobileFilterOpen(false)}
+          />
+          <div
+            className="relative w-full max-w-xs bg-[var(--store-background,#ffffff)] h-full shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-300"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mobile-filter-heading"
+          >
+            <div className="sticky top-0 bg-[var(--store-background,#ffffff)] z-10 px-5 py-4 border-b border-[var(--store-background-text,#111827)]/10 flex items-center justify-between">
+              <h3
+                id="mobile-filter-heading"
+                className="font-bold text-lg text-[var(--store-background-text,#111827)]"
+              >
+                Filters
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsMobileFilterOpen(false)}
+                className="p-1 hover:bg-[var(--store-background-text,#111827)]/10 rounded-full"
+                aria-label="Close filters"
+              >
+                <X
+                  size={24}
+                  className="text-[var(--store-background-text,#111827)]/50"
                 />
-              </div>
-              <div className="absolute bottom-0 left-0 right-0 p-4 bg-[var(--store-background,#ffffff)] border-t border-[var(--store-background-text,#111827)]/10">
-                <button
-                  onClick={() => setIsMobileFilterOpen(false)}
-                  className="w-full rounded-xl bg-[var(--store-primary)] py-3 font-bold text-[var(--store-primary-text,#ffffff)] shadow-lg active:scale-95"
-                >
-                  Show {filteredProducts.length} Results
-                </button>
-              </div>
+              </button>
+            </div>
+            <div className="p-5 pb-24">
+              <CategoryFiltersSidebar
+                filters={filters}
+                availableOptions={availableOptions}
+                onFilterChange={handleFilterChange}
+                onClearFilters={() => setFilters(INITIAL_FILTER_STATE)}
+                className="border-none shadow-none p-0"
+              />
+            </div>
+            <div className="absolute bottom-0 left-0 right-0 p-4 bg-[var(--store-background,#ffffff)] border-t border-[var(--store-background-text,#111827)]/10">
+              <button
+                type="button"
+                onClick={() => setIsMobileFilterOpen(false)}
+                className="w-full rounded-xl bg-[var(--store-primary)] py-3 font-bold text-[var(--store-primary-text,#ffffff)] shadow-lg active:scale-95"
+              >
+                Show {filteredProducts.length} Results
+              </button>
             </div>
           </div>
-        )
-      }
+        </div>
+      )}
     </div>
   );
 };

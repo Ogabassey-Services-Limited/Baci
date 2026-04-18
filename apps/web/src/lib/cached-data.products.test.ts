@@ -327,6 +327,8 @@ describe('cached-data product query projections', () => {
       ['cat-smartphones', 'cat-iphone']
     );
     expect(harness.mockLimit).not.toHaveBeenCalled();
+    const selectArg = String(harness.mockSelect.mock.calls.at(-1)?.[0]);
+    expect(selectArg).toContain('product_key_specs');
     expect(result.products).toEqual(productQueryResult.data);
   });
 });

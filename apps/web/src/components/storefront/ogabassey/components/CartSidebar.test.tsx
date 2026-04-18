@@ -27,7 +27,7 @@ const mockApplyNegotiatedPrice = vi.fn();
 const mockApplyCartWideNegotiation = vi.fn();
 const mockToggleAssurance = vi.fn();
 
-vi.mock('@/hooks/use-cart', () => ({
+vi.mock('@/hooks/cart', () => ({
   useCart: () => ({
     isCartOpen: true,
     setIsCartOpen: mockSetIsCartOpen,

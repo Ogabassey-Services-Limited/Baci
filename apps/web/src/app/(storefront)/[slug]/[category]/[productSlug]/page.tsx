@@ -1,9 +1,12 @@
 import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
-import { Suspense } from 'react';
+import { type ReactNode, Suspense } from 'react';
 import ProductDetailClient from '@/app/(storefront)/[slug]/products/[productSlug]/product-detail-client';
 import { ProductDetailsPage as OgabasseyProductPage } from '@/components/storefront/ogabassey/pages/product-details-page';
+import { buildOgabasseyProductSpecData } from '@/components/storefront/ogabassey/product-spec-data';
+import { ProductSemanticSections } from '@/components/storefront/ogabassey/seo/product-semantic-sections';
 import type { Product as OgabasseyProduct } from '@/components/storefront/ogabassey/types';
 import type { VariantAttributeSource } from '@/components/storefront/ogabassey/variant-attributes';
 import {
@@ -15,6 +18,7 @@ import { ProductDetailSkeleton } from '@/components/ui/skeletons';
 import {
   type CachedLegacyProductRedirectTarget,
   type CachedMerchant,
+  getCachedCategoryPageData,
   getCachedLegacyProductRedirectTarget,
   getCachedProductWithDetails,
   getRequestScopedMerchant,
@@ -26,75 +30,19 @@ import { escapeHtml } from '@/lib/sanitize-core';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   generateBreadcrumbSchema,
+  generateMetaDescription,
   generateProductSchema,
   generateSlug,
+  getIndexableRobotsMetadata,
   getProductUrl,
 } from '@/lib/seo-utils';
-import { buildStoreUrl } from '@/lib/store-url';
+import { buildRequestScopedStoreUrl } from '@/lib/store-url';
+import { getPublishedClusterPosts } from '@/lib/storefront-content/get-published-cluster-posts';
+import { buildProductSemanticModel } from '@/lib/storefront-product/build-product-semantic-model';
+import { getStorefrontProductSocialMetadata } from '@/lib/storefront-product-social-metadata';
 import { normalizeStorefrontProductVariants } from '@/lib/storefront-product-variants';
+import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import { isValidMerchantIdentifier } from '@/lib/validation';
-
-/** KeySpecs interface for product_key_specs */
-interface KeySpecs {
-  screen_size_inches?: number;
-  refresh_rate_hz?: number;
-  chipset?: string;
-  ram_gb?: number;
-  storage_gb?: number;
-  main_camera_mp?: number;
-  battery_mah?: number;
-  charging_watt?: number;
-  has_5g?: boolean;
-  android_version?: string;
-  network_technology?: string;
-  sim_type?: string;
-  has_nfc?: boolean;
-  wifi_bands?: string;
-  bluetooth_version?: string;
-  usb_type?: string;
-  has_usb_otg?: boolean;
-  positioning?: string;
-  has_fm_radio?: boolean;
-  dimensions_mm?: string;
-  weight_g?: number;
-  build_materials?: string;
-  ip_rating?: string;
-  display_type?: string;
-  display_resolution?: string;
-  display_ppi?: number;
-  display_protection?: string;
-  display_peak_brightness?: number;
-  front_camera_mp?: number;
-  front_camera_features?: string;
-  front_camera_video?: string;
-  rear_camera_features?: string;
-  rear_camera_video?: string;
-  has_dual_camera?: boolean;
-  has_triple_camera?: boolean;
-  has_quad_camera?: boolean;
-  has_stereo_speakers?: boolean;
-  has_headphone_jack?: boolean;
-  fingerprint_type?: string;
-  sensors?: string;
-  battery_removable?: boolean;
-  has_wireless_charging?: boolean;
-  wireless_charging_watt?: number;
-  has_reverse_charging?: boolean;
-  cpu_cores?: string;
-  gpu?: string;
-  has_card_slot?: boolean;
-  card_slot_type?: string;
-  available_colors?: string;
-  model_numbers?: string;
-  announced_date?: string;
-  release_date?: string;
-  [key: string]: string | number | boolean | undefined;
-}
-
-/** Product with key specs for type safety */
-interface ProductWithKeySpecs {
-  product_key_specs?: KeySpecs;
-}
 
 /**
  * Converts server-side Product to Ogabassey template format
@@ -110,298 +58,6 @@ function toOgabasseyProduct(
     minimumFractionDigits: 0,
   });
 
-  // Transform product_key_specs into detailedSpecs format
-  const productWithSpecs = product as unknown as ProductWithKeySpecs;
-  const keySpecs = productWithSpecs.product_key_specs;
-  let detailedSpecs: {
-    category: string;
-    items: { label: string; value: string }[];
-  }[] = [];
-  let specs: { label: string; value: string }[] = [];
-
-  if (keySpecs && !Array.isArray(keySpecs)) {
-    // Build specs array
-    const specsArray: { label: string; value: string }[] = [];
-
-    if (keySpecs.screen_size_inches) {
-      specsArray.push({
-        label: 'Display',
-        value: `${keySpecs.screen_size_inches}"`,
-      });
-    }
-    if (keySpecs.ram_gb) {
-      specsArray.push({ label: 'RAM', value: `${keySpecs.ram_gb}GB` });
-    }
-    if (keySpecs.storage_gb) {
-      specsArray.push({ label: 'Storage', value: `${keySpecs.storage_gb}GB` });
-    }
-    if (keySpecs.main_camera_mp) {
-      specsArray.push({
-        label: 'Camera',
-        value: `${keySpecs.main_camera_mp}MP`,
-      });
-    }
-    if (keySpecs.battery_mah) {
-      specsArray.push({
-        label: 'Battery',
-        value: `${keySpecs.battery_mah}mAh`,
-      });
-    }
-
-    specs = specsArray;
-
-    // Configuration for spec categories
-    /** Possible value type from KeySpecs index signature */
-    type KeySpecValue = string | number | boolean | undefined;
-
-    interface SpecField {
-      key: string;
-      label: string;
-      dynamicLabel?: (specs: KeySpecs) => string;
-      transform?: (value: KeySpecValue, allSpecs: KeySpecs) => string;
-      condition?: (specs: KeySpecs) => boolean;
-    }
-
-    interface SpecCategory {
-      category: string;
-      fields: SpecField[];
-    }
-
-    const specCategories: SpecCategory[] = [
-      {
-        category: 'Network',
-        fields: [
-          { key: 'network_technology', label: 'Technology' },
-          {
-            key: 'has_5g',
-            label: '5G Support',
-            transform: (v) => (v ? 'Yes' : 'No'),
-          },
-        ],
-      },
-      {
-        category: 'Body',
-        fields: [
-          { key: 'dimensions_mm', label: 'Dimensions' },
-          {
-            key: 'weight_g',
-            label: 'Weight',
-            transform: (v) => `${v}g`,
-          },
-          { key: 'build_materials', label: 'Build' },
-          { key: 'sim_type', label: 'SIM' },
-          { key: 'ip_rating', label: 'Protection' },
-        ],
-      },
-      {
-        category: 'Display',
-        fields: [
-          { key: 'display_type', label: 'Type' },
-          {
-            key: 'screen_size_inches',
-            label: 'Size',
-            transform: (v) => `${v} inches`,
-          },
-          { key: 'display_resolution', label: 'Resolution' },
-          {
-            key: 'refresh_rate_hz',
-            label: 'Refresh Rate',
-            transform: (v) => `${v}Hz`,
-          },
-          {
-            key: 'display_ppi',
-            label: 'Pixel Density',
-            transform: (v) => `${v} ppi`,
-          },
-          {
-            key: 'display_peak_brightness',
-            label: 'Peak Brightness',
-            transform: (v) => `${v} nits`,
-          },
-          { key: 'display_protection', label: 'Protection' },
-        ],
-      },
-      {
-        category: 'Platform',
-        fields: [
-          {
-            key: 'android_version',
-            label: 'OS',
-            transform: (v) => `Android ${v}`,
-          },
-          { key: 'chipset', label: 'Chipset' },
-          { key: 'cpu_cores', label: 'CPU' },
-          { key: 'gpu', label: 'GPU' },
-        ],
-      },
-      {
-        category: 'Memory',
-        fields: [
-          {
-            key: 'has_card_slot',
-            label: 'Card Slot',
-            transform: (_v, allSpecs) =>
-              allSpecs.has_card_slot ? allSpecs.card_slot_type || 'Yes' : 'No',
-          },
-          {
-            key: 'storage_gb',
-            label: 'Internal Storage',
-            transform: (v) => `${v}GB`,
-          },
-          {
-            key: 'ram_gb',
-            label: 'RAM',
-            transform: (v) => `${v}GB`,
-          },
-        ],
-      },
-      {
-        category: 'Main Camera',
-        fields: [
-          {
-            key: 'main_camera_mp',
-            label: 'Camera',
-            dynamicLabel: (allSpecs: KeySpecs) =>
-              allSpecs.has_quad_camera
-                ? 'Quad Camera'
-                : allSpecs.has_triple_camera
-                  ? 'Triple Camera'
-                  : allSpecs.has_dual_camera
-                    ? 'Dual Camera'
-                    : 'Single Camera',
-            transform: (v) => `${v}MP`,
-          },
-          { key: 'rear_camera_features', label: 'Features' },
-          { key: 'rear_camera_video', label: 'Video' },
-        ],
-      },
-      {
-        category: 'Selfie Camera',
-        fields: [
-          {
-            key: 'front_camera_mp',
-            label: 'Resolution',
-            transform: (v) => `${v}MP`,
-          },
-          { key: 'front_camera_features', label: 'Features' },
-          { key: 'front_camera_video', label: 'Video' },
-        ],
-      },
-      {
-        category: 'Sound',
-        fields: [
-          {
-            key: 'has_stereo_speakers',
-            label: 'Loudspeaker',
-            transform: (v) => (v ? 'Yes, with stereo speakers' : 'Yes (mono)'),
-          },
-          {
-            key: 'has_headphone_jack',
-            label: '3.5mm Jack',
-            transform: (v) => (v ? 'Yes' : 'No'),
-          },
-        ],
-      },
-      {
-        category: 'Connectivity',
-        fields: [
-          { key: 'wifi_bands', label: 'WLAN' },
-          { key: 'bluetooth_version', label: 'Bluetooth' },
-          { key: 'positioning', label: 'Positioning' },
-          {
-            key: 'has_nfc',
-            label: 'NFC',
-            transform: (v) => (v ? 'Yes' : 'No'),
-          },
-          {
-            key: 'has_fm_radio',
-            label: 'Radio',
-            transform: (v) => (v ? 'FM Radio' : 'No'),
-          },
-          {
-            key: 'usb_type',
-            label: 'USB',
-            transform: (v, allSpecs) =>
-              String(v) + (allSpecs.has_usb_otg ? ', OTG' : ''),
-          },
-        ],
-      },
-      {
-        category: 'Features',
-        fields: [
-          { key: 'fingerprint_type', label: 'Fingerprint' },
-          { key: 'sensors', label: 'Sensors' },
-        ],
-      },
-      {
-        category: 'Battery',
-        fields: [
-          {
-            key: 'battery_mah',
-            label: 'Capacity',
-            transform: (v, allSpecs) =>
-              `${v}mAh${allSpecs.battery_removable ? ' (removable)' : ''}`,
-          },
-          {
-            key: 'charging_watt',
-            label: 'Wired Charging',
-            transform: (v) => `${v}W`,
-          },
-          {
-            key: 'wireless_charging_watt',
-            label: 'Wireless Charging',
-            transform: (v) => `${v}W`,
-            condition: (allSpecs: KeySpecs) => !!allSpecs.has_wireless_charging,
-          },
-          {
-            key: 'has_reverse_charging',
-            label: 'Reverse Charging',
-            transform: () => 'Yes',
-            condition: (allSpecs: KeySpecs) => !!allSpecs.has_reverse_charging,
-          },
-        ],
-      },
-      {
-        category: 'Misc',
-        fields: [
-          { key: 'available_colors', label: 'Colors' },
-          { key: 'model_numbers', label: 'Models' },
-        ],
-      },
-    ];
-
-    // Build the specs
-    detailedSpecs = specCategories
-      .map(({ category, fields }) => ({
-        category,
-        items: fields
-          .filter(
-            ({ key, condition }) =>
-              keySpecs[key] !== null &&
-              keySpecs[key] !== undefined &&
-              (!condition || condition(keySpecs))
-          )
-          .map((field) => {
-            const value = keySpecs[field.key];
-            return {
-              label: field.dynamicLabel
-                ? field.dynamicLabel(keySpecs)
-                : field.label,
-              value: field.transform
-                ? field.transform(value, keySpecs)
-                : String(value),
-            };
-          }),
-      }))
-      .filter((cat) => cat.items.length > 0);
-  }
-
-  // Fallback to old specifications format if no product_key_specs
-  if (detailedSpecs.length === 0 && product.specifications) {
-    detailedSpecs = product.specifications || [];
-    specs = product.specifications?.[0]?.items || [];
-  }
-
   // Production data currently stores variant_attributes as either:
   // 1. a legacy object map { Storage: ['256GB'] }
   // 2. an array of { param: 'storage', options: ['256GB'] }
@@ -414,6 +70,10 @@ function toOgabasseyProduct(
     product.variants,
     rawVariantAttributes
   );
+  const { detailedSpecs, specs } = buildOgabasseyProductSpecData({
+    ...product,
+    variant_attributes: normalizedVariantAttributes,
+  });
 
   // Derive storage options - check multiple sources
   // Priority: explicit storage_options > normalized variant attributes > variants
@@ -533,6 +193,39 @@ function toOgabasseyProduct(
   };
 }
 
+function buildTrustBulletsFromProfile(
+  trustProfile: Awaited<ReturnType<typeof buildMerchantTrustProfile>>
+): string[] {
+  const bullets: string[] = [];
+  const returnPolicy = trustProfile.returnPolicy;
+  if (returnPolicy?.windowDays != null) {
+    bullets.push(
+      returnPolicy.returnFees === 'free'
+        ? `Free returns within ${returnPolicy.windowDays} days`
+        : `Returns within ${returnPolicy.windowDays} days`
+    );
+  }
+
+  const shippingPolicy = trustProfile.shippingPolicy;
+  const regions = shippingPolicy?.regions ?? [];
+  const regionsText = regions.join(' ').toLowerCase();
+  if (
+    regions.some(
+      (region) => region.toUpperCase() === 'NG' || /nigeria/i.test(region)
+    ) ||
+    /nationwide/.test(shippingPolicy?.summary ?? '') ||
+    /nigeria/.test(regionsText)
+  ) {
+    bullets.push('Ships across Nigeria');
+  }
+
+  if (trustProfile.whatsappNumber) {
+    bullets.push('WhatsApp support available');
+  }
+
+  return bullets;
+}
+
 /**
  * Template-aware product page component
  * Renders the correct template's product page based on merchant's template_id
@@ -540,18 +233,30 @@ function toOgabasseyProduct(
 function TemplateProductPage({
   product,
   templateId,
+  semanticSections,
 }: {
   product: Product;
   templateId?: string;
+  semanticSections: ReactNode;
 }) {
   // Ogabassey template
   if (templateId === 'ogabassey') {
     const ogabasseyProduct = toOgabasseyProduct(product);
-    return <OgabasseyProductPage product={ogabasseyProduct} />;
+    return (
+      <OgabasseyProductPage
+        product={ogabasseyProduct}
+        semanticSections={semanticSections}
+      />
+    );
   }
 
   // Default: use the generic product detail client
-  return <ProductDetailClient product={product} />;
+  return (
+    <>
+      <ProductDetailClient product={product} />
+      {semanticSections}
+    </>
+  );
 }
 
 interface PageProps {
@@ -697,6 +402,10 @@ const getProduct = async (
         }
   );
   const primaryImage = normalizedImages[0]?.url || '/placeholder.png';
+  const rawVariantAttributes = (product as { variant_attributes?: unknown })
+    .variant_attributes as VariantAttributeSource;
+  const normalizedVariantAttributes =
+    normalizeVariantAttributes(rawVariantAttributes);
 
   // Create extended product with category info
   const productWithCategorySlug: Product = {
@@ -718,6 +427,7 @@ const getProduct = async (
     imageLarge: primaryImage,
     imageHint: product.imageHint || product.name,
     images: normalizedImages,
+    variant_attributes: normalizedVariantAttributes,
     fulfillmentFields: product.fulfillmentFields || [],
     category: dbCategoryName || product.category,
     category_slug: dbCategorySlug,
@@ -776,9 +486,8 @@ export async function generateMetadata({
     permanentRedirect(getRedirectTargetPath(slug, product));
   }
 
+  const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
   redirectInvalidVariantSelectionParams(slug, product, resolvedSearchParams);
-
-  const baseUrl = buildStoreUrl(merchant);
 
   // Construct canonical URL:
   // 1. Use explicit canonical from product data if available
@@ -790,6 +499,16 @@ export async function generateMetadata({
     const productPath = getProductUrl(product);
     canonicalUrl = `${baseUrl}${productPath}`;
   }
+  const seoDescription = generateMetaDescription(
+    product.meta_description ||
+      product.description ||
+      `Buy ${product.name} at ${merchant?.business_name || 'Ogabassey'}. Best price and fast delivery.`
+  );
+  const socialMetadata = getStorefrontProductSocialMetadata(
+    baseUrl,
+    product,
+    merchant.payout_currency || 'USD'
+  );
 
   const socialMedia = merchant?.social_media as
     | Record<string, string>
@@ -799,31 +518,16 @@ export async function generateMetadata({
     title:
       product.meta_title ||
       `${product.name} | ${merchant?.business_name || 'Baci Store'}`,
-    description:
-      product.meta_description ||
-      product.description ||
-      `Buy ${product.name} at ${merchant?.business_name || 'Ogabassey'}. Best price and fast delivery.`,
+    description: seoDescription,
     keywords: product.keywords,
     alternates: {
       canonical: canonicalUrl,
     },
+    robots: getIndexableRobotsMetadata(),
     openGraph: {
       title: product.meta_title || product.name,
-      description: product.meta_description || product.description,
-      images: product.images?.length
-        ? product.images.map((img) => ({
-            url: typeof img === 'string' ? img : img.url,
-            alt:
-              typeof img === 'string' ? product.name : img.alt || product.name,
-          }))
-        : [
-            {
-              url: product.imageLarge || product.image,
-              width: 800,
-              height: 600,
-              alt: product.name,
-            },
-          ],
+      description: seoDescription,
+      images: socialMetadata.openGraphImages,
       url: canonicalUrl,
       type: 'website',
       siteName: merchant?.business_name,
@@ -831,8 +535,8 @@ export async function generateMetadata({
     twitter: {
       card: 'summary_large_image',
       title: product.meta_title || product.name,
-      description: product.meta_description || product.description,
-      images: [product.imageLarge || product.image],
+      description: seoDescription,
+      images: socialMetadata.twitterImages,
       ...(socialMedia?.twitter && {
         site: socialMedia.twitter.startsWith('@')
           ? socialMedia.twitter
@@ -842,6 +546,7 @@ export async function generateMetadata({
           : `@${socialMedia.twitter}`,
       }),
     },
+    other: socialMetadata.other,
   };
 }
 
@@ -874,16 +579,88 @@ export default async function CategoryProductPage({
   }
 
   redirectInvalidVariantSelectionParams(slug, product, resolvedSearchParams);
+  const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
+  const resolvedCategorySlug =
+    product.category_slug ||
+    (product.category ? generateSlug(product.category) : 'products');
+  const categoryPageData = await getCachedCategoryPageData(
+    merchant.id,
+    resolvedCategorySlug,
+    slug
+  );
+  const guidePosts = await getPublishedClusterPosts(merchant.id);
+  const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
+  const inventoryCandidates = (
+    categoryPageData?.isCollection ? [] : (categoryPageData?.products ?? [])
+  ).map((candidate) => {
+    const productCandidate = candidate as {
+      slug: string;
+      name: string;
+      brand?: string | null;
+      condition?: string | null;
+      price: number;
+      stock?: number | null;
+      category_slug?: string | null;
+      product_key_specs?: Record<string, unknown> | null;
+    };
 
-  const baseUrl = buildStoreUrl(merchant);
+    return {
+      slug: productCandidate.slug,
+      name: productCandidate.name,
+      brand: productCandidate.brand,
+      condition: productCandidate.condition,
+      price: productCandidate.price,
+      stock: productCandidate.stock,
+      category_slug: productCandidate.category_slug,
+      product_key_specs: productCandidate.product_key_specs,
+    };
+  });
+  const semanticModel = buildProductSemanticModel({
+    storeUrl: baseUrl,
+    merchantBusinessName: merchant?.business_name || 'Baci Store',
+    categorySlug: resolvedCategorySlug,
+    categoryName: product.category || 'All Products',
+    currentProduct: {
+      slug: product.slug || String(product.id),
+      name: product.name,
+      brand: product.brand,
+      condition: product.condition,
+      price: product.price,
+      stock: product.stock,
+      category_slug: product.category_slug ?? resolvedCategorySlug,
+      product_key_specs: product.product_key_specs,
+    },
+    inventory: inventoryCandidates,
+    guidePosts,
+  });
+  const semanticSections = (
+    <ProductSemanticSections
+      model={{
+        ...semanticModel,
+        trustBullets: [
+          ...buildTrustBulletsFromProfile(trustProfile),
+          ...semanticModel.trustBullets,
+        ],
+      }}
+    />
+  );
+  const derivedSpecData = buildOgabasseyProductSpecData(product);
+  const schemaProduct =
+    derivedSpecData.detailedSpecs.length > 0
+      ? {
+          ...product,
+          specifications: derivedSpecData.detailedSpecs,
+        }
+      : product;
 
   // Generate product schema (now handles merging custom schema_markup internally)
   const productSchema = generateProductSchema(
-    product,
+    schemaProduct,
     merchant?.business_name || 'Baci Store',
     merchant?.payout_currency || 'USD',
     merchant?.country || 'NG',
-    merchant?.logo_url
+    merchant?.logo_url,
+    trustProfile
   );
 
   // Build proper URL for schema
@@ -955,6 +732,7 @@ export default async function CategoryProductPage({
       <Suspense fallback={<ProductDetailSkeleton />}>
         <TemplateProductPage
           product={product}
+          semanticSections={semanticSections}
           templateId={merchant?.template_id}
         />
       </Suspense>

@@ -28,8 +28,9 @@ vi.mock('./onboarding-page-content', () => ({
   default: () => <div>Onboarding content</div>,
 }));
 
-const { default: OnboardingPage, OnboardingPageContentServer } = await import(
-  './page'
+const { default: OnboardingPage } = await import('./page');
+const { OnboardingPageContentServer } = await import(
+  './onboarding-page-content-server'
 );
 
 describe('OnboardingPage', () => {

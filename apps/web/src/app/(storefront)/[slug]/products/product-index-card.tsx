@@ -81,7 +81,11 @@ export function ProductIndexCard({
 
   return (
     <article className="overflow-hidden rounded-3xl border border-[var(--store-background-text,#111827)]/10 bg-[var(--store-background,#ffffff)] shadow-sm transition-shadow hover:shadow-lg">
-      <Link href={asRoute(productPath)} className="block h-full">
+      <Link
+        href={asRoute(productPath)}
+        prefetch={false}
+        className="block h-full"
+      >
         <div className="relative aspect-square bg-[var(--store-background-text,#111827)]/5">
           {hasRenderableImage(product.image) ? (
             <Image

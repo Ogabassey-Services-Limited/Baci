@@ -1,11 +1,19 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Product } from '@/lib/products';
 import { BrandProducts } from './brand-products';
 
+const { apiGetMock, addToCartMock, toastMock } = vi.hoisted(() => ({
+  apiGetMock: vi.fn(),
+  addToCartMock: vi.fn(),
+  toastMock: vi.fn(),
+}));
+
 vi.mock('next/image', () => ({
-  default: (props: React.ComponentProps<'div'> & { alt?: string }) => (
-    <div data-testid="mock-next-image" title={props.alt ?? ''} />
+  default: (props: React.ImgHTMLAttributes<HTMLImageElement>) => (
+    // biome-ignore lint/performance/noImgElement: test stub
+    <img alt={props.alt ?? ''} {...props} />
   ),
 }));
 
@@ -13,10 +21,16 @@ vi.mock('next/link', () => ({
   default: ({
     children,
     href,
-  }: {
-    children: React.ReactNode;
+    prefetch: _prefetch,
+    ...props
+  }: React.AnchorHTMLAttributes<HTMLAnchorElement> & {
     href: string;
-  }) => <a href={href}>{children}</a>,
+    prefetch?: boolean;
+  }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
+  ),
 }));
 
 vi.mock('@/components/themed', () => ({
@@ -43,102 +57,160 @@ vi.mock('@/components/ui/card', () => ({
   }: React.HTMLAttributes<HTMLDivElement>) => <div {...props}>{children}</div>,
 }));
 
-vi.mock('@/hooks/use-cart', () => ({
-  useCart: () => ({
-    addToCart: vi.fn(),
-  }),
+vi.mock('@/hooks/cart', () => ({
+  useCart: () => ({ addToCart: addToCartMock }),
 }));
 
 vi.mock('@/hooks/use-currency', () => ({
-  useCurrency: () => ({
-    formatCurrency: (value: number) => `NGN ${value}`,
-  }),
+  useCurrency: () => ({ formatCurrency: (value: number) => `₦${value}` }),
 }));
 
 vi.mock('@/hooks/use-merchant', () => ({
   useMerchantSafe: () => ({
-    merchant: { id: 'merchant-1' },
-    basePath: '/store',
+    merchant: { id: 'merchant-1', slug: 'ogabassey' },
+    basePath: '/ogabassey',
   }),
 }));
 
 vi.mock('@/hooks/use-toast', () => ({
-  useToast: () => ({
-    toast: vi.fn(),
-  }),
+  useToast: () => ({ toast: toastMock }),
 }));
 
-const mockApiGet = vi.fn();
-
 vi.mock('@/lib/api-client', () => ({
-  apiGet: (url: string) => mockApiGet(url),
+  apiGet: apiGetMock,
 }));
 
 describe('BrandProducts', () => {
+  let observerCallback: IntersectionObserverCallback | null = null;
+
+  const product: Product = {
+    id: 'current-product',
+    name: 'Current Product',
+    description: 'desc',
+    status: 'active',
+    price: 1000,
+    manage_stock: true,
+    stock: 3,
+    image: '/current.jpg',
+    imageLarge: '/current.jpg',
+    imageHint: '',
+    brand: 'Sony',
+    gtin: '',
+    mpn: '',
+    category: 'Accessories',
+    category_slug: 'accessories',
+    categories: {
+      id: 'cat-1',
+      name: 'Accessories',
+      slug: 'accessories',
+    },
+    slug: 'current-product',
+  };
+
   beforeEach(() => {
-    vi.clearAllMocks();
+    apiGetMock.mockReset();
+    addToCartMock.mockReset();
+    toastMock.mockReset();
+
+    class MockIntersectionObserver {
+      constructor(callback: IntersectionObserverCallback) {
+        observerCallback = callback;
+      }
+
+      observe() {
+        return;
+      }
+
+      disconnect() {
+        return;
+      }
+
+      unobserve() {
+        return;
+      }
+
+      takeRecords() {
+        return [];
+      }
+    }
+
+    global.IntersectionObserver =
+      MockIntersectionObserver as unknown as typeof IntersectionObserver;
   });
 
-  it('filters mismatched brands locally for normal brand names', async () => {
-    mockApiGet.mockResolvedValue({
+  afterEach(() => {
+    observerCallback = null;
+    delete (
+      globalThis as { IntersectionObserver?: typeof IntersectionObserver }
+    ).IntersectionObserver;
+  });
+
+  function activateViewport() {
+    act(() => {
+      observerCallback?.(
+        [
+          {
+            isIntersecting: true,
+            target: document.body,
+          } as unknown as IntersectionObserverEntry,
+        ],
+        {} as IntersectionObserver
+      );
+    });
+  }
+
+  it('waits for viewport activation before fetching same-brand products', async () => {
+    apiGetMock.mockResolvedValue({
       products: [
         {
-          id: 'current-product',
-          name: 'Current Product',
-          brand: 'Sony',
-          status: 'active',
-          price: 1000,
-          image: '/current.jpg',
-          imageLarge: '/current.jpg',
-        },
-        {
-          id: 'same-brand',
+          ...product,
+          id: 'product-2',
+          slug: 'sony-accessory',
           name: 'Sony Accessory',
-          brand: 'Sony',
-          status: 'active',
-          price: 2000,
-          image: '/sony.jpg',
-          imageLarge: '/sony.jpg',
-        },
-        {
-          id: 'different-brand',
-          name: 'LG Accessory',
-          brand: 'LG',
-          status: 'active',
-          price: 3000,
-          image: '/lg.jpg',
-          imageLarge: '/lg.jpg',
         },
       ],
     });
 
-    render(
-      <BrandProducts
-        product={{
-          id: 'current-product',
-          name: 'Current Product',
-          description: 'desc',
-          status: 'active',
-          price: 1000,
-          manage_stock: true,
-          stock: 3,
-          image: '/current.jpg',
-          imageLarge: '/current.jpg',
-          imageHint: '',
-          brand: 'Sony',
-          gtin: '',
-          mpn: '',
-          category: 'Accessories',
-          category_slug: 'accessories',
-          categories: {
-            id: 'cat-1',
-            name: 'Accessories',
-            slug: 'accessories',
-          },
-          slug: 'current-product',
-        }}
-      />
+    render(<BrandProducts product={product} />);
+
+    expect(apiGetMock).not.toHaveBeenCalled();
+
+    activateViewport();
+
+    await waitFor(() => {
+      expect(apiGetMock).toHaveBeenCalledTimes(1);
+    });
+
+    expect(apiGetMock).toHaveBeenCalledWith(
+      expect.stringContaining(
+        '/api/storefront/products?merchant_id=merchant-1&category=accessories&brand=Sony&limit=8&compact=true&has_images=true'
+      )
     );
+  });
+
+  it('filters mismatched brands locally for normal brand names', async () => {
+    apiGetMock.mockResolvedValue({
+      products: [
+        product,
+        {
+          ...product,
+          id: 'same-brand',
+          slug: 'sony-accessory',
+          name: 'Sony Accessory',
+          brand: 'Sony',
+        },
+        {
+          ...product,
+          id: 'different-brand',
+          slug: 'lg-accessory',
+          name: 'LG Accessory',
+          brand: 'LG',
+        },
+      ],
+    });
+
+    render(<BrandProducts product={product} />);
+    activateViewport();
 
     await waitFor(() => {
       expect(screen.getByText('Sony Accessory')).toBeInTheDocument();
@@ -148,109 +220,47 @@ describe('BrandProducts', () => {
   });
 
   it('keeps the exact local brand guard when the product brand is literal All', async () => {
-    mockApiGet.mockResolvedValue({
+    apiGetMock.mockResolvedValue({
       products: [
+        { ...product, brand: 'All' },
         {
-          id: 'current-product',
-          name: 'Current Product',
-          brand: 'All',
-          status: 'active',
-          price: 1000,
-          image: '/current.jpg',
-          imageLarge: '/current.jpg',
-        },
-        {
+          ...product,
           id: 'same-brand',
+          slug: 'all-brand-accessory',
           name: 'All Brand Accessory',
           brand: 'All',
-          status: 'active',
-          price: 2000,
-          image: '/all.jpg',
-          imageLarge: '/all.jpg',
         },
         {
+          ...product,
           id: 'different-brand',
+          slug: 'sony-accessory',
           name: 'Sony Accessory',
           brand: 'Sony',
-          status: 'active',
-          price: 3000,
-          image: '/sony.jpg',
-          imageLarge: '/sony.jpg',
         },
       ],
     });
 
-    render(
-      <BrandProducts
-        product={{
-          id: 'current-product',
-          name: 'Current Product',
-          description: 'desc',
-          status: 'active',
-          price: 1000,
-          manage_stock: true,
-          stock: 3,
-          image: '/current.jpg',
-          imageLarge: '/current.jpg',
-          imageHint: '',
-          brand: 'All',
-          gtin: '',
-          mpn: '',
-          category: 'Accessories',
-          category_slug: 'accessories',
-          categories: {
-            id: 'cat-1',
-            name: 'Accessories',
-            slug: 'accessories',
-          },
-          slug: 'current-product',
-        }}
-      />
-    );
+    render(<BrandProducts product={{ ...product, brand: 'All' }} />);
+    activateViewport();
 
     await waitFor(() => {
       expect(screen.getByText('All Brand Accessory')).toBeInTheDocument();
     });
 
     expect(screen.queryByText('Sony Accessory')).not.toBeInTheDocument();
-    expect(mockApiGet).toHaveBeenCalledWith(
-      '/api/storefront/products?merchant_id=merchant-1&category=accessories&brand=All'
+    expect(apiGetMock).toHaveBeenCalledWith(
+      expect.stringContaining('brand=All')
     );
   });
 
   it('returns no recommendations when the API request fails', async () => {
-    mockApiGet.mockRejectedValue(new Error('network failure'));
+    apiGetMock.mockRejectedValue(new Error('network failure'));
 
-    const { container } = render(
-      <BrandProducts
-        product={{
-          id: 'current-product',
-          name: 'Current Product',
-          description: 'desc',
-          status: 'active',
-          price: 1000,
-          manage_stock: true,
-          stock: 3,
-          image: '/current.jpg',
-          imageLarge: '/current.jpg',
-          imageHint: '',
-          brand: 'Sony',
-          gtin: '',
-          mpn: '',
-          category: 'Accessories',
-          category_slug: 'accessories',
-          categories: {
-            id: 'cat-1',
-            name: 'Accessories',
-            slug: 'accessories',
-          },
-          slug: 'current-product',
-        }}
-      />
-    );
+    const { container } = render(<BrandProducts product={product} />);
+    activateViewport();
 
     await waitFor(() => {
-      expect(mockApiGet).toHaveBeenCalled();
+      expect(apiGetMock).toHaveBeenCalled();
     });
 
     await waitFor(() => {

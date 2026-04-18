@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import React, { useState } from 'react';
-import { useCart } from '@/hooks/use-cart';
+import { useCart } from '@/hooks/cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
 
@@ -176,11 +176,11 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
         <div className="flex items-center justify-between mb-6 md:mb-8">
           <div>
             {title === 'Featured Products' && (
-              <span className="text-primary font-bold uppercase tracking-wider text-xs md:text-sm">
+              <span className="text-[color:var(--store-primary)] font-bold uppercase tracking-wider text-xs md:text-sm">
                 Best Sellers
               </span>
             )}
-            <h2 className="text-xl md:text-3xl font-bold text-gray-900 mt-1">
+            <h2 className="mt-1 text-xl font-bold text-white md:text-3xl">
               {title}
             </h2>
           </div>
@@ -189,7 +189,7 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
             {showViewAll && (
               <Link
                 href={asRoute(getHref('/products'))}
-                className="text-gray-500 hover:text-primary font-medium transition-colors text-xs md:text-base hidden sm:block"
+                className="hidden text-xs font-medium text-white/70 transition-colors hover:text-white md:text-base sm:block"
               >
                 View all products
               </Link>

@@ -64,10 +64,6 @@ vi.mock('@/lib/store-url', () => ({
       : `https://${merchant.slug}.usebaci.com`,
 }));
 
-vi.mock('@/lib/validation', () => ({
-  isDomainIdentifier: (value: string) => value.includes('.'),
-}));
-
 vi.mock('./BlogPostBody', () => ({
   BlogPostBody: () => null,
 }));
@@ -78,10 +74,6 @@ vi.mock('./BlogPostBodyFallback', () => ({
 
 vi.mock('./BlogPostPageFallback', () => ({
   BlogPostPageFallback: () => <div>Blog post page loading</div>,
-}));
-
-vi.mock('./BlogPostHeader', () => ({
-  BlogPostHeader: ({ title }: { title: string }) => <h1>{title}</h1>,
 }));
 
 vi.mock('./blog-post-content', () => ({
@@ -140,6 +132,16 @@ const liveBlogPost = {
 describe('storefront blog post page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockHeaders.mockResolvedValue(new Headers());
+  });
+
+  it('only exports the route surface from the page module', async () => {
+    const routeModule = await import('./page');
+
+    expect(Object.keys(routeModule).sort()).toEqual([
+      'default',
+      'generateMetadata',
+    ]);
   });
 
   it('renders the page fallback while request headers are still pending', () => {

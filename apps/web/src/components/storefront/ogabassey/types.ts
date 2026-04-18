@@ -202,7 +202,7 @@ export interface ProductKeySpecs {
   [key: string]: string | number | boolean | undefined;
 }
 
-import type { CartItem } from '@/hooks/use-cart';
+import type { CartItem } from '@/hooks/cart';
 
 export type V2CartItem = CartItem;
 

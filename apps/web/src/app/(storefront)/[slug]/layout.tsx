@@ -3,16 +3,22 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type React from 'react';
 import { Suspense } from 'react';
-import { MerchantSlugSync } from '@/components/storefront/merchant-slug-sync';
-import { OgabasseyLayout } from '@/components/storefront/ogabassey/layout';
-import { PageViewTracker } from '@/components/storefront/page-view-tracker';
+import { DeferredPageViewTracker } from '@/components/storefront/deferred-page-view-tracker';
+import { OgabasseyStorefrontLayout } from '@/components/storefront/ogabassey/storefront-layout';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
-import { ProductGridSkeleton, Skeleton } from '@/components/ui/skeletons';
 import { MOBILE_APPS } from '@/config/platform';
-import { CartProvider } from '@/hooks/use-cart';
-import { type MerchantData, MerchantProvider } from '@/hooks/use-merchant';
+import { StorefrontCartProvider } from '@/hooks/cart/storefront-cart-provider';
+import { StorefrontMerchantProvider } from '@/hooks/merchant/storefront-merchant-provider';
+import type { MerchantData } from '@/hooks/use-merchant';
+import { getCachedNavigationCategories } from '@/lib/cached-categories';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
-import { buildStoreUrl } from '@/lib/store-url';
+import { toTemplateMerchantData } from '@/lib/merchant-template-data';
+import { buildRequestScopedStoreUrl } from '@/lib/store-url';
+import {
+  isDomainIdentifier,
+  isValidMerchantIdentifier,
+} from '@/lib/validation';
+import { StorefrontLayoutFallback } from './storefront-layout-fallback';
 
 /**
  * Renders the appropriate layout wrapper based on the merchant's template.
@@ -20,9 +26,11 @@ import { buildStoreUrl } from '@/lib/store-url';
  */
 function StorefrontLayoutRenderer({
   merchant,
+  routingMode,
   children,
 }: {
   merchant: MerchantData;
+  routingMode: 'domain' | 'path';
   children: React.ReactNode;
 }) {
   // Theme is handled client-side by V2ThemeProvider (reads cookie on mount).
@@ -30,24 +38,20 @@ function StorefrontLayoutRenderer({
   // but may cause a single-frame flash when seasonal themes (e.g., santa in December)
   // differ from the 'standard' default. SnowEffect uses fixed inset-0 pointer-events-none,
   // so there is zero CLS impact. The flash is imperceptible in practice.
-  // hideNavigation is computed client-side by OgabasseyLayout via usePathname().
+  // hideNavigation is computed in the smaller client chrome via usePathname().
   const templateId = merchant.template_id;
 
   if (templateId === 'ogabassey') {
-    return <OgabasseyLayout merchant={merchant}>{children}</OgabasseyLayout>;
+    return (
+      <OgabasseyStorefrontLayout merchant={merchant} routingMode={routingMode}>
+        {children}
+      </OgabasseyStorefrontLayout>
+    );
   }
 
   // Default / other templates: No global layout wrapper (layout handled per page)
   return <>{children}</>;
 }
-
-// Valid slug/domain patterns and reserved paths are now imported from @/lib/validation
-
-import { getCachedNavigationCategories } from '@/lib/cached-categories';
-import {
-  isDomainIdentifier,
-  isValidMerchantIdentifier,
-} from '@/lib/validation';
 
 export async function generateMetadata({
   params,
@@ -68,16 +72,10 @@ export async function generateMetadata({
     return { title: 'Store Not Found' };
   }
 
-  // Extract verification code from feature settings or published config
-  // Prioritize feature_settings, check published_config fallback
-  // biome-ignore lint/suspicious/noExplicitAny: Dynamic merchant config structure
-  const merchantConfig = merchant as any;
-  const featureSettings = merchantConfig.feature_settings as
-    | Record<string, unknown>
-    | undefined;
-  const publishedConfig = merchantConfig.published_config as
-    | Record<string, unknown>
-    | undefined;
+  // Extract verification code from feature settings or published config.
+  // feature_settings is normalized in cached-data; published_config is optional.
+  const featureSettings = merchant.feature_settings;
+  const publishedConfig = merchant.published_config;
 
   const rawVerification =
     featureSettings?.google_site_verification ||
@@ -91,7 +89,6 @@ export async function generateMetadata({
   const faviconPng32 = merchant.favicon_png_32_url;
   const faviconAppleTouch = merchant.favicon_apple_touch_url;
 
-  // Build icons array only if merchant has custom favicons
   // Build icons array only if merchant has custom favicons
   const icons =
     faviconSvg || faviconPng32 || faviconAppleTouch
@@ -118,7 +115,8 @@ export async function generateMetadata({
     merchant.site_description ||
     merchant.site_tagline ||
     `Shop ${merchant.business_name} - Buy gadgets, electronics, and more with flexible payment options in Nigeria.`;
-  const baseUrl = buildStoreUrl(merchant);
+  const headersList = await headers();
+  const baseUrl = buildRequestScopedStoreUrl(merchant, headersList);
   let metadataBase: URL | undefined;
 
   try {
@@ -169,23 +167,6 @@ export function generateViewport(): Viewport {
   };
 }
 
-function StorefrontLayoutFallback() {
-  return (
-    <div className="min-h-screen bg-background">
-      <div className="border-b bg-background/95">
-        <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <Skeleton className="h-10 w-32" />
-          <Skeleton className="h-10 flex-1 max-w-xl" />
-          <Skeleton className="h-10 w-24" />
-        </div>
-      </div>
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        <ProductGridSkeleton count={8} />
-      </main>
-    </div>
-  );
-}
-
 async function StorefrontLayoutContent({
   children,
   params,
@@ -216,6 +197,7 @@ async function StorefrontLayoutContent({
 
   // Use the merchant's actual slug for internal routing, not the domain
   const merchantSlug = merchant.slug;
+  const templateMerchant = toTemplateMerchantData(merchant);
 
   // Determine routing mode and checkout state based on headers (set by middleware)
   const headersList = await headers();
@@ -232,36 +214,45 @@ async function StorefrontLayoutContent({
   const navigationCategories = await getCachedNavigationCategories(merchant.id);
 
   return (
-    <MerchantProvider
+    <StorefrontMerchantProvider
       slug={merchantSlug}
-      initialMerchant={merchant as unknown as MerchantData}
+      initialMerchant={templateMerchant}
       initialRoutingMode={routingMode}
       navigationCategories={navigationCategories}
     >
-      <CartProvider enableSmartCartPro merchantSlug={merchantSlug}>
-        <MerchantSlugSync slug={merchantSlug} />
-        <PageViewTracker merchantId={merchant.id} />
+      <StorefrontCartProvider
+        enableSmartCartPro
+        merchantSlug={merchantSlug}
+        deferValidationUntilIdle
+      >
+        <DeferredPageViewTracker merchantId={merchant.id} />
         {/*
           Global Layout Wrapper logic:
           - Keeps layout persistent across route changes (seamless navigation)
           - Prevents header flashing/re-rendering
         */}
         <StorefrontLayoutRenderer
-          merchant={merchant as unknown as MerchantData}
+          merchant={templateMerchant}
+          routingMode={routingMode}
         >
           {children}
         </StorefrontLayoutRenderer>
-      </CartProvider>
-    </MerchantProvider>
+      </StorefrontCartProvider>
+    </StorefrontMerchantProvider>
   );
 }
 
-export default function StorefrontLayout(props: {
+export default async function StorefrontLayout(props: {
   children: React.ReactNode;
   params: Promise<{ slug: string }>;
 }) {
+  const [headersList, { slug }] = await Promise.all([headers(), props.params]);
+  const pathname = headersList.get('x-pathname');
+
   return (
-    <Suspense fallback={<StorefrontLayoutFallback />}>
+    <Suspense
+      fallback={<StorefrontLayoutFallback pathname={pathname} slug={slug} />}
+    >
       <StorefrontLayoutContent {...props} />
     </Suspense>
   );

@@ -1,8 +1,10 @@
 'use client';
 
+import { ThemeProvider } from 'next-themes';
 import AppBody from '@/components/app-body';
 import { CsrfInitializer } from '@/components/csrf-initializer';
 import { AuthProvider } from '@/contexts/auth-context';
+import { useNonce } from '@/contexts/NonceProvider';
 import { ProductProvider } from '@/contexts/product-context';
 import {
   type MerchantData,
@@ -38,19 +40,29 @@ export function DashboardProviders({
   initialMerchant,
   initialStaffAccess,
 }: DashboardProvidersProps) {
+  const { nonce } = useNonce();
+
   return (
-    <AuthProvider>
-      <CsrfInitializer />
-      <MerchantProvider
-        initialMerchant={initialMerchant}
-        initialStaffAccess={initialStaffAccess}
-      >
-        <ProductProvider>
-          <DashboardClientLayout>
-            <ThemedDashboardLayout>{children}</ThemedDashboardLayout>
-          </DashboardClientLayout>
-        </ProductProvider>
-      </MerchantProvider>
-    </AuthProvider>
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem
+      disableTransitionOnChange
+      nonce={nonce}
+    >
+      <AuthProvider>
+        <CsrfInitializer />
+        <MerchantProvider
+          initialMerchant={initialMerchant}
+          initialStaffAccess={initialStaffAccess}
+        >
+          <ProductProvider>
+            <DashboardClientLayout>
+              <ThemedDashboardLayout>{children}</ThemedDashboardLayout>
+            </DashboardClientLayout>
+          </ProductProvider>
+        </MerchantProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

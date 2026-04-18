@@ -2,6 +2,8 @@ import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getCachedBlogListing } from '@/lib/cached-data';
 
+const mockBuildBlogClusterCollections = vi.fn();
+
 vi.mock('@/lib/cached-data', () => ({
   getCachedBlogListing: vi.fn(),
 }));
@@ -28,6 +30,11 @@ vi.mock('@/lib/store-url', () => ({
 
 vi.mock('@/lib/validation', () => ({
   isDomainIdentifier: (value: string) => value.includes('.'),
+}));
+
+vi.mock('@/lib/storefront-content/build-blog-cluster-collections', () => ({
+  buildBlogClusterCollections: (...args: unknown[]) =>
+    mockBuildBlogClusterCollections(...args),
 }));
 
 vi.mock('@/templates/registry', () => ({
@@ -77,6 +84,28 @@ const postsPayload = [
   },
 ];
 
+const clusterCollections = [
+  {
+    categorySlug: 'smartphones',
+    heading: 'Smartphone buying guides',
+    categoryHref: 'https://ogabassey.com/smartphones',
+    guides: [
+      {
+        href: 'https://ogabassey.com/blog/best-phones-in-nigeria',
+        title: 'Best Phones in Nigeria',
+        description: 'Budget and flagship picks.',
+        kind: 'best-in-nigeria' as const,
+      },
+      {
+        href: 'https://ogabassey.com/blog/apple-vs-samsung-buying-guide',
+        title: 'Apple vs Samsung Buying Guide',
+        description: 'Which ecosystem fits you.',
+        kind: 'decision-support' as const,
+      },
+    ],
+  },
+];
+
 function buildListingResult(
   overrides?: Partial<{
     merchant: typeof merchant;
@@ -95,12 +124,18 @@ function buildListingResult(
   };
 }
 
-const { default: BlogPage, generateMetadata } = await import('./page');
+const {
+  default: BlogPage,
+  BlogPageContent,
+  generateMetadata,
+} = await import('./page');
 
 describe('blog page metadata', () => {
   beforeEach(() => {
     vi.mocked(getCachedBlogListing).mockReset();
     vi.mocked(getCachedBlogListing).mockResolvedValue(buildListingResult());
+    mockBuildBlogClusterCollections.mockReset();
+    mockBuildBlogClusterCollections.mockReturnValue([]);
   });
 
   it('includes social images for the blog listing metadata', async () => {
@@ -213,6 +248,29 @@ describe('blog page metadata', () => {
       />
     );
 
-    expect(screen.getByRole('status')).toHaveTextContent('Loading blog posts');
+    expect(
+      screen.getByRole('status', { name: /loading blog posts/i })
+    ).toBeInTheDocument();
+  });
+
+  it('renders guide collections above the blog listing', async () => {
+    mockBuildBlogClusterCollections.mockReturnValue(clusterCollections);
+
+    render(
+      await BlogPageContent({
+        params: Promise.resolve({ slug: 'ogabassey' }),
+        searchParams: Promise.resolve({}),
+      })
+    );
+
+    expect(
+      screen.getByRole('heading', { name: /guide collections/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Best Phones in Nigeria' })
+    ).toHaveAttribute(
+      'href',
+      'https://ogabassey.com/blog/best-phones-in-nigeria'
+    );
   });
 });

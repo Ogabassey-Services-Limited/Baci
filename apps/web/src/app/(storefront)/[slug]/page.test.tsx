@@ -73,9 +73,8 @@ const baseMerchant = {
   country: 'NG',
 };
 
-const { default: StorefrontPage, StorefrontPageContent } = await import(
-  './page'
-);
+const { default: StorefrontPage } = await import('./page');
+const { StorefrontPageContent } = await import('./storefront-page-content');
 
 describe('Storefront homepage structured data', () => {
   beforeEach(() => {
@@ -90,12 +89,21 @@ describe('Storefront homepage structured data', () => {
     );
   });
 
-  it('emits Organization, WebSite, and address-backed Store schemas on the homepage', async () => {
-    vi.mocked(getRequestScopedMerchant).mockResolvedValue(
-      baseMerchant as unknown as Awaited<
-        ReturnType<typeof getRequestScopedMerchant>
-      >
-    );
+  it('emits OnlineStore, WebSite, and address-backed Store schemas on the homepage', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue({
+      ...baseMerchant,
+      support_email: 'support@ogabassey.com',
+      support_phone: '+2348000000000',
+      trust_profile: {
+        founded_year: 2018,
+        return_policy: {
+          summary: 'Returns accepted for 7 days.',
+          window_days: 7,
+          return_method: 'mail',
+          return_fees: 'free',
+        },
+      },
+    } as unknown as Awaited<ReturnType<typeof getRequestScopedMerchant>>);
 
     render(
       await StorefrontPageContent({
@@ -114,7 +122,7 @@ describe('Storefront homepage structured data', () => {
       '@graph': Record<string, unknown>[];
     };
     const organization = schema['@graph'].find(
-      (item) => item['@type'] === 'Organization'
+      (item) => item['@type'] === 'OnlineStore'
     );
     const store = schema['@graph'].find((item) => item['@type'] === 'Store');
     const website = schema['@graph'].find(
@@ -122,8 +130,31 @@ describe('Storefront homepage structured data', () => {
     );
 
     expect(organization).toMatchObject({
-      '@type': 'Organization',
+      '@type': 'OnlineStore',
       url: 'https://ogabassey.com',
+      foundingDate: '2018',
+      contactPoint: {
+        '@type': 'ContactPoint',
+        contactType: 'customer service',
+        email: 'support@ogabassey.com',
+        telephone: '+2348000000000',
+        availableLanguage: 'English',
+      },
+      hasMerchantReturnPolicy: {
+        '@type': 'MerchantReturnPolicy',
+        applicableCountry: 'NG',
+        merchantReturnDays: 7,
+        returnMethod: 'https://schema.org/ReturnByMail',
+        returnFees: 'https://schema.org/FreeReturn',
+      },
+    });
+    expect(organization).toMatchObject({
+      sameAs: expect.arrayContaining([
+        'https://facebook.com/ogabasseyyy',
+        'https://instagram.com/ogabasseyy',
+        'https://x.com/ogabasseyy',
+        'https://youtube.com/@ogabassey',
+      ]),
     });
     expect(store).toMatchObject({
       '@type': 'Store',
@@ -139,10 +170,20 @@ describe('Storefront homepage structured data', () => {
       url: 'https://ogabassey.com',
       name: 'Ogabassey',
     });
-    expect(website).not.toHaveProperty('potentialAction');
+    expect(website).toMatchObject({
+      '@type': 'WebSite',
+      potentialAction: {
+        '@type': 'SearchAction',
+        target: {
+          '@type': 'EntryPoint',
+          urlTemplate: 'https://ogabassey.com/search?q={search_term_string}',
+        },
+        'query-input': 'required name=search_term_string',
+      },
+    });
   });
 
-  it('falls back to Organization + WebSite when no business address is available', async () => {
+  it('falls back to OnlineStore + WebSite when no business address is available', async () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValue({
       ...baseMerchant,
       business_address: '',
@@ -168,7 +209,7 @@ describe('Storefront homepage structured data', () => {
       false
     );
     expect(
-      schema['@graph'].some((item) => item['@type'] === 'Organization')
+      schema['@graph'].some((item) => item['@type'] === 'OnlineStore')
     ).toBe(true);
     expect(schema['@graph'].some((item) => item['@type'] === 'WebSite')).toBe(
       true

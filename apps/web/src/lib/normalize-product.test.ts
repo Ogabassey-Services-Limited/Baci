@@ -18,6 +18,10 @@ describe('normalizeProduct', () => {
     rating: 4.5,
     status: 'active',
     merchant_id: 'merchant-1',
+    product_key_specs: {
+      main_camera_mp: 50,
+      battery_mah: 5000,
+    },
   };
 
   it('normalizes a product with default fields', () => {
@@ -69,5 +73,39 @@ describe('normalizeProduct', () => {
     const { condition: _, ...noCondition } = baseRawProduct;
     const result = normalizeProduct(noCondition);
     expect(result.condition).toBe('New');
+  });
+
+  it('preserves product_key_specs when present', () => {
+    const result = normalizeProduct(baseRawProduct);
+
+    expect(result.product_key_specs).toEqual({
+      main_camera_mp: 50,
+      battery_mah: 5000,
+    });
+  });
+
+  it('prefers a matching category slug when provided', () => {
+    const result = normalizeProduct(
+      {
+        ...baseRawProduct,
+        category: undefined,
+        categories: [
+          {
+            name: 'Accessories',
+            slug: 'accessories',
+          },
+          {
+            name: 'Smartphones',
+            slug: 'smartphones',
+          },
+        ],
+      },
+      {
+        preferredCategorySlug: 'smartphones',
+      }
+    );
+
+    expect(result.category).toBe('Smartphones');
+    expect(result.category_slug).toBe('smartphones');
   });
 });

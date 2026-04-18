@@ -4,6 +4,7 @@ import { Suspense } from 'react';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { buildStoreUrl } from '@/lib/store-url';
+import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import { getTemplate } from '@/templates/registry';
 import {
   generateAboutPageJsonLd,
@@ -72,7 +73,7 @@ export default function AboutPage({ params }: PageProps) {
 }
 
 /** Streams JSON-LD structured data independently of page content. */
-async function AboutJsonLd({ params }: PageProps) {
+export async function AboutJsonLd({ params }: PageProps) {
   const { slug } = await params;
   const merchant = await getMerchantByIdentifier(slug);
 
@@ -84,7 +85,13 @@ async function AboutJsonLd({ params }: PageProps) {
   }
 
   const baseUrl = buildStoreUrl(merchant);
-  const jsonLd = generateAboutPageJsonLd(merchant, aboutPage, baseUrl);
+  const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
+  const jsonLd = generateAboutPageJsonLd(
+    merchant,
+    aboutPage,
+    baseUrl,
+    trustProfile
+  );
 
   return (
     <script

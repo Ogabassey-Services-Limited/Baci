@@ -30,7 +30,7 @@ vi.mock('@/contexts/auth-context', () => ({
 const mockApplyNegotiatedPrice = vi.fn();
 const mockApplyCartWideNegotiation = vi.fn();
 
-vi.mock('@/hooks/use-cart', () => ({
+vi.mock('@/hooks/cart', () => ({
   useCart: () => ({
     cart: [
       {

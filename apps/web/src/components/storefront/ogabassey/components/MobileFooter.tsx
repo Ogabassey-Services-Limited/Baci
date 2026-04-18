@@ -4,10 +4,10 @@ import { Heart, Home, ShoppingCart, User, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type React from 'react';
-import { useEffect, useRef, useState } from 'react';
 
-import { useCart } from '@/hooks/use-cart';
+import { useCart } from '@/hooks/cart';
 import { asRoute } from '@/lib/routes';
+import { useOgabasseyScrollVisibility } from '../scroll-visibility-store';
 
 interface MobileFooterProps {
   storeSlug?: string;
@@ -28,6 +28,7 @@ interface MobileFooterProps {
 export const MobileFooter: React.FC<MobileFooterProps> = ({ storeSlug = '' }) => {
   const { totalItems } = useCart();
   const pathname = usePathname();
+  const isVisible = useOgabasseyScrollVisibility();
 
   // Build store-relative path - handle both with and without leading slash
   const normalizedSlug = storeSlug.startsWith('/') ? storeSlug : (storeSlug ? `/${storeSlug}` : '');
@@ -44,34 +45,6 @@ export const MobileFooter: React.FC<MobileFooterProps> = ({ storeSlug = '' }) =>
     }
     return pathname === fullPath || pathname?.startsWith(`${fullPath}/`) || false;
   };
-
-  // Scroll-based visibility with debouncing
-  const [isVisible, setIsVisible] = useState(true);
-  const lastScrollY = useRef(0);
-  const SCROLL_THRESHOLD = 5; // Reduced threshold for immediate response
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      const scrollDelta = currentScrollY - lastScrollY.current;
-
-      // Immediate response without debounce
-      if (scrollDelta > SCROLL_THRESHOLD && currentScrollY > 100) {
-        setIsVisible(false);
-      }
-      // Show when scrolling up OR near top of page
-      else if (scrollDelta < -5 || currentScrollY < 50) {
-        setIsVisible(true);
-      }
-
-      lastScrollY.current = currentScrollY;
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-    };
-  }, []);
 
   // Navigation items configuration
   const navItems = [
@@ -112,6 +85,7 @@ export const MobileFooter: React.FC<MobileFooterProps> = ({ storeSlug = '' }) =>
             <Link
               key={path}
               href={asRoute(`${basePath}${path}`)}
+              prefetch={false}
               className={
                 `relative flex flex-col items-center justify-center min-w-[56px] py-1 active:scale-90 transition-transform duration-150`
               }

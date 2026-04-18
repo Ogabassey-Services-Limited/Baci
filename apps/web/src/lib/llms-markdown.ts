@@ -276,7 +276,9 @@ export function buildCategoryMarkdown(
   const description =
     data.fallbackDescription ||
     `Browse ${title} from ${merchant.business_name}.`;
-  const products = (data.products as RawDbProduct[]).map(normalizeProduct);
+  const products = (data.products as RawDbProduct[]).map((product) =>
+    normalizeProduct(product)
+  );
 
   return [
     `# ${title}`,

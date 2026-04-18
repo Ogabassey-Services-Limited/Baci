@@ -13,6 +13,14 @@ import {
 import Link from 'next/link';
 import { useMerchant } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
+import {
+  buildMerchantTrustProfile,
+  hasPublishableReturnsPolicy,
+  hasPublishableShippingPolicy,
+  hasPublishableWarrantyPolicy,
+} from '@/lib/storefront-trust/build-merchant-trust-profile';
+
+type FooterLink = { label: string; href: ReturnType<typeof asRoute> };
 
 // TikTok and Pinterest don't have official lucide icons, so we create simple ones
 const TikTokIcon = ({ className }: { className?: string }) => (
@@ -71,6 +79,18 @@ export function StorefrontFooter() {
   const availableFooterLinks = footerLinks.filter(
     (link) => merchant.pages?.[link.key as keyof typeof merchant.pages]
   );
+  const trustProfile = buildMerchantTrustProfile(merchant, basePath);
+  const trustLinks: FooterLink[] = [
+    hasPublishableReturnsPolicy(trustProfile)
+      ? { label: 'Returns', href: asRoute(`${basePath || ''}/returns`) }
+      : null,
+    hasPublishableShippingPolicy(trustProfile)
+      ? { label: 'Shipping', href: asRoute(`${basePath || ''}/shipping`) }
+      : null,
+    hasPublishableWarrantyPolicy(trustProfile)
+      ? { label: 'Warranty', href: asRoute(`${basePath || ''}/warranty`) }
+      : null,
+  ].filter((link): link is FooterLink => link !== null);
 
   // Social media configuration
   const socialLinks = [
@@ -159,7 +179,7 @@ export function StorefrontFooter() {
           </div>
 
           {/* Quick Links */}
-          {availableFooterLinks.length > 0 && (
+          {availableFooterLinks.length > 0 || trustLinks.length > 0 ? (
             <div>
               <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
               <nav className="flex flex-col gap-2">
@@ -175,9 +195,21 @@ export function StorefrontFooter() {
                     {link.label}
                   </Link>
                 ))}
+                {trustLinks.map((link) => (
+                  <Link
+                    key={link.label}
+                    href={link.href}
+                    className="text-sm hover:underline underline-offset-4 opacity-90 hover:opacity-100 transition-opacity"
+                    style={{
+                      color: 'var(--theme-footer-link, currentColor)',
+                    }}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
               </nav>
             </div>
-          )}
+          ) : null}
 
           {/* Contact Info */}
           {hasContactInfo && (

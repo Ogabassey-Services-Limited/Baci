@@ -30,57 +30,41 @@ export function ProductBreadcrumbs({
       '/'
     )
   );
-  const breadcrumbSchema = {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: [
-      {
-        '@type': 'ListItem',
-        position: 1,
-        name: 'Home',
-        item: homeHref,
-      },
-      {
-        '@type': 'ListItem',
-        position: 2,
-        name: categoryLabel,
-        item: categoryHref,
-      },
-      {
-        '@type': 'ListItem',
-        position: 3,
-        name: productData.name,
-        item: productData.slug ? productHref : categoryHref,
-      },
-    ],
-  };
-  const breadcrumbSchemaJson = JSON.stringify(breadcrumbSchema).replace(
-    /</g,
-    '\\u003c'
-  );
 
   return (
-    <>
-      <script type="application/ld+json">{breadcrumbSchemaJson}</script>
-      <nav aria-label="Breadcrumb" className="mb-8 flex items-center overflow-x-auto whitespace-nowrap pb-2 text-sm text-[color:color-mix(in_srgb,var(--store-background-text,#111827)_70%,transparent)]">
-        <Link
-          href={homeHref}
-          className="transition-colors md:hover:text-[var(--store-primary)]"
-        >
-          Home
-        </Link>
-        <ChevronRight size={16} className="mx-2" />
-        <Link
-          href={categoryHref}
-          className="transition-colors md:hover:text-[var(--store-primary)]"
-        >
-          {categoryLabel}
-        </Link>
-        <ChevronRight size={16} className="mx-2" />
-        <span className="font-medium text-[var(--store-background-text,#111827)]">
-          {productData.name}
-        </span>
-      </nav>
-    </>
+    <nav aria-label="Breadcrumb" className="mb-8 flex items-center overflow-x-auto whitespace-nowrap pb-2 text-sm text-[color:color-mix(in_srgb,var(--store-background-text,#111827)_70%,transparent)]">
+      <Link
+        href={homeHref}
+        prefetch={false}
+        className="transition-colors md:hover:text-[var(--store-primary)]"
+      >
+        Home
+      </Link>
+      <ChevronRight
+        size={16}
+        className="mx-2"
+        aria-hidden="true"
+        role="presentation"
+      />
+      <Link
+        href={categoryHref}
+        prefetch={false}
+        className="transition-colors md:hover:text-[var(--store-primary)]"
+      >
+        {categoryLabel}
+      </Link>
+      <ChevronRight
+        size={16}
+        className="mx-2"
+        aria-hidden="true"
+        role="presentation"
+      />
+      <span
+        aria-current="page"
+        className="font-medium text-[var(--store-background-text,#111827)]"
+      >
+        {productData.name}
+      </span>
+    </nav>
   );
 }

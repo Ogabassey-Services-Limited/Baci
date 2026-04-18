@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { getCachedStorefrontHomeProducts } from '@/lib/cached-data';
 
 // Mock server-only dependencies
 vi.mock('@/lib/cached-data', async (importOriginal) => {
@@ -31,6 +32,10 @@ vi.mock('@/components/analytics/analytics-provider', () => ({
 }));
 vi.mock('@/components/ui/skeletons', () => ({
   StorefrontPageSkeleton: () => <div data-testid="skeleton">Loading...</div>,
+}));
+const mockHeaders = vi.fn();
+vi.mock('next/headers', () => ({
+  headers: () => mockHeaders(),
 }));
 
 import type { CachedMerchant } from '@/lib/cached-data';
@@ -81,6 +86,11 @@ afterEach(() => {
 });
 
 describe('StorefrontContent', () => {
+  beforeEach(() => {
+    mockHeaders.mockReset();
+    mockHeaders.mockResolvedValue(new Headers());
+  });
+
   it('renders the fallback StorefrontWrapper when no template matches', async () => {
     const result = await StorefrontContent({ merchant: mockMerchant });
 
@@ -132,6 +142,42 @@ describe('StorefrontContent', () => {
 
     expect(screen.getByText(/Products: \d+/)).toBeInTheDocument();
     consoleSpy.mockRestore();
+  });
+
+  it('emits collection schema for homepage featured products', async () => {
+    vi.mocked(getCachedStorefrontHomeProducts).mockResolvedValue([
+      {
+        id: 'product-1',
+        name: 'Galaxy Fold',
+        description: '<p>Premium foldable phone.</p>',
+        status: 'active',
+        price: 1200000,
+        manage_stock: false,
+        stock: 3,
+        image: 'https://cdn.example.com/fold.jpg',
+        imageLarge: 'https://cdn.example.com/fold-large.jpg',
+        imageHint: 'fold',
+        category: 'Smartphones',
+        slug: 'galaxy-fold',
+      },
+    ] as never);
+
+    const result = await StorefrontContent({ merchant: mockMerchant });
+
+    render(result as React.ReactElement);
+
+    const schemaScript = document.querySelector(
+      'script[type="application/ld+json"]'
+    );
+    expect(schemaScript).not.toBeNull();
+
+    const schema = JSON.parse(schemaScript?.textContent || '{}') as {
+      '@type': string;
+      mainEntity?: { '@type': string };
+    };
+
+    expect(schema['@type']).toBe('CollectionPage');
+    expect(schema.mainEntity?.['@type']).toBe('ItemList');
   });
 });
 

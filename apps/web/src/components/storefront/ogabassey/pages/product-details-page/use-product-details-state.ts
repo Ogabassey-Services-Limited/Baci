@@ -11,7 +11,7 @@ import {
   resolveVariantSelection,
   resolveVariantSelectionParamResolution,
 } from '@baci/shared/lib';
-import { useCart } from '@/hooks/use-cart';
+import { useCart } from '@/hooks/cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
 import { asRoute } from '@/lib/routes';

@@ -80,4 +80,44 @@ describe('normalizeProductDetails', () => {
     ).length;
     expect(count).toBe(1);
   });
+
+  it('derives summary specs and general details from variant attributes when explicit specs are missing', () => {
+    const productWithVariantAttributes = {
+      ...baseProduct,
+      category: 'Smartphones',
+      condition: 'new',
+      variant_attributes: {
+        ram: ['16GB'],
+        storage: ['512GB'],
+        sim_type: ['Physical + eSIM'],
+      },
+      specs: [],
+      detailedSpecs: [],
+      specifications: [],
+    } as unknown as Product;
+
+    const normalized = normalizeProductDetails(productWithVariantAttributes);
+
+    expect(normalized.specs).toEqual(
+      expect.arrayContaining([
+        { label: 'RAM', value: '16GB' },
+        { label: 'Storage', value: '512GB' },
+        { label: 'SIM', value: 'Physical + eSIM' },
+      ])
+    );
+
+    expect(normalized.detailedSpecs).toEqual([
+      {
+        category: 'General',
+        items: expect.arrayContaining([
+          { label: 'Brand', value: 'Test Brand' },
+          { label: 'Condition', value: 'new' },
+          { label: 'Category', value: 'Smartphones' },
+          { label: 'RAM', value: '16GB' },
+          { label: 'Storage', value: '512GB' },
+          { label: 'SIM', value: 'Physical + eSIM' },
+        ]),
+      },
+    ]);
+  });
 });

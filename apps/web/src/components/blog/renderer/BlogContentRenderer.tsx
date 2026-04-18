@@ -160,6 +160,7 @@ const NodeRenderer = ({
 }: NodeRendererProps): React.ReactNode => {
   const children = node.content?.map((child, i) => (
     <NodeRenderer
+      // biome-ignore lint/suspicious/noArrayIndexKey: TipTap sibling nodes do not expose stable ids; document order defines render identity.
       key={`${child.type}-${i}`}
       basePath={basePath}
       baseUrl={baseUrl}

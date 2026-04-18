@@ -2,7 +2,7 @@
 
 import { Loader2, Smartphone } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { detectNetworkProvider } from '@/lib/kuda';
+import { detectNetworkProvider } from '@/lib/detect-network-provider';
 import { cn } from '@/lib/utils';
 
 type Provider = {

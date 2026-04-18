@@ -34,7 +34,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import type React from 'react';
 import { useEffect, useState } from 'react';
-import { type CartItem, useCart } from '@/hooks/use-cart';
+import { type CartItem, useCart } from '@/hooks/cart';
 import { useAuthSafe } from '@/contexts/auth-context';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { getStorefrontProductHref } from '@/lib/storefront-product-href';

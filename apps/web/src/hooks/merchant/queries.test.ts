@@ -74,6 +74,37 @@ describe('fetchMerchantBySlug', () => {
     });
   });
 
+  it('does not request trust, legal, or secret analytics fields in public slug lookups', async () => {
+    const merchantsHandler = mockQueryChain({
+      data: {
+        id: 'merchant-1',
+        business_name: 'Test Store',
+        business_type: 'FASHION',
+        slug: 'test-store',
+        feature_settings: null,
+      },
+      error: null,
+    });
+    const supabase = createMockSupabase({
+      merchants: merchantsHandler,
+    });
+
+    await fetchMerchantBySlug(supabase, 'test-store');
+
+    const selectArg = merchantsHandler.select.mock.calls[0]?.[0] as string;
+    expect(selectArg).toContain('support_email');
+    expect(selectArg).not.toContain('legal_entity_name');
+    expect(selectArg).not.toContain('registered_address');
+    expect(selectArg).not.toContain('tax_identification_number');
+    expect(selectArg).not.toContain('trust_profile');
+    expect(selectArg).not.toContain('facebook_capi_token');
+    expect(selectArg).not.toContain('ga4_api_secret');
+    expect(selectArg).not.toContain('tiktok_access_token');
+    expect(selectArg).not.toContain('snapchat_capi_token');
+    expect(selectArg).not.toContain('nin');
+    expect(selectArg).not.toContain('bvn');
+  });
+
   it('returns null when merchant not found', async () => {
     const supabase = createMockSupabase({
       merchants: mockQueryChain({
@@ -110,6 +141,19 @@ describe('fetchDashboardMerchant', () => {
       business_type: 'FASHION',
       slug: 'owner-store',
       feature_settings: null,
+      support_email: 'support@ogabassey.com',
+      support_phone: '+2348000000000',
+      legal_entity_name: 'Ogabassey Gadgets Ltd',
+      registered_address: {
+        street: '12 Allen Avenue',
+        city: 'Ikeja',
+        state: 'Lagos',
+        country: 'Nigeria',
+      },
+      tax_identification_number: 'TIN-123',
+      trust_profile: {
+        founded_year: 2018,
+      },
     };
 
     const supabase = createMockSupabase({
@@ -120,6 +164,19 @@ describe('fetchDashboardMerchant', () => {
     const result = await fetchDashboardMerchant(supabase, 'user-1');
 
     expect(result.merchant?.id).toBe('merchant-1');
+    expect(result.merchant?.support_email).toBe('support@ogabassey.com');
+    expect(result.merchant?.support_phone).toBe('+2348000000000');
+    expect(result.merchant?.legal_entity_name).toBe('Ogabassey Gadgets Ltd');
+    expect(result.merchant?.registered_address).toEqual({
+      street: '12 Allen Avenue',
+      city: 'Ikeja',
+      state: 'Lagos',
+      country: 'Nigeria',
+    });
+    expect(result.merchant?.tax_identification_number).toBe('TIN-123');
+    expect(result.merchant?.trust_profile).toEqual({
+      founded_year: 2018,
+    });
     expect(result.staffAccess.isOwner).toBe(true);
     expect(result.staffAccess.isStaff).toBe(false);
   });

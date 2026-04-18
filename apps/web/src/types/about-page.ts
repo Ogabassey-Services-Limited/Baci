@@ -3,7 +3,8 @@
  * These types support rich SEO with schema.org AboutPage markup
  */
 
-import { normalizeSocialUrl } from '@/lib/social';
+import { generateOrganizationSchema } from '@/lib/seo-utils';
+import type { MerchantTrustProfile } from '@/lib/storefront-trust/merchant-trust-profile-types';
 
 export interface TeamMember {
   name: string;
@@ -88,47 +89,21 @@ export function generateAboutPageJsonLd(
     social_media?: Record<string, string>;
   },
   aboutPage: MerchantAboutPage,
-  baseUrl: string
+  baseUrl: string,
+  trustProfile?: MerchantTrustProfile
 ): object {
-  const organizationData: Record<string, unknown> = {
-    '@context': 'https://schema.org',
-    '@type': 'Organization',
+  const organizationData = generateOrganizationSchema({
     name: merchant.business_name,
     url: baseUrl,
-  };
-
-  if (merchant.social_media) {
-    const sameAs = Object.entries(merchant.social_media)
-      .map(([platform, handle]) =>
-        normalizeSocialUrl(
-          handle,
-          platform as
-            | 'instagram'
-            | 'facebook'
-            | 'tiktok'
-            | 'twitter'
-            | 'youtube'
-            | 'linkedin'
-        )
-      )
-      .filter((url): url is string => !!url);
-
-    if (sameAs.length > 0) {
-      organizationData.sameAs = sameAs;
-    }
-  }
-
-  if (merchant.logo_url) {
-    organizationData.logo = merchant.logo_url;
-  }
-
-  if (merchant.email) {
-    organizationData.email = merchant.email;
-  }
-
-  if (aboutPage.founded_year) {
-    organizationData.foundingDate = aboutPage.founded_year.toString();
-  }
+    country: merchant.country,
+    logo: merchant.logo_url || undefined,
+    email: merchant.email || undefined,
+    socialMedia: merchant.social_media,
+    foundingDate: aboutPage.founded_year
+      ? aboutPage.founded_year.toString()
+      : trustProfile?.foundedYear?.toString(),
+    trustProfile,
+  });
 
   if (aboutPage.founder_name) {
     organizationData.founder = {
@@ -177,7 +152,7 @@ export function generateAboutPageJsonLd(
     '@context': 'https://schema.org',
     '@type': 'AboutPage',
     name: `About ${merchant.business_name}`,
-    url: `${baseUrl}/pages/about`,
+    url: `${baseUrl}/about`,
     mainEntity: organizationData,
   };
 }

@@ -1,3 +1,5 @@
+import { render, screen } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockNormalizeStorefrontProductVariants } = vi.hoisted(() => ({
@@ -22,6 +24,9 @@ const mockGetCachedProduct = vi.fn();
 const mockGetCachedProductWithDetails = vi.fn();
 const mockGetCachedProductRatingStats = vi.fn();
 const mockGetCachedProductReviews = vi.fn();
+const mockGetCachedCategoryPageData = vi.fn();
+const mockBuildProductSemanticModel = vi.fn();
+const mockGetPublishedClusterPosts = vi.fn();
 
 vi.mock('next/headers', () => ({
   headers: () => mockHeaders(),
@@ -31,6 +36,12 @@ vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
   permanentRedirect: (url: string) => mockPermanentRedirect(url),
   redirect: (url: string) => mockRedirect(url),
+}));
+
+vi.mock('next/link', () => ({
+  default: ({ children, href }: { children: ReactNode; href: string }) => (
+    <a href={href}>{children}</a>
+  ),
 }));
 
 vi.mock('@/components/ui/skeletons', () => ({
@@ -49,10 +60,22 @@ vi.mock('@/lib/cached-data', () => ({
     mockGetCachedProductRatingStats(...args),
   getCachedProductReviews: (...args: unknown[]) =>
     mockGetCachedProductReviews(...args),
+  getCachedCategoryPageData: (...args: unknown[]) =>
+    mockGetCachedCategoryPageData(...args),
   sanitizeLookupLogValue: (value: unknown) =>
     String(value ?? '')
       .replace(/[\r\n\t]/g, '')
       .substring(0, 100),
+}));
+
+vi.mock('@/lib/storefront-product/build-product-semantic-model', () => ({
+  buildProductSemanticModel: (...args: unknown[]) =>
+    mockBuildProductSemanticModel(...args),
+}));
+
+vi.mock('@/lib/storefront-content/get-published-cluster-posts', () => ({
+  getPublishedClusterPosts: (...args: unknown[]) =>
+    mockGetPublishedClusterPosts(...args),
 }));
 
 vi.mock('@/lib/sanitize-core', () => ({
@@ -96,10 +119,23 @@ vi.mock('@/lib/seo-utils', () => ({
   generateAggregateRating: () => null,
   generateBreadcrumbSchema: (items: unknown) =>
     mockGenerateBreadcrumbSchema(items),
+  generateMetaDescription: (description: string, maxLength = 160) => {
+    const plainText = description.replace(/<[^>]+>/g, '').trim();
+    return plainText.length <= maxLength
+      ? plainText
+      : `${plainText.slice(0, maxLength - 3)}...`;
+  },
   generateFAQSchema: () => ({}),
   generateProductSchema: (...args: unknown[]) =>
     mockGenerateProductSchema(...args),
   generateSlug: (name: string) => name.toLowerCase().replace(/\s+/g, '-'),
+  getIndexableRobotsMetadata: () => ({
+    index: true,
+    follow: true,
+    'max-image-preview': 'large',
+    'max-snippet': -1,
+    'max-video-preview': -1,
+  }),
   getProductUrl: (product: ProductUrlInput) => mockGetProductUrl(product),
 }));
 
@@ -108,6 +144,13 @@ vi.mock('@/lib/store-url', () => ({
     m.custom_domain
       ? `https://${m.custom_domain}`
       : `https://${m.slug}.usebaci.com`,
+  buildRequestScopedStoreUrl: (
+    merchant: { slug: string; custom_domain?: string },
+    _headers: Headers
+  ) =>
+    merchant.custom_domain
+      ? `https://${merchant.custom_domain}`
+      : `https://${merchant.slug}.usebaci.com`,
 }));
 
 vi.mock('@/lib/storefront-product-variants', () => ({
@@ -220,6 +263,19 @@ describe('products/[productSlug] page', () => {
     mockGetCachedProductWithDetails.mockResolvedValue(null);
     mockGetCachedProductRatingStats.mockResolvedValue(null);
     mockGetCachedProductReviews.mockResolvedValue([]);
+    mockGetCachedCategoryPageData.mockReset();
+    mockGetCachedCategoryPageData.mockResolvedValue(null);
+    mockGetPublishedClusterPosts.mockReset();
+    mockGetPublishedClusterPosts.mockResolvedValue([]);
+    mockBuildProductSemanticModel.mockReset();
+    mockBuildProductSemanticModel.mockReturnValue({
+      trustBullets: [],
+      supportLinks: [],
+      guideLinks: [],
+      alternatives: null,
+      sameBrand: null,
+      samePrice: null,
+    });
   });
 
   it('redirects categorized legacy products during page render in development', async () => {
@@ -522,6 +578,61 @@ describe('products/[productSlug] page', () => {
     expect(mockPermanentRedirect).toHaveBeenCalledWith('/phones/iphone-15');
   });
 
+  it('strips HTML from product metadata descriptions', async () => {
+    mockGetCachedProduct.mockResolvedValue({
+      ...uncategorizedProduct,
+      description:
+        '<p>The <strong>best</strong> phone for creators and gamers.</p>',
+      images: ['https://cdn.example.com/products/mystery-item.png'],
+    });
+
+    const metadata = await generateMetadata(
+      {
+        params: Promise.resolve({
+          slug: 'teststore',
+          productSlug: 'mystery-item',
+        }),
+        searchParams: Promise.resolve({}),
+      },
+      Promise.resolve({}) as never
+    );
+
+    expect(metadata.description).toBe(
+      'The best phone for creators and gamers.'
+    );
+    expect(metadata.robots).toMatchObject({
+      index: true,
+      follow: true,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+      'max-video-preview': -1,
+    });
+    expect(metadata.openGraph?.description).toBe(
+      'The best phone for creators and gamers.'
+    );
+    expect(metadata.twitter?.description).toBe(
+      'The best phone for creators and gamers.'
+    );
+    expect(metadata.other).toMatchObject({
+      'product:price:amount': '500000',
+      'product:price:currency': 'NGN',
+      'product:availability': 'in stock',
+      'twitter:label1': 'Price',
+      'twitter:data1': 'NGN 500000',
+      'twitter:label2': 'Availability',
+      'twitter:data2': 'In stock',
+    });
+    expect(metadata.openGraph?.images).toEqual([
+      {
+        url: 'https://cdn.example.com/products/mystery-item.png',
+        alt: 'Mystery Item',
+      },
+    ]);
+    expect(metadata.twitter?.images).toEqual([
+      'https://cdn.example.com/products/mystery-item.png',
+    ]);
+  });
+
   it('does not retry detailed lookup with a lowercased slug', async () => {
     mockGetCachedProduct.mockResolvedValue(null);
     mockGetCachedProductWithDetails.mockResolvedValue(null);
@@ -577,5 +688,154 @@ describe('products/[productSlug] page', () => {
         ])
       );
     });
+  });
+
+  it('renders server semantic sections on the generic PDP route', async () => {
+    mockGetRequestScopedMerchant.mockResolvedValue({
+      ...baseMerchant,
+      support_email: 'support@test.example',
+      support_phone: '+2348000000000',
+      trust_profile: {
+        return_policy: {
+          summary: 'Returns accepted within 7 days.',
+          window_days: 7,
+          return_method: 'mail',
+          return_fees: 'free',
+        },
+        shipping_policy: {
+          summary: 'Ships across Nigeria.',
+          regions: ['NG'],
+          handling_days_min: 1,
+          handling_days_max: 2,
+          transit_days_min: 3,
+          transit_days_max: 5,
+          shipping_fee_type: 'free',
+        },
+        customer_service: {
+          whatsapp_number: '+2349000000000',
+        },
+      },
+    });
+    mockGetCachedProduct.mockResolvedValue({
+      ...uncategorizedProduct,
+      slug: 'iphone-17-pro-max',
+      name: 'iPhone 17 Pro Max',
+    });
+    mockGetCachedCategoryPageData.mockResolvedValue({
+      isCollection: false,
+      fallbackName: 'Products',
+      products: [
+        {
+          slug: 'iphone-17-pro-max',
+          name: 'iPhone 17 Pro Max',
+          brand: 'Apple',
+          price: 495000,
+          category_slug: 'products',
+          product_key_specs: {
+            chipset: 'A19 Pro',
+            ram_gb: 8,
+            storage_gb: 256,
+          },
+        },
+        {
+          slug: 'samsung-galaxy-z-trifold',
+          name: 'Samsung Galaxy Z TriFold',
+          brand: 'Samsung',
+          price: 480000,
+          category_slug: 'products',
+          product_key_specs: {
+            chipset: 'Snapdragon 8 Elite',
+            ram_gb: 16,
+            storage_gb: 512,
+          },
+        },
+      ],
+    });
+    mockBuildProductSemanticModel.mockReturnValue({
+      trustBullets: [],
+      supportLinks: [
+        {
+          href: 'https://teststore.usebaci.com/products',
+          label: 'Shop more Products',
+        },
+        {
+          href: 'https://teststore.usebaci.com/products/compare/iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
+          label: 'Compare with Samsung Galaxy Z TriFold',
+        },
+      ],
+      guideLinks: [
+        {
+          href: 'https://teststore.usebaci.com/blog/best-phones-in-nigeria',
+          title: 'Best Phones in Nigeria',
+          description: 'Budget and flagship picks.',
+          kind: 'best-in-nigeria',
+        },
+      ],
+      alternatives: null,
+      sameBrand: null,
+      samePrice: null,
+    });
+
+    render(
+      await ProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          productSlug: 'iphone-17-pro-max',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    );
+
+    expect(
+      screen.getByRole('link', {
+        name: /Shop more Products/i,
+      })
+    ).toHaveAttribute('href', 'https://teststore.usebaci.com/products');
+    expect(
+      screen.getByRole('link', {
+        name: /Compare with Samsung Galaxy Z TriFold/i,
+      })
+    ).toHaveAttribute(
+      'href',
+      'https://teststore.usebaci.com/products/compare/iphone-17-pro-max-vs-samsung-galaxy-z-trifold'
+    );
+    expect(
+      screen.getByRole('link', {
+        name: 'Best Phones in Nigeria',
+      })
+    ).toHaveAttribute(
+      'href',
+      'https://teststore.usebaci.com/blog/best-phones-in-nigeria'
+    );
+    expect(screen.getByText('Free returns within 7 days')).toBeInTheDocument();
+    expect(screen.getByText('Ships across Nigeria')).toBeInTheDocument();
+    expect(screen.getByText('WhatsApp support available')).toBeInTheDocument();
+    expect(mockBuildProductSemanticModel).toHaveBeenCalledWith(
+      expect.objectContaining({
+        storeUrl: 'https://teststore.usebaci.com',
+        categorySlug: 'products',
+        currentProduct: expect.objectContaining({
+          slug: 'iphone-17-pro-max',
+        }),
+        inventory: expect.arrayContaining([
+          expect.objectContaining({
+            slug: 'samsung-galaxy-z-trifold',
+            category_slug: 'products',
+          }),
+        ]),
+        guidePosts: [],
+      })
+    );
+    expect(mockGenerateProductSchema).toHaveBeenCalledWith(
+      expect.anything(),
+      'TestStore',
+      'NGN',
+      'NG',
+      null,
+      expect.objectContaining({
+        supportEmail: 'support@test.example',
+        supportPhone: '+2348000000000',
+      })
+    );
   });
 });

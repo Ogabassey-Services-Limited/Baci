@@ -2,14 +2,21 @@
 
 import { Sparkles, X } from 'lucide-react';
 import type React from 'react';
+import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import { useCart } from '@/hooks/use-cart';
+import { useCart } from '@/hooks/cart';
 import { useV2Theme } from '../../providers/v2-theme-context';
 import { ChatMessageBubble } from './chat-message';
 import { ChatInput } from './chat-input';
 import { useOgabasseyChat } from './use-ogabassey-chat';
 
-export const ChatWidget: React.FC = () => {
+export interface ChatWidgetProps {
+  openOnMount?: boolean;
+}
+
+export const ChatWidget: React.FC<ChatWidgetProps> = ({
+  openOnMount = false,
+}) => {
   const { isCartOpen } = useCart();
   const { theme } = useV2Theme();
   const pathname = usePathname();
@@ -43,6 +50,12 @@ export const ChatWidget: React.FC = () => {
     : isCartPage
       ? 'bottom-36'
       : 'bottom-24';
+
+  useEffect(() => {
+    if (openOnMount) {
+      setIsOpen(true);
+    }
+  }, [openOnMount, setIsOpen]);
 
   return (
     <div

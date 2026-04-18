@@ -169,10 +169,11 @@ describe('getCachedGoogleMerchantFeedData', () => {
       'merchant-1',
       'ogabassey'
     );
-
-    expect(result.products).toEqual([
-      { id: 'product-1', name: 'Phone', variants: [] },
-    ]);
+    expect(result.products[0]).toMatchObject({
+      id: 'product-1',
+      name: 'Phone',
+      variants: [],
+    });
   });
 
   it('hydrates feed variants from the feed RPC', async () => {
@@ -233,6 +234,44 @@ describe('getCachedGoogleMerchantFeedData', () => {
     await expect(
       getCachedGoogleMerchantFeedData('merchant-1', 'ogabassey')
     ).rejects.toThrow('Failed to fetch product variants');
+  });
+
+  it('flattens joined product_categories(categories(name, slug)) into categories and category_slug', async () => {
+    productsResult = {
+      data: [
+        {
+          id: 'product-1',
+          name: 'Phone',
+          product_categories: [
+            {
+              categories: {
+                name: 'Phones',
+                slug: 'phones',
+              },
+            },
+          ],
+        },
+      ],
+      error: null,
+    };
+
+    const { getCachedGoogleMerchantFeedData } = await import('./feed-data');
+    const result = await getCachedGoogleMerchantFeedData(
+      'merchant-1',
+      'ogabassey'
+    );
+
+    expect(result.products[0]).toMatchObject({
+      id: 'product-1',
+      name: 'Phone',
+      variants: [],
+      categories: {
+        name: 'Phones',
+        slug: 'phones',
+      },
+      category_slug: 'phones',
+      category: 'Phones',
+    });
   });
 
   it('skips product_offers hydration for sku_matrix products', async () => {

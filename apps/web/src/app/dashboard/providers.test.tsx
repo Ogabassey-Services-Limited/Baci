@@ -13,6 +13,16 @@ vi.mock('@/contexts/auth-context', () => ({
   ),
 }));
 
+vi.mock('next-themes', () => ({
+  ThemeProvider: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="theme-provider">{children}</div>
+  ),
+}));
+
+vi.mock('@/contexts/NonceProvider', () => ({
+  useNonce: () => ({ nonce: 'nonce-123' }),
+}));
+
 vi.mock('@/components/csrf-initializer', () => ({
   CsrfInitializer: () => <div data-testid="csrf-initializer" />,
 }));
@@ -74,6 +84,16 @@ describe('DashboardProviders', () => {
     );
 
     expect(screen.getByTestId('auth-provider')).toBeInTheDocument();
+  });
+
+  it('wraps children in ThemeProvider', () => {
+    render(
+      <DashboardProviders>
+        <div>Content</div>
+      </DashboardProviders>
+    );
+
+    expect(screen.getByTestId('theme-provider')).toBeInTheDocument();
   });
 
   it('wraps children in MerchantProvider', () => {

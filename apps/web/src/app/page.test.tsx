@@ -68,9 +68,9 @@ describe('PlatformSchemas JSON-LD output', () => {
     }
   });
 
-  it('first entry is Organization with correct fields', () => {
+  it('first entry is OnlineStore with correct fields', () => {
     const org = parsed['@graph'][0];
-    expect(org['@type']).toBe('Organization');
+    expect(org['@type']).toBe('OnlineStore');
     expect(org.name).toBe(testConfig.name);
     expect(org.url).toBe(testConfig.url);
     expect(org.description).toBe(testConfig.description);

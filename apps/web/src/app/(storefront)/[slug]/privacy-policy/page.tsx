@@ -1,26 +1,19 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
+import {
+  generateMetaDescription,
+  getIndexableRobotsMetadata,
+} from '@/lib/seo-utils';
+import { buildRequestScopedStoreUrl } from '@/lib/store-url';
 import { getTemplate } from '@/templates/registry';
 import { PrivacyPageClient } from '../pages/privacy/privacy-page-client';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
-}
-
-/**
- * Normalize domain by stripping protocol and trailing slashes.
- * Defense-in-depth: guards against malformed data in database.
- */
-function normalizeDomain(domain: string | null | undefined): string | null {
-  if (!domain) return null;
-  return domain
-    .replace(/^https?:\/\//i, '')
-    .replace(/\/+$/, '')
-    .trim()
-    .toLowerCase();
 }
 
 export async function generateMetadata({
@@ -35,24 +28,25 @@ export async function generateMetadata({
     };
   }
 
-  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  const normalizedDomain = normalizeDomain(merchant.custom_domain);
-  const host = normalizedDomain || `${slug}.usebaci.com`;
-  const canonicalUrl = `${protocol}://${host}/privacy-policy`;
+  const canonicalUrl = `${buildRequestScopedStoreUrl(merchant, await headers())}/privacy-policy`;
+  const description = generateMetaDescription(
+    `Privacy Policy for ${merchant.business_name}. Learn how we collect, use, and protect your personal information.`
+  );
 
   return {
     title: `Privacy Policy | ${merchant.business_name}`,
-    description: `Privacy Policy for ${merchant.business_name}. Learn how we collect, use, and protect your personal information.`,
+    description,
     alternates: {
       canonical: canonicalUrl,
     },
     openGraph: {
       title: `Privacy Policy | ${merchant.business_name}`,
-      description: `Privacy Policy for ${merchant.business_name}. Learn how we collect, use, and protect your personal information.`,
+      description,
       type: 'website',
       url: canonicalUrl,
       ...(merchant.logo_url && { images: [{ url: merchant.logo_url }] }),
     },
+    robots: getIndexableRobotsMetadata(),
   };
 }
 
@@ -92,11 +86,7 @@ async function PrivacyPolicyJsonLd({ params }: PageProps) {
   const templateHasPrivacyPage = merchant.template_id === 'ogabassey';
   if (!hasPrivacyContent && !templateHasPrivacyPage) return null;
 
-  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  const normalizedDomain = normalizeDomain(merchant.custom_domain);
-  const baseUrl = normalizedDomain
-    ? `${protocol}://${normalizedDomain}`
-    : `${protocol}://${slug}.usebaci.com`;
+  const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
 
   const privacySchema = {
     '@context': 'https://schema.org',

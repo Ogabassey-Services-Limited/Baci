@@ -210,4 +210,49 @@ describe('useCart - Validation', () => {
       });
     });
   });
+
+  it('defers cart validation until interaction when requested', async () => {
+    vi.useFakeTimers();
+
+    const initialCart = [
+      { ...mockProduct, id: 'valid-product', cartItemId: 'valid-product' },
+    ];
+
+    localStorageMock.setItem('baci-cart-guest', JSON.stringify(initialCart));
+
+    (global.fetch as any).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        invalidProductIds: [],
+        priceChanges: [],
+      }),
+    });
+
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <CartProvider deferValidationUntilIdle>{children}</CartProvider>
+    );
+
+    const { result } = renderHook(() => useCart(), { wrapper });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(result.current.isHydrated).toBe(true);
+    expect(global.fetch).not.toHaveBeenCalled();
+
+    await act(async () => {
+      window.dispatchEvent(new Event('pointerdown'));
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      vi.runOnlyPendingTimers();
+      await Promise.resolve();
+    });
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+
+    vi.useRealTimers();
+  });
 });

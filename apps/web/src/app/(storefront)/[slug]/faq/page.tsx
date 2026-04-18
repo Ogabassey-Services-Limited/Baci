@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import {
@@ -7,8 +8,8 @@ import {
 } from '@/lib/cached-data';
 import { toTemplateMerchantData } from '@/lib/merchant-template-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
-import { generateFAQSchema } from '@/lib/seo-utils';
-import { buildStoreUrl } from '@/lib/store-url';
+import { generateFAQSchema, getIndexableRobotsMetadata } from '@/lib/seo-utils';
+import { buildRequestScopedStoreUrl } from '@/lib/store-url';
 import { getTemplate } from '@/templates/registry';
 import { type FAQItem, parseLegacyFAQ } from '@/types/faq';
 import { FAQPageClient } from '../pages/faq/faq-page-client';
@@ -52,7 +53,7 @@ export async function generateMetadata({
     notFound();
   }
 
-  const canonicalUrl = `${buildStoreUrl(merchant)}/faq`;
+  const canonicalUrl = `${buildRequestScopedStoreUrl(merchant, await headers())}/faq`;
 
   return {
     title: `FAQ | ${merchant.business_name}`,
@@ -67,6 +68,7 @@ export async function generateMetadata({
     alternates: {
       canonical: canonicalUrl,
     },
+    robots: getIndexableRobotsMetadata(),
   };
 }
 

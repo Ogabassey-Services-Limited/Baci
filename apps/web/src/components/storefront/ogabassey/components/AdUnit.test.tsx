@@ -1,0 +1,150 @@
+import { act, render, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const { ensureGoogleAdManagerBoot, ensureGoogleTag } = vi.hoisted(() => ({
+  ensureGoogleAdManagerBoot: vi.fn(() => Promise.resolve()),
+  ensureGoogleTag: vi.fn(() => window.googletag),
+}));
+
+vi.mock('./google-ad-bootstrap', () => ({
+  ensureGoogleAdManagerBoot,
+  ensureGoogleTag,
+}));
+
+import { AdUnit } from './AdUnit';
+
+describe('AdUnit', () => {
+  let intersectionCallback:
+    | IntersectionObserverCallback
+    | undefined;
+  let intersectionOptions: IntersectionObserverInit | undefined;
+
+  beforeEach(() => {
+    ensureGoogleAdManagerBoot.mockClear();
+    ensureGoogleTag.mockClear();
+
+    class MockIntersectionObserver {
+      observe = vi.fn();
+      disconnect = vi.fn();
+      unobserve = vi.fn();
+
+      constructor(
+        callback: IntersectionObserverCallback,
+        options?: IntersectionObserverInit
+      ) {
+        intersectionCallback = callback;
+        intersectionOptions = options;
+      }
+    }
+
+    global.IntersectionObserver =
+      MockIntersectionObserver as unknown as typeof IntersectionObserver;
+
+    const slot = {
+      addService: vi.fn(),
+      defineSizeMapping: vi.fn(),
+    };
+
+    slot.addService.mockReturnValue(slot);
+    slot.defineSizeMapping.mockReturnValue(slot);
+
+    const sizeMappingBuilder = {
+      addSize: vi.fn(),
+      build: vi.fn(() => []),
+    };
+
+    sizeMappingBuilder.addSize.mockReturnValue(sizeMappingBuilder);
+
+    const pubAdsService = {
+      addEventListener: vi.fn(),
+      refresh: vi.fn(),
+      enableSingleRequest: vi.fn(),
+      collapseEmptyDivs: vi.fn(),
+      setTargeting: vi.fn(),
+    };
+
+    window.googletag = {
+      cmd: {
+        push: (fn: () => void) => {
+          fn();
+          return 0;
+        },
+      },
+      defineSlot: vi.fn(() => slot),
+      pubads: vi.fn(() => pubAdsService),
+      display: vi.fn(),
+      destroySlots: vi.fn(),
+      sizeMapping: vi.fn(() => sizeMappingBuilder),
+      enableServices: vi.fn(),
+    } as unknown as typeof window.googletag;
+  });
+
+  afterEach(() => {
+    delete (globalThis as { IntersectionObserver?: typeof IntersectionObserver })
+      .IntersectionObserver;
+  });
+
+  it('waits for the slot to approach the viewport before bootstrapping GPT', async () => {
+    const { container } = render(<AdUnit placementKey="HOMEPAGE_STRIP" />);
+
+    expect(ensureGoogleAdManagerBoot).not.toHaveBeenCalled();
+    expect(intersectionCallback).toBeTypeOf('function');
+    expect(intersectionOptions?.rootMargin).toBe('400px 0px');
+
+    await act(async () => {
+      intersectionCallback?.(
+        [
+          {
+            isIntersecting: true,
+            intersectionRatio: 1,
+            target:
+              container.querySelector('#div-gpt-ad-home-strip') ??
+              document.body,
+          } as IntersectionObserverEntry,
+        ],
+        {} as IntersectionObserver
+      );
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(ensureGoogleAdManagerBoot).toHaveBeenCalledOnce();
+    });
+
+    await waitFor(() => {
+      expect(window.googletag.defineSlot).toHaveBeenCalled();
+      expect(window.googletag.display).toHaveBeenCalledWith(
+        'div-gpt-ad-home-strip'
+      );
+    });
+  });
+
+  it('keeps inactive carousel ads off the startup path', async () => {
+    const { container, rerender } = render(
+      <AdUnit placementKey="HEADER_LEADERBOARD" isActive={false} />
+    );
+
+    expect(ensureGoogleAdManagerBoot).not.toHaveBeenCalled();
+
+    rerender(<AdUnit placementKey="HEADER_LEADERBOARD" isActive />);
+
+    await act(async () => {
+      intersectionCallback?.(
+        [
+          {
+            isIntersecting: true,
+            intersectionRatio: 1,
+            target:
+              container.querySelector('#div-gpt-ad-header') ?? document.body,
+          } as IntersectionObserverEntry,
+        ],
+        {} as IntersectionObserver
+      );
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(ensureGoogleAdManagerBoot).toHaveBeenCalledOnce();
+    });
+  });
+});

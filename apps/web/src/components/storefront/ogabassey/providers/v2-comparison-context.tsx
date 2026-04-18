@@ -1,7 +1,7 @@
 'use client';
 
 import type React from 'react';
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { Product } from '../types';
 
 interface V2ComparisonContextType {
@@ -15,6 +15,8 @@ interface V2ComparisonContextType {
 const V2ComparisonContext = createContext<V2ComparisonContextType | undefined>(
   undefined
 );
+const COMPARISON_STORAGE_KEY = 'ogabassey_v2_compare';
+const STORAGE_HYDRATION_TIMEOUT_MS = 1200;
 
 export const useV2Comparison = () => {
   const context = useContext(V2ComparisonContext);
@@ -30,46 +32,108 @@ export const V2ComparisonProvider: React.FC<{
   children: React.ReactNode;
 }> = ({ children }) => {
   const [compareItems, setCompareItems] = useState<Product[]>([]);
+  const [hasHydratedStorage, setHasHydratedStorage] = useState(false);
+  const hasHydratedStorageRef = useRef(false);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('ogabassey_v2_compare');
-      if (stored) {
-        try {
-          setCompareItems(JSON.parse(stored));
-        } catch (e) {
-          console.error('Failed to parse comparison items', e);
-        }
+  const hydrateComparisonItems = () => {
+    if (typeof window === 'undefined' || hasHydratedStorageRef.current) {
+      return null;
+    }
+
+    let nextComparisonItems: Product[] = [];
+    const stored = localStorage.getItem(COMPARISON_STORAGE_KEY);
+    if (stored) {
+      try {
+        nextComparisonItems = JSON.parse(stored);
+      } catch (error) {
+        console.error('Failed to parse comparison items', error);
       }
     }
+
+    hasHydratedStorageRef.current = true;
+    setHasHydratedStorage(true);
+    setCompareItems(nextComparisonItems);
+    return nextComparisonItems;
+  };
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || hasHydratedStorageRef.current) {
+      return undefined;
+    }
+
+    const activate = () => {
+      detach();
+      hydrateComparisonItems();
+    };
+
+    const detach = () => {
+      window.removeEventListener('pointerdown', activate);
+      window.removeEventListener('keydown', activate);
+      window.removeEventListener('scroll', activate);
+    };
+
+    window.addEventListener('pointerdown', activate, {
+      once: true,
+      passive: true,
+    });
+    window.addEventListener('keydown', activate, { once: true });
+    window.addEventListener('scroll', activate, {
+      once: true,
+      passive: true,
+    });
+
+    const idleCallbackId =
+      typeof window.requestIdleCallback === 'function'
+        ? window.requestIdleCallback(activate, {
+            timeout: STORAGE_HYDRATION_TIMEOUT_MS,
+          })
+        : undefined;
+    const timeoutId = window.setTimeout(activate, STORAGE_HYDRATION_TIMEOUT_MS);
+
+    return () => {
+      detach();
+      window.clearTimeout(timeoutId);
+      if (idleCallbackId !== undefined) {
+        window.cancelIdleCallback?.(idleCallbackId);
+      }
+    };
   }, []);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && hasHydratedStorage) {
       localStorage.setItem(
-        'ogabassey_v2_compare',
+        COMPARISON_STORAGE_KEY,
         JSON.stringify(compareItems)
       );
     }
-  }, [compareItems]);
+  }, [compareItems, hasHydratedStorage]);
 
   const addToCompare = (product: Product) => {
+    const hydratedComparisonItems = hydrateComparisonItems();
+
     setCompareItems((prev) => {
+      const source = hydratedComparisonItems ?? prev;
       // Avoid duplicates
-      if (prev.some((p) => String(p.id) === String(product.id))) return prev;
+      if (source.some((p) => String(p.id) === String(product.id))) {
+        return source;
+      }
 
       // Limit to 4 items for UI sanity (1 main + 3 comparisons)
-      if (prev.length >= 4) {
+      if (source.length >= 4) {
         // Remove first, add new
-        return [...prev.slice(1), product];
+        return [...source.slice(1), product];
       }
-      return [...prev, product];
+      return [...source, product];
     });
   };
 
   const removeFromCompare = (productId: number | string) => {
+    const hydratedComparisonItems = hydrateComparisonItems();
+
     setCompareItems((prev) =>
-      prev.filter((p) => String(p.id) !== String(productId))
+      (hydratedComparisonItems ?? prev).filter(
+        (p) => String(p.id) !== String(productId)
+      )
     );
   };
 
@@ -77,7 +141,10 @@ export const V2ComparisonProvider: React.FC<{
     return compareItems.some((p) => String(p.id) === String(productId));
   };
 
-  const clearCompare = () => setCompareItems([]);
+  const clearCompare = () => {
+    hydrateComparisonItems();
+    setCompareItems([]);
+  };
 
   return (
     <V2ComparisonContext.Provider
