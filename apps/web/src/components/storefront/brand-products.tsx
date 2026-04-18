@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ThemedButton, ThemedCard } from '@/components/themed';
 import { CardContent } from '@/components/ui/card';
-import { useCart } from '@/hooks/use-cart';
+import { useCart } from '@/hooks/cart';
 import { useCurrency } from '@/hooks/use-currency';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
@@ -15,6 +15,7 @@ import { getEffectiveStock } from '@/lib/product-stock';
 import type { Product } from '@/lib/products';
 import { getProductUrl } from '@/lib/seo-utils';
 import { cn } from '@/lib/utils';
+import { useViewportActivation } from './use-viewport-activation';
 
 interface BrandProductsProps {
   /** Current product to find same-brand products for */
@@ -65,33 +66,37 @@ export function BrandProducts({
   const categorySlugFallback = product.category_slug;
   const categorySlug =
     categoriesSlug || categorySlugFallback || productCategory.toLowerCase();
+  const fetchLimit = Math.max(maxProducts + 2, 8);
+  const { ref: sectionRef, isActive } = useViewportActivation<HTMLElement>({
+    enabled: Boolean(merchant?.id && productBrand && productCategory),
+  });
 
   useEffect(() => {
-    // Skip if no merchant, no brand, or no category
-    if (!merchant?.id || !productBrand || !productCategory) {
+    if (!merchant?.id || !productBrand || !productCategory || !isActive) {
       setBrandProducts([]);
-      setIsLoading(false);
+      setIsLoading(!isActive);
       return;
     }
 
     setIsLoading(true);
 
-    // Fetch products from same category, then filter by brand client-side
-    // API filters by category; we filter by brand here
-    apiGet<{ products: Product[] }>(
-      `/api/storefront/products?merchant_id=${merchant.id}&category=${encodeURIComponent(categorySlug)}`
-    )
+    const params = new URLSearchParams({
+      merchant_id: merchant.id,
+      category: categorySlug,
+      brand: productBrand,
+      limit: String(fetchLimit),
+      compact: 'true',
+      has_images: 'true',
+    });
+
+    apiGet<{ products: Product[] }>(`/api/storefront/products?${params}`)
       .then((data) => {
         if (data.products) {
-          // Filter to same brand, exclude current product
-          const sameBrand = data.products.filter(
-            (p) =>
-              p.id !== product.id &&
-              p.brand &&
-              p.brand.toLowerCase() === productBrand.toLowerCase() &&
-              p.status === 'active'
+          setBrandProducts(
+            data.products
+              .filter((p) => p.id !== product.id && p.status === 'active')
+              .slice(0, maxProducts)
           );
-          setBrandProducts(sameBrand.slice(0, maxProducts));
         }
         setIsLoading(false);
       })
@@ -101,11 +106,13 @@ export function BrandProducts({
         setIsLoading(false);
       });
   }, [
+    isActive,
     merchant?.id,
     product.id,
     productBrand,
     categorySlug,
     productCategory,
+    fetchLimit,
     maxProducts,
   ]);
 
@@ -131,26 +138,26 @@ export function BrandProducts({
     setScrollPosition(newPosition);
   };
 
-  // Don't render if no brand products found
-  if (!isLoading && brandProducts.length === 0) {
+  if (!isActive && !productBrand) {
     return null;
   }
 
-  // Don't render if product has no brand
   if (!productBrand) {
+    return null;
+  }
+
+  if (isActive && !isLoading && brandProducts.length === 0) {
     return null;
   }
 
   const isOutOfStock = (p: Product) =>
     (p.manage_stock ?? true) && getEffectiveStock(p) <= 0;
 
-  // Semantic heading: "More [Brand] [Category]"
   const title = `More ${productBrand} ${productCategory}`;
 
   return (
-    <section className={cn('w-full py-8 md:py-12', className)}>
+    <section ref={sectionRef} className={cn('w-full py-8 md:py-12', className)}>
       <div className="container px-4 md:px-6">
-        {/* Header with semantic title */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
             {title}
@@ -182,8 +189,22 @@ export function BrandProducts({
           )}
         </div>
 
-        {/* Products */}
-        {isLoading ? (
+        {!isActive ? (
+          <div
+            aria-hidden="true"
+            className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide"
+          >
+            {Array.from(
+              { length: maxProducts },
+              (_, index) => `brand-placeholder-${index}`
+            ).map((placeholderKey) => (
+              <div
+                key={placeholderKey}
+                className="h-[320px] w-[200px] flex-shrink-0 rounded-xl bg-muted/40 sm:w-[260px]"
+              />
+            ))}
+          </div>
+        ) : isLoading ? (
           <div className="flex justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
@@ -204,6 +225,7 @@ export function BrandProducts({
                 >
                   <Link
                     href={getFullProductUrl(p) as '/'}
+                    prefetch={false}
                     className="block relative"
                   >
                     <Image
@@ -221,7 +243,7 @@ export function BrandProducts({
                     )}
                   </Link>
                   <CardContent className="p-3">
-                    <Link href={getFullProductUrl(p) as '/'}>
+                    <Link href={getFullProductUrl(p) as '/'} prefetch={false}>
                       <h3 className="font-medium text-sm line-clamp-2 hover:text-[var(--store-primary)] transition-colors">
                         {p.name}
                       </h3>
