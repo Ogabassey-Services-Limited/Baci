@@ -750,6 +750,18 @@ export const CheckoutPage: React.FC = () => {
   // Payment State
   const [paymentTab, setPaymentTab] = useState<'full' | 'installments'>('full');
   const [paymentMethod, setPaymentMethod] = useState<'paystack' | 'korapay' | 'juicyway' | 'credpal' | 'credit_direct' | 'invoice' | 'payforme' | 'pod' | 'bank_transfer' | ''>('');
+  const paystackCheckoutAvailable =
+    !merchant?.feature_settings || merchant.feature_settings.paystack_enabled !== false;
+  const bankTransferCheckoutAvailable = paystackCheckoutAvailable;
+  const juicywayCheckoutAvailable =
+    merchant?.feature_settings?.juicyway_enabled === true;
+  const payOnDeliveryAvailable =
+    merchant?.feature_settings?.pay_on_delivery_enabled === true;
+  const hasAvailableFullPaymentMethods =
+    paystackCheckoutAvailable ||
+    bankTransferCheckoutAvailable ||
+    juicywayCheckoutAvailable ||
+    payOnDeliveryAvailable;
 
   // Wallet state (2025: auto-apply when balance > 0)
   const [walletBalance, setWalletBalance] = useState(0);
@@ -1108,6 +1120,24 @@ export const CheckoutPage: React.FC = () => {
     }
 
     const normalizedPaymentMethod = normalizeOrderPaymentMethod(paymentMethod);
+
+    if (
+      (normalizedPaymentMethod === 'paystack' &&
+        !paystackCheckoutAvailable) ||
+      (normalizedPaymentMethod === 'bank_transfer' &&
+        !bankTransferCheckoutAvailable)
+    ) {
+      toast({
+        title: 'Payment Method Unavailable',
+        description:
+          'The selected payment method is no longer available. Please choose another option.',
+        variant: 'destructive',
+      });
+      setIsProcessing(false);
+      isOrderInFlightRef.current = false;
+      return;
+    }
+
     const checkoutFingerprint = buildPendingCheckoutFingerprint({
       merchantId: merchant.id,
       customerEmail,
@@ -2769,9 +2799,19 @@ export const CheckoutPage: React.FC = () => {
                     {paymentTab === 'full' && (
                       <div className="space-y-3 animate-in fade-in">
                         <p className="text-xs text-gray-500">Select a payment gateway:</p>
+                        {!hasAvailableFullPaymentMethods ? (
+                          <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
+                            <p className="font-medium text-gray-900">
+                              No pay-in-full methods are currently available.
+                            </p>
+                            <p className="mt-1">
+                              Try installments instead, or contact the merchant to enable a payment option.
+                            </p>
+                          </div>
+                        ) : (
                         <div className="grid grid-cols-1 gap-3">
                           {/* Paystack */}
-                          {(!merchant?.feature_settings || merchant.feature_settings.paystack_enabled !== false) && (
+                          {paystackCheckoutAvailable && (
                             <label
                               className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'paystack'
                                 ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5'
@@ -2801,7 +2841,7 @@ export const CheckoutPage: React.FC = () => {
                           )}
 
                           {/* Bank Transfer (DVA) - Premium Option */}
-                          {(!merchant?.feature_settings || merchant.feature_settings.paystack_enabled !== false) && (
+                          {bankTransferCheckoutAvailable && (
                             <label
                               className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'bank_transfer'
                                 ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5'
@@ -2860,7 +2900,7 @@ export const CheckoutPage: React.FC = () => {
                           */}
 
                           {/* Juicyway */}
-                          {merchant?.feature_settings?.juicyway_enabled === true && (
+                          {juicywayCheckoutAvailable && (
                             <label
                               className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'juicyway'
                                 ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5'
@@ -2890,7 +2930,7 @@ export const CheckoutPage: React.FC = () => {
                           )}
 
                           {/* Pay on Delivery */}
-                          {merchant?.feature_settings?.pay_on_delivery_enabled === true && (
+                          {payOnDeliveryAvailable && (
                             <label
                               className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'pod'
                                 ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5'
@@ -2920,6 +2960,7 @@ export const CheckoutPage: React.FC = () => {
                             </label>
                           )}
                         </div>
+                        )}
                       </div>
                     )}
 

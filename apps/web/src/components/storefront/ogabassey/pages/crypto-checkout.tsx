@@ -45,6 +45,10 @@ export function CryptoCheckoutPage() {
   const cryptoChain = searchParams.get('crypto_chain') || 'TRX';
   const cryptoCurrency = searchParams.get('crypto_currency') || 'USDT';
   const merchantSlugParam = searchParams.get('merchant_slug');
+  const trackingToken =
+    searchParams.get('trackingToken') ||
+    searchParams.get('tracking_token') ||
+    searchParams.get('token');
 
   const [status, setStatus] = useState<
     'loading' | 'ready' | 'verifying' | 'confirmed' | 'failed' | 'error'
@@ -153,6 +157,7 @@ export function CryptoCheckoutPage() {
     merchant?.id,
     merchant?.slug,
     merchantSlugParam,
+    trackingToken,
     loading,
   ]);
 
@@ -204,8 +209,16 @@ export function CryptoCheckoutPage() {
         // Redirect after short delay
         setTimeout(() => {
           const slug = merchantSlugParam || merchant?.slug || 'ogabassey';
+          const successQuery = new URLSearchParams({
+            type: 'crypto',
+            orderId: cryptoData?.orderId || '',
+            reference: cryptoData?.reference || '',
+          });
+          if (trackingToken) {
+            successQuery.set('trackingToken', trackingToken);
+          }
           router.push(
-            `/${slug}/order-success?type=crypto&orderId=${cryptoData?.orderId}&reference=${cryptoData?.reference}`
+            `/${slug}/order-success?${successQuery.toString()}`
           );
         }, 1500);
       } else if (
@@ -232,8 +245,16 @@ export function CryptoCheckoutPage() {
       );
       setTimeout(() => {
         const slug = merchantSlugParam || merchant?.slug || 'ogabassey';
+        const successQuery = new URLSearchParams({
+          type: 'crypto',
+          orderId: cryptoData?.orderId || '',
+          reference: cryptoData?.reference || '',
+        });
+        if (trackingToken) {
+          successQuery.set('trackingToken', trackingToken);
+        }
         router.push(
-          `/${slug}/order-success?type=crypto&orderId=${cryptoData?.orderId}&reference=${cryptoData?.reference}`
+          `/${slug}/order-success?${successQuery.toString()}`
         );
       }, 1500);
     }

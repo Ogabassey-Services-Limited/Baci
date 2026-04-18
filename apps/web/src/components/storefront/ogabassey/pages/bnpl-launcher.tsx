@@ -25,6 +25,23 @@ export function BnplLauncher() {
     );
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+    const buildSuccessUrl = (
+        orderId: string,
+        reference: string,
+        trackingToken?: string
+    ) => {
+        const query = new URLSearchParams({
+            orderId,
+            reference,
+        });
+
+        if (trackingToken) {
+            query.set('trackingToken', trackingToken);
+        }
+
+        return `/order-success?${query.toString()}`;
+    };
+
     useEffect(() => {
         if (loading) return; // Wait for merchant data to load
 
@@ -85,7 +102,12 @@ export function BnplLauncher() {
                             })
                         ),
                         onSuccess: (ref) => {
-                            router.push(`/order-success?orderId=${order.id}&reference=${ref}`);
+                            const successUrl = buildSuccessUrl(
+                                order.id,
+                                ref,
+                                order.tracking_token
+                            );
+                            router.push(successUrl as `/${string}`);
                         },
                         onClose: () => {
                             setStatus('error');
@@ -107,7 +129,12 @@ export function BnplLauncher() {
                         customerName: order.customer_name,
                         customerPhone: order.customer_phone,
                         onSuccess: (data) => {
-                            router.push(`/order-success?orderId=${order.id}&reference=${data.order_no}`);
+                            const successUrl = buildSuccessUrl(
+                                order.id,
+                                data.order_no,
+                                order.tracking_token
+                            );
+                            router.push(successUrl as `/${string}`);
                         },
                         onClose: () => {
                             setStatus('error');
@@ -131,7 +158,7 @@ export function BnplLauncher() {
         };
 
         launchPayment();
-    }, [orderId, gateway, merchant?.slug, loading, router]);
+    }, [orderId, gateway, merchant?.slug, merchantSlugParam, loading, router]);
 
     if (status === 'error') {
         return (

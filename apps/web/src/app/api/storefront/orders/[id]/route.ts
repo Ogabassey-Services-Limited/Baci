@@ -150,6 +150,21 @@ function mapOrderItemsWithRoutes(
   });
 }
 
+type MerchantSlugLookupClient = Pick<ReturnType<typeof createClient>, 'from'>;
+
+async function resolveMerchantIdBySlug(
+  merchantSlug: string,
+  supabase: MerchantSlugLookupClient
+) {
+  const { data: merchant } = await supabase
+    .from('merchants')
+    .select('id')
+    .eq('slug', merchantSlug)
+    .single();
+
+  return merchant?.id ?? null;
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -292,18 +307,17 @@ export async function GET(
         '[API/Orders] Attempting header-based lookup for slug:',
         proxyMerchantSlug
       );
-      const admin = createAdminClient();
 
-      const { data: merchant } = await admin
-        .from('merchants')
-        .select('id')
-        .eq('slug', proxyMerchantSlug)
-        .single();
+      const merchantId = await resolveMerchantIdBySlug(
+        proxyMerchantSlug,
+        supabase
+      );
 
-      if (merchant) {
+      if (merchantId) {
+        const admin = createAdminClient();
         console.log(
           '[API/Orders] Found merchant %s for slug %s',
-          merchant.id,
+          merchantId,
           proxyMerchantSlug
         );
         const { data: order, error: orderError } = await admin
@@ -314,7 +328,7 @@ export async function GET(
              payment_status, shipping_status, payment_method, merchant_id`
           )
           .eq('id', id)
-          .eq('merchant_id', merchant.id)
+          .eq('merchant_id', merchantId)
           .single();
 
         if (!orderError && order) {
@@ -355,7 +369,7 @@ export async function GET(
           console.debug(
             '[API/Orders] Order %s not found for merchant %s via header.',
             sanitizeForLog(id),
-            merchant.id
+            merchantId
           );
         }
       } else {
@@ -380,17 +394,13 @@ export async function GET(
         '[API/Orders] Attempting slug-based public lookup for merchant_slug: %s',
         sanitizeForLog(merchantSlug)
       );
-      const admin = createAdminClient();
-      const { data: merchantRow } = await admin
-        .from('merchants')
-        .select('id')
-        .eq('slug', merchantSlug)
-        .single();
+      const merchantId = await resolveMerchantIdBySlug(merchantSlug, supabase);
 
-      if (merchantRow) {
+      if (merchantId) {
+        const admin = createAdminClient();
         console.log(
           '[API/Orders] Found merchant %s for slug %s',
-          sanitizeForLog(merchantRow.id),
+          sanitizeForLog(merchantId),
           sanitizeForLog(merchantSlug)
         );
         const { data: order, error: orderError } = await admin
@@ -401,7 +411,7 @@ export async function GET(
              payment_status, shipping_status, payment_method, merchant_id`
           )
           .eq('id', id)
-          .eq('merchant_id', merchantRow.id)
+          .eq('merchant_id', merchantId)
           .single();
 
         if (!orderError && order) {
@@ -442,7 +452,7 @@ export async function GET(
           console.warn(
             '[API/Orders] Order %s not found for merchant %s via slug. Error:',
             sanitizeForLog(id),
-            merchantRow.id,
+            merchantId,
             orderError?.message
           );
         }

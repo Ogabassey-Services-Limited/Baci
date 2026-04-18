@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { storefrontFeaturesQuerySchema } from '@/schemas/storefront-features';
 
 /**
  * Storefront Feature Settings API (Public)
@@ -125,16 +126,19 @@ const DEFAULT_FEATURES: StorefrontFeatures = {
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = request.nextUrl;
-    const merchantId = searchParams.get('merchantId');
-    const slug = searchParams.get('slug');
+    const parseResult = storefrontFeaturesQuerySchema.safeParse({
+      merchantId: request.nextUrl.searchParams.get('merchantId') || undefined,
+      slug: request.nextUrl.searchParams.get('slug') || undefined,
+    });
 
-    if (!merchantId && !slug) {
+    if (!parseResult.success) {
       return NextResponse.json(
-        { error: 'merchantId or slug is required' },
+        { error: parseResult.error.issues[0]?.message || 'Invalid request' },
         { status: 400 }
       );
     }
+
+    const { merchantId, slug } = parseResult.data;
 
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);

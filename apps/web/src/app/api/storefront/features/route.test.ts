@@ -41,7 +41,7 @@ describe('GET /api/storefront/features', () => {
 
     const request = {
       nextUrl: new URL(
-        'https://example.com/api/storefront/features?merchantId=merchant-1'
+        'https://example.com/api/storefront/features?merchantId=11111111-1111-4111-8111-111111111111'
       ),
       get url() {
         throw new Error('request.url should not be read');
@@ -66,5 +66,19 @@ describe('GET /api/storefront/features', () => {
 
     expect(response.status).toBe(400);
     expect(body.error).toBe('merchantId or slug is required');
+  });
+
+  it('returns 400 for an invalid merchantId', async () => {
+    const request = {
+      nextUrl: new URL(
+        'https://example.com/api/storefront/features?merchantId=not-a-uuid'
+      ),
+    } as unknown as NextRequest;
+
+    const response = await GET(request);
+    const body = (await response.json()) as { error: string };
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('Invalid merchantId');
   });
 });

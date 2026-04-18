@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock all heavy dependencies before importing the component
 vi.mock('next/navigation', () => ({
@@ -134,6 +134,52 @@ vi.mock('../components/MobileCheckoutComponents', () => ({
 import { CheckoutPage } from './checkout-page';
 
 describe('CheckoutPage', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+
+    const { useSearchParams } = await import('next/navigation');
+    const { useCart } = await import('@/hooks/use-cart');
+    const { usePersistedForm } = await import('@/hooks/use-persisted-state');
+    const { useMerchantSafe } = await import('@/hooks/use-merchant');
+
+    vi.mocked(useSearchParams).mockReturnValue(
+      new URLSearchParams() as unknown as ReturnType<typeof useSearchParams>
+    );
+    vi.mocked(useCart).mockReturnValue({
+      cart: [],
+      cartTotal: 0,
+      clearCart: vi.fn(),
+      isHydrated: true,
+    } as unknown as ReturnType<typeof useCart>);
+    vi.mocked(usePersistedForm).mockReturnValue({
+      values: {
+        firstName: '',
+        lastName: '',
+        customerEmail: '',
+        customerPhone: '',
+        newAddressStreet: '',
+        newAddressState: '',
+        newAddressCity: '',
+        currentStep: 'contact',
+        completedSteps: { contact: false, delivery: false },
+      },
+      setValue: vi.fn(),
+      setValues: vi.fn(),
+      clear: vi.fn(),
+    } as unknown as ReturnType<typeof usePersistedForm>);
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        slug: 'test-store',
+        business_name: 'Test Store',
+        vat_registration_status: 'registered',
+        vat_rate: 7.5,
+        country: 'NG',
+      },
+      basePath: '/test-store',
+    } as unknown as ReturnType<typeof useMerchantSafe>);
+  });
+
   it('renders without crashing', () => {
     render(<CheckoutPage />);
     // The checkout page should render some form of checkout UI
@@ -167,5 +213,67 @@ describe('CheckoutPage', () => {
       screen.queryAllByLabelText(/email/i)[0] ??
       screen.queryByText(/contact/i);
     expect(match).toBeTruthy();
+  });
+
+  it('shows a full-payment empty state when no pay-in-full methods are available', async () => {
+    const { useCart } = await import('@/hooks/use-cart');
+    const { usePersistedForm } = await import('@/hooks/use-persisted-state');
+    const { useMerchantSafe } = await import('@/hooks/use-merchant');
+
+    vi.mocked(useCart).mockReturnValue({
+      cart: [
+        {
+          id: 'item-1',
+          name: 'Test Product',
+          price: 5000,
+          quantity: 1,
+          image: '',
+          slug: 'test-product',
+        },
+      ],
+      cartTotal: 5000,
+      clearCart: vi.fn(),
+      isHydrated: true,
+    } as unknown as ReturnType<typeof useCart>);
+
+    vi.mocked(usePersistedForm).mockReturnValue({
+      values: {
+        firstName: 'John',
+        lastName: 'Doe',
+        customerEmail: 'john@example.com',
+        customerPhone: '+2348012345678',
+        newAddressStreet: '',
+        newAddressState: '',
+        newAddressCity: '',
+        currentStep: 'payment',
+        completedSteps: { contact: true, delivery: true },
+      },
+      setValue: vi.fn(),
+      setValues: vi.fn(),
+      clear: vi.fn(),
+    } as unknown as ReturnType<typeof usePersistedForm>);
+
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        slug: 'test-store',
+        business_name: 'Test Store',
+        vat_registration_status: 'registered',
+        vat_rate: 7.5,
+        country: 'NG',
+        feature_settings: {
+          paystack_enabled: false,
+          juicyway_enabled: false,
+          pay_on_delivery_enabled: false,
+        },
+      },
+      basePath: '/test-store',
+    } as unknown as ReturnType<typeof useMerchantSafe>);
+
+    render(<CheckoutPage />);
+
+    expect(
+      screen.getByText(/No pay-in-full methods are currently available/i)
+    ).toBeInTheDocument();
   });
 });

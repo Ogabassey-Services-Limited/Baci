@@ -231,6 +231,12 @@ describe('GET /api/storefront/orders/[id]', () => {
         }),
       };
 
+      mockSupabaseClient.from.mockImplementation((table: string) => {
+        if (table === 'orders') return mockOrderQuery;
+        if (table === 'merchants') return mockMerchantQuery;
+        return {};
+      });
+
       const mockAdminOrderQuery = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
@@ -249,7 +255,6 @@ describe('GET /api/storefront/orders/[id]', () => {
       };
 
       mockAdminClient.from.mockImplementation((table: string) => {
-        if (table === 'merchants') return mockMerchantQuery;
         if (table === 'orders') return mockAdminOrderQuery;
         if (table === 'order_items') return mockAdminItemsQuery;
         return {};
@@ -262,7 +267,7 @@ describe('GET /api/storefront/orders/[id]', () => {
       // Assert
       expect(response.status).toBe(200);
       expect(data.id).toBe(mockOrderData.id);
-      expect(mockAdminClient.from).toHaveBeenCalledWith('merchants');
+      expect(mockSupabaseClient.from).toHaveBeenCalledWith('merchants');
       expect(mockAdminClient.from).toHaveBeenCalledWith('orders');
     });
   });
@@ -310,8 +315,12 @@ describe('GET /api/storefront/orders/[id]', () => {
         }),
       };
 
-      mockAdminClient.from.mockImplementation((table: string) => {
+      mockSupabaseClient.from.mockImplementation((table: string) => {
         if (table === 'merchants') return mockMerchantQuery;
+        return {};
+      });
+
+      mockAdminClient.from.mockImplementation((table: string) => {
         if (table === 'orders') return mockOrderQuery;
         if (table === 'order_items') return mockItemsQuery;
         return {};
@@ -325,7 +334,7 @@ describe('GET /api/storefront/orders/[id]', () => {
       expect(response.status).toBe(200);
       expect(data.id).toBe(mockOrderData.id);
       expect(data.short_id).toBe(mockOrderData.order_number);
-      expect(mockAdminClient.from).toHaveBeenCalledWith('merchants');
+      expect(mockSupabaseClient.from).toHaveBeenCalledWith('merchants');
     });
   });
 
@@ -367,8 +376,12 @@ describe('GET /api/storefront/orders/[id]', () => {
         }),
       };
 
-      mockAdminClient.from.mockImplementation((table: string) => {
+      mockSupabaseClient.from.mockImplementation((table: string) => {
         if (table === 'merchants') return mockMerchantQuery;
+        return {};
+      });
+
+      mockAdminClient.from.mockImplementation((table: string) => {
         if (table === 'orders') return mockOrderQuery;
         if (table === 'order_items') return mockItemsQuery;
         return {};
@@ -382,7 +395,7 @@ describe('GET /api/storefront/orders/[id]', () => {
       expect(response.status).toBe(200);
       expect(data.id).toBe(mockOrderData.id);
       expect(data.merchant_id).toBe(mockOrderData.merchant_id);
-      expect(mockAdminClient.from).toHaveBeenCalledWith('merchants');
+      expect(mockSupabaseClient.from).toHaveBeenCalledWith('merchants');
       expect(mockAdminClient.from).toHaveBeenCalledWith('orders');
     });
 
@@ -437,8 +450,12 @@ describe('GET /api/storefront/orders/[id]', () => {
         }),
       };
 
-      mockAdminClient.from.mockImplementation((table: string) => {
+      mockSupabaseClient.from.mockImplementation((table: string) => {
         if (table === 'merchants') return mockMerchantQuery;
+        return {};
+      });
+
+      mockAdminClient.from.mockImplementation((table: string) => {
         if (table === 'orders') return mockOrderQuery;
         return {};
       });
@@ -656,8 +673,12 @@ describe('GET /api/storefront/orders/[id]', () => {
         }),
       };
 
-      mockAdminClient.from.mockImplementation((table: string) => {
+      mockSupabaseClient.from.mockImplementation((table: string) => {
         if (table === 'merchants') return mockMerchantQuery;
+        return {};
+      });
+
+      mockAdminClient.from.mockImplementation((table: string) => {
         if (table === 'orders') return mockOrderQuery;
         return {};
       });
@@ -725,8 +746,12 @@ describe('GET /api/storefront/orders/[id]', () => {
         }),
       };
 
-      mockAdminClient.from.mockImplementation((table: string) => {
+      mockSupabaseClient.from.mockImplementation((table: string) => {
         if (table === 'merchants') return mockMerchantQuery;
+        return {};
+      });
+
+      mockAdminClient.from.mockImplementation((table: string) => {
         if (table === 'orders') return mockOrderQuery;
         return {};
       });

@@ -172,6 +172,7 @@ export interface CachedMerchant {
   slug: string;
   business_address: string;
   payout_currency: string;
+  paystack_subaccount_code?: string | null;
   is_published: boolean;
   template_id: string;
   plan_tier: string;
@@ -238,6 +239,7 @@ export async function getCachedMerchant(
         slug,
         business_address,
         payout_currency,
+        paystack_subaccount_code,
         is_published,
         template_id,
         plan_tier,
@@ -395,6 +397,7 @@ export async function getCachedMerchantByDomain(
         slug,
         business_address,
         payout_currency,
+        paystack_subaccount_code,
         is_published,
         template_id,
         plan_tier,
