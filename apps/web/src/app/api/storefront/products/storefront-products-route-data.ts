@@ -4,6 +4,19 @@ import { normalizeProduct, type RawDbProduct } from '@/lib/normalize-product';
 type RawStorefrontProductRow = Record<string, unknown>;
 type ImageInput = string | { url?: string; alt?: string; order?: number };
 
+function normalizeLegacyColorList(value: unknown) {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const colors = value
+    .split(',')
+    .map((color) => color.trim())
+    .filter(Boolean);
+
+  return colors.length > 0 ? colors : undefined;
+}
+
 function mapProduct(product: RawStorefrontProductRow) {
   const normalized = normalizeProduct(product as RawDbProduct);
   const rawImages = (product.images as ImageInput[]) || [];
@@ -63,9 +76,7 @@ function mapProduct(product: RawStorefrontProductRow) {
     colors:
       colorImageKeys.length > 0
         ? colorImageKeys
-        : typeof product.color === 'string' && product.color
-          ? [product.color]
-          : undefined,
+        : normalizeLegacyColorList(product.color),
     variant_attributes: product.variant_attributes,
   };
 }

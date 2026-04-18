@@ -172,6 +172,40 @@ describe('storefrontProductsRouteData', () => {
     ).toEqual(['Red']);
   });
 
+  it('splits comma-delimited color fallback values into discrete colors', () => {
+    expect(
+      storefrontProductsRouteData.mapProduct({
+        id: 'product-1bb',
+        name: 'Travel Mug',
+        description: null,
+        price: 4500,
+        compare_at_price: null,
+        images: ['https://example.com/travel-mug.jpg'],
+        image_hint: null,
+        category: 'Kitchen',
+        categories: { id: 'cat-2b', name: 'Kitchen', slug: 'kitchen' },
+        category_id: 'cat-2b',
+        brand: 'Homeware',
+        stock: 12,
+        stock_quantity: 12,
+        slug: 'travel-mug',
+        status: 'active',
+        condition: 'new',
+        has_variants: false,
+        sku: 'TM-1',
+        manage_stock: true,
+        low_stock_threshold: 2,
+        specifications: null,
+        has_condition_offers: false,
+        available_conditions: [],
+        variant_model: 'single',
+        offers: [],
+        color: 'Black, Red',
+        variant_attributes: [],
+      }).colors
+    ).toEqual(['Black', 'Red']);
+  });
+
   it('ignores malformed color_images values and falls back to the singular color field', () => {
     expect(
       storefrontProductsRouteData.mapProduct({
