@@ -6,6 +6,35 @@ import { ShieldCheck, AlertCircle } from 'lucide-react';
 import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
 import { openCredPalCheckout } from '@/lib/credpal';
 import { useMerchant } from '@/hooks/use-merchant';
+import { CHECKOUT_PENDING_ORDER_STORAGE_KEY } from './checkout/pending-checkout-order';
+
+function readPendingOrderTrackingToken(orderId: string | null) {
+    if (!orderId || typeof window === 'undefined') {
+        return null;
+    }
+
+    try {
+        const stored = window.sessionStorage.getItem(
+            CHECKOUT_PENDING_ORDER_STORAGE_KEY
+        );
+        if (!stored) {
+            return null;
+        }
+
+        const pendingOrder = JSON.parse(stored) as {
+            orderId?: string;
+            trackingToken?: string;
+        };
+
+        if (pendingOrder.orderId !== orderId || !pendingOrder.trackingToken) {
+            return null;
+        }
+
+        return pendingOrder.trackingToken;
+    } catch {
+        return null;
+    }
+}
 
 export function BnplLauncher() {
     const router = useRouter();
@@ -21,6 +50,8 @@ export function BnplLauncher() {
         searchParams.get('trackingToken') ||
         searchParams.get('tracking_token') ||
         searchParams.get('token');
+    const fallbackTrackingToken = readPendingOrderTrackingToken(orderId);
+    const trackingToken = trackingTokenParam || fallbackTrackingToken;
     const merchantSlugParam =
         searchParams.get('merchant_slug') || searchParams.get('slug');
 
@@ -45,8 +76,8 @@ export function BnplLauncher() {
 
                 const slug = merchantSlugParam || merchant?.slug || 'ogabassey';
                 const query = new URLSearchParams({ merchant_slug: slug });
-                if (trackingTokenParam) {
-                    query.set('token', trackingTokenParam);
+                if (trackingToken) {
+                    query.set('token', trackingToken);
                 }
                 if (process.env.NODE_ENV === 'development') {
                     console.log(`[BnplLauncher] Fetching order ${orderId} for merchant ${slug}`);
@@ -160,7 +191,7 @@ export function BnplLauncher() {
         merchantSlugParam,
         loading,
         router,
-        trackingTokenParam,
+        trackingToken,
     ]);
 
     if (status === 'error') {

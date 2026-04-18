@@ -337,15 +337,16 @@ describe('POST /api/payments/initialize', () => {
   });
 
   describe('bnpl gateways', () => {
-    it('includes the tracking token in BNPL launcher URLs', async () => {
-      const res = await POST(
-        makeRequest({ ...validBody, gateway: 'credit_direct' })
-      );
+    it.each([
+      'credit_direct',
+      'credpal',
+    ] as const)('includes the tracking token in %s BNPL launcher URLs', async (gateway) => {
+      const res = await POST(makeRequest({ ...validBody, gateway }));
       const json = await res.json();
 
       expect(res.status).toBe(200);
       expect(json.success).toBe(true);
-      expect(json.gateway).toBe('credit_direct');
+      expect(json.gateway).toBe(gateway);
       expect(json.authorization_url).toContain(
         'orderId=a1b2c3d4-e5f6-7890-abcd-ef1234567890'
       );

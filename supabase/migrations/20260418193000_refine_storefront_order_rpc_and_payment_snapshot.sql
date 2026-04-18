@@ -78,13 +78,17 @@ DECLARE
   v_customer_id UUID;
   v_first_name TEXT;
   v_last_name TEXT;
+  v_trimmed_customer_name TEXT := trim(p_customer_name);
   v_normalized_customer_email TEXT := lower(trim(p_customer_email));
   v_subtotal NUMERIC := 0;
   v_shipping_fee NUMERIC := COALESCE(p_shipping_fee, 0);
   v_discount_amount NUMERIC := 0;
   v_tax_amount NUMERIC := COALESCE(p_tax_amount, 0);
   v_total NUMERIC := 0;
+  v_payment_method TEXT := p_payment_method;
   v_payment_status TEXT := 'unpaid';
+  v_shipping_status TEXT := p_shipping_status;
+  v_shipping_address JSONB := p_shipping_address;
   v_user_id UUID := auth.uid();
   v_invalid_item_count INTEGER;
   v_invalid_quantity_count INTEGER;
@@ -134,9 +138,9 @@ BEGIN
     RAISE EXCEPTION 'merchant_not_found';
   END IF;
 
-  v_first_name := split_part(trim(p_customer_name), ' ', 1);
-  IF position(' ' in trim(p_customer_name)) > 0 THEN
-    v_last_name := trim(substring(trim(p_customer_name) from position(' ' in trim(p_customer_name)) + 1));
+  v_first_name := split_part(v_trimmed_customer_name, ' ', 1);
+  IF position(' ' in v_trimmed_customer_name) > 0 THEN
+    v_last_name := trim(substring(v_trimmed_customer_name from position(' ' in v_trimmed_customer_name) + 1));
   ELSE
     v_last_name := NULL;
   END IF;
@@ -246,6 +250,10 @@ BEGIN
     v_total := 0;
   END IF;
 
+  -- Email is normalized to lowercase before insert so the existing
+  -- (merchant_id, email) uniqueness constraint remains authoritative.
+  -- On repeat guest checkouts we refresh phone when provided, but preserve any
+  -- established identity/user linkage and names already stored on the customer.
   INSERT INTO customers (
     merchant_id,
     email,
@@ -303,10 +311,10 @@ BEGIN
     v_discount_amount,
     v_tax_amount,
     v_total,
-    p_payment_method,
+    v_payment_method,
     v_payment_status,
-    p_shipping_status,
-    p_shipping_address,
+    v_shipping_status,
+    v_shipping_address,
     p_source,
     p_notes,
     p_ad_tracking,
@@ -317,8 +325,17 @@ BEGIN
   RETURNING
     orders.id,
     orders.order_number,
-    orders.tracking_token
-  INTO v_order_id, v_order_number, v_tracking_token;
+    orders.tracking_token,
+    orders.payment_method,
+    orders.shipping_status,
+    orders.shipping_address
+  INTO
+    v_order_id,
+    v_order_number,
+    v_tracking_token,
+    v_payment_method,
+    v_shipping_status,
+    v_shipping_address;
 
   FOR stock_rec IN
     SELECT
@@ -392,9 +409,9 @@ BEGIN
     p_customer_name,
     p_customer_phone,
     v_payment_status,
-    p_shipping_status,
-    p_payment_method,
-    p_shipping_address,
+    v_shipping_status,
+    v_payment_method,
+    v_shipping_address,
     p_merchant_id;
 END;
 $$;

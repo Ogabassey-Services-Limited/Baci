@@ -189,6 +189,22 @@ describe('onboardingFormSchema', () => {
 
     expect(result.success).toBe(true);
   });
+
+  it('rejects non-prefix confirm password mismatches', () => {
+    const result = onboardingFormSchema.safeParse(
+      validPayload({
+        password: 'StrongPass123!',
+        confirmPassword: 'WrongPass456!',
+      })
+    );
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(
+        result.error.issues.some((issue) => issue.path[0] === 'confirmPassword')
+      ).toBe(true);
+    }
+  });
 });
 
 describe('step1Schema', () => {

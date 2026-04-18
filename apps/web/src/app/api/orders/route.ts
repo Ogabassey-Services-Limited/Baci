@@ -321,9 +321,12 @@ export async function POST(request: NextRequest) {
 
     if (orderError || !order) {
       logger.error({ message: 'Error creating order', error: orderError });
-      const message = orderError?.message || 'Failed to create order';
       const code =
         typeof orderError?.code === 'string' ? orderError.code : null;
+      const message =
+        typeof orderError?.message === 'string'
+          ? orderError.message
+          : code || 'Failed to create order';
       const clientErrorCodes = [
         'invalid_items',
         'invalid_quantity',

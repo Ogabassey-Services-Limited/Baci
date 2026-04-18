@@ -1,5 +1,5 @@
 import { render, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BnplLauncher } from './bnpl-launcher';
 
 const mockPush = vi.fn();
@@ -33,6 +33,7 @@ vi.mock('@/lib/credpal', () => ({
 describe('BnplLauncher', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.sessionStorage.clear();
     mockSearchParams.mockReturnValue(
       new URLSearchParams({
         orderId: 'order-1',
@@ -66,7 +67,7 @@ describe('BnplLauncher', () => {
     );
   });
 
-  afterEach(() => {
+  afterAll(() => {
     vi.unstubAllGlobals();
   });
 
@@ -76,6 +77,31 @@ describe('BnplLauncher', () => {
     await waitFor(() => {
       expect(fetch).toHaveBeenCalledWith(
         '/api/storefront/orders/order-1?merchant_slug=test-store&token=tok-123'
+      );
+    });
+  });
+
+  it('falls back to the stored pending-order tracking token for legacy links', async () => {
+    mockSearchParams.mockReturnValue(
+      new URLSearchParams({
+        orderId: 'order-1',
+        gateway: 'credit_direct',
+        merchant_slug: 'test-store',
+      })
+    );
+    window.sessionStorage.setItem(
+      'storefront-checkout-pending-order',
+      JSON.stringify({
+        orderId: 'order-1',
+        trackingToken: 'stored-track-token',
+      })
+    );
+
+    render(<BnplLauncher />);
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        '/api/storefront/orders/order-1?merchant_slug=test-store&token=stored-track-token'
       );
     });
   });
@@ -116,5 +142,26 @@ describe('BnplLauncher', () => {
         '/order-success?orderId=order-1&reference=credpal-ref-1&trackingToken=track-order-token'
       );
     });
+  });
+
+  it('shows an error state and does not redirect when order fetch fails', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        text: async () => 'Tracking token or email is required',
+      })
+    );
+
+    const { findByRole, findByText } = render(<BnplLauncher />);
+
+    expect(
+      await findByRole('heading', { name: 'Something went wrong' })
+    ).toBeInTheDocument();
+    expect(
+      await findByText('Failed to fetch order details (Status: 400)')
+    ).toBeInTheDocument();
+    expect(mockPush).not.toHaveBeenCalled();
   });
 });
