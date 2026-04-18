@@ -340,6 +340,30 @@ describe('GET /api/storefront/products', () => {
     ).toContain('available_conditions.cs.{refurbished}');
   });
 
+  it('escapes ilike wildcard characters in q filters before building the OR clause', async () => {
+    storefrontProductsRouteTestHarness.mockProductsResult.current = {
+      data: [
+        storefrontProductsRouteTestHarness.createRawProduct({
+          id: 'tv-1',
+        }),
+      ],
+      error: null,
+    };
+
+    const response = await GET(
+      new NextRequest(createRequestUrl('q=%_sony\\demo'))
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.products).toHaveLength(1);
+    expect(
+      storefrontProductsRouteTestHarness.mockProductsQuery.current?.or
+    ).toHaveBeenCalledWith(
+      'name.ilike.%\\%\\_sony\\\\demo%,description.ilike.%\\%\\_sony\\\\demo%'
+    );
+  });
+
   it('returns 500 when the products query fails', async () => {
     storefrontProductsRouteTestHarness.mockProductsResult.current = {
       data: null as never,

@@ -20,6 +20,13 @@ function hasInMemoryStorefrontFilters(filters: ProductFilters): boolean {
   );
 }
 
+function escapeStorefrontSearchPattern(value: string) {
+  return value
+    .replaceAll('\\', '\\\\')
+    .replaceAll('%', '\\%')
+    .replaceAll('_', '\\_');
+}
+
 function createCachedProductsFetcher(
   merchantId: string,
   filters: ProductFilters = { sort: 'newest' }
@@ -69,7 +76,9 @@ function createCachedProductsFetcher(
       }
 
       if (filters.q) {
-        const sanitizedQuery = filters.q.slice(0, 100);
+        const sanitizedQuery = escapeStorefrontSearchPattern(
+          filters.q.slice(0, 100)
+        );
         query = query.or(
           `name.ilike.%${sanitizedQuery}%,description.ilike.%${sanitizedQuery}%`
         );
