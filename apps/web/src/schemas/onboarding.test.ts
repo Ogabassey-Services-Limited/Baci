@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   mobileOnboardingSchema,
+  onboardingFormSchema,
   onboardingSchema,
   step1Schema,
   step2Schema,
@@ -99,6 +100,17 @@ describe('onboardingSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it('rejects prefix-only confirm passwords', () => {
+    const result = onboardingSchema.safeParse(
+      validPayload({
+        password: 'StrongPass123!',
+        confirmPassword: 'StrongPass',
+      })
+    );
+
+    expect(result.success).toBe(false);
+  });
+
   it('rejects short passwords', () => {
     const result = onboardingSchema.safeParse(
       validPayload({ password: 'abc', confirmPassword: 'abc' })
@@ -125,6 +137,19 @@ describe('mobileOnboardingSchema', () => {
       brandColors: 'blue',
       email: 'mobile@test.com',
     });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe('onboardingFormSchema', () => {
+  it('allows prefix-only confirm passwords while the user is still typing', () => {
+    const result = onboardingFormSchema.safeParse(
+      validPayload({
+        password: 'StrongPass123!',
+        confirmPassword: 'StrongPass',
+      })
+    );
+
     expect(result.success).toBe(true);
   });
 });
@@ -198,6 +223,16 @@ describe('step3Schema', () => {
       email: 'test@example.com',
       password: 'MyStr0ng!Pass',
     });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects prefix-only confirm passwords', () => {
+    const result = step3Schema.safeParse({
+      email: 'test@example.com',
+      password: 'StrongPass123!',
+      confirmPassword: 'StrongPass',
+    });
+
     expect(result.success).toBe(false);
   });
 });

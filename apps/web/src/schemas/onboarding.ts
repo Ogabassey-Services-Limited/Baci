@@ -127,9 +127,14 @@ const refineStep3Password = (
     password?: string;
     confirmPassword?: string;
   },
-  ctx: z.RefinementCtx
+  ctx: z.RefinementCtx,
+  options?: {
+    allowConfirmPasswordPrefix?: boolean;
+  }
 ) => {
   const { password, confirmPassword } = data;
+  const allowConfirmPasswordPrefix =
+    options?.allowConfirmPasswordPrefix === true;
 
   if (password && password.length > 0) {
     if (password.length < 8) {
@@ -169,11 +174,16 @@ const refineStep3Password = (
         path: ['confirmPassword'],
         message: 'Please confirm your password.',
       });
-    } else if (
-      password !== confirmPassword &&
-      (confirmPassword.length >= password.length ||
-        !password.startsWith(confirmPassword))
-    ) {
+    } else if (password !== confirmPassword) {
+      const isPrefixInProgress =
+        allowConfirmPasswordPrefix &&
+        confirmPassword.length < password.length &&
+        password.startsWith(confirmPassword);
+
+      if (isPrefixInProgress) {
+        return;
+      }
+
       ctx.addIssue({
         code: 'custom',
         path: ['confirmPassword'],
@@ -218,6 +228,25 @@ export const onboardingSchema = step1BaseSchema
   .superRefine((data, ctx) => {
     refineStep1Other(data, ctx);
     refineStep3Password(data, ctx);
+  });
+
+/**
+ * Web Onboarding Form Schema: RELAXED CONFIRM PASSWORD
+ * Keeps the live form from flashing mismatch errors while a user is still
+ * typing the confirm-password field. Server-side submit validation still uses
+ * onboardingSchema, which requires an exact match.
+ */
+export const onboardingFormSchema = step1BaseSchema
+  .merge(step2BaseSchema)
+  .merge(step3BaseSchema)
+  .extend({
+    logoUrl: createRequiredLogoUrl(
+      'Logo is required for web setup. Please upload or generate one.'
+    ),
+  })
+  .superRefine((data, ctx) => {
+    refineStep1Other(data, ctx);
+    refineStep3Password(data, ctx, { allowConfirmPasswordPrefix: true });
   });
 
 /**
