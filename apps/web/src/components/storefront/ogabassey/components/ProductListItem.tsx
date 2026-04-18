@@ -15,7 +15,6 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import type { Product } from '../types';
 import { getProductUrl } from '@/lib/seo-utils';
-import { useMerchantSafe } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
 
 /**
@@ -40,7 +39,7 @@ interface ProductListItemProps {
   isAdded: boolean;
   isWishlisted: boolean;
   onToggleWishlist: (e: React.MouseEvent) => void;
-  storeSlug?: string;
+  basePath?: string;
 }
 
 export const ProductListItem: React.FC<ProductListItemProps> = ({
@@ -49,11 +48,8 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
   isAdded,
   isWishlisted,
   onToggleWishlist,
-  storeSlug,
+  basePath = '',
 }) => {
-  const merchantContext = useMerchantSafe();
-  const basePath = merchantContext?.basePath || '';
-
   const [activeColorIndex, setActiveColorIndex] = useState(0);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
 
@@ -68,7 +64,7 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
   // Reset loading state when image source changes
   useEffect(() => {
     setIsImageLoaded(false);
-  }, []);
+  }, [currentImage]);
 
   const handlePrevColor = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -93,9 +89,10 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
   };
 
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm md:hover:shadow-lg md:hover:border-red-100 active:scale-[0.99] transition-all duration-300 group flex flex-row gap-4 md:gap-6 relative">
+    <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm md:hover:shadow-lg md:hover:border-red-100 active:scale-[0.99] transition-all duration-300 group flex flex-row gap-4 md:gap-6 relative [content-visibility:auto] [contain-intrinsic-size:auto_220px]">
       <Link
         href={asRoute(`${basePath}${getProductUrl({ ...product, id: String(product.id) })}`)}
+        prefetch={false}
         className="absolute inset-0 z-0"
       >
         <span className="sr-only">

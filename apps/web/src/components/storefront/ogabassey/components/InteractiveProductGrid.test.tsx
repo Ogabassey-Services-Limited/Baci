@@ -6,7 +6,7 @@ vi.mock('next/link', () => ({
     <a {...props}>{children}</a>
   ),
 }));
-vi.mock('@/hooks/use-cart', () => ({
+vi.mock('@/hooks/cart', () => ({
   useCart: vi.fn(() => ({ items: [], addToCart: vi.fn(), totalItems: 0 })),
 }));
 vi.mock('@/hooks/use-merchant', () => ({

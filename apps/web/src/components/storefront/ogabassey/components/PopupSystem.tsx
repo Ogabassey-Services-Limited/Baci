@@ -4,11 +4,16 @@ import { ArrowRight, Mail, X } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { AdUnit } from './AdUnit';
+import { useDeferredActivation } from './deferred-shell-feature';
 
 export const PopupSystem: React.FC = () => {
   const [showNewsletter, setShowNewsletter] = useState(false);
   const [showAdPopup, setShowAdPopup] = useState(false);
   const adTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasEngaged = useDeferredActivation({
+    timeoutMs: 0,
+    activateOnIdle: false,
+  });
 
   // Logic:
   // 1. Show Newsletter after 4 seconds (only if not dismissed in last 7 days)
@@ -18,6 +23,10 @@ export const PopupSystem: React.FC = () => {
   const NEWSLETTER_EXPIRY_DAYS = 7; // Re-show after 7 days
 
   useEffect(() => {
+    if (!hasEngaged) {
+      return;
+    }
+
     // Check if already dismissed within expiry period
     try {
       const dismissedAt = localStorage.getItem(NEWSLETTER_STORAGE_KEY);
@@ -39,7 +48,7 @@ export const PopupSystem: React.FC = () => {
       setShowNewsletter(true);
     }, 4000);
     return () => clearTimeout(timer);
-  }, []);
+  }, [hasEngaged]);
 
   // Cleanup ad timer on unmount
   useEffect(() => {

@@ -9,15 +9,44 @@ vi.mock('@baci/shared', () => ({
   ),
 }));
 vi.mock('next/link', () => ({
-  default: ({ children, ...props }: { children: React.ReactNode; href: string }) => (
-    <a {...props}>{children}</a>
+  default: ({
+    children,
+    prefetch,
+    ...props
+  }: {
+    children: React.ReactNode;
+    href: string;
+    prefetch?: boolean;
+  }) => (
+    <a data-prefetch={String(prefetch)} {...props}>
+      {children}
+    </a>
   ),
+}));
+vi.mock('next/dynamic', () => ({
+  default: (loader: () => Promise<unknown>) => {
+    const source = loader.toString();
+
+    if (source.includes('AdvancedProductFilters')) {
+      return () => null;
+    }
+
+    if (source.includes('ProductListItem')) {
+      return () => <div data-testid="list-item" />;
+    }
+
+    if (source.includes('FloatingParticles')) {
+      return () => null;
+    }
+
+    return () => null;
+  },
 }));
 vi.mock('next/navigation', () => ({
   usePathname: vi.fn(() => '/test-store'),
   useSearchParams: vi.fn(() => new URLSearchParams()),
 }));
-vi.mock('@/hooks/use-cart', () => ({
+vi.mock('@/hooks/cart', () => ({
   useCart: vi.fn(() => ({
     cart: [],
     items: [],
@@ -36,20 +65,13 @@ vi.mock('../providers/v2-saved-context', () => ({
     isSaved: vi.fn(() => false),
   })),
 }));
-vi.mock('./AdUnit', () => ({ AdUnit: () => null }));
-vi.mock('./AdvancedProductFilters', () => ({
-  AdvancedProductFilters: () => null,
-}));
-vi.mock('./FloatingParticles', () => ({
-  FloatingParticles: () => null,
+vi.mock('./AdUnit', () => ({
+  AdUnit: () => <div data-testid="ad-unit" />,
 }));
 vi.mock('./ProductGridItem', () => ({
   ProductGridItem: ({ product }: { product: { name: string } }) => (
     <article>{product.name}</article>
   ),
-}));
-vi.mock('./ProductListItem', () => ({
-  ProductListItem: () => <div data-testid="list-item" />,
 }));
 
 import { afterEach } from 'vitest';
@@ -182,11 +204,14 @@ describe('EngineProductGrid', () => {
       screen.getByRole('link', { name: 'View all products' })
     ).toHaveAttribute('href', '/test-store/products');
     expect(
-      screen.getByRole('link', { name: 'View all products' }).className
-    ).toContain('text-[color:var(--store-foreground');
+      screen.getByRole('link', { name: 'View all products' })
+    ).toHaveAttribute('data-prefetch', 'false');
     expect(
       screen.getByRole('link', { name: 'View all products' }).className
-    ).toContain('hover:text-[color:var(--store-primary');
+    ).toContain('text-white/70');
+    expect(
+      screen.getByRole('link', { name: 'View all products' }).className
+    ).toContain('hover:text-white');
   });
 
   it('uses /products when basePath is empty', () => {
@@ -239,5 +264,43 @@ describe('EngineProductGrid', () => {
     expect(
       screen.getByRole('link', { name: 'View all products' })
     ).toHaveAttribute('href', '/products');
+  });
+
+  it('respects a reduced initialDisplayCount for home merchandising', () => {
+    render(
+      <EngineProductGrid
+        externalProducts={Array.from({ length: 13 }, (_, index) =>
+          createTestProduct({
+            id: `product-${index + 1}`,
+            name: `Product ${index + 1}`,
+            stock: index + 1,
+          })
+        )}
+        categories={[]}
+        initialDisplayCount={12}
+      />
+    );
+
+    expect(screen.getAllByRole('article')).toHaveLength(12);
+    expect(screen.queryByText('Product 13')).not.toBeInTheDocument();
+  });
+
+  it('supports later inline ad breakpoints for the homepage feed', () => {
+    render(
+      <EngineProductGrid
+        externalProducts={Array.from({ length: 12 }, (_, index) =>
+          createTestProduct({
+            id: `product-${index + 1}`,
+            name: `Product ${index + 1}`,
+            stock: index + 1,
+          })
+        )}
+        categories={[]}
+        initialDisplayCount={12}
+        inlineAdBreakpoints={[12, 24]}
+      />
+    );
+
+    expect(screen.getAllByTestId('ad-unit')).toHaveLength(1);
   });
 });

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('next/navigation', () => ({
   usePathname: vi.fn(() => '/test-store'),
 }));
-vi.mock('@/hooks/use-cart', () => ({
+vi.mock('@/hooks/cart', () => ({
   useCart: vi.fn(() => ({ items: [], totalItems: 0, addToCart: vi.fn() })),
 }));
 vi.mock('@/components/storefront/santa-chat/types', () => ({

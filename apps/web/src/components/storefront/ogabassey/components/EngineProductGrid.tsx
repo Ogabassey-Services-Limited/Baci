@@ -6,106 +6,68 @@
 
 'use client';
 
+import dynamic from 'next/dynamic';
 import type { Route } from 'next';
 import Link from 'next/link';
 import React, { useEffect, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { prioritizeSmartphoneProducts } from '@baci/shared';
-import { useCart } from '@/hooks/use-cart';
+import { useCart } from '@/hooks/cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
-import type { Product as BaciProduct } from '@/lib/products';
+import type { Product as StorefrontProduct } from '@/lib/products';
 import { products as mockProducts } from '../data/products';
 import { useV2Saved } from '../providers/v2-saved-context';
 import type { Product } from '../types';
+import { mapStorefrontProductsToOgabasseyProducts } from '../home-product-feed';
 import { AdUnit } from './AdUnit';
-import { AdvancedProductFilters } from './AdvancedProductFilters';
-import { FloatingParticles, type Particle } from './FloatingParticles';
+import { useDeferredActivation } from './deferred-shell-feature';
+import type { Particle } from './FloatingParticles';
 import { ProductGridItem } from './ProductGridItem';
-import { ProductListItem } from './ProductListItem';
 
-type ConditionLabel = 'New' | 'Used' | 'Open Box' | 'New & Used';
-
-const CONDITION_LABELS: Record<string, ConditionLabel> = {
-  open_box: 'Open Box',
-  new: 'New',
-  used: 'Used',
-};
-
-const mapCondition = (condition?: string): ConditionLabel => {
-  return CONDITION_LABELS[condition || ''] || 'New';
-};
-
-function toTemplateProducts(baciProducts: BaciProduct[]): Product[] {
-  return baciProducts.map((p) => {
-    const formattedPrice = new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(p.price);
-
-    const mapImage = (img: any): string => {
-      if (!img) return '';
-      if (typeof img === 'string') return img;
-      return img.url || '';
-    };
-
-    // PERFORMANCE OPTIMIZATION: Avoid intermediate array allocations (.map().filter())
-    const images: string[] = [];
-    if (p.images) {
-      for (const img of p.images) {
-        const mapped = mapImage(img);
-        if (mapped) images.push(mapped);
-      }
-    }
-    const mainImage = p.image || images[0];
-    const condition: ConditionLabel = p.has_condition_offers
-      ? 'New & Used'
-      : mapCondition(p.condition);
-
-    const rawCategories = p.categories;
-    const categoryObj = Array.isArray(rawCategories) ? rawCategories[0] : rawCategories;
-
-    return {
-      id: p.id,
-      slug: p.slug,
-      name: p.name,
-      price: formattedPrice,
-      rawPrice: p.price,
-      image: mainImage,
-      description: p.description,
-      rating: p.rating ?? 4.5,
-      category: categoryObj?.name || p.category || 'General',
-      category_id: p.category_id,
-      categories: categoryObj,
-      categorySlug: categoryObj?.slug || p.category_slug,
-      condition,
-      brand: p.brand,
-      colors: p.colors,
-      storage: p.storage_options?.[0],
-      images,
-    };
-  });
-}
+const DeferredAdvancedProductFilters = dynamic(
+  () =>
+    import('./AdvancedProductFilters').then(
+      (mod) => mod.AdvancedProductFilters
+    ),
+  { loading: () => null }
+);
+const DeferredProductListItem = dynamic(
+  () => import('./ProductListItem').then((mod) => mod.ProductListItem),
+  { loading: () => null }
+);
+const DeferredFloatingParticles = dynamic(
+  () => import('./FloatingParticles').then((mod) => mod.FloatingParticles),
+  { loading: () => null }
+);
 
 interface EngineProductGridProps {
   storeSlug?: string;
   useMockData?: boolean;
-  externalProducts?: BaciProduct[];
+  externalProducts?: StorefrontProduct[];
+  templateProducts?: Product[];
   categories?: { name: string; slug: string }[];
   title?: string;
   showViewAll?: boolean;
   limit?: number;
+  initialDisplayCount?: number;
+  deferFilters?: boolean;
+  inlineAdBreakpoints?: number[];
+  deferItemChrome?: boolean;
 }
 
 export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
   storeSlug,
   useMockData = false,
   externalProducts,
+  templateProducts,
   categories: externalCategories,
   title = 'Featured Products',
   showViewAll = true,
   limit,
+  initialDisplayCount,
+  deferFilters = false,
+  inlineAdBreakpoints,
+  deferItemChrome = false,
 }) => {
   const merchantContext = useMerchantSafe();
   const { addToCart, cart } = useCart();
@@ -119,7 +81,10 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
   // All products from SSR
   const allProducts = (() => {
     if (useMockData) return mockProducts;
-    if (externalProducts) return toTemplateProducts(externalProducts);
+    if (templateProducts) return templateProducts;
+    if (externalProducts) {
+      return mapStorefrontProductsToOgabasseyProducts(externalProducts);
+    }
     return [];
   })();
 
@@ -138,7 +103,16 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
 
   // Pagination: Load 20 products initially, then more on demand
   const PRODUCTS_PER_PAGE = 20;
-  const [displayCount, setDisplayCount] = useState(PRODUCTS_PER_PAGE);
+  const startingDisplayCount = Math.max(
+    1,
+    initialDisplayCount ?? PRODUCTS_PER_PAGE
+  );
+  const [displayCount, setDisplayCount] = useState(startingDisplayCount);
+  const shouldRenderFilters = useDeferredActivation({
+    enabled: deferFilters,
+    timeoutMs: 1200,
+  });
+  const adBreakpoints = inlineAdBreakpoints ?? [4, 8];
 
   // Categories from props
   const navCategories = merchantContext?.navigationCategories || [];
@@ -255,8 +229,16 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
 
   // Reset pagination when filters change
   React.useEffect(() => {
-    setDisplayCount(PRODUCTS_PER_PAGE);
-  }, [selectedCategory, selectedBrand, selectedCondition, minPrice, maxPrice, minRating]);
+    setDisplayCount(startingDisplayCount);
+  }, [
+    maxPrice,
+    minPrice,
+    minRating,
+    selectedBrand,
+    selectedCategory,
+    selectedCondition,
+    startingDisplayCount,
+  ]);
 
   // Slice filtered products for pagination (unless limit is set by parent)
   const visibleProducts = limit ? filteredProducts : filteredProducts.slice(0, displayCount);
@@ -302,36 +284,50 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
 
   return (
     <div className="bg-gray-50 min-h-screen">
-      <AdvancedProductFilters
-        categories={categories}
-        selectedCategory={selectedCategory}
-        onSelectCategory={handleCategoryChange}
-        minPrice={minPrice}
-        maxPrice={maxPrice}
-        onPriceChange={(min, max) => { setMinPrice(min); setMaxPrice(max); }}
-        brands={brands}
-        selectedBrand={selectedBrand}
-        onSelectBrand={setSelectedBrand}
-        selectedCondition={selectedCondition}
-        onSelectCondition={setSelectedCondition}
-        minRating={minRating}
-        onSelectRating={setMinRating}
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-      />
+      {!deferFilters || shouldRenderFilters ? (
+        <DeferredAdvancedProductFilters
+          categories={categories}
+          selectedCategory={selectedCategory}
+          onSelectCategory={handleCategoryChange}
+          minPrice={minPrice}
+          maxPrice={maxPrice}
+          onPriceChange={(min, max) => { setMinPrice(min); setMaxPrice(max); }}
+          brands={brands}
+          selectedBrand={selectedBrand}
+          onSelectBrand={setSelectedBrand}
+          selectedCondition={selectedCondition}
+          onSelectCondition={setSelectedCondition}
+          minRating={minRating}
+          onSelectRating={setMinRating}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+        />
+      ) : (
+        <section className="bg-white border-b border-gray-100 sticky top-0 z-40 shadow-sm transition-all duration-300">
+          <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-3">
+            <div className="h-12 rounded-2xl bg-gray-100/90 animate-pulse" />
+          </div>
+        </section>
+      )}
 
       <section className="max-w-[1400px] mx-auto px-3 md:px-6 py-6 md:py-8 relative">
         <div className="flex items-center justify-between mb-6 md:mb-8">
           <div>
             {title === 'Featured Products' && (
-              <span className="text-red-600 font-bold uppercase tracking-wider text-xs md:text-sm">
+              <span className="text-[color:var(--store-primary)] font-bold uppercase tracking-wider text-xs md:text-sm">
                 Best Sellers
               </span>
             )}
-            <h2 className="text-xl md:text-3xl font-bold text-gray-900 mt-1">{title}</h2>
+            <h2 className="mt-1 text-xl font-bold text-white md:text-3xl">
+              {title}
+            </h2>
           </div>
           {showViewAll && (
-            <Link href={allProductsHref as Route} className="text-[color:var(--store-foreground)] hover:text-[color:var(--store-primary)] font-medium transition-colors text-xs md:text-base hidden sm:block">
+            <Link
+              href={allProductsHref as Route}
+              prefetch={false}
+              className="hidden text-xs font-medium text-white/70 transition-colors hover:text-white md:text-base sm:block"
+            >
               View all products
             </Link>
           )}
@@ -358,6 +354,7 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
                 <React.Fragment key={product.id}>
                   {viewMode === 'grid' ? (
                     <ProductGridItem
+                      basePath={basePath}
                       product={product}
                       onAddToCart={handleAddToCart}
                       isAdded={isAdded}
@@ -365,12 +362,13 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
                       viewMode="grid"
                       isWishlisted={isWishlisted}
                       onToggleWishlist={(e) => { e.preventDefault(); toggleSaved(product); }}
-                      storeSlug={storeSlug}
+                      deferInteractiveChrome={deferItemChrome}
                     />
                   ) : (
                     <>
                       <div className="block md:hidden">
                         <ProductGridItem
+                          basePath={basePath}
                           product={product}
                           onAddToCart={handleAddToCart}
                           isAdded={isAdded}
@@ -378,23 +376,23 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
                           viewMode="list"
                           isWishlisted={isWishlisted}
                           onToggleWishlist={(e) => { e.preventDefault(); toggleSaved(product); }}
-                          storeSlug={storeSlug}
+                          deferInteractiveChrome={deferItemChrome}
                         />
                       </div>
                       <div className="hidden md:block">
-                        <ProductListItem
+                        <DeferredProductListItem
+                          basePath={basePath}
                           product={product}
                           onAddToCart={handleAddToCart}
                           isAdded={isAdded}
                           isWishlisted={isWishlisted}
                           onToggleWishlist={(e) => { e.preventDefault(); toggleSaved(product); }}
-                          storeSlug={storeSlug}
                         />
                       </div>
                     </>
                   )}
 
-                  {(index + 1 === 4 || index + 1 === 8) && (
+                  {adBreakpoints.includes(index + 1) && (
                     <div className={`col-span-2 ${viewMode === 'grid' ? 'lg:col-span-4' : 'w-full'} flex items-center justify-center my-2 md:my-4`}>
                       <AdUnit placementKey="PRODUCT_GRID_MPU" />
                     </div>
@@ -421,7 +419,9 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
           </div>
         )}
 
-        <FloatingParticles particles={particles} />
+        {particles.length > 0 && (
+          <DeferredFloatingParticles particles={particles} />
+        )}
       </section>
     </div>
   );

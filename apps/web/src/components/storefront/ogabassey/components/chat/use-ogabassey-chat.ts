@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useCart } from '@/hooks/use-cart';
+import { useCart } from '@/hooks/cart';
 import { parseSantaAction } from '@/components/storefront/santa-chat/types';
 import type { ChatMessage, SantaCartAction } from './types';
 import { PROACTIVE_MESSAGES } from './types';

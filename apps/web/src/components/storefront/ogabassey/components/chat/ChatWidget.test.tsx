@@ -7,7 +7,7 @@ vi.mock('next/navigation', () => ({
   usePathname: vi.fn(() => '/ogabassey'),
 }));
 
-vi.mock('@/hooks/use-cart', () => ({
+vi.mock('@/hooks/cart', () => ({
   useCart: vi.fn(() => ({
     isCartOpen: false,
     addToCart: vi.fn(),
@@ -42,7 +42,7 @@ vi.mock('./use-ogabassey-chat', () => ({
 
 import { useOgabasseyChat } from './use-ogabassey-chat';
 import { useV2Theme } from '../../providers/v2-theme-context';
-import { useCart } from '@/hooks/use-cart';
+import { useCart } from '@/hooks/cart';
 import { ChatWidget } from './ChatWidget';
 
 describe('ChatWidget - toggle button', () => {
@@ -115,6 +115,28 @@ describe('ChatWidget - toggle button', () => {
     render(<ChatWidget />);
     const button = screen.getByRole('button', { name: 'Toggle chat' });
     await user.click(button);
+    expect(setIsOpen).toHaveBeenCalledWith(true);
+  });
+
+  it('opens immediately when mounted with openOnMount', async () => {
+    const setIsOpen = vi.fn();
+    vi.mocked(useOgabasseyChat).mockReturnValue({
+      isOpen: false,
+      setIsOpen,
+      messages: [],
+      input: '',
+      setInput: vi.fn(),
+      isLoading: false,
+      proactiveMsg: null,
+      setProactiveMsg: vi.fn(),
+      messagesEndRef: { current: null },
+      handleSend: vi.fn(),
+      handleSubmit: vi.fn(),
+      handleAddSantaWishToCart: vi.fn(),
+    });
+
+    render(<ChatWidget openOnMount />);
+
     expect(setIsOpen).toHaveBeenCalledWith(true);
   });
 

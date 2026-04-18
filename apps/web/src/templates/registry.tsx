@@ -544,8 +544,10 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
     getComponents: async () => {
       const {
         OgabasseyHomePage,
-        OgabasseyLayout
-      } = await import('@/components/storefront/ogabassey');
+      } = await import('@/components/storefront/ogabassey/pages/home');
+      const { mapStorefrontProductsToOgabasseyProducts } = await import(
+        '@/components/storefront/ogabassey/home-product-feed'
+      );
 
       // Import optional pages
       const { OgabasseyV2AboutUs } = await import('@/components/storefront/ogabassey/pages/about-us');
@@ -559,9 +561,14 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
 
       // Wrapper component
       const OgabasseyHome: React.ComponentType<TemplatePageProps> = (props) => {
+        const homeProducts = props.products
+          ? mapStorefrontProductsToOgabasseyProducts(props.products)
+          : [];
+
         return (
           <OgabasseyHomePage
-            products={props.products}
+            storeSlug={props.storeSlug}
+            products={homeProducts}
             categories={props.categories}
           />
         );
@@ -576,7 +583,6 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
 
       return {
         Home: OgabasseyHome,
-        Layout: OgabasseyLayout,
         About: createWrappedPage(OgabasseyV2AboutUs),
         Privacy: createWrappedPage(OgabasseyV2PrivacyPolicy),
         Legal: createWrappedPage(OgabasseyV2LegalDispute), // Maps to Terms/Legal
