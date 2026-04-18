@@ -1,6 +1,11 @@
 import type { MetadataRoute } from 'next';
 import { headers } from 'next/headers';
-import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
+import {
+  buildMerchantTrustProfile,
+  hasPublishableReturnsPolicy,
+  hasPublishableShippingPolicy,
+  hasPublishableWarrantyPolicy,
+} from '@/lib/storefront-trust/build-merchant-trust-profile';
 import {
   getRootSitemapEntries,
   resolveStorefrontSitemapContext,
@@ -21,15 +26,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ]);
 
   const trustUrls = [
-    trustProfile.returnPolicy?.summary?.trim() ||
-    trustProfile.returnPolicy?.windowDays != null
+    hasPublishableReturnsPolicy(trustProfile)
       ? `${context.storeUrl}/returns`
       : null,
-    trustProfile.shippingPolicy?.summary?.trim() ||
-    (trustProfile.shippingPolicy?.regions?.length ?? 0) > 0
+    hasPublishableShippingPolicy(trustProfile)
       ? `${context.storeUrl}/shipping`
       : null,
-    trustProfile.warrantyPolicy?.summary?.trim()
+    hasPublishableWarrantyPolicy(trustProfile)
       ? `${context.storeUrl}/warranty`
       : null,
   ].filter((url): url is string => typeof url === 'string' && url.length > 0);

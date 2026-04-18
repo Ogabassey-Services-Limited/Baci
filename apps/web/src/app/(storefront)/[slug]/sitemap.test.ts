@@ -16,10 +16,21 @@ vi.mock('./sitemap-data', () => ({
     mockGetRootSitemapEntries(...args),
 }));
 
-vi.mock('@/lib/storefront-trust/build-merchant-trust-profile', () => ({
-  buildMerchantTrustProfile: (...args: unknown[]) =>
-    mockBuildMerchantTrustProfile(...args),
-}));
+vi.mock(
+  '@/lib/storefront-trust/build-merchant-trust-profile',
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import('@/lib/storefront-trust/build-merchant-trust-profile')
+      >();
+
+    return {
+      ...actual,
+      buildMerchantTrustProfile: (...args: unknown[]) =>
+        mockBuildMerchantTrustProfile(...args),
+    };
+  }
+);
 
 describe('storefront sitemap root', () => {
   beforeEach(() => {
@@ -96,7 +107,7 @@ describe('storefront sitemap root', () => {
     expect(result).toEqual([]);
   });
 
-  it('omits returns and shipping URLs for partial-only trust data', async () => {
+  it('includes returns and shipping URLs for partial-only trust data', async () => {
     mockResolveStorefrontSitemapContext.mockResolvedValue({
       merchant: {
         id: 'm1',
@@ -118,6 +129,8 @@ describe('storefront sitemap root', () => {
     ]);
     mockBuildMerchantTrustProfile.mockReturnValue({
       returnPolicy: {
+        returnMethod: 'mail',
+        returnFees: 'free',
         localRoute: '/returns',
       },
       shippingPolicy: {
@@ -139,6 +152,16 @@ describe('storefront sitemap root', () => {
 
     expect(result).toEqual([
       { url: 'https://ogabassey.com' },
+      expect.objectContaining({
+        url: 'https://ogabassey.com/returns',
+        changeFrequency: 'monthly',
+        priority: 0.5,
+      }),
+      expect.objectContaining({
+        url: 'https://ogabassey.com/shipping',
+        changeFrequency: 'monthly',
+        priority: 0.5,
+      }),
       expect.objectContaining({
         url: 'https://ogabassey.com/warranty',
         changeFrequency: 'monthly',
