@@ -279,6 +279,69 @@ describe('PaymentStep', () => {
       // Assert
       expect(setPaymentMethod).toHaveBeenCalledWith('bank_transfer');
     });
+
+    it('clears a stale Paystack selection when Paystack is unavailable', () => {
+      const setPaymentMethod = vi.fn();
+
+      render(
+        <PaymentStep
+          {...defaultProps}
+          merchant={null}
+          paymentMethod="paystack"
+          setPaymentMethod={setPaymentMethod}
+        />
+      );
+
+      expect(setPaymentMethod).toHaveBeenCalledWith('');
+    });
+
+    it('clears a stale bank transfer selection when bank transfer is unavailable', () => {
+      const setPaymentMethod = vi.fn();
+
+      render(
+        <PaymentStep
+          {...defaultProps}
+          merchant={null}
+          paymentMethod="bank_transfer"
+          setPaymentMethod={setPaymentMethod}
+        />
+      );
+
+      expect(setPaymentMethod).toHaveBeenCalledWith('');
+    });
+
+    it.each([
+      [
+        'juicyway',
+        {
+          feature_settings: { juicyway_enabled: false } as FeatureSettings,
+        },
+      ],
+      [
+        'pod',
+        {
+          feature_settings: {
+            pay_on_delivery_enabled: false,
+          } as FeatureSettings,
+        },
+      ],
+    ] as const)(
+      'clears a stale %s selection when that gateway is unavailable',
+      (paymentMethod, merchant) => {
+        const setPaymentMethod = vi.fn();
+
+        render(
+          <PaymentStep
+            {...defaultProps}
+            merchant={merchant}
+            paymentMethod={paymentMethod}
+            setPaymentMethod={setPaymentMethod}
+          />
+        );
+
+        expect(setPaymentMethod).toHaveBeenCalledWith('');
+      }
+    );
   });
 
   describe('Pay in Installments Options', () => {
@@ -408,6 +471,40 @@ describe('PaymentStep', () => {
       // Assert
       expect(setPaymentMethod).toHaveBeenCalledWith('credpal');
     });
+
+    it.each([
+      [
+        'credpal',
+        {
+          feature_settings: { credpal_enabled: false } as FeatureSettings,
+        },
+      ],
+      [
+        'credit_direct',
+        {
+          feature_settings: {
+            credit_direct_enabled: false,
+          } as FeatureSettings,
+        },
+      ],
+    ] as const)(
+      'clears a stale %s selection when that installment option is unavailable',
+      (paymentMethod, merchant) => {
+        const setPaymentMethod = vi.fn();
+
+        render(
+          <PaymentStep
+            {...defaultProps}
+            merchant={merchant}
+            paymentTab="installments"
+            paymentMethod={paymentMethod}
+            setPaymentMethod={setPaymentMethod}
+          />
+        );
+
+        expect(setPaymentMethod).toHaveBeenCalledWith('');
+      }
+    );
   });
 
   describe('Mobile Place Order Button', () => {
@@ -460,6 +557,35 @@ describe('PaymentStep', () => {
       );
 
       // Assert
+      const button = screen.getByRole('button', { name: /place order/i });
+      expect(button).toBeDisabled();
+    });
+
+    it('disables button when the selected gateway is no longer available', () => {
+      render(
+        <PaymentStep
+          {...defaultProps}
+          merchant={null}
+          paymentMethod="paystack"
+        />
+      );
+
+      const button = screen.getByRole('button', { name: /place order/i });
+      expect(button).toBeDisabled();
+    });
+
+    it('disables button when a stale installment gateway is selected', () => {
+      render(
+        <PaymentStep
+          {...defaultProps}
+          merchant={{
+            feature_settings: { credpal_enabled: false } as FeatureSettings,
+          }}
+          paymentTab="installments"
+          paymentMethod="credpal"
+        />
+      );
+
       const button = screen.getByRole('button', { name: /place order/i });
       expect(button).toBeDisabled();
     });

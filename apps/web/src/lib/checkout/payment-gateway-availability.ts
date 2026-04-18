@@ -15,7 +15,7 @@ export function isPaystackCheckoutAvailable(
 ): boolean {
   if (!merchant) return false;
   if (readPaystackEnabled(merchant.feature_settings) === false) return false;
-  return Boolean(merchant.paystack_subaccount_code);
+  return Boolean(merchant.paystack_subaccount_code?.trim());
 }
 
 // Bank transfer checkout currently provisions a Paystack DVA, so it must track

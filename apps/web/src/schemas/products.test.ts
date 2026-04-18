@@ -63,8 +63,8 @@ describe('product schemas', () => {
       fulfillment_details: [],
     });
 
-    expect(result.image).toBeUndefined();
-    expect(result.imageLarge).toBeUndefined();
+    expect(result.image).toBeNull();
+    expect(result.imageLarge).toBeNull();
     expect(result.fulfillment_details).toBeUndefined();
   });
 
@@ -109,14 +109,14 @@ describe('product schemas', () => {
     });
   });
 
-  it('ignores null image placeholders on update payloads', () => {
+  it('preserves null image placeholders on update payloads so callers can clear images', () => {
     const result = updateProductSchema.parse({
       image: null,
       imageLarge: null,
     });
 
-    expect(result.image).toBeUndefined();
-    expect(result.imageLarge).toBeUndefined();
+    expect(result.image).toBeNull();
+    expect(result.imageLarge).toBeNull();
   });
 
   it('rejects update payloads with invalid field types', () => {
@@ -131,7 +131,9 @@ describe('product schemas', () => {
         price: '2500',
       })
     ).toThrow();
+  });
 
+  it('strips unsafe URL protocols from image fields on update', () => {
     expect(() =>
       updateProductSchema.parse({
         image: 'javascript:alert(1)',
@@ -142,6 +144,6 @@ describe('product schemas', () => {
       updateProductSchema.parse({
         image: 'javascript:alert(1)',
       }).image
-    ).toBeUndefined();
+    ).toBeNull();
   });
 });

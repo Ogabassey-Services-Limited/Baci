@@ -136,19 +136,9 @@ const productFulfillmentDetailsSchema = z.preprocess((value) => {
   return value;
 }, fulfillmentDetailsSchema.optional());
 
-const optionalSanitizedUrlSchema = z.preprocess(
-  (value) => {
-    if (value == null) {
-      return undefined;
-    }
-
-    return value;
-  },
-  z
-    .string()
-    .transform((val) => sanitizeUrl(val) || undefined)
-    .optional()
-);
+const optionalSanitizedUrlSchema = z
+  .union([z.string().transform((val) => sanitizeUrl(val) || null), z.null()])
+  .optional();
 
 /**
  * Dimensions schema

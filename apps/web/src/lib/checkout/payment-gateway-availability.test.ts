@@ -35,6 +35,36 @@ describe('payment-gateway-availability', () => {
     expect(isBankTransferCheckoutAvailable(merchant)).toBe(false);
   });
 
+  it('returns false when the paystack subaccount only contains whitespace', () => {
+    const merchant = {
+      paystack_subaccount_code: '   ',
+      feature_settings: { paystack_enabled: true },
+    };
+
+    expect(isPaystackCheckoutAvailable(merchant)).toBe(false);
+    expect(isBankTransferCheckoutAvailable(merchant)).toBe(false);
+  });
+
+  it('returns false when the paystack subaccount is an empty string', () => {
+    const merchant = {
+      paystack_subaccount_code: '',
+      feature_settings: { paystack_enabled: true },
+    };
+
+    expect(isPaystackCheckoutAvailable(merchant)).toBe(false);
+    expect(isBankTransferCheckoutAvailable(merchant)).toBe(false);
+  });
+
+  it('returns false when the paystack subaccount is undefined', () => {
+    const merchant = {
+      paystack_subaccount_code: undefined,
+      feature_settings: { paystack_enabled: true },
+    };
+
+    expect(isPaystackCheckoutAvailable(merchant)).toBe(false);
+    expect(isBankTransferCheckoutAvailable(merchant)).toBe(false);
+  });
+
   it('returns false when merchant data is missing', () => {
     expect(isPaystackCheckoutAvailable(null)).toBe(false);
     expect(isPaystackCheckoutAvailable(undefined)).toBe(false);

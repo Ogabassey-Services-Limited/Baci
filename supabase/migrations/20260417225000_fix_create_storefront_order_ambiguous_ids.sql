@@ -83,6 +83,8 @@ BEGIN
     ELSIF p_user_id <> v_user_id THEN
       RAISE EXCEPTION 'user_id_mismatch';
     END IF;
+  ELSIF p_user_id IS NOT NULL THEN
+    RAISE EXCEPTION 'cannot_set_user_id_anonymously';
   END IF;
 
   PERFORM 1 FROM merchants m WHERE m.id = p_merchant_id LIMIT 1;

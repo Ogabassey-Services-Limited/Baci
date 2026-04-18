@@ -1335,6 +1335,18 @@ export const CheckoutPage: React.FC = () => {
         return;
       }
 
+      if (paymentMethod === 'bank_transfer' && !bankTransferCheckoutAvailable) {
+        throw new Error(
+          'Bank transfer is not available for this store yet. Please choose a different payment method.'
+        );
+      }
+
+      if (paymentMethod === 'paystack' && !paystackCheckoutAvailable) {
+        throw new Error(
+          'Paystack is not available for this store yet. Please choose a different payment method.'
+        );
+      }
+
       if (paymentMethod === 'bank_transfer') {
         await handleBankTransfer(order, paymentAmount);
         return;

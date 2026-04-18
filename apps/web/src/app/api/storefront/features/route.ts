@@ -1,6 +1,8 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { isPaystackCheckoutAvailable } from '@/lib/checkout/payment-gateway-availability';
+import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -124,13 +126,35 @@ const DEFAULT_FEATURES: StorefrontFeatures = {
   autoBlogEnabled: false,
 };
 
+const storefrontFeaturesQuerySchema = z
+  .object({
+    merchantId: z.string().uuid({ message: 'Invalid merchantId' }).optional(),
+    slug: z.string().trim().min(1).max(255).optional(),
+  })
+  .refine(({ merchantId, slug }) => Boolean(merchantId || slug), {
+    message: 'merchantId or slug is required',
+  });
+
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = request.nextUrl;
-    const merchantId = searchParams.get('merchantId');
-    const slug = searchParams.get('slug');
+    const parseResult = storefrontFeaturesQuerySchema.safeParse({
+      merchantId: request.nextUrl.searchParams.get('merchantId') || undefined,
+      slug: request.nextUrl.searchParams.get('slug') || undefined,
+    });
 
-    if (!merchantId && !slug) {
+    if (!parseResult.success) {
+      return NextResponse.json(
+        {
+          error:
+            parseResult.error.issues[0]?.message ?? 'Invalid query parameters',
+        },
+        { status: 400 }
+      );
+    }
+
+    const { merchantId, slug } = parseResult.data;
+
+    if (!slug && !merchantId) {
       return NextResponse.json(
         { error: 'merchantId or slug is required' },
         { status: 400 }
@@ -140,26 +164,26 @@ export async function GET(request: NextRequest) {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    // Get merchant ID from slug if needed
+    const merchantLookupQuery = supabase
+      .from('merchants')
+      .select('id, paystack_subaccount_code');
     const merchantLookup = slug
-      ? await supabase
-          .from('merchants')
-          .select('id, paystack_subaccount_code')
-          .eq('slug', slug)
-          .single()
-      : await supabase
-          .from('merchants')
-          .select('id, paystack_subaccount_code')
-          .eq('id', merchantId)
-          .single();
+      ? await merchantLookupQuery.eq('slug', slug).single()
+      : await merchantLookupQuery.eq('id', merchantId).single();
 
     if (merchantLookup.error) {
       if (merchantLookup.error.code === 'PGRST116') {
         return NextResponse.json({ error: 'Store not found' }, { status: 404 });
       }
 
+      logger.error({
+        message: 'Storefront features merchant lookup failed',
+        error: merchantLookup.error,
+        merchantId,
+        slug,
+      });
       return NextResponse.json(
-        { error: merchantLookup.error.message },
+        { error: 'Internal server error' },
         { status: 500 }
       );
     }
@@ -180,8 +204,13 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (settingsError && settingsError.code !== 'PGRST116') {
+      logger.error({
+        message: 'Storefront features settings lookup failed',
+        error: settingsError,
+        merchantId: resolvedMerchantId,
+      });
       return NextResponse.json(
-        { error: settingsError.message },
+        { error: 'Internal server error' },
         { status: 500 }
       );
     }
@@ -258,7 +287,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(publicFeatures);
   } catch (error) {
-    console.error('Storefront features GET error:', error);
+    logger.error({
+      message: 'Storefront features GET error',
+      error: error instanceof Error ? error : new Error('Unknown error'),
+    });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

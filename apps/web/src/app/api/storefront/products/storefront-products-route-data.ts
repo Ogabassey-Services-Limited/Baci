@@ -7,6 +7,14 @@ type ImageInput = string | { url?: string; alt?: string; order?: number };
 function mapProduct(product: RawStorefrontProductRow) {
   const normalized = normalizeProduct(product as RawDbProduct);
   const rawImages = (product.images as ImageInput[]) || [];
+  const colorImageKeys =
+    typeof product.color_images === 'object' &&
+    product.color_images !== null &&
+    !Array.isArray(product.color_images)
+      ? Object.keys(product.color_images as Record<string, unknown>).filter(
+          Boolean
+        )
+      : [];
   const processedImages = rawImages.map((image, index) => {
     if (typeof image === 'string') {
       return { url: image, alt: (product.name as string) || '', order: index };
@@ -53,10 +61,11 @@ function mapProduct(product: RawStorefrontProductRow) {
     variant_model: product.variant_model,
     offers: product.offers,
     colors:
-      (typeof product.color === 'string' && product.color
-        ? [product.color]
-        : undefined) ||
-      (product.color_images ? Object.keys(product.color_images as object) : []),
+      colorImageKeys.length > 0
+        ? colorImageKeys
+        : typeof product.color === 'string' && product.color
+          ? [product.color]
+          : undefined,
     variant_attributes: product.variant_attributes,
   };
 }

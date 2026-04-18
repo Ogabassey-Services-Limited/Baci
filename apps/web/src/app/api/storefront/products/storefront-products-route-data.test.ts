@@ -100,6 +100,44 @@ describe('storefrontProductsRouteData', () => {
     ).toEqual(['Black', 'White']);
   });
 
+  it('prefers color_images keys over the singular color field when both are present', () => {
+    expect(
+      storefrontProductsRouteData.mapProduct({
+        id: 'product-1a',
+        name: 'Gamepad',
+        description: null,
+        price: 12000,
+        compare_at_price: null,
+        images: ['https://example.com/image.jpg'],
+        image_hint: null,
+        category: 'Gaming',
+        categories: { id: 'cat-1', name: 'Gaming', slug: 'gaming' },
+        category_id: 'cat-1',
+        brand: 'Sony',
+        stock: 5,
+        stock_quantity: 5,
+        slug: 'gamepad',
+        status: 'active',
+        condition: 'new',
+        has_variants: false,
+        sku: 'GP-1',
+        manage_stock: true,
+        low_stock_threshold: 1,
+        specifications: null,
+        has_condition_offers: false,
+        available_conditions: [],
+        variant_model: 'single',
+        offers: [],
+        color: 'Black',
+        color_images: {
+          White: 'https://example.com/white.jpg',
+          Blue: 'https://example.com/blue.jpg',
+        },
+        variant_attributes: [],
+      }).colors
+    ).toEqual(['White', 'Blue']);
+  });
+
   it('falls back to the singular color field when denormalized colors are absent', () => {
     expect(
       storefrontProductsRouteData.mapProduct({
@@ -132,6 +170,41 @@ describe('storefrontProductsRouteData', () => {
         variant_attributes: [],
       }).colors
     ).toEqual(['Red']);
+  });
+
+  it('ignores malformed color_images values and falls back to the singular color field', () => {
+    expect(
+      storefrontProductsRouteData.mapProduct({
+        id: 'product-1c',
+        name: 'Body Lotion',
+        description: null,
+        price: 4500,
+        compare_at_price: null,
+        images: ['https://example.com/body-lotion.jpg'],
+        image_hint: null,
+        category: 'Beauty',
+        categories: { id: 'cat-3', name: 'Beauty', slug: 'beauty' },
+        category_id: 'cat-3',
+        brand: 'Glow',
+        stock: 12,
+        stock_quantity: 12,
+        slug: 'body-lotion',
+        status: 'active',
+        condition: 'new',
+        has_variants: false,
+        sku: 'BL-1',
+        manage_stock: true,
+        low_stock_threshold: 2,
+        specifications: null,
+        has_condition_offers: false,
+        available_conditions: [],
+        variant_model: 'single',
+        offers: [],
+        color: 'Gold',
+        color_images: 'not-a-map',
+        variant_attributes: [],
+      }).colors
+    ).toEqual(['Gold']);
   });
 
   it('selects the singular color column for storefront queries', () => {

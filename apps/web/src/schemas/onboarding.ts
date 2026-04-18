@@ -150,26 +150,34 @@ const refineStep3Password = (
       });
     }
 
-    if (!confirmPassword) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['confirmPassword'],
-        message: 'Please confirm your password.',
-      });
-    } else if (password !== confirmPassword) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['confirmPassword'],
-        message: 'Passwords do not match.',
-      });
-    }
-
     if (isCommonPassword(password)) {
       ctx.addIssue({
         code: 'custom',
         path: ['password'],
         message:
           'This password is too common. Please choose a more unique password.',
+      });
+    }
+
+    if (strength < MIN_ACCEPTABLE_PASSWORD_STRENGTH) {
+      return;
+    }
+
+    if (!confirmPassword) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['confirmPassword'],
+        message: 'Please confirm your password.',
+      });
+    } else if (
+      password !== confirmPassword &&
+      (confirmPassword.length >= password.length ||
+        !password.startsWith(confirmPassword))
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['confirmPassword'],
+        message: 'Passwords do not match.',
       });
     }
   }

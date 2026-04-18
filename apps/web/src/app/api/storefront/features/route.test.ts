@@ -2,6 +2,9 @@ import type { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GET } from './route';
 
+const VALID_MERCHANT_ID = '00000000-0000-4000-8000-000000000001';
+const MISSING_MERCHANT_ID = '00000000-0000-4000-8000-000000000099';
+
 const mockSingle = vi.fn();
 const mockMerchantEq = vi.fn();
 const mockMerchantSelect = vi.fn();
@@ -9,6 +12,7 @@ const mockSettingsEq = vi.fn();
 const mockSettingsSelect = vi.fn();
 const mockFrom = vi.fn();
 const mockCreateClient = vi.fn();
+const mockLoggerError = vi.fn();
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn(() => Promise.resolve(new Map())),
@@ -16,6 +20,12 @@ vi.mock('next/headers', () => ({
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: (...args: unknown[]) => mockCreateClient(...args),
+}));
+
+vi.mock('@/lib/logger', () => ({
+  logger: {
+    error: (...args: unknown[]) => mockLoggerError(...args),
+  },
 }));
 
 describe('GET /api/storefront/features', () => {
@@ -27,6 +37,7 @@ describe('GET /api/storefront/features', () => {
     mockSettingsSelect.mockReset();
     mockFrom.mockReset();
     mockCreateClient.mockReset();
+    mockLoggerError.mockReset();
 
     mockMerchantEq.mockReturnValue({ single: mockSingle });
     mockMerchantSelect.mockReturnValue({ eq: mockMerchantEq });
@@ -68,7 +79,7 @@ describe('GET /api/storefront/features', () => {
 
     const request = {
       nextUrl: new URL(
-        'https://example.com/api/storefront/features?merchantId=merchant-1'
+        `https://example.com/api/storefront/features?merchantId=${VALID_MERCHANT_ID}`
       ),
       get url() {
         throw new Error('request.url should not be read');
@@ -103,7 +114,7 @@ describe('GET /api/storefront/features', () => {
 
     const request = {
       nextUrl: new URL(
-        'https://example.com/api/storefront/features?merchantId=merchant-1'
+        `https://example.com/api/storefront/features?merchantId=${VALID_MERCHANT_ID}`
       ),
     } as unknown as NextRequest;
 
@@ -140,7 +151,7 @@ describe('GET /api/storefront/features', () => {
 
     const request = {
       nextUrl: new URL(
-        'https://example.com/api/storefront/features?merchantId=missing-merchant'
+        `https://example.com/api/storefront/features?merchantId=${MISSING_MERCHANT_ID}`
       ),
     } as unknown as NextRequest;
 
@@ -149,6 +160,20 @@ describe('GET /api/storefront/features', () => {
 
     expect(response.status).toBe(404);
     expect(body.error).toBe('Store not found');
+  });
+
+  it('returns 400 when merchantId is not a valid UUID', async () => {
+    const request = {
+      nextUrl: new URL(
+        'https://example.com/api/storefront/features?merchantId=not-a-uuid'
+      ),
+    } as unknown as NextRequest;
+
+    const response = await GET(request);
+    const body = (await response.json()) as { error: string };
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('Invalid merchantId');
   });
 
   it('returns 500 when the merchant lookup fails', async () => {
@@ -162,7 +187,7 @@ describe('GET /api/storefront/features', () => {
 
     const request = {
       nextUrl: new URL(
-        'https://example.com/api/storefront/features?merchantId=merchant-1'
+        `https://example.com/api/storefront/features?merchantId=${VALID_MERCHANT_ID}`
       ),
     } as unknown as NextRequest;
 
@@ -170,6 +195,45 @@ describe('GET /api/storefront/features', () => {
     const body = (await response.json()) as { error: string };
 
     expect(response.status).toBe(500);
-    expect(body.error).toBe('statement timeout');
+    expect(body.error).toBe('Internal server error');
+    expect(mockLoggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Storefront features merchant lookup failed',
+      })
+    );
+  });
+
+  it('returns 500 when the feature settings lookup fails', async () => {
+    mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'merchant-1',
+        paystack_subaccount_code: 'ACCT_123',
+      },
+      error: null,
+    });
+    mockSingle.mockResolvedValueOnce({
+      data: null,
+      error: {
+        code: '57014',
+        message: 'statement timeout',
+      },
+    });
+
+    const request = {
+      nextUrl: new URL(
+        `https://example.com/api/storefront/features?merchantId=${VALID_MERCHANT_ID}`
+      ),
+    } as unknown as NextRequest;
+
+    const response = await GET(request);
+    const body = (await response.json()) as { error: string };
+
+    expect(response.status).toBe(500);
+    expect(body.error).toBe('Internal server error');
+    expect(mockLoggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Storefront features settings lookup failed',
+      })
+    );
   });
 });
