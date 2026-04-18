@@ -134,6 +134,7 @@ vi.mock('../components/MobileCheckoutComponents', () => ({
 import { CheckoutPage } from './checkout-page';
 import { useSearchParams } from 'next/navigation';
 import { useCart } from '@/hooks/use-cart';
+import { useMerchantSafe } from '@/hooks/use-merchant';
 
 describe('CheckoutPage', () => {
   beforeEach(() => {
@@ -146,6 +147,17 @@ describe('CheckoutPage', () => {
     vi.mocked(useSearchParams).mockReturnValue(
       new URLSearchParams() as unknown as ReturnType<typeof useSearchParams>
     );
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        slug: 'test-store',
+        business_name: 'Test Store',
+        vat_registration_status: 'registered',
+        vat_rate: 7.5,
+        country: 'NG',
+      },
+      basePath: '/test-store',
+    } as unknown as ReturnType<typeof useMerchantSafe>);
   });
 
   it('renders without crashing', () => {
@@ -206,6 +218,48 @@ describe('CheckoutPage', () => {
         '/api/storefront/orders/ord-1?merchant_slug=test-store&token=tok-123'
       );
     });
+
+    fetchMock.mockRestore();
+  });
+
+  it('does not fetch a resumed order until a merchant slug is available', async () => {
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        business_name: 'Test Store',
+        vat_registration_status: 'registered',
+        vat_rate: 7.5,
+        country: 'NG',
+      },
+      basePath: '/test-store',
+    } as unknown as ReturnType<typeof useMerchantSafe>);
+    vi.mocked(useSearchParams).mockReturnValue(
+      new URLSearchParams({
+        orderId: 'ord-1',
+        gateway: 'credpal',
+        trackingToken: 'tok-123',
+      }) as unknown as ReturnType<typeof useSearchParams>
+    );
+
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue({
+        ok: false,
+        json: async () => ({}),
+      } as Response);
+
+    render(<CheckoutPage />);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/shipping/locations');
+    });
+    expect(
+      fetchMock.mock.calls.some(
+        ([url]) =>
+          typeof url === 'string' &&
+          url.startsWith('/api/storefront/orders/ord-1')
+      )
+    ).toBe(false);
 
     fetchMock.mockRestore();
   });

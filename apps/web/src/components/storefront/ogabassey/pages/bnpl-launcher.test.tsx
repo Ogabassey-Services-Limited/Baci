@@ -1,6 +1,7 @@
 import { render, waitFor } from '@testing-library/react';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BnplLauncher } from './bnpl-launcher';
+import { CHECKOUT_PENDING_ORDER_STORAGE_KEY } from './checkout/pending-checkout-order';
 
 const mockPush = vi.fn();
 const mockSearchParams = vi.fn();
@@ -90,7 +91,7 @@ describe('BnplLauncher', () => {
       })
     );
     window.sessionStorage.setItem(
-      'storefront-checkout-pending-order',
+      CHECKOUT_PENDING_ORDER_STORAGE_KEY,
       JSON.stringify({
         orderId: 'order-1',
         trackingToken: 'stored-track-token',

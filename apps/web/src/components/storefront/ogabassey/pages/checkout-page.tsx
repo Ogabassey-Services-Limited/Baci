@@ -256,6 +256,11 @@ export const CheckoutPage: React.FC = () => {
     searchParams.get('trackingToken') ||
     searchParams.get('tracking_token') ||
     searchParams.get('token');
+  const resumeMerchantSlug =
+    searchParams.get('merchant_slug') ||
+    searchParams.get('slug') ||
+    merchant?.slug ||
+    null;
   const preferredGateway = searchParams.get('gateway') as 'credpal' | 'credit_direct' | null;
   const [resumedOrder, setResumedOrder] = useState<{
     id: string;
@@ -552,13 +557,13 @@ export const CheckoutPage: React.FC = () => {
 
   // Fetch resumed order from mobile app when orderId is in URL
   useEffect(() => {
-    if (!resumeOrderId) return;
+    if (!resumeOrderId || !resumeMerchantSlug) return;
 
     const fetchResumedOrder = async () => {
       setIsLoadingResumedOrder(true);
       try {
         const query = new URLSearchParams();
-        if (merchant?.slug) query.set('merchant_slug', merchant.slug);
+        query.set('merchant_slug', resumeMerchantSlug);
         if (resumeTrackingToken) query.set('token', resumeTrackingToken);
 
         const res = await fetch(
@@ -625,9 +630,9 @@ export const CheckoutPage: React.FC = () => {
     };
     fetchResumedOrder();
   }, [
-    merchant?.slug,
     preferredGateway,
     resumeOrderId,
+    resumeMerchantSlug,
     resumeTrackingToken,
     setCheckoutFields,
   ]);

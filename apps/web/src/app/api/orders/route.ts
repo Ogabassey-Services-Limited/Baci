@@ -343,9 +343,9 @@ export async function POST(request: NextRequest) {
         '22P02', // PostgreSQL: Invalid text representation (e.g. invalid UUID format)
       ];
       // create_storefront_order should return { message, code } for client errors.
-      const isClientError = code
-        ? clientErrorCodes.includes(code)
-        : clientErrorCodes.includes(message);
+      const isClientError =
+        (code ? clientErrorCodes.includes(code) : false) ||
+        clientErrorCodes.includes(message);
       return NextResponse.json(
         { error: 'Failed to create order', details: message },
         { status: isClientError ? 400 : 500 }

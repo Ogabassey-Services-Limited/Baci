@@ -241,6 +241,41 @@ describe('storefrontProductsRouteData', () => {
     ).toEqual(['Gold']);
   });
 
+  it('falls back to the singular color field when color_images has no usable keys', () => {
+    expect(
+      storefrontProductsRouteData.mapProduct({
+        id: 'product-1ca',
+        name: 'Yoga Mat',
+        description: null,
+        price: 6500,
+        compare_at_price: null,
+        images: ['https://example.com/yoga-mat.jpg'],
+        image_hint: null,
+        category: 'Fitness',
+        categories: { id: 'cat-3a', name: 'Fitness', slug: 'fitness' },
+        category_id: 'cat-3a',
+        brand: 'Zen',
+        stock: 12,
+        stock_quantity: 12,
+        slug: 'yoga-mat',
+        status: 'active',
+        condition: 'new',
+        has_variants: false,
+        sku: 'YM-1',
+        manage_stock: true,
+        low_stock_threshold: 2,
+        specifications: null,
+        has_condition_offers: false,
+        available_conditions: [],
+        variant_model: 'single',
+        offers: [],
+        color: 'Green',
+        color_images: {},
+        variant_attributes: [],
+      }).colors
+    ).toEqual(['Green']);
+  });
+
   it('selects the singular color column for storefront queries', () => {
     expect(storefrontProductsRouteData.STOREFRONT_PRODUCTS_SELECT).toMatch(
       /\bcolor\b/
