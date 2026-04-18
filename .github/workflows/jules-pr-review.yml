@@ -149,20 +149,23 @@ jobs:
               "${url}"
           }
 
-          pr_response="$(
-            github_api_get \
-              "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}"
-          )"
+          # Write PR metadata to a temp file and parse via `jq --slurpfile` /
+          # explicit file input to avoid passing large JSON through `<<<` here-strings,
+          # which can exceed ARG_MAX / bash here-string buffering on large PRs.
+          pr_file="$RUNNER_TEMP/jules-pr.json"
+          github_api_get \
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \
+            > "${pr_file}"
 
-          base_ref="$(jq -r '.base.ref' <<<"${pr_response}")"
-          head_ref="$(jq -r '.head.ref' <<<"${pr_response}")"
-          head_sha="$(jq -r '.head.sha' <<<"${pr_response}")"
-          pr_state="$(jq -r '.state' <<<"${pr_response}")"
-          pr_title="$(jq -r '.title' <<<"${pr_response}")"
-          pr_body="$(jq -r '.body // ""' <<<"${pr_response}")"
-          head_repo_full_name="$(jq -r '.head.repo.full_name // ""' <<<"${pr_response}")"
-          repo_owner="$(jq -r '.base.repo.owner.login' <<<"${pr_response}")"
-          repo_name="$(jq -r '.base.repo.name' <<<"${pr_response}")"
+          base_ref="$(jq -r '.base.ref' "${pr_file}")"
+          head_ref="$(jq -r '.head.ref' "${pr_file}")"
+          head_sha="$(jq -r '.head.sha' "${pr_file}")"
+          pr_state="$(jq -r '.state' "${pr_file}")"
+          pr_title="$(jq -r '.title' "${pr_file}")"
+          pr_body="$(jq -r '.body // ""' "${pr_file}")"
+          head_repo_full_name="$(jq -r '.head.repo.full_name // ""' "${pr_file}")"
+          repo_owner="$(jq -r '.base.repo.owner.login' "${pr_file}")"
+          repo_name="$(jq -r '.base.repo.name' "${pr_file}")"
           review_marker="<!-- jules-pr-review mode:${REVIEW_MODE} sha:${head_sha} -->"
           session_id=""
           state="NOT_STARTED"
@@ -208,23 +211,26 @@ jobs:
           prompt_file="$RUNNER_TEMP/jules-prompt.md"
 
           if [[ "${REVIEW_MODE}" == "fast" ]]; then
-            all_files='[]'
+            # Persist the combined /pulls/:n/files response to a temp file so
+            # downstream jq invocations can read via file arg instead of `<<<`.
+            # On PRs with hundreds of files the combined JSON can reach multiple MB,
+            # which causes `/usr/bin/jq: Argument list too long` (E2BIG) when
+            # passed as a bash here-string.
+            all_files_file="$RUNNER_TEMP/jules-all-files.json"
+            files_page_file="$RUNNER_TEMP/jules-files-page.json"
+            printf '[]' > "${all_files_file}"
             files_page=1
 
             while :; do
-              files_response="$(
-                github_api_get \
-                  "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files?per_page=100&page=${files_page}"
-              )"
+              github_api_get \
+                "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files?per_page=100&page=${files_page}" \
+                > "${files_page_file}"
 
-              all_files="$(
-                jq -c \
-                  --argjson existing "${all_files}" \
-                  '$existing + .' \
-                  <<<"${files_response}"
-              )"
+              jq -c -s '.[0] + .[1]' "${all_files_file}" "${files_page_file}" \
+                > "${all_files_file}.tmp"
+              mv "${all_files_file}.tmp" "${all_files_file}"
 
-              if [[ "$(jq 'length' <<<"${files_response}")" -lt 100 ]]; then
+              if [[ "$(jq 'length' "${files_page_file}")" -lt 100 ]]; then
                 break
               fi
 
@@ -237,7 +243,7 @@ jobs:
                   .[]
                   | "- \(.filename) [\(.status)] +\(.additions) / -\(.deletions)"
                 ' \
-                <<<"${all_files}"
+                "${all_files_file}"
             )"
 
             if [[ -z "${files_summary}" ]]; then
@@ -245,7 +251,7 @@ jobs:
             fi
 
             guidance_file="$RUNNER_TEMP/jules-guidance.md"
-            guidance_ref="${base_ref:-$(jq -r '.base.repo.default_branch // empty' <<<"${pr_response}")}"
+            guidance_ref="${base_ref:-$(jq -r '.base.repo.default_branch // empty' "${pr_file}")}"
             guidance_url="${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/contents/AGENTS.md?ref=$(uri_encode "${guidance_ref}")"
 
             if [[ -n "${guidance_ref}" ]] && github_api_get_raw "${guidance_url}" > "${guidance_file}"; then
@@ -312,7 +318,7 @@ jobs:
                 printf -- '- deletions: %s\n' "${deletions}"
                 printf '```diff\n%s\n```\n\n' "${rendered_patch}"
               } >> "${patch_sections_file}"
-            done < <(jq -r '.[] | tojson | @base64' <<<"${all_files}")
+            done < <(jq -r '.[] | tojson | @base64' "${all_files_file}")
 
             cat > "${prompt_file}" <<EOF
           Review GitHub pull request #${PR_NUMBER} in repoless fast-review mode.
@@ -720,8 +726,11 @@ jobs:
           fi
 
           if [[ -z "${reviewed_sha}" ]]; then
-            pr_response="$(github_api_get "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")"
-            reviewed_sha="$(jq -r '.head.sha' <<<"${pr_response}")"
+            submit_pr_file="$RUNNER_TEMP/jules-submit-pr.json"
+            github_api_get \
+              "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \
+              > "${submit_pr_file}"
+            reviewed_sha="$(jq -r '.head.sha' "${submit_pr_file}")"
           fi
 
           marker="<!-- jules-pr-review mode:${REVIEW_MODE} sha:${reviewed_sha} -->"
