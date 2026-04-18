@@ -36,6 +36,9 @@ export function NavbarNotifications({
     <div className="relative flex items-center" ref={notificationRef}>
       <button
         onClick={() => setShowNotifications((current) => !current)}
+        aria-label="Toggle notifications"
+        aria-expanded={showNotifications}
+        type="button"
         className={`relative flex items-center justify-center hover:text-white transition-colors ${showNotifications ? 'text-white' : ''}`}
       >
         <Bell size={22} />

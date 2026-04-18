@@ -9,6 +9,6 @@ describe('BlogListingFallback', () => {
     expect(
       screen.getByRole('status', { name: 'Loading blog posts' })
     ).toBeInTheDocument();
-    expect(container.firstChild).toHaveClass('min-h-screen', 'bg-[#fafafa]');
+    expect(container.firstChild).toHaveClass('min-h-screen', 'bg-background');
   });
 });

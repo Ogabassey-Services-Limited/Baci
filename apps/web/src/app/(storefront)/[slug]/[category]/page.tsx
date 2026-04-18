@@ -23,12 +23,12 @@ import {
   getStorefrontTwitterImages,
 } from '@/lib/storefront-social-images';
 import { isDomainIdentifier } from '@/lib/validation';
+import { CategoryPageContent } from './category-page-content';
 import {
   buildCategoryPageHubModel,
-  CategoryPageContent,
   normalizeCategoryPageProducts,
   resolveCategoryPageName,
-} from './category-page-content';
+} from './category-page-content-helpers';
 
 // Enable ISR with 5 minute revalidation
 // Removed explicit revalidate export to support Dynamic IO
