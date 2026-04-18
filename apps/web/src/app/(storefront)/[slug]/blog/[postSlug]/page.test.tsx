@@ -9,7 +9,6 @@ const mockNotFound = vi.fn(() => {
 });
 const mockGetCachedBlogPost = vi.fn();
 const mockGetLiveBlogPost = vi.fn();
-const mockBuildInformationalClusterModel = vi.fn();
 
 vi.mock('lucide-react', () => ({
   AlertTriangle: () => null,
@@ -65,15 +64,6 @@ vi.mock('@/lib/store-url', () => ({
       : `https://${merchant.slug}.usebaci.com`,
 }));
 
-vi.mock('@/lib/storefront-content/build-informational-cluster-model', () => ({
-  buildInformationalClusterModel: (...args: unknown[]) =>
-    mockBuildInformationalClusterModel(...args),
-}));
-
-vi.mock('@/lib/validation', () => ({
-  isDomainIdentifier: (value: string) => value.includes('.'),
-}));
-
 vi.mock('./BlogPostBody', () => ({
   BlogPostBody: () => null,
 }));
@@ -84,10 +74,6 @@ vi.mock('./BlogPostBodyFallback', () => ({
 
 vi.mock('./BlogPostPageFallback', () => ({
   BlogPostPageFallback: () => <div>Blog post page loading</div>,
-}));
-
-vi.mock('./BlogPostHeader', () => ({
-  BlogPostHeader: ({ title }: { title: string }) => <h1>{title}</h1>,
 }));
 
 vi.mock('./blog-post-content', () => ({
@@ -109,7 +95,7 @@ vi.mock('./view-counter', () => ({
   ViewCounter: () => null,
 }));
 
-import BlogPostPage, { BlogPostContent, generateMetadata } from './page';
+import BlogPostPage, { generateMetadata } from './page';
 
 const liveBlogPost = {
   merchant: {
@@ -143,24 +129,19 @@ const liveBlogPost = {
   relatedPosts: [],
 };
 
-const smartphoneGuideBlogPost = {
-  ...liveBlogPost,
-  post: {
-    ...liveBlogPost.post,
-    title: 'Best Phones in Nigeria for 2026',
-    slug: 'best-phones-in-nigeria',
-    category: 'Smartphones',
-    excerpt: 'Affordable Android and iPhone picks for buyers in Nigeria.',
-    tags: ['budget', 'iphone', 'samsung'],
-    keywords: ['android', 'battery', 'smartphones'],
-  },
-};
-
 describe('storefront blog post page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockHeaders.mockReturnValue(new Headers());
-    mockBuildInformationalClusterModel.mockResolvedValue(null);
+    mockHeaders.mockResolvedValue(new Headers());
+  });
+
+  it('only exports the route surface from the page module', async () => {
+    const routeModule = await import('./page');
+
+    expect(Object.keys(routeModule).sort()).toEqual([
+      'default',
+      'generateMetadata',
+    ]);
   });
 
   it('renders the page fallback while request headers are still pending', () => {
@@ -295,42 +276,6 @@ describe('storefront blog post page', () => {
 
     expect(metadata.alternates?.canonical).toBe(
       'https://ogabassey.com/blog/apple-studio-display-review'
-    );
-  });
-
-  it('renders crawlable commerce links beneath the blog post body', async () => {
-    mockDraftMode.mockResolvedValue({ isEnabled: false });
-    mockGetCachedBlogPost.mockResolvedValue(smartphoneGuideBlogPost);
-    mockBuildInformationalClusterModel.mockResolvedValue({
-      heading: 'Continue shopping smartphones',
-      primaryCategoryLink: {
-        href: 'https://ogabassey.com/smartphones',
-        label: 'Shop more smartphones',
-      },
-      commerceLinks: [
-        {
-          href: 'https://ogabassey.com/smartphones/compare/apple-vs-samsung',
-          label: 'Apple vs Samsung',
-        },
-      ],
-      featuredProducts: [],
-    });
-
-    render(
-      await BlogPostContent({
-        slug: 'ogabassey',
-        postSlug: 'best-phones-in-nigeria',
-      })
-    );
-
-    expect(
-      screen.getByRole('link', { name: /shop more smartphones/i })
-    ).toHaveAttribute('href', 'https://ogabassey.com/smartphones');
-    expect(
-      screen.getByRole('link', { name: 'Apple vs Samsung' })
-    ).toHaveAttribute(
-      'href',
-      'https://ogabassey.com/smartphones/compare/apple-vs-samsung'
     );
   });
 });

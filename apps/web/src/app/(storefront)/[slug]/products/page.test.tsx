@@ -215,6 +215,36 @@ describe('products index page', () => {
     expect(screen.getByText('Store description')).toBeInTheDocument();
   });
 
+  it('does not prepend the merchant slug on subdomain storefront links', async () => {
+    mockHeaders.mockResolvedValue(
+      new Headers([['x-merchant-slug', 'test-store']])
+    );
+
+    render(
+      await ProductsPageContent({
+        params: Promise.resolve({ slug: 'test-store' }),
+        searchParams: Promise.resolve({ page: '2' }),
+      })
+    );
+
+    expect(screen.getByRole('link', { name: 'Home' })).toHaveAttribute(
+      'href',
+      '/'
+    );
+    expect(screen.getByRole('link', { name: 'Smartphones' })).toHaveAttribute(
+      'href',
+      '/smartphones'
+    );
+    expect(screen.getByRole('link', { name: /iphone 16/i })).toHaveAttribute(
+      'href',
+      '/smartphones/iphone-16'
+    );
+    expect(screen.getByRole('link', { name: 'Previous' })).toHaveAttribute(
+      'href',
+      '/products'
+    );
+  });
+
   it('calls notFound when the merchant is missing', async () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValueOnce(null);
 

@@ -1,3 +1,4 @@
+import { headers } from 'next/headers';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { StorefrontPagination } from '@/components/storefront/ogabassey/components/StorefrontPagination';
@@ -18,10 +19,7 @@ import {
   parseStorefrontPageParam,
   STOREFRONT_PRODUCTS_PER_PAGE,
 } from '@/lib/storefront-pagination';
-import {
-  isDomainIdentifier,
-  isValidMerchantIdentifier,
-} from '@/lib/validation';
+import { isValidMerchantIdentifier } from '@/lib/validation';
 import { ProductIndexCard } from './product-index-card';
 
 interface PageProps {
@@ -29,8 +27,14 @@ interface PageProps {
   searchParams: Promise<{ page?: string }>;
 }
 
-function getStorefrontPathPrefix(slug: string, merchantSlug: string) {
-  return isDomainIdentifier(slug) ? '' : `/${merchantSlug}`;
+function getStorefrontPathPrefix(
+  headersList: Awaited<ReturnType<typeof headers>>,
+  merchantSlug: string
+) {
+  return headersList.has('x-custom-domain') ||
+    headersList.has('x-merchant-slug')
+    ? ''
+    : `/${merchantSlug}`;
 }
 
 export async function ProductsPageContent({ params, searchParams }: PageProps) {
@@ -52,6 +56,8 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
     notFound();
   }
 
+  const headersList = await headers();
+
   const [categories, productIndex] = await Promise.all([
     getCachedCategories(merchant.id),
     getCachedStorefrontProductIndex(merchant.id, {
@@ -67,7 +73,7 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
   }
 
   const baseUrl = buildStoreUrl(merchant);
-  const pathPrefix = getStorefrontPathPrefix(slug, merchant.slug);
+  const pathPrefix = getStorefrontPathPrefix(headersList, merchant.slug);
   const description =
     merchant.site_description ||
     `Browse all products available at ${merchant.business_name}.`;
