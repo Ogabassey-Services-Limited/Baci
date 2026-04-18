@@ -8,7 +8,7 @@ import { openCredPalCheckout } from '@/lib/credpal';
 import { useMerchant } from '@/hooks/use-merchant';
 import { CHECKOUT_PENDING_ORDER_STORAGE_KEY } from './checkout/pending-checkout-order';
 
-function readPendingOrderTrackingToken(orderId: string | null) {
+function readPendingOrderSnapshot(orderId: string | null) {
     if (!orderId || typeof window === 'undefined') {
         return null;
     }
@@ -24,13 +24,17 @@ function readPendingOrderTrackingToken(orderId: string | null) {
         const pendingOrder = JSON.parse(stored) as {
             orderId?: string;
             trackingToken?: string;
+            customerEmail?: string;
         };
 
-        if (pendingOrder.orderId !== orderId || !pendingOrder.trackingToken) {
+        if (pendingOrder.orderId !== orderId) {
             return null;
         }
 
-        return pendingOrder.trackingToken;
+        return {
+            trackingToken: pendingOrder.trackingToken || null,
+            customerEmail: pendingOrder.customerEmail?.trim() || null,
+        };
     } catch {
         return null;
     }
@@ -50,8 +54,12 @@ export function BnplLauncher() {
         searchParams.get('trackingToken') ||
         searchParams.get('tracking_token') ||
         searchParams.get('token');
-    const fallbackTrackingToken = readPendingOrderTrackingToken(orderId);
-    const trackingToken = trackingTokenParam || fallbackTrackingToken;
+    const pendingOrderSnapshot = readPendingOrderSnapshot(orderId);
+    const trackingToken = trackingTokenParam || pendingOrderSnapshot?.trackingToken || null;
+    const lookupEmail =
+        searchParams.get('email')?.trim() ||
+        pendingOrderSnapshot?.customerEmail ||
+        null;
     const merchantSlugParam =
         searchParams.get('merchant_slug') || searchParams.get('slug');
 
@@ -78,6 +86,9 @@ export function BnplLauncher() {
                 const query = new URLSearchParams({ merchant_slug: slug });
                 if (trackingToken) {
                     query.set('token', trackingToken);
+                }
+                if (lookupEmail) {
+                    query.set('email', lookupEmail);
                 }
                 if (process.env.NODE_ENV === 'development') {
                     console.log(`[BnplLauncher] Fetching order ${orderId} for merchant ${slug}`);
@@ -189,6 +200,7 @@ export function BnplLauncher() {
         gateway,
         merchant?.slug,
         merchantSlugParam,
+        lookupEmail,
         loading,
         router,
         trackingToken,

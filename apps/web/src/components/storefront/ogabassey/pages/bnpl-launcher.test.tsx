@@ -82,6 +82,25 @@ describe('BnplLauncher', () => {
     });
   });
 
+  it('includes a persisted customer email alongside the tracking token when available', async () => {
+    window.sessionStorage.setItem(
+      CHECKOUT_PENDING_ORDER_STORAGE_KEY,
+      JSON.stringify({
+        orderId: 'order-1',
+        trackingToken: 'tok-123',
+        customerEmail: 'customer@example.com',
+      })
+    );
+
+    render(<BnplLauncher />);
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        '/api/storefront/orders/order-1?merchant_slug=test-store&token=tok-123&email=customer%40example.com'
+      );
+    });
+  });
+
   it('falls back to the stored pending-order tracking token for legacy links', async () => {
     mockSearchParams.mockReturnValue(
       new URLSearchParams({

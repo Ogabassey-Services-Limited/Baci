@@ -416,6 +416,38 @@ describe('GET /api/storefront/orders/[id]', () => {
     expect(data.customer_email).toBe('john@example.com');
   });
 
+  it('prefers email lookup over token lookup when both are provided', async () => {
+    const request = new NextRequest(
+      'http://localhost/api/storefront/orders/order-uuid-123?token=track-token-123&email=john@example.com&merchant_slug=test-store'
+    );
+    const params = Promise.resolve({ id: 'order-uuid-123' });
+
+    mockSupabaseClient.auth.getUser.mockResolvedValue({
+      data: { user: null },
+    });
+
+    mockAnonClient.rpc.mockResolvedValue({
+      data: [
+        {
+          ...mockOrderData,
+          items: [],
+        },
+      ],
+      error: null,
+    });
+
+    const response = await GET(request, { params });
+
+    expect(response.status).toBe(200);
+    expect(mockAnonClient.rpc).toHaveBeenCalledWith('get_order_tracking', {
+      p_merchant_slug: 'test-store',
+      p_order_id: 'order-uuid-123',
+      p_order_number: null,
+      p_email: 'john@example.com',
+      p_tracking_token: null,
+    });
+  });
+
   it('returns 404 when RPC lookup does not find an order', async () => {
     const request = new NextRequest(
       'http://localhost/api/storefront/orders/order-uuid-123?token=missing&merchant_slug=test-store'

@@ -334,13 +334,14 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid order ID' }, { status: 400 });
     }
 
+    const preferEmailLookup = Boolean(email && isValidUuid(id));
     const anon = createAnonClient();
     const { data: orders, error } = await anon.rpc('get_order_tracking', {
       p_merchant_slug: merchantSlug,
-      p_order_id: token ? null : id,
+      p_order_id: preferEmailLookup ? id : token ? null : id,
       p_order_number: null,
-      p_email: token ? null : email,
-      p_tracking_token: token || null,
+      p_email: preferEmailLookup ? email : token ? null : email,
+      p_tracking_token: preferEmailLookup ? null : token || null,
     });
 
     const order = Array.isArray(orders) ? orders[0] : null;

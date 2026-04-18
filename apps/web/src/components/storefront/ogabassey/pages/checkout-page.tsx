@@ -258,8 +258,7 @@ export const CheckoutPage: React.FC = () => {
     searchParams.get('token');
   const resumeLookupEmail =
     searchParams.get('email')?.trim() ||
-    (!resumeTrackingToken &&
-    pendingCheckoutOrder?.orderId === resumeOrderId &&
+    (pendingCheckoutOrder?.orderId === resumeOrderId &&
     pendingCheckoutOrder.customerEmail &&
     (!merchant?.id || pendingCheckoutOrder.merchantId === merchant.id)
       ? pendingCheckoutOrder.customerEmail.trim()
@@ -575,7 +574,8 @@ export const CheckoutPage: React.FC = () => {
         query.set('merchant_slug', resumeMerchantSlug);
         if (resumeTrackingToken) {
           query.set('token', resumeTrackingToken);
-        } else if (resumeLookupEmail) {
+        }
+        if (resumeLookupEmail) {
           query.set('email', resumeLookupEmail);
         }
 
