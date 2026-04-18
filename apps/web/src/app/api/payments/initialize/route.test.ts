@@ -98,7 +98,6 @@ function createMockSupabase() {
 
 let merchantResult: { data: unknown; error: unknown };
 let featureSettingsResult: { data: unknown; error: unknown };
-let orderLookupResult: { data: unknown; error: unknown };
 
 function createMockAdminClient() {
   return {
@@ -110,16 +109,6 @@ function createMockAdminClient() {
               single: () => Promise.resolve(merchantResult),
             }),
           }),
-        };
-      }
-      if (table === 'orders') {
-        const orderQuery = {
-          eq: vi.fn(),
-          maybeSingle: vi.fn().mockResolvedValue(orderLookupResult),
-        };
-        orderQuery.eq.mockReturnValue(orderQuery);
-        return {
-          select: () => orderQuery,
         };
       }
       if (table === 'merchant_feature_settings') {
@@ -183,7 +172,13 @@ function makeRequest(body: Record<string, unknown>) {
 
 function setupDefaults() {
   rpcResult = {
-    data: [{ merchant_id: MERCHANT_ID, total: 5000 }],
+    data: [
+      {
+        merchant_id: MERCHANT_ID,
+        total: 5000,
+        tracking_token: 'track-token-123',
+      },
+    ],
     error: null,
   };
   rpcTransactionResult = { data: null, error: null };
@@ -197,10 +192,6 @@ function setupDefaults() {
     error: null,
   };
   featureSettingsResult = { data: null, error: null };
-  orderLookupResult = {
-    data: { tracking_token: 'track-token-123' },
-    error: null,
-  };
 }
 
 // ---- Tests ----
@@ -285,32 +276,6 @@ describe('POST /api/payments/initialize', () => {
       const json = await res.json();
       expect(res.status).toBe(404);
       expect(json.code).toBe('MERCHANT_NOT_FOUND');
-    });
-
-    it('returns 404 when the order lookup row is missing', async () => {
-      orderLookupResult = {
-        data: null,
-        error: null,
-      };
-
-      const res = await POST(makeRequest(validBody));
-      const json = await res.json();
-
-      expect(res.status).toBe(404);
-      expect(json.code).toBe('ORDER_NOT_FOUND');
-    });
-
-    it('returns 500 when the order lookup query fails', async () => {
-      orderLookupResult = {
-        data: null,
-        error: { message: 'db timeout' },
-      };
-
-      const res = await POST(makeRequest(validBody));
-      const json = await res.json();
-
-      expect(res.status).toBe(500);
-      expect(json.code).toBe('DATABASE_ERROR');
     });
   });
 

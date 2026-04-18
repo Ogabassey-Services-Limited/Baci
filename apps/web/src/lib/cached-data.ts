@@ -589,7 +589,9 @@ export const getRequestScopedMerchant = cache(
 /**
  * Cached merchant data by ID
  */
-export async function getCachedMerchantById(merchantId: string) {
+export async function getCachedMerchantById(
+  merchantId: string
+): Promise<CachedMerchant | null> {
   'use cache: remote';
   cacheLife('merchant');
   cacheTag('merchants', `merchant-id-${merchantId}`);
@@ -612,7 +614,12 @@ export async function getCachedMerchantById(merchantId: string) {
         brand_colors,
         slug,
         business_address,
-        country,
+        payout_currency,
+        paystack_subaccount_code,
+        is_published,
+        template_id,
+        plan_tier,
+        premium_features,
         country,
         hero_slides,
         favicon_svg_url,

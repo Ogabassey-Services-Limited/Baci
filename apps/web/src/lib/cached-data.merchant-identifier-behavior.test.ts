@@ -179,7 +179,9 @@ describe('cached-data getMerchantByIdentifier behavior', () => {
       expect(result?.phone).toBe('+234800000000');
       expect(result?.business_address).toBe('123 Test Street');
     });
+  });
 
+  describe('paystack_subaccount_code projection', () => {
     it('preserves paystack_subaccount_code for slug lookups', async () => {
       harness.mockMaybeSingle.mockResolvedValueOnce({
         data: {

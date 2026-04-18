@@ -134,6 +134,10 @@ async function resolveMerchantIdBySlug(
     .single();
 
   if (error || !merchant) {
+    console.debug('[API/Orders] Failed to resolve merchant slug', {
+      merchantSlug: sanitizeForLog(merchantSlug),
+      error: error?.message ? sanitizeForLog(error.message) : null,
+    });
     return null;
   }
 

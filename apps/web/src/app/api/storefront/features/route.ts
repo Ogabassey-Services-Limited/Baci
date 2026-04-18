@@ -145,13 +145,6 @@ export async function GET(request: NextRequest) {
 
     const { merchantId, slug } = parseResult.data;
 
-    if (!slug && !merchantId) {
-      return NextResponse.json(
-        { error: 'merchantId or slug is required' },
-        { status: 400 }
-      );
-    }
-
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 

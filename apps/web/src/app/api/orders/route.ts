@@ -329,11 +329,14 @@ export async function POST(request: NextRequest) {
         'invalid_quantity',
         'invalid_variant',
         'insufficient_stock',
+        'insufficient_variant_stock',
         'merchant_not_found',
         'customer_email_required',
         'customer_name_required',
         'items_required',
         'user_id_mismatch',
+        'invalid_payment_status',
+        'discount_amount_not_supported',
         '22P02', // PostgreSQL: Invalid text representation (e.g. invalid UUID format)
       ];
       // create_storefront_order should return { message, code } for client errors.

@@ -1,5 +1,5 @@
 import { render, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BnplLauncher } from './bnpl-launcher';
 
 const mockPush = vi.fn();
@@ -64,6 +64,10 @@ describe('BnplLauncher', () => {
         }),
       })
     );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('loads BNPL order details with merchant slug and tracking token', async () => {

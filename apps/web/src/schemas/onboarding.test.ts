@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  checkPasswordStrength,
+  MIN_ACCEPTABLE_PASSWORD_STRENGTH,
+} from '@/lib/utils';
+import {
   mobileOnboardingSchema,
   onboardingFormSchema,
   onboardingSchema,
@@ -116,6 +120,39 @@ describe('onboardingSchema', () => {
       validPayload({ password: 'abc', confirmPassword: 'abc' })
     );
     expect(result.success).toBe(false);
+  });
+
+  it('rejects weak passwords before confirmPassword mismatch checks run', () => {
+    expect(checkPasswordStrength('weak')).toBeLessThan(
+      MIN_ACCEPTABLE_PASSWORD_STRENGTH
+    );
+
+    const result = onboardingSchema.safeParse(
+      validPayload({
+        password: 'weak',
+        confirmPassword: 'mismatch',
+      })
+    );
+
+    expect(result.success).toBe(false);
+
+    const confirmPasswordIssues =
+      result.success === false
+        ? result.error.issues.filter(
+            (issue) => issue.path[0] === 'confirmPassword'
+          )
+        : [];
+    const passwordIssues =
+      result.success === false
+        ? result.error.issues.filter((issue) => issue.path[0] === 'password')
+        : [];
+
+    expect(
+      passwordIssues.some((issue) =>
+        issue.message.includes('Password is too weak')
+      )
+    ).toBe(true);
+    expect(confirmPasswordIssues).toHaveLength(0);
   });
 
   it('accepts matching strong passwords', () => {

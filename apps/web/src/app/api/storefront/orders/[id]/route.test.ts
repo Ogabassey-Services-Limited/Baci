@@ -215,6 +215,57 @@ describe('GET /api/storefront/orders/[id]', () => {
     expect(data.error).toBe('Order not found');
   });
 
+  it('returns an authenticated order when the requested merchant slug matches', async () => {
+    const request = new NextRequest(
+      'http://localhost/api/storefront/orders/order-uuid-123?merchant_slug=test-store'
+    );
+    const params = Promise.resolve({ id: 'order-uuid-123' });
+
+    mockSupabaseClient.auth.getUser.mockResolvedValue({
+      data: { user: { id: 'user-123' } },
+    });
+
+    const mockOrderQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: mockOrderData,
+        error: null,
+      }),
+    };
+
+    const mockMerchantQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: { id: mockOrderData.merchant_id },
+        error: null,
+      }),
+    };
+
+    const mockItemsQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockResolvedValue({
+        data: mockItems,
+        error: null,
+      }),
+    };
+
+    mockSupabaseClient.from.mockImplementation((table: string) => {
+      if (table === 'orders') return mockOrderQuery;
+      if (table === 'merchants') return mockMerchantQuery;
+      if (table === 'order_items') return mockItemsQuery;
+      return {};
+    });
+
+    const response = await GET(request, { params });
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.id).toBe(mockOrderData.id);
+    expect(mockMerchantQuery.eq).toHaveBeenCalledWith('slug', 'test-store');
+  });
+
   it('falls through to RPC lookup when session lookup fails and a tracking token is provided', async () => {
     const request = new NextRequest(
       'http://localhost/api/storefront/orders/order-uuid-123?token=track-token-123&merchant_slug=test-store'

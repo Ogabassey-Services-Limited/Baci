@@ -878,31 +878,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data: orderRow, error: orderRowError } = await supabase
-      .from('orders')
-      .select('tracking_token')
-      .eq('id', data.order_id)
-      .eq('merchant_id', merchantId)
-      .maybeSingle();
-
-    if (orderRowError) {
-      console.error('Error looking up order tracking token:', orderRowError);
-      return createErrorResponse(
-        'Failed to look up order',
-        'DATABASE_ERROR',
-        500
-      );
-    }
-
-    if (!orderRow) {
-      return createErrorResponse(
-        'Order not found or email mismatch',
-        'ORDER_NOT_FOUND',
-        404
-      );
-    }
-
-    const trackingToken = orderRow.tracking_token;
+    const trackingToken =
+      typeof orderSnapshot.tracking_token === 'string'
+        ? orderSnapshot.tracking_token
+        : undefined;
 
     // Fetch gateway settings
     const { data: featureSettings } = await supabase
