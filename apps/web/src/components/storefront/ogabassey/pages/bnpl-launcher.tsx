@@ -17,6 +17,10 @@ export function BnplLauncher() {
         | 'credit_direct'
         | 'credpal'
         | null;
+    const trackingTokenParam =
+        searchParams.get('trackingToken') ||
+        searchParams.get('tracking_token') ||
+        searchParams.get('token');
     const merchantSlugParam =
         searchParams.get('merchant_slug') || searchParams.get('slug');
 
@@ -40,10 +44,14 @@ export function BnplLauncher() {
                 setErrorMessage(null);
 
                 const slug = merchantSlugParam || merchant?.slug || 'ogabassey';
+                const query = new URLSearchParams({ merchant_slug: slug });
+                if (trackingTokenParam) {
+                    query.set('token', trackingTokenParam);
+                }
                 if (process.env.NODE_ENV === 'development') {
                     console.log(`[BnplLauncher] Fetching order ${orderId} for merchant ${slug}`);
                 }
-                const url = `/api/storefront/orders/${orderId}?merchant_slug=${slug}`;
+                const url = `/api/storefront/orders/${orderId}?${query.toString()}`;
 
                 const res = await fetch(url);
 
@@ -85,7 +93,14 @@ export function BnplLauncher() {
                             })
                         ),
                         onSuccess: (ref) => {
-                            router.push(`/order-success?orderId=${order.id}&reference=${ref}`);
+                            const successQuery = new URLSearchParams({
+                                orderId: order.id,
+                                reference: ref,
+                            });
+                            if (order.tracking_token) {
+                                successQuery.set('trackingToken', order.tracking_token);
+                            }
+                            router.push(`/order-success?${successQuery.toString()}`);
                         },
                         onClose: () => {
                             setStatus('error');
@@ -107,7 +122,14 @@ export function BnplLauncher() {
                         customerName: order.customer_name,
                         customerPhone: order.customer_phone,
                         onSuccess: (data) => {
-                            router.push(`/order-success?orderId=${order.id}&reference=${data.order_no}`);
+                            const successQuery = new URLSearchParams({
+                                orderId: order.id,
+                                reference: data.order_no,
+                            });
+                            if (order.tracking_token) {
+                                successQuery.set('trackingToken', order.tracking_token);
+                            }
+                            router.push(`/order-success?${successQuery.toString()}`);
                         },
                         onClose: () => {
                             setStatus('error');
@@ -131,7 +153,7 @@ export function BnplLauncher() {
         };
 
         launchPayment();
-    }, [orderId, gateway, merchant?.slug, loading, router]);
+    }, [orderId, gateway, merchant?.slug, loading, router, trackingTokenParam]);
 
     if (status === 'error') {
         return (

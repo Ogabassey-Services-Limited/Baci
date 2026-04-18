@@ -98,6 +98,7 @@ function createMockSupabase() {
 
 let merchantResult: { data: unknown; error: unknown };
 let featureSettingsResult: { data: unknown; error: unknown };
+let orderLookupResult: { data: unknown; error: unknown };
 
 function createMockAdminClient() {
   return {
@@ -109,6 +110,16 @@ function createMockAdminClient() {
               single: () => Promise.resolve(merchantResult),
             }),
           }),
+        };
+      }
+      if (table === 'orders') {
+        const orderQuery = {
+          eq: vi.fn(),
+          single: vi.fn().mockResolvedValue(orderLookupResult),
+        };
+        orderQuery.eq.mockReturnValue(orderQuery);
+        return {
+          select: () => orderQuery,
         };
       }
       if (table === 'merchant_feature_settings') {
@@ -186,6 +197,10 @@ function setupDefaults() {
     error: null,
   };
   featureSettingsResult = { data: null, error: null };
+  orderLookupResult = {
+    data: { tracking_token: 'track-token-123' },
+    error: null,
+  };
 }
 
 // ---- Tests ----
@@ -327,6 +342,24 @@ describe('POST /api/payments/initialize', () => {
       const json = await res.json();
       expect(res.status).toBe(400);
       expect(json.code).toBe('GATEWAY_NOT_CONFIGURED');
+    });
+  });
+
+  describe('bnpl gateways', () => {
+    it('includes the tracking token in BNPL launcher URLs', async () => {
+      const res = await POST(
+        makeRequest({ ...validBody, gateway: 'credit_direct' })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(json.gateway).toBe('credit_direct');
+      expect(json.authorization_url).toContain(
+        'orderId=a1b2c3d4-e5f6-7890-abcd-ef1234567890'
+      );
+      expect(json.authorization_url).toContain('trackingToken=track-token-123');
+      expect(json.checkout_url).toContain('trackingToken=track-token-123');
     });
   });
 

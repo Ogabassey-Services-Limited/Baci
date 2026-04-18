@@ -39,7 +39,8 @@ import { useAuthSafe } from '@/contexts/auth-context';
 function OrderSuccessContent() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get('orderId');
-  const orderToken = searchParams.get('token');
+  const orderToken =
+    searchParams.get('trackingToken') || searchParams.get('token');
   const _type = searchParams.get('type'); // Reserved for future use
   const merchantContext = useMerchantSafe();
   const basePath = merchantContext?.basePath;

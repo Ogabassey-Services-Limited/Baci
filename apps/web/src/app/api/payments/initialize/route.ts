@@ -878,6 +878,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const { data: orderRow, error: orderRowError } = await supabase
+      .from('orders')
+      .select('tracking_token')
+      .eq('id', data.order_id)
+      .eq('merchant_id', merchantId)
+      .single();
+
+    if (orderRowError || !orderRow) {
+      return createErrorResponse(
+        'Order not found or email mismatch',
+        'ORDER_NOT_FOUND',
+        404
+      );
+    }
+
+    const trackingToken = orderRow.tracking_token;
+
     // Fetch gateway settings
     const { data: featureSettings } = await supabase
       .from('merchant_feature_settings')
@@ -994,17 +1011,25 @@ export async function POST(request: NextRequest) {
           }
           break;
         case 'credit_direct':
-        case 'credpal':
+        case 'credpal': {
           // For client-side BNPL gateways, we redirect to the specialized launcher page
           // This page handles the client-side SDK loading and prevents checkout crashes
+          const bnplQuery = new URLSearchParams({
+            orderId: data.order_id,
+            gateway,
+          });
+          if (trackingToken) {
+            bnplQuery.set('trackingToken', trackingToken);
+          }
           paymentResult = {
-            authorization_url: `${protocol}://${merchant.slug}.${rootDomain}/checkout/bnpl?orderId=${data.order_id}&gateway=${gateway}`,
-            checkout_url: `${protocol}://${merchant.slug}.${rootDomain}/checkout/bnpl?orderId=${data.order_id}&gateway=${gateway}`,
+            authorization_url: `${protocol}://${merchant.slug}.${rootDomain}/checkout/bnpl?${bnplQuery.toString()}`,
+            checkout_url: `${protocol}://${merchant.slug}.${rootDomain}/checkout/bnpl?${bnplQuery.toString()}`,
             reference, // Use the generated reference
             platformFee: 0, // Fees calculated client-side or by gateway
             merchantAmount: data.amount, // Full amount (fees handled separately)
           };
           break;
+        }
 
         default:
           paymentResult = await initializeKorapay(

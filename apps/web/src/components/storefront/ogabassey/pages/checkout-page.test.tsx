@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock all heavy dependencies before importing the component
 vi.mock('next/navigation', () => ({
@@ -132,8 +132,15 @@ vi.mock('../components/MobileCheckoutComponents', () => ({
 }));
 
 import { CheckoutPage } from './checkout-page';
+import { useSearchParams } from 'next/navigation';
 
 describe('CheckoutPage', () => {
+  beforeEach(() => {
+    vi.mocked(useSearchParams).mockReturnValue(
+      new URLSearchParams() as unknown as ReturnType<typeof useSearchParams>
+    );
+  });
+
   it('renders without crashing', () => {
     render(<CheckoutPage />);
     // The checkout page should render some form of checkout UI
@@ -167,5 +174,32 @@ describe('CheckoutPage', () => {
       screen.queryAllByLabelText(/email/i)[0] ??
       screen.queryByText(/contact/i);
     expect(match).toBeTruthy();
+  });
+
+  it('includes merchant_slug and tracking token when resuming an order', async () => {
+    vi.mocked(useSearchParams).mockReturnValue(
+      new URLSearchParams({
+        orderId: 'ord-1',
+        gateway: 'credpal',
+        trackingToken: 'tok-123',
+      }) as unknown as ReturnType<typeof useSearchParams>
+    );
+
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue({
+        ok: false,
+        json: async () => ({}),
+      } as Response);
+
+    render(<CheckoutPage />);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/storefront/orders/ord-1?merchant_slug=test-store&token=tok-123'
+      );
+    });
+
+    fetchMock.mockRestore();
   });
 });

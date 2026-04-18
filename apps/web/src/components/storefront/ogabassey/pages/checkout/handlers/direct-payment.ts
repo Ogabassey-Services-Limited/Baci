@@ -56,11 +56,14 @@ export async function executeDirectPayment({
             }),
           });
           clearCheckoutSession();
-          routerPush(
-            getHref(
-              `/order-success?orderId=${resumedOrder.id}&type=credpal`,
-            ),
-          );
+          const successQuery = new URLSearchParams({
+            orderId: resumedOrder.id,
+            type: 'credpal',
+          });
+          if (resumedOrder.tracking_token) {
+            successQuery.set('trackingToken', resumedOrder.tracking_token);
+          }
+          routerPush(getHref(`/order-success?${successQuery.toString()}`));
         },
         onError: (error: { message?: string }) => {
           toast({
@@ -106,11 +109,14 @@ export async function executeDirectPayment({
             }),
           });
           clearCheckoutSession();
-          routerPush(
-            getHref(
-              `/order-success?orderId=${resumedOrder.id}&type=credit_direct`,
-            ),
-          );
+          const successQuery = new URLSearchParams({
+            orderId: resumedOrder.id,
+            type: 'credit_direct',
+          });
+          if (resumedOrder.tracking_token) {
+            successQuery.set('trackingToken', resumedOrder.tracking_token);
+          }
+          routerPush(getHref(`/order-success?${successQuery.toString()}`));
         },
         onError: (error: string) => {
           toast({

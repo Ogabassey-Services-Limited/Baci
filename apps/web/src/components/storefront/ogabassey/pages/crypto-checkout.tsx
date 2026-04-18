@@ -30,6 +30,7 @@ interface CryptoPaymentData {
   reference: string;
   paymentId: string;
   qrcode?: string;
+  trackingToken?: string | null;
 }
 
 export function CryptoCheckoutPage() {
@@ -45,6 +46,8 @@ export function CryptoCheckoutPage() {
   const cryptoChain = searchParams.get('crypto_chain') || 'TRX';
   const cryptoCurrency = searchParams.get('crypto_currency') || 'USDT';
   const merchantSlugParam = searchParams.get('merchant_slug');
+  const trackingToken =
+    searchParams.get('trackingToken') || searchParams.get('token');
 
   const [status, setStatus] = useState<
     'loading' | 'ready' | 'verifying' | 'confirmed' | 'failed' | 'error'
@@ -127,6 +130,7 @@ export function CryptoCheckoutPage() {
             reference: result.reference,
             paymentId: result.crypto_payment.payment_id || '',
             qrcode: result.crypto_payment.qrcode,
+            trackingToken,
           });
           setStatus('ready');
         } else {
@@ -153,6 +157,7 @@ export function CryptoCheckoutPage() {
     merchant?.id,
     merchant?.slug,
     merchantSlugParam,
+    trackingToken,
     loading,
   ]);
 
@@ -185,6 +190,19 @@ export function CryptoCheckoutPage() {
       }
     };
 
+    const redirectToSuccess = () => {
+      const slug = merchantSlugParam || merchant?.slug || 'ogabassey';
+      const successQuery = new URLSearchParams({
+        type: 'crypto',
+        orderId: cryptoData?.orderId || '',
+        reference: cryptoData?.reference || '',
+      });
+      if (cryptoData?.trackingToken) {
+        successQuery.set('trackingToken', cryptoData.trackingToken);
+      }
+      router.push(`/${slug}/order-success?${successQuery.toString()}`);
+    };
+
     // Poll every 10 seconds, max 30 attempts (5 minutes)
     const MAX_POLL = 30;
     pollingRef.current.intervalId = setInterval(async () => {
@@ -203,10 +221,7 @@ export function CryptoCheckoutPage() {
         );
         // Redirect after short delay
         setTimeout(() => {
-          const slug = merchantSlugParam || merchant?.slug || 'ogabassey';
-          router.push(
-            `/${slug}/order-success?type=crypto&orderId=${cryptoData?.orderId}&reference=${cryptoData?.reference}`
-          );
+          redirectToSuccess();
         }, 1500);
       } else if (
         result === 'failed' ||
@@ -231,10 +246,7 @@ export function CryptoCheckoutPage() {
         window.location.origin
       );
       setTimeout(() => {
-        const slug = merchantSlugParam || merchant?.slug || 'ogabassey';
-        router.push(
-          `/${slug}/order-success?type=crypto&orderId=${cryptoData?.orderId}&reference=${cryptoData?.reference}`
-        );
+        redirectToSuccess();
       }, 1500);
     }
   };

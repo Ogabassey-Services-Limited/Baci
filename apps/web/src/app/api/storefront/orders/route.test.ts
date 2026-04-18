@@ -264,7 +264,6 @@ describe('GET /api/storefront/orders', () => {
                     products: {
                       slug: 'imported-product',
                       category: 'smartphones',
-                      category_slug: 'smartphones',
                       categories: [
                         { name: 'Smartphones', slug: 'smartphones' },
                       ],

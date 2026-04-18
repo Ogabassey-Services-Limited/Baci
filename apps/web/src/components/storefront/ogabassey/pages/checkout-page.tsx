@@ -204,6 +204,7 @@ export const CheckoutPage: React.FC = () => {
     amount: number;
     confirmation_time: string;
     orderId: string;
+    trackingToken?: string;
     reference: string;
     sessionId: string; // Payment session ID (from initialization)
     paymentId: string; // Payment ID (from capture) - used for verification via GET /payments/{id}
@@ -232,6 +233,7 @@ export const CheckoutPage: React.FC = () => {
   const [selectedCryptoCurrency, setSelectedCryptoCurrency] = useState<'USDT' | 'USDC'>('USDT');
   const [pendingCryptoOrder, setPendingCryptoOrder] = useState<{
     orderId: string;
+    trackingToken?: string;
     amount: number;
     customerEmail: string;
     customerName: string;
@@ -250,6 +252,10 @@ export const CheckoutPage: React.FC = () => {
   // Mobile app order resume state
   // When opening from mobile app with ?orderId=xxx&gateway=credpal, we resume that order
   const resumeOrderId = searchParams.get('orderId');
+  const resumeTrackingToken =
+    searchParams.get('trackingToken') ||
+    searchParams.get('tracking_token') ||
+    searchParams.get('token');
   const preferredGateway = searchParams.get('gateway') as 'credpal' | 'credit_direct' | null;
   const [resumedOrder, setResumedOrder] = useState<{
     id: string;
@@ -260,6 +266,7 @@ export const CheckoutPage: React.FC = () => {
     customer_name: string;
     customer_email: string;
     customer_phone: string;
+    tracking_token?: string;
     shipping_address: {
       address: string;
       city: string;
@@ -337,6 +344,7 @@ export const CheckoutPage: React.FC = () => {
           amount: paymentResult.crypto_payment.amount / 100,
           confirmation_time: paymentResult.crypto_payment.confirmation_time,
           orderId: pendingCryptoOrder.orderId,
+          trackingToken: pendingCryptoOrder.trackingToken,
           reference: paymentResult.reference,
           sessionId: paymentResult.session_id || '',
           paymentId: paymentResult.crypto_payment.payment_id || '', // Payment ID for verification
@@ -429,7 +437,15 @@ export const CheckoutPage: React.FC = () => {
       clearPendingCheckoutOrder();
       clearCheckoutSession();
       clearCart();
-      router.push(asRoute(getHref(`/order-success?type=crypto&orderId=${cryptoPaymentData.orderId}&reference=${cryptoPaymentData.reference}`)));
+      const successQuery = new URLSearchParams({
+        type: 'crypto',
+        orderId: cryptoPaymentData.orderId,
+        reference: cryptoPaymentData.reference,
+      });
+      if (cryptoPaymentData.trackingToken) {
+        successQuery.set('trackingToken', cryptoPaymentData.trackingToken);
+      }
+      router.push(asRoute(getHref(`/order-success?${successQuery.toString()}`)));
       return;
     }
 
@@ -468,7 +484,15 @@ export const CheckoutPage: React.FC = () => {
         clearPendingCheckoutOrder();
         clearCheckoutSession();
         clearCart();
-        router.push(asRoute(getHref(`/order-success?type=crypto&orderId=${cryptoPaymentData.orderId}&reference=${cryptoPaymentData.reference}`)));
+        const successQuery = new URLSearchParams({
+          type: 'crypto',
+          orderId: cryptoPaymentData.orderId,
+          reference: cryptoPaymentData.reference,
+        });
+        if (cryptoPaymentData.trackingToken) {
+          successQuery.set('trackingToken', cryptoPaymentData.trackingToken);
+        }
+        router.push(asRoute(getHref(`/order-success?${successQuery.toString()}`)));
       } else if (status === 'failed') {
         if (pollingRef.current.intervalId) {
           clearInterval(pollingRef.current.intervalId);
@@ -533,7 +557,15 @@ export const CheckoutPage: React.FC = () => {
     const fetchResumedOrder = async () => {
       setIsLoadingResumedOrder(true);
       try {
-        const res = await fetch(`/api/storefront/orders/${resumeOrderId}`);
+        const query = new URLSearchParams();
+        if (merchant?.slug) query.set('merchant_slug', merchant.slug);
+        if (resumeTrackingToken) query.set('token', resumeTrackingToken);
+
+        const res = await fetch(
+          query.toString()
+            ? `/api/storefront/orders/${resumeOrderId}?${query.toString()}`
+            : `/api/storefront/orders/${resumeOrderId}`
+        );
         if (res.ok) {
           const orderData = await res.json();
           setResumedOrder({
@@ -545,6 +577,7 @@ export const CheckoutPage: React.FC = () => {
             customer_name: orderData.customer_name,
             customer_email: orderData.customer_email,
             customer_phone: orderData.customer_phone,
+            tracking_token: orderData.tracking_token,
             shipping_address: orderData.shipping_address || {
               address: '',
               city: '',
@@ -591,7 +624,13 @@ export const CheckoutPage: React.FC = () => {
       }
     };
     fetchResumedOrder();
-  }, [resumeOrderId, setCheckoutFields, preferredGateway]);
+  }, [
+    merchant?.slug,
+    preferredGateway,
+    resumeOrderId,
+    resumeTrackingToken,
+    setCheckoutFields,
+  ]);
 
   // Fetch States on mount
   useEffect(() => {
@@ -927,7 +966,16 @@ export const CheckoutPage: React.FC = () => {
               }),
             });
             clearCheckoutSession();
-            router.push(asRoute(getHref(`/order-success?orderId=${resumedOrder.id}&type=credpal`)));
+            const successQuery = new URLSearchParams({
+              orderId: resumedOrder.id,
+              type: 'credpal',
+            });
+            if (resumedOrder.tracking_token) {
+              successQuery.set('trackingToken', resumedOrder.tracking_token);
+            }
+            router.push(
+              asRoute(getHref(`/order-success?${successQuery.toString()}`))
+            );
           },
           onError: (error) => {
             toast({
@@ -972,7 +1020,16 @@ export const CheckoutPage: React.FC = () => {
               }),
             });
             clearCheckoutSession();
-            router.push(asRoute(getHref(`/order-success?orderId=${resumedOrder.id}&type=credit_direct`)));
+            const successQuery = new URLSearchParams({
+              orderId: resumedOrder.id,
+              type: 'credit_direct',
+            });
+            if (resumedOrder.tracking_token) {
+              successQuery.set('trackingToken', resumedOrder.tracking_token);
+            }
+            router.push(
+              asRoute(getHref(`/order-success?${successQuery.toString()}`))
+            );
           },
           onError: (error) => {
             toast({
@@ -1266,7 +1323,14 @@ export const CheckoutPage: React.FC = () => {
         clearPendingCheckoutOrder();
         clearCheckoutSession();
         // Defer clearCart to avoid flashing empty state before redirect
-        router.push(asRoute(getHref(`/order-success?orderId=${order.id}&wallet=true`)));
+        const successQuery = new URLSearchParams({
+          orderId: order.id,
+          wallet: 'true',
+        });
+        if (order.tracking_token) {
+          successQuery.set('trackingToken', order.tracking_token);
+        }
+        router.push(asRoute(getHref(`/order-success?${successQuery.toString()}`)));
         setTimeout(clearCart, 500);
         return;
       }
@@ -1281,6 +1345,7 @@ export const CheckoutPage: React.FC = () => {
         if (paymentMethod === 'juicyway') {
           setPendingCryptoOrder({
             orderId: order.id,
+            trackingToken: order.tracking_token,
             amount: paymentAmount,
             customerEmail,
             customerName: `${firstName} ${lastName}`.trim(),
@@ -1336,6 +1401,7 @@ export const CheckoutPage: React.FC = () => {
             amount: paymentResult.crypto_payment.amount / 100, // Convert from minor units
             confirmation_time: paymentResult.crypto_payment.confirmation_time,
             orderId: order.id,
+            trackingToken: order.tracking_token,
             reference: paymentResult.reference,
             sessionId: paymentResult.session_id || '',
             paymentId: paymentResult.crypto_payment.payment_id || '', // Payment ID for verification
@@ -1377,7 +1443,17 @@ export const CheckoutPage: React.FC = () => {
             clearPendingCheckoutOrder();
             clearCheckoutSession();
             clearCart();
-            router.push(asRoute(getHref(`/order-success?type=credit_direct&orderId=${order.id}&sessionId=${transactionId}`)));
+            const successQuery = new URLSearchParams({
+              type: 'credit_direct',
+              orderId: order.id,
+              sessionId: transactionId,
+            });
+            if (order.tracking_token) {
+              successQuery.set('trackingToken', order.tracking_token);
+            }
+            router.push(
+              asRoute(getHref(`/order-success?${successQuery.toString()}`))
+            );
           },
           onError: (error) => {
             console.error('Credit Direct error:', error);
@@ -1428,7 +1504,17 @@ export const CheckoutPage: React.FC = () => {
             clearPendingCheckoutOrder();
             clearCheckoutSession();
             clearCart();
-            router.push(asRoute(getHref(`/order-success?type=credpal&orderId=${order.id}&credpalRef=${data.order_no}`)));
+            const successQuery = new URLSearchParams({
+              type: 'credpal',
+              orderId: order.id,
+              credpalRef: data.order_no,
+            });
+            if (order.tracking_token) {
+              successQuery.set('trackingToken', order.tracking_token);
+            }
+            router.push(
+              asRoute(getHref(`/order-success?${successQuery.toString()}`))
+            );
           },
           onError: (error) => {
             console.error('CredPal error:', error);
@@ -1451,23 +1537,41 @@ export const CheckoutPage: React.FC = () => {
         // Invoice/Pay Later - order created, redirect to success
         clearPendingCheckoutOrder();
         clearCheckoutSession();
-        router.push(asRoute(getHref(`/order-success?type=invoice&orderId=${order.id}`)));
+        const successQuery = new URLSearchParams({
+          type: 'invoice',
+          orderId: order.id,
+        });
+        if (order.tracking_token) {
+          successQuery.set('trackingToken', order.tracking_token);
+        }
+        router.push(asRoute(getHref(`/order-success?${successQuery.toString()}`)));
         setTimeout(clearCart, 500);
       } else if (paymentMethod === 'payforme') {
         // Pay For Me - TODO: send payment link
         clearPendingCheckoutOrder();
         clearCheckoutSession();
-        router.push(
-          asRoute(getHref(`/order-success?type=payforme&orderId=${order.id}&payerName=${encodeURIComponent(
-            payForMeDetails.name
-          )}`))
-        );
+        const successQuery = new URLSearchParams({
+          type: 'payforme',
+          orderId: order.id,
+          payerName: payForMeDetails.name,
+        });
+        if (order.tracking_token) {
+          successQuery.set('trackingToken', order.tracking_token);
+        }
+        router.push(asRoute(getHref(`/order-success?${successQuery.toString()}`)));
         setTimeout(clearCart, 500);
       } else {
         // Default: POD or other
         clearPendingCheckoutOrder();
         clearCheckoutSession();
-        router.push(asRoute(getHref(`/order-success?type=standard&orderId=${order.id}`)));
+        const successQuery = new URLSearchParams({
+          type: 'standard',
+          orderId: order.id,
+        });
+        if (order.tracking_token) {
+          successQuery.set('trackingToken', order.tracking_token);
+        }
+        router.push(asRoute(getHref(`/order-success?${successQuery.toString()}`)));
         setTimeout(clearCart, 500);
       }
     } catch (error) {
