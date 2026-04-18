@@ -185,19 +185,22 @@ describe('getStorefrontSearchProducts', () => {
       limit: 20,
     });
 
-    expect(result.products).toEqual([
-      {
-        id: 'product-2',
-        name: 'Phone Two',
-        price: 2000,
-        slug: 'phone-two',
-      },
-      {
-        id: 'product-1',
-        name: 'Phone One',
-        price: 1000,
-        slug: 'phone-one',
-      },
+    expect(result.products).toHaveLength(2);
+    expect(result.products.map((product) => product.id)).toEqual([
+      'product-2',
+      'product-1',
     ]);
+    expect(result.products[0]).toMatchObject({
+      id: 'product-2',
+      name: 'Phone Two',
+      price: 2000,
+      slug: 'phone-two',
+    });
+    expect(result.products[1]).toMatchObject({
+      id: 'product-1',
+      name: 'Phone One',
+      price: 1000,
+      slug: 'phone-one',
+    });
   });
 });

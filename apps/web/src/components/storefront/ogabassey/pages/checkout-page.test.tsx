@@ -133,7 +133,7 @@ vi.mock('../components/MobileCheckoutComponents', () => ({
 
 import { CheckoutPage } from './checkout-page';
 import { useSearchParams } from 'next/navigation';
-import { useCart } from '@/hooks/use-cart';
+import { useCart } from '@/hooks/cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { usePersistedState } from '@/hooks/use-persisted-state';
 
