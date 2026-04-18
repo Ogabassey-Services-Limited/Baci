@@ -7,6 +7,8 @@
 
 import crypto from 'node:crypto';
 
+export { detectNetworkProvider } from './detect-network-provider';
+
 // Environment configuration
 const KUDA_API_BASE_URL =
   process.env.KUDA_API_BASE_URL || 'https://kuda-openapi.kuda.com/v2.1';
@@ -854,61 +856,6 @@ export function payoutMerchantCommission(
 // ============================================
 // UTILITY FUNCTIONS
 // ============================================
-
-/**
- * Detect network provider from phone number
- */
-export function detectNetworkProvider(
-  phoneNumber: string
-): NetworkProvider | null {
-  // Remove country code and normalize
-  const number = phoneNumber.replace(/^\+?234/, '0').replace(/\s/g, '');
-
-  // MTN prefixes
-  const mtnPrefixes = [
-    '0703',
-    '0706',
-    '0803',
-    '0806',
-    '0810',
-    '0813',
-    '0814',
-    '0816',
-    '0903',
-    '0906',
-    '0913',
-    '0916',
-  ];
-
-  // Airtel prefixes
-  const airtelPrefixes = [
-    '0701',
-    '0708',
-    '0802',
-    '0808',
-    '0812',
-    '0901',
-    '0902',
-    '0904',
-    '0907',
-    '0912',
-  ];
-
-  // Glo prefixes
-  const gloPrefixes = ['0705', '0805', '0807', '0811', '0815', '0905', '0915'];
-
-  // 9Mobile prefixes
-  const mobile9Prefixes = ['0809', '0817', '0818', '0908', '0909'];
-
-  const prefix = number.substring(0, 4);
-
-  if (mtnPrefixes.includes(prefix)) return NetworkProvider.MTN;
-  if (airtelPrefixes.includes(prefix)) return NetworkProvider.AIRTEL;
-  if (gloPrefixes.includes(prefix)) return NetworkProvider.GLO;
-  if (mobile9Prefixes.includes(prefix)) return NetworkProvider.MOBILE_9;
-
-  return null;
-}
 
 /**
  * Format phone number for Kuda API

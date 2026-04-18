@@ -30,7 +30,7 @@ interface PopularSearch {
   search_count: number;
 }
 
-interface SearchAutocompleteProps {
+export interface SearchAutocompleteProps {
   merchantId: string;
   value: string;
   onChange: (value: string) => void;
@@ -39,6 +39,7 @@ interface SearchAutocompleteProps {
   className?: string;
   id?: string;
   name?: string;
+  autoFocus?: boolean;
 }
 
 export function SearchAutocomplete({
@@ -50,6 +51,7 @@ export function SearchAutocomplete({
   className,
   id = 'search-input',
   name = 'q',
+  autoFocus = false,
 }: SearchAutocompleteProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [suggestions, setSuggestions] = useState<Product[]>([]);
@@ -62,6 +64,10 @@ export function SearchAutocomplete({
 
   // Close dropdown when clicking outside
   useEffect(() => {
+    if (!isOpen) {
+      return undefined;
+    }
+
     const handleClickOutside = (event: MouseEvent) => {
       if (
         wrapperRef.current &&
@@ -73,7 +79,7 @@ export function SearchAutocomplete({
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [isOpen]);
 
   // Debounced search with autocomplete suggestions
   useEffect(() => {
@@ -143,6 +149,14 @@ export function SearchAutocomplete({
         onChange(search.search_query);
         setIsOpen(false);
       }
+    } else if (
+      e.key === 'Enter' &&
+      highlightedIndex < 0 &&
+      suggestions.length > 0
+    ) {
+      e.preventDefault();
+      onSelectProduct?.(getProductUrl(suggestions[0]));
+      setIsOpen(false);
     } else if (e.key === 'Escape') {
       setIsOpen(false);
     }
@@ -190,6 +204,7 @@ export function SearchAutocomplete({
           aria-label="Search products"
           id={id}
           name={name}
+          autoFocus={autoFocus}
         />
         {value && (
           <button

@@ -7,7 +7,7 @@ vi.mock('next/navigation', () => ({
   useSearchParams: vi.fn(() => new URLSearchParams()),
 }));
 
-vi.mock('@/hooks/use-cart', () => ({
+vi.mock('@/hooks/cart', () => ({
   useCart: vi.fn(() => ({
     cart: [],
     cartTotal: 0,
@@ -142,7 +142,7 @@ describe('CheckoutPage', () => {
   });
 
   it('renders the contact step fields when cart has items', async () => {
-    const { useCart } = await import('@/hooks/use-cart');
+    const { useCart } = await import('@/hooks/cart');
     vi.mocked(useCart).mockReturnValue({
       cart: [
         {

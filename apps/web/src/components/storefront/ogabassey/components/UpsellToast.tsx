@@ -3,7 +3,7 @@
 import { Plus, Sparkles, X } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useState } from 'react';
-import { useCart } from '@/hooks/use-cart';
+import { useCart } from '@/hooks/cart';
 import type { Product } from '../types';
 
 interface UpsellToastProps {

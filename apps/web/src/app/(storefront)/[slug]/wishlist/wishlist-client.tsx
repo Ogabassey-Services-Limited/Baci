@@ -18,7 +18,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
-import { useCart } from '@/hooks/use-cart';
+import { useCart } from '@/hooks/cart';
 import { useCurrencyWithCountry } from '@/hooks/use-currency';
 import { useToast } from '@/hooks/use-toast';
 import { fetchWithCsrf } from '@/lib/api-client';

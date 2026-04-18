@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
+import { buildOgabasseyProductSpecData } from '../product-spec-data';
 import type { Product } from '../types';
 
 /** Minimal shape returned by the storefront products search API */
@@ -21,7 +22,9 @@ interface SearchResultProduct {
     category?: string;
     condition?: string;
     brand?: string;
+    product_key_specs?: Product['product_key_specs'];
     specifications?: { category: string; items: { label: string; value: string }[] }[];
+    variant_attributes?: Product['variant_attributes'];
 }
 
 interface ProductComparisonTableProps {
@@ -99,6 +102,15 @@ export function ProductComparisonTable({
 
     const addProduct = (rawProduct: SearchResultProduct) => {
         const heroImage = rawProduct.imageLarge || rawProduct.image || '';
+        const specData = buildOgabasseyProductSpecData({
+            brand: rawProduct.brand,
+            category: rawProduct.category,
+            condition: rawProduct.condition,
+            description: rawProduct.description,
+            product_key_specs: rawProduct.product_key_specs,
+            specifications: rawProduct.specifications,
+            variant_attributes: rawProduct.variant_attributes,
+        });
         const product: Product = {
             id: rawProduct.id,
             name: rawProduct.name,
@@ -112,7 +124,8 @@ export function ProductComparisonTable({
             category: rawProduct.category,
             condition: (rawProduct.condition || 'New') as Product['condition'],
             brand: rawProduct.brand,
-            detailedSpecs: rawProduct.specifications || [],
+            detailedSpecs: specData.detailedSpecs,
+            specs: specData.specs,
         };
 
         setComparisonProducts(prev => [...prev, product]);
@@ -125,9 +138,9 @@ export function ProductComparisonTable({
         setComparisonProducts(prev => prev.filter((_, i) => i !== index));
     };
 
-    // Extract all categories from Main Product to build rows
-    // We prioritize Main Product structure
-    const specCategories = mainProduct.detailedSpecs || [];
+    const mainProductSpecData = buildOgabasseyProductSpecData(mainProduct);
+    const specCategories = mainProductSpecData.detailedSpecs || [];
+    const summarySpecs = mainProductSpecData.specs || [];
 
     // Helper to find value in a product for a given category/label
     const findSpecValue = (product: Product, category: string, label: string) => {
@@ -135,6 +148,28 @@ export function ProductComparisonTable({
         if (!cat) return '-';
         const item = cat.items.find((i) => i.label === label);
         return item ? item.value : '-';
+    };
+
+    const getSummarySpecs = (product?: Product) =>
+        product ? buildOgabasseyProductSpecData(product).specs : [];
+
+    const renderSummaryColumn = (product?: Product) => {
+        const items = product ? getSummarySpecs(product) : [];
+
+        if (items.length === 0) {
+            return <div className="p-4" />;
+        }
+
+        return (
+            <div className="p-4 space-y-3">
+                {items.map((item) => (
+                    <div key={`${item.label}-${item.value}`} className="space-y-1.5">
+                        <div className="text-xs text-gray-500">{item.label}</div>
+                        <div className="font-semibold text-sm">{item.value}</div>
+                    </div>
+                ))}
+            </div>
+        );
     };
 
     return (
@@ -280,27 +315,9 @@ export function ProductComparisonTable({
                             Key Specs
                         </div>
                         <div className="col-span-3 grid grid-cols-3 divide-x divide-gray-100">
-                            <div className="p-4 space-y-2">
-                                <div className="text-xs text-gray-500">Screen</div>
-                                <div className="font-semibold text-sm">{findSpecValue(mainProduct, 'Display', 'Screen Size')}</div>
-                            </div>
-                            {/* Fill empty for logic consistency if needed, but summary is ad-hoc usually. keeping it simple. */}
-                            <div className="p-4 space-y-2">
-                                {comparisonProducts[0] && (
-                                    <>
-                                        <div className="text-xs text-gray-500">Screen</div>
-                                        <div className="font-semibold text-sm">{findSpecValue(comparisonProducts[0], 'Display', 'Screen Size')}</div>
-                                    </>
-                                )}
-                            </div>
-                            <div className="p-4 space-y-2">
-                                {comparisonProducts[1] && (
-                                    <>
-                                        <div className="text-xs text-gray-500">Screen</div>
-                                        <div className="font-semibold text-sm">{findSpecValue(comparisonProducts[1], 'Display', 'Screen Size')}</div>
-                                    </>
-                                )}
-                            </div>
+                            {renderSummaryColumn({ ...mainProduct, specs: summarySpecs, detailedSpecs: specCategories })}
+                            {renderSummaryColumn(comparisonProducts[0])}
+                            {renderSummaryColumn(comparisonProducts[1])}
                         </div>
                     </div>
 

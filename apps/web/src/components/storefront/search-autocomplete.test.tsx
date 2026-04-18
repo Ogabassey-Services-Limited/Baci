@@ -1,7 +1,16 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ComponentProps } from 'react';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 import { SearchAutocomplete } from './search-autocomplete';
 
 // Mock Next.js Image since it's not supported in jsdom
@@ -11,6 +20,7 @@ vi.mock('next/image', () => ({
 }));
 
 const OriginalResizeObserver = globalThis.ResizeObserver;
+const OriginalFetch = globalThis.fetch;
 
 beforeAll(() => {
   globalThis.ResizeObserver = class ResizeObserver {
@@ -28,9 +38,19 @@ beforeAll(() => {
 
 afterAll(() => {
   globalThis.ResizeObserver = OriginalResizeObserver;
+  globalThis.fetch = OriginalFetch;
 });
 
 describe('SearchAutocomplete', () => {
+  beforeEach(() => {
+    vi.useRealTimers();
+    globalThis.fetch = vi.fn();
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('exports a valid component', () => {
     expect(SearchAutocomplete).toBeDefined();
     expect(typeof SearchAutocomplete).toBe('function');
@@ -128,5 +148,50 @@ describe('SearchAutocomplete', () => {
     await user.keyboard('{Enter}');
     expect(handleChange).toHaveBeenCalledWith('');
     expect(input).toHaveFocus();
+  });
+
+  it('selects the first autocomplete suggestion when Enter is pressed without a highlighted option', async () => {
+    vi.useRealTimers();
+    const onSelectProduct = vi.fn();
+    const fetchMock = vi.mocked(globalThis.fetch);
+    fetchMock.mockResolvedValue({
+      json: async () => ({
+        suggestions: [
+          {
+            id: 'product-1',
+            name: 'Samsung Galaxy S23',
+            slug: 'samsung-galaxy-s23',
+            category: 'Smartphones',
+            price: 450000,
+            image_small: '',
+          },
+        ],
+        popularSearches: [],
+      }),
+    } as Response);
+
+    render(
+      <SearchAutocomplete
+        merchantId="merchant-1"
+        value="samsung"
+        onChange={vi.fn()}
+        onSelectProduct={onSelectProduct}
+      />
+    );
+
+    const input = screen.getByRole('searchbox', { name: /search products/i });
+    fireEvent.focus(input);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled();
+      expect(
+        screen.getByRole('option', { name: /samsung galaxy s23/i })
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    expect(onSelectProduct).toHaveBeenCalledTimes(1);
+    expect(onSelectProduct.mock.calls[0]?.[0]).toContain('samsung-galaxy-s23');
   });
 });

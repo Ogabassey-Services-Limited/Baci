@@ -4,68 +4,13 @@ import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
-import { normalizeProduct, type RawDbProduct } from '@/lib/normalize-product';
+import type { RawDbProduct } from '@/lib/normalize-product';
 import { createClient } from '@/lib/supabase/server';
-
-/**
- * Map database product to API response format
- * Uses unified normalizeProduct for core fields and extends with API-specific fields
- */
-function mapProduct(p: Record<string, unknown>) {
-  // Use unified normalization for core fields
-  const normalized = normalizeProduct(p as unknown as RawDbProduct);
-
-  // Process images with additional metadata (alt, order) for gallery
-  type ImageInput = string | { url?: string; alt?: string; order?: number };
-  const rawImages = (p.images as ImageInput[]) || [];
-  const processedImages = rawImages.map((img, index) => {
-    if (typeof img === 'string') {
-      return { url: img, alt: (p.name as string) || '', order: index };
-    }
-    return {
-      url: img.url || '',
-      alt: img.alt || (p.name as string) || '',
-      order: img.order || index,
-    };
-  });
-
-  return {
-    // Core normalized fields
-    id: normalized.id,
-    name: normalized.name,
-    description: normalized.description,
-    price: normalized.price,
-    compare_at_price: normalized.compare_at_price,
-    image: normalized.image,
-    imageLarge: normalized.imageLarge,
-    category: normalized.category,
-    category_slug: normalized.category_slug,
-    brand: normalized.brand,
-    stock: normalized.stock,
-    slug: normalized.slug,
-    status: normalized.status || 'active',
-    condition: normalized.condition,
-
-    // API-specific extended fields
-    imageHint: p.image_hint,
-    images: processedImages, // With alt/order metadata for gallery
-    has_variants: p.has_variants,
-    sku: p.sku,
-    manage_stock: p.manage_stock,
-    low_stock_threshold: p.low_stock_threshold,
-    specifications: p.specifications,
-    // Condition Offers & Colors
-    has_condition_offers: p.has_condition_offers,
-    offers: p.offers,
-    // Map colors from color_images keys if distinct colors column is missing/empty
-    colors:
-      (p.colors as string[]) ||
-      (p.color_images ? Object.keys(p.color_images as object) : []),
-
-    // Variant Attributes for Listing Cards (Phase 4 Extension)
-    variant_attributes: p.variant_attributes,
-  };
-}
+import {
+  mapStorefrontProduct,
+  STOREFRONT_PRODUCTS_COMPACT_SELECT,
+  STOREFRONT_PRODUCTS_FULL_SELECT,
+} from './product-response';
 
 // Zod schema for query parameters
 const querySchema = z.object({
@@ -75,6 +20,8 @@ const querySchema = z.object({
   condition: z.enum(['new', 'used', 'refurbished', 'all']).optional(),
   min_price: z.coerce.number().nonnegative().optional(),
   max_price: z.coerce.number().nonnegative().optional(),
+  limit: z.coerce.number().int().positive().max(50).optional(),
+  compact: z.coerce.boolean().optional(),
   sort: z.enum(['newest', 'price-asc', 'price-desc']).default('newest'),
   q: z.string().max(100).optional(),
   ids: z.string().optional(),
@@ -93,9 +40,13 @@ function createCachedProductsFetcher(
   if (filters.category) cacheKeyParts.push(`cat-${filters.category}`);
   if (filters.brand) cacheKeyParts.push(`brand-${filters.brand}`);
   if (filters.condition) cacheKeyParts.push(`cond-${filters.condition}`);
-  if (filters.min_price) cacheKeyParts.push(`min-${filters.min_price}`);
-  if (filters.max_price) cacheKeyParts.push(`max-${filters.max_price}`);
+  if (filters.min_price !== undefined)
+    cacheKeyParts.push(`min-${filters.min_price}`);
+  if (filters.max_price !== undefined)
+    cacheKeyParts.push(`max-${filters.max_price}`);
   if (filters.sort) cacheKeyParts.push(`sort-${filters.sort}`);
+  if (filters.limit !== undefined) cacheKeyParts.push(`limit-${filters.limit}`);
+  if (filters.compact) cacheKeyParts.push('compact');
   if (filters.has_images) cacheKeyParts.push(`img-${filters.has_images}`);
   if (filters.q)
     cacheKeyParts.push(`q-${filters.q.slice(0, 100).toLowerCase().trim()}`);
@@ -109,18 +60,11 @@ function createCachedProductsFetcher(
 
       let query = supabase
         .from('products')
-        .select(`
-          *,
-          category_id,
-          categories:category_id(id, name, slug),
-          product_categories (
-            categories (
-              id,
-              name,
-              slug
-            )
-          )
-        `)
+        .select(
+          filters.compact
+            ? STOREFRONT_PRODUCTS_COMPACT_SELECT
+            : STOREFRONT_PRODUCTS_FULL_SELECT
+        )
         .eq('merchant_id', merchantId)
         .eq('status', 'active');
 
@@ -131,9 +75,7 @@ function createCachedProductsFetcher(
       }
 
       if (filters.brand && filters.brand !== 'all') {
-        // TODO: Implement brand filtering once products.brand_id relation is established
-        // For now, skip brand filtering to avoid incorrect results
-        // console.warn('Brand filtering not yet implemented');
+        query = query.ilike('brand', filters.brand);
       }
 
       if (filters.condition && filters.condition !== 'all') {
@@ -175,11 +117,18 @@ function createCachedProductsFetcher(
           break;
       }
 
-      const { data: products, error } = await query;
+      if (filters.limit !== undefined) {
+        query = query.limit(filters.limit);
+      }
+
+      const { data: products, error } = (await query) as {
+        data: RawDbProduct[] | null;
+        error: Error | null;
+      };
 
       if (error) throw error;
 
-      return (products || []).map(mapProduct);
+      return (products || []).map(mapStorefrontProduct);
     },
     cacheKeyParts,
     {
@@ -194,26 +143,18 @@ async function fetchProductsByIds(merchantId: string, ids: string[]) {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
-  const { data: products, error } = await supabase
+  const { data: products, error } = (await supabase
     .from('products')
-    .select(`
-      *,
-      category_id,
-      categories:category_id(id, name, slug),
-      product_categories (
-        categories (
-          id,
-          name,
-          slug
-        )
-      )
-    `)
+    .select(STOREFRONT_PRODUCTS_FULL_SELECT)
     .eq('merchant_id', merchantId)
-    .in('id', ids);
+    .in('id', ids)) as {
+    data: RawDbProduct[] | null;
+    error: Error | null;
+  };
 
   if (error) throw error;
 
-  return (products || []).map(mapProduct);
+  return (products || []).map(mapStorefrontProduct);
 }
 
 export async function GET(request: NextRequest) {
@@ -240,6 +181,8 @@ export async function GET(request: NextRequest) {
       category,
       brand,
       condition,
+      compact,
+      limit,
       min_price,
       max_price,
       sort,
@@ -284,6 +227,8 @@ export async function GET(request: NextRequest) {
       category: category || undefined,
       brand: brand || undefined,
       condition: condition || undefined,
+      compact: compact || undefined,
+      limit,
       min_price,
       max_price,
       sort,

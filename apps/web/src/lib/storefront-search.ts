@@ -3,11 +3,9 @@ import {
   getProductSearchTotalCount,
 } from '@baci/shared';
 import { cookies } from 'next/headers';
-import {
-  mapStorefrontProduct,
-  STOREFRONT_PRODUCTS_COMPACT_SELECT,
-} from '@/app/api/storefront/products/product-response';
+import { STOREFRONT_PRODUCTS_COMPACT_SELECT } from '@/app/api/storefront/products/product-response';
 import { logger } from './logger';
+import { type NormalizedProduct, normalizeProduct } from './normalize-product';
 import { isValidUuid, sanitizeSearchQuery } from './sanitize-core';
 import { createPublicClient } from './supabase/public';
 import { createClient } from './supabase/server';
@@ -24,12 +22,14 @@ interface SearchStorefrontProductsArgs {
     rpc: (
       fn: string,
       args: Record<string, unknown>
-    ) => Promise<{
+    ) => PromiseLike<{
       data: unknown;
       error: { message: string } | null;
     }>;
     from: (table: string) => {
-      insert: (value: Record<string, unknown>) => Promise<{ error: unknown }>;
+      insert: (
+        value: Record<string, unknown>
+      ) => PromiseLike<{ error: unknown }>;
     };
   };
   merchantId: string;
@@ -45,7 +45,7 @@ export interface StorefrontSearchResult {
 }
 
 export interface StorefrontSearchProductsPage extends StorefrontSearchResult {
-  products: ReturnType<typeof mapStorefrontProduct>[];
+  products: NormalizedProduct[];
 }
 
 export async function searchStorefrontProducts({
@@ -60,7 +60,7 @@ export async function searchStorefrontProducts({
 
   const sanitizedQuery = sanitizeSearchQuery(query);
 
-  const { data: rankedResults, error } = await supabase.rpc(
+  const { data: rankedResultsRaw, error } = await supabase.rpc(
     'search_products_v2',
     {
       brand_filter: null,
@@ -84,8 +84,9 @@ export async function searchStorefrontProducts({
     throw error;
   }
 
-  const productIds = extractProductSearchIds(rankedResults ?? []);
-  const count = getProductSearchTotalCount(rankedResults ?? []);
+  const rankedResults = Array.isArray(rankedResultsRaw) ? rankedResultsRaw : [];
+  const productIds = extractProductSearchIds(rankedResults);
+  const count = getProductSearchTotalCount(rankedResults);
 
   void supabase.from('search_analytics').insert({
     merchant_id: merchantId,
@@ -164,7 +165,7 @@ export async function getStorefrontSearchProducts(args: {
     throw error;
   }
 
-  const mapped = (data ?? []).map((row) => mapStorefrontProduct(row as never));
+  const mapped = (data ?? []).map((row) => normalizeProduct(row as never));
   const order = new Map(
     searchResult.productIds.map((id, index) => [id, index] as const)
   );

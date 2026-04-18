@@ -24,7 +24,8 @@ vi.mock('next/link', () => ({
   }) => <a {...props}>{children}</a>,
 }));
 
-const { default: RootCartPage, RootCartPageContent } = await import('./page');
+const { default: RootCartPage } = await import('./page');
+const { RootCartPageContent } = await import('./root-cart-page-content');
 
 describe('RootCartPage', () => {
   beforeEach(() => {
