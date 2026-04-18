@@ -1,3 +1,4 @@
+import { headers } from 'next/headers';
 import { CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters';
 import {
   getCachedCategoryPageData,
@@ -51,11 +52,17 @@ function isWithinBand(
   return price <= ceiling && (floor ? price > floor : true);
 }
 
-function getStorefrontPathPrefix(
+async function getStorefrontPathPrefix(
   routeIdentifier: string,
   merchantSlug: string
 ) {
-  return isDomainIdentifier(routeIdentifier) ? '' : `/${merchantSlug}`;
+  const headersList = await headers();
+
+  return headersList.has('x-custom-domain') ||
+    headersList.has('x-merchant-slug') ||
+    isDomainIdentifier(routeIdentifier)
+    ? ''
+    : `/${merchantSlug}`;
 }
 
 function getSupportedClusterCategory(
@@ -166,7 +173,7 @@ export async function loadPriceBandPage(args: {
         })
       : [],
     isIndexable: bandCandidate.isIndexable,
-    pathPrefix: getStorefrontPathPrefix(args.merchantSlug, merchant.slug),
+    pathPrefix: await getStorefrontPathPrefix(args.merchantSlug, merchant.slug),
     payoutCurrency: merchant.payout_currency || 'NGN',
   };
 }

@@ -4,6 +4,11 @@ import { loadPriceBandPage } from './load-price-band-page';
 const mockGetMerchantByIdentifier = vi.fn();
 const mockGetCachedCategoryPageData = vi.fn();
 const mockGetCachedFeatureSettings = vi.fn();
+const mockHeaders = vi.fn();
+
+vi.mock('next/headers', () => ({
+  headers: () => mockHeaders(),
+}));
 
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: (...args: unknown[]) =>
@@ -99,9 +104,11 @@ describe('loadPriceBandPage', () => {
     mockGetMerchantByIdentifier.mockReset();
     mockGetCachedCategoryPageData.mockReset();
     mockGetCachedFeatureSettings.mockReset();
+    mockHeaders.mockReset();
     mockGetMerchantByIdentifier.mockResolvedValue(merchant);
     mockGetCachedCategoryPageData.mockResolvedValue(categoryPageData);
     mockGetCachedFeatureSettings.mockResolvedValue({ blog_enabled: false });
+    mockHeaders.mockResolvedValue(new Headers());
   });
 
   afterEach(() => {
@@ -174,6 +181,21 @@ describe('loadPriceBandPage', () => {
     });
 
     expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
+    expect(result?.pathPrefix).toBe('');
+  });
+
+  it('drops the path prefix for subdomain storefront requests', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    mockHeaders.mockResolvedValueOnce(
+      new Headers([['x-merchant-slug', 'ogabassey']])
+    );
+
+    const result = await loadPriceBandPage({
+      merchantSlug: 'ogabassey',
+      categorySlug: 'smartphones',
+      priceBandSlug: 'under-1m',
+    });
+
     expect(result?.pathPrefix).toBe('');
   });
 });
