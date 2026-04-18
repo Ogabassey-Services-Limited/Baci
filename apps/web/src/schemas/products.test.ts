@@ -134,16 +134,14 @@ describe('product schemas', () => {
   });
 
   it('strips unsafe URL protocols from image fields on update', () => {
-    expect(() =>
-      updateProductSchema.parse({
-        image: 'javascript:alert(1)',
-      })
-    ).not.toThrow();
+    let result: ReturnType<typeof updateProductSchema.parse> | undefined;
 
-    expect(
-      updateProductSchema.parse({
+    expect(() => {
+      result = updateProductSchema.parse({
         image: 'javascript:alert(1)',
-      }).image
-    ).toBeNull();
+      });
+    }).not.toThrow();
+
+    expect(result?.image).toBeNull();
   });
 });

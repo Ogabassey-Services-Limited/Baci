@@ -1,8 +1,8 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isValidUuid, sanitizeForLog } from '@/lib/sanitize-core';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { createAnonClient } from '@/lib/supabase/anon';
 import { createClient } from '@/lib/supabase/server';
 
@@ -125,9 +125,9 @@ async function fetchProductRouteDetails(
 
 async function resolveMerchantIdBySlug(
   merchantSlug: string,
-  adminClient: ReturnType<typeof createAdminClient>
+  supabase: Pick<SupabaseClient, 'from'>
 ) {
-  const { data: merchant, error } = await adminClient
+  const { data: merchant, error } = await supabase
     .from('merchants')
     .select('id')
     .eq('slug', merchantSlug)
@@ -203,7 +203,6 @@ export async function GET(
 
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
-    const admin = createAdminClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -257,7 +256,7 @@ export async function GET(
         if (merchantSlug) {
           const requestedMerchantId = await resolveMerchantIdBySlug(
             merchantSlug,
-            admin
+            supabase
           );
 
           if (

@@ -153,7 +153,15 @@ export function BnplLauncher() {
         };
 
         launchPayment();
-    }, [orderId, gateway, merchant?.slug, loading, router, trackingTokenParam]);
+    }, [
+        orderId,
+        gateway,
+        merchant?.slug,
+        merchantSlugParam,
+        loading,
+        router,
+        trackingTokenParam,
+    ]);
 
     if (status === 'error') {
         return (

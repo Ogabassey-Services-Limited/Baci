@@ -133,9 +133,16 @@ vi.mock('../components/MobileCheckoutComponents', () => ({
 
 import { CheckoutPage } from './checkout-page';
 import { useSearchParams } from 'next/navigation';
+import { useCart } from '@/hooks/use-cart';
 
 describe('CheckoutPage', () => {
   beforeEach(() => {
+    vi.mocked(useCart).mockReturnValue({
+      cart: [],
+      cartTotal: 0,
+      clearCart: vi.fn(),
+      isHydrated: true,
+    } as unknown as ReturnType<typeof useCart>);
     vi.mocked(useSearchParams).mockReturnValue(
       new URLSearchParams() as unknown as ReturnType<typeof useSearchParams>
     );

@@ -115,7 +115,7 @@ function createMockAdminClient() {
       if (table === 'orders') {
         const orderQuery = {
           eq: vi.fn(),
-          single: vi.fn().mockResolvedValue(orderLookupResult),
+          maybeSingle: vi.fn().mockResolvedValue(orderLookupResult),
         };
         orderQuery.eq.mockReturnValue(orderQuery);
         return {
@@ -285,6 +285,32 @@ describe('POST /api/payments/initialize', () => {
       const json = await res.json();
       expect(res.status).toBe(404);
       expect(json.code).toBe('MERCHANT_NOT_FOUND');
+    });
+
+    it('returns 404 when the order lookup row is missing', async () => {
+      orderLookupResult = {
+        data: null,
+        error: null,
+      };
+
+      const res = await POST(makeRequest(validBody));
+      const json = await res.json();
+
+      expect(res.status).toBe(404);
+      expect(json.code).toBe('ORDER_NOT_FOUND');
+    });
+
+    it('returns 500 when the order lookup query fails', async () => {
+      orderLookupResult = {
+        data: null,
+        error: { message: 'db timeout' },
+      };
+
+      const res = await POST(makeRequest(validBody));
+      const json = await res.json();
+
+      expect(res.status).toBe(500);
+      expect(json.code).toBe('DATABASE_ERROR');
     });
   });
 

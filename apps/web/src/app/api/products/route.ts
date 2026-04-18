@@ -63,7 +63,7 @@ function extractVariantAttributes(variants: Record<string, unknown>[]): {
 
 function buildProductImagesInput(
   images: Record<string, unknown>[] | undefined,
-  fallbackImage: string | undefined,
+  fallbackImage: string | null | undefined,
   fallbackAlt: string
 ) {
   if (Array.isArray(images) && images.length > 0) {

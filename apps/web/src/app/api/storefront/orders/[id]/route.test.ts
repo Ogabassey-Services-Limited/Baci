@@ -9,10 +9,6 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(),
 }));
 
-vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: vi.fn(),
-}));
-
 vi.mock('@/lib/supabase/anon', () => ({
   createAnonClient: vi.fn(),
 }));
@@ -24,7 +20,6 @@ vi.mock('@/lib/sanitize-core', () => ({
 
 import { cookies } from 'next/headers';
 import { isValidUuid, sanitizeForLog } from '@/lib/sanitize-core';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { createAnonClient } from '@/lib/supabase/anon';
 import { createClient } from '@/lib/supabase/server';
 import { GET } from './route';
@@ -69,10 +64,6 @@ describe('GET /api/storefront/orders/[id]', () => {
     from: vi.fn(),
   };
 
-  const mockAdminClient = {
-    from: vi.fn(),
-  };
-
   const mockAnonClient = {
     rpc: vi.fn(),
     from: vi.fn(),
@@ -82,7 +73,6 @@ describe('GET /api/storefront/orders/[id]', () => {
     vi.clearAllMocks();
     vi.mocked(cookies).mockResolvedValue({} as never);
     vi.mocked(createClient).mockReturnValue(mockSupabaseClient as never);
-    vi.mocked(createAdminClient).mockReturnValue(mockAdminClient as never);
     vi.mocked(createAnonClient).mockReturnValue(mockAnonClient as never);
     vi.mocked(isValidUuid).mockReturnValue(true);
     vi.mocked(sanitizeForLog).mockImplementation((value) => String(value));
@@ -214,10 +204,6 @@ describe('GET /api/storefront/orders/[id]', () => {
 
     mockSupabaseClient.from.mockImplementation((table: string) => {
       if (table === 'orders') return mockOrderQuery;
-      return {};
-    });
-
-    mockAdminClient.from.mockImplementation((table: string) => {
       if (table === 'merchants') return mockMerchantQuery;
       return {};
     });

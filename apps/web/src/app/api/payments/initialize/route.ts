@@ -883,9 +883,18 @@ export async function POST(request: NextRequest) {
       .select('tracking_token')
       .eq('id', data.order_id)
       .eq('merchant_id', merchantId)
-      .single();
+      .maybeSingle();
 
-    if (orderRowError || !orderRow) {
+    if (orderRowError) {
+      console.error('Error looking up order tracking token:', orderRowError);
+      return createErrorResponse(
+        'Failed to look up order',
+        'DATABASE_ERROR',
+        500
+      );
+    }
+
+    if (!orderRow) {
       return createErrorResponse(
         'Order not found or email mismatch',
         'ORDER_NOT_FOUND',

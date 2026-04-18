@@ -47,7 +47,9 @@ export function CryptoCheckoutPage() {
   const cryptoCurrency = searchParams.get('crypto_currency') || 'USDT';
   const merchantSlugParam = searchParams.get('merchant_slug');
   const trackingToken =
-    searchParams.get('trackingToken') || searchParams.get('token');
+    searchParams.get('trackingToken') ||
+    searchParams.get('tracking_token') ||
+    searchParams.get('token');
 
   const [status, setStatus] = useState<
     'loading' | 'ready' | 'verifying' | 'confirmed' | 'failed' | 'error'

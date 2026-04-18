@@ -1,9 +1,9 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 import { isPaystackCheckoutAvailable } from '@/lib/checkout/payment-gateway-availability';
 import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
+import { storefrontFeaturesQuerySchema } from '@/schemas/storefront-features';
 
 /**
  * Storefront Feature Settings API (Public)
@@ -125,15 +125,6 @@ const DEFAULT_FEATURES: StorefrontFeatures = {
   blogEnabled: false,
   autoBlogEnabled: false,
 };
-
-const storefrontFeaturesQuerySchema = z
-  .object({
-    merchantId: z.string().uuid({ message: 'Invalid merchantId' }).optional(),
-    slug: z.string().trim().min(1).max(255).optional(),
-  })
-  .refine(({ merchantId, slug }) => Boolean(merchantId || slug), {
-    message: 'merchantId or slug is required',
-  });
 
 export async function GET(request: NextRequest) {
   try {

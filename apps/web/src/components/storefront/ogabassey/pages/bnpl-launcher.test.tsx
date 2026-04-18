@@ -90,4 +90,27 @@ describe('BnplLauncher', () => {
       );
     });
   });
+
+  it('preserves trackingToken when redirecting after CredPal success', async () => {
+    mockSearchParams.mockReturnValue(
+      new URLSearchParams({
+        orderId: 'order-1',
+        gateway: 'credpal',
+        merchant_slug: 'test-store',
+        trackingToken: 'tok-123',
+      })
+    );
+    mockOpenCredPalCheckout.mockImplementation(({ onSuccess }) => {
+      onSuccess({ order_no: 'credpal-ref-1' });
+      return Promise.resolve();
+    });
+
+    render(<BnplLauncher />);
+
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledWith(
+        '/order-success?orderId=order-1&reference=credpal-ref-1&trackingToken=track-order-token'
+      );
+    });
+  });
 });
