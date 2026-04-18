@@ -12,6 +12,14 @@ import { storefrontProductsRouteData } from './storefront-products-route-data';
 
 type ProductFilters = StorefrontProductsQuery;
 
+function hasInMemoryStorefrontFilters(filters: ProductFilters): boolean {
+  return Boolean(
+    (filters.category &&
+      !storefrontProductFilters.isAllFilter(filters.category)) ||
+      (filters.brand && !storefrontProductFilters.isAllFilter(filters.brand))
+  );
+}
+
 function createCachedProductsFetcher(
   merchantId: string,
   filters: ProductFilters = { sort: 'newest' }
@@ -27,6 +35,7 @@ function createCachedProductsFetcher(
         getSupabaseUrl(),
         getSupabaseAnonKey()
       );
+      const hasInMemoryFilters = hasInMemoryStorefrontFilters(filters);
 
       let query = supabase
         .from('products')
@@ -66,6 +75,10 @@ function createCachedProductsFetcher(
         );
       }
 
+      if (filters.limit !== undefined && !hasInMemoryFilters) {
+        query = query.limit(filters.limit);
+      }
+
       switch (filters.sort) {
         case 'price-asc':
           query = query.order('price', { ascending: true });
@@ -76,10 +89,6 @@ function createCachedProductsFetcher(
         default:
           query = query.order('created_at', { ascending: false });
           break;
-      }
-
-      if (filters.limit !== undefined) {
-        query = query.limit(filters.limit);
       }
 
       const { data: products, error } = await query;
@@ -124,7 +133,12 @@ function createCachedProductsFetcher(
         );
       }
 
-      return filteredProducts.map(storefrontProductsRouteData.mapProduct);
+      const limitedProducts =
+        filters.limit !== undefined && hasInMemoryFilters
+          ? filteredProducts.slice(0, filters.limit)
+          : filteredProducts;
+
+      return limitedProducts.map(storefrontProductsRouteData.mapProduct);
     },
     cacheKeyParts,
     {

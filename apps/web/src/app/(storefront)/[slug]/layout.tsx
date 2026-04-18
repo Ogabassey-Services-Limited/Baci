@@ -12,6 +12,7 @@ import { StorefrontMerchantProvider } from '@/hooks/merchant/storefront-merchant
 import type { MerchantData } from '@/hooks/use-merchant';
 import { getCachedNavigationCategories } from '@/lib/cached-categories';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
+import { toTemplateMerchantData } from '@/lib/merchant-template-data';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
 import {
   isDomainIdentifier,
@@ -86,7 +87,6 @@ export async function generateMetadata({
   const faviconPng32 = merchant.favicon_png_32_url;
   const faviconAppleTouch = merchant.favicon_apple_touch_url;
 
-  // Build icons array only if merchant has custom favicons
   // Build icons array only if merchant has custom favicons
   const icons =
     faviconSvg || faviconPng32 || faviconAppleTouch
@@ -195,6 +195,7 @@ async function StorefrontLayoutContent({
 
   // Use the merchant's actual slug for internal routing, not the domain
   const merchantSlug = merchant.slug;
+  const templateMerchant = toTemplateMerchantData(merchant);
 
   // Determine routing mode and checkout state based on headers (set by middleware)
   const headersList = await headers();
@@ -213,7 +214,7 @@ async function StorefrontLayoutContent({
   return (
     <StorefrontMerchantProvider
       slug={merchantSlug}
-      initialMerchant={merchant as unknown as MerchantData}
+      initialMerchant={templateMerchant}
       initialRoutingMode={routingMode}
       navigationCategories={navigationCategories}
     >
@@ -228,9 +229,7 @@ async function StorefrontLayoutContent({
           - Keeps layout persistent across route changes (seamless navigation)
           - Prevents header flashing/re-rendering
         */}
-        <StorefrontLayoutRenderer
-          merchant={merchant as unknown as MerchantData}
-        >
+        <StorefrontLayoutRenderer merchant={templateMerchant}>
           {children}
         </StorefrontLayoutRenderer>
       </StorefrontCartProvider>

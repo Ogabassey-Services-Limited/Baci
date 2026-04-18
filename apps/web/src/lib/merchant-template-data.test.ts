@@ -30,15 +30,35 @@ const BASE_MERCHANT: CachedMerchant = {
     instagram: 'https://instagram.com/ogabassey',
     twitter: 'https://twitter.com/ogabassey',
   },
+  support_email: 'support@ogabassey.com',
+  support_phone: '+2348099999999',
   custom_domain: 'ogabassey.com',
   favicon_svg_url: 'https://example.com/favicon.svg',
   favicon_png_32_url: 'https://example.com/favicon-32.png',
   favicon_apple_touch_url: 'https://example.com/apple-touch-icon.png',
+  paystack_subaccount_code: 'subacct_123',
+  legal_entity_name: 'Ogabassey Technologies Ltd',
+  registered_address: {
+    street: '5 Tech Street',
+    city: 'Lagos',
+    state: 'Lagos',
+    country: 'Nigeria',
+    postal_code: '100001',
+  },
+  tax_identification_number: 'TIN-12345',
+  trust_profile: {
+    return_policy: {
+      summary: '7-day returns',
+    },
+  },
   vat_registration_status: 'registered',
   vat_rate: 7.5,
   feature_settings: {
     blog_enabled: true,
     shipping_insurance_enabled: false,
+  },
+  published_config: {
+    google_site_verification: 'google-token',
   },
   pages: {
     about: 'About us content',
@@ -89,8 +109,17 @@ describe('toTemplateMerchantData', () => {
     expect(result.vat_registration_status).toBe('registered');
     expect(result.vat_rate).toBe(7.5);
     expect(result.social_media).toEqual(BASE_MERCHANT.social_media);
+    expect(result.support_email).toBe('support@ogabassey.com');
+    expect(result.support_phone).toBe('+2348099999999');
     expect(result.business_address).toBe('5 Tech Street, Lagos');
+    expect(result.paystack_subaccount_code).toBe('subacct_123');
+    expect(result.legal_entity_name).toBe('Ogabassey Technologies Ltd');
+    expect(result.registered_address).toEqual(BASE_MERCHANT.registered_address);
+    expect(result.tax_identification_number).toBe('TIN-12345');
+    expect(result.trust_profile).toEqual(BASE_MERCHANT.trust_profile);
     expect(result.feature_settings).toEqual(BASE_MERCHANT.feature_settings);
+    expect(result.published_config).toEqual(BASE_MERCHANT.published_config);
+    expect(result.plan_tier).toBe('pro');
     expect(result.pages).toEqual(BASE_MERCHANT.pages);
   });
 
@@ -147,5 +176,16 @@ describe('toTemplateMerchantData', () => {
     expect(result.hero_slides).toBeUndefined();
     expect(result.mobile_hero_slides).toBeUndefined();
     expect(result.brand_colors).toBeUndefined();
+  });
+
+  it('drops unsupported plan tiers and non-string premium features', () => {
+    const result = toTemplateMerchantData({
+      ...BASE_MERCHANT,
+      plan_tier: 'legacy-plan',
+      premium_features: [1, 2, 3],
+    } as unknown as CachedMerchant);
+
+    expect(result.plan_tier).toBeUndefined();
+    expect(result.premium_features).toBeUndefined();
   });
 });
