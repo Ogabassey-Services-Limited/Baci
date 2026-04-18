@@ -1,8 +1,9 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { Product } from '../types';
+import { DeferredShellFeature } from '../components/deferred-shell-feature';
 import { FlyToCartAnimation } from '../components/FlyToCartAnimation';
 import { NegotiationModal } from '../components/NegotiationModal';
 import { ProductBreadcrumbs } from './product-details-page/product-breadcrumbs';
@@ -21,10 +22,6 @@ const BannerCarousel = dynamic(
   () =>
     import('../components/BannerCarousel').then((mod) => mod.BannerCarousel),
   { loading: () => null, ssr: false }
-);
-const BlogSnippet = dynamic(
-  () => import('../components/BlogSnippet').then((mod) => mod.BlogSnippet),
-  { loading: () => null }
 );
 const BrandProducts = dynamic(
   () =>
@@ -54,9 +51,13 @@ const ProductVideo = dynamic(
 
 interface ProductDetailsPageProps {
   product: Product;
+  semanticSections?: ReactNode;
 }
 
-export function ProductDetailsPage({ product }: ProductDetailsPageProps) {
+export function ProductDetailsPage({
+  product,
+  semanticSections = null,
+}: ProductDetailsPageProps) {
   const {
     activeTab,
     animatingParticles,
@@ -164,6 +165,12 @@ export function ProductDetailsPage({ product }: ProductDetailsPageProps) {
     setSelectedAttributes((prev) => ({ ...prev, [axis]: value }));
     setMissingFields((prev) => prev.filter((field) => field !== label));
   };
+  const deferredDetailsFallback = (
+    <div
+      aria-hidden="true"
+      className="mt-12 min-h-[1200px] [content-visibility:auto] [contain-intrinsic-size:1400px_2200px]"
+    />
+  );
 
   return (
     <div className="relative bg-[var(--store-background,#ffffff)] pb-32 pt-4">
@@ -233,45 +240,43 @@ export function ProductDetailsPage({ product }: ProductDetailsPageProps) {
           </div>
         </div>
 
-        <div className="[content-visibility:auto] [contain-intrinsic-size:1400px_2200px]">
-          <div className="mb-12 mt-12">
-            <AdUnit placementKey="CONTENT_BREAK" />
+        {semanticSections}
+
+        <DeferredShellFeature fallback={deferredDetailsFallback} timeoutMs={1800}>
+          <div className="[content-visibility:auto] [contain-intrinsic-size:1400px_2200px]">
+            <div className="mb-12 mt-12">
+              <AdUnit placementKey="CONTENT_BREAK" />
+            </div>
+
+            <ProductDetailsTabs
+              activeTab={activeTab}
+              normalizedReviewRatingWidth={normalizedReviewRatingWidth}
+              onSelectTab={setActiveTab}
+              productData={productData}
+              storeSlug={merchantSlug}
+            />
+
+            {productData.videoUrl && (
+              <ProductVideo
+                videoId={productData.videoUrl}
+                title={productData.name}
+              />
+            )}
+
+            <div className="mx-auto max-w-[1400px]">
+              <BrandProducts
+                product={relatedProductsProduct}
+                maxProducts={4}
+                className="border-t border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_10%,transparent)] pt-8"
+              />
+              <PriceRangeProducts
+                product={relatedProductsProduct}
+                maxProducts={4}
+                className="border-t border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_10%,transparent)]"
+              />
+            </div>
           </div>
-
-          <ProductDetailsTabs
-            activeTab={activeTab}
-            normalizedReviewRatingWidth={normalizedReviewRatingWidth}
-            onSelectTab={setActiveTab}
-            productData={productData}
-            storeSlug={merchantSlug}
-          />
-
-          {productData.videoUrl && (
-            <ProductVideo
-              videoId={productData.videoUrl}
-              title={productData.name}
-            />
-          )}
-
-          <BlogSnippet
-            category={productData.categories?.name || productData.category || 'General'}
-            productId={String(productData.id)}
-            merchantId={merchantId}
-          />
-
-          <div className="mx-auto max-w-[1400px]">
-            <BrandProducts
-              product={relatedProductsProduct}
-              maxProducts={4}
-              className="border-t border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_10%,transparent)] pt-8"
-            />
-            <PriceRangeProducts
-              product={relatedProductsProduct}
-              maxProducts={4}
-              className="border-t border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_10%,transparent)]"
-            />
-          </div>
-        </div>
+        </DeferredShellFeature>
       </div>
 
       <ProductMobileActionBar

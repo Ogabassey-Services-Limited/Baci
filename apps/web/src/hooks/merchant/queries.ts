@@ -2,6 +2,69 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { defaultStaffAccess, ownerStaffAccess } from './constants';
 import type { MerchantData, StaffAccess, StaffRole } from './types';
 
+const PUBLIC_MERCHANT_QUERY_COLUMNS = [
+  'id',
+  'business_name',
+  'business_type',
+  'email',
+  'phone',
+  'logo_url',
+  'brand_colors',
+  'country',
+  'pages',
+  'google_product_sheet_url',
+  'slug',
+  'custom_domain',
+  'published_config',
+  'favicon_svg_url',
+  'favicon_png_32_url',
+  'favicon_png_192_url',
+  'favicon_apple_touch_url',
+  'favicon_uploaded_at',
+  'social_media',
+  'support_email',
+  'support_phone',
+  'business_address',
+  'rider_phone_number',
+  'is_published',
+  'published_at',
+  'template_id',
+  'plan_tier',
+  'premium_features',
+  'hero_slides',
+  'mobile_hero_slides',
+].join(', ');
+
+const DASHBOARD_MERCHANT_QUERY_COLUMNS = [
+  PUBLIC_MERCHANT_QUERY_COLUMNS,
+  'user_id',
+  'legal_entity_name',
+  'registered_address',
+  'tax_identification_number',
+  'trust_profile',
+  'plan_started_at',
+  'plan_expires_at',
+  'stripe_customer_id',
+  'stripe_subscription_id',
+  'offline_conversions_enabled',
+  'facebook_pixel_id',
+  'facebook_capi_token',
+  'google_analytics_id',
+  'ga4_api_secret',
+  'tiktok_pixel_id',
+  'tiktok_access_token',
+  'snapchat_pixel_id',
+  'snapchat_capi_token',
+  'twitter_pixel_id',
+  'virtual_terminal_code',
+  'vat_registration_status',
+  'vat_rate',
+  'nin',
+  'bvn',
+  'cac_rc_number',
+  'kyc_status',
+].join(', ');
+
 /**
  * Normalize feature_settings from Supabase join.
  * Edge SQL may return an array instead of a single object.
@@ -22,7 +85,9 @@ export async function fetchMerchantBySlug(
 ): Promise<MerchantData | null> {
   const { data, error } = await supabase
     .from('merchants')
-    .select('*, feature_settings:merchant_feature_settings(*)')
+    .select(
+      `${PUBLIC_MERCHANT_QUERY_COLUMNS}, feature_settings:merchant_feature_settings(*)`
+    )
     .eq('slug', slug)
     .maybeSingle();
 
@@ -48,13 +113,15 @@ export async function fetchDashboardMerchant(
   const [ownerResult, staffResult] = await Promise.all([
     supabase
       .from('merchants')
-      .select('*, feature_settings:merchant_feature_settings(*)')
+      .select(
+        `${DASHBOARD_MERCHANT_QUERY_COLUMNS}, feature_settings:merchant_feature_settings(*)`
+      )
       .eq('user_id', userId)
       .maybeSingle(),
     supabase
       .from('staff_members')
       .select(
-        `id, role, permissions, status, merchant_id, merchants (*, feature_settings:merchant_feature_settings(*))`
+        `id, role, permissions, status, merchant_id, merchants (${DASHBOARD_MERCHANT_QUERY_COLUMNS}, feature_settings:merchant_feature_settings(*))`
       )
       .eq('user_id', userId)
       .eq('status', 'active')

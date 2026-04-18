@@ -23,7 +23,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type React from 'react';
 import { useEffect, useState } from 'react';
-import { useCart } from '@/hooks/use-cart';
+import { useCart } from '@/hooks/cart';
 import { AdUnit } from '../components/AdUnit';
 import { BannerCarousel } from '../components/BannerCarousel';
 import { BlogSnippet } from '../components/BlogSnippet';

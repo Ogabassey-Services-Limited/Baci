@@ -1,9 +1,15 @@
-import type { Route } from 'next';
+import type { Metadata, Route } from 'next';
 import { getEffectiveProductStock } from '../../../../packages/shared/src/lib/product-inventory';
 import type { Product, ProductSchemaMarkup, Review } from './products';
 // Import from sanitize-core to avoid loading jsdom on server components
 import { escapeHtml, stripHtmlTags } from './sanitize-core';
 import { sanitizeSchemaMarkup } from './sanitize-json-ld';
+import { normalizeSocialUrl } from './social';
+import type {
+  MerchantTrustProfile,
+  MerchantTrustProfileReturnFee,
+  MerchantTrustProfileReturnMethod,
+} from './storefront-trust/merchant-trust-profile-types';
 
 // Re-export escapeHtml for use in other modules
 export { escapeHtml, getEffectiveProductStock };
@@ -174,6 +180,168 @@ function schemaPropertyForAttribute(key: string): string | undefined {
   return map[key.toLowerCase()];
 }
 
+function mapReturnMethodToSchemaUrl(
+  returnMethod: MerchantTrustProfileReturnMethod | undefined
+): string | undefined {
+  switch (returnMethod) {
+    case 'mail':
+    case 'carrier_dropoff':
+      return 'https://schema.org/ReturnByMail';
+    case 'in_store':
+      return 'https://schema.org/ReturnInStore';
+    default:
+      return undefined;
+  }
+}
+
+function mapReturnFeeToSchemaUrl(
+  returnFees: MerchantTrustProfileReturnFee | undefined
+): string | undefined {
+  switch (returnFees) {
+    case 'free':
+      return 'https://schema.org/FreeReturn';
+    case 'customer_pays':
+      return 'https://schema.org/ReturnShippingFees';
+    case 'original_shipping_deducted':
+      return 'https://schema.org/OriginalShippingFees';
+    default:
+      return undefined;
+  }
+}
+
+function buildSameAsUrls(
+  data: OrganizationData,
+  trustProfile?: MerchantTrustProfile
+): string[] {
+  const sameAs = new Set<string>();
+
+  for (const url of Object.values(trustProfile?.socialLinks ?? {})) {
+    const normalized = url.trim();
+    if (normalized) {
+      sameAs.add(escapeHtml(normalized));
+    }
+  }
+
+  if (data.socialMedia) {
+    const socialMediaEntries = [
+      ['facebook', data.socialMedia.facebook],
+      ['instagram', data.socialMedia.instagram],
+      ['twitter', data.socialMedia.twitter],
+      ['linkedin', data.socialMedia.linkedin],
+      ['youtube', data.socialMedia.youtube],
+    ] as const;
+
+    for (const [platform, handle] of socialMediaEntries) {
+      const normalized = normalizeSocialUrl(handle, platform);
+      if (normalized) {
+        sameAs.add(escapeHtml(normalized));
+      }
+    }
+  }
+
+  return [...sameAs];
+}
+
+function buildContactPoint(
+  data: OrganizationData,
+  trustProfile?: MerchantTrustProfile
+): Record<string, unknown> | undefined {
+  const email = trustProfile?.supportEmail ?? data.email;
+  const telephone = trustProfile?.supportPhone ?? data.telephone;
+
+  if (!email && !telephone) {
+    return undefined;
+  }
+
+  return {
+    '@type': 'ContactPoint',
+    contactType: 'customer service',
+    ...(email && { email: escapeHtml(email) }),
+    ...(telephone && { telephone: escapeHtml(telephone) }),
+    availableLanguage: 'English',
+  };
+}
+
+function buildMerchantReturnPolicy(
+  country: string,
+  trustProfile?: MerchantTrustProfile,
+  fallbackDays = 7
+): Record<string, unknown> | undefined {
+  const returnPolicy = trustProfile?.returnPolicy;
+
+  return {
+    '@type': 'MerchantReturnPolicy',
+    applicableCountry: country,
+    returnPolicyCategory: 'https://schema.org/MerchantReturnFiniteReturnWindow',
+    merchantReturnDays: returnPolicy?.windowDays ?? fallbackDays,
+    returnMethod:
+      mapReturnMethodToSchemaUrl(returnPolicy?.returnMethod) ??
+      'https://schema.org/ReturnInStore',
+    returnFees:
+      mapReturnFeeToSchemaUrl(returnPolicy?.returnFees) ??
+      'https://schema.org/FreeReturn',
+  };
+}
+
+function buildOfferShippingDetails(
+  country: string,
+  currency: string,
+  trustProfile?: MerchantTrustProfile
+): Record<string, unknown> {
+  const shippingPolicy = trustProfile?.shippingPolicy;
+  const handlingMin = shippingPolicy?.handlingDaysMin ?? 0;
+  const handlingMax = shippingPolicy?.handlingDaysMax ?? 1;
+  const transitMin = shippingPolicy?.transitDaysMin ?? 1;
+  const transitMax = shippingPolicy?.transitDaysMax ?? 5;
+
+  return {
+    '@type': 'OfferShippingDetails',
+    shippingRate: {
+      '@type': 'MonetaryAmount',
+      value: 0,
+      currency,
+    },
+    shippingDestination: {
+      '@type': 'DefinedRegion',
+      addressCountry: country,
+    },
+    deliveryTime: {
+      '@type': 'ShippingDeliveryTime',
+      handlingTime: {
+        '@type': 'QuantitativeValue',
+        minValue: handlingMin,
+        maxValue: handlingMax,
+        unitCode: 'DAY',
+      },
+      transitTime: {
+        '@type': 'QuantitativeValue',
+        minValue: transitMin,
+        maxValue: transitMax,
+        unitCode: 'DAY',
+      },
+    },
+  };
+}
+
+function buildMerchantReturnPolicyFromTrustProfile(
+  country: string,
+  trustProfile?: MerchantTrustProfile
+): Record<string, unknown> {
+  const returnPolicy = trustProfile?.returnPolicy;
+  return {
+    '@type': 'MerchantReturnPolicy',
+    applicableCountry: country,
+    returnPolicyCategory: 'https://schema.org/MerchantReturnFiniteReturnWindow',
+    merchantReturnDays: returnPolicy?.windowDays ?? 7,
+    returnMethod:
+      mapReturnMethodToSchemaUrl(returnPolicy?.returnMethod) ??
+      'https://schema.org/ReturnInStore',
+    returnFees:
+      mapReturnFeeToSchemaUrl(returnPolicy?.returnFees) ??
+      'https://schema.org/FreeReturn',
+  };
+}
+
 /**
  * Generates JSON-LD structured data for a product (2025 Google best practices)
  * For products with variants, outputs @type ProductGroup with hasVariant (each variant has its own Offer).
@@ -185,19 +353,32 @@ export function generateProductSchema(
   merchantName: string = 'Baci Store',
   currency: string = 'USD',
   country: string = 'NG', // Default to Nigeria
-  merchantLogo?: string
+  merchantLogo?: string,
+  trustProfile?: MerchantTrustProfile
 ): ProductSchemaMarkup & Record<string, unknown> {
   // Sanitize all user-controlled string values to prevent XSS in JSON-LD context
   const safeName = escapeHtml(product.name);
 
   // Provide a smart fallback for description to prevent "Missing field description" errors
   const rawDescription = product.meta_description || product.description;
-  const safeDescription = rawDescription
-    ? escapeHtml(rawDescription)
+  const metaDescription = rawDescription
+    ? generateMetaDescription(rawDescription)
+    : '';
+  const safeDescription = metaDescription
+    ? escapeHtml(metaDescription)
     : `Buy ${safeName} from ${escapeHtml(merchantName)}. Best prices, fast delivery, and secure payments.`;
 
   const safeBrand = escapeHtml(product.brand || merchantName);
   const safeMerchantName = escapeHtml(merchantName);
+  const shippingDetails = buildOfferShippingDetails(
+    country,
+    currency,
+    trustProfile
+  );
+  const hasMerchantReturnPolicy = buildMerchantReturnPolicyFromTrustProfile(
+    country,
+    trustProfile
+  );
 
   // Extract images — handle both {url: string} objects and plain string entries defensively
   let safeImages: string[] = [];
@@ -260,42 +441,8 @@ export function generateProductSchema(
             priceValidUntil: new Date(Date.now() + THIRTY_DAYS_MS)
               .toISOString()
               .substring(0, 10),
-            shippingDetails: {
-              '@type': 'OfferShippingDetails',
-              shippingRate: {
-                '@type': 'MonetaryAmount',
-                value: 0,
-                currency: currency,
-              },
-              shippingDestination: {
-                '@type': 'DefinedRegion',
-                addressCountry: country,
-              },
-              deliveryTime: {
-                '@type': 'ShippingDeliveryTime',
-                handlingTime: {
-                  '@type': 'QuantitativeValue',
-                  minValue: 0,
-                  maxValue: 1,
-                  unitCode: 'DAY',
-                },
-                transitTime: {
-                  '@type': 'QuantitativeValue',
-                  minValue: 1,
-                  maxValue: 5,
-                  unitCode: 'DAY',
-                },
-              },
-            },
-            hasMerchantReturnPolicy: {
-              '@type': 'MerchantReturnPolicy',
-              applicableCountry: country,
-              returnPolicyCategory:
-                'https://schema.org/MerchantReturnFiniteReturnWindow',
-              merchantReturnDays: 7,
-              returnMethod: 'https://schema.org/ReturnInStore',
-              returnFees: 'https://schema.org/FreeReturn',
-            },
+            shippingDetails,
+            hasMerchantReturnPolicy,
           }))
         : {
             '@type': 'Offer',
@@ -319,42 +466,8 @@ export function generateProductSchema(
             priceValidUntil: new Date(Date.now() + THIRTY_DAYS_MS)
               .toISOString()
               .substring(0, 10),
-            shippingDetails: {
-              '@type': 'OfferShippingDetails',
-              shippingRate: {
-                '@type': 'MonetaryAmount',
-                value: 0,
-                currency: currency,
-              },
-              shippingDestination: {
-                '@type': 'DefinedRegion',
-                addressCountry: country,
-              },
-              deliveryTime: {
-                '@type': 'ShippingDeliveryTime',
-                handlingTime: {
-                  '@type': 'QuantitativeValue',
-                  minValue: 0,
-                  maxValue: 1,
-                  unitCode: 'DAY',
-                },
-                transitTime: {
-                  '@type': 'QuantitativeValue',
-                  minValue: 1,
-                  maxValue: 5,
-                  unitCode: 'DAY',
-                },
-              },
-            },
-            hasMerchantReturnPolicy: {
-              '@type': 'MerchantReturnPolicy',
-              applicableCountry: country,
-              returnPolicyCategory:
-                'https://schema.org/MerchantReturnFiniteReturnWindow',
-              merchantReturnDays: 7,
-              returnMethod: 'https://schema.org/ReturnInStore',
-              returnFees: 'https://schema.org/FreeReturn',
-            },
+            shippingDetails,
+            hasMerchantReturnPolicy,
           },
   };
 
@@ -719,43 +832,16 @@ export function generateProductSchema(
             : 'https://schema.org/NewCondition';
 
     // Shared shipping + return policy for all variant Offers (2026 best practice)
-    const variantShippingDetails = {
-      '@type': 'OfferShippingDetails',
-      shippingRate: {
-        '@type': 'MonetaryAmount',
-        value: 0,
-        currency: currency,
-      },
-      shippingDestination: {
-        '@type': 'DefinedRegion',
-        addressCountry: country,
-      },
-      deliveryTime: {
-        '@type': 'ShippingDeliveryTime',
-        handlingTime: {
-          '@type': 'QuantitativeValue',
-          minValue: 0,
-          maxValue: 1,
-          unitCode: 'DAY',
-        },
-        transitTime: {
-          '@type': 'QuantitativeValue',
-          minValue: 1,
-          maxValue: 5,
-          unitCode: 'DAY',
-        },
-      },
-    };
+    const variantShippingDetails = buildOfferShippingDetails(
+      country,
+      currency,
+      trustProfile
+    );
 
-    const variantReturnPolicy = {
-      '@type': 'MerchantReturnPolicy',
-      applicableCountry: country,
-      returnPolicyCategory:
-        'https://schema.org/MerchantReturnFiniteReturnWindow',
-      merchantReturnDays: 7,
-      returnMethod: 'https://schema.org/ReturnInStore',
-      returnFees: 'https://schema.org/FreeReturn',
-    };
+    const variantReturnPolicy = buildMerchantReturnPolicyFromTrustProfile(
+      country,
+      trustProfile
+    );
 
     const variantPriceValidUntil = new Date(Date.now() + THIRTY_DAYS_MS)
       .toISOString()
@@ -1019,6 +1105,26 @@ const ELLIPSIS_LENGTH = ELLIPSIS.length;
 const DEFAULT_MAX_LENGTH = 160;
 
 /**
+ * Standard robots policy for indexable public storefront pages.
+ */
+export function getIndexableRobotsMetadata(): Metadata['robots'] {
+  return {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+      'max-video-preview': -1,
+    },
+    'max-image-preview': 'large',
+    'max-snippet': -1,
+    'max-video-preview': -1,
+  };
+}
+
+/**
  * Validates and returns a proper maxLength value for meta description truncation.
  */
 function validateMaxLength(value: number): number {
@@ -1130,12 +1236,13 @@ export function generateCollectionPageSchema(
 }
 
 /**
- * Generates Organization schema for the merchant/store
- * @see https://schema.org/Organization
+ * Generates OnlineStore schema for platform and merchant storefront entities
+ * @see https://schema.org/OnlineStore
  */
 export interface OrganizationData {
   name: string;
   url: string;
+  country?: string;
   logo?: string;
   description?: string;
   email?: string;
@@ -1148,14 +1255,15 @@ export interface OrganizationData {
     youtube?: string;
   };
   foundingDate?: string;
+  trustProfile?: MerchantTrustProfile;
 }
 
 export function generateOrganizationSchema(
-  data: OrganizationData
+  data: OrganizationData & { trustProfile?: MerchantTrustProfile }
 ): Record<string, unknown> {
   const schema: Record<string, unknown> = {
     '@context': 'https://schema.org',
-    '@type': 'Organization',
+    '@type': 'OnlineStore',
     name: escapeHtml(data.name),
     url: escapeHtml(data.url),
   };
@@ -1183,27 +1291,28 @@ export function generateOrganizationSchema(
     schema.telephone = escapeHtml(data.telephone);
   }
 
-  if (data.foundingDate) {
-    schema.foundingDate = escapeHtml(data.foundingDate);
+  const foundingDate =
+    data.foundingDate ?? data.trustProfile?.foundedYear?.toString();
+  if (foundingDate) {
+    schema.foundingDate = escapeHtml(foundingDate);
   }
 
-  // Collect social media profiles
-  const sameAs: string[] = [];
-  if (data.socialMedia) {
-    if (data.socialMedia.facebook)
-      sameAs.push(escapeHtml(data.socialMedia.facebook));
-    if (data.socialMedia.instagram)
-      sameAs.push(escapeHtml(data.socialMedia.instagram));
-    if (data.socialMedia.twitter)
-      sameAs.push(escapeHtml(data.socialMedia.twitter));
-    if (data.socialMedia.linkedin)
-      sameAs.push(escapeHtml(data.socialMedia.linkedin));
-    if (data.socialMedia.youtube)
-      sameAs.push(escapeHtml(data.socialMedia.youtube));
-  }
-
+  const sameAs = buildSameAsUrls(data, data.trustProfile);
   if (sameAs.length > 0) {
     schema.sameAs = sameAs;
+  }
+
+  const contactPoint = buildContactPoint(data, data.trustProfile);
+  if (contactPoint) {
+    schema.contactPoint = contactPoint;
+  }
+
+  const hasMerchantReturnPolicy = data.trustProfile?.returnPolicy
+    ? buildMerchantReturnPolicy(data.country ?? 'NG', data.trustProfile)
+    : undefined;
+
+  if (hasMerchantReturnPolicy) {
+    schema.hasMerchantReturnPolicy = hasMerchantReturnPolicy;
   }
 
   return schema;

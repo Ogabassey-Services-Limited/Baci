@@ -5,6 +5,7 @@ import type {
   ProductSpecItem,
   ProductSpecSection,
 } from '../../types';
+import { buildOgabasseyProductSpecData } from '../../product-spec-data';
 import {
   normalizeConditionType,
   type ConditionType,
@@ -191,33 +192,7 @@ export function normalizeProductDetails(
       : [];
   })();
 
-  const detailedSpecs =
-    Array.isArray(product.specifications) && product.specifications.length > 0
-      ? product.specifications
-      : Array.isArray(product.detailedSpecs) && product.detailedSpecs.length > 0
-        ? product.detailedSpecs
-        : [
-            {
-              category: 'General',
-              items: [
-                { label: 'Brand', value: product.brand || 'Generic' },
-                { label: 'Condition', value: product.condition || 'New' },
-                {
-                  label: 'Category',
-                  value:
-                    product.categories?.name || product.category || 'General',
-                },
-              ],
-            },
-          ];
-
-  const specs =
-    product.specs && product.specs.length > 0
-      ? product.specs
-      : [
-          { label: 'Brand', value: product.brand || 'Generic' },
-          { label: 'Condition', value: product.condition || 'New' },
-        ];
+  const { detailedSpecs, specs } = buildOgabasseyProductSpecData(product);
 
   return {
     ...product,

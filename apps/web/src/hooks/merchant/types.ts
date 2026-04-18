@@ -1,6 +1,8 @@
+import type { RegisteredAddress } from '@baci/shared';
 import type { ReactNode } from 'react';
 import type { CategoryNavItem } from '@/lib/cached-categories';
 import type { HeroSlide } from '@/lib/cached-data';
+import type { MerchantTrustProfileDraft } from '../../../../../packages/shared/src/contracts/merchant-trust-profile';
 
 export interface MerchantData {
   id: string;
@@ -50,6 +52,10 @@ export interface MerchantData {
   support_phone?: string;
   business_address?: string;
   rider_phone_number?: string;
+  legal_entity_name?: string | null;
+  registered_address?: RegisteredAddress | null;
+  tax_identification_number?: string | null;
+  trust_profile?: MerchantTrustProfileDraft | null;
   // Store publish status
   is_published?: boolean;
   published_at?: string;

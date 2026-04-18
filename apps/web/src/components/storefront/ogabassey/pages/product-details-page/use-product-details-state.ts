@@ -6,7 +6,7 @@ import {
   resolveDefaultVariantSelection,
   resolveVariantSelection,
 } from '../../../../../../../../packages/shared/src/lib/product-default-variant';
-import { useCart } from '@/hooks/use-cart';
+import { useCart } from '@/hooks/cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
 import { asRoute } from '@/lib/routes';

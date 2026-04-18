@@ -1,3 +1,4 @@
+import type { RegisteredAddress } from '@baci/shared';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { cacheLife, cacheTag } from 'next/cache';
 import { cache } from 'react';
@@ -12,6 +13,7 @@ import {
   isDomainIdentifier,
   isValidMerchantIdentifier,
 } from '@/lib/validation';
+import type { MerchantTrustProfileDraft } from '../../../../packages/shared/src/contracts/merchant-trust-profile';
 
 /**
  * Create a Supabase client for cached queries.
@@ -152,6 +154,8 @@ export interface CachedMerchant {
   logo_url: string;
   phone: string;
   email: string;
+  support_email?: string | null;
+  support_phone?: string | null;
   social_media?: {
     twitter?: string;
     facebook?: string;
@@ -170,6 +174,10 @@ export interface CachedMerchant {
   };
   slug: string;
   business_address: string;
+  legal_entity_name?: string | null;
+  registered_address?: RegisteredAddress | null;
+  tax_identification_number?: string | null;
+  trust_profile?: MerchantTrustProfileDraft | null;
   payout_currency: string;
   is_published: boolean;
   template_id: string;
@@ -232,10 +240,16 @@ export async function getCachedMerchant(
         logo_url,
         phone,
         email,
+        support_email,
+        support_phone,
         social_media,
         brand_colors,
         slug,
         business_address,
+        legal_entity_name,
+        registered_address,
+        tax_identification_number,
+        trust_profile,
         payout_currency,
         is_published,
         template_id,
@@ -297,7 +311,13 @@ export async function getCachedMerchant(
     if (!data.is_published) {
       data.email = ''; // Redacted
       data.phone = ''; // Redacted
+      data.support_email = ''; // Redacted
+      data.support_phone = ''; // Redacted
       data.business_address = ''; // Redacted
+      data.legal_entity_name = null; // Redacted
+      data.registered_address = null; // Redacted
+      data.tax_identification_number = null; // Redacted
+      data.trust_profile = null; // Redacted
     }
 
     const { data: primaryDomain } = await supabase
@@ -389,10 +409,16 @@ export async function getCachedMerchantByDomain(
         logo_url,
         phone,
         email,
+        support_email,
+        support_phone,
         social_media,
         brand_colors,
         slug,
         business_address,
+        legal_entity_name,
+        registered_address,
+        tax_identification_number,
+        trust_profile,
         payout_currency,
         is_published,
         template_id,
@@ -449,7 +475,13 @@ export async function getCachedMerchantByDomain(
   if (!data.is_published) {
     data.email = ''; // Redacted
     data.phone = ''; // Redacted
+    data.support_email = ''; // Redacted
+    data.support_phone = ''; // Redacted
     data.business_address = ''; // Redacted
+    data.legal_entity_name = null; // Redacted
+    data.registered_address = null; // Redacted
+    data.tax_identification_number = null; // Redacted
+    data.trust_profile = null; // Redacted
   }
 
   // Return with the custom_domain set
@@ -1217,7 +1249,7 @@ export async function getCachedCategoryPageData(
     let query = supabase
       .from('products')
       .select(
-        'id, name, slug, description, price, compare_at_price, status, stock, stock_quantity, manage_stock, low_stock_threshold, condition, brand, category, color, images, image_hint, gtin, mpn, created_at, updated_at'
+        'id, name, slug, description, price, compare_at_price, status, stock, stock_quantity, manage_stock, low_stock_threshold, condition, brand, category, color, images, image_hint, gtin, mpn, product_key_specs, created_at, updated_at'
       )
       .eq('merchant_id', merchantId)
       .eq('status', 'active');
@@ -1338,6 +1370,7 @@ export async function getCachedCategoryPageData(
           brand,
           condition,
           stock,
+          product_key_specs,
           product_categories!inner(category_id, categories(name, slug))
         `)
       .eq('merchant_id', merchantId)
@@ -1366,6 +1399,7 @@ export async function getCachedCategoryPageData(
           brand,
           condition,
           stock,
+          product_key_specs,
           product_categories(categories(name, slug))
         `)
       .eq('merchant_id', merchantId)
@@ -1786,6 +1820,7 @@ export async function getCachedStorefrontHomeProducts(merchantId: string) {
   'use cache: remote';
   cacheLife('products');
   cacheTag('products', `products-${merchantId}`);
+  const STOREFRONT_HOME_PRODUCT_LIMIT = 50;
 
   const supabase = getPublicSupabaseClient();
   const { data, error } = await supabase
@@ -1800,7 +1835,7 @@ export async function getCachedStorefrontHomeProducts(merchantId: string) {
     .eq('merchant_id', merchantId)
     .eq('status', 'active')
     .order('price', { ascending: false })
-    .limit(50);
+    .limit(STOREFRONT_HOME_PRODUCT_LIMIT);
 
   if (error) {
     console.error('Failed to load storefront home products', {
