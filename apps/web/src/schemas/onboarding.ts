@@ -209,6 +209,22 @@ const createRequiredLogoUrl = (message: string) =>
       })
   );
 
+const createWebOnboardingSchema = (options?: {
+  allowConfirmPasswordPrefix?: boolean;
+}) =>
+  step1BaseSchema
+    .merge(step2BaseSchema)
+    .merge(step3BaseSchema)
+    .extend({
+      logoUrl: createRequiredLogoUrl(
+        'Logo is required for web setup. Please upload or generate one.'
+      ),
+    })
+    .superRefine((data, ctx) => {
+      refineStep1Other(data, ctx);
+      refineStep3Password(data, ctx, options);
+    });
+
 /**
  * --- PLATFORM SPECIFIC SCHEMAS (2026 Best Practice: Composition) ---
  */
@@ -217,18 +233,7 @@ const createRequiredLogoUrl = (message: string) =>
  * Web Onboarding Schema: STRICT
  * Requires logoUrl for full branding setup.
  */
-export const onboardingSchema = step1BaseSchema
-  .merge(step2BaseSchema)
-  .merge(step3BaseSchema)
-  .extend({
-    logoUrl: createRequiredLogoUrl(
-      'Logo is required for web setup. Please upload or generate one.'
-    ),
-  })
-  .superRefine((data, ctx) => {
-    refineStep1Other(data, ctx);
-    refineStep3Password(data, ctx);
-  });
+export const onboardingSchema = createWebOnboardingSchema();
 
 /**
  * Web Onboarding Form Schema: RELAXED CONFIRM PASSWORD
@@ -236,18 +241,9 @@ export const onboardingSchema = step1BaseSchema
  * typing the confirm-password field. Server-side submit validation still uses
  * onboardingSchema, which requires an exact match.
  */
-export const onboardingFormSchema = step1BaseSchema
-  .merge(step2BaseSchema)
-  .merge(step3BaseSchema)
-  .extend({
-    logoUrl: createRequiredLogoUrl(
-      'Logo is required for web setup. Please upload or generate one.'
-    ),
-  })
-  .superRefine((data, ctx) => {
-    refineStep1Other(data, ctx);
-    refineStep3Password(data, ctx, { allowConfirmPasswordPrefix: true });
-  });
+export const onboardingFormSchema = createWebOnboardingSchema({
+  allowConfirmPasswordPrefix: true,
+});
 
 /**
  * Mobile Onboarding Schema: FLEXIBLE
