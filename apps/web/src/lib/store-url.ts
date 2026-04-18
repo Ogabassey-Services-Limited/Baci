@@ -78,9 +78,13 @@ export function buildRequestScopedStoreUrl(
   merchant: Pick<CachedMerchant, 'slug' | 'custom_domain'>,
   headersList: Headers
 ): string {
-  const customDomain = normalizeStoreHost(headersList.get('x-custom-domain'));
-  if (customDomain) {
-    return `https://${customDomain}`;
+  const configuredCustomDomain = normalizeCustomDomain(merchant.custom_domain);
+  const customDomainHeader = normalizeCustomDomain(
+    headersList.get('x-custom-domain')
+  );
+
+  if (configuredCustomDomain && customDomainHeader === configuredCustomDomain) {
+    return `https://${configuredCustomDomain}`;
   }
 
   const host = normalizeStoreHost(

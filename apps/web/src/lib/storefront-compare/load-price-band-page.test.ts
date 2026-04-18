@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadPriceBandPage } from './load-price-band-page';
 
-const mockGetCachedMerchant = vi.fn();
+const mockGetMerchantByIdentifier = vi.fn();
 const mockGetCachedCategoryPageData = vi.fn();
 const mockGetCachedFeatureSettings = vi.fn();
 
 vi.mock('@/lib/cached-data', () => ({
-  getCachedMerchant: (...args: unknown[]) => mockGetCachedMerchant(...args),
+  getMerchantByIdentifier: (...args: unknown[]) =>
+    mockGetMerchantByIdentifier(...args),
   getCachedCategoryPageData: (...args: unknown[]) =>
     mockGetCachedCategoryPageData(...args),
   getCachedFeatureSettings: (...args: unknown[]) =>
@@ -95,10 +96,10 @@ const categoryPageData = {
 describe('loadPriceBandPage', () => {
   beforeEach(() => {
     vi.stubEnv('NODE_ENV', 'development');
-    mockGetCachedMerchant.mockReset();
+    mockGetMerchantByIdentifier.mockReset();
     mockGetCachedCategoryPageData.mockReset();
     mockGetCachedFeatureSettings.mockReset();
-    mockGetCachedMerchant.mockResolvedValue(merchant);
+    mockGetMerchantByIdentifier.mockResolvedValue(merchant);
     mockGetCachedCategoryPageData.mockResolvedValue(categoryPageData);
     mockGetCachedFeatureSettings.mockResolvedValue({ blog_enabled: false });
   });
@@ -145,5 +146,34 @@ describe('loadPriceBandPage', () => {
     });
 
     expect(result?.isIndexable).toBe(false);
+  });
+
+  it('keeps the merchant slug path prefix for path-routed storefronts in production', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+
+    const result = await loadPriceBandPage({
+      merchantSlug: 'ogabassey',
+      categorySlug: 'smartphones',
+      priceBandSlug: 'under-1m',
+    });
+
+    expect(result?.pathPrefix).toBe('/ogabassey');
+  });
+
+  it('drops the path prefix for custom-domain storefront identifiers', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    mockGetMerchantByIdentifier.mockResolvedValueOnce({
+      ...merchant,
+      custom_domain: 'ogabassey.com',
+    });
+
+    const result = await loadPriceBandPage({
+      merchantSlug: 'ogabassey.com',
+      categorySlug: 'smartphones',
+      priceBandSlug: 'under-1m',
+    });
+
+    expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
+    expect(result?.pathPrefix).toBe('');
   });
 });

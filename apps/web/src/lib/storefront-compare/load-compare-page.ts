@@ -1,8 +1,10 @@
 import { buildOgabasseyProductSpecData } from '@/components/storefront/ogabassey/product-spec-data';
+import { CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters';
 import {
+  type CachedMerchant,
   getCachedCategoryPageData,
-  getCachedMerchant,
   getCachedProductWithDetails,
+  getMerchantByIdentifier,
 } from '@/lib/cached-data';
 import { normalizeProduct, type RawDbProduct } from '@/lib/normalize-product';
 import { generateSlug } from '@/lib/seo-utils';
@@ -53,7 +55,7 @@ interface ProductComparePageModel {
   faqItems: CompareFAQItem[];
   breadcrumbItems: CompareBreadcrumbItem[];
   guideLinks: InformationalGuideLink[];
-  merchant: Awaited<ReturnType<typeof getCachedMerchant>>;
+  merchant: CachedMerchant;
   isIndexable: boolean;
   leftProduct: Awaited<ReturnType<typeof getCachedProductWithDetails>>;
   rightProduct: Awaited<ReturnType<typeof getCachedProductWithDetails>>;
@@ -72,7 +74,7 @@ interface BrandComparePageModel {
   faqItems: CompareFAQItem[];
   breadcrumbItems: CompareBreadcrumbItem[];
   guideLinks: InformationalGuideLink[];
-  merchant: Awaited<ReturnType<typeof getCachedMerchant>>;
+  merchant: CachedMerchant;
   isIndexable: boolean;
   leftBrand: string;
   rightBrand: string;
@@ -209,7 +211,7 @@ export async function loadComparePage(args: {
   categorySlug: string;
   comparisonSlug: string;
 }): Promise<ProductComparePageModel | BrandComparePageModel | null> {
-  const merchant = await getCachedMerchant(args.merchantSlug);
+  const merchant = await getMerchantByIdentifier(args.merchantSlug);
 
   if (!merchant) {
     return null;
@@ -351,21 +353,21 @@ export async function loadComparePage(args: {
         },
       ],
       breadcrumbItems,
-      guideLinks: buildCommercialGuideLinks({
-        storeUrl,
-        posts: guidePosts,
-        context: {
-          pageKind: 'compare',
-          categorySlug: args.categorySlug as
-            | 'smartphones'
-            | 'laptops'
-            | 'smart-tvs',
-          productSlugs: [
-            leftDetails.slug || parsed.leftKey,
-            rightDetails.slug || parsed.rightKey,
-          ],
-        },
-      }),
+      guideLinks:
+        args.categorySlug in CONTENT_CLUSTER_SUPPORT
+          ? buildCommercialGuideLinks({
+              storeUrl,
+              posts: guidePosts,
+              context: {
+                pageKind: 'compare',
+                categorySlug: args.categorySlug,
+                productSlugs: [
+                  leftDetails.slug || parsed.leftKey,
+                  rightDetails.slug || parsed.rightKey,
+                ],
+              },
+            })
+          : [],
       merchant,
       isIndexable: candidate.isIndexable,
       leftProduct: leftDetails,
@@ -448,18 +450,18 @@ export async function loadComparePage(args: {
       },
     ],
     breadcrumbItems,
-    guideLinks: buildCommercialGuideLinks({
-      storeUrl,
-      posts: guidePosts,
-      context: {
-        pageKind: 'compare',
-        categorySlug: args.categorySlug as
-          | 'smartphones'
-          | 'laptops'
-          | 'smart-tvs',
-        brands: [brandCandidate.leftBrand, brandCandidate.rightBrand],
-      },
-    }),
+    guideLinks:
+      args.categorySlug in CONTENT_CLUSTER_SUPPORT
+        ? buildCommercialGuideLinks({
+            storeUrl,
+            posts: guidePosts,
+            context: {
+              pageKind: 'compare',
+              categorySlug: args.categorySlug,
+              brands: [brandCandidate.leftBrand, brandCandidate.rightBrand],
+            },
+          })
+        : [],
     merchant,
     isIndexable: brandCandidate.isIndexable,
     leftBrand: brandCandidate.leftBrand,

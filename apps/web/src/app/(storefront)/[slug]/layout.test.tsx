@@ -156,4 +156,31 @@ describe('storefront layout metadata', () => {
       'https://test-store.usebaci.com/'
     );
   });
+
+  it('reads google verification from published_config when feature settings omit it', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue({
+      business_name: 'Test Store',
+      site_title: 'Test Store',
+      site_description: 'Store description',
+      site_tagline: 'Store tagline',
+      slug: 'test-store',
+      custom_domain: null,
+      logo_url: null,
+      favicon_svg_url: null,
+      favicon_png_32_url: null,
+      favicon_apple_touch_url: null,
+      feature_settings: {},
+      published_config: {
+        google_site_verification: 'google-verification-token',
+      },
+    } as unknown as Awaited<ReturnType<typeof getRequestScopedMerchant>>);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store' }),
+    });
+
+    expect(metadata.verification).toEqual({
+      google: 'google-verification-token',
+    });
+  });
 });

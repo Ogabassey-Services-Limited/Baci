@@ -129,6 +129,20 @@ describe('buildRequestScopedStoreUrl', () => {
     expect(url).toBe('https://ogabassey.com');
   });
 
+  it('ignores mismatched custom domain headers', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+
+    const url = buildRequestScopedStoreUrl(
+      { slug: 'ogabassey', custom_domain: 'ogabassey.com' },
+      new Headers([
+        ['host', 'stale-host.example'],
+        ['x-custom-domain', 'attacker.example'],
+      ])
+    );
+
+    expect(url).toBe('https://ogabassey.com');
+  });
+
   it('uses the current subdomain host for non-local requests', () => {
     vi.stubEnv('NODE_ENV', 'production');
 

@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadComparePage } from './load-compare-page';
 
-const mockGetCachedMerchant = vi.fn();
+const mockGetMerchantByIdentifier = vi.fn();
 const mockGetCachedCategoryPageData = vi.fn();
 const mockGetCachedProductWithDetails = vi.fn();
 const mockGetCachedFeatureSettings = vi.fn();
 
 vi.mock('@/lib/cached-data', () => ({
-  getCachedMerchant: (...args: unknown[]) => mockGetCachedMerchant(...args),
+  getMerchantByIdentifier: (...args: unknown[]) =>
+    mockGetMerchantByIdentifier(...args),
   getCachedCategoryPageData: (...args: unknown[]) =>
     mockGetCachedCategoryPageData(...args),
   getCachedProductWithDetails: (...args: unknown[]) =>
@@ -105,11 +106,11 @@ const categoryPageData = {
 describe('loadComparePage', () => {
   beforeEach(() => {
     vi.stubEnv('NODE_ENV', 'development');
-    mockGetCachedMerchant.mockReset();
+    mockGetMerchantByIdentifier.mockReset();
     mockGetCachedCategoryPageData.mockReset();
     mockGetCachedProductWithDetails.mockReset();
     mockGetCachedFeatureSettings.mockReset();
-    mockGetCachedMerchant.mockResolvedValue(merchant);
+    mockGetMerchantByIdentifier.mockResolvedValue(merchant);
     mockGetCachedCategoryPageData.mockResolvedValue(categoryPageData);
     mockGetCachedFeatureSettings.mockResolvedValue({ blog_enabled: false });
   });
@@ -210,5 +211,26 @@ describe('loadComparePage', () => {
     expect(result?.canonicalUrl).toBe(
       'http://localhost:3000/ogabassey/smartphones/compare/iphone-17-pro-max-vs-samsung-galaxy-z-trifold'
     );
+  });
+
+  it('resolves compare pages from custom-domain storefront identifiers', async () => {
+    mockGetMerchantByIdentifier.mockResolvedValueOnce({
+      ...merchant,
+      custom_domain: 'ogabassey.com',
+    });
+
+    const result = await loadComparePage({
+      merchantSlug: 'ogabassey.com',
+      categorySlug: 'smartphones',
+      comparisonSlug: 'apple-vs-samsung',
+    });
+
+    expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
+    expect(mockGetCachedCategoryPageData).toHaveBeenCalledWith(
+      merchant.id,
+      'smartphones',
+      'ogabassey.com'
+    );
+    expect(result?.kind).toBe('brand');
   });
 });

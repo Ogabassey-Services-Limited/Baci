@@ -68,9 +68,21 @@ describe('storefront sitemap root', () => {
 
     expect(result).toEqual([
       { url: 'https://ogabassey.com' },
-      { url: 'https://ogabassey.com/returns' },
-      { url: 'https://ogabassey.com/shipping' },
-      { url: 'https://ogabassey.com/warranty' },
+      expect.objectContaining({
+        url: 'https://ogabassey.com/returns',
+        changeFrequency: 'monthly',
+        priority: 0.5,
+      }),
+      expect.objectContaining({
+        url: 'https://ogabassey.com/shipping',
+        changeFrequency: 'monthly',
+        priority: 0.5,
+      }),
+      expect.objectContaining({
+        url: 'https://ogabassey.com/warranty',
+        changeFrequency: 'monthly',
+        priority: 0.5,
+      }),
     ]);
   });
 
@@ -127,7 +139,11 @@ describe('storefront sitemap root', () => {
 
     expect(result).toEqual([
       { url: 'https://ogabassey.com' },
-      { url: 'https://ogabassey.com/warranty' },
+      expect.objectContaining({
+        url: 'https://ogabassey.com/warranty',
+        changeFrequency: 'monthly',
+        priority: 0.5,
+      }),
     ]);
   });
 

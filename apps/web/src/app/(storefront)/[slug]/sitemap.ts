@@ -34,5 +34,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       : null,
   ].filter((url): url is string => typeof url === 'string' && url.length > 0);
 
-  return [...rootEntries, ...trustUrls.map((url) => ({ url }))];
+  return [
+    ...rootEntries,
+    ...trustUrls.map((url) => ({
+      url,
+      lastModified: new Date(),
+      changeFrequency: 'monthly' as const,
+      priority: 0.5,
+    })),
+  ];
 }

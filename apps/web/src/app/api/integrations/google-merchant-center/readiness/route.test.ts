@@ -122,4 +122,31 @@ describe('GET /api/integrations/google-merchant-center/readiness', () => {
       },
     });
   });
+
+  it('falls back to the root-domain storefront URL when no custom domain exists', async () => {
+    mockGetMerchantForUser.mockResolvedValueOnce({
+      user: {
+        id: 'user-1',
+      },
+      merchant: {
+        id: 'merchant-1',
+        slug: 'ogabassey',
+        business_name: 'Ogabassey',
+        custom_domain: null,
+      },
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET();
+
+    expect(response.status).toBe(200);
+    expect(mockBuildMerchantTrustProfile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'merchant-1',
+        slug: 'ogabassey',
+        custom_domain: null,
+      }),
+      'https://ogabassey.usebaci.com'
+    );
+  });
 });

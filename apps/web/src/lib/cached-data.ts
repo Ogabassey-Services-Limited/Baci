@@ -201,6 +201,7 @@ export interface CachedMerchant {
     | 'pending';
   vat_rate?: number;
   feature_settings?: MerchantFeatureSettings;
+  published_config?: Record<string, unknown> | null;
   // Legacy content pages (JSONB — used by contact, terms, privacy, faq, about pages)
   pages?: {
     contact?: string;
@@ -266,6 +267,7 @@ export async function getCachedMerchant(
         vat_registration_status,
         vat_rate,
         feature_settings:merchant_feature_settings(*),
+        published_config,
         pages,
         about_page,
         faq_items,
@@ -436,6 +438,7 @@ export async function getCachedMerchantByDomain(
         vat_registration_status,
         vat_rate,
         feature_settings:merchant_feature_settings(*),
+        published_config,
         pages,
         about_page,
         faq_items,

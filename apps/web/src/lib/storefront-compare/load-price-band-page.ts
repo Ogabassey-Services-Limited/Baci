@@ -1,6 +1,7 @@
+import { CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters';
 import {
   getCachedCategoryPageData,
-  getCachedMerchant,
+  getMerchantByIdentifier,
 } from '@/lib/cached-data';
 import {
   normalizeProduct,
@@ -10,6 +11,7 @@ import {
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildCommercialGuideLinks } from '@/lib/storefront-content/build-commercial-guide-links';
 import { getPublishedClusterPosts } from '@/lib/storefront-content/get-published-cluster-posts';
+import { isDomainIdentifier } from '@/lib/validation';
 import { buildPriceBandCandidate } from './compare-eligibility';
 import { getCuratedPriceBands } from './price-band-taxonomy';
 
@@ -48,12 +50,19 @@ function isWithinBand(
   return price <= ceiling && (floor ? price > floor : true);
 }
 
+function getStorefrontPathPrefix(
+  routeIdentifier: string,
+  merchantSlug: string
+) {
+  return isDomainIdentifier(routeIdentifier) ? '' : `/${merchantSlug}`;
+}
+
 export async function loadPriceBandPage(args: {
   merchantSlug: string;
   categorySlug: string;
   priceBandSlug: string;
 }) {
-  const merchant = await getCachedMerchant(args.merchantSlug);
+  const merchant = await getMerchantByIdentifier(args.merchantSlug);
 
   if (!merchant) {
     return null;
@@ -133,21 +142,20 @@ export async function loadPriceBandPage(args: {
       { name: band.label, url: canonicalUrl },
     ],
     products,
-    guideLinks: buildCommercialGuideLinks({
-      storeUrl,
-      posts: guidePosts,
-      context: {
-        pageKind: 'price-band',
-        categorySlug: args.categorySlug as
-          | 'smartphones'
-          | 'laptops'
-          | 'smart-tvs',
-        priceBandSlug: band.slug,
-      },
-    }),
+    guideLinks:
+      args.categorySlug in CONTENT_CLUSTER_SUPPORT
+        ? buildCommercialGuideLinks({
+            storeUrl,
+            posts: guidePosts,
+            context: {
+              pageKind: 'price-band',
+              categorySlug: args.categorySlug,
+              priceBandSlug: band.slug,
+            },
+          })
+        : [],
     isIndexable: bandCandidate.isIndexable,
-    pathPrefix:
-      process.env.NODE_ENV === 'development' ? `/${merchant.slug}` : '',
+    pathPrefix: getStorefrontPathPrefix(args.merchantSlug, merchant.slug),
     payoutCurrency: merchant.payout_currency || 'NGN',
   };
 }

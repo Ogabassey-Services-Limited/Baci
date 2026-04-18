@@ -6,8 +6,7 @@ import type { Product as OgabasseyProduct } from '@/components/storefront/ogabas
 import { ProductGridSkeleton } from '@/components/ui/skeletons';
 import {
   getCachedCategoryPageData,
-  getCachedMerchant,
-  getCachedMerchantByDomain,
+  getMerchantByIdentifier,
 } from '@/lib/cached-data';
 import {
   normalizeProduct,
@@ -28,7 +27,6 @@ import {
   parseStorefrontPageParam,
   STOREFRONT_PRODUCTS_PER_PAGE,
 } from '@/lib/storefront-pagination';
-import { isDomainIdentifier } from '@/lib/validation';
 
 interface PageProps {
   params: Promise<{
@@ -174,9 +172,7 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
     notFound();
   }
 
-  const merchant = isDomainIdentifier(slug)
-    ? await getCachedMerchantByDomain(slug)
-    : await getCachedMerchant(slug);
+  const merchant = await getMerchantByIdentifier(slug);
 
   if (!merchant) {
     notFound();

@@ -69,16 +69,10 @@ export async function generateMetadata({
     return { title: 'Store Not Found' };
   }
 
-  // Extract verification code from feature settings or published config
-  // Prioritize feature_settings, check published_config fallback
-  // biome-ignore lint/suspicious/noExplicitAny: Dynamic merchant config structure
-  const merchantConfig = merchant as any;
-  const featureSettings = merchantConfig.feature_settings as
-    | Record<string, unknown>
-    | undefined;
-  const publishedConfig = merchantConfig.published_config as
-    | Record<string, unknown>
-    | undefined;
+  // Extract verification code from feature settings or published config.
+  // feature_settings is normalized in cached-data; published_config is optional.
+  const featureSettings = merchant.feature_settings;
+  const publishedConfig = merchant.published_config;
 
   const rawVerification =
     featureSettings?.google_site_verification ||

@@ -275,6 +275,48 @@ describe('cached-data getMerchantByIdentifier behavior', () => {
         )
       ).toBe(true);
     });
+
+    it('selects published_config for slug lookups', async () => {
+      harness.mockMaybeSingle.mockResolvedValueOnce({
+        data: mockMerchant,
+        error: null,
+      });
+      harness.mockSingle.mockResolvedValueOnce({
+        data: null,
+        error: { code: 'PGRST116' },
+      });
+
+      await getMerchantByIdentifier('test-store');
+
+      expect(
+        harness.mockSelect.mock.calls.some(
+          ([projection]) =>
+            typeof projection === 'string' &&
+            projection.includes('published_config')
+        )
+      ).toBe(true);
+    });
+
+    it('selects published_config for domain lookups', async () => {
+      harness.mockMaybeSingle.mockResolvedValueOnce({
+        data: { merchant_id: 'merchant-123', domain: 'store.com' },
+        error: null,
+      });
+      harness.mockSingle.mockResolvedValueOnce({
+        data: mockMerchant,
+        error: null,
+      });
+
+      await getMerchantByIdentifier('store.com');
+
+      expect(
+        harness.mockSelect.mock.calls.some(
+          ([projection]) =>
+            typeof projection === 'string' &&
+            projection.includes('published_config')
+        )
+      ).toBe(true);
+    });
   });
 
   describe('edge cases and boundary conditions', () => {
