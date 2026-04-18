@@ -28,13 +28,16 @@ import PhoneInput from 'react-native-phone-number-input';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAwareModalContainer } from '@/components/ui/KeyboardAwareModalContainer';
 import SafeImage from '@/components/ui/SafeImage';
+import {
+  buildManualOrderLineItem,
+  type SelectableManualOrderProduct,
+} from '@/lib/manual-order-line-item';
 import { createManualOrderWithItems } from '@/lib/manual-order-persistence';
 import { mergeOrderItem } from '@/lib/order-items';
 import {
   getProductPickerRowSubtitle,
   getProductPickerRowTitle,
 } from '@/lib/order-product-picker';
-import type { SelectableProductPickerItem } from '@/lib/product-picker-variant-rows';
 import {
   sanitizeAddress,
   sanitizeCustomerName,
@@ -84,7 +87,8 @@ const MODAL_FLATLIST_PROPS = {
 
 // Type definitions
 interface OrderItem {
-  product_id: string; // 'custom' for manual items
+  id: string;
+  product_id: string | null;
   name: string;
   quantity: number;
   price: number;
@@ -92,6 +96,8 @@ interface OrderItem {
   image_url?: string;
   details?: string;
   is_custom?: boolean;
+  variant_id: string | null;
+  variant_name: string | null;
 }
 
 interface CustomerInfo {
@@ -107,17 +113,7 @@ type SelectableCustomer = Pick<
   'id' | 'first_name' | 'last_name' | 'email' | 'phone' | 'address'
 >;
 
-type SelectableOrderProduct = Pick<
-  SelectableProductPickerItem,
-  | 'condition'
-  | 'has_variants'
-  | 'id'
-  | 'images'
-  | 'name'
-  | 'price'
-  | 'sku'
-  | 'variant_attributes'
->;
+type SelectableOrderProduct = SelectableManualOrderProduct;
 
 /**
  * Formats a price string with thousand separators while preserving decimal input
@@ -341,14 +337,14 @@ export default function NewOrderScreen() {
   // Handlers (Same logic, just keeping cleanly separated)
   const handleAddProduct = (product: SelectableOrderProduct) => {
     setOrderItems((prev) =>
-      mergeOrderItem(prev, {
-        product_id: product.id,
-        name: product.name,
-        quantity: 1,
-        price: product.price,
-        condition: product.condition ?? undefined,
-        image_url: product.images?.[0] ?? selectedParentProduct?.images?.[0],
-      })
+      mergeOrderItem(
+        prev,
+        buildManualOrderLineItem({
+          fallbackImageUrl: selectedParentProduct?.images?.[0],
+          parentProductName: selectedParentProduct?.name,
+          product,
+        })
+      )
     );
     closeProductModal();
   };
@@ -369,11 +365,14 @@ export default function NewOrderScreen() {
 
     setOrderItems((prev) =>
       mergeOrderItem(prev, {
-        product_id: `custom-${Crypto.randomUUID()}`,
+        id: `custom-${Crypto.randomUUID()}`,
+        product_id: null,
         name: normalizedName,
         quantity: 1,
         price: Number.parseFloat(customItem.price) || 0,
         is_custom: true,
+        variant_id: null,
+        variant_name: null,
       })
     );
     setCustomItem({ name: '', price: '' });
@@ -384,7 +383,7 @@ export default function NewOrderScreen() {
     setOrderItems((prev) =>
       prev
         .map((item) => {
-          if (item.product_id !== id) return item;
+          if (item.id !== id) return item;
           return { ...item, quantity: Math.max(0, item.quantity + delta) };
         })
         .filter((item) => item.quantity > 0)
@@ -592,6 +591,8 @@ export default function NewOrderScreen() {
               item_description: item.details
                 ? sanitizeText(item.details, 1000)
                 : null,
+              variant_id: item.is_custom ? null : (item.variant_id ?? null),
+              variant_name: item.is_custom ? null : (item.variant_name ?? null),
             })),
         }
       );
@@ -1076,7 +1077,7 @@ export default function NewOrderScreen() {
               ) : (
                 orderItems.map((item) => (
                   <View
-                    key={item.product_id || item.name}
+                    key={item.id}
                     style={[
                       styles.itemCard,
                       {
@@ -1169,9 +1170,7 @@ export default function NewOrderScreen() {
 
                     <View style={styles.itemActions}>
                       <Pressable
-                        onPress={() =>
-                          handleQuantityChange(item.product_id, -1)
-                        }
+                        onPress={() => handleQuantityChange(item.id, -1)}
                         style={[
                           styles.qtyBtn,
                           { backgroundColor: colors.backgroundLight },
@@ -1194,7 +1193,7 @@ export default function NewOrderScreen() {
                         {item.quantity}
                       </Text>
                       <Pressable
-                        onPress={() => handleQuantityChange(item.product_id, 1)}
+                        onPress={() => handleQuantityChange(item.id, 1)}
                         style={[
                           styles.qtyBtn,
                           { backgroundColor: colors.backgroundLight },
@@ -1563,8 +1562,14 @@ export default function NewOrderScreen() {
             onPress={handleSubmit}
             disabled={isSubmitting || orderItems.length === 0}
           >
-            <Text style={[styles.payBtnText, { color: colors.textOnPrimary }]}>Save Order</Text>
-            <Ionicons name="arrow-forward" size={20} color={colors.textOnPrimary} />
+            <Text style={[styles.payBtnText, { color: colors.textOnPrimary }]}>
+              Save Order
+            </Text>
+            <Ionicons
+              name="arrow-forward"
+              size={20}
+              color={colors.textOnPrimary}
+            />
           </Pressable>
         </View>
       </View>
@@ -1930,7 +1935,9 @@ export default function NewOrderScreen() {
                     { backgroundColor: colors.success, borderRadius: 8 },
                   ]}
                 >
-                  <Text style={{ color: colors.textOnPrimary, fontWeight: 'bold' }}>
+                  <Text
+                    style={{ color: colors.textOnPrimary, fontWeight: 'bold' }}
+                  >
                     Add to Cart
                   </Text>
                 </Pressable>
@@ -2263,7 +2270,14 @@ export default function NewOrderScreen() {
                   {createCustomerMutation.isPending ? (
                     <ActivityIndicator color={colors.textOnPrimary} />
                   ) : (
-                    <Text style={[styles.payBtnText, { color: colors.textOnPrimary }]}>Save Customer</Text>
+                    <Text
+                      style={[
+                        styles.payBtnText,
+                        { color: colors.textOnPrimary },
+                      ]}
+                    >
+                      Save Customer
+                    </Text>
                   )}
                 </Pressable>
               </ScrollView>
@@ -2481,7 +2495,11 @@ export default function NewOrderScreen() {
                 }}
               >
                 <Text
-                  style={{ color: colors.textOnPrimary, fontSize: 17, fontWeight: '700' }}
+                  style={{
+                    color: colors.textOnPrimary,
+                    fontSize: 17,
+                    fontWeight: '700',
+                  }}
                 >
                   View Order Details
                 </Text>
@@ -2775,7 +2793,11 @@ export default function NewOrderScreen() {
                   });
                 }}
               >
-                <Text style={{ color: colors.textOnPrimary, fontWeight: '700' }}>Apply</Text>
+                <Text
+                  style={{ color: colors.textOnPrimary, fontWeight: '700' }}
+                >
+                  Apply
+                </Text>
               </Pressable>
             </View>
           </Pressable>
@@ -2967,9 +2989,7 @@ export default function NewOrderScreen() {
                 onPress={() => {
                   if (editingItem) {
                     setOrderItems((prev) =>
-                      prev.filter(
-                        (i) => i.product_id !== editingItem.product_id
-                      )
+                      prev.filter((item) => item.id !== editingItem.id)
                     );
                     setShowEditItemModal(false);
                   }
@@ -3001,7 +3021,7 @@ export default function NewOrderScreen() {
                     const finalQty = Number.parseInt(editQtyValue, 10) || 1;
                     setOrderItems((prev) =>
                       prev.map((item) =>
-                        item.product_id === editingItem.product_id
+                        item.id === editingItem.id
                           ? {
                               ...item,
                               price: finalPrice,
@@ -3016,7 +3036,11 @@ export default function NewOrderScreen() {
                 }}
               >
                 <Text
-                  style={{ color: colors.textOnPrimary, fontSize: 16, fontWeight: '800' }}
+                  style={{
+                    color: colors.textOnPrimary,
+                    fontSize: 16,
+                    fontWeight: '800',
+                  }}
                 >
                   Save
                 </Text>

@@ -15,10 +15,10 @@ import { prioritizeSmartphoneProducts } from '@baci/shared';
 import { useCart } from '@/hooks/cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import type { Product as StorefrontProduct } from '@/lib/products';
+import { storefrontProductFilters } from '@/lib/storefront-product-filters';
 import { products as mockProducts } from '../data/products';
 import { useV2Saved } from '../providers/v2-saved-context';
 import type { Product } from '../types';
-import { mapStorefrontProductsToOgabasseyProducts } from '../home-product-feed';
 import { AdUnit } from './AdUnit';
 import { useDeferredActivation } from './deferred-shell-feature';
 import type { Particle } from './FloatingParticles';
@@ -39,6 +39,62 @@ const DeferredFloatingParticles = dynamic(
   () => import('./FloatingParticles').then((mod) => mod.FloatingParticles),
   { loading: () => null }
 );
+
+function toTemplateProducts(storefrontProducts: StorefrontProduct[]): Product[] {
+  return storefrontProducts.map((product) => {
+    const formattedPrice = new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: 'NGN',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(product.price);
+
+    const images = (product.images ?? []).flatMap((image) => {
+      if (typeof image === 'string') {
+        return image ? [image] : [];
+      }
+
+      if (image && typeof image === 'object' && 'url' in image) {
+        return typeof image.url === 'string' && image.url ? [image.url] : [];
+      }
+
+      return [];
+    });
+
+    const condition = storefrontProductFilters.getStorefrontConditionBadgeLabel({
+      available_conditions: product.available_conditions,
+      condition: product.condition,
+      has_condition_offers: product.has_condition_offers,
+    });
+
+    const rawCategories = product.categories;
+    const categoryObj = Array.isArray(rawCategories)
+      ? rawCategories[0]
+      : rawCategories;
+
+    return {
+      id: product.id,
+      slug: product.slug,
+      name: product.name,
+      price: formattedPrice,
+      rawPrice: product.price,
+      image: product.image || images[0] || '',
+      description: product.description,
+      rating: product.rating ?? 4.5,
+      category: categoryObj?.name || product.category || 'General',
+      category_id: product.category_id,
+      categories: categoryObj,
+      categorySlug: categoryObj?.slug || product.category_slug,
+      condition,
+      available_conditions: product.available_conditions,
+      has_condition_offers: product.has_condition_offers,
+      brand: product.brand,
+      colors: product.colors,
+      storage: product.storage_options?.[0],
+      images,
+    };
+  });
+}
 
 interface EngineProductGridProps {
   storeSlug?: string;
@@ -83,7 +139,7 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
     if (useMockData) return mockProducts;
     if (templateProducts) return templateProducts;
     if (externalProducts) {
-      return mapStorefrontProductsToOgabasseyProducts(externalProducts);
+      return toTemplateProducts(externalProducts);
     }
     return [];
   })();
@@ -156,7 +212,12 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
       }
 
       // Condition filter
-      if (selectedCondition !== 'All' && p.condition !== selectedCondition) {
+      if (
+        !storefrontProductFilters.matchesStorefrontConditionFilter(
+          p,
+          selectedCondition
+        )
+      ) {
         continue;
       }
 

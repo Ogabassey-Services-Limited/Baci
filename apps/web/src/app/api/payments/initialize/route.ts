@@ -878,6 +878,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const trackingToken =
+      typeof orderSnapshot.tracking_token === 'string'
+        ? orderSnapshot.tracking_token
+        : undefined;
+
     // Fetch gateway settings
     const { data: featureSettings } = await supabase
       .from('merchant_feature_settings')
@@ -994,17 +999,25 @@ export async function POST(request: NextRequest) {
           }
           break;
         case 'credit_direct':
-        case 'credpal':
+        case 'credpal': {
           // For client-side BNPL gateways, we redirect to the specialized launcher page
           // This page handles the client-side SDK loading and prevents checkout crashes
+          const bnplQuery = new URLSearchParams({
+            orderId: data.order_id,
+            gateway,
+          });
+          if (trackingToken) {
+            bnplQuery.set('trackingToken', trackingToken);
+          }
           paymentResult = {
-            authorization_url: `${protocol}://${merchant.slug}.${rootDomain}/checkout/bnpl?orderId=${data.order_id}&gateway=${gateway}`,
-            checkout_url: `${protocol}://${merchant.slug}.${rootDomain}/checkout/bnpl?orderId=${data.order_id}&gateway=${gateway}`,
+            authorization_url: `${protocol}://${merchant.slug}.${rootDomain}/checkout/bnpl?${bnplQuery.toString()}`,
+            checkout_url: `${protocol}://${merchant.slug}.${rootDomain}/checkout/bnpl?${bnplQuery.toString()}`,
             reference, // Use the generated reference
             platformFee: 0, // Fees calculated client-side or by gateway
             merchantAmount: data.amount, // Full amount (fees handled separately)
           };
           break;
+        }
 
         default:
           paymentResult = await initializeKorapay(

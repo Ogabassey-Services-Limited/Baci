@@ -12,9 +12,8 @@ export type ProductCondition =
 
 export type ProductConditionDisplay =
   | 'New'
-  | 'UK Used'
-  | 'Refurbished'
   | 'Open Box'
+  | 'Multiple Conditions'
   | 'Used'
   | 'New & Used';
 
@@ -27,14 +26,21 @@ const VARIANT_AXIS_LABEL_MAP: Record<string, string> = {
   storage: 'Storage',
 };
 
+function normalizeProductLabelValue(value: string | null | undefined) {
+  if (!value) {
+    return '';
+  }
+
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+}
+
 export function formatVariantAxisLabel(
   axis: string | null | undefined
 ): string | undefined {
-  if (!axis) {
-    return undefined;
-  }
-
-  const normalized = axis.trim().toLowerCase().replace(/[\s-]+/g, '_');
+  const normalized = normalizeProductLabelValue(axis);
   if (!normalized) {
     return undefined;
   }
@@ -52,11 +58,11 @@ export function formatVariantAxisLabel(
 export function formatProductConditionDisplay(
   condition: ProductCondition | string | null | undefined
 ): ProductConditionDisplay | undefined {
-  if (!condition) {
+  const normalized = normalizeProductLabelValue(condition);
+
+  if (!normalized) {
     return undefined;
   }
-
-  const normalized = condition.trim().toLowerCase().replace(/[\s-]+/g, '_');
 
   switch (normalized) {
     case 'new':
@@ -64,18 +70,23 @@ export function formatProductConditionDisplay(
     case 'used':
       return 'Used';
     case 'uk_used':
-      return 'UK Used';
+      return 'Used';
     case 'open_box':
       return 'Open Box';
     case 'refurbished':
-      return 'Refurbished';
+      return 'Open Box';
+    case 'multiple_conditions':
+      return 'Multiple Conditions';
     case 'new_and_used':
     case 'new_&_used':
       return 'New & Used';
     default:
-      return condition
+      return normalized
         .trim()
-        .replace(/\b\w/g, (char) => char.toUpperCase()) as ProductConditionDisplay;
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (char) =>
+          char.toUpperCase()
+        ) as ProductConditionDisplay;
   }
 }
 
@@ -109,6 +120,8 @@ export interface Product {
   manage_stock?: boolean;
   stock_quantity?: number;
   has_variants?: boolean;
+  variant_model?: 'legacy' | 'sku_matrix';
+  available_conditions?: ProductCondition[];
   colors?: (string | { name: string; value: string })[];
   color_images?: Record<string, string[]>;
   variant_attributes?: Record<string, string[]>;
@@ -122,6 +135,7 @@ export interface Product {
 export interface ProductVariant {
   id: string;
   name: string;
+  condition?: ProductCondition;
   sku?: string;
   price: number;
   compare_at_price?: number;

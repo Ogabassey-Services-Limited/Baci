@@ -1,5 +1,9 @@
 export type { ConditionType } from './product-condition';
-export { formatConditionLabel, normalizeConditionType } from './product-condition';
+export {
+  formatConditionLabel,
+  isConditionType,
+  normalizeConditionType,
+} from './product-condition';
 export {
   buildCartItemId,
   buildCartProduct,

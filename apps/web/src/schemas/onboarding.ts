@@ -1,6 +1,10 @@
 import z from 'zod';
 import { sanitizePhone, sanitizeText, sanitizeUrl } from '@/lib/sanitize-core';
-import { checkPasswordStrength, isCommonPassword } from '@/lib/utils';
+import {
+  checkPasswordStrength,
+  isCommonPassword,
+  MIN_ACCEPTABLE_PASSWORD_STRENGTH,
+} from '@/lib/utils';
 
 /**
  * --- PREPROCESSOR HELPERS ---
@@ -123,9 +127,14 @@ const refineStep3Password = (
     password?: string;
     confirmPassword?: string;
   },
-  ctx: z.RefinementCtx
+  ctx: z.RefinementCtx,
+  options?: {
+    allowConfirmPasswordPrefix?: boolean;
+  }
 ) => {
   const { password, confirmPassword } = data;
+  const allowConfirmPasswordPrefix =
+    options?.allowConfirmPasswordPrefix === true;
 
   if (password && password.length > 0) {
     if (password.length < 8) {
@@ -137,26 +146,12 @@ const refineStep3Password = (
     }
 
     const strength = checkPasswordStrength(password);
-    if (strength < 2) {
+    if (strength < MIN_ACCEPTABLE_PASSWORD_STRENGTH) {
       ctx.addIssue({
         code: 'custom',
         path: ['password'],
         message:
           'Password is too weak. Add more characters or mix letters, numbers, and symbols.',
-      });
-    }
-
-    if (!confirmPassword) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['confirmPassword'],
-        message: 'Please confirm your password.',
-      });
-    } else if (password !== confirmPassword) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['confirmPassword'],
-        message: 'Passwords do not match.',
       });
     }
 
@@ -166,6 +161,33 @@ const refineStep3Password = (
         path: ['password'],
         message:
           'This password is too common. Please choose a more unique password.',
+      });
+    }
+
+    if (strength < MIN_ACCEPTABLE_PASSWORD_STRENGTH) {
+      return;
+    }
+
+    if (!confirmPassword) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['confirmPassword'],
+        message: 'Please confirm your password.',
+      });
+    } else if (password !== confirmPassword) {
+      const isPrefixInProgress =
+        allowConfirmPasswordPrefix &&
+        confirmPassword.length < password.length &&
+        password.startsWith(confirmPassword);
+
+      if (isPrefixInProgress) {
+        return;
+      }
+
+      ctx.addIssue({
+        code: 'custom',
+        path: ['confirmPassword'],
+        message: 'Passwords do not match.',
       });
     }
   }
@@ -187,6 +209,22 @@ const createRequiredLogoUrl = (message: string) =>
       })
   );
 
+const createWebOnboardingSchema = (options?: {
+  allowConfirmPasswordPrefix?: boolean;
+}) =>
+  step1BaseSchema
+    .merge(step2BaseSchema)
+    .merge(step3BaseSchema)
+    .extend({
+      logoUrl: createRequiredLogoUrl(
+        'Logo is required for web setup. Please upload or generate one.'
+      ),
+    })
+    .superRefine((data, ctx) => {
+      refineStep1Other(data, ctx);
+      refineStep3Password(data, ctx, options);
+    });
+
 /**
  * --- PLATFORM SPECIFIC SCHEMAS (2026 Best Practice: Composition) ---
  */
@@ -195,18 +233,17 @@ const createRequiredLogoUrl = (message: string) =>
  * Web Onboarding Schema: STRICT
  * Requires logoUrl for full branding setup.
  */
-export const onboardingSchema = step1BaseSchema
-  .merge(step2BaseSchema)
-  .merge(step3BaseSchema)
-  .extend({
-    logoUrl: createRequiredLogoUrl(
-      'Logo is required for web setup. Please upload or generate one.'
-    ),
-  })
-  .superRefine((data, ctx) => {
-    refineStep1Other(data, ctx);
-    refineStep3Password(data, ctx);
-  });
+export const onboardingSchema = createWebOnboardingSchema();
+
+/**
+ * Web Onboarding Form Schema: RELAXED CONFIRM PASSWORD
+ * Keeps the live form from flashing mismatch errors while a user is still
+ * typing the confirm-password field. Server-side submit validation still uses
+ * onboardingSchema, which requires an exact match.
+ */
+export const onboardingFormSchema = createWebOnboardingSchema({
+  allowConfirmPasswordPrefix: true,
+});
 
 /**
  * Mobile Onboarding Schema: FLEXIBLE

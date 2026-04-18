@@ -1,4 +1,5 @@
 import { ArrowRightLeft, Star, User } from 'lucide-react';
+import { formatCanonicalProductConditionLabel } from '@baci/shared/lib';
 import { SafeHtml } from '@/components/ui/safe-html';
 import { ProductComparisonTable } from '../../components/ProductComparisonTable';
 import type { NormalizedProductDetails } from './product-details-helpers';
@@ -19,6 +20,10 @@ export function ProductDetailsTabs({
   productData,
   storeSlug,
 }: ProductDetailsTabsProps) {
+  const conditionLabel =
+    formatCanonicalProductConditionLabel(productData.condition) ??
+    productData.condition;
+
   return (
     <div className="mt-8">
       <div
@@ -83,7 +88,7 @@ export function ProductDetailsTabs({
                     {productData.displaySize && <li>{productData.displaySize} Display</li>}
                     {productData.ram && <li>{productData.ram} RAM</li>}
                     {productData.storage[0] && <li>{productData.storage[0]} Storage</li>}
-                    {productData.condition && <li>Condition: {productData.condition}</li>}
+                    {conditionLabel && <li>Condition: {conditionLabel}</li>}
                     <li>{productData.brand} Official Warranty</li>
                   </>
                 )}

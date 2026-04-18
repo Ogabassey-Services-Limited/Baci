@@ -1,7 +1,8 @@
 import { Text, View } from 'react-native';
 import type { PasswordValidationResult } from '@/lib/password-utils';
 import { ChecklistItem } from './ChecklistItem';
-import { registerStyles as styles } from './register.styles';
+import { useTheme } from '@/hooks/useTheme';
+import { getStyles } from './register.styles';
 
 interface PasswordChecklistProps {
   passwordState: PasswordValidationResult;
@@ -12,6 +13,8 @@ export function PasswordChecklist({
   passwordState,
   passwordValue,
 }: PasswordChecklistProps) {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   return (
     <View style={styles.validationContainer}>
       <Text style={styles.validationTitle}>Password Strength</Text>
@@ -24,11 +27,11 @@ export function PasswordChecklist({
               backgroundColor:
                 passwordState.strength > 0
                   ? passwordState.strength === 1
-                    ? '#EF4444'
+                    ? colors.error
                     : passwordState.strength === 2
-                      ? '#F59E0B'
-                      : '#10B981'
-                  : '#374151',
+                      ? colors.warning
+                      : colors.success
+                  : colors.border,
               width: '32%',
             },
           ]}
@@ -40,9 +43,9 @@ export function PasswordChecklist({
               backgroundColor:
                 passwordState.strength > 1
                   ? passwordState.strength === 2
-                    ? '#F59E0B'
-                    : '#10B981'
-                  : '#374151',
+                    ? colors.warning
+                    : colors.success
+                  : colors.border,
               width: '32%',
             },
           ]}
@@ -52,7 +55,7 @@ export function PasswordChecklist({
             styles.strengthBar,
             {
               backgroundColor:
-                passwordState.strength > 2 ? '#10B981' : '#374151',
+                passwordState.strength > 2 ? colors.success : colors.border,
               width: '32%',
             },
           ]}

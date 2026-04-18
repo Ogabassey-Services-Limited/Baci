@@ -1,7 +1,5 @@
 [
-  "app/(admin)/blog/edit-content.tsx",
   "app/(admin)/customer/edit/[id].tsx",
-  "app/(admin)/customize.tsx",
   "app/(admin)/domains/connect.tsx",
   "app/(admin)/expenses/new.tsx",
   "app/(admin)/order/[id].tsx",

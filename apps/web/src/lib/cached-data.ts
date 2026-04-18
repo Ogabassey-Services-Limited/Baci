@@ -80,6 +80,7 @@ function getServiceRoleSupabaseClient() {
 
 interface PublicStorefrontProductVariant {
   attributes: Record<string, string> | null;
+  condition?: string | null;
   created_at?: string | null;
   id: string;
   images?: unknown;
@@ -179,6 +180,7 @@ export interface CachedMerchant {
   tax_identification_number?: string | null;
   trust_profile?: MerchantTrustProfileDraft | null;
   payout_currency: string;
+  paystack_subaccount_code?: string | null;
   is_published: boolean;
   template_id: string;
   plan_tier: string;
@@ -251,6 +253,7 @@ export async function getCachedMerchant(
         tax_identification_number,
         trust_profile,
         payout_currency,
+        paystack_subaccount_code,
         is_published,
         template_id,
         plan_tier,
@@ -420,6 +423,7 @@ export async function getCachedMerchantByDomain(
         tax_identification_number,
         trust_profile,
         payout_currency,
+        paystack_subaccount_code,
         is_published,
         template_id,
         plan_tier,
@@ -617,7 +621,9 @@ export const getRequestScopedMerchant = cache(
 /**
  * Cached merchant data by ID
  */
-export async function getCachedMerchantById(merchantId: string) {
+export async function getCachedMerchantById(
+  merchantId: string
+): Promise<CachedMerchant | null> {
   'use cache: remote';
   cacheLife('merchant');
   cacheTag('merchants', `merchant-id-${merchantId}`);
@@ -640,7 +646,12 @@ export async function getCachedMerchantById(merchantId: string) {
         brand_colors,
         slug,
         business_address,
-        country,
+        payout_currency,
+        paystack_subaccount_code,
+        is_published,
+        template_id,
+        plan_tier,
+        premium_features,
         country,
         hero_slides,
         favicon_svg_url,
@@ -793,6 +804,8 @@ export async function getCachedProduct(
         product_key_specs,
         specifications,
         condition,
+        variant_model,
+        available_conditions,
         has_condition_offers,
         offers:product_offers (
           id,
@@ -857,6 +870,11 @@ const STOREFRONT_PRODUCT_DETAIL_COLUMNS = `
   slug,
   condition,
   condition_detail,
+  variant_model,
+  default_variant_id,
+  available_conditions,
+  min_variant_price,
+  max_variant_price,
   brand,
   category,
   color,

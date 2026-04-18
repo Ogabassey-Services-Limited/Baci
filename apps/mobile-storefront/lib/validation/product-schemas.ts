@@ -56,6 +56,7 @@ const ProductVariantSchema = z.object({
   product_id: z.string().optional(),
   merchant_id: z.string().optional(),
   name: z.string().optional(),
+  condition: z.string().nullable().optional(),
   sku: z.string().nullable().optional(),
   price: z.number().optional(),
   compare_at_price: z.number().nullable().optional(),
@@ -136,6 +137,8 @@ export const ProductRowSchema = z.object({
     .nullable()
     .optional(),
   has_variants: z.boolean().nullable().optional(),
+  variant_model: z.enum(['legacy', 'sku_matrix']).nullable().optional(),
+  available_conditions: z.array(z.string()).nullable().optional(),
   variant_attributes: z
     .union([
       z.array(VariantAttributeEntrySchema),

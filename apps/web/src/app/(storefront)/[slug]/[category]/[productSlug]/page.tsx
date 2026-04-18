@@ -1,3 +1,4 @@
+import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
@@ -28,7 +29,6 @@ import type { Product } from '@/lib/products';
 import { escapeHtml } from '@/lib/sanitize-core';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
-  constructCanonicalUrl,
   generateBreadcrumbSchema,
   generateMetaDescription,
   generateProductSchema,
@@ -288,6 +288,30 @@ function getRedirectTargetPath(
   return productPath as `/${string}`;
 }
 
+function redirectInvalidVariantSelectionParams(
+  storeSlug: string,
+  product: Product,
+  searchParams: Awaited<PageProps['searchParams']>
+) {
+  if (!product.variants || product.variants.length === 0) {
+    return;
+  }
+
+  const selectionResolution = resolveVariantSelectionParamResolution(
+    product,
+    searchParams
+  );
+
+  if (
+    selectionResolution.type === 'attribute_only' ||
+    selectionResolution.type === 'ambiguous' ||
+    selectionResolution.type === 'invalid_variant_id' ||
+    selectionResolution.type === 'zero_match'
+  ) {
+    permanentRedirect(getRedirectTargetPath(storeSlug, product));
+  }
+}
+
 type CategoryProductResult =
   | {
       product: Product;
@@ -463,6 +487,7 @@ export async function generateMetadata({
   }
 
   const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
+  redirectInvalidVariantSelectionParams(slug, product, resolvedSearchParams);
 
   // Construct canonical URL:
   // 1. Use explicit canonical from product data if available
@@ -472,15 +497,7 @@ export async function generateMetadata({
   if (!canonicalUrl) {
     // Generate the correct path (e.g. /category/product)
     const productPath = getProductUrl(product);
-
-    // Construct full URL
-    const basePath = `${baseUrl}${productPath}`;
-
-    // Clean params for canonical
-    // We import constructCanonicalUrl from seo-utils
-    canonicalUrl = constructCanonicalUrl(basePath, resolvedSearchParams, [
-      'variant',
-    ]);
+    canonicalUrl = `${baseUrl}${productPath}`;
   }
   const seoDescription = generateMetaDescription(
     product.meta_description ||
@@ -533,11 +550,15 @@ export async function generateMetadata({
   };
 }
 
-export default async function CategoryProductPage({ params }: PageProps) {
+export default async function CategoryProductPage({
+  params,
+  searchParams,
+}: PageProps) {
   const { slug, category, productSlug } = await params;
   if (!isValidMerchantIdentifier(slug)) {
     notFound();
   }
+  const resolvedSearchParams = await searchParams;
   const result = await getProduct(slug, category, productSlug);
 
   if (!result) {
@@ -557,6 +578,7 @@ export default async function CategoryProductPage({ params }: PageProps) {
     permanentRedirect(getRedirectTargetPath(slug, product));
   }
 
+  redirectInvalidVariantSelectionParams(slug, product, resolvedSearchParams);
   const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
   const resolvedCategorySlug =
     product.category_slug ||

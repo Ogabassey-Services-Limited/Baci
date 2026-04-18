@@ -4,6 +4,8 @@ import type React from 'react';
 /**
  * Product condition enum - shared across the application
  */
+import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
+
 export type ProductCondition = 'new' | 'used' | 'open_box' | 'refurbished';
 
 /**
@@ -73,12 +75,15 @@ export interface Product {
   category_id?: string; // FK to categories table
   categories?: Category; // Joined category object (Supabase convention: singular)
   categorySlug?: string;
-  condition:
-  | 'New'
-  | 'Used'
-  | 'Open Box'
-  | 'New & Used'
-  | ProductCondition;
+  condition?:
+    | 'New'
+    | 'Used'
+    | 'Open Box'
+    | 'New & Used'
+    | 'New & Open Box'
+    | 'Used & Open Box'
+    | 'Multiple Conditions'
+    | ProductCondition;
   // Detailed specs for filtering
   brand?: string;
   storage?: string | string[];
@@ -101,6 +106,7 @@ export interface Product {
   // Phase 7: Condition Deduplication
   // Phase 7: Condition Deduplication
   has_condition_offers?: boolean;
+  available_conditions?: ProductCondition[];
   offers?: ProductConditionOffer[];
   // Phase 4: Product Variants (Storage/Color/etc)
   variants?: ProductVariant[];
@@ -109,9 +115,20 @@ export interface Product {
   attributeAxes?: string[];
 }
 
+export function normalizeProductCondition(
+  condition: Product['condition'] | string | null | undefined
+): ProductCondition | undefined {
+  if (typeof condition !== 'string') {
+    return undefined;
+  }
+
+  return normalizeCanonicalProductCondition(condition) || undefined;
+}
+
 export interface ProductVariant {
   id: string;
   name?: string;
+  condition?: ProductCondition;
   price_override?: number;
   price_modifier?: number;
   stock?: number;

@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { ArrowDown, ArrowUp, Minus } from 'lucide-react';
+import { formatMetricChange } from '@/components/analytics/format-metric-change';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
@@ -84,10 +85,7 @@ export function AnalyticsCard({
                       )}
                     >
                       {getTrendIcon(trend)}
-                      {Math.abs(change) > 999
-                        ? '999+'
-                        : Math.abs(change).toFixed(1)}
-                      %
+                      {formatMetricChange(change)}
                     </span>
                   )}
                   {description && (

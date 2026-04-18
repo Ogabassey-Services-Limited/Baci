@@ -1,6 +1,10 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DashboardProviders } from './providers';
+
+const appBodyMock = vi.fn(({ children }: { children: React.ReactNode }) => (
+  <div data-testid="app-body">{children}</div>
+));
 
 // Mock all provider dependencies to avoid deep rendering
 vi.mock('@/contexts/auth-context', () => ({
@@ -43,12 +47,14 @@ vi.mock('./client-layout', () => ({
 }));
 
 vi.mock('@/components/app-body', () => ({
-  default: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="app-body">{children}</div>
-  ),
+  default: (props: { children: React.ReactNode }) => appBodyMock(props),
 }));
 
 describe('DashboardProviders', () => {
+  beforeEach(() => {
+    appBodyMock.mockClear();
+  });
+
   it('renders children within provider tree', () => {
     render(
       <DashboardProviders>
@@ -108,5 +114,21 @@ describe('DashboardProviders', () => {
     );
 
     expect(screen.getByTestId('product-provider')).toBeInTheDocument();
+  });
+
+  it('disables storefront overlays inside the dashboard shell', () => {
+    render(
+      <DashboardProviders>
+        <div>Content</div>
+      </DashboardProviders>
+    );
+
+    expect(appBodyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        applyMerchantCoreThemeVariables: false,
+        showCookieConsent: false,
+        showNewsletterWidget: false,
+      })
+    );
   });
 });

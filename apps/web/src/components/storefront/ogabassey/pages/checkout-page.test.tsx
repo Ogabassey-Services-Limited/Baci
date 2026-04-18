@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock all heavy dependencies before importing the component
 vi.mock('next/navigation', () => ({
@@ -132,8 +132,38 @@ vi.mock('../components/MobileCheckoutComponents', () => ({
 }));
 
 import { CheckoutPage } from './checkout-page';
+import { useSearchParams } from 'next/navigation';
+import { useCart } from '@/hooks/use-cart';
+import { useMerchantSafe } from '@/hooks/use-merchant';
+import { usePersistedState } from '@/hooks/use-persisted-state';
 
 describe('CheckoutPage', () => {
+  beforeEach(() => {
+    vi.mocked(useCart).mockReturnValue({
+      cart: [],
+      cartTotal: 0,
+      clearCart: vi.fn(),
+      isHydrated: true,
+    } as unknown as ReturnType<typeof useCart>);
+    vi.mocked(useSearchParams).mockReturnValue(
+      new URLSearchParams() as unknown as ReturnType<typeof useSearchParams>
+    );
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        slug: 'test-store',
+        business_name: 'Test Store',
+        vat_registration_status: 'registered',
+        vat_rate: 7.5,
+        country: 'NG',
+      },
+      basePath: '/test-store',
+    } as unknown as ReturnType<typeof useMerchantSafe>);
+    vi.mocked(usePersistedState).mockReturnValue(
+      [null, vi.fn(), vi.fn()] as unknown as ReturnType<typeof usePersistedState>
+    );
+  });
+
   it('renders without crashing', () => {
     render(<CheckoutPage />);
     // The checkout page should render some form of checkout UI
@@ -167,5 +197,155 @@ describe('CheckoutPage', () => {
       screen.queryAllByLabelText(/email/i)[0] ??
       screen.queryByText(/contact/i);
     expect(match).toBeTruthy();
+  });
+
+  it('includes merchant_slug and tracking token when resuming an order', async () => {
+    vi.mocked(useSearchParams).mockReturnValue(
+      new URLSearchParams({
+        orderId: 'ord-1',
+        gateway: 'credpal',
+        trackingToken: 'tok-123',
+      }) as unknown as ReturnType<typeof useSearchParams>
+    );
+
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue({
+        ok: false,
+        json: async () => ({}),
+      } as Response);
+
+    render(<CheckoutPage />);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/storefront/orders/ord-1?merchant_slug=test-store&token=tok-123'
+      );
+    });
+
+    fetchMock.mockRestore();
+  });
+
+  it('includes a persisted customer email alongside the tracking token when resuming an order', async () => {
+    vi.mocked(useSearchParams).mockReturnValue(
+      new URLSearchParams({
+        orderId: 'ord-1',
+        gateway: 'credpal',
+        trackingToken: 'tok-123',
+      }) as unknown as ReturnType<typeof useSearchParams>
+    );
+    vi.mocked(usePersistedState).mockReturnValue(
+      [
+        {
+          orderId: 'ord-1',
+          merchantId: 'merchant-1',
+          customerEmail: 'resume@example.com',
+          checkoutFingerprint: 'fingerprint',
+          amountDueToGateway: 1000,
+          createdAt: '2026-04-18T00:00:00.000Z',
+        },
+        vi.fn(),
+        vi.fn(),
+      ] as unknown as ReturnType<typeof usePersistedState>
+    );
+
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue({
+        ok: false,
+        json: async () => ({}),
+      } as Response);
+
+    render(<CheckoutPage />);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/storefront/orders/ord-1?merchant_slug=test-store&token=tok-123&email=resume%40example.com'
+      );
+    });
+
+    fetchMock.mockRestore();
+  });
+
+  it('falls back to the persisted customer email for legacy resume links without a token', async () => {
+    vi.mocked(useSearchParams).mockReturnValue(
+      new URLSearchParams({
+        orderId: 'ord-1',
+        gateway: 'credpal',
+      }) as unknown as ReturnType<typeof useSearchParams>
+    );
+    vi.mocked(usePersistedState).mockReturnValue(
+      [
+        {
+          orderId: 'ord-1',
+          merchantId: 'merchant-1',
+          customerEmail: 'legacy@example.com',
+          checkoutFingerprint: 'fingerprint',
+          amountDueToGateway: 1000,
+          createdAt: '2026-04-18T00:00:00.000Z',
+        },
+        vi.fn(),
+        vi.fn(),
+      ] as unknown as ReturnType<typeof usePersistedState>
+    );
+
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue({
+        ok: false,
+        json: async () => ({}),
+      } as Response);
+
+    render(<CheckoutPage />);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/storefront/orders/ord-1?merchant_slug=test-store&email=legacy%40example.com'
+      );
+    });
+
+    fetchMock.mockRestore();
+  });
+
+  it('does not fetch a resumed order until a merchant slug is available', async () => {
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        business_name: 'Test Store',
+        vat_registration_status: 'registered',
+        vat_rate: 7.5,
+        country: 'NG',
+      },
+      basePath: '/test-store',
+    } as unknown as ReturnType<typeof useMerchantSafe>);
+    vi.mocked(useSearchParams).mockReturnValue(
+      new URLSearchParams({
+        orderId: 'ord-1',
+        gateway: 'credpal',
+        trackingToken: 'tok-123',
+      }) as unknown as ReturnType<typeof useSearchParams>
+    );
+
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue({
+        ok: false,
+        json: async () => ({}),
+      } as Response);
+
+    render(<CheckoutPage />);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/shipping/locations');
+    });
+    expect(
+      fetchMock.mock.calls.some(
+        ([url]) =>
+          typeof url === 'string' &&
+          url.startsWith('/api/storefront/orders/ord-1')
+      )
+    ).toBe(false);
+
+    fetchMock.mockRestore();
   });
 });

@@ -1,11 +1,11 @@
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { MerchantData } from '@/hooks/use-merchant';
 import AppBody from './app-body';
 
 vi.mock('next/dynamic', () => ({
   default: () => {
-    const Stub = () => null;
+    const Stub = () => <div data-testid="dynamic-stub" />;
     Stub.displayName = 'DynamicStub';
     return Stub;
   },
@@ -53,5 +53,25 @@ describe('AppBody', () => {
     // Brand accent/primary tokens stay available for merchant UI accents.
     expect(wrapper.style.getPropertyValue('--primary')).not.toBe('');
     expect(wrapper.style.getPropertyValue('--store-primary')).not.toBe('');
+  });
+
+  it('renders cookie consent by default when newsletter widget is disabled', () => {
+    render(
+      <AppBody showNewsletterWidget={false}>
+        <div>Storefront content</div>
+      </AppBody>
+    );
+
+    expect(screen.getByTestId('dynamic-stub')).toBeInTheDocument();
+  });
+
+  it('does not render cookie consent when showCookieConsent is false', () => {
+    render(
+      <AppBody showCookieConsent={false} showNewsletterWidget={false}>
+        <div>Storefront content</div>
+      </AppBody>
+    );
+
+    expect(screen.queryByTestId('dynamic-stub')).not.toBeInTheDocument();
   });
 });

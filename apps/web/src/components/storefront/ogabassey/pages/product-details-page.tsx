@@ -60,8 +60,10 @@ export function ProductDetailsPage({
 }: ProductDetailsPageProps) {
   const {
     activeTab,
+    availableConditions,
     animatingParticles,
     basePath,
+    canPurchase,
     cartHref,
     currentOffer,
     deliveryEstimate,
@@ -199,6 +201,8 @@ export function ProductDetailsPage({
           />
 
           <ProductPurchasePanel
+            availableConditions={availableConditions}
+            canPurchase={canPurchase}
             cartHref={cartHref}
             currentOfferPrice={currentOffer.price}
             deliveryEstimate={deliveryEstimate}
@@ -281,6 +285,7 @@ export function ProductDetailsPage({
 
       <ProductMobileActionBar
         cartHref={cartHref}
+        canPurchase={canPurchase}
         onDecrement={handleDecrement}
         onIncrement={handleIncrement}
         onMobileAddToCart={handleMobileAddToCart}

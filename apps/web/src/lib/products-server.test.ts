@@ -8,7 +8,7 @@ import {
 
 vi.mock('@/lib/product-queries', () => ({
   PRODUCT_WITH_VARIANTS_QUERY:
-    'id, name, description, price, stock, stock_quantity, status, manage_stock, sku, slug, compare_at_price, cost_price, low_stock_threshold, brand, category, color, has_variants, images, image_hint, weight_value, weight_unit, dimensions, taxable, tax_code, condition, condition_detail, meta_title, meta_description, keywords, canonical_url, schema_markup, gtin, mpn, google_product_category, created_at, updated_at, merchant_id, fulfillment_details, variants:product_variants(id, product_id, merchant_id, attributes, price_override, cost_price, stock_quantity, sku, primary_image, images, created_at, updated_at)',
+    'id, name, description, price, stock, stock_quantity, status, manage_stock, sku, slug, compare_at_price, cost_price, low_stock_threshold, brand, category, color, has_variants, variant_model, migration_status, default_variant_id, available_conditions, min_variant_price, max_variant_price, images, image_hint, weight_value, weight_unit, dimensions, taxable, tax_code, condition, condition_detail, meta_title, meta_description, keywords, canonical_url, schema_markup, gtin, mpn, google_product_category, created_at, updated_at, merchant_id, fulfillment_details, variants:product_variants!product_variants_product_id_fkey(id, product_id, merchant_id, condition, attributes, price_override, cost_price, stock_quantity, sku, primary_image, images, created_at, updated_at)',
 }));
 
 vi.mock('@/lib/sanitize-core', () => ({
@@ -214,6 +214,33 @@ describe('getProducts', () => {
     expect(result.pagination.totalPages).toBe(0);
   });
 
+  it('maps sku_matrix projection fields onto returned products', async () => {
+    const raw = makeRawProduct({
+      available_conditions: ['new', 'used'],
+      default_variant_id: 'variant-1',
+      max_variant_price: '3200.00',
+      migration_status: 'needs_review',
+      min_variant_price: '2500.00',
+      variant_model: 'sku_matrix',
+    });
+    const { client } = createMockSupabase({
+      data: [raw],
+      error: null,
+      count: 1,
+    });
+
+    const result = await getProducts(client as never, merchantId, {});
+
+    expect(result.products[0]).toMatchObject({
+      available_conditions: ['new', 'used'],
+      default_variant_id: 'variant-1',
+      max_variant_price: 3200,
+      migration_status: 'needs_review',
+      min_variant_price: 2500,
+      variant_model: 'sku_matrix',
+    });
+  });
+
   // --- Filtering ---
 
   it('filters by status when not "All"', async () => {
@@ -229,6 +256,39 @@ describe('getProducts', () => {
 
     // Assert
     expect(queryBuilder.eq).toHaveBeenCalledWith('status', 'active');
+  });
+
+  it('filters by migration_status when a concrete migration filter is provided', async () => {
+    const { client, queryBuilder } = createMockSupabase({
+      data: [],
+      error: null,
+      count: 0,
+    });
+
+    await getProducts(client as never, merchantId, {
+      migration: 'needs_review',
+    });
+
+    expect(queryBuilder.eq).toHaveBeenCalledWith(
+      'migration_status',
+      'needs_review'
+    );
+  });
+
+  it('treats pending migration filter as pending or null rows', async () => {
+    const { client, queryBuilder } = createMockSupabase({
+      data: [],
+      error: null,
+      count: 0,
+    });
+
+    await getProducts(client as never, merchantId, {
+      migration: 'pending',
+    });
+
+    expect(queryBuilder.or).toHaveBeenCalledWith(
+      'migration_status.eq.pending,migration_status.is.null'
+    );
   });
 
   it('does not filter status when "All"', async () => {
@@ -307,6 +367,29 @@ describe('getProducts', () => {
       'legacy-drift',
       'unmanaged',
     ]);
+    expect(queryBuilder.range).not.toHaveBeenCalled();
+  });
+
+  it('filters infinite stock to unmanaged products only', async () => {
+    const { client, queryBuilder } = createMockSupabase({
+      data: [
+        makeRawProduct({ id: 'managed', manage_stock: true, stock: 5 }),
+        makeRawProduct({
+          id: 'unmanaged',
+          manage_stock: false,
+          stock: 0,
+          stock_quantity: 0,
+        }),
+      ],
+      error: null,
+      count: 2,
+    });
+
+    const result = await getProducts(client as never, merchantId, {
+      stock: 'infinite',
+    });
+
+    expect(result.products.map((product) => product.id)).toEqual(['unmanaged']);
     expect(queryBuilder.range).not.toHaveBeenCalled();
   });
 

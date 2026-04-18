@@ -76,11 +76,14 @@ export interface ProductSchemaMarkup {
   [key: string]: unknown;
 }
 
+export type ProductCondition = 'new' | 'used' | 'open_box' | 'refurbished';
+
 export interface ProductVariant {
   id: string;
   product_id: string;
   merchant_id: string;
   attributes: Record<string, string>; // { color: 'Blue', storage: '128GB' }
+  condition?: ProductCondition;
   price_override?: number;
   cost_price?: number; // New field
   images?: string[];
@@ -89,6 +92,10 @@ export interface ProductVariant {
   sku?: string;
   inventory_items?: VariantInventoryItem[]; // Loaded on demand
 }
+
+export type ProductVariantModel = 'legacy' | 'sku_matrix';
+
+export type ProductMigrationStatus = 'pending' | 'needs_review' | 'migrated';
 
 export interface Review {
   author: string;
@@ -205,7 +212,7 @@ export interface Product {
   tax_code?: string;
 
   // Classification - expanded condition enum (2025 best practice)
-  condition?: 'new' | 'used' | 'open_box' | 'refurbished';
+  condition?: ProductCondition;
   condition_detail?: string; // "Brand New", "Premium Used", etc.
 
   // Display fields for UI (flattened from schema_markup for convenience)
@@ -242,12 +249,18 @@ export interface Product {
   // Variant support
   has_variants?: boolean;
   variants?: ProductVariant[];
+  variant_model?: ProductVariantModel;
+  migration_status?: ProductMigrationStatus;
+  default_variant_id?: string;
+  available_conditions?: ProductCondition[];
+  min_variant_price?: number;
+  max_variant_price?: number;
 
   // Condition support (Phase 7)
   has_condition_offers?: boolean;
   offers?: {
     id: string;
-    condition: 'new' | 'used' | 'open_box' | 'refurbished';
+    condition: ProductCondition;
     price: number;
     stock_quantity: number;
     images?: string[];

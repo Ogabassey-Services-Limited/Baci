@@ -4,6 +4,12 @@ import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { AppDialogModal } from '@/components/ui/AppDialogModal';
 
+vi.mock('@/components/ui/AppKeyboardContainer', () => ({
+  AppKeyboardContainer: ({ children }: { children?: ReactNode }) => (
+    <section aria-label="dialog-keyboard-shell">{children}</section>
+  ),
+}));
+
 vi.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({
     colors: {
@@ -96,5 +102,28 @@ describe('AppDialogModal', () => {
 
     expect(screen.queryByLabelText('dialog-modal')).toBeNull();
     expect(screen.queryByText('Should not appear')).toBeNull();
+  });
+
+  it('can render inside the shared keyboard shell when keyboardAware is enabled', () => {
+    const onClose = vi.fn();
+
+    render(
+      <AppDialogModal keyboardAware onClose={onClose} visible={true}>
+        <div>Keyboard dialog</div>
+      </AppDialogModal>
+    );
+
+    expect(
+      screen.getByRole('region', { name: 'dialog-keyboard-shell' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('Keyboard dialog')).toBeInTheDocument();
+    expect(screen.queryByTestId('app-dialog-backdrop')).toBeNull();
+    expect(
+      screen.getByTestId('app-dialog-keyboard-backdrop')
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('app-dialog-keyboard-backdrop'));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

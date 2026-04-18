@@ -16,6 +16,10 @@ import {
   getEffectiveStock,
   matchesProductStockFilter,
 } from '@/lib/product-stock';
+import {
+  getSkuMatrixValidationError,
+  inferProductVariantModel,
+} from '@/lib/product-variant-model';
 import type { Product } from '@/lib/products';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
@@ -27,6 +31,7 @@ import {
   generateSlug,
 } from '@/lib/seo-utils';
 import { createClient } from '@/lib/supabase/server';
+import { productListQuerySchema } from '@/schemas/product-list-query';
 import { createProductSchema, formatZodErrors } from '@/schemas/products';
 
 /**
@@ -58,7 +63,7 @@ function extractVariantAttributes(variants: Record<string, unknown>[]): {
 
 function buildProductImagesInput(
   images: Record<string, unknown>[] | undefined,
-  fallbackImage: string | undefined,
+  fallbackImage: string | null | undefined,
   fallbackAlt: string
 ) {
   if (Array.isArray(images) && images.length > 0) {
@@ -97,15 +102,30 @@ export async function GET(request: NextRequest) {
     const merchantId = merchantContext.merchantId;
 
     // Parse query parameters
-    const searchParams = request.nextUrl.searchParams;
-    const page = Number.parseInt(searchParams.get('page') || '1', 10);
-    const limit = Number.parseInt(searchParams.get('limit') || '10', 10);
-    const searchRaw = searchParams.get('search') || '';
+    const queryParams = productListQuerySchema.safeParse(
+      Object.fromEntries(request.nextUrl.searchParams.entries())
+    );
+    if (!queryParams.success) {
+      return NextResponse.json(
+        {
+          error: 'Invalid query parameters',
+          details: queryParams.error.flatten(),
+        },
+        { status: 400 }
+      );
+    }
+
+    const {
+      page,
+      limit,
+      search: searchRaw,
+      migration,
+      status,
+      stock,
+      ids,
+    } = queryParams.data;
     // Sanitize search input to prevent SQL injection
     const search = searchRaw ? sanitizeSearchQuery(searchRaw) : '';
-    const status = searchParams.get('status') || 'All';
-    const stock = searchParams.get('stock') || 'All';
-    const ids = searchParams.get('ids');
 
     const offset = (page - 1) * limit;
     const shouldPaginateInDatabase = !ids && stock === 'All';
@@ -128,6 +148,13 @@ export async function GET(request: NextRequest) {
       // Apply filters only if not fetching by ID
       if (status !== 'All') {
         query = query.eq('status', status);
+      }
+
+      if (migration !== 'All') {
+        query =
+          migration === 'pending'
+            ? query.or('migration_status.eq.pending,migration_status.is.null')
+            : query.eq('migration_status', migration);
       }
 
       if (search?.trim()) {
@@ -201,6 +228,7 @@ export async function GET(request: NextRequest) {
               id: v.id as string,
               product_id: v.product_id as string,
               merchant_id: v.merchant_id as string,
+              condition: v.condition as Product['condition'] | undefined,
               attributes: v.attributes as Record<string, string>,
               price_override: v.price_override as number | undefined,
               cost_price: v.cost_price as number | undefined,
@@ -240,6 +268,28 @@ export async function GET(request: NextRequest) {
             ? Number.parseFloat(p.cost_price)
             : undefined,
           low_stock_threshold: p.low_stock_threshold,
+          variant_model:
+            p.variant_model === 'sku_matrix' ? 'sku_matrix' : 'legacy',
+          migration_status:
+            p.migration_status === 'needs_review' ||
+            p.migration_status === 'migrated'
+              ? p.migration_status
+              : 'pending',
+          default_variant_id:
+            typeof p.default_variant_id === 'string'
+              ? p.default_variant_id
+              : undefined,
+          available_conditions: Array.isArray(p.available_conditions)
+            ? (p.available_conditions as Product['available_conditions'])
+            : undefined,
+          min_variant_price:
+            p.min_variant_price != null
+              ? Number.parseFloat(String(p.min_variant_price))
+              : undefined,
+          max_variant_price:
+            p.max_variant_price != null
+              ? Number.parseFloat(String(p.max_variant_price))
+              : undefined,
 
           weight_value: p.weight_value
             ? Number.parseFloat(p.weight_value)
@@ -407,6 +457,22 @@ export async function POST(request: NextRequest) {
 
     // Use sanitized data from Zod transform
     const body = parseResult.data;
+    const variantModel = inferProductVariantModel({
+      variantModel: body.variant_model,
+      variants: body.variants,
+    });
+    const skuMatrixValidationError = getSkuMatrixValidationError({
+      variantModel,
+      hasVariants: body.has_variants,
+      variants: body.variants,
+    });
+
+    if (skuMatrixValidationError) {
+      return NextResponse.json(
+        { error: skuMatrixValidationError },
+        { status: 400 }
+      );
+    }
 
     // Prepare data for insertion using sanitized values
     // Generate slug with condition if not 'new'
@@ -517,6 +583,9 @@ export async function POST(request: NextRequest) {
 
         fulfillment_details: body.fulfillment_details,
         has_variants: body.has_variants || false,
+        variant_model: variantModel,
+        migration_status:
+          variantModel === 'sku_matrix' ? 'migrated' : 'pending',
         category: body.category,
         color: body.color,
       })
@@ -537,12 +606,13 @@ export async function POST(request: NextRequest) {
         (v: Record<string, unknown>) => ({
           product_id: product.id,
           merchant_id: merchantId,
+          condition: v.condition,
           attributes: v.attributes,
-          price_override: v.price,
+          price_override: v.price_override,
           cost_price: v.cost_price, // New field
           stock_quantity: v.stock_quantity,
           sku: v.sku,
-          primary_image: v.image,
+          primary_image: v.primary_image,
           images: v.images || [],
         })
       );

@@ -119,6 +119,8 @@ let variants: unknown[] = [];
 let updateResult: unknown = null;
 let updateError: unknown = null;
 let deleteError: unknown = null;
+let variantInsertError: unknown = null;
+let variantUpsertError: unknown = null;
 let lastProductUpdatePayload: unknown = null;
 
 const createMockSupabase = () => ({
@@ -225,12 +227,12 @@ const createMockSupabase = () => ({
         })),
         upsert: vi.fn(() =>
           Promise.resolve({
-            error: null,
+            error: variantUpsertError,
           })
         ),
         insert: vi.fn(() =>
           Promise.resolve({
-            error: null,
+            error: variantInsertError,
           })
         ),
       };
@@ -311,6 +313,8 @@ function resetMocks() {
   updateResult = null;
   updateError = null;
   deleteError = null;
+  variantInsertError = null;
+  variantUpsertError = null;
   lastProductUpdatePayload = null;
   csrfValid = true;
 }
@@ -505,6 +509,77 @@ describe('PUT /api/products/[id]', () => {
       expect(res.status).toBe(400);
       expect(json.error).toBe('Validation failed');
     });
+
+    it('rejects sku_matrix updates when a variant lacks condition', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Product',
+        condition: 'new',
+        has_variants: true,
+        variant_model: 'legacy',
+      };
+
+      const res = await PUT(
+        makePutRequest(PRODUCT_ID, {
+          has_variants: true,
+          variant_model: 'sku_matrix',
+          variants: [
+            {
+              price_override: 7000,
+              stock_quantity: 5,
+            },
+          ],
+        }),
+        {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        }
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.error).toBe(
+        'Every sku_matrix variant must include a condition.'
+      );
+      expect(lastProductUpdatePayload).toBeNull();
+    });
+
+    it('allows partial updates on existing sku_matrix products without resending variants', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Product',
+        condition: 'new',
+        has_variants: true,
+        variant_model: 'sku_matrix',
+      };
+
+      updateResult = {
+        id: PRODUCT_ID,
+        name: 'Updated Product',
+        slug: 'updated-product',
+        has_variants: true,
+        variant_model: 'sku_matrix',
+      };
+
+      const res = await PUT(
+        makePutRequest(PRODUCT_ID, {
+          has_variants: true,
+          name: 'Updated Product',
+        }),
+        {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        }
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.product).toBeDefined();
+      expect(lastProductUpdatePayload).toEqual(
+        expect.objectContaining({
+          has_variants: true,
+          name: 'Updated Product',
+        })
+      );
+    });
   });
 
   describe('product lookup', () => {
@@ -627,6 +702,178 @@ describe('PUT /api/products/[id]', () => {
       await res.json();
 
       expect(res.status).toBe(200);
+    });
+
+    it('does not mark a product as migrated when variant sync fails', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Product',
+        slug: 'product',
+        condition: 'new',
+        has_variants: true,
+        variant_model: 'legacy',
+      };
+
+      updateResult = {
+        id: PRODUCT_ID,
+        slug: 'product',
+        name: 'Product',
+      };
+      variantInsertError = { message: 'insert failed' };
+
+      const res = await PUT(
+        makePutRequest(PRODUCT_ID, {
+          has_variants: true,
+          variant_model: 'sku_matrix',
+          variants: [
+            {
+              attributes: { storage: '128GB' },
+              condition: 'used',
+              price_override: 7000,
+              stock_quantity: 5,
+            },
+          ],
+        }),
+        {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        }
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(500);
+      expect(json.error).toBe('Failed to create product variants');
+      expect(lastProductUpdatePayload).not.toHaveProperty('migration_status');
+      expect(lastProductUpdatePayload).not.toHaveProperty('variant_model');
+    });
+
+    it('syncs variants when the variants payload is provided without has_variants', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Product',
+        slug: 'product',
+        condition: 'new',
+        has_variants: false,
+        variant_model: 'legacy',
+      };
+
+      updateResult = {
+        id: PRODUCT_ID,
+        slug: 'product',
+        name: 'Product',
+      };
+      variantInsertError = { message: 'insert failed' };
+
+      const res = await PUT(
+        makePutRequest(PRODUCT_ID, {
+          variants: [
+            {
+              attributes: { storage: '128GB' },
+              price_override: 7000,
+              stock_quantity: 5,
+            },
+          ],
+        }),
+        {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        }
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(500);
+      expect(json.error).toBe('Failed to create product variants');
+    });
+
+    it('does not send migration_status on legacy-variant updates', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Product',
+        condition: 'used',
+        variant_model: 'legacy',
+        migration_status: 'needs_review',
+      };
+
+      updateResult = {
+        id: PRODUCT_ID,
+        name: 'Updated Product',
+        price: '6000',
+        slug: 'updated-product',
+      };
+
+      const res = await PUT(
+        makePutRequest(PRODUCT_ID, {
+          name: 'Updated Product',
+          variants: [
+            {
+              id: 'variant-1',
+              attributes: { storage: '128GB' },
+              price_override: 6000,
+              stock_quantity: 5,
+            },
+          ],
+        }),
+        {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        }
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.product).toBeDefined();
+      expect(lastProductUpdatePayload).toEqual(
+        expect.objectContaining({
+          variant_model: 'legacy',
+        })
+      );
+      expect(lastProductUpdatePayload).not.toHaveProperty('migration_status');
+    });
+
+    it('marks reviewed sku_matrix products as migrated after a successful variant save', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Product',
+        slug: 'product',
+        condition: 'new',
+        has_variants: true,
+        variant_model: 'legacy',
+        migration_status: 'needs_review',
+      };
+
+      updateResult = {
+        id: PRODUCT_ID,
+        slug: 'product',
+        name: 'Product',
+        has_variants: true,
+        variant_model: 'sku_matrix',
+      };
+
+      const res = await PUT(
+        makePutRequest(PRODUCT_ID, {
+          has_variants: true,
+          variant_model: 'sku_matrix',
+          variants: [
+            {
+              id: 'variant-1',
+              attributes: { storage: '128GB' },
+              condition: 'used',
+              price_override: 7000,
+              stock_quantity: 5,
+            },
+          ],
+        }),
+        {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        }
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.product).toBeDefined();
+      expect(lastProductUpdatePayload).toEqual(
+        expect.objectContaining({
+          variant_model: 'sku_matrix',
+          migration_status: 'migrated',
+        })
+      );
     });
 
     it('deletes variants when has_variants is set to false', async () => {

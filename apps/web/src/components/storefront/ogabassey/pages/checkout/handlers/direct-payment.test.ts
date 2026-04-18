@@ -35,6 +35,7 @@ describe('executeDirectPayment', () => {
     customer_name: 'John Doe',
     customer_email: 'john@example.com',
     customer_phone: '+2348012345678',
+    tracking_token: 'track-token-123',
     shipping_address: {
       address: '123 Test St, Ikeja, Lagos',
       city: 'Ikeja',
@@ -180,7 +181,7 @@ describe('executeDirectPayment', () => {
         await callArgs.onSuccess({ order_no: 'credpal-ref-123' });
 
         expect(defaultOpts.routerPush).toHaveBeenCalledWith(
-          '/test-store/order-success?orderId=order-123&type=credpal',
+          '/test-store/order-success?orderId=order-123&type=credpal&trackingToken=track-token-123',
         );
       });
 
@@ -324,7 +325,7 @@ describe('executeDirectPayment', () => {
         await callArgs.onSuccess('cd-transaction-456');
 
         expect(defaultOpts.routerPush).toHaveBeenCalledWith(
-          '/test-store/order-success?orderId=order-123&type=credit_direct',
+          '/test-store/order-success?orderId=order-123&type=credit_direct&trackingToken=track-token-123',
         );
       });
     });

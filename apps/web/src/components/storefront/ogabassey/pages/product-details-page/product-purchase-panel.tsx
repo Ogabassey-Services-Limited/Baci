@@ -9,6 +9,8 @@ import { ProductOptionSelectors } from './product-option-selectors';
 import { ProductSummaryPanel } from './product-summary-panel';
 
 interface ProductPurchasePanelProps {
+  availableConditions: ConditionType[];
+  canPurchase: boolean;
   cartHref: Route;
   currentOfferPrice: string;
   deliveryEstimate: string;
@@ -43,6 +45,8 @@ interface ProductPurchasePanelProps {
 }
 
 export function ProductPurchasePanel({
+  availableConditions,
+  canPurchase,
   cartHref,
   currentOfferPrice,
   deliveryEstimate,
@@ -76,6 +80,7 @@ export function ProductPurchasePanel({
   return (
     <div className="flex flex-col lg:col-span-4">
       <ProductSummaryPanel
+        availableConditions={availableConditions}
         currentOfferPrice={currentOfferPrice}
         isLiked={isLiked}
         onShare={onShare}
@@ -103,6 +108,7 @@ export function ProductPurchasePanel({
       />
       <ProductCartActions
         cartHref={cartHref}
+        canPurchase={canPurchase}
         inputValue={inputValue}
         onAddToCart={onAddToCart}
         onDecrement={onDecrement}

@@ -92,11 +92,14 @@ export function BrandProducts({
     apiGet<{ products: Product[] }>(`/api/storefront/products?${params}`)
       .then((data) => {
         if (data.products) {
-          setBrandProducts(
-            data.products
-              .filter((p) => p.id !== product.id && p.status === 'active')
-              .slice(0, maxProducts)
+          const sameBrand = data.products.filter(
+            (p) =>
+              p.id !== product.id &&
+              p.status === 'active' &&
+              typeof p.brand === 'string' &&
+              p.brand.toLowerCase() === productBrand.toLowerCase()
           );
+          setBrandProducts(sameBrand.slice(0, maxProducts));
         }
         setIsLoading(false);
       })

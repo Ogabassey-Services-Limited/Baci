@@ -1,4 +1,5 @@
 import { getEffectiveStock } from '@/lib/product-stock';
+import type { ResolvedProductVariantSelection } from '@baci/shared/lib';
 import type { ConditionType } from './product-condition';
 import type { NormalizedProductDetails } from './product-normalization';
 
@@ -9,10 +10,26 @@ export interface ProductDetailsCurrentOffer {
   stock: number;
 }
 
+const NGN_FORMATTER = new Intl.NumberFormat('en-NG', {
+  style: 'currency',
+  currency: 'NGN',
+  maximumFractionDigits: 0,
+});
+
+function formatNgnCurrency(value: number): string {
+  return NGN_FORMATTER.format(value);
+}
+
 export function resolveCurrentOffer(
   productData: NormalizedProductDetails,
   selectedCondition: ConditionType,
-  selectedAttributes: Record<string, string>
+  selectedAttributes: Record<string, string>,
+  variantSelection?: ResolvedProductVariantSelection<{
+    id: string;
+    price_override?: number | null;
+    price_modifier?: number | null;
+    stock_quantity?: number | null;
+  }> | null
 ): ProductDetailsCurrentOffer {
   let price = productData.rawPrice || 0;
   if (!price && typeof productData.price === 'string') {
@@ -34,6 +51,17 @@ export function resolveCurrentOffer(
       price = offer.rawPrice;
       stock = getEffectiveStock(offer);
     }
+  }
+
+  if (variantSelection?.variant) {
+    price = variantSelection.price;
+    stock = getEffectiveStock(variantSelection.variant);
+    return {
+      price: formatNgnCurrency(price),
+      rawPrice: price,
+      stock,
+      id: productData.id,
+    };
   }
 
   const selectedAttributeKeys = Object.keys(selectedAttributes);
@@ -62,11 +90,7 @@ export function resolveCurrentOffer(
   }
 
   return {
-    price: new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
-      maximumFractionDigits: 0,
-    }).format(price),
+    price: formatNgnCurrency(price),
     rawPrice: price,
     stock,
     id: productData.id,

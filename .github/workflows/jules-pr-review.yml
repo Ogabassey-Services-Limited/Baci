@@ -3,201 +3,492 @@ name: Jules PR Review
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: read
   pull-requests: write
 
 concurrency:
-  group: jules-pr-review-${{ github.event.pull_request.number }}
+  group: >-
+    jules-pr-review-${{ github.event.pull_request.number || github.event.issue.number }}-${{
+      github.event_name == 'pull_request' && 'fast' ||
+      (github.event.issue.pull_request &&
+      (github.event.comment.body == '/jules deep review' ||
+      startsWith(toJSON(github.event.comment.body), '"/jules deep review\n') ||
+      startsWith(toJSON(github.event.comment.body), '"/jules deep review\r\n')) &&
+      (github.event.comment.author_association == 'OWNER' ||
+      github.event.comment.author_association == 'MEMBER' ||
+      github.event.comment.author_association == 'COLLABORATOR') &&
+      'deep') ||
+      format('comment-{0}', github.event.comment.id)
+    }}
   cancel-in-progress: true
 
 jobs:
   review:
     name: Jules review
-    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository
+    # Keep automatic fast reviews same-repo only: forked pull_request runs do not receive
+    # JULES_API_KEY, so running them would only post noisy fallback reviews instead of useful output.
+    if: >-
+      (github.event_name == 'pull_request' &&
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository) ||
+      (github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request &&
+      (github.event.comment.body == '/jules deep review' ||
+      startsWith(toJSON(github.event.comment.body), '"/jules deep review\n') ||
+      startsWith(toJSON(github.event.comment.body), '"/jules deep review\r\n')) &&
+      (github.event.comment.author_association == 'OWNER' ||
+      github.event.comment.author_association == 'MEMBER' ||
+      github.event.comment.author_association == 'COLLABORATOR'))
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 360
 
     steps:
       - name: Run Jules review
         continue-on-error: true
         env:
-          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          COMMENT_AUTHOR_ASSOC: ${{ github.event.comment.author_association }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          EVENT_NAME: ${{ github.event_name }}
           GITHUB_API_URL: ${{ github.api_url }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_SERVER_URL: ${{ github.server_url }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HEAD_REF: ${{ github.event.pull_request.head.ref }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
-          PR_BODY: ${{ github.event.pull_request.body }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
-          REPO_NAME: ${{ github.event.repository.name }}
-          REPO_OWNER: ${{ github.event.repository.owner.login }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+          REVIEW_MODE: ${{ github.event_name == 'issue_comment' && 'deep' || 'fast' }}
           RUN_ID: ${{ github.run_id }}
         run: |
           set -euo pipefail
 
           body_file="$RUNNER_TEMP/jules-review.md"
-          review_marker="<!-- jules-pr-review sha:${HEAD_SHA} -->"
-          session_id=""
-          state="NOT_STARTED"
+          meta_file="$RUNNER_TEMP/jules-review-meta.env"
           run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}"
+
+          if [[ "${REVIEW_MODE}" == "fast" ]]; then
+            poll_deadline_epoch=$(( $(date +%s) + 7200 ))
+          else
+            # Stop polling shortly before the 6-hour job timeout so fallback review posting still runs.
+            poll_deadline_epoch=$(( $(date +%s) + 21000 ))
+          fi
+
+          if [[ "${REVIEW_MODE}" == "deep" ]]; then
+            normalized_comment_body="$(printf '%s' "${COMMENT_BODY:-}" | tr -d '\r')"
+
+            if [[ "${normalized_comment_body}" != "/jules deep review" && "${normalized_comment_body}" != "/jules deep review"$'\n'* ]]; then
+              review_marker="<!-- jules-pr-review mode:${REVIEW_MODE} command:ignored -->"
+              cat > "$body_file" <<EOF
+          ${review_marker}
+          ## Jules PR review
+
+          Mode: \`${REVIEW_MODE}\`
+
+          Jules skipped this run because the comment did not start with \`/jules deep review\`.
+          EOF
+              exit 0
+            fi
+          fi
 
           uri_encode() {
             jq -rn --arg value "$1" '$value | @uri'
           }
+
+          curl_common_args=(
+            --fail
+            --silent
+            --show-error
+            --location
+            --connect-timeout 10
+            --max-time 60
+          )
+
+          curl_retry_args=(
+            --retry 3
+            --retry-delay 2
+            --retry-all-errors
+          )
+
+          github_api_get() {
+            local url="$1"
+
+            curl "${curl_common_args[@]}" "${curl_retry_args[@]}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              "${url}"
+          }
+
+          github_api_get_raw() {
+            local url="$1"
+
+            curl "${curl_common_args[@]}" "${curl_retry_args[@]}" \
+              -H "Accept: application/vnd.github.raw" \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              "${url}"
+          }
+
+          jules_api_get() {
+            local url="$1"
+
+            curl "${curl_common_args[@]}" "${curl_retry_args[@]}" \
+              -H "x-goog-api-key: ${JULES_API_KEY}" \
+              "${url}"
+          }
+
+          jules_api_post_json() {
+            local url="$1"
+            local payload="$2"
+
+            curl "${curl_common_args[@]}" \
+              -X POST \
+              -H "Content-Type: application/json" \
+              -H "x-goog-api-key: ${JULES_API_KEY}" \
+              -d "${payload}" \
+              "${url}"
+          }
+
+          pr_response="$(
+            github_api_get \
+              "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}"
+          )"
+
+          base_ref="$(jq -r '.base.ref' <<<"${pr_response}")"
+          head_ref="$(jq -r '.head.ref' <<<"${pr_response}")"
+          head_sha="$(jq -r '.head.sha' <<<"${pr_response}")"
+          pr_state="$(jq -r '.state' <<<"${pr_response}")"
+          pr_title="$(jq -r '.title' <<<"${pr_response}")"
+          pr_body="$(jq -r '.body // ""' <<<"${pr_response}")"
+          head_repo_full_name="$(jq -r '.head.repo.full_name // ""' <<<"${pr_response}")"
+          repo_owner="$(jq -r '.base.repo.owner.login' <<<"${pr_response}")"
+          repo_name="$(jq -r '.base.repo.name' <<<"${pr_response}")"
+          review_marker="<!-- jules-pr-review mode:${REVIEW_MODE} sha:${head_sha} -->"
+          session_id=""
+          state="NOT_STARTED"
+
+          printf 'REVIEWED_SHA=%s\n' "${head_sha}" > "${meta_file}"
 
           if [[ -z "${JULES_API_KEY:-}" ]]; then
             cat > "$body_file" <<EOF
           ${review_marker}
           ## Jules PR review
 
-          Jules did not run because the `JULES_API_KEY` secret is not configured for this repository.
+          Mode: \`${REVIEW_MODE}\`
+
+          Jules did not run because the \`JULES_API_KEY\` secret is not configured for this repository.
           EOF
             exit 0
           fi
 
-          matched_source=""
-          next_sources_page=""
-
-          while :; do
-            sources_url="https://jules.googleapis.com/v1alpha/sources?pageSize=100"
-
-            if [[ -n "${next_sources_page}" ]]; then
-              sources_url="${sources_url}&pageToken=$(uri_encode "${next_sources_page}")"
-            fi
-
-            sources_response="$(
-              curl -fsSL \
-                -H "x-goog-api-key: ${JULES_API_KEY}" \
-                "${sources_url}"
-            )"
-
-            matched_source="$(
-              jq -c \
-                --arg owner "${REPO_OWNER}" \
-                --arg repo "${REPO_NAME}" \
-                '
-                  .sources
-                  | map(select(.githubRepo.owner == $owner and .githubRepo.repo == $repo))
-                  | first // empty
-                ' \
-                <<<"${sources_response}"
-            )"
-
-            if [[ -n "${matched_source}" ]]; then
-              break
-            fi
-
-            next_sources_page="$(jq -r '.nextPageToken // empty' <<<"${sources_response}")"
-
-            if [[ -z "${next_sources_page}" ]]; then
-              break
-            fi
-          done
-
-          source_name=""
-
-          if [[ -n "${matched_source}" ]]; then
-            source_name="$(jq -r '.name // empty' <<<"${matched_source}")"
-          fi
-
-          if [[ -z "${source_name}" ]]; then
+          if [[ "${pr_state}" != "open" ]]; then
             cat > "$body_file" <<EOF
           ${review_marker}
           ## Jules PR review
+
+          Mode: \`${REVIEW_MODE}\`
+
+          Jules skipped this run because pull request #${PR_NUMBER} is no longer open.
+          EOF
+            exit 0
+          fi
+
+          if [[ "${REVIEW_MODE}" == "deep" && "${head_repo_full_name}" != "${GITHUB_REPOSITORY}" ]]; then
+            cat > "$body_file" <<EOF
+          ${review_marker}
+          ## Jules PR review
+
+          Mode: \`${REVIEW_MODE}\`
+
+          Deep Jules reviews require a same-repository branch so the connected source can be checked out safely.
+          EOF
+            exit 0
+          fi
+
+          prompt_file="$RUNNER_TEMP/jules-prompt.md"
+
+          if [[ "${REVIEW_MODE}" == "fast" ]]; then
+            all_files='[]'
+            files_page=1
+
+            while :; do
+              files_response="$(
+                github_api_get \
+                  "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files?per_page=100&page=${files_page}"
+              )"
+
+              all_files="$(
+                jq -c \
+                  --argjson existing "${all_files}" \
+                  '$existing + .' \
+                  <<<"${files_response}"
+              )"
+
+              if [[ "$(jq 'length' <<<"${files_response}")" -lt 100 ]]; then
+                break
+              fi
+
+              files_page=$((files_page + 1))
+            done
+
+            files_summary="$(
+              jq -r \
+                '
+                  .[]
+                  | "- \(.filename) [\(.status)] +\(.additions) / -\(.deletions)"
+                ' \
+                <<<"${all_files}"
+            )"
+
+            if [[ -z "${files_summary}" ]]; then
+              files_summary="- No file-level diff metadata was returned by the GitHub API."
+            fi
+
+            guidance_file="$RUNNER_TEMP/jules-guidance.md"
+            guidance_ref="${base_ref:-$(jq -r '.base.repo.default_branch // empty' <<<"${pr_response}")}"
+            guidance_url="${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/contents/AGENTS.md?ref=$(uri_encode "${guidance_ref}")"
+
+            if [[ -n "${guidance_ref}" ]] && github_api_get_raw "${guidance_url}" > "${guidance_file}"; then
+              :
+            else
+              printf '%s\n' "AGENTS.md was not available at ref ${guidance_ref:-unknown}." > "${guidance_file}"
+            fi
+
+            patch_sections_file="$RUNNER_TEMP/jules-patch-context.md"
+            omitted_files_file="$RUNNER_TEMP/jules-omitted-files.md"
+            : > "${patch_sections_file}"
+            : > "${omitted_files_file}"
+
+            per_file_patch_limit=12000
+            total_patch_budget=120000
+            included_patch_files=0
+            truncated_patch_files=0
+            omitted_patch_files=0
+
+            while IFS= read -r encoded_file; do
+              file_json="$(printf '%s' "${encoded_file}" | base64 --decode)"
+              filename="$(jq -r '.filename' <<<"${file_json}")"
+              status="$(jq -r '.status' <<<"${file_json}")"
+              additions="$(jq -r '.additions' <<<"${file_json}")"
+              deletions="$(jq -r '.deletions' <<<"${file_json}")"
+              patch="$(jq -r '.patch // empty' <<<"${file_json}")"
+
+              if [[ -z "${patch}" ]]; then
+                omitted_patch_files=$((omitted_patch_files + 1))
+                printf '%s\n' "- ${filename}: GitHub did not provide a textual patch excerpt." >> "${omitted_files_file}"
+                continue
+              fi
+
+              patch="${patch//$'\r'/}"
+              original_patch_length=${#patch}
+              rendered_patch="${patch}"
+
+              if (( original_patch_length > per_file_patch_limit )); then
+                rendered_patch="${patch:0:per_file_patch_limit}"$'\n'"[... truncated per file ...]"
+                truncated_patch_files=$((truncated_patch_files + 1))
+              fi
+
+              rendered_patch_length=${#rendered_patch}
+
+              if (( total_patch_budget <= 0 )); then
+                omitted_patch_files=$((omitted_patch_files + 1))
+                printf '%s\n' "- ${filename}: omitted because the total diff prompt budget was exhausted." >> "${omitted_files_file}"
+                continue
+              fi
+
+              if (( rendered_patch_length > total_patch_budget )); then
+                rendered_patch="${rendered_patch:0:total_patch_budget}"$'\n'"[... truncated because the total diff prompt budget was exhausted ...]"
+                rendered_patch_length=${#rendered_patch}
+                truncated_patch_files=$((truncated_patch_files + 1))
+              fi
+
+              total_patch_budget=$((total_patch_budget - rendered_patch_length))
+              included_patch_files=$((included_patch_files + 1))
+
+              {
+                printf '### %s\n' "${filename}"
+                printf -- '- status: %s\n' "${status}"
+                printf -- '- additions: %s\n' "${additions}"
+                printf -- '- deletions: %s\n' "${deletions}"
+                printf '```diff\n%s\n```\n\n' "${rendered_patch}"
+              } >> "${patch_sections_file}"
+            done < <(jq -r '.[] | tojson | @base64' <<<"${all_files}")
+
+            cat > "${prompt_file}" <<EOF
+          Review GitHub pull request #${PR_NUMBER} in repoless fast-review mode.
+          Repository: ${GITHUB_REPOSITORY}
+          Base branch: ${base_ref}
+          Head branch: ${head_ref}
+          Head SHA: ${head_sha}
+          Title: ${pr_title}
+
+          PR description:
+          $(if [[ -n "${pr_body}" ]]; then printf '%s' "${pr_body}"; else printf '(empty)'; fi)
+
+          You only have the repository guidance, changed-file metadata, and diff excerpts included in this prompt.
+          Do not assume access to the full repository, unchanged files, dependency graph, tests, or runtime behavior.
+          Only report issues you can justify directly from the provided context.
+          If context is truncated or omitted, do not speculate.
+          Do not modify code, do not create commits, and do not open a pull request.
+          Do not ask follow-up questions.
+          Return only concise Markdown with exactly these sections:
+          ## Verdict
+          ## Findings
+          ## Suggested next steps
+          In Findings, use flat bullets. For each issue include severity (high, medium, or low) and file paths when possible.
+          If you find no meaningful issues, say so explicitly.
+
+          ## Repository guidance
+          $(cat "${guidance_file}")
+
+          ## Changed files
+          ${files_summary}
+
+          ## Diff excerpt coverage
+          - included patch excerpts: ${included_patch_files}
+          - truncated patch excerpts: ${truncated_patch_files}
+          - omitted patch excerpts: ${omitted_patch_files}
+
+          $(if [[ -s "${omitted_files_file}" ]]; then printf '## Omitted or limited files\n%s\n' "$(cat "${omitted_files_file}")"; fi)
+
+          ## Diff excerpts
+          $(cat "${patch_sections_file}")
+          EOF
+
+            session_payload="$(
+              jq -n \
+                --rawfile prompt "${prompt_file}" \
+                --arg session_title "Fast PR Review #${PR_NUMBER}" \
+                '{
+                  prompt: $prompt,
+                  title: $session_title,
+                  requirePlanApproval: false
+                }'
+            )"
+          else
+            matched_source=""
+            next_sources_page=""
+
+            while :; do
+              sources_url="https://jules.googleapis.com/v1alpha/sources?pageSize=100"
+
+              if [[ -n "${next_sources_page}" ]]; then
+                sources_url="${sources_url}&pageToken=$(uri_encode "${next_sources_page}")"
+              fi
+
+              sources_response="$(jules_api_get "${sources_url}")"
+
+              matched_source="$(
+                jq -c \
+                  --arg owner "${repo_owner}" \
+                  --arg repo "${repo_name}" \
+                  '
+                    .sources
+                    | map(select(.githubRepo.owner == $owner and .githubRepo.repo == $repo))
+                    | first // empty
+                  ' \
+                  <<<"${sources_response}"
+              )"
+
+              if [[ -n "${matched_source}" ]]; then
+                break
+              fi
+
+              next_sources_page="$(jq -r '.nextPageToken // empty' <<<"${sources_response}")"
+
+              if [[ -z "${next_sources_page}" ]]; then
+                break
+              fi
+            done
+
+            source_name=""
+
+            if [[ -n "${matched_source}" ]]; then
+              source_name="$(jq -r '.name // empty' <<<"${matched_source}")"
+            fi
+
+            if [[ -z "${source_name}" ]]; then
+              cat > "$body_file" <<EOF
+          ${review_marker}
+          ## Jules PR review
+
+          Mode: \`${REVIEW_MODE}\`
 
           Jules could not find a connected source for \`${GITHUB_REPOSITORY}\`.
 
           Install the Jules GitHub app for this repository in the Jules web UI, then rerun this workflow.
           EOF
-            exit 0
-          fi
+              exit 0
+            fi
 
-          branch_visible="$(
-            jq -r \
-              --arg branch "${HEAD_REF}" \
-              '
-                .
-                | [(.githubRepo.branches[]?.displayName)]
-                | index($branch) != null
-              ' \
-              <<<"${matched_source}"
-          )"
+            branch_visible="$(
+              jq -r \
+                --arg branch "${head_ref}" \
+                '
+                  .
+                  | [(.githubRepo.branches[]?.displayName)]
+                  | index($branch) != null
+                ' \
+                <<<"${matched_source}"
+            )"
 
-          if [[ "${branch_visible}" != "true" ]]; then
-            cat > "$body_file" <<EOF
+            if [[ "${branch_visible}" != "true" ]]; then
+              cat > "$body_file" <<EOF
           ${review_marker}
           ## Jules PR review
 
+          Mode: \`${REVIEW_MODE}\`
+
           Jules can only review branches that are visible on the connected repository source.
 
-          The branch \`${HEAD_REF}\` was not returned by the Jules Sources API for \`${GITHUB_REPOSITORY}\`, so this run was skipped.
+          The branch \`${head_ref}\` was not returned by the Jules Sources API for \`${GITHUB_REPOSITORY}\`, so this run was skipped.
           EOF
-            exit 0
+              exit 0
+            fi
+
+            cat > "${prompt_file}" <<EOF
+          Review GitHub pull request #${PR_NUMBER} with full repository context.
+          Repository: ${GITHUB_REPOSITORY}
+          Base branch: ${base_ref}
+          Head branch: ${head_ref}
+          Head SHA: ${head_sha}
+          Title: ${pr_title}
+
+          PR description:
+          $(if [[ -n "${pr_body}" ]]; then printf '%s' "${pr_body}"; else printf '(empty)'; fi)
+
+          Compare the head branch against the base branch and perform a deep code review.
+          Do not modify code, do not create commits, and do not open a pull request.
+          Do not ask follow-up questions.
+          Return only concise Markdown with exactly these sections:
+          ## Verdict
+          ## Findings
+          ## Suggested next steps
+          In Findings, use flat bullets. For each issue include severity (high, medium, or low) and file paths when possible.
+          If you find no meaningful issues, say so explicitly.
+          EOF
+
+            session_payload="$(
+              jq -n \
+                --rawfile prompt "${prompt_file}" \
+                --arg session_title "Deep PR Review #${PR_NUMBER}" \
+                --arg source_name "${source_name}" \
+                --arg head_ref "${head_ref}" \
+                '{
+                  prompt: $prompt,
+                  title: $session_title,
+                  requirePlanApproval: false,
+                  sourceContext: {
+                    source: $source_name,
+                    githubRepoContext: {
+                      startingBranch: $head_ref
+                    }
+                  }
+                }'
+            )"
           fi
 
-          prompt="$(
-            jq -nr \
-              --arg pr_number "${PR_NUMBER}" \
-              --arg base_ref "${BASE_REF}" \
-              --arg head_ref "${HEAD_REF}" \
-              --arg pr_title "${PR_TITLE}" \
-              --arg pr_body "${PR_BODY:-}" \
-              '
-                [
-                  "Review GitHub pull request #\($pr_number).",
-                  "Base branch: \($base_ref).",
-                  "Head branch: \($head_ref).",
-                  "Title: \($pr_title)",
-                  "",
-                  "PR description:",
-                  (if $pr_body == "" then "(empty)" else $pr_body end),
-                  "",
-                  "Compare the head branch against the base branch and perform a code review.",
-                  "Do not modify code, do not create commits, and do not open a pull request.",
-                  "Do not ask follow-up questions.",
-                  "Return only concise Markdown with exactly these sections:",
-                  "## Verdict",
-                  "## Findings",
-                  "## Suggested next steps",
-                  "In Findings, use flat bullets. For each issue include severity (high, medium, or low) and file paths when possible.",
-                  "If you find no meaningful issues, say so explicitly."
-                ]
-                | join("\n")
-              '
-          )"
-
-          session_payload="$(
-            jq -n \
-              --arg prompt "${prompt}" \
-              --arg session_title "PR Review #${PR_NUMBER}" \
-              --arg source_name "${source_name}" \
-              --arg head_ref "${HEAD_REF}" \
-              '{
-                prompt: $prompt,
-                title: $session_title,
-                requirePlanApproval: false,
-                sourceContext: {
-                  source: $source_name,
-                  githubRepoContext: {
-                    startingBranch: $head_ref
-                  }
-                }
-              }'
-          )"
-
-          session_response="$(
-            curl -fsSL \
-              -X POST \
-              -H "Content-Type: application/json" \
-              -H "x-goog-api-key: ${JULES_API_KEY}" \
-              -d "${session_payload}" \
-              "https://jules.googleapis.com/v1alpha/sessions"
-          )"
+          session_response="$(jules_api_post_json "https://jules.googleapis.com/v1alpha/sessions" "${session_payload}")"
 
           session_id="$(jq -r '.id // empty' <<<"${session_response}")"
 
@@ -206,6 +497,8 @@ jobs:
           ${review_marker}
           ## Jules PR review
 
+          Mode: \`${REVIEW_MODE}\`
+
           Jules did not return a session ID, so the review could not be started.
 
           Workflow run: ${run_url}
@@ -213,13 +506,12 @@ jobs:
             exit 0
           fi
 
-          for _ in $(seq 1 60); do
-            session_status="$(
-              curl -fsSL \
-                -H "x-goog-api-key: ${JULES_API_KEY}" \
-                "https://jules.googleapis.com/v1alpha/sessions/${session_id}"
-            )"
+          while :; do
+            if (( $(date +%s) >= poll_deadline_epoch )); then
+              break
+            fi
 
+            session_status="$(jules_api_get "https://jules.googleapis.com/v1alpha/sessions/${session_id}")"
             state="$(jq -r '.state // "STATE_UNSPECIFIED"' <<<"${session_status}")"
 
             case "${state}" in
@@ -241,18 +533,12 @@ jobs:
               activities_url="${activities_url}&pageToken=$(uri_encode "${next_activities_page}")"
             fi
 
-            activities_response="$(
-              curl -fsSL \
-                -H "x-goog-api-key: ${JULES_API_KEY}" \
-                "${activities_url}"
-            )"
+            activities_response="$(jules_api_get "${activities_url}")"
 
             all_activities="$(
               jq -c \
                 --argjson existing "${all_activities}" \
-                '
-                  $existing + (.activities // [])
-                ' \
+                '$existing + (.activities // [])' \
                 <<<"${activities_response}"
             )"
 
@@ -370,6 +656,7 @@ jobs:
           ${review_marker}
           ## Jules PR review
 
+          Mode: \`${REVIEW_MODE}\`
           Session: \`${session_id}\`
           State: \`${state}\`
           Workflow: ${run_url}
@@ -383,18 +670,68 @@ jobs:
           GITHUB_API_URL: ${{ github.api_url }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+          REVIEW_MODE: ${{ github.event_name == 'issue_comment' && 'deep' || 'fast' }}
         run: |
           set -euo pipefail
 
           body_file="$RUNNER_TEMP/jules-review.md"
-          marker="<!-- jules-pr-review sha:${HEAD_SHA} -->"
+          meta_file="$RUNNER_TEMP/jules-review-meta.env"
+          reviewed_sha=""
+
+          curl_common_args=(
+            --fail
+            --silent
+            --show-error
+            --location
+            --connect-timeout 10
+            --max-time 60
+          )
+
+          curl_retry_args=(
+            --retry 3
+            --retry-delay 2
+            --retry-all-errors
+          )
+
+          github_api_get() {
+            local url="$1"
+
+            curl "${curl_common_args[@]}" "${curl_retry_args[@]}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              "${url}"
+          }
+
+          github_api_post_json() {
+            local url="$1"
+            local payload="$2"
+
+            curl "${curl_common_args[@]}" \
+              -X POST \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -d "${payload}" \
+              "${url}"
+          }
+
+          if [[ -f "${meta_file}" ]]; then
+            reviewed_sha="$(sed -n 's/^REVIEWED_SHA=//p' "${meta_file}" | tail -n 1)"
+          fi
+
+          if [[ -z "${reviewed_sha}" ]]; then
+            pr_response="$(github_api_get "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")"
+            reviewed_sha="$(jq -r '.head.sha' <<<"${pr_response}")"
+          fi
+
+          marker="<!-- jules-pr-review mode:${REVIEW_MODE} sha:${reviewed_sha} -->"
 
           if [[ ! -f "${body_file}" ]]; then
             cat > "${body_file}" <<EOF
           ${marker}
           ## Jules PR review
+
+          Mode: \`${REVIEW_MODE}\`
 
           The workflow did not produce a review body. Check the workflow logs for the failure point.
           EOF
@@ -404,12 +741,7 @@ jobs:
           reviews_page=1
 
           while :; do
-            reviews_response="$(
-              curl -fsSL \
-                -H "Accept: application/vnd.github+json" \
-                -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-                "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews?per_page=100&page=${reviews_page}"
-            )"
+            reviews_response="$(github_api_get "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews?per_page=100&page=${reviews_page}")"
 
             existing_review_id="$(
               jq -r \
@@ -443,7 +775,7 @@ jobs:
 
           review_payload="$(
             jq -n \
-              --arg commit_id "${HEAD_SHA}" \
+              --arg commit_id "${reviewed_sha}" \
               --rawfile body "${body_file}" \
               '{
                 body: $body,
@@ -452,9 +784,4 @@ jobs:
               }'
           )"
 
-          curl -fsSL \
-            -X POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-            -d "${review_payload}" \
-            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews" >/dev/null
+          github_api_post_json "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews" "${review_payload}" >/dev/null

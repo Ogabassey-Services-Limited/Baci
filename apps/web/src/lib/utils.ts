@@ -107,6 +107,8 @@ export const isCommonPassword = (password: string): boolean => {
  *
  * Returns: 0 (none), 1 (weak), 2 (medium), 3 (strong)
  */
+export const MIN_ACCEPTABLE_PASSWORD_STRENGTH = 2;
+
 export const checkPasswordStrength = (password: string): number => {
   if (!password) return 0;
 

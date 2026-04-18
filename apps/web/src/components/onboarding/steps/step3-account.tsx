@@ -24,7 +24,10 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { checkPasswordStrength } from '@/lib/utils';
+import {
+  checkPasswordStrength,
+  MIN_ACCEPTABLE_PASSWORD_STRENGTH,
+} from '@/lib/utils';
 import type { OnboardingFormValues } from '@/schemas/onboarding';
 
 interface Step3Props {
@@ -50,7 +53,9 @@ export default function Step3_Account({
   const password = useWatch({ control, name: 'password' }) || '';
   const confirmPassword = useWatch({ control, name: 'confirmPassword' }) || '';
   const passwordStrength = checkPasswordStrength(password);
-  const isPasswordStrong = passwordStrength >= 3;
+  // Keep the client-side gate aligned with onboardingSchema/account-security validation.
+  const hasAcceptablePasswordStrength =
+    passwordStrength >= MIN_ACCEPTABLE_PASSWORD_STRENGTH;
 
   // Re-validate confirmPassword when password changes (proper cross-field validation)
   // biome-ignore lint/correctness/useExhaustiveDependencies: password triggers re-validation of confirmPassword match
@@ -120,9 +125,9 @@ export default function Step3_Account({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Email Address</FormLabel>
-                <FormControl>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <FormControl>
                     <Input
                       type="email"
                       placeholder="you@example.com"
@@ -136,8 +141,8 @@ export default function Step3_Account({
                       autoCorrect="off"
                       autoCapitalize="off"
                     />
-                  </div>
-                </FormControl>
+                  </FormControl>
+                </div>
                 <FormMessage />
               </FormItem>
             )}
@@ -178,9 +183,9 @@ export default function Step3_Account({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Password</FormLabel>
-                <FormControl>
-                  <div className="relative">
-                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <div className="relative">
+                  <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <FormControl>
                     <Input
                       type={showPassword ? 'text' : 'password'}
                       placeholder="Create a strong password"
@@ -195,40 +200,40 @@ export default function Step3_Account({
                       autoCapitalize="off"
                       data-form-type="password"
                     />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10 text-muted-foreground hover:text-foreground"
-                      onClick={() => setShowPassword(!showPassword)}
-                      aria-label={
-                        showPassword ? 'Hide password' : 'Show password'
-                      }
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                </FormControl>
+                  </FormControl>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10 text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={
+                      showPassword ? 'Hide password' : 'Show password'
+                    }
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
                 <PasswordStrengthIndicator strength={passwordStrength} />
                 <FormMessage />
               </FormItem>
             )}
           />
 
-          {isPasswordStrong && (
+          {hasAcceptablePasswordStrength && (
             <FormField
               control={control}
               name="confirmPassword"
               render={({ field }) => (
                 <FormItem className="animate-fade-in">
                   <FormLabel>Confirm Password</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <div className="relative">
+                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <FormControl>
                       <Input
                         type={showConfirmPassword ? 'text' : 'password'}
                         placeholder="Re-enter your password"
@@ -243,28 +248,26 @@ export default function Step3_Account({
                         autoCapitalize="off"
                         data-form-type="password"
                       />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10 text-muted-foreground hover:text-foreground"
-                        onClick={() =>
-                          setShowConfirmPassword(!showConfirmPassword)
-                        }
-                        aria-label={
-                          showConfirmPassword
-                            ? 'Hide password'
-                            : 'Show password'
-                        }
-                      >
-                        {showConfirmPassword ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </div>
-                  </FormControl>
+                    </FormControl>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10 text-muted-foreground hover:text-foreground"
+                      onClick={() =>
+                        setShowConfirmPassword(!showConfirmPassword)
+                      }
+                      aria-label={
+                        showConfirmPassword ? 'Hide password' : 'Show password'
+                      }
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}

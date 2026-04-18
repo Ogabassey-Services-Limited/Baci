@@ -79,6 +79,7 @@ export interface ResumedOrder {
   customer_name: string;
   customer_email: string;
   customer_phone: string;
+  tracking_token?: string;
   shipping_address: {
     address: string;
     city: string;

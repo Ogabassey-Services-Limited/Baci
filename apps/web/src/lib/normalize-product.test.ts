@@ -51,6 +51,24 @@ describe('normalizeProduct', () => {
     expect(result.has_condition_offers).toBe(false);
   });
 
+  it('preserves available_conditions and variant_model when present', () => {
+    const result = normalizeProduct({
+      ...baseRawProduct,
+      available_conditions: ['new', 'used'],
+      variant_model: 'sku_matrix',
+    });
+
+    expect(result.available_conditions).toEqual(['new', 'used']);
+    expect(result.variant_model).toBe('sku_matrix');
+  });
+
+  it('defaults available_conditions and variant_model when missing', () => {
+    const result = normalizeProduct(baseRawProduct);
+
+    expect(result.available_conditions).toEqual([]);
+    expect(result.variant_model).toBe('legacy');
+  });
+
   it('defaults condition to New when missing', () => {
     const { condition: _, ...noCondition } = baseRawProduct;
     const result = normalizeProduct(noCondition);

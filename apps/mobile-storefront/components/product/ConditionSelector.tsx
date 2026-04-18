@@ -4,18 +4,23 @@
  * Updates pricing based on selected condition offer
  */
 
+import {
+  type CanonicalProductCondition,
+  normalizeCanonicalProductCondition,
+} from '@baci/shared/lib';
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { RADIUS, SPACING } from '@/constants/Colors';
 import {
-  formatProductConditionDisplay,
   formatPrice,
+  formatProductConditionDisplay,
   type ProductCondition,
   type ProductConditionOffer,
 } from '@/types/product';
 
 interface ConditionSelectorProps {
+  availableConditions?: ProductCondition[];
   currentCondition: string | undefined;
   offers: ProductConditionOffer[];
   selectedCondition: ProductCondition | null;
@@ -24,33 +29,27 @@ interface ConditionSelectorProps {
 }
 
 const CONDITION_CONFIG: Record<
-  ProductCondition,
-  { icon: string; color: string; description: string }
+  CanonicalProductCondition,
+  {
+    colorToken: 'primary' | 'success' | 'warning';
+    description: string;
+    icon: string;
+  }
 > = {
   new: {
+    colorToken: 'success',
     icon: 'sparkles',
-    color: '#10B981',
     description: 'Brand new, sealed',
   },
   used: {
+    colorToken: 'warning',
     icon: 'refresh',
-    color: '#F59E0B',
     description: 'Pre-owned, tested',
   },
-  uk_used: {
-    icon: 'airplane',
-    color: '#3B82F6',
-    description: 'Imported, pre-owned',
-  },
   open_box: {
+    colorToken: 'primary',
     icon: 'cube-outline',
-    color: '#8B5CF6',
-    description: 'Opened, never used',
-  },
-  refurbished: {
-    icon: 'construct',
-    color: '#06B6D4',
-    description: 'Restored to like-new',
+    description: 'Certified open-box stock',
   },
 };
 
@@ -62,6 +61,7 @@ const GRADE_LABELS: Record<string, string> = {
 };
 
 export function ConditionSelector({
+  availableConditions,
   currentCondition,
   offers,
   selectedCondition,
@@ -72,21 +72,18 @@ export function ConditionSelector({
   const colors = Colors[colorScheme ?? 'light'];
 
   // Normalize current condition to match our condition type
-  const normalizeCondition = (cond: string | undefined): ProductCondition => {
-    if (!cond) return 'new';
-    const lower = cond.toLowerCase().replace(/\s+/g, '_');
-    if (lower.includes('uk')) return 'uk_used';
-    if (lower.includes('refurb')) return 'refurbished';
-    if (lower.includes('open')) return 'open_box';
-    if (lower.includes('used')) return 'used';
-    return 'new';
+  const normalizeCondition = (
+    cond: string | undefined
+  ): CanonicalProductCondition | null => {
+    const normalized = normalizeCanonicalProductCondition(cond);
+    return normalized || null;
   };
 
   const baseCondition = normalizeCondition(currentCondition);
 
-  // Build available conditions from offers + base condition
-  const availableConditions: Array<{
-    condition: ProductCondition;
+  // Build available conditions from explicit list + offers + base condition
+  const renderedConditions: Array<{
+    condition: CanonicalProductCondition;
     price: number;
     comparePrice?: number;
     stock?: number;
@@ -94,40 +91,50 @@ export function ConditionSelector({
     notes?: string;
   }> = [];
 
-  // Add base condition (the product's default)
-  availableConditions.push({
-    condition: baseCondition,
-    price: basePrice,
-    stock: undefined,
-  });
+  const conditionList = Array.from(
+    new Set([
+      ...(baseCondition ? [baseCondition] : []),
+      ...(availableConditions ?? []).map((condition) =>
+        normalizeCondition(condition)
+      ),
+      ...offers.map((offer) => normalizeCondition(offer.condition)),
+    ])
+  ).filter(
+    (condition): condition is CanonicalProductCondition =>
+      condition !== null && condition in CONDITION_CONFIG
+  );
 
-  // Add offers that differ from base condition
-  for (const offer of offers) {
-    if (offer.condition !== baseCondition) {
-      availableConditions.push({
-        condition: offer.condition,
-        price: offer.price,
-        comparePrice: offer.compare_at_price,
-        stock: offer.stock_quantity,
-        grade: offer.grade,
-        notes: offer.condition_notes,
-      });
-    }
+  for (const condition of conditionList) {
+    const offer = offers.find(
+      (candidate) => normalizeCondition(candidate.condition) === condition
+    );
+    renderedConditions.push({
+      condition,
+      price: offer?.price ?? basePrice,
+      comparePrice: offer?.compare_at_price,
+      stock: offer?.stock_quantity,
+      grade: offer?.grade,
+      notes: offer?.condition_notes,
+    });
   }
 
   // If only one condition available, don't show selector
-  if (availableConditions.length <= 1) {
+  if (renderedConditions.length <= 1) {
     return null;
   }
 
-  const effectiveSelected = selectedCondition || baseCondition;
+  const effectiveSelected =
+    normalizeCondition(selectedCondition ?? undefined) ??
+    baseCondition ??
+    renderedConditions[0]?.condition;
 
   return (
     <View style={styles.container}>
       <Text style={[styles.title, { color: colors.text }]}>Condition</Text>
       <View style={styles.optionsContainer}>
-        {availableConditions.map((item) => {
+        {renderedConditions.map((item) => {
           const config = CONDITION_CONFIG[item.condition];
+          const accentColor = colors[config.colorToken];
           const displayLabel = formatProductConditionDisplay(item.condition);
           const isSelected = effectiveSelected === item.condition;
           const savings = basePrice - item.price;
@@ -141,9 +148,9 @@ export function ConditionSelector({
                 styles.optionCard,
                 {
                   backgroundColor: isSelected
-                    ? `${config.color}15`
+                    ? `${accentColor}15`
                     : colors.card,
-                  borderColor: isSelected ? config.color : colors.border,
+                  borderColor: isSelected ? accentColor : colors.border,
                 },
               ]}
               accessibilityRole="radio"
@@ -154,7 +161,7 @@ export function ConditionSelector({
                 <View
                   style={[
                     styles.iconContainer,
-                    { backgroundColor: `${config.color}20` },
+                    { backgroundColor: `${accentColor}20` },
                   ]}
                 >
                   <Ionicons
@@ -164,14 +171,14 @@ export function ConditionSelector({
                       >['name']
                     }
                     size={16}
-                    color={config.color}
+                    color={accentColor}
                   />
                 </View>
                 <View style={styles.labelContainer}>
                   <Text
                     style={[
                       styles.conditionLabel,
-                      { color: isSelected ? config.color : colors.text },
+                      { color: isSelected ? accentColor : colors.text },
                     ]}
                   >
                     {displayLabel}
@@ -191,7 +198,7 @@ export function ConditionSelector({
                   <Ionicons
                     name="checkmark-circle"
                     size={20}
-                    color={config.color}
+                    color={accentColor}
                   />
                 )}
               </View>
@@ -200,7 +207,7 @@ export function ConditionSelector({
                 <Text
                   style={[
                     styles.priceText,
-                    { color: isSelected ? config.color : colors.text },
+                    { color: isSelected ? accentColor : colors.text },
                   ]}
                 >
                   {formatPrice(item.price)}
@@ -209,10 +216,10 @@ export function ConditionSelector({
                   <View
                     style={[
                       styles.savingsBadge,
-                      { backgroundColor: `${config.color}20` },
+                      { backgroundColor: `${accentColor}20` },
                     ]}
                   >
-                    <Text style={[styles.savingsText, { color: config.color }]}>
+                    <Text style={[styles.savingsText, { color: accentColor }]}>
                       Save {formatPrice(savings)}
                     </Text>
                   </View>

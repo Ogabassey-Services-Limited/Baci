@@ -15,9 +15,12 @@ import { NegotiationModal } from '@/components/modals/NegotiationModal';
 import { CompactStackHeader } from '@/components/navigation/CompactStackHeader';
 import { DrawerMenu } from '@/components/navigation/DrawerMenu';
 import { useColorScheme } from '@/components/useColorScheme';
+import { CHAT_WIDGET_DEFAULT_BOTTOM_OFFSET } from '@/constants/layout';
 import Colors, { BRAND } from '@/constants/Colors';
 import { useAuthGuard } from '@/hooks/use-auth-guard';
 import { QueryProvider } from '@/lib/QueryProvider';
+import { CONFIG } from '@/lib/config';
+import { getTemplateConfig } from '@/lib/templates';
 
 const OgabasseyLightTheme = {
   ...DefaultTheme,
@@ -52,8 +55,9 @@ export function RootLayoutNav({
 }: RootLayoutNavProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
+  const template = getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID);
   const enableConnectivityBanner = true;
-  const enableChatWidget = true;
+  const enableChatWidget = template.features?.chatWidget ?? true;
   const enableNegotiationModal = true;
   const enableDrawerMenu = true;
 
@@ -282,7 +286,9 @@ export function RootLayoutNav({
                 </Stack>
               </GlobalErrorBoundary>
               {enableConnectivityBanner ? <ConnectivityBanner /> : null}
-              {enableChatWidget ? <ChatWidget bottomOffset={140} /> : null}
+              {enableChatWidget ? (
+                <ChatWidget bottomOffset={CHAT_WIDGET_DEFAULT_BOTTOM_OFFSET} />
+              ) : null}
               {enableNegotiationModal ? <NegotiationModal /> : null}
               {enableDrawerMenu ? <DrawerMenu /> : null}
             </View>

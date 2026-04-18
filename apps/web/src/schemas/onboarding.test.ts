@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  checkPasswordStrength,
+  MIN_ACCEPTABLE_PASSWORD_STRENGTH,
+} from '@/lib/utils';
+import {
   mobileOnboardingSchema,
+  onboardingFormSchema,
   onboardingSchema,
   step1Schema,
   step2Schema,
@@ -99,11 +104,55 @@ describe('onboardingSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it('rejects prefix-only confirm passwords', () => {
+    const result = onboardingSchema.safeParse(
+      validPayload({
+        password: 'StrongPass123!',
+        confirmPassword: 'StrongPass',
+      })
+    );
+
+    expect(result.success).toBe(false);
+  });
+
   it('rejects short passwords', () => {
     const result = onboardingSchema.safeParse(
       validPayload({ password: 'abc', confirmPassword: 'abc' })
     );
     expect(result.success).toBe(false);
+  });
+
+  it('rejects weak passwords before confirmPassword mismatch checks run', () => {
+    expect(checkPasswordStrength('weak')).toBeLessThan(
+      MIN_ACCEPTABLE_PASSWORD_STRENGTH
+    );
+
+    const result = onboardingSchema.safeParse(
+      validPayload({
+        password: 'weak',
+        confirmPassword: 'mismatch',
+      })
+    );
+
+    expect(result.success).toBe(false);
+
+    const confirmPasswordIssues =
+      result.success === false
+        ? result.error.issues.filter(
+            (issue) => issue.path[0] === 'confirmPassword'
+          )
+        : [];
+    const passwordIssues =
+      result.success === false
+        ? result.error.issues.filter((issue) => issue.path[0] === 'password')
+        : [];
+
+    expect(
+      passwordIssues.some((issue) =>
+        issue.message.includes('Password is too weak')
+      )
+    ).toBe(true);
+    expect(confirmPasswordIssues).toHaveLength(0);
   });
 
   it('accepts matching strong passwords', () => {
@@ -126,6 +175,35 @@ describe('mobileOnboardingSchema', () => {
       email: 'mobile@test.com',
     });
     expect(result.success).toBe(true);
+  });
+});
+
+describe('onboardingFormSchema', () => {
+  it('allows prefix-only confirm passwords while the user is still typing', () => {
+    const result = onboardingFormSchema.safeParse(
+      validPayload({
+        password: 'StrongPass123!',
+        confirmPassword: 'StrongPass',
+      })
+    );
+
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects non-prefix confirm password mismatches', () => {
+    const result = onboardingFormSchema.safeParse(
+      validPayload({
+        password: 'StrongPass123!',
+        confirmPassword: 'WrongPass456!',
+      })
+    );
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(
+        result.error.issues.some((issue) => issue.path[0] === 'confirmPassword')
+      ).toBe(true);
+    }
   });
 });
 
@@ -198,6 +276,16 @@ describe('step3Schema', () => {
       email: 'test@example.com',
       password: 'MyStr0ng!Pass',
     });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects prefix-only confirm passwords', () => {
+    const result = step3Schema.safeParse({
+      email: 'test@example.com',
+      password: 'StrongPass123!',
+      confirmPassword: 'StrongPass',
+    });
+
     expect(result.success).toBe(false);
   });
 });

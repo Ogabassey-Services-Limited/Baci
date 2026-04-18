@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CryptoCheckoutPage } from './crypto-checkout';
 
@@ -477,5 +477,121 @@ describe('CryptoCheckoutPage', () => {
       expect(screen.getByText(/Only send/i)).toBeInTheDocument();
       expect(screen.getByText(/Using the wrong network will result in permanent loss./i)).toBeInTheDocument();
     });
+  });
+
+  it('preserves trackingToken when redirecting after a confirmed payment', async () => {
+    const paramsWithTrackingToken = new URLSearchParams({
+      orderId: 'test-order-123',
+      amount: '5000',
+      customer_email: 'test@example.com',
+      customer_name: 'Test Customer',
+      customer_phone: '+2348012345678',
+      crypto_chain: 'TRX',
+      crypto_currency: 'USDT',
+      merchant_slug: 'testmerchant',
+      trackingToken: 'track-token-123',
+    });
+    mockUseSearchParams.mockReturnValue(paramsWithTrackingToken);
+
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          crypto_payment: {
+            address: 'TRXAddressHere123456789',
+            chain: 'TRX',
+            currency: 'USDT',
+            amount: 500000,
+            confirmation_time: '5-10 minutes',
+            payment_id: 'payment-123',
+          },
+          reference: 'REF-123456',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ status: 'confirmed' }),
+      });
+
+    render(<CryptoCheckoutPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Pay with Crypto')).toBeInTheDocument();
+    });
+
+    vi.useFakeTimers();
+    try {
+      await act(async () => {
+        fireEvent.click(
+          screen.getByRole('button', { name: /I've Sent the Payment/i })
+        );
+        await vi.runAllTimersAsync();
+      });
+
+      expect(mockPush).toHaveBeenCalledWith(
+        '/testmerchant/order-success?type=crypto&orderId=test-order-123&reference=REF-123456&trackingToken=track-token-123'
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('accepts tracking_token when redirecting after a confirmed payment', async () => {
+    const paramsWithTrackingTokenAlias = new URLSearchParams({
+      orderId: 'test-order-123',
+      amount: '5000',
+      customer_email: 'test@example.com',
+      customer_name: 'Test Customer',
+      customer_phone: '+2348012345678',
+      crypto_chain: 'TRX',
+      crypto_currency: 'USDT',
+      merchant_slug: 'testmerchant',
+      tracking_token: 'snake-track-token-123',
+    });
+    mockUseSearchParams.mockReturnValue(paramsWithTrackingTokenAlias);
+
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          crypto_payment: {
+            address: 'TRXAddressHere123456789',
+            chain: 'TRX',
+            currency: 'USDT',
+            amount: 500000,
+            confirmation_time: '5-10 minutes',
+            payment_id: 'payment-123',
+          },
+          reference: 'REF-123456',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ status: 'confirmed' }),
+      });
+
+    render(<CryptoCheckoutPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Pay with Crypto')).toBeInTheDocument();
+    });
+
+    vi.useFakeTimers();
+    try {
+      await act(async () => {
+        fireEvent.click(
+          screen.getByRole('button', { name: /I've Sent the Payment/i })
+        );
+        await vi.runAllTimersAsync();
+      });
+
+      expect(mockPush).toHaveBeenCalledWith(
+        '/testmerchant/order-success?type=crypto&orderId=test-order-123&reference=REF-123456&trackingToken=snake-track-token-123'
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

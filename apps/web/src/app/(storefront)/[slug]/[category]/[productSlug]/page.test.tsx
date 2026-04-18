@@ -2,8 +2,17 @@ import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const { mockNormalizeStorefrontProductVariants } = vi.hoisted(() => ({
+  mockNormalizeStorefrontProductVariants: vi.fn<
+    (...args: unknown[]) => Record<string, unknown>[]
+  >(() => []),
+}));
+
 const mockHeaders = vi.fn();
 const mockPermanentRedirect = vi.fn((_url: string) => {
+  throw new Error('NEXT_REDIRECT');
+});
+const mockRedirect = vi.fn((_url: string) => {
   throw new Error('NEXT_REDIRECT');
 });
 const mockNotFound = vi.fn(() => {
@@ -20,6 +29,7 @@ const mockGenerateProductSchema = vi.fn(() => ({}));
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
   permanentRedirect: (url: string) => mockPermanentRedirect(url),
+  redirect: (url: string) => mockRedirect(url),
 }));
 
 vi.mock('next/headers', () => ({
@@ -143,11 +153,10 @@ vi.mock('@/lib/store-url', () => ({
 }));
 
 vi.mock('@/lib/storefront-product-variants', () => ({
-  normalizeStorefrontProductVariants: () => [],
+  normalizeStorefrontProductVariants: mockNormalizeStorefrontProductVariants,
 }));
 
 vi.mock('@/lib/validation', () => ({
-  // Keep reserved storefront namespaces aligned with production validation.
   isDomainIdentifier: (value: string) => value.includes('.'),
   isValidMerchantIdentifier: (value: string) => {
     const reservedNames = new Set(['images', 'product']);
@@ -213,6 +222,8 @@ describe('[category]/[productSlug] page metadata', () => {
     mockGenerateProductSchema.mockReset();
     mockHeaders.mockReset();
     mockHeaders.mockResolvedValue(new Headers());
+    mockNormalizeStorefrontProductVariants.mockReset();
+    mockNormalizeStorefrontProductVariants.mockReturnValue([]);
     mockGetRequestScopedMerchant.mockResolvedValue(baseMerchant);
     mockGetCachedProductWithDetails.mockResolvedValue(null);
     mockGetCachedLegacyProductRedirectTarget.mockResolvedValue(null);
@@ -366,6 +377,44 @@ describe('[category]/[productSlug] page metadata', () => {
       'https://cdn.example.com/products/hp-laptop.png',
     ]);
   });
+
+  it('redirects attribute-only variant params to the bare family URL', async () => {
+    mockGetCachedProductWithDetails.mockResolvedValue(
+      categorizedDetailedProduct
+    );
+    mockNormalizeStorefrontProductVariants.mockReturnValue([
+      {
+        id: 'variant-new-128',
+        attributes: { storage: '128GB', connectivity: 'WiFi' },
+        condition: 'new',
+        stock_quantity: 5,
+      },
+      {
+        id: 'variant-used-128',
+        attributes: { storage: '128GB', connectivity: 'WiFi' },
+        condition: 'used',
+        stock_quantity: 3,
+      },
+    ]);
+
+    await expect(
+      generateMetadata({
+        params: Promise.resolve({
+          slug: 'teststore',
+          category: 'laptops',
+          productSlug: 'hp-laptop-14-ep0063nia',
+        }),
+        searchParams: Promise.resolve({
+          storage: '128GB',
+          utm_source: 'google',
+        }),
+      })
+    ).rejects.toThrow('NEXT_REDIRECT');
+
+    expect(mockPermanentRedirect).toHaveBeenCalledWith(
+      '/laptops/hp-laptop-14-ep0063nia'
+    );
+  });
 });
 
 describe('[category]/[productSlug] page render', () => {
@@ -373,6 +422,8 @@ describe('[category]/[productSlug] page render', () => {
     vi.clearAllMocks();
     mockHeaders.mockReset();
     mockHeaders.mockResolvedValue(new Headers());
+    mockNormalizeStorefrontProductVariants.mockReset();
+    mockNormalizeStorefrontProductVariants.mockReturnValue([]);
     mockGetRequestScopedMerchant.mockResolvedValue({
       ...baseMerchant,
       template_id: 'ogabassey',
@@ -560,6 +611,25 @@ describe('[category]/[productSlug] page render', () => {
         supportEmail: 'support@test.example',
         supportPhone: '+2348000000000',
       })
+    );
+  });
+
+  it('keeps the canonical URL on the bare family path', async () => {
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'laptops',
+        productSlug: 'hp-laptop-14-ep0063nia',
+      }),
+      searchParams: Promise.resolve({
+        condition: 'used',
+        storage: '128GB',
+        utm_source: 'google',
+      }),
+    });
+
+    expect(metadata.alternates?.canonical).toBe(
+      'https://teststore.usebaci.com/laptops/hp-laptop-14-ep0063nia'
     );
   });
 });

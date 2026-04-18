@@ -1,6 +1,7 @@
 'use client';
 
 import { Check, ChevronRight, CreditCard, Loader2, Truck } from 'lucide-react';
+import { useEffect } from 'react';
 import {
   PaystackLogo,
   CredPalLogo,
@@ -8,6 +9,10 @@ import {
   JuicywayLogo,
   BankTransferLogo,
 } from '../../../components/PaymentLogos';
+import {
+  isBankTransferCheckoutAvailable,
+  isPaystackCheckoutAvailable,
+} from '@/lib/checkout/payment-gateway-availability';
 import type { PaymentMethod, PaymentTab } from '../types';
 
 type StepName = 'contact' | 'delivery' | 'payment';
@@ -23,6 +28,40 @@ interface FeatureSettings {
   pay_on_delivery_enabled?: boolean;
   credpal_enabled?: boolean;
   credit_direct_enabled?: boolean;
+}
+
+function isPaymentMethodAvailable({
+  paymentMethod,
+  paystackCheckoutAvailable,
+  bankTransferCheckoutAvailable,
+  featureSettings,
+}: {
+  paymentMethod: PaymentMethod;
+  paystackCheckoutAvailable: boolean;
+  bankTransferCheckoutAvailable: boolean;
+  featureSettings?: FeatureSettings | null;
+}): boolean {
+  switch (paymentMethod) {
+    case 'paystack':
+      return paystackCheckoutAvailable;
+    case 'bank_transfer':
+      return bankTransferCheckoutAvailable;
+    case 'juicyway':
+      return featureSettings?.juicyway_enabled === true;
+    case 'pod':
+      return featureSettings?.pay_on_delivery_enabled === true;
+    case 'credpal':
+      return featureSettings?.credpal_enabled === true;
+    case 'credit_direct':
+      return featureSettings?.credit_direct_enabled === true;
+    case 'invoice':
+    case 'payforme':
+      return true;
+    case 'korapay':
+    case '':
+    default:
+      return false;
+  }
 }
 
 interface PaymentStepProps {
@@ -42,7 +81,13 @@ interface PaymentStepProps {
   setNewsletterOptIn: (v: boolean) => void;
   handlePlaceOrder: () => void;
   setCurrentStep: (step: StepName) => void;
-  merchant: { feature_settings?: FeatureSettings | null } | null | undefined;
+  merchant:
+    | {
+        paystack_subaccount_code?: string | null;
+        feature_settings?: FeatureSettings | null;
+      }
+    | null
+    | undefined;
   user: { id: string } | null | undefined;
   remainingAmount: number;
 }
@@ -68,6 +113,26 @@ export function PaymentStep({
   user,
   remainingAmount,
 }: PaymentStepProps) {
+  const paystackCheckoutAvailable = isPaystackCheckoutAvailable(merchant);
+  const bankTransferCheckoutAvailable =
+    isBankTransferCheckoutAvailable(merchant);
+  const hasAvailableSelectedPaymentMethod = isPaymentMethodAvailable({
+    paymentMethod,
+    paystackCheckoutAvailable,
+    bankTransferCheckoutAvailable,
+    featureSettings: merchant?.feature_settings,
+  });
+
+  useEffect(() => {
+    if (paymentMethod && !hasAvailableSelectedPaymentMethod) {
+      setPaymentMethod('');
+    }
+  }, [
+    hasAvailableSelectedPaymentMethod,
+    paymentMethod,
+    setPaymentMethod,
+  ]);
+
   return (
     <div className={`bg-white rounded-2xl shadow-sm border ${currentStep === 'payment' ? 'border-[var(--store-primary)] ring-1 ring-[var(--store-primary)]/20' : 'border-gray-100'} overflow-hidden transition-all duration-300`}>
       <button
@@ -77,9 +142,9 @@ export function PaymentStep({
         className="w-full px-6 py-4 flex items-center justify-between text-left disabled:opacity-50 disabled:cursor-not-allowed hidden-disabled"
       >
         <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs transition-colors ${paymentMethod ? 'bg-green-100 text-green-600' : currentStep === 'payment' ? 'bg-[var(--store-primary)]/10 text-[var(--store-primary)]' : 'bg-gray-100 text-gray-500'
+          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs transition-colors ${hasAvailableSelectedPaymentMethod ? 'bg-green-100 text-green-600' : currentStep === 'payment' ? 'bg-[var(--store-primary)]/10 text-[var(--store-primary)]' : 'bg-gray-100 text-gray-500'
             }`}>
-            {paymentMethod ? <Check size={14} /> : '3'}
+            {hasAvailableSelectedPaymentMethod ? <Check size={14} /> : '3'}
           </div>
           Payment Method
         </h2>
@@ -118,7 +183,7 @@ export function PaymentStep({
                 <p className="text-xs text-gray-500">Select a payment gateway:</p>
                 <div className="grid grid-cols-1 gap-3">
                   {/* Paystack */}
-                  {(!merchant?.feature_settings || merchant.feature_settings.paystack_enabled !== false) && (
+                  {paystackCheckoutAvailable && (
                     <label
                       className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'paystack'
                         ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5'
@@ -148,7 +213,7 @@ export function PaymentStep({
                   )}
 
                   {/* Bank Transfer (DVA) - Premium Option */}
-                  {(!merchant?.feature_settings || merchant.feature_settings.paystack_enabled !== false) && (
+                  {bankTransferCheckoutAvailable && (
                     <label
                       className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'bank_transfer'
                         ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5'
@@ -409,7 +474,7 @@ export function PaymentStep({
               onClick={handlePlaceOrder}
               disabled={
                 isProcessing ||
-                (remainingAmount > 0 && !paymentMethod) ||
+                (remainingAmount > 0 && !hasAvailableSelectedPaymentMethod) ||
                 (paymentMethod === 'payforme' && !isPayForMeValid)
               }
               className="w-full bg-[var(--store-primary)] hover:bg-[var(--store-primary)]/90 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-[var(--store-primary)]/20 active:scale-[0.98]"

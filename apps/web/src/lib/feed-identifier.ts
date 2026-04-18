@@ -5,6 +5,7 @@ export interface FeedMerchantRecord {
   id: string;
   business_name: string;
   country: string;
+  gmc_variants_enabled?: boolean;
   payout_currency: string;
   slug: string;
 }

@@ -48,6 +48,7 @@ export const mockMerchant: CachedMerchant = {
   slug: 'test-store',
   business_address: '123 Test Street',
   payout_currency: 'NGN',
+  paystack_subaccount_code: null,
   is_published: true,
   template_id: 'template-1',
   plan_tier: 'free',

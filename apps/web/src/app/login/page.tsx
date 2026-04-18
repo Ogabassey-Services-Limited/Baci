@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
-import LoginClient from './login-client';
+import { Suspense } from 'react';
+import LoginClient from '@/app/login/login-client';
+import LoginLoadingFallback from '@/app/login/login-loading-fallback';
 
 export const metadata: Metadata = {
   title: 'Login - Access Your Dashboard | Baci',
@@ -8,5 +10,9 @@ export const metadata: Metadata = {
 };
 
 export default function LoginPage() {
-  return <LoginClient />;
+  return (
+    <Suspense fallback={<LoginLoadingFallback />}>
+      <LoginClient />
+    </Suspense>
+  );
 }

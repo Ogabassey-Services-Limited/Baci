@@ -7,7 +7,10 @@ import Image from 'next/image';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
 import { buildOgabasseyProductSpecData } from '../product-spec-data';
-import type { Product } from '../types';
+import {
+  normalizeProductCondition,
+  type Product,
+} from '../types';
 
 /** Minimal shape returned by the storefront products search API */
 interface SearchResultProduct {
@@ -122,7 +125,7 @@ export function ProductComparisonTable({
             description: rawProduct.description || '',
             rating: rawProduct.rating || 0,
             category: rawProduct.category,
-            condition: (rawProduct.condition || 'New') as Product['condition'],
+            condition: normalizeProductCondition(rawProduct.condition) || 'new',
             brand: rawProduct.brand,
             detailedSpecs: specData.detailedSpecs,
             specs: specData.specs,

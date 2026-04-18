@@ -1,13 +1,12 @@
-import type { Product } from '@/lib/products';
 import React from 'react';
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { Product } from '@/lib/products';
 
 vi.mock('@baci/shared', () => ({
-  prioritizeSmartphoneProducts: vi.fn(
-    (products: unknown[]) => products
-  ),
+  prioritizeSmartphoneProducts: vi.fn((products: unknown[]) => products),
 }));
+
 vi.mock('next/link', () => ({
   default: ({
     children,
@@ -23,12 +22,35 @@ vi.mock('next/link', () => ({
     </a>
   ),
 }));
+
+vi.mock('./AdvancedProductFilters', () => ({
+  AdvancedProductFilters: (props: {
+    onSelectCondition: (condition: string) => void;
+  }) => (
+    <div>
+      <button onClick={() => props.onSelectCondition('New')}>Filter New</button>
+      <button onClick={() => props.onSelectCondition('Used')}>Filter Used</button>
+    </div>
+  ),
+}));
+
 vi.mock('next/dynamic', () => ({
   default: (loader: () => Promise<unknown>) => {
     const source = loader.toString();
 
     if (source.includes('AdvancedProductFilters')) {
-      return () => null;
+      return (props: {
+        onSelectCondition: (condition: string) => void;
+      }) => (
+        <div>
+          <button onClick={() => props.onSelectCondition('New')}>
+            Filter New
+          </button>
+          <button onClick={() => props.onSelectCondition('Used')}>
+            Filter Used
+          </button>
+        </div>
+      );
     }
 
     if (source.includes('ProductListItem')) {
@@ -42,10 +64,12 @@ vi.mock('next/dynamic', () => ({
     return () => null;
   },
 }));
+
 vi.mock('next/navigation', () => ({
   usePathname: vi.fn(() => '/test-store'),
   useSearchParams: vi.fn(() => new URLSearchParams()),
 }));
+
 vi.mock('@/hooks/cart', () => ({
   useCart: vi.fn(() => ({
     cart: [],
@@ -54,10 +78,13 @@ vi.mock('@/hooks/cart', () => ({
     totalItems: 0,
   })),
 }));
+
 vi.mock('@/hooks/use-merchant', () => ({
   useMerchantSafe: vi.fn(() => ({ merchant: { id: 'm-1', slug: 'test' } })),
 }));
+
 vi.mock('../data/products', () => ({ products: [] }));
+
 vi.mock('../providers/v2-saved-context', () => ({
   useV2Saved: vi.fn(() => ({
     savedIds: new Set(),
@@ -65,16 +92,21 @@ vi.mock('../providers/v2-saved-context', () => ({
     isSaved: vi.fn(() => false),
   })),
 }));
+
 vi.mock('./AdUnit', () => ({
   AdUnit: () => <div data-testid="ad-unit" />,
 }));
+
 vi.mock('./ProductGridItem', () => ({
-  ProductGridItem: ({ product }: { product: { name: string } }) => (
-    <article>{product.name}</article>
+  ProductGridItem: ({
+    product,
+  }: {
+    product: { name: string; condition?: string };
+  }) => (
+    <article data-condition={product.condition ?? ''}>{product.name}</article>
   ),
 }));
 
-import { afterEach } from 'vitest';
 import { prioritizeSmartphoneProducts } from '@baci/shared';
 import { useSearchParams } from 'next/navigation';
 import { useMerchantSafe } from '@/hooks/use-merchant';
@@ -145,40 +177,94 @@ describe('EngineProductGrid', () => {
     );
 
     expect(vi.mocked(prioritizeSmartphoneProducts)).toHaveBeenCalled();
-    // Deterministic stub returns products in original order
     expect(screen.getAllByRole('article').map((item) => item.textContent)).toEqual(
       ['Samsung TV', 'iPhone 16']
     );
   });
 
+  it('does not invent a New badge when a product has no condition data', () => {
+    render(
+      <EngineProductGrid
+        externalProducts={[
+          createTestProduct({
+            id: 'accessory-1',
+            name: 'Phone Grip',
+            price: 8000,
+            stock: 5,
+            condition: undefined,
+            available_conditions: undefined,
+            has_condition_offers: false,
+          }),
+        ]}
+        categories={[]}
+      />
+    );
+
+    expect(screen.getByRole('article')).toHaveAttribute('data-condition', '');
+  });
+
   it('initializes category from ?category= URL param when valid', () => {
-    vi.mocked(useSearchParams).mockReturnValue(new URLSearchParams('category=Smartphones') as ReturnType<typeof useSearchParams>);
+    vi.mocked(useSearchParams).mockReturnValue(
+      new URLSearchParams('category=Smartphones') as ReturnType<
+        typeof useSearchParams
+      >
+    );
 
     render(
       <EngineProductGrid
         externalProducts={[
-          createTestProduct({ id: 'tv-1', name: 'Samsung TV', category: 'Smart TVs', stock: 2 }),
-          createTestProduct({ id: 'phone-1', name: 'iPhone 16', category: 'Smartphones', stock: 4 }),
+          createTestProduct({
+            id: 'tv-1',
+            name: 'Samsung TV',
+            category: 'Smart TVs',
+            stock: 2,
+          }),
+          createTestProduct({
+            id: 'phone-1',
+            name: 'iPhone 16',
+            category: 'Smartphones',
+            stock: 4,
+          }),
         ]}
-        categories={[{ name: 'Smartphones', slug: 'smartphones' }, { name: 'Smart TVs', slug: 'smart-tvs' }]}
+        categories={[
+          { name: 'Smartphones', slug: 'smartphones' },
+          { name: 'Smart TVs', slug: 'smart-tvs' },
+        ]}
       />
     );
 
     const articles = screen.getAllByRole('article');
     expect(articles).toHaveLength(1);
-    expect(articles[0].textContent).toBe('iPhone 16');
+    expect(articles[0]?.textContent).toBe('iPhone 16');
   });
 
   it('ignores unknown ?category= URL param and shows all products', () => {
-    vi.mocked(useSearchParams).mockReturnValue(new URLSearchParams('category=Unknown') as ReturnType<typeof useSearchParams>);
+    vi.mocked(useSearchParams).mockReturnValue(
+      new URLSearchParams('category=Unknown') as ReturnType<
+        typeof useSearchParams
+      >
+    );
 
     render(
       <EngineProductGrid
         externalProducts={[
-          createTestProduct({ id: 'tv-1', name: 'Samsung TV', category: 'Smart TVs', stock: 2 }),
-          createTestProduct({ id: 'phone-1', name: 'iPhone 16', category: 'Smartphones', stock: 4 }),
+          createTestProduct({
+            id: 'tv-1',
+            name: 'Samsung TV',
+            category: 'Smart TVs',
+            stock: 2,
+          }),
+          createTestProduct({
+            id: 'phone-1',
+            name: 'iPhone 16',
+            category: 'Smartphones',
+            stock: 4,
+          }),
         ]}
-        categories={[{ name: 'Smartphones', slug: 'smartphones' }, { name: 'Smart TVs', slug: 'smart-tvs' }]}
+        categories={[
+          { name: 'Smartphones', slug: 'smartphones' },
+          { name: 'Smart TVs', slug: 'smart-tvs' },
+        ]}
       />
     );
 
@@ -302,5 +388,76 @@ describe('EngineProductGrid', () => {
     );
 
     expect(screen.getAllByTestId('ad-unit')).toHaveLength(1);
+  });
+
+  it('matches condition filters against available_conditions for mixed-condition families', async () => {
+    render(
+      <EngineProductGrid
+        externalProducts={[
+          createTestProduct({
+            id: 'family-1',
+            name: 'Galaxy S24 Family',
+            category: 'Smartphones',
+            stock: 4,
+            condition: 'new',
+            available_conditions: ['new', 'used'],
+          }),
+          createTestProduct({
+            id: 'family-2',
+            name: 'iPhone 16 New',
+            category: 'Smartphones',
+            stock: 3,
+            condition: 'new',
+            available_conditions: ['new'],
+          }),
+        ]}
+        categories={[{ name: 'Smartphones', slug: 'smartphones' }]}
+      />
+    );
+
+    expect(screen.getAllByRole('article')).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Filter Used' }));
+
+    await waitFor(() => {
+      const articles = screen.getAllByRole('article');
+      expect(articles).toHaveLength(1);
+      expect(articles[0]?.textContent).toBe('Galaxy S24 Family');
+    });
+  });
+
+  it('keeps legacy condition-offer families visible when filtering by new or used', async () => {
+    render(
+      <EngineProductGrid
+        externalProducts={[
+          createTestProduct({
+            id: 'family-1',
+            name: 'PlayStation 5 Family',
+            category: 'Consoles',
+            stock: 2,
+            condition: 'new',
+            has_condition_offers: true,
+            available_conditions: [],
+          }),
+          createTestProduct({
+            id: 'family-2',
+            name: 'Nintendo Switch',
+            category: 'Consoles',
+            stock: 2,
+            condition: 'new',
+            available_conditions: ['new'],
+          }),
+        ]}
+        categories={[{ name: 'Consoles', slug: 'consoles' }]}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Filter Used' }));
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('article').map((item) => item.textContent)).toEqual([
+        'PlayStation 5 Family',
+      ]);
+    });
   });
 });

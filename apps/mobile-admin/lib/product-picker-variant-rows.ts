@@ -9,6 +9,7 @@ export interface ProductPickerVariantParent {
 
 export interface ProductPickerVariantRow {
   attributes?: unknown;
+  condition?: string | null;
   cost_price?: number | string | null;
   id: string;
   images?: string[] | null;
@@ -24,6 +25,7 @@ export interface SelectableProductPickerItem {
   id: string;
   images: string[];
   name: string;
+  parent_product_id?: string | null;
   price: number;
   sku: string | null;
   variant_attributes: unknown;
@@ -81,7 +83,7 @@ export function buildStructuredVariantPickerItems(args: {
 
     return {
       cost_price: normalizePrice(variant.cost_price, 0) || null,
-      condition: args.parentProduct.condition ?? null,
+      condition: variant.condition ?? null,
       has_variants: false,
       id: variant.id,
       images: normalizeImages({

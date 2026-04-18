@@ -125,6 +125,47 @@ vi.mock('@/schemas/products', () => ({
     error.errors.map((e) => ({ field: e.path.join('.'), message: e.message })),
 }));
 
+vi.mock('@/lib/product-variant-model', () => ({
+  inferProductVariantModel: vi.fn(
+    ({
+      variantModel,
+      hasVariants,
+    }: {
+      variantModel?: string;
+      hasVariants?: boolean;
+    }) => {
+      if (variantModel === 'sku_matrix') {
+        return 'sku_matrix';
+      }
+
+      return hasVariants ? 'legacy' : 'simple';
+    }
+  ),
+  getSkuMatrixValidationError: vi.fn(
+    ({
+      variantModel,
+      variants,
+    }: {
+      variantModel?: string;
+      variants?: Array<{ price_override?: number }>;
+    }) => {
+      if (variantModel !== 'sku_matrix') {
+        return null;
+      }
+
+      const hasInvalidPriceOverride = (variants ?? []).some(
+        (variant) =>
+          typeof variant.price_override !== 'number' ||
+          variant.price_override < 0
+      );
+
+      return hasInvalidPriceOverride
+        ? 'Every sku_matrix variant must include a non-negative price_override.'
+        : null;
+    }
+  ),
+}));
+
 // Supabase mock
 const MERCHANT_ID = 'merchant-123';
 const USER_ID = 'user-123';
@@ -145,6 +186,10 @@ let insertResult: unknown = null;
 let insertError: unknown = null;
 let variantsInsertError: unknown = null;
 let existingProduct: unknown = null;
+let lastProductsQueryChain: {
+  eq: ReturnType<typeof vi.fn>;
+  or: ReturnType<typeof vi.fn>;
+} | null = null;
 
 const createMockSupabase = () => ({
   auth: {
@@ -209,6 +254,7 @@ const createMockSupabase = () => ({
           })),
         })),
       };
+      lastProductsQueryChain = chain;
       return chain;
     }
     if (table === 'product_variants') {
@@ -309,6 +355,7 @@ function resetMocks() {
   insertError = null;
   variantsInsertError = null;
   existingProduct = null;
+  lastProductsQueryChain = null;
   csrfValid = true;
 }
 
@@ -409,6 +456,33 @@ describe('GET /api/products', () => {
       expect(json.stats).toBeDefined();
       expect(json.stats.inventoryValue).toBeGreaterThanOrEqual(0);
     });
+
+    it('applies migration_status filter for explicit review queues', async () => {
+      const res = await GET(makeGetRequest({ migration: 'needs_review' }));
+
+      expect(res.status).toBe(200);
+      expect(lastProductsQueryChain?.eq).toHaveBeenCalledWith(
+        'migration_status',
+        'needs_review'
+      );
+    });
+
+    it('treats pending migration filter as pending or null rows', async () => {
+      const res = await GET(makeGetRequest({ migration: 'pending' }));
+
+      expect(res.status).toBe(200);
+      expect(lastProductsQueryChain?.or).toHaveBeenCalledWith(
+        'migration_status.eq.pending,migration_status.is.null'
+      );
+    });
+
+    it('rejects invalid migration filters', async () => {
+      const res = await GET(makeGetRequest({ migration: 'broken' }));
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.error).toBe('Invalid query parameters');
+    });
   });
 
   describe('error handling', () => {
@@ -483,6 +557,55 @@ describe('POST /api/products', () => {
 
       expect(res.status).toBe(400);
       expect(json.error).toBe('Validation failed');
+    });
+
+    it('rejects sku_matrix products when a variant lacks price_override', async () => {
+      const res = await POST(
+        makePostRequest({
+          ...validCreateBody,
+          has_variants: true,
+          variant_model: 'sku_matrix',
+          variants: [
+            {
+              condition: 'used',
+              attributes: { storage: '256GB' },
+              stock_quantity: 2,
+            },
+          ],
+        })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.error).toBe(
+        'Every sku_matrix variant must include a non-negative price_override.'
+      );
+    });
+
+    it('accepts sku_matrix products when every variant includes price_override', async () => {
+      insertResult = {
+        id: PRODUCT_ID,
+        merchant_id: MERCHANT_ID,
+        name: 'Matrix Product',
+      };
+
+      const res = await POST(
+        makePostRequest({
+          ...validCreateBody,
+          has_variants: true,
+          variant_model: 'sku_matrix',
+          variants: [
+            {
+              condition: 'used',
+              attributes: { storage: '256GB' },
+              price_override: 4500,
+              stock_quantity: 2,
+            },
+          ],
+        })
+      );
+
+      expect(res.status).toBe(201);
     });
   });
 

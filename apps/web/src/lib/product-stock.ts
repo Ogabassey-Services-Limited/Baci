@@ -15,7 +15,11 @@ export interface ManagedStockLike extends StockLike {
   low_stock_threshold?: number | string | null;
 }
 
-export type ProductStockFilter = 'All' | 'in_stock' | 'out_of_stock';
+export type ProductStockFilter =
+  | 'All'
+  | 'in_stock'
+  | 'out_of_stock'
+  | 'infinite';
 export type { ProductStockBucket };
 
 export function getEffectiveStock(item: StockLike): number {
@@ -38,6 +42,10 @@ export function matchesProductStockFilter(
 
   if (filter === 'in_stock') {
     return stockBucket !== 'out_of_stock';
+  }
+
+  if (filter === 'infinite') {
+    return item.manage_stock === false;
   }
 
   return true;

@@ -499,4 +499,42 @@ describe('Step1_BusinessDetails', () => {
       expect(currentValue.textContent).toBe('Generated Store Name');
     });
   });
+
+  it('marks business name as dirty and touched when a generated name is selected', async () => {
+    const user = userEvent.setup();
+
+    const TestForm = () => {
+      const methods = useForm<OnboardingFormValues>({
+        defaultValues: {
+          businessName: '',
+        },
+      });
+
+      return (
+        <FormProvider {...methods}>
+          <Step1_BusinessDetails onKeyDown={mockOnKeyDown} />
+          <div data-testid="is-dirty">
+            {methods.formState.dirtyFields.businessName ? 'dirty' : 'clean'}
+          </div>
+          <div data-testid="is-touched">
+            {methods.formState.touchedFields.businessName
+              ? 'touched'
+              : 'untouched'}
+          </div>
+        </FormProvider>
+      );
+    };
+
+    render(<TestForm />);
+
+    await user.click(
+      screen.getByRole('button', { name: /generate business name/i })
+    );
+    await user.click(screen.getByRole('button', { name: /select name/i }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('is-dirty')).toHaveTextContent('dirty');
+      expect(screen.getByTestId('is-touched')).toHaveTextContent('touched');
+    });
+  });
 });

@@ -67,6 +67,8 @@ export async function getCachedStorefrontProductIndex(
         stock_quantity,
         status,
         has_condition_offers,
+        variant_model,
+        available_conditions,
         product_categories(
           categories(name, slug)
         )

@@ -1,5 +1,6 @@
 import { Linking, Text } from 'react-native';
-import { registerStyles as styles } from './register.styles';
+import { useTheme } from '@/hooks/useTheme';
+import { getStyles } from './register.styles';
 
 interface RegisterLegalTextProps {
   linkColor?: string;
@@ -12,6 +13,8 @@ export function RegisterLegalText({
   prefixText,
   textColor,
 }: RegisterLegalTextProps) {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
   return (
     <Text style={[styles.termsText, textColor ? { color: textColor } : null]}>
       {prefixText}{' '}

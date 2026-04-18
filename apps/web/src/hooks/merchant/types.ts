@@ -29,6 +29,7 @@ export interface MerchantData {
   google_product_sheet_url?: string;
   slug?: string;
   custom_domain?: string;
+  paystack_subaccount_code?: string | null;
   published_config?: Record<string, unknown> | null;
   // Favicon
   favicon_svg_url?: string;

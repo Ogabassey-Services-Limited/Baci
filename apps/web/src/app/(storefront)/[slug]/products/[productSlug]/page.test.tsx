@@ -2,8 +2,17 @@ import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const { mockNormalizeStorefrontProductVariants } = vi.hoisted(() => ({
+  mockNormalizeStorefrontProductVariants: vi.fn<
+    (...args: unknown[]) => Record<string, unknown>[]
+  >(() => []),
+}));
+
 const mockHeaders = vi.fn();
 const mockPermanentRedirect = vi.fn((_url: string) => {
+  throw new Error('NEXT_REDIRECT');
+});
+const mockRedirect = vi.fn((_url: string) => {
   throw new Error('NEXT_REDIRECT');
 });
 const mockNotFound = vi.fn(() => {
@@ -26,6 +35,7 @@ vi.mock('next/headers', () => ({
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
   permanentRedirect: (url: string) => mockPermanentRedirect(url),
+  redirect: (url: string) => mockRedirect(url),
 }));
 
 vi.mock('next/link', () => ({
@@ -144,7 +154,7 @@ vi.mock('@/lib/store-url', () => ({
 }));
 
 vi.mock('@/lib/storefront-product-variants', () => ({
-  normalizeStorefrontProductVariants: () => [],
+  normalizeStorefrontProductVariants: mockNormalizeStorefrontProductVariants,
 }));
 
 vi.mock('@/lib/validation', () => ({
@@ -220,6 +230,15 @@ const uncategorizedProduct = {
   category_slug: undefined,
 };
 
+const uncategorizedDetailedProduct = {
+  ...categorizedDetailedProduct,
+  id: 'prod-2',
+  name: 'Mystery Item',
+  slug: 'mystery-item',
+  category: undefined,
+  categories: null,
+};
+
 function makeHeaders(entries: Record<string, string> = {}) {
   const map = new Map(Object.entries(entries));
   return {
@@ -237,6 +256,8 @@ describe('products/[productSlug] page', () => {
     mockHeaders.mockReturnValue(makeHeaders({}));
     mockGenerateProductSchema.mockImplementation(() => ({ offers: {} }));
     mockGetProductUrl.mockImplementation(defaultGetProductUrl);
+    mockNormalizeStorefrontProductVariants.mockReset();
+    mockNormalizeStorefrontProductVariants.mockReturnValue([]);
     mockGetRequestScopedMerchant.mockResolvedValue(baseMerchant);
     mockGetCachedLegacyProductRedirectTarget.mockResolvedValue(null);
     mockGetCachedProductWithDetails.mockResolvedValue(null);
@@ -374,8 +395,52 @@ describe('products/[productSlug] page', () => {
       );
 
       expect(mockPermanentRedirect).not.toHaveBeenCalled();
+      expect(metadata.alternates?.canonical).toBe(
+        'https://teststore.usebaci.com/products/mystery-item'
+      );
       expect(metadata.title).toContain('Mystery Item');
     });
+  });
+
+  it('redirects attribute-only variant params back to the bare family URL', async () => {
+    mockGetCachedProduct.mockResolvedValue(null);
+    mockGetCachedProductWithDetails.mockResolvedValue(
+      uncategorizedDetailedProduct
+    );
+    mockNormalizeStorefrontProductVariants.mockReturnValue([
+      {
+        id: 'variant-new-128',
+        attributes: { storage: '128GB', connectivity: 'WiFi' },
+        condition: 'new',
+        stock_quantity: 5,
+      },
+      {
+        id: 'variant-used-128',
+        attributes: { storage: '128GB', connectivity: 'WiFi' },
+        condition: 'used',
+        stock_quantity: 3,
+      },
+    ]);
+
+    await expect(
+      generateMetadata(
+        {
+          params: Promise.resolve({
+            slug: 'teststore',
+            productSlug: 'mystery-item',
+          }),
+          searchParams: Promise.resolve({
+            storage: '128GB',
+            utm_source: 'google',
+          }),
+        },
+        Promise.resolve({}) as never
+      )
+    ).rejects.toThrow('NEXT_REDIRECT');
+
+    expect(mockRedirect).toHaveBeenCalledWith(
+      '/products/mystery-item?utm_source=google'
+    );
   });
 
   it('redirects legacy archived variant slugs to the active parent product', async () => {

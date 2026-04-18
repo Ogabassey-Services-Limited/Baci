@@ -112,8 +112,11 @@ export const LIGHT_COLORS = {
 };
 
 // Default export for backwards compatibility (dark mode)
-// Default export for backwards compatibility (dark mode)
 export const COLORS = { ...DARK_COLORS };
+// AI UI accent colors for assistant-related chips, buttons, and highlights.
+// Keep text white on the accent to maintain readable contrast on the purple fill.
+export const AI_ACCENT_COLOR = '#8B5CF6';
+export const AI_TEXT_COLOR = '#FFFFFF';
 
 export const SPACING = {
   xs: 4,
