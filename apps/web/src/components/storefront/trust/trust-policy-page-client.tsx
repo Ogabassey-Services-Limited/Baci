@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import type {
   MerchantTrustProfile,
   MerchantTrustProfileReturnFee,
@@ -125,7 +124,7 @@ function getPolicyFacts(
         {
           label: 'Regions',
           value:
-            trustProfile.shippingPolicy?.regions.join(', ') || 'Not specified',
+            trustProfile.shippingPolicy?.regions?.join(', ') || 'Not specified',
         },
         {
           label: 'Handling time',
@@ -198,12 +197,12 @@ export function TrustPolicyPageClient({
 
         {contactHref ? (
           <div className="mt-8">
-            <Link
+            <a
               href={contactHref}
               className="inline-flex items-center rounded-full border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-900 transition-colors hover:border-neutral-400 hover:bg-neutral-100"
             >
               Contact us
-            </Link>
+            </a>
           </div>
         ) : null}
       </section>

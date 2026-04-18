@@ -6,6 +6,12 @@ import type {
   RegisteredAddress,
 } from '@baci/shared';
 
+export type {
+  MerchantTrustProfileReturnFee,
+  MerchantTrustProfileReturnMethod,
+  MerchantTrustProfileShippingFeeType,
+} from '@baci/shared';
+
 export interface MerchantTrustProfileRouteLinks {
   about?: string;
   contact?: string;

@@ -21,10 +21,21 @@ vi.mock('@/hooks/use-merchant', () => ({
 vi.mock('@/lib/routes', () => ({
   asRoute: (value: string) => mockAsRoute(value),
 }));
-vi.mock('@/lib/storefront-trust/build-merchant-trust-profile', () => ({
-  buildMerchantTrustProfile: (...args: unknown[]) =>
-    mockBuildMerchantTrustProfile(...args),
-}));
+vi.mock(
+  '@/lib/storefront-trust/build-merchant-trust-profile',
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import('@/lib/storefront-trust/build-merchant-trust-profile')
+      >();
+
+    return {
+      ...actual,
+      buildMerchantTrustProfile: (...args: unknown[]) =>
+        mockBuildMerchantTrustProfile(...args),
+    };
+  }
+);
 
 describe('StorefrontFooter', () => {
   beforeEach(() => {
@@ -103,7 +114,7 @@ describe('StorefrontFooter', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('omits Returns when only return method data exists', () => {
+  it('renders Returns when only return method data exists', () => {
     mockUseMerchant.mockReturnValue({
       basePath: '/ogabassey',
       merchant: {
@@ -116,7 +127,8 @@ describe('StorefrontFooter', () => {
     });
     mockBuildMerchantTrustProfile.mockReturnValue({
       returnPolicy: {
-        summary: '   ',
+        returnMethod: 'mail',
+        returnFees: 'free',
         localRoute: '/returns',
       },
       socialLinks: {},
@@ -125,12 +137,13 @@ describe('StorefrontFooter', () => {
 
     render(<StorefrontFooter />);
 
-    expect(
-      screen.queryByRole('link', { name: 'Returns' })
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Returns' })).toHaveAttribute(
+      'href',
+      '/ogabassey/returns'
+    );
   });
 
-  it('omits Shipping when only handling details exist', () => {
+  it('renders Shipping when only handling details exist', () => {
     mockUseMerchant.mockReturnValue({
       basePath: '/ogabassey',
       merchant: {
@@ -143,7 +156,8 @@ describe('StorefrontFooter', () => {
     });
     mockBuildMerchantTrustProfile.mockReturnValue({
       shippingPolicy: {
-        summary: '   ',
+        handlingDaysMin: 0,
+        shippingFeeType: 'calculated',
         localRoute: '/shipping',
       },
       socialLinks: {},
@@ -152,8 +166,9 @@ describe('StorefrontFooter', () => {
 
     render(<StorefrontFooter />);
 
-    expect(
-      screen.queryByRole('link', { name: 'Shipping' })
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Shipping' })).toHaveAttribute(
+      'href',
+      '/ogabassey/shipping'
+    );
   });
 });

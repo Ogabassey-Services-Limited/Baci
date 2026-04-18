@@ -167,7 +167,7 @@ describe('generateMetadata', () => {
       pages: {},
       logo_url: null,
       slug: 'test-store',
-      custom_domain: null,
+      custom_domain: 'ogabassey.com',
     } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
 
     const metadata = await generateMetadata({

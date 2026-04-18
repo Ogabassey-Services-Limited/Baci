@@ -32,18 +32,29 @@ vi.mock('@/lib/cached-data', () => ({
   getRequestScopedMerchant: vi.fn(),
 }));
 
-vi.mock('@/lib/storefront-trust/build-merchant-trust-profile', () => ({
-  buildMerchantTrustProfile: (...args: unknown[]) =>
-    mockBuildMerchantTrustProfile(...args),
-}));
+vi.mock(
+  '@/lib/storefront-trust/build-merchant-trust-profile',
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import('@/lib/storefront-trust/build-merchant-trust-profile')
+      >();
+
+    return {
+      ...actual,
+      buildMerchantTrustProfile: (merchant: unknown, baseUrl?: string) =>
+        mockBuildMerchantTrustProfile(merchant, baseUrl),
+    };
+  }
+);
 
 vi.mock('@/lib/store-url', () => ({
-  buildRequestScopedStoreUrl: (...args: unknown[]) =>
-    mockBuildRequestScopedStoreUrl(...args),
+  buildRequestScopedStoreUrl: (merchant: unknown, requestHeaders: Headers) =>
+    mockBuildRequestScopedStoreUrl(merchant, requestHeaders),
 }));
 
 vi.mock('@/lib/sanitize-json-ld', () => ({
-  safeJsonLdStringify: (...args: unknown[]) => mockSafeJsonLdStringify(...args),
+  safeJsonLdStringify: () => mockSafeJsonLdStringify(),
 }));
 
 const trustMerchant = {
@@ -178,7 +189,7 @@ describe('returns page', () => {
     ).rejects.toThrow('NEXT_NOT_FOUND');
   });
 
-  it('notFound when only return method or fees exist', async () => {
+  it('renders when only return method or fees exist', async () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValue({
       ...trustMerchant,
       trust_profile: {
@@ -199,11 +210,14 @@ describe('returns page', () => {
     });
     const { default: ReturnsPage } = await import('./page');
 
-    await expect(
-      ReturnsPage({
+    render(
+      await ReturnsPage({
         params: Promise.resolve({ slug: 'ogabassey' }),
       })
-    ).rejects.toThrow('NEXT_NOT_FOUND');
+    );
+
+    expect(screen.getByText('Mail')).toBeInTheDocument();
+    expect(screen.getByText('Free')).toBeInTheDocument();
   });
 
   it('omits the contact CTA when the merchant has only support contact data', async () => {

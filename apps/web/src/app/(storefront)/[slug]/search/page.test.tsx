@@ -21,7 +21,7 @@ describe('storefront search page metadata', () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValue({
       id: 'merchant-1',
       slug: 'ogabassey',
-      custom_domain: 'ogabassey.com',
+      custom_domain: 'shop.example.ng',
       business_name: 'Ogabassey',
       payout_currency: 'NGN',
     } as never);
@@ -52,7 +52,7 @@ describe('storefront search page metadata', () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValue({
       id: 'merchant-1',
       slug: 'ogabassey',
-      custom_domain: 'ogabassey.com',
+      custom_domain: 'shop.example.ng',
       business_name: 'Ogabassey',
       payout_currency: 'NGN',
     } as never);

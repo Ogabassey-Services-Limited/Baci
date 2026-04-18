@@ -124,11 +124,11 @@ export async function getCachedGoogleMerchantFeedData(
   // Fetch prevalidated image manifest once per merchant and keep only active
   // product entries in memory. This avoids oversized PostgREST `in(...)`
   // filters for larger catalogs while preserving active-product scoping.
-  const feedProducts = normalizeFeedProducts(
+  const feedProducts: FeedProduct[] = normalizeFeedProducts(
     (products || []) as RawFeedProductRow[]
   ).map((product) => ({
     ...product,
-    variants: [],
+    variants: [] as FeedVariant[],
   }));
   const productIds = feedProducts.map((p) => p.id);
   const activeProductIds = new Set(productIds);

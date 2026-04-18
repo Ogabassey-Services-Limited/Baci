@@ -37,6 +37,8 @@ function toProductIndexCardModel(
     availability: product.availability,
     product_key_specs: product.product_key_specs ?? null,
     has_condition_offers: product.has_condition_offers,
+    available_conditions: [],
+    variant_model: 'legacy',
   };
 }
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MerchantData } from '@/hooks/merchant';
+import type { FeedImageManifestEntry } from '@/lib/gmc-feed-images';
 import { buildGoogleMerchantReadiness } from './build-google-merchant-readiness';
 import type { MerchantTrustProfile } from './merchant-trust-profile-types';
 
@@ -33,9 +34,21 @@ function buildFeedData(
       mpn?: string;
       google_product_category?: string;
     }>;
-    imageManifest: Record<string, unknown[]>;
+    imageManifest: Record<string, FeedImageManifestEntry[]>;
   }> = {}
 ) {
+  const imageManifest: Record<string, FeedImageManifestEntry[]> = {
+    'product-1': [
+      {
+        verified_url: 'https://cdn.example.com/products/phone.jpg',
+        verified_format: 'jpeg',
+        status: 'verified',
+        is_primary: true,
+        position: 0,
+      },
+    ],
+  };
+
   return {
     products: [
       {
@@ -45,17 +58,7 @@ function buildFeedData(
         google_product_category: 'Electronics > Phones',
       },
     ],
-    imageManifest: {
-      'product-1': [
-        {
-          verified_url: 'https://cdn.example.com/products/phone.jpg',
-          verified_format: 'jpeg',
-          status: 'verified',
-          is_primary: true,
-          position: 0,
-        },
-      ],
-    },
+    imageManifest,
     ...overrides,
   };
 }

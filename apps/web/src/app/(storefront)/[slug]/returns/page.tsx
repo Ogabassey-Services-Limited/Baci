@@ -9,7 +9,10 @@ import {
   getIndexableRobotsMetadata,
 } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
-import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
+import {
+  buildMerchantTrustProfile,
+  hasPublishableReturnsPolicy,
+} from '@/lib/storefront-trust/build-merchant-trust-profile';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -29,7 +32,7 @@ async function getTrustRouteContext(slug: string) {
 }
 
 function getContactHref(
-  merchant: Awaited<ReturnType<typeof getRequestScopedMerchant>>,
+  merchant: NonNullable<Awaited<ReturnType<typeof getRequestScopedMerchant>>>,
   baseUrl: string
 ): string | undefined {
   return merchant.pages?.contact?.trim() ||
@@ -37,15 +40,6 @@ function getContactHref(
     merchant.phone?.trim()
     ? `${baseUrl}/contact`
     : undefined;
-}
-
-function hasPublishableReturnsPolicy(
-  trustProfile: Awaited<ReturnType<typeof buildMerchantTrustProfile>>
-): boolean {
-  return Boolean(
-    trustProfile.returnPolicy?.summary?.trim() ||
-      trustProfile.returnPolicy?.windowDays != null
-  );
 }
 
 export async function generateMetadata({
@@ -62,10 +56,16 @@ export async function generateMetadata({
     notFound();
   }
 
+  const returnPolicy = context.trustProfile.returnPolicy;
+
+  if (!returnPolicy) {
+    notFound();
+  }
+
   const canonicalUrl = `${context.baseUrl}/returns`;
   const description = generateMetaDescription(
-    context.trustProfile.returnPolicy.summary
-      ? `${context.trustProfile.returnPolicy.summary} Returns policy for ${context.merchant.business_name}.`
+    returnPolicy.summary
+      ? `${returnPolicy.summary} Returns policy for ${context.merchant.business_name}.`
       : `Returns policy for ${context.merchant.business_name}.`
   );
 
@@ -100,6 +100,12 @@ export default async function ReturnsPage({ params }: PageProps) {
     notFound();
   }
 
+  const returnPolicy = context.trustProfile.returnPolicy;
+
+  if (!returnPolicy) {
+    notFound();
+  }
+
   const canonicalUrl = `${context.baseUrl}/returns`;
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -107,7 +113,7 @@ export default async function ReturnsPage({ params }: PageProps) {
     name: `Returns Policy | ${context.merchant.business_name}`,
     url: canonicalUrl,
     description:
-      context.trustProfile.returnPolicy.summary ||
+      returnPolicy.summary ||
       `Returns policy for ${context.merchant.business_name}.`,
     isPartOf: {
       '@type': 'WebSite',

@@ -31,14 +31,25 @@ vi.mock('@/lib/cached-data', () => ({
   getRequestScopedMerchant: vi.fn(),
 }));
 
-vi.mock('@/lib/storefront-trust/build-merchant-trust-profile', () => ({
-  buildMerchantTrustProfile: (...args: unknown[]) =>
-    mockBuildMerchantTrustProfile(...args),
-}));
+vi.mock(
+  '@/lib/storefront-trust/build-merchant-trust-profile',
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import('@/lib/storefront-trust/build-merchant-trust-profile')
+      >();
+
+    return {
+      ...actual,
+      buildMerchantTrustProfile: (merchant: unknown, baseUrl?: string) =>
+        mockBuildMerchantTrustProfile(merchant, baseUrl),
+    };
+  }
+);
 
 vi.mock('@/lib/store-url', () => ({
-  buildRequestScopedStoreUrl: (...args: unknown[]) =>
-    mockBuildRequestScopedStoreUrl(...args),
+  buildRequestScopedStoreUrl: (merchant: unknown, requestHeaders: Headers) =>
+    mockBuildRequestScopedStoreUrl(merchant, requestHeaders),
 }));
 
 vi.mock('@/lib/sanitize-json-ld', () => ({
@@ -164,7 +175,7 @@ describe('shipping page', () => {
     ).rejects.toThrow('NEXT_NOT_FOUND');
   });
 
-  it('notFound when only handling or shipping fee details exist', async () => {
+  it('renders when only handling or shipping fee details exist', async () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValue({
       ...trustMerchant,
       trust_profile: {
@@ -187,10 +198,13 @@ describe('shipping page', () => {
     });
     const { default: ShippingPage } = await import('./page');
 
-    await expect(
-      ShippingPage({
+    render(
+      await ShippingPage({
         params: Promise.resolve({ slug: 'ogabassey' }),
       })
-    ).rejects.toThrow('NEXT_NOT_FOUND');
+    );
+
+    expect(screen.getByText('0 business days')).toBeInTheDocument();
+    expect(screen.getByText('Calculated')).toBeInTheDocument();
   });
 });

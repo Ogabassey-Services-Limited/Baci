@@ -9,7 +9,10 @@ import {
   getIndexableRobotsMetadata,
 } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
-import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
+import {
+  buildMerchantTrustProfile,
+  hasPublishableWarrantyPolicy,
+} from '@/lib/storefront-trust/build-merchant-trust-profile';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -29,7 +32,7 @@ async function getTrustRouteContext(slug: string) {
 }
 
 function getContactHref(
-  merchant: Awaited<ReturnType<typeof getRequestScopedMerchant>>,
+  merchant: NonNullable<Awaited<ReturnType<typeof getRequestScopedMerchant>>>,
   baseUrl: string
 ): string | undefined {
   return merchant.pages?.contact?.trim() ||
@@ -37,12 +40,6 @@ function getContactHref(
     merchant.phone?.trim()
     ? `${baseUrl}/contact`
     : undefined;
-}
-
-function hasPublishableWarrantyPolicy(
-  trustProfile: Awaited<ReturnType<typeof buildMerchantTrustProfile>>
-): boolean {
-  return Boolean(trustProfile.warrantyPolicy?.summary?.trim());
 }
 
 export async function generateMetadata({
@@ -59,10 +56,16 @@ export async function generateMetadata({
     notFound();
   }
 
+  const warrantyPolicy = context.trustProfile.warrantyPolicy;
+
+  if (!warrantyPolicy) {
+    notFound();
+  }
+
   const canonicalUrl = `${context.baseUrl}/warranty`;
   const description = generateMetaDescription(
-    context.trustProfile.warrantyPolicy.summary
-      ? `${context.trustProfile.warrantyPolicy.summary} Warranty policy for ${context.merchant.business_name}.`
+    warrantyPolicy.summary
+      ? `${warrantyPolicy.summary} Warranty policy for ${context.merchant.business_name}.`
       : `Warranty policy for ${context.merchant.business_name}.`
   );
 
@@ -97,6 +100,12 @@ export default async function WarrantyPage({ params }: PageProps) {
     notFound();
   }
 
+  const warrantyPolicy = context.trustProfile.warrantyPolicy;
+
+  if (!warrantyPolicy) {
+    notFound();
+  }
+
   const canonicalUrl = `${context.baseUrl}/warranty`;
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -104,7 +113,7 @@ export default async function WarrantyPage({ params }: PageProps) {
     name: `Warranty Policy | ${context.merchant.business_name}`,
     url: canonicalUrl,
     description:
-      context.trustProfile.warrantyPolicy.summary ||
+      warrantyPolicy.summary ||
       `Warranty policy for ${context.merchant.business_name}.`,
     isPartOf: {
       '@type': 'WebSite',

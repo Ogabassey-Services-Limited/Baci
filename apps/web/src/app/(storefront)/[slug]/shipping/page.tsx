@@ -9,7 +9,10 @@ import {
   getIndexableRobotsMetadata,
 } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
-import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
+import {
+  buildMerchantTrustProfile,
+  hasPublishableShippingPolicy,
+} from '@/lib/storefront-trust/build-merchant-trust-profile';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -29,7 +32,7 @@ async function getTrustRouteContext(slug: string) {
 }
 
 function getContactHref(
-  merchant: Awaited<ReturnType<typeof getRequestScopedMerchant>>,
+  merchant: NonNullable<Awaited<ReturnType<typeof getRequestScopedMerchant>>>,
   baseUrl: string
 ): string | undefined {
   return merchant.pages?.contact?.trim() ||
@@ -37,15 +40,6 @@ function getContactHref(
     merchant.phone?.trim()
     ? `${baseUrl}/contact`
     : undefined;
-}
-
-function hasPublishableShippingPolicy(
-  trustProfile: Awaited<ReturnType<typeof buildMerchantTrustProfile>>
-): boolean {
-  return Boolean(
-    trustProfile.shippingPolicy?.summary?.trim() ||
-      (trustProfile.shippingPolicy?.regions?.length ?? 0) > 0
-  );
 }
 
 export async function generateMetadata({
@@ -62,10 +56,16 @@ export async function generateMetadata({
     notFound();
   }
 
+  const shippingPolicy = context.trustProfile.shippingPolicy;
+
+  if (!shippingPolicy) {
+    notFound();
+  }
+
   const canonicalUrl = `${context.baseUrl}/shipping`;
   const description = generateMetaDescription(
-    context.trustProfile.shippingPolicy.summary
-      ? `${context.trustProfile.shippingPolicy.summary} Shipping policy for ${context.merchant.business_name}.`
+    shippingPolicy.summary
+      ? `${shippingPolicy.summary} Shipping policy for ${context.merchant.business_name}.`
       : `Shipping policy for ${context.merchant.business_name}.`
   );
 
@@ -100,6 +100,12 @@ export default async function ShippingPage({ params }: PageProps) {
     notFound();
   }
 
+  const shippingPolicy = context.trustProfile.shippingPolicy;
+
+  if (!shippingPolicy) {
+    notFound();
+  }
+
   const canonicalUrl = `${context.baseUrl}/shipping`;
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -107,7 +113,7 @@ export default async function ShippingPage({ params }: PageProps) {
     name: `Shipping Policy | ${context.merchant.business_name}`,
     url: canonicalUrl,
     description:
-      context.trustProfile.shippingPolicy.summary ||
+      shippingPolicy.summary ||
       `Shipping policy for ${context.merchant.business_name}.`,
     isPartOf: {
       '@type': 'WebSite',

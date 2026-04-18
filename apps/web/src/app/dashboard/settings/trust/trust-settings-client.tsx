@@ -1,5 +1,10 @@
 'use client';
 
+import type {
+  MerchantTrustProfileReturnFee,
+  MerchantTrustProfileReturnMethod,
+  MerchantTrustProfileShippingFeeType,
+} from '@baci/shared';
 import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
@@ -93,8 +98,12 @@ function buildTrustProfile(values: TrustFormValues): MerchantTrustProfileDraft {
     return_policy: {
       summary: normalizeString(values.returnPolicySummary),
       window_days: normalizeInteger(values.returnWindowDays),
-      return_method: normalizeEnum(values.returnMethod),
-      return_fees: normalizeEnum(values.returnFees),
+      return_method: normalizeEnum<MerchantTrustProfileReturnMethod>(
+        values.returnMethod
+      ),
+      return_fees: normalizeEnum<MerchantTrustProfileReturnFee>(
+        values.returnFees
+      ),
     },
     shipping_policy: {
       summary: normalizeString(values.shippingSummary),
@@ -103,7 +112,9 @@ function buildTrustProfile(values: TrustFormValues): MerchantTrustProfileDraft {
       handling_days_max: normalizeInteger(values.handlingDaysMax),
       transit_days_min: normalizeInteger(values.transitDaysMin),
       transit_days_max: normalizeInteger(values.transitDaysMax),
-      shipping_fee_type: normalizeEnum(values.shippingFeeType),
+      shipping_fee_type: normalizeEnum<MerchantTrustProfileShippingFeeType>(
+        values.shippingFeeType
+      ),
     },
     warranty_policy: {
       summary: normalizeString(values.warrantySummary),

@@ -51,6 +51,42 @@ function hasMeaningfulContent(value: unknown): boolean {
   return value != null;
 }
 
+export function hasPublishableReturnsPolicy(
+  trustProfile: Pick<MerchantTrustProfile, 'returnPolicy'>
+): boolean {
+  return Boolean(
+    trustProfile.returnPolicy &&
+      (hasMeaningfulContent(trustProfile.returnPolicy.summary) ||
+        trustProfile.returnPolicy.windowDays != null ||
+        trustProfile.returnPolicy.returnMethod ||
+        trustProfile.returnPolicy.returnFees)
+  );
+}
+
+export function hasPublishableShippingPolicy(
+  trustProfile: Pick<MerchantTrustProfile, 'shippingPolicy'>
+): boolean {
+  return Boolean(
+    trustProfile.shippingPolicy &&
+      (hasMeaningfulContent(trustProfile.shippingPolicy.summary) ||
+        (trustProfile.shippingPolicy.regions?.length ?? 0) > 0 ||
+        trustProfile.shippingPolicy.handlingDaysMin != null ||
+        trustProfile.shippingPolicy.handlingDaysMax != null ||
+        trustProfile.shippingPolicy.transitDaysMin != null ||
+        trustProfile.shippingPolicy.transitDaysMax != null ||
+        trustProfile.shippingPolicy.shippingFeeType)
+  );
+}
+
+export function hasPublishableWarrantyPolicy(
+  trustProfile: Pick<MerchantTrustProfile, 'warrantyPolicy'>
+): boolean {
+  return Boolean(
+    trustProfile.warrantyPolicy &&
+      hasMeaningfulContent(trustProfile.warrantyPolicy.summary)
+  );
+}
+
 function normalizeRegisteredAddress(
   address: RegisteredAddress | null | undefined
 ): RegisteredAddress | undefined {
@@ -133,26 +169,15 @@ function buildDerivedLinks(
     derivedLinks.faq = buildDerivedLink(normalizedBaseUrl, '/faq');
   }
 
-  if (
-    profile.returnPolicy &&
-    (hasMeaningfulContent(profile.returnPolicy.summary) ||
-      profile.returnPolicy.windowDays != null)
-  ) {
+  if (hasPublishableReturnsPolicy(profile)) {
     derivedLinks.returns = buildDerivedLink(normalizedBaseUrl, '/returns');
   }
 
-  if (
-    profile.shippingPolicy &&
-    (hasMeaningfulContent(profile.shippingPolicy.summary) ||
-      profile.shippingPolicy.regions.length > 0)
-  ) {
+  if (hasPublishableShippingPolicy(profile)) {
     derivedLinks.shipping = buildDerivedLink(normalizedBaseUrl, '/shipping');
   }
 
-  if (
-    profile.warrantyPolicy &&
-    hasMeaningfulContent(profile.warrantyPolicy.summary)
-  ) {
+  if (hasPublishableWarrantyPolicy(profile)) {
     derivedLinks.warranty = buildDerivedLink(normalizedBaseUrl, '/warranty');
   }
 

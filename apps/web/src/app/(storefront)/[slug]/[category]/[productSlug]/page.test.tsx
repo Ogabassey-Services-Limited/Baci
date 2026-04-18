@@ -24,7 +24,16 @@ const mockGetCachedProductWithDetails = vi.fn();
 const mockGetCachedCategoryPageData = vi.fn();
 const mockBuildProductSemanticModel = vi.fn();
 const mockGetPublishedClusterPosts = vi.fn();
-const mockGenerateProductSchema = vi.fn(() => ({}));
+const mockGenerateProductSchema = vi.fn(
+  (
+    _product: unknown,
+    _merchantName?: string,
+    _currency?: string,
+    _country?: string,
+    _merchantLogo?: string | null,
+    _trustProfile?: unknown
+  ) => ({})
+);
 
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
@@ -107,8 +116,22 @@ vi.mock('@/lib/seo-utils', () => ({
       ? plainText
       : `${plainText.slice(0, maxLength - 3)}...`;
   },
-  generateProductSchema: (...args: unknown[]) =>
-    mockGenerateProductSchema(...args),
+  generateProductSchema: (
+    product: unknown,
+    merchantName?: string,
+    currency?: string,
+    country?: string,
+    merchantLogo?: string | null,
+    trustProfile?: unknown
+  ) =>
+    mockGenerateProductSchema(
+      product,
+      merchantName,
+      currency,
+      country,
+      merchantLogo,
+      trustProfile
+    ),
   generateSlug: (name: string) => name.toLowerCase().replace(/\s+/g, '-'),
   getIndexableRobotsMetadata: () => ({
     index: true,

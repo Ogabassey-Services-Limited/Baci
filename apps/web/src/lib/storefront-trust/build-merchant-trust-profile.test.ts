@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { buildMerchantTrustProfile } from './build-merchant-trust-profile';
+import type { MerchantTrustProfileSource } from './merchant-trust-profile-types';
 
-const merchantFixture = {
-  business_name: 'Ogabassey',
+const merchantFixture: MerchantTrustProfileSource = {
   support_email: 'support@ogabassey.com',
   support_phone: '+2348000000000',
   social_media: { instagram: '@ogabassey', twitter: '@ogabasseyhq' },
@@ -41,7 +41,7 @@ const merchantFixture = {
     },
     warranty_policy: { summary: 'Manufacturer warranty applies.' },
   },
-} as const;
+};
 
 describe('buildMerchantTrustProfile', () => {
   it('assembles trust data from merchant columns and trust_profile fields', () => {
@@ -106,7 +106,6 @@ describe('buildMerchantTrustProfile', () => {
   it('returns a sparse profile for an empty trust payload', () => {
     const result = buildMerchantTrustProfile(
       {
-        business_name: 'Ogabassey',
         trust_profile: {},
       },
       'https://ogabassey.com'
@@ -116,5 +115,47 @@ describe('buildMerchantTrustProfile', () => {
       socialLinks: {},
       derivedLinks: {},
     });
+  });
+
+  it('publishes derived returns links when only method and fee details exist', () => {
+    const result = buildMerchantTrustProfile(
+      {
+        trust_profile: {
+          return_policy: {
+            return_method: 'mail',
+            return_fees: 'free',
+          },
+        },
+      },
+      'https://ogabassey.com'
+    );
+
+    expect(result.returnPolicy).toMatchObject({
+      returnMethod: 'mail',
+      returnFees: 'free',
+    });
+    expect(result.derivedLinks.returns).toBe('https://ogabassey.com/returns');
+  });
+
+  it('publishes derived shipping links when only timing and fee details exist', () => {
+    const result = buildMerchantTrustProfile(
+      {
+        trust_profile: {
+          shipping_policy: {
+            handling_days_min: 0,
+            transit_days_min: 1,
+            shipping_fee_type: 'calculated',
+          },
+        },
+      },
+      'https://ogabassey.com'
+    );
+
+    expect(result.shippingPolicy).toMatchObject({
+      handlingDaysMin: 0,
+      transitDaysMin: 1,
+      shippingFeeType: 'calculated',
+    });
+    expect(result.derivedLinks.shipping).toBe('https://ogabassey.com/shipping');
   });
 });

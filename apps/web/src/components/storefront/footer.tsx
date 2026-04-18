@@ -13,7 +13,14 @@ import {
 import Link from 'next/link';
 import { useMerchant } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
-import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
+import {
+  buildMerchantTrustProfile,
+  hasPublishableReturnsPolicy,
+  hasPublishableShippingPolicy,
+  hasPublishableWarrantyPolicy,
+} from '@/lib/storefront-trust/build-merchant-trust-profile';
+
+type FooterLink = { label: string; href: ReturnType<typeof asRoute> };
 
 // TikTok and Pinterest don't have official lucide icons, so we create simple ones
 const TikTokIcon = ({ className }: { className?: string }) => (
@@ -73,19 +80,17 @@ export function StorefrontFooter() {
     (link) => merchant.pages?.[link.key as keyof typeof merchant.pages]
   );
   const trustProfile = buildMerchantTrustProfile(merchant, basePath);
-  const trustLinks = [
-    trustProfile.returnPolicy?.summary?.trim() ||
-    trustProfile.returnPolicy?.windowDays != null
+  const trustLinks: FooterLink[] = [
+    hasPublishableReturnsPolicy(trustProfile)
       ? { label: 'Returns', href: asRoute(`${basePath || ''}/returns`) }
       : null,
-    trustProfile.shippingPolicy?.summary?.trim() ||
-    (trustProfile.shippingPolicy?.regions?.length ?? 0) > 0
+    hasPublishableShippingPolicy(trustProfile)
       ? { label: 'Shipping', href: asRoute(`${basePath || ''}/shipping`) }
       : null,
-    trustProfile.warrantyPolicy?.summary?.trim()
+    hasPublishableWarrantyPolicy(trustProfile)
       ? { label: 'Warranty', href: asRoute(`${basePath || ''}/warranty`) }
       : null,
-  ].filter((link): link is { label: string; href: string } => link !== null);
+  ].filter((link): link is FooterLink => link !== null);
 
   // Social media configuration
   const socialLinks = [

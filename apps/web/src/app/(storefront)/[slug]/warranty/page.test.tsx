@@ -31,10 +31,21 @@ vi.mock('@/lib/cached-data', () => ({
   getRequestScopedMerchant: vi.fn(),
 }));
 
-vi.mock('@/lib/storefront-trust/build-merchant-trust-profile', () => ({
-  buildMerchantTrustProfile: (...args: unknown[]) =>
-    mockBuildMerchantTrustProfile(...args),
-}));
+vi.mock(
+  '@/lib/storefront-trust/build-merchant-trust-profile',
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import('@/lib/storefront-trust/build-merchant-trust-profile')
+      >();
+
+    return {
+      ...actual,
+      buildMerchantTrustProfile: (...args: unknown[]) =>
+        mockBuildMerchantTrustProfile(...args),
+    };
+  }
+);
 
 vi.mock('@/lib/store-url', () => ({
   buildRequestScopedStoreUrl: (...args: unknown[]) =>

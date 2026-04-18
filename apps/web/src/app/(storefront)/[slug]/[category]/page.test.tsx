@@ -5,6 +5,7 @@ import {
   getCachedCategoryPageData,
   getCachedMerchant,
   getCachedMerchantByDomain,
+  getMerchantByIdentifier,
 } from '@/lib/cached-data';
 import type { CategoryHubModel } from '@/lib/storefront-category/category-hub-types';
 
@@ -90,6 +91,7 @@ vi.mock('@/lib/cached-data', () => ({
   getCachedCategoryPageData: vi.fn(),
   getCachedMerchant: vi.fn(),
   getCachedMerchantByDomain: vi.fn(),
+  getMerchantByIdentifier: vi.fn(),
 }));
 
 vi.mock('@/lib/normalize-product', () => ({
@@ -496,6 +498,7 @@ describe('category page route', () => {
   beforeEach(() => {
     vi.mocked(getCachedMerchant).mockReset();
     vi.mocked(getCachedMerchantByDomain).mockReset();
+    vi.mocked(getMerchantByIdentifier).mockReset();
     vi.mocked(getCachedCategoryPageData).mockReset();
     categoryPageSpy.mockClear();
     notFound.mockClear();
@@ -506,6 +509,9 @@ describe('category page route', () => {
 
     vi.mocked(getCachedMerchant).mockResolvedValue(
       merchant as unknown as Awaited<ReturnType<typeof getCachedMerchant>>
+    );
+    vi.mocked(getMerchantByIdentifier).mockResolvedValue(
+      merchant as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>
     );
     mockHeaders.mockReset();
     mockHeaders.mockResolvedValue(new Headers());

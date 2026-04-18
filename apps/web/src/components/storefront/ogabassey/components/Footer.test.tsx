@@ -16,13 +16,35 @@ vi.mock('./Logo', () => ({
   Logo: () => <span>Logo</span>,
 }));
 const mockBuildMerchantTrustProfile = vi.fn();
-vi.mock('@/lib/storefront-trust/build-merchant-trust-profile', () => ({
-  buildMerchantTrustProfile: (...args: unknown[]) =>
-    mockBuildMerchantTrustProfile(...args),
-}));
+vi.mock(
+  '@/lib/storefront-trust/build-merchant-trust-profile',
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import('@/lib/storefront-trust/build-merchant-trust-profile')
+      >();
+
+    return {
+      ...actual,
+      buildMerchantTrustProfile: (...args: unknown[]) =>
+        mockBuildMerchantTrustProfile(...args),
+    };
+  }
+);
 vi.mock('@/lib/social', () => ({
   normalizeSocialUrl: (value: string | undefined) => value,
 }));
+
+const merchantFixture = {
+  id: 'merchant-1',
+  user_id: 'user-1',
+  business_name: 'Ogabassey',
+  business_type: 'electronics',
+  social_media: {},
+  email: 'support@ogabassey.com',
+  phone: '+2348000000000',
+  business_address: 'Lagos',
+};
 
 describe('Ogabassey Footer', () => {
   beforeEach(() => {
@@ -51,13 +73,7 @@ describe('Ogabassey Footer', () => {
     render(
       <Footer
         storeSlug="ogabassey"
-        merchant={{
-          business_name: 'Ogabassey',
-          social_media: {},
-          email: 'support@ogabassey.com',
-          phone: '+2348000000000',
-          business_address: 'Lagos',
-        }}
+        merchant={merchantFixture}
       />
     );
 
@@ -83,13 +99,7 @@ describe('Ogabassey Footer', () => {
     render(
       <Footer
         storeSlug="ogabassey"
-        merchant={{
-          business_name: 'Ogabassey',
-          social_media: {},
-          email: 'support@ogabassey.com',
-          phone: '+2348000000000',
-          business_address: 'Lagos',
-        }}
+        merchant={merchantFixture}
       />
     );
 
@@ -98,10 +108,11 @@ describe('Ogabassey Footer', () => {
     expect(screen.queryByRole('link', { name: 'Warranty' })).toBeNull();
   });
 
-  it('omits Returns when only return method data exists', () => {
+  it('renders Returns when only return method data exists', () => {
     mockBuildMerchantTrustProfile.mockReturnValue({
       returnPolicy: {
-        summary: '   ',
+        returnMethod: 'mail',
+        returnFees: 'free',
         localRoute: '/returns',
       },
       socialLinks: {},
@@ -110,23 +121,21 @@ describe('Ogabassey Footer', () => {
     render(
       <Footer
         storeSlug="ogabassey"
-        merchant={{
-          business_name: 'Ogabassey',
-          social_media: {},
-          email: 'support@ogabassey.com',
-          phone: '+2348000000000',
-          business_address: 'Lagos',
-        }}
+        merchant={merchantFixture}
       />
     );
 
-    expect(screen.queryByRole('link', { name: 'Returns' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Returns' })).toHaveAttribute(
+      'href',
+      '/ogabassey/returns'
+    );
   });
 
-  it('omits Shipping when only handling details exist', () => {
+  it('renders Shipping when only handling details exist', () => {
     mockBuildMerchantTrustProfile.mockReturnValue({
       shippingPolicy: {
-        summary: '   ',
+        handlingDaysMin: 0,
+        shippingFeeType: 'calculated',
         localRoute: '/shipping',
       },
       socialLinks: {},
@@ -135,16 +144,13 @@ describe('Ogabassey Footer', () => {
     render(
       <Footer
         storeSlug="ogabassey"
-        merchant={{
-          business_name: 'Ogabassey',
-          social_media: {},
-          email: 'support@ogabassey.com',
-          phone: '+2348000000000',
-          business_address: 'Lagos',
-        }}
+        merchant={merchantFixture}
       />
     );
 
-    expect(screen.queryByRole('link', { name: 'Shipping' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Shipping' })).toHaveAttribute(
+      'href',
+      '/ogabassey/shipping'
+    );
   });
 });

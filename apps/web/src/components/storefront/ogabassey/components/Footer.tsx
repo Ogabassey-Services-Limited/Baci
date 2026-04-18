@@ -2,6 +2,12 @@ import type { MerchantData } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
 import { normalizeSocialUrl } from '@/lib/social';
 import {
+  buildMerchantTrustProfile,
+  hasPublishableReturnsPolicy,
+  hasPublishableShippingPolicy,
+  hasPublishableWarrantyPolicy,
+} from '@/lib/storefront-trust/build-merchant-trust-profile';
+import {
   Apple,
   Facebook,
   Instagram,
@@ -18,12 +24,13 @@ import Link from 'next/link';
 import type React from 'react';
 
 import { Logo } from './Logo';
-import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 
 interface FooterProps {
   merchant?: MerchantData;
   storeSlug?: string;
 }
+
+type FooterLink = { label: string; href: ReturnType<typeof asRoute> };
 
 function normalizeStoreSlug(storeSlug?: string): string {
   const normalized = storeSlug?.trim().replace(/^\/+|\/+$/g, '');
@@ -40,19 +47,17 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
   const trustProfile = merchant
     ? buildMerchantTrustProfile(merchant, basePath || undefined)
     : null;
-  const trustLinks = [
-    trustProfile?.returnPolicy?.summary?.trim() ||
-    trustProfile?.returnPolicy?.windowDays != null
+  const trustLinks: FooterLink[] = [
+    trustProfile && hasPublishableReturnsPolicy(trustProfile)
       ? { label: 'Returns', href: asRoute(`${basePath}/returns`) }
       : null,
-    trustProfile?.shippingPolicy?.summary?.trim() ||
-    (trustProfile?.shippingPolicy?.regions?.length ?? 0) > 0
+    trustProfile && hasPublishableShippingPolicy(trustProfile)
       ? { label: 'Shipping', href: asRoute(`${basePath}/shipping`) }
       : null,
-    trustProfile?.warrantyPolicy?.summary?.trim()
+    trustProfile && hasPublishableWarrantyPolicy(trustProfile)
       ? { label: 'Warranty', href: asRoute(`${basePath}/warranty`) }
       : null,
-  ].filter((link): link is { label: string; href: string } => link !== null);
+  ].filter((link): link is FooterLink => link !== null);
 
   // Helper to render social link if it exists
   const renderSocialLink = (
