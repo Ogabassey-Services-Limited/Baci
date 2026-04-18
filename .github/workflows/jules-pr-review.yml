@@ -141,12 +141,24 @@ jobs:
             local url="$1"
             local payload="$2"
 
+            # Large PRs produce multi-MB session payloads (the prompt embeds
+            # every file's diff excerpt). Passing that via `curl -d "$string"`
+            # puts the entire body in argv and hits ARG_MAX. Route through a
+            # temp file with --data-binary @file instead.
+            local payload_file
+            payload_file="$(mktemp "${RUNNER_TEMP:-/tmp}/jules-payload-XXXXXX.json")"
+            printf '%s' "${payload}" > "${payload_file}"
+
+            local exit_code=0
             curl "${curl_common_args[@]}" \
               -X POST \
               -H "Content-Type: application/json" \
               -H "x-goog-api-key: ${JULES_API_KEY}" \
-              -d "${payload}" \
-              "${url}"
+              --data-binary "@${payload_file}" \
+              "${url}" || exit_code=$?
+
+            rm -f "${payload_file}"
+            return "${exit_code}"
           }
 
           # Write PR metadata to a temp file and parse via `jq --slurpfile` /
@@ -713,12 +725,24 @@ jobs:
             local url="$1"
             local payload="$2"
 
+            # Route the POST body through a temp file so `curl` reads via
+            # --data-binary @file instead of argv. Keeps us safe from ARG_MAX
+            # if the review body grows (e.g. deep-review output with many
+            # findings).
+            local payload_file
+            payload_file="$(mktemp "${RUNNER_TEMP:-/tmp}/gh-payload-XXXXXX.json")"
+            printf '%s' "${payload}" > "${payload_file}"
+
+            local exit_code=0
             curl "${curl_common_args[@]}" \
               -X POST \
               -H "Accept: application/vnd.github+json" \
               -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-              -d "${payload}" \
-              "${url}"
+              --data-binary "@${payload_file}" \
+              "${url}" || exit_code=$?
+
+            rm -f "${payload_file}"
+            return "${exit_code}"
           }
 
           if [[ -f "${meta_file}" ]]; then

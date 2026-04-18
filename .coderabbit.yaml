@@ -43,7 +43,13 @@ reviews:
     - "!**/*.fixture.ts"
     - "!**/*.fixture.tsx"
     - "!docs/**/*.md"
-    - "!*.md"
+    # Keep authoritative root docs (CLAUDE.md / AGENTS.md) in scope — they
+    # define the review rules the instruction block refers to. Exclude any
+    # other root-level markdown (READMEs, changelogs) that is pure prose.
+    - "!README.md"
+    - "!CHANGELOG.md"
+    - "!CONTRIBUTING.md"
+    - "!LICENSE.md"
     - "!**/*.png"
     - "!**/*.jpg"
     - "!**/*.jpeg"
