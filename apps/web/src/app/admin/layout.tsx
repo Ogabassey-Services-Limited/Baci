@@ -39,7 +39,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { useAuth } from '@/contexts/auth-context';
+import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
@@ -50,9 +50,11 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   return (
-    <Suspense fallback={<AdminLayoutFallback />}>
-      <AdminLayoutContent>{children}</AdminLayoutContent>
-    </Suspense>
+    <AuthProvider>
+      <Suspense fallback={<AdminLayoutFallback />}>
+        <AdminLayoutContent>{children}</AdminLayoutContent>
+      </Suspense>
+    </AuthProvider>
   );
 }
 

@@ -3,12 +3,8 @@ import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { RootDynamicBody } from './root-dynamic-body';
 
-vi.mock('@vercel/analytics/next', () => ({
-  Analytics: () => <div>Analytics</div>,
-}));
-
-vi.mock('@vercel/speed-insights/next', () => ({
-  SpeedInsights: () => <div>SpeedInsights</div>,
+vi.mock('@/components/analytics/deferred-platform-insights', () => ({
+  DeferredPlatformInsights: () => <div>DeferredPlatformInsights</div>,
 }));
 
 vi.mock('@/components/analytics/web-vitals-reporter', () => ({
@@ -21,7 +17,7 @@ vi.mock('@/components/ui/toaster', () => ({
 
 const mockNonceProvider = vi.fn(
   ({ children }: { children: ReactNode; nonce?: string }) => (
-    <div>{children}</div>
+    <div data-testid="nonce-provider">{children}</div>
   )
 );
 
@@ -30,21 +26,9 @@ vi.mock('@/contexts/NonceProvider', () => ({
     mockNonceProvider(props),
 }));
 
-const mockProviders = vi.fn(
-  ({ children }: { children: ReactNode; forcedTheme?: string }) => (
-    <div>{children}</div>
-  )
-);
-
-vi.mock('@/contexts/providers', () => ({
-  Providers: (props: { children: ReactNode; forcedTheme?: string }) =>
-    mockProviders(props),
-}));
-
 describe('RootDynamicBody', () => {
-  it('renders the global provider shell without extra props', () => {
+  it('renders the global root shell around the page content', () => {
     mockNonceProvider.mockClear();
-    mockProviders.mockClear();
 
     render(
       <RootDynamicBody>
@@ -53,36 +37,26 @@ describe('RootDynamicBody', () => {
     );
 
     expect(screen.getByRole('main')).toHaveTextContent('Main content');
+    expect(screen.getByTestId('nonce-provider')).toBeInTheDocument();
     expect(screen.getByText('Toaster')).toBeInTheDocument();
     expect(screen.getByText('WebVitalsReporter')).toBeInTheDocument();
-    expect(screen.getByText('Analytics')).toBeInTheDocument();
-    expect(screen.getByText('SpeedInsights')).toBeInTheDocument();
-
-    expect(mockNonceProvider).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('DeferredPlatformInsights')).toBeInTheDocument();
     expect(mockNonceProvider.mock.calls[0]?.[0]).toMatchObject({
       nonce: undefined,
     });
-    expect(mockProviders).toHaveBeenCalledTimes(1);
-    expect(mockProviders.mock.calls[0]?.[0]).toMatchObject({
-      forcedTheme: undefined,
-    });
   });
 
-  it('forwards nonce and forcedTheme when provided', () => {
+  it('forwards the CSP nonce when provided', () => {
     mockNonceProvider.mockClear();
-    mockProviders.mockClear();
 
     render(
-      <RootDynamicBody nonce="nonce-123" forcedTheme="light">
-        <main>Main content</main>
+      <RootDynamicBody nonce="nonce-123">
+        {<main>Main content</main>}
       </RootDynamicBody>
     );
 
     expect(mockNonceProvider.mock.calls[0]?.[0]).toMatchObject({
       nonce: 'nonce-123',
-    });
-    expect(mockProviders.mock.calls[0]?.[0]).toMatchObject({
-      forcedTheme: 'light',
     });
   });
 });

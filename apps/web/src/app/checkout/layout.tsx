@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { CartProvider } from '@/hooks/use-cart';
 
 export const metadata: Metadata = {
   title: 'Secure Checkout | Baci',
@@ -15,5 +16,5 @@ export default function CheckoutLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <>{children}</>;
+  return <CartProvider>{children}</CartProvider>;
 }

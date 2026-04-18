@@ -1,6 +1,6 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { useEffect } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MerchantData } from '@/hooks/use-merchant';
 import {
   GoogleStoreWidget,
@@ -36,7 +36,14 @@ const baseMerchant: MerchantData = {
 
 const originalMerchantWidget = window.merchantwidget;
 
+beforeEach(() => {
+  vi.useFakeTimers();
+});
+
 afterEach(() => {
+  vi.runOnlyPendingTimers();
+  vi.useRealTimers();
+
   if (originalMerchantWidget) {
     window.merchantwidget = originalMerchantWidget;
     return;
@@ -46,7 +53,7 @@ afterEach(() => {
 });
 
 describe('GoogleStoreWidget', () => {
-  it('renders the widget script for the matching live domain', async () => {
+  it('waits to load the widget script until after the defer window elapses', () => {
     const start = vi.fn();
     window.merchantwidget = { start };
 
@@ -54,20 +61,28 @@ describe('GoogleStoreWidget', () => {
       <GoogleStoreWidget merchant={baseMerchant} hostname="www.ogabassey.com" />
     );
 
-    await screen.findByTestId('google-store-widget-script');
+    expect(
+      screen.queryByTestId('google-store-widget-script')
+    ).not.toBeInTheDocument();
 
-    await waitFor(() => {
-      expect(start).toHaveBeenCalledWith({
-        position: 'LEFT_BOTTOM',
-        sideMargin: 24,
-        bottomMargin: 24,
-        mobileSideMargin: 16,
-        mobileBottomMargin: 104,
-      });
+    act(() => {
+      vi.advanceTimersByTime(3500);
+    });
+
+    expect(
+      screen.getByTestId('google-store-widget-script')
+    ).toBeInTheDocument();
+
+    expect(start).toHaveBeenCalledWith({
+      position: 'LEFT_BOTTOM',
+      sideMargin: 24,
+      bottomMargin: 24,
+      mobileSideMargin: 16,
+      mobileBottomMargin: 104,
     });
   });
 
-  it('renders when the merchant has no custom domain configured', async () => {
+  it('renders when the merchant has no custom domain configured', () => {
     const start = vi.fn();
     window.merchantwidget = { start };
     const merchantWithoutDomain = {
@@ -82,16 +97,20 @@ describe('GoogleStoreWidget', () => {
       />
     );
 
-    await screen.findByTestId('google-store-widget-script');
+    act(() => {
+      vi.advanceTimersByTime(3500);
+    });
 
-    await waitFor(() => {
-      expect(start).toHaveBeenCalledWith({
-        position: 'LEFT_BOTTOM',
-        sideMargin: 24,
-        bottomMargin: 24,
-        mobileSideMargin: 16,
-        mobileBottomMargin: 104,
-      });
+    expect(
+      screen.getByTestId('google-store-widget-script')
+    ).toBeInTheDocument();
+
+    expect(start).toHaveBeenCalledWith({
+      position: 'LEFT_BOTTOM',
+      sideMargin: 24,
+      bottomMargin: 24,
+      mobileSideMargin: 16,
+      mobileBottomMargin: 104,
     });
   });
 
@@ -122,7 +141,74 @@ describe('GoogleStoreWidget', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('does not throw when merchantwidget API is unavailable after script load', async () => {
+  it('loads immediately after a user interaction on a matching domain', async () => {
+    const start = vi.fn();
+    window.merchantwidget = { start };
+
+    render(
+      <GoogleStoreWidget merchant={baseMerchant} hostname="ogabassey.com" />
+    );
+
+    expect(
+      screen.queryByTestId('google-store-widget-script')
+    ).not.toBeInTheDocument();
+
+    fireEvent.pointerDown(window);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(
+      screen.getByTestId('google-store-widget-script')
+    ).toBeInTheDocument();
+    expect(start).toHaveBeenCalledOnce();
+  });
+
+  it('supports passing only the merchant custom domain', () => {
+    const start = vi.fn();
+    window.merchantwidget = { start };
+
+    render(
+      <GoogleStoreWidget
+        merchantCustomDomain="ogabassey.com"
+        hostname="ogabassey.com"
+      />
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(3500);
+    });
+
+    expect(
+      screen.getByTestId('google-store-widget-script')
+    ).toBeInTheDocument();
+    expect(start).toHaveBeenCalledOnce();
+  });
+
+  it('can skip the internal defer window when an outer shell already delayed mounting', async () => {
+    const start = vi.fn();
+    window.merchantwidget = { start };
+
+    render(
+      <GoogleStoreWidget
+        merchantCustomDomain="ogabassey.com"
+        hostname="ogabassey.com"
+        skipActivationDelay
+      />
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(
+      screen.getByTestId('google-store-widget-script')
+    ).toBeInTheDocument();
+    expect(start).toHaveBeenCalledOnce();
+  });
+
+  it('does not throw when merchantwidget API is unavailable after script load', () => {
     delete window.merchantwidget;
 
     expect(() =>
@@ -131,7 +217,13 @@ describe('GoogleStoreWidget', () => {
       )
     ).not.toThrow();
 
-    await screen.findByTestId('google-store-widget-script');
+    act(() => {
+      vi.advanceTimersByTime(3500);
+    });
+
+    expect(
+      screen.getByTestId('google-store-widget-script')
+    ).toBeInTheDocument();
   });
 });
 

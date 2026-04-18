@@ -1,0 +1,64 @@
+import type { Product } from '@/lib/products';
+
+export interface CartItem extends Product {
+  quantity: number;
+  variantId?: string;
+  variantAttributes?: Record<string, string>;
+  cartItemId: string;
+  selectedColor?: string;
+  selectedColorValue?: string;
+  secondaryColor?: string;
+  secondaryColorValue?: string;
+  selectedStorage?: string;
+  condition?: 'new' | 'used' | 'open_box' | 'refurbished';
+  negotiatedPrice?: number;
+  negotiationStatus?: 'none' | 'pending' | 'accepted' | 'rejected';
+  cartDiscount?: number;
+  hasAssurance?: boolean;
+  assuranceRate?: number;
+}
+
+export interface AddToCartOptions {
+  variantId?: string;
+  variantAttributes?: Record<string, string>;
+  color?: string;
+  colorValue?: string;
+  secondaryColor?: string;
+  secondaryColorValue?: string;
+  storage?: string;
+  condition?: string;
+  platform?: string;
+  [key: string]: string | Record<string, string> | undefined;
+}
+
+export interface CartContextType {
+  cart: CartItem[];
+  merchantSlug: string | null;
+  addToCart: (
+    product: Product,
+    quantity?: number,
+    options?: AddToCartOptions
+  ) => void;
+  removeFromCart: (cartItemIdOrProductId: string, variantId?: string) => void;
+  updateQuantity: (
+    cartItemIdOrProductId: string,
+    quantity: number,
+    variantId?: string
+  ) => void;
+  clearCart: () => void;
+  setMerchantSlug: (slug: string) => void;
+  cartCount: number;
+  cartTotal: number;
+  totalItems: number;
+  subtotal: number;
+  isCartOpen: boolean;
+  setIsCartOpen: (open: boolean) => void;
+  applyNegotiatedPrice?: (cartItemId: string, newPrice: number) => void;
+  applyCartWideNegotiation?: (newTotal: number) => void;
+  toggleAssurance?: (cartItemId: string) => void;
+  lastAddedProduct: Product | null;
+  showUpsell: boolean;
+  dismissUpsell: () => void;
+  hasSmartCartPro: boolean;
+  isHydrated: boolean;
+}
