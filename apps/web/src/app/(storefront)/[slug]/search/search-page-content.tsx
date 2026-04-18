@@ -8,10 +8,7 @@ import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { generateBreadcrumbSchema, getProductUrl } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
 import { getStorefrontSearchProducts } from '@/lib/storefront-search';
-import {
-  isDomainIdentifier,
-  isValidMerchantIdentifier,
-} from '@/lib/validation';
+import { isValidMerchantIdentifier } from '@/lib/validation';
 import { ProductIndexCard } from '../products/product-index-card';
 
 export interface SearchPageProps {
@@ -19,8 +16,14 @@ export interface SearchPageProps {
   searchParams: Promise<{ q?: string; page?: string }>;
 }
 
-function getStorefrontPathPrefix(slug: string, merchantSlug: string) {
-  return isDomainIdentifier(slug) ? '' : `/${merchantSlug}`;
+function getStorefrontPathPrefix(
+  headersList: Awaited<ReturnType<typeof headers>>,
+  merchantSlug: string
+) {
+  return headersList.has('x-custom-domain') ||
+    headersList.has('x-merchant-slug')
+    ? ''
+    : `/${merchantSlug}`;
 }
 
 function formatResultCount(count: number) {
@@ -83,8 +86,9 @@ export async function SearchPageContent({
       };
   const searchQuery = searchResult.query;
 
-  const pathPrefix = getStorefrontPathPrefix(slug, merchant.slug);
-  const storeUrl = buildRequestScopedStoreUrl(merchant, await headers());
+  const headersList = await headers();
+  const pathPrefix = getStorefrontPathPrefix(headersList, merchant.slug);
+  const storeUrl = buildRequestScopedStoreUrl(merchant, headersList);
   const pageUrl = searchQuery
     ? `${storeUrl}/search?q=${encodeURIComponent(searchQuery)}`
     : `${storeUrl}/search`;

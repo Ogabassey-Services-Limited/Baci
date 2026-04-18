@@ -35,8 +35,17 @@ vi.mock('next/link', () => ({
 }));
 
 vi.mock('../products/product-index-card', () => ({
-  ProductIndexCard: ({ product }: { product: { name: string } }) => (
-    <div>{product.name}</div>
+  ProductIndexCard: ({
+    pathPrefix,
+    product,
+  }: {
+    pathPrefix: string;
+    product: { name: string };
+  }) => (
+    <div>
+      <span>{product.name}</span>
+      <span data-testid={`path-prefix-${product.name}`}>{pathPrefix}</span>
+    </div>
   ),
 }));
 
@@ -151,6 +160,49 @@ describe('SearchPageContent', () => {
         },
       ],
     });
+  });
+
+  it('does not prepend the merchant slug on subdomain storefront links', async () => {
+    mockHeaders.mockResolvedValue(
+      new Headers([
+        ['host', 'ogabassey.usebaci.com'],
+        ['x-merchant-slug', 'ogabassey'],
+        ['x-pathname', '/search'],
+      ])
+    );
+
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+      custom_domain: null,
+      business_name: 'Ogabassey',
+      payout_currency: 'NGN',
+    } as never);
+
+    vi.mocked(getStorefrontSearchProducts).mockResolvedValue({
+      count: 1,
+      didYouMean: null,
+      products: [
+        {
+          id: 'product-1',
+          name: 'iPhone 16',
+          price: 1200000,
+          slug: 'iphone-16',
+          category: 'Phones',
+          category_slug: 'phones',
+        },
+      ],
+      query: 'iphone',
+    } as never);
+
+    const result = await SearchPageContent({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+      searchParams: Promise.resolve({ q: 'iphone', page: '1' }),
+    });
+
+    render(result as React.ReactElement);
+
+    expect(screen.getByTestId('path-prefix-iPhone 16')).toBeEmptyDOMElement();
   });
 
   it('shows a start-search prompt when the query is empty', async () => {
