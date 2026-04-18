@@ -135,6 +135,7 @@ import { CheckoutPage } from './checkout-page';
 import { useSearchParams } from 'next/navigation';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
+import { usePersistedState } from '@/hooks/use-persisted-state';
 
 describe('CheckoutPage', () => {
   beforeEach(() => {
@@ -158,6 +159,9 @@ describe('CheckoutPage', () => {
       },
       basePath: '/test-store',
     } as unknown as ReturnType<typeof useMerchantSafe>);
+    vi.mocked(usePersistedState).mockReturnValue(
+      [null, vi.fn(), vi.fn()] as unknown as ReturnType<typeof usePersistedState>
+    );
   });
 
   it('renders without crashing', () => {
@@ -216,6 +220,46 @@ describe('CheckoutPage', () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
         '/api/storefront/orders/ord-1?merchant_slug=test-store&token=tok-123'
+      );
+    });
+
+    fetchMock.mockRestore();
+  });
+
+  it('falls back to the persisted customer email for legacy resume links without a token', async () => {
+    vi.mocked(useSearchParams).mockReturnValue(
+      new URLSearchParams({
+        orderId: 'ord-1',
+        gateway: 'credpal',
+      }) as unknown as ReturnType<typeof useSearchParams>
+    );
+    vi.mocked(usePersistedState).mockReturnValue(
+      [
+        {
+          orderId: 'ord-1',
+          merchantId: 'merchant-1',
+          customerEmail: 'legacy@example.com',
+          checkoutFingerprint: 'fingerprint',
+          amountDueToGateway: 1000,
+          createdAt: '2026-04-18T00:00:00.000Z',
+        },
+        vi.fn(),
+        vi.fn(),
+      ] as unknown as ReturnType<typeof usePersistedState>
+    );
+
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue({
+        ok: false,
+        json: async () => ({}),
+      } as Response);
+
+    render(<CheckoutPage />);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/storefront/orders/ord-1?merchant_slug=test-store&email=legacy%40example.com'
       );
     });
 

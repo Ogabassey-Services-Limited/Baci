@@ -256,6 +256,15 @@ export const CheckoutPage: React.FC = () => {
     searchParams.get('trackingToken') ||
     searchParams.get('tracking_token') ||
     searchParams.get('token');
+  const resumeLookupEmail =
+    searchParams.get('email')?.trim() ||
+    (!resumeTrackingToken &&
+    pendingCheckoutOrder?.orderId === resumeOrderId &&
+    pendingCheckoutOrder.customerEmail &&
+    (!merchant?.id || pendingCheckoutOrder.merchantId === merchant.id)
+      ? pendingCheckoutOrder.customerEmail.trim()
+      : '') ||
+    null;
   const resumeMerchantSlug =
     searchParams.get('merchant_slug') ||
     searchParams.get('slug') ||
@@ -564,7 +573,11 @@ export const CheckoutPage: React.FC = () => {
       try {
         const query = new URLSearchParams();
         query.set('merchant_slug', resumeMerchantSlug);
-        if (resumeTrackingToken) query.set('token', resumeTrackingToken);
+        if (resumeTrackingToken) {
+          query.set('token', resumeTrackingToken);
+        } else if (resumeLookupEmail) {
+          query.set('email', resumeLookupEmail);
+        }
 
         const res = await fetch(
           query.toString()
@@ -632,6 +645,7 @@ export const CheckoutPage: React.FC = () => {
   }, [
     preferredGateway,
     resumeOrderId,
+    resumeLookupEmail,
     resumeMerchantSlug,
     resumeTrackingToken,
     setCheckoutFields,
