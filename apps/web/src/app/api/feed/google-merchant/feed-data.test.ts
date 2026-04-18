@@ -13,7 +13,7 @@ vi.mock('next/cache', () => ({
 
 type DomainResult = { data: { domain: string } | null; error: unknown };
 type ProductsResult = {
-  data: Array<{ id: string; name: string }> | null;
+  data: Record<string, unknown>[] | null;
   error: unknown;
 };
 type ManifestResult = {
@@ -137,7 +137,47 @@ describe('getCachedGoogleMerchantFeedData', () => {
       'ogabassey'
     );
 
-    expect(result.products).toEqual([{ id: 'product-1', name: 'Phone' }]);
+    expect(result.products[0]).toMatchObject({
+      id: 'product-1',
+      name: 'Phone',
+    });
+  });
+
+  it('flattens joined product_categories(categories(name, slug)) into categories and category_slug', async () => {
+    productsResult = {
+      data: [
+        {
+          id: 'product-1',
+          name: 'Phone',
+          product_categories: [
+            {
+              categories: {
+                name: 'Phones',
+                slug: 'phones',
+              },
+            },
+          ],
+        },
+      ],
+      error: null,
+    };
+
+    const { getCachedGoogleMerchantFeedData } = await import('./feed-data');
+    const result = await getCachedGoogleMerchantFeedData(
+      'merchant-1',
+      'ogabassey'
+    );
+
+    expect(result.products[0]).toMatchObject({
+      id: 'product-1',
+      name: 'Phone',
+      categories: {
+        name: 'Phones',
+        slug: 'phones',
+      },
+      category_slug: 'phones',
+      category: 'Phones',
+    });
   });
 
   it('groups manifest rows by product_id into imageManifest', async () => {

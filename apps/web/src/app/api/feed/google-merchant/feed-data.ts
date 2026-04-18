@@ -10,6 +10,44 @@ export interface GoogleMerchantFeedData {
   imageManifest: ImageManifestMap;
 }
 
+interface RawFeedProductRow extends Omit<FeedProduct, 'categories'> {
+  categories?:
+    | { name?: string; slug?: string }
+    | Array<{ name?: string; slug?: string }>
+    | null;
+  product_categories?: Array<{
+    categories?: { name?: string; slug?: string } | null;
+  }>;
+}
+
+function getJoinedCategory(
+  product: RawFeedProductRow
+): { name?: string; slug?: string } | null {
+  if (Array.isArray(product.categories)) {
+    return product.categories[0] ?? null;
+  }
+
+  if (product.categories) {
+    return product.categories;
+  }
+
+  return product.product_categories?.[0]?.categories ?? null;
+}
+
+function normalizeFeedProducts(products: RawFeedProductRow[]): FeedProduct[] {
+  return products.map((product) => {
+    const { product_categories: _productCategories, ...rest } = product;
+    const joinedCategory = getJoinedCategory(product);
+
+    return {
+      ...rest,
+      categories: joinedCategory ?? null,
+      category_slug: rest.category_slug || joinedCategory?.slug,
+      category: rest.category || joinedCategory?.name,
+    };
+  });
+}
+
 /**
  * Cached data fetcher for Google Merchant feed.
  * Uses `'use cache'` with the `products` cache profile.
@@ -56,14 +94,17 @@ export async function getCachedGoogleMerchantFeedData(
   // Fetch prevalidated image manifest once per merchant and keep only active
   // product entries in memory. This avoids oversized PostgREST `in(...)`
   // filters for larger catalogs while preserving active-product scoping.
-  const productIds = (products || []).map((p: { id: string }) => p.id);
+  const feedProducts = normalizeFeedProducts(
+    (products || []) as RawFeedProductRow[]
+  );
+  const productIds = feedProducts.map((p) => p.id);
   const activeProductIds = new Set(productIds);
 
   if (productIds.length === 0) {
     return {
       custom_domain: primaryDomain?.domain ?? null,
       slug: merchantSlug,
-      products: [] as FeedProduct[],
+      products: [],
       imageManifest: {} as ImageManifestMap,
     };
   }
@@ -110,7 +151,6 @@ export async function getCachedGoogleMerchantFeedData(
   }
 
   // Fetch condition offers for products that have them
-  const feedProducts = (products || []) as FeedProduct[];
   const productsWithOffers = feedProducts.filter((p) => p.has_condition_offers);
 
   if (productsWithOffers.length > 0) {

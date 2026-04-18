@@ -1,3 +1,4 @@
+import { headers } from 'next/headers';
 import { Suspense } from 'react';
 import { resolveStorefrontTemplateId } from '@/app/(storefront)/[slug]/resolve-storefront-template';
 import { AnalyticsProvider } from '@/components/analytics/analytics-provider';
@@ -10,6 +11,12 @@ import {
 } from '@/lib/cached-data';
 import { toTemplateMerchantData } from '@/lib/merchant-template-data';
 import type { Product } from '@/lib/products';
+import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
+import {
+  generateCollectionPageSchema,
+  generateMetaDescription,
+} from '@/lib/seo-utils';
+import { buildRequestScopedStoreUrl } from '@/lib/store-url';
 import { getTemplate } from '@/templates/registry';
 import { StorefrontWrapper } from './storefront-wrapper';
 
@@ -100,7 +107,11 @@ export async function StorefrontContent({
   );
   const template = templateId ? getTemplate(templateId) : null;
   // Start template loading early so it runs in parallel with data fetches
-  const componentsPromise = template ? template.getComponents() : null;
+  const componentsPromise = template
+    ? template.getComponents().catch((error) => {
+        throw error;
+      })
+    : null;
 
   // Parallel data fetching — both use remote cache
   const [products, categories] = await Promise.all([
@@ -115,6 +126,32 @@ export async function StorefrontContent({
     categories: p.product_categories?.[0]?.categories || null,
     product_categories: undefined,
   })) as unknown as Product[];
+  const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
+  const homeCollectionSchema =
+    merchantProducts.length > 0
+      ? generateCollectionPageSchema({
+          name: `${merchant.business_name} featured products`,
+          description: generateMetaDescription(
+            merchant.site_description ||
+              merchant.site_tagline ||
+              `Featured products from ${merchant.business_name}.`
+          ),
+          url: baseUrl,
+          products: merchantProducts,
+          merchantName: merchant.business_name,
+          currency: merchant.payout_currency || 'NGN',
+        })
+      : null;
+
+  const homepageSchema = homeCollectionSchema ? (
+    <script
+      type="application/ld+json"
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: CollectionPage schema serialized with safeJsonLdStringify
+      dangerouslySetInnerHTML={{
+        __html: safeJsonLdStringify(homeCollectionSchema),
+      }}
+    />
+  ) : null;
 
   if (templateId) {
     if (template && componentsPromise) {
@@ -125,6 +162,7 @@ export async function StorefrontContent({
 
         return (
           <>
+            {homepageSchema}
             <AnalyticsProvider />
             <TemplateHome
               storeSlug={merchant.slug}
@@ -158,11 +196,14 @@ export async function StorefrontContent({
   }
 
   return (
-    <StorefrontWrapper
-      products={merchantProducts}
-      categories={categories || []}
-      initialTheme={initialTheme}
-    />
+    <>
+      {homepageSchema}
+      <StorefrontWrapper
+        products={merchantProducts}
+        categories={categories || []}
+        initialTheme={initialTheme}
+      />
+    </>
   );
 }
 

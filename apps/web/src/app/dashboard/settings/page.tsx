@@ -4,6 +4,7 @@ import {
   CreditCard,
   Receipt,
   Shield,
+  ShieldCheck,
   Users,
 } from 'lucide-react';
 import type { Metadata } from 'next';
@@ -137,6 +138,32 @@ export default async function SettingsPage() {
             >
               <Link href="/dashboard/settings/tax">
                 <span>Manage Tax Settings</span>
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Trust & Policies Card */}
+        <Card className="glass">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5" />
+              Trust & Policies
+            </CardTitle>
+            <CardDescription>
+              Configure store trust signals, support details, and policy
+              summaries.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="outline"
+              className="w-full justify-between"
+              asChild
+            >
+              <Link href="/dashboard/settings/trust">
+                <span>Manage Trust & Policies</span>
                 <ChevronRight className="h-4 w-4" />
               </Link>
             </Button>

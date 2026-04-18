@@ -100,6 +100,21 @@ function getFeedStockCount(product: FeedProduct): number {
   return getEffectiveStock(product);
 }
 
+function getProductType(product: FeedProduct): string | undefined {
+  const normalizedCategory = product.categories?.name?.trim();
+  if (normalizedCategory) {
+    return normalizedCategory;
+  }
+
+  const legacyCategory = product.category?.trim();
+  if (legacyCategory) {
+    return legacyCategory;
+  }
+
+  const categorySlug = product.category_slug?.trim();
+  return categorySlug || undefined;
+}
+
 /**
  * Generate Google Merchant Center XML feed.
  *
@@ -178,8 +193,8 @@ export function generateGoogleMerchantFeed(
         product.google_product_category
           ? `        <g:google_product_category>${escapeXml(product.google_product_category)}</g:google_product_category>`
           : '',
-        product.category
-          ? `        <g:product_type>${escapeXml(product.category)}</g:product_type>`
+        getProductType(product)
+          ? `        <g:product_type>${escapeXml(getProductType(product) || '')}</g:product_type>`
           : '',
         shippingWeight,
       ].filter(Boolean);
@@ -228,8 +243,8 @@ export function generateGoogleMerchantFeed(
             product.google_product_category
               ? `        <g:google_product_category>${escapeXml(product.google_product_category)}</g:google_product_category>`
               : '',
-            product.category
-              ? `        <g:product_type>${escapeXml(product.category)}</g:product_type>`
+            getProductType(product)
+              ? `        <g:product_type>${escapeXml(getProductType(product) || '')}</g:product_type>`
               : '',
             shippingWeight,
           ].filter(Boolean);

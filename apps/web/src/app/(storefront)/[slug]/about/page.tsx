@@ -1,9 +1,15 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
-import { buildStoreUrl } from '@/lib/store-url';
+import {
+  generateMetaDescription,
+  getIndexableRobotsMetadata,
+} from '@/lib/seo-utils';
+import { buildRequestScopedStoreUrl } from '@/lib/store-url';
+import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import { getTemplate } from '@/templates/registry';
 import {
   generateAboutPageJsonLd,
@@ -36,14 +42,16 @@ export async function generateMetadata({
     aboutPage.story ||
     aboutPage.mission ||
     `Learn more about ${merchant.business_name}`;
-  const canonicalUrl = `${buildStoreUrl(merchant)}/about`;
+  const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
+  const canonicalUrl = `${baseUrl}/about`;
+  const seoDescription = generateMetaDescription(description);
 
   return {
     title: `About Us | ${merchant.business_name}`,
-    description: description.substring(0, 160),
+    description: seoDescription,
     openGraph: {
       title: `About ${merchant.business_name}`,
-      description: description.substring(0, 160),
+      description: seoDescription,
       type: 'website',
       url: canonicalUrl,
       ...(merchant.logo_url && { images: [{ url: merchant.logo_url }] }),
@@ -51,6 +59,7 @@ export async function generateMetadata({
     alternates: {
       canonical: canonicalUrl,
     },
+    robots: getIndexableRobotsMetadata(),
   };
 }
 
@@ -76,7 +85,7 @@ export default function AboutPage({ params }: PageProps) {
 }
 
 /** Streams JSON-LD structured data independently of page content. */
-async function AboutJsonLd({ params }: PageProps) {
+export async function AboutJsonLd({ params }: PageProps) {
   const { slug } = await params;
   const merchant = await getMerchantByIdentifier(slug);
 
@@ -87,9 +96,14 @@ async function AboutJsonLd({ params }: PageProps) {
     return null;
   }
 
-  const baseUrl = buildStoreUrl(merchant);
-
-  const jsonLd = generateAboutPageJsonLd(merchant, aboutPage, baseUrl);
+  const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
+  const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
+  const jsonLd = generateAboutPageJsonLd(
+    merchant,
+    aboutPage,
+    baseUrl,
+    trustProfile
+  );
 
   return (
     <script

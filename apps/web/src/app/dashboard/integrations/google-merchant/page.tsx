@@ -9,6 +9,7 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import { FeedUrlSection } from '@/components/dashboard/integrations/feed-url-section';
+import { GoogleMerchantReadinessCard } from '@/components/dashboard/integrations/google-merchant-readiness-card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -37,7 +38,12 @@ export default function GoogleMerchantPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          asChild
+          aria-label="Back to integrations"
+        >
           <Link href={asRoute('/dashboard/integrations')}>
             <ArrowLeft className="h-4 w-4" />
           </Link>
@@ -91,6 +97,8 @@ export default function GoogleMerchantPage() {
             feedUrl={feedUrl}
             platform="Google Merchant"
           />
+
+          <GoogleMerchantReadinessCard />
 
           <div className="bg-muted/50 rounded-lg p-4 space-y-3">
             <h4 className="font-semibold text-sm">Setup Instructions:</h4>

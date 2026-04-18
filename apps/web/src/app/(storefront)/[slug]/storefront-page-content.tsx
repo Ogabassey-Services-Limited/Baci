@@ -13,6 +13,7 @@ import {
   type OrganizationData,
 } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
+import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 import { StorefrontContent } from './storefront-content';
 
@@ -48,35 +49,11 @@ export async function StorefrontPageContent({
   }
 
   const baseUrl = buildStoreUrl(merchant);
+  const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
   const description =
     merchant.site_description ||
     merchant.site_tagline ||
     `Welcome to ${merchant.business_name}`;
-  const socialMedia = merchant.social_media as Record<string, string> | null;
-
-  const socialMediaUrls: Record<string, string> = {};
-  if (socialMedia) {
-    if (socialMedia.facebook) {
-      socialMediaUrls.facebook = `https://facebook.com/${encodeURIComponent(
-        socialMedia.facebook.replace('@', '')
-      )}`;
-    }
-    if (socialMedia.instagram) {
-      socialMediaUrls.instagram = `https://instagram.com/${encodeURIComponent(socialMedia.instagram.replace('@', ''))}`;
-    }
-    if (socialMedia.twitter) {
-      socialMediaUrls.twitter = `https://twitter.com/${encodeURIComponent(socialMedia.twitter.replace('@', ''))}`;
-    }
-    if (socialMedia.tiktok) {
-      socialMediaUrls.tiktok = `https://www.tiktok.com/@${encodeURIComponent(socialMedia.tiktok.replace('@', ''))}`;
-    }
-    if (socialMedia.youtube) {
-      socialMediaUrls.youtube = `https://youtube.com/${encodeURIComponent(socialMedia.youtube)}`;
-    }
-    if (socialMedia.linkedin) {
-      socialMediaUrls.linkedin = `https://linkedin.com/company/${encodeURIComponent(socialMedia.linkedin)}`;
-    }
-  }
 
   const businessData: LocalBusinessData = {
     name: merchant.business_name,
@@ -91,7 +68,9 @@ export async function StorefrontPageContent({
         }
       : undefined,
     socialMedia:
-      Object.keys(socialMediaUrls).length > 0 ? socialMediaUrls : undefined,
+      Object.keys(trustProfile.socialLinks).length > 0
+        ? trustProfile.socialLinks
+        : undefined,
   };
 
   const organizationData: OrganizationData = {
@@ -99,10 +78,14 @@ export async function StorefrontPageContent({
     description,
     url: baseUrl,
     logo: merchant.logo_url || undefined,
-    email: merchant.email || undefined,
-    telephone: merchant.phone || undefined,
+    email: trustProfile.supportEmail || merchant.email || undefined,
+    telephone: trustProfile.supportPhone || merchant.phone || undefined,
+    country: merchant.country || 'NG',
     socialMedia:
-      Object.keys(socialMediaUrls).length > 0 ? socialMediaUrls : undefined,
+      Object.keys(trustProfile.socialLinks).length > 0
+        ? trustProfile.socialLinks
+        : undefined,
+    trustProfile,
   };
 
   const organizationSchema = generateOrganizationSchema(organizationData);

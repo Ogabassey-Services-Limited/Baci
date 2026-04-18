@@ -18,18 +18,41 @@ import Link from 'next/link';
 import type React from 'react';
 
 import { Logo } from './Logo';
+import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 
 interface FooterProps {
   merchant?: MerchantData;
   storeSlug?: string;
 }
 
+function normalizeStoreSlug(storeSlug?: string): string {
+  const normalized = storeSlug?.trim().replace(/^\/+|\/+$/g, '');
+  return normalized ? `/${normalized}` : '';
+}
+
 export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
+  const basePath = normalizeStoreSlug(storeSlug);
   const businessName = merchant?.business_name || 'Ogabassey';
   const socialLinks = merchant?.social_media || {};
   const contactEmail = merchant?.email || 'support@ogabassey.com';
   const contactPhone = merchant?.phone || '+234 814 697 8921';
   const contactAddress = merchant?.business_address || '2 Olaide Tomori St, Ikeja, Lagos';
+  const trustProfile = merchant
+    ? buildMerchantTrustProfile(merchant, basePath || undefined)
+    : null;
+  const trustLinks = [
+    trustProfile?.returnPolicy?.summary?.trim() ||
+    trustProfile?.returnPolicy?.windowDays != null
+      ? { label: 'Returns', href: asRoute(`${basePath}/returns`) }
+      : null,
+    trustProfile?.shippingPolicy?.summary?.trim() ||
+    (trustProfile?.shippingPolicy?.regions?.length ?? 0) > 0
+      ? { label: 'Shipping', href: asRoute(`${basePath}/shipping`) }
+      : null,
+    trustProfile?.warrantyPolicy?.summary?.trim()
+      ? { label: 'Warranty', href: asRoute(`${basePath}/warranty`) }
+      : null,
+  ].filter((link): link is { label: string; href: string } => link !== null);
 
   // Helper to render social link if it exists
   const renderSocialLink = (
@@ -69,7 +92,7 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
           {/* Column 1: Brand Info (Compact) */}
           <div className="space-y-4">
             <Link
-              href={asRoute(storeSlug || '/')}
+              href={asRoute(basePath || '/')}
               className="flex items-center cursor-pointer select-none"
             >
               <Logo className="h-8 w-auto" />
@@ -126,9 +149,9 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
                 Menu
               </h3>
               <ul className="space-y-2 text-xs text-gray-400">
-                <li><Link href={asRoute(`${storeSlug}/about`)} className="hover:text-red-500">About Us</Link></li>
-                <li><Link href={asRoute(`${storeSlug}/blog`)} className="hover:text-red-500">Blog</Link></li>
-                <li><Link href={asRoute(`${storeSlug}/repairs`)} className="hover:text-red-500">Repairs</Link></li>
+                <li><Link href={asRoute(`${basePath}/about`)} className="hover:text-red-500">About Us</Link></li>
+                <li><Link href={asRoute(`${basePath}/blog`)} className="hover:text-red-500">Blog</Link></li>
+                <li><Link href={asRoute(`${basePath}/repairs`)} className="hover:text-red-500">Repairs</Link></li>
               </ul>
             </div>
             <div>
@@ -136,11 +159,18 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
                 Support
               </h3>
               <ul className="space-y-2 text-xs text-gray-400">
-                <li><Link href={asRoute(`${storeSlug}/track-order`)} className="hover:text-red-500">Track Order</Link></li>
-                <li><Link href={asRoute(`${storeSlug}/faq`)} className="hover:text-red-500">Help Center</Link></li>
-                <li><Link href={asRoute(`${storeSlug}/contact`)} className="hover:text-red-500">Contact Us</Link></li>
-                <li><Link href={asRoute(`${storeSlug}/terms`)} className="hover:text-red-500">Terms of Service</Link></li>
-                <li><Link href={asRoute(`${storeSlug}/privacy`)} className="hover:text-red-500">Privacy Policy</Link></li>
+                <li><Link href={asRoute(`${basePath}/track-order`)} className="hover:text-red-500">Track Order</Link></li>
+                <li><Link href={asRoute(`${basePath}/faq`)} className="hover:text-red-500">Help Center</Link></li>
+                <li><Link href={asRoute(`${basePath}/contact`)} className="hover:text-red-500">Contact Us</Link></li>
+                <li><Link href={asRoute(`${basePath}/terms`)} className="hover:text-red-500">Terms of Service</Link></li>
+                <li><Link href={asRoute(`${basePath}/privacy`)} className="hover:text-red-500">Privacy Policy</Link></li>
+                {trustLinks.map((link) => (
+                  <li key={link.label}>
+                    <Link href={link.href} className="hover:text-red-500">
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
               </ul>
             </div>
           </nav>

@@ -1,8 +1,13 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
-import { buildStoreUrl } from '@/lib/store-url';
+import {
+  generateMetaDescription,
+  getIndexableRobotsMetadata,
+} from '@/lib/seo-utils';
+import { buildRequestScopedStoreUrl } from '@/lib/store-url';
 import { getTemplate } from '@/templates/registry';
 import { TermsPageClient } from '../pages/terms/terms-page-client';
 
@@ -20,14 +25,18 @@ export async function generateMetadata({
     return { title: 'Terms of Service' };
   }
 
-  const canonicalUrl = `${buildStoreUrl(merchant)}/terms`;
+  const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
+  const canonicalUrl = `${baseUrl}/terms`;
+  const description = generateMetaDescription(
+    `Terms of Service for ${merchant.business_name}. Read our terms and conditions.`
+  );
 
   return {
     title: `Terms of Service | ${merchant.business_name}`,
-    description: `Terms of Service for ${merchant.business_name}. Read our terms and conditions.`,
+    description,
     openGraph: {
       title: `Terms of Service | ${merchant.business_name}`,
-      description: `Terms of Service for ${merchant.business_name}.`,
+      description,
       type: 'website',
       url: canonicalUrl,
       ...(merchant.logo_url && { images: [{ url: merchant.logo_url }] }),
@@ -35,6 +44,7 @@ export async function generateMetadata({
     alternates: {
       canonical: canonicalUrl,
     },
+    robots: getIndexableRobotsMetadata(),
   };
 }
 
@@ -56,7 +66,7 @@ export default async function TermsPage({ params }: PageProps) {
     notFound();
   }
 
-  const baseUrl = buildStoreUrl(merchant);
+  const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
 
   const termsSchema = {
     '@context': 'https://schema.org',

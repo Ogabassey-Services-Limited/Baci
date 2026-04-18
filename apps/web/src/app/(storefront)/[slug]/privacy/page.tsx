@@ -1,8 +1,13 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
-import { buildStoreUrl } from '@/lib/store-url';
+import {
+  generateMetaDescription,
+  getIndexableRobotsMetadata,
+} from '@/lib/seo-utils';
+import { buildRequestScopedStoreUrl } from '@/lib/store-url';
 import { getTemplate } from '@/templates/registry';
 import { PrivacyPageClient } from '../pages/privacy/privacy-page-client';
 
@@ -20,14 +25,18 @@ export async function generateMetadata({
     return { title: 'Privacy Policy' };
   }
 
-  const canonicalUrl = `${buildStoreUrl(merchant)}/privacy`;
+  const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
+  const canonicalUrl = `${baseUrl}/privacy`;
+  const description = generateMetaDescription(
+    `Privacy Policy for ${merchant.business_name}. Learn how we collect, use, and protect your personal information.`
+  );
 
   return {
     title: `Privacy Policy | ${merchant.business_name}`,
-    description: `Privacy Policy for ${merchant.business_name}. Learn how we collect, use, and protect your personal information.`,
+    description,
     openGraph: {
       title: `Privacy Policy | ${merchant.business_name}`,
-      description: `Privacy Policy for ${merchant.business_name}. Learn how we collect, use, and protect your personal information.`,
+      description,
       type: 'website',
       url: canonicalUrl,
       ...(merchant.logo_url && { images: [{ url: merchant.logo_url }] }),
@@ -35,6 +44,7 @@ export async function generateMetadata({
     alternates: {
       canonical: canonicalUrl,
     },
+    robots: getIndexableRobotsMetadata(),
   };
 }
 
@@ -56,7 +66,7 @@ export default async function PrivacyPage({ params }: PageProps) {
     notFound();
   }
 
-  const baseUrl = buildStoreUrl(merchant);
+  const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
 
   const privacySchema = {
     '@context': 'https://schema.org',

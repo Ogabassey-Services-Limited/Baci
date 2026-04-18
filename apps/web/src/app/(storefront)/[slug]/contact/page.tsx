@@ -1,9 +1,15 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
-import { normalizeSocialUrl } from '@/lib/social';
-import { buildStoreUrl } from '@/lib/store-url';
+import {
+  generateMetaDescription,
+  generateOrganizationSchema,
+  getIndexableRobotsMetadata,
+} from '@/lib/seo-utils';
+import { buildRequestScopedStoreUrl } from '@/lib/store-url';
+import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import { getTemplate } from '@/templates/registry';
 import { ContactPageClient } from '../pages/contact/contact-page-client';
 
@@ -21,14 +27,18 @@ export async function generateMetadata({
     return { title: 'Contact Us' };
   }
 
-  const canonicalUrl = `${buildStoreUrl(merchant)}/contact`;
+  const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
+  const canonicalUrl = `${baseUrl}/contact`;
+  const description = generateMetaDescription(
+    `Get in touch with ${merchant.business_name}. We're here to help.`
+  );
 
   return {
     title: `Contact Us | ${merchant.business_name}`,
-    description: `Get in touch with ${merchant.business_name}. We're here to help.`,
+    description,
     openGraph: {
       title: `Contact ${merchant.business_name}`,
-      description: `Get in touch with ${merchant.business_name}.`,
+      description,
       type: 'website',
       url: canonicalUrl,
       ...(merchant.logo_url && { images: [{ url: merchant.logo_url }] }),
@@ -36,6 +46,7 @@ export async function generateMetadata({
     alternates: {
       canonical: canonicalUrl,
     },
+    robots: getIndexableRobotsMetadata(),
   };
 }
 
@@ -47,52 +58,38 @@ export default async function ContactPage({ params }: PageProps) {
     notFound();
   }
 
+  const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
+  const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
+
   const hasContactInfo =
-    merchant.pages?.contact || merchant.email || merchant.phone;
+    merchant.pages?.contact ||
+    merchant.email ||
+    merchant.phone ||
+    trustProfile.supportEmail ||
+    trustProfile.supportPhone;
 
   if (!hasContactInfo) {
     notFound();
   }
-
-  const baseUrl = buildStoreUrl(merchant);
 
   const contactSchema = {
     '@context': 'https://schema.org',
     '@type': 'ContactPage',
     name: `Contact ${merchant.business_name}`,
     url: `${baseUrl}/contact`,
-    mainEntity: {
-      '@type': 'Organization',
+    mainEntity: generateOrganizationSchema({
       name: merchant.business_name,
       url: baseUrl,
-      ...(merchant.logo_url && { logo: merchant.logo_url }),
-      ...(merchant.email && { email: merchant.email }),
-      ...(merchant.phone && { telephone: merchant.phone }),
-      ...(merchant.social_media && {
-        sameAs: Object.entries(merchant.social_media)
-          .filter(([_, handle]) => typeof handle === 'string')
-          .map(([platform, handle]) =>
-            normalizeSocialUrl(
-              handle as string,
-              platform as
-                | 'instagram'
-                | 'facebook'
-                | 'tiktok'
-                | 'twitter'
-                | 'youtube'
-                | 'linkedin'
-            )
-          )
-          .filter((url): url is string => !!url),
-      }),
-      contactPoint: {
-        '@type': 'ContactPoint',
-        contactType: 'customer service',
-        ...(merchant.email && { email: merchant.email }),
-        ...(merchant.phone && { telephone: merchant.phone }),
-        availableLanguage: 'English',
-      },
-    },
+      country: merchant.country,
+      logo: merchant.logo_url || undefined,
+      email: trustProfile.supportEmail || merchant.email || undefined,
+      telephone: trustProfile.supportPhone || merchant.phone || undefined,
+      socialMedia:
+        Object.keys(trustProfile.socialLinks).length > 0
+          ? trustProfile.socialLinks
+          : (merchant.social_media as Record<string, string> | undefined),
+      trustProfile,
+    }),
   };
 
   const jsonLdScript = (

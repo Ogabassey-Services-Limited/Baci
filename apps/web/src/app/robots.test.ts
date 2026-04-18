@@ -117,6 +117,12 @@ describe('robots()', () => {
     expect(disallows).not.toContain('/dashboard/');
     expect(disallows).not.toContain('/onboarding/');
     expect(disallows).not.toContain('/auth/');
+    expect(result.sitemap).toEqual([
+      'https://ogabassey.usebaci.com/sitemap/static.xml',
+      'https://ogabassey.usebaci.com/sitemap/products.xml',
+      'https://ogabassey.usebaci.com/sitemap/categories.xml',
+      'https://ogabassey.usebaci.com/blog/sitemap.xml',
+    ]);
   });
 
   it('uses minimal disallows for custom domains', async () => {
@@ -132,6 +138,12 @@ describe('robots()', () => {
 
     expect(disallows).toContain('/api/');
     expect(disallows).not.toContain('/dashboard/');
+    expect(result.sitemap).toEqual([
+      'https://shop.ogabassey.com/sitemap/static.xml',
+      'https://shop.ogabassey.com/sitemap/products.xml',
+      'https://shop.ogabassey.com/sitemap/categories.xml',
+      'https://shop.ogabassey.com/blog/sitemap.xml',
+    ]);
   });
 
   it('treats localhost as platform domain', async () => {
