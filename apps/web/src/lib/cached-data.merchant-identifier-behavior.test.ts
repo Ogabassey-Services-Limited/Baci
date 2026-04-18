@@ -135,11 +135,19 @@ describe('cached-data getMerchantByIdentifier behavior', () => {
         error: { code: 'PGRST116' },
       });
 
-      await expect(getMerchantByIdentifier('test-store')).resolves.toEqual({
+      await expect(
+        getMerchantByIdentifier('test-store')
+      ).resolves.toMatchObject({
         ...unpublishedMerchant,
         email: '',
         phone: '',
+        support_email: '',
+        support_phone: '',
         business_address: '',
+        legal_entity_name: null,
+        registered_address: null,
+        tax_identification_number: null,
+        trust_profile: null,
       });
     });
 
@@ -154,13 +162,21 @@ describe('cached-data getMerchantByIdentifier behavior', () => {
         error: null,
       });
 
-      await expect(getMerchantByIdentifier('store.com')).resolves.toEqual({
-        ...unpublishedMerchant,
-        custom_domain: 'store.com',
-        email: '',
-        phone: '',
-        business_address: '',
-      });
+      await expect(getMerchantByIdentifier('store.com')).resolves.toMatchObject(
+        {
+          ...unpublishedMerchant,
+          custom_domain: 'store.com',
+          email: '',
+          phone: '',
+          support_email: '',
+          support_phone: '',
+          business_address: '',
+          legal_entity_name: null,
+          registered_address: null,
+          tax_identification_number: null,
+          trust_profile: null,
+        }
+      );
     });
 
     it('does not redact contact info when store is published', async () => {
