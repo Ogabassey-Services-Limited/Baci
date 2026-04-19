@@ -3,6 +3,7 @@ import { router, Stack } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  Keyboard,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   RefreshControl,
@@ -116,6 +117,10 @@ export default function HomeScreen() {
   const handleSearchCancel = () => {
     setSearchVisible(false);
     setSearchQuery('');
+  };
+
+  const handleSearchSubmit = () => {
+    Keyboard.dismiss();
   };
 
   const handleRefresh = async () => {
@@ -351,6 +356,7 @@ export default function HomeScreen() {
             isSearchActive={searchVisible}
             searchQuery={searchQuery}
             onSearchQueryChange={setSearchQuery}
+            onSearchSubmit={handleSearchSubmit}
             onSearchCancel={handleSearchCancel}
           />
 

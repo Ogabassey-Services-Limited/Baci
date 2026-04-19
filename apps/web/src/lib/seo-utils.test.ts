@@ -244,6 +244,64 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
     expect(v2Offer.availability).toBe('https://schema.org/InStock');
   });
 
+  it('reports InStock for unmanaged-stock product offers even when stock counters are zero', () => {
+    // Single-offer fallback (no variants, no offers array).
+    const product = makeProduct({ manage_stock: false, stock: 0 });
+    const schema = generateProductSchema(product, 'TestStore', 'USD', 'NG');
+    const productOffer = schema.offers as Record<string, unknown>;
+    expect(productOffer.availability).toBe('https://schema.org/InStock');
+  });
+
+  it('reports InStock for unmanaged-stock variant offers even when variant.stock_quantity is 0', () => {
+    const product = makeProduct({
+      manage_stock: false,
+      stock: 0,
+      variants: [
+        {
+          id: 'v1',
+          product_id: 'test-123',
+          merchant_id: 'm1',
+          attributes: { storage: '128GB' },
+          stock_quantity: 0,
+        },
+      ],
+    });
+    const schema = generateProductSchema(product, 'TestStore', 'USD', 'NG');
+    const variants = schema.hasVariant as Record<string, unknown>[];
+    const v1Offer = variants[0].offers as Record<string, unknown>;
+    expect(v1Offer.availability).toBe('https://schema.org/InStock');
+  });
+
+  it('reports InStock for unmanaged-stock per-condition offers even when stock_quantity is 0', () => {
+    // Condition-based offers array path (no variants): each offer entry
+    // produces its own Offer node and must honour manage_stock=false.
+    const product = makeProduct({
+      manage_stock: false,
+      stock: 0,
+      has_condition_offers: true,
+      offers: [
+        {
+          id: 'offer-new',
+          condition: 'new',
+          price: 100,
+          stock_quantity: 0,
+        },
+        {
+          id: 'offer-used',
+          condition: 'used',
+          price: 80,
+          stock_quantity: 0,
+        },
+      ],
+    });
+    const schema = generateProductSchema(product, 'TestStore', 'USD', 'NG');
+    const offers = schema.offers as Record<string, unknown>[];
+    expect(Array.isArray(offers)).toBe(true);
+    expect(offers).toHaveLength(2);
+    expect(offers[0].availability).toBe('https://schema.org/InStock');
+    expect(offers[1].availability).toBe('https://schema.org/InStock');
+  });
+
   it('includes variant-level images with fallback to parent images', () => {
     const product = makeProduct({
       images: [
@@ -537,6 +595,36 @@ describe('generateCollectionPageSchema', () => {
       'https://ogabassey.com/images/iphone-16-large.jpg'
     );
     expect(offers.url).toBe('https://ogabassey.com/smartphones/iphone-16');
+  });
+
+  it('reports InStock for unmanaged-stock items in CollectionPage itemList offers even when stock is 0', () => {
+    const schema = generateCollectionPageSchema({
+      name: 'Smartphones',
+      description: 'Shop smartphones',
+      url: 'https://ogabassey.com/smartphones',
+      merchantName: 'Ogabassey',
+      currency: 'NGN',
+      products: [
+        makeProduct({
+          name: 'iPhone 16',
+          slug: 'iphone-16',
+          category: 'Smartphones',
+          manage_stock: false,
+          stock: 0,
+        }),
+      ],
+    });
+
+    const listItem = (
+      (schema.mainEntity as Record<string, unknown>).itemListElement as Record<
+        string,
+        unknown
+      >[]
+    )[0];
+    const product = listItem.item as Record<string, unknown>;
+    const offers = product.offers as Record<string, unknown>;
+
+    expect(offers.availability).toBe('https://schema.org/InStock');
   });
 
   it('omits the page url when the collection URL cannot be normalized', () => {
