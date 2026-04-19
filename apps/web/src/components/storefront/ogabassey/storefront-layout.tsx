@@ -1,14 +1,14 @@
 import { DeferredGoogleStoreWidget } from '@/components/analytics/deferred-google-store-widget';
+import { StorefrontChromeRuntime } from '@/components/storefront/ogabassey/storefront-chrome-runtime';
+import { ShellChromeLoading } from '@/components/storefront/ogabassey/storefront-loading-ui';
+import { StorefrontShellLayout } from '@/components/storefront/ogabassey/storefront-shell-layout';
 import type { MerchantData } from '@/hooks/use-merchant';
 import type React from 'react';
 import * as ReactDOM from 'react-dom';
-import { GadgetPattern } from './components/GadgetPattern';
+import { Suspense } from 'react';
 import { type V2ThemeMode } from './providers/v2-theme-context';
-import { OgabasseyLayoutChrome } from './storefront-layout-chrome';
-import { OgabasseyLayoutProviders } from './storefront-layout-providers';
 import {
   getOgabasseyBasePath,
-  getOgabasseyLayoutStyle,
   shouldEnableOgabasseyGoogleStoreWidget,
 } from './storefront-layout-utils';
 
@@ -45,21 +45,42 @@ export function OgabasseyStorefrontLayout({
         />
       )}
 
-      <OgabasseyLayoutProviders initialTheme={initialTheme}>
-        <div
-          className="text-gray-900 bg-[#0F0F0F] min-h-screen flex flex-col relative overflow-hidden"
-          style={getOgabasseyLayoutStyle(merchant)}
-        >
-          <GadgetPattern />
-          <OgabasseyLayoutChrome
-            merchant={merchant}
-            basePath={basePath}
-            hideNavigation={hideNavigation}
-          >
-            {children}
-          </OgabasseyLayoutChrome>
-        </div>
-      </OgabasseyLayoutProviders>
+      <StorefrontShellLayout
+        footerChrome={
+          <Suspense fallback={<ShellChromeLoading />}>
+            <StorefrontChromeRuntime
+              basePath={basePath}
+              hideNavigation={hideNavigation}
+              merchant={merchant}
+              section="footer"
+            />
+          </Suspense>
+        }
+        headerChrome={
+          <Suspense fallback={<ShellChromeLoading />}>
+            <StorefrontChromeRuntime
+              basePath={basePath}
+              hideNavigation={hideNavigation}
+              merchant={merchant}
+              section="header"
+            />
+          </Suspense>
+        }
+        initialTheme={initialTheme}
+        merchant={merchant}
+        overlayChrome={
+          <Suspense fallback={null}>
+            <StorefrontChromeRuntime
+              basePath={basePath}
+              hideNavigation={hideNavigation}
+              merchant={merchant}
+              section="overlay"
+            />
+          </Suspense>
+        }
+      >
+        {children}
+      </StorefrontShellLayout>
     </>
   );
 }
