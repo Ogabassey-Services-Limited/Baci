@@ -76,37 +76,61 @@ export interface MerchantAboutPage {
 }
 
 /**
+ * Describes which structured about-page sections will actually render for
+ * a given merchant. Shared between the server-side gate
+ * (`hasAboutPageContent` → `notFound()`) and the client-side render-gate
+ * (`AboutPageClient`), so the two can't drift and render an empty "About"
+ * page for a merchant whose only populated fields aren't wired into the UI.
+ *
+ * Fields intentionally excluded (not rendered in `about-page-client.tsx`):
+ *   - certifications, media_features (no UI sections wired up yet)
+ *   - founder_bio, founder_image, founded_year (render only inside the
+ *     founder section, which is itself gated on `founder_name`)
+ */
+export function getRenderedAboutFields(aboutPage: MerchantAboutPage) {
+  return {
+    story: Boolean(aboutPage.story),
+    mission: Boolean(aboutPage.mission),
+    vision: Boolean(aboutPage.vision),
+    values: Boolean(aboutPage.values && aboutPage.values.length > 0),
+    founder: Boolean(aboutPage.founder_name),
+    team: Boolean(aboutPage.team && aboutPage.team.length > 0),
+    milestones: Boolean(
+      aboutPage.milestones && aboutPage.milestones.length > 0
+    ),
+    awards: Boolean(aboutPage.awards && aboutPage.awards.length > 0),
+    socialProof: Boolean(
+      aboutPage.social_proof &&
+        Object.values(aboutPage.social_proof).some(
+          (value) => value !== undefined && value !== null
+        )
+    ),
+    gallery: Boolean(aboutPage.gallery && aboutPage.gallery.length > 0),
+    videoUrl: Boolean(aboutPage.video_url),
+  };
+}
+
+/**
+ * True when at least one rendered structured about-page section has content.
+ * Use from the client to choose between structured layout and legacy HTML.
+ */
+export function hasAnyRenderedAboutField(
+  aboutPage: MerchantAboutPage
+): boolean {
+  return Object.values(getRenderedAboutFields(aboutPage)).some(Boolean);
+}
+
+/**
  * Whether the merchant has enough about-page content to justify rendering
- * an About page. Used by both the generateMetadata and page body to short
- * circuit to `notFound()` for merchants that haven't populated any of the
- * supported narrative, structured, or legacy fields.
+ * an About page. Used by both generateMetadata and the page body to short
+ * circuit to `notFound()` for merchants that haven't populated either the
+ * structured sections or the legacy HTML body.
  */
 export function hasAboutPageContent(
   aboutPage: MerchantAboutPage,
   legacyAboutContent?: string | null
 ): boolean {
-  return Boolean(
-    aboutPage.story ||
-      aboutPage.mission ||
-      aboutPage.vision ||
-      (aboutPage.values && aboutPage.values.length > 0) ||
-      aboutPage.founded_year ||
-      aboutPage.founder_name ||
-      aboutPage.founder_bio ||
-      aboutPage.founder_image ||
-      (aboutPage.team && aboutPage.team.length > 0) ||
-      (aboutPage.milestones && aboutPage.milestones.length > 0) ||
-      (aboutPage.awards && aboutPage.awards.length > 0) ||
-      (aboutPage.certifications && aboutPage.certifications.length > 0) ||
-      (aboutPage.media_features && aboutPage.media_features.length > 0) ||
-      (aboutPage.social_proof &&
-        Object.values(aboutPage.social_proof).some(
-          (value) => value !== undefined && value !== null
-        )) ||
-      (aboutPage.gallery && aboutPage.gallery.length > 0) ||
-      aboutPage.video_url ||
-      legacyAboutContent
-  );
+  return hasAnyRenderedAboutField(aboutPage) || Boolean(legacyAboutContent);
 }
 
 /**

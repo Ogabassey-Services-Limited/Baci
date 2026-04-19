@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
+import { generateMetaDescription } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import { getTemplate } from '@/templates/registry';
@@ -36,19 +37,23 @@ export async function generateMetadata({
     notFound();
   }
 
-  const description =
+  const rawDescription =
     aboutPage.story ||
     aboutPage.mission ||
     legacyAboutContent ||
     `Learn more about ${merchant.business_name}`;
+  // `generateMetaDescription` strips HTML and trims to the standard length,
+  // so legacy about content (stored as HTML) doesn't leak tags into meta
+  // description or Open Graph output.
+  const description = generateMetaDescription(rawDescription, 160);
   const aboutUrl = `${buildStoreUrl(merchant)}/about`;
 
   return {
     title: `About Us | ${merchant.business_name}`,
-    description: description.substring(0, 160),
+    description,
     openGraph: {
       title: `About ${merchant.business_name}`,
-      description: description.substring(0, 160),
+      description,
       type: 'website',
       url: aboutUrl,
       ...(merchant.logo_url && { images: [{ url: merchant.logo_url }] }),

@@ -38,6 +38,24 @@ vi.mock('./about-page-client', () => ({
 
 const { AboutJsonLd, generateMetadata } = await import('./page');
 
+function structuredOnlyMerchant() {
+  return {
+    business_name: 'Test Store',
+    about_page: {
+      founder_name: 'Amina Bello',
+      team: [{ name: 'Bola Ade', role: 'Operations Lead' }],
+      milestones: [{ year: 2024, title: 'Launched' }],
+      awards: [{ title: 'Best New Store' }],
+      social_proof: { rating: 4.9, review_count: 31 },
+      gallery: ['https://cdn.example.com/about.jpg'],
+    },
+    pages: {},
+    logo_url: 'https://cdn.example.com/logo.png',
+    slug: 'test-store',
+    custom_domain: null,
+  } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>;
+}
+
 describe('pages/about metadata', () => {
   beforeEach(() => {
     mockBuildMerchantTrustProfile.mockReset();
@@ -153,21 +171,9 @@ describe('pages/about metadata', () => {
 
   it('renders metadata when only structured (non-narrative) about content exists', async () => {
     vi.mocked(buildStoreUrl).mockReturnValue('https://test-store.usebaci.com');
-    vi.mocked(getMerchantByIdentifier).mockResolvedValue({
-      business_name: 'Test Store',
-      about_page: {
-        founder_name: 'Amina Bello',
-        team: [{ name: 'Bola Ade', role: 'Operations Lead' }],
-        milestones: [{ year: 2024, title: 'Launched' }],
-        awards: [{ title: 'Best New Store' }],
-        social_proof: { rating: 4.9, review_count: 31 },
-        gallery: ['https://cdn.example.com/about.jpg'],
-      },
-      pages: {},
-      logo_url: 'https://cdn.example.com/logo.png',
-      slug: 'test-store',
-      custom_domain: null,
-    } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
+    vi.mocked(getMerchantByIdentifier).mockResolvedValue(
+      structuredOnlyMerchant()
+    );
 
     const metadata = await generateMetadata({
       params: Promise.resolve({ slug: 'test-store' }),
@@ -180,5 +186,54 @@ describe('pages/about metadata', () => {
     // No narrative story → falls back to the generic "Learn more about <store>" description.
     expect(metadata.description).toBe('Learn more about Test Store');
     expect(metadata.openGraph?.description).toBe('Learn more about Test Store');
+  });
+
+  it('emits JSON-LD structured data for merchants with only structured (non-narrative) content', async () => {
+    vi.mocked(buildStoreUrl).mockReturnValue('https://test-store.usebaci.com');
+    vi.mocked(getMerchantByIdentifier).mockResolvedValue(
+      structuredOnlyMerchant()
+    );
+    mockBuildMerchantTrustProfile.mockReturnValue({
+      socialLinks: {},
+      derivedLinks: {},
+    });
+
+    const { container } = render(
+      await AboutJsonLd({
+        params: Promise.resolve({ slug: 'test-store' }),
+      })
+    );
+
+    const schemaScript = container.querySelector(
+      'script[type="application/ld+json"]'
+    );
+    expect(schemaScript).not.toBeNull();
+    const schema = JSON.parse(schemaScript?.textContent || '{}') as {
+      '@type': string;
+      url: string;
+    };
+    expect(schema['@type']).toBe('AboutPage');
+    expect(schema.url).toBe('https://test-store.usebaci.com/about');
+  });
+
+  it('strips HTML from legacy about content before using it as the meta description', async () => {
+    vi.mocked(buildStoreUrl).mockReturnValue('https://test-store.usebaci.com');
+    vi.mocked(getMerchantByIdentifier).mockResolvedValue({
+      business_name: 'Test Store',
+      about_page: {},
+      pages: {
+        about: '<p>Welcome to <strong>Test Store</strong>!</p>',
+      },
+      logo_url: null,
+      slug: 'test-store',
+      custom_domain: null,
+    } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store' }),
+    });
+
+    expect(metadata.description).toBe('Welcome to Test Store!');
+    expect(metadata.openGraph?.description).toBe('Welcome to Test Store!');
   });
 });
