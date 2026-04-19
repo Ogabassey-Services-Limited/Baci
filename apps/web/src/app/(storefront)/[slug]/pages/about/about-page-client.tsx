@@ -21,7 +21,10 @@ import { SafeHtml } from '@/components/ui/safe-html';
 import { StorefrontProvider } from '@/contexts/storefront-context';
 import { MerchantProvider } from '@/hooks/use-merchant';
 import { getVideoEmbedUrl } from '@/lib/video-embed';
-import type { MerchantAboutPage } from '@/types/about-page';
+import {
+  hasAnyRenderedAboutField,
+  type MerchantAboutPage,
+} from '@/types/about-page';
 
 interface AboutPageClientProps {
   merchant: {
@@ -48,11 +51,7 @@ export function AboutPageClient({
   aboutPage,
   legacyContent,
 }: AboutPageClientProps) {
-  const hasStructuredContent =
-    aboutPage.story ||
-    aboutPage.mission ||
-    aboutPage.team?.length ||
-    aboutPage.video_url;
+  const hasStructuredContent = hasAnyRenderedAboutField(aboutPage);
 
   return (
     <MerchantProvider slug={merchant.slug}>

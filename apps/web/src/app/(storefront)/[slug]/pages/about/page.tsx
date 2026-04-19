@@ -3,11 +3,13 @@ import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
+import { generateMetaDescription } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import { getTemplate } from '@/templates/registry';
 import {
   generateAboutPageJsonLd,
+  hasAboutPageContent,
   type MerchantAboutPage,
 } from '@/types/about-page';
 import { AboutPageClient } from './about-page-client';
@@ -29,18 +31,29 @@ export async function generateMetadata({
   }
 
   const aboutPage = (merchant.about_page || {}) as MerchantAboutPage;
-  const description =
+  const legacyAboutContent = merchant.pages?.about;
+
+  if (!hasAboutPageContent(aboutPage, legacyAboutContent)) {
+    notFound();
+  }
+
+  const rawDescription =
     aboutPage.story ||
     aboutPage.mission ||
+    legacyAboutContent ||
     `Learn more about ${merchant.business_name}`;
+  // `generateMetaDescription` strips HTML and trims to the standard length,
+  // so legacy about content (stored as HTML) doesn't leak tags into meta
+  // description or Open Graph output.
+  const description = generateMetaDescription(rawDescription, 160);
   const aboutUrl = `${buildStoreUrl(merchant)}/about`;
 
   return {
     title: `About Us | ${merchant.business_name}`,
-    description: description.substring(0, 160),
+    description,
     openGraph: {
       title: `About ${merchant.business_name}`,
-      description: description.substring(0, 160),
+      description,
       type: 'website',
       url: aboutUrl,
       ...(merchant.logo_url && { images: [{ url: merchant.logo_url }] }),
@@ -80,7 +93,7 @@ export async function AboutJsonLd({ params }: PageProps) {
   if (!merchant) return null;
 
   const aboutPage = (merchant.about_page || {}) as MerchantAboutPage;
-  if (!aboutPage.story && !aboutPage.mission && !merchant.pages?.about) {
+  if (!hasAboutPageContent(aboutPage, merchant.pages?.about)) {
     return null;
   }
 
@@ -114,7 +127,7 @@ async function AboutContent({ params }: PageProps) {
   const aboutPage = (merchant.about_page || {}) as MerchantAboutPage;
   const legacyAboutContent = merchant.pages?.about;
 
-  if (!aboutPage.story && !aboutPage.mission && !legacyAboutContent) {
+  if (!hasAboutPageContent(aboutPage, legacyAboutContent)) {
     notFound();
   }
 

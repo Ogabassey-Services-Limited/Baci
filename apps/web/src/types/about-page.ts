@@ -5,6 +5,7 @@
 
 import { generateOrganizationSchema } from '@/lib/seo-utils';
 import type { MerchantTrustProfile } from '@/lib/storefront-trust/merchant-trust-profile-types';
+import { getVideoEmbedUrl } from '@/lib/video-embed';
 
 export interface TeamMember {
   name: string;
@@ -73,6 +74,72 @@ export interface MerchantAboutPage {
   // Media
   gallery?: string[];
   video_url?: string;
+}
+
+/**
+ * Describes which structured about-page sections will actually render for
+ * a given merchant. Shared between the server-side gate
+ * (`hasAboutPageContent` → `notFound()`) and the client-side render-gate
+ * (`AboutPageClient`), so the two can't drift and render an empty "About"
+ * page for a merchant whose only populated fields aren't wired into the UI.
+ *
+ * Fields intentionally excluded (not rendered in `about-page-client.tsx`):
+ *   - certifications, media_features (no UI sections wired up yet)
+ *   - founder_bio, founder_image, founded_year (render only inside the
+ *     founder section, which is itself gated on `founder_name`)
+ */
+export function getRenderedAboutFields(aboutPage: MerchantAboutPage) {
+  return {
+    story: Boolean(aboutPage.story),
+    mission: Boolean(aboutPage.mission),
+    vision: Boolean(aboutPage.vision),
+    values: Boolean(aboutPage.values && aboutPage.values.length > 0),
+    founder: Boolean(aboutPage.founder_name),
+    team: Boolean(aboutPage.team && aboutPage.team.length > 0),
+    milestones: Boolean(
+      aboutPage.milestones && aboutPage.milestones.length > 0
+    ),
+    awards: Boolean(aboutPage.awards && aboutPage.awards.length > 0),
+    // Only count social_proof keys the client actually renders as stats.
+    // `review_count` alone (without `rating`) has no card in the UI, so
+    // treating it as "has content" rendered an empty stats grid.
+    socialProof: Boolean(
+      aboutPage.social_proof?.years_in_business ||
+        aboutPage.social_proof?.customers_served ||
+        aboutPage.social_proof?.products_sold ||
+        aboutPage.social_proof?.rating
+    ),
+    gallery: Boolean(aboutPage.gallery && aboutPage.gallery.length > 0),
+    // Only gate on video_url that actually produces a supported embed —
+    // `about-page-client.tsx` refuses to render unsupported URLs, so an
+    // unembeddable link otherwise passes the gate and opens an empty page.
+    videoUrl: Boolean(
+      aboutPage.video_url && getVideoEmbedUrl(aboutPage.video_url)
+    ),
+  };
+}
+
+/**
+ * True when at least one rendered structured about-page section has content.
+ * Use from the client to choose between structured layout and legacy HTML.
+ */
+export function hasAnyRenderedAboutField(
+  aboutPage: MerchantAboutPage
+): boolean {
+  return Object.values(getRenderedAboutFields(aboutPage)).some(Boolean);
+}
+
+/**
+ * Whether the merchant has enough about-page content to justify rendering
+ * an About page. Used by both generateMetadata and the page body to short
+ * circuit to `notFound()` for merchants that haven't populated either the
+ * structured sections or the legacy HTML body.
+ */
+export function hasAboutPageContent(
+  aboutPage: MerchantAboutPage,
+  legacyAboutContent?: string | null
+): boolean {
+  return hasAnyRenderedAboutField(aboutPage) || Boolean(legacyAboutContent);
 }
 
 /**

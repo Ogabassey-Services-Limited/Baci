@@ -60,11 +60,13 @@ export function InsightCard({
           </View>
           {onDismiss && (
             <Pressable
-              style={[
+              style={({ pressed }) => [
                 styles.dismissButton,
                 { backgroundColor: colors.backgroundLight },
+                pressed && { opacity: 0.7 },
               ]}
               onPress={onDismiss}
+              hitSlop={10}
               accessibilityRole="button"
               accessibilityLabel="Dismiss insight"
               accessibilityHint="Removes this insight card from the dashboard"
