@@ -1,4 +1,4 @@
-import { getBlogPostTextPreview } from '@/app/(storefront)/[slug]/blog/[postSlug]/blog-post-content';
+import { getBlogPostTextPreview } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/blog-post-content';
 import type { CachedMerchant } from '@/lib/cached-data';
 import { normalizeProduct, type RawDbProduct } from '@/lib/normalize-product';
 import type { MerchantAboutPage } from '@/types/about-page';

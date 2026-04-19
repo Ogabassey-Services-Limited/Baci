@@ -5,8 +5,8 @@ import {
   StorefrontHeaderSkeleton,
   StorefrontPageSkeleton,
 } from '@/components/ui/skeletons';
-import { BlogPostPageFallback } from './blog/[postSlug]/BlogPostPageFallback';
-import { BlogListingFallback } from './blog/BlogListingFallback';
+import { BlogPostPageFallback } from './(blog)/blog/[postSlug]/BlogPostPageFallback';
+import { BlogListingFallback } from './(blog)/blog/BlogListingFallback';
 
 type StorefrontFallbackKind =
   | 'home'
