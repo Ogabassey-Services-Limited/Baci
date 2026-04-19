@@ -1,9 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { headers } from 'next/headers';
-import { getMerchantByIdentifier } from '@/lib/cached-data';
-import { buildStoreUrl } from '@/lib/store-url';
-import { resolveRouteIdentifier } from '@/lib/storefront-route-identifier';
-import { createAnonClient } from '@/lib/supabase/anon';
+import { resolveStorefrontSitemapContext } from '../sitemap-data';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,17 +9,11 @@ export const dynamic = 'force-dynamic';
  * Generates ogabassey.com/blog/sitemap.xml
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  // Blog sitemap has no generateSitemaps, but Next.js 16 still doesn't
-  // reliably pass params for metadata routes. Read from proxy headers.
   const headersList = await headers();
-  const routeIdentifier = resolveRouteIdentifier(headersList);
-  const merchant = routeIdentifier
-    ? await getMerchantByIdentifier(routeIdentifier)
-    : null;
+  const context = await resolveStorefrontSitemapContext(headersList);
 
-  if (!merchant) return [];
-  const storeUrl = buildStoreUrl(merchant);
-  const supabase = createAnonClient();
+  if (!context) return [];
+  const { merchant, storeUrl, supabase } = context;
 
   const { data: posts, error } = await supabase
     .from('blog_posts')

@@ -74,6 +74,9 @@ export const NativeProductAd: React.FC<NativeProductAdProps> = ({
     storeSlug,
     className = '',
 }) => {
+    const basePath = storeSlug
+        ? (storeSlug.startsWith('/') ? storeSlug : `/${storeSlug}`)
+        : '';
     const containerRef = useRef<HTMLDivElement>(null);
     const slotRef = useRef<googletag.Slot | null>(null);
     const [adData, setAdData] = useState<NativeAdData | null>(null);
@@ -197,7 +200,7 @@ export const NativeProductAd: React.FC<NativeProductAdProps> = ({
                     viewMode="grid"
                     isWishlisted={false}
                     onToggleWishlist={(e) => { e.preventDefault(); }}
-                    storeSlug={storeSlug}
+                    basePath={basePath}
                 />
             </div>
             {/* The slot div is still required for GPT to initialize, even if we render custom UI */}
@@ -215,6 +218,9 @@ export const NativeProductAdStatic: React.FC<{
     storeSlug?: string;
     className?: string;
 }> = ({ ad, storeSlug, className = '' }) => {
+    const basePath = storeSlug
+        ? (storeSlug.startsWith('/') ? storeSlug : `/${storeSlug}`)
+        : '';
     const adProduct = nativeAdToProduct(ad, 0);
 
     return (
@@ -245,11 +251,10 @@ export const NativeProductAdStatic: React.FC<{
                     viewMode="grid"
                     isWishlisted={false}
                     onToggleWishlist={(e) => e.preventDefault()}
-                    storeSlug={storeSlug}
+                    basePath={basePath}
                 />
             </div>
         </div>
     );
 };
-
 

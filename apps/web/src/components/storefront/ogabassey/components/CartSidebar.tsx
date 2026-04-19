@@ -16,7 +16,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type React from 'react';
 import { useState, useEffect } from 'react';
-import { type CartItem, useCart } from '@/hooks/use-cart';
+import { type CartItem, useCart } from '@/hooks/cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { analytics } from '@/lib/analytics';
 import { asRoute } from '@/lib/routes';

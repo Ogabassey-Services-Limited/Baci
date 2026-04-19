@@ -4,7 +4,7 @@ import { ChevronDown, ChevronRight, ChevronUp, Loader2, ShoppingBag } from 'luci
 import Image from 'next/image';
 import type React from 'react';
 import { useState } from 'react';
-import type { CartItem } from '@/hooks/use-cart';
+import type { CartItem } from '@/hooks/cart';
 
 // --- Types ---
 

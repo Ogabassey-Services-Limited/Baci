@@ -19,9 +19,11 @@ interface MerchantWidgetOptions {
 }
 
 interface GoogleStoreWidgetProps {
-  merchant: MerchantData;
+  merchant?: Pick<MerchantData, 'custom_domain'>;
+  merchantCustomDomain?: string | null;
   enabled?: boolean;
   hostname?: string;
+  skipActivationDelay?: boolean;
 }
 
 declare global {
@@ -34,13 +36,17 @@ declare global {
 
 const WIDGET_SCRIPT_SRC =
   'https://www.gstatic.com/shopping/merchant/merchantwidget.js';
+const WIDGET_DEFER_TIMEOUT_MS = 3500;
 
 export function GoogleStoreWidget({
   merchant,
+  merchantCustomDomain,
   enabled = true,
   hostname,
+  skipActivationDelay = false,
 }: GoogleStoreWidgetProps) {
   const [domainMatches, setDomainMatches] = useState(false);
+  const [shouldLoadScript, setShouldLoadScript] = useState(false);
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const [widgetStarted, setWidgetStarted] = useState(false);
 
@@ -50,7 +56,9 @@ export function GoogleStoreWidget({
       return;
     }
 
-    const merchantDomain = normalizeHostname(merchant.custom_domain);
+    const merchantDomain = normalizeHostname(
+      merchantCustomDomain ?? merchant?.custom_domain
+    );
 
     if (!merchantDomain) {
       setDomainMatches(true);
@@ -62,10 +70,74 @@ export function GoogleStoreWidget({
     );
 
     setDomainMatches(currentHostname === merchantDomain);
-  }, [enabled, hostname, merchant.custom_domain]);
+  }, [enabled, hostname, merchant?.custom_domain, merchantCustomDomain]);
 
   useEffect(() => {
-    if (!enabled || !domainMatches || !scriptLoaded || widgetStarted) {
+    if (!enabled || !domainMatches) {
+      setShouldLoadScript(false);
+      return;
+    }
+
+    if (shouldLoadScript) {
+      return;
+    }
+
+    if (skipActivationDelay) {
+      setShouldLoadScript(true);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadScript = () => {
+      if (cancelled) {
+        return;
+      }
+
+      setShouldLoadScript(true);
+    };
+
+    const timeoutId = window.setTimeout(loadScript, WIDGET_DEFER_TIMEOUT_MS);
+    const idleCallbackId = window.requestIdleCallback?.(loadScript, {
+      timeout: WIDGET_DEFER_TIMEOUT_MS,
+    });
+
+    const handleInteraction = () => {
+      loadScript();
+    };
+
+    window.addEventListener('pointerdown', handleInteraction, {
+      passive: true,
+      once: true,
+    });
+    window.addEventListener('keydown', handleInteraction, { once: true });
+    window.addEventListener('scroll', handleInteraction, {
+      passive: true,
+      once: true,
+    });
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+
+      if (idleCallbackId !== undefined) {
+        window.cancelIdleCallback?.(idleCallbackId);
+      }
+
+      window.removeEventListener('pointerdown', handleInteraction);
+      window.removeEventListener('keydown', handleInteraction);
+      window.removeEventListener('scroll', handleInteraction);
+    };
+  }, [domainMatches, enabled, shouldLoadScript, skipActivationDelay]);
+
+  useEffect(() => {
+    if (
+      !enabled ||
+      !domainMatches ||
+      !shouldLoadScript ||
+      !scriptLoaded ||
+      widgetStarted
+    ) {
       return;
     }
 
@@ -82,9 +154,9 @@ export function GoogleStoreWidget({
       mobileBottomMargin: 104,
     });
     setWidgetStarted(true);
-  }, [domainMatches, enabled, scriptLoaded, widgetStarted]);
+  }, [domainMatches, enabled, scriptLoaded, shouldLoadScript, widgetStarted]);
 
-  if (!enabled || !domainMatches) {
+  if (!enabled || !domainMatches || !shouldLoadScript) {
     return null;
   }
 

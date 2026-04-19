@@ -20,11 +20,17 @@ vi.mock('next/image', () => ({
 vi.mock('next/link', () => ({
   default: ({
     children,
+    prefetch,
     ...props
   }: {
     children: React.ReactNode;
     href: string;
-  }) => <a {...props}>{children}</a>,
+    prefetch?: boolean;
+  }) => (
+    <a data-prefetch={String(prefetch)} {...props}>
+      {children}
+    </a>
+  ),
 }));
 
 vi.mock('@/lib/cached-data', () => ({
@@ -44,8 +50,20 @@ vi.mock('@/lib/sanitize-json-ld', () => ({
   safeJsonLdStringify: vi.fn(() => '{}'),
 }));
 
+const mockHeaders = vi.fn();
+vi.mock('next/headers', () => ({
+  headers: () => mockHeaders(),
+}));
+
 vi.mock('@/lib/store-url', () => ({
   buildStoreUrl: (merchant: { slug: string; custom_domain?: string | null }) =>
+    merchant.custom_domain
+      ? `https://${merchant.custom_domain}`
+      : `https://${merchant.slug}.usebaci.com`,
+  buildRequestScopedStoreUrl: (
+    merchant: { slug: string; custom_domain?: string | null },
+    _headers: Headers
+  ) =>
     merchant.custom_domain
       ? `https://${merchant.custom_domain}`
       : `https://${merchant.slug}.usebaci.com`,
@@ -105,11 +123,8 @@ const productIndex = {
   totalPages: 2,
 };
 
-const {
-  default: ProductsPage,
-  generateMetadata,
-  ProductsPageContent,
-} = await import('./page');
+const { default: ProductsPage, generateMetadata } = await import('./page');
+const { ProductsPageContent } = await import('./products-page-content');
 
 describe('products index page', () => {
   beforeEach(() => {
@@ -123,6 +138,8 @@ describe('products index page', () => {
         ReturnType<typeof getRequestScopedMerchant>
       >
     );
+    mockHeaders.mockReset();
+    mockHeaders.mockResolvedValue(new Headers());
     vi.mocked(getCachedStorefrontProductIndex).mockResolvedValue(productIndex);
     vi.mocked(getCachedCategories).mockResolvedValue([
       {
@@ -151,6 +168,10 @@ describe('products index page', () => {
       'href',
       '/test-store/smartphones'
     );
+    expect(screen.getByRole('link', { name: 'Smartphones' })).toHaveAttribute(
+      'data-prefetch',
+      'false'
+    );
     expect(screen.getByRole('link', { name: /iphone 16/i })).toHaveAttribute(
       'href',
       '/test-store/smartphones/iphone-16'
@@ -158,6 +179,10 @@ describe('products index page', () => {
     expect(screen.getByRole('link', { name: 'Previous' })).toHaveAttribute(
       'href',
       '/test-store/products'
+    );
+    expect(screen.getByRole('link', { name: 'Home' })).toHaveAttribute(
+      'data-prefetch',
+      'false'
     );
   });
 
@@ -176,6 +201,10 @@ describe('products index page', () => {
       'href',
       '/test-store/smartphones'
     );
+    expect(screen.getByRole('link', { name: 'Smartphones' })).toHaveAttribute(
+      'data-prefetch',
+      'false'
+    );
     expect(screen.getByRole('link', { name: /iphone 16/i })).toHaveAttribute(
       'href',
       '/test-store/smartphones/iphone-16'
@@ -184,6 +213,36 @@ describe('products index page', () => {
       screen.queryByRole('link', { name: 'Previous' })
     ).not.toBeInTheDocument();
     expect(screen.getByText('Store description')).toBeInTheDocument();
+  });
+
+  it('does not prepend the merchant slug on subdomain storefront links', async () => {
+    mockHeaders.mockResolvedValue(
+      new Headers([['x-merchant-slug', 'test-store']])
+    );
+
+    render(
+      await ProductsPageContent({
+        params: Promise.resolve({ slug: 'test-store' }),
+        searchParams: Promise.resolve({ page: '2' }),
+      })
+    );
+
+    expect(screen.getByRole('link', { name: 'Home' })).toHaveAttribute(
+      'href',
+      '/'
+    );
+    expect(screen.getByRole('link', { name: 'Smartphones' })).toHaveAttribute(
+      'href',
+      '/smartphones'
+    );
+    expect(screen.getByRole('link', { name: /iphone 16/i })).toHaveAttribute(
+      'href',
+      '/smartphones/iphone-16'
+    );
+    expect(screen.getByRole('link', { name: 'Previous' })).toHaveAttribute(
+      'href',
+      '/products'
+    );
   });
 
   it('calls notFound when the merchant is missing', async () => {
@@ -254,6 +313,13 @@ describe('products index page', () => {
     expect(metadata.alternates?.canonical).toBe(
       'https://test-store.usebaci.com/products?page=2'
     );
+    expect(metadata.robots).toMatchObject({
+      index: true,
+      follow: true,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+      'max-video-preview': -1,
+    });
     expect(metadata.title).toBe('Products - Page 2 | Ogabassey');
     expect(metadata.openGraph?.images).toEqual([
       {

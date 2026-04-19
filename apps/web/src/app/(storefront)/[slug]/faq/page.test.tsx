@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { headers } from 'next/headers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   getMerchantByIdentifier,
@@ -20,6 +21,14 @@ vi.mock('@/lib/sanitize-json-ld', () => ({
 
 vi.mock('@/lib/seo-utils', () => ({
   generateFAQSchema: vi.fn(() => ({})),
+  getIndexableRobotsMetadata: vi.fn(() => ({
+    index: true,
+    follow: true,
+  })),
+}));
+
+vi.mock('next/headers', () => ({
+  headers: vi.fn(),
 }));
 
 vi.mock('@/templates/registry', () => ({
@@ -110,6 +119,7 @@ describe('FAQPage', () => {
 describe('generateMetadata', () => {
   beforeEach(() => {
     vi.mocked(getMerchantByIdentifier).mockReset();
+    vi.mocked(headers).mockResolvedValue(new Headers());
     notFound.mockClear();
   });
 
@@ -148,6 +158,9 @@ describe('generateMetadata', () => {
   });
 
   it('returns metadata when FAQ items exist', async () => {
+    vi.mocked(headers).mockResolvedValue(
+      new Headers([['x-custom-domain', 'ogabassey.com']])
+    );
     vi.mocked(getMerchantByIdentifier).mockResolvedValue({
       business_name: 'Test Store',
       faq_items: [{ question: 'Q?', answer: 'A.' }],

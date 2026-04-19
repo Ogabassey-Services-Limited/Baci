@@ -1,14 +1,24 @@
-import type { Product } from '@/lib/products';
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Product } from '../types';
+
+const mockHomeProductGrid = vi.hoisted(() =>
+  vi.fn(
+    (props: {
+      storeSlug?: string;
+      products?: unknown[];
+      initialDisplayCount?: number;
+      inlineAdBreakpoints?: number[];
+    }) => (
+      <div data-testid="product-grid">
+        {String(props.storeSlug)}
+      </div>
+    )
+  )
+);
 
 vi.mock('@baci/shared', () => ({
   prioritizeSmartphoneProducts: vi.fn((products: unknown[]) => products),
-}));
-vi.mock('@/hooks/use-merchant', () => ({
-  useMerchantSafe: vi.fn(() => ({
-    merchant: { id: 'm-1', slug: 'test-store', business_name: 'Test Store' },
-  })),
 }));
 vi.mock('../components/Hero', () => ({
   Hero: () => <div data-testid="hero">Hero</div>,
@@ -16,22 +26,12 @@ vi.mock('../components/Hero', () => ({
 vi.mock('../components/BannerCarousel', () => ({
   BannerCarousel: () => <div data-testid="banner-carousel">Banner</div>,
 }));
-
-const mockEngineProductGrid = vi.fn(
-  (props: {
-    title: string;
-    storeSlug?: string;
-    externalProducts?: unknown[];
-    categories?: unknown[];
-    useMockData?: boolean;
-  }) => (
-    <div data-testid="product-grid">
-      {props.title}
-    </div>
-  )
-);
-vi.mock('../components/EngineProductGrid', () => ({
-  EngineProductGrid: (props: Record<string, unknown>) => mockEngineProductGrid(props as Parameters<typeof mockEngineProductGrid>[0]),
+vi.mock('../components/deferred-shell-feature', () => ({
+  DeferredShellFeature: ({ children }: { children: React.ReactNode }) => children,
+}));
+vi.mock('../components/HomeProductGrid', () => ({
+  HomeProductGrid: (props: Record<string, unknown>) =>
+    mockHomeProductGrid(props as Parameters<typeof mockHomeProductGrid>[0]),
 }));
 vi.mock('../components/AdUnit', () => ({
   AdUnit: () => <div data-testid="ad-unit">Ad</div>,
@@ -52,40 +52,40 @@ describe('OgabasseyHomePage', () => {
     expect(screen.getByTestId('product-grid')).toBeInTheDocument();
   });
 
-  it('passes products and categories to EngineProductGrid', () => {
+  it('passes products to the home product grid', () => {
     const testProducts: Product[] = [
       {
         id: 'p-1',
         name: 'Phone',
         description: 'A smartphone',
-        status: 'active',
-        price: 100000,
-        manage_stock: true,
-        stock: 10,
+        price: '₦100,000',
+        rawPrice: 100000,
+        condition: 'New',
         image: '/phone.jpg',
-        imageLarge: '/phone-lg.jpg',
-        imageHint: 'Phone',
         brand: 'TestBrand',
-        gtin: '',
-        mpn: '',
+        categories: {
+          id: 'cat-1',
+          name: 'Electronics',
+          slug: 'electronics',
+        },
       },
     ];
     const testCategories = [{ name: 'Electronics', slug: 'electronics' }];
 
     render(
       <OgabasseyHomePage
+        storeSlug="test-store"
         products={testProducts}
         categories={testCategories}
       />
     );
 
-    expect(screen.getByText('Featured Products')).toBeInTheDocument();
-    expect(mockEngineProductGrid).toHaveBeenCalledWith(
+    expect(mockHomeProductGrid).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: 'Featured Products',
         storeSlug: 'test-store',
-        externalProducts: testProducts,
-        categories: testCategories,
+        products: testProducts,
+        initialDisplayCount: 8,
+        inlineAdBreakpoints: [12, 24],
       })
     );
   });

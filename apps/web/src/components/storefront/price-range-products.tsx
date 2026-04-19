@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ThemedButton, ThemedCard } from '@/components/themed';
 import { CardContent } from '@/components/ui/card';
-import { useCart } from '@/hooks/use-cart';
+import { useCart } from '@/hooks/cart';
 import { useCurrency } from '@/hooks/use-currency';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
@@ -15,27 +15,15 @@ import { getEffectiveStock } from '@/lib/product-stock';
 import type { Product } from '@/lib/products';
 import { getProductUrl } from '@/lib/seo-utils';
 import { cn } from '@/lib/utils';
+import { useViewportActivation } from './use-viewport-activation';
 
 interface PriceRangeProductsProps {
-  /** Current product to find similar-priced products for */
   product: Product;
-  /** Maximum number of products to show (default: 4) */
   maxProducts?: number;
-  /** Price tolerance percentage (default: 0.15 = 15%) */
   priceTolerance?: number;
-  /** Custom class name for the container */
   className?: string;
 }
 
-/**
- * Price Range Products Component (Koray-aligned)
- *
- * Shows products from the SAME category within a similar price range.
- * This follows Koray's comparison intent pattern:
- * - Same category maintains topical focus
- * - Similar price supports commercial comparison intent
- * - Clear anchor text: "[Category] Under ₦X" or "[Category] ₦X-₦Y"
- */
 export function PriceRangeProducts({
   product,
   maxProducts = 4,
@@ -46,8 +34,6 @@ export function PriceRangeProducts({
   const merchant = merchantContext?.merchant ?? null;
   const basePath = merchantContext?.basePath || '';
   const { formatCurrency } = useCurrency();
-
-  // Helper to prepend merchant basePath to product URL
   const getFullProductUrl = (p: Product): string => {
     const productUrl = getProductUrl(p);
     return basePath ? `${basePath}${productUrl}` : productUrl;
@@ -58,8 +44,6 @@ export function PriceRangeProducts({
   const [priceRangeProducts, setPriceRangeProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [scrollPosition, setScrollPosition] = useState(0);
-
-  // Derive category from current product
   const categoriesName = product.categories?.name;
   const categoryFallback = product.category;
   const productCategory = categoriesName || categoryFallback || '';
@@ -67,8 +51,6 @@ export function PriceRangeProducts({
   const categorySlugFallback = product.category_slug;
   const categorySlug =
     categoriesSlug || categorySlugFallback || productCategory.toLowerCase();
-
-  // Calculate price range safely
   const rawPrice = Number(product.price);
   const isValidPrice = Number.isFinite(rawPrice) && rawPrice > 0;
   const minPrice = isValidPrice
@@ -77,33 +59,35 @@ export function PriceRangeProducts({
   const maxPrice = isValidPrice
     ? Math.floor(rawPrice * (1 + priceTolerance))
     : 0;
+  const fetchLimit = Math.max(maxProducts * 3, 12);
+  const { ref: sectionRef, isActive } = useViewportActivation<HTMLElement>({
+    enabled: Boolean(merchant?.id && productCategory && isValidPrice),
+  });
 
   useEffect(() => {
-    // Skip if no merchant, no category, or invalid price
-    if (!merchant?.id || !productCategory || !isValidPrice) {
+    if (!merchant?.id || !productCategory || !isValidPrice || !isActive) {
       setPriceRangeProducts([]);
-      setIsLoading(false);
+      setIsLoading(!isActive);
       return;
     }
 
     setIsLoading(true);
-
-    // Fetch products from same category with price range filter
     const params = new URLSearchParams({
       merchant_id: merchant.id,
       category: categorySlug,
       min_price: minPrice.toString(),
       max_price: maxPrice.toString(),
+      limit: fetchLimit.toString(),
+      compact: 'true',
+      has_images: 'true',
     });
 
     apiGet<{ products: Product[] }>(`/api/storefront/products?${params}`)
       .then((data) => {
         if (data.products) {
-          // Exclude current product and filter for active status
           const filtered = data.products.filter(
             (p) => p.id !== product.id && p.status === 'active'
           );
-          // Sort by price proximity to current product
           filtered.sort(
             (a, b) =>
               Math.abs(a.price - product.price) -
@@ -119,11 +103,13 @@ export function PriceRangeProducts({
         setIsLoading(false);
       });
   }, [
+    isActive,
     merchant?.id,
     product.id,
     product.price,
     categorySlug,
     productCategory,
+    fetchLimit,
     minPrice,
     maxPrice,
     maxProducts,
@@ -152,35 +138,33 @@ export function PriceRangeProducts({
     setScrollPosition(newPosition);
   };
 
-  // Don't render if no products found
-  if (!isLoading && priceRangeProducts.length === 0) {
+  if (!isValidPrice || !productCategory) {
+    return null;
+  }
+
+  if (isActive && !isLoading && priceRangeProducts.length === 0) {
     return null;
   }
 
   const isOutOfStock = (p: Product) =>
     (p.manage_stock ?? true) && getEffectiveStock(p) <= 0;
 
-  // Generate semantic title based on price range
-  // Format: "[Category] Under ₦X" for low prices, "[Category] ₦X-₦Y" for ranges
   const formatPriceRange = () => {
     const formattedMax = formatCurrency(maxPrice);
     const formattedMin = formatCurrency(minPrice);
 
-    // If min price is very low (< 10000), just say "Under X"
     if (minPrice < 10000) {
       return `${productCategory} Under ${formattedMax}`;
     }
 
-    // Round to nearest convenient number for display
     return `${productCategory} ${formattedMin} - ${formattedMax}`;
   };
 
   const title = formatPriceRange();
 
   return (
-    <section className={cn('w-full py-8 md:py-12', className)}>
+    <section ref={sectionRef} className={cn('w-full py-8 md:py-12', className)}>
       <div className="container px-4 md:px-6">
-        {/* Header with semantic title */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
             {title}
@@ -212,8 +196,22 @@ export function PriceRangeProducts({
           )}
         </div>
 
-        {/* Products */}
-        {isLoading ? (
+        {!isActive ? (
+          <div
+            aria-hidden="true"
+            className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide"
+          >
+            {Array.from(
+              { length: maxProducts },
+              (_, index) => `price-range-placeholder-${index}`
+            ).map((placeholderKey) => (
+              <div
+                key={placeholderKey}
+                className="h-[320px] w-[200px] flex-shrink-0 rounded-xl bg-muted/40 sm:w-[260px]"
+              />
+            ))}
+          </div>
+        ) : isLoading ? (
           <div className="flex justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
@@ -234,6 +232,7 @@ export function PriceRangeProducts({
                 >
                   <Link
                     href={getFullProductUrl(p) as '/'}
+                    prefetch={false}
                     className="block relative"
                   >
                     <Image
@@ -251,7 +250,7 @@ export function PriceRangeProducts({
                     )}
                   </Link>
                   <CardContent className="p-3">
-                    <Link href={getFullProductUrl(p) as '/'}>
+                    <Link href={getFullProductUrl(p) as '/'} prefetch={false}>
                       <h3 className="font-medium text-sm line-clamp-2 hover:text-[var(--store-primary)] transition-colors">
                         {p.name}
                       </h3>

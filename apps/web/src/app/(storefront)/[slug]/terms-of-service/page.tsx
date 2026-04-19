@@ -1,9 +1,14 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
-import { buildStoreUrl } from '@/lib/store-url';
+import {
+  generateMetaDescription,
+  getIndexableRobotsMetadata,
+} from '@/lib/seo-utils';
+import { buildRequestScopedStoreUrl } from '@/lib/store-url';
 import { getTemplate } from '@/templates/registry';
 import { TermsPageClient } from '../pages/terms/terms-page-client';
 
@@ -23,21 +28,25 @@ export async function generateMetadata({
     };
   }
 
-  const canonicalUrl = `${buildStoreUrl(merchant)}/terms-of-service`;
+  const canonicalUrl = `${buildRequestScopedStoreUrl(merchant, await headers())}/terms-of-service`;
+  const description = generateMetaDescription(
+    `Terms of Service for ${merchant.business_name}. Please read these terms carefully before using our services.`
+  );
 
   return {
     title: `Terms of Service | ${merchant.business_name}`,
-    description: `Terms of Service for ${merchant.business_name}. Please read these terms carefully before using our services.`,
+    description,
     alternates: {
       canonical: canonicalUrl,
     },
     openGraph: {
       title: `Terms of Service | ${merchant.business_name}`,
-      description: `Terms of Service for ${merchant.business_name}. Please read these terms carefully before using our services.`,
+      description,
       type: 'website',
       url: canonicalUrl,
       ...(merchant.logo_url && { images: [{ url: merchant.logo_url }] }),
     },
+    robots: getIndexableRobotsMetadata(),
   };
 }
 
@@ -73,7 +82,7 @@ async function TermsOfServiceJsonLd({ params }: PageProps) {
   const templateHasTermsPage = merchant.template_id === 'ogabassey';
   if (!hasTermsContent && !templateHasTermsPage) return null;
 
-  const baseUrl = buildStoreUrl(merchant);
+  const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
 
   const termsSchema = {
     '@context': 'https://schema.org',

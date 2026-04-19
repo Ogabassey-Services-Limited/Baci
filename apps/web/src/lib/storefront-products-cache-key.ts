@@ -20,6 +20,12 @@ export function buildStorefrontProductsCacheKeyParts(
   if (filters.max_price !== undefined) {
     cacheKeyParts.push(`max-${filters.max_price}`);
   }
+  if (filters.limit !== undefined) {
+    cacheKeyParts.push(`limit-${filters.limit}`);
+  }
+  if (filters.compact) {
+    cacheKeyParts.push('compact');
+  }
   if (filters.sort) cacheKeyParts.push(`sort-${filters.sort}`);
   if (filters.has_images) {
     cacheKeyParts.push('img-true');

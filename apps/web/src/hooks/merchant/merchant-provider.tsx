@@ -1,10 +1,11 @@
 'use client';
 
-import { createContext, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuthSafe } from '@/contexts/auth-context';
 import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/client';
 import { defaultStaffAccess } from './constants';
+import { MerchantContext } from './merchant-context';
 import { getDemoMerchant } from './mock-data';
 import {
   fetchDashboardMerchant,
@@ -17,10 +18,6 @@ import type {
   MerchantProviderProps,
   StaffAccess,
 } from './types';
-
-export const MerchantContext = createContext<MerchantContextType | undefined>(
-  undefined
-);
 
 export const MerchantProvider = ({
   children,

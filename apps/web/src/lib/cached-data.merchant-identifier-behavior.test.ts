@@ -135,11 +135,19 @@ describe('cached-data getMerchantByIdentifier behavior', () => {
         error: { code: 'PGRST116' },
       });
 
-      await expect(getMerchantByIdentifier('test-store')).resolves.toEqual({
+      await expect(
+        getMerchantByIdentifier('test-store')
+      ).resolves.toMatchObject({
         ...unpublishedMerchant,
         email: '',
         phone: '',
+        support_email: '',
+        support_phone: '',
         business_address: '',
+        legal_entity_name: null,
+        registered_address: null,
+        tax_identification_number: null,
+        trust_profile: null,
       });
     });
 
@@ -154,13 +162,21 @@ describe('cached-data getMerchantByIdentifier behavior', () => {
         error: null,
       });
 
-      await expect(getMerchantByIdentifier('store.com')).resolves.toEqual({
-        ...unpublishedMerchant,
-        custom_domain: 'store.com',
-        email: '',
-        phone: '',
-        business_address: '',
-      });
+      await expect(getMerchantByIdentifier('store.com')).resolves.toMatchObject(
+        {
+          ...unpublishedMerchant,
+          custom_domain: 'store.com',
+          email: '',
+          phone: '',
+          support_email: '',
+          support_phone: '',
+          business_address: '',
+          legal_entity_name: null,
+          registered_address: null,
+          tax_identification_number: null,
+          trust_profile: null,
+        }
+      );
     });
 
     it('does not redact contact info when store is published', async () => {
@@ -256,6 +272,48 @@ describe('cached-data getMerchantByIdentifier behavior', () => {
           ([projection]) =>
             typeof projection === 'string' &&
             projection.includes('paystack_subaccount_code')
+        )
+      ).toBe(true);
+    });
+
+    it('selects published_config for slug lookups', async () => {
+      harness.mockMaybeSingle.mockResolvedValueOnce({
+        data: mockMerchant,
+        error: null,
+      });
+      harness.mockSingle.mockResolvedValueOnce({
+        data: null,
+        error: { code: 'PGRST116' },
+      });
+
+      await getMerchantByIdentifier('test-store');
+
+      expect(
+        harness.mockSelect.mock.calls.some(
+          ([projection]) =>
+            typeof projection === 'string' &&
+            projection.includes('published_config')
+        )
+      ).toBe(true);
+    });
+
+    it('selects published_config for domain lookups', async () => {
+      harness.mockMaybeSingle.mockResolvedValueOnce({
+        data: { merchant_id: 'merchant-123', domain: 'store.com' },
+        error: null,
+      });
+      harness.mockSingle.mockResolvedValueOnce({
+        data: mockMerchant,
+        error: null,
+      });
+
+      await getMerchantByIdentifier('store.com');
+
+      expect(
+        harness.mockSelect.mock.calls.some(
+          ([projection]) =>
+            typeof projection === 'string' &&
+            projection.includes('published_config')
         )
       ).toBe(true);
     });

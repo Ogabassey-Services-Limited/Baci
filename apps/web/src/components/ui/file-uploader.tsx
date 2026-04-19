@@ -282,7 +282,7 @@ export function FileUploader({
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
           {entries.map((entry, index) => (
             <div
-              key={`${entry.src}-${index}`}
+              key={entry.src}
               className="relative group aspect-square rounded-md overflow-hidden border bg-muted"
             >
               <Image

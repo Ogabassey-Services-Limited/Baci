@@ -1,15 +1,18 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
+import { InformationalClusterIndex } from '@/components/storefront/ogabassey/seo/informational-cluster-index';
 import { getCachedBlogListing } from '@/lib/cached-data';
 import { generateBreadcrumbSchema, generateSlug } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
+import { buildBlogClusterCollections } from '@/lib/storefront-content/build-blog-cluster-collections';
 import {
   getStorefrontOpenGraphImages,
   getStorefrontTwitterImages,
 } from '@/lib/storefront-social-images';
 import { isDomainIdentifier } from '@/lib/validation';
 import { type BlogPostData, getTemplate } from '@/templates/registry';
+import { BlogListingFallback } from './BlogListingFallback';
 import { DefaultBlogUi } from './default-blog-ui';
 import { TemplateBlogRenderer } from './template-blog-renderer';
 
@@ -21,17 +24,6 @@ interface PageProps {
 function parseBlogListingPage(page?: string): number {
   const parsedPage = Number.parseInt(String(page ?? '1'), 10);
   return Number.isNaN(parsedPage) ? 1 : Math.max(1, parsedPage);
-}
-
-function BlogPageFallback() {
-  return (
-    <div
-      className="mx-auto max-w-6xl px-4 py-12 text-sm text-[var(--store-muted-text,#6b7280)]"
-      role="status"
-    >
-      Loading blog posts...
-    </div>
-  );
 }
 
 export async function generateMetadata({
@@ -104,7 +96,7 @@ export async function generateMetadata({
   };
 }
 
-async function BlogPageContent({ params, searchParams }: PageProps) {
+export async function BlogPageContent({ params, searchParams }: PageProps) {
   const { slug } = await params;
   const { category, page, search } = await searchParams;
   const currentPage = parseBlogListingPage(page);
@@ -119,6 +111,20 @@ async function BlogPageContent({ params, searchParams }: PageProps) {
   const { merchant, posts, categories, totalPosts, searchQuery } = data;
   const baseUrl = buildStoreUrl(merchant);
   const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
+  const guideCollections = buildBlogClusterCollections({
+    storeUrl: baseUrl,
+    posts: posts.map((post) => ({
+      slug: post.slug,
+      title: post.title,
+      excerpt: post.excerpt,
+      category: post.category,
+      tags: post.tags ?? null,
+      keywords: null,
+      featured_image_url: post.featured_image_url,
+      published_at: post.published_at,
+      reading_time_minutes: post.reading_time_minutes,
+    })),
+  });
   const blogSchema = {
     '@context': 'https://schema.org',
     '@type': 'Blog',
@@ -182,15 +188,18 @@ async function BlogPageContent({ params, searchParams }: PageProps) {
             reading_time_minutes: p.reading_time_minutes || 3,
           }));
           return (
-            <TemplateBlogRenderer
-              blogSchema={blogSchema}
-              breadcrumbSchema={breadcrumbSchema}
-              BlogComponent={BlogComponent}
-              basePath={basePath}
-              blogPosts={blogPosts}
-              categories={templateCategories}
-              searchQuery={searchQuery}
-            />
+            <>
+              <InformationalClusterIndex collections={guideCollections} />
+              <TemplateBlogRenderer
+                blogSchema={blogSchema}
+                breadcrumbSchema={breadcrumbSchema}
+                BlogComponent={BlogComponent}
+                basePath={basePath}
+                blogPosts={blogPosts}
+                categories={templateCategories}
+                searchQuery={searchQuery}
+              />
+            </>
           );
         }
       } catch (error) {
@@ -205,24 +214,27 @@ async function BlogPageContent({ params, searchParams }: PageProps) {
     }
   }
   return (
-    <DefaultBlogUi
-      blogSchema={blogSchema}
-      breadcrumbSchema={breadcrumbSchema}
-      basePath={basePath}
-      categories={categories}
-      category={category}
-      merchant={merchant}
-      posts={posts}
-      searchQuery={searchQuery}
-      slug={slug}
-      totalPosts={totalPosts}
-    />
+    <>
+      <InformationalClusterIndex collections={guideCollections} />
+      <DefaultBlogUi
+        blogSchema={blogSchema}
+        breadcrumbSchema={breadcrumbSchema}
+        basePath={basePath}
+        categories={categories}
+        category={category}
+        merchant={merchant}
+        posts={posts}
+        searchQuery={searchQuery}
+        slug={slug}
+        totalPosts={totalPosts}
+      />
+    </>
   );
 }
 
 export default function BlogPage(props: PageProps) {
   return (
-    <Suspense fallback={<BlogPageFallback />}>
+    <Suspense fallback={<BlogListingFallback />}>
       <BlogPageContent {...props} />
     </Suspense>
   );

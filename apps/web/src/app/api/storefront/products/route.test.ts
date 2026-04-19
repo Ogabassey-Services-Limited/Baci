@@ -130,6 +130,44 @@ describe('GET /api/storefront/products', () => {
     expect(payload.products[0].id).toBe('tv-2');
   });
 
+  it('applies limit after in-memory category filtering', async () => {
+    storefrontProductsRouteTestHarness.mockProductsResult.current = {
+      data: [
+        storefrontProductsRouteTestHarness.createRawProduct({
+          id: 'phone-1',
+          category: 'Phones',
+          categories: { id: 'cat-2', name: 'Phones', slug: 'phones' },
+          slug: 'phone-1',
+        }),
+        storefrontProductsRouteTestHarness.createRawProduct({
+          id: 'tv-2',
+          category: 'Televisions',
+          categories: { id: 'cat-1', name: 'Smart TVs', slug: 'smart-tvs' },
+          slug: 'tv-2',
+        }),
+        storefrontProductsRouteTestHarness.createRawProduct({
+          id: 'tv-3',
+          category: 'Televisions',
+          categories: { id: 'cat-1', name: 'Smart TVs', slug: 'smart-tvs' },
+          slug: 'tv-3',
+        }),
+      ],
+      error: null,
+    };
+
+    const response = await GET(
+      new NextRequest(createRequestUrl('category=smart-tvs&limit=1'))
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.products).toHaveLength(1);
+    expect(payload.products[0].id).toBe('tv-2');
+    expect(
+      storefrontProductsRouteTestHarness.mockProductsQuery.current?.limit
+    ).not.toHaveBeenCalled();
+  });
+
   it('matches slug-form brand filters without relying on a SQL ilike prefilter', async () => {
     storefrontProductsRouteTestHarness.mockProductsResult.current = {
       data: [
@@ -185,6 +223,27 @@ describe('GET /api/storefront/products', () => {
     expect(
       storefrontProductsRouteTestHarness.mockProductsQuery.current?.ilike
     ).not.toHaveBeenCalledWith('brand', expect.any(String));
+  });
+
+  it('keeps database-side limit when no in-memory filters are active', async () => {
+    storefrontProductsRouteTestHarness.mockProductsResult.current = {
+      data: [
+        storefrontProductsRouteTestHarness.createRawProduct({
+          id: 'sony-1',
+          brand: 'Sony',
+        }),
+      ],
+      error: null,
+    };
+
+    const response = await GET(new NextRequest(createRequestUrl('limit=5')));
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.products).toHaveLength(1);
+    expect(
+      storefrontProductsRouteTestHarness.mockProductsQuery.current?.limit
+    ).toHaveBeenCalledWith(5);
   });
 
   it('applies the image-presence filter when has_images=true', async () => {
@@ -279,6 +338,30 @@ describe('GET /api/storefront/products', () => {
       storefrontProductsRouteTestHarness.mockProductsQuery.current?.or.mock
         .calls[0]?.[0]
     ).toContain('available_conditions.cs.{refurbished}');
+  });
+
+  it('escapes ilike wildcard characters in q filters before building the OR clause', async () => {
+    storefrontProductsRouteTestHarness.mockProductsResult.current = {
+      data: [
+        storefrontProductsRouteTestHarness.createRawProduct({
+          id: 'tv-1',
+        }),
+      ],
+      error: null,
+    };
+
+    const response = await GET(
+      new NextRequest(createRequestUrl('q=%_sony\\demo'))
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.products).toHaveLength(1);
+    expect(
+      storefrontProductsRouteTestHarness.mockProductsQuery.current?.or
+    ).toHaveBeenCalledWith(
+      'name.ilike.%\\%\\_sony\\\\demo%,description.ilike.%\\%\\_sony\\\\demo%'
+    );
   });
 
   it('returns 500 when the products query fails', async () => {

@@ -6,7 +6,7 @@ import type {
   ReactNode,
 } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { CartItem } from '@/hooks/use-cart';
+import type { CartItem } from '@/hooks/cart';
 import type { Product } from '@/lib/products';
 import ProductDetailClient from './product-detail-client';
 
@@ -94,7 +94,7 @@ vi.mock('@/components/ui/skeleton', () => ({
   Skeleton: () => null,
 }));
 
-vi.mock('@/hooks/use-cart', () => ({
+vi.mock('@/hooks/cart', () => ({
   useCart: () => mockUseCart(),
 }));
 

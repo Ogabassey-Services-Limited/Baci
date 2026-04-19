@@ -5,10 +5,14 @@ import type { Product } from './products';
 import {
   generateBreadcrumbSchema,
   generateCollectionPageSchema,
+  generateMetaDescription,
+  generateOrganizationSchema,
   generateProductSchema,
   generateSlug,
   getEffectiveProductStock,
+  getIndexableRobotsMetadata,
 } from './seo-utils';
+import type { MerchantTrustProfile } from './storefront-trust/merchant-trust-profile-types';
 
 /** Helper to create a minimal Product for testing */
 function makeProduct(overrides: Partial<Product> = {}): Product {
@@ -26,6 +30,16 @@ function makeProduct(overrides: Partial<Product> = {}): Product {
     brand: 'TestBrand',
     gtin: '',
     mpn: '',
+    ...overrides,
+  };
+}
+
+function makeTrustProfile(
+  overrides: Partial<MerchantTrustProfile> = {}
+): MerchantTrustProfile {
+  return {
+    socialLinks: {},
+    derivedLinks: {},
     ...overrides,
   };
 }
@@ -230,6 +244,64 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
     expect(v2Offer.availability).toBe('https://schema.org/InStock');
   });
 
+  it('reports InStock for unmanaged-stock product offers even when stock counters are zero', () => {
+    // Single-offer fallback (no variants, no offers array).
+    const product = makeProduct({ manage_stock: false, stock: 0 });
+    const schema = generateProductSchema(product, 'TestStore', 'USD', 'NG');
+    const productOffer = schema.offers as Record<string, unknown>;
+    expect(productOffer.availability).toBe('https://schema.org/InStock');
+  });
+
+  it('reports InStock for unmanaged-stock variant offers even when variant.stock_quantity is 0', () => {
+    const product = makeProduct({
+      manage_stock: false,
+      stock: 0,
+      variants: [
+        {
+          id: 'v1',
+          product_id: 'test-123',
+          merchant_id: 'm1',
+          attributes: { storage: '128GB' },
+          stock_quantity: 0,
+        },
+      ],
+    });
+    const schema = generateProductSchema(product, 'TestStore', 'USD', 'NG');
+    const variants = schema.hasVariant as Record<string, unknown>[];
+    const v1Offer = variants[0].offers as Record<string, unknown>;
+    expect(v1Offer.availability).toBe('https://schema.org/InStock');
+  });
+
+  it('reports InStock for unmanaged-stock per-condition offers even when stock_quantity is 0', () => {
+    // Condition-based offers array path (no variants): each offer entry
+    // produces its own Offer node and must honour manage_stock=false.
+    const product = makeProduct({
+      manage_stock: false,
+      stock: 0,
+      has_condition_offers: true,
+      offers: [
+        {
+          id: 'offer-new',
+          condition: 'new',
+          price: 100,
+          stock_quantity: 0,
+        },
+        {
+          id: 'offer-used',
+          condition: 'used',
+          price: 80,
+          stock_quantity: 0,
+        },
+      ],
+    });
+    const schema = generateProductSchema(product, 'TestStore', 'USD', 'NG');
+    const offers = schema.offers as Record<string, unknown>[];
+    expect(Array.isArray(offers)).toBe(true);
+    expect(offers).toHaveLength(2);
+    expect(offers[0].availability).toBe('https://schema.org/InStock');
+    expect(offers[1].availability).toBe('https://schema.org/InStock');
+  });
+
   it('includes variant-level images with fallback to parent images', () => {
     const product = makeProduct({
       images: [
@@ -299,6 +371,162 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
     expect(returnPolicy.applicableCountry).toBe('NG');
     expect(returnPolicy.merchantReturnDays).toBe(7);
   });
+
+  it('uses structured trust profile shipping and return settings instead of hardcoded defaults', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        variants: [
+          {
+            id: 'v1',
+            product_id: 'test-123',
+            merchant_id: 'm1',
+            attributes: { storage: '128GB' },
+            stock_quantity: 5,
+          },
+        ],
+      }),
+      'TestStore',
+      'NGN',
+      'NG',
+      undefined,
+      makeTrustProfile({
+        returnPolicy: {
+          summary: 'Returns accepted within 14 days.',
+          windowDays: 14,
+          returnMethod: 'mail',
+          returnFees: 'customer_pays',
+          localRoute: '/returns',
+        },
+        shippingPolicy: {
+          summary: 'Ships across Nigeria.',
+          regions: ['NG'],
+          handlingDaysMin: 2,
+          handlingDaysMax: 4,
+          transitDaysMin: 6,
+          transitDaysMax: 8,
+          shippingFeeType: 'free',
+          localRoute: '/shipping',
+        },
+      })
+    );
+
+    const offer = (schema.hasVariant as Record<string, unknown>[])[0]
+      .offers as Record<string, unknown>;
+    const shipping = offer.shippingDetails as Record<string, unknown>;
+    const returnPolicy = offer.hasMerchantReturnPolicy as Record<
+      string,
+      unknown
+    >;
+    const deliveryTime = shipping.deliveryTime as Record<string, unknown>;
+    const handlingTime = deliveryTime.handlingTime as Record<string, unknown>;
+    const transitTime = deliveryTime.transitTime as Record<string, unknown>;
+
+    expect(handlingTime.minValue).toBe(2);
+    expect(handlingTime.maxValue).toBe(4);
+    expect(transitTime.minValue).toBe(6);
+    expect(transitTime.maxValue).toBe(8);
+    expect(returnPolicy.merchantReturnDays).toBe(14);
+    expect(returnPolicy.returnMethod).toBe('https://schema.org/ReturnByMail');
+    expect(returnPolicy.returnFees).toBe(
+      'https://schema.org/ReturnShippingFees'
+    );
+  });
+
+  it('strips HTML tags from structured product descriptions', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        description:
+          '<p>The <strong>best</strong> gaming laptop for creators.</p>',
+      }),
+      'TestStore',
+      'USD',
+      'NG'
+    );
+
+    expect(schema.description).toBe('The best gaming laptop for creators.');
+  });
+});
+
+describe('getIndexableRobotsMetadata', () => {
+  it('returns large-preview directives for indexable storefront pages', () => {
+    expect(getIndexableRobotsMetadata()).toEqual({
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+        'max-video-preview': -1,
+      },
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+      'max-video-preview': -1,
+    });
+  });
+});
+
+describe('generateOrganizationSchema', () => {
+  it('adds normalized sameAs, contactPoint, foundingDate, and return policy from the trust profile', () => {
+    const schema = generateOrganizationSchema({
+      name: 'Test Store',
+      url: 'https://test.example',
+      country: 'NG',
+      logo: 'https://cdn.example.com/logo.png',
+      trustProfile: makeTrustProfile({
+        supportEmail: 'support@test.example',
+        supportPhone: '+2348000000000',
+        foundedYear: 2018,
+        socialLinks: {
+          instagram: 'https://instagram.com/teststore',
+          twitter: 'https://x.com/teststore',
+        },
+        returnPolicy: {
+          summary: 'Returns accepted for 7 days.',
+          windowDays: 7,
+          returnMethod: 'carrier_dropoff',
+          returnFees: 'free',
+          localRoute: '/returns',
+        },
+      }),
+    });
+
+    expect(schema).toMatchObject({
+      '@type': 'OnlineStore',
+      foundingDate: '2018',
+      contactPoint: {
+        '@type': 'ContactPoint',
+        contactType: 'customer service',
+        email: 'support@test.example',
+        telephone: '+2348000000000',
+        availableLanguage: 'English',
+      },
+      hasMerchantReturnPolicy: {
+        '@type': 'MerchantReturnPolicy',
+        applicableCountry: 'NG',
+        merchantReturnDays: 7,
+        returnMethod: 'https://schema.org/ReturnByMail',
+        returnFees: 'https://schema.org/FreeReturn',
+      },
+    });
+
+    expect(schema.sameAs).toEqual(
+      expect.arrayContaining([
+        'https://instagram.com/teststore',
+        'https://x.com/teststore',
+      ])
+    );
+  });
+});
+
+describe('generateMetaDescription', () => {
+  it('returns plain text for HTML content', () => {
+    expect(
+      generateMetaDescription(
+        '<p>Shop <strong>phones</strong>, laptops and consoles.</p>'
+      )
+    ).toBe('Shop phones, laptops and consoles.');
+  });
 });
 
 describe('generateBreadcrumbSchema', () => {
@@ -367,6 +595,36 @@ describe('generateCollectionPageSchema', () => {
       'https://ogabassey.com/images/iphone-16-large.jpg'
     );
     expect(offers.url).toBe('https://ogabassey.com/smartphones/iphone-16');
+  });
+
+  it('reports InStock for unmanaged-stock items in CollectionPage itemList offers even when stock is 0', () => {
+    const schema = generateCollectionPageSchema({
+      name: 'Smartphones',
+      description: 'Shop smartphones',
+      url: 'https://ogabassey.com/smartphones',
+      merchantName: 'Ogabassey',
+      currency: 'NGN',
+      products: [
+        makeProduct({
+          name: 'iPhone 16',
+          slug: 'iphone-16',
+          category: 'Smartphones',
+          manage_stock: false,
+          stock: 0,
+        }),
+      ],
+    });
+
+    const listItem = (
+      (schema.mainEntity as Record<string, unknown>).itemListElement as Record<
+        string,
+        unknown
+      >[]
+    )[0];
+    const product = listItem.item as Record<string, unknown>;
+    const offers = product.offers as Record<string, unknown>;
+
+    expect(offers.availability).toBe('https://schema.org/InStock');
   });
 
   it('omits the page url when the collection URL cannot be normalized', () => {

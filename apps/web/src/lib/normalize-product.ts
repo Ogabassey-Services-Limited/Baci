@@ -17,6 +17,10 @@ import { generateSlug } from '@/lib/seo-utils';
 const PLACEHOLDER_IMAGE =
   'https://placehold.co/400x400/f8fafc/94a3b8?text=No+Image';
 
+type ProductKeySpecValue = string | number | boolean | undefined;
+
+export type ProductKeySpecsRecord = Record<string, ProductKeySpecValue>;
+
 /**
  * Raw product data as it comes from Supabase DB
  */
@@ -43,6 +47,7 @@ export interface RawDbProduct {
   stock?: number;
   stock_quantity?: number;
   rating?: number;
+  product_key_specs?: unknown;
   merchant_id?: string;
   status?: string;
   has_condition_offers?: boolean;
@@ -50,6 +55,16 @@ export interface RawDbProduct {
   variant_model?: 'legacy' | 'sku_matrix' | null;
   // Allow additional fields
   [key: string]: unknown;
+}
+
+interface JoinedCategory {
+  id?: string;
+  name: string;
+  slug: string;
+}
+
+interface NormalizeProductOptions {
+  preferredCategorySlug?: string;
 }
 
 /**
@@ -72,6 +87,7 @@ export interface NormalizedProduct {
   stock: number;
   rating: number;
   availability: 'InStock' | 'OutOfStock';
+  product_key_specs?: ProductKeySpecsRecord | null;
   merchant_id?: string;
   status?: string;
   has_condition_offers?: boolean;
@@ -117,6 +133,48 @@ function normalizeImages(images?: (string | { url: string })[]): string[] {
     .filter((url): url is string => Boolean(url));
 }
 
+function getJoinedCategories(raw: RawDbProduct): JoinedCategory[] {
+  const directCategories = Array.isArray(raw.categories)
+    ? raw.categories
+    : raw.categories
+      ? [raw.categories]
+      : [];
+  const productCategories =
+    raw.product_categories
+      ?.map((entry) => entry.categories)
+      .filter((category): category is JoinedCategory => Boolean(category)) ??
+    [];
+  const seenSlugs = new Set<string>();
+
+  return [...directCategories, ...productCategories].filter((category) => {
+    if (!category.slug || seenSlugs.has(category.slug)) {
+      return false;
+    }
+
+    seenSlugs.add(category.slug);
+    return true;
+  });
+}
+
+function normalizeProductKeySpecs(
+  value: unknown
+): ProductKeySpecsRecord | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+
+  const entries = Object.entries(value).filter(([, entryValue]) => {
+    return (
+      typeof entryValue === 'string' ||
+      typeof entryValue === 'number' ||
+      typeof entryValue === 'boolean' ||
+      typeof entryValue === 'undefined'
+    );
+  });
+
+  return entries.length > 0 ? Object.fromEntries(entries) : null;
+}
+
 /**
  * Normalizes raw DB product data into a consistent structure
  *
@@ -129,16 +187,19 @@ function normalizeImages(images?: (string | { url: string })[]): string[] {
  * const normalizedProducts = products.map(normalizeProduct);
  * ```
  */
-export function normalizeProduct(raw: RawDbProduct): NormalizedProduct {
+export function normalizeProduct(
+  raw: RawDbProduct,
+  options: NormalizeProductOptions = {}
+): NormalizedProduct {
   const primaryImage = extractPrimaryImage(raw.images);
   const normalizedImages = normalizeImages(raw.images);
-
-  // Determine category source: prioritize direct join, then many-to-many (first), then legacy text
-  // Supabase may return categories as a single object (FK join) or array (type inference)
-  const rawCat = raw.categories;
-  const resolvedCategory = Array.isArray(rawCat) ? (rawCat[0] ?? null) : rawCat;
+  const joinedCategories = getJoinedCategories(raw);
   const joinedCategory =
-    resolvedCategory || raw.product_categories?.[0]?.categories;
+    (options.preferredCategorySlug
+      ? joinedCategories.find(
+          (category) => category.slug === options.preferredCategorySlug
+        )
+      : undefined) || joinedCategories[0];
 
   // Determine category name
   const categoryName = joinedCategory?.name || raw.category || 'General';
@@ -170,6 +231,7 @@ export function normalizeProduct(raw: RawDbProduct): NormalizedProduct {
     stock,
     rating: raw.rating ?? 0,
     availability,
+    product_key_specs: normalizeProductKeySpecs(raw.product_key_specs),
     merchant_id: raw.merchant_id,
     status: raw.status,
     has_condition_offers: raw.has_condition_offers ?? false,
@@ -191,5 +253,5 @@ export function normalizeProduct(raw: RawDbProduct): NormalizedProduct {
 export function normalizeProducts(
   products: RawDbProduct[]
 ): NormalizedProduct[] {
-  return products.map(normalizeProduct);
+  return products.map((product) => normalizeProduct(product));
 }

@@ -53,8 +53,24 @@ afterEach(() => {
 describe('cached-data merchant safety helpers', () => {
   describe('getMerchantSafe', () => {
     it('returns merchant data on successful lookup', async () => {
+      const merchantWithTrustFields = {
+        ...mockMerchant,
+        support_email: 'support@ogabassey.com',
+        support_phone: '+2348000000000',
+        legal_entity_name: 'Ogabassey Gadgets Ltd',
+        registered_address: {
+          street: '12 Allen Avenue',
+          city: 'Ikeja',
+          state: 'Lagos',
+          country: 'Nigeria',
+        },
+        tax_identification_number: 'TIN-123',
+        trust_profile: {
+          founded_year: 2018,
+        },
+      };
       harness.mockMaybeSingle.mockResolvedValueOnce({
-        data: mockMerchant,
+        data: merchantWithTrustFields,
         error: null,
       });
       harness.mockSingle.mockResolvedValueOnce({
@@ -63,7 +79,7 @@ describe('cached-data merchant safety helpers', () => {
       });
 
       await expect(getMerchantSafe('test-store')).resolves.toEqual(
-        mockMerchant
+        merchantWithTrustFields
       );
     });
 
@@ -154,6 +170,45 @@ describe('cached-data merchant safety helpers', () => {
       await expect(getMerchantSafe('test-store')).resolves.toBeNull();
     });
 
+    it('redacts trust and legal fields for unpublished merchants', async () => {
+      const merchantWithTrustFields = {
+        ...mockMerchant,
+        is_published: false,
+        support_email: 'support@ogabassey.com',
+        support_phone: '+2348000000000',
+        business_address: '12 Allen Avenue, Ikeja, Lagos',
+        legal_entity_name: 'Ogabassey Gadgets Ltd',
+        registered_address: {
+          street: '12 Allen Avenue',
+          city: 'Ikeja',
+          state: 'Lagos',
+          country: 'Nigeria',
+        },
+        tax_identification_number: 'TIN-123',
+        trust_profile: {
+          founded_year: 2018,
+        },
+      };
+      harness.mockMaybeSingle.mockResolvedValueOnce({
+        data: merchantWithTrustFields,
+        error: null,
+      });
+      harness.mockSingle.mockResolvedValueOnce({
+        data: null,
+        error: { code: 'PGRST116' },
+      });
+
+      await expect(getMerchantSafe('test-store')).resolves.toMatchObject({
+        business_address: '',
+        support_email: '',
+        support_phone: '',
+        legal_entity_name: null,
+        registered_address: null,
+        tax_identification_number: null,
+        trust_profile: null,
+      });
+    });
+
     it('sanitizes and truncates error identifiers', async () => {
       const consoleErrorSpy = vi
         .spyOn(console, 'error')
@@ -192,8 +247,24 @@ describe('cached-data merchant safety helpers', () => {
 
   describe('getRequestScopedMerchant', () => {
     it('delegates to getMerchantSafe', async () => {
+      const merchantWithTrustFields = {
+        ...mockMerchant,
+        support_email: 'support@ogabassey.com',
+        support_phone: '+2348000000000',
+        legal_entity_name: 'Ogabassey Gadgets Ltd',
+        registered_address: {
+          street: '12 Allen Avenue',
+          city: 'Ikeja',
+          state: 'Lagos',
+          country: 'Nigeria',
+        },
+        tax_identification_number: 'TIN-123',
+        trust_profile: {
+          founded_year: 2018,
+        },
+      };
       harness.mockMaybeSingle.mockResolvedValueOnce({
-        data: mockMerchant,
+        data: merchantWithTrustFields,
         error: null,
       });
       harness.mockSingle.mockResolvedValueOnce({
@@ -202,7 +273,7 @@ describe('cached-data merchant safety helpers', () => {
       });
 
       await expect(getRequestScopedMerchant('test-store')).resolves.toEqual(
-        mockMerchant
+        merchantWithTrustFields
       );
     });
 

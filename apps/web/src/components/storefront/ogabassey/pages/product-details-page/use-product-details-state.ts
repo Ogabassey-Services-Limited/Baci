@@ -11,7 +11,7 @@ import {
   resolveVariantSelection,
   resolveVariantSelectionParamResolution,
 } from '@baci/shared/lib';
-import { useCart } from '@/hooks/use-cart';
+import { useCart } from '@/hooks/cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
 import { asRoute } from '@/lib/routes';
@@ -158,25 +158,56 @@ export function useProductDetailsState(serverProduct: Product) {
       stock_quantity: variant.stock_quantity ?? null,
     }))
   );
-  const initialCondition =
-    routeCondition
-      ? (routeCondition as ConditionType)
-      : defaultVariantSelection?.condition &&
-          isValidConditionParam(defaultVariantSelection.condition)
-        ? (normalizeCanonicalProductCondition(
-            defaultVariantSelection.condition
-          ) as ConditionType)
-        : (normalizeCanonicalProductCondition(productData.condition) as ConditionType) ||
-          'new';
+  // Resolve the initial variant selection at render time (not in an effect) so
+  // the very first render — including server-side render and pre-hydration
+  // markup — already has a concrete variant selected. Previously we seeded
+  // from a `useEffect`, which meant the mobile action bar rendered "Out of
+  // Stock" in SSR HTML before hydration could swap it to "Add to Cart". The
+  // existing post-hydration effect still fires on route-param changes; its
+  // equality checks bail out when state already matches (no wasted renders).
+  // Each `useState` uses a lazy initializer so the seed resolution runs once
+  // on mount instead of on every render.
+  const resolveInitialSeed = () =>
+    resolveVariantDisplaySelection(
+      {
+        price: relatedProductsProduct.price,
+        condition: productData.condition,
+        manage_stock: productData.manage_stock,
+        variants: productData.variants,
+      },
+      {
+        attributes: routeSelectionAttributes,
+        condition: routeCondition,
+        variantId: routeVariantId,
+      }
+    ) ?? defaultVariantSelection;
   const [selectedCondition, setSelectedCondition] = useState<ConditionType>(
-    initialCondition
+    () => {
+      const seed = resolveInitialSeed();
+      return routeCondition
+        ? (routeCondition as ConditionType)
+        : seed?.condition && isValidConditionParam(seed.condition)
+          ? (normalizeCanonicalProductCondition(seed.condition) as ConditionType)
+          : (normalizeCanonicalProductCondition(
+              productData.condition
+            ) as ConditionType) || 'new';
+    }
   );
   const [selectedImage, setSelectedImage] = useState(0);
-  const [selectedColor, setSelectedColor] = useState<number | null>(null);
+  const [selectedColor, setSelectedColor] = useState<number | null>(() => {
+    const seed = resolveInitialSeed();
+    const index = seed?.color
+      ? productData.colors.findIndex((color) => color.name === seed.color)
+      : -1;
+    return index >= 0 ? index : null;
+  });
   const [secondaryColor, setSecondaryColor] = useState<number | null>(null);
   const [selectedAttributes, setSelectedAttributes] = useState<
     Record<string, string>
-  >({});
+  >(() => {
+    const seed = resolveInitialSeed();
+    return seed ? { ...routeSelectionAttributes, ...seed.attributes } : {};
+  });
   const [activeTab, setActiveTab] =
     useState<ProductDetailsActiveTab>('description');
   const [deliveryLocation, setDeliveryLocation] = useState<

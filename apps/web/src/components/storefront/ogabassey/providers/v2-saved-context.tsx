@@ -1,7 +1,7 @@
 'use client';
 
 import type React from 'react';
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { Product } from '../types';
 
 interface ToastState {
@@ -19,6 +19,8 @@ interface V2SavedContextType {
 }
 
 const V2SavedContext = createContext<V2SavedContextType | undefined>(undefined);
+const SAVED_STORAGE_KEY = 'ogabassey_v2_saved';
+const STORAGE_HYDRATION_TIMEOUT_MS = 1200;
 
 export const useV2Saved = () => {
   const context = useContext(V2SavedContext);
@@ -32,51 +34,105 @@ export const V2SavedProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [savedItems, setSavedItems] = useState<Product[]>([]);
+  const [hasHydratedStorage, setHasHydratedStorage] = useState(false);
   const [toastState, setToastState] = useState<ToastState>({
     show: false,
     message: '',
     type: 'add',
   });
+  const hasHydratedStorageRef = useRef(false);
 
-  // Load from localStorage on mount (client-side only)
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('ogabassey_v2_saved');
-      if (stored) {
-        try {
-          setSavedItems(JSON.parse(stored));
-        } catch (e) {
-          console.error('Failed to parse saved items', e);
-        }
+  const hydrateSavedItems = () => {
+    if (typeof window === 'undefined' || hasHydratedStorageRef.current) {
+      return null;
+    }
+
+    let nextSavedItems: Product[] = [];
+    const stored = localStorage.getItem(SAVED_STORAGE_KEY);
+    if (stored) {
+      try {
+        nextSavedItems = JSON.parse(stored);
+      } catch (error) {
+        console.error('Failed to parse saved items', error);
       }
     }
+
+    hasHydratedStorageRef.current = true;
+    setHasHydratedStorage(true);
+    setSavedItems(nextSavedItems);
+    return nextSavedItems;
+  };
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || hasHydratedStorageRef.current) {
+      return undefined;
+    }
+
+    const activate = () => {
+      detach();
+      hydrateSavedItems();
+    };
+
+    const detach = () => {
+      window.removeEventListener('pointerdown', activate);
+      window.removeEventListener('keydown', activate);
+      window.removeEventListener('scroll', activate);
+    };
+
+    window.addEventListener('pointerdown', activate, {
+      once: true,
+      passive: true,
+    });
+    window.addEventListener('keydown', activate, { once: true });
+    window.addEventListener('scroll', activate, {
+      once: true,
+      passive: true,
+    });
+
+    const idleCallbackId =
+      typeof window.requestIdleCallback === 'function'
+        ? window.requestIdleCallback(activate, {
+            timeout: STORAGE_HYDRATION_TIMEOUT_MS,
+          })
+        : undefined;
+    const timeoutId = window.setTimeout(activate, STORAGE_HYDRATION_TIMEOUT_MS);
+
+    return () => {
+      detach();
+      window.clearTimeout(timeoutId);
+      if (idleCallbackId !== undefined) {
+        window.cancelIdleCallback?.(idleCallbackId);
+      }
+    };
   }, []);
 
-  // Save to localStorage on change
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('ogabassey_v2_saved', JSON.stringify(savedItems));
+    if (typeof window !== 'undefined' && hasHydratedStorage) {
+      localStorage.setItem(SAVED_STORAGE_KEY, JSON.stringify(savedItems));
     }
-  }, [savedItems]);
+  }, [hasHydratedStorage, savedItems]);
 
   const toggleSaved = (product: Product) => {
+    const hydratedSavedItems = hydrateSavedItems();
+
     setSavedItems((prev) => {
+      const source = hydratedSavedItems ?? prev;
       // Ensure we compare IDs correctly (handle string/number mismatch if any)
-      const exists = prev.some((p) => String(p.id) === String(product.id));
+      const exists = source.some((p) => String(p.id) === String(product.id));
       if (exists) {
         setToastState({
           show: true,
           message: 'Removed from Saved',
           type: 'remove',
         });
-        return prev.filter((p) => String(p.id) !== String(product.id));
+        return source.filter((p) => String(p.id) !== String(product.id));
       }
       setToastState({
         show: true,
         message: 'Added to Saved Items',
         type: 'add',
       });
-      return [...prev, product];
+      return [...source, product];
     });
   };
 

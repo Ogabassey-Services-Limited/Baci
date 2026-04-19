@@ -2,6 +2,8 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { useState, type ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+let shouldRenderDeferredShellChildren = true;
+
 function mockMatchMedia(matches: boolean) {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
@@ -84,7 +86,7 @@ vi.mock('next/dynamic', () => {
   };
 });
 vi.mock('next/link', () => ({
-  default: ({ children, ...props }: { children: React.ReactNode; href: string }) => (
+  default: ({ children, ...props }: { children: ReactNode; href: string }) => (
     <a {...props}>{children}</a>
   ),
 }));
@@ -93,7 +95,7 @@ vi.mock('next/navigation', () => ({
   useRouter: vi.fn(() => ({ push: vi.fn(), back: vi.fn() })),
   useSearchParams: vi.fn(() => new URLSearchParams()),
 }));
-vi.mock('@/hooks/use-cart', () => ({
+vi.mock('@/hooks/cart', () => ({
   useCart: vi.fn(() => ({
     cart: [],
     items: [],
@@ -141,6 +143,15 @@ vi.mock('../components/BannerCarousel', () => ({
 }));
 vi.mock('../components/BlogSnippet', () => ({
   BlogSnippet: () => null,
+}));
+vi.mock('../components/deferred-shell-feature', () => ({
+  DeferredShellFeature: ({
+    children,
+    fallback = null,
+  }: {
+    children: ReactNode;
+    fallback?: ReactNode;
+  }) => (shouldRenderDeferredShellChildren ? children : fallback),
 }));
 vi.mock('../components/NegotiationModal', () => ({
   NegotiationModal: () => null,
@@ -254,6 +265,7 @@ describe('ProductDetailsPage', () => {
   beforeEach(() => {
     mockMatchMedia(true);
     window.scrollTo = vi.fn();
+    shouldRenderDeferredShellChildren = true;
   });
 
   it('renders the product page shell', async () => {
@@ -355,6 +367,35 @@ describe('ProductDetailsPage', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole('region', { name: /product banner carousel/i })
+    ).toBeInTheDocument();
+  });
+
+  it('renders a server semantic slot before deferred merchandising content', () => {
+    shouldRenderDeferredShellChildren = false;
+
+    render(
+      <ProductDetailsPage
+        product={{
+          id: 'p-5',
+          name: 'Samsung Galaxy Z TriFold',
+          price: '₦7,150,000',
+          image: 'https://example.com/img.jpg',
+          description: 'Foldable flagship',
+          condition: 'new' as const,
+          colors: [],
+          storage: [],
+          images: ['https://example.com/img.jpg'],
+        }}
+        semanticSections={
+          <div>
+            <a href="/smartphones">Shop more Smartphones</a>
+          </div>
+        }
+      />
+    );
+
+    expect(
+      screen.getByRole('link', { name: 'Shop more Smartphones' })
     ).toBeInTheDocument();
   });
 });

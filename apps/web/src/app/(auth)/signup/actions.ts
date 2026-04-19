@@ -8,6 +8,7 @@ import {
   sanitizeRelativeRedirectPath,
 } from '@/lib/auth-redirect';
 import { checkPasswordBreach } from '@/lib/password-breach';
+import { asRoute } from '@/lib/routes';
 import { createClient } from '@/lib/supabase/server';
 import { signupSchema } from '@/schemas/auth';
 
@@ -90,6 +91,8 @@ export async function signupAction(
   // Note: We don't create a merchant here. That's the key difference.
   revalidatePath('/', 'layout');
   redirect(
-    `/verify?email=${encodeURIComponent(email)}&redirect=${encodeURIComponent(redirectTo)}`
+    asRoute(
+      `/verify?email=${encodeURIComponent(email)}&redirect=${encodeURIComponent(redirectTo)}`
+    )
   );
 }

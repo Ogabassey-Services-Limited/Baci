@@ -131,6 +131,21 @@ function getFeedStockCount(product: FeedProduct): number {
   return getEffectiveStock(product);
 }
 
+function getProductType(product: FeedProduct): string | undefined {
+  const normalizedCategory = product.categories?.name?.trim();
+  if (normalizedCategory) {
+    return normalizedCategory;
+  }
+
+  const legacyCategory = product.category?.trim();
+  if (legacyCategory) {
+    return legacyCategory;
+  }
+
+  const categorySlug = product.category_slug?.trim();
+  return categorySlug || undefined;
+}
+
 function getVariantStockCount(
   manageStock: boolean | undefined,
   variant: FeedVariant
@@ -426,8 +441,8 @@ export function generateGoogleMerchantFeed(
                 product.google_product_category
                   ? `        <g:google_product_category>${escapeXml(product.google_product_category)}</g:google_product_category>`
                   : '',
-                product.category
-                  ? `        <g:product_type>${escapeXml(product.category)}</g:product_type>`
+                getProductType(product)
+                  ? `        <g:product_type>${escapeXml(getProductType(product) || '')}</g:product_type>`
                   : '',
                 shippingWeight,
               ].filter(Boolean);
@@ -457,7 +472,7 @@ export function generateGoogleMerchantFeed(
           imageUrl: primaryImageUrl,
           mpn: product.mpn,
           price: skuMatrixFallback.price,
-          productType: product.category,
+          productType: getProductType(product),
           shippingWeight,
           stockCount: skuMatrixFallback.stockCount,
           title: product.name,
@@ -480,7 +495,7 @@ export function generateGoogleMerchantFeed(
         imageUrl: primaryImageUrl,
         mpn: product.mpn,
         price: product.price,
-        productType: product.category,
+        productType: getProductType(product),
         shippingWeight,
         stockCount: getFeedStockCount(product),
         title: product.name,
@@ -529,8 +544,8 @@ export function generateGoogleMerchantFeed(
             product.google_product_category
               ? `        <g:google_product_category>${escapeXml(product.google_product_category)}</g:google_product_category>`
               : '',
-            product.category
-              ? `        <g:product_type>${escapeXml(product.category)}</g:product_type>`
+            getProductType(product)
+              ? `        <g:product_type>${escapeXml(getProductType(product) || '')}</g:product_type>`
               : '',
             shippingWeight,
           ].filter(Boolean);

@@ -17,15 +17,18 @@ vi.mock('next/link', () => ({
   default: ({
     children,
     href,
+    prefetch,
     onClick,
     ...rest
   }: {
     children: React.ReactNode;
     href: string;
+    prefetch?: boolean;
     onClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void;
   }) => (
     <a
       href={href}
+      data-prefetch={String(prefetch)}
       onClick={(event) => {
         onClick?.(event);
         mocks.push(href);
@@ -47,7 +50,7 @@ vi.mock('next/navigation', () => ({
   })),
 }));
 
-vi.mock('@/hooks/use-cart', () => ({
+vi.mock('@/hooks/cart', () => ({
   useCart: vi.fn(() => ({
     totalItems: 3,
     setIsCartOpen: mocks.setIsCartOpen,
@@ -149,10 +152,11 @@ describe('OgabasseyNavbar', () => {
     );
   });
 
-  it('pushes store-prefixed product routes from search selection', () => {
+  it('pushes store-prefixed product routes from search selection', async () => {
     render(<OgabasseyNavbar storeSlug="/ogabassey" />);
 
-    fireEvent.click(screen.getByRole('button', { name: /select product/i }));
+    fireEvent.focus(screen.getByRole('searchbox', { name: /search products/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /select product/i }));
 
     expect(mocks.push).toHaveBeenCalledWith('/ogabassey/products/iphone%2015');
   });
@@ -190,13 +194,43 @@ describe('OgabasseyNavbar', () => {
     expect(mocks.push).toHaveBeenCalledWith('/ogabassey/wallet');
   });
 
-  it('rejects invalid product URLs from search selection', () => {
+  it('disables prefetch on visible shell navigation links', async () => {
+    render(<OgabasseyNavbar storeSlug="/ogabassey" />);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /shop by category/i })
+    );
+
+    expect(screen.getByRole('link', { name: /store logo/i })).toHaveAttribute(
+      'data-prefetch',
+      'false'
+    );
+    expect(screen.getByRole('link', { name: /imei checker/i })).toHaveAttribute(
+      'data-prefetch',
+      'false'
+    );
+    expect(screen.getByRole('link', { name: /repairs/i })).toHaveAttribute(
+      'data-prefetch',
+      'false'
+    );
+    expect(screen.getByRole('link', { name: /wallet/i })).toHaveAttribute(
+      'data-prefetch',
+      'false'
+    );
+    expect(await screen.findByRole('link', { name: 'Phones' })).toHaveAttribute(
+      'data-prefetch',
+      'false'
+    );
+  });
+
+  it('rejects invalid product URLs from search selection', async () => {
     const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     render(<OgabasseyNavbar storeSlug="/ogabassey" />);
 
+    fireEvent.focus(screen.getByRole('searchbox', { name: /search products/i }));
     fireEvent.click(
-      screen.getByRole('button', { name: /select invalid product/i })
+      await screen.findByRole('button', { name: /select invalid product/i })
     );
 
     expect(mocks.asRoute).not.toHaveBeenCalledWith('https://example.com/bad');

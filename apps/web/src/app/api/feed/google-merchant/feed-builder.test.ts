@@ -446,6 +446,27 @@ describe('generateGoogleMerchantFeed — feed structure', () => {
     );
     expect(xml).toContain('<g:identifier_exists>no</g:identifier_exists>');
   });
+
+  it('prefers normalized category data for g:product_type', () => {
+    const imageManifest: Record<string, FeedImageManifestEntry[]> = {
+      'prod-1': [manifestEntry({ is_primary: true })],
+    };
+    const xml = generateGoogleMerchantFeed(
+      [
+        product({
+          category: 'Fallback Text',
+          categories: { name: 'Phones', slug: 'phones' },
+          category_slug: 'phones',
+        }),
+      ],
+      merchant(),
+      BASE_URL,
+      imageManifest
+    );
+
+    expect(xml).toContain('<g:product_type>Phones</g:product_type>');
+    expect(xml).not.toContain('<g:product_type>Fallback Text</g:product_type>');
+  });
 });
 
 // ---------- stock / availability ----------

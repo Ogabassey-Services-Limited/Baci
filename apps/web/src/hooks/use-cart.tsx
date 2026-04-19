@@ -1,111 +1,15 @@
 'use client';
 
-import {
-  createContext,
-  type ReactNode,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { CartContext, useCart, useCartSafe } from '@/hooks/cart/cart-context';
+import type {
+  AddToCartOptions,
+  CartContextType,
+  CartItem,
+} from '@/hooks/cart/cart-types';
 import { logger } from '@/lib/logger';
 import type { Product } from '@/lib/products';
 import { resolveDefaultVariantSelection } from '../../../../packages/shared/src/lib/product-default-variant';
-
-// ============================================================================
-// TYPES
-// ============================================================================
-
-/**
- * Extended cart item with support for:
- * - Basic cart (quantity, variants)
- * - Smart Cart Pro (negotiation, assurance)
- */
-export interface CartItem extends Product {
-  quantity: number;
-  variantId?: string;
-  variantAttributes?: Record<string, string>;
-  cartItemId: string; // Unique identifier for this cart entry
-
-  // Smart Cart Pro: Color/Storage selection
-  selectedColor?: string;
-  selectedColorValue?: string;
-  secondaryColor?: string;
-  secondaryColorValue?: string;
-  selectedStorage?: string;
-  condition?: 'new' | 'used' | 'open_box' | 'refurbished';
-
-  // Smart Cart Pro: Price Negotiation
-  negotiatedPrice?: number;
-  negotiationStatus?: 'none' | 'pending' | 'accepted' | 'rejected';
-  cartDiscount?: number;
-
-  // Smart Cart Pro: Device Assurance
-  hasAssurance?: boolean;
-  assuranceRate?: number; // Percentage, default 5%
-}
-
-interface AddToCartOptions {
-  variantId?: string;
-  variantAttributes?: Record<string, string>;
-  // Smart Cart Pro options
-  color?: string;
-  colorValue?: string;
-  secondaryColor?: string;
-  secondaryColorValue?: string;
-  storage?: string;
-  condition?: string;
-  platform?: string; // Phase 4 Extension
-  // Allow arbitrary attribute keys (e.g. ram, processor) from selectedAttributes
-  [key: string]: string | Record<string, string> | undefined;
-}
-
-export interface CartContextType {
-  // Basic cart operations
-  cart: CartItem[];
-  merchantSlug: string | null;
-  addToCart: (
-    product: Product,
-    quantity?: number,
-    options?: AddToCartOptions
-  ) => void;
-  removeFromCart: (cartItemIdOrProductId: string, variantId?: string) => void;
-  updateQuantity: (
-    cartItemIdOrProductId: string,
-    quantity: number,
-    variantId?: string
-  ) => void;
-  clearCart: () => void;
-  setMerchantSlug: (slug: string) => void;
-
-  // Computed values
-  cartCount: number;
-  cartTotal: number;
-  totalItems: number;
-  subtotal: number;
-
-  // Smart Cart Pro: Cart UI state
-  isCartOpen: boolean;
-  setIsCartOpen: (open: boolean) => void;
-
-  // Smart Cart Pro: Price Negotiation
-  applyNegotiatedPrice?: (cartItemId: string, newPrice: number) => void;
-  applyCartWideNegotiation?: (newTotal: number) => void;
-
-  // Smart Cart Pro: Device Assurance
-  toggleAssurance?: (cartItemId: string) => void;
-
-  // Smart Cart Pro: Upsell
-  lastAddedProduct: Product | null;
-  showUpsell: boolean;
-  dismissUpsell: () => void;
-
-  // Feature availability
-  hasSmartCartPro: boolean;
-
-  // Hydration state - true once cart has loaded from localStorage
-  isHydrated: boolean;
-}
 
 // ============================================================================
 // HELPERS
@@ -113,6 +17,7 @@ export interface CartContextType {
 
 const CART_STORAGE_KEY = 'baci-cart';
 const GUEST_CART_SUFFIX = 'guest';
+const DEFAULT_DEFERRED_VALIDATION_TIMEOUT_MS = 2500;
 /**
  * Get cart storage key namespaced by merchant and optionally by user ID
  * 2026 Best Practice: Separate guest carts from authenticated user carts
@@ -274,12 +179,6 @@ const saveMerchantSlugToStorage = (slug: string | null) => {
   }
 };
 
-// ============================================================================
-// CONTEXT
-// ============================================================================
-
-const CartContext = createContext<CartContextType | undefined>(undefined);
-
 interface CartProviderProps {
   children: ReactNode;
   /** Enable Smart Cart Pro features (price negotiation, assurance, upsells) */
@@ -288,6 +187,10 @@ interface CartProviderProps {
   merchantSlug?: string | null;
   /** User ID to scope cart to authenticated user (prevents guest cart leakage) */
   userId?: string | null;
+  /** Defer background validation until idle/interaction to keep startup lighter */
+  deferValidationUntilIdle?: boolean;
+  /** Fallback timeout when deferring validation activation */
+  validationActivationTimeoutMs?: number;
 }
 
 /**
@@ -302,6 +205,8 @@ export const CartProvider = ({
   enableSmartCartPro = false,
   merchantSlug: initialMerchantSlug = null,
   userId: initialUserId = null,
+  deferValidationUntilIdle = false,
+  validationActivationTimeoutMs = DEFAULT_DEFERRED_VALIDATION_TIMEOUT_MS,
 }: CartProviderProps) => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [merchantSlug, setMerchantSlugState] = useState<string | null>(
@@ -309,6 +214,9 @@ export const CartProvider = ({
   );
   const [userId, setUserId] = useState<string | null>(initialUserId);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [isValidationActivated, setIsValidationActivated] = useState(
+    !deferValidationUntilIdle
+  );
 
   // Smart Cart Pro state
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -330,9 +238,100 @@ export const CartProvider = ({
     setIsHydrated(true);
   }, [initialMerchantSlug, initialUserId]);
 
+  useEffect(() => {
+    if (!deferValidationUntilIdle) {
+      setIsValidationActivated(true);
+      return;
+    }
+
+    if (isValidationActivated) {
+      return;
+    }
+
+    let cancelled = false;
+    let idleCallbackId: number | undefined;
+    let loadListenerAttached = false;
+    const activateValidation = () => {
+      if (!cancelled) {
+        setIsValidationActivated(true);
+      }
+    };
+
+    const scheduleIdleActivation = () => {
+      if (cancelled || idleCallbackId !== undefined) {
+        return;
+      }
+
+      if (typeof window.requestIdleCallback === 'function') {
+        idleCallbackId = window.requestIdleCallback(activateValidation, {
+          timeout: validationActivationTimeoutMs || 1000,
+        });
+        return;
+      }
+
+      idleCallbackId = window.setTimeout(activateValidation, 0);
+    };
+
+    const handleWindowLoad = () => {
+      window.removeEventListener('load', handleWindowLoad);
+      loadListenerAttached = false;
+      scheduleIdleActivation();
+    };
+
+    const timeoutId =
+      validationActivationTimeoutMs > 0
+        ? window.setTimeout(activateValidation, validationActivationTimeoutMs)
+        : undefined;
+
+    if (document.readyState === 'complete') {
+      scheduleIdleActivation();
+    } else {
+      loadListenerAttached = true;
+      window.addEventListener('load', handleWindowLoad, { once: true });
+    }
+
+    window.addEventListener('pointerdown', activateValidation, {
+      once: true,
+      passive: true,
+    });
+    window.addEventListener('keydown', activateValidation, { once: true });
+    window.addEventListener('scroll', activateValidation, {
+      once: true,
+      passive: true,
+    });
+
+    return () => {
+      cancelled = true;
+
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+      }
+
+      if (idleCallbackId !== undefined) {
+        if (typeof window.cancelIdleCallback === 'function') {
+          window.cancelIdleCallback(idleCallbackId);
+        } else {
+          window.clearTimeout(idleCallbackId);
+        }
+      }
+
+      if (loadListenerAttached) {
+        window.removeEventListener('load', handleWindowLoad);
+      }
+
+      window.removeEventListener('pointerdown', activateValidation);
+      window.removeEventListener('keydown', activateValidation);
+      window.removeEventListener('scroll', activateValidation);
+    };
+  }, [
+    deferValidationUntilIdle,
+    isValidationActivated,
+    validationActivationTimeoutMs,
+  ]);
+
   // Background validation: Remove ghost products and update stale prices
   useEffect(() => {
-    if (!isHydrated || cart.length === 0) return;
+    if (!isHydrated || !isValidationActivated || cart.length === 0) return;
 
     // 2026 Critical Fix: Create a stable hash of cart item IDs+prices to detect meaningful changes
     // This prevents infinite loops when validation updates prices
@@ -457,7 +456,7 @@ export const CartProvider = ({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [isHydrated, cart]);
+  }, [isHydrated, isValidationActivated, cart]);
 
   // Persist to localStorage
   useEffect(() => {
@@ -836,22 +835,5 @@ export const CartProvider = ({
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 };
 
-// ============================================================================
-// HOOK
-// ============================================================================
-
-export const useCart = (): CartContextType => {
-  const context = useContext(CartContext);
-  if (context === undefined) {
-    throw new Error('useCart must be used within a CartProvider');
-  }
-  return context;
-};
-
-/**
- * Safe version that returns null outside of provider
- * Useful for components that may be rendered outside cart context
- */
-export const useCartSafe = (): CartContextType | null => {
-  return useContext(CartContext) ?? null;
-};
+export type { CartContextType, CartItem };
+export { useCart, useCartSafe };

@@ -3,7 +3,8 @@
 // Constants
 export { defaultStaffAccess, ownerStaffAccess } from './constants';
 // Provider
-export { MerchantContext, MerchantProvider } from './merchant-provider';
+export { MerchantContext } from './merchant-context';
+export { MerchantProvider } from './merchant-provider';
 // Mock data
 export { DEMO_MERCHANTS, getDemoMerchant } from './mock-data';
 // Queries (for advanced consumers)
@@ -13,6 +14,7 @@ export {
   fetchPrimaryDomain,
   normalizeFeatureSettings,
 } from './queries';
+export { StorefrontMerchantProvider } from './storefront-merchant-provider';
 export type {
   MerchantContextType,
   MerchantData,

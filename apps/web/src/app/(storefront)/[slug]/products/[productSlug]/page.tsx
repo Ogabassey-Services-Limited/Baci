@@ -1,9 +1,12 @@
 import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
 import type { Metadata, ResolvingMetadata } from 'next';
+import { headers } from 'next/headers';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import { Suspense } from 'react';
+import { ProductSemanticSections } from '@/components/storefront/ogabassey/seo/product-semantic-sections';
 import { ProductDetailSkeleton } from '@/components/ui/skeletons';
 import {
+  getCachedCategoryPageData,
   getCachedLegacyProductRedirectTarget,
   getCachedProduct,
   getCachedProductRatingStats,
@@ -17,14 +20,21 @@ import { asRoute } from '@/lib/routes';
 import { escapeHtml } from '@/lib/sanitize-core';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
+  constructCanonicalUrl,
   generateAggregateRating,
   generateBreadcrumbSchema,
   generateFAQSchema,
+  generateMetaDescription,
   generateProductSchema,
   generateSlug,
+  getIndexableRobotsMetadata,
   getProductUrl,
 } from '@/lib/seo-utils';
-import { buildStoreUrl } from '@/lib/store-url';
+import { buildRequestScopedStoreUrl } from '@/lib/store-url';
+import { getPublishedClusterPosts } from '@/lib/storefront-content/get-published-cluster-posts';
+import { buildProductSemanticModel } from '@/lib/storefront-product/build-product-semantic-model';
+import { getStorefrontProductSocialMetadata } from '@/lib/storefront-product-social-metadata';
+import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 import type { FAQItem } from '@/types/faq';
 import { buildProductRedirectPath } from './build-product-redirect-path';
@@ -49,6 +59,17 @@ type ResolvedMerchant = NonNullable<
 interface ProductLookupResult {
   merchant: ResolvedMerchant;
   product: Product | null;
+}
+
+interface SemanticInventoryCandidateProduct {
+  slug: string;
+  name: string;
+  brand?: string | null;
+  price: number;
+  condition?: string | null;
+  stock?: number | null;
+  category_slug?: string | null;
+  product_key_specs?: Record<string, unknown> | null;
 }
 
 type ResolvedSearchParams = Awaited<PageProps['searchParams']>;
@@ -228,6 +249,39 @@ async function redirectLegacyVariantProductRoute(
   permanentRedirect(targetPath);
 }
 
+function buildTrustBulletsFromProfile(
+  trustProfile: Awaited<ReturnType<typeof buildMerchantTrustProfile>>
+): string[] {
+  const bullets: string[] = [];
+  const returnPolicy = trustProfile.returnPolicy;
+  if (returnPolicy?.windowDays != null) {
+    bullets.push(
+      returnPolicy.returnFees === 'free'
+        ? `Free returns within ${returnPolicy.windowDays} days`
+        : `Returns within ${returnPolicy.windowDays} days`
+    );
+  }
+
+  const shippingPolicy = trustProfile.shippingPolicy;
+  const regions = shippingPolicy?.regions ?? [];
+  const regionsText = regions.join(' ').toLowerCase();
+  if (
+    regions.some(
+      (region) => region.toUpperCase() === 'NG' || /nigeria/i.test(region)
+    ) ||
+    /nationwide/.test(shippingPolicy?.summary ?? '') ||
+    /nigeria/.test(regionsText)
+  ) {
+    bullets.push('Ships across Nigeria');
+  }
+
+  if (trustProfile.whatsappNumber) {
+    bullets.push('WhatsApp support available');
+  }
+
+  return bullets;
+}
+
 export async function generateMetadata(
   { params, searchParams }: PageProps,
   __parent: ResolvingMetadata
@@ -245,12 +299,25 @@ export async function generateMetadata(
   }
   redirectLegacyProductRouteIfCategorized(slug, product);
   redirectInvalidVariantSelectionParams(slug, product, resolvedSearchParams);
-  const baseUrl = buildStoreUrl(merchant);
+  const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
   let canonicalUrl = product.canonical_url;
   if (!canonicalUrl) {
     const productPath = getProductUrl(product);
-    canonicalUrl = `${baseUrl}${productPath}`;
+    const basePath = `${baseUrl}${productPath}`;
+    canonicalUrl = constructCanonicalUrl(basePath, resolvedSearchParams, [
+      'variant',
+    ]);
   }
+  const seoDescription = generateMetaDescription(
+    product.meta_description ||
+      product.description ||
+      `Buy ${product.name} at ${merchant.business_name || 'Ogabassey'}. Best price and fast delivery.`
+  );
+  const socialMetadata = getStorefrontProductSocialMetadata(
+    baseUrl,
+    product,
+    merchant.payout_currency || 'USD'
+  );
   const socialMedia = merchant.social_media as
     | Record<string, string>
     | undefined;
@@ -258,28 +325,16 @@ export async function generateMetadata(
     title:
       product.meta_title ||
       `${product.name} | ${merchant.business_name || 'Baci Store'}`,
-    description:
-      product.meta_description ||
-      product.description ||
-      `Buy ${product.name} at ${merchant.business_name || 'Ogabassey'}. Best price and fast delivery.`,
+    description: seoDescription,
     keywords: product.keywords,
     alternates: {
       canonical: canonicalUrl,
     },
+    robots: getIndexableRobotsMetadata(),
     openGraph: {
       title: product.meta_title || product.name,
-      description: product.meta_description || product.description,
-      images: product.images?.map((img) => ({
-        url: img.url,
-        alt: img.alt,
-      })) || [
-        {
-          url: product.imageLarge || product.image,
-          width: 800,
-          height: 600,
-          alt: product.name,
-        },
-      ],
+      description: seoDescription,
+      images: socialMetadata.openGraphImages,
       url: canonicalUrl,
       type: 'website',
       siteName: merchant.business_name,
@@ -287,8 +342,8 @@ export async function generateMetadata(
     twitter: {
       card: 'summary_large_image',
       title: product.meta_title || product.name,
-      description: product.meta_description || product.description,
-      images: [product.imageLarge || product.image],
+      description: seoDescription,
+      images: socialMetadata.twitterImages,
       ...(socialMedia?.twitter && {
         site: socialMedia.twitter.startsWith('@')
           ? socialMedia.twitter
@@ -298,6 +353,7 @@ export async function generateMetadata(
           : `@${socialMedia.twitter}`,
       }),
     },
+    other: socialMetadata.other,
   };
 }
 
@@ -327,13 +383,15 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
       reviewRating: r.rating,
     }));
   }
-  const baseUrl = buildStoreUrl(merchant);
+  const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
+  const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
   const productSchema = generateProductSchema(
     product,
     merchant.business_name || 'Baci Store',
     merchant.payout_currency || 'USD',
     merchant.country || 'NG',
-    merchant.logo_url
+    merchant.logo_url,
+    trustProfile
   );
   const productPath = getProductUrl(product);
   const productUrl = `${baseUrl}${productPath}`;
@@ -359,6 +417,53 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
     (product.category ? generateSlug(product.category) : 'products');
   const categoryName =
     product.categories?.name || product.category || 'All Products';
+  const categoryPageData = await getCachedCategoryPageData(
+    merchant.id,
+    categorySlug,
+    slug
+  );
+  const guidePosts = await getPublishedClusterPosts(merchant.id);
+  const inventoryCandidates = (
+    categoryPageData?.isCollection ? [] : (categoryPageData?.products ?? [])
+  ).map((candidate) => {
+    const productCandidate = candidate as SemanticInventoryCandidateProduct;
+
+    return {
+      slug: productCandidate.slug,
+      name: productCandidate.name,
+      brand: productCandidate.brand,
+      condition: productCandidate.condition,
+      price: productCandidate.price,
+      stock: productCandidate.stock,
+      category_slug: productCandidate.category_slug,
+      product_key_specs: productCandidate.product_key_specs,
+    };
+  });
+  const semanticModel = buildProductSemanticModel({
+    storeUrl: baseUrl,
+    merchantBusinessName: merchant.business_name || 'Baci Store',
+    categorySlug,
+    categoryName,
+    currentProduct: {
+      slug: product.slug || String(product.id),
+      name: product.name,
+      brand: product.brand,
+      condition: product.condition,
+      price: product.price,
+      stock: product.stock,
+      category_slug: product.category_slug ?? categorySlug,
+      product_key_specs: product.product_key_specs,
+    },
+    inventory: inventoryCandidates,
+    guidePosts,
+  });
+  const semanticSectionsModel = {
+    ...semanticModel,
+    trustBullets: [
+      ...buildTrustBulletsFromProfile(trustProfile),
+      ...semanticModel.trustBullets,
+    ],
+  };
   const categoryUrl = `${baseUrl}/${categorySlug}`;
   const breadcrumbItems = [
     { name: merchant.business_name || 'Home', url: baseUrl },
@@ -396,6 +501,7 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
       )}
       <Suspense fallback={<ProductDetailSkeleton />}>
         <ProductDetailClient product={product} faqs={productFaqs} />
+        <ProductSemanticSections model={semanticSectionsModel} />
       </Suspense>
     </>
   );

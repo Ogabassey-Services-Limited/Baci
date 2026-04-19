@@ -1,4 +1,4 @@
-import { buildStoreUrl } from '@/lib/store-url';
+import { buildRequestScopedStoreUrl, buildStoreUrl } from '@/lib/store-url';
 
 describe('buildStoreUrl', () => {
   afterEach(() => {
@@ -107,5 +107,72 @@ describe('buildStoreUrl', () => {
       expect(subdomain.endsWith('/')).toBe(false);
       expect(custom.endsWith('/')).toBe(false);
     });
+  });
+});
+
+describe('buildRequestScopedStoreUrl', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('uses the custom domain header when present', () => {
+    vi.stubEnv('NODE_ENV', 'development');
+
+    const url = buildRequestScopedStoreUrl(
+      { slug: 'ogabassey', custom_domain: 'ogabassey.com' },
+      new Headers([
+        ['host', '127.0.0.1:3217'],
+        ['x-custom-domain', 'ogabassey.com'],
+      ])
+    );
+
+    expect(url).toBe('https://ogabassey.com');
+  });
+
+  it('ignores mismatched custom domain headers', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+
+    const url = buildRequestScopedStoreUrl(
+      { slug: 'ogabassey', custom_domain: 'ogabassey.com' },
+      new Headers([
+        ['host', 'stale-host.example'],
+        ['x-custom-domain', 'attacker.example'],
+      ])
+    );
+
+    expect(url).toBe('https://ogabassey.com');
+  });
+
+  it('uses the current subdomain host for non-local requests', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+
+    const url = buildRequestScopedStoreUrl(
+      { slug: 'ogabassey', custom_domain: undefined },
+      new Headers([['host', 'ogabassey.usebaci.com']])
+    );
+
+    expect(url).toBe('https://ogabassey.usebaci.com');
+  });
+
+  it('keeps localhost path-based storefront URLs in development', () => {
+    vi.stubEnv('NODE_ENV', 'development');
+
+    const url = buildRequestScopedStoreUrl(
+      { slug: 'ogabassey', custom_domain: 'ogabassey.com' },
+      new Headers([['host', '127.0.0.1:3217']])
+    );
+
+    expect(url).toBe('http://127.0.0.1:3217/ogabassey');
+  });
+
+  it('falls back to the merchant storefront origin when the current host is unrelated', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+
+    const url = buildRequestScopedStoreUrl(
+      { slug: 'ogabassey', custom_domain: 'ogabassey.com' },
+      new Headers([['host', 'stale-host.example']])
+    );
+
+    expect(url).toBe('https://ogabassey.com');
   });
 });
