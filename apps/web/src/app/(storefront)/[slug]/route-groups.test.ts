@@ -1,7 +1,8 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { expectNearestLoadingBoundaryOwnsFirstPaint } from './loading-route-test-utils';
 
 const slugDirectory = dirname(fileURLToPath(import.meta.url));
 
@@ -119,96 +120,72 @@ const legacyRouteManifest = [
   'swap/page.tsx',
 ];
 
-const groupedFirstPaintOwnershipManifest = [
+const firstPaintOwnershipManifest = [
   {
-    path: '(content)/about/page.tsx',
-    forbiddenSnippets: ['Loading about page...'],
+    routePath: '/blog',
+    pagePath: '(blog)/blog/page.tsx',
+    loadingPath: '(blog)/loading.tsx',
+    label: 'Loading blog posts',
   },
   {
-    path: '(content)/faq/page.tsx',
-    forbiddenSnippets: ['Loading FAQ...'],
+    routePath: '/blog/post-slug',
+    pagePath: '(blog)/blog/[postSlug]/page.tsx',
+    loadingPath: '(blog)/blog/[postSlug]/loading.tsx',
+    label: 'Loading blog post',
   },
   {
-    path: '(content)/privacy/page.tsx',
-    forbiddenSnippets: ['Loading privacy policy...'],
+    routePath: '/products',
+    pagePath: '(catalog)/products/page.tsx',
+    loadingPath: '(catalog)/loading.tsx',
+    label: 'Loading product listing',
   },
   {
-    path: '(content)/privacy-policy/page.tsx',
-    forbiddenSnippets: ['Loading privacy policy...'],
+    routePath: '/phones',
+    pagePath: '(catalog)/[category]/page.tsx',
+    loadingPath: '(catalog)/loading.tsx',
+    label: 'Loading product listing',
   },
   {
-    path: '(content)/terms/page.tsx',
-    forbiddenSnippets: ['Loading terms of service...'],
+    routePath: '/products/iphone-16-pro',
+    pagePath: '(catalog)/products/[productSlug]/page.tsx',
+    loadingPath: '(catalog)/products/[productSlug]/loading.tsx',
+    label: 'Loading product page',
   },
   {
-    path: '(content)/terms-of-service/page.tsx',
-    forbiddenSnippets: ['Loading terms of service...'],
+    routePath: '/phones/iphone-16-pro',
+    pagePath: '(catalog)/[category]/[productSlug]/page.tsx',
+    loadingPath: '(catalog)/[category]/[productSlug]/loading.tsx',
+    label: 'Loading product page',
   },
   {
-    path: '(content)/pages/about/page.tsx',
-    forbiddenSnippets: ['Loading about page...'],
+    routePath: '/checkout',
+    pagePath: '(commerce)/checkout/page.tsx',
+    loadingPath: '(commerce)/loading.tsx',
+    label: 'Loading commerce page',
   },
   {
-    path: '(content)/pages/contact/page.tsx',
-    forbiddenSnippets: ['Loading contact page...'],
+    routePath: '/account',
+    pagePath: '(customer)/account/page.tsx',
+    loadingPath: '(customer)/loading.tsx',
+    label: 'Loading customer page',
   },
   {
-    path: '(content)/pages/faq/page.tsx',
-    forbiddenSnippets: ['Loading FAQ...'],
+    routePath: '/receipts',
+    pagePath: '(customer)/receipts/page.tsx',
+    loadingPath: '(customer)/loading.tsx',
+    label: 'Loading customer page',
   },
   {
-    path: '(content)/pages/privacy/page.tsx',
-    forbiddenSnippets: ['Loading privacy policy...'],
+    routePath: '/repair',
+    pagePath: '(utility)/repair/page.tsx',
+    loadingPath: '(utility)/loading.tsx',
+    label: 'Loading utility page',
   },
   {
-    path: '(content)/pages/terms/page.tsx',
-    forbiddenSnippets: ['Loading terms of service...'],
-  },
-  {
-    path: '(commerce)/cart/page.tsx',
-    forbiddenSnippets: ['StorefrontPageSkeleton', 'Suspense fallback'],
-  },
-  {
-    path: '(commerce)/checkout/page.tsx',
-    forbiddenSnippets: ['CheckoutLoading', 'Loading checkout...'],
-  },
-  {
-    path: '(commerce)/checkout/bnpl/page.tsx',
-    forbiddenSnippets: ['BnplLoading', 'Suspense fallback'],
-  },
-  {
-    path: '(commerce)/checkout/crypto/page.tsx',
-    forbiddenSnippets: ['CryptoLoading', 'Suspense fallback'],
-  },
-  {
-    path: '(commerce)/track-order/page.tsx',
-    forbiddenSnippets: ['fallback={<div>Loading...</div>}'],
-  },
-  {
-    path: '(commerce)/order-success/page.tsx',
-    forbiddenSnippets: ['Suspense', 'Loading order details...'],
-  },
-  {
-    path: '(commerce)/checkout/success/page.tsx',
-    forbiddenSnippets: ["'verifying')", 'Verifying Your Payment'],
-  },
-  {
-    path: '(commerce)/wallet/page.tsx',
-    forbiddenSnippets: [
-      'Loading wallet...',
-      '<h1 className="sr-only">Wallet</h1>',
-    ],
-  },
-  {
-    path: '(commerce)/wishlist/page.tsx',
-    forbiddenSnippets: [
-      'Loading wish list...',
-      '<h1 className="sr-only">Your Wish List</h1>',
-    ],
-  },
-  {
-    path: '(customer)/delete-account/page.tsx',
-    forbiddenSnippets: ['<span className="sr-only">Loading...</span>'],
+    routePath: '/reviews',
+    pagePath: '(utility)/reviews/page.tsx',
+    loadingPath: '(utility)/loading.tsx',
+    label: 'Loading utility page',
   },
 ];
 
@@ -225,16 +202,29 @@ describe('storefront route groups', () => {
     }
   });
 
-  it('lets route-group loading own first paint for moved Task 5 pages', () => {
-    for (const {
-      path,
-      forbiddenSnippets,
-    } of groupedFirstPaintOwnershipManifest) {
-      const source = readFileSync(resolve(slugDirectory, path), 'utf8');
+  it('removes the retired shared storefront layout fallback', () => {
+    expect(
+      existsSync(resolve(slugDirectory, 'storefront-layout-fallback.tsx'))
+    ).toBe(false);
+    expect(
+      existsSync(resolve(slugDirectory, 'storefront-layout-fallback.test.tsx'))
+    ).toBe(false);
+  });
 
-      for (const forbiddenSnippet of forbiddenSnippets) {
-        expect(source).not.toContain(forbiddenSnippet);
-      }
+  it('assigns first paint to the nearest route-family loading boundary', async () => {
+    for (const {
+      routePath,
+      pagePath,
+      loadingPath,
+      label,
+    } of firstPaintOwnershipManifest) {
+      await expectNearestLoadingBoundaryOwnsFirstPaint(
+        import.meta.url,
+        pagePath,
+        loadingPath,
+        label,
+        routePath
+      );
     }
   });
 });

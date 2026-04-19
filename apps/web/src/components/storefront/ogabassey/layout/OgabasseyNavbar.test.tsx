@@ -194,6 +194,41 @@ describe('OgabasseyNavbar', () => {
     expect(mocks.push).toHaveBeenCalledWith('/ogabassey/wallet');
   });
 
+  it('emits root-relative first-render links for domain-routed storefronts', async () => {
+    mocks.pathname = '/blog';
+
+    render(<OgabasseyNavbar storeSlug="" />);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /shop by category/i })
+    );
+
+    await screen.findByRole('link', { name: 'Phones' });
+
+    const hrefs = screen
+      .getAllByRole('link')
+      .map((link) => link.getAttribute('href'));
+
+    expect(hrefs).toEqual(
+      expect.arrayContaining([
+        '/',
+        '/account',
+        '/phones',
+        '/imei-check',
+        '/repairs',
+        '/wallet',
+        '/blog',
+      ])
+    );
+    expect(hrefs).toEqual(
+      expect.not.arrayContaining([
+        '/ogabassey',
+        '/ogabassey/account',
+        '/ogabassey/blog',
+      ])
+    );
+  });
+
   it('disables prefetch on visible shell navigation links', async () => {
     render(<OgabasseyNavbar storeSlug="/ogabassey" />);
 

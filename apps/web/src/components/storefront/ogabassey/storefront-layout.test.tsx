@@ -1,6 +1,7 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import CatalogRouteLoading from '@/app/(storefront)/[slug]/(catalog)/loading';
 
 const mocks = vi.hoisted(() => ({
   getOgabasseyBasePath: vi.fn(),
@@ -79,6 +80,11 @@ vi.mock('@/components/storefront/ogabassey/storefront-loading-ui', () => ({
   ShellChromeLoading: () => (
     <div role="status" aria-label="Loading storefront chrome">
       shared-shell-fallback
+    </div>
+  ),
+  CatalogListingLoading: () => (
+    <div role="status" aria-label="Loading product listing">
+      catalog-route-loading
     </div>
   ),
 }));
@@ -200,6 +206,26 @@ describe('OgabasseyStorefrontLayout', () => {
     );
 
     expect(screen.getByText('Storefront body')).toBeInTheDocument();
+    expect(
+      screen.getAllByRole('status', { name: 'Loading storefront chrome' })
+    ).toHaveLength(2);
+  });
+
+  it('keeps the shared shell frame mounted while a route-family loader owns the content slot', () => {
+    shouldSuspendChrome = true;
+
+    render(
+      <OgabasseyStorefrontLayout merchant={merchant}>
+        <CatalogRouteLoading />
+      </OgabasseyStorefrontLayout>
+    );
+
+    expect(screen.getByTestId('shell-layout')).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId('shell-children')).getByRole('status', {
+        name: 'Loading product listing',
+      })
+    ).toBeInTheDocument();
     expect(
       screen.getAllByRole('status', { name: 'Loading storefront chrome' })
     ).toHaveLength(2);
