@@ -7,7 +7,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { router, Stack } from 'expo-router';
-import { useDeferredValue, useEffect, useState } from 'react';
+import { useDeferredValue, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
@@ -94,13 +94,24 @@ export default function SearchScreen() {
   const [recentSearches, setRecentSearches] =
     useState<string[]>(DEFAULT_SEARCHES);
 
-  // Load search history from storage on mount
+  // Track the in-flight debounce timer so manual commits (search submit) can
+  // cancel it before writing the final value. Without this, a pending
+  // setTimeout from a prior keystroke could fire AFTER commitSearchQuery and
+  // overwrite debouncedQuery with a stale mid-typing value.
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
-    const timer = setTimeout(() => {
+    debounceTimerRef.current = setTimeout(() => {
       setDebouncedQuery(activeQuery);
+      debounceTimerRef.current = null;
     }, 250);
 
-    return () => clearTimeout(timer);
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+    };
   }, [activeQuery]);
 
   useEffect(() => {
@@ -134,6 +145,13 @@ export default function SearchScreen() {
 
   const commitSearchQuery = (value: string) => {
     const trimmedValue = value.trim();
+
+    // Cancel any pending debounce so it can't overwrite the committed value
+    // with a stale mid-typing snapshot.
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
 
     setDebouncedQuery(trimmedValue);
 
