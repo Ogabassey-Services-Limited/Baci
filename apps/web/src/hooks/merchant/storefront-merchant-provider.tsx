@@ -10,15 +10,22 @@ export function StorefrontMerchantProvider({
   initialMerchant = null,
   initialRoutingMode,
   navigationCategories = [],
+  shellSnapshot = null,
 }: MerchantProviderProps) {
-  const routingMode = initialRoutingMode ?? 'path';
-  const resolvedSlug = initialMerchant?.slug || slug || '';
-  const basePath = routingMode === 'domain' ? '' : `/${resolvedSlug}`;
+  const merchant = shellSnapshot?.merchant ?? initialMerchant;
+  const routingMode =
+    shellSnapshot?.routingMode ?? initialRoutingMode ?? 'path';
+  const resolvedSlug = merchant?.slug ?? slug ?? '';
+  const basePath =
+    shellSnapshot?.basePath ??
+    (routingMode === 'domain' ? '' : `/${resolvedSlug}`);
+  const resolvedNavigationCategories =
+    shellSnapshot?.navigationCategories ?? navigationCategories;
 
   return (
     <MerchantContext.Provider
       value={{
-        merchant: initialMerchant,
+        merchant,
         loading: false,
         updateMerchant: () => {
           throw new Error(
@@ -30,7 +37,7 @@ export function StorefrontMerchantProvider({
         hasPermission: () => false,
         routingMode,
         basePath,
-        navigationCategories,
+        navigationCategories: resolvedNavigationCategories,
       }}
     >
       {children}

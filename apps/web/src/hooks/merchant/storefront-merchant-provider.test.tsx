@@ -8,15 +8,18 @@ describe('StorefrontMerchantProvider', () => {
   it('provides server-resolved storefront merchant data without loading state', () => {
     const wrapper = ({ children }: { children: ReactNode }) => (
       <StorefrontMerchantProvider
-        initialMerchant={{
-          id: 'merchant-1',
-          user_id: 'user-1',
-          business_name: 'Ogabassey',
-          business_type: 'gadgets',
-          slug: 'ogabassey',
+        shellSnapshot={{
+          merchant: {
+            id: 'merchant-1',
+            user_id: '',
+            business_name: 'Ogabassey',
+            business_type: 'gadgets',
+            slug: 'ogabassey',
+          },
+          routingMode: 'path',
+          basePath: '/ogabassey',
+          navigationCategories: [{ name: 'Phones', slug: 'phones' }],
         }}
-        initialRoutingMode="path"
-        navigationCategories={[{ name: 'Phones', slug: 'phones' }]}
       >
         {children}
       </StorefrontMerchantProvider>
@@ -35,14 +38,18 @@ describe('StorefrontMerchantProvider', () => {
   it('uses an empty basePath for domain-routed storefronts', () => {
     const wrapper = ({ children }: { children: ReactNode }) => (
       <StorefrontMerchantProvider
-        initialMerchant={{
-          id: 'merchant-1',
-          user_id: 'user-1',
-          business_name: 'Ogabassey',
-          business_type: 'gadgets',
-          slug: 'ogabassey',
+        shellSnapshot={{
+          merchant: {
+            id: 'merchant-1',
+            user_id: '',
+            business_name: 'Ogabassey',
+            business_type: 'gadgets',
+            slug: 'ogabassey',
+          },
+          routingMode: 'domain',
+          basePath: '',
+          navigationCategories: [],
         }}
-        initialRoutingMode="domain"
       >
         {children}
       </StorefrontMerchantProvider>
