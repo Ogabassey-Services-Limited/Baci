@@ -14,6 +14,7 @@ const runtimeRouteManifest = [
   '(catalog)/products/[productSlug]/page.tsx',
   '(catalog)/products/[productSlug]/loading.tsx',
   '(catalog)/product/[productSlug]/page.tsx',
+  '(catalog)/product/[productSlug]/loading.tsx',
   '(catalog)/[category]/page.tsx',
   '(catalog)/[category]/[productSlug]/page.tsx',
   '(catalog)/[category]/[productSlug]/loading.tsx',
@@ -126,68 +127,91 @@ const firstPaintOwnershipManifest = [
     pagePath: '(blog)/blog/page.tsx',
     loadingPath: '(blog)/loading.tsx',
     label: 'Loading blog posts',
+    renderStrategy: 'pending-params',
+    searchParams: Promise.resolve({}),
   },
   {
     routePath: '/blog/post-slug',
     pagePath: '(blog)/blog/[postSlug]/page.tsx',
     loadingPath: '(blog)/blog/[postSlug]/loading.tsx',
     label: 'Loading blog post',
+    renderStrategy: 'pending-params',
   },
   {
     routePath: '/products',
     pagePath: '(catalog)/products/page.tsx',
     loadingPath: '(catalog)/loading.tsx',
     label: 'Loading product listing',
+    renderStrategy: 'pending-params',
+    searchParams: Promise.resolve({}),
   },
   {
     routePath: '/phones',
     pagePath: '(catalog)/[category]/page.tsx',
     loadingPath: '(catalog)/loading.tsx',
     label: 'Loading product listing',
+    renderStrategy: 'pending-params',
+    searchParams: Promise.resolve({}),
   },
   {
     routePath: '/products/iphone-16-pro',
     pagePath: '(catalog)/products/[productSlug]/page.tsx',
     loadingPath: '(catalog)/products/[productSlug]/loading.tsx',
     label: 'Loading product page',
+    renderStrategy: 'pending-params',
+    searchParams: Promise.resolve({}),
+  },
+  {
+    routePath: '/product/iphone-16-pro',
+    pagePath: '(catalog)/product/[productSlug]/page.tsx',
+    loadingPath: '(catalog)/product/[productSlug]/loading.tsx',
+    label: 'Loading product page',
+    renderStrategy: 'pending-params',
   },
   {
     routePath: '/phones/iphone-16-pro',
     pagePath: '(catalog)/[category]/[productSlug]/page.tsx',
     loadingPath: '(catalog)/[category]/[productSlug]/loading.tsx',
     label: 'Loading product page',
+    renderStrategy: 'pending-params',
+    searchParams: Promise.resolve({}),
   },
   {
     routePath: '/checkout',
     pagePath: '(commerce)/checkout/page.tsx',
     loadingPath: '(commerce)/loading.tsx',
     label: 'Loading commerce page',
+    renderStrategy: 'pending-params',
   },
   {
     routePath: '/account',
     pagePath: '(customer)/account/page.tsx',
     loadingPath: '(customer)/loading.tsx',
     label: 'Loading customer page',
+    renderStrategy: 'lazy-module',
   },
   {
     routePath: '/receipts',
     pagePath: '(customer)/receipts/page.tsx',
     loadingPath: '(customer)/loading.tsx',
     label: 'Loading customer page',
+    renderStrategy: 'lazy-module',
   },
   {
     routePath: '/repair',
     pagePath: '(utility)/repair/page.tsx',
     loadingPath: '(utility)/loading.tsx',
     label: 'Loading utility page',
+    renderStrategy: 'pending-params',
   },
   {
     routePath: '/reviews',
     pagePath: '(utility)/reviews/page.tsx',
     loadingPath: '(utility)/loading.tsx',
     label: 'Loading utility page',
+    renderStrategy: 'pending-params',
   },
-];
+] as const;
 
 describe('storefront route groups', () => {
   it('exposes the runtime route entrypoints and loading boundaries for Tasks 3-5', () => {
@@ -211,20 +235,17 @@ describe('storefront route groups', () => {
     ).toBe(false);
   });
 
-  it('assigns first paint to the nearest route-family loading boundary', async () => {
-    for (const {
-      routePath,
-      pagePath,
-      loadingPath,
-      label,
-    } of firstPaintOwnershipManifest) {
-      await expectNearestLoadingBoundaryOwnsFirstPaint(
-        import.meta.url,
-        pagePath,
-        loadingPath,
-        label,
-        routePath
-      );
-    }
+  it.each(
+    firstPaintOwnershipManifest
+  )('assigns first paint to the route-family loading boundary for $routePath', async (route) => {
+    await expectNearestLoadingBoundaryOwnsFirstPaint({
+      importMetaUrl: import.meta.url,
+      routePath: route.routePath,
+      pageRelativePath: route.pagePath,
+      loadingRelativePath: route.loadingPath,
+      label: route.label,
+      renderStrategy: route.renderStrategy,
+      ...('searchParams' in route ? { searchParams: route.searchParams } : {}),
+    });
   });
 });
