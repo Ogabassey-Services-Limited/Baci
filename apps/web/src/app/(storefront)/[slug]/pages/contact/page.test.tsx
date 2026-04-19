@@ -40,11 +40,12 @@ describe('pages/contact metadata', () => {
     expect(metadata.title).toBe('Contact Us');
   });
 
-  it('returns merchant-specific title when merchant exists', async () => {
+  it('returns merchant-specific title when merchant has a reachable channel', async () => {
     vi.mocked(getMerchantByIdentifier).mockResolvedValue({
       business_name: 'Test Store',
       logo_url: null,
       slug: 'test-store',
+      email: 'support@teststore.com',
     } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
 
     const metadata = await generateMetadata({
@@ -52,5 +53,46 @@ describe('pages/contact metadata', () => {
     });
 
     expect(metadata.title).toBe('Contact Us | Test Store');
+    expect(metadata.alternates?.canonical).toBe('/contact');
+  });
+
+  it('returns the bare fallback title when no contact channel is populated', async () => {
+    vi.mocked(getMerchantByIdentifier).mockResolvedValue({
+      business_name: 'Test Store',
+      logo_url: null,
+      slug: 'test-store',
+      pages: {},
+    } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store' }),
+    });
+
+    expect(metadata.title).toBe('Contact Us');
+    expect(metadata.alternates).toBeUndefined();
+  });
+
+  // Intentionally does NOT treat a trust-profile WhatsApp-only merchant as a
+  // reachable channel today: `ContactPageClient` does not yet render the
+  // trust-profile WhatsApp CTA, so gating the page open would produce an
+  // empty-looking page. When the client starts rendering that CTA, flip this
+  // test to assert the merchant-specific title.
+  it('does not gate the page open on trust-profile WhatsApp alone (until UI renders it)', async () => {
+    vi.mocked(getMerchantByIdentifier).mockResolvedValue({
+      business_name: 'Test Store',
+      logo_url: null,
+      slug: 'test-store',
+      pages: {},
+      trust_profile: {
+        customer_service: { whatsapp_number: '+2348012345678' },
+      },
+    } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store' }),
+    });
+
+    expect(metadata.title).toBe('Contact Us');
+    expect(metadata.alternates).toBeUndefined();
   });
 });

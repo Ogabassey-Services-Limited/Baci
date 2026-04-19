@@ -133,4 +133,52 @@ describe('pages/about metadata', () => {
 
     expect(metadata.title).toBe('About Us');
   });
+
+  it('throws notFound when the merchant has no about content at all', async () => {
+    vi.mocked(buildStoreUrl).mockReturnValue('https://test-store.usebaci.com');
+    vi.mocked(getMerchantByIdentifier).mockResolvedValue({
+      business_name: 'Test Store',
+      about_page: {},
+      pages: {},
+      logo_url: null,
+      slug: 'test-store',
+    } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
+
+    await expect(
+      generateMetadata({
+        params: Promise.resolve({ slug: 'test-store' }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+  });
+
+  it('renders metadata when only structured (non-narrative) about content exists', async () => {
+    vi.mocked(buildStoreUrl).mockReturnValue('https://test-store.usebaci.com');
+    vi.mocked(getMerchantByIdentifier).mockResolvedValue({
+      business_name: 'Test Store',
+      about_page: {
+        founder_name: 'Amina Bello',
+        team: [{ name: 'Bola Ade', role: 'Operations Lead' }],
+        milestones: [{ year: 2024, title: 'Launched' }],
+        awards: [{ title: 'Best New Store' }],
+        social_proof: { rating: 4.9, review_count: 31 },
+        gallery: ['https://cdn.example.com/about.jpg'],
+      },
+      pages: {},
+      logo_url: 'https://cdn.example.com/logo.png',
+      slug: 'test-store',
+      custom_domain: null,
+    } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store' }),
+    });
+
+    expect(metadata.title).toBe('About Us | Test Store');
+    expect(metadata.alternates?.canonical).toBe(
+      'https://test-store.usebaci.com/about'
+    );
+    // No narrative story → falls back to the generic "Learn more about <store>" description.
+    expect(metadata.description).toBe('Learn more about Test Store');
+    expect(metadata.openGraph?.description).toBe('Learn more about Test Store');
+  });
 });

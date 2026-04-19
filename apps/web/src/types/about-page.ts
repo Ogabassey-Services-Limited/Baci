@@ -76,6 +76,40 @@ export interface MerchantAboutPage {
 }
 
 /**
+ * Whether the merchant has enough about-page content to justify rendering
+ * an About page. Used by both the generateMetadata and page body to short
+ * circuit to `notFound()` for merchants that haven't populated any of the
+ * supported narrative, structured, or legacy fields.
+ */
+export function hasAboutPageContent(
+  aboutPage: MerchantAboutPage,
+  legacyAboutContent?: string | null
+): boolean {
+  return Boolean(
+    aboutPage.story ||
+      aboutPage.mission ||
+      aboutPage.vision ||
+      (aboutPage.values && aboutPage.values.length > 0) ||
+      aboutPage.founded_year ||
+      aboutPage.founder_name ||
+      aboutPage.founder_bio ||
+      aboutPage.founder_image ||
+      (aboutPage.team && aboutPage.team.length > 0) ||
+      (aboutPage.milestones && aboutPage.milestones.length > 0) ||
+      (aboutPage.awards && aboutPage.awards.length > 0) ||
+      (aboutPage.certifications && aboutPage.certifications.length > 0) ||
+      (aboutPage.media_features && aboutPage.media_features.length > 0) ||
+      (aboutPage.social_proof &&
+        Object.values(aboutPage.social_proof).some(
+          (value) => value !== undefined && value !== null
+        )) ||
+      (aboutPage.gallery && aboutPage.gallery.length > 0) ||
+      aboutPage.video_url ||
+      legacyAboutContent
+  );
+}
+
+/**
  * Generate JSON-LD structured data for the About page
  * Implements schema.org AboutPage and Organization types
  */

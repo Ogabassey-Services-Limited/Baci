@@ -11,6 +11,25 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
+/**
+ * Returns true when the merchant exposes at least one contact channel that
+ * the rendered contact page actually surfaces: direct email, direct phone,
+ * or a legacy contact page body. Used to short-circuit metadata emission and
+ * JSON-LD rendering for merchants with no reachable contact channel.
+ *
+ * WhatsApp numbers stored at `trust_profile.customer_service.whatsapp_number`
+ * are intentionally not consulted here — `ContactPageClient` does not yet
+ * render a WhatsApp CTA, so gating open on trust-profile alone would produce
+ * a visibly empty contact page. Once the client renders the trust-profile
+ * WhatsApp button, add that clause here.
+ */
+function hasContactInfo(
+  merchant: Awaited<ReturnType<typeof getMerchantByIdentifier>>
+): boolean {
+  if (!merchant) return false;
+  return Boolean(merchant.pages?.contact || merchant.email || merchant.phone);
+}
+
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
@@ -18,6 +37,12 @@ export async function generateMetadata({
   const merchant = await getMerchantByIdentifier(slug);
 
   if (!merchant) {
+    return {
+      title: 'Contact Us',
+    };
+  }
+
+  if (!hasContactInfo(merchant)) {
     return {
       title: 'Contact Us',
     };
@@ -66,9 +91,7 @@ async function ContactJsonLd({ params }: PageProps) {
 
   if (!merchant) return null;
 
-  const hasContactInfo =
-    merchant.pages?.contact || merchant.email || merchant.phone;
-  if (!hasContactInfo) return null;
+  if (!hasContactInfo(merchant)) return null;
 
   const isDevelopment = process.env.NODE_ENV === 'development';
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
@@ -131,9 +154,7 @@ async function ContactContent({ params }: PageProps) {
     notFound();
   }
 
-  const hasContactInfo =
-    merchant.pages?.contact || merchant.email || merchant.phone;
-  if (!hasContactInfo) {
+  if (!hasContactInfo(merchant)) {
     notFound();
   }
 

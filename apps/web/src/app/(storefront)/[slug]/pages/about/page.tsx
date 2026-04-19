@@ -8,6 +8,7 @@ import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant
 import { getTemplate } from '@/templates/registry';
 import {
   generateAboutPageJsonLd,
+  hasAboutPageContent,
   type MerchantAboutPage,
 } from '@/types/about-page';
 import { AboutPageClient } from './about-page-client';
@@ -29,9 +30,16 @@ export async function generateMetadata({
   }
 
   const aboutPage = (merchant.about_page || {}) as MerchantAboutPage;
+  const legacyAboutContent = merchant.pages?.about;
+
+  if (!hasAboutPageContent(aboutPage, legacyAboutContent)) {
+    notFound();
+  }
+
   const description =
     aboutPage.story ||
     aboutPage.mission ||
+    legacyAboutContent ||
     `Learn more about ${merchant.business_name}`;
   const aboutUrl = `${buildStoreUrl(merchant)}/about`;
 
@@ -80,7 +88,7 @@ export async function AboutJsonLd({ params }: PageProps) {
   if (!merchant) return null;
 
   const aboutPage = (merchant.about_page || {}) as MerchantAboutPage;
-  if (!aboutPage.story && !aboutPage.mission && !merchant.pages?.about) {
+  if (!hasAboutPageContent(aboutPage, merchant.pages?.about)) {
     return null;
   }
 
@@ -114,7 +122,7 @@ async function AboutContent({ params }: PageProps) {
   const aboutPage = (merchant.about_page || {}) as MerchantAboutPage;
   const legacyAboutContent = merchant.pages?.about;
 
-  if (!aboutPage.story && !aboutPage.mission && !legacyAboutContent) {
+  if (!hasAboutPageContent(aboutPage, legacyAboutContent)) {
     notFound();
   }
 
