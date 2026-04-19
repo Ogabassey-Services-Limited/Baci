@@ -1,12 +1,14 @@
 import { render, screen } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import { type ReactNode, Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockNormalizeStorefrontProductVariants } = vi.hoisted(() => ({
-  mockNormalizeStorefrontProductVariants: vi.fn<
-    (...args: unknown[]) => Record<string, unknown>[]
-  >(() => []),
-}));
+const { mockNormalizeStorefrontProductVariants, mockProductDetailClient } =
+  vi.hoisted(() => ({
+    mockNormalizeStorefrontProductVariants: vi.fn<
+      (...args: unknown[]) => Record<string, unknown>[]
+    >(() => []),
+    mockProductDetailClient: vi.fn(() => null),
+  }));
 
 const mockHeaders = vi.fn();
 const mockPermanentRedirect = vi.fn((_url: string) => {
@@ -64,10 +66,6 @@ vi.mock('@/components/storefront/ogabassey/pages/product-details-page', () => ({
       {semanticSections}
     </>
   ),
-}));
-
-vi.mock('@/components/ui/skeletons', () => ({
-  ProductDetailSkeleton: () => null,
 }));
 
 vi.mock('@/lib/cached-data', () => ({
@@ -194,7 +192,7 @@ vi.mock('@/lib/validation', () => ({
 vi.mock(
   '@/app/(storefront)/[slug]/(catalog)/products/[productSlug]/product-detail-client',
   () => ({
-    default: () => null,
+    default: () => mockProductDetailClient(),
   })
 );
 
@@ -242,6 +240,8 @@ const categorizedDetailedProduct = {
 describe('[category]/[productSlug] page metadata', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockProductDetailClient.mockReset();
+    mockProductDetailClient.mockReturnValue(null);
     mockGenerateProductSchema.mockReset();
     mockHeaders.mockReset();
     mockHeaders.mockResolvedValue(new Headers());
@@ -443,6 +443,8 @@ describe('[category]/[productSlug] page metadata', () => {
 describe('[category]/[productSlug] page render', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockProductDetailClient.mockReset();
+    mockProductDetailClient.mockReturnValue(null);
     mockHeaders.mockReset();
     mockHeaders.mockResolvedValue(new Headers());
     mockNormalizeStorefrontProductVariants.mockReset();
@@ -489,6 +491,41 @@ describe('[category]/[productSlug] page render', () => {
       })
     ).toBeInTheDocument();
     expect(container.querySelectorAll('h1')).toHaveLength(1);
+  });
+
+  it('defers category PDP first paint to the route loader while the client page is pending', async () => {
+    mockGetRequestScopedMerchant.mockResolvedValue({
+      ...baseMerchant,
+      template_id: 'default',
+    });
+    mockProductDetailClient.mockImplementation(() => {
+      throw new Promise(() => {
+        // Keep the detail client suspended after route data resolves.
+      });
+    });
+
+    render(
+      <Suspense fallback={<div>Route loader fallback</div>}>
+        {
+          await CategoryProductPage({
+            params: Promise.resolve({
+              slug: 'teststore',
+              category: 'laptops',
+              productSlug: 'hp-laptop-14-ep0063nia',
+            }),
+            searchParams: Promise.resolve({}),
+          })
+        }
+      </Suspense>
+    );
+
+    expect(screen.getByText('Route loader fallback')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', {
+        level: 1,
+        name: 'HP Laptop 14-ep0063nia',
+      })
+    ).not.toBeInTheDocument();
   });
 
   it('passes the shared semantic sections into the Ogabassey PDP surface', async () => {

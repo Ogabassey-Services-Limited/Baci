@@ -1,6 +1,12 @@
 import { render, screen } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import { type ReactNode, Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const { mockBlogPostPageContent } = vi.hoisted(() => ({
+  mockBlogPostPageContent: vi.fn((_props: unknown) => (
+    <div>Blog post page content</div>
+  )),
+}));
 
 const mockDraftMode = vi.fn();
 const mockHeaders = vi.fn();
@@ -72,10 +78,6 @@ vi.mock('./BlogPostBodyFallback', () => ({
   BlogPostBodyFallback: () => null,
 }));
 
-vi.mock('./BlogPostPageFallback', () => ({
-  BlogPostPageFallback: () => <div>Blog post page loading</div>,
-}));
-
 vi.mock('./blog-post-content', () => ({
   buildBlogUrl: (baseUrl: string, basePath: string, postSlug?: string) =>
     postSlug
@@ -93,6 +95,10 @@ vi.mock('./blog-post-content', () => ({
 
 vi.mock('./view-counter', () => ({
   ViewCounter: () => null,
+}));
+
+vi.mock('./blog-post-page-content', () => ({
+  default: (props: unknown) => mockBlogPostPageContent(props),
 }));
 
 import BlogPostPage, { generateMetadata } from './page';
@@ -133,6 +139,10 @@ describe('storefront blog post page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockHeaders.mockResolvedValue(new Headers());
+    mockBlogPostPageContent.mockReset();
+    mockBlogPostPageContent.mockImplementation(() => (
+      <div>Blog post page content</div>
+    ));
   });
 
   it('only exports the route surface from the page module', async () => {
@@ -144,23 +154,28 @@ describe('storefront blog post page', () => {
     ]);
   });
 
-  it('renders the page fallback while request headers are still pending', () => {
-    mockHeaders.mockReturnValue(
-      new Promise(() => {
-        // Keep the request-scoped content pending so the Suspense fallback renders.
-      })
-    );
+  it('defers blog post first paint to the route loader while route params are pending', () => {
+    mockBlogPostPageContent.mockImplementation(() => {
+      throw new Promise(() => {
+        // Keep the blog post page content suspended behind the route loader.
+      });
+    });
 
     render(
-      <BlogPostPage
-        params={Promise.resolve({
-          slug: 'ogabassey.com',
-          postSlug: 'apple-studio-display-review',
-        })}
-      />
+      <Suspense fallback={<div>Route loader fallback</div>}>
+        <BlogPostPage
+          params={Promise.resolve({
+            slug: 'ogabassey.com',
+            postSlug: 'apple-studio-display-review',
+          })}
+        />
+      </Suspense>
     );
 
-    expect(screen.getByText('Blog post page loading')).toBeInTheDocument();
+    expect(screen.getByText('Route loader fallback')).toBeInTheDocument();
+    expect(
+      screen.queryByText('Blog post page content')
+    ).not.toBeInTheDocument();
   });
 
   it('falls back to a live blog query for metadata when the cached lookup misses', async () => {

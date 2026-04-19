@@ -1,8 +1,6 @@
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { Suspense } from 'react';
 import { CategoryPage as OgabasseyCategoryPage } from '@/components/storefront/ogabassey/pages/category-page';
-import { ProductGridSkeleton } from '@/components/ui/skeletons';
 import {
   getCachedCategoryPageData,
   getMerchantByIdentifier,
@@ -186,21 +184,19 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
         />
       )}
 
-      <Suspense fallback={<ProductGridSkeleton />}>
-        <OgabasseyCategoryPage
-          seoHeading={hubContent.intro.heading}
-          seoDescription={hubContent.intro.description}
-          seoFeatures={hubContent.trustFeatures}
-          seoFaqs={hubContent.faqItems}
-          hubContent={hubContent}
-          currentPage={currentPage}
-          categoryImage={
-            !data.isCollection ? data.category?.image_url : undefined
-          }
-          itemsPerPage={STOREFRONT_PRODUCTS_PER_PAGE}
-          products={normalizedProducts}
-        />
-      </Suspense>
+      <OgabasseyCategoryPage
+        seoHeading={hubContent.intro.heading}
+        seoDescription={hubContent.intro.description}
+        seoFeatures={hubContent.trustFeatures}
+        seoFaqs={hubContent.faqItems}
+        hubContent={hubContent}
+        currentPage={currentPage}
+        categoryImage={
+          !data.isCollection ? data.category?.image_url : undefined
+        }
+        itemsPerPage={STOREFRONT_PRODUCTS_PER_PAGE}
+        products={normalizedProducts}
+      />
     </>
   );
 }

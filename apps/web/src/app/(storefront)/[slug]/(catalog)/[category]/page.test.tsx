@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CATEGORY_HUB_DEFAULTS } from '@/config/category-hub-defaults';
 import {
@@ -12,15 +13,20 @@ import type { CategoryHubModel } from '@/lib/storefront-category/category-hub-ty
 const NORMALIZED_PLACEHOLDER_IMAGE =
   'https://placehold.co/400x400/f8fafc/94a3b8?text=No+Image';
 const mockGetPublishedClusterPosts = vi.fn();
+const { mockCategoryPageContent } = vi.hoisted(() => ({
+  mockCategoryPageContent: vi.fn((_props: unknown) => (
+    <div>Category page content</div>
+  )),
+}));
 
-const categoryPageSpy = vi.fn(
-  ({
-    currentPage,
-    hubContent,
-  }: {
-    currentPage?: number;
-    hubContent?: CategoryHubModel;
-  }) => (
+function defaultCategoryPageImplementation({
+  currentPage,
+  hubContent,
+}: {
+  currentPage?: number;
+  hubContent?: CategoryHubModel;
+}) {
+  return (
     <div>
       <div>Current page: {currentPage}</div>
       <div>Hub heading: {hubContent?.intro.heading ?? 'none'}</div>
@@ -58,8 +64,10 @@ const categoryPageSpy = vi.fn(
         </div>
       ))}
     </div>
-  )
-);
+  );
+}
+
+const categoryPageSpy = vi.fn(defaultCategoryPageImplementation);
 const mockBuildStoreUrl = vi.fn();
 const mockBuildRequestScopedStoreUrl = vi.fn();
 const mockGenerateBreadcrumbSchema = vi.fn(() => ({}));
@@ -82,10 +90,6 @@ vi.mock(
     CommercialSupportLinks: () => <div>CommercialSupportLinks footer</div>,
   })
 );
-
-vi.mock('@/components/ui/skeletons', () => ({
-  ProductGridSkeleton: () => <div>Loading...</div>,
-}));
 
 vi.mock('@/lib/cached-data', () => ({
   getCachedCategoryPageData: vi.fn(),
@@ -170,6 +174,16 @@ vi.mock('@/lib/storefront-content/get-published-cluster-posts', () => ({
   getPublishedClusterPosts: (...args: unknown[]) =>
     mockGetPublishedClusterPosts(...args),
 }));
+
+vi.mock('./category-page-content', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('./category-page-content')>();
+
+  return {
+    ...actual,
+    CategoryPageContent: (props: unknown) => mockCategoryPageContent(props),
+  };
+});
 
 vi.mock('@/lib/validation', () => ({
   isDomainIdentifier: (value: string) => value.includes('.'),
@@ -475,8 +489,10 @@ const categoryPageData = {
   name: null,
 };
 
-const { generateMetadata } = await import('./page');
-const { CategoryPageContent } = await import('./category-page-content');
+const { default: CategoryPageRoute, generateMetadata } = await import('./page');
+const actualCategoryPageContentModule = await vi.importActual<
+  typeof import('./category-page-content')
+>('./category-page-content');
 
 function getLastHubContent() {
   const lastCall = categoryPageSpy.mock.calls.at(-1)?.[0] as
@@ -501,11 +517,16 @@ describe('category page route', () => {
     vi.mocked(getMerchantByIdentifier).mockReset();
     vi.mocked(getCachedCategoryPageData).mockReset();
     categoryPageSpy.mockClear();
+    categoryPageSpy.mockImplementation(defaultCategoryPageImplementation);
     notFound.mockClear();
     mockGenerateBreadcrumbSchema.mockClear();
     mockGenerateCollectionPageSchema.mockClear();
     mockGenerateFAQSchema.mockClear();
     mockGetPublishedClusterPosts.mockReset();
+    mockCategoryPageContent.mockReset();
+    mockCategoryPageContent.mockImplementation(() => (
+      <div>Category page content</div>
+    ));
 
     vi.mocked(getCachedMerchant).mockResolvedValue(
       merchant as unknown as Awaited<ReturnType<typeof getCachedMerchant>>
@@ -549,8 +570,31 @@ describe('category page route', () => {
     ]);
   });
 
+  it('defers category first paint to the route loader while route params are pending', () => {
+    mockCategoryPageContent.mockImplementation(() => {
+      throw new Promise(() => {
+        // Keep the category page content suspended behind the route loader.
+      });
+    });
+
+    render(
+      <Suspense fallback={<div>Route loader fallback</div>}>
+        <CategoryPageRoute
+          params={Promise.resolve({
+            slug: 'test-store',
+            category: 'smartphones',
+          })}
+          searchParams={Promise.resolve({})}
+        />
+      </Suspense>
+    );
+
+    expect(screen.getByText('Route loader fallback')).toBeInTheDocument();
+    expect(screen.queryByText('Category page content')).not.toBeInTheDocument();
+  });
+
   it('renders curated smartphone hub content when merchant-authored SEO is absent', async () => {
-    const ui = await CategoryPageContent({
+    const ui = await actualCategoryPageContentModule.CategoryPageContent({
       params: Promise.resolve({ slug: 'test-store', category: 'smartphones' }),
       searchParams: Promise.resolve({ page: '1' }),
     });
@@ -620,7 +664,7 @@ describe('category page route', () => {
       },
     } as unknown as Awaited<ReturnType<typeof getCachedCategoryPageData>>);
 
-    const ui = await CategoryPageContent({
+    const ui = await actualCategoryPageContentModule.CategoryPageContent({
       params: Promise.resolve({ slug: 'test-store', category: 'smartphones' }),
       searchParams: Promise.resolve({ page: '1' }),
     });
@@ -667,7 +711,7 @@ describe('category page route', () => {
       },
     } as unknown as Awaited<ReturnType<typeof getCachedCategoryPageData>>);
 
-    const ui = await CategoryPageContent({
+    const ui = await actualCategoryPageContentModule.CategoryPageContent({
       params: Promise.resolve({ slug: 'test-store', category: 'smartphones' }),
       searchParams: Promise.resolve({ page: '1' }),
     });
@@ -723,7 +767,7 @@ describe('category page route', () => {
       fallbackDescription: 'Shop headphones',
     } as unknown as Awaited<ReturnType<typeof getCachedCategoryPageData>>);
 
-    const ui = await CategoryPageContent({
+    const ui = await actualCategoryPageContentModule.CategoryPageContent({
       params: Promise.resolve({ slug: 'test-store', category: 'headphones' }),
       searchParams: Promise.resolve({ page: '1' }),
     });
@@ -762,7 +806,7 @@ describe('category page route', () => {
       'https://preview-ogabassey.vercel.app'
     );
 
-    const ui = await CategoryPageContent({
+    const ui = await actualCategoryPageContentModule.CategoryPageContent({
       params: Promise.resolve({ slug: 'test-store', category: 'smartphones' }),
       searchParams: Promise.resolve({ page: '1' }),
     });
@@ -839,7 +883,7 @@ describe('category page route', () => {
   });
 
   it('uses hub faq items for FAQ JSON-LD', async () => {
-    const ui = await CategoryPageContent({
+    const ui = await actualCategoryPageContentModule.CategoryPageContent({
       params: Promise.resolve({ slug: 'test-store', category: 'smartphones' }),
       searchParams: Promise.resolve({ page: '1' }),
     });
@@ -865,7 +909,7 @@ describe('category page route', () => {
       ],
     } as unknown as Awaited<ReturnType<typeof getCachedCategoryPageData>>);
 
-    await CategoryPageContent({
+    await actualCategoryPageContentModule.CategoryPageContent({
       params: Promise.resolve({ slug: 'test-store', category: 'smartphones' }),
       searchParams: Promise.resolve({ page: '1' }),
     });
@@ -894,7 +938,7 @@ describe('category page route', () => {
       ],
     } as unknown as Awaited<ReturnType<typeof getCachedCategoryPageData>>);
 
-    const ui = await CategoryPageContent({
+    const ui = await actualCategoryPageContentModule.CategoryPageContent({
       params: Promise.resolve({ slug: 'test-store', category: 'smartphones' }),
       searchParams: Promise.resolve({ page: '1' }),
     });
@@ -907,7 +951,7 @@ describe('category page route', () => {
   });
 
   it('returns notFound for out-of-range category pages', async () => {
-    const outOfRangePage = CategoryPageContent({
+    const outOfRangePage = actualCategoryPageContentModule.CategoryPageContent({
       params: Promise.resolve({
         slug: 'test-store',
         category: 'smartphones',

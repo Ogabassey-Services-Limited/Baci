@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { Suspense } from 'react';
 import { InformationalClusterIndex } from '@/components/storefront/ogabassey/seo/informational-cluster-index';
 import { getCachedBlogListing } from '@/lib/cached-data';
 import { generateBreadcrumbSchema, generateSlug } from '@/lib/seo-utils';
@@ -12,7 +11,6 @@ import {
 } from '@/lib/storefront-social-images';
 import { isDomainIdentifier } from '@/lib/validation';
 import { type BlogPostData, getTemplate } from '@/templates/registry';
-import { BlogListingFallback } from './BlogListingFallback';
 import { DefaultBlogUi } from './default-blog-ui';
 import { TemplateBlogRenderer } from './template-blog-renderer';
 
@@ -233,9 +231,5 @@ export async function BlogPageContent({ params, searchParams }: PageProps) {
 }
 
 export default function BlogPage(props: PageProps) {
-  return (
-    <Suspense fallback={<BlogListingFallback />}>
-      <BlogPageContent {...props} />
-    </Suspense>
-  );
+  return <BlogPageContent {...props} />;
 }

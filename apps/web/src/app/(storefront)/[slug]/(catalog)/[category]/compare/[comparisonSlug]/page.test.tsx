@@ -1,4 +1,12 @@
+import { render, screen } from '@testing-library/react';
+import { Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const { mockComparePageContent } = vi.hoisted(() => ({
+  mockComparePageContent: vi.fn((_props: unknown) => (
+    <div>Compare page content</div>
+  )),
+}));
 
 const mockLoadComparePage = vi.fn();
 const mockNotFound = vi.fn(() => {
@@ -7,10 +15,6 @@ const mockNotFound = vi.fn(() => {
 
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
-}));
-
-vi.mock('@/components/ui/skeletons', () => ({
-  ProductGridSkeleton: () => null,
 }));
 
 vi.mock('@/lib/seo-utils', () => ({
@@ -25,6 +29,10 @@ vi.mock('@/lib/seo-utils', () => ({
 
 vi.mock('@/lib/storefront-compare/load-compare-page', () => ({
   loadComparePage: (...args: unknown[]) => mockLoadComparePage(...args),
+}));
+
+vi.mock('./compare-page-content', () => ({
+  ComparePageContent: (props: unknown) => mockComparePageContent(props),
 }));
 
 const comparePageModel = {
@@ -79,10 +87,38 @@ const comparePageModel = {
 beforeEach(() => {
   mockLoadComparePage.mockReset();
   mockNotFound.mockClear();
+  mockComparePageContent.mockReset();
+  mockComparePageContent.mockImplementation(() => (
+    <div>Compare page content</div>
+  ));
   mockLoadComparePage.mockResolvedValue(comparePageModel);
 });
 
 describe('compare page metadata', () => {
+  it('defers compare first paint to the route loader while route params are pending', async () => {
+    const { default: ComparePage } = await import('./page');
+    mockComparePageContent.mockImplementation(() => {
+      throw new Promise(() => {
+        // Keep the compare page content suspended behind the route loader.
+      });
+    });
+
+    render(
+      <Suspense fallback={<div>Route loader fallback</div>}>
+        <ComparePage
+          params={Promise.resolve({
+            slug: 'ogabassey',
+            category: 'smartphones',
+            comparisonSlug: 'iphone-17-pro-max-vs-samsung-galaxy-z-trifold',
+          })}
+        />
+      </Suspense>
+    );
+
+    expect(screen.getByText('Route loader fallback')).toBeInTheDocument();
+    expect(screen.queryByText('Compare page content')).not.toBeInTheDocument();
+  });
+
   it('emits canonical metadata for product compare pages', async () => {
     const { generateMetadata } = await import('./page');
 

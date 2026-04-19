@@ -2,6 +2,11 @@ import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const { mockBlogPostBody, mockBlogPostBodyFallback } = vi.hoisted(() => ({
+  mockBlogPostBody: vi.fn((_props: unknown) => null),
+  mockBlogPostBodyFallback: vi.fn((_props: unknown) => null as ReactNode),
+}));
+
 const mockDraftMode = vi.fn();
 const mockHeaders = vi.fn();
 const mockNotFound = vi.fn(() => {
@@ -106,11 +111,11 @@ vi.mock('@/lib/validation', () => ({
 }));
 
 vi.mock('./BlogPostBody', () => ({
-  BlogPostBody: () => null,
+  BlogPostBody: (props: unknown) => mockBlogPostBody(props),
 }));
 
 vi.mock('./BlogPostBodyFallback', () => ({
-  BlogPostBodyFallback: () => null,
+  BlogPostBodyFallback: (props: unknown) => mockBlogPostBodyFallback(props),
 }));
 
 vi.mock('./BlogPostHeader', () => ({
@@ -178,6 +183,10 @@ const smartphoneGuideBlogPost = {
 describe('BlogPostPageContent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockBlogPostBody.mockReset();
+    mockBlogPostBodyFallback.mockReset();
+    mockBlogPostBody.mockImplementation(() => null);
+    mockBlogPostBodyFallback.mockImplementation(() => null);
     mockDraftMode.mockResolvedValue({ isEnabled: false });
     mockHeaders.mockResolvedValue(
       new Headers({
@@ -226,5 +235,36 @@ describe('BlogPostPageContent', () => {
         title: 'Best Phones in Nigeria for 2026',
       })
     );
+  });
+
+  it('keeps the article chrome visible while the blog body fallback streams', async () => {
+    mockBlogPostBody.mockImplementation(() => {
+      throw new Promise(() => {
+        // Keep the blog body suspended so the nested fallback streams.
+      });
+    });
+    mockBlogPostBodyFallback.mockImplementation(() => (
+      <div>Blog body loading</div>
+    ));
+
+    render(
+      await BlogPostPageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          postSlug: 'best-phones-in-nigeria',
+        }),
+      })
+    );
+
+    expect(
+      screen.getByRole('heading', {
+        level: 1,
+        name: 'Best Phones in Nigeria for 2026',
+      })
+    ).toBeInTheDocument();
+    expect(screen.getByText('Blog body loading')).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /shop more smartphones/i })
+    ).toBeInTheDocument();
   });
 });

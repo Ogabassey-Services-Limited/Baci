@@ -1,7 +1,5 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { Suspense } from 'react';
-import { ProductGridSkeleton } from '@/components/ui/skeletons';
 import { getIndexableRobotsMetadata } from '@/lib/seo-utils';
 import { loadPriceBandPage } from '@/lib/storefront-compare/load-price-band-page';
 import { PriceBandPageContent } from './price-band-page-content';
@@ -39,9 +37,5 @@ export async function generateMetadata({
 }
 
 export default function PriceBandPage(props: PriceBandPageRouteProps) {
-  return (
-    <Suspense fallback={<ProductGridSkeleton count={8} columns={4} />}>
-      <PriceBandPageContent {...props} />
-    </Suspense>
-  );
+  return <PriceBandPageContent {...props} />;
 }

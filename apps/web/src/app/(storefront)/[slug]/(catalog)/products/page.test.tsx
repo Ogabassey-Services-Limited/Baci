@@ -1,11 +1,18 @@
 import { render, screen } from '@testing-library/react';
 import type React from 'react';
+import { Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   getCachedCategories,
   getRequestScopedMerchant,
 } from '@/lib/cached-data';
 import { getCachedStorefrontProductIndex } from '@/lib/cached-storefront-product-index';
+
+const { mockProductsPageContent } = vi.hoisted(() => ({
+  mockProductsPageContent: vi.fn((_props: unknown) => (
+    <div>Products page content</div>
+  )),
+}));
 
 vi.mock('next/image', () => ({
   default: ({
@@ -78,6 +85,16 @@ vi.mock('@/lib/validation', () => ({
       /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/.test(value)),
 }));
 
+vi.mock('./products-page-content', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('./products-page-content')>();
+
+  return {
+    ...actual,
+    ProductsPageContent: (props: unknown) => mockProductsPageContent(props),
+  };
+});
+
 const notFound = vi.fn(() => {
   throw new Error('NEXT_NOT_FOUND');
 });
@@ -124,13 +141,19 @@ const productIndex = {
 };
 
 const { default: ProductsPage, generateMetadata } = await import('./page');
-const { ProductsPageContent } = await import('./products-page-content');
+const actualProductsPageContentModule = await vi.importActual<
+  typeof import('./products-page-content')
+>('./products-page-content');
 
 describe('products index page', () => {
   beforeEach(() => {
     vi.mocked(getRequestScopedMerchant).mockReset();
     vi.mocked(getCachedCategories).mockReset();
     vi.mocked(getCachedStorefrontProductIndex).mockReset();
+    mockProductsPageContent.mockReset();
+    mockProductsPageContent.mockImplementation(() => (
+      <div>Products page content</div>
+    ));
     notFound.mockClear();
 
     vi.mocked(getRequestScopedMerchant).mockResolvedValue(
@@ -155,7 +178,7 @@ describe('products index page', () => {
 
   it('renders product and category links for crawlable discovery', async () => {
     render(
-      await ProductsPageContent({
+      await actualProductsPageContentModule.ProductsPageContent({
         params: Promise.resolve({ slug: 'test-store' }),
         searchParams: Promise.resolve({ page: '2' }),
       })
@@ -188,7 +211,7 @@ describe('products index page', () => {
 
   it('renders the first page without a previous pagination link', async () => {
     render(
-      await ProductsPageContent({
+      await actualProductsPageContentModule.ProductsPageContent({
         params: Promise.resolve({ slug: 'test-store' }),
         searchParams: Promise.resolve({ page: '1' }),
       })
@@ -221,7 +244,7 @@ describe('products index page', () => {
     );
 
     render(
-      await ProductsPageContent({
+      await actualProductsPageContentModule.ProductsPageContent({
         params: Promise.resolve({ slug: 'test-store' }),
         searchParams: Promise.resolve({ page: '2' }),
       })
@@ -249,7 +272,7 @@ describe('products index page', () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValueOnce(null);
 
     await expect(
-      ProductsPageContent({
+      actualProductsPageContentModule.ProductsPageContent({
         params: Promise.resolve({ slug: 'missing-store' }),
         searchParams: Promise.resolve({}),
       })
@@ -260,7 +283,7 @@ describe('products index page', () => {
 
   it('calls notFound when the slug is invalid before lookup', async () => {
     await expect(
-      ProductsPageContent({
+      actualProductsPageContentModule.ProductsPageContent({
         params: Promise.resolve({ slug: 'images' }),
         searchParams: Promise.resolve({}),
       })
@@ -278,7 +301,7 @@ describe('products index page', () => {
     });
 
     await expect(
-      ProductsPageContent({
+      actualProductsPageContentModule.ProductsPageContent({
         params: Promise.resolve({ slug: 'test-store' }),
         searchParams: Promise.resolve({ page: '2' }),
       })
@@ -287,21 +310,24 @@ describe('products index page', () => {
     expect(notFound).not.toHaveBeenCalled();
   });
 
-  it('renders the local fallback while the product listing is pending', () => {
-    vi.mocked(getRequestScopedMerchant).mockReturnValue(
-      new Promise(() => {
-        // Intentionally never resolves to keep the local fallback visible.
-      })
-    );
+  it('defers products first paint to the route loader when the page content suspends', () => {
+    mockProductsPageContent.mockImplementation(() => {
+      throw new Promise(() => {
+        // Keep the page content suspended behind the route-level loader.
+      });
+    });
 
     render(
-      <ProductsPage
-        params={Promise.resolve({ slug: 'test-store' })}
-        searchParams={Promise.resolve({})}
-      />
+      <Suspense fallback={<div>Route loader fallback</div>}>
+        <ProductsPage
+          params={Promise.resolve({ slug: 'test-store' })}
+          searchParams={Promise.resolve({})}
+        />
+      </Suspense>
     );
 
-    expect(screen.getByText('Loading products...')).toBeInTheDocument();
+    expect(screen.getByText('Route loader fallback')).toBeInTheDocument();
+    expect(screen.queryByText('Products page content')).not.toBeInTheDocument();
   });
 
   it('uses a self-referencing canonical on paginated product index pages', async () => {
@@ -384,7 +410,7 @@ describe('products index page', () => {
     });
 
     render(
-      await ProductsPageContent({
+      await actualProductsPageContentModule.ProductsPageContent({
         params: Promise.resolve({ slug: 'test-store' }),
         searchParams: Promise.resolve({ page: '1' }),
       })

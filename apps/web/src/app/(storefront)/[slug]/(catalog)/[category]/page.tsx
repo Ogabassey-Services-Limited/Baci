@@ -1,8 +1,6 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { Suspense } from 'react';
-import { ProductGridSkeleton } from '@/components/ui/skeletons';
 import {
   getCachedCategoryPageData,
   getCachedMerchant,
@@ -137,9 +135,5 @@ export async function generateMetadata({
 }
 
 export default function CategoryPageRoute(props: PageProps) {
-  return (
-    <Suspense fallback={<ProductGridSkeleton />}>
-      <CategoryPageContent {...props} />
-    </Suspense>
-  );
+  return <CategoryPageContent {...props} />;
 }

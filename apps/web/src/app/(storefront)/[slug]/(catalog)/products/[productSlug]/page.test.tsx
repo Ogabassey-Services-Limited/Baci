@@ -1,12 +1,14 @@
 import { render, screen } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import { type ReactNode, Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockNormalizeStorefrontProductVariants } = vi.hoisted(() => ({
-  mockNormalizeStorefrontProductVariants: vi.fn<
-    (...args: unknown[]) => Record<string, unknown>[]
-  >(() => []),
-}));
+const { mockNormalizeStorefrontProductVariants, mockProductDetailClient } =
+  vi.hoisted(() => ({
+    mockNormalizeStorefrontProductVariants: vi.fn<
+      (...args: unknown[]) => Record<string, unknown>[]
+    >(() => []),
+    mockProductDetailClient: vi.fn(() => null),
+  }));
 
 const mockHeaders = vi.fn();
 const mockPermanentRedirect = vi.fn((_url: string) => {
@@ -42,10 +44,6 @@ vi.mock('next/link', () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (
     <a href={href}>{children}</a>
   ),
-}));
-
-vi.mock('@/components/ui/skeletons', () => ({
-  ProductDetailSkeleton: () => null,
 }));
 
 vi.mock('@/lib/cached-data', () => ({
@@ -163,7 +161,7 @@ vi.mock('@/lib/validation', () => ({
 }));
 
 vi.mock('./product-detail-client', () => ({
-  default: () => null,
+  default: () => mockProductDetailClient(),
 }));
 
 import ProductPage, { generateMetadata } from './page';
@@ -252,6 +250,8 @@ describe('products/[productSlug] page', () => {
     vi.clearAllMocks();
     vi.unstubAllEnvs();
     vi.stubEnv('NODE_ENV', 'production');
+    mockProductDetailClient.mockReset();
+    mockProductDetailClient.mockReturnValue(null);
     mockHeaders.mockReset();
     mockHeaders.mockReturnValue(makeHeaders({}));
     mockGenerateProductSchema.mockImplementation(() => ({ offers: {} }));
@@ -296,6 +296,32 @@ describe('products/[productSlug] page', () => {
     expect(mockPermanentRedirect).toHaveBeenCalledWith(
       '/teststore/phones/iphone-15'
     );
+  });
+
+  it('defers generic PDP first paint to the route loader while the client page is pending', async () => {
+    mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
+    mockProductDetailClient.mockImplementation(() => {
+      throw new Promise(() => {
+        // Keep the detail client suspended after route data resolves.
+      });
+    });
+
+    render(
+      <Suspense fallback={<div>Route loader fallback</div>}>
+        {
+          await ProductPage({
+            params: Promise.resolve({
+              slug: 'teststore',
+              productSlug: 'mystery-item',
+            }),
+            searchParams: Promise.resolve({}),
+          })
+        }
+      </Suspense>
+    );
+
+    expect(screen.getByText('Route loader fallback')).toBeInTheDocument();
+    expect(screen.queryByText('mystery-item')).not.toBeInTheDocument();
   });
 
   describe('redirect routing mode', () => {

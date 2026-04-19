@@ -1,4 +1,12 @@
+import { render, screen } from '@testing-library/react';
+import { Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const { mockPriceBandPageContent } = vi.hoisted(() => ({
+  mockPriceBandPageContent: vi.fn((_props: unknown) => (
+    <div>Price band page content</div>
+  )),
+}));
 
 const mockLoadPriceBandPage = vi.fn();
 const mockNotFound = vi.fn(() => {
@@ -7,10 +15,6 @@ const mockNotFound = vi.fn(() => {
 
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
-}));
-
-vi.mock('@/components/ui/skeletons', () => ({
-  ProductGridSkeleton: () => null,
 }));
 
 vi.mock('@/lib/seo-utils', () => ({
@@ -25,6 +29,10 @@ vi.mock('@/lib/seo-utils', () => ({
 
 vi.mock('@/lib/storefront-compare/load-price-band-page', () => ({
   loadPriceBandPage: (...args: unknown[]) => mockLoadPriceBandPage(...args),
+}));
+
+vi.mock('./price-band-page-content', () => ({
+  PriceBandPageContent: (props: unknown) => mockPriceBandPageContent(props),
 }));
 
 const priceBandPageModel = {
@@ -65,10 +73,40 @@ const priceBandPageModel = {
 beforeEach(() => {
   mockLoadPriceBandPage.mockReset();
   mockNotFound.mockClear();
+  mockPriceBandPageContent.mockReset();
+  mockPriceBandPageContent.mockImplementation(() => (
+    <div>Price band page content</div>
+  ));
   mockLoadPriceBandPage.mockResolvedValue(priceBandPageModel);
 });
 
 describe('price-band page metadata', () => {
+  it('defers price-band first paint to the route loader while route params are pending', async () => {
+    const { default: PriceBandPage } = await import('./page');
+    mockPriceBandPageContent.mockImplementation(() => {
+      throw new Promise(() => {
+        // Keep the price-band page content suspended behind the route loader.
+      });
+    });
+
+    render(
+      <Suspense fallback={<div>Route loader fallback</div>}>
+        <PriceBandPage
+          params={Promise.resolve({
+            slug: 'ogabassey',
+            category: 'smartphones',
+            priceBandSlug: 'under-500k',
+          })}
+        />
+      </Suspense>
+    );
+
+    expect(screen.getByText('Route loader fallback')).toBeInTheDocument();
+    expect(
+      screen.queryByText('Price band page content')
+    ).not.toBeInTheDocument();
+  });
+
   it('emits canonical metadata for curated price-band pages', async () => {
     const { generateMetadata } = await import('./page');
 

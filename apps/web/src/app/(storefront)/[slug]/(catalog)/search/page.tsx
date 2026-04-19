@@ -1,8 +1,6 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { Suspense } from 'react';
-import { ProductGridSkeleton } from '@/components/ui/skeletons';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
@@ -46,9 +44,5 @@ export async function generateMetadata({
 }
 
 export default function SearchPage(props: SearchPageProps) {
-  return (
-    <Suspense fallback={<ProductGridSkeleton count={8} columns={4} />}>
-      <SearchPageContent {...props} />
-    </Suspense>
-  );
+  return <SearchPageContent {...props} />;
 }

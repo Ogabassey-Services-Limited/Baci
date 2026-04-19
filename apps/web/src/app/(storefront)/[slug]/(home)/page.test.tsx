@@ -1,6 +1,18 @@
 import { render, screen } from '@testing-library/react';
+import { Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
+
+const { mockStorefrontContent, mockStorefrontPageContent } = vi.hoisted(() => ({
+  mockStorefrontContent: vi.fn(
+    ({ merchant }: { merchant: { business_name: string } }) => (
+      <div>{merchant.business_name} storefront</div>
+    )
+  ),
+  mockStorefrontPageContent: vi.fn((_props: unknown) => (
+    <div>Storefront page content</div>
+  )),
+}));
 
 vi.mock('@/lib/cached-data', () => ({
   getRequestScopedMerchant: vi.fn(),
@@ -20,13 +32,26 @@ vi.mock('@/components/ui/skeletons', () => ({
   StorefrontPageSkeleton: () => <div data-testid="skeleton">Loading...</div>,
 }));
 
-vi.mock('../storefront-content', () => ({
-  StorefrontContent: ({
-    merchant,
-  }: {
-    merchant: { business_name: string };
-  }) => <div>{merchant.business_name} storefront</div>,
-}));
+vi.mock('../storefront-content', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../storefront-content')>();
+
+  return {
+    ...actual,
+    StorefrontContent: (props: { merchant: { business_name: string } }) =>
+      mockStorefrontContent(props),
+  };
+});
+
+vi.mock('../storefront-page-content', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../storefront-page-content')>();
+
+  return {
+    ...actual,
+    StorefrontPageContent: (props: { params: Promise<{ slug: string }> }) =>
+      mockStorefrontPageContent(props),
+  };
+});
 
 vi.mock('@/lib/validation', () => ({
   isValidMerchantIdentifier: () => true,
@@ -74,11 +99,23 @@ const baseMerchant = {
 };
 
 const { default: StorefrontPage } = await import('./page');
-const { StorefrontPageContent } = await import('../storefront-page-content');
+const actualStorefrontPageContentModule = await vi.importActual<
+  typeof import('../storefront-page-content')
+>('../storefront-page-content');
 
 describe('Storefront homepage structured data', () => {
   beforeEach(() => {
     vi.mocked(getRequestScopedMerchant).mockReset();
+    mockStorefrontContent.mockReset();
+    mockStorefrontPageContent.mockReset();
+    mockStorefrontContent.mockImplementation(
+      ({ merchant }: { merchant: { business_name: string } }) => (
+        <div>{merchant.business_name} storefront</div>
+      )
+    );
+    mockStorefrontPageContent.mockImplementation(() => (
+      <div>Storefront page content</div>
+    ));
     mockHeaders.mockReset();
     notFound.mockClear();
     mockHeaders.mockResolvedValue(
@@ -106,7 +143,7 @@ describe('Storefront homepage structured data', () => {
     } as unknown as Awaited<ReturnType<typeof getRequestScopedMerchant>>);
 
     render(
-      await StorefrontPageContent({
+      await actualStorefrontPageContentModule.StorefrontPageContent({
         params: Promise.resolve({ slug: 'ogabassey' }),
       })
     );
@@ -190,7 +227,7 @@ describe('Storefront homepage structured data', () => {
     } as unknown as Awaited<ReturnType<typeof getRequestScopedMerchant>>);
 
     render(
-      await StorefrontPageContent({
+      await actualStorefrontPageContentModule.StorefrontPageContent({
         params: Promise.resolve({ slug: 'ogabassey' }),
       })
     );
@@ -216,20 +253,22 @@ describe('Storefront homepage structured data', () => {
     );
   });
 
-  it('renders the storefront fallback while request headers are still pending', () => {
-    vi.mocked(getRequestScopedMerchant).mockResolvedValue(
-      baseMerchant as unknown as Awaited<
-        ReturnType<typeof getRequestScopedMerchant>
-      >
-    );
-    mockHeaders.mockReturnValue(
-      new Promise(() => {
-        // Intentionally never resolves to keep the local fallback visible.
-      })
+  it('defers homepage first paint to the route loader when the page content suspends', () => {
+    mockStorefrontPageContent.mockImplementation(() => {
+      throw new Promise(() => {
+        // Keep the page content suspended behind the route-level loader.
+      });
+    });
+
+    render(
+      <Suspense fallback={<div>Route loader fallback</div>}>
+        <StorefrontPage params={Promise.resolve({ slug: 'ogabassey' })} />
+      </Suspense>
     );
 
-    render(<StorefrontPage params={Promise.resolve({ slug: 'ogabassey' })} />);
-
-    expect(screen.getByTestId('skeleton')).toBeInTheDocument();
+    expect(screen.getByText('Route loader fallback')).toBeInTheDocument();
+    expect(
+      screen.queryByText('Storefront page content')
+    ).not.toBeInTheDocument();
   });
 });

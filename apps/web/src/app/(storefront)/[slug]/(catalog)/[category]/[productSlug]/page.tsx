@@ -2,7 +2,7 @@ import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
-import { type ReactNode, Suspense } from 'react';
+import type { ReactNode } from 'react';
 import ProductDetailClient from '@/app/(storefront)/[slug]/(catalog)/products/[productSlug]/product-detail-client';
 import { ProductDetailsPage as OgabasseyProductPage } from '@/components/storefront/ogabassey/pages/product-details-page';
 import { buildOgabasseyProductSpecData } from '@/components/storefront/ogabassey/product-spec-data';
@@ -14,7 +14,6 @@ import {
   mergeVariantAxisOptions,
   normalizeVariantAttributes,
 } from '@/components/storefront/ogabassey/variant-attributes';
-import { ProductDetailSkeleton } from '@/components/ui/skeletons';
 import {
   type CachedLegacyProductRedirectTarget,
   type CachedMerchant,
@@ -729,13 +728,11 @@ export default async function CategoryProductPage({
           <dd>₦{product.price?.toLocaleString() || 'Contact for price'}</dd>
         </dl>
       </article>
-      <Suspense fallback={<ProductDetailSkeleton />}>
-        <TemplateProductPage
-          product={product}
-          semanticSections={semanticSections}
-          templateId={merchant?.template_id}
-        />
-      </Suspense>
+      <TemplateProductPage
+        product={product}
+        semanticSections={semanticSections}
+        templateId={merchant?.template_id}
+      />
     </>
   );
 }

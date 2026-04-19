@@ -2,9 +2,7 @@ import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
 import type { Metadata, ResolvingMetadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
-import { Suspense } from 'react';
 import { ProductSemanticSections } from '@/components/storefront/ogabassey/seo/product-semantic-sections';
-import { ProductDetailSkeleton } from '@/components/ui/skeletons';
 import {
   getCachedCategoryPageData,
   getCachedLegacyProductRedirectTarget,
@@ -499,10 +497,8 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
           }} // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
         />
       )}
-      <Suspense fallback={<ProductDetailSkeleton />}>
-        <ProductDetailClient product={product} faqs={productFaqs} />
-        <ProductSemanticSections model={semanticSectionsModel} />
-      </Suspense>
+      <ProductDetailClient product={product} faqs={productFaqs} />
+      <ProductSemanticSections model={semanticSectionsModel} />
     </>
   );
 }

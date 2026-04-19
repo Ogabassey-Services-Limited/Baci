@@ -1,8 +1,6 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { Suspense } from 'react';
-import { ProductGridSkeleton } from '@/components/ui/skeletons';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { getCachedStorefrontProductIndex } from '@/lib/cached-storefront-product-index';
 import {
@@ -24,19 +22,6 @@ import { ProductsPageContent } from './products-page-content';
 interface PageProps {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ page?: string }>;
-}
-
-function ProductsPageFallback() {
-  return (
-    <div className="min-h-screen bg-[color:color-mix(in_srgb,var(--store-background,#ffffff)_94%,var(--store-background-text,#111827)_6%)] pb-20 pt-6">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mb-6 text-sm text-[var(--store-muted-text,#6b7280)]">
-          Loading products...
-        </div>
-        <ProductGridSkeleton count={8} columns={4} />
-      </div>
-    </div>
-  );
 }
 
 export async function generateMetadata({
@@ -121,9 +106,5 @@ export async function generateMetadata({
 }
 
 export default function ProductsPage(props: PageProps) {
-  return (
-    <Suspense fallback={<ProductsPageFallback />}>
-      <ProductsPageContent {...props} />
-    </Suspense>
-  );
+  return <ProductsPageContent {...props} />;
 }

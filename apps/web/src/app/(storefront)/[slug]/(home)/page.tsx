@@ -1,6 +1,4 @@
 import type { Metadata } from 'next';
-import { Suspense } from 'react';
-import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { buildStoreUrl } from '@/lib/store-url';
 import { isValidMerchantIdentifier } from '@/lib/validation';
@@ -103,9 +101,5 @@ export default function StorefrontPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  return (
-    <Suspense fallback={<StorefrontPageSkeleton />}>
-      <StorefrontPageContent params={params} />
-    </Suspense>
-  );
+  return <StorefrontPageContent params={params} />;
 }

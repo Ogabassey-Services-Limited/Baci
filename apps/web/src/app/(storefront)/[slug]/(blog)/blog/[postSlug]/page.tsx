@@ -1,13 +1,11 @@
 import type { Metadata } from 'next';
 import { draftMode } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { Suspense } from 'react';
 import { buildStoreUrl } from '@/lib/store-url';
 import {
   getStorefrontOpenGraphImages,
   getStorefrontTwitterImages,
 } from '@/lib/storefront-social-images';
-import { BlogPostPageFallback } from './BlogPostPageFallback';
 import {
   buildCanonicalBlogPostUrl,
   getBlogPostTextPreview,
@@ -81,9 +79,5 @@ export async function generateMetadata({
 }
 
 export default function BlogPostPage({ params }: PageProps) {
-  return (
-    <Suspense fallback={<BlogPostPageFallback />}>
-      <BlogPostPageContent params={params} />
-    </Suspense>
-  );
+  return <BlogPostPageContent params={params} />;
 }
