@@ -132,6 +132,18 @@ export default function SearchScreen() {
     loadSearchHistory();
   }, []);
 
+  const commitSearchQuery = (value: string) => {
+    const trimmedValue = value.trim();
+
+    setDebouncedQuery(trimmedValue);
+
+    if (trimmedValue.length >= 2) {
+      saveToHistory(trimmedValue);
+    }
+
+    Keyboard.dismiss();
+  };
+
   // Save search to history
   const saveToHistory = (searchTerm: string) => {
     if (!searchTerm.trim() || searchTerm.length < 2) return;
@@ -372,9 +384,7 @@ export default function SearchScreen() {
               value={query}
               onChangeText={setQuery}
               onSubmitEditing={() => {
-                if (query.trim().length >= 2) {
-                  saveToHistory(query);
-                }
+                commitSearchQuery(query);
               }}
               returnKeyType="search"
               autoCapitalize="none"
