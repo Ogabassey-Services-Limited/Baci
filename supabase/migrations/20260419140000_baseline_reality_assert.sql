@@ -31,16 +31,36 @@ CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
 -- ========================================================================
 -- 2. Storage buckets — `pg_dump --schema public` does not capture the
 --    `storage` schema, so buckets must be re-asserted explicitly.
+--
+--    Constrained buckets (hero-images, favicons, migration-imports,
+--    kyc-documents) need their `file_size_limit` and `allowed_mime_types`
+--    preserved so that — on a fresh env where a bucket is missing — the
+--    re-assert doesn't silently recreate them without upload controls.
+--    `ON CONFLICT DO NOTHING` keeps this idempotent: buckets already present
+--    (including on prod) are left untouched. Matches the shapes from
+--    archived migrations:
+--      - hero-images:       20251130100001_hero_images_storage.sql
+--      - favicons:          20251201000001_create_favicons_bucket.sql
+--      - migration-imports: 20260322114500_create_migration_imports_storage_bucket.sql
+--      - kyc-documents:     20260409130000_add_merchant_verifications.sql
 -- ========================================================================
 INSERT INTO storage.buckets (id, name, public)
 VALUES
   ('media',             'media',             true),
   ('images',            'images',            true),
-  ('hero-images',       'hero-images',       true),
-  ('favicons',          'favicons',          true),
-  ('merchant-assets',   'merchant-assets',   true),
-  ('migration-imports', 'migration-imports', false),
-  ('kyc-documents',     'kyc-documents',     false)
+  ('merchant-assets',   'merchant-assets',   true)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES
+  ('hero-images',       'hero-images',       true,  5242880,
+    ARRAY['image/png', 'image/jpeg', 'image/webp']),
+  ('favicons',          'favicons',          true,  1048576,
+    ARRAY['image/svg+xml', 'image/png', 'image/x-icon']),
+  ('migration-imports', 'migration-imports', false, 26214400,
+    ARRAY['text/csv', 'application/vnd.ms-excel']),
+  ('kyc-documents',     'kyc-documents',     false, 5242880,
+    ARRAY['image/jpeg', 'image/png', 'image/webp', 'application/pdf'])
 ON CONFLICT (id) DO NOTHING;
 
 -- ========================================================================
@@ -143,9 +163,19 @@ CREATE POLICY "Merchants can delete migration import files"
 -- ========================================================================
 -- 4. Realtime publication — `supabase_realtime` table membership is not
 --    captured by `pg_dump --schema public`. Re-assert `import_jobs`.
+--    Guard on the publication itself existing: on environments where
+--    `supabase_realtime` hasn't been created yet, `ALTER PUBLICATION` would
+--    abort the migration.
 -- ========================================================================
 DO $$
 BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime'
+  ) THEN
+    RAISE NOTICE 'supabase_realtime publication is missing; skipping import_jobs re-assert';
+    RETURN;
+  END IF;
+
   IF NOT EXISTS (
     SELECT 1 FROM pg_publication_tables
     WHERE pubname = 'supabase_realtime'
