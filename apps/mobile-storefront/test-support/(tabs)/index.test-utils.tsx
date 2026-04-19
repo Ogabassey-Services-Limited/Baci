@@ -178,4 +178,4 @@ export function setupHomeScreenTestState() {
   });
 }
 
-export { default as HomeScreen } from './index';
+export { default as HomeScreen } from '../../app/(tabs)/index';

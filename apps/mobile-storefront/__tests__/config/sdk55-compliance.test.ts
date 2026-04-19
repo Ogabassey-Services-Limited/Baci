@@ -1,9 +1,19 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import appConfig from '../../app.config';
 
 const ROOT = path.resolve(__dirname, '../..');
 
 describe('SDK 55 compliance', () => {
+  it('uses a manual runtime version for bare workflow builds', () => {
+    const config = appConfig({ config: {} as never } as unknown as Parameters<
+      typeof appConfig
+    >[0]);
+
+    expect(typeof config.runtimeVersion).toBe('string');
+    expect(config.runtimeVersion).toBe(config.version);
+  });
+
   it('app.config.ts does not contain newArchEnabled (removed in SDK 55)', () => {
     const configSource = readFileSync(
       path.join(ROOT, 'app.config.ts'),

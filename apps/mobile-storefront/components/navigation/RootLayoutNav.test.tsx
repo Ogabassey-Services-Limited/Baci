@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { render, screen } from '@testing-library/react-native';
 import type React from 'react';
 import { Text, View } from 'react-native';
-import { RootLayoutNav } from './root-layout-nav';
+import { RootLayoutNav } from './RootLayoutNav';
 
 const MockText = Text;
 const MockView = View;

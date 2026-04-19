@@ -6,7 +6,6 @@ import {
 import { Stack } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ConnectivityBanner } from '@/components/ConnectivityBanner';
 import { ChatWidget } from '@/components/chat/ChatWidget';
@@ -18,6 +17,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { CHAT_WIDGET_DEFAULT_BOTTOM_OFFSET } from '@/constants/layout';
 import Colors, { BRAND } from '@/constants/Colors';
 import { useAuthGuard } from '@/hooks/use-auth-guard';
+import { getOptionalGestureHandlerRuntime } from '@/lib/optional-gesture-handler';
 import { QueryProvider } from '@/lib/QueryProvider';
 import { CONFIG } from '@/lib/config';
 import { getTemplateConfig } from '@/lib/templates';
@@ -53,6 +53,7 @@ interface RootLayoutNavProps {
 export function RootLayoutNav({
   persistenceEnabled = true,
 }: RootLayoutNavProps) {
+  const { GestureHandlerRootView } = getOptionalGestureHandlerRuntime();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
   const template = getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID);

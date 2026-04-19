@@ -10,7 +10,10 @@ const parsedAndroidVersionCode =
 let androidVersionCode: number | undefined;
 const appVersion = '2.0.0';
 
-if (rawAndroidVersionCode !== undefined) {
+if (
+  rawAndroidVersionCode !== undefined &&
+  parsedAndroidVersionCode !== undefined
+) {
   if (!Number.isInteger(parsedAndroidVersionCode)) {
     console.warn(
       `[app.config] Ignoring ANDROID_VERSION_CODE="${rawAndroidVersionCode}" because it is not an integer.`
@@ -55,12 +58,14 @@ if (rawIosAppVersion !== undefined && rawIosAppVersion.trim().length > 0) {
   _iosAppVersion = trimmed;
 }
 
+const runtimeVersion = _iosAppVersion ?? appVersion;
+
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'Ogabassey',
   slug: 'ogabassey-store',
   owner: 'ogabassey',
-  version: _iosAppVersion ?? appVersion,
+  version: runtimeVersion,
   orientation: 'portrait',
   icon: './assets/images/icon.png',
   userInterfaceStyle: 'automatic',
@@ -182,5 +187,5 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     checkAutomatically: 'ON_ERROR_RECOVERY',
     fallbackToCacheTimeout: 0,
   },
-  runtimeVersion: { policy: 'appVersion' },
+  runtimeVersion,
 });

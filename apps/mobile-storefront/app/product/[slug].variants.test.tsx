@@ -11,7 +11,7 @@ import {
   primaryVariant,
   secondaryVariant,
   variantProduct,
-} from './product-detail-screen.fixtures';
+} from '@/lib/product-route/product-detail-screen.fixtures';
 import {
   getLastMockProps,
   mockProductDetailsBody,
@@ -21,7 +21,7 @@ import {
   mockUseProduct,
   ProductDetailScreen,
   resetProductDetailScreenMocks,
-} from './product-detail-screen.test-utils';
+} from '../../test-support/product/product-detail-screen.test-utils';
 
 describe('ProductDetailScreen variant stock behavior', () => {
   beforeAll(() => {
