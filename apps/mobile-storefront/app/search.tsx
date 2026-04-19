@@ -66,8 +66,6 @@ function dedupeRecentSearches(searches: string[]) {
   });
 }
 
-// ... (imports remain)
-
 export default function SearchScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -153,6 +151,10 @@ export default function SearchScreen() {
       debounceTimerRef.current = null;
     }
 
+    // Keep the visible input text aligned with the value that was actually
+    // searched — otherwise "  samsung  " stays padded in the TextInput
+    // while results are correctly showing the trimmed search.
+    setQuery(trimmedValue);
     setDebouncedQuery(trimmedValue);
 
     if (trimmedValue.length >= 2) {
