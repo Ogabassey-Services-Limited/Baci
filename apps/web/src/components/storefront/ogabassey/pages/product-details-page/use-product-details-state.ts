@@ -165,7 +165,9 @@ export function useProductDetailsState(serverProduct: Product) {
   // Stock" in SSR HTML before hydration could swap it to "Add to Cart". The
   // existing post-hydration effect still fires on route-param changes; its
   // equality checks bail out when state already matches (no wasted renders).
-  const initialSeedSelection =
+  // Each `useState` uses a lazy initializer so the seed resolution runs once
+  // on mount instead of on every render.
+  const resolveInitialSeed = () =>
     resolveVariantDisplaySelection(
       {
         price: relatedProductsProduct.price,
@@ -179,35 +181,33 @@ export function useProductDetailsState(serverProduct: Product) {
         variantId: routeVariantId,
       }
     ) ?? defaultVariantSelection;
-  const initialCondition =
-    routeCondition
-      ? (routeCondition as ConditionType)
-      : initialSeedSelection?.condition &&
-          isValidConditionParam(initialSeedSelection.condition)
-        ? (normalizeCanonicalProductCondition(
-            initialSeedSelection.condition
-          ) as ConditionType)
-        : (normalizeCanonicalProductCondition(productData.condition) as ConditionType) ||
-          'new';
-  const initialSelectedAttributes: Record<string, string> = initialSeedSelection
-    ? { ...routeSelectionAttributes, ...initialSeedSelection.attributes }
-    : {};
-  const initialSelectedColorIndex = initialSeedSelection?.color
-    ? productData.colors.findIndex(
-        (color) => color.name === initialSeedSelection.color
-      )
-    : -1;
   const [selectedCondition, setSelectedCondition] = useState<ConditionType>(
-    initialCondition
+    () => {
+      const seed = resolveInitialSeed();
+      return routeCondition
+        ? (routeCondition as ConditionType)
+        : seed?.condition && isValidConditionParam(seed.condition)
+          ? (normalizeCanonicalProductCondition(seed.condition) as ConditionType)
+          : (normalizeCanonicalProductCondition(
+              productData.condition
+            ) as ConditionType) || 'new';
+    }
   );
   const [selectedImage, setSelectedImage] = useState(0);
-  const [selectedColor, setSelectedColor] = useState<number | null>(
-    initialSelectedColorIndex >= 0 ? initialSelectedColorIndex : null
-  );
+  const [selectedColor, setSelectedColor] = useState<number | null>(() => {
+    const seed = resolveInitialSeed();
+    const index = seed?.color
+      ? productData.colors.findIndex((color) => color.name === seed.color)
+      : -1;
+    return index >= 0 ? index : null;
+  });
   const [secondaryColor, setSecondaryColor] = useState<number | null>(null);
   const [selectedAttributes, setSelectedAttributes] = useState<
     Record<string, string>
-  >(initialSelectedAttributes);
+  >(() => {
+    const seed = resolveInitialSeed();
+    return seed ? { ...routeSelectionAttributes, ...seed.attributes } : {};
+  });
   const [activeTab, setActiveTab] =
     useState<ProductDetailsActiveTab>('description');
   const [deliveryLocation, setDeliveryLocation] = useState<
