@@ -56,7 +56,7 @@ describe('pages/contact metadata', () => {
     expect(metadata.alternates?.canonical).toBe('/contact');
   });
 
-  it('returns the bare fallback title when no contact channel is populated', async () => {
+  it('throws notFound when no contact channel is populated', async () => {
     vi.mocked(getMerchantByIdentifier).mockResolvedValue({
       business_name: 'Test Store',
       logo_url: null,
@@ -64,12 +64,11 @@ describe('pages/contact metadata', () => {
       pages: {},
     } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
 
-    const metadata = await generateMetadata({
-      params: Promise.resolve({ slug: 'test-store' }),
-    });
-
-    expect(metadata.title).toBe('Contact Us');
-    expect(metadata.alternates).toBeUndefined();
+    await expect(
+      generateMetadata({
+        params: Promise.resolve({ slug: 'test-store' }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
   });
 
   // Intentionally does NOT treat a trust-profile WhatsApp-only merchant as a
@@ -77,7 +76,7 @@ describe('pages/contact metadata', () => {
   // trust-profile WhatsApp CTA, so gating the page open would produce an
   // empty-looking page. When the client starts rendering that CTA, flip this
   // test to assert the merchant-specific title.
-  it('does not gate the page open on trust-profile WhatsApp alone (until UI renders it)', async () => {
+  it('throws notFound for trust-profile WhatsApp-only merchants (until UI renders CTA)', async () => {
     vi.mocked(getMerchantByIdentifier).mockResolvedValue({
       business_name: 'Test Store',
       logo_url: null,
@@ -88,11 +87,10 @@ describe('pages/contact metadata', () => {
       },
     } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
 
-    const metadata = await generateMetadata({
-      params: Promise.resolve({ slug: 'test-store' }),
-    });
-
-    expect(metadata.title).toBe('Contact Us');
-    expect(metadata.alternates).toBeUndefined();
+    await expect(
+      generateMetadata({
+        params: Promise.resolve({ slug: 'test-store' }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
   });
 });

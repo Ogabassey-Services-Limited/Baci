@@ -42,10 +42,11 @@ export async function generateMetadata({
     };
   }
 
+  // Match ContactContent: if there's no reachable channel, 404 at the
+  // metadata layer too so crawlers don't index a bare "Contact Us" title
+  // for a page whose body also 404s.
   if (!hasContactInfo(merchant)) {
-    return {
-      title: 'Contact Us',
-    };
+    notFound();
   }
 
   return {

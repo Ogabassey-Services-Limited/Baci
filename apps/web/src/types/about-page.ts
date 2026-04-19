@@ -5,6 +5,7 @@
 
 import { generateOrganizationSchema } from '@/lib/seo-utils';
 import type { MerchantTrustProfile } from '@/lib/storefront-trust/merchant-trust-profile-types';
+import { getVideoEmbedUrl } from '@/lib/video-embed';
 
 export interface TeamMember {
   name: string;
@@ -99,14 +100,22 @@ export function getRenderedAboutFields(aboutPage: MerchantAboutPage) {
       aboutPage.milestones && aboutPage.milestones.length > 0
     ),
     awards: Boolean(aboutPage.awards && aboutPage.awards.length > 0),
+    // Only count social_proof keys the client actually renders as stats.
+    // `review_count` alone (without `rating`) has no card in the UI, so
+    // treating it as "has content" rendered an empty stats grid.
     socialProof: Boolean(
-      aboutPage.social_proof &&
-        Object.values(aboutPage.social_proof).some(
-          (value) => value !== undefined && value !== null
-        )
+      aboutPage.social_proof?.years_in_business ||
+        aboutPage.social_proof?.customers_served ||
+        aboutPage.social_proof?.products_sold ||
+        aboutPage.social_proof?.rating
     ),
     gallery: Boolean(aboutPage.gallery && aboutPage.gallery.length > 0),
-    videoUrl: Boolean(aboutPage.video_url),
+    // Only gate on video_url that actually produces a supported embed —
+    // `about-page-client.tsx` refuses to render unsupported URLs, so an
+    // unembeddable link otherwise passes the gate and opens an empty page.
+    videoUrl: Boolean(
+      aboutPage.video_url && getVideoEmbedUrl(aboutPage.video_url)
+    ),
   };
 }
 
