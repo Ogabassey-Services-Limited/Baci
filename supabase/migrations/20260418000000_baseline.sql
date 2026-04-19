@@ -17426,33 +17426,107 @@ CREATE POLICY "Favicons are publicly accessible"
   USING (bucket_id = 'favicons');
 
 -- migration-imports
+--
+-- Owner OR staff with matching permissions (mirrors archived
+-- 20260322114500_create_migration_imports_storage_bucket.sql, which the
+-- baseline pg_dump elided down to owner-only). Without the staff branch,
+-- `apps/web/src/lib/import-jobs/import-job-route-auth.ts` authorizes staff
+-- at the API layer but their storage reads/writes fail with RLS errors.
 DROP POLICY IF EXISTS "Merchants can read migration import files" ON storage.objects;
 CREATE POLICY "Merchants can read migration import files"
   ON storage.objects FOR SELECT
+  TO authenticated
   USING (
     bucket_id = 'migration-imports'
-    AND (storage.foldername(name))[1] IN (
-      SELECT m.id::text FROM public.merchants m WHERE m.user_id = (SELECT auth.uid())
+    AND (
+      (storage.foldername(name))[1] IN (
+        SELECT m.id::text FROM public.merchants m
+        WHERE m.user_id = (SELECT auth.uid())
+      )
+      OR (storage.foldername(name))[1] IN (
+        SELECT m.id::text FROM public.merchants m
+        WHERE public.check_staff_permission((SELECT auth.uid()), m.id, 'settings', 'edit')
+          OR public.check_staff_permission((SELECT auth.uid()), m.id, 'orders',   'edit')
+          OR public.check_staff_permission((SELECT auth.uid()), m.id, 'products', 'create')
+      )
     )
   );
 
 DROP POLICY IF EXISTS "Merchants can upload migration import files" ON storage.objects;
 CREATE POLICY "Merchants can upload migration import files"
   ON storage.objects FOR INSERT
+  TO authenticated
   WITH CHECK (
     bucket_id = 'migration-imports'
-    AND (storage.foldername(name))[1] IN (
-      SELECT m.id::text FROM public.merchants m WHERE m.user_id = (SELECT auth.uid())
+    AND (
+      (storage.foldername(name))[1] IN (
+        SELECT m.id::text FROM public.merchants m
+        WHERE m.user_id = (SELECT auth.uid())
+      )
+      OR (storage.foldername(name))[1] IN (
+        SELECT m.id::text FROM public.merchants m
+        WHERE public.check_staff_permission((SELECT auth.uid()), m.id, 'settings', 'edit')
+          OR public.check_staff_permission((SELECT auth.uid()), m.id, 'orders',   'edit')
+          OR public.check_staff_permission((SELECT auth.uid()), m.id, 'products', 'create')
+      )
     )
   );
 
 DROP POLICY IF EXISTS "Merchants can update migration import files" ON storage.objects;
 CREATE POLICY "Merchants can update migration import files"
   ON storage.objects FOR UPDATE
+  TO authenticated
   USING (
     bucket_id = 'migration-imports'
-    AND (storage.foldername(name))[1] IN (
-      SELECT m.id::text FROM public.merchants m WHERE m.user_id = (SELECT auth.uid())
+    AND (
+      (storage.foldername(name))[1] IN (
+        SELECT m.id::text FROM public.merchants m
+        WHERE m.user_id = (SELECT auth.uid())
+      )
+      OR (storage.foldername(name))[1] IN (
+        SELECT m.id::text FROM public.merchants m
+        WHERE public.check_staff_permission((SELECT auth.uid()), m.id, 'settings', 'edit')
+          OR public.check_staff_permission((SELECT auth.uid()), m.id, 'orders',   'edit')
+          OR public.check_staff_permission((SELECT auth.uid()), m.id, 'products', 'create')
+      )
+    )
+  )
+  WITH CHECK (
+    bucket_id = 'migration-imports'
+    AND (
+      (storage.foldername(name))[1] IN (
+        SELECT m.id::text FROM public.merchants m
+        WHERE m.user_id = (SELECT auth.uid())
+      )
+      OR (storage.foldername(name))[1] IN (
+        SELECT m.id::text FROM public.merchants m
+        WHERE public.check_staff_permission((SELECT auth.uid()), m.id, 'settings', 'edit')
+          OR public.check_staff_permission((SELECT auth.uid()), m.id, 'orders',   'edit')
+          OR public.check_staff_permission((SELECT auth.uid()), m.id, 'products', 'create')
+      )
+    )
+  );
+
+-- Restore DELETE policy so failure-path cleanup in apps/web/src/app/api/
+-- import-jobs/route.ts (storage.from('migration-imports').remove(...))
+-- doesn't silently accumulate orphaned uploads on fresh databases.
+DROP POLICY IF EXISTS "Merchants can delete migration import files" ON storage.objects;
+CREATE POLICY "Merchants can delete migration import files"
+  ON storage.objects FOR DELETE
+  TO authenticated
+  USING (
+    bucket_id = 'migration-imports'
+    AND (
+      (storage.foldername(name))[1] IN (
+        SELECT m.id::text FROM public.merchants m
+        WHERE m.user_id = (SELECT auth.uid())
+      )
+      OR (storage.foldername(name))[1] IN (
+        SELECT m.id::text FROM public.merchants m
+        WHERE public.check_staff_permission((SELECT auth.uid()), m.id, 'settings', 'edit')
+          OR public.check_staff_permission((SELECT auth.uid()), m.id, 'orders',   'edit')
+          OR public.check_staff_permission((SELECT auth.uid()), m.id, 'products', 'create')
+      )
     )
   );
 
