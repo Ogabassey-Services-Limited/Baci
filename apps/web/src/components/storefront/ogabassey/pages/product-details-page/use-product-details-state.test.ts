@@ -242,6 +242,53 @@ describe('useProductDetailsState', () => {
     expect(result.current.canPurchase).toBe(true);
   });
 
+  it('seeds selectedAttributes + selectedColor on SSR (no effect flushing) so mobile action bar renders "Add to Cart" not "Out of Stock"', async () => {
+    // Use React's SSR renderer directly: it calls the component function once
+    // with no useEffect flushing, mirroring the first paint that ships to the
+    // browser. Before render-time seeding, selectedAttributes/selectedColor
+    // were initialized to {}/null, currentVariantSelection resolved to null,
+    // and canPurchase was false — the mobile action bar emitted "Out of
+    // Stock" in SSR HTML for unmanaged-stock merchants with zero stock_quantity.
+    const { renderToString } = await import('react-dom/server');
+    const { createElement } = await import('react');
+
+    let ssrState:
+      | ReturnType<typeof useProductDetailsState>
+      | undefined;
+    function Probe() {
+      ssrState = useProductDetailsState({
+        ...baseProduct,
+        has_variants: true,
+        manage_stock: false,
+        variant_attributes: { storage: ['128GB', '256GB'] },
+        variants: [
+          {
+            id: 'variant-128',
+            condition: 'new',
+            attributes: { storage: '128GB', color: 'Black' },
+            price_override: 5000,
+            stock_quantity: 0,
+          },
+          {
+            id: 'variant-256',
+            condition: 'new',
+            attributes: { storage: '256GB', color: 'Black' },
+            price_override: 6000,
+            stock_quantity: 0,
+          },
+        ],
+      } as Product);
+      return null;
+    }
+
+    renderToString(createElement(Probe));
+
+    expect(ssrState).toBeDefined();
+    expect(ssrState?.canPurchase).toBe(true);
+    expect(ssrState?.selectedAttributes).toMatchObject({ storage: '128GB' });
+    expect(ssrState?.selectedColor).not.toBeNull();
+  });
+
   it('reopens selection before applying a negotiated price when choices are missing', () => {
     const { result } = renderHook(() => useProductDetailsState(baseProduct));
 
