@@ -7,7 +7,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { router, Stack } from 'expo-router';
-import { useDeferredValue, useEffect, useState } from 'react';
+import { useDeferredValue, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
@@ -66,8 +66,6 @@ function dedupeRecentSearches(searches: string[]) {
   });
 }
 
-// ... (imports remain)
-
 export default function SearchScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -94,13 +92,24 @@ export default function SearchScreen() {
   const [recentSearches, setRecentSearches] =
     useState<string[]>(DEFAULT_SEARCHES);
 
-  // Load search history from storage on mount
+  // Track the in-flight debounce timer so manual commits (search submit) can
+  // cancel it before writing the final value. Without this, a pending
+  // setTimeout from a prior keystroke could fire AFTER commitSearchQuery and
+  // overwrite debouncedQuery with a stale mid-typing value.
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
-    const timer = setTimeout(() => {
+    debounceTimerRef.current = setTimeout(() => {
       setDebouncedQuery(activeQuery);
+      debounceTimerRef.current = null;
     }, 250);
 
-    return () => clearTimeout(timer);
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+    };
   }, [activeQuery]);
 
   useEffect(() => {
@@ -131,6 +140,29 @@ export default function SearchScreen() {
     };
     loadSearchHistory();
   }, []);
+
+  const commitSearchQuery = (value: string) => {
+    const trimmedValue = value.trim();
+
+    // Cancel any pending debounce so it can't overwrite the committed value
+    // with a stale mid-typing snapshot.
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+
+    // Keep the visible input text aligned with the value that was actually
+    // searched — otherwise "  samsung  " stays padded in the TextInput
+    // while results are correctly showing the trimmed search.
+    setQuery(trimmedValue);
+    setDebouncedQuery(trimmedValue);
+
+    if (trimmedValue.length >= 2) {
+      saveToHistory(trimmedValue);
+    }
+
+    Keyboard.dismiss();
+  };
 
   // Save search to history
   const saveToHistory = (searchTerm: string) => {
@@ -372,9 +404,7 @@ export default function SearchScreen() {
               value={query}
               onChangeText={setQuery}
               onSubmitEditing={() => {
-                if (query.trim().length >= 2) {
-                  saveToHistory(query);
-                }
+                commitSearchQuery(query);
               }}
               returnKeyType="search"
               autoCapitalize="none"
