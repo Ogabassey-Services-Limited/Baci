@@ -17,6 +17,25 @@ import type {
 // Re-export escapeHtml for use in other modules
 export { escapeHtml, getEffectiveProductStock };
 
+/**
+ * Resolve schema.org availability URI for an offer/variant/product.
+ * Respects `manage_stock=false` (unmanaged / infinite-stock merchants) — stock
+ * counters are ignored in that case so unmanaged products never emit
+ * `OutOfStock` in JSON-LD / Google Merchant feeds.
+ */
+function getSchemaOfferAvailability(input: {
+  stock?: number | string | null;
+  stock_quantity?: number | string | null;
+  manage_stock?: boolean | null;
+}): string {
+  if (input.manage_stock === false) {
+    return 'https://schema.org/InStock';
+  }
+  return getEffectiveProductStock(input) > 0
+    ? 'https://schema.org/InStock'
+    : 'https://schema.org/OutOfStock';
+}
+
 function getSchemaItemCondition(condition?: string | null) {
   return toSchemaItemConditionUri(condition);
 }
@@ -429,10 +448,10 @@ export function generateProductSchema(
             '@type': 'Offer',
             price: offer.price,
             priceCurrency: currency,
-            availability:
-              offer.stock_quantity > 0
-                ? 'https://schema.org/InStock'
-                : 'https://schema.org/OutOfStock',
+            availability: getSchemaOfferAvailability({
+              stock_quantity: offer.stock_quantity,
+              manage_stock: product.manage_stock,
+            }),
             itemCondition: getSchemaItemCondition(offer.condition),
             seller: {
               '@type': 'Organization',
@@ -448,9 +467,10 @@ export function generateProductSchema(
             '@type': 'Offer',
             price: product.price,
             priceCurrency: currency,
-            availability: getEffectiveProductStock(product)
-              ? 'https://schema.org/InStock'
-              : 'https://schema.org/OutOfStock',
+            availability: getSchemaOfferAvailability({
+              stock: product.stock,
+              manage_stock: product.manage_stock,
+            }),
             itemCondition: getSchemaItemCondition(product.condition),
             seller: {
               '@type': 'Organization',
@@ -865,10 +885,10 @@ export function generateProductSchema(
           '@type': 'Offer',
           price: variantPrice,
           priceCurrency: currency,
-          availability:
-            variant.stock_quantity > 0
-              ? 'https://schema.org/InStock'
-              : 'https://schema.org/OutOfStock',
+          availability: getSchemaOfferAvailability({
+            stock_quantity: variant.stock_quantity,
+            manage_stock: product.manage_stock,
+          }),
           itemCondition: variantCondition,
           priceValidUntil: variantPriceValidUntil,
           seller: {
@@ -1208,9 +1228,10 @@ export function generateCollectionPageSchema(
               '@type': 'Offer',
               price: product.price,
               priceCurrency: data.currency || 'NGN',
-              availability: getEffectiveProductStock(product)
-                ? 'https://schema.org/InStock'
-                : 'https://schema.org/OutOfStock',
+              availability: getSchemaOfferAvailability({
+                stock: product.stock,
+                manage_stock: product.manage_stock,
+              }),
               url: productUrl || undefined,
             },
           },
