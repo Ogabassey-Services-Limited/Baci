@@ -158,25 +158,56 @@ export function useProductDetailsState(serverProduct: Product) {
       stock_quantity: variant.stock_quantity ?? null,
     }))
   );
+  // Resolve the initial variant selection at render time (not in an effect) so
+  // the very first render — including server-side render and pre-hydration
+  // markup — already has a concrete variant selected. Previously we seeded
+  // from a `useEffect`, which meant the mobile action bar rendered "Out of
+  // Stock" in SSR HTML before hydration could swap it to "Add to Cart". The
+  // existing post-hydration effect still fires on route-param changes; its
+  // equality checks bail out when state already matches (no wasted renders).
+  const initialSeedSelection =
+    resolveVariantDisplaySelection(
+      {
+        price: relatedProductsProduct.price,
+        condition: productData.condition,
+        manage_stock: productData.manage_stock,
+        variants: productData.variants,
+      },
+      {
+        attributes: routeSelectionAttributes,
+        condition: routeCondition,
+        variantId: routeVariantId,
+      }
+    ) ?? defaultVariantSelection;
   const initialCondition =
     routeCondition
       ? (routeCondition as ConditionType)
-      : defaultVariantSelection?.condition &&
-          isValidConditionParam(defaultVariantSelection.condition)
+      : initialSeedSelection?.condition &&
+          isValidConditionParam(initialSeedSelection.condition)
         ? (normalizeCanonicalProductCondition(
-            defaultVariantSelection.condition
+            initialSeedSelection.condition
           ) as ConditionType)
         : (normalizeCanonicalProductCondition(productData.condition) as ConditionType) ||
           'new';
+  const initialSelectedAttributes: Record<string, string> = initialSeedSelection
+    ? { ...routeSelectionAttributes, ...initialSeedSelection.attributes }
+    : {};
+  const initialSelectedColorIndex = initialSeedSelection?.color
+    ? productData.colors.findIndex(
+        (color) => color.name === initialSeedSelection.color
+      )
+    : -1;
   const [selectedCondition, setSelectedCondition] = useState<ConditionType>(
     initialCondition
   );
   const [selectedImage, setSelectedImage] = useState(0);
-  const [selectedColor, setSelectedColor] = useState<number | null>(null);
+  const [selectedColor, setSelectedColor] = useState<number | null>(
+    initialSelectedColorIndex >= 0 ? initialSelectedColorIndex : null
+  );
   const [secondaryColor, setSecondaryColor] = useState<number | null>(null);
   const [selectedAttributes, setSelectedAttributes] = useState<
     Record<string, string>
-  >({});
+  >(initialSelectedAttributes);
   const [activeTab, setActiveTab] =
     useState<ProductDetailsActiveTab>('description');
   const [deliveryLocation, setDeliveryLocation] = useState<
