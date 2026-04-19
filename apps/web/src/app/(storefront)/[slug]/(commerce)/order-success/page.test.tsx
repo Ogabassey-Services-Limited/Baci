@@ -66,15 +66,38 @@ describe('storefront order success page', () => {
     global.fetch = mockFetch as unknown as typeof fetch;
   });
 
-  it('does not let a full-page loading state own the first paint while order details are pending', () => {
+  it('shows a neutral shell while order details are still loading', () => {
     mockFetch.mockReturnValue(new Promise(() => undefined));
 
     render(<OrderSuccessPage />);
 
     expect(
-      screen.getByRole('heading', { name: /order confirmed!/i })
+      screen.getByRole('heading', { name: /finalizing your order/i })
     ).toBeInTheDocument();
-    expect(screen.queryByText(/loading order details/i)).toBeNull();
+    expect(
+      screen.queryByRole('heading', { name: /order confirmed!/i })
+    ).toBeNull();
+    expect(
+      screen.getByText(/fetching your order summary/i)
+    ).toBeInTheDocument();
+  });
+
+  it('shows a recovery state when the order id is missing', () => {
+    mockSearchParams.mockReturnValue(new URLSearchParams());
+
+    render(<OrderSuccessPage />);
+
+    expect(
+      screen.getByRole('heading', {
+        name: /we could not confirm this order yet/i,
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: /order confirmed!/i })
+    ).toBeNull();
+    expect(
+      screen.getByRole('link', { name: /return to checkout/i })
+    ).toHaveAttribute('href', '/test-store/checkout');
   });
 
   it('uses trackingToken to fetch guest order details', async () => {

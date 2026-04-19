@@ -88,6 +88,19 @@ function OrderSuccessContent() {
     fetchOrder();
   }, [orderId, merchant?.slug, orderToken]);
 
+  const hasValidatedOrder = Boolean(order);
+  const hasRecoveryState = !loading && !hasValidatedOrder;
+  const heading = hasValidatedOrder
+    ? 'Order Confirmed!'
+    : hasRecoveryState
+      ? 'We could not confirm this order yet'
+      : 'Finalizing your order';
+  const description = hasValidatedOrder
+    ? 'Thank you for your purchase. Your order has been received.'
+    : hasRecoveryState
+      ? 'We could not validate this order from the current link. You can return to checkout or keep shopping while we sort it out.'
+      : 'We are validating your order details now. This page will update as soon as your confirmation is ready.';
+
   return (
     <div className="min-h-screen bg-gray-50 pb-20 pt-10">
       {/* Google Customer Reviews Opt-in */}
@@ -108,16 +121,30 @@ function OrderSuccessContent() {
 
       <div className="max-w-xl mx-auto px-4">
         <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 text-center">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircle className="w-10 h-10 text-green-600" />
+          <div
+            className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 ${
+              hasValidatedOrder
+                ? 'bg-green-100'
+                : hasRecoveryState
+                  ? 'bg-amber-100'
+                  : 'bg-gray-100'
+            }`}
+          >
+            {hasValidatedOrder ? (
+              <CheckCircle className="w-10 h-10 text-green-600" />
+            ) : (
+              <Loader2
+                className={`w-10 h-10 ${
+                  hasRecoveryState
+                    ? 'text-amber-600'
+                    : 'animate-spin text-gray-500'
+                }`}
+              />
+            )}
           </div>
 
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Order Confirmed!
-          </h1>
-          <p className="text-gray-500 mb-8">
-            Thank you for your purchase. Your order has been received.
-          </p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">{heading}</h1>
+          <p className="text-gray-500 mb-8">{description}</p>
 
           {loading && (
             <div className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-4 py-2 text-sm text-gray-500 mb-8">
@@ -163,22 +190,36 @@ function OrderSuccessContent() {
           )}
 
           <div className="flex flex-col gap-3">
+            {hasRecoveryState && (
+              <Link
+                href={asRoute(getHref('/checkout'))}
+                className="inline-flex items-center justify-center gap-2 px-6 py-4 bg-black text-white font-bold rounded-xl hover:bg-gray-800 transition-colors w-full"
+              >
+                Return to Checkout
+                <ArrowRight size={18} />
+              </Link>
+            )}
+
             <Link
               href={asRoute(getHref('/'))}
-              className="inline-flex items-center justify-center gap-2 px-6 py-4 bg-black text-white font-bold rounded-xl hover:bg-gray-800 transition-colors w-full"
+              className={`inline-flex items-center justify-center gap-2 px-6 py-4 font-bold rounded-xl transition-colors w-full ${
+                hasRecoveryState
+                  ? 'bg-white text-gray-900 border border-gray-200 hover:bg-gray-50'
+                  : 'bg-black text-white hover:bg-gray-800'
+              }`}
             >
               Continue Shopping
               <ArrowRight size={18} />
             </Link>
 
-            {user ? (
+            {hasValidatedOrder && user ? (
               <Link
                 href={asRoute(getHref('/account/orders'))}
                 className="inline-flex items-center justify-center gap-2 px-6 py-4 bg-white text-gray-900 font-bold rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors w-full"
               >
                 View My Orders
               </Link>
-            ) : order?.tracking_token ? (
+            ) : hasValidatedOrder && order?.tracking_token ? (
               <Link
                 href={asRoute(
                   getHref(
@@ -191,15 +232,17 @@ function OrderSuccessContent() {
               </Link>
             ) : null}
 
-            <a
-              href={BACI_GOOGLE_REVIEW_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center justify-center gap-2 px-6 py-4 bg-white text-gray-900 font-bold rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors w-full"
-            >
-              <Star size={18} />
-              Leave a Google Review
-            </a>
+            {hasValidatedOrder && (
+              <a
+                href={BACI_GOOGLE_REVIEW_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center gap-2 px-6 py-4 bg-white text-gray-900 font-bold rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors w-full"
+              >
+                <Star size={18} />
+                Leave a Google Review
+              </a>
+            )}
           </div>
         </div>
       </div>
