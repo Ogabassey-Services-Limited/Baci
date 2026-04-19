@@ -15,13 +15,26 @@
 -- via `execute_sql` before this PR was opened) and carries the same DDL so
 -- fresh `supabase db reset` rebuilds end up in the same state.
 
--- favicons — used only via getPublicUrl from lib/favicon-processor.ts
+-- favicons — used only via getPublicUrl from lib/favicon-processor.ts.
+-- Actual policy name is "Public read access for favicons" (created in
+-- 20251201000001_create_favicons_bucket.sql line 49). The earlier draft of
+-- this migration dropped the wrong name ("Favicons are publicly accessible"),
+-- which silently left the broad listing policy in place on fresh envs —
+-- detected in code review (PR #1292 P1).
+DROP POLICY IF EXISTS "Public read access for favicons" ON storage.objects;
+-- Keep the old incorrect name as a no-op drop in case a non-archived env has
+-- it under that name; harmless if nothing matches.
 DROP POLICY IF EXISTS "Favicons are publicly accessible" ON storage.objects;
 
 -- hero-images — had two redundant broad-SELECT policies; drop both.
 -- Discovery happens via public.ai_hero_images DB table, not via bucket listing.
-DROP POLICY IF EXISTS "Hero images are publicly accessible" ON storage.objects;
+-- "Public can view hero images" from 20251124053500_create_images_buckets.sql:41
+-- "Public read access for hero images" from 20251130100001_hero_images_storage.sql:17
+-- The earlier draft used the wrong name "Hero images are publicly accessible";
+-- keep that as a defensive no-op drop.
+DROP POLICY IF EXISTS "Public read access for hero images" ON storage.objects;
 DROP POLICY IF EXISTS "Public can view hero images" ON storage.objects;
+DROP POLICY IF EXISTS "Hero images are publicly accessible" ON storage.objects;
 
 -- images — temp storage during Imagen3 generation; consumed by known paths.
 DROP POLICY IF EXISTS "Public can view images" ON storage.objects;
