@@ -26,6 +26,7 @@ interface HeaderProps {
   isSearchActive?: boolean;
   searchQuery?: string;
   onSearchQueryChange?: (text: string) => void;
+  onSearchSubmit?: () => void;
   onSearchCancel?: () => void;
 }
 
@@ -37,6 +38,7 @@ export function Header({
   isSearchActive = false,
   searchQuery = '',
   onSearchQueryChange,
+  onSearchSubmit,
   onSearchCancel,
 }: HeaderProps) {
   const insets = useSafeAreaInsets();
@@ -190,6 +192,7 @@ export function Header({
                     style={[styles.searchInput, { color: colors.text }]}
                     value={searchQuery}
                     onChangeText={onSearchQueryChange}
+                    onSubmitEditing={onSearchSubmit}
                     placeholder="Search products..."
                     placeholderTextColor={colors.placeholder}
                     returnKeyType="search"
