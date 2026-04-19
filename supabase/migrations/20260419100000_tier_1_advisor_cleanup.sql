@@ -108,8 +108,14 @@ CREATE POLICY "Merchants can view pending import uploads"
       WHERE merchants.user_id = (SELECT auth.uid())
     )
     OR public.check_staff_permission((SELECT auth.uid()), merchant_id, 'settings', 'edit')
-    OR public.check_staff_permission((SELECT auth.uid()), merchant_id, 'orders',   'edit')
-    OR public.check_staff_permission((SELECT auth.uid()), merchant_id, 'products', 'create')
+    OR (
+      entity_type = 'orders'
+      AND public.check_staff_permission((SELECT auth.uid()), merchant_id, 'orders', 'edit')
+    )
+    OR (
+      entity_type = 'products'
+      AND public.check_staff_permission((SELECT auth.uid()), merchant_id, 'products', 'create')
+    )
   );
 
 DROP POLICY IF EXISTS "Merchants can create pending import uploads"
@@ -122,8 +128,14 @@ CREATE POLICY "Merchants can create pending import uploads"
       WHERE merchants.user_id = (SELECT auth.uid())
     )
     OR public.check_staff_permission((SELECT auth.uid()), merchant_id, 'settings', 'edit')
-    OR public.check_staff_permission((SELECT auth.uid()), merchant_id, 'orders',   'edit')
-    OR public.check_staff_permission((SELECT auth.uid()), merchant_id, 'products', 'create')
+    OR (
+      entity_type = 'orders'
+      AND public.check_staff_permission((SELECT auth.uid()), merchant_id, 'orders', 'edit')
+    )
+    OR (
+      entity_type = 'products'
+      AND public.check_staff_permission((SELECT auth.uid()), merchant_id, 'products', 'create')
+    )
   );
 
 DROP POLICY IF EXISTS "Merchants can update pending import uploads"
@@ -136,8 +148,14 @@ CREATE POLICY "Merchants can update pending import uploads"
       WHERE merchants.user_id = (SELECT auth.uid())
     )
     OR public.check_staff_permission((SELECT auth.uid()), merchant_id, 'settings', 'edit')
-    OR public.check_staff_permission((SELECT auth.uid()), merchant_id, 'orders',   'edit')
-    OR public.check_staff_permission((SELECT auth.uid()), merchant_id, 'products', 'create')
+    OR (
+      entity_type = 'orders'
+      AND public.check_staff_permission((SELECT auth.uid()), merchant_id, 'orders', 'edit')
+    )
+    OR (
+      entity_type = 'products'
+      AND public.check_staff_permission((SELECT auth.uid()), merchant_id, 'products', 'create')
+    )
   )
   WITH CHECK (
     merchant_id IN (
@@ -145,8 +163,14 @@ CREATE POLICY "Merchants can update pending import uploads"
       WHERE merchants.user_id = (SELECT auth.uid())
     )
     OR public.check_staff_permission((SELECT auth.uid()), merchant_id, 'settings', 'edit')
-    OR public.check_staff_permission((SELECT auth.uid()), merchant_id, 'orders',   'edit')
-    OR public.check_staff_permission((SELECT auth.uid()), merchant_id, 'products', 'create')
+    OR (
+      entity_type = 'orders'
+      AND public.check_staff_permission((SELECT auth.uid()), merchant_id, 'orders', 'edit')
+    )
+    OR (
+      entity_type = 'products'
+      AND public.check_staff_permission((SELECT auth.uid()), merchant_id, 'products', 'create')
+    )
   );
 
 -- product_offer_migration_archive (1)
