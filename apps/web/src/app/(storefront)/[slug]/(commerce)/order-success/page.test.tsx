@@ -66,6 +66,17 @@ describe('storefront order success page', () => {
     global.fetch = mockFetch as unknown as typeof fetch;
   });
 
+  it('does not let a full-page loading state own the first paint while order details are pending', () => {
+    mockFetch.mockReturnValue(new Promise(() => undefined));
+
+    render(<OrderSuccessPage />);
+
+    expect(
+      screen.getByRole('heading', { name: /order confirmed!/i })
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/loading order details/i)).toBeNull();
+  });
+
   it('uses trackingToken to fetch guest order details', async () => {
     render(<OrderSuccessPage />);
 

@@ -3,7 +3,7 @@
 import { ArrowRight, CheckCircle, Loader2, Star } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { BACI_GOOGLE_REVIEW_URL } from '@/lib/post-purchase-actions';
 import { asRoute } from '@/lib/routes';
@@ -88,15 +88,6 @@ function OrderSuccessContent() {
     fetchOrder();
   }, [orderId, merchant?.slug, orderToken]);
 
-  if (loading) {
-    return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-gray-400 mb-4" />
-        <p className="text-gray-500">Loading order details...</p>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gray-50 pb-20 pt-10">
       {/* Google Customer Reviews Opt-in */}
@@ -127,6 +118,13 @@ function OrderSuccessContent() {
           <p className="text-gray-500 mb-8">
             Thank you for your purchase. Your order has been received.
           </p>
+
+          {loading && (
+            <div className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-4 py-2 text-sm text-gray-500 mb-8">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>Fetching your order summary...</span>
+            </div>
+          )}
 
           {order && (
             <div className="text-left bg-gray-50 rounded-2xl p-6 mb-8 border border-gray-100">
@@ -210,15 +208,5 @@ function OrderSuccessContent() {
 }
 
 export default function OrderSuccessPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center">
-          <Loader2 className="animate-spin" />
-        </div>
-      }
-    >
-      <OrderSuccessContent />
-    </Suspense>
-  );
+  return <OrderSuccessContent />;
 }

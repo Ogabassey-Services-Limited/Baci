@@ -185,6 +185,14 @@ const groupedFirstPaintOwnershipManifest = [
     forbiddenSnippets: ['fallback={<div>Loading...</div>}'],
   },
   {
+    path: '(commerce)/order-success/page.tsx',
+    forbiddenSnippets: ['Suspense', 'Loading order details...'],
+  },
+  {
+    path: '(commerce)/checkout/success/page.tsx',
+    forbiddenSnippets: ["'verifying')", 'Verifying Your Payment'],
+  },
+  {
     path: '(commerce)/wallet/page.tsx',
     forbiddenSnippets: [
       'Loading wallet...',

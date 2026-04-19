@@ -54,9 +54,10 @@ export default function CheckoutSuccessPage() {
   const getHref = (path: string) =>
     path.startsWith('http') ? path : `${basePath}${path}`;
 
-  const [status, setStatus] = useState<
-    'verifying' | 'success' | 'pending' | 'failed'
-  >('verifying');
+  const [status, setStatus] = useState<'success' | 'pending' | 'failed'>(
+    'pending'
+  );
+  const [isVerifying, setIsVerifying] = useState(false);
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization
@@ -66,6 +67,8 @@ export default function CheckoutSuccessPage() {
         router.push(asRoute(getHref('/checkout')));
         return;
       }
+
+      setIsVerifying(true);
 
       try {
         const response = await fetch(
@@ -97,6 +100,8 @@ export default function CheckoutSuccessPage() {
         console.error('Failed to verify payment:', error);
         setStatus('pending');
         setOrderNumber(reference.slice(0, 8).toUpperCase());
+      } finally {
+        setIsVerifying(false);
       }
     };
 
@@ -110,29 +115,6 @@ export default function CheckoutSuccessPage() {
 
     sessionStorage.removeItem(CHECKOUT_PENDING_ORDER_STORAGE_KEY);
   }, [status]);
-
-  // Verifying State
-  if (status === 'verifying') {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex items-center justify-center p-4">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center"
-        >
-          <div className="w-20 h-20 bg-white rounded-full shadow-lg flex items-center justify-center mx-auto mb-6">
-            <Loader2 className="w-10 h-10 text-red-500 animate-spin" />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            Verifying Your Payment
-          </h1>
-          <p className="text-gray-500">
-            Please wait while we confirm your transaction...
-          </p>
-        </motion.div>
-      </div>
-    );
-  }
 
   // Failed State
   if (status === 'failed') {
@@ -241,6 +223,22 @@ export default function CheckoutSuccessPage() {
       {/* Main Content */}
       <div className="px-4 pb-12">
         <div className="max-w-2xl mx-auto space-y-6">
+          {isVerifying && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.45 }}
+              className="bg-white rounded-2xl border border-amber-100 p-4 shadow-sm"
+            >
+              <div className="flex items-center gap-3 text-amber-700">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <p className="text-sm font-medium">
+                  Confirming your payment status...
+                </p>
+              </div>
+            </motion.div>
+          )}
+
           {/* Order Progress Timeline */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
