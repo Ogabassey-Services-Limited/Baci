@@ -110,7 +110,6 @@ describe('robots()', () => {
     const disallows = defaultRule.disallow as string[];
 
     expect(disallows).toContain('/api/');
-    expect(disallows).toContain('/_next/');
     expect(disallows).toContain('/checkout/');
     expect(disallows).toContain('/account/login/');
     // Should NOT include platform paths
@@ -137,6 +136,7 @@ describe('robots()', () => {
     const disallows = defaultRule.disallow as string[];
 
     expect(disallows).toContain('/api/');
+    expect(disallows).not.toContain('/_next/');
     expect(disallows).not.toContain('/dashboard/');
     expect(result.sitemap).toEqual([
       'https://shop.ogabassey.com/sitemap/static.xml',
@@ -156,6 +156,19 @@ describe('robots()', () => {
       : result.rules;
 
     expect(defaultRule.disallow).toContain('/dashboard/');
+  });
+
+  it('does not block Next.js assets for the platform domain', async () => {
+    const { default: robots } = await import('./robots');
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
+    mockHost = 'usebaci.com';
+
+    const result = await robots();
+    const defaultRule = Array.isArray(result.rules)
+      ? result.rules[0]
+      : result.rules;
+
+    expect(defaultRule.disallow).not.toContain('/_next/');
   });
 
   it('includes AI bot user agents', async () => {

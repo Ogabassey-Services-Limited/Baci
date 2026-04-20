@@ -55,6 +55,20 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
     expect(schema.variesBy).toBeUndefined();
   });
 
+  it('keeps google_product_category out of schema.org product markup', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        google_product_category:
+          'Electronics > Communications > Telephony > Mobile Phones',
+      }),
+      'TestStore',
+      'USD',
+      'NG'
+    );
+
+    expect(schema.google_product_category).toBeUndefined();
+  });
+
   it('outputs @type ProductGroup when variants exist', () => {
     const product = makeProduct({
       slug: 'test-product',

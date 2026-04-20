@@ -30,7 +30,6 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
         '/checkout/',
         '/reset-password/',
         '/auth/',
-        '/_next/',
         '/blog/shopdetail/',
         '/blog/zhHant/',
         '/blog/product/',
@@ -41,7 +40,6 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     : [
         // Merchant subdomains/custom domains: only block API and internal paths
         '/api/',
-        '/_next/',
         '/checkout/',
         '/account/login/',
       ];

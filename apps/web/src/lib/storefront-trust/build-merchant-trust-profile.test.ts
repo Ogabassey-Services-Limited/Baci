@@ -15,7 +15,11 @@ const merchantFixture: MerchantTrustProfileSource = {
     country: 'Nigeria',
   },
   tax_identification_number: 'TIN-123',
-  pages: { privacy: 'Privacy copy', contact: 'Contact copy' },
+  pages: {
+    privacy: 'Privacy copy',
+    contact: 'Contact copy',
+    terms: 'Terms copy',
+  },
   trust_profile: {
     founded_year: 2018,
     customer_service: {
@@ -95,7 +99,8 @@ describe('buildMerchantTrustProfile', () => {
       },
       derivedLinks: {
         contact: 'https://ogabassey.com/contact',
-        privacy: 'https://ogabassey.com/privacy-policy',
+        privacy: 'https://ogabassey.com/privacy',
+        terms: 'https://ogabassey.com/terms',
         returns: 'https://ogabassey.com/returns',
         shipping: 'https://ogabassey.com/shipping',
         warranty: 'https://ogabassey.com/warranty',
