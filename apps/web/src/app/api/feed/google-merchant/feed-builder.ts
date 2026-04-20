@@ -18,8 +18,9 @@ import {
   resolveGmcPrimaryImage,
 } from '@/lib/gmc-feed-images';
 import { getEffectiveStock } from '@/lib/product-stock';
-import { stripHtmlTags } from '@/lib/sanitize-core';
+import type { ProductKeySpecs } from '@/lib/products';
 import { getProductUrl } from '@/lib/seo-utils';
+import { buildFeedDescription } from './build-feed-description';
 
 export interface FeedProduct {
   id: string;
@@ -41,10 +42,12 @@ export interface FeedProduct {
   google_product_category?: string;
   category?: string;
   category_slug?: string;
+  color?: string;
   categories?: {
     name?: string;
     slug?: string;
   } | null;
+  product_key_specs?: ProductKeySpecs | null;
   weight_value?: number;
   weight_unit?: 'kg' | 'lb' | 'g' | 'oz';
   updated_at?: string;
@@ -381,7 +384,7 @@ export function generateGoogleMerchantFeed(
             `        <g:additional_image_link>${escapeXml(url)}</g:additional_image_link>`
         )
         .join('\n');
-      const description = stripHtmlTags(product.description).trim();
+      const description = buildFeedDescription(product);
       const shippingWeight =
         product.weight_value && product.weight_unit
           ? `        <g:shipping_weight>${product.weight_value} ${product.weight_unit}</g:shipping_weight>`
