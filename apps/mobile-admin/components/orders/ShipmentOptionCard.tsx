@@ -26,7 +26,7 @@ export function ShipmentOptionCard({
     <Pressable
       accessibilityLabel={`${title}. ${description}`}
       accessibilityRole="radio"
-      accessibilityState={{ disabled, selected }}
+      accessibilityState={{ disabled, checked: selected }}
       disabled={disabled}
       onPress={onPress}
       style={[

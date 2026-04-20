@@ -390,7 +390,7 @@ export function PaymentMethodSelector({
               disabled={isDisabled}
               accessibilityRole="radio"
               accessibilityState={{
-                selected: isSelected,
+                checked: isSelected,
                 disabled: isDisabled,
               }}
               accessibilityLabel={`${method.label}. ${isDisabled ? method.disabledReason : method.description}`}

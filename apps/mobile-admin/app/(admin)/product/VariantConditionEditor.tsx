@@ -47,7 +47,7 @@ export function VariantConditionEditor({
               }
               accessibilityRole="radio"
               accessibilityLabel={`${formatConditionLabel(conditionOption)} condition`}
-              accessibilityState={{ selected: isSelected }}
+              accessibilityState={{ checked: isSelected }}
               style={[
                 styles.option,
                 {
