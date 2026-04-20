@@ -255,6 +255,80 @@ describe('generateGoogleMerchantFeed — additional_image_link guarantees', () =
 
 // ---------- feed structure ----------
 describe('generateGoogleMerchantFeed — feed structure', () => {
+  it('enriches descriptions with the key specs Merchant Center flagged as missing', () => {
+    const imageManifest: Record<string, FeedImageManifestEntry[]> = {
+      'prod-1': [manifestEntry()],
+    };
+    const xml = generateGoogleMerchantFeed(
+      [
+        product({
+          description: 'A fast flagship phone.',
+          color: 'Black',
+          product_key_specs: {
+            screen_size_inches: 6.7,
+            display_resolution: '1290 x 2796',
+            ram_gb: 8,
+            storage_gb: 256,
+            main_camera_mp: 48,
+            front_camera_mp: 12,
+            weight_g: 190,
+          },
+        }),
+      ],
+      merchant(),
+      BASE_URL,
+      imageManifest
+    );
+
+    expect(xml).toContain('A fast flagship phone. Key details:');
+    expect(xml).toContain('Colour: Black');
+    expect(xml).toContain('Screen size: 6.7 inches');
+    expect(xml).toContain('Screen resolution: 1290 x 2796');
+    expect(xml).toContain('RAM: 8GB');
+    expect(xml).toContain('Storage capacity: 256GB');
+    expect(xml).toContain('Rear camera resolution: 48MP');
+    expect(xml).toContain('Front camera resolution: 12MP');
+    expect(xml).toContain('Weight: 190g');
+  });
+
+  it('does not add key-details fragments when product specs are absent', () => {
+    const imageManifest: Record<string, FeedImageManifestEntry[]> = {
+      'prod-1': [manifestEntry()],
+      'prod-2': [
+        manifestEntry({
+          verified_url: 'https://cdn.example.com/prod-2.jpg',
+        }),
+      ],
+    };
+    const xml = generateGoogleMerchantFeed(
+      [
+        product({
+          description: 'A clean product description without structured specs.',
+          product_key_specs: undefined,
+        }),
+        product({
+          id: 'prod-2',
+          slug: 'prod-2',
+          description: 'Another clean product description.',
+          product_key_specs: {},
+        }),
+      ],
+      merchant(),
+      BASE_URL,
+      imageManifest
+    );
+
+    expect(xml).not.toContain('Key details:');
+    expect(xml).not.toContain('Colour:');
+    expect(xml).not.toContain('Screen size:');
+    expect(xml).not.toContain('Screen resolution:');
+    expect(xml).not.toContain('RAM:');
+    expect(xml).not.toContain('Storage capacity:');
+    expect(xml).not.toContain('Rear camera resolution:');
+    expect(xml).not.toContain('Front camera resolution:');
+    expect(xml).not.toContain('Weight:');
+  });
+
   it('includes multiple products with verified images', () => {
     const imageManifest: Record<string, FeedImageManifestEntry[]> = {
       'prod-1': [

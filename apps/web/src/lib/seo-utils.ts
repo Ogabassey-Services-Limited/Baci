@@ -511,12 +511,6 @@ export function generateProductSchema(
     schema.category = escapeHtml(categoryName);
   }
 
-  if (product.google_product_category) {
-    schema.google_product_category = escapeHtml(
-      product.google_product_category
-    );
-  }
-
   // Physical attributes
   if (product.weight_value && product.weight_unit) {
     schema.weight = {
