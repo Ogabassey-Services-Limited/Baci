@@ -1,9 +1,9 @@
 import type React from 'react';
-import { View } from 'react-native';
+import { type StyleProp, View, type ViewStyle } from 'react-native';
 
 type GestureHandlerRootViewProps = {
   children?: React.ReactNode;
-  style?: object;
+  style?: StyleProp<ViewStyle>;
 };
 
 type GestureDetectorProps = {
@@ -12,12 +12,8 @@ type GestureDetectorProps = {
 };
 
 type GestureHandlerRuntime = {
-  Gesture:
-    | typeof import('react-native-gesture-handler').Gesture
-    | null;
-  GestureDetector: (
-    props: GestureDetectorProps
-  ) => React.ReactElement | null;
+  Gesture: typeof import('react-native-gesture-handler').Gesture | null;
+  GestureDetector: (props: GestureDetectorProps) => React.ReactElement | null;
   GestureHandlerRootView: (
     props: GestureHandlerRootViewProps
   ) => React.ReactElement | null;
@@ -40,7 +36,8 @@ export function getOptionalGestureHandlerRuntime(): GestureHandlerRuntime {
   }
 
   try {
-    const gestureHandler = require('react-native-gesture-handler') as typeof import('react-native-gesture-handler');
+    const gestureHandler =
+      require('react-native-gesture-handler') as typeof import('react-native-gesture-handler');
     const runtime: GestureHandlerRuntime = {
       Gesture: gestureHandler.Gesture,
       GestureDetector: gestureHandler.GestureDetector as unknown as (

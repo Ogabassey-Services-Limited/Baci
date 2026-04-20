@@ -10,10 +10,9 @@ const parsedAndroidVersionCode =
 let androidVersionCode: number | undefined;
 const appVersion = '2.0.0';
 
-if (
-  rawAndroidVersionCode !== undefined &&
-  parsedAndroidVersionCode !== undefined
-) {
+// `parsedAndroidVersionCode` is undefined iff `rawAndroidVersionCode` is, so
+// checking only the parsed value is sufficient and narrows the type below.
+if (parsedAndroidVersionCode !== undefined) {
   if (!Number.isInteger(parsedAndroidVersionCode)) {
     console.warn(
       `[app.config] Ignoring ANDROID_VERSION_CODE="${rawAndroidVersionCode}" because it is not an integer.`
