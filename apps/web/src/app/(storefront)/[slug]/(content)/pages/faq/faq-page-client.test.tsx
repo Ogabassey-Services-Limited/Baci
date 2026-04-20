@@ -1,6 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import type React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mockUseMerchantSafe = vi.fn(() => ({ basePath: '' as string }));
 
 vi.mock('@/components/app-body', () => ({
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -51,7 +53,7 @@ vi.mock('@/hooks/use-merchant', () => ({
   MerchantProvider: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
   ),
-  useMerchantSafe: () => ({ basePath: '' }),
+  useMerchantSafe: () => mockUseMerchantSafe(),
 }));
 
 vi.mock('next/link', () => ({
@@ -72,6 +74,10 @@ vi.mock('next/link', () => ({
 import { FAQPageClient } from './faq-page-client';
 
 describe('FAQPageClient', () => {
+  beforeEach(() => {
+    mockUseMerchantSafe.mockReturnValue({ basePath: '' });
+  });
+
   it('exports a valid component', () => {
     expect(FAQPageClient).toBeDefined();
     expect(typeof FAQPageClient).toBe('function');
@@ -98,5 +104,24 @@ describe('FAQPageClient', () => {
     expect(
       screen.getByRole('link', { name: /contact support/i })
     ).toHaveAttribute('href', '/contact');
+  });
+
+  it('prefixes the contact link with basePath when set', () => {
+    mockUseMerchantSafe.mockReturnValueOnce({ basePath: '/ogabassey' });
+
+    render(
+      <FAQPageClient
+        merchant={{
+          id: 'merchant-2',
+          slug: 'ogabassey',
+          business_name: 'Ogabassey',
+        }}
+        faqItems={[]}
+      />
+    );
+
+    expect(
+      screen.getByRole('link', { name: /contact support/i })
+    ).toHaveAttribute('href', '/ogabassey/contact');
   });
 });

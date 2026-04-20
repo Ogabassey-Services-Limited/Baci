@@ -10,7 +10,9 @@ vi.mock('next/navigation', () => ({
   permanentRedirect: vi.fn(),
 }));
 
-const { default: LegacyBlogPage } = await import('./page');
+const { default: LegacyBlogPage } = await import(
+  '@/app/(storefront)/[slug]/(content)/pages/blog/page'
+);
 
 describe('legacy blog page redirect', () => {
   it('redirects custom-domain traffic to the canonical /blog URL', async () => {

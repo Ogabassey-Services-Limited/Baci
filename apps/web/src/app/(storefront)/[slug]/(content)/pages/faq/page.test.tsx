@@ -10,7 +10,9 @@ vi.mock('next/navigation', () => ({
   permanentRedirect: vi.fn(),
 }));
 
-const { default: LegacyFaqPage } = await import('./page');
+const { default: LegacyFaqPage } = await import(
+  '@/app/(storefront)/[slug]/(content)/pages/faq/page'
+);
 
 describe('legacy faq page redirect', () => {
   it('redirects custom-domain traffic to the canonical /faq URL', async () => {

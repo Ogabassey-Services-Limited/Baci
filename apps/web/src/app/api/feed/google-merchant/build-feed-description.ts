@@ -89,7 +89,7 @@ export function buildFeedDescription(input: FeedDescriptionInput) {
   const specDetails = buildSpecDetails(input);
 
   if (specDetails.length === 0) {
-    return trimDescription(baseDescription || input.name.trim());
+    return trimDescription(baseDescription || normalizeText(input.name));
   }
 
   const normalizedBase = baseDescription.toLowerCase();
@@ -98,12 +98,12 @@ export function buildFeedDescription(input: FeedDescriptionInput) {
   );
 
   if (missingDetails.length === 0) {
-    return trimDescription(baseDescription || input.name.trim());
+    return trimDescription(baseDescription || normalizeText(input.name));
   }
 
   const specSentence = `Key details: ${missingDetails.join('; ')}.`;
   if (!baseDescription) {
-    return trimDescription(`${input.name.trim()}. ${specSentence}`);
+    return trimDescription(`${normalizeText(input.name)}. ${specSentence}`);
   }
 
   return trimDescription(`${baseDescription} ${specSentence}`);

@@ -40,13 +40,24 @@ interface FAQPageClientProps {
   legacyContent?: string;
 }
 
+function ContactCTA() {
+  const merchantCtx = useMerchantSafe();
+  const basePath = merchantCtx?.basePath ?? '';
+  return (
+    <Link
+      href={asRoute(`${basePath}/contact`)}
+      className="inline-flex items-center justify-center px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
+    >
+      Contact Support
+    </Link>
+  );
+}
+
 export function FAQPageClient({
   merchant,
   faqItems,
   legacyContent,
 }: FAQPageClientProps) {
-  const merchantCtx = useMerchantSafe();
-  const basePath = merchantCtx?.basePath ?? '';
   const [searchQuery, setSearchQuery] = useState('');
   const hasStructuredFAQs = faqItems.length > 0;
 
@@ -215,12 +226,7 @@ export function FAQPageClient({
                   <p className="text-muted-foreground mb-4">
                     Can't find what you're looking for? We're here to help.
                   </p>
-                  <Link
-                    href={asRoute(`${basePath}/contact`)}
-                    className="inline-flex items-center justify-center px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
-                  >
-                    Contact Support
-                  </Link>
+                  <ContactCTA />
                 </div>
               </div>
             </main>

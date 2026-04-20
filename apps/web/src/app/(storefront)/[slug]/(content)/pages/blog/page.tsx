@@ -17,7 +17,11 @@ export default async function LegacyBlogPage({
   const basePath = buildStorefrontLocalPath(await headers(), slug, '/blog');
   const queryString = new URLSearchParams(
     Object.entries(query).flatMap(([k, v]) =>
-      Array.isArray(v) ? v.map((val) => [k, val]) : v ? [[k, v]] : []
+      Array.isArray(v)
+        ? v.map((val) => [k, val])
+        : v !== undefined
+          ? [[k, v]]
+          : []
     )
   ).toString();
   const destination: Route = queryString
