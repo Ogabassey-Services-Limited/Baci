@@ -12,7 +12,7 @@ rsync -av --exclude='.env' --exclude='node_modules' \
   vps-workers/ "$VPS:$REMOTE_DIR/"
 
 echo "==> Installing dependencies on VPS"
-ssh "$VPS" "cd $REMOTE_DIR && npm install --production"
+ssh "$VPS" "cd $REMOTE_DIR && pnpm install --prod"
 
 echo ""
 echo "==> Done. Next steps on the VPS:"
