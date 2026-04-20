@@ -40,7 +40,7 @@ vi.mock('react-native', () => ({
 }));
 
 vi.mock('@/types/upload', () => ({
-  asUploadFile: (value: unknown) => value,
+  createUploadFile: (value: unknown) => value,
 }));
 
 vi.mock('@/lib/supabase', () => ({

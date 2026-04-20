@@ -16,7 +16,7 @@ import { SPACING } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-import { asUploadFile } from '@/types/upload';
+import { createUploadFile, type RNFormData } from '@/types/upload';
 
 export default function AddExpenseScreen() {
   const { colors } = useTheme();
@@ -45,10 +45,10 @@ export default function AddExpenseScreen() {
         const fileExt = receiptUri.split('.').pop()?.toLowerCase() || 'jpg';
         const fileName = `${merchant.id}/${Date.now()}.${fileExt}`;
         const filePath = `expenses/${fileName}`;
-        const fileData = new FormData();
+        const fileData = new FormData() as RNFormData;
         fileData.append(
           'file',
-          asUploadFile({
+          createUploadFile({
             uri: receiptUri,
             name: fileName.split('/').pop() || 'receipt.jpg',
             type: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
