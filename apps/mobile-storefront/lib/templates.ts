@@ -90,6 +90,8 @@ export const CATEGORY_TEMPLATES: Record<string, MobileTemplateConfig> = {
     features: {
       connectivityBanner: false,
       chatWidget: false,
+      negotiationModal: false,
+      drawerMenu: false,
     },
   },
   default: {
