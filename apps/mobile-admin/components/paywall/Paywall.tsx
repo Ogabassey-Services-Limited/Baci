@@ -229,7 +229,7 @@ export default function Paywall({ onClose }: PaywallProps) {
                       <View
                         style={[
                           styles.savingsBadge,
-                          { backgroundColor: '#4CAF50' },
+                          { backgroundColor: colors.success },
                         ]}
                       >
                         <Text style={styles.savingsText}>SAVE 20%</Text>
@@ -257,7 +257,7 @@ export default function Paywall({ onClose }: PaywallProps) {
       </ScrollView>
 
       {/* Sticky Bottom Actions */}
-      <View style={[styles.stickyFooter, { borderTopColor: colors.border }]}>
+      <View style={[styles.stickyFooter, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
         <Pressable
           onPress={onPurchase}
           disabled={!selectedPackage || isLoading}
@@ -471,7 +471,6 @@ const styles = StyleSheet.create({
     right: 0,
     padding: SPACING.xl,
     paddingBottom: Platform.OS === 'ios' ? 40 : SPACING.xl,
-    backgroundColor: '#FFF', // Forcing white for sticky footer contrast
     borderTopWidth: 1,
   },
   mainButton: {
