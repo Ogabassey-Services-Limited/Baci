@@ -1,0 +1,127 @@
+import {
+  DarkTheme,
+  DefaultTheme,
+  ThemeProvider,
+} from '@react-navigation/native';
+import { Stack } from 'expo-router';
+import { StyleSheet, View } from 'react-native';
+import { SystemBars } from 'react-native-edge-to-edge';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { ConnectivityBanner } from '@/components/ConnectivityBanner';
+import { ChatWidget } from '@/components/chat/ChatWidget';
+import { GlobalErrorBoundary } from '@/components/ErrorBoundary';
+import { NegotiationModal } from '@/components/modals/NegotiationModal';
+import { CompactStackHeader } from '@/components/navigation/CompactStackHeader';
+import { DrawerMenu } from '@/components/navigation/DrawerMenu';
+import { RootStackScreens } from '@/components/navigation/RootStackScreens';
+import { useColorScheme } from '@/components/useColorScheme';
+import Colors, { BRAND } from '@/constants/Colors';
+import { CHAT_WIDGET_DEFAULT_BOTTOM_OFFSET } from '@/constants/layout';
+import { useAuthGuard } from '@/hooks/use-auth-guard';
+import { CONFIG } from '@/lib/config';
+import { getOptionalGestureHandlerRuntime } from '@/lib/optional-gesture-handler';
+import { QueryProvider } from '@/lib/QueryProvider';
+import { getTemplateConfig } from '@/lib/templates';
+
+const OgabasseyLightTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    primary: BRAND.primary,
+    background: Colors.light.background,
+    card: Colors.light.card,
+    text: Colors.light.text,
+    border: Colors.light.border,
+  },
+};
+
+const OgabasseyDarkTheme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    primary: BRAND.primary,
+    background: Colors.dark.background,
+    card: Colors.dark.card,
+    text: Colors.dark.text,
+    border: Colors.dark.border,
+  },
+};
+
+interface RootLayoutNavProps {
+  persistenceEnabled?: boolean;
+}
+
+export function RootLayoutNav({
+  persistenceEnabled = true,
+}: RootLayoutNavProps) {
+  const { GestureHandlerRootView } = getOptionalGestureHandlerRuntime();
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme];
+  const template = getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID);
+  const enableConnectivityBanner = true;
+  const enableChatWidget = template.features?.chatWidget ?? true;
+  const enableNegotiationModal = true;
+  const enableDrawerMenu = true;
+
+  // Auth guard handles sign out redirects before protected screens render.
+  useAuthGuard();
+
+  return (
+    <QueryProvider persistenceEnabled={persistenceEnabled}>
+      <GestureHandlerRootView
+        style={[styles.root, { backgroundColor: colors.background }]}
+      >
+        <SafeAreaProvider>
+          <ThemeProvider
+            value={
+              colorScheme === 'dark' ? OgabasseyDarkTheme : OgabasseyLightTheme
+            }
+          >
+            <SystemBars style={colorScheme === 'dark' ? 'light' : 'dark'} />
+            <View
+              style={[styles.appShell, { backgroundColor: colors.background }]}
+            >
+              <GlobalErrorBoundary context="RootNavigation">
+                <Stack
+                  screenOptions={{
+                    header: (props) => <CompactStackHeader {...props} />,
+                    headerStyle: {
+                      backgroundColor: colors.background,
+                    },
+                    headerTintColor: colors.text,
+                    headerTitleStyle: {
+                      fontWeight: '600',
+                    },
+                    headerShadowVisible: false,
+                    contentStyle: {
+                      backgroundColor: colors.background,
+                    },
+                    animation: 'slide_from_right',
+                    gestureEnabled: true,
+                    gestureDirection: 'horizontal',
+                    headerBackTitle: '',
+                  }}
+                >
+                  <RootStackScreens
+                    mutedContentBackgroundColor={colors.muted}
+                  />
+                </Stack>
+              </GlobalErrorBoundary>
+              {enableConnectivityBanner ? <ConnectivityBanner /> : null}
+              {enableChatWidget ? (
+                <ChatWidget bottomOffset={CHAT_WIDGET_DEFAULT_BOTTOM_OFFSET} />
+              ) : null}
+              {enableNegotiationModal ? <NegotiationModal /> : null}
+              {enableDrawerMenu ? <DrawerMenu /> : null}
+            </View>
+          </ThemeProvider>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </QueryProvider>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  appShell: { flex: 1 },
+});

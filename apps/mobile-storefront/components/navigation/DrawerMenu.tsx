@@ -21,7 +21,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Easing,
   interpolate,
@@ -35,6 +34,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { Logo } from '@/components/ui/Logo';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
+import { getOptionalGestureHandlerRuntime } from '@/lib/optional-gesture-handler';
 import { useAuthStore } from '@/stores/auth-store';
 import { useDrawerStore } from '@/stores/drawer-store';
 
@@ -68,6 +68,7 @@ const menuItems: MenuItem[] = [
 ];
 
 export function DrawerMenu() {
+  const { Gesture, GestureDetector } = getOptionalGestureHandlerRuntime();
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const { isOpen, closeDrawer } = useDrawerStore(
@@ -122,26 +123,28 @@ export function DrawerMenu() {
   }, [isOpen, closeDrawer]);
 
   // Swipe gesture to close
-  const panGesture = Gesture.Pan()
-    .activeOffsetX(-10)
-    .onUpdate((event) => {
-      if (event.translationX < 0) {
-        translateX.set(Math.max(event.translationX, -DRAWER_WIDTH));
-        backdropOpacity.set(
-          interpolate(translateX.get(), [-DRAWER_WIDTH, 0], [0, 1])
-        );
-      }
-    })
-    .onEnd((event) => {
-      if (event.translationX < -80 || event.velocityX < -500) {
-        translateX.set(withTiming(-DRAWER_WIDTH, { duration: 200 }));
-        backdropOpacity.set(withTiming(0, { duration: 200 }));
-        runOnJS(closeDrawer)();
-      } else {
-        translateX.set(withTiming(0, { duration: 200 }));
-        backdropOpacity.set(withTiming(1, { duration: 200 }));
-      }
-    });
+  const panGesture = Gesture
+    ? Gesture.Pan()
+        .activeOffsetX(-10)
+        .onUpdate((event) => {
+          if (event.translationX < 0) {
+            translateX.set(Math.max(event.translationX, -DRAWER_WIDTH));
+            backdropOpacity.set(
+              interpolate(translateX.get(), [-DRAWER_WIDTH, 0], [0, 1])
+            );
+          }
+        })
+        .onEnd((event) => {
+          if (event.translationX < -80 || event.velocityX < -500) {
+            translateX.set(withTiming(-DRAWER_WIDTH, { duration: 200 }));
+            backdropOpacity.set(withTiming(0, { duration: 200 }));
+            runOnJS(closeDrawer)();
+          } else {
+            translateX.set(withTiming(0, { duration: 200 }));
+            backdropOpacity.set(withTiming(1, { duration: 200 }));
+          }
+        })
+    : null;
 
   const drawerAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: translateX.get() }],
@@ -210,7 +213,7 @@ export function DrawerMenu() {
       </Animated.View>
 
       {/* Drawer — L1 fix: Use theme-aware colors instead of hardcoded white */}
-      <GestureDetector gesture={panGesture}>
+      <GestureDetector gesture={panGesture ?? undefined}>
         <Animated.View
           pointerEvents={isOpen ? 'auto' : 'none'}
           style={[

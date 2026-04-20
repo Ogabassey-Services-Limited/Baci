@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { baseProduct } from './product-detail-screen.fixtures';
+import { baseProduct } from '../../lib/product-route/product-detail-screen.fixtures';
 
 export const mockProductDetailsBody = jest.fn();
 export const mockRouterReplace = jest.fn();
@@ -145,7 +145,9 @@ jest.mock('zustand/react/shallow', () => ({
 }));
 
 export const ProductDetailScreen =
-  jest.requireActual<typeof import('./[slug]')>('./[slug]').default;
+  jest.requireActual<typeof import('../../app/product/[slug]')>(
+    '../../app/product/[slug]'
+  ).default;
 
 export function getLastMockProps<T>(mockFn: { mock: { calls: unknown[][] } }) {
   return mockFn.mock.calls.at(-1)?.[0] as T | undefined;

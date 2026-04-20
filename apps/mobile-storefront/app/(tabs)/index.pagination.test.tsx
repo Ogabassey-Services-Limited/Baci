@@ -5,7 +5,7 @@ import {
   HomeScreen,
   mockUsePageConfig,
   setupHomeScreenTestState,
-} from './index.test-utils';
+} from '../../test-support/(tabs)/index.test-utils';
 
 describe('HomeScreen pagination', () => {
   setupHomeScreenTestState();
