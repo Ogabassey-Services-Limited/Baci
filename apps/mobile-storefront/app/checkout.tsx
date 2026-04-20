@@ -1603,7 +1603,7 @@ export default function CheckoutScreen() {
       Alert.alert(
         'Empty Cart',
         'Your cart is empty. Please add items before checking out.',
-        [{ text: 'OK', onPress: () => router.replace('/(tabs)') }]
+        [{ text: 'OK', onPress: () => router.replace('/') }]
       );
       return;
     }

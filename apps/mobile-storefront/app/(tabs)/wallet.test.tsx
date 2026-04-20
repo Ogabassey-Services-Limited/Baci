@@ -98,7 +98,7 @@ describe('WalletTabScreen', () => {
 
     const { toJSON } = render(<WalletTabScreen />);
 
-    expect(mockReplace).toHaveBeenCalledWith('/(tabs)');
+    expect(mockReplace).toHaveBeenCalledWith('/');
     expect(toJSON()).toBeNull();
   });
 });

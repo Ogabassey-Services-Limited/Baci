@@ -166,7 +166,7 @@ export function DrawerMenu() {
     InteractionManager.runAfterInteractions(() => {
       signOut()
         .then(() => {
-          router.replace('/(tabs)');
+          router.replace('/');
         })
         .catch((err: unknown) => {
           console.error('Sign-out failed:', err);
