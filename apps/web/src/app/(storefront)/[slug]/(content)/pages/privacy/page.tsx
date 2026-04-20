@@ -1,7 +1,6 @@
-import type { Route } from 'next';
 import { headers } from 'next/headers';
 import { permanentRedirect } from 'next/navigation';
-import { buildStorefrontLocalPath } from '@/lib/build-storefront-local-path';
+import { buildStorefrontRedirect } from '@/lib/build-storefront-redirect';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -13,20 +12,12 @@ export default async function LegacyPrivacyPage({
   searchParams,
 }: PageProps) {
   const { slug } = await params;
-  const query = await searchParams;
-  const basePath = buildStorefrontLocalPath(await headers(), slug, '/privacy');
-  const queryString = new URLSearchParams(
-    Object.entries(query).flatMap(([k, v]) =>
-      Array.isArray(v)
-        ? v.map((val) => [k, val])
-        : v !== undefined
-          ? [[k, v]]
-          : []
+  permanentRedirect(
+    buildStorefrontRedirect(
+      await headers(),
+      slug,
+      '/privacy',
+      await searchParams
     )
-  ).toString();
-  const destination: Route = queryString
-    ? (`${basePath}?${queryString}` as Route)
-    : basePath;
-
-  permanentRedirect(destination);
+  );
 }

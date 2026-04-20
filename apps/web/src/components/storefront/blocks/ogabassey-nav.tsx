@@ -25,7 +25,7 @@ export function OgabasseyNav({
     { label: 'Gaming', url: '/category/gaming' },
     { label: 'About Us', url: '/about' },
     { label: 'Pay In Installments', url: '/pages/installments' },
-    { label: 'Sell or Swap Device', url: '/pages/swap' },
+    { label: 'Sell or Swap Device', url: '/swap' },
   ],
   activeColor = '#D62027', // Ogabassey Red
 }: OgabasseyNavProps) {
