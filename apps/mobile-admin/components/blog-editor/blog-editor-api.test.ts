@@ -7,7 +7,7 @@ import {
 } from '@/components/blog-editor/blog-editor-api';
 
 vi.mock('@/types/upload', () => ({
-  asUploadFile: (value: unknown) => value,
+  createUploadFile: (value: unknown) => value,
 }));
 
 const ACCESS_TOKEN = 'token';
