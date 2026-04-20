@@ -87,6 +87,10 @@ export const CATEGORY_TEMPLATES: Record<string, MobileTemplateConfig> = {
     cardVariant: 'list',
     spacing: 'compact',
     borderRadius: 'md',
+    features: {
+      connectivityBanner: false,
+      chatWidget: false,
+    },
   },
   default: {
     headerStyle: 'standard',
