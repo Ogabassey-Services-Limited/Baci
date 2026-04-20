@@ -1,52 +1,27 @@
+import { headers } from 'next/headers';
+import { permanentRedirect } from 'next/navigation';
 import { describe, expect, it, vi } from 'vitest';
-import { getMerchantByIdentifier } from '@/lib/cached-data';
 
-vi.mock('@/lib/cached-data', () => ({
-  getMerchantByIdentifier: vi.fn(),
-}));
-
-vi.mock('@/lib/sanitize-json-ld', () => ({
-  safeJsonLdStringify: vi.fn(() => '{}'),
+vi.mock('next/headers', () => ({
+  headers: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({
-  notFound: vi.fn(() => {
-    throw new Error('NEXT_NOT_FOUND');
-  }),
+  permanentRedirect: vi.fn(),
 }));
 
-vi.mock('@/templates/registry', () => ({
-  getTemplate: vi.fn(() => null),
-}));
+const { default: LegacyPrivacyPage } = await import('./page');
 
-vi.mock('./privacy-page-client', () => ({
-  PrivacyPageClient: vi.fn(() => null),
-}));
+describe('legacy privacy page redirect', () => {
+  it('redirects custom-domain traffic to the canonical /privacy URL', async () => {
+    vi.mocked(headers).mockResolvedValue(
+      new Headers([['x-custom-domain', 'ogabassey.com']])
+    );
 
-const { generateMetadata } = await import('./page');
-
-describe('pages/privacy metadata', () => {
-  it('returns fallback title when merchant is missing', async () => {
-    vi.mocked(getMerchantByIdentifier).mockResolvedValue(null);
-
-    const metadata = await generateMetadata({
-      params: Promise.resolve({ slug: 'unknown' }),
+    await LegacyPrivacyPage({
+      params: Promise.resolve({ slug: 'ogabassey' }),
     });
 
-    expect(metadata.title).toBe('Privacy Policy');
-  });
-
-  it('returns merchant-specific title when merchant exists', async () => {
-    vi.mocked(getMerchantByIdentifier).mockResolvedValue({
-      business_name: 'Test Store',
-      logo_url: null,
-      slug: 'test-store',
-    } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
-
-    const metadata = await generateMetadata({
-      params: Promise.resolve({ slug: 'test-store' }),
-    });
-
-    expect(metadata.title).toBe('Privacy Policy | Test Store');
+    expect(permanentRedirect).toHaveBeenCalledWith('/privacy');
   });
 });

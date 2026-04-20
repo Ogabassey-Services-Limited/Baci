@@ -95,7 +95,7 @@ describe('buildMerchantTrustProfile', () => {
       },
       derivedLinks: {
         contact: 'https://ogabassey.com/contact',
-        privacy: 'https://ogabassey.com/privacy-policy',
+        privacy: 'https://ogabassey.com/privacy',
         returns: 'https://ogabassey.com/returns',
         shipping: 'https://ogabassey.com/shipping',
         warranty: 'https://ogabassey.com/warranty',

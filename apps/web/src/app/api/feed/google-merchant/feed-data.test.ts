@@ -164,6 +164,21 @@ describe('getCachedGoogleMerchantFeedData', () => {
   });
 
   it('returns products as FeedProduct[]', async () => {
+    productsResult = {
+      data: [
+        {
+          id: 'product-1',
+          name: 'Phone',
+          color: 'Black',
+          product_key_specs: {
+            ram_gb: 8,
+            storage_gb: 256,
+          },
+        },
+      ],
+      error: null,
+    };
+
     const { getCachedGoogleMerchantFeedData } = await import('./feed-data');
     const result = await getCachedGoogleMerchantFeedData(
       'merchant-1',
@@ -172,6 +187,11 @@ describe('getCachedGoogleMerchantFeedData', () => {
     expect(result.products[0]).toMatchObject({
       id: 'product-1',
       name: 'Phone',
+      color: 'Black',
+      product_key_specs: {
+        ram_gb: 8,
+        storage_gb: 256,
+      },
       variants: [],
     });
   });

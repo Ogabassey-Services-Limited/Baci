@@ -137,7 +137,7 @@ export function CookieConsent() {
                   We use cookies to improve your experience. By using our store,
                   you agree to our{' '}
                   <Link
-                    href={asRoute(`${basePath}/pages/privacy-policy`)}
+                    href={asRoute(`${basePath}/privacy`)}
                     className="underline underline-offset-4 hover:text-white"
                   >
                     Read our policy

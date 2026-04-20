@@ -152,17 +152,11 @@ function buildDerivedLinks(
   }
 
   if (hasMeaningfulContent(merchant.pages?.privacy)) {
-    derivedLinks.privacy = buildDerivedLink(
-      normalizedBaseUrl,
-      '/privacy-policy'
-    );
+    derivedLinks.privacy = buildDerivedLink(normalizedBaseUrl, '/privacy');
   }
 
   if (hasMeaningfulContent(merchant.pages?.terms)) {
-    derivedLinks.terms = buildDerivedLink(
-      normalizedBaseUrl,
-      '/terms-of-service'
-    );
+    derivedLinks.terms = buildDerivedLink(normalizedBaseUrl, '/terms');
   }
 
   if (hasMeaningfulContent(merchant.pages?.faq)) {

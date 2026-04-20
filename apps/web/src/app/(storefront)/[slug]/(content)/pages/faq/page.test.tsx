@@ -1,56 +1,27 @@
+import { headers } from 'next/headers';
+import { permanentRedirect } from 'next/navigation';
 import { describe, expect, it, vi } from 'vitest';
-import { getMerchantByIdentifier } from '@/lib/cached-data';
 
-vi.mock('@/lib/cached-data', () => ({
-  getMerchantByIdentifier: vi.fn(),
-}));
-
-vi.mock('@/lib/sanitize-json-ld', () => ({
-  safeJsonLdStringify: vi.fn(() => '{}'),
-}));
-
-vi.mock('@/lib/seo-utils', () => ({
-  generateFAQSchema: vi.fn(() => ({})),
+vi.mock('next/headers', () => ({
+  headers: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({
-  notFound: vi.fn(() => {
-    throw new Error('NEXT_NOT_FOUND');
-  }),
+  permanentRedirect: vi.fn(),
 }));
 
-vi.mock('@/templates/registry', () => ({
-  getTemplate: vi.fn(() => null),
-}));
+const { default: LegacyFaqPage } = await import('./page');
 
-vi.mock('./faq-page-client', () => ({
-  FAQPageClient: vi.fn(() => null),
-}));
+describe('legacy faq page redirect', () => {
+  it('redirects custom-domain traffic to the canonical /faq URL', async () => {
+    vi.mocked(headers).mockResolvedValue(
+      new Headers([['x-custom-domain', 'ogabassey.com']])
+    );
 
-const { generateMetadata } = await import('./page');
-
-describe('pages/faq metadata', () => {
-  it('returns fallback title when merchant is missing', async () => {
-    vi.mocked(getMerchantByIdentifier).mockResolvedValue(null);
-
-    const metadata = await generateMetadata({
-      params: Promise.resolve({ slug: 'unknown' }),
+    await LegacyFaqPage({
+      params: Promise.resolve({ slug: 'ogabassey' }),
     });
 
-    expect(metadata.title).toBe('FAQ');
-  });
-
-  it('returns merchant-specific title when merchant exists', async () => {
-    vi.mocked(getMerchantByIdentifier).mockResolvedValue({
-      business_name: 'Test Store',
-      logo_url: null,
-      slug: 'test-store',
-    } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
-
-    const metadata = await generateMetadata({
-      params: Promise.resolve({ slug: 'test-store' }),
-    });
-
-    expect(metadata.title).toBe('Frequently Asked Questions | Test Store');
+    expect(permanentRedirect).toHaveBeenCalledWith('/faq');
   });
 });

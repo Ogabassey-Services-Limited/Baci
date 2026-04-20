@@ -10,18 +10,18 @@ vi.mock('next/navigation', () => ({
   permanentRedirect: vi.fn(),
 }));
 
-const { default: LegacyPrivacyPolicyPage } = await import('./page');
+const { default: LegacyBlogPage } = await import('./page');
 
-describe('legacy privacy-policy redirect', () => {
-  it('redirects custom-domain traffic to the canonical /privacy URL', async () => {
+describe('legacy blog page redirect', () => {
+  it('redirects custom-domain traffic to the canonical /blog URL', async () => {
     vi.mocked(headers).mockResolvedValue(
       new Headers([['x-custom-domain', 'ogabassey.com']])
     );
 
-    await LegacyPrivacyPolicyPage({
+    await LegacyBlogPage({
       params: Promise.resolve({ slug: 'ogabassey' }),
     });
 
-    expect(permanentRedirect).toHaveBeenCalledWith('/privacy');
+    expect(permanentRedirect).toHaveBeenCalledWith('/blog');
   });
 });
