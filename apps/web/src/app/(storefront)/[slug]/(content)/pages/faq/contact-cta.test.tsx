@@ -2,7 +2,9 @@ import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ContactCTA } from './contact-cta';
 
-const mockUseMerchantSafe = vi.fn(() => ({ basePath: '' as string }));
+const mockUseMerchantSafe = vi.fn<() => { basePath: string } | null>(() => ({
+  basePath: '',
+}));
 
 vi.mock('@/hooks/use-merchant', () => ({
   useMerchantSafe: () => mockUseMerchantSafe(),
