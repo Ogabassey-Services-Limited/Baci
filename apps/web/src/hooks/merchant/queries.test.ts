@@ -93,6 +93,7 @@ describe('fetchMerchantBySlug', () => {
 
     const selectArg = merchantsHandler.select.mock.calls[0]?.[0] as string;
     expect(selectArg).toContain('support_email');
+    expect(selectArg).not.toContain('custom_domain');
     expect(selectArg).not.toContain('legal_entity_name');
     expect(selectArg).not.toContain('registered_address');
     expect(selectArg).not.toContain('tax_identification_number');
@@ -215,6 +216,29 @@ describe('fetchDashboardMerchant', () => {
     expect(result.merchant).toBeNull();
     expect(result.staffAccess.isOwner).toBe(false);
     expect(result.staffAccess.isStaff).toBe(false);
+  });
+
+  it('does not select custom_domain in dashboard lookups because the primary domain is resolved separately', async () => {
+    const merchantsHandler = mockQueryChain({
+      data: {
+        id: 'merchant-1',
+        user_id: 'user-1',
+        business_name: 'Owner Store',
+        business_type: 'FASHION',
+        slug: 'owner-store',
+        feature_settings: null,
+      },
+      error: null,
+    });
+    const supabase = createMockSupabase({
+      merchants: merchantsHandler,
+      staff_members: mockQueryChain({ data: null, error: null }),
+    });
+
+    await fetchDashboardMerchant(supabase, 'user-1');
+
+    const selectArg = merchantsHandler.select.mock.calls[0]?.[0] as string;
+    expect(selectArg).not.toContain('custom_domain');
   });
 });
 
