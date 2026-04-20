@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "//": "NOTE: per-function 'memory' caps in the 'functions' block are IGNORED when Fluid Compute is enabled — Vercel allocates memory dynamically per request. These entries are kept as documentation of intended memory budgets only. /api/inventory/push-alerts, /api/cron/wallet-payouts, and /api/cron/publish-scheduled-posts have no cap entry because they are lightweight and the cap would be a no-op anyway.",
   "buildCommand": "pnpm turbo build --filter=@baci/web",
   "outputDirectory": "apps/web/.next",
   "installCommand": "pnpm install",

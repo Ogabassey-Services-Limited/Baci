@@ -31,7 +31,8 @@ const { data, error } = await supabase
   .from('pending_import_uploads')
   .select('id, merchant_id, client_upload_id, storage_path')
   .is('claimed_at', null)
-  .lt('expires_at', new Date().toISOString());
+  .lt('expires_at', new Date().toISOString())
+  .limit(500);
 
 if (error) {
   console.error('[cleanup-import-uploads] Query failed:', error);

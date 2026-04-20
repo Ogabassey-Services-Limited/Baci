@@ -86,6 +86,11 @@ for (const chunk of chunks) {
   }
 }
 
+if (chunkFailures === chunks.length && chunks.length > 0) {
+  console.error('[push-receipts] All receipt chunks failed — aborting without marking tickets');
+  process.exit(1);
+}
+
 if (deliveredIds.length > 0) {
   const { error } = await supabase
     .from('push_notification_tickets')
@@ -94,12 +99,20 @@ if (deliveredIds.length > 0) {
   if (error) console.error('[push-receipts] Failed to batch-update delivered tickets:', error);
 }
 
-for (const ft of failedTickets) {
-  const { error } = await supabase
-    .from('push_notification_tickets')
-    .update({ status: 'failed', error_type: ft.error_type, error_message: ft.error_message, checked_at: new Date().toISOString() })
-    .eq('id', ft.id);
-  if (error) console.error('[push-receipts] Failed to mark ticket failed:', ft.id, error);
+// Batch failed-ticket updates in parallel (50 at a time) to avoid O(N) sequential round-trips
+const BATCH_SIZE = 50;
+const checkedAt = new Date().toISOString();
+for (let i = 0; i < failedTickets.length; i += BATCH_SIZE) {
+  const batch = failedTickets.slice(i, i + BATCH_SIZE);
+  await Promise.all(
+    batch.map(async (ft) => {
+      const { error } = await supabase
+        .from('push_notification_tickets')
+        .update({ status: 'failed', error_type: ft.error_type, error_message: ft.error_message, checked_at: checkedAt })
+        .eq('id', ft.id);
+      if (error) console.error('[push-receipts] Failed to mark ticket failed:', ft.id, error);
+    }),
+  );
 }
 
 if (tokensToDeactivate.length > 0) {

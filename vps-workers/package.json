@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "type": "module",
   "description": "Standalone cron workers that run on the VPS to eliminate Vercel Fluid Compute costs",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "cleanup-push-tokens": "node jobs/cleanup-push-tokens.mjs",
     "cleanup-import-uploads": "node jobs/cleanup-import-uploads.mjs",
