@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import {
   type ComponentType,
   createElement,
@@ -9,7 +9,7 @@ import {
   type ReactElement,
   Suspense,
 } from 'react';
-import { expect } from 'vitest';
+import { expect, vi } from 'vitest';
 
 export async function expectLoadingModuleRenders(
   importMetaUrl: string,
@@ -28,9 +28,14 @@ export async function expectLoadingModuleRenders(
     /* @vite-ignore */ pathToFileURL(filePath).href
   )) as { default: ComponentType };
 
-  render(<module.default />);
+  await withExpectedReactWarningsSuppressed(async () => {
+    await act(async () => {
+      render(<module.default />);
+      await flushReactTestWork();
+    });
 
-  expect(screen.getByRole('status', { name: label })).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: label })).toBeInTheDocument();
+  });
 }
 
 type PendingParamsRenderStrategy = {
@@ -58,6 +63,76 @@ function createNeverResolvingPromise<T>() {
 
 function importRouteModule<T>(filePath: string): Promise<T> {
   return import(/* @vite-ignore */ pathToFileURL(filePath).href) as Promise<T>;
+}
+
+const EXPECTED_REACT_TEST_WARNINGS = [
+  'is an async Client Component',
+  'A component suspended inside an `act` scope',
+  'A suspended resource finished loading inside a test',
+];
+
+function isExpectedReactTestWarning(message: string) {
+  return EXPECTED_REACT_TEST_WARNINGS.some((pattern) =>
+    message.includes(pattern)
+  );
+}
+
+async function renderWithoutExpectedReactWarnings(element: ReactElement) {
+  await act(async () => {
+    render(element);
+    await flushReactTestWork();
+  });
+}
+
+async function flushReactTestWork() {
+  // Flush both microtasks and queued macrotasks so Suspense/test-utils updates
+  // settle before assertions. This sequence is tied to current React/RTL
+  // behavior and may need revisiting if their scheduling changes.
+  await Promise.resolve();
+  await Promise.resolve();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await Promise.resolve();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+async function withExpectedReactWarningsSuppressed<T>(
+  callback: () => Promise<T>
+) {
+  const originalConsoleError = console.error.bind(console);
+  const originalConsoleWarn = console.warn.bind(console);
+  const consoleErrorSpy = vi
+    .spyOn(console, 'error')
+    .mockImplementation((...args: unknown[]) => {
+      const message = args.join(' ');
+
+      if (isExpectedReactTestWarning(message)) {
+        return;
+      }
+
+      originalConsoleError(...args);
+    });
+  const consoleWarnSpy = vi
+    .spyOn(console, 'warn')
+    .mockImplementation((...args: unknown[]) => {
+      const message = args.join(' ');
+
+      if (isExpectedReactTestWarning(message)) {
+        return;
+      }
+
+      originalConsoleWarn(...args);
+    });
+
+  try {
+    return await callback();
+  } finally {
+    await act(async () => {
+      cleanup();
+      await flushReactTestWork();
+    });
+    consoleWarnSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
+  }
 }
 
 export async function expectNearestLoadingBoundaryOwnsFirstPaint(
@@ -124,7 +199,11 @@ export async function expectNearestLoadingBoundaryOwnsFirstPaint(
     routeElement = createElement(LazyRouteModule);
   }
 
-  render(<Suspense fallback={<LoadingBoundary />}>{routeElement}</Suspense>);
+  await withExpectedReactWarningsSuppressed(async () => {
+    await renderWithoutExpectedReactWarnings(
+      <Suspense fallback={<LoadingBoundary />}>{routeElement}</Suspense>
+    );
 
-  expect(screen.getByRole('status', { name: label })).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: label })).toBeInTheDocument();
+  });
 }
