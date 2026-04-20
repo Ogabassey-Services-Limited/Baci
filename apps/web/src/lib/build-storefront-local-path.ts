@@ -1,11 +1,12 @@
+import type { Route } from 'next';
 import type { headers } from 'next/headers';
-import { isDomainIdentifier } from './validation';
+import { isDomainIdentifier } from '@/lib/validation';
 
 export function buildStorefrontLocalPath(
   headersList: Awaited<ReturnType<typeof headers>>,
   routeIdentifier: string,
   pathname: `/${string}`
-) {
+): Route {
   const prefix =
     headersList.has('x-custom-domain') ||
     headersList.has('x-merchant-slug') ||
@@ -13,5 +14,5 @@ export function buildStorefrontLocalPath(
       ? ''
       : `/${routeIdentifier}`;
 
-  return `${prefix}${pathname}`;
+  return `${prefix}${pathname}` as Route;
 }

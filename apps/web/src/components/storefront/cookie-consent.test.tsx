@@ -1,6 +1,6 @@
 import { act, render, screen } from '@testing-library/react';
 import type React from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CookieConsent, useCookieConsent } from './cookie-consent';
 
 // Mock dependencies required by module imports for export tests
@@ -31,6 +31,10 @@ describe('CookieConsent', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('exports CookieConsent component', () => {

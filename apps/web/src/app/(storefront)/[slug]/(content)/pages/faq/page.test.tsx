@@ -24,4 +24,14 @@ describe('legacy faq page redirect', () => {
 
     expect(permanentRedirect).toHaveBeenCalledWith('/faq');
   });
+
+  it('redirects non-custom-domain traffic to /:slug/faq', async () => {
+    vi.mocked(headers).mockResolvedValue(new Headers());
+
+    await LegacyFaqPage({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+    });
+
+    expect(permanentRedirect).toHaveBeenCalledWith('/ogabassey/faq');
+  });
 });

@@ -1,6 +1,7 @@
 'use client';
 
 import { HelpCircle, Search } from 'lucide-react';
+import Link from 'next/link';
 import { useState } from 'react';
 import AppBody from '@/components/app-body';
 import { StorefrontFooter } from '@/components/storefront/footer';
@@ -211,12 +212,12 @@ export function FAQPageClient({
                   <p className="text-muted-foreground mb-4">
                     Can't find what you're looking for? We're here to help.
                   </p>
-                  <a
-                    href="contact"
+                  <Link
+                    href="/contact"
                     className="inline-flex items-center justify-center px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
                   >
                     Contact Support
-                  </a>
+                  </Link>
                 </div>
               </div>
             </main>

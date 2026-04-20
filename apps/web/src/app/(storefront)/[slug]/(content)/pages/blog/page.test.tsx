@@ -20,8 +20,20 @@ describe('legacy blog page redirect', () => {
 
     await LegacyBlogPage({
       params: Promise.resolve({ slug: 'ogabassey' }),
+      searchParams: Promise.resolve({}),
     });
 
     expect(permanentRedirect).toHaveBeenCalledWith('/blog');
+  });
+
+  it('redirects non-custom-domain traffic to /:slug/blog', async () => {
+    vi.mocked(headers).mockResolvedValue(new Headers());
+
+    await LegacyBlogPage({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(permanentRedirect).toHaveBeenCalledWith('/ogabassey/blog');
   });
 });

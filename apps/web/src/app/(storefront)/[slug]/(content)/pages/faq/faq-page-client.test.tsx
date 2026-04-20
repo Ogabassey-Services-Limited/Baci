@@ -53,6 +53,21 @@ vi.mock('@/hooks/use-merchant', () => ({
   ),
 }));
 
+vi.mock('next/link', () => ({
+  default: ({
+    children,
+    href,
+    ...rest
+  }: {
+    children: React.ReactNode;
+    href: string;
+  }) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
+  ),
+}));
+
 import { FAQPageClient } from './faq-page-client';
 
 describe('FAQPageClient', () => {
@@ -81,6 +96,6 @@ describe('FAQPageClient', () => {
 
     expect(
       screen.getByRole('link', { name: /contact support/i })
-    ).toHaveAttribute('href', 'contact');
+    ).toHaveAttribute('href', '/contact');
   });
 });

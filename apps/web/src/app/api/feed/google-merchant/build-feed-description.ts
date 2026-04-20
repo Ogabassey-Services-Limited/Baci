@@ -84,7 +84,7 @@ export function buildFeedDescription(input: FeedDescriptionInput) {
   const specDetails = buildSpecDetails(input);
 
   if (specDetails.length === 0) {
-    return baseDescription || input.name.trim();
+    return trimDescription(baseDescription || input.name.trim());
   }
 
   const normalizedBase = baseDescription.toLowerCase();
