@@ -62,7 +62,9 @@ function createMockSupabase() {
             eq: () => ({
               eq: () => ({
                 order: () => ({
-                  limit: () => Promise.resolve(productsResult),
+                  limit: () => ({
+                    overrideTypes: () => Promise.resolve(productsResult),
+                  }),
                 }),
               }),
             }),
