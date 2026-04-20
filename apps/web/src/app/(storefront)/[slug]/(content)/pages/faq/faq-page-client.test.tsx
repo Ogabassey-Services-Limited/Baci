@@ -51,6 +51,7 @@ vi.mock('@/hooks/use-merchant', () => ({
   MerchantProvider: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
   ),
+  useMerchantSafe: () => ({ basePath: '' }),
 }));
 
 vi.mock('next/link', () => ({

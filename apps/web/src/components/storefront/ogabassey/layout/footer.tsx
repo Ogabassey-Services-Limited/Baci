@@ -118,7 +118,7 @@ export const OgabasseyFooter: React.FC<FooterProps> = ({ storeSlug, logo }) => {
               </h3>
               <ul className="space-y-2 text-xs text-gray-400">
                 <li>
-                  <Link href={getUrl('/pages/about') as any} className="hover:text-primary">
+                  <Link href={getUrl('/about') as any} className="hover:text-primary">
                     About Us
                   </Link>
                 </li>
@@ -128,22 +128,22 @@ export const OgabasseyFooter: React.FC<FooterProps> = ({ storeSlug, logo }) => {
                   </a>
                 </li>
                 <li>
-                  <Link href={getUrl('/pages/blog') as any} className="hover:text-primary">
+                  <Link href={getUrl('/blog') as any} className="hover:text-primary">
                     Blog
                   </Link>
                 </li>
                 <li>
-                  <Link href={getUrl('/privacy-policy') as any} className="hover:text-primary">
+                  <Link href={getUrl('/privacy') as any} className="hover:text-primary">
                     Privacy Policy
                   </Link>
                 </li>
                 <li>
-                  <Link href={getUrl('/terms-of-service') as any} className="hover:text-primary">
+                  <Link href={getUrl('/terms') as any} className="hover:text-primary">
                     Terms of Service
                   </Link>
                 </li>
                 <li>
-                  <Link href={getUrl('/pages/about') as any} className="hover:text-primary">
+                  <Link href={getUrl('/about') as any} className="hover:text-primary">
                     Sustainability
                   </Link>
                 </li>
@@ -170,7 +170,7 @@ export const OgabasseyFooter: React.FC<FooterProps> = ({ storeSlug, logo }) => {
                   </Link>
                 </li>
                 <li>
-                  <Link href={getUrl('/pages/faq') as any} className="hover:text-primary">
+                  <Link href={getUrl('/faq') as any} className="hover:text-primary">
                     Support
                   </Link>
                 </li>

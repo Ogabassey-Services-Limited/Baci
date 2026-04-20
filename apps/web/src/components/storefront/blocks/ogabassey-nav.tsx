@@ -23,7 +23,7 @@ export function OgabasseyNav({
     { label: 'Laptops', url: '/category/laptops' },
     { label: 'Accessories', url: '/category/accessories' },
     { label: 'Gaming', url: '/category/gaming' },
-    { label: 'About Us', url: '/pages/about' },
+    { label: 'About Us', url: '/about' },
     { label: 'Pay In Installments', url: '/pages/installments' },
     { label: 'Sell or Swap Device', url: '/pages/swap' },
   ],

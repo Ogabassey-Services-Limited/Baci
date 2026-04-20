@@ -16,7 +16,8 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { SafeHtml } from '@/components/ui/safe-html';
 import { StorefrontProvider } from '@/contexts/storefront-context';
-import { MerchantProvider } from '@/hooks/use-merchant';
+import { MerchantProvider, useMerchantSafe } from '@/hooks/use-merchant';
+import { asRoute } from '@/lib/routes';
 import { type FAQItem, groupFAQsByCategory } from '@/types/faq';
 
 interface FAQPageClientProps {
@@ -44,6 +45,8 @@ export function FAQPageClient({
   faqItems,
   legacyContent,
 }: FAQPageClientProps) {
+  const merchantCtx = useMerchantSafe();
+  const basePath = merchantCtx?.basePath ?? '';
   const [searchQuery, setSearchQuery] = useState('');
   const hasStructuredFAQs = faqItems.length > 0;
 
@@ -60,7 +63,7 @@ export function FAQPageClient({
   const groupedFAQs = groupFAQsByCategory(filteredFAQs);
   const categories = Object.keys(groupedFAQs);
 
-  /* 
+  /*
      JSON-LD is handled server-side in page.tsx using generateFAQSchema.
      Client-side injection is removed to prevent duplication and SEO confusion.
   */
@@ -213,7 +216,7 @@ export function FAQPageClient({
                     Can't find what you're looking for? We're here to help.
                   </p>
                   <Link
-                    href="/contact"
+                    href={asRoute(`${basePath}/contact`)}
                     className="inline-flex items-center justify-center px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
                   >
                     Contact Support
