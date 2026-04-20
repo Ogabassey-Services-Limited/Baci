@@ -17,6 +17,9 @@ export interface MobileTemplateConfig {
   borderRadius: 'none' | 'md' | 'xl' | 'full';
   features?: {
     chatWidget?: boolean;
+    connectivityBanner?: boolean;
+    negotiationModal?: boolean;
+    drawerMenu?: boolean;
   };
 }
 
