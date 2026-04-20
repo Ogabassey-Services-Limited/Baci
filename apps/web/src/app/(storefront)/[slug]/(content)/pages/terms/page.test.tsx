@@ -1,52 +1,58 @@
-import { describe, expect, it, vi } from 'vitest';
-import { getMerchantByIdentifier } from '@/lib/cached-data';
+import { headers } from 'next/headers';
+import { permanentRedirect } from 'next/navigation';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/lib/cached-data', () => ({
-  getMerchantByIdentifier: vi.fn(),
-}));
-
-vi.mock('@/lib/sanitize-json-ld', () => ({
-  safeJsonLdStringify: vi.fn(() => '{}'),
+vi.mock('next/headers', () => ({
+  headers: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({
-  notFound: vi.fn(() => {
-    throw new Error('NEXT_NOT_FOUND');
-  }),
+  permanentRedirect: vi.fn(),
 }));
 
-vi.mock('@/templates/registry', () => ({
-  getTemplate: vi.fn(() => null),
-}));
+const { default: LegacyTermsPage } = await import(
+  '@/app/(storefront)/[slug]/(content)/pages/terms/page'
+);
 
-vi.mock('./terms-page-client', () => ({
-  TermsPageClient: vi.fn(() => null),
-}));
-
-const { generateMetadata } = await import('./page');
-
-describe('pages/terms metadata', () => {
-  it('returns fallback title when merchant is missing', async () => {
-    vi.mocked(getMerchantByIdentifier).mockResolvedValue(null);
-
-    const metadata = await generateMetadata({
-      params: Promise.resolve({ slug: 'unknown' }),
-    });
-
-    expect(metadata.title).toBe('Terms of Service');
+describe('legacy terms page redirect', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  it('returns merchant-specific title when merchant exists', async () => {
-    vi.mocked(getMerchantByIdentifier).mockResolvedValue({
-      business_name: 'Test Store',
-      logo_url: null,
-      slug: 'test-store',
-    } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
+  it('redirects custom-domain traffic to the canonical /terms URL', async () => {
+    vi.mocked(headers).mockResolvedValue(
+      new Headers([['x-custom-domain', 'ogabassey.com']])
+    );
 
-    const metadata = await generateMetadata({
-      params: Promise.resolve({ slug: 'test-store' }),
+    await LegacyTermsPage({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+      searchParams: Promise.resolve({}),
     });
 
-    expect(metadata.title).toBe('Terms of Service | Test Store');
+    expect(permanentRedirect).toHaveBeenCalledWith('/terms');
+  });
+
+  it('redirects non-custom-domain traffic to /:slug/terms', async () => {
+    vi.mocked(headers).mockResolvedValue(new Headers());
+
+    await LegacyTermsPage({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(permanentRedirect).toHaveBeenCalledWith('/ogabassey/terms');
+  });
+
+  it('forwards query params to the destination', async () => {
+    vi.mocked(headers).mockResolvedValue(
+      new Headers([['x-custom-domain', 'ogabassey.com']])
+    );
+
+    await LegacyTermsPage({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+      searchParams: Promise.resolve({ utm_source: 'email' }),
+    });
+
+    expect(permanentRedirect).toHaveBeenCalledWith('/terms?utm_source=email');
   });
 });

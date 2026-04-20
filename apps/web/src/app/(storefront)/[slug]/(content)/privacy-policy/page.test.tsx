@@ -1,103 +1,56 @@
 import { headers } from 'next/headers';
-import { describe, expect, it, vi } from 'vitest';
-import { getMerchantByIdentifier } from '@/lib/cached-data';
-
-vi.mock('@/lib/cached-data', () => ({
-  getMerchantByIdentifier: vi.fn(),
-}));
+import { permanentRedirect } from 'next/navigation';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/headers', () => ({
   headers: vi.fn(),
 }));
 
-vi.mock('@/lib/sanitize-json-ld', () => ({
-  safeJsonLdStringify: vi.fn(() => '{}'),
-}));
-
 vi.mock('next/navigation', () => ({
-  notFound: vi.fn(() => {
-    throw new Error('NEXT_NOT_FOUND');
-  }),
+  permanentRedirect: vi.fn(),
 }));
 
-vi.mock('@/templates/registry', () => ({
-  getTemplate: vi.fn(() => null),
-}));
+const { default: LegacyPrivacyPolicyPage } = await import('./page');
 
-vi.mock('../pages/privacy/privacy-page-client', () => ({
-  PrivacyPageClient: vi.fn(() => null),
-}));
-
-const { generateMetadata } = await import('./page');
-
-describe('privacy-policy metadata', () => {
-  it('returns fallback title when merchant is missing', async () => {
-    vi.mocked(headers).mockResolvedValue(new Headers());
-    vi.mocked(getMerchantByIdentifier).mockResolvedValue(null);
-
-    const metadata = await generateMetadata({
-      params: Promise.resolve({ slug: 'unknown' }),
-    });
-
-    expect(metadata.title).toBe('Privacy Policy');
+describe('legacy privacy-policy redirect', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  it('prefers the request custom domain for canonical metadata', async () => {
+  it('redirects custom-domain traffic to the canonical /privacy URL', async () => {
     vi.mocked(headers).mockResolvedValue(
       new Headers([['x-custom-domain', 'ogabassey.com']])
     );
-    vi.mocked(getMerchantByIdentifier).mockResolvedValue({
-      business_name: 'Test Store',
-      logo_url: null,
-      slug: 'test-store',
-      custom_domain: 'ogabassey.com',
-    } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
 
-    const metadata = await generateMetadata({
-      params: Promise.resolve({ slug: 'test-store' }),
+    await LegacyPrivacyPolicyPage({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+      searchParams: Promise.resolve({}),
     });
 
-    expect(metadata.alternates?.canonical).toBe(
-      'https://ogabassey.com/privacy-policy'
-    );
-    expect(metadata.openGraph?.url).toBe(
-      'https://ogabassey.com/privacy-policy'
-    );
+    expect(permanentRedirect).toHaveBeenCalledWith('/privacy');
   });
 
-  it('sets canonical URL from merchant custom domain', async () => {
+  it('redirects non-custom-domain traffic with slug prefix', async () => {
     vi.mocked(headers).mockResolvedValue(new Headers());
-    vi.mocked(getMerchantByIdentifier).mockResolvedValue({
-      business_name: 'Test Store',
-      logo_url: null,
-      slug: 'test-store',
-      custom_domain: 'mystore.com',
-    } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
 
-    const metadata = await generateMetadata({
-      params: Promise.resolve({ slug: 'test-store' }),
+    await LegacyPrivacyPolicyPage({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+      searchParams: Promise.resolve({}),
     });
 
-    expect(metadata.alternates?.canonical).toContain(
-      'mystore.com/privacy-policy'
-    );
+    expect(permanentRedirect).toHaveBeenCalledWith('/ogabassey/privacy');
   });
 
-  it('falls back to slug-based URL when no custom domain', async () => {
-    vi.mocked(headers).mockResolvedValue(new Headers());
-    vi.mocked(getMerchantByIdentifier).mockResolvedValue({
-      business_name: 'Test Store',
-      logo_url: null,
-      slug: 'test-store',
-      custom_domain: null,
-    } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
+  it('forwards query params to the destination', async () => {
+    vi.mocked(headers).mockResolvedValue(
+      new Headers([['x-custom-domain', 'ogabassey.com']])
+    );
 
-    const metadata = await generateMetadata({
-      params: Promise.resolve({ slug: 'test-store' }),
+    await LegacyPrivacyPolicyPage({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+      searchParams: Promise.resolve({ utm_source: 'email' }),
     });
 
-    expect(metadata.alternates?.canonical).toContain(
-      'test-store.usebaci.com/privacy-policy'
-    );
+    expect(permanentRedirect).toHaveBeenCalledWith('/privacy?utm_source=email');
   });
 });

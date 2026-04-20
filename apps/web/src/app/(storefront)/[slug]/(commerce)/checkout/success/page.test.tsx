@@ -87,4 +87,12 @@ describe('checkout success page', () => {
     ).toBeInTheDocument();
     expect(screen.queryByText(/verifying your payment/i)).toBeNull();
   });
+
+  it('links support users to the canonical contact route', () => {
+    render(<CheckoutSuccessPage />);
+
+    expect(
+      screen.getByRole('link', { name: /contact our support team/i })
+    ).toHaveAttribute('href', '/test-store/contact');
+  });
 });

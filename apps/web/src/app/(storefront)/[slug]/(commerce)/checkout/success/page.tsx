@@ -447,7 +447,7 @@ export default function CheckoutSuccessPage() {
           >
             Need help?{' '}
             <Link
-              href={asRoute(getHref('/pages/contact'))}
+              href={asRoute(getHref('/contact'))}
               className="text-red-600 font-medium hover:underline"
             >
               Contact our support team
