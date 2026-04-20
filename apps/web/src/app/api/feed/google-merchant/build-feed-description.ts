@@ -103,7 +103,10 @@ export function buildFeedDescription(input: FeedDescriptionInput) {
 
   const specSentence = `Key details: ${missingDetails.join('; ')}.`;
   if (!baseDescription) {
-    return trimDescription(`${normalizeText(input.name)}. ${specSentence}`);
+    const nameNormalized = normalizeText(input.name);
+    return trimDescription(
+      nameNormalized ? `${nameNormalized}. ${specSentence}` : specSentence
+    );
   }
 
   return trimDescription(`${baseDescription} ${specSentence}`);

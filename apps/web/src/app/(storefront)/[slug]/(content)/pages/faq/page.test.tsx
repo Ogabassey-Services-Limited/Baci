@@ -1,6 +1,6 @@
 import { headers } from 'next/headers';
 import { permanentRedirect } from 'next/navigation';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/headers', () => ({
   headers: vi.fn(),
@@ -15,6 +15,10 @@ const { default: LegacyFaqPage } = await import(
 );
 
 describe('legacy faq page redirect', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('redirects custom-domain traffic to the canonical /faq URL', async () => {
     vi.mocked(headers).mockResolvedValue(
       new Headers([['x-custom-domain', 'ogabassey.com']])
@@ -22,6 +26,7 @@ describe('legacy faq page redirect', () => {
 
     await LegacyFaqPage({
       params: Promise.resolve({ slug: 'ogabassey' }),
+      searchParams: Promise.resolve({}),
     });
 
     expect(permanentRedirect).toHaveBeenCalledWith('/faq');
@@ -32,8 +37,22 @@ describe('legacy faq page redirect', () => {
 
     await LegacyFaqPage({
       params: Promise.resolve({ slug: 'ogabassey' }),
+      searchParams: Promise.resolve({}),
     });
 
     expect(permanentRedirect).toHaveBeenCalledWith('/ogabassey/faq');
+  });
+
+  it('forwards query params to the destination', async () => {
+    vi.mocked(headers).mockResolvedValue(
+      new Headers([['x-custom-domain', 'ogabassey.com']])
+    );
+
+    await LegacyFaqPage({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+      searchParams: Promise.resolve({ utm_source: 'email' }),
+    });
+
+    expect(permanentRedirect).toHaveBeenCalledWith('/faq?utm_source=email');
   });
 });

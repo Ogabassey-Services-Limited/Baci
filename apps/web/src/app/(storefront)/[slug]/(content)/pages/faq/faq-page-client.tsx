@@ -1,7 +1,6 @@
 'use client';
 
 import { HelpCircle, Search } from 'lucide-react';
-import Link from 'next/link';
 import { useState } from 'react';
 import AppBody from '@/components/app-body';
 import { StorefrontFooter } from '@/components/storefront/footer';
@@ -16,9 +15,9 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { SafeHtml } from '@/components/ui/safe-html';
 import { StorefrontProvider } from '@/contexts/storefront-context';
-import { MerchantProvider, useMerchantSafe } from '@/hooks/use-merchant';
-import { asRoute } from '@/lib/routes';
+import { MerchantProvider } from '@/hooks/use-merchant';
 import { type FAQItem, groupFAQsByCategory } from '@/types/faq';
+import { ContactCTA } from './contact-cta';
 
 interface FAQPageClientProps {
   merchant: {
@@ -38,19 +37,6 @@ interface FAQPageClientProps {
   };
   faqItems: FAQItem[];
   legacyContent?: string;
-}
-
-function ContactCTA() {
-  const merchantCtx = useMerchantSafe();
-  const basePath = merchantCtx?.basePath ?? '';
-  return (
-    <Link
-      href={asRoute(`${basePath}/contact`)}
-      className="inline-flex items-center justify-center px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
-    >
-      Contact Support
-    </Link>
-  );
 }
 
 export function FAQPageClient({

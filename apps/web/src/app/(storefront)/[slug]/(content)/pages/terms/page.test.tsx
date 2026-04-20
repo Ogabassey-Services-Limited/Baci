@@ -1,6 +1,6 @@
 import { headers } from 'next/headers';
 import { permanentRedirect } from 'next/navigation';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/headers', () => ({
   headers: vi.fn(),
@@ -15,6 +15,10 @@ const { default: LegacyTermsPage } = await import(
 );
 
 describe('legacy terms page redirect', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('redirects custom-domain traffic to the canonical /terms URL', async () => {
     vi.mocked(headers).mockResolvedValue(
       new Headers([['x-custom-domain', 'ogabassey.com']])
