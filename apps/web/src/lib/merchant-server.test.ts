@@ -46,6 +46,30 @@ describe('merchant-server', () => {
 
     expect(result).toEqual({
       merchant: null,
+      merchantLookupStatus: 'unauthenticated',
+      staffAccess: {
+        isStaff: false,
+        isOwner: false,
+        role: null,
+        permissions: {},
+      },
+      user: null,
+    });
+    expect(mocks.fetchDashboardMerchant).not.toHaveBeenCalled();
+  });
+
+  it('marks the lookup as errored when auth.getUser fails', async () => {
+    mocks.getUser.mockResolvedValue({
+      data: { user: null },
+      error: new Error('Auth refresh failed'),
+    });
+
+    const { getMerchantForUser } = await loadModule();
+    const result = await getMerchantForUser();
+
+    expect(result).toEqual({
+      merchant: null,
+      merchantLookupStatus: 'error',
       staffAccess: {
         isStaff: false,
         isOwner: false,
@@ -96,6 +120,7 @@ describe('merchant-server', () => {
       ...merchant,
       custom_domain: 'owner.example.com',
     });
+    expect(result.merchantLookupStatus).toBe('found');
     expect(result.staffAccess.isOwner).toBe(true);
   });
 
@@ -122,5 +147,32 @@ describe('merchant-server', () => {
     await expect(ensurePermission('products', 'view')).rejects.toThrow(
       'No merchant access'
     );
+  });
+
+  it('marks the lookup as errored when the rich merchant query fails', async () => {
+    const user = { id: 'user-1', email: 'owner@example.com' };
+
+    mocks.getUser.mockResolvedValue({
+      data: { user },
+      error: null,
+    });
+    mocks.fetchDashboardMerchant.mockRejectedValue(
+      new Error('Could not find the trust_profile column in the schema cache')
+    );
+    mocks.fetchPrimaryDomain.mockResolvedValue(null);
+
+    const { getMerchantForUser } = await loadModule();
+    const result = await getMerchantForUser();
+
+    expect(result.user).toEqual(user);
+    expect(result.merchant).toBeNull();
+    expect(result.staffAccess).toEqual({
+      isStaff: false,
+      isOwner: false,
+      role: null,
+      permissions: {},
+    });
+    expect(mocks.fetchPrimaryDomain).not.toHaveBeenCalled();
+    expect(result.merchantLookupStatus).toBe('error');
   });
 });

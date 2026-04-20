@@ -9,16 +9,33 @@ export async function DashboardAuthGuard({
   children: ReactNode;
 }) {
   // Fetch merchant data server-side
-  const { merchant, staffAccess, user } = await getMerchantForUser();
+  const { merchant, merchantLookupStatus, staffAccess, user } =
+    await getMerchantForUser();
 
   // Server-side auth check - no race conditions!
   if (!user) {
     redirect('/login');
   }
 
+  if (!merchant && merchantLookupStatus === 'error') {
+    return (
+      <div
+        className="flex min-h-screen items-center justify-center px-6 text-center text-sm text-muted-foreground"
+        role="alert"
+      >
+        We couldn&apos;t load your dashboard right now. Please refresh and try
+        again.
+      </div>
+    );
+  }
+
   // Only redirect to onboarding if user is NOT staff and has no merchant
   // Staff members should never see onboarding - they join existing merchants
-  if (!merchant && !staffAccess?.isStaff) {
+  if (
+    !merchant &&
+    merchantLookupStatus === 'not_found' &&
+    !staffAccess?.isStaff
+  ) {
     redirect('/onboarding');
   }
 
