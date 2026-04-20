@@ -126,8 +126,9 @@ describe('RootLayoutNav', () => {
   it('passes persistence settings through to the query provider', () => {
     render(<RootLayoutNav persistenceEnabled={false} />);
 
-    expect(screen.getByText('persist:off')).toBeTruthy();
-    expect(mockQueryProvider).toHaveBeenCalled();
+    expect(mockQueryProvider).toHaveBeenCalledWith(
+      expect.objectContaining({ persistenceEnabled: false })
+    );
   });
 
   it('surfaces provider failures deterministically', () => {
