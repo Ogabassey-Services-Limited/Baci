@@ -29,7 +29,7 @@ export function HeroDesktopGrid({ getHref }: HeroDesktopGridProps) {
         {DESKTOP_IPHONE_SLIDES.map((slide, idx) => (
           <div
             key={slide.id}
-            className={`absolute inset-0 transition-opacity duration-[400ms] ease-in-out ${idx === currentIphoneSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
+            className={`absolute inset-0 transition-opacity [transition-duration:400ms] ease-in-out ${idx === currentIphoneSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
           >
             <div
               className={`absolute inset-0 z-10 bg-gradient-to-r ${slide.theme === 'dark'
@@ -76,7 +76,7 @@ export function HeroDesktopGrid({ getHref }: HeroDesktopGridProps) {
                 alt={`${slide.title} ${slide.subtitle}`}
                 fill
                 sizes="(max-width: 1024px) 100vw, 75vw"
-                className="object-cover object-center transition-transform duration-[3000ms] ease-out scale-100 group-hover:scale-105"
+                className="object-cover object-center transition-transform [transition-duration:3000ms] ease-out scale-100 group-hover:scale-105"
                 loading={idx === 0 ? 'eager' : 'lazy'}
                 fetchPriority={idx === 0 ? 'high' : undefined}
                 quality={70}
@@ -176,4 +176,3 @@ export function HeroDesktopGrid({ getHref }: HeroDesktopGridProps) {
     </div>
   );
 }
-

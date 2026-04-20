@@ -123,6 +123,21 @@ export interface StaffAccess {
   permissions: Record<string, Record<string, boolean>>;
 }
 
+export type RoutingMode = 'domain' | 'path';
+
+export interface StorefrontShellSnapshotBase {
+  merchant: MerchantData;
+  routingMode: RoutingMode;
+  basePath: string;
+}
+
+export interface StorefrontShellSnapshot {
+  merchant: StorefrontShellSnapshotBase['merchant'];
+  routingMode: StorefrontShellSnapshotBase['routingMode'];
+  basePath: StorefrontShellSnapshotBase['basePath'];
+  navigationCategories: CategoryNavItem[];
+}
+
 export interface MerchantContextType {
   merchant: MerchantData | null;
   loading: boolean;
@@ -133,7 +148,7 @@ export interface MerchantContextType {
   reloadMerchant: () => void;
   staffAccess: StaffAccess;
   hasPermission: (resource: string, action: string) => boolean;
-  routingMode: 'domain' | 'path';
+  routingMode: RoutingMode;
   basePath: string;
   navigationCategories: CategoryNavItem[];
 }
@@ -143,6 +158,7 @@ export interface MerchantProviderProps {
   slug?: string;
   initialMerchant?: MerchantData | null;
   initialStaffAccess?: StaffAccess;
-  initialRoutingMode?: 'domain' | 'path';
+  initialRoutingMode?: RoutingMode;
   navigationCategories?: CategoryNavItem[];
+  shellSnapshot?: StorefrontShellSnapshot | null;
 }

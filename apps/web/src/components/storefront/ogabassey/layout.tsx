@@ -51,9 +51,23 @@ export function OgabasseyLayout({
             merchant={merchant}
             basePath={basePath}
             hideNavigation={hideNavigation}
-          >
+            section="header"
+          />
+          <main id="main-content" className="flex-1">
             {children}
-          </OgabasseyLayoutChrome>
+          </main>
+          <OgabasseyLayoutChrome
+            merchant={merchant}
+            basePath={basePath}
+            hideNavigation={hideNavigation}
+            section="footer"
+          />
+          <OgabasseyLayoutChrome
+            merchant={merchant}
+            basePath={basePath}
+            hideNavigation={hideNavigation}
+            section="overlay"
+          />
         </div>
       </OgabasseyLayoutProviders>
     </>

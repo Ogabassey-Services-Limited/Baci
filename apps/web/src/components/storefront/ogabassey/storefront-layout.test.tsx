@@ -1,6 +1,7 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import CatalogRouteLoading from '@/app/(storefront)/[slug]/(catalog)/loading';
 
 const mocks = vi.hoisted(() => ({
   getOgabasseyBasePath: vi.fn(),
@@ -9,6 +10,11 @@ const mocks = vi.hoisted(() => ({
   prefetchDNS: vi.fn(),
   preconnect: vi.fn(),
 }));
+
+let shouldSuspendChrome = false;
+const suspendedChromePromise = new Promise<never>(() => {
+  // Keep chrome suspended to force the narrow fallback.
+});
 
 vi.mock('react-dom', () => ({
   prefetchDNS: mocks.prefetchDNS,
@@ -31,32 +37,54 @@ vi.mock('@/components/analytics/deferred-google-store-widget', () => ({
   ),
 }));
 
-vi.mock('./components/GadgetPattern', () => ({
-  GadgetPattern: () => <div data-testid="gadget-pattern" />,
-}));
-
-vi.mock('./storefront-layout-providers', () => ({
-  OgabasseyLayoutProviders: ({ children }: { children: ReactNode }) => (
-    <div data-testid="layout-providers">{children}</div>
+vi.mock('@/components/storefront/ogabassey/storefront-shell-layout', () => ({
+  StorefrontShellLayout: ({
+    headerChrome,
+    footerChrome,
+    overlayChrome,
+    children,
+  }: {
+    headerChrome?: ReactNode;
+    footerChrome?: ReactNode;
+    overlayChrome?: ReactNode;
+    children: ReactNode;
+  }) => (
+    <div data-testid="shell-layout">
+      {headerChrome}
+      <div data-testid="shell-children">{children}</div>
+      {footerChrome}
+      {overlayChrome}
+    </div>
   ),
 }));
 
-vi.mock('./storefront-layout-chrome', () => ({
-  OgabasseyLayoutChrome: ({
+vi.mock('@/components/storefront/ogabassey/storefront-chrome-runtime', () => ({
+  StorefrontChromeRuntime: ({
+    section,
     basePath,
-    hideNavigation,
-    children,
   }: {
+    section: 'header' | 'footer' | 'overlay';
     basePath: string;
-    hideNavigation?: boolean;
-    children: ReactNode;
-  }) => (
-    <div
-      data-testid="layout-chrome"
-      data-base-path={basePath}
-      data-hide-navigation={String(Boolean(hideNavigation))}
-    >
-      {children}
+  }) => {
+    if (shouldSuspendChrome) {
+      throw suspendedChromePromise;
+    }
+
+    return (
+      <div data-testid={`chrome-${section}`}>{`${section}:${basePath}`}</div>
+    );
+  },
+}));
+
+vi.mock('@/components/storefront/ogabassey/storefront-loading-ui', () => ({
+  ShellChromeLoading: () => (
+    <div role="status" aria-label="Loading storefront chrome">
+      shared-shell-fallback
+    </div>
+  ),
+  CatalogListingLoading: () => (
+    <div role="status" aria-label="Loading product listing">
+      catalog-route-loading
     </div>
   ),
 }));
@@ -82,12 +110,12 @@ const merchant = {
 
 describe('OgabasseyStorefrontLayout', () => {
   beforeEach(() => {
+    shouldSuspendChrome = false;
     mocks.getOgabasseyBasePath.mockReset();
     mocks.getOgabasseyLayoutStyle.mockReset();
     mocks.shouldEnableOgabasseyGoogleStoreWidget.mockReset();
     mocks.prefetchDNS.mockClear();
     mocks.preconnect.mockClear();
-
     mocks.getOgabasseyBasePath.mockReturnValue('/ogabassey');
     mocks.getOgabasseyLayoutStyle.mockReturnValue({
       '--store-primary': '#d62027',
@@ -95,7 +123,7 @@ describe('OgabasseyStorefrontLayout', () => {
     mocks.shouldEnableOgabasseyGoogleStoreWidget.mockReturnValue(true);
   });
 
-  it('renders the widget, providers, and chrome with the derived base path', () => {
+  it('routes the derived base path into the split runtime chrome sections', () => {
     render(
       <OgabasseyStorefrontLayout merchant={merchant}>
         <div>Storefront body</div>
@@ -107,6 +135,20 @@ describe('OgabasseyStorefrontLayout', () => {
       'https://cdn.ogabassey.com',
       { crossOrigin: '' }
     );
+    expect(mocks.getOgabasseyBasePath).toHaveBeenCalledWith(
+      'ogabassey',
+      'path'
+    );
+    expect(screen.getByTestId('chrome-header')).toHaveTextContent(
+      'header:/ogabassey'
+    );
+    expect(screen.getByTestId('chrome-footer')).toHaveTextContent(
+      'footer:/ogabassey'
+    );
+    expect(screen.getByTestId('chrome-overlay')).toHaveTextContent(
+      'overlay:/ogabassey'
+    );
+    expect(screen.getByText('Storefront body')).toBeInTheDocument();
     expect(screen.getByTestId('google-store-widget')).toHaveAttribute(
       'data-enabled',
       'true'
@@ -115,16 +157,9 @@ describe('OgabasseyStorefrontLayout', () => {
       'data-domain',
       'ogabassey.com'
     );
-    expect(screen.getByTestId('layout-providers')).toBeInTheDocument();
-    expect(screen.getByTestId('gadget-pattern')).toBeInTheDocument();
-    expect(screen.getByTestId('layout-chrome')).toHaveAttribute(
-      'data-base-path',
-      '/ogabassey'
-    );
-    expect(screen.getByText('Storefront body')).toBeInTheDocument();
   });
 
-  it('passes domain routing mode through to the base-path helper', () => {
+  it('passes domain routing mode through to the shared shell chrome', () => {
     mocks.getOgabasseyBasePath.mockReturnValue('');
 
     render(
@@ -137,13 +172,12 @@ describe('OgabasseyStorefrontLayout', () => {
       'ogabassey',
       'domain'
     );
-    expect(screen.getByTestId('layout-chrome')).toHaveAttribute(
-      'data-base-path',
-      ''
-    );
+    expect(screen.getByTestId('chrome-header')).toHaveTextContent('header:');
+    expect(screen.getByTestId('chrome-footer')).toHaveTextContent('footer:');
+    expect(screen.getByTestId('chrome-overlay')).toHaveTextContent('overlay:');
   });
 
-  it('keeps the Google widget mounted but marks it disabled when the setting is off', () => {
+  it('keeps the Google Store widget mounted but disabled when merchant settings turn it off', () => {
     mocks.shouldEnableOgabasseyGoogleStoreWidget.mockReturnValue(false);
 
     render(
@@ -160,9 +194,40 @@ describe('OgabasseyStorefrontLayout', () => {
       'data-domain',
       'ogabassey.com'
     );
-    expect(screen.getByTestId('layout-chrome')).toHaveAttribute(
-      'data-base-path',
-      '/ogabassey'
+  });
+
+  it('keeps route content visible while runtime chrome resolves behind a narrow fallback', () => {
+    shouldSuspendChrome = true;
+
+    render(
+      <OgabasseyStorefrontLayout merchant={merchant}>
+        <div>Storefront body</div>
+      </OgabasseyStorefrontLayout>
     );
+
+    expect(screen.getByText('Storefront body')).toBeInTheDocument();
+    expect(
+      screen.getAllByRole('status', { name: 'Loading storefront chrome' })
+    ).toHaveLength(2);
+  });
+
+  it('keeps the shared shell frame mounted while a route-family loader owns the content slot', () => {
+    shouldSuspendChrome = true;
+
+    render(
+      <OgabasseyStorefrontLayout merchant={merchant}>
+        <CatalogRouteLoading />
+      </OgabasseyStorefrontLayout>
+    );
+
+    expect(screen.getByTestId('shell-layout')).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId('shell-children')).getByRole('status', {
+        name: 'Loading product listing',
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByRole('status', { name: 'Loading storefront chrome' })
+    ).toHaveLength(2);
   });
 });

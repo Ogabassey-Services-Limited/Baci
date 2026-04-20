@@ -2,11 +2,6 @@ import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({
-  pathname: '/ogabassey',
-  shouldHideNavigation: vi.fn(),
-}));
-
 vi.mock('next/dynamic', () => ({
   default: () => {
     return function DynamicSlot() {
@@ -15,8 +10,9 @@ vi.mock('next/dynamic', () => ({
   },
 }));
 
+const mockUsePathname = vi.fn(() => '/ogabassey');
 vi.mock('next/navigation', () => ({
-  usePathname: () => mocks.pathname,
+  usePathname: () => mockUsePathname(),
 }));
 
 vi.mock('./layout/navbar', () => ({
@@ -51,54 +47,99 @@ vi.mock('./components/chat/DeferredChatWidget', () => ({
   DeferredChatWidget: () => <div data-testid="deferred-chat-widget" />,
 }));
 
-vi.mock('./storefront-layout-utils', () => ({
-  shouldHideOgabasseyNavigation: (...args: unknown[]) =>
-    mocks.shouldHideNavigation(...args),
-}));
-
 import { OgabasseyLayoutChrome } from './storefront-layout-chrome';
 
 describe('OgabasseyLayoutChrome', () => {
   beforeEach(() => {
-    mocks.pathname = '/ogabassey';
-    mocks.shouldHideNavigation.mockReset();
+    mockUsePathname.mockReset();
+    mockUsePathname.mockReturnValue('/ogabassey');
   });
 
-  it('renders the storefront shell features when navigation stays visible', () => {
-    mocks.shouldHideNavigation.mockReturnValue(false);
+  it('renders only header chrome for the header section', () => {
+    render(<OgabasseyLayoutChrome basePath="/ogabassey" section="header" />);
 
-    render(
-      <OgabasseyLayoutChrome basePath="/ogabassey">
-        <div>Storefront body</div>
-      </OgabasseyLayoutChrome>
-    );
-
-    expect(mocks.shouldHideNavigation).toHaveBeenCalledWith('/ogabassey', false);
     expect(screen.getByTestId('google-ad-manager')).toBeInTheDocument();
     expect(screen.getByTestId('navbar')).toHaveTextContent('/ogabassey');
-    expect(screen.getByText('Storefront body')).toBeInTheDocument();
-    expect(screen.getByTestId('ad-unit')).toHaveTextContent('FOOTER_BANNER');
-    expect(screen.getByTestId('mobile-footer')).toHaveTextContent('/ogabassey');
-    expect(screen.getByTestId('deferred-chat-widget')).toBeInTheDocument();
-    // Footer, cart sidebar, popup system, and offline notice all resolve through next/dynamic here.
-    expect(screen.getAllByTestId('dynamic-slot')).toHaveLength(4);
-  });
-
-  it('hides the navigation-dependent chrome for checkout-like routes', () => {
-    mocks.shouldHideNavigation.mockReturnValue(true);
-
-    render(
-      <OgabasseyLayoutChrome basePath="/ogabassey">
-        <div>Storefront body</div>
-      </OgabasseyLayoutChrome>
-    );
-
-    expect(screen.queryByTestId('navbar')).not.toBeInTheDocument();
     expect(screen.queryByTestId('ad-unit')).not.toBeInTheDocument();
     expect(screen.queryByTestId('mobile-footer')).not.toBeInTheDocument();
     expect(screen.queryByTestId('deferred-chat-widget')).not.toBeInTheDocument();
-    // When navigation is hidden, only the popup system and offline notice dynamic slots remain.
+  });
+
+  it('renders footer commerce chrome without wrapping route content', () => {
+    render(<OgabasseyLayoutChrome basePath="/ogabassey" section="footer" />);
+
+    expect(screen.getByTestId('ad-unit')).toHaveTextContent('FOOTER_BANNER');
+    expect(screen.getByTestId('mobile-footer')).toHaveTextContent('/ogabassey');
+    expect(screen.getByTestId('deferred-chat-widget')).toBeInTheDocument();
     expect(screen.getAllByTestId('dynamic-slot')).toHaveLength(2);
-    expect(screen.getByText('Storefront body')).toBeInTheDocument();
+    expect(screen.queryByTestId('navbar')).not.toBeInTheDocument();
+    expect(screen.queryByRole('main')).not.toBeInTheDocument();
+  });
+
+  it('hides navigation-dependent chrome when hideNavigation is true', () => {
+    const { container } = render(
+      <OgabasseyLayoutChrome
+        basePath="/ogabassey"
+        hideNavigation
+        section="footer"
+      />
+    );
+
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('renders overlay chrome independently from header and footer sections', () => {
+    render(
+      <OgabasseyLayoutChrome
+        basePath="/ogabassey"
+        hideNavigation
+        section="overlay"
+      />
+    );
+
+    expect(screen.getAllByTestId('dynamic-slot')).toHaveLength(2);
+    expect(screen.queryByTestId('navbar')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('ad-unit')).not.toBeInTheDocument();
+  });
+
+  // Reactive hide-on-pathname coverage — this is the P1 regression fix.
+  // The shell is persistent across client-side routing, so hide state must
+  // derive from `usePathname()` and update without remounting the chrome.
+  it('auto-hides the navbar when the current pathname is a checkout route', () => {
+    mockUsePathname.mockReturnValue('/ogabassey/checkout');
+    render(<OgabasseyLayoutChrome basePath="/ogabassey" section="header" />);
+
+    expect(screen.queryByTestId('navbar')).not.toBeInTheDocument();
+    // GoogleAdManager is outside the hide gate — it still renders.
+    expect(screen.getByTestId('google-ad-manager')).toBeInTheDocument();
+  });
+
+  it('auto-hides the footer chrome on nav-less routes', () => {
+    mockUsePathname.mockReturnValue('/ogabassey/account/login');
+    const { container } = render(
+      <OgabasseyLayoutChrome basePath="/ogabassey" section="footer" />
+    );
+
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('keeps the navbar visible on a normal storefront route', () => {
+    mockUsePathname.mockReturnValue('/ogabassey/products/some-item');
+    render(<OgabasseyLayoutChrome basePath="/ogabassey" section="header" />);
+
+    expect(screen.getByTestId('navbar')).toBeInTheDocument();
+  });
+
+  it('still honours an explicit hideNavigation override on any route', () => {
+    mockUsePathname.mockReturnValue('/ogabassey/products/some-item');
+    render(
+      <OgabasseyLayoutChrome
+        basePath="/ogabassey"
+        hideNavigation
+        section="header"
+      />
+    );
+
+    expect(screen.queryByTestId('navbar')).not.toBeInTheDocument();
   });
 });

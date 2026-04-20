@@ -1,8 +1,6 @@
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { Suspense } from 'react';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
-import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
@@ -122,9 +120,7 @@ export async function StorefrontPageContent({
         />
       )}
 
-      <Suspense fallback={<StorefrontPageSkeleton />}>
-        <StorefrontContent merchant={merchant} />
-      </Suspense>
+      <StorefrontContent merchant={merchant} />
     </>
   );
 }

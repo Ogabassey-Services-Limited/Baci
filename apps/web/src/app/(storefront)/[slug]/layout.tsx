@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from 'next';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type React from 'react';
-import { Suspense } from 'react';
 import { DeferredPageViewTracker } from '@/components/storefront/deferred-page-view-tracker';
 import { OgabasseyStorefrontLayout } from '@/components/storefront/ogabassey/storefront-layout';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
@@ -10,15 +9,13 @@ import { MOBILE_APPS } from '@/config/platform';
 import { StorefrontCartProvider } from '@/hooks/cart/storefront-cart-provider';
 import { StorefrontMerchantProvider } from '@/hooks/merchant/storefront-merchant-provider';
 import type { MerchantData } from '@/hooks/use-merchant';
-import { getCachedNavigationCategories } from '@/lib/cached-categories';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
-import { toTemplateMerchantData } from '@/lib/merchant-template-data';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
+import { isValidMerchantIdentifier } from '@/lib/validation';
 import {
-  isDomainIdentifier,
-  isValidMerchantIdentifier,
-} from '@/lib/validation';
-import { StorefrontLayoutFallback } from './storefront-layout-fallback';
+  getStorefrontShellSnapshot,
+  getStorefrontShellSnapshotBase,
+} from './storefront-shell-snapshot';
 
 /**
  * Renders the appropriate layout wrapper based on the merchant's template.
@@ -38,7 +35,10 @@ function StorefrontLayoutRenderer({
   // but may cause a single-frame flash when seasonal themes (e.g., santa in December)
   // differ from the 'standard' default. SnowEffect uses fixed inset-0 pointer-events-none,
   // so there is zero CLS impact. The flash is imperceptible in practice.
-  // hideNavigation is computed in the smaller client chrome via usePathname().
+  // hideNavigation resolves inside `OgabasseyLayoutChrome` (a client
+  // component) via `usePathname()`, so route-based hide state stays
+  // reactive across client-side routing. The `hideNavigation` prop on
+  // this layout is kept as an override-only escape hatch.
   const templateId = merchant.template_id;
 
   if (templateId === 'ogabassey') {
@@ -167,58 +167,24 @@ export function generateViewport(): Viewport {
   };
 }
 
-async function StorefrontLayoutContent({
+function StorefrontShellFrame({
   children,
-  params,
+  shellSnapshot,
 }: {
   children: React.ReactNode;
-  params: Promise<{ slug: string }>;
+  shellSnapshot: Awaited<ReturnType<typeof getStorefrontShellSnapshot>>;
 }) {
-  const { slug } = await params;
-
-  // Validate identifier format (can be slug or domain)
-  if (!isValidMerchantIdentifier(slug)) {
+  if (!shellSnapshot) {
     notFound();
   }
 
-  // Use appropriate lookup method based on identifier type
-  const merchant = await getRequestScopedMerchant(slug);
-
-  if (!merchant) {
-    notFound();
-  }
-
-  // Check if store is published - show "coming soon" page if not
-  // In development, allow viewing unpublished stores for testing
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  if (!merchant.is_published && !isDevelopment) {
-    return <StoreNotPublished businessName={merchant.business_name} />;
-  }
-
-  // Use the merchant's actual slug for internal routing, not the domain
-  const merchantSlug = merchant.slug;
-  const templateMerchant = toTemplateMerchantData(merchant);
-
-  // Determine routing mode and checkout state based on headers (set by middleware)
-  const headersList = await headers();
-  const hasSubdomain = headersList.has('x-merchant-slug');
-  const hasCustomDomain = headersList.has('x-custom-domain');
-
-  // Use headers but fall back to slug format checking if headers are missing (e.g. some SSR scenarios)
-  const routingMode =
-    hasSubdomain || hasCustomDomain || isDomainIdentifier(slug)
-      ? 'domain'
-      : 'path';
-
-  // Fetch navigation categories server-side (cached)
-  const navigationCategories = await getCachedNavigationCategories(merchant.id);
+  const { merchant, routingMode } = shellSnapshot;
+  const merchantSlug = merchant.slug || '';
 
   return (
     <StorefrontMerchantProvider
       slug={merchantSlug}
-      initialMerchant={templateMerchant}
-      initialRoutingMode={routingMode}
-      navigationCategories={navigationCategories}
+      shellSnapshot={shellSnapshot}
     >
       <StorefrontCartProvider
         enableSmartCartPro
@@ -231,10 +197,7 @@ async function StorefrontLayoutContent({
           - Keeps layout persistent across route changes (seamless navigation)
           - Prevents header flashing/re-rendering
         */}
-        <StorefrontLayoutRenderer
-          merchant={templateMerchant}
-          routingMode={routingMode}
-        >
+        <StorefrontLayoutRenderer merchant={merchant} routingMode={routingMode}>
           {children}
         </StorefrontLayoutRenderer>
       </StorefrontCartProvider>
@@ -246,14 +209,36 @@ export default async function StorefrontLayout(props: {
   children: React.ReactNode;
   params: Promise<{ slug: string }>;
 }) {
-  const [headersList, { slug }] = await Promise.all([headers(), props.params]);
-  const pathname = headersList.get('x-pathname');
+  const { slug } = await props.params;
+
+  if (!isValidMerchantIdentifier(slug)) {
+    notFound();
+  }
+
+  const shellSnapshotBase = await getStorefrontShellSnapshotBase(slug);
+
+  if (!shellSnapshotBase) {
+    notFound();
+  }
+
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  if (!shellSnapshotBase.merchant.is_published && !isDevelopment) {
+    return (
+      <StoreNotPublished
+        businessName={shellSnapshotBase.merchant.business_name}
+      />
+    );
+  }
+
+  const shellSnapshot = await getStorefrontShellSnapshot(shellSnapshotBase);
+
+  if (!shellSnapshot) {
+    notFound();
+  }
 
   return (
-    <Suspense
-      fallback={<StorefrontLayoutFallback pathname={pathname} slug={slug} />}
-    >
-      <StorefrontLayoutContent {...props} />
-    </Suspense>
+    <StorefrontShellFrame shellSnapshot={shellSnapshot}>
+      {props.children}
+    </StorefrontShellFrame>
   );
 }
