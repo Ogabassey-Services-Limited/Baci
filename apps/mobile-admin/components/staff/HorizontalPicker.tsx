@@ -61,7 +61,7 @@ export function HorizontalPicker({
           ]}
           onPress={() => onSelect(null)}
           accessibilityRole="radio"
-          accessibilityState={{ selected: !selectedId }}
+          accessibilityState={{ checked: !selectedId }}
           accessibilityLabel={noneAccessibilityLabel}
         >
           <Text
@@ -129,7 +129,7 @@ export function HorizontalPicker({
               ]}
               onPress={() => onSelect(option.id)}
               accessibilityRole="radio"
-              accessibilityState={{ selected: isSelected }}
+              accessibilityState={{ checked: isSelected }}
               accessibilityLabel={option.accessibilityLabel ?? option.label}
             >
               <Text

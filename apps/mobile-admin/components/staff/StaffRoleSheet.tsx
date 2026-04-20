@@ -62,7 +62,7 @@ export function StaffRoleSheet({
             <Pressable
               accessibilityLabel={`Select ${ROLE_LABELS[role]}`}
               accessibilityRole="radio"
-              accessibilityState={{ selected: isSelected }}
+              accessibilityState={{ checked: isSelected }}
               key={role}
               onPress={() => onRoleSelect(role)}
               style={[

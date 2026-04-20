@@ -162,7 +162,7 @@ export default function SettingsScreen() {
                           : { backgroundColor: colors.muted },
                       ]}
                       accessibilityRole="radio"
-                      accessibilityState={{ selected: isActive }}
+                      accessibilityState={{ checked: isActive }}
                       accessibilityLabel={`${option.label} appearance mode`}
                     >
                       <Ionicons
