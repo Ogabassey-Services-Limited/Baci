@@ -1,34 +1,34 @@
-import { headers } from 'next/headers';
 import type { MerchantData } from '@/hooks/use-merchant';
 import {
   OgabasseyLayoutChrome,
   type OgabasseyLayoutChromeSection,
 } from './storefront-layout-chrome';
-import { shouldHideOgabasseyNavigation } from './storefront-layout-utils';
 
 interface StorefrontChromeRuntimeProps {
   section: OgabasseyLayoutChromeSection;
   merchant?: MerchantData;
   basePath: string;
+  /**
+   * Escape hatch: forces the nav chrome hidden regardless of route.
+   * When `false`/omitted, the client-side `OgabasseyLayoutChrome`
+   * derives hide-state from `usePathname()` so it stays reactive
+   * across client-side route changes (the `[slug]` shell is
+   * persistent, so server-computed pathname state would go stale
+   * after in-app navigation).
+   */
   hideNavigation?: boolean;
 }
 
-export async function StorefrontChromeRuntime({
+export function StorefrontChromeRuntime({
   section,
   merchant,
   basePath,
   hideNavigation = false,
 }: StorefrontChromeRuntimeProps) {
-  const pathname = (await headers()).get('x-pathname');
-  const resolvedHideNavigation = shouldHideOgabasseyNavigation(
-    pathname,
-    hideNavigation
-  );
-
   return (
     <OgabasseyLayoutChrome
       basePath={basePath}
-      hideNavigation={resolvedHideNavigation}
+      hideNavigation={hideNavigation}
       merchant={merchant}
       section={section}
     />

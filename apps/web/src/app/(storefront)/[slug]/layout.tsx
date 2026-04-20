@@ -35,7 +35,10 @@ function StorefrontLayoutRenderer({
   // but may cause a single-frame flash when seasonal themes (e.g., santa in December)
   // differ from the 'standard' default. SnowEffect uses fixed inset-0 pointer-events-none,
   // so there is zero CLS impact. The flash is imperceptible in practice.
-  // hideNavigation is computed in the smaller client chrome via usePathname().
+  // hideNavigation resolves inside `OgabasseyLayoutChrome` (a client
+  // component) via `usePathname()`, so route-based hide state stays
+  // reactive across client-side routing. The `hideNavigation` prop on
+  // this layout is kept as an override-only escape hatch.
   const templateId = merchant.template_id;
 
   if (templateId === 'ogabassey') {

@@ -52,7 +52,15 @@ export default function CustomerOrderDetailsPage() {
   useEffect(() => {
     const controller = new AbortController();
     const fetchOrder = async () => {
-      if (!customer || !merchant?.slug || !orderId) return;
+      if (!customer || !merchant?.slug || !orderId) {
+        // `isLoadingOrder` initialises to `true` so the skeleton renders on
+        // first paint. When we bail out (no session yet, missing orderId,
+        // etc.) we must flip it off, otherwise the page renders the
+        // skeleton forever and the auth-redirect / missing-param UI below
+        // never gets a chance to show.
+        setIsLoadingOrder(false);
+        return;
+      }
 
       setIsLoadingOrder(true);
       setOrderError(null);

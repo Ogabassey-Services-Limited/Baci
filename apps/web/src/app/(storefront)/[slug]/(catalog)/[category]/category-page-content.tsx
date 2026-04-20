@@ -56,14 +56,17 @@ function toCollectionSchemaProduct(
     category: product.category,
     category_slug: product.category_slug,
     slug: product.slug,
-    condition:
-      product.condition === 'Used'
-        ? 'used'
-        : product.condition === 'Open Box'
-          ? 'open_box'
-          : product.condition === 'refurbished'
-            ? 'refurbished'
-            : 'new',
+    // Case-insensitive comparison: DB values can be 'Refurbished' /
+    // 'refurbished' / 'REFURBISHED'. Normalising here prevents refurbished
+    // products from silently falling through to the `'new'` default.
+    condition: (() => {
+      const normalized = product.condition?.toLowerCase();
+      if (normalized === 'used') return 'used';
+      if (normalized === 'open box' || normalized === 'open_box')
+        return 'open_box';
+      if (normalized === 'refurbished') return 'refurbished';
+      return 'new';
+    })(),
     product_key_specs: product.product_key_specs ?? undefined,
   };
 }

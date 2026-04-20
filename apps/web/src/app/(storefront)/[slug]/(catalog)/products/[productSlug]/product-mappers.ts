@@ -138,10 +138,14 @@ export function mapLegacyCachedProductToProduct(
     description: cachedProduct.description || '',
     status: cachedProduct.status as 'draft' | 'active' | 'archived',
     slug: cachedProduct.slug || cachedProduct.id,
-    price: cachedProduct.sale_price || cachedProduct.base_price,
-    compare_at_price: cachedProduct.sale_price
-      ? cachedProduct.base_price
-      : undefined,
+    // Use nullish coalescing so a legitimate `0` sale_price (free promo,
+    // giveaway) is preserved rather than coerced up to base_price.
+    price: cachedProduct.sale_price ?? cachedProduct.base_price,
+    compare_at_price:
+      cachedProduct.sale_price !== null &&
+      cachedProduct.sale_price !== undefined
+        ? cachedProduct.base_price
+        : undefined,
     manage_stock: cachedProduct.track_quantity ?? false,
     stock: cachedProduct.quantity ?? 0,
     image: firstImage,

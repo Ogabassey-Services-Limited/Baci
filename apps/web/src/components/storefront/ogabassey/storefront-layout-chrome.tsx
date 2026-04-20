@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { usePathname } from 'next/navigation';
 import type { MerchantData } from '@/hooks/use-merchant';
 import { AdUnit } from './components/AdUnit';
 import { DeferredShellFeature } from './components/deferred-shell-feature';
@@ -8,7 +9,10 @@ import { GoogleAdManager } from './components/GoogleAdManager';
 import { MobileFooter } from './components/MobileFooter';
 import { DeferredChatWidget } from './components/chat/DeferredChatWidget';
 import { OgabasseyNavbar as Navbar } from './layout/navbar';
-import type { OgabasseyChromeSection } from './storefront-layout-utils';
+import {
+  type OgabasseyChromeSection,
+  shouldHideOgabasseyNavigation,
+} from './storefront-layout-utils';
 
 const DeferredCartSidebar = dynamic(
   () => import('./components/CartSidebar').then((mod) => mod.CartSidebar),
@@ -30,6 +34,14 @@ const DeferredOfflineNotice = dynamic(
 interface OgabasseyLayoutChromeProps {
   merchant?: MerchantData;
   basePath: string;
+  /**
+   * Force the nav chrome hidden regardless of route. Intended as an
+   * escape hatch (e.g. iframe embeds). When `false`/omitted, hide
+   * state is derived from the current pathname via `usePathname()`
+   * so it stays reactive across client-side route changes — the
+   * persistent storefront shell doesn't unmount, so a server-computed
+   * value would go stale.
+   */
   hideNavigation?: boolean;
   section: OgabasseyChromeSection;
 }
@@ -42,17 +54,23 @@ export function OgabasseyLayoutChrome({
   hideNavigation = false,
   section,
 }: OgabasseyLayoutChromeProps) {
+  const pathname = usePathname();
+  const resolvedHideNavigation = shouldHideOgabasseyNavigation(
+    pathname,
+    hideNavigation
+  );
+
   if (section === 'header') {
     return (
       <>
         <GoogleAdManager />
-        {!hideNavigation && <Navbar storeSlug={basePath} />}
+        {!resolvedHideNavigation && <Navbar storeSlug={basePath} />}
       </>
     );
   }
 
   if (section === 'footer') {
-    if (hideNavigation) {
+    if (resolvedHideNavigation) {
       return null;
     }
 

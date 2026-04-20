@@ -10,8 +10,9 @@ vi.mock('next/dynamic', () => ({
   },
 }));
 
+const mockUsePathname = vi.fn(() => '/ogabassey');
 vi.mock('next/navigation', () => ({
-  usePathname: () => '/ogabassey',
+  usePathname: () => mockUsePathname(),
 }));
 
 vi.mock('./layout/navbar', () => ({
@@ -49,6 +50,11 @@ vi.mock('./components/chat/DeferredChatWidget', () => ({
 import { OgabasseyLayoutChrome } from './storefront-layout-chrome';
 
 describe('OgabasseyLayoutChrome', () => {
+  beforeEach(() => {
+    mockUsePathname.mockReset();
+    mockUsePathname.mockReturnValue('/ogabassey');
+  });
+
   it('renders only header chrome for the header section', () => {
     render(<OgabasseyLayoutChrome basePath="/ogabassey" section="header" />);
 
@@ -94,5 +100,46 @@ describe('OgabasseyLayoutChrome', () => {
     expect(screen.getAllByTestId('dynamic-slot')).toHaveLength(2);
     expect(screen.queryByTestId('navbar')).not.toBeInTheDocument();
     expect(screen.queryByTestId('ad-unit')).not.toBeInTheDocument();
+  });
+
+  // Reactive hide-on-pathname coverage — this is the P1 regression fix.
+  // The shell is persistent across client-side routing, so hide state must
+  // derive from `usePathname()` and update without remounting the chrome.
+  it('auto-hides the navbar when the current pathname is a checkout route', () => {
+    mockUsePathname.mockReturnValue('/ogabassey/checkout');
+    render(<OgabasseyLayoutChrome basePath="/ogabassey" section="header" />);
+
+    expect(screen.queryByTestId('navbar')).not.toBeInTheDocument();
+    // GoogleAdManager is outside the hide gate — it still renders.
+    expect(screen.getByTestId('google-ad-manager')).toBeInTheDocument();
+  });
+
+  it('auto-hides the footer chrome on nav-less routes', () => {
+    mockUsePathname.mockReturnValue('/ogabassey/account/login');
+    const { container } = render(
+      <OgabasseyLayoutChrome basePath="/ogabassey" section="footer" />
+    );
+
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('keeps the navbar visible on a normal storefront route', () => {
+    mockUsePathname.mockReturnValue('/ogabassey/products/some-item');
+    render(<OgabasseyLayoutChrome basePath="/ogabassey" section="header" />);
+
+    expect(screen.getByTestId('navbar')).toBeInTheDocument();
+  });
+
+  it('still honours an explicit hideNavigation override on any route', () => {
+    mockUsePathname.mockReturnValue('/ogabassey/products/some-item');
+    render(
+      <OgabasseyLayoutChrome
+        basePath="/ogabassey"
+        hideNavigation
+        section="header"
+      />
+    );
+
+    expect(screen.queryByTestId('navbar')).not.toBeInTheDocument();
   });
 });

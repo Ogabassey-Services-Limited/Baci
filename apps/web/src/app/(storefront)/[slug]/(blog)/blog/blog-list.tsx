@@ -52,6 +52,10 @@ export function BlogList({
   const [hasMore, setHasMore] = useState(initialPosts.length < totalPosts);
   const [isPending, startTransition] = useTransition();
   const sentinelRef = useRef<HTMLDivElement>(null);
+  // The IntersectionObserver effect only re-runs when hasMore/isPending change;
+  // keeping a ref to the latest `loadMore` closure avoids calling a stale one
+  // that captures yesterday's `page`/`posts`.
+  const loadMoreRef = useRef<(() => void) | null>(null);
 
   // Reset state when filters change
   useEffect(() => {
@@ -74,18 +78,22 @@ export function BlogList({
         if (newPosts.length === 0) {
           setHasMore(false);
         } else {
+          // Compute hasMore based on the updated post count, not a stale
+          // `posts.length` captured from this closure — rapid pagination
+          // can enqueue multiple loadMores before the outer state
+          // propagates, giving incorrect hasMore reads.
           setPosts((prev) => {
-            // Deduplicate posts based on ID to be safe
             const existingIds = new Set(prev.map((p) => p.id));
             const uniqueNewPosts = newPosts.filter(
               (p) => !existingIds.has(p.id)
             );
-            return [...prev, ...uniqueNewPosts];
+            const next = [...prev, ...uniqueNewPosts];
+            if (next.length >= totalPosts) {
+              setHasMore(false);
+            }
+            return next;
           });
           setPage(nextPage);
-          if (posts.length + newPosts.length >= totalPosts) {
-            setHasMore(false);
-          }
         }
       } catch (error) {
         console.error('Failed to load more posts:', error);
@@ -93,12 +101,15 @@ export function BlogList({
     });
   };
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization
+  // Keep the ref pointed at the current `loadMore` so the observer effect's
+  // callback always invokes the latest closure (page/posts).
+  loadMoreRef.current = loadMore;
+
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && hasMore && !isPending) {
-          loadMore();
+          loadMoreRef.current?.();
         }
       },
       { rootMargin: '200px' }

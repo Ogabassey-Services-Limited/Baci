@@ -373,18 +373,26 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
     getCachedProductRatingStats(product.id),
     getCachedProductReviews(product.id, { limit: 10 }),
   ]);
-  if (recentReviews && recentReviews.length > 0) {
-    product.reviews = recentReviews.map((r) => ({
-      author: r.reviewer_name || 'Anonymous',
-      datePublished: r.created_at,
-      reviewBody: r.review_text || '',
-      reviewRating: r.rating,
-    }));
-  }
+  // `product` comes from the request-scoped product cache. Mutating it in place
+  // (as this did previously) would pollute the shared reference for subsequent
+  // renders in the same request or across requests that replay the same cache
+  // entry. Shallow-clone before attaching the per-request review payload.
+  const productWithReviews =
+    recentReviews && recentReviews.length > 0
+      ? {
+          ...product,
+          reviews: recentReviews.map((r) => ({
+            author: r.reviewer_name || 'Anonymous',
+            datePublished: r.created_at,
+            reviewBody: r.review_text || '',
+            reviewRating: r.rating,
+          })),
+        }
+      : product;
   const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
   const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
   const productSchema = generateProductSchema(
-    product,
+    productWithReviews,
     merchant.business_name || 'Baci Store',
     merchant.payout_currency || 'USD',
     merchant.country || 'NG',

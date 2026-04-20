@@ -62,6 +62,13 @@ export default function CheckoutSuccessPage() {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization
   useEffect(() => {
+    // Track the failed-redirect timer so navigating away from this page
+    // cancels it — without the cleanup, a user who leaves within the 4s
+    // window gets yanked back to /checkout.
+    const timerHandle: { current: ReturnType<typeof setTimeout> | null } = {
+      current: null,
+    };
+
     const verifyPayment = async () => {
       if (!reference) {
         router.push(asRoute(getHref('/checkout')));
@@ -89,7 +96,7 @@ export default function CheckoutSuccessPage() {
           );
         } else if (data.status === 'failed' || data.status === 'cancelled') {
           setStatus('failed');
-          setTimeout(() => {
+          timerHandle.current = setTimeout(() => {
             router.push(asRoute(getHref('/checkout')));
           }, 4000);
         } else {
@@ -106,6 +113,12 @@ export default function CheckoutSuccessPage() {
     };
 
     verifyPayment();
+
+    return () => {
+      if (timerHandle.current !== null) {
+        clearTimeout(timerHandle.current);
+      }
+    };
   }, [reference, clearCart, router, basePath]);
 
   useEffect(() => {

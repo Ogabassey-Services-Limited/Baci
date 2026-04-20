@@ -9,11 +9,14 @@ import { incrementViewCount } from './actions';
  * and useRef to prevent double-fire from React StrictMode.
  */
 export function ViewCounter({ postId }: { postId: string }) {
-  const hasIncremented = useRef(false);
+  // Track the postId we last counted against so navigating between blog posts
+  // (same component instance, new prop) re-arms the increment instead of
+  // staying stuck on the first post's guard.
+  const lastCountedPostIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (hasIncremented.current) return;
-    hasIncremented.current = true;
+    if (lastCountedPostIdRef.current === postId) return;
+    lastCountedPostIdRef.current = postId;
 
     const storageKey = `blog-viewed-${postId}`;
     try {
