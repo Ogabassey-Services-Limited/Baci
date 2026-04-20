@@ -20,8 +20,9 @@ export default async function LegacyBlogPage({
       Array.isArray(v) ? v.map((val) => [k, val]) : v ? [[k, v]] : []
     )
   ).toString();
+  const destination: Route = queryString
+    ? (`${basePath}?${queryString}` as Route)
+    : basePath;
 
-  permanentRedirect(
-    (queryString ? `${basePath}?${queryString}` : basePath) as Route
-  );
+  permanentRedirect(destination);
 }

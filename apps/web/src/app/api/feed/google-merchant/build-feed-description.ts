@@ -39,12 +39,17 @@ function buildSpecDetails(input: FeedDescriptionInput) {
   const specs = input.product_key_specs ?? {};
   const color =
     normalizeText(input.color) ||
-    normalizeText(specs.available_colors as string);
+    (typeof specs.available_colors === 'string'
+      ? normalizeText(specs.available_colors)
+      : undefined);
   const screenSize =
     typeof specs.screen_size_inches === 'number'
       ? `${specs.screen_size_inches} inches`
       : undefined;
-  const screenResolution = normalizeText(specs.display_resolution as string);
+  const screenResolution =
+    typeof specs.display_resolution === 'string'
+      ? normalizeText(specs.display_resolution)
+      : undefined;
   const ram =
     typeof specs.ram_gb === 'number' ? `${specs.ram_gb}GB` : undefined;
   const storage =
