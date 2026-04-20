@@ -10,7 +10,9 @@ vi.mock('next/navigation', () => ({
   permanentRedirect: vi.fn(),
 }));
 
-const { default: LegacyTermsPage } = await import('./page');
+const { default: LegacyTermsPage } = await import(
+  '@/app/(storefront)/[slug]/(content)/pages/terms/page'
+);
 
 describe('legacy terms page redirect', () => {
   it('redirects custom-domain traffic to the canonical /terms URL', async () => {
@@ -20,8 +22,33 @@ describe('legacy terms page redirect', () => {
 
     await LegacyTermsPage({
       params: Promise.resolve({ slug: 'ogabassey' }),
+      searchParams: Promise.resolve({}),
     });
 
     expect(permanentRedirect).toHaveBeenCalledWith('/terms');
+  });
+
+  it('redirects non-custom-domain traffic to /:slug/terms', async () => {
+    vi.mocked(headers).mockResolvedValue(new Headers());
+
+    await LegacyTermsPage({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(permanentRedirect).toHaveBeenCalledWith('/ogabassey/terms');
+  });
+
+  it('forwards query params to the destination', async () => {
+    vi.mocked(headers).mockResolvedValue(
+      new Headers([['x-custom-domain', 'ogabassey.com']])
+    );
+
+    await LegacyTermsPage({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+      searchParams: Promise.resolve({ utm_source: 'email' }),
+    });
+
+    expect(permanentRedirect).toHaveBeenCalledWith('/terms?utm_source=email');
   });
 });

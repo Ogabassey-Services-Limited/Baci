@@ -10,7 +10,9 @@ vi.mock('next/navigation', () => ({
   permanentRedirect: vi.fn(),
 }));
 
-const { default: LegacyContactPage } = await import('./page');
+const { default: LegacyContactPage } = await import(
+  '@/app/(storefront)/[slug]/(content)/pages/contact/page'
+);
 
 describe('legacy contact page redirect', () => {
   it('redirects custom-domain traffic to the canonical /contact URL', async () => {
@@ -20,8 +22,33 @@ describe('legacy contact page redirect', () => {
 
     await LegacyContactPage({
       params: Promise.resolve({ slug: 'ogabassey' }),
+      searchParams: Promise.resolve({}),
     });
 
     expect(permanentRedirect).toHaveBeenCalledWith('/contact');
+  });
+
+  it('redirects non-custom-domain traffic to /:slug/contact', async () => {
+    vi.mocked(headers).mockResolvedValue(new Headers());
+
+    await LegacyContactPage({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(permanentRedirect).toHaveBeenCalledWith('/ogabassey/contact');
+  });
+
+  it('forwards query params to the destination', async () => {
+    vi.mocked(headers).mockResolvedValue(
+      new Headers([['x-custom-domain', 'ogabassey.com']])
+    );
+
+    await LegacyContactPage({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+      searchParams: Promise.resolve({ utm_source: 'email' }),
+    });
+
+    expect(permanentRedirect).toHaveBeenCalledWith('/contact?utm_source=email');
   });
 });
