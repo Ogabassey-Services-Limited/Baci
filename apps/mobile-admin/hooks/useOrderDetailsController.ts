@@ -1,21 +1,25 @@
-import {
-  PAYMENT_STATUS_CONFIG,
-  SHIPPING_STATUS_CONFIG,
-} from '@baci/shared';
+import { PAYMENT_STATUS_CONFIG, SHIPPING_STATUS_CONFIG } from '@baci/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
-import { z } from 'zod';
+import {
+  formatOrderDetailsDate,
+  formatOrderDetailsPrice,
+} from '@/components/orders/order-details.formatters';
 import {
   formatOrderAddress,
   getOrderCurrencySymbol,
   getOrderSourceInfo,
   getOrderStatusColor,
 } from '@/components/orders/order-details.helpers';
-import {
-  formatOrderDetailsDate,
-  formatOrderDetailsPrice,
-} from '@/components/orders/order-details.formatters';
+import { createOrderDetailsContactActions } from '@/hooks/createOrderDetailsContactActions';
+import { createOrderDetailsPaymentActions } from '@/hooks/createOrderDetailsPaymentActions';
+import { createOrderDetailsReceiptActions } from '@/hooks/createOrderDetailsReceiptActions';
+import { createOrderDetailsShipmentActions } from '@/hooks/createOrderDetailsShipmentActions';
+import { createOrderDetailsStatusActions } from '@/hooks/createOrderDetailsStatusActions';
 import { useMerchant } from '@/hooks/useMerchant';
+import { useOrderDetailsBackHandler } from '@/hooks/useOrderDetailsBackHandler';
+import { useOrderDetailsStartupEffects } from '@/hooks/useOrderDetailsStartupEffects';
+import { useOrderDetailsUiState } from '@/hooks/useOrderDetailsUiState';
 import {
   type PaymentStatus,
   type ShippingStatus,
@@ -25,25 +29,13 @@ import {
   useShipOnCredit,
   useUpdateOrderStatus,
 } from '@/hooks/useOrders';
-import { createOrderDetailsContactActions } from '@/hooks/createOrderDetailsContactActions';
-import { createOrderDetailsPaymentActions } from '@/hooks/createOrderDetailsPaymentActions';
-import { createOrderDetailsReceiptActions } from '@/hooks/createOrderDetailsReceiptActions';
-import { createOrderDetailsShipmentActions } from '@/hooks/createOrderDetailsShipmentActions';
-import { createOrderDetailsStatusActions } from '@/hooks/createOrderDetailsStatusActions';
-import { useOrderDetailsBackHandler } from '@/hooks/useOrderDetailsBackHandler';
-import { useOrderDetailsStartupEffects } from '@/hooks/useOrderDetailsStartupEffects';
-import { useOrderDetailsUiState } from '@/hooks/useOrderDetailsUiState';
 import { useTheme } from '@/hooks/useTheme';
 import {
   canUseSelectedShippingProvider,
   formatShippingProviderName,
   orderRequiresFulfillment,
 } from '@/lib/order-shipment';
-
-const routeParamsSchema = z.object({
-  action: z.enum(['record-payment', 'ship-on-credit']).optional(),
-  id: z.string().uuid(),
-});
+import { orderDetailsRouteParamsSchema } from '@/schemas/order-details-route-params';
 
 export function useOrderDetailsController() {
   const rawParams = useLocalSearchParams<{
@@ -57,7 +49,7 @@ export function useOrderDetailsController() {
       : rawParams.action,
     id: Array.isArray(rawParams.id) ? rawParams.id[0] : rawParams.id,
   };
-  const routeResult = routeParamsSchema.safeParse(normalizedParams);
+  const routeResult = orderDetailsRouteParamsSchema.safeParse(normalizedParams);
   const validatedParams = routeResult.success ? routeResult.data : null;
   const orderId = validatedParams?.id;
   const actionParam = validatedParams?.action;
@@ -182,16 +174,14 @@ export function useOrderDetailsController() {
     setShowReceiptPreview: uiState.setShowReceiptPreview,
   });
 
-  const shippingConfig =
-    order && order.shipping_status
-      ? SHIPPING_STATUS_CONFIG[order.shipping_status as ShippingStatus] ||
-        SHIPPING_STATUS_CONFIG.pending
-      : SHIPPING_STATUS_CONFIG.pending;
-  const paymentConfig =
-    order && order.payment_status
-      ? PAYMENT_STATUS_CONFIG[order.payment_status as PaymentStatus] ||
-        PAYMENT_STATUS_CONFIG.pending
-      : PAYMENT_STATUS_CONFIG.pending;
+  const shippingConfig = order?.shipping_status
+    ? SHIPPING_STATUS_CONFIG[order.shipping_status as ShippingStatus] ||
+      SHIPPING_STATUS_CONFIG.pending
+    : SHIPPING_STATUS_CONFIG.pending;
+  const paymentConfig = order?.payment_status
+    ? PAYMENT_STATUS_CONFIG[order.payment_status as PaymentStatus] ||
+      PAYMENT_STATUS_CONFIG.pending
+    : PAYMENT_STATUS_CONFIG.pending;
   const shippingColor = getOrderStatusColor(colors, shippingConfig.colorKey);
   const paymentColor = getOrderStatusColor(colors, paymentConfig.colorKey);
   const sourceInfo = getOrderSourceInfo(colors, order?.source);
@@ -217,8 +207,7 @@ export function useOrderDetailsController() {
     handleEmail: contactActions.handleEmail,
     handlePaymentAmountChange: paymentActions.handlePaymentAmountChange,
     handleRecordPayment: paymentActions.handleRecordPayment,
-    handleSendOrderDetailsToRider:
-      contactActions.handleSendOrderDetailsToRider,
+    handleSendOrderDetailsToRider: contactActions.handleSendOrderDetailsToRider,
     handleSendReceipt: receiptActions.handleSendReceipt,
     handleSendReminder: paymentActions.handleSendReminder,
     handleSendRiderToCustomer: contactActions.handleSendRiderToCustomer,
@@ -227,8 +216,7 @@ export function useOrderDetailsController() {
     handleShipOnCredit: paymentActions.handleShipOnCredit,
     handleShipmentFlowBack: shipmentActions.handleShipmentFlowBack,
     handleStatusUpdate: statusActions.handleStatusUpdate,
-    handleSubmitSelfFulfillment:
-      shipmentActions.handleSubmitSelfFulfillment,
+    handleSubmitSelfFulfillment: shipmentActions.handleSubmitSelfFulfillment,
     handleWhatsApp: contactActions.handleWhatsApp,
     hasCustomerPhone,
     isGeneratingReceipt: uiState.isGeneratingReceipt,

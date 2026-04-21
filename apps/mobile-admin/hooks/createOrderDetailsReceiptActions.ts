@@ -1,8 +1,8 @@
-import { Alert } from 'react-native';
-import { generateReceiptHtml } from '@baci/shared';
 import type { ReceiptMerchant, ReceiptOrder } from '@baci/shared';
-import { supabase } from '@/lib/supabase';
+import { generateReceiptHtml } from '@baci/shared';
+import { Alert } from 'react-native';
 import type { OrderDetailsRecord } from '@/components/orders/order-details.types';
+import { supabase } from '@/lib/supabase';
 import { resolveOrderReceiptVirtualAccount } from './resolveOrderReceiptVirtualAccount';
 
 let PrintModule: typeof import('expo-print') | null = null;
@@ -120,7 +120,11 @@ export function createOrderDetailsReceiptActions({
         ) {
           merchantPages = { terms: data.pages.terms };
         }
-      } catch {}
+      } catch (error) {
+        if (__DEV__) {
+          console.debug('[OrderDetails] Failed to fetch merchant pages', error);
+        }
+      }
 
       let logoUrl = merchant.logo_url ?? null;
       let svgXml: string | undefined;
@@ -138,10 +142,17 @@ export function createOrderDetailsReceiptActions({
         } else {
           try {
             const { File, Paths } = await import('expo-file-system');
-            const destination = new File(Paths.cache, `receipt_logo_${Date.now()}.png`);
-            const downloaded = await File.downloadFileAsync(logoUrl, destination, {
-              idempotent: true,
-            });
+            const destination = new File(
+              Paths.cache,
+              `receipt_logo_${Date.now()}.png`
+            );
+            const downloaded = await File.downloadFileAsync(
+              logoUrl,
+              destination,
+              {
+                idempotent: true,
+              }
+            );
             const base64 = await downloaded.base64();
             logoUrl = `data:${downloaded.type || 'image/png'};base64,${base64}`;
           } catch {

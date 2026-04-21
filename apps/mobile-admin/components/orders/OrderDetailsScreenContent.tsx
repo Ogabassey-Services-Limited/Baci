@@ -128,9 +128,7 @@ export function OrderDetailsScreenContent({
         colors={controller.colors}
         onClose={() => controller.setShowStatusModal(false)}
         onSelectStatus={(status) => {
-          void controller.handleStatusUpdate(
-            status as typeof order.shipping_status
-          );
+          void controller.handleStatusUpdate(status);
         }}
         shippingStatus={order.shipping_status}
         visible={controller.showStatusModal}

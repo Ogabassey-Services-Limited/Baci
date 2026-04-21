@@ -22,15 +22,13 @@ import { InvalidRouteScreen } from '@/components/ui/InvalidRouteScreen';
 import { useProductEditController } from '@/hooks/useProductEditController';
 import { useTheme } from '@/hooks/useTheme';
 import { createEmptyEditableVariant } from '@/lib/product-variant-form';
-import { routeParamsSchema } from '@/schemas/product-route-params';
 
 export default function ProductEditScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const controller = useProductEditController();
 
-  const routeValidation = routeParamsSchema.safeParse({ id: controller.id });
-  if (!routeValidation.success || !controller.id) {
+  if (!controller.id) {
     return (
       <InvalidRouteScreen
         title="Invalid Product"

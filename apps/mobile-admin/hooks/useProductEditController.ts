@@ -1,7 +1,8 @@
 import * as Crypto from 'expo-crypto';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { z } from 'zod';
+import { createInitialProductEditFormData } from '@/components/product/product-edit.defaults';
+import type { ProductEditFormData } from '@/components/product/product-edit.types';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useProductNameSuggestions } from '@/hooks/useProductNameSuggestions';
 import {
@@ -12,20 +13,13 @@ import {
   useUpdateProduct,
   useUpdateProductStatus,
 } from '@/hooks/useProducts';
-import { createInitialProductEditFormData } from '@/components/product/product-edit.defaults';
 import { normalizeComparableProductName } from '@/lib/product-matching';
-import {
-  buildVariantFormValues,
-} from '@/lib/product-variant-form';
+import { buildVariantFormValues } from '@/lib/product-variant-form';
 import { stripHtmlTags } from '@/lib/utils';
-import type { ProductEditFormData } from '@/components/product/product-edit.types';
+import { routeParamsSchema } from '@/schemas/product-route-params';
 import { createProductEditImageActions } from './createProductEditImageActions';
 import { createProductEditPersistenceActions } from './createProductEditPersistenceActions';
 import { createProductEditVariantActions } from './createProductEditVariantActions';
-
-const routeParamsSchema = z.object({
-  id: z.union([z.literal('new'), z.string().uuid()]),
-});
 
 export function useProductEditController() {
   const rawParams = useLocalSearchParams<{ id: string; sku?: string }>();
@@ -43,7 +37,9 @@ export function useProductEditController() {
     `SKU-${Crypto.randomUUID().replace(/-/g, '').substring(0, 8).toUpperCase()}`;
 
   const [formData, setFormData] = useState<ProductEditFormData>(() =>
-    createInitialProductEditFormData(isEditing ? '' : rawParams.sku || generateSKU())
+    createInitialProductEditFormData(
+      isEditing ? '' : rawParams.sku || generateSKU()
+    )
   );
   const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
@@ -99,10 +95,13 @@ export function useProductEditController() {
               items: Array<{ imei: string; serial_number: string }>;
             })
           : {
-              items: Array.from({ length: product.stock_quantity || 0 }, () => ({
-                imei: '',
-                serial_number: '',
-              })),
+              items: Array.from(
+                { length: product.stock_quantity || 0 },
+                () => ({
+                  imei: '',
+                  serial_number: '',
+                })
+              ),
             },
       has_variants: product.has_variants || product.variants.length > 0,
       images: (product.images as string[]) || [],
@@ -114,12 +113,12 @@ export function useProductEditController() {
       status: (product.status as 'active' | 'draft' | 'archived') || 'active',
       stock_quantity: product.stock_quantity || 0,
       variant_attributes: product.variant_attributes
-        ? Object.entries(product.variant_attributes as Record<string, unknown>).map(
-            ([key, value]) => ({
-              key,
-              value: String(value),
-            })
-          )
+        ? Object.entries(
+            product.variant_attributes as Record<string, unknown>
+          ).map(([key, value]) => ({
+            key,
+            value: String(value),
+          }))
         : [],
       variants: buildVariantFormValues(product.variants, {
         costPrice: product.cost_price || 0,
@@ -133,40 +132,37 @@ export function useProductEditController() {
     setFormData((previous) => ({ ...previous, ...updates }));
   };
 
-  const {
-    handleCreateCategory,
-    handleSave,
-    handleStatusToggle,
-  } = createProductEditPersistenceActions({
-    createCategory: (name, callbacks) =>
-      createCategoryMutation.mutate(name, callbacks),
-    createProduct: createProductMutation.mutateAsync,
-    exactProductSuggestion,
-    formData,
-    hasVariantConditionAxis,
-    id: id === 'new' ? undefined : id,
-    isEditing,
-    newCategoryName,
-    openProduct: (productId) => router.push(`/product/${productId}`),
-    resetCategoryForm: () => {
-      setNewCategoryName('');
-      setIsCreatingCategory(false);
-      setIsCategoryModalVisible(false);
-    },
-    revertStatus: (status) =>
-      setFormData((previous) => ({ ...previous, status })),
-    routerBack: () => router.back(),
-    saveInFlightRef,
-    selectCreatedCategory: (categoryId, categoryName) =>
-      setFormData((previous) => ({
-        ...previous,
-        category: categoryName,
-        category_id: categoryId,
-      })),
-    updateProduct: updateProductMutation.mutateAsync,
-    updateStatus: (input, callbacks) =>
-      updateStatusMutation.mutate(input, callbacks),
-  });
+  const { handleCreateCategory, handleSave, handleStatusToggle } =
+    createProductEditPersistenceActions({
+      createCategory: (name, callbacks) =>
+        createCategoryMutation.mutate(name, callbacks),
+      createProduct: createProductMutation.mutateAsync,
+      exactProductSuggestion,
+      formData,
+      hasVariantConditionAxis,
+      id: id === 'new' ? undefined : id,
+      isEditing,
+      newCategoryName,
+      openProduct: (productId) => router.push(`/product/${productId}`),
+      resetCategoryForm: () => {
+        setNewCategoryName('');
+        setIsCreatingCategory(false);
+        setIsCategoryModalVisible(false);
+      },
+      revertStatus: (status) =>
+        setFormData((previous) => ({ ...previous, status })),
+      routerBack: () => router.back(),
+      saveInFlightRef,
+      selectCreatedCategory: (categoryId, categoryName) =>
+        setFormData((previous) => ({
+          ...previous,
+          category: categoryName,
+          category_id: categoryId,
+        })),
+      updateProduct: updateProductMutation.mutateAsync,
+      updateStatus: (input, callbacks) =>
+        updateStatusMutation.mutate(input, callbacks),
+    });
 
   const {
     addAttribute,
