@@ -12,13 +12,13 @@ import { DEFAULT_COUNTRY_CODE } from '@/components/orders/new-order.shared';
 import type {
   CustomerInfo,
   OrderItem,
+  SelectedParentProduct,
   SelectableCustomer,
   SelectableOrderProduct,
 } from '@/components/orders/new-order.types';
 import { useAuth } from '@/hooks/useAuth';
 import { useCreateCustomer } from '@/hooks/useCustomers';
 import { useMerchant } from '@/hooks/useMerchant';
-import type { Product } from '@/hooks/useProducts';
 import { useTheme } from '@/hooks/useTheme';
 import { createNewOrderTotals } from '@/lib/new-order-totals';
 import { createNewOrderCustomerActions } from './createNewOrderCustomerActions';
@@ -59,7 +59,7 @@ export function useNewOrderController() {
   // Search & Form
   const [productSearch, setProductSearch] = useState('');
   const [selectedParentProduct, setSelectedParentProduct] =
-    useState<Product | null>(null);
+    useState<SelectedParentProduct>(null);
   const [customerSearch, setCustomerSearch] = useState('');
   const {
     customersData,
@@ -138,11 +138,7 @@ export function useNewOrderController() {
     setCustomItem,
     setOrderItems,
     setProductSearch,
-    // Cast is safe: ParentProductRef is a structural subset of Product; the
-    // setter only ever receives Product values at runtime.
-    setSelectedParentProduct: setSelectedParentProduct as (
-      v: null | { images?: null | string[]; name?: null | string }
-    ) => void,
+    setSelectedParentProduct,
     setShowCustomItemModal: uiState.setShowCustomItemModal,
     setShowProductModal: uiState.setShowProductModal,
   });
@@ -190,6 +186,24 @@ export function useNewOrderController() {
       total,
       userId: user?.id,
     });
+  };
+
+  const resetOrderDraft = () => {
+    setDate(new Date());
+    setSelectedChannel('physical');
+    setPaymentStatus('unpaid');
+    setCustomer(createEmptyCustomerInfo());
+    setOrderItems([]);
+    setNotes('');
+    setDiscount(0);
+    setShippingFee(0);
+    setTaxes(0);
+    setIsVatApplied(merchant?.vat_registration_status === 'registered');
+    setSameAsCustomer(true);
+    setDeliveryInfo(createEmptyDeliveryInfo());
+    setPartialAmount('');
+    setPaymentMethod('transfer');
+    uiState.setLastOrderId(null);
   };
 
   return {
@@ -271,6 +285,7 @@ export function useNewOrderController() {
     handleSelectCustomer,
     handleSelectProduct,
     handleSubmit,
+    resetOrderDraft,
     closeProductModal,
     resetNewCustomerForm,
     resetProductPickerState,

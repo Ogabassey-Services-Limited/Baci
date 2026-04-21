@@ -52,6 +52,8 @@ export function OrderDetailsPaymentCard({
         <>
           <View style={styles.paymentActionsRow}>
             <Pressable
+              accessibilityLabel="Record payment"
+              accessibilityRole="button"
               onPress={onRecordPayment}
               style={[
                 styles.paymentActionButton,
@@ -66,6 +68,8 @@ export function OrderDetailsPaymentCard({
               </Text>
             </Pressable>
             <Pressable
+              accessibilityLabel="Request payment"
+              accessibilityRole="button"
               onPress={onRequestPayment}
               style={[
                 styles.paymentActionButton,

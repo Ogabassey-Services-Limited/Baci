@@ -2,6 +2,8 @@ import { Alert } from 'react-native';
 import { parseOrderDetailsCurrencyInput } from '@/components/orders/order-details.formatters';
 import type { OrderDetailsRecord } from '@/components/orders/order-details.types';
 
+const inFlightPaymentActions = new Set<string>();
+
 interface CreateOrderDetailsPaymentActionsParams {
   creditNotes: string;
   formatPrice: (amount: number) => string;
@@ -55,16 +57,28 @@ export function createOrderDetailsPaymentActions({
     return fallback;
   };
 
+  const runSingleFlight = async (
+    actionKey: string,
+    callback: () => Promise<void>
+  ) => {
+    if (inFlightPaymentActions.has(actionKey)) {
+      return;
+    }
+
+    inFlightPaymentActions.add(actionKey);
+
+    try {
+      await callback();
+    } finally {
+      inFlightPaymentActions.delete(actionKey);
+    }
+  };
+
   const handlePaymentAmountChange = (text: string) => {
     setPaymentAmount(parseOrderDetailsCurrencyInput(text));
   };
 
-  let isRecordingPayment = false;
-
   const handleRecordPayment = async () => {
-    if (isRecordingPayment) {
-      return;
-    }
     if (!order) {
       Alert.alert('Error', 'Order details are not available yet');
       return;
@@ -82,41 +96,43 @@ export function createOrderDetailsPaymentActions({
       return;
     }
 
-    isRecordingPayment = true;
-    try {
-      const result = await recordPayment({
-        amount: Number(paymentAmount),
-        notes: paymentNotes,
-        orderId: order.id,
-        paymentMethod,
-      });
+    await runSingleFlight(`record-payment:${order.id}`, async () => {
+      try {
+        const result = await recordPayment({
+          amount: Number(paymentAmount),
+          notes: paymentNotes,
+          orderId: order.id,
+          paymentMethod,
+        });
 
-      setShowRecordPaymentModal(false);
-      setPaymentAmount('');
-      setPaymentMethod('');
-      setPaymentNotes('');
+        setShowRecordPaymentModal(false);
+        setPaymentAmount('');
+        setPaymentMethod('');
+        setPaymentNotes('');
 
-      if (result.new_balance > 0) {
+        if (result.new_balance > 0) {
+          Alert.alert(
+            'Payment Recorded',
+            `Remaining Balance: ${formatPrice(result.new_balance)}. Ship remaining on credit?`,
+            [
+              { text: 'No', style: 'cancel' },
+              {
+                text: 'Yes, Ship on Credit',
+                onPress: () => setShowCreditModal(true),
+              },
+            ]
+          );
+          return;
+        }
+
+        Alert.alert('Success', 'Payment recorded. Order is now fully paid.');
+      } catch (error: unknown) {
         Alert.alert(
-          'Payment Recorded',
-          `Remaining Balance: ${formatPrice(result.new_balance)}. Ship remaining on credit?`,
-          [
-            { text: 'No', style: 'cancel' },
-            {
-              text: 'Yes, Ship on Credit',
-              onPress: () => setShowCreditModal(true),
-            },
-          ]
+          'Error',
+          getErrorMessage(error, 'Failed to record payment')
         );
-        return;
       }
-
-      Alert.alert('Success', 'Payment recorded. Order is now fully paid.');
-    } catch (error: unknown) {
-      Alert.alert('Error', getErrorMessage(error, 'Failed to record payment'));
-    } finally {
-      isRecordingPayment = false;
-    }
+    });
   };
 
   const handleShipOnCredit = async () => {
@@ -125,20 +141,25 @@ export function createOrderDetailsPaymentActions({
       return;
     }
 
-    try {
-      await shipOnCredit({
-        creditNotes,
-        orderId: order.id,
-      });
-      setShowCreditModal(false);
-      setCreditNotes('');
-      Alert.alert(
-        'Success',
-        'Order shipped on credit. A virtual account has been created for payment.'
-      );
-    } catch (error: unknown) {
-      Alert.alert('Error', getErrorMessage(error, 'Failed to ship on credit'));
-    }
+    await runSingleFlight(`ship-on-credit:${order.id}`, async () => {
+      try {
+        await shipOnCredit({
+          creditNotes,
+          orderId: order.id,
+        });
+        setShowCreditModal(false);
+        setCreditNotes('');
+        Alert.alert(
+          'Success',
+          'Order shipped on credit. A virtual account has been created for payment.'
+        );
+      } catch (error: unknown) {
+        Alert.alert(
+          'Error',
+          getErrorMessage(error, 'Failed to ship on credit')
+        );
+      }
+    });
   };
 
   const handleSendReminder = async () => {
@@ -147,15 +168,17 @@ export function createOrderDetailsPaymentActions({
       return;
     }
 
-    try {
-      await sendReminder({ orderId: order.id });
-      Alert.alert(
-        'Reminder Sent',
-        `Payment reminder sent to ${order.customer_email}`
-      );
-    } catch (error: unknown) {
-      Alert.alert('Error', getErrorMessage(error, 'Failed to send reminder'));
-    }
+    await runSingleFlight(`send-reminder:${order.id}`, async () => {
+      try {
+        await sendReminder({ orderId: order.id });
+        Alert.alert(
+          'Reminder Sent',
+          `Payment reminder sent to ${order.customer_email}`
+        );
+      } catch (error: unknown) {
+        Alert.alert('Error', getErrorMessage(error, 'Failed to send reminder'));
+      }
+    });
   };
 
   return {

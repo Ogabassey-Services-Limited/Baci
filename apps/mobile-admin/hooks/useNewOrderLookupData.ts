@@ -1,8 +1,8 @@
 import { useCustomers } from '@/hooks/useCustomers';
 import { useDebounce } from '@/hooks/useDebounce';
+import type { SelectedParentProduct } from '@/components/orders/new-order.types';
 import { useProductPicker } from '@/hooks/useProductPicker';
 import { useProductPickerVariants } from '@/hooks/useProductPickerVariants';
-import type { Product } from '@/hooks/useProducts';
 
 export function useNewOrderLookupData({
   customerSearch,
@@ -10,7 +10,7 @@ export function useNewOrderLookupData({
   productSearch,
 }: {
   customerSearch: string;
-  selectedParentProduct: Product | null;
+  selectedParentProduct: SelectedParentProduct;
   productSearch: string;
 }) {
   const productPicker = useProductPicker(productSearch);

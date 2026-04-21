@@ -1,73 +1,262 @@
 import { Alert } from 'react-native';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({
+  fetch: vi.fn(),
+  from: vi.fn(),
+  printToFileAsync: vi.fn(),
+  resolveVirtualAccount: vi.fn(),
+  shareAsync: vi.fn(),
+}));
 
 vi.mock('react-native', () => ({
   Alert: { alert: vi.fn() },
 }));
 
-vi.mock('@baci/shared', () => ({
-  generateReceiptHtml: vi.fn(() => '<html>receipt</html>'),
-}));
-
 vi.mock('@/lib/supabase', () => ({
   supabase: {
-    from: vi.fn(() => ({
-      select: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          single: vi.fn().mockResolvedValue({ data: null }),
-        })),
-      })),
-    })),
+    from: mocks.from,
   },
 }));
 
 vi.mock('./resolveOrderReceiptVirtualAccount', () => ({
-  resolveOrderReceiptVirtualAccount: vi.fn().mockResolvedValue(null),
+  resolveOrderReceiptVirtualAccount: mocks.resolveVirtualAccount,
+}));
+
+vi.mock('expo-print', () => ({
+  printToFileAsync: (...args: unknown[]) => mocks.printToFileAsync(...args),
+}));
+
+vi.mock('expo-sharing', () => ({
+  shareAsync: (...args: unknown[]) => mocks.shareAsync(...args),
+}));
+
+vi.mock('expo-file-system', () => ({
+  File: class MockFile {
+    exists = false;
+    type = 'application/pdf';
+    uri: string;
+
+    constructor(uri: string) {
+      this.uri = uri;
+    }
+
+    async base64() {
+      return 'ZmFrZQ==';
+    }
+
+    delete() {
+      this.exists = false;
+    }
+
+    move(destination: { uri?: string } | string) {
+      this.uri =
+        typeof destination === 'string' ? destination : (destination.uri ?? this.uri);
+    }
+
+    static async downloadFileAsync() {
+      return new MockFile('file:///tmp/logo.png');
+    }
+  },
+  Paths: { cache: '/tmp' },
 }));
 
 import { createOrderDetailsReceiptActions } from './createOrderDetailsReceiptActions';
 
 describe('createOrderDetailsReceiptActions', () => {
-  it('returns early without calling setIsGeneratingReceipt when order is missing', async () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubGlobal('fetch', mocks.fetch);
+    mocks.resolveVirtualAccount.mockResolvedValue(null);
+    mocks.from.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        }),
+      }),
+    });
+    mocks.printToFileAsync.mockResolvedValue({ uri: 'file:///tmp/receipt.pdf' });
+    mocks.shareAsync.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('keeps merchant terms when the merchant pages query returns an error', async () => {
+    mocks.from.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          maybeSingle: vi.fn().mockResolvedValue({
+            data: null,
+            error: new Error('query failed'),
+          }),
+        }),
+      }),
+    });
     const setIsGeneratingReceipt = vi.fn();
+    const setReceiptHtml = vi.fn();
+    const setShowReceiptPreview = vi.fn();
+
     const actions = createOrderDetailsReceiptActions({
       isGeneratingReceipt: false,
-      merchant: { id: 'merchant-1', business_name: 'Acme' },
-      order: undefined,
+      merchant: {
+        business_name: 'Baci',
+        email: 'merchant@example.com',
+        id: 'merchant-1',
+        pages: { terms: 'No refunds after pickup.' },
+      },
+      order: {
+        amount_paid: 0,
+        balance: 15000,
+        created_at: '2024-01-01T00:00:00.000Z',
+        customer_email: 'customer@example.com',
+        customer_name: 'Ada',
+        customer_phone: '08030000000',
+        discount_amount: 0,
+        id: 'order-1',
+        items: [],
+        order_number: 'ORD-1',
+        payment_status: 'pending',
+        shipping_address: null,
+        shipping_status: 'pending',
+        total: 15000,
+        updated_at: '2024-01-01T00:00:00.000Z',
+      },
       receiptHtml: '',
       setIsGeneratingReceipt,
-      setReceiptHtml: vi.fn(),
+      setReceiptHtml,
+      setShowReceiptPreview,
+    });
+
+    await actions.handleSendReceipt();
+
+    expect(setIsGeneratingReceipt).toHaveBeenNthCalledWith(1, true);
+    expect(setReceiptHtml).toHaveBeenCalledWith(
+      expect.stringContaining('No refunds after pickup.')
+    );
+    expect(setShowReceiptPreview).toHaveBeenCalledWith(true);
+    expect(setIsGeneratingReceipt).toHaveBeenLastCalledWith(false);
+  });
+
+  it('generates receipt html and opens the preview on a successful send flow', async () => {
+    const setIsGeneratingReceipt = vi.fn();
+    const setReceiptHtml = vi.fn();
+    const setShowReceiptPreview = vi.fn();
+
+    const actions = createOrderDetailsReceiptActions({
+      isGeneratingReceipt: false,
+      merchant: {
+        business_name: 'Baci',
+        email: 'merchant@example.com',
+        id: 'merchant-1',
+      },
+      order: {
+        amount_paid: 0,
+        balance: 15000,
+        created_at: '2024-01-01T00:00:00.000Z',
+        customer_email: 'customer@example.com',
+        customer_name: 'Ada',
+        customer_phone: '08030000000',
+        discount_amount: 0,
+        id: 'order-1',
+        items: [],
+        order_number: 'ORD-1',
+        payment_status: 'pending',
+        shipping_address: null,
+        shipping_status: 'pending',
+        total: 15000,
+        updated_at: '2024-01-01T00:00:00.000Z',
+      },
+      receiptHtml: '',
+      setIsGeneratingReceipt,
+      setReceiptHtml,
+      setShowReceiptPreview,
+    });
+
+    await actions.handleSendReceipt();
+
+    expect(setIsGeneratingReceipt).toHaveBeenNthCalledWith(1, true);
+    expect(setReceiptHtml).toHaveBeenCalledWith(expect.any(String));
+    expect(setShowReceiptPreview).toHaveBeenCalledWith(true);
+    expect(setIsGeneratingReceipt).toHaveBeenLastCalledWith(false);
+  });
+
+  it('sanitizes fetched svg logos before previewing the receipt', async () => {
+    mocks.fetch.mockResolvedValue({
+      ok: true,
+      text: async () => '<svg><script>alert(1)</script><rect /></svg>',
+    });
+    const setReceiptHtml = vi.fn();
+
+    const actions = createOrderDetailsReceiptActions({
+      isGeneratingReceipt: false,
+      merchant: {
+        business_name: 'Baci',
+        email: 'merchant@example.com',
+        id: 'merchant-1',
+        logo_url: 'https://example.com/logo.svg',
+      },
+      order: {
+        amount_paid: 0,
+        balance: 15000,
+        created_at: '2024-01-01T00:00:00.000Z',
+        customer_email: 'customer@example.com',
+        customer_name: 'Ada',
+        customer_phone: '08030000000',
+        discount_amount: 0,
+        id: 'order-1',
+        items: [],
+        order_number: 'ORD-1',
+        payment_status: 'pending',
+        shipping_address: null,
+        shipping_status: 'pending',
+        total: 15000,
+        updated_at: '2024-01-01T00:00:00.000Z',
+      },
+      receiptHtml: '',
+      setIsGeneratingReceipt: vi.fn(),
+      setReceiptHtml,
       setShowReceiptPreview: vi.fn(),
     });
 
     await actions.handleSendReceipt();
 
-    expect(setIsGeneratingReceipt).not.toHaveBeenCalled();
+    expect(setReceiptHtml).toHaveBeenCalledWith(
+      expect.not.stringContaining('<script>')
+    );
+    expect(setReceiptHtml).toHaveBeenCalledWith(
+      expect.stringContaining('<svg')
+    );
+    expect(Alert.alert).not.toHaveBeenCalled();
   });
 
-  it('returns early without calling setIsGeneratingReceipt when merchant is missing', async () => {
-    const setIsGeneratingReceipt = vi.fn();
+  it('shares the generated receipt pdf when receipt html is available', async () => {
     const actions = createOrderDetailsReceiptActions({
       isGeneratingReceipt: false,
-      merchant: null,
-      order: { id: 'order-1', order_number: 'ORD-1' } as never,
-      receiptHtml: '',
-      setIsGeneratingReceipt,
-      setReceiptHtml: vi.fn(),
-      setShowReceiptPreview: vi.fn(),
-    });
-
-    await actions.handleSendReceipt();
-
-    expect(setIsGeneratingReceipt).not.toHaveBeenCalled();
-  });
-
-  it('does nothing in handleShareReceiptPdf when receiptHtml is empty', async () => {
-    const actions = createOrderDetailsReceiptActions({
-      isGeneratingReceipt: false,
-      merchant: { id: 'merchant-1' },
-      order: undefined,
-      receiptHtml: '',
+      merchant: {
+        business_name: 'Baci',
+        email: 'merchant@example.com',
+        id: 'merchant-1',
+      },
+      order: {
+        amount_paid: 15000,
+        balance: 0,
+        created_at: '2024-01-01T00:00:00.000Z',
+        customer_email: 'customer@example.com',
+        customer_name: 'Ada',
+        customer_phone: '08030000000',
+        discount_amount: 0,
+        id: 'order-1',
+        items: [],
+        order_number: 'ORD-1',
+        payment_status: 'paid',
+        shipping_address: null,
+        shipping_status: 'pending',
+        total: 15000,
+        updated_at: '2024-01-01T00:00:00.000Z',
+      },
+      receiptHtml: '<html><body>receipt</body></html>',
       setIsGeneratingReceipt: vi.fn(),
       setReceiptHtml: vi.fn(),
       setShowReceiptPreview: vi.fn(),
@@ -75,6 +264,9 @@ describe('createOrderDetailsReceiptActions', () => {
 
     await actions.handleShareReceiptPdf();
 
-    expect(Alert.alert).not.toHaveBeenCalled();
+    expect(mocks.printToFileAsync).toHaveBeenCalledWith({
+      html: '<html><body>receipt</body></html>',
+    });
+    expect(mocks.shareAsync).toHaveBeenCalledTimes(1);
   });
 });

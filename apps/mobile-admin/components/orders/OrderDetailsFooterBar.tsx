@@ -47,7 +47,13 @@ export function OrderDetailsFooterBar({
           <Text style={[styles.buttonText, { color: colors.textOnPrimary }]}>
             Update Status
           </Text>
-          <Ionicons name="chevron-up" size={16} color={colors.textOnPrimary} />
+          <Ionicons
+            accessibilityElementsHidden
+            importantForAccessibility="no"
+            name="chevron-up"
+            size={16}
+            color={colors.textOnPrimary}
+          />
         </Pressable>
       </View>
     </View>

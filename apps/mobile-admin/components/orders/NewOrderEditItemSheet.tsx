@@ -214,7 +214,10 @@ export function NewOrderEditItemSheet({
               if (editingItem) {
                 const finalPrice =
                   Number.parseFloat(editPriceValue.replace(/,/g, '')) || 0;
-                const finalQty = Number.parseInt(editQtyValue, 10) || 1;
+                const finalQty = Math.max(
+                  1,
+                  Number.parseInt(editQtyValue, 10) || 1
+                );
                 setOrderItems((previous) =>
                   previous.map((item) =>
                     item.id === editingItem.id

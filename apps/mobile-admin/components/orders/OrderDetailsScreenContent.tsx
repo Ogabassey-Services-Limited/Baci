@@ -39,6 +39,9 @@ export function OrderDetailsScreenContent({
           headerTintColor: controller.colors.text,
           headerRight: () => (
             <Pressable
+              accessibilityLabel="Share order"
+              accessibilityRole="button"
+              hitSlop={8}
               onPress={() => {
                 void controller.handleShare();
               }}

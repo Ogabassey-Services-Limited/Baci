@@ -28,6 +28,7 @@ export function NewOrderFinancialSheet({
     showFinancialModal,
     vatRate,
   } = controller;
+  const currencyCode = merchant?.payout_currency?.trim() || null;
 
   return (
     <AppSheetModal
@@ -167,7 +168,9 @@ export function NewOrderFinancialSheet({
         >
           {showFinancialModal.type === 'tax' && isVatApplied
             ? 'Calculated VAT Amount'
-            : 'Amount (NGN)'}
+            : currencyCode
+              ? `Amount (${currencyCode})`
+              : 'Amount'}
         </Text>
         <TextInput
           editable={!(showFinancialModal.type === 'tax' && isVatApplied)}

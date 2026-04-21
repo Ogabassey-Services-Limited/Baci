@@ -49,48 +49,6 @@ function getStatusColor(
   return colorMap[key || ''] || colors.textSecondary;
 }
 
-function isStatusActionAllowed(currentStatus: string, targetStatus: string) {
-  if (currentStatus === targetStatus) return true;
-
-  switch (currentStatus) {
-    case 'pending':
-    case 'fulfilled':
-      return ['processing', 'cancelled'].includes(targetStatus);
-    case 'processing':
-      return ['shipped', 'pending', 'cancelled'].includes(targetStatus);
-    case 'shipped':
-      return ['delivered', 'processing', 'returned'].includes(targetStatus);
-    case 'delivered':
-      return ['shipped', 'returned'].includes(targetStatus);
-    case 'cancelled':
-      return ['pending'].includes(targetStatus);
-    case 'returned':
-      return ['delivered', 'shipped'].includes(targetStatus);
-    default:
-      return ['pending', 'processing', 'cancelled'].includes(targetStatus);
-  }
-}
-
-function getStatusActionLabel(
-  currentStatus: string,
-  nextStatus: ShippingStatusKey
-) {
-  if (currentStatus === nextStatus) {
-    return SHIPPING_STATUS_CONFIG[nextStatus].label;
-  }
-
-  const actions =
-    SHIPPING_STATUS_ACTIONS[
-      currentStatus as keyof typeof SHIPPING_STATUS_ACTIONS
-    ] ?? [];
-  const match = actions.find((action) => action.nextStatus === nextStatus);
-  if (match) {
-    return match.label;
-  }
-
-  return SHIPPING_STATUS_CONFIG[nextStatus].label;
-}
-
 export function OrderStatusSheet({
   colors,
   onClose,
@@ -98,8 +56,18 @@ export function OrderStatusSheet({
   shippingStatus,
   visible,
 }: OrderStatusSheetProps) {
-  const normalizedStatus =
-    shippingStatus === 'fulfilled' ? 'pending' : shippingStatus;
+  const normalizedStatus: ShippingStatusKey =
+    shippingStatus === 'fulfilled'
+      ? 'pending'
+      : shippingStatus in SHIPPING_STATUS_CONFIG
+        ? (shippingStatus as ShippingStatusKey)
+        : 'pending';
+  const availableActions = new Map(
+    (SHIPPING_STATUS_ACTIONS[normalizedStatus] ?? []).map((action) => [
+      action.nextStatus,
+      action,
+    ])
+  );
 
   return (
     <AppSheetModal
@@ -112,13 +80,13 @@ export function OrderStatusSheet({
       </Text>
       <View style={styles.options}>
         {Object.entries(SHIPPING_STATUS_CONFIG).map(([statusKey, config]) => {
-          const isAllowed = isStatusActionAllowed(shippingStatus, statusKey);
+          const action = availableActions.get(statusKey as ShippingStatusKey);
           const isCurrent = normalizedStatus === statusKey;
+          const isAllowed = isCurrent || Boolean(action);
           const statusColor = getStatusColor(config.colorKey, colors);
-          const label = getStatusActionLabel(
-            normalizedStatus,
-            statusKey as ShippingStatusKey
-          );
+          const label = isCurrent
+            ? SHIPPING_STATUS_CONFIG[statusKey as ShippingStatusKey].label
+            : action?.label || config.label;
 
           return (
             <Pressable

@@ -14,6 +14,8 @@ export function ProductStatusCard({
   onValueChange,
   status,
 }: ProductStatusCardProps) {
+  const isArchived = status === 'archived';
+
   return (
     <View
       style={[
@@ -32,25 +34,49 @@ export function ProductStatusCard({
           Product Status
         </Text>
         <Text style={[styles.description, { color: colors.textSecondary }]}>
-          {status === 'active'
-            ? 'Product is visible to customers.'
-            : 'Product is hidden from store.'}
+          {isArchived
+            ? 'Product is archived and can no longer be changed from this screen.'
+            : status === 'active'
+              ? 'Product is visible to customers.'
+              : 'Product is hidden from store.'}
         </Text>
       </View>
-      <Switch
-        value={status === 'active'}
-        accessibilityHint="Toggles product visibility in the store"
-        accessibilityLabel={`Product status: ${status}`}
-        disabled={isPending}
-        onValueChange={onValueChange}
-        trackColor={{ false: colors.border, true: colors.primary }}
-        thumbColor={status === 'active' ? colors.primary : undefined}
-      />
+      {isArchived ? (
+        <View
+          style={[
+            styles.archivedBadge,
+            { backgroundColor: colors.inputBg, borderColor: colors.border },
+          ]}
+        >
+          <Text style={[styles.archivedLabel, { color: colors.textSecondary }]}>
+            Archived
+          </Text>
+        </View>
+      ) : (
+        <Switch
+          value={status === 'active'}
+          disabled={isPending}
+          onValueChange={onValueChange}
+          trackColor={{ false: colors.border, true: colors.primary }}
+          thumbColor={status === 'active' ? colors.primary : undefined}
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  archivedBadge: {
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  archivedLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
   card: {
     borderRadius: 12,
     borderWidth: 1,

@@ -127,9 +127,7 @@ export function createOrderDetailsStatusActions({
         });
       }
 
-      const subMessage = ['shipped', 'delivered', 'cancelled'].includes(
-        newStatus
-      )
+      const subMessage = ['delivered', 'cancelled'].includes(newStatus)
         ? `The customer has been notified via email that their order has been ${newStatus}.`
         : '';
 

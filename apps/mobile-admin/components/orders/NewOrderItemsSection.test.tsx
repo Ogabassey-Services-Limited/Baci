@@ -1,8 +1,19 @@
 import '@testing-library/jest-dom/vitest';
-import { render, screen } from '@testing-library/react';
-import React from 'react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { NewOrderItemsSection } from './NewOrderItemsSection';
+import type { useNewOrderController } from '@/hooks/useNewOrderController';
+
+vi.mock('@expo/vector-icons', () => ({
+  Ionicons: () => null,
+}));
+
+vi.mock('@/components/ui/SafeImage', () => ({
+  default: () => <span>image</span>,
+}));
+
+vi.mock('./NewOrderSummarySection', () => ({
+  NewOrderSummarySection: () => <div>summary-section</div>,
+}));
 
 vi.mock('react-native', async () => {
   const React = await import('react');
@@ -36,40 +47,41 @@ vi.mock('react-native', async () => {
   };
 });
 
-vi.mock('@expo/vector-icons', () => ({
-  Ionicons: () => null,
-}));
+import { NewOrderItemsSection } from './NewOrderItemsSection';
 
-vi.mock('@/components/ui/SafeImage', () => ({
-  default: () => React.createElement('div', { 'data-testid': 'safe-image' }),
-}));
+type ItemsController = Pick<
+  ReturnType<typeof useNewOrderController>,
+  | 'colors'
+  | 'formatPrice'
+  | 'handleQuantityChange'
+  | 'orderItems'
+  | 'resetProductPickerState'
+  | 'setEditDetails'
+  | 'setEditingItem'
+  | 'setEditPriceValue'
+  | 'setEditQtyValue'
+  | 'setProductSearch'
+  | 'setShowCustomItemModal'
+  | 'setShowEditItemModal'
+  | 'setShowProductModal'
+>;
 
-vi.mock('./NewOrderSummarySection', () => ({
-  NewOrderSummarySection: () =>
-    React.createElement('div', { 'data-testid': 'summary-section' }),
-}));
-
-vi.mock('@/lib/colors/sanitize-css-color', () => ({
-  getTranslucentColor: () => 'rgba(0,0,0,0.1)',
-}));
-
-vi.mock('./new-order.styles', () => ({ styles: {} }));
-
-function makeController(overrides = {}) {
+function makeController(
+  overrides: Partial<ItemsController> = {}
+): ReturnType<typeof useNewOrderController> {
   return {
     colors: {
-      background: '#fff',
-      backgroundLight: '#f9f9f9',
-      border: '#ccc',
-      card: '#fff',
-      error: '#ef4444',
-      primary: '#3b82f6',
-      text: '#000',
-      textMuted: '#999',
-      textOnPrimary: '#fff',
-      textSecondary: '#666',
+      backgroundLight: '#eef2ff',
+      border: '#e2e8f0',
+      card: '#ffffff',
+      error: '#dc2626',
+      primary: '#2563eb',
+      text: '#0f172a',
+      textMuted: '#94a3b8',
+      textSecondary: '#64748b',
+      ...overrides.colors,
     },
-    formatPrice: (n: number) => `₦${n}`,
+    formatPrice: vi.fn((value: number) => `₦${value.toFixed(2)}`),
     handleQuantityChange: vi.fn(),
     orderItems: [],
     resetProductPickerState: vi.fn(),
@@ -82,46 +94,67 @@ function makeController(overrides = {}) {
     setShowEditItemModal: vi.fn(),
     setShowProductModal: vi.fn(),
     ...overrides,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } as any;
+  } as ReturnType<typeof useNewOrderController>;
 }
 
 describe('NewOrderItemsSection', () => {
-  it('renders without crashing', () => {
-    render(<NewOrderItemsSection controller={makeController()} />);
-    expect(screen.getByText('Products')).toBeInTheDocument();
-  });
-
-  it('shows empty state message when there are no order items', () => {
-    render(<NewOrderItemsSection controller={makeController()} />);
-    expect(screen.getByText('No items added yet')).toBeInTheDocument();
-  });
-
-  it('renders order items when provided', () => {
-    const controller = makeController({
-      orderItems: [
-        {
-          id: 'item-1',
-          image_url: null,
-          is_custom: false,
-          name: 'Test Product',
-          price: 5000,
-          product_id: 'prod-1',
-          quantity: 2,
-          variant_id: null,
-          variant_name: null,
-        },
-      ],
-    });
+  it('shows the empty state and forwards the add/search actions', () => {
+    const controller = makeController();
 
     render(<NewOrderItemsSection controller={controller} />);
-    expect(screen.getByText('Test Product')).toBeInTheDocument();
-    expect(screen.queryByText('No items added yet')).toBeNull();
+
+    expect(screen.getByText('No items added yet')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Quick add item' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Search catalog' }));
+
+    expect(controller.setShowCustomItemModal).toHaveBeenCalledWith(true);
+    expect(controller.resetProductPickerState).toHaveBeenCalledTimes(1);
+    expect(controller.setProductSearch).toHaveBeenCalledWith('');
+    expect(controller.setShowProductModal).toHaveBeenCalledWith(true);
   });
 
-  it('renders Quick Add and Search Catalog buttons', () => {
-    render(<NewOrderItemsSection controller={makeController()} />);
-    expect(screen.getByLabelText('Quick add item')).toBeInTheDocument();
-    expect(screen.getByLabelText('Search catalog')).toBeInTheDocument();
+  it('renders order items and wires edit and quantity actions', () => {
+    const item = {
+      details: 'Black / 128GB',
+      id: 'item-1',
+      image_url: 'https://example.com/phone.png',
+      name: 'Baci Phone',
+      price: 25000,
+      product_id: 'product-1',
+      quantity: 2,
+      variant_id: null,
+      variant_name: null,
+    };
+    const controller = makeController({ orderItems: [item] });
+
+    render(<NewOrderItemsSection controller={controller} />);
+
+    expect(screen.getByText('Baci Phone')).toBeInTheDocument();
+    expect(screen.getByText('Black / 128GB')).toBeInTheDocument();
+    expect(screen.getByText('₦25000.00')).toBeInTheDocument();
+    expect(screen.getByText('summary-section')).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Edit item Baci Phone' })
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Decrease quantity for Baci Phone, current 2',
+      })
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Increase quantity for Baci Phone, current 2',
+      })
+    );
+
+    expect(controller.setEditingItem).toHaveBeenCalledWith(item);
+    expect(controller.setEditPriceValue).toHaveBeenCalledWith('25000');
+    expect(controller.setEditQtyValue).toHaveBeenCalledWith('2');
+    expect(controller.setEditDetails).toHaveBeenCalledWith('Black / 128GB');
+    expect(controller.setShowEditItemModal).toHaveBeenCalledWith(true);
+    expect(controller.handleQuantityChange).toHaveBeenCalledWith('item-1', -1);
+    expect(controller.handleQuantityChange).toHaveBeenCalledWith('item-1', 1);
   });
 });

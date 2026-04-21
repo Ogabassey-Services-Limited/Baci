@@ -18,6 +18,14 @@ interface CreateOrderDetailsContactActionsParams {
   setSavedRiders: (value: string[]) => void;
 }
 
+function normalizeWhatsAppPhone(phone: string | null | undefined) {
+  return phone?.replace(/\D/g, '') ?? '';
+}
+
+function isValidWhatsAppPhone(phone: string) {
+  return phone.length >= 10 && phone.length <= 15;
+}
+
 export function createOrderDetailsContactActions({
   formatPrice,
   merchant,
@@ -27,11 +35,22 @@ export function createOrderDetailsContactActions({
   setSavedRiders,
 }: CreateOrderDetailsContactActionsParams) {
   const handleSaveRider = async (phone: string) => {
-    if (!phone || savedRiders.includes(phone)) {
+    const normalizedPhone = normalizeWhatsAppPhone(phone);
+    if (
+      !isValidWhatsAppPhone(normalizedPhone) ||
+      savedRiders
+        .map((savedPhone) => normalizeWhatsAppPhone(savedPhone))
+        .includes(normalizedPhone)
+    ) {
       return;
     }
 
-    const nextRiders = [...savedRiders, phone];
+    const nextRiders = [
+      ...savedRiders
+        .map((savedPhone) => normalizeWhatsAppPhone(savedPhone))
+        .filter((savedPhone) => isValidWhatsAppPhone(savedPhone)),
+      normalizedPhone,
+    ];
     setSavedRiders(nextRiders);
     await AsyncStorage.setItem('saved_riders', JSON.stringify(nextRiders));
   };
@@ -40,12 +59,21 @@ export function createOrderDetailsContactActions({
     if (!order) {
       return;
     }
-    if (!riderPhone) {
+
+    const dispatchPhone = normalizeWhatsAppPhone(riderPhone);
+    if (!dispatchPhone) {
       Alert.alert('Required', 'Please enter a rider phone number');
       return;
     }
+    if (!isValidWhatsAppPhone(dispatchPhone)) {
+      Alert.alert(
+        'Invalid phone number',
+        'Rider phone number is not valid for WhatsApp.'
+      );
+      return;
+    }
 
-    await handleSaveRider(riderPhone);
+    await handleSaveRider(dispatchPhone);
 
     const shippingAddress =
       order.shipping_address && typeof order.shipping_address === 'object'
@@ -77,7 +105,7 @@ Phone: ${order.customer_phone?.trim() || 'N/A'}
 ${amountToCollect}
 `.trim();
 
-    const url = `https://wa.me/${riderPhone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
+    const url = `https://wa.me/${dispatchPhone}?text=${encodeURIComponent(message)}`;
     Linking.openURL(url).catch(() => {
       Alert.alert('Error', 'Could not open WhatsApp');
     });
@@ -88,18 +116,34 @@ ${amountToCollect}
       return;
     }
 
-    const customerPhone = order.customer_phone?.trim();
-    const dispatchPhone = order.self_fulfillment_data?.dispatchPhone?.trim();
+    const customerPhone = normalizeWhatsAppPhone(order.customer_phone);
+    const dispatchPhone = normalizeWhatsAppPhone(
+      order.self_fulfillment_data?.dispatchPhone
+    );
     const carrierName =
       order.self_fulfillment_data?.carrierName?.trim() || 'Dispatch Rider';
 
     if (!customerPhone) {
       return;
     }
+    if (!isValidWhatsAppPhone(customerPhone)) {
+      Alert.alert(
+        'Invalid phone number',
+        'Customer phone number is not valid for WhatsApp.'
+      );
+      return;
+    }
     if (!dispatchPhone) {
       Alert.alert(
         'Rider details unavailable',
         'Save a dispatch rider first before sharing rider details with the customer.'
+      );
+      return;
+    }
+    if (!isValidWhatsAppPhone(dispatchPhone)) {
+      Alert.alert(
+        'Invalid phone number',
+        'Rider phone number is not valid for WhatsApp.'
       );
       return;
     }
@@ -114,7 +158,7 @@ Please keep your phone available.
 Thank you for choosing ${merchant?.business_name || 'us'}!
 `.trim();
 
-    const url = `https://wa.me/${customerPhone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
+    const url = `https://wa.me/${customerPhone}?text=${encodeURIComponent(message)}`;
     Linking.openURL(url).catch(() => {
       Alert.alert('Error', 'Could not open WhatsApp');
     });
@@ -141,15 +185,24 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
     }
   };
 
-  const handleWhatsApp = async () => {
-    const phone = order?.customer_phone?.trim();
-    if (phone) {
-      try {
-        await Linking.openURL(`https://wa.me/${phone.replace(/\D/g, '')}`);
-      } catch {
-        Alert.alert('Error', 'Could not open WhatsApp');
-      }
+  const handleWhatsApp = () => {
+    const phone = normalizeWhatsAppPhone(order?.customer_phone);
+    if (!phone) {
+      Alert.alert(
+        'Invalid phone number',
+        'Customer phone number is not valid for WhatsApp.'
+      );
+      return;
     }
+    if (!isValidWhatsAppPhone(phone)) {
+      Alert.alert(
+        'Invalid phone number',
+        'Customer phone number is not valid for WhatsApp.'
+      );
+      return;
+    }
+
+    Linking.openURL(`https://wa.me/${phone}`);
   };
 
   const handleShare = async () => {

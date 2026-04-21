@@ -111,6 +111,36 @@ describe('createProductEditPersistenceActions', () => {
     expect(routerBack).not.toHaveBeenCalled();
   });
 
+  it('shows a safe fallback when a non-Error value is thrown during save', async () => {
+    const updateProduct = vi.fn().mockRejectedValue('unexpected failure');
+
+    const actions = createProductEditPersistenceActions({
+      createCategory: vi.fn(),
+      createProduct: vi.fn(),
+      formData: {
+        ...createInitialProductEditFormData(),
+        name: 'Baci Phone',
+        price: 1000,
+      },
+      hasVariantConditionAxis: false,
+      id: 'product-1',
+      isEditing: true,
+      newCategoryName: '',
+      openProduct: vi.fn(),
+      resetCategoryForm: vi.fn(),
+      revertStatus: vi.fn(),
+      routerBack: vi.fn(),
+      saveInFlightRef: { current: false },
+      selectCreatedCategory: vi.fn(),
+      updateProduct,
+      updateStatus: vi.fn(),
+    });
+
+    await actions.handleSave();
+
+    expect(Alert.alert).toHaveBeenCalledWith('Error', 'unexpected failure');
+  });
+
   it('creates a new product and navigates back on success', async () => {
     const createProduct = vi.fn().mockResolvedValue(undefined);
     const routerBack = vi.fn();

@@ -18,11 +18,6 @@ export function useOrderDetailsStartupEffects({
   setShowCreditModal: (value: boolean) => void;
   setShowRecordPaymentModal: (value: boolean) => void;
 }) {
-  // Use stable primitives rather than the whole `order` object to avoid
-  // re-opening modals on every refetch that returns a new object reference.
-  const _orderId = order?.id;
-  const _orderPaymentStatus = order?.payment_status;
-
   useEffect(() => {
     if (!order || !actionParam) return;
 
@@ -36,16 +31,15 @@ export function useOrderDetailsStartupEffects({
     } else if (actionParam === 'ship-on-credit') {
       setShowCreditModal(true);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     actionParam,
+    order?.amount_paid,
+    order?.balance,
+    order?.id,
+    order?.total,
     setPaymentAmount,
     setShowCreditModal,
     setShowRecordPaymentModal,
-    order?.amount_paid,
-    order?.total,
-    order?.balance,
-    order,
   ]);
 
   useEffect(() => {

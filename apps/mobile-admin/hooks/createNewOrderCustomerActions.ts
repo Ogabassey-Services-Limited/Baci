@@ -2,7 +2,10 @@ import type { Dispatch, SetStateAction } from 'react';
 import { Alert } from 'react-native';
 import type { CountryCode } from 'react-native-country-picker-modal';
 import { createEmptyNewCustomerDraft } from '@/components/orders/new-order.defaults';
-import { DEFAULT_COUNTRY_CODE } from '@/components/orders/new-order.shared';
+import {
+  DEFAULT_COUNTRY_CODE,
+  getCustomerDisplayName,
+} from '@/components/orders/new-order.shared';
 import type {
   CustomerInfo,
   NewCustomerDraft,
@@ -12,11 +15,11 @@ import { supabase } from '@/lib/supabase';
 
 interface CreateNewOrderCustomerActionsParams {
   createCustomer: (input: {
+    address?: string;
+    email?: string;
     first_name: string;
     last_name: string;
     phone: string;
-    email?: string;
-    address?: string;
   }) => Promise<SelectableCustomer>;
   merchantId?: string;
   newCustomer: NewCustomerDraft;
@@ -55,19 +58,11 @@ export function createNewOrderCustomerActions({
   };
 
   const handleSelectCustomer = (item: SelectableCustomer) => {
-    const displayName =
-      [item.first_name, item.last_name]
-        .filter((name): name is string => Boolean(name))
-        .join(' ') ||
-      item.email?.split('@')[0] ||
-      item.phone ||
-      'Unknown';
-
     setCustomer({
       address: item.address || '',
       email: item.email || '',
       id: item.id,
-      name: displayName,
+      name: getCustomerDisplayName(item),
       phone: item.phone || '',
     });
     setShowCustomerModal(false);
@@ -89,32 +84,33 @@ export function createNewOrderCustomerActions({
     }
 
     try {
-      const conditions: string[] = [];
-      if (newCustomer.phone) {
-        conditions.push(`phone.eq.${newCustomer.phone}`);
-      }
-      if (newCustomer.email) {
-        conditions.push(`email.eq.${newCustomer.email}`);
-      }
+      const duplicateChecks = [
+        { column: 'phone' as const, value: newCustomer.phone.trim() },
+        { column: 'email' as const, value: newCustomer.email.trim() },
+      ];
 
-      const { data: existingCustomers, error: searchError } = await supabase
-        .from('customers')
-        .select('id, first_name, last_name, email, phone, address')
-        .eq('merchant_id', merchantId)
-        .or(conditions.join(','))
-        .limit(1);
+      for (const { column, value } of duplicateChecks) {
+        if (!value) {
+          continue;
+        }
 
-      if (searchError) {
-        Alert.alert(
-          'Error',
-          'Failed to check for existing customers. Please try again.'
-        );
-        return;
-      }
+        const { data: existingCustomer, error: searchError } = await supabase
+          .from('customers')
+          .select('id, first_name, last_name, email, phone, address')
+          .eq('merchant_id', merchantId)
+          .is('deleted_at', null)
+          .eq(column, value)
+          .maybeSingle();
 
-      if (existingCustomers && existingCustomers.length > 0) {
-        setDuplicateCustomer(existingCustomers[0]);
-        return;
+        if (searchError) {
+          console.error('Error checking for existing customer:', searchError);
+          continue;
+        }
+
+        if (existingCustomer) {
+          setDuplicateCustomer(existingCustomer);
+          return;
+        }
       }
 
       const customer = await createCustomer({
@@ -129,7 +125,11 @@ export function createNewOrderCustomerActions({
       setIsCreatingCustomer(false);
       resetNewCustomerForm();
     } catch (error: unknown) {
-      Alert.alert('Error', (error as Error).message);
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Unable to create customer right now.';
+      Alert.alert('Error', message);
     }
   };
 

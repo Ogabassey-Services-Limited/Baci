@@ -1,5 +1,5 @@
+import { generateReceiptHtml, sanitizeSvg } from '@baci/shared';
 import type { ReceiptMerchant, ReceiptOrder } from '@baci/shared';
-import { generateReceiptHtml } from '@baci/shared';
 import { Alert } from 'react-native';
 import type { OrderDetailsRecord } from '@/components/orders/order-details.types';
 import { supabase } from '@/lib/supabase';
@@ -57,6 +57,29 @@ interface CreateOrderDetailsReceiptActionsParams {
   setShowReceiptPreview: (value: boolean) => void;
 }
 
+function resolveMerchantPages(
+  pages: Record<string, unknown> | null | undefined
+): { terms?: string } | null {
+  if (
+    pages &&
+    typeof pages === 'object' &&
+    'terms' in pages &&
+    typeof pages.terms === 'string'
+  ) {
+    return { terms: pages.terms };
+  }
+
+  return null;
+}
+
+function isSvgLogoUrl(logoUrl: string) {
+  try {
+    return new URL(logoUrl).pathname.toLowerCase().endsWith('.svg');
+  } catch {
+    return false;
+  }
+}
+
 export function createOrderDetailsReceiptActions({
   isGeneratingReceipt,
   merchant,
@@ -104,37 +127,32 @@ export function createOrderDetailsReceiptActions({
         virtual_account: virtualAccount,
       };
 
-      let merchantPages: { terms?: string } | null = null;
+      let merchantPages = resolveMerchantPages(merchant.pages);
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('merchants')
           .select('pages')
           .eq('id', merchant.id)
-          .single();
+          .maybeSingle();
 
-        if (
-          data?.pages &&
-          typeof data.pages === 'object' &&
-          'terms' in data.pages &&
-          typeof data.pages.terms === 'string'
-        ) {
-          merchantPages = { terms: data.pages.terms };
+        if (error) {
+          console.warn('[OrderDetails] Merchant pages refresh failed', error);
+        } else {
+          merchantPages = resolveMerchantPages(data?.pages) ?? merchantPages;
         }
-      } catch (error) {
-        if (__DEV__) {
-          console.debug('[OrderDetails] Failed to fetch merchant pages', error);
-        }
+      } catch {
+        // Ignore merchant-page refresh failures and fall back to the local merchant payload.
       }
 
       let logoUrl = merchant.logo_url ?? null;
       let svgXml: string | undefined;
 
       if (logoUrl?.startsWith('https://')) {
-        if (logoUrl.toLowerCase().includes('.svg')) {
+        if (isSvgLogoUrl(logoUrl)) {
           try {
             const response = await fetch(logoUrl);
             if (response.ok) {
-              svgXml = await response.text();
+              svgXml = sanitizeSvg(await response.text());
             }
           } catch (error) {
             console.warn('[OrderDetails] SVG fetch failed', error);

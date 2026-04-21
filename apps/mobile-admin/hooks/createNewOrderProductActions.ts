@@ -4,25 +4,20 @@ import { createEmptyCustomItemDraft } from '@/components/orders/new-order.defaul
 import type {
   CustomItemDraft,
   OrderItem,
+  SelectedParentProduct,
   SelectableOrderProduct,
 } from '@/components/orders/new-order.types';
 import { buildManualOrderLineItem } from '@/lib/manual-order-line-item';
 import { mergeOrderItem } from '@/lib/order-items';
 
-/** Minimal fields required from a parent product when picking variants. */
-type ParentProductRef = {
-  images?: string[] | null;
-  name?: string | null;
-};
-
 interface CreateNewOrderProductActionsParams {
   customItem: CustomItemDraft;
   orderItems: OrderItem[];
-  selectedParentProduct: ParentProductRef | null;
+  selectedParentProduct: SelectedParentProduct;
   setCustomItem: Dispatch<SetStateAction<CustomItemDraft>>;
   setOrderItems: Dispatch<SetStateAction<OrderItem[]>>;
   setProductSearch: Dispatch<SetStateAction<string>>;
-  setSelectedParentProduct: Dispatch<SetStateAction<ParentProductRef | null>>;
+  setSelectedParentProduct: Dispatch<SetStateAction<SelectedParentProduct>>;
   setShowCustomItemModal: Dispatch<SetStateAction<boolean>>;
   setShowProductModal: Dispatch<SetStateAction<boolean>>;
 }

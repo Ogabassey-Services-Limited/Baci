@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import { LIGHT_COLORS } from '@/constants/theme';
 import { NewOrderAddressInput } from './NewOrderAddressInput';
 
 vi.mock('react-native', async () => {
@@ -55,16 +56,14 @@ vi.mock('react-native-google-places-autocomplete', async () => {
 
 vi.mock('./new-order.styles', () => ({ styles: {} }));
 
-function makeController(overrides = {}) {
+type AddressInputController =
+  React.ComponentProps<typeof NewOrderAddressInput>['controller'];
+
+function makeController(
+  overrides: Partial<AddressInputController> = {}
+): AddressInputController {
   return {
-    colors: {
-      background: '#fff',
-      border: '#ccc',
-      text: '#000',
-      textMuted: '#999',
-      textOnPrimary: '#fff',
-      warning: '#f59e0b',
-    },
+    colors: LIGHT_COLORS,
     deliveryInfo: {
       address: '',
       city: '',
@@ -74,8 +73,7 @@ function makeController(overrides = {}) {
     },
     setDeliveryInfo: vi.fn(),
     ...overrides,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } as any;
+  };
 }
 
 describe('NewOrderAddressInput', () => {

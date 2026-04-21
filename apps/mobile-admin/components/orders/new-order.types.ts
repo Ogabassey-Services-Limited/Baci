@@ -1,5 +1,4 @@
 import type { Customer } from '@/hooks/useCustomers';
-import type { Product } from '@/hooks/useProducts';
 import type { SelectableManualOrderProduct } from '@/lib/manual-order-line-item';
 
 export interface ShippingAddress {
@@ -65,4 +64,4 @@ export type SelectableCustomer = Pick<
 
 export type SelectableOrderProduct = SelectableManualOrderProduct;
 
-export type SelectedParentProduct = Product | null;
+export type SelectedParentProduct = SelectableOrderProduct | null;

@@ -34,16 +34,30 @@ export function NewOrderDetailsSection({
     setShowDatePicker,
     showDatePicker,
   } = controller;
+
   const googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
-  const hasGoogleMapsApiKey = Boolean(googleMapsApiKey);
 
   useEffect(() => {
-    if (!hasGoogleMapsApiKey && __DEV__) {
+    if (!googleMapsApiKey && __DEV__) {
       console.warn(
         '[NewOrderDetailsSection] Missing EXPO_PUBLIC_GOOGLE_MAPS_API_KEY'
       );
     }
-  }, [hasGoogleMapsApiKey]);
+  }, [googleMapsApiKey]);
+
+  const deliveryLabelStyle = [
+    styles.label,
+    { color: colors.textSecondary, marginBottom: 4 },
+  ];
+  const deliveryInputStyle = [
+    styles.input,
+    {
+      backgroundColor: colors.background,
+      borderColor: colors.border,
+      borderWidth: 1,
+      color: colors.text,
+    },
+  ];
 
   return (
     <>
@@ -80,14 +94,12 @@ export function NewOrderDetailsSection({
           </View>
         </Pressable>
 
-        {showDatePicker && (
+        {showDatePicker ? (
           <DateTimePicker
-            // iOS uses an inline spinner; Android shows a native modal dialog
             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
             maximumDate={new Date()}
             mode="date"
             onChange={(_event, selectedDate) => {
-              // Android dismisses automatically on selection; iOS keeps the picker open
               if (Platform.OS === 'android') {
                 setShowDatePicker(false);
               }
@@ -97,7 +109,7 @@ export function NewOrderDetailsSection({
             }}
             value={date}
           />
-        )}
+        ) : null}
 
         <Pressable
           onPress={() => setShowCustomerModal(true)}
@@ -173,9 +185,7 @@ export function NewOrderDetailsSection({
             <Text style={[styles.listLabel, { color: colors.text }]}>
               Delivery Details
             </Text>
-            <Text
-              style={[styles.listSubValue, { color: colors.textSecondary }]}
-            >
+            <Text style={[styles.listSubValue, { color: colors.textSecondary }]}>
               {sameAsCustomer
                 ? 'Deliver to same person'
                 : 'Deliver to different person'}
@@ -183,7 +193,6 @@ export function NewOrderDetailsSection({
           </View>
           <Switch
             onValueChange={setSameAsCustomer}
-            // iOS ignores thumbColor; Android needs explicit colours for on/off states
             thumbColor={
               Platform.OS === 'ios'
                 ? '#fff'
@@ -199,58 +208,28 @@ export function NewOrderDetailsSection({
         {!sameAsCustomer ? (
           <View style={{ gap: 12, padding: 16 }}>
             <View>
-              <Text
-                style={[
-                  styles.label,
-                  { color: colors.textSecondary, marginBottom: 4 },
-                ]}
-              >
-                Recipient Name
-              </Text>
+              <Text style={deliveryLabelStyle}>Recipient Name</Text>
               <TextInput
-                onChangeText={(text) =>
-                  setDeliveryInfo((previous) => ({ ...previous, name: text }))
+                onChangeText={(value) =>
+                  setDeliveryInfo((previous) => ({ ...previous, name: value }))
                 }
                 placeholder="e.g. Jane Doe"
                 placeholderTextColor={colors.textMuted}
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: colors.background,
-                    borderColor: colors.border,
-                    borderWidth: 1,
-                    color: colors.text,
-                  },
-                ]}
+                style={deliveryInputStyle}
                 value={deliveryInfo.name}
               />
             </View>
 
             <View>
-              <Text
-                style={[
-                  styles.label,
-                  { color: colors.textSecondary, marginBottom: 4 },
-                ]}
-              >
-                Recipient Phone
-              </Text>
+              <Text style={deliveryLabelStyle}>Recipient Phone</Text>
               <TextInput
                 keyboardType="phone-pad"
-                onChangeText={(text) =>
-                  setDeliveryInfo((previous) => ({ ...previous, phone: text }))
+                onChangeText={(value) =>
+                  setDeliveryInfo((previous) => ({ ...previous, phone: value }))
                 }
                 placeholder="e.g. 080..."
                 placeholderTextColor={colors.textMuted}
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: colors.background,
-                    borderColor: colors.border,
-                    borderWidth: 1,
-                    color: colors.text,
-                  },
-                ]}
+                style={deliveryInputStyle}
                 value={deliveryInfo.phone}
               />
             </View>

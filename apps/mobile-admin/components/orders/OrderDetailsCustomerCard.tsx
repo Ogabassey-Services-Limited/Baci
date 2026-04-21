@@ -154,7 +154,7 @@ export function OrderDetailsCustomerCard({
         </Pressable>
       </View>
 
-      {showPostShipmentActions && hasCustomerPhone ? (
+      {showPostShipmentActions ? (
         <Pressable
           accessibilityLabel="Send order details to rider"
           accessibilityRole="button"
@@ -172,7 +172,7 @@ export function OrderDetailsCustomerCard({
         </Pressable>
       ) : null}
 
-      {showPostShipmentActions ? (
+      {showPostShipmentActions && hasCustomerPhone ? (
         <Pressable
           accessibilityLabel="Share rider details with customer"
           accessibilityRole="button"

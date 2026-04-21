@@ -2,14 +2,29 @@ import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import type { ThemeColors } from '@/constants/theme';
 import { OrderDetailsFooterBar } from './OrderDetailsFooterBar';
 
-vi.mock('@expo/vector-icons', () => ({
-  Ionicons: () => null,
+vi.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ bottom: 0 }),
 }));
 
-vi.mock('react-native-safe-area-context', () => ({
-  useSafeAreaInsets: () => ({ bottom: 0, left: 0, right: 0, top: 0 }),
+vi.mock('@expo/vector-icons', () => ({
+  Ionicons: ({
+    accessibilityElementsHidden,
+    importantForAccessibility,
+    name,
+  }: {
+    accessibilityElementsHidden?: boolean;
+    importantForAccessibility?: string;
+    name: string;
+  }) => (
+    <svg
+      aria-hidden={accessibilityElementsHidden ? 'true' : 'false'}
+      data-important={importantForAccessibility}
+      data-testid={name}
+    />
+  ),
 }));
 
 vi.mock('react-native', async () => {
@@ -18,12 +33,10 @@ vi.mock('react-native', async () => {
   return {
     Pressable: ({
       accessibilityLabel,
-      accessibilityRole,
       children,
       onPress,
     }: {
       accessibilityLabel?: string;
-      accessibilityRole?: string;
       children?: React.ReactNode;
       onPress?: () => void;
     }) =>
@@ -32,7 +45,6 @@ vi.mock('react-native', async () => {
         {
           'aria-label': accessibilityLabel,
           onClick: () => onPress?.(),
-          role: accessibilityRole,
           type: 'button',
         },
         children
@@ -55,46 +67,47 @@ describe('OrderDetailsFooterBar', () => {
     text: '#0f172a',
     textOnPrimary: '#ffffff',
     textSecondary: '#64748b',
-  };
+  } as ThemeColors;
 
-  it('renders the current status label', () => {
-    render(
-      <OrderDetailsFooterBar
-        colors={
-          colors as unknown as React.ComponentProps<
-            typeof OrderDetailsFooterBar
-          >['colors']
-        }
-        currentStatusLabel="Pending"
-        onPress={vi.fn()}
-        statusColor="#ca8a04"
-      />
-    );
-
-    expect(screen.getByText('Current Status')).toBeInTheDocument();
-    expect(screen.getByText('Pending')).toBeInTheDocument();
-  });
-
-  it('invokes onPress when the Update Status button is pressed', () => {
+  it('renders the current status and handles the update action', () => {
     const onPress = vi.fn();
 
     render(
       <OrderDetailsFooterBar
-        colors={
-          colors as unknown as React.ComponentProps<
-            typeof OrderDetailsFooterBar
-          >['colors']
-        }
+        colors={colors}
         currentStatusLabel="Processing"
         onPress={onPress}
         statusColor="#2563eb"
       />
     );
 
+    expect(screen.getByText('Current Status')).toBeInTheDocument();
+    expect(screen.getByText('Processing')).toBeInTheDocument();
+
     fireEvent.click(
       screen.getByRole('button', { name: 'Update order status' })
     );
 
     expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
+  it('marks the chevron as decorative', () => {
+    render(
+      <OrderDetailsFooterBar
+        colors={colors}
+        currentStatusLabel="Shipped"
+        onPress={vi.fn()}
+        statusColor="#7c3aed"
+      />
+    );
+
+    expect(screen.getByTestId('chevron-up')).toHaveAttribute(
+      'aria-hidden',
+      'true'
+    );
+    expect(screen.getByTestId('chevron-up')).toHaveAttribute(
+      'data-important',
+      'no'
+    );
   });
 });

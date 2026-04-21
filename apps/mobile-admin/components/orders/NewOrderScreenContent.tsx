@@ -32,21 +32,8 @@ export function NewOrderScreenContent({
     colors,
     isSubmitting,
     lastOrderId,
-    setCustomer,
-    setDate,
-    setDeliveryInfo,
-    setDiscount,
-    setIsVatApplied,
-    setLastOrderId,
-    setNotes,
-    setOrderItems,
-    setPartialAmount,
-    setPaymentMethod,
-    setPaymentStatus,
-    setSameAsCustomer,
-    setShippingFee,
+    resetOrderDraft,
     setShowSuccessModal,
-    setTaxes,
     showSuccessModal,
   } = controller;
 
@@ -104,40 +91,18 @@ export function NewOrderScreenContent({
           setShowSuccessModal(false);
           if (lastOrderId) {
             router.replace(`/order/${lastOrderId}`);
+            return;
           }
+          if (__DEV__) {
+            console.warn(
+              '[NewOrderScreenContent] Missing lastOrderId after successful order save'
+            );
+          }
+          resetOrderDraft();
         }}
         onClose={() => {
           setShowSuccessModal(false);
-          setOrderItems([]);
-          setCustomer({
-            address: '',
-            email: '',
-            id: null,
-            name: '',
-            phone: '',
-          });
-          setNotes('');
-          setLastOrderId(null);
-          // Reset financial fields so the next sale starts from zero
-          setDiscount(0);
-          setShippingFee(0);
-          setTaxes(0);
-          setIsVatApplied(false);
-          // Reset delivery state to default
-          setDeliveryInfo({
-            address: '',
-            city: '',
-            name: '',
-            phone: '',
-            state: '',
-          });
-          setSameAsCustomer(true);
-          // Reset payment fields
-          setPaymentStatus('unpaid');
-          setPaymentMethod('transfer');
-          setPartialAmount('');
-          // Reset the order date to now
-          setDate(new Date());
+          resetOrderDraft();
         }}
         title="Sale Recorded!"
         visible={showSuccessModal}

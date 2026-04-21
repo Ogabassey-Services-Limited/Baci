@@ -120,6 +120,12 @@ export function createOrderDetailsShipmentActions({
     if (!order) {
       return;
     }
+    if (
+      shouldPersistFulfillmentDetails(fulfillmentDetails) &&
+      !merchantId?.trim()
+    ) {
+      throw new Error('Merchant information is unavailable. Please try again.');
+    }
 
     setIsShipmentSubmitting(true);
 

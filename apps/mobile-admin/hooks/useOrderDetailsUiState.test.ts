@@ -36,8 +36,8 @@ describe('useOrderDetailsUiState', () => {
   it('transitions shipmentFlowStep', () => {
     const { result } = renderHook(() => useOrderDetailsUiState());
     act(() => {
-      result.current.setShipmentFlowStep('mode');
+      result.current.setShipmentFlowStep('method');
     });
-    expect(result.current.shipmentFlowStep).toBe('mode');
+    expect(result.current.shipmentFlowStep).toBe('method');
   });
 });

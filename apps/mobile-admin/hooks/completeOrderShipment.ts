@@ -48,6 +48,18 @@ export async function completeOrderShipment({
   saveDetails,
   updateStatus,
 }: CompleteOrderShipmentParams): Promise<ShipmentCompletionResult> {
+  const dispatchPhone = riderPhone.trim();
+
+  if (mode === 'self_fulfillment') {
+    if (!dispatchPhone) {
+      throw new Error('Please enter a rider phone number');
+    }
+  } else if (!providerBookingAvailable) {
+    throw new Error(
+      'This order does not have a saved provider quote to book against.'
+    );
+  }
+
   if (saveDetails) {
     const { error } = await supabase
       .from('orders')
@@ -64,11 +76,6 @@ export async function completeOrderShipment({
   }
 
   if (mode === 'self_fulfillment') {
-    const dispatchPhone = riderPhone.trim();
-    if (!dispatchPhone) {
-      throw new Error('Please enter a rider phone number');
-    }
-
     const {
       data: { session },
     } = await supabase.auth.getSession();
@@ -105,12 +112,6 @@ export async function completeOrderShipment({
 
     await handleSaveRider(dispatchPhone);
   } else {
-    if (!providerBookingAvailable) {
-      throw new Error(
-        'This order does not have a saved provider quote to book against.'
-      );
-    }
-
     await updateStatus({ orderId: order.id, status: 'shipped' });
   }
 
@@ -127,12 +128,12 @@ export async function completeOrderShipment({
           Authorization: `Bearer ${session.access_token}`,
         },
         method: 'POST',
-      }).catch((_err) => {
-        // fire-and-forget: shipped webhook failure is non-critical
+      }).catch(() => {
+        // Ignore best-effort shipment notification failures.
       });
     }
-  } catch (_err) {
-    // session fetch failure is non-fatal; invalidations still run below
+  } catch {
+    // Ignore best-effort shipment notification failures.
   }
 
   queryClient.invalidateQueries({ queryKey: ['order', order.id] });

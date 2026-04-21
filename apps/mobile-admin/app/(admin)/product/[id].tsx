@@ -1,16 +1,11 @@
 import { Stack, useRouter } from 'expo-router';
-import {
-  ActivityIndicator,
-  Platform,
-  Pressable,
-  Switch,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { useTheme } from '@/hooks/useTheme';
 import { ProductAttributesCard } from '@/components/product/ProductAttributesCard';
 import { ProductBasicInformationCard } from '@/components/product/ProductBasicInformationCard';
 import { ProductCategorySheet } from '@/components/product/ProductCategorySheet';
 import { ProductFulfillmentSheet } from '@/components/product/ProductFulfillmentSheet';
+import { ProductHasVariantsToggleCard } from '@/components/product/ProductHasVariantsToggleCard';
 import { ProductImageCard } from '@/components/product/ProductImageCard';
 import { ProductInventoryCard } from '@/components/product/ProductInventoryCard';
 import { ProductPricingCard } from '@/components/product/ProductPricingCard';
@@ -20,8 +15,6 @@ import { getCurrencySymbol } from '@/components/product/product-edit.helpers';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
 import { InvalidRouteScreen } from '@/components/ui/InvalidRouteScreen';
 import { useProductEditController } from '@/hooks/useProductEditController';
-import { useTheme } from '@/hooks/useTheme';
-import { createEmptyEditableVariant } from '@/lib/product-variant-form';
 
 export default function ProductEditScreen() {
   const router = useRouter();
@@ -152,65 +145,11 @@ export default function ProductEditScreen() {
           productNameSuggestions={controller.productNameSuggestions}
         />
 
-        <View
-          style={{
-            alignItems: 'center',
-            backgroundColor: colors.card,
-            borderColor: colors.border,
-            borderRadius: 12,
-            borderWidth: 1,
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            padding: 16,
-          }}
-        >
-          <View style={{ flex: 1, marginRight: 16 }}>
-            <Text
-              style={{
-                color: colors.text,
-                fontSize: 16,
-                fontWeight: '700',
-                marginBottom: 4,
-              }}
-            >
-              This Product Has Variants
-            </Text>
-            <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
-              Use structured variants for combinations like storage, RAM, or
-              color. Orders and storefront selection will read these rows
-              directly.
-            </Text>
-          </View>
-          <Switch
-            value={controller.formData.has_variants}
-            onValueChange={(value) =>
-              controller.setFormData((previous) => ({
-                ...previous,
-                has_variants: value,
-                manage_stock: value ? true : previous.manage_stock,
-                variants:
-                  value && previous.variants.length === 0
-                    ? [
-                        createEmptyEditableVariant({
-                          costPrice: previous.cost_price,
-                          images: previous.images,
-                          price: previous.price,
-                        }),
-                      ]
-                    : previous.variants,
-              }))
-            }
-            trackColor={{ false: colors.border, true: colors.primary }}
-            // Android requires an explicit thumbColor to render correctly; iOS ignores this prop and relies on system styling.
-            thumbColor={
-              Platform.OS === 'ios'
-                ? undefined
-                : controller.formData.has_variants
-                  ? colors.primary
-                  : '#f4f3f4'
-            }
-          />
-        </View>
+        <ProductHasVariantsToggleCard
+          colors={colors}
+          formData={controller.formData}
+          setFormData={controller.setFormData}
+        />
 
         {controller.formData.has_variants ? (
           <ProductVariantsCard

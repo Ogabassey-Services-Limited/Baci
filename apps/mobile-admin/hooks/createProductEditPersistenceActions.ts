@@ -150,7 +150,13 @@ export function createProductEditPersistenceActions({
         );
         return;
       }
-      Alert.alert('Error', (error as Error).message);
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : typeof error === 'string' && error
+            ? error
+            : 'Failed to save product';
+      Alert.alert('Error', message);
     }
   };
 

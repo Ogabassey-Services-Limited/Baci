@@ -1,5 +1,6 @@
 import { Alert } from 'react-native';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createOrderDetailsStatusActions } from './createOrderDetailsStatusActions';
 
 const mocks = vi.hoisted(() => ({
   fetch: vi.fn(),
@@ -21,8 +22,6 @@ vi.mock('@/lib/supabase', () => ({
     },
   },
 }));
-
-import { createOrderDetailsStatusActions } from './createOrderDetailsStatusActions';
 
 describe('createOrderDetailsStatusActions', () => {
   beforeEach(() => {
@@ -196,5 +195,48 @@ describe('createOrderDetailsStatusActions', () => {
       'Error',
       'Failed to update status'
     );
+  });
+
+  it('does not claim the customer was emailed for shipped status updates', async () => {
+    const setSuccessModal = vi.fn();
+    const updateStatus = vi.fn().mockResolvedValue(undefined);
+    const actions = createOrderDetailsStatusActions({
+      openShipmentFlow: vi.fn(),
+      order: {
+        id: 'order-1',
+        amount_paid: 10000,
+        balance: 0,
+        created_at: '',
+        customer_email: 'customer@example.com',
+        customer_name: 'Ada',
+        customer_phone: null,
+        discount_amount: 0,
+        is_credit_order: false,
+        order_number: 'ORD-1',
+        payment_status: 'paid',
+        shipping_address: null,
+        shipping_status: 'pending',
+        total: 10000,
+        updated_at: '',
+      },
+      setShowCreditModal: vi.fn(),
+      setShowPaymentOptionModal: vi.fn(),
+      setShowStatusModal: vi.fn(),
+      setSuccessModal,
+      updateStatus,
+    });
+
+    await actions.handleStatusUpdate('shipped');
+
+    expect(updateStatus).toHaveBeenCalledWith({
+      orderId: 'order-1',
+      status: 'shipped',
+    });
+    expect(setSuccessModal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subMessage: '',
+      })
+    );
+    expect(mocks.fetch).not.toHaveBeenCalled();
   });
 });

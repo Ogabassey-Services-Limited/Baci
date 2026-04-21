@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
-  ActivityIndicator,
   FlatList,
   Pressable,
   Text,
@@ -8,7 +7,12 @@ import {
   View,
 } from 'react-native';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
-import { MODAL_FLATLIST_PROPS } from './new-order.shared';
+import {
+  getCustomerDisplayContact,
+  getCustomerDisplayInitial,
+  getCustomerDisplayName,
+  MODAL_FLATLIST_PROPS,
+} from './new-order.shared';
 import { styles } from './new-order.styles';
 
 interface NewOrderCustomerSearchViewProps {
@@ -69,40 +73,50 @@ export function NewOrderCustomerSearchView({
         keyExtractor={(item) => item.id}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
-        ListFooterComponent={
-          customersQuery.hasNextPage ? (
-            <Pressable
-              accessibilityLabel="Load more customers"
-              accessibilityRole="button"
-              onPress={() => customersQuery.fetchNextPage()}
-              style={{
-                alignItems: 'center',
-                paddingVertical: 16,
-              }}
-            >
-              {customersQuery.isFetchingNextPage ? (
-                <ActivityIndicator color={colors.primary} size="small" />
-              ) : (
-                <Text style={{ color: colors.primary, fontWeight: '600' }}>
-                  Load more
-                </Text>
-              )}
-            </Pressable>
-          ) : null
-        }
         ListEmptyComponent={
           <View style={{ alignItems: 'center', padding: 32 }}>
             <Text style={{ color: colors.textMuted }}>No customers found</Text>
           </View>
         }
+        ListFooterComponent={
+          customersQuery.hasNextPage ? (
+            <View style={{ padding: 16 }}>
+              {customersQuery.isFetchingNextPage ? (
+                <Text style={{ color: colors.textMuted, textAlign: 'center' }}>
+                  Loading more customers...
+                </Text>
+              ) : (
+                <Pressable
+                  accessibilityLabel="Load more customers"
+                  accessibilityRole="button"
+                  onPress={() => {
+                    void customersQuery.fetchNextPage();
+                  }}
+                  style={[
+                    styles.actionBtn,
+                    {
+                      alignSelf: 'center',
+                      backgroundColor: colors.backgroundLight,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.actionBtnText,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    Load more
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+          ) : null
+        }
         renderItem={({ item }) => (
           <Pressable
-            accessibilityLabel={`Select customer ${
-              `${item.first_name || ''} ${item.last_name || ''}`.trim() ||
-              item.email ||
-              item.phone ||
-              'Unknown'
-            }`}
+            accessibilityLabel={`Select customer ${getCustomerDisplayName(item)}`}
             accessibilityRole="button"
             onPress={() => handleSelectCustomer(item)}
             style={[
@@ -124,16 +138,15 @@ export function NewOrderCustomerSearchView({
                   fontWeight: 'bold',
                 }}
               >
-                {(item.first_name?.[0] || item.email?.[0] || '?').toUpperCase()}
+                {getCustomerDisplayInitial(item)}
               </Text>
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.itemTitle, { color: colors.text }]}>
-                {`${item.first_name || ''} ${item.last_name || ''}`.trim() ||
-                  'Unknown'}
+                {getCustomerDisplayName(item)}
               </Text>
               <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
-                {item.phone || item.email || 'No contact info'}
+                {getCustomerDisplayContact(item)}
               </Text>
             </View>
             {item.total_orders > 0 ? (

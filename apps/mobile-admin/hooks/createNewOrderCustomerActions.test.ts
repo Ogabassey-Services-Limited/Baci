@@ -1,13 +1,53 @@
 import { Alert } from 'react-native';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createEmptyNewCustomerDraft } from '@/components/orders/new-order.defaults';
+import type { SelectableCustomer } from '@/components/orders/new-order.types';
 import { createNewOrderCustomerActions } from './createNewOrderCustomerActions';
 
-const mocks = vi.hoisted(() => ({
-  limit: vi.fn(),
-  or: vi.fn(),
-  select: vi.fn(),
-}));
+interface DuplicateLookupResponse {
+  data: SelectableCustomer | null;
+  error: { message: string } | null;
+}
+
+const mocks = vi.hoisted(() => {
+  const eqCalls: Array<[string, unknown]> = [];
+  const isCalls: Array<[string, unknown]> = [];
+  const responses: DuplicateLookupResponse[] = [];
+  const builder = {
+    eq: vi.fn((column: string, value: unknown) => {
+      eqCalls.push([column, value]);
+      return builder;
+    }),
+    is: vi.fn((column: string, value: unknown) => {
+      isCalls.push([column, value]);
+      return builder;
+    }),
+    maybeSingle: vi.fn(async () => responses.shift() ?? { data: null, error: null }),
+    or: vi.fn(),
+    select: vi.fn(() => builder),
+  };
+
+  return {
+    builder,
+    eqCalls,
+    isCalls,
+    maybeSingle: builder.maybeSingle,
+    or: builder.or,
+    queueResponse(response: DuplicateLookupResponse) {
+      responses.push(response);
+    },
+    reset() {
+      eqCalls.length = 0;
+      isCalls.length = 0;
+      responses.length = 0;
+      builder.eq.mockClear();
+      builder.is.mockClear();
+      builder.maybeSingle.mockClear();
+      builder.or.mockClear();
+      builder.select.mockClear();
+    },
+  };
+});
 
 vi.mock('react-native', () => ({
   Alert: { alert: vi.fn() },
@@ -15,26 +55,32 @@ vi.mock('react-native', () => ({
 
 vi.mock('@/lib/supabase', () => ({
   supabase: {
-    from: () => ({
-      eq: () => ({
-        or: mocks.or,
-        select: mocks.select,
-      }),
-      select: mocks.select,
-    }),
+    from: () => mocks.builder,
   },
 }));
+
+type CustomerActionsParams = Parameters<typeof createNewOrderCustomerActions>[0];
+
+function makeActions(overrides: Partial<CustomerActionsParams> = {}) {
+  return createNewOrderCustomerActions({
+    createCustomer: vi.fn(),
+    merchantId: 'merchant-1',
+    newCustomer: createEmptyNewCustomerDraft(),
+    setCustomer: vi.fn(),
+    setCustomerSearch: vi.fn(),
+    setDuplicateCustomer: vi.fn(),
+    setIsCreatingCustomer: vi.fn(),
+    setNewCustomer: vi.fn(),
+    setSelectedCountryCode: vi.fn(),
+    setShowCustomerModal: vi.fn(),
+    ...overrides,
+  });
+}
 
 describe('createNewOrderCustomerActions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.select.mockReturnValue({
-      eq: () => ({ or: mocks.or }),
-    });
-    mocks.or.mockReturnValue({
-      limit: mocks.limit,
-    });
-    mocks.limit.mockResolvedValue({ data: [], error: null });
+    mocks.reset();
   });
 
   it('resets the customer modal state on close', () => {
@@ -44,11 +90,7 @@ describe('createNewOrderCustomerActions', () => {
     const setSelectedCountryCode = vi.fn();
     const setDuplicateCustomer = vi.fn();
     const setCustomerSearch = vi.fn();
-    const actions = createNewOrderCustomerActions({
-      createCustomer: vi.fn(),
-      merchantId: 'merchant-1',
-      newCustomer: createEmptyNewCustomerDraft(),
-      setCustomer: vi.fn(),
+    const actions = makeActions({
       setCustomerSearch,
       setDuplicateCustomer,
       setIsCreatingCustomer,
@@ -67,24 +109,186 @@ describe('createNewOrderCustomerActions', () => {
   });
 
   it('requires first name and phone before creating a customer', async () => {
-    const actions = createNewOrderCustomerActions({
-      createCustomer: vi.fn(),
-      merchantId: 'merchant-1',
-      newCustomer: createEmptyNewCustomerDraft(),
-      setCustomer: vi.fn(),
-      setCustomerSearch: vi.fn(),
-      setDuplicateCustomer: vi.fn(),
-      setIsCreatingCustomer: vi.fn(),
-      setNewCustomer: vi.fn(),
-      setSelectedCountryCode: vi.fn(),
-      setShowCustomerModal: vi.fn(),
+    await makeActions().handleCreateCustomer();
+    expect(Alert.alert).toHaveBeenCalledWith('Required', 'First Name and Phone are required');
+  });
+
+  it('prefers full names and falls back through email, phone, then unknown when selecting a customer', () => {
+    const setCustomer = vi.fn();
+    const actions = makeActions({ setCustomer });
+
+    [
+      {
+        expected: {
+          address: '12 Allen Avenue',
+          email: 'ada@example.com',
+          id: 'customer-1',
+          name: 'Ada Lovelace',
+          phone: '08012345678',
+        },
+        input: {
+          address: '12 Allen Avenue',
+          email: 'ada@example.com',
+          first_name: 'Ada',
+          id: 'customer-1',
+          last_name: 'Lovelace',
+          phone: '08012345678',
+        },
+      },
+      {
+        expected: {
+          address: '',
+          email: 'merchant-owner@example.com',
+          id: 'customer-2',
+          name: 'merchant-owner',
+          phone: '',
+        },
+        input: {
+          address: null,
+          email: 'merchant-owner@example.com',
+          first_name: null,
+          id: 'customer-2',
+          last_name: null,
+          phone: null,
+        },
+      },
+      {
+        expected: {
+          address: '',
+          email: '',
+          id: 'customer-3',
+          name: '08099999999',
+          phone: '08099999999',
+        },
+        input: {
+          address: null,
+          email: null,
+          first_name: null,
+          id: 'customer-3',
+          last_name: null,
+          phone: '08099999999',
+        },
+      },
+      {
+        expected: {
+          address: '',
+          email: '',
+          id: 'customer-4',
+          name: 'Unknown',
+          phone: '',
+        },
+        input: {
+          address: null,
+          email: null,
+          first_name: null,
+          id: 'customer-4',
+          last_name: null,
+          phone: null,
+        },
+      },
+    ].forEach(({ expected, input }, index) => {
+      actions.handleSelectCustomer(input);
+      expect(setCustomer).toHaveBeenNthCalledWith(index + 1, expected);
+    });
+  });
+
+  it('checks duplicates without using a raw or filter and reuses an existing phone match', async () => {
+    const setDuplicateCustomer = vi.fn();
+    const createCustomer = vi.fn();
+    mocks.queueResponse({
+      data: {
+        address: '12 Allen Avenue',
+        email: 'ada@example.com',
+        first_name: 'Ada',
+        id: 'customer-1',
+        last_name: 'Lovelace',
+        phone: '08012345678',
+      },
+      error: null,
     });
 
-    await actions.handleCreateCustomer();
+    await makeActions({
+      createCustomer,
+      newCustomer: {
+        address: '',
+        email: 'ada@example.com',
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+        phone: '08012345678',
+      },
+      setDuplicateCustomer,
+    }).handleCreateCustomer();
 
-    expect(Alert.alert).toHaveBeenCalledWith(
-      'Required',
-      'First Name and Phone are required'
-    );
+    expect(mocks.or).not.toHaveBeenCalled();
+    expect(mocks.eqCalls).toEqual([
+      ['merchant_id', 'merchant-1'],
+      ['phone', '08012345678'],
+    ]);
+    expect(mocks.isCalls).toEqual([['deleted_at', null]]);
+    expect(setDuplicateCustomer).toHaveBeenCalledWith({
+      address: '12 Allen Avenue',
+      email: 'ada@example.com',
+      first_name: 'Ada',
+      id: 'customer-1',
+      last_name: 'Lovelace',
+      phone: '08012345678',
+    });
+    expect(createCustomer).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the email duplicate lookup when the phone lookup misses', async () => {
+    const setDuplicateCustomer = vi.fn();
+    mocks.queueResponse({ data: null, error: null });
+    mocks.queueResponse({
+      data: {
+        address: '12 Allen Avenue',
+        email: 'ada@example.com',
+        first_name: null,
+        id: 'customer-1',
+        last_name: null,
+        phone: null,
+      },
+      error: null,
+    });
+
+    await makeActions({
+      newCustomer: {
+        address: '',
+        email: 'ada@example.com',
+        firstName: 'Ada',
+        lastName: '',
+        phone: '08012345678',
+      },
+      setDuplicateCustomer,
+    }).handleCreateCustomer();
+
+    expect(mocks.eqCalls).toEqual([
+      ['merchant_id', 'merchant-1'],
+      ['phone', '08012345678'],
+      ['merchant_id', 'merchant-1'],
+      ['email', 'ada@example.com'],
+    ]);
+    expect(setDuplicateCustomer).toHaveBeenCalledWith({
+      address: '12 Allen Avenue',
+      email: 'ada@example.com',
+      first_name: null,
+      id: 'customer-1',
+      last_name: null,
+      phone: null,
+    });
+  });
+
+  it('surfaces a safe fallback message when createCustomer throws a non-Error value', async () => {
+    await makeActions({
+      createCustomer: vi.fn().mockRejectedValue('boom'),
+      newCustomer: {
+        address: '',
+        email: '',
+        firstName: 'Ada',
+        lastName: '',
+        phone: '08012345678',
+      },
+    }).handleCreateCustomer();
+    expect(Alert.alert).toHaveBeenCalledWith('Error', 'Unable to create customer right now.');
   });
 });

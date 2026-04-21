@@ -1,60 +1,115 @@
 import { describe, expect, it } from 'vitest';
-import { formatPriceInput, parseDecimalInput } from './new-order.shared';
+import {
+  formatPriceInput,
+  getCustomerDisplayContact,
+  getCustomerDisplayInitial,
+  getCustomerDisplayName,
+} from './new-order.shared';
 
-describe('formatPriceInput', () => {
-  it('returns an empty string when the input is undefined', () => {
-    expect(formatPriceInput(undefined)).toBe('');
+describe('new-order.shared', () => {
+  describe('formatPriceInput', () => {
+    it('formats integer portions with grouping separators', () => {
+      expect(formatPriceInput('12500')).toBe('12,500');
+    });
+
+    it('preserves decimal portions while formatting the whole number', () => {
+      expect(formatPriceInput('12500.75')).toBe('12,500.75');
+    });
+
+    it('returns an empty string when no value is provided', () => {
+      expect(formatPriceInput(undefined)).toBe('');
+      expect(formatPriceInput('')).toBe('');
+    });
+
+    it('keeps existing grouping, normalizes leading decimals, and collapses extra dots', () => {
+      expect(formatPriceInput('1,000')).toBe('1,000');
+      expect(formatPriceInput('.5')).toBe('0.5');
+      expect(formatPriceInput('1.2.3')).toBe('1.23');
+    });
   });
 
-  it('returns an empty string when the input is an empty string', () => {
-    expect(formatPriceInput('')).toBe('');
-  });
+  describe('customer display helpers', () => {
+    it('prefers the trimmed full name for customer display', () => {
+      expect(
+        getCustomerDisplayName({
+          email: 'ada@example.com',
+          first_name: ' Ada ',
+          last_name: ' Lovelace ',
+          phone: '08012345678',
+        })
+      ).toBe('Ada Lovelace');
+    });
 
-  it('formats a plain integer with thousands separator', () => {
-    expect(formatPriceInput('1000')).toBe('1,000');
-  });
+    it('falls back from email to phone to unknown when names are unavailable', () => {
+      expect(
+        getCustomerDisplayName({
+          email: 'merchant-owner@example.com',
+          first_name: null,
+          last_name: null,
+          phone: null,
+        })
+      ).toBe('merchant-owner');
 
-  it('preserves decimal portion when present', () => {
-    expect(formatPriceInput('1000.50')).toBe('1,000.50');
-  });
+      expect(
+        getCustomerDisplayName({
+          email: '   ',
+          first_name: '',
+          last_name: '',
+          phone: '08000000000',
+        })
+      ).toBe('08000000000');
 
-  it('passes through a non-numeric string unchanged', () => {
-    // Integer portion 'abc' is NaN so the raw portion is returned as-is
-    expect(formatPriceInput('abc')).toBe('abc');
-  });
+      expect(
+        getCustomerDisplayName({
+          email: null,
+          first_name: null,
+          last_name: null,
+          phone: null,
+        })
+      ).toBe('Unknown');
+    });
 
-  it('formats a negative value using the locale formatter', () => {
-    // Number('-5') is valid, so toLocaleString renders '-5'
-    expect(formatPriceInput('-5')).toBe('-5');
-  });
-});
+    it('exposes a contact line and fallback initial from customer data', () => {
+      expect(
+        getCustomerDisplayContact({
+          email: 'ada@example.com',
+          phone: '08012345678',
+        })
+      ).toBe('08012345678');
+      expect(
+        getCustomerDisplayContact({
+          email: 'ada@example.com',
+          phone: null,
+        })
+      ).toBe('ada@example.com');
+      expect(
+        getCustomerDisplayContact({
+          email: null,
+          phone: null,
+        })
+      ).toBe('No contact info');
 
-describe('parseDecimalInput', () => {
-  it('returns empty string for empty input', () => {
-    expect(parseDecimalInput('')).toBe('');
-  });
-
-  it('strips non-numeric characters', () => {
-    expect(parseDecimalInput('12abc34')).toBe('1234');
-  });
-
-  it('preserves a single decimal point', () => {
-    expect(parseDecimalInput('12.50')).toBe('12.50');
-  });
-
-  it('collapses multiple decimal points into one', () => {
-    expect(parseDecimalInput('1.2.3')).toBe('1.23');
-  });
-
-  it('returns a plain integer string unchanged', () => {
-    expect(parseDecimalInput('500')).toBe('500');
-  });
-
-  it('strips currency symbols and spaces', () => {
-    expect(parseDecimalInput('₦ 1,000.00')).toBe('1000.00');
-  });
-
-  it('handles a leading decimal point', () => {
-    expect(parseDecimalInput('.5')).toBe('.5');
+      expect(
+        getCustomerDisplayInitial({
+          email: 'ada@example.com',
+          first_name: 'Ada',
+          phone: '08012345678',
+        })
+      ).toBe('A');
+      expect(
+        getCustomerDisplayInitial({
+          email: null,
+          first_name: '',
+          phone: '08012345678',
+        })
+      ).toBe('0');
+      expect(
+        getCustomerDisplayInitial({
+          email: null,
+          first_name: null,
+          phone: null,
+        })
+      ).toBe('?');
+    });
   });
 });

@@ -10,33 +10,31 @@ interface ReceiptMerchantDetails {
   business_name?: string | null;
 }
 
-interface VirtualAccountPayload {
-  account_name?: string;
-  account_number?: string;
-  bank_name?: string;
-}
+function resolveAccountCandidate(
+  account:
+    | {
+        account_name?: string | null;
+        account_number?: string | null;
+        bank?: string | null;
+        bank_name?: string | null;
+      }
+    | null
+    | undefined
+) {
+  if (!account) {
+    return null;
+  }
 
-interface GenerateDvaResponse {
-  virtualAccount?: VirtualAccountPayload;
-}
+  const accountNumber = account.account_number?.trim();
+  if (!accountNumber) {
+    return null;
+  }
 
-interface VirtualTerminalEntry {
-  account_name?: string;
-  account_number?: string;
-  active?: boolean;
-  bank?: string;
-}
-
-interface VirtualTerminalResponse {
-  terminals?: VirtualTerminalEntry[];
-}
-
-interface ResolveAccountResponse {
-  account_name?: string;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
+  return {
+    account_name: account.account_name?.trim() || '',
+    account_number: accountNumber,
+    bank_name: account.bank_name?.trim() || account.bank?.trim() || '',
+  };
 }
 
 export async function resolveOrderReceiptVirtualAccount({
@@ -53,13 +51,17 @@ export async function resolveOrderReceiptVirtualAccount({
       data: { session: nextSession },
     } = await supabase.auth.getSession();
     session = nextSession;
-  } catch {}
-
-  if (order.payment_status === 'paid') {
-    return order.virtual_account ?? null;
+  } catch {
+    // Ignore session lookup failures and continue with non-authenticated fallbacks.
   }
 
-  let virtualAccount = order.virtual_account ?? order.staff_terminal ?? null;
+  if (order.payment_status === 'paid') {
+    return resolveAccountCandidate(order.virtual_account);
+  }
+
+  let virtualAccount =
+    resolveAccountCandidate(order.virtual_account) ??
+    resolveAccountCandidate(order.staff_terminal);
 
   if (!virtualAccount) {
     try {
@@ -76,21 +78,13 @@ export async function resolveOrderReceiptVirtualAccount({
         );
 
         if (response.ok) {
-          const payload = (await response.json()) as unknown;
-          if (isRecord(payload) && isRecord(payload.virtualAccount)) {
-            const typed = payload as GenerateDvaResponse;
-            const va = typed.virtualAccount;
-            if (va?.account_number) {
-              virtualAccount = {
-                account_name: va.account_name || '',
-                account_number: va.account_number,
-                bank_name: va.bank_name || '',
-              };
-            }
-          }
+          const payload = await response.json();
+          virtualAccount = resolveAccountCandidate(payload.virtualAccount);
         }
       }
-    } catch {}
+    } catch {
+      // Ignore dynamic account generation failures and continue to the next fallback.
+    }
   }
 
   if (!virtualAccount) {
@@ -104,34 +98,39 @@ export async function resolveOrderReceiptVirtualAccount({
         );
 
         if (response.ok) {
-          const payload = (await response.json()) as unknown;
-          if (isRecord(payload) && Array.isArray(payload.terminals)) {
-            const typed = payload as VirtualTerminalResponse;
-            const terminal = typed.terminals?.find((entry) => entry.active);
-            if (terminal?.account_number) {
-              virtualAccount = {
-                account_name: terminal.account_name || '',
-                account_number: terminal.account_number,
-                bank_name: terminal.bank || '',
-              };
-            }
+          const payload = await response.json();
+          const terminal = payload.terminals?.find(
+            (entry: { active: boolean }) => entry.active
+          );
+
+          if (terminal?.account_number) {
+            virtualAccount = resolveAccountCandidate(terminal);
           }
         }
       }
-    } catch {}
+    } catch {
+      // Ignore virtual terminal lookup failures and continue to the next fallback.
+    }
   }
 
-  if (!virtualAccount && merchant?.bank_account_number && merchant.bank_code) {
+  const merchantAccountNumber = merchant?.bank_account_number?.trim();
+  const merchantBankCode = merchant?.bank_code?.trim();
+  if (
+    !virtualAccount &&
+    merchant &&
+    merchantAccountNumber &&
+    merchantBankCode
+  ) {
     let resolvedName = merchant.bank_account_name || '';
-    const bankName = getBankNameFromCode(merchant.bank_code) || '';
+    const bankName = getBankNameFromCode(merchantBankCode) || '';
 
     if (!resolvedName || resolvedName === merchant.business_name) {
       try {
         if (session?.access_token) {
           const response = await fetch(`${BASE_URL}/api/paystack/resolve`, {
             body: JSON.stringify({
-              accountNumber: merchant.bank_account_number,
-              bankCode: merchant.bank_code,
+              accountNumber: merchantAccountNumber,
+              bankCode: merchantBankCode,
             }),
             headers: {
               'Content-Type': 'application/json',
@@ -141,21 +140,20 @@ export async function resolveOrderReceiptVirtualAccount({
           });
 
           if (response.ok) {
-            const payload = (await response.json()) as unknown;
-            if (isRecord(payload)) {
-              const typed = payload as ResolveAccountResponse;
-              if (typed.account_name) {
-                resolvedName = typed.account_name;
-              }
+            const payload: { account_name?: string } = await response.json();
+            if (payload.account_name) {
+              resolvedName = payload.account_name;
             }
           }
         }
-      } catch {}
+      } catch {
+        // Ignore account-name resolution failures and fall back to the merchant name.
+      }
     }
 
     virtualAccount = {
       account_name: resolvedName || merchant.business_name || 'Business',
-      account_number: merchant.bank_account_number,
+      account_number: merchantAccountNumber,
       bank_name: bankName,
     };
   }

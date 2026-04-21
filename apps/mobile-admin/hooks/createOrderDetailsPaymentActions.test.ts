@@ -133,4 +133,104 @@ describe('createOrderDetailsPaymentActions', () => {
 
     expect(setPaymentAmount).toHaveBeenCalledWith('12500.75');
   });
+
+  it('guards against duplicate record-payment submissions while one is in flight', async () => {
+    let resolvePayment: ((value: { new_balance: number }) => void) | undefined;
+    const recordPayment = vi.fn(
+      () =>
+        new Promise<{ new_balance: number }>((resolve) => {
+          resolvePayment = resolve;
+        })
+    );
+    const actions = createOrderDetailsPaymentActions({
+      creditNotes: '',
+      formatPrice: (amount) => `₦${amount}`,
+      order: {
+        id: 'order-1',
+        amount_paid: 0,
+        balance: 5000,
+        created_at: '',
+        customer_email: 'customer@example.com',
+        customer_name: 'Ada',
+        customer_phone: null,
+        discount_amount: 0,
+        order_number: 'ORD-1',
+        payment_status: 'pending',
+        shipping_address: null,
+        shipping_status: 'pending',
+        total: 10000,
+        updated_at: '',
+      },
+      paymentAmount: '5000',
+      paymentMethod: 'cash',
+      paymentNotes: 'partial',
+      recordPayment,
+      sendReminder: vi.fn(),
+      setCreditNotes: vi.fn(),
+      setPaymentAmount: vi.fn(),
+      setPaymentMethod: vi.fn(),
+      setPaymentNotes: vi.fn(),
+      setShowCreditModal: vi.fn(),
+      setShowRecordPaymentModal: vi.fn(),
+      shipOnCredit: vi.fn(),
+    });
+
+    const firstRequest = actions.handleRecordPayment();
+    const secondRequest = actions.handleRecordPayment();
+    resolvePayment?.({ new_balance: 0 });
+
+    await Promise.all([firstRequest, secondRequest]);
+
+    expect(recordPayment).toHaveBeenCalledTimes(1);
+  });
+
+  it('guards against duplicate reminder requests while one is in flight', async () => {
+    let resolveReminder: (() => void) | undefined;
+    const sendReminder = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveReminder = resolve;
+        })
+    );
+    const actions = createOrderDetailsPaymentActions({
+      creditNotes: '',
+      formatPrice: (amount) => `₦${amount}`,
+      order: {
+        id: 'order-1',
+        amount_paid: 0,
+        balance: 5000,
+        created_at: '',
+        customer_email: 'customer@example.com',
+        customer_name: 'Ada',
+        customer_phone: null,
+        discount_amount: 0,
+        order_number: 'ORD-1',
+        payment_status: 'pending',
+        shipping_address: null,
+        shipping_status: 'pending',
+        total: 10000,
+        updated_at: '',
+      },
+      paymentAmount: '',
+      paymentMethod: '',
+      paymentNotes: '',
+      recordPayment: vi.fn(),
+      sendReminder,
+      setCreditNotes: vi.fn(),
+      setPaymentAmount: vi.fn(),
+      setPaymentMethod: vi.fn(),
+      setPaymentNotes: vi.fn(),
+      setShowCreditModal: vi.fn(),
+      setShowRecordPaymentModal: vi.fn(),
+      shipOnCredit: vi.fn(),
+    });
+
+    const firstRequest = actions.handleSendReminder();
+    const secondRequest = actions.handleSendReminder();
+    resolveReminder?.();
+
+    await Promise.all([firstRequest, secondRequest]);
+
+    expect(sendReminder).toHaveBeenCalledTimes(1);
+  });
 });

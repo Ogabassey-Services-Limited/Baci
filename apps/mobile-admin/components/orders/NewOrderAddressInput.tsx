@@ -38,22 +38,22 @@ export function NewOrderAddressInput({
               return;
             }
 
-            let city = '';
-            let state = '';
-            details.address_components.forEach((component) => {
+            let foundCity: string | null = null;
+            let foundState: string | null = null;
+            details.address_components?.forEach((component) => {
               if (component.types.includes('locality')) {
-                city = component.long_name;
+                foundCity = component.long_name;
               }
               if (component.types.includes('administrative_area_level_1')) {
-                state = component.long_name;
+                foundState = component.long_name;
               }
             });
 
             setDeliveryInfo((previous) => ({
               ...previous,
               address: data.description,
-              city,
-              state,
+              ...(foundCity ? { city: foundCity } : {}),
+              ...(foundState ? { state: foundState } : {}),
             }));
           }}
           placeholder="Enter delivery address"

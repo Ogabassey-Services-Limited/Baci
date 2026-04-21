@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { OrderDetailsRecord } from '@/components/orders/order-details.types';
+import { resolveOrderReceiptVirtualAccount } from './resolveOrderReceiptVirtualAccount';
 
 const mocks = vi.hoisted(() => ({
   fetch: vi.fn(),
@@ -17,7 +19,25 @@ vi.mock('@/lib/api-client', () => ({
   BASE_URL: 'https://example.com',
 }));
 
-import { resolveOrderReceiptVirtualAccount } from './resolveOrderReceiptVirtualAccount';
+function makeOrder(overrides: Partial<OrderDetailsRecord> = {}): OrderDetailsRecord {
+  return {
+    id: 'order-1',
+    amount_paid: 0,
+    balance: 10000,
+    created_at: '',
+    customer_email: 'customer@example.com',
+    customer_name: 'Ada',
+    customer_phone: null,
+    discount_amount: 0,
+    order_number: 'ORD-1',
+    payment_status: 'pending',
+    shipping_address: null,
+    shipping_status: 'pending',
+    total: 10000,
+    updated_at: '',
+    ...overrides,
+  };
+}
 
 describe('resolveOrderReceiptVirtualAccount', () => {
   beforeEach(() => {
@@ -32,27 +52,16 @@ describe('resolveOrderReceiptVirtualAccount', () => {
   it('returns the existing virtual account for paid orders', async () => {
     const account = await resolveOrderReceiptVirtualAccount({
       merchant: null,
-      order: {
-        id: 'order-1',
+      order: makeOrder({
         amount_paid: 10000,
         balance: 0,
-        created_at: '',
-        customer_email: 'customer@example.com',
-        customer_name: 'Ada',
-        customer_phone: null,
-        discount_amount: 0,
-        order_number: 'ORD-1',
         payment_status: 'paid',
-        shipping_address: null,
-        shipping_status: 'pending',
-        total: 10000,
-        updated_at: '',
         virtual_account: {
           account_name: 'Baci',
           account_number: '1234567890',
           bank_name: 'Bank',
         },
-      },
+      }),
     });
 
     expect(account).toEqual({
@@ -78,22 +87,7 @@ describe('resolveOrderReceiptVirtualAccount', () => {
         bank_code: '044',
         business_name: 'Baci',
       },
-      order: {
-        id: 'order-1',
-        amount_paid: 0,
-        balance: 10000,
-        created_at: '',
-        customer_email: 'customer@example.com',
-        customer_name: 'Ada',
-        customer_phone: null,
-        discount_amount: 0,
-        order_number: 'ORD-1',
-        payment_status: 'pending',
-        shipping_address: null,
-        shipping_status: 'pending',
-        total: 10000,
-        updated_at: '',
-      },
+      order: makeOrder(),
     });
 
     expect(account).toMatchObject({
@@ -102,118 +96,112 @@ describe('resolveOrderReceiptVirtualAccount', () => {
     });
   });
 
-  it('returns null when there is no session and no merchant fallback account', async () => {
-    mocks.getSession.mockResolvedValue({
-      data: { session: null },
-    });
-
-    const account = await resolveOrderReceiptVirtualAccount({
-      merchant: null,
-      order: {
-        id: 'order-1',
-        amount_paid: 0,
-        balance: 10000,
-        created_at: '',
-        customer_email: 'customer@example.com',
-        customer_name: 'Ada',
-        customer_phone: null,
-        discount_amount: 0,
-        order_number: 'ORD-1',
-        payment_status: 'pending',
-        shipping_address: null,
-        shipping_status: 'pending',
-        total: 10000,
-        updated_at: '',
-      },
-    });
-
-    expect(account).toBeNull();
+  it('returns null when there is no session or fallback account available', async () => {
+    mocks.getSession.mockResolvedValue({ data: { session: null } });
+    expect(
+      await resolveOrderReceiptVirtualAccount({
+        merchant: null,
+        order: makeOrder(),
+      })
+    ).toBeNull();
     expect(mocks.fetch).not.toHaveBeenCalled();
-  });
 
-  it('returns null when session lookup rejects and there is no fallback account', async () => {
     mocks.getSession.mockRejectedValue(new Error('session failed'));
-
-    const account = await resolveOrderReceiptVirtualAccount({
-      merchant: null,
-      order: {
-        id: 'order-1',
-        amount_paid: 0,
-        balance: 10000,
-        created_at: '',
-        customer_email: 'customer@example.com',
-        customer_name: 'Ada',
-        customer_phone: null,
-        discount_amount: 0,
-        order_number: 'ORD-1',
-        payment_status: 'pending',
-        shipping_address: null,
-        shipping_status: 'pending',
-        total: 10000,
-        updated_at: '',
-      },
-    });
-
-    expect(account).toBeNull();
+    expect(
+      await resolveOrderReceiptVirtualAccount({
+        merchant: null,
+        order: makeOrder(),
+      })
+    ).toBeNull();
   });
 
-  it('returns null when virtual account generation returns a non-ok response without fallback data', async () => {
+  it('returns null when generation fails and no merchant fallback exists', async () => {
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'token' } },
+    });
+    mocks.fetch.mockResolvedValue({ ok: false });
+
+    expect(
+      await resolveOrderReceiptVirtualAccount({
+        merchant: null,
+        order: makeOrder(),
+      })
+    ).toBeNull();
+
+    mocks.fetch.mockRejectedValue(new Error('network failed'));
+    expect(
+      await resolveOrderReceiptVirtualAccount({
+        merchant: null,
+        order: makeOrder(),
+      })
+    ).toBeNull();
+  });
+
+  it('ignores a virtual account without an account number and retries generation', async () => {
     mocks.getSession.mockResolvedValue({
       data: { session: { access_token: 'token' } },
     });
     mocks.fetch.mockResolvedValue({
-      ok: false,
+      json: async () => ({
+        virtualAccount: {
+          account_name: 'Generated Account',
+          account_number: '1234567890',
+          bank_name: 'Generated Bank',
+        },
+      }),
+      ok: true,
     });
 
     const account = await resolveOrderReceiptVirtualAccount({
       merchant: null,
-      order: {
-        id: 'order-1',
-        amount_paid: 0,
-        balance: 10000,
-        created_at: '',
-        customer_email: 'customer@example.com',
-        customer_name: 'Ada',
-        customer_phone: null,
-        discount_amount: 0,
-        order_number: 'ORD-1',
-        payment_status: 'pending',
-        shipping_address: null,
-        shipping_status: 'pending',
-        total: 10000,
-        updated_at: '',
-      },
+      order: makeOrder({
+        virtual_account: {
+          account_name: 'Broken',
+          account_number: '',
+          bank_name: 'Broken Bank',
+        },
+      }),
     });
 
-    expect(account).toBeNull();
+    expect(account).toEqual({
+      account_name: 'Generated Account',
+      account_number: '1234567890',
+      bank_name: 'Generated Bank',
+    });
+    expect(mocks.fetch).toHaveBeenCalledTimes(1);
   });
 
-  it('returns null when fetch throws and there is no merchant fallback account', async () => {
+  it('ignores a staff terminal without an account number and falls back to the merchant account', async () => {
     mocks.getSession.mockResolvedValue({
       data: { session: { access_token: 'token' } },
     });
-    mocks.fetch.mockRejectedValue(new Error('network failed'));
+    mocks.fetch
+      .mockResolvedValueOnce({ ok: false })
+      .mockResolvedValueOnce({ ok: false })
+      .mockResolvedValueOnce({
+        json: async () => ({ account_name: 'Baci Ltd' }),
+        ok: true,
+      });
 
     const account = await resolveOrderReceiptVirtualAccount({
-      merchant: null,
-      order: {
-        id: 'order-1',
-        amount_paid: 0,
-        balance: 10000,
-        created_at: '',
-        customer_email: 'customer@example.com',
-        customer_name: 'Ada',
-        customer_phone: null,
-        discount_amount: 0,
-        order_number: 'ORD-1',
-        payment_status: 'pending',
-        shipping_address: null,
-        shipping_status: 'pending',
-        total: 10000,
-        updated_at: '',
+      merchant: {
+        bank_account_name: '',
+        bank_account_number: '0123456789',
+        bank_code: '044',
+        business_name: 'Baci',
       },
+      order: makeOrder({
+        staff_terminal: {
+          account_name: 'Broken Terminal',
+          account_number: '',
+          bank_name: 'Broken Bank',
+        },
+      }),
     });
 
-    expect(account).toBeNull();
+    expect(account).toMatchObject({
+      account_name: 'Baci Ltd',
+      account_number: '0123456789',
+    });
   });
 });

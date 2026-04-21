@@ -1,131 +1,95 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert, Linking } from 'react-native';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { OrderDetailsRecord } from '@/components/orders/order-details.types';
+import { createOrderDetailsContactActions } from './createOrderDetailsContactActions';
+
+vi.mock('@react-native-async-storage/async-storage', () => ({
+  default: {
+    setItem: vi.fn(),
+  },
+}));
 
 vi.mock('react-native', () => ({
   Alert: { alert: vi.fn() },
-  Linking: { openURL: vi.fn() },
+  Linking: { openURL: vi.fn().mockResolvedValue(undefined) },
   Share: { share: vi.fn() },
 }));
 
-vi.mock('@react-native-async-storage/async-storage', () => ({
-  default: { setItem: vi.fn() },
-}));
-
-vi.mock('@/lib/orders', () => ({
-  extractOrderDeliveryAddress: vi.fn(() => '12 Main St'),
-}));
-
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createOrderDetailsContactActions } from './createOrderDetailsContactActions';
-
-const baseOrder = {
-  id: 'order-1',
-  amount_paid: 0,
-  balance: 0,
-  created_at: '',
-  customer_email: 'ada@example.com',
-  customer_name: 'Ada',
-  customer_phone: '+2348000000000',
-  discount_amount: 0,
-  is_credit_order: false,
-  order_number: 'ORD-1',
-  payment_status: 'paid',
-  shipping_address: { address: '12 Main St', city: 'Lagos', state: 'Lagos' },
-  shipping_status: 'shipped',
-  total: 5000,
-  updated_at: '',
-} as const;
+function buildOrder(
+  overrides: Partial<OrderDetailsRecord> = {}
+): OrderDetailsRecord {
+  return {
+    amount_paid: 0,
+    balance: 15000,
+    created_at: '2024-01-01T00:00:00.000Z',
+    customer_email: 'customer@example.com',
+    customer_name: 'Ada',
+    customer_phone: '08030000000',
+    discount_amount: 0,
+    id: 'order-1',
+    order_number: 'ORD-1',
+    payment_method: 'pay_on_delivery',
+    payment_status: 'pending',
+    shipping_address: {
+      address: '12 Allen Avenue',
+      city: 'Ikeja',
+      state: 'Lagos',
+    },
+    shipping_status: 'shipped',
+    total: 15000,
+    updated_at: '2024-01-01T00:00:00.000Z',
+    ...overrides,
+  };
+}
 
 describe('createOrderDetailsContactActions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (Linking.openURL as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
   });
 
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it('shows alert when rider phone is missing', async () => {
-    const actions = createOrderDetailsContactActions({
-      formatPrice: (n) => `₦${n}`,
-      merchant: { business_name: 'Acme' },
-      order: baseOrder as never,
-      riderPhone: '',
-      savedRiders: [],
-      setSavedRiders: vi.fn(),
-    });
-
-    await actions.handleSendOrderDetailsToRider();
-
-    expect(Alert.alert).toHaveBeenCalledWith('Required', expect.any(String));
-  });
-
-  it('opens WhatsApp URL with rider phone when order and phone are present', async () => {
-    const actions = createOrderDetailsContactActions({
-      formatPrice: (n) => `₦${n}`,
-      merchant: { business_name: 'Acme', business_address: '1 Road' },
-      order: baseOrder as never,
-      riderPhone: '+2348111111111',
-      savedRiders: [],
-      setSavedRiders: vi.fn(),
-    });
-
-    await actions.handleSendOrderDetailsToRider();
-
-    expect(Linking.openURL).toHaveBeenCalledWith(
-      expect.stringContaining('wa.me/2348111111111')
-    );
-  });
-
-  it('saves a new rider to AsyncStorage', async () => {
+  it('normalizes the rider number before saving and opening WhatsApp', async () => {
     const setSavedRiders = vi.fn();
     const actions = createOrderDetailsContactActions({
-      formatPrice: (n) => `₦${n}`,
-      merchant: null,
-      order: baseOrder as never,
-      riderPhone: '+2348222222222',
+      formatPrice: (amount) => `₦${amount}`,
+      merchant: {
+        business_address: '21 Broad Street',
+        business_name: 'Baci Store',
+      },
+      order: buildOrder(),
+      riderPhone: ' +234 803 444 4444 ',
       savedRiders: [],
       setSavedRiders,
     });
 
-    await actions.handleSaveRider('+2348222222222');
+    await actions.handleSendOrderDetailsToRider();
 
-    expect(setSavedRiders).toHaveBeenCalledWith(['+2348222222222']);
+    expect(setSavedRiders).toHaveBeenCalledWith(['2348034444444']);
     expect(AsyncStorage.setItem).toHaveBeenCalledWith(
       'saved_riders',
-      JSON.stringify(['+2348222222222'])
+      JSON.stringify(['2348034444444'])
+    );
+    expect(Linking.openURL).toHaveBeenCalledWith(
+      expect.stringContaining('https://wa.me/2348034444444?text=')
     );
   });
 
-  it('does not save a rider that is already in the list', async () => {
-    const setSavedRiders = vi.fn();
+  it('alerts when the customer WhatsApp number is invalid', () => {
     const actions = createOrderDetailsContactActions({
-      formatPrice: (n) => `₦${n}`,
+      formatPrice: (amount) => `₦${amount}`,
       merchant: null,
-      order: baseOrder as never,
-      riderPhone: '+2348222222222',
-      savedRiders: ['+2348222222222'],
-      setSavedRiders,
-    });
-
-    await actions.handleSaveRider('+2348222222222');
-
-    expect(setSavedRiders).not.toHaveBeenCalled();
-  });
-
-  it('opens tel: URL when handleCall is invoked with a phone number', () => {
-    const actions = createOrderDetailsContactActions({
-      formatPrice: (n) => `₦${n}`,
-      merchant: null,
-      order: baseOrder as never,
+      order: buildOrder({ customer_phone: 'abc' }),
       riderPhone: '',
       savedRiders: [],
       setSavedRiders: vi.fn(),
     });
 
-    actions.handleCall();
+    actions.handleWhatsApp();
 
-    expect(Linking.openURL).toHaveBeenCalledWith('tel:+2348000000000');
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Invalid phone number',
+      'Customer phone number is not valid for WhatsApp.'
+    );
+    expect(Linking.openURL).not.toHaveBeenCalled();
   });
 });

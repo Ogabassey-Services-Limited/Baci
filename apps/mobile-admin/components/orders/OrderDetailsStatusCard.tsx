@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Fragment } from 'react';
+import { SHIPPING_STATUS_CONFIG, type ShippingStatus } from '@baci/shared';
 import { Text, View } from 'react-native';
 import type { ThemeColors } from '@/constants/theme';
 import type { OrderSourceInfo } from './order-details.types';
@@ -93,6 +94,9 @@ export function OrderDetailsStatusCard({
           const isActive = index <= currentStepIndex;
           const isCurrent = index === currentStepIndex;
           const isLast = index === steps.length - 1;
+          const stepConfig =
+            SHIPPING_STATUS_CONFIG[step as ShippingStatus] ??
+            SHIPPING_STATUS_CONFIG.pending;
 
           return (
             <Fragment key={step}>
@@ -110,7 +114,7 @@ export function OrderDetailsStatusCard({
                 >
                   <Ionicons
                     color={isActive ? colors.textOnPrimary : colors.textMuted}
-                    name={shippingConfig.icon as keyof typeof Ionicons.glyphMap}
+                    name={stepConfig.icon as keyof typeof Ionicons.glyphMap}
                     size={12}
                   />
                 </View>
@@ -122,8 +126,8 @@ export function OrderDetailsStatusCard({
                       fontWeight: isCurrent ? '700' : '600',
                     },
                   ]}
-                >
-                  {step}
+                  >
+                  {stepConfig.label}
                 </Text>
               </View>
               {!isLast ? (
