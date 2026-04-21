@@ -41,12 +41,6 @@ export default function FAQScreen() {
     });
   };
 
-  const openSupportLink = (url: string, title: string, message: string) => {
-    void Linking.openURL(url).catch(() => {
-      Alert.alert(title, message);
-    });
-  };
-
   const supportOptions: FAQSupportOption[] = [
     {
       id: 'whatsapp',
