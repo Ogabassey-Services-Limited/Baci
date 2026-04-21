@@ -89,6 +89,7 @@ describe('ProductBasicInformationCard', () => {
     textMuted: '#94A3B8',
     textOnPrimary: '#FFFFFF',
     textSecondary: '#64748B',
+    placeholder: '#475569',
     warning: '#CA8A04',
     warningLight: 'rgba(202, 138, 4, 0.1)',
     cancelled: '#DC2626',
