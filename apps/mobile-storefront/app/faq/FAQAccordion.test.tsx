@@ -26,6 +26,7 @@ describe('FAQAccordion', () => {
     render(
       <FAQAccordion
         borderColor="#ddd"
+        cardColor="#fff"
         expandedId="1"
         items={faqItems}
         onToggle={onToggle}
@@ -35,7 +36,7 @@ describe('FAQAccordion', () => {
     );
 
     fireEvent.press(
-      screen.getByRole('button', { name: 'How do I track my order?' })
+      screen.getByRole('button', { name: /How do I track my order/ })
     );
 
     expect(onToggle).toHaveBeenCalledWith('1');
@@ -43,7 +44,9 @@ describe('FAQAccordion', () => {
       screen.getByText('Open the orders screen to track progress.')
     ).toBeOnTheScreen();
     expect(
-      screen.getByRole('button', { name: 'How do I track my order?' })
+      screen.getByRole('button', {
+        name: /How do I track my order\?.*Open the orders screen to track progress\./,
+      })
     ).toHaveAccessibilityState({ expanded: true });
   });
 
@@ -51,6 +54,7 @@ describe('FAQAccordion', () => {
     render(
       <FAQAccordion
         borderColor="#ddd"
+        cardColor="#fff"
         expandedId={null}
         items={faqItems}
         onToggle={jest.fn()}
@@ -71,6 +75,7 @@ describe('FAQAccordion', () => {
     const { rerender } = render(
       <FAQAccordion
         borderColor="#ddd"
+        cardColor="#fff"
         expandedId="1"
         items={faqItems}
         onToggle={jest.fn()}
@@ -82,6 +87,7 @@ describe('FAQAccordion', () => {
     rerender(
       <FAQAccordion
         borderColor="#ddd"
+        cardColor="#fff"
         expandedId="2"
         items={faqItems}
         onToggle={jest.fn()}

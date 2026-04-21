@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { StyleSheet, View, type ViewProps } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type ViewProps,
+} from 'react-native';
 import ReceiptsScreen from './index';
 
 const mockReactActual = jest.requireActual('react') as typeof import('react');
@@ -47,9 +53,16 @@ const mockUseRequireAuth = jest.fn();
 const mockUseNetworkState = jest.fn();
 const mockUseReceiptPreview = jest.fn();
 const mockUseQueryClient = jest.fn();
-const mockReceiptCard = jest.fn(({ item }: { item: { id: string } }) => (
-  <View testID={`receipt-card-${item.id}`} />
-));
+const mockReceiptCard = jest.fn(
+  ({ item }: { item: { id: string; order_number: string } }) => (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Receipt ${item.order_number}`}
+    >
+      <Text>{`Receipt ${item.order_number}`}</Text>
+    </Pressable>
+  )
+);
 const mockReceiptPreviewModal = jest.fn((_: Record<string, unknown>) => (
   <View testID="receipt-modal" />
 ));
@@ -148,7 +161,7 @@ jest.mock('@/components/receipts/ReceiptCard', () => ({
     status === 'paid'
       ? { label: 'Receipt', color: '#059669', icon: 'checkmark-circle' }
       : { label: 'Invoice', color: '#DC2626', icon: 'document-text' },
-  ReceiptCard: ({ item }: { item: { id: string } }) =>
+  ReceiptCard: ({ item }: { item: { id: string; order_number: string } }) =>
     mockReceiptCard({ item }),
 }));
 
@@ -267,14 +280,14 @@ describe('ReceiptsScreen', () => {
   it('filters the rendered receipts by search text', () => {
     render(<ReceiptsScreen />);
 
-    expect(screen.getByTestId('receipt-card-receipt-1')).toBeTruthy();
-    expect(screen.getByTestId('receipt-card-receipt-2')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Receipt 1001' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Receipt 1002' })).toBeTruthy();
 
     fireEvent.changeText(screen.getByLabelText('Search receipts'), 'invoice');
 
     expect(screen.getByText('1 receipt found')).toBeTruthy();
-    expect(screen.queryByTestId('receipt-card-receipt-1')).toBeNull();
-    expect(screen.getByTestId('receipt-card-receipt-2')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Receipt 1001' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Receipt 1002' })).toBeTruthy();
   });
 
   it('redirects when the auth guard returns a destination', () => {

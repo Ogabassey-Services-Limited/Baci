@@ -17,7 +17,7 @@ import {
 import { ProductCard } from '@/components/storefront/ProductCard';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND } from '@/constants/Colors';
+import Colors, { BRAND, SPACING } from '@/constants/Colors';
 import { useCategories, useProducts } from '@/hooks';
 import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
 import type { Product } from '@/types/product';
@@ -202,8 +202,8 @@ export default function CategoryScreen() {
         }
         contentContainerStyle={getListContentStyle({
           includeBottomInset: false,
-          paddingBottom: 24,
-          paddingTop: 16,
+          paddingBottom: SPACING.lg,
+          paddingTop: SPACING.md,
         })}
         showsVerticalScrollIndicator={false}
       />

@@ -5,6 +5,7 @@ import type { FaqItem } from './faq-data';
 
 interface FAQAccordionProps {
   borderColor: string;
+  cardColor: string;
   items: readonly FaqItem[];
   onToggle: (id: string) => void;
   expandedId: string | null;
@@ -14,6 +15,7 @@ interface FAQAccordionProps {
 
 export function FAQAccordion({
   borderColor,
+  cardColor,
   expandedId,
   items,
   onToggle,
@@ -31,13 +33,16 @@ export function FAQAccordion({
             style={[
               styles.item,
               {
+                backgroundColor: cardColor,
                 borderColor,
               },
             ]}
             onPress={() => onToggle(item.id)}
             accessibilityRole="button"
             accessibilityState={{ expanded: isExpanded }}
-            accessibilityLabel={item.question}
+            accessibilityLabel={
+              isExpanded ? `${item.question}. ${item.answer}` : item.question
+            }
             accessibilityHint="Tap to expand or collapse this FAQ item"
           >
             <View style={styles.header}>

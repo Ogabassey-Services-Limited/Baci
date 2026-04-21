@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/Colors';
 
 interface ReceiptsSearchSectionProps {
   colors: {
@@ -40,6 +41,8 @@ export function ReceiptsSearchSection({
           name="search-outline"
           size={20}
           color={colors.textSecondary}
+          accessible={false}
+          importantForAccessibility="no"
         />
         <TextInput
           style={[styles.searchInput, { color: colors.text }]}
@@ -65,6 +68,8 @@ export function ReceiptsSearchSection({
               name="close-circle"
               size={20}
               color={colors.textSecondary}
+              accessible={false}
+              importantForAccessibility="no"
             />
           </Pressable>
         )}
@@ -80,27 +85,27 @@ export function ReceiptsSearchSection({
 
 const styles = StyleSheet.create({
   searchContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.sm + SPACING.xs,
+    paddingBottom: SPACING.sm,
   },
   searchInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 10,
+    paddingHorizontal: SPACING.sm + SPACING.xs,
+    paddingVertical: SPACING.sm + SPACING.xs,
+    borderRadius: RADIUS.xl,
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: SPACING.sm,
   },
   searchInput: {
     flex: 1,
-    fontSize: 15,
+    fontSize: TYPOGRAPHY.size.base,
     paddingVertical: 0,
   },
   searchResults: {
-    fontSize: 13,
-    marginTop: 8,
-    marginLeft: 4,
+    fontSize: TYPOGRAPHY.size.sm,
+    marginTop: SPACING.sm,
+    marginLeft: SPACING.xs,
   },
 });

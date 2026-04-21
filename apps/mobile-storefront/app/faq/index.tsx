@@ -6,7 +6,7 @@
 import * as Linking from 'expo-linking';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { SPACING, TYPOGRAPHY } from '@/constants/Colors';
@@ -29,6 +29,12 @@ export default function FAQScreen() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const { getScrollContentStyle } = useStorefrontInsets();
 
+  const openSupportLink = (url: string, title: string, message: string) => {
+    void Linking.openURL(url).catch(() => {
+      Alert.alert(title, message);
+    });
+  };
+
   const supportOptions: FAQSupportOption[] = [
     {
       id: 'whatsapp',
@@ -39,8 +45,10 @@ export default function FAQScreen() {
       iconBackgroundColor: '#25D366',
       iconColor: '#FFF',
       onPress: () =>
-        Linking.openURL(
-          `https://wa.me/${SUPPORT_WHATSAPP_PHONE}?text=${encodeURIComponent(SUPPORT_WHATSAPP_MESSAGE)}`
+        openSupportLink(
+          `https://wa.me/${SUPPORT_WHATSAPP_PHONE}?text=${encodeURIComponent(SUPPORT_WHATSAPP_MESSAGE)}`,
+          'Unable to open WhatsApp',
+          `Please contact support on WhatsApp at ${SUPPORT_WHATSAPP_PHONE}.`
         ),
     },
     {
@@ -49,7 +57,12 @@ export default function FAQScreen() {
       subtitle: SUPPORT_PHONE_E164,
       icon: 'call-outline',
       accessibilityHint: `Calls support at ${SUPPORT_PHONE_E164}`,
-      onPress: () => Linking.openURL(`tel:${SUPPORT_PHONE_E164}`),
+      onPress: () =>
+        openSupportLink(
+          `tel:${SUPPORT_PHONE_E164}`,
+          'Unable to start the call',
+          `Please call support at ${SUPPORT_PHONE_E164}.`
+        ),
     },
     {
       id: 'email',
@@ -57,7 +70,12 @@ export default function FAQScreen() {
       subtitle: SUPPORT_EMAIL,
       icon: 'mail-outline',
       accessibilityHint: `Composes an email to ${SUPPORT_EMAIL}`,
-      onPress: () => Linking.openURL(`mailto:${SUPPORT_EMAIL}`),
+      onPress: () =>
+        openSupportLink(
+          `mailto:${SUPPORT_EMAIL}`,
+          'Unable to open your mail app',
+          `Please email support at ${SUPPORT_EMAIL}.`
+        ),
     },
   ];
 
@@ -105,6 +123,7 @@ export default function FAQScreen() {
           </Text>
           <FAQAccordion
             borderColor={colors.border}
+            cardColor={colors.card}
             expandedId={expandedId}
             items={faqItems}
             onToggle={(id) => {
