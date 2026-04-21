@@ -46,9 +46,9 @@ const faqItems: FAQItem[] = [
   },
   {
     id: '5',
-    question: "How do I verify a phone\'s IMEI?",
+    question: "How do I verify a phone's IMEI?",
     answer:
-      "Use our IMEI Checker feature in the app. Enter the 15-digit IMEI number to check if the device is blacklisted, iCloud locked, or has any other issues. This helps ensure you\'re buying a legitimate device.",
+      "Use our IMEI Checker feature in the app. Enter the 15-digit IMEI number to check if the device is blacklisted, iCloud locked, or has any other issues. This helps ensure you're buying a legitimate device.",
   },
   {
     id: '6',
