@@ -3,6 +3,5 @@ export function formatNgnCurrency(amount: number): string {
     style: 'currency',
     currency: 'NGN',
     minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
   }).format(amount);
 }

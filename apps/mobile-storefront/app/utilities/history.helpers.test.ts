@@ -8,8 +8,9 @@ describe('history.helpers', () => {
     expect(utilityHistoryHelpers.resolveFilter(undefined)).toBe('all');
   });
 
-  it('formats amounts for the storefront currency locale', () => {
+  it('formats amounts for the storefront currency locale without dropping Kobo', () => {
     expect(utilityHistoryHelpers.formatAmount(2500)).toContain('2,500');
+    expect(utilityHistoryHelpers.formatAmount(2500.75)).toContain('2,500.75');
   });
 
   it('prefers merchant labels for transaction titles and details', () => {
