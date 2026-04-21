@@ -59,7 +59,7 @@ Determines the AI-driven experience based on the merchant's business category.
 ## Testing Requirements
 Before submitting a PR, ensure:
 1. `pnpm check` passes (Types + Lint).
-2. `pnpm test` passes (Vitest for web/admin packages; Jest for Expo apps in `apps/mobile-*`).
+2. `pnpm test` passes (Vitest for web and `apps/mobile-admin`; Jest for `apps/mobile-storefront`).
 3. The "CI Quality Gate" workflow passes on GitHub Actions.
 
 
@@ -122,7 +122,7 @@ pnpm turbo build      # Production build
 pnpm turbo lint       # Biome linting
 pnpm format           # Code formatting
 pnpm turbo typecheck  # TypeScript check
-pnpm turbo test       # Run tests (Vitest for web/admin, Jest for Expo apps)
+pnpm turbo test       # Run tests (Vitest for web/mobile-admin, Jest for mobile-storefront)
 ```
 
 ## Deployment
@@ -197,7 +197,7 @@ pnpm turbo test       # Run tests (Vitest for web/admin, Jest for Expo apps)
 
 ## Testing
 
-- Vitest + React Testing Library; Expo apps in `apps/mobile-*` use Jest + React Native Testing Library.
+- Vitest + React Testing Library for web and `apps/mobile-admin`; `apps/mobile-storefront` uses Jest + React Native Testing Library.
 - Test files colocated with source: `MyComponent.test.tsx`.
 - Test both success AND error paths.
 - Use `screen.getByRole()` over `getByTestId()`.

@@ -183,7 +183,9 @@ export default function AccountScreen() {
       <ScrollView
         testID="account-scrollview"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={getScrollContentStyle()}
+        contentContainerStyle={getScrollContentStyle({
+          includeBottomInset: false,
+        })}
       >
         {effectiveCustomer ? (
           <ProfileHeader

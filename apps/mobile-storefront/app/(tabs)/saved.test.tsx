@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { View } from 'react-native';
+import { SPACING } from '@/constants/Colors';
+import { SAVED_LIST_BOTTOM_PADDING } from '@/constants/saved-list-layout';
 import type { SavedItem } from '@/stores/saved-store';
 import SavedTabScreen from './saved';
 
@@ -8,6 +10,13 @@ interface MockFlashListProps {
   children?: React.ReactNode;
   [key: string]: unknown;
 }
+
+type MockListStyleOptions = {
+  gap?: number;
+  includeBottomInset?: boolean;
+  padding?: number;
+  paddingBottom?: number;
+};
 
 const mockFlashList = jest.fn(({ children, ...props }: MockFlashListProps) => (
   <View testID="saved-flash-list" {...props}>
@@ -19,6 +28,14 @@ const mockStorefrontScreenShell = jest.fn(({ children, ...props }) => (
     {children}
   </View>
 ));
+const mockGetListContentStyle =
+  jest.fn<
+    (options?: MockListStyleOptions) => {
+      gap: number;
+      padding: number;
+      paddingBottom: number;
+    }
+  >();
 const mockUseStorefrontInsets = jest.fn();
 const mockUseNetworkState = jest.fn();
 const mockSavedStore = jest.fn<() => SavedItem[]>();
@@ -100,13 +117,21 @@ jest.mock('@/stores/saved-store', () => ({
 describe('SavedTabScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetListContentStyle.mockImplementation(
+      (options?: MockListStyleOptions) => {
+        const bottomInset = options?.includeBottomInset === false ? 0 : 34;
+        const padding = options?.padding ?? 16;
+
+        return {
+          gap: options?.gap ?? 12,
+          padding,
+          paddingBottom: (options?.paddingBottom ?? padding) + bottomInset,
+        };
+      }
+    );
     mockUseStorefrontInsets.mockReturnValue({
       getScrollContentStyle: jest.fn(),
-      getListContentStyle: () => ({
-        padding: 16,
-        paddingBottom: 100,
-        gap: 12,
-      }),
+      getListContentStyle: mockGetListContentStyle,
     });
     mockUseNetworkState.mockReturnValue({
       isOnline: true,
@@ -132,10 +157,16 @@ describe('SavedTabScreen', () => {
     const flashListProps = mockFlashList.mock.calls[0]?.[0];
 
     expect(shellProps?.edges).toEqual(['top']);
+    expect(mockGetListContentStyle).toHaveBeenCalledWith({
+      gap: SPACING.md,
+      includeBottomInset: false,
+      padding: SPACING.lg,
+      paddingBottom: SAVED_LIST_BOTTOM_PADDING,
+    });
     expect(flashListProps?.contentContainerStyle).toEqual({
-      padding: 16,
-      paddingBottom: 100,
-      gap: 12,
+      padding: SPACING.lg,
+      paddingBottom: SAVED_LIST_BOTTOM_PADDING,
+      gap: SPACING.md,
     });
   });
 

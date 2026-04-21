@@ -17,6 +17,12 @@ interface MockCategoryFlashListProps extends MockFlashListProps {
   };
 }
 
+type MockCategoryListStyleOptions = {
+  includeBottomInset?: boolean;
+  paddingBottom?: number;
+  paddingTop?: number;
+};
+
 const mockFlashList = jest.fn(({ children, ...props }: MockFlashListProps) => (
   <View testID="category-flash-list" {...props}>
     {children}
@@ -27,6 +33,13 @@ const mockStorefrontScreenShell = jest.fn(({ children, ...props }) => (
     {children}
   </View>
 ));
+const mockGetListContentStyle =
+  jest.fn<
+    (options?: MockCategoryListStyleOptions) => {
+      paddingTop: number;
+      paddingBottom: number;
+    }
+  >();
 const mockUseStorefrontInsets = jest.fn();
 const mockUseCategories = jest.fn();
 const mockUseProducts = jest.fn();
@@ -162,15 +175,20 @@ describe('CategoryScreen', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetListContentStyle.mockImplementation(
+      (options?: MockCategoryListStyleOptions) => ({
+        paddingTop: options?.paddingTop ?? 16,
+        paddingBottom:
+          (options?.paddingBottom ?? 16) +
+          (options?.includeBottomInset === false ? 0 : 34),
+      })
+    );
     mockUseLocalSearchParams.mockReturnValue({
       slug: 'accessories',
     });
     mockUseStorefrontInsets.mockReturnValue({
       getScrollContentStyle: jest.fn(),
-      getListContentStyle: () => ({
-        paddingTop: 16,
-        paddingBottom: 24,
-      }),
+      getListContentStyle: mockGetListContentStyle,
     });
     mockUseCategories.mockReturnValue({
       data: [
@@ -190,6 +208,11 @@ describe('CategoryScreen', () => {
     const flashListProps = mockFlashList.mock.calls[0]?.[0];
 
     expect(shellProps?.edges).toEqual(['bottom']);
+    expect(mockGetListContentStyle).toHaveBeenCalledWith({
+      includeBottomInset: false,
+      paddingBottom: 24,
+      paddingTop: 16,
+    });
     expect(flashListProps?.contentContainerStyle).toEqual({
       paddingTop: 16,
       paddingBottom: 24,

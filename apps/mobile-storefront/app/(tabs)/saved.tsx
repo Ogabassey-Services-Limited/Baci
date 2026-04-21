@@ -129,6 +129,7 @@ export default function SavedTabScreen() {
         style={styles.scrollView}
         contentContainerStyle={getListContentStyle({
           gap: SPACING.md,
+          includeBottomInset: false,
           padding: SPACING.lg,
           paddingBottom: SAVED_LIST_BOTTOM_PADDING,
         })}

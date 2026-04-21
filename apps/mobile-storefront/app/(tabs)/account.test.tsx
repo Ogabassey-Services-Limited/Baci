@@ -3,11 +3,27 @@ import { render, screen } from '@testing-library/react-native';
 import { View } from 'react-native';
 import AccountScreen from './account';
 
-const mockStorefrontScreenShell = jest.fn(({ children, ...props }) => (
-  <View testID="storefront-screen-shell" {...props}>
-    {children}
-  </View>
-));
+interface MockStorefrontScreenShellProps {
+  children?: React.ReactNode;
+  edges?: string[];
+}
+
+type MockScrollStyleOptions = {
+  includeBottomInset?: boolean;
+};
+
+const mockStorefrontScreenShell = jest.fn(
+  ({ children }: MockStorefrontScreenShellProps) => (
+    <View testID="storefront-screen-shell">{children}</View>
+  )
+);
+const mockGetScrollContentStyle =
+  jest.fn<
+    (options?: MockScrollStyleOptions) => {
+      paddingTop: number;
+      paddingBottom: number;
+    }
+  >();
 const mockUseStorefrontInsets = jest.fn();
 const mockUseMerchant = jest.fn();
 const mockUseAuthStatus = jest.fn();
@@ -111,8 +127,14 @@ jest.mock('@/stores/auth-store', () => ({
 describe('AccountScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetScrollContentStyle.mockImplementation(
+      (options?: MockScrollStyleOptions) => ({
+        paddingTop: 20,
+        paddingBottom: options?.includeBottomInset === false ? 60 : 94,
+      })
+    );
     mockUseStorefrontInsets.mockReturnValue({
-      getScrollContentStyle: () => ({ paddingTop: 20, paddingBottom: 60 }),
+      getScrollContentStyle: mockGetScrollContentStyle,
       getListContentStyle: jest.fn(),
     });
     mockUseMerchant.mockReturnValue({
@@ -137,6 +159,9 @@ describe('AccountScreen', () => {
     const scrollView = screen.getByTestId('account-scrollview');
 
     expect(shellProps?.edges).toEqual(['top']);
+    expect(mockGetScrollContentStyle).toHaveBeenCalledWith({
+      includeBottomInset: false,
+    });
     expect(scrollView.props.contentContainerStyle).toEqual({
       paddingTop: 20,
       paddingBottom: 60,

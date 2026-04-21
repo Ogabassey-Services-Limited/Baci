@@ -8,6 +8,10 @@ interface MockFlashListProps {
   [key: string]: unknown;
 }
 
+type MockNotificationsListStyleOptions = {
+  includeBottomInset?: boolean;
+};
+
 const mockFlashList = jest.fn(({ children, ...props }: MockFlashListProps) => (
   <View testID="notifications-flash-list" {...props}>
     {children}
@@ -18,6 +22,14 @@ const mockStorefrontScreenShell = jest.fn(({ children, ...props }) => (
     {children}
   </View>
 ));
+const mockGetListContentStyle =
+  jest.fn<
+    (options?: MockNotificationsListStyleOptions) => {
+      gap: number;
+      padding: number;
+      paddingBottom: number;
+    }
+  >();
 const mockUseStorefrontInsets = jest.fn();
 const mockUseRequireAuth = jest.fn();
 const mockUseAuthStore = jest.fn<() => { id: string } | null>();
@@ -92,12 +104,16 @@ jest.mock('@/stores/auth-store', () => ({
 describe('NotificationsScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockUseStorefrontInsets.mockReturnValue({
-      getScrollContentStyle: jest.fn(),
-      getListContentStyle: () => ({
+    mockGetListContentStyle.mockImplementation(
+      (options?: MockNotificationsListStyleOptions) => ({
         padding: 16,
         gap: 12,
-      }),
+        paddingBottom: options?.includeBottomInset === false ? 16 : 50,
+      })
+    );
+    mockUseStorefrontInsets.mockReturnValue({
+      getScrollContentStyle: jest.fn(),
+      getListContentStyle: mockGetListContentStyle,
     });
     mockUseRequireAuth.mockReturnValue({
       redirectTo: null,
@@ -113,6 +129,9 @@ describe('NotificationsScreen', () => {
     const flashListProps = mockFlashList.mock.calls[0]?.[0];
 
     expect(shellProps?.edges).toEqual(['bottom']);
+    expect(mockGetListContentStyle).toHaveBeenCalledWith({
+      includeBottomInset: false,
+    });
     expect(
       StyleSheet.flatten(flashListProps?.contentContainerStyle)
     ).toMatchObject({
