@@ -4,18 +4,67 @@ import type { ProductCondition } from '@/types/product';
 interface NamedCategory {
   id: string;
   name: string;
+  slug?: string;
 }
 
-export function resolveSelectedCategoryId(
+export const ALL_PRODUCT_FILTER_CATEGORY_SLUG = 'all';
+
+function normalizeCategoryToken(value: string | null | undefined) {
+  if (!value) {
+    return '';
+  }
+
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/['’]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+export function normalizeSelectedCategorySlug(
   selectedCategoryName: string,
   categories: NamedCategory[]
 ) {
-  if (selectedCategoryName === 'All') {
+  const normalizedSelection = normalizeCategoryToken(selectedCategoryName);
+
+  if (
+    selectedCategoryName === 'All' ||
+    normalizedSelection === ALL_PRODUCT_FILTER_CATEGORY_SLUG
+  ) {
+    return ALL_PRODUCT_FILTER_CATEGORY_SLUG;
+  }
+
+  const category = categories.find(
+    (candidate) =>
+      normalizeCategoryToken(candidate.slug) === normalizedSelection ||
+      normalizeCategoryToken(candidate.name) === normalizedSelection ||
+      normalizeCategoryToken(candidate.id) === normalizedSelection
+  );
+
+  return category?.slug
+    ? normalizeCategoryToken(category.slug)
+    : normalizedSelection;
+}
+
+export function resolveSelectedCategoryId(
+  selectedCategorySlugOrName: string,
+  categories: NamedCategory[]
+) {
+  const normalizedSelection = normalizeCategoryToken(selectedCategorySlugOrName);
+
+  if (
+    selectedCategorySlugOrName === 'All' ||
+    normalizedSelection === ALL_PRODUCT_FILTER_CATEGORY_SLUG
+  ) {
     return undefined;
   }
 
   const category = categories.find(
-    (candidate) => candidate.name === selectedCategoryName
+    (candidate) =>
+      normalizeCategoryToken(candidate.slug) === normalizedSelection ||
+      normalizeCategoryToken(candidate.id) === normalizedSelection ||
+      normalizeCategoryToken(candidate.name) === normalizedSelection
   );
 
   return category?.id;

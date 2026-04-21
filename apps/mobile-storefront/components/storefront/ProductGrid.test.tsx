@@ -81,6 +81,28 @@ describe('ProductGrid', () => {
     expect(latestOptions).toMatchObject({ category: 'cat-phones' });
   });
 
+  it('maps category chip selections through a normalized category slug before filtering', () => {
+    mockUseCategoriesFactory.mockReturnValue({
+      data: [{ id: 'cat-phones', name: 'Smartphones', slug: 'phones' }],
+      isError: false,
+    });
+    mockGetProductGridCategoriesFactory.mockReturnValue(['Phones']);
+
+    render(
+      <ProductGrid block={block} selectedCategoryId={null} variant="grid" />
+    );
+
+    act(() => {
+      getMockFilterBarProps()?.onSelectCategory('Phones');
+    });
+
+    const latestOptions =
+      mockUseProductsFactory.mock.calls[
+        mockUseProductsFactory.mock.calls.length - 1
+      ]?.[0];
+    expect(latestOptions).toMatchObject({ category: 'cat-phones' });
+  });
+
   it('resets subordinate filters when switching top-level categories', () => {
     render(
       <ProductGrid block={block} selectedCategoryId={null} variant="grid" />

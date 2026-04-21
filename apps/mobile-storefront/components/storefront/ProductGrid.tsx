@@ -10,7 +10,11 @@ import {
 } from '@/constants/product-grid';
 import { useCategories, useProductBrands, useProducts } from '@/hooks';
 import { getProductGridCategories } from '@/lib/category-utils';
-import { resolveSelectedCategoryId } from '@/lib/product-filter-options';
+import {
+  ALL_PRODUCT_FILTER_CATEGORY_SLUG,
+  normalizeSelectedCategorySlug,
+  resolveSelectedCategoryId,
+} from '@/lib/product-filter-options';
 import type { ProductGridBlock } from '@/types/blocks';
 import { FilterBar } from './FilterBar';
 import { ProductCard } from './ProductCard';
@@ -45,7 +49,7 @@ export default function ProductGrid({
     minPrice,
     minRating,
     selectedBrand,
-    selectedCategoryName,
+    selectedCategorySlug,
     selectedCondition,
     setMinRating,
     setSelectedBrand,
@@ -58,10 +62,28 @@ export default function ProductGrid({
     isLoading: isCategoriesLoading,
     isError: isCategoriesError,
   } = useCategories();
+  const normalizedCategories = categoriesData as Category[];
+  const categoryNames = (() => {
+    if (normalizedCategories.length > 0) {
+      const allCats = normalizedCategories.map((category) => category.name);
+      const sorted = getProductGridCategories(allCats);
+
+      return ['All', ...sorted];
+    }
+    return ['All', 'Phones', 'Gaming', 'Laptops', 'Accessories', 'Printers'];
+  })();
+  const selectedCategoryName =
+    selectedCategorySlug === ALL_PRODUCT_FILTER_CATEGORY_SLUG
+      ? 'All'
+      : categoryNames.find(
+          (categoryName) =>
+            normalizeSelectedCategorySlug(categoryName, normalizedCategories) ===
+            selectedCategorySlug
+        ) ?? 'All';
 
   const selectedCategoryIdFromFilter = resolveSelectedCategoryId(
-    selectedCategoryName,
-    categoriesData as Category[]
+    selectedCategorySlug,
+    normalizedCategories
   );
 
   const normalizedCategoryId = (() => {
@@ -115,7 +137,7 @@ export default function ProductGrid({
     minPrice,
     minRating,
     selectedBrand,
-    selectedCategoryName,
+    selectedCategorySlug,
     selectedCondition,
   });
 
@@ -138,17 +160,11 @@ export default function ProductGrid({
     }
   }, [brands, selectedBrand, setSelectedBrand]);
 
-  const categoryNames = (() => {
-    if (categoriesData.length > 0) {
-      const allCats = (categoriesData as Category[]).map(
-        (category) => category.name
-      );
-      const sorted = getProductGridCategories(allCats);
-
-      return ['All', ...sorted];
-    }
-    return ['All', 'Phones', 'Gaming', 'Laptops', 'Accessories', 'Printers'];
-  })();
+  const handleCategoryChipSelect = (categoryName: string) => {
+    handleCategorySelect(
+      normalizeSelectedCategorySlug(categoryName, normalizedCategories)
+    );
+  };
 
   const orderedProducts = shouldPrioritizeSmartphones
     ? prioritizeSmartphoneProducts(products)
@@ -200,7 +216,7 @@ export default function ProductGrid({
       <FilterBar
         categories={categoryNames}
         selectedCategory={selectedCategoryName}
-        onSelectCategory={handleCategorySelect}
+        onSelectCategory={handleCategoryChipSelect}
         minPrice={minPrice}
         maxPrice={maxPrice}
         onPriceChange={handlePriceChange}

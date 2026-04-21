@@ -24,7 +24,24 @@ function resolveHeaderTitle({
     return options.title;
   }
 
-  return routeName;
+  const sanitizedSegments = routeName
+    .split('/')
+    .map((segment) => segment.trim())
+    .filter(
+      (segment) =>
+        segment.length > 0 &&
+        !/^\(.+\)$/.test(segment) &&
+        segment.toLowerCase() !== 'index'
+    );
+  const fallbackSegment = sanitizedSegments.at(-1);
+
+  if (!fallbackSegment) {
+    return '';
+  }
+
+  return fallbackSegment
+    .replace(/[-_]+/g, ' ')
+    .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
 export function CompactStackHeader({
@@ -36,6 +53,11 @@ export function CompactStackHeader({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
+
+  if (options.headerShown === false) {
+    return null;
+  }
+
   const canGoBack = Boolean(back);
   const tintColor = options.headerTintColor ?? colors.text;
   const headerStyle = StyleSheet.flatten(options.headerStyle) ?? {};

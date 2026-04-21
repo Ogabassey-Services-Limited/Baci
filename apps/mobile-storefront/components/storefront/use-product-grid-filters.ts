@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { PRODUCT_GRID_MAX_PRICE_LIMIT } from '@/constants/product-grid';
 
 export function useProductGridFilters() {
-  const [selectedCategoryName, setSelectedCategoryName] = useState('All');
+  const [selectedCategorySlug, setSelectedCategorySlug] = useState('all');
   const [minPrice, setMinPrice] = useState(0);
   const [maxPrice, setMaxPrice] = useState(PRODUCT_GRID_MAX_PRICE_LIMIT);
   const [selectedBrand, setSelectedBrand] = useState('All');
@@ -10,8 +10,8 @@ export function useProductGridFilters() {
   const [minRating, setMinRating] = useState(0);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
-  const handleCategorySelect = (categoryName: string) => {
-    setSelectedCategoryName(categoryName);
+  const handleCategorySelect = (categorySlug: string) => {
+    setSelectedCategorySlug(categorySlug);
     setMinPrice(0);
     setMaxPrice(PRODUCT_GRID_MAX_PRICE_LIMIT);
     setSelectedBrand('All');
@@ -31,7 +31,7 @@ export function useProductGridFilters() {
     minPrice,
     minRating,
     selectedBrand,
-    selectedCategoryName,
+    selectedCategorySlug,
     selectedCondition,
     setMinRating,
     setSelectedBrand,
