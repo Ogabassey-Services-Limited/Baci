@@ -69,7 +69,10 @@ export function WelcomeHeader({
     <View style={styles.container}>
       <View style={styles.leftSection}>
         <Pressable
-          style={styles.avatarContainer}
+          style={({ pressed }) => [
+            styles.avatarContainer,
+            pressed && { opacity: 0.7 },
+          ]}
           onPress={onAvatarPress}
           accessibilityRole="button"
           accessibilityLabel="Change store avatar"
@@ -125,7 +128,11 @@ export function WelcomeHeader({
       </View>
 
       <Pressable
-        style={[styles.notificationButton, { backgroundColor: colors.card }]}
+        style={({ pressed }) => [
+          styles.notificationButton,
+          { backgroundColor: colors.card },
+          pressed && { opacity: 0.7 },
+        ]}
         onPress={onNotificationPress}
         accessibilityRole="button"
         accessibilityLabel={

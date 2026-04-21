@@ -18,6 +18,7 @@ export const DARK_COLORS = {
   text: '#FFFFFF',
   textSecondary: '#9CA3AF',
   textMuted: '#6B7280',
+  placeholder: '#9CA3AF',
 
   // Brand - Blue Primary
   primary: '#4A90D9',
@@ -72,6 +73,7 @@ export const LIGHT_COLORS = {
   text: '#0F172A',
   textSecondary: '#64748B',
   textMuted: '#94A3B8',
+  placeholder: '#475569',
 
   // Brand - Blue Primary
   primary: '#3B82F6',

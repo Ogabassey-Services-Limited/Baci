@@ -13,11 +13,18 @@ import {
 } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { DARK_COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import {
+  RADIUS,
+  SPACING,
+  type ThemeColors,
+  TYPOGRAPHY,
+} from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 import { getEmailError } from '@/lib/sanitize';
 import { supabase } from '@/lib/supabase';
 
 export default function ForgotPasswordScreen() {
+  const { colors, isDark } = useTheme();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -56,16 +63,22 @@ export default function ForgotPasswordScreen() {
     }
   };
 
+  const styles = getStyles(colors);
+
   return (
     <View style={styles.container}>
-      <SystemBars style="light" />
+      <SystemBars style={isDark ? 'light' : 'dark'} />
       <LinearGradient
-        colors={['#0D0D1A', '#1A1A2E']}
+        colors={
+          isDark
+            ? [colors.background, colors.backgroundLight]
+            : [colors.cardHover, colors.backgroundLight]
+        }
         style={StyleSheet.absoluteFillObject}
       />
       <SafeAreaView style={styles.content}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#FFF" />
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
         </Pressable>
 
         <View style={styles.header}>
@@ -81,7 +94,7 @@ export default function ForgotPasswordScreen() {
             <TextInput
               style={styles.input}
               placeholder="your@email.com"
-              placeholderTextColor="#6B7280"
+              placeholderTextColor={colors.placeholder}
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
@@ -95,7 +108,7 @@ export default function ForgotPasswordScreen() {
             disabled={isLoading}
           >
             {isLoading ? (
-              <ActivityIndicator color="#FFF" />
+              <ActivityIndicator color={colors.textOnPrimary} />
             ) : (
               <Text style={styles.buttonText}>Send Instructions</Text>
             )}
@@ -106,62 +119,63 @@ export default function ForgotPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: DARK_COLORS.background,
-  },
-  content: {
-    flex: 1,
-    padding: SPACING.lg,
-  },
-  backButton: {
-    marginBottom: SPACING.lg,
-  },
-  header: {
-    marginBottom: SPACING.xl,
-  },
-  title: {
-    fontSize: TYPOGRAPHY.size['3xl'],
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-    color: '#FFF',
-    marginBottom: SPACING.sm,
-  },
-  subtitle: {
-    fontSize: TYPOGRAPHY.size.md,
-    color: '#9CA3AF',
-    lineHeight: 24,
-  },
-  form: {
-    gap: SPACING.lg,
-  },
-  inputGroup: {
-    gap: SPACING.xs,
-  },
-  label: {
-    color: '#D1D5DB',
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-  },
-  input: {
-    backgroundColor: DARK_COLORS.inputBg,
-    borderWidth: 1,
-    borderColor: DARK_COLORS.border,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    color: '#FFF',
-    fontSize: TYPOGRAPHY.size.md,
-  },
-  button: {
-    backgroundColor: DARK_COLORS.primary,
-    paddingVertical: 16,
-    borderRadius: RADIUS.full,
-    alignItems: 'center',
-    marginTop: SPACING.md,
-  },
-  buttonText: {
-    color: '#FFF',
-    fontSize: TYPOGRAPHY.size.lg,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-  },
-});
+const getStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    content: {
+      flex: 1,
+      padding: SPACING.lg,
+    },
+    backButton: {
+      marginBottom: SPACING.lg,
+    },
+    header: {
+      marginBottom: SPACING.xl,
+    },
+    title: {
+      fontSize: TYPOGRAPHY.size['3xl'],
+      fontFamily: TYPOGRAPHY.fontFamily.bold,
+      color: colors.text,
+      marginBottom: SPACING.sm,
+    },
+    subtitle: {
+      fontSize: TYPOGRAPHY.size.md,
+      color: colors.textSecondary,
+      lineHeight: TYPOGRAPHY.size.md * TYPOGRAPHY.lineHeight.relaxed,
+    },
+    form: {
+      gap: SPACING.lg,
+    },
+    inputGroup: {
+      gap: SPACING.xs,
+    },
+    label: {
+      color: colors.text,
+      fontSize: TYPOGRAPHY.size.sm,
+      fontFamily: TYPOGRAPHY.fontFamily.medium,
+    },
+    input: {
+      backgroundColor: colors.inputBg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: RADIUS.md,
+      padding: SPACING.md,
+      color: colors.text,
+      fontSize: TYPOGRAPHY.size.md,
+    },
+    button: {
+      backgroundColor: colors.primary,
+      paddingVertical: SPACING.lg,
+      borderRadius: RADIUS.full,
+      alignItems: 'center',
+      marginTop: SPACING.md,
+    },
+    buttonText: {
+      color: colors.textOnPrimary,
+      fontSize: TYPOGRAPHY.size.lg,
+      fontFamily: TYPOGRAPHY.fontFamily.bold,
+    },
+  });
