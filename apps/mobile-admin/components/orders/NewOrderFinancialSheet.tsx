@@ -232,8 +232,8 @@ export function NewOrderFinancialSheet({
               const value = Number.parseFloat(financialValue) || 0;
               if (showFinancialModal.type === 'discount') setDiscount(value);
               if (showFinancialModal.type === 'shipping') setShippingFee(value);
-              if (showFinancialModal.type === 'tax') {
-                setTaxes(isVatApplied ? calculatedVat : value);
+              if (showFinancialModal.type === 'tax' && !isVatApplied) {
+                setTaxes(value);
               }
               setShowFinancialModal({ ...showFinancialModal, visible: false });
             }}

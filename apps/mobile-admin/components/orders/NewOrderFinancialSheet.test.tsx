@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
 
@@ -140,5 +140,46 @@ describe('NewOrderFinancialSheet', () => {
 
     expect(screen.getByText('Amount')).toBeInTheDocument();
     expect(screen.queryByText('Amount (NGN)')).not.toBeInTheDocument();
+  });
+
+  it('does not persist calculated VAT into manual taxes when VAT mode is enabled', () => {
+    const controller = makeController({
+      calculatedVat: 1250,
+      financialValue: '1250',
+      isVatApplied: true,
+      merchant: {
+        payout_currency: 'NGN',
+        vat_registration_status: 'registered',
+      } as FinancialController['merchant'],
+      showFinancialModal: { type: 'tax', visible: true },
+    });
+
+    render(<NewOrderFinancialSheet controller={controller} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+
+    expect(controller.setTaxes).not.toHaveBeenCalled();
+    expect(controller.setShowFinancialModal).toHaveBeenCalledWith({
+      type: 'tax',
+      visible: false,
+    });
+  });
+
+  it('persists manual tax values when VAT mode is disabled', () => {
+    const controller = makeController({
+      financialValue: '1450',
+      isVatApplied: false,
+      merchant: {
+        payout_currency: 'NGN',
+        vat_registration_status: 'registered',
+      } as FinancialController['merchant'],
+      showFinancialModal: { type: 'tax', visible: true },
+    });
+
+    render(<NewOrderFinancialSheet controller={controller} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+
+    expect(controller.setTaxes).toHaveBeenCalledWith(1450);
   });
 });

@@ -97,6 +97,8 @@ export function OrderDetailsStatusCard({
           const stepConfig =
             SHIPPING_STATUS_CONFIG[step as ShippingStatus] ??
             SHIPPING_STATUS_CONFIG.pending;
+          const stepColor =
+            colors[stepConfig.colorKey as keyof ThemeColors] ?? shippingColor;
 
           return (
             <Fragment key={step}>
@@ -105,10 +107,8 @@ export function OrderDetailsStatusCard({
                   style={[
                     styles.progressDot,
                     {
-                      backgroundColor: isActive
-                        ? shippingColor
-                        : colors.inputBg,
-                      borderColor: isActive ? shippingColor : colors.border,
+                      backgroundColor: isActive ? stepColor : colors.inputBg,
+                      borderColor: isActive ? stepColor : colors.border,
                     },
                   ]}
                 >
@@ -137,7 +137,7 @@ export function OrderDetailsStatusCard({
                     {
                       backgroundColor:
                         index < currentStepIndex
-                          ? shippingColor
+                          ? stepColor
                           : colors.border,
                     },
                   ]}

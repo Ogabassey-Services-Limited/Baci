@@ -8,6 +8,21 @@ import { OrderDetailsStatusCard } from './OrderDetailsStatusCard';
 
 vi.mock('react-native', async () => {
   const React = await import('react');
+  const flattenStyle = (
+    style: Record<string, unknown> | Record<string, unknown>[] | undefined
+  ): Record<string, unknown> => {
+    if (Array.isArray(style)) {
+      return style.reduce<Record<string, unknown>>(
+        (accumulator, value) => ({
+          ...accumulator,
+          ...flattenStyle(value),
+        }),
+        {}
+      );
+    }
+
+    return style ?? {};
+  };
 
   return {
     StyleSheet: {
@@ -15,8 +30,18 @@ vi.mock('react-native', async () => {
     },
     Text: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('span', null, children),
-    View: ({ children }: { children?: React.ReactNode }) =>
-      React.createElement('div', null, children),
+    View: ({
+      children,
+      style,
+    }: {
+      children?: React.ReactNode;
+      style?: Record<string, unknown> | Record<string, unknown>[];
+    }) =>
+      React.createElement(
+        'div',
+        { 'data-style': JSON.stringify(flattenStyle(style)) },
+        children
+      ),
   };
 });
 
@@ -29,8 +54,14 @@ vi.mock('@expo/vector-icons', () => ({
 describe('OrderDetailsStatusCard', () => {
   const colors = {
     border: '#1e293b',
+    cancelled: '#dc2626',
     card: '#0f172a',
+    delivered: '#16a34a',
     inputBg: '#111827',
+    pending: '#ca8a04',
+    processing: '#2563eb',
+    returned: '#9333ea',
+    shipped: '#7c3aed',
     text: '#f8fafc',
     textMuted: '#94a3b8',
     textOnPrimary: '#ffffff',
@@ -72,5 +103,28 @@ describe('OrderDetailsStatusCard', () => {
         'checkmark-done-outline',
       ])
     );
+
+    const viewStyles = Array.from(
+      container.querySelectorAll('div[data-style]')
+    ).map((node) => JSON.parse(node.getAttribute('data-style') ?? '{}'));
+
+    const progressDots = viewStyles.filter(
+      (style) => style.width === 28 && style.height === 28
+    );
+    const progressLines = viewStyles.filter(
+      (style) => style.height === 3 && style.flex === 1
+    );
+
+    expect(progressDots.slice(0, 4).map((style) => style.backgroundColor)).toEqual([
+      colors.pending,
+      colors.processing,
+      colors.shipped,
+      colors.inputBg,
+    ]);
+    expect(progressLines.map((style) => style.backgroundColor)).toEqual([
+      colors.pending,
+      colors.processing,
+      colors.border,
+    ]);
   });
 });
