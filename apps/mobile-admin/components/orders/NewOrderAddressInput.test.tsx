@@ -5,6 +5,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { LIGHT_COLORS } from '@/constants/theme';
 import { NewOrderAddressInput } from './NewOrderAddressInput';
 
+const googlePlacesState: {
+  lastProps?: Record<string, unknown>;
+} = {};
+
 vi.mock('react-native', async () => {
   const React = await import('react');
 
@@ -46,12 +50,14 @@ vi.mock('react-native', async () => {
 vi.mock('react-native-google-places-autocomplete', async () => {
   const React = await import('react');
   return {
-    GooglePlacesAutocomplete: ({ placeholder }: { placeholder?: string }) =>
-      React.createElement(
+    GooglePlacesAutocomplete: (props: Record<string, unknown>) => {
+      googlePlacesState.lastProps = props;
+      return React.createElement(
         'div',
         { 'data-testid': 'google-places-autocomplete' },
-        placeholder
-      ),
+        String(props.placeholder ?? '')
+      );
+    },
   };
 });
 
@@ -130,5 +136,81 @@ describe('NewOrderAddressInput', () => {
     fireEvent.change(input, { target: { value: '12 Lagos Street' } });
 
     expect(setDeliveryInfo).toHaveBeenCalled();
+  });
+
+  it('clears stale city and state when a selected place omits those components', () => {
+    const setDeliveryInfo = vi.fn();
+
+    render(
+      <NewOrderAddressInput
+        controller={makeController({
+          deliveryInfo: {
+            address: 'Old address',
+            city: 'Old city',
+            name: '',
+            phone: '',
+            state: 'Old state',
+          },
+          setDeliveryInfo,
+        })}
+        googleMapsApiKey="AIza-test-key"
+      />
+    );
+
+    const onPress = googlePlacesState.lastProps?.onPress as
+      | ((
+          data: { description: string },
+          details?: {
+            address_components?: Array<{
+              long_name: string;
+              types: string[];
+            }>;
+          } | null
+        ) => void)
+      | undefined;
+
+    onPress?.(
+      { description: '42 Marina, Lagos' },
+      { address_components: [] }
+    );
+
+    const updater = setDeliveryInfo.mock.calls[0][0] as (
+      previous: AddressInputController['deliveryInfo']
+    ) => AddressInputController['deliveryInfo'];
+
+    expect(
+      updater({
+        address: 'Old address',
+        city: 'Old city',
+        name: '',
+        phone: '',
+        state: 'Old state',
+      })
+    ).toEqual({
+      address: '42 Marina, Lagos',
+      city: '',
+      name: '',
+      phone: '',
+      state: '',
+    });
+  });
+
+  it('configures the Google Places dropdown elevation for Android stacking', () => {
+    render(
+      <NewOrderAddressInput
+        controller={makeController()}
+        googleMapsApiKey="AIza-test-key"
+      />
+    );
+
+    const styles = googlePlacesState.lastProps?.styles as
+      | {
+          listView?: {
+            elevation?: number;
+          };
+        }
+      | undefined;
+
+    expect(styles?.listView?.elevation).toBe(5);
   });
 });

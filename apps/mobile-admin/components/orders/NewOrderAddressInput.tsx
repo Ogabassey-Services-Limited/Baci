@@ -56,8 +56,8 @@ export function NewOrderAddressInput({
               return;
             }
 
-            let foundCity: string | null = null;
-            let foundState: string | null = null;
+            let foundCity = '';
+            let foundState = '';
             details.address_components?.forEach((component) => {
               if (component.types.includes('locality')) {
                 foundCity = component.long_name;
@@ -70,8 +70,8 @@ export function NewOrderAddressInput({
             setDeliveryInfo((previous) => ({
               ...previous,
               address: data.description,
-              ...(foundCity ? { city: foundCity } : {}),
-              ...(foundState ? { state: foundState } : {}),
+              city: foundCity,
+              state: foundState,
             }));
           }}
           placeholder="Enter delivery address"
@@ -87,6 +87,7 @@ export function NewOrderAddressInput({
               borderColor: colors.border,
               borderRadius: 8,
               borderWidth: 1,
+              elevation: 5,
               left: 0,
               marginTop: 4,
               position: 'absolute',

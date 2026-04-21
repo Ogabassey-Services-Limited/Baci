@@ -150,7 +150,7 @@ describe('NewOrderEditItemSheet', () => {
     const inputs = screen.getAllByRole('textbox');
 
     fireEvent.change(inputs[0], { target: { value: '12a.34' } });
-    fireEvent.change(inputs[1], { target: { value: '0' } });
+    fireEvent.change(inputs[1], { target: { value: '' } });
     fireEvent.change(
       screen.getByRole('textbox', { name: 'Description (optional)' }),
       {
@@ -159,7 +159,7 @@ describe('NewOrderEditItemSheet', () => {
     );
 
     expect(controller.setEditPriceValue).toHaveBeenCalledWith('12.34');
-    expect(controller.setEditQtyValue).toHaveBeenCalledWith('1');
+    expect(controller.setEditQtyValue).toHaveBeenCalledWith('');
     expect(controller.setEditDetails).toHaveBeenCalledWith('Updated note');
   });
 

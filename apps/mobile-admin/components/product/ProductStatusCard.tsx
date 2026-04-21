@@ -15,6 +15,7 @@ export function ProductStatusCard({
   status,
 }: ProductStatusCardProps) {
   const isArchived = status === 'archived';
+  const switchLabel = isArchived ? 'Reactivate product' : 'Product status';
 
   return (
     <View
@@ -35,37 +36,47 @@ export function ProductStatusCard({
         </Text>
         <Text style={[styles.description, { color: colors.textSecondary }]}>
           {isArchived
-            ? 'Product is archived and can no longer be changed from this screen.'
+            ? 'Product is archived. Turn it back on to relist it.'
             : status === 'active'
               ? 'Product is visible to customers.'
               : 'Product is hidden from store.'}
         </Text>
       </View>
-      {isArchived ? (
-        <View
-          style={[
-            styles.archivedBadge,
-            { backgroundColor: colors.inputBg, borderColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.archivedLabel, { color: colors.textSecondary }]}>
-            Archived
-          </Text>
-        </View>
-      ) : (
+      <View style={styles.actions}>
+        {isArchived ? (
+          <View
+            style={[
+              styles.archivedBadge,
+              { backgroundColor: colors.inputBg, borderColor: colors.border },
+            ]}
+          >
+            <Text
+              style={[styles.archivedLabel, { color: colors.textSecondary }]}
+            >
+              Archived
+            </Text>
+          </View>
+        ) : null}
         <Switch
+          accessibilityLabel={switchLabel}
+          accessibilityRole="switch"
           value={status === 'active'}
           disabled={isPending}
           onValueChange={onValueChange}
           trackColor={{ false: colors.border, true: colors.primary }}
           thumbColor={status === 'active' ? colors.primary : undefined}
         />
-      )}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  actions: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+  },
   archivedBadge: {
     borderRadius: 999,
     borderWidth: 1,

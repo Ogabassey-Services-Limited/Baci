@@ -13,15 +13,18 @@ vi.mock('react-native', async () => {
       create: (styles: Record<string, unknown>) => styles,
     },
     Switch: ({
+      accessibilityLabel,
       disabled,
       onValueChange,
       value,
     }: {
+      accessibilityLabel?: string;
       disabled?: boolean;
       onValueChange?: (value: boolean) => void;
       value?: boolean;
     }) =>
       React.createElement('input', {
+        'aria-label': accessibilityLabel,
         checked: value ?? false,
         disabled,
         onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
@@ -64,20 +67,25 @@ describe('ProductStatusCard', () => {
     expect(onValueChange).toHaveBeenCalledWith(false);
   });
 
-  it('renders a read-only archived state instead of an editable switch', () => {
+  it('keeps archived products relistable from the status card', () => {
+    const onValueChange = vi.fn();
+
     render(
       <ProductStatusCard
         colors={colors}
         isPending={false}
-        onValueChange={vi.fn()}
+        onValueChange={onValueChange}
         status="archived"
       />
     );
 
     expect(
-      screen.getByText('Product is archived and can no longer be changed from this screen.')
+      screen.getByText('Product is archived. Turn it back on to relist it.')
     ).toBeInTheDocument();
     expect(screen.getByText('Archived')).toBeInTheDocument();
-    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Reactivate product' }));
+
+    expect(onValueChange).toHaveBeenCalledWith(true);
   });
 });

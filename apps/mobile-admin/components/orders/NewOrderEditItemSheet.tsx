@@ -146,10 +146,9 @@ export function NewOrderEditItemSheet({
               </Text>
               <TextInput
                 keyboardType="number-pad"
-                onChangeText={(text) => {
-                  const clamped = Math.max(1, Math.floor(Number(text) || 1));
-                  setEditQtyValue(String(clamped));
-                }}
+                onChangeText={(text) =>
+                  setEditQtyValue(text.replace(/[^0-9]/g, ''))
+                }
                 style={{
                   backgroundColor: colors.backgroundLight,
                   borderColor: colors.border,
