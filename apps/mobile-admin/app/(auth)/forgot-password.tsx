@@ -13,11 +13,13 @@ import {
 } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { DARK_COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { RADIUS, SPACING, ThemeColors, TYPOGRAPHY } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 import { getEmailError } from '@/lib/sanitize';
 import { supabase } from '@/lib/supabase';
 
 export default function ForgotPasswordScreen() {
+  const { colors, isDark } = useTheme();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -56,16 +58,18 @@ export default function ForgotPasswordScreen() {
     }
   };
 
+  const styles = getStyles(colors);
+
   return (
     <View style={styles.container}>
-      <SystemBars style="light" />
+      <SystemBars style={isDark ? 'light' : 'dark'} />
       <LinearGradient
-        colors={['#0D0D1A', '#1A1A2E']}
+        colors={[colors.background, colors.backgroundLight]}
         style={StyleSheet.absoluteFillObject}
       />
       <SafeAreaView style={styles.content}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#FFF" />
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
         </Pressable>
 
         <View style={styles.header}>
@@ -81,7 +85,7 @@ export default function ForgotPasswordScreen() {
             <TextInput
               style={styles.input}
               placeholder="your@email.com"
-              placeholderTextColor="#6B7280"
+              placeholderTextColor={colors.textMuted}
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
@@ -95,7 +99,7 @@ export default function ForgotPasswordScreen() {
             disabled={isLoading}
           >
             {isLoading ? (
-              <ActivityIndicator color="#FFF" />
+              <ActivityIndicator color={colors.textOnPrimary} />
             ) : (
               <Text style={styles.buttonText}>Send Instructions</Text>
             )}
@@ -106,10 +110,10 @@ export default function ForgotPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: DARK_COLORS.background,
+    backgroundColor: colors.background,
   },
   content: {
     flex: 1,
@@ -124,13 +128,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: TYPOGRAPHY.size['3xl'],
     fontFamily: TYPOGRAPHY.fontFamily.bold,
-    color: '#FFF',
+    color: colors.text,
     marginBottom: SPACING.sm,
   },
   subtitle: {
     fontSize: TYPOGRAPHY.size.md,
-    color: '#9CA3AF',
-    lineHeight: 24,
+    color: colors.textSecondary,
+    lineHeight: TYPOGRAPHY.size.md * TYPOGRAPHY.lineHeight.relaxed,
   },
   form: {
     gap: SPACING.lg,
@@ -139,28 +143,28 @@ const styles = StyleSheet.create({
     gap: SPACING.xs,
   },
   label: {
-    color: '#D1D5DB',
+    color: colors.textMuted,
     fontSize: TYPOGRAPHY.size.sm,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
   },
   input: {
-    backgroundColor: DARK_COLORS.inputBg,
+    backgroundColor: colors.inputBg,
     borderWidth: 1,
-    borderColor: DARK_COLORS.border,
+    borderColor: colors.border,
     borderRadius: RADIUS.md,
     padding: SPACING.md,
-    color: '#FFF',
+    color: colors.text,
     fontSize: TYPOGRAPHY.size.md,
   },
   button: {
-    backgroundColor: DARK_COLORS.primary,
-    paddingVertical: 16,
+    backgroundColor: colors.primary,
+    paddingVertical: SPACING.lg,
     borderRadius: RADIUS.full,
     alignItems: 'center',
     marginTop: SPACING.md,
   },
   buttonText: {
-    color: '#FFF',
+    color: colors.textOnPrimary,
     fontSize: TYPOGRAPHY.size.lg,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
