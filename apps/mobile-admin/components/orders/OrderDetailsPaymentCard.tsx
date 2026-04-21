@@ -101,7 +101,9 @@ export function OrderDetailsPaymentCard({
           Shipping
         </Text>
         <Text style={[styles.summaryValue, { color: colors.text }]}>
-          {shippingFee ? formatPrice(shippingFee) : 'Free'}
+          {shippingFee == null || shippingFee === 0
+            ? 'Free'
+            : formatPrice(shippingFee)}
         </Text>
       </View>
       {discountAmount > 0 ? (

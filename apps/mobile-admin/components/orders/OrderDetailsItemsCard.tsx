@@ -85,7 +85,10 @@ export function OrderDetailsItemsCard({
               ) : null}
               {item.product_id ? (
                 <Text style={[styles.itemRef, { color: colors.textMuted }]}>
-                  SKU: {item.product_id.slice(0, 8)}...
+                  SKU:{' '}
+                  {item.product_id.length > 8
+                    ? `${item.product_id.slice(0, 8)}...`
+                    : item.product_id}
                 </Text>
               ) : null}
               <View style={styles.itemPriceRow}>

@@ -71,6 +71,8 @@ export function OrderDetailsCustomerCard({
           </Text>
         </View>
         <Pressable
+          accessibilityLabel="Send receipt to customer"
+          accessibilityRole="button"
           disabled={isGeneratingReceipt}
           onPress={onSendReceipt}
           style={[
@@ -101,6 +103,8 @@ export function OrderDetailsCustomerCard({
 
       <View style={styles.actionButtons}>
         <Pressable
+          accessibilityLabel="Call customer"
+          accessibilityRole="button"
           onPress={onCall}
           style={[
             styles.actionButton,
@@ -113,6 +117,8 @@ export function OrderDetailsCustomerCard({
           </Text>
         </Pressable>
         <Pressable
+          accessibilityLabel="Message customer on WhatsApp"
+          accessibilityRole="button"
           onPress={onWhatsApp}
           style={[
             styles.actionButton,
@@ -131,6 +137,8 @@ export function OrderDetailsCustomerCard({
           </Text>
         </Pressable>
         <Pressable
+          accessibilityLabel="Email customer"
+          accessibilityRole="button"
           onPress={onEmail}
           style={[
             styles.actionButton,
@@ -148,6 +156,8 @@ export function OrderDetailsCustomerCard({
 
       {showPostShipmentActions && hasCustomerPhone ? (
         <Pressable
+          accessibilityLabel="Send order details to rider"
+          accessibilityRole="button"
           onPress={onSendOrderDetailsToRider}
           style={[styles.primaryAction, { backgroundColor: colors.gold }]}
         >
@@ -164,6 +174,8 @@ export function OrderDetailsCustomerCard({
 
       {showPostShipmentActions ? (
         <Pressable
+          accessibilityLabel="Share rider details with customer"
+          accessibilityRole="button"
           onPress={onSendRiderToCustomer}
           style={[
             styles.secondaryAction,

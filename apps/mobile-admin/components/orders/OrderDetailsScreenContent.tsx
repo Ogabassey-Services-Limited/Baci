@@ -38,7 +38,12 @@ export function OrderDetailsScreenContent({
           headerStyle: { backgroundColor: controller.colors.background },
           headerTintColor: controller.colors.text,
           headerRight: () => (
-            <Pressable onPress={controller.handleShare} style={{ padding: 4 }}>
+            <Pressable
+              onPress={() => {
+                void controller.handleShare();
+              }}
+              style={{ padding: 4 }}
+            >
               <Ionicons
                 name="share-outline"
                 size={24}
@@ -88,10 +93,11 @@ export function OrderDetailsScreenContent({
           formatPrice={controller.formatPrice}
           items={order.items || []}
           onRecordPayment={() => {
-            controller.setPaymentAmount(
-              String(Math.round(order.balance || order.total))
-            );
-            controller.setShowRecordPaymentModal(true);
+            const amount = Math.round(order.balance ?? order.total);
+            if (amount > 0) {
+              controller.setPaymentAmount(String(amount));
+              controller.setShowRecordPaymentModal(true);
+            }
           }}
           onRequestPayment={() => {
             void controller.handleSendReminder();
@@ -183,15 +189,16 @@ export function OrderDetailsScreenContent({
       />
 
       <OrderPaymentOptionDialog
-        balanceLabel={controller.formatPrice(order.balance || order.total)}
+        balanceLabel={controller.formatPrice(order.balance ?? order.total)}
         colors={controller.colors}
         onClose={() => controller.setShowPaymentOptionModal(false)}
         onRecordPayment={() => {
           controller.setShowPaymentOptionModal(false);
-          controller.setPaymentAmount(
-            String(Math.round(order.balance || order.total))
-          );
-          controller.setShowRecordPaymentModal(true);
+          const amount = Math.round(order.balance ?? order.total);
+          if (amount > 0) {
+            controller.setPaymentAmount(String(amount));
+            controller.setShowRecordPaymentModal(true);
+          }
         }}
         onShipOnCredit={() => {
           controller.setShowPaymentOptionModal(false);
