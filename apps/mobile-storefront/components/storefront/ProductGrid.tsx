@@ -72,14 +72,27 @@ export default function ProductGrid({
     }
     return ['All', 'Phones', 'Gaming', 'Laptops', 'Accessories', 'Printers'];
   })();
-  const selectedCategoryName =
+  const matchedCategoryName =
     selectedCategorySlug === ALL_PRODUCT_FILTER_CATEGORY_SLUG
       ? 'All'
       : categoryNames.find(
           (categoryName) =>
-            normalizeSelectedCategorySlug(categoryName, normalizedCategories) ===
-            selectedCategorySlug
-        ) ?? 'All';
+            normalizeSelectedCategorySlug(
+              categoryName,
+              normalizedCategories
+            ) === selectedCategorySlug
+        );
+  const selectedCategoryName = matchedCategoryName ?? 'All';
+
+  if (
+    __DEV__ &&
+    !matchedCategoryName &&
+    selectedCategorySlug !== ALL_PRODUCT_FILTER_CATEGORY_SLUG
+  ) {
+    console.warn(
+      `[ProductGrid] selectedCategorySlug "${selectedCategorySlug}" does not map to any known category; chip UI will show "All" while product query remains filtered by the stale slug.`
+    );
+  }
 
   const selectedCategoryIdFromFilter = resolveSelectedCategoryId(
     selectedCategorySlug,

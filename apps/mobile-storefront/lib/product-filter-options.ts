@@ -4,7 +4,7 @@ import type { ProductCondition } from '@/types/product';
 interface NamedCategory {
   id: string;
   name: string;
-  slug?: string;
+  slug: string;
 }
 
 export const ALL_PRODUCT_FILTER_CATEGORY_SLUG = 'all';
@@ -23,13 +23,15 @@ function normalizeCategoryToken(value: string | null | undefined) {
 }
 
 export function normalizeSelectedCategorySlug(
-  selectedCategoryName: string,
+  selectedCategorySlugOrName: string,
   categories: NamedCategory[]
 ) {
-  const normalizedSelection = normalizeCategoryToken(selectedCategoryName);
+  const normalizedSelection = normalizeCategoryToken(
+    selectedCategorySlugOrName
+  );
 
   if (
-    selectedCategoryName === 'All' ||
+    selectedCategorySlugOrName === 'All' ||
     normalizedSelection === ALL_PRODUCT_FILTER_CATEGORY_SLUG
   ) {
     return ALL_PRODUCT_FILTER_CATEGORY_SLUG;
@@ -42,16 +44,16 @@ export function normalizeSelectedCategorySlug(
       normalizeCategoryToken(candidate.id) === normalizedSelection
   );
 
-  return category?.slug
-    ? normalizeCategoryToken(category.slug)
-    : normalizedSelection;
+  return category ? normalizeCategoryToken(category.slug) : normalizedSelection;
 }
 
 export function resolveSelectedCategoryId(
   selectedCategorySlugOrName: string,
   categories: NamedCategory[]
 ) {
-  const normalizedSelection = normalizeCategoryToken(selectedCategorySlugOrName);
+  const normalizedSelection = normalizeCategoryToken(
+    selectedCategorySlugOrName
+  );
 
   if (
     selectedCategorySlugOrName === 'All' ||
