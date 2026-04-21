@@ -39,17 +39,15 @@ export function OrderDetailsFooterBar({
           </Text>
         </View>
         <Pressable
+          accessibilityLabel="Update order status"
+          accessibilityRole="button"
           style={[styles.button, { backgroundColor: colors.primary }]}
           onPress={onPress}
         >
           <Text style={[styles.buttonText, { color: colors.textOnPrimary }]}>
             Update Status
           </Text>
-          <Ionicons
-            name="chevron-up"
-            size={16}
-            color={colors.textOnPrimary}
-          />
+          <Ionicons name="chevron-up" size={16} color={colors.textOnPrimary} />
         </Pressable>
       </View>
     </View>

@@ -1,14 +1,14 @@
 import * as Crypto from 'expo-crypto';
 import type { Dispatch, SetStateAction } from 'react';
-import type { Product } from '@/hooks/useProducts';
-import { buildManualOrderLineItem } from '@/lib/manual-order-line-item';
-import { mergeOrderItem } from '@/lib/order-items';
+import { createEmptyCustomItemDraft } from '@/components/orders/new-order.defaults';
 import type {
   CustomItemDraft,
   OrderItem,
   SelectableOrderProduct,
 } from '@/components/orders/new-order.types';
-import { createEmptyCustomItemDraft } from '@/components/orders/new-order.defaults';
+import type { Product } from '@/hooks/useProducts';
+import { buildManualOrderLineItem } from '@/lib/manual-order-line-item';
+import { mergeOrderItem } from '@/lib/order-items';
 
 interface CreateNewOrderProductActionsParams {
   customItem: CustomItemDraft;
@@ -76,7 +76,10 @@ export function createNewOrderProductActions({
         id: `custom-${Crypto.randomUUID()}`,
         is_custom: true,
         name: normalizedName,
-        price: Number.parseFloat(customItem.price) || 0,
+        price: (() => {
+          const parsed = Number.parseFloat(customItem.price);
+          return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+        })(),
         product_id: null,
         quantity: 1,
         variant_id: null,

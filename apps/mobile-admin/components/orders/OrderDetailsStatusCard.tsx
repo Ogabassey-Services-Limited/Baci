@@ -2,8 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Fragment } from 'react';
 import { Text, View } from 'react-native';
 import type { ThemeColors } from '@/constants/theme';
-import { orderDetailsOverviewStyles as styles } from './order-details-overview.styles';
 import type { OrderSourceInfo } from './order-details.types';
+import { orderDetailsOverviewStyles as styles } from './order-details-overview.styles';
 
 interface OrderDetailsStatusCardProps {
   colors: ThemeColors;
@@ -29,14 +29,20 @@ export function OrderDetailsStatusCard({
   updatedAtLabel,
 }: OrderDetailsStatusCardProps) {
   const baseSteps = ['pending', 'processing', 'shipped', 'delivered'];
-  const currentStatus = shippingStatus === 'fulfilled' ? 'pending' : shippingStatus;
+  const currentStatus =
+    shippingStatus === 'fulfilled' ? 'pending' : shippingStatus;
   const steps = [...baseSteps];
   if (currentStatus === 'returned') steps.push('returned');
   if (currentStatus === 'cancelled') steps.push('cancelled');
   const currentStepIndex = steps.indexOf(currentStatus);
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: colors.card, borderColor: colors.border },
+      ]}
+    >
       <View style={styles.statusHeader}>
         <View>
           <Text style={[styles.orderDate, { color: colors.textSecondary }]}>
@@ -55,7 +61,12 @@ export function OrderDetailsStatusCard({
             </Text>
           </View>
         </View>
-        <View style={[styles.statusBadgeBig, { backgroundColor: `${shippingColor}15` }]}>
+        <View
+          style={[
+            styles.statusBadgeBig,
+            { backgroundColor: `${shippingColor}15` },
+          ]}
+        >
           <Ionicons
             color={shippingColor}
             name={shippingConfig.icon as keyof typeof Ionicons.glyphMap}
@@ -69,7 +80,13 @@ export function OrderDetailsStatusCard({
 
       <View style={styles.progressContainer}>
         {steps.map((step, index) => {
-          const isActive = index <= currentStepIndex;
+          // For terminal non-completion statuses (returned/cancelled), only light up
+          // steps up to (but not including) the terminal step itself — not through 'delivered'.
+          const terminalNonCompletion =
+            currentStatus === 'returned' || currentStatus === 'cancelled';
+          const isActive = terminalNonCompletion
+            ? index < currentStepIndex
+            : index <= currentStepIndex;
           const isCurrent = index === currentStepIndex;
           const isLast = index === steps.length - 1;
 
@@ -80,7 +97,9 @@ export function OrderDetailsStatusCard({
                   style={[
                     styles.progressDot,
                     {
-                      backgroundColor: isActive ? shippingColor : colors.inputBg,
+                      backgroundColor: isActive
+                        ? shippingColor
+                        : colors.inputBg,
                       borderColor: isActive ? shippingColor : colors.border,
                     },
                   ]}
@@ -109,7 +128,9 @@ export function OrderDetailsStatusCard({
                     styles.progressLine,
                     {
                       backgroundColor:
-                        index < currentStepIndex ? shippingColor : colors.border,
+                        index < currentStepIndex
+                          ? shippingColor
+                          : colors.border,
                     },
                   ]}
                 />

@@ -1,5 +1,9 @@
-import { BRAND_COLORS, ORDER_SOURCE_CONFIG, type OrderSource } from '@baci/shared';
-import { Ionicons } from '@expo/vector-icons';
+import {
+  BRAND_COLORS,
+  ORDER_SOURCE_CONFIG,
+  type OrderSource,
+} from '@baci/shared';
+import type { Ionicons } from '@expo/vector-icons';
 import type { CountryCode } from 'react-native-country-picker-modal';
 
 export const MODAL_FLATLIST_PROPS = {
@@ -34,13 +38,13 @@ export const CHANNELS: {
     id: 'physical',
     label: 'Physical sales',
     icon: 'storefront',
-    color: ORDER_SOURCE_CONFIG?.physical?.colorKey || 'primary',
+    color: ORDER_SOURCE_CONFIG?.physical?.colorKey ?? 'primary',
   },
   {
     id: 'instagram',
     label: 'Instagram',
     icon: 'logo-instagram',
-    color: BRAND_COLORS?.instagram || '#E4405F',
+    color: BRAND_COLORS?.instagram ?? '#E4405F',
   },
   {
     id: 'whatsapp',

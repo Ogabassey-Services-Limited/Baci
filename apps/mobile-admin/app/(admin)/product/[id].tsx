@@ -1,25 +1,28 @@
 import { Stack, useRouter } from 'expo-router';
-import { ActivityIndicator, Platform, Pressable, Switch, Text, View } from 'react-native';
-import { z } from 'zod';
+import {
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  Switch,
+  Text,
+  View,
+} from 'react-native';
 import { ProductAttributesCard } from '@/components/product/ProductAttributesCard';
 import { ProductBasicInformationCard } from '@/components/product/ProductBasicInformationCard';
 import { ProductCategorySheet } from '@/components/product/ProductCategorySheet';
+import { ProductFulfillmentSheet } from '@/components/product/ProductFulfillmentSheet';
 import { ProductImageCard } from '@/components/product/ProductImageCard';
 import { ProductInventoryCard } from '@/components/product/ProductInventoryCard';
 import { ProductPricingCard } from '@/components/product/ProductPricingCard';
 import { ProductStatusCard } from '@/components/product/ProductStatusCard';
-import { ProductFulfillmentSheet } from '@/components/product/ProductFulfillmentSheet';
 import { ProductVariantsCard } from '@/components/product/ProductVariantsCard';
 import { getCurrencySymbol } from '@/components/product/product-edit.helpers';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
 import { InvalidRouteScreen } from '@/components/ui/InvalidRouteScreen';
-import { useTheme } from '@/hooks/useTheme';
 import { useProductEditController } from '@/hooks/useProductEditController';
+import { useTheme } from '@/hooks/useTheme';
 import { createEmptyEditableVariant } from '@/lib/product-variant-form';
-
-const routeParamsSchema = z.object({
-  id: z.union([z.literal('new'), z.string().uuid()]),
-});
+import { routeParamsSchema } from '@/schemas/product-route-params';
 
 export default function ProductEditScreen() {
   const router = useRouter();
@@ -38,7 +41,14 @@ export default function ProductEditScreen() {
 
   if (controller.isMerchantLoading) {
     return (
-      <View style={{ alignItems: 'center', backgroundColor: colors.background, flex: 1, justifyContent: 'center' }}>
+      <View
+        style={{
+          alignItems: 'center',
+          backgroundColor: colors.background,
+          flex: 1,
+          justifyContent: 'center',
+        }}
+      >
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -46,7 +56,14 @@ export default function ProductEditScreen() {
 
   if (controller.productError) {
     return (
-      <View style={{ alignItems: 'center', backgroundColor: colors.background, flex: 1, justifyContent: 'center' }}>
+      <View
+        style={{
+          alignItems: 'center',
+          backgroundColor: colors.background,
+          flex: 1,
+          justifyContent: 'center',
+        }}
+      >
         <Text style={{ color: colors.text }}>Error loading product</Text>
         <Text style={{ color: colors.textSecondary }}>
           {controller.productError.message}
@@ -55,7 +72,9 @@ export default function ProductEditScreen() {
     );
   }
 
-  const currencySymbol = getCurrencySymbol(controller.merchant?.payout_currency);
+  const currencySymbol = getCurrencySymbol(
+    controller.merchant?.payout_currency
+  );
   const isSaving =
     controller.updateProductMutation.isPending ||
     controller.createProductMutation.isPending;
@@ -148,12 +167,20 @@ export default function ProductEditScreen() {
           }}
         >
           <View style={{ flex: 1, marginRight: 16 }}>
-            <Text style={{ color: colors.text, fontSize: 16, fontWeight: '700', marginBottom: 4 }}>
+            <Text
+              style={{
+                color: colors.text,
+                fontSize: 16,
+                fontWeight: '700',
+                marginBottom: 4,
+              }}
+            >
               This Product Has Variants
             </Text>
             <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
               Use structured variants for combinations like storage, RAM, or
-              color. Orders and storefront selection will read these rows directly.
+              color. Orders and storefront selection will read these rows
+              directly.
             </Text>
           </View>
           <Switch
@@ -194,7 +221,10 @@ export default function ProductEditScreen() {
             onAddVariant={controller.addVariant}
             onAddVariantAttribute={controller.addVariantAttribute}
             onDefaultCostPriceChange={(cost_price) =>
-              controller.setFormData((previous) => ({ ...previous, cost_price }))
+              controller.setFormData((previous) => ({
+                ...previous,
+                cost_price,
+              }))
             }
             onDefaultPriceChange={(price) =>
               controller.setFormData((previous) => ({ ...previous, price }))
@@ -224,7 +254,10 @@ export default function ProductEditScreen() {
               costPrice={controller.formData.cost_price}
               currencySymbol={currencySymbol}
               onCostPriceChange={(cost_price) =>
-                controller.setFormData((previous) => ({ ...previous, cost_price }))
+                controller.setFormData((previous) => ({
+                  ...previous,
+                  cost_price,
+                }))
               }
               onPriceChange={(price) =>
                 controller.setFormData((previous) => ({ ...previous, price }))
@@ -233,7 +266,9 @@ export default function ProductEditScreen() {
             />
             <ProductInventoryCard
               colors={colors}
-              fulfillmentCount={controller.formData.fulfillment_details.items.length}
+              fulfillmentCount={
+                controller.formData.fulfillment_details.items.length
+              }
               lowStockThreshold={controller.formData.low_stock_threshold}
               manageStock={controller.formData.manage_stock}
               onLowStockThresholdChange={(low_stock_threshold) =>
@@ -247,7 +282,10 @@ export default function ProductEditScreen() {
               }
               onStockAdjust={controller.adjustStock}
               onToggleManageStock={(manage_stock) =>
-                controller.setFormData((previous) => ({ ...previous, manage_stock }))
+                controller.setFormData((previous) => ({
+                  ...previous,
+                  manage_stock,
+                }))
               }
               stockQuantity={controller.formData.stock_quantity}
             />
@@ -281,10 +319,12 @@ export default function ProductEditScreen() {
 
       <ProductFulfillmentSheet
         colors={colors}
-        items={controller.formData.fulfillment_details.items.map((item, index) => ({
-          ...item,
-          id: `fulfillment-item-${index + 1}`,
-        }))}
+        items={controller.formData.fulfillment_details.items.map(
+          (item, index) => ({
+            ...item,
+            id: `fulfillment-item-${index + 1}`,
+          })
+        )}
         onClose={() => controller.setIsFulfillmentModalVisible(false)}
         onDone={() => controller.setIsFulfillmentModalVisible(false)}
         onItemChange={controller.updateFulfillmentItem}

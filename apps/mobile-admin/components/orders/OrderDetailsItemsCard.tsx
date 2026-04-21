@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, Text, View } from 'react-native';
+import SafeImage from '@/components/ui/SafeImage';
 import type { ThemeColors } from '@/constants/theme';
 import { formatProductCondition } from '@/lib/product-condition';
-import SafeImage from '@/components/ui/SafeImage';
-import { orderDetailsItemsStyles as styles } from './order-details-items.styles';
 import type { OrderDetailsItem } from './order-details.types';
+import { orderDetailsItemsStyles as styles } from './order-details-items.styles';
 
 interface OrderDetailsItemsCardProps {
   colors: ThemeColors;
@@ -20,7 +20,12 @@ export function OrderDetailsItemsCard({
   onSelectItem,
 }: OrderDetailsItemsCardProps) {
   return (
-    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: colors.card, borderColor: colors.border },
+      ]}
+    >
       <Text style={[styles.cardTitle, { color: colors.text }]}>
         Items ({items.length || 0})
       </Text>
@@ -47,13 +52,23 @@ export function OrderDetailsItemsCard({
               ]}
             >
               {item.image_url ? (
-                <SafeImage source={{ uri: item.image_url }} style={styles.itemImage} />
+                <SafeImage
+                  source={{ uri: item.image_url }}
+                  style={styles.itemImage}
+                />
               ) : (
-                <Ionicons color={colors.textMuted} name="image-outline" size={24} />
+                <Ionicons
+                  color={colors.textMuted}
+                  name="image-outline"
+                  size={24}
+                />
               )}
             </View>
             <View style={styles.itemDetails}>
-              <Text numberOfLines={2} style={[styles.itemName, { color: colors.text }]}>
+              <Text
+                numberOfLines={2}
+                style={[styles.itemName, { color: colors.text }]}
+              >
                 {item.name}
               </Text>
               {conditionLabel ? (
@@ -62,13 +77,17 @@ export function OrderDetailsItemsCard({
                 </Text>
               ) : null}
               {item.variant_name ? (
-                <Text style={[styles.itemVariant, { color: colors.textSecondary }]}>
+                <Text
+                  style={[styles.itemVariant, { color: colors.textSecondary }]}
+                >
                   {item.variant_name}
                 </Text>
               ) : null}
-              <Text style={[styles.itemRef, { color: colors.textMuted }]}>
-                SKU: {item.product_id?.slice(0, 8)}...
-              </Text>
+              {item.product_id ? (
+                <Text style={[styles.itemRef, { color: colors.textMuted }]}>
+                  SKU: {item.product_id.slice(0, 8)}...
+                </Text>
+              ) : null}
               <View style={styles.itemPriceRow}>
                 <Text style={[styles.itemQty, { color: colors.textSecondary }]}>
                   x{item.quantity}
@@ -78,7 +97,11 @@ export function OrderDetailsItemsCard({
                 </Text>
               </View>
             </View>
-            <Ionicons color={colors.textMuted} name="chevron-forward" size={20} />
+            <Ionicons
+              color={colors.textMuted}
+              name="chevron-forward"
+              size={20}
+            />
           </Pressable>
         );
       })}

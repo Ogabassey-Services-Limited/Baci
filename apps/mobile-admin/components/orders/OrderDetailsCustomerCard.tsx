@@ -36,11 +36,21 @@ export function OrderDetailsCustomerCard({
   const hasCustomerPhone = Boolean(customerPhone?.trim());
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: colors.card, borderColor: colors.border },
+      ]}
+    >
       <Text style={[styles.cardTitle, { color: colors.text }]}>Customer</Text>
 
       <View style={styles.customerRow}>
-        <View style={[styles.avatarPlaceholder, { backgroundColor: `${colors.primary}15` }]}>
+        <View
+          style={[
+            styles.avatarPlaceholder,
+            { backgroundColor: `${colors.primary}15` },
+          ]}
+        >
           <Text style={[styles.avatarText, { color: colors.primary }]}>
             {customerName?.[0]?.toUpperCase()}
           </Text>
@@ -49,10 +59,14 @@ export function OrderDetailsCustomerCard({
           <Text style={[styles.customerName, { color: colors.text }]}>
             {customerName}
           </Text>
-          <Text style={[styles.customerDetail, { color: colors.textSecondary }]}>
+          <Text
+            style={[styles.customerDetail, { color: colors.textSecondary }]}
+          >
             {customerEmail}
           </Text>
-          <Text style={[styles.customerDetail, { color: colors.textSecondary }]}>
+          <Text
+            style={[styles.customerDetail, { color: colors.textSecondary }]}
+          >
             {customerPhone}
           </Text>
         </View>
@@ -62,7 +76,9 @@ export function OrderDetailsCustomerCard({
           style={[
             styles.receiptButton,
             {
-              backgroundColor: isGeneratingReceipt ? colors.textMuted : colors.primary,
+              backgroundColor: isGeneratingReceipt
+                ? colors.textMuted
+                : colors.primary,
             },
           ]}
         >
@@ -75,7 +91,9 @@ export function OrderDetailsCustomerCard({
               size={18}
             />
           )}
-          <Text style={[styles.receiptButtonText, { color: colors.textOnPrimary }]}>
+          <Text
+            style={[styles.receiptButtonText, { color: colors.textOnPrimary }]}
+          >
             {isGeneratingReceipt ? 'Generating...' : 'Receipt'}
           </Text>
         </Pressable>
@@ -84,7 +102,10 @@ export function OrderDetailsCustomerCard({
       <View style={styles.actionButtons}>
         <Pressable
           onPress={onCall}
-          style={[styles.actionButton, { backgroundColor: colors.backgroundLight }]}
+          style={[
+            styles.actionButton,
+            { backgroundColor: colors.backgroundLight },
+          ]}
         >
           <Ionicons color={colors.primary} name="call" size={20} />
           <Text style={[styles.actionButtonText, { color: colors.primary }]}>
@@ -93,19 +114,33 @@ export function OrderDetailsCustomerCard({
         </Pressable>
         <Pressable
           onPress={onWhatsApp}
-          style={[styles.actionButton, { backgroundColor: colors.backgroundLight }]}
+          style={[
+            styles.actionButton,
+            { backgroundColor: colors.backgroundLight },
+          ]}
         >
-          <Ionicons color={BRAND_COLORS.whatsapp} name="logo-whatsapp" size={20} />
-          <Text style={[styles.actionButtonText, { color: BRAND_COLORS.whatsapp }]}>
+          <Ionicons
+            color={BRAND_COLORS.whatsapp}
+            name="logo-whatsapp"
+            size={20}
+          />
+          <Text
+            style={[styles.actionButtonText, { color: BRAND_COLORS.whatsapp }]}
+          >
             WhatsApp
           </Text>
         </Pressable>
         <Pressable
           onPress={onEmail}
-          style={[styles.actionButton, { backgroundColor: colors.backgroundLight }]}
+          style={[
+            styles.actionButton,
+            { backgroundColor: colors.backgroundLight },
+          ]}
         >
           <Ionicons color={colors.textSecondary} name="mail" size={20} />
-          <Text style={[styles.actionButtonText, { color: colors.textSecondary }]}>
+          <Text
+            style={[styles.actionButtonText, { color: colors.textSecondary }]}
+          >
             Email
           </Text>
         </Pressable>
@@ -114,10 +149,14 @@ export function OrderDetailsCustomerCard({
       {showPostShipmentActions && hasCustomerPhone ? (
         <Pressable
           onPress={onSendOrderDetailsToRider}
-          style={[styles.primaryAction, { backgroundColor: '#F4C95D' }]}
+          style={[styles.primaryAction, { backgroundColor: colors.gold }]}
         >
-          <Ionicons color={BRAND_COLORS.whatsapp} name="logo-whatsapp" size={20} />
-          <Text style={[styles.primaryActionText, { color: '#6B4E16' }]}>
+          <Ionicons
+            color={BRAND_COLORS.whatsapp}
+            name="logo-whatsapp"
+            size={20}
+          />
+          <Text style={[styles.primaryActionText, { color: colors.text }]}>
             Send Order Details to Rider
           </Text>
         </Pressable>

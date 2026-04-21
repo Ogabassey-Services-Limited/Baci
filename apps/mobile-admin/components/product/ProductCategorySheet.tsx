@@ -113,7 +113,7 @@ export function ProductCategorySheet({
           <Pressable
             accessibilityLabel="Create category"
             accessibilityRole="button"
-            disabled={isSubmittingNewCategory}
+            disabled={isSubmittingNewCategory || newCategoryName.trim() === ''}
             onPress={onCreateCategory}
             style={[styles.createButton, { backgroundColor: colors.primary }]}
           >

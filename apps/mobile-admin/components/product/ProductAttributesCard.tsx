@@ -40,10 +40,7 @@ export function ProductAttributesCard({
       ) : null}
 
       {attributes.map((attribute, index) => (
-        <View
-          key={`${attribute.key || 'attribute'}-${attribute.value || 'value'}-${index}`}
-          style={styles.row}
-        >
+        <View key={index} style={styles.row}>
           <View style={styles.inputColumn}>
             <TextInput
               accessibilityLabel={`Attribute key ${index + 1}`}
@@ -78,7 +75,10 @@ export function ProductAttributesCard({
               placeholderTextColor={colors.textSecondary}
             />
           </View>
-          <Pressable onPress={() => onRemove(index)} style={styles.removeButton}>
+          <Pressable
+            onPress={() => onRemove(index)}
+            style={styles.removeButton}
+          >
             <Ionicons name="trash-outline" size={20} color={colors.error} />
           </Pressable>
         </View>

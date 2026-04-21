@@ -1,8 +1,8 @@
 import { Alert } from 'react-native';
+import type { OrderDetailsRecord } from '@/components/orders/order-details.types';
+import type { ShippingStatus } from '@/hooks/useOrders';
 import { BASE_URL } from '@/lib/api-client';
 import { supabase } from '@/lib/supabase';
-import type { ShippingStatus } from '@/hooks/useOrders';
-import type { OrderDetailsRecord } from '@/components/orders/order-details.types';
 
 interface CreateOrderDetailsStatusActionsParams {
   openShipmentFlow: () => void;
@@ -39,7 +39,10 @@ interface CreateOrderDetailsStatusActionsParams {
           visible: boolean;
         })
   ) => void;
-  updateStatus: (input: { orderId: string; status: ShippingStatus }) => Promise<unknown>;
+  updateStatus: (input: {
+    orderId: string;
+    status: ShippingStatus;
+  }) => Promise<unknown>;
 }
 
 export function createOrderDetailsStatusActions({
@@ -75,17 +78,17 @@ export function createOrderDetailsStatusActions({
       })
         .then((response) => {
           if (__DEV__ && !response.ok) {
-            console.log(`UseOrder: ${route} email failed`, response.status);
+            console.log('UseOrder:', route, 'email failed', response.status);
           }
         })
         .catch((error) => {
           if (__DEV__) {
-            console.log(`UseOrder: ${route} email fetch error`, error);
+            console.log('UseOrder:', route, 'email fetch error', error);
           }
         });
     } catch (error) {
       if (__DEV__) {
-        console.log(`UseOrder: Error in ${route} block`, error);
+        console.log('UseOrder: Error in', route, 'block', error);
       }
     }
   };

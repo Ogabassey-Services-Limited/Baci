@@ -1,8 +1,8 @@
 import * as ImagePicker from 'expo-image-picker';
-import { Alert } from 'react-native';
 import type { Dispatch, SetStateAction } from 'react';
-import { supabase } from '@/lib/supabase';
+import { Alert } from 'react-native';
 import type { ProductEditFormData } from '@/components/product/product-edit.types';
+import { supabase } from '@/lib/supabase';
 
 interface CreateProductEditImageActionsParams {
   merchantId?: string;
@@ -22,7 +22,8 @@ export function createProductEditImageActions({
 
     setIsUploading(true);
     try {
-      const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
+      const fileExt =
+        uri.split('?')[0].split('.').pop()?.toLowerCase() || 'jpg';
       const fileName = `${Date.now()}.${fileExt}`;
       const filePath = `${merchantId}/products/${fileName}`;
       const fileData = new FormData();
@@ -32,10 +33,12 @@ export function createProductEditImageActions({
         uri,
       } as unknown as Blob);
 
-      const { error } = await supabase.storage.from('media').upload(filePath, fileData, {
-        contentType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
-        upsert: true,
-      });
+      const { error } = await supabase.storage
+        .from('media')
+        .upload(filePath, fileData, {
+          contentType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
+          upsert: true,
+        });
 
       if (error) {
         throw error;
@@ -64,7 +67,10 @@ export function createProductEditImageActions({
         onPress: async () => {
           const { status } = await ImagePicker.requestCameraPermissionsAsync();
           if (status !== 'granted') {
-            Alert.alert('Permission Denied', 'Camera permission is required to take photos.');
+            Alert.alert(
+              'Permission Denied',
+              'Camera permission is required to take photos.'
+            );
             return;
           }
 

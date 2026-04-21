@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect } from 'react';
-import { parseSavedRiders } from '@/lib/validators/storage';
 import type { OrderDetailsRecord } from '@/components/orders/order-details.types';
+import { parseSavedRiders } from '@/lib/validators/storage';
 
 export function useOrderDetailsStartupEffects({
   actionParam,
@@ -18,6 +18,11 @@ export function useOrderDetailsStartupEffects({
   setShowCreditModal: (value: boolean) => void;
   setShowRecordPaymentModal: (value: boolean) => void;
 }) {
+  // Use stable primitives rather than the whole `order` object to avoid
+  // re-opening modals on every refetch that returns a new object reference.
+  const _orderId = order?.id;
+  const _orderPaymentStatus = order?.payment_status;
+
   useEffect(() => {
     if (!order || !actionParam) return;
 
@@ -31,7 +36,17 @@ export function useOrderDetailsStartupEffects({
     } else if (actionParam === 'ship-on-credit') {
       setShowCreditModal(true);
     }
-  }, [actionParam, order, setPaymentAmount, setShowCreditModal, setShowRecordPaymentModal]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    actionParam,
+    setPaymentAmount,
+    setShowCreditModal,
+    setShowRecordPaymentModal,
+    order.amount_paid,
+    order.total,
+    order.balance,
+    order,
+  ]);
 
   useEffect(() => {
     async function loadSavedRiders() {

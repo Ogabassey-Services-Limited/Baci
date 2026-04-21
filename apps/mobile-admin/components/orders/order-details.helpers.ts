@@ -2,7 +2,7 @@ import type { ThemeColors } from '@/constants/theme';
 import type { OrderSourceInfo } from './order-details.types';
 
 export function getOrderStatusColor(
-  colors: Record<string, string>,
+  colors: ThemeColors,
   key: string | undefined
 ) {
   const colorMap: Record<string, string> = {
@@ -20,7 +20,9 @@ export function getOrderStatusColor(
   return colorMap[key || ''] || colors.textSecondary;
 }
 
-export function getOrderCurrencySymbol(currencyCode: string | null | undefined) {
+export function getOrderCurrencySymbol(
+  currencyCode: string | null | undefined
+) {
   const symbols: Record<string, string> = {
     EUR: '€',
     GBP: '£',
@@ -80,7 +82,9 @@ export function getOrderSourceInfo(
 
   return {
     color: colors.textSecondary,
-    label: normalizedSource.charAt(0).toUpperCase() + normalizedSource.slice(1) || 'Order',
+    label:
+      normalizedSource.charAt(0).toUpperCase() + normalizedSource.slice(1) ||
+      'Order',
     name: 'pricetag-outline',
   };
 }

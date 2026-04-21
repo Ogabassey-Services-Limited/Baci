@@ -1,6 +1,6 @@
 import { Pressable, Text, TextInput, View } from 'react-native';
-import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import { AppDialogModal } from '@/components/ui/AppDialogModal';
+import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import { formatPriceInput } from './new-order.shared';
 import { styles } from './new-order.styles';
 
@@ -42,21 +42,31 @@ export function NewOrderQuickAddDialog({
           This item will not be saved to your product inventory.
         </Text>
         <TextInput
-          onChangeText={(text) => setCustomItem((previous) => ({ ...previous, name: text }))}
+          onChangeText={(text) =>
+            setCustomItem((previous) => ({ ...previous, name: text }))
+          }
           placeholder="Item Name (e.g. Red Cake, Delivery)"
           placeholderTextColor={colors.textMuted}
-          style={[styles.dialogInput, { backgroundColor: colors.inputBg, color: colors.text }]}
+          style={[
+            styles.dialogInput,
+            { backgroundColor: colors.inputBg, color: colors.text },
+          ]}
           value={customItem.name}
         />
         <TextInput
           keyboardType="numeric"
           onChangeText={(text) => {
-            const clean = text.replace(/[^0-9.]/g, '');
+            const clean = text
+              .replace(/[^0-9.]/g, '')
+              .replace(/^(\d*\.?\d*).*$/, '$1');
             setCustomItem((previous) => ({ ...previous, price: clean }));
           }}
           placeholder="Amount (0.00)"
           placeholderTextColor={colors.textMuted}
-          style={[styles.dialogInput, { backgroundColor: colors.inputBg, color: colors.text }]}
+          style={[
+            styles.dialogInput,
+            { backgroundColor: colors.inputBg, color: colors.text },
+          ]}
           value={formatPriceInput(customItem.price)}
         />
         <View style={styles.dialogActions}>

@@ -41,7 +41,7 @@ export function createNewOrderTotals({
   );
   const vatRate = (merchantVatRate ?? 7.5) / 100;
   const calculatedVat =
-    Math.round((subtotal - discount) * vatRate * 100) / 100;
+    Math.round(Math.max(0, subtotal - discount) * vatRate * 100) / 100;
   const taxesToUse = isVatApplied ? calculatedVat : taxes;
   const total = subtotal - discount + shippingFee + taxesToUse;
 

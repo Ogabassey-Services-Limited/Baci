@@ -37,6 +37,21 @@ describe('createNewOrderTotals', () => {
     expect(totals.formatPrice(1000)).toContain('₦');
   });
 
+  it('clamps VAT to zero when discount exceeds subtotal', () => {
+    const totals = createNewOrderTotals({
+      discount: 9999,
+      isVatApplied: true,
+      merchantCurrency: 'NGN',
+      merchantVatRate: 10,
+      orderItems: [createOrderItem({ price: 5000, quantity: 1 })],
+      shippingFee: 0,
+      taxes: 0,
+    });
+
+    expect(totals.calculatedVat).toBe(0);
+    expect(totals.taxesToUse).toBe(0);
+  });
+
   it('preserves an explicit zero VAT rate instead of defaulting to 7.5%', () => {
     const totals = createNewOrderTotals({
       discount: 0,

@@ -39,6 +39,8 @@ export function ProductStatusCard({
       </View>
       <Switch
         value={status === 'active'}
+        accessibilityHint="Toggles product visibility in the store"
+        accessibilityLabel={`Product status: ${status}`}
         disabled={isPending}
         onValueChange={onValueChange}
         trackColor={{ false: colors.border, true: colors.primary }}

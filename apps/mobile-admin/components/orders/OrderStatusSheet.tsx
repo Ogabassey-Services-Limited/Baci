@@ -72,21 +72,23 @@ function isStatusActionAllowed(currentStatus: string, targetStatus: string) {
 }
 
 function getStatusActionLabel(
-  shippingStatus: string,
-  statusKey: ShippingStatusKey
+  currentStatus: string,
+  nextStatus: ShippingStatusKey
 ) {
-  if (shippingStatus === statusKey) {
-    return SHIPPING_STATUS_CONFIG[statusKey].label;
+  if (currentStatus === nextStatus) {
+    return SHIPPING_STATUS_CONFIG[nextStatus].label;
   }
 
-  for (const actions of Object.values(SHIPPING_STATUS_ACTIONS)) {
-    const match = actions.find((action) => action.nextStatus === statusKey);
-    if (match) {
-      return match.label;
-    }
+  const actions =
+    SHIPPING_STATUS_ACTIONS[
+      currentStatus as keyof typeof SHIPPING_STATUS_ACTIONS
+    ] ?? [];
+  const match = actions.find((action) => action.nextStatus === nextStatus);
+  if (match) {
+    return match.label;
   }
 
-  return SHIPPING_STATUS_CONFIG[statusKey].label;
+  return SHIPPING_STATUS_CONFIG[nextStatus].label;
 }
 
 export function OrderStatusSheet({

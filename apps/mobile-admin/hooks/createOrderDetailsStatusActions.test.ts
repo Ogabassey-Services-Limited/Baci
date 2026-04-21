@@ -116,4 +116,85 @@ describe('createOrderDetailsStatusActions', () => {
     );
     expect(Alert.alert).not.toHaveBeenCalled();
   });
+
+  it('shows payment-required alert and credit option when updateStatus throws PAYMENT_REQUIRED', async () => {
+    const setShowCreditModal = vi.fn();
+    const updateStatus = vi
+      .fn()
+      .mockRejectedValue(new Error('PAYMENT_REQUIRED'));
+    const actions = createOrderDetailsStatusActions({
+      openShipmentFlow: vi.fn(),
+      order: {
+        id: 'order-1',
+        amount_paid: 0,
+        balance: 5000,
+        created_at: '',
+        customer_email: 'customer@example.com',
+        customer_name: 'Ada',
+        customer_phone: null,
+        discount_amount: 0,
+        is_credit_order: false,
+        order_number: 'ORD-1',
+        payment_status: 'paid',
+        shipping_address: null,
+        shipping_status: 'processing',
+        total: 5000,
+        updated_at: '',
+      },
+      setShowCreditModal,
+      setShowPaymentOptionModal: vi.fn(),
+      setShowStatusModal: vi.fn(),
+      setSuccessModal: vi.fn(),
+      updateStatus,
+    });
+
+    await actions.handleStatusUpdate('shipped');
+
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Payment Required',
+      expect.any(String),
+      expect.arrayContaining([
+        expect.objectContaining({ text: 'Cancel' }),
+        expect.objectContaining({ text: 'Ship on Credit' }),
+      ])
+    );
+  });
+
+  it('shows generic error alert when updateStatus throws an unexpected error', async () => {
+    const updateStatus = vi
+      .fn()
+      .mockRejectedValue(new Error('Network timeout'));
+    const actions = createOrderDetailsStatusActions({
+      openShipmentFlow: vi.fn(),
+      order: {
+        id: 'order-2',
+        amount_paid: 2000,
+        balance: 0,
+        created_at: '',
+        customer_email: 'b@b.com',
+        customer_name: 'Bob',
+        customer_phone: null,
+        discount_amount: 0,
+        is_credit_order: false,
+        order_number: 'ORD-2',
+        payment_status: 'paid',
+        shipping_address: null,
+        shipping_status: 'processing',
+        total: 2000,
+        updated_at: '',
+      },
+      setShowCreditModal: vi.fn(),
+      setShowPaymentOptionModal: vi.fn(),
+      setShowStatusModal: vi.fn(),
+      setSuccessModal: vi.fn(),
+      updateStatus,
+    });
+
+    await actions.handleStatusUpdate('delivered');
+
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Error',
+      'Failed to update status'
+    );
+  });
 });
