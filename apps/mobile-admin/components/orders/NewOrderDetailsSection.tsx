@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
+import { NewOrderAddressInput } from './NewOrderAddressInput';
 import { styles } from './new-order.styles';
 
 interface NewOrderDetailsSectionProps {

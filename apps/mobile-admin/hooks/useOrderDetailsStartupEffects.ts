@@ -42,9 +42,9 @@ export function useOrderDetailsStartupEffects({
     setPaymentAmount,
     setShowCreditModal,
     setShowRecordPaymentModal,
-    order.amount_paid,
-    order.total,
-    order.balance,
+    order?.amount_paid,
+    order?.total,
+    order?.balance,
     order,
   ]);
 

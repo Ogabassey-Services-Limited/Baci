@@ -137,7 +137,7 @@ describe('createOrderDetailsStatusActions', () => {
         order_number: 'ORD-1',
         payment_status: 'paid',
         shipping_address: null,
-        shipping_status: 'processing',
+        shipping_status: 'shipped',
         total: 5000,
         updated_at: '',
       },
@@ -148,7 +148,7 @@ describe('createOrderDetailsStatusActions', () => {
       updateStatus,
     });
 
-    await actions.handleStatusUpdate('shipped');
+    await actions.handleStatusUpdate('delivered');
 
     expect(Alert.alert).toHaveBeenCalledWith(
       'Payment Required',
