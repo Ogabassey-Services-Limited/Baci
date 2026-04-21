@@ -13,11 +13,10 @@ import { OfflineNotice } from '@/components/OfflineNotice';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
+import { STOREFRONT_LAYOUT } from '@/constants/storefront-layout';
 import { useNetworkState } from '@/hooks/use-network-state';
 import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
 import { useSavedStore } from '@/stores/saved-store';
-
-const SAVED_LIST_BOTTOM_PADDING = 100;
 
 export default function SavedTabScreen() {
   const colorScheme = useColorScheme();
@@ -131,7 +130,7 @@ export default function SavedTabScreen() {
         contentContainerStyle={getListContentStyle({
           gap: SPACING.md,
           padding: SPACING.lg,
-          paddingBottom: SAVED_LIST_BOTTOM_PADDING,
+          paddingBottom: STOREFRONT_LAYOUT.savedListBottomPadding,
         })}
         showsVerticalScrollIndicator={false}
         renderItem={({ item }) => (
