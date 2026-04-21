@@ -13,6 +13,7 @@ export const mockProductCard = jest.fn(({ product }: { product: Product }) => (
 ));
 
 let mockFilterBarProps: {
+  categories?: string[];
   onSelectCategory: (category: string) => void;
   onSelectBrand: (brand: string) => void;
   onSelectCondition?: (condition: string) => void;
@@ -92,6 +93,7 @@ jest.mock('./ProductCard', () => ({
 
 jest.mock('./FilterBar', () => ({
   FilterBar: (props: {
+    categories: string[];
     onSelectCategory: (category: string) => void;
     onSelectBrand: (brand: string) => void;
     onSelectCondition?: (condition: string) => void;
