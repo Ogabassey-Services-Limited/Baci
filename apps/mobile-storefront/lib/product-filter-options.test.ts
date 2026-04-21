@@ -47,6 +47,14 @@ describe('normalizeSelectedCategorySlug', () => {
       ])
     ).toBe('mystery-category');
   });
+
+  it('returns only the all sentinel when categoriesData is empty', () => {
+    // When no categories exist the ProductGrid categoryNames IIFE skips the
+    // category map entirely, so the only chip available should be "All".
+    expect(normalizeSelectedCategorySlug('All', [])).toBe(
+      ALL_PRODUCT_FILTER_CATEGORY_SLUG
+    );
+  });
 });
 
 describe('resolveSelectedCategoryId', () => {
@@ -74,6 +82,17 @@ describe('resolveSelectedCategoryId', () => {
         { id: 'cat-gaming', name: 'Gaming Laptops', slug: 'gaming-laptops' },
       ])
     ).toBe('cat-phones');
+  });
+
+  it('returns undefined for a non-All chip when the category ID cannot resolve', () => {
+    // Mirrors the normalizedCategoryId IIFE in ProductGrid: when a chip slug
+    // does not match any known category the component must pass undefined to
+    // useProducts so that no category filter is applied.
+    expect(
+      resolveSelectedCategoryId('unknown-category', [
+        { id: 'phones', name: 'Smartphones', slug: 'phones' },
+      ])
+    ).toBeUndefined();
   });
 });
 

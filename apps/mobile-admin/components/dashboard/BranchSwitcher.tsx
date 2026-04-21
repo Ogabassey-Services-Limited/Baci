@@ -110,10 +110,11 @@ export function BranchSwitcher() {
     return (
       <View style={[styles.container, { paddingHorizontal: SPACING.lg }]}>
         <Pressable
-          style={[
+          style={({ pressed }) => [
             styles.addFirstBranch,
             { backgroundColor: colors.card, borderColor: colors.border },
             shadows.sm,
+            pressed && { opacity: 0.7 },
           ]}
           onPress={handleCreatePress}
           accessibilityRole="button"
@@ -156,13 +157,14 @@ export function BranchSwitcher() {
           return (
             <Pressable
               key={branch.id}
-              style={[
+              style={({ pressed }) => [
                 styles.branchPill,
                 {
                   backgroundColor: isActive ? colors.primary : colors.card,
                   borderColor: isActive ? colors.primary : colors.border,
                 },
                 shadows.sm,
+                pressed && { opacity: 0.7 },
               ]}
               onPress={() => handleBranchPress(branch.id)}
               accessibilityRole="button"
@@ -197,10 +199,11 @@ export function BranchSwitcher() {
 
         {/* Add Branch Button */}
         <Pressable
-          style={[
+          style={({ pressed }) => [
             styles.addButton,
             { backgroundColor: colors.card, borderColor: colors.border },
             shadows.sm,
+            pressed && { opacity: 0.7 },
           ]}
           onPress={handleCreatePress}
           accessibilityRole="button"
@@ -288,7 +291,9 @@ function CreateBranchModal({
                 Create Branch
               </Text>
               <Pressable
+                style={({ pressed }) => [pressed && { opacity: 0.7 }]}
                 onPress={onClose}
+                hitSlop={10}
                 accessibilityRole="button"
                 accessibilityLabel="Close modal"
               >
@@ -362,9 +367,10 @@ function CreateBranchModal({
 
             <View style={styles.modalActions}>
               <Pressable
-                style={[
+                style={({ pressed }) => [
                   styles.cancelButton,
                   { backgroundColor: colors.background },
+                  pressed && { opacity: 0.7 },
                 ]}
                 onPress={onClose}
                 disabled={isLoading}
@@ -376,10 +382,11 @@ function CreateBranchModal({
                 </Text>
               </Pressable>
               <Pressable
-                style={[
+                style={({ pressed }) => [
                   styles.submitButton,
                   { backgroundColor: colors.primary },
                   isLoading && styles.buttonDisabled,
+                  pressed && !isLoading && { opacity: 0.7 },
                 ]}
                 onPress={onSubmit}
                 disabled={isLoading}
