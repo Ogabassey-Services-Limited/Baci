@@ -1,7 +1,34 @@
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import type { ReactNode } from 'react';
+import { View } from 'react-native';
+import { SPACING } from '@/constants/Colors';
+import UtilityHistoryScreen from './history';
 
+interface MockStorefrontScreenShellProps {
+  children?: ReactNode;
+  edges?: readonly string[];
+  style?: unknown;
+}
+
+const mockStorefrontScreenShell = jest.fn(
+  ({ children }: MockStorefrontScreenShellProps) => (
+    <View testID="storefront-screen-shell">{children}</View>
+  )
+);
+const mockGetScrollContentStyle = jest.fn();
+const mockUseStorefrontInsets = jest.fn();
 const mockUseRequireAuth = jest.fn();
 const mockUseVTUHistory = jest.fn();
+const mockRefetch = jest.fn(async () => undefined);
+
+jest.mock('@/components/storefront/StorefrontScreenShell', () => ({
+  StorefrontScreenShell: ({
+    children,
+    ...props
+  }: MockStorefrontScreenShellProps) =>
+    mockStorefrontScreenShell({ children, ...props }),
+}));
 
 jest.mock('@/components/useColorScheme', () => ({
   useColorScheme: jest.fn(() => 'light'),
@@ -11,29 +38,37 @@ jest.mock('@/hooks/use-auth-guard', () => ({
   useRequireAuth: () => mockUseRequireAuth(),
 }));
 
+jest.mock('@/hooks/use-storefront-insets', () => ({
+  useStorefrontInsets: () => mockUseStorefrontInsets(),
+}));
+
 jest.mock('@/hooks/use-vtu-history', () => ({
   useVTUHistory: (...args: unknown[]) => mockUseVTUHistory(...args),
 }));
 
-jest.mock('expo-router', () => {
-  return {
-    Redirect: ({ href }: { href: string }) => {
-      const { Text } =
-        jest.requireActual<typeof import('react-native')>('react-native');
-      return <Text>{`Redirect:${href}`}</Text>;
-    },
-    Stack: {
-      Screen: () => null,
-    },
-    useLocalSearchParams: () => ({ type: 'power' }),
-  };
-});
-
-import UtilityHistoryScreen from '@/app/utilities/history';
+jest.mock('expo-router', () => ({
+  Redirect: ({ href }: { href: string }) => {
+    const { Text } =
+      jest.requireActual<typeof import('react-native')>('react-native');
+    return <Text>{`Redirect:${href}`}</Text>;
+  },
+  Stack: {
+    Screen: () => null,
+  },
+  useLocalSearchParams: () => ({ type: 'power' }),
+}));
 
 describe('UtilityHistoryScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetScrollContentStyle.mockReturnValue({
+      paddingTop: SPACING.md,
+      paddingBottom: SPACING.md,
+    });
+    mockUseStorefrontInsets.mockReturnValue({
+      getListContentStyle: jest.fn(),
+      getScrollContentStyle: mockGetScrollContentStyle,
+    });
     mockUseRequireAuth.mockReturnValue({
       isLoading: false,
       redirectTo: null,
@@ -55,13 +90,22 @@ describe('UtilityHistoryScreen', () => {
       error: null,
       isLoading: false,
       isRefetching: false,
-      refetch: jest.fn(),
+      refetch: mockRefetch,
     });
   });
 
-  it('renders recent transactions and highlights the preselected filter', () => {
+  it('uses the storefront shell and scroll inset helper for the history layout', () => {
     render(<UtilityHistoryScreen />);
 
+    expect(mockStorefrontScreenShell).toHaveBeenCalled();
+    const shellProps = mockStorefrontScreenShell.mock.calls[0]?.[0];
+
+    expect(shellProps?.edges).toEqual(['bottom']);
+    expect(mockGetScrollContentStyle).toHaveBeenCalledWith({
+      includeBottomInset: false,
+      paddingBottom: SPACING.md,
+      paddingTop: SPACING.md,
+    });
     expect(screen.getByText('Power')).toBeTruthy();
     expect(screen.getByText('EKEDC NG')).toBeTruthy();
     expect(screen.getByText(/Ref: VTU-123/)).toBeTruthy();
@@ -84,8 +128,46 @@ describe('UtilityHistoryScreen', () => {
 
   it('changes filters when the user taps a chip', () => {
     render(<UtilityHistoryScreen />);
+
     fireEvent.press(screen.getByLabelText('Show airtime history'));
 
     expect(mockUseVTUHistory).toHaveBeenLastCalledWith('airtime', 30);
+  });
+
+  it('renders the fetch error state and retries loading history', () => {
+    mockUseVTUHistory.mockReturnValue({
+      data: [],
+      error: new Error('Failed to load utility history.'),
+      isLoading: false,
+      isRefetching: false,
+      refetch: mockRefetch,
+    });
+
+    render(<UtilityHistoryScreen />);
+
+    expect(screen.getByText('Unable to load history')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Try Again'));
+
+    expect(mockRefetch).toHaveBeenCalled();
+  });
+
+  it('renders the empty state when there are no transactions', () => {
+    mockUseVTUHistory.mockReturnValue({
+      data: [],
+      error: null,
+      isLoading: false,
+      isRefetching: false,
+      refetch: mockRefetch,
+    });
+
+    render(<UtilityHistoryScreen />);
+
+    expect(screen.getByText('No history yet')).toBeTruthy();
+    expect(
+      screen.getByText(
+        /Completed utility purchases will appear here once they are available/
+      )
+    ).toBeTruthy();
   });
 });
