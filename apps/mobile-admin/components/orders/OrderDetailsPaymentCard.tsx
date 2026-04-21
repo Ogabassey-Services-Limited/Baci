@@ -107,7 +107,7 @@ export function OrderDetailsPaymentCard({
           Subtotal
         </Text>
         <Text style={[styles.summaryValue, { color: colors.text }]}>
-          {formatPrice(subtotal ?? total)}
+          {formatPrice(subtotal && subtotal > 0 ? subtotal : total)}
         </Text>
       </View>
       <View style={styles.summaryRow}>

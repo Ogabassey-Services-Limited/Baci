@@ -186,4 +186,50 @@ describe('OrderDetailsStatusCard', () => {
       colors.shipped,
     ]);
   });
+
+  it('treats fulfilled orders as delivered in the timeline', () => {
+    const { container } = render(
+      <OrderDetailsStatusCard
+        colors={colors}
+        createdAtLabel="Apr 20, 2026"
+        shippingColor={colors.delivered}
+        shippingConfig={SHIPPING_STATUS_CONFIG.delivered}
+        shippingStatus="fulfilled"
+        source="website"
+        sourceInfo={{
+          color: '#64748b',
+          label: 'Website',
+          name: 'globe-outline',
+        }}
+        updatedAtLabel="Apr 21, 2026"
+      />
+    );
+
+    expect(screen.getAllByText('Delivered')).toHaveLength(2);
+
+    const viewStyles = Array.from(
+      container.querySelectorAll('div[data-style]')
+    ).map((node) => JSON.parse(node.getAttribute('data-style') ?? '{}'));
+
+    const progressDots = viewStyles.filter(
+      (style) => style.width === 28 && style.height === 28
+    );
+    const progressLines = viewStyles.filter(
+      (style) => style.height === 3 && style.flex === 1
+    );
+
+    expect(
+      progressDots.slice(0, 4).map((style) => style.backgroundColor)
+    ).toEqual([
+      colors.pending,
+      colors.processing,
+      colors.shipped,
+      colors.delivered,
+    ]);
+    expect(progressLines.map((style) => style.backgroundColor)).toEqual([
+      colors.pending,
+      colors.processing,
+      colors.shipped,
+    ]);
+  });
 });

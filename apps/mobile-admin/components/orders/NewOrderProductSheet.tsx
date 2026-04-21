@@ -85,6 +85,8 @@ export function NewOrderProductSheet({
             >
               <Ionicons color={colors.textMuted} name="search" size={20} />
               <TextInput
+                accessibilityHint="Type to filter the product list"
+                accessibilityLabel="Search products"
                 onChangeText={setProductSearch}
                 placeholder="Search products..."
                 placeholderTextColor={colors.textMuted}
@@ -94,6 +96,8 @@ export function NewOrderProductSheet({
             </View>
 
             <Pressable
+              accessibilityLabel="Create new product"
+              accessibilityRole="button"
               onPress={() => {
                 closeProductModal();
                 router.push('/product/new');
@@ -170,6 +174,12 @@ export function NewOrderProductSheet({
 
             return (
               <Pressable
+                accessibilityLabel={
+                  isPickingVariant
+                    ? `Add ${pickerTitle}`
+                    : `Select ${pickerTitle}`
+                }
+                accessibilityRole="button"
                 onPress={() =>
                   isPickingVariant
                     ? handleAddProduct({

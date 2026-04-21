@@ -1,4 +1,4 @@
-import { Text, TextInput, View } from 'react-native';
+import { Alert, Text, TextInput, View } from 'react-native';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import { styles } from './new-order.styles';
@@ -33,6 +33,24 @@ export function NewOrderAddressInput({
           keyboardShouldPersistTaps="handled"
           listViewDisplayed="auto"
           nearbyPlacesAPI="GooglePlacesSearch"
+          onFail={(error) => {
+            if (__DEV__) {
+              console.log('Google Places Error:', error);
+            }
+            Alert.alert(
+              'Address search failed',
+              'Try entering the address manually.'
+            );
+          }}
+          onNotFound={() => {
+            if (__DEV__) {
+              console.log('Google Places: No results');
+            }
+            Alert.alert(
+              'Address not found',
+              'Try refining the address or enter it manually.'
+            );
+          }}
           onPress={(data, details = null) => {
             if (!details) {
               return;

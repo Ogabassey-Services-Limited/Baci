@@ -87,9 +87,25 @@ type CustomerSearchController = Pick<
   | 'setIsCreatingCustomer'
 >;
 
+function makeCustomersQuery(
+  overrides: Partial<CustomerSearchController['customersQuery']> = {}
+): CustomerSearchController['customersQuery'] {
+  return {
+    error: null,
+    fetchNextPage: vi.fn(),
+    hasNextPage: false,
+    isError: false,
+    isFetchingNextPage: false,
+    isLoading: false,
+    ...overrides,
+  } as CustomerSearchController['customersQuery'];
+}
+
 function makeController(
   overrides: Partial<CustomerSearchController> = {}
 ): ReturnType<typeof useNewOrderController> {
+  const customersQuery = makeCustomersQuery(overrides.customersQuery);
+
   return {
     colors: {
       border: '#e2e8f0',
@@ -103,18 +119,11 @@ function makeController(
     },
     customerSearch: '',
     customersData: { pages: [] },
-    customersQuery: {
-      error: null,
-      fetchNextPage: vi.fn(),
-      hasNextPage: false,
-      isError: false,
-      isLoading: false,
-      isFetchingNextPage: false,
-    } as unknown as CustomerSearchController['customersQuery'],
     handleSelectCustomer: vi.fn(),
     setCustomerSearch: vi.fn(),
     setIsCreatingCustomer: vi.fn(),
     ...overrides,
+    customersQuery,
   } as ReturnType<typeof useNewOrderController>;
 }
 
@@ -190,11 +199,11 @@ describe('NewOrderCustomerSearchView', () => {
   });
 
   it('renders a load-more footer and forwards pagination actions', () => {
-    const customersQuery = {
+    const customersQuery = makeCustomersQuery({
       fetchNextPage: vi.fn(),
       hasNextPage: true,
       isFetchingNextPage: false,
-    } as unknown as CustomerSearchController['customersQuery'];
+    });
     const controller = makeController({
       customersData: {
         pageParams: [0],
@@ -218,11 +227,11 @@ describe('NewOrderCustomerSearchView', () => {
         pageParams: [0],
         pages: [{ customers: [], nextCursor: 20, totalCount: 20 }],
       },
-      customersQuery: {
+      customersQuery: makeCustomersQuery({
         fetchNextPage: vi.fn(),
         hasNextPage: true,
         isFetchingNextPage: true,
-      } as unknown as CustomerSearchController['customersQuery'],
+      }),
     });
 
     render(<NewOrderCustomerSearchView controller={controller} />);
@@ -232,14 +241,14 @@ describe('NewOrderCustomerSearchView', () => {
 
   it('shows a loading empty state while customers are loading', () => {
     const controller = makeController({
-      customersQuery: {
+      customersQuery: makeCustomersQuery({
         error: null,
         fetchNextPage: vi.fn(),
         hasNextPage: false,
         isError: false,
         isFetchingNextPage: false,
         isLoading: true,
-      } as unknown as CustomerSearchController['customersQuery'],
+      }),
     });
 
     render(<NewOrderCustomerSearchView controller={controller} />);
@@ -249,14 +258,14 @@ describe('NewOrderCustomerSearchView', () => {
 
   it('shows an error empty state when the customer query fails', () => {
     const controller = makeController({
-      customersQuery: {
+      customersQuery: makeCustomersQuery({
         error: new Error('Customer fetch failed'),
         fetchNextPage: vi.fn(),
         hasNextPage: false,
         isError: true,
         isFetchingNextPage: false,
         isLoading: false,
-      } as unknown as CustomerSearchController['customersQuery'],
+      }),
     });
 
     render(<NewOrderCustomerSearchView controller={controller} />);

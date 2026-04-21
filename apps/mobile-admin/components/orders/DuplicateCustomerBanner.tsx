@@ -40,6 +40,8 @@ export function DuplicateCustomerBanner({
         ⚠️ Customer Already Exists
       </Text>
       <Pressable
+        accessibilityLabel="Use existing customer"
+        accessibilityRole="button"
         onPress={() => {
           handleSelectCustomer(duplicateCustomer);
           setDuplicateCustomer(null);

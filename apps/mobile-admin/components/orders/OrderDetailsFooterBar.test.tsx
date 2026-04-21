@@ -1,8 +1,8 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import type React from 'react';
+import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import type { ThemeColors } from '@/constants/theme';
+import { LIGHT_COLORS, type ThemeColors } from '@/constants/theme';
 import { OrderDetailsFooterBar } from './OrderDetailsFooterBar';
 
 vi.mock('react-native-safe-area-context', () => ({
@@ -39,7 +39,7 @@ vi.mock('react-native', async () => {
     }: {
       accessibilityLabel?: string;
       accessibilityRole?: string;
-      children?: React.ReactNode;
+      children?: ReactNode;
       onPress?: () => void;
     }) =>
       React.createElement(
@@ -54,22 +54,17 @@ vi.mock('react-native', async () => {
     StyleSheet: {
       create: (styles: Record<string, unknown>) => styles,
     },
-    Text: ({ children }: { children?: React.ReactNode }) =>
+    Text: ({ children }: { children?: ReactNode }) =>
       React.createElement('span', null, children),
-    View: ({ children }: { children?: React.ReactNode }) =>
+    View: ({ children }: { children?: ReactNode }) =>
       React.createElement('div', null, children),
   };
 });
 
 describe('OrderDetailsFooterBar', () => {
   const colors = {
-    border: '#e2e8f0',
-    card: '#ffffff',
-    primary: '#2563eb',
-    text: '#0f172a',
-    textOnPrimary: '#ffffff',
-    textSecondary: '#64748b',
-  } as ThemeColors;
+    ...LIGHT_COLORS,
+  } satisfies ThemeColors;
 
   it('renders the current status and handles the update action', () => {
     const onPress = vi.fn();

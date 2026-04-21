@@ -32,7 +32,7 @@ export function OrderDetailsStatusCard({
 }: OrderDetailsStatusCardProps) {
   const baseSteps = ['pending', 'processing', 'shipped', 'delivered'];
   const currentStatus =
-    shippingStatus === 'fulfilled' ? 'pending' : shippingStatus;
+    shippingStatus === 'fulfilled' ? 'delivered' : shippingStatus;
   const steps = [...baseSteps];
   if (currentStatus === 'returned' || currentStatus === 'cancelled') {
     // Replace the terminal 'delivered' step so the final step reflects the

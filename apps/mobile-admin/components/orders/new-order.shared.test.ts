@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  formatVatPercentage,
   formatPriceInput,
   getCustomerDisplayContact,
   getCustomerDisplayInitial,
@@ -110,6 +111,13 @@ describe('new-order.shared', () => {
           phone: null,
         })
       ).toBe('?');
+    });
+  });
+
+  describe('formatVatPercentage', () => {
+    it('removes trailing decimals for whole percentages and keeps one decimal for fractional rates', () => {
+      expect(formatVatPercentage(0.1)).toBe('10');
+      expect(formatVatPercentage(0.075)).toBe('7.5');
     });
   });
 });

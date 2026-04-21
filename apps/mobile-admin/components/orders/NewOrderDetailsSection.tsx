@@ -63,6 +63,8 @@ export function NewOrderDetailsSection({
     <>
       <View style={[styles.card, { backgroundColor: colors.card }]}>
         <Pressable
+          accessibilityLabel="Select order date"
+          accessibilityRole="button"
           onPress={() => setShowDatePicker((previous) => !previous)}
           style={[
             styles.listRow,
@@ -100,6 +102,8 @@ export function NewOrderDetailsSection({
             maximumDate={new Date()}
             mode="date"
             onChange={(_event, selectedDate) => {
+              // Android shows a modal picker and needs an explicit close after
+              // a selection; iOS renders the spinner inline in the sheet.
               if (Platform.OS === 'android') {
                 setShowDatePicker(false);
               }
@@ -112,6 +116,8 @@ export function NewOrderDetailsSection({
         ) : null}
 
         <Pressable
+          accessibilityLabel="Select customer"
+          accessibilityRole="button"
           onPress={() => setShowCustomerModal(true)}
           style={styles.listRow}
         >
@@ -199,6 +205,8 @@ export function NewOrderDetailsSection({
             accessibilityState={{ checked: sameAsCustomer }}
             onValueChange={setSameAsCustomer}
             thumbColor={
+              // iOS uses the native thumb styling for contrast. Android needs
+              // explicit colors so the off state stays visible against the card.
               Platform.OS === 'ios'
                 ? '#fff'
                 : sameAsCustomer

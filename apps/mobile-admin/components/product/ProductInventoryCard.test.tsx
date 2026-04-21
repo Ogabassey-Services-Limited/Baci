@@ -34,13 +34,16 @@ vi.mock('react-native', async () => {
       create: (styles: Record<string, unknown>) => styles,
     },
     Switch: ({
+      accessibilityLabel,
       onValueChange,
       value,
     }: {
+      accessibilityLabel?: string;
       onValueChange?: (value: boolean) => void;
       value?: boolean;
     }) =>
       React.createElement('input', {
+        'aria-label': accessibilityLabel,
         checked: value ?? false,
         onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
           onValueChange?.(event.target.checked),
@@ -49,15 +52,18 @@ vi.mock('react-native', async () => {
     Text: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('span', null, children),
     TextInput: ({
+      accessibilityLabel,
       onChangeText,
       placeholder,
       value,
     }: {
+      accessibilityLabel?: string;
       onChangeText?: (value: string) => void;
       placeholder?: string;
       value?: string;
     }) =>
       React.createElement('input', {
+        'aria-label': accessibilityLabel ?? placeholder,
         placeholder,
         value: value ?? '',
         onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
@@ -89,6 +95,7 @@ describe('ProductInventoryCard', () => {
     const onLowStockThresholdChange = vi.fn();
     const onOpenFulfillmentModal = vi.fn();
     const onStockAdjust = vi.fn();
+    const onToggleManageStock = vi.fn();
 
     render(
       <ProductInventoryCard
@@ -99,23 +106,28 @@ describe('ProductInventoryCard', () => {
         onLowStockThresholdChange={onLowStockThresholdChange}
         onOpenFulfillmentModal={onOpenFulfillmentModal}
         onStockAdjust={onStockAdjust}
-        onToggleManageStock={vi.fn()}
+        onToggleManageStock={onToggleManageStock}
         stockQuantity={1}
       />
     );
 
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Track inventory' }));
     fireEvent.click(
       screen.getByRole('button', { name: 'Open fulfillment details' })
     );
-    fireEvent.change(screen.getByDisplayValue('1'), {
+    fireEvent.change(screen.getByRole('textbox', { name: 'Stock quantity' }), {
       target: { value: '12' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Decrease stock' }));
     fireEvent.click(screen.getByRole('button', { name: 'Increase stock' }));
-    fireEvent.change(screen.getByDisplayValue('3'), {
-      target: { value: '5' },
-    });
+    fireEvent.change(
+      screen.getByRole('textbox', { name: 'Low stock threshold' }),
+      {
+        target: { value: '5' },
+      }
+    );
 
+    expect(onToggleManageStock).toHaveBeenCalledWith(false);
     expect(onOpenFulfillmentModal).toHaveBeenCalledTimes(1);
     expect(onStockAdjust).toHaveBeenCalledWith(12);
     expect(onStockAdjust).toHaveBeenCalledWith(0);

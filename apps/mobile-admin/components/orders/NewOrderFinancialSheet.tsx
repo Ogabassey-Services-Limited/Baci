@@ -3,7 +3,11 @@ import { router } from 'expo-router';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { AppSheetModal } from '@/components/ui/AppSheetModal';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
-import { formatPriceInput, parseDecimalInput } from './new-order.shared';
+import {
+  formatPriceInput,
+  formatVatPercentage,
+  parseDecimalInput,
+} from './new-order.shared';
 
 interface NewOrderFinancialSheetProps {
   controller: ReturnType<typeof useNewOrderController>;
@@ -96,7 +100,7 @@ export function NewOrderFinancialSheet({
                   marginBottom: 2,
                 }}
               >
-                Apply {(vatRate * 100).toFixed(1)}% VAT
+                Apply {formatVatPercentage(vatRate)}% VAT
               </Text>
               <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
                 Automatic calculation based on subtotal
@@ -158,7 +162,7 @@ export function NewOrderFinancialSheet({
                 Setup VAT Module
               </Text>
               <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
-                Enable automatic VAT at {(vatRate * 100).toFixed(1)}%
+                Enable automatic VAT at {formatVatPercentage(vatRate)}%
               </Text>
             </View>
             <Ionicons color={colors.info} name="arrow-forward" size={18} />

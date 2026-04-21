@@ -86,6 +86,7 @@ export function ProductVariantRow({
         Variant SKU
       </Text>
       <TextInput
+        accessibilityLabel={`SKU for variant ${variantIndex + 1}`}
         style={[
           styles.input,
           {
@@ -133,6 +134,7 @@ export function ProductVariantRow({
         Stock Quantity
       </Text>
       <TextInput
+        accessibilityLabel={`Stock quantity for variant ${variantIndex + 1}`}
         style={[
           styles.input,
           {
@@ -144,11 +146,15 @@ export function ProductVariantRow({
         value={
           variant.stock_quantity === 0 ? '' : variant.stock_quantity.toString()
         }
-        onChangeText={(text) =>
+        onChangeText={(text) => {
+          const parsedQuantity = Number.parseInt(text || '0', 10);
           onUpdate({
-            stock_quantity: Number.parseInt(text || '0', 10) || 0,
-          })
-        }
+            stock_quantity: Math.max(
+              0,
+              Number.isNaN(parsedQuantity) ? 0 : parsedQuantity
+            ),
+          });
+        }}
         keyboardType="numeric"
         placeholder="0"
         placeholderTextColor={colors.textSecondary}
@@ -176,6 +182,7 @@ export function ProductVariantRow({
         <View key={attribute.id} style={styles.attributeRow}>
           <View style={styles.attributeInput}>
             <TextInput
+              accessibilityLabel={`Attribute key for variant ${variantIndex + 1} item ${attributeIndex + 1}`}
               style={[
                 styles.input,
                 {
@@ -194,6 +201,7 @@ export function ProductVariantRow({
           </View>
           <View style={styles.attributeInput}>
             <TextInput
+              accessibilityLabel={`Attribute value for variant ${variantIndex + 1} item ${attributeIndex + 1}`}
               style={[
                 styles.input,
                 {

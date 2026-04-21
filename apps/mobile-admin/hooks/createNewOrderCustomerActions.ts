@@ -100,7 +100,7 @@ export function createNewOrderCustomerActions({
           .eq('merchant_id', merchantId)
           .is('deleted_at', null)
           .eq(column, value)
-          .maybeSingle();
+          .limit(1);
 
         if (searchError) {
           Alert.alert(
@@ -110,8 +110,10 @@ export function createNewOrderCustomerActions({
           return;
         }
 
-        if (existingCustomer) {
-          setDuplicateCustomer(existingCustomer);
+        const firstMatch = existingCustomer?.[0] ?? null;
+
+        if (firstMatch) {
+          setDuplicateCustomer(firstMatch);
           return;
         }
       }

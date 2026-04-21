@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import type React from 'react';
+import type { ChangeEvent, ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import { NewOrderProductSheet } from './NewOrderProductSheet';
@@ -28,11 +28,11 @@ vi.mock('@/components/ui/AppPageSheet', () => ({
     trailingAccessory,
     visible,
   }: {
-    children?: React.ReactNode;
+    children?: ReactNode;
     closeLabel: string;
     onClose: () => void;
     title: string;
-    trailingAccessory?: React.ReactNode;
+    trailingAccessory?: ReactNode;
     visible: boolean;
   }) =>
     visible ? (
@@ -62,11 +62,11 @@ vi.mock('react-native', async () => {
       onEndReached,
       renderItem,
     }: {
-      ListEmptyComponent?: React.ReactNode;
-      ListFooterComponent?: React.ReactNode;
+      ListEmptyComponent?: ReactNode;
+      ListFooterComponent?: ReactNode;
       data: unknown[];
       onEndReached?: () => void;
-      renderItem: (item: { item: unknown }) => React.ReactNode;
+      renderItem: (item: { item: unknown }) => ReactNode;
     }) =>
       React.createElement(
         'div',
@@ -97,7 +97,7 @@ vi.mock('react-native', async () => {
       onPress,
     }: {
       accessibilityLabel?: string;
-      children?: React.ReactNode;
+      children?: ReactNode;
       onPress?: () => void;
     }) =>
       React.createElement(
@@ -112,24 +112,26 @@ vi.mock('react-native', async () => {
     StyleSheet: {
       create: (styles: Record<string, unknown>) => styles,
     },
-    Text: ({ children }: { children?: React.ReactNode }) =>
+    Text: ({ children }: { children?: ReactNode }) =>
       React.createElement('span', null, children),
     TextInput: ({
+      accessibilityLabel,
       onChangeText,
       placeholder,
       value,
     }: {
+      accessibilityLabel?: string;
       onChangeText?: (value: string) => void;
       placeholder?: string;
       value?: string;
     }) =>
       React.createElement('input', {
-        'aria-label': placeholder,
-        onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
+        'aria-label': accessibilityLabel ?? placeholder,
+        onChange: (event: ChangeEvent<HTMLInputElement>) =>
           onChangeText?.(event.target.value),
         value: value ?? '',
       }),
-    View: ({ children }: { children?: React.ReactNode }) =>
+    View: ({ children }: { children?: ReactNode }) =>
       React.createElement('div', null, children),
   };
 });
@@ -195,33 +197,51 @@ function makeController(
 }
 
 describe('NewOrderProductSheet', () => {
-  it('renders product search mode and forwards search, create, select, and pagination actions', () => {
+  it('renders product search mode and forwards search, selection, and pagination actions', () => {
     const controller = makeController();
 
     render(<NewOrderProductSheet controller={controller} />);
 
-    fireEvent.change(
-      screen.getByRole('textbox', { name: 'Search products...' }),
-      {
-        target: { value: 'Laptop' },
-      }
-    );
-    fireEvent.click(
-      screen.getByRole('button', { name: /create new product/i })
-    );
-    fireEvent.click(screen.getByRole('button', { name: /baci phone/i }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search products' }), {
+      target: { value: 'Laptop' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Select Baci Phone' }));
     fireEvent.click(screen.getByRole('button', { name: 'Reach list end' }));
 
     expect(controller.setProductSearch).toHaveBeenCalledWith('Laptop');
-    expect(controller.closeProductModal).toHaveBeenCalledTimes(1);
-    expect(routerState.push).toHaveBeenCalledWith('/product/new');
     expect(controller.handleSelectProduct).toHaveBeenCalledWith(
       controller.selectableProductRows[0]
     );
     expect(controller.fetchMoreProducts).toHaveBeenCalledTimes(1);
   });
 
+  it('closes the sheet and navigates to the product creation screen', () => {
+    const controller = makeController();
+
+    render(<NewOrderProductSheet controller={controller} />);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Create new product' })
+    );
+
+    expect(controller.closeProductModal).toHaveBeenCalledTimes(1);
+    expect(routerState.push).toHaveBeenCalledWith('/product/new');
+  });
+
   it('renders variant mode and adds the selected variant with fallback parent images', () => {
+    const selectedParentProduct: NonNullable<
+      ProductSheetController['selectedParentProduct']
+    > = {
+      condition: 'brand_new',
+      has_variants: true,
+      id: 'product-parent',
+      images: ['https://example.com/parent.png'],
+      name: 'Baci Phone',
+      parent_product_id: null,
+      price: 3000,
+      sku: 'SKU-PARENT',
+      variant_attributes: [],
+    };
     const controller = makeController({
       isPickingVariant: true,
       selectableProductRows: [
@@ -236,16 +256,12 @@ describe('NewOrderProductSheet', () => {
           variant_attributes: [{ name: 'Color', value: 'Blue' }],
         },
       ],
-      selectedParentProduct: {
-        id: 'product-parent',
-        images: ['https://example.com/parent.png'],
-        name: 'Baci Phone',
-      } as unknown as ProductSheetController['selectedParentProduct'],
+      selectedParentProduct,
     });
 
     render(<NewOrderProductSheet controller={controller} />);
 
-    fireEvent.click(screen.getByRole('button', { name: /blue/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Blue' }));
     fireEvent.click(screen.getByRole('button', { name: 'Reach list end' }));
 
     expect(controller.handleAddProduct).toHaveBeenCalledWith(

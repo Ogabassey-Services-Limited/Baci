@@ -72,6 +72,7 @@ type FinancialController = Pick<
   | 'setTaxes'
   | 'shadows'
   | 'showFinancialModal'
+  | 'vatRate'
 >;
 
 function makeController(
@@ -108,6 +109,7 @@ function makeController(
     setTaxes: vi.fn(),
     shadows: { sm: {} },
     showFinancialModal: { type: 'shipping', visible: true },
+    vatRate: 0.075,
     ...overrides,
   } as ReturnType<typeof useNewOrderController>;
 }
@@ -181,5 +183,20 @@ describe('NewOrderFinancialSheet', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
 
     expect(controller.setTaxes).toHaveBeenCalledWith(1450);
+  });
+
+  it('formats whole VAT percentages without a trailing decimal', () => {
+    const controller = makeController({
+      merchant: {
+        payout_currency: 'NGN',
+        vat_registration_status: 'registered',
+      } as FinancialController['merchant'],
+      showFinancialModal: { type: 'tax', visible: true },
+      vatRate: 0.1,
+    });
+
+    render(<NewOrderFinancialSheet controller={controller} />);
+
+    expect(screen.getByText('Apply 10% VAT')).toBeInTheDocument();
   });
 });

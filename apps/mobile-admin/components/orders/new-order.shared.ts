@@ -81,6 +81,13 @@ export function formatPriceInput(value: string | undefined): string {
   return decimalValue ? `${formattedInteger}.${decimalValue}` : formattedInteger;
 }
 
+export function formatVatPercentage(vatRate: number): string {
+  const percentage = vatRate * 100;
+  return Number.isInteger(percentage)
+    ? percentage.toFixed(0)
+    : percentage.toFixed(1);
+}
+
 export const CHANNELS: {
   color: string;
   icon: keyof typeof Ionicons.glyphMap;

@@ -119,6 +119,7 @@ describe('NewOrderSummarySection', () => {
   it('shows the VAT label when enabled and seeds the tax modal with the displayed tax amount', () => {
     const controller = makeController({
       isVatApplied: true,
+      taxes: 0,
       taxesToUse: 750,
     });
 
@@ -126,7 +127,25 @@ describe('NewOrderSummarySection', () => {
 
     fireEvent.click(screen.getByText('VAT (7.5%)').closest('button')!);
 
-    expect(controller.setFinancialValue).toHaveBeenCalledWith('750');
+    expect(controller.setFinancialValue).toHaveBeenCalledWith('');
+    expect(controller.setShowFinancialModal).toHaveBeenCalledWith({
+      type: 'tax',
+      visible: true,
+    });
+  });
+
+  it('seeds the tax editor from manual taxes instead of the displayed VAT amount', () => {
+    const controller = makeController({
+      isVatApplied: true,
+      taxes: 125,
+      taxesToUse: 750,
+    });
+
+    render(<NewOrderSummarySection controller={controller} />);
+
+    fireEvent.click(screen.getByText('VAT (7.5%)').closest('button')!);
+
+    expect(controller.setFinancialValue).toHaveBeenCalledWith('125');
     expect(controller.setShowFinancialModal).toHaveBeenCalledWith({
       type: 'tax',
       visible: true,

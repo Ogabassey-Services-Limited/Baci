@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, Text, View } from 'react-native';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
+import { formatVatPercentage } from './new-order.shared';
 import { styles } from './new-order.styles';
 
 interface NewOrderSummarySectionProps {
@@ -18,6 +19,7 @@ export function NewOrderSummarySection({
     setFinancialValue,
     setShowFinancialModal,
     shippingFee,
+    taxes,
     taxesToUse,
     total,
     subtotal,
@@ -83,16 +85,14 @@ export function NewOrderSummarySection({
 
       <Pressable
         onPress={() => {
-          // Seed with taxesToUse (the displayed value) so the editor reflects
-          // the actual amount shown, including auto-applied VAT when taxes is 0.
-          setFinancialValue(taxesToUse > 0 ? taxesToUse.toString() : '');
+          setFinancialValue(taxes > 0 ? taxes.toString() : '');
           setShowFinancialModal({ type: 'tax', visible: true });
         }}
         style={styles.summaryRow}
       >
         <View style={{ alignItems: 'center', flexDirection: 'row', gap: 4 }}>
           <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-            {isVatApplied ? `VAT (${(vatRate * 100).toFixed(1)}%)` : 'Taxes'}
+            {isVatApplied ? `VAT (${formatVatPercentage(vatRate)}%)` : 'Taxes'}
           </Text>
           <Ionicons color={colors.textMuted} name="chevron-forward" size={12} />
         </View>

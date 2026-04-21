@@ -9,6 +9,7 @@ vi.mock('react-native', async () => {
   const React = await import('react');
 
   return {
+    Alert: { alert: vi.fn() },
     StyleSheet: {
       create: (styles: Record<string, unknown>) => styles,
     },

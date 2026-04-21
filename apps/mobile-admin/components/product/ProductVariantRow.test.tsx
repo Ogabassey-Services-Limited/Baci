@@ -67,15 +67,18 @@ vi.mock('react-native', async () => {
     Text: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('span', null, children),
     TextInput: ({
+      accessibilityLabel,
       onChangeText,
       placeholder,
       value,
     }: {
+      accessibilityLabel?: string;
       onChangeText?: (value: string) => void;
       placeholder?: string;
       value?: string;
     }) =>
       React.createElement('input', {
+        'aria-label': accessibilityLabel ?? placeholder,
         placeholder,
         value: value ?? '',
         onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
@@ -145,15 +148,24 @@ describe('ProductVariantRow', () => {
     fireEvent.change(screen.getByLabelText('Selling price for variant 1'), {
       target: { value: '1250' },
     });
-    fireEvent.change(screen.getByDisplayValue('2'), {
+    fireEvent.change(screen.getByLabelText('Cost price for variant 1'), {
+      target: { value: '1000' },
+    });
+    fireEvent.change(screen.getByLabelText('Stock quantity for variant 1'), {
       target: { value: '4' },
     });
-    fireEvent.change(screen.getByDisplayValue('Storage'), {
-      target: { value: 'Color' },
-    });
-    fireEvent.change(screen.getByDisplayValue('256GB'), {
-      target: { value: 'Black' },
-    });
+    fireEvent.change(
+      screen.getByLabelText('Attribute key for variant 1 item 1'),
+      {
+        target: { value: 'Color' },
+      }
+    );
+    fireEvent.change(
+      screen.getByLabelText('Attribute value for variant 1 item 1'),
+      {
+        target: { value: 'Black' },
+      }
+    );
     fireEvent.click(
       screen.getByRole('button', { name: 'Set variant condition' })
     );
@@ -167,6 +179,7 @@ describe('ProductVariantRow', () => {
 
     expect(onUpdate).toHaveBeenCalledWith({ sku: 'SKU-2' });
     expect(onUpdate).toHaveBeenCalledWith({ price: 1250 });
+    expect(onUpdate).toHaveBeenCalledWith({ cost_price: 1000 });
     expect(onUpdate).toHaveBeenCalledWith({ stock_quantity: 4 });
     expect(onUpdateAttribute).toHaveBeenCalledWith(0, 'key', 'Color');
     expect(onUpdateAttribute).toHaveBeenCalledWith(0, 'value', 'Black');

@@ -120,4 +120,58 @@ describe('OrderDetailsPaymentCard', () => {
       screen.queryByRole('button', { name: 'Request payment' })
     ).not.toBeInTheDocument();
   });
+
+  it('renders discount, payment method formatting, and balance rows for unpaid orders', () => {
+    render(
+      <OrderDetailsPaymentCard
+        amountPaid={3000}
+        balance={7000}
+        colors={colors}
+        discountAmount={500}
+        formatPrice={(amount) => `₦${amount}`}
+        onRecordPayment={vi.fn()}
+        onRequestPayment={vi.fn()}
+        paymentColor="#ca8a04"
+        paymentLabel="Awaiting Payment"
+        paymentMethod="bank_transfer"
+        paymentStatus="pending"
+        shippingFee={0}
+        subtotal={0}
+        total={10000}
+      />
+    );
+
+    expect(screen.getByText('Free')).toBeInTheDocument();
+    expect(screen.getByText('-₦500')).toBeInTheDocument();
+    expect(screen.getAllByText('₦10000')).toHaveLength(2);
+    expect(screen.getByText('bank transfer')).toBeInTheDocument();
+    expect(screen.getByText('₦3000')).toBeInTheDocument();
+    expect(screen.getByText('₦7000')).toBeInTheDocument();
+  });
+
+  it('falls back payment method and hides the balance row when nothing is due', () => {
+    render(
+      <OrderDetailsPaymentCard
+        amountPaid={10000}
+        balance={0}
+        colors={colors}
+        discountAmount={0}
+        formatPrice={(amount) => `₦${amount}`}
+        onRecordPayment={vi.fn()}
+        onRequestPayment={vi.fn()}
+        paymentColor="#16a34a"
+        paymentLabel="Paid"
+        paymentMethod={null}
+        paymentStatus="paid"
+        shippingFee={1500}
+        subtotal={9000}
+        total={10500}
+      />
+    );
+
+    expect(screen.queryByText('Discount')).not.toBeInTheDocument();
+    expect(screen.getByText('₦1500')).toBeInTheDocument();
+    expect(screen.getByText('N/A')).toBeInTheDocument();
+    expect(screen.queryByText('Balance Due')).not.toBeInTheDocument();
+  });
 });

@@ -53,6 +53,8 @@ export function NewOrderEditItemSheet({
             Edit item
           </Text>
           <Pressable
+            accessibilityLabel="Close edit item sheet"
+            accessibilityRole="button"
             onPress={() => setShowEditItemModal(false)}
             style={{ padding: 4 }}
           >
@@ -185,6 +187,8 @@ export function NewOrderEditItemSheet({
 
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <Pressable
+            accessibilityLabel="Remove edited item"
+            accessibilityRole="button"
             onPress={() => {
               if (editingItem) {
                 setOrderItems((previous) =>
@@ -210,6 +214,8 @@ export function NewOrderEditItemSheet({
           </Pressable>
 
           <Pressable
+            accessibilityLabel="Save edited item"
+            accessibilityRole="button"
             onPress={() => {
               if (editingItem) {
                 const finalPrice =

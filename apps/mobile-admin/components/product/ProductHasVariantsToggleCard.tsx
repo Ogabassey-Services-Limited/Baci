@@ -1,3 +1,4 @@
+import type { Dispatch, SetStateAction } from 'react';
 import { Switch, Text, View } from 'react-native';
 import type { ProductEditFormData } from '@/components/product/product-edit.types';
 import type { ThemeColors } from '@/constants/theme';
@@ -8,7 +9,7 @@ const SWITCH_THUMB_OFF = 'border' as const;
 interface ProductHasVariantsToggleCardProps {
   colors: ThemeColors;
   formData: ProductEditFormData;
-  setFormData: React.Dispatch<React.SetStateAction<ProductEditFormData>>;
+  setFormData: Dispatch<SetStateAction<ProductEditFormData>>;
 }
 
 export function ProductHasVariantsToggleCard({
@@ -46,6 +47,9 @@ export function ProductHasVariantsToggleCard({
         </Text>
       </View>
       <Switch
+        accessibilityHint="Enables structured variants for combinations like storage, RAM, or color."
+        accessibilityLabel="Has variants"
+        accessibilityRole="switch"
         value={formData.has_variants}
         onValueChange={(value) =>
           setFormData((previous) => ({

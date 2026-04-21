@@ -19,6 +19,10 @@ const googlePlacesState = vi.hoisted(() => ({
   lastProps: null as GooglePlacesProps | null,
 }));
 
+const platformState = vi.hoisted(() => ({
+  OS: 'web' as 'android' | 'ios' | 'web',
+}));
+
 vi.mock('@expo/vector-icons', () => ({
   Ionicons: () => null,
 }));
@@ -50,7 +54,7 @@ vi.mock('react-native', async () => {
   const React = await import('react');
 
   return {
-    Platform: { OS: 'web' },
+    Platform: platformState,
     Pressable: ({
       children,
       onPress,
@@ -172,6 +176,7 @@ describe('NewOrderDetailsSection', () => {
   beforeEach(() => {
     delete process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
     googlePlacesState.lastProps = null;
+    platformState.OS = 'web';
   });
 
   afterEach(() => {
@@ -215,6 +220,34 @@ describe('NewOrderDetailsSection', () => {
     expect(controller.setSameAsCustomer).toHaveBeenCalledWith(true);
     expect(screen.getByText('Recipient Name')).toBeInTheDocument();
     expect(screen.getByText('Recipient Phone')).toBeInTheDocument();
+  });
+
+  it('updates the selected date when the picker fires on iOS/web-style platforms', () => {
+    platformState.OS = 'ios';
+    const controller = makeController({ showDatePicker: true });
+
+    render(<NewOrderDetailsSection controller={controller} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pick order date' }));
+
+    expect(controller.setDate).toHaveBeenCalledWith(
+      new Date('2024-02-03T00:00:00.000Z')
+    );
+    expect(controller.setShowDatePicker).not.toHaveBeenCalledWith(false);
+  });
+
+  it('closes the picker after selecting a date on Android', () => {
+    platformState.OS = 'android';
+    const controller = makeController({ showDatePicker: true });
+
+    render(<NewOrderDetailsSection controller={controller} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pick order date' }));
+
+    expect(controller.setDate).toHaveBeenCalledWith(
+      new Date('2024-02-03T00:00:00.000Z')
+    );
+    expect(controller.setShowDatePicker).toHaveBeenCalledWith(false);
   });
 
   it('falls back to the manual address input and warns when the maps key is missing', () => {
