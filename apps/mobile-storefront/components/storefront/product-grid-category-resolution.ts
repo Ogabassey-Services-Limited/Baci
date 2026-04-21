@@ -1,8 +1,10 @@
-import { getProductGridCategories } from '@/lib/category-utils';
 import {
   ALL_PRODUCT_FILTER_CATEGORY_SLUG,
   resolveSelectedCategoryId,
 } from '@/lib/product-filter-options';
+
+// IDs beginning with this prefix are unstored UI-only selections that must not be persisted as real category filters
+const UNSAVED_CATEGORY_ID_PREFIX = 'u-';
 
 interface NamedCategory {
   id: string;
@@ -16,23 +18,11 @@ interface ResolveProductGridCategoryIdOptions {
   selectedCategorySlug: string;
 }
 
-export function getProductGridCategoryNames(categories: NamedCategory[]) {
-  if (categories.length === 0) {
-    return ['All'];
-  }
-
-  const sortedCategories = getProductGridCategories(
-    categories.map((category) => category.name)
-  );
-
-  return ['All', ...sortedCategories];
-}
-
 export function resolveProductGridCategoryId({
   categories,
   parentSelectedCategoryId,
   selectedCategorySlug,
-}: ResolveProductGridCategoryIdOptions) {
+}: ResolveProductGridCategoryIdOptions): string | undefined {
   const selectedCategoryIdFromFilter = resolveSelectedCategoryId(
     selectedCategorySlug,
     categories
@@ -42,7 +32,10 @@ export function resolveProductGridCategoryId({
     return selectedCategoryIdFromFilter;
   }
 
-  if (parentSelectedCategoryId && !parentSelectedCategoryId.startsWith('u-')) {
+  if (
+    parentSelectedCategoryId &&
+    !parentSelectedCategoryId.startsWith(UNSAVED_CATEGORY_ID_PREFIX)
+  ) {
     return parentSelectedCategoryId;
   }
 

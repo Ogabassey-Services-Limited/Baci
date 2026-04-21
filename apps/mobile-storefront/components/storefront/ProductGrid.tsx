@@ -22,10 +22,8 @@ import type { ProductGridBlock } from '@/types/blocks';
 import { FilterBar } from './FilterBar';
 import { ProductCard } from './ProductCard';
 import { styles } from './ProductGrid.styles';
-import {
-  getProductGridCategoryNames,
-  resolveProductGridCategoryId,
-} from './product-grid-category-resolution';
+import { getProductGridCategoryNames } from './product-grid-category-names';
+import { resolveProductGridCategoryId } from './product-grid-category-resolution';
 import { useProductGridFilters } from './use-product-grid-filters';
 import { useProductGridPagination } from './use-product-grid-pagination';
 
