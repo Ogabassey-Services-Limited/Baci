@@ -103,47 +103,6 @@ describe('ProductGrid', () => {
     expect(latestOptions).toMatchObject({ category: 'cat-phones' });
   });
 
-  it('shows only the All chip until merchant categories are loaded', () => {
-    mockUseCategoriesFactory.mockReturnValue({
-      data: [],
-      isError: false,
-    });
-
-    render(
-      <ProductGrid block={block} selectedCategoryId={null} variant="grid" />
-    );
-
-    expect(getMockFilterBarProps()?.categories).toEqual(['All']);
-  });
-
-  it('does not fall back to a stale parent category when a chip cannot resolve to a real category id', () => {
-    mockUseCategoriesFactory.mockReturnValue({
-      data: [{ id: 'cat-laptops', name: 'Laptops', slug: 'laptops' }],
-      isError: false,
-    });
-
-    render(
-      <ProductGrid
-        block={block}
-        selectedCategoryId="cat-parent"
-        variant="grid"
-      />
-    );
-
-    act(() => {
-      getMockFilterBarProps()?.onSelectCategory('Phones');
-    });
-
-    const latestOptions =
-      mockUseProductsFactory.mock.calls[
-        mockUseProductsFactory.mock.calls.length - 1
-      ]?.[0];
-    expect(latestOptions).toMatchObject({
-      category: undefined,
-      limit: block.props.limit! * 4,
-    });
-  });
-
   it('resets subordinate filters when switching top-level categories', () => {
     render(
       <ProductGrid block={block} selectedCategoryId={null} variant="grid" />

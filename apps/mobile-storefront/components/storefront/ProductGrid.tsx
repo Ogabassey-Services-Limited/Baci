@@ -14,16 +14,16 @@ import {
   useProductBrands,
   useProducts,
 } from '@/hooks';
+import { getProductGridCategories } from '@/lib/category-utils';
 import {
   ALL_PRODUCT_FILTER_CATEGORY_SLUG,
   normalizeSelectedCategorySlug,
+  resolveSelectedCategoryId,
 } from '@/lib/product-filter-options';
 import type { ProductGridBlock } from '@/types/blocks';
 import { FilterBar } from './FilterBar';
 import { ProductCard } from './ProductCard';
 import { styles } from './ProductGrid.styles';
-import { getProductGridCategoryNames } from './product-grid-category-names';
-import { resolveProductGridCategoryId } from './product-grid-category-resolution';
 import { useProductGridFilters } from './use-product-grid-filters';
 import { useProductGridPagination } from './use-product-grid-pagination';
 
@@ -61,7 +61,15 @@ export default function ProductGrid({
     isError: isCategoriesError,
   } = useCategories();
   const normalizedCategories: Category[] = categoriesData;
-  const categoryNames = getProductGridCategoryNames(normalizedCategories);
+  const categoryNames = (() => {
+    if (normalizedCategories.length > 0) {
+      const allCats = normalizedCategories.map((category) => category.name);
+      const sorted = getProductGridCategories(allCats);
+
+      return ['All', ...sorted];
+    }
+    return ['All', 'Phones', 'Gaming', 'Laptops', 'Accessories', 'Printers'];
+  })();
   const matchedCategoryName =
     selectedCategorySlug === ALL_PRODUCT_FILTER_CATEGORY_SLUG
       ? 'All'
@@ -84,13 +92,24 @@ export default function ProductGrid({
     );
   }
 
-  const normalizedCategoryId = resolveProductGridCategoryId({
-    categories: normalizedCategories,
-    parentSelectedCategoryId: selectedCategoryId,
+  const selectedCategoryIdFromFilter = resolveSelectedCategoryId(
     selectedCategorySlug,
-  });
+    normalizedCategories
+  );
+
+  const normalizedCategoryId = (() => {
+    const id = selectedCategoryIdFromFilter;
+    if (id) return id;
+
+    if (selectedCategoryId && !selectedCategoryId.startsWith('u-')) {
+      return selectedCategoryId;
+    }
+
+    return undefined;
+  })();
   const displayLimit = block.props.limit ?? 12;
-  const shouldPrioritizeSmartphones = normalizedCategoryId === undefined;
+  const shouldPrioritizeSmartphones =
+    !selectedCategoryIdFromFilter && !normalizedCategoryId;
   const fetchLimit = shouldPrioritizeSmartphones
     ? displayLimit * 4
     : displayLimit;
