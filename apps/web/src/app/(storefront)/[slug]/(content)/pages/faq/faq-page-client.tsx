@@ -17,6 +17,7 @@ import { SafeHtml } from '@/components/ui/safe-html';
 import { StorefrontProvider } from '@/contexts/storefront-context';
 import { MerchantProvider } from '@/hooks/use-merchant';
 import { type FAQItem, groupFAQsByCategory } from '@/types/faq';
+import { ContactCTA } from './contact-cta';
 
 interface FAQPageClientProps {
   merchant: {
@@ -59,7 +60,7 @@ export function FAQPageClient({
   const groupedFAQs = groupFAQsByCategory(filteredFAQs);
   const categories = Object.keys(groupedFAQs);
 
-  /* 
+  /*
      JSON-LD is handled server-side in page.tsx using generateFAQSchema.
      Client-side injection is removed to prevent duplication and SEO confusion.
   */
@@ -211,12 +212,7 @@ export function FAQPageClient({
                   <p className="text-muted-foreground mb-4">
                     Can't find what you're looking for? We're here to help.
                   </p>
-                  <a
-                    href={`/${merchant.slug}/pages/contact`}
-                    className="inline-flex items-center justify-center px-6 py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
-                  >
-                    Contact Support
-                  </a>
+                  <ContactCTA />
                 </div>
               </div>
             </main>

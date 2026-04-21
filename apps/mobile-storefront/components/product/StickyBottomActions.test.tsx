@@ -105,7 +105,7 @@ describe('StickyBottomActions', () => {
 
     fireEvent.press(screen.getByRole('button', { name: 'View Cart' }));
 
-    expect(mockPush).toHaveBeenCalledWith('/(tabs)/cart');
+    expect(mockPush).toHaveBeenCalledWith('/cart');
   });
 
   it('uses the provided bottom inset padding instead of docking into the home indicator area', () => {

@@ -50,7 +50,10 @@ export function getOptionalGestureHandlerRuntime(): GestureHandlerRuntime {
     };
 
     cachedGestureRuntime = runtime;
-  } catch {
+  } catch (err) {
+    if (__DEV__) {
+      console.warn('Failed to load react-native-gesture-handler', err);
+    }
     const runtime: GestureHandlerRuntime = {
       Gesture: null,
       GestureDetector: FallbackGestureDetector,

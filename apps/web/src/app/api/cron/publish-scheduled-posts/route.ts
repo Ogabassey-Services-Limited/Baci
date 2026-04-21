@@ -198,18 +198,21 @@ export async function POST(request: Request) {
   }
 }
 
-// Support GET for local development testing
+// Support GET for Vercel Cron (sends Authorization: Bearer {CRON_SECRET})
 export async function GET(request: Request) {
-  if (process.env.NODE_ENV !== 'development') {
-    return NextResponse.json({ error: 'Method not allowed' }, { status: 405 });
+  const authHeader = request.headers.get('Authorization');
+  const secret = process.env.CRON_SECRET;
+  if (
+    !secret ||
+    !authHeader ||
+    !constantTimeEqual(authHeader, `Bearer ${secret}`)
+  ) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Use cron secret from env or a fallback for dev
   const mockRequest = new Request(request.url, {
     method: 'POST',
-    headers: {
-      'x-cron-secret': process.env.CRON_SECRET || 'dev-secret',
-    },
+    headers: { 'x-cron-secret': secret },
   });
 
   return await POST(mockRequest);

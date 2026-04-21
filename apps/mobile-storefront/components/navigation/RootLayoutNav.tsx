@@ -58,10 +58,10 @@ export function RootLayoutNav({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
   const template = getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID);
-  const enableConnectivityBanner = true;
+  const enableConnectivityBanner = template.features?.connectivityBanner ?? true;
   const enableChatWidget = template.features?.chatWidget ?? true;
-  const enableNegotiationModal = true;
-  const enableDrawerMenu = true;
+  const enableNegotiationModal = template.features?.negotiationModal ?? true;
+  const enableDrawerMenu = template.features?.drawerMenu ?? true;
 
   // Auth guard handles sign out redirects before protected screens render.
   useAuthGuard();

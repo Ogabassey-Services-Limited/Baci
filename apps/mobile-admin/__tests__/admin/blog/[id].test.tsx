@@ -153,7 +153,7 @@ vi.mock('@/lib/supabase', () => ({
 }));
 
 vi.mock('@/types/upload', () => ({
-  asUploadFile: (v: unknown) => v,
+  createUploadFile: (v: unknown) => v,
 }));
 
 // ---- Component import (after all mocks) ----

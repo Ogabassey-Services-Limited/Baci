@@ -1,5 +1,5 @@
 import { readEditorApiError } from '@/components/blog-editor/blog-editor-helpers';
-import { asUploadFile } from '@/types/upload';
+import { createUploadFile, type RNFormData } from '@/types/upload';
 
 interface RequestBlogEditorAiEditOptions {
   accessToken: string;
@@ -85,10 +85,10 @@ export async function uploadBlogEditorImageDetails({
   apiUrl,
   asset,
 }: UploadBlogEditorImageOptions): Promise<UploadedBlogEditorImage> {
-  const formData = new FormData();
+  const formData = new FormData() as RNFormData;
   formData.append(
     'file',
-    asUploadFile({
+    createUploadFile({
       name: asset.fileName || `image-${Date.now()}.png`,
       type: asset.mimeType || 'image/png',
       uri: asset.uri,

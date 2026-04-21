@@ -1,13 +1,13 @@
 import { resolveDefaultVariantSelection } from '@baci/shared/lib';
 import { describe, expect, it } from '@jest/globals';
 import type { Product } from '@/types/product';
-import { normalizeRouteCondition } from './normalize-route-condition';
+import { normalizeRouteCondition } from '@/lib/product-route/normalize-route-condition';
 import {
   baseProduct,
   primaryVariant,
   variantProduct,
-} from './product-detail-screen.fixtures';
-import { computeProductSelectionState } from './product-selection';
+} from '@/lib/product-route/product-detail-screen.fixtures';
+import { computeProductSelectionState } from '@/lib/product-route/product-selection';
 
 describe('product selection', () => {
   it('uses the default variant selection when no explicit selection is present', () => {

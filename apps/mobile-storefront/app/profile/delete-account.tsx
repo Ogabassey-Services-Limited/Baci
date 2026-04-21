@@ -62,7 +62,7 @@ export default function DeleteAccountScreen() {
       Alert.alert(
         'Account deleted',
         'Your account has been permanently deleted from this app.',
-        [{ text: 'OK', onPress: () => router.replace('/(tabs)') }]
+        [{ text: 'OK', onPress: () => router.replace('/') }]
       );
     } catch (error) {
       toast.error(

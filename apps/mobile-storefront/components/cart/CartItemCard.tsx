@@ -17,7 +17,7 @@ interface CartItemCardProps {
   handleQuantityChange: (item: CartItem, delta: number) => void;
   handleRemoveItem: (item: CartItem) => void;
   toggleAssurance: (itemId: string) => void;
-  openItemNegotiation: (item: CartItem) => void;
+  openItemNegotiation?: (item: CartItem) => void;
   updateQuantity: (itemId: string, quantity: number) => void;
   formatPrice: (amount: number) => string;
   colors: (typeof Colors)['light'];

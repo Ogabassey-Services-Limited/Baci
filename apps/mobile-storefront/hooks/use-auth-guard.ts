@@ -75,7 +75,7 @@ export function useAuthGuard() {
 
       if (isOnProtectedRoute && isMounted) {
         // Redirect to home tab
-        router.replace('/(tabs)');
+        router.replace('/');
       }
     }
 

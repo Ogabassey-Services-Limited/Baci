@@ -1,3 +1,4 @@
+import type { User } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { cache } from 'react';
 import {
@@ -15,38 +16,80 @@ const defaultStaffAccess: StaffAccess = {
   permissions: {},
 };
 
+export type MerchantLookupStatus =
+  | 'found'
+  | 'not_found'
+  | 'unauthenticated'
+  | 'error';
+
+type MerchantForUserResult = {
+  merchant: MerchantData | null;
+  merchantLookupStatus: MerchantLookupStatus;
+  staffAccess: StaffAccess;
+  user: User | null;
+};
+
 // Use React cache() to deduplicate this call within a single request
 // This means layout.tsx and page.tsx will share the same result
-export const getMerchantForUser = cache(async () => {
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+export const getMerchantForUser = cache(
+  async (): Promise<MerchantForUserResult> => {
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
-  if (!user || authError) {
-    return { merchant: null, staffAccess: defaultStaffAccess, user: null };
-  }
-
-  try {
-    const { merchant: merchantData, staffAccess: access } =
-      await fetchDashboardMerchant(supabase, user.id);
-
-    // If we found a merchant, fetch their primary domain
-    if (merchantData) {
-      const primaryDomain = await fetchPrimaryDomain(supabase, merchantData.id);
-      if (primaryDomain) {
-        merchantData.custom_domain = primaryDomain;
-      }
+    if (authError) {
+      return {
+        merchant: null,
+        merchantLookupStatus: 'error',
+        staffAccess: defaultStaffAccess,
+        user: null,
+      };
     }
 
-    return { merchant: merchantData, staffAccess: access, user };
-  } catch (error) {
-    console.error('Failed to load merchant data server-side:', error);
-    return { merchant: null, staffAccess: defaultStaffAccess, user };
+    if (!user) {
+      return {
+        merchant: null,
+        merchantLookupStatus: 'unauthenticated',
+        staffAccess: defaultStaffAccess,
+        user: null,
+      };
+    }
+
+    try {
+      const { merchant: merchantData, staffAccess: access } =
+        await fetchDashboardMerchant(supabase, user.id);
+
+      // If we found a merchant, fetch their primary domain
+      if (merchantData) {
+        const primaryDomain = await fetchPrimaryDomain(
+          supabase,
+          merchantData.id
+        );
+        if (primaryDomain) {
+          merchantData.custom_domain = primaryDomain;
+        }
+      }
+
+      return {
+        merchant: merchantData,
+        merchantLookupStatus: merchantData ? 'found' : 'not_found',
+        staffAccess: access,
+        user,
+      };
+    } catch (error) {
+      console.error('Failed to load merchant data server-side:', error);
+      return {
+        merchant: null,
+        merchantLookupStatus: 'error',
+        staffAccess: defaultStaffAccess,
+        user,
+      };
+    }
   }
-});
+);
 
 /**
  * Ensure the current user has a specific permission for a resource.

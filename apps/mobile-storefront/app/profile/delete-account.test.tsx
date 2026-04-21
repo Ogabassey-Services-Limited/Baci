@@ -127,7 +127,7 @@ describe('DeleteAccountScreen', () => {
       okButton?.onPress?.();
     });
 
-    expect(mockRouterReplace).toHaveBeenCalledWith('/(tabs)');
+    expect(mockRouterReplace).toHaveBeenCalledWith('/');
 
     alertSpy.mockRestore();
   });

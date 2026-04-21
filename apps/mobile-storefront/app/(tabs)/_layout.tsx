@@ -150,6 +150,7 @@ export default function TabLayout() {
         name="cart"
         options={{
           title: 'Cart',
+          headerShown: false,
           tabBarIcon: ({ focused }) => (
             <TabBarIcon
               name={focused ? 'cart' : 'cart-outline'}

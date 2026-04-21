@@ -6,6 +6,14 @@ import TabLayout from './_layout';
 
 const MockText = Text;
 const MockView = View;
+type MockTabsScreenProps = {
+  name: string;
+  options?: Record<string, unknown>;
+};
+
+const mockTabsScreen = jest.fn(({ name }: MockTabsScreenProps) => (
+  <MockText>{name}</MockText>
+));
 const mockTabs = jest.fn(
   ({
     children,
@@ -27,7 +35,7 @@ jest.mock('expo-router', () => {
     screenOptions?: Record<string, unknown>;
   }) => mockTabs(props);
 
-  Tabs.Screen = ({ name }: { name: string }) => <MockText>{name}</MockText>;
+  Tabs.Screen = (props: MockTabsScreenProps) => mockTabsScreen(props);
 
   return {
     Tabs,
@@ -104,6 +112,18 @@ describe('TabLayout', () => {
     expect(screenOptions?.tabBarStyle).toMatchObject({
       height: 83,
       paddingBottom: 30,
+    });
+  });
+
+  it('explicitly keeps the cart tab header hidden', () => {
+    render(<TabLayout />);
+
+    const cartScreenCall = mockTabsScreen.mock.calls.find(
+      ([props]) => props.name === 'cart'
+    );
+
+    expect(cartScreenCall?.[0]?.options).toMatchObject({
+      headerShown: false,
     });
   });
 });

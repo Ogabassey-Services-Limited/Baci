@@ -1,22 +1,79 @@
 import {
+  ALL_PRODUCT_FILTER_CATEGORY_SLUG,
   normalizeProductConditionFilterValue,
+  normalizeSelectedCategorySlug,
   resolveSelectedCategoryId,
 } from './product-filter-options';
+
+describe('normalizeSelectedCategorySlug', () => {
+  it('returns the all sentinel for the All filter', () => {
+    expect(
+      normalizeSelectedCategorySlug('All', [
+        { id: 'phones', name: 'Smartphones', slug: 'phones' },
+      ])
+    ).toBe('all');
+  });
+
+  it('treats a lowercase "all" input as the ALL sentinel', () => {
+    expect(
+      normalizeSelectedCategorySlug('all', [
+        { id: 'phones', name: 'Smartphones', slug: 'phones' },
+      ])
+    ).toBe(ALL_PRODUCT_FILTER_CATEGORY_SLUG);
+  });
+
+  it('prefers the stable category slug over the display name', () => {
+    expect(
+      normalizeSelectedCategorySlug('Phones', [
+        { id: 'phones', name: 'Smartphones', slug: 'phones' },
+        { id: 'gaming', name: 'Gaming Laptops', slug: 'gaming-laptops' },
+      ])
+    ).toBe('phones');
+  });
+
+  it('resolves to the category slug when matching by name where slug differs from name', () => {
+    expect(
+      normalizeSelectedCategorySlug('Smartphones', [
+        { id: 'cat-phones', name: 'Smartphones', slug: 'phones' },
+        { id: 'cat-gaming', name: 'Gaming Laptops', slug: 'gaming-laptops' },
+      ])
+    ).toBe('phones');
+  });
+
+  it('falls back to the normalized token when no category matches', () => {
+    expect(
+      normalizeSelectedCategorySlug('Mystery Category', [
+        { id: 'phones', name: 'Smartphones', slug: 'phones' },
+      ])
+    ).toBe('mystery-category');
+  });
+});
 
 describe('resolveSelectedCategoryId', () => {
   it('returns undefined for All', () => {
     expect(
-      resolveSelectedCategoryId('All', [{ id: 'phones', name: 'Smartphones' }])
+      resolveSelectedCategoryId('All', [
+        { id: 'phones', name: 'Smartphones', slug: 'phones' },
+      ])
     ).toBeUndefined();
   });
 
   it('resolves the category id from the selected category name', () => {
     expect(
       resolveSelectedCategoryId('Smartphones', [
-        { id: 'phones', name: 'Smartphones' },
-        { id: 'gaming', name: 'Gaming Laptops' },
+        { id: 'phones', name: 'Smartphones', slug: 'phones' },
+        { id: 'gaming', name: 'Gaming Laptops', slug: 'gaming-laptops' },
       ])
     ).toBe('phones');
+  });
+
+  it('resolves the category id from the normalized category slug', () => {
+    expect(
+      resolveSelectedCategoryId('phones', [
+        { id: 'cat-phones', name: 'Smartphones', slug: 'phones' },
+        { id: 'cat-gaming', name: 'Gaming Laptops', slug: 'gaming-laptops' },
+      ])
+    ).toBe('cat-phones');
   });
 });
 

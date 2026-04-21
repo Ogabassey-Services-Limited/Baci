@@ -135,7 +135,7 @@ export default function AccountScreen() {
     InteractionManager.runAfterInteractions(() => {
       signOut()
         .then(() => {
-          router.replace('/(tabs)');
+          router.replace('/');
         })
         .catch((err: unknown) => {
           console.error('Sign-out failed:', err);

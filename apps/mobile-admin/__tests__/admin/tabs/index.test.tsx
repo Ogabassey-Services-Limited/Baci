@@ -173,7 +173,7 @@ vi.mock('@/lib/supabase', () => ({
 }));
 
 vi.mock('@/types/upload', () => ({
-  asUploadFile: vi.fn(),
+  createUploadFile: vi.fn(),
 }));
 
 import HomeScreen from '@/app/(admin)/(tabs)/index';

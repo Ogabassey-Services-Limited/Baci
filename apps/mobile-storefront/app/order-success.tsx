@@ -72,7 +72,7 @@ export default function OrderSuccessScreen() {
   };
 
   const handleContinueShopping = () => {
-    router.replace('/(tabs)');
+    router.replace('/');
   };
 
   const handleViewOrders = () => {

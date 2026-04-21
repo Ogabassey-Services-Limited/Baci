@@ -34,6 +34,8 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, palette, RADIUS, SPACING } from '@/constants/Colors';
 import { useAuthStatus } from '@/hooks/use-auth-guard';
 import { isValidCartStore } from '@/lib/cart-validation';
+import { CONFIG } from '@/lib/config';
+import { getTemplateConfig } from '@/lib/templates';
 import { type CartItem, formatPrice, useCartStore } from '@/stores/cart-store';
 import { useUIStore } from '@/stores/ui-store';
 
@@ -135,6 +137,9 @@ export default function CartScreen() {
   const { openNegotiation } = useUIStore(
     useShallow((s) => ({ openNegotiation: s.openNegotiation }))
   );
+  const enableNegotiationModal =
+    getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID).features
+      ?.negotiationModal ?? true;
   const hasItems = items.length > 0;
 
   useEffect(() => {
@@ -448,10 +453,10 @@ export default function CartScreen() {
               triggerHaptic();
               toggleAssurance(itemId);
             }}
-            openItemNegotiation={(cartItem) => {
+            openItemNegotiation={enableNegotiationModal ? (cartItem) => {
               triggerHaptic();
               openItemNegotiation(cartItem);
-            }}
+            } : undefined}
             updateQuantity={updateQuantity}
             formatPrice={formatPrice}
             colors={colors}
@@ -510,7 +515,7 @@ export default function CartScreen() {
 
         {/* Row 2: Action Buttons */}
         <View style={styles.footerActions}>
-          <Pressable
+          {enableNegotiationModal && <Pressable
             style={({ pressed }) => [
               styles.bulkButton,
               {
@@ -548,7 +553,7 @@ export default function CartScreen() {
                 Negotiate
               </Text>
             </View>
-          </Pressable>
+          </Pressable>}
 
           {/* Checkout Button - Bulletproof Visibility Version */}
           <Pressable
