@@ -6,6 +6,7 @@ import { Suspense } from 'react';
 import { DeferredPageViewTracker } from '@/components/storefront/deferred-page-view-tracker';
 import { OgabasseyStorefrontLayout } from '@/components/storefront/ogabassey/storefront-layout';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
+import { StorefrontThemeProvider } from '@/components/storefront/storefront-theme-provider';
 import { MOBILE_APPS } from '@/config/platform';
 import { StorefrontCartProvider } from '@/hooks/cart/storefront-cart-provider';
 import { StorefrontMerchantProvider } from '@/hooks/merchant/storefront-merchant-provider';
@@ -214,31 +215,33 @@ async function StorefrontLayoutContent({
   const navigationCategories = await getCachedNavigationCategories(merchant.id);
 
   return (
-    <StorefrontMerchantProvider
-      slug={merchantSlug}
-      initialMerchant={templateMerchant}
-      initialRoutingMode={routingMode}
-      navigationCategories={navigationCategories}
-    >
-      <StorefrontCartProvider
-        enableSmartCartPro
-        merchantSlug={merchantSlug}
-        deferValidationUntilIdle
+    <StorefrontThemeProvider>
+      <StorefrontMerchantProvider
+        slug={merchantSlug}
+        initialMerchant={templateMerchant}
+        initialRoutingMode={routingMode}
+        navigationCategories={navigationCategories}
       >
-        <DeferredPageViewTracker merchantId={merchant.id} />
-        {/*
-          Global Layout Wrapper logic:
-          - Keeps layout persistent across route changes (seamless navigation)
-          - Prevents header flashing/re-rendering
-        */}
-        <StorefrontLayoutRenderer
-          merchant={templateMerchant}
-          routingMode={routingMode}
+        <StorefrontCartProvider
+          enableSmartCartPro
+          merchantSlug={merchantSlug}
+          deferValidationUntilIdle
         >
-          {children}
-        </StorefrontLayoutRenderer>
-      </StorefrontCartProvider>
-    </StorefrontMerchantProvider>
+          <DeferredPageViewTracker merchantId={merchant.id} />
+          {/*
+            Global Layout Wrapper logic:
+            - Keeps layout persistent across route changes (seamless navigation)
+            - Prevents header flashing/re-rendering
+          */}
+          <StorefrontLayoutRenderer
+            merchant={templateMerchant}
+            routingMode={routingMode}
+          >
+            {children}
+          </StorefrontLayoutRenderer>
+        </StorefrontCartProvider>
+      </StorefrontMerchantProvider>
+    </StorefrontThemeProvider>
   );
 }
 

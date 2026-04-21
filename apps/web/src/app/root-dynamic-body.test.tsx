@@ -15,6 +15,14 @@ vi.mock('@/components/ui/toaster', () => ({
   Toaster: () => <div>Toaster</div>,
 }));
 
+const mockProviders = vi.fn(({ children }: { children: ReactNode }) => (
+  <div data-testid="providers">{children}</div>
+));
+
+vi.mock('@/contexts/providers', () => ({
+  Providers: (props: { children: ReactNode }) => mockProviders(props),
+}));
+
 const mockNonceProvider = vi.fn(
   ({ children }: { children: ReactNode; nonce?: string }) => (
     <div data-testid="nonce-provider">{children}</div>
@@ -29,6 +37,7 @@ vi.mock('@/contexts/NonceProvider', () => ({
 describe('RootDynamicBody', () => {
   it('renders the global root shell around the page content', () => {
     mockNonceProvider.mockClear();
+    mockProviders.mockClear();
 
     render(
       <RootDynamicBody>
@@ -38,6 +47,7 @@ describe('RootDynamicBody', () => {
 
     expect(screen.getByRole('main')).toHaveTextContent('Main content');
     expect(screen.getByTestId('nonce-provider')).toBeInTheDocument();
+    expect(screen.getByTestId('providers')).toBeInTheDocument();
     expect(screen.getByText('Toaster')).toBeInTheDocument();
     expect(screen.getByText('WebVitalsReporter')).toBeInTheDocument();
     expect(screen.getByText('DeferredPlatformInsights')).toBeInTheDocument();
@@ -48,6 +58,7 @@ describe('RootDynamicBody', () => {
 
   it('forwards the CSP nonce when provided', () => {
     mockNonceProvider.mockClear();
+    mockProviders.mockClear();
 
     render(
       <RootDynamicBody nonce="nonce-123">
@@ -58,5 +69,6 @@ describe('RootDynamicBody', () => {
     expect(mockNonceProvider.mock.calls[0]?.[0]).toMatchObject({
       nonce: 'nonce-123',
     });
+    expect(mockProviders).toHaveBeenCalledTimes(1);
   });
 });
