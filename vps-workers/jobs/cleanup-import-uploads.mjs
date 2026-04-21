@@ -30,14 +30,24 @@ const supabase = createClient(supabaseUrl, serviceRoleKey, {
 const PAGE_SIZE = 500;
 let cleaned = 0;
 const expiresAt = new Date().toISOString();
+let lastId = '';
 
+// Use an ID cursor so rows that fail cleanup are not re-fetched endlessly.
+// Each page starts after the last-seen ID, guaranteeing forward progress.
 while (true) {
-  const { data, error } = await supabase
+  let query = supabase
     .from('pending_import_uploads')
     .select('id, merchant_id, client_upload_id, storage_path')
     .is('claimed_at', null)
     .lt('expires_at', expiresAt)
+    .order('id', { ascending: true })
     .limit(PAGE_SIZE);
+
+  if (lastId) {
+    query = query.gt('id', lastId);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error('[cleanup-import-uploads] Query failed:', error);
@@ -45,6 +55,9 @@ while (true) {
   }
 
   const batch = data ?? [];
+  if (batch.length === 0) break;
+
+  lastId = batch[batch.length - 1].id;
 
   for (const upload of batch) {
     const existingJob = await supabase
@@ -62,10 +75,10 @@ while (true) {
     if (existingJob.data) {
       const del = await supabase.from('pending_import_uploads').delete().eq('id', upload.id);
       if (del.error) {
-      console.error('[cleanup-import-uploads] Delete failed:', del.error);
-    } else {
-      cleaned++;
-    }
+        console.error('[cleanup-import-uploads] Delete failed:', del.error);
+      } else {
+        cleaned++;
+      }
       continue;
     }
 
