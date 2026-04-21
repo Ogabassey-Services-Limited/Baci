@@ -8,7 +8,7 @@
  *   SUPABASE_SERVICE_ROLE_KEY
  *   EXPO_ACCESS_TOKEN  (optional but recommended)
  *
- * Crontab: 0,30 * * * * /usr/bin/node /home/bassey/baci-workers/jobs/push-receipts.mjs >> /home/bassey/baci-workers/logs/push-receipts.log 2>&1
+ * Crontab: installed by vps-workers/deploy.sh (node path resolved at deploy time)
  */
 
 import { Expo } from 'expo-server-sdk';
@@ -59,6 +59,7 @@ const deliveredIds = [];
 const failedTickets = [];
 const tokensToDeactivate = [];
 let chunkFailures = 0;
+let hadWriteError = false;
 
 for (const chunk of chunks) {
   try {
@@ -96,7 +97,10 @@ if (deliveredIds.length > 0) {
     .from('push_notification_tickets')
     .update({ status: 'delivered', checked_at: new Date().toISOString() })
     .in('id', deliveredIds);
-  if (error) console.error('[push-receipts] Failed to batch-update delivered tickets:', error);
+  if (error) {
+    hadWriteError = true;
+    console.error('[push-receipts] Failed to batch-update delivered tickets:', error);
+  }
 }
 
 // Batch failed-ticket updates in parallel (50 at a time) to avoid O(N) sequential round-trips
@@ -110,7 +114,10 @@ for (let i = 0; i < failedTickets.length; i += BATCH_SIZE) {
         .from('push_notification_tickets')
         .update({ status: 'failed', error_type: ft.error_type, error_message: ft.error_message, checked_at: checkedAt })
         .eq('id', ft.id);
-      if (error) console.error('[push-receipts] Failed to mark ticket failed:', ft.id, error);
+      if (error) {
+        hadWriteError = true;
+        console.error('[push-receipts] Failed to mark ticket failed:', ft.id, error);
+      }
     }),
   );
 }
@@ -120,10 +127,16 @@ if (tokensToDeactivate.length > 0) {
     .from('push_tokens')
     .update({ is_active: false })
     .in('token', tokensToDeactivate);
-  if (error) console.error('[push-receipts] Failed to deactivate tokens:', error);
+  if (error) {
+    hadWriteError = true;
+    console.error('[push-receipts] Failed to deactivate tokens:', error);
+  }
 }
 
 const { error: cleanupError } = await supabase.rpc('cleanup_old_push_tickets');
 if (cleanupError) console.error('[push-receipts] Cleanup RPC failed:', cleanupError);
 
 console.log(`[push-receipts] Done — checked=${pendingTickets.length}, delivered=${deliveredIds.length}, failed=${failedTickets.length}, chunkFailures=${chunkFailures}`);
+if (hadWriteError) {
+  process.exit(1);
+}

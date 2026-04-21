@@ -11,10 +11,7 @@
     { "path": "/api/cron/process-import-jobs", "schedule": "*/5 * * * *" },
     { "path": "/api/ai-jobs/worker", "schedule": "0 2 * * *" },
     { "path": "/api/cron/wallet-payouts", "schedule": "0 6 * * *" },
-    { "path": "/api/cron/publish-scheduled-posts", "schedule": "*/15 * * * *" },
-    { "path": "/api/cron/push-receipts", "schedule": "0,30 * * * *" },
-    { "path": "/api/cron/cleanup-push-tokens", "schedule": "0 0 * * *" },
-    { "path": "/api/cron/cleanup-import-uploads", "schedule": "0 3 * * *" }
+    { "path": "/api/cron/publish-scheduled-posts", "schedule": "*/15 * * * *" }
   ],
   "functions": {
     "apps/web/src/app/api/cron/process-import-jobs/route.ts": { "memory": 512 },
