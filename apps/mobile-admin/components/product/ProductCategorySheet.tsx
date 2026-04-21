@@ -14,6 +14,7 @@ import {
   type ThemeColors,
   TYPOGRAPHY,
 } from '@/constants/theme';
+import { getTranslucentColor } from '@/lib/colors/sanitize-css-color';
 
 interface CategoryOption {
   id: string;
@@ -72,8 +73,16 @@ export function ProductCategorySheet({
             styles.toggleButton,
             {
               backgroundColor: isCreating
-                ? `${colors.error}15`
-                : `${colors.primary}15`,
+                ? getTranslucentColor(
+                    colors.error,
+                    'rgba(239,68,68,0.08)',
+                    0.08
+                  )
+                : getTranslucentColor(
+                    colors.primary,
+                    'rgba(59,130,246,0.08)',
+                    0.08
+                  ),
             },
           ]}
         >

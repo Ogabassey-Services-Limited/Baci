@@ -1,8 +1,14 @@
-import * as Crypto from 'expo-crypto';
-import { Alert } from 'react-native';
-import type { MutableRefObject } from 'react';
-import type { QueryClient } from '@tanstack/react-query';
 import type { OrderSource, PaymentStatus } from '@baci/shared';
+import type { QueryClient } from '@tanstack/react-query';
+import * as Crypto from 'expo-crypto';
+import type { MutableRefObject } from 'react';
+import { Alert } from 'react-native';
+import type {
+  CustomerInfo,
+  DeliveryInfo,
+  OrderItem,
+  ShippingAddress,
+} from '@/components/orders/new-order.types';
 import { createManualOrderWithItems } from '@/lib/manual-order-persistence';
 import {
   sanitizeAddress,
@@ -13,12 +19,6 @@ import {
   sanitizeText,
 } from '@/lib/sanitize';
 import { supabase } from '@/lib/supabase';
-import type {
-  CustomerInfo,
-  DeliveryInfo,
-  OrderItem,
-  ShippingAddress,
-} from '@/components/orders/new-order.types';
 
 interface SubmitNewOrderParams {
   customer: CustomerInfo;
@@ -77,7 +77,10 @@ export async function submitNewOrder({
     return;
   }
   if (!merchantId) {
-    Alert.alert('Unavailable', 'Merchant information is still loading. Please try again.');
+    Alert.alert(
+      'Unavailable',
+      'Merchant information is still loading. Please try again.'
+    );
     return;
   }
   if (orderItems.length === 0) {
@@ -92,10 +95,23 @@ export async function submitNewOrder({
     const orderNumber = generateOrderNumber();
     const sanitizedCustomerName =
       sanitizeCustomerName(customer.name) || 'Walk-in Customer';
-    const sanitizedCustomerEmail = customer.email ? sanitizeEmail(customer.email) : null;
-    const sanitizedCustomerPhone = customer.phone ? sanitizePhone(customer.phone) : null;
-    const sanitizedCustomerAddress = customer.address ? sanitizeAddress(customer.address) : '';
+    const sanitizedCustomerEmail = customer.email
+      ? sanitizeEmail(customer.email)
+      : null;
+    const sanitizedCustomerPhone = customer.phone
+      ? sanitizePhone(customer.phone)
+      : null;
+    const sanitizedCustomerAddress = customer.address
+      ? sanitizeAddress(customer.address)
+      : '';
     const sanitizedNotes = notes.trim() ? sanitizeNotes(notes) : null;
+    const parsedPartialAmount = Number.parseFloat(partialAmount);
+    if (
+      paymentStatus === 'partially_paid' &&
+      (Number.isNaN(parsedPartialAmount) || parsedPartialAmount < 0)
+    ) {
+      throw new Error('Invalid payment amount');
+    }
     const shippingAddress: ShippingAddress = sameAsCustomer
       ? {
           address: sanitizedCustomerAddress,
@@ -112,7 +128,12 @@ export async function submitNewOrder({
 
     const createdOrder = await createManualOrderWithItems(
       {
-        deleteOrder: (orderId) => supabase.from('orders').delete().eq('id', orderId),
+        deleteOrder: (orderId) =>
+          supabase
+            .from('orders')
+            .delete()
+            .eq('id', orderId)
+            .eq('merchant_id', merchantId),
         insertOrder: (order) =>
           supabase.from('orders').insert(order).select('id').single(),
         insertOrderItems: (items) => supabase.from('order_items').insert(items),
@@ -121,7 +142,9 @@ export async function submitNewOrder({
         buildItems: (orderId) =>
           orderItems.map((item) => ({
             condition: item.condition ?? null,
-            item_description: item.details ? sanitizeText(item.details, 1000) : null,
+            item_description: item.details
+              ? sanitizeText(item.details, 1000)
+              : null,
             name: sanitizeText(item.name, 200),
             order_id: orderId,
             price: item.price,
@@ -133,7 +156,7 @@ export async function submitNewOrder({
         order: {
           amount_paid:
             paymentStatus === 'partially_paid'
-              ? Number.parseFloat(partialAmount) || 0
+              ? parsedPartialAmount
               : paymentStatus === 'paid'
                 ? total
                 : 0,
@@ -187,6 +210,9 @@ function generateOrderNumber() {
   const date = new Date();
   const prefix = 'ORD';
   const datePart = `${String(date.getDate()).padStart(2, '0')}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getFullYear()).slice(-2)}`;
-  const randomPart = Crypto.randomUUID().replace(/-/g, '').substring(0, 6).toUpperCase();
+  const randomPart = Crypto.randomUUID()
+    .replace(/-/g, '')
+    .substring(0, 6)
+    .toUpperCase();
   return `${prefix}-${datePart}-${randomPart}`;
 }

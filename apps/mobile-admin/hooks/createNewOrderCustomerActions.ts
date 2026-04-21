@@ -1,14 +1,14 @@
-import { Alert } from 'react-native';
 import type { Dispatch, SetStateAction } from 'react';
+import { Alert } from 'react-native';
 import type { CountryCode } from 'react-native-country-picker-modal';
-import { supabase } from '@/lib/supabase';
+import { createEmptyNewCustomerDraft } from '@/components/orders/new-order.defaults';
+import { DEFAULT_COUNTRY_CODE } from '@/components/orders/new-order.shared';
 import type {
   CustomerInfo,
   NewCustomerDraft,
   SelectableCustomer,
 } from '@/components/orders/new-order.types';
-import { createEmptyNewCustomerDraft } from '@/components/orders/new-order.defaults';
-import { DEFAULT_COUNTRY_CODE } from '@/components/orders/new-order.shared';
+import { supabase } from '@/lib/supabase';
 
 interface CreateNewOrderCustomerActionsParams {
   createCustomer: (input: {
@@ -60,7 +60,8 @@ export function createNewOrderCustomerActions({
         .filter((name): name is string => Boolean(name))
         .join(' ') ||
       item.email?.split('@')[0] ||
-      '';
+      item.phone ||
+      'Unknown';
 
     setCustomer({
       address: item.address || '',
@@ -76,6 +77,14 @@ export function createNewOrderCustomerActions({
   const handleCreateCustomer = async () => {
     if (!newCustomer.firstName || !newCustomer.phone) {
       Alert.alert('Required', 'First Name and Phone are required');
+      return;
+    }
+
+    if (!merchantId) {
+      Alert.alert(
+        'Unavailable',
+        'Merchant information is still loading. Please try again.'
+      );
       return;
     }
 
@@ -96,7 +105,11 @@ export function createNewOrderCustomerActions({
         .limit(1);
 
       if (searchError) {
-        console.error('Error checking for existing customer:', searchError);
+        Alert.alert(
+          'Error',
+          'Failed to check for existing customers. Please try again.'
+        );
+        return;
       }
 
       if (existingCustomers && existingCustomers.length > 0) {

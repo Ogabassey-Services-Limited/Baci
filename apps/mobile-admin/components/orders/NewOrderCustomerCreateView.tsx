@@ -1,4 +1,12 @@
-import { ActivityIndicator, Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import PhoneInput from 'react-native-phone-number-input';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
@@ -26,6 +34,9 @@ export function NewOrderCustomerCreateView({
     setNewCustomer,
     setSelectedCountryCode,
   } = controller;
+
+  const googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const hasGoogleMapsApiKey = Boolean(googleMapsApiKey);
 
   return (
     <ScrollView
@@ -180,81 +191,105 @@ export function NewOrderCustomerCreateView({
           }
           placeholder="Email Address (Optional)"
           placeholderTextColor={colors.textMuted}
-          style={[styles.sheetInput, { backgroundColor: colors.inputBg, color: colors.text }]}
+          style={[
+            styles.sheetInput,
+            { backgroundColor: colors.inputBg, color: colors.text },
+          ]}
           value={newCustomer.email}
         />
       </View>
 
       <View style={{ gap: 8, zIndex: 10 }}>
         <Text style={{ color: colors.textSecondary }}>Address</Text>
-        <GooglePlacesAutocomplete
-          debounce={300}
-          enablePoweredByContainer
-          fetchDetails={false}
-          keepResultsAfterBlur
-          keyboardShouldPersistTaps="handled"
-          listViewDisplayed="auto"
-          minLength={2}
-          onFail={(error) => {
-            if (__DEV__) {
-              console.log('Google Places Error:', error);
+        {hasGoogleMapsApiKey ? (
+          <GooglePlacesAutocomplete
+            debounce={300}
+            enablePoweredByContainer
+            fetchDetails={false}
+            keepResultsAfterBlur
+            keyboardShouldPersistTaps="handled"
+            listViewDisplayed="auto"
+            minLength={2}
+            onFail={(error) => {
+              if (__DEV__) {
+                console.log('Google Places Error:', error);
+              }
+              Alert.alert(
+                'Address search failed',
+                'Try entering the address manually.'
+              );
+            }}
+            onNotFound={() => {
+              if (__DEV__) {
+                console.log('Google Places: No results');
+              }
+              Alert.alert(
+                'Address not found',
+                'Try refining the address or enter it manually.'
+              );
+            }}
+            onPress={(data) => {
+              setNewCustomer((previous) => ({
+                ...previous,
+                address: data.description,
+              }));
+            }}
+            placeholder="Search Address"
+            query={{
+              components: selectedCountryCode
+                ? `country:${selectedCountryCode.toLowerCase()}`
+                : undefined,
+              key: googleMapsApiKey,
+              language: 'en',
+            }}
+            styles={{
+              container: { flex: 0, zIndex: 999 },
+              description: { color: colors.text },
+              listView: {
+                backgroundColor: colors.card,
+                borderRadius: 12,
+                elevation: 5,
+                left: 0,
+                marginTop: 4,
+                position: 'absolute',
+                right: 0,
+                top: 54,
+                zIndex: 1000,
+              },
+              poweredContainer: {
+                backgroundColor: colors.card,
+                borderBottomLeftRadius: 12,
+                borderBottomRightRadius: 12,
+              },
+              row: {
+                backgroundColor: colors.card,
+                padding: 13,
+              },
+              textInput: {
+                backgroundColor: colors.inputBg,
+                borderRadius: 12,
+                color: colors.text,
+                fontSize: 16,
+                height: 50,
+                paddingHorizontal: 16,
+              },
+            }}
+            textInputProps={{ placeholderTextColor: colors.textMuted }}
+          />
+        ) : (
+          <TextInput
+            onChangeText={(text) =>
+              setNewCustomer((previous) => ({ ...previous, address: text }))
             }
-            Alert.alert('Address search failed', 'Try entering the address manually.');
-          }}
-          onNotFound={() => {
-            if (__DEV__) {
-              console.log('Google Places: No results');
-            }
-            Alert.alert('Address not found', 'Try refining the address or enter it manually.');
-          }}
-          onPress={(data) => {
-            setNewCustomer((previous) => ({
-              ...previous,
-              address: data.description,
-            }));
-          }}
-          placeholder="Search Address"
-          query={{
-            components: selectedCountryCode
-              ? `country:${selectedCountryCode.toLowerCase()}`
-              : undefined,
-            key: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '',
-            language: 'en',
-          }}
-          styles={{
-            container: { flex: 0, zIndex: 999 },
-            description: { color: colors.text },
-            listView: {
-              backgroundColor: colors.card,
-              borderRadius: 12,
-              elevation: 5,
-              left: 0,
-              marginTop: 4,
-              position: 'absolute',
-              right: 0,
-              top: 54,
-              zIndex: 1000,
-            },
-            poweredContainer: {
-              backgroundColor: colors.card,
-              borderBottomLeftRadius: 12,
-              borderBottomRightRadius: 12,
-            },
-            row: {
-              backgroundColor: colors.card,
-              padding: 13,
-            },
-            textInput: {
-              backgroundColor: colors.inputBg,
-              borderRadius: 12,
-              color: colors.text,
-              fontSize: 16,
-              height: 50,
-              paddingHorizontal: 16,
-            },
-          }}
-          textInputProps={{ placeholderTextColor: colors.textMuted }}
-        />
+            placeholder="Enter address"
+            placeholderTextColor={colors.textMuted}
+            style={[
+              styles.sheetInput,
+              { backgroundColor: colors.inputBg, color: colors.text },
+            ]}
+            value={newCustomer.address}
+          />
+        )}
       </View>
 
       <Pressable

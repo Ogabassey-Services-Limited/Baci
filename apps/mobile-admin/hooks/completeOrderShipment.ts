@@ -1,8 +1,8 @@
 import type { QueryClient } from '@tanstack/react-query';
-import { BASE_URL } from '@/lib/api-client';
-import { supabase } from '@/lib/supabase';
-import type { ShipmentCompletionMode } from '@/lib/order-shipment';
 import type { OrderDetailsRecord } from '@/components/orders/order-details.types';
+import { BASE_URL } from '@/lib/api-client';
+import type { ShipmentCompletionMode } from '@/lib/order-shipment';
+import { supabase } from '@/lib/supabase';
 
 interface FulfillmentDetails {
   imei: string;
@@ -21,6 +21,7 @@ interface ShipmentCompletionResult {
 interface CompleteOrderShipmentParams {
   fulfillmentDetails: FulfillmentDetails;
   handleSaveRider: (phone: string) => Promise<void>;
+  merchantId: string;
   mode: ShipmentCompletionMode;
   order: OrderDetailsRecord;
   providerBookingAvailable: boolean;
@@ -28,12 +29,16 @@ interface CompleteOrderShipmentParams {
   queryClient: QueryClient;
   riderPhone: string;
   saveDetails: boolean;
-  updateStatus: (input: { orderId: string; status: 'shipped' }) => Promise<unknown>;
+  updateStatus: (input: {
+    orderId: string;
+    status: 'shipped';
+  }) => Promise<unknown>;
 }
 
 export async function completeOrderShipment({
   fulfillmentDetails,
   handleSaveRider,
+  merchantId,
   mode,
   order,
   providerBookingAvailable,
@@ -50,7 +55,8 @@ export async function completeOrderShipment({
         fulfillment_details: fulfillmentDetails,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', order.id);
+      .eq('id', order.id)
+      .eq('merchant_id', merchantId);
 
     if (error) {
       throw error;
@@ -121,9 +127,13 @@ export async function completeOrderShipment({
           Authorization: `Bearer ${session.access_token}`,
         },
         method: 'POST',
-      }).catch(() => {});
+      }).catch((_err) => {
+        // fire-and-forget: shipped webhook failure is non-critical
+      });
     }
-  } catch {}
+  } catch (_err) {
+    // session fetch failure is non-fatal; invalidations still run below
+  }
 
   queryClient.invalidateQueries({ queryKey: ['order', order.id] });
   queryClient.invalidateQueries({ queryKey: ['orders'] });

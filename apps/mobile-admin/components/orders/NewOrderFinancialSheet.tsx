@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { AppSheetModal } from '@/components/ui/AppSheetModal';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
-import { formatPriceInput } from './new-order.shared';
+import { formatPriceInput, parseDecimalInput } from './new-order.shared';
 
 interface NewOrderFinancialSheetProps {
   controller: ReturnType<typeof useNewOrderController>;
@@ -173,11 +173,7 @@ export function NewOrderFinancialSheet({
           editable={!(showFinancialModal.type === 'tax' && isVatApplied)}
           keyboardType="numeric"
           onChangeText={(text) => {
-            const clean = text.replace(/[^0-9.]/g, '');
-            const [whole = '', ...decimals] = clean.split('.');
-            setFinancialValue(
-              decimals.length > 0 ? `${whole}.${decimals.join('')}` : whole
-            );
+            setFinancialValue(parseDecimalInput(text));
           }}
           placeholder="0.00"
           placeholderTextColor={colors.textMuted}

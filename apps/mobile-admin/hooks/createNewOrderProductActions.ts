@@ -67,7 +67,13 @@ export function createNewOrderProductActions({
 
   const handleAddCustomItem = () => {
     const normalizedName = customItem.name.trim().replace(/\s+/g, ' ');
-    if (!normalizedName || !customItem.price) {
+    const parsedPrice = Number.parseFloat(customItem.price);
+    if (
+      !normalizedName ||
+      !customItem.price ||
+      Number.isNaN(parsedPrice) ||
+      parsedPrice <= 0
+    ) {
       return;
     }
 
@@ -76,10 +82,7 @@ export function createNewOrderProductActions({
         id: `custom-${Crypto.randomUUID()}`,
         is_custom: true,
         name: normalizedName,
-        price: (() => {
-          const parsed = Number.parseFloat(customItem.price);
-          return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
-        })(),
+        price: parsedPrice,
         product_id: null,
         quantity: 1,
         variant_id: null,

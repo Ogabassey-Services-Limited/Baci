@@ -108,7 +108,8 @@ export function formatOrderAddress(
     return address;
   }
 
-  return [address.address, address.city, address.state]
+  const result = [address.address, address.city, address.state]
     .filter((part): part is string => Boolean(part))
     .join(', ');
+  return result || 'No shipping address provided';
 }

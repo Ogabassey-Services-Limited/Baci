@@ -84,6 +84,23 @@ export const CHANNELS: {
   },
 ];
 
+/**
+ * Sanitizes a raw text input into a valid decimal string suitable for price /
+ * amount fields. Strips all characters except digits and the first decimal
+ * point. Returns an empty string when the result would be meaningless.
+ */
+export function parseDecimalInput(text: string): string {
+  // Keep only digits and dots
+  const stripped = text.replace(/[^0-9.]/g, '');
+  // Allow at most one decimal point
+  const parts = stripped.split('.');
+  if (parts.length <= 1) {
+    return stripped;
+  }
+  // Reconstruct: first segment + '.' + remaining segments concatenated
+  return `${parts[0]}.${parts.slice(1).join('')}`;
+}
+
 export const PAYMENT_METHODS = [
   { id: 'transfer', label: 'Transfer', icon: 'card-outline' },
   { id: 'cash', label: 'Cash', icon: 'cash-outline' },

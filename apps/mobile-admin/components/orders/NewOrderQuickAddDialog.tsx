@@ -1,7 +1,7 @@
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { AppDialogModal } from '@/components/ui/AppDialogModal';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
-import { formatPriceInput } from './new-order.shared';
+import { formatPriceInput, parseDecimalInput } from './new-order.shared';
 import { styles } from './new-order.styles';
 
 interface NewOrderQuickAddDialogProps {
@@ -56,10 +56,10 @@ export function NewOrderQuickAddDialog({
         <TextInput
           keyboardType="numeric"
           onChangeText={(text) => {
-            const clean = text
-              .replace(/[^0-9.]/g, '')
-              .replace(/^(\d*\.?\d*).*$/, '$1');
-            setCustomItem((previous) => ({ ...previous, price: clean }));
+            setCustomItem((previous) => ({
+              ...previous,
+              price: parseDecimalInput(text),
+            }));
           }}
           placeholder="Amount (0.00)"
           placeholderTextColor={colors.textMuted}

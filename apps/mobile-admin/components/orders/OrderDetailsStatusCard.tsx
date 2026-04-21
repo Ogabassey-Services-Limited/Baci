@@ -86,13 +86,11 @@ export function OrderDetailsStatusCard({
 
       <View style={styles.progressContainer}>
         {steps.map((step, index) => {
-          // For terminal non-completion statuses (returned/cancelled), only light up
-          // steps up to (but not including) the terminal step itself — not through 'delivered'.
-          const terminalNonCompletion =
-            currentStatus === 'returned' || currentStatus === 'cancelled';
-          const isActive = terminalNonCompletion
-            ? index < currentStepIndex
-            : index <= currentStepIndex;
+          // For returned/cancelled orders, all steps up to and including the
+          // terminal step are active. `currentStepIndex` already points to the
+          // 'returned'/'cancelled' entry (which replaced 'delivered'), so a
+          // simple `index <= currentStepIndex` is correct for every status.
+          const isActive = index <= currentStepIndex;
           const isCurrent = index === currentStepIndex;
           const isLast = index === steps.length - 1;
 

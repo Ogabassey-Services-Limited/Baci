@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { AppSheetModal } from '@/components/ui/AppSheetModal';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
-import { formatPriceInput } from './new-order.shared';
+import { formatPriceInput, parseDecimalInput } from './new-order.shared';
 
 interface NewOrderEditItemSheetProps {
   controller: ReturnType<typeof useNewOrderController>;
@@ -116,11 +116,7 @@ export function NewOrderEditItemSheet({
                 <TextInput
                   keyboardType="decimal-pad"
                   onChangeText={(text) => {
-                    const clean = text.replace(/[^0-9.]/g, '');
-                    if ((clean.match(/\./g) || []).length > 1) {
-                      return;
-                    }
-                    setEditPriceValue(clean);
+                    setEditPriceValue(parseDecimalInput(text));
                   }}
                   style={{
                     color: colors.text,

@@ -58,6 +58,7 @@ vi.mock('@/components/ui/AppDialogModal', () => ({
 vi.mock('./new-order.styles', () => ({ styles: {} }));
 vi.mock('./new-order.shared', () => ({
   formatPriceInput: (value: string | undefined) => value ?? '',
+  parseDecimalInput: (text: string) => text.replace(/[^0-9.]/g, ''),
 }));
 
 type ControllerShape = {
