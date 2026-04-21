@@ -5,6 +5,10 @@ const routeParamsState = vi.hoisted(() => ({
   current: { id: '123e4567-e89b-42d3-a456-426614174000' } as { id: string },
 }));
 
+const orderState = vi.hoisted(() => ({
+  current: undefined as unknown,
+}));
+
 vi.mock('expo-router', () => ({
   useLocalSearchParams: () => routeParamsState.current,
 }));
@@ -22,7 +26,11 @@ vi.mock('@tanstack/react-query', () => ({
 }));
 
 vi.mock('@/hooks/useOrders', () => ({
-  useOrder: () => ({ data: undefined, error: null, isLoading: false }),
+  useOrder: () => ({
+    data: orderState.current as never,
+    error: null,
+    isLoading: false,
+  }),
   useUpdateOrderStatus: () => ({ mutateAsync: vi.fn() }),
   useShipOnCredit: () => ({ mutateAsync: vi.fn() }),
   useSendReminder: () => ({ mutateAsync: vi.fn() }),
@@ -145,6 +153,7 @@ import { useOrderDetailsController } from './useOrderDetailsController';
 
 describe('useOrderDetailsController', () => {
   it('returns null orderId when route params are invalid', () => {
+    orderState.current = undefined;
     routeParamsState.current = { id: 'not-a-uuid' };
     const { result } = renderHook(() => useOrderDetailsController());
 
@@ -154,9 +163,40 @@ describe('useOrderDetailsController', () => {
   });
 
   it('uses NGN as fallback currency when merchant has no payout_currency', () => {
+    orderState.current = undefined;
     routeParamsState.current = { id: '123e4567-e89b-42d3-a456-426614174000' };
     const { result } = renderHook(() => useOrderDetailsController());
 
     expect(result.current.formatPrice(1000)).toContain('₦');
+  });
+
+  it('uses the delivered status config for legacy fulfilled orders', () => {
+    routeParamsState.current = { id: '123e4567-e89b-42d3-a456-426614174000' };
+    orderState.current = {
+      amount_paid: 0,
+      created_at: '2026-04-21T00:00:00.000Z',
+      currency: 'NGN',
+      customer_email: 'ada@example.com',
+      customer_name: 'Ada',
+      customer_phone: '08000000000',
+      discount_amount: 0,
+      id: 'order-1',
+      merchant_id: 'merchant-1',
+      notes: null,
+      order_number: 'ORD-1',
+      payment_method: null,
+      payment_status: 'pending',
+      shipping_fee: 0,
+      shipping_status: 'fulfilled',
+      source: 'website',
+      subtotal: 1000,
+      tax_amount: 0,
+      total: 1000,
+      updated_at: '2026-04-21T00:00:00.000Z',
+    };
+
+    const { result } = renderHook(() => useOrderDetailsController());
+
+    expect(result.current.shippingConfig.label).toBe('Delivered');
   });
 });

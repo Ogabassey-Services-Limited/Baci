@@ -4,6 +4,7 @@ import {
   getOrderCurrencySymbol,
   getOrderSourceInfo,
   getOrderStatusColor,
+  normalizeOrderDetailsShippingStatus,
 } from './order-details.helpers';
 
 const mockColors = {
@@ -149,5 +150,16 @@ describe('formatOrderAddress', () => {
     expect(formatOrderAddress({ address: null, city: null, state: null })).toBe(
       'No shipping address provided'
     );
+  });
+});
+
+describe('normalizeOrderDetailsShippingStatus', () => {
+  it('maps the legacy fulfilled status to delivered', () => {
+    expect(normalizeOrderDetailsShippingStatus('fulfilled')).toBe('delivered');
+  });
+
+  it('keeps known statuses unchanged and falls back unknown values to pending', () => {
+    expect(normalizeOrderDetailsShippingStatus('shipped')).toBe('shipped');
+    expect(normalizeOrderDetailsShippingStatus('not-real')).toBe('pending');
   });
 });

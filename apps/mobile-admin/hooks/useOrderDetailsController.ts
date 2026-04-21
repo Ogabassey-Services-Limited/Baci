@@ -10,6 +10,7 @@ import {
   getOrderCurrencySymbol,
   getOrderSourceInfo,
   getOrderStatusColor,
+  normalizeOrderDetailsShippingStatus,
 } from '@/components/orders/order-details.helpers';
 import { createOrderDetailsContactActions } from '@/hooks/createOrderDetailsContactActions';
 import { createOrderDetailsPaymentActions } from '@/hooks/createOrderDetailsPaymentActions';
@@ -175,10 +176,10 @@ export function useOrderDetailsController() {
     setShowReceiptPreview: uiState.setShowReceiptPreview,
   });
 
-  const shippingConfig = order?.shipping_status
-    ? SHIPPING_STATUS_CONFIG[order.shipping_status as ShippingStatus] ||
-      SHIPPING_STATUS_CONFIG.pending
-    : SHIPPING_STATUS_CONFIG.pending;
+  const normalizedShippingStatus = normalizeOrderDetailsShippingStatus(
+    order?.shipping_status
+  );
+  const shippingConfig = SHIPPING_STATUS_CONFIG[normalizedShippingStatus];
   const paymentConfig = order?.payment_status
     ? PAYMENT_STATUS_CONFIG[order.payment_status as PaymentStatus] ||
       PAYMENT_STATUS_CONFIG.pending

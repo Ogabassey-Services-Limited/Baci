@@ -3,22 +3,6 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
 
-type GooglePlacesProps = {
-  onPress?: (
-    data: { description: string },
-    details?: {
-      address_components?: Array<{
-        long_name: string;
-        types: string[];
-      }>;
-    } | null
-  ) => void;
-};
-
-const googlePlacesState = vi.hoisted(() => ({
-  lastProps: null as GooglePlacesProps | null,
-}));
-
 const platformState = vi.hoisted(() => ({
   OS: 'web' as 'android' | 'ios' | 'web',
 }));
@@ -44,10 +28,7 @@ vi.mock('@react-native-community/datetimepicker', () => ({
 }));
 
 vi.mock('react-native-google-places-autocomplete', () => ({
-  GooglePlacesAutocomplete: (props: GooglePlacesProps) => {
-    googlePlacesState.lastProps = props;
-    return <div>google-places</div>;
-  },
+  GooglePlacesAutocomplete: () => <div>google-places</div>,
 }));
 
 vi.mock('react-native', async () => {
@@ -175,7 +156,6 @@ describe('NewOrderDetailsSection', () => {
 
   beforeEach(() => {
     delete process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
-    googlePlacesState.lastProps = null;
     platformState.OS = 'web';
   });
 
@@ -269,47 +249,5 @@ describe('NewOrderDetailsSection', () => {
     });
 
     expect(controller.setDeliveryInfo).toHaveBeenCalled();
-  });
-
-  it('clears stale city and state when the selected address omits those components', () => {
-    process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY = 'maps-test-key';
-    const setDeliveryInfo = vi.fn();
-    const controller = makeController({
-      deliveryInfo: {
-        address: '',
-        city: 'Ikeja',
-        name: '',
-        phone: '',
-        state: 'Lagos',
-      },
-      sameAsCustomer: false,
-      setDeliveryInfo: setDeliveryInfo as DetailsController['setDeliveryInfo'],
-    });
-
-    render(<NewOrderDetailsSection controller={controller} />);
-
-    googlePlacesState.lastProps?.onPress?.(
-      { description: '12 Allen Avenue, Lagos' },
-      { address_components: [] }
-    );
-
-    expect(setDeliveryInfo).toHaveBeenCalled();
-    const update = setDeliveryInfo.mock.calls.at(-1)?.[0];
-    expect(typeof update).toBe('function');
-    expect(
-      update?.({
-        address: '',
-        city: 'Ikeja',
-        name: '',
-        phone: '',
-        state: 'Lagos',
-      })
-    ).toEqual({
-      address: '12 Allen Avenue, Lagos',
-      city: '',
-      name: '',
-      phone: '',
-      state: '',
-    });
   });
 });

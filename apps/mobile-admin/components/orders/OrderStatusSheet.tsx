@@ -2,6 +2,7 @@ import { SHIPPING_STATUS_ACTIONS, SHIPPING_STATUS_CONFIG } from '@baci/shared';
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppSheetModal } from '@/components/ui/AppSheetModal';
+import { normalizeOrderDetailsShippingStatus } from './order-details.helpers';
 import {
   RADIUS,
   SPACING,
@@ -56,12 +57,9 @@ export function OrderStatusSheet({
   shippingStatus,
   visible,
 }: OrderStatusSheetProps) {
-  const normalizedStatus: ShippingStatusKey =
-    shippingStatus === 'fulfilled'
-      ? 'pending'
-      : shippingStatus in SHIPPING_STATUS_CONFIG
-        ? (shippingStatus as ShippingStatusKey)
-        : 'pending';
+  const normalizedStatus = normalizeOrderDetailsShippingStatus(
+    shippingStatus
+  ) as ShippingStatusKey;
   const availableActions = new Map(
     (SHIPPING_STATUS_ACTIONS[normalizedStatus] ?? []).map((action) => [
       action.nextStatus,

@@ -1,5 +1,21 @@
+import {
+  SHIPPING_STATUS_CONFIG,
+  type ShippingStatus,
+} from '@baci/shared';
 import type { ThemeColors } from '@/constants/theme';
 import type { OrderSourceInfo } from './order-details.types';
+
+export function normalizeOrderDetailsShippingStatus(
+  status: string | null | undefined
+): ShippingStatus {
+  if (status === 'fulfilled') {
+    return 'delivered';
+  }
+
+  return status && status in SHIPPING_STATUS_CONFIG
+    ? (status as ShippingStatus)
+    : 'pending';
+}
 
 export function getOrderStatusColor(
   colors: ThemeColors,

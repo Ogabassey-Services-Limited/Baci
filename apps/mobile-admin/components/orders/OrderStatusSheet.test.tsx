@@ -166,4 +166,24 @@ describe('OrderStatusSheet', () => {
 
     expect(screen.getByRole('button', { name: 'Returned' })).toBeDisabled();
   });
+
+  it('treats legacy fulfilled orders as delivered in the status sheet', () => {
+    const onSelectStatus = vi.fn();
+
+    render(
+      <OrderStatusSheet
+        colors={colors}
+        onClose={vi.fn()}
+        onSelectStatus={onSelectStatus}
+        shippingStatus="fulfilled"
+        visible={true}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Delivered' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Process Return' }));
+
+    expect(onSelectStatus).toHaveBeenCalledWith('returned');
+  });
 });

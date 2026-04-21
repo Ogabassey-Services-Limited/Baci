@@ -4,6 +4,7 @@ import { Fragment } from 'react';
 import { Text, View } from 'react-native';
 import type { ThemeColors } from '@/constants/theme';
 import { getTranslucentColor } from '@/lib/colors/sanitize-css-color';
+import { normalizeOrderDetailsShippingStatus } from './order-details.helpers';
 import type { OrderSourceInfo } from './order-details.types';
 import { orderDetailsOverviewStyles as styles } from './order-details-overview.styles';
 
@@ -31,8 +32,7 @@ export function OrderDetailsStatusCard({
   updatedAtLabel,
 }: OrderDetailsStatusCardProps) {
   const baseSteps = ['pending', 'processing', 'shipped', 'delivered'];
-  const currentStatus =
-    shippingStatus === 'fulfilled' ? 'delivered' : shippingStatus;
+  const currentStatus = normalizeOrderDetailsShippingStatus(shippingStatus);
   const steps = [...baseSteps];
   if (currentStatus === 'returned' || currentStatus === 'cancelled') {
     // Replace the terminal 'delivered' step so the final step reflects the

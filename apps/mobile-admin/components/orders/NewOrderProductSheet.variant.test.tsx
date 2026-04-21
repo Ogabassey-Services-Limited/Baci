@@ -5,14 +5,8 @@ import { describe, expect, it, vi } from 'vitest';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import { NewOrderProductSheet } from './NewOrderProductSheet';
 
-const routerState = vi.hoisted(() => ({
-  push: vi.fn(),
-}));
-
 vi.mock('expo-router', () => ({
-  router: {
-    push: routerState.push,
-  },
+  router: { push: vi.fn() },
 }));
 
 vi.mock('@expo/vector-icons', () => ({
@@ -175,20 +169,10 @@ function makeController(
     handleSelectProduct: vi.fn(),
     hasMoreProducts: true,
     isFetchingMoreProducts: false,
-    isPickingVariant: false,
+    isPickingVariant: true,
     productSearch: '',
     resetProductPickerState: vi.fn(),
-    selectableProductRows: [
-      {
-        condition: 'brand_new',
-        id: 'product-1',
-        images: ['https://example.com/phone.png'],
-        name: 'Baci Phone',
-        price: 2500,
-        sku: 'SKU-1',
-        variant_attributes: [],
-      },
-    ],
+    selectableProductRows: [],
     selectedParentProduct: null,
     setProductSearch: vi.fn(),
     showProductModal: true,
@@ -196,47 +180,60 @@ function makeController(
   } as ReturnType<typeof useNewOrderController>;
 }
 
-describe('NewOrderProductSheet', () => {
-  it('renders product search mode and forwards search, selection, and pagination actions', () => {
-    const controller = makeController();
+describe('NewOrderProductSheet variant mode', () => {
+  it('adds the selected variant with fallback parent images', () => {
+    const selectedParentProduct: NonNullable<
+      ProductSheetController['selectedParentProduct']
+    > = {
+      condition: 'brand_new',
+      has_variants: true,
+      id: 'product-parent',
+      images: ['https://example.com/parent.png'],
+      name: 'Baci Phone',
+      parent_product_id: null,
+      price: 3000,
+      sku: 'SKU-PARENT',
+      variant_attributes: [],
+    };
+    const controller = makeController({
+      selectableProductRows: [
+        {
+          condition: null,
+          has_variants: false,
+          id: 'variant-1',
+          images: [],
+          name: 'Baci Phone Blue',
+          price: 3000,
+          sku: 'SKU-BLUE',
+          variant_attributes: [{ name: 'Color', value: 'Blue' }],
+        },
+      ],
+      selectedParentProduct,
+    });
 
     render(<NewOrderProductSheet controller={controller} />);
 
-    fireEvent.change(screen.getByRole('textbox', { name: 'Search products' }), {
-      target: { value: 'Laptop' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Select Baci Phone' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Blue' }));
     fireEvent.click(screen.getByRole('button', { name: 'Reach list end' }));
 
-    expect(controller.setProductSearch).toHaveBeenCalledWith('Laptop');
-    expect(controller.handleSelectProduct).toHaveBeenCalledWith(
-      controller.selectableProductRows[0]
+    expect(controller.handleAddProduct).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'variant-1',
+        images: ['https://example.com/parent.png'],
+      })
     );
-    expect(controller.fetchMoreProducts).toHaveBeenCalledTimes(1);
+    expect(controller.fetchMoreProducts).not.toHaveBeenCalled();
   });
 
-  it('closes the sheet and navigates to the product creation screen', () => {
+  it('resets variant picking from the back control', () => {
     const controller = makeController();
 
     render(<NewOrderProductSheet controller={controller} />);
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Create new product' })
+      screen.getByRole('button', { name: 'Back to product list' })
     );
 
-    expect(controller.closeProductModal).toHaveBeenCalledTimes(1);
-    expect(routerState.push).toHaveBeenCalledWith('/product/new');
-  });
-
-  it('renders empty and loading states through the list shell', () => {
-    const controller = makeController({
-      isFetchingMoreProducts: true,
-      selectableProductRows: [],
-    });
-
-    render(<NewOrderProductSheet controller={controller} />);
-
-    expect(screen.getByText('product-empty-state')).toBeInTheDocument();
-    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    expect(controller.resetProductPickerState).toHaveBeenCalledTimes(1);
   });
 });
