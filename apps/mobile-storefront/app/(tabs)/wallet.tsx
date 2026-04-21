@@ -19,6 +19,7 @@ import { useAuthStatus } from '@/hooks/use-auth-guard';
 import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
 import { useWallet } from '@/hooks/use-wallet';
 import { useTheme } from '@/hooks/useTheme';
+import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import { WALLET_TAB_SCROLL_PADDING_BOTTOM } from './wallet.constants';
 import { walletStyles as styles } from './wallet.styles';
 
@@ -30,14 +31,6 @@ export default function WalletTabScreen() {
   // Auth gating handled by tab layout listener — this is a fallback for edge cases
   // e.g., user signs out while already viewing this tab (tabPress listener won't fire)
   const { isInitialized, user: authUser } = useAuthStatus();
-
-  const formatPrice = (amount: number) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
 
   if (!isInitialized) {
     return (
@@ -123,7 +116,7 @@ export default function WalletTabScreen() {
             Available Balance
           </Text>
           <Text style={[styles.balanceAmount, { color: colors.text }]}>
-            {formatPrice(data?.wallet?.balance ?? 0)}
+            {formatNgnCurrency(data?.wallet?.balance ?? 0)}
           </Text>
           <View style={styles.balanceActions}>
             <Pressable

@@ -20,7 +20,7 @@ type SectionRowProps = {
   subtitleColor?: string;
 };
 
-export default function SettingsSectionRow({
+export function SettingsSectionRow({
   accessibilityLabel,
   accessibilityRole,
   borderBottom,

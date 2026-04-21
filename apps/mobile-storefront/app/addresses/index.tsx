@@ -26,32 +26,11 @@ import {
   ADDRESS_EMPTY_ADD_ACTION_LABEL,
   ADDRESS_LIST_BOTTOM_PADDING,
 } from './constants';
+import { loadAddresses } from './load-addresses';
 import { styles } from './styles';
 import type { Address } from './types';
 
 const log = createLogger('Addresses');
-
-async function fetchSavedAddresses(customerId: string, merchantId: string) {
-  const { data, error: fetchError } = await supabase
-    .from('customers')
-    .select('saved_addresses')
-    .eq('id', customerId)
-    .eq('merchant_id', merchantId)
-    .single();
-
-  if (fetchError) {
-    throw fetchError;
-  }
-
-  const parsed = Array.isArray(data?.saved_addresses)
-    ? (data.saved_addresses as Address[])
-    : [];
-  const normalized = normalizeSavedAddresses(parsed);
-
-  normalized.sort((a, b) => (b.is_default ? 1 : 0) - (a.is_default ? 1 : 0));
-
-  return normalized;
-}
 
 export default function AddressesScreen() {
   const colorScheme = useColorScheme();
@@ -65,69 +44,63 @@ export default function AddressesScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isMountedRef = useRef(true);
   const settingDefaultRef = useRef(false);
-  const fetchAddresses = async () => {
-    if (!customer?.id || !merchantId) {
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      const normalized = await fetchSavedAddresses(customer.id, merchantId);
-      setAddresses(normalized);
-      setError(null);
-    } catch (fetchError) {
-      log.error('Error fetching addresses:', fetchError);
-      setError('Failed to load addresses');
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  };
 
   useEffect(() => {
-    let isMounted = true;
+    const customerId = customer?.id;
+    const activeMerchantId = merchantId;
 
-    const loadInitialAddresses = async () => {
-      if (!customer?.id || !merchantId) {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-        return;
-      }
-
-      try {
-        const normalized = await fetchSavedAddresses(customer.id, merchantId);
-        if (!isMounted) {
-          return;
-        }
-        setAddresses(normalized);
-        setError(null);
-      } catch (fetchError) {
-        if (!isMounted) {
-          return;
-        }
-        log.error('Error fetching addresses:', fetchError);
-        setError('Failed to load addresses');
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-          setIsRefreshing(false);
-        }
-      }
-    };
-
-    void loadInitialAddresses();
+    isMountedRef.current = true;
+    void loadAddresses({
+      customerId,
+      merchantId: activeMerchantId,
+      isMountedRef,
+      setAddresses,
+      setError,
+      setIsLoading,
+      setIsRefreshing,
+      settleLoading: true,
+      settleRefreshing: true,
+    });
 
     return () => {
-      isMounted = false;
+      isMountedRef.current = false;
     };
   }, [customer?.id, merchantId]);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
-    void fetchAddresses();
+    void loadAddresses({
+      customerId: customer?.id,
+      merchantId,
+      isMountedRef,
+      setAddresses,
+      setError,
+      setIsLoading,
+      setIsRefreshing,
+      settleRefreshing: true,
+    });
   };
+
+  const centeredContainerStyle = [
+    styles.container,
+    styles.centered,
+    { backgroundColor: colors.background },
+  ];
+  const handleRetry = () =>
+    void loadAddresses({
+      customerId: customer?.id,
+      merchantId,
+      isMountedRef,
+      setAddresses,
+      setError,
+      setIsLoading,
+      setIsRefreshing,
+      settleLoading: true,
+      settleRefreshing: true,
+    });
+  const handleAddAddress = () => router.push('/addresses/new');
 
   const handleSetDefault = async (addressId: string) => {
     if (settingDefaultRef.current || !customer?.id || !merchantId) return;
@@ -147,7 +120,15 @@ export default function AddressesScreen() {
 
       if (updateError) throw updateError;
 
-      void fetchAddresses();
+      void loadAddresses({
+        customerId: customer.id,
+        merchantId,
+        isMountedRef,
+        setAddresses,
+        setError,
+        setIsLoading,
+        setIsRefreshing,
+      });
     } catch (updateError) {
       log.error('Error setting default address:', updateError);
       Alert.alert('Error', 'Failed to set default address');
@@ -211,27 +192,15 @@ export default function AddressesScreen() {
       />
 
       {isAuthLoading || isLoading ? (
-        <View
-          style={[
-            styles.container,
-            styles.centered,
-            { backgroundColor: colors.background },
-          ]}
-        >
+        <View style={centeredContainerStyle}>
           <ActivityIndicator size="large" color={BRAND.primary} />
         </View>
       ) : error ? (
-        <View
-          style={[
-            styles.container,
-            styles.centered,
-            { backgroundColor: colors.background },
-          ]}
-        >
+        <View style={centeredContainerStyle}>
           <Text style={[styles.errorText, { color: colors.text }]}>
             {error}
           </Text>
-          <TouchableOpacity onPress={() => void fetchAddresses()}>
+          <TouchableOpacity onPress={handleRetry}>
             <Text style={[styles.retryText, { color: BRAND.primary }]}>
               Tap to retry
             </Text>
@@ -260,10 +229,7 @@ export default function AddressesScreen() {
             addresses.length === 0 && styles.emptyListContent,
           ]}
           ListEmptyComponent={
-            <AddressEmptyState
-              colors={colors}
-              onAddPress={() => router.push('/addresses/new')}
-            />
+            <AddressEmptyState colors={colors} onAddPress={handleAddAddress} />
           }
           refreshControl={
             <RefreshControl
@@ -282,9 +248,7 @@ export default function AddressesScreen() {
           style={[styles.floatingButton, { backgroundColor: BRAND.primary }]}
           accessibilityRole="button"
           accessibilityLabel={ADDRESS_EMPTY_ADD_ACTION_LABEL}
-          onPress={() => {
-            router.push('/addresses/new');
-          }}
+          onPress={handleAddAddress}
         >
           <Ionicons
             name="add"

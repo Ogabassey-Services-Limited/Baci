@@ -23,8 +23,8 @@ import { queryClient } from '@/lib/query-client';
 import { removeStorageItems } from '@/lib/storage';
 import { type AppearanceMode, useSettingsStore } from '@/stores/settings-store';
 import { ABOUT_LINKS, APPEARANCE_OPTIONS } from './constants';
-import SettingsCardSection from './SettingsCardSection';
-import SettingsSectionRow from './SettingsSectionRow';
+import { SettingsCardSection } from './SettingsCardSection';
+import { SettingsSectionRow } from './SettingsSectionRow';
 import { styles } from './styles';
 
 export default function SettingsScreen() {
@@ -131,6 +131,8 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <SettingsCardSection
+          cardBackgroundColor={colors.card}
+          cardBorderColor={colors.border}
           title="APPEARANCE"
           titleColor={colors.textSecondary}
           delay={100}
@@ -179,6 +181,8 @@ export default function SettingsScreen() {
         </SettingsCardSection>
 
         <SettingsCardSection
+          cardBackgroundColor={colors.card}
+          cardBorderColor={colors.border}
           title="NOTIFICATIONS"
           titleColor={colors.textSecondary}
           delay={200}
@@ -212,6 +216,8 @@ export default function SettingsScreen() {
         </SettingsCardSection>
 
         <SettingsCardSection
+          cardBackgroundColor={colors.card}
+          cardBorderColor={colors.border}
           title="ABOUT"
           titleColor={colors.textSecondary}
           delay={300}
@@ -255,6 +261,8 @@ export default function SettingsScreen() {
         </SettingsCardSection>
 
         <SettingsCardSection
+          cardBackgroundColor={colors.card}
+          cardBorderColor={colors.border}
           title="DATA"
           titleColor={colors.textSecondary}
           delay={400}

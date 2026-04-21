@@ -2,6 +2,7 @@ import type {
   UtilityHistoryFilter,
   VTUHistoryTransaction,
 } from '@/hooks/use-vtu-history';
+import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import {
   UTILITY_HISTORY_FILTERS,
   UTILITY_HISTORY_TYPE_LABELS,
@@ -17,58 +18,50 @@ type UtilityHistoryDetailData = Pick<
   'customer_identifier' | 'customer_name' | 'phone_number' | 'type'
 >;
 
-export function resolveUtilityHistoryFilter(
-  type?: string
-): UtilityHistoryFilter {
-  return UTILITY_HISTORY_FILTERS.some((filter) => filter.id === type)
-    ? (type as UtilityHistoryFilter)
-    : 'all';
-}
+export const utilityHistoryHelpers = {
+  formatAmount(amount: number): string {
+    return formatNgnCurrency(amount);
+  },
 
-export function formatUtilityHistoryAmount(amount: number): string {
-  return new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
-    minimumFractionDigits: 0,
-  }).format(amount);
-}
+  formatDate(dateString: string) {
+    const parsedDate = new Date(dateString);
 
-export function formatUtilityHistoryDate(dateString: string) {
-  const parsedDate = new Date(dateString);
+    if (Number.isNaN(parsedDate.getTime())) {
+      return '-';
+    }
 
-  if (Number.isNaN(parsedDate.getTime())) {
-    return '-';
-  }
+    return parsedDate.toLocaleString('en-NG', {
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  },
 
-  return parsedDate.toLocaleString('en-NG', {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
+  getTransactionDetail(transaction: UtilityHistoryDetailData) {
+    if (transaction.type === 'airtime' || transaction.type === 'data') {
+      return transaction.phone_number || 'Phone number unavailable';
+    }
 
-export function getUtilityHistoryTransactionTitle(
-  transaction: UtilityHistoryTitleData
-) {
-  return (
-    transaction.biller_name ||
-    transaction.network_provider ||
-    UTILITY_HISTORY_TYPE_LABELS[transaction.type] ||
-    'Utility payment'
-  );
-}
+    return (
+      transaction.customer_identifier ||
+      transaction.customer_name ||
+      'Customer identifier unavailable'
+    );
+  },
 
-export function getUtilityHistoryTransactionDetail(
-  transaction: UtilityHistoryDetailData
-) {
-  if (transaction.type === 'airtime' || transaction.type === 'data') {
-    return transaction.phone_number || 'Phone number unavailable';
-  }
+  getTransactionTitle(transaction: UtilityHistoryTitleData) {
+    return (
+      transaction.biller_name ||
+      transaction.network_provider ||
+      UTILITY_HISTORY_TYPE_LABELS[transaction.type] ||
+      'Utility payment'
+    );
+  },
 
-  return (
-    transaction.customer_identifier ||
-    transaction.customer_name ||
-    'Customer identifier unavailable'
-  );
-}
+  resolveFilter(type?: string): UtilityHistoryFilter {
+    return UTILITY_HISTORY_FILTERS.some((filter) => filter.id === type)
+      ? (type as UtilityHistoryFilter)
+      : 'all';
+  },
+} as const;

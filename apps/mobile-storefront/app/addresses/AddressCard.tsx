@@ -16,8 +16,8 @@ import {
   ADDRESS_MENU_CANCEL_ACTION_LABEL,
   ADDRESS_MENU_TITLE,
   ADDRESS_SET_DEFAULT_ACTION_LABEL,
-  getAddressLabelIcon,
 } from './constants';
+import { getAddressLabelIcon } from './get-address-label-icon';
 import { styles } from './styles';
 import type { Address } from './types';
 

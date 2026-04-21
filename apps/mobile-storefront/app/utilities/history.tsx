@@ -23,13 +23,7 @@ import {
   UTILITY_HISTORY_STYLE_TOKENS,
   UTILITY_HISTORY_TYPE_LABELS,
 } from './history.constants';
-import {
-  formatUtilityHistoryAmount,
-  formatUtilityHistoryDate,
-  getUtilityHistoryTransactionDetail,
-  getUtilityHistoryTransactionTitle,
-  resolveUtilityHistoryFilter,
-} from './history.helpers';
+import { utilityHistoryHelpers } from './history.helpers';
 import { styles } from './history.styles';
 
 export default function UtilityHistoryScreen() {
@@ -39,7 +33,7 @@ export default function UtilityHistoryScreen() {
   const { getScrollContentStyle } = useStorefrontInsets();
   const { isLoading: authLoading, redirectTo } = useRequireAuth();
   const [selectedFilter, setSelectedFilter] = useState<UtilityHistoryFilter>(
-    resolveUtilityHistoryFilter(type)
+    utilityHistoryHelpers.resolveFilter(type)
   );
   const {
     data: transactions,
@@ -50,7 +44,7 @@ export default function UtilityHistoryScreen() {
   } = useVTUHistory(selectedFilter, 30);
 
   useEffect(() => {
-    setSelectedFilter(resolveUtilityHistoryFilter(type));
+    setSelectedFilter(utilityHistoryHelpers.resolveFilter(type));
   }, [type]);
 
   const scrollContentStyle = getScrollContentStyle({
@@ -90,7 +84,7 @@ export default function UtilityHistoryScreen() {
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
-              onRefresh={() => refetch()}
+              onRefresh={refetch}
               tintColor={BRAND.primary}
             />
           }
@@ -185,7 +179,7 @@ export default function UtilityHistoryScreen() {
                         ]}
                         numberOfLines={2}
                       >
-                        {getUtilityHistoryTransactionTitle(transaction)}
+                        {utilityHistoryHelpers.getTransactionTitle(transaction)}
                       </Text>
                       <Text
                         style={[
@@ -194,13 +188,15 @@ export default function UtilityHistoryScreen() {
                         ]}
                       >
                         {UTILITY_HISTORY_TYPE_LABELS[transaction.type]} •{' '}
-                        {getUtilityHistoryTransactionDetail(transaction)}
+                        {utilityHistoryHelpers.getTransactionDetail(
+                          transaction
+                        )}
                       </Text>
                     </View>
                     <Text
                       style={[styles.transactionAmount, { color: colors.text }]}
                     >
-                      {formatUtilityHistoryAmount(transaction.amount)}
+                      {utilityHistoryHelpers.formatAmount(transaction.amount)}
                     </Text>
                   </View>
 
@@ -208,7 +204,7 @@ export default function UtilityHistoryScreen() {
                     <Text
                       style={[styles.metaText, { color: colors.textSecondary }]}
                     >
-                      {formatUtilityHistoryDate(transaction.created_at)}
+                      {utilityHistoryHelpers.formatDate(transaction.created_at)}
                     </Text>
                     <View
                       style={[
@@ -246,16 +242,28 @@ export default function UtilityHistoryScreen() {
 
                   {transaction.customer_cashback &&
                   transaction.customer_cashback > 0 ? (
-                    <Text style={[styles.cashbackText, { color: '#15803D' }]}>
+                    <Text
+                      style={[
+                        styles.cashbackText,
+                        {
+                          color: UTILITY_HISTORY_STATUS_COLORS.successful,
+                        },
+                      ]}
+                    >
                       Cashback:{' '}
-                      {formatUtilityHistoryAmount(
+                      {utilityHistoryHelpers.formatAmount(
                         transaction.customer_cashback
                       )}
                     </Text>
                   ) : null}
 
                   {transaction.error_message ? (
-                    <Text style={[styles.errorText, { color: '#B91C1C' }]}>
+                    <Text
+                      style={[
+                        styles.errorText,
+                        { color: UTILITY_HISTORY_STATUS_COLORS.failed },
+                      ]}
+                    >
                       {transaction.error_message}
                     </Text>
                   ) : null}

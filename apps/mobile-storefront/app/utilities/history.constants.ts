@@ -1,3 +1,4 @@
+import { palette } from '@/constants/Colors';
 import type {
   UtilityHistoryFilter,
   VTUHistoryTransaction,
@@ -24,9 +25,9 @@ export const UTILITY_HISTORY_TYPE_LABELS = {
 } as const satisfies Record<VTUHistoryTransaction['type'], string>;
 
 export const UTILITY_HISTORY_STATUS_COLORS = {
-  failed: '#B91C1C',
-  pending: '#92400E',
-  successful: '#15803D',
+  failed: palette.red[700],
+  pending: palette.amber[800],
+  successful: palette.emerald[700],
 } as const;
 
 export const UTILITY_HISTORY_STYLE_TOKENS = {

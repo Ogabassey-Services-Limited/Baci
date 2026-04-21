@@ -83,4 +83,30 @@ describe('AddressCard', () => {
       ])
     );
   });
+
+  it('omits the set default menu action when the address is already default', () => {
+    const alertSpy = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation(() => undefined);
+
+    render(
+      <AddressCard
+        address={{ ...address, is_default: true }}
+        colors={colors}
+        onDelete={jest.fn()}
+        onEdit={jest.fn()}
+        onSetDefault={jest.fn()}
+      />
+    );
+
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Address options for Home' })
+    );
+
+    const actions = alertSpy.mock.calls[0]?.[2] ?? [];
+
+    expect(actions).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ text: 'Set Default' })])
+    );
+  });
 });

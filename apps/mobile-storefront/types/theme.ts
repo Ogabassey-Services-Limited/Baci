@@ -1,7 +1,6 @@
-export interface ThemeColors {
-  background: string;
-  card: string;
-  border: string;
-  text: string;
-  textSecondary: string;
-}
+type ThemePalette = typeof import('@/constants/Colors').default;
+
+export type ThemeColors = Pick<
+  ThemePalette['light'],
+  'background' | 'border' | 'card' | 'text' | 'textSecondary'
+>;

@@ -13,9 +13,10 @@ type MockStorefrontScreenShellProps = {
 const mockStorefrontScreenShell =
   jest.fn<({ children, edges }: MockStorefrontScreenShellProps) => void>();
 const mockGetScrollContentStyle = jest.fn();
-const mockRegisterPush = jest.fn();
+const mockRegisterPush = jest.fn<(...args: unknown[]) => Promise<void>>();
 const mockSetAppearance = jest.fn();
-const mockUnregisterPush = jest.fn();
+const mockToastError = jest.fn();
+const mockUnregisterPush = jest.fn<() => Promise<void>>();
 const mockUseStorefrontInsets = jest.fn();
 const mockUsePushNotifications = jest.fn();
 const mockUseToast = jest.fn();
@@ -113,7 +114,7 @@ describe('SettingsScreen', () => {
     });
     mockUseToast.mockReturnValue({
       Toast: () => <View testID="toast-root" />,
-      error: jest.fn(),
+      error: mockToastError,
       success: jest.fn(),
     });
   });
@@ -150,5 +151,23 @@ describe('SettingsScreen', () => {
     );
 
     expect(mockUnregisterPush).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows an error toast when enabling notifications fails', async () => {
+    mockRegisterPush.mockRejectedValueOnce(new Error('push failed'));
+
+    render(<SettingsScreen />);
+
+    fireEvent(
+      screen.getByLabelText('Toggle push notifications'),
+      'valueChange',
+      true
+    );
+
+    await screen.findByTestId('toast-root');
+
+    expect(mockToastError).toHaveBeenCalledWith(
+      'Failed to update notification settings. Please try again.'
+    );
   });
 });

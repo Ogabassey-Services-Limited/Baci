@@ -1,7 +1,7 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { Text } from 'react-native';
-import SettingsSectionRow from './SettingsSectionRow';
+import { SettingsSectionRow } from './SettingsSectionRow';
 
 describe('SettingsSectionRow', () => {
   it('renders the row copy and triggers onPress', () => {
