@@ -178,6 +178,7 @@ const palette = {
   emerald: {
     400: '#34D399',
     500: '#10B981',
+    700: '#15803D',
   },
   white: '#FFFFFF',
   black: '#000000',
