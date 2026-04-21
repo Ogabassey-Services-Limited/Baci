@@ -15,19 +15,25 @@ import {
   SUPPORT_PHONE_E164,
   SUPPORT_WHATSAPP_PHONE,
 } from '@/constants/Support';
+import { useMerchant } from '@/hooks/use-merchant';
 import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
 import { FAQAccordion } from './FAQAccordion';
 import { FAQStoreInfo } from './FAQStoreInfo';
 import { FAQSupportGrid, type FAQSupportOption } from './FAQSupportGrid';
-import { faqItems, storeAddress, storeHours } from './faq-data';
+import { fallbackStoreHours, faqItems } from './faq-data';
 
 const SUPPORT_WHATSAPP_MESSAGE = 'Hi, I need help with my order';
+const FALLBACK_STORE_ADDRESS =
+  'Address available on request. Use the contact options above for the latest store location.';
 
 export default function FAQScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const { getScrollContentStyle } = useStorefrontInsets();
+  const { data: merchant } = useMerchant();
+  const storeAddress =
+    merchant?.business_address?.trim() || FALLBACK_STORE_ADDRESS;
 
   const openSupportLink = (url: string, title: string, message: string) => {
     void Linking.openURL(url).catch(() => {
@@ -137,7 +143,7 @@ export default function FAQScreen() {
         <FAQStoreInfo
           address={storeAddress}
           cardColor={colors.card}
-          hours={storeHours}
+          hours={fallbackStoreHours}
           secondaryTextColor={colors.textSecondary}
           textColor={colors.text}
         />

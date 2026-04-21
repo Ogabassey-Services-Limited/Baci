@@ -4,9 +4,16 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, Layout } from 'react-native-reanimated';
 import { BLURHASH_VARIANTS } from '@/components/storefront/ProductCard';
 import type Colors from '@/constants/Colors';
-import { BRAND, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
+import {
+  BRAND,
+  RADIUS,
+  SHADOWS,
+  SPACING,
+  TYPOGRAPHY,
+} from '@/constants/Colors';
 import type { SavedItem } from '@/stores/saved-store';
 import { formatPrice, getDiscountPercentage } from '@/types/product';
+import { SAVED_ITEM_CARD_STYLE_TOKENS } from './saved-item-card.constants';
 
 interface SavedItemCardProps {
   colors: (typeof Colors)['light'] | (typeof Colors)['dark'];
@@ -120,6 +127,9 @@ export function SavedItemCard({
             name="heart-dislike-outline"
             size={18}
             color={colors.textSecondary}
+            accessible={false}
+            accessibilityElementsHidden
+            importantForAccessibility="no"
           />
           <Text
             style={[styles.actionButtonText, { color: colors.textSecondary }]}
@@ -137,7 +147,14 @@ export function SavedItemCard({
           accessibilityRole="button"
           accessibilityLabel={`Add ${item.name} to cart`}
         >
-          <Ionicons name="cart-outline" size={18} color={colors.white} />
+          <Ionicons
+            name="cart-outline"
+            size={18}
+            color={colors.white}
+            accessible={false}
+            accessibilityElementsHidden
+            importantForAccessibility="no"
+          />
           <Text style={[styles.primaryActionText, { color: colors.white }]}>
             Add to Cart
           </Text>
@@ -172,12 +189,13 @@ const styles = StyleSheet.create({
     top: SPACING.xs,
     left: SPACING.xs,
     backgroundColor: BRAND.primary,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal:
+      SAVED_ITEM_CARD_STYLE_TOKENS.discountBadgePaddingHorizontal,
+    paddingVertical: SAVED_ITEM_CARD_STYLE_TOKENS.discountBadgePaddingVertical,
     borderRadius: RADIUS.sm,
   },
   discountText: {
-    fontSize: 10,
+    fontSize: SAVED_ITEM_CARD_STYLE_TOKENS.discountTextSize,
     fontWeight: '700',
   },
   infoContainer: {
@@ -186,16 +204,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   brandText: {
-    fontSize: 11,
+    fontSize: SAVED_ITEM_CARD_STYLE_TOKENS.brandTextSize,
     fontWeight: '600',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 2,
+    letterSpacing: SAVED_ITEM_CARD_STYLE_TOKENS.brandLetterSpacing,
+    marginBottom: SAVED_ITEM_CARD_STYLE_TOKENS.microSpacing,
   },
   nameText: {
-    fontSize: 15,
+    fontSize: SAVED_ITEM_CARD_STYLE_TOKENS.nameTextSize,
     fontWeight: '600',
-    lineHeight: 20,
+    lineHeight: TYPOGRAPHY.size.lg,
     marginBottom: SPACING.xs,
   },
   priceRow: {
@@ -205,15 +223,15 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.xs,
   },
   priceText: {
-    fontSize: 16,
+    fontSize: SAVED_ITEM_CARD_STYLE_TOKENS.priceTextSize,
     fontWeight: '700',
   },
   comparePriceText: {
-    fontSize: 13,
+    fontSize: SAVED_ITEM_CARD_STYLE_TOKENS.secondaryTextSize,
     textDecorationLine: 'line-through',
   },
   savedDateText: {
-    fontSize: 11,
+    fontSize: SAVED_ITEM_CARD_STYLE_TOKENS.metaTextSize,
   },
   actionsRow: {
     flexDirection: 'row',
@@ -235,11 +253,11 @@ const styles = StyleSheet.create({
   },
   cartButton: {},
   actionButtonText: {
-    fontSize: 13,
+    fontSize: SAVED_ITEM_CARD_STYLE_TOKENS.secondaryTextSize,
     fontWeight: '600',
   },
   primaryActionText: {
-    fontSize: 13,
+    fontSize: SAVED_ITEM_CARD_STYLE_TOKENS.secondaryTextSize,
     fontWeight: '600',
   },
 });

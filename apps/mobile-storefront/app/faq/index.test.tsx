@@ -16,10 +16,11 @@ const mockStorefrontScreenShell = jest.fn(({ children, ...props }) => (
 ));
 const mockGetScrollContentStyle = jest.fn();
 const mockUseStorefrontInsets = jest.fn();
+const mockUseMerchant = jest.fn();
 const mockOpenURL = jest.fn<(url: string) => Promise<void>>();
 const mockAlert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
 const trackingAnswer =
-  'You can track your order by going to "Orders" in the menu. Each order has a status indicator and tracking information when available. You\'ll also receive SMS and email updates as your order progresses.';
+  'Go to the Orders section in the app to view your latest order status, delivery progress, and any tracking details shared by the merchant.';
 
 jest.mock('expo-router', () => ({
   Stack: {
@@ -48,6 +49,10 @@ jest.mock('@/hooks/use-storefront-insets', () => ({
   useStorefrontInsets: () => mockUseStorefrontInsets(),
 }));
 
+jest.mock('@/hooks/use-merchant', () => ({
+  useMerchant: () => mockUseMerchant(),
+}));
+
 describe('FAQScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -55,6 +60,11 @@ describe('FAQScreen', () => {
     mockOpenURL.mockResolvedValue(undefined);
     mockUseStorefrontInsets.mockReturnValue({
       getScrollContentStyle: mockGetScrollContentStyle,
+    });
+    mockUseMerchant.mockReturnValue({
+      data: {
+        business_address: '42 Marina, Lagos',
+      },
     });
     mockGetScrollContentStyle.mockReturnValue({
       paddingTop: 16,
@@ -74,6 +84,7 @@ describe('FAQScreen', () => {
       })
     );
     expect(screen.getByText('Contact Us')).toBeTruthy();
+    expect(screen.getByLabelText('Address: 42 Marina, Lagos')).toBeTruthy();
   });
 
   it('expands and collapses a question', () => {

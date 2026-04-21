@@ -73,10 +73,12 @@ export default function SavedItemsScreen() {
 
   const handleProductPress = (item: SavedItem) => {
     if (!item.slug) {
-      console.warn('Saved item is missing a product slug', {
-        id: item.id,
-        name: item.name,
-      });
+      if (__DEV__) {
+        console.warn('Saved item is missing a product slug', {
+          id: item.id,
+          name: item.name,
+        });
+      }
       Alert.alert(
         'Product Unavailable',
         'This saved item is no longer available.'

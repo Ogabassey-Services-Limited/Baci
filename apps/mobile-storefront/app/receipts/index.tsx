@@ -33,6 +33,7 @@ import { useNetworkState } from '@/hooks/use-network-state';
 import { useReceiptPreview } from '@/hooks/use-receipt-preview';
 import { receiptDetailQueryOptions, useReceipts } from '@/hooks/use-receipts';
 import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
+import { RECEIPTS_SCREEN_STYLE_TOKENS } from './receipts-screen.constants';
 
 export default function ReceiptsScreen() {
   const colorScheme = useColorScheme();
@@ -237,22 +238,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   errorText: {
-    fontSize: 16,
-    marginTop: 12,
+    fontSize: RECEIPTS_SCREEN_STYLE_TOKENS.errorTextSize,
+    marginTop: RECEIPTS_SCREEN_STYLE_TOKENS.errorTextMarginTop,
   },
   retryText: {
-    fontSize: 14,
+    fontSize: RECEIPTS_SCREEN_STYLE_TOKENS.retryTextSize,
     fontWeight: '600',
-    marginTop: 8,
+    marginTop: RECEIPTS_SCREEN_STYLE_TOKENS.retryTextMarginTop,
   },
   generatingBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 10,
+    gap: RECEIPTS_SCREEN_STYLE_TOKENS.generatingBannerGap,
+    paddingVertical:
+      RECEIPTS_SCREEN_STYLE_TOKENS.generatingBannerPaddingVertical,
   },
   generatingText: {
-    fontSize: 14,
+    fontSize: RECEIPTS_SCREEN_STYLE_TOKENS.generatingTextSize,
   },
 });

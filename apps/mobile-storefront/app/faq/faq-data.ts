@@ -14,55 +14,55 @@ export const faqItems = [
     id: '1',
     question: 'How do I track my order?',
     answer:
-      'You can track your order by going to "Orders" in the menu. Each order has a status indicator and tracking information when available. You\'ll also receive SMS and email updates as your order progresses.',
+      'Go to the Orders section in the app to view your latest order status, delivery progress, and any tracking details shared by the merchant.',
   },
   {
     id: '2',
     question: 'What payment methods do you accept?',
     answer:
-      'We accept multiple payment methods including card payments via Paystack, bank transfers, and Pay on Delivery. We also offer Buy Now Pay Later options through CredPal and Credit Direct for eligible orders.',
+      'Available payment methods are shown at checkout and may vary by merchant, order value, or delivery location.',
   },
   {
     id: '3',
     question: 'How long does delivery take?',
     answer:
-      'Delivery times vary based on your location. Lagos deliveries typically take 1-2 business days, while other states take 2-5 business days. Same-day delivery is available for select areas within Lagos.',
+      'Delivery timelines depend on the merchant, your location, and the shipping option selected at checkout. Review the order summary or contact support for the latest estimate.',
   },
   {
     id: '4',
     question: 'Can I return or exchange an item?',
     answer:
-      'Yes! We offer a 7-day return policy for most items. The product must be in its original condition with all accessories. Contact our support team to initiate a return or exchange.',
+      "Return and exchange eligibility depends on the merchant's policy and the condition of the item. Contact support if you need help starting a return request.",
   },
   {
     id: '5',
-    question: "How do I verify a phone's IMEI?",
+    question: 'How do I contact the merchant?',
     answer:
-      "Use our IMEI Checker feature in the app. Enter the 15-digit IMEI number to check if the device is blacklisted, iCloud locked, or has any other issues. This helps ensure you're buying a legitimate device.",
+      'Use the WhatsApp, call, or email options on this page to reach the merchant directly for order updates, product questions, or after-sales support.',
   },
   {
     id: '6',
-    question: 'What is the Swap/Trade-in program?',
+    question: 'When will I receive a refund?',
     answer:
-      'Our trade-in program lets you exchange your old device for credit towards a new purchase. Simply upload a video of your device, and our AI will provide an instant valuation. Contact us via WhatsApp to complete the swap.',
+      "Approved refunds are usually sent back through the original payment method, but timing can vary by payment provider and the merchant's review process.",
   },
   {
     id: '7',
-    question: 'Are your products genuine?',
+    question: 'Why is an item no longer available?',
     answer:
-      'Yes, all our products are 100% authentic. We source directly from authorized distributors and offer warranty on all new devices. Pre-owned devices are thoroughly tested and verified.',
+      'Product availability can change quickly when stock is low or a merchant updates their catalog. If an item disappears from the app, contact support for the latest availability.',
   },
 ] as const satisfies readonly FaqItem[];
 
-export const storeHours = [
+// TODO(storefront): Replace these generic fallback hours with merchant-managed
+// business hours once the storefront API exposes them.
+export const fallbackStoreHours = [
   {
-    id: 'weekdays',
-    label: 'Monday - Saturday: 9:00 AM - 7:00 PM',
+    id: 'hours-vary',
+    label: 'Opening hours vary by merchant and location.',
   },
   {
-    id: 'sunday',
-    label: 'Sunday: 12:00 PM - 5:00 PM',
+    id: 'contact-support',
+    label: 'Use the support options above for the latest availability.',
   },
 ] as const satisfies readonly StoreHour[];
-
-export const storeAddress = 'Computer Village, Ikeja, Lagos';

@@ -6,7 +6,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import React from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
@@ -28,12 +28,10 @@ export default function CategoryScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const { getListContentStyle } = useStorefrontInsets();
 
-  // BUG-2-004 FIX: Validate slug is non-empty before use
   const isValidSlug = Boolean(
     slug && typeof slug === 'string' && slug.length > 0
   );
 
-  // H10 FIX: Resolve category slug to UUID since Supabase query uses category_id
   const { data: categories = [], isLoading: categoriesLoading } =
     useCategories();
   const categoryId = categories.find((c) => c.slug === slug)?.id;
@@ -45,7 +43,7 @@ export default function CategoryScreen() {
       enabled: !categoriesLoading,
     });
 
-  const [refreshing, setRefreshing] = React.useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -64,7 +62,6 @@ export default function CategoryScreen() {
   };
 
   const getCategoryTitle = (slug: string): string => {
-    // BUG-2-005 FIX: Add basic sanitization and fallback to "Category"
     if (!slug || typeof slug !== 'string' || slug.trim().length === 0) {
       return 'Category';
     }
@@ -111,7 +108,6 @@ export default function CategoryScreen() {
   };
 
   const renderEmpty = () => {
-    // BUG-2-004 FIX: Show error for invalid slug
     if (!isValidSlug) {
       return (
         <View style={styles.emptyContainer}>

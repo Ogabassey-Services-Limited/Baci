@@ -56,6 +56,9 @@ export function FAQSupportGrid({
               name={option.icon}
               size={24}
               color={option.iconColor ?? BRAND.primary}
+              accessible={false}
+              accessibilityElementsHidden
+              importantForAccessibility="no"
             />
           </View>
           <Text style={[styles.title, { color: textColor }]}>
