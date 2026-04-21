@@ -13,7 +13,12 @@ import {
 } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { RADIUS, SPACING, ThemeColors, TYPOGRAPHY } from '@/constants/theme';
+import {
+  RADIUS,
+  SPACING,
+  type ThemeColors,
+  TYPOGRAPHY,
+} from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import { getEmailError } from '@/lib/sanitize';
 import { supabase } from '@/lib/supabase';
@@ -110,62 +115,63 @@ export default function ForgotPasswordScreen() {
   );
 }
 
-const getStyles = (colors: ThemeColors) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    flex: 1,
-    padding: SPACING.lg,
-  },
-  backButton: {
-    marginBottom: SPACING.lg,
-  },
-  header: {
-    marginBottom: SPACING.xl,
-  },
-  title: {
-    fontSize: TYPOGRAPHY.size['3xl'],
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-    color: colors.text,
-    marginBottom: SPACING.sm,
-  },
-  subtitle: {
-    fontSize: TYPOGRAPHY.size.md,
-    color: colors.textSecondary,
-    lineHeight: TYPOGRAPHY.size.md * TYPOGRAPHY.lineHeight.relaxed,
-  },
-  form: {
-    gap: SPACING.lg,
-  },
-  inputGroup: {
-    gap: SPACING.xs,
-  },
-  label: {
-    color: colors.textMuted,
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-  },
-  input: {
-    backgroundColor: colors.inputBg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    color: colors.text,
-    fontSize: TYPOGRAPHY.size.md,
-  },
-  button: {
-    backgroundColor: colors.primary,
-    paddingVertical: SPACING.lg,
-    borderRadius: RADIUS.full,
-    alignItems: 'center',
-    marginTop: SPACING.md,
-  },
-  buttonText: {
-    color: colors.textOnPrimary,
-    fontSize: TYPOGRAPHY.size.lg,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-  },
-});
+const getStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    content: {
+      flex: 1,
+      padding: SPACING.lg,
+    },
+    backButton: {
+      marginBottom: SPACING.lg,
+    },
+    header: {
+      marginBottom: SPACING.xl,
+    },
+    title: {
+      fontSize: TYPOGRAPHY.size['3xl'],
+      fontFamily: TYPOGRAPHY.fontFamily.bold,
+      color: colors.text,
+      marginBottom: SPACING.sm,
+    },
+    subtitle: {
+      fontSize: TYPOGRAPHY.size.md,
+      color: colors.textSecondary,
+      lineHeight: TYPOGRAPHY.size.md * TYPOGRAPHY.lineHeight.relaxed,
+    },
+    form: {
+      gap: SPACING.lg,
+    },
+    inputGroup: {
+      gap: SPACING.xs,
+    },
+    label: {
+      color: colors.textSecondary,
+      fontSize: TYPOGRAPHY.size.sm,
+      fontFamily: TYPOGRAPHY.fontFamily.medium,
+    },
+    input: {
+      backgroundColor: colors.inputBg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: RADIUS.md,
+      padding: SPACING.md,
+      color: colors.text,
+      fontSize: TYPOGRAPHY.size.md,
+    },
+    button: {
+      backgroundColor: colors.primary,
+      paddingVertical: SPACING.lg,
+      borderRadius: RADIUS.full,
+      alignItems: 'center',
+      marginTop: SPACING.md,
+    },
+    buttonText: {
+      color: colors.textOnPrimary,
+      fontSize: TYPOGRAPHY.size.lg,
+      fontFamily: TYPOGRAPHY.fontFamily.bold,
+    },
+  });
