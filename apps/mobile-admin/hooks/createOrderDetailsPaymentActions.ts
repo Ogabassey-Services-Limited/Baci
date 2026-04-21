@@ -22,7 +22,10 @@ interface CreateOrderDetailsPaymentActionsParams {
   setPaymentNotes: (value: string) => void;
   setShowCreditModal: (value: boolean) => void;
   setShowRecordPaymentModal: (value: boolean) => void;
-  shipOnCredit: (input: { creditNotes: string; orderId: string }) => Promise<unknown>;
+  shipOnCredit: (input: {
+    creditNotes: string;
+    orderId: string;
+  }) => Promise<unknown>;
 }
 
 export function createOrderDetailsPaymentActions({
@@ -56,7 +59,12 @@ export function createOrderDetailsPaymentActions({
     setPaymentAmount(parseOrderDetailsCurrencyInput(text));
   };
 
+  let isRecordingPayment = false;
+
   const handleRecordPayment = async () => {
+    if (isRecordingPayment) {
+      return;
+    }
     if (!order) {
       Alert.alert('Error', 'Order details are not available yet');
       return;
@@ -74,6 +82,7 @@ export function createOrderDetailsPaymentActions({
       return;
     }
 
+    isRecordingPayment = true;
     try {
       const result = await recordPayment({
         amount: Number(paymentAmount),
@@ -105,6 +114,8 @@ export function createOrderDetailsPaymentActions({
       Alert.alert('Success', 'Payment recorded. Order is now fully paid.');
     } catch (error: unknown) {
       Alert.alert('Error', getErrorMessage(error, 'Failed to record payment'));
+    } finally {
+      isRecordingPayment = false;
     }
   };
 

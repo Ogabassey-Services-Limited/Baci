@@ -82,10 +82,12 @@ export function NewOrderDetailsSection({
 
         {showDatePicker && (
           <DateTimePicker
+            // iOS uses an inline spinner; Android shows a native modal dialog
             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
             maximumDate={new Date()}
             mode="date"
             onChange={(_event, selectedDate) => {
+              // Android dismisses automatically on selection; iOS keeps the picker open
               if (Platform.OS === 'android') {
                 setShowDatePicker(false);
               }
@@ -181,6 +183,7 @@ export function NewOrderDetailsSection({
           </View>
           <Switch
             onValueChange={setSameAsCustomer}
+            // iOS ignores thumbColor; Android needs explicit colours for on/off states
             thumbColor={
               Platform.OS === 'ios'
                 ? '#fff'

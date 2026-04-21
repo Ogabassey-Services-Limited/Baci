@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
-import type { useNewOrderController } from '@/hooks/useNewOrderController';
+import { Pressable, Text, TextInput, View } from 'react-native';
 import { AppSheetModal } from '@/components/ui/AppSheetModal';
+import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import { formatPriceInput } from './new-order.shared';
 
 interface NewOrderFinancialSheetProps {
@@ -26,6 +26,7 @@ export function NewOrderFinancialSheet({
     setTaxes,
     shadows,
     showFinancialModal,
+    vatRate,
   } = controller;
 
   return (
@@ -94,7 +95,7 @@ export function NewOrderFinancialSheet({
                   marginBottom: 2,
                 }}
               >
-                Apply 7.5% VAT
+                Apply {(vatRate * 100).toFixed(1)}% VAT
               </Text>
               <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
                 Automatic calculation based on subtotal
@@ -148,18 +149,22 @@ export function NewOrderFinancialSheet({
           >
             <Ionicons color={colors.info} name="information-circle" size={24} />
             <View style={{ flex: 1 }}>
-              <Text style={{ color: colors.info, fontSize: 15, fontWeight: '700' }}>
+              <Text
+                style={{ color: colors.info, fontSize: 15, fontWeight: '700' }}
+              >
                 Setup VAT Module
               </Text>
               <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
-                Enable automatic VAT at 7.5%
+                Enable automatic VAT at {(vatRate * 100).toFixed(1)}%
               </Text>
             </View>
             <Ionicons color={colors.info} name="arrow-forward" size={18} />
           </Pressable>
         ) : null}
 
-        <Text style={{ color: colors.textSecondary, fontSize: 14, marginBottom: 8 }}>
+        <Text
+          style={{ color: colors.textSecondary, fontSize: 14, marginBottom: 8 }}
+        >
           {showFinancialModal.type === 'tax' && isVatApplied
             ? 'Calculated VAT Amount'
             : 'Amount (NGN)'}
@@ -218,7 +223,9 @@ export function NewOrderFinancialSheet({
               paddingVertical: 16,
             }}
           >
-            <Text style={{ color: colors.error, fontWeight: '600' }}>Clear</Text>
+            <Text style={{ color: colors.error, fontWeight: '600' }}>
+              Clear
+            </Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"

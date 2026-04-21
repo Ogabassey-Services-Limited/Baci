@@ -201,6 +201,7 @@ export default function ProductEditScreen() {
               }))
             }
             trackColor={{ false: colors.border, true: colors.primary }}
+            // Android requires an explicit thumbColor to render correctly; iOS ignores this prop and relies on system styling.
             thumbColor={
               Platform.OS === 'ios'
                 ? undefined

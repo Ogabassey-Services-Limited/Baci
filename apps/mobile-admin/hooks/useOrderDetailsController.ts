@@ -134,6 +134,7 @@ export function useOrderDetailsController() {
   const shipmentActions = createOrderDetailsShipmentActions({
     fulfillmentDetails: uiState.fulfillmentDetails,
     handleSaveRider: contactActions.handleSaveRider,
+    merchantId: merchant?.id,
     order,
     pendingShipmentMode: uiState.pendingShipmentMode,
     providerBookingAvailable,

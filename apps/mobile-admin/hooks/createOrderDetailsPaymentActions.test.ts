@@ -73,11 +73,12 @@ describe('createOrderDetailsPaymentActions', () => {
 
     await actions.handleRecordPayment();
 
-    const alertArgs = vi.mocked(Alert.alert).mock.calls.find(
-      ([title]) => title === 'Payment Recorded'
-    );
+    const alertArgs = vi
+      .mocked(Alert.alert)
+      .mock.calls.find(([title]) => title === 'Payment Recorded');
     expect(alertArgs).toBeTruthy();
-    alertArgs?.[2]?.[1]?.onPress?.();
+    const btn = alertArgs?.[2]?.find((b) => b.text === 'Yes, Ship on Credit');
+    btn?.onPress?.();
     expect(setShowCreditModal).toHaveBeenCalledWith(true);
   });
 

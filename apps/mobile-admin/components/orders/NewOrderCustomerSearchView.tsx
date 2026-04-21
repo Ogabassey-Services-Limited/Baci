@@ -1,5 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
-import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import { MODAL_FLATLIST_PROPS } from './new-order.shared';
 import { styles } from './new-order.styles';
@@ -15,6 +22,7 @@ export function NewOrderCustomerSearchView({
     colors,
     customerSearch,
     customersData,
+    customersQuery,
     handleSelectCustomer,
     setCustomerSearch,
     setIsCreatingCustomer,
@@ -42,10 +50,14 @@ export function NewOrderCustomerSearchView({
           { borderBottomColor: colors.border, borderBottomWidth: 1 },
         ]}
       >
-        <View style={[styles.iconBox, { backgroundColor: `${colors.primary}20` }]}>
+        <View
+          style={[styles.iconBox, { backgroundColor: `${colors.primary}20` }]}
+        >
           <Ionicons color={colors.primary} name="person-add" size={18} />
         </View>
-        <Text style={[styles.listLabel, { color: colors.primary, fontSize: 16 }]}>
+        <Text
+          style={[styles.listLabel, { color: colors.primary, fontSize: 16 }]}
+        >
           Create new customer
         </Text>
       </Pressable>
@@ -57,6 +69,27 @@ export function NewOrderCustomerSearchView({
         keyExtractor={(item) => item.id}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
+        ListFooterComponent={
+          customersQuery.hasNextPage ? (
+            <Pressable
+              accessibilityLabel="Load more customers"
+              accessibilityRole="button"
+              onPress={() => customersQuery.fetchNextPage()}
+              style={{
+                alignItems: 'center',
+                paddingVertical: 16,
+              }}
+            >
+              {customersQuery.isFetchingNextPage ? (
+                <ActivityIndicator color={colors.primary} size="small" />
+              ) : (
+                <Text style={{ color: colors.primary, fontWeight: '600' }}>
+                  Load more
+                </Text>
+              )}
+            </Pressable>
+          ) : null
+        }
         ListEmptyComponent={
           <View style={{ alignItems: 'center', padding: 32 }}>
             <Text style={{ color: colors.textMuted }}>No customers found</Text>
@@ -81,7 +114,9 @@ export function NewOrderCustomerSearchView({
               },
             ]}
           >
-            <View style={[styles.iconBox, { backgroundColor: colors.cardHover }]}>
+            <View
+              style={[styles.iconBox, { backgroundColor: colors.cardHover }]}
+            >
               <Text
                 style={{
                   color: colors.textSecondary,
@@ -102,7 +137,12 @@ export function NewOrderCustomerSearchView({
               </Text>
             </View>
             {item.total_orders > 0 ? (
-              <View style={[styles.qtyBadge, { backgroundColor: `${colors.success}20` }]}>
+              <View
+                style={[
+                  styles.qtyBadge,
+                  { backgroundColor: `${colors.success}20` },
+                ]}
+              >
                 <Text style={{ color: colors.success, fontSize: 12 }}>
                   {item.total_orders} orders
                 </Text>

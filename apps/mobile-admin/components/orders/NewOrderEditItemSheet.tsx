@@ -1,15 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, Text, TextInput, View } from 'react-native';
-import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import { AppSheetModal } from '@/components/ui/AppSheetModal';
+import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import { formatPriceInput } from './new-order.shared';
 
 interface NewOrderEditItemSheetProps {
   controller: ReturnType<typeof useNewOrderController>;
+  currencySymbol?: string;
 }
 
 export function NewOrderEditItemSheet({
   controller,
+  currencySymbol = '₦',
 }: NewOrderEditItemSheetProps) {
   const {
     colors,
@@ -50,7 +52,10 @@ export function NewOrderEditItemSheet({
           <Text style={{ color: colors.text, fontSize: 22, fontWeight: '800' }}>
             Edit item
           </Text>
-          <Pressable onPress={() => setShowEditItemModal(false)} style={{ padding: 4 }}>
+          <Pressable
+            onPress={() => setShowEditItemModal(false)}
+            style={{ padding: 4 }}
+          >
             <Ionicons color={colors.text} name="close" size={26} />
           </Pressable>
         </View>
@@ -73,8 +78,8 @@ export function NewOrderEditItemSheet({
               lineHeight: 18,
             }}
           >
-            Edits made here apply only to this sale and won’t update your store’s
-            inventory
+            Edits made here apply only to this sale and won’t update your
+            store’s inventory
           </Text>
         </View>
 
@@ -106,7 +111,7 @@ export function NewOrderEditItemSheet({
                 <Text
                   style={{ color: colors.text, fontSize: 16, marginRight: 4 }}
                 >
-                  ₦
+                  {currencySymbol}
                 </Text>
                 <TextInput
                   keyboardType="decimal-pad"
@@ -143,7 +148,10 @@ export function NewOrderEditItemSheet({
               </Text>
               <TextInput
                 keyboardType="number-pad"
-                onChangeText={setEditQtyValue}
+                onChangeText={(text) => {
+                  const clamped = Math.max(1, Math.floor(Number(text) || 1));
+                  setEditQtyValue(String(clamped));
+                }}
                 style={{
                   backgroundColor: colors.backgroundLight,
                   borderColor: colors.border,
@@ -198,7 +206,9 @@ export function NewOrderEditItemSheet({
               paddingVertical: 16,
             }}
           >
-            <Text style={{ color: colors.error, fontSize: 16, fontWeight: '800' }}>
+            <Text
+              style={{ color: colors.error, fontSize: 16, fontWeight: '800' }}
+            >
               Remove
             </Text>
           </Pressable>
@@ -233,7 +243,11 @@ export function NewOrderEditItemSheet({
             }}
           >
             <Text
-              style={{ color: colors.textOnPrimary, fontSize: 16, fontWeight: '800' }}
+              style={{
+                color: colors.textOnPrimary,
+                fontSize: 16,
+                fontWeight: '800',
+              }}
             >
               Save
             </Text>

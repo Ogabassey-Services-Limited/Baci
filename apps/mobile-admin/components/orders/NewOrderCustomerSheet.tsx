@@ -1,6 +1,6 @@
 import { Pressable, Text } from 'react-native';
-import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import { AppPageSheet } from '@/components/ui/AppPageSheet';
+import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import { NewOrderCustomerCreateView } from './NewOrderCustomerCreateView';
 import { NewOrderCustomerSearchView } from './NewOrderCustomerSearchView';
 
@@ -15,6 +15,8 @@ export function NewOrderCustomerSheet({
     colors,
     handleCloseCustomerModal,
     isCreatingCustomer,
+    resetNewCustomerForm,
+    setDuplicateCustomer,
     setIsCreatingCustomer,
     showCustomerModal,
   } = controller;
@@ -22,7 +24,11 @@ export function NewOrderCustomerSheet({
   return (
     <AppPageSheet
       closeLabel="Close customer sheet"
-      contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 0, paddingTop: 0 }}
+      contentContainerStyle={{
+        flexGrow: 1,
+        paddingHorizontal: 0,
+        paddingTop: 0,
+      }}
       onClose={handleCloseCustomerModal}
       scrollEnabled={false}
       title={isCreatingCustomer ? 'New Customer' : 'Select Customer'}
@@ -31,7 +37,11 @@ export function NewOrderCustomerSheet({
           <Pressable
             accessibilityLabel="Back to customer search"
             accessibilityRole="button"
-            onPress={() => setIsCreatingCustomer(false)}
+            onPress={() => {
+              setIsCreatingCustomer(false);
+              setDuplicateCustomer(null);
+              resetNewCustomerForm();
+            }}
           >
             <Text style={{ color: colors.primary }}>Back to search</Text>
           </Pressable>

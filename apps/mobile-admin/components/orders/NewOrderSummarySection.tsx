@@ -18,7 +18,6 @@ export function NewOrderSummarySection({
     setFinancialValue,
     setShowFinancialModal,
     shippingFee,
-    taxes,
     taxesToUse,
     total,
     subtotal,
@@ -84,7 +83,9 @@ export function NewOrderSummarySection({
 
       <Pressable
         onPress={() => {
-          setFinancialValue(taxes > 0 ? taxes.toString() : '');
+          // Seed with taxesToUse (the displayed value) so the editor reflects
+          // the actual amount shown, including auto-applied VAT when taxes is 0.
+          setFinancialValue(taxesToUse > 0 ? taxesToUse.toString() : '');
           setShowFinancialModal({ type: 'tax', visible: true });
         }}
         style={styles.summaryRow}

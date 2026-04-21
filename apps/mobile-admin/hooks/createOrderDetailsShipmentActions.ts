@@ -1,13 +1,13 @@
-import { Alert } from 'react-native';
 import type { QueryClient } from '@tanstack/react-query';
+import { Alert } from 'react-native';
+import type { OrderDetailsRecord } from '@/components/orders/order-details.types';
 import {
   getDispatchPhoneFromOrder,
   getInitialFulfillmentDetails,
-  shouldPersistFulfillmentDetails,
   type ShipmentCompletionMode,
   type ShipmentFlowStep,
+  shouldPersistFulfillmentDetails,
 } from '@/lib/order-shipment';
-import type { OrderDetailsRecord } from '@/components/orders/order-details.types';
 import { completeOrderShipment } from './completeOrderShipment';
 
 interface FulfillmentDetails {
@@ -28,6 +28,7 @@ interface SuccessModalState {
 interface CreateOrderDetailsShipmentActionsParams {
   fulfillmentDetails: FulfillmentDetails;
   handleSaveRider: (phone: string) => Promise<void>;
+  merchantId: string | undefined;
   order: OrderDetailsRecord | undefined;
   pendingShipmentMode: ShipmentCompletionMode;
   providerBookingAvailable: boolean;
@@ -45,12 +46,16 @@ interface CreateOrderDetailsShipmentActionsParams {
   setSuccessModal: (value: SuccessModalState) => void;
   shipmentFlowStep: ShipmentFlowStep;
   showShipmentFlow: boolean;
-  updateStatus: (input: { orderId: string; status: 'shipped' }) => Promise<unknown>;
+  updateStatus: (input: {
+    orderId: string;
+    status: 'shipped';
+  }) => Promise<unknown>;
 }
 
 export function createOrderDetailsShipmentActions({
   fulfillmentDetails,
   handleSaveRider,
+  merchantId,
   order,
   pendingShipmentMode,
   providerBookingAvailable,
@@ -100,7 +105,9 @@ export function createOrderDetailsShipmentActions({
     }
 
     setShowStatusModal(false);
-    setFulfillmentDetails(getInitialFulfillmentDetails(order.fulfillment_details));
+    setFulfillmentDetails(
+      getInitialFulfillmentDetails(order.fulfillment_details)
+    );
     setRiderPhone(getDispatchPhoneFromOrder(order) || '');
     setPendingShipmentMode(
       providerBookingAvailable ? 'provider' : 'self_fulfillment'
@@ -120,6 +127,7 @@ export function createOrderDetailsShipmentActions({
       const modalState = await completeOrderShipment({
         fulfillmentDetails,
         handleSaveRider,
+        merchantId: merchantId ?? '',
         mode,
         order,
         providerBookingAvailable,

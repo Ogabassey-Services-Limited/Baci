@@ -1,8 +1,14 @@
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
-import { Stack, router } from 'expo-router';
-import type { useNewOrderController } from '@/hooks/useNewOrderController';
+import { router, Stack } from 'expo-router';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
 import { SuccessModal } from '@/components/ui/SuccessModal';
+import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import { NewOrderChannelSection } from './NewOrderChannelSection';
 import { NewOrderCustomerSheet } from './NewOrderCustomerSheet';
 import { NewOrderDetailsSection } from './NewOrderDetailsSection';
@@ -27,10 +33,20 @@ export function NewOrderScreenContent({
     isSubmitting,
     lastOrderId,
     setCustomer,
+    setDate,
+    setDeliveryInfo,
+    setDiscount,
+    setIsVatApplied,
     setLastOrderId,
     setNotes,
     setOrderItems,
+    setPartialAmount,
+    setPaymentMethod,
+    setPaymentStatus,
+    setSameAsCustomer,
+    setShippingFee,
     setShowSuccessModal,
+    setTaxes,
     showSuccessModal,
   } = controller;
 
@@ -41,7 +57,10 @@ export function NewOrderScreenContent({
           headerShown: true,
           headerTitle: 'New Sale',
           headerLeft: () => (
-            <Pressable onPress={() => router.back()} style={{ paddingRight: 16 }}>
+            <Pressable
+              onPress={() => router.back()}
+              style={{ paddingRight: 16 }}
+            >
               <Text style={{ color: colors.text, fontSize: 16 }}>Cancel</Text>
             </Pressable>
           ),
@@ -99,6 +118,26 @@ export function NewOrderScreenContent({
           });
           setNotes('');
           setLastOrderId(null);
+          // Reset financial fields so the next sale starts from zero
+          setDiscount(0);
+          setShippingFee(0);
+          setTaxes(0);
+          setIsVatApplied(false);
+          // Reset delivery state to default
+          setDeliveryInfo({
+            address: '',
+            city: '',
+            name: '',
+            phone: '',
+            state: '',
+          });
+          setSameAsCustomer(true);
+          // Reset payment fields
+          setPaymentStatus('unpaid');
+          setPaymentMethod('transfer');
+          setPartialAmount('');
+          // Reset the order date to now
+          setDate(new Date());
         }}
         title="Sale Recorded!"
         visible={showSuccessModal}

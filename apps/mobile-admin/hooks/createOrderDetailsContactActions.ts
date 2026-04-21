@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert, Linking, Share } from 'react-native';
-import { extractOrderDeliveryAddress } from '@/lib/orders';
 import type { OrderDetailsRecord } from '@/components/orders/order-details.types';
+import { extractOrderDeliveryAddress } from '@/lib/orders';
 
 interface CreateOrderDetailsContactActionsParams {
   formatPrice: (amount: number) => string;
@@ -120,23 +120,35 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
     });
   };
 
-  const handleCall = () => {
+  const handleCall = async () => {
     const phone = order?.customer_phone?.trim();
     if (phone) {
-      Linking.openURL(`tel:${phone}`);
+      try {
+        await Linking.openURL(`tel:${phone}`);
+      } catch {
+        Alert.alert('Error', 'Could not open phone dialer');
+      }
     }
   };
 
-  const handleEmail = () => {
+  const handleEmail = async () => {
     if (order?.customer_email) {
-      Linking.openURL(`mailto:${order.customer_email}`);
+      try {
+        await Linking.openURL(`mailto:${order.customer_email}`);
+      } catch {
+        Alert.alert('Error', 'Could not open email client');
+      }
     }
   };
 
-  const handleWhatsApp = () => {
+  const handleWhatsApp = async () => {
     const phone = order?.customer_phone?.trim();
     if (phone) {
-      Linking.openURL(`https://wa.me/${phone.replace(/\D/g, '')}`);
+      try {
+        await Linking.openURL(`https://wa.me/${phone.replace(/\D/g, '')}`);
+      } catch {
+        Alert.alert('Error', 'Could not open WhatsApp');
+      }
     }
   };
 

@@ -23,6 +23,7 @@ function makeActions(
   return createOrderDetailsShipmentActions({
     fulfillmentDetails: { imei: '', serialNumber: '' },
     handleSaveRider: vi.fn(),
+    merchantId: undefined,
     order: undefined,
     pendingShipmentMode: 'self_fulfillment',
     providerBookingAvailable: false,
