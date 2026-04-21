@@ -61,7 +61,11 @@ while (true) {
 
     if (existingJob.data) {
       const del = await supabase.from('pending_import_uploads').delete().eq('id', upload.id);
-      if (!del.error) cleaned++;
+      if (del.error) {
+      console.error('[cleanup-import-uploads] Delete failed:', del.error);
+    } else {
+      cleaned++;
+    }
       continue;
     }
 
@@ -81,7 +85,11 @@ while (true) {
     }
 
     const del = await supabase.from('pending_import_uploads').delete().eq('id', upload.id);
-    if (!del.error) cleaned++;
+    if (del.error) {
+      console.error('[cleanup-import-uploads] Delete failed:', del.error);
+    } else {
+      cleaned++;
+    }
   }
 
   if (batch.length < PAGE_SIZE) break;
