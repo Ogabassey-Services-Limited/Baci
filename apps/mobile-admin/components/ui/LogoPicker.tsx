@@ -17,7 +17,7 @@ import SafeImage from '@/components/ui/SafeImage';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-import { asUploadFile } from '@/types/upload';
+import { createUploadFile, type RNFormData } from '@/types/upload';
 
 interface LogoPickerProps {
   merchantId: string | undefined;
@@ -71,7 +71,7 @@ export function LogoPicker({
     setIsUploading(true);
 
     try {
-      const formData = new FormData();
+      const formData = new FormData() as RNFormData;
       const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
       const fileName = `${Date.now()}.${fileExt}`;
       const filePath = `${merchantId}/${fileName}`;
@@ -84,7 +84,7 @@ export function LogoPicker({
 
       formData.append(
         'file',
-        asUploadFile({
+        createUploadFile({
           uri,
           name: fileName,
           type: mimeType,
