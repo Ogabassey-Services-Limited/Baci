@@ -30,7 +30,7 @@
 
 ## Testing
 
-- Vitest + React Testing Library.
+- Vitest + React Testing Library for web and `apps/mobile-admin`; `apps/mobile-storefront` uses Jest + React Native Testing Library.
 - Test files colocated with source: `MyComponent.test.tsx`.
 - Test both success AND error paths.
 - Use `screen.getByRole()` over `getByTestId()`.

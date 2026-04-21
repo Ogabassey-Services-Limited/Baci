@@ -14,17 +14,19 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { ProductCard } from '@/components/storefront/ProductCard';
+import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { useCategories, useProducts } from '@/hooks';
+import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
 import type { Product } from '@/types/product';
 
 export default function CategoryScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const { getListContentStyle } = useStorefrontInsets();
 
   // BUG-2-004 FIX: Validate slug is non-empty before use
   const isValidSlug = Boolean(
@@ -172,7 +174,7 @@ export default function CategoryScreen() {
   };
 
   return (
-    <SafeAreaView
+    <StorefrontScreenShell
       style={[styles.container, { backgroundColor: colors.background }]}
       edges={['bottom']}
     >
@@ -198,20 +200,20 @@ export default function CategoryScreen() {
             colors={[BRAND.primary]}
           />
         }
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={getListContentStyle({
+          includeBottomInset: false,
+          paddingBottom: 24,
+          paddingTop: 16,
+        })}
         showsVerticalScrollIndicator={false}
       />
-    </SafeAreaView>
+    </StorefrontScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  listContent: {
-    paddingTop: 16,
-    paddingBottom: 24,
   },
   productWrapper: {
     flex: 1,
