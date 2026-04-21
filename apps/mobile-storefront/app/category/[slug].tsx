@@ -201,6 +201,7 @@ export default function CategoryScreen() {
           />
         }
         contentContainerStyle={getListContentStyle({
+          includeBottomInset: false,
           paddingBottom: 24,
           paddingTop: 16,
         })}

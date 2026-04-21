@@ -118,7 +118,7 @@ export default function NotificationsScreen() {
         keyExtractor={(item) => item.id}
         ListEmptyComponent={renderEmpty}
         contentContainerStyle={[
-          getListContentStyle(),
+          getListContentStyle({ includeBottomInset: false }),
           notifications.length === 0 && styles.emptyList,
         ]}
         showsVerticalScrollIndicator={false}
