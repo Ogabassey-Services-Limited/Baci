@@ -4,12 +4,15 @@
 
 import { describe, expect, it, jest, beforeEach } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { Text } from 'react-native';
+import type { ReactNode } from 'react';
+import type { SavedItem } from '@/stores/saved-store';
 
 const mockPush = jest.fn();
 
 jest.mock('expo-router', () => ({
-  router: { push: mockPush },
+  router: {
+    push: (...args: unknown[]) => mockPush(...args),
+  },
   Stack: {
     Screen: () => null,
   },
@@ -23,20 +26,28 @@ jest.mock('@shopify/flash-list', () => ({
     ListEmptyComponent,
   }: {
     data: unknown[];
-    renderItem: (info: { item: unknown }) => React.ReactNode;
-    ListHeaderComponent?: () => React.ReactNode;
-    ListEmptyComponent?: () => React.ReactNode;
+    renderItem: (info: { item: unknown }) => ReactNode;
+    ListHeaderComponent?: () => ReactNode;
+    ListEmptyComponent?: () => ReactNode;
   }) => {
-    const { View } = require('react-native');
-    return (
-      <View>
-        {ListHeaderComponent?.()}
-        {data.length === 0
-          ? ListEmptyComponent?.()
-          : data.map((item, index) =>
+    const React = jest.requireActual('react') as typeof import('react');
+    const MockView = jest.requireActual<typeof import('react-native')>(
+      'react-native'
+    ).View;
+
+    return React.createElement(
+      MockView,
+      null,
+      ListHeaderComponent?.(),
+      data.length === 0
+        ? ListEmptyComponent?.()
+        : data.map((item, index) =>
+            React.createElement(
+              MockView,
+              { key: `flash-item-${index}` },
               renderItem({ item })
-            )}
-      </View>
+            )
+          )
     );
   },
 }));
@@ -46,10 +57,13 @@ jest.mock('expo-image', () => ({
 }));
 
 jest.mock('react-native-reanimated', () => ({
-  ...require('react-native-reanimated/mock'),
-  Layout: { springify: () => ({}) },
+  __esModule: true,
+  default: {
+    View: jest.requireActual<typeof import('react-native')>('react-native').View,
+  },
   FadeIn: { duration: () => ({}) },
   FadeOut: { duration: () => ({}) },
+  Layout: { springify: () => ({}) },
 }));
 
 jest.mock('react-native-safe-area-context', () => ({
@@ -60,7 +74,7 @@ jest.mock('@/components/useColorScheme', () => ({
   useColorScheme: () => 'light',
 }));
 
-const mockItems = jest.fn(() => []);
+const mockItems = jest.fn<() => SavedItem[]>(() => []);
 const mockRemoveItem = jest.fn();
 const mockClearSaved = jest.fn();
 const mockAddItem = jest.fn();
@@ -109,7 +123,7 @@ jest.mock('@/types/product', () => ({
 
 import SavedItemsScreen from './index';
 
-const makeSavedItem = (overrides = {}) => ({
+const makeSavedItem = (overrides: Partial<SavedItem> = {}): SavedItem => ({
   id: 'item-1',
   product_id: 'prod-1',
   name: 'Test Phone',
@@ -132,18 +146,7 @@ describe('SavedItemsScreen', () => {
 
     render(<SavedItemsScreen />);
 
-    // Find and press the product item card area
-    const pressable = screen.getByRole('button', { name: 'Test Phone' });
-    if (pressable) {
-      fireEvent.press(pressable);
-    } else {
-      // Try any pressable within the card
-      const pressables = screen.queryAllByRole('button');
-      // Press the first pressable that might be the product card
-      if (pressables.length > 0) {
-        fireEvent.press(pressables[0]);
-      }
-    }
+    fireEvent.press(screen.getByText('Test Phone'));
 
     expect(mockPush).not.toHaveBeenCalled();
   });
@@ -154,11 +157,7 @@ describe('SavedItemsScreen', () => {
 
     render(<SavedItemsScreen />);
 
-    const pressables = screen.queryAllByRole('button');
-    // The item content Pressable is the first one
-    if (pressables.length > 0) {
-      fireEvent.press(pressables[0]);
-    }
+    fireEvent.press(screen.getByText('Test Phone'));
 
     expect(mockPush).toHaveBeenCalledWith('/product/test-phone');
   });

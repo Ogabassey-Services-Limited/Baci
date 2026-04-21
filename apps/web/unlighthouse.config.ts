@@ -1,4 +1,5 @@
 import { defineConfig } from '@unlighthouse/core';
+import { getUnlighthousePuppeteerOptions } from './unlighthouse-puppeteer-options';
 
 export default defineConfig({
   // Koray Tuğberk GÜBÜR Style: Holistic SEO Audit
@@ -23,6 +24,8 @@ export default defineConfig({
       seo: 100, // Zero tolerance for SEO errors
     },
   },
+
+  puppeteerOptions: getUnlighthousePuppeteerOptions(),
 
   // Discoverability
   // Use defaults for best results
