@@ -38,4 +38,13 @@ describe('LoginPage', () => {
     expect(screen.getByText('Ready login client')).toBeInTheDocument();
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
+
+  it('marks the route as noindex to keep auth pages out of Search Console', async () => {
+    const { metadata } = await import('@/app/login/page');
+
+    expect(metadata.robots).toMatchObject({
+      index: false,
+      follow: false,
+    });
+  });
 });
