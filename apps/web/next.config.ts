@@ -8,6 +8,15 @@ const withBundleAnalyzer = bundleAnalyzer({
 });
 
 const nextConfig: NextConfig = {
+  // Keep heavy server-only packages external to reduce function bundle size and peak memory.
+  // These are only used in specific API routes and should not be bundled into every function.
+  serverExternalPackages: [
+    'jspdf',
+    'jspdf-autotable',
+    'sharp',
+    'expo-server-sdk',
+  ],
+
   // Enable React Compiler for automatic memoization (Next.js 16 stable)
   // Reduces unnecessary re-renders without manual useMemo/useCallback
   reactCompiler: true,
