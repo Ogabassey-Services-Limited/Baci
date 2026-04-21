@@ -87,6 +87,38 @@
     --dashboard-surface-border: 239 22% 28%;
   }
 
+  /*
+   * Force light-mode CSS variables for a subtree regardless of the root theme.
+   * Used by StorefrontThemeProvider to scope storefronts to light mode even when
+   * the user's OS/browser prefers dark mode. Mirrors the :root (light) defaults.
+   */
+  .light {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 239 45% 30%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 38 92% 55%;
+    --secondary-foreground: 0 0% 0%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 40%;
+    --accent: 38 92% 55%;
+    --accent-foreground: 0 0% 0%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 239 45% 30%;
+    --dashboard-surface: 0 0% 100%;
+    --dashboard-surface-elevated: 0 0% 98%;
+    --dashboard-surface-subtle: 240 4.8% 95.9%;
+    --dashboard-surface-border: 240 5.9% 90%;
+    color-scheme: light;
+  }
+
   /* Modern box-sizing and smooth scrolling */
   *,
   *::before,
