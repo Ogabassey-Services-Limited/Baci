@@ -83,18 +83,10 @@ while (true) {
     }
 
     const storage = supabase.storage.from('migration-imports');
-    const existsResult = await storage.exists(upload.storage_path);
-    if (existsResult.error) {
-      console.error('[cleanup-import-uploads] Existence check failed:', existsResult.error);
+    const removeResult = await storage.remove([upload.storage_path]);
+    if (removeResult.error) {
+      console.error('[cleanup-import-uploads] Storage removal failed:', removeResult.error);
       continue;
-    }
-
-    if (existsResult.data) {
-      const removeResult = await storage.remove([upload.storage_path]);
-      if (removeResult.error) {
-        console.error('[cleanup-import-uploads] Storage removal failed:', removeResult.error);
-        continue;
-      }
     }
 
     const del = await supabase.from('pending_import_uploads').delete().eq('id', upload.id);
