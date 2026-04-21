@@ -224,6 +224,7 @@ export default function SettingsScreen() {
         >
           <SettingsSectionRow
             borderBottom
+            borderColor={colors.border}
             icon="information-circle-outline"
             iconBackgroundColor={`${colors.textSecondary}15`}
             iconColor={colors.textSecondary}
@@ -239,6 +240,7 @@ export default function SettingsScreen() {
             <SettingsSectionRow
               key={link.label}
               borderBottom={index !== ABOUT_LINKS.length - 1}
+              borderColor={colors.border}
               accessibilityLabel={link.accessibilityLabel}
               accessibilityRole="link"
               icon={link.icon}

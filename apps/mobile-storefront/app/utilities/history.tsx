@@ -113,9 +113,7 @@ export default function UtilityHistoryScreen() {
                     style={[
                       styles.filterChipText,
                       {
-                        color: isSelected
-                          ? colors.primaryForeground
-                          : colors.text,
+                        color: isSelected ? colors.white : colors.text,
                       },
                     ]}
                   >

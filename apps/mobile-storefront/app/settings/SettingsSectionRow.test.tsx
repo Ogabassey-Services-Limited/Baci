@@ -31,4 +31,25 @@ describe('SettingsSectionRow', () => {
       screen.getByText('Review how your data is handled')
     ).toBeOnTheScreen();
   });
+
+  it('applies the provided divider color when borderBottom is enabled', () => {
+    render(
+      <SettingsSectionRow
+        accessibilityLabel="Open terms"
+        accessibilityRole="link"
+        borderBottom
+        borderColor="#D1D5DB"
+        icon="document-text-outline"
+        iconBackgroundColor="#E5E7EB"
+        iconColor="#111827"
+        label="Terms of Service"
+        labelColor="#111827"
+        right={<Text>Open</Text>}
+      />
+    );
+
+    expect(screen.getByRole('link', { name: 'Open terms' })).toHaveStyle({
+      borderBottomColor: '#D1D5DB',
+    });
+  });
 });

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
-import { SPACING } from '@/constants/Colors';
+import Colors, { SPACING } from '@/constants/Colors';
 import UtilityHistoryScreen from './history';
 
 interface MockStorefrontScreenShellProps {
@@ -19,6 +19,7 @@ const mockStorefrontScreenShell = jest.fn(
 const mockGetScrollContentStyle = jest.fn();
 const mockUseStorefrontInsets = jest.fn();
 const mockUseRequireAuth = jest.fn();
+const mockUseColorScheme = jest.fn(() => 'light');
 const mockUseVTUHistory = jest.fn();
 const mockRefetch = jest.fn(async () => undefined);
 
@@ -31,7 +32,7 @@ jest.mock('@/components/storefront/StorefrontScreenShell', () => ({
 }));
 
 jest.mock('@/components/useColorScheme', () => ({
-  useColorScheme: jest.fn(() => 'light'),
+  useColorScheme: () => mockUseColorScheme(),
 }));
 
 jest.mock('@/hooks/use-auth-guard', () => ({
@@ -61,6 +62,7 @@ jest.mock('expo-router', () => ({
 describe('UtilityHistoryScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseColorScheme.mockReturnValue('light');
     mockGetScrollContentStyle.mockReturnValue({
       paddingTop: SPACING.md,
       paddingBottom: SPACING.md,
@@ -132,6 +134,16 @@ describe('UtilityHistoryScreen', () => {
     fireEvent.press(screen.getByLabelText('Show airtime history'));
 
     expect(mockUseVTUHistory).toHaveBeenLastCalledWith('airtime', 30);
+  });
+
+  it('keeps selected filter chip text readable in dark mode', () => {
+    mockUseColorScheme.mockReturnValue('dark');
+
+    render(<UtilityHistoryScreen />);
+
+    expect(screen.getByText('Power')).toHaveStyle({
+      color: Colors.dark.white,
+    });
   });
 
   it('renders the fetch error state and retries loading history', () => {
