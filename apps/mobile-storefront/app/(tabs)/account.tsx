@@ -18,16 +18,17 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 import { getAccountMenuSections } from '@/components/profile/account-menu';
 import { type MenuItem, MenuSection } from '@/components/profile/MenuSection';
 import { ProfileHeader } from '@/components/profile/ProfileHeader';
 import { SocialLinks } from '@/components/profile/SocialLinks';
+import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { useMerchant } from '@/hooks';
 import { useAuthStatus } from '@/hooks/use-auth-guard';
+import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
 import { supabase } from '@/lib/supabase';
 import { type Customer, useAuthStore } from '@/stores/auth-store';
 
@@ -65,6 +66,7 @@ export default function AccountScreen() {
     safeCustomer?.loyalty_points
   );
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const { getScrollContentStyle } = useStorefrontInsets();
   const menuSections = getAccountMenuSections({
     canDeleteAccount: Boolean(authUser),
     hasCustomerProfile: Boolean(safeCustomer),
@@ -174,13 +176,16 @@ export default function AccountScreen() {
   };
 
   return (
-    <SafeAreaView
+    <StorefrontScreenShell
       style={[styles.container, { backgroundColor: colors.background }]}
       edges={['top']}
     >
       <ScrollView
+        testID="account-scrollview"
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={getScrollContentStyle({
+          includeBottomInset: false,
+        })}
       >
         {effectiveCustomer ? (
           <ProfileHeader
@@ -225,17 +230,13 @@ export default function AccountScreen() {
           ENVIRONMENT: PRODUCTION • VERSION 1.0.0
         </Text>
       </ScrollView>
-    </SafeAreaView>
+    </StorefrontScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  content: {
-    paddingBottom: 60,
-    paddingTop: 20,
   },
   signOutButton: {
     alignSelf: 'center',

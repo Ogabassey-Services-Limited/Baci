@@ -54,7 +54,7 @@ pnpm turbo build      # Production build
 pnpm turbo lint       # Biome linting
 pnpm format           # Code formatting
 pnpm turbo typecheck  # TypeScript check
-pnpm turbo test       # Run tests (Vitest)
+pnpm turbo test       # Run tests (Vitest for web/mobile-admin, Jest for mobile-storefront)
 ```
 
 ## Deployment
