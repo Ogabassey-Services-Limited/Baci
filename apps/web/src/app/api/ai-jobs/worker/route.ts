@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { generateObject } from 'ai';
-import { type NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
 import { geminiFlash, withRetry } from '@/ai/provider';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
@@ -72,7 +72,7 @@ const PriceListResponseSchema = z.object({
 });
 
 // GET /api/ai-jobs/worker - Vercel Cron entry point (sends Authorization: Bearer {CRON_SECRET})
-export async function GET(request: NextRequest) {
+export function GET(request: NextRequest) {
   const authHeader = request.headers.get('Authorization');
   const cronSecret = process.env.CRON_SECRET;
   const workerSecret = process.env.AI_WORKER_SECRET;
