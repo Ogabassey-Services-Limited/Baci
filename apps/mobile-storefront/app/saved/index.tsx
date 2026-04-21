@@ -76,6 +76,7 @@ export default function SavedItemsScreen() {
   };
 
   const handleProductPress = (item: SavedItem) => {
+    if (!item.slug) return;
     router.push(`/product/${item.slug}`);
   };
 

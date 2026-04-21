@@ -5,90 +5,35 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND } from '@/constants/Colors';
+import Colors, { BRAND, SPACING } from '@/constants/Colors';
 import { useRequireAuth } from '@/hooks/use-auth-guard';
+import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
 import {
   type UtilityHistoryFilter,
-  type VTUHistoryTransaction,
   useVTUHistory,
 } from '@/hooks/use-vtu-history';
-
-const HISTORY_FILTERS: Array<{
-  id: UtilityHistoryFilter;
-  label: string;
-}> = [
-  { id: 'all', label: 'All' },
-  { id: 'airtime', label: 'Airtime' },
-  { id: 'data', label: 'Data' },
-  { id: 'power', label: 'Power' },
-  { id: 'tv', label: 'TV' },
-  { id: 'gaming', label: 'Gaming' },
-];
-
-const TYPE_LABELS: Record<VTUHistoryTransaction['type'], string> = {
-  airtime: 'Airtime',
-  data: 'Data',
-  electricity: 'Power',
-  cable_tv: 'TV',
-  betting: 'Gaming',
-};
-
-function resolveInitialFilter(type?: string): UtilityHistoryFilter {
-  return HISTORY_FILTERS.some((filter) => filter.id === type)
-    ? (type as UtilityHistoryFilter)
-    : 'all';
-}
-
-function formatAmount(amount: number) {
-  return new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
-    minimumFractionDigits: 0,
-  }).format(amount);
-}
-
-function formatDate(dateString: string) {
-  return new Date(dateString).toLocaleString('en-NG', {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-function getTransactionTitle(transaction: VTUHistoryTransaction) {
-  return (
-    transaction.biller_name ||
-    transaction.network_provider ||
-    TYPE_LABELS[transaction.type]
-  );
-}
-
-function getTransactionDetail(transaction: VTUHistoryTransaction) {
-  if (transaction.type === 'airtime' || transaction.type === 'data') {
-    return transaction.phone_number || 'Phone number unavailable';
-  }
-
-  return (
-    transaction.customer_identifier ||
-    transaction.customer_name ||
-    'Customer identifier unavailable'
-  );
-}
+import {
+  UTILITY_HISTORY_FILTERS,
+  UTILITY_HISTORY_STATUS_COLORS,
+  UTILITY_HISTORY_STYLE_TOKENS,
+  UTILITY_HISTORY_TYPE_LABELS,
+} from './history.constants';
+import { utilityHistoryHelpers } from './history.helpers';
+import { styles } from './history.styles';
 
 export default function UtilityHistoryScreen() {
   const { type } = useLocalSearchParams<{ type?: string }>();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const { getScrollContentStyle } = useStorefrontInsets();
   const { isLoading: authLoading, redirectTo } = useRequireAuth();
   const [selectedFilter, setSelectedFilter] = useState<UtilityHistoryFilter>(
-    resolveInitialFilter(type)
+    utilityHistoryHelpers.resolveFilter(type)
   );
   const {
     data: transactions,
@@ -99,22 +44,27 @@ export default function UtilityHistoryScreen() {
   } = useVTUHistory(selectedFilter, 30);
 
   useEffect(() => {
-    setSelectedFilter(resolveInitialFilter(type));
+    setSelectedFilter(utilityHistoryHelpers.resolveFilter(type));
   }, [type]);
+
+  const scrollContentStyle = getScrollContentStyle({
+    includeBottomInset: false,
+    paddingBottom: SPACING.md,
+    paddingTop: SPACING.md,
+  });
 
   if (authLoading) {
     return (
       <>
         <Stack.Screen options={{ title: 'Utility History' }} />
-        <View
-          style={[
-            styles.centered,
-            styles.container,
-            { backgroundColor: colors.background },
-          ]}
+        <StorefrontScreenShell
+          style={[styles.container, { backgroundColor: colors.background }]}
+          edges={['bottom']}
         >
-          <ActivityIndicator size="large" color={BRAND.primary} />
-        </View>
+          <View style={styles.centered}>
+            <ActivityIndicator size="large" color={BRAND.primary} />
+          </View>
+        </StorefrontScreenShell>
       </>
     );
   }
@@ -126,7 +76,7 @@ export default function UtilityHistoryScreen() {
   return (
     <>
       <Stack.Screen options={{ title: 'Utility History' }} />
-      <SafeAreaView
+      <StorefrontScreenShell
         style={[styles.container, { backgroundColor: colors.background }]}
         edges={['bottom']}
       >
@@ -134,14 +84,15 @@ export default function UtilityHistoryScreen() {
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
-              onRefresh={() => refetch()}
+              onRefresh={refetch}
               tintColor={BRAND.primary}
             />
           }
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, scrollContentStyle]}
+          showsVerticalScrollIndicator={false}
         >
           <View style={styles.filterRow}>
-            {HISTORY_FILTERS.map((filter) => {
+            {UTILITY_HISTORY_FILTERS.map((filter) => {
               const isSelected = filter.id === selectedFilter;
 
               return (
@@ -161,7 +112,9 @@ export default function UtilityHistoryScreen() {
                   <Text
                     style={[
                       styles.filterChipText,
-                      { color: isSelected ? '#FFF' : colors.text },
+                      {
+                        color: isSelected ? colors.white : colors.text,
+                      },
                     ]}
                   >
                     {filter.label}
@@ -191,6 +144,8 @@ export default function UtilityHistoryScreen() {
                   { backgroundColor: colors.card, borderColor: colors.border },
                 ]}
                 onPress={() => refetch()}
+                accessibilityRole="button"
+                accessibilityLabel="Retry loading utility history"
               >
                 <Text style={[styles.retryText, { color: colors.text }]}>
                   Try Again
@@ -200,11 +155,7 @@ export default function UtilityHistoryScreen() {
           ) : transactions && transactions.length > 0 ? (
             transactions.map((transaction) => {
               const statusColor =
-                transaction.status === 'successful'
-                  ? '#15803D'
-                  : transaction.status === 'failed'
-                    ? '#B91C1C'
-                    : '#92400E';
+                UTILITY_HISTORY_STATUS_COLORS[transaction.status];
 
               return (
                 <View
@@ -220,10 +171,13 @@ export default function UtilityHistoryScreen() {
                   <View style={styles.transactionHeader}>
                     <View style={styles.transactionCopy}>
                       <Text
-                        style={[styles.transactionTitle, { color: colors.text }]}
+                        style={[
+                          styles.transactionTitle,
+                          { color: colors.text },
+                        ]}
                         numberOfLines={2}
                       >
-                        {getTransactionTitle(transaction)}
+                        {utilityHistoryHelpers.getTransactionTitle(transaction)}
                       </Text>
                       <Text
                         style={[
@@ -231,14 +185,16 @@ export default function UtilityHistoryScreen() {
                           { color: colors.textSecondary },
                         ]}
                       >
-                        {TYPE_LABELS[transaction.type]} •{' '}
-                        {getTransactionDetail(transaction)}
+                        {UTILITY_HISTORY_TYPE_LABELS[transaction.type]} •{' '}
+                        {utilityHistoryHelpers.getTransactionDetail(
+                          transaction
+                        )}
                       </Text>
                     </View>
                     <Text
                       style={[styles.transactionAmount, { color: colors.text }]}
                     >
-                      {formatAmount(transaction.amount)}
+                      {utilityHistoryHelpers.formatAmount(transaction.amount)}
                     </Text>
                   </View>
 
@@ -246,12 +202,14 @@ export default function UtilityHistoryScreen() {
                     <Text
                       style={[styles.metaText, { color: colors.textSecondary }]}
                     >
-                      {formatDate(transaction.created_at)}
+                      {utilityHistoryHelpers.formatDate(transaction.created_at)}
                     </Text>
                     <View
                       style={[
                         styles.statusPill,
-                        { backgroundColor: `${statusColor}18` },
+                        {
+                          backgroundColor: `${statusColor}${UTILITY_HISTORY_STYLE_TOKENS.statusTintSuffix}`,
+                        },
                       ]}
                     >
                       <Text style={[styles.statusText, { color: statusColor }]}>
@@ -261,7 +219,10 @@ export default function UtilityHistoryScreen() {
                   </View>
 
                   <Text
-                    style={[styles.referenceText, { color: colors.textSecondary }]}
+                    style={[
+                      styles.referenceText,
+                      { color: colors.textSecondary },
+                    ]}
                   >
                     Ref: {transaction.request_reference}
                   </Text>
@@ -279,13 +240,28 @@ export default function UtilityHistoryScreen() {
 
                   {transaction.customer_cashback &&
                   transaction.customer_cashback > 0 ? (
-                    <Text style={[styles.cashbackText, { color: '#15803D' }]}>
-                      Cashback: {formatAmount(transaction.customer_cashback)}
+                    <Text
+                      style={[
+                        styles.cashbackText,
+                        {
+                          color: UTILITY_HISTORY_STATUS_COLORS.successful,
+                        },
+                      ]}
+                    >
+                      Cashback:{' '}
+                      {utilityHistoryHelpers.formatAmount(
+                        transaction.customer_cashback
+                      )}
                     </Text>
                   ) : null}
 
                   {transaction.error_message ? (
-                    <Text style={[styles.errorText, { color: '#B91C1C' }]}>
+                    <Text
+                      style={[
+                        styles.errorText,
+                        { color: UTILITY_HISTORY_STATUS_COLORS.failed },
+                      ]}
+                    >
                       {transaction.error_message}
                     </Text>
                   ) : null}
@@ -306,114 +282,7 @@ export default function UtilityHistoryScreen() {
             </View>
           )}
         </ScrollView>
-      </SafeAreaView>
+      </StorefrontScreenShell>
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  content: {
-    padding: 16,
-    gap: 12,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  filterRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  filterChip: {
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  filterChipText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  transactionCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    padding: 16,
-    gap: 10,
-  },
-  transactionHeader: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  transactionCopy: {
-    flex: 1,
-    gap: 4,
-  },
-  transactionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  transactionDetail: {
-    fontSize: 13,
-  },
-  transactionAmount: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  metaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  metaText: {
-    fontSize: 12,
-  },
-  statusPill: {
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  statusText: {
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'capitalize',
-  },
-  referenceText: {
-    fontSize: 12,
-  },
-  cashbackText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  errorText: {
-    fontSize: 12,
-  },
-  stateCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    padding: 20,
-    gap: 10,
-    alignItems: 'flex-start',
-  },
-  stateTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  stateMessage: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  retryButton: {
-    minHeight: 40,
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    justifyContent: 'center',
-  },
-  retryText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-});

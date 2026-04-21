@@ -68,7 +68,7 @@ export default function ProductGrid({
 
       return ['All', ...sorted];
     }
-    return ['All', 'Phones', 'Gaming', 'Laptops', 'Accessories', 'Printers'];
+    return ['All'];
   })();
   const matchedCategoryName =
     selectedCategorySlug === ALL_PRODUCT_FILTER_CATEGORY_SLUG
@@ -101,7 +101,12 @@ export default function ProductGrid({
     const id = selectedCategoryIdFromFilter;
     if (id) return id;
 
-    if (selectedCategoryId && !selectedCategoryId.startsWith('u-')) {
+    // Only fall back to parent selectedCategoryId when 'All' is active
+    if (
+      selectedCategorySlug === ALL_PRODUCT_FILTER_CATEGORY_SLUG &&
+      selectedCategoryId &&
+      !selectedCategoryId.startsWith('u-')
+    ) {
       return selectedCategoryId;
     }
 

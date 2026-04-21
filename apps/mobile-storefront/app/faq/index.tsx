@@ -7,11 +7,11 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/Colors';
-import { SUPPORT_WHATSAPP_PHONE } from '@/constants/Support';
+import { SUPPORT_PHONE, SUPPORT_WHATSAPP_PHONE } from '@/constants/Support';
 
 interface FAQItem {
   id: string;
@@ -46,9 +46,9 @@ const faqItems: FAQItem[] = [
   },
   {
     id: '5',
-    question: "How do I verify a phone's IMEI?",
+    question: "How do I verify a phone\'s IMEI?",
     answer:
-      "Use our IMEI Checker feature in the app. Enter the 15-digit IMEI number to check if the device is blacklisted, iCloud locked, or has any other issues. This helps ensure you're buying a legitimate device.",
+      "Use our IMEI Checker feature in the app. Enter the 15-digit IMEI number to check if the device is blacklisted, iCloud locked, or has any other issues. This helps ensure you\'re buying a legitimate device.",
   },
   {
     id: '6',
@@ -77,6 +77,10 @@ export default function FAQScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  const STORE_ADDRESS = 'Computer Village, Ikeja, Lagos';
+  const STORE_HOURS_WEEKDAY = 'Monday - Saturday: 9:00 AM - 7:00 PM';
+  const STORE_HOURS_WEEKEND = 'Sunday: 12:00 PM - 5:00 PM';
+
   const supportOptions: SupportOption[] = [
     {
       id: 'whatsapp',
@@ -86,21 +90,27 @@ export default function FAQScreen() {
       action: () =>
         Linking.openURL(
           `https://wa.me/${SUPPORT_WHATSAPP_PHONE}?text=${encodeURIComponent('Hi, I need help with my order')}`
-        ),
+        ).catch(() => Alert.alert('Unable to Open', 'Please try again later')),
     },
     {
       id: 'call',
       title: 'Call Us',
-      subtitle: '08123456789',
+      subtitle: SUPPORT_PHONE,
       icon: 'call-outline',
-      action: () => Linking.openURL('tel:+2348123456789'),
+      action: () =>
+        Linking.openURL(`tel:+234${SUPPORT_PHONE.slice(1)}`).catch(() =>
+          Alert.alert('Unable to Open', 'Please try again later')
+        ),
     },
     {
       id: 'email',
       title: 'Email Support',
       subtitle: 'support@ogabassey.com',
       icon: 'mail-outline',
-      action: () => Linking.openURL('mailto:support@ogabassey.com'),
+      action: () =>
+        Linking.openURL('mailto:support@ogabassey.com').catch(() =>
+          Alert.alert('Unable to Open', 'Please try again later')
+        ),
     },
   ];
 
@@ -230,10 +240,10 @@ export default function FAQScreen() {
             Store Hours
           </Text>
           <Text style={[styles.storeInfoText, { color: colors.textSecondary }]}>
-            Monday - Saturday: 9:00 AM - 7:00 PM
+            {STORE_HOURS_WEEKDAY}
           </Text>
           <Text style={[styles.storeInfoText, { color: colors.textSecondary }]}>
-            Sunday: 12:00 PM - 5:00 PM
+            {STORE_HOURS_WEEKEND}
           </Text>
           <View style={styles.storeAddressContainer}>
             <Ionicons
@@ -244,7 +254,7 @@ export default function FAQScreen() {
             <Text
               style={[styles.storeInfoText, { color: colors.textSecondary }]}
             >
-              Computer Village, Ikeja, Lagos
+              {STORE_ADDRESS}
             </Text>
           </View>
         </View>

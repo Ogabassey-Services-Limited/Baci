@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { getEffectiveStock } from '@/lib/product-stock';
 import { createServiceClient } from '@/lib/supabase/service';
+import { cartValidateSchema } from '@/schemas/cart';
 
 /**
  * POST /api/cart/validate
@@ -17,11 +18,21 @@ import { createServiceClient } from '@/lib/supabase/service';
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { productIds, cartItems } = body as {
-      productIds?: string[];
-      cartItems?: { id: string; price: number }[];
-    };
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
+    const parsed = cartValidateSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Invalid request body', details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+    const { productIds, cartItems } = parsed.data;
 
     // Support both formats: just IDs or full cart items with prices
     const idsToValidate = productIds || cartItems?.map((item) => item.id) || [];

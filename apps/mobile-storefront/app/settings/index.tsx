@@ -9,44 +9,33 @@ import {
   Linking,
   Pressable,
   ScrollView,
-  StyleSheet,
   Switch,
   Text,
   View,
 } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useToast } from '@/components/ui/Toast';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
+import Colors, { BRAND, SPACING } from '@/constants/Colors';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
+import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
 import { queryClient } from '@/lib/query-client';
 import { removeStorageItems } from '@/lib/storage';
 import { type AppearanceMode, useSettingsStore } from '@/stores/settings-store';
-
-type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
-
-const APPEARANCE_OPTIONS: {
-  value: AppearanceMode;
-  label: string;
-  icon: IoniconsName;
-}[] = [
-  { value: 'system', label: 'System', icon: 'phone-portrait-outline' },
-  { value: 'light', label: 'Light', icon: 'sunny-outline' },
-  { value: 'dark', label: 'Dark', icon: 'moon-outline' },
-];
-
-const PRIVACY_URL = 'https://ogabassey.com/privacy';
-const TERMS_URL = 'https://ogabassey.com/terms';
+import { ABOUT_LINKS, APPEARANCE_OPTIONS } from './constants';
+import { SettingsCardSection } from './SettingsCardSection';
+import { SettingsSectionRow } from './SettingsSectionRow';
+import { styles } from './styles';
 
 export default function SettingsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
   const toast = useToast();
+  const { getScrollContentStyle } = useStorefrontInsets();
+  const appVersion = Constants.expoConfig?.version ?? '1.0.0';
 
-  const appearance = useSettingsStore((s) => s.appearance);
-  const setAppearance = useSettingsStore((s) => s.setAppearance);
-
+  const appearance = useSettingsStore((state) => state.appearance);
+  const setAppearance = useSettingsStore((state) => state.setAppearance);
   const {
     isRegistered,
     isLoading: isPushLoading,
@@ -54,11 +43,8 @@ export default function SettingsScreen() {
     unregister: unregisterPush,
   } = usePushNotifications();
 
-  const appVersion = Constants.expoConfig?.version ?? '1.0.0';
-
-  // expo-haptics supports both iOS and Android
   const haptic = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {
       // Ignore unsupported haptics environments.
     });
   };
@@ -70,14 +56,14 @@ export default function SettingsScreen() {
 
   const handleNotificationToggle = async (enabled: boolean) => {
     haptic();
+
     try {
       if (enabled) {
-        // force: true clears the per-user opt-out flag so re-enabling works
-        // after the user previously disabled notifications
         await registerPush(undefined, undefined, { force: true });
-      } else {
-        await unregisterPush();
+        return;
       }
+
+      await unregisterPush();
     } catch {
       toast.error('Failed to update notification settings. Please try again.');
     }
@@ -105,6 +91,7 @@ export default function SettingsScreen() {
                   key !== 'app-theme-storage' &&
                   key !== 'auth-storage'
               );
+
               if (cacheKeys.length > 0) {
                 await removeStorageItems(cacheKeys);
               }
@@ -127,389 +114,187 @@ export default function SettingsScreen() {
     }
   };
 
+  const scrollContentStyle = getScrollContentStyle({
+    includeBottomInset: false,
+    paddingBottom: SPACING.xl,
+  });
+
   return (
-    <>
+    <StorefrontScreenShell
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={['bottom']}
+    >
       <Stack.Screen options={{ title: 'App Settings' }} />
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          showsVerticalScrollIndicator={false}
+
+      <ScrollView
+        contentContainerStyle={[styles.scroll, scrollContentStyle]}
+        showsVerticalScrollIndicator={false}
+      >
+        <SettingsCardSection
+          cardBackgroundColor={colors.card}
+          cardBorderColor={colors.border}
+          title="APPEARANCE"
+          titleColor={colors.textSecondary}
+          delay={100}
         >
-          {/* APPEARANCE */}
-          <Animated.View entering={FadeInDown.delay(100).duration(400)}>
-            <Text
-              style={[styles.sectionTitle, { color: colors.textSecondary }]}
-            >
-              APPEARANCE
-            </Text>
-            <View
-              style={[
-                styles.card,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-            >
-              <View style={styles.segmentedControl}>
-                {APPEARANCE_OPTIONS.map((option) => {
-                  const isActive = appearance === option.value;
-                  return (
-                    <Pressable
-                      key={option.value}
-                      onPress={() => handleAppearanceChange(option.value)}
-                      style={[
-                        styles.segmentOption,
-                        isActive
-                          ? { backgroundColor: colors.primary }
-                          : { backgroundColor: colors.muted },
-                      ]}
-                      accessibilityRole="radio"
-                      accessibilityState={{ checked: isActive }}
-                      accessibilityLabel={`${option.label} appearance mode`}
-                    >
-                      <Ionicons
-                        name={option.icon}
-                        size={18}
-                        color={
-                          isActive
-                            ? colors.primaryForeground
-                            : colors.textSecondary
-                        }
-                      />
-                      <Text
-                        style={[
-                          styles.segmentLabel,
-                          {
-                            color: isActive
-                              ? colors.primaryForeground
-                              : colors.text,
-                          },
-                        ]}
-                      >
-                        {option.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-          </Animated.View>
+          <View style={styles.segmentedControl}>
+            {APPEARANCE_OPTIONS.map((option) => {
+              const isActive = appearance === option.value;
 
-          {/* NOTIFICATIONS */}
-          <Animated.View entering={FadeInDown.delay(200).duration(400)}>
-            <Text
-              style={[styles.sectionTitle, { color: colors.textSecondary }]}
-            >
-              NOTIFICATIONS
-            </Text>
-            <View
-              style={[
-                styles.card,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-            >
-              <View style={styles.row}>
-                <View style={styles.rowLeft}>
-                  <View
-                    style={[
-                      styles.iconCircle,
-                      { backgroundColor: `${BRAND.primary}15` },
-                    ]}
-                  >
-                    <Ionicons
-                      name="notifications-outline"
-                      size={20}
-                      color={BRAND.primary}
-                    />
-                  </View>
-                  <View>
-                    <Text style={[styles.rowLabel, { color: colors.text }]}>
-                      Push Notifications
-                    </Text>
-                    <Text
-                      style={[styles.rowSub, { color: colors.textSecondary }]}
-                    >
-                      Order updates, deals, and alerts
-                    </Text>
-                  </View>
-                </View>
-                {isPushLoading ? (
-                  <ActivityIndicator size="small" color={colors.primary} />
-                ) : (
-                  <Switch
-                    value={isRegistered}
-                    onValueChange={(val) => {
-                      void handleNotificationToggle(val);
-                    }}
-                    trackColor={{
-                      false: colors.border,
-                      true: colors.primary,
-                    }}
-                    accessibilityLabel="Toggle push notifications"
-                  />
-                )}
-              </View>
-            </View>
-          </Animated.View>
-
-          {/* ABOUT */}
-          <Animated.View entering={FadeInDown.delay(300).duration(400)}>
-            <Text
-              style={[styles.sectionTitle, { color: colors.textSecondary }]}
-            >
-              ABOUT
-            </Text>
-            <View
-              style={[
-                styles.card,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-            >
-              <View
-                style={[
-                  styles.row,
-                  styles.rowBorder,
-                  { borderBottomColor: colors.border },
-                ]}
-              >
-                <View style={styles.rowLeft}>
-                  <View
-                    style={[
-                      styles.iconCircle,
-                      { backgroundColor: `${colors.textSecondary}15` },
-                    ]}
-                  >
-                    <Ionicons
-                      name="information-circle-outline"
-                      size={20}
-                      color={colors.textSecondary}
-                    />
-                  </View>
-                  <Text style={[styles.rowLabel, { color: colors.text }]}>
-                    App Version
-                  </Text>
-                </View>
-                <Text
-                  style={[styles.rowValue, { color: colors.textSecondary }]}
+              return (
+                <Pressable
+                  key={option.value}
+                  onPress={() => handleAppearanceChange(option.value)}
+                  style={[
+                    styles.segmentOption,
+                    isActive
+                      ? { backgroundColor: colors.primary }
+                      : { backgroundColor: colors.muted },
+                  ]}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: isActive }}
+                  accessibilityLabel={`${option.label} appearance mode`}
                 >
-                  {appVersion}
-                </Text>
-              </View>
-
-              <Pressable
-                onPress={() => {
-                  void openLink(PRIVACY_URL);
-                }}
-                style={[
-                  styles.row,
-                  styles.rowBorder,
-                  { borderBottomColor: colors.border },
-                ]}
-                accessibilityRole="link"
-                accessibilityLabel="Open privacy policy"
-              >
-                <View style={styles.rowLeft}>
-                  <View
+                  <Ionicons
+                    name={option.icon}
+                    size={18}
+                    color={
+                      isActive ? colors.primaryForeground : colors.textSecondary
+                    }
+                  />
+                  <Text
                     style={[
-                      styles.iconCircle,
-                      { backgroundColor: `${colors.textSecondary}15` },
+                      styles.segmentLabel,
+                      {
+                        color: isActive
+                          ? colors.primaryForeground
+                          : colors.text,
+                      },
                     ]}
                   >
-                    <Ionicons
-                      name="shield-checkmark-outline"
-                      size={20}
-                      color={colors.textSecondary}
-                    />
-                  </View>
-                  <Text style={[styles.rowLabel, { color: colors.text }]}>
-                    Privacy Policy
+                    {option.label}
                   </Text>
-                </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        </SettingsCardSection>
+
+        <SettingsCardSection
+          cardBackgroundColor={colors.card}
+          cardBorderColor={colors.border}
+          title="NOTIFICATIONS"
+          titleColor={colors.textSecondary}
+          delay={200}
+        >
+          <SettingsSectionRow
+            icon="notifications-outline"
+            iconBackgroundColor={`${BRAND.primary}15`}
+            iconColor={BRAND.primary}
+            label="Push Notifications"
+            labelColor={colors.text}
+            subtitle="Order updates, deals, and alerts"
+            subtitleColor={colors.textSecondary}
+            right={
+              isPushLoading ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Switch
+                  value={isRegistered}
+                  onValueChange={(value) => {
+                    void handleNotificationToggle(value);
+                  }}
+                  trackColor={{
+                    false: colors.border,
+                    true: colors.primary,
+                  }}
+                  accessibilityLabel="Toggle push notifications"
+                />
+              )
+            }
+          />
+        </SettingsCardSection>
+
+        <SettingsCardSection
+          cardBackgroundColor={colors.card}
+          cardBorderColor={colors.border}
+          title="ABOUT"
+          titleColor={colors.textSecondary}
+          delay={300}
+        >
+          <SettingsSectionRow
+            borderBottom
+            borderColor={colors.border}
+            icon="information-circle-outline"
+            iconBackgroundColor={`${colors.textSecondary}15`}
+            iconColor={colors.textSecondary}
+            label="App Version"
+            labelColor={colors.text}
+            right={
+              <Text style={[styles.rowValue, { color: colors.textSecondary }]}>
+                {appVersion}
+              </Text>
+            }
+          />
+          {ABOUT_LINKS.map((link, index) => (
+            <SettingsSectionRow
+              key={link.label}
+              borderBottom={index !== ABOUT_LINKS.length - 1}
+              borderColor={colors.border}
+              accessibilityLabel={link.accessibilityLabel}
+              accessibilityRole="link"
+              icon={link.icon}
+              iconBackgroundColor={`${colors.textSecondary}15`}
+              iconColor={colors.textSecondary}
+              label={link.label}
+              labelColor={colors.text}
+              onPress={() => {
+                void openLink(link.url);
+              }}
+              right={
                 <Ionicons
                   name="chevron-forward"
                   size={18}
                   color={colors.textSecondary}
                 />
-              </Pressable>
+              }
+            />
+          ))}
+        </SettingsCardSection>
 
-              <Pressable
-                onPress={() => {
-                  void openLink(TERMS_URL);
-                }}
-                style={styles.row}
-                accessibilityRole="link"
-                accessibilityLabel="Open terms of service"
-              >
-                <View style={styles.rowLeft}>
-                  <View
-                    style={[
-                      styles.iconCircle,
-                      { backgroundColor: `${colors.textSecondary}15` },
-                    ]}
-                  >
-                    <Ionicons
-                      name="document-text-outline"
-                      size={20}
-                      color={colors.textSecondary}
-                    />
-                  </View>
-                  <Text style={[styles.rowLabel, { color: colors.text }]}>
-                    Terms of Service
-                  </Text>
-                </View>
-                <Ionicons
-                  name="chevron-forward"
-                  size={18}
-                  color={colors.textSecondary}
-                />
-              </Pressable>
-            </View>
-          </Animated.View>
+        <SettingsCardSection
+          cardBackgroundColor={colors.card}
+          cardBorderColor={colors.border}
+          title="DATA"
+          titleColor={colors.textSecondary}
+          delay={400}
+        >
+          <SettingsSectionRow
+            icon="trash-outline"
+            iconBackgroundColor={`${colors.error}15`}
+            iconColor={colors.error}
+            label="Clear Cache"
+            labelColor={colors.text}
+            subtitle="Remove cached images and data"
+            subtitleColor={colors.textSecondary}
+            accessibilityLabel="Clear cached data"
+            onPress={handleClearCache}
+            right={
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color={colors.textSecondary}
+              />
+            }
+          />
+        </SettingsCardSection>
 
-          {/* DATA */}
-          <Animated.View entering={FadeInDown.delay(400).duration(400)}>
-            <Text
-              style={[styles.sectionTitle, { color: colors.textSecondary }]}
-            >
-              DATA
-            </Text>
-            <View
-              style={[
-                styles.card,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-            >
-              <Pressable
-                onPress={handleClearCache}
-                style={styles.row}
-                accessibilityRole="button"
-                accessibilityLabel="Clear cached data"
-              >
-                <View style={styles.rowLeft}>
-                  <View
-                    style={[
-                      styles.iconCircle,
-                      { backgroundColor: `${colors.error}15` },
-                    ]}
-                  >
-                    <Ionicons
-                      name="trash-outline"
-                      size={20}
-                      color={colors.error}
-                    />
-                  </View>
-                  <View>
-                    <Text style={[styles.rowLabel, { color: colors.text }]}>
-                      Clear Cache
-                    </Text>
-                    <Text
-                      style={[styles.rowSub, { color: colors.textSecondary }]}
-                    >
-                      Remove cached images and data
-                    </Text>
-                  </View>
-                </View>
-                <Ionicons
-                  name="chevron-forward"
-                  size={18}
-                  color={colors.textSecondary}
-                />
-              </Pressable>
-            </View>
-          </Animated.View>
-        </ScrollView>
+        <Text style={[styles.footer, { color: colors.textSecondary }]}>
+          {BRAND.name} v{appVersion}
+        </Text>
+      </ScrollView>
 
-        <SafeAreaView edges={['bottom']}>
-          <Text style={[styles.footer, { color: colors.textSecondary }]}>
-            {BRAND.name} v{appVersion}
-          </Text>
-        </SafeAreaView>
-        <toast.Toast />
-      </View>
-    </>
+      <toast.Toast />
+    </StorefrontScreenShell>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scroll: {
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.md,
-    paddingBottom: SPACING.xl,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 1.5,
-    marginTop: SPACING.lg,
-    marginBottom: SPACING.sm,
-    marginLeft: SPACING.xs,
-  },
-  card: {
-    borderRadius: RADIUS['2xl'],
-    borderWidth: StyleSheet.hairlineWidth,
-    overflow: 'hidden',
-    ...SHADOWS.sm,
-  },
-  segmentedControl: {
-    flexDirection: 'row',
-    padding: SPACING.xs,
-    gap: SPACING.xs,
-  },
-  segmentOption: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.sm,
-    paddingVertical: SPACING.sm + SPACING.xs,
-    borderRadius: RADIUS.xl,
-  },
-  segmentLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.md,
-  },
-  rowBorder: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  rowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    flex: 1,
-  },
-  rowLabel: {
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  rowSub: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  rowValue: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  iconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  footer: {
-    textAlign: 'center',
-    fontSize: 10,
-    letterSpacing: 2,
-    fontWeight: '700',
-    opacity: 0.4,
-    paddingBottom: SPACING.sm,
-  },
-});
