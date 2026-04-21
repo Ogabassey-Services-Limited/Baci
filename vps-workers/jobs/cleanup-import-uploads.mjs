@@ -71,7 +71,7 @@ while (true) {
     .in('client_upload_id', clientUploadIds);
   if (jobsError) {
     console.error('[cleanup-import-uploads] Batch job lookup failed:', jobsError);
-    continue;
+    process.exit(1);
   }
   const claimedKeys = new Set(
     existingJobs?.map((j) => `${j.merchant_id}:${j.client_upload_id}`) ?? []
