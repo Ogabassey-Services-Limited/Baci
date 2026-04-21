@@ -38,20 +38,15 @@ export function useStorefrontInsets() {
   };
 
   const getListContentStyle = (
-    options?: ListContentStyleOptions
+    options: ListContentStyleOptions = {}
   ): ViewStyle => {
-    if (!options) {
-      return {
-        gap: DEFAULT_LIST_GAP,
-        padding: DEFAULT_LIST_PADDING,
-      };
-    }
+    const bottomInset =
+      options.includeBottomInset === false ? 0 : insets.bottom;
 
-    const contentStyle: ViewStyle = {};
-
-    if (typeof options.padding === 'number') {
-      contentStyle.padding = options.padding;
-    }
+    const contentStyle: ViewStyle = {
+      gap: options.gap ?? DEFAULT_LIST_GAP,
+      padding: options.padding ?? DEFAULT_LIST_PADDING,
+    };
 
     if (typeof options.paddingTop === 'number') {
       contentStyle.paddingTop = options.paddingTop;
@@ -61,15 +56,11 @@ export function useStorefrontInsets() {
       contentStyle.paddingHorizontal = options.paddingHorizontal;
     }
 
-    if (typeof options.paddingBottom === 'number') {
-      contentStyle.paddingBottom =
-        options.paddingBottom +
-        (options.includeBottomInset ? insets.bottom : 0);
-    }
-
-    if (typeof options.gap === 'number') {
-      contentStyle.gap = options.gap;
-    }
+    const paddingBottomBase =
+      typeof options.paddingBottom === 'number'
+        ? options.paddingBottom
+        : (options.padding ?? DEFAULT_LIST_PADDING);
+    contentStyle.paddingBottom = paddingBottomBase + bottomInset;
 
     return contentStyle;
   };
