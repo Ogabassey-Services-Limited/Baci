@@ -1,6 +1,6 @@
 import type { ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { STOREFRONT_LAYOUT } from '@/constants/storefront-layout';
+import { STOREFRONT_INSET_DEFAULTS } from '@/constants/storefront-inset-defaults';
 
 interface ScrollContentStyleOptions {
   includeBottomInset?: boolean;
@@ -24,14 +24,13 @@ export function useStorefrontInsets() {
     options: ScrollContentStyleOptions = {}
   ): ViewStyle => {
     const paddingBottom =
-      (options.paddingBottom ??
-        STOREFRONT_LAYOUT.insetDefaults.scrollPaddingBottom) +
+      (options.paddingBottom ?? STOREFRONT_INSET_DEFAULTS.scrollPaddingBottom) +
       (options.includeBottomInset === false ? 0 : insets.bottom);
 
     return {
       paddingBottom,
       paddingTop:
-        options.paddingTop ?? STOREFRONT_LAYOUT.insetDefaults.scrollPaddingTop,
+        options.paddingTop ?? STOREFRONT_INSET_DEFAULTS.scrollPaddingTop,
     };
   };
 
@@ -42,8 +41,8 @@ export function useStorefrontInsets() {
       options.includeBottomInset === false ? 0 : insets.bottom;
 
     const contentStyle: ViewStyle = {
-      gap: options.gap ?? STOREFRONT_LAYOUT.insetDefaults.listGap,
-      padding: options.padding ?? STOREFRONT_LAYOUT.insetDefaults.listPadding,
+      gap: options.gap ?? STOREFRONT_INSET_DEFAULTS.listGap,
+      padding: options.padding ?? STOREFRONT_INSET_DEFAULTS.listPadding,
     };
 
     if (typeof options.paddingTop === 'number') {
@@ -57,7 +56,7 @@ export function useStorefrontInsets() {
     const paddingBottomBase =
       typeof options.paddingBottom === 'number'
         ? options.paddingBottom
-        : (options.padding ?? STOREFRONT_LAYOUT.insetDefaults.listPadding);
+        : (options.padding ?? STOREFRONT_INSET_DEFAULTS.listPadding);
     contentStyle.paddingBottom = paddingBottomBase + bottomInset;
 
     return contentStyle;

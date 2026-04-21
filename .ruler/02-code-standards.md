@@ -30,7 +30,7 @@
 
 ## Testing
 
-- Vitest + React Testing Library.
+- Vitest + React Testing Library; Expo apps in `apps/mobile-*` use Jest + React Native Testing Library.
 - Test files colocated with source: `MyComponent.test.tsx`.
 - Test both success AND error paths.
 - Use `screen.getByRole()` over `getByTestId()`.
