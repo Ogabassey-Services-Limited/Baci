@@ -63,4 +63,64 @@ describe('CompactStackHeader', () => {
 
     expect(screen.getByText('Clear All')).toBeTruthy();
   });
+
+  it('uses a sanitized fallback title that strips expo-router group segments', () => {
+    render(
+      <CompactStackHeader
+        {...createProps({
+          route: {
+            key: 'cart-key',
+            name: '(tabs)/cart',
+          },
+        })}
+      />
+    );
+
+    expect(screen.getByText('Cart')).toBeTruthy();
+    expect(screen.queryByText('(tabs)')).toBeNull();
+  });
+
+  it('renders nothing when the screen header is hidden', () => {
+    const { toJSON } = render(
+      <CompactStackHeader
+        {...createProps({
+          options: {
+            headerShown: false,
+            title: 'Cart',
+          },
+        })}
+      />
+    );
+
+    expect(toJSON()).toBeNull();
+    expect(screen.queryByText('Cart')).toBeNull();
+  });
+
+  it('disappears cleanly when rerendered from visible to hidden', () => {
+    const view = render(
+      <CompactStackHeader
+        {...createProps({
+          options: {
+            title: 'Cart',
+          },
+        })}
+      />
+    );
+
+    expect(screen.getByText('Cart')).toBeTruthy();
+
+    view.rerender(
+      <CompactStackHeader
+        {...createProps({
+          options: {
+            headerShown: false,
+            title: 'Cart',
+          },
+        })}
+      />
+    );
+
+    expect(view.toJSON()).toBeNull();
+    expect(screen.queryByText('Cart')).toBeNull();
+  });
 });

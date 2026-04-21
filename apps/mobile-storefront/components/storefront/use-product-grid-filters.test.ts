@@ -7,7 +7,7 @@ describe('useProductGridFilters', () => {
   it('returns the default filter state', () => {
     const { result } = renderHook(() => useProductGridFilters());
 
-    expect(result.current.selectedCategoryName).toBe('All');
+    expect(result.current.selectedCategorySlug).toBe('all');
     expect(result.current.minPrice).toBe(0);
     expect(result.current.maxPrice).toBe(PRODUCT_GRID_MAX_PRICE_LIMIT);
     expect(result.current.selectedBrand).toBe('All');
@@ -27,10 +27,10 @@ describe('useProductGridFilters', () => {
     });
 
     act(() => {
-      result.current.handleCategorySelect('Phones');
+      result.current.handleCategorySelect('phones');
     });
 
-    expect(result.current.selectedCategoryName).toBe('Phones');
+    expect(result.current.selectedCategorySlug).toBe('phones');
     expect(result.current.selectedBrand).toBe('All');
     expect(result.current.selectedCondition).toBe('All');
     expect(result.current.minPrice).toBe(0);
