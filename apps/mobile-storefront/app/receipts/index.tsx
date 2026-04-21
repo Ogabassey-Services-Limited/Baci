@@ -14,7 +14,6 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -25,49 +24,31 @@ import {
 } from '@/components/receipts/ReceiptCard';
 import { ReceiptPreviewModal } from '@/components/receipts/ReceiptPreviewModal';
 import { ReceiptsEmptyState } from '@/components/receipts/ReceiptsEmptyState';
+import { ReceiptsSearchSection } from '@/components/receipts/ReceiptsSearchSection';
+import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { useRequireAuth } from '@/hooks/use-auth-guard';
 import { useNetworkState } from '@/hooks/use-network-state';
 import { useReceiptPreview } from '@/hooks/use-receipt-preview';
 import { receiptDetailQueryOptions, useReceipts } from '@/hooks/use-receipts';
+import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
+import { RECEIPTS_SCREEN_STYLE_TOKENS } from './receipts-screen.constants';
 
 export default function ReceiptsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const queryClient = useQueryClient();
+  const { getListContentStyle } = useStorefrontInsets();
 
-  // Auth guard
   const { redirectTo, user, isLoading: isAuthLoading } = useRequireAuth();
   const { isOnline } = useNetworkState();
-
-  // Data
   const { data: receipts, isLoading, error, refetch } = useReceipts(user?.id);
-
-  // Receipt preview state machine (idle → loading → open → idle)
   const preview = useReceiptPreview();
-
-  // Prefetch receipt detail when user's finger touches a card (before onPress fires)
-  const handlePrefetch = (orderId: string) => {
-    queryClient.prefetchQuery(receiptDetailQueryOptions(orderId));
-  };
-
-  // Search
   const [searchQuery, setSearchQuery] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Declarative auth-gate
-  if (redirectTo) {
-    return <Redirect href={redirectTo} />;
-  }
-
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await refetch();
-    setIsRefreshing(false);
-  };
-
-  // Filter receipts by search query
+  const hasReceipts = (receipts ?? []).length > 0;
   const filteredReceipts = (receipts ?? []).filter((receipt) => {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase().trim();
@@ -82,73 +63,90 @@ export default function ReceiptsScreen() {
     return orderMatch || statusMatch || itemMatch;
   });
 
+  const handlePrefetch = (orderId: string) => {
+    queryClient.prefetchQuery(receiptDetailQueryOptions(orderId));
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  if (redirectTo) {
+    return <Redirect href={redirectTo} />;
+  }
+
   if (isAuthLoading || isLoading) {
     return (
-      <View
-        style={[
-          styles.container,
-          styles.centered,
-          { backgroundColor: colors.background },
-        ]}
+      <StorefrontScreenShell
+        style={[styles.container, { backgroundColor: colors.background }]}
+        edges={['bottom']}
       >
-        <ActivityIndicator size="large" color={BRAND.primary} />
-      </View>
+        <View style={[styles.container, styles.centered]}>
+          <ActivityIndicator size="large" color={BRAND.primary} />
+        </View>
+      </StorefrontScreenShell>
     );
   }
 
   if (error) {
     if (!isOnline) {
       return (
-        <View
-          style={[
-            styles.container,
-            styles.centered,
-            { backgroundColor: colors.background },
-          ]}
+        <StorefrontScreenShell
+          style={[styles.container, { backgroundColor: colors.background }]}
+          edges={['bottom']}
         >
-          <OfflineEmptyState
-            title="Receipts Unavailable"
-            description="Connect to the internet to view your receipts"
-            onRetry={() => refetch()}
-            isRetrying={isRefreshing}
-          />
-        </View>
+          <View style={[styles.container, styles.centered]}>
+            <OfflineEmptyState
+              title="Receipts Unavailable"
+              description="Connect to the internet to view your receipts"
+              onRetry={() => refetch()}
+              isRetrying={isRefreshing}
+            />
+          </View>
+        </StorefrontScreenShell>
       );
     }
 
     return (
-      <View
-        style={[
-          styles.container,
-          styles.centered,
-          { backgroundColor: colors.background },
-        ]}
+      <StorefrontScreenShell
+        style={[styles.container, { backgroundColor: colors.background }]}
+        edges={['bottom']}
       >
-        <Ionicons
-          name="alert-circle-outline"
-          size={48}
-          color={colors.textSecondary}
-        />
-        <Text style={[styles.errorText, { color: colors.text }]}>
-          Failed to load receipts
-        </Text>
-        <TouchableOpacity
-          onPress={() => refetch()}
-          accessibilityRole="button"
-          accessibilityLabel="Retry loading receipts"
-          accessibilityHint="Retries loading your receipts"
-        >
-          <Text style={[styles.retryText, { color: BRAND.primary }]}>
-            Tap to retry
+        <View style={[styles.container, styles.centered]}>
+          <Ionicons
+            name="alert-circle-outline"
+            size={48}
+            color={colors.textSecondary}
+          />
+          <Text style={[styles.errorText, { color: colors.text }]}>
+            Failed to load receipts
           </Text>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            onPress={() => refetch()}
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading receipts"
+            accessibilityHint="Retries loading your receipts"
+          >
+            <Text style={[styles.retryText, { color: BRAND.primary }]}>
+              Tap to retry
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </StorefrontScreenShell>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {!isOnline && (receipts ?? []).length > 0 && (
+    <StorefrontScreenShell
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={['bottom']}
+    >
+      {!isOnline && hasReceipts && (
         <OfflineNotice
           variant="banner"
           showCachedDataNotice
@@ -171,60 +169,14 @@ export default function ReceiptsScreen() {
         </View>
       )}
 
-      {(receipts ?? []).length > 0 && (
-        <View
-          style={[
-            styles.searchContainer,
-            { backgroundColor: colors.background },
-          ]}
-        >
-          <View
-            style={[
-              styles.searchInputContainer,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-          >
-            <Ionicons
-              name="search-outline"
-              size={20}
-              color={colors.textSecondary}
-            />
-            <TextInput
-              style={[styles.searchInput, { color: colors.text }]}
-              placeholder="Search by order #, product, or status..."
-              placeholderTextColor={colors.textSecondary}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              autoCapitalize="none"
-              autoCorrect={false}
-              returnKeyType="search"
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity
-                onPress={() => setSearchQuery('')}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                accessibilityRole="button"
-                accessibilityLabel="Clear search"
-                accessibilityHint="Clears the current search query"
-              >
-                <Ionicons
-                  name="close-circle"
-                  size={20}
-                  color={colors.textSecondary}
-                />
-              </TouchableOpacity>
-            )}
-          </View>
-          {searchQuery.length > 0 && (
-            <Text
-              style={[styles.searchResults, { color: colors.textSecondary }]}
-            >
-              {filteredReceipts.length}{' '}
-              {filteredReceipts.length === 1 ? 'receipt' : 'receipts'} found
-            </Text>
-          )}
-        </View>
-      )}
+      <ReceiptsSearchSection
+        colors={colors}
+        filteredCount={filteredReceipts.length}
+        hasReceipts={hasReceipts}
+        onChangeSearchQuery={setSearchQuery}
+        onClearSearch={() => setSearchQuery('')}
+        searchQuery={searchQuery}
+      />
 
       <FlashList
         data={filteredReceipts}
@@ -238,12 +190,12 @@ export default function ReceiptsScreen() {
         )}
         keyExtractor={(item) => item.id}
         contentContainerStyle={[
-          styles.listContent,
-          (receipts ?? []).length === 0 && styles.emptyListContent,
+          getListContentStyle({ includeBottomInset: false }),
+          filteredReceipts.length === 0 && styles.emptyListContent,
         ]}
         ListEmptyComponent={
           <ReceiptsEmptyState
-            hasReceipts={(receipts ?? []).length > 0}
+            hasReceipts={hasReceipts}
             hasSearchQuery={
               filteredReceipts.length === 0 && searchQuery.length > 0
             }
@@ -270,7 +222,7 @@ export default function ReceiptsScreen() {
         onClose={preview.closePreview}
         isPaid={preview.isPaid}
       />
-    </View>
+    </StorefrontScreenShell>
   );
 }
 
@@ -282,54 +234,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  listContent: {
-    padding: 16,
-    gap: 12,
-  },
   emptyListContent: {
     flex: 1,
   },
   errorText: {
-    fontSize: 16,
-    marginTop: 12,
+    fontSize: RECEIPTS_SCREEN_STYLE_TOKENS.errorTextSize,
+    marginTop: RECEIPTS_SCREEN_STYLE_TOKENS.errorTextMarginTop,
   },
   retryText: {
-    fontSize: 14,
+    fontSize: RECEIPTS_SCREEN_STYLE_TOKENS.retryTextSize,
     fontWeight: '600',
-    marginTop: 8,
-  },
-  searchContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
-  },
-  searchInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 10,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    paddingVertical: 0,
-  },
-  searchResults: {
-    fontSize: 13,
-    marginTop: 8,
-    marginLeft: 4,
+    marginTop: RECEIPTS_SCREEN_STYLE_TOKENS.retryTextMarginTop,
   },
   generatingBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 10,
+    gap: RECEIPTS_SCREEN_STYLE_TOKENS.generatingBannerGap,
+    paddingVertical:
+      RECEIPTS_SCREEN_STYLE_TOKENS.generatingBannerPaddingVertical,
   },
   generatingText: {
-    fontSize: 14,
+    fontSize: RECEIPTS_SCREEN_STYLE_TOKENS.generatingTextSize,
   },
 });
