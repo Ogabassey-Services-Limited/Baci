@@ -13,6 +13,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
 import { useCartStore } from '@/stores/cart-store';
 import { useComparisonStore } from '@/stores/comparison-store';
+import { useShallow } from 'zustand/react/shallow';
 import { formatPrice } from '@/types/product';
 
 export default function CompareScreen() {
@@ -20,9 +21,16 @@ export default function CompareScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
 
-  const products = useComparisonStore((state) => state.products);
-  const removeProduct = useComparisonStore((state) => state.removeProduct);
-  const clearComparison = useComparisonStore((state) => state.clearComparison);
+  // ⚡ Bolt: Wrapped multiple Zustand store selectors in `useShallow` to prevent unnecessary re-renders
+  // of the CompareScreen whenever unrelated state properties in the comparison store change.
+  // This reduces rendering overhead when navigating or modifying the comparison list.
+  const { products, removeProduct, clearComparison } = useComparisonStore(
+    useShallow((state) => ({
+      products: state.products,
+      removeProduct: state.removeProduct,
+      clearComparison: state.clearComparison,
+    }))
+  );
   const addToCart = useCartStore((state) => state.addItem);
 
   // Collect all unique spec keys across all products
