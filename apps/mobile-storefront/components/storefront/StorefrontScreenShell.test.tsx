@@ -74,4 +74,19 @@ describe('StorefrontScreenShell', () => {
       backgroundColor: '#111111',
     });
   });
+
+  it('renders without children and preserves explicit empty edges', () => {
+    render(
+      <StorefrontScreenShell edges={[]} testID="empty-shell">
+        {null}
+      </StorefrontScreenShell>
+    );
+
+    const shell = screen.getByTestId('empty-shell');
+
+    expect(shell.props.edges).toEqual([]);
+    expect(StyleSheet.flatten(shell.props.style)).toMatchObject({
+      flex: 1,
+    });
+  });
 });

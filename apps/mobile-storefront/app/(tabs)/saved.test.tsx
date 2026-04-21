@@ -1,18 +1,15 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import { View } from 'react-native';
+import type { SavedItem } from '@/stores/saved-store';
 import SavedTabScreen from './saved';
 
-interface SavedItem {
-  id: string;
-  image: string;
-  name: string;
-  price: number;
-  product_id: string;
-  slug: string;
+interface MockFlashListProps {
+  children?: React.ReactNode;
+  [key: string]: unknown;
 }
 
-const mockFlashList = jest.fn(({ children, ...props }) => (
+const mockFlashList = jest.fn(({ children, ...props }: MockFlashListProps) => (
   <View testID="saved-flash-list" {...props}>
     {children}
   </View>
@@ -25,6 +22,8 @@ const mockStorefrontScreenShell = jest.fn(({ children, ...props }) => (
 const mockUseStorefrontInsets = jest.fn();
 const mockUseNetworkState = jest.fn();
 const mockSavedStore = jest.fn<() => SavedItem[]>();
+const mockRemoveItem = jest.fn();
+const mockRefresh = jest.fn();
 const mockRouterPush = jest.fn();
 
 jest.mock('expo-router', () => ({
@@ -34,8 +33,38 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('@shopify/flash-list', () => ({
-  FlashList: ({ children, ...props }: { children?: React.ReactNode }) =>
-    mockFlashList({ children, ...props }),
+  FlashList: ({
+    data = [],
+    renderItem,
+    children,
+    ...props
+  }: {
+    data?: SavedItem[];
+    children?: React.ReactNode;
+    renderItem?: (info: { item: SavedItem; index: number }) => React.ReactNode;
+  }) => {
+    const React = jest.requireActual('react') as typeof import('react');
+    const { View } = jest.requireActual(
+      'react-native'
+    ) as typeof import('react-native');
+
+    const renderedChildren = data.length
+      ? data.map((item, index) =>
+          React.createElement(
+            View,
+            { key: item.id },
+            renderItem ? renderItem({ item, index }) : null
+          )
+        )
+      : children;
+
+    return mockFlashList({
+      children: renderedChildren,
+      ...props,
+      data,
+      renderItem,
+    });
+  },
 }));
 
 jest.mock('@/components/storefront/StorefrontScreenShell', () => ({
@@ -64,7 +93,7 @@ jest.mock('@/stores/saved-store', () => ({
   ) =>
     selector({
       items: mockSavedStore(),
-      removeItem: jest.fn(),
+      removeItem: mockRemoveItem,
     }),
 }));
 
@@ -81,7 +110,7 @@ describe('SavedTabScreen', () => {
     });
     mockUseNetworkState.mockReturnValue({
       isOnline: true,
-      refresh: jest.fn(),
+      refresh: mockRefresh,
     });
   });
 
@@ -94,6 +123,7 @@ describe('SavedTabScreen', () => {
         price: 2500,
         product_id: 'product-1',
         slug: 'test-product',
+        savedAt: Date.now(),
       },
     ]);
 
@@ -116,5 +146,116 @@ describe('SavedTabScreen', () => {
 
     expect(mockStorefrontScreenShell).toHaveBeenCalled();
     expect(screen.getByText('No saved items yet')).toBeTruthy();
+  });
+
+  it('disables browsing and shows offline recovery copy in the empty state', () => {
+    mockSavedStore.mockReturnValue([]);
+    mockUseNetworkState.mockReturnValue({
+      isOnline: false,
+      refresh: mockRefresh,
+    });
+
+    render(<SavedTabScreen />);
+
+    const browseButton = screen.getByLabelText('Browse products');
+
+    expect(
+      screen.getByText("You're offline. Your saved items are stored locally.")
+    ).toBeTruthy();
+    expect(screen.getByText('Connect to browse products')).toBeTruthy();
+    expect(browseButton.props.accessibilityState?.disabled).toBe(true);
+
+    fireEvent.press(screen.getByLabelText('Retry connection'));
+    expect(mockRefresh).toHaveBeenCalled();
+  });
+
+  it('navigates to the saved product when the item is pressed', () => {
+    mockSavedStore.mockReturnValue([
+      {
+        id: 'saved-1',
+        image: 'https://example.com/image.png',
+        name: 'Test Product',
+        price: 2500,
+        product_id: 'product-1',
+        slug: 'test-product',
+        savedAt: Date.now(),
+      },
+    ]);
+
+    render(<SavedTabScreen />);
+
+    fireEvent.press(screen.getByLabelText('View Test Product'));
+
+    expect(mockRouterPush).toHaveBeenCalledWith('/product/test-product');
+  });
+
+  it('skips navigation when a saved item is missing its slug', () => {
+    mockSavedStore.mockReturnValue([
+      {
+        id: 'saved-1',
+        image: 'https://example.com/image.png',
+        name: 'Broken Product',
+        price: 2500,
+        product_id: 'product-1',
+        slug: '',
+        savedAt: Date.now(),
+      },
+    ]);
+
+    render(<SavedTabScreen />);
+
+    fireEvent.press(screen.getByLabelText('View Broken Product'));
+
+    expect(mockRouterPush).not.toHaveBeenCalled();
+  });
+
+  it('removes a saved item when the remove action is pressed', () => {
+    mockSavedStore.mockReturnValue([
+      {
+        id: 'saved-1',
+        image: 'https://example.com/image.png',
+        name: 'Test Product',
+        price: 2500,
+        product_id: 'product-1',
+        slug: 'test-product',
+        savedAt: Date.now(),
+      },
+    ]);
+
+    render(<SavedTabScreen />);
+
+    fireEvent.press(
+      screen.getByLabelText('Remove Test Product from saved items')
+    );
+
+    expect(mockRemoveItem).toHaveBeenCalledWith('product-1');
+  });
+
+  it('shows the offline banner and per-item hint when saved items are viewed offline', () => {
+    mockSavedStore.mockReturnValue([
+      {
+        id: 'saved-1',
+        image: 'https://example.com/image.png',
+        name: 'Test Product',
+        price: 2500,
+        product_id: 'product-1',
+        slug: 'test-product',
+        savedAt: Date.now(),
+      },
+    ]);
+    mockUseNetworkState.mockReturnValue({
+      isOnline: false,
+      refresh: mockRefresh,
+    });
+
+    render(<SavedTabScreen />);
+
+    expect(
+      screen.getByText("You're offline. Viewing locally saved items.")
+    ).toBeTruthy();
+    expect(screen.getByText('Tap to view when online')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Retry connection'));
+    expect(mockRefresh).toHaveBeenCalled();
   });
 });

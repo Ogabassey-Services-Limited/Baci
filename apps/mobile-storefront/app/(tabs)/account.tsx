@@ -181,6 +181,7 @@ export default function AccountScreen() {
       edges={['top']}
     >
       <ScrollView
+        testID="account-scrollview"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={getScrollContentStyle()}
       >

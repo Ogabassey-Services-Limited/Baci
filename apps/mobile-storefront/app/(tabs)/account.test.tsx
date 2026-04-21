@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { render } from '@testing-library/react-native';
-import { ScrollView, View } from 'react-native';
+import { render, screen } from '@testing-library/react-native';
+import { View } from 'react-native';
 import AccountScreen from './account';
 
 const mockStorefrontScreenShell = jest.fn(({ children, ...props }) => (
@@ -51,11 +51,11 @@ jest.mock('@/components/profile/account-menu', () => ({
 jest.mock('@/components/profile/MenuSection', () => ({
   MenuSection: ({ title }: { title: string }) => {
     const React = jest.requireActual('react') as typeof import('react');
-    const { View } = jest.requireActual(
+    const { Text } = jest.requireActual(
       'react-native'
     ) as typeof import('react-native');
 
-    return React.createElement(View, null, title);
+    return React.createElement(Text, null, title);
   },
 }));
 
@@ -132,14 +132,59 @@ describe('AccountScreen', () => {
   });
 
   it('uses the storefront shell and scroll padding helper for the account layout', () => {
-    const view = render(<AccountScreen />);
+    render(<AccountScreen />);
     const shellProps = mockStorefrontScreenShell.mock.calls[0]?.[0];
-    const scrollView = view.UNSAFE_getByType(ScrollView);
+    const scrollView = screen.getByTestId('account-scrollview');
 
     expect(shellProps?.edges).toEqual(['top']);
     expect(scrollView.props.contentContainerStyle).toEqual({
       paddingTop: 20,
       paddingBottom: 60,
     });
+  });
+
+  it('renders a loading state before auth initialization completes', () => {
+    mockUseAuthStatus.mockReturnValue({
+      isInitialized: false,
+      user: null,
+    });
+
+    const view = render(<AccountScreen />);
+
+    expect(view.toJSON()).not.toBeNull();
+    expect(mockStorefrontScreenShell).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('account-scrollview')).toBeNull();
+  });
+
+  it('returns null when there is no authenticated user', () => {
+    mockUseAuthStatus.mockReturnValue({
+      isInitialized: true,
+      user: null,
+    });
+
+    const view = render(<AccountScreen />);
+
+    expect(view.toJSON()).toBeNull();
+    expect(mockStorefrontScreenShell).not.toHaveBeenCalled();
+  });
+
+  it('filters out hidden menu sections before rendering', () => {
+    mockGetAccountMenuSections.mockReturnValue([
+      {
+        title: 'Visible Section',
+        visible: true,
+        items: [],
+      },
+      {
+        title: 'Hidden Section',
+        visible: false,
+        items: [],
+      },
+    ]);
+
+    render(<AccountScreen />);
+
+    expect(screen.getByText('Visible Section')).toBeTruthy();
+    expect(screen.queryByText('Hidden Section')).toBeNull();
   });
 });

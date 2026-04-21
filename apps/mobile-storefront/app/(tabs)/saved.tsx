@@ -17,6 +17,8 @@ import { useNetworkState } from '@/hooks/use-network-state';
 import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
 import { useSavedStore } from '@/stores/saved-store';
 
+const SAVED_LIST_BOTTOM_PADDING = 100;
+
 export default function SavedTabScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -129,7 +131,7 @@ export default function SavedTabScreen() {
         contentContainerStyle={getListContentStyle({
           gap: SPACING.md,
           padding: SPACING.lg,
-          paddingBottom: 100,
+          paddingBottom: SAVED_LIST_BOTTOM_PADDING,
         })}
         showsVerticalScrollIndicator={false}
         renderItem={({ item }) => (
