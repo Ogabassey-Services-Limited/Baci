@@ -90,7 +90,7 @@ export default function ForgotPasswordScreen() {
             <TextInput
               style={styles.input}
               placeholder="your@email.com"
-              placeholderTextColor={colors.text}
+              placeholderTextColor={colors.placeholder}
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
@@ -149,7 +149,7 @@ const getStyles = (colors: ThemeColors) =>
       gap: SPACING.xs,
     },
     label: {
-      color: colors.textSecondary,
+      color: colors.text,
       fontSize: TYPOGRAPHY.size.sm,
       fontFamily: TYPOGRAPHY.fontFamily.medium,
     },
