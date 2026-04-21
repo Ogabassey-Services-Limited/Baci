@@ -6,7 +6,7 @@ import styles from './styles';
 
 interface NegotiationButtonProps {
   item: CartItem;
-  openItemNegotiation: (item: CartItem) => void;
+  openItemNegotiation?: (item: CartItem) => void;
   colors: (typeof Colors)['light'];
   negotiateSurface: string;
   negotiateBorder: string;
@@ -19,6 +19,8 @@ export default function NegotiationButton({
   negotiateSurface,
   negotiateBorder,
 }: NegotiationButtonProps) {
+  if (!openItemNegotiation) return null;
+
   if (item.negotiationStatus === 'accepted') {
     return (
       <View
@@ -47,7 +49,7 @@ export default function NegotiationButton({
           borderColor: negotiateBorder,
         },
       ]}
-      onPress={() => openItemNegotiation(item)}
+      onPress={() => openItemNegotiation?.(item)}
       accessibilityRole="button"
       accessibilityLabel={`Negotiate price for ${item.name}`}
       accessibilityHint="Opens negotiation for this item"

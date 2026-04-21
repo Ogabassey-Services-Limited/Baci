@@ -2,7 +2,12 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { render, screen } from '@testing-library/react-native';
 import type React from 'react';
 import { Text, View } from 'react-native';
+import { getTemplateConfig } from '@/lib/templates';
 import { RootLayoutNav } from './RootLayoutNav';
+
+const mockGetTemplateConfig = getTemplateConfig as jest.MockedFunction<
+  typeof getTemplateConfig
+>;
 
 const MockText = Text;
 const MockView = View;
@@ -93,6 +98,23 @@ jest.mock('@/components/useColorScheme', () => ({
   useColorScheme: () => 'light',
 }));
 
+jest.mock('@/lib/templates', () => ({
+  getTemplateConfig: jest.fn(() => ({
+    headerStyle: 'standard',
+    heroVariant: 'standard',
+    categoryStyle: 'pill',
+    cardVariant: 'grid',
+    spacing: 'compact',
+    borderRadius: 'md',
+    features: {
+      connectivityBanner: true,
+      chatWidget: true,
+      negotiationModal: true,
+      drawerMenu: true,
+    },
+  })),
+}));
+
 jest.mock('@/hooks/use-auth-guard', () => ({
   useAuthGuard: () => mockUseAuthGuard(),
 }));
@@ -126,8 +148,9 @@ describe('RootLayoutNav', () => {
   it('passes persistence settings through to the query provider', () => {
     render(<RootLayoutNav persistenceEnabled={false} />);
 
-    expect(screen.getByText('persist:off')).toBeTruthy();
-    expect(mockQueryProvider).toHaveBeenCalled();
+    expect(mockQueryProvider).toHaveBeenCalledWith(
+      expect.objectContaining({ persistenceEnabled: false })
+    );
   });
 
   it('surfaces provider failures deterministically', () => {
@@ -136,5 +159,29 @@ describe('RootLayoutNav', () => {
     });
 
     expect(() => render(<RootLayoutNav />)).toThrow('query provider failed');
+  });
+
+  it('does not render ConnectivityBanner when the template sets connectivityBanner to false', () => {
+    mockGetTemplateConfig.mockReturnValueOnce({
+      headerStyle: 'standard',
+      heroVariant: 'standard',
+      categoryStyle: 'pill',
+      cardVariant: 'list',
+      spacing: 'compact',
+      borderRadius: 'md',
+      features: {
+        connectivityBanner: false,
+        chatWidget: false,
+        negotiationModal: true,
+        drawerMenu: true,
+      },
+    });
+
+    render(<RootLayoutNav />);
+
+    expect(screen.queryByText('connectivity-banner')).toBeNull();
+    expect(screen.queryByText(/^chat-widget:/)).toBeNull();
+    expect(screen.getByText('negotiation-modal')).toBeTruthy();
+    expect(screen.getByText('drawer-menu')).toBeTruthy();
   });
 });

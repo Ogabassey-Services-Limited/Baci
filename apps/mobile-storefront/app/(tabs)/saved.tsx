@@ -79,7 +79,7 @@ export default function SavedTabScreen() {
               { backgroundColor: BRAND.primary },
               !isOnline && styles.buttonDisabled,
             ]}
-            onPress={() => router.push('/(tabs)')}
+            onPress={() => router.push('/')}
             disabled={!isOnline}
             accessibilityRole="button"
             accessibilityLabel="Browse products"

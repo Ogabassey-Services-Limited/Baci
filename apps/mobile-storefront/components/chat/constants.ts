@@ -17,7 +17,6 @@ export const HIDDEN_ROUTES = [
   '/bnpl-checkout',
   '/order-success',
   '/auth/login',
-  '/(tabs)/cart',
   '/cart',
   '/modal',
   '/orders',

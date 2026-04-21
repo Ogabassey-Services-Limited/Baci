@@ -244,7 +244,7 @@ export default function TrackOrderScreen() {
             </Text>
             <Pressable
               style={[styles.retryBtn, { backgroundColor: BRAND.primary }]}
-              onPress={() => router.replace('/(tabs)')}
+              onPress={() => router.replace('/')}
             >
               <Text style={styles.retryBtnText}>Go Home</Text>
             </Pressable>
@@ -712,7 +712,7 @@ export default function TrackOrderScreen() {
         >
           <Pressable
             style={[styles.homeBtn, { backgroundColor: BRAND.primary }]}
-            onPress={() => router.replace('/(tabs)')}
+            onPress={() => router.replace('/')}
           >
             <Text style={styles.homeBtnText}>Continue Shopping</Text>
           </Pressable>

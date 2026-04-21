@@ -109,7 +109,7 @@ export function Header({
               </Pressable>
 
               <Pressable
-                onPress={() => router.push('/(tabs)')}
+                onPress={() => router.push('/')}
                 style={styles.logoContainer}
                 accessibilityLabel={`${storeName}, go to home`}
                 accessibilityRole="button"
@@ -126,7 +126,7 @@ export function Header({
                 but keeping specific user request "utility bar" separate. 
                 Let's keep Cart prominent as per standard e-commerce. */}
               <Pressable
-                onPress={() => router.push('/(tabs)/cart')}
+                onPress={() => router.push('/cart')}
                 hitSlop={12}
                 style={styles.iconBtn}
                 accessibilityLabel={
@@ -247,7 +247,7 @@ export function Header({
               </Pressable>
             )}
             <Pressable
-              onPress={() => router.push('/(tabs)/cart')}
+              onPress={() => router.push('/cart')}
               hitSlop={12}
               style={styles.iconBtn}
               accessibilityLabel={
@@ -299,7 +299,7 @@ export function Header({
             />
           </Pressable>
           <Pressable
-            onPress={() => router.push('/(tabs)/cart')}
+            onPress={() => router.push('/cart')}
             hitSlop={12}
             style={styles.iconBtn}
             accessibilityLabel={
