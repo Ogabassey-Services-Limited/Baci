@@ -783,6 +783,79 @@ export default function OrdersScreen() {
         </View>
       </View>
 
+      {/* Insight Card */}
+      {showInsight && pendingCount > 0 ? (
+        <View
+          style={[
+            styles.insightCard,
+            { backgroundColor: colors.card },
+            shadows.sm,
+          ]}
+        >
+          <View style={styles.insightHeader}>
+            <View
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: RADIUS.sm,
+                backgroundColor: colors.goldLight,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Ionicons name="sparkles" size={20} color={colors.gold} />
+            </View>
+            <View style={styles.storeInfo}>
+              <Text style={[styles.storeName, { color: colors.gold }]}>
+                {storeUrl}
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => setShowInsight(false)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityLabel="Dismiss insight notification"
+              accessibilityRole="button"
+              style={{
+                minWidth: 44,
+                minHeight: 44,
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+            >
+              <View
+                style={[
+                  styles.dismissButton,
+                  { backgroundColor: colors.backgroundLight },
+                ]}
+              >
+                <Ionicons name="close" size={16} color={colors.textMuted} />
+              </View>
+            </Pressable>
+          </View>
+          <Text
+            style={[styles.insightMessage, { color: colors.textSecondary }]}
+          >
+            You have {pendingCount} pending orders awaiting confirmation.
+            Process them to keep customers happy!
+          </Text>
+          <Pressable
+            style={[styles.insightLink, { minHeight: 44 }]}
+            onPress={() => {
+              setStatusFilter('pending');
+              setShowInsight(false);
+            }}
+            accessibilityLabel={`View ${pendingCount} pending orders`}
+            accessibilityRole="button"
+            accessibilityHint="Filters orders to show only pending orders"
+          >
+            <Text style={[styles.insightLinkText, { color: colors.gold }]}>
+              View pending
+            </Text>
+            <Ionicons name="arrow-forward" size={14} color={colors.gold} />
+          </Pressable>
+        </View>
+      ) : null}
+
       {/* Collapsible Search + Filter Header */}
       <Animated.View
         style={[
@@ -875,79 +948,6 @@ export default function OrdersScreen() {
               <Ionicons name="close-circle" size={16} color={colors.gold} />
             </Pressable>
           </View>
-        </View>
-      ) : null}
-
-      {/* Insight Card */}
-      {showInsight && pendingCount > 0 ? (
-        <View
-          style={[
-            styles.insightCard,
-            { backgroundColor: colors.card },
-            shadows.sm,
-          ]}
-        >
-          <View style={styles.insightHeader}>
-            <View
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: RADIUS.sm,
-                backgroundColor: colors.goldLight,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Ionicons name="sparkles" size={20} color={colors.gold} />
-            </View>
-            <View style={styles.storeInfo}>
-              <Text style={[styles.storeName, { color: colors.gold }]}>
-                {storeUrl}
-              </Text>
-            </View>
-            <Pressable
-              onPress={() => setShowInsight(false)}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              accessibilityLabel="Dismiss insight notification"
-              accessibilityRole="button"
-              style={{
-                minWidth: 44,
-                minHeight: 44,
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}
-            >
-              <View
-                style={[
-                  styles.dismissButton,
-                  { backgroundColor: colors.backgroundLight },
-                ]}
-              >
-                <Ionicons name="close" size={16} color={colors.textMuted} />
-              </View>
-            </Pressable>
-          </View>
-          <Text
-            style={[styles.insightMessage, { color: colors.textSecondary }]}
-          >
-            You have {pendingCount} pending orders awaiting confirmation.
-            Process them to keep customers happy!
-          </Text>
-          <Pressable
-            style={[styles.insightLink, { minHeight: 44 }]}
-            onPress={() => {
-              setStatusFilter('pending');
-              setShowInsight(false);
-            }}
-            accessibilityLabel={`View ${pendingCount} pending orders`}
-            accessibilityRole="button"
-            accessibilityHint="Filters orders to show only pending orders"
-          >
-            <Text style={[styles.insightLinkText, { color: colors.gold }]}>
-              View pending
-            </Text>
-            <Ionicons name="arrow-forward" size={14} color={colors.gold} />
-          </Pressable>
         </View>
       ) : null}
 
@@ -1202,6 +1202,7 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     paddingHorizontal: SPACING.lg,
+    marginBottom: SPACING.md,
   },
   searchContainerCollapsed: {
     height: 0,
@@ -1365,8 +1366,7 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
   filterContainer: {
-    marginBottom: SPACING.md,
-    maxHeight: 50,
+    marginTop: SPACING.sm,
   },
   filterContent: {
     paddingHorizontal: SPACING.lg,

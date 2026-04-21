@@ -310,4 +310,35 @@ describe('OrdersScreen', () => {
       screen.getByText('Orders will appear here when customers place them')
     ).toBeTruthy();
   });
+
+  it('renders the insight card above the search bar and keeps filters below search', () => {
+    mocks.useOrderCounts.mockReturnValue({
+      data: {
+        all: 8,
+        pending: 4,
+        processing: 2,
+        shipped: 1,
+        delivered: 1,
+        cancelled: 0,
+        returned: 0,
+      },
+    });
+
+    render(<OrdersScreen />);
+
+    const viewPendingButton = screen.getByLabelText('View 4 pending orders');
+    const searchInput = screen.getByPlaceholderText(
+      'Search orders or customers...'
+    );
+    const pendingFilter = screen.getByLabelText('Pending orders: 4');
+
+    expect(
+      viewPendingButton.compareDocumentPosition(searchInput) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(
+      searchInput.compareDocumentPosition(pendingFilter) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
 });
