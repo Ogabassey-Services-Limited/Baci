@@ -32,9 +32,15 @@ export function OrderDetailsStatusCard({
   const currentStatus =
     shippingStatus === 'fulfilled' ? 'pending' : shippingStatus;
   const steps = [...baseSteps];
-  if (currentStatus === 'returned') steps.push('returned');
-  if (currentStatus === 'cancelled') steps.push('cancelled');
-  const currentStepIndex = steps.indexOf(currentStatus);
+  if (currentStatus === 'returned' || currentStatus === 'cancelled') {
+    // Replace the terminal 'delivered' step so the final step reflects the
+    // actual terminal state and 'delivered' is not rendered as active.
+    steps[steps.length - 1] = currentStatus;
+  }
+  const resolvedStepIndex = steps.indexOf(currentStatus);
+  // Unknown/unmapped status values default to the first step so the UI never
+  // renders in an inconsistent "nothing active" state.
+  const currentStepIndex = resolvedStepIndex === -1 ? 0 : resolvedStepIndex;
 
   return (
     <View

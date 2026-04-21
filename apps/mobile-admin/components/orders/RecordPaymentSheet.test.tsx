@@ -28,6 +28,12 @@ vi.mock('@/components/ui/AppSheetModal', () => ({
     ) : null,
 }));
 
+// Project-standard react-native shim for component-level tests.
+// Mirrors the minimal stub used across apps/mobile-admin component tests
+// (see NewOrderChannelSection.test.tsx, OrderItemDetailModal.test.tsx) so
+// each test file stays self-contained. Keep the surface area here tight —
+// only props these tests assert on need mapping; additional props should
+// be added when a test needs them, not preemptively.
 vi.mock('react-native', async () => {
   const React = await import('react');
 
@@ -123,7 +129,7 @@ describe('RecordPaymentSheet', () => {
     fireEvent.click(
       screen.getByRole('button', { name: 'Payment method transfer' })
     );
-    fireEvent.change(screen.getByLabelText('Payment note'), {
+    fireEvent.change(screen.getByLabelText('Payment notes'), {
       target: { value: 'Received by John' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Confirm payment' }));
@@ -155,7 +161,9 @@ describe('RecordPaymentSheet', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Close payment sheet' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Close payment sheet' })
+    );
 
     expect(onClose).toHaveBeenCalledTimes(1);
   });
@@ -179,7 +187,9 @@ describe('RecordPaymentSheet', () => {
       />
     );
 
-    expect(screen.getByRole('button', { name: 'Confirm payment' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Confirm payment' })
+    ).toBeDisabled();
   });
 
   it('shows a loading state while submitting', () => {
@@ -202,7 +212,9 @@ describe('RecordPaymentSheet', () => {
     );
 
     expect(screen.getByText('loading')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Confirm payment' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Confirm payment' })
+    ).toBeDisabled();
   });
 
   it('does not render when hidden', () => {

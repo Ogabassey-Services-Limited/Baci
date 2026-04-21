@@ -122,7 +122,7 @@ export function RecordPaymentSheet({
         Notes (Optional)
       </Text>
       <TextInput
-        accessibilityLabel="Payment note"
+        accessibilityLabel="Payment notes"
         maxLength={500}
         onChangeText={onNotesChange}
         placeholder="E.g., Received by John"
