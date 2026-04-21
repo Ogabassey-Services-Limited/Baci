@@ -1,0 +1,59 @@
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { renderHook } from '@testing-library/react-native';
+
+const mockUseSafeAreaInsets = jest.fn();
+
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => mockUseSafeAreaInsets(),
+}));
+
+import { useStorefrontInsets } from './use-storefront-insets';
+
+describe('useStorefrontInsets', () => {
+  beforeEach(() => {
+    mockUseSafeAreaInsets.mockReturnValue({
+      top: 24,
+      bottom: 34,
+      left: 0,
+      right: 0,
+    });
+  });
+
+  it('builds scroll and list padding presets from the safe-area insets', () => {
+    const { result } = renderHook(() => useStorefrontInsets());
+
+    expect(result.current.insets).toEqual({
+      top: 24,
+      bottom: 34,
+      left: 0,
+      right: 0,
+    });
+    expect(result.current.getScrollContentStyle()).toEqual({
+      paddingTop: 20,
+      paddingBottom: 94,
+    });
+    expect(result.current.getListContentStyle()).toEqual({
+      padding: 16,
+      gap: 12,
+    });
+  });
+
+  it('allows list overrides when the shell already covers the edge', () => {
+    const { result } = renderHook(() => useStorefrontInsets());
+
+    expect(
+      result.current.getListContentStyle({
+        paddingTop: 16,
+        paddingBottom: 24,
+        paddingHorizontal: 20,
+        gap: 8,
+        includeBottomInset: false,
+      })
+    ).toEqual({
+      paddingTop: 16,
+      paddingBottom: 24,
+      paddingHorizontal: 20,
+      gap: 8,
+    });
+  });
+});

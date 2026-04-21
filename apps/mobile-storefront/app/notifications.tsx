@@ -7,10 +7,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { Redirect, router, Stack } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { useRequireAuth } from '@/hooks/use-auth-guard';
+import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
 import { useAuthStore } from '@/stores/auth-store';
 
 interface Notification {
@@ -26,6 +27,7 @@ export default function NotificationsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((state) => state.user);
+  const { getListContentStyle } = useStorefrontInsets();
 
   // 2026 Best Practice: Declarative auth-gate with intent-preserving returnTo
   const { redirectTo } = useRequireAuth();
@@ -101,7 +103,7 @@ export default function NotificationsScreen() {
   }
 
   return (
-    <SafeAreaView
+    <StorefrontScreenShell
       style={[styles.container, { backgroundColor: colors.background }]}
       edges={['bottom']}
     >
@@ -116,22 +118,18 @@ export default function NotificationsScreen() {
         keyExtractor={(item) => item.id}
         ListEmptyComponent={renderEmpty}
         contentContainerStyle={[
-          styles.listContent,
+          getListContentStyle(),
           notifications.length === 0 && styles.emptyList,
         ]}
         showsVerticalScrollIndicator={false}
       />
-    </SafeAreaView>
+    </StorefrontScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  listContent: {
-    padding: 16,
-    gap: 12,
   },
   emptyList: {
     flex: 1,

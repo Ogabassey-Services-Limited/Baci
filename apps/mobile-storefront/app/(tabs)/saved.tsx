@@ -8,12 +8,13 @@ import { FlashList } from '@shopify/flash-list';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 import { OfflineNotice } from '@/components/OfflineNotice';
+import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
 import { useNetworkState } from '@/hooks/use-network-state';
+import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
 import { useSavedStore } from '@/stores/saved-store';
 
 export default function SavedTabScreen() {
@@ -23,6 +24,7 @@ export default function SavedTabScreen() {
     useShallow((s) => ({ items: s.items, removeItem: s.removeItem }))
   );
   const { isOnline, refresh } = useNetworkState();
+  const { getListContentStyle } = useStorefrontInsets();
 
   const handleProductPress = (slug: string) => {
     // M12 FIX: Guard navigation - only navigate if slug is truthy
@@ -36,7 +38,7 @@ export default function SavedTabScreen() {
 
   if (items.length === 0) {
     return (
-      <SafeAreaView
+      <StorefrontScreenShell
         style={[styles.container, { backgroundColor: colors.background }]}
         edges={['top']}
       >
@@ -92,12 +94,12 @@ export default function SavedTabScreen() {
             </Text>
           )}
         </View>
-      </SafeAreaView>
+      </StorefrontScreenShell>
     );
   }
 
   return (
-    <SafeAreaView
+    <StorefrontScreenShell
       style={[styles.container, { backgroundColor: colors.background }]}
       edges={['top']}
     >
@@ -124,7 +126,11 @@ export default function SavedTabScreen() {
         data={items}
         keyExtractor={(item) => item.id}
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={getListContentStyle({
+          gap: SPACING.md,
+          padding: SPACING.lg,
+          paddingBottom: 100,
+        })}
         showsVerticalScrollIndicator={false}
         renderItem={({ item }) => (
           <Pressable
@@ -171,7 +177,7 @@ export default function SavedTabScreen() {
           </Pressable>
         )}
       />
-    </SafeAreaView>
+    </StorefrontScreenShell>
   );
 }
 
@@ -245,11 +251,6 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-  },
-  scrollContent: {
-    padding: SPACING.lg,
-    paddingBottom: 100,
-    gap: SPACING.md,
   },
   productCard: {
     flexDirection: 'row',
