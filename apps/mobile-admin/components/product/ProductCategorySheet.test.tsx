@@ -154,4 +154,27 @@ describe('ProductCategorySheet', () => {
     expect(onNewCategoryNameChange).toHaveBeenCalledWith('Wearables');
     expect(onCreateCategory).toHaveBeenCalledTimes(1);
   });
+
+  it('disables the Create category button while submission is in progress', () => {
+    render(
+      <ProductCategorySheet
+        categories={[]}
+        colors={colors}
+        isCreating={true}
+        isSubmittingNewCategory={true}
+        newCategoryName="Accessories"
+        onClose={vi.fn()}
+        onCreateCategory={vi.fn()}
+        onNewCategoryNameChange={vi.fn()}
+        onSelect={vi.fn()}
+        onToggleCreateMode={vi.fn()}
+        selectedCategoryId=""
+        visible={true}
+      />
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Create category' })
+    ).toBeDisabled();
+  });
 });

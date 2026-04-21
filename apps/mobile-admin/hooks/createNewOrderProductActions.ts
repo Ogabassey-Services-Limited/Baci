@@ -6,18 +6,23 @@ import type {
   OrderItem,
   SelectableOrderProduct,
 } from '@/components/orders/new-order.types';
-import type { Product } from '@/hooks/useProducts';
 import { buildManualOrderLineItem } from '@/lib/manual-order-line-item';
 import { mergeOrderItem } from '@/lib/order-items';
+
+/** Minimal fields required from a parent product when picking variants. */
+type ParentProductRef = {
+  images?: string[] | null;
+  name?: string | null;
+};
 
 interface CreateNewOrderProductActionsParams {
   customItem: CustomItemDraft;
   orderItems: OrderItem[];
-  selectedParentProduct: Product | null;
+  selectedParentProduct: ParentProductRef | null;
   setCustomItem: Dispatch<SetStateAction<CustomItemDraft>>;
   setOrderItems: Dispatch<SetStateAction<OrderItem[]>>;
   setProductSearch: Dispatch<SetStateAction<string>>;
-  setSelectedParentProduct: Dispatch<SetStateAction<Product | null>>;
+  setSelectedParentProduct: Dispatch<SetStateAction<ParentProductRef | null>>;
   setShowCustomItemModal: Dispatch<SetStateAction<boolean>>;
   setShowProductModal: Dispatch<SetStateAction<boolean>>;
 }
@@ -62,7 +67,7 @@ export function createNewOrderProductActions({
       return;
     }
 
-    setSelectedParentProduct(product as Product);
+    setSelectedParentProduct(product);
   };
 
   const handleAddCustomItem = () => {

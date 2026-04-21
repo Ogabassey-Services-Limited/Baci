@@ -1,4 +1,3 @@
-import { Alert } from 'react-native';
 import type { QueryClient } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OrderItem } from '@/components/orders/new-order.types';
@@ -156,6 +155,20 @@ describe('submitNewOrder', () => {
         }),
       })
     );
+
+    // Verify buildItems produces the expected line-item shape
+    const payload = mocks.createManualOrderWithItems.mock.calls[0][1] as {
+      buildItems: (orderId: string) => unknown[];
+    };
+    const items = payload.buildItems('order-1');
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      name: 'Phone',
+      price: 12000,
+      quantity: 1,
+      order_id: 'order-1',
+    });
+
     expect(mocks.invalidateQueries).toHaveBeenCalledTimes(3);
     expect(setLastOrderId).toHaveBeenCalledWith('order-1');
     expect(setShowSuccessModal).toHaveBeenCalledWith(true);

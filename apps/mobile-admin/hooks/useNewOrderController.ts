@@ -1,33 +1,31 @@
-import * as Crypto from 'expo-crypto';
-import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
 import type { OrderSource, PaymentStatus } from '@baci/shared';
 import { useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef, useState } from 'react';
 import type { CountryCode } from 'react-native-country-picker-modal';
-import { useAuth } from '@/hooks/useAuth';
-import { useCreateCustomer } from '@/hooks/useCustomers';
-import { useMerchant } from '@/hooks/useMerchant';
-import type { Product } from '@/hooks/useProducts';
-import { useTheme } from '@/hooks/useTheme';
 import {
   createEmptyCustomerInfo,
   createEmptyCustomItemDraft,
   createEmptyDeliveryInfo,
   createEmptyNewCustomerDraft,
 } from '@/components/orders/new-order.defaults';
+import { DEFAULT_COUNTRY_CODE } from '@/components/orders/new-order.shared';
 import type {
   CustomerInfo,
   OrderItem,
   SelectableCustomer,
   SelectableOrderProduct,
 } from '@/components/orders/new-order.types';
-import { DEFAULT_COUNTRY_CODE } from '@/components/orders/new-order.shared';
+import { useAuth } from '@/hooks/useAuth';
+import { useCreateCustomer } from '@/hooks/useCustomers';
+import { useMerchant } from '@/hooks/useMerchant';
+import type { Product } from '@/hooks/useProducts';
+import { useTheme } from '@/hooks/useTheme';
 import { createNewOrderTotals } from '@/lib/new-order-totals';
 import { createNewOrderCustomerActions } from './createNewOrderCustomerActions';
 import { createNewOrderProductActions } from './createNewOrderProductActions';
+import { submitNewOrder } from './submitNewOrder';
 import { useNewOrderLookupData } from './useNewOrderLookupData';
 import { useNewOrderUiState } from './useNewOrderUiState';
-import { submitNewOrder } from './submitNewOrder';
 
 export function useNewOrderController() {
   const { colors, shadows } = useTheme();
@@ -41,7 +39,9 @@ export function useNewOrderController() {
   const [selectedChannel, setSelectedChannel] =
     useState<OrderSource>('physical');
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('unpaid');
-  const [customer, setCustomer] = useState<CustomerInfo>(createEmptyCustomerInfo);
+  const [customer, setCustomer] = useState<CustomerInfo>(
+    createEmptyCustomerInfo
+  );
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -87,8 +87,7 @@ export function useNewOrderController() {
     refetch: refetchSelectedParentProduct,
   } = selectedParentProductVariantsQuery;
   const [isCreatingCustomer, setIsCreatingCustomer] = useState(false);
-  const [newCustomer, setNewCustomer] =
-    useState(createEmptyNewCustomerDraft);
+  const [newCustomer, setNewCustomer] = useState(createEmptyNewCustomerDraft);
   const [selectedCountryCode, setSelectedCountryCode] =
     useState<CountryCode>(DEFAULT_COUNTRY_CODE);
   const [duplicateCustomer, setDuplicateCustomer] =
@@ -139,7 +138,11 @@ export function useNewOrderController() {
     setCustomItem,
     setOrderItems,
     setProductSearch,
-    setSelectedParentProduct,
+    // Cast is safe: ParentProductRef is a structural subset of Product; the
+    // setter only ever receives Product values at runtime.
+    setSelectedParentProduct: setSelectedParentProduct as (
+      v: null | { images?: null | string[]; name?: null | string }
+    ) => void,
     setShowCustomItemModal: uiState.setShowCustomItemModal,
     setShowProductModal: uiState.setShowProductModal,
   });

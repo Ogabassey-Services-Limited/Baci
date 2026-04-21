@@ -67,4 +67,36 @@ describe('createNewOrderTotals', () => {
     expect(totals.taxesToUse).toBe(0);
     expect(totals.total).toBe(4500);
   });
+
+  it('uses explicit taxes param when isVatApplied is false', () => {
+    const totals = createNewOrderTotals({
+      discount: 0,
+      isVatApplied: false,
+      merchantCurrency: 'NGN',
+      merchantVatRate: 10,
+      orderItems: [createOrderItem({ price: 10000, quantity: 1 })],
+      shippingFee: 0,
+      taxes: 750,
+    });
+
+    // calculatedVat would be 1000 (10%), but taxesToUse must equal explicit taxes
+    expect(totals.taxesToUse).toBe(750);
+    expect(totals.taxesToUse).not.toBe(totals.calculatedVat);
+    expect(totals.total).toBe(10750);
+  });
+
+  it('falls back to ₦X.XX format when merchantCurrency is invalid', () => {
+    const totals = createNewOrderTotals({
+      discount: 0,
+      isVatApplied: false,
+      merchantCurrency: 'INVALID',
+      orderItems: [],
+      shippingFee: 0,
+      taxes: 0,
+    });
+
+    // formatPrice should fall back to the ₦ symbol fallback, not throw
+    const formatted = totals.formatPrice(1500);
+    expect(formatted).toBe('₦1500.00');
+  });
 });

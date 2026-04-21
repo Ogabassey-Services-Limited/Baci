@@ -27,11 +27,7 @@ export function createNewOrderTotals({
         style: 'currency',
       }).format(amount);
     } catch {
-      return new Intl.NumberFormat('en-NG', {
-        currency: 'NGN',
-        minimumFractionDigits: 2,
-        style: 'currency',
-      }).format(amount);
+      return `₦${amount.toFixed(2)}`;
     }
   };
 
