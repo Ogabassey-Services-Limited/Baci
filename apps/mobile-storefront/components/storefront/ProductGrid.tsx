@@ -8,7 +8,12 @@ import {
   PRODUCT_GRID_LOADING_MORE_LABEL,
   PRODUCT_GRID_MAX_PRICE_LIMIT,
 } from '@/constants/product-grid';
-import { useCategories, useProductBrands, useProducts } from '@/hooks';
+import {
+  type Category,
+  useCategories,
+  useProductBrands,
+  useProducts,
+} from '@/hooks';
 import { getProductGridCategories } from '@/lib/category-utils';
 import {
   ALL_PRODUCT_FILTER_CATEGORY_SLUG,
@@ -21,13 +26,6 @@ import { ProductCard } from './ProductCard';
 import { styles } from './ProductGrid.styles';
 import { useProductGridFilters } from './use-product-grid-filters';
 import { useProductGridPagination } from './use-product-grid-pagination';
-
-interface Category {
-  id: string;
-  name: string;
-  slug: string;
-  icon?: string;
-}
 
 interface ProductGridProps {
   block: ProductGridBlock;
@@ -62,7 +60,7 @@ export default function ProductGrid({
     isLoading: isCategoriesLoading,
     isError: isCategoriesError,
   } = useCategories();
-  const normalizedCategories = categoriesData as Category[];
+  const normalizedCategories: Category[] = categoriesData;
   const categoryNames = (() => {
     if (normalizedCategories.length > 0) {
       const allCats = normalizedCategories.map((category) => category.name);
