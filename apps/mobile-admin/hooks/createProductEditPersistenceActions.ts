@@ -1,9 +1,8 @@
-import { Alert } from 'react-native';
 import type { MutableRefObject } from 'react';
+import { Alert } from 'react-native';
 import { z } from 'zod';
-import { runSingleFlight } from '@/lib/single-flight';
 import type { ProductEditFormData } from '@/components/product/product-edit.types';
-import type { EditableProductCondition } from '@/lib/product-condition';
+import { runSingleFlight } from '@/lib/single-flight';
 
 interface CreateProductEditPersistenceActionsParams {
   createCategory: (
@@ -22,6 +21,7 @@ interface CreateProductEditPersistenceActionsParams {
   newCategoryName: string;
   openProduct: (productId: string) => void;
   resetCategoryForm: () => void;
+  // Called with nextStatus for optimistic update, called with previousStatus on error revert
   revertStatus: (status: 'active' | 'draft' | 'archived') => void;
   routerBack: () => void;
   saveInFlightRef: MutableRefObject<boolean>;
@@ -79,7 +79,11 @@ export function createProductEditPersistenceActions({
       Alert.alert('Validation Error', 'Product name is required');
       return;
     }
-    if (formData.price === undefined || formData.price === null || formData.price < 0) {
+    if (
+      formData.price === undefined ||
+      formData.price === null ||
+      formData.price < 0
+    ) {
       Alert.alert('Validation Error', 'Please enter a valid price');
       return;
     }
@@ -88,7 +92,10 @@ export function createProductEditPersistenceActions({
         .map((attribute) => attribute.key.trim().toLowerCase())
         .filter(Boolean);
       if (new Set(attributeKeys).size < attributeKeys.length) {
-        Alert.alert('Duplicate Attributes', 'Each attribute key must be unique. Please remove or rename duplicate keys.');
+        Alert.alert(
+          'Duplicate Attributes',
+          'Each attribute key must be unique. Please remove or rename duplicate keys.'
+        );
         return;
       }
     }
@@ -97,10 +104,14 @@ export function createProductEditPersistenceActions({
       hasVariantConditionAxis &&
       formData.variants.some(
         (variant) =>
-          typeof variant.condition !== 'string' || variant.condition.trim() === ''
+          typeof variant.condition !== 'string' ||
+          variant.condition.trim() === ''
       )
     ) {
-      Alert.alert('Validation Error', 'Every variant row needs a condition when condition-based pricing is enabled.');
+      Alert.alert(
+        'Validation Error',
+        'Every variant row needs a condition when condition-based pricing is enabled.'
+      );
       return;
     }
     if (!isEditing && exactProductSuggestion) {
@@ -109,7 +120,10 @@ export function createProductEditPersistenceActions({
         `"${exactProductSuggestion.name}" already exists. Open it instead of creating a duplicate product.`,
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Open product', onPress: () => openProduct(exactProductSuggestion.id) },
+          {
+            text: 'Open product',
+            onPress: () => openProduct(exactProductSuggestion.id),
+          },
         ]
       );
       return;
@@ -130,7 +144,10 @@ export function createProductEditPersistenceActions({
       });
     } catch (error: unknown) {
       if (error instanceof z.ZodError) {
-        Alert.alert('Validation Error', error.issues[0]?.message || 'Invalid product data');
+        Alert.alert(
+          'Validation Error',
+          error.issues[0]?.message || 'Invalid product data'
+        );
         return;
       }
       Alert.alert('Error', (error as Error).message);
@@ -152,7 +169,9 @@ export function createProductEditPersistenceActions({
         onError: (error) => {
           revertStatus(previousStatus);
           const message =
-            error instanceof Error ? error.message : 'Failed to update product status';
+            error instanceof Error
+              ? error.message
+              : 'Failed to update product status';
           Alert.alert('Update Failed', message);
         },
       }

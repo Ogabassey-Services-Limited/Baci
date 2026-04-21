@@ -22,8 +22,11 @@ export function createProductEditImageActions({
 
     setIsUploading(true);
     try {
-      const fileExt =
-        uri.split('?')[0].split('.').pop()?.toLowerCase() || 'jpg';
+      const rawExt =
+        uri.split('?')[0].split('/').pop()?.split('.').pop()?.toLowerCase() ||
+        'jpg';
+      const ALLOWED_EXTS = ['jpg', 'jpeg', 'png', 'webp', 'heic'];
+      const fileExt = ALLOWED_EXTS.includes(rawExt) ? rawExt : 'jpg';
       const fileName = `${Date.now()}.${fileExt}`;
       const filePath = `${merchantId}/products/${fileName}`;
       const fileData = new FormData();
@@ -89,6 +92,16 @@ export function createProductEditImageActions({
       },
       {
         onPress: async () => {
+          const { status } =
+            await ImagePicker.requestMediaLibraryPermissionsAsync();
+          if (status !== 'granted') {
+            Alert.alert(
+              'Permission Denied',
+              'Photo library access is required to choose images.'
+            );
+            return;
+          }
+
           const result = await ImagePicker.launchImageLibraryAsync({
             allowsEditing: true,
             aspect: [1, 1],

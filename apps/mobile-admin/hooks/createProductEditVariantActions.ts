@@ -1,12 +1,12 @@
 import type { Dispatch, SetStateAction } from 'react';
+import type { ProductEditFormData } from '@/components/product/product-edit.types';
+import type { EditableProductCondition } from '@/lib/product-condition';
 import {
   createEmptyEditableVariant,
   createEmptyVariantAttribute,
   type EditableProductVariant,
   type VariantAttributeFormValue,
 } from '@/lib/product-variant-form';
-import type { EditableProductCondition } from '@/lib/product-condition';
-import type { ProductEditFormData } from '@/components/product/product-edit.types';
 
 interface CreateProductEditVariantActionsParams {
   formData: ProductEditFormData;
@@ -14,31 +14,37 @@ interface CreateProductEditVariantActionsParams {
 }
 
 export function createProductEditVariantActions({
-  formData,
+  // formData kept on the params interface for backward compatibility with callers.
+  // All handlers read from the setFormData callback's previous state to avoid
+  // stale closure reads when multiple updates happen in the same render cycle.
+  formData: _formData,
   setFormData,
 }: CreateProductEditVariantActionsParams) {
   const adjustStock = (nextQuantity: number) => {
     const nextStock = Math.max(0, nextQuantity);
-    const currentItems = formData.fulfillment_details.items || [];
-    let nextItems = [...currentItems];
 
-    if (nextStock > currentItems.length) {
-      nextItems = [
-        ...nextItems,
-        ...Array.from({ length: nextStock - currentItems.length }, () => ({
-          imei: '',
-          serial_number: '',
-        })),
-      ];
-    } else if (nextStock < currentItems.length) {
-      nextItems = nextItems.slice(0, nextStock);
-    }
+    setFormData((previous) => {
+      const currentItems = previous.fulfillment_details.items || [];
+      let nextItems = [...currentItems];
 
-    setFormData((previous) => ({
-      ...previous,
-      fulfillment_details: { items: nextItems },
-      stock_quantity: nextStock,
-    }));
+      if (nextStock > currentItems.length) {
+        nextItems = [
+          ...nextItems,
+          ...Array.from({ length: nextStock - currentItems.length }, () => ({
+            imei: '',
+            serial_number: '',
+          })),
+        ];
+      } else if (nextStock < currentItems.length) {
+        nextItems = nextItems.slice(0, nextStock);
+      }
+
+      return {
+        ...previous,
+        fulfillment_details: { items: nextItems },
+        stock_quantity: nextStock,
+      };
+    });
   };
 
   const updateFulfillmentItem = (
@@ -46,74 +52,96 @@ export function createProductEditVariantActions({
     field: 'imei' | 'serial_number',
     value: string
   ) => {
-    const nextItems = [...(formData.fulfillment_details.items || [])];
-    if (!nextItems[index]) {
-      nextItems[index] = { imei: '', serial_number: '' };
-    }
-    nextItems[index] = { ...nextItems[index], [field]: value };
-    setFormData((previous) => ({
-      ...previous,
-      fulfillment_details: { items: nextItems },
-    }));
+    setFormData((previous) => {
+      const nextItems = [...(previous.fulfillment_details.items || [])];
+      while (nextItems.length <= index) {
+        nextItems.push({ imei: '', serial_number: '' });
+      }
+      nextItems[index] = { ...nextItems[index], [field]: value };
+      return {
+        ...previous,
+        fulfillment_details: { items: nextItems },
+      };
+    });
   };
 
   const addAttribute = () => {
     setFormData((previous) => ({
       ...previous,
-      variant_attributes: [...previous.variant_attributes, { key: '', value: '' }],
+      variant_attributes: [
+        ...previous.variant_attributes,
+        { key: '', value: '' },
+      ],
     }));
   };
 
-  const updateAttribute = (index: number, field: 'key' | 'value', text: string) => {
-    const nextAttributes = [...formData.variant_attributes];
-    nextAttributes[index] = { ...nextAttributes[index], [field]: text };
-    setFormData((previous) => ({ ...previous, variant_attributes: nextAttributes }));
+  const updateAttribute = (
+    index: number,
+    field: 'key' | 'value',
+    text: string
+  ) => {
+    setFormData((previous) => {
+      const nextAttributes = [...previous.variant_attributes];
+      nextAttributes[index] = { ...nextAttributes[index], [field]: text };
+      return { ...previous, variant_attributes: nextAttributes };
+    });
   };
 
   const removeAttribute = (index: number) => {
-    const nextAttributes = [...formData.variant_attributes];
-    nextAttributes.splice(index, 1);
-    setFormData((previous) => ({ ...previous, variant_attributes: nextAttributes }));
+    setFormData((previous) => {
+      const nextAttributes = [...previous.variant_attributes];
+      nextAttributes.splice(index, 1);
+      return { ...previous, variant_attributes: nextAttributes };
+    });
   };
 
   const updateVariant = (
     index: number,
     updates: Partial<EditableProductVariant>
   ) => {
-    const nextVariants = [...formData.variants];
-    nextVariants[index] = { ...nextVariants[index], ...updates };
-    setFormData((previous) => ({ ...previous, variants: nextVariants }));
+    setFormData((previous) => {
+      const nextVariants = [...previous.variants];
+      nextVariants[index] = { ...nextVariants[index], ...updates };
+      return { ...previous, variants: nextVariants };
+    });
   };
 
   const addVariant = () => {
-    const attributeKeys = Array.from(
-      new Set(
-        formData.variants
-          .flatMap((variant) => variant.attributes.map((attribute) => attribute.key.trim()))
-          .filter(Boolean)
-      )
-    );
+    setFormData((previous) => {
+      const attributeKeys = Array.from(
+        new Set(
+          previous.variants
+            .flatMap((variant) =>
+              variant.attributes.map((attribute) => attribute.key.trim())
+            )
+            .filter(Boolean)
+        )
+      );
 
-    setFormData((previous) => ({
-      ...previous,
-      has_variants: true,
-      variants: [
-        ...previous.variants,
-        createEmptyEditableVariant({
-          attributeKeys,
-          condition: previous.variants.find((variant) => variant.condition)?.condition,
-          costPrice: previous.cost_price,
-          images: previous.images,
-          price: previous.price,
-        }),
-      ],
-    }));
+      return {
+        ...previous,
+        has_variants: true,
+        variants: [
+          ...previous.variants,
+          createEmptyEditableVariant({
+            attributeKeys,
+            condition: previous.variants.find((variant) => variant.condition)
+              ?.condition,
+            costPrice: previous.cost_price,
+            images: previous.images,
+            price: previous.price,
+          }),
+        ],
+      };
+    });
   };
 
   const removeVariant = (index: number) => {
-    const nextVariants = [...formData.variants];
-    nextVariants.splice(index, 1);
-    setFormData((previous) => ({ ...previous, variants: nextVariants }));
+    setFormData((previous) => {
+      const nextVariants = [...previous.variants];
+      nextVariants.splice(index, 1);
+      return { ...previous, variants: nextVariants };
+    });
   };
 
   const updateVariantAttribute = (
@@ -122,27 +150,61 @@ export function createProductEditVariantActions({
     field: keyof VariantAttributeFormValue,
     value: string
   ) => {
-    const nextAttributes = [...formData.variants[variantIndex].attributes];
-    nextAttributes[attributeIndex] = {
-      ...nextAttributes[attributeIndex],
-      [field]: value,
-    };
-    updateVariant(variantIndex, { attributes: nextAttributes });
-  };
-
-  const addVariantAttribute = (variantIndex: number) => {
-    updateVariant(variantIndex, {
-      attributes: [
-        ...formData.variants[variantIndex].attributes,
-        createEmptyVariantAttribute(),
-      ],
+    setFormData((previous) => {
+      const nextVariants = [...previous.variants];
+      const currentVariant = nextVariants[variantIndex];
+      if (!currentVariant) {
+        return previous;
+      }
+      const nextAttributes = [...currentVariant.attributes];
+      nextAttributes[attributeIndex] = {
+        ...nextAttributes[attributeIndex],
+        [field]: value,
+      };
+      nextVariants[variantIndex] = {
+        ...currentVariant,
+        attributes: nextAttributes,
+      };
+      return { ...previous, variants: nextVariants };
     });
   };
 
-  const removeVariantAttribute = (variantIndex: number, attributeIndex: number) => {
-    const nextAttributes = [...formData.variants[variantIndex].attributes];
-    nextAttributes.splice(attributeIndex, 1);
-    updateVariant(variantIndex, { attributes: nextAttributes });
+  const addVariantAttribute = (variantIndex: number) => {
+    setFormData((previous) => {
+      const nextVariants = [...previous.variants];
+      const currentVariant = nextVariants[variantIndex];
+      if (!currentVariant) {
+        return previous;
+      }
+      nextVariants[variantIndex] = {
+        ...currentVariant,
+        attributes: [
+          ...currentVariant.attributes,
+          createEmptyVariantAttribute(),
+        ],
+      };
+      return { ...previous, variants: nextVariants };
+    });
+  };
+
+  const removeVariantAttribute = (
+    variantIndex: number,
+    attributeIndex: number
+  ) => {
+    setFormData((previous) => {
+      const nextVariants = [...previous.variants];
+      const currentVariant = nextVariants[variantIndex];
+      if (!currentVariant) {
+        return previous;
+      }
+      const nextAttributes = [...currentVariant.attributes];
+      nextAttributes.splice(attributeIndex, 1);
+      nextVariants[variantIndex] = {
+        ...currentVariant,
+        attributes: nextAttributes,
+      };
+      return { ...previous, variants: nextVariants };
+    });
   };
 
   const updateVariantCondition = (

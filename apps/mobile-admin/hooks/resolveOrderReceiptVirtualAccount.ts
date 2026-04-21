@@ -1,13 +1,42 @@
 import { getBankNameFromCode } from '@baci/shared';
+import type { OrderDetailsRecord } from '@/components/orders/order-details.types';
 import { BASE_URL } from '@/lib/api-client';
 import { supabase } from '@/lib/supabase';
-import type { OrderDetailsRecord } from '@/components/orders/order-details.types';
 
 interface ReceiptMerchantDetails {
   bank_account_name?: string | null;
   bank_account_number?: string | null;
   bank_code?: string | null;
   business_name?: string | null;
+}
+
+interface VirtualAccountPayload {
+  account_name?: string;
+  account_number?: string;
+  bank_name?: string;
+}
+
+interface GenerateDvaResponse {
+  virtualAccount?: VirtualAccountPayload;
+}
+
+interface VirtualTerminalEntry {
+  account_name?: string;
+  account_number?: string;
+  active?: boolean;
+  bank?: string;
+}
+
+interface VirtualTerminalResponse {
+  terminals?: VirtualTerminalEntry[];
+}
+
+interface ResolveAccountResponse {
+  account_name?: string;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }
 
 export async function resolveOrderReceiptVirtualAccount({
@@ -47,13 +76,17 @@ export async function resolveOrderReceiptVirtualAccount({
         );
 
         if (response.ok) {
-          const payload = await response.json();
-          if (payload.virtualAccount?.account_number) {
-            virtualAccount = {
-              account_name: payload.virtualAccount.account_name || '',
-              account_number: payload.virtualAccount.account_number,
-              bank_name: payload.virtualAccount.bank_name || '',
-            };
+          const payload = (await response.json()) as unknown;
+          if (isRecord(payload) && isRecord(payload.virtualAccount)) {
+            const typed = payload as GenerateDvaResponse;
+            const va = typed.virtualAccount;
+            if (va?.account_number) {
+              virtualAccount = {
+                account_name: va.account_name || '',
+                account_number: va.account_number,
+                bank_name: va.bank_name || '',
+              };
+            }
           }
         }
       }
@@ -63,33 +96,32 @@ export async function resolveOrderReceiptVirtualAccount({
   if (!virtualAccount) {
     try {
       if (session?.access_token) {
-        const response = await fetch(`${BASE_URL}/api/paystack/virtual-terminal`, {
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        });
+        const response = await fetch(
+          `${BASE_URL}/api/paystack/virtual-terminal`,
+          {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          }
+        );
 
         if (response.ok) {
-          const payload = await response.json();
-          const terminal = payload.terminals?.find(
-            (entry: { active: boolean }) => entry.active
-          );
-
-          if (terminal?.account_number) {
-            virtualAccount = {
-              account_name: terminal.account_name || '',
-              account_number: terminal.account_number,
-              bank_name: terminal.bank || '',
-            };
+          const payload = (await response.json()) as unknown;
+          if (isRecord(payload) && Array.isArray(payload.terminals)) {
+            const typed = payload as VirtualTerminalResponse;
+            const terminal = typed.terminals?.find((entry) => entry.active);
+            if (terminal?.account_number) {
+              virtualAccount = {
+                account_name: terminal.account_name || '',
+                account_number: terminal.account_number,
+                bank_name: terminal.bank || '',
+              };
+            }
           }
         }
       }
     } catch {}
   }
 
-  if (
-    !virtualAccount &&
-    merchant?.bank_account_number &&
-    merchant.bank_code
-  ) {
+  if (!virtualAccount && merchant?.bank_account_number && merchant.bank_code) {
     let resolvedName = merchant.bank_account_name || '';
     const bankName = getBankNameFromCode(merchant.bank_code) || '';
 
@@ -109,9 +141,12 @@ export async function resolveOrderReceiptVirtualAccount({
           });
 
           if (response.ok) {
-            const payload: { account_name?: string } = await response.json();
-            if (payload.account_name) {
-              resolvedName = payload.account_name;
+            const payload = (await response.json()) as unknown;
+            if (isRecord(payload)) {
+              const typed = payload as ResolveAccountResponse;
+              if (typed.account_name) {
+                resolvedName = typed.account_name;
+              }
             }
           }
         }
