@@ -59,20 +59,20 @@ while (true) {
 
   lastId = batch[batch.length - 1].id;
 
+  // Batch-fetch all matching import_jobs in one query to avoid N+1 round-trips
+  const clientUploadIds = batch.map((u) => u.client_upload_id);
+  const { data: existingJobs, error: jobsError } = await supabase
+    .from('import_jobs')
+    .select('client_upload_id')
+    .in('client_upload_id', clientUploadIds);
+  if (jobsError) {
+    console.error('[cleanup-import-uploads] Batch job lookup failed:', jobsError);
+    continue;
+  }
+  const claimedUploadIds = new Set(existingJobs?.map((j) => j.client_upload_id) ?? []);
+
   for (const upload of batch) {
-    const existingJob = await supabase
-      .from('import_jobs')
-      .select('id')
-      .eq('merchant_id', upload.merchant_id)
-      .eq('client_upload_id', upload.client_upload_id)
-      .maybeSingle();
-
-    if (existingJob.error) {
-      console.error('[cleanup-import-uploads] Job lookup failed:', existingJob.error);
-      continue;
-    }
-
-    if (existingJob.data) {
+    if (claimedUploadIds.has(upload.client_upload_id)) {
       const del = await supabase.from('pending_import_uploads').delete().eq('id', upload.id);
       if (del.error) {
         console.error('[cleanup-import-uploads] Delete failed:', del.error);

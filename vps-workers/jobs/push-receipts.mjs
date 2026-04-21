@@ -122,14 +122,16 @@ for (let i = 0; i < failedTickets.length; i += BATCH_SIZE) {
   );
 }
 
-if (tokensToDeactivate.length > 0) {
+const TOKEN_BATCH = 50;
+for (let i = 0; i < tokensToDeactivate.length; i += TOKEN_BATCH) {
+  const tokenBatch = tokensToDeactivate.slice(i, i + TOKEN_BATCH);
   const { error } = await supabase
     .from('push_tokens')
     .update({ is_active: false })
-    .in('token', tokensToDeactivate);
+    .in('token', tokenBatch);
   if (error) {
     hadWriteError = true;
-    console.error('[push-receipts] Failed to deactivate tokens:', error);
+    console.error('[push-receipts] Failed to deactivate tokens batch:', error);
   }
 }
 
