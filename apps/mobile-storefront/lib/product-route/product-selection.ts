@@ -117,7 +117,7 @@ export function computeProductSelectionState({
   const effectiveSelectedVariantId =
     currentVariantDisplaySelection?.variant.id ??
     selectedVariant ??
-    (typeof routeVariantId === 'string' ? routeVariantId : null);
+    routeVariantId;
   const effectiveSelectedStorage =
     currentVariantDisplaySelection?.storage ??
     selectedStorage ??

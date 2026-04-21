@@ -62,7 +62,7 @@ export default function WalletTabScreen() {
 
   // Defense-in-depth: if user signed out while on this tab, go to Home
   if (!authUser) {
-    router.replace('/(tabs)');
+    router.replace('/');
     return null;
   }
 

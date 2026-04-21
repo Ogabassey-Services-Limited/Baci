@@ -17,6 +17,9 @@ export interface MobileTemplateConfig {
   borderRadius: 'none' | 'md' | 'xl' | 'full';
   features?: {
     chatWidget?: boolean;
+    connectivityBanner?: boolean;
+    negotiationModal?: boolean;
+    drawerMenu?: boolean;
   };
 }
 
@@ -84,6 +87,12 @@ export const CATEGORY_TEMPLATES: Record<string, MobileTemplateConfig> = {
     cardVariant: 'list',
     spacing: 'compact',
     borderRadius: 'md',
+    features: {
+      connectivityBanner: false,
+      chatWidget: false,
+      negotiationModal: false,
+      drawerMenu: false,
+    },
   },
   default: {
     headerStyle: 'standard',

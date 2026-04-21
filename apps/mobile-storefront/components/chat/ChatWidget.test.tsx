@@ -144,7 +144,7 @@ describe('ChatWidget', () => {
   });
 
   it('returns null on the cart route', () => {
-    mockUsePathname.mockReturnValue('/(tabs)/cart');
+    mockUsePathname.mockReturnValue('/cart');
     const { toJSON } = render(<ChatWidget />);
 
     expect(toJSON()).toBeNull();

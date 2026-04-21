@@ -124,7 +124,7 @@ export function StickyBottomActions({
 
             {/* View Cart Button */}
             <Pressable
-              onPress={() => router.push('/(tabs)/cart')}
+              onPress={() => router.push('/cart')}
               style={({ pressed }) => [
                 styles.viewCartBtn,
                 pressed ? styles.pressedAction : null,
