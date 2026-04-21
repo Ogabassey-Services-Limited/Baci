@@ -5,6 +5,7 @@ import { getTranslucentColor } from '@/lib/colors/sanitize-css-color';
 import { orderDetailsItemsStyles as styles } from './order-details-items.styles';
 
 interface OrderDetailsPaymentCardProps {
+  amountPaid: number;
   balance: number;
   colors: ThemeColors;
   discountAmount: number;
@@ -21,6 +22,7 @@ interface OrderDetailsPaymentCardProps {
 }
 
 export function OrderDetailsPaymentCard({
+  amountPaid,
   balance,
   colors,
   discountAmount,
@@ -36,7 +38,12 @@ export function OrderDetailsPaymentCard({
   total,
 }: OrderDetailsPaymentCardProps) {
   return (
-    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: colors.card, borderColor: colors.border },
+      ]}
+    >
       <Text style={[styles.cardTitle, { color: colors.text }]}>
         Payment Summary
       </Text>
@@ -46,19 +53,33 @@ export function OrderDetailsPaymentCard({
           <View style={styles.paymentActionsRow}>
             <Pressable
               onPress={onRecordPayment}
-              style={[styles.paymentActionButton, { borderColor: colors.success }]}
+              style={[
+                styles.paymentActionButton,
+                { borderColor: colors.success },
+              ]}
             >
               <Ionicons color={colors.success} name="card-outline" size={18} />
-              <Text style={[styles.paymentActionText, { color: colors.success }]}>
+              <Text
+                style={[styles.paymentActionText, { color: colors.success }]}
+              >
                 Record Payment
               </Text>
             </Pressable>
             <Pressable
               onPress={onRequestPayment}
-              style={[styles.paymentActionButton, { borderColor: colors.primary }]}
+              style={[
+                styles.paymentActionButton,
+                { borderColor: colors.primary },
+              ]}
             >
-              <Ionicons color={colors.primary} name="notifications-outline" size={18} />
-              <Text style={[styles.paymentActionText, { color: colors.primary }]}>
+              <Ionicons
+                color={colors.primary}
+                name="notifications-outline"
+                size={18}
+              />
+              <Text
+                style={[styles.paymentActionText, { color: colors.primary }]}
+              >
                 Request Payment
               </Text>
             </Pressable>
@@ -97,7 +118,9 @@ export function OrderDetailsPaymentCard({
       <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
       <View style={styles.summaryRow}>
-        <Text style={[styles.totalLabel, { color: colors.text }]}>Total Order</Text>
+        <Text style={[styles.totalLabel, { color: colors.text }]}>
+          Total Order
+        </Text>
         <Text style={[styles.totalValue, { color: colors.text }]}>
           {formatPrice(total)}
         </Text>
@@ -147,21 +170,25 @@ export function OrderDetailsPaymentCard({
           style={[
             styles.summaryValue,
             {
-              color: balance > 0 ? colors.success : colors.textSecondary,
+              color: amountPaid > 0 ? colors.success : colors.textSecondary,
               fontWeight: '700',
             },
           ]}
         >
-          {formatPrice(total - balance)}
+          {formatPrice(amountPaid)}
         </Text>
       </View>
 
       {balance > 0 ? (
         <View style={styles.summaryRow}>
-          <Text style={[styles.totalLabel, { color: colors.text, fontSize: 14 }]}>
+          <Text
+            style={[styles.totalLabel, { color: colors.text, fontSize: 14 }]}
+          >
             Balance Due
           </Text>
-          <Text style={[styles.totalValue, { color: colors.error, fontSize: 18 }]}>
+          <Text
+            style={[styles.totalValue, { color: colors.error, fontSize: 18 }]}
+          >
             {formatPrice(balance)}
           </Text>
         </View>

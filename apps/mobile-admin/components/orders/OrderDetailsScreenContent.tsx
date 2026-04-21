@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
-import type { useOrderDetailsController } from '@/hooks/useOrderDetailsController';
 import { OrderItemDetailModal } from '@/components/orders/OrderItemDetailModal';
 import { OrderPaymentOptionDialog } from '@/components/orders/OrderPaymentOptionDialog';
 import { OrderStatusSheet } from '@/components/orders/OrderStatusSheet';
@@ -10,6 +9,7 @@ import { ShipmentFlowSheet } from '@/components/orders/ShipmentFlowSheet';
 import { ShipOnCreditDialog } from '@/components/orders/ShipOnCreditDialog';
 import { ReceiptPreviewModal } from '@/components/ui/ReceiptPreviewModal';
 import { SuccessModal } from '@/components/ui/SuccessModal';
+import type { useOrderDetailsController } from '@/hooks/useOrderDetailsController';
 import { OrderDetailsFooterBar } from './OrderDetailsFooterBar';
 import { OrderDetailsItemsAndPaymentSection } from './OrderDetailsItemsAndPaymentSection';
 import { OrderDetailsOverviewSection } from './OrderDetailsOverviewSection';
@@ -81,13 +81,16 @@ export function OrderDetailsScreenContent({
         />
 
         <OrderDetailsItemsAndPaymentSection
+          amountPaid={Number(order.amount_paid) || 0}
           balance={order.balance}
           colors={controller.colors}
           discountAmount={order.discount_amount}
           formatPrice={controller.formatPrice}
           items={order.items || []}
           onRecordPayment={() => {
-            controller.setPaymentAmount(String(Math.round(order.balance || order.total)));
+            controller.setPaymentAmount(
+              String(Math.round(order.balance || order.total))
+            );
             controller.setShowRecordPaymentModal(true);
           }}
           onRequestPayment={() => {
@@ -125,7 +128,9 @@ export function OrderDetailsScreenContent({
         colors={controller.colors}
         onClose={() => controller.setShowStatusModal(false)}
         onSelectStatus={(status) => {
-          void controller.handleStatusUpdate(status as typeof order.shipping_status);
+          void controller.handleStatusUpdate(
+            status as typeof order.shipping_status
+          );
         }}
         shippingStatus={order.shipping_status}
         visible={controller.showStatusModal}
@@ -147,7 +152,8 @@ export function OrderDetailsScreenContent({
         canUseProvider={controller.providerBookingAvailable}
         fulfillmentDetails={controller.fulfillmentDetails}
         hasExistingFulfillment={Boolean(
-          order.fulfillment_details?.imei || order.fulfillment_details?.serialNumber
+          order.fulfillment_details?.imei ||
+            order.fulfillment_details?.serialNumber
         )}
         isSubmitting={controller.isShipmentSubmitting}
         onClose={controller.closeShipmentFlow}
@@ -184,7 +190,9 @@ export function OrderDetailsScreenContent({
         onClose={() => controller.setShowPaymentOptionModal(false)}
         onRecordPayment={() => {
           controller.setShowPaymentOptionModal(false);
-          controller.setPaymentAmount(String(Math.round(order.balance || order.total)));
+          controller.setPaymentAmount(
+            String(Math.round(order.balance || order.total))
+          );
           controller.setShowRecordPaymentModal(true);
         }}
         onShipOnCredit={() => {
@@ -197,7 +205,9 @@ export function OrderDetailsScreenContent({
       <RecordPaymentSheet
         colors={controller.colors}
         currencySymbol={controller.currencySymbol}
-        isConfirmDisabled={!controller.paymentMethod || !controller.paymentAmount}
+        isConfirmDisabled={
+          !controller.paymentMethod || !controller.paymentAmount
+        }
         isSubmitting={controller.recordPaymentMutation.isPending}
         onAmountChange={controller.handlePaymentAmountChange}
         onClose={() => controller.setShowRecordPaymentModal(false)}
@@ -217,7 +227,9 @@ export function OrderDetailsScreenContent({
         title={controller.successModal.title}
         message={controller.successModal.message}
         subMessage={controller.successModal.subMessage}
-        actionIcon={controller.successModal.showAction ? 'logo-whatsapp' : undefined}
+        actionIcon={
+          controller.successModal.showAction ? 'logo-whatsapp' : undefined
+        }
         actionLabel={
           controller.successModal.showAction
             ? controller.successModal.actionLabel

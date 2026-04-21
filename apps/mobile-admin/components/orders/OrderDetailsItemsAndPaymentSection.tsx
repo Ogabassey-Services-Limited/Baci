@@ -1,10 +1,11 @@
 import { View } from 'react-native';
 import type { ThemeColors } from '@/constants/theme';
-import type { OrderDetailsItem } from './order-details.types';
 import { OrderDetailsItemsCard } from './OrderDetailsItemsCard';
 import { OrderDetailsPaymentCard } from './OrderDetailsPaymentCard';
+import type { OrderDetailsItem } from './order-details.types';
 
 interface OrderDetailsItemsAndPaymentSectionProps {
+  amountPaid: number;
   balance: number;
   colors: ThemeColors;
   discountAmount: number;
@@ -23,6 +24,7 @@ interface OrderDetailsItemsAndPaymentSectionProps {
 }
 
 export function OrderDetailsItemsAndPaymentSection({
+  amountPaid,
   balance,
   colors,
   discountAmount,
@@ -48,6 +50,7 @@ export function OrderDetailsItemsAndPaymentSection({
         onSelectItem={onSelectItem}
       />
       <OrderDetailsPaymentCard
+        amountPaid={amountPaid}
         balance={balance}
         colors={colors}
         discountAmount={discountAmount}
