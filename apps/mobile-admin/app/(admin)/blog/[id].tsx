@@ -20,7 +20,7 @@ import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-import { asUploadFile } from '@/types/upload';
+import { createUploadFile, type RNFormData } from '@/types/upload';
 
 // Route param validation - accepts UUID or 'new' for creating new posts
 const routeParamsSchema = z.object({
@@ -115,11 +115,11 @@ export default function BlogPostDetailScreen() {
       const fileName = `${merchant?.id}/blog/${Date.now()}.${fileExt}`;
 
       // Use FormData for reliable file upload in React Native
-      const fileData = new FormData();
+      const fileData = new FormData() as RNFormData;
       const mimeType = `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`;
       fileData.append(
         'file',
-        asUploadFile({
+        createUploadFile({
           uri: uri,
           name: fileName.split('/').pop() || 'image.jpg',
           type: mimeType,
