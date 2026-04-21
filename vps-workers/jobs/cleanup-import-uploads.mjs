@@ -59,20 +59,26 @@ while (true) {
 
   lastId = batch[batch.length - 1].id;
 
-  // Batch-fetch all matching import_jobs in one query to avoid N+1 round-trips
+  // Batch-fetch all matching import_jobs in one query to avoid N+1 round-trips.
+  // Scope by both merchant_id and client_upload_id — the unique key is the
+  // composite (merchant_id, client_upload_id), not client_upload_id alone.
   const clientUploadIds = batch.map((u) => u.client_upload_id);
+  const merchantIds = [...new Set(batch.map((u) => u.merchant_id))];
   const { data: existingJobs, error: jobsError } = await supabase
     .from('import_jobs')
-    .select('client_upload_id')
+    .select('merchant_id, client_upload_id')
+    .in('merchant_id', merchantIds)
     .in('client_upload_id', clientUploadIds);
   if (jobsError) {
     console.error('[cleanup-import-uploads] Batch job lookup failed:', jobsError);
     continue;
   }
-  const claimedUploadIds = new Set(existingJobs?.map((j) => j.client_upload_id) ?? []);
+  const claimedKeys = new Set(
+    existingJobs?.map((j) => `${j.merchant_id}:${j.client_upload_id}`) ?? []
+  );
 
   for (const upload of batch) {
-    if (claimedUploadIds.has(upload.client_upload_id)) {
+    if (claimedKeys.has(`${upload.merchant_id}:${upload.client_upload_id}`)) {
       const del = await supabase.from('pending_import_uploads').delete().eq('id', upload.id);
       if (del.error) {
         console.error('[cleanup-import-uploads] Delete failed:', del.error);
