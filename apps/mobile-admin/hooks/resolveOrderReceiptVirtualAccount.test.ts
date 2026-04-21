@@ -19,7 +19,9 @@ vi.mock('@/lib/api-client', () => ({
   BASE_URL: 'https://example.com',
 }));
 
-function makeOrder(overrides: Partial<OrderDetailsRecord> = {}): OrderDetailsRecord {
+function makeOrder(
+  overrides: Partial<OrderDetailsRecord> = {}
+): OrderDetailsRecord {
   return {
     id: 'order-1',
     amount_paid: 0,
@@ -197,6 +199,40 @@ describe('resolveOrderReceiptVirtualAccount', () => {
           bank_name: 'Broken Bank',
         },
       }),
+    });
+
+    expect(account).toMatchObject({
+      account_name: 'Baci Ltd',
+      account_number: '0123456789',
+    });
+  });
+
+  it('ignores malformed API payloads and falls back to the merchant account', async () => {
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'token' } },
+    });
+    mocks.fetch
+      .mockResolvedValueOnce({
+        json: async () => ({ virtualAccount: [] }),
+        ok: true,
+      })
+      .mockResolvedValueOnce({
+        json: async () => ({ terminals: {} }),
+        ok: true,
+      })
+      .mockResolvedValueOnce({
+        json: async () => ({ account_name: 'Baci Ltd' }),
+        ok: true,
+      });
+
+    const account = await resolveOrderReceiptVirtualAccount({
+      merchant: {
+        bank_account_name: '',
+        bank_account_number: '0123456789',
+        bank_code: '044',
+        business_name: 'Baci',
+      },
+      order: makeOrder(),
     });
 
     expect(account).toMatchObject({

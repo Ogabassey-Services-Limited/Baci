@@ -1,5 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import type { ThemeColors } from '@/constants/theme';
 
 interface ProductInventoryCardProps {
@@ -68,11 +75,7 @@ export function ProductInventoryCard({
                 Manage unique identifiers (IMEI, S/N).
               </Text>
             </View>
-            <Ionicons
-              name="barcode-outline"
-              size={24}
-              color={colors.primary}
-            />
+            <Ionicons name="barcode-outline" size={24} color={colors.primary} />
           </View>
 
           <View style={styles.stockSummaryRow}>
@@ -80,15 +83,27 @@ export function ProductInventoryCard({
               <Text style={[styles.unitCount, { color: colors.text }]}>
                 {fulfillmentCount} Units
               </Text>
-              <Text style={[styles.helperText, { color: colors.textSecondary }]}>
+              <Text
+                style={[styles.helperText, { color: colors.textSecondary }]}
+              >
                 Needs {stockQuantity} identifiers
               </Text>
             </View>
             <Pressable
-              style={[styles.fulfillmentButton, { backgroundColor: colors.primary }]}
+              accessibilityLabel="Open fulfillment details"
+              accessibilityRole="button"
+              style={[
+                styles.fulfillmentButton,
+                { backgroundColor: colors.primary },
+              ]}
               onPress={onOpenFulfillmentModal}
             >
-              <Text style={[styles.fulfillmentButtonText, { color: colors.textOnPrimary }]}>
+              <Text
+                style={[
+                  styles.fulfillmentButtonText,
+                  { color: colors.textOnPrimary },
+                ]}
+              >
                 {fulfillmentCount > 0 ? 'View/Edit Items' : 'Add Details'}
               </Text>
             </Pressable>
@@ -101,7 +116,9 @@ export function ProductInventoryCard({
           </Text>
           <View style={styles.quantityRow}>
             <View>
-              <Text style={[styles.quantityLabel, { color: colors.textSecondary }]}>
+              <Text
+                style={[styles.quantityLabel, { color: colors.textSecondary }]}
+              >
                 Quantity <Text style={{ color: colors.error }}>*</Text>
               </Text>
               <TextInput
@@ -128,6 +145,8 @@ export function ProductInventoryCard({
 
             <View style={styles.stockActions}>
               <Pressable
+                accessibilityLabel="Decrease stock"
+                accessibilityRole="button"
                 style={[styles.stockButton, { backgroundColor: colors.error }]}
                 onPress={() => onStockAdjust(stockQuantity - 1)}
               >
@@ -138,20 +157,23 @@ export function ProductInventoryCard({
                 />
               </Pressable>
               <Pressable
-                style={[styles.stockButton, { backgroundColor: colors.success }]}
+                accessibilityLabel="Increase stock"
+                accessibilityRole="button"
+                style={[
+                  styles.stockButton,
+                  { backgroundColor: colors.success },
+                ]}
                 onPress={() => onStockAdjust(stockQuantity + 1)}
               >
-                <Ionicons
-                  name="add"
-                  size={20}
-                  color={colors.textOnPrimary}
-                />
+                <Ionicons name="add" size={20} color={colors.textOnPrimary} />
               </Pressable>
             </View>
           </View>
 
           <View style={styles.lowStockRow}>
-            <Text style={[styles.lowStockLabel, { color: colors.textSecondary }]}>
+            <Text
+              style={[styles.lowStockLabel, { color: colors.textSecondary }]}
+            >
               Low Stock Threshold
             </Text>
             <TextInput

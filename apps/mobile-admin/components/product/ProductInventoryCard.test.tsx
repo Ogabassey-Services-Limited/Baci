@@ -10,10 +10,12 @@ vi.mock('react-native', async () => {
 
   return {
     Pressable: ({
+      accessibilityLabel,
       children,
       disabled,
       onPress,
     }: {
+      accessibilityLabel?: string;
       children?: React.ReactNode;
       disabled?: boolean;
       onPress?: () => void;
@@ -21,6 +23,7 @@ vi.mock('react-native', async () => {
       React.createElement(
         'button',
         {
+          'aria-label': accessibilityLabel,
           disabled,
           onClick: () => onPress?.(),
           type: 'button',
@@ -101,12 +104,14 @@ describe('ProductInventoryCard', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'View/Edit Items' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Open fulfillment details' })
+    );
     fireEvent.change(screen.getByDisplayValue('1'), {
       target: { value: '12' },
     });
-    fireEvent.click(screen.getAllByRole('button')[1]);
-    fireEvent.click(screen.getAllByRole('button')[2]);
+    fireEvent.click(screen.getByRole('button', { name: 'Decrease stock' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Increase stock' }));
     fireEvent.change(screen.getByDisplayValue('3'), {
       target: { value: '5' },
     });
@@ -116,5 +121,33 @@ describe('ProductInventoryCard', () => {
     expect(onStockAdjust).toHaveBeenCalledWith(0);
     expect(onStockAdjust).toHaveBeenCalledWith(2);
     expect(onLowStockThresholdChange).toHaveBeenCalledWith(5);
+  });
+
+  it('hides stock controls when inventory tracking is disabled', () => {
+    render(
+      <ProductInventoryCard
+        colors={colors}
+        fulfillmentCount={0}
+        lowStockThreshold={3}
+        manageStock={false}
+        onLowStockThresholdChange={vi.fn()}
+        onOpenFulfillmentModal={vi.fn()}
+        onStockAdjust={vi.fn()}
+        onToggleManageStock={vi.fn()}
+        stockQuantity={1}
+      />
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'Open fulfillment details' })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Decrease stock' })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Increase stock' })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Stock Management')).not.toBeInTheDocument();
+    expect(screen.queryByText('Low Stock Threshold')).not.toBeInTheDocument();
   });
 });

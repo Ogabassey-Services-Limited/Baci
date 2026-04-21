@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import { NewOrderProductSheetEmptyState } from './NewOrderProductSheetEmptyState';
@@ -14,7 +15,7 @@ vi.mock('react-native', async () => {
       children,
       onPress,
     }: {
-      children?: React.ReactNode;
+      children?: ReactNode;
       onPress?: () => void;
     }) =>
       React.createElement(
@@ -22,9 +23,9 @@ vi.mock('react-native', async () => {
         { onClick: () => onPress?.(), type: 'button' },
         children
       ),
-    Text: ({ children }: { children?: React.ReactNode }) =>
+    Text: ({ children }: { children?: ReactNode }) =>
       React.createElement('span', null, children),
-    View: ({ children }: { children?: React.ReactNode }) =>
+    View: ({ children }: { children?: ReactNode }) =>
       React.createElement('div', null, children),
   };
 });
@@ -104,7 +105,9 @@ describe('NewOrderProductSheetEmptyState', () => {
     expect(screen.getByRole('progressbar')).toBeInTheDocument();
 
     const searchController = makeController({ productSearch: 'phone' });
-    view.rerender(<NewOrderProductSheetEmptyState controller={searchController} />);
+    view.rerender(
+      <NewOrderProductSheetEmptyState controller={searchController} />
+    );
 
     expect(
       screen.getByText('No products match that search yet.')

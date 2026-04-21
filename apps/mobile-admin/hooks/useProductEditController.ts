@@ -2,7 +2,10 @@ import * as Crypto from 'expo-crypto';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { createInitialProductEditFormData } from '@/components/product/product-edit.defaults';
-import type { ProductEditFormData } from '@/components/product/product-edit.types';
+import type {
+  ProductEditFormData,
+  ProductFulfillmentItemDraft,
+} from '@/components/product/product-edit.types';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useProductNameSuggestions } from '@/hooks/useProductNameSuggestions';
 import {
@@ -20,6 +23,43 @@ import { routeParamsSchema } from '@/schemas/product-route-params';
 import { createProductEditImageActions } from './createProductEditImageActions';
 import { createProductEditPersistenceActions } from './createProductEditPersistenceActions';
 import { createProductEditVariantActions } from './createProductEditVariantActions';
+
+function createFulfillmentItemDraft(
+  overrides: Partial<Omit<ProductFulfillmentItemDraft, 'id'>> = {}
+): ProductFulfillmentItemDraft {
+  return {
+    id: Crypto.randomUUID(),
+    imei: overrides.imei ?? '',
+    serial_number: overrides.serial_number ?? '',
+  };
+}
+
+function normalizeFulfillmentItems(
+  items:
+    | Array<{
+        id?: string;
+        imei?: string;
+        serial_number?: string;
+      }>
+    | null
+    | undefined,
+  fallbackCount = 0
+): ProductFulfillmentItemDraft[] {
+  const normalizedItems =
+    items?.map((item) => ({
+      id: item.id?.trim() || Crypto.randomUUID(),
+      imei: item.imei ?? '',
+      serial_number: item.serial_number ?? '',
+    })) ?? [];
+
+  if (normalizedItems.length > 0) {
+    return normalizedItems;
+  }
+
+  return Array.from({ length: fallbackCount }, () =>
+    createFulfillmentItemDraft()
+  );
+}
 
 export function useProductEditController() {
   const rawParams = useLocalSearchParams<{ id: string; sku?: string }>();
@@ -91,17 +131,21 @@ export function useProductEditController() {
         product.fulfillment_details &&
         typeof product.fulfillment_details === 'object' &&
         'items' in product.fulfillment_details
-          ? (product.fulfillment_details as {
-              items: Array<{ imei: string; serial_number: string }>;
-            })
-          : {
-              items: Array.from(
-                { length: product.stock_quantity || 0 },
-                () => ({
-                  imei: '',
-                  serial_number: '',
-                })
+          ? {
+              items: normalizeFulfillmentItems(
+                (
+                  product.fulfillment_details as {
+                    items: Array<{
+                      id?: string;
+                      imei?: string;
+                      serial_number?: string;
+                    }>;
+                  }
+                ).items
               ),
+            }
+          : {
+              items: normalizeFulfillmentItems([], product.stock_quantity || 0),
             },
       has_variants: product.has_variants || product.variants.length > 0,
       images: (product.images as string[]) || [],
@@ -116,6 +160,7 @@ export function useProductEditController() {
         ? Object.entries(
             product.variant_attributes as Record<string, unknown>
           ).map(([key, value]) => ({
+            id: Crypto.randomUUID(),
             key,
             value: String(value),
           }))
@@ -130,6 +175,29 @@ export function useProductEditController() {
 
   const updateFormData = (updates: Partial<ProductEditFormData>) => {
     setFormData((previous) => ({ ...previous, ...updates }));
+  };
+
+  const updatePricing = (
+    updates: Pick<Partial<ProductEditFormData>, 'cost_price' | 'price'>
+  ) => {
+    updateFormData(updates);
+  };
+
+  const updateInventory = (
+    updates: Pick<
+      Partial<ProductEditFormData>,
+      'low_stock_threshold' | 'manage_stock'
+    >
+  ) => {
+    updateFormData(updates);
+  };
+
+  const updateCategory = (category: { id: string; name: string }) => {
+    setFormData((previous) => ({
+      ...previous,
+      category: category.name,
+      category_id: category.id,
+    }));
   };
 
   const { handleCreateCategory, handleSave, handleStatusToggle } =
@@ -154,11 +222,7 @@ export function useProductEditController() {
       routerBack: () => router.back(),
       saveInFlightRef,
       selectCreatedCategory: (categoryId, categoryName) =>
-        setFormData((previous) => ({
-          ...previous,
-          category: categoryName,
-          category_id: categoryId,
-        })),
+        updateCategory({ id: categoryId, name: categoryName }),
       updateProduct: updateProductMutation.mutateAsync,
       updateStatus: (input, callbacks) =>
         updateStatusMutation.mutate(input, callbacks),
@@ -218,7 +282,10 @@ export function useProductEditController() {
     setNewCategoryName,
     updateAttribute,
     updateBasicInformation: updateFormData,
+    updateCategory,
     updateFulfillmentItem,
+    updateInventory,
+    updatePricing,
     updateVariant,
     updateVariantAttribute,
     updateVariantCondition,

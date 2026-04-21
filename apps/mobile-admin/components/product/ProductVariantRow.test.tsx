@@ -47,15 +47,21 @@ vi.mock('react-native', async () => {
 
   return {
     Pressable: ({
+      accessibilityLabel,
       children,
       onPress,
     }: {
+      accessibilityLabel?: string;
       children?: React.ReactNode;
       onPress?: () => void;
     }) =>
       React.createElement(
         'button',
-        { onClick: () => onPress?.(), type: 'button' },
+        {
+          'aria-label': accessibilityLabel,
+          onClick: () => onPress?.(),
+          type: 'button',
+        },
         children
       ),
     Text: ({ children }: { children?: React.ReactNode }) =>
@@ -99,9 +105,7 @@ describe('ProductVariantRow', () => {
   } as unknown as ThemeColors;
 
   const variant: EditableProductVariant = {
-    attributes: [
-      { id: 'attribute-1', key: 'Storage', value: '256GB' },
-    ],
+    attributes: [{ id: 'attribute-1', key: 'Storage', value: '256GB' }],
     client_id: 'variant-1',
     condition: 'new',
     cost_price: 500,
@@ -115,6 +119,7 @@ describe('ProductVariantRow', () => {
   it('reports field edits and row actions', () => {
     const onAddAttribute = vi.fn();
     const onRemove = vi.fn();
+    const onRemoveAttribute = vi.fn();
     const onUpdate = vi.fn();
     const onUpdateAttribute = vi.fn();
     const onUpdateCondition = vi.fn();
@@ -125,7 +130,7 @@ describe('ProductVariantRow', () => {
         currencySymbol="₦"
         onAddAttribute={onAddAttribute}
         onRemove={onRemove}
-        onRemoveAttribute={vi.fn()}
+        onRemoveAttribute={onRemoveAttribute}
         onUpdate={onUpdate}
         onUpdateAttribute={onUpdateAttribute}
         onUpdateCondition={onUpdateCondition}
@@ -137,21 +142,37 @@ describe('ProductVariantRow', () => {
     fireEvent.change(screen.getByDisplayValue('SKU-1'), {
       target: { value: 'SKU-2' },
     });
+    fireEvent.change(screen.getByLabelText('Selling price for variant 1'), {
+      target: { value: '1250' },
+    });
     fireEvent.change(screen.getByDisplayValue('2'), {
       target: { value: '4' },
     });
     fireEvent.change(screen.getByDisplayValue('Storage'), {
       target: { value: 'Color' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Set variant condition' }));
+    fireEvent.change(screen.getByDisplayValue('256GB'), {
+      target: { value: 'Black' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Set variant condition' })
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Remove variant 1 attribute 1',
+      })
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
 
     expect(onUpdate).toHaveBeenCalledWith({ sku: 'SKU-2' });
+    expect(onUpdate).toHaveBeenCalledWith({ price: 1250 });
     expect(onUpdate).toHaveBeenCalledWith({ stock_quantity: 4 });
     expect(onUpdateAttribute).toHaveBeenCalledWith(0, 'key', 'Color');
+    expect(onUpdateAttribute).toHaveBeenCalledWith(0, 'value', 'Black');
     expect(onUpdateCondition).toHaveBeenCalledWith('used');
     expect(onAddAttribute).toHaveBeenCalledTimes(1);
+    expect(onRemoveAttribute).toHaveBeenCalledWith(0);
     expect(onRemove).toHaveBeenCalledTimes(1);
   });
 });

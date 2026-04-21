@@ -109,7 +109,7 @@ describe('ProductFulfillmentSheet', () => {
       target: { value: '99999' },
     });
 
-    expect(onItemChange).toHaveBeenCalledWith(0, 'imei', '99999');
+    expect(onItemChange).toHaveBeenCalledWith('item-1', 'imei', '99999');
     expect(screen.getByText('Enter details for 2 units')).toBeInTheDocument();
   });
 
@@ -154,7 +154,11 @@ describe('ProductFulfillmentSheet', () => {
       target: { value: 'SN-99' },
     });
 
-    expect(onItemChange).toHaveBeenCalledWith(0, 'serial_number', 'SN-99');
+    expect(onItemChange).toHaveBeenCalledWith(
+      'item-1',
+      'serial_number',
+      'SN-99'
+    );
   });
 
   it('invokes onClose from the shared close control', () => {

@@ -1,8 +1,9 @@
+import { SHIPPING_STATUS_CONFIG, type ShippingStatus } from '@baci/shared';
 import { Ionicons } from '@expo/vector-icons';
 import { Fragment } from 'react';
-import { SHIPPING_STATUS_CONFIG, type ShippingStatus } from '@baci/shared';
 import { Text, View } from 'react-native';
 import type { ThemeColors } from '@/constants/theme';
+import { getTranslucentColor } from '@/lib/colors/sanitize-css-color';
 import type { OrderSourceInfo } from './order-details.types';
 import { orderDetailsOverviewStyles as styles } from './order-details-overview.styles';
 
@@ -71,7 +72,13 @@ export function OrderDetailsStatusCard({
         <View
           style={[
             styles.statusBadgeBig,
-            { backgroundColor: `${shippingColor}15` },
+            {
+              backgroundColor: getTranslucentColor(
+                shippingColor,
+                colors.backgroundLight,
+                0.08
+              ),
+            },
           ]}
         >
           <Ionicons
@@ -126,7 +133,7 @@ export function OrderDetailsStatusCard({
                       fontWeight: isCurrent ? '700' : '600',
                     },
                   ]}
-                  >
+                >
                   {stepConfig.label}
                 </Text>
               </View>
@@ -136,9 +143,7 @@ export function OrderDetailsStatusCard({
                     styles.progressLine,
                     {
                       backgroundColor:
-                        index < currentStepIndex
-                          ? stepColor
-                          : colors.border,
+                        index < currentStepIndex ? stepColor : colors.border,
                     },
                   ]}
                 />

@@ -1,3 +1,4 @@
+import * as Crypto from 'expo-crypto';
 import type { Dispatch, SetStateAction } from 'react';
 import type { ProductEditFormData } from '@/components/product/product-edit.types';
 import type { EditableProductCondition } from '@/lib/product-condition';
@@ -11,6 +12,22 @@ import {
 interface CreateProductEditVariantActionsParams {
   formData: ProductEditFormData;
   setFormData: Dispatch<SetStateAction<ProductEditFormData>>;
+}
+
+function createFulfillmentItemDraft() {
+  return {
+    id: Crypto.randomUUID(),
+    imei: '',
+    serial_number: '',
+  };
+}
+
+function createProductVariantAttributeDraft() {
+  return {
+    id: Crypto.randomUUID(),
+    key: '',
+    value: '',
+  };
 }
 
 export function createProductEditVariantActions({
@@ -30,10 +47,10 @@ export function createProductEditVariantActions({
       if (nextStock > currentItems.length) {
         nextItems = [
           ...nextItems,
-          ...Array.from({ length: nextStock - currentItems.length }, () => ({
-            imei: '',
-            serial_number: '',
-          })),
+          ...Array.from(
+            { length: nextStock - currentItems.length },
+            createFulfillmentItemDraft
+          ),
         ];
       } else if (nextStock < currentItems.length) {
         nextItems = nextItems.slice(0, nextStock);
@@ -48,16 +65,17 @@ export function createProductEditVariantActions({
   };
 
   const updateFulfillmentItem = (
-    index: number,
+    itemId: string,
     field: 'imei' | 'serial_number',
     value: string
   ) => {
     setFormData((previous) => {
       const nextItems = [...(previous.fulfillment_details.items || [])];
-      while (nextItems.length <= index) {
-        nextItems.push({ imei: '', serial_number: '' });
+      const itemIndex = nextItems.findIndex((item) => item.id === itemId);
+      if (itemIndex === -1) {
+        return previous;
       }
-      nextItems[index] = { ...nextItems[index], [field]: value };
+      nextItems[itemIndex] = { ...nextItems[itemIndex], [field]: value };
       return {
         ...previous,
         fulfillment_details: { items: nextItems },
@@ -70,7 +88,7 @@ export function createProductEditVariantActions({
       ...previous,
       variant_attributes: [
         ...previous.variant_attributes,
-        { key: '', value: '' },
+        createProductVariantAttributeDraft(),
       ],
     }));
   };

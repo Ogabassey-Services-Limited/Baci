@@ -185,13 +185,18 @@ export function NewOrderDetailsSection({
             <Text style={[styles.listLabel, { color: colors.text }]}>
               Delivery Details
             </Text>
-            <Text style={[styles.listSubValue, { color: colors.textSecondary }]}>
+            <Text
+              style={[styles.listSubValue, { color: colors.textSecondary }]}
+            >
               {sameAsCustomer
                 ? 'Deliver to same person'
                 : 'Deliver to different person'}
             </Text>
           </View>
           <Switch
+            accessibilityLabel="Deliver to same person"
+            accessibilityRole="switch"
+            accessibilityState={{ checked: sameAsCustomer }}
             onValueChange={setSameAsCustomer}
             thumbColor={
               Platform.OS === 'ios'

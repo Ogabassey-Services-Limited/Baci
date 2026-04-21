@@ -103,8 +103,11 @@ export function createNewOrderCustomerActions({
           .maybeSingle();
 
         if (searchError) {
-          console.error('Error checking for existing customer:', searchError);
-          continue;
+          Alert.alert(
+            'Error',
+            'Unable to check for existing customers right now.'
+          );
+          return;
         }
 
         if (existingCustomer) {

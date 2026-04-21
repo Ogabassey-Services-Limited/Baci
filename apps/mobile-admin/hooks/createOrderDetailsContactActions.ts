@@ -202,7 +202,9 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
       return;
     }
 
-    Linking.openURL(`https://wa.me/${phone}`);
+    Linking.openURL(`https://wa.me/${phone}`).catch(() => {
+      Alert.alert('Error', 'Could not open WhatsApp');
+    });
   };
 
   const handleShare = async () => {

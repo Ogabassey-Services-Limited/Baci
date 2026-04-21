@@ -20,7 +20,7 @@ vi.mock('react-native', async () => {
     }: {
       ListFooterComponent?: React.ReactNode;
       ListEmptyComponent?: React.ReactNode;
-      data: Array<unknown>;
+      data: unknown[];
       renderItem: (item: { item: unknown }) => React.ReactNode;
     }) =>
       React.createElement(
@@ -104,8 +104,11 @@ function makeController(
     customerSearch: '',
     customersData: { pages: [] },
     customersQuery: {
+      error: null,
       fetchNextPage: vi.fn(),
       hasNextPage: false,
+      isError: false,
+      isLoading: false,
       isFetchingNextPage: false,
     } as unknown as CustomerSearchController['customersQuery'],
     handleSelectCustomer: vi.fn(),
@@ -159,7 +162,13 @@ describe('NewOrderCustomerSearchView', () => {
     const controller = makeController({
       customersData: {
         pageParams: [0],
-        pages: [{ customers: [customerWithPhoneOnly], nextCursor: null, totalCount: 1 }],
+        pages: [
+          {
+            customers: [customerWithPhoneOnly],
+            nextCursor: null,
+            totalCount: 1,
+          },
+        ],
       },
     });
 
@@ -219,5 +228,39 @@ describe('NewOrderCustomerSearchView', () => {
     render(<NewOrderCustomerSearchView controller={controller} />);
 
     expect(screen.getByText('Loading more customers...')).toBeInTheDocument();
+  });
+
+  it('shows a loading empty state while customers are loading', () => {
+    const controller = makeController({
+      customersQuery: {
+        error: null,
+        fetchNextPage: vi.fn(),
+        hasNextPage: false,
+        isError: false,
+        isFetchingNextPage: false,
+        isLoading: true,
+      } as unknown as CustomerSearchController['customersQuery'],
+    });
+
+    render(<NewOrderCustomerSearchView controller={controller} />);
+
+    expect(screen.getByText('Loading customers...')).toBeInTheDocument();
+  });
+
+  it('shows an error empty state when the customer query fails', () => {
+    const controller = makeController({
+      customersQuery: {
+        error: new Error('Customer fetch failed'),
+        fetchNextPage: vi.fn(),
+        hasNextPage: false,
+        isError: true,
+        isFetchingNextPage: false,
+        isLoading: false,
+      } as unknown as CustomerSearchController['customersQuery'],
+    });
+
+    render(<NewOrderCustomerSearchView controller={controller} />);
+
+    expect(screen.getByText('Customer fetch failed')).toBeInTheDocument();
   });
 });

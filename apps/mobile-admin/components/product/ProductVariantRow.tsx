@@ -12,8 +12,8 @@ import type {
   VariantAttributeFormValue,
 } from '@/lib/product-variant-form';
 import { PriceInput } from './PriceInput';
-import { productVariantRowStyles as styles } from './product-variant-row.styles';
 import { getVariantSummaryLabel } from './product-edit.helpers';
+import { productVariantRowStyles as styles } from './product-variant-row.styles';
 
 interface ProductVariantRowProps {
   colors: ThemeColors;
@@ -75,7 +75,9 @@ export function ProductVariantRow({
         colors={colors}
         conditionOptions={EDITABLE_PRODUCT_CONDITIONS}
         formatConditionLabel={formatProductCondition}
-        updateVariantCondition={(_index, condition) => onUpdateCondition(condition)}
+        updateVariantCondition={(_index, condition) =>
+          onUpdateCondition(condition)
+        }
         variant={variant}
         variantIndex={variantIndex}
       />
@@ -209,6 +211,8 @@ export function ProductVariantRow({
             />
           </View>
           <Pressable
+            accessibilityLabel={`Remove variant ${variantIndex + 1} attribute ${attributeIndex + 1}`}
+            accessibilityRole="button"
             onPress={() => onRemoveAttribute(attributeIndex)}
             style={styles.attributeRemoveButton}
           >

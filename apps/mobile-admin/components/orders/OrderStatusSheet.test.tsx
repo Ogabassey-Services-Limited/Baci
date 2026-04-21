@@ -148,6 +148,22 @@ describe('OrderStatusSheet', () => {
       />
     );
 
-    expect(screen.queryByLabelText('Order status sheet')).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText('Order status sheet')
+    ).not.toBeInTheDocument();
+  });
+
+  it('renders the returned action as disabled for shipped orders', () => {
+    render(
+      <OrderStatusSheet
+        colors={colors}
+        onClose={vi.fn()}
+        onSelectStatus={vi.fn()}
+        shippingStatus="shipped"
+        visible={true}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Returned' })).toBeDisabled();
   });
 });

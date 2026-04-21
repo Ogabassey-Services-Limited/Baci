@@ -1,6 +1,5 @@
 import { Stack, useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
-import { useTheme } from '@/hooks/useTheme';
 import { ProductAttributesCard } from '@/components/product/ProductAttributesCard';
 import { ProductBasicInformationCard } from '@/components/product/ProductBasicInformationCard';
 import { ProductCategorySheet } from '@/components/product/ProductCategorySheet';
@@ -15,6 +14,7 @@ import { getCurrencySymbol } from '@/components/product/product-edit.helpers';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
 import { InvalidRouteScreen } from '@/components/ui/InvalidRouteScreen';
 import { useProductEditController } from '@/hooks/useProductEditController';
+import { useTheme } from '@/hooks/useTheme';
 
 export default function ProductEditScreen() {
   const router = useRouter();
@@ -159,13 +159,10 @@ export default function ProductEditScreen() {
             onAddVariant={controller.addVariant}
             onAddVariantAttribute={controller.addVariantAttribute}
             onDefaultCostPriceChange={(cost_price) =>
-              controller.setFormData((previous) => ({
-                ...previous,
-                cost_price,
-              }))
+              controller.updatePricing({ cost_price })
             }
             onDefaultPriceChange={(price) =>
-              controller.setFormData((previous) => ({ ...previous, price }))
+              controller.updatePricing({ price })
             }
             onRemoveVariant={controller.removeVariant}
             onRemoveVariantAttribute={controller.removeVariantAttribute}
@@ -192,14 +189,9 @@ export default function ProductEditScreen() {
               costPrice={controller.formData.cost_price}
               currencySymbol={currencySymbol}
               onCostPriceChange={(cost_price) =>
-                controller.setFormData((previous) => ({
-                  ...previous,
-                  cost_price,
-                }))
+                controller.updatePricing({ cost_price })
               }
-              onPriceChange={(price) =>
-                controller.setFormData((previous) => ({ ...previous, price }))
-              }
+              onPriceChange={(price) => controller.updatePricing({ price })}
               price={controller.formData.price}
             />
             <ProductInventoryCard
@@ -210,20 +202,14 @@ export default function ProductEditScreen() {
               lowStockThreshold={controller.formData.low_stock_threshold}
               manageStock={controller.formData.manage_stock}
               onLowStockThresholdChange={(low_stock_threshold) =>
-                controller.setFormData((previous) => ({
-                  ...previous,
-                  low_stock_threshold,
-                }))
+                controller.updateInventory({ low_stock_threshold })
               }
               onOpenFulfillmentModal={() =>
                 controller.setIsFulfillmentModalVisible(true)
               }
               onStockAdjust={controller.adjustStock}
               onToggleManageStock={(manage_stock) =>
-                controller.setFormData((previous) => ({
-                  ...previous,
-                  manage_stock,
-                }))
+                controller.updateInventory({ manage_stock })
               }
               stockQuantity={controller.formData.stock_quantity}
             />
@@ -241,11 +227,7 @@ export default function ProductEditScreen() {
         onCreateCategory={controller.handleCreateCategory}
         onNewCategoryNameChange={controller.setNewCategoryName}
         onSelect={(category) => {
-          controller.setFormData((previous) => ({
-            ...previous,
-            category: category.name,
-            category_id: category.id,
-          }));
+          controller.updateCategory(category);
           controller.setIsCategoryModalVisible(false);
         }}
         onToggleCreateMode={() =>
@@ -257,12 +239,7 @@ export default function ProductEditScreen() {
 
       <ProductFulfillmentSheet
         colors={colors}
-        items={controller.formData.fulfillment_details.items.map(
-          (item, index) => ({
-            ...item,
-            id: `fulfillment-item-${index + 1}`,
-          })
-        )}
+        items={controller.formData.fulfillment_details.items}
         onClose={() => controller.setIsFulfillmentModalVisible(false)}
         onDone={() => controller.setIsFulfillmentModalVisible(false)}
         onItemChange={controller.updateFulfillmentItem}

@@ -1,11 +1,13 @@
 import type { EditableProductVariant } from '@/lib/product-variant-form';
 
 export interface ProductVariantAttributeDraft {
+  id: string;
   key: string;
   value: string;
 }
 
 export interface ProductFulfillmentItemDraft {
+  id: string;
   imei: string;
   serial_number: string;
 }

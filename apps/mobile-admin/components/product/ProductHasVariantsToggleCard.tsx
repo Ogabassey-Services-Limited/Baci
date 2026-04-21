@@ -3,6 +3,8 @@ import type { ProductEditFormData } from '@/components/product/product-edit.type
 import type { ThemeColors } from '@/constants/theme';
 import { createEmptyEditableVariant } from '@/lib/product-variant-form';
 
+const SWITCH_THUMB_OFF = 'border' as const;
+
 interface ProductHasVariantsToggleCardProps {
   colors: ThemeColors;
   formData: ProductEditFormData;
@@ -64,7 +66,7 @@ export function ProductHasVariantsToggleCard({
         }
         trackColor={{ false: colors.border, true: colors.primary }}
         thumbColor={
-          formData.has_variants ? colors.primary : '#f4f3f4'
+          formData.has_variants ? colors.primary : colors[SWITCH_THUMB_OFF]
         }
       />
     </View>

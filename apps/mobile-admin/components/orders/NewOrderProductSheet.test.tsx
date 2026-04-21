@@ -64,7 +64,7 @@ vi.mock('react-native', async () => {
     }: {
       ListEmptyComponent?: React.ReactNode;
       ListFooterComponent?: React.ReactNode;
-      data: Array<unknown>;
+      data: unknown[];
       onEndReached?: () => void;
       renderItem: (item: { item: unknown }) => React.ReactNode;
     }) =>
@@ -74,7 +74,11 @@ vi.mock('react-native', async () => {
         data.length === 0
           ? ListEmptyComponent
           : data.map((item, index) =>
-              React.createElement('div', { key: String(index) }, renderItem({ item }))
+              React.createElement(
+                'div',
+                { key: String(index) },
+                renderItem({ item })
+              )
             ),
         ListFooterComponent,
         React.createElement(
@@ -196,11 +200,16 @@ describe('NewOrderProductSheet', () => {
 
     render(<NewOrderProductSheet controller={controller} />);
 
-    fireEvent.change(screen.getByRole('textbox', { name: 'Search products...' }), {
-      target: { value: 'Laptop' },
-    });
-    fireEvent.click(screen.getByText('Create New Product').closest('button')!);
-    fireEvent.click(screen.getByText('Baci Phone').closest('button')!);
+    fireEvent.change(
+      screen.getByRole('textbox', { name: 'Search products...' }),
+      {
+        target: { value: 'Laptop' },
+      }
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: /create new product/i })
+    );
+    fireEvent.click(screen.getByRole('button', { name: /baci phone/i }));
     fireEvent.click(screen.getByRole('button', { name: 'Reach list end' }));
 
     expect(controller.setProductSearch).toHaveBeenCalledWith('Laptop');
@@ -236,11 +245,9 @@ describe('NewOrderProductSheet', () => {
 
     render(<NewOrderProductSheet controller={controller} />);
 
-    fireEvent.click(screen.getAllByRole('button')[1]);
-    fireEvent.click(screen.getByText('Blue').closest('button')!);
+    fireEvent.click(screen.getByRole('button', { name: /blue/i }));
     fireEvent.click(screen.getByRole('button', { name: 'Reach list end' }));
 
-    expect(controller.resetProductPickerState).toHaveBeenCalledTimes(1);
     expect(controller.handleAddProduct).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 'variant-1',
@@ -248,6 +255,21 @@ describe('NewOrderProductSheet', () => {
       })
     );
     expect(controller.fetchMoreProducts).not.toHaveBeenCalled();
+  });
+
+  it('resets variant picking from the back control', () => {
+    const controller = makeController({
+      isPickingVariant: true,
+      selectableProductRows: [],
+    });
+
+    render(<NewOrderProductSheet controller={controller} />);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Back to product list' })
+    );
+
+    expect(controller.resetProductPickerState).toHaveBeenCalledTimes(1);
   });
 
   it('renders empty and loading states through the list shell', () => {

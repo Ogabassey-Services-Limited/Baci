@@ -92,4 +92,23 @@ describe('createOrderDetailsContactActions', () => {
     );
     expect(Linking.openURL).not.toHaveBeenCalled();
   });
+
+  it('alerts when WhatsApp cannot be opened for a valid customer number', async () => {
+    vi.mocked(Linking.openURL).mockRejectedValueOnce(new Error('open failed'));
+    const actions = createOrderDetailsContactActions({
+      formatPrice: (amount) => `₦${amount}`,
+      merchant: null,
+      order: buildOrder(),
+      riderPhone: '',
+      savedRiders: [],
+      setSavedRiders: vi.fn(),
+    });
+
+    await actions.handleWhatsApp();
+
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Error',
+      'Could not open WhatsApp'
+    );
+  });
 });

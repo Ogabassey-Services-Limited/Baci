@@ -33,19 +33,21 @@ vi.mock('react-native', async () => {
   return {
     Pressable: ({
       accessibilityLabel,
+      accessibilityRole,
       children,
       onPress,
     }: {
       accessibilityLabel?: string;
+      accessibilityRole?: string;
       children?: React.ReactNode;
       onPress?: () => void;
     }) =>
       React.createElement(
-        'button',
+        'div',
         {
           'aria-label': accessibilityLabel,
           onClick: () => onPress?.(),
-          type: 'button',
+          role: accessibilityRole,
         },
         children
       ),

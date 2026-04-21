@@ -54,4 +54,22 @@ describe('product-edit.helpers', () => {
       profit: 0,
     });
   });
+
+  it('uses the secondary text color for break-even profit margins', () => {
+    expect(calculateProfitMargin(colors, 500, 500)).toEqual({
+      active: true,
+      color: '#64748b',
+      percentage: '0.0%',
+      profit: 0,
+    });
+  });
+
+  it('uses the error color for loss-making profit margins', () => {
+    expect(calculateProfitMargin(colors, 400, 500)).toEqual({
+      active: true,
+      color: '#dc2626',
+      percentage: '-25.0%',
+      profit: -100,
+    });
+  });
 });

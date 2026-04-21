@@ -10,6 +10,31 @@ interface ReceiptMerchantDetails {
   business_name?: string | null;
 }
 
+interface GenerateDvaResponse {
+  virtualAccount?: {
+    account_name?: string | null;
+    account_number?: string | null;
+    bank?: string | null;
+    bank_name?: string | null;
+  } | null;
+}
+
+interface VirtualTerminalEntry {
+  account_name?: string | null;
+  account_number?: string | null;
+  active?: boolean;
+  bank?: string | null;
+  bank_name?: string | null;
+}
+
+interface VirtualTerminalResponse {
+  terminals?: VirtualTerminalEntry[] | null;
+}
+
+interface ResolveAccountNameResponse {
+  account_name?: string | null;
+}
+
 function resolveAccountCandidate(
   account:
     | {
@@ -35,6 +60,63 @@ function resolveAccountCandidate(
     account_number: accountNumber,
     bank_name: account.bank_name?.trim() || account.bank?.trim() || '',
   };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function parseGenerateDvaResponse(
+  payload: unknown
+): GenerateDvaResponse | null {
+  if (!isRecord(payload)) {
+    return null;
+  }
+
+  if (
+    !('virtualAccount' in payload) ||
+    (payload.virtualAccount !== null && !isRecord(payload.virtualAccount))
+  ) {
+    return null;
+  }
+
+  return payload as GenerateDvaResponse;
+}
+
+function parseVirtualTerminalResponse(
+  payload: unknown
+): VirtualTerminalResponse | null {
+  if (!isRecord(payload)) {
+    return null;
+  }
+
+  if (
+    !('terminals' in payload) ||
+    (payload.terminals !== null && !Array.isArray(payload.terminals))
+  ) {
+    return null;
+  }
+
+  return payload as VirtualTerminalResponse;
+}
+
+function parseResolveAccountNameResponse(
+  payload: unknown
+): ResolveAccountNameResponse | null {
+  if (!isRecord(payload)) {
+    return null;
+  }
+
+  if (
+    !('account_name' in payload) ||
+    (payload.account_name !== null &&
+      payload.account_name !== undefined &&
+      typeof payload.account_name !== 'string')
+  ) {
+    return null;
+  }
+
+  return payload as ResolveAccountNameResponse;
 }
 
 export async function resolveOrderReceiptVirtualAccount({
@@ -78,8 +160,8 @@ export async function resolveOrderReceiptVirtualAccount({
         );
 
         if (response.ok) {
-          const payload = await response.json();
-          virtualAccount = resolveAccountCandidate(payload.virtualAccount);
+          const payload = parseGenerateDvaResponse(await response.json());
+          virtualAccount = resolveAccountCandidate(payload?.virtualAccount);
         }
       }
     } catch {
@@ -98,10 +180,8 @@ export async function resolveOrderReceiptVirtualAccount({
         );
 
         if (response.ok) {
-          const payload = await response.json();
-          const terminal = payload.terminals?.find(
-            (entry: { active: boolean }) => entry.active
-          );
+          const payload = parseVirtualTerminalResponse(await response.json());
+          const terminal = payload?.terminals?.find((entry) => entry.active);
 
           if (terminal?.account_number) {
             virtualAccount = resolveAccountCandidate(terminal);
@@ -140,8 +220,10 @@ export async function resolveOrderReceiptVirtualAccount({
           });
 
           if (response.ok) {
-            const payload: { account_name?: string } = await response.json();
-            if (payload.account_name) {
+            const payload = parseResolveAccountNameResponse(
+              await response.json()
+            );
+            if (payload?.account_name) {
               resolvedName = payload.account_name;
             }
           }

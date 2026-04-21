@@ -40,9 +40,10 @@ describe('ProductHasVariantsToggleCard', () => {
     textSecondary: '#64748b',
   } as unknown as ThemeColors;
 
-  it('seeds a first variant when the toggle is enabled', () => {
-    const setFormData = vi.fn();
-    const formData = {
+  function createFormData(
+    overrides: Partial<ProductEditFormData> = {}
+  ): ProductEditFormData {
+    return {
       category: '',
       category_id: '',
       brand: '',
@@ -51,7 +52,7 @@ describe('ProductHasVariantsToggleCard', () => {
       description: '',
       fulfillment_details: { items: [] },
       has_variants: false,
-      images: ['https://example.com/image.jpg'],
+      images: [],
       low_stock_threshold: 0,
       manage_stock: false,
       name: 'Baci Phone',
@@ -61,7 +62,15 @@ describe('ProductHasVariantsToggleCard', () => {
       stock_quantity: 0,
       variant_attributes: [],
       variants: [],
-    } satisfies ProductEditFormData;
+      ...overrides,
+    };
+  }
+
+  it('seeds a first variant when the toggle is enabled', () => {
+    const setFormData = vi.fn();
+    const formData = createFormData({
+      images: ['https://example.com/image.jpg'],
+    });
 
     render(
       <ProductHasVariantsToggleCard
@@ -88,5 +97,85 @@ describe('ProductHasVariantsToggleCard', () => {
         primary_image: 'https://example.com/image.jpg',
       })
     );
+  });
+
+  it('keeps existing variants unchanged when enabling an already populated product', () => {
+    const setFormData = vi.fn();
+    const existingVariants = [
+      {
+        attributes: [],
+        client_id: 'variant-1',
+        condition: 'new',
+        cost_price: 250,
+        images: [],
+        price: 500,
+        primary_image: null,
+        sku: 'SKU-1',
+        stock_quantity: 3,
+      },
+    ] satisfies ProductEditFormData['variants'];
+    const formData = createFormData({
+      variants: existingVariants,
+    });
+
+    render(
+      <ProductHasVariantsToggleCard
+        colors={colors}
+        formData={formData}
+        setFormData={setFormData}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('checkbox'));
+
+    const updater = setFormData.mock.calls[0]?.[0] as (
+      previous: ProductEditFormData
+    ) => ProductEditFormData;
+    const next = updater(formData);
+
+    expect(next.has_variants).toBe(true);
+    expect(next.variants).toBe(existingVariants);
+    expect(next.manage_stock).toBe(true);
+  });
+
+  it('preserves variants and manage_stock when the toggle is disabled', () => {
+    const setFormData = vi.fn();
+    const existingVariants = [
+      {
+        attributes: [],
+        client_id: 'variant-1',
+        condition: 'used',
+        cost_price: 250,
+        images: [],
+        price: 500,
+        primary_image: null,
+        sku: 'SKU-1',
+        stock_quantity: 3,
+      },
+    ] satisfies ProductEditFormData['variants'];
+    const formData = createFormData({
+      has_variants: true,
+      manage_stock: true,
+      variants: existingVariants,
+    });
+
+    render(
+      <ProductHasVariantsToggleCard
+        colors={colors}
+        formData={formData}
+        setFormData={setFormData}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('checkbox'));
+
+    const updater = setFormData.mock.calls[0]?.[0] as (
+      previous: ProductEditFormData
+    ) => ProductEditFormData;
+    const next = updater(formData);
+
+    expect(next.has_variants).toBe(false);
+    expect(next.variants).toBe(existingVariants);
+    expect(next.manage_stock).toBe(true);
   });
 });

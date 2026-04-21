@@ -10,15 +10,21 @@ vi.mock('react-native', async () => {
 
   return {
     Pressable: ({
+      accessibilityLabel,
       children,
       onPress,
     }: {
+      accessibilityLabel?: string;
       children?: React.ReactNode;
       onPress?: () => void;
     }) =>
       React.createElement(
         'button',
-        { onClick: () => onPress?.(), type: 'button' },
+        {
+          'aria-label': accessibilityLabel,
+          onClick: () => onPress?.(),
+          type: 'button',
+        },
         children
       ),
     StyleSheet: {
@@ -91,7 +97,7 @@ describe('ProductAttributesCard', () => {
 
     render(
       <ProductAttributesCard
-        attributes={[{ key: 'Storage', value: '256GB' }]}
+        attributes={[{ id: 'attribute-1', key: 'Storage', value: '256GB' }]}
         colors={colors}
         onAdd={vi.fn()}
         onRemove={onRemove}
@@ -105,7 +111,7 @@ describe('ProductAttributesCard', () => {
     fireEvent.change(screen.getByLabelText('Attribute value 1'), {
       target: { value: 'Black' },
     });
-    fireEvent.click(screen.getAllByRole('button')[1]);
+    fireEvent.click(screen.getByRole('button', { name: 'Remove attribute 1' }));
 
     expect(onUpdate).toHaveBeenCalledWith(0, 'key', 'Color');
     expect(onUpdate).toHaveBeenCalledWith(0, 'value', 'Black');

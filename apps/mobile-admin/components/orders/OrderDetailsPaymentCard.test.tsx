@@ -92,4 +92,32 @@ describe('OrderDetailsPaymentCard', () => {
     expect(onRecordPayment).toHaveBeenCalledTimes(1);
     expect(onRequestPayment).toHaveBeenCalledTimes(1);
   });
+
+  it('hides payment action buttons when the order is fully paid', () => {
+    render(
+      <OrderDetailsPaymentCard
+        amountPaid={10000}
+        balance={0}
+        colors={colors}
+        discountAmount={0}
+        formatPrice={(amount) => `₦${amount}`}
+        onRecordPayment={vi.fn()}
+        onRequestPayment={vi.fn()}
+        paymentColor="#16a34a"
+        paymentLabel="Paid"
+        paymentMethod="bank_transfer"
+        paymentStatus="paid"
+        shippingFee={1000}
+        subtotal={9000}
+        total={10000}
+      />
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'Record payment' })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Request payment' })
+    ).not.toBeInTheDocument();
+  });
 });

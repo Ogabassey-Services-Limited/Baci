@@ -1,11 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import {
-  FlatList,
-  Pressable,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import {
   getCustomerDisplayContact,
@@ -31,6 +25,15 @@ export function NewOrderCustomerSearchView({
     setCustomerSearch,
     setIsCreatingCustomer,
   } = controller;
+  const customerRows =
+    customersData?.pages.flatMap((page) => page.customers) || [];
+  const emptyMessage = customersQuery.isLoading
+    ? 'Loading customers...'
+    : customersQuery.isError
+      ? customersQuery.error instanceof Error
+        ? customersQuery.error.message
+        : 'Failed to load customers'
+      : 'No customers found';
 
   return (
     <>
@@ -69,13 +72,13 @@ export function NewOrderCustomerSearchView({
       <FlatList
         {...MODAL_FLATLIST_PROPS}
         contentContainerStyle={{ paddingBottom: 40 }}
-        data={customersData?.pages.flatMap((page) => page.customers) || []}
+        data={customerRows}
         keyExtractor={(item) => item.id}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
           <View style={{ alignItems: 'center', padding: 32 }}>
-            <Text style={{ color: colors.textMuted }}>No customers found</Text>
+            <Text style={{ color: colors.textMuted }}>{emptyMessage}</Text>
           </View>
         }
         ListFooterComponent={

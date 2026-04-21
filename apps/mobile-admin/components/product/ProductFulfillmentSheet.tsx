@@ -27,7 +27,7 @@ interface ProductFulfillmentSheetProps {
   onClose: () => void;
   onDone: () => void;
   onItemChange: (
-    index: number,
+    itemId: string,
     field: 'imei' | 'serial_number',
     value: string
   ) => void;
@@ -80,7 +80,7 @@ export function ProductFulfillmentSheet({
               autoCorrect={false}
               keyboardType="numeric"
               maxLength={15}
-              onChangeText={(value) => onItemChange(index, 'imei', value)}
+              onChangeText={(value) => onItemChange(item.id, 'imei', value)}
               placeholder="Enter IMEI"
               placeholderTextColor={colors.textSecondary}
               style={[
@@ -99,7 +99,7 @@ export function ProductFulfillmentSheet({
               autoCorrect={false}
               keyboardType="default"
               onChangeText={(value) =>
-                onItemChange(index, 'serial_number', value)
+                onItemChange(item.id, 'serial_number', value)
               }
               placeholder="Enter Serial Number"
               placeholderTextColor={colors.textSecondary}

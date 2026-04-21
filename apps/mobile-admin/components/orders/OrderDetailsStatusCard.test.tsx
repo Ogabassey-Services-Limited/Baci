@@ -1,8 +1,8 @@
 import '@testing-library/jest-dom/vitest';
+import { SHIPPING_STATUS_CONFIG } from '@baci/shared';
 import { render, screen } from '@testing-library/react';
 import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { SHIPPING_STATUS_CONFIG } from '@baci/shared';
 import type { ThemeColors } from '@/constants/theme';
 import { OrderDetailsStatusCard } from './OrderDetailsStatusCard';
 
@@ -12,13 +12,11 @@ vi.mock('react-native', async () => {
     style: Record<string, unknown> | Record<string, unknown>[] | undefined
   ): Record<string, unknown> => {
     if (Array.isArray(style)) {
-      return style.reduce<Record<string, unknown>>(
-        (accumulator, value) => ({
-          ...accumulator,
-          ...flattenStyle(value),
-        }),
-        {}
-      );
+      const accumulator: Record<string, unknown> = {};
+      for (const value of style) {
+        Object.assign(accumulator, flattenStyle(value));
+      }
+      return accumulator;
     }
 
     return style ?? {};
@@ -46,13 +44,12 @@ vi.mock('react-native', async () => {
 });
 
 vi.mock('@expo/vector-icons', () => ({
-  Ionicons: ({ name }: { name: string }) => (
-    <span data-icon={name} />
-  ),
+  Ionicons: ({ name }: { name: string }) => <span data-icon={name} />,
 }));
 
 describe('OrderDetailsStatusCard', () => {
   const colors = {
+    backgroundLight: '#172554',
     border: '#1e293b',
     cancelled: '#dc2626',
     card: '#0f172a',
@@ -115,7 +112,9 @@ describe('OrderDetailsStatusCard', () => {
       (style) => style.height === 3 && style.flex === 1
     );
 
-    expect(progressDots.slice(0, 4).map((style) => style.backgroundColor)).toEqual([
+    expect(
+      progressDots.slice(0, 4).map((style) => style.backgroundColor)
+    ).toEqual([
       colors.pending,
       colors.processing,
       colors.shipped,
@@ -125,6 +124,66 @@ describe('OrderDetailsStatusCard', () => {
       colors.pending,
       colors.processing,
       colors.border,
+    ]);
+  });
+
+  it('replaces the delivered step with the terminal returned status', () => {
+    const { container } = render(
+      <OrderDetailsStatusCard
+        colors={colors}
+        createdAtLabel="Apr 20, 2026"
+        shippingColor={colors.returned}
+        shippingConfig={SHIPPING_STATUS_CONFIG.returned}
+        shippingStatus="returned"
+        source="website"
+        sourceInfo={{
+          color: '#64748b',
+          label: 'Website',
+          name: 'globe-outline',
+        }}
+        updatedAtLabel="Apr 21, 2026"
+      />
+    );
+
+    expect(screen.queryByText('Delivered')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Returned')).toHaveLength(2);
+
+    const iconNames = Array.from(container.querySelectorAll('[data-icon]')).map(
+      (node) => node.getAttribute('data-icon')
+    );
+
+    expect(iconNames).toEqual(
+      expect.arrayContaining([
+        'receipt-outline',
+        'construct-outline',
+        'car-outline',
+        SHIPPING_STATUS_CONFIG.returned.icon,
+      ])
+    );
+
+    const viewStyles = Array.from(
+      container.querySelectorAll('div[data-style]')
+    ).map((node) => JSON.parse(node.getAttribute('data-style') ?? '{}'));
+
+    const progressDots = viewStyles.filter(
+      (style) => style.width === 28 && style.height === 28
+    );
+    const progressLines = viewStyles.filter(
+      (style) => style.height === 3 && style.flex === 1
+    );
+
+    expect(
+      progressDots.slice(0, 4).map((style) => style.backgroundColor)
+    ).toEqual([
+      colors.pending,
+      colors.processing,
+      colors.shipped,
+      colors.returned,
+    ]);
+    expect(progressLines.map((style) => style.backgroundColor)).toEqual([
+      colors.pending,
+      colors.processing,
+      colors.shipped,
     ]);
   });
 });

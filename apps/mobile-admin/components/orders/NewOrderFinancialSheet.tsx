@@ -103,6 +103,8 @@ export function NewOrderFinancialSheet({
               </Text>
             </View>
             <Pressable
+              accessibilityHint="Toggles automatic VAT on the order"
+              accessibilityLabel="Apply VAT"
               accessibilityRole="switch"
               accessibilityState={{ checked: isVatApplied }}
               onPress={() => setIsVatApplied(!isVatApplied)}

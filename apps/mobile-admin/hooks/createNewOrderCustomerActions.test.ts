@@ -10,8 +10,8 @@ interface DuplicateLookupResponse {
 }
 
 const mocks = vi.hoisted(() => {
-  const eqCalls: Array<[string, unknown]> = [];
-  const isCalls: Array<[string, unknown]> = [];
+  const eqCalls: [string, unknown][] = [];
+  const isCalls: [string, unknown][] = [];
   const responses: DuplicateLookupResponse[] = [];
   const builder = {
     eq: vi.fn((column: string, value: unknown) => {
@@ -22,7 +22,9 @@ const mocks = vi.hoisted(() => {
       isCalls.push([column, value]);
       return builder;
     }),
-    maybeSingle: vi.fn(async () => responses.shift() ?? { data: null, error: null }),
+    maybeSingle: vi.fn(
+      async () => responses.shift() ?? { data: null, error: null }
+    ),
     or: vi.fn(),
     select: vi.fn(() => builder),
   };
@@ -59,7 +61,9 @@ vi.mock('@/lib/supabase', () => ({
   },
 }));
 
-type CustomerActionsParams = Parameters<typeof createNewOrderCustomerActions>[0];
+type CustomerActionsParams = Parameters<
+  typeof createNewOrderCustomerActions
+>[0];
 
 function makeActions(overrides: Partial<CustomerActionsParams> = {}) {
   return createNewOrderCustomerActions({
@@ -110,7 +114,10 @@ describe('createNewOrderCustomerActions', () => {
 
   it('requires first name and phone before creating a customer', async () => {
     await makeActions().handleCreateCustomer();
-    expect(Alert.alert).toHaveBeenCalledWith('Required', 'First Name and Phone are required');
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Required',
+      'First Name and Phone are required'
+    );
   });
 
   it('prefers full names and falls back through email, phone, then unknown when selecting a customer', () => {
@@ -278,6 +285,85 @@ describe('createNewOrderCustomerActions', () => {
     });
   });
 
+  it('creates and selects a customer when duplicate checks pass', async () => {
+    const createCustomer = vi.fn().mockResolvedValue({
+      address: '12 Allen Avenue',
+      email: 'ada@example.com',
+      first_name: 'Ada',
+      id: 'customer-99',
+      last_name: 'Lovelace',
+      phone: '08012345678',
+    });
+    const setCustomer = vi.fn();
+    const setCustomerSearch = vi.fn();
+    const setIsCreatingCustomer = vi.fn();
+    const setNewCustomer = vi.fn();
+    const setShowCustomerModal = vi.fn();
+
+    mocks.queueResponse({ data: null, error: null });
+    mocks.queueResponse({ data: null, error: null });
+
+    await makeActions({
+      createCustomer,
+      newCustomer: {
+        address: '12 Allen Avenue',
+        email: 'ada@example.com',
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+        phone: '08012345678',
+      },
+      setCustomer,
+      setCustomerSearch,
+      setIsCreatingCustomer,
+      setNewCustomer,
+      setShowCustomerModal,
+    }).handleCreateCustomer();
+
+    expect(createCustomer).toHaveBeenCalledWith({
+      address: '12 Allen Avenue',
+      email: 'ada@example.com',
+      first_name: 'Ada',
+      last_name: 'Lovelace',
+      phone: '08012345678',
+    });
+    expect(setCustomer).toHaveBeenCalledWith({
+      address: '12 Allen Avenue',
+      email: 'ada@example.com',
+      id: 'customer-99',
+      name: 'Ada Lovelace',
+      phone: '08012345678',
+    });
+    expect(setShowCustomerModal).toHaveBeenCalledWith(false);
+    expect(setCustomerSearch).toHaveBeenCalledWith('');
+    expect(setIsCreatingCustomer).toHaveBeenCalledWith(false);
+    expect(setNewCustomer).toHaveBeenCalled();
+  });
+
+  it('aborts customer creation when duplicate lookup fails', async () => {
+    const createCustomer = vi.fn();
+    mocks.queueResponse({
+      data: null,
+      error: { message: 'lookup failed' },
+    });
+
+    await makeActions({
+      createCustomer,
+      newCustomer: {
+        address: '',
+        email: '',
+        firstName: 'Ada',
+        lastName: '',
+        phone: '08012345678',
+      },
+    }).handleCreateCustomer();
+
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Error',
+      'Unable to check for existing customers right now.'
+    );
+    expect(createCustomer).not.toHaveBeenCalled();
+  });
+
   it('surfaces a safe fallback message when createCustomer throws a non-Error value', async () => {
     await makeActions({
       createCustomer: vi.fn().mockRejectedValue('boom'),
@@ -289,6 +375,9 @@ describe('createNewOrderCustomerActions', () => {
         phone: '08012345678',
       },
     }).handleCreateCustomer();
-    expect(Alert.alert).toHaveBeenCalledWith('Error', 'Unable to create customer right now.');
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Error',
+      'Unable to create customer right now.'
+    );
   });
 });

@@ -60,7 +60,14 @@ export function OrderDetailsPaymentCard({
                 { borderColor: colors.success },
               ]}
             >
-              <Ionicons color={colors.success} name="card-outline" size={18} />
+              <Ionicons
+                accessibilityElementsHidden
+                accessible={false}
+                color={colors.success}
+                importantForAccessibility="no"
+                name="card-outline"
+                size={18}
+              />
               <Text
                 style={[styles.paymentActionText, { color: colors.success }]}
               >
@@ -77,7 +84,10 @@ export function OrderDetailsPaymentCard({
               ]}
             >
               <Ionicons
+                accessibilityElementsHidden
+                accessible={false}
                 color={colors.primary}
+                importantForAccessibility="no"
                 name="notifications-outline"
                 size={18}
               />

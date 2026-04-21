@@ -40,7 +40,7 @@ export function ProductAttributesCard({
       ) : null}
 
       {attributes.map((attribute, index) => (
-        <View key={index} style={styles.row}>
+        <View key={attribute.id} style={styles.row}>
           <View style={styles.inputColumn}>
             <TextInput
               accessibilityLabel={`Attribute key ${index + 1}`}
@@ -76,6 +76,8 @@ export function ProductAttributesCard({
             />
           </View>
           <Pressable
+            accessibilityLabel={`Remove attribute ${index + 1}`}
+            accessibilityRole="button"
             onPress={() => onRemove(index)}
             style={styles.removeButton}
           >

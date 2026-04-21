@@ -24,7 +24,11 @@ vi.mock('@expo/vector-icons', () => ({
 }));
 
 vi.mock('@react-native-community/datetimepicker', () => ({
-  default: ({ onChange }: { onChange: (_event: unknown, date?: Date) => void }) => (
+  default: ({
+    onChange,
+  }: {
+    onChange: (_event: unknown, date?: Date) => void;
+  }) => (
     <button
       aria-label="Pick order date"
       onClick={() => onChange(null, new Date('2024-02-03T00:00:00.000Z'))}
@@ -63,14 +67,16 @@ vi.mock('react-native', async () => {
       create: (styles: Record<string, unknown>) => styles,
     },
     Switch: ({
+      accessibilityLabel,
       onValueChange,
       value,
     }: {
+      accessibilityLabel?: string;
       onValueChange?: (value: boolean) => void;
       value?: boolean;
     }) =>
       React.createElement('input', {
-        'aria-label': 'Toggle delivery recipient',
+        'aria-label': accessibilityLabel ?? 'Toggle delivery recipient',
         checked: value ?? false,
         onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
           onValueChange?.(event.target.checked),
@@ -174,6 +180,7 @@ describe('NewOrderDetailsSection', () => {
     } else {
       process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY = originalGoogleMapsApiKey;
     }
+    vi.restoreAllMocks();
   });
 
   it('shows the selected customer summary and opens the customer sheet', () => {
@@ -202,7 +209,7 @@ describe('NewOrderDetailsSection', () => {
     render(<NewOrderDetailsSection controller={controller} />);
 
     fireEvent.click(screen.getByRole('button', { name: /Date/i }));
-    fireEvent.click(screen.getByLabelText('Toggle delivery recipient'));
+    fireEvent.click(screen.getByLabelText('Deliver to same person'));
 
     expect(controller.setShowDatePicker).toHaveBeenCalled();
     expect(controller.setSameAsCustomer).toHaveBeenCalledWith(true);
@@ -211,7 +218,7 @@ describe('NewOrderDetailsSection', () => {
   });
 
   it('falls back to the manual address input and warns when the maps key is missing', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const controller = makeController({ sameAsCustomer: false });
 
     render(<NewOrderDetailsSection controller={controller} />);
@@ -229,8 +236,6 @@ describe('NewOrderDetailsSection', () => {
     });
 
     expect(controller.setDeliveryInfo).toHaveBeenCalled();
-
-    warn.mockRestore();
   });
 
   it('preserves city and state when the selected address omits those components', () => {

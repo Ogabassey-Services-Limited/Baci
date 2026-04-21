@@ -8,14 +8,14 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import { AppPageSheet } from '@/components/ui/AppPageSheet';
+import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import {
   getProductPickerRowSubtitle,
   getProductPickerRowTitle,
 } from '@/lib/order-product-picker';
-import { MODAL_FLATLIST_PROPS } from './new-order.shared';
 import { NewOrderProductSheetEmptyState } from './NewOrderProductSheetEmptyState';
+import { MODAL_FLATLIST_PROPS } from './new-order.shared';
 import { styles } from './new-order.styles';
 
 interface NewOrderProductSheetProps {
@@ -52,7 +52,11 @@ export function NewOrderProductSheet({
       title={isPickingVariant ? 'Choose Variant' : 'Select Item'}
       trailingAccessory={
         isPickingVariant ? (
-          <Pressable onPress={resetProductPickerState}>
+          <Pressable
+            accessibilityLabel="Back to product list"
+            accessibilityRole="button"
+            onPress={resetProductPickerState}
+          >
             <Ionicons color={colors.text} name="chevron-back" size={22} />
           </Pressable>
         ) : null
@@ -76,7 +80,9 @@ export function NewOrderProductSheet({
 
         {!isPickingVariant ? (
           <>
-            <View style={[styles.searchBox, { backgroundColor: colors.cardHover }]}>
+            <View
+              style={[styles.searchBox, { backgroundColor: colors.cardHover }]}
+            >
               <Ionicons color={colors.textMuted} name="search" size={20} />
               <TextInput
                 onChangeText={setProductSearch}
@@ -101,11 +107,22 @@ export function NewOrderProductSheet({
                 padding: 16,
               }}
             >
-              <View style={[styles.iconBox, { backgroundColor: `${colors.primary}20` }]}>
+              <View
+                style={[
+                  styles.iconBox,
+                  { backgroundColor: `${colors.primary}20` },
+                ]}
+              >
                 <Ionicons color={colors.primary} name="add" size={20} />
               </View>
               <View style={{ marginLeft: 12 }}>
-                <Text style={{ color: colors.primary, fontSize: 16, fontWeight: '600' }}>
+                <Text
+                  style={{
+                    color: colors.primary,
+                    fontSize: 16,
+                    fontWeight: '600',
+                  }}
+                >
                   Create New Product
                 </Text>
                 <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
@@ -122,7 +139,9 @@ export function NewOrderProductSheet({
           keyExtractor={(item) => item.id}
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
-          ListEmptyComponent={<NewOrderProductSheetEmptyState controller={controller} />}
+          ListEmptyComponent={
+            <NewOrderProductSheetEmptyState controller={controller} />
+          }
           ListFooterComponent={
             !isPickingVariant && isFetchingMoreProducts ? (
               <ActivityIndicator
@@ -133,7 +152,11 @@ export function NewOrderProductSheet({
             ) : null
           }
           onEndReached={() => {
-            if (!isPickingVariant && hasMoreProducts && !isFetchingMoreProducts) {
+            if (
+              !isPickingVariant &&
+              hasMoreProducts &&
+              !isFetchingMoreProducts
+            ) {
               void fetchMoreProducts();
             }
           }}

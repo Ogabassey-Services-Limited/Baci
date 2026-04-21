@@ -2,6 +2,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createInitialProductEditFormData } from '@/components/product/product-edit.defaults';
 import { createProductEditVariantActions } from './createProductEditVariantActions';
 
+const cryptoState = vi.hoisted(() => ({
+  counter: 0,
+}));
+
+vi.mock('expo-crypto', () => ({
+  randomUUID: vi.fn(() => {
+    cryptoState.counter += 1;
+    return `fulfillment-item-${cryptoState.counter}`;
+  }),
+}));
+
 type VariantFormData = ReturnType<typeof createInitialProductEditFormData>;
 type VariantSetter =
   | VariantFormData
@@ -23,6 +34,7 @@ function createStore(initial: VariantFormData) {
 describe('createProductEditVariantActions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    cryptoState.counter = 0;
   });
 
   it('adjusts stock and fulfillment rows together', () => {
@@ -37,8 +49,8 @@ describe('createProductEditVariantActions', () => {
 
     expect(store.formData.stock_quantity).toBe(2);
     expect(store.formData.fulfillment_details.items).toEqual([
-      { imei: '', serial_number: '' },
-      { imei: '', serial_number: '' },
+      { id: 'fulfillment-item-1', imei: '', serial_number: '' },
+      { id: 'fulfillment-item-2', imei: '', serial_number: '' },
     ]);
   });
 
@@ -47,8 +59,8 @@ describe('createProductEditVariantActions', () => {
       ...createInitialProductEditFormData(),
       fulfillment_details: {
         items: [
-          { imei: 'a', serial_number: 'a' },
-          { imei: 'b', serial_number: 'b' },
+          { id: 'item-1', imei: 'a', serial_number: 'a' },
+          { id: 'item-2', imei: 'b', serial_number: 'b' },
         ],
       },
       stock_quantity: 2,
@@ -69,7 +81,7 @@ describe('createProductEditVariantActions', () => {
     const store = createStore({
       ...createInitialProductEditFormData(),
       fulfillment_details: {
-        items: [{ imei: 'a', serial_number: 'a' }],
+        items: [{ id: 'item-1', imei: 'a', serial_number: 'a' }],
       },
       stock_quantity: 1,
     });
@@ -140,5 +152,29 @@ describe('createProductEditVariantActions', () => {
 
     expect(store.formData.variants).toHaveLength(1);
     expect(store.formData.variants[0].price).toBe(0);
+  });
+
+  it('updates fulfillment items by stable id instead of array position', () => {
+    const store = createStore({
+      ...createInitialProductEditFormData(),
+      fulfillment_details: {
+        items: [
+          { id: 'item-1', imei: '', serial_number: '' },
+          { id: 'item-2', imei: '', serial_number: '' },
+        ],
+      },
+    });
+
+    const actions = createProductEditVariantActions({
+      formData: store.formData,
+      setFormData: store.setFormData,
+    });
+
+    actions.updateFulfillmentItem('item-2', 'imei', '99999');
+
+    expect(store.formData.fulfillment_details.items).toEqual([
+      { id: 'item-1', imei: '', serial_number: '' },
+      { id: 'item-2', imei: '99999', serial_number: '' },
+    ]);
   });
 });

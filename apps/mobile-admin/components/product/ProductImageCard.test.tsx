@@ -8,7 +8,7 @@ import { ProductImageCard } from './ProductImageCard';
 vi.mock('@/components/ui/SafeImage', () => ({
   __esModule: true,
   default: ({ source }: { source: { uri: string } }) => (
-    <div aria-label="Product preview" data-src={source.uri} />
+    <div aria-label="Product preview" data-src={source.uri} role="img" />
   ),
 }));
 
@@ -67,11 +67,7 @@ describe('ProductImageCard', () => {
     const onPress = vi.fn();
 
     render(
-      <ProductImageCard
-        colors={colors}
-        isUploading={false}
-        onPress={onPress}
-      />
+      <ProductImageCard colors={colors} isUploading={false} onPress={onPress} />
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Product image' }));
@@ -90,10 +86,26 @@ describe('ProductImageCard', () => {
       />
     );
 
-    expect(screen.getByLabelText('Product preview')).toHaveAttribute(
-      'data-src',
-      'https://example.com/image.jpg'
-    );
+    expect(
+      screen.getByRole('img', { name: 'Product preview' })
+    ).toHaveAttribute('data-src', 'https://example.com/image.jpg');
     expect(screen.getByText('Change Image')).toBeInTheDocument();
+  });
+
+  it('shows a disabled uploading state and ignores presses while uploading', () => {
+    const onPress = vi.fn();
+
+    render(
+      <ProductImageCard colors={colors} isUploading={true} onPress={onPress} />
+    );
+
+    const button = screen.getByRole('button', { name: 'Product image' });
+
+    expect(screen.getByText('Uploading')).toBeInTheDocument();
+    expect(button).toBeDisabled();
+
+    fireEvent.click(button);
+
+    expect(onPress).not.toHaveBeenCalled();
   });
 });
