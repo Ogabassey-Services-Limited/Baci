@@ -27,56 +27,64 @@ const supabase = createClient(supabaseUrl, serviceRoleKey, {
   auth: { persistSession: false },
 });
 
-const { data, error } = await supabase
-  .from('pending_import_uploads')
-  .select('id, merchant_id, client_upload_id, storage_path')
-  .is('claimed_at', null)
-  .lt('expires_at', new Date().toISOString())
-  .limit(500);
-
-if (error) {
-  console.error('[cleanup-import-uploads] Query failed:', error);
-  process.exit(1);
-}
-
+const PAGE_SIZE = 500;
 let cleaned = 0;
+const expiresAt = new Date().toISOString();
 
-for (const upload of data ?? []) {
-  const existingJob = await supabase
-    .from('import_jobs')
-    .select('id')
-    .eq('merchant_id', upload.merchant_id)
-    .eq('client_upload_id', upload.client_upload_id)
-    .maybeSingle();
+while (true) {
+  const { data, error } = await supabase
+    .from('pending_import_uploads')
+    .select('id, merchant_id, client_upload_id, storage_path')
+    .is('claimed_at', null)
+    .lt('expires_at', expiresAt)
+    .limit(PAGE_SIZE);
 
-  if (existingJob.error) {
-    console.error('[cleanup-import-uploads] Job lookup failed:', existingJob.error);
-    continue;
+  if (error) {
+    console.error('[cleanup-import-uploads] Query failed:', error);
+    process.exit(1);
   }
 
-  if (existingJob.data) {
-    const del = await supabase.from('pending_import_uploads').delete().eq('id', upload.id);
-    if (!del.error) cleaned++;
-    continue;
-  }
+  const batch = data ?? [];
 
-  const storage = supabase.storage.from('migration-imports');
-  const existsResult = await storage.exists(upload.storage_path);
-  if (existsResult.error) {
-    console.error('[cleanup-import-uploads] Existence check failed:', existsResult.error);
-    continue;
-  }
+  for (const upload of batch) {
+    const existingJob = await supabase
+      .from('import_jobs')
+      .select('id')
+      .eq('merchant_id', upload.merchant_id)
+      .eq('client_upload_id', upload.client_upload_id)
+      .maybeSingle();
 
-  if (existsResult.data) {
-    const removeResult = await storage.remove([upload.storage_path]);
-    if (removeResult.error) {
-      console.error('[cleanup-import-uploads] Storage removal failed:', removeResult.error);
+    if (existingJob.error) {
+      console.error('[cleanup-import-uploads] Job lookup failed:', existingJob.error);
       continue;
     }
+
+    if (existingJob.data) {
+      const del = await supabase.from('pending_import_uploads').delete().eq('id', upload.id);
+      if (!del.error) cleaned++;
+      continue;
+    }
+
+    const storage = supabase.storage.from('migration-imports');
+    const existsResult = await storage.exists(upload.storage_path);
+    if (existsResult.error) {
+      console.error('[cleanup-import-uploads] Existence check failed:', existsResult.error);
+      continue;
+    }
+
+    if (existsResult.data) {
+      const removeResult = await storage.remove([upload.storage_path]);
+      if (removeResult.error) {
+        console.error('[cleanup-import-uploads] Storage removal failed:', removeResult.error);
+        continue;
+      }
+    }
+
+    const del = await supabase.from('pending_import_uploads').delete().eq('id', upload.id);
+    if (!del.error) cleaned++;
   }
 
-  const del = await supabase.from('pending_import_uploads').delete().eq('id', upload.id);
-  if (!del.error) cleaned++;
+  if (batch.length < PAGE_SIZE) break;
 }
 
 console.log(`[cleanup-import-uploads] Done — cleaned=${cleaned}`);

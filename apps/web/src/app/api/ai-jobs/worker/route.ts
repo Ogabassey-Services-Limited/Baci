@@ -71,6 +71,35 @@ const PriceListResponseSchema = z.object({
     .optional(),
 });
 
+// GET /api/ai-jobs/worker - Vercel Cron entry point (sends Authorization: Bearer {CRON_SECRET})
+export async function GET(request: NextRequest) {
+  const authHeader = request.headers.get('Authorization');
+  const cronSecret = process.env.CRON_SECRET;
+  const workerSecret = process.env.AI_WORKER_SECRET;
+
+  if (
+    !cronSecret ||
+    !authHeader ||
+    !constantTimeEqual(authHeader, `Bearer ${cronSecret}`)
+  ) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  if (!workerSecret) {
+    return NextResponse.json(
+      { error: 'AI worker secret not configured' },
+      { status: 500 }
+    );
+  }
+
+  // Delegate to POST; Bearer header bypasses CSRF and satisfies the POST auth check
+  const mockRequest = new NextRequest(request.url, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${workerSecret}` },
+  });
+  return POST(mockRequest);
+}
+
 // POST /api/ai-jobs/worker - Process pending AI jobs (called by cron or manually)
 export async function POST(request: NextRequest) {
   try {
