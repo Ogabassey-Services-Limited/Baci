@@ -19,6 +19,7 @@ import { getTemplateConfig } from '@/lib/templates';
 import { useCartStore } from '@/stores/cart-store';
 import { useDrawerStore } from '@/stores/drawer-store';
 import { useThemeStore } from '@/stores/theme-store';
+import { getEliteHeaderTopPadding } from './header-layout';
 
 interface HeaderProps {
   showSearch?: boolean;
@@ -70,6 +71,7 @@ export function Header({
   const storeName = Constants.expoConfig?.name || 'Baci Store';
   const isSanta = SEASONAL.shouldShowSanta(theme);
   const seasonalTokens = SEASONAL.getTokens(theme);
+  const eliteTopPadding = getEliteHeaderTopPadding(insets.top);
 
   // --- RENDER: Elite Merged Layout (Electronics/High-Tech) ---
   if (template.headerStyle === 'elite' || isSanta) {
@@ -77,7 +79,7 @@ export function Header({
       <View
         style={[
           styles.eliteContainer,
-          { paddingTop: insets.top + SPACING.sm },
+          { paddingTop: eliteTopPadding },
           isSanta && { backgroundColor: seasonalTokens.holidayBg },
         ]}
       >
