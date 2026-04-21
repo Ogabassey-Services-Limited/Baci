@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMerchant } from '@/hooks/useMerchant';
-import type { Product } from '@/hooks/useProducts';
+import type { SelectedParentProduct } from '@/components/orders/new-order.types';
 import {
   type AdminProductVariant,
   buildStructuredVariantPickerItems,
@@ -33,7 +33,7 @@ async function fetchAdminProductVariants(args: {
   });
 }
 
-export function useProductPickerVariants(parentProduct: Product | null) {
+export function useProductPickerVariants(parentProduct: SelectedParentProduct) {
   const { merchant } = useMerchant();
   const merchantId = merchant?.id;
 
