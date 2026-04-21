@@ -69,7 +69,11 @@ export default function ForgotPasswordScreen() {
     <View style={styles.container}>
       <SystemBars style={isDark ? 'light' : 'dark'} />
       <LinearGradient
-        colors={[colors.background, colors.backgroundLight]}
+        colors={
+          isDark
+            ? [colors.background, colors.backgroundLight]
+            : [colors.cardHover, colors.backgroundLight]
+        }
         style={StyleSheet.absoluteFillObject}
       />
       <SafeAreaView style={styles.content}>
