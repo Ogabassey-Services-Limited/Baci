@@ -271,7 +271,7 @@ describe('NewOrderDetailsSection', () => {
     expect(controller.setDeliveryInfo).toHaveBeenCalled();
   });
 
-  it('preserves city and state when the selected address omits those components', () => {
+  it('clears stale city and state when the selected address omits those components', () => {
     process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY = 'maps-test-key';
     const setDeliveryInfo = vi.fn();
     const controller = makeController({
@@ -306,10 +306,10 @@ describe('NewOrderDetailsSection', () => {
       })
     ).toEqual({
       address: '12 Allen Avenue, Lagos',
-      city: 'Ikeja',
+      city: '',
       name: '',
       phone: '',
-      state: 'Lagos',
+      state: '',
     });
   });
 });
