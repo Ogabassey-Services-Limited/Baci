@@ -8,7 +8,7 @@ VPS="bassey@82.29.190.219"
 REMOTE_DIR="/home/bassey/baci-workers"
 
 echo "==> Syncing worker files to $VPS:$REMOTE_DIR"
-rsync -av --delete --exclude='.env' --exclude='node_modules' \
+rsync -av --delete --exclude='.env' --exclude='node_modules' --exclude='logs' \
   vps-workers/ "$VPS:$REMOTE_DIR/"
 
 echo "==> Installing dependencies on VPS"
