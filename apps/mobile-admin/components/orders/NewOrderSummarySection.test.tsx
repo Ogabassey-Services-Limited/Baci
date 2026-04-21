@@ -126,7 +126,7 @@ describe('NewOrderSummarySection', () => {
 
     fireEvent.click(screen.getByText('VAT (7.5%)').closest('button')!);
 
-    expect(controller.setFinancialValue).toHaveBeenCalledWith('');
+    expect(controller.setFinancialValue).toHaveBeenCalledWith('750');
     expect(controller.setShowFinancialModal).toHaveBeenCalledWith({
       type: 'tax',
       visible: true,

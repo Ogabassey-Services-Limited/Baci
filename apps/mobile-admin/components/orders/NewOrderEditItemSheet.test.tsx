@@ -159,7 +159,7 @@ describe('NewOrderEditItemSheet', () => {
     );
 
     expect(controller.setEditPriceValue).toHaveBeenCalledWith('12.34');
-    expect(controller.setEditQtyValue).toHaveBeenCalledWith('0');
+    expect(controller.setEditQtyValue).toHaveBeenCalledWith('1');
     expect(controller.setEditDetails).toHaveBeenCalledWith('Updated note');
   });
 
