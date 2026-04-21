@@ -1,7 +1,15 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { renderHook } from '@testing-library/react-native';
+import { SPACING } from '@/constants/Colors';
+import { STOREFRONT_INSET_DEFAULTS } from '@/constants/storefront-inset-defaults';
 
 const mockUseSafeAreaInsets = jest.fn();
+const DEFAULT_INSETS = {
+  top: 24,
+  bottom: 34,
+  left: 0,
+  right: 0,
+} as const;
 
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => mockUseSafeAreaInsets(),
@@ -12,31 +20,28 @@ import { useStorefrontInsets } from './use-storefront-insets';
 describe('useStorefrontInsets', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockUseSafeAreaInsets.mockReturnValue({
-      top: 24,
-      bottom: 34,
-      left: 0,
-      right: 0,
-    });
+    mockUseSafeAreaInsets.mockReturnValue(DEFAULT_INSETS);
   });
 
   it('builds scroll and list padding presets from the safe-area insets', () => {
     const { result } = renderHook(() => useStorefrontInsets());
 
     expect(result.current.insets).toEqual({
-      top: 24,
-      bottom: 34,
+      top: DEFAULT_INSETS.top,
+      bottom: DEFAULT_INSETS.bottom,
       left: 0,
       right: 0,
     });
     expect(result.current.getScrollContentStyle()).toEqual({
-      paddingTop: 20,
-      paddingBottom: 94,
+      paddingTop: STOREFRONT_INSET_DEFAULTS.scrollPaddingTop,
+      paddingBottom:
+        STOREFRONT_INSET_DEFAULTS.scrollPaddingBottom + DEFAULT_INSETS.bottom,
     });
     expect(result.current.getListContentStyle()).toEqual({
-      padding: 16,
-      gap: 12,
-      paddingBottom: 50,
+      padding: STOREFRONT_INSET_DEFAULTS.listPadding,
+      gap: STOREFRONT_INSET_DEFAULTS.listGap,
+      paddingBottom:
+        STOREFRONT_INSET_DEFAULTS.listPadding + DEFAULT_INSETS.bottom,
     });
   });
 
@@ -45,18 +50,18 @@ describe('useStorefrontInsets', () => {
 
     expect(
       result.current.getListContentStyle({
-        paddingTop: 16,
-        paddingBottom: 24,
+        paddingTop: SPACING.md,
+        paddingBottom: SPACING.lg,
         paddingHorizontal: 20,
-        gap: 8,
+        gap: SPACING.sm,
         includeBottomInset: false,
       })
     ).toEqual({
-      padding: 16,
-      paddingTop: 16,
-      paddingBottom: 24,
+      padding: STOREFRONT_INSET_DEFAULTS.listPadding,
+      paddingTop: SPACING.md,
+      paddingBottom: SPACING.lg,
       paddingHorizontal: 20,
-      gap: 8,
+      gap: SPACING.sm,
     });
   });
 
@@ -65,13 +70,14 @@ describe('useStorefrontInsets', () => {
 
     expect(
       result.current.getListContentStyle({
-        paddingTop: 24,
+        paddingTop: SPACING.lg,
       })
     ).toEqual({
-      gap: 12,
-      padding: 16,
-      paddingTop: 24,
-      paddingBottom: 50,
+      gap: STOREFRONT_INSET_DEFAULTS.listGap,
+      padding: STOREFRONT_INSET_DEFAULTS.listPadding,
+      paddingTop: SPACING.lg,
+      paddingBottom:
+        STOREFRONT_INSET_DEFAULTS.listPadding + DEFAULT_INSETS.bottom,
     });
   });
 
@@ -86,13 +92,13 @@ describe('useStorefrontInsets', () => {
     const { result } = renderHook(() => useStorefrontInsets());
 
     expect(result.current.getScrollContentStyle()).toEqual({
-      paddingTop: 20,
-      paddingBottom: 60,
+      paddingTop: STOREFRONT_INSET_DEFAULTS.scrollPaddingTop,
+      paddingBottom: STOREFRONT_INSET_DEFAULTS.scrollPaddingBottom,
     });
     expect(result.current.getListContentStyle()).toEqual({
-      gap: 12,
-      padding: 16,
-      paddingBottom: 16,
+      gap: STOREFRONT_INSET_DEFAULTS.listGap,
+      padding: STOREFRONT_INSET_DEFAULTS.listPadding,
+      paddingBottom: STOREFRONT_INSET_DEFAULTS.listPadding,
     });
   });
 });
