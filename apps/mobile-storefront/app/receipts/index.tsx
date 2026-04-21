@@ -18,6 +18,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { OfflineEmptyState, OfflineNotice } from '@/components/OfflineNotice';
 import {
   getPaymentConfig,
@@ -147,7 +148,10 @@ export default function ReceiptsScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView
+      edges={['bottom']}
+      style={[styles.container, { backgroundColor: colors.background }]}
+    >
       {!isOnline && (receipts ?? []).length > 0 && (
         <OfflineNotice
           variant="banner"
@@ -270,7 +274,7 @@ export default function ReceiptsScreen() {
         onClose={preview.closePreview}
         isPaid={preview.isPaid}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
