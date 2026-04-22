@@ -47,6 +47,11 @@ const RESERVED_SUBDOMAINS = new Set([
 // Valid subdomain pattern: alphanumeric and hyphens, 1-63 chars, no leading/trailing hyphens
 const VALID_SUBDOMAIN_REGEX = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
 
+// Platform-owned IndexNow key file. Scoped to this exact path so that merchants
+// remain free to publish their own `/<key>.txt` file on custom domains without
+// the proxy intercepting and bypassing their storefront rewrite.
+const INDEXNOW_KEY_PATH = '/0751d5c882ab3d7c013ecbfe9e624d71.txt';
+
 // Pre-compiled regex patterns for performance (avoids recompilation on every request)
 const STATIC_FILES_REGEX =
   /\.(jpg|jpeg|png|gif|svg|ico|webp|avif|woff|woff2|ttf|eot|css|js|json)$/;
@@ -642,9 +647,16 @@ export async function proxy(request: NextRequest) {
   }
 
   // ==== INDEXNOW KEY FILE PASSTHROUGH ====
-  // IndexNow validates ownership via a root-level `/<key>.txt` file where
-  // key is a 32-char hex token. This must bypass storefront rewrites.
-  if (/^\/[a-f0-9]{32}\.txt$/i.test(pathname)) {
+  // IndexNow validates ownership via a root-level `/<key>.txt` file. We only
+  // bypass storefront rewrites for Baci's own platform key AND only on the
+  // platform host (or a Vercel preview of it). Exposing the platform key at
+  // every tenant/custom-domain root would let third parties submit IndexNow
+  // URLs for merchants they don't own — scope it to the host we actually own.
+  // Merchants serve their own IndexNow key via storefront rewrites.
+  if (
+    pathname === INDEXNOW_KEY_PATH &&
+    (isRootDomain(hostname, ROOT_DOMAIN) || isVercelPreview(hostname))
+  ) {
     return NextResponse.next();
   }
 

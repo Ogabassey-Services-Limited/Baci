@@ -317,7 +317,24 @@ describe('Middleware Proxy', () => {
       expect(res.headers.get('location')).toBeNull();
     });
 
-    it('passes through indexnow key files without storefront rewrites', async () => {
+    it('passes through the platform indexnow key file on the platform apex host', async () => {
+      const req = new NextRequest(
+        `https://${ROOT_DOMAIN}/0751d5c882ab3d7c013ecbfe9e624d71.txt`
+      );
+      req.headers.set('host', ROOT_DOMAIN);
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(200);
+      expect(res.headers.get('location')).toBeNull();
+      expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+    });
+
+    it('does not passthrough the platform indexnow key on merchant custom domains', async () => {
+      // The platform key must not be reachable via a merchant's custom domain,
+      // otherwise third parties could claim IndexNow ownership of merchant
+      // domains they don't control. Request must fall through to storefront
+      // handling (rewrite/redirect), not a clean passthrough.
       const req = new NextRequest(
         'https://ogabassey.com/0751d5c882ab3d7c013ecbfe9e624d71.txt'
       );
@@ -325,9 +342,44 @@ describe('Middleware Proxy', () => {
 
       const res = await proxy(req);
 
-      expect(res.status).toBe(200);
-      expect(res.headers.get('location')).toBeNull();
-      expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+      const hasRewrite = res.headers.get('x-middleware-rewrite') !== null;
+      const isRedirect = res.status === 307 || res.status === 308;
+      expect(hasRewrite || isRedirect).toBe(true);
+    });
+
+    it('does not passthrough the platform indexnow key on tenant subdomains', async () => {
+      // Same protection applies to tenant subdomains like ogabassey.usebaci.com.
+      const req = new NextRequest(
+        `https://ogabassey.${ROOT_DOMAIN}/0751d5c882ab3d7c013ecbfe9e624d71.txt`
+      );
+      req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+      const res = await proxy(req);
+
+      const hasRewrite = res.headers.get('x-middleware-rewrite') !== null;
+      const isRedirect = res.status === 307 || res.status === 308;
+      expect(hasRewrite || isRedirect).toBe(true);
+    });
+
+    it('does not passthrough non-platform 32-char hex .txt files on tenant subdomains', async () => {
+      // Merchants' own IndexNow keys (if they later register them via
+      // storefront content) must not get a blanket passthrough. Only the
+      // literal platform key filename is special-cased, and even that only
+      // on the platform apex. On a tenant subdomain, a different key file
+      // must still flow through the storefront rewrite so the merchant can
+      // serve it themselves.
+      const req = new NextRequest(
+        `https://ogabassey.${ROOT_DOMAIN}/abcdef0123456789abcdef0123456789.txt`
+      );
+      req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+      const res = await proxy(req);
+
+      // Should flow through to storefront rewrite, not a clean passthrough
+      // that would leak the 32-hex filespace to platform-level handling.
+      const hasRewrite = res.headers.get('x-middleware-rewrite') !== null;
+      const isRedirect = res.status === 307 || res.status === 308;
+      expect(hasRewrite || isRedirect).toBe(true);
     });
 
     it('does not redirect static .avif files', async () => {
