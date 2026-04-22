@@ -140,4 +140,59 @@ describe('run-search-console-readiness', () => {
       ])
     );
   });
+
+  it('treats equivalent platform sitemap urls as matches when trailing slashes differ', async () => {
+    const fetchImpl: typeof fetch = vi.fn((input: string | URL) => {
+      const url = String(input);
+      if (url === 'https://usebaci.com/robots.txt') {
+        return Promise.resolve(
+          new Response(
+            'User-agent: *\nAllow: /\nSitemap: https://usebaci.com/sitemap.xml',
+            { status: 200 }
+          )
+        );
+      }
+      if (url === 'https://usebaci.com/sitemap.xml') {
+        return Promise.resolve(
+          new Response(
+            `<?xml version="1.0"?><urlset>
+              <url><loc>https://usebaci.com/</loc></url>
+              <url><loc>https://usebaci.com/pricing/</loc></url>
+              <url><loc>https://usebaci.com/features/</loc></url>
+              <url><loc>https://usebaci.com/blog/</loc></url>
+              <url><loc>https://usebaci.com/login/</loc></url>
+            </urlset>`,
+            { status: 200 }
+          )
+        );
+      }
+      if (url === 'https://usebaci.com/') {
+        return Promise.resolve(
+          new Response(
+            '<html><head><link rel="canonical" href="https://usebaci.com/" /></head></html>',
+            { status: 200 }
+          )
+        );
+      }
+      return Promise.resolve(new Response('', { status: 404 }));
+    });
+
+    const result = await searchConsoleReadiness.runSearchConsoleReadinessAudit({
+      fetchImpl,
+      merchantOrigins: [],
+      platformOrigin: 'https://usebaci.com',
+    });
+
+    expect(result.passed).toBe(false);
+    expect(result.surfaces[0]?.issues).toContain(
+      'root sitemap should not expose https://usebaci.com/login'
+    );
+    expect(result.surfaces[0]?.issues).not.toEqual(
+      expect.arrayContaining([
+        'root sitemap is missing https://usebaci.com/pricing',
+        'root sitemap is missing https://usebaci.com/features',
+        'root sitemap is missing https://usebaci.com/blog',
+      ])
+    );
+  });
 });

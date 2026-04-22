@@ -26,6 +26,8 @@ vi.mock('./run-search-console-readiness', () => ({
 describe('run-search-console-readiness cli', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubEnv('SEO_PLATFORM_ORIGIN', '');
+    vi.stubEnv('SEO_MERCHANT_ORIGINS', '');
     vi.resetModules();
   });
 

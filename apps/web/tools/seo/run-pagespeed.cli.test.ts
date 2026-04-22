@@ -1,11 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { seoConstants } from './constants';
 
-const mockAppendGitHubStepSummary = vi.fn();
-const mockNormalizeOrigin = vi.fn(() => seoConstants.DEFAULT_PLATFORM_ORIGIN);
-const mockBuildPageSpeedSummary = vi.fn(() => '## PageSpeed Insights\n');
-const mockParseStrategies = vi.fn(() => ['mobile']);
-const mockRunPageSpeedAudit = vi.fn();
+const {
+  mockAppendGitHubStepSummary,
+  mockNormalizeOrigin,
+  mockBuildPageSpeedSummary,
+  mockParseStrategies,
+  mockRunPageSpeedAudit,
+} = vi.hoisted(() => ({
+  mockAppendGitHubStepSummary: vi.fn(),
+  mockNormalizeOrigin: vi.fn(() => 'https://usebaci.com'),
+  mockBuildPageSpeedSummary: vi.fn(() => '## PageSpeed Insights\n'),
+  mockParseStrategies: vi.fn(() => ['mobile']),
+  mockRunPageSpeedAudit: vi.fn(),
+}));
 
 vi.mock('./shared', () => ({
   seoShared: {

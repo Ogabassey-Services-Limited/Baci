@@ -90,6 +90,10 @@ function urlsMatch(left: string | null, right: string): boolean {
   }
 }
 
+function matchesAnyUrl(locations: string[], expected: string): boolean {
+  return locations.some((location) => urlsMatch(location, expected));
+}
+
 function toErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -111,7 +115,7 @@ function parseHtmlAttributes(tag: string): Record<string, string> {
 
 function decodeHtmlEntities(value: string): string {
   return value.replace(
-    /&(#x?[0-9a-f]+|amp|lt|gt|quot|apos);/gi,
+    /&(#[0-9]+|#x[0-9a-f]+|amp|lt|gt|quot|apos);/gi,
     (match, entity: string) => {
       switch (entity.toLowerCase()) {
         case 'amp':
@@ -170,6 +174,7 @@ export const searchConsoleReadinessShared = {
   extractRobotsSitemaps,
   fetchText,
   fetchTextOrIssue,
+  matchesAnyUrl,
   toErrorMessage,
   urlsMatch,
 } as const;

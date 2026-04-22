@@ -187,14 +187,16 @@ async function auditPlatformSurface(
 
   for (const path of PLATFORM_REQUIRED_LOCATIONS) {
     const requiredUrl = seoShared.resolveUrl(normalizedOrigin, path);
-    if (!platformLocs.includes(requiredUrl)) {
+    if (
+      !searchConsoleReadinessShared.matchesAnyUrl(platformLocs, requiredUrl)
+    ) {
       issues.push(`root sitemap is missing ${requiredUrl}`);
     }
   }
 
   for (const path of PLATFORM_EXCLUDED_LOCATIONS) {
     const excludedUrl = seoShared.resolveUrl(normalizedOrigin, path);
-    if (platformLocs.includes(excludedUrl)) {
+    if (searchConsoleReadinessShared.matchesAnyUrl(platformLocs, excludedUrl)) {
       issues.push(`root sitemap should not expose ${excludedUrl}`);
     }
   }
@@ -243,9 +245,7 @@ async function auditMerchantSurface(
   }
 
   if (
-    !staticLocs.some((location) =>
-      searchConsoleReadinessShared.urlsMatch(location, merchantHomeUrl)
-    )
+    !searchConsoleReadinessShared.matchesAnyUrl(staticLocs, merchantHomeUrl)
   ) {
     issues.push(`merchant static sitemap is missing ${merchantHomeUrl}`);
   }

@@ -62,6 +62,14 @@ describe('run-search-console-readiness shared helpers', () => {
     ).toEqual(['https://example.com/search?q=test&#x110000;']);
   });
 
+  it('preserves malformed decimal entities instead of partially decoding them', () => {
+    expect(
+      searchConsoleReadinessShared.extractLocs(
+        '<urlset><url><loc>https://example.com/search?q=test&#47abc;</loc></url></urlset>'
+      )
+    ).toEqual(['https://example.com/search?q=test&#47abc;']);
+  });
+
   it('extracts canonical hrefs and ignores alternate links', () => {
     expect(
       searchConsoleReadinessShared.extractCanonicalHref(
@@ -88,6 +96,15 @@ describe('run-search-console-readiness shared helpers', () => {
       searchConsoleReadinessShared.urlsMatch(
         'https://usebaci.com/pricing?currency=NGN&plan=growth&tag=b&tag=a',
         'https://usebaci.com/pricing?tag=a&plan=growth&tag=b&currency=NGN'
+      )
+    ).toBe(true);
+  });
+
+  it('finds equivalent urls inside sitemap location lists', () => {
+    expect(
+      searchConsoleReadinessShared.matchesAnyUrl(
+        ['https://usebaci.com/pricing/', 'https://usebaci.com/blog'],
+        'https://usebaci.com/pricing'
       )
     ).toBe(true);
   });
