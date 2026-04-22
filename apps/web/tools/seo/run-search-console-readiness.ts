@@ -3,33 +3,14 @@ import {
   PLATFORM_EXCLUDED_LOCATIONS,
   PLATFORM_REQUIRED_LOCATIONS,
 } from './run-search-console-readiness.config';
-import {
-  buildSurfaceFailure,
-  extractCanonicalHref,
-  extractLocs,
-  extractRobotsSitemaps,
-  fetchText,
-  fetchTextOrIssue,
-  toErrorMessage,
-  urlsMatch,
-} from './run-search-console-readiness.shared';
+import { searchConsoleReadinessShared } from './run-search-console-readiness.shared';
 import type {
   CrawlSurfaceAudit,
   SearchConsoleReadinessResult,
 } from './run-search-console-readiness.types';
-import { partitionCsvOrigins, resolveUrl } from './shared';
+import { seoShared } from './shared';
 
-export {
-  extractCanonicalHref,
-  extractLocs,
-  extractRobotsSitemaps,
-} from './run-search-console-readiness.shared';
-export type {
-  CrawlSurfaceAudit,
-  SearchConsoleReadinessResult,
-} from './run-search-console-readiness.types';
-
-export async function runSearchConsoleReadinessAudit({
+async function runSearchConsoleReadinessAudit({
   fetchImpl = fetch,
   merchantOrigins,
   platformOrigin,
@@ -46,17 +27,17 @@ export async function runSearchConsoleReadinessAudit({
     ...merchantSurfaces.map((surface, index) =>
       surface.status === 'fulfilled'
         ? surface.value
-        : buildSurfaceFailure(
+        : searchConsoleReadinessShared.buildSurfaceFailure(
             'merchant',
             merchantOrigins[index] ?? 'unknown',
-            `failed to audit merchant surface: ${toErrorMessage(surface.reason)}`
+            `failed to audit merchant surface: ${searchConsoleReadinessShared.toErrorMessage(surface.reason)}`
           )
     ),
   ];
   return { passed: surfaces.every((surface) => surface.passed), surfaces };
 }
 
-export async function runConfiguredSearchConsoleReadinessAudit({
+async function runConfiguredSearchConsoleReadinessAudit({
   fetchImpl = fetch,
   merchantOriginsEnv,
   platformOrigin,
@@ -66,7 +47,7 @@ export async function runConfiguredSearchConsoleReadinessAudit({
   platformOrigin: string;
 }): Promise<SearchConsoleReadinessResult> {
   const { invalidOrigins, validOrigins } =
-    partitionCsvOrigins(merchantOriginsEnv);
+    seoShared.partitionCsvOrigins(merchantOriginsEnv);
   const auditResult = await runSearchConsoleReadinessAudit({
     fetchImpl,
     merchantOrigins: validOrigins,
@@ -80,7 +61,7 @@ export async function runConfiguredSearchConsoleReadinessAudit({
   const surfaces = [
     ...auditResult.surfaces,
     ...invalidOrigins.map((origin) =>
-      buildSurfaceFailure(
+      searchConsoleReadinessShared.buildSurfaceFailure(
         'merchant',
         origin,
         `invalid merchant origin in SEO_MERCHANT_ORIGINS: ${origin}`
@@ -94,9 +75,7 @@ export async function runConfiguredSearchConsoleReadinessAudit({
   };
 }
 
-export function buildReadinessSummary(
-  result: SearchConsoleReadinessResult
-): string {
+function buildReadinessSummary(result: SearchConsoleReadinessResult): string {
   const lines = ['## Search Console Readiness'];
 
   for (const surface of result.surfaces) {
@@ -119,57 +98,68 @@ async function auditPlatformSurface(
 ): Promise<CrawlSurfaceAudit> {
   const normalizedOrigin = new URL(origin).origin;
   const issues: string[] = [];
-  const robotsTxt = await fetchTextOrIssue(
+  const robotsTxt = await searchConsoleReadinessShared.fetchTextOrIssue(
     fetchImpl,
-    resolveUrl(normalizedOrigin, '/robots.txt'),
+    seoShared.resolveUrl(normalizedOrigin, '/robots.txt'),
     issues,
     'failed to fetch robots.txt'
   );
-  const sitemapUrls = robotsTxt ? extractRobotsSitemaps(robotsTxt) : [];
-  const platformSitemapUrl = resolveUrl(normalizedOrigin, '/sitemap.xml');
+  const sitemapUrls = robotsTxt
+    ? searchConsoleReadinessShared.extractRobotsSitemaps(robotsTxt)
+    : [];
+  const platformSitemapUrl = seoShared.resolveUrl(
+    normalizedOrigin,
+    '/sitemap.xml'
+  );
 
   if (!sitemapUrls.includes(platformSitemapUrl)) {
     issues.push(`robots.txt is missing ${platformSitemapUrl}`);
   }
 
-  const platformSitemapXml = await fetchTextOrIssue(
-    fetchImpl,
-    platformSitemapUrl,
-    issues,
-    'failed to fetch root sitemap'
-  );
+  const platformSitemapXml =
+    await searchConsoleReadinessShared.fetchTextOrIssue(
+      fetchImpl,
+      platformSitemapUrl,
+      issues,
+      'failed to fetch root sitemap'
+    );
   const platformLocs = platformSitemapXml
-    ? extractLocs(platformSitemapXml)
+    ? searchConsoleReadinessShared.extractLocs(platformSitemapXml)
     : [];
 
   for (const path of PLATFORM_REQUIRED_LOCATIONS) {
-    const requiredUrl = resolveUrl(normalizedOrigin, path);
+    const requiredUrl = seoShared.resolveUrl(normalizedOrigin, path);
     if (!platformLocs.includes(requiredUrl)) {
       issues.push(`root sitemap is missing ${requiredUrl}`);
     }
   }
 
   for (const path of PLATFORM_EXCLUDED_LOCATIONS) {
-    const excludedUrl = resolveUrl(normalizedOrigin, path);
+    const excludedUrl = seoShared.resolveUrl(normalizedOrigin, path);
     if (platformLocs.includes(excludedUrl)) {
       issues.push(`root sitemap should not expose ${excludedUrl}`);
     }
   }
 
-  const homepageHtml = await fetchTextOrIssue(
+  const homepageHtml = await searchConsoleReadinessShared.fetchTextOrIssue(
     fetchImpl,
-    resolveUrl(normalizedOrigin, '/'),
+    seoShared.resolveUrl(normalizedOrigin, '/'),
     issues,
     'failed to fetch homepage'
   );
-  const canonical = homepageHtml ? extractCanonicalHref(homepageHtml) : null;
+  const canonical = homepageHtml
+    ? searchConsoleReadinessShared.extractCanonicalHref(homepageHtml)
+    : null;
 
   if (
     homepageHtml &&
-    !urlsMatch(canonical, resolveUrl(normalizedOrigin, '/'))
+    !searchConsoleReadinessShared.urlsMatch(
+      canonical,
+      seoShared.resolveUrl(normalizedOrigin, '/')
+    )
   ) {
     issues.push(
-      `homepage canonical mismatch: expected ${resolveUrl(normalizedOrigin, '/')}`
+      `homepage canonical mismatch: expected ${seoShared.resolveUrl(normalizedOrigin, '/')}`
     );
   }
   return {
@@ -187,49 +177,65 @@ async function auditMerchantSurface(
 ): Promise<CrawlSurfaceAudit> {
   const normalizedOrigin = new URL(origin).origin;
   const issues: string[] = [];
-  const robotsTxt = await fetchTextOrIssue(
+  const robotsTxt = await searchConsoleReadinessShared.fetchTextOrIssue(
     fetchImpl,
-    resolveUrl(normalizedOrigin, '/robots.txt'),
+    seoShared.resolveUrl(normalizedOrigin, '/robots.txt'),
     issues,
     'failed to fetch merchant robots.txt'
   );
-  const sitemapUrls = robotsTxt ? extractRobotsSitemaps(robotsTxt) : [];
+  const sitemapUrls = robotsTxt
+    ? searchConsoleReadinessShared.extractRobotsSitemaps(robotsTxt)
+    : [];
 
   for (const path of MERCHANT_REQUIRED_SITEMAPS) {
-    const requiredUrl = resolveUrl(normalizedOrigin, path);
+    const requiredUrl = seoShared.resolveUrl(normalizedOrigin, path);
     if (!sitemapUrls.includes(requiredUrl)) {
       issues.push(`merchant robots.txt is missing ${requiredUrl}`);
     }
   }
 
-  const staticSitemapUrl = resolveUrl(normalizedOrigin, '/sitemap/static.xml');
-  const staticSitemapXml = await fetchTextOrIssue(
+  const staticSitemapUrl = seoShared.resolveUrl(
+    normalizedOrigin,
+    '/sitemap/static.xml'
+  );
+  const staticSitemapXml = await searchConsoleReadinessShared.fetchTextOrIssue(
     fetchImpl,
     staticSitemapUrl,
     issues,
     'failed to fetch merchant static sitemap'
   );
-  const staticLocs = staticSitemapXml ? extractLocs(staticSitemapXml) : [];
-  const merchantHomeUrl = resolveUrl(normalizedOrigin, '/');
+  const staticLocs = staticSitemapXml
+    ? searchConsoleReadinessShared.extractLocs(staticSitemapXml)
+    : [];
+  const merchantHomeUrl = seoShared.resolveUrl(normalizedOrigin, '/');
 
-  if (!staticLocs.some((location) => urlsMatch(location, merchantHomeUrl))) {
+  if (
+    !staticLocs.some((location) =>
+      searchConsoleReadinessShared.urlsMatch(location, merchantHomeUrl)
+    )
+  ) {
     issues.push(`merchant static sitemap is missing ${merchantHomeUrl}`);
   }
 
-  const homepageHtml = await fetchTextOrIssue(
+  const homepageHtml = await searchConsoleReadinessShared.fetchTextOrIssue(
     fetchImpl,
-    resolveUrl(normalizedOrigin, '/'),
+    seoShared.resolveUrl(normalizedOrigin, '/'),
     issues,
     'failed to fetch merchant homepage'
   );
-  const canonical = homepageHtml ? extractCanonicalHref(homepageHtml) : null;
+  const canonical = homepageHtml
+    ? searchConsoleReadinessShared.extractCanonicalHref(homepageHtml)
+    : null;
 
   if (
     homepageHtml &&
-    !urlsMatch(canonical, resolveUrl(normalizedOrigin, '/'))
+    !searchConsoleReadinessShared.urlsMatch(
+      canonical,
+      seoShared.resolveUrl(normalizedOrigin, '/')
+    )
   ) {
     issues.push(
-      `merchant homepage canonical mismatch: expected ${resolveUrl(normalizedOrigin, '/')}`
+      `merchant homepage canonical mismatch: expected ${seoShared.resolveUrl(normalizedOrigin, '/')}`
     );
   }
   const reachabilitySitemapPaths = MERCHANT_REQUIRED_SITEMAPS.filter(
@@ -238,7 +244,10 @@ async function auditMerchantSurface(
 
   const reachabilityResults = await Promise.allSettled(
     reachabilitySitemapPaths.map((path) =>
-      fetchText(fetchImpl, resolveUrl(normalizedOrigin, path))
+      searchConsoleReadinessShared.fetchText(
+        fetchImpl,
+        seoShared.resolveUrl(normalizedOrigin, path)
+      )
     )
   );
 
@@ -250,7 +259,7 @@ async function auditMerchantSurface(
           ? result.reason.message
           : String(result.reason);
       issues.push(
-        `merchant sitemap ${resolveUrl(normalizedOrigin, path)} is unreachable: ${message}`
+        `merchant sitemap ${seoShared.resolveUrl(normalizedOrigin, path)} is unreachable: ${message}`
       );
     }
   });
@@ -263,3 +272,9 @@ async function auditMerchantSurface(
     sitemaps: sitemapUrls,
   };
 }
+
+export const searchConsoleReadiness = {
+  buildReadinessSummary,
+  runConfiguredSearchConsoleReadinessAudit,
+  runSearchConsoleReadinessAudit,
+} as const;

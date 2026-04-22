@@ -1,21 +1,19 @@
 import { pathToFileURL } from 'node:url';
-import {
-  buildPageSpeedSummary,
-  parseStrategies,
-  runPageSpeedAudit,
-} from './run-pagespeed';
-import { appendGitHubStepSummary, normalizeOrigin } from './shared';
+import { pageSpeedTools } from './run-pagespeed';
+import { seoShared } from './shared';
 
 export async function main() {
-  const baseUrl = normalizeOrigin(
+  const baseUrl = seoShared.normalizeOrigin(
     process.env.SEO_PLATFORM_ORIGIN || 'https://usebaci.com'
   );
   const extraUrls = (process.env.PAGESPEED_EXTRA_URLS || '')
     .split(',')
     .map((entry) => entry.trim())
     .filter(Boolean);
-  const strategies = parseStrategies(process.env.PAGESPEED_STRATEGIES);
-  const results = await runPageSpeedAudit({
+  const strategies = pageSpeedTools.parseStrategies(
+    process.env.PAGESPEED_STRATEGIES
+  );
+  const results = await pageSpeedTools.runPageSpeedAudit({
     apiKey: process.env.PAGESPEED_INSIGHTS_API_KEY,
     baseUrl,
     extraUrls,
@@ -23,10 +21,10 @@ export async function main() {
   });
 
   const failedResults = results.filter((result) => !result.passed);
-  const markdown = buildPageSpeedSummary(results);
+  const markdown = pageSpeedTools.buildPageSpeedSummary(results);
 
   console.log(markdown.replace(/^## /gm, '').replace(/^### /gm, ''));
-  await appendGitHubStepSummary(markdown);
+  await seoShared.appendGitHubStepSummary(markdown);
 
   if (failedResults.length > 0) {
     throw new Error(

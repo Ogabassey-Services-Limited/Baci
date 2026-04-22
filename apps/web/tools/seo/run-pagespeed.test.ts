@@ -1,11 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-  buildPageSpeedTargets,
-  buildPsiUrl,
-  evaluatePageSpeedResult,
-  parseStrategies,
-  runPageSpeedAudit,
-} from './run-pagespeed';
+import { pageSpeedTools } from './run-pagespeed';
 
 describe('run-pagespeed', () => {
   afterEach(() => {
@@ -15,7 +9,7 @@ describe('run-pagespeed', () => {
 
   it('builds platform targets and appends extra absolute urls', () => {
     expect(
-      buildPageSpeedTargets({
+      pageSpeedTools.buildPageSpeedTargets({
         baseUrl: 'https://usebaci.com',
         extraUrls: ['https://ogabassey.com'],
       })
@@ -31,7 +25,7 @@ describe('run-pagespeed', () => {
 
   it('throws for invalid extra target urls instead of silently skipping them', () => {
     expect(() =>
-      buildPageSpeedTargets({
+      pageSpeedTools.buildPageSpeedTargets({
         baseUrl: 'https://usebaci.com',
         extraUrls: ['notaurl'],
       })
@@ -39,20 +33,23 @@ describe('run-pagespeed', () => {
   });
 
   it('parses strategies and falls back to mobile when input is empty', () => {
-    expect(parseStrategies('mobile,desktop')).toEqual(['mobile', 'desktop']);
-    expect(parseStrategies()).toEqual(['mobile']);
-    expect(parseStrategies(' , ')).toEqual(['mobile']);
+    expect(pageSpeedTools.parseStrategies('mobile,desktop')).toEqual([
+      'mobile',
+      'desktop',
+    ]);
+    expect(pageSpeedTools.parseStrategies()).toEqual(['mobile']);
+    expect(pageSpeedTools.parseStrategies(' , ')).toEqual(['mobile']);
   });
 
   it('throws for invalid PageSpeed strategies', () => {
-    expect(() => parseStrategies('tablet,mobile')).toThrow(
+    expect(() => pageSpeedTools.parseStrategies('tablet,mobile')).toThrow(
       'Invalid PageSpeed strategies: tablet. Allowed values: mobile, desktop'
     );
   });
 
   it('builds the PSI API url with repeated categories', () => {
     const url = new URL(
-      buildPsiUrl({
+      pageSpeedTools.buildPsiUrl({
         apiKey: 'secret',
         strategy: 'mobile',
         targetUrl: 'https://usebaci.com/pricing',
@@ -72,7 +69,7 @@ describe('run-pagespeed', () => {
   });
 
   it('flags threshold breaches in the parsed report', () => {
-    const result = evaluatePageSpeedResult({
+    const result = pageSpeedTools.evaluatePageSpeedResult({
       lighthouseResult: {
         categories: {
           performance: { score: 0.72 },
@@ -101,7 +98,7 @@ describe('run-pagespeed', () => {
   });
 
   it('prefers field INP from CrUX data and enforces the 200ms threshold', () => {
-    const result = evaluatePageSpeedResult({
+    const result = pageSpeedTools.evaluatePageSpeedResult({
       loadingExperience: {
         metrics: {
           INTERACTION_TO_NEXT_PAINT: { percentile: 240 },
@@ -119,6 +116,32 @@ describe('run-pagespeed', () => {
           'cumulative-layout-shift': { numericValue: 0.04 },
           'total-blocking-time': { numericValue: 90 },
           'interaction-to-next-paint': { numericValue: 400 },
+        },
+      },
+    });
+
+    expect(result.failures).toContainEqual({
+      metric: 'inp',
+      actual: 240,
+      threshold: 200,
+    });
+    expect(result.vitals.inp).toBe(240);
+  });
+
+  it('falls back to lab INP when CrUX data is unavailable', () => {
+    const result = pageSpeedTools.evaluatePageSpeedResult({
+      lighthouseResult: {
+        categories: {
+          performance: { score: 0.92 },
+          accessibility: { score: 0.99 },
+          seo: { score: 0.98 },
+          'best-practices': { score: 0.95 },
+        },
+        audits: {
+          'largest-contentful-paint': { numericValue: 1800 },
+          'cumulative-layout-shift': { numericValue: 0.04 },
+          'total-blocking-time': { numericValue: 90 },
+          'interaction-to-next-paint': { numericValue: 240 },
         },
       },
     });
@@ -154,7 +177,7 @@ describe('run-pagespeed', () => {
         )
     );
 
-    const results = await runPageSpeedAudit({
+    const results = await pageSpeedTools.runPageSpeedAudit({
       apiKey: undefined,
       baseUrl: 'https://usebaci.com',
       extraUrls: [],
@@ -176,7 +199,7 @@ describe('run-pagespeed', () => {
     );
 
     await expect(
-      runPageSpeedAudit({
+      pageSpeedTools.runPageSpeedAudit({
         apiKey: undefined,
         baseUrl: 'https://usebaci.com',
         extraUrls: [],
@@ -199,7 +222,7 @@ describe('run-pagespeed', () => {
           });
         })
     );
-    const pendingAudit = runPageSpeedAudit({
+    const pendingAudit = pageSpeedTools.runPageSpeedAudit({
       apiKey: undefined,
       baseUrl: 'https://usebaci.com',
       extraUrls: [],

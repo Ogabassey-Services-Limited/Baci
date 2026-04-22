@@ -7,16 +7,20 @@ const mockParseStrategies = vi.fn(() => ['mobile']);
 const mockRunPageSpeedAudit = vi.fn();
 
 vi.mock('./shared', () => ({
-  appendGitHubStepSummary: (...args: unknown[]) =>
-    mockAppendGitHubStepSummary(...args),
-  normalizeOrigin: (...args: unknown[]) => mockNormalizeOrigin(...args),
+  seoShared: {
+    appendGitHubStepSummary: (...args: unknown[]) =>
+      mockAppendGitHubStepSummary(...args),
+    normalizeOrigin: (...args: unknown[]) => mockNormalizeOrigin(...args),
+  },
 }));
 
 vi.mock('./run-pagespeed', () => ({
-  buildPageSpeedSummary: (...args: unknown[]) =>
-    mockBuildPageSpeedSummary(...args),
-  parseStrategies: (...args: unknown[]) => mockParseStrategies(...args),
-  runPageSpeedAudit: (...args: unknown[]) => mockRunPageSpeedAudit(...args),
+  pageSpeedTools: {
+    buildPageSpeedSummary: (...args: unknown[]) =>
+      mockBuildPageSpeedSummary(...args),
+    parseStrategies: (...args: unknown[]) => mockParseStrategies(...args),
+    runPageSpeedAudit: (...args: unknown[]) => mockRunPageSpeedAudit(...args),
+  },
 }));
 
 describe('run-pagespeed cli', () => {

@@ -1,14 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import {
-  extractCanonicalHref,
-  extractLocs,
-  extractRobotsSitemaps,
-} from './run-search-console-readiness.shared';
+import { searchConsoleReadinessShared } from './run-search-console-readiness.shared';
 
 describe('run-search-console-readiness shared helpers', () => {
   it('extracts sitemap urls from robots.txt and ignores commented lines', () => {
     expect(
-      extractRobotsSitemaps(
+      searchConsoleReadinessShared.extractRobotsSitemaps(
         [
           'User-agent: *',
           '# Sitemap: https://ignored.example/sitemap.xml',
@@ -23,13 +19,17 @@ describe('run-search-console-readiness shared helpers', () => {
   });
 
   it('returns an empty list for missing or self-closing loc values', () => {
-    expect(extractLocs('')).toEqual([]);
-    expect(extractLocs('<urlset><url><loc /></url></urlset>')).toEqual([]);
+    expect(searchConsoleReadinessShared.extractLocs('')).toEqual([]);
+    expect(
+      searchConsoleReadinessShared.extractLocs(
+        '<urlset><url><loc /></url></urlset>'
+      )
+    ).toEqual([]);
   });
 
   it('extracts urls from valid loc elements in order', () => {
     expect(
-      extractLocs(
+      searchConsoleReadinessShared.extractLocs(
         [
           '<urlset>',
           '<url><loc>https://example.com/page</loc></url>',
@@ -42,13 +42,13 @@ describe('run-search-console-readiness shared helpers', () => {
 
   it('decodes xml and html entities in loc and canonical values', () => {
     expect(
-      extractLocs(
+      searchConsoleReadinessShared.extractLocs(
         '<urlset><url><loc>https://example.com/search?q=phones&amp;sort=asc&#47;popular</loc></url></urlset>'
       )
     ).toEqual(['https://example.com/search?q=phones&sort=asc/popular']);
 
     expect(
-      extractCanonicalHref(
+      searchConsoleReadinessShared.extractCanonicalHref(
         '<html><head><link rel="canonical" href="https://usebaci.com/pricing?plan=growth&amp;currency=NGN" /></head></html>'
       )
     ).toBe('https://usebaci.com/pricing?plan=growth&currency=NGN');
@@ -56,7 +56,7 @@ describe('run-search-console-readiness shared helpers', () => {
 
   it('preserves invalid numeric entities instead of throwing', () => {
     expect(
-      extractLocs(
+      searchConsoleReadinessShared.extractLocs(
         '<urlset><url><loc>https://example.com/search?q=test&#x110000;</loc></url></urlset>'
       )
     ).toEqual(['https://example.com/search?q=test&#x110000;']);
@@ -64,7 +64,7 @@ describe('run-search-console-readiness shared helpers', () => {
 
   it('extracts canonical hrefs and ignores alternate links', () => {
     expect(
-      extractCanonicalHref(
+      searchConsoleReadinessShared.extractCanonicalHref(
         [
           '<html><head>',
           '<link rel="alternate" href="https://usebaci.com/fr" />',
@@ -76,6 +76,10 @@ describe('run-search-console-readiness shared helpers', () => {
   });
 
   it('returns null when canonical markup is missing', () => {
-    expect(extractCanonicalHref('<html><head></head></html>')).toBeNull();
+    expect(
+      searchConsoleReadinessShared.extractCanonicalHref(
+        '<html><head></head></html>'
+      )
+    ).toBeNull();
   });
 });

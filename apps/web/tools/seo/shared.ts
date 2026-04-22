@@ -3,16 +3,16 @@ import { appendFile } from 'node:fs/promises';
 const TRUE_VALUES = new Set(['1', 'true', 'yes', 'on']);
 const FALSE_VALUES = new Set(['0', 'false', 'no', 'off']);
 
-export function normalizeOrigin(input: string): string {
+function normalizeOrigin(input: string): string {
   const url = new URL(input.trim());
   return url.origin;
 }
 
-export function parseCsvOrigins(value?: string): string[] {
+function parseCsvOrigins(value?: string): string[] {
   return partitionCsvOrigins(value).validOrigins;
 }
 
-export function partitionCsvOrigins(value?: string): {
+function partitionCsvOrigins(value?: string): {
   invalidOrigins: string[];
   validOrigins: string[];
 } {
@@ -33,7 +33,7 @@ export function partitionCsvOrigins(value?: string): {
   };
 }
 
-export function parseCsvUrls(value?: string): string[] {
+function parseCsvUrls(value?: string): string[] {
   return dedupe(
     splitCsv(value).flatMap((entry) => {
       const parsed = toAbsoluteUrl(entry);
@@ -42,10 +42,7 @@ export function parseCsvUrls(value?: string): string[] {
   );
 }
 
-export function parseToggle(
-  value: string | undefined,
-  fallback: boolean
-): boolean {
+function parseToggle(value: string | undefined, fallback: boolean): boolean {
   if (!value) {
     return fallback;
   }
@@ -63,11 +60,11 @@ export function parseToggle(
   return fallback;
 }
 
-export function resolveUrl(origin: string, path: string): string {
+function resolveUrl(origin: string, path: string): string {
   return new URL(path, `${normalizeOrigin(origin)}/`).toString();
 }
 
-export async function appendGitHubStepSummary(markdown: string) {
+async function appendGitHubStepSummary(markdown: string) {
   const summaryPath = process.env.GITHUB_STEP_SUMMARY;
 
   if (!summaryPath) {
@@ -99,3 +96,13 @@ function toAbsoluteUrl(value: string): string | null {
     return null;
   }
 }
+
+export const seoShared = {
+  appendGitHubStepSummary,
+  normalizeOrigin,
+  parseCsvOrigins,
+  parseCsvUrls,
+  parseToggle,
+  partitionCsvOrigins,
+  resolveUrl,
+} as const;

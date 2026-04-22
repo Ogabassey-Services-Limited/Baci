@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { runSearchConsoleReadinessAudit } from './run-search-console-readiness';
+import { searchConsoleReadiness } from './run-search-console-readiness';
 
 describe('run-search-console-readiness', () => {
   it('validates platform and merchant crawl surfaces with live-like responses', async () => {
@@ -68,7 +68,7 @@ describe('run-search-console-readiness', () => {
       return Promise.resolve(new Response(body, { status: 200 }));
     });
 
-    const result = await runSearchConsoleReadinessAudit({
+    const result = await searchConsoleReadiness.runSearchConsoleReadinessAudit({
       fetchImpl,
       merchantOrigins: ['https://ogabassey.com'],
       platformOrigin: 'https://usebaci.com',
@@ -121,7 +121,7 @@ describe('run-search-console-readiness', () => {
       return Promise.resolve(new Response('', { status: 404 }));
     });
 
-    const result = await runSearchConsoleReadinessAudit({
+    const result = await searchConsoleReadiness.runSearchConsoleReadinessAudit({
       fetchImpl,
       merchantOrigins: [],
       platformOrigin: 'https://usebaci.com',

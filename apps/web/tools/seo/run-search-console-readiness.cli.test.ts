@@ -6,16 +6,20 @@ const mockNormalizeOrigin = vi.fn(() => 'https://usebaci.com');
 const mockRunConfiguredSearchConsoleReadinessAudit = vi.fn();
 
 vi.mock('./shared', () => ({
-  appendGitHubStepSummary: (...args: unknown[]) =>
-    mockAppendGitHubStepSummary(...args),
-  normalizeOrigin: (...args: unknown[]) => mockNormalizeOrigin(...args),
+  seoShared: {
+    appendGitHubStepSummary: (...args: unknown[]) =>
+      mockAppendGitHubStepSummary(...args),
+    normalizeOrigin: (...args: unknown[]) => mockNormalizeOrigin(...args),
+  },
 }));
 
 vi.mock('./run-search-console-readiness', () => ({
-  buildReadinessSummary: (...args: unknown[]) =>
-    mockBuildReadinessSummary(...args),
-  runConfiguredSearchConsoleReadinessAudit: (...args: unknown[]) =>
-    mockRunConfiguredSearchConsoleReadinessAudit(...args),
+  searchConsoleReadiness: {
+    buildReadinessSummary: (...args: unknown[]) =>
+      mockBuildReadinessSummary(...args),
+    runConfiguredSearchConsoleReadinessAudit: (...args: unknown[]) =>
+      mockRunConfiguredSearchConsoleReadinessAudit(...args),
+  },
 }));
 
 describe('run-search-console-readiness cli', () => {

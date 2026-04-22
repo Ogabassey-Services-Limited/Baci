@@ -1,26 +1,24 @@
 import { pathToFileURL } from 'node:url';
-import {
-  buildReadinessSummary,
-  runConfiguredSearchConsoleReadinessAudit,
-} from './run-search-console-readiness';
-import { appendGitHubStepSummary, normalizeOrigin } from './shared';
+import { searchConsoleReadiness } from './run-search-console-readiness';
+import { seoShared } from './shared';
 
 export async function main() {
   const merchantOriginsEnv =
     process.env.SEO_MERCHANT_ORIGINS?.trim() || undefined;
   const configuredPlatformOrigin = process.env.SEO_PLATFORM_ORIGIN?.trim();
   const platformOrigin = configuredPlatformOrigin
-    ? normalizeOrigin(configuredPlatformOrigin)
+    ? seoShared.normalizeOrigin(configuredPlatformOrigin)
     : 'https://usebaci.com';
 
-  const result = await runConfiguredSearchConsoleReadinessAudit({
-    merchantOriginsEnv,
-    platformOrigin,
-  });
-  const markdown = buildReadinessSummary(result);
+  const result =
+    await searchConsoleReadiness.runConfiguredSearchConsoleReadinessAudit({
+      merchantOriginsEnv,
+      platformOrigin,
+    });
+  const markdown = searchConsoleReadiness.buildReadinessSummary(result);
 
   console.log(markdown.replace(/^## /gm, '').replace(/^### /gm, ''));
-  await appendGitHubStepSummary(markdown);
+  await seoShared.appendGitHubStepSummary(markdown);
 
   if (!result.passed) {
     throw new Error('Search Console readiness checks failed');

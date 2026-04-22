@@ -1,8 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import {
-  runConfiguredSearchConsoleReadinessAudit,
-  runSearchConsoleReadinessAudit,
-} from './run-search-console-readiness';
+import { searchConsoleReadiness } from './run-search-console-readiness';
 
 interface MockResponseConfig {
   body: BodyInit | null;
@@ -81,7 +78,7 @@ describe('run-search-console-readiness failures', () => {
       ]),
     });
 
-    const result = await runSearchConsoleReadinessAudit({
+    const result = await searchConsoleReadiness.runSearchConsoleReadinessAudit({
       fetchImpl,
       merchantOrigins: [],
       platformOrigin: 'https://usebaci.com',
@@ -111,11 +108,12 @@ describe('run-search-console-readiness failures', () => {
         ),
       },
     });
-    const rejectedResult = await runSearchConsoleReadinessAudit({
-      fetchImpl: rejectedFetchImpl,
-      merchantOrigins: ['https://ogabassey.com'],
-      platformOrigin: 'https://usebaci.com',
-    });
+    const rejectedResult =
+      await searchConsoleReadiness.runSearchConsoleReadinessAudit({
+        fetchImpl: rejectedFetchImpl,
+        merchantOrigins: ['https://ogabassey.com'],
+        platformOrigin: 'https://usebaci.com',
+      });
 
     expect(
       rejectedResult.surfaces.find((surface) => surface.kind === 'merchant')
@@ -136,11 +134,12 @@ describe('run-search-console-readiness failures', () => {
         ],
       ]),
     });
-    const notFoundResult = await runSearchConsoleReadinessAudit({
-      fetchImpl: notFoundFetchImpl,
-      merchantOrigins: ['https://ogabassey.com'],
-      platformOrigin: 'https://usebaci.com',
-    });
+    const notFoundResult =
+      await searchConsoleReadiness.runSearchConsoleReadinessAudit({
+        fetchImpl: notFoundFetchImpl,
+        merchantOrigins: ['https://ogabassey.com'],
+        platformOrigin: 'https://usebaci.com',
+      });
 
     expect(
       notFoundResult.surfaces.find((surface) => surface.kind === 'merchant')
@@ -161,7 +160,7 @@ describe('run-search-console-readiness failures', () => {
       },
     });
 
-    const result = await runSearchConsoleReadinessAudit({
+    const result = await searchConsoleReadiness.runSearchConsoleReadinessAudit({
       fetchImpl,
       merchantOrigins: [
         'notaurl',
@@ -198,11 +197,12 @@ describe('run-search-console-readiness failures', () => {
   });
 
   it('fails readiness when merchant origin config contains invalid entries', async () => {
-    const result = await runConfiguredSearchConsoleReadinessAudit({
-      fetchImpl: createFetchImpl(),
-      merchantOriginsEnv: 'https://ogabassey.com, notaurl',
-      platformOrigin: 'https://usebaci.com',
-    });
+    const result =
+      await searchConsoleReadiness.runConfiguredSearchConsoleReadinessAudit({
+        fetchImpl: createFetchImpl(),
+        merchantOriginsEnv: 'https://ogabassey.com, notaurl',
+        platformOrigin: 'https://usebaci.com',
+      });
 
     expect(result.passed).toBe(false);
     expect(result.surfaces).toEqual(

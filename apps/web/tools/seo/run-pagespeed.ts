@@ -11,26 +11,19 @@ import type {
   PageSpeedStrategy,
   PageSpeedTarget,
 } from './run-pagespeed.types';
-import { normalizeOrigin, resolveUrl } from './shared';
+import { seoShared } from './shared';
 
-export type {
-  PageSpeedAuditResult,
-  PageSpeedFailure,
-  PageSpeedStrategy,
-  PageSpeedTarget,
-} from './run-pagespeed.types';
-
-export function buildPageSpeedTargets({
+function buildPageSpeedTargets({
   baseUrl,
   extraUrls,
 }: {
   baseUrl: string;
   extraUrls: string[];
 }): PageSpeedTarget[] {
-  const normalizedBaseUrl = normalizeOrigin(baseUrl);
+  const normalizedBaseUrl = seoShared.normalizeOrigin(baseUrl);
   const defaults = DEFAULT_PAGE_SPEED_ROUTES.map((route) => ({
     label: route.label,
-    url: resolveUrl(normalizedBaseUrl, route.path),
+    url: seoShared.resolveUrl(normalizedBaseUrl, route.path),
   }));
   const extras = extraUrls.map((url, index) => ({
     label: `extra-${index + 1}`,
@@ -39,7 +32,7 @@ export function buildPageSpeedTargets({
   return dedupeTargets([...defaults, ...extras]);
 }
 
-export function parseStrategies(value?: string): PageSpeedStrategy[] {
+function parseStrategies(value?: string): PageSpeedStrategy[] {
   const entries =
     value
       ?.split(',')
@@ -59,7 +52,7 @@ export function parseStrategies(value?: string): PageSpeedStrategy[] {
   return [...new Set(entries as PageSpeedStrategy[])];
 }
 
-export function buildPsiUrl({
+function buildPsiUrl({
   apiKey,
   strategy,
   targetUrl,
@@ -87,7 +80,7 @@ export function buildPsiUrl({
   return url.toString();
 }
 
-export function evaluatePageSpeedResult(
+function evaluatePageSpeedResult(
   payload: PageSpeedApiResponse
 ): Omit<PageSpeedAuditResult, 'label' | 'strategy' | 'url'> {
   const tbt = getAuditMetric(payload, 'total-blocking-time');
@@ -144,7 +137,7 @@ export function evaluatePageSpeedResult(
   };
 }
 
-export async function runPageSpeedAudit({
+async function runPageSpeedAudit({
   apiKey,
   baseUrl,
   extraUrls,
@@ -220,7 +213,7 @@ function dedupeTargets(targets: PageSpeedTarget[]): PageSpeedTarget[] {
   });
 }
 
-export function buildPageSpeedSummary(results: PageSpeedAuditResult[]): string {
+function buildPageSpeedSummary(results: PageSpeedAuditResult[]): string {
   const lines = ['## PageSpeed Insights'];
   for (const result of results) {
     lines.push(
@@ -295,3 +288,12 @@ function resolveTimeoutMs(): number {
   }
   return parsed;
 }
+
+export const pageSpeedTools = {
+  buildPageSpeedSummary,
+  buildPageSpeedTargets,
+  buildPsiUrl,
+  evaluatePageSpeedResult,
+  parseStrategies,
+  runPageSpeedAudit,
+} as const;

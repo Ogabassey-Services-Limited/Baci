@@ -1,18 +1,18 @@
 import type { CrawlSurfaceAudit } from './run-search-console-readiness.types';
 
-export function extractRobotsSitemaps(robotsTxt: string): string[] {
+function extractRobotsSitemaps(robotsTxt: string): string[] {
   return [...robotsTxt.matchAll(/^\s*Sitemap:\s*(\S+)\s*$/gim)].map(
     (match) => match[1]
   );
 }
 
-export function extractLocs(xml: string): string[] {
+function extractLocs(xml: string): string[] {
   return [...xml.matchAll(/<loc>\s*([^<]+?)\s*<\/loc>/gim)].map((match) =>
     decodeHtmlEntities(match[1]).trim()
   );
 }
 
-export function extractCanonicalHref(html: string): string | null {
+function extractCanonicalHref(html: string): string | null {
   const linkTags = html.match(/<link\b[^>]*>/gi) || [];
 
   for (const tag of linkTags) {
@@ -27,7 +27,7 @@ export function extractCanonicalHref(html: string): string | null {
   return null;
 }
 
-export function buildSurfaceFailure(
+function buildSurfaceFailure(
   kind: CrawlSurfaceAudit['kind'],
   origin: string,
   issue: string
@@ -35,7 +35,7 @@ export function buildSurfaceFailure(
   return { kind, origin, issues: [issue], passed: false, sitemaps: [] };
 }
 
-export async function fetchText(
+async function fetchText(
   fetchImpl: typeof fetch,
   url: string
 ): Promise<string> {
@@ -57,7 +57,7 @@ export async function fetchText(
   return response.text();
 }
 
-export async function fetchTextOrIssue(
+async function fetchTextOrIssue(
   fetchImpl: typeof fetch,
   url: string,
   issues: string[],
@@ -71,7 +71,7 @@ export async function fetchTextOrIssue(
   }
 }
 
-export function urlsMatch(left: string | null, right: string): boolean {
+function urlsMatch(left: string | null, right: string): boolean {
   if (!left) {
     return false;
   }
@@ -90,7 +90,7 @@ export function urlsMatch(left: string | null, right: string): boolean {
   }
 }
 
-export function toErrorMessage(error: unknown) {
+function toErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
@@ -151,3 +151,14 @@ function normalizeComparablePath(pathname: string): string {
   const normalized = pathname.replace(/\/+$/, '');
   return normalized || '/';
 }
+
+export const searchConsoleReadinessShared = {
+  buildSurfaceFailure,
+  extractCanonicalHref,
+  extractLocs,
+  extractRobotsSitemaps,
+  fetchText,
+  fetchTextOrIssue,
+  toErrorMessage,
+  urlsMatch,
+} as const;

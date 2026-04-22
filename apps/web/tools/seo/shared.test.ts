@@ -2,15 +2,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import {
-  appendGitHubStepSummary,
-  normalizeOrigin,
-  parseCsvOrigins,
-  parseCsvUrls,
-  parseToggle,
-  partitionCsvOrigins,
-  resolveUrl,
-} from './shared';
+import { seoShared } from './shared';
 
 describe('seo monitoring shared helpers', () => {
   afterEach(() => {
@@ -18,25 +10,27 @@ describe('seo monitoring shared helpers', () => {
   });
 
   it('normalizes origins by trimming paths and trailing slashes', () => {
-    expect(normalizeOrigin(' https://usebaci.com/pricing ')).toBe(
+    expect(seoShared.normalizeOrigin(' https://usebaci.com/pricing ')).toBe(
       'https://usebaci.com'
     );
   });
 
   it('normalizes origins with trailing slashes and preserves ports', () => {
-    expect(normalizeOrigin('https://usebaci.com/')).toBe('https://usebaci.com');
-    expect(normalizeOrigin('https://usebaci.com:8080/path')).toBe(
+    expect(seoShared.normalizeOrigin('https://usebaci.com/')).toBe(
+      'https://usebaci.com'
+    );
+    expect(seoShared.normalizeOrigin('https://usebaci.com:8080/path')).toBe(
       'https://usebaci.com:8080'
     );
   });
 
   it('throws for empty origin input', () => {
-    expect(() => normalizeOrigin('   ')).toThrow();
+    expect(() => seoShared.normalizeOrigin('   ')).toThrow();
   });
 
   it('parses comma-separated origins and removes duplicates', () => {
     expect(
-      parseCsvOrigins(
+      seoShared.parseCsvOrigins(
         'https://ogabassey.com, https://shop.ogabassey.com/path, https://ogabassey.com'
       )
     ).toEqual(['https://ogabassey.com', 'https://shop.ogabassey.com']);
@@ -44,13 +38,17 @@ describe('seo monitoring shared helpers', () => {
 
   it('skips invalid origins instead of throwing', () => {
     expect(
-      parseCsvOrigins('https://ogabassey.com, notaurl, https://usebaci.com')
+      seoShared.parseCsvOrigins(
+        'https://ogabassey.com, notaurl, https://usebaci.com'
+      )
     ).toEqual(['https://ogabassey.com', 'https://usebaci.com']);
   });
 
   it('partitions csv origins into valid and invalid entries', () => {
     expect(
-      partitionCsvOrigins('https://ogabassey.com, notaurl, https://usebaci.com')
+      seoShared.partitionCsvOrigins(
+        'https://ogabassey.com, notaurl, https://usebaci.com'
+      )
     ).toEqual({
       invalidOrigins: ['notaurl'],
       validOrigins: ['https://ogabassey.com', 'https://usebaci.com'],
@@ -59,7 +57,7 @@ describe('seo monitoring shared helpers', () => {
 
   it('parses comma-separated absolute urls and preserves query strings', () => {
     expect(
-      parseCsvUrls(
+      seoShared.parseCsvUrls(
         'https://usebaci.com/pricing, https://ogabassey.com/blog?utm_source=test'
       )
     ).toEqual([
@@ -69,28 +67,28 @@ describe('seo monitoring shared helpers', () => {
   });
 
   it('skips invalid urls instead of throwing', () => {
-    expect(parseCsvUrls('not-a-url, https://usebaci.com/pricing')).toEqual([
-      'https://usebaci.com/pricing',
-    ]);
+    expect(
+      seoShared.parseCsvUrls('not-a-url, https://usebaci.com/pricing')
+    ).toEqual(['https://usebaci.com/pricing']);
   });
 
   it('parses toggle env strings with a default fallback', () => {
-    expect(parseToggle(undefined, true)).toBe(true);
-    expect(parseToggle('false', true)).toBe(false);
-    expect(parseToggle('0', true)).toBe(false);
-    expect(parseToggle('yes', false)).toBe(true);
+    expect(seoShared.parseToggle(undefined, true)).toBe(true);
+    expect(seoShared.parseToggle('false', true)).toBe(false);
+    expect(seoShared.parseToggle('0', true)).toBe(false);
+    expect(seoShared.parseToggle('yes', false)).toBe(true);
   });
 
   it('resolves urls against normalized origins', () => {
-    expect(resolveUrl('https://usebaci.com/pricing', '/blog')).toBe(
+    expect(seoShared.resolveUrl('https://usebaci.com/pricing', '/blog')).toBe(
       'https://usebaci.com/blog'
     );
-    expect(resolveUrl('https://usebaci.com', 'faq')).toBe(
+    expect(seoShared.resolveUrl('https://usebaci.com', 'faq')).toBe(
       'https://usebaci.com/faq'
     );
-    expect(resolveUrl('https://usebaci.com/store/', '../blog?tag=seo')).toBe(
-      'https://usebaci.com/blog?tag=seo'
-    );
+    expect(
+      seoShared.resolveUrl('https://usebaci.com/store/', '../blog?tag=seo')
+    ).toBe('https://usebaci.com/blog?tag=seo');
   });
 
   it('appends markdown to the GitHub step summary file when configured', async () => {
@@ -98,7 +96,7 @@ describe('seo monitoring shared helpers', () => {
     const summaryPath = join(dir, 'summary.md');
     try {
       process.env.GITHUB_STEP_SUMMARY = summaryPath;
-      await appendGitHubStepSummary('## Summary');
+      await seoShared.appendGitHubStepSummary('## Summary');
       expect(await readFile(summaryPath, 'utf8')).toBe('## Summary\n');
     } finally {
       await rm(dir, { recursive: true, force: true });
@@ -107,7 +105,7 @@ describe('seo monitoring shared helpers', () => {
 
   it('no-ops when GitHub step summary is not configured', async () => {
     await expect(
-      appendGitHubStepSummary('## Summary')
+      seoShared.appendGitHubStepSummary('## Summary')
     ).resolves.toBeUndefined();
   });
 });
