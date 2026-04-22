@@ -34,12 +34,13 @@ function decrementStorefrontLightScope(target: HTMLElement) {
  * Forces the storefront subtree to render in light mode regardless of the
  * user's OS / browser theme preference.
  *
- * Why a plain div instead of a nested next-themes ThemeProvider?
+ * Why a wrapper div instead of a nested next-themes ThemeProvider?
  * next-themes@0.4.x treats nested ThemeProvider instances as pass-through when
  * a context already exists (the root Providers component mounts one), so
  * `forcedTheme="light"` on a nested provider is a no-op.
  *
  * Instead we apply the `.light` CSS class directly to a wrapper element.
+ * The wrapper uses `contents` so it does not introduce an extra layout box.
  * Two layered mechanisms cooperate to force light mode:
  *
  * 1. The `.light` rule in globals.css re-declares all CSS custom properties to
@@ -65,5 +66,5 @@ export function StorefrontThemeProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  return <div className="light">{children}</div>;
+  return <div className="light contents">{children}</div>;
 }

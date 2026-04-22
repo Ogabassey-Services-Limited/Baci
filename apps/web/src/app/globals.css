@@ -165,10 +165,10 @@
     transition: background-color 9999s ease-in-out 0s;
   }
 
-  .dark input:-webkit-autofill:not(.light *),
-  .dark input:-webkit-autofill:hover:not(.light *),
-  .dark input:-webkit-autofill:focus:not(.light *),
-  .dark input:-webkit-autofill:active:not(.light *) {
+  .dark input:-webkit-autofill:not(.light *):not(.storefront-light *),
+  .dark input:-webkit-autofill:hover:not(.light *):not(.storefront-light *),
+  .dark input:-webkit-autofill:focus:not(.light *):not(.storefront-light *),
+  .dark input:-webkit-autofill:active:not(.light *):not(.storefront-light *) {
     -webkit-box-shadow: 0 0 0 30px hsl(var(--background)) inset;
     -webkit-text-fill-color: hsl(var(--foreground));
   }
@@ -792,7 +792,7 @@
     margin-inline: auto;
   }
 
-  .dark .prose-baci:not(.light *) {
+  .dark .prose-baci:not(.light *):not(.storefront-light *) {
     @apply text-foreground/90;
   }
 
