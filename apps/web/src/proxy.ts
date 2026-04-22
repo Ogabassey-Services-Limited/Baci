@@ -47,6 +47,11 @@ const RESERVED_SUBDOMAINS = new Set([
 // Valid subdomain pattern: alphanumeric and hyphens, 1-63 chars, no leading/trailing hyphens
 const VALID_SUBDOMAIN_REGEX = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
 
+// Platform-owned IndexNow key file. Scoped to this exact path so that merchants
+// remain free to publish their own `/<key>.txt` file on custom domains without
+// the proxy intercepting and bypassing their storefront rewrite.
+const INDEXNOW_KEY_PATH = '/0751d5c882ab3d7c013ecbfe9e624d71.txt';
+
 // Pre-compiled regex patterns for performance (avoids recompilation on every request)
 const STATIC_FILES_REGEX =
   /\.(jpg|jpeg|png|gif|svg|ico|webp|avif|woff|woff2|ttf|eot|css|js|json)$/;
@@ -58,6 +63,14 @@ const PRODUCT_PAGE_REGEX = /^\/[^/]+\/products\/[^/]+$/;
 const NESTED_PRODUCT_REGEX = /^\/[^/]+\/[^/]+\/[^/]+$/;
 const CATEGORY_PAGE_REGEX = /^\/[^/]+\/[^/]+\/?$/;
 const STOREFRONT_HOME_REGEX = /^\/[^/]+\/?$/;
+// Matches blog index/post paths on both the platform root (`/blog`, `/blog/...`)
+// and slug-prefixed storefront variants served from the root domain
+// (`/{slug}/blog`, `/{slug}/blog/...`). Used to canonicalize thumbnail params.
+// The negative lookahead excludes reserved top-level routes (API handlers,
+// dashboard screens, etc.) that happen to have a `/blog` child segment —
+// e.g. `/api/blog/posts` must reach its handler instead of being redirected.
+const BLOG_PATH_REGEX =
+  /^(?:\/(?!(?:api|dashboard|admin|auth|login|onboarding|builder|reset-password|checkout|cart|staff|invite|actions|about|contact|pricing|privacy|terms|features|developers|demo|debug-auth|template-preview|track|_next|sitemap\.xml|robots\.txt|manifest\.webmanifest|favicon\.ico)(?:\/|$))[^/]+)?\/blog(?:\/.*)?$/;
 
 // Routes that should not be rewritten (main app routes)
 const MAIN_APP_ROUTES = [
@@ -612,6 +625,26 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  // ==== SEO: STRIP THUMBNAIL QUERY NOISE ====
+  // WordPress/share tooling can append `thumbnail_id` or `_thumbnail_id`
+  // to blog URLs. These params should not produce unique crawlable URLs.
+  // Covers the platform blog (`/blog`, `/blog/...`) and storefront variants
+  // served from the root domain (`/{slug}/blog`, `/{slug}/blog/...`).
+  const isCanonicalizableBlogMethod =
+    request.method === 'GET' || request.method === 'HEAD';
+
+  if (
+    isCanonicalizableBlogMethod &&
+    BLOG_PATH_REGEX.test(pathname) &&
+    (request.nextUrl.searchParams.has('thumbnail_id') ||
+      request.nextUrl.searchParams.has('_thumbnail_id'))
+  ) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.searchParams.delete('thumbnail_id');
+    redirectUrl.searchParams.delete('_thumbnail_id');
+    return NextResponse.redirect(redirectUrl, 301);
+  }
+
   // ==== RFC 8615: WELL-KNOWN PASSTHROUGH ====
   // Let .well-known requests reach App Router route handlers unmodified.
   // Apple/Android app link verifiers reject redirects and rewrites.
@@ -623,6 +656,20 @@ export async function proxy(request: NextRequest) {
   // Keep host-scoped llms files available on both the platform domain and
   // merchant storefront domains without proxy rewrites.
   if (pathname === '/llms.txt' || pathname === '/llms-full.txt') {
+    return NextResponse.next();
+  }
+
+  // ==== INDEXNOW KEY FILE PASSTHROUGH ====
+  // IndexNow validates ownership via a root-level `/<key>.txt` file. We only
+  // bypass storefront rewrites for Baci's own platform key AND only on the
+  // platform host (or a Vercel preview of it). Exposing the platform key at
+  // every tenant/custom-domain root would let third parties submit IndexNow
+  // URLs for merchants they don't own — scope it to the host we actually own.
+  // Merchants serve their own IndexNow key via storefront rewrites.
+  if (
+    pathname === INDEXNOW_KEY_PATH &&
+    (isRootDomain(hostname, ROOT_DOMAIN) || isVercelPreview(hostname))
+  ) {
     return NextResponse.next();
   }
 

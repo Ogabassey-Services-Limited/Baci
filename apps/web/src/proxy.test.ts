@@ -161,6 +161,121 @@ describe('Middleware Proxy', () => {
     );
   });
 
+  it.each([
+    ['_thumbnail_id=1819&ref=mail'],
+    ['thumbnail_id=1819&ref=mail'],
+    ['_thumbnail_id=1819&thumbnail_id=1820&ref=mail'],
+  ])('drops thumbnail query noise on blog post URLs: %s', async (queryString) => {
+    const req = new NextRequest(
+      `https://ogabassey.com/blog/iphone/the-iphone-15-what-we-know-so-far?${queryString}`
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+    const location = res.headers.get('location');
+
+    expect(res.status).toBe(301);
+    expect(location).toBeTruthy();
+    expect(location).toContain(
+      '/blog/iphone/the-iphone-15-what-we-know-so-far'
+    );
+    expect(location).toContain('ref=mail');
+    expect(location).not.toContain('_thumbnail_id');
+    expect(location).not.toContain('thumbnail_id=');
+  });
+
+  it.each([
+    'POST',
+    'PUT',
+    'PATCH',
+    'DELETE',
+  ])('does NOT strip thumbnail params on non-idempotent methods (%s)', async (method) => {
+    const req = new NextRequest(
+      'https://ogabassey.com/blog/iphone/the-iphone-15-what-we-know-so-far?_thumbnail_id=1819&ref=mail',
+      { method }
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+    const location = res.headers.get('location');
+
+    expect(res.status).not.toBe(301);
+    if (location) {
+      expect(location).toContain('_thumbnail_id=1819');
+    }
+  });
+
+  it.each([
+    ['_thumbnail_id=1819'],
+    ['thumbnail_id=1819'],
+    ['_thumbnail_id=1819&thumbnail_id=1820'],
+  ])('drops thumbnail query noise on /blog root: %s', async (queryString) => {
+    const req = new NextRequest(`https://ogabassey.com/blog?${queryString}`);
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+    const location = res.headers.get('location');
+
+    expect(res.status).toBe(301);
+    expect(location).toBeTruthy();
+    expect(new URL(location || '').pathname).toBe('/blog');
+    expect(location).not.toContain('_thumbnail_id');
+    expect(location).not.toContain('thumbnail_id=');
+  });
+
+  it.each([
+    ['/acme/blog', 'thumbnail_id=123', '/acme/blog'],
+    [
+      '/merchant123/blog/my-post',
+      '_thumbnail_id=foo',
+      '/merchant123/blog/my-post',
+    ],
+    [
+      '/acme/blog/iphone/the-iphone-15',
+      '_thumbnail_id=1&thumbnail_id=2&ref=mail',
+      '/acme/blog/iphone/the-iphone-15',
+    ],
+  ])('drops thumbnail query noise on slug-prefixed blog paths: %s?%s', async (inputPath, queryString, expectedPath) => {
+    const req = new NextRequest(
+      `https://${ROOT_DOMAIN}${inputPath}?${queryString}`
+    );
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+    const location = res.headers.get('location');
+
+    expect(res.status).toBe(301);
+    expect(location).toBeTruthy();
+    expect(new URL(location || '').pathname).toBe(expectedPath);
+    expect(location).not.toContain('_thumbnail_id');
+    expect(location).not.toContain('thumbnail_id=');
+  });
+
+  it.each([
+    ['/api/blog/posts', 'thumbnail_id=123'],
+    ['/dashboard/blog', 'thumbnail_id=foo'],
+    ['/admin/blog/analytics', '_thumbnail_id=bar'],
+  ])('does NOT strip thumbnail params on reserved top-level paths with /blog children: %s?%s', async (inputPath, queryString) => {
+    const req = new NextRequest(
+      `https://${ROOT_DOMAIN}${inputPath}?${queryString}`
+    );
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+    const location = res.headers.get('location');
+
+    // Must not be a 301 thumbnail-strip redirect. Auth-gated pages may
+    // still emit a 307 /login redirect, but the thumbnail_id parameter
+    // must be preserved so the handler/page downstream owns it.
+    expect(res.status).not.toBe(301);
+    if (location) {
+      // If any redirect fires (e.g. auth bounce), thumbnail params must
+      // NOT have been stripped by the blog canonicalizer.
+      const thumbnailKey = queryString.split('=')[0];
+      expect(location).toContain(thumbnailKey);
+    }
+  });
+
   describe('URL normalization: prefix-only case fixing', () => {
     it('lowercases /API prefix but preserves case-sensitive tail', async () => {
       const req = new NextRequest(
@@ -274,6 +389,71 @@ describe('Middleware Proxy', () => {
 
       expect(res.status).toBe(200);
       expect(res.headers.get('location')).toBeNull();
+    });
+
+    it('passes through the platform indexnow key file on the platform apex host', async () => {
+      const req = new NextRequest(
+        `https://${ROOT_DOMAIN}/0751d5c882ab3d7c013ecbfe9e624d71.txt`
+      );
+      req.headers.set('host', ROOT_DOMAIN);
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(200);
+      expect(res.headers.get('location')).toBeNull();
+      expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+    });
+
+    it('does not passthrough the platform indexnow key on merchant custom domains', async () => {
+      // The platform key must not be reachable via a merchant's custom domain,
+      // otherwise third parties could claim IndexNow ownership of merchant
+      // domains they don't control. Request must fall through to storefront
+      // handling (rewrite/redirect), not a clean passthrough.
+      const req = new NextRequest(
+        'https://ogabassey.com/0751d5c882ab3d7c013ecbfe9e624d71.txt'
+      );
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      const hasRewrite = res.headers.get('x-middleware-rewrite') !== null;
+      const isRedirect = res.status === 307 || res.status === 308;
+      expect(hasRewrite || isRedirect).toBe(true);
+    });
+
+    it('does not passthrough the platform indexnow key on tenant subdomains', async () => {
+      // Same protection applies to tenant subdomains like ogabassey.usebaci.com.
+      const req = new NextRequest(
+        `https://ogabassey.${ROOT_DOMAIN}/0751d5c882ab3d7c013ecbfe9e624d71.txt`
+      );
+      req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+      const res = await proxy(req);
+
+      const hasRewrite = res.headers.get('x-middleware-rewrite') !== null;
+      const isRedirect = res.status === 307 || res.status === 308;
+      expect(hasRewrite || isRedirect).toBe(true);
+    });
+
+    it('does not passthrough non-platform 32-char hex .txt files on tenant subdomains', async () => {
+      // Merchants' own IndexNow keys (if they later register them via
+      // storefront content) must not get a blanket passthrough. Only the
+      // literal platform key filename is special-cased, and even that only
+      // on the platform apex. On a tenant subdomain, a different key file
+      // must still flow through the storefront rewrite so the merchant can
+      // serve it themselves.
+      const req = new NextRequest(
+        `https://ogabassey.${ROOT_DOMAIN}/abcdef0123456789abcdef0123456789.txt`
+      );
+      req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+      const res = await proxy(req);
+
+      // Should flow through to storefront rewrite, not a clean passthrough
+      // that would leak the 32-hex filespace to platform-level handling.
+      const hasRewrite = res.headers.get('x-middleware-rewrite') !== null;
+      const isRedirect = res.status === 307 || res.status === 308;
+      expect(hasRewrite || isRedirect).toBe(true);
     });
 
     it('does not redirect static .avif files', async () => {
