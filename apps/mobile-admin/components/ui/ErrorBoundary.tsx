@@ -75,7 +75,11 @@ function ErrorFallback({
         </Text>
 
         <Pressable
-          style={[styles.button, { backgroundColor: colors.primary }]}
+          style={({ pressed }) => [
+            styles.button,
+            { backgroundColor: colors.primary },
+            pressed && { opacity: 0.7 },
+          ]}
           onPress={onReset}
         >
           <Text style={styles.buttonText}>Try Again</Text>
