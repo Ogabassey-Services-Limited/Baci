@@ -60,13 +60,12 @@ export function StatusModal({ status, onClose }: StatusModalProps) {
           {status.message}
         </Text>
         <Pressable
-          style={({ pressed }) => [
+          style={[
             styles.button,
             {
               backgroundColor:
                 status.type === 'success' ? colors.primary : colors.error,
             },
-            pressed && { opacity: 0.7 },
           ]}
           onPress={onClose}
           accessibilityRole="button"

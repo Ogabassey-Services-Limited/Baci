@@ -40,7 +40,6 @@ const PATTERN_URI =
 export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const styles = getStyles(colors);
   const insets = useSafeAreaInsets();
 
   const template = getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID);
@@ -334,7 +333,7 @@ export default function HomeScreen() {
 
       {/* Background Layer for Hero Overlap (Layer 1) */}
       {isElite && (
-        <View style={styles.eliteBackground}>
+        <View style={[styles.eliteBackground, { backgroundColor: colors.black }]}>
           <Image
             source={{ uri: PATTERN_URI }}
             style={[StyleSheet.absoluteFillObject, { opacity: 0.05 }]}
@@ -437,7 +436,7 @@ export default function HomeScreen() {
   );
 }
 
-const getStyles = (colors: typeof Colors.light) => StyleSheet.create({
+const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -453,7 +452,7 @@ const getStyles = (colors: typeof Colors.light) => StyleSheet.create({
     left: 0,
     right: 0,
     height: 260, // Refined for horizontal rectangle hero
-    backgroundColor: colors.background, // Fixed by Eclipse
+    // backgroundColor applied via inline style for theme support
     zIndex: 0,
   },
   contentContainer: {
