@@ -9,15 +9,28 @@ export function normalizeOrigin(input: string): string {
 }
 
 export function parseCsvOrigins(value?: string): string[] {
-  return dedupe(
-    splitCsv(value).flatMap((entry) => {
-      try {
-        return [normalizeOrigin(entry)];
-      } catch {
-        return [];
-      }
-    })
-  );
+  return partitionCsvOrigins(value).validOrigins;
+}
+
+export function partitionCsvOrigins(value?: string): {
+  invalidOrigins: string[];
+  validOrigins: string[];
+} {
+  const validOrigins: string[] = [];
+  const invalidOrigins: string[] = [];
+
+  for (const entry of splitCsv(value)) {
+    try {
+      validOrigins.push(normalizeOrigin(entry));
+    } catch {
+      invalidOrigins.push(entry);
+    }
+  }
+
+  return {
+    invalidOrigins: dedupe(invalidOrigins),
+    validOrigins: dedupe(validOrigins),
+  };
 }
 
 export function parseCsvUrls(value?: string): string[] {

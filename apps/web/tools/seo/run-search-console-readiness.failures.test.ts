@@ -1,24 +1,84 @@
 import { describe, expect, it, vi } from 'vitest';
-import { runSearchConsoleReadinessAudit } from './run-search-console-readiness';
+import {
+  runConfiguredSearchConsoleReadinessAudit,
+  runSearchConsoleReadinessAudit,
+} from './run-search-console-readiness';
+
+interface MockResponseConfig {
+  body: BodyInit | null;
+  status?: number;
+}
+
+const PLATFORM_SUCCESS_RESPONSES = [
+  [
+    'https://usebaci.com/robots.txt',
+    {
+      body: 'User-agent: *\nAllow: /\nSitemap: https://usebaci.com/sitemap.xml',
+    },
+  ],
+  [
+    'https://usebaci.com/sitemap.xml',
+    {
+      body: buildXmlSitemap([
+        'https://usebaci.com/',
+        'https://usebaci.com/pricing',
+        'https://usebaci.com/features',
+        'https://usebaci.com/blog',
+      ]),
+    },
+  ],
+  [
+    'https://usebaci.com/',
+    { body: buildCanonicalPage('https://usebaci.com/') },
+  ],
+] satisfies ReadonlyArray<readonly [string, MockResponseConfig]>;
+
+const MERCHANT_SUCCESS_RESPONSES = [
+  [
+    'https://ogabassey.com/robots.txt',
+    {
+      body: [
+        'User-agent: *',
+        'Allow: /',
+        'Sitemap: https://ogabassey.com/sitemap/static.xml',
+        'Sitemap: https://ogabassey.com/sitemap/products.xml',
+        'Sitemap: https://ogabassey.com/sitemap/categories.xml',
+        'Sitemap: https://ogabassey.com/blog/sitemap.xml',
+      ].join('\n'),
+    },
+  ],
+  [
+    'https://ogabassey.com/sitemap/static.xml',
+    { body: buildXmlSitemap(['https://ogabassey.com']) },
+  ],
+  [
+    'https://ogabassey.com/sitemap/products.xml',
+    { body: '<?xml version="1.0"?><urlset />' },
+  ],
+  [
+    'https://ogabassey.com/sitemap/categories.xml',
+    { body: '<?xml version="1.0"?><urlset />' },
+  ],
+  [
+    'https://ogabassey.com/blog/sitemap.xml',
+    { body: '<?xml version="1.0"?><urlset />' },
+  ],
+  [
+    'https://ogabassey.com/',
+    { body: buildCanonicalPage('https://ogabassey.com/') },
+  ],
+] satisfies ReadonlyArray<readonly [string, MockResponseConfig]>;
 
 describe('run-search-console-readiness failures', () => {
   it('records platform fetch failures as issues instead of throwing', async () => {
-    const fetchImpl: typeof fetch = vi.fn((input: string | URL) => {
-      const url = String(input);
-
-      if (url === 'https://usebaci.com/robots.txt') {
-        return Promise.resolve(new Response('', { status: 503 }));
-      }
-
-      if (url === 'https://usebaci.com/sitemap.xml') {
-        return Promise.reject(new Error('connection reset'));
-      }
-
-      if (url === 'https://usebaci.com/') {
-        return Promise.resolve(new Response('', { status: 504 }));
-      }
-
-      return Promise.resolve(new Response('', { status: 404 }));
+    const fetchImpl = createFetchImpl({
+      rejects: {
+        'https://usebaci.com/sitemap.xml': new Error('connection reset'),
+      },
+      responses: buildResponses([
+        ['https://usebaci.com/robots.txt', { body: '', status: 503 }],
+        ['https://usebaci.com/', { body: '', status: 504 }],
+      ]),
     });
 
     const result = await runSearchConsoleReadinessAudit({
@@ -43,192 +103,49 @@ describe('run-search-console-readiness failures', () => {
     );
   });
 
-  it('records rejected merchant sitemap fetches instead of throwing', async () => {
-    const fetchImpl: typeof fetch = vi.fn((input: string | URL) => {
-      const url = String(input);
-      const mockResponses = new Map<
-        string,
-        { body: BodyInit | null; status?: number }
-      >([
-        [
-          'https://usebaci.com/robots.txt',
-          {
-            body: 'User-agent: *\nAllow: /\nSitemap: https://usebaci.com/sitemap.xml',
-          },
-        ],
-        [
-          'https://usebaci.com/sitemap.xml',
-          {
-            body: `<?xml version="1.0"?><urlset>
-              <url><loc>https://usebaci.com/</loc></url>
-              <url><loc>https://usebaci.com/pricing</loc></url>
-              <url><loc>https://usebaci.com/features</loc></url>
-              <url><loc>https://usebaci.com/blog</loc></url>
-            </urlset>`,
-          },
-        ],
-        [
-          'https://usebaci.com/',
-          {
-            body: '<html><head><link rel="canonical" href="https://usebaci.com/" /></head></html>',
-          },
-        ],
-        [
-          'https://ogabassey.com/robots.txt',
-          {
-            body: [
-              'User-agent: *',
-              'Allow: /',
-              'Sitemap: https://ogabassey.com/sitemap/static.xml',
-              'Sitemap: https://ogabassey.com/sitemap/products.xml',
-              'Sitemap: https://ogabassey.com/sitemap/categories.xml',
-              'Sitemap: https://ogabassey.com/blog/sitemap.xml',
-            ].join('\n'),
-          },
-        ],
-        [
-          'https://ogabassey.com/sitemap/static.xml',
-          {
-            body: `<?xml version="1.0"?><urlset>
-              <url><loc>https://ogabassey.com</loc></url>
-            </urlset>`,
-          },
-        ],
-        [
-          'https://ogabassey.com/',
-          {
-            body: '<html><head><link rel="canonical" href="https://ogabassey.com/" /></head></html>',
-          },
-        ],
-        [
-          'https://ogabassey.com/blog/sitemap.xml',
-          { body: '<?xml version="1.0"?><urlset />' },
-        ],
-        [
-          'https://ogabassey.com/sitemap/categories.xml',
-          { body: '<?xml version="1.0"?><urlset />' },
-        ],
-      ]);
-
-      if (url === 'https://ogabassey.com/sitemap/products.xml') {
-        return Promise.reject(new Error('socket hang up'));
-      }
-
-      const response = mockResponses.get(url) ?? { body: '', status: 404 };
-      return Promise.resolve(
-        new Response(response.body, { status: response.status ?? 200 })
-      );
+  it('records rejected and 404 merchant sitemap fetches instead of throwing', async () => {
+    const rejectedFetchImpl = createFetchImpl({
+      rejects: {
+        'https://ogabassey.com/sitemap/products.xml': new Error(
+          'socket hang up'
+        ),
+      },
     });
-
-    const result = await runSearchConsoleReadinessAudit({
-      fetchImpl,
+    const rejectedResult = await runSearchConsoleReadinessAudit({
+      fetchImpl: rejectedFetchImpl,
       merchantOrigins: ['https://ogabassey.com'],
       platformOrigin: 'https://usebaci.com',
     });
 
-    const merchantSurface = result.surfaces.find(
-      (surface) => surface.kind === 'merchant'
-    );
-
-    expect(result.passed).toBe(false);
-    expect(merchantSurface?.issues).toEqual(
+    expect(
+      rejectedResult.surfaces.find((surface) => surface.kind === 'merchant')
+        ?.issues
+    ).toEqual(
       expect.arrayContaining([
         expect.stringContaining(
           'merchant sitemap https://ogabassey.com/sitemap/products.xml is unreachable: socket hang up'
         ),
       ])
     );
-  });
 
-  it('records 404 merchant sitemap fetches instead of throwing', async () => {
-    const fetchImpl: typeof fetch = vi.fn((input: string | URL) => {
-      const url = String(input);
-      const mockResponses = new Map<
-        string,
-        { body: BodyInit | null; status?: number }
-      >([
-        [
-          'https://usebaci.com/robots.txt',
-          {
-            body: 'User-agent: *\nAllow: /\nSitemap: https://usebaci.com/sitemap.xml',
-          },
-        ],
-        [
-          'https://usebaci.com/sitemap.xml',
-          {
-            body: `<?xml version="1.0"?><urlset>
-              <url><loc>https://usebaci.com/</loc></url>
-              <url><loc>https://usebaci.com/pricing</loc></url>
-              <url><loc>https://usebaci.com/features</loc></url>
-              <url><loc>https://usebaci.com/blog</loc></url>
-            </urlset>`,
-          },
-        ],
-        [
-          'https://usebaci.com/',
-          {
-            body: '<html><head><link rel="canonical" href="https://usebaci.com/" /></head></html>',
-          },
-        ],
-        [
-          'https://ogabassey.com/robots.txt',
-          {
-            body: [
-              'User-agent: *',
-              'Allow: /',
-              'Sitemap: https://ogabassey.com/sitemap/static.xml',
-              'Sitemap: https://ogabassey.com/sitemap/products.xml',
-              'Sitemap: https://ogabassey.com/sitemap/categories.xml',
-              'Sitemap: https://ogabassey.com/blog/sitemap.xml',
-            ].join('\n'),
-          },
-        ],
-        [
-          'https://ogabassey.com/sitemap/static.xml',
-          {
-            body: `<?xml version="1.0"?><urlset>
-              <url><loc>https://ogabassey.com</loc></url>
-            </urlset>`,
-          },
-        ],
-        [
-          'https://ogabassey.com/',
-          {
-            body: '<html><head><link rel="canonical" href="https://ogabassey.com/" /></head></html>',
-          },
-        ],
-        [
-          'https://ogabassey.com/sitemap/products.xml',
-          { body: '<?xml version="1.0"?><urlset />' },
-        ],
-        [
-          'https://ogabassey.com/blog/sitemap.xml',
-          { body: '<?xml version="1.0"?><urlset />' },
-        ],
+    const notFoundFetchImpl = createFetchImpl({
+      responses: buildResponses([
         [
           'https://ogabassey.com/sitemap/categories.xml',
           { body: '', status: 404 },
         ],
-      ]);
-
-      const response = mockResponses.get(url) ?? { body: '', status: 404 };
-      return Promise.resolve(
-        new Response(response.body, { status: response.status ?? 200 })
-      );
+      ]),
     });
-
-    const result = await runSearchConsoleReadinessAudit({
-      fetchImpl,
+    const notFoundResult = await runSearchConsoleReadinessAudit({
+      fetchImpl: notFoundFetchImpl,
       merchantOrigins: ['https://ogabassey.com'],
       platformOrigin: 'https://usebaci.com',
     });
 
-    const merchantSurface = result.surfaces.find(
-      (surface) => surface.kind === 'merchant'
-    );
-
-    expect(result.passed).toBe(false);
-    expect(merchantSurface?.issues).toEqual(
+    expect(
+      notFoundResult.surfaces.find((surface) => surface.kind === 'merchant')
+        ?.issues
+    ).toEqual(
       expect.arrayContaining([
         expect.stringContaining(
           'merchant sitemap https://ogabassey.com/sitemap/categories.xml is unreachable: Request failed for https://ogabassey.com/sitemap/categories.xml with status 404'
@@ -238,70 +155,10 @@ describe('run-search-console-readiness failures', () => {
   });
 
   it('keeps reporting other merchants when one merchant surface fails outright', async () => {
-    const responses = new Map<string, string>([
-      [
-        'https://usebaci.com/robots.txt',
-        'User-agent: *\nAllow: /\nSitemap: https://usebaci.com/sitemap.xml',
-      ],
-      [
-        'https://usebaci.com/sitemap.xml',
-        `<?xml version="1.0"?><urlset>
-          <url><loc>https://usebaci.com/</loc></url>
-          <url><loc>https://usebaci.com/pricing</loc></url>
-          <url><loc>https://usebaci.com/features</loc></url>
-          <url><loc>https://usebaci.com/blog</loc></url>
-        </urlset>`,
-      ],
-      [
-        'https://usebaci.com/',
-        '<html><head><link rel="canonical" href="https://usebaci.com/" /></head></html>',
-      ],
-      [
-        'https://ogabassey.com/robots.txt',
-        [
-          'User-agent: *',
-          'Allow: /',
-          'Sitemap: https://ogabassey.com/sitemap/static.xml',
-          'Sitemap: https://ogabassey.com/sitemap/products.xml',
-          'Sitemap: https://ogabassey.com/sitemap/categories.xml',
-          'Sitemap: https://ogabassey.com/blog/sitemap.xml',
-        ].join('\n'),
-      ],
-      [
-        'https://ogabassey.com/sitemap/static.xml',
-        `<?xml version="1.0"?><urlset>
-          <url><loc>https://ogabassey.com</loc></url>
-        </urlset>`,
-      ],
-      [
-        'https://ogabassey.com/sitemap/products.xml',
-        '<?xml version="1.0"?><urlset />',
-      ],
-      [
-        'https://ogabassey.com/sitemap/categories.xml',
-        '<?xml version="1.0"?><urlset />',
-      ],
-      [
-        'https://ogabassey.com/blog/sitemap.xml',
-        '<?xml version="1.0"?><urlset />',
-      ],
-      [
-        'https://ogabassey.com/',
-        '<html><head><link rel="canonical" href="https://ogabassey.com/" /></head></html>',
-      ],
-    ]);
-
-    const fetchImpl: typeof fetch = vi.fn((input: string | URL) => {
-      const url = String(input);
-      if (url.startsWith('https://broken.example')) {
-        return Promise.reject(new Error('tls failure'));
-      }
-
-      return Promise.resolve(
-        new Response(responses.get(url) ?? '', {
-          status: responses.has(url) ? 200 : 404,
-        })
-      );
+    const fetchImpl = createFetchImpl({
+      rejects: {
+        'https://broken.example/robots.txt': new Error('tls failure'),
+      },
     });
 
     const result = await runSearchConsoleReadinessAudit({
@@ -339,4 +196,73 @@ describe('run-search-console-readiness failures', () => {
       ])
     );
   });
+
+  it('fails readiness when merchant origin config contains invalid entries', async () => {
+    const result = await runConfiguredSearchConsoleReadinessAudit({
+      fetchImpl: createFetchImpl(),
+      merchantOriginsEnv: 'https://ogabassey.com, notaurl',
+      platformOrigin: 'https://usebaci.com',
+    });
+
+    expect(result.passed).toBe(false);
+    expect(result.surfaces).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          origin: 'https://ogabassey.com',
+          kind: 'merchant',
+          passed: true,
+        }),
+        expect.objectContaining({
+          origin: 'notaurl',
+          kind: 'merchant',
+          passed: false,
+          issues: ['invalid merchant origin in SEO_MERCHANT_ORIGINS: notaurl'],
+        }),
+      ])
+    );
+  });
 });
+
+function buildCanonicalPage(url: string) {
+  return `<html><head><link rel="canonical" href="${url}" /></head></html>`;
+}
+
+function buildResponses(
+  overrides: ReadonlyArray<readonly [string, MockResponseConfig]> = []
+) {
+  return new Map<string, MockResponseConfig>([
+    ...PLATFORM_SUCCESS_RESPONSES,
+    ...MERCHANT_SUCCESS_RESPONSES,
+    ...overrides,
+  ]);
+}
+
+function buildXmlSitemap(urls: string[]) {
+  return `<?xml version="1.0"?><urlset>${urls
+    .map((url) => `<url><loc>${url}</loc></url>`)
+    .join('')}</urlset>`;
+}
+
+function createFetchImpl({
+  rejects = {},
+  responses = buildResponses(),
+}: {
+  rejects?: Record<string, Error>;
+  responses?: Map<string, MockResponseConfig>;
+} = {}) {
+  const fetchImpl: typeof fetch = vi.fn((input: string | URL) => {
+    const url = String(input);
+    const rejectedError = rejects[url];
+
+    if (rejectedError) {
+      return Promise.reject(rejectedError);
+    }
+
+    const response = responses.get(url) ?? { body: '', status: 404 };
+    return Promise.resolve(
+      new Response(response.body, { status: response.status ?? 200 })
+    );
+  });
+
+  return fetchImpl;
+}

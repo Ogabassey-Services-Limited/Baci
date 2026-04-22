@@ -127,13 +127,13 @@ function decodeHtmlEntities(value: string): string {
         default:
           if (entity.startsWith('#x') || entity.startsWith('#X')) {
             const codePoint = Number.parseInt(entity.slice(2), 16);
-            return Number.isNaN(codePoint)
+            return !isValidCodePoint(codePoint)
               ? match
               : String.fromCodePoint(codePoint);
           }
           if (entity.startsWith('#')) {
             const codePoint = Number.parseInt(entity.slice(1), 10);
-            return Number.isNaN(codePoint)
+            return !isValidCodePoint(codePoint)
               ? match
               : String.fromCodePoint(codePoint);
           }
@@ -141,6 +141,10 @@ function decodeHtmlEntities(value: string): string {
       }
     }
   );
+}
+
+function isValidCodePoint(codePoint: number): boolean {
+  return Number.isInteger(codePoint) && codePoint >= 0 && codePoint <= 0x10ffff;
 }
 
 function normalizeComparablePath(pathname: string): string {

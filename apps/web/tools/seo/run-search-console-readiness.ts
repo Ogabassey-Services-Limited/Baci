@@ -18,7 +18,12 @@ import type {
   CrawlSurfaceAudit,
   SearchConsoleReadinessResult,
 } from './run-search-console-readiness.types';
-import { appendGitHubStepSummary, parseCsvOrigins, resolveUrl } from './shared';
+import {
+  appendGitHubStepSummary,
+  normalizeOrigin,
+  partitionCsvOrigins,
+  resolveUrl,
+} from './shared';
 
 export {
   extractCanonicalHref,
@@ -57,10 +62,55 @@ export async function runSearchConsoleReadinessAudit({
   return { passed: surfaces.every((surface) => surface.passed), surfaces };
 }
 
+export async function runConfiguredSearchConsoleReadinessAudit({
+  fetchImpl = fetch,
+  merchantOriginsEnv,
+  platformOrigin,
+}: {
+  fetchImpl?: typeof fetch;
+  merchantOriginsEnv?: string;
+  platformOrigin: string;
+}): Promise<SearchConsoleReadinessResult> {
+  const { invalidOrigins, validOrigins } =
+    partitionCsvOrigins(merchantOriginsEnv);
+  const auditResult = await runSearchConsoleReadinessAudit({
+    fetchImpl,
+    merchantOrigins: validOrigins,
+    platformOrigin,
+  });
+
+  if (invalidOrigins.length === 0) {
+    return auditResult;
+  }
+
+  const surfaces = [
+    ...auditResult.surfaces,
+    ...invalidOrigins.map((origin) =>
+      buildSurfaceFailure(
+        'merchant',
+        origin,
+        `invalid merchant origin in SEO_MERCHANT_ORIGINS: ${origin}`
+      )
+    ),
+  ];
+
+  return {
+    passed: surfaces.every((surface) => surface.passed),
+    surfaces,
+  };
+}
+
 export async function main() {
-  const result = await runSearchConsoleReadinessAudit({
-    merchantOrigins: parseCsvOrigins(process.env.SEO_MERCHANT_ORIGINS),
-    platformOrigin: process.env.SEO_PLATFORM_ORIGIN || 'https://usebaci.com',
+  const merchantOriginsEnv =
+    process.env.SEO_MERCHANT_ORIGINS?.trim() || undefined;
+  const configuredPlatformOrigin = process.env.SEO_PLATFORM_ORIGIN?.trim();
+  const platformOrigin = configuredPlatformOrigin
+    ? normalizeOrigin(configuredPlatformOrigin)
+    : 'https://usebaci.com';
+
+  const result = await runConfiguredSearchConsoleReadinessAudit({
+    merchantOriginsEnv,
+    platformOrigin,
   });
 
   const markdown = buildReadinessSummary(result);

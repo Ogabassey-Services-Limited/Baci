@@ -8,6 +8,7 @@ import {
   parseCsvOrigins,
   parseCsvUrls,
   parseToggle,
+  partitionCsvOrigins,
   resolveUrl,
 } from './shared';
 
@@ -45,6 +46,15 @@ describe('seo monitoring shared helpers', () => {
     expect(
       parseCsvOrigins('https://ogabassey.com, notaurl, https://usebaci.com')
     ).toEqual(['https://ogabassey.com', 'https://usebaci.com']);
+  });
+
+  it('partitions csv origins into valid and invalid entries', () => {
+    expect(
+      partitionCsvOrigins('https://ogabassey.com, notaurl, https://usebaci.com')
+    ).toEqual({
+      invalidOrigins: ['notaurl'],
+      validOrigins: ['https://ogabassey.com', 'https://usebaci.com'],
+    });
   });
 
   it('parses comma-separated absolute urls and preserves query strings', () => {

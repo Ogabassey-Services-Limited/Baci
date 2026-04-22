@@ -54,6 +54,14 @@ describe('run-search-console-readiness shared helpers', () => {
     ).toBe('https://usebaci.com/pricing?plan=growth&currency=NGN');
   });
 
+  it('preserves invalid numeric entities instead of throwing', () => {
+    expect(
+      extractLocs(
+        '<urlset><url><loc>https://example.com/search?q=test&#x110000;</loc></url></urlset>'
+      )
+    ).toEqual(['https://example.com/search?q=test&#x110000;']);
+  });
+
   it('extracts canonical hrefs and ignores alternate links', () => {
     expect(
       extractCanonicalHref(
