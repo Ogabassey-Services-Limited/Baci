@@ -615,8 +615,9 @@ export async function proxy(request: NextRequest) {
   // ==== SEO: STRIP THUMBNAIL QUERY NOISE ====
   // WordPress/share tooling can append `thumbnail_id` or `_thumbnail_id`
   // to blog URLs. These params should not produce unique crawlable URLs.
+  // Cover both the blog index (`/blog`) and individual post paths (`/blog/...`).
   if (
-    pathname.startsWith('/blog/') &&
+    (pathname === '/blog' || pathname.startsWith('/blog/')) &&
     (request.nextUrl.searchParams.has('thumbnail_id') ||
       request.nextUrl.searchParams.has('_thumbnail_id'))
   ) {

@@ -161,9 +161,13 @@ describe('Middleware Proxy', () => {
     );
   });
 
-  it('drops _thumbnail_id query noise on blog URLs', async () => {
+  it.each([
+    ['_thumbnail_id=1819&ref=mail'],
+    ['thumbnail_id=1819&ref=mail'],
+    ['_thumbnail_id=1819&thumbnail_id=1820&ref=mail'],
+  ])('drops thumbnail query noise on blog post URLs: %s', async (queryString) => {
     const req = new NextRequest(
-      'https://ogabassey.com/blog/iphone/the-iphone-15-what-we-know-so-far?_thumbnail_id=1819&ref=mail'
+      `https://ogabassey.com/blog/iphone/the-iphone-15-what-we-know-so-far?${queryString}`
     );
     req.headers.set('host', 'ogabassey.com');
 
@@ -176,6 +180,24 @@ describe('Middleware Proxy', () => {
       '/blog/iphone/the-iphone-15-what-we-know-so-far'
     );
     expect(location).toContain('ref=mail');
+    expect(location).not.toContain('_thumbnail_id');
+    expect(location).not.toContain('thumbnail_id=');
+  });
+
+  it.each([
+    ['_thumbnail_id=1819'],
+    ['thumbnail_id=1819'],
+    ['_thumbnail_id=1819&thumbnail_id=1820'],
+  ])('drops thumbnail query noise on /blog root: %s', async (queryString) => {
+    const req = new NextRequest(`https://ogabassey.com/blog?${queryString}`);
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+    const location = res.headers.get('location');
+
+    expect(res.status).toBe(301);
+    expect(location).toBeTruthy();
+    expect(new URL(location || '').pathname).toBe('/blog');
     expect(location).not.toContain('_thumbnail_id');
     expect(location).not.toContain('thumbnail_id=');
   });
