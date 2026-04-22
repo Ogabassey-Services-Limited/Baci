@@ -19,7 +19,10 @@ vi.mock('@/env', () => ({
 
 function createCookieStore(): ReadonlyRequestCookies {
   return {
+    delete: vi.fn(),
     get: vi.fn(),
+    getAll: vi.fn(() => []),
+    has: vi.fn(() => false),
     set: vi.fn(),
   } as unknown as ReadonlyRequestCookies;
 }
@@ -75,5 +78,19 @@ describe('createClient', () => {
         }),
       })
     );
+  });
+
+  it('throws when Supabase configuration is missing', async () => {
+    vi.doMock('@/env', () => ({
+      getSupabaseAnonKey: () => '',
+      getSupabaseUrl: () => '',
+    }));
+
+    const { createClient } = await import('@/lib/supabase/server');
+
+    expect(() => createClient(createCookieStore())).toThrow(
+      /Supabase configuration is missing/
+    );
+    expect(mockCreateServerClient).not.toHaveBeenCalled();
   });
 });
