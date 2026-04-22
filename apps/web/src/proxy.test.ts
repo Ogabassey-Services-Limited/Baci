@@ -185,6 +185,27 @@ describe('Middleware Proxy', () => {
   });
 
   it.each([
+    'POST',
+    'PUT',
+    'PATCH',
+    'DELETE',
+  ])('does NOT strip thumbnail params on non-idempotent methods (%s)', async (method) => {
+    const req = new NextRequest(
+      'https://ogabassey.com/blog/iphone/the-iphone-15-what-we-know-so-far?_thumbnail_id=1819&ref=mail',
+      { method }
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+    const location = res.headers.get('location');
+
+    expect(res.status).not.toBe(301);
+    if (location) {
+      expect(location).toContain('_thumbnail_id=1819');
+    }
+  });
+
+  it.each([
     ['_thumbnail_id=1819'],
     ['thumbnail_id=1819'],
     ['_thumbnail_id=1819&thumbnail_id=1820'],

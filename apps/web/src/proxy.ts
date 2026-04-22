@@ -630,7 +630,11 @@ export async function proxy(request: NextRequest) {
   // to blog URLs. These params should not produce unique crawlable URLs.
   // Covers the platform blog (`/blog`, `/blog/...`) and storefront variants
   // served from the root domain (`/{slug}/blog`, `/{slug}/blog/...`).
+  const isCanonicalizableBlogMethod =
+    request.method === 'GET' || request.method === 'HEAD';
+
   if (
+    isCanonicalizableBlogMethod &&
     BLOG_PATH_REGEX.test(pathname) &&
     (request.nextUrl.searchParams.has('thumbnail_id') ||
       request.nextUrl.searchParams.has('_thumbnail_id'))
