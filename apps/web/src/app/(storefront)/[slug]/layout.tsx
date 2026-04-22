@@ -5,6 +5,7 @@ import type React from 'react';
 import { DeferredPageViewTracker } from '@/components/storefront/deferred-page-view-tracker';
 import { OgabasseyStorefrontLayout } from '@/components/storefront/ogabassey/storefront-layout';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
+import { StorefrontThemeProvider } from '@/components/storefront/storefront-theme-provider';
 import { MOBILE_APPS } from '@/config/platform';
 import { StorefrontCartProvider } from '@/hooks/cart/storefront-cart-provider';
 import { StorefrontMerchantProvider } from '@/hooks/merchant/storefront-merchant-provider';
@@ -182,26 +183,31 @@ function StorefrontShellFrame({
   const merchantSlug = merchant.slug || '';
 
   return (
-    <StorefrontMerchantProvider
-      slug={merchantSlug}
-      shellSnapshot={shellSnapshot}
-    >
-      <StorefrontCartProvider
-        enableSmartCartPro
-        merchantSlug={merchantSlug}
-        deferValidationUntilIdle
+    <StorefrontThemeProvider>
+      <StorefrontMerchantProvider
+        slug={merchantSlug}
+        shellSnapshot={shellSnapshot}
       >
-        <DeferredPageViewTracker merchantId={merchant.id} />
-        {/*
-          Global Layout Wrapper logic:
-          - Keeps layout persistent across route changes (seamless navigation)
-          - Prevents header flashing/re-rendering
-        */}
-        <StorefrontLayoutRenderer merchant={merchant} routingMode={routingMode}>
-          {children}
-        </StorefrontLayoutRenderer>
-      </StorefrontCartProvider>
-    </StorefrontMerchantProvider>
+        <StorefrontCartProvider
+          enableSmartCartPro
+          merchantSlug={merchantSlug}
+          deferValidationUntilIdle
+        >
+          <DeferredPageViewTracker merchantId={merchant.id} />
+          {/*
+            Global Layout Wrapper logic:
+            - Keeps layout persistent across route changes (seamless navigation)
+            - Prevents header flashing/re-rendering
+          */}
+          <StorefrontLayoutRenderer
+            merchant={merchant}
+            routingMode={routingMode}
+          >
+            {children}
+          </StorefrontLayoutRenderer>
+        </StorefrontCartProvider>
+      </StorefrontMerchantProvider>
+    </StorefrontThemeProvider>
   );
 }
 
