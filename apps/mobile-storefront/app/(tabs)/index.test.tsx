@@ -1,11 +1,13 @@
 import { describe, expect, it } from '@jest/globals';
 import { render, screen } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
+import Colors from '@/constants/Colors';
 import { getHomeContentBottomPadding } from '@/constants/layout';
 import {
   createTemplateConfig,
   HomeScreen,
   mockGetTemplateConfig,
+  mockUseColorScheme,
   setupHomeScreenTestState,
 } from '../../test-support/(tabs)/index.test-utils';
 
@@ -40,6 +42,23 @@ describe('HomeScreen', () => {
       )
     ).toMatchObject({
       paddingBottom: getHomeContentBottomPadding(34, false),
+    });
+  });
+
+  it('uses theme black token for elite hero background', () => {
+    mockGetTemplateConfig.mockReturnValue(
+      createTemplateConfig({ headerStyle: 'elite' })
+    );
+    mockUseColorScheme.mockReturnValue('dark');
+
+    render(<HomeScreen />);
+
+    expect(
+      StyleSheet.flatten(
+        screen.getByTestId('elite-background-layer').props.style
+      )
+    ).toMatchObject({
+      backgroundColor: Colors.dark.black,
     });
   });
 });

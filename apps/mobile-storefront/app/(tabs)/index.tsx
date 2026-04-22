@@ -333,7 +333,10 @@ export default function HomeScreen() {
 
       {/* Background Layer for Hero Overlap (Layer 1) */}
       {isElite && (
-        <View style={[styles.eliteBackground, { backgroundColor: colors.black }]}>
+        <View
+          testID="elite-background-layer"
+          style={[styles.eliteBackground, { backgroundColor: colors.black }]}
+        >
           <Image
             source={{ uri: PATTERN_URI }}
             style={[StyleSheet.absoluteFillObject, { opacity: 0.05 }]}

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, jest } from '@jest/globals';
+import type { ComponentProps } from 'react';
 import { Text, View } from 'react-native';
 import type { MobileTemplateConfig } from '@/lib/templates';
 
@@ -24,6 +25,10 @@ export const mockGetTemplateConfig = jest.fn(
 );
 const MockText = Text;
 const MockView = View;
+const MockImage = (props: ComponentProps<typeof View>) => (
+  <MockView {...props} />
+);
+MockImage.displayName = 'MockImage';
 
 export const mockBlockRenderer = jest.fn(
   ({
@@ -41,7 +46,8 @@ export const mockBlockRenderer = jest.fn(
 );
 
 jest.mock('expo-image', () => ({
-  Image: MockView,
+  __esModule: true,
+  Image: MockImage,
 }));
 
 jest.mock('expo-router', () => ({
@@ -58,6 +64,7 @@ jest.mock('react-native-edge-to-edge', () => ({
 }));
 
 jest.mock('react-native-safe-area-context', () => ({
+  SafeAreaView: MockView,
   useSafeAreaInsets: () => ({
     top: 59,
     right: 0,
@@ -178,4 +185,5 @@ export function setupHomeScreenTestState() {
   });
 }
 
-export { default as HomeScreen } from '../../app/(tabs)/index';
+export const HomeScreen = require('../../app/(tabs)/index')
+  .default as typeof import('../../app/(tabs)/index').default;
