@@ -318,12 +318,12 @@
     }
   }
 
-  .dark .glass:not(.light *) {
+  .dark .glass:not(.light *):not(.storefront-light *) {
     @apply bg-black/80 border-white/10;
   }
 
   @media (hover: hover) and (min-width: 768px) {
-    .dark .glass:not(.light *) {
+    .dark .glass:not(.light *):not(.storefront-light *) {
       @apply backdrop-blur-md bg-black/70;
     }
   }
@@ -344,13 +344,13 @@
     }
   }
 
-  .dark .glass-themed:not(.light *) {
+  .dark .glass-themed:not(.light *):not(.storefront-light *) {
     background: color-mix(in srgb, var(--store-background, black) 80%, transparent);
     border-color: rgba(255, 255, 255, 0.1);
   }
 
   @media (hover: hover) and (min-width: 768px) {
-    .dark .glass-themed:not(.light *) {
+    .dark .glass-themed:not(.light *):not(.storefront-light *) {
       @apply backdrop-blur-md;
       background: color-mix(in srgb, var(--store-background, black) 70%, transparent);
     }
