@@ -1,10 +1,9 @@
 import { type CookieOptions, createServerClient } from '@supabase/ssr';
 import type { ReadonlyRequestCookies } from 'next/dist/server/web/spec-extension/adapters/request-cookies';
-import { cookies } from 'next/headers';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 
 // Creates a Supabase client for Server Components, API Routes, and Server Actions.
-function createServerSupabaseClient(cookieStore: ReadonlyRequestCookies) {
+export function createClient(cookieStore: ReadonlyRequestCookies) {
   const url = getSupabaseUrl();
   const key = getSupabaseAnonKey();
 
@@ -35,20 +34,4 @@ function createServerSupabaseClient(cookieStore: ReadonlyRequestCookies) {
       },
     },
   });
-}
-
-type ServerSupabaseClient = ReturnType<typeof createServerSupabaseClient>;
-
-export function createClient(): Promise<ServerSupabaseClient>;
-export function createClient(
-  cookieStore: ReadonlyRequestCookies
-): ServerSupabaseClient;
-export function createClient(cookieStore?: ReadonlyRequestCookies) {
-  if (cookieStore) {
-    return createServerSupabaseClient(cookieStore);
-  }
-
-  return cookies().then((resolvedCookieStore) =>
-    createServerSupabaseClient(resolvedCookieStore)
-  );
 }

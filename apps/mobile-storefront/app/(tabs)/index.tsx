@@ -333,7 +333,7 @@ export default function HomeScreen() {
 
       {/* Background Layer for Hero Overlap (Layer 1) */}
       {isElite && (
-        <View style={styles.eliteBackground}>
+        <View style={[styles.eliteBackground, { backgroundColor: colors.black }]}>
           <Image
             source={{ uri: PATTERN_URI }}
             style={[StyleSheet.absoluteFillObject, { opacity: 0.05 }]}
@@ -452,7 +452,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 260, // Refined for horizontal rectangle hero
-    backgroundColor: '#000',
+    // backgroundColor applied via inline style for theme support
     zIndex: 0,
   },
   contentContainer: {

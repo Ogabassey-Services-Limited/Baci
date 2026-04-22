@@ -1,11 +1,11 @@
 import type { MetadataRoute } from 'next';
-import { headers } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 
 // Fetch active merchants for dynamic storefront URLs
 async function fetchActiveMerchants() {
   try {
-    const supabase = await createClient();
+    const supabase = createClient(await cookies());
     const { data: merchants, error } = await supabase
       .from('merchants')
       .select('slug, updated_at')

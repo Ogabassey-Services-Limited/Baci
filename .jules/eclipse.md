@@ -1,0 +1,4 @@
+## 2025-04-22 - Home Screen Hero Background Hardcoded
+
+**Learning:** The home screen hero section (`eliteBackground`) hardcoded a `#000` background color. The original PR refactored the module-scoped `StyleSheet.create` into a `getStyles` factory function. However, this is an anti-pattern as it recreates the entire stylesheet object on every render. Furthermore, replacing it with `colors.background` broke visibility in light mode because the hero text and icons are explicitly white, so it needs a dedicated black token.
+**Action:** When fixing hardcoded colors in React Native components, do not refactor static `StyleSheet.create` into a factory function. Instead, leave the module-scoped `StyleSheet.create` intact and apply dynamic theme colors via an inline style array (e.g., `style={[styles.eliteBackground, { backgroundColor: colors.black }]}`). Choose the correct token (e.g., `colors.black`) to preserve contrast ratios in both themes.
