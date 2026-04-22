@@ -21,9 +21,6 @@ export default function CompareScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
 
-  // ⚡ Bolt: Wrapped multiple Zustand store selectors in `useShallow` to prevent unnecessary re-renders
-  // of the CompareScreen whenever unrelated state properties in the comparison store change.
-  // This reduces rendering overhead when navigating or modifying the comparison list.
   const { products, removeProduct, clearComparison } = useComparisonStore(
     useShallow((state) => ({
       products: state.products,
