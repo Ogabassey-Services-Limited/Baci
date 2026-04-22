@@ -2,7 +2,11 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { InformationalClusterIndex } from '@/components/storefront/ogabassey/seo/informational-cluster-index';
 import { getCachedBlogListing } from '@/lib/cached-data';
-import { generateBreadcrumbSchema, generateSlug } from '@/lib/seo-utils';
+import {
+  generateBreadcrumbSchema,
+  generateMetaDescription,
+  generateSlug,
+} from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildBlogClusterCollections } from '@/lib/storefront-content/build-blog-cluster-collections';
 import {
@@ -42,6 +46,14 @@ export async function generateMetadata({
     data.posts[0]?.featured_image_url,
     data.merchant.logo_url,
   ];
+  const description = generateMetaDescription(
+    `Read the latest articles, news, and insights from ${data.merchant.business_name}.`,
+    160,
+    {
+      minLength: 110,
+      fallback: `Read expert buying guides, product comparisons, and tech updates from ${data.merchant.business_name}. Find practical recommendations tailored for shoppers in Nigeria.`,
+    }
+  );
   const prevUrl =
     currentPage > 2
       ? `${baseUrl}/blog?page=${currentPage - 1}`
@@ -55,10 +67,10 @@ export async function generateMetadata({
 
   return {
     title: `Blog | ${data.merchant.business_name}`,
-    description: `Read the latest articles, news, and insights from ${data.merchant.business_name}.`,
+    description,
     openGraph: {
       title: `Blog | ${data.merchant.business_name}`,
-      description: `Read the latest articles, news, and insights from ${data.merchant.business_name}.`,
+      description,
       type: 'website',
       url: canonicalUrl,
       siteName: data.merchant.business_name,
@@ -71,7 +83,7 @@ export async function generateMetadata({
     twitter: {
       card: 'summary_large_image',
       title: `Blog | ${data.merchant.business_name}`,
-      description: `Read the latest articles, news, and insights from ${data.merchant.business_name}.`,
+      description,
       images: getStorefrontTwitterImages(baseUrl, ...socialImageCandidates),
     },
     alternates: {
@@ -162,6 +174,64 @@ export async function BlogPageContent({ params, searchParams }: PageProps) {
       url: `${baseUrl}/blog`,
     },
   ]);
+  const blogDiscoverySection = (
+    <section
+      aria-labelledby="blog-discovery-links"
+      className="mx-auto mt-8 max-w-[1400px] px-4 md:px-6"
+    >
+      <div className="rounded-2xl border border-[var(--store-background-text,#111827)]/10 bg-[var(--store-background,#ffffff)] p-5">
+        <h2
+          id="blog-discovery-links"
+          className="text-sm font-semibold uppercase tracking-[0.08em] text-[var(--store-background-text,#111827)]/70"
+        >
+          Continue Exploring
+        </h2>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <a
+            className="rounded-full border border-[var(--store-background-text,#111827)]/15 px-3 py-1.5 text-xs font-medium text-[var(--store-background-text,#111827)]/80 transition-colors hover:border-[var(--store-primary)] hover:text-[var(--store-primary)]"
+            href={`${baseUrl}/products`}
+          >
+            All Products
+          </a>
+          <a
+            className="rounded-full border border-[var(--store-background-text,#111827)]/15 px-3 py-1.5 text-xs font-medium text-[var(--store-background-text,#111827)]/80 transition-colors hover:border-[var(--store-primary)] hover:text-[var(--store-primary)]"
+            href={`${baseUrl}/`}
+          >
+            Home
+          </a>
+          {categories.slice(0, 12).map((cat) => (
+            <a
+              key={cat}
+              className="rounded-full border border-[var(--store-background-text,#111827)]/15 px-3 py-1.5 text-xs font-medium text-[var(--store-background-text,#111827)]/80 transition-colors hover:border-[var(--store-primary)] hover:text-[var(--store-primary)]"
+              href={`${baseUrl}/blog?category=${encodeURIComponent(cat)}`}
+            >
+              {cat}
+            </a>
+          ))}
+        </div>
+
+        {posts.length > 0 && (
+          <>
+            <h3 className="mt-5 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--store-background-text,#111827)]/55">
+              Latest Article Links
+            </h3>
+            <ul className="mt-2 grid gap-1 md:grid-cols-2 lg:grid-cols-3">
+              {posts.slice(0, 24).map((post) => (
+                <li key={post.id}>
+                  <a
+                    className="text-xs text-[var(--store-primary)] underline-offset-4 hover:underline"
+                    href={`${baseUrl}/blog/${post.slug}`}
+                  >
+                    {post.title}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+    </section>
+  );
   const templateId = merchant.template_id;
   if (templateId && templateId !== 'default' && templateId !== 'puck') {
     const template = getTemplate(templateId);
@@ -187,6 +257,7 @@ export async function BlogPageContent({ params, searchParams }: PageProps) {
           }));
           return (
             <>
+              {blogDiscoverySection}
               <InformationalClusterIndex collections={guideCollections} />
               <TemplateBlogRenderer
                 blogSchema={blogSchema}
@@ -213,6 +284,7 @@ export async function BlogPageContent({ params, searchParams }: PageProps) {
   }
   return (
     <>
+      {blogDiscoverySection}
       <InformationalClusterIndex collections={guideCollections} />
       <DefaultBlogUi
         blogSchema={blogSchema}

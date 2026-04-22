@@ -371,6 +371,64 @@ describe('BlogPostBody', () => {
     });
   });
 
+  describe('related products', () => {
+    it('renders valid related product links and falls back to /products routes when category is missing', async () => {
+      render(
+        await BlogPostBody({
+          ...BASE_PROPS,
+          content: '<p>Body</p>',
+          relatedProducts: [
+            {
+              id: 'product-1',
+              name: 'iPhone 16',
+              slug: 'iphone-16',
+              category_slug: 'smartphones',
+            },
+            {
+              id: 'product-2',
+              name: 'DualSense Wireless Controller',
+              slug: 'ps5-dualsense-wireless-controller',
+            },
+          ],
+        })
+      );
+
+      expect(
+        screen.getByRole('heading', { name: /popular products mentioned/i })
+      ).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'iPhone 16' })).toHaveAttribute(
+        'href',
+        '/ogabassey/smartphones/iphone-16'
+      );
+      expect(
+        screen.getByRole('link', { name: 'DualSense Wireless Controller' })
+      ).toHaveAttribute(
+        'href',
+        '/ogabassey/products/ps5-dualsense-wireless-controller'
+      );
+    });
+
+    it('omits the related products section when only malformed items are provided', async () => {
+      render(
+        await BlogPostBody({
+          ...BASE_PROPS,
+          content: '<p>Body</p>',
+          relatedProducts: [
+            {
+              id: 'product-1',
+              name: '',
+              slug: '',
+            },
+          ],
+        })
+      );
+
+      expect(
+        screen.queryByRole('heading', { name: /popular products mentioned/i })
+      ).not.toBeInTheDocument();
+    });
+  });
+
   // -------------------------------------------------------------------------
   // Tags
   // -------------------------------------------------------------------------

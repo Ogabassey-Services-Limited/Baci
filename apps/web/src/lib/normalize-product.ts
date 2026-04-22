@@ -18,6 +18,7 @@ const PLACEHOLDER_IMAGE =
   'https://placehold.co/400x400/f8fafc/94a3b8?text=No+Image';
 
 type ProductKeySpecValue = string | number | boolean | undefined;
+type RawImageEntry = string | { url?: string; alt?: string; order?: number };
 
 export type ProductKeySpecsRecord = Record<string, ProductKeySpecValue>;
 
