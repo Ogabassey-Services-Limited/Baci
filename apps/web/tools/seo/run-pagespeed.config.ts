@@ -20,4 +20,18 @@ export const AUDIT_THRESHOLDS = {
   inp: 200,
 } as const;
 
+export const EMPTY_PAGE_SPEED_SCORES = {
+  performance: null,
+  accessibility: null,
+  seo: null,
+  'best-practices': null,
+} as const;
+
+export const EMPTY_PAGE_SPEED_VITALS = {
+  lcp: null,
+  cls: null,
+  tbt: null,
+  inp: null,
+} as const;
+
 export const PAGE_SPEED_TIMEOUT_MS = 45_000;

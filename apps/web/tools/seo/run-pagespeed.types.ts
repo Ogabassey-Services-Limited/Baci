@@ -9,6 +9,7 @@ export interface PageSpeedFailure {
   metric: string;
   actual: number | null;
   threshold: number;
+  message?: string;
 }
 
 export interface PageSpeedAuditResult {

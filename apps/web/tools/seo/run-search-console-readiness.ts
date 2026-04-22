@@ -143,10 +143,11 @@ async function collectSurfaceBasics({
   );
 
   return {
-    canonical: homepageHtml
-      ? searchConsoleReadinessShared.extractCanonicalHref(homepageHtml)
-      : null,
-    homepageFetched: Boolean(homepageHtml),
+    canonical:
+      homepageHtml === null
+        ? null
+        : searchConsoleReadinessShared.extractCanonicalHref(homepageHtml),
+    homepageFetched: homepageHtml !== null,
     homepageUrl: seoShared.resolveUrl(normalizedOrigin, '/'),
     issues,
     normalizedOrigin,

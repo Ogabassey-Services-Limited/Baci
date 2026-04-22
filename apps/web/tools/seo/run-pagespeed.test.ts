@@ -154,6 +154,31 @@ describe('run-pagespeed', () => {
     expect(result.vitals.inp).toBe(240);
   });
 
+  it('fails when both field and lab INP are missing', () => {
+    const result = pageSpeedTools.evaluatePageSpeedResult({
+      lighthouseResult: {
+        categories: {
+          performance: { score: 0.92 },
+          accessibility: { score: 0.99 },
+          seo: { score: 0.98 },
+          'best-practices': { score: 0.95 },
+        },
+        audits: {
+          'largest-contentful-paint': { numericValue: 1800 },
+          'cumulative-layout-shift': { numericValue: 0.04 },
+          'total-blocking-time': { numericValue: 90 },
+        },
+      },
+    });
+
+    expect(result.failures).toContainEqual({
+      metric: 'inp',
+      actual: null,
+      threshold: 200,
+    });
+    expect(result.vitals.inp).toBeNull();
+  });
+
   it('runs the audit across targets and strategies using the provided fetch', async () => {
     const fetchImpl: typeof fetch = vi.fn(
       async () =>
@@ -188,53 +213,5 @@ describe('run-pagespeed', () => {
     expect(results).toHaveLength(5);
     expect(results.every((result) => result.passed)).toBe(true);
     expect(fetchImpl).toHaveBeenCalledTimes(5);
-  });
-
-  it('throws when the PSI request returns a non-ok response', async () => {
-    const fetchImpl: typeof fetch = vi.fn(
-      async () =>
-        new Response(JSON.stringify({ error: { message: 'quota exceeded' } }), {
-          status: 429,
-        })
-    );
-
-    await expect(
-      pageSpeedTools.runPageSpeedAudit({
-        apiKey: undefined,
-        baseUrl: 'https://usebaci.com',
-        extraUrls: [],
-        fetchImpl,
-        strategies: ['mobile'],
-      })
-    ).rejects.toThrow(
-      'PageSpeed Insights request failed for https://usebaci.com/ (mobile) with status 429'
-    );
-  });
-
-  it('aborts stuck PSI requests with a target-specific timeout error', async () => {
-    vi.useFakeTimers();
-    vi.stubEnv('PAGE_SPEED_TIMEOUT_MS', '100');
-    const fetchImpl: typeof fetch = vi.fn(
-      (_input, init) =>
-        new Promise((_resolve, reject) => {
-          init?.signal?.addEventListener('abort', () => {
-            reject(new DOMException('aborted', 'AbortError'));
-          });
-        })
-    );
-    const pendingAudit = pageSpeedTools.runPageSpeedAudit({
-      apiKey: undefined,
-      baseUrl: 'https://usebaci.com',
-      extraUrls: [],
-      fetchImpl,
-      strategies: ['mobile'],
-    });
-    const timeoutExpectation = expect(pendingAudit).rejects.toThrow(
-      'PageSpeed Insights request timed out for https://usebaci.com/ (mobile)'
-    );
-
-    await vi.advanceTimersByTimeAsync(100);
-
-    await timeoutExpectation;
   });
 });

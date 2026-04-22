@@ -2,6 +2,8 @@ import {
   AUDIT_THRESHOLDS,
   CATEGORY_THRESHOLDS,
   DEFAULT_PAGE_SPEED_ROUTES,
+  EMPTY_PAGE_SPEED_SCORES,
+  EMPTY_PAGE_SPEED_VITALS,
   PAGE_SPEED_TIMEOUT_MS,
 } from './run-pagespeed.config';
 import type {
@@ -92,7 +94,6 @@ function evaluatePageSpeedResult(
     seo: getCategoryScore(payload, 'seo'),
     'best-practices': getCategoryScore(payload, 'best-practices'),
   };
-
   const vitals = {
     lcp: getAuditMetric(payload, 'largest-contentful-paint'),
     cls: getAuditMetric(payload, 'cumulative-layout-shift'),
@@ -108,7 +109,6 @@ function evaluatePageSpeedResult(
   ] as const) {
     const actual = scores[metric];
     const threshold = CATEGORY_THRESHOLDS[metric];
-
     if (actual === null || actual < threshold) {
       failures.push({ metric, actual, threshold });
     }
@@ -116,12 +116,11 @@ function evaluatePageSpeedResult(
   for (const metric of ['lcp', 'cls', 'tbt'] as const) {
     const actual = vitals[metric];
     const threshold = AUDIT_THRESHOLDS[metric];
-
     if (actual === null || actual > threshold) {
       failures.push({ metric, actual, threshold });
     }
   }
-  if (vitals.inp !== null && vitals.inp > AUDIT_THRESHOLDS.inp) {
+  if (vitals.inp === null || vitals.inp > AUDIT_THRESHOLDS.inp) {
     failures.push({
       metric: 'inp',
       actual: vitals.inp,
@@ -155,20 +154,38 @@ async function runPageSpeedAudit({
 
   for (const target of targets) {
     for (const strategy of strategies) {
-      const payload = await fetchPageSpeedPayload(fetchImpl, {
-        apiKey,
-        strategy,
-        targetUrl: target.url,
-      });
-      results.push({
-        label: target.label,
-        strategy,
-        url: target.url,
-        ...evaluatePageSpeedResult(payload),
-      });
+      try {
+        const payload = await fetchPageSpeedPayload(fetchImpl, {
+          apiKey,
+          strategy,
+          targetUrl: target.url,
+        });
+        results.push({
+          label: target.label,
+          strategy,
+          url: target.url,
+          ...evaluatePageSpeedResult(payload),
+        });
+      } catch (error) {
+        results.push({
+          failures: [
+            {
+              metric: 'request',
+              actual: null,
+              message: error instanceof Error ? error.message : String(error),
+              threshold: 0,
+            },
+          ],
+          label: target.label,
+          passed: false,
+          scores: EMPTY_PAGE_SPEED_SCORES,
+          strategy,
+          url: target.url,
+          vitals: EMPTY_PAGE_SPEED_VITALS,
+        });
+      }
     }
   }
-
   return results;
 }
 
@@ -192,14 +209,10 @@ function getFieldMetric(
   payload: PageSpeedApiResponse,
   key: string
 ): number | null {
-  const pageMetric = payload.loadingExperience?.metrics?.[key]?.percentile;
-  if (typeof pageMetric === 'number') {
-    return pageMetric;
-  }
-
-  const originMetric =
+  const metric =
+    payload.loadingExperience?.metrics?.[key]?.percentile ??
     payload.originLoadingExperience?.metrics?.[key]?.percentile;
-  return typeof originMetric === 'number' ? originMetric : null;
+  return typeof metric === 'number' ? metric : null;
 }
 
 function dedupeTargets(targets: PageSpeedTarget[]): PageSpeedTarget[] {
@@ -222,9 +235,11 @@ function buildPageSpeedSummary(results: PageSpeedAuditResult[]): string {
     if (!result.passed) {
       for (const failure of result.failures) {
         lines.push(
-          `  - ${failure.metric}: ${
-            failure.actual === null ? 'missing' : String(failure.actual)
-          } (threshold ${failure.threshold})`
+          failure.message
+            ? `  - ${failure.metric}: ${failure.message}`
+            : `  - ${failure.metric}: ${
+                failure.actual === null ? 'missing' : String(failure.actual)
+              } (threshold ${failure.threshold})`
         );
       }
     }
@@ -277,9 +292,7 @@ async function fetchPageSpeedPayload(
 
 function resolveTimeoutMs(): number {
   const rawValue = process.env.PAGE_SPEED_TIMEOUT_MS;
-  if (!rawValue) {
-    return PAGE_SPEED_TIMEOUT_MS;
-  }
+  if (!rawValue) return PAGE_SPEED_TIMEOUT_MS;
   const parsed = Number(rawValue);
   if (!Number.isInteger(parsed) || parsed <= 0) {
     throw new Error(

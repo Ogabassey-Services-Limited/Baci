@@ -221,6 +221,21 @@ describe('run-search-console-readiness failures', () => {
       ])
     );
   });
+
+  it('flags an empty successful homepage response as a canonical mismatch', async () => {
+    const result = await searchConsoleReadiness.runSearchConsoleReadinessAudit({
+      fetchImpl: createFetchImpl({
+        responses: buildResponses([['https://usebaci.com/', { body: '' }]]),
+      }),
+      merchantOrigins: [],
+      platformOrigin: 'https://usebaci.com',
+    });
+
+    expect(result.passed).toBe(false);
+    expect(result.surfaces[0]?.issues).toContain(
+      'homepage canonical mismatch: expected https://usebaci.com/'
+    );
+  });
 });
 
 function buildCanonicalPage(url: string) {
