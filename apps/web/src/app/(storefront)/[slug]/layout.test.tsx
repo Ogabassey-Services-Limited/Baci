@@ -8,6 +8,7 @@ import {
 } from './storefront-shell-snapshot';
 
 const providerSnapshots: unknown[] = [];
+let themeProviderRenders = 0;
 
 vi.mock('./storefront-shell-snapshot', () => ({
   getStorefrontShellSnapshotBase: vi.fn(),
@@ -28,6 +29,13 @@ vi.mock('@/components/storefront/store-not-published', () => ({
   StoreNotPublished: ({ businessName }: { businessName: string }) => (
     <div>{businessName} unpublished</div>
   ),
+}));
+
+vi.mock('@/components/storefront/storefront-theme-provider', () => ({
+  StorefrontThemeProvider: ({ children }: { children: ReactNode }) => {
+    themeProviderRenders += 1;
+    return <div data-testid="storefront-theme-provider">{children}</div>;
+  },
 }));
 
 vi.mock('@/hooks/cart/storefront-cart-provider', () => ({
@@ -152,6 +160,7 @@ describe('storefront layout', () => {
     mockHeaders.mockReset();
     notFound.mockClear();
     providerSnapshots.length = 0;
+    themeProviderRenders = 0;
     mockHeaders.mockResolvedValue(new Headers());
   });
 
@@ -189,6 +198,7 @@ describe('storefront layout', () => {
     render(await layoutPromise);
 
     expect(providerSnapshots).toEqual([baseShellSnapshot]);
+    expect(themeProviderRenders).toBe(1);
     expect(screen.getByText('Storefront content')).toBeInTheDocument();
   });
 
@@ -203,6 +213,7 @@ describe('storefront layout', () => {
     ).rejects.toThrow('NEXT_NOT_FOUND');
 
     expect(notFound).toHaveBeenCalledTimes(1);
+    expect(themeProviderRenders).toBe(0);
     expect(providerSnapshots).toEqual([]);
   });
 
@@ -229,6 +240,7 @@ describe('storefront layout', () => {
     );
 
     expect(screen.getByText('Draft Store unpublished')).toBeInTheDocument();
+    expect(themeProviderRenders).toBe(1);
     expect(getStorefrontShellSnapshot).not.toHaveBeenCalled();
     expect(providerSnapshots).toEqual([]);
   });

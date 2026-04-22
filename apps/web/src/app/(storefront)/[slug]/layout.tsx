@@ -5,6 +5,7 @@ import type React from 'react';
 import { DeferredPageViewTracker } from '@/components/storefront/deferred-page-view-tracker';
 import { OgabasseyStorefrontLayout } from '@/components/storefront/ogabassey/storefront-layout';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
+import { StorefrontThemeProvider } from '@/components/storefront/storefront-theme-provider';
 import { MOBILE_APPS } from '@/config/platform';
 import { StorefrontCartProvider } from '@/hooks/cart/storefront-cart-provider';
 import { StorefrontMerchantProvider } from '@/hooks/merchant/storefront-merchant-provider';
@@ -205,6 +206,10 @@ function StorefrontShellFrame({
   );
 }
 
+function StorefrontThemeFrame({ children }: { children: React.ReactNode }) {
+  return <StorefrontThemeProvider>{children}</StorefrontThemeProvider>;
+}
+
 export default async function StorefrontLayout(props: {
   children: React.ReactNode;
   params: Promise<{ slug: string }>;
@@ -224,9 +229,11 @@ export default async function StorefrontLayout(props: {
   const isDevelopment = process.env.NODE_ENV === 'development';
   if (!shellSnapshotBase.merchant.is_published && !isDevelopment) {
     return (
-      <StoreNotPublished
-        businessName={shellSnapshotBase.merchant.business_name}
-      />
+      <StorefrontThemeFrame>
+        <StoreNotPublished
+          businessName={shellSnapshotBase.merchant.business_name}
+        />
+      </StorefrontThemeFrame>
     );
   }
 
@@ -237,8 +244,10 @@ export default async function StorefrontLayout(props: {
   }
 
   return (
-    <StorefrontShellFrame shellSnapshot={shellSnapshot}>
-      {props.children}
-    </StorefrontShellFrame>
+    <StorefrontThemeFrame>
+      <StorefrontShellFrame shellSnapshot={shellSnapshot}>
+        {props.children}
+      </StorefrontShellFrame>
+    </StorefrontThemeFrame>
   );
 }

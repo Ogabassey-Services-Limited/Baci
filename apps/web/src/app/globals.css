@@ -87,6 +87,40 @@
     --dashboard-surface-border: 239 22% 28%;
   }
 
+  /*
+   * Force light-mode CSS variables for a subtree regardless of the root theme.
+   * Used by StorefrontThemeProvider to scope storefronts to light mode even when
+   * the user's OS/browser prefers dark mode. Mirrors the :root (light) defaults.
+   */
+  .light,
+  .storefront-light {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 239 45% 30%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 38 92% 55%;
+    --secondary-foreground: 0 0% 0%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 40%;
+    --accent: 38 92% 55%;
+    --accent-foreground: 0 0% 0%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 239 45% 30%;
+    --dashboard-surface: 0 0% 100%;
+    --dashboard-surface-elevated: 0 0% 98%;
+    --dashboard-surface-subtle: 240 4.8% 95.9%;
+    --dashboard-surface-border: 240 5.9% 90%;
+
+    color-scheme: light;
+  }
+
   /* Modern box-sizing and smooth scrolling */
   *,
   *::before,
@@ -131,10 +165,10 @@
     transition: background-color 9999s ease-in-out 0s;
   }
 
-  .dark input:-webkit-autofill,
-  .dark input:-webkit-autofill:hover,
-  .dark input:-webkit-autofill:focus,
-  .dark input:-webkit-autofill:active {
+  .dark input:-webkit-autofill:not(.light *):not(.storefront-light *),
+  .dark input:-webkit-autofill:hover:not(.light *):not(.storefront-light *),
+  .dark input:-webkit-autofill:focus:not(.light *):not(.storefront-light *),
+  .dark input:-webkit-autofill:active:not(.light *):not(.storefront-light *) {
     -webkit-box-shadow: 0 0 0 30px hsl(var(--background)) inset;
     -webkit-text-fill-color: hsl(var(--foreground));
   }
@@ -284,12 +318,12 @@
     }
   }
 
-  .dark .glass {
+  .dark .glass:not(.light *):not(.storefront-light *) {
     @apply bg-black/80 border-white/10;
   }
 
   @media (hover: hover) and (min-width: 768px) {
-    .dark .glass {
+    .dark .glass:not(.light *):not(.storefront-light *) {
       @apply backdrop-blur-md bg-black/70;
     }
   }
@@ -310,13 +344,13 @@
     }
   }
 
-  .dark .glass-themed {
+  .dark .glass-themed:not(.light *):not(.storefront-light *) {
     background: color-mix(in srgb, var(--store-background, black) 80%, transparent);
     border-color: rgba(255, 255, 255, 0.1);
   }
 
   @media (hover: hover) and (min-width: 768px) {
-    .dark .glass-themed {
+    .dark .glass-themed:not(.light *):not(.storefront-light *) {
       @apply backdrop-blur-md;
       background: color-mix(in srgb, var(--store-background, black) 70%, transparent);
     }
@@ -758,7 +792,7 @@
     margin-inline: auto;
   }
 
-  .dark .prose-baci {
+  .dark .prose-baci:not(.light *):not(.storefront-light *) {
     @apply text-foreground/90;
   }
 
