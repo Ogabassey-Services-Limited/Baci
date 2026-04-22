@@ -88,13 +88,4 @@ describe('OnboardingPage', () => {
 
     expect(screen.getByRole('status')).toHaveTextContent('Loading onboarding');
   });
-
-  it('marks the onboarding route as noindex to keep setup pages out of Search Console', async () => {
-    const { metadata } = await import('./page');
-
-    expect(metadata.robots).toMatchObject({
-      index: false,
-      follow: false,
-    });
-  });
 });

@@ -16,8 +16,6 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "knip": "knip --no-exit-code",
-    "seo:pagespeed": "tsx tools/seo/run-pagespeed.cli.ts",
-    "seo:readiness": "tsx tools/seo/run-search-console-readiness.cli.ts",
     "capture-screenshots": "node scripts/capture-template-screenshots.mjs",
     "mcp": "tsx mcp-server/server.ts"
   },
