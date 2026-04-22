@@ -67,4 +67,44 @@ describe('StorefrontThemeProvider', () => {
       document.documentElement.getAttribute('data-storefront-light-count')
     ).toBeNull();
   });
+
+  it('reference-counts portal light mode across multiple mounted providers', () => {
+    const first = render(
+      <StorefrontThemeProvider>
+        <div>first</div>
+      </StorefrontThemeProvider>
+    );
+    const second = render(
+      <StorefrontThemeProvider>
+        <div>second</div>
+      </StorefrontThemeProvider>
+    );
+
+    expect(document.documentElement).toHaveClass('storefront-light');
+    expect(document.body).toHaveClass('storefront-light');
+    expect(
+      document.documentElement.getAttribute('data-storefront-light-count')
+    ).toBe('2');
+    expect(document.body.getAttribute('data-storefront-light-count')).toBe('2');
+
+    first.unmount();
+
+    expect(document.documentElement).toHaveClass('storefront-light');
+    expect(document.body).toHaveClass('storefront-light');
+    expect(
+      document.documentElement.getAttribute('data-storefront-light-count')
+    ).toBe('1');
+    expect(document.body.getAttribute('data-storefront-light-count')).toBe('1');
+
+    second.unmount();
+
+    expect(document.documentElement).not.toHaveClass('storefront-light');
+    expect(document.body).not.toHaveClass('storefront-light');
+    expect(
+      document.documentElement.getAttribute('data-storefront-light-count')
+    ).toBeNull();
+    expect(
+      document.body.getAttribute('data-storefront-light-count')
+    ).toBeNull();
+  });
 });

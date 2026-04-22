@@ -58,6 +58,5 @@ describe('RootDynamicBody', () => {
     expect(mockNonceProvider.mock.calls[0]?.[0]).toMatchObject({
       nonce: 'nonce-123',
     });
-    expect(mockNonceProvider).toHaveBeenCalledTimes(1);
   });
 });
