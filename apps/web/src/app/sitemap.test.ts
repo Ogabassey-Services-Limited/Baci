@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockCookies = vi.fn();
 const mockHeaders = vi.fn();
 const mockCreateClient = vi.fn();
 const mockSelect = vi.fn();
@@ -8,7 +7,6 @@ const mockNot = vi.fn();
 const mockOrder = vi.fn();
 
 vi.mock('next/headers', () => ({
-  cookies: () => mockCookies(),
   headers: () => mockHeaders(),
 }));
 
@@ -21,7 +19,6 @@ describe('root sitemap', () => {
     vi.clearAllMocks();
     vi.resetModules();
 
-    mockCookies.mockResolvedValue({});
     mockHeaders.mockResolvedValue(new Headers([['host', 'usebaci.com']]));
 
     mockOrder.mockResolvedValue({
@@ -42,7 +39,7 @@ describe('root sitemap', () => {
       not: mockNot,
     });
 
-    mockCreateClient.mockReturnValue({
+    mockCreateClient.mockResolvedValue({
       from: () => ({
         select: mockSelect,
       }),
