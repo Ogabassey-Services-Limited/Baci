@@ -8,6 +8,7 @@ import { Image } from 'expo-image';
 import { router, Stack } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useShallow } from 'zustand/react/shallow';
 import { BLURHASH_VARIANTS } from '@/components/storefront/ProductCard';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
@@ -20,9 +21,13 @@ export default function CompareScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
 
-  const products = useComparisonStore((state) => state.products);
-  const removeProduct = useComparisonStore((state) => state.removeProduct);
-  const clearComparison = useComparisonStore((state) => state.clearComparison);
+  const { products, removeProduct, clearComparison } = useComparisonStore(
+    useShallow((state) => ({
+      products: state.products,
+      removeProduct: state.removeProduct,
+      clearComparison: state.clearComparison,
+    }))
+  );
   const addToCart = useCartStore((state) => state.addItem);
 
   // Collect all unique spec keys across all products
