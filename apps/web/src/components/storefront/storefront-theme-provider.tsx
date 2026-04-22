@@ -1,6 +1,6 @@
 'use client';
 
-import { type ReactNode, useEffect } from 'react';
+import { type ReactNode, useLayoutEffect } from 'react';
 
 const STOREFRONT_LIGHT_CLASS = 'storefront-light';
 const STOREFRONT_LIGHT_ATTR = 'data-storefront-light-count';
@@ -53,7 +53,7 @@ function decrementStorefrontLightScope(target: HTMLElement) {
  *    (since `.dark` on `<html>` still matches descendant `dark:*` rules).
  */
 export function StorefrontThemeProvider({ children }: { children: ReactNode }) {
-  useEffect(() => {
+  useLayoutEffect(() => {
     const root = document.documentElement;
     const body = document.body;
 
