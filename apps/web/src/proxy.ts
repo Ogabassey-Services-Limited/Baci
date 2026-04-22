@@ -63,6 +63,10 @@ const PRODUCT_PAGE_REGEX = /^\/[^/]+\/products\/[^/]+$/;
 const NESTED_PRODUCT_REGEX = /^\/[^/]+\/[^/]+\/[^/]+$/;
 const CATEGORY_PAGE_REGEX = /^\/[^/]+\/[^/]+\/?$/;
 const STOREFRONT_HOME_REGEX = /^\/[^/]+\/?$/;
+// Matches blog index/post paths on both the platform root (`/blog`, `/blog/...`)
+// and slug-prefixed storefront variants served from the root domain
+// (`/{slug}/blog`, `/{slug}/blog/...`). Used to canonicalize thumbnail params.
+const BLOG_PATH_REGEX = /^(?:\/[^/]+)?\/blog(?:\/.*)?$/;
 
 // Routes that should not be rewritten (main app routes)
 const MAIN_APP_ROUTES = [
@@ -620,9 +624,10 @@ export async function proxy(request: NextRequest) {
   // ==== SEO: STRIP THUMBNAIL QUERY NOISE ====
   // WordPress/share tooling can append `thumbnail_id` or `_thumbnail_id`
   // to blog URLs. These params should not produce unique crawlable URLs.
-  // Cover both the blog index (`/blog`) and individual post paths (`/blog/...`).
+  // Covers the platform blog (`/blog`, `/blog/...`) and storefront variants
+  // served from the root domain (`/{slug}/blog`, `/{slug}/blog/...`).
   if (
-    (pathname === '/blog' || pathname.startsWith('/blog/')) &&
+    BLOG_PATH_REGEX.test(pathname) &&
     (request.nextUrl.searchParams.has('thumbnail_id') ||
       request.nextUrl.searchParams.has('_thumbnail_id'))
   ) {

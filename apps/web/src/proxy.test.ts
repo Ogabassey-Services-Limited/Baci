@@ -202,6 +202,34 @@ describe('Middleware Proxy', () => {
     expect(location).not.toContain('thumbnail_id=');
   });
 
+  it.each([
+    ['/acme/blog', 'thumbnail_id=123', '/acme/blog'],
+    [
+      '/merchant123/blog/my-post',
+      '_thumbnail_id=foo',
+      '/merchant123/blog/my-post',
+    ],
+    [
+      '/acme/blog/iphone/the-iphone-15',
+      '_thumbnail_id=1&thumbnail_id=2&ref=mail',
+      '/acme/blog/iphone/the-iphone-15',
+    ],
+  ])('drops thumbnail query noise on slug-prefixed blog paths: %s?%s', async (inputPath, queryString, expectedPath) => {
+    const req = new NextRequest(
+      `https://${ROOT_DOMAIN}${inputPath}?${queryString}`
+    );
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+    const location = res.headers.get('location');
+
+    expect(res.status).toBe(301);
+    expect(location).toBeTruthy();
+    expect(new URL(location || '').pathname).toBe(expectedPath);
+    expect(location).not.toContain('_thumbnail_id');
+    expect(location).not.toContain('thumbnail_id=');
+  });
+
   describe('URL normalization: prefix-only case fixing', () => {
     it('lowercases /API prefix but preserves case-sensitive tail', async () => {
       const req = new NextRequest(
