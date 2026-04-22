@@ -11,7 +11,10 @@ export default {
   // even when the root `<html>` carries `.dark` from next-themes.
   // `:where()` keeps specificity low so ordinary utilities still win.
   // Reference: https://v3.tailwindcss.com/docs/dark-mode (custom variant form).
-  darkMode: ['variant', '&:where(.dark, .dark *):not(.light):not(.light *)'],
+  darkMode: [
+    'variant',
+    '&:where(.dark, .dark *):not(.light):not(.light *):not(.storefront-light):not(.storefront-light *)',
+  ],
   content: [
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',

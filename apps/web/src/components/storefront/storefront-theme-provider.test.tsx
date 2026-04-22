@@ -1,8 +1,22 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { StorefrontThemeProvider } from './storefront-theme-provider';
 
 describe('StorefrontThemeProvider', () => {
+  beforeEach(() => {
+    document.documentElement.classList.remove('storefront-light');
+    document.documentElement.removeAttribute('data-storefront-light-count');
+    document.body.classList.remove('storefront-light');
+    document.body.removeAttribute('data-storefront-light-count');
+  });
+
+  afterEach(() => {
+    document.documentElement.classList.remove('storefront-light');
+    document.documentElement.removeAttribute('data-storefront-light-count');
+    document.body.classList.remove('storefront-light');
+    document.body.removeAttribute('data-storefront-light-count');
+  });
+
   it('renders children inside a light-mode wrapper', () => {
     render(
       <StorefrontThemeProvider>
@@ -30,5 +44,27 @@ describe('StorefrontThemeProvider', () => {
     // still render dark styles inside the storefront subtree.
     const wrapper = container.firstChild as HTMLElement;
     expect(wrapper).toHaveClass('light');
+  });
+
+  it('forces light mode for portal surfaces while mounted', () => {
+    const { unmount } = render(
+      <StorefrontThemeProvider>
+        <div>content</div>
+      </StorefrontThemeProvider>
+    );
+
+    expect(document.documentElement).toHaveClass('storefront-light');
+    expect(document.body).toHaveClass('storefront-light');
+    expect(
+      document.documentElement.getAttribute('data-storefront-light-count')
+    ).toBe('1');
+
+    unmount();
+
+    expect(document.documentElement).not.toHaveClass('storefront-light');
+    expect(document.body).not.toHaveClass('storefront-light');
+    expect(
+      document.documentElement.getAttribute('data-storefront-light-count')
+    ).toBeNull();
   });
 });

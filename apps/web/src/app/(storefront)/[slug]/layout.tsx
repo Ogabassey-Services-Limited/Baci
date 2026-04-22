@@ -183,32 +183,31 @@ function StorefrontShellFrame({
   const merchantSlug = merchant.slug || '';
 
   return (
-    <StorefrontThemeProvider>
-      <StorefrontMerchantProvider
-        slug={merchantSlug}
-        shellSnapshot={shellSnapshot}
+    <StorefrontMerchantProvider
+      slug={merchantSlug}
+      shellSnapshot={shellSnapshot}
+    >
+      <StorefrontCartProvider
+        enableSmartCartPro
+        merchantSlug={merchantSlug}
+        deferValidationUntilIdle
       >
-        <StorefrontCartProvider
-          enableSmartCartPro
-          merchantSlug={merchantSlug}
-          deferValidationUntilIdle
-        >
-          <DeferredPageViewTracker merchantId={merchant.id} />
-          {/*
-            Global Layout Wrapper logic:
-            - Keeps layout persistent across route changes (seamless navigation)
-            - Prevents header flashing/re-rendering
-          */}
-          <StorefrontLayoutRenderer
-            merchant={merchant}
-            routingMode={routingMode}
-          >
-            {children}
-          </StorefrontLayoutRenderer>
-        </StorefrontCartProvider>
-      </StorefrontMerchantProvider>
-    </StorefrontThemeProvider>
+        <DeferredPageViewTracker merchantId={merchant.id} />
+        {/*
+          Global Layout Wrapper logic:
+          - Keeps layout persistent across route changes (seamless navigation)
+          - Prevents header flashing/re-rendering
+        */}
+        <StorefrontLayoutRenderer merchant={merchant} routingMode={routingMode}>
+          {children}
+        </StorefrontLayoutRenderer>
+      </StorefrontCartProvider>
+    </StorefrontMerchantProvider>
   );
+}
+
+function StorefrontThemeFrame({ children }: { children: React.ReactNode }) {
+  return <StorefrontThemeProvider>{children}</StorefrontThemeProvider>;
 }
 
 export default async function StorefrontLayout(props: {
@@ -230,9 +229,11 @@ export default async function StorefrontLayout(props: {
   const isDevelopment = process.env.NODE_ENV === 'development';
   if (!shellSnapshotBase.merchant.is_published && !isDevelopment) {
     return (
-      <StoreNotPublished
-        businessName={shellSnapshotBase.merchant.business_name}
-      />
+      <StorefrontThemeFrame>
+        <StoreNotPublished
+          businessName={shellSnapshotBase.merchant.business_name}
+        />
+      </StorefrontThemeFrame>
     );
   }
 
@@ -243,8 +244,10 @@ export default async function StorefrontLayout(props: {
   }
 
   return (
-    <StorefrontShellFrame shellSnapshot={shellSnapshot}>
-      {props.children}
-    </StorefrontShellFrame>
+    <StorefrontThemeFrame>
+      <StorefrontShellFrame shellSnapshot={shellSnapshot}>
+        {props.children}
+      </StorefrontShellFrame>
+    </StorefrontThemeFrame>
   );
 }

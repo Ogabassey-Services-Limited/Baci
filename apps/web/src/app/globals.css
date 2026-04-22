@@ -92,7 +92,8 @@
    * Used by StorefrontThemeProvider to scope storefronts to light mode even when
    * the user's OS/browser prefers dark mode. Mirrors the :root (light) defaults.
    */
-  .light {
+  .light,
+  .storefront-light {
     --background: 0 0% 100%;
     --foreground: 240 10% 3.9%;
     --card: 0 0% 100%;
@@ -116,6 +117,7 @@
     --dashboard-surface-elevated: 0 0% 98%;
     --dashboard-surface-subtle: 240 4.8% 95.9%;
     --dashboard-surface-border: 240 5.9% 90%;
+
     color-scheme: light;
   }
 

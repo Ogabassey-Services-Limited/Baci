@@ -1,4 +1,34 @@
-import type { ReactNode } from 'react';
+'use client';
+
+import { type ReactNode, useEffect } from 'react';
+
+const STOREFRONT_LIGHT_CLASS = 'storefront-light';
+const STOREFRONT_LIGHT_ATTR = 'data-storefront-light-count';
+
+function incrementStorefrontLightScope(target: HTMLElement) {
+  const current = Number.parseInt(
+    target.getAttribute(STOREFRONT_LIGHT_ATTR) ?? '0',
+    10
+  );
+  const next = Number.isFinite(current) ? current + 1 : 1;
+  target.setAttribute(STOREFRONT_LIGHT_ATTR, String(next));
+  target.classList.add(STOREFRONT_LIGHT_CLASS);
+}
+
+function decrementStorefrontLightScope(target: HTMLElement) {
+  const current = Number.parseInt(
+    target.getAttribute(STOREFRONT_LIGHT_ATTR) ?? '0',
+    10
+  );
+  const next = Number.isFinite(current) ? current - 1 : 0;
+  if (next > 0) {
+    target.setAttribute(STOREFRONT_LIGHT_ATTR, String(next));
+    return;
+  }
+
+  target.removeAttribute(STOREFRONT_LIGHT_ATTR);
+  target.classList.remove(STOREFRONT_LIGHT_CLASS);
+}
 
 /**
  * Forces the storefront subtree to render in light mode regardless of the
@@ -22,5 +52,18 @@ import type { ReactNode } from 'react';
  *    (since `.dark` on `<html>` still matches descendant `dark:*` rules).
  */
 export function StorefrontThemeProvider({ children }: { children: ReactNode }) {
+  useEffect(() => {
+    const root = document.documentElement;
+    const body = document.body;
+
+    incrementStorefrontLightScope(root);
+    incrementStorefrontLightScope(body);
+
+    return () => {
+      decrementStorefrontLightScope(root);
+      decrementStorefrontLightScope(body);
+    };
+  }, []);
+
   return <div className="light">{children}</div>;
 }
