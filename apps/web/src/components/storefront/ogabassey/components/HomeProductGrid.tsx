@@ -6,7 +6,6 @@ import Link from 'next/link';
 import type React from 'react';
 import { Fragment, useEffect, useState } from 'react';
 import { prioritizeSmartphoneProducts } from '@baci/shared';
-import { useMerchantSafe } from '@/hooks/use-merchant';
 import { products as mockProducts } from '../data/products';
 import { useDeferredActivation } from './deferred-shell-feature';
 import type {
@@ -83,7 +82,6 @@ export function HomeProductGrid({
   const [InteractiveCard, setInteractiveCard] = useState<
     ProductGridItemModule['ProductGridItem'] | null
   >(null);
-  const merchantContext = useMerchantSafe();
   const interactionsActivated = useDeferredActivation({
     timeoutMs: 0,
     activateOnIdle: false,
@@ -132,9 +130,7 @@ export function HomeProductGrid({
     loadInteractiveCard,
   ]);
 
-  const rawBasePath =
-    merchantContext?.basePath ?? (storeSlug ? `/${storeSlug}` : '');
-  const basePath = rawBasePath === '/' ? '' : rawBasePath;
+  const basePath = storeSlug ? `/${storeSlug}` : '';
   const allProductsHref = `${basePath}/products`;
   const allProducts = products && products.length > 0 ? products : mockProducts;
   const featuredProducts = prioritizeSmartphoneProducts(allProducts);
