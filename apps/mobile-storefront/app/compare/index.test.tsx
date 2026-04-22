@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import type { ReactNode } from 'react';
 
 const mockPush = jest.fn();
 const mockAddItem = jest.fn();
@@ -38,7 +39,8 @@ jest.mock('expo-router', () => ({
     push: (...args: unknown[]) => mockPush(...args),
   },
   Stack: {
-    Screen: () => null,
+    Screen: ({ options }: { options?: { headerRight?: () => ReactNode } }) =>
+      options?.headerRight?.() ?? null,
   },
 }));
 
@@ -87,19 +89,22 @@ describe('CompareScreen', () => {
     mockComparisonState.products = [];
   });
 
-  it('selects products and actions through useShallow', () => {
+  it('renders comparison products and clears the comparison', () => {
+    mockComparisonState.products = [
+      {
+        id: 'product-1',
+        slug: 'test-product',
+        name: 'Test Product',
+        price: 1999,
+      },
+    ];
+
     render(<CompareScreen />);
 
-    expect(mockUseShallow).toHaveBeenCalledTimes(1);
-    const selector = mockUseShallow.mock.calls[0]?.[0] as (
-      state: typeof mockComparisonState
-    ) => unknown;
+    expect(screen.getByText('Test Product')).toBeTruthy();
 
-    expect(selector(mockComparisonState)).toEqual({
-      products: mockComparisonState.products,
-      removeProduct: mockRemoveProduct,
-      clearComparison: mockClearComparison,
-    });
+    fireEvent.press(screen.getByText('Clear All'));
+    expect(mockClearComparison).toHaveBeenCalledTimes(1);
   });
 
   it('renders empty state and routes to browse products', () => {
