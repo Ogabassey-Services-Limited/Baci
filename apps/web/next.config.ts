@@ -7,6 +7,14 @@ const withBundleAnalyzer = bundleAnalyzer({
   openAnalyzer: false,
 });
 
+/**
+ * Force blocking metadata rendering (no streaming) for crawlers that commonly
+ * parse only static head tags in HTML. This keeps Ahrefs/Semrush audits aligned
+ * with what social/search bots see.
+ */
+const HTML_LIMITED_BOTS_UA_RE =
+  /[\w-]+-Google|Google-[\w-]+|Chrome-Lighthouse|Slurp|DuckDuckBot|baiduspider|yandex|sogou|bitlybot|tumblr|vkShare|quora link preview|redditbot|ia_archiver|Bingbot|BingPreview|applebot|facebookexternalhit|facebookcatalog|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|SkypeUriPreview|Yeti|googleweblight|AhrefsBot|AhrefsSiteAudit|SemrushBot|MJ12bot|DotBot|rogerbot|PetalBot|Bytespider/i;
+
 const nextConfig: NextConfig = {
   // Keep heavy server-only packages external to reduce function bundle size and peak memory.
   // These are only used in specific API routes and should not be bundled into every function.
@@ -204,6 +212,10 @@ const nextConfig: NextConfig = {
   // Enable typed routes for compile-time validation of Link hrefs
   typedRoutes: true,
 
+  // Disable metadata streaming for HTML-limited crawlers so SEO audits read
+  // full OG/Twitter/title tags directly from the initial HTML head.
+  htmlLimitedBots: HTML_LIMITED_BOTS_UA_RE,
+
   // Turbopack resolve alias (Next.js 16 default bundler)
   // Maps @tiptap/extension-text-style to compat shim that re-exports
   // v3 named exports with a legacy default export for Novel
@@ -283,6 +295,19 @@ const nextConfig: NextConfig = {
           '/blog/why-the-samsung-galaxy-s21-ultra-is-still-a-top-pick-in-2024',
         destination:
           '/blog/samsung-galaxy-s21-ultra-in-2025-powerful-enough-or-just-hanging-on',
+        permanent: true,
+      },
+      {
+        // Legacy WordPress category permalink -> flat blog slug
+        source: '/blog/:legacyCategory/:postSlug',
+        destination: '/blog/:postSlug',
+        permanent: true,
+      },
+      {
+        // Remove migrated WordPress media query noise
+        source: '/blog/:postSlug',
+        has: [{ type: 'query', key: '_thumbnail_id' }],
+        destination: '/blog/:postSlug',
         permanent: true,
       },
       // Fix specific product suffix issues

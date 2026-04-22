@@ -143,7 +143,7 @@ describe('OgabasseyNavbar', () => {
       expect.arrayContaining([
         '/ogabassey',
         '/ogabassey/account',
-        '/ogabassey/phones',
+        '/ogabassey/smartphones',
         '/ogabassey/imei-check',
         '/ogabassey/repairs',
         '/ogabassey/wallet',
@@ -213,7 +213,7 @@ describe('OgabasseyNavbar', () => {
       expect.arrayContaining([
         '/',
         '/account',
-        '/phones',
+        '/smartphones',
         '/imei-check',
         '/repairs',
         '/wallet',

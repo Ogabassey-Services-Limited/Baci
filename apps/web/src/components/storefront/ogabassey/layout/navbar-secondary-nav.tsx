@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
+import { normalizeStorefrontCategorySlug } from '@/lib/normalize-storefront-category-slug';
 
 interface NavigationCategory {
   name: string;
@@ -109,11 +110,18 @@ export function NavbarSecondaryNav({
                 {categories.length > 0 ? (
                   categories.map((category) => {
                     const Icon = getCategoryIcon(category.name);
+                    const normalizedCategorySlug = normalizeStorefrontCategorySlug(
+                      category.slug
+                    );
+
+                    if (!normalizedCategorySlug) {
+                      return null;
+                    }
 
                     return (
                       <Link
                         key={category.slug}
-                        href={`${basePath}/${encodeURIComponent(category.slug)}` as `/${string}`}
+                        href={`${basePath}/${encodeURIComponent(normalizedCategorySlug)}` as `/${string}`}
                         prefetch={false}
                         onClick={() => setShowCategoryDropdown(false)}
                         className="flex items-center gap-3 px-4 py-3 hover:bg-primary/10 hover:text-primary transition-colors group"

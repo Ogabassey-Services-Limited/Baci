@@ -5,6 +5,7 @@ import { hasPermission } from '@/lib/api-auth';
 import { revalidateProducts } from '@/lib/cache-revalidation';
 import { getCountryByCode } from '@/lib/countries';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { deriveProductVariantWriteProjections } from '@/lib/derive-product-variant-projections';
 import { getProductEmbeddingText } from '@/lib/embeddings';
 import {
   getMerchantForApiRequest,
@@ -260,7 +261,7 @@ export async function PUT(
     const { data: existingProduct, error: fetchError } = await supabase
       .from('products')
       .select(
-        'id, name, description, brand, slug, condition, condition_detail, has_variants, variant_model'
+        'id, name, description, brand, color, slug, condition, condition_detail, has_variants, variant_model'
       )
       .eq('id', id)
       .eq('merchant_id', merchantId)
@@ -302,6 +303,17 @@ export async function PUT(
         { status: 400 }
       );
     }
+
+    const variantWriteProjections =
+      body.variants !== undefined || body.has_variants !== undefined
+        ? deriveProductVariantWriteProjections({
+            fallbackColor:
+              body.color !== undefined ? body.color : existingProduct.color,
+            hasVariants: body.has_variants ?? existingProduct.has_variants,
+            productImages: body.images,
+            variants: body.variants,
+          })
+        : null;
 
     // Build updates object conditionally (2026 best practice: only update provided fields)
     // This prevents overwriting existing values with undefined on partial updates
@@ -461,7 +473,9 @@ export async function PUT(
           }
         : null;
     if (body.category !== undefined) updates.category = body.category;
-    if (body.color !== undefined) updates.color = body.color;
+    if (body.color !== undefined || variantWriteProjections) {
+      updates.color = variantWriteProjections?.color ?? body.color;
+    }
 
     // Schema markup - generate or sanitize
     if (body.schema_markup !== undefined) {

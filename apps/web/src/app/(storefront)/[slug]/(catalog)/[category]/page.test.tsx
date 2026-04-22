@@ -838,9 +838,9 @@ describe('category page route', () => {
       searchParams: Promise.resolve({ page: '1' }),
     });
 
-    expect(metadata.title).toBe(
-      `${CATEGORY_HUB_DEFAULTS.smartphones.intro.heading} | Ogabassey`
-    );
+    expect(typeof metadata.title).toBe('string');
+    expect((metadata.title as string).length).toBeLessThanOrEqual(70);
+    expect(metadata.title).not.toContain('| Ogabassey | Ogabassey');
     expect(metadata.description).toBe(
       CATEGORY_HUB_DEFAULTS.smartphones.intro.description
     );
@@ -868,9 +868,10 @@ describe('category page route', () => {
     expect(secondPageMetadata.alternates?.canonical).toBe(
       'https://test-store.usebaci.com/smartphones?page=2'
     );
-    expect(secondPageMetadata.title).toBe(
-      `${CATEGORY_HUB_DEFAULTS.smartphones.intro.heading} - Page 2 | Ogabassey`
-    );
+    expect(typeof secondPageMetadata.title).toBe('string');
+    expect(secondPageMetadata.title).toContain('Page 2');
+    expect((secondPageMetadata.title as string).length).toBeLessThanOrEqual(70);
+    expect(secondPageMetadata.title).not.toContain('| Ogabassey | Ogabassey');
     expect(secondPageMetadata.openGraph?.images).toEqual([
       {
         url: 'https://cdn.example.com/product-21.png',

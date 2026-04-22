@@ -66,7 +66,7 @@ describe('normalizeProductDetails', () => {
     } as unknown as Product;
     const normalized = normalizeProductDetails(emptyProduct);
     expect(normalized.images).toEqual(['/placeholder.svg']);
-    expect(normalized.colorImages.Red).toEqual([]);
+    expect(normalized.colorImages).toEqual({});
   });
 
   it('deduplicates images after sanitization', () => {
@@ -79,6 +79,42 @@ describe('normalizeProductDetails', () => {
       (img) => img === 'https://example.com/dup.jpg',
     ).length;
     expect(count).toBe(1);
+  });
+
+  it('treats variant media as the canonical image-driven color mapping', () => {
+    const variantMediaProduct = {
+      ...baseProduct,
+      colors: ['Silver', 'Gold'],
+      images: ['https://example.com/generic.jpg'],
+      color_images: {
+        Silver: ['https://example.com/legacy-silver.jpg'],
+      },
+      variants: [
+        {
+          id: 'variant-silver',
+          attributes: { color: 'Silver', storage: '64GB' },
+          primary_image: 'https://example.com/silver.jpg',
+        },
+        {
+          id: 'variant-gold',
+          attributes: { color: 'Gold', storage: '64GB' },
+          primary_image: 'https://example.com/gold.jpg',
+        },
+      ],
+    } as unknown as Product;
+
+    const normalized = normalizeProductDetails(variantMediaProduct);
+
+    expect(normalized.colorImages).toEqual({
+      Gold: ['https://example.com/gold.jpg'],
+      Silver: ['https://example.com/silver.jpg'],
+    });
+    expect(normalized.images).toEqual([
+      'https://example.com/silver.jpg',
+      'https://example.com/gold.jpg',
+      'https://example.com/generic.jpg',
+      'https://example.com/main.jpg',
+    ]);
   });
 
   it('derives summary specs and general details from variant attributes when explicit specs are missing', () => {

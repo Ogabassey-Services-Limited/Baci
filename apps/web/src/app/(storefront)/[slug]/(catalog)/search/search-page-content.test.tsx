@@ -141,7 +141,7 @@ describe('SearchPageContent', () => {
     expect(collectionSchema?.mainEntity?.itemListElement).toHaveLength(20);
     expect(collectionSchema?.mainEntity?.itemListElement?.[0]).toMatchObject({
       item: {
-        url: 'https://shop.example.ng/phones/iphone-16',
+        url: 'https://shop.example.ng/smartphones/iphone-16',
       },
     });
 
@@ -149,14 +149,10 @@ describe('SearchPageContent', () => {
       '@type': 'BreadcrumbList',
       itemListElement: [
         {
-          item: {
-            '@id': 'https://shop.example.ng',
-          },
+          item: 'https://shop.example.ng/',
         },
         {
-          item: {
-            '@id': 'https://shop.example.ng/search?q=iphone',
-          },
+          item: 'https://shop.example.ng/search?q=iphone',
         },
       ],
     });
@@ -293,14 +289,10 @@ describe('SearchPageContent', () => {
       '@type': 'BreadcrumbList',
       itemListElement: [
         {
-          item: {
-            '@id': 'https://shop.example.ng',
-          },
+          item: 'https://shop.example.ng/',
         },
         {
-          item: {
-            '@id': 'https://shop.example.ng/search',
-          },
+          item: 'https://shop.example.ng/search',
         },
       ],
     });

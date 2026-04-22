@@ -7,7 +7,7 @@ const { mockNormalizeStorefrontProductVariants, mockProductDetailClient } =
     mockNormalizeStorefrontProductVariants: vi.fn<
       (...args: unknown[]) => Record<string, unknown>[]
     >(() => []),
-    mockProductDetailClient: vi.fn(() => null),
+    mockProductDetailClient: vi.fn((_props: unknown) => null),
   }));
 
 const mockHeaders = vi.fn();
@@ -108,6 +108,8 @@ vi.mock('@/lib/sanitize-json-ld', () => ({
 vi.mock('@/lib/seo-utils', () => ({
   constructCanonicalUrl: (base: string) => base,
   generateBreadcrumbSchema: () => ({}),
+  generateMetaTitle: (title: string, options?: { suffix?: string }) =>
+    options?.suffix ? `${title} | ${options.suffix}` : title,
   generateMetaDescription: (description: string, maxLength = 160) => {
     const plainText = description.replace(/<[^>]+>/g, '').trim();
     return plainText.length <= maxLength
@@ -192,7 +194,10 @@ vi.mock('@/lib/validation', () => ({
 vi.mock(
   '@/app/(storefront)/[slug]/(catalog)/products/[productSlug]/product-detail-client',
   () => ({
-    default: () => mockProductDetailClient(),
+    default: (props: unknown) => {
+      mockProductDetailClient(props);
+      return null;
+    },
   })
 );
 
@@ -462,6 +467,7 @@ describe('[category]/[productSlug] page render', () => {
     mockGetPublishedClusterPosts.mockReset();
     mockGetPublishedClusterPosts.mockResolvedValue([]);
     mockBuildProductSemanticModel.mockReset();
+    mockProductDetailClient.mockReset();
     mockBuildProductSemanticModel.mockReturnValue({
       trustBullets: [],
       supportLinks: [],
@@ -526,6 +532,36 @@ describe('[category]/[productSlug] page render', () => {
         name: 'HP Laptop 14-ep0063nia',
       })
     ).not.toBeInTheDocument();
+  });
+
+  it('preserves unlimited stock when the detailed product omits manage_stock', async () => {
+    mockGetRequestScopedMerchant.mockResolvedValue({
+      ...baseMerchant,
+      template_id: undefined,
+    });
+    mockGetCachedProductWithDetails.mockResolvedValue({
+      ...categorizedDetailedProduct,
+      manage_stock: undefined,
+    });
+
+    render(
+      await CategoryProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          category: 'laptops',
+          productSlug: 'hp-laptop-14-ep0063nia',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    );
+
+    expect(mockProductDetailClient.mock.calls.at(-1)?.[0]).toEqual(
+      expect.objectContaining({
+        product: expect.objectContaining({
+          manage_stock: false,
+        }),
+      })
+    );
   });
 
   it('passes the shared semantic sections into the Ogabassey PDP surface', async () => {
@@ -686,6 +722,29 @@ describe('[category]/[productSlug] page render', () => {
         storage: '128GB',
         utm_source: 'google',
       }),
+    });
+
+    expect(metadata.alternates?.canonical).toBe(
+      'https://teststore.usebaci.com/laptops/hp-laptop-14-ep0063nia'
+    );
+  });
+
+  it('normalizes canonical_url host to the request-scoped storefront domain', async () => {
+    mockGetCachedProductWithDetails.mockResolvedValue({
+      ...categorizedDetailedProduct,
+      canonical_url: 'https://usebaci.com/laptops/hp-laptop-14-ep0063nia',
+    });
+    mockHeaders.mockReturnValue(
+      new Headers([['x-custom-domain', 'ogabassey.com']])
+    );
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'laptops',
+        productSlug: 'hp-laptop-14-ep0063nia',
+      }),
+      searchParams: Promise.resolve({}),
     });
 
     expect(metadata.alternates?.canonical).toBe(

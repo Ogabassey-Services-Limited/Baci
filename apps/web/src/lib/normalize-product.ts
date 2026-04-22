@@ -29,7 +29,7 @@ export interface RawDbProduct {
   name: string;
   slug?: string;
   description?: string;
-  images?: (string | { url: string; alt?: string })[];
+  images?: (string | { url?: string; alt?: string; order?: number })[];
   categories?:
     | { id?: string; name: string; slug: string }
     | { id?: string; name: string; slug: string }[]
@@ -93,12 +93,15 @@ export interface NormalizedProduct {
   has_condition_offers?: boolean;
   available_conditions: string[];
   variant_model: 'legacy' | 'sku_matrix';
+  canonical_url?: string | null;
 }
 
 /**
  * Extracts the primary image URL from various image formats
  */
-function extractPrimaryImage(images?: (string | { url: string })[]): string {
+function extractPrimaryImage(
+  images?: (string | { url?: string; alt?: string; order?: number })[]
+): string {
   if (!images || !Array.isArray(images) || images.length === 0) {
     return PLACEHOLDER_IMAGE;
   }
@@ -119,7 +122,9 @@ function extractPrimaryImage(images?: (string | { url: string })[]): string {
 /**
  * Normalizes image array to string URLs
  */
-function normalizeImages(images?: (string | { url: string })[]): string[] {
+function normalizeImages(
+  images?: (string | { url?: string; alt?: string; order?: number })[]
+): string[] {
   if (!images || !Array.isArray(images)) {
     return [];
   }
@@ -241,6 +246,8 @@ export function normalizeProduct(
         ? raw.available_conditions
         : [],
     variant_model: raw.variant_model === 'sku_matrix' ? 'sku_matrix' : 'legacy',
+    canonical_url:
+      typeof raw.canonical_url === 'string' ? raw.canonical_url : null,
   };
 }
 

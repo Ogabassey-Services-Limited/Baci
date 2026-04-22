@@ -9,6 +9,7 @@ interface StorefrontProductHrefInput {
   categories?: { name?: string; slug?: string } | null;
   category_slug?: string;
   categorySlug?: string;
+  canonical_url?: string | null;
   condition?: 'new' | 'used' | string;
   condition_detail?: string;
 }

@@ -612,6 +612,21 @@ export async function proxy(request: NextRequest) {
   // and "Duplicate without user-selected canonical" errors (Soft 404s).
   // MOVED TO TOP to avoid redirecting spam.
   if (pathname.startsWith('/blog/')) {
+    // Block legacy WordPress admin/auth probes under /blog/*
+    // These are not public content pages and should not be indexable.
+    const wpAdminPatterns = [
+      '/blog/wp-admin',
+      '/blog/wp-login.php',
+      '/blog/xmlrpc.php',
+    ];
+    if (
+      wpAdminPatterns.some((pattern) =>
+        pathname.toLowerCase().startsWith(pattern)
+      )
+    ) {
+      return new NextResponse('Gone', { status: 410 });
+    }
+
     const spamPatterns = [
       '/blog/shopdetail',
       '/blog/zhhant',
@@ -622,6 +637,31 @@ export async function proxy(request: NextRequest) {
       spamPatterns.some((pattern) => pathname.toLowerCase().startsWith(pattern))
     ) {
       return new NextResponse('Gone', { status: 410 });
+    }
+
+    // Canonicalize legacy WordPress category permalinks:
+    // /blog/{category}/{post-slug} -> /blog/{post-slug}
+    // Also drop thumbnail_id query param noise from migrated URLs
+    // (both thumbnail_id and _thumbnail_id variants).
+    const legacyCategoryMatch = pathname.match(/^\/blog\/[^/]+\/([^/]+)\/?$/);
+    const hasThumbnailId =
+      request.nextUrl.searchParams.has('thumbnail_id') ||
+      request.nextUrl.searchParams.has('_thumbnail_id');
+    if (legacyCategoryMatch || hasThumbnailId) {
+      const redirectUrl = request.nextUrl.clone();
+      if (legacyCategoryMatch) {
+        redirectUrl.pathname = `/blog/${legacyCategoryMatch[1]}`;
+      }
+      redirectUrl.searchParams.delete('thumbnail_id');
+      redirectUrl.searchParams.delete('_thumbnail_id');
+
+      // Avoid self-redirect loops when only thumbnail_id was absent.
+      if (
+        redirectUrl.pathname !== pathname ||
+        redirectUrl.search !== request.nextUrl.search
+      ) {
+        return NextResponse.redirect(redirectUrl, { status: 301 });
+      }
     }
   }
 
@@ -876,6 +916,44 @@ export async function proxy(request: NextRequest) {
       // Custom domain: ogabassey.com - validated format
       // Normalize: lowercase, remove port, and strip 'www.' prefix for consistent lookup
       const domain = normalizeHostname(hostname).replace(/^www\./, '');
+      const domainPathSegments = pathname.split('/').filter(Boolean);
+      const domainMerchantSlug = await getSlugForCustomDomain(domain);
+
+      if (
+        domainMerchantSlug &&
+        domainPathSegments[0]?.toLowerCase() ===
+          domainMerchantSlug.toLowerCase()
+      ) {
+        const strippedPathname =
+          pathname.replace(new RegExp(`^/${domainMerchantSlug}(?=/|$)`), '') ||
+          '/';
+        const strippedSegments = strippedPathname.split('/').filter(Boolean);
+        const shouldNormalizeToProductRoute =
+          strippedSegments.length >= 2 &&
+          strippedSegments[0] !== 'products' &&
+          strippedSegments[0] !== 'blog' &&
+          strippedSegments[0] !== 'api' &&
+          strippedSegments[0] !== 'pages' &&
+          strippedSegments[0] !== 'account' &&
+          strippedSegments[0] !== 'cart' &&
+          strippedSegments[0] !== 'checkout' &&
+          strippedSegments[0] !== 'wishlist' &&
+          strippedSegments[0] !== 'repair' &&
+          strippedSegments[0] !== 'repairs' &&
+          strippedSegments[0] !== 'swap' &&
+          strippedSegments[0] !== 'wallet' &&
+          strippedSegments[0] !== 'faq' &&
+          strippedSegments[0] !== 'about' &&
+          strippedSegments[0] !== 'privacy-policy' &&
+          strippedSegments[0] !== 'terms' &&
+          strippedSegments[0] !== 'track-order';
+
+        const normalizedPathname = shouldNormalizeToProductRoute
+          ? `/products/${strippedSegments[strippedSegments.length - 1]}`
+          : strippedPathname;
+        const normalizedUrl = `https://${domain}${normalizedPathname}${request.nextUrl.search}`;
+        return NextResponse.redirect(normalizedUrl, 301);
+      }
 
       // API routes should NOT be rewritten - they exist at /api/*, not /domain/api/*
       // This fixes 405 errors when calling APIs from custom domains
@@ -946,10 +1024,9 @@ export async function proxy(request: NextRequest) {
       // Sitemap file paths: rewrite using merchant slug (not domain) to avoid
       // dots in [slug], which break Next.js metadata file-convention routing.
       if (pathname.startsWith('/sitemap') || pathname === '/blog/sitemap.xml') {
-        const merchantSlug = await getSlugForCustomDomain(domain);
         const sitemapUrl = request.nextUrl.clone();
         // Use merchant slug if found, otherwise fall through to domain-based rewrite
-        sitemapUrl.pathname = `/${merchantSlug ?? domain}${pathname}`;
+        sitemapUrl.pathname = `/${domainMerchantSlug ?? domain}${pathname}`;
 
         const sitemapHeaders = new Headers(request.headers);
         sitemapHeaders.set('x-custom-domain', domain);
@@ -979,10 +1056,9 @@ export async function proxy(request: NextRequest) {
       // LLM markdown mirrors: rewrite .md paths to /api/llm/ to avoid
       // route collisions with dynamic [category] segments in the storefront tree.
       if (pathname.endsWith('.md')) {
-        const merchantSlug = await getSlugForCustomDomain(domain);
-        if (merchantSlug) {
+        if (domainMerchantSlug) {
           const mdUrl = request.nextUrl.clone();
-          mdUrl.pathname = toLlmApiPath(pathname, merchantSlug);
+          mdUrl.pathname = toLlmApiPath(pathname, domainMerchantSlug);
 
           const mdHeaders = new Headers(request.headers);
           mdHeaders.set('x-custom-domain', domain);

@@ -4,6 +4,7 @@ import { getSupabaseServiceRoleKey } from '@/env';
 import { revalidateProducts } from '@/lib/cache-revalidation';
 import { getCountryByCode } from '@/lib/countries';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { deriveProductVariantWriteProjections } from '@/lib/derive-product-variant-projections';
 import { getProductEmbeddingText } from '@/lib/embeddings';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import {
@@ -522,6 +523,12 @@ export async function POST(request: NextRequest) {
       body.image ?? body.imageLarge,
       body.name
     );
+    const variantWriteProjections = deriveProductVariantWriteProjections({
+      fallbackColor: body.color,
+      hasVariants: body.has_variants || false,
+      productImages: resolvedImages,
+      variants: body.variants,
+    });
 
     // Check for duplicates (same slug for this merchant)
     const { data: existingProduct } = await supabase
@@ -587,7 +594,7 @@ export async function POST(request: NextRequest) {
         migration_status:
           variantModel === 'sku_matrix' ? 'migrated' : 'pending',
         category: body.category,
-        color: body.color,
+        color: variantWriteProjections.color,
       })
       .select()
       .single();

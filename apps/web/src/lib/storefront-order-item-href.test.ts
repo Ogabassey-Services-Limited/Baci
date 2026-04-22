@@ -38,6 +38,18 @@ describe('getStorefrontOrderItemHref', () => {
     ).toBe('/ogabassey/preferred-category/iphone-15-pro-max');
   });
 
+  it('normalizes category aliases when building canonical hrefs', () => {
+    expect(
+      getStorefrontOrderItemHref(
+        {
+          product_slug: 'macbook-air-13-inch-2022-m2-8gb-256gb',
+          category_slug: 'macbook',
+        },
+        '/ogabassey'
+      )
+    ).toBe('/ogabassey/laptops/macbook-air-13-inch-2022-m2-8gb-256gb');
+  });
+
   it('returns null when exact product route data is unavailable', () => {
     expect(
       getStorefrontOrderItemHref(

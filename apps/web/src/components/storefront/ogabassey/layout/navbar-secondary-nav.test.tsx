@@ -38,7 +38,7 @@ describe('NavbarSecondaryNav', () => {
 
     expect(screen.getByRole('link', { name: 'Phones' })).toHaveAttribute(
       'href',
-      '/ogabassey/phones'
+      '/ogabassey/smartphones'
     );
     expect(screen.getByRole('link', { name: /imei checker/i })).toHaveAttribute(
       'href',

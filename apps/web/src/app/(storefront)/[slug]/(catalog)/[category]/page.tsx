@@ -9,6 +9,7 @@ import {
 import type { RawDbProduct } from '@/lib/normalize-product';
 import {
   generateMetaDescription,
+  generateMetaTitle,
   getIndexableRobotsMetadata,
 } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
@@ -98,11 +99,22 @@ export async function generateMetadata({
     currentPage > 1 ? `${categoryUrl}?page=${currentPage}` : categoryUrl;
 
   const titleFragment = hubContent.intro.heading;
-  const title =
-    currentPage > 1
-      ? `${titleFragment} - Page ${currentPage} | ${merchant.business_name}`
-      : `${titleFragment} | ${merchant.business_name}`;
-  const description = generateMetaDescription(hubContent.intro.description);
+  const title = generateMetaTitle(
+    currentPage > 1 ? `${titleFragment} - Page ${currentPage}` : titleFragment,
+    {
+      maxLength: 70,
+      suffix: merchant.business_name,
+      fallback: categoryName,
+    }
+  );
+  const description = generateMetaDescription(
+    hubContent.intro.description,
+    160,
+    {
+      minLength: 110,
+      fallback: `Explore ${categoryName} at ${merchant.business_name}. Compare trusted options, pricing, and key specs with nationwide delivery and flexible payment plans.`,
+    }
+  );
   const firstProductImage = paginatedProducts[0]?.image || null;
   const socialImageCandidates = [firstProductImage, merchant.logo_url];
 

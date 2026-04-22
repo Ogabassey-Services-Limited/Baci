@@ -117,6 +117,8 @@ vi.mock('@/lib/seo-utils', () => ({
   generateAggregateRating: () => null,
   generateBreadcrumbSchema: (items: unknown) =>
     mockGenerateBreadcrumbSchema(items),
+  generateMetaTitle: (title: string, options?: { suffix?: string }) =>
+    options?.suffix ? `${title} | ${options.suffix}` : title,
   generateMetaDescription: (description: string, maxLength = 160) => {
     const plainText = description.replace(/<[^>]+>/g, '').trim();
     return plainText.length <= maxLength
@@ -425,6 +427,31 @@ describe('products/[productSlug] page', () => {
         'https://teststore.usebaci.com/products/mystery-item'
       );
       expect(metadata.title).toContain('Mystery Item');
+    });
+
+    it('normalizes canonical_url host to the request-scoped storefront domain', async () => {
+      mockGetCachedProduct.mockResolvedValue({
+        ...uncategorizedProduct,
+        canonical_url: 'https://usebaci.com/products/mystery-item',
+      });
+      mockHeaders.mockReturnValue(
+        makeHeaders({ 'x-custom-domain': 'ogabassey.com' })
+      );
+
+      const metadata = await generateMetadata(
+        {
+          params: Promise.resolve({
+            slug: 'teststore',
+            productSlug: 'mystery-item',
+          }),
+          searchParams: Promise.resolve({}),
+        },
+        Promise.resolve({}) as never
+      );
+
+      expect(metadata.alternates?.canonical).toBe(
+        'https://teststore.usebaci.com/products/mystery-item'
+      );
     });
   });
 

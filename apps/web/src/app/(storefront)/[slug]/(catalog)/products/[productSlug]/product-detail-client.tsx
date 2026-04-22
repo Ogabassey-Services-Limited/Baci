@@ -353,7 +353,7 @@ export default function ProductDetailClient({
   const attributeOptions = product.has_variants
     ? getAttributeOptions(product.variants || [])
     : [];
-  const isStockManaged = product.manage_stock ?? true;
+  const isStockManaged = product.manage_stock ?? false;
   const selectionAttributes = {
     ...routeSelectionAttributes,
     ...selectedAttributes,
