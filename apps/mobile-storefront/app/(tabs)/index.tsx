@@ -40,6 +40,7 @@ const PATTERN_URI =
 export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const styles = getStyles(colors);
   const insets = useSafeAreaInsets();
 
   const template = getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID);
@@ -436,7 +437,7 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: typeof Colors.light) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -452,7 +453,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 260, // Refined for horizontal rectangle hero
-    backgroundColor: '#000',
+    backgroundColor: colors.background, // Fixed by Eclipse
     zIndex: 0,
   },
   contentContainer: {
