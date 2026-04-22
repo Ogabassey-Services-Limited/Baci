@@ -78,4 +78,32 @@ describe('root sitemap', () => {
       ])
     );
   });
+
+  it('falls back to static platform pages when the merchant query errors', async () => {
+    const errorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    try {
+      mockOrder.mockResolvedValue({
+        data: [],
+        error: new Error('db failure'),
+      });
+
+      const { default: sitemap } = await import('./sitemap');
+      const result = await sitemap();
+      const urls = result.map((entry) => entry.url);
+
+      expect(urls).toContain('https://usebaci.com/');
+      expect(urls).toContain('https://usebaci.com/pricing');
+      expect(urls).toContain('https://usebaci.com/features');
+      expect(urls).toContain('https://usebaci.com/blog');
+      expect(urls).not.toContain('https://usebaci.com/ogabassey');
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('sitemap'),
+        expect.any(Error)
+      );
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
 });

@@ -9,7 +9,15 @@ export function normalizeOrigin(input: string): string {
 }
 
 export function parseCsvOrigins(value?: string): string[] {
-  return dedupe(splitCsv(value).map((entry) => normalizeOrigin(entry)));
+  return dedupe(
+    splitCsv(value).flatMap((entry) => {
+      try {
+        return [normalizeOrigin(entry)];
+      } catch {
+        return [];
+      }
+    })
+  );
 }
 
 export function parseCsvUrls(value?: string): string[] {

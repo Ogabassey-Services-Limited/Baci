@@ -23,12 +23,6 @@ export interface SearchConsoleReadinessResult {
   surfaces: CrawlSurfaceAudit[];
 }
 
-interface RunSearchConsoleReadinessAuditOptions {
-  fetchImpl?: typeof fetch;
-  merchantOrigins: string[];
-  platformOrigin: string;
-}
-
 export function extractRobotsSitemaps(robotsTxt: string): string[] {
   return [...robotsTxt.matchAll(/^\s*Sitemap:\s*(\S+)\s*$/gim)].map(
     (match) => match[1]
@@ -60,18 +54,18 @@ export async function runSearchConsoleReadinessAudit({
   fetchImpl = fetch,
   merchantOrigins,
   platformOrigin,
-}: RunSearchConsoleReadinessAuditOptions): Promise<SearchConsoleReadinessResult> {
+}: {
+  fetchImpl?: typeof fetch;
+  merchantOrigins: string[];
+  platformOrigin: string;
+}): Promise<SearchConsoleReadinessResult> {
   const surfaces = [
     await auditPlatformSurface(fetchImpl, platformOrigin),
     ...(await Promise.all(
       merchantOrigins.map((origin) => auditMerchantSurface(fetchImpl, origin))
     )),
   ];
-
-  return {
-    passed: surfaces.every((surface) => surface.passed),
-    surfaces,
-  };
+  return { passed: surfaces.every((surface) => surface.passed), surfaces };
 }
 
 export async function main() {
@@ -104,7 +98,6 @@ function buildReadinessSummary(result: SearchConsoleReadinessResult) {
       }
     }
   }
-
   return `${lines.join('\n')}\n`;
 }
 
@@ -151,7 +144,6 @@ async function auditPlatformSurface(
       `homepage canonical mismatch: expected ${resolveUrl(normalizedOrigin, '/')}`
     );
   }
-
   return {
     kind: 'platform',
     origin: normalizedOrigin,
@@ -183,11 +175,10 @@ async function auditMerchantSurface(
   const staticSitemapUrl = resolveUrl(normalizedOrigin, '/sitemap/static.xml');
   const staticSitemapXml = await fetchText(fetchImpl, staticSitemapUrl);
   const staticLocs = extractLocs(staticSitemapXml);
+  const merchantHomeUrl = resolveUrl(normalizedOrigin, '/');
 
-  if (!staticLocs.includes(resolveUrl(normalizedOrigin, '/'))) {
-    issues.push(
-      `merchant static sitemap is missing ${resolveUrl(normalizedOrigin, '/')}`
-    );
+  if (!staticLocs.some((location) => urlsMatch(location, merchantHomeUrl))) {
+    issues.push(`merchant static sitemap is missing ${merchantHomeUrl}`);
   }
 
   const canonical = extractCanonicalHref(
@@ -199,16 +190,28 @@ async function auditMerchantSurface(
       `merchant homepage canonical mismatch: expected ${resolveUrl(normalizedOrigin, '/')}`
     );
   }
-
   const reachabilitySitemapPaths = MERCHANT_REQUIRED_SITEMAPS.filter(
     (path) => path !== '/sitemap/static.xml'
   );
 
-  await Promise.all(
+  const reachabilityResults = await Promise.allSettled(
     reachabilitySitemapPaths.map((path) =>
       fetchText(fetchImpl, resolveUrl(normalizedOrigin, path))
     )
   );
+
+  reachabilityResults.forEach((result, index) => {
+    if (result.status === 'rejected') {
+      const path = reachabilitySitemapPaths[index];
+      const message =
+        result.reason instanceof Error
+          ? result.reason.message
+          : String(result.reason);
+      issues.push(
+        `merchant sitemap ${resolveUrl(normalizedOrigin, path)} is unreachable: ${message}`
+      );
+    }
+  });
 
   return {
     kind: 'merchant',
@@ -239,7 +242,6 @@ async function fetchText(
   if (!response.ok) {
     throw new Error(`Request failed for ${url} with status ${response.status}`);
   }
-
   return response.text();
 }
 
@@ -265,7 +267,6 @@ function urlsMatch(left: string | null, right: string): boolean {
   try {
     const leftUrl = new URL(left, right);
     const rightUrl = new URL(right);
-
     return (
       leftUrl.origin === rightUrl.origin &&
       normalizeComparablePath(leftUrl.pathname) ===
@@ -281,10 +282,14 @@ function normalizeComparablePath(pathname: string): string {
   const normalized = pathname.replace(/\/+$/, '');
   return normalized || '/';
 }
-
 if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
-  await main();
+  try {
+    await main();
+  } catch (error) {
+    console.error('run-search-console-readiness:', error);
+    process.exitCode = 1;
+  }
 }

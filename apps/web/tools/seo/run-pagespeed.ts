@@ -21,20 +21,18 @@ const AUDIT_THRESHOLDS = {
   tbt: 200,
   inp: 300,
 } as const;
+const PAGE_SPEED_TIMEOUT_MS = 15_000;
 
 type PageSpeedStrategy = 'mobile' | 'desktop';
-
 export interface PageSpeedTarget {
   label: string;
   url: string;
 }
-
 export interface PageSpeedFailure {
   metric: string;
   actual: number | null;
   threshold: number;
 }
-
 export interface PageSpeedAuditResult {
   label: string;
   url: string;
@@ -52,67 +50,35 @@ interface PageSpeedApiResponse {
   };
 }
 
-interface BuildPageSpeedTargetsOptions {
-  baseUrl: string;
-  extraUrls: string[];
-}
-
-interface BuildPsiUrlOptions {
-  apiKey?: string;
-  strategy: PageSpeedStrategy;
-  targetUrl: string;
-}
-
-interface RunPageSpeedAuditOptions {
-  apiKey?: string;
-  baseUrl: string;
-  extraUrls: string[];
-  fetchImpl?: typeof fetch;
-  strategies: PageSpeedStrategy[];
-}
-
 export function buildPageSpeedTargets({
   baseUrl,
   extraUrls,
-}: BuildPageSpeedTargetsOptions): PageSpeedTarget[] {
+}: {
+  baseUrl: string;
+  extraUrls: string[];
+}): PageSpeedTarget[] {
   const normalizedBaseUrl = normalizeOrigin(baseUrl);
-
   const defaults = DEFAULT_PAGE_SPEED_ROUTES.map((route) => ({
     label: route.label,
     url: resolveUrl(normalizedBaseUrl, route.path),
   }));
-
-  const extras = extraUrls.flatMap((url, index) => {
-    const parsed = safelyParseAbsoluteUrl(url);
-
-    if (!parsed) {
-      return [];
-    }
-
-    return [
-      {
-        label: `extra-${index + 1}`,
-        url: parsed,
-      },
-    ];
-  });
+  const extras = extraUrls.map((url, index) => ({
+    label: `extra-${index + 1}`,
+    url: parseHttpUrl(url),
+  }));
 
   return dedupeTargets([...defaults, ...extras]);
 }
 
 export function parseStrategies(value?: string): PageSpeedStrategy[] {
-  if (!value) {
-    return ['mobile'];
-  }
-
-  const parsed = value
-    .split(',')
-    .map((entry) => entry.trim().toLowerCase())
-    .filter(
-      (entry): entry is PageSpeedStrategy =>
-        entry === 'mobile' || entry === 'desktop'
-    );
-
+  const parsed =
+    value
+      ?.split(',')
+      .map((entry) => entry.trim().toLowerCase())
+      .filter(
+        (entry): entry is PageSpeedStrategy =>
+          entry === 'mobile' || entry === 'desktop'
+      ) ?? [];
   return parsed.length > 0 ? [...new Set(parsed)] : ['mobile'];
 }
 
@@ -120,7 +86,11 @@ export function buildPsiUrl({
   apiKey,
   strategy,
   targetUrl,
-}: BuildPsiUrlOptions): string {
+}: {
+  apiKey?: string;
+  strategy: PageSpeedStrategy;
+  targetUrl: string;
+}): string {
   const url = new URL(
     'https://www.googleapis.com/pagespeedonline/v5/runPagespeed'
   );
@@ -200,27 +170,23 @@ export async function runPageSpeedAudit({
   extraUrls,
   fetchImpl = fetch,
   strategies,
-}: RunPageSpeedAuditOptions): Promise<PageSpeedAuditResult[]> {
+}: {
+  apiKey?: string;
+  baseUrl: string;
+  extraUrls: string[];
+  fetchImpl?: typeof fetch;
+  strategies: PageSpeedStrategy[];
+}): Promise<PageSpeedAuditResult[]> {
   const targets = buildPageSpeedTargets({ baseUrl, extraUrls });
   const results: PageSpeedAuditResult[] = [];
 
   for (const target of targets) {
     for (const strategy of strategies) {
-      const response = await fetchImpl(
-        buildPsiUrl({
-          apiKey,
-          strategy,
-          targetUrl: target.url,
-        })
-      );
-
-      if (!response.ok) {
-        throw new Error(
-          `PageSpeed Insights request failed for ${target.url} (${strategy}) with status ${response.status}`
-        );
-      }
-
-      const payload = (await response.json()) as PageSpeedApiResponse;
+      const payload = await fetchPageSpeedPayload(fetchImpl, {
+        apiKey,
+        strategy,
+        targetUrl: target.url,
+      });
       results.push({
         label: target.label,
         strategy,
@@ -245,28 +211,19 @@ function getAuditMetric(
   payload: PageSpeedApiResponse,
   key: string
 ): number | null {
-  const value = payload.lighthouseResult?.audits?.[key]?.numericValue;
-  return typeof value === 'number' ? value : null;
+  const numericValue = payload.lighthouseResult?.audits?.[key]?.numericValue;
+  return typeof numericValue === 'number' ? numericValue : null;
 }
 
 function dedupeTargets(targets: PageSpeedTarget[]): PageSpeedTarget[] {
   const seen = new Set<string>();
-  const deduped: PageSpeedTarget[] = [];
-
-  for (const target of targets) {
+  return targets.filter((target) => {
     if (seen.has(target.url)) {
-      continue;
+      return false;
     }
-
     seen.add(target.url);
-    deduped.push(target);
-  }
-
-  return deduped;
-}
-
-function formatMetricValue(value: number | null): string {
-  return value === null ? 'missing' : String(value);
+    return true;
+  });
 }
 
 export function buildPageSpeedSummary(results: PageSpeedAuditResult[]): string {
@@ -280,9 +237,9 @@ export function buildPageSpeedSummary(results: PageSpeedAuditResult[]): string {
     if (!result.passed) {
       for (const failure of result.failures) {
         lines.push(
-          `  - ${failure.metric}: ${formatMetricValue(
-            failure.actual
-          )} (threshold ${failure.threshold})`
+          `  - ${failure.metric}: ${
+            failure.actual === null ? 'missing' : String(failure.actual)
+          } (threshold ${failure.threshold})`
         );
       }
     }
@@ -291,10 +248,44 @@ export function buildPageSpeedSummary(results: PageSpeedAuditResult[]): string {
   return `${lines.join('\n')}\n`;
 }
 
-function safelyParseAbsoluteUrl(value: string): string | null {
+function parseHttpUrl(value: string): string {
   try {
-    return new URL(value).toString();
-  } catch {
-    return null;
+    const parsed = new URL(value);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      throw new Error(`unsupported protocol ${parsed.protocol}`);
+    }
+    return parsed.toString();
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(`Invalid PageSpeed target URL "${value}": ${reason}`);
+  }
+}
+
+async function fetchPageSpeedPayload(
+  fetchImpl: typeof fetch,
+  options: Parameters<typeof buildPsiUrl>[0]
+): Promise<PageSpeedApiResponse> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), PAGE_SPEED_TIMEOUT_MS);
+
+  try {
+    const response = await fetchImpl(buildPsiUrl(options), {
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      throw new Error(
+        `PageSpeed Insights request failed for ${options.targetUrl} (${options.strategy}) with status ${response.status}`
+      );
+    }
+    return (await response.json()) as PageSpeedApiResponse;
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error(
+        `PageSpeed Insights request timed out for ${options.targetUrl} (${options.strategy}) after ${PAGE_SPEED_TIMEOUT_MS}ms`
+      );
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
   }
 }

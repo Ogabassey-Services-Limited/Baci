@@ -1,12 +1,21 @@
-import { describe, expect, it } from 'vitest';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
+  appendGitHubStepSummary,
   normalizeOrigin,
   parseCsvOrigins,
   parseCsvUrls,
   parseToggle,
+  resolveUrl,
 } from './shared';
 
 describe('seo monitoring shared helpers', () => {
+  afterEach(() => {
+    delete process.env.GITHUB_STEP_SUMMARY;
+  });
+
   it('normalizes origins by trimming paths and trailing slashes', () => {
     expect(normalizeOrigin(' https://usebaci.com/pricing ')).toBe(
       'https://usebaci.com'
@@ -32,6 +41,12 @@ describe('seo monitoring shared helpers', () => {
     ).toEqual(['https://ogabassey.com', 'https://shop.ogabassey.com']);
   });
 
+  it('skips invalid origins instead of throwing', () => {
+    expect(
+      parseCsvOrigins('https://ogabassey.com, notaurl, https://usebaci.com')
+    ).toEqual(['https://ogabassey.com', 'https://usebaci.com']);
+  });
+
   it('parses comma-separated absolute urls and preserves query strings', () => {
     expect(
       parseCsvUrls(
@@ -54,5 +69,35 @@ describe('seo monitoring shared helpers', () => {
     expect(parseToggle('false', true)).toBe(false);
     expect(parseToggle('0', true)).toBe(false);
     expect(parseToggle('yes', false)).toBe(true);
+  });
+
+  it('resolves urls against normalized origins', () => {
+    expect(resolveUrl('https://usebaci.com/pricing', '/blog')).toBe(
+      'https://usebaci.com/blog'
+    );
+    expect(resolveUrl('https://usebaci.com', 'faq')).toBe(
+      'https://usebaci.com/faq'
+    );
+    expect(resolveUrl('https://usebaci.com/store/', '../blog?tag=seo')).toBe(
+      'https://usebaci.com/blog?tag=seo'
+    );
+  });
+
+  it('appends markdown to the GitHub step summary file when configured', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'baci-seo-summary-'));
+    const summaryPath = join(dir, 'summary.md');
+    try {
+      process.env.GITHUB_STEP_SUMMARY = summaryPath;
+      await appendGitHubStepSummary('## Summary');
+      expect(await readFile(summaryPath, 'utf8')).toBe('## Summary\n');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('no-ops when GitHub step summary is not configured', async () => {
+    await expect(
+      appendGitHubStepSummary('## Summary')
+    ).resolves.toBeUndefined();
   });
 });

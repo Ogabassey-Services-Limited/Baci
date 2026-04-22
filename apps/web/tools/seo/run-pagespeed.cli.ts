@@ -4,17 +4,16 @@ import {
   parseStrategies,
   runPageSpeedAudit,
 } from './run-pagespeed';
-import {
-  appendGitHubStepSummary,
-  normalizeOrigin,
-  parseCsvUrls,
-} from './shared';
+import { appendGitHubStepSummary, normalizeOrigin } from './shared';
 
 export async function main() {
   const baseUrl = normalizeOrigin(
     process.env.SEO_PLATFORM_ORIGIN || 'https://usebaci.com'
   );
-  const extraUrls = parseCsvUrls(process.env.PAGESPEED_EXTRA_URLS);
+  const extraUrls = (process.env.PAGESPEED_EXTRA_URLS || '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
   const strategies = parseStrategies(process.env.PAGESPEED_STRATEGIES);
   const results = await runPageSpeedAudit({
     apiKey: process.env.PAGESPEED_INSIGHTS_API_KEY,

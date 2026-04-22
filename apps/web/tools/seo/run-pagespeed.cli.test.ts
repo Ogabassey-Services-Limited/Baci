@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockAppendGitHubStepSummary = vi.fn();
 const mockNormalizeOrigin = vi.fn(() => 'https://usebaci.com');
-const mockParseCsvUrls = vi.fn(() => []);
 const mockBuildPageSpeedSummary = vi.fn(() => '## PageSpeed Insights\n');
 const mockParseStrategies = vi.fn(() => ['mobile']);
 const mockRunPageSpeedAudit = vi.fn();
@@ -11,7 +10,6 @@ vi.mock('./shared', () => ({
   appendGitHubStepSummary: (...args: unknown[]) =>
     mockAppendGitHubStepSummary(...args),
   normalizeOrigin: (...args: unknown[]) => mockNormalizeOrigin(...args),
-  parseCsvUrls: (...args: unknown[]) => mockParseCsvUrls(...args),
 }));
 
 vi.mock('./run-pagespeed', () => ({
@@ -29,6 +27,7 @@ describe('run-pagespeed cli', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
   });
 
   it('writes a summary and exits cleanly when audits pass', async () => {
@@ -74,6 +73,22 @@ describe('run-pagespeed cli', () => {
 
     await expect(main()).rejects.toThrow(
       'PageSpeed monitoring found 1 failing audits'
+    );
+    expect(log).toHaveBeenCalled();
+  });
+
+  it('passes raw extra urls through to the audit layer for validation', async () => {
+    vi.stubEnv('PAGESPEED_EXTRA_URLS', 'notaurl,https://ogabassey.com');
+    mockRunPageSpeedAudit.mockResolvedValue([]);
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const { main } = await import('./run-pagespeed.cli');
+
+    await main();
+
+    expect(mockRunPageSpeedAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        extraUrls: ['notaurl', 'https://ogabassey.com'],
+      })
     );
     expect(log).toHaveBeenCalled();
   });

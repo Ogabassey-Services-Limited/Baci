@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   buildPageSpeedTargets,
   buildPsiUrl,
@@ -8,6 +8,10 @@ import {
 } from './run-pagespeed';
 
 describe('run-pagespeed', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('builds platform targets and appends extra absolute urls', () => {
     expect(
       buildPageSpeedTargets({
@@ -22,6 +26,15 @@ describe('run-pagespeed', () => {
       { label: 'contact', url: 'https://usebaci.com/contact' },
       { label: 'extra-1', url: 'https://ogabassey.com/' },
     ]);
+  });
+
+  it('throws for invalid extra target urls instead of silently skipping them', () => {
+    expect(() =>
+      buildPageSpeedTargets({
+        baseUrl: 'https://usebaci.com',
+        extraUrls: ['notaurl'],
+      })
+    ).toThrow('Invalid PageSpeed target URL "notaurl"');
   });
 
   it('parses strategies and falls back to mobile when input is invalid', () => {
@@ -132,5 +145,32 @@ describe('run-pagespeed', () => {
     ).rejects.toThrow(
       'PageSpeed Insights request failed for https://usebaci.com/ (mobile) with status 429'
     );
+  });
+
+  it('aborts stuck PSI requests with a target-specific timeout error', async () => {
+    vi.useFakeTimers();
+    const fetchImpl: typeof fetch = vi.fn(
+      (_input, init) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => {
+            reject(new DOMException('aborted', 'AbortError'));
+          });
+        })
+    );
+    const pendingAudit = runPageSpeedAudit({
+      apiKey: undefined,
+      baseUrl: 'https://usebaci.com',
+      extraUrls: [],
+      fetchImpl,
+      strategies: ['mobile'],
+    });
+    const timeoutExpectation = expect(pendingAudit).rejects.toThrow(
+      'PageSpeed Insights request timed out for https://usebaci.com/ (mobile)'
+    );
+
+    // Matches the per-request PSI timeout enforced inside runPageSpeedAudit.
+    await vi.advanceTimersByTimeAsync(15_000);
+
+    await timeoutExpectation;
   });
 });
