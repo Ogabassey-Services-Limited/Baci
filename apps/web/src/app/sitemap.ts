@@ -1,11 +1,11 @@
 import type { MetadataRoute } from 'next';
-import { headers } from 'next/headers';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { cookies, headers } from 'next/headers';
+import { createClient } from '@/lib/supabase/server';
 
 // Fetch active merchants for dynamic storefront URLs
 async function fetchActiveMerchants() {
   try {
-    const supabase = createAdminClient();
+    const supabase = createClient(await cookies());
     const { data: merchants, error } = await supabase
       .from('merchants')
       .select('slug, updated_at')
@@ -54,8 +54,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Define static platform pages
   const staticPages = [
     { path: '/', changeFreq: 'weekly' as const, priority: 1.0 },
-    { path: '/onboarding', changeFreq: 'monthly' as const, priority: 0.8 },
-    { path: '/login', changeFreq: 'monthly' as const, priority: 0.5 },
     { path: '/pricing', changeFreq: 'weekly' as const, priority: 0.9 },
     { path: '/features', changeFreq: 'monthly' as const, priority: 0.8 },
     { path: '/about', changeFreq: 'monthly' as const, priority: 0.7 },
