@@ -20,9 +20,14 @@ describe('StorefrontThemeProvider', () => {
       </StorefrontThemeProvider>
     );
 
-    // The outermost element must carry the `light` class so that
-    // CSS variables in globals.css scope light-mode tokens to this subtree,
-    // overriding any `html.dark` class set by the root ThemeProvider.
+    // The outermost element must carry the `light` class so that:
+    // 1. CSS variables in globals.css scope light-mode tokens to this subtree,
+    //    overriding any `html.dark` class set by the root ThemeProvider.
+    // 2. The Tailwind `darkMode` selector configured in tailwind.config.ts
+    //    (`&:where(.dark, .dark *):not(.light):not(.light *)`) excludes this
+    //    wrapper and its descendants from raw `dark:*` utility variants.
+    // Without both, components using utilities like `dark:bg-gray-900` would
+    // still render dark styles inside the storefront subtree.
     const wrapper = container.firstChild as HTMLElement;
     expect(wrapper).toHaveClass('light');
   });

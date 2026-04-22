@@ -5,7 +5,13 @@ import plugin from 'tailwindcss/plugin';
 import tailwindcssAnimate from 'tailwindcss-animate';
 
 export default {
-  darkMode: ['class'],
+  // Dark variants fire when the element (or an ancestor) has `.dark`, unless
+  // a `.light` wrapper intervenes. The `.light` wrapper is used by
+  // StorefrontThemeProvider to force light mode on the storefront subtree
+  // even when the root `<html>` carries `.dark` from next-themes.
+  // `:where()` keeps specificity low so ordinary utilities still win.
+  // Reference: https://v3.tailwindcss.com/docs/dark-mode (custom variant form).
+  darkMode: ['variant', '&:where(.dark, .dark *):not(.light):not(.light *)'],
   content: [
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
