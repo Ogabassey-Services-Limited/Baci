@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { seoConstants } from './constants';
 
 const mockAppendGitHubStepSummary = vi.fn();
 const mockBuildReadinessSummary = vi.fn(() => '## Search Console Readiness\n');
-const mockNormalizeOrigin = vi.fn(() => 'https://usebaci.com');
+const mockNormalizeOrigin = vi.fn(() => seoConstants.DEFAULT_PLATFORM_ORIGIN);
 const mockRunConfiguredSearchConsoleReadinessAudit = vi.fn();
 
 vi.mock('./shared', () => ({
@@ -47,7 +48,7 @@ describe('run-search-console-readiness cli', () => {
 
     expect(mockRunConfiguredSearchConsoleReadinessAudit).toHaveBeenCalledWith({
       merchantOriginsEnv: undefined,
-      platformOrigin: 'https://usebaci.com',
+      platformOrigin: seoConstants.DEFAULT_PLATFORM_ORIGIN,
     });
     expect(mockBuildReadinessSummary).toHaveBeenCalledWith(result);
     expect(mockAppendGitHubStepSummary).toHaveBeenCalledWith(

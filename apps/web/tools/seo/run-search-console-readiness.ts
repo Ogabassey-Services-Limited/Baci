@@ -19,11 +19,19 @@ async function runSearchConsoleReadinessAudit({
   merchantOrigins: string[];
   platformOrigin: string;
 }): Promise<SearchConsoleReadinessResult> {
-  const merchantSurfaces = await Promise.allSettled(
-    merchantOrigins.map((origin) => auditMerchantSurface(fetchImpl, origin))
-  );
+  const settledSurfaces = await Promise.allSettled([
+    auditPlatformSurface(fetchImpl, platformOrigin),
+    ...merchantOrigins.map((origin) => auditMerchantSurface(fetchImpl, origin)),
+  ]);
+  const [platformSurface, ...merchantSurfaces] = settledSurfaces;
   const surfaces = [
-    await auditPlatformSurface(fetchImpl, platformOrigin),
+    platformSurface?.status === 'fulfilled'
+      ? platformSurface.value
+      : searchConsoleReadinessShared.buildSurfaceFailure(
+          'platform',
+          platformOrigin ?? 'unknown',
+          `failed to audit platform surface: ${searchConsoleReadinessShared.toErrorMessage(platformSurface?.reason)}`
+        ),
     ...merchantSurfaces.map((surface, index) =>
       surface.status === 'fulfilled'
         ? surface.value
@@ -92,21 +100,81 @@ function buildReadinessSummary(result: SearchConsoleReadinessResult): string {
   return `${lines.join('\n')}\n`;
 }
 
-async function auditPlatformSurface(
-  fetchImpl: typeof fetch,
-  origin: string
-): Promise<CrawlSurfaceAudit> {
+async function collectSurfaceBasics({
+  fetchImpl,
+  origin,
+  sitemapPath,
+  robotsFailureLabel,
+  sitemapFailureLabel,
+  homepageFailureLabel,
+}: {
+  fetchImpl: typeof fetch;
+  origin: string;
+  sitemapPath: string;
+  robotsFailureLabel: string;
+  sitemapFailureLabel: string;
+  homepageFailureLabel: string;
+}) {
   const normalizedOrigin = new URL(origin).origin;
   const issues: string[] = [];
   const robotsTxt = await searchConsoleReadinessShared.fetchTextOrIssue(
     fetchImpl,
     seoShared.resolveUrl(normalizedOrigin, '/robots.txt'),
     issues,
-    'failed to fetch robots.txt'
+    robotsFailureLabel
   );
   const sitemapUrls = robotsTxt
     ? searchConsoleReadinessShared.extractRobotsSitemaps(robotsTxt)
     : [];
+  const sitemapXml = await searchConsoleReadinessShared.fetchTextOrIssue(
+    fetchImpl,
+    seoShared.resolveUrl(normalizedOrigin, sitemapPath),
+    issues,
+    sitemapFailureLabel
+  );
+  const sitemapLocs = sitemapXml
+    ? searchConsoleReadinessShared.extractLocs(sitemapXml)
+    : [];
+  const homepageHtml = await searchConsoleReadinessShared.fetchTextOrIssue(
+    fetchImpl,
+    seoShared.resolveUrl(normalizedOrigin, '/'),
+    issues,
+    homepageFailureLabel
+  );
+
+  return {
+    canonical: homepageHtml
+      ? searchConsoleReadinessShared.extractCanonicalHref(homepageHtml)
+      : null,
+    homepageFetched: Boolean(homepageHtml),
+    homepageUrl: seoShared.resolveUrl(normalizedOrigin, '/'),
+    issues,
+    normalizedOrigin,
+    sitemapLocs,
+    sitemapUrls,
+  };
+}
+
+async function auditPlatformSurface(
+  fetchImpl: typeof fetch,
+  origin: string
+): Promise<CrawlSurfaceAudit> {
+  const {
+    canonical,
+    homepageFetched,
+    homepageUrl,
+    issues,
+    normalizedOrigin,
+    sitemapLocs: platformLocs,
+    sitemapUrls,
+  } = await collectSurfaceBasics({
+    fetchImpl,
+    homepageFailureLabel: 'failed to fetch homepage',
+    origin,
+    robotsFailureLabel: 'failed to fetch robots.txt',
+    sitemapFailureLabel: 'failed to fetch root sitemap',
+    sitemapPath: '/sitemap.xml',
+  });
   const platformSitemapUrl = seoShared.resolveUrl(
     normalizedOrigin,
     '/sitemap.xml'
@@ -115,17 +183,6 @@ async function auditPlatformSurface(
   if (!sitemapUrls.includes(platformSitemapUrl)) {
     issues.push(`robots.txt is missing ${platformSitemapUrl}`);
   }
-
-  const platformSitemapXml =
-    await searchConsoleReadinessShared.fetchTextOrIssue(
-      fetchImpl,
-      platformSitemapUrl,
-      issues,
-      'failed to fetch root sitemap'
-    );
-  const platformLocs = platformSitemapXml
-    ? searchConsoleReadinessShared.extractLocs(platformSitemapXml)
-    : [];
 
   for (const path of PLATFORM_REQUIRED_LOCATIONS) {
     const requiredUrl = seoShared.resolveUrl(normalizedOrigin, path);
@@ -141,26 +198,11 @@ async function auditPlatformSurface(
     }
   }
 
-  const homepageHtml = await searchConsoleReadinessShared.fetchTextOrIssue(
-    fetchImpl,
-    seoShared.resolveUrl(normalizedOrigin, '/'),
-    issues,
-    'failed to fetch homepage'
-  );
-  const canonical = homepageHtml
-    ? searchConsoleReadinessShared.extractCanonicalHref(homepageHtml)
-    : null;
-
   if (
-    homepageHtml &&
-    !searchConsoleReadinessShared.urlsMatch(
-      canonical,
-      seoShared.resolveUrl(normalizedOrigin, '/')
-    )
+    homepageFetched &&
+    !searchConsoleReadinessShared.urlsMatch(canonical, homepageUrl)
   ) {
-    issues.push(
-      `homepage canonical mismatch: expected ${seoShared.resolveUrl(normalizedOrigin, '/')}`
-    );
+    issues.push(`homepage canonical mismatch: expected ${homepageUrl}`);
   }
   return {
     kind: 'platform',
@@ -175,17 +217,22 @@ async function auditMerchantSurface(
   fetchImpl: typeof fetch,
   origin: string
 ): Promise<CrawlSurfaceAudit> {
-  const normalizedOrigin = new URL(origin).origin;
-  const issues: string[] = [];
-  const robotsTxt = await searchConsoleReadinessShared.fetchTextOrIssue(
-    fetchImpl,
-    seoShared.resolveUrl(normalizedOrigin, '/robots.txt'),
+  const {
+    canonical,
+    homepageFetched,
+    homepageUrl: merchantHomeUrl,
     issues,
-    'failed to fetch merchant robots.txt'
-  );
-  const sitemapUrls = robotsTxt
-    ? searchConsoleReadinessShared.extractRobotsSitemaps(robotsTxt)
-    : [];
+    normalizedOrigin,
+    sitemapLocs: staticLocs,
+    sitemapUrls,
+  } = await collectSurfaceBasics({
+    fetchImpl,
+    homepageFailureLabel: 'failed to fetch merchant homepage',
+    origin,
+    robotsFailureLabel: 'failed to fetch merchant robots.txt',
+    sitemapFailureLabel: 'failed to fetch merchant static sitemap',
+    sitemapPath: '/sitemap/static.xml',
+  });
 
   for (const path of MERCHANT_REQUIRED_SITEMAPS) {
     const requiredUrl = seoShared.resolveUrl(normalizedOrigin, path);
@@ -193,21 +240,6 @@ async function auditMerchantSurface(
       issues.push(`merchant robots.txt is missing ${requiredUrl}`);
     }
   }
-
-  const staticSitemapUrl = seoShared.resolveUrl(
-    normalizedOrigin,
-    '/sitemap/static.xml'
-  );
-  const staticSitemapXml = await searchConsoleReadinessShared.fetchTextOrIssue(
-    fetchImpl,
-    staticSitemapUrl,
-    issues,
-    'failed to fetch merchant static sitemap'
-  );
-  const staticLocs = staticSitemapXml
-    ? searchConsoleReadinessShared.extractLocs(staticSitemapXml)
-    : [];
-  const merchantHomeUrl = seoShared.resolveUrl(normalizedOrigin, '/');
 
   if (
     !staticLocs.some((location) =>
@@ -217,25 +249,12 @@ async function auditMerchantSurface(
     issues.push(`merchant static sitemap is missing ${merchantHomeUrl}`);
   }
 
-  const homepageHtml = await searchConsoleReadinessShared.fetchTextOrIssue(
-    fetchImpl,
-    seoShared.resolveUrl(normalizedOrigin, '/'),
-    issues,
-    'failed to fetch merchant homepage'
-  );
-  const canonical = homepageHtml
-    ? searchConsoleReadinessShared.extractCanonicalHref(homepageHtml)
-    : null;
-
   if (
-    homepageHtml &&
-    !searchConsoleReadinessShared.urlsMatch(
-      canonical,
-      seoShared.resolveUrl(normalizedOrigin, '/')
-    )
+    homepageFetched &&
+    !searchConsoleReadinessShared.urlsMatch(canonical, merchantHomeUrl)
   ) {
     issues.push(
-      `merchant homepage canonical mismatch: expected ${seoShared.resolveUrl(normalizedOrigin, '/')}`
+      `merchant homepage canonical mismatch: expected ${merchantHomeUrl}`
     );
   }
   const reachabilitySitemapPaths = MERCHANT_REQUIRED_SITEMAPS.filter(

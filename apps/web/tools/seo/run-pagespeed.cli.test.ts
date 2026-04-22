@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { seoConstants } from './constants';
 
 const mockAppendGitHubStepSummary = vi.fn();
-const mockNormalizeOrigin = vi.fn(() => 'https://usebaci.com');
+const mockNormalizeOrigin = vi.fn(() => seoConstants.DEFAULT_PLATFORM_ORIGIN);
 const mockBuildPageSpeedSummary = vi.fn(() => '## PageSpeed Insights\n');
 const mockParseStrategies = vi.fn(() => ['mobile']);
 const mockRunPageSpeedAudit = vi.fn();
@@ -38,7 +39,7 @@ describe('run-pagespeed cli', () => {
     mockRunPageSpeedAudit.mockResolvedValue([
       {
         label: 'home',
-        url: 'https://usebaci.com/',
+        url: `${seoConstants.DEFAULT_PLATFORM_ORIGIN}/`,
         strategy: 'mobile',
         passed: true,
         failures: [],
@@ -63,7 +64,7 @@ describe('run-pagespeed cli', () => {
     mockRunPageSpeedAudit.mockResolvedValue([
       {
         label: 'home',
-        url: 'https://usebaci.com/',
+        url: `${seoConstants.DEFAULT_PLATFORM_ORIGIN}/`,
         strategy: 'mobile',
         passed: false,
         failures: [{ metric: 'seo', actual: 0.5, threshold: 0.9 }],

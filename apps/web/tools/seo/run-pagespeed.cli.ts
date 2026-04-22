@@ -1,10 +1,11 @@
 import { pathToFileURL } from 'node:url';
+import { seoConstants } from './constants';
 import { pageSpeedTools } from './run-pagespeed';
 import { seoShared } from './shared';
 
 export async function main() {
   const baseUrl = seoShared.normalizeOrigin(
-    process.env.SEO_PLATFORM_ORIGIN || 'https://usebaci.com'
+    process.env.SEO_PLATFORM_ORIGIN || seoConstants.DEFAULT_PLATFORM_ORIGIN
   );
   const extraUrls = (process.env.PAGESPEED_EXTRA_URLS || '')
     .split(',')

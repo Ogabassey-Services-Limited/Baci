@@ -83,7 +83,7 @@ function urlsMatch(left: string | null, right: string): boolean {
       leftUrl.origin === rightUrl.origin &&
       normalizeComparablePath(leftUrl.pathname) ===
         normalizeComparablePath(rightUrl.pathname) &&
-      leftUrl.search === rightUrl.search
+      normalizeSearch(leftUrl.search) === normalizeSearch(rightUrl.search)
     );
   } catch {
     return false;
@@ -150,6 +150,17 @@ function isValidCodePoint(codePoint: number): boolean {
 function normalizeComparablePath(pathname: string): string {
   const normalized = pathname.replace(/\/+$/, '');
   return normalized || '/';
+}
+
+function normalizeSearch(search: string): string {
+  const normalizedEntries = [...new URLSearchParams(search).entries()].sort(
+    ([leftKey, leftValue], [rightKey, rightValue]) =>
+      leftKey === rightKey
+        ? leftValue.localeCompare(rightValue)
+        : leftKey.localeCompare(rightKey)
+  );
+  const normalized = new URLSearchParams(normalizedEntries).toString();
+  return normalized ? `?${normalized}` : '';
 }
 
 export const searchConsoleReadinessShared = {

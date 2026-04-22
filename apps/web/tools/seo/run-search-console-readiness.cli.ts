@@ -1,4 +1,5 @@
 import { pathToFileURL } from 'node:url';
+import { seoConstants } from './constants';
 import { searchConsoleReadiness } from './run-search-console-readiness';
 import { seoShared } from './shared';
 
@@ -8,7 +9,7 @@ export async function main() {
   const configuredPlatformOrigin = process.env.SEO_PLATFORM_ORIGIN?.trim();
   const platformOrigin = configuredPlatformOrigin
     ? seoShared.normalizeOrigin(configuredPlatformOrigin)
-    : 'https://usebaci.com';
+    : seoConstants.DEFAULT_PLATFORM_ORIGIN;
 
   const result =
     await searchConsoleReadiness.runConfiguredSearchConsoleReadinessAudit({

@@ -82,4 +82,13 @@ describe('run-search-console-readiness shared helpers', () => {
       )
     ).toBeNull();
   });
+
+  it('matches equivalent urls when query parameter ordering differs', () => {
+    expect(
+      searchConsoleReadinessShared.urlsMatch(
+        'https://usebaci.com/pricing?currency=NGN&plan=growth&tag=b&tag=a',
+        'https://usebaci.com/pricing?tag=a&plan=growth&tag=b&currency=NGN'
+      )
+    ).toBe(true);
+  });
 });
