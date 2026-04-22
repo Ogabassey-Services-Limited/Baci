@@ -24,6 +24,12 @@ export interface BlogPostBodyProps {
     tags?: string[] | null;
     title: string;
   };
+  relatedProducts?: Array<{
+    category_slug?: string | null;
+    id: string;
+    name: string;
+    slug: string;
+  }>;
   relatedPosts: Array<{
     category?: string | null;
     featured_image_url?: string | null;
@@ -43,6 +49,7 @@ export async function BlogPostBody({
   merchantSlug,
   post,
   postUrl,
+  relatedProducts = [],
   relatedPosts,
 }: BlogPostBodyProps) {
   const { isJson, legacyHtml, renderedContent } = await resolveBlogPostContent(
@@ -50,10 +57,18 @@ export async function BlogPostBody({
     {
       basePath,
       baseUrl,
+      fallbackImageAlt: post.title,
       merchantSlug,
     }
   );
   const shareUrl = postUrl || buildBlogUrl(baseUrl, basePath, post.slug);
+  const safeRelatedProducts = relatedProducts.filter(
+    (product) =>
+      typeof product.name === 'string' &&
+      product.name.trim().length > 0 &&
+      typeof product.slug === 'string' &&
+      product.slug.trim().length > 0
+  );
 
   return (
     <div className="[content-visibility:auto] [contain-intrinsic-size:1152px_2400px]">
@@ -171,6 +186,33 @@ export async function BlogPostBody({
               </Link>
             ))}
           </div>
+        </section>
+      )}
+
+      {safeRelatedProducts.length > 0 && (
+        <section className="mt-10">
+          <h2 className="mb-4 text-2xl font-bold">
+            Popular Products Mentioned
+          </h2>
+          <ul className="grid gap-3 md:grid-cols-2">
+            {safeRelatedProducts.map((product) => {
+              const categorySlug = product.category_slug?.trim();
+              const href = categorySlug
+                ? `${basePath}/${categorySlug}/${product.slug}`
+                : `${basePath}/products/${product.slug}`;
+
+              return (
+                <li key={product.id}>
+                  <Link
+                    href={href as Route}
+                    className="block rounded-xl border border-gray-200 px-4 py-3 text-sm font-medium text-foreground transition-colors hover:border-primary hover:text-primary"
+                  >
+                    {product.name}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
         </section>
       )}
     </div>

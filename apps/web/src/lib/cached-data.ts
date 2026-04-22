@@ -1707,13 +1707,34 @@ export async function getCachedBlogPost(
     .eq('merchant_id', merchant.id)
     .eq('status', 'published')
     .neq('id', post.id)
-    .limit(3);
+    .order('published_at', { ascending: false });
 
   if (post.category) {
     relatedQuery = relatedQuery.eq('category', post.category);
   }
 
-  const { data: relatedPosts } = await relatedQuery;
+  const { data: relatedPosts } = await relatedQuery.limit(3);
+
+  let relatedProductsQuery = supabase
+    .from('products')
+    .select('id, name, slug, category_slug')
+    .eq('merchant_id', merchant.id)
+    .eq('status', 'active')
+    .order('updated_at', { ascending: false });
+
+  if (post.category) {
+    relatedProductsQuery = relatedProductsQuery.eq('category', post.category);
+  }
+
+  const { data: relatedProducts, error: relatedProductsError } =
+    await relatedProductsQuery.limit(6);
+
+  if (relatedProductsError) {
+    console.error(
+      'Error fetching related blog products:',
+      relatedProductsError
+    );
+  }
 
   return {
     merchant: {
@@ -1721,10 +1742,12 @@ export async function getCachedBlogPost(
       business_name: merchant.business_name,
       slug: merchant.slug,
       logo_url: merchant.logo_url,
+      country: merchant.country,
       custom_domain: merchant.custom_domain,
     },
     post,
     relatedPosts: relatedPosts || [],
+    relatedProducts: relatedProductsError ? [] : relatedProducts || [],
   };
 }
 

@@ -13,6 +13,7 @@ const mockBuildInformationalClusterModel = vi.fn();
 const mockBlogPostHeader = vi.fn(
   ({ title }: { title: string; locale?: string }) => <h1>{title}</h1>
 );
+const mockBlogPostBody = vi.fn((_props?: unknown) => null);
 
 vi.mock('lucide-react', () => ({
   AlertTriangle: () => null,
@@ -106,7 +107,7 @@ vi.mock('@/lib/validation', () => ({
 }));
 
 vi.mock('./BlogPostBody', () => ({
-  BlogPostBody: () => null,
+  BlogPostBody: (props: unknown) => mockBlogPostBody(props),
 }));
 
 vi.mock('./BlogPostBodyFallback', () => ({
@@ -173,6 +174,7 @@ const smartphoneGuideBlogPost = {
     word_count: 800,
   },
   relatedPosts: [],
+  relatedProducts: [],
 };
 
 describe('BlogPostPageContent', () => {
@@ -224,6 +226,45 @@ describe('BlogPostPageContent', () => {
       expect.objectContaining({
         locale: 'en-US',
         title: 'Best Phones in Nigeria for 2026',
+      })
+    );
+    expect(mockBlogPostBody).toHaveBeenCalledWith(
+      expect.objectContaining({
+        relatedProducts: [],
+      })
+    );
+  });
+
+  it('passes related products through to the blog post body', async () => {
+    mockGetCachedBlogPost.mockResolvedValue({
+      ...smartphoneGuideBlogPost,
+      relatedProducts: [
+        {
+          id: 'product-1',
+          name: 'iPhone 16',
+          slug: 'iphone-16',
+          category_slug: 'smartphones',
+        },
+      ],
+    });
+
+    render(
+      await BlogPostPageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          postSlug: 'best-phones-in-nigeria',
+        }),
+      })
+    );
+
+    expect(mockBlogPostBody).toHaveBeenCalledWith(
+      expect.objectContaining({
+        relatedProducts: [
+          expect.objectContaining({
+            name: 'iPhone 16',
+            slug: 'iphone-16',
+          }),
+        ],
       })
     );
   });

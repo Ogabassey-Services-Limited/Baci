@@ -3,6 +3,7 @@ import {
   toSchemaItemConditionUri,
 } from '@baci/shared/lib';
 import type { Metadata, Route } from 'next';
+import { normalizeStorefrontCategorySlug } from './normalize-storefront-category-slug';
 import type { Product, ProductSchemaMarkup, Review } from './products';
 // Import from sanitize-core to avoid loading jsdom on server components
 import { escapeHtml, stripHtmlTags } from './sanitize-core';
@@ -86,13 +87,19 @@ export function buildProductUrl(
 ): Route {
   // Handle category as object (from join) or string (legacy)
   if (typeof category === 'object' && category?.slug) {
-    return `/${category.slug}/${productSlug}` as Route;
+    const normalizedCategorySlug = normalizeStorefrontCategorySlug(
+      category.slug
+    );
+    if (normalizedCategorySlug) {
+      return `/${normalizedCategorySlug}/${productSlug}` as Route;
+    }
   }
-  if (categorySlug) {
-    return `/${categorySlug}/${productSlug}` as Route;
+  const normalizedCategorySlug = normalizeStorefrontCategorySlug(categorySlug);
+  if (normalizedCategorySlug) {
+    return `/${normalizedCategorySlug}/${productSlug}` as Route;
   }
   if (typeof category === 'string') {
-    const slug = generateSlug(category);
+    const slug = normalizeStorefrontCategorySlug(generateSlug(category));
     if (slug) {
       return `/${slug}/${productSlug}` as Route;
     }
@@ -111,10 +118,16 @@ export function getProductUrl(product: {
   categories?: { name?: string; slug?: string } | null;
   category_slug?: string;
   categorySlug?: string;
+  canonical_url?: string | null;
   condition?: 'new' | 'used' | string;
   condition_detail?: string;
   id: string;
 }): Route {
+  const canonicalPath = extractCanonicalProductPath(product.canonical_url);
+  if (canonicalPath) {
+    return canonicalPath;
+  }
+
   // Use existing slug or generate one
   const productSlug =
     product.slug ||
@@ -134,6 +147,82 @@ export function getProductUrl(product: {
     product.categories?.name || product.category,
     categorySlug
   );
+}
+
+const STOREFRONT_ROOT_SEGMENTS = new Set([
+  'products',
+  'blog',
+  'smartphones',
+  'laptops',
+  'macbooks',
+  'gaming',
+  'accessories',
+  'audio',
+  'tablets',
+  'desktops',
+  'monitors',
+  'smartwatches',
+  'gaming-laptops',
+  'gift-cards',
+  'gaming-accessories',
+  'earbuds',
+  'headphones',
+  'wearables',
+  'printers',
+  'repair',
+  'repairs',
+  'swap',
+  'wallet',
+  'account',
+  'wishlist',
+  'faq',
+  'about',
+  'terms',
+  'privacy',
+]);
+
+function extractCanonicalProductPath(
+  canonicalUrl: string | null | undefined
+): Route | null {
+  const normalizedCanonical = canonicalUrl?.trim();
+  if (!normalizedCanonical) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(normalizedCanonical, 'https://storefront.invalid');
+    const canonicalSegments = parsed.pathname
+      .split('/')
+      .filter(Boolean)
+      .map((segment) => segment.trim())
+      .filter(Boolean);
+
+    if (canonicalSegments.length === 0) {
+      return null;
+    }
+
+    if (
+      canonicalSegments.length >= 3 &&
+      !STOREFRONT_ROOT_SEGMENTS.has(canonicalSegments[0].toLowerCase())
+    ) {
+      canonicalSegments.shift();
+    }
+
+    if (canonicalSegments.length === 0) {
+      return null;
+    }
+
+    const normalizedCategorySlug = normalizeStorefrontCategorySlug(
+      canonicalSegments[0]
+    );
+    if (normalizedCategorySlug) {
+      canonicalSegments[0] = normalizedCategorySlug;
+    }
+
+    return `/${canonicalSegments.join('/')}` as Route;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -185,6 +274,46 @@ function schemaPropertyForAttribute(key: string): string | undefined {
     gender: 'https://schema.org/suggestedGender',
   };
   return map[key.toLowerCase()];
+}
+
+function getNormalizedVariantAttribute(
+  attributes: Record<string, string> | null | undefined,
+  keys: string[]
+): string | undefined {
+  for (const key of keys) {
+    const value = attributes?.[key];
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+
+  return undefined;
+}
+
+function getVariantSchemaColor(
+  attributes: Record<string, string> | null | undefined
+): string | undefined {
+  return getNormalizedVariantAttribute(attributes, ['color', 'colour']);
+}
+
+function getVariantSchemaSize(
+  attributes: Record<string, string> | null | undefined
+): string | undefined {
+  const explicitSize = getNormalizedVariantAttribute(attributes, ['size']);
+  if (explicitSize) {
+    return explicitSize;
+  }
+
+  const inferredParts = [
+    getNormalizedVariantAttribute(attributes, ['storage']),
+    getNormalizedVariantAttribute(attributes, ['ram']),
+  ].filter((value): value is string => Boolean(value));
+
+  if (inferredParts.length === 0) {
+    return undefined;
+  }
+
+  return Array.from(new Set(inferredParts)).join(' / ');
 }
 
 function mapReturnMethodToSchemaUrl(
@@ -489,12 +618,6 @@ export function generateProductSchema(
   const categoryName = product.categories?.name || product.category;
   if (categoryName) {
     schema.category = escapeHtml(categoryName);
-  }
-
-  if (product.google_product_category) {
-    schema.google_product_category = escapeHtml(
-      product.google_product_category
-    );
   }
 
   // Physical attributes
@@ -836,6 +959,8 @@ export function generateProductSchema(
       const variantCondition = getSchemaItemCondition(
         variant.condition ?? product.condition
       );
+      const variantColor = getVariantSchemaColor(variant.attributes);
+      const variantSize = getVariantSchemaSize(variant.attributes);
       const attrValues = variant.attributes
         ? Object.values(variant.attributes).join(' / ')
         : '';
@@ -859,8 +984,17 @@ export function generateProductSchema(
       return {
         '@type': 'Product',
         name: variantName,
+        description: safeDescription,
         ...(variantImages && { image: variantImages }),
+        brand: {
+          '@type': 'Brand',
+          name: safeBrand,
+        },
+        ...(variantColor && { color: escapeHtml(variantColor) }),
+        ...(variantSize && { size: escapeHtml(variantSize) }),
         sku: variant.sku ? escapeHtml(variant.sku) : variant.id,
+        ...(product.gtin && { gtin: escapeHtml(product.gtin) }),
+        ...(product.mpn && { mpn: escapeHtml(product.mpn) }),
         offers: {
           '@type': 'Offer',
           price: variantPrice,
@@ -906,14 +1040,17 @@ export function generateBreadcrumbSchema(
   return {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
-    itemListElement: items.map((item, index) => ({
-      '@type': 'ListItem',
-      position: index + 1,
-      item: {
-        '@id': escapeHtml(item.url),
+    itemListElement: items.map((item, index) => {
+      const normalizedUrl =
+        toAbsoluteSchemaUrl(item.url, item.url) || item.url.trim() || '/';
+
+      return {
+        '@type': 'ListItem',
+        position: index + 1,
         name: escapeHtml(item.name),
-      },
-    })),
+        item: escapeHtml(normalizedUrl),
+      };
+    }),
   };
 }
 
@@ -1089,6 +1226,8 @@ export function generateLocalBusinessSchema(
 const ELLIPSIS = '...';
 const ELLIPSIS_LENGTH = ELLIPSIS.length;
 const DEFAULT_MAX_LENGTH = 160;
+const DEFAULT_MIN_LENGTH = 0;
+const DEFAULT_TITLE_MAX_LENGTH = 70;
 
 /**
  * Standard robots policy for indexable public storefront pages.
@@ -1124,24 +1263,148 @@ function validateMaxLength(value: number): number {
   return value;
 }
 
+function normalizePlainText(value: string): string {
+  return stripHtmlTags(value).replace(/\s+/g, ' ').trim();
+}
+
+function removeTrailingDuplicateSuffix(value: string, suffix: string): string {
+  const normalizedSuffix = normalizePlainText(suffix);
+  if (!normalizedSuffix) {
+    return value;
+  }
+
+  let normalizedValue = normalizePlainText(value);
+  const escapedSuffix = normalizedSuffix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const trailingSuffixPattern = new RegExp(
+    `(?:\\s*(?:\\||-|–|—|:)\\s*${escapedSuffix})\\s*$`,
+    'i'
+  );
+
+  while (trailingSuffixPattern.test(normalizedValue)) {
+    const nextValue = normalizedValue.replace(trailingSuffixPattern, '').trim();
+    if (!nextValue || nextValue === normalizedValue) {
+      break;
+    }
+    normalizedValue = nextValue;
+  }
+
+  return normalizedValue;
+}
+
+/**
+ * Generates a normalized SEO title with optional suffix and length cap.
+ */
+export function generateMetaTitle(
+  title: string,
+  options?: {
+    maxLength?: number;
+    suffix?: string;
+    fallback?: string;
+  }
+): string {
+  const maxLength = validateMaxLength(
+    options?.maxLength ?? DEFAULT_TITLE_MAX_LENGTH
+  );
+  const fallback = normalizePlainText(options?.fallback || '');
+  let normalizedTitle = normalizePlainText(title) || fallback;
+  const suffix = normalizePlainText(options?.suffix || '');
+
+  if (!normalizedTitle) {
+    normalizedTitle = suffix;
+  }
+
+  if (!normalizedTitle) {
+    return '';
+  }
+
+  if (suffix) {
+    const baseTitle = removeTrailingDuplicateSuffix(normalizedTitle, suffix);
+    const escapedSuffix = suffix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const hasSuffix =
+      baseTitle.toLowerCase() === suffix.toLowerCase() ||
+      new RegExp(`(?:\\s*[|\\-–—:]\\s*)${escapedSuffix}\\s*$`, 'i').test(
+        baseTitle
+      );
+    normalizedTitle = hasSuffix ? baseTitle : `${baseTitle} | ${suffix}`;
+  }
+
+  if (normalizedTitle.length <= maxLength) {
+    return normalizedTitle;
+  }
+
+  if (suffix) {
+    const normalizedSuffix = normalizePlainText(suffix);
+    const suffixFragment = ` | ${normalizedSuffix}`;
+    if (normalizedTitle.endsWith(suffixFragment)) {
+      const baseTitle = normalizedTitle
+        .slice(0, normalizedTitle.length - suffixFragment.length)
+        .trim();
+      const allowedBaseLength =
+        maxLength - suffixFragment.length - ELLIPSIS_LENGTH;
+
+      if (allowedBaseLength > 0) {
+        return `${baseTitle.slice(0, allowedBaseLength)}${ELLIPSIS}${suffixFragment}`;
+      }
+    }
+  }
+
+  return `${normalizedTitle.slice(0, maxLength - ELLIPSIS_LENGTH)}${ELLIPSIS}`;
+}
+
 /**
  * Generates a meta description from product description if not provided
  */
 export function generateMetaDescription(
   description: string,
-  maxLength: number = DEFAULT_MAX_LENGTH
+  maxLength: number = DEFAULT_MAX_LENGTH,
+  options?: {
+    minLength?: number;
+    fallback?: string;
+  }
 ): string {
-  if (!description) return '';
-
   const validMaxLength = validateMaxLength(maxLength);
+  const minLength = Math.max(DEFAULT_MIN_LENGTH, options?.minLength ?? 0);
+
+  const fallbackPlainText = options?.fallback
+    ? normalizePlainText(options.fallback)
+    : '';
 
   // Strip HTML tags using iterative sanitization to prevent incomplete removal
   // of nested patterns like <scr<script>ipt>
-  const plainText = stripHtmlTags(description);
+  const plainText = normalizePlainText(description);
 
-  if (plainText.length <= validMaxLength) return plainText;
+  const baseDescription = plainText || fallbackPlainText;
+  if (!baseDescription) {
+    return '';
+  }
 
-  return plainText.substring(0, validMaxLength - ELLIPSIS_LENGTH) + ELLIPSIS;
+  let candidateDescription = baseDescription;
+
+  if (
+    minLength > 0 &&
+    candidateDescription.length < minLength &&
+    fallbackPlainText
+  ) {
+    if (candidateDescription !== fallbackPlainText) {
+      const normalizedBase = /[.!?]$/.test(candidateDescription)
+        ? candidateDescription
+        : `${candidateDescription}.`;
+      const mergedDescription = `${normalizedBase} ${fallbackPlainText}`.trim();
+      candidateDescription =
+        mergedDescription.length > candidateDescription.length
+          ? mergedDescription
+          : candidateDescription;
+    }
+  }
+
+  if (candidateDescription.length <= validMaxLength) {
+    return candidateDescription;
+  }
+
+  return (
+    candidateDescription.substring(0, validMaxLength - ELLIPSIS_LENGTH) +
+    ELLIPSIS
+  );
 }
 
 /**
@@ -1155,6 +1418,8 @@ export interface CollectionPageData {
   products: Product[];
   merchantName: string;
   currency?: string;
+  country?: string;
+  trustProfile?: MerchantTrustProfile;
 }
 
 function toAbsoluteSchemaUrl(baseUrl: string, value?: string | null): string {
@@ -1174,6 +1439,17 @@ export function generateCollectionPageSchema(
 ): Record<string, unknown> {
   const safeProducts = data.products.slice(0, 20); // Limit to 20 for performance
   const absolutePageUrl = toAbsoluteSchemaUrl(data.url, data.url);
+  const currency = data.currency || 'NGN';
+  const country = data.country || 'NG';
+  const shippingDetails = buildOfferShippingDetails(
+    country,
+    currency,
+    data.trustProfile
+  );
+  const hasMerchantReturnPolicy = buildMerchantReturnPolicy(
+    country,
+    data.trustProfile
+  );
 
   return {
     '@context': 'https://schema.org',
@@ -1183,6 +1459,7 @@ export function generateCollectionPageSchema(
     ...(absolutePageUrl && { url: absolutePageUrl }),
     mainEntity: {
       '@type': 'ItemList',
+      numberOfItems: data.products.length,
       itemListElement: safeProducts.map((product, index) => {
         const productUrl = toAbsoluteSchemaUrl(
           data.url,
@@ -1204,20 +1481,27 @@ export function generateCollectionPageSchema(
               : undefined,
             image: productImage || undefined,
             url: productUrl || undefined,
+            brand: {
+              '@type': 'Brand',
+              name: escapeHtml(product.brand || data.merchantName),
+            },
+            ...(product.gtin && { gtin: escapeHtml(product.gtin) }),
+            ...(product.mpn && { mpn: escapeHtml(product.mpn) }),
             offers: {
               '@type': 'Offer',
               price: product.price,
-              priceCurrency: data.currency || 'NGN',
+              priceCurrency: currency,
               availability: getEffectiveProductStock(product)
                 ? 'https://schema.org/InStock'
                 : 'https://schema.org/OutOfStock',
               url: productUrl || undefined,
+              shippingDetails,
+              ...(hasMerchantReturnPolicy && { hasMerchantReturnPolicy }),
             },
           },
         };
       }),
     },
-    numberOfItems: data.products.length,
   };
 }
 

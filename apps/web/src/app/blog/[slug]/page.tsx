@@ -10,6 +10,7 @@ import { PlatformFooter } from '@/components/platform/footer';
 import { PlatformHeader } from '@/components/platform/header';
 import { SafeHtml } from '@/components/ui/safe-html';
 import { asRoute } from '@/lib/routes';
+import { generateMetaDescription, generateMetaTitle } from '@/lib/seo-utils';
 
 interface BlogPost {
   id: string;
@@ -77,13 +78,27 @@ export async function generateMetadata({
     };
   }
 
+  const title = generateMetaTitle(post.seo_title || post.title, {
+    maxLength: 70,
+    suffix: 'Baci Blog',
+    fallback: 'Baci Blog',
+  });
+  const description = generateMetaDescription(
+    post.seo_description || post.excerpt || '',
+    155,
+    {
+      minLength: 100,
+      fallback: `${post.title} on Baci Blog. Read practical insights, buyer guides, and product updates for smarter shopping decisions.`,
+    }
+  );
+
   return {
-    title: post.seo_title || `${post.title} - Baci Blog`,
-    description: post.seo_description || post.excerpt,
+    title,
+    description,
     keywords: post.keywords?.join(', '),
     openGraph: {
-      title: post.seo_title || post.title,
-      description: post.seo_description || post.excerpt,
+      title,
+      description,
       type: 'article',
       publishedTime: post.published_at,
       authors: [post.author_name],
@@ -91,8 +106,8 @@ export async function generateMetadata({
     },
     twitter: {
       card: 'summary_large_image',
-      title: post.seo_title || post.title,
-      description: post.seo_description || post.excerpt,
+      title,
+      description,
       images: post.featured_image_url ? [post.featured_image_url] : undefined,
     },
   };

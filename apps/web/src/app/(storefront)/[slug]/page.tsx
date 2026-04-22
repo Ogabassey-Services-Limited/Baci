@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
+import { generateMetaDescription } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 import { StorefrontPageContent } from './storefront-page-content';
@@ -36,10 +37,14 @@ export async function generateMetadata({
     (merchant?.business_name
       ? `${merchant.business_name} - Official Online Store`
       : 'Official Online Store');
-  const description =
-    merchant.site_description ||
-    merchant.site_tagline ||
-    `Shop at ${merchant.business_name}. Browse our collection and enjoy convenient delivery.`;
+  const description = generateMetaDescription(
+    merchant.site_description || merchant.site_tagline || '',
+    160,
+    {
+      minLength: 110,
+      fallback: `Shop at ${merchant.business_name}. Discover products and services with trusted quality, nationwide delivery, and flexible payment options.`,
+    }
+  );
 
   const baseUrl = buildStoreUrl(merchant);
 

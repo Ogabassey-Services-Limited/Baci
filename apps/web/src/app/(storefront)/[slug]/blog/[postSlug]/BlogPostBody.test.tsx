@@ -70,6 +70,7 @@ describe('BlogPostBody', () => {
           tags: ['Android', 'Google'],
           title: 'Pixel 9 Review',
         },
+        relatedProducts: [],
         relatedPosts: [
           {
             id: 'related-1',
@@ -93,6 +94,7 @@ describe('BlogPostBody', () => {
     expect(mockResolveBlogPostContent).toHaveBeenCalledWith(content, {
       basePath: '/ogabassey',
       baseUrl: 'https://usebaci.com',
+      fallbackImageAlt: 'Pixel 9 Review',
       merchantSlug: 'ogabassey',
     });
     expect(
@@ -124,6 +126,7 @@ describe('BlogPostBody', () => {
           tags: null,
           title: 'Pixel 9 Review',
         },
+        relatedProducts: [],
         relatedPosts: [],
       })
     );
@@ -158,6 +161,7 @@ describe('BlogPostBody', () => {
       {
         basePath: '/ogabassey',
         baseUrl: 'https://usebaci.com',
+        fallbackImageAlt: 'Pixel 9 Review',
         merchantSlug: 'ogabassey',
       }
     );
@@ -183,6 +187,7 @@ describe('BlogPostBody', () => {
           tags: null,
           title: 'My Post',
         },
+        relatedProducts: [],
         relatedPosts: [],
       })
     );
@@ -197,5 +202,91 @@ describe('BlogPostBody', () => {
       'href',
       expect.stringContaining(expectedShareUrl)
     );
+  });
+
+  it('renders related product links using category-aware and fallback product routes', async () => {
+    mockResolveBlogPostContent.mockResolvedValue({
+      isJson: false,
+      legacyHtml: '<p>Content</p>',
+      renderedContent: null,
+    });
+
+    render(
+      await BlogPostBody({
+        basePath: '/ogabassey',
+        baseUrl: 'https://usebaci.com',
+        content: '<p>Content</p>',
+        merchantSlug: 'ogabassey',
+        post: {
+          id: 'post-1',
+          slug: 'my-post',
+          tags: null,
+          title: 'My Post',
+        },
+        relatedProducts: [
+          {
+            id: 'product-1',
+            name: 'iPhone 16',
+            slug: 'iphone-16',
+            category_slug: 'smartphones',
+          },
+          {
+            id: 'product-2',
+            name: 'DualSense Wireless Controller',
+            slug: 'ps5-dualsense-wireless-controller',
+          },
+        ],
+        relatedPosts: [],
+      })
+    );
+
+    expect(
+      screen.getByRole('heading', { name: /popular products mentioned/i })
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'iPhone 16' })).toHaveAttribute(
+      'href',
+      '/ogabassey/smartphones/iphone-16'
+    );
+    expect(
+      screen.getByRole('link', { name: 'DualSense Wireless Controller' })
+    ).toHaveAttribute(
+      'href',
+      '/ogabassey/products/ps5-dualsense-wireless-controller'
+    );
+  });
+
+  it('skips malformed related products so the section degrades gracefully', async () => {
+    mockResolveBlogPostContent.mockResolvedValue({
+      isJson: false,
+      legacyHtml: '<p>Content</p>',
+      renderedContent: null,
+    });
+
+    render(
+      await BlogPostBody({
+        basePath: '/ogabassey',
+        baseUrl: 'https://usebaci.com',
+        content: '<p>Content</p>',
+        merchantSlug: 'ogabassey',
+        post: {
+          id: 'post-1',
+          slug: 'my-post',
+          tags: null,
+          title: 'My Post',
+        },
+        relatedProducts: [
+          {
+            id: 'product-1',
+            name: '',
+            slug: '',
+          },
+        ],
+        relatedPosts: [],
+      })
+    );
+
+    expect(
+      screen.queryByRole('heading', { name: /popular products mentioned/i })
+    ).not.toBeInTheDocument();
   });
 });

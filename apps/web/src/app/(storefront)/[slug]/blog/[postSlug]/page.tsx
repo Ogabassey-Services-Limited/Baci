@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { draftMode } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
+import { generateMetaDescription, generateMetaTitle } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import {
   getStorefrontOpenGraphImages,
@@ -19,6 +20,21 @@ interface PageProps {
   params: Promise<{ slug: string; postSlug: string }>;
 }
 
+function formatMerchantCountry(countryCode?: string | null) {
+  if (!countryCode) {
+    return null;
+  }
+
+  try {
+    return (
+      new Intl.DisplayNames(['en'], { type: 'region' }).of(countryCode) ??
+      countryCode
+    );
+  } catch {
+    return countryCode;
+  }
+}
+
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
@@ -32,22 +48,36 @@ export async function generateMetadata({
 
   const { merchant, post } = data;
   const title = post.seo_title || post.title || 'Blog Post';
-  const description =
+  const merchantCountry = formatMerchantCountry(merchant.country);
+  const metadataTitle = generateMetaTitle(title, {
+    maxLength: 70,
+    suffix: merchant.business_name,
+    fallback: 'Blog Post',
+  });
+  const description = generateMetaDescription(
     post.seo_description ||
-    post.excerpt ||
-    getBlogPostTextPreview(post.content);
+      post.excerpt ||
+      getBlogPostTextPreview(post.content),
+    155,
+    {
+      minLength: 110,
+      fallback: merchantCountry
+        ? `${post.title} by ${merchant.business_name}. Read practical buying advice, product insights, and shopping tips for customers in ${merchantCountry}.`
+        : `${post.title} by ${merchant.business_name}. Read practical buying advice, product insights, and shopping tips for shoppers everywhere.`,
+    }
+  );
 
   const url = buildCanonicalBlogPostUrl(merchant, post.slug);
   const baseUrl = buildStoreUrl(merchant);
   const socialImageCandidates = [post.featured_image_url, merchant.logo_url];
 
   return {
-    title: `${title} | ${merchant.business_name}`,
+    title: metadataTitle,
     description,
     keywords: post.keywords?.join(', '),
     authors: [{ name: post.author_name }],
     openGraph: {
-      title,
+      title: metadataTitle,
       description,
       type: 'article',
       url,
@@ -63,7 +93,7 @@ export async function generateMetadata({
     },
     twitter: {
       card: 'summary_large_image',
-      title,
+      title: metadataTitle,
       description,
       images: getStorefrontTwitterImages(baseUrl, ...socialImageCandidates),
     },

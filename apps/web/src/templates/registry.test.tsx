@@ -18,6 +18,31 @@ vi.mock('@/components/storefront/ogabassey/home-product-feed', () => ({
   mapStorefrontProductsToOgabasseyProducts: (products: unknown[]) => products,
 }));
 
+vi.mock('@/components/storefront/ogabassey/pages/about-us', () => ({
+  OgabasseyV2AboutUs: () => null,
+}));
+vi.mock('@/components/storefront/ogabassey/pages/privacy-policy', () => ({
+  OgabasseyV2PrivacyPolicy: () => null,
+}));
+vi.mock('@/components/storefront/ogabassey/pages/legal-dispute', () => ({
+  OgabasseyV2LegalDispute: () => null,
+}));
+vi.mock('@/components/storefront/ogabassey/pages/sustainability', () => ({
+  OgabasseyV2Sustainability: () => null,
+}));
+vi.mock('@/components/storefront/ogabassey/pages/repairs', () => ({
+  OgabasseyV2Repairs: () => null,
+}));
+vi.mock('@/components/storefront/ogabassey/pages/swap', () => ({
+  OgabasseyV2Swap: () => null,
+}));
+vi.mock('@/components/storefront/ogabassey/pages/help-support', () => ({
+  OgabasseyV2HelpSupport: () => null,
+}));
+vi.mock('@/components/storefront/ogabassey/pages/blog', () => ({
+  OgabasseyV2Blog: () => null,
+}));
+
 import { getTemplate } from './registry';
 
 describe('template registry', () => {

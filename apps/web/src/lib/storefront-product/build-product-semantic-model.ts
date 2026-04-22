@@ -113,7 +113,7 @@ function buildSectionCards(
   input: BuildProductSemanticModelInput,
   products: ProductSemanticCandidate[]
 ) {
-  return products.slice(0, 3).map(
+  return products.slice(0, 6).map(
     (product) =>
       ({
         title: product.name,

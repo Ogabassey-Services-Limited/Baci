@@ -179,6 +179,40 @@ describe('StorefrontContent', () => {
     expect(schema['@type']).toBe('CollectionPage');
     expect(schema.mainEntity?.['@type']).toBe('ItemList');
   });
+
+  it('renders featured product discovery links with product names instead of raw urls', async () => {
+    vi.mocked(getCachedStorefrontHomeProducts).mockResolvedValue([
+      {
+        id: 'product-1',
+        name: 'Galaxy Fold',
+        description: '<p>Premium foldable phone.</p>',
+        status: 'active',
+        price: 1200000,
+        manage_stock: false,
+        stock: 3,
+        image: 'https://cdn.example.com/fold.jpg',
+        imageLarge: 'https://cdn.example.com/fold-large.jpg',
+        imageHint: 'fold',
+        category: 'Smartphones',
+        category_slug: 'smartphones',
+        slug: 'galaxy-fold',
+      },
+    ] as never);
+
+    const result = await StorefrontContent({ merchant: mockMerchant });
+
+    render(result as React.ReactElement);
+
+    expect(screen.getByRole('link', { name: 'Galaxy Fold' })).toHaveAttribute(
+      'href',
+      'https://test-store.usebaci.com/smartphones/galaxy-fold'
+    );
+    expect(
+      screen.queryByRole('link', {
+        name: '/smartphones/galaxy-fold',
+      })
+    ).not.toBeInTheDocument();
+  });
 });
 
 describe('StreamingStorefrontContent', () => {

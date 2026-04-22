@@ -30,6 +30,20 @@ describe('getStorefrontProductHref', () => {
     ).toBe('/ogabassey/smartphones/iphone-15-pro-max');
   });
 
+  it('normalizes legacy category aliases to canonical category routes', () => {
+    expect(
+      getStorefrontProductHref(
+        {
+          id: 'p1',
+          name: 'Samsung Galaxy S25 Ultra',
+          slug: 'samsung-galaxy-s25-ultra-12gb-512gb',
+          categories: { slug: 'samsung' },
+        },
+        '/ogabassey'
+      )
+    ).toBe('/ogabassey/smartphones/samsung-galaxy-s25-ultra-12gb-512gb');
+  });
+
   it('falls back to the products route when category data is unavailable', () => {
     expect(
       getStorefrontProductHref(
@@ -40,6 +54,36 @@ describe('getStorefrontProductHref', () => {
         '/ogabassey'
       )
     ).toBe('/ogabassey/products/test-product');
+  });
+
+  it('prefers canonical_url over legacy category path fields', () => {
+    expect(
+      getStorefrontProductHref(
+        {
+          id: 'p1',
+          name: 'Nintendo Switch OLED',
+          slug: 'nintendo-switch-oled-8gb-512gb',
+          categories: { slug: 'nintendo-switch' },
+          canonical_url:
+            'https://usebaci.com/ogabassey/gaming/nintendo-switch-oled',
+        },
+        '/ogabassey'
+      )
+    ).toBe('/ogabassey/gaming/nintendo-switch-oled');
+  });
+
+  it('normalizes canonical legacy aliases to canonical storefront categories', () => {
+    expect(
+      getStorefrontProductHref(
+        {
+          id: 'p1',
+          name: 'Samsung Galaxy S25 Ultra',
+          slug: 'samsung-galaxy-s25-ultra-12gb-1tb',
+          canonical_url: '/samsung/samsung-galaxy-s25-ultra',
+        },
+        '/'
+      )
+    ).toBe('/smartphones/samsung-galaxy-s25-ultra');
   });
 
   it('trims trailing slashes from the base path', () => {

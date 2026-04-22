@@ -1,4 +1,5 @@
 import type { Route } from 'next';
+import { normalizeStorefrontCategorySlug } from '@/lib/normalize-storefront-category-slug';
 
 interface StorefrontOrderItemHrefInput {
   product_slug?: string | null;
@@ -16,7 +17,9 @@ export function getStorefrontOrderItemHref(
   }
 
   const normalizedBasePath = basePath === '/' ? '' : basePath;
-  const categorySlug = item.categories?.slug || item.category_slug?.trim();
+  const categorySlug = normalizeStorefrontCategorySlug(
+    item.categories?.slug || item.category_slug
+  );
 
   if (categorySlug) {
     return `${normalizedBasePath}/${categorySlug}/${productSlug}` as Route;

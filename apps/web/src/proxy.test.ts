@@ -161,6 +161,122 @@ describe('Middleware Proxy', () => {
     );
   });
 
+  it('redirects custom-domain slug-prefixed products path to slugless canonical URL', async () => {
+    const req = new NextRequest('https://ogabassey.com/ogabassey/products');
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe('https://ogabassey.com/products');
+  });
+
+  it('redirects custom-domain slug-prefixed repair path to slugless canonical URL', async () => {
+    const req = new NextRequest('https://ogabassey.com/ogabassey/repair');
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe('https://ogabassey.com/repair');
+  });
+
+  it('redirects slug-prefixed legacy category product URLs to /products/{slug}', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/ogabassey/dell/dell-alienware-m16-r3-rtx-5070-ti'
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/products/dell-alienware-m16-r3-rtx-5070-ti'
+    );
+  });
+
+  it('redirects mixed-case custom-domain slug-prefixed product URLs to the slugless canonical route', async () => {
+    vi.mocked(getSlugForCustomDomain).mockResolvedValueOnce('OgaBassey');
+    const req = new NextRequest(
+      'https://ogabassey.com/ogabassey/dell/dell-alienware-m16-r3-rtx-5070-ti'
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/products/dell-alienware-m16-r3-rtx-5070-ti'
+    );
+  });
+
+  it('returns 410 for legacy WordPress admin probes under /blog', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/blog/wp-admin/post.php?post=7446&action=edit'
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(410);
+  });
+
+  it('redirects legacy /blog/{category}/{slug} URLs to canonical /blog/{slug}', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/blog/gadgets/how-to-maintain-your-iphone-battery-health-at-85-and-beyond'
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/blog/how-to-maintain-your-iphone-battery-health-at-85-and-beyond'
+    );
+  });
+
+  it('drops thumbnail_id query noise on blog URLs', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/blog/iphone/the-iphone-15-what-we-know-so-far?thumbnail_id=1819'
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/blog/the-iphone-15-what-we-know-so-far'
+    );
+  });
+
+  it('preserves non-thumbnail query params when dropping blog thumbnail noise', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/blog/iphone/the-iphone-15-what-we-know-so-far?thumbnail_id=1819&utm_source=newsletter'
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/blog/the-iphone-15-what-we-know-so-far?utm_source=newsletter'
+    );
+  });
+
+  it('drops _thumbnail_id query noise on blog URLs', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/blog/iphone/the-iphone-15-what-we-know-so-far?_thumbnail_id=1819'
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/blog/the-iphone-15-what-we-know-so-far'
+    );
+  });
+
   describe('URL normalization: prefix-only case fixing', () => {
     it('lowercases /API prefix but preserves case-sensitive tail', async () => {
       const req = new NextRequest(

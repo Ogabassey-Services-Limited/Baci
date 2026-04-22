@@ -1,3 +1,5 @@
+import { normalizeStorefrontCategorySlug } from '@/lib/normalize-storefront-category-slug';
+
 const PLATFORM_HOST = 'usebaci.com';
 
 const TRACKING_PARAM_NAMES = new Set([
@@ -55,20 +57,6 @@ function lowercasePathPreservingPercentEncoding(pathname: string): string {
   }
 
   return result;
-}
-
-function normalizeCategorySlug(slug: string): string {
-  const normalized = slug.toLowerCase();
-
-  switch (normalized) {
-    case 'accesories':
-      return 'accessories';
-    case 'phone':
-    case 'phones':
-      return 'smartphones';
-    default:
-      return normalized;
-  }
 }
 
 function getMerchantIdentifier(
@@ -157,8 +145,16 @@ function normalizeInternalStorefrontPath(
     normalizedPath = `/smartphones${normalizedPath.slice('/phone'.length)}`;
   }
 
+  if (normalizedPath === '/samsung' || normalizedPath.startsWith('/samsung/')) {
+    normalizedPath = `/smartphones${normalizedPath.slice('/samsung'.length)}`;
+  }
+
   if (normalizedPath === '/laptop' || normalizedPath.startsWith('/laptop/')) {
     normalizedPath = `/laptops${normalizedPath.slice('/laptop'.length)}`;
+  }
+
+  if (normalizedPath === '/macbook' || normalizedPath.startsWith('/macbook/')) {
+    normalizedPath = `/laptops${normalizedPath.slice('/macbook'.length)}`;
   }
 
   if (
@@ -176,7 +172,10 @@ function normalizeInternalStorefrontPath(
     const [normalizedCategorySlug, ...rest] = categorySlug
       .split('/')
       .filter(Boolean);
-    const categoryPath = `/${normalizeCategorySlug(normalizedCategorySlug)}`;
+    const canonicalCategorySlug =
+      normalizeStorefrontCategorySlug(normalizedCategorySlug) ||
+      normalizedCategorySlug;
+    const categoryPath = `/${canonicalCategorySlug}`;
 
     return rest.length ? `${categoryPath}/${rest.join('/')}` : categoryPath;
   }
@@ -194,7 +193,8 @@ function normalizeInternalStorefrontPath(
     }
 
     const [categorySlug, ...rest] = remainder.split('/');
-    const normalizedCategorySlug = normalizeCategorySlug(categorySlug);
+    const normalizedCategorySlug =
+      normalizeStorefrontCategorySlug(categorySlug) || categorySlug;
     return rest.length
       ? `/${normalizedCategorySlug}/${rest.join('/')}`
       : `/${normalizedCategorySlug}`;

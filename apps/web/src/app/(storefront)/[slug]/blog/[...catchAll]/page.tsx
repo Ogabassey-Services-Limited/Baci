@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { notFound, permanentRedirect, redirect } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { buildCanonicalBlogPostUrl } from '@/app/(storefront)/[slug]/blog/[postSlug]/blog-post-content';
 import {
   getCachedBlogPost,
@@ -98,7 +98,7 @@ export default async function BlogCatchAllPage({
   if (post) {
     // Redirect to canonical URL (without category prefix)
     // Use 301 permanent redirect for SEO
-    redirect(`/${slug}/blog/${post.slug}`);
+    permanentRedirect(`/${slug}/blog/${post.slug}`);
   }
 
   // If post not found, try matching without hyphens/underscores
@@ -117,7 +117,7 @@ export default async function BlogCatchAllPage({
   );
 
   if (matchingPost) {
-    redirect(`/${slug}/blog/${matchingPost.slug}`);
+    permanentRedirect(`/${slug}/blog/${matchingPost.slug}`);
   }
 
   // No matching post found

@@ -1,3 +1,4 @@
+import { resolveProductVariantMedia } from '@baci/shared/lib';
 import { z } from 'zod';
 import { getVariantAttributeOptions } from '@/components/storefront/ogabassey/variant-attributes';
 import type {
@@ -113,61 +114,37 @@ export function normalizeProductDetails(
 ): NormalizedProductDetails {
   const product = serverProduct as ProductWithDynamicFields;
 
-  // 2026 Best Practice: Parse complex JSONB fields through Zod boundaries
-  const colorImages = ColorImagesSchema.parse(product.color_images);
-
-  let colors: ProductColorOption[] = [];
-  if (Object.keys(colorImages).length > 0) {
-    colors = Object.keys(colorImages).map((colorName) => ({
-      name: colorName,
-      value: getColorHex(colorName),
-    }));
-  } else if (product.colors && product.colors.length > 0) {
-    colors = product.colors.map((color) => {
-      const normalizedColor =
-        typeof color === 'string'
-          ? { name: color, value: getColorHex(color) }
-          : color;
-
-      return {
-        name: normalizedColor.name,
-        value: normalizedColor.value,
-      };
-    });
-  }
-
-  const storage = product.storage
-    ? Array.isArray(product.storage)
-      ? product.storage
-      : [product.storage]
-    : [];
-
-  // Start with sanitized main images
   const mainImages = z
     .array(ImageUrlSchema)
     .parse(product.images || [])
     .filter((url) => url !== '/placeholder.svg');
 
-  // Fallback to sanitized single image
   const singleImage = ImageUrlSchema.parse(product.image);
-
-  let images = [...mainImages];
-  if (images.length === 0 && singleImage !== '/placeholder.svg') {
-    images.push(singleImage);
-  }
-
-  // Merge color-specific images into the main gallery
-  for (const colorImageGroup of Object.values(colorImages)) {
-    for (const image of colorImageGroup) {
-      images.push(image);
-    }
-  }
-
-  // Deduplicate and final fallback
-  images = Array.from(new Set(images));
-  if (images.length === 0) {
-    images.push('/placeholder.svg');
-  }
+  const resolvedVariantMedia = resolveProductVariantMedia({
+    colorImages: ColorImagesSchema.parse(product.color_images),
+    productColors: product.colors,
+    productImages: [
+      ...mainImages,
+      ...(singleImage !== '/placeholder.svg' ? [singleImage] : []),
+    ],
+    variants: product.variants,
+  });
+  const colorImages = resolvedVariantMedia.colorImages ?? {};
+  const colors =
+    resolvedVariantMedia.colors?.map((colorName) => ({
+      name: colorName,
+      value: getColorHex(colorName),
+    })) ??
+    [];
+  const storage = product.storage
+    ? Array.isArray(product.storage)
+      ? product.storage
+      : [product.storage]
+    : [];
+  const images =
+    resolvedVariantMedia.galleryImages.length > 0
+      ? [...resolvedVariantMedia.galleryImages]
+      : ['/placeholder.svg'];
 
   const platforms = (() => {
     const platformOptions = getVariantAttributeOptions(
