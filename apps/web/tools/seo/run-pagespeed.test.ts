@@ -95,7 +95,9 @@ describe('run-pagespeed', () => {
       'seo',
       'lcp',
       'cls',
+      'inp',
     ]);
+    expect(result.vitals.inp).toBe(260);
   });
 
   it('prefers field INP from CrUX data and enforces the 200ms threshold', () => {

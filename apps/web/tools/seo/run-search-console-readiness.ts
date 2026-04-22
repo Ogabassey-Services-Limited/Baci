@@ -1,4 +1,3 @@
-import { pathToFileURL } from 'node:url';
 import {
   MERCHANT_REQUIRED_SITEMAPS,
   PLATFORM_EXCLUDED_LOCATIONS,
@@ -18,12 +17,7 @@ import type {
   CrawlSurfaceAudit,
   SearchConsoleReadinessResult,
 } from './run-search-console-readiness.types';
-import {
-  appendGitHubStepSummary,
-  normalizeOrigin,
-  partitionCsvOrigins,
-  resolveUrl,
-} from './shared';
+import { partitionCsvOrigins, resolveUrl } from './shared';
 
 export {
   extractCanonicalHref,
@@ -100,30 +94,9 @@ export async function runConfiguredSearchConsoleReadinessAudit({
   };
 }
 
-export async function main() {
-  const merchantOriginsEnv =
-    process.env.SEO_MERCHANT_ORIGINS?.trim() || undefined;
-  const configuredPlatformOrigin = process.env.SEO_PLATFORM_ORIGIN?.trim();
-  const platformOrigin = configuredPlatformOrigin
-    ? normalizeOrigin(configuredPlatformOrigin)
-    : 'https://usebaci.com';
-
-  const result = await runConfiguredSearchConsoleReadinessAudit({
-    merchantOriginsEnv,
-    platformOrigin,
-  });
-
-  const markdown = buildReadinessSummary(result);
-
-  console.log(markdown.replace(/^## /gm, '').replace(/^### /gm, ''));
-  await appendGitHubStepSummary(markdown);
-
-  if (!result.passed) {
-    throw new Error('Search Console readiness checks failed');
-  }
-}
-
-function buildReadinessSummary(result: SearchConsoleReadinessResult) {
+export function buildReadinessSummary(
+  result: SearchConsoleReadinessResult
+): string {
   const lines = ['## Search Console Readiness'];
 
   for (const surface of result.surfaces) {
@@ -289,15 +262,4 @@ async function auditMerchantSurface(
     passed: issues.length === 0,
     sitemaps: sitemapUrls,
   };
-}
-if (
-  process.argv[1] &&
-  import.meta.url === pathToFileURL(process.argv[1]).href
-) {
-  try {
-    await main();
-  } catch (error) {
-    console.error('[seo:readiness] Monitoring failed', error);
-    process.exitCode = 1;
-  }
 }

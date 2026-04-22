@@ -92,6 +92,7 @@ export function evaluatePageSpeedResult(
 ): Omit<PageSpeedAuditResult, 'label' | 'strategy' | 'url'> {
   const tbt = getAuditMetric(payload, 'total-blocking-time');
   const fieldInp = getFieldMetric(payload, 'INTERACTION_TO_NEXT_PAINT');
+  const labInp = getAuditMetric(payload, 'interaction-to-next-paint');
   const scores = {
     performance: getCategoryScore(payload, 'performance'),
     accessibility: getCategoryScore(payload, 'accessibility'),
@@ -103,7 +104,7 @@ export function evaluatePageSpeedResult(
     lcp: getAuditMetric(payload, 'largest-contentful-paint'),
     cls: getAuditMetric(payload, 'cumulative-layout-shift'),
     tbt,
-    inp: fieldInp ?? tbt,
+    inp: fieldInp ?? labInp,
   };
   const failures: PageSpeedFailure[] = [];
   for (const metric of [
@@ -127,7 +128,7 @@ export function evaluatePageSpeedResult(
       failures.push({ metric, actual, threshold });
     }
   }
-  if (fieldInp !== null && vitals.inp > AUDIT_THRESHOLDS.inp) {
+  if (vitals.inp !== null && vitals.inp > AUDIT_THRESHOLDS.inp) {
     failures.push({
       metric: 'inp',
       actual: vitals.inp,
