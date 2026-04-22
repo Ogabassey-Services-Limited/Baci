@@ -161,6 +161,25 @@ describe('Middleware Proxy', () => {
     );
   });
 
+  it('drops _thumbnail_id query noise on blog URLs', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/blog/iphone/the-iphone-15-what-we-know-so-far?_thumbnail_id=1819&ref=mail'
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+    const location = res.headers.get('location');
+
+    expect(res.status).toBe(301);
+    expect(location).toBeTruthy();
+    expect(location).toContain(
+      '/blog/iphone/the-iphone-15-what-we-know-so-far'
+    );
+    expect(location).toContain('ref=mail');
+    expect(location).not.toContain('_thumbnail_id');
+    expect(location).not.toContain('thumbnail_id=');
+  });
+
   describe('URL normalization: prefix-only case fixing', () => {
     it('lowercases /API prefix but preserves case-sensitive tail', async () => {
       const req = new NextRequest(
@@ -274,6 +293,19 @@ describe('Middleware Proxy', () => {
 
       expect(res.status).toBe(200);
       expect(res.headers.get('location')).toBeNull();
+    });
+
+    it('passes through indexnow key files without storefront rewrites', async () => {
+      const req = new NextRequest(
+        'https://ogabassey.com/0751d5c882ab3d7c013ecbfe9e624d71.txt'
+      );
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(200);
+      expect(res.headers.get('location')).toBeNull();
+      expect(res.headers.get('x-middleware-rewrite')).toBeNull();
     });
 
     it('does not redirect static .avif files', async () => {

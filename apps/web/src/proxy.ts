@@ -612,6 +612,20 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  // ==== SEO: STRIP THUMBNAIL QUERY NOISE ====
+  // WordPress/share tooling can append `thumbnail_id` or `_thumbnail_id`
+  // to blog URLs. These params should not produce unique crawlable URLs.
+  if (
+    pathname.startsWith('/blog/') &&
+    (request.nextUrl.searchParams.has('thumbnail_id') ||
+      request.nextUrl.searchParams.has('_thumbnail_id'))
+  ) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.searchParams.delete('thumbnail_id');
+    redirectUrl.searchParams.delete('_thumbnail_id');
+    return NextResponse.redirect(redirectUrl, 301);
+  }
+
   // ==== RFC 8615: WELL-KNOWN PASSTHROUGH ====
   // Let .well-known requests reach App Router route handlers unmodified.
   // Apple/Android app link verifiers reject redirects and rewrites.
@@ -623,6 +637,13 @@ export async function proxy(request: NextRequest) {
   // Keep host-scoped llms files available on both the platform domain and
   // merchant storefront domains without proxy rewrites.
   if (pathname === '/llms.txt' || pathname === '/llms-full.txt') {
+    return NextResponse.next();
+  }
+
+  // ==== INDEXNOW KEY FILE PASSTHROUGH ====
+  // IndexNow validates ownership via a root-level `/<key>.txt` file where
+  // key is a 32-char hex token. This must bypass storefront rewrites.
+  if (/^\/[a-f0-9]{32}\.txt$/i.test(pathname)) {
     return NextResponse.next();
   }
 
