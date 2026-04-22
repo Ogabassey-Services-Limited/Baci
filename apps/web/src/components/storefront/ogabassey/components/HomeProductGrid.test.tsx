@@ -3,8 +3,16 @@ import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product } from '../types';
 
+const mockUseMerchantSafe = vi.fn<() => { basePath?: string } | null>(
+  () => null
+);
+
 vi.mock('@baci/shared', () => ({
   prioritizeSmartphoneProducts: vi.fn((products: unknown[]) => products),
+}));
+
+vi.mock('@/hooks/use-merchant', () => ({
+  useMerchantSafe: () => mockUseMerchantSafe(),
 }));
 
 vi.mock('next/link', () => ({
@@ -97,6 +105,7 @@ function createTestProduct(index: number): Product {
 describe('HomeProductGrid', () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    mockUseMerchantSafe.mockReturnValue(null);
   });
 
   afterEach(async () => {
@@ -135,6 +144,21 @@ describe('HomeProductGrid', () => {
     expect(
       screen.getByRole('link', { name: 'View all products' })
     ).toHaveAttribute('data-prefetch', 'false');
+  });
+
+  it('uses merchant basePath so custom domains avoid slug-prefixed links', () => {
+    mockUseMerchantSafe.mockReturnValue({ basePath: '' });
+
+    render(
+      <HomeProductGrid
+        storeSlug="ogabassey"
+        products={[createTestProduct(1)]}
+      />
+    );
+
+    expect(
+      screen.getByRole('link', { name: 'View all products' })
+    ).toHaveAttribute('href', '/products');
   });
 
   it('defers image loading for cards after the first mobile row', () => {
