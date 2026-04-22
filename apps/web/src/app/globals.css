@@ -163,10 +163,10 @@
     transition: background-color 9999s ease-in-out 0s;
   }
 
-  .dark input:-webkit-autofill,
-  .dark input:-webkit-autofill:hover,
-  .dark input:-webkit-autofill:focus,
-  .dark input:-webkit-autofill:active {
+  .dark input:-webkit-autofill:not(.light *),
+  .dark input:-webkit-autofill:hover:not(.light *),
+  .dark input:-webkit-autofill:focus:not(.light *),
+  .dark input:-webkit-autofill:active:not(.light *) {
     -webkit-box-shadow: 0 0 0 30px hsl(var(--background)) inset;
     -webkit-text-fill-color: hsl(var(--foreground));
   }
@@ -316,12 +316,12 @@
     }
   }
 
-  .dark .glass {
+  .dark .glass:not(.light *) {
     @apply bg-black/80 border-white/10;
   }
 
   @media (hover: hover) and (min-width: 768px) {
-    .dark .glass {
+    .dark .glass:not(.light *) {
       @apply backdrop-blur-md bg-black/70;
     }
   }
@@ -342,13 +342,13 @@
     }
   }
 
-  .dark .glass-themed {
+  .dark .glass-themed:not(.light *) {
     background: color-mix(in srgb, var(--store-background, black) 80%, transparent);
     border-color: rgba(255, 255, 255, 0.1);
   }
 
   @media (hover: hover) and (min-width: 768px) {
-    .dark .glass-themed {
+    .dark .glass-themed:not(.light *) {
       @apply backdrop-blur-md;
       background: color-mix(in srgb, var(--store-background, black) 70%, transparent);
     }
@@ -790,7 +790,7 @@
     margin-inline: auto;
   }
 
-  .dark .prose-baci {
+  .dark .prose-baci:not(.light *) {
     @apply text-foreground/90;
   }
 
