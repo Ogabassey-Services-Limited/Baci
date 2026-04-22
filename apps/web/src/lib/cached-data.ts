@@ -1715,6 +1715,16 @@ export async function getCachedBlogPost(
 
   const { data: relatedPosts } = await relatedQuery;
 
+  const { data: relatedProducts } = await supabase
+    .from('products')
+    .select('id, name, slug, category_slug')
+    .eq('merchant_id', merchant.id)
+    .eq('status', 'active')
+    .eq('category_slug', post.category || '')
+    .neq('slug', post.slug)
+    .order('updated_at', { ascending: false })
+    .limit(6);
+
   return {
     merchant: {
       id: merchant.id,
@@ -1725,6 +1735,7 @@ export async function getCachedBlogPost(
     },
     post,
     relatedPosts: relatedPosts || [],
+    relatedProducts: relatedProducts || [],
   };
 }
 

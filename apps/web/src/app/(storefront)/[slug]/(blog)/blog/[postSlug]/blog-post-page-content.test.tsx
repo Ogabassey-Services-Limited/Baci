@@ -178,6 +178,7 @@ const smartphoneGuideBlogPost = {
     word_count: 800,
   },
   relatedPosts: [],
+  relatedProducts: [],
 };
 
 describe('BlogPostPageContent', () => {

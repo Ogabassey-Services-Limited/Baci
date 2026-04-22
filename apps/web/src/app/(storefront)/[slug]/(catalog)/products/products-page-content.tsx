@@ -27,6 +27,29 @@ interface PageProps {
   searchParams: Promise<{ page?: string }>;
 }
 
+function normalizeStorefrontCategorySlug(
+  slug: string | null | undefined
+): string | null {
+  const normalized = slug?.trim().toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+
+  switch (normalized) {
+    case 'accesories':
+      return 'accessories';
+    case 'phone':
+    case 'phones':
+    case 'samsung':
+      return 'smartphones';
+    case 'laptop':
+    case 'macbook':
+      return 'laptops';
+    default:
+      return normalized;
+  }
+}
+
 function getStorefrontPathPrefix(
   headersList: Awaited<ReturnType<typeof headers>>,
   merchantSlug: string
@@ -58,17 +81,21 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
 
   const headersList = await headers();
 
-  const [categories, productIndex] = await Promise.all([
-    getCachedCategories(merchant.id),
-    getCachedStorefrontProductIndex(merchant.id, {
-      page: currentPage,
-      limit: STOREFRONT_PRODUCTS_PER_PAGE,
-    }),
-  ]);
+  const [categories, currentProductIndex, firstPageProductIndex] =
+    await Promise.all([
+      getCachedCategories(merchant.id),
+      getCachedStorefrontProductIndex(merchant.id, {
+        page: currentPage,
+        limit: STOREFRONT_PRODUCTS_PER_PAGE,
+      }),
+      getCachedStorefrontProductIndex(merchant.id, {
+        page: 1,
+        limit: 24,
+      }),
+    ]);
+  const totalPages = Math.max(1, currentProductIndex.totalPages || 1);
 
-  const totalPages = Math.max(1, productIndex.totalPages || 1);
-
-  if (!productIndex.hasError && currentPage > totalPages) {
+  if (!currentProductIndex.hasError && currentPage > totalPages) {
     notFound();
   }
 
@@ -80,8 +107,12 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
   const displayCategories = Array.from(
     new Map(
       categories
-        .filter((category) => category.slug)
-        .map((category) => [category.slug, category])
+        .map((category) => ({
+          ...category,
+          normalizedSlug: normalizeStorefrontCategorySlug(category.slug),
+        }))
+        .filter((category) => category.normalizedSlug)
+        .map((category) => [category.normalizedSlug, category])
     ).values()
   );
   const breadcrumbSchema = generateBreadcrumbSchema([
@@ -101,7 +132,7 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
       currentPage > 1
         ? `${baseUrl}/products?page=${currentPage}`
         : `${baseUrl}/products`,
-    products: productIndex.products as unknown as Product[],
+    products: currentProductIndex.products as unknown as Product[],
     merchantName: merchant.business_name,
     currency: merchant.payout_currency || 'NGN',
   });
@@ -111,13 +142,16 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
     maximumFractionDigits: 0,
   });
   const rangeStart =
-    productIndex.totalCount === 0
+    currentProductIndex.totalCount === 0
       ? 0
       : (currentPage - 1) * STOREFRONT_PRODUCTS_PER_PAGE + 1;
   const rangeEnd =
-    productIndex.totalCount === 0
+    currentProductIndex.totalCount === 0
       ? 0
-      : rangeStart + productIndex.products.length - 1;
+      : rangeStart + currentProductIndex.products.length - 1;
+  const deepLinkProducts = firstPageProductIndex.products
+    .filter((product) => product.slug)
+    .slice(0, 18);
 
   return (
     <>
@@ -163,8 +197,8 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
             </div>
 
             <p className="text-sm text-[var(--store-background-text,#111827)]/50">
-              Showing {rangeStart}-{rangeEnd} of {productIndex.totalCount}{' '}
-              products
+              Showing {rangeStart}-{rangeEnd} of{' '}
+              {currentProductIndex.totalCount} products
             </p>
           </div>
 
@@ -177,7 +211,7 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
                 {displayCategories.map((category) => (
                   <Link
                     key={category.id}
-                    href={asRoute(`${pathPrefix}/${category.slug}`)}
+                    href={asRoute(`${pathPrefix}/${category.normalizedSlug}`)}
                     prefetch={false}
                     className="rounded-full border border-[var(--store-background-text,#111827)]/10 bg-[var(--store-background,#ffffff)] px-4 py-2 text-sm font-medium text-[var(--store-background-text,#111827)] transition-colors hover:border-[var(--store-primary)] hover:text-[var(--store-primary)]"
                   >
@@ -188,7 +222,7 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
             </section>
           )}
 
-          {productIndex.products.length === 0 ? (
+          {currentProductIndex.products.length === 0 ? (
             <div className="mt-10 rounded-3xl border border-[var(--store-background-text,#111827)]/10 bg-[var(--store-background,#ffffff)] px-6 py-16 text-center shadow-sm">
               <h2 className="text-xl font-semibold text-[var(--store-background-text,#111827)]">
                 No products available
@@ -199,8 +233,40 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
             </div>
           ) : (
             <>
+              {deepLinkProducts.length > 0 && (
+                <section className="mt-8 rounded-3xl border border-[var(--store-background-text,#111827)]/10 bg-[var(--store-background,#ffffff)] p-5 shadow-sm">
+                  <h2 className="text-lg font-semibold text-[var(--store-background-text,#111827)]">
+                    Popular Product Links
+                  </h2>
+                  <ul className="mt-4 grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+                    {deepLinkProducts.map((product) => {
+                      const categorySlug =
+                        normalizeStorefrontCategorySlug(
+                          product.category_slug
+                        ) || 'products';
+                      const href =
+                        categorySlug === 'products'
+                          ? `${pathPrefix}/products/${product.slug}`
+                          : `${pathPrefix}/${categorySlug}/${product.slug}`;
+
+                      return (
+                        <li key={`deep-link-${product.id}`}>
+                          <Link
+                            href={asRoute(href)}
+                            prefetch={false}
+                            className="text-sm font-medium text-[var(--store-primary,#dc2626)] underline-offset-4 hover:underline"
+                          >
+                            {product.name}
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              )}
+
               <div className="mt-10 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-                {productIndex.products.map((product) => (
+                {currentProductIndex.products.map((product) => (
                   <ProductIndexCard
                     key={product.id}
                     formattedPrice={priceFormatter.format(product.price)}

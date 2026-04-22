@@ -145,7 +145,7 @@ describe('storefront blog catch-all route', () => {
         }),
       })
     ).rejects.toThrow(
-      'NEXT_REDIRECT:/ogabassey.com/blog/snapdragon-x2-series-on-windows'
+      'NEXT_PERMANENT_REDIRECT:/ogabassey.com/blog/snapdragon-x2-series-on-windows'
     );
 
     expect(mockGetCachedBlogPost).not.toHaveBeenCalled();

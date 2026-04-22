@@ -15,6 +15,7 @@ import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   generateCollectionPageSchema,
   generateMetaDescription,
+  getProductUrl,
 } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
 import { getTemplate } from '@/templates/registry';
@@ -142,6 +143,26 @@ export async function StorefrontContent({
           currency: merchant.payout_currency || 'NGN',
         })
       : null;
+  const categoryDiscoveryLinks = Array.from(
+    new Map(
+      (categories || [])
+        .filter((category) => category.slug)
+        .map((category) => [category.slug, category])
+    ).values()
+  ).slice(0, 20);
+  const productDiscoveryLinks = merchantProducts
+    .map(
+      (product) =>
+        `${baseUrl}${getProductUrl({
+          id: String(product.id),
+          name: product.name,
+          slug: product.slug,
+          category: product.category,
+          categories: product.categories,
+          category_slug: product.category_slug,
+        })}`
+    )
+    .slice(0, 24);
 
   const homepageSchema = homeCollectionSchema ? (
     <script
@@ -152,6 +173,61 @@ export async function StorefrontContent({
       }}
     />
   ) : null;
+  const discoveryLinksSection = (
+    <section
+      aria-label="Storefront discovery links"
+      className="mx-auto mt-8 max-w-[1400px] px-4 md:px-6"
+    >
+      <div className="rounded-2xl border border-[var(--store-background-text,#111827)]/10 bg-[var(--store-background,#ffffff)] p-5">
+        <h2 className="text-sm font-semibold uppercase tracking-[0.08em] text-[var(--store-background-text,#111827)]/70">
+          Browse Popular Sections
+        </h2>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <a
+            className="rounded-full border border-[var(--store-background-text,#111827)]/15 px-3 py-1.5 text-xs font-medium text-[var(--store-background-text,#111827)]/80 transition-colors hover:border-[var(--store-primary)] hover:text-[var(--store-primary)]"
+            href={`${baseUrl}/products`}
+          >
+            All Products
+          </a>
+          <a
+            className="rounded-full border border-[var(--store-background-text,#111827)]/15 px-3 py-1.5 text-xs font-medium text-[var(--store-background-text,#111827)]/80 transition-colors hover:border-[var(--store-primary)] hover:text-[var(--store-primary)]"
+            href={`${baseUrl}/blog`}
+          >
+            Blog
+          </a>
+          {categoryDiscoveryLinks.map((category) => (
+            <a
+              key={category.slug}
+              className="rounded-full border border-[var(--store-background-text,#111827)]/15 px-3 py-1.5 text-xs font-medium text-[var(--store-background-text,#111827)]/80 transition-colors hover:border-[var(--store-primary)] hover:text-[var(--store-primary)]"
+              href={`${baseUrl}/${category.slug}`}
+            >
+              {category.name}
+            </a>
+          ))}
+        </div>
+
+        {productDiscoveryLinks.length > 0 && (
+          <>
+            <h3 className="mt-5 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--store-background-text,#111827)]/55">
+              Featured Product Links
+            </h3>
+            <ul className="mt-2 grid gap-1 md:grid-cols-2 lg:grid-cols-3">
+              {productDiscoveryLinks.map((href) => (
+                <li key={href}>
+                  <a
+                    className="text-xs text-[var(--store-primary)] underline-offset-4 hover:underline"
+                    href={href}
+                  >
+                    {href.replace(baseUrl, '')}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+    </section>
+  );
 
   if (templateId) {
     if (template && componentsPromise) {
@@ -163,6 +239,7 @@ export async function StorefrontContent({
         return (
           <>
             {homepageSchema}
+            {discoveryLinksSection}
             <AnalyticsProvider />
             <TemplateHome
               storeSlug={merchant.slug}
@@ -198,6 +275,7 @@ export async function StorefrontContent({
   return (
     <>
       {homepageSchema}
+      {discoveryLinksSection}
       <StorefrontWrapper
         products={merchantProducts}
         categories={categories || []}

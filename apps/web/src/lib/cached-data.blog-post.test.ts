@@ -99,6 +99,7 @@ describe('getCachedBlogPost', () => {
       singleResult: { data: publishedPost, error: null },
     });
     const relatedPostsBuilder = createQueryBuilder({});
+    const relatedProductsBuilder = createQueryBuilder({});
 
     const serviceFrom = vi.fn((table: string) => {
       if (table === 'domains') {
@@ -127,6 +128,12 @@ describe('getCachedBlogPost', () => {
             }
             return builder;
           }),
+        };
+      }
+
+      if (table === 'products') {
+        return {
+          select: vi.fn(() => relatedProductsBuilder),
         };
       }
 

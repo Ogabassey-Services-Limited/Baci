@@ -74,6 +74,29 @@ describe('resolveBlogPostContent', () => {
     expect(result.legacyHtml).toContain('Markdown title');
   });
 
+  it('fills empty legacy image alt text using the image filename', async () => {
+    const result = await resolveBlogPostContent(
+      '<p><img src="https://cdn.ogabassey.com/blog/2023/09/Apple-iPhone-15-Pro-lineup-color-lineup-230912.jpg" alt="" /></p>',
+      {
+        fallbackImageAlt: 'iPhone 15 Series Review',
+      }
+    );
+
+    expect(result.isJson).toBe(false);
+    expect(result.legacyHtml).toContain(
+      'alt="Apple iPhone 15 Pro lineup color lineup 230912"'
+    );
+  });
+
+  it('injects missing legacy image alt text using the fallback title', async () => {
+    const result = await resolveBlogPostContent('<p><img /></p>', {
+      fallbackImageAlt: 'Galaxy Unpacked July 2025',
+    });
+
+    expect(result.isJson).toBe(false);
+    expect(result.legacyHtml).toContain('alt="Galaxy Unpacked July 2025"');
+  });
+
   it('handles empty and null content safely', async () => {
     const emptyResult = await resolveBlogPostContent('');
     const nullResult = await resolveBlogPostContent(null);

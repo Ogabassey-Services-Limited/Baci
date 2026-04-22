@@ -70,6 +70,7 @@ describe('BlogPostBody', () => {
           tags: ['Android', 'Google'],
           title: 'Pixel 9 Review',
         },
+        relatedProducts: [],
         relatedPosts: [
           {
             id: 'related-1',
@@ -93,6 +94,7 @@ describe('BlogPostBody', () => {
     expect(mockResolveBlogPostContent).toHaveBeenCalledWith(content, {
       basePath: '/ogabassey',
       baseUrl: 'https://usebaci.com',
+      fallbackImageAlt: 'Pixel 9 Review',
       merchantSlug: 'ogabassey',
     });
     expect(
@@ -124,6 +126,7 @@ describe('BlogPostBody', () => {
           tags: null,
           title: 'Pixel 9 Review',
         },
+        relatedProducts: [],
         relatedPosts: [],
       })
     );
@@ -158,6 +161,7 @@ describe('BlogPostBody', () => {
       {
         basePath: '/ogabassey',
         baseUrl: 'https://usebaci.com',
+        fallbackImageAlt: 'Pixel 9 Review',
         merchantSlug: 'ogabassey',
       }
     );
@@ -183,6 +187,7 @@ describe('BlogPostBody', () => {
           tags: null,
           title: 'My Post',
         },
+        relatedProducts: [],
         relatedPosts: [],
       })
     );

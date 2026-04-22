@@ -154,7 +154,7 @@ export function BrandProducts({
   }
 
   const isOutOfStock = (p: Product) =>
-    (p.manage_stock ?? true) && getEffectiveStock(p) <= 0;
+    (p.manage_stock ?? false) && getEffectiveStock(p) <= 0;
 
   const title = `More ${productBrand} ${productCategory}`;
 

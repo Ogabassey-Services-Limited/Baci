@@ -70,6 +70,23 @@ export async function getLiveBlogPost(
     console.error('Error fetching related live blog posts:', relatedPostsError);
   }
 
+  const { data: relatedProducts, error: relatedProductsError } = await supabase
+    .from('products')
+    .select('id, name, slug, category_slug')
+    .eq('merchant_id', merchant.id)
+    .eq('status', 'active')
+    .eq('category_slug', post.category || '')
+    .neq('slug', post.slug)
+    .order('updated_at', { ascending: false })
+    .limit(6);
+
+  if (relatedProductsError) {
+    console.error(
+      'Error fetching related live blog products:',
+      relatedProductsError
+    );
+  }
+
   return {
     merchant: {
       id: merchant.id,
@@ -80,5 +97,6 @@ export async function getLiveBlogPost(
     },
     post,
     relatedPosts: relatedPostsError ? [] : (relatedPosts ?? []),
+    relatedProducts: relatedProductsError ? [] : (relatedProducts ?? []),
   };
 }
