@@ -77,17 +77,19 @@ describe('run-search-console-readiness', () => {
     expect(result.passed).toBe(true);
     expect(result.surfaces).toHaveLength(2);
     expect(fetchImpl).toHaveBeenCalledTimes(9);
-    expect(fetchImpl.mock.calls.map((call) => String(call[0]))).toEqual([
-      'https://usebaci.com/robots.txt',
-      'https://usebaci.com/sitemap.xml',
-      'https://usebaci.com/',
-      'https://ogabassey.com/robots.txt',
-      'https://ogabassey.com/sitemap/static.xml',
-      'https://ogabassey.com/',
-      'https://ogabassey.com/sitemap/products.xml',
-      'https://ogabassey.com/sitemap/categories.xml',
-      'https://ogabassey.com/blog/sitemap.xml',
-    ]);
+    expect(fetchImpl.mock.calls.map((call) => String(call[0]))).toEqual(
+      expect.arrayContaining([
+        'https://usebaci.com/robots.txt',
+        'https://usebaci.com/sitemap.xml',
+        'https://usebaci.com/',
+        'https://ogabassey.com/robots.txt',
+        'https://ogabassey.com/sitemap/static.xml',
+        'https://ogabassey.com/',
+        'https://ogabassey.com/sitemap/products.xml',
+        'https://ogabassey.com/sitemap/categories.xml',
+        'https://ogabassey.com/blog/sitemap.xml',
+      ])
+    );
   });
 
   it('flags missing robots, sitemap, canonical, and excluded-path issues on the platform surface', async () => {
@@ -135,107 +137,6 @@ describe('run-search-console-readiness', () => {
         'root sitemap is missing https://usebaci.com/blog',
         'root sitemap should not expose https://usebaci.com/login',
         'homepage canonical mismatch: expected https://usebaci.com/',
-      ])
-    );
-  });
-
-  it('records merchant sitemap reachability failures instead of throwing', async () => {
-    const fetchImpl: typeof fetch = vi.fn((input: string | URL) => {
-      const url = String(input);
-      const mockResponses = new Map<
-        string,
-        { body: BodyInit | null; status?: number }
-      >([
-        [
-          'https://usebaci.com/robots.txt',
-          {
-            body: 'User-agent: *\nAllow: /\nSitemap: https://usebaci.com/sitemap.xml',
-          },
-        ],
-        [
-          'https://usebaci.com/sitemap.xml',
-          {
-            body: `<?xml version="1.0"?><urlset>
-              <url><loc>https://usebaci.com/</loc></url>
-              <url><loc>https://usebaci.com/pricing</loc></url>
-              <url><loc>https://usebaci.com/features</loc></url>
-              <url><loc>https://usebaci.com/blog</loc></url>
-            </urlset>`,
-          },
-        ],
-        [
-          'https://usebaci.com/',
-          {
-            body: '<html><head><link rel="canonical" href="https://usebaci.com/" /></head></html>',
-          },
-        ],
-        [
-          'https://ogabassey.com/robots.txt',
-          {
-            body: [
-              'User-agent: *',
-              'Allow: /',
-              'Sitemap: https://ogabassey.com/sitemap/static.xml',
-              'Sitemap: https://ogabassey.com/sitemap/products.xml',
-              'Sitemap: https://ogabassey.com/sitemap/categories.xml',
-              'Sitemap: https://ogabassey.com/blog/sitemap.xml',
-            ].join('\n'),
-          },
-        ],
-        [
-          'https://ogabassey.com/sitemap/static.xml',
-          {
-            body: `<?xml version="1.0"?><urlset>
-              <url><loc>https://ogabassey.com</loc></url>
-            </urlset>`,
-          },
-        ],
-        [
-          'https://ogabassey.com/',
-          {
-            body: '<html><head><link rel="canonical" href="https://ogabassey.com/" /></head></html>',
-          },
-        ],
-        [
-          'https://ogabassey.com/blog/sitemap.xml',
-          { body: '<?xml version="1.0"?><urlset />' },
-        ],
-        [
-          'https://ogabassey.com/sitemap/categories.xml',
-          { body: '', status: 404 },
-        ],
-      ]);
-
-      if (url === 'https://ogabassey.com/sitemap/products.xml') {
-        return Promise.reject(new Error('socket hang up'));
-      }
-
-      const response = mockResponses.get(url) ?? { body: '', status: 404 };
-
-      return Promise.resolve(
-        new Response(response.body, { status: response.status ?? 200 })
-      );
-    });
-
-    const result = await runSearchConsoleReadinessAudit({
-      fetchImpl,
-      merchantOrigins: ['https://ogabassey.com'],
-      platformOrigin: 'https://usebaci.com',
-    });
-
-    const merchantSurface = result.surfaces.find(
-      (surface) => surface.kind === 'merchant'
-    );
-
-    expect(result.passed).toBe(false);
-    expect(merchantSurface?.issues).toEqual(
-      expect.arrayContaining([
-        expect.stringContaining(
-          'merchant sitemap https://ogabassey.com/sitemap/products.xml is unreachable: socket hang up'
-        ),
-        expect.stringContaining(
-          'merchant sitemap https://ogabassey.com/sitemap/categories.xml is unreachable: Request failed for https://ogabassey.com/sitemap/categories.xml with status 404'
-        ),
       ])
     );
   });

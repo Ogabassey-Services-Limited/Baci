@@ -1,54 +1,24 @@
+import {
+  AUDIT_THRESHOLDS,
+  CATEGORY_THRESHOLDS,
+  DEFAULT_PAGE_SPEED_ROUTES,
+  PAGE_SPEED_TIMEOUT_MS,
+} from './run-pagespeed.config';
+import type {
+  PageSpeedApiResponse,
+  PageSpeedAuditResult,
+  PageSpeedFailure,
+  PageSpeedStrategy,
+  PageSpeedTarget,
+} from './run-pagespeed.types';
 import { normalizeOrigin, resolveUrl } from './shared';
 
-const DEFAULT_PAGE_SPEED_ROUTES = [
-  { label: 'home', path: '/' },
-  { label: 'pricing', path: '/pricing' },
-  { label: 'features', path: '/features' },
-  { label: 'blog', path: '/blog' },
-  { label: 'contact', path: '/contact' },
-] as const;
-
-const CATEGORY_THRESHOLDS = {
-  performance: 0.8,
-  accessibility: 0.9,
-  seo: 0.9,
-  'best-practices': 0.85,
-} as const;
-
-const AUDIT_THRESHOLDS = {
-  lcp: 2500,
-  cls: 0.1,
-  tbt: 200,
-  inp: 300,
-} as const;
-const PAGE_SPEED_TIMEOUT_MS = 15_000;
-
-type PageSpeedStrategy = 'mobile' | 'desktop';
-export interface PageSpeedTarget {
-  label: string;
-  url: string;
-}
-export interface PageSpeedFailure {
-  metric: string;
-  actual: number | null;
-  threshold: number;
-}
-export interface PageSpeedAuditResult {
-  label: string;
-  url: string;
-  strategy: PageSpeedStrategy;
-  passed: boolean;
-  failures: PageSpeedFailure[];
-  scores: Record<string, number | null>;
-  vitals: Record<string, number | null>;
-}
-
-interface PageSpeedApiResponse {
-  lighthouseResult?: {
-    categories?: Record<string, { score?: number | null } | undefined>;
-    audits?: Record<string, { numericValue?: number | null } | undefined>;
-  };
-}
+export type {
+  PageSpeedAuditResult,
+  PageSpeedFailure,
+  PageSpeedStrategy,
+  PageSpeedTarget,
+} from './run-pagespeed.types';
 
 export function buildPageSpeedTargets({
   baseUrl,
@@ -66,20 +36,27 @@ export function buildPageSpeedTargets({
     label: `extra-${index + 1}`,
     url: parseHttpUrl(url),
   }));
-
   return dedupeTargets([...defaults, ...extras]);
 }
 
 export function parseStrategies(value?: string): PageSpeedStrategy[] {
-  const parsed =
+  const entries =
     value
       ?.split(',')
       .map((entry) => entry.trim().toLowerCase())
-      .filter(
-        (entry): entry is PageSpeedStrategy =>
-          entry === 'mobile' || entry === 'desktop'
-      ) ?? [];
-  return parsed.length > 0 ? [...new Set(parsed)] : ['mobile'];
+      .filter(Boolean) ?? [];
+  if (entries.length === 0) {
+    return ['mobile'];
+  }
+  const invalidEntries = [...new Set(entries)].filter(
+    (entry) => entry !== 'mobile' && entry !== 'desktop'
+  );
+  if (invalidEntries.length > 0) {
+    throw new Error(
+      `Invalid PageSpeed strategies: ${invalidEntries.join(', ')}. Allowed values: mobile, desktop`
+    );
+  }
+  return [...new Set(entries as PageSpeedStrategy[])];
 }
 
 export function buildPsiUrl({
@@ -94,10 +71,8 @@ export function buildPsiUrl({
   const url = new URL(
     'https://www.googleapis.com/pagespeedonline/v5/runPagespeed'
   );
-
   url.searchParams.set('url', targetUrl);
   url.searchParams.set('strategy', strategy);
-
   for (const category of [
     'performance',
     'accessibility',
@@ -106,17 +81,17 @@ export function buildPsiUrl({
   ]) {
     url.searchParams.append('category', category);
   }
-
   if (apiKey) {
     url.searchParams.set('key', apiKey);
   }
-
   return url.toString();
 }
 
 export function evaluatePageSpeedResult(
   payload: PageSpeedApiResponse
 ): Omit<PageSpeedAuditResult, 'label' | 'strategy' | 'url'> {
+  const tbt = getAuditMetric(payload, 'total-blocking-time');
+  const fieldInp = getFieldMetric(payload, 'INTERACTION_TO_NEXT_PAINT');
   const scores = {
     performance: getCategoryScore(payload, 'performance'),
     accessibility: getCategoryScore(payload, 'accessibility'),
@@ -127,12 +102,10 @@ export function evaluatePageSpeedResult(
   const vitals = {
     lcp: getAuditMetric(payload, 'largest-contentful-paint'),
     cls: getAuditMetric(payload, 'cumulative-layout-shift'),
-    tbt: getAuditMetric(payload, 'total-blocking-time'),
-    inp: getAuditMetric(payload, 'interaction-to-next-paint'),
+    tbt,
+    inp: fieldInp ?? tbt,
   };
-
   const failures: PageSpeedFailure[] = [];
-
   for (const metric of [
     'performance',
     'accessibility',
@@ -146,14 +119,20 @@ export function evaluatePageSpeedResult(
       failures.push({ metric, actual, threshold });
     }
   }
-
-  for (const metric of ['lcp', 'cls', 'tbt', 'inp'] as const) {
+  for (const metric of ['lcp', 'cls', 'tbt'] as const) {
     const actual = vitals[metric];
     const threshold = AUDIT_THRESHOLDS[metric];
 
     if (actual === null || actual > threshold) {
       failures.push({ metric, actual, threshold });
     }
+  }
+  if (fieldInp !== null && vitals.inp > AUDIT_THRESHOLDS.inp) {
+    failures.push({
+      metric: 'inp',
+      actual: vitals.inp,
+      threshold: AUDIT_THRESHOLDS.inp,
+    });
   }
 
   return {
@@ -215,6 +194,20 @@ function getAuditMetric(
   return typeof numericValue === 'number' ? numericValue : null;
 }
 
+function getFieldMetric(
+  payload: PageSpeedApiResponse,
+  key: string
+): number | null {
+  const pageMetric = payload.loadingExperience?.metrics?.[key]?.percentile;
+  if (typeof pageMetric === 'number') {
+    return pageMetric;
+  }
+
+  const originMetric =
+    payload.originLoadingExperience?.metrics?.[key]?.percentile;
+  return typeof originMetric === 'number' ? originMetric : null;
+}
+
 function dedupeTargets(targets: PageSpeedTarget[]): PageSpeedTarget[] {
   const seen = new Set<string>();
   return targets.filter((target) => {
@@ -228,12 +221,10 @@ function dedupeTargets(targets: PageSpeedTarget[]): PageSpeedTarget[] {
 
 export function buildPageSpeedSummary(results: PageSpeedAuditResult[]): string {
   const lines = ['## PageSpeed Insights'];
-
   for (const result of results) {
     lines.push(
       `- ${result.label} (${result.strategy}): ${result.passed ? 'PASS' : 'FAIL'}`
     );
-
     if (!result.passed) {
       for (const failure of result.failures) {
         lines.push(
@@ -244,7 +235,6 @@ export function buildPageSpeedSummary(results: PageSpeedAuditResult[]): string {
       }
     }
   }
-
   return `${lines.join('\n')}\n`;
 }
 
@@ -266,7 +256,8 @@ async function fetchPageSpeedPayload(
   options: Parameters<typeof buildPsiUrl>[0]
 ): Promise<PageSpeedApiResponse> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), PAGE_SPEED_TIMEOUT_MS);
+  const timeoutMs = resolveTimeoutMs();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetchImpl(buildPsiUrl(options), {
@@ -281,11 +272,25 @@ async function fetchPageSpeedPayload(
   } catch (error) {
     if (controller.signal.aborted) {
       throw new Error(
-        `PageSpeed Insights request timed out for ${options.targetUrl} (${options.strategy}) after ${PAGE_SPEED_TIMEOUT_MS}ms`
+        `PageSpeed Insights request timed out for ${options.targetUrl} (${options.strategy}) after ${timeoutMs}ms`
       );
     }
     throw error;
   } finally {
     clearTimeout(timeout);
   }
+}
+
+function resolveTimeoutMs(): number {
+  const rawValue = process.env.PAGE_SPEED_TIMEOUT_MS;
+  if (!rawValue) {
+    return PAGE_SPEED_TIMEOUT_MS;
+  }
+  const parsed = Number(rawValue);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(
+      `Invalid PAGE_SPEED_TIMEOUT_MS value "${rawValue}". Expected a positive integer in milliseconds.`
+    );
+  }
+  return parsed;
 }

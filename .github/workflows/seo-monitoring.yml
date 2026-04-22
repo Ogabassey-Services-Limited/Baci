@@ -55,4 +55,5 @@ jobs:
           SEO_PLATFORM_ORIGIN: ${{ vars.SEO_PLATFORM_ORIGIN || 'https://usebaci.com' }}
           PAGESPEED_EXTRA_URLS: ${{ vars.PAGESPEED_EXTRA_URLS || vars.SEO_MERCHANT_ORIGINS || '' }}
           PAGESPEED_STRATEGIES: ${{ vars.PAGESPEED_STRATEGIES || 'mobile,desktop' }}
+          PAGE_SPEED_TIMEOUT_MS: ${{ vars.PAGE_SPEED_TIMEOUT_MS || '' }}
           PAGESPEED_INSIGHTS_API_KEY: ${{ secrets.PAGESPEED_INSIGHTS_API_KEY }}

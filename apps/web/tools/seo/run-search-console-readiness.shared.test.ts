@@ -3,9 +3,9 @@ import {
   extractCanonicalHref,
   extractLocs,
   extractRobotsSitemaps,
-} from './run-search-console-readiness';
+} from './run-search-console-readiness.shared';
 
-describe('run-search-console-readiness helpers', () => {
+describe('run-search-console-readiness shared helpers', () => {
   it('extracts sitemap urls from robots.txt and ignores commented lines', () => {
     expect(
       extractRobotsSitemaps(
@@ -38,6 +38,20 @@ describe('run-search-console-readiness helpers', () => {
         ].join('')
       )
     ).toEqual(['https://example.com/page', 'http://foo.bar/']);
+  });
+
+  it('decodes xml and html entities in loc and canonical values', () => {
+    expect(
+      extractLocs(
+        '<urlset><url><loc>https://example.com/search?q=phones&amp;sort=asc&#47;popular</loc></url></urlset>'
+      )
+    ).toEqual(['https://example.com/search?q=phones&sort=asc/popular']);
+
+    expect(
+      extractCanonicalHref(
+        '<html><head><link rel="canonical" href="https://usebaci.com/pricing?plan=growth&amp;currency=NGN" /></head></html>'
+      )
+    ).toBe('https://usebaci.com/pricing?plan=growth&currency=NGN');
   });
 
   it('extracts canonical hrefs and ignores alternate links', () => {

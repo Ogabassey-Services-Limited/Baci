@@ -25,6 +25,8 @@ The scheduled workflow in `.github/workflows/seo-monitoring.yml` reads:
   - Optional comma-separated additional URLs for PageSpeed audits
 - Repository variable `PAGESPEED_STRATEGIES`
   - Optional, defaults to `mobile,desktop`
+- Repository variable `PAGE_SPEED_TIMEOUT_MS`
+  - Optional positive integer override for the per-request PSI timeout in milliseconds
 - Repository secret `PAGESPEED_INSIGHTS_API_KEY`
   - Optional but recommended for stable quota
 

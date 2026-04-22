@@ -10,6 +10,7 @@ import {
 describe('run-pagespeed', () => {
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllEnvs();
   });
 
   it('builds platform targets and appends extra absolute urls', () => {
@@ -37,9 +38,16 @@ describe('run-pagespeed', () => {
     ).toThrow('Invalid PageSpeed target URL "notaurl"');
   });
 
-  it('parses strategies and falls back to mobile when input is invalid', () => {
+  it('parses strategies and falls back to mobile when input is empty', () => {
     expect(parseStrategies('mobile,desktop')).toEqual(['mobile', 'desktop']);
-    expect(parseStrategies('tablet')).toEqual(['mobile']);
+    expect(parseStrategies()).toEqual(['mobile']);
+    expect(parseStrategies(' , ')).toEqual(['mobile']);
+  });
+
+  it('throws for invalid PageSpeed strategies', () => {
+    expect(() => parseStrategies('tablet,mobile')).toThrow(
+      'Invalid PageSpeed strategies: tablet. Allowed values: mobile, desktop'
+    );
   });
 
   it('builds the PSI API url with repeated categories', () => {
@@ -88,6 +96,37 @@ describe('run-pagespeed', () => {
       'lcp',
       'cls',
     ]);
+  });
+
+  it('prefers field INP from CrUX data and enforces the 200ms threshold', () => {
+    const result = evaluatePageSpeedResult({
+      loadingExperience: {
+        metrics: {
+          INTERACTION_TO_NEXT_PAINT: { percentile: 240 },
+        },
+      },
+      lighthouseResult: {
+        categories: {
+          performance: { score: 0.92 },
+          accessibility: { score: 0.99 },
+          seo: { score: 0.98 },
+          'best-practices': { score: 0.95 },
+        },
+        audits: {
+          'largest-contentful-paint': { numericValue: 1800 },
+          'cumulative-layout-shift': { numericValue: 0.04 },
+          'total-blocking-time': { numericValue: 90 },
+          'interaction-to-next-paint': { numericValue: 400 },
+        },
+      },
+    });
+
+    expect(result.failures).toContainEqual({
+      metric: 'inp',
+      actual: 240,
+      threshold: 200,
+    });
+    expect(result.vitals.inp).toBe(240);
   });
 
   it('runs the audit across targets and strategies using the provided fetch', async () => {
@@ -149,6 +188,7 @@ describe('run-pagespeed', () => {
 
   it('aborts stuck PSI requests with a target-specific timeout error', async () => {
     vi.useFakeTimers();
+    vi.stubEnv('PAGE_SPEED_TIMEOUT_MS', '100');
     const fetchImpl: typeof fetch = vi.fn(
       (_input, init) =>
         new Promise((_resolve, reject) => {
@@ -168,8 +208,7 @@ describe('run-pagespeed', () => {
       'PageSpeed Insights request timed out for https://usebaci.com/ (mobile)'
     );
 
-    // Matches the per-request PSI timeout enforced inside runPageSpeedAudit.
-    await vi.advanceTimersByTimeAsync(15_000);
+    await vi.advanceTimersByTimeAsync(100);
 
     await timeoutExpectation;
   });
