@@ -66,7 +66,11 @@ const STOREFRONT_HOME_REGEX = /^\/[^/]+\/?$/;
 // Matches blog index/post paths on both the platform root (`/blog`, `/blog/...`)
 // and slug-prefixed storefront variants served from the root domain
 // (`/{slug}/blog`, `/{slug}/blog/...`). Used to canonicalize thumbnail params.
-const BLOG_PATH_REGEX = /^(?:\/[^/]+)?\/blog(?:\/.*)?$/;
+// The negative lookahead excludes reserved top-level routes (API handlers,
+// dashboard screens, etc.) that happen to have a `/blog` child segment —
+// e.g. `/api/blog/posts` must reach its handler instead of being redirected.
+const BLOG_PATH_REGEX =
+  /^(?:\/(?!(?:api|dashboard|admin|auth|login|onboarding|builder|reset-password|checkout|cart|staff|invite|actions|about|contact|pricing|privacy|terms|features|developers|demo|debug-auth|template-preview|track|_next|sitemap\.xml|robots\.txt|manifest\.webmanifest|favicon\.ico)(?:\/|$))[^/]+)?\/blog(?:\/.*)?$/;
 
 // Routes that should not be rewritten (main app routes)
 const MAIN_APP_ROUTES = [

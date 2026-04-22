@@ -230,6 +230,31 @@ describe('Middleware Proxy', () => {
     expect(location).not.toContain('thumbnail_id=');
   });
 
+  it.each([
+    ['/api/blog/posts', 'thumbnail_id=123'],
+    ['/dashboard/blog', 'thumbnail_id=foo'],
+    ['/admin/blog/analytics', '_thumbnail_id=bar'],
+  ])('does NOT strip thumbnail params on reserved top-level paths with /blog children: %s?%s', async (inputPath, queryString) => {
+    const req = new NextRequest(
+      `https://${ROOT_DOMAIN}${inputPath}?${queryString}`
+    );
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+    const location = res.headers.get('location');
+
+    // Must not be a 301 thumbnail-strip redirect. Auth-gated pages may
+    // still emit a 307 /login redirect, but the thumbnail_id parameter
+    // must be preserved so the handler/page downstream owns it.
+    expect(res.status).not.toBe(301);
+    if (location) {
+      // If any redirect fires (e.g. auth bounce), thumbnail params must
+      // NOT have been stripped by the blog canonicalizer.
+      const thumbnailKey = queryString.split('=')[0];
+      expect(location).toContain(thumbnailKey);
+    }
+  });
+
   describe('URL normalization: prefix-only case fixing', () => {
     it('lowercases /API prefix but preserves case-sensitive tail', async () => {
       const req = new NextRequest(
