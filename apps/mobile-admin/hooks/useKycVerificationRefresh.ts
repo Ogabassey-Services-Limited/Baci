@@ -12,8 +12,13 @@ export function useKycVerificationRefresh({
   const queryClient = useQueryClient();
 
   async function refreshAfterVerification() {
-    const invalidations = [
-      queryClient.invalidateQueries({ queryKey: ['merchant'] }),
+    // Store readiness is derived from merchant cache fields (nin/bvn/cac_rc_number),
+    // so the merchant refetch must settle before readiness is recomputed — otherwise
+    // readiness may resolve against stale KYC data and hide the publish CTA until a
+    // later manual refresh.
+    await queryClient.invalidateQueries({ queryKey: ['merchant'] });
+
+    const invalidations: Promise<unknown>[] = [
       queryClient.invalidateQueries({ queryKey: ['store-readiness'] }),
     ];
 
