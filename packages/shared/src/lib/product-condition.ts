@@ -1,6 +1,12 @@
 export type CanonicalProductCondition = 'new' | 'open_box' | 'used';
 export type GoogleListingCondition = 'new' | 'refurbished' | 'used';
 
+export const CANONICAL_PRODUCT_CONDITION_PREFERENCE = [
+  'used',
+  'open_box',
+  'new',
+] as const satisfies readonly CanonicalProductCondition[];
+
 const CANONICAL_PRODUCT_CONDITIONS = new Set<CanonicalProductCondition>([
   'new',
   'open_box',
@@ -12,6 +18,40 @@ const SCHEMA_ITEM_CONDITION_URIS = {
   refurbished: 'https://schema.org/RefurbishedCondition',
   used: 'https://schema.org/UsedCondition',
 } as const;
+
+export function getCanonicalProductConditionPreferenceRank(
+  value: string | null | undefined
+) {
+  const normalized = normalizeCanonicalProductCondition(value);
+
+  if (!normalized) {
+    return CANONICAL_PRODUCT_CONDITION_PREFERENCE.length;
+  }
+
+  const rank = CANONICAL_PRODUCT_CONDITION_PREFERENCE.indexOf(normalized);
+  return rank >= 0 ? rank : CANONICAL_PRODUCT_CONDITION_PREFERENCE.length;
+}
+
+export function sortCanonicalProductConditionsByPreference(
+  values: Array<string | null | undefined>
+) {
+  return Array.from(
+    new Set(
+      values
+        .map((value) => normalizeCanonicalProductCondition(value))
+        .filter(Boolean)
+    )
+  ).sort((left, right) => {
+    const leftRank = getCanonicalProductConditionPreferenceRank(left);
+    const rightRank = getCanonicalProductConditionPreferenceRank(right);
+
+    if (leftRank !== rightRank) {
+      return leftRank - rightRank;
+    }
+
+    return left.localeCompare(right);
+  }) as CanonicalProductCondition[];
+}
 
 export function normalizeCanonicalProductCondition(
   value: string | null | undefined

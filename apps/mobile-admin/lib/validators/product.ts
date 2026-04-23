@@ -245,7 +245,7 @@ export const ProductDbSchema = ProductSchema.transform((data) => {
     variantModel === 'sku_matrix'
       ? resolveDefaultVariantSelection({
           price: rest.price,
-          manage_stock: true,
+          manage_stock: rest.manage_stock,
           variants: defaultSelectionVariants,
         })
       : null;
@@ -265,12 +265,20 @@ export const ProductDbSchema = ProductSchema.transform((data) => {
     variantModel === 'sku_matrix'
       ? (defaultSelection?.condition ?? persistedVariants[0]?.condition ?? null)
       : (rest.condition ?? null);
+  const nextColor = has_variants
+    ? (defaultSelection?.color ??
+      persistedVariants
+        .map((variant) => variant.attributes.color?.trim())
+        .find((value): value is string => Boolean(value)) ??
+      null)
+    : rest.color?.trim() || null;
 
   return {
     ...rest,
+    color: nextColor,
     condition: nextCondition,
     has_variants,
-    manage_stock: has_variants ? true : rest.manage_stock,
+    manage_stock: rest.manage_stock,
     price: nextPrice,
     stock: nextStock,
     stock_quantity: nextStock,

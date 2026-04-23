@@ -138,6 +138,7 @@ export default function ProductEditScreen() {
             name: controller.formData.name,
             sku: controller.formData.sku,
           }}
+          hideColorField={controller.formData.has_variants}
           isEditing={controller.isEditing}
           onChange={controller.updateBasicInformation}
           onOpenCategoryModal={() => controller.setIsCategoryModalVisible(true)}

@@ -156,7 +156,8 @@ describe('ProductDbSchema', () => {
     expect(parsed.price).toBe(900000);
     expect(parsed.stock_quantity).toBe(6);
     expect(parsed.stock).toBe(6);
-    expect(parsed.manage_stock).toBe(true);
+    expect(parsed.manage_stock).toBe(false);
+    expect(parsed.color).toBe('Black');
     expect(parsed.variant_attributes).toEqual({
       color: ['Black', 'Silver'],
       storage: ['128GB', '256GB'],
@@ -270,9 +271,9 @@ describe('ProductDbSchema', () => {
 
     expect(parsed.variant_model).toBe('sku_matrix');
     expect(parsed.migration_status).toBe('migrated');
-    expect(parsed.condition).toBe('new');
-    expect(parsed.price).toBe(550000);
-    expect(parsed.stock_quantity).toBe(3);
+    expect(parsed.condition).toBe('used');
+    expect(parsed.price).toBe(500000);
+    expect(parsed.stock_quantity).toBe(1);
     expect(parsed.variants).toEqual([
       expect.objectContaining({
         attributes: { connectivity: 'WiFi', storage: '128GB' },
