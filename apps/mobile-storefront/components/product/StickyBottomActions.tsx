@@ -15,7 +15,7 @@ import {
   View,
 } from 'react-native';
 import type Colors from '@/constants/Colors';
-import { BRAND, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
+import { RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
 
 type ColorsScheme = (typeof Colors)['light'];
 const ACTION_ROW_GAP = SPACING.md - SPACING.xs;
@@ -62,7 +62,15 @@ export function StickyBottomActions({
         }}
       >
         {/* Quantity Controller */}
-        <View style={[styles.qtyController, { backgroundColor: colors.card }]}>
+        <View
+          style={[
+            styles.qtyController,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.primary,
+            },
+          ]}
+        >
           <Pressable
             onPress={(e) => onDecrement(e)}
             style={styles.qtyButton}
@@ -75,7 +83,7 @@ export function StickyBottomActions({
             <Ionicons
               name={quantityInCart === 1 ? 'trash-outline' : 'remove'}
               size={22}
-              color={BRAND.primary}
+              color={colors.primary}
             />
           </Pressable>
 
@@ -100,14 +108,20 @@ export function StickyBottomActions({
             accessibilityLabel="Increase quantity"
             accessibilityRole="button"
           >
-            <Ionicons name="add" size={22} color={BRAND.primary} />
+            <Ionicons name="add" size={22} color={colors.primary} />
           </Pressable>
         </View>
 
         {/* View Cart Button */}
         <Pressable
           onPress={() => router.push('/(tabs)/cart')}
-          style={[styles.viewCartBtn]}
+          style={[
+            styles.viewCartBtn,
+            {
+              backgroundColor: colors.primary,
+            },
+            SHADOWS.md,
+          ]}
           accessibilityRole="button"
           accessibilityLabel="View Cart"
         >
@@ -124,7 +138,7 @@ export function StickyBottomActions({
           styles.addToCartBtn,
           canPurchase
             ? {
-                backgroundColor: BRAND.primary,
+                backgroundColor: colors.primary,
                 borderColor: 'transparent',
               }
             : {
@@ -208,7 +222,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: RADIUS.xl,
     borderWidth: EMPHASIS_BORDER_WIDTH,
-    borderColor: BRAND.primary,
   },
   qtyButton: {
     width: 50,
@@ -251,13 +264,11 @@ const styles = StyleSheet.create({
   viewCartBtn: {
     flex: 1,
     height: 56,
-    backgroundColor: BRAND.primary,
     borderRadius: RADIUS.xl,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: SPACING.sm,
-    ...SHADOWS.md,
   },
   viewCartText: {
     fontSize: 16,

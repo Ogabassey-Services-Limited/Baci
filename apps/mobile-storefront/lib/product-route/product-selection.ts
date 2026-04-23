@@ -5,16 +5,9 @@ import {
   resolveVariantSelection,
   sortCanonicalProductConditionsByPreference,
 } from '@baci/shared/lib';
+import { isInternalSelectionAxis } from '@/lib/product-internal-selection-axes';
 import type { Product, ProductCondition } from '@/types/product';
 import { normalizeRouteCondition } from './normalize-route-condition';
-
-const INTERNAL_SELECTION_AXES = new Set([
-  'color',
-  'colour',
-  'storage',
-  'color_hex',
-  'colour_hex',
-]);
 
 type ProductSelectionInput = {
   attributes: Record<string, string | null>;
@@ -153,7 +146,7 @@ export function computeProductSelectionState({
     ...selectedAttributes,
     ...Object.fromEntries(
       Object.entries(currentVariantDisplaySelection?.attributes ?? {}).filter(
-        ([axis]) => !INTERNAL_SELECTION_AXES.has(axis)
+        ([axis]) => !isInternalSelectionAxis(axis)
       )
     ),
   };

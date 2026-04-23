@@ -57,6 +57,10 @@ import { markReviewHelpful, useReviews } from '@/hooks/use-reviews';
 import { resolveCartItemImageUrl } from '@/lib/cart-display';
 import { findMatchingConditionOffer } from '@/lib/product-condition-offers';
 import { resolveVariantSelectionFromImage } from '@/lib/product-image-selection';
+import {
+  isInternalSelectionAxis,
+  stripInternalSelectionAxes,
+} from '@/lib/product-internal-selection-axes';
 import { mergeVariantAttributes } from '@/lib/product-normalization';
 import { normalizeRouteCondition } from '@/lib/product-route/normalize-route-condition';
 import { computeProductSelectionState } from '@/lib/product-route/product-selection';
@@ -69,22 +73,6 @@ import {
   type Product,
   type ProductCondition,
 } from '@/types/product';
-
-const INTERNAL_SELECTION_AXES = new Set([
-  'color',
-  'colour',
-  'storage',
-  'color_hex',
-  'colour_hex',
-]);
-
-function stripInternalSelectionAxes(attributes: Record<string, string>) {
-  return Object.fromEntries(
-    Object.entries(attributes).filter(
-      ([axis]) => !INTERNAL_SELECTION_AXES.has(axis)
-    )
-  );
-}
 
 function getFirstColorOption(product: Product | null) {
   if (!product) {
@@ -99,7 +87,9 @@ function getFirstColorOption(product: Product | null) {
   }
 
   const variantColor = product.variants
-    ?.map((variant) => variant.attributes?.color?.trim())
+    ?.map((variant) =>
+      (variant.attributes?.color ?? variant.attributes?.colour)?.trim()
+    )
     .find((value): value is string => Boolean(value));
   if (variantColor) {
     return variantColor;
@@ -150,7 +140,7 @@ function getFallbackVariantSelections(product: Product | null) {
     Object.entries(mergedVariantAttributes ?? {})
       .filter(
         ([axis, values]) =>
-          !INTERNAL_SELECTION_AXES.has(axis) && Array.isArray(values)
+          !isInternalSelectionAxis(axis) && Array.isArray(values)
       )
       .map(([axis, values]) => [axis, values[0]])
       .filter(
@@ -252,7 +242,6 @@ export default function ProductDetailScreen() {
       ? resolveVariantSelectionParamResolution(product, routeParams)
       : null;
   const routeSelectionInput = routeSelectionResolution?.selectionInput ?? {};
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- React Compiler handles memoization (ADR-004)
   const routeSelectionAttributes = (routeSelectionInput.attributes ??
     {}) as Record<string, string>;
   const routeCondition = normalizeRouteCondition(
@@ -745,27 +734,22 @@ export default function ProductDetailScreen() {
     ? findMatchingConditionOffer(product?.offers, offerConditionKey)
     : null;
   const resolvedVariantPurchaseSelection =
-    currentVariantSelection ??
-    currentVariantDisplaySelection ??
-    defaultVariantSelection;
+    currentVariantSelection ?? currentVariantDisplaySelection;
   const selectedVariantCanPurchase =
     product?.has_variants === true
-      ? product.manage_stock === false
-        ? true
-        : resolvedVariantPurchaseSelection
-          ? typeof resolvedVariantPurchaseSelection.variant.stock_quantity ===
-            'number'
+      ? resolvedVariantPurchaseSelection
+        ? product.manage_stock === false
+          ? true
+          : typeof resolvedVariantPurchaseSelection.variant.stock_quantity ===
+              'number'
             ? resolvedVariantPurchaseSelection.variant.stock_quantity >
               quantityInCart
             : resolvedVariantPurchaseSelection.variant.in_stock !== false
-          : false
+        : false
       : false;
   const canPurchase =
     product?.has_variants === true
-      ? product.manage_stock === false
-        ? true
-        : Boolean(resolvedVariantPurchaseSelection) &&
-          selectedVariantCanPurchase
+      ? Boolean(resolvedVariantPurchaseSelection) && selectedVariantCanPurchase
       : product
         ? product.manage_stock === false ||
           (typeof selectedConditionOffer?.stock_quantity === 'number'
@@ -1202,11 +1186,16 @@ export default function ProductDetailScreen() {
             // Only clear attribute selections that have no matching variant
             // under the new condition, so shoppers keep picks that stay valid
             // (e.g. tapping "Used" while on 64GB should preserve 64GB).
-            const variantsForCondition = (product?.variants ?? []).filter(
-              (variant) =>
-                normalizeRouteCondition(variant.condition) ===
-                normalizedCondition
-            );
+            const variantsForCondition = usesVariantConditions
+              ? (product?.variants ?? []).filter(
+                  (variant) =>
+                    normalizeRouteCondition(variant.condition) ===
+                    normalizedCondition
+                )
+              : [];
+            if (!usesVariantConditions || variantsForCondition.length === 0) {
+              return;
+            }
             const storageStillValid =
               !effectiveSelectedStorage ||
               variantsForCondition.some(

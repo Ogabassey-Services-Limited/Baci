@@ -12,7 +12,7 @@ import {
 } from '@baci/shared/lib';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
+import Colors, { RADIUS, SPACING } from '@/constants/Colors';
 import {
   formatPrice,
   formatProductConditionDisplay,
@@ -107,9 +107,9 @@ export function ConditionSelector({
                 styles.chip,
                 {
                   backgroundColor: isSelected
-                    ? `${BRAND.primary}15`
+                    ? `${colors.primary}15`
                     : colors.card,
-                  borderColor: isSelected ? BRAND.primary : colors.border,
+                  borderColor: isSelected ? colors.primary : colors.border,
                 },
               ]}
               accessibilityRole="radio"
@@ -119,7 +119,7 @@ export function ConditionSelector({
               <Text
                 style={[
                   styles.chipLabel,
-                  { color: isSelected ? BRAND.primary : colors.text },
+                  { color: isSelected ? colors.primary : colors.text },
                 ]}
               >
                 {displayLabel}
@@ -129,7 +129,7 @@ export function ConditionSelector({
                   style={[
                     styles.chipPrice,
                     {
-                      color: isSelected ? BRAND.primary : colors.textSecondary,
+                      color: isSelected ? colors.primary : colors.textSecondary,
                     },
                   ]}
                 >

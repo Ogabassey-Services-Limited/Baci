@@ -14,6 +14,7 @@ import { HTMLRenderer } from '@/components/ui/HTMLRenderer';
 import type Colors from '@/constants/Colors';
 import { BRAND, RADIUS, TYPOGRAPHY } from '@/constants/Colors';
 import type { Review, ReviewStats } from '@/hooks/use-reviews';
+import { isInternalSelectionAxis } from '@/lib/product-internal-selection-axes';
 import { mergeVariantAttributes } from '@/lib/product-normalization';
 import type { Product, ProductCondition } from '@/types/product';
 import { formatPrice } from '@/types/product';
@@ -93,7 +94,7 @@ export function ProductDetailsBody({
   const hasPriceDrivingVariantAxes =
     Boolean(mergedVariantAttributes?.storage) ||
     Object.keys(mergedVariantAttributes ?? {}).some(
-      (axis) => !['color', 'color_hex', 'storage'].includes(axis)
+      (axis) => !isInternalSelectionAxis(axis)
     );
 
   return (

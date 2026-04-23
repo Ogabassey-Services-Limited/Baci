@@ -101,7 +101,7 @@ export interface ProductsPage {
 
 export const PRODUCT_SELECT = `
   id, name, slug, description, price, compare_at_price,
-  images, brand, colors, condition, has_condition_offers, variant_model, available_conditions, average_rating, review_count, status, specifications,
+  images, brand, condition, has_condition_offers, variant_model, available_conditions, average_rating, review_count, status, specifications,
   has_variants, variant_attributes, manage_stock, stock, stock_quantity,
   variants:product_variants!product_variants_product_id_fkey (
     id,
@@ -120,7 +120,7 @@ export const PRODUCT_SELECT = `
 
 export const PRODUCT_DETAIL_SELECT = `
   id, name, slug, description, price, compare_at_price,
-  images, brand, color, colors, condition, average_rating, review_count, status, specifications,
+  images, brand, color, condition, average_rating, review_count, status, specifications,
   has_variants, variant_attributes, manage_stock, stock, stock_quantity,
   color_images, has_condition_offers, variant_model, available_conditions,
   offers:product_offers (

@@ -1,4 +1,5 @@
 import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
+import { isInternalSelectionAxis } from '@/lib/product-internal-selection-axes';
 import type { ProductVariant } from '@/types/product';
 
 interface ResolveVariantSelectionFromImageInput {
@@ -13,14 +14,6 @@ interface ResolvedVariantSelectionFromImage {
   color: string | null;
   variantId: string | null;
 }
-
-const INTERNAL_SELECTION_AXES = new Set([
-  'color',
-  'colour',
-  'storage',
-  'color_hex',
-  'colour_hex',
-]);
 
 function normalizeValue(value: string | null | undefined) {
   return typeof value === 'string' ? value.trim() : '';
@@ -73,7 +66,7 @@ export function resolveVariantSelectionFromImage({
     Object.entries({
       ...Object.fromEntries(
         Object.entries(selectedAttributes ?? {}).filter(
-          ([axis]) => !INTERNAL_SELECTION_AXES.has(axis)
+          ([axis]) => !isInternalSelectionAxis(axis)
         )
       ),
       ...(selectedStorage ? { storage: selectedStorage } : {}),
