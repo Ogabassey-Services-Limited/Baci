@@ -193,6 +193,33 @@ describe('ProductGrid', () => {
     expect(mockProductGridSkeleton).not.toHaveBeenCalled();
   });
 
+  it('renders fallback UI when categories and products both fail without cached data', () => {
+    mockUseCategoriesFactory.mockReturnValue({
+      data: [],
+      isFetchedAfterMount: false,
+      isFetching: false,
+      isError: true,
+      isLoading: false,
+      error: new Error('cats'),
+    });
+    mockProductsHook({
+      products: [],
+      isFetchedAfterMount: true,
+      isLoading: false,
+      isError: true,
+      error: 'prods',
+    });
+
+    render(
+      <ProductGrid block={block} selectedCategoryId={null} variant="grid" />
+    );
+
+    expect(
+      screen.getByText('Failed to load products. Please try again.')
+    ).toBeTruthy();
+    expect(mockProductCard).not.toHaveBeenCalled();
+  });
+
   it('renders fallback UI when products query errors', () => {
     mockProductsHook({
       products: [],
