@@ -1,12 +1,6 @@
 name: '🔀 Gemini Dispatch'
 
 on:
-  pull_request:
-    types:
-      - 'opened'
-      - 'synchronize'
-      - 'reopened'
-      - 'ready_for_review'
   pull_request_review_comment:
     types:
       - 'created'
@@ -23,20 +17,20 @@ defaults:
 
 jobs:
   dispatch:
+    # Gemini review only runs on explicit `@gemini-cli /review` commands from
+    # maintainers on same-repo pull requests. Automatic `pull_request` events are
+    # intentionally ignored so unrelated PRs do not consume Gemini quota or fail
+    # the workflow when reviewers have not opted in. Forked-PR comments are
+    # rejected here and re-checked server-side in `extract_review_context` before
+    # any secrets are inherited by the reusable review workflow.
     if: |-
+      github.event.sender.type == 'User' &&
       (
-        github.event_name == 'pull_request' &&
-        github.event.pull_request.draft == false &&
-        github.event.pull_request.head.repo.full_name == github.repository
-      ) || (
-        github.event.sender.type == 'User' &&
-        (
-          contains(fromJSON('["pull_request_review_comment", "pull_request_review"]'), github.event_name) ||
-          (github.event_name == 'issue_comment' && github.event.issue.pull_request)
-        ) &&
-        startsWith(github.event.comment.body || github.event.review.body, '@gemini-cli /review') &&
-        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association || github.event.review.author_association)
-      )
+        contains(fromJSON('["pull_request_review_comment", "pull_request_review"]'), github.event_name) ||
+        (github.event_name == 'issue_comment' && github.event.issue.pull_request)
+      ) &&
+      startsWith(github.event.comment.body || github.event.review.body, '@gemini-cli /review') &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association || github.event.review.author_association)
     runs-on: 'ubuntu-latest'
     permissions:
       contents: 'read'
@@ -66,23 +60,23 @@ jobs:
           EVENT_NAME: '${{ github.event_name }}'
         with:
           script: |-
-            let headRepoFullName = context.payload.pull_request?.head?.repo?.full_name || '';
-            if (!headRepoFullName && context.payload.issue?.pull_request) {
+            // Always resolve the PR head repo from the API so we cannot be
+            // tricked by a fork-owned payload into leaking secrets. This guards
+            // against fork PR comments where `pull_request.head.repo.full_name`
+            // differs from `github.repository`.
+            let headRepoFullName = '';
+            const pullNumber = context.payload.pull_request?.number || context.issue?.number;
+            if (pullNumber) {
               const { data: pullRequest } = await github.rest.pulls.get({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                pull_number: context.issue.number,
+                pull_number: pullNumber,
               });
-              headRepoFullName = pullRequest.head.repo.full_name;
+              headRepoFullName = pullRequest.head.repo?.full_name || '';
             }
 
             const sameRepo = headRepoFullName === `${context.repo.owner}/${context.repo.repo}`;
             core.setOutput('should_review', sameRepo ? 'true' : 'false');
-
-            if (process.env.EVENT_NAME === 'pull_request') {
-              core.setOutput('additional_context', '');
-              return;
-            }
 
             const request = process.env.REQUEST || '';
             const additionalContext = request.replace(/^@gemini-cli \/review/, '').trim();
@@ -90,7 +84,7 @@ jobs:
 
       - name: 'Acknowledge request'
         if: |-
-          ${{ github.event_name != 'pull_request' && steps.extract_review_context.outputs.should_review == 'true' }}
+          ${{ steps.extract_review_context.outputs.should_review == 'true' }}
         env:
           GITHUB_TOKEN: '${{ steps.mint_identity_token.outputs.token || secrets.GITHUB_TOKEN || github.token }}'
           ISSUE_NUMBER: '${{ github.event.pull_request.number || github.event.issue.number }}'
