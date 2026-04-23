@@ -34,10 +34,9 @@ const log = createLogger('Order');
 import { trackError, trackEvent } from '@/services/analytics';
 
 // Get API URL from config
-const API_URL =
-  resolveApiBaseUrl(
-    process.env.EXPO_PUBLIC_API_URL || Constants.expoConfig?.extra?.apiUrl
-  );
+const API_URL = resolveApiBaseUrl(
+  process.env.EXPO_PUBLIC_API_URL || Constants.expoConfig?.extra?.apiUrl
+);
 
 const MERCHANT_ID =
   Constants.expoConfig?.extra?.merchantId ||
@@ -194,6 +193,7 @@ export async function createOrder(
       name: item.name,
       quantity: item.quantity,
       price: item.price,
+      image_url: item.image_url,
       value: Math.round(item.price * item.quantity),
       variant_id: item.variant_id,
       variant_attributes: item.variant_attributes || {},
@@ -282,10 +282,7 @@ export async function createOrder(
         const notFoundMessage = /merchant not found/i.test(errorMessage)
           ? 'Checkout is temporarily unavailable for this store. Please try again later.'
           : errorMessage;
-        throw new OrderError(
-          notFoundMessage,
-          'NOT_FOUND'
-        );
+        throw new OrderError(notFoundMessage, 'NOT_FOUND');
       } else if (response.status >= 500) {
         throw new OrderError(
           'Server error. Please try again in a few moments.',
@@ -463,7 +460,7 @@ export async function getCustomerOrders(customerId: string) {
   const { data, error } = await supabase
     .from('orders')
     .select(
-      'id, order_number, total, payment_status, shipping_status, created_at, order_items(id, product_id, condition, name, quantity, price, has_assurance)'
+      'id, order_number, total, payment_status, shipping_status, created_at, order_items(id, product_id, condition, image_url, name, quantity, price, has_assurance)'
     )
     .eq('customer_id', customerId)
     .eq('merchant_id', MERCHANT_ID)

@@ -4,7 +4,41 @@ import {
   sanitizeEmail,
   sanitizePhone,
   sanitizeText,
+  sanitizeUrl,
 } from '@/lib/sanitize-core';
+
+const optionalHttpUrlSchema = z.preprocess(
+  (value) => {
+    if (typeof value !== 'string') {
+      return value;
+    }
+
+    const trimmedValue = value.trim();
+
+    return trimmedValue === '' ? undefined : trimmedValue;
+  },
+  z
+    .string()
+    .url({
+      message: 'Invalid URL',
+    })
+    .max(2048)
+    .refine(
+      (value) => {
+        const protocol = new URL(value).protocol;
+
+        return protocol === 'http:' || protocol === 'https:';
+      },
+      {
+        message: 'URL must use http or https',
+      }
+    )
+    .transform((value) => sanitizeUrl(value))
+    .refine((value) => value.length > 0, {
+      message: 'Invalid URL',
+    })
+    .optional()
+);
 
 const orderCreateSchemaBase = z.object({
   merchant_id: z.string().uuid(),
@@ -39,6 +73,8 @@ const orderCreateSchemaBase = z.object({
           price: z.number().nonnegative(),
           negotiatedPrice: z.number().nonnegative().optional(),
           value: z.number().nonnegative().optional(),
+          imageUrl: optionalHttpUrlSchema,
+          image_url: optionalHttpUrlSchema,
           has_assurance: z.boolean().optional(),
           assurance_fee: z.number().nonnegative().optional(),
           condition: z
@@ -71,6 +107,15 @@ const orderCreateSchemaBase = z.object({
           message:
             'At least one product identifier (product_id, productId, or id) is required',
         })
+        .refine(
+          (data) =>
+            !data.imageUrl ||
+            !data.image_url ||
+            data.imageUrl === data.image_url,
+          {
+            message: 'imageUrl and image_url must match when both are provided',
+          }
+        )
     )
     .min(1),
   subtotal: z.coerce.number().nonnegative(),
