@@ -1206,7 +1206,8 @@ export default function ProductDetailScreen() {
               !effectiveSelectedColor ||
               variantsForCondition.some(
                 (variant) =>
-                  variant.attributes?.color === effectiveSelectedColor
+                  variant.attributes?.color === effectiveSelectedColor ||
+                  variant.attributes?.colour === effectiveSelectedColor
               );
 
             if (!storageStillValid) {

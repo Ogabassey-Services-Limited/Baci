@@ -53,7 +53,9 @@ function getVariantColors(variants: ProductVariant[] | null | undefined) {
   const variantColors = new Set<string>();
 
   for (const variant of variants ?? []) {
-    const color = variant.attributes?.color?.trim();
+    const color =
+      variant.attributes?.color?.trim() ||
+      variant.attributes?.colour?.trim();
     if (color) {
       variantColors.add(color);
     }
@@ -84,6 +86,7 @@ export function resolveProductVariantMetadata({
       ...normalizeProductColors(productColors),
       ...(resolvedVariantMedia.colors ?? []),
       ...(mergedVariantAttributes.color ?? []),
+      ...(mergedVariantAttributes.colour ?? []),
     ])
   );
   const colors =

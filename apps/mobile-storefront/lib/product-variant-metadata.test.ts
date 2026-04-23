@@ -60,4 +60,33 @@ describe('resolveProductVariantMetadata', () => {
       },
     });
   });
+
+  it('derives selectable colors from the legacy `colour` attribute key', () => {
+    const result = resolveProductVariantMetadata({
+      variants: [
+        {
+          id: 'variant-green',
+          name: 'Green',
+          price: 100,
+          attributes: {
+            colour: 'Forest Green',
+          },
+        },
+        {
+          id: 'variant-red',
+          name: 'Red',
+          price: 100,
+          attributes: {
+            colour: 'Crimson',
+          },
+        },
+      ],
+    });
+
+    expect(result.colors).toEqual(['Forest Green', 'Crimson']);
+    expect(result.variantAttributes).toEqual({
+      colour: ['Forest Green', 'Crimson'],
+      color: ['Forest Green', 'Crimson'],
+    });
+  });
 });
