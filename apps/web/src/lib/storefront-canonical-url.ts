@@ -33,11 +33,15 @@ export function normalizeStorefrontCanonicalUrl(
     const canonical = new URL(normalizedCanonical, baseUrl);
 
     if (canonical.origin !== storeOrigin) {
-      return `${storeOrigin}${canonical.pathname}${canonical.search}`;
+      const rewritten = new URL(storeOrigin);
+      rewritten.pathname = canonical.pathname;
+      rewritten.search = canonical.search;
+      rewritten.hash = canonical.hash;
+      return rewritten.toString();
     }
 
     return canonical.toString();
   } catch {
-    return normalizedCanonical;
+    return undefined;
   }
 }

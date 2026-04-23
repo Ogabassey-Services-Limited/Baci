@@ -58,4 +58,30 @@ describe('normalizeStorefrontCanonicalUrl', () => {
       )
     ).toBe('https://ogabassey.com/laptops/macbook-pro-m2-max-32gb-1tb-14-inch');
   });
+
+  it('returns undefined for malformed canonical urls so callers can fall back', () => {
+    expect(
+      normalizeStorefrontCanonicalUrl('https://%', 'https://ogabassey.com')
+    ).toBeUndefined();
+  });
+
+  it('resolves relative canonicals against the storefront base url', () => {
+    expect(
+      normalizeStorefrontCanonicalUrl(
+        '/products/iphone-17-pro-max?ref=seo#specs',
+        'https://ogabassey.com'
+      )
+    ).toBe('https://ogabassey.com/products/iphone-17-pro-max?ref=seo#specs');
+  });
+
+  it('preserves query strings and fragments when rewriting canonical origins', () => {
+    expect(
+      normalizeStorefrontCanonicalUrl(
+        'https://usebaci.com/smartphones/samsung-galaxy-z-fold-6-12gb-256gb?src=google#reviews',
+        'https://ogabassey.com'
+      )
+    ).toBe(
+      'https://ogabassey.com/smartphones/samsung-galaxy-z-fold-6-12gb-256gb?src=google#reviews'
+    );
+  });
 });

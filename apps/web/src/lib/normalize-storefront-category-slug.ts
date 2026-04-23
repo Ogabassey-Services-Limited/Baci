@@ -11,10 +11,8 @@ export function normalizeStorefrontCategorySlug(
       return 'accessories';
     case 'phone':
     case 'phones':
-    case 'samsung':
       return 'smartphones';
     case 'laptop':
-    case 'macbook':
       return 'laptops';
     default:
       return normalized;

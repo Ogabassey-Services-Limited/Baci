@@ -30,7 +30,7 @@ describe('getStorefrontProductHref', () => {
     ).toBe('/ogabassey/smartphones/iphone-15-pro-max');
   });
 
-  it('normalizes legacy category aliases to canonical category routes', () => {
+  it('preserves merchant-defined category slugs when building hrefs', () => {
     expect(
       getStorefrontProductHref(
         {
@@ -41,7 +41,7 @@ describe('getStorefrontProductHref', () => {
         },
         '/ogabassey'
       )
-    ).toBe('/ogabassey/smartphones/samsung-galaxy-s25-ultra-12gb-512gb');
+    ).toBe('/ogabassey/samsung/samsung-galaxy-s25-ultra-12gb-512gb');
   });
 
   it('falls back to the products route when category data is unavailable', () => {
@@ -72,7 +72,7 @@ describe('getStorefrontProductHref', () => {
     ).toBe('/ogabassey/gaming/nintendo-switch-oled');
   });
 
-  it('normalizes canonical legacy aliases to canonical storefront categories', () => {
+  it('preserves merchant-defined canonical category slugs', () => {
     expect(
       getStorefrontProductHref(
         {
@@ -83,7 +83,7 @@ describe('getStorefrontProductHref', () => {
         },
         '/'
       )
-    ).toBe('/smartphones/samsung-galaxy-s25-ultra');
+    ).toBe('/samsung/samsung-galaxy-s25-ultra');
   });
 
   it('trims trailing slashes from the base path', () => {

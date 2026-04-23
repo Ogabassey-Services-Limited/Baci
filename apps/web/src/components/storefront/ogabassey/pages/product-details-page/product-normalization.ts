@@ -141,11 +141,10 @@ export function normalizeProductDetails(
       ? product.storage
       : [product.storage]
     : [];
-  let images = resolvedVariantMedia.galleryImages;
-
-  if (images.length === 0) {
-    images.push('/placeholder.svg');
-  }
+  const images =
+    resolvedVariantMedia.galleryImages.length > 0
+      ? [...resolvedVariantMedia.galleryImages]
+      : ['/placeholder.svg'];
 
   const platforms = (() => {
     const platformOptions = getVariantAttributeOptions(

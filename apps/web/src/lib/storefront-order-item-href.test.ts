@@ -38,7 +38,7 @@ describe('getStorefrontOrderItemHref', () => {
     ).toBe('/ogabassey/preferred-category/iphone-15-pro-max');
   });
 
-  it('normalizes category aliases when building canonical hrefs', () => {
+  it('preserves merchant-defined category slugs when building canonical hrefs', () => {
     expect(
       getStorefrontOrderItemHref(
         {
@@ -47,7 +47,7 @@ describe('getStorefrontOrderItemHref', () => {
         },
         '/ogabassey'
       )
-    ).toBe('/ogabassey/laptops/macbook-air-13-inch-2022-m2-8gb-256gb');
+    ).toBe('/ogabassey/macbook/macbook-air-13-inch-2022-m2-8gb-256gb');
   });
 
   it('returns null when exact product route data is unavailable', () => {

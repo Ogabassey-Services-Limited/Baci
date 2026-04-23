@@ -145,16 +145,8 @@ function normalizeInternalStorefrontPath(
     normalizedPath = `/smartphones${normalizedPath.slice('/phone'.length)}`;
   }
 
-  if (normalizedPath === '/samsung' || normalizedPath.startsWith('/samsung/')) {
-    normalizedPath = `/smartphones${normalizedPath.slice('/samsung'.length)}`;
-  }
-
   if (normalizedPath === '/laptop' || normalizedPath.startsWith('/laptop/')) {
     normalizedPath = `/laptops${normalizedPath.slice('/laptop'.length)}`;
-  }
-
-  if (normalizedPath === '/macbook' || normalizedPath.startsWith('/macbook/')) {
-    normalizedPath = `/laptops${normalizedPath.slice('/macbook'.length)}`;
   }
 
   if (
