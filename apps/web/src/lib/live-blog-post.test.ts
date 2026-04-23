@@ -156,6 +156,36 @@ describe('getLiveBlogPost', () => {
     ]);
   });
 
+  it('slugifies free-text blog categories before filtering related products', async () => {
+    vi.mocked(getMerchantSafe).mockResolvedValue(mockMerchant as never);
+    vi.mocked(getCachedFeatureSettings).mockResolvedValue({
+      blog_enabled: true,
+      shipping_insurance_enabled: false,
+      shipping_insurance_min_order_value: 5000,
+      shipping_insurance_opt_in_default: false,
+    });
+
+    mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'post-1',
+        title: 'Test Post',
+        slug: 'my-post',
+        category: 'Product News',
+      },
+      error: null,
+    });
+
+    relatedQueryResult.data = [];
+    relatedQueryResult.error = null;
+
+    await getLiveBlogPost('test-store', 'my-post');
+
+    expect(mockQueryBuilder.eq).toHaveBeenCalledWith(
+      'category_slug',
+      'product-news'
+    );
+  });
+
   it('returns empty relatedPosts when related posts query errors', async () => {
     vi.mocked(getMerchantSafe).mockResolvedValue(mockMerchant as never);
     vi.mocked(getCachedFeatureSettings).mockResolvedValue({
