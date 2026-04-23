@@ -427,6 +427,32 @@ describe('BlogPostBody', () => {
         screen.queryByRole('heading', { name: /popular products mentioned/i })
       ).not.toBeInTheDocument();
     });
+    it('trims related product names and slugs before building links', async () => {
+      render(
+        await BlogPostBody({
+          ...BASE_PROPS,
+          content: '<p>Body</p>',
+          relatedProducts: [
+            {
+              id: 'product-1',
+              name: '  Galaxy S25 Ultra  ',
+              slug: '  galaxy-s25-ultra  ',
+              category_slug: '  smartphones  ',
+            },
+          ],
+        })
+      );
+
+      const productLink = screen.getByRole('link', {
+        name: 'Galaxy S25 Ultra',
+      });
+
+      expect(productLink).toHaveAttribute(
+        'href',
+        '/ogabassey/smartphones/galaxy-s25-ultra'
+      );
+      expect(productLink).toHaveTextContent(/^Galaxy S25 Ultra$/);
+    });
   });
 
   // -------------------------------------------------------------------------

@@ -29,7 +29,8 @@ export function canonicalizeCategorySlug(
  */
 export function normalizeStorefrontCanonicalUrl(
   canonicalUrl: string | null | undefined,
-  baseUrl: string
+  baseUrl: string,
+  merchantSlug?: string | null
 ): string | undefined {
   const normalizedCanonical = canonicalUrl?.trim();
   if (!normalizedCanonical) {
@@ -41,11 +42,27 @@ export function normalizeStorefrontCanonicalUrl(
     const canonical = new URL(normalizedCanonical, baseUrl);
 
     if (canonical.origin !== storeOrigin) {
-      const rewritten = new URL(storeOrigin);
-      rewritten.pathname = canonical.pathname;
-      rewritten.search = canonical.search;
-      rewritten.hash = canonical.hash;
-      return rewritten.toString();
+      const normalizedMerchantSlug = merchantSlug?.trim().toLowerCase();
+      const canonicalPathSegments = canonical.pathname
+        .split('/')
+        .filter(Boolean);
+      const shouldStripMerchantPrefix =
+        normalizedMerchantSlug &&
+        canonicalPathSegments.length > 0 &&
+        canonicalPathSegments[0]?.toLowerCase() === normalizedMerchantSlug;
+      const rewrittenPathname = shouldStripMerchantPrefix
+        ? canonicalPathSegments.length === 1
+          ? '/'
+          : `/${canonicalPathSegments.slice(1).join('/')}`
+        : canonical.pathname;
+      const normalizedPathname =
+        shouldStripMerchantPrefix &&
+        rewrittenPathname !== '/' &&
+        canonical.pathname.endsWith('/')
+          ? `${rewrittenPathname}/`
+          : rewrittenPathname;
+
+      return `${storeOrigin}${normalizedPathname}${canonical.search}${canonical.hash}`;
     }
 
     return canonical.toString();

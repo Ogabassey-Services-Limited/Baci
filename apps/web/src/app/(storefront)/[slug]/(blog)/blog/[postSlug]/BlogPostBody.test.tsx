@@ -204,7 +204,7 @@ describe('BlogPostBody', () => {
     );
   });
 
-  it('falls back to product id when related product slug is missing', async () => {
+  it('renders related product links using category-aware and fallback product routes', async () => {
     mockResolveBlogPostContent.mockResolvedValue({
       isJson: false,
       legacyHtml: '<p>Content</p>',
@@ -219,28 +219,21 @@ describe('BlogPostBody', () => {
         merchantSlug: 'ogabassey',
         post: {
           id: 'post-1',
-          slug: 'pixel-9-review',
+          slug: 'my-post',
           tags: null,
-          title: 'Pixel 9 Review',
+          title: 'My Post',
         },
         relatedProducts: [
           {
-            id: 'product-with-slug',
-            name: 'Product With Slug',
-            slug: 'galaxy-s24',
+            id: 'product-1',
+            name: 'iPhone 16',
+            slug: 'iphone-16',
             category_slug: 'smartphones',
           },
           {
-            id: 'product-missing-slug',
-            name: 'Product Missing Slug',
-            slug: null,
-            category_slug: null,
-          },
-          {
-            id: 'product-empty-slug',
-            name: 'Product Empty Slug',
-            slug: '   ',
-            category_slug: 'smartphones',
+            id: 'product-2',
+            name: 'DualSense Wireless Controller',
+            slug: 'ps5-dualsense-wireless-controller',
           },
         ],
         relatedPosts: [],
@@ -248,13 +241,105 @@ describe('BlogPostBody', () => {
     );
 
     expect(
-      screen.getByRole('link', { name: 'Product With Slug' })
-    ).toHaveAttribute('href', '/ogabassey/smartphones/galaxy-s24');
+      screen.getByRole('heading', { name: /popular products mentioned/i })
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'iPhone 16' })).toHaveAttribute(
+      'href',
+      '/ogabassey/smartphones/iphone-16'
+    );
     expect(
-      screen.getByRole('link', { name: 'Product Missing Slug' })
-    ).toHaveAttribute('href', '/ogabassey/products/product-missing-slug');
+      screen.getByRole('link', { name: 'DualSense Wireless Controller' })
+    ).toHaveAttribute(
+      'href',
+      '/ogabassey/products/ps5-dualsense-wireless-controller'
+    );
+  });
+
+  it('trims related product names and slugs before building routes', async () => {
+    mockResolveBlogPostContent.mockResolvedValue({
+      isJson: false,
+      legacyHtml: '<p>Content</p>',
+      renderedContent: null,
+    });
+
+    render(
+      await BlogPostBody({
+        basePath: '/ogabassey',
+        baseUrl: 'https://usebaci.com',
+        content: '<p>Content</p>',
+        merchantSlug: 'ogabassey',
+        post: {
+          id: 'post-1',
+          slug: 'my-post',
+          tags: null,
+          title: 'My Post',
+        },
+        relatedProducts: [
+          {
+            id: 'product-1',
+            name: '  iPhone 16  ',
+            slug: '  iphone-16  ',
+            category_slug: '  smartphones  ',
+          },
+          {
+            id: 'product-2',
+            name: '  PS5 Controller  ',
+            slug: '  ps5-controller  ',
+            category_slug: null,
+          },
+        ],
+        relatedPosts: [],
+      })
+    );
+
+    const productLink = screen.getByRole('link', { name: 'iPhone 16' });
+    expect(productLink).toHaveAttribute(
+      'href',
+      '/ogabassey/smartphones/iphone-16'
+    );
+    expect(productLink).toHaveTextContent(/^iPhone 16$/);
+    const fallbackProductLink = screen.getByRole('link', {
+      name: 'PS5 Controller',
+    });
+    expect(fallbackProductLink).toHaveAttribute(
+      'href',
+      '/ogabassey/products/ps5-controller'
+    );
+    expect(fallbackProductLink).toHaveTextContent(/^PS5 Controller$/);
+  });
+
+  it('skips malformed related products so the section degrades gracefully', async () => {
+    mockResolveBlogPostContent.mockResolvedValue({
+      isJson: false,
+      legacyHtml: '<p>Content</p>',
+      renderedContent: null,
+    });
+
+    render(
+      await BlogPostBody({
+        basePath: '/ogabassey',
+        baseUrl: 'https://usebaci.com',
+        content: '<p>Content</p>',
+        merchantSlug: 'ogabassey',
+        post: {
+          id: 'post-1',
+          slug: 'my-post',
+          tags: null,
+          title: 'My Post',
+        },
+        relatedProducts: [
+          {
+            id: 'product-1',
+            name: '',
+            slug: '',
+          },
+        ],
+        relatedPosts: [],
+      })
+    );
+
     expect(
-      screen.getByRole('link', { name: 'Product Empty Slug' })
-    ).toHaveAttribute('href', '/ogabassey/smartphones/product-empty-slug');
+      screen.queryByRole('heading', { name: /popular products mentioned/i })
+    ).not.toBeInTheDocument();
   });
 });

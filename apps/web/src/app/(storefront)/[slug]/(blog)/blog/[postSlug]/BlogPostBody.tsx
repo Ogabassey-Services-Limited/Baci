@@ -64,6 +64,27 @@ export async function BlogPostBody({
     }
   );
   const shareUrl = postUrl || buildBlogUrl(baseUrl, basePath, post.slug);
+  const safeRelatedProducts = relatedProducts.flatMap((product) => {
+    const name = typeof product.name === 'string' ? product.name.trim() : '';
+    const slug = typeof product.slug === 'string' ? product.slug.trim() : '';
+    const categorySlug =
+      typeof product.category_slug === 'string'
+        ? product.category_slug.trim()
+        : '';
+
+    if (!name || !slug) {
+      return [];
+    }
+
+    return [
+      {
+        ...product,
+        category_slug: categorySlug || null,
+        name,
+        slug,
+      },
+    ];
+  });
 
   return (
     <div className="[content-visibility:auto] [contain-intrinsic-size:1152px_2400px]">
@@ -190,10 +211,7 @@ export async function BlogPostBody({
             Popular Products Mentioned
           </h2>
           <ul className="grid gap-3 md:grid-cols-2">
-            {relatedProducts.map((product) => {
-              // `slug` can be null/empty for legacy rows; fall back to `id` so
-              // we never emit `.../undefined` or `.../null` dead links.
-              const productPathSegment = product.slug?.trim() || product.id;
+            {safeRelatedProducts.map((product) => {
               const canonicalCategorySlug = canonicalizeCategorySlug(
                 product.category_slug
               );
@@ -201,7 +219,7 @@ export async function BlogPostBody({
                 {
                   id: product.id,
                   name: product.name,
-                  slug: productPathSegment,
+                  slug: product.slug,
                   category_slug: canonicalCategorySlug ?? undefined,
                 },
                 basePath

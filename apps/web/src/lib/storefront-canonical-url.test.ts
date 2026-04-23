@@ -85,6 +85,108 @@ describe('normalizeStorefrontCanonicalUrl', () => {
     );
   });
 
+  it('strips path-mode merchant prefixes when rewriting to a custom domain', () => {
+    expect(
+      normalizeStorefrontCanonicalUrl(
+        'https://usebaci.com/ogabassey/smartphones/iphone-15-pro-max',
+        'https://ogabassey.com',
+        'ogabassey'
+      )
+    ).toBe('https://ogabassey.com/smartphones/iphone-15-pro-max');
+  });
+
+  it('preserves trailing slashes when stripping a path-mode merchant prefix', () => {
+    expect(
+      normalizeStorefrontCanonicalUrl(
+        'https://usebaci.com/ogabassey/smartphones/',
+        'https://ogabassey.com',
+        'ogabassey'
+      )
+    ).toBe('https://ogabassey.com/smartphones/');
+  });
+
+  it('rewrites exact merchant-prefixed roots to the storefront root', () => {
+    expect(
+      normalizeStorefrontCanonicalUrl(
+        'https://usebaci.com/ogabassey',
+        'https://ogabassey.com',
+        'ogabassey'
+      )
+    ).toBe('https://ogabassey.com/');
+  });
+
+  it('rewrites trailing-slash merchant roots to the storefront root', () => {
+    expect(
+      normalizeStorefrontCanonicalUrl(
+        'https://usebaci.com/ogabassey/',
+        'https://ogabassey.com',
+        'ogabassey'
+      )
+    ).toBe('https://ogabassey.com/');
+  });
+
+  it('preserves merchant strings outside the leading path segment', () => {
+    expect(
+      normalizeStorefrontCanonicalUrl(
+        'https://usebaci.com/products/iphone-15?merchant=ogabassey#ogabassey',
+        'https://ogabassey.com',
+        'ogabassey'
+      )
+    ).toBe(
+      'https://ogabassey.com/products/iphone-15?merchant=ogabassey#ogabassey'
+    );
+  });
+
+  it('strips merchant prefixes case-insensitively when rewriting origins', () => {
+    expect(
+      normalizeStorefrontCanonicalUrl(
+        'https://usebaci.com/OgaBassey/products/iphone-15',
+        'https://ogabassey.com',
+        'ogabassey'
+      )
+    ).toBe('https://ogabassey.com/products/iphone-15');
+  });
+
+  it('keeps the path unchanged when merchant slug is empty', () => {
+    expect(
+      normalizeStorefrontCanonicalUrl(
+        'https://usebaci.com/products/iphone-15',
+        'https://ogabassey.com',
+        ''
+      )
+    ).toBe('https://ogabassey.com/products/iphone-15');
+  });
+
+  it('strips merchant prefixes safely when the slug contains punctuation', () => {
+    expect(
+      normalizeStorefrontCanonicalUrl(
+        'https://usebaci.com/shop.name/products/iphone-15',
+        'https://shop.example.com',
+        'shop.name'
+      )
+    ).toBe('https://shop.example.com/products/iphone-15');
+  });
+
+  it('treats punctuation-bearing merchant slugs literally for near-miss paths', () => {
+    expect(
+      normalizeStorefrontCanonicalUrl(
+        'https://usebaci.com/shopXname/products/iphone-15',
+        'https://shop.example.com',
+        'shop.name'
+      )
+    ).toBe('https://shop.example.com/shopXname/products/iphone-15');
+  });
+
+  it('preserves rewritten paths that do not begin with the merchant slug', () => {
+    expect(
+      normalizeStorefrontCanonicalUrl(
+        'https://usebaci.com/smartphones/ogabassey-special',
+        'https://ogabassey.com',
+        'ogabassey'
+      )
+    ).toBe('https://ogabassey.com/smartphones/ogabassey-special');
+  });
+
   it('handles different ports and schemes when rewriting canonical origins', () => {
     expect(
       normalizeStorefrontCanonicalUrl(

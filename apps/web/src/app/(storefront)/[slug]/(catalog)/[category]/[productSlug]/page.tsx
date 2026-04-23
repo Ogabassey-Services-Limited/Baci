@@ -504,7 +504,8 @@ export async function generateMetadata({
   });
   let canonicalUrl = normalizeStorefrontCanonicalUrl(
     product.canonical_url,
-    baseUrl
+    baseUrl,
+    merchant.slug
   );
 
   if (canonicalUrl) {

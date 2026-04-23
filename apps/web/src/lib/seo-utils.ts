@@ -1321,6 +1321,41 @@ function normalizePlainText(value: string): string {
   return stripHtmlTags(value).replace(/\s+/g, ' ').trim();
 }
 
+const META_TITLE_SEPARATORS = ['|', '-', '–', '—', ':'] as const;
+
+function stringsMatchCaseInsensitive(left: string, right: string): boolean {
+  return left.localeCompare(right, undefined, { sensitivity: 'base' }) === 0;
+}
+
+function getTrailingSeparatedSegment(value: string) {
+  const trimmedValue = value.trim();
+
+  let bestIndex = -1;
+  let separatorLength = 0;
+
+  for (const separator of META_TITLE_SEPARATORS) {
+    const index = trimmedValue.lastIndexOf(separator);
+    if (index > bestIndex) {
+      bestIndex = index;
+      separatorLength = separator.length;
+    }
+  }
+
+  if (bestIndex === -1) {
+    return null;
+  }
+
+  const base = trimmedValue.slice(0, bestIndex).trim();
+  const suffix = trimmedValue.slice(bestIndex + separatorLength).trim();
+
+  if (!base || !suffix) {
+    return null;
+  }
+
+  return { base, suffix };
+}
+
+
 function removeTrailingDuplicateSuffix(value: string, suffix: string): string {
   const normalizedSuffix = normalizePlainText(suffix);
   if (!normalizedSuffix) {
@@ -1328,25 +1363,17 @@ function removeTrailingDuplicateSuffix(value: string, suffix: string): string {
   }
 
   let normalizedValue = normalizePlainText(value);
-  const normalizedSuffixLowerCase = normalizedSuffix.toLocaleLowerCase();
-  const separators = ['|', '-', '–', '—', ':'];
 
-  while (
-    normalizedValue.toLocaleLowerCase().endsWith(normalizedSuffixLowerCase)
-  ) {
-    const suffixStartIndex = normalizedValue.length - normalizedSuffix.length;
-    const baseWithSeparator = normalizedValue
-      .slice(0, suffixStartIndex)
-      .trimEnd();
-    const separator = separators.find((candidate) =>
-      baseWithSeparator.endsWith(candidate)
-    );
-    if (!separator) {
+  while (true) {
+    const trailingSegment = getTrailingSeparatedSegment(normalizedValue);
+    if (
+      !trailingSegment ||
+      !stringsMatchCaseInsensitive(trailingSegment.suffix, normalizedSuffix)
+    ) {
       break;
     }
-    const nextValue = baseWithSeparator
-      .slice(0, baseWithSeparator.length - separator.length)
-      .trimEnd();
+
+    const nextValue = trailingSegment.base;
     if (!nextValue || nextValue === normalizedValue) {
       break;
     }
@@ -1384,14 +1411,13 @@ export function generateMetaTitle(
 
   if (suffix) {
     const baseTitle = removeTrailingDuplicateSuffix(normalizedTitle, suffix);
-    const suffixLower = suffix.toLowerCase();
-    const baseLower = baseTitle.toLowerCase();
-    const endsWithSuffix =
-      baseLower === suffixLower ||
-      baseLower.endsWith(` ${suffixLower}`) ||
-      baseLower.endsWith(`|${suffixLower}`) ||
-      baseLower.endsWith(`| ${suffixLower}`);
-    normalizedTitle = endsWithSuffix ? baseTitle : `${baseTitle} | ${suffix}`;
+    const trailingSegment = getTrailingSeparatedSegment(baseTitle);
+    const hasSuffix =
+      stringsMatchCaseInsensitive(baseTitle, suffix) ||
+      (trailingSegment
+        ? stringsMatchCaseInsensitive(trailingSegment.suffix, suffix)
+        : false);
+    normalizedTitle = hasSuffix ? baseTitle : `${baseTitle} | ${suffix}`;
   }
 
   if (normalizedTitle.length <= maxLength) {
