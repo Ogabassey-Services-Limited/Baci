@@ -213,6 +213,7 @@ describe('OgabasseyNavbar', () => {
     expect(hrefs).toEqual(
       expect.arrayContaining([
         '/',
+        '/cart',
         '/account',
         '/smartphones',
         '/imei-check',

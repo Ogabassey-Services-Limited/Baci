@@ -205,6 +205,23 @@ describe('resolveProductVariantMedia', () => {
     });
   });
 
+  it('deduplicates colors case-insensitively across sources and preserves first-seen casing', () => {
+    // Arrange: legacy color_images uses lowercase `black` while product.colors
+    // uses title-case `Black`; they should collapse into a single swatch.
+    const result = resolveProductVariantMedia({
+      colorImages: {
+        black: ['https://cdn.example.com/black.jpg'],
+      },
+      productColors: ['Black', 'RED', 'red'],
+      productImages: [],
+      variants: [],
+    });
+
+    // Assert: single entry per color; first occurrence (lowercase `black` from
+    // color_images) wins, later casings (`RED` before `red`) also collapse.
+    expect(result.colors).toEqual(['black', 'RED']);
+  });
+
   it('normalizes image objects and strips surrounding quotes from URLs', () => {
     expect(
       resolveProductVariantMedia({

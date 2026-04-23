@@ -242,24 +242,39 @@ function buildOrderedColors(args: {
   productColors: string[];
   variantColorImages?: Record<string, string[]>;
 }) {
-  const ordered = new Set<string>();
+  // Dedupe case-insensitively so mixed-case inputs from different sources
+  // (e.g. `color_images` key `black` and `product.colors` entry `Black`)
+  // do not produce duplicate swatches. The first casing encountered wins
+  // and insertion order is preserved via Map iteration.
+  const ordered = new Map<string, string>();
+
+  const addColor = (color: string) => {
+    const trimmed = color?.trim();
+    if (!trimmed) {
+      return;
+    }
+    const key = trimmed.toLowerCase();
+    if (!ordered.has(key)) {
+      ordered.set(key, trimmed);
+    }
+  };
 
   for (const image of args.galleryImages) {
     const color = args.imageColorMap[image];
     if (color) {
-      ordered.add(color);
+      addColor(color);
     }
   }
 
   for (const color of Object.keys(args.variantColorImages ?? {})) {
-    ordered.add(color);
+    addColor(color);
   }
 
   for (const color of args.productColors) {
-    ordered.add(color);
+    addColor(color);
   }
 
-  return Array.from(ordered);
+  return Array.from(ordered.values());
 }
 
 /**

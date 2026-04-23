@@ -240,6 +240,28 @@ describe('Middleware Proxy', () => {
     );
   });
 
+  it.each([
+    'POST',
+    'PUT',
+    'PATCH',
+    'DELETE',
+  ])('does NOT 301 slug-prefixed custom-domain requests on non-idempotent methods (%s)', async (method) => {
+    // Arrange: a slug-prefixed API URL on a custom domain, using a method
+    // whose body must not be dropped by a GET-replay after a 301.
+    const req = new NextRequest(
+      'https://ogabassey.com/ogabassey/api/checkout/create-order',
+      { method }
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    // Act
+    const res = await proxy(req);
+
+    // Assert: the canonicalizing redirect branch must be skipped so the
+    // request reaches the API with its body intact.
+    expect(res.status).not.toBe(301);
+  });
+
   it('returns 410 for legacy WordPress admin probes under /blog', async () => {
     const req = new NextRequest(
       'https://ogabassey.com/blog/wp-admin/post.php?post=7446&action=edit'

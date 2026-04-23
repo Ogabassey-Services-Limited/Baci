@@ -965,7 +965,12 @@ export async function proxy(request: NextRequest) {
       if (
         domainMerchantSlug &&
         domainPathSegments[0]?.toLowerCase() ===
-          domainMerchantSlug.toLowerCase()
+          domainMerchantSlug.toLowerCase() &&
+        // Only canonicalize safe/idempotent methods. A 301 on POST/PUT/etc.
+        // lets clients replay as GET, which drops the body and breaks
+        // non-idempotent flows (checkout, order creation) when legacy
+        // slug-prefixed API URLs are hit on a custom domain.
+        (request.method === 'GET' || request.method === 'HEAD')
       ) {
         // First segment already confirmed equal (case-insensitive) to the
         // merchant slug above; drop it by length instead of building a regex
