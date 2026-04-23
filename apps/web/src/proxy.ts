@@ -644,6 +644,8 @@ export async function proxy(request: NextRequest) {
   if (pathname.startsWith('/blog/')) {
     // Block legacy WordPress admin/auth probes under /blog/*
     // These are not public content pages and should not be indexable.
+    // Match exact paths or true path segment boundaries to avoid blocking
+    // legitimate post slugs that share these prefixes (e.g. /blog/wp-admin-guide).
     const wpAdminPatterns = [
       '/blog/wp-admin',
       '/blog/wp-login.php',
@@ -651,11 +653,11 @@ export async function proxy(request: NextRequest) {
     ];
     // Anchor on a segment boundary so legitimate slugs like
     // `/blog/wp-admin-guide-for-developers` are not falsely 410'd.
-    const lowerPathForWp = pathname.toLowerCase();
+    const lowerPathname = pathname.toLowerCase();
     if (
       wpAdminPatterns.some(
         (pattern) =>
-          lowerPathForWp === pattern || lowerPathForWp.startsWith(`${pattern}/`)
+          lowerPathname === pattern || lowerPathname.startsWith(`${pattern}/`)
       )
     ) {
       return new NextResponse('Gone', { status: 410 });
@@ -670,7 +672,7 @@ export async function proxy(request: NextRequest) {
     if (
       spamPatterns.some(
         (pattern) =>
-          lowerPathForWp === pattern || lowerPathForWp.startsWith(`${pattern}/`)
+          lowerPathname === pattern || lowerPathname.startsWith(`${pattern}/`)
       )
     ) {
       return new NextResponse('Gone', { status: 410 });
