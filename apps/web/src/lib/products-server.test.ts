@@ -945,7 +945,7 @@ describe('getProducts', () => {
     expect(result.products[0].category).toBe('General');
   });
 
-  it('defaults manage_stock to true when null', async () => {
+  it('defaults manage_stock to false when null', async () => {
     // Arrange
     const raw = makeRawProduct({ manage_stock: null });
     const { client } = createMockSupabase({
@@ -958,7 +958,7 @@ describe('getProducts', () => {
     const result = await getProducts(client as never, merchantId, {});
 
     // Assert
-    expect(result.products[0].manage_stock).toBe(true);
+    expect(result.products[0].manage_stock).toBe(false);
   });
 
   // --- Inventory stats via RPC ---

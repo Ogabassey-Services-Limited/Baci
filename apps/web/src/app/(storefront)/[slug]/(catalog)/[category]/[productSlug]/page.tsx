@@ -42,6 +42,10 @@ import { getPublishedClusterPosts } from '@/lib/storefront-content/get-published
 import { buildProductSemanticModel } from '@/lib/storefront-product/build-product-semantic-model';
 import { getStorefrontProductSocialMetadata } from '@/lib/storefront-product-social-metadata';
 import { normalizeStorefrontProductVariants } from '@/lib/storefront-product-variants';
+import {
+  DEFAULT_STORE_NAME,
+  DEFAULT_STOREFRONT_SEO_CATEGORY,
+} from '@/lib/storefront-seo-defaults';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 
@@ -504,13 +508,16 @@ export async function generateMetadata({
     canonicalUrl = `${baseUrl}${productPath}`;
   }
   const productCategoryName =
-    product.categories?.name || product.category || 'electronics';
+    product.categories?.name ||
+    product.category ||
+    DEFAULT_STOREFRONT_SEO_CATEGORY;
+  const merchantDisplayName = merchant?.business_name || DEFAULT_STORE_NAME;
   const seoDescription = generateMetaDescription(
     product.meta_description || product.description || '',
     160,
     {
       minLength: 110,
-      fallback: `Buy ${product.name} in Nigeria from ${merchant?.business_name || 'Ogabassey'}. Shop trusted ${productCategoryName} with fast nationwide delivery and flexible payment options.`,
+      fallback: `Buy ${product.name} from ${merchantDisplayName}. Shop trusted ${productCategoryName} with delivery and flexible payment options.`,
     }
   );
   const socialMetadata = getStorefrontProductSocialMetadata(
@@ -522,7 +529,7 @@ export async function generateMetadata({
     product.meta_title || `${product.name} - ${productCategoryName}`,
     {
       maxLength: 70,
-      suffix: merchant?.business_name || 'Baci Store',
+      suffix: merchantDisplayName,
       fallback: product.name || productCategoryName,
     }
   );

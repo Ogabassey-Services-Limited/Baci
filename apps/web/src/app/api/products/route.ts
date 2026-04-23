@@ -594,7 +594,7 @@ export async function POST(request: NextRequest) {
         migration_status:
           variantModel === 'sku_matrix' ? 'migrated' : 'pending',
         category: body.category,
-        color: variantWriteProjections.color,
+        color: (variantWriteProjections.color ?? body.color?.trim()) || null,
       })
       .select()
       .single();

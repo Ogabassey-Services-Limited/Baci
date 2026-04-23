@@ -299,14 +299,8 @@ const nextConfig: NextConfig = {
       },
       {
         // Legacy WordPress category permalink -> flat blog slug
-        source: '/blog/:legacyCategory/:postSlug',
-        destination: '/blog/:postSlug',
-        permanent: true,
-      },
-      {
-        // Remove migrated WordPress media query noise
-        source: '/blog/:postSlug',
-        has: [{ type: 'query', key: '_thumbnail_id' }],
+        source:
+          '/blog/:legacyCategory(shopdetail|zhHant|zhhant|product|category)/:postSlug',
         destination: '/blog/:postSlug',
         permanent: true,
       },

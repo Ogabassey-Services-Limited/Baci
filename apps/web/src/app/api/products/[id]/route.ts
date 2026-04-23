@@ -289,10 +289,16 @@ export async function PUT(
       (body.variant_model !== undefined ||
         body.variants !== undefined ||
         body.has_variants === false);
+    const nextHasVariants =
+      body.has_variants !== undefined
+        ? body.has_variants
+        : body.variants !== undefined
+          ? body.variants.length > 0
+          : existingProduct.has_variants;
     const skuMatrixValidationError = shouldValidateSkuMatrixInput
       ? getSkuMatrixValidationError({
           variantModel,
-          hasVariants: body.has_variants ?? existingProduct.has_variants,
+          hasVariants: nextHasVariants,
           variants: body.variants,
         })
       : null;
@@ -309,7 +315,7 @@ export async function PUT(
         ? deriveProductVariantWriteProjections({
             fallbackColor:
               body.color !== undefined ? body.color : existingProduct.color,
-            hasVariants: body.has_variants ?? existingProduct.has_variants,
+            hasVariants: nextHasVariants,
             productImages: body.images,
             variants: body.variants,
           })
@@ -461,8 +467,8 @@ export async function PUT(
     // Other fields
     if (body.fulfillment_details !== undefined)
       updates.fulfillment_details = body.fulfillment_details;
-    if (body.has_variants !== undefined)
-      updates.has_variants = body.has_variants;
+    if (body.has_variants !== undefined || body.variants !== undefined)
+      updates.has_variants = nextHasVariants;
     const deferredVariantModelUpdates =
       body.variant_model !== undefined || body.variants !== undefined
         ? {

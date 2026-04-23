@@ -168,11 +168,13 @@ vi.mock('@/lib/store-url', () => ({
       : `https://${merchant.slug}.usebaci.com`,
   buildRequestScopedStoreUrl: (
     merchant: { slug: string; custom_domain?: string },
-    _headers: Headers
+    headers: Headers
   ) =>
-    merchant.custom_domain
-      ? `https://${merchant.custom_domain}`
-      : `https://${merchant.slug}.usebaci.com`,
+    headers.get('x-custom-domain')
+      ? `https://${headers.get('x-custom-domain')}`
+      : merchant.custom_domain
+        ? `https://${merchant.custom_domain}`
+        : `https://${merchant.slug}.usebaci.com`,
 }));
 
 vi.mock('@/lib/storefront-product-variants', () => ({
@@ -730,6 +732,10 @@ describe('[category]/[productSlug] page render', () => {
   });
 
   it('normalizes canonical_url host to the request-scoped storefront domain', async () => {
+    mockGetRequestScopedMerchant.mockResolvedValueOnce({
+      ...baseMerchant,
+      custom_domain: 'ogabassey.com',
+    });
     mockGetCachedProductWithDetails.mockResolvedValue({
       ...categorizedDetailedProduct,
       canonical_url: 'https://usebaci.com/laptops/hp-laptop-14-ep0063nia',
@@ -748,7 +754,7 @@ describe('[category]/[productSlug] page render', () => {
     });
 
     expect(metadata.alternates?.canonical).toBe(
-      'https://teststore.usebaci.com/laptops/hp-laptop-14-ep0063nia'
+      'https://ogabassey.com/laptops/hp-laptop-14-ep0063nia'
     );
   });
 });

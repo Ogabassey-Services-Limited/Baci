@@ -248,6 +248,19 @@ describe('Middleware Proxy', () => {
     );
   });
 
+  it('does not redirect unrecognized-domain products paths', async () => {
+    vi.mocked(getSlugForCustomDomain).mockResolvedValueOnce(null);
+    const req = new NextRequest('https://ogabassey.com/products');
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).not.toBe(301);
+    expect(res.headers.get('x-middleware-rewrite')).toBe(
+      'https://ogabassey.com/ogabassey.com/products'
+    );
+  });
+
   describe('URL normalization: prefix-only case fixing', () => {
     it('lowercases /API prefix but preserves case-sensitive tail', async () => {
       const req = new NextRequest(

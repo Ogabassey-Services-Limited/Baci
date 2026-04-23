@@ -159,13 +159,7 @@ function normalizeProductImages(productImages: ProductImageInput) {
 }
 
 function flattenColorImages(colorImages: Record<string, string[]>) {
-  return Array.from(
-    new Set(
-      Object.values(colorImages).flatMap((images) =>
-        images.map((image) => normalizeImageUrl(image))
-      )
-    )
-  );
+  return Array.from(new Set(Object.values(colorImages).flat()));
 }
 
 function buildGalleryImages(
@@ -191,12 +185,11 @@ function buildImageColorMap(colorImages: Record<string, string[]> | undefined) {
 
   for (const [color, images] of Object.entries(colorImages)) {
     for (const image of images) {
-      const normalizedImage = normalizeImageUrl(image);
-      if (!normalizedImage || imageColorMap[normalizedImage]) {
+      if (!image || imageColorMap[image]) {
         continue;
       }
 
-      imageColorMap[normalizedImage] = color;
+      imageColorMap[image] = color;
     }
   }
 

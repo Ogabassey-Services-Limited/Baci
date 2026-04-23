@@ -353,6 +353,7 @@ export default function ProductDetailClient({
   const attributeOptions = product.has_variants
     ? getAttributeOptions(product.variants || [])
     : [];
+  // Legacy `NULL` manage_stock rows are treated as unlimited inventory.
   const isStockManaged = product.manage_stock ?? false;
   const selectionAttributes = {
     ...routeSelectionAttributes,

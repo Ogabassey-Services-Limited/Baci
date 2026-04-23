@@ -109,6 +109,30 @@ const CASE_PRESERVING_PREFIXES = [
   '/manifest.webmanifest',
 ];
 
+const RESERVED_STOREFRONT_SEGMENTS = new Set([
+  'about',
+  'account',
+  'api',
+  'blog',
+  'cart',
+  'checkout',
+  'faq',
+  'llms-full.txt',
+  'llms.txt',
+  'pages',
+  'privacy-policy',
+  'products',
+  'repair',
+  'repairs',
+  'robots.txt',
+  'sitemap',
+  'swap',
+  'terms',
+  'track-order',
+  'wallet',
+  'wishlist',
+]);
+
 /**
  * If pathname starts with `prefix` (case-insensitive), return the corrected
  * pathname with only the prefix lowercased and the tail untouched.
@@ -925,34 +949,22 @@ export async function proxy(request: NextRequest) {
           domainMerchantSlug.toLowerCase()
       ) {
         const strippedPathname =
-          pathname.replace(new RegExp(`^/${domainMerchantSlug}(?=/|$)`), '') ||
-          '/';
+          pathname.slice(domainPathSegments[0].length + 1) || '/';
         const strippedSegments = strippedPathname.split('/').filter(Boolean);
+        const firstStrippedSegment = strippedSegments[0]?.toLowerCase();
         const shouldNormalizeToProductRoute =
           strippedSegments.length >= 2 &&
-          strippedSegments[0] !== 'products' &&
-          strippedSegments[0] !== 'blog' &&
-          strippedSegments[0] !== 'api' &&
-          strippedSegments[0] !== 'pages' &&
-          strippedSegments[0] !== 'account' &&
-          strippedSegments[0] !== 'cart' &&
-          strippedSegments[0] !== 'checkout' &&
-          strippedSegments[0] !== 'wishlist' &&
-          strippedSegments[0] !== 'repair' &&
-          strippedSegments[0] !== 'repairs' &&
-          strippedSegments[0] !== 'swap' &&
-          strippedSegments[0] !== 'wallet' &&
-          strippedSegments[0] !== 'faq' &&
-          strippedSegments[0] !== 'about' &&
-          strippedSegments[0] !== 'privacy-policy' &&
-          strippedSegments[0] !== 'terms' &&
-          strippedSegments[0] !== 'track-order';
+          !!firstStrippedSegment &&
+          !RESERVED_STOREFRONT_SEGMENTS.has(firstStrippedSegment);
 
         const normalizedPathname = shouldNormalizeToProductRoute
           ? `/products/${strippedSegments[strippedSegments.length - 1]}`
           : strippedPathname;
         const normalizedUrl = `https://${domain}${normalizedPathname}${request.nextUrl.search}`;
-        return NextResponse.redirect(normalizedUrl, 301);
+
+        if (normalizedUrl !== request.nextUrl.href) {
+          return NextResponse.redirect(normalizedUrl, 301);
+        }
       }
 
       // API routes should NOT be rewritten - they exist at /api/*, not /domain/api/*

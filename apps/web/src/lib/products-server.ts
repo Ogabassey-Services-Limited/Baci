@@ -152,7 +152,7 @@ export async function getProducts(
         description: p.description || '',
         status: p.status || 'draft',
         price: Number.parseFloat(p.price),
-        manage_stock: p.manage_stock ?? true,
+        manage_stock: p.manage_stock ?? false,
         stock: getEffectiveStock(p),
         minimum_order_quantity: 1,
 

@@ -213,10 +213,14 @@ function extractCanonicalProductPath(
       return null;
     }
 
-    if (
-      canonicalSegments.length >= 3 &&
-      !STOREFRONT_ROOT_SEGMENTS.has(canonicalSegments[0].toLowerCase())
-    ) {
+    const firstSegmentLower = canonicalSegments[0].toLowerCase();
+    const firstSegmentCanonical =
+      normalizeStorefrontCategorySlug(firstSegmentLower) ?? firstSegmentLower;
+    const isStorefrontRoot =
+      STOREFRONT_ROOT_SEGMENTS.has(firstSegmentLower) ||
+      STOREFRONT_ROOT_SEGMENTS.has(firstSegmentCanonical);
+
+    if (canonicalSegments.length >= 3 && !isStorefrontRoot) {
       canonicalSegments.shift();
     }
 
@@ -1340,8 +1344,14 @@ export function generateMetaTitle(
 
   if (suffix) {
     const baseTitle = removeTrailingDuplicateSuffix(normalizedTitle, suffix);
-    const hasSuffix = baseTitle.toLowerCase().includes(suffix.toLowerCase());
-    normalizedTitle = hasSuffix ? baseTitle : `${baseTitle} | ${suffix}`;
+    const suffixLower = suffix.toLowerCase();
+    const baseLower = baseTitle.toLowerCase();
+    const endsWithSuffix =
+      baseLower === suffixLower ||
+      baseLower.endsWith(` ${suffixLower}`) ||
+      baseLower.endsWith(`|${suffixLower}`) ||
+      baseLower.endsWith(`| ${suffixLower}`);
+    normalizedTitle = endsWithSuffix ? baseTitle : `${baseTitle} | ${suffix}`;
   }
 
   if (normalizedTitle.length <= maxLength) {
@@ -1401,9 +1411,7 @@ export function generateMetaDescription(
     candidateDescription.length < minLength &&
     fallbackPlainText
   ) {
-    if (candidateDescription === fallbackPlainText) {
-      candidateDescription = fallbackPlainText;
-    } else {
+    if (candidateDescription !== fallbackPlainText) {
       const normalizedBase = /[.!?]$/.test(candidateDescription)
         ? candidateDescription
         : `${candidateDescription}.`;

@@ -839,6 +839,8 @@ describe('category page route', () => {
     });
 
     expect(typeof metadata.title).toBe('string');
+    expect(metadata.title).toContain('Smartphones');
+    expect(metadata.title).toContain('Ogabassey');
     expect((metadata.title as string).length).toBeLessThanOrEqual(70);
     expect(metadata.title).not.toContain('| Ogabassey | Ogabassey');
     expect(metadata.description).toBe(
@@ -869,7 +871,9 @@ describe('category page route', () => {
       'https://test-store.usebaci.com/smartphones?page=2'
     );
     expect(typeof secondPageMetadata.title).toBe('string');
+    expect(secondPageMetadata.title).toContain('Smartphones');
     expect(secondPageMetadata.title).toContain('Page 2');
+    expect(secondPageMetadata.title).toContain('Ogabassey');
     expect((secondPageMetadata.title as string).length).toBeLessThanOrEqual(70);
     expect(secondPageMetadata.title).not.toContain('| Ogabassey | Ogabassey');
     expect(secondPageMetadata.openGraph?.images).toEqual([

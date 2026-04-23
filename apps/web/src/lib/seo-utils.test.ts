@@ -12,6 +12,7 @@ import {
   generateSlug,
   getEffectiveProductStock,
   getIndexableRobotsMetadata,
+  getProductUrl,
 } from './seo-utils';
 import type { MerchantTrustProfile } from './storefront-trust/merchant-trust-profile-types';
 
@@ -592,6 +593,61 @@ describe('generateMetaTitle', () => {
         maxLength: 70,
       })
     ).toBe('Buy Smartphones | Oga(bassey)+?');
+  });
+
+  it('does not treat an inline substring as an existing suffix', () => {
+    expect(
+      generateMetaTitle('MacBook Pro 16', {
+        suffix: 'Pro',
+        maxLength: 70,
+      })
+    ).toBe('MacBook Pro 16 | Pro');
+  });
+});
+
+describe('getProductUrl', () => {
+  it('falls back to the slug-based storefront path when canonical_url is absent', () => {
+    expect(
+      getProductUrl(
+        makeProduct({
+          category: 'Phones',
+          slug: 'test-product',
+        })
+      )
+    ).toBe('/smartphones/test-product');
+  });
+
+  it('uses a same-domain canonical_url without double-prefixing the path', () => {
+    expect(
+      getProductUrl(
+        makeProduct({
+          canonical_url: 'https://usebaci.com/products/test-product',
+          slug: 'test-product',
+        })
+      )
+    ).toBe('/products/test-product');
+  });
+
+  it('falls back predictably when canonical_url is malformed', () => {
+    expect(
+      getProductUrl(
+        makeProduct({
+          canonical_url: 'https://[invalid',
+          slug: 'test-product',
+        })
+      )
+    ).toBe('/products/test-product');
+  });
+
+  it('rewrites alias-first canonical paths to their canonical storefront root', () => {
+    expect(
+      getProductUrl(
+        makeProduct({
+          canonical_url: 'https://usebaci.com/phones/iphone-15/black',
+          slug: 'iphone-15',
+        })
+      )
+    ).toBe('/smartphones/iphone-15/black');
   });
 });
 
