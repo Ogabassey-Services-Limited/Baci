@@ -150,7 +150,7 @@ export function LogoPicker({
         </View>
       )}
       <Pressable
-        style={[styles.changeLogoButton, { borderColor: colors.border }]}
+        style={({ pressed }) => [styles.changeLogoButton, { borderColor: colors.border }, pressed && { opacity: 0.7 }]}
         onPress={handleImagePick}
         disabled={isUploading}
         accessibilityRole="button"
