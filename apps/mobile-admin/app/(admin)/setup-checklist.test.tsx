@@ -142,7 +142,7 @@ describe('SetupChecklistScreen', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('publishes through the shared publish hook', async () => {
+  it('publishes through the shared publish hook', () => {
     mocks.publishStore.mockResolvedValueOnce(undefined);
 
     render(<SetupChecklistScreen />);
@@ -150,5 +150,25 @@ describe('SetupChecklistScreen', () => {
     fireEvent.click(screen.getByRole('button', { name: /publish store now/i }));
 
     expect(mocks.publishStore).toHaveBeenCalledTimes(1);
+  });
+
+  it('surfaces publish errors via Alert.alert without crashing', async () => {
+    mocks.publishStore.mockRejectedValueOnce(
+      new Error('Cannot publish store\n- Bank account details')
+    );
+
+    render(<SetupChecklistScreen />);
+
+    fireEvent.click(screen.getByRole('button', { name: /publish store now/i }));
+
+    // Wait a microtask so the rejected promise is handled by handlePublish.
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mocks.publishStore).toHaveBeenCalledTimes(1);
+    expect(mocks.alert).toHaveBeenCalled();
+    const [, message] = mocks.alert.mock.calls[0] ?? [];
+    expect(message).toContain('Cannot publish store');
+    expect(message).toContain('Bank account details');
   });
 });

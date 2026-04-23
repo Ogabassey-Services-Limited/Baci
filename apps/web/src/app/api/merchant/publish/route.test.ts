@@ -43,6 +43,7 @@ let mockMerchantData: { data: unknown; error: unknown };
 let mockPublishedProductCount: number;
 let mockTotalProductCount: number;
 let mockUpdateResult: { data: unknown; error: unknown };
+let mockVerificationData: { data: unknown; error: unknown };
 
 function createMockSupabase() {
   let productQueryCount = 0;
@@ -91,10 +92,39 @@ function createMockSupabase() {
   };
 }
 
+function createMockAdminSupabase() {
+  return {
+    from: (table: string) => {
+      if (table === 'merchant_verifications') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: () => Promise.resolve(mockVerificationData),
+            }),
+          }),
+        };
+      }
+
+      return {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: () => Promise.resolve({ data: null, error: null }),
+          }),
+        }),
+      };
+    },
+  };
+}
+
 const mockCreateClient = vi.fn();
+const mockCreateAdminClient = vi.fn();
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: (...args: unknown[]) => mockCreateClient(...args),
+}));
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: (...args: unknown[]) => mockCreateAdminClient(...args),
 }));
 
 vi.mock('@/lib/csrf', () => ({
@@ -143,9 +173,6 @@ function setupMerchantData(data: Record<string, unknown> | null) {
           country: 'NG',
           support_email: 'test@example.com',
           support_phone: '+2341234567890',
-          nin: '12345678901',
-          bvn: null,
-          cac_rc_number: null,
           bank_code: '044',
           bank_account_number: '1234567890',
           paystack_subaccount_code: 'ACCT_test',
@@ -175,6 +202,25 @@ function setupUpdateError(errorMessage: string) {
   };
 }
 
+function setupVerification(
+  flags: Partial<{
+    nin_verified: boolean;
+    bvn_verified: boolean;
+    cac_verified: boolean;
+  }> | null = { nin_verified: true }
+) {
+  mockVerificationData = {
+    data: flags
+      ? {
+          nin_verified: flags.nin_verified ?? false,
+          bvn_verified: flags.bvn_verified ?? false,
+          cac_verified: flags.cac_verified ?? false,
+        }
+      : null,
+    error: null,
+  };
+}
+
 // ---- Tests ----
 
 describe('POST /api/merchant/publish', () => {
@@ -184,8 +230,12 @@ describe('POST /api/merchant/publish', () => {
     mockPublishedProductCount = 0;
     mockTotalProductCount = 0;
     mockUpdateResult = { data: null, error: null };
-    // Restore default mock implementation
+    // Default: merchant has a verified NIN so KYC does not block the tests
+    // that aren't specifically exercising the verification gate.
+    setupVerification({ nin_verified: true });
+    // Restore default mock implementations
     mockCreateClient.mockImplementation(() => createMockSupabase());
+    mockCreateAdminClient.mockImplementation(() => createMockAdminSupabase());
   });
 
   describe('authentication', () => {
@@ -340,12 +390,13 @@ describe('POST /api/merchant/publish', () => {
   });
 
   describe('validation - kyc', () => {
-    it('returns 400 when no KYC identifier is available', async () => {
+    it('returns 400 when no KYC identifier is verified', async () => {
       setupAuth(true, true);
-      setupMerchantData({
-        nin: null,
-        bvn: null,
-        cac_rc_number: null,
+      setupMerchantData({});
+      setupVerification({
+        nin_verified: false,
+        bvn_verified: false,
+        cac_verified: false,
       });
       setupProductCount(1, 1);
 
@@ -356,6 +407,45 @@ describe('POST /api/merchant/publish', () => {
       expect(json.missingItems).toContain(
         'Identity verification (NIN, BVN, or CAC)'
       );
+    });
+
+    it('returns 400 when no merchant_verifications row exists', async () => {
+      setupAuth(true, true);
+      setupMerchantData({});
+      setupVerification(null);
+      setupProductCount(1, 1);
+
+      const res = await POST(makeRequest('POST'));
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.missingItems).toContain(
+        'Identity verification (NIN, BVN, or CAC)'
+      );
+    });
+
+    it('succeeds when only BVN is verified', async () => {
+      setupAuth(true, true);
+      setupMerchantData({});
+      setupVerification({ bvn_verified: true });
+      setupProductCount(1, 1);
+      setupUpdateSuccess();
+
+      const res = await POST(makeRequest('POST'));
+
+      expect(res.status).toBe(200);
+    });
+
+    it('succeeds when only CAC is verified', async () => {
+      setupAuth(true, true);
+      setupMerchantData({});
+      setupVerification({ cac_verified: true });
+      setupProductCount(1, 1);
+      setupUpdateSuccess();
+
+      const res = await POST(makeRequest('POST'));
+
+      expect(res.status).toBe(200);
     });
   });
 
@@ -394,13 +484,15 @@ describe('POST /api/merchant/publish', () => {
   describe('validation - multiple missing items', () => {
     it('returns all missing items in the error response', async () => {
       setupAuth(true, true);
+      setupVerification({
+        nin_verified: false,
+        bvn_verified: false,
+        cac_verified: false,
+      });
       setupMerchantData({
         country: null,
         support_email: null,
         support_phone: null,
-        nin: null,
-        bvn: null,
-        cac_rc_number: null,
         bank_code: null,
         bank_account_number: null,
         paystack_subaccount_code: null,

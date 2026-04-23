@@ -7,7 +7,43 @@ import {
 } from '@/lib/api-auth';
 import { revalidateMerchant } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+
+interface MerchantVerificationStatus {
+  nin_verified: boolean;
+  bvn_verified: boolean;
+  cac_verified: boolean;
+}
+
+/**
+ * Returns the verified flags from merchant_verifications for the given
+ * merchant. Uses the admin (service-role) client because the underlying
+ * table denies reads from `authenticated` via RLS. Auth + permission
+ * checks have already been enforced by the caller; this function only
+ * reads three boolean columns keyed by `merchant_id`.
+ */
+async function getVerificationStatus(
+  merchantId: string
+): Promise<MerchantVerificationStatus> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('merchant_verifications')
+    .select('nin_verified, bvn_verified, cac_verified')
+    .eq('merchant_id', merchantId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[Publish API] merchant_verifications read failed:', error);
+    return { nin_verified: false, bvn_verified: false, cac_verified: false };
+  }
+
+  return {
+    nin_verified: !!data?.nin_verified,
+    bvn_verified: !!data?.bvn_verified,
+    cac_verified: !!data?.cac_verified,
+  };
+}
 
 /**
  * Store Publish API
@@ -54,19 +90,9 @@ export async function POST(request: NextRequest) {
     // Get merchant with required fields for validation
     const { data: merchant } = await supabase
       .from('merchants')
-      .select(`
-	        id,
-	        business_name,
-	        country,
-	        support_email,
-	        support_phone,
-	        nin,
-	        bvn,
-	        cac_rc_number,
-	        paystack_subaccount_code,
-	        bank_code,
-	        bank_account_number
-	      `)
+      .select(
+        'id, business_name, country, support_email, support_phone, paystack_subaccount_code, bank_code, bank_account_number'
+      )
       .eq('id', access.merchantId)
       .single();
 
@@ -80,7 +106,15 @@ export async function POST(request: NextRequest) {
     // Check for required setup items
     const missingItems: string[] = [];
 
-    if (!merchant.nin && !merchant.bvn && !merchant.cac_rc_number) {
+    // Identity verification requires at least one of NIN/BVN/CAC to have been
+    // *verified* against the upstream identity provider — not merely entered.
+    // merchant_verifications is the source of truth for verified flags.
+    const verification = await getVerificationStatus(merchant.id);
+    const hasVerifiedIdentity =
+      verification.nin_verified ||
+      verification.bvn_verified ||
+      verification.cac_verified;
+    if (!hasVerifiedIdentity) {
       missingItems.push('Identity verification (NIN, BVN, or CAC)');
     }
 

@@ -11,7 +11,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 interface VerificationCardProps {
-  onVerified?: () => void | Promise<unknown>;
+  onVerified?: () => undefined | Promise<unknown>;
 }
 
 vi.mock('@tanstack/react-query', () => ({
@@ -165,5 +165,39 @@ describe('KYCScreen', () => {
     fireEvent.click(screen.getByRole('button', { name: /verify cac/i }));
 
     expect(mocks.refreshAfterVerification).toHaveBeenCalledTimes(3);
+  });
+
+  it('shows a loading indicator while verification status is fetching', () => {
+    mocks.useQuery.mockReturnValue({
+      data: undefined,
+      isError: false,
+      isLoading: true,
+      refetch: mocks.refetch,
+    });
+
+    render(<KYCScreen />);
+
+    expect(screen.getByText('loading')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /verify nin/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows a retry banner when verification status fails to load', () => {
+    mocks.useQuery.mockReturnValue({
+      data: undefined,
+      isError: true,
+      isLoading: false,
+      refetch: mocks.refetch,
+    });
+
+    render(<KYCScreen />);
+
+    expect(
+      screen.getByText(/failed to load verification status/i)
+    ).toBeInTheDocument();
+    const retry = screen.getByRole('button', { name: /try again/i });
+    fireEvent.click(retry);
+    expect(mocks.refetch).toHaveBeenCalledTimes(1);
   });
 });
