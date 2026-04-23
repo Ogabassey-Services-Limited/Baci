@@ -643,9 +643,13 @@ export async function proxy(request: NextRequest) {
       '/blog/wp-login.php',
       '/blog/xmlrpc.php',
     ];
+    // Anchor on a segment boundary so legitimate slugs like
+    // `/blog/wp-admin-guide-for-developers` are not falsely 410'd.
+    const lowerPathForWp = pathname.toLowerCase();
     if (
-      wpAdminPatterns.some((pattern) =>
-        pathname.toLowerCase().startsWith(pattern)
+      wpAdminPatterns.some(
+        (pattern) =>
+          lowerPathForWp === pattern || lowerPathForWp.startsWith(`${pattern}/`)
       )
     ) {
       return new NextResponse('Gone', { status: 410 });
@@ -658,7 +662,10 @@ export async function proxy(request: NextRequest) {
       '/blog/category/product',
     ];
     if (
-      spamPatterns.some((pattern) => pathname.toLowerCase().startsWith(pattern))
+      spamPatterns.some(
+        (pattern) =>
+          lowerPathForWp === pattern || lowerPathForWp.startsWith(`${pattern}/`)
+      )
     ) {
       return new NextResponse('Gone', { status: 410 });
     }
@@ -952,8 +959,15 @@ export async function proxy(request: NextRequest) {
           pathname.slice(domainPathSegments[0].length + 1) || '/';
         const strippedSegments = strippedPathname.split('/').filter(Boolean);
         const firstStrippedSegment = strippedSegments[0]?.toLowerCase();
+        // Only collapse `/merchantSlug/{category}/{productSlug}` to
+        // `/products/{productSlug}` — i.e. exactly two stripped segments. Longer
+        // paths can be legitimate category subroutes such as
+        // `/{category}/compare/{comparisonSlug}` or `/{category}/best-under/{priceBandSlug}`
+        // (see apps/web/src/app/(storefront)/[slug]/(catalog)/[category]/compare
+        // and .../best-under). Collapsing those to `/products/{lastSegment}`
+        // would 301 merchants to URLs that don't exist.
         const shouldNormalizeToProductRoute =
-          strippedSegments.length >= 2 &&
+          strippedSegments.length === 2 &&
           !!firstStrippedSegment &&
           !RESERVED_STOREFRONT_SEGMENTS.has(firstStrippedSegment);
 

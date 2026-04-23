@@ -1,4 +1,7 @@
-import { normalizeStorefrontCategorySlug } from '@/lib/normalize-storefront-category-slug';
+import {
+  normalizeStorefrontCategorySlug,
+  STOREFRONT_CATEGORY_ALIASES,
+} from '@/lib/normalize-storefront-category-slug';
 
 const PLATFORM_HOST = 'usebaci.com';
 
@@ -11,8 +14,29 @@ const TRACKING_PARAM_NAMES = new Set([
   'srsltid',
 ]);
 
-const INTERNAL_STOREFRONT_PREFIX =
-  /^\/(?:products|blog|phones|phone|smartphones|laptop|laptops|category|product-category|accessories|accesories)(?:\/|$)/;
+// Canonical top-level storefront segments the link normalizer recognises as
+// "already internal" (so it leaves them alone / collapses legacy merchant
+// prefixes). Derived from the shared alias table so adding a new alias key
+// automatically participates in this check without having to touch this file.
+const INTERNAL_STOREFRONT_SEGMENTS = new Set<string>([
+  'products',
+  'blog',
+  'category',
+  'product-category',
+  // Canonical values
+  ...Object.values(STOREFRONT_CATEGORY_ALIASES),
+  // Legacy keys (so `/phones/...` is still detected as internal before being
+  // rewritten to its canonical form further down).
+  ...Object.keys(STOREFRONT_CATEGORY_ALIASES),
+]);
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+const INTERNAL_STOREFRONT_PREFIX = new RegExp(
+  `^/(?:${Array.from(INTERNAL_STOREFRONT_SEGMENTS).map(escapeRegExp).join('|')})(?:/|$)`
+);
 
 export interface NormalizeStorefrontContentHrefOptions {
   basePath?: string;

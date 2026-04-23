@@ -1,5 +1,10 @@
 import type { MetadataRoute } from 'next';
 import { headers } from 'next/headers';
+import {
+  getCachedFeatureSettings,
+  getMerchantByIdentifier,
+} from '@/lib/cached-data';
+import { resolveRouteIdentifier } from '@/lib/storefront-route-identifier';
 
 export default async function robots(): Promise<MetadataRoute.Robots> {
   const headersList = await headers();
@@ -44,9 +49,31 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
         '/account/login/',
       ];
 
+  // For storefront domains, only advertise /blog/sitemap.xml when the merchant
+  // has the blog feature enabled. Otherwise robots.txt points crawlers at a
+  // 404 route (all /blog/* pages short-circuit on !blog_enabled), wasting
+  // crawl budget and creating SEO trust issues.
+  let blogEnabled = false;
+  if (!isPlatformDomain) {
+    try {
+      const routeIdentifier = resolveRouteIdentifier(headersList);
+      if (routeIdentifier) {
+        const merchant = await getMerchantByIdentifier(routeIdentifier);
+        if (merchant?.id) {
+          const features = await getCachedFeatureSettings(merchant.id);
+          blogEnabled = Boolean(features?.blog_enabled);
+        }
+      }
+    } catch (error) {
+      console.warn('robots.ts: failed to resolve blog feature flag', { error });
+    }
+  }
+
   const sitemap = isPlatformDomain
     ? `${storeUrl}/sitemap.xml`
-    : [`${storeUrl}/sitemap.xml`, `${storeUrl}/blog/sitemap.xml`];
+    : blogEnabled
+      ? [`${storeUrl}/sitemap.xml`, `${storeUrl}/blog/sitemap.xml`]
+      : `${storeUrl}/sitemap.xml`;
 
   return {
     rules: [

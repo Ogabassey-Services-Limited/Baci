@@ -13,7 +13,7 @@ const withBundleAnalyzer = bundleAnalyzer({
  * with what social/search bots see.
  */
 const HTML_LIMITED_BOTS_UA_RE =
-  /[\w-]+-Google|Google-[\w-]+|Chrome-Lighthouse|Slurp|DuckDuckBot|baiduspider|yandex|sogou|bitlybot|tumblr|vkShare|quora link preview|redditbot|ia_archiver|Bingbot|BingPreview|applebot|facebookexternalhit|facebookcatalog|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|SkypeUriPreview|Yeti|googleweblight|AhrefsBot|AhrefsSiteAudit|SemrushBot|MJ12bot|DotBot|rogerbot|PetalBot|Bytespider/i;
+  /Googlebot|Googlebot-Image|Googlebot-News|Googlebot-Video|[\w-]+-Google|Google-[\w-]+|Chrome-Lighthouse|Slurp|DuckDuckBot|baiduspider|yandex|sogou|bitlybot|tumblr|vkShare|quora link preview|redditbot|ia_archiver|Bingbot|BingPreview|applebot|facebookexternalhit|facebookcatalog|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|SkypeUriPreview|Yeti|googleweblight|AhrefsBot|AhrefsSiteAudit|SemrushBot|MJ12bot|DotBot|rogerbot|PetalBot|Bytespider/i;
 
 const nextConfig: NextConfig = {
   // Keep heavy server-only packages external to reduce function bundle size and peak memory.
@@ -297,13 +297,10 @@ const nextConfig: NextConfig = {
           '/blog/samsung-galaxy-s21-ultra-in-2025-powerful-enough-or-just-hanging-on',
         permanent: true,
       },
-      {
-        // Legacy WordPress category permalink -> flat blog slug
-        source:
-          '/blog/:legacyCategory(shopdetail|zhHant|zhhant|product|category)/:postSlug',
-        destination: '/blog/:postSlug',
-        permanent: true,
-      },
+      // Note: legacy WordPress category permalink redirects (/blog/:legacyCategory/:postSlug)
+      // and thumbnail_id query-string stripping are owned by apps/web/src/proxy.ts
+      // (single source of truth, also handles /blog/wp-admin 410s). Do not re-add here to
+      // avoid redirect chains / competing rules.
       // Fix specific product suffix issues
       {
         source: '/phones/iphone-x-3gb-64gb-nfid',

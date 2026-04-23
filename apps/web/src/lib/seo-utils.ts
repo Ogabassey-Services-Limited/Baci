@@ -220,7 +220,28 @@ function extractCanonicalProductPath(
       STOREFRONT_ROOT_SEGMENTS.has(firstSegmentLower) ||
       STOREFRONT_ROOT_SEGMENTS.has(firstSegmentCanonical);
 
-    if (canonicalSegments.length >= 3 && !isStorefrontRoot) {
+    // Only strip the first segment when the SECOND segment is itself a known
+    // storefront root (i.e. the first segment is clearly a merchant-slug prefix
+    // like `/{merchantSlug}/products/foo`). Unknown first segments are kept
+    // intact so merchant-defined category paths such as `/fashion/men/shirt`
+    // are not corrupted into `/men/shirt`.
+    const secondSegmentLower = canonicalSegments[1]?.toLowerCase();
+    const secondSegmentCanonical = secondSegmentLower
+      ? (normalizeStorefrontCategorySlug(secondSegmentLower) ??
+        secondSegmentLower)
+      : null;
+    const secondSegmentIsStorefrontRoot = Boolean(
+      secondSegmentLower &&
+        (STOREFRONT_ROOT_SEGMENTS.has(secondSegmentLower) ||
+          (secondSegmentCanonical &&
+            STOREFRONT_ROOT_SEGMENTS.has(secondSegmentCanonical)))
+    );
+
+    if (
+      canonicalSegments.length >= 3 &&
+      !isStorefrontRoot &&
+      secondSegmentIsStorefrontRoot
+    ) {
       canonicalSegments.shift();
     }
 

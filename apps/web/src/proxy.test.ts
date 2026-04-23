@@ -195,6 +195,37 @@ describe('Middleware Proxy', () => {
     );
   });
 
+  it('preserves merchant category compare subroutes on custom domains', async () => {
+    // /{merchantSlug}/{category}/compare/{comparisonSlug} must NOT collapse to
+    // /products/{comparisonSlug}; the category subroute is a real page at
+    // apps/web/src/app/(storefront)/[slug]/(catalog)/[category]/compare/[comparisonSlug].
+    const req = new NextRequest(
+      'https://ogabassey.com/ogabassey/smartphones/compare/iphone-15-vs-samsung-s24'
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/smartphones/compare/iphone-15-vs-samsung-s24'
+    );
+  });
+
+  it('preserves merchant category best-under subroutes on custom domains', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/ogabassey/laptops/best-under/500000'
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/laptops/best-under/500000'
+    );
+  });
+
   it('returns 410 for legacy WordPress admin probes under /blog', async () => {
     const req = new NextRequest(
       'https://ogabassey.com/blog/wp-admin/post.php?post=7446&action=edit'
@@ -259,6 +290,28 @@ describe('Middleware Proxy', () => {
     expect(res.headers.get('x-middleware-rewrite')).toBe(
       'https://ogabassey.com/ogabassey.com/products'
     );
+  });
+
+  it('does not 410 legitimate blog slugs that merely start with a wp-admin token', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/blog/wp-admin-guide-for-developers'
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).not.toBe(410);
+  });
+
+  it('does not 410 legitimate blog slugs that merely start with a spam token', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/blog/shopdetail-roundup-2026'
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).not.toBe(410);
   });
 
   describe('URL normalization: prefix-only case fixing', () => {

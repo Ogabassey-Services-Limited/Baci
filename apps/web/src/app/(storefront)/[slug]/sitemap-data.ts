@@ -31,6 +31,10 @@ interface BlogPostSitemapRow {
 }
 
 const SITEMAP_QUERY_PAGE_SIZE = 1000;
+// Sitemap spec caps a single file at 50,000 URLs. Leave headroom so combined
+// static/category/commercial URLs plus product URLs stay comfortably under the
+// limit in getRootSitemapEntries.
+const SITEMAP_MAX_PRODUCT_URLS = 45_000;
 
 export interface StorefrontSitemapContext {
   merchant: NonNullable<Awaited<ReturnType<typeof getMerchantByIdentifier>>>;
@@ -97,7 +101,9 @@ export async function getProductSitemapEntries({
   const products: ProductWithCategory[] = [];
   let from = 0;
 
-  while (true) {
+  while (products.length < SITEMAP_MAX_PRODUCT_URLS) {
+    const remaining = SITEMAP_MAX_PRODUCT_URLS - products.length;
+    const pageSize = Math.min(SITEMAP_QUERY_PAGE_SIZE, remaining);
     const { data, error } = (await supabase
       .from('products')
       .select(
@@ -106,7 +112,7 @@ export async function getProductSitemapEntries({
       .eq('merchant_id', merchant.id)
       .eq('status', 'active')
       .order('id', { ascending: true })
-      .range(from, from + SITEMAP_QUERY_PAGE_SIZE - 1)) as {
+      .range(from, from + pageSize - 1)) as {
       data: ProductWithCategory[] | null;
       error: PostgrestError | null;
     };
@@ -121,11 +127,11 @@ export async function getProductSitemapEntries({
 
     products.push(...data);
 
-    if (data.length < SITEMAP_QUERY_PAGE_SIZE) {
+    if (data.length < pageSize) {
       break;
     }
 
-    from += SITEMAP_QUERY_PAGE_SIZE;
+    from += pageSize;
   }
 
   if (products.length === 0) {

@@ -144,15 +144,35 @@ vi.mock('@/lib/store-url', () => ({
     m.custom_domain
       ? `https://${m.custom_domain}`
       : `https://${m.slug}.usebaci.com`,
+  // Mirror real `buildRequestScopedStoreUrl` semantics: the x-custom-domain
+  // header is only trusted when it matches the merchant's configured custom
+  // domain. Otherwise fall back through x-forwarded-host → host → the
+  // canonical merchant URL. This prevents future regressions where an
+  // untrusted header gets echoed into canonical URLs.
   buildRequestScopedStoreUrl: (
     merchant: { slug: string; custom_domain?: string },
     headers: Headers
-  ) =>
-    headers.get('x-custom-domain')
-      ? `https://${headers.get('x-custom-domain')}`
-      : merchant.custom_domain
-        ? `https://${merchant.custom_domain}`
-        : `https://${merchant.slug}.usebaci.com`,
+  ) => {
+    const headerDomain = headers.get('x-custom-domain')?.toLowerCase();
+    const merchantDomain = merchant.custom_domain?.toLowerCase();
+    if (headerDomain && merchantDomain && headerDomain === merchantDomain) {
+      return `https://${merchant.custom_domain}`;
+    }
+
+    const forwardedHost = headers.get('x-forwarded-host');
+    if (forwardedHost) {
+      return `https://${forwardedHost}`;
+    }
+
+    const host = headers.get('host');
+    if (host) {
+      return `https://${host}`;
+    }
+
+    return merchant.custom_domain
+      ? `https://${merchant.custom_domain}`
+      : `https://${merchant.slug}.usebaci.com`;
+  },
 }));
 
 vi.mock('@/lib/storefront-product-variants', () => ({

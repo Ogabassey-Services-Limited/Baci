@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // ---- Mocks ----
 
 let mockHost = 'localhost:3000';
+let mockBlogEnabled = true;
 
 vi.mock('next/headers', () => ({
   headers: vi.fn(() =>
@@ -15,12 +16,24 @@ vi.mock('next/headers', () => ({
   ),
 }));
 
+vi.mock('@/lib/cached-data', () => ({
+  getMerchantByIdentifier: vi.fn(async () => ({ id: 'merchant-1' })),
+  getCachedFeatureSettings: vi.fn(async () => ({
+    blog_enabled: mockBlogEnabled,
+  })),
+}));
+
+vi.mock('@/lib/storefront-route-identifier', () => ({
+  resolveRouteIdentifier: vi.fn(() => 'ogabassey'),
+}));
+
 // ---- Tests ----
 
 describe('robots()', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockHost = 'localhost:3000';
+    mockBlogEnabled = true;
     // Reset env
     delete process.env.NEXT_PUBLIC_ROOT_DOMAIN;
   });
@@ -211,5 +224,15 @@ describe('robots()', () => {
     const result = await robots();
 
     expect(result.sitemap).toBe('http://127.0.0.1:3000/sitemap.xml');
+  });
+
+  it('omits the blog sitemap for storefronts when blog_enabled is false', async () => {
+    const { default: robots } = await import('./robots');
+    mockHost = 'ogabassey.usebaci.com';
+    mockBlogEnabled = false;
+
+    const result = await robots();
+
+    expect(result.sitemap).toBe('https://ogabassey.usebaci.com/sitemap.xml');
   });
 });

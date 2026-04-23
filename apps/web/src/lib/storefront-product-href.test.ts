@@ -86,6 +86,35 @@ describe('getStorefrontProductHref', () => {
     ).toBe('/samsung/samsung-galaxy-s25-ultra');
   });
 
+  it('falls back to category/slug resolution when canonical_url is malformed', () => {
+    expect(
+      getStorefrontProductHref(
+        {
+          id: 'p1',
+          name: 'Nintendo Switch OLED',
+          slug: 'nintendo-switch-oled',
+          categories: { slug: 'gaming' },
+          canonical_url: 'http://%',
+        },
+        '/ogabassey'
+      )
+    ).toBe('/ogabassey/gaming/nintendo-switch-oled');
+  });
+
+  it('falls back to the products route when canonical_url is blank', () => {
+    expect(
+      getStorefrontProductHref(
+        {
+          id: 'p1',
+          name: 'Test Product',
+          slug: 'test-product',
+          canonical_url: '   ',
+        },
+        '/ogabassey'
+      )
+    ).toBe('/ogabassey/products/test-product');
+  });
+
   it('trims trailing slashes from the base path', () => {
     expect(
       getStorefrontProductHref(

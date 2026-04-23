@@ -495,17 +495,33 @@ export async function generateMetadata({
   redirectInvalidVariantSelectionParams(slug, product, resolvedSearchParams);
 
   // Construct canonical URL:
-  // 1. Use explicit canonical from product data if available
-  // 2. OR build the base path using getProductUrl (which handles categories)
+  // 1. Use explicit canonical from product data if available AND it matches
+  //    the final PDP path (otherwise the canonical would itself redirect).
+  // 2. OR build the base path using getProductUrl (which handles categories).
+  const finalProductPath = getProductUrl({
+    ...product,
+    canonical_url: null,
+  });
   let canonicalUrl = normalizeStorefrontCanonicalUrl(
     product.canonical_url,
     baseUrl
   );
 
+  if (canonicalUrl) {
+    try {
+      const canonicalPath =
+        new URL(canonicalUrl).pathname.replace(/\/+$/, '') || '/';
+      const normalizedFinalPath = finalProductPath.replace(/\/+$/, '') || '/';
+      if (canonicalPath !== normalizedFinalPath) {
+        canonicalUrl = undefined;
+      }
+    } catch {
+      canonicalUrl = undefined;
+    }
+  }
+
   if (!canonicalUrl) {
-    // Generate the correct path (e.g. /category/product)
-    const productPath = getProductUrl(product);
-    canonicalUrl = `${baseUrl}${productPath}`;
+    canonicalUrl = `${baseUrl}${finalProductPath}`;
   }
   const productCategoryName =
     product.categories?.name ||
