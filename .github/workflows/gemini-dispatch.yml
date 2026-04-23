@@ -44,6 +44,7 @@ jobs:
       pull-requests: 'write'
     outputs:
       additional_context: '${{ steps.extract_review_context.outputs.additional_context }}'
+      should_review: '${{ steps.extract_review_context.outputs.should_review }}'
     steps:
       - name: 'Mint identity token'
         id: 'mint_identity_token'
@@ -65,6 +66,19 @@ jobs:
           EVENT_NAME: '${{ github.event_name }}'
         with:
           script: |-
+            let headRepoFullName = context.payload.pull_request?.head?.repo?.full_name || '';
+            if (!headRepoFullName && context.payload.issue?.pull_request) {
+              const { data: pullRequest } = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.issue.number,
+              });
+              headRepoFullName = pullRequest.head.repo.full_name;
+            }
+
+            const sameRepo = headRepoFullName === `${context.repo.owner}/${context.repo.repo}`;
+            core.setOutput('should_review', sameRepo ? 'true' : 'false');
+
             if (process.env.EVENT_NAME === 'pull_request') {
               core.setOutput('additional_context', '');
               return;
@@ -76,7 +90,7 @@ jobs:
 
       - name: 'Acknowledge request'
         if: |-
-          ${{ github.event_name != 'pull_request' }}
+          ${{ github.event_name != 'pull_request' && steps.extract_review_context.outputs.should_review == 'true' }}
         env:
           GITHUB_TOKEN: '${{ steps.mint_identity_token.outputs.token || secrets.GITHUB_TOKEN || github.token }}'
           ISSUE_NUMBER: '${{ github.event.pull_request.number || github.event.issue.number }}'
@@ -90,6 +104,8 @@ jobs:
 
   review:
     needs: 'dispatch'
+    if: |-
+      ${{ needs.dispatch.outputs.should_review == 'true' }}
     uses: './.github/workflows/gemini-review.yml'
     permissions:
       contents: 'read'
