@@ -203,24 +203,23 @@ export default function ProductGrid({
   const currentVariant = viewMode === 'list' ? 'list' : variant;
   const hasRenderableProducts =
     visibleProducts.length > 0 || products.length > 0;
-  const hasRenderableCategories = categoriesData.length > 0;
   const shouldShowFatalError =
-    (isCategoriesError &&
-      isCategoriesFetchedAfterMount &&
-      !isCategoriesLoading &&
-      !isCategoriesFetching &&
-      !hasRenderableCategories) ||
-    (isError &&
-      isFetchedAfterMount &&
-      !isLoading &&
-      !isFetching &&
-      !hasRenderableProducts);
+    isError &&
+    isFetchedAfterMount &&
+    !isLoading &&
+    !isFetching &&
+    !hasRenderableProducts;
   const shouldShowInitialLoading =
     !hasRenderableProducts && !isFetchedAfterMount;
   const handleRetry = () => {
     void refetch();
 
-    if (isCategoriesError) {
+    if (
+      isCategoriesError &&
+      isCategoriesFetchedAfterMount &&
+      !isCategoriesLoading &&
+      !isCategoriesFetching
+    ) {
       void refetchCategories();
     }
   };

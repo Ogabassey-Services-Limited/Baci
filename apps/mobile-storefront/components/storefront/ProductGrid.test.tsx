@@ -172,7 +172,7 @@ describe('ProductGrid', () => {
     expect(refetch).toHaveBeenCalledTimes(1);
   });
 
-  it('renders fallback UI when categories query errors', () => {
+  it('falls back to default categories instead of blocking the grid when categories query errors', () => {
     mockUseCategoriesFactory.mockReturnValue({
       data: [],
       isFetchedAfterMount: true,
@@ -187,9 +187,9 @@ describe('ProductGrid', () => {
     );
 
     expect(
-      screen.getByText('Failed to load products. Please try again.')
-    ).toBeTruthy();
-    expect(mockProductCard).not.toHaveBeenCalled();
+      screen.queryByText('Failed to load products. Please try again.')
+    ).toBeNull();
+    expect(mockProductCard).toHaveBeenCalledTimes(2);
     expect(mockProductGridSkeleton).not.toHaveBeenCalled();
   });
 
