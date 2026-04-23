@@ -198,6 +198,64 @@ describe('product selection', () => {
     expect(result.effectiveSelectedCondition).toBe('used');
   });
 
+  it('falls back to product available_conditions when variant rows do not expose a condition axis', () => {
+    const conditionFallbackVariantProduct: Product = {
+      ...variantProduct,
+      available_conditions: ['new', 'used'],
+      offers: undefined,
+      variants: (variantProduct.variants ?? []).map((variant) => ({
+        ...variant,
+        condition: undefined,
+      })),
+    };
+    const result = computeProductSelectionState({
+      defaultVariantSelection: resolveDefaultVariantSelection(
+        conditionFallbackVariantProduct
+      ),
+      product: conditionFallbackVariantProduct,
+      routeCondition: 'used',
+      routeSelectionAttributes: {
+        connectivity: 'WiFi',
+        storage: '128GB',
+      },
+      routeVariantId: null,
+      selectedAttributes: {},
+      selectedColor: null,
+      selectedCondition: null,
+      selectedStorage: null,
+      selectedVariant: null,
+    });
+
+    expect(result.usesVariantConditions).toBe(false);
+    expect(result.availableConditions).toEqual(['used', 'new']);
+    expect(result.effectiveSelectedCondition).toBe('used');
+  });
+
+  it('orders fallback conditions from cheapest storefront condition to newest', () => {
+    const conditionFallbackProduct: Product = {
+      ...baseProduct,
+      available_conditions: ['new', 'open_box', 'used'],
+      offers: undefined,
+      condition: 'Multiple Conditions',
+    };
+
+    const result = computeProductSelectionState({
+      defaultVariantSelection: null,
+      product: conditionFallbackProduct,
+      routeCondition: null,
+      routeSelectionAttributes: {},
+      routeVariantId: null,
+      selectedAttributes: {},
+      selectedColor: null,
+      selectedCondition: null,
+      selectedStorage: null,
+      selectedVariant: null,
+    });
+
+    expect(result.availableConditions).toEqual(['used', 'open_box', 'new']);
+    expect(result.fallbackSelectedCondition).toBe('used');
+  });
+
   it('lets explicit storage and color selections override route attributes', () => {
     const coloredVariantProduct: Product = {
       ...variantProduct,

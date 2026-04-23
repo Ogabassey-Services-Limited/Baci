@@ -3,9 +3,18 @@ import {
   hasVariantConditionAxis,
   resolveVariantDisplaySelection,
   resolveVariantSelection,
+  sortCanonicalProductConditionsByPreference,
 } from '@baci/shared/lib';
 import type { Product, ProductCondition } from '@/types/product';
 import { normalizeRouteCondition } from './normalize-route-condition';
+
+const INTERNAL_SELECTION_AXES = new Set([
+  'color',
+  'colour',
+  'storage',
+  'color_hex',
+  'colour_hex',
+]);
 
 type ProductSelectionInput = {
   attributes: Record<string, string | null>;
@@ -65,21 +74,29 @@ export function computeProductSelectionState({
   const usesVariantConditions = product
     ? hasVariantConditionAxis(product)
     : false;
+  const fallbackConditions = product
+    ? Array.from(
+        sortCanonicalProductConditionsByPreference([
+          ...(product.available_conditions?.map(normalizeRouteCondition) ?? []),
+          normalizeRouteCondition(product.condition),
+          ...(product.offers?.map((offer) =>
+            normalizeRouteCondition(offer.condition)
+          ) || []),
+        ])
+      )
+    : [];
   const availableConditions = product
     ? usesVariantConditions
-      ? getVariantConditionOptions(product)
-          .map(normalizeRouteCondition)
-          .filter(isProductCondition)
-      : Array.from(
-          new Set(
-            [
-              normalizeRouteCondition(product.condition),
-              ...(product.offers?.map((offer) =>
-                normalizeRouteCondition(offer.condition)
-              ) || []),
-            ].filter(isProductCondition)
-          )
-        )
+      ? (() => {
+          const variantConditions = getVariantConditionOptions(product)
+            .map(normalizeRouteCondition)
+            .filter(isProductCondition);
+
+          return variantConditions.length > 0
+            ? sortCanonicalProductConditionsByPreference(variantConditions)
+            : fallbackConditions;
+        })()
+      : fallbackConditions
     : [];
   const defaultSelectionCondition = normalizeRouteCondition(
     defaultVariantSelection?.condition
@@ -136,7 +153,7 @@ export function computeProductSelectionState({
     ...selectedAttributes,
     ...Object.fromEntries(
       Object.entries(currentVariantDisplaySelection?.attributes ?? {}).filter(
-        ([axis]) => axis !== 'color' && axis !== 'storage'
+        ([axis]) => !INTERNAL_SELECTION_AXES.has(axis)
       )
     ),
   };

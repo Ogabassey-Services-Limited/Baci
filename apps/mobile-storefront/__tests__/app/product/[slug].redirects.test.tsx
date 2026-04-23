@@ -1,16 +1,15 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
-import type { Product } from '@/types/product';
 import {
   baseProduct,
   variantProduct,
 } from '@/lib/product-route/product-detail-screen.fixtures';
+import type { Product } from '@/types/product';
 import {
   getLastMockProps,
   mockProductDetailsBody,
   mockRouterReplace,
-  mockStickyBottomActions,
   mockUseEffectivePrice,
   mockUseLocalSearchParams,
   mockUseProduct,
@@ -230,15 +229,11 @@ describe('ProductDetailScreen routing and selection sync', () => {
     });
   });
 
-  it('keeps the product screen inside safe-area bounds and forwards the bottom inset to the sticky cart bar', async () => {
+  it('keeps the product screen inside safe-area bounds', async () => {
     const view = render(<ProductDetailScreen />);
 
     await waitFor(() => {
-      expect(getLastMockProps(mockStickyBottomActions)).toEqual(
-        expect.objectContaining({
-          paddingBottom: 34,
-        })
-      );
+      expect(mockProductDetailsBody).toHaveBeenCalled();
     });
 
     const renderedTree = view.toJSON();

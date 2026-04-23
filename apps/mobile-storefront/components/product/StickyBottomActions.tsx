@@ -14,7 +14,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import Animated, { LinearTransition } from 'react-native-reanimated';
 import type Colors from '@/constants/Colors';
 import { BRAND, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
 
@@ -32,6 +31,8 @@ export interface StickyBottomActionsProps {
   onIncrement: (event: GestureResponderEvent) => void;
   onAddToCart: (event: GestureResponderEvent) => void;
   colors: ColorsScheme;
+  floating?: boolean;
+  bottomOffset?: number;
   paddingBottom?: number;
 }
 
@@ -45,149 +46,139 @@ export function StickyBottomActions({
   onIncrement,
   onAddToCart,
   colors,
+  floating = true,
+  bottomOffset = 0,
   paddingBottom = 16,
 }: StickyBottomActionsProps) {
-  return (
-    <View
-      style={[
-        styles.bottomBar,
-        {
-          backgroundColor: colors.card,
-          borderTopColor: colors.border,
-          paddingBottom,
-        },
-      ]}
-    >
-      <Animated.View
-        layout={LinearTransition.springify().damping(18).stiffness(120)}
-        style={{ width: '100%' }}
+  const content =
+    quantityInCart > 0 ? (
+      <View
+        key="cart-active"
+        style={{
+          flex: 1,
+          flexDirection: 'row',
+          gap: ACTION_ROW_GAP,
+          paddingHorizontal: 0,
+        }}
       >
-        {quantityInCart > 0 ? (
-          <View
-            key="cart-active"
-            style={{
-              flexDirection: 'row',
-              gap: ACTION_ROW_GAP,
-              paddingHorizontal: 0,
-            }}
-          >
-            {/* Quantity Controller */}
-            <View
-              style={[styles.qtyController, { backgroundColor: colors.card }]}
-            >
-              <Pressable
-                onPress={(e) => onDecrement(e)}
-                style={({ pressed }) => [
-                  styles.qtyButton,
-                  pressed ? styles.pressedAction : null,
-                ]}
-                hitSlop={10}
-                accessibilityLabel={
-                  quantityInCart === 1
-                    ? 'Remove from cart'
-                    : 'Decrease quantity'
-                }
-                accessibilityRole="button"
-              >
-                <Ionicons
-                  name={quantityInCart === 1 ? 'trash-outline' : 'remove'}
-                  size={22}
-                  color={BRAND.primary}
-                />
-              </Pressable>
-
-              <View style={styles.qtyCenter}>
-                <Text style={styles.qtyLabel}>In Cart</Text>
-                <TextInput
-                  style={styles.qtyInput}
-                  value={localQty}
-                  onChangeText={onLocalQtyChange}
-                  onBlur={onLocalQtyBlur}
-                  keyboardType="number-pad"
-                  returnKeyType="done"
-                />
-              </View>
-
-              <Pressable
-                onPress={(e) => onIncrement(e)}
-                style={({ pressed }) => [
-                  styles.qtyButtonRight,
-                  pressed ? styles.pressedAction : null,
-                ]}
-                hitSlop={10}
-                accessibilityLabel="Increase quantity"
-                accessibilityRole="button"
-              >
-                <Ionicons name="add" size={22} color={BRAND.primary} />
-              </Pressable>
-            </View>
-
-            {/* View Cart Button */}
-            <Pressable
-              onPress={() => router.push('/cart')}
-              style={({ pressed }) => [
-                styles.viewCartBtn,
-                pressed ? styles.pressedAction : null,
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="View Cart"
-            >
-              <Ionicons
-                name="cart-outline"
-                size={20}
-                color={colors.primaryForeground}
-              />
-              <Text
-                style={[
-                  styles.viewCartText,
-                  { color: colors.primaryForeground },
-                ]}
-              >
-                View Cart
-              </Text>
-            </Pressable>
-          </View>
-        ) : (
+        {/* Quantity Controller */}
+        <View style={[styles.qtyController, { backgroundColor: colors.card }]}>
           <Pressable
-            style={({ pressed }) => [
-              styles.addToCartBtn,
-              { backgroundColor: canPurchase ? BRAND.primary : colors.border },
-              canPurchase ? SHADOWS.md : null,
-              pressed ? styles.pressedAction : null,
-            ]}
-            disabled={!canPurchase}
-            onPress={onAddToCart}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !canPurchase }}
+            onPress={(e) => onDecrement(e)}
+            style={styles.qtyButton}
+            hitSlop={10}
             accessibilityLabel={
-              canPurchase ? 'Add to Cart' : 'Product out of stock'
+              quantityInCart === 1 ? 'Remove from cart' : 'Decrease quantity'
             }
+            accessibilityRole="button"
           >
             <Ionicons
-              name="cart-outline"
+              name={quantityInCart === 1 ? 'trash-outline' : 'remove'}
               size={22}
-              color={
-                canPurchase ? colors.primaryForeground : colors.textSecondary
-              }
-              style={{ marginRight: SPACING.sm }}
+              color={BRAND.primary}
             />
-            <Text
-              style={[
-                styles.addToCartBtnText,
-                {
-                  color: canPurchase
-                    ? colors.primaryForeground
-                    : colors.textSecondary,
-                },
-              ]}
-            >
-              {canPurchase ? 'Add to Cart' : 'Out of Stock'}
-            </Text>
           </Pressable>
-        )}
-      </Animated.View>
-    </View>
-  );
+
+          <View style={styles.qtyCenter}>
+            <Text style={styles.qtyLabel}>In Cart</Text>
+            <TextInput
+              style={styles.qtyInput}
+              value={localQty}
+              onChangeText={onLocalQtyChange}
+              onBlur={onLocalQtyBlur}
+              keyboardType="number-pad"
+              returnKeyType="done"
+              accessibilityLabel="Quantity in cart"
+              accessibilityHint="Edit the number of items in your cart"
+            />
+          </View>
+
+          <Pressable
+            onPress={(e) => onIncrement(e)}
+            style={styles.qtyButtonRight}
+            hitSlop={10}
+            accessibilityLabel="Increase quantity"
+            accessibilityRole="button"
+          >
+            <Ionicons name="add" size={22} color={BRAND.primary} />
+          </Pressable>
+        </View>
+
+        {/* View Cart Button */}
+        <Pressable
+          onPress={() => router.push('/(tabs)/cart')}
+          style={[styles.viewCartBtn]}
+          accessibilityRole="button"
+          accessibilityLabel="View Cart"
+        >
+          <Ionicons name="cart-outline" size={20} color={colors.white} />
+          <Text style={[styles.viewCartText, { color: colors.white }]}>
+            View Cart
+          </Text>
+        </Pressable>
+      </View>
+    ) : (
+      <Pressable
+        key="cart-empty"
+        style={[
+          styles.addToCartBtn,
+          canPurchase
+            ? {
+                backgroundColor: BRAND.primary,
+                borderColor: 'transparent',
+              }
+            : {
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+              },
+          canPurchase ? SHADOWS.md : null,
+        ]}
+        disabled={!canPurchase}
+        onPress={onAddToCart}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: !canPurchase }}
+        accessibilityLabel={
+          canPurchase ? 'Add to Cart' : 'Product out of stock'
+        }
+      >
+        <View style={styles.addToCartContent}>
+          {canPurchase ? (
+            <Ionicons name="cart-outline" size={22} color={colors.white} />
+          ) : null}
+          <Text
+            style={[
+              styles.addToCartBtnText,
+              {
+                color: canPurchase ? colors.white : colors.textSecondary,
+                textAlign: 'center',
+              },
+            ]}
+          >
+            {canPurchase ? 'Add to Cart' : 'Out of Stock'}
+          </Text>
+        </View>
+      </Pressable>
+    );
+
+  if (floating) {
+    return (
+      <View
+        style={[
+          styles.bottomBar,
+          {
+            backgroundColor: colors.card,
+            borderTopColor: colors.border,
+            bottom: bottomOffset,
+            paddingBottom,
+          },
+        ]}
+      >
+        {content}
+      </View>
+    );
+  }
+
+  return <View style={styles.inlineBar}>{content}</View>;
 }
 
 const styles = StyleSheet.create({
@@ -196,12 +187,19 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    flexDirection: 'row',
+    zIndex: 60,
+    elevation: 60,
     paddingHorizontal: 20,
     paddingTop: SPACING.md,
     paddingBottom: SPACING.md,
-    gap: SPACING.md,
     borderTopWidth: 1,
+  },
+  contentWrapper: {
+    width: '100%',
+  },
+  inlineBar: {
+    width: '100%',
+    paddingTop: SPACING.sm,
   },
   qtyController: {
     flex: 1.2,
@@ -269,15 +267,19 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 54,
     borderRadius: RADIUS.xl,
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'row',
   },
+  addToCartContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+  },
   addToCartBtnText: {
     fontSize: 16,
     fontWeight: '800',
-  },
-  pressedAction: {
-    opacity: 0.88,
   },
 });

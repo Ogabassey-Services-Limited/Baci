@@ -25,6 +25,7 @@ import { createLogger } from '@/lib/logger';
 const log = createLogger('ProductDetail');
 
 import {
+  type CanonicalProductCondition,
   resolveDefaultVariantSelection,
   resolveVariantDisplaySelection,
   resolveVariantSelectionParamResolution,
@@ -55,6 +56,11 @@ import { useNetworkState } from '@/hooks/use-network-state';
 import { markReviewHelpful, useReviews } from '@/hooks/use-reviews';
 import { resolveCartItemImageUrl } from '@/lib/cart-display';
 import { findMatchingConditionOffer } from '@/lib/product-condition-offers';
+import { resolveVariantSelectionFromImage } from '@/lib/product-image-selection';
+import { mergeVariantAttributes } from '@/lib/product-normalization';
+import { normalizeRouteCondition } from '@/lib/product-route/normalize-route-condition';
+import { computeProductSelectionState } from '@/lib/product-route/product-selection';
+import { resolveProductVariantMetadata } from '@/lib/product-variant-metadata';
 import { useCartStore } from '@/stores/cart-store';
 import { useSavedStore } from '@/stores/saved-store';
 import {
@@ -63,8 +69,22 @@ import {
   type Product,
   type ProductCondition,
 } from '@/types/product';
-import { normalizeRouteCondition } from '@/lib/product-route/normalize-route-condition';
-import { computeProductSelectionState } from '@/lib/product-route/product-selection';
+
+const INTERNAL_SELECTION_AXES = new Set([
+  'color',
+  'colour',
+  'storage',
+  'color_hex',
+  'colour_hex',
+]);
+
+function stripInternalSelectionAxes(attributes: Record<string, string>) {
+  return Object.fromEntries(
+    Object.entries(attributes).filter(
+      ([axis]) => !INTERNAL_SELECTION_AXES.has(axis)
+    )
+  );
+}
 
 function getFirstColorOption(product: Product | null) {
   if (!product) {
@@ -78,12 +98,39 @@ function getFirstColorOption(product: Product | null) {
     return imageDrivenColor;
   }
 
+  const variantColor = product.variants
+    ?.map((variant) => variant.attributes?.color?.trim())
+    .find((value): value is string => Boolean(value));
+  if (variantColor) {
+    return variantColor;
+  }
+
   const firstColor = product.colors?.[0];
   if (typeof firstColor === 'string') {
     return firstColor;
   }
 
   return firstColor?.name ?? null;
+}
+
+function getFirstImageIndexForColor(args: {
+  color: string | null | undefined;
+  colorImages?: Record<string, string[]>;
+  images: string[];
+}) {
+  const color = args.color?.trim();
+  if (!color) {
+    return 0;
+  }
+
+  const preferredImages = args.colorImages?.[color] ?? [];
+  const preferredImage = preferredImages.find(Boolean);
+  if (!preferredImage) {
+    return 0;
+  }
+
+  const index = args.images.indexOf(preferredImage);
+  return index >= 0 ? index : 0;
 }
 
 function getFallbackVariantSelections(product: Product | null) {
@@ -95,11 +142,15 @@ function getFallbackVariantSelections(product: Product | null) {
     };
   }
 
+  const mergedVariantAttributes = mergeVariantAttributes(
+    product.variant_attributes,
+    product.variants
+  );
   const fallbackAttributes = Object.fromEntries(
-    Object.entries(product.variant_attributes ?? {})
+    Object.entries(mergedVariantAttributes ?? {})
       .filter(
         ([axis, values]) =>
-          axis !== 'color' && axis !== 'storage' && Array.isArray(values)
+          !INTERNAL_SELECTION_AXES.has(axis) && Array.isArray(values)
       )
       .map(([axis, values]) => [axis, values[0]])
       .filter(
@@ -110,7 +161,7 @@ function getFallbackVariantSelections(product: Product | null) {
   return {
     attributes: fallbackAttributes,
     color: getFirstColorOption(product),
-    storage: product.variant_attributes?.storage?.[0] ?? null,
+    storage: mergedVariantAttributes?.storage?.[0] ?? null,
   };
 }
 
@@ -121,6 +172,7 @@ function getSelectionSyncSignature(product: Product | null) {
 
   return JSON.stringify({
     colorImages: product.color_images ?? null,
+    images: product.images ?? null,
     colors: product.colors ?? null,
     id: product.id,
     variantAttributes: product.variant_attributes ?? null,
@@ -200,6 +252,7 @@ export default function ProductDetailScreen() {
       ? resolveVariantSelectionParamResolution(product, routeParams)
       : null;
   const routeSelectionInput = routeSelectionResolution?.selectionInput ?? {};
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- React Compiler handles memoization (ADR-004)
   const routeSelectionAttributes = (routeSelectionInput.attributes ??
     {}) as Record<string, string>;
   const routeCondition = normalizeRouteCondition(
@@ -207,6 +260,43 @@ export default function ProductDetailScreen() {
       (!usesVariantRouteSelection ? routeConditionParam : undefined)
   );
   const routeVariantId = routeSelectionInput.variantId ?? null;
+  const routeSelectionSignature = JSON.stringify({
+    attributes: routeSelectionAttributes,
+    condition: routeCondition,
+    slug,
+    variantId: routeVariantId,
+  });
+  const productVariantMetadata = product
+    ? resolveProductVariantMetadata({
+        colorImages: product.color_images,
+        productImages: product.images,
+        productColors: product.colors,
+        sourceVariantAttributes: product.variant_attributes,
+        variants: product.variants,
+      })
+    : {};
+  const productGalleryImages = productVariantMetadata.galleryImages?.length
+    ? productVariantMetadata.galleryImages
+    : product?.images?.length
+      ? product.images
+      : product?.image
+        ? [product.image]
+        : ['https://placehold.co/400x400/f3f4f6/9ca3af?text=No+Image'];
+  const productImageColorMap = productVariantMetadata.imageColorMap ?? {};
+  const resolvedColorImages =
+    productVariantMetadata.colorImages ?? product?.color_images;
+  const displayProduct = product
+    ? {
+        ...product,
+        color_images: resolvedColorImages,
+        colors: productVariantMetadata.colors ?? product.colors,
+        variant_attributes:
+          productVariantMetadata.variantAttributes ??
+          product.variant_attributes,
+      }
+    : null;
+  const usesImageDrivenColorSelection =
+    Object.keys(productImageColorMap).length > 0;
 
   const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
   const [selectedCondition, setSelectedCondition] =
@@ -216,14 +306,15 @@ export default function ProductDetailScreen() {
   const [selectedAttributes, setSelectedAttributes] = useState<
     Record<string, string>
   >({});
-  const [colorImages, setColorImages] = useState<string[] | null>(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [showAddedToast, setShowAddedToast] = useState(false);
   const [showNegotiationModal, setShowNegotiationModal] = useState(false);
   const [negotiatedPrice, setNegotiatedPrice] = useState<number | null>(null);
   const [showImageZoom, setShowImageZoom] = useState(false);
+  const [hasCustomizedSelection, setHasCustomizedSelection] = useState(false);
   const lastSelectionSyncSignatureRef = useRef<string>('');
   const hasInvalidSelectionRedirectedRef = useRef(false);
+  const lastRouteSelectionSignatureRef = useRef(routeSelectionSignature);
 
   const defaultVariantSelection = product
     ? resolveDefaultVariantSelection(product)
@@ -243,7 +334,7 @@ export default function ProductDetailScreen() {
     product,
     routeCondition,
     routeSelectionAttributes,
-    routeVariantId,
+    routeVariantId: hasCustomizedSelection ? null : routeVariantId,
     selectedAttributes,
     selectedColor,
     selectedCondition,
@@ -306,6 +397,15 @@ export default function ProductDetailScreen() {
   };
 
   useEffect(() => {
+    if (lastRouteSelectionSignatureRef.current === routeSelectionSignature) {
+      return;
+    }
+
+    lastRouteSelectionSignatureRef.current = routeSelectionSignature;
+    setHasCustomizedSelection(false);
+  }, [routeSelectionSignature]);
+
+  useEffect(() => {
     if (!product) {
       lastSelectionSyncSignatureRef.current = '';
       return;
@@ -315,22 +415,6 @@ export default function ProductDetailScreen() {
       return;
     }
 
-    const defaultSelection =
-      resolveVariantDisplaySelection(product, {
-        condition: routeCondition,
-        variantId: typeof routeVariantId === 'string' ? routeVariantId : null,
-        attributes: routeSelectionAttributes,
-      }) ?? resolveDefaultVariantSelection(product);
-    const fallbackSelection = getFallbackVariantSelections(product);
-    const syncedAttributes = {
-      ...fallbackSelection.attributes,
-      ...Object.fromEntries(
-        Object.entries(defaultSelection?.attributes ?? {}).filter(
-          ([axis]) => axis !== 'color' && axis !== 'storage'
-        )
-      ),
-    };
-    const syncedColor = defaultSelection?.color ?? fallbackSelection.color;
     const shouldSeedSelection =
       !selectedVariant &&
       !selectedStorage &&
@@ -338,20 +422,59 @@ export default function ProductDetailScreen() {
       Object.keys(selectedAttributes).length === 0;
     const shouldRepairInvalidSelection =
       product.has_variants === true && currentVariantDisplaySelection === null;
+    const seededSelection =
+      resolveVariantDisplaySelection(product, {
+        condition: routeCondition,
+        variantId: typeof routeVariantId === 'string' ? routeVariantId : null,
+        attributes: routeSelectionAttributes,
+      }) ??
+      resolveDefaultVariantSelection(product, {
+        condition: routeCondition,
+      }) ??
+      resolveDefaultVariantSelection(product);
+    const activeSelectionAttributes = {
+      ...routeSelectionAttributes,
+      ...selectedAttributes,
+      color: selectedColor ?? routeSelectionAttributes.color ?? null,
+      storage: selectedStorage ?? routeSelectionAttributes.storage ?? null,
+    };
+    const repairCondition = selectedCondition ?? routeCondition;
+    const repairedSelection =
+      resolveVariantDisplaySelection(product, {
+        condition: repairCondition,
+        variantId:
+          selectedVariant ??
+          (typeof routeVariantId === 'string' ? routeVariantId : null),
+        attributes: activeSelectionAttributes,
+      }) ??
+      resolveDefaultVariantSelection(product, {
+        condition: repairCondition,
+      }) ??
+      resolveDefaultVariantSelection(product);
+    const nextSelection = shouldRepairInvalidSelection
+      ? repairedSelection
+      : seededSelection;
+    const fallbackSelection = getFallbackVariantSelections(product);
+    const syncedAttributes = {
+      ...fallbackSelection.attributes,
+      ...stripInternalSelectionAxes(nextSelection?.attributes ?? {}),
+    };
+    const syncedColor = nextSelection?.color ?? fallbackSelection.color;
 
     if (shouldSeedSelection || shouldRepairInvalidSelection) {
-      setSelectedVariant(defaultSelection?.variant.id ?? null);
-      setSelectedStorage(
-        defaultSelection?.storage ?? fallbackSelection.storage
-      );
+      setSelectedVariant(nextSelection?.variant.id ?? null);
+      setSelectedStorage(nextSelection?.storage ?? fallbackSelection.storage);
       setSelectedColor(syncedColor);
       setSelectedAttributes(syncedAttributes);
-      setColorImages(
-        syncedColor ? (product.color_images?.[syncedColor] ?? null) : null
+      setSelectedImageIndex(
+        getFirstImageIndexForColor({
+          color: syncedColor,
+          colorImages: resolvedColorImages,
+          images: productGalleryImages,
+        })
       );
-      setSelectedImageIndex(0);
-      if (defaultSelection?.condition) {
-        setSelectedCondition(defaultSelection.condition as ProductCondition);
+      if (nextSelection?.condition) {
+        setSelectedCondition(nextSelection.condition as ProductCondition);
       }
     }
 
@@ -362,11 +485,44 @@ export default function ProductDetailScreen() {
     routeCondition,
     selectedAttributes,
     selectedColor,
+    selectedCondition,
     selectedStorage,
     selectedVariant,
     selectionSyncSignature,
     routeVariantId,
     routeSelectionAttributes,
+    productGalleryImages,
+    resolvedColorImages,
+  ]);
+
+  useEffect(() => {
+    if (!usesImageDrivenColorSelection || !effectiveSelectedColor) {
+      return;
+    }
+
+    const currentImage = productGalleryImages[selectedImageIndex];
+    const currentImageColor = currentImage
+      ? productImageColorMap[currentImage]
+      : undefined;
+
+    if (currentImageColor === effectiveSelectedColor) {
+      return;
+    }
+
+    setSelectedImageIndex(
+      getFirstImageIndexForColor({
+        color: effectiveSelectedColor,
+        colorImages: resolvedColorImages,
+        images: productGalleryImages,
+      })
+    );
+  }, [
+    effectiveSelectedColor,
+    resolvedColorImages,
+    productGalleryImages,
+    productImageColorMap,
+    selectedImageIndex,
+    usesImageDrivenColorSelection,
   ]);
 
   useEffect(() => {
@@ -376,7 +532,9 @@ export default function ProductDetailScreen() {
 
     if (
       selectedCondition &&
-      availableConditions.includes(selectedCondition as ProductCondition)
+      availableConditions.includes(
+        normalizeRouteCondition(selectedCondition) as CanonicalProductCondition
+      )
     ) {
       return;
     }
@@ -586,17 +744,28 @@ export default function ProductDetailScreen() {
   const selectedConditionOffer = !product?.has_variants
     ? findMatchingConditionOffer(product?.offers, offerConditionKey)
     : null;
+  const resolvedVariantPurchaseSelection =
+    currentVariantSelection ??
+    currentVariantDisplaySelection ??
+    defaultVariantSelection;
   const selectedVariantCanPurchase =
-    product?.has_variants === true && currentVariantSelection
+    product?.has_variants === true
       ? product.manage_stock === false
         ? true
-        : typeof currentVariantSelection.variant.stock_quantity === 'number'
-          ? currentVariantSelection.variant.stock_quantity > quantityInCart
-          : currentVariantSelection.variant.in_stock !== false
+        : resolvedVariantPurchaseSelection
+          ? typeof resolvedVariantPurchaseSelection.variant.stock_quantity ===
+            'number'
+            ? resolvedVariantPurchaseSelection.variant.stock_quantity >
+              quantityInCart
+            : resolvedVariantPurchaseSelection.variant.in_stock !== false
+          : false
       : false;
   const canPurchase =
     product?.has_variants === true
-      ? Boolean(currentVariantSelection) && selectedVariantCanPurchase
+      ? product.manage_stock === false
+        ? true
+        : Boolean(resolvedVariantPurchaseSelection) &&
+          selectedVariantCanPurchase
       : product
         ? product.manage_stock === false ||
           (typeof selectedConditionOffer?.stock_quantity === 'number'
@@ -605,6 +774,7 @@ export default function ProductDetailScreen() {
               ? product.stock_quantity > quantityInCart
               : product.in_stock === true)
         : false;
+
   const conditionOffersForDisplay = (() => {
     if (!product) {
       return [];
@@ -650,6 +820,15 @@ export default function ProductDetailScreen() {
       stock_quantity: summary.stock_quantity,
     }));
   })();
+  const images = productGalleryImages;
+
+  useEffect(() => {
+    if (selectedImageIndex < images.length) {
+      return;
+    }
+
+    setSelectedImageIndex(0);
+  }, [images.length, selectedImageIndex]);
 
   // 2026 Critical Fix: Handle invalid slug parameter
   if (!isValidSlug) {
@@ -746,25 +925,42 @@ export default function ProductDetailScreen() {
     );
   }
 
-  // Use color-specific images if selected, otherwise default product images
-  // BUG-2-001 FIX: Filter null/undefined images and fallback to placeholder
-  const rawImages = colorImages?.length
-    ? colorImages.filter(Boolean)
-    : product.images?.length
-      ? product.images.filter(Boolean)
-      : [product.image].filter(Boolean);
-  const images =
-    rawImages.length > 0
-      ? rawImages
-      : ['https://placehold.co/400x400/f3f4f6/9ca3af?text=No+Image'];
-
   const discountPercentage = getDiscountPercentage(
     effectivePrice,
     effectiveComparePrice
   );
 
+  const handleSelectImageIndex = (index: number) => {
+    setSelectedImageIndex(index);
+
+    if (!usesImageDrivenColorSelection) {
+      return;
+    }
+
+    const selectedImage = images[index];
+    const resolvedSelectionFromImage = resolveVariantSelectionFromImage({
+      imageUrl: selectedImage,
+      selectedAttributes: effectiveSelectedAttributes,
+      selectedCondition: effectiveSelectedCondition,
+      selectedStorage: effectiveSelectedStorage,
+      variants: product?.variants,
+    });
+    const selectedImageColor =
+      resolvedSelectionFromImage?.color ??
+      (selectedImage ? productImageColorMap[selectedImage] : undefined);
+
+    if (!selectedImageColor || selectedImageColor === effectiveSelectedColor) {
+      return;
+    }
+
+    setHasCustomizedSelection(true);
+    setSelectedVariant(resolvedSelectionFromImage?.variantId ?? null);
+    setSelectedColor(selectedImageColor);
+    setSelectedAttributes((current) => stripInternalSelectionAxes(current));
+  };
+
   const handleAddToCart = (event?: GestureResponderEvent) => {
-    if (product.has_variants && !currentVariantSelection) {
+    if (product.has_variants && !resolvedVariantPurchaseSelection) {
       Alert.alert(
         'Select Variant',
         'Choose an available storage option before adding this item to your cart.'
@@ -972,7 +1168,7 @@ export default function ProductDetailScreen() {
         <ProductImageGallery
           images={images}
           selectedImageIndex={selectedImageIndex}
-          setSelectedImageIndex={setSelectedImageIndex}
+          setSelectedImageIndex={handleSelectImageIndex}
           imageAnimatedStyle={imageAnimatedStyle}
           showImageZoom={showImageZoom}
           setShowImageZoom={setShowImageZoom}
@@ -985,18 +1181,57 @@ export default function ProductDetailScreen() {
         <ProductDetailsBody
           availableConditions={availableConditions}
           conditionOffers={conditionOffersForDisplay}
-          product={product}
+          product={displayProduct ?? product}
           effectivePrice={effectivePrice}
           effectiveComparePrice={effectiveComparePrice}
           negotiatedPrice={negotiatedPrice}
+          canPurchase={canPurchase}
           selectedVariant={selectedVariant}
-          setSelectedVariant={setSelectedVariant}
+          setSelectedVariant={(variantId) => {
+            setHasCustomizedSelection(true);
+            setSelectedVariant(variantId);
+          }}
           selectedCondition={effectiveSelectedCondition}
-          setSelectedCondition={setSelectedCondition}
+          setSelectedCondition={(condition) => {
+            setHasCustomizedSelection(true);
+            setSelectedVariant(null);
+            setSelectedCondition(condition);
+
+            const normalizedCondition = normalizeRouteCondition(condition);
+
+            // Only clear attribute selections that have no matching variant
+            // under the new condition, so shoppers keep picks that stay valid
+            // (e.g. tapping "Used" while on 64GB should preserve 64GB).
+            const variantsForCondition = (product?.variants ?? []).filter(
+              (variant) =>
+                normalizeRouteCondition(variant.condition) ===
+                normalizedCondition
+            );
+            const storageStillValid =
+              !effectiveSelectedStorage ||
+              variantsForCondition.some(
+                (variant) =>
+                  variant.attributes?.storage === effectiveSelectedStorage
+              );
+            const colorStillValid =
+              !effectiveSelectedColor ||
+              variantsForCondition.some(
+                (variant) =>
+                  variant.attributes?.color === effectiveSelectedColor
+              );
+
+            if (!storageStillValid) {
+              setSelectedStorage(null);
+            }
+            if (!colorStillValid) {
+              setSelectedColor(null);
+            }
+          }}
           selectedAttributes={effectiveSelectedAttributes}
           selectedColor={effectiveSelectedColor}
           selectedStorage={effectiveSelectedStorage}
           onSelectAttribute={(axis, value) => {
+            setHasCustomizedSelection(true);
             setSelectedAttributes((current) => ({
               ...current,
               [axis]: value,
@@ -1004,12 +1239,22 @@ export default function ProductDetailScreen() {
             setSelectedVariant(null);
           }}
           onSelectColor={(color, imgs) => {
+            setHasCustomizedSelection(true);
             setSelectedColor(color);
             setSelectedVariant(null);
-            setColorImages(imgs?.length ? imgs : null);
-            setSelectedImageIndex(0);
+            setSelectedAttributes((current) =>
+              stripInternalSelectionAxes(current)
+            );
+            setSelectedImageIndex(
+              getFirstImageIndexForColor({
+                color,
+                colorImages: resolvedColorImages,
+                images: imgs?.length ? images : productGalleryImages,
+              })
+            );
           }}
           onSelectStorage={(storage) => {
+            setHasCustomizedSelection(true);
             setSelectedStorage(storage);
             setSelectedVariant(null);
           }}
@@ -1028,7 +1273,7 @@ export default function ProductDetailScreen() {
         />
       </Animated.ScrollView>
 
-      {/* Sticky Bottom Actions */}
+      {/* Sticky Add to Cart — floating bottom bar (always visible). */}
       <StickyBottomActions
         canPurchase={canPurchase}
         quantityInCart={quantityInCart}

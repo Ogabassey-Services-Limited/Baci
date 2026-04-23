@@ -151,4 +151,56 @@ describe('ProductRowSchema', () => {
 
     expect(result.success).toBe(true);
   });
+
+  it('accepts numeric-string values inside nested variant rows from Supabase joins', () => {
+    const result = ProductRowSchema.safeParse({
+      id: '953ba6ff-3e83-403a-a07c-8c5ff54ede98',
+      name: 'Samsung Galaxy S24',
+      slug: 'samsung-galaxy-s24',
+      price: 600000,
+      images: ['https://cdn.example.com/s24.jpg'],
+      has_variants: true,
+      manage_stock: false,
+      available_conditions: ['open_box', 'used'],
+      variant_attributes: [{ param: 'storage', options: ['128GB', '256GB'] }],
+      variants: [
+        {
+          id: 'variant-blue-128',
+          condition: 'open_box',
+          price_override: '600000.00',
+          stock_quantity: '0',
+          attributes: {
+            color: 'Sapphire Blue',
+            color_hex: '#5A7B97',
+            storage: '128GB',
+          },
+        },
+      ],
+      status: 'active',
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) {
+      throw new Error('Expected schema parse to succeed');
+    }
+
+    expect(result.data.variants?.[0]?.price_override).toBe(600000);
+    expect(result.data.variants?.[0]?.stock_quantity).toBe(0);
+  });
+
+  it('rejects negative inventory counts and out-of-range ratings', () => {
+    const result = ProductRowSchema.safeParse({
+      id: '953ba6ff-3e83-403a-a07c-8c5ff54ede98',
+      name: 'Samsung Galaxy S24',
+      slug: 'samsung-galaxy-s24',
+      price: 600000,
+      images: ['https://cdn.example.com/s24.jpg'],
+      average_rating: 6,
+      review_count: -1,
+      stock_quantity: -3,
+      status: 'active',
+    });
+
+    expect(result.success).toBe(false);
+  });
 });

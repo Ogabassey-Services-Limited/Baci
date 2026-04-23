@@ -162,8 +162,10 @@ export function VariantSelector({
 
   const genericAttributeOptions = new Map<string, Set<string>>();
 
+  const INTERNAL_AXES = new Set(['color', 'storage', 'color_hex']);
+
   for (const [axis, values] of Object.entries(attributes ?? {})) {
-    if (axis === 'color' || axis === 'storage') {
+    if (INTERNAL_AXES.has(axis)) {
       continue;
     }
 
@@ -182,7 +184,7 @@ export function VariantSelector({
 
   for (const variant of variants ?? []) {
     for (const [axis, value] of Object.entries(variant.attributes ?? {})) {
-      if (axis === 'color' || axis === 'storage') {
+      if (INTERNAL_AXES.has(axis)) {
         continue;
       }
 

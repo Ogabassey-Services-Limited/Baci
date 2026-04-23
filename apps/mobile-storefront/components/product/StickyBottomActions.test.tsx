@@ -82,15 +82,33 @@ describe('StickyBottomActions', () => {
     expect(screen.getByText('Out of Stock')).toBeTruthy();
   });
 
+  it('keeps add-to-cart copy readable in dark mode on the branded CTA background', () => {
+    render(
+      <StickyBottomActions
+        {...defaultProps}
+        colors={Colors.dark}
+        quantityInCart={0}
+      />
+    );
+
+    expect(
+      StyleSheet.flatten(screen.getByText('Add to Cart').props.style)
+    ).toMatchObject({
+      color: Colors.dark.white,
+    });
+  });
+
   it('renders the active cart CTA with a stable view cart button layout', () => {
     render(
       <StickyBottomActions {...defaultProps} quantityInCart={2} localQty="2" />
     );
 
     const viewCartButton = screen.getByRole('button', { name: 'View Cart' });
+    const quantityInput = screen.getByLabelText('Quantity in cart');
     const flattenedStyle = StyleSheet.flatten(viewCartButton.props.style);
 
     expect(typeof viewCartButton.props.style).not.toBe('function');
+    expect(quantityInput).toBeTruthy();
     expect(flattenedStyle).toMatchObject({
       alignItems: 'center',
       flexDirection: 'row',
@@ -110,11 +128,31 @@ describe('StickyBottomActions', () => {
 
   it('uses the provided bottom inset padding instead of docking into the home indicator area', () => {
     const { toJSON } = render(
-      <StickyBottomActions {...defaultProps} paddingBottom={34} />
+      <StickyBottomActions
+        {...defaultProps}
+        bottomOffset={34}
+        paddingBottom={16}
+      />
     );
 
     const containerStyle = StyleSheet.flatten(toJSON()?.props.style);
 
-    expect(containerStyle?.paddingBottom).toBe(34);
+    expect(containerStyle?.bottom).toBe(34);
+    expect(containerStyle?.paddingBottom).toBe(16);
+  });
+
+  it('restores the add to cart CTA after the cart quantity drops back to zero', () => {
+    const { rerender } = render(
+      <StickyBottomActions {...defaultProps} quantityInCart={1} localQty="1" />
+    );
+
+    expect(screen.getByRole('button', { name: 'View Cart' })).toBeTruthy();
+
+    rerender(
+      <StickyBottomActions {...defaultProps} quantityInCart={0} localQty="0" />
+    );
+
+    expect(screen.getByRole('button', { name: 'Add to Cart' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'View Cart' })).toBeNull();
   });
 });

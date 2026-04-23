@@ -448,6 +448,7 @@ describe('useProduct', () => {
     expect(result.current.product?.variant_attributes).toEqual({
       storage: ['256GB', '512GB'],
       ram: ['12GB'],
+      color: ['Blue'],
     });
   });
 
@@ -504,7 +505,7 @@ describe('useProduct', () => {
     expect(result.current.product?.id).toBe('cached-1');
   });
 
-  it('normalizes cached initial variants with the same shape as fetched products', () => {
+  it('bypasses cached initial data for variant products and waits for the detail fetch', async () => {
     const queryClient = createQueryClient();
     const cachedProduct: Product = {
       id: 'cached-2',
@@ -533,17 +534,27 @@ describe('useProduct', () => {
         pages: [{ products: [cachedProduct], nextOffset: null, total: 1 }],
       }
     );
+    mockResolveAndEvictProduct.mockResolvedValue({
+      ...validProductRow,
+      slug: 'cached-thinkpad',
+    });
 
     const { result } = renderHook(() => useProduct('cached-thinkpad'), {
       wrapper: createWrapper(queryClient),
     });
 
+    expect(result.current.product).toBeNull();
+
+    await waitFor(() => {
+      expect(result.current.product?.slug).toBe('cached-thinkpad');
+    });
+
     expect(result.current.product?.variants).toEqual([
       expect.objectContaining({
-        id: 'variant-ram',
-        price: 1200,
-        compare_at_price: 1200,
-        attributes: { ram: '16GB' },
+        id: 'variant-128gb',
+        sku: 'IPHONE-13-PRO-128',
+        price_override: 552000,
+        attributes: { storage: '128GB' },
       }),
     ]);
   });
@@ -587,7 +598,12 @@ describe('usePrefetchProduct', () => {
     });
 
     expect(
-      queryClient.getQueryData(['product', 'iphone-13-pro', 'merchant-1'])
+      queryClient.getQueryData([
+        'product',
+        'variant-media-v1',
+        'iphone-13-pro',
+        'merchant-1',
+      ])
     ).toMatchObject({
       id: validProductRow.id,
       slug: validProductRow.slug,
@@ -621,7 +637,12 @@ describe('usePrefetchProduct', () => {
     });
 
     expect(
-      queryClient.getQueryData(['product', 'bad-product', 'merchant-1'])
+      queryClient.getQueryData([
+        'product',
+        'variant-media-v1',
+        'bad-product',
+        'merchant-1',
+      ])
     ).toBeUndefined();
   });
 });

@@ -15,7 +15,6 @@ import {
 import {
   getLastMockProps,
   mockProductDetailsBody,
-  mockStickyBottomActions,
   mockUseEffectivePrice,
   mockUseLocalSearchParams,
   mockUseProduct,
@@ -63,7 +62,7 @@ describe('ProductDetailScreen variant stock behavior', () => {
     render(<ProductDetailScreen />);
 
     await waitFor(() => {
-      expect(getLastMockProps(mockStickyBottomActions)).toEqual(
+      expect(getLastMockProps(mockProductDetailsBody)).toEqual(
         expect.objectContaining({
           canPurchase: false,
         })
@@ -102,7 +101,7 @@ describe('ProductDetailScreen variant stock behavior', () => {
     render(<ProductDetailScreen />);
 
     await waitFor(() => {
-      expect(getLastMockProps(mockStickyBottomActions)).toEqual(
+      expect(getLastMockProps(mockProductDetailsBody)).toEqual(
         expect.objectContaining({
           canPurchase: true,
         })
@@ -148,41 +147,53 @@ describe('ProductDetailScreen variant stock behavior', () => {
         expect.objectContaining({
           selectedCondition: secondaryVariant.condition,
           selectedStorage: '128GB',
-        })
-      );
-      expect(getLastMockProps(mockStickyBottomActions)).toEqual(
-        expect.objectContaining({
           canPurchase: true,
         })
       );
     });
   });
 
-  it('passes the effective selected condition into price resolution after selection settles', async () => {
+  it('keeps unlimited-stock variants purchasable even when only the display selection resolves', async () => {
     mockUseLocalSearchParams.mockReturnValue({
-      slug: 'iphone-13-pro',
-      condition: 'used',
-      variantId: primaryVariant.id,
+      slug: 'samsung-galaxy-s24',
+      condition: 'open_box',
     });
     mockUseProduct.mockReturnValue({
-      product: variantProduct,
+      product: {
+        ...variantProduct,
+        slug: 'samsung-galaxy-s24',
+        manage_stock: false,
+        variant_attributes: null,
+        available_conditions: ['open_box', 'used'],
+        variants: [
+          {
+            ...primaryVariant,
+            id: 'variant-open-box-128',
+            condition: 'open_box',
+            stock_quantity: 0,
+            attributes: {
+              storage: '128GB',
+            },
+          },
+        ],
+      },
       isLoading: false,
       error: null,
       refetch: jest.fn(),
     });
     mockUseEffectivePrice.mockReturnValue({
-      price: primaryVariant.price,
+      price: 552000,
       comparePrice: undefined,
     });
 
     render(<ProductDetailScreen />);
 
     await waitFor(() => {
-      const latestCall =
-        mockUseEffectivePrice.mock.calls[
-          mockUseEffectivePrice.mock.calls.length - 1
-        ];
-      expect(latestCall?.[2]).toBe('new');
+      expect(getLastMockProps(mockProductDetailsBody)).toEqual(
+        expect.objectContaining({
+          canPurchase: true,
+        })
+      );
     });
   });
 });
