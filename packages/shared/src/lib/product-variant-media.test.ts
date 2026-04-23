@@ -29,7 +29,7 @@ describe('resolveProductVariantMedia', () => {
         Gold: ['https://cdn.example.com/gold-front.jpg'],
         'Space Gray': ['https://cdn.example.com/black-front.jpg'],
       },
-      colors: ['Gold', 'Space Gray'],
+      colors: ['Gold', 'Space Gray', 'Blue'],
       galleryImages: [
         'https://cdn.example.com/gold-front.jpg',
         'https://cdn.example.com/black-front.jpg',
@@ -73,6 +73,40 @@ describe('resolveProductVariantMedia', () => {
       imageColorMap: {
         'https://cdn.example.com/silver-front.jpg': 'Silver',
         'https://cdn.example.com/silver-back.jpg': 'Silver',
+      },
+    });
+  });
+
+  it('keeps fallback product colors when variant images only cover some colors', () => {
+    expect(
+      resolveProductVariantMedia({
+        productColors: ['Blue', 'Gold'],
+        productImages: [
+          'https://cdn.example.com/blue-front.jpg',
+          'https://cdn.example.com/gold-front.jpg',
+        ],
+        variants: [
+          {
+            attributes: { color: 'Blue', storage: '128GB' },
+            primary_image: 'https://cdn.example.com/blue-front.jpg',
+          },
+          {
+            attributes: { color: 'Gold', storage: '128GB' },
+            primary_image: null,
+          },
+        ],
+      })
+    ).toEqual({
+      colorImages: {
+        Blue: ['https://cdn.example.com/blue-front.jpg'],
+      },
+      colors: ['Blue', 'Gold'],
+      galleryImages: [
+        'https://cdn.example.com/blue-front.jpg',
+        'https://cdn.example.com/gold-front.jpg',
+      ],
+      imageColorMap: {
+        'https://cdn.example.com/blue-front.jpg': 'Blue',
       },
     });
   });

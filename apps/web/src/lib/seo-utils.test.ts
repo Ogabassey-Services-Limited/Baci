@@ -584,6 +584,15 @@ describe('generateMetaTitle', () => {
     expect(title).toContain('Ogabassey');
     expect(title.length).toBeLessThanOrEqual(70);
   });
+
+  it('deduplicates suffixes that include regex metacharacters', () => {
+    expect(
+      generateMetaTitle('Buy Smartphones | Oga(bassey)+? | Oga(bassey)+?', {
+        suffix: 'Oga(bassey)+?',
+        maxLength: 70,
+      })
+    ).toBe('Buy Smartphones | Oga(bassey)+?');
+  });
 });
 
 describe('generateBreadcrumbSchema', () => {
@@ -788,6 +797,34 @@ describe('generateCollectionPageSchema', () => {
     expect(returnPolicy.merchantReturnDays).toBe(10);
   });
 
+  it('keeps unmanaged products InStock in collection offers', () => {
+    const schema = generateCollectionPageSchema({
+      name: 'Smartphones',
+      description: 'Shop smartphones',
+      url: 'https://ogabassey.com/smartphones',
+      merchantName: 'Ogabassey',
+      currency: 'NGN',
+      products: [
+        makeProduct({
+          name: 'Galaxy S25',
+          manage_stock: false,
+          stock: 0,
+        }),
+      ],
+    });
+
+    const listItem = (
+      (schema.mainEntity as Record<string, unknown>).itemListElement as Record<
+        string,
+        unknown
+      >[]
+    )[0];
+    const product = listItem.item as Record<string, unknown>;
+    const offer = product.offers as Record<string, unknown>;
+
+    expect(offer.availability).toBe('https://schema.org/InStock');
+  });
+
   it('stores numberOfItems on ItemList (not CollectionPage)', () => {
     const schema = generateCollectionPageSchema({
       name: 'Smartphones',
@@ -888,6 +925,61 @@ describe('generateProductSchema - condition mapping', () => {
       'https://schema.org/RefurbishedCondition'
     );
     expect(secondOffer.itemCondition).toBe('https://schema.org/NewCondition');
+  });
+
+  it('keeps condition offers as InStock when manage_stock is disabled', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        manage_stock: false,
+        has_condition_offers: true,
+        offers: [
+          {
+            id: 'offer-unmanaged',
+            condition: 'new',
+            price: 500000,
+            stock_quantity: 0,
+          },
+        ],
+      }),
+      'TestStore',
+      'NGN',
+      'NG'
+    );
+
+    const availability = (
+      (schema.offers as Record<string, unknown>[])[0] as Record<string, unknown>
+    ).availability;
+
+    expect(availability).toBe('https://schema.org/InStock');
+  });
+
+  it('keeps variant offers as InStock when manage_stock is disabled', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        manage_stock: false,
+        has_variants: true,
+        variants: [
+          {
+            id: 'variant-unmanaged',
+            product_id: 'test-123',
+            merchant_id: 'm1',
+            condition: 'new',
+            attributes: { storage: '128GB' },
+            price_override: 500000,
+            stock_quantity: 0,
+          },
+        ],
+      }),
+      'TestStore',
+      'NGN',
+      'NG'
+    );
+
+    const variants = schema.hasVariant as Record<string, unknown>[];
+    const availability = (variants[0]?.offers as Record<string, unknown>)
+      .availability;
+
+    expect(availability).toBe('https://schema.org/InStock');
   });
 });
 

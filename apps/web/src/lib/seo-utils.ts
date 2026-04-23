@@ -1,5 +1,6 @@
 import {
   getEffectiveProductStock,
+  getProductStockBucket,
   toSchemaItemConditionUri,
 } from '@baci/shared/lib';
 import type { Metadata, Route } from 'next';
@@ -20,6 +21,17 @@ export { escapeHtml, getEffectiveProductStock };
 
 function getSchemaItemCondition(condition?: string | null) {
   return toSchemaItemConditionUri(condition);
+}
+
+function getSchemaAvailability(product: {
+  manage_stock?: boolean | null;
+  stock?: number | string | null;
+  stock_quantity?: number | string | null;
+  low_stock_threshold?: number | string | null;
+}) {
+  return getProductStockBucket(product) === 'out_of_stock'
+    ? 'https://schema.org/OutOfStock'
+    : 'https://schema.org/InStock';
 }
 
 /**
@@ -558,10 +570,10 @@ export function generateProductSchema(
             '@type': 'Offer',
             price: offer.price,
             priceCurrency: currency,
-            availability:
-              offer.stock_quantity > 0
-                ? 'https://schema.org/InStock'
-                : 'https://schema.org/OutOfStock',
+            availability: getSchemaAvailability({
+              manage_stock: product.manage_stock,
+              stock_quantity: offer.stock_quantity,
+            }),
             itemCondition: getSchemaItemCondition(offer.condition),
             seller: {
               '@type': 'Organization',
@@ -577,9 +589,7 @@ export function generateProductSchema(
             '@type': 'Offer',
             price: product.price,
             priceCurrency: currency,
-            availability: getEffectiveProductStock(product)
-              ? 'https://schema.org/InStock'
-              : 'https://schema.org/OutOfStock',
+            availability: getSchemaAvailability(product),
             itemCondition: getSchemaItemCondition(product.condition),
             seller: {
               '@type': 'Organization',
@@ -999,10 +1009,10 @@ export function generateProductSchema(
           '@type': 'Offer',
           price: variantPrice,
           priceCurrency: currency,
-          availability:
-            variant.stock_quantity > 0
-              ? 'https://schema.org/InStock'
-              : 'https://schema.org/OutOfStock',
+          availability: getSchemaAvailability({
+            manage_stock: product.manage_stock,
+            stock_quantity: variant.stock_quantity,
+          }),
           itemCondition: variantCondition,
           priceValidUntil: variantPriceValidUntil,
           seller: {
@@ -1274,14 +1284,25 @@ function removeTrailingDuplicateSuffix(value: string, suffix: string): string {
   }
 
   let normalizedValue = normalizePlainText(value);
-  const escapedSuffix = normalizedSuffix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const trailingSuffixPattern = new RegExp(
-    `(?:\\s*(?:\\||-|–|—|:)\\s*${escapedSuffix})\\s*$`,
-    'i'
-  );
+  const normalizedSuffixLowerCase = normalizedSuffix.toLocaleLowerCase();
+  const separators = ['|', '-', '–', '—', ':'];
 
-  while (trailingSuffixPattern.test(normalizedValue)) {
-    const nextValue = normalizedValue.replace(trailingSuffixPattern, '').trim();
+  while (
+    normalizedValue.toLocaleLowerCase().endsWith(normalizedSuffixLowerCase)
+  ) {
+    const suffixStartIndex = normalizedValue.length - normalizedSuffix.length;
+    const baseWithSeparator = normalizedValue
+      .slice(0, suffixStartIndex)
+      .trimEnd();
+    const separator = separators.find((candidate) =>
+      baseWithSeparator.endsWith(candidate)
+    );
+    if (!separator) {
+      break;
+    }
+    const nextValue = baseWithSeparator
+      .slice(0, baseWithSeparator.length - separator.length)
+      .trimEnd();
     if (!nextValue || nextValue === normalizedValue) {
       break;
     }
@@ -1488,9 +1509,7 @@ export function generateCollectionPageSchema(
               '@type': 'Offer',
               price: product.price,
               priceCurrency: currency,
-              availability: getEffectiveProductStock(product)
-                ? 'https://schema.org/InStock'
-                : 'https://schema.org/OutOfStock',
+              availability: getSchemaAvailability(product),
               url: productUrl || undefined,
               shippingDetails,
               ...(hasMerchantReturnPolicy && { hasMerchantReturnPolicy }),

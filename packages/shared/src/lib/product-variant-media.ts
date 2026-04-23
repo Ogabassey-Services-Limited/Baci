@@ -243,9 +243,7 @@ export function resolveProductVariantMedia({
   const colors = buildOrderedColors({
     galleryImages,
     imageColorMap,
-    productColors: variantColorImages
-      ? []
-      : normalizeProductColors(productColors),
+    productColors: normalizeProductColors(productColors),
     variantColorImages: resolvedColorImages,
   });
 
