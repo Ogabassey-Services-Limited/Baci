@@ -142,9 +142,11 @@ describe('ProductDetailScreen variant stock behavior', () => {
     render(<ProductDetailScreen />);
 
     await waitFor(() => {
+      // resolveDefaultVariantSelection prefers the lowest-price purchasable
+      // variant, so the used condition is surfaced as the default here.
       expect(getLastMockProps(mockProductDetailsBody)).toEqual(
         expect.objectContaining({
-          selectedCondition: 'new',
+          selectedCondition: secondaryVariant.condition,
           selectedStorage: '128GB',
         })
       );

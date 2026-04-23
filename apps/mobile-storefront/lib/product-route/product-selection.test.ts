@@ -5,6 +5,7 @@ import { normalizeRouteCondition } from '@/lib/product-route/normalize-route-con
 import {
   baseProduct,
   primaryVariant,
+  secondaryVariant,
   variantProduct,
 } from '@/lib/product-route/product-detail-screen.fixtures';
 import { computeProductSelectionState } from '@/lib/product-route/product-selection';
@@ -26,11 +27,14 @@ describe('product selection', () => {
       selectedVariant: null,
     });
 
+    // resolveDefaultVariantSelection now prefers the lowest-price purchasable
+    // variant, so the "used" variant is picked over the "new" fixture entry.
+    const expectedDefault = secondaryVariant;
     expect(result.currentVariantDisplaySelection?.variant.id).toBe(
-      primaryVariant.id
+      expectedDefault.id
     );
-    expect(result.effectiveSelectedCondition).toBe('new');
-    expect(result.effectiveSelectedVariantId).toBe(primaryVariant.id);
+    expect(result.effectiveSelectedCondition).toBe(expectedDefault.condition);
+    expect(result.effectiveSelectedVariantId).toBe(expectedDefault.id);
   });
 
   it('returns empty selection state when product is null', () => {

@@ -41,6 +41,7 @@ vi.mock('@expo/vector-icons', () => ({
 
 vi.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
 }));
 
 vi.mock('react-native', () => ({
@@ -62,6 +63,9 @@ vi.mock('react-native', () => ({
           ))
         : ListEmptyComponent}
     </div>
+  ),
+  KeyboardAvoidingView: ({ children }: { children?: ReactNode }) => (
+    <div>{children}</div>
   ),
   Modal: ({
     children,
