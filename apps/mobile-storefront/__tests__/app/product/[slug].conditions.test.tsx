@@ -9,7 +9,7 @@ import {
   mockUseProduct,
   ProductDetailScreen,
   resetProductDetailScreenMocks,
-} from '../../test-support/product/product-detail-screen.test-utils';
+} from '../../../test-support/product/product-detail-screen.test-utils';
 
 describe('ProductDetailScreen condition offer stock gating', () => {
   beforeEach(() => {

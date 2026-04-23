@@ -1,9 +1,9 @@
 import type React from 'react';
-import { View, type ViewStyle } from 'react-native';
+import { type StyleProp, View, type ViewStyle } from 'react-native';
 
 type GestureHandlerRootViewProps = {
   children?: React.ReactNode;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
 };
 
 type GestureDetectorProps = {

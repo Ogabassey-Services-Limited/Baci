@@ -21,7 +21,7 @@ import {
   mockUseProduct,
   ProductDetailScreen,
   resetProductDetailScreenMocks,
-} from './product-detail-screen.test-utils';
+} from '../../../test-support/product/product-detail-screen.test-utils';
 
 describe('ProductDetailScreen variant cart behavior', () => {
   beforeAll(() => {

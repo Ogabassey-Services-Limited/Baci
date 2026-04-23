@@ -9,10 +9,11 @@ export const mockUseEffectivePrice = jest.fn();
 export const mockUseReviews = jest.fn();
 export const mockUseCartStore = jest.fn();
 export const mockUseSavedStore = jest.fn();
+export const mockProductImageGallery = jest.fn();
 export const mockStickyBottomActions = jest.fn();
 export const mockInsets = { top: 59, bottom: 34, left: 0, right: 0 };
 
-const mockCartStoreState = {
+export const mockCartStoreState = {
   items: [],
   addItem: jest.fn(),
   updateQuantity: jest.fn(),
@@ -94,7 +95,10 @@ jest.mock('@/components/product/ProductDetailsBody', () => ({
 }));
 
 jest.mock('@/components/product/ProductImageGallery', () => ({
-  ProductImageGallery: () => null,
+  ProductImageGallery: (props: unknown) => {
+    mockProductImageGallery(props);
+    return null;
+  },
 }));
 
 jest.mock('@/components/product/StickyBottomActions', () => ({

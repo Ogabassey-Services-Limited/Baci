@@ -11,7 +11,7 @@ import {
   mockUseProduct,
   ProductDetailScreen,
   resetProductDetailScreenMocks,
-} from './product-detail-screen.test-utils';
+} from '../../../test-support/product/product-detail-screen.test-utils';
 
 describe('iPhone 11 Pro Max — condition chip pricing', () => {
   beforeEach(() => resetProductDetailScreenMocks());
@@ -24,7 +24,7 @@ describe('iPhone 11 Pro Max — condition chip pricing', () => {
       error: null,
       refetch: jest.fn(),
     });
-    mockUseEffectivePrice.mockImplementation((_p, sel: unknown) => {
+    mockUseEffectivePrice.mockImplementation((_p: unknown, sel: unknown) => {
       const s = sel as { price?: number } | null;
       return { price: s?.price ?? 520000, comparePrice: undefined };
     });
@@ -52,7 +52,7 @@ describe('iPhone 11 Pro Max — condition chip pricing', () => {
       error: null,
       refetch: jest.fn(),
     });
-    mockUseEffectivePrice.mockImplementation((_p, sel: unknown) => {
+    mockUseEffectivePrice.mockImplementation((_p: unknown, sel: unknown) => {
       const s = sel as { price?: number } | null;
       return { price: s?.price ?? 520000, comparePrice: undefined };
     });
@@ -92,7 +92,7 @@ describe('iPhone 11 Pro Max — condition chip pricing', () => {
       error: null,
       refetch: jest.fn(),
     });
-    mockUseEffectivePrice.mockImplementation((_p, sel: unknown) => {
+    mockUseEffectivePrice.mockImplementation((_p: unknown, sel: unknown) => {
       const s = sel as { price?: number } | null;
       return { price: s?.price ?? 520000, comparePrice: undefined };
     });

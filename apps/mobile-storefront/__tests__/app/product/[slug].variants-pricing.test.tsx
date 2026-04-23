@@ -20,7 +20,7 @@ import {
   mockUseProduct,
   ProductDetailScreen,
   resetProductDetailScreenMocks,
-} from './product-detail-screen.test-utils';
+} from '../../../test-support/product/product-detail-screen.test-utils';
 
 describe('ProductDetailScreen variant pricing behavior', () => {
   beforeAll(() => {
@@ -73,10 +73,10 @@ describe('ProductDetailScreen variant pricing behavior', () => {
     });
     mockUseEffectivePrice.mockImplementation(
       (
-        _product,
+        _product: unknown,
         resolvedSelection: unknown,
-        _selectedCondition,
-        _negotiatedPrice
+        _selectedCondition: unknown,
+        _negotiatedPrice: unknown
       ) => {
         const sel = resolvedSelection as {
           price?: number;
@@ -180,10 +180,10 @@ describe('ProductDetailScreen variant pricing behavior', () => {
     });
     mockUseEffectivePrice.mockImplementation(
       (
-        _product,
+        _product: unknown,
         resolvedSelection: unknown,
-        _selectedCondition,
-        _negotiatedPrice
+        _selectedCondition: unknown,
+        _negotiatedPrice: unknown
       ) => {
         const selection = resolvedSelection as {
           price?: number;
