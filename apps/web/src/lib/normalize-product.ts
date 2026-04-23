@@ -248,7 +248,9 @@ export function normalizeProduct(
         : [],
     variant_model: raw.variant_model === 'sku_matrix' ? 'sku_matrix' : 'legacy',
     canonical_url:
-      typeof raw.canonical_url === 'string' ? raw.canonical_url : null,
+      typeof raw.canonical_url === 'string' && raw.canonical_url.trim()
+        ? raw.canonical_url.trim()
+        : null,
   };
 }
 

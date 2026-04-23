@@ -134,7 +134,11 @@ export function HomeProductGrid({
 
   const rawBasePath =
     merchantContext?.basePath ?? (storeSlug ? `/${storeSlug}` : '');
-  const basePath = rawBasePath === '/' ? '' : rawBasePath;
+  const normalizedBasePath = rawBasePath.trim().replace(/\/+$/, '');
+  const basePath =
+    normalizedBasePath && !normalizedBasePath.startsWith('/')
+      ? `/${normalizedBasePath}`
+      : normalizedBasePath;
   const allProductsHref = `${basePath}/products`;
   const allProducts = products && products.length > 0 ? products : mockProducts;
   const featuredProducts = prioritizeSmartphoneProducts(allProducts);

@@ -680,14 +680,20 @@ export async function proxy(request: NextRequest) {
     // /blog/{category}/{post-slug} -> /blog/{post-slug}
     // Also drop thumbnail_id query param noise from migrated URLs
     // (both thumbnail_id and _thumbnail_id variants).
-    const legacyCategoryMatch = pathname.match(/^\/blog\/[^/]+\/([^/]+)\/?$/);
+    // Exclude pagination, tags, and authors from being treated as posts.
+    const blogExclusions = ['page', 'tag', 'author', 'category'];
+    const legacyCategoryMatch = pathname.match(/^\/blog\/([^/]+)\/([^/]+)\/?$/);
+    const isLegacyPost =
+      legacyCategoryMatch &&
+      !blogExclusions.includes(legacyCategoryMatch[1].toLowerCase());
+
     const hasThumbnailId =
       request.nextUrl.searchParams.has('thumbnail_id') ||
       request.nextUrl.searchParams.has('_thumbnail_id');
-    if (legacyCategoryMatch || hasThumbnailId) {
+    if (isLegacyPost || hasThumbnailId) {
       const redirectUrl = request.nextUrl.clone();
-      if (legacyCategoryMatch) {
-        redirectUrl.pathname = `/blog/${legacyCategoryMatch[1]}`;
+      if (isLegacyPost && legacyCategoryMatch) {
+        redirectUrl.pathname = `/blog/${legacyCategoryMatch[2]}`;
       }
       redirectUrl.searchParams.delete('thumbnail_id');
       redirectUrl.searchParams.delete('_thumbnail_id');
@@ -961,6 +967,9 @@ export async function proxy(request: NextRequest) {
         domainPathSegments[0]?.toLowerCase() ===
           domainMerchantSlug.toLowerCase()
       ) {
+        // First segment already confirmed equal (case-insensitive) to the
+        // merchant slug above; drop it by length instead of building a regex
+        // from a variable (avoids CWE-1333 and any escaping concerns).
         const strippedPathname =
           pathname.slice(domainPathSegments[0].length + 1) || '/';
         const strippedSegments = strippedPathname.split('/').filter(Boolean);

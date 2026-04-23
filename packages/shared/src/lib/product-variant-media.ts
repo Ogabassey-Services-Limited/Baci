@@ -42,24 +42,42 @@ export interface ResolvedProductVariantMedia {
   imageColorMap: Record<string, string>;
 }
 
+/**
+ * Formats a color name by trimming whitespace.
+ */
 function normalizeColorName(value: string | null | undefined) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+/**
+ * Normalizes an image URL from various possible input formats.
+ * Strips surrounding quotes and trims whitespace.
+ */
 function normalizeImageUrl(
   value: string | VariantImageObject | null | undefined
 ) {
+  let url = '';
   if (typeof value === 'string') {
-    return value.trim();
+    url = value;
+  } else if (
+    value &&
+    typeof value === 'object' &&
+    typeof value.url === 'string'
+  ) {
+    url = value.url;
   }
 
-  if (value && typeof value === 'object' && typeof value.url === 'string') {
-    return value.url.trim();
+  if (url) {
+    const trimmed = url.trim();
+    return trimmed.replace(/^"|"$/g, '').trim();
   }
 
   return '';
 }
 
+/**
+ * Normalizes the legacy colorImages record into a consistent format.
+ */
 function normalizeColorImages(
   colorImages: ProductColorImagesInput
 ): Record<string, string[]> | undefined {
@@ -88,6 +106,9 @@ function normalizeColorImages(
   return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
 
+/**
+ * Extracts color-to-image mappings from product variants.
+ */
 function buildVariantColorImages(
   variants: ProductVariantMediaLike[] | null | undefined
 ): Record<string, string[]> | undefined {
@@ -131,6 +152,9 @@ function buildVariantColorImages(
   );
 }
 
+/**
+ * Normalizes the productColors list.
+ */
 function normalizeProductColors(productColors: ProductColorInput) {
   const colors = new Set<string>();
 
@@ -148,6 +172,9 @@ function normalizeProductColors(productColors: ProductColorInput) {
   return Array.from(colors);
 }
 
+/**
+ * Normalizes a list of product image URLs.
+ */
 function normalizeProductImages(productImages: ProductImageInput) {
   return Array.from(
     new Set(
@@ -158,10 +185,17 @@ function normalizeProductImages(productImages: ProductImageInput) {
   );
 }
 
+/**
+ * Flattens all images from a colorImages record into a single list.
+ */
 function flattenColorImages(colorImages: Record<string, string[]>) {
   return Array.from(new Set(Object.values(colorImages).flat()));
 }
 
+/**
+ * Builds the complete list of gallery images, ensuring color-specific images
+ * are represented first.
+ */
 function buildGalleryImages(
   productImages: ProductImageInput,
   colorImages: Record<string, string[]> | undefined
@@ -176,6 +210,9 @@ function buildGalleryImages(
   );
 }
 
+/**
+ * Creates a reverse map from image URL to color name for filtering.
+ */
 function buildImageColorMap(colorImages: Record<string, string[]> | undefined) {
   const imageColorMap: Record<string, string> = {};
 
@@ -196,6 +233,9 @@ function buildImageColorMap(colorImages: Record<string, string[]> | undefined) {
   return imageColorMap;
 }
 
+/**
+ * Derives an ordered list of unique colors from all available sources.
+ */
 function buildOrderedColors(args: {
   galleryImages: string[];
   imageColorMap: Record<string, string>;
@@ -222,6 +262,13 @@ function buildOrderedColors(args: {
   return Array.from(ordered);
 }
 
+/**
+ * Resolves the canonical media state for a product, combining legacy data
+ * (colorImages, productColors) with modern variant-driven media.
+ *
+ * It merges variant media on top of legacy data, ensuring variants override
+ * per-color but legacy entries for colors not in variants are preserved.
+ */
 export function resolveProductVariantMedia({
   colorImages,
   productColors,
@@ -229,8 +276,16 @@ export function resolveProductVariantMedia({
   variants,
 }: ResolveProductVariantMediaInput): ResolvedProductVariantMedia {
   const variantColorImages = buildVariantColorImages(variants);
-  const resolvedColorImages =
-    variantColorImages ?? normalizeColorImages(colorImages);
+  const normalizedLegacyColorImages = normalizeColorImages(colorImages) ?? {};
+
+  // Merge: variant color images override legacy entries per-key, but legacy
+  // entries for other colors are preserved.
+  const resolvedColorImages = variantColorImages
+    ? { ...normalizedLegacyColorImages, ...variantColorImages }
+    : Object.keys(normalizedLegacyColorImages).length > 0
+      ? normalizedLegacyColorImages
+      : undefined;
+
   const galleryImages = buildGalleryImages(productImages, resolvedColorImages);
   const imageColorMap = buildImageColorMap(resolvedColorImages);
   const colors = buildOrderedColors({

@@ -84,4 +84,29 @@ describe('normalizeStorefrontCanonicalUrl', () => {
       'https://ogabassey.com/smartphones/samsung-galaxy-z-fold-6-12gb-256gb?src=google#reviews'
     );
   });
+
+  it('handles different ports and schemes when rewriting canonical origins', () => {
+    expect(
+      normalizeStorefrontCanonicalUrl(
+        'http://localhost:3000/products/iphone-15',
+        'https://ogabassey.com'
+      )
+    ).toBe('https://ogabassey.com/products/iphone-15');
+
+    expect(
+      normalizeStorefrontCanonicalUrl(
+        'https://usebaci.com:8443/products/iphone-15',
+        'https://ogabassey.com'
+      )
+    ).toBe('https://ogabassey.com/products/iphone-15');
+  });
+
+  it('handles null/undefined input', () => {
+    expect(
+      normalizeStorefrontCanonicalUrl(null, 'https://ogabassey.com')
+    ).toBeUndefined();
+    expect(
+      normalizeStorefrontCanonicalUrl(undefined, 'https://ogabassey.com')
+    ).toBeUndefined();
+  });
 });

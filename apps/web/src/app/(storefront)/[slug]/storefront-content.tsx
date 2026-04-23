@@ -11,6 +11,7 @@ import {
   getCachedStorefrontHomeProducts,
 } from '@/lib/cached-data';
 import { toTemplateMerchantData } from '@/lib/merchant-template-data';
+import { normalizeStorefrontCategorySlug } from '@/lib/normalize-storefront-category-slug';
 import type { Product } from '@/lib/products';
 import { asRoute } from '@/lib/routes';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';

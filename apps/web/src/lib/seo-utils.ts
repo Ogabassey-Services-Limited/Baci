@@ -317,8 +317,18 @@ function getNormalizedVariantAttribute(
   attributes: Record<string, string> | null | undefined,
   keys: string[]
 ): string | undefined {
+  if (!attributes) {
+    return undefined;
+  }
+
   for (const key of keys) {
-    const value = attributes?.[key];
+    const matchedKey =
+      key in attributes
+        ? key
+        : Object.keys(attributes).find(
+            (attributeKey) => attributeKey.toLowerCase() === key.toLowerCase()
+          );
+    const value = matchedKey ? attributes[matchedKey] : undefined;
     if (typeof value === 'string' && value.trim().length > 0) {
       return value.trim();
     }
@@ -1099,6 +1109,10 @@ export interface FAQItem {
   answer: string;
 }
 
+/**
+ * Generates FAQ schema for products or pages.
+ * @see https://developers.google.com/search/docs/appearance/structured-data/faqpage
+ */
 export function generateFAQSchema(faqs: FAQItem[]): Record<string, unknown> {
   return {
     '@context': 'https://schema.org',
@@ -1148,6 +1162,11 @@ export interface LocalBusinessData {
   reviews?: Review[];
 }
 
+/**
+ * Generates LocalBusiness schema for merchant storefronts.
+ * All user-controlled string values are sanitized to prevent XSS attacks.
+ * @see https://developers.google.com/search/docs/appearance/structured-data/local-business
+ */
 export function generateLocalBusinessSchema(
   business: LocalBusinessData
 ): Record<string, unknown> {
@@ -1481,6 +1500,10 @@ function toAbsoluteSchemaUrl(baseUrl: string, value?: string | null): string {
   }
 }
 
+/**
+ * Generates CollectionPage schema for product listing pages (categories, collections).
+ * @see https://schema.org/CollectionPage
+ */
 export function generateCollectionPageSchema(
   data: CollectionPageData
 ): Record<string, unknown> {
@@ -1573,6 +1596,10 @@ export interface OrganizationData {
   trustProfile?: MerchantTrustProfile;
 }
 
+/**
+ * Generates Organization schema for merchant branding and trust.
+ * @see https://schema.org/Organization
+ */
 export function generateOrganizationSchema(
   data: OrganizationData & { trustProfile?: MerchantTrustProfile }
 ): Record<string, unknown> {
@@ -1682,6 +1709,11 @@ export interface AggregateRatingSchema {
   worstRating?: number;
 }
 
+/**
+ * Generates AggregateRating schema for products with reviews.
+ * Returns the aggregateRating object to be merged into Product schema.
+ * @see https://schema.org/AggregateRating
+ */
 export function generateAggregateRating(
   stats: ReviewStats
 ): AggregateRatingSchema | null {

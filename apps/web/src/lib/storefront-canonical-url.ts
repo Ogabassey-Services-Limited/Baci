@@ -19,6 +19,14 @@ export function canonicalizeCategorySlug(
   return normalized || null;
 }
 
+/**
+ * Normalizes a storefront canonical URL by ensuring it points to the correct storefront origin.
+ * If the canonical URL host differs from the storefront base URL host, it rewrites the origin
+ * while preserving the pathname, search parameters, and hash.
+ *
+ * @param canonicalUrl The raw canonical URL string from the database/product
+ * @param baseUrl The base URL of the current storefront (e.g., https://ogabassey.com)
+ */
 export function normalizeStorefrontCanonicalUrl(
   canonicalUrl: string | null | undefined,
   baseUrl: string
