@@ -1,9 +1,9 @@
 import type React from 'react';
-import { type StyleProp, View, type ViewStyle } from 'react-native';
+import { View, type ViewStyle } from 'react-native';
 
 type GestureHandlerRootViewProps = {
   children?: React.ReactNode;
-  style?: StyleProp<ViewStyle>;
+  style?: ViewStyle;
 };
 
 type GestureDetectorProps = {
@@ -11,12 +11,10 @@ type GestureDetectorProps = {
   gesture?: unknown;
 };
 
-type GestureHandlerRuntime = {
+export type GestureHandlerRuntime = {
   Gesture: typeof import('react-native-gesture-handler').Gesture | null;
-  GestureDetector: (props: GestureDetectorProps) => React.ReactElement | null;
-  GestureHandlerRootView: (
-    props: GestureHandlerRootViewProps
-  ) => React.ReactElement | null;
+  GestureDetector: React.ComponentType<GestureDetectorProps>;
+  GestureHandlerRootView: React.ComponentType<GestureHandlerRootViewProps>;
 };
 
 const FallbackGestureHandlerRootView = ({
@@ -35,33 +33,25 @@ export function getOptionalGestureHandlerRuntime(): GestureHandlerRuntime {
     return cachedGestureRuntime;
   }
 
+  let runtime: GestureHandlerRuntime;
   try {
     const gestureHandler =
       require('react-native-gesture-handler') as typeof import('react-native-gesture-handler');
-    const runtime: GestureHandlerRuntime = {
-      Gesture: gestureHandler.Gesture,
-      GestureDetector: gestureHandler.GestureDetector as unknown as (
-        props: GestureDetectorProps
-      ) => React.ReactElement | null,
-      GestureHandlerRootView:
-        gestureHandler.GestureHandlerRootView as unknown as (
-          props: GestureHandlerRootViewProps
-        ) => React.ReactElement | null,
-    };
 
-    cachedGestureRuntime = runtime;
-  } catch (err) {
-    if (__DEV__) {
-      console.warn('Failed to load react-native-gesture-handler', err);
-    }
-    const runtime: GestureHandlerRuntime = {
+    runtime = {
+      Gesture: gestureHandler.Gesture,
+      GestureDetector:
+        gestureHandler.GestureDetector as unknown as React.ComponentType<GestureDetectorProps>,
+      GestureHandlerRootView: gestureHandler.GestureHandlerRootView,
+    };
+  } catch {
+    runtime = {
       Gesture: null,
       GestureDetector: FallbackGestureDetector,
       GestureHandlerRootView: FallbackGestureHandlerRootView,
     };
-
-    cachedGestureRuntime = runtime;
   }
 
-  return cachedGestureRuntime;
+  cachedGestureRuntime = runtime;
+  return runtime;
 }
