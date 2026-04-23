@@ -18,6 +18,7 @@ describe('order column constants', () => {
     expect(WEB_ORDER_ITEMS_COLUMNS.length).toBeGreaterThan(0);
     expect(WEB_ORDER_ITEMS_COLUMNS).toContain('condition');
     expect(WEB_ORDER_ITEMS_COLUMNS).toContain('fulfillment_data');
+    expect(WEB_ORDER_ITEMS_COLUMNS).toContain('image_url');
     expect(WEB_ORDER_ITEMS_COLUMNS).toContain('variant_name');
   });
 
