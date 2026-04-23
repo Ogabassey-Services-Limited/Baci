@@ -30,9 +30,10 @@ export function ReceiptPreviewModal({
   const footer = (
     <Pressable
       onPress={onShare}
-      style={[
+      style={({ pressed }) => [
         styles.shareBtn,
         { backgroundColor: isPaid ? '#059669' : colors.primary },
+        pressed && { opacity: 0.7 }
       ]}
       accessibilityRole="button"
       accessibilityLabel="Share as PDF"
