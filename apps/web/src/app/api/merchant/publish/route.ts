@@ -55,15 +55,18 @@ export async function POST(request: NextRequest) {
     const { data: merchant } = await supabase
       .from('merchants')
       .select(`
-        id,
-        business_name,
-        country,
-        support_email,
-        support_phone,
-        paystack_subaccount_code,
-        bank_code,
-        bank_account_number
-      `)
+	        id,
+	        business_name,
+	        country,
+	        support_email,
+	        support_phone,
+	        nin,
+	        bvn,
+	        cac_rc_number,
+	        paystack_subaccount_code,
+	        bank_code,
+	        bank_account_number
+	      `)
       .eq('id', access.merchantId)
       .single();
 
@@ -76,6 +79,10 @@ export async function POST(request: NextRequest) {
 
     // Check for required setup items
     const missingItems: string[] = [];
+
+    if (!merchant.nin && !merchant.bvn && !merchant.cac_rc_number) {
+      missingItems.push('Identity verification (NIN, BVN, or CAC)');
+    }
 
     // Bank account required for payments
     if (

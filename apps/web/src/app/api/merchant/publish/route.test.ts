@@ -136,7 +136,22 @@ function setupAuth(hasAccess = true, hasPermissionValue = true) {
 
 function setupMerchantData(data: Record<string, unknown> | null) {
   mockMerchantData = {
-    data,
+    data: data
+      ? {
+          id: MERCHANT_ID,
+          business_name: 'Test Store',
+          country: 'NG',
+          support_email: 'test@example.com',
+          support_phone: '+2341234567890',
+          nin: '12345678901',
+          bvn: null,
+          cac_rc_number: null,
+          bank_code: '044',
+          bank_account_number: '1234567890',
+          paystack_subaccount_code: 'ACCT_test',
+          ...data,
+        }
+      : null,
     error: data ? null : { message: 'Not found' },
   };
 }
@@ -221,10 +236,6 @@ describe('POST /api/merchant/publish', () => {
     it('returns 400 when bank account details are missing', async () => {
       setupAuth(true, true);
       setupMerchantData({
-        id: MERCHANT_ID,
-        business_name: 'Test Store',
-        country: 'NG',
-        support_email: 'test@example.com',
         bank_code: null,
         bank_account_number: null,
         paystack_subaccount_code: null,
@@ -241,10 +252,6 @@ describe('POST /api/merchant/publish', () => {
     it('returns 400 when only bank code is missing', async () => {
       setupAuth(true, true);
       setupMerchantData({
-        id: MERCHANT_ID,
-        business_name: 'Test Store',
-        country: 'NG',
-        support_email: 'test@example.com',
         bank_code: null,
         bank_account_number: '1234567890',
         paystack_subaccount_code: 'ACCT_test',
@@ -260,12 +267,6 @@ describe('POST /api/merchant/publish', () => {
     it('returns 400 when only paystack subaccount is missing', async () => {
       setupAuth(true, true);
       setupMerchantData({
-        id: MERCHANT_ID,
-        business_name: 'Test Store',
-        country: 'NG',
-        support_email: 'test@example.com',
-        bank_code: '044',
-        bank_account_number: '1234567890',
         paystack_subaccount_code: null,
       });
 
@@ -281,13 +282,7 @@ describe('POST /api/merchant/publish', () => {
     it('returns 400 when country is missing', async () => {
       setupAuth(true, true);
       setupMerchantData({
-        id: MERCHANT_ID,
-        business_name: 'Test Store',
         country: null,
-        support_email: 'test@example.com',
-        bank_code: '044',
-        bank_account_number: '1234567890',
-        paystack_subaccount_code: 'ACCT_test',
       });
 
       const res = await POST(makeRequest('POST'));
@@ -302,14 +297,8 @@ describe('POST /api/merchant/publish', () => {
     it('returns 400 when both email and phone are missing', async () => {
       setupAuth(true, true);
       setupMerchantData({
-        id: MERCHANT_ID,
-        business_name: 'Test Store',
-        country: 'NG',
         support_email: null,
         support_phone: null,
-        bank_code: '044',
-        bank_account_number: '1234567890',
-        paystack_subaccount_code: 'ACCT_test',
       });
 
       const res = await POST(makeRequest('POST'));
@@ -324,14 +313,8 @@ describe('POST /api/merchant/publish', () => {
     it('succeeds when only email is provided', async () => {
       setupAuth(true, true);
       setupMerchantData({
-        id: MERCHANT_ID,
-        business_name: 'Test Store',
-        country: 'NG',
         support_email: 'test@example.com',
         support_phone: null,
-        bank_code: '044',
-        bank_account_number: '1234567890',
-        paystack_subaccount_code: 'ACCT_test',
       });
       setupProductCount(1, 1);
       setupUpdateSuccess();
@@ -344,14 +327,8 @@ describe('POST /api/merchant/publish', () => {
     it('succeeds when only phone is provided', async () => {
       setupAuth(true, true);
       setupMerchantData({
-        id: MERCHANT_ID,
-        business_name: 'Test Store',
-        country: 'NG',
         support_email: null,
         support_phone: '+2341234567890',
-        bank_code: '044',
-        bank_account_number: '1234567890',
-        paystack_subaccount_code: 'ACCT_test',
       });
       setupProductCount(1, 1);
       setupUpdateSuccess();
@@ -362,18 +339,30 @@ describe('POST /api/merchant/publish', () => {
     });
   });
 
+  describe('validation - kyc', () => {
+    it('returns 400 when no KYC identifier is available', async () => {
+      setupAuth(true, true);
+      setupMerchantData({
+        nin: null,
+        bvn: null,
+        cac_rc_number: null,
+      });
+      setupProductCount(1, 1);
+
+      const res = await POST(makeRequest('POST'));
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.missingItems).toContain(
+        'Identity verification (NIN, BVN, or CAC)'
+      );
+    });
+  });
+
   describe('validation - products', () => {
     it('returns 400 when no active products exist', async () => {
       setupAuth(true, true);
-      setupMerchantData({
-        id: MERCHANT_ID,
-        business_name: 'Test Store',
-        country: 'NG',
-        support_email: 'test@example.com',
-        bank_code: '044',
-        bank_account_number: '1234567890',
-        paystack_subaccount_code: 'ACCT_test',
-      });
+      setupMerchantData({});
       setupProductCount(0, 0);
 
       const res = await POST(makeRequest('POST'));
@@ -385,15 +374,7 @@ describe('POST /api/merchant/publish', () => {
 
     it('returns 400 with helpful message when products exist but none active', async () => {
       setupAuth(true, true);
-      setupMerchantData({
-        id: MERCHANT_ID,
-        business_name: 'Test Store',
-        country: 'NG',
-        support_email: 'test@example.com',
-        bank_code: '044',
-        bank_account_number: '1234567890',
-        paystack_subaccount_code: 'ACCT_test',
-      });
+      setupMerchantData({});
       setupProductCount(0, 5);
 
       const res = await POST(makeRequest('POST'));
@@ -414,11 +395,12 @@ describe('POST /api/merchant/publish', () => {
     it('returns all missing items in the error response', async () => {
       setupAuth(true, true);
       setupMerchantData({
-        id: MERCHANT_ID,
-        business_name: 'Test Store',
         country: null,
         support_email: null,
         support_phone: null,
+        nin: null,
+        bvn: null,
+        cac_rc_number: null,
         bank_code: null,
         bank_account_number: null,
         paystack_subaccount_code: null,
@@ -433,7 +415,10 @@ describe('POST /api/merchant/publish', () => {
       expect(json.message).toBe(
         'Please complete the following required items:'
       );
-      expect(json.missingItems).toHaveLength(4);
+      expect(json.missingItems).toHaveLength(5);
+      expect(json.missingItems).toContain(
+        'Identity verification (NIN, BVN, or CAC)'
+      );
       expect(json.missingItems).toContain('Bank account details');
       expect(json.missingItems).toContain('Country/region setting');
       expect(json.missingItems).toContain(
@@ -446,16 +431,7 @@ describe('POST /api/merchant/publish', () => {
   describe('success path', () => {
     it('publishes store and returns success when all requirements met', async () => {
       setupAuth(true, true);
-      setupMerchantData({
-        id: MERCHANT_ID,
-        business_name: 'Test Store',
-        country: 'NG',
-        support_email: 'test@example.com',
-        support_phone: '+2341234567890',
-        bank_code: '044',
-        bank_account_number: '1234567890',
-        paystack_subaccount_code: 'ACCT_test',
-      });
+      setupMerchantData({});
       setupProductCount(3, 3);
       setupUpdateSuccess();
 
@@ -470,15 +446,7 @@ describe('POST /api/merchant/publish', () => {
 
     it('succeeds when products are available', async () => {
       setupAuth(true, true);
-      setupMerchantData({
-        id: MERCHANT_ID,
-        business_name: 'Test Store',
-        country: 'NG',
-        support_email: 'test@example.com',
-        bank_code: '044',
-        bank_account_number: '1234567890',
-        paystack_subaccount_code: 'ACCT_test',
-      });
+      setupMerchantData({});
       setupProductCount(2, 5);
       setupUpdateSuccess();
 
@@ -504,15 +472,7 @@ describe('POST /api/merchant/publish', () => {
 
     it('returns 500 when update fails', async () => {
       setupAuth(true, true);
-      setupMerchantData({
-        id: MERCHANT_ID,
-        business_name: 'Test Store',
-        country: 'NG',
-        support_email: 'test@example.com',
-        bank_code: '044',
-        bank_account_number: '1234567890',
-        paystack_subaccount_code: 'ACCT_test',
-      });
+      setupMerchantData({});
       setupProductCount(1, 1);
       setupUpdateError('Database error');
 
