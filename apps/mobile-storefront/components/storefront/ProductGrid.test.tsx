@@ -175,6 +175,8 @@ describe('ProductGrid', () => {
   it('renders fallback UI when categories query errors', () => {
     mockUseCategoriesFactory.mockReturnValue({
       data: [],
+      isFetchedAfterMount: true,
+      isFetching: false,
       isError: true,
       error: new Error('cats'),
     });
@@ -192,6 +194,7 @@ describe('ProductGrid', () => {
   it('renders fallback UI when products query errors', () => {
     mockProductsHook({
       products: [],
+      isFetchedAfterMount: true,
       isLoading: false,
       isError: true,
       error: 'prods',
@@ -204,5 +207,63 @@ describe('ProductGrid', () => {
     expect(screen.getByTestId('product-grid-error')).toBeTruthy();
     expect(mockProductCard).not.toHaveBeenCalled();
     expect(mockProductGridSkeleton).not.toHaveBeenCalled();
+  });
+
+  it('keeps rendering cached products during a transient products refetch error', () => {
+    mockProductsHook({
+      products: sampleProducts,
+      isFetchedAfterMount: true,
+      isLoading: false,
+      isFetching: true,
+      isError: true,
+      error: 'prods',
+    });
+
+    render(
+      <ProductGrid block={block} selectedCategoryId={null} variant="grid" />
+    );
+
+    expect(screen.queryByTestId('product-grid-error')).toBeNull();
+    expect(mockProductCard).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows a skeleton instead of flashing a stale products error before the mount fetch settles', () => {
+    mockProductsHook({
+      products: [],
+      isFetchedAfterMount: false,
+      isLoading: false,
+      isFetching: false,
+      isError: true,
+      error: 'prods',
+    });
+
+    render(
+      <ProductGrid block={block} selectedCategoryId={null} variant="grid" />
+    );
+
+    expect(screen.queryByTestId('product-grid-error')).toBeNull();
+    expect(mockProductGridSkeleton).toHaveBeenCalled();
+    expect(mockProductCard).not.toHaveBeenCalled();
+  });
+
+  it('keeps rendering products when categories refetch fails after categories were already cached', () => {
+    mockUseCategoriesFactory.mockReturnValue({
+      data: [
+        { id: 'cat-phones', name: 'Phones', slug: 'phones' },
+        { id: 'cat-laptops', name: 'Laptops', slug: 'laptops' },
+      ],
+      isFetchedAfterMount: true,
+      isFetching: false,
+      isError: true,
+      isLoading: false,
+      error: new Error('cats'),
+    });
+
+    render(
+      <ProductGrid block={block} selectedCategoryId={null} variant="grid" />
+    );
+
+    expect(screen.queryByTestId('product-grid-error')).toBeNull();
+    expect(mockProductCard).toHaveBeenCalledTimes(2);
   });
 });

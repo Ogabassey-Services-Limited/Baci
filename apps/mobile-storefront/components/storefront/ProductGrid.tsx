@@ -57,6 +57,8 @@ export default function ProductGrid({
   } = useProductGridFilters();
   const {
     data: categoriesData = [],
+    isFetchedAfterMount: isCategoriesFetchedAfterMount,
+    isFetching: isCategoriesFetching,
     isLoading: isCategoriesLoading,
     isError: isCategoriesError,
   } = useCategories();
@@ -98,8 +100,9 @@ export default function ProductGrid({
   );
 
   const normalizedCategoryId = (() => {
-    const id = selectedCategoryIdFromFilter;
-    if (id) return id;
+    if (selectedCategoryIdFromFilter) {
+      return selectedCategoryIdFromFilter;
+    }
 
     // Only fall back to parent selectedCategoryId when 'All' is active
     if (
@@ -124,6 +127,7 @@ export default function ProductGrid({
   const {
     products,
     hasMore,
+    isFetchedAfterMount,
     isLoading,
     isLoadingMore,
     isFetching,
@@ -196,8 +200,24 @@ export default function ProductGrid({
   });
 
   const currentVariant = viewMode === 'list' ? 'list' : variant;
+  const hasRenderableProducts =
+    visibleProducts.length > 0 || products.length > 0;
+  const hasRenderableCategories = categoriesData.length > 0;
+  const shouldShowFatalError =
+    (isCategoriesError &&
+      isCategoriesFetchedAfterMount &&
+      !isCategoriesLoading &&
+      !isCategoriesFetching &&
+      !hasRenderableCategories) ||
+    (isError &&
+      isFetchedAfterMount &&
+      !isLoading &&
+      !isFetching &&
+      !hasRenderableProducts);
+  const shouldShowInitialLoading =
+    !hasRenderableProducts && !isFetchedAfterMount;
 
-  if ((isCategoriesError && !isCategoriesLoading) || (isError && !isLoading)) {
+  if (shouldShowFatalError) {
     return (
       <View style={styles.section}>
         {block.props.title && (
@@ -221,7 +241,9 @@ export default function ProductGrid({
     );
   }
 
-  if (isLoading) return <ProductGridSkeleton count={4} />;
+  if (isLoading || shouldShowInitialLoading) {
+    return <ProductGridSkeleton count={4} />;
+  }
 
   return (
     <View style={styles.section}>

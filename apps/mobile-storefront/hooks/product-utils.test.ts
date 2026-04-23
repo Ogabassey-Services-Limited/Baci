@@ -187,6 +187,11 @@ describe('product-utils', () => {
     );
   });
 
+  it('does not select removed products.colors columns from Supabase', () => {
+    expect(PRODUCT_SELECT).not.toContain(' colors,');
+    expect(PRODUCT_DETAIL_SELECT).not.toContain(', colors,');
+  });
+
   it('resolveProductRow falls back to legacy slug candidates', async () => {
     const exactQuery = createQueryChain({ data: null, error: null });
     const fallbackQuery = createQueryChain({

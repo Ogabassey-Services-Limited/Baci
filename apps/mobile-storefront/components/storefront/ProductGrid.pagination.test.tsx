@@ -155,6 +155,7 @@ describe('ProductGrid pagination', () => {
     let productsResult: UseProductsResult = {
       products: [sampleProducts[0]],
       total: 1,
+      isFetchedAfterMount: true,
       isLoading: false,
       isFetching: false,
       isError: false,
@@ -226,6 +227,7 @@ describe('ProductGrid pagination', () => {
     let productsResult: UseProductsResult = {
       products: [extendedSampleProducts[0]],
       total: 1,
+      isFetchedAfterMount: true,
       isLoading: false,
       isFetching: false,
       isError: false,
