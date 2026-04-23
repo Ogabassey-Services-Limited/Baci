@@ -40,6 +40,8 @@ jobs:
 
       - name: 'Checkout repository'
         uses: 'actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8' # ratchet:actions/checkout@v6
+        with:
+          ref: '${{ github.event.pull_request.head.sha || format(''refs/pull/{0}/head'', github.event.issue.number) }}'
 
       - name: 'Require Gemini authentication'
         env:
@@ -108,7 +110,7 @@ jobs:
                     "pull_request_review_write"
                   ],
                   "env": {
-                    "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+                    "GITHUB_PERSONAL_ACCESS_TOKEN": "${{ steps.mint_identity_token.outputs.token || secrets.GITHUB_TOKEN || github.token }}"
                   }
                 }
               },
