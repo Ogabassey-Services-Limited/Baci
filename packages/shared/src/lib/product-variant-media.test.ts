@@ -110,4 +110,53 @@ describe('resolveProductVariantMedia', () => {
       },
     });
   });
+
+  it('uses stored color images and product images when variants are empty', () => {
+    expect(
+      resolveProductVariantMedia({
+        colorImages: {
+          Gold: ['https://cdn.example.com/gold-front.jpg'],
+        },
+        productColors: ['Gold', 'Blue'],
+        productImages: [
+          'https://cdn.example.com/gold-front.jpg',
+          'https://cdn.example.com/blue-front.jpg',
+        ],
+        variants: [],
+      })
+    ).toEqual({
+      colorImages: {
+        Gold: ['https://cdn.example.com/gold-front.jpg'],
+      },
+      colors: ['Gold', 'Blue'],
+      galleryImages: [
+        'https://cdn.example.com/gold-front.jpg',
+        'https://cdn.example.com/blue-front.jpg',
+      ],
+      imageColorMap: {
+        'https://cdn.example.com/gold-front.jpg': 'Gold',
+      },
+    });
+  });
+
+  it('handles missing stored color images gracefully', () => {
+    expect(
+      resolveProductVariantMedia({
+        colorImages: {},
+        productColors: ['Gold'],
+        productImages: ['https://cdn.example.com/gold-front.jpg'],
+        variants: [
+          {
+            attributes: { storage: '128GB' },
+            primary_image: null,
+          },
+        ],
+      })
+    ).toEqual({
+      colorImages: undefined,
+      colors: ['Gold'],
+      galleryImages: ['https://cdn.example.com/gold-front.jpg'],
+      imageColorMap: {},
+    });
+  });
 });
