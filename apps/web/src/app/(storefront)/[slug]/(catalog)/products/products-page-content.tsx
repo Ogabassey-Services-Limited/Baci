@@ -211,7 +211,7 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
                 {displayCategories.map((category) => (
                   <Link
                     key={category.id}
-                    href={asRoute(`${pathPrefix}/${category.normalizedSlug}`)}
+                    href={asRoute(`${pathPrefix}/${category.slug}`)}
                     prefetch={false}
                     className="rounded-full border border-[var(--store-background-text,#111827)]/10 bg-[var(--store-background,#ffffff)] px-4 py-2 text-sm font-medium text-[var(--store-background-text,#111827)] transition-colors hover:border-[var(--store-primary)] hover:text-[var(--store-primary)]"
                   >

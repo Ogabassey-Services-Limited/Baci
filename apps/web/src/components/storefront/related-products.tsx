@@ -135,7 +135,7 @@ export function RelatedProducts({
   }
 
   const isOutOfStock = (p: Product) =>
-    (p.manage_stock ?? false) && getEffectiveStock(p) <= 0;
+    p.manage_stock !== false && getEffectiveStock(p) <= 0;
 
   return (
     <section className={cn('w-full py-8 md:py-12', className)}>
