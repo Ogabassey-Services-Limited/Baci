@@ -8,9 +8,9 @@ interface ProductColorObject {
 
 interface ProductVariantMediaLike {
   attributes?: Record<string, string | null | undefined> | null;
-  image?: string | null;
-  images?: Array<string | null | undefined> | null;
-  primary_image?: string | null;
+  image?: string | VariantImageObject | null;
+  images?: Array<string | VariantImageObject | null | undefined> | null;
+  primary_image?: string | VariantImageObject | null;
 }
 
 type ProductColorInput =
