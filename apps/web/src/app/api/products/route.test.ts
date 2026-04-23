@@ -681,7 +681,10 @@ describe('POST /api/products', () => {
       expect(res.status).toBe(201);
       expect(json.product.has_variants).toBe(true);
       expect(lastProductsQueryChain).toBeDefined();
-      expect(lastProductsQueryChain!.insert).toHaveBeenCalledWith(
+      if (!lastProductsQueryChain) {
+        throw new Error('Expected products query chain to be captured');
+      }
+      expect(lastProductsQueryChain.insert).toHaveBeenCalledWith(
         expect.objectContaining({
           color: 'Gold',
         })
