@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { z } from 'zod';
 import {
+  buildProductQueryKey,
   CONSTANT_MERCHANT_ID,
   log,
   normalizeProductVariants,
@@ -12,8 +13,6 @@ import { useMerchant } from '@/hooks/use-merchant';
 import { resolveProductVariantMetadata } from '@/lib/product-variant-metadata';
 import { ProductRowSchema } from '@/lib/validation';
 import type { Product } from '@/types/product';
-
-const PRODUCT_QUERY_VERSION = 'variant-media-v1';
 
 function augmentProduct(item: z.infer<typeof ProductRowSchema>): Product {
   const baseProduct = transformProduct(item);
@@ -53,7 +52,7 @@ export function useProduct(slug: string) {
   const merchantId = merchant?.id || CONSTANT_MERCHANT_ID;
 
   const query = useQuery({
-    queryKey: ['product', PRODUCT_QUERY_VERSION, slug, merchantId],
+    queryKey: buildProductQueryKey(slug, merchantId),
     queryFn: async () => {
       log.info('Fetching product:', slug);
       const data = await resolveAndEvictProduct(merchantId, slug, queryClient);
@@ -139,7 +138,7 @@ export function usePrefetchProduct() {
   return (slug: string) => {
     if (!merchantId) return Promise.resolve();
     return queryClient.prefetchQuery({
-      queryKey: ['product', PRODUCT_QUERY_VERSION, slug, merchantId],
+      queryKey: buildProductQueryKey(slug, merchantId),
       queryFn: async () => {
         const data = await resolveAndEvictProduct(
           merchantId,

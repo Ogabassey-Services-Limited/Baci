@@ -286,9 +286,33 @@ describe('product-utils', () => {
     );
 
     expect(queryClient.removeQueries).toHaveBeenCalledWith({
-      queryKey: ['product', 'missing-slug', 'merchant-1'],
-      exact: true,
+      predicate: expect.any(Function),
     });
+    const removeQueriesArg = (queryClient.removeQueries as jest.Mock).mock
+      .calls[0][0] as {
+      predicate: (query: { queryKey: unknown[] }) => boolean;
+    };
+    const predicate = removeQueriesArg.predicate;
+    expect(
+      predicate({
+        queryKey: ['product', 'variant-media-v1', 'missing-slug', 'merchant-1'],
+      })
+    ).toBe(true);
+    expect(
+      predicate({
+        queryKey: ['product', 'missing-slug', 'merchant-1'],
+      })
+    ).toBe(true);
+    expect(
+      predicate({
+        queryKey: ['product', 'variant-media-v1', 'another-slug', 'merchant-1'],
+      })
+    ).toBe(false);
+    expect(
+      predicate({
+        queryKey: ['categories', 'missing-slug'],
+      })
+    ).toBe(false);
     expect(queryClient.setQueriesData).toHaveBeenCalledTimes(1);
 
     const updater = (queryClient.setQueriesData as jest.Mock).mock

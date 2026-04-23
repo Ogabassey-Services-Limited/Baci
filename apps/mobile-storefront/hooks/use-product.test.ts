@@ -18,6 +18,9 @@ jest.mock('@/hooks/product-utils', () => {
 
   return {
     CONSTANT_MERCHANT_ID: 'merchant-fallback',
+    PRODUCT_QUERY_VERSION: 'variant-media-v1',
+    buildProductQueryKey: (slug: string, merchantId: string) =>
+      ['product', 'variant-media-v1', slug, merchantId] as const,
     log: {
       info: jest.fn(),
       error: jest.fn(),

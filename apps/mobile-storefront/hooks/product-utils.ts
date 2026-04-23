@@ -66,6 +66,11 @@ function getMixedConditionLabel(availableConditions?: unknown) {
 
 export const MERCHANT_SLUG = CONFIG.MERCHANT_SLUG || 'ogabassey';
 export const CONSTANT_MERCHANT_ID = CONFIG.MERCHANT_ID;
+export const PRODUCT_QUERY_VERSION = 'variant-media-v1';
+
+export function buildProductQueryKey(slug: string, merchantId: string) {
+  return ['product', PRODUCT_QUERY_VERSION, slug, merchantId] as const;
+}
 
 export interface Category {
   id: string;
@@ -280,8 +285,15 @@ export async function resolveAndEvictProduct(
   }
 
   queryClient.removeQueries({
-    queryKey: ['product', slug, merchantId],
-    exact: true,
+    predicate: (query) => {
+      const key = query.queryKey;
+      return (
+        Array.isArray(key) &&
+        key[0] === 'product' &&
+        key[key.length - 2] === slug &&
+        key[key.length - 1] === merchantId
+      );
+    },
   });
 
   queryClient.setQueriesData(
