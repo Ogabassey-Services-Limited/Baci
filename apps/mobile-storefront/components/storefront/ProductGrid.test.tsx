@@ -186,7 +186,9 @@ describe('ProductGrid', () => {
       <ProductGrid block={block} selectedCategoryId={null} variant="grid" />
     );
 
-    expect(screen.getByTestId('product-grid-error')).toBeTruthy();
+    expect(
+      screen.getByText('Failed to load products. Please try again.')
+    ).toBeTruthy();
     expect(mockProductCard).not.toHaveBeenCalled();
     expect(mockProductGridSkeleton).not.toHaveBeenCalled();
   });
@@ -204,7 +206,9 @@ describe('ProductGrid', () => {
       <ProductGrid block={block} selectedCategoryId={null} variant="grid" />
     );
 
-    expect(screen.getByTestId('product-grid-error')).toBeTruthy();
+    expect(
+      screen.getByText('Failed to load products. Please try again.')
+    ).toBeTruthy();
     expect(mockProductCard).not.toHaveBeenCalled();
     expect(mockProductGridSkeleton).not.toHaveBeenCalled();
   });
@@ -223,7 +227,9 @@ describe('ProductGrid', () => {
       <ProductGrid block={block} selectedCategoryId={null} variant="grid" />
     );
 
-    expect(screen.queryByTestId('product-grid-error')).toBeNull();
+    expect(
+      screen.queryByText('Failed to load products. Please try again.')
+    ).toBeNull();
     expect(mockProductCard).toHaveBeenCalledTimes(2);
   });
 
@@ -241,7 +247,9 @@ describe('ProductGrid', () => {
       <ProductGrid block={block} selectedCategoryId={null} variant="grid" />
     );
 
-    expect(screen.queryByTestId('product-grid-error')).toBeNull();
+    expect(
+      screen.queryByText('Failed to load products. Please try again.')
+    ).toBeNull();
     expect(mockProductGridSkeleton).toHaveBeenCalled();
     expect(mockProductCard).not.toHaveBeenCalled();
   });
@@ -263,7 +271,9 @@ describe('ProductGrid', () => {
       <ProductGrid block={block} selectedCategoryId={null} variant="grid" />
     );
 
-    expect(screen.queryByTestId('product-grid-error')).toBeNull();
+    expect(
+      screen.queryByText('Failed to load products. Please try again.')
+    ).toBeNull();
     expect(mockProductCard).toHaveBeenCalledTimes(2);
   });
 });

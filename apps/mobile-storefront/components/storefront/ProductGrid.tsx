@@ -61,6 +61,7 @@ export default function ProductGrid({
     isFetching: isCategoriesFetching,
     isLoading: isCategoriesLoading,
     isError: isCategoriesError,
+    refetch: refetchCategories,
   } = useCategories();
   const normalizedCategories: Category[] = categoriesData;
   const categoryNames = (() => {
@@ -216,6 +217,13 @@ export default function ProductGrid({
       !hasRenderableProducts);
   const shouldShowInitialLoading =
     !hasRenderableProducts && !isFetchedAfterMount;
+  const handleRetry = () => {
+    void refetch();
+
+    if (isCategoriesError) {
+      void refetchCategories();
+    }
+  };
 
   if (shouldShowFatalError) {
     return (
@@ -229,11 +237,11 @@ export default function ProductGrid({
           </Text>
           <Pressable
             style={styles.retryButton}
-            onPress={() => void refetch()}
-            disabled={isFetching}
+            onPress={handleRetry}
+            disabled={isFetching || isCategoriesFetching}
           >
             <Text style={styles.retryButtonText}>
-              {isFetching ? 'Retrying...' : 'Try Again'}
+              {isFetching || isCategoriesFetching ? 'Retrying...' : 'Try Again'}
             </Text>
           </Pressable>
         </View>

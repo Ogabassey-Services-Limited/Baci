@@ -188,8 +188,8 @@ describe('product-utils', () => {
   });
 
   it('does not select removed products.colors columns from Supabase', () => {
-    expect(PRODUCT_SELECT).not.toContain(' colors,');
-    expect(PRODUCT_DETAIL_SELECT).not.toContain(', colors,');
+    expect(PRODUCT_SELECT).not.toMatch(/\bcolors\b/);
+    expect(PRODUCT_DETAIL_SELECT).not.toMatch(/\bcolors\b/);
   });
 
   it('resolveProductRow falls back to legacy slug candidates', async () => {
