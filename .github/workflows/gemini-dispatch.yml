@@ -1,6 +1,12 @@
 name: '🔀 Gemini Dispatch'
 
 on:
+  pull_request:
+    types:
+      - 'opened'
+      - 'synchronize'
+      - 'reopened'
+      - 'ready_for_review'
   pull_request_review_comment:
     types:
       - 'created'
@@ -18,13 +24,19 @@ defaults:
 jobs:
   dispatch:
     if: |-
-      github.event.sender.type == 'User' &&
       (
-        contains(fromJSON('["pull_request_review_comment", "pull_request_review"]'), github.event_name) ||
-        (github.event_name == 'issue_comment' && github.event.issue.pull_request)
-      ) &&
-      startsWith(github.event.comment.body || github.event.review.body, '@gemini-cli /review') &&
-      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association || github.event.review.author_association)
+        github.event_name == 'pull_request' &&
+        github.event.pull_request.draft == false &&
+        github.event.pull_request.head.repo.full_name == github.repository
+      ) || (
+        github.event.sender.type == 'User' &&
+        (
+          contains(fromJSON('["pull_request_review_comment", "pull_request_review"]'), github.event_name) ||
+          (github.event_name == 'issue_comment' && github.event.issue.pull_request)
+        ) &&
+        startsWith(github.event.comment.body || github.event.review.body, '@gemini-cli /review') &&
+        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association || github.event.review.author_association)
+      )
     runs-on: 'ubuntu-latest'
     permissions:
       contents: 'read'
@@ -50,13 +62,21 @@ jobs:
         uses: 'actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea' # ratchet:actions/github-script@v7
         env:
           REQUEST: '${{ github.event.comment.body || github.event.review.body }}'
+          EVENT_NAME: '${{ github.event_name }}'
         with:
           script: |-
+            if (process.env.EVENT_NAME === 'pull_request') {
+              core.setOutput('additional_context', '');
+              return;
+            }
+
             const request = process.env.REQUEST || '';
             const additionalContext = request.replace(/^@gemini-cli \/review/, '').trim();
             core.setOutput('additional_context', additionalContext);
 
       - name: 'Acknowledge request'
+        if: |-
+          ${{ github.event_name != 'pull_request' }}
         env:
           GITHUB_TOKEN: '${{ steps.mint_identity_token.outputs.token || secrets.GITHUB_TOKEN || github.token }}'
           ISSUE_NUMBER: '${{ github.event.pull_request.number || github.event.issue.number }}'
