@@ -22,6 +22,10 @@ interface MerchantVerificationStatus {
  * table denies reads from `authenticated` via RLS. Auth + permission
  * checks have already been enforced by the caller; this function only
  * reads three boolean columns keyed by `merchant_id`.
+ *
+ * Throws on DB errors so the caller surfaces them as a 5xx. Collapsing
+ * failures into `false` would misclassify backend outages as user-side
+ * KYC gaps and block already-verified merchants from publishing.
  */
 async function getVerificationStatus(
   merchantId: string
@@ -35,7 +39,7 @@ async function getVerificationStatus(
 
   if (error) {
     console.error('[Publish API] merchant_verifications read failed:', error);
-    return { nin_verified: false, bvn_verified: false, cac_verified: false };
+    throw new Error('Failed to load verification status');
   }
 
   return {

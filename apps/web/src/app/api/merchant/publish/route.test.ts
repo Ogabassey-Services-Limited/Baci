@@ -447,6 +447,26 @@ describe('POST /api/merchant/publish', () => {
 
       expect(res.status).toBe(200);
     });
+
+    it('returns 500 when verification lookup fails', async () => {
+      setupAuth(true, true);
+      setupMerchantData({});
+      setupProductCount(1, 1);
+      // Simulate merchant_verifications admin read failing (e.g., DB
+      // outage or service-role misconfiguration). Must surface as a
+      // backend error rather than collapse to a false KYC gap.
+      mockVerificationData = {
+        data: null,
+        error: { message: 'connection refused' },
+      };
+
+      const res = await POST(makeRequest('POST'));
+      const json = await res.json();
+
+      expect(res.status).toBe(500);
+      expect(json.error).toBe('Internal server error');
+      expect(json.missingItems).toBeUndefined();
+    });
   });
 
   describe('validation - products', () => {
