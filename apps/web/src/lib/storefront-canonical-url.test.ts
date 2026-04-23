@@ -211,4 +211,46 @@ describe('normalizeStorefrontCanonicalUrl', () => {
       normalizeStorefrontCanonicalUrl(undefined, 'https://ogabassey.com')
     ).toBeUndefined();
   });
+
+  it('strips merchant prefixes from same-origin relative canonical paths', () => {
+    // Regression: relative paths parsed against the storefront base URL share
+    // its origin and previously bypassed the merchant-prefix stripping branch.
+    expect(
+      normalizeStorefrontCanonicalUrl(
+        '/ogabassey/products/iphone-15',
+        'https://ogabassey.com',
+        'ogabassey'
+      )
+    ).toBe('https://ogabassey.com/products/iphone-15');
+  });
+
+  it('strips merchant prefixes from same-origin absolute canonical urls', () => {
+    expect(
+      normalizeStorefrontCanonicalUrl(
+        'https://ogabassey.com/ogabassey/smartphones/iphone-15-pro-max',
+        'https://ogabassey.com',
+        'ogabassey'
+      )
+    ).toBe('https://ogabassey.com/smartphones/iphone-15-pro-max');
+  });
+
+  it('preserves trailing slashes when stripping same-origin merchant prefixes', () => {
+    expect(
+      normalizeStorefrontCanonicalUrl(
+        '/ogabassey/smartphones/',
+        'https://ogabassey.com',
+        'ogabassey'
+      )
+    ).toBe('https://ogabassey.com/smartphones/');
+  });
+
+  it('rewrites relative merchant-root paths to the storefront root', () => {
+    expect(
+      normalizeStorefrontCanonicalUrl(
+        '/ogabassey',
+        'https://ogabassey.com',
+        'ogabassey'
+      )
+    ).toBe('https://ogabassey.com/');
+  });
 });

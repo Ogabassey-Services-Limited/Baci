@@ -41,27 +41,31 @@ export function normalizeStorefrontCanonicalUrl(
     const storeOrigin = new URL(baseUrl).origin;
     const canonical = new URL(normalizedCanonical, baseUrl);
 
-    if (canonical.origin !== storeOrigin) {
-      const normalizedMerchantSlug = merchantSlug?.trim().toLowerCase();
-      const canonicalPathSegments = canonical.pathname
-        .split('/')
-        .filter(Boolean);
-      const shouldStripMerchantPrefix =
-        normalizedMerchantSlug &&
+    // Always evaluate merchant-prefix stripping, regardless of whether the
+    // canonical origin already matches the storefront origin. Relative inputs
+    // (e.g. `/ogabassey/products/iphone-15`) resolve to the same origin as
+    // `baseUrl` and would otherwise bypass the stripping branch, producing
+    // non-final canonicals on custom domains that the proxy then redirects.
+    const normalizedMerchantSlug = merchantSlug?.trim().toLowerCase();
+    const canonicalPathSegments = canonical.pathname.split('/').filter(Boolean);
+    const shouldStripMerchantPrefix = Boolean(
+      normalizedMerchantSlug &&
         canonicalPathSegments.length > 0 &&
-        canonicalPathSegments[0]?.toLowerCase() === normalizedMerchantSlug;
-      const rewrittenPathname = shouldStripMerchantPrefix
-        ? canonicalPathSegments.length === 1
-          ? '/'
-          : `/${canonicalPathSegments.slice(1).join('/')}`
-        : canonical.pathname;
-      const normalizedPathname =
-        shouldStripMerchantPrefix &&
-        rewrittenPathname !== '/' &&
-        canonical.pathname.endsWith('/')
-          ? `${rewrittenPathname}/`
-          : rewrittenPathname;
+        canonicalPathSegments[0]?.toLowerCase() === normalizedMerchantSlug
+    );
+    const rewrittenPathname = shouldStripMerchantPrefix
+      ? canonicalPathSegments.length === 1
+        ? '/'
+        : `/${canonicalPathSegments.slice(1).join('/')}`
+      : canonical.pathname;
+    const normalizedPathname =
+      shouldStripMerchantPrefix &&
+      rewrittenPathname !== '/' &&
+      canonical.pathname.endsWith('/')
+        ? `${rewrittenPathname}/`
+        : rewrittenPathname;
 
+    if (canonical.origin !== storeOrigin || shouldStripMerchantPrefix) {
       return `${storeOrigin}${normalizedPathname}${canonical.search}${canonical.hash}`;
     }
 

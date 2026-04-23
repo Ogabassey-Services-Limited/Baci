@@ -511,7 +511,12 @@ describe('[category]/[productSlug] page render', () => {
     expect(container.querySelectorAll('h1')).toHaveLength(1);
   });
 
-  it('preserves unlimited stock when the detailed product omits manage_stock', async () => {
+  it('defaults manage_stock to true when the detailed product omits it', async () => {
+    // Regression: missing `manage_stock` must default to `true` so legacy
+    // rows with `null` are not advertised as `InStock` via
+    // `generateProductSchema` regardless of actual stock. See seo-utils
+    // `getProductAvailability` — `manage_stock === false` short-circuits to
+    // InStock and would mask OutOfStock inventory.
     mockGetRequestScopedMerchant.mockResolvedValue({
       ...baseMerchant,
       template_id: undefined,
@@ -537,7 +542,7 @@ describe('[category]/[productSlug] page render', () => {
     expect(lastProductDetailProps?.[0]).toEqual(
       expect.objectContaining({
         product: expect.objectContaining({
-          manage_stock: false,
+          manage_stock: true,
         }),
       })
     );

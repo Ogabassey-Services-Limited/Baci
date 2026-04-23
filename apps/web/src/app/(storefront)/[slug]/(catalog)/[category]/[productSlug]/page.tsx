@@ -412,7 +412,16 @@ const getProduct = async (
   const normalizedVariantAttributes =
     normalizeVariantAttributes(rawVariantAttributes);
 
-  // Create extended product with category info
+  // Create extended product with category info.
+  // Default `manage_stock` to `true` so legacy rows with `null` are treated as
+  // managed inventory. Treating missing values as `false` would make
+  // `generateProductSchema` advertise them as `InStock` regardless of actual
+  // stock, which regresses historical data. See seo-utils
+  // `getProductAvailability` — `manage_stock === false` short-circuits to
+  // InStock.
+  const manageStock = product.manage_stock ?? true;
+
+
   const productWithCategorySlug: Product = {
     ...product,
     product_key_specs:
@@ -426,7 +435,7 @@ const getProduct = async (
       typeof product.compare_at_price === 'string'
         ? Number.parseFloat(product.compare_at_price) || undefined
         : product.compare_at_price,
-    manage_stock: product.manage_stock ?? false,
+    manage_stock: manageStock,
     stock: getEffectiveStock(product),
     image: primaryImage,
     imageLarge: primaryImage,
