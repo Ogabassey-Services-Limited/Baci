@@ -97,8 +97,11 @@ export default async function BlogCatchAllPage({
 
   if (post) {
     // Redirect to canonical URL (without category prefix)
-    // Use 301 permanent redirect for SEO
-    permanentRedirect(`/${slug}/blog/${post.slug}`);
+    // Use 301 permanent redirect for SEO; build from merchant canonical URL data
+    // so custom-domain rewrites don't leak internal paths to crawlers.
+    permanentRedirect(
+      asRoute(buildCanonicalBlogPostUrl(cachedMerchant, post.slug))
+    );
   }
 
   // If post not found, try matching without hyphens/underscores
@@ -117,7 +120,9 @@ export default async function BlogCatchAllPage({
   );
 
   if (matchingPost) {
-    permanentRedirect(`/${slug}/blog/${matchingPost.slug}`);
+    permanentRedirect(
+      asRoute(buildCanonicalBlogPostUrl(cachedMerchant, matchingPost.slug))
+    );
   }
 
   // No matching post found

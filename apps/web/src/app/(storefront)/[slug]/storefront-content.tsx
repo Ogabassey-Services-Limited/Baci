@@ -189,12 +189,14 @@ export async function StorefrontContent({
           >
             All Products
           </a>
-          <a
-            className="rounded-full border border-[var(--store-background-text,#111827)]/15 px-3 py-1.5 text-xs font-medium text-[var(--store-background-text,#111827)]/80 transition-colors hover:border-[var(--store-primary)] hover:text-[var(--store-primary)]"
-            href={`${baseUrl}/blog`}
-          >
-            Blog
-          </a>
+          {merchant.feature_settings?.blog_enabled ? (
+            <a
+              className="rounded-full border border-[var(--store-background-text,#111827)]/15 px-3 py-1.5 text-xs font-medium text-[var(--store-background-text,#111827)]/80 transition-colors hover:border-[var(--store-primary)] hover:text-[var(--store-primary)]"
+              href={`${baseUrl}/blog`}
+            >
+              Blog
+            </a>
+          ) : null}
           {categoryDiscoveryLinks.map((category) => (
             <a
               key={category.slug}

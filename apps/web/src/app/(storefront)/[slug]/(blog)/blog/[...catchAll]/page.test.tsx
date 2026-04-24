@@ -131,8 +131,12 @@ describe('storefront blog catch-all route', () => {
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
   });
 
-  it('keeps redirecting category-prefixed legacy blog URLs', async () => {
-    mockGetCachedMerchantByDomain.mockResolvedValue({ id: 'merchant-1' });
+  it('keeps redirecting category-prefixed legacy blog URLs to canonical public URL', async () => {
+    mockGetCachedMerchantByDomain.mockResolvedValue({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+      custom_domain: 'ogabassey.com',
+    });
     mockMaybeSingle.mockResolvedValueOnce({
       data: { slug: 'snapdragon-x2-series-on-windows' },
     });
@@ -145,10 +149,33 @@ describe('storefront blog catch-all route', () => {
         }),
       })
     ).rejects.toThrow(
-      'NEXT_PERMANENT_REDIRECT:/ogabassey.com/blog/snapdragon-x2-series-on-windows'
+      'NEXT_PERMANENT_REDIRECT:https://ogabassey.com/blog/snapdragon-x2-series-on-windows'
     );
 
     expect(mockGetCachedBlogPost).not.toHaveBeenCalled();
     expect(mockGetCachedMerchantByDomain).toHaveBeenCalledWith('ogabassey.com');
+  });
+
+  it('redirects fuzzy slug matches to canonical public URL', async () => {
+    mockGetCachedMerchantByDomain.mockResolvedValue({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+    });
+    // First exact-match query returns no data, fuzzy fallback finds the post
+    mockMaybeSingle.mockResolvedValueOnce({ data: null });
+    mockLimit.mockResolvedValueOnce({
+      data: [{ slug: 'snapdragon-x2-series-on-windows' }],
+    });
+
+    await expect(
+      BlogCatchAllPage({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          catchAll: ['laptops', 'snapdragon_x2_series_on_windows'],
+        }),
+      })
+    ).rejects.toThrow(
+      'NEXT_PERMANENT_REDIRECT:https://ogabassey.usebaci.com/blog/snapdragon-x2-series-on-windows'
+    );
   });
 });
