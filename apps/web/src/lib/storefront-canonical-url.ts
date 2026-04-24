@@ -57,17 +57,19 @@ export function normalizeStorefrontCanonicalUrl(
   try {
     const canonical = new URL(normalizedCanonical, baseUrl);
 
-    // Always evaluate merchant-prefix stripping, regardless of whether the
-    // canonical origin already matches the storefront origin. Relative inputs
-    // (e.g. `/ogabassey/products/iphone-15`) resolve to the same origin as
-    // `baseUrl` and would otherwise bypass the stripping branch, producing
-    // non-final canonicals on custom domains that the proxy then redirects.
+    // Always evaluate merchant-prefix stripping for relative inputs and for
+    // cross-origin absolute inputs. For absolute same-origin URLs (canonical
+    // already on the custom domain), the path was written without a merchant
+    // prefix and must NOT be stripped — e.g. `https://store.com/laptops/mac`
+    // should stay as-is, not become `https://store.com/mac`.
+    const isRelativeInput = !normalizedCanonical.startsWith('http');
     const normalizedMerchantSlug = merchantSlug?.trim().toLowerCase();
     const canonicalPathSegments = canonical.pathname.split('/').filter(Boolean);
     const shouldStripMerchantPrefix = Boolean(
       normalizedMerchantSlug &&
         canonicalPathSegments.length > 0 &&
-        canonicalPathSegments[0]?.toLowerCase() === normalizedMerchantSlug
+        canonicalPathSegments[0]?.toLowerCase() === normalizedMerchantSlug &&
+        (isRelativeInput || canonical.origin !== storeOrigin)
     );
     const rewrittenPathname = shouldStripMerchantPrefix
       ? canonicalPathSegments.length === 1

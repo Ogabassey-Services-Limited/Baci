@@ -138,4 +138,39 @@ describe('normalizeColorImages', () => {
     expect(normalizeColorImages({})).toBeUndefined();
     expect(normalizeColorImages({ Red: [null, ''] })).toBeUndefined();
   });
+
+  it('merges image arrays when multiple keys normalize to the same color name', () => {
+    // Regression: Object.fromEntries was used previously and would silently
+    // drop earlier entries when two keys normalized to the same value (e.g.
+    // `"Black"` and `Black` both normalize to `Black`). The reducer must
+    // union both image arrays instead.
+    expect(
+      normalizeColorImages({
+        '"Black"': ['https://cdn.example.com/black1.jpg'],
+        Black: ['https://cdn.example.com/black2.jpg'],
+      })
+    ).toEqual({
+      Black: [
+        'https://cdn.example.com/black1.jpg',
+        'https://cdn.example.com/black2.jpg',
+      ],
+    });
+  });
+
+  it('deduplicates images when merging duplicate normalized color keys', () => {
+    expect(
+      normalizeColorImages({
+        '"Red"': [
+          'https://cdn.example.com/red.jpg',
+          'https://cdn.example.com/red2.jpg',
+        ],
+        Red: ['https://cdn.example.com/red.jpg'],
+      })
+    ).toEqual({
+      Red: [
+        'https://cdn.example.com/red.jpg',
+        'https://cdn.example.com/red2.jpg',
+      ],
+    });
+  });
 });

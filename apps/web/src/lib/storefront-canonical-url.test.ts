@@ -224,14 +224,17 @@ describe('normalizeStorefrontCanonicalUrl', () => {
     ).toBe('https://ogabassey.com/products/iphone-15');
   });
 
-  it('strips merchant prefixes from same-origin absolute canonical urls', () => {
+  it('does not strip merchant prefixes from same-origin absolute canonical urls', () => {
+    // Absolute URLs that are already on the store's custom domain are final
+    // canonicals — do not strip their leading path segments even if the segment
+    // matches the merchant slug.
     expect(
       normalizeStorefrontCanonicalUrl(
         'https://ogabassey.com/ogabassey/smartphones/iphone-15-pro-max',
         'https://ogabassey.com',
         'ogabassey'
       )
-    ).toBe('https://ogabassey.com/smartphones/iphone-15-pro-max');
+    ).toBe('https://ogabassey.com/ogabassey/smartphones/iphone-15-pro-max');
   });
 
   it('preserves trailing slashes when stripping same-origin merchant prefixes', () => {
@@ -261,5 +264,19 @@ describe('normalizeStorefrontCanonicalUrl', () => {
     expect(
       normalizeStorefrontCanonicalUrl('/products/iphone-15', 'not-a-valid-url')
     ).toBeUndefined();
+  });
+
+  it('does not strip when canonical is already on the store custom domain', () => {
+    // Regression: absolute same-origin URLs with a leading segment that
+    // happens to match the merchant slug (e.g. a category "laptops" on
+    // store.com) must NOT have that segment stripped — it is part of the
+    // valid final canonical path, not a path-mode platform prefix.
+    expect(
+      normalizeStorefrontCanonicalUrl(
+        'https://store.com/laptops/macbook-air',
+        'https://store.com',
+        'laptops'
+      )
+    ).toBe('https://store.com/laptops/macbook-air');
   });
 });

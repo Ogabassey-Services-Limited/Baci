@@ -75,23 +75,23 @@ export function normalizeColorImages(
     return undefined;
   }
 
-  const normalized = Object.fromEntries(
-    Object.entries(colorImages)
-      .map(([color, images]) => [
-        normalizeColorName(color),
-        Array.from(
-          new Set(
-            (images ?? [])
-              .map((image) => normalizeImageUrl(image))
-              .filter(Boolean)
-          )
-        ),
-      ])
-      .filter(
-        (entry): entry is [string, string[]] =>
-          entry[0].length > 0 && entry[1].length > 0
-      )
-  );
+  const normalized = Object.entries(colorImages).reduce<
+    Record<string, string[]>
+  >((acc, [color, images]) => {
+    const key = normalizeColorName(color);
+    if (!key) {
+      return acc;
+    }
+    const incoming = (images ?? [])
+      .map((image) => normalizeImageUrl(image))
+      .filter(Boolean) as string[];
+    if (incoming.length === 0) {
+      return acc;
+    }
+    const existing = acc[key] ?? [];
+    acc[key] = Array.from(new Set([...existing, ...incoming]));
+    return acc;
+  }, {});
 
   return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
