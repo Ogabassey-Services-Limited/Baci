@@ -44,13 +44,22 @@ export function collapseColorImagesCaseInsensitive(
  *   `colorImages` keeps both keys.
  * - Legacy entries whose color does not appear in variants (case-insensitive)
  *   are carried through unchanged.
+ *
+ * Defensive: callers already pass legacy input through
+ * `collapseColorImagesCaseInsensitive`, but this function also collapses
+ * case-variant legacy keys internally so a caller that forgets the
+ * pre-collapse still gets correct output. Variant inputs are likewise
+ * collapsed.
  */
 export function mergeColorImagesCaseInsensitive(
   legacy: Record<string, string[]>,
   variants: Record<string, string[]>
 ): Record<string, string[]> {
+  const collapsedLegacy = collapseColorImagesCaseInsensitive(legacy);
+  const collapsedVariants = collapseColorImagesCaseInsensitive(variants);
+
   const variantKeyByLookup = new Map<string, string>();
-  for (const variantKey of Object.keys(variants)) {
+  for (const variantKey of Object.keys(collapsedVariants)) {
     variantKeyByLookup.set(variantKey.toLowerCase(), variantKey);
   }
 
@@ -62,17 +71,19 @@ export function mergeColorImagesCaseInsensitive(
   const merged: Record<string, string[]> = {};
   const emittedVariantKeys = new Set<string>();
 
-  for (const [legacyKey, legacyImages] of Object.entries(legacy)) {
+  for (const [legacyKey, legacyImages] of Object.entries(collapsedLegacy)) {
     const lookup = legacyKey.toLowerCase();
     const variantKey = variantKeyByLookup.get(lookup);
     if (variantKey) {
-      merged[variantKey] = Array.from(new Set(variants[variantKey] ?? []));
+      merged[variantKey] = Array.from(
+        new Set(collapsedVariants[variantKey] ?? [])
+      );
       emittedVariantKeys.add(variantKey);
       continue;
     }
     merged[legacyKey] = Array.from(new Set(legacyImages));
   }
-  for (const [variantKey, variantImages] of Object.entries(variants)) {
+  for (const [variantKey, variantImages] of Object.entries(collapsedVariants)) {
     if (emittedVariantKeys.has(variantKey)) {
       continue;
     }

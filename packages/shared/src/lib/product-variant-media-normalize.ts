@@ -28,15 +28,22 @@ export type ProductColorImagesInput =
   | undefined;
 
 /**
- * Formats a color name by trimming whitespace.
+ * Formats a color name by trimming whitespace and stripping surrounding
+ * quotes. Inputs persisted to JSON fields sometimes carry stray quotes from
+ * serialization round-trips (e.g. `"Black"`), which break case-insensitive
+ * equality against unquoted sources. Repeated outer quotes are handled.
  */
 export function normalizeColorName(value: string | null | undefined) {
-  return typeof value === 'string' ? value.trim() : '';
+  if (typeof value !== 'string') {
+    return '';
+  }
+  return value.trim().replace(/^["']+|["']+$/g, '').trim();
 }
 
 /**
  * Normalizes an image URL from various possible input formats.
- * Strips surrounding quotes and trims whitespace.
+ * Strips surrounding quotes (including repeated outer quotes) and trims
+ * whitespace.
  */
 export function normalizeImageUrl(value: ProductVariantImageInput) {
   let url = '';
@@ -52,7 +59,7 @@ export function normalizeImageUrl(value: ProductVariantImageInput) {
 
   if (url) {
     const trimmed = url.trim();
-    return trimmed.replace(/^["']|["']$/g, '').trim();
+    return trimmed.replace(/^["']+|["']+$/g, '').trim();
   }
 
   return '';

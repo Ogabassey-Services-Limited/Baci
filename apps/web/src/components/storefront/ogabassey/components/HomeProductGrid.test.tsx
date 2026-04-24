@@ -161,6 +161,25 @@ describe('HomeProductGrid', () => {
     ).toHaveAttribute('href', '/products');
   });
 
+  it('normalizes a trailing slash on basePath to avoid double slashes in links', () => {
+    // Regression: a basePath of `/ogabassey/` (trailing slash) previously
+    // produced `/ogabassey//products` because the string was concatenated
+    // directly. The component trims trailing slashes before building the
+    // href.
+    mockUseMerchantSafe.mockReturnValue({ basePath: '/ogabassey/' });
+
+    render(
+      <HomeProductGrid
+        storeSlug="ogabassey"
+        products={[createTestProduct(1)]}
+      />
+    );
+
+    expect(
+      screen.getByRole('link', { name: 'View all products' })
+    ).toHaveAttribute('href', '/ogabassey/products');
+  });
+
   it('defers image loading for cards after the first mobile row', () => {
     render(
       <HomeProductGrid

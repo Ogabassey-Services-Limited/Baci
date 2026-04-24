@@ -246,7 +246,7 @@ describe('Middleware Proxy', () => {
     'PUT',
     'PATCH',
     'DELETE',
-  ])('does NOT 301 slug-prefixed custom-domain requests on non-idempotent methods (%s)', async (method) => {
+  ])('internally rewrites slug-prefixed custom-domain API requests on non-idempotent method %s', async (method) => {
     // Arrange: a slug-prefixed API URL on a custom domain, using a method
     // whose body must not be dropped by a GET-replay after a 301.
     const req = new NextRequest(
@@ -259,8 +259,13 @@ describe('Middleware Proxy', () => {
     const res = await proxy(req);
 
     // Assert: the canonicalizing redirect branch must be skipped so the
-    // request reaches the API with its body intact.
+    // request reaches the API with its body intact. Instead of a 301, the
+    // proxy must emit an internal rewrite pointing at the stripped API
+    // path (`/api/checkout/create-order`) on the custom domain.
     expect(res.status).not.toBe(301);
+    expect(res.headers.get('x-middleware-rewrite')).toBe(
+      'https://ogabassey.com/api/checkout/create-order'
+    );
   });
 
   it('returns 410 for legacy WordPress admin probes under /blog', async () => {

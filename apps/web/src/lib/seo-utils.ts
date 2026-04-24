@@ -237,9 +237,19 @@ function extractCanonicalProductPath(
       return null;
     }
 
+    // For canonicals shaped like `/{merchantSlug}/{category}/{product}` we want
+    // to drop the merchant-slug prefix so the returned Route matches the app
+    // router's expected `/{category}/{product}` shape. Detect this by
+    // requiring the SECOND segment to be a known storefront root segment —
+    // i.e. only strip when we have positive evidence the leading segment is a
+    // merchant prefix. Previously we stripped for *any* first segment that
+    // wasn't in STOREFRONT_ROOT_SEGMENTS, which incorrectly rewrote legitimate
+    // 3-segment canonicals like `/phones/iphone-15/black` into bogus
+    // 2-segment paths.
     if (
       canonicalSegments.length >= 3 &&
-      !STOREFRONT_ROOT_SEGMENTS.has(canonicalSegments[0].toLowerCase())
+      !STOREFRONT_ROOT_SEGMENTS.has(canonicalSegments[0].toLowerCase()) &&
+      STOREFRONT_ROOT_SEGMENTS.has(canonicalSegments[1].toLowerCase())
     ) {
       canonicalSegments.shift();
     }
@@ -1342,7 +1352,13 @@ function normalizePlainText(value: string): string {
   return stripHtmlTags(value).replace(/\s+/g, ' ').trim();
 }
 
-const META_TITLE_SEPARATORS = ['|', '-', '–', '—', ':'] as const;
+// Unambiguous meta-title separators. A bare hyphen (`-`) is intentionally
+// excluded because product names regularly contain internal hyphens
+// (e.g. `MacBook-Pro`, `iPhone-256GB`) and treating them as separators
+// causes `removeTrailingDuplicateSuffix` to strip legitimate name segments.
+// The spaced hyphen ` - ` is handled explicitly below as a separate branch.
+const META_TITLE_SEPARATORS = ['|', '–', '—', ':'] as const;
+const META_TITLE_SPACED_HYPHEN = ' - ';
 
 function stringsMatchCaseInsensitive(left: string, right: string): boolean {
   return left.localeCompare(right, undefined, { sensitivity: 'base' }) === 0;
@@ -1360,6 +1376,14 @@ function getTrailingSeparatedSegment(value: string) {
       bestIndex = index;
       separatorLength = separator.length;
     }
+  }
+
+  // Spaced hyphen (` - `) is treated as a separator too, but bare hyphens
+  // are ignored so product names with internal hyphens aren't mangled.
+  const spacedHyphenIndex = trimmedValue.lastIndexOf(META_TITLE_SPACED_HYPHEN);
+  if (spacedHyphenIndex > bestIndex) {
+    bestIndex = spacedHyphenIndex;
+    separatorLength = META_TITLE_SPACED_HYPHEN.length;
   }
 
   if (bestIndex === -1) {

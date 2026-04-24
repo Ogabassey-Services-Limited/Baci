@@ -7,6 +7,7 @@ process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
 let mockHeaders = new Map<string, string>();
 const mockGetMerchantByIdentifier = vi.fn();
 const mockGetCachedCategoryPageData = vi.fn();
+const mockGetCachedFeatureSettings = vi.fn();
 const mockBuildCategorySupportLinks = vi.fn();
 const mockQueryResults = new Map<
   string,
@@ -18,6 +19,8 @@ vi.mock('@/lib/cached-data', () => ({
     mockGetMerchantByIdentifier(...args),
   getCachedCategoryPageData: (...args: unknown[]) =>
     mockGetCachedCategoryPageData(...args),
+  getCachedFeatureSettings: (...args: unknown[]) =>
+    mockGetCachedFeatureSettings(...args),
 }));
 
 vi.mock('@/lib/storefront-compare/build-commercial-support-links', () => ({
@@ -131,6 +134,9 @@ describe('sitemap-data', () => {
     });
     mockGetCachedCategoryPageData.mockReset();
     mockGetCachedCategoryPageData.mockResolvedValue(null);
+    mockGetCachedFeatureSettings.mockReset();
+    // Default to blog enabled; individual tests can override.
+    mockGetCachedFeatureSettings.mockResolvedValue({ blog_enabled: true });
     mockBuildCategorySupportLinks.mockReset();
     mockBuildCategorySupportLinks.mockReturnValue([]);
   });
@@ -354,6 +360,39 @@ describe('sitemap-data', () => {
       )
     ).toBe(true);
     expect(categoryEntries[0].url).toBe('https://ogabassey.com/smartphones');
+  });
+
+  it('omits blog URLs from the sitemap when blog_enabled is false', async () => {
+    setCustomDomainHeader('ogabassey.com');
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+      custom_domain: 'ogabassey.com',
+    });
+    mockGetCachedFeatureSettings.mockResolvedValue({ blog_enabled: false });
+    mockBlogPostsQuery([
+      {
+        slug: 'hidden-post',
+        published_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-03T00:00:00Z',
+        featured_image_url: null,
+      },
+    ]);
+
+    const { resolveStorefrontSitemapContext, getBlogSitemapEntries } =
+      await import('./sitemap-data');
+    const context = await resolveStorefrontSitemapContext(
+      mockHeaders as unknown as Headers
+    );
+    if (!context) {
+      throw new Error('Expected storefront sitemap context');
+    }
+
+    const blogEntries = await getBlogSitemapEntries(context);
+
+    // When the blog feature is disabled, NO blog URLs (not even the /blog
+    // index) should be surfaced — they all 404 on the storefront.
+    expect(blogEntries).toEqual([]);
   });
 
   it('serializes sitemap XML responses with image namespace when needed', async () => {

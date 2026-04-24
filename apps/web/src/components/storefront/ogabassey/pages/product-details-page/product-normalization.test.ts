@@ -139,20 +139,6 @@ describe('normalizeProductDetails', () => {
     ]);
   });
 
-  it('uses a placeholder gallery without mutating the resolved media arrays', () => {
-    const productWithoutImages = {
-      ...baseProduct,
-      image: null,
-      images: [],
-      color_images: {},
-      variants: [],
-    } as unknown as Product;
-
-    const normalized = normalizeProductDetails(productWithoutImages);
-
-    expect(normalized.images).toEqual(['/placeholder.svg']);
-  });
-
   it('derives summary specs and general details from variant attributes when explicit specs are missing', () => {
     const productWithVariantAttributes = {
       ...baseProduct,

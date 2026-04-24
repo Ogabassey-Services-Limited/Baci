@@ -40,7 +40,7 @@ export async function generateMetadata({
     160,
     {
       minLength: 110,
-      fallback: `Shop at ${merchant.business_name}. Discover products and services with trusted quality, nationwide delivery, and flexible payment options.`,
+      fallback: `Shop at ${merchant.business_name || merchant.slug}. Discover products and services with trusted quality, nationwide delivery, and flexible payment options.`,
     }
   );
 

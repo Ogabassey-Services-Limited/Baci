@@ -177,6 +177,29 @@ function buildOrderedColors(args: {
 }
 
 /**
+ * Combines legacy color-image data with variant-derived color images. When
+ * variant data is present the two are merged case-insensitively; otherwise
+ * the legacy record is returned (or undefined when it is empty).
+ */
+function resolveColorImages(
+  legacyColorImages: Record<string, string[]>,
+  variantColorImages: Record<string, string[]> | undefined
+): Record<string, string[]> | undefined {
+  if (variantColorImages) {
+    return mergeColorImagesCaseInsensitive(
+      legacyColorImages,
+      variantColorImages
+    );
+  }
+
+  if (Object.keys(legacyColorImages).length > 0) {
+    return legacyColorImages;
+  }
+
+  return undefined;
+}
+
+/**
  * Resolves the canonical media state for a product, combining legacy data
  * (colorImages, productColors) with modern variant-driven media.
  *
@@ -210,14 +233,10 @@ export function resolveProductVariantMedia({
   // buckets split, causing the UI to show one color label that misses half
   // its images. The legacy-only path also collapses case-variant duplicates
   // within the legacy record for the same reason.
-  const resolvedColorImages = variantColorImages
-    ? mergeColorImagesCaseInsensitive(
-        normalizedLegacyColorImages,
-        variantColorImages
-      )
-    : Object.keys(normalizedLegacyColorImages).length > 0
-      ? normalizedLegacyColorImages
-      : undefined;
+  const resolvedColorImages = resolveColorImages(
+    normalizedLegacyColorImages,
+    variantColorImages
+  );
 
   const galleryImages = buildGalleryImages(productImages, resolvedColorImages);
   const imageColorMap = buildImageColorMap(resolvedColorImages);

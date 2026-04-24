@@ -2,22 +2,35 @@ import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockBlogPostBodyFallback } = vi.hoisted(() => ({
+// All `vi.mock` factories below reference these mocks. Because `vi.mock` calls
+// are hoisted above ordinary `const` declarations, we initialize every mock
+// via `vi.hoisted` so the factories can safely resolve the identifiers at
+// hoist time (rather than relying on the factory body being called lazily).
+const {
+  mockBlogPostBodyFallback,
+  mockDraftMode,
+  mockHeaders,
+  mockNotFound,
+  mockGetCachedBlogPost,
+  mockGetLiveBlogPost,
+  mockBuildInformationalClusterModel,
+  mockBlogPostHeader,
+  mockBlogPostBody,
+} = vi.hoisted(() => ({
   mockBlogPostBodyFallback: vi.fn((_props: unknown) => null as ReactNode),
+  mockDraftMode: vi.fn(),
+  mockHeaders: vi.fn(),
+  mockNotFound: vi.fn(() => {
+    throw new Error('NEXT_NOT_FOUND');
+  }),
+  mockGetCachedBlogPost: vi.fn(),
+  mockGetLiveBlogPost: vi.fn(),
+  mockBuildInformationalClusterModel: vi.fn(),
+  mockBlogPostHeader: vi.fn(({ title }: { title: string; locale?: string }) => (
+    <h1>{title}</h1>
+  )),
+  mockBlogPostBody: vi.fn((_props?: unknown) => null),
 }));
-
-const mockDraftMode = vi.fn();
-const mockHeaders = vi.fn();
-const mockNotFound = vi.fn(() => {
-  throw new Error('NEXT_NOT_FOUND');
-});
-const mockGetCachedBlogPost = vi.fn();
-const mockGetLiveBlogPost = vi.fn();
-const mockBuildInformationalClusterModel = vi.fn();
-const mockBlogPostHeader = vi.fn(
-  ({ title }: { title: string; locale?: string }) => <h1>{title}</h1>
-);
-const mockBlogPostBody = vi.fn((_props?: unknown) => null);
 
 vi.mock('lucide-react', () => ({
   AlertTriangle: () => null,

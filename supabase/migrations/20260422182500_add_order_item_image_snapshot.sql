@@ -446,9 +446,11 @@ BEGIN
     RAISE EXCEPTION 'merchant_slug_required';
   END IF;
 
+  -- Case-insensitive slug lookup: proxy.ts normalizes subdomains but stored
+  -- slugs or custom-domain routes may still produce mixed-case input here.
   SELECT m.id INTO v_merchant_id
   FROM merchants m
-  WHERE m.slug = p_merchant_slug
+  WHERE lower(m.slug) = lower(trim(p_merchant_slug))
   LIMIT 1;
 
   IF v_merchant_id IS NULL THEN
@@ -516,21 +518,25 @@ BEGIN
     o.created_at,
     o.updated_at,
     o.customer_name,
-    CASE WHEN v_is_token_lookup THEN
+    -- PII masking: token-based lookups return full PII (bearer-token auth),
+    -- email-based lookups return masked data at the SQL layer as
+    -- defense-in-depth (route layer also masks — see
+    -- apps/web/src/app/api/storefront/orders/track-order/route.ts).
+    CASE WHEN v_is_token_lookup THEN o.customer_email
+    ELSE
       CASE WHEN o.customer_email IS NULL OR o.customer_email = '' THEN '***'
            WHEN position('@' in o.customer_email) = 0 THEN '***'
            WHEN length(split_part(o.customer_email, '@', 1)) <= 2
              THEN left(split_part(o.customer_email, '@', 1), 1) || '***@' || split_part(o.customer_email, '@', 2)
            ELSE left(split_part(o.customer_email, '@', 1), 2) || '***@' || split_part(o.customer_email, '@', 2)
       END
-    ELSE o.customer_email
     END AS customer_email,
-    CASE WHEN v_is_token_lookup THEN
+    CASE WHEN v_is_token_lookup THEN o.customer_phone
+    ELSE
       CASE WHEN o.customer_phone IS NULL OR o.customer_phone = '' THEN '***'
            WHEN length(o.customer_phone) <= 6 THEN repeat('*', length(o.customer_phone))
            ELSE left(o.customer_phone, 2) || repeat('*', greatest(length(o.customer_phone) - 4, 2)) || right(o.customer_phone, 2)
       END
-    ELSE o.customer_phone
     END AS customer_phone,
     o.shipping_address,
     o.tracking_number,

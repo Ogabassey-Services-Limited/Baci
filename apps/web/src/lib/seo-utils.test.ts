@@ -648,18 +648,36 @@ describe('getProductUrl', () => {
     ).toBe('/products/test-product');
   });
 
-  it('strips merchant-slug-like prefix from 3-segment canonical URLs and uses the remaining 2 segments', () => {
-    // /phones/iphone-15/black has 3 segments. Since 'phones' is not in
-    // STOREFRONT_ROOT_SEGMENTS, it is treated as a merchant-slug prefix and
-    // stripped, leaving iphone-15/black as category/product.
+  it('strips merchant-slug prefix from /{merchantSlug}/{category}/{product} canonicals when the second segment is a known storefront root', () => {
+    // /ogabassey/smartphones/iphone-15 has 3 segments; `smartphones` is a
+    // known storefront root, so `ogabassey` is recognized as the merchant
+    // slug prefix and stripped, leaving /smartphones/iphone-15.
+    expect(
+      getProductUrl(
+        makeProduct({
+          canonical_url: 'https://usebaci.com/ogabassey/smartphones/iphone-15',
+          slug: 'iphone-15',
+        })
+      )
+    ).toBe('/smartphones/iphone-15');
+  });
+
+  it('does NOT strip the first segment of a 3-segment canonical when the second segment is not a known storefront root', () => {
+    // Regression: previously `/phones/iphone-15/black` (3 segments) was
+    // mis-rewritten to `/iphone-15/black` because the first segment was not
+    // in STOREFRONT_ROOT_SEGMENTS. The guard now requires positive evidence
+    // (a known storefront root in position 2) before stripping, so this 3+
+    // segment canonical that doesn't match the merchant-prefix pattern
+    // simply falls through to the slug-based fallback.
     expect(
       getProductUrl(
         makeProduct({
           canonical_url: 'https://usebaci.com/phones/iphone-15/black',
           slug: 'iphone-15',
+          category: 'Phones',
         })
       )
-    ).toBe('/iphone-15/black');
+    ).toBe('/smartphones/iphone-15');
   });
 });
 
@@ -1081,7 +1099,7 @@ describe('generateSlug', () => {
   });
 });
 
-describe('getProductUrl', () => {
+describe('getProductUrl — canonical metadata path guards', () => {
   it('reuses canonical product paths only when they match supported product routes', () => {
     expect(
       getProductUrl({

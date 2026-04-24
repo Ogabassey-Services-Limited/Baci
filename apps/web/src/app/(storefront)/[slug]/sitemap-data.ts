@@ -2,6 +2,7 @@ import type { PostgrestError } from '@supabase/supabase-js';
 import type { MetadataRoute } from 'next';
 import {
   getCachedCategoryPageData,
+  getCachedFeatureSettings,
   getMerchantByIdentifier,
 } from '@/lib/cached-data';
 import { escapeHtml } from '@/lib/sanitize-core';
@@ -212,6 +213,15 @@ export async function getBlogSitemapEntries({
   merchant,
   storeUrl,
 }: StorefrontSitemapContext): Promise<MetadataRoute.Sitemap> {
+  // Mirror the blog feature-flag guard used in getCachedBlogListing /
+  // getCachedBlogPost and the dedicated /blog/sitemap.xml so storefronts
+  // without the blog enabled never expose /blog URLs in the root sitemap
+  // (those routes short-circuit to 404 when the feature is off).
+  const features = await getCachedFeatureSettings(merchant.id);
+  if (!features?.blog_enabled) {
+    return [];
+  }
+
   const { data: posts, error } = (await supabase
     .from('blog_posts')
     .select('slug, published_at, updated_at, featured_image_url')
