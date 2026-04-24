@@ -146,7 +146,9 @@ export function WelcomeHeader({
           <View
             style={[styles.badge, { backgroundColor: colors.notification }]}
           >
-            <Text style={[styles.badgeText, { color: colors.textOnPrimary }]}>
+            <Text
+              style={[styles.badgeText, { color: colors.textOnNotification }]}
+            >
               {notificationCount > 9 ? '9+' : notificationCount}
             </Text>
           </View>
