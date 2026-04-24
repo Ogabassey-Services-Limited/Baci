@@ -68,8 +68,12 @@ export async function generateMetadata({
       ? `Products - Page ${currentPage} | ${merchant.business_name}`
       : `Products | ${merchant.business_name}`;
   const description = generateMetaDescription(
-    merchant.site_description ||
-      `Browse all products available at ${merchant.business_name}.`
+    merchant.site_description || '',
+    160,
+    {
+      minLength: 110,
+      fallback: `Browse all products available at ${merchant.business_name}. Compare smartphones, laptops, accessories, and gaming devices with nationwide delivery and flexible payment options.`,
+    }
   );
   const socialImageCandidates = [
     productIndex.products[0]?.image,

@@ -11,10 +11,17 @@ vi.mock('next/headers', () => ({
 }));
 
 const mockGetMerchantByIdentifier = vi.fn();
+const mockGetCachedFeatureSettings =
+  vi.fn<(merchantId: string) => Promise<{ blog_enabled: boolean }>>();
+mockGetCachedFeatureSettings.mockImplementation(async () => ({
+  blog_enabled: true,
+}));
 
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: (...args: unknown[]) =>
     mockGetMerchantByIdentifier(...args),
+  getCachedFeatureSettings: (merchantId: string) =>
+    mockGetCachedFeatureSettings(merchantId),
 }));
 
 interface BlogPostRow {
@@ -58,6 +65,9 @@ describe('blog sitemap', () => {
       id: 'merchant-1',
       slug: 'ogabassey',
     });
+    mockGetCachedFeatureSettings.mockImplementation(async () => ({
+      blog_enabled: true,
+    }));
   });
 
   it('uses the merchant custom domain for blog sitemap entries', async () => {
@@ -124,6 +134,22 @@ describe('blog sitemap', () => {
   it('returns an empty sitemap when the merchant is not found', async () => {
     mockHeaders = new Map([['host', 'missing.example']]);
     mockGetMerchantByIdentifier.mockResolvedValue(null);
+
+    const { default: sitemap } = await import('./sitemap');
+
+    await expect(sitemap()).resolves.toEqual([]);
+  });
+
+  it('returns an empty sitemap when blog_enabled is false', async () => {
+    mockHeaders = new Map([['host', 'ogabassey.com']]);
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+      custom_domain: 'ogabassey.com',
+    });
+    mockGetCachedFeatureSettings.mockResolvedValueOnce({
+      blog_enabled: false,
+    });
 
     const { default: sitemap } = await import('./sitemap');
 

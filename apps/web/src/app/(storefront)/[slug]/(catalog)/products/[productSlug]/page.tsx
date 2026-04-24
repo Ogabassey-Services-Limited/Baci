@@ -23,15 +23,21 @@ import {
   generateBreadcrumbSchema,
   generateFAQSchema,
   generateMetaDescription,
+  generateMetaTitle,
   generateProductSchema,
   generateSlug,
   getIndexableRobotsMetadata,
   getProductUrl,
 } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
+import { normalizeStorefrontCanonicalUrl } from '@/lib/storefront-canonical-url';
 import { getPublishedClusterPosts } from '@/lib/storefront-content/get-published-cluster-posts';
 import { buildProductSemanticModel } from '@/lib/storefront-product/build-product-semantic-model';
 import { getStorefrontProductSocialMetadata } from '@/lib/storefront-product-social-metadata';
+import {
+  DEFAULT_STORE_NAME,
+  DEFAULT_STOREFRONT_SEO_CATEGORY,
+} from '@/lib/storefront-seo-defaults';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 import type { FAQItem } from '@/types/faq';
@@ -298,7 +304,10 @@ export async function generateMetadata(
   redirectLegacyProductRouteIfCategorized(slug, product);
   redirectInvalidVariantSelectionParams(slug, product, resolvedSearchParams);
   const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
-  let canonicalUrl = product.canonical_url;
+  let canonicalUrl = normalizeStorefrontCanonicalUrl(
+    product.canonical_url,
+    baseUrl
+  );
   if (!canonicalUrl) {
     const productPath = getProductUrl(product);
     const basePath = `${baseUrl}${productPath}`;
@@ -306,23 +315,39 @@ export async function generateMetadata(
       'variant',
     ]);
   }
+  // Metadata needs a generic noun here; the UI uses a friendlier "All Products"
+  // fallback later for visible copy when no category label exists.
+  const productCategoryName =
+    product.categories?.name ||
+    product.category ||
+    DEFAULT_STOREFRONT_SEO_CATEGORY;
+  const merchantDisplayName = merchant.business_name || DEFAULT_STORE_NAME;
   const seoDescription = generateMetaDescription(
-    product.meta_description ||
-      product.description ||
-      `Buy ${product.name} at ${merchant.business_name || 'Ogabassey'}. Best price and fast delivery.`
+    product.meta_description || product.description || '',
+    160,
+    {
+      minLength: 110,
+      fallback: `Buy ${product.name} from ${merchantDisplayName}. Shop verified ${productCategoryName} with delivery and flexible payment options.`,
+    }
   );
   const socialMetadata = getStorefrontProductSocialMetadata(
     baseUrl,
     product,
     merchant.payout_currency || 'USD'
   );
+  const metadataTitle = generateMetaTitle(
+    product.meta_title || `${product.name} - ${productCategoryName}`,
+    {
+      maxLength: 70,
+      suffix: merchantDisplayName,
+      fallback: product.name || productCategoryName,
+    }
+  );
   const socialMedia = merchant.social_media as
     | Record<string, string>
     | undefined;
   return {
-    title:
-      product.meta_title ||
-      `${product.name} | ${merchant.business_name || 'Baci Store'}`,
+    title: metadataTitle,
     description: seoDescription,
     keywords: product.keywords,
     alternates: {
@@ -330,7 +355,7 @@ export async function generateMetadata(
     },
     robots: getIndexableRobotsMetadata(),
     openGraph: {
-      title: product.meta_title || product.name,
+      title: metadataTitle,
       description: seoDescription,
       images: socialMetadata.openGraphImages,
       url: canonicalUrl,
@@ -339,7 +364,7 @@ export async function generateMetadata(
     },
     twitter: {
       card: 'summary_large_image',
-      title: product.meta_title || product.name,
+      title: metadataTitle,
       description: seoDescription,
       images: socialMetadata.twitterImages,
       ...(socialMedia?.twitter && {

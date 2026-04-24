@@ -30,16 +30,22 @@ import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   generateBreadcrumbSchema,
   generateMetaDescription,
+  generateMetaTitle,
   generateProductSchema,
   generateSlug,
   getIndexableRobotsMetadata,
   getProductUrl,
 } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
+import { normalizeStorefrontCanonicalUrl } from '@/lib/storefront-canonical-url';
 import { getPublishedClusterPosts } from '@/lib/storefront-content/get-published-cluster-posts';
 import { buildProductSemanticModel } from '@/lib/storefront-product/build-product-semantic-model';
 import { getStorefrontProductSocialMetadata } from '@/lib/storefront-product-social-metadata';
 import { normalizeStorefrontProductVariants } from '@/lib/storefront-product-variants';
+import {
+  DEFAULT_STORE_NAME,
+  DEFAULT_STOREFRONT_SEO_CATEGORY,
+} from '@/lib/storefront-seo-defaults';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 
@@ -420,7 +426,7 @@ const getProduct = async (
       typeof product.compare_at_price === 'string'
         ? Number.parseFloat(product.compare_at_price) || undefined
         : product.compare_at_price,
-    manage_stock: product.manage_stock ?? true,
+    manage_stock: product.manage_stock ?? false,
     stock: getEffectiveStock(product),
     image: primaryImage,
     imageLarge: primaryImage,
@@ -489,24 +495,59 @@ export async function generateMetadata({
   redirectInvalidVariantSelectionParams(slug, product, resolvedSearchParams);
 
   // Construct canonical URL:
-  // 1. Use explicit canonical from product data if available
-  // 2. OR build the base path using getProductUrl (which handles categories)
-  let canonicalUrl = product.canonical_url;
+  // 1. Use explicit canonical from product data if available AND it matches
+  //    the final PDP path (otherwise the canonical would itself redirect).
+  // 2. OR build the base path using getProductUrl (which handles categories).
+  const finalProductPath = getProductUrl({
+    ...product,
+    canonical_url: null,
+  });
+  let canonicalUrl = normalizeStorefrontCanonicalUrl(
+    product.canonical_url,
+    baseUrl
+  );
+
+  if (canonicalUrl) {
+    try {
+      const canonicalPath =
+        new URL(canonicalUrl).pathname.replace(/\/+$/, '') || '/';
+      const normalizedFinalPath = finalProductPath.replace(/\/+$/, '') || '/';
+      if (canonicalPath !== normalizedFinalPath) {
+        canonicalUrl = undefined;
+      }
+    } catch {
+      canonicalUrl = undefined;
+    }
+  }
 
   if (!canonicalUrl) {
-    // Generate the correct path (e.g. /category/product)
-    const productPath = getProductUrl(product);
-    canonicalUrl = `${baseUrl}${productPath}`;
+    canonicalUrl = `${baseUrl}${finalProductPath}`;
   }
+  const productCategoryName =
+    product.categories?.name ||
+    product.category ||
+    DEFAULT_STOREFRONT_SEO_CATEGORY;
+  const merchantDisplayName = merchant?.business_name || DEFAULT_STORE_NAME;
   const seoDescription = generateMetaDescription(
-    product.meta_description ||
-      product.description ||
-      `Buy ${product.name} at ${merchant?.business_name || 'Ogabassey'}. Best price and fast delivery.`
+    product.meta_description || product.description || '',
+    160,
+    {
+      minLength: 110,
+      fallback: `Buy ${product.name} from ${merchantDisplayName}. Shop trusted ${productCategoryName} with delivery and flexible payment options.`,
+    }
   );
   const socialMetadata = getStorefrontProductSocialMetadata(
     baseUrl,
     product,
     merchant.payout_currency || 'USD'
+  );
+  const metadataTitle = generateMetaTitle(
+    product.meta_title || `${product.name} - ${productCategoryName}`,
+    {
+      maxLength: 70,
+      suffix: merchantDisplayName,
+      fallback: product.name || productCategoryName,
+    }
   );
 
   const socialMedia = merchant?.social_media as
@@ -514,9 +555,7 @@ export async function generateMetadata({
     | undefined;
 
   return {
-    title:
-      product.meta_title ||
-      `${product.name} | ${merchant?.business_name || 'Baci Store'}`,
+    title: metadataTitle,
     description: seoDescription,
     keywords: product.keywords,
     alternates: {
@@ -524,7 +563,7 @@ export async function generateMetadata({
     },
     robots: getIndexableRobotsMetadata(),
     openGraph: {
-      title: product.meta_title || product.name,
+      title: metadataTitle,
       description: seoDescription,
       images: socialMetadata.openGraphImages,
       url: canonicalUrl,
@@ -533,7 +572,7 @@ export async function generateMetadata({
     },
     twitter: {
       card: 'summary_large_image',
-      title: product.meta_title || product.name,
+      title: metadataTitle,
       description: seoDescription,
       images: socialMetadata.twitterImages,
       ...(socialMedia?.twitter && {

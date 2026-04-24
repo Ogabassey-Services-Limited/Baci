@@ -18,3 +18,30 @@ export function canonicalizeCategorySlug(
   const normalized = slug?.trim().toLowerCase();
   return normalized || null;
 }
+
+export function normalizeStorefrontCanonicalUrl(
+  canonicalUrl: string | null | undefined,
+  baseUrl: string
+): string | undefined {
+  const normalizedCanonical = canonicalUrl?.trim();
+  if (!normalizedCanonical) {
+    return undefined;
+  }
+
+  try {
+    const storeOrigin = new URL(baseUrl).origin;
+    const canonical = new URL(normalizedCanonical, baseUrl);
+
+    if (canonical.origin !== storeOrigin) {
+      const rewritten = new URL(storeOrigin);
+      rewritten.pathname = canonical.pathname;
+      rewritten.search = canonical.search;
+      rewritten.hash = canonical.hash;
+      return rewritten.toString();
+    }
+
+    return canonical.toString();
+  } catch {
+    return undefined;
+  }
+}

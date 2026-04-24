@@ -64,7 +64,7 @@ export function getProductLowStockThreshold(
 export function getProductStockBucket(
   product: ProductInventoryLike
 ): ProductStockBucket {
-  if (product.manage_stock === false) {
+  if (product.manage_stock !== true) {
     return 'unmanaged';
   }
 

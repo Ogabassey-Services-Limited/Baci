@@ -78,7 +78,7 @@ export function mapStorefrontProduct(p: RawDbProduct) {
     images: processedImages,
     has_variants: p.has_variants,
     sku: p.sku,
-    manage_stock: (p.manage_stock as boolean | undefined) ?? true,
+    manage_stock: (p.manage_stock as boolean | undefined) ?? false,
     low_stock_threshold: p.low_stock_threshold,
     specifications: p.specifications,
     product_key_specs: normalized.product_key_specs,

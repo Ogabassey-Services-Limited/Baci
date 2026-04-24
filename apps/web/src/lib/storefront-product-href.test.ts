@@ -30,12 +30,85 @@ describe('getStorefrontProductHref', () => {
     ).toBe('/ogabassey/smartphones/iphone-15-pro-max');
   });
 
+  it('preserves merchant-defined category slugs when building hrefs', () => {
+    expect(
+      getStorefrontProductHref(
+        {
+          id: 'p1',
+          name: 'Samsung Galaxy S25 Ultra',
+          slug: 'samsung-galaxy-s25-ultra-12gb-512gb',
+          categories: { slug: 'samsung' },
+        },
+        '/ogabassey'
+      )
+    ).toBe('/ogabassey/samsung/samsung-galaxy-s25-ultra-12gb-512gb');
+  });
+
   it('falls back to the products route when category data is unavailable', () => {
     expect(
       getStorefrontProductHref(
         {
           id: 'p1',
           name: 'Test Product',
+        },
+        '/ogabassey'
+      )
+    ).toBe('/ogabassey/products/test-product');
+  });
+
+  it('prefers canonical_url over legacy category path fields', () => {
+    expect(
+      getStorefrontProductHref(
+        {
+          id: 'p1',
+          name: 'Nintendo Switch OLED',
+          slug: 'nintendo-switch-oled-8gb-512gb',
+          categories: { slug: 'nintendo-switch' },
+          canonical_url:
+            'https://usebaci.com/ogabassey/gaming/nintendo-switch-oled',
+        },
+        '/ogabassey'
+      )
+    ).toBe('/ogabassey/gaming/nintendo-switch-oled');
+  });
+
+  it('preserves merchant-defined canonical category slugs', () => {
+    expect(
+      getStorefrontProductHref(
+        {
+          id: 'p1',
+          name: 'Samsung Galaxy S25 Ultra',
+          slug: 'samsung-galaxy-s25-ultra-12gb-1tb',
+          canonical_url: '/samsung/samsung-galaxy-s25-ultra',
+        },
+        '/'
+      )
+    ).toBe('/samsung/samsung-galaxy-s25-ultra');
+  });
+
+  it('falls back to category/slug resolution when canonical_url is malformed', () => {
+    expect(
+      getStorefrontProductHref(
+        {
+          id: 'p1',
+          name: 'Nintendo Switch OLED',
+          slug: 'nintendo-switch-oled',
+          categories: { slug: 'gaming' },
+          canonical_url: 'http://%',
+        },
+        '/ogabassey'
+      )
+    ).toBe('/ogabassey/gaming/nintendo-switch-oled');
+  });
+
+  it('falls back to the products route when canonical_url is blank', () => {
+    expect(
+      getStorefrontProductHref(
+        {
+          id: 'p1',
+          name: 'Test Product',
+          slug: 'test-product',
+          canonical_url: '   ',
         },
         '/ogabassey'
       )

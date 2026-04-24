@@ -6,11 +6,13 @@ import {
   generateBreadcrumbSchema,
   generateCollectionPageSchema,
   generateMetaDescription,
+  generateMetaTitle,
   generateOrganizationSchema,
   generateProductSchema,
   generateSlug,
   getEffectiveProductStock,
   getIndexableRobotsMetadata,
+  getProductUrl,
 } from './seo-utils';
 import type { MerchantTrustProfile } from './storefront-trust/merchant-trust-profile-types';
 
@@ -55,18 +57,14 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
     expect(schema.variesBy).toBeUndefined();
   });
 
-  it('keeps google_product_category out of schema.org product markup', () => {
-    const schema = generateProductSchema(
-      makeProduct({
-        google_product_category:
-          'Electronics > Communications > Telephony > Mobile Phones',
-      }),
-      'TestStore',
-      'USD',
-      'NG'
-    );
+  it('does not emit non-schema google_product_category on Product markup', () => {
+    const product = makeProduct({
+      google_product_category:
+        'Electronics > Communications > Telephony > Mobile Phones',
+    });
+    const schema = generateProductSchema(product, 'TestStore', 'USD', 'NG');
 
-    expect(schema.google_product_category).toBeUndefined();
+    expect(schema).not.toHaveProperty('google_product_category');
   });
 
   it('outputs @type ProductGroup when variants exist', () => {
@@ -186,6 +184,64 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
     expect(variants[0].sku).toBe('v1');
   });
 
+  it('includes brand, identifiers, description, color, and inferred size on variant product nodes', () => {
+    const product = makeProduct({
+      description: 'A flagship device with variant-specific merchandising.',
+      brand: 'Samsung',
+      gtin: '1234567890123',
+      mpn: 'SM-S25-256-JB',
+      variants: [
+        {
+          id: 'v1',
+          product_id: 'test-123',
+          merchant_id: 'm1',
+          attributes: {
+            color: 'Titanium Jetblack',
+            storage: '256GB',
+            ram: '12GB',
+          },
+          stock_quantity: 5,
+        },
+      ],
+    });
+
+    const schema = generateProductSchema(product, 'TestStore', 'USD', 'NG');
+    const variants = schema.hasVariant as Record<string, unknown>[];
+
+    expect(variants[0]?.brand).toEqual({
+      '@type': 'Brand',
+      name: 'Samsung',
+    });
+    expect(variants[0]?.gtin).toBe('1234567890123');
+    expect(variants[0]?.mpn).toBe('SM-S25-256-JB');
+    expect(variants[0]?.description).toBe(
+      'A flagship device with variant-specific merchandising.'
+    );
+    expect(variants[0]?.color).toBe('Titanium Jetblack');
+    expect(variants[0]?.size).toBe('256GB / 12GB');
+  });
+
+  it('omits color and size when variant attributes do not provide them', () => {
+    const product = makeProduct({
+      variants: [
+        {
+          id: 'v1',
+          product_id: 'test-123',
+          merchant_id: 'm1',
+          attributes: { processor: 'Snapdragon 8 Elite' },
+          stock_quantity: 5,
+        },
+      ],
+    });
+
+    const schema = generateProductSchema(product, 'TestStore', 'USD', 'NG');
+    const variants = schema.hasVariant as Record<string, unknown>[];
+
+    expect(variants[0]?.description).toBe('A test product');
+    expect(variants[0]).not.toHaveProperty('color');
+    expect(variants[0]).not.toHaveProperty('size');
+  });
+
   it('computes variesBy with deduplication and excludes unsupported keys', () => {
     const product = makeProduct({
       variants: [
@@ -256,64 +312,6 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
 
     expect(v1Offer.availability).toBe('https://schema.org/OutOfStock');
     expect(v2Offer.availability).toBe('https://schema.org/InStock');
-  });
-
-  it('reports InStock for unmanaged-stock product offers even when stock counters are zero', () => {
-    // Single-offer fallback (no variants, no offers array).
-    const product = makeProduct({ manage_stock: false, stock: 0 });
-    const schema = generateProductSchema(product, 'TestStore', 'USD', 'NG');
-    const productOffer = schema.offers as Record<string, unknown>;
-    expect(productOffer.availability).toBe('https://schema.org/InStock');
-  });
-
-  it('reports InStock for unmanaged-stock variant offers even when variant.stock_quantity is 0', () => {
-    const product = makeProduct({
-      manage_stock: false,
-      stock: 0,
-      variants: [
-        {
-          id: 'v1',
-          product_id: 'test-123',
-          merchant_id: 'm1',
-          attributes: { storage: '128GB' },
-          stock_quantity: 0,
-        },
-      ],
-    });
-    const schema = generateProductSchema(product, 'TestStore', 'USD', 'NG');
-    const variants = schema.hasVariant as Record<string, unknown>[];
-    const v1Offer = variants[0].offers as Record<string, unknown>;
-    expect(v1Offer.availability).toBe('https://schema.org/InStock');
-  });
-
-  it('reports InStock for unmanaged-stock per-condition offers even when stock_quantity is 0', () => {
-    // Condition-based offers array path (no variants): each offer entry
-    // produces its own Offer node and must honour manage_stock=false.
-    const product = makeProduct({
-      manage_stock: false,
-      stock: 0,
-      has_condition_offers: true,
-      offers: [
-        {
-          id: 'offer-new',
-          condition: 'new',
-          price: 100,
-          stock_quantity: 0,
-        },
-        {
-          id: 'offer-used',
-          condition: 'used',
-          price: 80,
-          stock_quantity: 0,
-        },
-      ],
-    });
-    const schema = generateProductSchema(product, 'TestStore', 'USD', 'NG');
-    const offers = schema.offers as Record<string, unknown>[];
-    expect(Array.isArray(offers)).toBe(true);
-    expect(offers).toHaveLength(2);
-    expect(offers[0].availability).toBe('https://schema.org/InStock');
-    expect(offers[1].availability).toBe('https://schema.org/InStock');
   });
 
   it('includes variant-level images with fallback to parent images', () => {
@@ -541,6 +539,116 @@ describe('generateMetaDescription', () => {
       )
     ).toBe('Shop phones, laptops and consoles.');
   });
+
+  it('extends short descriptions when minLength fallback options are provided', () => {
+    expect(
+      generateMetaDescription('2-in-1', 160, {
+        minLength: 110,
+        fallback:
+          'Buy premium laptops in Nigeria with nationwide delivery and flexible payment options.',
+      })
+    ).toContain('Buy premium laptops in Nigeria');
+  });
+
+  it('uses the fallback description when the source description is empty', () => {
+    expect(
+      generateMetaDescription('', 160, {
+        minLength: 110,
+        fallback:
+          'Compare smartphones, laptops, and accessories with trusted quality and fast delivery across Nigeria.',
+      })
+    ).toBe(
+      'Compare smartphones, laptops, and accessories with trusted quality and fast delivery across Nigeria.'
+    );
+  });
+});
+
+describe('generateMetaTitle', () => {
+  it('removes duplicated suffixes and keeps a single merchant suffix', () => {
+    expect(
+      generateMetaTitle('Buy Smartphones in Nigeria | Ogabassey | Ogabassey', {
+        suffix: 'Ogabassey',
+        maxLength: 70,
+      })
+    ).toBe('Buy Smartphones in Nigeria | Ogabassey');
+  });
+
+  it('adds suffix when missing and trims long titles', () => {
+    const title = generateMetaTitle(
+      "Introducing the iPhone 15 Series: Apple's Next Evolution in Smartphones",
+      {
+        suffix: 'Ogabassey',
+        maxLength: 70,
+      }
+    );
+
+    expect(title).toContain('Ogabassey');
+    expect(title.length).toBeLessThanOrEqual(70);
+  });
+
+  it('deduplicates suffixes that include regex metacharacters', () => {
+    expect(
+      generateMetaTitle('Buy Smartphones | Oga(bassey)+? | Oga(bassey)+?', {
+        suffix: 'Oga(bassey)+?',
+        maxLength: 70,
+      })
+    ).toBe('Buy Smartphones | Oga(bassey)+?');
+  });
+
+  it('does not treat an inline substring as an existing suffix', () => {
+    expect(
+      generateMetaTitle('MacBook Pro 16', {
+        suffix: 'Pro',
+        maxLength: 70,
+      })
+    ).toBe('MacBook Pro 16 | Pro');
+  });
+});
+
+describe('getProductUrl', () => {
+  it('falls back to the slug-based storefront path when canonical_url is absent', () => {
+    expect(
+      getProductUrl(
+        makeProduct({
+          category: 'Phones',
+          slug: 'test-product',
+        })
+      )
+    ).toBe('/smartphones/test-product');
+  });
+
+  it('uses a same-domain canonical_url without double-prefixing the path', () => {
+    expect(
+      getProductUrl(
+        makeProduct({
+          canonical_url: 'https://usebaci.com/products/test-product',
+          slug: 'test-product',
+        })
+      )
+    ).toBe('/products/test-product');
+  });
+
+  it('falls back predictably when canonical_url is malformed', () => {
+    expect(
+      getProductUrl(
+        makeProduct({
+          canonical_url: 'https://[invalid',
+          slug: 'test-product',
+        })
+      )
+    ).toBe('/products/test-product');
+  });
+
+  it('rewrites alias-first canonical paths to their canonical storefront root', () => {
+    expect(
+      getProductUrl(
+        makeProduct({
+          canonical_url: 'https://usebaci.com/phones/iphone-15/black',
+          slug: 'iphone-15',
+        })
+      )
+    ).toBe('/smartphones/iphone-15/black');
+  });
 });
 
 describe('generateBreadcrumbSchema', () => {
@@ -557,18 +665,40 @@ describe('generateBreadcrumbSchema', () => {
         {
           '@type': 'ListItem',
           position: 1,
-          item: {
-            '@id': 'https://ogabassey.com',
-            name: 'Ogabassey',
-          },
+          name: 'Ogabassey',
+          item: 'https://ogabassey.com/',
         },
         {
           '@type': 'ListItem',
           position: 2,
-          item: {
-            '@id': 'https://ogabassey.com/smartphones',
-            name: 'Smartphones',
-          },
+          name: 'Smartphones',
+          item: 'https://ogabassey.com/smartphones',
+        },
+      ],
+    });
+  });
+
+  it('falls back to a root item URL when the caller passes an empty breadcrumb url', () => {
+    const schema = generateBreadcrumbSchema([
+      { name: 'Home', url: '' },
+      { name: 'Gaming Accessories', url: '/gaming-accessories' },
+    ]);
+
+    expect(schema).toEqual({
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        {
+          '@type': 'ListItem',
+          position: 1,
+          name: 'Home',
+          item: '/',
+        },
+        {
+          '@type': 'ListItem',
+          position: 2,
+          name: 'Gaming Accessories',
+          item: '/gaming-accessories',
         },
       ],
     });
@@ -609,36 +739,6 @@ describe('generateCollectionPageSchema', () => {
       'https://ogabassey.com/images/iphone-16-large.jpg'
     );
     expect(offers.url).toBe('https://ogabassey.com/smartphones/iphone-16');
-  });
-
-  it('reports InStock for unmanaged-stock items in CollectionPage itemList offers even when stock is 0', () => {
-    const schema = generateCollectionPageSchema({
-      name: 'Smartphones',
-      description: 'Shop smartphones',
-      url: 'https://ogabassey.com/smartphones',
-      merchantName: 'Ogabassey',
-      currency: 'NGN',
-      products: [
-        makeProduct({
-          name: 'iPhone 16',
-          slug: 'iphone-16',
-          category: 'Smartphones',
-          manage_stock: false,
-          stock: 0,
-        }),
-      ],
-    });
-
-    const listItem = (
-      (schema.mainEntity as Record<string, unknown>).itemListElement as Record<
-        string,
-        unknown
-      >[]
-    )[0];
-    const product = listItem.item as Record<string, unknown>;
-    const offers = product.offers as Record<string, unknown>;
-
-    expect(offers.availability).toBe('https://schema.org/InStock');
   });
 
   it('omits the page url when the collection URL cannot be normalized', () => {
@@ -686,6 +786,118 @@ describe('generateCollectionPageSchema', () => {
     expect(product.image).toBe(
       'https://ogabassey.com/images/iphone-16-large.jpg?fit=cover&width=1200'
     );
+  });
+
+  it('includes brand plus shipping and return policy on collection-page product offers', () => {
+    const schema = generateCollectionPageSchema({
+      name: 'Smartphones',
+      description: 'Shop smartphones',
+      url: 'https://ogabassey.com/smartphones',
+      merchantName: 'Ogabassey',
+      currency: 'NGN',
+      country: 'NG',
+      trustProfile: makeTrustProfile({
+        returnPolicy: {
+          summary: 'Returns accepted within 10 days.',
+          windowDays: 10,
+          returnMethod: 'mail',
+          returnFees: 'free',
+          localRoute: '/returns',
+        },
+        shippingPolicy: {
+          summary: 'Ships nationwide.',
+          regions: ['NG'],
+          handlingDaysMin: 1,
+          handlingDaysMax: 2,
+          transitDaysMin: 2,
+          transitDaysMax: 4,
+          shippingFeeType: 'free',
+          localRoute: '/shipping',
+        },
+      }),
+      products: [
+        makeProduct({
+          name: 'Galaxy S25 Edge',
+          brand: 'Samsung',
+          gtin: '0123456789012',
+          image: '/images/galaxy-s25-edge.jpg',
+        }),
+      ],
+    });
+
+    const listItem = (
+      (schema.mainEntity as Record<string, unknown>).itemListElement as Record<
+        string,
+        unknown
+      >[]
+    )[0];
+    const product = listItem.item as Record<string, unknown>;
+    const offer = product.offers as Record<string, unknown>;
+    const brand = product.brand as Record<string, unknown>;
+    const shipping = offer.shippingDetails as Record<string, unknown>;
+    const returnPolicy = offer.hasMerchantReturnPolicy as Record<
+      string,
+      unknown
+    >;
+
+    expect(brand).toEqual({
+      '@type': 'Brand',
+      name: 'Samsung',
+    });
+    expect(product.gtin).toBe('0123456789012');
+    expect(shipping['@type']).toBe('OfferShippingDetails');
+    expect(
+      (shipping.shippingDestination as Record<string, unknown>).addressCountry
+    ).toBe('NG');
+    expect(returnPolicy['@type']).toBe('MerchantReturnPolicy');
+    expect(returnPolicy.merchantReturnDays).toBe(10);
+  });
+
+  it('keeps unmanaged products InStock in collection offers', () => {
+    const schema = generateCollectionPageSchema({
+      name: 'Smartphones',
+      description: 'Shop smartphones',
+      url: 'https://ogabassey.com/smartphones',
+      merchantName: 'Ogabassey',
+      currency: 'NGN',
+      products: [
+        makeProduct({
+          name: 'Galaxy S25',
+          manage_stock: false,
+          stock: 0,
+        }),
+      ],
+    });
+
+    const listItem = (
+      (schema.mainEntity as Record<string, unknown>).itemListElement as Record<
+        string,
+        unknown
+      >[]
+    )[0];
+    const product = listItem.item as Record<string, unknown>;
+    const offer = product.offers as Record<string, unknown>;
+
+    expect(offer.availability).toBe('https://schema.org/InStock');
+  });
+
+  it('stores numberOfItems on ItemList (not CollectionPage)', () => {
+    const schema = generateCollectionPageSchema({
+      name: 'Smartphones',
+      description: 'Shop smartphones',
+      url: 'https://ogabassey.com/smartphones',
+      merchantName: 'Ogabassey',
+      currency: 'NGN',
+      products: [
+        makeProduct({ name: 'Galaxy S25' }),
+        makeProduct({ id: 'p2', name: 'iPhone 16' }),
+      ],
+    });
+
+    const itemList = schema.mainEntity as Record<string, unknown>;
+
+    expect(schema).not.toHaveProperty('numberOfItems');
+    expect(itemList.numberOfItems).toBe(2);
   });
 });
 
@@ -769,6 +981,61 @@ describe('generateProductSchema - condition mapping', () => {
       'https://schema.org/RefurbishedCondition'
     );
     expect(secondOffer.itemCondition).toBe('https://schema.org/NewCondition');
+  });
+
+  it('keeps condition offers as InStock when manage_stock is disabled', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        manage_stock: false,
+        has_condition_offers: true,
+        offers: [
+          {
+            id: 'offer-unmanaged',
+            condition: 'new',
+            price: 500000,
+            stock_quantity: 0,
+          },
+        ],
+      }),
+      'TestStore',
+      'NGN',
+      'NG'
+    );
+
+    const availability = (
+      (schema.offers as Record<string, unknown>[])[0] as Record<string, unknown>
+    ).availability;
+
+    expect(availability).toBe('https://schema.org/InStock');
+  });
+
+  it('keeps variant offers as InStock when manage_stock is disabled', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        manage_stock: false,
+        has_variants: true,
+        variants: [
+          {
+            id: 'variant-unmanaged',
+            product_id: 'test-123',
+            merchant_id: 'm1',
+            condition: 'new',
+            attributes: { storage: '128GB' },
+            price_override: 500000,
+            stock_quantity: 0,
+          },
+        ],
+      }),
+      'TestStore',
+      'NGN',
+      'NG'
+    );
+
+    const variants = schema.hasVariant as Record<string, unknown>[];
+    const availability = (variants[0]?.offers as Record<string, unknown>)
+      .availability;
+
+    expect(availability).toBe('https://schema.org/InStock');
   });
 });
 

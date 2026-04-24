@@ -117,6 +117,8 @@ vi.mock('@/lib/seo-utils', () => ({
   generateAggregateRating: () => null,
   generateBreadcrumbSchema: (items: unknown) =>
     mockGenerateBreadcrumbSchema(items),
+  generateMetaTitle: (title: string, options?: { suffix?: string }) =>
+    options?.suffix ? `${title} | ${options.suffix}` : title,
   generateMetaDescription: (description: string, maxLength = 160) => {
     const plainText = description.replace(/<[^>]+>/g, '').trim();
     return plainText.length <= maxLength
@@ -142,13 +144,35 @@ vi.mock('@/lib/store-url', () => ({
     m.custom_domain
       ? `https://${m.custom_domain}`
       : `https://${m.slug}.usebaci.com`,
+  // Mirror real `buildRequestScopedStoreUrl` semantics: the x-custom-domain
+  // header is only trusted when it matches the merchant's configured custom
+  // domain. Otherwise fall back through x-forwarded-host → host → the
+  // canonical merchant URL. This prevents future regressions where an
+  // untrusted header gets echoed into canonical URLs.
   buildRequestScopedStoreUrl: (
     merchant: { slug: string; custom_domain?: string },
-    _headers: Headers
-  ) =>
-    merchant.custom_domain
+    headers: Headers
+  ) => {
+    const headerDomain = headers.get('x-custom-domain')?.toLowerCase();
+    const merchantDomain = merchant.custom_domain?.toLowerCase();
+    if (headerDomain && merchantDomain && headerDomain === merchantDomain) {
+      return `https://${merchant.custom_domain}`;
+    }
+
+    const forwardedHost = headers.get('x-forwarded-host');
+    if (forwardedHost) {
+      return `https://${forwardedHost}`;
+    }
+
+    const host = headers.get('host');
+    if (host) {
+      return `https://${host}`;
+    }
+
+    return merchant.custom_domain
       ? `https://${merchant.custom_domain}`
-      : `https://${merchant.slug}.usebaci.com`,
+      : `https://${merchant.slug}.usebaci.com`;
+  },
 }));
 
 vi.mock('@/lib/storefront-product-variants', () => ({
@@ -425,6 +449,35 @@ describe('products/[productSlug] page', () => {
         'https://teststore.usebaci.com/products/mystery-item'
       );
       expect(metadata.title).toContain('Mystery Item');
+    });
+
+    it('normalizes canonical_url host to the request-scoped storefront domain', async () => {
+      mockGetRequestScopedMerchant.mockResolvedValueOnce({
+        ...baseMerchant,
+        custom_domain: 'ogabassey.com',
+      });
+      mockGetCachedProduct.mockResolvedValue({
+        ...uncategorizedProduct,
+        canonical_url: 'https://usebaci.com/products/mystery-item',
+      });
+      mockHeaders.mockReturnValue(
+        makeHeaders({ 'x-custom-domain': 'ogabassey.com' })
+      );
+
+      const metadata = await generateMetadata(
+        {
+          params: Promise.resolve({
+            slug: 'teststore',
+            productSlug: 'mystery-item',
+          }),
+          searchParams: Promise.resolve({}),
+        },
+        Promise.resolve({}) as never
+      );
+
+      expect(metadata.alternates?.canonical).toBe(
+        'https://ogabassey.com/products/mystery-item'
+      );
     });
   });
 

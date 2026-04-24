@@ -27,6 +27,28 @@ vi.mock('@/lib/storefront-compare/build-commercial-support-links', () => ({
 
 vi.mock('@/lib/seo-utils', () => ({
   generateSlug: vi.fn((str: string) => str.toLowerCase().replace(/\s+/g, '-')),
+  getProductUrl: vi.fn(
+    (product: {
+      id: string;
+      slug?: string | null;
+      category_slug?: string | null;
+      categories?: { slug?: string | null } | null;
+      canonical_url?: string | null;
+    }) => {
+      if (product.canonical_url) {
+        try {
+          return new URL(product.canonical_url, 'https://storefront.invalid')
+            .pathname;
+        } catch {
+          // fall through to slug/category-based path
+        }
+      }
+
+      const slug = product.slug || product.id;
+      const categorySlug = product.categories?.slug || product.category_slug;
+      return categorySlug ? `/${categorySlug}/${slug}` : `/products/${slug}`;
+    }
+  ),
 }));
 
 function createEq(table: string) {
@@ -41,6 +63,27 @@ function createEq(table: string) {
         value === 'merchant-1');
 
     if (isTerminalQuery) {
+      if (table === 'products') {
+        const rows = Array.isArray(response?.data)
+          ? (response?.data as unknown[])
+          : [];
+
+        return {
+          data: rows,
+          error: response?.error ?? null,
+          order: () => ({
+            range: (from: number, to: number) => ({
+              data: rows.slice(from, to + 1),
+              error: response?.error ?? null,
+            }),
+          }),
+          range: (from: number, to: number) => ({
+            data: rows.slice(from, to + 1),
+            error: response?.error ?? null,
+          }),
+        };
+      }
+
       return {
         data: response?.data ?? [],
         error: response?.error ?? null,
@@ -153,6 +196,7 @@ describe('sitemap-data', () => {
         images: ['https://img.example.com/iphone.jpg'],
         updated_at: '2026-01-15T00:00:00Z',
         category_id: 'cat-1',
+        category_slug: null,
         categories: { slug: 'smartphones' },
       },
     ]);
@@ -173,7 +217,81 @@ describe('sitemap-data', () => {
     });
   });
 
-  it('returns category and blog entries and merges them into the root sitemap', async () => {
+  it('paginates product sitemap queries beyond the Supabase 1000 row default', async () => {
+    setCustomDomainHeader('ogabassey.com');
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+      custom_domain: 'ogabassey.com',
+    });
+
+    mockProductsQuery(
+      Array.from({ length: 1002 }, (_, index) => ({
+        id: `p${index + 1}`,
+        slug: `product-${index + 1}`,
+        category: 'Smartphones',
+        images: [],
+        updated_at: '2026-01-15T00:00:00Z',
+        category_id: 'cat-1',
+        category_slug: null,
+        categories: { slug: 'smartphones' },
+      }))
+    );
+
+    const { resolveStorefrontSitemapContext, getProductSitemapEntries } =
+      await import('./sitemap-data');
+    const context = await resolveStorefrontSitemapContext(
+      mockHeaders as unknown as Headers
+    );
+
+    if (!context) {
+      throw new Error('Expected storefront sitemap context');
+    }
+
+    const entries = await getProductSitemapEntries(context);
+
+    expect(entries).toHaveLength(1002);
+    expect(entries[1001]?.url).toBe(
+      'https://ogabassey.com/smartphones/product-1002'
+    );
+  });
+
+  it('falls back to /products path when category slug is missing', async () => {
+    setCustomDomainHeader('ogabassey.com');
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+      custom_domain: 'ogabassey.com',
+    });
+    mockProductsQuery([
+      {
+        id: 'p2',
+        slug: 'macbook-pro-m4-max-36gb-1tb-16-inch',
+        category: 'Laptops',
+        images: [],
+        updated_at: '2026-01-16T00:00:00Z',
+        category_id: null,
+        category_slug: null,
+        categories: null,
+      },
+    ]);
+    const { resolveStorefrontSitemapContext, getProductSitemapEntries } =
+      await import('./sitemap-data');
+    const context = await resolveStorefrontSitemapContext(
+      mockHeaders as unknown as Headers
+    );
+    if (!context) {
+      throw new Error('Expected storefront sitemap context');
+    }
+
+    const entries = await getProductSitemapEntries(context);
+
+    expect(entries[0]).toMatchObject({
+      url: 'https://ogabassey.com/products/macbook-pro-m4-max-36gb-1tb-16-inch',
+    });
+  });
+
+  it('keeps blog entries out of root sitemap and in the dedicated blog sitemap', async () => {
     setCustomDomainHeader('ogabassey.com');
     mockGetMerchantByIdentifier.mockResolvedValue({
       id: 'merchant-1',
@@ -188,6 +306,7 @@ describe('sitemap-data', () => {
         images: [],
         updated_at: '2026-01-15T00:00:00Z',
         category_id: 'cat-1',
+        category_slug: null,
         categories: { slug: 'smartphones' },
       },
     ]);
@@ -206,6 +325,7 @@ describe('sitemap-data', () => {
       resolveStorefrontSitemapContext,
       getRootSitemapEntries,
       getNamedSitemapEntries,
+      getBlogSitemapEntries,
     } = await import('./sitemap-data');
     const context = await resolveStorefrontSitemapContext(
       mockHeaders as unknown as Headers
@@ -215,10 +335,14 @@ describe('sitemap-data', () => {
     }
 
     const rootEntries = await getRootSitemapEntries(context);
+    const blogEntries = await getBlogSitemapEntries(context);
     const categoryEntries = await getNamedSitemapEntries(context, 'categories');
 
+    expect(rootEntries.some((entry) => entry.url.includes('/blog/'))).toBe(
+      false
+    );
     expect(
-      rootEntries.some(
+      blogEntries.some(
         (entry) =>
           entry.url === 'https://ogabassey.com/blog/best-phones-in-nigeria'
       )

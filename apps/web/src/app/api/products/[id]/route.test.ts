@@ -781,6 +781,11 @@ describe('PUT /api/products/[id]', () => {
 
       expect(res.status).toBe(500);
       expect(json.error).toBe('Failed to create product variants');
+      expect(lastProductUpdatePayload).toEqual(
+        expect.objectContaining({
+          has_variants: true,
+        })
+      );
     });
 
     it('does not send migration_status on legacy-variant updates', async () => {

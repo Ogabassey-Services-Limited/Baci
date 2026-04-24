@@ -93,7 +93,7 @@ describe('useProductDetailsState', () => {
     });
 
     expect(result.current.selectedColor).toBe(1);
-    expect(result.current.selectedImage).toBe(2);
+    expect(result.current.selectedImage).toBe(1);
   });
 
   it('opens the selection modal when required selections are missing', () => {

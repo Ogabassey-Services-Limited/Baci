@@ -5,7 +5,7 @@ import {
   getMerchantByIdentifier,
 } from '@/lib/cached-data';
 import { escapeHtml } from '@/lib/sanitize-core';
-import { generateSlug } from '@/lib/seo-utils';
+import { getProductUrl } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
 import { buildCategorySupportLinks } from '@/lib/storefront-compare/build-commercial-support-links';
 import { resolveRouteIdentifier } from '@/lib/storefront-route-identifier';
@@ -15,9 +15,11 @@ export interface ProductWithCategory {
   id: string;
   slug: string | null;
   category: string | null;
+  canonical_url: string | null;
   images: Array<string | { url: string }> | null;
   updated_at: string | null;
   category_id: string | null;
+  category_slug: string | null;
   categories: { slug: string | null } | null;
 }
 
@@ -27,6 +29,12 @@ interface BlogPostSitemapRow {
   updated_at: string | null;
   featured_image_url: string | null;
 }
+
+const SITEMAP_QUERY_PAGE_SIZE = 1000;
+// Sitemap spec caps a single file at 50,000 URLs. Leave headroom so combined
+// static/category/commercial URLs plus product URLs stay comfortably under the
+// limit in getRootSitemapEntries.
+const SITEMAP_MAX_PRODUCT_URLS = 45_000;
 
 export interface StorefrontSitemapContext {
   merchant: NonNullable<Awaited<ReturnType<typeof getMerchantByIdentifier>>>;
@@ -90,33 +98,65 @@ export async function getProductSitemapEntries({
   merchant,
   storeUrl,
 }: StorefrontSitemapContext): Promise<MetadataRoute.Sitemap> {
-  const { data: products, error } = (await supabase
-    .from('products')
-    .select(
-      'id, slug, category, images, updated_at, category_id, categories:category_id(slug)'
-    )
-    .eq('merchant_id', merchant.id)
-    .eq('status', 'active')) as {
-    data: ProductWithCategory[] | null;
-    error: PostgrestError | null;
-  };
+  const products: ProductWithCategory[] = [];
+  let from = 0;
 
-  if (error) {
-    throw error;
+  while (products.length < SITEMAP_MAX_PRODUCT_URLS) {
+    const remaining = SITEMAP_MAX_PRODUCT_URLS - products.length;
+    const pageSize = Math.min(SITEMAP_QUERY_PAGE_SIZE, remaining);
+    const { data, error } = (await supabase
+      .from('products')
+      .select(
+        'id, slug, category, canonical_url, images, updated_at, category_id, category_slug, categories:category_id(slug)'
+      )
+      .eq('merchant_id', merchant.id)
+      .eq('status', 'active')
+      .order('id', { ascending: true })
+      .range(from, from + pageSize - 1)) as {
+      data: ProductWithCategory[] | null;
+      error: PostgrestError | null;
+    };
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data || data.length === 0) {
+      break;
+    }
+
+    products.push(...data);
+
+    if (data.length < pageSize) {
+      break;
+    }
+
+    from += pageSize;
   }
 
-  if (!products) {
-    throw new Error(`Failed to load products sitemap for ${merchant.id}`);
+  if (products.length === 0) {
+    return [];
   }
 
   return products.map((product) => {
-    const productSlug = product.slug || product.id;
-    const catSlug =
-      product.categories?.slug ||
-      (product.category ? generateSlug(product.category) : null);
-    const url = catSlug
-      ? `${storeUrl}/${catSlug}/${productSlug}`
-      : `${storeUrl}/products/${productSlug}`;
+    const normalizedJoinedCategory =
+      product.categories?.slug && product.categories.slug.trim().length > 0
+        ? { slug: product.categories.slug.trim() }
+        : null;
+    const normalizedCategorySlug =
+      product.category_slug && product.category_slug.trim().length > 0
+        ? product.category_slug.trim()
+        : undefined;
+
+    const url = `${storeUrl}${getProductUrl({
+      id: product.id,
+      slug: product.slug ?? undefined,
+      name: product.slug || product.id,
+      category: product.category,
+      categories: normalizedJoinedCategory,
+      category_slug: normalizedCategorySlug,
+      canonical_url: product.canonical_url,
+    })}`;
 
     const images: string[] = [];
     if (Array.isArray(product.images)) {
@@ -273,13 +313,11 @@ export async function getRootSitemapEntries(
     staticEntries,
     productEntries,
     categoryEntries,
-    blogEntries,
     commercialSupportEntries,
   ] = await Promise.all([
     Promise.resolve(getStaticSitemapEntries(context.storeUrl)),
     getProductSitemapEntries(context),
     getCategorySitemapEntries(context),
-    getBlogSitemapEntries(context),
     getCommercialSupportSitemapEntries(context),
   ]);
 
@@ -287,7 +325,6 @@ export async function getRootSitemapEntries(
     ...staticEntries,
     ...productEntries,
     ...categoryEntries,
-    ...blogEntries,
     ...commercialSupportEntries,
   ];
 }

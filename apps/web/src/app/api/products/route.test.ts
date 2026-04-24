@@ -188,6 +188,7 @@ let variantsInsertError: unknown = null;
 let existingProduct: unknown = null;
 let lastProductsQueryChain: {
   eq: ReturnType<typeof vi.fn>;
+  insert: ReturnType<typeof vi.fn>;
   or: ReturnType<typeof vi.fn>;
 } | null = null;
 
@@ -656,9 +657,10 @@ describe('POST /api/products', () => {
       const bodyWithVariants = {
         ...validCreateBody,
         has_variants: true,
+        color: 'Gold',
         variants: [
           {
-            attributes: { size: 'M', color: 'Red' },
+            attributes: { size: 'M' },
             price: 5000,
             stock_quantity: 10,
             sku: 'SKU-M-RED',
@@ -678,6 +680,15 @@ describe('POST /api/products', () => {
 
       expect(res.status).toBe(201);
       expect(json.product.has_variants).toBe(true);
+      expect(lastProductsQueryChain).toBeDefined();
+      if (!lastProductsQueryChain) {
+        throw new Error('Expected products query chain to be captured');
+      }
+      expect(lastProductsQueryChain.insert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          color: 'Gold',
+        })
+      );
     });
 
     it('triggers embedding generation asynchronously', async () => {

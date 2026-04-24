@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { headers } from 'next/headers';
+import { getCachedFeatureSettings } from '@/lib/cached-data';
 import { resolveStorefrontSitemapContext } from '../../sitemap-data';
 
 export const dynamic = 'force-dynamic';
@@ -14,6 +15,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   if (!context) return [];
   const { merchant, storeUrl, supabase } = context;
+
+  // Mirror the blog feature flag guard used in getCachedBlogListing /
+  // getCachedBlogPost so disabled storefronts don't expose a sitemap
+  // pointing at routes that return 404.
+  const features = await getCachedFeatureSettings(merchant.id);
+  if (!features?.blog_enabled) {
+    return [];
+  }
 
   const { data: posts, error } = await supabase
     .from('blog_posts')

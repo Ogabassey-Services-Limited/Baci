@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { canonicalizeCategorySlug } from '@/lib/storefront-canonical-url';
+import {
+  canonicalizeCategorySlug,
+  normalizeStorefrontCanonicalUrl,
+} from '@/lib/storefront-canonical-url';
 
 describe('canonicalizeCategorySlug', () => {
   it('lowercases mixed-case slugs', () => {
@@ -26,5 +29,59 @@ describe('canonicalizeCategorySlug', () => {
 
   it('preserves numeric tokens', () => {
     expect(canonicalizeCategorySlug('2026')).toBe('2026');
+  });
+});
+
+describe('normalizeStorefrontCanonicalUrl', () => {
+  it('returns undefined when canonical url is empty', () => {
+    expect(
+      normalizeStorefrontCanonicalUrl('   ', 'https://ogabassey.com')
+    ).toBeUndefined();
+  });
+
+  it('rewrites canonical origin to storefront origin when hosts differ', () => {
+    expect(
+      normalizeStorefrontCanonicalUrl(
+        'https://usebaci.com/smartphones/samsung-galaxy-z-fold-6-12gb-256gb',
+        'https://ogabassey.com'
+      )
+    ).toBe(
+      'https://ogabassey.com/smartphones/samsung-galaxy-z-fold-6-12gb-256gb'
+    );
+  });
+
+  it('keeps canonical url when host already matches', () => {
+    expect(
+      normalizeStorefrontCanonicalUrl(
+        'https://ogabassey.com/laptops/macbook-pro-m2-max-32gb-1tb-14-inch',
+        'https://ogabassey.com'
+      )
+    ).toBe('https://ogabassey.com/laptops/macbook-pro-m2-max-32gb-1tb-14-inch');
+  });
+
+  it('returns undefined for malformed canonical urls so callers can fall back', () => {
+    expect(
+      normalizeStorefrontCanonicalUrl('https://%', 'https://ogabassey.com')
+    ).toBeUndefined();
+  });
+
+  it('resolves relative canonicals against the storefront base url', () => {
+    expect(
+      normalizeStorefrontCanonicalUrl(
+        '/products/iphone-17-pro-max?ref=seo#specs',
+        'https://ogabassey.com'
+      )
+    ).toBe('https://ogabassey.com/products/iphone-17-pro-max?ref=seo#specs');
+  });
+
+  it('preserves query strings and fragments when rewriting canonical origins', () => {
+    expect(
+      normalizeStorefrontCanonicalUrl(
+        'https://usebaci.com/smartphones/samsung-galaxy-z-fold-6-12gb-256gb?src=google#reviews',
+        'https://ogabassey.com'
+      )
+    ).toBe(
+      'https://ogabassey.com/smartphones/samsung-galaxy-z-fold-6-12gb-256gb?src=google#reviews'
+    );
   });
 });

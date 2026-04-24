@@ -90,6 +90,27 @@ describe('normalizeStorefrontContentHref', () => {
     ).toBe('/ogabassey/laptops/macbook-air-m4#specs');
   });
 
+  it('preserves merchant-defined samsung/macbook category slugs in root-relative links', () => {
+    expect(
+      normalizeStorefrontContentHref(
+        '/samsung/samsung-galaxy-s25-ultra-12gb-512gb',
+        {
+          basePath: '/ogabassey',
+          baseUrl: 'https://usebaci.com',
+          merchantSlug: 'ogabassey',
+        }
+      )
+    ).toBe('/ogabassey/samsung/samsung-galaxy-s25-ultra-12gb-512gb');
+
+    expect(
+      normalizeStorefrontContentHref('/macbook/macbook-air-13-inch-2020-m1', {
+        basePath: '/ogabassey',
+        baseUrl: 'https://usebaci.com',
+        merchantSlug: 'ogabassey',
+      })
+    ).toBe('/ogabassey/macbook/macbook-air-13-inch-2020-m1');
+  });
+
   it('corrects the misspelled accesories path mapping', () => {
     expect(
       normalizeStorefrontContentHref('/accesories/chargers?ref=nav', {

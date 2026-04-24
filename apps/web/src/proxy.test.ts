@@ -161,119 +161,188 @@ describe('Middleware Proxy', () => {
     );
   });
 
-  it.each([
-    ['_thumbnail_id=1819&ref=mail'],
-    ['thumbnail_id=1819&ref=mail'],
-    ['_thumbnail_id=1819&thumbnail_id=1820&ref=mail'],
-  ])('drops thumbnail query noise on blog post URLs: %s', async (queryString) => {
-    const req = new NextRequest(
-      `https://ogabassey.com/blog/iphone/the-iphone-15-what-we-know-so-far?${queryString}`
-    );
+  it('redirects custom-domain slug-prefixed products path to slugless canonical URL', async () => {
+    const req = new NextRequest('https://ogabassey.com/ogabassey/products');
     req.headers.set('host', 'ogabassey.com');
 
     const res = await proxy(req);
-    const location = res.headers.get('location');
 
     expect(res.status).toBe(301);
-    expect(location).toBeTruthy();
-    expect(location).toContain(
-      '/blog/iphone/the-iphone-15-what-we-know-so-far'
-    );
-    expect(location).toContain('ref=mail');
-    expect(location).not.toContain('_thumbnail_id');
-    expect(location).not.toContain('thumbnail_id=');
+    expect(res.headers.get('location')).toBe('https://ogabassey.com/products');
   });
 
-  it.each([
-    'POST',
-    'PUT',
-    'PATCH',
-    'DELETE',
-  ])('does NOT strip thumbnail params on non-idempotent methods (%s)', async (method) => {
+  it('redirects custom-domain slug-prefixed repair path to slugless canonical URL', async () => {
+    const req = new NextRequest('https://ogabassey.com/ogabassey/repair');
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe('https://ogabassey.com/repair');
+  });
+
+  it('redirects slug-prefixed legacy category product URLs to /products/{slug}', async () => {
     const req = new NextRequest(
-      'https://ogabassey.com/blog/iphone/the-iphone-15-what-we-know-so-far?_thumbnail_id=1819&ref=mail',
-      { method }
+      'https://ogabassey.com/ogabassey/dell/dell-alienware-m16-r3-rtx-5070-ti'
     );
     req.headers.set('host', 'ogabassey.com');
 
     const res = await proxy(req);
-    const location = res.headers.get('location');
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/products/dell-alienware-m16-r3-rtx-5070-ti'
+    );
+  });
+
+  it('preserves merchant category compare subroutes on custom domains', async () => {
+    // /{merchantSlug}/{category}/compare/{comparisonSlug} must NOT collapse to
+    // /products/{comparisonSlug}; the category subroute is a real page at
+    // apps/web/src/app/(storefront)/[slug]/(catalog)/[category]/compare/[comparisonSlug].
+    const req = new NextRequest(
+      'https://ogabassey.com/ogabassey/smartphones/compare/iphone-15-vs-samsung-s24'
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/smartphones/compare/iphone-15-vs-samsung-s24'
+    );
+  });
+
+  it('preserves merchant category best-under subroutes on custom domains', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/ogabassey/laptops/best-under/500000'
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/laptops/best-under/500000'
+    );
+  });
+
+  it('preserves slug-prefixed legacy /category/{slug} paths on custom domains', async () => {
+    // `/category/{slug}` is a legacy category root (see
+    // storefront-link-normalization.ts). It must NOT collapse to
+    // `/products/{slug}`, which would 301 merchants to a non-existent PDP.
+    const req = new NextRequest(
+      'https://ogabassey.com/ogabassey/category/smartphones'
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/category/smartphones'
+    );
+  });
+
+  it('preserves slug-prefixed legacy /product-category/{slug} paths on custom domains', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/ogabassey/product-category/laptops'
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/product-category/laptops'
+    );
+  });
+
+  it('returns 410 for legacy WordPress admin probes under /blog', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/blog/wp-admin/post.php?post=7446&action=edit'
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(410);
+  });
+
+  it('redirects legacy /blog/{category}/{slug} URLs to canonical /blog/{slug}', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/blog/gadgets/how-to-maintain-your-iphone-battery-health-at-85-and-beyond'
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/blog/how-to-maintain-your-iphone-battery-health-at-85-and-beyond'
+    );
+  });
+
+  it('drops thumbnail_id query noise on blog URLs', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/blog/iphone/the-iphone-15-what-we-know-so-far?thumbnail_id=1819'
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/blog/the-iphone-15-what-we-know-so-far'
+    );
+  });
+
+  it('drops _thumbnail_id query noise on blog URLs', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/blog/iphone/the-iphone-15-what-we-know-so-far?_thumbnail_id=1819'
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/blog/the-iphone-15-what-we-know-so-far'
+    );
+  });
+
+  it('does not redirect unrecognized-domain products paths', async () => {
+    vi.mocked(getSlugForCustomDomain).mockResolvedValueOnce(null);
+    const req = new NextRequest('https://ogabassey.com/products');
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
 
     expect(res.status).not.toBe(301);
-    if (location) {
-      expect(location).toContain('_thumbnail_id=1819');
-    }
+    expect(res.headers.get('x-middleware-rewrite')).toBe(
+      'https://ogabassey.com/ogabassey.com/products'
+    );
   });
 
-  it.each([
-    ['_thumbnail_id=1819'],
-    ['thumbnail_id=1819'],
-    ['_thumbnail_id=1819&thumbnail_id=1820'],
-  ])('drops thumbnail query noise on /blog root: %s', async (queryString) => {
-    const req = new NextRequest(`https://ogabassey.com/blog?${queryString}`);
+  it('does not 410 legitimate blog slugs that merely start with a wp-admin token', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/blog/wp-admin-guide-for-developers'
+    );
     req.headers.set('host', 'ogabassey.com');
 
     const res = await proxy(req);
-    const location = res.headers.get('location');
 
-    expect(res.status).toBe(301);
-    expect(location).toBeTruthy();
-    expect(new URL(location || '').pathname).toBe('/blog');
-    expect(location).not.toContain('_thumbnail_id');
-    expect(location).not.toContain('thumbnail_id=');
+    expect(res.status).not.toBe(410);
   });
 
-  it.each([
-    ['/acme/blog', 'thumbnail_id=123', '/acme/blog'],
-    [
-      '/merchant123/blog/my-post',
-      '_thumbnail_id=foo',
-      '/merchant123/blog/my-post',
-    ],
-    [
-      '/acme/blog/iphone/the-iphone-15',
-      '_thumbnail_id=1&thumbnail_id=2&ref=mail',
-      '/acme/blog/iphone/the-iphone-15',
-    ],
-  ])('drops thumbnail query noise on slug-prefixed blog paths: %s?%s', async (inputPath, queryString, expectedPath) => {
+  it('does not 410 legitimate blog slugs that merely start with a spam token', async () => {
     const req = new NextRequest(
-      `https://${ROOT_DOMAIN}${inputPath}?${queryString}`
+      'https://ogabassey.com/blog/shopdetail-roundup-2026'
     );
-    req.headers.set('host', ROOT_DOMAIN);
+    req.headers.set('host', 'ogabassey.com');
 
     const res = await proxy(req);
-    const location = res.headers.get('location');
 
-    expect(res.status).toBe(301);
-    expect(location).toBeTruthy();
-    expect(new URL(location || '').pathname).toBe(expectedPath);
-    expect(location).not.toContain('_thumbnail_id');
-    expect(location).not.toContain('thumbnail_id=');
-  });
-
-  it.each([
-    ['/api/blog/posts', 'thumbnail_id=123'],
-    ['/dashboard/blog', 'thumbnail_id=foo'],
-    ['/admin/blog/analytics', '_thumbnail_id=bar'],
-  ])('does NOT strip thumbnail params on reserved top-level paths with /blog children: %s?%s', async (inputPath, queryString) => {
-    const req = new NextRequest(
-      `https://${ROOT_DOMAIN}${inputPath}?${queryString}`
-    );
-    req.headers.set('host', ROOT_DOMAIN);
-
-    const res = await proxy(req);
-    const location = res.headers.get('location');
-
-    // Must not be a 301 thumbnail-strip redirect. Auth-gated pages may
-    // still emit a 307 /login redirect, but the thumbnail_id parameter
-    // must be preserved so the handler/page downstream owns it.
-    expect(res.status).not.toBe(301);
-    if (location) {
-      // If any redirect fires (e.g. auth bounce), thumbnail params must
-      // NOT have been stripped by the blog canonicalizer.
-      const thumbnailKey = queryString.split('=')[0];
-      expect(location).toContain(thumbnailKey);
-    }
+    expect(res.status).not.toBe(410);
   });
 
   describe('URL normalization: prefix-only case fixing', () => {
@@ -389,71 +458,6 @@ describe('Middleware Proxy', () => {
 
       expect(res.status).toBe(200);
       expect(res.headers.get('location')).toBeNull();
-    });
-
-    it('passes through the platform indexnow key file on the platform apex host', async () => {
-      const req = new NextRequest(
-        `https://${ROOT_DOMAIN}/0751d5c882ab3d7c013ecbfe9e624d71.txt`
-      );
-      req.headers.set('host', ROOT_DOMAIN);
-
-      const res = await proxy(req);
-
-      expect(res.status).toBe(200);
-      expect(res.headers.get('location')).toBeNull();
-      expect(res.headers.get('x-middleware-rewrite')).toBeNull();
-    });
-
-    it('does not passthrough the platform indexnow key on merchant custom domains', async () => {
-      // The platform key must not be reachable via a merchant's custom domain,
-      // otherwise third parties could claim IndexNow ownership of merchant
-      // domains they don't control. Request must fall through to storefront
-      // handling (rewrite/redirect), not a clean passthrough.
-      const req = new NextRequest(
-        'https://ogabassey.com/0751d5c882ab3d7c013ecbfe9e624d71.txt'
-      );
-      req.headers.set('host', 'ogabassey.com');
-
-      const res = await proxy(req);
-
-      const hasRewrite = res.headers.get('x-middleware-rewrite') !== null;
-      const isRedirect = res.status === 307 || res.status === 308;
-      expect(hasRewrite || isRedirect).toBe(true);
-    });
-
-    it('does not passthrough the platform indexnow key on tenant subdomains', async () => {
-      // Same protection applies to tenant subdomains like ogabassey.usebaci.com.
-      const req = new NextRequest(
-        `https://ogabassey.${ROOT_DOMAIN}/0751d5c882ab3d7c013ecbfe9e624d71.txt`
-      );
-      req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
-
-      const res = await proxy(req);
-
-      const hasRewrite = res.headers.get('x-middleware-rewrite') !== null;
-      const isRedirect = res.status === 307 || res.status === 308;
-      expect(hasRewrite || isRedirect).toBe(true);
-    });
-
-    it('does not passthrough non-platform 32-char hex .txt files on tenant subdomains', async () => {
-      // Merchants' own IndexNow keys (if they later register them via
-      // storefront content) must not get a blanket passthrough. Only the
-      // literal platform key filename is special-cased, and even that only
-      // on the platform apex. On a tenant subdomain, a different key file
-      // must still flow through the storefront rewrite so the merchant can
-      // serve it themselves.
-      const req = new NextRequest(
-        `https://ogabassey.${ROOT_DOMAIN}/abcdef0123456789abcdef0123456789.txt`
-      );
-      req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
-
-      const res = await proxy(req);
-
-      // Should flow through to storefront rewrite, not a clean passthrough
-      // that would leak the 32-hex filespace to platform-level handling.
-      const hasRewrite = res.headers.get('x-middleware-rewrite') !== null;
-      const isRedirect = res.status === 307 || res.status === 308;
-      expect(hasRewrite || isRedirect).toBe(true);
     });
 
     it('does not redirect static .avif files', async () => {

@@ -109,11 +109,13 @@ function buildCardDescription(product: ProductSemanticCandidate) {
   return details.join(' • ');
 }
 
+export const MAX_SEMANTIC_SECTION_CARDS = 6;
+
 function buildSectionCards(
   input: BuildProductSemanticModelInput,
   products: ProductSemanticCandidate[]
 ) {
-  return products.slice(0, 3).map(
+  return products.slice(0, MAX_SEMANTIC_SECTION_CARDS).map(
     (product) =>
       ({
         title: product.name,

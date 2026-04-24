@@ -15,9 +15,7 @@ describe('product inventory helpers', () => {
   });
 
   it('prefers legacy stock when stock_quantity drifted to zero', () => {
-    expect(
-      getEffectiveProductStock({ stock: 9, stock_quantity: 0 })
-    ).toBe(9);
+    expect(getEffectiveProductStock({ stock: 9, stock_quantity: 0 })).toBe(9);
   });
 
   it('falls back to the default low-stock threshold when none is configured', () => {
@@ -33,11 +31,30 @@ describe('product inventory helpers', () => {
     ).toBe('unmanaged');
     expect(
       getProductStockBucket({
+        manage_stock: null,
+        stock_quantity: 0,
+      })
+    ).toBe('unmanaged');
+    expect(
+      getProductStockBucket({
         manage_stock: true,
         stock_quantity: 2,
         low_stock_threshold: 3,
       })
     ).toBe('low_stock');
+  });
+
+  it('treats missing manage_stock as unmanaged so callers must populate the field', () => {
+    // Regression guard: partial rows that omit manage_stock should not be
+    // interpreted as managed-with-zero-stock. Callers (e.g. cached SEO
+    // selectors) are required to include manage_stock before bucketing so
+    // structured data reflects the merchant's real inventory mode.
+    expect(
+      getProductStockBucket({
+        stock: 0,
+        stock_quantity: 0,
+      })
+    ).toBe('unmanaged');
   });
 
   it('normalizes stock columns to the same effective value', () => {

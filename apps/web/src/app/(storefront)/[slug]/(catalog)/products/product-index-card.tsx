@@ -76,6 +76,7 @@ export function ProductIndexCard({
     slug: product.slug,
     category: product.category,
     category_slug: product.category_slug,
+    canonical_url: product.canonical_url,
   })}`;
   const conditionBadgeLabel = getConditionBadgeLabel(product);
 
