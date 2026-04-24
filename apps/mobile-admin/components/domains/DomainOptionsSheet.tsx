@@ -62,7 +62,13 @@ export default function DomainOptionsSheet({
       statusBarTranslucent
     >
       {/* Backdrop */}
-      <Pressable style={styles.overlay} onPress={onClose}>
+      <Pressable
+        style={styles.overlay}
+        onPress={onClose}
+        accessibilityRole="button"
+        accessibilityLabel="Close options"
+        accessibilityHint="Closes the domain options menu"
+      >
         <Animated.View
           style={[styles.backdrop, { backgroundColor: 'rgba(0,0,0,0.4)' }]}
         />
@@ -129,6 +135,9 @@ export default function DomainOptionsSheet({
                 },
               ]}
               onPress={() => handleAction('visit')}
+              accessibilityRole="button"
+              accessibilityLabel="Visit Site"
+              accessibilityHint={`Opens ${domain.domain} in a web browser`}
             >
               <View
                 style={[
@@ -160,6 +169,9 @@ export default function DomainOptionsSheet({
                   },
                 ]}
                 onPress={() => handleAction('verify')}
+                accessibilityRole="button"
+                accessibilityLabel="Verify DNS Connection"
+                accessibilityHint="Checks if DNS records are correctly configured to take site live"
               >
                 <View
                   style={[
@@ -206,6 +218,9 @@ export default function DomainOptionsSheet({
                   },
                 ]}
                 onPress={() => handleAction('set_primary')}
+                accessibilityRole="button"
+                accessibilityLabel="Set as Primary Domain"
+                accessibilityHint="Makes this domain your main store link"
               >
                 <View
                   style={[
@@ -259,6 +274,9 @@ export default function DomainOptionsSheet({
                   },
                 ]}
                 onPress={() => handleAction('delete')}
+                accessibilityRole="button"
+                accessibilityLabel="Delete Domain"
+                accessibilityHint="Permanently removes this domain from your store"
               >
                 <View
                   style={[
@@ -287,6 +305,9 @@ export default function DomainOptionsSheet({
                 { backgroundColor: colors.background },
               ]}
               onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel"
+              accessibilityHint="Closes the options menu without making changes"
             >
               <Text style={[styles.cancelText, { color: colors.text }]}>
                 Cancel
