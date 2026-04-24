@@ -156,9 +156,7 @@ describe('ProductDbSchema', () => {
     expect(parsed.price).toBe(900000);
     expect(parsed.stock_quantity).toBe(6);
     expect(parsed.stock).toBe(6);
-    // Variant products always force manage_stock=true, even when the submitted
-    // payload carries a stale `false` from an earlier non-variant configuration.
-    expect(parsed.manage_stock).toBe(true);
+    expect(parsed.manage_stock).toBe(false);
     expect(parsed.color).toBe('Black');
     expect(parsed.variant_attributes).toEqual({
       color: ['Black', 'Silver'],

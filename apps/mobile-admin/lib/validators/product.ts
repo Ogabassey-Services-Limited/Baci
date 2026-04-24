@@ -245,7 +245,7 @@ export const ProductDbSchema = ProductSchema.transform((data) => {
     variantModel === 'sku_matrix'
       ? resolveDefaultVariantSelection({
           price: rest.price,
-          manage_stock: has_variants ? true : rest.manage_stock,
+          manage_stock: rest.manage_stock,
           variants: defaultSelectionVariants,
         })
       : null;
@@ -278,11 +278,7 @@ export const ProductDbSchema = ProductSchema.transform((data) => {
     color: nextColor,
     condition: nextCondition,
     has_variants,
-    // Force managed stock whenever the product exposes variants. Without this
-    // override, toggling `has_variants` on after creating the product as an
-    // unmanaged-stock listing would carry the stale `manage_stock=false` flag
-    // forward and cause variant stock counts to be ignored.
-    manage_stock: has_variants ? true : rest.manage_stock,
+    manage_stock: rest.manage_stock,
     price: nextPrice,
     stock: nextStock,
     stock_quantity: nextStock,
