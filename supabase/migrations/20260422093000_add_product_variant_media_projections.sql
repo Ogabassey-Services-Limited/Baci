@@ -1,6 +1,8 @@
 ALTER TABLE public.products
   ADD COLUMN IF NOT EXISTS color_images JSONB NOT NULL DEFAULT '{}'::jsonb;
 
+-- Keep variant-derived product media as a projection. Merchant-authored
+-- color fields remain the source of truth when has_variants is false.
 CREATE OR REPLACE FUNCTION public.refresh_product_variant_media_projection(
   p_product_id UUID
 )
@@ -12,7 +14,23 @@ AS $$
 DECLARE
   projected_color_images JSONB := '{}'::jsonb;
   projected_color TEXT := NULL;
+  product_has_variants BOOLEAN := FALSE;
 BEGIN
+  SELECT has_variants
+    INTO product_has_variants
+  FROM public.products
+  WHERE id = p_product_id;
+
+  IF product_has_variants IS DISTINCT FROM TRUE THEN
+    UPDATE public.products
+    SET
+      color_images = '{}'::jsonb,
+      updated_at = timezone('utc', now())
+    WHERE id = p_product_id
+      AND color_images IS DISTINCT FROM '{}'::jsonb;
+    RETURN;
+  END IF;
+
   WITH variant_rows AS (
     SELECT
       pv.id,
@@ -34,7 +52,7 @@ BEGIN
   variant_media AS (
     SELECT
       vr.color,
-      NULLIF(btrim(media.image), '') AS image,
+      media.image,
       vr.created_at,
       vr.id,
       media.sort_order
@@ -42,7 +60,16 @@ BEGIN
     CROSS JOIN LATERAL (
       SELECT vr.primary_image AS image, 0 AS sort_order
       UNION ALL
-      SELECT jsonb_array_elements_text(vr.images) AS image, 1 AS sort_order
+      SELECT
+        CASE
+          WHEN jsonb_typeof(image_entry) = 'string' THEN
+            NULLIF(btrim(image_entry #>> '{}'), '')
+          WHEN jsonb_typeof(image_entry) = 'object' THEN
+            NULLIF(btrim(image_entry->>'url'), '')
+          ELSE NULL
+        END AS image,
+        1 AS sort_order
+      FROM jsonb_array_elements(vr.images) AS image_entry
     ) AS media
     WHERE vr.color IS NOT NULL
   ),
@@ -85,13 +112,17 @@ BEGIN
     color_images = projected_color_images,
     color = CASE
       WHEN projected_color IS NOT NULL THEN projected_color
-      WHEN has_variants THEN NULL
       ELSE color
     END,
     updated_at = timezone('utc', now())
-  WHERE id = p_product_id;
+  WHERE id = p_product_id
+    AND has_variants = TRUE;
 END;
 $$;
+
+REVOKE ALL
+ON FUNCTION public.refresh_product_variant_media_projection(UUID)
+FROM PUBLIC;
 
 CREATE OR REPLACE FUNCTION public.sync_product_variant_media_projection()
 RETURNS TRIGGER
@@ -99,14 +130,32 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  previous_product_id UUID := CASE
+    WHEN TG_OP IN ('UPDATE', 'DELETE') THEN OLD.product_id
+    ELSE NULL
+  END;
+  current_product_id UUID := CASE
+    WHEN TG_OP IN ('INSERT', 'UPDATE') THEN NEW.product_id
+    ELSE NULL
+  END;
 BEGIN
-  PERFORM public.refresh_product_variant_media_projection(
-    COALESCE(NEW.product_id, OLD.product_id)
-  );
+  IF current_product_id IS NOT NULL THEN
+    PERFORM public.refresh_product_variant_media_projection(current_product_id);
+  END IF;
+
+  IF previous_product_id IS NOT NULL
+     AND previous_product_id IS DISTINCT FROM current_product_id THEN
+    PERFORM public.refresh_product_variant_media_projection(previous_product_id);
+  END IF;
 
   RETURN COALESCE(NEW, OLD);
 END;
 $$;
+
+REVOKE ALL
+ON FUNCTION public.sync_product_variant_media_projection()
+FROM PUBLIC;
 
 DROP TRIGGER IF EXISTS sync_product_variant_media_projection_on_variants
   ON public.product_variants;

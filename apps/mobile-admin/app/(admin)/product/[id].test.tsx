@@ -68,6 +68,7 @@ vi.mock('react-native', () => ({
     <div>
       {Array.isArray(data) && data.length > 0
         ? data.map((item, index) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: This FlatList mock preserves row identity by position.
             <div key={index}>{renderItem?.({ item, index })}</div>
           ))
         : ListEmptyComponent}
@@ -148,12 +149,7 @@ vi.mock('@/components/product/ProductBasicInformationCard', () => ({
     hideColorField?: boolean;
   }) => {
     mocks.basicInformationCardProps.push({ hideColorField });
-    return (
-      <div>
-        <span>basic-card</span>
-        <span>hide-color-field:{String(hideColorField)}</span>
-      </div>
-    );
+    return <span>hide-color-field:{String(hideColorField)}</span>;
   },
 }));
 
@@ -275,8 +271,6 @@ describe('ProductEditScreen', () => {
   it('hides the color field in basic information when the loaded product uses variants', async () => {
     render(<ProductEditScreen />);
 
-    expect(screen.getByText('basic-card')).toBeInTheDocument();
-
     await waitFor(() => {
       expect(screen.getByText('hide-color-field:true')).toBeInTheDocument();
     });
@@ -294,8 +288,6 @@ describe('ProductEditScreen', () => {
     });
 
     render(<ProductEditScreen />);
-
-    expect(screen.getByText('basic-card')).toBeInTheDocument();
 
     await waitFor(() => {
       expect(screen.getByText('hide-color-field:false')).toBeInTheDocument();
