@@ -10,8 +10,6 @@
 import {
   persistQueryClientRestore,
   persistQueryClientSubscribe,
-  type PersistedQueryClientRestoreOptions,
-  type PersistedQueryClientSaveOptions,
 } from '@tanstack/query-persist-client-core';
 import {
   IsRestoringProvider,
@@ -69,9 +67,7 @@ export function QueryProvider({
         hasRestoredRef.current = true;
         setIsRestoring(true);
         try {
-          await persistQueryClientRestore(
-            persistOptions as unknown as PersistedQueryClientRestoreOptions,
-          );
+          await persistQueryClientRestore(persistOptions);
           log.debug('Cache hydrated from persisted storage');
         } catch (error) {
           log.warn('Cache hydration failed, continuing without restore', error);
@@ -83,9 +79,7 @@ export function QueryProvider({
       }
 
       if (cancelled) return;
-      unsubscribe = persistQueryClientSubscribe(
-        persistOptions as unknown as PersistedQueryClientSaveOptions,
-      );
+      unsubscribe = persistQueryClientSubscribe(persistOptions);
     };
 
     void startPersistence();
