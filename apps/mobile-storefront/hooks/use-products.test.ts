@@ -1,8 +1,9 @@
+import { jest } from '@jest/globals';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react-native';
-import React from 'react';
-import { useMerchant } from '@/hooks/use-merchant';
+import { createElement, type ReactNode } from 'react';
 import { fetchAvailableBrands } from '@/hooks/product-utils';
+import { useMerchant } from '@/hooks/use-merchant';
 import { useProductBrands } from '@/hooks/use-products';
 
 jest.mock('@/hooks/use-merchant', () => ({
@@ -16,8 +17,9 @@ jest.mock('@/hooks/product-utils', () => ({
 }));
 
 const mockUseMerchant = useMerchant as jest.MockedFunction<typeof useMerchant>;
-const mockFetchAvailableBrands =
-  fetchAvailableBrands as jest.MockedFunction<typeof fetchAvailableBrands>;
+const mockFetchAvailableBrands = fetchAvailableBrands as jest.MockedFunction<
+  typeof fetchAvailableBrands
+>;
 
 function createQueryClient() {
   return new QueryClient({
@@ -30,8 +32,8 @@ function createQueryClient() {
 }
 
 function createWrapper(queryClient: QueryClient) {
-  return ({ children }: { children: React.ReactNode }) =>
-    React.createElement(QueryClientProvider, { client: queryClient }, children);
+  return ({ children }: { children: ReactNode }) =>
+    createElement(QueryClientProvider, { client: queryClient }, children);
 }
 
 describe('useProductBrands', () => {

@@ -22,6 +22,8 @@ let mockFilterBarProps: {
 
 export type UseCategoriesResult = {
   data: Array<{ id: string; name: string; slug: string }>;
+  isFetchedAfterMount?: boolean;
+  isFetching?: boolean;
   isLoading?: boolean;
   isError: boolean;
   error?: unknown;
@@ -38,6 +40,7 @@ export type UseProductBrandsResult = {
 export type UseProductsResult = {
   products: Product[];
   total: number;
+  isFetchedAfterMount: boolean;
   isLoading: boolean;
   isFetching: boolean;
   isError: boolean;
@@ -163,6 +166,7 @@ export function mockProductsHook(overrides?: Partial<UseProductsResult>) {
   mockUseProductsFactory.mockReturnValue({
     products: sampleProducts,
     total: sampleProducts.length,
+    isFetchedAfterMount: true,
     isLoading: false,
     isFetching: false,
     isError: false,
@@ -189,6 +193,8 @@ export function resetProductGridTestState() {
       { id: 'cat-phones', name: 'Phones', slug: 'phones' },
       { id: 'cat-laptops', name: 'Laptops', slug: 'laptops' },
     ],
+    isFetchedAfterMount: true,
+    isFetching: false,
     isError: false,
   });
   mockUseProductBrandsFactory.mockReturnValue({
