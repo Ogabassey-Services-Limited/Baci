@@ -167,6 +167,9 @@ export async function StorefrontContent({
     ).values()
   ).slice(0, 20);
   const productDiscoveryLinks = merchantProducts
+    // Skip legacy rows with missing slugs — getProductUrl would derive an
+    // unresolvable slug from the name, generating 404s in discovery links.
+    .filter((product) => product.slug?.trim())
     .map((product) => {
       const canonicalCategorySlug = canonicalizeCategorySlug(
         product.category_slug
