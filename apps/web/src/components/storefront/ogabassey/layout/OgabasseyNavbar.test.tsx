@@ -142,6 +142,7 @@ describe('OgabasseyNavbar', () => {
     expect(hrefs).toEqual(
       expect.arrayContaining([
         '/ogabassey',
+        '/ogabassey/cart',
         '/ogabassey/account',
         '/ogabassey/smartphones',
         '/ogabassey/imei-check',
@@ -212,6 +213,7 @@ describe('OgabasseyNavbar', () => {
     expect(hrefs).toEqual(
       expect.arrayContaining([
         '/',
+        '/cart',
         '/account',
         '/smartphones',
         '/imei-check',

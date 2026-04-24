@@ -23,6 +23,7 @@ import {
   getRequestScopedMerchant,
   sanitizeLookupLogValue,
 } from '@/lib/cached-data';
+import { normalizeStorefrontCategorySlug } from '@/lib/normalize-storefront-category-slug';
 import { getEffectiveStock } from '@/lib/product-stock';
 import type { Product } from '@/lib/products';
 import { escapeHtml } from '@/lib/sanitize-core';
@@ -412,7 +413,15 @@ const getProduct = async (
   const normalizedVariantAttributes =
     normalizeVariantAttributes(rawVariantAttributes);
 
-  // Create extended product with category info
+  // Create extended product with category info.
+  // Default `manage_stock` to `true` so legacy rows with `null` are treated as
+  // managed inventory. Treating missing values as `false` would make
+  // `generateProductSchema` advertise them as `InStock` regardless of actual
+  // stock, which regresses historical data. See seo-utils
+  // `getProductAvailability` — `manage_stock === false` short-circuits to
+  // InStock.
+  const manageStock = product.manage_stock ?? true;
+
   const productWithCategorySlug: Product = {
     ...product,
     product_key_specs:
@@ -426,7 +435,7 @@ const getProduct = async (
       typeof product.compare_at_price === 'string'
         ? Number.parseFloat(product.compare_at_price) || undefined
         : product.compare_at_price,
-    manage_stock: product.manage_stock ?? false,
+    manage_stock: manageStock,
     stock: getEffectiveStock(product),
     image: primaryImage,
     imageLarge: primaryImage,
@@ -452,8 +461,15 @@ const getProduct = async (
     dbCategorySlug ||
     (product.category ? generateSlug(product.category) : null);
 
+  // Compare normalized slugs so alias remaps (e.g. samsung -> smartphones) don't
+  // trigger a redirect loop between the canonical URL and the raw DB slug.
+  const normalizedProductCategorySlug =
+    normalizeStorefrontCategorySlug(productCategorySlug);
+  const normalizedUrlCategorySlug =
+    normalizeStorefrontCategorySlug(categorySlug);
   const categoryMismatch = Boolean(
-    productCategorySlug && productCategorySlug !== categorySlug
+    normalizedProductCategorySlug &&
+      normalizedProductCategorySlug !== normalizedUrlCategorySlug
   );
 
   return {
@@ -504,7 +520,8 @@ export async function generateMetadata({
   });
   let canonicalUrl = normalizeStorefrontCanonicalUrl(
     product.canonical_url,
-    baseUrl
+    baseUrl,
+    merchant.slug
   );
 
   if (canonicalUrl) {

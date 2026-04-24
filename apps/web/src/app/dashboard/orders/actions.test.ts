@@ -56,7 +56,37 @@ const { getOrder, resendOrderConfirmation } = await import('./actions');
 const ORDER_ID = '11111111-1111-4111-8111-111111111111';
 const MERCHANT_ID = 'merchant-456';
 
-const mockOrder = {
+type MockOrderItem = {
+  id: string;
+  name: string;
+  product_id: string;
+  quantity: number;
+  price: number;
+  image_url?: string;
+};
+
+const mockOrder: {
+  id: string;
+  merchant_id: string;
+  order_number: string;
+  customer_name: string;
+  customer_email: string;
+  customer_phone: string;
+  shipping_status: string;
+  payment_status: string;
+  payment_method: string;
+  created_at: string;
+  source: string;
+  subtotal: string;
+  shipping_fee: string;
+  total: string;
+  shipping_address: {
+    address: string;
+    city: string;
+    state: string;
+  };
+  order_items: MockOrderItem[];
+} = {
   id: ORDER_ID,
   merchant_id: MERCHANT_ID,
   order_number: '#ORD-001',
@@ -425,6 +455,28 @@ describe('getOrder', () => {
     expect(orderNumberLookups).toEqual(['ORD-001', '#ORD-001']);
     expect(productsSelect).toHaveBeenCalledWith('id, images');
     expect(productsIn).toHaveBeenCalledWith('id', ['product-1']);
+  });
+
+  it('prefers the stored order item image snapshot over product fallback images', async () => {
+    mockGetOrderQueries({
+      orderRows: [
+        {
+          ...mockOrder,
+          order_items: [
+            {
+              ...mockOrder.order_items[0],
+              image_url: 'https://cdn.example.com/orders/gold-snapshot.avif',
+            },
+          ],
+        },
+      ],
+    });
+
+    const order = await getOrder(MERCHANT_ID, 'ORD-001');
+
+    expect(order?.items[0]?.image).toBe(
+      'https://cdn.example.com/orders/gold-snapshot.avif'
+    );
   });
 
   it('fetches an order by direct uuid lookup', async () => {

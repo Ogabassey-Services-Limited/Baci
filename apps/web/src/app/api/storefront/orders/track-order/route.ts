@@ -37,6 +37,7 @@ interface ShippingAddress {
 interface OrderItemRow {
   id: string;
   product_id: string;
+  image_url?: string | null;
   name: string;
   variant_name?: string;
   quantity: number;
@@ -287,7 +288,8 @@ export async function GET(request: NextRequest) {
           quantity: item.quantity,
           unit_price: item.price,
           total_price: item.price * item.quantity,
-          product_image: extractFirstImageUrl(item.product_images),
+          product_image:
+            item.image_url || extractFirstImageUrl(item.product_images),
         })
       ),
       timeline,

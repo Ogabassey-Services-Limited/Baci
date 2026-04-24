@@ -646,6 +646,67 @@ describe('Order API Security', () => {
       expect(items[0].variant_attributes).toEqual({});
     });
 
+    it('forwards image_url to RPC', async () => {
+      const request = new NextRequest('http://localhost:3000/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...validOrderPayload,
+          user_id: '123e4567-e89b-12d3-a456-426614174099',
+          items: [
+            {
+              ...validOrderPayload.items[0],
+              image_url: 'https://cdn.example.com/gold.jpg',
+            },
+          ],
+        }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBeLessThan(300);
+
+      const latestCall = mockSupabase.rpc.mock.calls.at(-1);
+      expect(latestCall).toBeDefined();
+      const rpcArgs = latestCall?.[1];
+      const items = Array.isArray(rpcArgs.p_items)
+        ? rpcArgs.p_items
+        : JSON.parse(rpcArgs.p_items);
+      expect(items[0].image_url).toBe('https://cdn.example.com/gold.jpg');
+    });
+
+    it.each([
+      'javascript:alert(1)',
+      'JAVASCRIPT:alert(1)',
+      'JavaScript:alert(1)',
+      '  javascript:alert(1)',
+      '\tjavascript:alert(1)',
+      'javascript:alert(1) ',
+      'data:text/html,<script>alert(1)</script>',
+      'vbscript:msgbox(1)',
+      'file:///tmp/unsafe.png',
+      'filesystem:https://example.com/unsafe.png',
+    ])('rejects unsafe image_url schemes before calling the RPC: %s', async (imageUrl) => {
+      const request = new NextRequest('http://localhost:3000/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...validOrderPayload,
+          user_id: '123e4567-e89b-12d3-a456-426614174099',
+          items: [
+            {
+              ...validOrderPayload.items[0],
+              image_url: imageUrl,
+            },
+          ],
+        }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toBe('Invalid request data');
+      expect(mockSupabase.rpc).not.toHaveBeenCalled();
+    });
+
     it('forwards normalized item condition to RPC', async () => {
       const request = new NextRequest('http://localhost:3000/api/orders', {
         method: 'POST',

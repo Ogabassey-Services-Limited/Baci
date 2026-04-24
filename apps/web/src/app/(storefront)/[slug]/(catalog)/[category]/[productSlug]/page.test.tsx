@@ -7,8 +7,10 @@ const { mockNormalizeStorefrontProductVariants, mockProductDetailClient } =
     mockNormalizeStorefrontProductVariants: vi.fn<
       (...args: unknown[]) => Record<string, unknown>[]
     >(() => []),
-    mockProductDetailClient: vi.fn((_props: unknown) => null),
+    mockProductDetailClient: vi.fn<(props: unknown) => null>(() => null),
   }));
+
+const mockGetEffectiveStock = vi.fn<(item: unknown) => number>(() => 0);
 
 const mockHeaders = vi.fn();
 const mockPermanentRedirect = vi.fn((_url: string) => {
@@ -94,7 +96,7 @@ vi.mock('@/lib/storefront-content/get-published-cluster-posts', () => ({
 }));
 
 vi.mock('@/lib/product-stock', () => ({
-  getEffectiveStock: () => 0,
+  getEffectiveStock: (item: unknown) => mockGetEffectiveStock(item),
 }));
 
 vi.mock('@/lib/sanitize-core', () => ({
@@ -169,12 +171,16 @@ vi.mock('@/lib/store-url', () => ({
   buildRequestScopedStoreUrl: (
     merchant: { slug: string; custom_domain?: string },
     headers: Headers
-  ) =>
-    headers.get('x-custom-domain')
-      ? `https://${headers.get('x-custom-domain')}`
-      : merchant.custom_domain
-        ? `https://${merchant.custom_domain}`
-        : `https://${merchant.slug}.usebaci.com`,
+  ) => {
+    const customDomain = headers.get('x-custom-domain')?.trim();
+    if (customDomain) {
+      return `https://${customDomain}`;
+    }
+
+    return merchant.custom_domain
+      ? `https://${merchant.custom_domain}`
+      : `https://${merchant.slug}.usebaci.com`;
+  },
 }));
 
 vi.mock('@/lib/storefront-product-variants', () => ({
@@ -247,6 +253,8 @@ const categorizedDetailedProduct = {
 describe('[category]/[productSlug] page metadata', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetEffectiveStock.mockReset();
+    mockGetEffectiveStock.mockReturnValue(0);
     mockProductDetailClient.mockReset();
     mockProductDetailClient.mockReturnValue(null);
     mockGenerateProductSchema.mockReset();
@@ -450,6 +458,8 @@ describe('[category]/[productSlug] page metadata', () => {
 describe('[category]/[productSlug] page render', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetEffectiveStock.mockReset();
+    mockGetEffectiveStock.mockReturnValue(0);
     mockProductDetailClient.mockReset();
     mockProductDetailClient.mockReturnValue(null);
     mockHeaders.mockReset();
@@ -501,6 +511,43 @@ describe('[category]/[productSlug] page render', () => {
     expect(container.querySelectorAll('h1')).toHaveLength(1);
   });
 
+  it('defaults manage_stock to true when the detailed product omits it', async () => {
+    // Regression: missing `manage_stock` must default to `true` so legacy
+    // rows with `null` are not advertised as `InStock` via
+    // `generateProductSchema` regardless of actual stock. See seo-utils
+    // `getProductAvailability` — `manage_stock === false` short-circuits to
+    // InStock and would mask OutOfStock inventory.
+    mockGetRequestScopedMerchant.mockResolvedValue({
+      ...baseMerchant,
+      template_id: undefined,
+    });
+    mockGetCachedProductWithDetails.mockResolvedValue({
+      ...categorizedDetailedProduct,
+      manage_stock: undefined,
+    });
+
+    render(
+      await CategoryProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          category: 'laptops',
+          productSlug: 'hp-laptop-14-ep0063nia',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    );
+
+    const lastProductDetailProps = mockProductDetailClient.mock.calls.at(-1);
+
+    expect(lastProductDetailProps?.[0]).toEqual(
+      expect.objectContaining({
+        product: expect.objectContaining({
+          manage_stock: true,
+        }),
+      })
+    );
+  });
+
   it('defers category PDP first paint to the route loader while the client page is pending', async () => {
     mockGetRequestScopedMerchant.mockResolvedValue({
       ...baseMerchant,
@@ -536,14 +583,15 @@ describe('[category]/[productSlug] page render', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('preserves unlimited stock when the detailed product omits manage_stock', async () => {
+  it('defaults manage_stock to true when the detailed product has explicit false', async () => {
+    // Verify that explicit `manage_stock: false` is preserved (unlimited stock).
     mockGetRequestScopedMerchant.mockResolvedValue({
       ...baseMerchant,
       template_id: undefined,
     });
     mockGetCachedProductWithDetails.mockResolvedValue({
       ...categorizedDetailedProduct,
-      manage_stock: undefined,
+      manage_stock: false,
     });
 
     render(
@@ -740,7 +788,7 @@ describe('[category]/[productSlug] page render', () => {
       ...categorizedDetailedProduct,
       canonical_url: 'https://usebaci.com/laptops/hp-laptop-14-ep0063nia',
     });
-    mockHeaders.mockReturnValue(
+    mockHeaders.mockResolvedValue(
       new Headers([['x-custom-domain', 'ogabassey.com']])
     );
 
