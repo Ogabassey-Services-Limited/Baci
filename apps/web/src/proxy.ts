@@ -115,12 +115,18 @@ const RESERVED_STOREFRONT_SEGMENTS = new Set([
   'api',
   'blog',
   'cart',
+  // Legacy category roots — `/category/{slug}` and `/product-category/{slug}`
+  // resolve to category pages (see storefront-link-normalization.ts), so they
+  // must NOT be collapsed to `/products/{slug}` when stripping a merchant slug
+  // prefix on custom domains.
+  'category',
   'checkout',
   'faq',
   'llms-full.txt',
   'llms.txt',
   'pages',
   'privacy-policy',
+  'product-category',
   'products',
   'repair',
   'repairs',

@@ -226,6 +226,37 @@ describe('Middleware Proxy', () => {
     );
   });
 
+  it('preserves slug-prefixed legacy /category/{slug} paths on custom domains', async () => {
+    // `/category/{slug}` is a legacy category root (see
+    // storefront-link-normalization.ts). It must NOT collapse to
+    // `/products/{slug}`, which would 301 merchants to a non-existent PDP.
+    const req = new NextRequest(
+      'https://ogabassey.com/ogabassey/category/smartphones'
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/category/smartphones'
+    );
+  });
+
+  it('preserves slug-prefixed legacy /product-category/{slug} paths on custom domains', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/ogabassey/product-category/laptops'
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/product-category/laptops'
+    );
+  });
+
   it('returns 410 for legacy WordPress admin probes under /blog', async () => {
     const req = new NextRequest(
       'https://ogabassey.com/blog/wp-admin/post.php?post=7446&action=edit'
