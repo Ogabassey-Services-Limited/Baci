@@ -641,28 +641,21 @@ export async function proxy(request: NextRequest) {
   // Block common spam patterns under /blog/ prevent "Crawled - currently not indexed"
   // and "Duplicate without user-selected canonical" errors (Soft 404s).
   // MOVED TO TOP to avoid redirecting spam.
-  if (pathname.startsWith('/blog/')) {
-    // Block legacy WordPress admin/auth probes under /blog/*
-    // These are not public content pages and should not be indexable.
-    // Match exact paths or true path segment boundaries to avoid blocking
-    // legitimate post slugs that share these prefixes (e.g. /blog/wp-admin-guide).
-    const wpAdminPatterns = [
-      '/blog/wp-admin',
-      '/blog/wp-login.php',
-      '/blog/xmlrpc.php',
-    ];
-    // Anchor on a segment boundary so legitimate slugs like
-    // `/blog/wp-admin-guide-for-developers` are not falsely 410'd.
-    const lowerPathname = pathname.toLowerCase();
-    if (
-      wpAdminPatterns.some(
-        (pattern) =>
-          lowerPathname === pattern || lowerPathname.startsWith(`${pattern}/`)
-      )
-    ) {
-      return new NextResponse('Gone', { status: 410 });
-    }
+  // Block legacy WordPress admin/auth probes under /blog/* AND
+  // /{merchantSlug}/blog/* (root-domain storefronts proxy blog paths
+  // under a merchant slug prefix). These are not public content pages
+  // and should not be indexable. Match exact paths or true path segment
+  // boundaries to avoid blocking legitimate post slugs that share these
+  // prefixes (e.g. /blog/wp-admin-guide).
+  if (
+    /^\/(?:[^/]+\/)?blog\/(?:wp-admin|wp-login\.php|xmlrpc\.php)(?:\/|$)/i.test(
+      pathname
+    )
+  ) {
+    return new NextResponse('Gone', { status: 410 });
+  }
 
+  if (pathname.startsWith('/blog/')) {
     const spamPatterns = [
       '/blog/shopdetail',
       '/blog/zhhant',
@@ -670,10 +663,7 @@ export async function proxy(request: NextRequest) {
       '/blog/category/product',
     ];
     if (
-      spamPatterns.some(
-        (pattern) =>
-          lowerPathname === pattern || lowerPathname.startsWith(`${pattern}/`)
-      )
+      spamPatterns.some((pattern) => pathname.toLowerCase().startsWith(pattern))
     ) {
       return new NextResponse('Gone', { status: 410 });
     }

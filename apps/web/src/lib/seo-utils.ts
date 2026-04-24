@@ -204,7 +204,6 @@ const NON_PRODUCT_CANONICAL_ROUTE_SEGMENTS = new Set([
   'manifest',
   'opengraph-image',
   'privacy',
-  'products',
   'repair',
   'repairs',
   'robots',

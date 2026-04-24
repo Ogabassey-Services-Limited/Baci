@@ -300,6 +300,32 @@ describe('Middleware Proxy', () => {
     expect(res.status).not.toBe(410);
   });
 
+  it.each([
+    '/someshop/blog/wp-admin',
+    '/someshop/blog/wp-admin/post.php?post=7446&action=edit',
+    '/someshop/blog/wp-login.php',
+    '/someshop/blog/xmlrpc.php',
+  ])('returns 410 for merchant-scoped WordPress probe path %s', async (path) => {
+    const req = new NextRequest(`https://ogabassey.com${path}`);
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(410);
+  });
+
+  it.each([
+    '/someshop/blog/wp-admin-guide',
+    '/someshop/blog/wp-login-tips',
+  ])('does not block legitimate merchant-scoped post slugs sharing WP probe prefixes: %s', async (path) => {
+    const req = new NextRequest(`https://ogabassey.com${path}`);
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).not.toBe(410);
+  });
+
   it('redirects legacy /blog/{category}/{slug} URLs to canonical /blog/{slug}', async () => {
     const req = new NextRequest(
       'https://ogabassey.com/blog/gadgets/how-to-maintain-your-iphone-battery-health-at-85-and-beyond'

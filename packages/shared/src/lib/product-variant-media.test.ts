@@ -254,6 +254,39 @@ describe('resolveProductVariantMedia', () => {
     expect(result.colors).toEqual(['black']);
   });
 
+  it('collapses variant-only color buckets that differ only in case', () => {
+    // Regression: two variants with the same color in different casings
+    // (e.g. `Black` and `black`) previously produced two separate buckets in
+    // `colorImages`. `buildOrderedColors` collapsed the swatch label to one
+    // entry while `colorImages` retained both keys, so PDP image lookup via
+    // `colorImages[colorName]` could only reach one bucket and half the
+    // variant imagery was hidden.
+    const result = resolveProductVariantMedia({
+      colorImages: undefined,
+      productColors: [],
+      productImages: [],
+      variants: [
+        {
+          attributes: { color: 'Black' },
+          image: 'https://cdn.example.com/variant-black-1.jpg',
+        },
+        {
+          attributes: { color: 'black' },
+          image: 'https://cdn.example.com/variant-black-2.jpg',
+        },
+      ],
+    });
+
+    // Assert: single canonical bucket, first-seen casing (`Black`) wins,
+    // and both variant images are merged under the canonical key.
+    expect(Object.keys(result.colorImages ?? {})).toEqual(['Black']);
+    expect(result.colorImages?.Black).toEqual([
+      'https://cdn.example.com/variant-black-1.jpg',
+      'https://cdn.example.com/variant-black-2.jpg',
+    ]);
+    expect(result.colors).toEqual(['Black']);
+  });
+
   it('collapses case-variant legacy colorImages keys when there are no variants', () => {
     // Regression: when no variants are present, `resolveProductVariantMedia`
     // previously returned the legacy record unchanged. A legacy product with
