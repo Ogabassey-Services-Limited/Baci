@@ -15,6 +15,47 @@ type ProductSelectionInput = {
   variantId: string | null;
 };
 
+// Some legacy catalogs store the color axis under `colour` (British spelling)
+// instead of `color`. The shared variant resolver matches attribute keys
+// exactly, so a `colour`-keyed variant will not match a selection emitted
+// under `color`. Detect the legacy shape so we can emit the selected color
+// under the matching key.
+type ProductColorAxisShape = 'color' | 'colour' | 'both' | 'none';
+
+function resolveProductColorAxisShape(
+  product: Product | null | undefined
+): ProductColorAxisShape {
+  if (!product?.variants) {
+    return 'none';
+  }
+
+  let hasColor = false;
+  let hasColour = false;
+
+  for (const variant of product.variants) {
+    if (variant.attributes?.color?.trim()) {
+      hasColor = true;
+    }
+    if (variant.attributes?.colour?.trim()) {
+      hasColour = true;
+    }
+    if (hasColor && hasColour) {
+      break;
+    }
+  }
+
+  if (hasColor && hasColour) {
+    return 'both';
+  }
+  if (hasColour) {
+    return 'colour';
+  }
+  if (hasColor) {
+    return 'color';
+  }
+  return 'none';
+}
+
 function isProductCondition(
   value: ProductCondition | null
 ): value is ProductCondition {
@@ -99,11 +140,27 @@ export function computeProductSelectionState({
     defaultSelectionCondition ??
     availableConditions[0] ??
     normalizeRouteCondition(product?.condition);
-  const selectionAttributes = {
+  const resolvedColorSelection =
+    selectedColor ?? routeSelectionAttributes.color ?? null;
+  const colorAxisShape = resolveProductColorAxisShape(product);
+  // When a product's variants only carry the legacy `colour` key, emit the
+  // selection under `colour` (not `color`) so the shared resolver matches
+  // exactly. When both keys exist (mixed catalog), mirror onto both so
+  // legacy rows stay reachable without breaking modern matches.
+  const shouldEmitColor =
+    resolvedColorSelection !== null &&
+    (colorAxisShape === 'color' ||
+      colorAxisShape === 'both' ||
+      colorAxisShape === 'none');
+  const shouldEmitColour =
+    resolvedColorSelection !== null &&
+    (colorAxisShape === 'colour' || colorAxisShape === 'both');
+  const selectionAttributes: Record<string, string | null> = {
     ...routeSelectionAttributes,
     ...selectedAttributes,
     storage: selectedStorage ?? routeSelectionAttributes.storage ?? null,
-    color: selectedColor ?? routeSelectionAttributes.color ?? null,
+    color: shouldEmitColor ? resolvedColorSelection : null,
+    ...(shouldEmitColour ? { colour: resolvedColorSelection } : {}),
   };
   const shouldUseDefaultVariantSelection =
     !selectedVariant &&

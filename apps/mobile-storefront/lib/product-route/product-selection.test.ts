@@ -256,6 +256,57 @@ describe('product selection', () => {
     expect(result.fallbackSelectedCondition).toBe('used');
   });
 
+  it('matches legacy variants that store the color axis under `colour`', () => {
+    const legacyColourProduct: Product = {
+      ...variantProduct,
+      color_images: {},
+      colors: ['Forest Green', 'Crimson'],
+      variant_attributes: {
+        ...(variantProduct.variant_attributes ?? {}),
+        colour: ['Forest Green', 'Crimson'],
+      },
+      variants: [
+        {
+          ...primaryVariant,
+          id: 'variant-legacy-forest',
+          condition: undefined,
+          attributes: {
+            storage: '128GB',
+            colour: 'Forest Green',
+          },
+        },
+        {
+          ...secondaryVariant,
+          id: 'variant-legacy-crimson',
+          condition: undefined,
+          attributes: {
+            storage: '128GB',
+            colour: 'Crimson',
+          },
+        },
+      ],
+    };
+
+    const result = computeProductSelectionState({
+      defaultVariantSelection:
+        resolveDefaultVariantSelection(legacyColourProduct),
+      product: legacyColourProduct,
+      routeCondition: null,
+      routeSelectionAttributes: {},
+      routeVariantId: null,
+      selectedAttributes: {},
+      selectedColor: 'Crimson',
+      selectedCondition: null,
+      selectedStorage: '128GB',
+      selectedVariant: null,
+    });
+
+    expect(result.currentVariantDisplaySelection?.variant.id).toBe(
+      'variant-legacy-crimson'
+    );
+    expect(result.effectiveSelectedColor).toBe('Crimson');
+  });
+
   it('lets explicit storage and color selections override route attributes', () => {
     const coloredVariantProduct: Product = {
       ...variantProduct,
