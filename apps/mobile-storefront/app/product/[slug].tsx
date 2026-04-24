@@ -924,6 +924,7 @@ export default function ProductDetailScreen() {
     const selectedImage = images[index];
     const resolvedSelectionFromImage = resolveVariantSelectionFromImage({
       imageUrl: selectedImage,
+      manageStock: product?.manage_stock,
       selectedAttributes: effectiveSelectedAttributes,
       selectedCondition: effectiveSelectedCondition,
       selectedStorage: effectiveSelectedStorage,

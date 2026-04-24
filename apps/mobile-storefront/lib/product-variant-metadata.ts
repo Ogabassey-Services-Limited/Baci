@@ -81,17 +81,22 @@ export function resolveProductVariantMetadata({
     variants,
   });
   const resolvedColorImages = resolvedVariantMedia.colorImages;
+  const imagedColors = resolvedVariantMedia.colors ?? [];
   const fallbackColors = Array.from(
     new Set([
       ...normalizeProductColors(productColors),
-      ...(resolvedVariantMedia.colors ?? []),
+      ...imagedColors,
       ...(mergedVariantAttributes.color ?? []),
       ...(mergedVariantAttributes.colour ?? []),
     ])
   );
+  // When image-backed colors exist, preserve non-imaged colors that come from
+  // real variant rows so those SKUs stay reachable in PDP selection. We only
+  // merge concrete variant colors (not generic source `variant_attributes`
+  // metadata, which can be stale aggregate data).
   const colors =
-    (resolvedVariantMedia.colors?.length ?? 0) > 0
-      ? resolvedVariantMedia.colors
+    imagedColors.length > 0
+      ? Array.from(new Set([...imagedColors, ...variantColors]))
       : variantColors.length > 0
         ? variantColors
         : fallbackColors.length > 0

@@ -4,15 +4,39 @@ import type { ProductVariant } from '@/types/product';
 
 interface ResolveVariantSelectionFromImageInput {
   imageUrl: string | null | undefined;
+  manageStock?: boolean;
   selectedAttributes?: Record<string, string>;
   selectedCondition?: string | null;
   selectedStorage?: string | null;
   variants?: ProductVariant[] | null;
 }
 
+function isVariantPurchasable(
+  variant: ProductVariant,
+  manageStock: boolean | undefined
+) {
+  if (manageStock === false) {
+    return true;
+  }
+  if (typeof variant.stock_quantity === 'number') {
+    return variant.stock_quantity > 0;
+  }
+  return variant.in_stock !== false;
+}
+
 interface ResolvedVariantSelectionFromImage {
   color: string | null;
   variantId: string | null;
+}
+
+function pickPreferredMatches(
+  candidates: ProductVariant[],
+  manageStock: boolean | undefined
+) {
+  const purchasable = candidates.filter((variant) =>
+    isVariantPurchasable(variant, manageStock)
+  );
+  return purchasable.length > 0 ? purchasable : candidates;
 }
 
 function normalizeValue(value: string | null | undefined) {
@@ -44,6 +68,7 @@ function matchesSelectedAttributes(
 
 export function resolveVariantSelectionFromImage({
   imageUrl,
+  manageStock,
   selectedAttributes,
   selectedCondition,
   selectedStorage,
@@ -98,12 +123,32 @@ export function resolveVariantSelectionFromImage({
         )
       : exactAttributeMatches;
 
-  const resolvedVariant = conditionMatches[0] ?? imageMatches[0];
+  // Prefer purchasable candidates at each narrowing level so a shared image
+  // that maps to both in-stock and out-of-stock rows never routes the shopper
+  // to an unavailable SKU. Falling back to the original match keeps the color
+  // swatch behavior stable even when no purchasable match exists.
+  const preferredConditionMatches = pickPreferredMatches(
+    conditionMatches,
+    manageStock
+  );
+  const preferredImageMatches = pickPreferredMatches(imageMatches, manageStock);
+  const resolvedVariant =
+    preferredConditionMatches[0] ?? preferredImageMatches[0];
+  const variantIsPurchasable = isVariantPurchasable(
+    resolvedVariant,
+    manageStock
+  );
   return {
     color:
       normalizeValue(
         resolvedVariant.attributes?.color ?? resolvedVariant.attributes?.colour
       ) || null,
-    variantId: normalizeValue(resolvedVariant.id) || null,
+    // Only propagate variantId when the resolved row is purchasable; otherwise
+    // let the caller keep the previously selected variant rather than silently
+    // overwriting it with an out-of-stock SKU that can slip into the cart via
+    // `effectiveSelectedVariantId`.
+    variantId: variantIsPurchasable
+      ? normalizeValue(resolvedVariant.id) || null
+      : null,
   };
 }

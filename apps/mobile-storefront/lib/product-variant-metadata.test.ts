@@ -61,6 +61,37 @@ describe('resolveProductVariantMetadata', () => {
     });
   });
 
+  it('preserves non-imaged variant colors when some colors are image-backed', () => {
+    const result = resolveProductVariantMetadata({
+      productImages: ['https://cdn.example.com/blue-front.jpg'],
+      variants: [
+        {
+          id: 'variant-blue',
+          name: 'Blue',
+          price: 100,
+          image: 'https://cdn.example.com/blue-front.jpg',
+          attributes: {
+            color: 'Blue',
+          },
+        },
+        {
+          id: 'variant-red',
+          name: 'Red',
+          price: 100,
+          attributes: {
+            color: 'Red',
+          },
+        },
+      ],
+    });
+
+    // Red has no image but is a valid variant color — must remain selectable.
+    expect(result.colors).toEqual(expect.arrayContaining(['Blue', 'Red']));
+    expect(result.variantAttributes?.color).toEqual(
+      expect.arrayContaining(['Blue', 'Red'])
+    );
+  });
+
   it('derives selectable colors from the legacy `colour` attribute key', () => {
     const result = resolveProductVariantMetadata({
       variants: [

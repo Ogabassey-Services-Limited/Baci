@@ -44,7 +44,7 @@ describe('resolveVariantSelectionFromImage', () => {
             condition: 'open_box',
             price: 520000,
             price_override: 520000,
-            stock_quantity: 0,
+            stock_quantity: 2,
             image: 'https://cdn.example.com/i11pm-gold.jpg',
             images: ['https://cdn.example.com/i11pm-gold.jpg'],
             attributes: { color: 'Gold', storage: '64GB' },
@@ -55,7 +55,7 @@ describe('resolveVariantSelectionFromImage', () => {
             condition: 'used',
             price: 470000,
             price_override: 470000,
-            stock_quantity: 0,
+            stock_quantity: 5,
             image: 'https://cdn.example.com/i11pm-gold.jpg',
             images: ['https://cdn.example.com/i11pm-gold.jpg'],
             attributes: { color: 'Gold', storage: '64GB' },
@@ -80,7 +80,7 @@ describe('resolveVariantSelectionFromImage', () => {
             condition: 'used',
             price: 470000,
             price_override: 470000,
-            stock_quantity: 0,
+            stock_quantity: 5,
             image: 'https://cdn.example.com/i11pm-gold.jpg',
             images: ['https://cdn.example.com/i11pm-gold.jpg'],
             attributes: { color: 'Gold', storage: '64GB' },
@@ -91,7 +91,7 @@ describe('resolveVariantSelectionFromImage', () => {
             condition: 'used',
             price: 550000,
             price_override: 550000,
-            stock_quantity: 0,
+            stock_quantity: 2,
             image: 'https://cdn.example.com/i11pm-gold.jpg',
             images: ['https://cdn.example.com/i11pm-gold.jpg'],
             attributes: { color: 'Gold', storage: '256GB' },
@@ -117,7 +117,7 @@ describe('resolveVariantSelectionFromImage', () => {
             condition: 'open_box',
             price: 520000,
             price_override: 520000,
-            stock_quantity: 0,
+            stock_quantity: 4,
             image: 'https://cdn.example.com/i11pm-space-gray.jpg',
             images: ['https://cdn.example.com/i11pm-space-gray.jpg'],
             attributes: { color: 'Space Gray', storage: '64GB' },
@@ -128,6 +128,96 @@ describe('resolveVariantSelectionFromImage', () => {
     ).toEqual({
       color: 'Space Gray',
       variantId: 'ob-space-gray-64',
+    });
+  });
+
+  it('prefers purchasable variants when a shared image maps to in-stock and out-of-stock rows', () => {
+    expect(
+      resolveVariantSelectionFromImage({
+        imageUrl: 'https://cdn.example.com/i11pm-gold.jpg',
+        selectedCondition: 'used',
+        selectedStorage: '64GB',
+        variants: [
+          {
+            id: 'used-gold-64-sold-out',
+            condition: 'used',
+            price: 470000,
+            price_override: 470000,
+            stock_quantity: 0,
+            image: 'https://cdn.example.com/i11pm-gold.jpg',
+            images: ['https://cdn.example.com/i11pm-gold.jpg'],
+            attributes: { color: 'Gold', storage: '64GB' },
+            name: '64GB Gold (Sold Out)',
+          },
+          {
+            id: 'used-gold-64-available',
+            condition: 'used',
+            price: 470000,
+            price_override: 470000,
+            stock_quantity: 3,
+            image: 'https://cdn.example.com/i11pm-gold.jpg',
+            images: ['https://cdn.example.com/i11pm-gold.jpg'],
+            attributes: { color: 'Gold', storage: '64GB' },
+            name: '64GB Gold',
+          },
+        ],
+      })
+    ).toEqual({
+      color: 'Gold',
+      variantId: 'used-gold-64-available',
+    });
+  });
+
+  it('returns a null variantId when every image match is out of stock', () => {
+    expect(
+      resolveVariantSelectionFromImage({
+        imageUrl: 'https://cdn.example.com/i11pm-gold.jpg',
+        selectedCondition: 'used',
+        selectedStorage: '64GB',
+        variants: [
+          {
+            id: 'used-gold-64-sold-out',
+            condition: 'used',
+            price: 470000,
+            price_override: 470000,
+            stock_quantity: 0,
+            image: 'https://cdn.example.com/i11pm-gold.jpg',
+            images: ['https://cdn.example.com/i11pm-gold.jpg'],
+            attributes: { color: 'Gold', storage: '64GB' },
+            name: '64GB Gold (Sold Out)',
+          },
+        ],
+      })
+    ).toEqual({
+      color: 'Gold',
+      variantId: null,
+    });
+  });
+
+  it('treats every variant as purchasable when manage_stock is false', () => {
+    expect(
+      resolveVariantSelectionFromImage({
+        imageUrl: 'https://cdn.example.com/i11pm-gold.jpg',
+        manageStock: false,
+        selectedCondition: 'used',
+        selectedStorage: '64GB',
+        variants: [
+          {
+            id: 'used-gold-64-sold-out',
+            condition: 'used',
+            price: 470000,
+            price_override: 470000,
+            stock_quantity: 0,
+            image: 'https://cdn.example.com/i11pm-gold.jpg',
+            images: ['https://cdn.example.com/i11pm-gold.jpg'],
+            attributes: { color: 'Gold', storage: '64GB' },
+            name: '64GB Gold (Sold Out)',
+          },
+        ],
+      })
+    ).toEqual({
+      color: 'Gold',
+      variantId: 'used-gold-64-sold-out',
     });
   });
 
@@ -146,7 +236,7 @@ describe('resolveVariantSelectionFromImage', () => {
             condition: 'open_box',
             price: 520000,
             price_override: 520000,
-            stock_quantity: 0,
+            stock_quantity: 2,
             image: 'https://cdn.example.com/i11pm-gold.jpg',
             images: ['https://cdn.example.com/i11pm-gold.jpg'],
             attributes: {
@@ -161,7 +251,7 @@ describe('resolveVariantSelectionFromImage', () => {
             condition: 'used',
             price: 470000,
             price_override: 470000,
-            stock_quantity: 0,
+            stock_quantity: 3,
             image: 'https://cdn.example.com/i11pm-gold.jpg',
             images: ['https://cdn.example.com/i11pm-gold.jpg'],
             attributes: {
