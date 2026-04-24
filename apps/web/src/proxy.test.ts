@@ -181,6 +181,229 @@ describe('Middleware Proxy', () => {
     expect(res.headers.get('location')).toBe('https://ogabassey.com/repair');
   });
 
+  it('keeps slug-prefixed sitemap paths out of product-route canonicalization', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/ogabassey/sitemap/products.xml'
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/sitemap/products.xml'
+    );
+    expect(res.headers.get('location')).not.toBe(
+      'https://ogabassey.com/products/products.xml'
+    );
+  });
+
+  it('redirects slug-prefixed legacy category product URLs to /products/{slug}', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/ogabassey/dell/dell-alienware-m16-r3-rtx-5070-ti'
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/products/dell-alienware-m16-r3-rtx-5070-ti'
+    );
+  });
+
+  it('preserves slug-prefixed category support routes when stripping the merchant prefix', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/ogabassey/smartphones/best-under/under-500k'
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/smartphones/best-under/under-500k'
+    );
+  });
+
+  it('redirects mixed-case custom-domain slug-prefixed product URLs to the slugless canonical route', async () => {
+    vi.mocked(getSlugForCustomDomain).mockResolvedValueOnce('OgaBassey');
+    const req = new NextRequest(
+      'https://ogabassey.com/ogabassey/dell/dell-alienware-m16-r3-rtx-5070-ti'
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/products/dell-alienware-m16-r3-rtx-5070-ti'
+    );
+  });
+
+  it.each([
+    'POST',
+    'PUT',
+    'PATCH',
+    'DELETE',
+  ])('internally rewrites slug-prefixed custom-domain API requests on non-idempotent method %s', async (method) => {
+    // Arrange: a slug-prefixed API URL on a custom domain, using a method
+    // whose body must not be dropped by a GET-replay after a 301.
+    const req = new NextRequest(
+      'https://ogabassey.com/ogabassey/api/checkout/create-order',
+      { method }
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    // Act
+    const res = await proxy(req);
+
+    // Assert: the canonicalizing redirect branch must be skipped so the
+    // request reaches the API with its body intact. Instead of a 301, the
+    // proxy must emit an internal rewrite pointing at the stripped API
+    // path (`/api/checkout/create-order`) on the custom domain.
+    expect(res.status).not.toBe(301);
+    expect(res.headers.get('x-middleware-rewrite')).toBe(
+      'https://ogabassey.com/api/checkout/create-order'
+    );
+  });
+
+  it('returns 410 for legacy WordPress admin probes under /blog', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/blog/wp-admin/post.php?post=7446&action=edit'
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(410);
+  });
+
+  it.each([
+    '/blog/wp-admin',
+    '/blog/wp-login.php',
+    '/blog/xmlrpc.php',
+  ])('returns 410 for exact WordPress probe path %s', async (path) => {
+    const req = new NextRequest(`https://ogabassey.com${path}`);
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(410);
+  });
+
+  it.each([
+    '/blog/wp-admin-guide',
+    '/blog/wp-login-security-tips',
+    '/blog/xmlrpc-explained',
+  ])('does not block legitimate post slugs that share WP probe prefixes: %s', async (path) => {
+    const req = new NextRequest(`https://ogabassey.com${path}`);
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    // Legitimate post slugs must never be punted to the 410 WP-probe trap,
+    // and must not short-circuit with any other client/server error either
+    // — they should flow through the proxy to the storefront handler.
+    expect(res.status).not.toBe(410);
+    expect(res.status).toBeLessThan(400);
+  });
+
+  it.each([
+    '/someshop/blog/wp-admin',
+    '/someshop/blog/wp-admin/post.php?post=7446&action=edit',
+    '/someshop/blog/wp-login.php',
+    '/someshop/blog/xmlrpc.php',
+  ])('returns 410 for merchant-scoped WordPress probe path %s', async (path) => {
+    const req = new NextRequest(`https://ogabassey.com${path}`);
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(410);
+  });
+
+  it.each([
+    '/someshop/blog/wp-admin-guide',
+    '/someshop/blog/wp-login-tips',
+  ])('does not block legitimate merchant-scoped post slugs sharing WP probe prefixes: %s', async (path) => {
+    const req = new NextRequest(`https://ogabassey.com${path}`);
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    // Same as the platform-scope case: legitimate merchant-scoped slugs
+    // must pass through without any 4xx/5xx short-circuit from the proxy.
+    expect(res.status).not.toBe(410);
+    expect(res.status).toBeLessThan(400);
+  });
+
+  it('redirects legacy /blog/{category}/{slug} URLs to canonical /blog/{slug}', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/blog/gadgets/how-to-maintain-your-iphone-battery-health-at-85-and-beyond'
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/blog/how-to-maintain-your-iphone-battery-health-at-85-and-beyond'
+    );
+  });
+
+  it.each([
+    '/blog/page/2',
+    '/blog/tag/iphone',
+    '/blog/author/jane',
+  ])('does not flatten reserved blog archive routes: %s', async (inputPath) => {
+    const req = new NextRequest(`https://ogabassey.com${inputPath}`);
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    // Reserved archive paths must not trigger any 301, including a
+    // wasteful self-redirect to the same path. Locking this to "no 301"
+    // is the strongest expression of the invariant.
+    expect(res.status).not.toBe(301);
+  });
+
+  it.each([
+    ['_thumbnail_id=1819&ref=mail'],
+    ['thumbnail_id=1819&ref=mail'],
+    ['_thumbnail_id=1819&thumbnail_id=1820&ref=mail'],
+  ])('drops thumbnail query noise on blog post URLs: %s', async (queryString) => {
+    const req = new NextRequest(
+      `https://ogabassey.com/blog/iphone/the-iphone-15-what-we-know-so-far?${queryString}`
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+    const location = res.headers.get('location');
+
+    // A single 301 must collapse the legacy category prefix AND drop the
+    // thumbnail noise together — chaining two 301s wastes a round-trip and
+    // counts against crawler redirect-chain budgets.
+    expect(res.status).toBe(301);
+    expect(location).toBeTruthy();
+    expect(new URL(location ?? '').pathname).toBe(
+      '/blog/the-iphone-15-what-we-know-so-far'
+    );
+    expect(location).toContain('ref=mail');
+    expect(location).not.toContain('_thumbnail_id');
+    expect(location).not.toContain('thumbnail_id=');
+  });
+
+  it('redirects custom-domain slug-prefixed repair path to slugless canonical URL', async () => {
+    const req = new NextRequest('https://ogabassey.com/ogabassey/repair');
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe('https://ogabassey.com/repair');
+  });
+
   it('redirects slug-prefixed legacy category product URLs to /products/{slug}', async () => {
     const req = new NextRequest(
       'https://ogabassey.com/ogabassey/dell/dell-alienware-m16-r3-rtx-5070-ti'
@@ -343,6 +566,26 @@ describe('Middleware Proxy', () => {
     const res = await proxy(req);
 
     expect(res.status).not.toBe(410);
+  });
+
+  it.each([
+    ['/api/blog/posts', 'thumbnail_id=123'],
+    ['/dashboard/blog', 'thumbnail_id=foo'],
+    ['/admin/blog/analytics', '_thumbnail_id=bar'],
+  ])('does NOT strip thumbnail params on reserved top-level paths with /blog children: %s?%s', async (inputPath, queryString) => {
+    const req = new NextRequest(
+      `https://${ROOT_DOMAIN}${inputPath}?${queryString}`
+    );
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+    const location = res.headers.get('location');
+
+    expect(res.status).not.toBe(301);
+    if (location) {
+      const thumbnailKey = queryString.split('=')[0];
+      expect(location).toContain(thumbnailKey);
+    }
   });
 
   describe('URL normalization: prefix-only case fixing', () => {

@@ -193,6 +193,30 @@ const STOREFRONT_ROOT_SEGMENTS = new Set([
   'privacy',
 ]);
 
+const NON_PRODUCT_CANONICAL_ROUTE_SEGMENTS = new Set([
+  'about',
+  'account',
+  'api',
+  'blog',
+  'faq',
+  'favicon',
+  'icon',
+  'manifest',
+  'opengraph-image',
+  'privacy',
+  'repair',
+  'repairs',
+  'robots',
+  'rss',
+  'sitemap',
+  'sitemaps',
+  'swap',
+  'terms',
+  'twitter-image',
+  'wallet',
+  'wishlist',
+]);
+
 function extractCanonicalProductPath(
   canonicalUrl: string | null | undefined
 ): Route | null {
@@ -213,50 +237,57 @@ function extractCanonicalProductPath(
       return null;
     }
 
-    const firstSegmentLower = canonicalSegments[0].toLowerCase();
-    const firstSegmentCanonical =
-      normalizeStorefrontCategorySlug(firstSegmentLower) ?? firstSegmentLower;
-    const isStorefrontRoot =
-      STOREFRONT_ROOT_SEGMENTS.has(firstSegmentLower) ||
-      STOREFRONT_ROOT_SEGMENTS.has(firstSegmentCanonical);
-
-    // Only strip the first segment when the SECOND segment is itself a known
-    // storefront root (i.e. the first segment is clearly a merchant-slug prefix
-    // like `/{merchantSlug}/products/foo`). Unknown first segments are kept
-    // intact so merchant-defined category paths such as `/fashion/men/shirt`
-    // are not corrupted into `/men/shirt`.
-    const secondSegmentLower = canonicalSegments[1]?.toLowerCase();
-    const secondSegmentCanonical = secondSegmentLower
-      ? (normalizeStorefrontCategorySlug(secondSegmentLower) ??
-        secondSegmentLower)
-      : null;
-    const secondSegmentIsStorefrontRoot = Boolean(
-      secondSegmentLower &&
-        (STOREFRONT_ROOT_SEGMENTS.has(secondSegmentLower) ||
-          (secondSegmentCanonical &&
-            STOREFRONT_ROOT_SEGMENTS.has(secondSegmentCanonical)))
-    );
-
+    // For canonicals shaped like `/{merchantSlug}/{category}/{product}` we want
+    // to drop the merchant-slug prefix so the returned Route matches the app
+    // router's expected `/{category}/{product}` shape. Detect this by
+    // requiring the SECOND segment to be a known storefront root segment —
+    // i.e. only strip when we have positive evidence the leading segment is a
+    // merchant prefix. Previously we stripped for *any* first segment that
+    // wasn't in STOREFRONT_ROOT_SEGMENTS, which incorrectly rewrote legitimate
+    // 3-segment canonicals like `/phones/iphone-15/black` into bogus
+    // 2-segment paths.
     if (
       canonicalSegments.length >= 3 &&
-      !isStorefrontRoot &&
-      secondSegmentIsStorefrontRoot
+      !STOREFRONT_ROOT_SEGMENTS.has(canonicalSegments[0].toLowerCase()) &&
+      STOREFRONT_ROOT_SEGMENTS.has(canonicalSegments[1].toLowerCase())
     ) {
       canonicalSegments.shift();
     }
 
-    if (canonicalSegments.length === 0) {
+    if (canonicalSegments.length !== 2) {
       return null;
     }
 
-    const normalizedCategorySlug = normalizeStorefrontCategorySlug(
-      canonicalSegments[0]
-    );
-    if (normalizedCategorySlug) {
-      canonicalSegments[0] = normalizedCategorySlug;
+    const [rootSegment, productSlug] = canonicalSegments;
+    if (!productSlug) {
+      return null;
     }
 
-    return `/${canonicalSegments.join('/')}` as Route;
+    // Reject any segment with a file extension (e.g. sitemap.xml, robots.txt,
+    // opengraph-image.png) so metadata endpoints never masquerade as product
+    // routes.
+    if (rootSegment.includes('.') || productSlug.includes('.')) {
+      return null;
+    }
+
+    const rootSegmentLower = rootSegment.toLowerCase();
+    if (NON_PRODUCT_CANONICAL_ROUTE_SEGMENTS.has(rootSegmentLower)) {
+      return null;
+    }
+
+    if (rootSegmentLower === 'products') {
+      return `/products/${productSlug}` as Route;
+    }
+
+    const normalizedCategorySlug = normalizeStorefrontCategorySlug(rootSegment);
+    if (
+      !normalizedCategorySlug ||
+      NON_PRODUCT_CANONICAL_ROUTE_SEGMENTS.has(normalizedCategorySlug)
+    ) {
+      return null;
+    }
+
+    return `/${normalizedCategorySlug}/${productSlug}` as Route;
   } catch {
     return null;
   }
@@ -317,8 +348,18 @@ function getNormalizedVariantAttribute(
   attributes: Record<string, string> | null | undefined,
   keys: string[]
 ): string | undefined {
+  if (!attributes) {
+    return undefined;
+  }
+
   for (const key of keys) {
-    const value = attributes?.[key];
+    const matchedKey =
+      key in attributes
+        ? key
+        : Object.keys(attributes).find(
+            (attributeKey) => attributeKey.toLowerCase() === key.toLowerCase()
+          );
+    const value = matchedKey ? attributes[matchedKey] : undefined;
     if (typeof value === 'string' && value.trim().length > 0) {
       return value.trim();
     }
@@ -1099,6 +1140,10 @@ export interface FAQItem {
   answer: string;
 }
 
+/**
+ * Generates FAQ schema for products or pages.
+ * @see https://developers.google.com/search/docs/appearance/structured-data/faqpage
+ */
 export function generateFAQSchema(faqs: FAQItem[]): Record<string, unknown> {
   return {
     '@context': 'https://schema.org',
@@ -1148,6 +1193,11 @@ export interface LocalBusinessData {
   reviews?: Review[];
 }
 
+/**
+ * Generates LocalBusiness schema for merchant storefronts.
+ * All user-controlled string values are sanitized to prevent XSS attacks.
+ * @see https://developers.google.com/search/docs/appearance/structured-data/local-business
+ */
 export function generateLocalBusinessSchema(
   business: LocalBusinessData
 ): Record<string, unknown> {
@@ -1302,6 +1352,54 @@ function normalizePlainText(value: string): string {
   return stripHtmlTags(value).replace(/\s+/g, ' ').trim();
 }
 
+// Unambiguous meta-title separators. A bare hyphen (`-`) is intentionally
+// excluded because product names regularly contain internal hyphens
+// (e.g. `MacBook-Pro`, `iPhone-256GB`) and treating them as separators
+// causes `removeTrailingDuplicateSuffix` to strip legitimate name segments.
+// The spaced hyphen ` - ` is handled explicitly below as a separate branch.
+const META_TITLE_SEPARATORS = ['|', '–', '—', ':'] as const;
+const META_TITLE_SPACED_HYPHEN = ' - ';
+
+function stringsMatchCaseInsensitive(left: string, right: string): boolean {
+  return left.localeCompare(right, undefined, { sensitivity: 'base' }) === 0;
+}
+
+function getTrailingSeparatedSegment(value: string) {
+  const trimmedValue = value.trim();
+
+  let bestIndex = -1;
+  let separatorLength = 0;
+
+  for (const separator of META_TITLE_SEPARATORS) {
+    const index = trimmedValue.lastIndexOf(separator);
+    if (index > bestIndex) {
+      bestIndex = index;
+      separatorLength = separator.length;
+    }
+  }
+
+  // Spaced hyphen (` - `) is treated as a separator too, but bare hyphens
+  // are ignored so product names with internal hyphens aren't mangled.
+  const spacedHyphenIndex = trimmedValue.lastIndexOf(META_TITLE_SPACED_HYPHEN);
+  if (spacedHyphenIndex > bestIndex) {
+    bestIndex = spacedHyphenIndex;
+    separatorLength = META_TITLE_SPACED_HYPHEN.length;
+  }
+
+  if (bestIndex === -1) {
+    return null;
+  }
+
+  const base = trimmedValue.slice(0, bestIndex).trim();
+  const suffix = trimmedValue.slice(bestIndex + separatorLength).trim();
+
+  if (!base || !suffix) {
+    return null;
+  }
+
+  return { base, suffix };
+}
+
 function removeTrailingDuplicateSuffix(value: string, suffix: string): string {
   const normalizedSuffix = normalizePlainText(suffix);
   if (!normalizedSuffix) {
@@ -1309,25 +1407,17 @@ function removeTrailingDuplicateSuffix(value: string, suffix: string): string {
   }
 
   let normalizedValue = normalizePlainText(value);
-  const normalizedSuffixLowerCase = normalizedSuffix.toLocaleLowerCase();
-  const separators = ['|', '-', '–', '—', ':'];
 
-  while (
-    normalizedValue.toLocaleLowerCase().endsWith(normalizedSuffixLowerCase)
-  ) {
-    const suffixStartIndex = normalizedValue.length - normalizedSuffix.length;
-    const baseWithSeparator = normalizedValue
-      .slice(0, suffixStartIndex)
-      .trimEnd();
-    const separator = separators.find((candidate) =>
-      baseWithSeparator.endsWith(candidate)
-    );
-    if (!separator) {
+  while (true) {
+    const trailingSegment = getTrailingSeparatedSegment(normalizedValue);
+    if (
+      !trailingSegment ||
+      !stringsMatchCaseInsensitive(trailingSegment.suffix, normalizedSuffix)
+    ) {
       break;
     }
-    const nextValue = baseWithSeparator
-      .slice(0, baseWithSeparator.length - separator.length)
-      .trimEnd();
+
+    const nextValue = trailingSegment.base;
     if (!nextValue || nextValue === normalizedValue) {
       break;
     }
@@ -1365,14 +1455,13 @@ export function generateMetaTitle(
 
   if (suffix) {
     const baseTitle = removeTrailingDuplicateSuffix(normalizedTitle, suffix);
-    const suffixLower = suffix.toLowerCase();
-    const baseLower = baseTitle.toLowerCase();
-    const endsWithSuffix =
-      baseLower === suffixLower ||
-      baseLower.endsWith(` ${suffixLower}`) ||
-      baseLower.endsWith(`|${suffixLower}`) ||
-      baseLower.endsWith(`| ${suffixLower}`);
-    normalizedTitle = endsWithSuffix ? baseTitle : `${baseTitle} | ${suffix}`;
+    const trailingSegment = getTrailingSeparatedSegment(baseTitle);
+    const hasSuffix =
+      stringsMatchCaseInsensitive(baseTitle, suffix) ||
+      (trailingSegment
+        ? stringsMatchCaseInsensitive(trailingSegment.suffix, suffix)
+        : false);
+    normalizedTitle = hasSuffix ? baseTitle : `${baseTitle} | ${suffix}`;
   }
 
   if (normalizedTitle.length <= maxLength) {
@@ -1481,6 +1570,10 @@ function toAbsoluteSchemaUrl(baseUrl: string, value?: string | null): string {
   }
 }
 
+/**
+ * Generates CollectionPage schema for product listing pages (categories, collections).
+ * @see https://schema.org/CollectionPage
+ */
 export function generateCollectionPageSchema(
   data: CollectionPageData
 ): Record<string, unknown> {
@@ -1573,6 +1666,10 @@ export interface OrganizationData {
   trustProfile?: MerchantTrustProfile;
 }
 
+/**
+ * Generates Organization schema for merchant branding and trust.
+ * @see https://schema.org/Organization
+ */
 export function generateOrganizationSchema(
   data: OrganizationData & { trustProfile?: MerchantTrustProfile }
 ): Record<string, unknown> {
@@ -1682,6 +1779,11 @@ export interface AggregateRatingSchema {
   worstRating?: number;
 }
 
+/**
+ * Generates AggregateRating schema for products with reviews.
+ * Returns the aggregateRating object to be merged into Product schema.
+ * @see https://schema.org/AggregateRating
+ */
 export function generateAggregateRating(
   stats: ReviewStats
 ): AggregateRatingSchema | null {

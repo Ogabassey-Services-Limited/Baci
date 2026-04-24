@@ -136,6 +136,7 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
     url: paginatedCategoryUrl,
     products: collectionSchemaProducts,
     merchantName: merchant.business_name,
+    country: merchant.country || 'NG',
     currency: merchant.payout_currency || 'NGN',
   });
 
