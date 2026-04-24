@@ -624,7 +624,7 @@ describe('getProductUrl', () => {
           slug: 'test-product',
         })
       )
-    ).toBe('/smartphones/test-product');
+    ).toBe('/phones/test-product');
   });
 
   it('uses a same-domain canonical_url without double-prefixing the path', () => {
@@ -678,7 +678,7 @@ describe('getProductUrl', () => {
           category: 'Phones',
         })
       )
-    ).toBe('/smartphones/iphone-15');
+    ).toBe('/phones/iphone-15');
   });
 });
 
