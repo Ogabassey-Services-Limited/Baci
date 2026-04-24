@@ -12,10 +12,8 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, palette, RADIUS, SPACING } from '@/constants/Colors';
 import { formatPrice } from '@/stores/cart-store';
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const _credpalLogoSource = require('@/assets/images/credpal.png');
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const _creditDirectLogoSource = require('@/assets/images/creditdirect.jpg');
+import _credpalLogoSource from '@/assets/images/credpal.png';
+import _creditDirectLogoSource from '@/assets/images/creditdirect.jpg';
 
 export type PaymentMethodType =
   | 'paystack'
