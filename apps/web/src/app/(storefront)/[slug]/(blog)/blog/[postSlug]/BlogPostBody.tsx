@@ -8,7 +8,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SafeHtml } from '@/components/ui/safe-html';
-import { canonicalizeCategorySlug } from '@/lib/storefront-canonical-url';
 import { getStorefrontProductHref } from '@/lib/storefront-product-href';
 import { buildBlogUrl, resolveBlogPostContent } from './blog-post-content';
 
@@ -212,15 +211,12 @@ export async function BlogPostBody({
           </h2>
           <ul className="grid gap-3 md:grid-cols-2">
             {safeRelatedProducts.map((product) => {
-              const canonicalCategorySlug = canonicalizeCategorySlug(
-                product.category_slug
-              );
               const href = getStorefrontProductHref(
                 {
                   id: product.id,
                   name: product.name,
                   slug: product.slug,
-                  category_slug: canonicalCategorySlug ?? undefined,
+                  category_slug: product.category_slug ?? undefined,
                 },
                 basePath
               );
@@ -228,7 +224,7 @@ export async function BlogPostBody({
               return (
                 <li key={product.id}>
                   <Link
-                    href={href as Route}
+                    href={href}
                     className="block rounded-xl border border-gray-200 px-4 py-3 text-sm font-medium text-foreground transition-colors hover:border-primary hover:text-primary"
                   >
                     {product.name}

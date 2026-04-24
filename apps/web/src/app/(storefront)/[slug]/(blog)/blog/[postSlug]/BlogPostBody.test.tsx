@@ -308,6 +308,54 @@ describe('BlogPostBody', () => {
     expect(fallbackProductLink).toHaveTextContent(/^PS5 Controller$/);
   });
 
+  it('normalizes legacy category slug aliases when building related product links', async () => {
+    mockResolveBlogPostContent.mockResolvedValue({
+      isJson: false,
+      legacyHtml: '<p>Content</p>',
+      renderedContent: null,
+    });
+
+    render(
+      await BlogPostBody({
+        basePath: '/ogabassey',
+        baseUrl: 'https://usebaci.com',
+        content: '<p>Content</p>',
+        merchantSlug: 'ogabassey',
+        post: {
+          id: 'post-1',
+          slug: 'my-post',
+          tags: null,
+          title: 'My Post',
+        },
+        relatedProducts: [
+          {
+            id: 'product-1',
+            name: 'iPhone 16',
+            slug: 'iphone-16',
+            // Legacy alias that should be normalized to 'smartphones'
+            category_slug: 'phones',
+          },
+          {
+            id: 'product-2',
+            name: 'MacBook Air M4',
+            slug: 'macbook-air-m4',
+            // Legacy alias that should be normalized to 'laptops'
+            category_slug: 'macbook',
+          },
+        ],
+        relatedPosts: [],
+      })
+    );
+
+    expect(screen.getByRole('link', { name: 'iPhone 16' })).toHaveAttribute(
+      'href',
+      '/ogabassey/smartphones/iphone-16'
+    );
+    expect(
+      screen.getByRole('link', { name: 'MacBook Air M4' })
+    ).toHaveAttribute('href', '/ogabassey/laptops/macbook-air-m4');
+  });
+
   it('skips malformed related products so the section degrades gracefully', async () => {
     mockResolveBlogPostContent.mockResolvedValue({
       isJson: false,
