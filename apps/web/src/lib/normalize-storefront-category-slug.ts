@@ -6,15 +6,19 @@ export function normalizeStorefrontCategorySlug(
     return null;
   }
 
+  // Only correct obvious legacy/typo slugs. Brand-specific slugs like
+  // `samsung` or `macbook` are intentionally NOT remapped here because
+  // merchants may legitimately configure them as their category slugs;
+  // rewriting those would point storefront links at `/smartphones` or
+  // `/laptops`, which those merchants do not serve. Brand-scoped alias
+  // normalization should live in explicit legacy URL flows only.
   switch (normalized) {
     case 'accesories':
       return 'accessories';
     case 'phone':
     case 'phones':
-    case 'samsung':
       return 'smartphones';
     case 'laptop':
-    case 'macbook':
       return 'laptops';
     default:
       return normalized;

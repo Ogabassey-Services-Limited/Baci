@@ -38,12 +38,14 @@ describe('getStorefrontOrderItemHref', () => {
     ).toBe('/ogabassey/preferred-category/iphone-15-pro-max');
   });
 
-  it('preserves merchant-defined category slugs when building canonical hrefs', () => {
+  it('normalizes legacy category aliases when building canonical hrefs', () => {
+    // Uses a legacy/typo alias (`laptop` -> `laptops`). Brand slugs like
+    // `macbook` are intentionally preserved so merchants may use them.
     expect(
       getStorefrontOrderItemHref(
         {
           product_slug: 'macbook-air-13-inch-2022-m2-8gb-256gb',
-          category_slug: 'macbook',
+          category_slug: 'laptop',
         },
         '/ogabassey'
       )

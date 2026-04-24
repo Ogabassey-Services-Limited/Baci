@@ -98,7 +98,7 @@ describe('product-response', () => {
 
     const mapped = mapStorefrontProduct(rawProduct);
 
-    expect(mapped.manage_stock).toBe(false);
+    expect(mapped.manage_stock).toBe(true);
     expect(mapped.brand).toBe('');
     expect(mapped.category_id).toBe('cat-1');
     expect(mapped.categories).toEqual({
@@ -124,6 +124,21 @@ describe('product-response', () => {
         order: 2,
       },
     ]);
+  });
+
+  it('preserves explicit manage_stock=false when set on the product', () => {
+    const rawProduct: RawDbProduct = {
+      id: 'product-unmanaged',
+      name: 'Infinite Stock Item',
+      price: 1000,
+      stock: 0,
+      images: [],
+      manage_stock: false,
+    };
+
+    const mapped = mapStorefrontProduct(rawProduct);
+
+    expect(mapped.manage_stock).toBe(false);
   });
 
   it('prefers explicit colors over color_images keys', () => {
