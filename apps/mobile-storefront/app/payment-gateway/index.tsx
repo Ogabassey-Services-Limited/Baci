@@ -98,6 +98,7 @@ export default function PaymentGatewayScreen() {
             style={[styles.actionButton, { backgroundColor: BRAND.primary }]}
             onPress={() => router.back()}
           >
+            {/* Keep white text: button background is fixed BRAND.primary (red), not themed. */}
             <Text style={styles.actionButtonText}>Go Back</Text>
           </Pressable>
         </View>
@@ -237,8 +238,17 @@ export default function PaymentGatewayScreen() {
       >
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.statusContainer}>
-          <View style={[styles.statusIcon, { backgroundColor: '#DEF7EC' }]}>
-            <Ionicons name="checkmark-circle" size={48} color="#059669" />
+          <View
+            style={[
+              styles.statusIcon,
+              { backgroundColor: `${colors.success}20` },
+            ]}
+          >
+            <Ionicons
+              name="checkmark-circle"
+              size={48}
+              color={colors.success}
+            />
           </View>
           <Text style={[styles.statusTitle, { color: colors.text }]}>
             Payment Successful!
@@ -274,8 +284,13 @@ export default function PaymentGatewayScreen() {
           }}
         />
         <View style={styles.statusContainer}>
-          <View style={[styles.statusIcon, { backgroundColor: '#FEE2E2' }]}>
-            <Ionicons name="alert-circle" size={48} color="#DC2626" />
+          <View
+            style={[
+              styles.statusIcon,
+              { backgroundColor: `${colors.error}20` },
+            ]}
+          >
+            <Ionicons name="alert-circle" size={48} color={colors.error} />
           </View>
           <Text style={[styles.statusTitle, { color: colors.text }]}>
             Payment Failed
@@ -288,6 +303,7 @@ export default function PaymentGatewayScreen() {
               style={[styles.actionButton, { backgroundColor: BRAND.primary }]}
               onPress={handleRetry}
             >
+              {/* Keep white text: button background is fixed BRAND.primary (red), not themed. */}
               <Text style={styles.actionButtonText}>Try Again</Text>
             </Pressable>
             <Pressable
@@ -367,7 +383,12 @@ export default function PaymentGatewayScreen() {
           );
         }}
         renderLoading={() => (
-          <View style={styles.webViewLoading}>
+          <View
+            style={[
+              styles.webViewLoading,
+              { backgroundColor: colors.background },
+            ]}
+          >
             <ActivityIndicator size="large" color={BRAND.primary} />
           </View>
         )}

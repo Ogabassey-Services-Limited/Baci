@@ -24,6 +24,7 @@ import NinVerificationCard from '@/components/kyc/NinVerificationCard';
 import type { VerificationIdentityDraft } from '@/components/kyc/verification-identity';
 import { SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
+import { useKycVerificationRefresh } from '@/hooks/useKycVerificationRefresh';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
@@ -99,6 +100,10 @@ export default function KYCScreen() {
       return data;
     },
     enabled: isOwner && !!merchant?.id,
+  });
+  const { refreshAfterVerification } = useKycVerificationRefresh({
+    merchantId: merchant?.id,
+    refetchVerificationStatus: refetch,
   });
 
   useEffect(() => {
@@ -228,7 +233,7 @@ export default function KYCScreen() {
                 lastName={identityDraft.lastName}
                 dateOfBirth={identityDraft.dateOfBirth}
                 onIdentityChange={setIdentityDraft}
-                onVerified={refetch}
+                onVerified={refreshAfterVerification}
               />
               <BvnVerificationCard
                 verified={status?.bvn_verified ?? false}
@@ -238,13 +243,13 @@ export default function KYCScreen() {
                 dateOfBirth={identityDraft.dateOfBirth}
                 mobileNo={identityDraft.mobileNo}
                 onIdentityChange={setIdentityDraft}
-                onVerified={refetch}
+                onVerified={refreshAfterVerification}
               />
               <CacVerificationCard
                 verified={status?.cac_verified ?? false}
                 prefillRcNumber={merchant?.cac_rc_number}
                 cacApprovedName={status?.cac_approved_name}
-                onVerified={refetch}
+                onVerified={refreshAfterVerification}
               />
             </View>
           )}

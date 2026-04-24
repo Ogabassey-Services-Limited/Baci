@@ -3,6 +3,28 @@ import { supabase } from '@/lib/supabase';
 import type { SetupItem, StoreReadiness } from '@/types/readiness';
 import { useMerchant } from './useMerchant';
 
+interface VerificationFlags {
+  nin_verified: boolean;
+  bvn_verified: boolean;
+  cac_verified: boolean;
+}
+
+const UNVERIFIED_FLAGS: VerificationFlags = {
+  nin_verified: false,
+  bvn_verified: false,
+  cac_verified: false,
+};
+
+function isVerificationFlags(value: unknown): value is VerificationFlags {
+  if (!value || typeof value !== 'object') return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.nin_verified === 'boolean' &&
+    typeof v.bvn_verified === 'boolean' &&
+    typeof v.cac_verified === 'boolean'
+  );
+}
+
 export function useStoreReadiness() {
   const { merchant, isLoading: isMerchantLoading } = useMerchant();
 
@@ -22,13 +44,45 @@ export function useStoreReadiness() {
         .eq('merchant_id', merchant.id)
         .eq('status', 'active');
 
+      // KYC readiness must match the publish gate, which checks *verified*
+      // flags on merchant_verifications (not mere presence of
+      // nin/bvn/cac_rc_number on the merchant row). Using the same source
+      // prevents the UI from advertising "Ready to Launch" while POST
+      // /api/merchant/publish returns 400 on unverified identifiers.
+      // The staff-safe `get_merchant_verification_flags` RPC authorises
+      // owners and any staff with `settings.edit` (same permission the
+      // publish endpoint requires), so staff sessions see an accurate
+      // readiness state instead of a permanently-false KYC item. Any
+      // authorisation or network failure falls back to "unverified"
+      // rather than throwing — that keeps consumer screens from
+      // rendering `null` and losing state.
+      let verification: VerificationFlags = UNVERIFIED_FLAGS;
+      const { data: verificationData, error: verificationError } =
+        await supabase.rpc('get_merchant_verification_flags', {
+          p_merchant_id: merchant.id,
+        });
+      if (verificationError) {
+        if (__DEV__) {
+          console.warn(
+            '[StoreReadiness] verification lookup failed; defaulting to unverified',
+            verificationError
+          );
+        }
+      } else if (isVerificationFlags(verificationData)) {
+        verification = verificationData;
+      }
+      const hasVerifiedIdentity =
+        verification.nin_verified ||
+        verification.bvn_verified ||
+        verification.cac_verified;
+
       const items: SetupItem[] = [
         // === REQUIRED ITEMS ===
         {
           id: 'verify_kyc',
           label: 'Verify your identity (KYC)',
           description: 'NIN, BVN, or CAC required for payments',
-          completed: !!(merchant.nin || merchant.bvn || merchant.cac_rc_number),
+          completed: hasVerifiedIdentity,
           href: '/kyc',
           priority: 'required',
           category: 'payments',

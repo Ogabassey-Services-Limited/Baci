@@ -45,6 +45,7 @@ export function useProducts(options: UseProductsOptions = {}) {
   return {
     products,
     total,
+    isFetchedAfterMount: query.isFetchedAfterMount,
     isLoading: query.isLoading,
     isFetching: query.isFetching,
     isError: query.isError,
