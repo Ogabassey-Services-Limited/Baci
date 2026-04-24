@@ -448,7 +448,15 @@ export default function ProductDetailScreen() {
       ...fallbackSelection.attributes,
       ...stripInternalSelectionAxes(nextSelection?.attributes ?? {}),
     };
-    const syncedColor = nextSelection?.color ?? fallbackSelection.color;
+    // When a legacy variant only exposes the `colour` axis, the shared
+    // resolver leaves `.color` undefined on the resolved selection. Prefer
+    // the resolved variant's own legacy color value before falling back to
+    // the first available color, otherwise seeding can overwrite the
+    // resolved SKU's color with an unrelated swatch.
+    const resolvedLegacyColor =
+      nextSelection?.attributes?.colour?.trim() || undefined;
+    const syncedColor =
+      nextSelection?.color ?? resolvedLegacyColor ?? fallbackSelection.color;
 
     if (shouldSeedSelection || shouldRepairInvalidSelection) {
       setSelectedVariant(nextSelection?.variant.id ?? null);
