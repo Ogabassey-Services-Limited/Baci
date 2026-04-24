@@ -313,11 +313,13 @@ export async function getRootSitemapEntries(
     staticEntries,
     productEntries,
     categoryEntries,
+    blogEntries,
     commercialSupportEntries,
   ] = await Promise.all([
     Promise.resolve(getStaticSitemapEntries(context.storeUrl)),
     getProductSitemapEntries(context),
     getCategorySitemapEntries(context),
+    getBlogSitemapEntries(context),
     getCommercialSupportSitemapEntries(context),
   ]);
 
@@ -325,6 +327,7 @@ export async function getRootSitemapEntries(
     ...staticEntries,
     ...productEntries,
     ...categoryEntries,
+    ...blogEntries,
     ...commercialSupportEntries,
   ];
 }

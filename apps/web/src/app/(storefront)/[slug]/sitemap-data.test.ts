@@ -291,7 +291,7 @@ describe('sitemap-data', () => {
     });
   });
 
-  it('keeps blog entries out of root sitemap and in the dedicated blog sitemap', async () => {
+  it('includes blog entries in both root and dedicated blog sitemaps for full discoverability', async () => {
     setCustomDomainHeader('ogabassey.com');
     mockGetMerchantByIdentifier.mockResolvedValue({
       id: 'merchant-1',
@@ -338,9 +338,15 @@ describe('sitemap-data', () => {
     const blogEntries = await getBlogSitemapEntries(context);
     const categoryEntries = await getNamedSitemapEntries(context, 'categories');
 
-    expect(rootEntries.some((entry) => entry.url.includes('/blog/'))).toBe(
-      false
-    );
+    // Blog post URL must appear in the root sitemap so crawlers that only
+    // discover /sitemap.xml (e.g. platform domain path-mode storefronts)
+    // can still reach blog content.
+    expect(
+      rootEntries.some(
+        (entry) =>
+          entry.url === 'https://ogabassey.com/blog/best-phones-in-nigeria'
+      )
+    ).toBe(true);
     expect(
       blogEntries.some(
         (entry) =>
