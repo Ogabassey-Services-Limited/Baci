@@ -1,6 +1,80 @@
-// Mock dependencies before importing
+import { jest } from '@jest/globals';
+
+type MockAuthUserResponse = {
+  data: { user: { id: string } | null };
+  error: null;
+};
+
+type MockAuthSessionResponse = {
+  data: { session: { access_token: string } | null };
+  error?: null;
+};
+
+type MockCreateOrderApiResponse = {
+  order: {
+    id: string;
+    order_number: string;
+    total: number;
+    payment_status: string;
+    shipping_status: string;
+    tracking_token: string | null;
+    created_at?: string;
+  };
+  wallet: null;
+  amountDueToGateway: number;
+};
+
+const mockNetInfoFetch = jest.fn<() => Promise<{ isConnected: boolean }>>();
+const mockSupabaseGetUser = jest.fn<() => Promise<MockAuthUserResponse>>();
+const mockSupabaseGetSession =
+  jest.fn<() => Promise<MockAuthSessionResponse>>();
+const mockFetchJson = jest.fn<() => Promise<MockCreateOrderApiResponse>>();
+
+type MockFetchResponse = {
+  ok: boolean;
+  status: number;
+  json: typeof mockFetchJson;
+};
+
+type MockFetchOptions = {
+  body: string;
+  headers?: Record<string, string>;
+};
+
+const mockFetchResponse: MockFetchResponse = {
+  ok: true,
+  status: 200,
+  json: mockFetchJson,
+};
+const mockFetchWithRetry = jest.fn<
+  (url: string, options?: MockFetchOptions) => Promise<MockFetchResponse>
+>(async () => mockFetchResponse);
+
+mockNetInfoFetch.mockResolvedValue({ isConnected: true });
+mockSupabaseGetUser.mockResolvedValue({
+  data: { user: { id: 'user-1' } },
+  error: null,
+});
+mockSupabaseGetSession.mockResolvedValue({
+  data: { session: { access_token: 'token-123' } },
+  error: null,
+});
+mockFetchJson.mockResolvedValue({
+  order: {
+    id: 'order-1',
+    order_number: 'ORD-001',
+    total: 720000,
+    payment_status: 'unpaid',
+    shipping_status: 'pending',
+    created_at: '2026-03-31T00:00:00Z',
+    tracking_token: null,
+  },
+  wallet: null,
+  amountDueToGateway: 720000,
+});
+
 jest.mock('@react-native-community/netinfo', () => ({
-  fetch: jest.fn().mockResolvedValue({ isConnected: true }),
+  fetch: mockNetInfoFetch,
 }));
 
 jest.mock('expo-constants', () => ({
@@ -36,44 +110,21 @@ jest.mock('@/lib/offline-queue', () => ({
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     auth: {
-      getUser: jest.fn().mockResolvedValue({
-        data: { user: { id: 'user-1' } },
-        error: null,
-      }),
-      getSession: jest.fn().mockResolvedValue({
-        data: { session: { access_token: 'token-123' } },
-        error: null,
-      }),
+      getUser: mockSupabaseGetUser,
+      getSession: mockSupabaseGetSession,
     },
   },
 }));
 
-const mockFetchResponse = {
-  ok: true,
-  status: 200,
-  json: jest.fn().mockResolvedValue({
-    order: {
-      id: 'order-1',
-      order_number: 'ORD-001',
-      total: 720000,
-      payment_status: 'unpaid',
-      shipping_status: 'pending',
-      created_at: '2026-03-31T00:00:00Z',
-      tracking_token: null,
-    },
-    wallet: null,
-    amountDueToGateway: 720000,
-  }),
-};
-
 jest.mock('@/lib/api', () => ({
-  fetchWithRetry: jest.fn().mockResolvedValue(mockFetchResponse),
+  fetchWithRetry: mockFetchWithRetry,
   DEFAULT_TIMEOUT: 30000,
   ApiError: class extends Error {
     code: string;
-    constructor(m: string, c: string) {
-      super(m);
-      this.code = c;
+
+    constructor(message: string, code: string) {
+      super(message);
+      this.code = code;
     }
   },
   NetworkError: class extends Error {},
@@ -81,10 +132,46 @@ jest.mock('@/lib/api', () => ({
   TimeoutError: class extends Error {},
 }));
 
+type CreateOrderResult = {
+  order: {
+    created_at: string;
+  };
+};
+
+function getLastFetchCall(): [string, MockFetchOptions] {
+  const fetchCall = mockFetchWithRetry.mock.calls.at(-1) as
+    | [string, MockFetchOptions]
+    | undefined;
+
+  if (!fetchCall) {
+    throw new Error(
+      'Expected fetchWithRetry to be called before reading the request body'
+    );
+  }
+
+  if (!fetchCall[1]?.body) {
+    throw new Error(
+      `Expected fetchWithRetry to be called with a JSON body, received: ${JSON.stringify(fetchCall)}`
+    );
+  }
+
+  return fetchCall;
+}
+
+function getLastFetchBody() {
+  const [, options] = getLastFetchCall();
+  return JSON.parse(options.body);
+}
+
+function getLastFetchOptions(): MockFetchOptions {
+  const [, options] = getLastFetchCall();
+  return options;
+}
+
 describe('createOrder — variant_attributes', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockFetchResponse.json.mockResolvedValue({
+    mockFetchJson.mockResolvedValue({
       order: {
         id: 'order-1',
         order_number: 'ORD-001',
@@ -101,7 +188,6 @@ describe('createOrder — variant_attributes', () => {
 
   it('includes variant_attributes in the API payload', async () => {
     const { createOrder } = require('./orders');
-    const { fetchWithRetry } = require('@/lib/api');
 
     await createOrder({
       customer_email: 'test@example.com',
@@ -113,6 +199,7 @@ describe('createOrder — variant_attributes', () => {
           name: 'MacBook Air M1',
           quantity: 1,
           price: 720000,
+          image_url: 'https://cdn.example.com/space-gray.jpg',
           variant_id: 'v-256gb',
           variant_attributes: { storage: '256GB', color: 'Space Gray' },
         },
@@ -129,25 +216,55 @@ describe('createOrder — variant_attributes', () => {
       },
     });
 
-    const fetchCall = (fetchWithRetry as jest.Mock).mock.calls[0];
-    const body = JSON.parse(fetchCall[1].body);
+    const body = getLastFetchBody();
     expect(body.items[0]).toEqual(
       expect.objectContaining({
+        image_url: 'https://cdn.example.com/space-gray.jpg',
         variant_id: 'v-256gb',
         variant_attributes: { storage: '256GB', color: 'Space Gray' },
       })
     );
   });
 
+  it('includes the selected image_url in the API payload', async () => {
+    const { createOrder } = require('./orders');
+
+    await createOrder({
+      customer_email: 'test@example.com',
+      customer_name: 'Test User',
+      customer_phone: '+2348012345678',
+      items: [
+        {
+          id: 'prod-1',
+          name: 'MacBook Air M1',
+          quantity: 1,
+          price: 720000,
+          image_url: 'https://cdn.example.com/gold.jpg',
+        },
+      ],
+      subtotal: 720000,
+      shipping_fee: 2000,
+      payment_method: 'card',
+      shipping_address: {
+        firstName: 'Test',
+        lastName: 'User',
+        address: '123 St',
+        city: 'Lagos',
+        state: 'Lagos',
+      },
+    });
+
+    const body = getLastFetchBody();
+    expect(body.items[0].image_url).toBe('https://cdn.example.com/gold.jpg');
+  });
+
   it('supports guest checkout when no authenticated session is present', async () => {
     const { createOrder } = require('./orders');
-    const { fetchWithRetry } = require('@/lib/api');
-    const { supabase } = require('@/lib/supabase');
 
-    (supabase.auth.getSession as jest.Mock).mockResolvedValueOnce({
+    mockSupabaseGetSession.mockResolvedValueOnce({
       data: { session: null },
     });
-    (supabase.auth.getUser as jest.Mock).mockResolvedValueOnce({
+    mockSupabaseGetUser.mockResolvedValueOnce({
       data: { user: null },
       error: null,
     });
@@ -176,17 +293,15 @@ describe('createOrder — variant_attributes', () => {
       },
     });
 
-    const fetchCall = (fetchWithRetry as jest.Mock).mock.calls.at(-1);
-    expect(fetchCall?.[1]?.headers).not.toHaveProperty('Authorization');
+    expect(getLastFetchOptions()?.headers).not.toHaveProperty('Authorization');
 
-    const body = JSON.parse(fetchCall?.[1]?.body ?? '{}');
+    const body = getLastFetchBody();
     expect(body).not.toHaveProperty('user_id');
     expect(body.payment_method).toBe('pay_on_delivery');
   });
 
   it('includes the selected shipping quote metadata in the API payload', async () => {
     const { createOrder } = require('./orders');
-    const { fetchWithRetry } = require('@/lib/api');
 
     await createOrder({
       customer_email: 'test@example.com',
@@ -215,19 +330,15 @@ describe('createOrder — variant_attributes', () => {
       },
     });
 
-    const fetchCall = (fetchWithRetry as jest.Mock).mock.calls.at(-1);
-    const body = JSON.parse(fetchCall?.[1]?.body ?? '{}');
-
-    expect(body.selected_quote_id).toBe(
-      '98dd0f44-d780-4829-9163-3e8a088dcf95'
-    );
+    const body = getLastFetchBody();
+    expect(body.selected_quote_id).toBe('98dd0f44-d780-4829-9163-3e8a088dcf95');
     expect(body.shipping_provider).toBe('TOPSHIP');
   });
 
   it('accepts successful order responses that omit created_at', async () => {
     const { createOrder } = require('./orders');
 
-    mockFetchResponse.json.mockResolvedValueOnce({
+    mockFetchJson.mockResolvedValueOnce({
       order: {
         id: 'order-2',
         order_number: 'ORD-002',
@@ -240,7 +351,7 @@ describe('createOrder — variant_attributes', () => {
       amountDueToGateway: 122000,
     });
 
-    const result = await createOrder({
+    const result = (await createOrder({
       customer_email: 'test@example.com',
       customer_name: 'Test User',
       customer_phone: '+2348012345678',
@@ -262,7 +373,7 @@ describe('createOrder — variant_attributes', () => {
         city: 'Lagos',
         state: 'Lagos',
       },
-    });
+    })) as CreateOrderResult;
 
     expect(result.order.created_at).toEqual(expect.any(String));
   });

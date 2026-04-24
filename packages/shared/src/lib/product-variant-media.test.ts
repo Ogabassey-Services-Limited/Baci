@@ -26,15 +26,18 @@ describe('resolveProductVariantMedia', () => {
       })
     ).toEqual({
       colorImages: {
+        Blue: ['https://cdn.example.com/legacy-blue.jpg'],
         Gold: ['https://cdn.example.com/gold-front.jpg'],
         'Space Gray': ['https://cdn.example.com/black-front.jpg'],
       },
-      colors: ['Gold', 'Space Gray', 'Blue'],
+      colors: ['Blue', 'Gold', 'Space Gray'],
       galleryImages: [
+        'https://cdn.example.com/legacy-blue.jpg',
         'https://cdn.example.com/gold-front.jpg',
         'https://cdn.example.com/black-front.jpg',
       ],
       imageColorMap: {
+        'https://cdn.example.com/legacy-blue.jpg': 'Blue',
         'https://cdn.example.com/gold-front.jpg': 'Gold',
         'https://cdn.example.com/black-front.jpg': 'Space Gray',
       },
@@ -107,6 +110,237 @@ describe('resolveProductVariantMedia', () => {
       ],
       imageColorMap: {
         'https://cdn.example.com/blue-front.jpg': 'Blue',
+      },
+    });
+  });
+
+  it('uses stored color images and product images when variants are empty', () => {
+    expect(
+      resolveProductVariantMedia({
+        colorImages: {
+          Gold: ['https://cdn.example.com/gold-front.jpg'],
+        },
+        productColors: ['Gold', 'Blue'],
+        productImages: [
+          'https://cdn.example.com/gold-front.jpg',
+          'https://cdn.example.com/blue-front.jpg',
+        ],
+        variants: [],
+      })
+    ).toEqual({
+      colorImages: {
+        Gold: ['https://cdn.example.com/gold-front.jpg'],
+      },
+      colors: ['Gold', 'Blue'],
+      galleryImages: [
+        'https://cdn.example.com/gold-front.jpg',
+        'https://cdn.example.com/blue-front.jpg',
+      ],
+      imageColorMap: {
+        'https://cdn.example.com/gold-front.jpg': 'Gold',
+      },
+    });
+  });
+
+  it('handles missing stored color images gracefully', () => {
+    expect(
+      resolveProductVariantMedia({
+        colorImages: {},
+        productColors: ['Gold'],
+        productImages: ['https://cdn.example.com/gold-front.jpg'],
+        variants: [
+          {
+            attributes: { storage: '128GB' },
+            primary_image: null,
+          },
+        ],
+      })
+    ).toEqual({
+      colorImages: undefined,
+      colors: ['Gold'],
+      galleryImages: ['https://cdn.example.com/gold-front.jpg'],
+      imageColorMap: {},
+    });
+  });
+
+  it('merges variant color images on top of legacy data and preserves all colors', () => {
+    expect(
+      resolveProductVariantMedia({
+        colorImages: {
+          Gold: ['https://cdn.example.com/gold-back.jpg'],
+          Silver: ['https://cdn.example.com/silver-front.jpg'],
+        },
+        productColors: ['Gold', 'Silver', 'Blue'],
+        productImages: [
+          'https://cdn.example.com/gold-front.jpg',
+          'https://cdn.example.com/silver-front.jpg',
+          'https://cdn.example.com/blue-front.jpg',
+        ],
+        variants: [
+          {
+            attributes: { color: 'Gold', storage: '64GB' },
+            primary_image: 'https://cdn.example.com/gold-front.jpg',
+          },
+          {
+            attributes: { color: 'Blue', storage: '64GB' },
+            primary_image: null,
+          },
+        ],
+      })
+    ).toEqual({
+      colorImages: {
+        Gold: ['https://cdn.example.com/gold-front.jpg'],
+        Silver: ['https://cdn.example.com/silver-front.jpg'],
+      },
+      colors: ['Gold', 'Silver', 'Blue'],
+      galleryImages: [
+        'https://cdn.example.com/gold-front.jpg',
+        'https://cdn.example.com/silver-front.jpg',
+        'https://cdn.example.com/blue-front.jpg',
+      ],
+      imageColorMap: {
+        'https://cdn.example.com/gold-front.jpg': 'Gold',
+        'https://cdn.example.com/silver-front.jpg': 'Silver',
+      },
+    });
+  });
+
+  it('deduplicates colors case-insensitively across sources and preserves first-seen casing', () => {
+    // Arrange: legacy color_images uses lowercase `black` while product.colors
+    // uses title-case `Black`; they should collapse into a single swatch.
+    const result = resolveProductVariantMedia({
+      colorImages: {
+        black: ['https://cdn.example.com/black.jpg'],
+      },
+      productColors: ['Black', 'RED', 'red'],
+      productImages: [],
+      variants: [],
+    });
+
+    // Assert: single entry per color; first occurrence (lowercase `black` from
+    // color_images) wins, later casings (`RED` before `red`) also collapse.
+    expect(result.colors).toEqual(['black', 'RED']);
+  });
+
+  it('merges legacy and variant color image buckets case-insensitively', () => {
+    // Regression: previously a legacy `Black` bucket and a variant `black`
+    // bucket stayed split because the merge used a case-sensitive object
+    // spread. `buildOrderedColors` then deduplicated the label to a single
+    // entry while `colorImages` still had two buckets, causing the UI to
+    // show one swatch that only surfaced images from whichever bucket the
+    // selected casing pointed at. Variants still override legacy per-color,
+    // so the variant casing and variant images should be the canonical
+    // output.
+    const result = resolveProductVariantMedia({
+      colorImages: {
+        Black: ['https://cdn.example.com/legacy-black.jpg'],
+      },
+      productColors: [],
+      productImages: [],
+      variants: [
+        {
+          attributes: { color: 'black' },
+          image: 'https://cdn.example.com/variant-black.jpg',
+        },
+      ],
+    });
+
+    // Assert: a single merged bucket keyed on the variant casing — no split
+    // `Black`/`black` entries — and the color label matches.
+    expect(Object.keys(result.colorImages ?? {})).toEqual(['black']);
+    expect(result.colorImages?.black).toEqual([
+      'https://cdn.example.com/variant-black.jpg',
+    ]);
+    expect(result.colors).toEqual(['black']);
+  });
+
+  it('collapses variant-only color buckets that differ only in case', () => {
+    // Regression: two variants with the same color in different casings
+    // (e.g. `Black` and `black`) previously produced two separate buckets in
+    // `colorImages`. `buildOrderedColors` collapsed the swatch label to one
+    // entry while `colorImages` retained both keys, so PDP image lookup via
+    // `colorImages[colorName]` could only reach one bucket and half the
+    // variant imagery was hidden.
+    const result = resolveProductVariantMedia({
+      colorImages: undefined,
+      productColors: [],
+      productImages: [],
+      variants: [
+        {
+          attributes: { color: 'Black' },
+          image: 'https://cdn.example.com/variant-black-1.jpg',
+        },
+        {
+          attributes: { color: 'black' },
+          image: 'https://cdn.example.com/variant-black-2.jpg',
+        },
+      ],
+    });
+
+    // Assert: single canonical bucket, first-seen casing (`Black`) wins,
+    // and both variant images are merged under the canonical key.
+    expect(Object.keys(result.colorImages ?? {})).toEqual(['Black']);
+    expect(result.colorImages?.Black).toEqual([
+      'https://cdn.example.com/variant-black-1.jpg',
+      'https://cdn.example.com/variant-black-2.jpg',
+    ]);
+    expect(result.colors).toEqual(['Black']);
+  });
+
+  it('collapses case-variant legacy colorImages keys when there are no variants', () => {
+    // Regression: when no variants are present, `resolveProductVariantMedia`
+    // previously returned the legacy record unchanged. A legacy product with
+    // both `Black` and `black` keys kept both buckets while
+    // `buildOrderedColors` collapsed the label to one entry — leaving the
+    // PDP reading `colorImages[colorName]` from a single bucket and hiding
+    // the other bucket's images.
+    const result = resolveProductVariantMedia({
+      colorImages: {
+        Black: ['https://cdn.example.com/black-1.jpg'],
+        black: ['https://cdn.example.com/black-2.jpg'],
+      },
+      productColors: [],
+      productImages: [],
+      variants: [],
+    });
+
+    // Assert: single canonical bucket, first-seen casing (`Black`) wins,
+    // images from both buckets merged, color label matches the bucket key.
+    expect(Object.keys(result.colorImages ?? {})).toEqual(['Black']);
+    expect(result.colorImages?.Black).toEqual([
+      'https://cdn.example.com/black-1.jpg',
+      'https://cdn.example.com/black-2.jpg',
+    ]);
+    expect(result.colors).toEqual(['Black']);
+  });
+
+  it('normalizes image objects and strips surrounding quotes from URLs', () => {
+    expect(
+      resolveProductVariantMedia({
+        variants: [
+          {
+            attributes: { color: 'Blue' },
+            image: { url: '"https://cdn.example.com/quoted-blue.jpg" ' },
+          },
+          {
+            attributes: { color: 'Gold' },
+            images: [{ url: ' https://cdn.example.com/object-gold.jpg ' }],
+          },
+        ],
+      })
+    ).toEqual({
+      colorImages: {
+        Blue: ['https://cdn.example.com/quoted-blue.jpg'],
+        Gold: ['https://cdn.example.com/object-gold.jpg'],
+      },
+      colors: ['Blue', 'Gold'],
+      galleryImages: [
+        'https://cdn.example.com/quoted-blue.jpg',
+        'https://cdn.example.com/object-gold.jpg',
+      ],
+      imageColorMap: {
+        'https://cdn.example.com/quoted-blue.jpg': 'Blue',
+        'https://cdn.example.com/object-gold.jpg': 'Gold',
       },
     });
   });

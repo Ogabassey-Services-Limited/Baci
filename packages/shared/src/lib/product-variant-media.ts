@@ -1,32 +1,28 @@
+import {
+  collapseColorImagesCaseInsensitive,
+  mergeColorImagesCaseInsensitive,
+} from './product-variant-media-merge';
+import {
+  normalizeColorImages,
+  normalizeColorName,
+  normalizeImageUrl,
+  normalizeProductColors,
+  normalizeProductImages,
+  type ProductColorImagesInput,
+  type ProductColorInput,
+  type ProductImageInput,
+} from './product-variant-media-normalize';
+
 interface VariantImageObject {
   url?: string | null;
 }
 
-interface ProductColorObject {
-  name?: string | null;
-}
-
 interface ProductVariantMediaLike {
   attributes?: Record<string, string | null | undefined> | null;
-  image?: string | null;
-  images?: Array<string | null | undefined> | null;
-  primary_image?: string | null;
+  image?: string | VariantImageObject | null;
+  images?: Array<string | VariantImageObject | null | undefined> | null;
+  primary_image?: string | VariantImageObject | null;
 }
-
-type ProductColorInput =
-  | Array<string | ProductColorObject | null | undefined>
-  | null
-  | undefined;
-
-type ProductImageInput =
-  | Array<string | VariantImageObject | null | undefined>
-  | null
-  | undefined;
-
-type ProductColorImagesInput =
-  | Record<string, Array<string | null | undefined> | null | undefined>
-  | null
-  | undefined;
 
 export interface ResolveProductVariantMediaInput {
   colorImages?: ProductColorImagesInput;
@@ -42,52 +38,9 @@ export interface ResolvedProductVariantMedia {
   imageColorMap: Record<string, string>;
 }
 
-function normalizeColorName(value: string | null | undefined) {
-  return typeof value === 'string' ? value.trim() : '';
-}
-
-function normalizeImageUrl(
-  value: string | VariantImageObject | null | undefined
-) {
-  if (typeof value === 'string') {
-    return value.trim();
-  }
-
-  if (value && typeof value === 'object' && typeof value.url === 'string') {
-    return value.url.trim();
-  }
-
-  return '';
-}
-
-function normalizeColorImages(
-  colorImages: ProductColorImagesInput
-): Record<string, string[]> | undefined {
-  if (!colorImages || typeof colorImages !== 'object') {
-    return undefined;
-  }
-
-  const normalized = Object.fromEntries(
-    Object.entries(colorImages)
-      .map(([color, images]) => [
-        normalizeColorName(color),
-        Array.from(
-          new Set(
-            (images ?? [])
-              .map((image) => normalizeImageUrl(image ?? undefined))
-              .filter(Boolean)
-          )
-        ),
-      ])
-      .filter(
-        (entry): entry is [string, string[]] =>
-          entry[0].length > 0 && entry[1].length > 0
-      )
-  );
-
-  return Object.keys(normalized).length > 0 ? normalized : undefined;
-}
-
+/**
+ * Extracts color-to-image mappings from product variants.
+ */
 function buildVariantColorImages(
   variants: ProductVariantMediaLike[] | null | undefined
 ): Record<string, string[]> | undefined {
@@ -131,37 +84,17 @@ function buildVariantColorImages(
   );
 }
 
-function normalizeProductColors(productColors: ProductColorInput) {
-  const colors = new Set<string>();
-
-  for (const color of productColors ?? []) {
-    const normalized =
-      typeof color === 'string'
-        ? normalizeColorName(color)
-        : normalizeColorName(color?.name);
-
-    if (normalized) {
-      colors.add(normalized);
-    }
-  }
-
-  return Array.from(colors);
-}
-
-function normalizeProductImages(productImages: ProductImageInput) {
-  return Array.from(
-    new Set(
-      (productImages ?? [])
-        .map((image) => normalizeImageUrl(image))
-        .filter(Boolean)
-    )
-  );
-}
-
+/**
+ * Flattens all images from a colorImages record into a single list.
+ */
 function flattenColorImages(colorImages: Record<string, string[]>) {
   return Array.from(new Set(Object.values(colorImages).flat()));
 }
 
+/**
+ * Builds the complete list of gallery images, ensuring color-specific images
+ * are represented first.
+ */
 function buildGalleryImages(
   productImages: ProductImageInput,
   colorImages: Record<string, string[]> | undefined
@@ -176,6 +109,9 @@ function buildGalleryImages(
   );
 }
 
+/**
+ * Creates a reverse map from image URL to color name for filtering.
+ */
 function buildImageColorMap(colorImages: Record<string, string[]> | undefined) {
   const imageColorMap: Record<string, string> = {};
 
@@ -196,48 +132,119 @@ function buildImageColorMap(colorImages: Record<string, string[]> | undefined) {
   return imageColorMap;
 }
 
+/**
+ * Derives an ordered list of unique colors from all available sources.
+ */
 function buildOrderedColors(args: {
   galleryImages: string[];
   imageColorMap: Record<string, string>;
   productColors: string[];
-  variantColorImages?: Record<string, string[]>;
+  resolvedColorImages?: Record<string, string[]>;
 }) {
-  const ordered = new Set<string>();
+  // Dedupe case-insensitively so mixed-case inputs from different sources
+  // (e.g. `color_images` key `black` and `product.colors` entry `Black`)
+  // do not produce duplicate swatches. The first casing encountered wins
+  // and insertion order is preserved via Map iteration.
+  const ordered = new Map<string, string>();
+
+  const addColor = (color: string) => {
+    const trimmed = color?.trim();
+    if (!trimmed) {
+      return;
+    }
+    const key = trimmed.toLowerCase();
+    if (!ordered.has(key)) {
+      ordered.set(key, trimmed);
+    }
+  };
 
   for (const image of args.galleryImages) {
     const color = args.imageColorMap[image];
     if (color) {
-      ordered.add(color);
+      addColor(color);
     }
   }
 
-  for (const color of Object.keys(args.variantColorImages ?? {})) {
-    ordered.add(color);
+  for (const color of Object.keys(args.resolvedColorImages ?? {})) {
+    addColor(color);
   }
 
   for (const color of args.productColors) {
-    ordered.add(color);
+    addColor(color);
   }
 
-  return Array.from(ordered);
+  return Array.from(ordered.values());
 }
 
+/**
+ * Combines legacy color-image data with variant-derived color images. When
+ * variant data is present the two are merged case-insensitively; otherwise
+ * the legacy record is returned (or undefined when it is empty).
+ */
+function resolveColorImages(
+  legacyColorImages: Record<string, string[]>,
+  variantColorImages: Record<string, string[]> | undefined
+): Record<string, string[]> | undefined {
+  if (variantColorImages) {
+    return mergeColorImagesCaseInsensitive(
+      legacyColorImages,
+      variantColorImages
+    );
+  }
+
+  if (Object.keys(legacyColorImages).length > 0) {
+    return legacyColorImages;
+  }
+
+  return undefined;
+}
+
+/**
+ * Resolves the canonical media state for a product, combining legacy data
+ * (colorImages, productColors) with modern variant-driven media.
+ *
+ * It merges variant media on top of legacy data, ensuring variants override
+ * per-color but legacy entries for colors not in variants are preserved.
+ */
 export function resolveProductVariantMedia({
   colorImages,
   productColors,
   productImages,
   variants,
 }: ResolveProductVariantMediaInput): ResolvedProductVariantMedia {
-  const variantColorImages = buildVariantColorImages(variants);
-  const resolvedColorImages =
-    variantColorImages ?? normalizeColorImages(colorImages);
+  const rawVariantColorImages = buildVariantColorImages(variants);
+  // Collapse variant-only duplicates too: if two variants share a color
+  // that differs only by case (e.g. `Black` and `black`), `buildOrderedColors`
+  // merges the label case-insensitively while `colorImages` would otherwise
+  // keep two separate buckets — one of them unreachable via
+  // `colorImages[colorName]` on the PDP.
+  const variantColorImages = rawVariantColorImages
+    ? collapseColorImagesCaseInsensitive(rawVariantColorImages)
+    : undefined;
+  const normalizedLegacyColorImages = collapseColorImagesCaseInsensitive(
+    normalizeColorImages(colorImages) ?? {}
+  );
+
+  // Merge: variant color images override legacy entries per-key, but legacy
+  // entries for other colors are preserved. The merge is case-insensitive on
+  // the color-name key so that a legacy `Black` bucket and a variant `black`
+  // bucket collapse into a single entry — otherwise `buildOrderedColors`
+  // deduplicates labels case-insensitively while `colorImages` keeps the two
+  // buckets split, causing the UI to show one color label that misses half
+  // its images. The legacy-only path also collapses case-variant duplicates
+  // within the legacy record for the same reason.
+  const resolvedColorImages = resolveColorImages(
+    normalizedLegacyColorImages,
+    variantColorImages
+  );
+
   const galleryImages = buildGalleryImages(productImages, resolvedColorImages);
   const imageColorMap = buildImageColorMap(resolvedColorImages);
   const colors = buildOrderedColors({
     galleryImages,
     imageColorMap,
     productColors: normalizeProductColors(productColors),
-    variantColorImages: resolvedColorImages,
+    resolvedColorImages,
   });
 
   return {

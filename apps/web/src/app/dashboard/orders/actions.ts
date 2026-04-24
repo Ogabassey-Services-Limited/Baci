@@ -74,6 +74,7 @@ interface OrderItem {
   id: string;
   name?: string;
   product_id?: string | null;
+  image_url?: string | null;
   quantity: number;
   price?: string | number;
   variant_name?: string;
@@ -150,7 +151,7 @@ const ORDER_CONFIRMATION_SELECT = [
   'shipping_fee',
   'total',
   'shipping_address',
-  'order_items(id, name, quantity, price)',
+  'order_items(id, image_url, name, quantity, price)',
 ].join(', ');
 
 function formatStatus(status: string): string {
@@ -255,9 +256,11 @@ export async function getOrders(
       name: item.name || 'Unknown Product',
       quantity: item.quantity,
       price: Number.parseFloat(String(item.price || 0)),
-      image: item.product_id
-        ? orderItemImageMap.get(item.product_id)
-        : undefined,
+      image: item.image_url
+        ? item.image_url
+        : item.product_id
+          ? orderItemImageMap.get(item.product_id)
+          : undefined,
       variant: item.variant_name || undefined,
       hasAssurance: item.has_assurance || false,
     })),
@@ -477,9 +480,11 @@ export async function getOrder(
       name: item.name || 'Unknown Product',
       quantity: item.quantity,
       price: Number.parseFloat(String(item.price || 0)),
-      image: item.product_id
-        ? orderItemImageMap.get(item.product_id)
-        : undefined,
+      image: item.image_url
+        ? item.image_url
+        : item.product_id
+          ? orderItemImageMap.get(item.product_id)
+          : undefined,
       variant: item.variant_name || undefined,
       hasAssurance: item.has_assurance || false,
     })),
