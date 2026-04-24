@@ -10,13 +10,6 @@ vi.mock('@/env', () => ({
   getRootDomain: () => 'localhost',
 }));
 
-vi.mock('next/headers', () => ({
-  cookies: vi.fn().mockResolvedValue({
-    get: vi.fn(),
-    set: vi.fn(),
-  }),
-}));
-
 // Mock api-auth
 const mockAuthenticateApiRequest = vi.fn();
 const mockGetUserAccess = vi.fn();
@@ -43,6 +36,7 @@ let mockMerchantData: { data: unknown; error: unknown };
 let mockPublishedProductCount: number;
 let mockTotalProductCount: number;
 let mockUpdateResult: { data: unknown; error: unknown };
+let mockVerificationData: { data: unknown; error: unknown };
 
 function createMockSupabase() {
   let productQueryCount = 0;
@@ -91,10 +85,34 @@ function createMockSupabase() {
   };
 }
 
-const mockCreateClient = vi.fn();
+function createMockAdminSupabase() {
+  return {
+    from: (table: string) => {
+      if (table === 'merchant_verifications') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: () => Promise.resolve(mockVerificationData),
+            }),
+          }),
+        };
+      }
 
-vi.mock('@/lib/supabase/server', () => ({
-  createClient: (...args: unknown[]) => mockCreateClient(...args),
+      return {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: () => Promise.resolve({ data: null, error: null }),
+          }),
+        }),
+      };
+    },
+  };
+}
+
+const mockCreateAdminClient = vi.fn();
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: (...args: unknown[]) => mockCreateAdminClient(...args),
 }));
 
 vi.mock('@/lib/csrf', () => ({
@@ -136,7 +154,19 @@ function setupAuth(hasAccess = true, hasPermissionValue = true) {
 
 function setupMerchantData(data: Record<string, unknown> | null) {
   mockMerchantData = {
-    data,
+    data: data
+      ? {
+          id: MERCHANT_ID,
+          business_name: 'Test Store',
+          country: 'NG',
+          support_email: 'test@example.com',
+          support_phone: '+2341234567890',
+          bank_code: '044',
+          bank_account_number: '1234567890',
+          paystack_subaccount_code: 'ACCT_test',
+          ...data,
+        }
+      : null,
     error: data ? null : { message: 'Not found' },
   };
 }
@@ -160,6 +190,25 @@ function setupUpdateError(errorMessage: string) {
   };
 }
 
+function setupVerification(
+  flags: Partial<{
+    nin_verified: boolean;
+    bvn_verified: boolean;
+    cac_verified: boolean;
+  }> | null = { nin_verified: true }
+) {
+  mockVerificationData = {
+    data: flags
+      ? {
+          nin_verified: flags.nin_verified ?? false,
+          bvn_verified: flags.bvn_verified ?? false,
+          cac_verified: flags.cac_verified ?? false,
+        }
+      : null,
+    error: null,
+  };
+}
+
 // ---- Tests ----
 
 describe('POST /api/merchant/publish', () => {
@@ -169,8 +218,11 @@ describe('POST /api/merchant/publish', () => {
     mockPublishedProductCount = 0;
     mockTotalProductCount = 0;
     mockUpdateResult = { data: null, error: null };
-    // Restore default mock implementation
-    mockCreateClient.mockImplementation(() => createMockSupabase());
+    // Default: merchant has a verified NIN so KYC does not block the tests
+    // that aren't specifically exercising the verification gate.
+    setupVerification({ nin_verified: true });
+    // Restore default admin mock implementation
+    mockCreateAdminClient.mockImplementation(() => createMockAdminSupabase());
   });
 
   describe('authentication', () => {
@@ -221,10 +273,6 @@ describe('POST /api/merchant/publish', () => {
     it('returns 400 when bank account details are missing', async () => {
       setupAuth(true, true);
       setupMerchantData({
-        id: MERCHANT_ID,
-        business_name: 'Test Store',
-        country: 'NG',
-        support_email: 'test@example.com',
         bank_code: null,
         bank_account_number: null,
         paystack_subaccount_code: null,
@@ -241,10 +289,6 @@ describe('POST /api/merchant/publish', () => {
     it('returns 400 when only bank code is missing', async () => {
       setupAuth(true, true);
       setupMerchantData({
-        id: MERCHANT_ID,
-        business_name: 'Test Store',
-        country: 'NG',
-        support_email: 'test@example.com',
         bank_code: null,
         bank_account_number: '1234567890',
         paystack_subaccount_code: 'ACCT_test',
@@ -260,12 +304,6 @@ describe('POST /api/merchant/publish', () => {
     it('returns 400 when only paystack subaccount is missing', async () => {
       setupAuth(true, true);
       setupMerchantData({
-        id: MERCHANT_ID,
-        business_name: 'Test Store',
-        country: 'NG',
-        support_email: 'test@example.com',
-        bank_code: '044',
-        bank_account_number: '1234567890',
         paystack_subaccount_code: null,
       });
 
@@ -281,13 +319,7 @@ describe('POST /api/merchant/publish', () => {
     it('returns 400 when country is missing', async () => {
       setupAuth(true, true);
       setupMerchantData({
-        id: MERCHANT_ID,
-        business_name: 'Test Store',
         country: null,
-        support_email: 'test@example.com',
-        bank_code: '044',
-        bank_account_number: '1234567890',
-        paystack_subaccount_code: 'ACCT_test',
       });
 
       const res = await POST(makeRequest('POST'));
@@ -302,14 +334,8 @@ describe('POST /api/merchant/publish', () => {
     it('returns 400 when both email and phone are missing', async () => {
       setupAuth(true, true);
       setupMerchantData({
-        id: MERCHANT_ID,
-        business_name: 'Test Store',
-        country: 'NG',
         support_email: null,
         support_phone: null,
-        bank_code: '044',
-        bank_account_number: '1234567890',
-        paystack_subaccount_code: 'ACCT_test',
       });
 
       const res = await POST(makeRequest('POST'));
@@ -324,14 +350,8 @@ describe('POST /api/merchant/publish', () => {
     it('succeeds when only email is provided', async () => {
       setupAuth(true, true);
       setupMerchantData({
-        id: MERCHANT_ID,
-        business_name: 'Test Store',
-        country: 'NG',
         support_email: 'test@example.com',
         support_phone: null,
-        bank_code: '044',
-        bank_account_number: '1234567890',
-        paystack_subaccount_code: 'ACCT_test',
       });
       setupProductCount(1, 1);
       setupUpdateSuccess();
@@ -344,14 +364,8 @@ describe('POST /api/merchant/publish', () => {
     it('succeeds when only phone is provided', async () => {
       setupAuth(true, true);
       setupMerchantData({
-        id: MERCHANT_ID,
-        business_name: 'Test Store',
-        country: 'NG',
         support_email: null,
         support_phone: '+2341234567890',
-        bank_code: '044',
-        bank_account_number: '1234567890',
-        paystack_subaccount_code: 'ACCT_test',
       });
       setupProductCount(1, 1);
       setupUpdateSuccess();
@@ -362,18 +376,90 @@ describe('POST /api/merchant/publish', () => {
     });
   });
 
+  describe('validation - kyc', () => {
+    it('returns 400 when no KYC identifier is verified', async () => {
+      setupAuth(true, true);
+      setupMerchantData({});
+      setupVerification({
+        nin_verified: false,
+        bvn_verified: false,
+        cac_verified: false,
+      });
+      setupProductCount(1, 1);
+
+      const res = await POST(makeRequest('POST'));
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.missingItems).toContain(
+        'Identity verification (NIN, BVN, or CAC)'
+      );
+    });
+
+    it('returns 400 when no merchant_verifications row exists', async () => {
+      setupAuth(true, true);
+      setupMerchantData({});
+      setupVerification(null);
+      setupProductCount(1, 1);
+
+      const res = await POST(makeRequest('POST'));
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.missingItems).toContain(
+        'Identity verification (NIN, BVN, or CAC)'
+      );
+    });
+
+    it('succeeds when only BVN is verified', async () => {
+      setupAuth(true, true);
+      setupMerchantData({});
+      setupVerification({ bvn_verified: true });
+      setupProductCount(1, 1);
+      setupUpdateSuccess();
+
+      const res = await POST(makeRequest('POST'));
+
+      expect(res.status).toBe(200);
+    });
+
+    it('succeeds when only CAC is verified', async () => {
+      setupAuth(true, true);
+      setupMerchantData({});
+      setupVerification({ cac_verified: true });
+      setupProductCount(1, 1);
+      setupUpdateSuccess();
+
+      const res = await POST(makeRequest('POST'));
+
+      expect(res.status).toBe(200);
+    });
+
+    it('returns 500 when verification lookup fails', async () => {
+      setupAuth(true, true);
+      setupMerchantData({});
+      setupProductCount(1, 1);
+      // Simulate merchant_verifications admin read failing (e.g., DB
+      // outage or service-role misconfiguration). Must surface as a
+      // backend error rather than collapse to a false KYC gap.
+      mockVerificationData = {
+        data: null,
+        error: { message: 'connection refused' },
+      };
+
+      const res = await POST(makeRequest('POST'));
+      const json = await res.json();
+
+      expect(res.status).toBe(500);
+      expect(json.error).toBe('Internal server error');
+      expect(json.missingItems).toBeUndefined();
+    });
+  });
+
   describe('validation - products', () => {
     it('returns 400 when no active products exist', async () => {
       setupAuth(true, true);
-      setupMerchantData({
-        id: MERCHANT_ID,
-        business_name: 'Test Store',
-        country: 'NG',
-        support_email: 'test@example.com',
-        bank_code: '044',
-        bank_account_number: '1234567890',
-        paystack_subaccount_code: 'ACCT_test',
-      });
+      setupMerchantData({});
       setupProductCount(0, 0);
 
       const res = await POST(makeRequest('POST'));
@@ -385,15 +471,7 @@ describe('POST /api/merchant/publish', () => {
 
     it('returns 400 with helpful message when products exist but none active', async () => {
       setupAuth(true, true);
-      setupMerchantData({
-        id: MERCHANT_ID,
-        business_name: 'Test Store',
-        country: 'NG',
-        support_email: 'test@example.com',
-        bank_code: '044',
-        bank_account_number: '1234567890',
-        paystack_subaccount_code: 'ACCT_test',
-      });
+      setupMerchantData({});
       setupProductCount(0, 5);
 
       const res = await POST(makeRequest('POST'));
@@ -413,9 +491,12 @@ describe('POST /api/merchant/publish', () => {
   describe('validation - multiple missing items', () => {
     it('returns all missing items in the error response', async () => {
       setupAuth(true, true);
+      setupVerification({
+        nin_verified: false,
+        bvn_verified: false,
+        cac_verified: false,
+      });
       setupMerchantData({
-        id: MERCHANT_ID,
-        business_name: 'Test Store',
         country: null,
         support_email: null,
         support_phone: null,
@@ -433,7 +514,10 @@ describe('POST /api/merchant/publish', () => {
       expect(json.message).toBe(
         'Please complete the following required items:'
       );
-      expect(json.missingItems).toHaveLength(4);
+      expect(json.missingItems).toHaveLength(5);
+      expect(json.missingItems).toContain(
+        'Identity verification (NIN, BVN, or CAC)'
+      );
       expect(json.missingItems).toContain('Bank account details');
       expect(json.missingItems).toContain('Country/region setting');
       expect(json.missingItems).toContain(
@@ -446,16 +530,7 @@ describe('POST /api/merchant/publish', () => {
   describe('success path', () => {
     it('publishes store and returns success when all requirements met', async () => {
       setupAuth(true, true);
-      setupMerchantData({
-        id: MERCHANT_ID,
-        business_name: 'Test Store',
-        country: 'NG',
-        support_email: 'test@example.com',
-        support_phone: '+2341234567890',
-        bank_code: '044',
-        bank_account_number: '1234567890',
-        paystack_subaccount_code: 'ACCT_test',
-      });
+      setupMerchantData({});
       setupProductCount(3, 3);
       setupUpdateSuccess();
 
@@ -470,15 +545,7 @@ describe('POST /api/merchant/publish', () => {
 
     it('succeeds when products are available', async () => {
       setupAuth(true, true);
-      setupMerchantData({
-        id: MERCHANT_ID,
-        business_name: 'Test Store',
-        country: 'NG',
-        support_email: 'test@example.com',
-        bank_code: '044',
-        bank_account_number: '1234567890',
-        paystack_subaccount_code: 'ACCT_test',
-      });
+      setupMerchantData({});
       setupProductCount(2, 5);
       setupUpdateSuccess();
 
@@ -504,15 +571,7 @@ describe('POST /api/merchant/publish', () => {
 
     it('returns 500 when update fails', async () => {
       setupAuth(true, true);
-      setupMerchantData({
-        id: MERCHANT_ID,
-        business_name: 'Test Store',
-        country: 'NG',
-        support_email: 'test@example.com',
-        bank_code: '044',
-        bank_account_number: '1234567890',
-        paystack_subaccount_code: 'ACCT_test',
-      });
+      setupMerchantData({});
       setupProductCount(1, 1);
       setupUpdateError('Database error');
 
@@ -525,8 +584,8 @@ describe('POST /api/merchant/publish', () => {
 
     it('returns 500 on unexpected exception', async () => {
       setupAuth(true, true);
-      // Mock createClient to throw error
-      mockCreateClient.mockImplementation(() => {
+      // Force getUserAccess to throw an unexpected error inside the try block
+      mockGetUserAccess.mockImplementation(() => {
         throw new Error('Unexpected error');
       });
 
@@ -544,8 +603,6 @@ describe('DELETE /api/merchant/publish', () => {
     vi.clearAllMocks();
     mockMerchantData = { data: null, error: null };
     mockUpdateResult = { data: null, error: null };
-    // Restore default mock implementation
-    mockCreateClient.mockImplementation(() => createMockSupabase());
   });
 
   describe('authentication', () => {
@@ -638,8 +695,8 @@ describe('DELETE /api/merchant/publish', () => {
 
     it('returns 500 on unexpected exception', async () => {
       setupAuth(true, true);
-      // Mock createClient to throw error
-      mockCreateClient.mockImplementation(() => {
+      // Force getUserAccess to throw an unexpected error inside the try block
+      mockGetUserAccess.mockImplementation(() => {
         throw new Error('Unexpected error');
       });
 

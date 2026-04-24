@@ -140,6 +140,13 @@ export class NetworkError extends Error {
   public readonly isTimeout: boolean;
   public readonly isOffline: boolean;
   public readonly statusCode?: number;
+  /**
+   * Parsed response body for non-2xx responses (when available).
+   * Callers can inspect structured error payloads (e.g., validation
+   * responses with `missingItems`) instead of losing them when the
+   * client throws.
+   */
+  public readonly data?: unknown;
 
   constructor(
     message: string,
@@ -147,6 +154,7 @@ export class NetworkError extends Error {
       isTimeout?: boolean;
       isOffline?: boolean;
       statusCode?: number;
+      data?: unknown;
     } = {}
   ) {
     super(message);
@@ -154,6 +162,7 @@ export class NetworkError extends Error {
     this.isTimeout = options.isTimeout ?? false;
     this.isOffline = options.isOffline ?? false;
     this.statusCode = options.statusCode;
+    this.data = options.data;
   }
 }
 
@@ -255,7 +264,10 @@ export async function apiClient<T = unknown>(
 
     if (!response.ok) {
       const errorMessage = getResponseErrorMessage(data, response.status);
-      throw new NetworkError(errorMessage, { statusCode: response.status });
+      throw new NetworkError(errorMessage, {
+        statusCode: response.status,
+        data,
+      });
     }
 
     return data as T;
@@ -370,7 +382,10 @@ export async function apiFormData<T = unknown>(
 
     if (!response.ok) {
       const errorMessage = getResponseErrorMessage(data, response.status);
-      throw new NetworkError(errorMessage, { statusCode: response.status });
+      throw new NetworkError(errorMessage, {
+        statusCode: response.status,
+        data,
+      });
     }
 
     return data as T;

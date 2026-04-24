@@ -1,7 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useQueryClient } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
-import React from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -14,9 +12,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
+import { useStorePublish } from '@/hooks/useStorePublish';
 import { useStoreReadiness } from '@/hooks/useStoreReadiness';
 import { useTheme } from '@/hooks/useTheme';
-import { supabase } from '@/lib/supabase';
 import type { SetupItem } from '@/types/readiness';
 
 const CATEGORY_ICONS: Record<string, string> = {
@@ -44,8 +42,10 @@ export default function SetupChecklistScreen() {
   const router = useRouter();
   const { readiness, isLoading, refetch } = useStoreReadiness();
   const { merchant } = useMerchant();
-  const queryClient = useQueryClient();
-  const [isPublishing, setIsPublishing] = React.useState(false);
+  const { isPublishing, publishStore } = useStorePublish({
+    merchantId: merchant?.id,
+    onPublished: refetch,
+  });
 
   const handlePublish = async () => {
     if (!readiness?.isReady) {
@@ -56,23 +56,17 @@ export default function SetupChecklistScreen() {
       return;
     }
 
-    setIsPublishing(true);
     try {
-      const { error } = await supabase
-        .from('merchants')
-        .update({ is_published: true })
-        .eq('id', merchant?.id);
-
-      if (error) throw error;
-
-      await queryClient.invalidateQueries({ queryKey: ['merchant'] });
-      await refetch();
+      await publishStore();
       Alert.alert('Success', 'Your store is now LIVE!');
     } catch (error) {
       console.error('Publish error:', error);
-      Alert.alert('Error', 'Failed to publish store. Please try again.');
-    } finally {
-      setIsPublishing(false);
+      Alert.alert(
+        'Error',
+        error instanceof Error
+          ? error.message
+          : 'Failed to publish store. Please try again.'
+      );
     }
   };
 
