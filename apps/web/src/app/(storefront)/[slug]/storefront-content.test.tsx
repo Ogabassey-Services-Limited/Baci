@@ -33,6 +33,21 @@ vi.mock('@/components/analytics/analytics-provider', () => ({
 vi.mock('@/components/ui/skeletons', () => ({
   StorefrontPageSkeleton: () => <div data-testid="skeleton">Loading...</div>,
 }));
+vi.mock('next/link', () => ({
+  default: ({
+    children,
+    href,
+    prefetch: _prefetch,
+    ...props
+  }: React.AnchorHTMLAttributes<HTMLAnchorElement> & {
+    href: string;
+    prefetch?: boolean;
+  }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
+  ),
+}));
 const mockHeaders = vi.fn();
 vi.mock('next/headers', () => ({
   headers: () => mockHeaders(),

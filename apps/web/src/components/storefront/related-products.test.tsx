@@ -234,4 +234,68 @@ describe('RelatedProducts', () => {
       description: 'Related Device has been added to your cart.',
     });
   });
+
+  it('renders nothing and logs when the related-products fetch rejects', async () => {
+    apiGetMock.mockRejectedValueOnce(new Error('network error'));
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    render(<RelatedProducts product={currentProduct} />);
+
+    await waitFor(() => {
+      expect(apiGetMock).toHaveBeenCalledTimes(1);
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('heading', {
+          level: 2,
+          name: 'You Might Also Like',
+        })
+      ).not.toBeInTheDocument();
+    });
+    expect(consoleErrorSpy).toHaveBeenCalled();
+
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('disables the Add button for stock-managed out-of-stock products', async () => {
+    // isOutOfStock: manage_stock !== false AND stock <= 0
+    const soldOut = buildProduct({
+      id: 'sold-out',
+      name: 'Sold Out Device',
+      slug: 'sold-out',
+      manage_stock: true,
+      stock: 0,
+    });
+
+    apiGetMock.mockResolvedValue({
+      products: [currentProduct, soldOut],
+    });
+
+    render(<RelatedProducts product={currentProduct} />);
+
+    const addButton = await screen.findByRole('button', { name: 'Add' });
+    expect(addButton).toBeDisabled();
+  });
+
+  it('keeps the Add button enabled when manage_stock is false (service/digital)', async () => {
+    const service = buildProduct({
+      id: 'service',
+      name: 'Subscription Service',
+      slug: 'service',
+      manage_stock: false,
+      stock: 0,
+    });
+
+    apiGetMock.mockResolvedValue({
+      products: [currentProduct, service],
+    });
+
+    render(<RelatedProducts product={currentProduct} />);
+
+    const addButton = await screen.findByRole('button', { name: 'Add' });
+    expect(addButton).not.toBeDisabled();
+  });
 });

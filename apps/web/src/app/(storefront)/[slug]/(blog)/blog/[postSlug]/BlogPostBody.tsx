@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SafeHtml } from '@/components/ui/safe-html';
+import { canonicalizeCategorySlug } from '@/lib/storefront-canonical-url';
+import { getStorefrontProductHref } from '@/lib/storefront-product-href';
 import { buildBlogUrl, resolveBlogPostContent } from './blog-post-content';
 
 export interface BlogPostBodyProps {
@@ -24,7 +26,7 @@ export interface BlogPostBodyProps {
     tags?: string[] | null;
     title: string;
   };
-  relatedProducts: Array<{
+  relatedProducts?: Array<{
     category_slug?: string | null;
     id: string;
     name: string;
@@ -189,13 +191,21 @@ export async function BlogPostBody({
           </h2>
           <ul className="grid gap-3 md:grid-cols-2">
             {relatedProducts.map((product) => {
-              const categorySlug = product.category_slug?.trim();
               // `slug` can be null/empty for legacy rows; fall back to `id` so
               // we never emit `.../undefined` or `.../null` dead links.
               const productPathSegment = product.slug?.trim() || product.id;
-              const href = categorySlug
-                ? `${basePath}/${categorySlug}/${productPathSegment}`
-                : `${basePath}/products/${productPathSegment}`;
+              const canonicalCategorySlug = canonicalizeCategorySlug(
+                product.category_slug
+              );
+              const href = getStorefrontProductHref(
+                {
+                  id: product.id,
+                  name: product.name,
+                  slug: productPathSegment,
+                  category_slug: canonicalCategorySlug ?? undefined,
+                },
+                basePath
+              );
 
               return (
                 <li key={product.id}>

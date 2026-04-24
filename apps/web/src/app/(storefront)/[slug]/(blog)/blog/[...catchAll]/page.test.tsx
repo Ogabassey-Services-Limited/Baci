@@ -156,7 +156,7 @@ describe('storefront blog catch-all route', () => {
     expect(mockGetCachedMerchantByDomain).toHaveBeenCalledWith('ogabassey.com');
   });
 
-  it('redirects fuzzy slug matches to canonical public URL', async () => {
+  it('redirects fuzzy slug matches with a temporary (307) redirect to allow re-mapping', async () => {
     mockGetCachedMerchantByDomain.mockResolvedValue({
       id: 'merchant-1',
       slug: 'ogabassey',
@@ -175,7 +175,37 @@ describe('storefront blog catch-all route', () => {
         }),
       })
     ).rejects.toThrow(
-      'NEXT_PERMANENT_REDIRECT:https://ogabassey.usebaci.com/blog/snapdragon-x2-series-on-windows'
+      'NEXT_REDIRECT:https://ogabassey.usebaci.com/blog/snapdragon-x2-series-on-windows'
     );
+    // Must NOT use permanentRedirect — a fuzzy match is best-effort and the
+    // 308 would be cached indefinitely by browsers, blocking future slugs.
+    expect(mockPermanentRedirect).not.toHaveBeenCalled();
+    expect(mockRedirect).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls through to notFound when neither exact nor fuzzy lookup resolves', async () => {
+    mockGetCachedMerchantByDomain.mockResolvedValue({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+    });
+    // Exact lookup returns nothing
+    mockMaybeSingle.mockResolvedValueOnce({ data: null });
+    // Fuzzy lookup returns an unrelated post
+    mockLimit.mockResolvedValueOnce({
+      data: [{ slug: 'some-unrelated-post' }],
+    });
+
+    await expect(
+      BlogCatchAllPage({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          catchAll: ['laptops', 'nonexistent-post-slug'],
+        }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+
+    expect(mockPermanentRedirect).not.toHaveBeenCalled();
+    expect(mockRedirect).not.toHaveBeenCalled();
+    expect(mockNotFound).toHaveBeenCalledTimes(1);
   });
 });

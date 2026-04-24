@@ -158,4 +158,23 @@ describe('CategoryPageContent', () => {
       expect.objectContaining({ currency: 'NGN' })
     );
   });
+
+  it('calls notFound() when the merchant lookup returns null', async () => {
+    // The merchant slug does not resolve — page should 404, not render.
+    mockGetMerchantByIdentifier.mockResolvedValue(null);
+
+    await expect(
+      CategoryPageContent({
+        params: Promise.resolve({
+          slug: 'unknown-merchant',
+          category: 'phones',
+        }),
+        searchParams: Promise.resolve({ page: '1' }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+
+    // Downstream schema generation should never run for a 404 response.
+    expect(mockGenerateCollectionPageSchema).not.toHaveBeenCalled();
+    expect(mockGetCachedCategoryPageData).not.toHaveBeenCalled();
+  });
 });

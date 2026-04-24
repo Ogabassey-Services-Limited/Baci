@@ -229,6 +229,44 @@ describe('getLiveBlogPost', () => {
     expect(mockQueryBuilder.eq).toHaveBeenCalledWith('slug', 'my-post');
   });
 
+  it('does not filter related products by category_slug when post category is empty/whitespace', async () => {
+    // Negative case: the slugifier returns null for whitespace-only categories,
+    // so the related-products query should skip the .eq('category_slug', …)
+    // filter rather than query with an empty or normalized-null value.
+    vi.mocked(getMerchantSafe).mockResolvedValue(mockMerchant as never);
+    vi.mocked(getCachedFeatureSettings).mockResolvedValue({
+      blog_enabled: true,
+      shipping_insurance_enabled: false,
+      shipping_insurance_min_order_value: 5000,
+      shipping_insurance_opt_in_default: false,
+    });
+
+    mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'post-1',
+        title: 'Test Post',
+        slug: 'my-post',
+        // whitespace-only category — slugifier returns null
+        category: '   ',
+      },
+      error: null,
+    });
+
+    relatedQueryResult.data = [];
+    relatedQueryResult.error = null;
+
+    const result = await getLiveBlogPost('test-store', 'my-post');
+
+    expect(result).not.toBeNull();
+    // Related-products branch should be skipped entirely — no `.eq` call on
+    // category_slug should appear (since we never enter the products query).
+    expect(mockQueryBuilder.eq).not.toHaveBeenCalledWith(
+      'category_slug',
+      expect.anything()
+    );
+    expect(result?.relatedProducts).toEqual([]);
+  });
+
   it('returns null and logs error for non-PGRST116 post errors', async () => {
     vi.mocked(getMerchantSafe).mockResolvedValue(mockMerchant as never);
     vi.mocked(getCachedFeatureSettings).mockResolvedValue({

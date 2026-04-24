@@ -15,6 +15,7 @@ import {
   generateCollectionPageSchema,
 } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
+import { canonicalizeCategorySlug } from '@/lib/storefront-canonical-url';
 import {
   parseStorefrontPageParam,
   STOREFRONT_PRODUCTS_PER_PAGE,
@@ -25,13 +26,6 @@ import { ProductIndexCard } from './product-index-card';
 interface PageProps {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ page?: string }>;
-}
-
-function canonicalizeCategorySlug(
-  slug: string | null | undefined
-): string | null {
-  const normalized = slug?.trim().toLowerCase();
-  return normalized || null;
 }
 
 function getStorefrontPathPrefix(
@@ -74,7 +68,7 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
       }),
       getCachedStorefrontProductIndex(merchant.id, {
         page: 1,
-        limit: 24,
+        limit: STOREFRONT_PRODUCTS_PER_PAGE,
       }),
     ]);
   const totalPages = Math.max(1, currentProductIndex.totalPages || 1);
@@ -242,7 +236,7 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
                   <ul className="mt-4 grid gap-2 md:grid-cols-2 lg:grid-cols-3">
                     {deepLinkProducts.map((product) => {
                       const categorySlug =
-                        product.category_slug?.trim().toLowerCase() ||
+                        canonicalizeCategorySlug(product.category_slug) ??
                         'products';
                       const href =
                         categorySlug === 'products'

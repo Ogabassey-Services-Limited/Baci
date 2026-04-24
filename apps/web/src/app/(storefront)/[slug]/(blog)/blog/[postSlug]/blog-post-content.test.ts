@@ -74,9 +74,25 @@ describe('resolveBlogPostContent', () => {
     expect(result.legacyHtml).toContain('Markdown title');
   });
 
-  it('fills empty legacy image alt text using the image filename', async () => {
+  it('preserves author-supplied alt="" for decorative images (WCAG)', async () => {
+    // WCAG allows `alt=""` as a deliberate signal that an image is decorative
+    // and should be ignored by assistive tech. Respect that author signal
+    // instead of overwriting it with a derived fallback.
     const result = await resolveBlogPostContent(
       '<p><img src="https://cdn.ogabassey.com/blog/2023/09/Apple-iPhone-15-Pro-lineup-color-lineup-230912.jpg" alt="" /></p>',
+      {
+        fallbackImageAlt: 'iPhone 15 Series Review',
+      }
+    );
+
+    expect(result.isJson).toBe(false);
+    expect(result.legacyHtml).toContain('alt=""');
+    expect(result.legacyHtml).not.toContain('Apple iPhone 15 Pro');
+  });
+
+  it('injects filename-derived alt text when alt attribute is absent', async () => {
+    const result = await resolveBlogPostContent(
+      '<p><img src="https://cdn.ogabassey.com/blog/2023/09/Apple-iPhone-15-Pro-lineup-color-lineup-230912.jpg" /></p>',
       {
         fallbackImageAlt: 'iPhone 15 Series Review',
       }

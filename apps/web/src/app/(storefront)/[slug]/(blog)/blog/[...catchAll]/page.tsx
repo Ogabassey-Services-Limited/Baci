@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { notFound, permanentRedirect } from 'next/navigation';
+import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import { buildCanonicalBlogPostUrl } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/blog-post-content';
 import {
   getCachedBlogPost,
@@ -120,7 +120,10 @@ export default async function BlogCatchAllPage({
   );
 
   if (matchingPost) {
-    permanentRedirect(
+    // Fuzzy matches are best-effort — use a 307 redirect so browsers don't
+    // cache it permanently (content authors may later publish a post at the
+    // requested slug, and a cached 308 would prevent that URL from resolving).
+    redirect(
       asRoute(buildCanonicalBlogPostUrl(cachedMerchant, matchingPost.slug))
     );
   }

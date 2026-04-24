@@ -134,14 +134,14 @@ function ensureBlogImageAltText(
     const escapedAlt = escapeHtmlAttr(altCandidate);
     const altAttrRegex = /\balt\s*=\s*(['"])(.*?)\1/i;
     const currentAltMatch = imgTag.match(altAttrRegex);
-    const currentAlt = currentAltMatch?.[2]?.trim() || '';
+    const currentAlt = currentAltMatch?.[2];
 
-    if (currentAlt.length > 0) {
+    // If an alt attribute is present — even if it is the empty string (which
+    // authors use deliberately for decorative images, per WCAG) — respect the
+    // author's signal and leave the tag untouched. Only synthesize a fallback
+    // alt when the attribute is completely absent.
+    if (currentAlt !== undefined) {
       return imgTag;
-    }
-
-    if (currentAltMatch) {
-      return imgTag.replace(altAttrRegex, `alt="${escapedAlt}"`);
     }
 
     if (/\/\s*>$/.test(imgTag)) {

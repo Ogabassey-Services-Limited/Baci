@@ -1,3 +1,5 @@
+import { render, screen } from '@testing-library/react';
+import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
@@ -21,7 +23,19 @@ vi.mock('next/headers', () => ({
 }));
 
 vi.mock('next/link', () => ({
-  default: () => null,
+  default: ({
+    children,
+    href,
+    prefetch: _prefetch,
+    ...props
+  }: React.AnchorHTMLAttributes<HTMLAnchorElement> & {
+    href: string;
+    prefetch?: boolean;
+  }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
+  ),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -136,29 +150,36 @@ describe('ProductsPageContent', () => {
       searchParams: Promise.resolve({ page: '1' }),
     });
 
-    // Render the tree to a plain string so we can assert which category ids
-    // appear in the "Browse Categories" links without pulling in a DOM.
-    const serialized = JSON.stringify(result);
+    render(result as React.ReactElement);
 
-    // All merchant-defined distinct slugs should remain, not collapsed by an
-    // alias remap.
-    expect(serialized).toContain('"key":"cat-samsung"');
-    expect(serialized).toContain('"key":"cat-phones"');
-    expect(serialized).toContain('"key":"cat-smartphones"');
-    expect(serialized).toContain('"key":"cat-macbook"');
+    // Each merchant-defined distinct slug should render its own link. Assert
+    // against the actual rendered anchors so we don't couple to React element
+    // internals or `JSON.stringify` shape.
+    expect(screen.getByRole('link', { name: 'Samsung' })).toHaveAttribute(
+      'href',
+      '/demo-store/samsung'
+    );
+    expect(screen.getByRole('link', { name: 'Phones' })).toHaveAttribute(
+      'href',
+      '/demo-store/phones'
+    );
+    expect(screen.getByRole('link', { name: 'Smartphones' })).toHaveAttribute(
+      'href',
+      '/demo-store/smartphones'
+    );
+    expect(screen.getByRole('link', { name: 'Macbook' })).toHaveAttribute(
+      'href',
+      '/demo-store/macbook'
+    );
 
-    // Pure case/whitespace duplicates should still collapse — only one of the
-    // two `Laptops` rows should render.
-    const laptopMatches =
-      serialized.match(/"key":"cat-laptops(?:-dup)?"/g) ?? [];
-    expect(laptopMatches).toHaveLength(1);
-
-    // Whichever row wins the dedupe, the rendered category link must use the
-    // canonical (trimmed + lowercased) slug — never the raw ` Laptops `
-    // variant that would produce a broken URL.
-    expect(serialized).toContain('"href":"/demo-store/laptops"');
-    expect(serialized).not.toContain('/demo-store/%20Laptops%20');
-    expect(serialized).not.toContain('/demo-store/ Laptops ');
+    // Pure case/whitespace duplicates should still collapse — exactly one
+    // "Laptops*" link should render, pointing at the canonical lowercased
+    // slug and never the raw ` Laptops ` variant.
+    const laptopLinks = screen.getAllByRole('link', {
+      name: /^Laptops/,
+    });
+    expect(laptopLinks).toHaveLength(1);
+    expect(laptopLinks[0]).toHaveAttribute('href', '/demo-store/laptops');
   });
 
   it("falls back to 'NGN' when merchant payout currency is missing", async () => {

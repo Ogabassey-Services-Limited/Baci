@@ -106,29 +106,29 @@ vi.mock('@/lib/seo-utils', () => ({
 
 function buildProduct(overrides: Partial<Product> = {}): Product {
   return {
-    id: overrides.id ?? 'product-1',
-    name: overrides.name ?? 'Samsung Galaxy S25',
-    description: overrides.description ?? 'Flagship phone',
-    status: overrides.status ?? 'active',
-    price: overrides.price ?? 1500000,
-    manage_stock: overrides.manage_stock ?? true,
-    stock: overrides.stock ?? 4,
-    image: overrides.image ?? '/phone.jpg',
-    imageLarge: overrides.imageLarge ?? '/phone.jpg',
-    imageHint: overrides.imageHint ?? '',
-    brand: overrides.brand ?? 'Samsung',
-    gtin: overrides.gtin ?? '',
-    mpn: overrides.mpn ?? '',
-    category: overrides.category ?? 'smartphones',
-    category_slug: overrides.category_slug ?? 'smartphones',
-    slug: overrides.slug ?? 'samsung-galaxy-s25',
-    categories: overrides.categories ?? {
+    id: 'product-1',
+    name: 'Samsung Galaxy S25',
+    description: 'Flagship phone',
+    status: 'active',
+    price: 1500000,
+    manage_stock: true,
+    stock: 4,
+    image: '/phone.jpg',
+    imageLarge: '/phone.jpg',
+    imageHint: '',
+    brand: 'Samsung',
+    gtin: '',
+    mpn: '',
+    category: 'smartphones',
+    category_slug: 'smartphones',
+    slug: 'samsung-galaxy-s25',
+    categories: {
       id: 'cat-1',
       name: 'Smartphones',
       slug: 'smartphones',
     },
     ...overrides,
-  };
+  } as Product;
 }
 
 describe('RecentlyViewedProducts', () => {
@@ -207,5 +207,70 @@ describe('RecentlyViewedProducts', () => {
       title: 'Added to cart',
       description: 'Featured Device has been added to your cart.',
     });
+  });
+
+  it('renders nothing and logs when the products fetch rejects', async () => {
+    recentlyViewedIdsState.value = ['p1'];
+    apiGetMock.mockRejectedValueOnce(new Error('network down'));
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    render(<RecentlyViewedProducts />);
+
+    await waitFor(() => {
+      expect(apiGetMock).toHaveBeenCalledTimes(1);
+    });
+
+    // Section should not appear when fetch fails (products list stays empty)
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('heading', { level: 2, name: 'Recently Viewed' })
+      ).not.toBeInTheDocument();
+    });
+    expect(consoleErrorSpy).toHaveBeenCalled();
+
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('disables the Add button when the product is out of stock (manage_stock)', async () => {
+    // manage_stock !== false AND stock <= 0 triggers the disabled state
+    recentlyViewedIdsState.value = ['p-oos'];
+    apiGetMock.mockResolvedValue({
+      products: [
+        buildProduct({
+          id: 'p-oos',
+          name: 'Sold Out Device',
+          slug: 'sold-out',
+          manage_stock: true,
+          stock: 0,
+        }),
+      ],
+    });
+
+    render(<RecentlyViewedProducts />);
+
+    const addButton = await screen.findByRole('button', { name: 'Add' });
+    expect(addButton).toBeDisabled();
+  });
+
+  it('enables the Add button when manage_stock=false regardless of stock', async () => {
+    recentlyViewedIdsState.value = ['p-service'];
+    apiGetMock.mockResolvedValue({
+      products: [
+        buildProduct({
+          id: 'p-service',
+          name: 'Digital Service',
+          slug: 'service',
+          manage_stock: false,
+          stock: 0,
+        }),
+      ],
+    });
+
+    render(<RecentlyViewedProducts />);
+
+    const addButton = await screen.findByRole('button', { name: 'Add' });
+    expect(addButton).not.toBeDisabled();
   });
 });

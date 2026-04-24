@@ -27,10 +27,13 @@ describe('normalizeStorefrontCategoryValue', () => {
     );
   });
 
-  it('normalizes non-ascii separators down to an ascii slug', () => {
-    expect(normalizeStorefrontCategoryValue('Prodüct Nëws')).toBe(
-      'product-news'
-    );
+  it('strips non-ASCII letters the same way product.category_slug is generated', () => {
+    // Must match the slug shape stored in `products.category_slug`, which is
+    // produced by `generateSlug` in normalize-product.ts. `generateSlug` uses
+    // the ASCII-only `\w` class, so diacritic characters are removed entirely
+    // rather than decomposed. Aligning here guarantees the related-products
+    // lookup won't silently miss rows.
+    expect(normalizeStorefrontCategoryValue('Prodüct Nëws')).toBe('prodct-nws');
   });
 
   it('lowercases mixed-case values', () => {
