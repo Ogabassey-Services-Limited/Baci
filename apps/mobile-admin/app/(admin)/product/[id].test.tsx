@@ -30,7 +30,9 @@ vi.mock('expo-router', async () => {
         React.createElement(
           'div',
           null,
-          options?.title ? React.createElement('span', null, options.title) : null,
+          options?.title
+            ? React.createElement('span', null, options.title)
+            : null,
           options?.headerLeft ? options.headerLeft() : null,
           options?.headerRight ? options.headerRight() : null
         ),
@@ -45,7 +47,9 @@ vi.mock('@expo/vector-icons', () => ({
 }));
 
 vi.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  SafeAreaView: ({ children }: { children?: ReactNode }) => (
+    <div>{children}</div>
+  ),
   useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
 }));
 
@@ -158,11 +162,9 @@ vi.mock('@/components/ui/InvalidRouteScreen', () => ({
 }));
 
 vi.mock('@/components/ui/KeyboardAwareModalContainer', () => ({
-  KeyboardAwareModalContainer: ({
-    children,
-  }: {
-    children?: ReactNode;
-  }) => <div>{children}</div>,
+  KeyboardAwareModalContainer: ({ children }: { children?: ReactNode }) => (
+    <div>{children}</div>
+  ),
 }));
 
 vi.mock('@/components/ui/SafeImage', () => ({
@@ -234,6 +236,26 @@ vi.mock('expo-crypto', () => ({
 
 import ProductEditScreen from '@/app/(admin)/product/[id]';
 
+const baseProduct = {
+  brand: 'Baci',
+  category: 'Phones',
+  category_id: 'category-1',
+  color: 'Midnight Blue',
+  cost_price: 1200,
+  description: '<p>Flagship phone</p>',
+  fulfillment_details: { items: [] },
+  images: [],
+  low_stock_threshold: 3,
+  manage_stock: true,
+  name: 'Phone Ultra',
+  price: 1500,
+  sku: 'SKU-123',
+  status: 'active',
+  stock_quantity: 10,
+  variant_attributes: {},
+  variants: [],
+};
+
 describe('ProductEditScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -243,24 +265,8 @@ describe('ProductEditScreen', () => {
     });
     mocks.useProduct.mockReturnValue({
       data: {
-        brand: 'Baci',
-        category: 'Phones',
-        category_id: 'category-1',
-        color: 'Midnight Blue',
-        cost_price: 1200,
-        description: '<p>Flagship phone</p>',
-        fulfillment_details: { items: [] },
+        ...baseProduct,
         has_variants: true,
-        images: [],
-        low_stock_threshold: 3,
-        manage_stock: true,
-        name: 'Phone Ultra',
-        price: 1500,
-        sku: 'SKU-123',
-        status: 'active',
-        stock_quantity: 10,
-        variant_attributes: {},
-        variants: [],
       },
       error: null,
     });
@@ -281,24 +287,8 @@ describe('ProductEditScreen', () => {
   it('shows the color field in basic information when the loaded product does not use variants', async () => {
     mocks.useProduct.mockReturnValue({
       data: {
-        brand: 'Baci',
-        category: 'Phones',
-        category_id: 'category-1',
-        color: 'Midnight Blue',
-        cost_price: 1200,
-        description: '<p>Flagship phone</p>',
-        fulfillment_details: { items: [] },
+        ...baseProduct,
         has_variants: false,
-        images: [],
-        low_stock_threshold: 3,
-        manage_stock: true,
-        name: 'Phone Ultra',
-        price: 1500,
-        sku: 'SKU-123',
-        status: 'active',
-        stock_quantity: 10,
-        variant_attributes: {},
-        variants: [],
       },
       error: null,
     });

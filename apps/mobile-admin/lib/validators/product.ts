@@ -266,9 +266,9 @@ export const ProductDbSchema = ProductSchema.transform((data) => {
       ? (defaultSelection?.condition ?? persistedVariants[0]?.condition ?? null)
       : (rest.condition ?? null);
   const nextColor = has_variants
-    ? (defaultSelection?.color ??
+    ? (defaultSelection?.variant.attributes?.color?.trim() ??
       persistedVariants
-        .map((variant) => variant.attributes.color?.trim())
+        .map((variant) => variant.attributes?.color?.trim())
         .find((value): value is string => Boolean(value)) ??
       null)
     : rest.color?.trim() || null;
