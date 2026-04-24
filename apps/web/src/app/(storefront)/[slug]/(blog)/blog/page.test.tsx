@@ -1,19 +1,7 @@
 import { render, screen } from '@testing-library/react';
-import React, { Suspense } from 'react';
+import { Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getCachedBlogListing } from '@/lib/cached-data';
-
-vi.mock('next/link', () => ({
-  default: ({
-    href,
-    children,
-    className,
-  }: {
-    href: string;
-    children: React.ReactNode;
-    className?: string;
-  }) => React.createElement('a', { href, className }, children),
-}));
 
 const { mockDefaultBlogUi } = vi.hoisted(() => ({
   mockDefaultBlogUi: vi.fn(
