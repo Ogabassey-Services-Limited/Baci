@@ -307,6 +307,75 @@ describe('product selection', () => {
     expect(result.effectiveSelectedColor).toBe('Crimson');
   });
 
+  it('resolves mixed-catalog color aliases without requiring both keys on a single variant', () => {
+    const mixedAliasProduct: Product = {
+      ...variantProduct,
+      color_images: {},
+      colors: ['Forest Green', 'Crimson'],
+      variant_attributes: {
+        ...(variantProduct.variant_attributes ?? {}),
+        color: ['Forest Green'],
+        colour: ['Crimson'],
+      },
+      variants: [
+        {
+          ...primaryVariant,
+          id: 'variant-mixed-forest',
+          condition: undefined,
+          attributes: {
+            storage: '128GB',
+            color: 'Forest Green',
+          },
+        },
+        {
+          ...secondaryVariant,
+          id: 'variant-mixed-crimson',
+          condition: undefined,
+          attributes: {
+            storage: '128GB',
+            colour: 'Crimson',
+          },
+        },
+      ],
+    };
+
+    const modernResult = computeProductSelectionState({
+      defaultVariantSelection:
+        resolveDefaultVariantSelection(mixedAliasProduct),
+      product: mixedAliasProduct,
+      routeCondition: null,
+      routeSelectionAttributes: {},
+      routeVariantId: null,
+      selectedAttributes: {},
+      selectedColor: 'Forest Green',
+      selectedCondition: null,
+      selectedStorage: '128GB',
+      selectedVariant: null,
+    });
+
+    expect(modernResult.currentVariantDisplaySelection?.variant.id).toBe(
+      'variant-mixed-forest'
+    );
+
+    const legacyResult = computeProductSelectionState({
+      defaultVariantSelection:
+        resolveDefaultVariantSelection(mixedAliasProduct),
+      product: mixedAliasProduct,
+      routeCondition: null,
+      routeSelectionAttributes: {},
+      routeVariantId: null,
+      selectedAttributes: {},
+      selectedColor: 'Crimson',
+      selectedCondition: null,
+      selectedStorage: '128GB',
+      selectedVariant: null,
+    });
+
+    expect(legacyResult.currentVariantDisplaySelection?.variant.id).toBe(
+      'variant-mixed-crimson'
+    );
+  });
+
   it('lets explicit storage and color selections override route attributes', () => {
     const coloredVariantProduct: Product = {
       ...variantProduct,

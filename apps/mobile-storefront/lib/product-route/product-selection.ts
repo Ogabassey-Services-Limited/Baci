@@ -56,6 +56,43 @@ function resolveProductColorAxisShape(
   return 'none';
 }
 
+// In mixed catalogs (`both` shape) a single variant row only carries one alias,
+// so emitting both keys at once fails exact-key matching. Peek at the variants
+// to pick whichever alias actually stores the requested color value; if both
+// (or neither) match, prefer the canonical `color` key.
+function pickColorAliasForMixedCatalog(
+  product: Product | null | undefined,
+  color: string
+): 'color' | 'colour' {
+  const target = color.trim();
+  if (!target || !product?.variants) {
+    return 'color';
+  }
+
+  let colorMatch = false;
+  let colourMatch = false;
+
+  for (const variant of product.variants) {
+    if (variant.attributes?.color?.trim() === target) {
+      colorMatch = true;
+    }
+    if (variant.attributes?.colour?.trim() === target) {
+      colourMatch = true;
+    }
+    if (colorMatch && colourMatch) {
+      break;
+    }
+  }
+
+  if (colorMatch && !colourMatch) {
+    return 'color';
+  }
+  if (colourMatch && !colorMatch) {
+    return 'colour';
+  }
+  return 'color';
+}
+
 function isProductCondition(
   value: ProductCondition | null
 ): value is ProductCondition {
@@ -145,16 +182,22 @@ export function computeProductSelectionState({
   const colorAxisShape = resolveProductColorAxisShape(product);
   // When a product's variants only carry the legacy `colour` key, emit the
   // selection under `colour` (not `color`) so the shared resolver matches
-  // exactly. When both keys exist (mixed catalog), mirror onto both so
-  // legacy rows stay reachable without breaking modern matches.
+  // exactly. The shared resolver matches by exact key equality, so in mixed
+  // (`both`) catalogs we must emit only one key at a time — picking whichever
+  // alias actually stores the requested color value — otherwise no single
+  // variant row can satisfy both keys and valid SKUs resolve to `null`.
+  const mixedCatalogAlias =
+    resolvedColorSelection !== null && colorAxisShape === 'both'
+      ? pickColorAliasForMixedCatalog(product, resolvedColorSelection)
+      : null;
   const shouldEmitColor =
     resolvedColorSelection !== null &&
     (colorAxisShape === 'color' ||
-      colorAxisShape === 'both' ||
-      colorAxisShape === 'none');
+      colorAxisShape === 'none' ||
+      mixedCatalogAlias === 'color');
   const shouldEmitColour =
     resolvedColorSelection !== null &&
-    (colorAxisShape === 'colour' || colorAxisShape === 'both');
+    (colorAxisShape === 'colour' || mixedCatalogAlias === 'colour');
   const selectionAttributes: Record<string, string | null> = {
     ...routeSelectionAttributes,
     ...selectedAttributes,
