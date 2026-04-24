@@ -57,6 +57,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               onClick={handlePrint}
               className="p-2 hover:bg-gray-100 rounded-full text-gray-500 transition-colors"
               title="Print or save as PDF"
+              aria-label="Print receipt"
             >
               <Printer size={18} />
             </button>
@@ -64,6 +65,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               type="button"
               onClick={onClose}
               className="p-2 hover:bg-gray-100 rounded-full text-gray-500 transition-colors"
+              aria-label="Close receipt"
             >
               <X size={20} />
             </button>
