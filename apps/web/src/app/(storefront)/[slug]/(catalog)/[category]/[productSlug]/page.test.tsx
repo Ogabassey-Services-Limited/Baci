@@ -787,7 +787,7 @@ describe('[category]/[productSlug] page render', () => {
       ...categorizedDetailedProduct,
       canonical_url: 'https://usebaci.com/laptops/hp-laptop-14-ep0063nia',
     });
-    mockHeaders.mockReturnValue(
+    mockHeaders.mockResolvedValue(
       new Headers([['x-custom-domain', 'ogabassey.com']])
     );
 

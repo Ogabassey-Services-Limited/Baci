@@ -189,6 +189,7 @@ describe('Middleware Proxy', () => {
 
     const res = await proxy(req);
 
+    expect(res.status).toBe(301);
     expect(res.headers.get('location')).toBe(
       'https://ogabassey.com/sitemap/products.xml'
     );
@@ -314,21 +315,19 @@ describe('Middleware Proxy', () => {
   });
 
   it.each([
-    ['/blog/page/2', '/blog/page/2'],
-    ['/blog/tag/iphone', '/blog/tag/iphone'],
-    ['/blog/author/jane', '/blog/author/jane'],
-  ])('does not flatten reserved blog archive routes: %s', async (inputPath, expectedPath) => {
+    '/blog/page/2',
+    '/blog/tag/iphone',
+    '/blog/author/jane',
+  ])('does not flatten reserved blog archive routes: %s', async (inputPath) => {
     const req = new NextRequest(`https://ogabassey.com${inputPath}`);
     req.headers.set('host', 'ogabassey.com');
 
     const res = await proxy(req);
-    const location = res.headers.get('location');
 
-    if (res.status === 301 && location) {
-      expect(new URL(location).pathname).toBe(expectedPath);
-    } else {
-      expect(res.status).not.toBe(301);
-    }
+    // Reserved archive paths must not trigger any 301, including a
+    // wasteful self-redirect to the same path. Locking this to "no 301"
+    // is the strongest expression of the invariant.
+    expect(res.status).not.toBe(301);
   });
 
   it.each([
@@ -344,8 +343,15 @@ describe('Middleware Proxy', () => {
     const res = await proxy(req);
     const location = res.headers.get('location');
 
+    // A single 301 must collapse the legacy category prefix AND drop the
+    // thumbnail noise together — chaining two 301s wastes a round-trip and
+    // counts against crawler redirect-chain budgets.
     expect(res.status).toBe(301);
     expect(location).toBeTruthy();
+    expect(new URL(location ?? '').pathname).toBe(
+      '/blog/the-iphone-15-what-we-know-so-far'
+    );
+    expect(location).toContain('ref=mail');
     expect(location).not.toContain('_thumbnail_id');
     expect(location).not.toContain('thumbnail_id=');
   });

@@ -222,6 +222,38 @@ describe('resolveProductVariantMedia', () => {
     expect(result.colors).toEqual(['black', 'RED']);
   });
 
+  it('merges legacy and variant color image buckets case-insensitively', () => {
+    // Regression: previously a legacy `Black` bucket and a variant `black`
+    // bucket stayed split because the merge used a case-sensitive object
+    // spread. `buildOrderedColors` then deduplicated the label to a single
+    // entry while `colorImages` still had two buckets, causing the UI to
+    // show one swatch that only surfaced images from whichever bucket the
+    // selected casing pointed at. Variants still override legacy per-color,
+    // so the variant casing and variant images should be the canonical
+    // output.
+    const result = resolveProductVariantMedia({
+      colorImages: {
+        Black: ['https://cdn.example.com/legacy-black.jpg'],
+      },
+      productColors: [],
+      productImages: [],
+      variants: [
+        {
+          attributes: { color: 'black' },
+          image: 'https://cdn.example.com/variant-black.jpg',
+        },
+      ],
+    });
+
+    // Assert: a single merged bucket keyed on the variant casing — no split
+    // `Black`/`black` entries — and the color label matches.
+    expect(Object.keys(result.colorImages ?? {})).toEqual(['black']);
+    expect(result.colorImages?.black).toEqual([
+      'https://cdn.example.com/variant-black.jpg',
+    ]);
+    expect(result.colors).toEqual(['black']);
+  });
+
   it('normalizes image objects and strips surrounding quotes from URLs', () => {
     expect(
       resolveProductVariantMedia({

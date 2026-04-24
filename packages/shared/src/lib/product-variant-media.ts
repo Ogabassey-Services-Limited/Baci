@@ -193,6 +193,56 @@ function flattenColorImages(colorImages: Record<string, string[]>) {
 }
 
 /**
+ * Merges legacy and variant color-image records case-insensitively on the
+ * color-name key. Rules:
+ *
+ * - Variants define the canonical casing for the output key.
+ * - When a legacy key and a variant key refer to the same color ignoring
+ *   case (e.g. `Black` vs `black`), the variant images REPLACE the legacy
+ *   images under the variant casing. This preserves the pre-existing
+ *   "variant overrides legacy per-key" contract while also eliminating the
+ *   split-bucket bug where `buildOrderedColors` collapses the label but
+ *   `colorImages` keeps both keys.
+ * - Legacy entries whose color does not appear in variants (case-insensitive)
+ *   are carried through unchanged.
+ */
+function mergeColorImagesCaseInsensitive(
+  legacy: Record<string, string[]>,
+  variants: Record<string, string[]>
+): Record<string, string[]> {
+  const variantKeyByLookup = new Map<string, string>();
+  for (const variantKey of Object.keys(variants)) {
+    variantKeyByLookup.set(variantKey.toLowerCase(), variantKey);
+  }
+
+  // Preserve the existing property order: legacy insertion order first (so
+  // a legacy `Gold` that is overridden by a variant still appears in the
+  // original slot), then any variant-only colors. For colors covered by a
+  // variant we emit the variant images under the variant's canonical
+  // casing; otherwise the legacy entry is carried through unchanged.
+  const merged: Record<string, string[]> = {};
+  const emittedVariantKeys = new Set<string>();
+
+  for (const [legacyKey, legacyImages] of Object.entries(legacy)) {
+    const lookup = legacyKey.toLowerCase();
+    const variantKey = variantKeyByLookup.get(lookup);
+    if (variantKey) {
+      merged[variantKey] = Array.from(new Set(variants[variantKey] ?? []));
+      emittedVariantKeys.add(variantKey);
+      continue;
+    }
+    merged[legacyKey] = Array.from(new Set(legacyImages));
+  }
+  for (const [variantKey, variantImages] of Object.entries(variants)) {
+    if (emittedVariantKeys.has(variantKey)) {
+      continue;
+    }
+    merged[variantKey] = Array.from(new Set(variantImages));
+  }
+  return merged;
+}
+
+/**
  * Builds the complete list of gallery images, ensuring color-specific images
  * are represented first.
  */
@@ -294,9 +344,17 @@ export function resolveProductVariantMedia({
   const normalizedLegacyColorImages = normalizeColorImages(colorImages) ?? {};
 
   // Merge: variant color images override legacy entries per-key, but legacy
-  // entries for other colors are preserved.
+  // entries for other colors are preserved. The merge is case-insensitive on
+  // the color-name key so that a legacy `Black` bucket and a variant `black`
+  // bucket collapse into a single entry — otherwise `buildOrderedColors`
+  // deduplicates labels case-insensitively while `colorImages` keeps the two
+  // buckets split, causing the UI to show one color label that misses half
+  // its images.
   const resolvedColorImages = variantColorImages
-    ? { ...normalizedLegacyColorImages, ...variantColorImages }
+    ? mergeColorImagesCaseInsensitive(
+        normalizedLegacyColorImages,
+        variantColorImages
+      )
     : Object.keys(normalizedLegacyColorImages).length > 0
       ? normalizedLegacyColorImages
       : undefined;

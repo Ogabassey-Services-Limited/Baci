@@ -253,4 +253,13 @@ describe('normalizeStorefrontCanonicalUrl', () => {
       )
     ).toBe('https://ogabassey.com/');
   });
+
+  it('returns undefined when baseUrl is malformed so callers can fall back', () => {
+    // Regression: previously a malformed baseUrl would fall through to the
+    // outer catch and return the raw (potentially relative) canonical input,
+    // shipping an invalid canonical into metadata.alternates.canonical.
+    expect(
+      normalizeStorefrontCanonicalUrl('/products/iphone-15', 'not-a-valid-url')
+    ).toBeUndefined();
+  });
 });

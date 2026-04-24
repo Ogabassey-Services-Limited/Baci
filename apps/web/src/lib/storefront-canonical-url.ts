@@ -37,8 +37,19 @@ export function normalizeStorefrontCanonicalUrl(
     return undefined;
   }
 
+  // Parse baseUrl first so a malformed storefront origin does not fall through
+  // to returning the raw canonical input (which may be a relative path that is
+  // not a valid absolute canonical URL for SEO). If the storefront baseUrl is
+  // unusable we return `undefined` and let the caller fall back to its own
+  // origin construction.
+  let storeOrigin: string;
   try {
-    const storeOrigin = new URL(baseUrl).origin;
+    storeOrigin = new URL(baseUrl).origin;
+  } catch {
+    return undefined;
+  }
+
+  try {
     const canonical = new URL(normalizedCanonical, baseUrl);
 
     // Always evaluate merchant-prefix stripping, regardless of whether the
