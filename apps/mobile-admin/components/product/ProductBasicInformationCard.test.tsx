@@ -75,6 +75,7 @@ describe('ProductBasicInformationCard', () => {
     inputBg: '#F1F5F9',
     live: '#16A34A',
     notification: '#DC2626',
+    textOnNotification: '#FFFFFF',
     orange: '#EA580C',
     orangeLight: 'rgba(234, 88, 12, 0.1)',
     pending: '#CA8A04',
