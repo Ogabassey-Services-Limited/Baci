@@ -56,6 +56,7 @@ export const DARK_COLORS = {
   // Misc
   live: '#22C55E',
   notification: '#EF4444',
+  textOnNotification: '#FFFFFF',
 };
 
 // Light Mode Colors
@@ -111,6 +112,7 @@ export const LIGHT_COLORS = {
   // Misc
   live: '#16A34A',
   notification: '#DC2626',
+  textOnNotification: '#FFFFFF',
 };
 
 // Default export for backwards compatibility (dark mode)
