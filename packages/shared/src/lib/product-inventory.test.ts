@@ -44,6 +44,19 @@ describe('product inventory helpers', () => {
     ).toBe('low_stock');
   });
 
+  it('treats missing manage_stock as unmanaged so callers must populate the field', () => {
+    // Regression guard: partial rows that omit manage_stock should not be
+    // interpreted as managed-with-zero-stock. Callers (e.g. cached SEO
+    // selectors) are required to include manage_stock before bucketing so
+    // structured data reflects the merchant's real inventory mode.
+    expect(
+      getProductStockBucket({
+        stock: 0,
+        stock_quantity: 0,
+      })
+    ).toBe('unmanaged');
+  });
+
   it('normalizes stock columns to the same effective value', () => {
     expect(
       normalizeProductInventory({

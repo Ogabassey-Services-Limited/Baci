@@ -1865,7 +1865,8 @@ export async function getCachedStorefrontHomeProducts(merchantId: string) {
     .select(
       `
       id, name, slug, description, price, compare_at_price,
-      images, category, brand, condition, stock,
+      images, category, brand, condition, stock, stock_quantity,
+      manage_stock, low_stock_threshold,
       product_categories(categories(name, slug))
     `
     )
