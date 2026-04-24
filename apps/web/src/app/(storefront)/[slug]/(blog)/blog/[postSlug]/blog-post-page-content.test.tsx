@@ -2,8 +2,7 @@ import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockBlogPostBody, mockBlogPostBodyFallback } = vi.hoisted(() => ({
-  mockBlogPostBody: vi.fn((_props: unknown) => null),
+const { mockBlogPostBodyFallback } = vi.hoisted(() => ({
   mockBlogPostBodyFallback: vi.fn((_props: unknown) => null as ReactNode),
 }));
 

@@ -422,7 +422,6 @@ const getProduct = async (
   // InStock.
   const manageStock = product.manage_stock ?? true;
 
-
   const productWithCategorySlug: Product = {
     ...product,
     product_key_specs:
