@@ -138,7 +138,7 @@ type CreateOrderResult = {
   };
 };
 
-function getLastFetchBody() {
+function getLastFetchCall(): [string, MockFetchOptions] {
   const fetchCall = mockFetchWithRetry.mock.calls.at(-1) as
     | [string, MockFetchOptions]
     | undefined;
@@ -155,25 +155,17 @@ function getLastFetchBody() {
     );
   }
 
-  return JSON.parse(fetchCall[1].body);
+  return fetchCall;
 }
 
-function getLastFetchOptions() {
-  const fetchCall = mockFetchWithRetry.mock.calls.at(-1);
+function getLastFetchBody() {
+  const [, options] = getLastFetchCall();
+  return JSON.parse(options.body);
+}
 
-  if (!fetchCall) {
-    throw new Error(
-      'Expected fetchWithRetry to be called before reading the request body'
-    );
-  }
-
-  if (!fetchCall[1]?.body) {
-    throw new Error(
-      `Expected fetchWithRetry to be called with a JSON body, received: ${JSON.stringify(fetchCall)}`
-    );
-  }
-
-  return fetchCall[1] as MockFetchOptions;
+function getLastFetchOptions(): MockFetchOptions {
+  const [, options] = getLastFetchCall();
+  return options;
 }
 
 describe('createOrder — variant_attributes', () => {

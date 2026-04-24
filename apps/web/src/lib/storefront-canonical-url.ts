@@ -26,6 +26,11 @@ export function canonicalizeCategorySlug(
  *
  * @param canonicalUrl The raw canonical URL string from the database/product
  * @param baseUrl The base URL of the current storefront (e.g., https://ogabassey.com)
+ * @param merchantSlug Optional merchant slug. When provided, any leading
+ *   `/<merchantSlug>` segment in the canonical path is stripped so custom
+ *   domains emit final canonicals without the merchant prefix. Callers that
+ *   omit this will skip prefix stripping, which can leave stale merchant-
+ *   prefixed paths in the output for custom-domain storefronts.
  */
 export function normalizeStorefrontCanonicalUrl(
   canonicalUrl: string | null | undefined,

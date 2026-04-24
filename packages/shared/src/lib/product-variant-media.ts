@@ -225,7 +225,7 @@ export function resolveProductVariantMedia({
     galleryImages,
     imageColorMap,
     productColors: normalizeProductColors(productColors),
-    resolvedColorImages: resolvedColorImages,
+    resolvedColorImages,
   });
 
   return {

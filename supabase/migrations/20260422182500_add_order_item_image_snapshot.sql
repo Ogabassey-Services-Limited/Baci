@@ -62,7 +62,7 @@ DECLARE
   v_normalized_customer_email TEXT := lower(trim(p_customer_email));
   v_subtotal NUMERIC := 0;
   v_shipping_fee NUMERIC := COALESCE(p_shipping_fee, 0);
-  v_discount_amount NUMERIC := 0;
+  v_discount_amount NUMERIC := GREATEST(COALESCE(p_discount_amount, 0), 0);
   v_tax_amount NUMERIC := COALESCE(p_tax_amount, 0);
   v_total NUMERIC := 0;
   v_payment_method TEXT := p_payment_method;
@@ -99,10 +99,6 @@ BEGIN
     END IF;
   ELSIF p_user_id IS NOT NULL THEN
     RAISE EXCEPTION 'cannot_set_user_id_anonymously';
-  END IF;
-
-  IF COALESCE(p_discount_amount, 0) <> 0 THEN
-    RAISE EXCEPTION 'discount_amount_not_supported';
   END IF;
 
   IF p_payment_status IS NOT NULL AND trim(p_payment_status) <> '' THEN

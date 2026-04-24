@@ -52,7 +52,7 @@ export function normalizeImageUrl(value: ProductVariantImageInput) {
 
   if (url) {
     const trimmed = url.trim();
-    return trimmed.replace(/^"|"$/g, '').trim();
+    return trimmed.replace(/^["']|["']$/g, '').trim();
   }
 
   return '';

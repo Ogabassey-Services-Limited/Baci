@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { InformationalClusterIndex } from '@/components/storefront/ogabassey/seo/informational-cluster-index';
 import { getCachedBlogListing } from '@/lib/cached-data';
@@ -187,26 +188,26 @@ export async function BlogPageContent({ params, searchParams }: PageProps) {
           Continue Exploring
         </h2>
         <div className="mt-3 flex flex-wrap gap-2">
-          <a
+          <Link
             className="rounded-full border border-[var(--store-background-text,#111827)]/15 px-3 py-1.5 text-xs font-medium text-[var(--store-background-text,#111827)]/80 transition-colors hover:border-[var(--store-primary)] hover:text-[var(--store-primary)]"
             href={`${baseUrl}/products`}
           >
             All Products
-          </a>
-          <a
+          </Link>
+          <Link
             className="rounded-full border border-[var(--store-background-text,#111827)]/15 px-3 py-1.5 text-xs font-medium text-[var(--store-background-text,#111827)]/80 transition-colors hover:border-[var(--store-primary)] hover:text-[var(--store-primary)]"
             href={`${baseUrl}/`}
           >
             Home
-          </a>
+          </Link>
           {categories.slice(0, 12).map((cat) => (
-            <a
+            <Link
               key={cat}
               className="rounded-full border border-[var(--store-background-text,#111827)]/15 px-3 py-1.5 text-xs font-medium text-[var(--store-background-text,#111827)]/80 transition-colors hover:border-[var(--store-primary)] hover:text-[var(--store-primary)]"
               href={`${baseUrl}/blog?category=${encodeURIComponent(cat)}`}
             >
               {cat}
-            </a>
+            </Link>
           ))}
         </div>
 
@@ -218,12 +219,12 @@ export async function BlogPageContent({ params, searchParams }: PageProps) {
             <ul className="mt-2 grid gap-1 md:grid-cols-2 lg:grid-cols-3">
               {posts.slice(0, 24).map((post) => (
                 <li key={post.id}>
-                  <a
+                  <Link
                     className="text-xs text-[var(--store-primary)] underline-offset-4 hover:underline"
                     href={`${baseUrl}/blog/${post.slug}`}
                   >
                     {post.title}
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>
