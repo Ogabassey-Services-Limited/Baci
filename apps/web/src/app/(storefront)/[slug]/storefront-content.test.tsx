@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getCachedStorefrontHomeProducts } from '@/lib/cached-data';
 
 // Mock server-only dependencies
@@ -32,6 +32,21 @@ vi.mock('@/components/analytics/analytics-provider', () => ({
 }));
 vi.mock('@/components/ui/skeletons', () => ({
   StorefrontPageSkeleton: () => <div data-testid="skeleton">Loading...</div>,
+}));
+vi.mock('next/link', () => ({
+  default: ({
+    children,
+    href,
+    prefetch: _prefetch,
+    ...props
+  }: React.AnchorHTMLAttributes<HTMLAnchorElement> & {
+    href: string;
+    prefetch?: boolean;
+  }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
+  ),
 }));
 const mockHeaders = vi.fn();
 vi.mock('next/headers', () => ({
@@ -178,6 +193,30 @@ describe('StorefrontContent', () => {
 
     expect(schema['@type']).toBe('CollectionPage');
     expect(schema.mainEntity?.['@type']).toBe('ItemList');
+  });
+
+  it('hides the homepage Blog discovery link when blog feature is disabled', async () => {
+    const merchantWithoutBlog: CachedMerchant = {
+      ...mockMerchant,
+      feature_settings: { blog_enabled: false },
+    };
+
+    const result = await StorefrontContent({ merchant: merchantWithoutBlog });
+    render(result as React.ReactElement);
+
+    expect(screen.queryByRole('link', { name: 'Blog' })).toBeNull();
+  });
+
+  it('renders the homepage Blog discovery link when blog feature is enabled', async () => {
+    const merchantWithBlog: CachedMerchant = {
+      ...mockMerchant,
+      feature_settings: { blog_enabled: true },
+    };
+
+    const result = await StorefrontContent({ merchant: merchantWithBlog });
+    render(result as React.ReactElement);
+
+    expect(screen.getByRole('link', { name: 'Blog' })).toBeInTheDocument();
   });
 });
 

@@ -77,6 +77,12 @@ const BASE_PROPS = {
   basePath: '/ogabassey',
   baseUrl: 'https://usebaci.com',
   post: BASE_POST,
+  relatedProducts: [] as Array<{
+    category_slug?: string | null;
+    id: string;
+    name: string;
+    slug: string;
+  }>,
   relatedPosts: [] as Array<{
     category?: string | null;
     featured_image_url?: string | null;

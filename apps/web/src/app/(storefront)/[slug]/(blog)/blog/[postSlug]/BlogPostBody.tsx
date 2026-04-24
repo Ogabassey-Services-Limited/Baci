@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SafeHtml } from '@/components/ui/safe-html';
+import { canonicalizeCategorySlug } from '@/lib/storefront-canonical-url';
+import { getStorefrontProductHref } from '@/lib/storefront-product-href';
 import { buildBlogUrl, resolveBlogPostContent } from './blog-post-content';
 
 export interface BlogPostBodyProps {
@@ -24,6 +26,12 @@ export interface BlogPostBodyProps {
     tags?: string[] | null;
     title: string;
   };
+  relatedProducts?: Array<{
+    category_slug?: string | null;
+    id: string;
+    name: string;
+    slug?: string | null;
+  }>;
   relatedPosts: Array<{
     category?: string | null;
     featured_image_url?: string | null;
@@ -43,6 +51,7 @@ export async function BlogPostBody({
   merchantSlug,
   post,
   postUrl,
+  relatedProducts = [],
   relatedPosts,
 }: BlogPostBodyProps) {
   const { isJson, legacyHtml, renderedContent } = await resolveBlogPostContent(
@@ -50,6 +59,7 @@ export async function BlogPostBody({
     {
       basePath,
       baseUrl,
+      fallbackImageAlt: post.title,
       merchantSlug,
     }
   );
@@ -171,6 +181,44 @@ export async function BlogPostBody({
               </Link>
             ))}
           </div>
+        </section>
+      )}
+
+      {relatedProducts.length > 0 && (
+        <section className="mt-10">
+          <h2 className="mb-4 text-2xl font-bold">
+            Popular Products Mentioned
+          </h2>
+          <ul className="grid gap-3 md:grid-cols-2">
+            {relatedProducts.map((product) => {
+              // `slug` can be null/empty for legacy rows; fall back to `id` so
+              // we never emit `.../undefined` or `.../null` dead links.
+              const productPathSegment = product.slug?.trim() || product.id;
+              const canonicalCategorySlug = canonicalizeCategorySlug(
+                product.category_slug
+              );
+              const href = getStorefrontProductHref(
+                {
+                  id: product.id,
+                  name: product.name,
+                  slug: productPathSegment,
+                  category_slug: canonicalCategorySlug ?? undefined,
+                },
+                basePath
+              );
+
+              return (
+                <li key={product.id}>
+                  <Link
+                    href={href as Route}
+                    className="block rounded-xl border border-gray-200 px-4 py-3 text-sm font-medium text-foreground transition-colors hover:border-primary hover:text-primary"
+                  >
+                    {product.name}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
         </section>
       )}
     </div>

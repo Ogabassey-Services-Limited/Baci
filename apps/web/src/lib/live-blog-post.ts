@@ -1,4 +1,5 @@
 import { getCachedFeatureSettings, getMerchantSafe } from '@/lib/cached-data';
+import { normalizeStorefrontCategoryValue } from '@/lib/normalize-storefront-category-value';
 import { STOREFRONT_BLOG_POST_SELECT } from '@/lib/storefront-blog-post-select';
 import { createPublicClient } from '@/lib/supabase/anon';
 
@@ -70,6 +71,28 @@ export async function getLiveBlogPost(
     console.error('Error fetching related live blog posts:', relatedPostsError);
   }
 
+  const normalizedCategorySlug = normalizeStorefrontCategoryValue(
+    post.category
+  );
+  const { data: relatedProducts, error: relatedProductsError } =
+    normalizedCategorySlug
+      ? await supabase
+          .from('products')
+          .select('id, name, slug, category_slug')
+          .eq('merchant_id', merchant.id)
+          .eq('status', 'active')
+          .eq('category_slug', normalizedCategorySlug)
+          .order('updated_at', { ascending: false })
+          .limit(6)
+      : { data: [], error: null };
+
+  if (relatedProductsError) {
+    console.error(
+      'Error fetching related live blog products:',
+      relatedProductsError
+    );
+  }
+
   return {
     merchant: {
       id: merchant.id,
@@ -80,5 +103,6 @@ export async function getLiveBlogPost(
     },
     post,
     relatedPosts: relatedPostsError ? [] : (relatedPosts ?? []),
+    relatedProducts: relatedProductsError ? [] : (relatedProducts ?? []),
   };
 }

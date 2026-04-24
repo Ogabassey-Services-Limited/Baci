@@ -97,8 +97,11 @@ export default async function BlogCatchAllPage({
 
   if (post) {
     // Redirect to canonical URL (without category prefix)
-    // Use 301 permanent redirect for SEO
-    redirect(`/${slug}/blog/${post.slug}`);
+    // Use 301 permanent redirect for SEO; build from merchant canonical URL data
+    // so custom-domain rewrites don't leak internal paths to crawlers.
+    permanentRedirect(
+      asRoute(buildCanonicalBlogPostUrl(cachedMerchant, post.slug))
+    );
   }
 
   // If post not found, try matching without hyphens/underscores
@@ -117,7 +120,12 @@ export default async function BlogCatchAllPage({
   );
 
   if (matchingPost) {
-    redirect(`/${slug}/blog/${matchingPost.slug}`);
+    // Fuzzy matches are best-effort — use a 307 redirect so browsers don't
+    // cache it permanently (content authors may later publish a post at the
+    // requested slug, and a cached 308 would prevent that URL from resolving).
+    redirect(
+      asRoute(buildCanonicalBlogPostUrl(cachedMerchant, matchingPost.slug))
+    );
   }
 
   // No matching post found

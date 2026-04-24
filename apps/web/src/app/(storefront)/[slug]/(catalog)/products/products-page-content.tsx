@@ -15,6 +15,7 @@ import {
   generateCollectionPageSchema,
 } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
+import { canonicalizeCategorySlug } from '@/lib/storefront-canonical-url';
 import {
   parseStorefrontPageParam,
   STOREFRONT_PRODUCTS_PER_PAGE,
@@ -58,17 +59,21 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
 
   const headersList = await headers();
 
-  const [categories, productIndex] = await Promise.all([
-    getCachedCategories(merchant.id),
-    getCachedStorefrontProductIndex(merchant.id, {
-      page: currentPage,
-      limit: STOREFRONT_PRODUCTS_PER_PAGE,
-    }),
-  ]);
+  const [categories, currentProductIndex, firstPageProductIndex] =
+    await Promise.all([
+      getCachedCategories(merchant.id),
+      getCachedStorefrontProductIndex(merchant.id, {
+        page: currentPage,
+        limit: STOREFRONT_PRODUCTS_PER_PAGE,
+      }),
+      getCachedStorefrontProductIndex(merchant.id, {
+        page: 1,
+        limit: STOREFRONT_PRODUCTS_PER_PAGE,
+      }),
+    ]);
+  const totalPages = Math.max(1, currentProductIndex.totalPages || 1);
 
-  const totalPages = Math.max(1, productIndex.totalPages || 1);
-
-  if (!productIndex.hasError && currentPage > totalPages) {
+  if (!currentProductIndex.hasError && currentPage > totalPages) {
     notFound();
   }
 
@@ -80,8 +85,29 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
   const displayCategories = Array.from(
     new Map(
       categories
-        .filter((category) => category.slug)
-        .map((category) => [category.slug, category])
+        .map((category) => {
+          const canonicalSlug = canonicalizeCategorySlug(category.slug);
+          if (canonicalSlug === null) {
+            return null;
+          }
+          // Replace the raw slug with its canonical form so downstream link
+          // rendering always targets the canonical category URL, even when the
+          // retained duplicate happened to have odd casing or whitespace.
+          return {
+            ...category,
+            slug: canonicalSlug,
+            canonicalSlug,
+          };
+        })
+        .filter(
+          (category): category is NonNullable<typeof category> =>
+            category !== null
+        )
+        // Key by the canonical (trimmed + lowercased) form of the merchant's
+        // stored slug. This preserves distinct merchant-defined categories such
+        // as `samsung` and `smartphones` so they each resolve to their own
+        // category page, while still collapsing case/whitespace duplicates.
+        .map((category) => [category.canonicalSlug, category])
     ).values()
   );
   const breadcrumbSchema = generateBreadcrumbSchema([
@@ -101,7 +127,7 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
       currentPage > 1
         ? `${baseUrl}/products?page=${currentPage}`
         : `${baseUrl}/products`,
-    products: productIndex.products as unknown as Product[],
+    products: currentProductIndex.products as unknown as Product[],
     merchantName: merchant.business_name,
     currency: merchant.payout_currency || 'NGN',
   });
@@ -111,13 +137,16 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
     maximumFractionDigits: 0,
   });
   const rangeStart =
-    productIndex.totalCount === 0
+    currentProductIndex.totalCount === 0
       ? 0
       : (currentPage - 1) * STOREFRONT_PRODUCTS_PER_PAGE + 1;
   const rangeEnd =
-    productIndex.totalCount === 0
+    currentProductIndex.totalCount === 0
       ? 0
-      : rangeStart + productIndex.products.length - 1;
+      : rangeStart + currentProductIndex.products.length - 1;
+  const deepLinkProducts = firstPageProductIndex.products
+    .filter((product) => product.slug)
+    .slice(0, 18);
 
   return (
     <>
@@ -163,8 +192,8 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
             </div>
 
             <p className="text-sm text-[var(--store-background-text,#111827)]/50">
-              Showing {rangeStart}-{rangeEnd} of {productIndex.totalCount}{' '}
-              products
+              Showing {rangeStart}-{rangeEnd} of{' '}
+              {currentProductIndex.totalCount} products
             </p>
           </div>
 
@@ -188,7 +217,7 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
             </section>
           )}
 
-          {productIndex.products.length === 0 ? (
+          {currentProductIndex.products.length === 0 ? (
             <div className="mt-10 rounded-3xl border border-[var(--store-background-text,#111827)]/10 bg-[var(--store-background,#ffffff)] px-6 py-16 text-center shadow-sm">
               <h2 className="text-xl font-semibold text-[var(--store-background-text,#111827)]">
                 No products available
@@ -199,8 +228,39 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
             </div>
           ) : (
             <>
+              {deepLinkProducts.length > 0 && (
+                <section className="mt-8 rounded-3xl border border-[var(--store-background-text,#111827)]/10 bg-[var(--store-background,#ffffff)] p-5 shadow-sm">
+                  <h2 className="text-lg font-semibold text-[var(--store-background-text,#111827)]">
+                    Popular Product Links
+                  </h2>
+                  <ul className="mt-4 grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+                    {deepLinkProducts.map((product) => {
+                      const categorySlug =
+                        canonicalizeCategorySlug(product.category_slug) ??
+                        'products';
+                      const href =
+                        categorySlug === 'products'
+                          ? `${pathPrefix}/products/${product.slug}`
+                          : `${pathPrefix}/${categorySlug}/${product.slug}`;
+
+                      return (
+                        <li key={`deep-link-${product.id}`}>
+                          <Link
+                            href={asRoute(href)}
+                            prefetch={false}
+                            className="text-sm font-medium text-[var(--store-primary,#dc2626)] underline-offset-4 hover:underline"
+                          >
+                            {product.name}
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              )}
+
               <div className="mt-10 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-                {productIndex.products.map((product) => (
+                {currentProductIndex.products.map((product) => (
                   <ProductIndexCard
                     key={product.id}
                     formattedPrice={priceFormatter.format(product.price)}

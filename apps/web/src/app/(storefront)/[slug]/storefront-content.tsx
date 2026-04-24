@@ -1,4 +1,5 @@
 import { headers } from 'next/headers';
+import Link from 'next/link';
 import { Suspense } from 'react';
 import { resolveStorefrontTemplateId } from '@/app/(storefront)/[slug]/resolve-storefront-template';
 import { AnalyticsProvider } from '@/components/analytics/analytics-provider';
@@ -11,12 +12,15 @@ import {
 } from '@/lib/cached-data';
 import { toTemplateMerchantData } from '@/lib/merchant-template-data';
 import type { Product } from '@/lib/products';
+import { asRoute } from '@/lib/routes';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   generateCollectionPageSchema,
   generateMetaDescription,
+  getProductUrl,
 } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
+import { canonicalizeCategorySlug } from '@/lib/storefront-canonical-url';
 import { getTemplate } from '@/templates/registry';
 import { StorefrontWrapper } from './storefront-wrapper';
 
@@ -119,6 +123,12 @@ export async function StorefrontContent({
     getCachedNavigationCategories(merchant.id),
   ]);
 
+  const headersList = await headers();
+  const pathPrefix =
+    headersList.has('x-custom-domain') || headersList.has('x-merchant-slug')
+      ? ''
+      : `/${merchant.slug}`;
+
   // Transform products to match expected interface
   // biome-ignore lint/suspicious/noExplicitAny: DB result shape differs from Product interface
   const merchantProducts: Product[] = (products || []).map((p: any) => ({
@@ -126,7 +136,7 @@ export async function StorefrontContent({
     categories: p.product_categories?.[0]?.categories || null,
     product_categories: undefined,
   })) as unknown as Product[];
-  const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
+  const baseUrl = buildRequestScopedStoreUrl(merchant, headersList);
   const homeCollectionSchema =
     merchantProducts.length > 0
       ? generateCollectionPageSchema({
@@ -142,6 +152,43 @@ export async function StorefrontContent({
           currency: merchant.payout_currency || 'NGN',
         })
       : null;
+  // Key each discovery link by its canonicalized slug (lowercase + trim only)
+  // so case/whitespace duplicates collapse without affecting merchant-defined
+  // slug shapes such as `home-and-garden` vs `home_and_garden`.
+  const categoryDiscoveryLinks = Array.from(
+    new Map(
+      (categories || [])
+        .map((category) => {
+          const canonicalSlug = canonicalizeCategorySlug(category.slug);
+          if (!canonicalSlug) return null;
+          return [canonicalSlug, { ...category, slug: canonicalSlug }] as const;
+        })
+        .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
+    ).values()
+  ).slice(0, 20);
+  const productDiscoveryLinks = merchantProducts
+    // Skip legacy rows with missing slugs — getProductUrl would derive an
+    // unresolvable slug from the name, generating 404s in discovery links.
+    .filter((product) => product.slug?.trim())
+    .map((product) => {
+      const canonicalCategorySlug = canonicalizeCategorySlug(
+        product.category_slug
+      );
+      const path = getProductUrl({
+        id: String(product.id),
+        name: product.name,
+        slug: product.slug,
+        category: product.category,
+        categories: product.categories,
+        category_slug: canonicalCategorySlug ?? undefined,
+      });
+      return {
+        id: String(product.id),
+        name: product.name,
+        href: path,
+      };
+    })
+    .slice(0, 24);
 
   const homepageSchema = homeCollectionSchema ? (
     <script
@@ -152,6 +199,67 @@ export async function StorefrontContent({
       }}
     />
   ) : null;
+  const discoveryLinksSection = (
+    <section
+      aria-label="Storefront discovery links"
+      className="mx-auto mt-8 max-w-[1400px] px-4 md:px-6"
+    >
+      <div className="rounded-2xl border border-[var(--store-background-text,#111827)]/10 bg-[var(--store-background,#ffffff)] p-5">
+        <h2 className="text-sm font-semibold uppercase tracking-[0.08em] text-[var(--store-background-text,#111827)]/70">
+          Browse Popular Sections
+        </h2>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link
+            className="rounded-full border border-[var(--store-background-text,#111827)]/15 px-3 py-1.5 text-xs font-medium text-[var(--store-background-text,#111827)]/80 transition-colors hover:border-[var(--store-primary)] hover:text-[var(--store-primary)]"
+            href={asRoute(`${pathPrefix}/products`)}
+            prefetch={false}
+          >
+            All Products
+          </Link>
+          {merchant.feature_settings?.blog_enabled ? (
+            <Link
+              className="rounded-full border border-[var(--store-background-text,#111827)]/15 px-3 py-1.5 text-xs font-medium text-[var(--store-background-text,#111827)]/80 transition-colors hover:border-[var(--store-primary)] hover:text-[var(--store-primary)]"
+              href={asRoute(`${pathPrefix}/blog`)}
+              prefetch={false}
+            >
+              Blog
+            </Link>
+          ) : null}
+          {categoryDiscoveryLinks.map((category) => (
+            <Link
+              key={category.slug}
+              className="rounded-full border border-[var(--store-background-text,#111827)]/15 px-3 py-1.5 text-xs font-medium text-[var(--store-background-text,#111827)]/80 transition-colors hover:border-[var(--store-primary)] hover:text-[var(--store-primary)]"
+              href={asRoute(`${pathPrefix}/${category.slug}`)}
+              prefetch={false}
+            >
+              {category.name}
+            </Link>
+          ))}
+        </div>
+
+        {productDiscoveryLinks.length > 0 && (
+          <>
+            <h3 className="mt-5 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--store-background-text,#111827)]/55">
+              Featured Product Links
+            </h3>
+            <ul className="mt-2 grid gap-1 md:grid-cols-2 lg:grid-cols-3">
+              {productDiscoveryLinks.map((link) => (
+                <li key={link.id}>
+                  <Link
+                    className="text-xs text-[var(--store-primary)] underline-offset-4 hover:underline"
+                    href={asRoute(`${pathPrefix}${link.href}`)}
+                    prefetch={false}
+                  >
+                    {link.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+    </section>
+  );
 
   if (templateId) {
     if (template && componentsPromise) {
@@ -163,6 +271,7 @@ export async function StorefrontContent({
         return (
           <>
             {homepageSchema}
+            {discoveryLinksSection}
             <AnalyticsProvider />
             <TemplateHome
               storeSlug={merchant.slug}
@@ -198,6 +307,7 @@ export async function StorefrontContent({
   return (
     <>
       {homepageSchema}
+      {discoveryLinksSection}
       <StorefrontWrapper
         products={merchantProducts}
         categories={categories || []}

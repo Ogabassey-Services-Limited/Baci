@@ -8,6 +8,7 @@ import {
   getSupabaseUrl,
 } from '@/env';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
+import { normalizeStorefrontCategoryValue } from '@/lib/normalize-storefront-category-value';
 import { STOREFRONT_BLOG_POST_SELECT } from '@/lib/storefront-blog-post-select';
 import {
   isDomainIdentifier,
@@ -1715,6 +1716,20 @@ export async function getCachedBlogPost(
 
   const { data: relatedPosts } = await relatedQuery;
 
+  const normalizedCategorySlug = normalizeStorefrontCategoryValue(
+    post.category
+  );
+  const { data: relatedProducts } = normalizedCategorySlug
+    ? await supabase
+        .from('products')
+        .select('id, name, slug, category_slug')
+        .eq('merchant_id', merchant.id)
+        .eq('status', 'active')
+        .eq('category_slug', normalizedCategorySlug)
+        .order('updated_at', { ascending: false })
+        .limit(6)
+    : { data: [] };
+
   return {
     merchant: {
       id: merchant.id,
@@ -1725,6 +1740,7 @@ export async function getCachedBlogPost(
     },
     post,
     relatedPosts: relatedPosts || [],
+    relatedProducts: relatedProducts || [],
   };
 }
 

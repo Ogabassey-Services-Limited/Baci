@@ -74,6 +74,57 @@ describe('resolveBlogPostContent', () => {
     expect(result.legacyHtml).toContain('Markdown title');
   });
 
+  it('preserves author-supplied alt="" for decorative images (WCAG)', async () => {
+    // WCAG allows `alt=""` as a deliberate signal that an image is decorative
+    // and should be ignored by assistive tech. Respect that author signal
+    // instead of overwriting it with a derived fallback.
+    const result = await resolveBlogPostContent(
+      '<p><img src="https://cdn.ogabassey.com/blog/2023/09/Apple-iPhone-15-Pro-lineup-color-lineup-230912.jpg" alt="" /></p>',
+      {
+        fallbackImageAlt: 'iPhone 15 Series Review',
+      }
+    );
+
+    expect(result.isJson).toBe(false);
+    expect(result.legacyHtml).toContain('alt=""');
+    expect(result.legacyHtml).not.toContain('Apple iPhone 15 Pro');
+  });
+
+  it('injects filename-derived alt text when alt attribute is absent', async () => {
+    const result = await resolveBlogPostContent(
+      '<p><img src="https://cdn.ogabassey.com/blog/2023/09/Apple-iPhone-15-Pro-lineup-color-lineup-230912.jpg" /></p>',
+      {
+        fallbackImageAlt: 'iPhone 15 Series Review',
+      }
+    );
+
+    expect(result.isJson).toBe(false);
+    expect(result.legacyHtml).toContain(
+      'alt="Apple iPhone 15 Pro lineup color lineup 230912"'
+    );
+  });
+
+  it('injects missing legacy image alt text using the fallback title', async () => {
+    const result = await resolveBlogPostContent('<p><img /></p>', {
+      fallbackImageAlt: 'Galaxy Unpacked July 2025',
+    });
+
+    expect(result.isJson).toBe(false);
+    expect(result.legacyHtml).toContain('alt="Galaxy Unpacked July 2025"');
+  });
+
+  it('escapes HTML entities in injected alt text for accessibility', async () => {
+    const result = await resolveBlogPostContent('<p><img /></p>', {
+      fallbackImageAlt: "What's New & Notable",
+    });
+
+    expect(result.isJson).toBe(false);
+    // Must be rendered as HTML entities (not JSON \uXXXX escapes).
+    expect(result.legacyHtml).toContain('alt="What&#39;s New &amp; Notable"');
+    expect(result.legacyHtml).not.toContain('\\u0027');
+    expect(result.legacyHtml).not.toContain('\\u0026');
+  });
+
   it('handles empty and null content safely', async () => {
     const emptyResult = await resolveBlogPostContent('');
     const nullResult = await resolveBlogPostContent(null);

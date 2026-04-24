@@ -195,10 +195,11 @@ describe('products index page', () => {
       'data-prefetch',
       'false'
     );
-    expect(screen.getByRole('link', { name: /iphone 16/i })).toHaveAttribute(
-      'href',
-      '/test-store/smartphones/iphone-16'
-    );
+    const iphoneLinks = screen.getAllByRole('link', { name: /iphone 16/i });
+    expect(iphoneLinks).toHaveLength(2);
+    for (const link of iphoneLinks) {
+      expect(link).toHaveAttribute('href', '/test-store/smartphones/iphone-16');
+    }
     expect(screen.getByRole('link', { name: 'Previous' })).toHaveAttribute(
       'href',
       '/test-store/products'
@@ -228,10 +229,11 @@ describe('products index page', () => {
       'data-prefetch',
       'false'
     );
-    expect(screen.getByRole('link', { name: /iphone 16/i })).toHaveAttribute(
-      'href',
-      '/test-store/smartphones/iphone-16'
-    );
+    const iphoneLinks = screen.getAllByRole('link', { name: /iphone 16/i });
+    expect(iphoneLinks).toHaveLength(2);
+    for (const link of iphoneLinks) {
+      expect(link).toHaveAttribute('href', '/test-store/smartphones/iphone-16');
+    }
     expect(
       screen.queryByRole('link', { name: 'Previous' })
     ).not.toBeInTheDocument();
@@ -258,10 +260,11 @@ describe('products index page', () => {
       'href',
       '/smartphones'
     );
-    expect(screen.getByRole('link', { name: /iphone 16/i })).toHaveAttribute(
-      'href',
-      '/smartphones/iphone-16'
-    );
+    const iphoneLinks = screen.getAllByRole('link', { name: /iphone 16/i });
+    expect(iphoneLinks).toHaveLength(2);
+    for (const link of iphoneLinks) {
+      expect(link).toHaveAttribute('href', '/smartphones/iphone-16');
+    }
     expect(screen.getByRole('link', { name: 'Previous' })).toHaveAttribute(
       'href',
       '/products'

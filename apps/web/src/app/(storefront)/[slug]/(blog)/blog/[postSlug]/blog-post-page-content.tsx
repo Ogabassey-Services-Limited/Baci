@@ -69,7 +69,7 @@ async function renderBlogPostContent({
     notFound();
   }
 
-  const { merchant, post, relatedPosts } = data;
+  const { merchant, post, relatedPosts, relatedProducts } = data;
   const content = post.content || '';
   const baseUrl = buildStoreUrl(merchant);
   const blogIndexUrl = `${baseUrl}/blog`;
@@ -227,6 +227,7 @@ async function renderBlogPostContent({
                   tags: post.tags,
                   title: post.title,
                 }}
+                relatedProducts={relatedProducts}
                 relatedPosts={relatedPosts}
               />
             </Suspense>
