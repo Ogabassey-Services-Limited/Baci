@@ -233,10 +233,12 @@ export default function ProductGrid({
           <Pressable
             style={styles.retryButton}
             onPress={handleRetry}
-            disabled={isFetching || isCategoriesFetching}
+            disabled={isFetching || (isCategoriesError && isCategoriesFetching)}
           >
             <Text style={styles.retryButtonText}>
-              {isFetching || isCategoriesFetching ? 'Retrying...' : 'Try Again'}
+              {isFetching || (isCategoriesError && isCategoriesFetching)
+                ? 'Retrying...'
+                : 'Try Again'}
             </Text>
           </Pressable>
         </View>

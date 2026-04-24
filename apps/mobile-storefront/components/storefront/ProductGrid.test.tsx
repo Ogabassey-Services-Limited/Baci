@@ -303,6 +303,37 @@ describe('ProductGrid', () => {
     expect(mockProductCard).not.toHaveBeenCalled();
   });
 
+  it('keeps the retry button enabled when categories do a background revalidation without error', () => {
+    mockProductsHook({
+      products: [],
+      isFetchedAfterMount: true,
+      isLoading: false,
+      isFetching: false,
+      isError: true,
+      error: 'prods',
+    });
+    mockUseCategoriesFactory.mockReturnValue({
+      data: [
+        { id: 'cat-phones', name: 'Phones', slug: 'phones' },
+        { id: 'cat-laptops', name: 'Laptops', slug: 'laptops' },
+      ],
+      isFetchedAfterMount: true,
+      isFetching: true,
+      isError: false,
+      isLoading: false,
+    });
+
+    render(
+      <ProductGrid block={block} selectedCategoryId={null} variant="grid" />
+    );
+
+    expect(
+      screen.getByText('Failed to load products. Please try again.')
+    ).toBeTruthy();
+    expect(screen.getByText('Try Again')).toBeTruthy();
+    expect(screen.queryByText('Retrying...')).toBeNull();
+  });
+
   it('keeps rendering products when categories refetch fails after categories were already cached', () => {
     mockUseCategoriesFactory.mockReturnValue({
       data: [
