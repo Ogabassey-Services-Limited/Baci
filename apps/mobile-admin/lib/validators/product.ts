@@ -245,7 +245,7 @@ export const ProductDbSchema = ProductSchema.transform((data) => {
     variantModel === 'sku_matrix'
       ? resolveDefaultVariantSelection({
           price: rest.price,
-          manage_stock: rest.manage_stock,
+          manage_stock: has_variants ? true : rest.manage_stock,
           variants: defaultSelectionVariants,
         })
       : null;
