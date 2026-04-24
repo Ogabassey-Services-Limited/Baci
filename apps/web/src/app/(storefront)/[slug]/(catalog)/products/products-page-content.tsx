@@ -91,13 +91,23 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
   const displayCategories = Array.from(
     new Map(
       categories
-        .map((category) => ({
-          ...category,
-          canonicalSlug: canonicalizeCategorySlug(category.slug),
-        }))
+        .map((category) => {
+          const canonicalSlug = canonicalizeCategorySlug(category.slug);
+          if (canonicalSlug === null) {
+            return null;
+          }
+          // Replace the raw slug with its canonical form so downstream link
+          // rendering always targets the canonical category URL, even when the
+          // retained duplicate happened to have odd casing or whitespace.
+          return {
+            ...category,
+            slug: canonicalSlug,
+            canonicalSlug,
+          };
+        })
         .filter(
-          (category): category is typeof category & { canonicalSlug: string } =>
-            category.canonicalSlug !== null
+          (category): category is NonNullable<typeof category> =>
+            category !== null
         )
         // Key by the canonical (trimmed + lowercased) form of the merchant's
         // stored slug. This preserves distinct merchant-defined categories such

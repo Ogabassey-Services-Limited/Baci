@@ -97,6 +97,18 @@ describe('resolveBlogPostContent', () => {
     expect(result.legacyHtml).toContain('alt="Galaxy Unpacked July 2025"');
   });
 
+  it('escapes HTML entities in injected alt text for accessibility', async () => {
+    const result = await resolveBlogPostContent('<p><img /></p>', {
+      fallbackImageAlt: "What's New & Notable",
+    });
+
+    expect(result.isJson).toBe(false);
+    // Must be rendered as HTML entities (not JSON \uXXXX escapes).
+    expect(result.legacyHtml).toContain('alt="What&#39;s New &amp; Notable"');
+    expect(result.legacyHtml).not.toContain('\\u0027');
+    expect(result.legacyHtml).not.toContain('\\u0026');
+  });
+
   it('handles empty and null content safely', async () => {
     const emptyResult = await resolveBlogPostContent('');
     const nullResult = await resolveBlogPostContent(null);

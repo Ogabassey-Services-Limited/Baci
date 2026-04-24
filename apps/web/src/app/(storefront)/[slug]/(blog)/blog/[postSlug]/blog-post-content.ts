@@ -1,7 +1,6 @@
 import { marked } from 'marked';
 import { stripHtml } from '@/lib/blog-utils';
 import { sanitizeHtml } from '@/lib/sanitize';
-import { escapeHtml } from '@/lib/sanitize-core';
 import { buildStoreUrl } from '@/lib/store-url';
 import { rewriteHtmlStorefrontHrefs } from '@/lib/storefront-html-link-rewriting';
 import type { NormalizeStorefrontContentHrefOptions } from '@/lib/storefront-link-normalization';
@@ -14,6 +13,29 @@ interface TipTapNode {
 
 const MAX_TIPTAP_DEPTH = 75;
 const DEFAULT_BLOG_IMAGE_ALT = 'Blog image';
+
+const HTML_ATTR_ESCAPE_REGEX = /[&<>"']/g;
+const HTML_ATTR_ESCAPE_MAP: Record<string, string> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;',
+};
+
+/**
+ * Escape characters that are unsafe inside a double-quoted HTML attribute value.
+ * Unlike `escapeHtml` in `sanitize-core`, this emits HTML entities (not
+ * JSON-style `\uXXXX`), so the resulting text renders correctly as attribute
+ * content for accessibility and SEO consumers.
+ */
+function escapeHtmlAttr(value: string): string {
+  if (!value) return '';
+  return value.replace(
+    HTML_ATTR_ESCAPE_REGEX,
+    (match) => HTML_ATTR_ESCAPE_MAP[match] ?? match
+  );
+}
 
 function normalizeBasePath(basePath: string): string {
   if (!basePath || basePath === '/') {
@@ -109,7 +131,7 @@ function ensureBlogImageAltText(
     const srcMatch = imgTag.match(/\bsrc\s*=\s*(['"])(.*?)\1/i);
     const derivedAlt = deriveAltFromImageSrc(srcMatch?.[2] ?? '');
     const altCandidate = (derivedAlt || fallback).slice(0, 200).trim();
-    const escapedAlt = escapeHtml(altCandidate).replace(/"/g, '&quot;');
+    const escapedAlt = escapeHtmlAttr(altCandidate);
     const altAttrRegex = /\balt\s*=\s*(['"])(.*?)\1/i;
     const currentAltMatch = imgTag.match(altAttrRegex);
     const currentAlt = currentAltMatch?.[2]?.trim() || '';

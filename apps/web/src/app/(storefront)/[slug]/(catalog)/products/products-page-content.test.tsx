@@ -152,6 +152,13 @@ describe('ProductsPageContent', () => {
     const laptopMatches =
       serialized.match(/"key":"cat-laptops(?:-dup)?"/g) ?? [];
     expect(laptopMatches).toHaveLength(1);
+
+    // Whichever row wins the dedupe, the rendered category link must use the
+    // canonical (trimmed + lowercased) slug — never the raw ` Laptops `
+    // variant that would produce a broken URL.
+    expect(serialized).toContain('"href":"/demo-store/laptops"');
+    expect(serialized).not.toContain('/demo-store/%20Laptops%20');
+    expect(serialized).not.toContain('/demo-store/ Laptops ');
   });
 
   it("falls back to 'NGN' when merchant payout currency is missing", async () => {
