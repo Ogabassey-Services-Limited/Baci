@@ -10,13 +10,6 @@ vi.mock('@/env', () => ({
   getRootDomain: () => 'localhost',
 }));
 
-vi.mock('next/headers', () => ({
-  cookies: vi.fn().mockResolvedValue({
-    get: vi.fn(),
-    set: vi.fn(),
-  }),
-}));
-
 // Mock api-auth
 const mockAuthenticateApiRequest = vi.fn();
 const mockGetUserAccess = vi.fn();
@@ -116,12 +109,7 @@ function createMockAdminSupabase() {
   };
 }
 
-const mockCreateClient = vi.fn();
 const mockCreateAdminClient = vi.fn();
-
-vi.mock('@/lib/supabase/server', () => ({
-  createClient: (...args: unknown[]) => mockCreateClient(...args),
-}));
 
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: (...args: unknown[]) => mockCreateAdminClient(...args),
@@ -233,8 +221,7 @@ describe('POST /api/merchant/publish', () => {
     // Default: merchant has a verified NIN so KYC does not block the tests
     // that aren't specifically exercising the verification gate.
     setupVerification({ nin_verified: true });
-    // Restore default mock implementations
-    mockCreateClient.mockImplementation(() => createMockSupabase());
+    // Restore default admin mock implementation
     mockCreateAdminClient.mockImplementation(() => createMockAdminSupabase());
   });
 
@@ -597,8 +584,8 @@ describe('POST /api/merchant/publish', () => {
 
     it('returns 500 on unexpected exception', async () => {
       setupAuth(true, true);
-      // Mock createClient to throw error
-      mockCreateClient.mockImplementation(() => {
+      // Force getUserAccess to throw an unexpected error inside the try block
+      mockGetUserAccess.mockImplementation(() => {
         throw new Error('Unexpected error');
       });
 
@@ -616,8 +603,6 @@ describe('DELETE /api/merchant/publish', () => {
     vi.clearAllMocks();
     mockMerchantData = { data: null, error: null };
     mockUpdateResult = { data: null, error: null };
-    // Restore default mock implementation
-    mockCreateClient.mockImplementation(() => createMockSupabase());
   });
 
   describe('authentication', () => {
@@ -710,8 +695,8 @@ describe('DELETE /api/merchant/publish', () => {
 
     it('returns 500 on unexpected exception', async () => {
       setupAuth(true, true);
-      // Mock createClient to throw error
-      mockCreateClient.mockImplementation(() => {
+      // Force getUserAccess to throw an unexpected error inside the try block
+      mockGetUserAccess.mockImplementation(() => {
         throw new Error('Unexpected error');
       });
 

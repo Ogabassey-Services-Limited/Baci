@@ -1,4 +1,3 @@
-import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import {
   authenticateApiRequest,
@@ -8,7 +7,6 @@ import {
 import { revalidateMerchant } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { createClient } from '@/lib/supabase/server';
 
 interface MerchantVerificationStatus {
   nin_verified: boolean;
@@ -88,8 +86,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
 
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    // Use the auth-scoped client from authenticateApiRequest for all DB ops so
+    // mobile (Bearer token) requests run with the user's token and satisfy
+    // RLS. Falling back to cookie-based createClient would run as anon on
+    // React Native where no session cookie is present, silently failing RLS
+    // checks and breaking publish from the mobile admin app.
+    const supabase = auth.supabase;
 
     // Get merchant with required fields for validation
     const { data: merchant } = await supabase
@@ -249,8 +251,9 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
 
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    // Use the auth-scoped client from authenticateApiRequest so mobile
+    // (Bearer token) requests satisfy RLS. See POST handler for context.
+    const supabase = auth.supabase;
 
     // Get merchant
     const { data: merchant } = await supabase
