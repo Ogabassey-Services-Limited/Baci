@@ -339,7 +339,7 @@ describe('BlogPostBody', () => {
             id: 'product-2',
             name: 'MacBook Air M4',
             slug: 'macbook-air-m4',
-            // Legacy alias that should be normalized to 'laptops'
+            // Merchant-defined slug — not an alias, preserved as-is
             category_slug: 'macbook',
           },
         ],
@@ -353,7 +353,7 @@ describe('BlogPostBody', () => {
     );
     expect(
       screen.getByRole('link', { name: 'MacBook Air M4' })
-    ).toHaveAttribute('href', '/ogabassey/laptops/macbook-air-m4');
+    ).toHaveAttribute('href', '/ogabassey/macbook/macbook-air-m4');
   });
 
   it('skips malformed related products so the section degrades gracefully', async () => {

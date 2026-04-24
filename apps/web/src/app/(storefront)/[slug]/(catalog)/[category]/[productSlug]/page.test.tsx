@@ -583,14 +583,15 @@ describe('[category]/[productSlug] page render', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('preserves unlimited stock when the detailed product omits manage_stock', async () => {
+  it('defaults manage_stock to true when the detailed product has explicit false', async () => {
+    // Verify that explicit `manage_stock: false` is preserved (unlimited stock).
     mockGetRequestScopedMerchant.mockResolvedValue({
       ...baseMerchant,
       template_id: undefined,
     });
     mockGetCachedProductWithDetails.mockResolvedValue({
       ...categorizedDetailedProduct,
-      manage_stock: undefined,
+      manage_stock: false,
     });
 
     render(

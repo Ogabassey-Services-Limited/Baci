@@ -210,7 +210,7 @@ export async function BlogPostBody({
         </section>
       )}
 
-      {relatedProducts.length > 0 && (
+      {safeRelatedProducts.length > 0 && (
         <section className="mt-10">
           <h2 className="text-2xl font-bold mb-4">
             Popular Products Mentioned

@@ -1376,7 +1376,6 @@ function getTrailingSeparatedSegment(value: string) {
   return { base, suffix };
 }
 
-
 function removeTrailingDuplicateSuffix(value: string, suffix: string): string {
   const normalizedSuffix = normalizePlainText(suffix);
   if (!normalizedSuffix) {

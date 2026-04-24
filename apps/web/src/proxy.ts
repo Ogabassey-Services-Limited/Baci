@@ -656,6 +656,7 @@ export async function proxy(request: NextRequest) {
   }
 
   if (pathname.startsWith('/blog/')) {
+    const lowerBlogPath = pathname.toLowerCase();
     const spamPatterns = [
       '/blog/shopdetail',
       '/blog/zhhant',
@@ -663,7 +664,10 @@ export async function proxy(request: NextRequest) {
       '/blog/category/product',
     ];
     if (
-      spamPatterns.some((pattern) => pathname.toLowerCase().startsWith(pattern))
+      spamPatterns.some(
+        (pattern) =>
+          lowerBlogPath === pattern || lowerBlogPath.startsWith(`${pattern}/`)
+      )
     ) {
       return new NextResponse('Gone', { status: 410 });
     }

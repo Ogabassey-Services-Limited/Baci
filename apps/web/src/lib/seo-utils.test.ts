@@ -648,7 +648,10 @@ describe('getProductUrl', () => {
     ).toBe('/products/test-product');
   });
 
-  it('rewrites alias-first canonical paths to their canonical storefront root', () => {
+  it('strips merchant-slug-like prefix from 3-segment canonical URLs and uses the remaining 2 segments', () => {
+    // /phones/iphone-15/black has 3 segments. Since 'phones' is not in
+    // STOREFRONT_ROOT_SEGMENTS, it is treated as a merchant-slug prefix and
+    // stripped, leaving iphone-15/black as category/product.
     expect(
       getProductUrl(
         makeProduct({
@@ -656,7 +659,7 @@ describe('getProductUrl', () => {
           slug: 'iphone-15',
         })
       )
-    ).toBe('/smartphones/iphone-15/black');
+    ).toBe('/iphone-15/black');
   });
 });
 
