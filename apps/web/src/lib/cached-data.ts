@@ -1673,6 +1673,8 @@ export async function getCachedBlogPost(
 
   if (!merchant) return null;
 
+  cacheTag('products', `products-${merchant.id}`);
+
   // Check if blog is enabled
   const features = await getCachedFeatureSettings(merchant.id);
   if (!features?.blog_enabled) return null;
@@ -1714,7 +1716,12 @@ export async function getCachedBlogPost(
     relatedQuery = relatedQuery.eq('category', post.category);
   }
 
-  const { data: relatedPosts } = await relatedQuery;
+  const { data: relatedPosts, error: relatedPostsError } =
+    await relatedQuery.limit(3);
+
+  if (relatedPostsError) {
+    console.error('Error fetching related blog posts:', relatedPostsError);
+  }
 
   const normalizedCategorySlug = normalizeStorefrontCategoryValue(
     post.category
@@ -1739,7 +1746,7 @@ export async function getCachedBlogPost(
       custom_domain: merchant.custom_domain,
     },
     post,
-    relatedPosts: relatedPosts || [],
+    relatedPosts: relatedPostsError ? [] : relatedPosts || [],
     relatedProducts: relatedProducts || [],
   };
 }

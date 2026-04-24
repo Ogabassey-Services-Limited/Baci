@@ -121,6 +121,7 @@ export async function GET(request: NextRequest) {
           id,
           name,
           product_id,
+          image_url,
           quantity,
           price,
           has_assurance,
@@ -193,6 +194,7 @@ export async function GET(request: NextRequest) {
           return {
             id: item.id,
             product_id: item.product_id,
+            image_url: item.image_url,
             name: item.name,
             quantity: item.quantity,
             price: item.price,

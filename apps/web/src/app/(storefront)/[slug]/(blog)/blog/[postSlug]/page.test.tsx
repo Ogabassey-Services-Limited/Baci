@@ -61,6 +61,9 @@ vi.mock('@/lib/sanitize-json-ld', () => ({
 vi.mock('@/lib/seo-utils', () => ({
   generateBlogPostSchema: () => ({}),
   generateBreadcrumbSchema: () => ({}),
+  generateMetaDescription: (description: string) => description,
+  generateMetaTitle: (title: string, options?: { suffix?: string }) =>
+    options?.suffix ? `${title} | ${options.suffix}` : title,
 }));
 
 vi.mock('@/lib/store-url', () => ({
@@ -133,6 +136,7 @@ const liveBlogPost = {
     word_count: 800,
   },
   relatedPosts: [],
+  relatedProducts: [],
 };
 
 describe('storefront blog post page', () => {

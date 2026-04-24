@@ -28,6 +28,34 @@ describe('NavbarSecondaryNav', () => {
     render(
       <NavbarSecondaryNav
         basePath="/ogabassey"
+        categories={[{ name: 'Phones', slug: 'smartphones' }]}
+      />
+    );
+
+    await user.click(
+      screen.getByRole('button', { name: /shop by category/i })
+    );
+
+    expect(screen.getByRole('link', { name: 'Phones' })).toHaveAttribute(
+      'href',
+      '/ogabassey/smartphones'
+    );
+    expect(screen.getByRole('link', { name: /imei checker/i })).toHaveAttribute(
+      'href',
+      '/ogabassey/imei-check'
+    );
+    expect(screen.getByRole('link', { name: /blog/i })).toHaveAttribute(
+      'href',
+      '/ogabassey/blog'
+    );
+  });
+
+  it('normalizes legacy phone aliases to the smartphones route', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <NavbarSecondaryNav
+        basePath="/ogabassey"
         categories={[{ name: 'Phones', slug: 'phones' }]}
       />
     );
