@@ -156,7 +156,9 @@ describe('ProductDbSchema', () => {
     expect(parsed.price).toBe(900000);
     expect(parsed.stock_quantity).toBe(6);
     expect(parsed.stock).toBe(6);
-    expect(parsed.manage_stock).toBe(false);
+    // Variant products always force manage_stock=true, even when the submitted
+    // payload carries a stale `false` from an earlier non-variant configuration.
+    expect(parsed.manage_stock).toBe(true);
     expect(parsed.color).toBe('Black');
     expect(parsed.variant_attributes).toEqual({
       color: ['Black', 'Silver'],
@@ -271,9 +273,13 @@ describe('ProductDbSchema', () => {
 
     expect(parsed.variant_model).toBe('sku_matrix');
     expect(parsed.migration_status).toBe('migrated');
-    expect(parsed.condition).toBe('used');
-    expect(parsed.price).toBe(500000);
-    expect(parsed.stock_quantity).toBe(1);
+    // The default-variant selector mirrors the SQL projection
+    // (`rebuild_sku_matrix_product_projection`): condition rank first
+    // (new < open_box < used), then price. Here the `new` variant wins
+    // even though the `used` row is cheaper.
+    expect(parsed.condition).toBe('new');
+    expect(parsed.price).toBe(550000);
+    expect(parsed.stock_quantity).toBe(3);
     expect(parsed.variants).toEqual([
       expect.objectContaining({
         attributes: { connectivity: 'WiFi', storage: '128GB' },

@@ -98,7 +98,10 @@ describe('product-response', () => {
 
     const mapped = mapStorefrontProduct(rawProduct);
 
-    expect(mapped.manage_stock).toBe(true);
+    // Missing/null `manage_stock` defaults to `false` (unmanaged) to match the
+    // storefront contract used by `lib/products-server.ts` and the catalog
+    // product mappers.
+    expect(mapped.manage_stock).toBe(false);
     expect(mapped.brand).toBe('');
     expect(mapped.category_id).toBe('cat-1');
     expect(mapped.categories).toEqual({

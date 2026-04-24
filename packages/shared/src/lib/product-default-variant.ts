@@ -1,8 +1,20 @@
 import {
-  getCanonicalProductConditionPreferenceRank,
   normalizeCanonicalProductCondition,
   sortCanonicalProductConditionsByPreference,
 } from './product-condition';
+
+// Ranks used exclusively for the DEFAULT-variant selector. Mirrors the SQL
+// `rebuild_sku_matrix_product_projection` projection (new=1, open_box=2,
+// refurbished=3, used=4). We intentionally do NOT reuse the storefront
+// display preference (`getCanonicalProductConditionPreferenceRank`) here —
+// that one ranks `used` first so the condition tab shows the cheapest tier
+// up front, but the DB projection picks `new` as the default variant.
+const DEFAULT_VARIANT_CONDITION_RANK: Record<string, number> = {
+  new: 1,
+  open_box: 2,
+  used: 4,
+};
+const UNKNOWN_CONDITION_RANK = 5;
 
 export interface ProductDefaultVariantLike {
   id: string;
@@ -114,7 +126,11 @@ function getVariantCondition<TVariant extends ProductDefaultVariantLike>(
 }
 
 function getConditionPreferenceRank(condition: string) {
-  return getCanonicalProductConditionPreferenceRank(condition);
+  const normalized = normalizeConditionValue(condition);
+  if (!normalized) {
+    return UNKNOWN_CONDITION_RANK;
+  }
+  return DEFAULT_VARIANT_CONDITION_RANK[normalized] ?? UNKNOWN_CONDITION_RANK;
 }
 
 export function hasVariantConditionAxis<
@@ -150,18 +166,23 @@ function sortByDefaultPreference<TVariant extends ProductDefaultVariantLike>(
   candidates: VariantCandidate<TVariant>[]
 ) {
   return [...candidates].sort((left, right) => {
-    const leftPrice = getVariantPrice(basePrice, left.variant);
-    const rightPrice = getVariantPrice(basePrice, right.variant);
-
-    if (leftPrice !== rightPrice) {
-      return leftPrice - rightPrice;
-    }
-
+    // Match the SQL default-variant projection
+    // (`rebuild_sku_matrix_product_projection`): rank by condition preference
+    // first, then by price ascending, then by original index as a stable
+    // tiebreaker. Reversing this order diverges from the DB and can surface
+    // a different "default" variant on the client than the server projection.
     const leftConditionRank = getConditionPreferenceRank(getCondition(left));
     const rightConditionRank = getConditionPreferenceRank(getCondition(right));
 
     if (leftConditionRank !== rightConditionRank) {
       return leftConditionRank - rightConditionRank;
+    }
+
+    const leftPrice = getVariantPrice(basePrice, left.variant);
+    const rightPrice = getVariantPrice(basePrice, right.variant);
+
+    if (leftPrice !== rightPrice) {
+      return leftPrice - rightPrice;
     }
 
     return left.index - right.index;

@@ -39,7 +39,7 @@ export function sortCanonicalProductConditionsByPreference(
     new Set(
       values
         .map((value) => normalizeCanonicalProductCondition(value))
-        .filter(Boolean)
+        .filter((value): value is CanonicalProductCondition => Boolean(value))
     )
   ).sort((left, right) => {
     const leftRank = getCanonicalProductConditionPreferenceRank(left);
@@ -50,7 +50,7 @@ export function sortCanonicalProductConditionsByPreference(
     }
 
     return left.localeCompare(right);
-  }) as CanonicalProductCondition[];
+  });
 }
 
 export function normalizeCanonicalProductCondition(

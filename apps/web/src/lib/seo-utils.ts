@@ -36,25 +36,6 @@ function normalizeCanonicalCategorySlug(
   return normalized ? normalized : null;
 }
 
-/**
- * Resolve schema.org availability URI for an offer/variant/product.
- * Respects `manage_stock=false` (unmanaged / infinite-stock merchants) — stock
- * counters are ignored in that case so unmanaged products never emit
- * `OutOfStock` in JSON-LD / Google Merchant feeds.
- */
-function _getSchemaOfferAvailability(input: {
-  stock?: number | string | null;
-  stock_quantity?: number | string | null;
-  manage_stock?: boolean | null;
-}): string {
-  if (input.manage_stock === false) {
-    return 'https://schema.org/InStock';
-  }
-  return getEffectiveProductStock(input) > 0
-    ? 'https://schema.org/InStock'
-    : 'https://schema.org/OutOfStock';
-}
-
 function getSchemaItemCondition(condition?: string | null) {
   return toSchemaItemConditionUri(condition);
 }

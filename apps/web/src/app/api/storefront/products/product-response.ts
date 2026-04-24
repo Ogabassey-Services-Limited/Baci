@@ -78,11 +78,12 @@ export function mapStorefrontProduct(p: RawDbProduct) {
     images: processedImages,
     has_variants: p.has_variants,
     sku: p.sku,
-    // Default missing/null manage_stock to `true` (managed) to match the
-    // rest of the codebase (e.g. `/api/products/[id]`, `/api/products`,
-    // Google Merchant feed). Treating null as unmanaged would expose
-    // products with out-of-stock inventory as perpetually available.
-    manage_stock: (p.manage_stock as boolean | null | undefined) ?? true,
+    // Default missing/null manage_stock to `false` (unmanaged/unlimited) to
+    // match the storefront contract used by `lib/products-server.ts` and the
+    // catalog `product-mappers.ts`. NULL indicates merchants never opted into
+    // inventory tracking — treating it as managed would suppress legitimate
+    // unmanaged-stock listings from the storefront.
+    manage_stock: (p.manage_stock as boolean | null | undefined) ?? false,
     low_stock_threshold: p.low_stock_threshold,
     specifications: p.specifications,
     product_key_specs: normalized.product_key_specs,

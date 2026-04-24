@@ -21,13 +21,18 @@ vi.mock('expo-router', async () => {
       Screen: ({
         options,
       }: {
-        options?: { title?: string; headerLeft?: () => ReactNode };
+        options?: {
+          title?: string;
+          headerLeft?: () => ReactNode;
+          headerRight?: () => ReactNode;
+        };
       }) =>
         React.createElement(
           'div',
           null,
           options?.title ? React.createElement('span', null, options.title) : null,
-          options?.headerLeft ? options.headerLeft() : null
+          options?.headerLeft ? options.headerLeft() : null,
+          options?.headerRight ? options.headerRight() : null
         ),
     },
     useLocalSearchParams: mocks.useLocalSearchParams,
@@ -271,5 +276,41 @@ describe('ProductEditScreen', () => {
     });
 
     expect(mocks.basicInformationCardProps.at(-1)?.hideColorField).toBe(true);
+  });
+
+  it('shows the color field in basic information when the loaded product does not use variants', async () => {
+    mocks.useProduct.mockReturnValue({
+      data: {
+        brand: 'Baci',
+        category: 'Phones',
+        category_id: 'category-1',
+        color: 'Midnight Blue',
+        cost_price: 1200,
+        description: '<p>Flagship phone</p>',
+        fulfillment_details: { items: [] },
+        has_variants: false,
+        images: [],
+        low_stock_threshold: 3,
+        manage_stock: true,
+        name: 'Phone Ultra',
+        price: 1500,
+        sku: 'SKU-123',
+        status: 'active',
+        stock_quantity: 10,
+        variant_attributes: {},
+        variants: [],
+      },
+      error: null,
+    });
+
+    render(<ProductEditScreen />);
+
+    expect(screen.getByText('basic-card')).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(screen.getByText('hide-color-field:false')).toBeInTheDocument();
+    });
+
+    expect(mocks.basicInformationCardProps.at(-1)?.hideColorField).toBe(false);
   });
 });
