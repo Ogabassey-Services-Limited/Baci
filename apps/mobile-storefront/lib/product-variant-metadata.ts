@@ -91,14 +91,17 @@ export function resolveProductVariantMetadata({
     ])
   );
   // When image-backed colors exist, preserve non-imaged colors that come from
-  // real variant rows so those SKUs stay reachable in PDP selection. We only
-  // merge concrete variant colors (not generic source `variant_attributes`
-  // metadata, which can be stale aggregate data).
+  // real variant rows AND from product metadata (legacy `product.colors` /
+  // merged variant attributes). Dropping metadata-only colors here would hide
+  // valid selection options in legacy or non-variant catalogs where some
+  // colors have dedicated images and others do not.
   const colors =
     imagedColors.length > 0
-      ? Array.from(new Set([...imagedColors, ...variantColors]))
+      ? Array.from(
+          new Set([...imagedColors, ...variantColors, ...fallbackColors])
+        )
       : variantColors.length > 0
-        ? variantColors
+        ? Array.from(new Set([...variantColors, ...fallbackColors]))
         : fallbackColors.length > 0
           ? fallbackColors
           : undefined;

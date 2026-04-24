@@ -2,7 +2,7 @@ import { describe, expect, it } from '@jest/globals';
 import { resolveProductVariantMetadata } from './product-variant-metadata';
 
 describe('resolveProductVariantMetadata', () => {
-  it('prefers exact variant colors over generic product-level color options', () => {
+  it('unions imaged variant colors with metadata-only colors when both exist', () => {
     expect(
       resolveProductVariantMetadata({
         colorImages: {
@@ -45,7 +45,10 @@ describe('resolveProductVariantMetadata', () => {
         'Onyx Black': ['https://cdn.example.com/black-front.jpg'],
         'Sapphire Blue': ['https://cdn.example.com/blue-front.jpg'],
       },
-      colors: ['Sapphire Blue', 'Onyx Black'],
+      // 'Blue' stays in the list because it is a valid metadata-only color
+      // option declared on the product (via productColors + sourceVariantAttributes),
+      // even though no variant row carries that exact color.
+      colors: ['Sapphire Blue', 'Onyx Black', 'Blue'],
       galleryImages: [
         'https://cdn.example.com/blue-front.jpg',
         'https://cdn.example.com/black-front.jpg',
@@ -55,10 +58,36 @@ describe('resolveProductVariantMetadata', () => {
         'https://cdn.example.com/blue-front.jpg': 'Sapphire Blue',
       },
       variantAttributes: {
-        color: ['Sapphire Blue', 'Onyx Black'],
+        color: ['Sapphire Blue', 'Onyx Black', 'Blue'],
         storage: ['128GB', '256GB'],
       },
     });
+  });
+
+  it('preserves metadata-only colors in the imaged branch even when no variants declare them', () => {
+    const result = resolveProductVariantMetadata({
+      colorImages: {
+        Blue: ['https://cdn.example.com/blue.jpg'],
+      },
+      productImages: ['https://cdn.example.com/blue.jpg'],
+      // Legacy catalog: Green exists as a product color option but has no
+      // dedicated image and no variant row. It must stay selectable.
+      productColors: ['Blue', 'Green'],
+      variants: [
+        {
+          id: 'variant-blue',
+          name: 'Blue',
+          price: 100,
+          image: 'https://cdn.example.com/blue.jpg',
+          attributes: { color: 'Blue' },
+        },
+      ],
+    });
+
+    expect(result.colors).toEqual(expect.arrayContaining(['Blue', 'Green']));
+    expect(result.variantAttributes?.color).toEqual(
+      expect.arrayContaining(['Blue', 'Green'])
+    );
   });
 
   it('preserves non-imaged variant colors when some colors are image-backed', () => {
