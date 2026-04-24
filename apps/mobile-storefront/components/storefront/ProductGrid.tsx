@@ -204,11 +204,7 @@ export default function ProductGrid({
   const hasRenderableProducts =
     visibleProducts.length > 0 || products.length > 0;
   const shouldShowFatalError =
-    isError &&
-    isFetchedAfterMount &&
-    !isLoading &&
-    !isFetching &&
-    !hasRenderableProducts;
+    isError && isFetchedAfterMount && !isLoading && !hasRenderableProducts;
   const shouldShowInitialLoading =
     !hasRenderableProducts && !isFetchedAfterMount;
   const handleRetry = () => {

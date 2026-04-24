@@ -281,6 +281,28 @@ describe('ProductGrid', () => {
     expect(mockProductCard).not.toHaveBeenCalled();
   });
 
+  it('keeps showing the retry UI while a manual retry is in flight without cached products', () => {
+    mockProductsHook({
+      products: [],
+      isFetchedAfterMount: true,
+      isLoading: false,
+      isFetching: true,
+      isError: true,
+      error: 'prods',
+    });
+
+    render(
+      <ProductGrid block={block} selectedCategoryId={null} variant="grid" />
+    );
+
+    expect(
+      screen.getByText('Failed to load products. Please try again.')
+    ).toBeTruthy();
+    expect(screen.getByText('Retrying...')).toBeTruthy();
+    expect(mockProductGridSkeleton).not.toHaveBeenCalled();
+    expect(mockProductCard).not.toHaveBeenCalled();
+  });
+
   it('keeps rendering products when categories refetch fails after categories were already cached', () => {
     mockUseCategoriesFactory.mockReturnValue({
       data: [
