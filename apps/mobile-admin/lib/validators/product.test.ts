@@ -329,6 +329,45 @@ describe('ProductDbSchema', () => {
     expect(parsed.price).toBe(900000);
   });
 
+  it('uses British spelling colour attributes for the parent projection', () => {
+    const parsed = ProductDbSchema.parse({
+      name: 'iPhone 15 Pro',
+      sku: 'IP15PRO',
+      price: 0,
+      stock_quantity: 0,
+      category_id: '',
+      manage_stock: true,
+      status: 'active',
+      images: [],
+      has_variants: true,
+      variant_attributes: [],
+      variants: [
+        {
+          attributes: [
+            { key: 'storage', value: '128GB' },
+            { key: 'colour', value: 'Black' },
+          ],
+          condition: 'used',
+          price: 800000,
+          stock_quantity: 3,
+        },
+        {
+          attributes: [
+            { key: 'storage', value: '128GB' },
+            { key: 'Colour', value: 'Natural Titanium' },
+          ],
+          condition: 'new',
+          price: 900000,
+          stock_quantity: 2,
+        },
+      ],
+    });
+
+    expect(parsed.condition).toBe('new');
+    expect(parsed.color).toBe('Natural Titanium');
+    expect(parsed.price).toBe(900000);
+  });
+
   it('rejects sku_matrix variants when one row is missing condition', () => {
     expect(() =>
       ProductDbSchema.parse({

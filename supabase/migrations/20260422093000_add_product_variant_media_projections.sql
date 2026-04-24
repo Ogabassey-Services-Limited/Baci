@@ -55,21 +55,29 @@ BEGIN
       media.image,
       vr.created_at,
       vr.id,
-      media.sort_order
+      media.sort_order,
+      media.image_ordinal
     FROM variant_rows AS vr
     CROSS JOIN LATERAL (
-      SELECT vr.primary_image AS image, 0 AS sort_order
+      SELECT
+        vr.primary_image AS image,
+        0 AS sort_order,
+        0::BIGINT AS image_ordinal
       UNION ALL
       SELECT
         CASE
-          WHEN jsonb_typeof(image_entry) = 'string' THEN
-            NULLIF(btrim(image_entry #>> '{}'), '')
-          WHEN jsonb_typeof(image_entry) = 'object' THEN
-            NULLIF(btrim(image_entry->>'url'), '')
+          WHEN jsonb_typeof(image_entry.value) = 'string' THEN
+            NULLIF(btrim(image_entry.value #>> '{}'), '')
+          WHEN jsonb_typeof(image_entry.value) = 'object' THEN
+            NULLIF(btrim(image_entry.value->>'url'), '')
           ELSE NULL
         END AS image,
-        1 AS sort_order
-      FROM jsonb_array_elements(vr.images) AS image_entry
+        1 AS sort_order,
+        image_entry.ordinality AS image_ordinal
+      FROM jsonb_array_elements(vr.images) WITH ORDINALITY AS image_entry(
+        value,
+        ordinality
+      )
     ) AS media
     WHERE vr.color IS NOT NULL
   ),
@@ -79,15 +87,18 @@ BEGIN
       image,
       created_at,
       id,
-      sort_order
+      sort_order,
+      image_ordinal
     FROM variant_media
     WHERE image IS NOT NULL
-    ORDER BY color, image, created_at, id, sort_order
+    ORDER BY color, image, created_at, id, sort_order, image_ordinal
   ),
   grouped_media AS (
     SELECT
       color,
-      jsonb_agg(image ORDER BY created_at, id, sort_order) AS images,
+      jsonb_agg(
+        image ORDER BY created_at, id, sort_order, image_ordinal
+      ) AS images,
       min(created_at) AS first_seen_at,
       min(id::text) AS first_variant_id
     FROM distinct_media
@@ -116,7 +127,14 @@ BEGIN
     END,
     updated_at = timezone('utc', now())
   WHERE id = p_product_id
-    AND has_variants = TRUE;
+    AND has_variants = TRUE
+    AND (
+      color_images IS DISTINCT FROM projected_color_images
+      OR (
+        projected_color IS NOT NULL
+        AND color IS DISTINCT FROM projected_color
+      )
+    );
 END;
 $$;
 

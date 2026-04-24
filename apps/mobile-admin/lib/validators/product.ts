@@ -13,6 +13,7 @@ import {
   getTotalVariantStock,
 } from '@/lib/product-variant-form';
 import { sanitizeText, stripHtmlTags } from '@/lib/sanitize';
+import { readVariantColor } from '@/lib/validators/product-variant-color';
 
 const variantAttributeSchema = z.object({
   key: z.string(),
@@ -266,10 +267,10 @@ export const ProductDbSchema = ProductSchema.transform((data) => {
       ? (defaultSelection?.condition ?? persistedVariants[0]?.condition ?? null)
       : (rest.condition ?? null);
   const nextColor = has_variants
-    ? (defaultSelection?.variant.attributes?.color?.trim() ??
+    ? (readVariantColor(defaultSelection?.variant.attributes) ??
       persistedVariants
-        .map((variant) => variant.attributes?.color?.trim())
-        .find((value): value is string => Boolean(value)) ??
+        .map((variant) => readVariantColor(variant.attributes))
+        .find((value): value is string => value !== null) ??
       null)
     : rest.color?.trim() || null;
 
