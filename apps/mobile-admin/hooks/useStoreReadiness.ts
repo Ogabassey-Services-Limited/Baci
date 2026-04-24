@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import type { SetupItem, StoreReadiness } from '@/types/readiness';
 import { useMerchant } from './useMerchant';
@@ -8,6 +9,12 @@ interface VerificationFlags {
   bvn_verified: boolean;
   cac_verified: boolean;
 }
+
+const UNVERIFIED_FLAGS: VerificationFlags = {
+  nin_verified: false,
+  bvn_verified: false,
+  cac_verified: false,
+};
 
 function isVerificationFlags(value: unknown): value is VerificationFlags {
   if (!value || typeof value !== 'object') return false;
@@ -21,13 +28,20 @@ function isVerificationFlags(value: unknown): value is VerificationFlags {
 
 export function useStoreReadiness() {
   const { merchant, isLoading: isMerchantLoading } = useMerchant();
+  const { user } = useAuth();
+  // merchant.user_id is the owner's auth uid. The
+  // `get_merchant_verification_status` RPC is owner-scoped (it raises
+  // "not authorized" for staff sessions), so only call it when the
+  // current user owns the merchant. Staff can't manage KYC anyway —
+  // they see "not verified" defaults so the checklist still renders.
+  const isOwner = !!user?.id && !!merchant && merchant.user_id === user.id;
 
   const {
     data: readiness,
     isLoading: isReadinessLoading,
     refetch,
   } = useQuery({
-    queryKey: ['store-readiness', merchant?.id],
+    queryKey: ['store-readiness', merchant?.id, isOwner],
     queryFn: async () => {
       if (!merchant) return null;
 
@@ -43,16 +57,26 @@ export function useStoreReadiness() {
       // nin/bvn/cac_rc_number on the merchant row). Using the same source
       // prevents the UI from advertising "Ready to Launch" while POST
       // /api/merchant/publish returns 400 on unverified identifiers.
-      const { data: verificationData, error: verificationError } =
-        await supabase.rpc('get_merchant_verification_status', {
-          p_merchant_id: merchant.id,
-        });
-      if (verificationError) throw verificationError;
-      const verification: VerificationFlags = isVerificationFlags(
-        verificationData
-      )
-        ? verificationData
-        : { nin_verified: false, bvn_verified: false, cac_verified: false };
+      // The RPC is owner-only, so skip it for staff and any authorization
+      // failure falls back to "unverified" rather than throwing — that
+      // keeps consumer screens from rendering `null` and losing state.
+      let verification: VerificationFlags = UNVERIFIED_FLAGS;
+      if (isOwner) {
+        const { data: verificationData, error: verificationError } =
+          await supabase.rpc('get_merchant_verification_status', {
+            p_merchant_id: merchant.id,
+          });
+        if (verificationError) {
+          if (__DEV__) {
+            console.warn(
+              '[StoreReadiness] verification lookup failed; defaulting to unverified',
+              verificationError
+            );
+          }
+        } else if (isVerificationFlags(verificationData)) {
+          verification = verificationData;
+        }
+      }
       const hasVerifiedIdentity =
         verification.nin_verified ||
         verification.bvn_verified ||
