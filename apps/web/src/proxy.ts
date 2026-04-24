@@ -641,26 +641,22 @@ export async function proxy(request: NextRequest) {
   // Block common spam patterns under /blog/ prevent "Crawled - currently not indexed"
   // and "Duplicate without user-selected canonical" errors (Soft 404s).
   // MOVED TO TOP to avoid redirecting spam.
-  if (pathname.startsWith('/blog/')) {
-    // Block legacy WordPress admin/auth probes under /blog/*
-    // These are not public content pages and should not be indexable.
-    const wpAdminPatterns = [
-      '/blog/wp-admin',
-      '/blog/wp-login.php',
-      '/blog/xmlrpc.php',
-    ];
-    // Anchor on a segment boundary so legitimate slugs like
-    // `/blog/wp-admin-guide-for-developers` are not falsely 410'd.
-    const lowerPathForWp = pathname.toLowerCase();
-    if (
-      wpAdminPatterns.some(
-        (pattern) =>
-          lowerPathForWp === pattern || lowerPathForWp.startsWith(`${pattern}/`)
-      )
-    ) {
-      return new NextResponse('Gone', { status: 410 });
-    }
+  // Block legacy WordPress admin/auth probes under /blog/* AND
+  // /{merchantSlug}/blog/* (root-domain storefronts proxy blog paths
+  // under a merchant slug prefix). These are not public content pages
+  // and should not be indexable. Match exact paths or true path segment
+  // boundaries to avoid blocking legitimate post slugs that share these
+  // prefixes (e.g. /blog/wp-admin-guide).
+  if (
+    /^\/(?:[^/]+\/)?blog\/(?:wp-admin|wp-login\.php|xmlrpc\.php)(?:\/|$)/i.test(
+      pathname
+    )
+  ) {
+    return new NextResponse('Gone', { status: 410 });
+  }
 
+  if (pathname.startsWith('/blog/')) {
+    const lowerBlogPath = pathname.toLowerCase();
     const spamPatterns = [
       '/blog/shopdetail',
       '/blog/zhhant',
@@ -670,7 +666,7 @@ export async function proxy(request: NextRequest) {
     if (
       spamPatterns.some(
         (pattern) =>
-          lowerPathForWp === pattern || lowerPathForWp.startsWith(`${pattern}/`)
+          lowerBlogPath === pattern || lowerBlogPath.startsWith(`${pattern}/`)
       )
     ) {
       return new NextResponse('Gone', { status: 410 });
@@ -680,14 +676,20 @@ export async function proxy(request: NextRequest) {
     // /blog/{category}/{post-slug} -> /blog/{post-slug}
     // Also drop thumbnail_id query param noise from migrated URLs
     // (both thumbnail_id and _thumbnail_id variants).
-    const legacyCategoryMatch = pathname.match(/^\/blog\/[^/]+\/([^/]+)\/?$/);
+    // Exclude pagination, tags, and authors from being treated as posts.
+    const blogExclusions = ['page', 'tag', 'author', 'category'];
+    const legacyCategoryMatch = pathname.match(/^\/blog\/([^/]+)\/([^/]+)\/?$/);
+    const isLegacyPost =
+      legacyCategoryMatch &&
+      !blogExclusions.includes(legacyCategoryMatch[1].toLowerCase());
+
     const hasThumbnailId =
       request.nextUrl.searchParams.has('thumbnail_id') ||
       request.nextUrl.searchParams.has('_thumbnail_id');
-    if (legacyCategoryMatch || hasThumbnailId) {
+    if (isLegacyPost || hasThumbnailId) {
       const redirectUrl = request.nextUrl.clone();
-      if (legacyCategoryMatch) {
-        redirectUrl.pathname = `/blog/${legacyCategoryMatch[1]}`;
+      if (isLegacyPost && legacyCategoryMatch) {
+        redirectUrl.pathname = `/blog/${legacyCategoryMatch[2]}`;
       }
       redirectUrl.searchParams.delete('thumbnail_id');
       redirectUrl.searchParams.delete('_thumbnail_id');
@@ -959,8 +961,16 @@ export async function proxy(request: NextRequest) {
       if (
         domainMerchantSlug &&
         domainPathSegments[0]?.toLowerCase() ===
-          domainMerchantSlug.toLowerCase()
+          domainMerchantSlug.toLowerCase() &&
+        // Only canonicalize safe/idempotent methods. A 301 on POST/PUT/etc.
+        // lets clients replay as GET, which drops the body and breaks
+        // non-idempotent flows (checkout, order creation) when legacy
+        // slug-prefixed API URLs are hit on a custom domain.
+        (request.method === 'GET' || request.method === 'HEAD')
       ) {
+        // First segment already confirmed equal (case-insensitive) to the
+        // merchant slug above; drop it by length instead of building a regex
+        // from a variable (avoids CWE-1333 and any escaping concerns).
         const strippedPathname =
           pathname.slice(domainPathSegments[0].length + 1) || '/';
         const strippedSegments = strippedPathname.split('/').filter(Boolean);
@@ -985,6 +995,47 @@ export async function proxy(request: NextRequest) {
         if (normalizedUrl !== request.nextUrl.href) {
           return NextResponse.redirect(normalizedUrl, 301);
         }
+      }
+
+      // Slug-prefixed API requests (e.g. POST /{merchantSlug}/api/orders) on
+      // custom domains need to be rewritten to /api/... regardless of method.
+      // A 301 redirect is unsafe for non-idempotent verbs (body is dropped on
+      // replay), but an internal rewrite preserves method + body. Only applies
+      // when the first segment matches the domain's merchant slug AND the
+      // second segment is literally 'api'.
+      if (
+        domainMerchantSlug &&
+        domainPathSegments[0]?.toLowerCase() ===
+          domainMerchantSlug.toLowerCase() &&
+        domainPathSegments[1]?.toLowerCase() === 'api'
+      ) {
+        const strippedApiPathname =
+          pathname.slice(domainPathSegments[0].length + 1) || '/';
+        const apiUrl = request.nextUrl.clone();
+        apiUrl.pathname = strippedApiPathname;
+
+        const apiHeaders = new Headers(request.headers);
+        apiHeaders.set('x-custom-domain', domain);
+        apiHeaders.set('x-merchant-domain', domain);
+
+        const response = NextResponse.rewrite(apiUrl, {
+          request: {
+            headers: apiHeaders,
+          },
+        });
+
+        const routeType = getRouteType(strippedApiPathname);
+        const isLocal = isLocalhost(hostname);
+        return applySecurityHeaders(
+          response,
+          strippedApiPathname,
+          userAgent,
+          routeType,
+          isLocal,
+          undefined,
+          request,
+          hostname
+        );
       }
 
       // API routes should NOT be rewritten - they exist at /api/*, not /domain/api/*
