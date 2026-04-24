@@ -204,9 +204,9 @@ export async function BlogPostBody({
         </section>
       )}
 
-      {relatedProducts.length > 0 && (
-        <section className="mt-10">
-          <h2 className="mb-4 text-2xl font-bold">
+      {safeRelatedProducts.length > 0 && (
+        <section aria-labelledby="related-products-heading" className="mt-10">
+          <h2 id="related-products-heading" className="mb-4 text-2xl font-bold">
             Popular Products Mentioned
           </h2>
           <ul className="grid gap-3 md:grid-cols-2">

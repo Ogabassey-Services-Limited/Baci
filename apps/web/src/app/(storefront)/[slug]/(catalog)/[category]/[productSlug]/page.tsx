@@ -23,6 +23,7 @@ import {
   getRequestScopedMerchant,
   sanitizeLookupLogValue,
 } from '@/lib/cached-data';
+import { normalizeStorefrontCategorySlug } from '@/lib/normalize-storefront-category-slug';
 import { getEffectiveStock } from '@/lib/product-stock';
 import type { Product } from '@/lib/products';
 import { escapeHtml } from '@/lib/sanitize-core';
@@ -461,8 +462,15 @@ const getProduct = async (
     dbCategorySlug ||
     (product.category ? generateSlug(product.category) : null);
 
+  // Compare normalized slugs so alias remaps (e.g. samsung -> smartphones) don't
+  // trigger a redirect loop between the canonical URL and the raw DB slug.
+  const normalizedProductCategorySlug =
+    normalizeStorefrontCategorySlug(productCategorySlug);
+  const normalizedUrlCategorySlug =
+    normalizeStorefrontCategorySlug(categorySlug);
   const categoryMismatch = Boolean(
-    productCategorySlug && productCategorySlug !== categorySlug
+    normalizedProductCategorySlug &&
+      normalizedProductCategorySlug !== normalizedUrlCategorySlug
   );
 
   return {

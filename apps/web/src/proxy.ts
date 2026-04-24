@@ -1003,6 +1003,47 @@ export async function proxy(request: NextRequest) {
         }
       }
 
+      // Slug-prefixed API requests (e.g. POST /{merchantSlug}/api/orders) on
+      // custom domains need to be rewritten to /api/... regardless of method.
+      // A 301 redirect is unsafe for non-idempotent verbs (body is dropped on
+      // replay), but an internal rewrite preserves method + body. Only applies
+      // when the first segment matches the domain's merchant slug AND the
+      // second segment is literally 'api'.
+      if (
+        domainMerchantSlug &&
+        domainPathSegments[0]?.toLowerCase() ===
+          domainMerchantSlug.toLowerCase() &&
+        domainPathSegments[1]?.toLowerCase() === 'api'
+      ) {
+        const strippedApiPathname =
+          pathname.slice(domainPathSegments[0].length + 1) || '/';
+        const apiUrl = request.nextUrl.clone();
+        apiUrl.pathname = strippedApiPathname;
+
+        const apiHeaders = new Headers(request.headers);
+        apiHeaders.set('x-custom-domain', domain);
+        apiHeaders.set('x-merchant-domain', domain);
+
+        const response = NextResponse.rewrite(apiUrl, {
+          request: {
+            headers: apiHeaders,
+          },
+        });
+
+        const routeType = getRouteType(strippedApiPathname);
+        const isLocal = isLocalhost(hostname);
+        return applySecurityHeaders(
+          response,
+          strippedApiPathname,
+          userAgent,
+          routeType,
+          isLocal,
+          undefined,
+          request,
+          hostname
+        );
+      }
+
       // API routes should NOT be rewritten - they exist at /api/*, not /domain/api/*
       // This fixes 405 errors when calling APIs from custom domains
       // API routes should NOT be rewritten - they exist at /api/*, not /domain/api/*
