@@ -48,13 +48,6 @@ vi.mock('@/lib/supabase', () => ({
 }));
 
 let mockMerchant: MerchantStub | null = null;
-let mockAuthUserId: string | null = null;
-
-vi.mock('@/hooks/useAuth', () => ({
-  useAuth: () => ({
-    user: mockAuthUserId ? { id: mockAuthUserId } : null,
-  }),
-}));
 
 vi.mock('./useMerchant', () => ({
   useMerchant: () => ({
@@ -100,13 +93,11 @@ describe('useStoreReadiness', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockMerchant = null;
-    mockAuthUserId = null;
     mockProductsSelect.mockResolvedValue({ count: 0, error: null });
   });
 
-  it('calls the owner-only verification RPC when the caller owns the merchant', async () => {
+  it('reads verification flags via the staff-safe RPC and marks KYC complete when verified', async () => {
     mockMerchant = buildMerchant({ user_id: 'owner-user' });
-    mockAuthUserId = 'owner-user';
     mockRpc.mockResolvedValueOnce({
       data: {
         nin_verified: true,
@@ -122,7 +113,7 @@ describe('useStoreReadiness', () => {
       expect(result.current.isLoading).toBe(false);
     });
 
-    expect(mockRpc).toHaveBeenCalledWith('get_merchant_verification_status', {
+    expect(mockRpc).toHaveBeenCalledWith('get_merchant_verification_flags', {
       p_merchant_id: 'merchant-1',
     });
     const kyc = result.current.readiness?.items.find(
@@ -131,9 +122,18 @@ describe('useStoreReadiness', () => {
     expect(kyc?.completed).toBe(true);
   });
 
-  it('skips the owner-only RPC for staff users and still returns readiness', async () => {
+  it('calls the staff-safe RPC for every session so staff see an accurate KYC item', async () => {
+    // Staff with settings.edit are authorised by the RPC — the hook no
+    // longer gates on ownership, matching the /api/merchant/publish contract.
     mockMerchant = buildMerchant({ user_id: 'owner-user' });
-    mockAuthUserId = 'staff-user';
+    mockRpc.mockResolvedValueOnce({
+      data: {
+        nin_verified: false,
+        bvn_verified: true,
+        cac_verified: false,
+      },
+      error: null,
+    });
 
     const { result } = renderHook(() => useStoreReadiness(), { wrapper });
 
@@ -141,17 +141,17 @@ describe('useStoreReadiness', () => {
       expect(result.current.isLoading).toBe(false);
     });
 
-    expect(mockRpc).not.toHaveBeenCalled();
-    expect(result.current.readiness).not.toBeNull();
+    expect(mockRpc).toHaveBeenCalledWith('get_merchant_verification_flags', {
+      p_merchant_id: 'merchant-1',
+    });
     const kyc = result.current.readiness?.items.find(
       (item) => item.id === 'verify_kyc'
     );
-    expect(kyc?.completed).toBe(false);
+    expect(kyc?.completed).toBe(true);
   });
 
-  it('defaults KYC to unverified when the owner RPC returns an authorization error', async () => {
+  it('defaults KYC to unverified when the RPC returns an authorization error', async () => {
     mockMerchant = buildMerchant({ user_id: 'owner-user' });
-    mockAuthUserId = 'owner-user';
     mockRpc.mockResolvedValueOnce({
       data: null,
       error: { message: 'not authorized' },
