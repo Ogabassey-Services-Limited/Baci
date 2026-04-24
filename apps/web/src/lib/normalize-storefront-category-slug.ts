@@ -1,3 +1,27 @@
+/**
+ * Canonical legacy → modern storefront category slug aliases.
+ *
+ * Single source of truth for both `normalizeStorefrontCategorySlug` (used when
+ * emitting internal hrefs and canonical URLs) and the URL rewrite logic in
+ * `apps/web/src/lib/storefront-link-normalization.ts` (which matches both the
+ * key and value forms in its `INTERNAL_STOREFRONT_PREFIX` regex). Adding a new
+ * alias here is enough — the link-normalization regex derives its alternation
+ * from `Object.keys(STOREFRONT_CATEGORY_ALIASES)` and the canonical values.
+ *
+ * NOTE: These aliases are intentional platform-wide defaults that normalize
+ * known legacy slugs into their modern forms. Merchants that deliberately
+ * store one of the alias keys as a category slug accept the platform's
+ * canonicalization — this matches the paired redirect rules in
+ * `next.config.ts` that 301 `/phones/*` → `/smartphones/*` etc.
+ */
+export const STOREFRONT_CATEGORY_ALIASES: Readonly<Record<string, string>> =
+  Object.freeze({
+    accesories: 'accessories',
+    phone: 'smartphones',
+    phones: 'smartphones',
+    laptop: 'laptops',
+  });
+
 export function normalizeStorefrontCategorySlug(
   slug: string | null | undefined
 ): string | null {
@@ -6,21 +30,5 @@ export function normalizeStorefrontCategorySlug(
     return null;
   }
 
-  // Only correct obvious legacy/typo slugs. Brand-specific slugs like
-  // `samsung` or `macbook` are intentionally NOT remapped here because
-  // merchants may legitimately configure them as their category slugs;
-  // rewriting those would point storefront links at `/smartphones` or
-  // `/laptops`, which those merchants do not serve. Brand-scoped alias
-  // normalization should live in explicit legacy URL flows only.
-  switch (normalized) {
-    case 'accesories':
-      return 'accessories';
-    case 'phone':
-    case 'phones':
-      return 'smartphones';
-    case 'laptop':
-      return 'laptops';
-    default:
-      return normalized;
-  }
+  return STOREFRONT_CATEGORY_ALIASES[normalized] ?? normalized;
 }

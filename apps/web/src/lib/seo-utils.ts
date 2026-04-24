@@ -332,7 +332,6 @@ function extractCanonicalProductPath(
       return `/products/${productSlug}` as Route;
     }
 
-    const normalizedCategorySlug = normalizeCanonicalCategorySlug(rootSegment);
     if (
       !normalizedCategorySlug ||
       NON_PRODUCT_CANONICAL_ROUTE_SEGMENTS.has(normalizedCategorySlug)
@@ -341,8 +340,9 @@ function extractCanonicalProductPath(
     }
 
     return `/${normalizedCategorySlug}/${productSlug}` as Route;
-  } catch
-  return null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -614,7 +614,7 @@ function buildMerchantReturnPolicyFromTrustProfile(
  * All user-controlled string values are sanitized to prevent XSS attacks.
  * @see https://developers.google.com/search/docs/appearance/structured-data/product
  */
-export function _generateProductSchema(
+export function generateProductSchema(
   product: Product,
   merchantName: string = 'Baci Store',
   currency: string = 'USD',
@@ -1162,7 +1162,7 @@ export interface BreadcrumbItem {
   url: string;
 }
 
-export function _generateBreadcrumbSchema(
+export function generateBreadcrumbSchema(
   items: BreadcrumbItem[]
 ): Record<string, unknown> {
   return {
@@ -1196,7 +1196,7 @@ export interface FAQItem {
  * Generates FAQ schema for products or pages.
  * @see https://developers.google.com/search/docs/appearance/structured-data/faqpage
  */
-export function _generateFAQSchema(faqs: FAQItem[]): Record<string, unknown> {
+export function generateFAQSchema(faqs: FAQItem[]): Record<string, unknown> {
   return {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
@@ -1250,7 +1250,7 @@ export interface LocalBusinessData {
  * All user-controlled string values are sanitized to prevent XSS attacks.
  * @see https://developers.google.com/search/docs/appearance/structured-data/local-business
  */
-export function _generateLocalBusinessSchema(
+export function generateLocalBusinessSchema(
   business: LocalBusinessData
 ): Record<string, unknown> {
   const schema: Record<string, unknown> = {
@@ -1369,7 +1369,7 @@ const DEFAULT_TITLE_MAX_LENGTH = 70;
 /**
  * Standard robots policy for indexable public storefront pages.
  */
-export function _getIndexableRobotsMetadata(): Metadata['robots'] {
+export function getIndexableRobotsMetadata(): Metadata['robots'] {
   return {
     index: true,
     follow: true,
@@ -1482,7 +1482,7 @@ function removeTrailingDuplicateSuffix(value: string, suffix: string): string {
 /**
  * Generates a normalized SEO title with optional suffix and length cap.
  */
-export function _generateMetaTitle(
+export function generateMetaTitle(
   title: string,
   options?: {
     maxLength?: number;
@@ -1626,7 +1626,7 @@ function toAbsoluteSchemaUrl(baseUrl: string, value?: string | null): string {
  * Generates CollectionPage schema for product listing pages (categories, collections).
  * @see https://schema.org/CollectionPage
  */
-export function _generateCollectionPageSchema(
+export function generateCollectionPageSchema(
   data: CollectionPageData
 ): Record<string, unknown> {
   const safeProducts = data.products.slice(0, 20); // Limit to 20 for performance
@@ -1722,7 +1722,7 @@ export interface OrganizationData {
  * Generates Organization schema for merchant branding and trust.
  * @see https://schema.org/Organization
  */
-export function _generateOrganizationSchema(
+export function generateOrganizationSchema(
   data: OrganizationData & { trustProfile?: MerchantTrustProfile }
 ): Record<string, unknown> {
   const schema: Record<string, unknown> = {
@@ -1786,7 +1786,7 @@ export function _generateOrganizationSchema(
  * Generates WebSite schema with SearchAction for sitelinks search box
  * @see https://developers.google.com/search/docs/appearance/structured-data/sitelinks-searchbox
  */
-export function _generateWebSiteSchema(
+export function generateWebSiteSchema(
   name: string,
   url: string,
   searchUrlTemplate?: string
@@ -1836,7 +1836,7 @@ export interface AggregateRatingSchema {
  * Returns the aggregateRating object to be merged into Product schema.
  * @see https://schema.org/AggregateRating
  */
-export function _generateAggregateRating(
+export function generateAggregateRating(
   stats: ReviewStats
 ): AggregateRatingSchema | null {
   if (!stats.reviewCount || stats.reviewCount === 0) {
@@ -1860,7 +1860,7 @@ export function _generateAggregateRating(
  * @param searchParams - The current search parameters object
  * @param allowedParams - List of parameters to KEEP (e.g., ['page', 'q']). All others are stripped.
  */
-export function _constructCanonicalUrl(
+export function constructCanonicalUrl(
   baseUrl: string,
   searchParams:
     | URLSearchParams
@@ -1925,7 +1925,7 @@ interface BlogPostSchemaData {
 /**
  * Generate Blog Post Schema (Article)
  */
-export function _generateBlogPostSchema(
+export function generateBlogPostSchema(
   data: BlogPostSchemaData
 ): Record<string, unknown> {
   // SECURITY FIX: Sanitize all inputs to prevent XSS (consistent with other schema functions)
