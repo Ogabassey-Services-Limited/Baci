@@ -828,7 +828,7 @@ importers:
         version: 3.20.0(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))
       '@tiptap/extension-underline':
         specifier: ^3.20.0
-        version: 3.22.1(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))
+        version: 3.22.4(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))
       '@tiptap/extension-youtube':
         specifier: ^3.20.0
         version: 3.20.0(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))
@@ -5941,8 +5941,8 @@ packages:
     peerDependencies:
       '@tiptap/core': 3.20.5
 
-  '@tiptap/extension-underline@3.22.1':
-    resolution: {integrity: sha512-p8/ErqQInWJbpncBycIggmtCjdrMwHmA3GNhOugo6F4fYfeVxgy7pVb7ZF+ss62d0mpQvEd81pyrzhkBtb0nBg==}
+  '@tiptap/extension-underline@3.22.4':
+    resolution: {integrity: sha512-08kGdbhIrA6h10GWXqOkqIveaBj5tmxclK208/nUIAlonI9hPd739vu7fmVtpnmqCnSSNpoRtU4u6Gj5at0ZpA==}
     peerDependencies:
       '@tiptap/core': 3.20.5
 
@@ -19431,7 +19431,7 @@ snapshots:
       '@tiptap/extension-strike': 3.19.0(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))
       '@tiptap/extension-text': 3.19.0(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))
       '@tiptap/extension-text-align': 3.20.1(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))
-      '@tiptap/extension-underline': 3.22.1(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))
+      '@tiptap/extension-underline': 3.22.4(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))
       '@tiptap/html': 3.22.3(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5)(happy-dom@20.8.9)
       '@tiptap/pm': 3.20.5
       '@tiptap/react': 3.20.0(@floating-ui/dom@1.7.5)(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -21502,7 +21502,7 @@ snapshots:
     dependencies:
       '@tiptap/core': 3.20.5(@tiptap/pm@3.20.5)
 
-  '@tiptap/extension-underline@3.22.1(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))':
+  '@tiptap/extension-underline@3.22.4(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))':
     dependencies:
       '@tiptap/core': 3.20.5(@tiptap/pm@3.20.5)
 
@@ -21588,7 +21588,7 @@ snapshots:
       '@tiptap/extension-paragraph': 3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))
       '@tiptap/extension-strike': 3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))
       '@tiptap/extension-text': 3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))
-      '@tiptap/extension-underline': 3.22.1(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))
+      '@tiptap/extension-underline': 3.22.4(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))
       '@tiptap/extensions': 3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5)
       '@tiptap/pm': 3.20.5
 
@@ -29844,7 +29844,7 @@ snapshots:
       '@tiptap/extension-task-item': 3.20.0(@tiptap/extension-list@3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))
       '@tiptap/extension-task-list': 3.20.0(@tiptap/extension-list@3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))
       '@tiptap/extension-text-style': 3.20.0(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))
-      '@tiptap/extension-underline': 3.22.1(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))
+      '@tiptap/extension-underline': 3.22.4(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))
       '@tiptap/extension-youtube': 3.20.0(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))
       '@tiptap/pm': 3.20.5
       '@tiptap/react': 3.20.0(@floating-ui/dom@1.7.5)(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
