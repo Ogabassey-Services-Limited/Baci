@@ -117,6 +117,28 @@ describe('normalizeProductDetails', () => {
     ]);
   });
 
+  it('falls back to product color_images when a variant color has no primary image', () => {
+    const variantWithoutPrimaryImage = {
+      ...baseProduct,
+      color_images: {
+        Silver: ['https://example.com/legacy-silver.jpg'],
+      },
+      variants: [
+        {
+          id: 'variant-silver',
+          attributes: { color: 'Silver', storage: '64GB' },
+          primary_image: null,
+        },
+      ],
+    } as unknown as Product;
+
+    const normalized = normalizeProductDetails(variantWithoutPrimaryImage);
+
+    expect(normalized.colorImages.Silver).toEqual([
+      'https://example.com/legacy-silver.jpg',
+    ]);
+  });
+
   it('derives summary specs and general details from variant attributes when explicit specs are missing', () => {
     const productWithVariantAttributes = {
       ...baseProduct,

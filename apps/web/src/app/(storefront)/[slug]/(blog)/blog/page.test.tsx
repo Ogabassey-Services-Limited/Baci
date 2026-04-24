@@ -27,6 +27,7 @@ vi.mock('@/lib/sanitize-json-ld', () => ({
 
 vi.mock('@/lib/seo-utils', () => ({
   generateBreadcrumbSchema: vi.fn(() => ({})),
+  generateMetaDescription: vi.fn((description: string) => description),
   generateSlug: (value: string) => value.toLowerCase().replace(/\s+/g, '-'),
 }));
 
