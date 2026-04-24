@@ -603,6 +603,15 @@ describe('generateMetaTitle', () => {
       })
     ).toBe('MacBook Pro 16 | Pro');
   });
+
+  it('does not treat partial word matches as an existing suffix', () => {
+    expect(
+      generateMetaTitle('Restore your phone fast', {
+        suffix: 'Store',
+        maxLength: 70,
+      })
+    ).toBe('Restore your phone fast | Store');
+  });
 });
 
 describe('getProductUrl', () => {
@@ -1066,6 +1075,63 @@ describe('generateSlug', () => {
 
   it('should handle an empty string', () => {
     expect(generateSlug('')).toBe('');
+  });
+});
+
+describe('getProductUrl', () => {
+  it('reuses canonical product paths only when they match supported product routes', () => {
+    expect(
+      getProductUrl({
+        id: 'test-123',
+        name: 'Canon Phone',
+        slug: 'canon-phone',
+        canonical_url: 'https://store.example.com/products/canon-phone',
+      })
+    ).toBe('/products/canon-phone');
+
+    expect(
+      getProductUrl({
+        id: 'test-123',
+        name: 'Canon Phone',
+        slug: 'canon-phone',
+        categorySlug: 'smartphones',
+        canonical_url: 'https://store.example.com/sale',
+      })
+    ).toBe('/smartphones/canon-phone');
+
+    expect(
+      getProductUrl({
+        id: 'test-123',
+        name: 'Canon Phone',
+        slug: 'canon-phone',
+        categorySlug: 'smartphones',
+        canonical_url: 'https://store.example.com/blog/canon-phone',
+      })
+    ).toBe('/smartphones/canon-phone');
+  });
+
+  it('ignores canonical URLs that point at sitemap-like metadata roots', () => {
+    const metadataCanonicals = [
+      'https://store.example.com/sitemap/products.xml',
+      'https://store.example.com/sitemap.xml',
+      'https://store.example.com/robots.txt',
+      'https://store.example.com/manifest/app.webmanifest',
+      'https://store.example.com/opengraph-image/canon-phone',
+      'https://store.example.com/rss/canon-phone',
+      'https://store.example.com/api/canon-phone',
+    ];
+
+    for (const canonicalUrl of metadataCanonicals) {
+      expect(
+        getProductUrl({
+          id: 'test-123',
+          name: 'Canon Phone',
+          slug: 'canon-phone',
+          categorySlug: 'smartphones',
+          canonical_url: canonicalUrl,
+        })
+      ).toBe('/smartphones/canon-phone');
+    }
   });
 });
 

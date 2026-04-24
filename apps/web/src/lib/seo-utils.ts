@@ -193,6 +193,31 @@ const STOREFRONT_ROOT_SEGMENTS = new Set([
   'privacy',
 ]);
 
+const NON_PRODUCT_CANONICAL_ROUTE_SEGMENTS = new Set([
+  'about',
+  'account',
+  'api',
+  'blog',
+  'faq',
+  'favicon',
+  'icon',
+  'manifest',
+  'opengraph-image',
+  'privacy',
+  'products',
+  'repair',
+  'repairs',
+  'robots',
+  'rss',
+  'sitemap',
+  'sitemaps',
+  'swap',
+  'terms',
+  'twitter-image',
+  'wallet',
+  'wishlist',
+]);
+
 function extractCanonicalProductPath(
   canonicalUrl: string | null | undefined
 ): Route | null {
@@ -213,50 +238,47 @@ function extractCanonicalProductPath(
       return null;
     }
 
-    const firstSegmentLower = canonicalSegments[0].toLowerCase();
-    const firstSegmentCanonical =
-      normalizeStorefrontCategorySlug(firstSegmentLower) ?? firstSegmentLower;
-    const isStorefrontRoot =
-      STOREFRONT_ROOT_SEGMENTS.has(firstSegmentLower) ||
-      STOREFRONT_ROOT_SEGMENTS.has(firstSegmentCanonical);
-
-    // Only strip the first segment when the SECOND segment is itself a known
-    // storefront root (i.e. the first segment is clearly a merchant-slug prefix
-    // like `/{merchantSlug}/products/foo`). Unknown first segments are kept
-    // intact so merchant-defined category paths such as `/fashion/men/shirt`
-    // are not corrupted into `/men/shirt`.
-    const secondSegmentLower = canonicalSegments[1]?.toLowerCase();
-    const secondSegmentCanonical = secondSegmentLower
-      ? (normalizeStorefrontCategorySlug(secondSegmentLower) ??
-        secondSegmentLower)
-      : null;
-    const secondSegmentIsStorefrontRoot = Boolean(
-      secondSegmentLower &&
-        (STOREFRONT_ROOT_SEGMENTS.has(secondSegmentLower) ||
-          (secondSegmentCanonical &&
-            STOREFRONT_ROOT_SEGMENTS.has(secondSegmentCanonical)))
-    );
-
     if (
       canonicalSegments.length >= 3 &&
-      !isStorefrontRoot &&
-      secondSegmentIsStorefrontRoot
+      !STOREFRONT_ROOT_SEGMENTS.has(canonicalSegments[0].toLowerCase())
     ) {
       canonicalSegments.shift();
     }
 
-    if (canonicalSegments.length === 0) {
+    if (canonicalSegments.length !== 2) {
       return null;
     }
 
-    const normalizedCategorySlug = normalizeStorefrontCategorySlug(
-      canonicalSegments[0]
-    );
-    if (normalizedCategorySlug) {
-      canonicalSegments[0] = normalizedCategorySlug;
+    const [rootSegment, productSlug] = canonicalSegments;
+    if (!productSlug) {
+      return null;
     }
 
-    return `/${canonicalSegments.join('/')}` as Route;
+    // Reject any segment with a file extension (e.g. sitemap.xml, robots.txt,
+    // opengraph-image.png) so metadata endpoints never masquerade as product
+    // routes.
+    if (rootSegment.includes('.') || productSlug.includes('.')) {
+      return null;
+    }
+
+    const rootSegmentLower = rootSegment.toLowerCase();
+    if (NON_PRODUCT_CANONICAL_ROUTE_SEGMENTS.has(rootSegmentLower)) {
+      return null;
+    }
+
+    if (rootSegmentLower === 'products') {
+      return `/products/${productSlug}` as Route;
+    }
+
+    const normalizedCategorySlug = normalizeStorefrontCategorySlug(rootSegment);
+    if (
+      !normalizedCategorySlug ||
+      NON_PRODUCT_CANONICAL_ROUTE_SEGMENTS.has(normalizedCategorySlug)
+    ) {
+      return null;
+    }
+
+    return `/${normalizedCategorySlug}/${productSlug}` as Route;
   } catch {
     return null;
   }
