@@ -302,7 +302,11 @@ describe('Middleware Proxy', () => {
 
     const res = await proxy(req);
 
+    // Legitimate post slugs must never be punted to the 410 WP-probe trap,
+    // and must not short-circuit with any other client/server error either
+    // — they should flow through the proxy to the storefront handler.
     expect(res.status).not.toBe(410);
+    expect(res.status).toBeLessThan(400);
   });
 
   it.each([
@@ -328,7 +332,10 @@ describe('Middleware Proxy', () => {
 
     const res = await proxy(req);
 
+    // Same as the platform-scope case: legitimate merchant-scoped slugs
+    // must pass through without any 4xx/5xx short-circuit from the proxy.
     expect(res.status).not.toBe(410);
+    expect(res.status).toBeLessThan(400);
   });
 
   it('redirects legacy /blog/{category}/{slug} URLs to canonical /blog/{slug}', async () => {

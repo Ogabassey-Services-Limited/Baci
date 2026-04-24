@@ -379,8 +379,11 @@ describe('sitemap-data', () => {
       },
     ]);
 
-    const { resolveStorefrontSitemapContext, getBlogSitemapEntries } =
-      await import('./sitemap-data');
+    const {
+      resolveStorefrontSitemapContext,
+      getBlogSitemapEntries,
+      getRootSitemapEntries,
+    } = await import('./sitemap-data');
     const context = await resolveStorefrontSitemapContext(
       mockHeaders as unknown as Headers
     );
@@ -393,6 +396,13 @@ describe('sitemap-data', () => {
     // When the blog feature is disabled, NO blog URLs (not even the /blog
     // index) should be surfaced — they all 404 on the storefront.
     expect(blogEntries).toEqual([]);
+
+    // The root sitemap must also exclude every /blog URL so crawlers don't
+    // discover blog routes that will 404 under the flag.
+    const rootEntries = await getRootSitemapEntries(context);
+    expect(rootEntries.every((entry) => !entry.url.includes('/blog'))).toBe(
+      true
+    );
   });
 
   it('serializes sitemap XML responses with image namespace when needed', async () => {

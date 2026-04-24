@@ -329,7 +329,10 @@ export async function getRootSitemapEntries(
     Promise.resolve(getStaticSitemapEntries(context.storeUrl)),
     getProductSitemapEntries(context),
     getCategorySitemapEntries(context),
-    getBlogSitemapEntries(context),
+    // Blog entries require feature-flag + DB lookups that can throw on
+    // transient failures. Fail soft so the root sitemap stays available
+    // even when the blog data source is momentarily unreachable.
+    getBlogSitemapEntries(context).catch(() => [] as MetadataRoute.Sitemap),
     getCommercialSupportSitemapEntries(context),
   ]);
 

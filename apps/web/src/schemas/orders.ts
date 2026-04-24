@@ -9,6 +9,12 @@ import {
 
 const optionalHttpUrlSchema = z.preprocess(
   (value) => {
+    // Normalize null → undefined so clients that serialize optional fields
+    // as `null` don't hit the URL validator (which would reject them).
+    if (value === null) {
+      return undefined;
+    }
+
     if (typeof value !== 'string') {
       return value;
     }
