@@ -147,7 +147,7 @@ export function PriceRangeProducts({
   }
 
   const isOutOfStock = (p: Product) =>
-    (p.manage_stock ?? false) && getEffectiveStock(p) <= 0;
+    p.manage_stock !== false && getEffectiveStock(p) <= 0;
 
   const formatPriceRange = () => {
     const formattedMax = formatCurrency(maxPrice);

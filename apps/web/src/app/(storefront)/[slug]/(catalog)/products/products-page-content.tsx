@@ -241,9 +241,8 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
                   <ul className="mt-4 grid gap-2 md:grid-cols-2 lg:grid-cols-3">
                     {deepLinkProducts.map((product) => {
                       const categorySlug =
-                        normalizeStorefrontCategorySlug(
-                          product.category_slug
-                        ) || 'products';
+                        product.category_slug?.trim().toLowerCase() ||
+                        'products';
                       const href =
                         categorySlug === 'products'
                           ? `${pathPrefix}/products/${product.slug}`
