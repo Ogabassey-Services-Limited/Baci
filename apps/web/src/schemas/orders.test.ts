@@ -127,6 +127,44 @@ describe('orderCreateSchema', () => {
     }
   });
 
+  it('accepts null image_url / imageUrl on items (clients may serialize optional URLs as null)', () => {
+    const result = orderCreateSchema.safeParse({
+      ...validOrder,
+      items: [
+        {
+          ...validOrder.items[0],
+          image_url: null,
+          imageUrl: null,
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.items[0].image_url).toBeUndefined();
+      expect(result.data.items[0].imageUrl).toBeUndefined();
+    }
+  });
+
+  it('accepts a valid http image_url on items', () => {
+    const result = orderCreateSchema.safeParse({
+      ...validOrder,
+      items: [
+        {
+          ...validOrder.items[0],
+          image_url: 'https://cdn.example.com/p.jpg',
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.items[0].image_url).toBe(
+        'https://cdn.example.com/p.jpg'
+      );
+    }
+  });
+
   it('normalizes item condition values', () => {
     const result = orderCreateSchema.safeParse({
       ...validOrder,

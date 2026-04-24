@@ -603,6 +603,15 @@ describe('generateMetaTitle', () => {
       })
     ).toBe('MacBook Pro 16 | Pro');
   });
+
+  it('does not treat partial word matches as an existing suffix', () => {
+    expect(
+      generateMetaTitle('Restore your phone fast', {
+        suffix: 'Store',
+        maxLength: 70,
+      })
+    ).toBe('Restore your phone fast | Store');
+  });
 });
 
 describe('getProductUrl', () => {
@@ -639,15 +648,36 @@ describe('getProductUrl', () => {
     ).toBe('/products/test-product');
   });
 
-  it('rewrites alias-first canonical paths to their canonical storefront root', () => {
+  it('strips merchant-slug prefix from /{merchantSlug}/{category}/{product} canonicals when the second segment is a known storefront root', () => {
+    // /ogabassey/smartphones/iphone-15 has 3 segments; `smartphones` is a
+    // known storefront root, so `ogabassey` is recognized as the merchant
+    // slug prefix and stripped, leaving /smartphones/iphone-15.
+    expect(
+      getProductUrl(
+        makeProduct({
+          canonical_url: 'https://usebaci.com/ogabassey/smartphones/iphone-15',
+          slug: 'iphone-15',
+        })
+      )
+    ).toBe('/smartphones/iphone-15');
+  });
+
+  it('does NOT strip the first segment of a 3-segment canonical when the second segment is not a known storefront root', () => {
+    // Regression: previously `/phones/iphone-15/black` (3 segments) was
+    // mis-rewritten to `/iphone-15/black` because the first segment was not
+    // in STOREFRONT_ROOT_SEGMENTS. The guard now requires positive evidence
+    // (a known storefront root in position 2) before stripping, so this 3+
+    // segment canonical that doesn't match the merchant-prefix pattern
+    // simply falls through to the slug-based fallback.
     expect(
       getProductUrl(
         makeProduct({
           canonical_url: 'https://usebaci.com/phones/iphone-15/black',
           slug: 'iphone-15',
+          category: 'Phones',
         })
       )
-    ).toBe('/smartphones/iphone-15/black');
+    ).toBe('/smartphones/iphone-15');
   });
 });
 
@@ -1066,6 +1096,63 @@ describe('generateSlug', () => {
 
   it('should handle an empty string', () => {
     expect(generateSlug('')).toBe('');
+  });
+});
+
+describe('getProductUrl — canonical metadata path guards', () => {
+  it('reuses canonical product paths only when they match supported product routes', () => {
+    expect(
+      getProductUrl({
+        id: 'test-123',
+        name: 'Canon Phone',
+        slug: 'canon-phone',
+        canonical_url: 'https://store.example.com/products/canon-phone',
+      })
+    ).toBe('/products/canon-phone');
+
+    expect(
+      getProductUrl({
+        id: 'test-123',
+        name: 'Canon Phone',
+        slug: 'canon-phone',
+        categorySlug: 'smartphones',
+        canonical_url: 'https://store.example.com/sale',
+      })
+    ).toBe('/smartphones/canon-phone');
+
+    expect(
+      getProductUrl({
+        id: 'test-123',
+        name: 'Canon Phone',
+        slug: 'canon-phone',
+        categorySlug: 'smartphones',
+        canonical_url: 'https://store.example.com/blog/canon-phone',
+      })
+    ).toBe('/smartphones/canon-phone');
+  });
+
+  it('ignores canonical URLs that point at sitemap-like metadata roots', () => {
+    const metadataCanonicals = [
+      'https://store.example.com/sitemap/products.xml',
+      'https://store.example.com/sitemap.xml',
+      'https://store.example.com/robots.txt',
+      'https://store.example.com/manifest/app.webmanifest',
+      'https://store.example.com/opengraph-image/canon-phone',
+      'https://store.example.com/rss/canon-phone',
+      'https://store.example.com/api/canon-phone',
+    ];
+
+    for (const canonicalUrl of metadataCanonicals) {
+      expect(
+        getProductUrl({
+          id: 'test-123',
+          name: 'Canon Phone',
+          slug: 'canon-phone',
+          categorySlug: 'smartphones',
+          canonical_url: canonicalUrl,
+        })
+      ).toBe('/smartphones/canon-phone');
+    }
   });
 });
 

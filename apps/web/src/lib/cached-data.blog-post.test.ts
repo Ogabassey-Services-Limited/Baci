@@ -14,6 +14,7 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: (...args: unknown[]) => mockCreateClient(...args),
 }));
 
+import { cacheTag } from 'next/cache';
 import { getCachedBlogPost } from '@/lib/cached-data';
 
 function createQueryBuilder({
@@ -200,6 +201,7 @@ describe('getCachedBlogPost', () => {
         slug: 'ogabassey',
       })
     );
+    expect(cacheTag).toHaveBeenCalledWith('products', 'products-merchant-1');
   });
 
   it('slugifies free-text blog categories before filtering related products', async () => {
