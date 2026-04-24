@@ -80,6 +80,8 @@ export function CountryPickerModal({
                 accessibilityRole="button"
                 accessibilityLabel="Clear search"
                 accessibilityHint="Clears the country search input"
+                style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+                hitSlop={8}
               >
                 <Ionicons
                   name="close-circle"
@@ -102,7 +104,7 @@ export function CountryPickerModal({
             return (
               <Pressable
                 key={item.code}
-                style={[
+                style={({ pressed }) => [
                   styles.countryItem,
                   {
                     backgroundColor: isSelected
@@ -110,6 +112,7 @@ export function CountryPickerModal({
                       : colors.card,
                     borderColor: colors.border,
                   },
+                  pressed && { opacity: 0.7 }
                 ]}
                 onPress={() => onSelect(item)}
                 accessibilityRole="button"

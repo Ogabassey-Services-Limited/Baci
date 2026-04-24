@@ -83,9 +83,10 @@ export function AppPageSheet({
               accessibilityRole="button"
               hitSlop={8}
               onPress={onClose}
-              style={[
+              style={({ pressed }) => [
                 styles.headerButton,
                 { backgroundColor: colors.backgroundLight },
+                pressed && { opacity: 0.7 }
               ]}
             >
               <Ionicons name="close" size={20} color={colors.text} />

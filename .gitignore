@@ -58,6 +58,8 @@ firestore-debug.log
 src_backup_*.tar.gz
 # Gemini agent artifacts (scripts, logs, configs)
 .gemini/
+# GitHub App credentials for Gemini workflows
+gha-creds-*.json
 # Jules agent artifacts (memory files)
 .jules/
 extract_bag.py

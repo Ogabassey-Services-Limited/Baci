@@ -57,8 +57,11 @@ export default function ProductGrid({
   } = useProductGridFilters();
   const {
     data: categoriesData = [],
+    isFetchedAfterMount: isCategoriesFetchedAfterMount,
+    isFetching: isCategoriesFetching,
     isLoading: isCategoriesLoading,
     isError: isCategoriesError,
+    refetch: refetchCategories,
   } = useCategories();
   const normalizedCategories: Category[] = categoriesData;
   const categoryNames = (() => {
@@ -98,8 +101,9 @@ export default function ProductGrid({
   );
 
   const normalizedCategoryId = (() => {
-    const id = selectedCategoryIdFromFilter;
-    if (id) return id;
+    if (selectedCategoryIdFromFilter) {
+      return selectedCategoryIdFromFilter;
+    }
 
     // Only fall back to parent selectedCategoryId when 'All' is active
     if (
@@ -124,6 +128,7 @@ export default function ProductGrid({
   const {
     products,
     hasMore,
+    isFetchedAfterMount,
     isLoading,
     isLoadingMore,
     isFetching,
@@ -196,8 +201,26 @@ export default function ProductGrid({
   });
 
   const currentVariant = viewMode === 'list' ? 'list' : variant;
+  const hasRenderableProducts =
+    visibleProducts.length > 0 || products.length > 0;
+  const shouldShowFatalError =
+    isError && isFetchedAfterMount && !isLoading && !hasRenderableProducts;
+  const shouldShowInitialLoading =
+    !hasRenderableProducts && !isFetchedAfterMount;
+  const handleRetry = () => {
+    void refetch();
 
-  if ((isCategoriesError && !isCategoriesLoading) || (isError && !isLoading)) {
+    if (
+      isCategoriesError &&
+      isCategoriesFetchedAfterMount &&
+      !isCategoriesLoading &&
+      !isCategoriesFetching
+    ) {
+      void refetchCategories();
+    }
+  };
+
+  if (shouldShowFatalError) {
     return (
       <View style={styles.section}>
         {block.props.title && (
@@ -209,11 +232,13 @@ export default function ProductGrid({
           </Text>
           <Pressable
             style={styles.retryButton}
-            onPress={() => void refetch()}
-            disabled={isFetching}
+            onPress={handleRetry}
+            disabled={isFetching || (isCategoriesError && isCategoriesFetching)}
           >
             <Text style={styles.retryButtonText}>
-              {isFetching ? 'Retrying...' : 'Try Again'}
+              {isFetching || (isCategoriesError && isCategoriesFetching)
+                ? 'Retrying...'
+                : 'Try Again'}
             </Text>
           </Pressable>
         </View>
@@ -221,7 +246,9 @@ export default function ProductGrid({
     );
   }
 
-  if (isLoading) return <ProductGridSkeleton count={4} />;
+  if (isLoading || shouldShowInitialLoading) {
+    return <ProductGridSkeleton count={4} />;
+  }
 
   return (
     <View style={styles.section}>
