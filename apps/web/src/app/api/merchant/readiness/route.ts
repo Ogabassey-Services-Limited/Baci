@@ -5,7 +5,47 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+
+interface MerchantVerificationFlags {
+  nin_verified: boolean;
+  bvn_verified: boolean;
+  cac_verified: boolean;
+}
+
+/**
+ * Returns the verified flags from merchant_verifications for the given
+ * merchant. Uses the admin (service-role) client because the underlying
+ * table denies reads from `authenticated` via RLS. Auth + permission
+ * checks have already been enforced by the caller; this function only
+ * reads three boolean columns keyed by `merchant_id`.
+ *
+ * Throws on DB errors so the caller surfaces them as a 5xx. Collapsing
+ * failures into `false` would misclassify backend outages as user-side
+ * KYC gaps and leave the readiness UI perpetually incomplete.
+ */
+async function getVerificationFlags(
+  merchantId: string
+): Promise<MerchantVerificationFlags> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('merchant_verifications')
+    .select('nin_verified, bvn_verified, cac_verified')
+    .eq('merchant_id', merchantId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[Readiness API] merchant_verifications read failed:', error);
+    throw new Error('Failed to load verification status');
+  }
+
+  return {
+    nin_verified: !!data?.nin_verified,
+    bvn_verified: !!data?.bvn_verified,
+    cac_verified: !!data?.cac_verified,
+  };
+}
 
 /**
  * Store Readiness API
@@ -64,6 +104,8 @@ export async function GET() {
     }
 
     // Get merchant with all relevant fields (only columns that exist in the table)
+    // KYC readiness is derived from merchant_verifications — the legacy
+    // nin/bvn/cac_rc_number columns on `merchants` are no longer read here.
     const { data: ownedMerchant, error: merchantError } = await supabase
       .from('merchants')
       .select(`
@@ -85,10 +127,7 @@ export async function GET() {
         tiktok_pixel_id,
         snapchat_pixel_id,
         twitter_pixel_id,
-        is_published,
-        nin,
-        bvn,
-        cac_rc_number
+        is_published
       `)
       .eq('user_id', user.id)
       .maybeSingle();
@@ -124,10 +163,7 @@ export async function GET() {
             tiktok_pixel_id,
             snapchat_pixel_id,
             twitter_pixel_id,
-            is_published,
-            nin,
-            bvn,
-            cac_rc_number
+            is_published
           )
         `)
         .eq('user_id', user.id)
@@ -170,6 +206,17 @@ export async function GET() {
       .eq('merchant_id', validMerchant.id)
       .eq('status', 'active');
 
+    // KYC readiness must match the publish gate, which checks *verified*
+    // flags on merchant_verifications (not mere presence of
+    // nin/bvn/cac_rc_number on the merchant row). Using the same source
+    // prevents the checklist from advertising "Ready to Launch" while
+    // POST /api/merchant/publish returns 400 on unverified identifiers.
+    const verification = await getVerificationFlags(validMerchant.id);
+    const hasVerifiedIdentity =
+      verification.nin_verified ||
+      verification.bvn_verified ||
+      verification.cac_verified;
+
     // Build checklist items
     const items: SetupItem[] = [
       // === REQUIRED ITEMS ===
@@ -177,11 +224,7 @@ export async function GET() {
         id: 'verify_kyc',
         label: 'Verify your identity (KYC)',
         description: 'NIN, BVN, or CAC required for payments',
-        completed: !!(
-          validMerchant.nin ||
-          validMerchant.bvn ||
-          validMerchant.cac_rc_number
-        ),
+        completed: hasVerifiedIdentity,
         href: '/dashboard/settings/kyc',
         priority: 'required',
         category: 'payments',
