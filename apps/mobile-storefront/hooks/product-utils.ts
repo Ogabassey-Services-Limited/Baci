@@ -483,10 +483,19 @@ export function transformProduct(item: unknown): Product | null {
     basePrice: Number(product.price ?? 0),
     compareAtPrice: product.compare_at_price ?? undefined,
   });
+  const legacyScalarColor =
+    typeof product.color === 'string' ? product.color.trim() : '';
+  const colorsFromArray = Array.isArray(product.colors) ? product.colors : [];
+  const productColorsForMetadata =
+    colorsFromArray.length > 0
+      ? colorsFromArray
+      : legacyScalarColor
+        ? [legacyScalarColor]
+        : undefined;
   const variantMetadata = resolveProductVariantMetadata({
     colorImages,
     productImages: images,
-    productColors: Array.isArray(product.colors) ? product.colors : undefined,
+    productColors: productColorsForMetadata,
     sourceVariantAttributes: product.variant_attributes,
     variants,
   });

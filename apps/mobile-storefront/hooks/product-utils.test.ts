@@ -515,6 +515,21 @@ describe('product-utils', () => {
     });
   });
 
+  it('transformProduct preserves the legacy scalar color when the colors array is missing', () => {
+    const result = transformProduct({
+      ...validProductRow,
+      color: 'Crimson Red',
+      colors: null,
+      color_images: null,
+      variant_attributes: null,
+      variants: null,
+      has_variants: false,
+    });
+
+    expect(result).not.toBeNull();
+    expect(result?.colors).toEqual(['Crimson Red']);
+  });
+
   it('transformProduct keeps live variant rows when nested numeric fields arrive as strings', () => {
     expect(
       transformProduct({
