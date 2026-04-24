@@ -28,7 +28,7 @@ export interface BlogPostBodyProps {
     category_slug?: string | null;
     id: string;
     name: string;
-    slug: string;
+    slug?: string | null;
   }>;
   relatedPosts: Array<{
     category?: string | null;
@@ -190,9 +190,12 @@ export async function BlogPostBody({
           <ul className="grid gap-3 md:grid-cols-2">
             {relatedProducts.map((product) => {
               const categorySlug = product.category_slug?.trim();
+              // `slug` can be null/empty for legacy rows; fall back to `id` so
+              // we never emit `.../undefined` or `.../null` dead links.
+              const productPathSegment = product.slug?.trim() || product.id;
               const href = categorySlug
-                ? `${basePath}/${categorySlug}/${product.slug}`
-                : `${basePath}/products/${product.slug}`;
+                ? `${basePath}/${categorySlug}/${productPathSegment}`
+                : `${basePath}/products/${productPathSegment}`;
 
               return (
                 <li key={product.id}>

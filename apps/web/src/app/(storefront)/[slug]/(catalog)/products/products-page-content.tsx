@@ -27,27 +27,11 @@ interface PageProps {
   searchParams: Promise<{ page?: string }>;
 }
 
-function normalizeStorefrontCategorySlug(
+function canonicalizeCategorySlug(
   slug: string | null | undefined
 ): string | null {
   const normalized = slug?.trim().toLowerCase();
-  if (!normalized) {
-    return null;
-  }
-
-  switch (normalized) {
-    case 'accesories':
-      return 'accessories';
-    case 'phone':
-    case 'phones':
-    case 'samsung':
-      return 'smartphones';
-    case 'laptop':
-    case 'macbook':
-      return 'laptops';
-    default:
-      return normalized;
-  }
+  return normalized || null;
 }
 
 function getStorefrontPathPrefix(
@@ -109,10 +93,17 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
       categories
         .map((category) => ({
           ...category,
-          normalizedSlug: normalizeStorefrontCategorySlug(category.slug),
+          canonicalSlug: canonicalizeCategorySlug(category.slug),
         }))
-        .filter((category) => category.normalizedSlug)
-        .map((category) => [category.normalizedSlug, category])
+        .filter(
+          (category): category is typeof category & { canonicalSlug: string } =>
+            category.canonicalSlug !== null
+        )
+        // Key by the canonical (trimmed + lowercased) form of the merchant's
+        // stored slug. This preserves distinct merchant-defined categories such
+        // as `samsung` and `smartphones` so they each resolve to their own
+        // category page, while still collapsing case/whitespace duplicates.
+        .map((category) => [category.canonicalSlug, category])
     ).values()
   );
   const breadcrumbSchema = generateBreadcrumbSchema([

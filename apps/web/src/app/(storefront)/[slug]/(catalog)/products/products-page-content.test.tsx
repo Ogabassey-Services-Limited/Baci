@@ -108,6 +108,52 @@ describe('ProductsPageContent', () => {
     );
   });
 
+  it('preserves distinct merchant-defined category slugs without alias remapping', async () => {
+    mockGetRequestScopedMerchant.mockResolvedValue({
+      id: 'merchant-1',
+      business_name: 'Demo Store',
+      slug: 'demo-store',
+      country: 'NG',
+      payout_currency: 'NGN',
+      site_description: 'Browse products',
+    });
+    mockGetCachedCategories.mockResolvedValue([
+      // Prior to the fix, both `samsung` and `phones` were remapped to
+      // `smartphones` and deduped into a single entry, hiding the Samsung
+      // category link. After the fix, each stored slug should stand on its
+      // own.
+      { id: 'cat-samsung', name: 'Samsung', slug: 'samsung' },
+      { id: 'cat-phones', name: 'Phones', slug: 'phones' },
+      { id: 'cat-smartphones', name: 'Smartphones', slug: 'smartphones' },
+      { id: 'cat-macbook', name: 'Macbook', slug: 'macbook' },
+      { id: 'cat-laptops', name: 'Laptops', slug: 'laptops' },
+      // Pure case/whitespace duplicate — should still collapse.
+      { id: 'cat-laptops-dup', name: 'Laptops (dup)', slug: ' Laptops ' },
+    ]);
+
+    const result = await ProductsPageContent({
+      params: Promise.resolve({ slug: 'demo-store' }),
+      searchParams: Promise.resolve({ page: '1' }),
+    });
+
+    // Render the tree to a plain string so we can assert which category ids
+    // appear in the "Browse Categories" links without pulling in a DOM.
+    const serialized = JSON.stringify(result);
+
+    // All merchant-defined distinct slugs should remain, not collapsed by an
+    // alias remap.
+    expect(serialized).toContain('"key":"cat-samsung"');
+    expect(serialized).toContain('"key":"cat-phones"');
+    expect(serialized).toContain('"key":"cat-smartphones"');
+    expect(serialized).toContain('"key":"cat-macbook"');
+
+    // Pure case/whitespace duplicates should still collapse — only one of the
+    // two `Laptops` rows should render.
+    const laptopMatches =
+      serialized.match(/"key":"cat-laptops(?:-dup)?"/g) ?? [];
+    expect(laptopMatches).toHaveLength(1);
+  });
+
   it("falls back to 'NGN' when merchant payout currency is missing", async () => {
     mockGetRequestScopedMerchant.mockResolvedValue({
       id: 'merchant-1',

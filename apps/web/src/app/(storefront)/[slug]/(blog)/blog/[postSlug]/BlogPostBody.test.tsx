@@ -203,4 +203,58 @@ describe('BlogPostBody', () => {
       expect.stringContaining(expectedShareUrl)
     );
   });
+
+  it('falls back to product id when related product slug is missing', async () => {
+    mockResolveBlogPostContent.mockResolvedValue({
+      isJson: false,
+      legacyHtml: '<p>Content</p>',
+      renderedContent: null,
+    });
+
+    render(
+      await BlogPostBody({
+        basePath: '/ogabassey',
+        baseUrl: 'https://usebaci.com',
+        content: '<p>Content</p>',
+        merchantSlug: 'ogabassey',
+        post: {
+          id: 'post-1',
+          slug: 'pixel-9-review',
+          tags: null,
+          title: 'Pixel 9 Review',
+        },
+        relatedProducts: [
+          {
+            id: 'product-with-slug',
+            name: 'Product With Slug',
+            slug: 'galaxy-s24',
+            category_slug: 'smartphones',
+          },
+          {
+            id: 'product-missing-slug',
+            name: 'Product Missing Slug',
+            slug: null,
+            category_slug: null,
+          },
+          {
+            id: 'product-empty-slug',
+            name: 'Product Empty Slug',
+            slug: '   ',
+            category_slug: 'smartphones',
+          },
+        ],
+        relatedPosts: [],
+      })
+    );
+
+    expect(
+      screen.getByRole('link', { name: 'Product With Slug' })
+    ).toHaveAttribute('href', '/ogabassey/smartphones/galaxy-s24');
+    expect(
+      screen.getByRole('link', { name: 'Product Missing Slug' })
+    ).toHaveAttribute('href', '/ogabassey/products/product-missing-slug');
+    expect(
+      screen.getByRole('link', { name: 'Product Empty Slug' })
+    ).toHaveAttribute('href', '/ogabassey/smartphones/product-empty-slug');
+  });
 });
