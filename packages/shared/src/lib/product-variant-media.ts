@@ -193,6 +193,39 @@ function flattenColorImages(colorImages: Record<string, string[]>) {
 }
 
 /**
+ * Collapses a color-image record so keys that only differ by case share a
+ * single bucket. The first-seen casing wins — this matches
+ * `buildOrderedColors`, which deduplicates labels case-insensitively and
+ * also preserves the first casing it encounters. Without this, a legacy
+ * `Black` + `black` pair would remain as two buckets in `colorImages` while
+ * the color label list collapses to one entry, leaving half the images
+ * unreachable on the PDP.
+ */
+function collapseColorImagesCaseInsensitive(
+  colorImages: Record<string, string[]>
+): Record<string, string[]> {
+  const canonicalKeyByLookup = new Map<string, string>();
+  const merged: Record<string, string[]> = {};
+
+  for (const [key, images] of Object.entries(colorImages)) {
+    const lookup = key.toLowerCase();
+    const canonicalKey = canonicalKeyByLookup.get(lookup);
+
+    if (canonicalKey) {
+      merged[canonicalKey] = Array.from(
+        new Set([...(merged[canonicalKey] ?? []), ...images])
+      );
+      continue;
+    }
+
+    canonicalKeyByLookup.set(lookup, key);
+    merged[key] = Array.from(new Set(images));
+  }
+
+  return merged;
+}
+
+/**
  * Merges legacy and variant color-image records case-insensitively on the
  * color-name key. Rules:
  *
@@ -341,7 +374,9 @@ export function resolveProductVariantMedia({
   variants,
 }: ResolveProductVariantMediaInput): ResolvedProductVariantMedia {
   const variantColorImages = buildVariantColorImages(variants);
-  const normalizedLegacyColorImages = normalizeColorImages(colorImages) ?? {};
+  const normalizedLegacyColorImages = collapseColorImagesCaseInsensitive(
+    normalizeColorImages(colorImages) ?? {}
+  );
 
   // Merge: variant color images override legacy entries per-key, but legacy
   // entries for other colors are preserved. The merge is case-insensitive on
@@ -349,7 +384,8 @@ export function resolveProductVariantMedia({
   // bucket collapse into a single entry — otherwise `buildOrderedColors`
   // deduplicates labels case-insensitively while `colorImages` keeps the two
   // buckets split, causing the UI to show one color label that misses half
-  // its images.
+  // its images. The legacy-only path also collapses case-variant duplicates
+  // within the legacy record for the same reason.
   const resolvedColorImages = variantColorImages
     ? mergeColorImagesCaseInsensitive(
         normalizedLegacyColorImages,

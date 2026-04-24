@@ -254,6 +254,33 @@ describe('resolveProductVariantMedia', () => {
     expect(result.colors).toEqual(['black']);
   });
 
+  it('collapses case-variant legacy colorImages keys when there are no variants', () => {
+    // Regression: when no variants are present, `resolveProductVariantMedia`
+    // previously returned the legacy record unchanged. A legacy product with
+    // both `Black` and `black` keys kept both buckets while
+    // `buildOrderedColors` collapsed the label to one entry — leaving the
+    // PDP reading `colorImages[colorName]` from a single bucket and hiding
+    // the other bucket's images.
+    const result = resolveProductVariantMedia({
+      colorImages: {
+        Black: ['https://cdn.example.com/black-1.jpg'],
+        black: ['https://cdn.example.com/black-2.jpg'],
+      },
+      productColors: [],
+      productImages: [],
+      variants: [],
+    });
+
+    // Assert: single canonical bucket, first-seen casing (`Black`) wins,
+    // images from both buckets merged, color label matches the bucket key.
+    expect(Object.keys(result.colorImages ?? {})).toEqual(['Black']);
+    expect(result.colorImages?.Black).toEqual([
+      'https://cdn.example.com/black-1.jpg',
+      'https://cdn.example.com/black-2.jpg',
+    ]);
+    expect(result.colors).toEqual(['Black']);
+  });
+
   it('normalizes image objects and strips surrounding quotes from URLs', () => {
     expect(
       resolveProductVariantMedia({
