@@ -4,7 +4,6 @@ import {
   toSchemaItemConditionUri,
 } from '@baci/shared/lib';
 import type { Metadata, Route } from 'next';
-import { normalizeStorefrontCategorySlug } from './normalize-storefront-category-slug';
 import type { Product, ProductSchemaMarkup, Review } from './products';
 // Import from sanitize-core to avoid loading jsdom on server components
 import { escapeHtml, stripHtmlTags } from './sanitize-core';
@@ -18,6 +17,43 @@ import type {
 
 // Re-export escapeHtml for use in other modules
 export { escapeHtml, getEffectiveProductStock };
+
+/**
+ * Lightly normalizes a category slug for use in canonical product paths.
+ *
+ * Unlike the storefront `normalizeStorefrontCategorySlug` helper, this does
+ * NOT remap legacy category aliases (e.g. `phones` -> `smartphones`).
+ * Canonical product URLs must match the merchant's stored `category_slug`
+ * exactly — otherwise the product route's `categoryMismatch` check (which
+ * compares the raw DB slug to the URL segment) will trigger a permanent
+ * redirect back to the normalized path, causing a self-redirect loop for
+ * merchants whose products still use the legacy slug values.
+ */
+function normalizeCanonicalCategorySlug(
+  slug: string | null | undefined
+): string | null {
+  const normalized = slug?.trim().toLowerCase();
+  return normalized ? normalized : null;
+}
+
+/**
+ * Resolve schema.org availability URI for an offer/variant/product.
+ * Respects `manage_stock=false` (unmanaged / infinite-stock merchants) — stock
+ * counters are ignored in that case so unmanaged products never emit
+ * `OutOfStock` in JSON-LD / Google Merchant feeds.
+ */
+function _getSchemaOfferAvailability(input: {
+  stock?: number | string | null;
+  stock_quantity?: number | string | null;
+  manage_stock?: boolean | null;
+}): string {
+  if (input.manage_stock === false) {
+    return 'https://schema.org/InStock';
+  }
+  return getEffectiveProductStock(input) > 0
+    ? 'https://schema.org/InStock'
+    : 'https://schema.org/OutOfStock';
+}
 
 function getSchemaItemCondition(condition?: string | null) {
   return toSchemaItemConditionUri(condition);
@@ -97,21 +133,27 @@ export function buildProductUrl(
   category?: string | null | { name?: string; slug?: string },
   categorySlug?: string | null
 ): Route {
-  // Handle category as object (from join) or string (legacy)
+  // IMPORTANT: Canonical product paths must match the merchant's stored
+  // `category_slug` exactly (after lowercase/trim). The storefront product
+  // route compares the raw DB slug against the URL segment to detect
+  // category mismatches and issues a permanent redirect when they differ.
+  // Applying alias normalization here (e.g. `phones` -> `smartphones`) would
+  // produce URLs that trigger a mismatch every request, creating a
+  // self-redirect loop for legacy-slug products.
   if (typeof category === 'object' && category?.slug) {
-    const normalizedCategorySlug = normalizeStorefrontCategorySlug(
+    const normalizedCategorySlug = normalizeCanonicalCategorySlug(
       category.slug
     );
     if (normalizedCategorySlug) {
       return `/${normalizedCategorySlug}/${productSlug}` as Route;
     }
   }
-  const normalizedCategorySlug = normalizeStorefrontCategorySlug(categorySlug);
+  const normalizedCategorySlug = normalizeCanonicalCategorySlug(categorySlug);
   if (normalizedCategorySlug) {
     return `/${normalizedCategorySlug}/${productSlug}` as Route;
   }
   if (typeof category === 'string') {
-    const slug = normalizeStorefrontCategorySlug(generateSlug(category));
+    const slug = normalizeCanonicalCategorySlug(generateSlug(category));
     if (slug) {
       return `/${slug}/${productSlug}` as Route;
     }
@@ -258,6 +300,17 @@ function extractCanonicalProductPath(
       return null;
     }
 
+    // Do NOT apply alias normalization here. Merchant-authored canonical
+    // URLs must be returned as-is (after lowercasing) so the canonical
+    // matches the merchant's stored `category_slug`. Alias remapping would
+    // recreate the same self-redirect loop fixed in `buildProductUrl`.
+    const normalizedCategorySlug = normalizeCanonicalCategorySlug(
+      canonicalSegments[0]
+    );
+    if (normalizedCategorySlug) {
+      canonicalSegments[0] = normalizedCategorySlug;
+    }
+
     const [rootSegment, productSlug] = canonicalSegments;
     if (!productSlug) {
       return null;
@@ -279,7 +332,7 @@ function extractCanonicalProductPath(
       return `/products/${productSlug}` as Route;
     }
 
-    const normalizedCategorySlug = normalizeStorefrontCategorySlug(rootSegment);
+    const normalizedCategorySlug = normalizeCanonicalCategorySlug(rootSegment);
     if (
       !normalizedCategorySlug ||
       NON_PRODUCT_CANONICAL_ROUTE_SEGMENTS.has(normalizedCategorySlug)
@@ -288,9 +341,8 @@ function extractCanonicalProductPath(
     }
 
     return `/${normalizedCategorySlug}/${productSlug}` as Route;
-  } catch {
-    return null;
-  }
+  } catch
+  return null;
 }
 
 /**
@@ -562,7 +614,7 @@ function buildMerchantReturnPolicyFromTrustProfile(
  * All user-controlled string values are sanitized to prevent XSS attacks.
  * @see https://developers.google.com/search/docs/appearance/structured-data/product
  */
-export function generateProductSchema(
+export function _generateProductSchema(
   product: Product,
   merchantName: string = 'Baci Store',
   currency: string = 'USD',
@@ -1110,7 +1162,7 @@ export interface BreadcrumbItem {
   url: string;
 }
 
-export function generateBreadcrumbSchema(
+export function _generateBreadcrumbSchema(
   items: BreadcrumbItem[]
 ): Record<string, unknown> {
   return {
@@ -1144,7 +1196,7 @@ export interface FAQItem {
  * Generates FAQ schema for products or pages.
  * @see https://developers.google.com/search/docs/appearance/structured-data/faqpage
  */
-export function generateFAQSchema(faqs: FAQItem[]): Record<string, unknown> {
+export function _generateFAQSchema(faqs: FAQItem[]): Record<string, unknown> {
   return {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
@@ -1198,7 +1250,7 @@ export interface LocalBusinessData {
  * All user-controlled string values are sanitized to prevent XSS attacks.
  * @see https://developers.google.com/search/docs/appearance/structured-data/local-business
  */
-export function generateLocalBusinessSchema(
+export function _generateLocalBusinessSchema(
   business: LocalBusinessData
 ): Record<string, unknown> {
   const schema: Record<string, unknown> = {
@@ -1317,7 +1369,7 @@ const DEFAULT_TITLE_MAX_LENGTH = 70;
 /**
  * Standard robots policy for indexable public storefront pages.
  */
-export function getIndexableRobotsMetadata(): Metadata['robots'] {
+export function _getIndexableRobotsMetadata(): Metadata['robots'] {
   return {
     index: true,
     follow: true,
@@ -1430,7 +1482,7 @@ function removeTrailingDuplicateSuffix(value: string, suffix: string): string {
 /**
  * Generates a normalized SEO title with optional suffix and length cap.
  */
-export function generateMetaTitle(
+export function _generateMetaTitle(
   title: string,
   options?: {
     maxLength?: number;
@@ -1574,7 +1626,7 @@ function toAbsoluteSchemaUrl(baseUrl: string, value?: string | null): string {
  * Generates CollectionPage schema for product listing pages (categories, collections).
  * @see https://schema.org/CollectionPage
  */
-export function generateCollectionPageSchema(
+export function _generateCollectionPageSchema(
   data: CollectionPageData
 ): Record<string, unknown> {
   const safeProducts = data.products.slice(0, 20); // Limit to 20 for performance
@@ -1670,7 +1722,7 @@ export interface OrganizationData {
  * Generates Organization schema for merchant branding and trust.
  * @see https://schema.org/Organization
  */
-export function generateOrganizationSchema(
+export function _generateOrganizationSchema(
   data: OrganizationData & { trustProfile?: MerchantTrustProfile }
 ): Record<string, unknown> {
   const schema: Record<string, unknown> = {
@@ -1734,7 +1786,7 @@ export function generateOrganizationSchema(
  * Generates WebSite schema with SearchAction for sitelinks search box
  * @see https://developers.google.com/search/docs/appearance/structured-data/sitelinks-searchbox
  */
-export function generateWebSiteSchema(
+export function _generateWebSiteSchema(
   name: string,
   url: string,
   searchUrlTemplate?: string
@@ -1784,7 +1836,7 @@ export interface AggregateRatingSchema {
  * Returns the aggregateRating object to be merged into Product schema.
  * @see https://schema.org/AggregateRating
  */
-export function generateAggregateRating(
+export function _generateAggregateRating(
   stats: ReviewStats
 ): AggregateRatingSchema | null {
   if (!stats.reviewCount || stats.reviewCount === 0) {
@@ -1808,7 +1860,7 @@ export function generateAggregateRating(
  * @param searchParams - The current search parameters object
  * @param allowedParams - List of parameters to KEEP (e.g., ['page', 'q']). All others are stripped.
  */
-export function constructCanonicalUrl(
+export function _constructCanonicalUrl(
   baseUrl: string,
   searchParams:
     | URLSearchParams
@@ -1873,7 +1925,7 @@ interface BlogPostSchemaData {
 /**
  * Generate Blog Post Schema (Article)
  */
-export function generateBlogPostSchema(
+export function _generateBlogPostSchema(
   data: BlogPostSchemaData
 ): Record<string, unknown> {
   // SECURITY FIX: Sanitize all inputs to prevent XSS (consistent with other schema functions)
