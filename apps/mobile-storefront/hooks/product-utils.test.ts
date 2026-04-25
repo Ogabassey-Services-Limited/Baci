@@ -467,7 +467,7 @@ describe('product-utils', () => {
     });
   });
 
-  it('transformProduct prefers exact variant color names over the generic product color', () => {
+  it('transformProduct keeps image-backed product colors with exact variant colors', () => {
     expect(
       transformProduct({
         ...validProductRow,
@@ -500,9 +500,9 @@ describe('product-utils', () => {
         ],
       })
     ).toMatchObject({
-      colors: ['Sapphire Blue', 'Onyx Black'],
+      colors: ['Blue', 'Sapphire Blue', 'Onyx Black'],
       variant_attributes: {
-        color: ['Sapphire Blue', 'Onyx Black'],
+        color: ['Blue', 'Sapphire Blue', 'Onyx Black'],
         storage: ['128GB', '256GB'],
       },
       variants: expect.arrayContaining([
@@ -563,7 +563,7 @@ describe('product-utils', () => {
         ],
       })
     ).toMatchObject({
-      colors: ['Sapphire Blue', 'Onyx Black'],
+      colors: ['Blue', 'Sapphire Blue', 'Onyx Black'],
       manage_stock: false,
       variants: [
         expect.objectContaining({

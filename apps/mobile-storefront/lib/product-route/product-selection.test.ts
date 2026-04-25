@@ -3,6 +3,7 @@ import { describe, expect, it } from '@jest/globals';
 import { normalizeRouteCondition } from '@/lib/product-route/normalize-route-condition';
 import {
   baseProduct,
+  primaryVariant,
   secondaryVariant,
   variantProduct,
 } from '@/lib/product-route/product-detail-screen.fixtures';

@@ -42,23 +42,25 @@ describe('resolveProductVariantMetadata', () => {
       })
     ).toEqual({
       colorImages: {
+        Blue: ['https://cdn.example.com/generic-blue.jpg'],
         'Onyx Black': ['https://cdn.example.com/black-front.jpg'],
         'Sapphire Blue': ['https://cdn.example.com/blue-front.jpg'],
       },
-      // 'Blue' stays in the list because it is a valid metadata-only color
-      // option declared on the product (via productColors + sourceVariantAttributes),
-      // even though no variant row carries that exact color.
-      colors: ['Sapphire Blue', 'Onyx Black', 'Blue'],
+      // 'Blue' stays in the list because it is a valid image-backed product
+      // color option even though no variant row carries that exact color.
+      colors: ['Blue', 'Sapphire Blue', 'Onyx Black'],
       galleryImages: [
+        'https://cdn.example.com/generic-blue.jpg',
         'https://cdn.example.com/blue-front.jpg',
         'https://cdn.example.com/black-front.jpg',
       ],
       imageColorMap: {
         'https://cdn.example.com/black-front.jpg': 'Onyx Black',
         'https://cdn.example.com/blue-front.jpg': 'Sapphire Blue',
+        'https://cdn.example.com/generic-blue.jpg': 'Blue',
       },
       variantAttributes: {
-        color: ['Sapphire Blue', 'Onyx Black', 'Blue'],
+        color: ['Blue', 'Sapphire Blue', 'Onyx Black'],
         storage: ['128GB', '256GB'],
       },
     });
