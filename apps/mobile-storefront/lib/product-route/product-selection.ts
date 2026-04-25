@@ -178,7 +178,10 @@ export function computeProductSelectionState({
     availableConditions[0] ??
     normalizeRouteCondition(product?.condition);
   const resolvedColorSelection =
-    selectedColor ?? routeSelectionAttributes.color ?? null;
+    selectedColor ??
+    routeSelectionAttributes.color ??
+    routeSelectionAttributes.colour ??
+    null;
   const colorAxisShape = resolveProductColorAxisShape(product);
   // When a product's variants only carry the legacy `colour` key, emit the
   // selection under `colour` (not `color`) so the shared resolver matches
