@@ -20,6 +20,7 @@
     "@biomejs/biome": "^2.4.11",
     "@eslint/js": "^10.0.0",
     "@unlighthouse/cli": "^0.17.7",
+    "tailwindcss": "^4.2.2",
     "knip": "^5.83.1",
     "lefthook": "^2.1.0",
     "next": "^16.1.7",
