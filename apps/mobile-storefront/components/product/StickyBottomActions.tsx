@@ -192,7 +192,12 @@ export function StickyBottomActions({
     );
   }
 
-  return <View style={styles.inlineBar}>{content}</View>;
+  // In inline mode, still respect `paddingBottom` so callers that rely on it
+  // (e.g. to clear safe-area insets) get consistent behavior with floating
+  // mode rather than having the prop silently ignored.
+  return (
+    <View style={[styles.inlineBar, { paddingBottom }]}>{content}</View>
+  );
 }
 
 const styles = StyleSheet.create({

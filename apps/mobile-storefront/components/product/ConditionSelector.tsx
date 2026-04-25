@@ -51,20 +51,14 @@ export function ConditionSelector({
 
   const baseCondition = normalize(currentCondition);
 
-  const conditionList = sortCanonicalProductConditionsByPreference(
-    Array.from(
-      new Set(
-        [
-          baseCondition,
-          ...(availableConditions ?? []).map(normalize),
-          ...offers.map((offer) => normalize(offer.condition)),
-        ].filter(
-          (condition): condition is CanonicalProductCondition =>
-            condition !== null
-        )
-      )
-    )
-  );
+  // sortCanonicalProductConditionsByPreference already normalizes each entry,
+  // filters out empty/null values, and dedupes — no need to wrap with another
+  // Set/filter pass here.
+  const conditionList = sortCanonicalProductConditionsByPreference([
+    baseCondition,
+    ...(availableConditions ?? []),
+    ...offers.map((offer) => offer.condition),
+  ]);
 
   if (conditionList.length <= 1) {
     return null;

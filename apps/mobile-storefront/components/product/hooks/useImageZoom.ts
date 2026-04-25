@@ -6,6 +6,7 @@
 
 import type { ViewStyle } from 'react-native';
 import { Dimensions } from 'react-native';
+import type { ComposedGesture } from 'react-native-gesture-handler';
 import {
   type AnimatedStyle,
   runOnJS,
@@ -31,7 +32,7 @@ export interface UseImageZoomParams {
 }
 
 export interface UseImageZoomReturn {
-  composedGesture: unknown;
+  composedGesture: ComposedGesture | null;
   animatedImageStyle: AnimatedStyle<ViewStyle>;
   resetTransform: () => void;
   resetTransformImmediate: () => void;

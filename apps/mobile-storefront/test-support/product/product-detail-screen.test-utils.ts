@@ -162,7 +162,9 @@ const productDetailScreenModule = jest.requireActual<
 export const ProductDetailScreen = productDetailScreenModule.default;
 
 export type RenderedNode = {
-  children?: RenderedNode[];
+  // react-test-renderer represents text content as raw strings interleaved
+  // with element nodes — model that here so callers don't have to cast.
+  children?: Array<RenderedNode | string>;
   props?: {
     contentContainerStyle?: unknown;
     style?: unknown;
@@ -195,6 +197,9 @@ export function findNodeWithContentPadding(
   }
 
   for (const child of node.children ?? []) {
+    if (typeof child === 'string') {
+      continue;
+    }
     const match = findNodeWithContentPadding(child, paddingBottom);
     if (match) {
       return match;

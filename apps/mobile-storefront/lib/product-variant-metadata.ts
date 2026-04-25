@@ -18,9 +18,22 @@ interface ResolveProductVariantMetadataInput {
   variants?: ProductVariant[] | null;
 }
 
+export interface ProductColorSwatch {
+  name: string;
+  value?: string;
+}
+
 export interface ResolvedProductVariantMetadata {
   colorImages?: Record<string, string[]>;
   colors?: string[];
+  /**
+   * Carries explicit hex (or other string) values from the product's color
+   * metadata so downstream consumers (e.g. `VariantSelector`) can render the
+   * exact swatch the merchant chose instead of falling back to a generic
+   * name → hex lookup. Names are deduplicated case-insensitively; the first
+   * entry's `value` wins on collisions.
+   */
+  colorSwatches?: ProductColorSwatch[];
   galleryImages?: string[];
   imageColorMap?: Record<string, string>;
   variantAttributes?: Record<string, string[]>;
@@ -48,27 +61,42 @@ function getResolvedMediaExtras({
   return extras;
 }
 
-function normalizeProductColors(productColors: ProductColorInput) {
+function normalizeProductColors(
+  productColors: ProductColorInput
+): ProductColorSwatch[] {
   if (!Array.isArray(productColors)) {
     return [];
   }
 
-  const normalized = new Set<string>();
+  // Dedupe case-insensitively while preserving the first-seen casing/value so
+  // that explicit hex codes coming from `{ name, value }` objects survive.
+  const seen = new Map<string, ProductColorSwatch>();
 
   for (const color of productColors) {
-    const value =
-      typeof color === 'string'
-        ? color.trim()
-        : typeof color?.name === 'string'
-          ? color.name.trim()
-          : '';
+    if (typeof color === 'string') {
+      const name = color.trim();
+      if (!name) continue;
+      const key = name.toLowerCase();
+      if (!seen.has(key)) {
+        seen.set(key, { name });
+      }
+      continue;
+    }
 
-    if (value) {
-      normalized.add(value);
+    const name = typeof color?.name === 'string' ? color.name.trim() : '';
+    if (!name) continue;
+    const rawValue = typeof color?.value === 'string' ? color.value.trim() : '';
+    const key = name.toLowerCase();
+    const existing = seen.get(key);
+    if (!existing) {
+      seen.set(key, rawValue ? { name, value: rawValue } : { name });
+    } else if (!existing.value && rawValue) {
+      // Upgrade an entry that lacked a value when we later see one with hex.
+      seen.set(key, { name: existing.name, value: rawValue });
     }
   }
 
-  return Array.from(normalized);
+  return Array.from(seen.values());
 }
 
 function getVariantColors(variants: ProductVariant[] | null | undefined) {
@@ -104,9 +132,11 @@ export function resolveProductVariantMetadata({
   const resolvedMediaExtras = getResolvedMediaExtras(resolvedVariantMedia);
   const resolvedColorImages = resolvedVariantMedia.colorImages;
   const imagedColors = resolvedVariantMedia.colors ?? [];
+  const productColorSwatches = normalizeProductColors(productColors);
+  const productColorNames = productColorSwatches.map((swatch) => swatch.name);
   const fallbackColors = Array.from(
     new Set([
-      ...normalizeProductColors(productColors),
+      ...productColorNames,
       ...imagedColors,
       ...(mergedVariantAttributes.color ?? []),
       ...(mergedVariantAttributes.colour ?? []),
@@ -134,6 +164,11 @@ export function resolveProductVariantMetadata({
     return resolvedMediaExtras;
   }
 
+  // Intentional: when the catalog uses the legacy `colour` axis,
+  // `mergedVariantAttributes` already contains it. We additionally emit
+  // `color: colors` so the canonical color axis is exposed for image-driven
+  // selection. Mixed catalogs are disambiguated downstream by
+  // `pickColorAliasForMixedCatalog`, so emitting both keys here is safe.
   const variantAttributes =
     colors || Object.keys(mergedVariantAttributes).length > 0
       ? {
@@ -142,9 +177,22 @@ export function resolveProductVariantMetadata({
         }
       : undefined;
 
+  // Surface explicit hex values from product metadata when they exist so
+  // downstream renderers can show the merchant's exact swatch instead of a
+  // generic name → hex fallback. We only emit this when at least one entry
+  // actually carries a `value`, to avoid bloating the payload for catalogs
+  // that only have color names.
+  const colorSwatches =
+    productColorSwatches.some((swatch) => Boolean(swatch.value)) &&
+    colors &&
+    colors.length > 0
+      ? productColorSwatches.filter((swatch) => colors.includes(swatch.name))
+      : undefined;
+
   return {
     colorImages: resolvedColorImages,
     colors,
+    ...(colorSwatches && colorSwatches.length > 0 ? { colorSwatches } : {}),
     ...resolvedMediaExtras,
     variantAttributes,
   };

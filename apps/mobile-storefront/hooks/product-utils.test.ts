@@ -530,6 +530,32 @@ describe('product-utils', () => {
     expect(result?.colors).toEqual(['Crimson Red']);
   });
 
+  it('transformProduct surfaces non-variant product colors and color_images', () => {
+    // Catalog item that does not use variants but still carries merchant-set
+    // color metadata: the resolver should preserve both the color list and the
+    // image map so the storefront swatches/gallery render correctly.
+    const result = transformProduct({
+      ...validProductRow,
+      color: 'Cobalt',
+      colors: ['Cobalt', 'Sand'],
+      color_images: {
+        Cobalt: ['https://cdn.example.com/non-variant-cobalt.jpg'],
+        Sand: ['https://cdn.example.com/non-variant-sand.jpg'],
+      },
+      variant_attributes: null,
+      variants: null,
+      has_variants: false,
+    });
+
+    expect(result).not.toBeNull();
+    expect(result?.colors).toEqual(['Cobalt', 'Sand']);
+    expect(result?.color_images).toEqual({
+      Cobalt: ['https://cdn.example.com/non-variant-cobalt.jpg'],
+      Sand: ['https://cdn.example.com/non-variant-sand.jpg'],
+    });
+    expect(result?.has_variants).toBe(false);
+  });
+
   it('transformProduct keeps live variant rows when nested numeric fields arrive as strings', () => {
     expect(
       transformProduct({

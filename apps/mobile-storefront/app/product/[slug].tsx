@@ -253,8 +253,15 @@ export default function ProductDetailScreen() {
       (!usesVariantRouteSelection ? routeConditionParam : undefined)
   );
   const routeVariantId = routeSelectionInput.variantId ?? null;
+  // Sort attribute keys before stringifying so the signature is stable even
+  // when query-string parsing yields a different insertion order (otherwise we
+  // would invalidate the route effect for cosmetic key reorderings).
   const routeSelectionSignature = JSON.stringify({
-    attributes: routeSelectionAttributes,
+    attributes: Object.fromEntries(
+      Object.entries(routeSelectionAttributes).sort(([a], [b]) =>
+        a.localeCompare(b)
+      )
+    ),
     condition: routeCondition,
     slug,
     variantId: routeVariantId,
@@ -1191,8 +1198,13 @@ export default function ProductDetailScreen() {
           selectedCondition={effectiveSelectedCondition}
           setSelectedCondition={(condition) => {
             setHasCustomizedSelection(true);
-            setSelectedVariant(null);
             setSelectedCondition(condition);
+            // Only drop the variant selection when condition is a variant
+            // axis. Offer/metadata-driven condition changes don't invalidate
+            // the current SKU, so the shopper's variant pick should persist.
+            if (usesVariantConditions) {
+              setSelectedVariant(null);
+            }
 
             const normalizedCondition = normalizeRouteCondition(condition);
 
@@ -1229,6 +1241,30 @@ export default function ProductDetailScreen() {
             if (!colorStillValid) {
               setSelectedColor(null);
             }
+
+            // Clear generic attribute axes (ram, platform, network, ...) that
+            // have no matching variant under the new condition, mirroring the
+            // storage/color behavior above so stale axes don't survive a
+            // condition switch.
+            setSelectedAttributes((current) => {
+              const next: Record<string, string> = {};
+              let mutated = false;
+              for (const [axis, value] of Object.entries(current)) {
+                if (!value) {
+                  mutated = true;
+                  continue;
+                }
+                const stillValid = variantsForCondition.some(
+                  (variant) => variant.attributes?.[axis] === value
+                );
+                if (stillValid) {
+                  next[axis] = value;
+                } else {
+                  mutated = true;
+                }
+              }
+              return mutated ? next : current;
+            });
           }}
           selectedAttributes={effectiveSelectedAttributes}
           selectedColor={effectiveSelectedColor}

@@ -205,7 +205,10 @@ export function computeProductSelectionState({
     ...selectedAttributes,
     storage: selectedStorage ?? routeSelectionAttributes.storage ?? null,
     color: shouldEmitColor ? resolvedColorSelection : null,
-    ...(shouldEmitColour ? { colour: resolvedColorSelection } : {}),
+    // Always emit `colour` explicitly so any stale alias from
+    // `routeSelectionAttributes` (legacy `?colour=` query param) is overridden
+    // when the catalog is no longer using that axis.
+    colour: shouldEmitColour ? resolvedColorSelection : null,
   };
   const shouldUseDefaultVariantSelection =
     !selectedVariant &&
