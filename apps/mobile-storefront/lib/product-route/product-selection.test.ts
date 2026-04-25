@@ -3,6 +3,7 @@ import { describe, expect, it } from '@jest/globals';
 import { normalizeRouteCondition } from '@/lib/product-route/normalize-route-condition';
 import {
   baseProduct,
+  primaryVariant,
   secondaryVariant,
   variantProduct,
 } from '@/lib/product-route/product-detail-screen.fixtures';
@@ -196,6 +197,184 @@ describe('product selection', () => {
     expect(result.usesVariantConditions).toBe(false);
     expect(result.availableConditions).toEqual(['used']);
     expect(result.effectiveSelectedCondition).toBe('used');
+  });
+
+  it('falls back to product available_conditions when variant rows do not expose a condition axis', () => {
+    const conditionFallbackVariantProduct: Product = {
+      ...variantProduct,
+      available_conditions: ['new', 'used'],
+      offers: undefined,
+      variants: (variantProduct.variants ?? []).map((variant) => ({
+        ...variant,
+        condition: undefined,
+      })),
+    };
+    const result = computeProductSelectionState({
+      defaultVariantSelection: resolveDefaultVariantSelection(
+        conditionFallbackVariantProduct
+      ),
+      product: conditionFallbackVariantProduct,
+      routeCondition: 'used',
+      routeSelectionAttributes: {
+        connectivity: 'WiFi',
+        storage: '128GB',
+      },
+      routeVariantId: null,
+      selectedAttributes: {},
+      selectedColor: null,
+      selectedCondition: null,
+      selectedStorage: null,
+      selectedVariant: null,
+    });
+
+    expect(result.usesVariantConditions).toBe(false);
+    expect(result.availableConditions).toEqual(['used', 'new']);
+    expect(result.effectiveSelectedCondition).toBe('used');
+  });
+
+  it('orders fallback conditions from cheapest storefront condition to newest', () => {
+    const conditionFallbackProduct: Product = {
+      ...baseProduct,
+      available_conditions: ['new', 'open_box', 'used'],
+      offers: undefined,
+      condition: 'Multiple Conditions',
+    };
+
+    const result = computeProductSelectionState({
+      defaultVariantSelection: null,
+      product: conditionFallbackProduct,
+      routeCondition: null,
+      routeSelectionAttributes: {},
+      routeVariantId: null,
+      selectedAttributes: {},
+      selectedColor: null,
+      selectedCondition: null,
+      selectedStorage: null,
+      selectedVariant: null,
+    });
+
+    expect(result.availableConditions).toEqual(['used', 'open_box', 'new']);
+    expect(result.fallbackSelectedCondition).toBe('used');
+  });
+
+  it('matches legacy variants that store the color axis under `colour`', () => {
+    const legacyColourProduct: Product = {
+      ...variantProduct,
+      color_images: {},
+      colors: ['Forest Green', 'Crimson'],
+      variant_attributes: {
+        ...(variantProduct.variant_attributes ?? {}),
+        colour: ['Forest Green', 'Crimson'],
+      },
+      variants: [
+        {
+          ...primaryVariant,
+          id: 'variant-legacy-forest',
+          condition: undefined,
+          attributes: {
+            storage: '128GB',
+            colour: 'Forest Green',
+          },
+        },
+        {
+          ...secondaryVariant,
+          id: 'variant-legacy-crimson',
+          condition: undefined,
+          attributes: {
+            storage: '128GB',
+            colour: 'Crimson',
+          },
+        },
+      ],
+    };
+
+    const result = computeProductSelectionState({
+      defaultVariantSelection:
+        resolveDefaultVariantSelection(legacyColourProduct),
+      product: legacyColourProduct,
+      routeCondition: null,
+      routeSelectionAttributes: {},
+      routeVariantId: null,
+      selectedAttributes: {},
+      selectedColor: 'Crimson',
+      selectedCondition: null,
+      selectedStorage: '128GB',
+      selectedVariant: null,
+    });
+
+    expect(result.currentVariantDisplaySelection?.variant.id).toBe(
+      'variant-legacy-crimson'
+    );
+    expect(result.effectiveSelectedColor).toBe('Crimson');
+  });
+
+  it('resolves mixed-catalog color aliases without requiring both keys on a single variant', () => {
+    const mixedAliasProduct: Product = {
+      ...variantProduct,
+      color_images: {},
+      colors: ['Forest Green', 'Crimson'],
+      variant_attributes: {
+        ...(variantProduct.variant_attributes ?? {}),
+        color: ['Forest Green'],
+        colour: ['Crimson'],
+      },
+      variants: [
+        {
+          ...primaryVariant,
+          id: 'variant-mixed-forest',
+          condition: undefined,
+          attributes: {
+            storage: '128GB',
+            color: 'Forest Green',
+          },
+        },
+        {
+          ...secondaryVariant,
+          id: 'variant-mixed-crimson',
+          condition: undefined,
+          attributes: {
+            storage: '128GB',
+            colour: 'Crimson',
+          },
+        },
+      ],
+    };
+
+    const modernResult = computeProductSelectionState({
+      defaultVariantSelection:
+        resolveDefaultVariantSelection(mixedAliasProduct),
+      product: mixedAliasProduct,
+      routeCondition: null,
+      routeSelectionAttributes: {},
+      routeVariantId: null,
+      selectedAttributes: {},
+      selectedColor: 'Forest Green',
+      selectedCondition: null,
+      selectedStorage: '128GB',
+      selectedVariant: null,
+    });
+
+    expect(modernResult.currentVariantDisplaySelection?.variant.id).toBe(
+      'variant-mixed-forest'
+    );
+
+    const legacyResult = computeProductSelectionState({
+      defaultVariantSelection:
+        resolveDefaultVariantSelection(mixedAliasProduct),
+      product: mixedAliasProduct,
+      routeCondition: null,
+      routeSelectionAttributes: {},
+      routeVariantId: null,
+      selectedAttributes: {},
+      selectedColor: 'Crimson',
+      selectedCondition: null,
+      selectedStorage: '128GB',
+      selectedVariant: null,
+    });
+
+    expect(legacyResult.currentVariantDisplaySelection?.variant.id).toBe(
+      'variant-mixed-crimson'
+    );
   });
 
   it('lets explicit storage and color selections override route attributes', () => {
