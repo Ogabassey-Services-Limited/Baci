@@ -168,7 +168,7 @@
     "jsdom": "^27.4.0",
     "knip": "^5.83.1",
     "lefthook": "^2.1.0",
-    "postcss": "^8.5.8",
+    "postcss": "^8.5.10",
     "prettier": "^3.8.1",
     "puppeteer": "^24.39.0",
     "schema-dts": "^1.1.5",
