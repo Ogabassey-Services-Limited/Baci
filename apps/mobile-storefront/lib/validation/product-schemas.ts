@@ -23,11 +23,7 @@ const NullableNumberLikeSchema = z.preprocess(
   (value) => (value === null ? null : toFiniteNumber(value)),
   z.number().nullable()
 );
-const NullableIntegerLikeSchema = z.preprocess(
-  (value) => (value === null ? null : toFiniteNumber(value)),
-  z.number().int().nullable()
-);
-const NonnegativeIntegerLikeSchema = z.preprocess(
+const NullableNonnegativeIntegerLikeSchema = z.preprocess(
   (value) => (value === null ? null : toFiniteNumber(value)),
   z.number().int().nonnegative().nullable()
 );
@@ -98,7 +94,7 @@ const ProductVariantSchema = z.object({
   primary_image: z.string().nullable().optional(),
   images: z.array(ProductImageEntrySchema).nullable().optional(),
   in_stock: z.boolean().nullable().optional(),
-  stock_quantity: NonnegativeIntegerLikeSchema.optional(),
+  stock_quantity: NullableNonnegativeIntegerLikeSchema.optional(),
   attributes: z.record(z.string(), z.string()).nullable().optional(),
 });
 
@@ -115,7 +111,7 @@ const ProductConditionOfferSchema = z.object({
   condition: z.string(),
   price: NumberLikeSchema,
   compare_at_price: NullableNumberLikeSchema.optional(),
-  stock_quantity: NullableIntegerLikeSchema.optional(),
+  stock_quantity: NullableNonnegativeIntegerLikeSchema.optional(),
   images: z.array(ProductImageEntrySchema).nullable().optional(),
   condition_notes: z.string().nullable().optional(),
   grade: z.enum(['A', 'B', 'C', 'D']).nullable().optional(),
@@ -146,10 +142,10 @@ export const ProductRowSchema = z.object({
     (value) => value == null || (value >= 0 && value <= 5),
     { message: 'average_rating must be between 0 and 5' }
   ).optional(),
-  review_count: NonnegativeIntegerLikeSchema.optional(),
+  review_count: NullableNonnegativeIntegerLikeSchema.optional(),
   manage_stock: z.boolean().nullable().optional(),
-  stock: NonnegativeIntegerLikeSchema.optional(),
-  stock_quantity: NonnegativeIntegerLikeSchema.optional(),
+  stock: NullableNonnegativeIntegerLikeSchema.optional(),
+  stock_quantity: NullableNonnegativeIntegerLikeSchema.optional(),
   status: z.string().optional(),
   specifications: z
     .union([

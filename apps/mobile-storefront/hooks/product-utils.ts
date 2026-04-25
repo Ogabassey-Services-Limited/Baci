@@ -5,6 +5,7 @@ import {
   orderRecordsByIds,
 } from '@baci/shared';
 import type { QueryClient } from '@tanstack/react-query';
+import { hydrateRowsNeedingStorefrontVariants } from '@/hooks/product-hydration';
 import { withSupabaseRetry } from '@/lib/api';
 import { CONFIG } from '@/lib/config';
 import { createLogger } from '@/lib/logger';
@@ -644,7 +645,7 @@ export async function fetchProductsPage(
       throw error;
     }
 
-    const hydratedRows = await hydrateProductRowsWithStorefrontVariants(
+    const hydratedRows = await hydrateRowsNeedingStorefrontVariants(
       (data ?? []) as Record<string, unknown>[]
     );
 
@@ -711,7 +712,7 @@ export async function fetchProductsPage(
 
   if (result.error) throw result.error;
 
-  const hydratedRows = await hydrateProductRowsWithStorefrontVariants(
+  const hydratedRows = await hydrateRowsNeedingStorefrontVariants(
     (result.data || []) as Record<string, unknown>[]
   );
   const products = hydratedRows

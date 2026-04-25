@@ -1,4 +1,8 @@
 import { jest } from '@jest/globals';
+import {
+  getStorefrontProductVariantsByProductIds,
+  hydrateProductRowsWithStorefrontVariants,
+} from '@/lib/storefront-product-variants';
 
 const mockWithSupabaseRetry = jest.fn();
 const mockRpc = jest.fn();
@@ -10,6 +14,8 @@ jest.mock('@/lib/api', () => ({
 
 jest.mock('@/lib/logger', () => ({
   createLogger: () => ({
+    debug: jest.fn(),
+    info: jest.fn(),
     warn: jest.fn(),
     error: jest.fn(),
   }),
@@ -20,12 +26,6 @@ jest.mock('@/lib/supabase', () => ({
     rpc: (...args: unknown[]) => mockRpc(...args),
   },
 }));
-
-const {
-  getStorefrontProductVariantsByProductIds,
-  hydrateProductRowsWithStorefrontVariants,
-} =
-  require('./storefront-product-variants') as typeof import('./storefront-product-variants');
 
 describe('storefront-product-variants', () => {
   beforeEach(() => {

@@ -26,6 +26,28 @@ export interface ResolvedProductVariantMetadata {
   variantAttributes?: Record<string, string[]>;
 }
 
+type ResolvedMediaExtras = Pick<
+  ResolvedProductVariantMetadata,
+  'galleryImages' | 'imageColorMap'
+>;
+
+function getResolvedMediaExtras({
+  galleryImages,
+  imageColorMap,
+}: ResolvedMediaExtras): ResolvedMediaExtras {
+  const extras: ResolvedMediaExtras = {};
+
+  if (galleryImages && galleryImages.length > 0) {
+    extras.galleryImages = galleryImages;
+  }
+
+  if (imageColorMap && Object.keys(imageColorMap).length > 0) {
+    extras.imageColorMap = imageColorMap;
+  }
+
+  return extras;
+}
+
 function normalizeProductColors(productColors: ProductColorInput) {
   if (!Array.isArray(productColors)) {
     return [];
@@ -79,6 +101,7 @@ export function resolveProductVariantMetadata({
     productImages,
     variants,
   });
+  const resolvedMediaExtras = getResolvedMediaExtras(resolvedVariantMedia);
   const resolvedColorImages = resolvedVariantMedia.colorImages;
   const imagedColors = resolvedVariantMedia.colors ?? [];
   const fallbackColors = Array.from(
@@ -108,7 +131,7 @@ export function resolveProductVariantMetadata({
     !resolvedColorImages &&
     Object.keys(mergedVariantAttributes).length === 0
   ) {
-    return {};
+    return resolvedMediaExtras;
   }
 
   const variantAttributes =
@@ -122,8 +145,7 @@ export function resolveProductVariantMetadata({
   return {
     colorImages: resolvedColorImages,
     colors,
-    galleryImages: resolvedVariantMedia.galleryImages,
-    imageColorMap: resolvedVariantMedia.imageColorMap,
+    ...resolvedMediaExtras,
     variantAttributes,
   };
 }

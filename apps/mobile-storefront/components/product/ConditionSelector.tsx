@@ -55,7 +55,7 @@ export function ConditionSelector({
     Array.from(
       new Set(
         [
-          ...(baseCondition ? [baseCondition] : []),
+          baseCondition,
           ...(availableConditions ?? []).map(normalize),
           ...offers.map((offer) => normalize(offer.condition)),
         ].filter(

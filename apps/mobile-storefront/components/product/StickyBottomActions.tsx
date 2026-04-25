@@ -208,9 +208,6 @@ const styles = StyleSheet.create({
     paddingBottom: SPACING.md,
     borderTopWidth: 1,
   },
-  contentWrapper: {
-    width: '100%',
-  },
   inlineBar: {
     width: '100%',
     paddingTop: SPACING.sm,

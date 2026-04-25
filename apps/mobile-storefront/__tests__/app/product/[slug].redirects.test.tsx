@@ -7,12 +7,17 @@ import {
 } from '@/lib/product-route/product-detail-screen.fixtures';
 import type { Product } from '@/types/product';
 import {
+  findNodeWithContentPadding,
   getLastMockProps,
+  MIN_STICKY_BOTTOM_PADDING,
+  mockInsets,
   mockProductDetailsBody,
   mockRouterReplace,
+  mockStickyBottomActions,
   mockUseEffectivePrice,
   mockUseLocalSearchParams,
   mockUseProduct,
+  PRODUCT_SCROLL_BOTTOM_PADDING,
   ProductDetailScreen,
   resetProductDetailScreenMocks,
 } from '../../../test-support/product/product-detail-screen.test-utils';
@@ -242,5 +247,19 @@ describe('ProductDetailScreen routing and selection sync', () => {
 
     expect(containerStyle?.marginTop).toBeUndefined();
     expect(containerStyle?.marginBottom).toBeUndefined();
+    // Safe-area padding is not user-visible in this mocked tree, so these
+    // implementation-detail assertions verify the inset values passed to the
+    // sticky action bar and scroll content padding.
+    expect(getLastMockProps(mockStickyBottomActions)).toEqual(
+      expect.objectContaining({
+        paddingBottom: Math.max(mockInsets.bottom, MIN_STICKY_BOTTOM_PADDING),
+      })
+    );
+    expect(
+      findNodeWithContentPadding(
+        renderedTree,
+        PRODUCT_SCROLL_BOTTOM_PADDING + mockInsets.bottom
+      )
+    ).not.toBeNull();
   });
 });

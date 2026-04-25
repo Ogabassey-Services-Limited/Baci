@@ -6,6 +6,12 @@
  * - High-performance image handling via expo-image
  */
 
+import {
+  type CanonicalProductCondition,
+  resolveDefaultVariantSelection,
+  resolveVariantDisplaySelection,
+  resolveVariantSelectionParamResolution,
+} from '@baci/shared/lib';
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -20,16 +26,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { createLogger } from '@/lib/logger';
-
-const log = createLogger('ProductDetail');
-
-import {
-  type CanonicalProductCondition,
-  resolveDefaultVariantSelection,
-  resolveVariantDisplaySelection,
-  resolveVariantSelectionParamResolution,
-} from '@baci/shared/lib';
 import Animated, {
   Extrapolate,
   FadeIn,
@@ -50,12 +46,17 @@ import { StickyBottomActions } from '@/components/product/StickyBottomActions';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS } from '@/constants/Colors';
 import { PLACEHOLDER_IMAGE_URL } from '@/constants/Images';
+import {
+  MIN_STICKY_BOTTOM_PADDING,
+  PRODUCT_SCROLL_BOTTOM_PADDING,
+} from '@/constants/product-layout';
 import { useProduct } from '@/hooks';
 import { useEffectivePrice } from '@/hooks/use-effective-price';
 import { useHaptics } from '@/hooks/use-haptics';
 import { useNetworkState } from '@/hooks/use-network-state';
 import { markReviewHelpful, useReviews } from '@/hooks/use-reviews';
 import { resolveCartItemImageUrl } from '@/lib/cart-display';
+import { createLogger } from '@/lib/logger';
 import { findMatchingConditionOffer } from '@/lib/product-condition-offers';
 import { resolveVariantSelectionFromImage } from '@/lib/product-image-selection';
 import {
@@ -74,6 +75,8 @@ import {
   type Product,
   type ProductCondition,
 } from '@/types/product';
+
+const log = createLogger('ProductDetail');
 
 function getFirstColorOption(product: Product | null) {
   if (!product) {
@@ -503,7 +506,7 @@ export default function ProductDetailScreen() {
       ? productImageColorMap[currentImage]
       : undefined;
 
-    if (currentImageColor === effectiveSelectedColor) {
+    if (!currentImageColor || currentImageColor === effectiveSelectedColor) {
       return;
     }
 
@@ -1153,7 +1156,7 @@ export default function ProductDetailScreen() {
         showsVerticalScrollIndicator={false}
         contentInsetAdjustmentBehavior="never"
         contentContainerStyle={{
-          paddingBottom: 92 + insets.bottom,
+          paddingBottom: PRODUCT_SCROLL_BOTTOM_PADDING + insets.bottom,
         }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
@@ -1249,7 +1252,7 @@ export default function ProductDetailScreen() {
               getFirstImageIndexForColor({
                 color,
                 colorImages: resolvedColorImages,
-                images: imgs?.length ? images : productGalleryImages,
+                images: imgs?.length ? imgs : productGalleryImages,
               })
             );
           }}
@@ -1284,7 +1287,7 @@ export default function ProductDetailScreen() {
         onIncrement={(e) => handleUpdateQuantity(quantityInCart + 1, e)}
         onAddToCart={(e) => handleAddToCart(e)}
         colors={colors}
-        paddingBottom={Math.max(insets.bottom, 16)}
+        paddingBottom={Math.max(insets.bottom, MIN_STICKY_BOTTOM_PADDING)}
       />
 
       {/* Fly to Cart Particles */}

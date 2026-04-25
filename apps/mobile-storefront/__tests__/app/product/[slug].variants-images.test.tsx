@@ -283,10 +283,7 @@ describe('ProductDetailScreen image-driven variant behavior', () => {
         })
       );
 
-      const latestCall =
-        mockUseEffectivePrice.mock.calls[
-          mockUseEffectivePrice.mock.calls.length - 1
-        ];
+      const latestCall = mockUseEffectivePrice.mock.calls.at(-1);
 
       expect(latestCall?.[1]).toEqual(
         expect.objectContaining({

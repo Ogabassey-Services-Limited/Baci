@@ -128,18 +128,22 @@ describe('iPhone 11 Pro Max — condition chip pricing', () => {
       expect(initialColor).toBeTruthy();
     });
 
-    act(() => {
-      const galleryProps = getLastMockProps<{
-        images: string[];
-        setSelectedImageIndex: (index: number) => void;
-      }>(mockProductImageGallery);
-      const goldIndex = galleryProps?.images.findIndex((image) =>
-        image.includes('i11pm-gold')
-      );
+    const goldGalleryProps = getLastMockProps<{
+      images: string[];
+      setSelectedImageIndex: (index: number) => void;
+    }>(mockProductImageGallery);
+    expect(goldGalleryProps).toBeDefined();
 
-      if (galleryProps && typeof goldIndex === 'number' && goldIndex >= 0) {
-        galleryProps.setSelectedImageIndex(goldIndex);
-      }
+    const goldIndex =
+      goldGalleryProps?.images.findIndex((image) =>
+        image.includes('i11pm-gold')
+      ) ?? -1;
+    expect(goldIndex).toBeGreaterThanOrEqual(0);
+    const goldImageUrl = goldGalleryProps?.images[goldIndex];
+    expect(goldImageUrl).toBeTruthy();
+
+    act(() => {
+      goldGalleryProps?.setSelectedImageIndex(goldIndex);
     });
 
     await waitFor(() => {
@@ -162,10 +166,22 @@ describe('iPhone 11 Pro Max — condition chip pricing', () => {
       );
     });
 
+    const nextGalleryProps = getLastMockProps<{
+      images: string[];
+      setSelectedImageIndex: (index: number) => void;
+    }>(mockProductImageGallery);
+    expect(nextGalleryProps).toBeDefined();
+
+    const nextColorIndex =
+      nextGalleryProps?.images.findIndex(
+        (image) =>
+          image !== goldImageUrl &&
+          (image.includes('i11pm-silver') || image.includes('i11pm-space-gray'))
+      ) ?? -1;
+    expect(nextColorIndex).toBeGreaterThanOrEqual(0);
+
     act(() => {
-      getLastMockProps<{
-        setSelectedImageIndex: (index: number) => void;
-      }>(mockProductImageGallery)?.setSelectedImageIndex(3);
+      nextGalleryProps?.setSelectedImageIndex(nextColorIndex);
     });
 
     await waitFor(() => {

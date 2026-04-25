@@ -14,6 +14,14 @@ import { resolveProductVariantMetadata } from '@/lib/product-variant-metadata';
 import { ProductRowSchema } from '@/lib/validation';
 import type { Product } from '@/types/product';
 
+function hasVariantAttributeValues(
+  variantAttributes: Record<string, string[]> | undefined
+) {
+  return Object.values(variantAttributes ?? {}).some(
+    (values) => values.length > 0
+  );
+}
+
 function augmentProduct(item: z.infer<typeof ProductRowSchema>): Product {
   const baseProduct = transformProduct(item);
   if (!baseProduct) {
@@ -41,7 +49,11 @@ function augmentProduct(item: z.infer<typeof ProductRowSchema>): Product {
       variantMetadata.galleryImages && variantMetadata.galleryImages.length > 0
         ? variantMetadata.galleryImages
         : baseProduct.images,
-    variant_attributes: variantMetadata.variantAttributes,
+    variant_attributes: hasVariantAttributeValues(
+      variantMetadata.variantAttributes
+    )
+      ? variantMetadata.variantAttributes
+      : baseProduct.variant_attributes,
     variants,
   };
 }
@@ -112,7 +124,11 @@ export function useProduct(slug: string) {
               variantMetadata.galleryImages.length > 0
                 ? variantMetadata.galleryImages
                 : found.images,
-            variant_attributes: variantMetadata.variantAttributes,
+            variant_attributes: hasVariantAttributeValues(
+              variantMetadata.variantAttributes
+            )
+              ? variantMetadata.variantAttributes
+              : found.variant_attributes,
             variants,
           };
         }

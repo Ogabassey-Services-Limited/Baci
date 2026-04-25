@@ -2,7 +2,10 @@ import { jest } from '@jest/globals';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import React from 'react';
-import { resolveAndEvictProduct } from '@/hooks/product-utils';
+import {
+  PRODUCT_QUERY_VERSION,
+  resolveAndEvictProduct,
+} from '@/hooks/product-utils';
 import { useMerchant } from '@/hooks/use-merchant';
 import type { Product } from '@/types/product';
 import { usePrefetchProduct, useProduct } from './use-product';
@@ -12,15 +15,18 @@ jest.mock('@/hooks/use-merchant', () => ({
 }));
 
 jest.mock('@/hooks/product-utils', () => {
+  const { PRODUCT_QUERY_VERSION } = jest.requireActual(
+    '@/hooks/product-utils'
+  ) as typeof import('@/hooks/product-utils');
   const { normalizeVariantAttributes } = jest.requireActual(
     '@/lib/product-normalization'
   ) as typeof import('@/lib/product-normalization');
 
   return {
     CONSTANT_MERCHANT_ID: 'merchant-fallback',
-    PRODUCT_QUERY_VERSION: 'variant-media-v1',
+    PRODUCT_QUERY_VERSION,
     buildProductQueryKey: (slug: string, merchantId: string) =>
-      ['product', 'variant-media-v1', slug, merchantId] as const,
+      ['product', PRODUCT_QUERY_VERSION, slug, merchantId] as const,
     log: {
       info: jest.fn(),
       error: jest.fn(),
@@ -603,7 +609,7 @@ describe('usePrefetchProduct', () => {
     expect(
       queryClient.getQueryData([
         'product',
-        'variant-media-v1',
+        PRODUCT_QUERY_VERSION,
         'iphone-13-pro',
         'merchant-1',
       ])
@@ -642,7 +648,7 @@ describe('usePrefetchProduct', () => {
     expect(
       queryClient.getQueryData([
         'product',
-        'variant-media-v1',
+        PRODUCT_QUERY_VERSION,
         'bad-product',
         'merchant-1',
       ])

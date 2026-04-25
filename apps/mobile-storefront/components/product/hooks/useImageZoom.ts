@@ -31,7 +31,7 @@ export interface UseImageZoomParams {
 }
 
 export interface UseImageZoomReturn {
-  composedGesture: unknown | null;
+  composedGesture: unknown;
   animatedImageStyle: AnimatedStyle<ViewStyle>;
   resetTransform: () => void;
   resetTransformImmediate: () => void;

@@ -198,6 +198,8 @@ export function computeProductSelectionState({
   const shouldEmitColour =
     resolvedColorSelection !== null &&
     (colorAxisShape === 'colour' || mixedCatalogAlias === 'colour');
+  // Color is controlled by shouldEmitColor/shouldEmitColour so stale generic
+  // selectedAttributes cannot override the canonical color axis.
   const selectionAttributes: Record<string, string | null> = {
     ...routeSelectionAttributes,
     ...selectedAttributes,

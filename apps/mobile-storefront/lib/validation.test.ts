@@ -202,5 +202,16 @@ describe('ProductRowSchema', () => {
     });
 
     expect(result.success).toBe(false);
+    if (result.success) {
+      throw new Error('Expected schema parse to fail');
+    }
+
+    expect(result.error.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: ['average_rating'] }),
+        expect.objectContaining({ path: ['review_count'] }),
+        expect.objectContaining({ path: ['stock_quantity'] }),
+      ])
+    );
   });
 });

@@ -54,6 +54,68 @@ export const [primaryVariant, secondaryVariant] = variantFixtures as [
   (typeof variantFixtures)[number],
 ];
 
+const iphone11ProMaxColorConfig = {
+  Gold: {
+    colorHex: '#F5D4A3',
+    image: 'https://cdn.example.com/i11pm-gold.jpg',
+  },
+  'Midnight Green': {
+    colorHex: '#4F5C53',
+    image: 'https://cdn.example.com/i11pm-midnight-green.jpg',
+  },
+  Silver: {
+    colorHex: '#E5E5E5',
+    image: 'https://cdn.example.com/i11pm-silver.jpg',
+  },
+  'Space Gray': {
+    colorHex: '#54524F',
+    image: 'https://cdn.example.com/i11pm-space-gray.jpg',
+  },
+} as const;
+
+type IPhone11ProMaxVariantRow = {
+  color: keyof typeof iphone11ProMaxColorConfig;
+  condition: 'open_box' | 'used';
+  price: number;
+  storage: string;
+};
+
+const conditionLabels = {
+  open_box: 'Open Box',
+  used: 'Used',
+} as const;
+
+const conditionIdTokens = {
+  open_box: 'ob',
+  used: 'used',
+} as const;
+
+function toVariantIdToken(value: string) {
+  return value.toLowerCase().replace(/\s+/g, '-');
+}
+
+function createIPhone11ProMaxVariants(rows: IPhone11ProMaxVariantRow[]) {
+  return rows.map(({ color, condition, price, storage }) => {
+    const { colorHex, image } = iphone11ProMaxColorConfig[color];
+
+    return {
+      id: `${conditionIdTokens[condition]}-${toVariantIdToken(color)}-${storage.replace('GB', '')}`,
+      name: `${conditionLabels[condition]} ${color} ${storage}`,
+      condition,
+      stock_quantity: 0,
+      price,
+      price_override: price,
+      image,
+      images: [image],
+      attributes: {
+        color,
+        storage,
+        color_hex: colorHex,
+      },
+    };
+  });
+}
+
 export function iphone11ProMax(): Product {
   return {
     id: 'iphone-11-pro-max',
@@ -63,12 +125,12 @@ export function iphone11ProMax(): Product {
     price: 520000,
     image: 'https://cdn.example.com/i11pm.jpg',
     images: [
-      'https://cdn.example.com/i11pm-midnight-green.jpg',
-      'https://cdn.example.com/i11pm-silver.jpg',
-      'https://cdn.example.com/i11pm-space-gray.jpg',
-      'https://cdn.example.com/i11pm-gold.jpg',
+      iphone11ProMaxColorConfig['Midnight Green'].image,
+      iphone11ProMaxColorConfig.Silver.image,
+      iphone11ProMaxColorConfig['Space Gray'].image,
+      iphone11ProMaxColorConfig.Gold.image,
     ],
-    condition: 'Open Box',
+    condition: 'open_box',
     has_variants: true,
     manage_stock: false,
     stock_quantity: 0,
@@ -76,189 +138,91 @@ export function iphone11ProMax(): Product {
     color_images: {},
     colors: ['Midnight Green', 'Silver', 'Space Gray', 'Gold'],
     offers: [],
-    variants: [
+    variants: createIPhone11ProMaxVariants([
       {
-        id: 'ob-midnight-green-64',
-        name: 'Open Box Midnight Green 64GB',
+        color: 'Midnight Green',
         condition: 'open_box',
-        stock_quantity: 0,
         price: 520000,
-        price_override: 520000,
-        image: 'https://cdn.example.com/i11pm-midnight-green.jpg',
-        images: ['https://cdn.example.com/i11pm-midnight-green.jpg'],
-        attributes: {
-          color: 'Midnight Green',
-          storage: '64GB',
-          color_hex: '#4F5C53',
-        },
+        storage: '64GB',
       },
       {
-        id: 'ob-midnight-green-256',
-        name: 'Open Box Midnight Green 256GB',
+        color: 'Midnight Green',
         condition: 'open_box',
-        stock_quantity: 0,
         price: 600000,
-        price_override: 600000,
-        image: 'https://cdn.example.com/i11pm-midnight-green.jpg',
-        images: ['https://cdn.example.com/i11pm-midnight-green.jpg'],
-        attributes: {
-          color: 'Midnight Green',
-          storage: '256GB',
-          color_hex: '#4F5C53',
-        },
+        storage: '256GB',
       },
       {
-        id: 'ob-midnight-green-512',
-        name: 'Open Box Midnight Green 512GB',
+        color: 'Midnight Green',
         condition: 'open_box',
-        stock_quantity: 0,
         price: 700000,
-        price_override: 700000,
-        image: 'https://cdn.example.com/i11pm-midnight-green.jpg',
-        images: ['https://cdn.example.com/i11pm-midnight-green.jpg'],
-        attributes: {
-          color: 'Midnight Green',
-          storage: '512GB',
-          color_hex: '#4F5C53',
-        },
+        storage: '512GB',
       },
       {
-        id: 'used-midnight-green-64',
-        name: 'Used Midnight Green 64GB',
+        color: 'Midnight Green',
         condition: 'used',
-        stock_quantity: 0,
         price: 470000,
-        price_override: 470000,
-        image: 'https://cdn.example.com/i11pm-midnight-green.jpg',
-        images: ['https://cdn.example.com/i11pm-midnight-green.jpg'],
-        attributes: {
-          color: 'Midnight Green',
-          storage: '64GB',
-          color_hex: '#4F5C53',
-        },
+        storage: '64GB',
       },
       {
-        id: 'used-midnight-green-256',
-        name: 'Used Midnight Green 256GB',
+        color: 'Midnight Green',
         condition: 'used',
-        stock_quantity: 0,
         price: 550000,
-        price_override: 550000,
-        image: 'https://cdn.example.com/i11pm-midnight-green.jpg',
-        images: ['https://cdn.example.com/i11pm-midnight-green.jpg'],
-        attributes: {
-          color: 'Midnight Green',
-          storage: '256GB',
-          color_hex: '#4F5C53',
-        },
+        storage: '256GB',
       },
       {
-        id: 'used-midnight-green-512',
-        name: 'Used Midnight Green 512GB',
+        color: 'Midnight Green',
         condition: 'used',
-        stock_quantity: 0,
         price: 650000,
-        price_override: 650000,
-        image: 'https://cdn.example.com/i11pm-midnight-green.jpg',
-        images: ['https://cdn.example.com/i11pm-midnight-green.jpg'],
-        attributes: {
-          color: 'Midnight Green',
-          storage: '512GB',
-          color_hex: '#4F5C53',
-        },
+        storage: '512GB',
       },
       {
-        id: 'used-gold-64',
-        name: 'Used Gold 64GB',
+        color: 'Gold',
         condition: 'used',
-        stock_quantity: 0,
         price: 470000,
-        price_override: 470000,
-        image: 'https://cdn.example.com/i11pm-gold.jpg',
-        images: ['https://cdn.example.com/i11pm-gold.jpg'],
-        attributes: { color: 'Gold', storage: '64GB', color_hex: '#F5D4A3' },
+        storage: '64GB',
       },
       {
-        id: 'ob-gold-64',
-        name: 'Open Box Gold 64GB',
+        color: 'Gold',
         condition: 'open_box',
-        stock_quantity: 0,
         price: 520000,
-        price_override: 520000,
-        image: 'https://cdn.example.com/i11pm-gold.jpg',
-        images: ['https://cdn.example.com/i11pm-gold.jpg'],
-        attributes: { color: 'Gold', storage: '64GB', color_hex: '#F5D4A3' },
+        storage: '64GB',
       },
       {
-        id: 'used-gold-256',
-        name: 'Used Gold 256GB',
+        color: 'Gold',
         condition: 'used',
-        stock_quantity: 0,
         price: 550000,
-        price_override: 550000,
-        image: 'https://cdn.example.com/i11pm-gold.jpg',
-        images: ['https://cdn.example.com/i11pm-gold.jpg'],
-        attributes: { color: 'Gold', storage: '256GB', color_hex: '#F5D4A3' },
+        storage: '256GB',
       },
       {
-        id: 'ob-gold-256',
-        name: 'Open Box Gold 256GB',
+        color: 'Gold',
         condition: 'open_box',
-        stock_quantity: 0,
         price: 600000,
-        price_override: 600000,
-        image: 'https://cdn.example.com/i11pm-gold.jpg',
-        images: ['https://cdn.example.com/i11pm-gold.jpg'],
-        attributes: { color: 'Gold', storage: '256GB', color_hex: '#F5D4A3' },
+        storage: '256GB',
       },
       {
-        id: 'used-gold-512',
-        name: 'Used Gold 512GB',
+        color: 'Gold',
         condition: 'used',
-        stock_quantity: 0,
         price: 650000,
-        price_override: 650000,
-        image: 'https://cdn.example.com/i11pm-gold.jpg',
-        images: ['https://cdn.example.com/i11pm-gold.jpg'],
-        attributes: { color: 'Gold', storage: '512GB', color_hex: '#F5D4A3' },
+        storage: '512GB',
       },
       {
-        id: 'ob-gold-512',
-        name: 'Open Box Gold 512GB',
+        color: 'Gold',
         condition: 'open_box',
-        stock_quantity: 0,
         price: 700000,
-        price_override: 700000,
-        image: 'https://cdn.example.com/i11pm-gold.jpg',
-        images: ['https://cdn.example.com/i11pm-gold.jpg'],
-        attributes: { color: 'Gold', storage: '512GB', color_hex: '#F5D4A3' },
+        storage: '512GB',
       },
       {
-        id: 'used-space-gray-64',
-        name: 'Used Space Gray 64GB',
+        color: 'Space Gray',
         condition: 'used',
-        stock_quantity: 0,
         price: 470000,
-        price_override: 470000,
-        image: 'https://cdn.example.com/i11pm-space-gray.jpg',
-        images: ['https://cdn.example.com/i11pm-space-gray.jpg'],
-        attributes: {
-          color: 'Space Gray',
-          storage: '64GB',
-          color_hex: '#54524F',
-        },
+        storage: '64GB',
       },
       {
-        id: 'used-silver-64',
-        name: 'Used Silver 64GB',
+        color: 'Silver',
         condition: 'used',
-        stock_quantity: 0,
         price: 470000,
-        price_override: 470000,
-        image: 'https://cdn.example.com/i11pm-silver.jpg',
-        images: ['https://cdn.example.com/i11pm-silver.jpg'],
-        attributes: { color: 'Silver', storage: '64GB', color_hex: '#E5E5E5' },
+        storage: '64GB',
       },
-    ],
+    ]),
   };
 }

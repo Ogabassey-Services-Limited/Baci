@@ -1,4 +1,11 @@
 import { jest } from '@jest/globals';
+import { StyleSheet } from 'react-native';
+
+export {
+  MIN_STICKY_BOTTOM_PADDING,
+  PRODUCT_SCROLL_BOTTOM_PADDING,
+} from '../../constants/product-layout';
+
 import { baseProduct } from '../../lib/product-route/product-detail-screen.fixtures';
 
 export const mockProductDetailsBody = jest.fn();
@@ -148,10 +155,54 @@ jest.mock('zustand/react/shallow', () => ({
   useShallow: (selector: unknown) => selector,
 }));
 
-export const ProductDetailScreen =
-  jest.requireActual<typeof import('../../app/product/[slug]')>(
-    '../../app/product/[slug]'
-  ).default;
+const productDetailScreenModule = jest.requireActual<
+  typeof import('../../app/product/[slug]')
+>('../../app/product/[slug]');
+
+export const ProductDetailScreen = productDetailScreenModule.default;
+
+export type RenderedNode = {
+  children?: RenderedNode[];
+  props?: {
+    contentContainerStyle?: unknown;
+    style?: unknown;
+  };
+};
+
+export function findNodeWithContentPadding(
+  node: RenderedNode | RenderedNode[] | null,
+  paddingBottom: number
+): RenderedNode | null {
+  if (!node) {
+    return null;
+  }
+
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const match = findNodeWithContentPadding(child, paddingBottom);
+      if (match) {
+        return match;
+      }
+    }
+    return null;
+  }
+
+  const contentStyle = StyleSheet.flatten(node.props?.contentContainerStyle) as
+    | { paddingBottom?: number }
+    | undefined;
+  if (contentStyle?.paddingBottom === paddingBottom) {
+    return node;
+  }
+
+  for (const child of node.children ?? []) {
+    const match = findNodeWithContentPadding(child, paddingBottom);
+    if (match) {
+      return match;
+    }
+  }
+
+  return null;
+}
 
 export function getLastMockProps<T>(mockFn: { mock: { calls: unknown[][] } }) {
   return mockFn.mock.calls.at(-1)?.[0] as T | undefined;
