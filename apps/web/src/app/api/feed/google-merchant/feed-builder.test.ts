@@ -913,8 +913,8 @@ describe('generateGoogleMerchantFeed — conditioned variants', () => {
     const itemCount = (xml.match(/<item>/g) || []).length;
     expect(itemCount).toBe(1);
     expect(xml).toContain('<g:id>prod-1</g:id>');
-    expect(xml).toContain('<g:price>550000.00 NGN</g:price>');
-    expect(xml).toContain('<g:condition>new</g:condition>');
+    expect(xml).toContain('<g:price>600000.00 NGN</g:price>');
+    expect(xml).toContain('<g:condition>used</g:condition>');
     expect(xml).not.toContain('<g:id>variant-new-128</g:id>');
     expect(xml).not.toContain('<g:item_group_id>');
   });

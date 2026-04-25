@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Product } from './products';
 import {
+  buildProductUrl,
   generateBreadcrumbSchema,
   generateCollectionPageSchema,
   generateMetaDescription,
@@ -623,7 +624,7 @@ describe('getProductUrl', () => {
           slug: 'test-product',
         })
       )
-    ).toBe('/smartphones/test-product');
+    ).toBe('/phones/test-product');
   });
 
   it('uses a same-domain canonical_url without double-prefixing the path', () => {
@@ -677,7 +678,7 @@ describe('getProductUrl', () => {
           category: 'Phones',
         })
       )
-    ).toBe('/smartphones/iphone-15');
+    ).toBe('/phones/iphone-15');
   });
 });
 
@@ -1182,5 +1183,92 @@ describe('getEffectiveProductStock', () => {
         stock_quantity: null,
       })
     ).toBe(7);
+  });
+});
+
+describe('buildProductUrl — preserves raw category slug (no alias remap)', () => {
+  // Regression tests: the product detail route redirects when the URL
+  // category segment does not match the product's stored `category_slug`
+  // (see apps/web/src/app/(storefront)/[slug]/(catalog)/[category]/[productSlug]/page.tsx).
+  // If the canonical URL builder remapped legacy slugs (e.g. `phones` ->
+  // `smartphones`), products with those legacy slugs would permanently
+  // redirect to the normalized URL, which then mismatches the raw DB slug
+  // and redirects again — a self-redirect loop. The builder must therefore
+  // preserve the merchant's stored slug verbatim (aside from trim/lowercase).
+
+  it('preserves `phones` without remapping to `smartphones`', () => {
+    expect(buildProductUrl('iphone-12', null, 'phones')).toBe(
+      '/phones/iphone-12'
+    );
+  });
+
+  it('preserves `macbook` without remapping to `laptops`', () => {
+    expect(buildProductUrl('macbook-air-m2', null, 'macbook')).toBe(
+      '/macbook/macbook-air-m2'
+    );
+  });
+
+  it('preserves `samsung` without remapping to `smartphones`', () => {
+    expect(buildProductUrl('galaxy-s23', null, 'samsung')).toBe(
+      '/samsung/galaxy-s23'
+    );
+  });
+
+  it('preserves `accesories` typo verbatim (DB slug is source of truth)', () => {
+    expect(buildProductUrl('usb-cable', null, 'accesories')).toBe(
+      '/accesories/usb-cable'
+    );
+  });
+
+  it('lowercases and trims the category slug', () => {
+    expect(buildProductUrl('item', null, '  Gaming  ')).toBe('/gaming/item');
+  });
+
+  it('falls back to /products/{slug} when no category is provided', () => {
+    expect(buildProductUrl('generic-item', null, null)).toBe(
+      '/products/generic-item'
+    );
+  });
+
+  it('preserves raw slug when category passed as object', () => {
+    expect(
+      buildProductUrl('iphone-12', { name: 'Phones', slug: 'phones' })
+    ).toBe('/phones/iphone-12');
+  });
+
+  it('prefers object category slug over fallback categorySlug arg', () => {
+    expect(
+      buildProductUrl(
+        'iphone-12',
+        { name: 'Phones', slug: 'phones' },
+        'ignored'
+      )
+    ).toBe('/phones/iphone-12');
+  });
+});
+
+describe('getProductUrl — no self-redirect loop for legacy-slug products', () => {
+  it('builds canonical URL matching the stored DB category_slug', () => {
+    // Simulate a product whose DB category_slug is the legacy alias.
+    // The canonical URL must use the raw slug so the product route's
+    // category-mismatch check (raw DB slug vs URL segment) does not fire.
+    const url = getProductUrl({
+      id: 'p1',
+      name: 'iPhone 12',
+      slug: 'iphone-12',
+      categories: { name: 'Phones', slug: 'phones' },
+      category_slug: 'phones',
+    });
+    expect(url).toBe('/phones/iphone-12');
+  });
+
+  it('respects an explicit canonical_url without alias-remapping it', () => {
+    const url = getProductUrl({
+      id: 'p2',
+      name: 'MacBook Air',
+      slug: 'macbook-air-m2',
+      canonical_url: 'https://store.example.com/macbook/macbook-air-m2',
+    });
+    expect(url).toBe('/macbook/macbook-air-m2');
   });
 });

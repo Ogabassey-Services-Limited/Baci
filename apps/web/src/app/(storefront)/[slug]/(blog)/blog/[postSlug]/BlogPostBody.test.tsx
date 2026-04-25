@@ -308,7 +308,7 @@ describe('BlogPostBody', () => {
     expect(fallbackProductLink).toHaveTextContent(/^PS5 Controller$/);
   });
 
-  it('normalizes legacy category slug aliases when building related product links', async () => {
+  it('builds category-aware product links preserving stored category_slug', async () => {
     mockResolveBlogPostContent.mockResolvedValue({
       isJson: false,
       legacyHtml: '<p>Content</p>',
@@ -332,7 +332,8 @@ describe('BlogPostBody', () => {
             id: 'product-1',
             name: 'iPhone 16',
             slug: 'iphone-16',
-            // Legacy alias that should be normalized to 'smartphones'
+            // category_slug is used as-is — alias remapping happens at the
+            // storefront route level via 301 redirects
             category_slug: 'phones',
           },
           {
@@ -349,7 +350,7 @@ describe('BlogPostBody', () => {
 
     expect(screen.getByRole('link', { name: 'iPhone 16' })).toHaveAttribute(
       'href',
-      '/ogabassey/smartphones/iphone-16'
+      '/ogabassey/phones/iphone-16'
     );
     expect(
       screen.getByRole('link', { name: 'MacBook Air M4' })

@@ -294,15 +294,15 @@ describe('ProductDetailClient', () => {
     await waitFor(() => {
       expect(mockStickyAddToCart).toHaveBeenLastCalledWith(
         expect.objectContaining({
-          selectedCondition: 'new',
-          selectedPrice: 550000,
-          selectedStock: 5,
-          selectedVariant: expect.objectContaining({ id: 'variant-new-128' }),
+          selectedCondition: 'used',
+          selectedPrice: 600000,
+          selectedStock: 3,
+          selectedVariant: expect.objectContaining({ id: 'variant-used-256' }),
         })
       );
     });
 
-    expect(screen.getByText('₦550000')).toBeInTheDocument();
+    expect(screen.getByText('₦600000')).toBeInTheDocument();
   });
 
   it('updates in-cart variant quantities using product id plus variant id', async () => {

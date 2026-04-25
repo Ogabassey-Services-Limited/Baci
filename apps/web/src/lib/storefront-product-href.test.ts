@@ -30,7 +30,13 @@ describe('getStorefrontProductHref', () => {
     ).toBe('/ogabassey/smartphones/iphone-15-pro-max');
   });
 
-  it('preserves merchant-defined category slugs when building hrefs', () => {
+  it('preserves the stored category slug verbatim (no alias remap)', () => {
+    // Regression: previously the canonical path builder remapped legacy
+    // aliases such as `samsung` -> `smartphones`. That caused a permanent
+    // self-redirect loop because the product route compares the raw DB
+    // `category_slug` to the URL segment and redirects on mismatch
+    // (apps/web/src/app/(storefront)/[slug]/(catalog)/[category]/[productSlug]/page.tsx).
+    // The canonical URL must therefore match the DB slug exactly.
     expect(
       getStorefrontProductHref(
         {
@@ -72,7 +78,10 @@ describe('getStorefrontProductHref', () => {
     ).toBe('/ogabassey/gaming/nintendo-switch-oled');
   });
 
-  it('preserves merchant-defined canonical category slugs', () => {
+  it('preserves the canonical_url category segment without alias remapping', () => {
+    // Regression: merchant-authored canonical URLs with legacy slugs must be
+    // returned verbatim so they match the stored `category_slug`. Remapping
+    // `samsung` -> `smartphones` here would cause a self-redirect loop.
     expect(
       getStorefrontProductHref(
         {
