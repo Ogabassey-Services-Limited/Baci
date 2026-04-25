@@ -1,14 +1,13 @@
 import { resolveDefaultVariantSelection } from '@baci/shared/lib';
 import { describe, expect, it } from '@jest/globals';
-import type { Product } from '@/types/product';
 import { normalizeRouteCondition } from '@/lib/product-route/normalize-route-condition';
 import {
   baseProduct,
-  primaryVariant,
   secondaryVariant,
   variantProduct,
 } from '@/lib/product-route/product-detail-screen.fixtures';
 import { computeProductSelectionState } from '@/lib/product-route/product-selection';
+import type { Product } from '@/types/product';
 
 describe('product selection', () => {
   it('uses the default variant selection when no explicit selection is present', () => {
@@ -27,8 +26,8 @@ describe('product selection', () => {
       selectedVariant: null,
     });
 
-    // resolveDefaultVariantSelection now prefers the lowest-price purchasable
-    // variant, so the "used" variant is picked over the "new" fixture entry.
+    // resolveDefaultVariantSelection follows condition preference first, so
+    // the "used" variant is picked over the "new" fixture entry.
     const expectedDefault = secondaryVariant;
     expect(result.currentVariantDisplaySelection?.variant.id).toBe(
       expectedDefault.id

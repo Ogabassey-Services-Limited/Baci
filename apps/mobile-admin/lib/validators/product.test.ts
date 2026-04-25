@@ -271,13 +271,11 @@ describe('ProductDbSchema', () => {
 
     expect(parsed.variant_model).toBe('sku_matrix');
     expect(parsed.migration_status).toBe('migrated');
-    // The default-variant selector mirrors the SQL projection
-    // (`rebuild_sku_matrix_product_projection`): condition rank first
-    // (new < open_box < used), then price. Here the `new` variant wins
-    // even though the `used` row is cheaper.
-    expect(parsed.condition).toBe('new');
-    expect(parsed.price).toBe(550000);
-    expect(parsed.stock_quantity).toBe(3);
+    // The default-variant selector mirrors the SQL projection:
+    // condition rank first (used < open_box < new), then price.
+    expect(parsed.condition).toBe('used');
+    expect(parsed.price).toBe(500000);
+    expect(parsed.stock_quantity).toBe(1);
     expect(parsed.variants).toEqual([
       expect.objectContaining({
         attributes: { connectivity: 'WiFi', storage: '128GB' },
@@ -324,9 +322,9 @@ describe('ProductDbSchema', () => {
       ],
     });
 
-    expect(parsed.condition).toBe('new');
-    expect(parsed.color).toBe('Natural Titanium');
-    expect(parsed.price).toBe(900000);
+    expect(parsed.condition).toBe('used');
+    expect(parsed.color).toBe('Black');
+    expect(parsed.price).toBe(800000);
   });
 
   it('uses British spelling colour attributes for the parent projection', () => {
@@ -363,9 +361,42 @@ describe('ProductDbSchema', () => {
       ],
     });
 
-    expect(parsed.condition).toBe('new');
-    expect(parsed.color).toBe('Natural Titanium');
-    expect(parsed.price).toBe(900000);
+    expect(parsed.condition).toBe('used');
+    expect(parsed.color).toBe('Black');
+    expect(parsed.price).toBe(800000);
+  });
+
+  it('preserves the parent color when variants do not define color attributes', () => {
+    const parsed = ProductDbSchema.parse({
+      name: 'iPad Air',
+      sku: 'IPAD-AIR',
+      price: 0,
+      stock_quantity: 0,
+      category_id: '',
+      color: 'Blue',
+      manage_stock: true,
+      status: 'active',
+      images: [],
+      has_variants: true,
+      variant_attributes: [],
+      variants: [
+        {
+          attributes: [{ key: 'storage', value: '128GB' }],
+          condition: 'used',
+          price: 500000,
+          stock_quantity: 2,
+        },
+        {
+          attributes: [{ key: 'storage', value: '256GB' }],
+          condition: 'new',
+          price: 650000,
+          stock_quantity: 2,
+        },
+      ],
+    });
+
+    expect(parsed.color).toBe('Blue');
+    expect(parsed.variant_model).toBe('sku_matrix');
   });
 
   it('rejects sku_matrix variants when one row is missing condition', () => {

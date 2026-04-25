@@ -271,7 +271,7 @@ export const ProductDbSchema = ProductSchema.transform((data) => {
       persistedVariants
         .map((variant) => readVariantColor(variant.attributes))
         .find((value): value is string => value !== null) ??
-      null)
+      (rest.color?.trim() || null))
     : rest.color?.trim() || null;
 
   return {
