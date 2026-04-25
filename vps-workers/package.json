@@ -11,7 +11,8 @@
     "cleanup-import-uploads": "node jobs/cleanup-import-uploads.mjs",
     "push-receipts": "node jobs/push-receipts.mjs",
     "inventory-push-alerts": "node jobs/inventory-push-alerts.mjs",
-    "sync-jumia-orders": "node jobs/sync-jumia-orders.mjs"
+    "sync-jumia-orders": "node jobs/sync-jumia-orders.mjs",
+    "test": "node --test \"jobs/**/*.test.mjs\" \"lib/**/*.test.mjs\""
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.103.0",

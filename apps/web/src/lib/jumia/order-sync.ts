@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { nanoid } from 'nanoid';
 import { notifyMerchant } from '@/lib/expo-push';
 import { JumiaClient } from '@/lib/jumia/client';
+import type { JumiaOrderSyncResult } from '@/lib/jumia/order-sync-result';
 import { getAllOrders, getOrderItems } from '@/lib/jumia/orders';
 import { logger } from '@/lib/logger';
 import type { JumiaOrder, JumiaOrderItem } from '@/schemas/jumia';
@@ -19,30 +20,18 @@ import {
   readOrderSyncEnabled,
 } from './order-sync-mappers';
 
-export interface JumiaOrderSyncResult {
-  integrations: number;
-  synced: number;
-  canonicalCreated: number;
-  canonicalUpdated: number;
-  notified: number;
-  errors: string[];
-}
-
 async function loadExistingJumiaOrders(
   supabase: SupabaseClient,
   merchantId: string,
   orderIds: string[]
 ) {
   if (orderIds.length === 0) return new Map<string, ExistingJumiaOrderRow>();
-
   const { data, error } = await supabase
     .from('jumia_orders')
     .select('jumia_order_id, notification_sent, baci_order_id')
     .eq('merchant_id', merchantId)
     .in('jumia_order_id', orderIds);
-
   if (error) throw new Error(`Failed to load Jumia orders: ${error.message}`);
-
   return new Map(
     ((data || []) as ExistingJumiaOrderRow[]).map((row) => [
       row.jumia_order_id,
@@ -57,16 +46,13 @@ async function loadExistingCanonicalOrders(
   orderIds: string[]
 ) {
   if (orderIds.length === 0) return new Map<string, ExistingOrderRow>();
-
   const { data, error } = await supabase
     .from('orders')
     .select('id, external_id, tracking_token')
     .eq('merchant_id', merchantId)
     .eq('external_source', JUMIA_EXTERNAL_SOURCE)
     .in('external_id', orderIds);
-
   if (error) throw new Error(`Failed to load Baci orders: ${error.message}`);
-
   return new Map(
     ((data || []) as ExistingOrderRow[])
       .filter((row) => row.external_id)
