@@ -8,14 +8,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import creditDirectLogoSource from '@/assets/images/creditdirect.jpg';
+import credpalLogoSource from '@/assets/images/credpal.png';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, palette, RADIUS, SPACING } from '@/constants/Colors';
 import { formatPrice } from '@/stores/cart-store';
-
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const _credpalLogoSource = require('@/assets/images/credpal.png');
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const _creditDirectLogoSource = require('@/assets/images/creditdirect.jpg');
 
 export type PaymentMethodType =
   | 'paystack'
@@ -83,7 +80,7 @@ const PAYMENT_METHODS: PaymentMethod[] = [
     description: 'Salary Earners and Business Owners',
     icon: 'wallet-outline',
     tab: 'installments',
-    logoUrl: _creditDirectLogoSource,
+    logoUrl: creditDirectLogoSource,
   },
   {
     id: 'credpal',
@@ -91,7 +88,7 @@ const PAYMENT_METHODS: PaymentMethod[] = [
     description: 'Salary Earners Only',
     icon: 'calendar-outline',
     tab: 'installments',
-    logoUrl: _credpalLogoSource,
+    logoUrl: credpalLogoSource,
   },
   {
     id: 'invoice',

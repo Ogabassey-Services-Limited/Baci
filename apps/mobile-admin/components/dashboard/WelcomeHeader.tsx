@@ -88,7 +88,7 @@ export function WelcomeHeader({
               },
             ]}
           >
-            <Ionicons name="camera" size={10} color="#FFFFFF" />
+            <Ionicons name="camera" size={10} color={colors.textOnPrimary} />
           </View>
         </Pressable>
 
@@ -146,7 +146,9 @@ export function WelcomeHeader({
           <View
             style={[styles.badge, { backgroundColor: colors.notification }]}
           >
-            <Text style={styles.badgeText}>
+            <Text
+              style={[styles.badgeText, { color: colors.textOnNotification }]}
+            >
               {notificationCount > 9 ? '9+' : notificationCount}
             </Text>
           </View>
@@ -264,6 +266,5 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 10,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
-    color: '#FFFFFF',
   },
 });
