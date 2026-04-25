@@ -125,8 +125,7 @@ describe('product-default-variant', () => {
 
     expect(hasVariantConditionAxis(conditionedProduct)).toBe(true);
     const conditionOptions = getVariantConditionOptions(conditionedProduct);
-    expect(conditionOptions).toHaveLength(2);
-    expect(conditionOptions).toEqual(expect.arrayContaining(['new', 'used']));
+    expect(conditionOptions).toEqual(['used', 'new']);
     expect(
       resolveVariantSelection(conditionedProduct, {
         condition: 'used',
@@ -140,6 +139,43 @@ describe('product-default-variant', () => {
       variant: expect.objectContaining({ id: 'used-cellular-256' }),
       price: 600000,
     });
+  });
+
+  it('orders condition options by storefront preference when multiple conditions are available', () => {
+    const conditionedProduct: ProductWithDefaultVariantLike<ConditionedVariant> =
+      {
+        price: 550000,
+        manage_stock: true,
+        variants: [
+          {
+            id: 'new-variant',
+            condition: 'new',
+            price_override: 620000,
+            stock_quantity: 1,
+            attributes: { storage: '256GB' },
+          },
+          {
+            id: 'open-box-variant',
+            condition: 'open_box',
+            price_override: 580000,
+            stock_quantity: 1,
+            attributes: { storage: '256GB' },
+          },
+          {
+            id: 'used-variant',
+            condition: 'used',
+            price_override: 520000,
+            stock_quantity: 1,
+            attributes: { storage: '256GB' },
+          },
+        ],
+      };
+
+    expect(getVariantConditionOptions(conditionedProduct)).toEqual([
+      'used',
+      'open_box',
+      'new',
+    ]);
   });
 
   it('returns null for attribute-only matches that are ambiguous across conditions', () => {

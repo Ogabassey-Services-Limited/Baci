@@ -142,9 +142,11 @@ describe('ProductDetailScreen variant stock behavior', () => {
     render(<ProductDetailScreen />);
 
     await waitFor(() => {
+      // resolveDefaultVariantSelection ranks condition first
+      // (used > open box > new), so the used variant is selected by default.
       expect(getLastMockProps(mockProductDetailsBody)).toEqual(
         expect.objectContaining({
-          selectedCondition: 'new',
+          selectedCondition: secondaryVariant.condition,
           selectedStorage: '128GB',
         })
       );

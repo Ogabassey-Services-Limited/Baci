@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   formatCanonicalProductConditionLabel,
+  getCanonicalProductConditionPreferenceRank,
   normalizeCanonicalProductCondition,
+  sortCanonicalProductConditionsByPreference,
   toGoogleListingCondition,
   toSchemaItemConditionUri,
 } from './product-condition';
@@ -34,6 +36,26 @@ describe('formatCanonicalProductConditionLabel', () => {
       'Open Box'
     );
     expect(formatCanonicalProductConditionLabel('open_box')).toBe('Open Box');
+  });
+});
+
+describe('condition preference helpers', () => {
+  it('prefers used before open box before new', () => {
+    expect(getCanonicalProductConditionPreferenceRank('used')).toBe(0);
+    expect(getCanonicalProductConditionPreferenceRank('open_box')).toBe(1);
+    expect(getCanonicalProductConditionPreferenceRank('new')).toBe(2);
+  });
+
+  it('sorts and deduplicates conditions by storefront preference', () => {
+    expect(
+      sortCanonicalProductConditionsByPreference([
+        'new',
+        'used',
+        'refurbished',
+        'uk_used',
+        'open_box',
+      ])
+    ).toEqual(['used', 'open_box', 'new']);
   });
 });
 

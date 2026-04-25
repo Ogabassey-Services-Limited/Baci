@@ -92,6 +92,9 @@ describe('useProductDetailsState', () => {
       result.current.handleColorSelection(1);
     });
 
+    // Canonical variant media resolution places variant color images at the
+    // head of the gallery, so selecting the second color (Silver) resolves
+    // to the second gallery entry rather than the raw product-images index.
     expect(result.current.selectedColor).toBe(1);
     expect(result.current.selectedImage).toBe(1);
   });

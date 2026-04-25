@@ -1,4 +1,8 @@
-import { normalizeCanonicalProductCondition } from './product-condition';
+import {
+  getCanonicalProductConditionPreferenceRank,
+  normalizeCanonicalProductCondition,
+  sortCanonicalProductConditionsByPreference,
+} from './product-condition';
 
 export interface ProductDefaultVariantLike {
   id: string;
@@ -38,8 +42,6 @@ interface VariantCandidate<TVariant extends ProductDefaultVariantLike> {
   index: number;
   variant: TVariant;
 }
-
-const DEFAULT_CONDITION_ORDER = ['new', 'open_box', 'used'] as const;
 
 function normalizeConditionValue(value: string | null | undefined) {
   return normalizeCanonicalProductCondition(value);
@@ -112,11 +114,7 @@ function getVariantCondition<TVariant extends ProductDefaultVariantLike>(
 }
 
 function getConditionPreferenceRank(condition: string) {
-  const rank = DEFAULT_CONDITION_ORDER.indexOf(
-    condition as (typeof DEFAULT_CONDITION_ORDER)[number]
-  );
-
-  return rank >= 0 ? rank : DEFAULT_CONDITION_ORDER.length;
+  return getCanonicalProductConditionPreferenceRank(condition);
 }
 
 export function hasVariantConditionAxis<
@@ -130,11 +128,9 @@ export function hasVariantConditionAxis<
 export function getVariantConditionOptions<
   TVariant extends ProductDefaultVariantLike,
 >(product: ProductWithDefaultVariantLike<TVariant>) {
-  const explicitConditions = Array.from(
-    new Set(
-      (product.variants || [])
-        .map((variant) => normalizeConditionValue(variant.condition))
-        .filter(Boolean)
+  const explicitConditions = sortCanonicalProductConditionsByPreference(
+    (product.variants || []).map((variant) =>
+      normalizeConditionValue(variant.condition)
     )
   );
 
@@ -145,16 +141,7 @@ export function getVariantConditionOptions<
     return normalizedProductCondition ? [normalizedProductCondition] : [];
   }
 
-  return explicitConditions.sort((left, right) => {
-    const leftRank = getConditionPreferenceRank(left);
-    const rightRank = getConditionPreferenceRank(right);
-
-    if (leftRank !== rightRank) {
-      return leftRank - rightRank;
-    }
-
-    return left.localeCompare(right);
-  });
+  return explicitConditions;
 }
 
 function sortByDefaultPreference<TVariant extends ProductDefaultVariantLike>(
@@ -163,6 +150,8 @@ function sortByDefaultPreference<TVariant extends ProductDefaultVariantLike>(
   candidates: VariantCandidate<TVariant>[]
 ) {
   return [...candidates].sort((left, right) => {
+    // Match the SQL default-variant projection:
+    // condition preference first, then price ascending, then original index.
     const leftConditionRank = getConditionPreferenceRank(getCondition(left));
     const rightConditionRank = getConditionPreferenceRank(getCondition(right));
 

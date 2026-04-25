@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { type ThemeColors } from '@/constants/theme';
-import {
-  type ProductMatchCandidate,
-  type RankedProductMatch,
+import type { ThemeColors } from '@/constants/theme';
+import type {
+  ProductMatchCandidate,
+  RankedProductMatch,
 } from '@/lib/product-matching';
 import { ExistingProductSuggestions } from './ExistingProductSuggestions';
 
@@ -27,6 +27,7 @@ interface ProductBasicInformationCardProps {
   categories: CategoryOption[];
   colors: ThemeColors;
   formData: ProductBasicInformationFormData;
+  hideColorField?: boolean;
   isEditing: boolean;
   onChange: (updates: Partial<ProductBasicInformationFormData>) => void;
   onOpenCategoryModal: () => void;
@@ -38,6 +39,7 @@ export function ProductBasicInformationCard({
   categories,
   colors,
   formData,
+  hideColorField = false,
   isEditing,
   onChange,
   onOpenCategoryModal,
@@ -128,11 +130,7 @@ export function ProductBasicInformationCard({
         >
           {selectedCategoryName}
         </Text>
-        <Ionicons
-          name="chevron-down"
-          size={20}
-          color={colors.textSecondary}
-        />
+        <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
       </Pressable>
 
       <Text style={[styles.label, { color: colors.textSecondary }]}>Brand</Text>
@@ -151,21 +149,36 @@ export function ProductBasicInformationCard({
         placeholderTextColor={colors.textSecondary}
       />
 
-      <Text style={[styles.label, { color: colors.textSecondary }]}>Color</Text>
-      <TextInput
-        style={[
-          styles.input,
-          {
-            backgroundColor: colors.inputBg,
-            color: colors.text,
-            borderColor: colors.border,
-          },
-        ]}
-        value={formData.color}
-        onChangeText={(color) => onChange({ color })}
-        placeholder="e.g. Midnight Blue"
-        placeholderTextColor={colors.textSecondary}
-      />
+      {hideColorField ? (
+        <View style={styles.noteContainer}>
+          <Text style={[styles.label, { color: colors.textSecondary }]}>
+            Color
+          </Text>
+          <Text style={[styles.noteText, { color: colors.textSecondary }]}>
+            Variant rows control the selected color for this product.
+          </Text>
+        </View>
+      ) : (
+        <>
+          <Text style={[styles.label, { color: colors.textSecondary }]}>
+            Color
+          </Text>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.inputBg,
+                color: colors.text,
+                borderColor: colors.border,
+              },
+            ]}
+            value={formData.color}
+            onChangeText={(color) => onChange({ color })}
+            placeholder="e.g. Midnight Blue"
+            placeholderTextColor={colors.textSecondary}
+          />
+        </>
+      )}
 
       <Text style={[styles.label, { color: colors.textSecondary }]}>
         Description
@@ -217,5 +230,12 @@ const styles = StyleSheet.create({
   textArea: {
     minHeight: 100,
     textAlignVertical: 'top',
+  },
+  noteContainer: {
+    gap: 4,
+  },
+  noteText: {
+    fontSize: 13,
+    lineHeight: 18,
   },
 });

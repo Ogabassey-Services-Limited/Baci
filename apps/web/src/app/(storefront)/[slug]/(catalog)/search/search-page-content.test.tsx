@@ -139,9 +139,12 @@ describe('SearchPageContent', () => {
       numberOfItems: 20,
     });
     expect(collectionSchema?.mainEntity?.itemListElement).toHaveLength(20);
+    // Canonical URLs must preserve the stored `category_slug` verbatim.
+    // Remapping `phones` -> `smartphones` would cause a self-redirect loop
+    // in the product route (see buildProductUrl regression tests).
     expect(collectionSchema?.mainEntity?.itemListElement?.[0]).toMatchObject({
       item: {
-        url: 'https://shop.example.ng/smartphones/iphone-16',
+        url: 'https://shop.example.ng/phones/iphone-16',
       },
     });
 

@@ -29,16 +29,6 @@ function normalizeVariantImages(
   return normalized.length > 0 ? normalized : undefined;
 }
 
-function normalizeProductImageUrls(
-  productImages: ProductImageWriteInput[] | null | undefined
-): string[] | undefined {
-  const normalized = (productImages ?? [])
-    .map((image) => image?.url?.trim() ?? '')
-    .filter((image): image is string => image.length > 0);
-
-  return normalized.length > 0 ? normalized : undefined;
-}
-
 export function deriveProductVariantWriteProjections({
   fallbackColor,
   hasVariants,
@@ -53,7 +43,7 @@ export function deriveProductVariantWriteProjections({
 
   const resolvedVariantMedia = resolveProductVariantMedia({
     productColors: fallbackColor ? [fallbackColor] : undefined,
-    productImages: normalizeProductImageUrls(productImages),
+    productImages: productImages?.map((image) => image?.url ?? null),
     variants:
       variants?.map((variant) => ({
         attributes: variant.attributes ?? undefined,

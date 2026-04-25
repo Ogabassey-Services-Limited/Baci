@@ -4,7 +4,6 @@ import {
   toSchemaItemConditionUri,
 } from '@baci/shared/lib';
 import type { Metadata, Route } from 'next';
-import { normalizeStorefrontCategorySlug } from './normalize-storefront-category-slug';
 import type { Product, ProductSchemaMarkup, Review } from './products';
 // Import from sanitize-core to avoid loading jsdom on server components
 import { escapeHtml, stripHtmlTags } from './sanitize-core';
@@ -18,6 +17,24 @@ import type {
 
 // Re-export escapeHtml for use in other modules
 export { escapeHtml, getEffectiveProductStock };
+
+/**
+ * Lightly normalizes a category slug for use in canonical product paths.
+ *
+ * Unlike the storefront `normalizeStorefrontCategorySlug` helper, this does
+ * NOT remap legacy category aliases (e.g. `phones` -> `smartphones`).
+ * Canonical product URLs must match the merchant's stored `category_slug`
+ * exactly — otherwise the product route's `categoryMismatch` check (which
+ * compares the raw DB slug to the URL segment) will trigger a permanent
+ * redirect back to the normalized path, causing a self-redirect loop for
+ * merchants whose products still use the legacy slug values.
+ */
+function normalizeCanonicalCategorySlug(
+  slug: string | null | undefined
+): string | null {
+  const normalized = slug?.trim().toLowerCase();
+  return normalized ? normalized : null;
+}
 
 function getSchemaItemCondition(condition?: string | null) {
   return toSchemaItemConditionUri(condition);
@@ -97,21 +114,27 @@ export function buildProductUrl(
   category?: string | null | { name?: string; slug?: string },
   categorySlug?: string | null
 ): Route {
-  // Handle category as object (from join) or string (legacy)
+  // IMPORTANT: Canonical product paths must match the merchant's stored
+  // `category_slug` exactly (after lowercase/trim). The storefront product
+  // route compares the raw DB slug against the URL segment to detect
+  // category mismatches and issues a permanent redirect when they differ.
+  // Applying alias normalization here (e.g. `phones` -> `smartphones`) would
+  // produce URLs that trigger a mismatch every request, creating a
+  // self-redirect loop for legacy-slug products.
   if (typeof category === 'object' && category?.slug) {
-    const normalizedCategorySlug = normalizeStorefrontCategorySlug(
+    const normalizedCategorySlug = normalizeCanonicalCategorySlug(
       category.slug
     );
     if (normalizedCategorySlug) {
       return `/${normalizedCategorySlug}/${productSlug}` as Route;
     }
   }
-  const normalizedCategorySlug = normalizeStorefrontCategorySlug(categorySlug);
+  const normalizedCategorySlug = normalizeCanonicalCategorySlug(categorySlug);
   if (normalizedCategorySlug) {
     return `/${normalizedCategorySlug}/${productSlug}` as Route;
   }
   if (typeof category === 'string') {
-    const slug = normalizeStorefrontCategorySlug(generateSlug(category));
+    const slug = normalizeCanonicalCategorySlug(generateSlug(category));
     if (slug) {
       return `/${slug}/${productSlug}` as Route;
     }
@@ -258,6 +281,17 @@ function extractCanonicalProductPath(
       return null;
     }
 
+    // Do NOT apply alias normalization here. Merchant-authored canonical
+    // URLs must be returned as-is (after lowercasing) so the canonical
+    // matches the merchant's stored `category_slug`. Alias remapping would
+    // recreate the same self-redirect loop fixed in `buildProductUrl`.
+    const normalizedCategorySlug = normalizeCanonicalCategorySlug(
+      canonicalSegments[0]
+    );
+    if (normalizedCategorySlug) {
+      canonicalSegments[0] = normalizedCategorySlug;
+    }
+
     const [rootSegment, productSlug] = canonicalSegments;
     if (!productSlug) {
       return null;
@@ -279,7 +313,6 @@ function extractCanonicalProductPath(
       return `/products/${productSlug}` as Route;
     }
 
-    const normalizedCategorySlug = normalizeStorefrontCategorySlug(rootSegment);
     if (
       !normalizedCategorySlug ||
       NON_PRODUCT_CANONICAL_ROUTE_SEGMENTS.has(normalizedCategorySlug)

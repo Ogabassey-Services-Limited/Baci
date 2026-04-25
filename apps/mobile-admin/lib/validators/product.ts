@@ -3,6 +3,7 @@ import {
   inferProductVariantModel,
   normalizeCanonicalProductCondition,
   resolveDefaultVariantSelection,
+  resolveProductVariantMedia,
 } from '@baci/shared';
 import { z } from 'zod';
 import { EDITABLE_PRODUCT_CONDITIONS } from '@/lib/product-condition';
@@ -245,7 +246,7 @@ export const ProductDbSchema = ProductSchema.transform((data) => {
     variantModel === 'sku_matrix'
       ? resolveDefaultVariantSelection({
           price: rest.price,
-          manage_stock: true,
+          manage_stock: rest.manage_stock,
           variants: defaultSelectionVariants,
         })
       : null;
@@ -265,12 +266,30 @@ export const ProductDbSchema = ProductSchema.transform((data) => {
     variantModel === 'sku_matrix'
       ? (defaultSelection?.condition ?? persistedVariants[0]?.condition ?? null)
       : (rest.condition ?? null);
+  const normalizedParentColor = rest.color?.trim() || null;
+  const projectedVariantMedia = has_variants
+    ? resolveProductVariantMedia({
+        productColors: normalizedParentColor
+          ? [normalizedParentColor]
+          : undefined,
+        productImages: rest.images,
+        variants: persistedVariants.map((variant) => ({
+          attributes: variant.attributes,
+          images: variant.images,
+          primary_image: variant.primary_image,
+        })),
+      })
+    : null;
+  const nextColor = has_variants
+    ? (projectedVariantMedia?.colors?.[0] ?? normalizedParentColor)
+    : normalizedParentColor;
 
   return {
     ...rest,
+    color: nextColor,
     condition: nextCondition,
     has_variants,
-    manage_stock: has_variants ? true : rest.manage_stock,
+    manage_stock: rest.manage_stock,
     price: nextPrice,
     stock: nextStock,
     stock_quantity: nextStock,
