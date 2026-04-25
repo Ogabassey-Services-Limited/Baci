@@ -114,6 +114,7 @@ function NewOrderRetryState({
         {message}
       </Text>
       <Pressable
+        accessibilityRole="button"
         onPress={onRetry}
         style={{
           backgroundColor: colors.primary,
