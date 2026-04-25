@@ -234,17 +234,23 @@ describe('ReceiptModal', () => {
       const closeButton = screen.getByRole('button', {
         name: `Close ${label}`,
       });
+      const iframe = screen.getByTitle(
+        `${label === 'receipt' ? 'Receipt' : 'Invoice'} #ORD-001`
+      );
 
       expect(printButton).toHaveFocus();
 
       await user.tab();
       expect(closeButton).toHaveFocus();
+
+      await user.tab();
+      expect(iframe).toHaveFocus();
 
       await user.tab();
       expect(printButton).toHaveFocus();
 
       await user.keyboard('{Shift>}{Tab}{/Shift}');
-      expect(closeButton).toHaveFocus();
+      expect(iframe).toHaveFocus();
     }
   );
 

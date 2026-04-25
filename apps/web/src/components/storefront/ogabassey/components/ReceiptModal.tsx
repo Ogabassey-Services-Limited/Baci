@@ -10,7 +10,7 @@ import type React from 'react';
 import { useEffect, useId, useRef } from 'react';
 
 const FOCUSABLE_MODAL_SELECTOR =
-  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  'button:not([disabled]), iframe, [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 interface ReceiptModalProps {
   isOpen: boolean;
@@ -147,7 +147,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           <iframe
             ref={iframeRef}
             srcDoc={html}
-            tabIndex={-1}
+            tabIndex={0}
             title={`${documentTitle} #${orderData.order_number}`}
             className="w-full h-full border-0"
             style={{ minHeight: '500px' }}
