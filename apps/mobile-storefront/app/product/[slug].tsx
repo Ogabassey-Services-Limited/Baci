@@ -49,6 +49,7 @@ import { ProductImageGallery } from '@/components/product/ProductImageGallery';
 import { StickyBottomActions } from '@/components/product/StickyBottomActions';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS } from '@/constants/Colors';
+import { PLACEHOLDER_IMAGE_URL } from '@/constants/Images';
 import { useProduct } from '@/hooks';
 import { useEffectivePrice } from '@/hooks/use-effective-price';
 import { useHaptics } from '@/hooks/use-haptics';
@@ -270,7 +271,7 @@ export default function ProductDetailScreen() {
       ? product.images
       : product?.image
         ? [product.image]
-        : ['https://placehold.co/400x400/f3f4f6/9ca3af?text=No+Image'];
+        : [PLACEHOLDER_IMAGE_URL];
   const productImageColorMap = productVariantMetadata.imageColorMap ?? {};
   const resolvedColorImages =
     productVariantMetadata.colorImages ?? product?.color_images;

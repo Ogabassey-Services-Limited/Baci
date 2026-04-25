@@ -2,6 +2,32 @@ import { describe, expect, it } from '@jest/globals';
 import { resolveProductVariantMetadata } from './product-variant-metadata';
 
 describe('resolveProductVariantMetadata', () => {
+  it('returns an empty shape when no variant metadata is available', () => {
+    expect(
+      resolveProductVariantMetadata({
+        colorImages: {},
+        productImages: undefined,
+        productColors: undefined,
+        sourceVariantAttributes: undefined,
+        variants: [],
+      })
+    ).toEqual({});
+  });
+
+  it('ignores variants without attributes without throwing', () => {
+    expect(
+      resolveProductVariantMetadata({
+        variants: [
+          {
+            id: 'variant-without-attributes',
+            name: 'No attributes',
+            price: 100,
+          },
+        ],
+      })
+    ).toEqual({});
+  });
+
   it('unions imaged variant colors with metadata-only colors when both exist', () => {
     expect(
       resolveProductVariantMetadata({

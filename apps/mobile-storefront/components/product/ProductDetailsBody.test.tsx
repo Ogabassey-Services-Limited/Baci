@@ -82,11 +82,23 @@ describe('ProductDetailsBody', () => {
     const props = createProps();
     render(<ProductDetailsBody {...props} />);
 
-    fireEvent.press(screen.getByText('Make an Offer'));
+    fireEvent.press(screen.getByRole('button', { name: 'Make an Offer' }));
 
     expect(props.onOpenNegotiation).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('button', { name: 'Add to Cart' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'View Cart' })).toBeNull();
+  });
+
+  it('disables the offer CTA when the selected SKU cannot be purchased', () => {
+    const props = createProps({ canPurchase: false });
+    render(<ProductDetailsBody {...props} />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Make an Offer' }));
+
+    expect(props.onOpenNegotiation).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole('button', { name: 'Make an Offer' })
+    ).toBeDisabled();
   });
 
   it('hides the offer CTA once a negotiated price exists', () => {

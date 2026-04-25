@@ -56,6 +56,7 @@ export function ProductDetailsBody({
   effectivePrice,
   effectiveComparePrice,
   negotiatedPrice,
+  canPurchase,
   selectedVariant,
   setSelectedVariant,
   selectedCondition,
@@ -175,7 +176,19 @@ export function ProductDetailsBody({
       {/* Make an Offer Button */}
       {negotiatedPrice == null && (
         <Pressable
-          style={[styles.makeOfferButton, { borderColor: BRAND.primary }]}
+          accessibilityRole="button"
+          accessibilityHint={
+            canPurchase
+              ? 'Opens negotiation options for this product.'
+              : 'Select an available variant to make an offer.'
+          }
+          accessibilityState={{ disabled: !canPurchase }}
+          disabled={!canPurchase}
+          style={[
+            styles.makeOfferButton,
+            { borderColor: BRAND.primary },
+            !canPurchase && styles.disabledAction,
+          ]}
           onPress={onOpenNegotiation}
         >
           <Ionicons name="chatbubble-outline" size={16} color={BRAND.primary} />
@@ -422,6 +435,9 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderRadius: RADIUS.lg,
     marginBottom: 16,
+  },
+  disabledAction: {
+    opacity: 0.45,
   },
   makeOfferText: {
     fontSize: 14,

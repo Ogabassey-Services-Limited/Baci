@@ -2,6 +2,15 @@ import { describe, expect, it } from '@jest/globals';
 import { resolveVariantSelectionFromImage } from './product-image-selection';
 
 describe('resolveVariantSelectionFromImage', () => {
+  it('returns null when the tapped image is empty', () => {
+    expect(
+      resolveVariantSelectionFromImage({
+        imageUrl: '  ',
+        variants: [],
+      })
+    ).toBeNull();
+  });
+
   it('returns null when the tapped image does not match any variant', () => {
     expect(
       resolveVariantSelectionFromImage({
@@ -102,6 +111,42 @@ describe('resolveVariantSelectionFromImage', () => {
     ).toEqual({
       color: 'Gold',
       variantId: 'used-gold-256',
+    });
+  });
+
+  it('matches legacy colour attributes when filtering by selected attributes', () => {
+    expect(
+      resolveVariantSelectionFromImage({
+        imageUrl: 'https://cdn.example.com/i11pm-crimson.jpg',
+        selectedAttributes: { colour: 'Crimson' },
+        variants: [
+          {
+            id: 'used-crimson-64',
+            condition: 'used',
+            price: 470000,
+            price_override: 470000,
+            stock_quantity: 2,
+            image: 'https://cdn.example.com/i11pm-crimson.jpg',
+            images: ['https://cdn.example.com/i11pm-crimson.jpg'],
+            attributes: { colour: 'Crimson', storage: '64GB' },
+            name: '64GB Crimson',
+          },
+          {
+            id: 'used-green-64',
+            condition: 'used',
+            price: 470000,
+            price_override: 470000,
+            stock_quantity: 2,
+            image: 'https://cdn.example.com/i11pm-crimson.jpg',
+            images: ['https://cdn.example.com/i11pm-crimson.jpg'],
+            attributes: { colour: 'Forest Green', storage: '64GB' },
+            name: '64GB Forest Green',
+          },
+        ],
+      })
+    ).toEqual({
+      color: 'Crimson',
+      variantId: 'used-crimson-64',
     });
   });
 

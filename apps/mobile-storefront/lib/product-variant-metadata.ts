@@ -54,8 +54,7 @@ function getVariantColors(variants: ProductVariant[] | null | undefined) {
 
   for (const variant of variants ?? []) {
     const color =
-      variant.attributes?.color?.trim() ||
-      variant.attributes?.colour?.trim();
+      variant.attributes?.color?.trim() || variant.attributes?.colour?.trim();
     if (color) {
       variantColors.add(color);
     }
@@ -97,9 +96,7 @@ export function resolveProductVariantMetadata({
   // colors have dedicated images and others do not.
   const colors =
     imagedColors.length > 0
-      ? Array.from(
-          new Set([...imagedColors, ...variantColors, ...fallbackColors])
-        )
+      ? Array.from(new Set([...fallbackColors, ...variantColors]))
       : variantColors.length > 0
         ? Array.from(new Set([...variantColors, ...fallbackColors]))
         : fallbackColors.length > 0

@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 function toFiniteNumber(value: unknown) {
   if (typeof value === 'number') {
-    return Number.isFinite(value) ? value : value;
+    return Number.isFinite(value) ? value : Number.NaN;
   }
 
   if (typeof value === 'string') {

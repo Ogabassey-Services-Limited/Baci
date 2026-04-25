@@ -1,4 +1,4 @@
-const INTERNAL_SELECTION_AXIS_VALUES = [
+export const INTERNAL_SELECTION_AXIS_VALUES = [
   'color',
   'colour',
   'storage',
@@ -10,13 +10,21 @@ export const INTERNAL_SELECTION_AXES = new Set<string>(
   INTERNAL_SELECTION_AXIS_VALUES
 );
 
-export function isInternalSelectionAxis(axis: string): boolean {
+export function isInternalSelectionAxis(axis: unknown): boolean {
+  if (typeof axis !== 'string') {
+    return false;
+  }
+
   return INTERNAL_SELECTION_AXES.has(axis);
 }
 
-export function stripInternalSelectionAxes(
-  attributes: Record<string, string>
-): Record<string, string> {
+export function stripInternalSelectionAxes<T>(
+  attributes: Record<string, T> | null | undefined
+): Record<string, T> {
+  if (!attributes) {
+    return {};
+  }
+
   return Object.fromEntries(
     Object.entries(attributes).filter(
       ([axis]) => !isInternalSelectionAxis(axis)

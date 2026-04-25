@@ -87,18 +87,19 @@ export function resolveVariantSelectionFromImage({
     return null;
   }
 
-  const requestedAttributes = Object.fromEntries(
-    Object.entries({
-      ...Object.fromEntries(
-        Object.entries(selectedAttributes ?? {}).filter(
-          ([axis]) => !isInternalSelectionAxis(axis)
-        )
-      ),
-      ...(selectedStorage ? { storage: selectedStorage } : {}),
-    }).filter(
-      (entry): entry is [string, string] => normalizeValue(entry[1]).length > 0
-    )
+  const requestedAttributes: Record<string, string> = Object.fromEntries(
+    Object.entries(selectedAttributes ?? {})
+      .filter(([axis]) => !isInternalSelectionAxis(axis))
+      .filter((entry): entry is [string, string] => {
+        const [, value] = entry;
+        return normalizeValue(value).length > 0;
+      })
   );
+
+  const normalizedStorage = normalizeValue(selectedStorage);
+  if (normalizedStorage.length > 0) {
+    requestedAttributes.storage = normalizedStorage;
+  }
 
   const exactAttributeMatches =
     Object.keys(requestedAttributes).length > 0
@@ -109,19 +110,18 @@ export function resolveVariantSelectionFromImage({
 
   const normalizedSelectedCondition =
     normalizeCanonicalProductCondition(selectedCondition);
-  const conditionMatches =
-    normalizedSelectedCondition &&
-    exactAttributeMatches.some(
+  let conditionMatches = exactAttributeMatches;
+  if (normalizedSelectedCondition) {
+    const filteredConditionMatches = exactAttributeMatches.filter(
       (variant) =>
         normalizeCanonicalProductCondition(variant.condition) ===
         normalizedSelectedCondition
-    )
-      ? exactAttributeMatches.filter(
-          (variant) =>
-            normalizeCanonicalProductCondition(variant.condition) ===
-            normalizedSelectedCondition
-        )
-      : exactAttributeMatches;
+    );
+
+    if (filteredConditionMatches.length > 0) {
+      conditionMatches = filteredConditionMatches;
+    }
+  }
 
   // Prefer purchasable candidates at each narrowing level so a shared image
   // that maps to both in-stock and out-of-stock rows never routes the shopper
