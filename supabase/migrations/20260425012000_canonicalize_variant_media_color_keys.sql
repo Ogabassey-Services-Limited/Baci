@@ -138,10 +138,7 @@ BEGIN
   UPDATE public.products
   SET
     color_images = projected_color_images,
-    color = CASE
-      WHEN projected_color IS NOT NULL THEN projected_color
-      ELSE color
-    END,
+    color = COALESCE(projected_color, color),
     updated_at = timezone('utc', now())
   WHERE id = p_product_id
     AND has_variants = TRUE
@@ -158,3 +155,28 @@ $$;
 REVOKE ALL
 ON FUNCTION public.refresh_product_variant_media_projection(UUID)
 FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION public.clear_product_variant_media_projection_on_disable()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+BEGIN
+  IF OLD.has_variants = TRUE AND NEW.has_variants = FALSE THEN
+    NEW.color_images = '{}'::jsonb;
+    -- Keep NEW.color unchanged. If the merchant supplies an authored simple
+    -- color in the same update, clearing it here would drop valid data.
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS clear_product_variant_media_projection_on_products
+  ON public.products;
+
+CREATE TRIGGER clear_product_variant_media_projection_on_products
+BEFORE UPDATE OF has_variants
+ON public.products
+FOR EACH ROW
+EXECUTE FUNCTION public.clear_product_variant_media_projection_on_disable();

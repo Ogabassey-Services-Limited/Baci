@@ -36,6 +36,59 @@ describe('product selection', () => {
     expect(result.effectiveSelectedVariantId).toBe(expectedDefault.id);
   });
 
+  it('seeds the initial condition from the purchasable default variant', () => {
+    const product: Product = {
+      ...variantProduct,
+      variants: [
+        {
+          id: 'variant-used-sold-out',
+          name: '128GB WiFi Used',
+          condition: 'used',
+          price: 500000,
+          stock_quantity: 0,
+          attributes: {
+            storage: '128GB',
+            connectivity: 'WiFi',
+          },
+        },
+        {
+          id: 'variant-new-in-stock',
+          name: '128GB WiFi New',
+          condition: 'new',
+          price: 552000,
+          stock_quantity: 5,
+          attributes: {
+            storage: '128GB',
+            connectivity: 'WiFi',
+          },
+        },
+      ],
+    };
+    const defaultVariantSelection = resolveDefaultVariantSelection(product);
+
+    const result = computeProductSelectionState({
+      defaultVariantSelection,
+      product,
+      routeCondition: null,
+      routeSelectionAttributes: {},
+      routeVariantId: null,
+      selectedAttributes: {},
+      selectedColor: null,
+      selectedCondition: null,
+      selectedStorage: null,
+      selectedVariant: null,
+    });
+
+    expect(result.availableConditions).toEqual(['used', 'new']);
+    expect(result.fallbackSelectedCondition).toBe('new');
+    expect(result.currentVariantDisplaySelection?.variant.id).toBe(
+      'variant-new-in-stock'
+    );
+    expect(result.currentVariantSelection?.variant.id).toBe(
+      'variant-new-in-stock'
+    );
+  });
+
   it('returns empty selection state when product is null', () => {
     const result = computeProductSelectionState({
       defaultVariantSelection: null,

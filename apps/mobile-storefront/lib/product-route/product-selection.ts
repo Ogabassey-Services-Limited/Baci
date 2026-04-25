@@ -81,8 +81,12 @@ export function computeProductSelectionState({
           )
         )
     : [];
+  const defaultSelectionCondition = normalizeRouteCondition(
+    defaultVariantSelection?.condition
+  );
   const fallbackSelectedCondition =
     routeCondition ??
+    defaultSelectionCondition ??
     availableConditions[0] ??
     normalizeRouteCondition(product?.condition);
   const selectionAttributes = {

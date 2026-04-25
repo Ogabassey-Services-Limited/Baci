@@ -4,8 +4,6 @@ import {
   sortCanonicalProductConditionsByPreference,
 } from './product-condition';
 
-const UNKNOWN_CONDITION_RANK = Number.MAX_SAFE_INTEGER;
-
 export interface ProductDefaultVariantLike {
   id: string;
   attributes?: Record<string, string> | null;
@@ -116,11 +114,7 @@ function getVariantCondition<TVariant extends ProductDefaultVariantLike>(
 }
 
 function getConditionPreferenceRank(condition: string) {
-  const normalized = normalizeConditionValue(condition);
-  if (!normalized) {
-    return UNKNOWN_CONDITION_RANK;
-  }
-  return getCanonicalProductConditionPreferenceRank(normalized);
+  return getCanonicalProductConditionPreferenceRank(condition);
 }
 
 export function hasVariantConditionAxis<
