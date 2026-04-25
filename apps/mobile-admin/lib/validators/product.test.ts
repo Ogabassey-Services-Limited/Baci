@@ -157,7 +157,7 @@ describe('ProductDbSchema', () => {
     expect(parsed.stock_quantity).toBe(6);
     expect(parsed.stock).toBe(6);
     expect(parsed.manage_stock).toBe(false);
-    expect(parsed.color).toBe('Black');
+    expect(parsed.color).toBeNull();
     expect(parsed.variant_attributes).toEqual({
       color: ['Black', 'Silver'],
       storage: ['128GB', '256GB'],
@@ -288,7 +288,7 @@ describe('ProductDbSchema', () => {
     ]);
   });
 
-  it('uses the default sku_matrix variant color for the parent projection', () => {
+  it('uses the first variant media color for the parent projection', () => {
     const parsed = ProductDbSchema.parse({
       name: 'iPhone 15 Pro',
       sku: 'IP15PRO',
@@ -304,26 +304,28 @@ describe('ProductDbSchema', () => {
         {
           attributes: [
             { key: 'storage', value: '128GB' },
-            { key: 'color', value: 'Black' },
-          ],
-          condition: 'used',
-          price: 800000,
-          stock_quantity: 3,
-        },
-        {
-          attributes: [
-            { key: 'storage', value: '128GB' },
             { key: 'color', value: 'Natural Titanium' },
           ],
           condition: 'new',
           price: 900000,
+          primary_image: 'https://cdn.example.com/natural.jpg',
           stock_quantity: 2,
+        },
+        {
+          attributes: [
+            { key: 'storage', value: '128GB' },
+            { key: 'color', value: 'Black' },
+          ],
+          condition: 'used',
+          price: 800000,
+          primary_image: 'https://cdn.example.com/black.jpg',
+          stock_quantity: 3,
         },
       ],
     });
 
     expect(parsed.condition).toBe('used');
-    expect(parsed.color).toBe('Black');
+    expect(parsed.color).toBe('Natural Titanium');
     expect(parsed.price).toBe(800000);
   });
 
@@ -347,6 +349,7 @@ describe('ProductDbSchema', () => {
           ],
           condition: 'used',
           price: 800000,
+          primary_image: 'https://cdn.example.com/black.jpg',
           stock_quantity: 3,
         },
         {
@@ -356,6 +359,7 @@ describe('ProductDbSchema', () => {
           ],
           condition: 'new',
           price: 900000,
+          primary_image: 'https://cdn.example.com/natural.jpg',
           stock_quantity: 2,
         },
       ],

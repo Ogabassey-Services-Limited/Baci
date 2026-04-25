@@ -3,6 +3,7 @@ import {
   inferProductVariantModel,
   normalizeCanonicalProductCondition,
   resolveDefaultVariantSelection,
+  resolveProductVariantMedia,
 } from '@baci/shared';
 import { z } from 'zod';
 import { EDITABLE_PRODUCT_CONDITIONS } from '@/lib/product-condition';
@@ -13,7 +14,6 @@ import {
   getTotalVariantStock,
 } from '@/lib/product-variant-form';
 import { sanitizeText, stripHtmlTags } from '@/lib/sanitize';
-import { readVariantColor } from '@/lib/validators/product-variant-color';
 
 const variantAttributeSchema = z.object({
   key: z.string(),
@@ -266,13 +266,23 @@ export const ProductDbSchema = ProductSchema.transform((data) => {
     variantModel === 'sku_matrix'
       ? (defaultSelection?.condition ?? persistedVariants[0]?.condition ?? null)
       : (rest.condition ?? null);
+  const normalizedParentColor = rest.color?.trim() || null;
+  const projectedVariantMedia = has_variants
+    ? resolveProductVariantMedia({
+        productColors: normalizedParentColor
+          ? [normalizedParentColor]
+          : undefined,
+        productImages: rest.images,
+        variants: persistedVariants.map((variant) => ({
+          attributes: variant.attributes,
+          images: variant.images,
+          primary_image: variant.primary_image,
+        })),
+      })
+    : null;
   const nextColor = has_variants
-    ? (readVariantColor(defaultSelection?.variant.attributes) ??
-      persistedVariants
-        .map((variant) => readVariantColor(variant.attributes))
-        .find((value): value is string => value !== null) ??
-      (rest.color?.trim() || null))
-    : rest.color?.trim() || null;
+    ? (projectedVariantMedia?.colors?.[0] ?? normalizedParentColor)
+    : normalizedParentColor;
 
   return {
     ...rest,
