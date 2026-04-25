@@ -1,21 +1,9 @@
 import 'dotenv/config';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
-
-type ServiceModule = typeof import('../lib/supabase/service') & {
-  default?: typeof import('../lib/supabase/service');
-};
-type ImportJobModule = typeof import('../lib/import-jobs/process-import-job') & {
-  default?: typeof import('../lib/import-jobs/process-import-job');
-};
-
-function readImportJobBatchSize() {
-  const parsed = Number.parseInt(
-    process.env.IMPORT_JOB_WORKER_BATCH_SIZE || '',
-    10
-  );
-  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 3;
-}
+import { getImportJobWorkerBatchSize } from '@/env';
+import { processImportJobQueue } from '@/lib/import-jobs/process-import-job';
+import { createServiceClient } from '@/lib/supabase/service';
 
 function summarizeResults(results: Record<string, unknown>[]) {
   const statusCounts = results.reduce<Record<string, number>>(
@@ -35,24 +23,9 @@ function summarizeResults(results: Record<string, unknown>[]) {
 }
 
 export async function runProcessImportJobsCli(): Promise<number> {
-  const serviceModule = (await import('../lib/supabase/service')) as ServiceModule;
-  const importJobModule = (await import(
-    '../lib/import-jobs/process-import-job'
-  )) as ImportJobModule;
-  const createServiceClient =
-    serviceModule.createServiceClient ??
-    serviceModule.default?.createServiceClient;
-  const processImportJobQueue =
-    importJobModule.processImportJobQueue ??
-    importJobModule.default?.processImportJobQueue;
-
-  if (!createServiceClient || !processImportJobQueue) {
-    throw new Error('Failed to load import job worker dependencies');
-  }
-
   const results = await processImportJobQueue(
     createServiceClient(),
-    readImportJobBatchSize()
+    getImportJobWorkerBatchSize()
   );
   const summary = summarizeResults(results);
 

@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { sanitizeText } from '@/lib/sanitize-core';
 import type { JumiaOrder, JumiaOrderItem } from '@/schemas/jumia';
 
@@ -24,6 +25,17 @@ export interface ExistingOrderRow {
   id: string;
   external_id: string | null;
   tracking_token: string | null;
+}
+
+/**
+ * Generates an opaque, URL-safe tracking token from 24 random bytes.
+ *
+ * The returned base64url string carries 192 bits of entropy and is intended
+ * for non-guessable order tracking identifiers. It does not encode sensitive
+ * data and should not be parsed for business meaning.
+ */
+export function buildTrackingToken(): string {
+  return randomBytes(24).toString('base64url');
 }
 
 export function readOrderSyncEnabled(syncConfig: unknown): boolean {

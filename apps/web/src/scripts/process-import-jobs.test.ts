@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   createServiceClient: vi.fn(),
+  getImportJobWorkerBatchSize: vi.fn(),
   processImportJobQueue: vi.fn(),
 }));
 
@@ -13,12 +14,24 @@ vi.mock('../lib/import-jobs/process-import-job', () => ({
   processImportJobQueue: mocks.processImportJobQueue,
 }));
 
+vi.mock('@/lib/supabase/service', () => ({
+  createServiceClient: mocks.createServiceClient,
+}));
+
+vi.mock('@/lib/import-jobs/process-import-job', () => ({
+  processImportJobQueue: mocks.processImportJobQueue,
+}));
+
+vi.mock('@/env', () => ({
+  getImportJobWorkerBatchSize: mocks.getImportJobWorkerBatchSize,
+}));
+
 import { runProcessImportJobsCli } from './process-import-jobs';
 
 describe('runProcessImportJobsCli', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    delete process.env.IMPORT_JOB_WORKER_BATCH_SIZE;
+    mocks.getImportJobWorkerBatchSize.mockReturnValue(3);
   });
 
   afterEach(() => {
@@ -48,7 +61,7 @@ describe('runProcessImportJobsCli', () => {
   });
 
   it('uses a configured batch size and returns non-zero when a job fails', async () => {
-    process.env.IMPORT_JOB_WORKER_BATCH_SIZE = '7';
+    mocks.getImportJobWorkerBatchSize.mockReturnValue(7);
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     mocks.createServiceClient.mockReturnValue({ service: true });
     mocks.processImportJobQueue.mockResolvedValue([

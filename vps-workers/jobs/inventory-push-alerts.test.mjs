@@ -149,6 +149,32 @@ describe('inventory-push-alerts worker', () => {
     assert.deepEqual(supabase.updates, [{ notification_attempts: 1 }]);
   });
 
+  it('records token fetch errors instead of marking alerts processed', async () => {
+    const supabase = createInventorySupabase({ alerts: [baseAlert] });
+
+    const summary = await runInventoryPushAlerts({
+      supabase,
+      expo: {},
+      logger: createLogger(),
+      notify: () =>
+        Promise.resolve({
+          sent: 0,
+          failed: 0,
+          errors: ['Push token lookup failed'],
+        }),
+    });
+
+    assert.deepEqual(summary, {
+      total: 1,
+      sent: 0,
+      skippedNoTokens: 0,
+      failed: 1,
+      partialFailures: 0,
+      updateFailures: 0,
+    });
+    assert.deepEqual(supabase.updates, [{ notification_attempts: 1 }]);
+  });
+
   it('marks failed alerts processed after the retry cap', async () => {
     const supabase = createInventorySupabase({
       alerts: [{ ...baseAlert, notification_attempts: 2 }],

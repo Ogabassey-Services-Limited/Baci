@@ -146,7 +146,10 @@ export async function runInventoryPushAlerts({
         channelId: 'stock',
       });
 
-      if (result.sent === 0 && result.failed > 0) {
+      if (
+        result.sent === 0 &&
+        (result.errors?.length > 0 || result.failed > 0)
+      ) {
         failedCount++;
         const failureUpdate = await recordAlertNotificationFailure({
           supabase,
@@ -196,13 +199,13 @@ export async function runInventoryPushAlerts({
         continue;
       }
 
-      if (result.failed > 0) {
+      if (result.failed > 0 || result.errors?.length > 0) {
         partialFailures++;
         logger.warn(
           '[inventory-push-alerts] Alert notification had partial push failures:',
           alert.id,
           alert.merchant_id,
-          { sent: result.sent, failed: result.failed }
+          { sent: result.sent, failed: result.failed, errors: result.errors }
         );
       }
 

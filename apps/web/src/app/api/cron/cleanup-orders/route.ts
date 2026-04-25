@@ -1,13 +1,14 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { getCronSecret } from '@/env';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
-import { createServiceClient } from '@/lib/supabase/service';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 // Cron job to clean up abandoned/unpaid orders
-// Runs daily via Vercel Cron
+// Manual fallback only - DO NOT re-enable Vercel Cron for this route.
+// Scheduled execution lives in vps-workers; keep CRON_SECRET gating intact.
 export async function GET(request: NextRequest) {
   try {
-    // Verify authentication from Vercel Cron
+    // Verify authentication for manual fallback invocation.
     const authHeader = request.headers.get('authorization');
     const cronSecret = getCronSecret();
 
@@ -21,8 +22,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Use service client to bypass RLS
-    const supabase = createServiceClient();
+    // Use admin client to bypass RLS
+    const supabase = createAdminClient();
 
     // Call the RPC function to mark abandoned orders (default 72 hours)
     // We can override the threshold if needed, e.g., { hours_threshold: 48 }

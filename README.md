@@ -16,6 +16,9 @@ Baci is an AI-native platform that allows merchants to create complete e-commerc
 - **[Migration Guide](docs/guides/MIGRATION_TESTING_GUIDE.md)**: Database and AI migration steps.
 - **[Domain Setup](docs/guides/DOMAIN_SETUP.md)**: Configuring custom domains.
 
+### Operations
+- **[VPS Workers Runbook](docs/ops/vps-workers.md)**: Production background job schedules and manual cron fallbacks.
+
 ### AI System
 - **[AI Context](docs/ai/AI_CONTEXT.md)**: Deep dive into the AI flows.
 - **[Google AI Setup](docs/ai/GOOGLE_AI_SETUP.md)**: Configuring Gemini.

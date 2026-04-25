@@ -6,6 +6,8 @@ import { processImportJobQueue } from '@/lib/import-jobs/process-import-job';
 import { logger } from '@/lib/logger';
 import { createServiceClient } from '@/lib/supabase/service';
 
+// Manual fallback only - DO NOT re-enable Vercel Cron for this route.
+// Scheduled execution lives in vps-workers/bin/process-import-jobs.sh; keep CRON_SECRET gating intact.
 export const maxDuration = 300;
 
 function hasValidCronSecret(request: Request) {

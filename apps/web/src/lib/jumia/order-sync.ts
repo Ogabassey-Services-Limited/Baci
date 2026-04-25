@@ -1,5 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { nanoid } from 'nanoid';
 import { notifyMerchant } from '@/lib/expo-push';
 import { JumiaClient } from '@/lib/jumia/client';
 import type { JumiaOrderSyncResult } from '@/lib/jumia/order-sync-result';
@@ -11,6 +10,7 @@ import {
   buildJumiaCacheRow,
   buildJumiaOrderNumber,
   buildOrderItems,
+  buildTrackingToken,
   type ExistingJumiaOrderRow,
   type ExistingOrderRow,
   getCustomerName,
@@ -19,6 +19,8 @@ import {
   type MarketplaceIntegrationRow,
   readOrderSyncEnabled,
 } from './order-sync-mappers';
+
+const JUMIA_ORDER_SYNC_ROUTE = 'jumia/order-sync';
 
 async function loadExistingJumiaOrders(
   supabase: SupabaseClient,
@@ -70,7 +72,7 @@ async function upsertCanonicalOrder(
   const payload = buildCanonicalJumiaOrderPayload(
     integration,
     order,
-    existing?.tracking_token || nanoid(32)
+    existing?.tracking_token || buildTrackingToken()
   );
   let persistedOrder = existing;
 
@@ -289,10 +291,30 @@ export async function syncJumiaOrdersForActiveIntegrations(
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       result.errors.push(`${integration.merchant_id}: ${message}`);
-      await supabase
+      logger.error({
+        message: 'Jumia order sync failed',
+        error,
+        integrationId: integration.id,
+        merchant_id: integration.merchant_id,
+        route: JUMIA_ORDER_SYNC_ROUTE,
+        sync_error: message,
+      });
+      const { error: syncErrorUpdateError } = await supabase
         .from('marketplace_integrations')
         .update({ sync_error: message })
         .eq('id', integration.id);
+      if (syncErrorUpdateError) {
+        const syncErrorMessage = `Failed to persist Jumia sync error for ${integration.merchant_id}: ${syncErrorUpdateError.message}`;
+        result.errors.push(syncErrorMessage);
+        logger.error({
+          message: 'Failed to persist Jumia sync error',
+          error: syncErrorUpdateError,
+          integrationId: integration.id,
+          merchant_id: integration.merchant_id,
+          route: JUMIA_ORDER_SYNC_ROUTE,
+          sync_error_update_error: syncErrorUpdateError.message,
+        });
+      }
     }
   }
 

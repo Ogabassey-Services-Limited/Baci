@@ -7,11 +7,12 @@ import { sendEmail } from '@/lib/zeptomail';
 /**
  * POST /api/cron/process-settlements
  *
- * Daily cron job to:
+ * Manual fallback only - DO NOT re-enable Vercel Cron for this route.
+ * Scheduled execution lives in vps-workers; keep CRON_SECRET gating intact.
+ *
+ * Daily settlement job to:
  * 1. Process settlements that have reached their expected date
  * 2. Send notifications to merchants about new settlements
- *
- * Called by Vercel Cron or external scheduler (e.g., daily at 6 AM)
  *
  * Security: Requires CRON_SECRET header
  */

@@ -3,6 +3,8 @@ import { getCronSecret } from '@/env';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { createAdminClient } from '@/lib/supabase/admin';
 
+// Manual fallback only - DO NOT re-enable Vercel Cron for this route.
+// Scheduled execution lives in vps-workers; keep CRON_SECRET gating intact.
 export async function GET(request: NextRequest) {
   const cronSecret = getCronSecret();
   if (!cronSecret) {

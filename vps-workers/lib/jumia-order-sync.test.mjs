@@ -54,6 +54,7 @@ describe('Jumia worker order sync', () => {
       canonicalCreated: 0,
       canonicalUpdated: 0,
       notified: 0,
+      orderErrors: 0,
       errors: [],
     });
   });
@@ -154,6 +155,7 @@ describe('Jumia worker order sync', () => {
       canonicalCreated: 1,
       canonicalUpdated: 0,
       notified: 0,
+      orderErrors: 0,
       errors: [],
     });
     const ordersWrite = writes.find((write) => write.table === 'orders');
@@ -172,6 +174,80 @@ describe('Jumia worker order sync', () => {
     );
     assert.equal(syncCursorWrite.payload.sync_error, null);
     supabase.assertQueuesEmpty();
+  });
+
+  it('records per-order errors without advancing the cursor when item fetch fails', async () => {
+    const integration = {
+      id: 'integration-1',
+      merchant_id: 'merchant-1',
+      shop_id: 'shop-1',
+      access_token: 'access-1',
+      refresh_token: 'refresh-1',
+      token_expires_at: '2999-01-01T00:00:00.000Z',
+      last_sync_at: null,
+      sync_config: { orders: true },
+    };
+    const order = {
+      id: 'order-1',
+      number: '12345',
+      status: 'ready_to_ship',
+      totalAmount: { currency: 'NGN', value: 250000 },
+      shippingAddress: {
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+        address: '10 Jumia Road',
+        city: 'Lagos',
+        postalCode: '100001',
+        ward: 'Ikeja',
+        region: 'Lagos',
+        countryName: 'Nigeria',
+      },
+      createdAt: '2026-04-25T08:01:00.000Z',
+      updatedAt: '2026-04-25T08:02:00.000Z',
+    };
+    const writes = [];
+    const supabase = createHappyPathSupabase({
+      integration,
+      persistedOrder: {
+        id: 'baci-order-1',
+        external_id: 'order-1',
+        tracking_token: 'tracking-token',
+      },
+      writes,
+    });
+
+    globalThis.fetch = (url, init) => {
+      assert.equal(init.method, 'GET');
+      assert.equal(init.headers.Authorization, 'Bearer access-1');
+      const parsedUrl = new URL(url);
+      if (parsedUrl.pathname === '/orders') {
+        return Promise.resolve(
+          Response.json({ orders: [order], isLastPage: true })
+        );
+      }
+      if (parsedUrl.pathname === '/orders/items') {
+        return Promise.resolve(
+          Response.json({ error: 'Jumia unavailable' }, { status: 503 })
+        );
+      }
+      throw new Error(`Unexpected Jumia URL: ${url}`);
+    };
+
+    const result = await syncJumiaOrdersForActiveIntegrations({
+      supabase,
+      expo: {},
+    });
+
+    assert.equal(result.orderErrors, 1);
+    assert.equal(result.synced, 0);
+    assert.match(result.errors.join('\n'), /merchant-1\/order-1/);
+    const syncCursorWrite = writes.find(
+      (write) => write.table === 'marketplace_integrations'
+    );
+    assert.equal(syncCursorWrite.payload.last_sync_at, undefined);
+    assert.match(syncCursorWrite.payload.sync_error, /cursor not advanced/);
+    // This failure path intentionally stops before canonical writes, so the
+    // happy-path mock keeps its later write queues unused.
   });
 });
 

@@ -218,14 +218,23 @@ export async function getOrders(
   // but we map them.
   let jumiaOrders: JumiaOrder[] = [];
   if (!filters.paymentStatus && !filters.shippingStatus) {
-    const { data: jOrders } = await supabase
+    const { data: jOrders, error: jumiaOrdersError } = await supabase
       .from('jumia_orders')
       .select(
         'status, jumia_order_id, jumia_order_number, customer_name, total_amount, created_at_jumia, items'
       )
       .eq('merchant_id', merchantId)
       .order('created_at_jumia', { ascending: false });
-    jumiaOrders = jOrders || [];
+    if (jumiaOrdersError) {
+      logger.error({
+        message: 'Error fetching legacy Jumia orders',
+        error: jumiaOrdersError,
+        merchantId,
+        route: 'dashboard/orders/getOrders',
+      });
+    } else {
+      jumiaOrders = jOrders || [];
+    }
   }
 
   const orders = (ordersData || []) as unknown as DashboardOrderRecord[];

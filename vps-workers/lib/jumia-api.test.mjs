@@ -52,6 +52,14 @@ describe('Jumia worker API client', () => {
       refreshAccessToken({}, { refresh_token: '' }),
       /Refresh token is missing/
     );
+    await assert.rejects(
+      refreshAccessToken({}, {}),
+      /Refresh token is missing/
+    );
+    await assert.rejects(
+      refreshAccessToken({}, { refresh_token: null }),
+      /Refresh token is missing/
+    );
   });
 
   it('persists refreshed tokens returned by Jumia', async () => {

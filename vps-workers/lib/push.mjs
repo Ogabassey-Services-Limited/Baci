@@ -169,9 +169,16 @@ async function processTickets(supabase, tickets, tokens, context) {
   }
 
   if (tokensToDeactivate.length > 0) {
-    const { error } = await supabase
+    let tokenUpdateQuery = supabase
       .from('push_tokens')
-      .update({ is_active: false })
+      .update({ is_active: false });
+    tokenUpdateQuery =
+      context.merchantId == null
+        ? tokenUpdateQuery.is('merchant_id', null)
+        : tokenUpdateQuery.eq('merchant_id', context.merchantId);
+
+    const { error } = await tokenUpdateQuery
+      .eq('app_type', context.appType ?? 'admin')
       .in('token', tokensToDeactivate);
     if (error) errors.push(`Token deactivation failed: ${error.message}`);
   }
@@ -190,6 +197,11 @@ async function processTickets(supabase, tickets, tokens, context) {
   return { sent, failed, errors };
 }
 
+/**
+ * Sends an admin push notification and records one push attempt.
+ * Returns string errors so callers can distinguish transport failures from the
+ * no-token path, which always returns an empty errors array.
+ */
 export async function notifyMerchant({
   supabase,
   expo,
@@ -249,9 +261,33 @@ export async function notifyMerchant({
     priority: channelId === 'orders' ? 'high' : 'default',
   }));
 
+  let tickets;
+  try {
+    tickets = await sendPushNotifications(expo, messages);
+  } catch (error) {
+    const result = {
+      sent: 0,
+      failed: tokens.length,
+      errors: [
+        error instanceof Error ? error.message : 'Unknown push send error',
+      ],
+    };
+    await recordPushAttempt(supabase, {
+      merchantId,
+      appType: 'admin',
+      channel: channelId,
+      notificationType,
+      title,
+      body,
+      payload: data,
+      tokenCount: tokens.length,
+      result,
+    });
+    return result;
+  }
+
   let result;
   try {
-    const tickets = await sendPushNotifications(expo, messages);
     result = await processTickets(supabase, tickets, tokens, {
       merchantId,
       appType: 'admin',
@@ -259,11 +295,16 @@ export async function notifyMerchant({
       notificationType,
     });
   } catch (error) {
+    const sentCount = tickets.filter(
+      (ticket) => ticket?.status === 'ok'
+    ).length;
     result = {
-      sent: 0,
-      failed: tokens.length,
+      sent: sentCount,
+      failed: tickets.length - sentCount,
       errors: [
-        error instanceof Error ? error.message : 'Unknown push send error',
+        error instanceof Error
+          ? error.message
+          : 'Unknown push ticket processing error',
       ],
     };
   }

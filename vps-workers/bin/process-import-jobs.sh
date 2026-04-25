@@ -18,6 +18,22 @@ else
 fi
 
 ENV_FILE="${BACI_WORKER_ENV:-$HOME/baci-workers/.env}"
+case "$ENV_FILE" in
+  /*) ;;
+  \~|\~/*) ENV_FILE="${ENV_FILE/#\~/$HOME}" ;;
+  \~*)
+    ENV_USER="${ENV_FILE#\~}"
+    ENV_USER="${ENV_USER%%/*}"
+    ENV_USER_HOME="$(getent passwd "$ENV_USER" | cut -d: -f6 || true)"
+    if [ -z "$ENV_USER_HOME" ]; then
+      echo "[process-import-jobs] Unable to resolve home directory for env file user: $ENV_USER" >&2
+      exit 1
+    fi
+    ENV_USER_PREFIX="~$ENV_USER"
+    ENV_FILE="${ENV_USER_HOME}${ENV_FILE#"$ENV_USER_PREFIX"}"
+    ;;
+  *) ENV_FILE="$PWD/$ENV_FILE" ;;
+esac
 
 if [ ! -d "$REPO_DIR/apps/web" ]; then
   echo "[process-import-jobs] Missing Baci checkout: $REPO_DIR" >&2
@@ -38,4 +54,9 @@ export NODE_ENV
 export DOTENV_CONFIG_PATH="$ENV_FILE"
 
 cd "$REPO_DIR" || exit 1
+if ! pnpm --filter @baci/web exec tsx --version >/dev/null 2>&1; then
+  echo "[process-import-jobs] Missing tsx in $REPO_DIR. Run pnpm install --frozen-lockfile for the Baci checkout; do not use a production-only install until the worker entrypoints are compiled." >&2
+  exit 1
+fi
+
 pnpm --filter @baci/web exec tsx src/scripts/process-import-jobs.ts
