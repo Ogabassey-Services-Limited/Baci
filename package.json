@@ -20,7 +20,6 @@
     "@biomejs/biome": "^2.4.11",
     "@eslint/js": "^10.0.0",
     "@unlighthouse/cli": "^0.17.7",
-    "tailwindcss": "^4.2.2",
     "knip": "^5.83.1",
     "lefthook": "^2.1.0",
     "next": "^16.1.7",
@@ -33,12 +32,12 @@
   "pnpm": {
     "overrideNotes": {
       "defu": "Pin to 6.1.6 to mitigate GHSA-737v-mqg7-c878 / CVE-2026-35209: replace the vulnerable transitive deep-merge helper.",
-      "@xmldom/xmldom": "Pin to 0.8.12 to mitigate GHSA-wh4c-j3r5-mjhp / CVE-2026-34601: keep Expo plist tooling on the patched 0.8.x line.",
+      "@xmldom/xmldom": "Bumped from 0.8.12 to 0.8.13 to fix 4 HIGH advisories (GHSA-x6wf-f3px-wcqx, GHSA-5fg8-2547-mr8q, GHSA-crh6-fp67-6883, GHSA-mr77-3qmm-jhqr): XML injection and DoS via unvalidated serialization. Stays on 0.8.x line for Expo plist tooling compatibility.",
       "@types/react": "Dedupe to a single version. Without this, pnpm hoists 19.2.13 at the root and nested copies at 19.2.14, causing TS2769 'two different types with this name' errors on react-native ref props."
     },
     "overrides": {
       "defu": "6.1.6",
-      "@xmldom/xmldom": "0.8.12",
+      "@xmldom/xmldom": "0.8.13",
       "follow-redirects": "^1.16.0",
       "@types/react": "19.2.14",
       "smol-toml": ">=1.6.1",
@@ -64,7 +63,7 @@
       "minimatch>brace-expansion": "^5.0.5",
       "h3": "1.15.9",
       "tar": "^7.5.8",
-      "fast-xml-parser": "5.5.7",
+      "fast-xml-parser": "5.7.2",
       "flatted": "3.4.2",
       "lodash": "4.18.1",
       "lodash-es": "4.18.1",
@@ -90,7 +89,7 @@
       "@tiptap/extension-task-list": "^3.20.0",
       "@tiptap/extension-text-style": "^3.20.0",
       "@tiptap/extension-underline": "^3.20.0",
-      "@tiptap/extension-youtube": "^3.22.4",
+      "@tiptap/extension-youtube": "^3.20.0",
       "axios": "^1.15.0",
       "langsmith": "^0.5.19",
       "@modelcontextprotocol/sdk>ajv": "^8.18.0",
