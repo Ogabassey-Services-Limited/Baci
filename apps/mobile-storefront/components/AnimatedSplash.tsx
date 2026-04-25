@@ -12,8 +12,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const iconImage = require('../assets/images/icon.png');
+import iconImage from '../assets/images/icon.png';
 
 type AnimatedSplashProps = {
   isReady: boolean;
