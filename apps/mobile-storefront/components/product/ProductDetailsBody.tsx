@@ -94,6 +94,8 @@ export function ProductDetailsBody({
     );
   const hasPriceDrivingVariantAxes =
     Boolean(mergedVariantAttributes?.storage) ||
+    Boolean(mergedVariantAttributes?.color) ||
+    Boolean(mergedVariantAttributes?.colour) ||
     Object.keys(mergedVariantAttributes ?? {}).some(
       (axis) => !isInternalSelectionAxis(axis)
     );
