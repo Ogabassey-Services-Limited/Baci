@@ -599,6 +599,9 @@ describe('product-utils', () => {
           }),
           price_override: 600000,
           stock_quantity: 0,
+          // manage_stock: false flips inventoryUnmanaged on, so a stock of 0
+          // is not a sold-out signal and the variant must remain purchasable.
+          in_stock: true,
         }),
         expect.objectContaining({
           attributes: expect.objectContaining({
@@ -607,6 +610,7 @@ describe('product-utils', () => {
           }),
           price_override: 680000,
           stock_quantity: 0,
+          in_stock: true,
         }),
       ],
     });

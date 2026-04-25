@@ -126,6 +126,13 @@ describe('product-hydration', () => {
 
     const result = await hydrateRowsNeedingStorefrontVariants(rows);
 
+    // The non-string-id row still routes through the hydrator (it matches
+    // `needsVariantHydration`), but the post-hydration lookup map filters by
+    // `typeof row.id === 'string'`, so the original row falls through and
+    // identity is preserved.
+    expect(mockHydrateProductRowsWithStorefrontVariants).toHaveBeenCalledWith([
+      rows[0],
+    ]);
     expect(result).toEqual(rows);
     expect(result[0]).toBe(rows[0]);
   });

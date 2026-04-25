@@ -160,12 +160,20 @@ export function normalizeProductVariants(
   options: {
     basePrice: number;
     compareAtPrice?: number;
+    manageStock?: boolean;
   }
 ): ProductVariant[] {
   const parsedVariants = ProductRowSchema.shape.variants.safeParse(variants);
   if (!parsedVariants.success) {
     return [];
   }
+
+  // When the product disables inventory tracking (`manage_stock: false`),
+  // variant rows should mirror that semantic: a `stock_quantity` of 0 is not a
+  // sold-out signal, it is unmanaged. Treat such variants as in stock so PDP
+  // gating, cart adds, and storefront grid availability stay consistent with
+  // the product-level inventory rule.
+  const inventoryUnmanaged = options.manageStock === false;
 
   return (
     parsedVariants.data?.map((variant) => {
@@ -209,8 +217,9 @@ export function normalizeProductVariants(
         price_modifier: variant.price_modifier ?? undefined,
         image: primaryImage,
         images: images.length > 0 ? images : undefined,
-        in_stock:
-          typeof stockQuantity === 'number'
+        in_stock: inventoryUnmanaged
+          ? true
+          : typeof stockQuantity === 'number'
             ? stockQuantity > 0
             : (variant.in_stock ?? undefined),
         stock_quantity: stockQuantity,
@@ -483,6 +492,7 @@ export function transformProduct(item: unknown): Product | null {
   const variants = normalizeProductVariants(product.variants, {
     basePrice: Number(product.price ?? 0),
     compareAtPrice: product.compare_at_price ?? undefined,
+    manageStock: (product.manage_stock as boolean | undefined) ?? false,
   });
   const legacyScalarColor =
     typeof product.color === 'string' ? product.color.trim() : '';

@@ -7,7 +7,6 @@
  */
 
 import {
-  type CanonicalProductCondition,
   resolveDefaultVariantSelection,
   resolveVariantDisplaySelection,
   resolveVariantSelectionParamResolution,
@@ -538,11 +537,11 @@ export default function ProductDetailScreen() {
       return;
     }
 
+    const normalizedCondition = normalizeRouteCondition(selectedCondition);
     if (
       selectedCondition &&
-      availableConditions.includes(
-        normalizeRouteCondition(selectedCondition) as CanonicalProductCondition
-      )
+      normalizedCondition !== null &&
+      availableConditions.some((c) => c === normalizedCondition)
     ) {
       return;
     }

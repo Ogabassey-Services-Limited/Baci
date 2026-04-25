@@ -36,22 +36,41 @@ jest.mock('@/constants/Colors', () => ({
 
 import { useImageZoom } from './useImageZoom';
 
+type GestureHandler = (event?: unknown) => void;
+
 interface MockGestureBuilder {
-  onStart: (handler: unknown) => MockGestureBuilder;
-  onUpdate: (handler: unknown) => MockGestureBuilder;
-  onEnd: (handler: unknown) => MockGestureBuilder;
+  onStart: (handler: GestureHandler) => MockGestureBuilder;
+  onUpdate: (handler: GestureHandler) => MockGestureBuilder;
+  onEnd: (handler: GestureHandler) => MockGestureBuilder;
   numberOfTaps: (count: number) => MockGestureBuilder;
   minPointers: (count: number) => MockGestureBuilder;
   maxPointers: (count: number) => MockGestureBuilder;
   __kind: string;
+  // Handler captures so tests can drive synthetic events through the
+  // builder without standing up the real gesture-handler runtime.
+  __handlers: {
+    start?: GestureHandler;
+    update?: GestureHandler;
+    end?: GestureHandler;
+  };
 }
 
 function makeBuilder(kind: string): MockGestureBuilder {
   const obj: MockGestureBuilder = {
     __kind: kind,
-    onStart: () => obj,
-    onUpdate: () => obj,
-    onEnd: () => obj,
+    __handlers: {},
+    onStart: (handler) => {
+      obj.__handlers.start = handler;
+      return obj;
+    },
+    onUpdate: (handler) => {
+      obj.__handlers.update = handler;
+      return obj;
+    },
+    onEnd: (handler) => {
+      obj.__handlers.end = handler;
+      return obj;
+    },
     numberOfTaps: () => obj,
     minPointers: () => obj,
     maxPointers: () => obj,
@@ -60,10 +79,19 @@ function makeBuilder(kind: string): MockGestureBuilder {
 }
 
 function makeMockGestureFactory() {
-  return {
-    Pinch: () => makeBuilder('pinch'),
-    Pan: () => makeBuilder('pan'),
-    Tap: () => makeBuilder('tap'),
+  // Captures every builder so tests can fish out a specific gesture (pan,
+  // pinch, tap) and invoke its registered handlers directly.
+  const builders: MockGestureBuilder[] = [];
+  const track = (kind: string) => {
+    const builder = makeBuilder(kind);
+    builders.push(builder);
+    return builder;
+  };
+
+  const factory = {
+    Pinch: () => track('pinch'),
+    Pan: () => track('pan'),
+    Tap: () => track('tap'),
     Race: (...children: unknown[]) => ({ __kind: 'race', children }),
     Simultaneous: (...children: unknown[]) => ({
       __kind: 'simultaneous',
@@ -71,7 +99,16 @@ function makeMockGestureFactory() {
     }),
   } as unknown as NonNullable<
     Parameters<typeof useImageZoom>[0]['gestureRuntime']['Gesture']
-  >;
+  > & { __builders: MockGestureBuilder[] };
+
+  // Attach the capture array under a non-typed property so tests can read it
+  // without polluting the public Gesture surface.
+  Object.defineProperty(factory, '__builders', {
+    value: builders,
+    enumerable: false,
+  });
+
+  return factory;
 }
 
 const buildParams = (
@@ -129,6 +166,41 @@ describe('useImageZoom', () => {
       act(() => {
         result.current.resetTransform();
       });
+    }).not.toThrow();
+  });
+
+  // Smoke test for the gesture handler wiring: full gesture-handler
+  // integration would require building a real GestureDetector runtime, which
+  // is out of scope here. Instead, verify that each captured handler can be
+  // driven with a synthetic event without throwing — this catches obvious
+  // regressions like missing null-guards on `event.translationX` etc.
+  it('gesture handlers do not throw when invoked with synthetic events', () => {
+    const factory = makeMockGestureFactory();
+    renderHook(() =>
+      useImageZoom(buildParams({ gestureRuntime: { Gesture: factory } }))
+    );
+
+    const builders = (factory as unknown as { __builders: MockGestureBuilder[] })
+      .__builders;
+    expect(builders.length).toBeGreaterThan(0);
+
+    const syntheticEvent = {
+      scale: 1.5,
+      focalX: 100,
+      focalY: 120,
+      translationX: 40,
+      translationY: 25,
+      velocityX: 0,
+      x: 80,
+      y: 90,
+    };
+
+    expect(() => {
+      for (const builder of builders) {
+        builder.__handlers.start?.();
+        builder.__handlers.update?.(syntheticEvent);
+        builder.__handlers.end?.(syntheticEvent);
+      }
     }).not.toThrow();
   });
 });

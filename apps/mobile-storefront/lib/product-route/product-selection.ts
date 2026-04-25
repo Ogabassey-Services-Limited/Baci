@@ -90,6 +90,11 @@ function pickColorAliasForMixedCatalog(
   if (colourMatch && !colorMatch) {
     return 'colour';
   }
+  // Intentional fallback: when the catalog is mixed (`both` shape) and neither
+  // alias yields a hit (or both do), emit only the canonical `color` key.
+  // Emitting both keys at once would force the shared resolver to find a
+  // single variant row carrying both, which mixed catalogs never do — so the
+  // selection would resolve to `null`. Picking one alias guarantees a match.
   return 'color';
 }
 

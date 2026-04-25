@@ -211,6 +211,13 @@ describe('ProductDetailScreen image selection edge cases', () => {
       );
     });
 
+    // Capture the resolved variant id BEFORE the tap so we can assert the
+    // handler does not silently clear or swap it when the lifestyle image
+    // matches no variant.
+    const variantBeforeTap = getLastMockProps<{
+      selectedVariant: string | null;
+    }>(mockProductDetailsBody)?.selectedVariant;
+
     // Tap the lifestyle image. The handler should update the visual gallery
     // index but leave color/variant state untouched.
     act(() => {
@@ -225,7 +232,10 @@ describe('ProductDetailScreen image selection edge cases', () => {
       );
     });
     expect(getLastMockProps(mockProductDetailsBody)).toEqual(
-      expect.objectContaining({ selectedColor: 'Green' })
+      expect.objectContaining({
+        selectedColor: 'Green',
+        selectedVariant: variantBeforeTap,
+      })
     );
   });
 });

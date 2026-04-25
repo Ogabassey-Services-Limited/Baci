@@ -135,16 +135,28 @@ export function iphone11ProMax(): Product {
     manage_stock: false,
     stock_quantity: 0,
     variant_attributes: { storage: ['64GB', '256GB', '512GB'] },
-    // Representative color_images map so this fixture mirrors the production
-    // catalog shape (each color points at its hero image) — empty maps used to
-    // hide image-driven color resolution behavior in tests that exercise it.
+    // Populated color_images map mirrors the production catalog shape (each
+    // color points at its hero image), so this fixture exercises the
+    // image-driven color resolution path. Tests that need to suppress that
+    // behavior intentionally pass an empty map instead.
     color_images: {
       'Midnight Green': [iphone11ProMaxColorConfig['Midnight Green'].image],
       Silver: [iphone11ProMaxColorConfig.Silver.image],
       'Space Gray': [iphone11ProMaxColorConfig['Space Gray'].image],
       Gold: [iphone11ProMaxColorConfig.Gold.image],
     },
-    colors: ['Midnight Green', 'Silver', 'Space Gray', 'Gold'],
+    // Mix of plain strings and `{ name, value }` objects so the fixture
+    // exercises the explicit-hex path through `ProductColorSwatch` /
+    // `normalizeProductColors`, not just the generic name-only branch.
+    colors: [
+      {
+        name: 'Midnight Green',
+        value: iphone11ProMaxColorConfig['Midnight Green'].colorHex,
+      },
+      'Silver',
+      'Space Gray',
+      'Gold',
+    ],
     offers: [],
     variants: createIPhone11ProMaxVariants([
       {
