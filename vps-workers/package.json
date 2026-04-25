@@ -12,6 +12,7 @@
     "push-receipts": "node jobs/push-receipts.mjs",
     "inventory-push-alerts": "node jobs/inventory-push-alerts.mjs",
     "sync-jumia-orders": "node jobs/sync-jumia-orders.mjs",
+    "run-web-cron": "node jobs/run-web-cron.mjs",
     "test": "node scripts/run-tests.mjs"
   },
   "dependencies": {
