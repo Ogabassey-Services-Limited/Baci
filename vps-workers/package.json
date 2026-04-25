@@ -9,7 +9,9 @@
   "scripts": {
     "cleanup-push-tokens": "node jobs/cleanup-push-tokens.mjs",
     "cleanup-import-uploads": "node jobs/cleanup-import-uploads.mjs",
-    "push-receipts": "node jobs/push-receipts.mjs"
+    "push-receipts": "node jobs/push-receipts.mjs",
+    "inventory-push-alerts": "node jobs/inventory-push-alerts.mjs",
+    "sync-jumia-orders": "node jobs/sync-jumia-orders.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.103.0",

@@ -153,6 +153,8 @@ const ORDER_CONFIRMATION_SELECT = [
   'shipping_address',
   'order_items(id, image_url, name, quantity, price)',
 ].join(', ');
+const NON_JUMIA_ORDERS_FILTER =
+  'external_source.is.null,external_source.neq.jumia';
 
 function formatStatus(status: string): string {
   if (!status) return 'Pending';
@@ -173,6 +175,7 @@ export async function getOrders(
     .from('orders')
     .select(ORDER_WITH_ITEMS_QUERY)
     .eq('merchant_id', merchantId)
+    .or(NON_JUMIA_ORDERS_FILTER)
     .order('created_at', { ascending: false });
 
   // Apply filters
@@ -335,21 +338,25 @@ export async function getOrderStats(merchantId: string): Promise<OrderStats> {
     supabase
       .from('orders')
       .select('id', { count: 'exact', head: true })
-      .eq('merchant_id', merchantId),
+      .eq('merchant_id', merchantId)
+      .or(NON_JUMIA_ORDERS_FILTER),
     supabase
       .from('orders')
       .select('id', { count: 'exact', head: true })
       .eq('merchant_id', merchantId)
+      .or(NON_JUMIA_ORDERS_FILTER)
       .eq('shipping_status', 'delivered'),
     supabase
       .from('orders')
       .select('id', { count: 'exact', head: true })
       .eq('merchant_id', merchantId)
+      .or(NON_JUMIA_ORDERS_FILTER)
       .eq('payment_status', 'unpaid'),
     supabase
       .from('orders')
       .select('id', { count: 'exact', head: true })
       .eq('merchant_id', merchantId)
+      .or(NON_JUMIA_ORDERS_FILTER)
       .or('payment_status.eq.unpaid,shipping_status.eq.pending'),
   ]);
 

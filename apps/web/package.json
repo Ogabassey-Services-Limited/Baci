@@ -19,6 +19,8 @@
     "seo:pagespeed": "tsx tools/seo/run-pagespeed.cli.ts",
     "seo:readiness": "tsx tools/seo/run-search-console-readiness.cli.ts",
     "capture-screenshots": "node scripts/capture-template-screenshots.mjs",
+    "process:import-jobs": "tsx src/scripts/process-import-jobs.ts",
+    "sync:jumia-orders": "tsx src/scripts/sync-jumia-orders.ts",
     "mcp": "tsx mcp-server/server.ts"
   },
   "dependencies": {
