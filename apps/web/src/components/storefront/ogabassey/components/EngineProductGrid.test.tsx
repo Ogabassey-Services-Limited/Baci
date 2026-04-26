@@ -182,6 +182,36 @@ describe('EngineProductGrid', () => {
     );
   });
 
+  it('renders each product identity only once', () => {
+    const repeatedProduct = createTestProduct({
+      id: 'phone-1',
+      name: 'Galaxy Z TriFold',
+      slug: 'galaxy-z-trifold',
+      category: 'Smartphones',
+      stock: 4,
+    });
+
+    render(
+      <EngineProductGrid
+        externalProducts={[
+          createTestProduct({
+            id: 'phone-2',
+            name: 'iPhone 16',
+            category: 'Smartphones',
+            stock: 2,
+          }),
+          repeatedProduct,
+          { ...repeatedProduct },
+        ]}
+        categories={[]}
+      />
+    );
+
+    expect(screen.getAllByRole('article')).toHaveLength(2);
+    expect(screen.getAllByText('iPhone 16')).toHaveLength(1);
+    expect(screen.getAllByText('Galaxy Z TriFold')).toHaveLength(1);
+  });
+
   it('does not invent a New badge when a product has no condition data', () => {
     render(
       <EngineProductGrid
