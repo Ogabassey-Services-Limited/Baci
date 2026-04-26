@@ -66,6 +66,35 @@ describe('dedupeProductsByIdentity', () => {
     ]);
   });
 
+  it('tracks aliases from skipped duplicate rows for later matches', () => {
+    const result = dedupeProductsByIdentity([
+      { id: 'product-1', name: 'ID-only product' },
+      {
+        id: 'product-1',
+        slug: 'samsung-galaxy-z-trifold',
+        name: 'ID and slug duplicate',
+      },
+      {
+        slug: 'Samsung-Galaxy-Z-TriFold',
+        name: 'Slug-only duplicate',
+      },
+      {
+        id: 'product-2',
+        slug: 'dell-alienware-m18-r3',
+        name: 'Different product',
+      },
+    ]);
+
+    expect(result).toEqual([
+      { id: 'product-1', name: 'ID-only product' },
+      {
+        id: 'product-2',
+        slug: 'dell-alienware-m18-r3',
+        name: 'Different product',
+      },
+    ]);
+  });
+
   it('preserves products without an id or slug', () => {
     const products: { name: string }[] = [
       { name: 'Unknown 1' },

@@ -47,12 +47,14 @@ export function dedupeProductsByIdentity<T>(
       continue;
     }
 
-    if (identities.some((identity) => seen.has(identity))) {
-      continue;
-    }
+    const isDuplicate = identities.some((identity) => seen.has(identity));
 
     for (const identity of identities) {
       seen.add(identity);
+    }
+
+    if (isDuplicate) {
+      continue;
     }
 
     uniqueProducts.push(product);
