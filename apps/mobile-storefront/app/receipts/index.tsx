@@ -25,6 +25,7 @@ import {
 import { ReceiptPreviewModal } from '@/components/receipts/ReceiptPreviewModal';
 import { ReceiptsEmptyState } from '@/components/receipts/ReceiptsEmptyState';
 import { ReceiptsSearchSection } from '@/components/receipts/ReceiptsSearchSection';
+import { RECEIPTS_SCREEN_STYLE_TOKENS } from '@/components/receipts/receipts-screen.constants';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
@@ -33,7 +34,6 @@ import { useNetworkState } from '@/hooks/use-network-state';
 import { useReceiptPreview } from '@/hooks/use-receipt-preview';
 import { receiptDetailQueryOptions, useReceipts } from '@/hooks/use-receipts';
 import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
-import { RECEIPTS_SCREEN_STYLE_TOKENS } from './receipts-screen.constants';
 
 export default function ReceiptsScreen() {
   const colorScheme = useColorScheme();

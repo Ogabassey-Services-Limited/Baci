@@ -7,7 +7,7 @@ import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { router, Stack } from 'expo-router';
 import { useRef } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
-import { SavedItemCard } from '@/app/saved/SavedItemCard';
+import { SavedItemCard } from '@/components/saved/SavedItemCard';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';

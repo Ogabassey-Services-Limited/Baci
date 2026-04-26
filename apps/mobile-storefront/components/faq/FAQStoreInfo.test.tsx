@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 import { render, screen } from '@testing-library/react-native';
-import { FAQStoreInfo } from '@/app/faq/FAQStoreInfo';
+import { FAQStoreInfo } from '@/components/faq/FAQStoreInfo';
 
 describe('FAQStoreInfo', () => {
   it('renders the store hours and address', () => {

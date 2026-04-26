@@ -5,8 +5,8 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { Alert, View, type ViewProps } from 'react-native';
-import { SPACING } from '@/constants/Colors';
 import SavedItemsScreen from '@/app/saved/index';
+import { SPACING } from '@/constants/Colors';
 
 const FIXED_SAVED_AT = 1_670_000_000_000;
 const mockReactActual = jest.requireActual('react') as typeof import('react');
@@ -161,7 +161,7 @@ jest.mock('@/stores/cart-store', () => ({
     }),
 }));
 
-jest.mock('@/app/saved/SavedItemCard', () => ({
+jest.mock('@/components/saved/SavedItemCard', () => ({
   SavedItemCard: ({
     item,
     onPress,

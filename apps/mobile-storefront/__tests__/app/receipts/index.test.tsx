@@ -7,7 +7,7 @@ import {
   View,
   type ViewProps,
 } from 'react-native';
-import ReceiptsScreen from './index';
+import ReceiptsScreen from '@/app/receipts/index';
 
 const mockReactActual = jest.requireActual('react') as typeof import('react');
 const mockReactNativeActual = jest.requireActual(

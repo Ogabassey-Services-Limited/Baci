@@ -6,13 +6,13 @@ import {
   waitFor,
 } from '@testing-library/react-native';
 import { Alert, View } from 'react-native';
+import FAQScreen from '@/app/faq/index';
+import { faqItems } from '@/components/faq/faq-data';
 import {
   SUPPORT_EMAIL,
   SUPPORT_PHONE_E164,
   SUPPORT_WHATSAPP_PHONE,
 } from '@/constants/Support';
-import { faqItems } from './faq-data';
-import FAQScreen from './index';
 
 const mockStorefrontScreenShell = jest.fn(({ children, ...props }) => (
   <View testID="storefront-screen-shell" {...props}>

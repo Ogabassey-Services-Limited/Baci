@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { FAQAccordion } from '@/app/faq/FAQAccordion';
+import { FAQAccordion } from '@/components/faq/FAQAccordion';
 
 const faqItems = [
   {

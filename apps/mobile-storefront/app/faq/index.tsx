@@ -7,6 +7,13 @@ import * as Linking from 'expo-linking';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FAQAccordion } from '@/components/faq/FAQAccordion';
+import { FAQStoreInfo } from '@/components/faq/FAQStoreInfo';
+import {
+  FAQSupportGrid,
+  type FAQSupportOption,
+} from '@/components/faq/FAQSupportGrid';
+import { fallbackStoreHours, faqItems } from '@/components/faq/faq-data';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { SPACING, TYPOGRAPHY } from '@/constants/Colors';
@@ -17,10 +24,6 @@ import {
 } from '@/constants/Support';
 import { useMerchant } from '@/hooks/use-merchant';
 import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
-import { FAQAccordion } from './FAQAccordion';
-import { FAQStoreInfo } from './FAQStoreInfo';
-import { FAQSupportGrid, type FAQSupportOption } from './FAQSupportGrid';
-import { fallbackStoreHours, faqItems } from './faq-data';
 
 const SUPPORT_WHATSAPP_MESSAGE = 'Hi, I need help with my order';
 const FALLBACK_STORE_ADDRESS =
