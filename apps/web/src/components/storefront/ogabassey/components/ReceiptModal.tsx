@@ -92,6 +92,21 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
       return;
     }
 
+    // When tabbing forward off the iframe (the last focusable element in the
+    // dialog), let the browser move focus into the iframe document. Unpaid
+    // invoices include interactive `mailto:`/`tel:` anchors that would
+    // otherwise be unreachable to keyboard users. Once focus exits the iframe
+    // document, the browser naturally returns it to the next focusable element
+    // outside, where a future Tab will re-enter this handler and wrap as
+    // needed.
+    if (
+      !event.shiftKey &&
+      document.activeElement === lastElement &&
+      lastElement instanceof HTMLIFrameElement
+    ) {
+      return;
+    }
+
     if (!event.shiftKey && document.activeElement === lastElement) {
       event.preventDefault();
       firstElement.focus();

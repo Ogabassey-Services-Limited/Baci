@@ -215,7 +215,7 @@ describe('ReceiptModal', () => {
   });
 
   it.each(modalVariants)(
-    'keeps keyboard focus inside the $label modal',
+    'wraps shift+tab from the print control back to the $label iframe',
     async ({ label, paymentStatus }) => {
       const user = userEvent.setup();
 
@@ -246,11 +246,48 @@ describe('ReceiptModal', () => {
       await user.tab();
       expect(iframe).toHaveFocus();
 
-      await user.tab();
+      await user.keyboard('{Shift>}{Tab}{/Shift}');
+      expect(closeButton).toHaveFocus();
+
+      await user.keyboard('{Shift>}{Tab}{/Shift}');
       expect(printButton).toHaveFocus();
 
       await user.keyboard('{Shift>}{Tab}{/Shift}');
       expect(iframe).toHaveFocus();
+    }
+  );
+
+  it.each(modalVariants)(
+    'allows tab to leave the $label iframe so its interactive content is reachable',
+    async ({ label, paymentStatus }) => {
+      const user = userEvent.setup();
+
+      render(
+        <ReceiptModal
+          isOpen
+          merchantData={merchant}
+          onClose={vi.fn()}
+          orderData={createOrder(paymentStatus)}
+        />
+      );
+
+      const printButton = screen.getByRole('button', {
+        name: `Print ${label}`,
+      });
+      const iframe = screen.getByTitle(
+        `${label === 'receipt' ? 'Receipt' : 'Invoice'} #ORD-001`
+      );
+
+      iframe.focus();
+      expect(iframe).toHaveFocus();
+
+      // Tabbing forward from the iframe must NOT wrap focus back to the print
+      // button. Doing so would trap keyboard users inside the dialog chrome
+      // and prevent them from reaching interactive content (e.g. mailto: /
+      // tel: links inside an unpaid invoice) rendered inside the iframe
+      // document.
+      await user.tab();
+      expect(printButton).not.toHaveFocus();
     }
   );
 
