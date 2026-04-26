@@ -45,10 +45,12 @@ export function ProductInventoryCard({
       >
         <View style={styles.toggleTextBlock}>
           <Text style={[styles.title, { color: colors.text }]}>
-            Track Inventory
+            {manageStock ? 'Track Inventory' : 'Set unlimited stock'}
           </Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Automatically manage stock levels and fulfillments.
+            {manageStock
+              ? 'Automatically manage stock levels and fulfillments.'
+              : 'Orders can be placed without checking stock quantity.'}
           </Text>
         </View>
         <Switch

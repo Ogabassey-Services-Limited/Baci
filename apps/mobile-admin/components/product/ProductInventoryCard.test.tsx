@@ -150,6 +150,7 @@ describe('ProductInventoryCard', () => {
       />
     );
 
+    expect(screen.getByText('Set unlimited stock')).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Open fulfillment details' })
     ).not.toBeInTheDocument();

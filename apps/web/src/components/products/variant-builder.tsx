@@ -31,6 +31,7 @@ interface VariantBuilderProps {
   basePrice: number;
   initialVariants?: ProductVariant[];
   attributeOrder?: string[]; // Optional prop to configure attribute order
+  stockTrackingEnabled?: boolean;
 }
 
 interface AttributeSelection {
@@ -86,6 +87,7 @@ export function VariantBuilder({
   basePrice,
   initialVariants = [],
   attributeOrder = DEFAULT_ATTRIBUTE_ORDER,
+  stockTrackingEnabled = true,
 }: VariantBuilderProps) {
   const { merchant } = useMerchant();
   const { toast } = useToast();
@@ -94,7 +96,7 @@ export function VariantBuilder({
   const [variants, setVariants] = useState<ProductVariant[]>(initialVariants);
   const variantsRef = useRef(variants);
   const [textInputs, setTextInputs] = useState<Record<string, string>>({});
-  const [trackStock, setTrackStock] = useState(true);
+  const [trackStock, setTrackStock] = useState(stockTrackingEnabled);
   const [enhancingImages, setEnhancingImages] = useState<
     Record<string, boolean>
   >({});
@@ -112,6 +114,10 @@ export function VariantBuilder({
   useEffect(() => {
     variantsRef.current = variants;
   }, [variants]);
+
+  useEffect(() => {
+    setTrackStock(stockTrackingEnabled);
+  }, [stockTrackingEnabled]);
 
   // Effect to handle AI suggestions
   // Ref for timeout across effect runs
@@ -447,22 +453,29 @@ export function VariantBuilder({
           Configure variants ({variants.length} total)
         </Label>
 
-        <Label
-          htmlFor="variants-stock-switch"
-          className="flex flex-row items-center justify-between rounded-lg border p-3 cursor-pointer"
-        >
-          <div className="space-y-0.5">
-            <div className="font-medium">Track Inventory</div>
-            <FormDescription>
-              Enable to manage stock levels for each variant.
-            </FormDescription>
+        {stockTrackingEnabled ? (
+          <Label
+            htmlFor="variants-stock-switch"
+            className="flex flex-row items-center justify-between rounded-lg border p-3 cursor-pointer"
+          >
+            <div className="space-y-0.5">
+              <div className="font-medium">Track Inventory</div>
+              <FormDescription>
+                Enable to manage stock levels for each variant.
+              </FormDescription>
+            </div>
+            <Switch
+              id="variants-stock-switch"
+              checked={trackStock}
+              onCheckedChange={setTrackStock}
+            />
+          </Label>
+        ) : (
+          <div className="rounded-lg border p-3 text-sm text-muted-foreground">
+            Unlimited stock is enabled for this product. Variant stock
+            quantities are not required.
           </div>
-          <Switch
-            id="variants-stock-switch"
-            checked={trackStock}
-            onCheckedChange={setTrackStock}
-          />
-        </Label>
+        )}
 
         {/* Section 1: Color Images */}
         {colors.length > 0 &&
@@ -606,7 +619,7 @@ export function VariantBuilder({
         )}
 
         {/* Section 3: Inventory per variant */}
-        {trackStock && (
+        {stockTrackingEnabled && trackStock && (
           <div className="space-y-3">
             <Label className="text-sm font-semibold">
               3. Set stock quantity per variant

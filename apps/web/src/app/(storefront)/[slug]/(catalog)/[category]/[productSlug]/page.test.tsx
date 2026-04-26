@@ -2,13 +2,17 @@ import { render, screen } from '@testing-library/react';
 import { type ReactNode, Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockNormalizeStorefrontProductVariants, mockProductDetailClient } =
-  vi.hoisted(() => ({
-    mockNormalizeStorefrontProductVariants: vi.fn<
-      (...args: unknown[]) => Record<string, unknown>[]
-    >(() => []),
-    mockProductDetailClient: vi.fn<(props: unknown) => null>(() => null),
-  }));
+const {
+  mockNormalizeStorefrontProductVariants,
+  mockOgabasseyProductDetailsPage,
+  mockProductDetailClient,
+} = vi.hoisted(() => ({
+  mockNormalizeStorefrontProductVariants: vi.fn<
+    (...args: unknown[]) => Record<string, unknown>[]
+  >(() => []),
+  mockOgabasseyProductDetailsPage: vi.fn<(props: unknown) => void>(),
+  mockProductDetailClient: vi.fn<(props: unknown) => null>(() => null),
+}));
 
 const mockGetEffectiveStock = vi.fn<(item: unknown) => number>(() => 0);
 
@@ -56,18 +60,20 @@ vi.mock('next/link', () => ({
 }));
 
 vi.mock('@/components/storefront/ogabassey/pages/product-details-page', () => ({
-  ProductDetailsPage: ({
-    product,
-    semanticSections = null,
-  }: {
+  ProductDetailsPage: (props: {
     product: { name: string };
     semanticSections?: ReactNode;
-  }) => (
-    <>
-      <h1>{product.name}</h1>
-      {semanticSections}
-    </>
-  ),
+  }) => {
+    mockOgabasseyProductDetailsPage(props);
+    const { product, semanticSections = null } = props;
+
+    return (
+      <>
+        <h1>{product.name}</h1>
+        {semanticSections}
+      </>
+    );
+  },
 }));
 
 vi.mock('@/lib/cached-data', () => ({
@@ -479,7 +485,7 @@ describe('[category]/[productSlug] page render', () => {
     mockGetPublishedClusterPosts.mockReset();
     mockGetPublishedClusterPosts.mockResolvedValue([]);
     mockBuildProductSemanticModel.mockReset();
-    mockProductDetailClient.mockReset();
+    mockOgabasseyProductDetailsPage.mockReset();
     mockBuildProductSemanticModel.mockReturnValue({
       trustBullets: [],
       supportLinks: [],
@@ -509,6 +515,79 @@ describe('[category]/[productSlug] page render', () => {
       })
     ).toBeInTheDocument();
     expect(container.querySelectorAll('h1')).toHaveLength(1);
+  });
+
+  it('preserves unmanaged stock and variant stock quantities for the Ogabassey PDP', async () => {
+    mockNormalizeStorefrontProductVariants.mockReturnValue([
+      {
+        id: 'variant-128-black',
+        attributes: { storage: '128GB', color: 'Black' },
+        images: [],
+        price_override: 437000,
+        sku: 'IPHONE13-128-BLK',
+        stock_quantity: 0,
+      },
+    ]);
+    mockGetCachedProductWithDetails.mockResolvedValue({
+      ...categorizedDetailedProduct,
+      category: 'Smartphones',
+      categories: {
+        id: 'cat-smartphones',
+        name: 'Smartphones',
+        parent_id: null,
+        slug: 'smartphones',
+      },
+      manage_stock: false,
+      name: 'iPhone 13',
+      slug: 'iphone-13',
+      stock: 0,
+      product_variants: [
+        {
+          id: 'variant-128-black',
+          attributes: { storage: '128GB', color: 'Black' },
+          images: [],
+          price_override: 437000,
+          sku: 'IPHONE13-128-BLK',
+          stock_quantity: 0,
+        },
+      ],
+    });
+
+    render(
+      await CategoryProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          category: 'smartphones',
+          productSlug: 'iphone-13',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    );
+
+    const ogabasseyProps = mockOgabasseyProductDetailsPage.mock.calls
+      .at(-1)
+      ?.at(0) as
+      | {
+          product?: {
+            manage_stock?: boolean;
+            stock?: number;
+            variants?: Record<string, unknown>[];
+          };
+        }
+      | undefined;
+
+    expect(ogabasseyProps?.product).toEqual(
+      expect.objectContaining({
+        manage_stock: false,
+        stock: 0,
+      })
+    );
+    expect(ogabasseyProps?.product?.variants?.[0]).toEqual(
+      expect.objectContaining({
+        stock: 0,
+        stock_quantity: 0,
+      })
+    );
   });
 
   it('defaults manage_stock to true when the detailed product omits it', async () => {
