@@ -12,6 +12,7 @@ const CAC_EXTRACTION_PROMPT =
   'Extract from this CAC document: 1) document type (Certificate of Incorporation or Certificate of Registration), 2) the RC or BN number, 3) the registered business name. Reply in JSON: {"documentType": "...", "rcNumber": "...", "businessName": "..."}';
 
 const OLLAMA_TIMEOUT_MS = 30_000;
+const PDF_MIME_TYPE = 'application/pdf';
 
 function parseModelResponse(text: string): CACVerificationResult {
   try {
@@ -30,6 +31,10 @@ function parseModelResponse(text: string): CACVerificationResult {
   } catch {
     return { documentType: null, rcNumber: null, businessName: null };
   }
+}
+
+function hasRequiredVerificationFields(result: CACVerificationResult): boolean {
+  return Boolean(result.rcNumber?.trim() && result.businessName?.trim());
 }
 
 async function extractViaOllama(
@@ -113,17 +118,24 @@ export async function extractCACCertificateData(
   fileBuffer: Uint8Array,
   mimeType: string
 ): Promise<CACVerificationResult> {
-  const isPdf = mimeType === 'application/pdf';
-
-  if (isPdf) {
+  // Ollama's vision endpoint expects image payloads. PDFs stay on Gemini unless
+  // we add PDF page rasterization before sending them to the VPS extractor.
+  if (mimeType === PDF_MIME_TYPE) {
     return extractViaGemini(fileBuffer, mimeType);
   }
 
-  // Image path: try Ollama first, fall back to Gemini
+  // Try the VPS-hosted Ollama/Gemma extractor first for image uploads. Gemini
+  // remains a fallback when Ollama is unavailable or returns incomplete data.
   const ollamaBaseUrl = getOllamaBaseUrl();
   if (ollamaBaseUrl) {
     try {
-      return await extractViaOllama(fileBuffer);
+      const extracted = await extractViaOllama(fileBuffer);
+      if (hasRequiredVerificationFields(extracted)) {
+        return extracted;
+      }
+      console.warn(
+        'Ollama extraction omitted required verification fields, falling back to Gemini.'
+      );
     } catch (error) {
       console.warn('Ollama extraction failed, falling back to Gemini:', error);
       // Fall through to Gemini

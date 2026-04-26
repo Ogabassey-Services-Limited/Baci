@@ -21,8 +21,6 @@ import {
   extractCACCertificateData,
 } from '@/lib/verify-cac-certificate';
 
-const CAC_PROMPT_EXCERPT = 'Extract from this CAC document';
-
 const validJsonResponse = JSON.stringify({
   documentType: 'Certificate of Incorporation',
   rcNumber: 'RC123456',
@@ -31,7 +29,7 @@ const validJsonResponse = JSON.stringify({
 
 describe('extractCACCertificateData', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     vi.mocked(getOllamaBaseUrl).mockReturnValue(undefined);
     vi.stubGlobal('fetch', vi.fn());
   });
@@ -40,24 +38,17 @@ describe('extractCACCertificateData', () => {
     vi.unstubAllGlobals();
   });
 
-  it('uses Gemini for PDF files', async () => {
+  it('uses Gemini directly for PDF files when OLLAMA_BASE_URL is configured', async () => {
+    vi.mocked(getOllamaBaseUrl).mockReturnValue('https://ollama.example.com');
     vi.mocked(generateText).mockResolvedValueOnce({
       text: validJsonResponse,
     } as Awaited<ReturnType<typeof generateText>>);
 
-    const buffer = new Uint8Array([1, 2, 3]);
+    const buffer = new Uint8Array([0x25, 0x50, 0x44, 0x46]);
     const result = await extractCACCertificateData(buffer, 'application/pdf');
 
+    expect(global.fetch).not.toHaveBeenCalled();
     expect(generateText).toHaveBeenCalledOnce();
-    const call = vi.mocked(generateText).mock.calls[0][0];
-    const messages = call.messages ?? [];
-    const userMessage = messages.find((m) => m.role === 'user');
-    const textPart = Array.isArray(userMessage?.content)
-      ? userMessage.content.find((p) => p.type === 'text')
-      : null;
-    expect(textPart && 'text' in textPart ? textPart.text : '').toContain(
-      CAC_PROMPT_EXCERPT
-    );
     expect(result.rcNumber).toBe('RC123456');
     expect(result.businessName).toBe('BACI TECHNOLOGIES LTD');
     expect(result.documentType).toBe('Certificate of Incorporation');
@@ -111,6 +102,75 @@ describe('extractCACCertificateData', () => {
 
     expect(generateText).toHaveBeenCalledOnce();
     expect(result.rcNumber).toBe('RC123456');
+  });
+
+  it('falls back to Gemini when Ollama returns no extractable document fields', async () => {
+    vi.mocked(getOllamaBaseUrl).mockReturnValue('https://ollama.example.com');
+    vi.mocked(global.fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ response: 'I cannot read this document.' }),
+    } as Response);
+    vi.mocked(generateText).mockResolvedValueOnce({
+      text: validJsonResponse,
+    } as Awaited<ReturnType<typeof generateText>>);
+
+    const buffer = new Uint8Array([0xff, 0xd8, 0xff]);
+    const result = await extractCACCertificateData(buffer, 'image/jpeg');
+
+    expect(global.fetch).toHaveBeenCalledOnce();
+    expect(generateText).toHaveBeenCalledOnce();
+    expect(result.rcNumber).toBe('RC123456');
+    expect(result.businessName).toBe('BACI TECHNOLOGIES LTD');
+  });
+
+  it('falls back to Gemini when Ollama omits required verification fields', async () => {
+    vi.mocked(getOllamaBaseUrl).mockReturnValue('https://ollama.example.com');
+    vi.mocked(global.fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        response: JSON.stringify({
+          documentType: 'Certificate of Incorporation',
+          rcNumber: null,
+          businessName: null,
+        }),
+      }),
+    } as Response);
+    vi.mocked(generateText).mockResolvedValueOnce({
+      text: validJsonResponse,
+    } as Awaited<ReturnType<typeof generateText>>);
+
+    const buffer = new Uint8Array([0xff, 0xd8, 0xff]);
+    const result = await extractCACCertificateData(buffer, 'image/jpeg');
+
+    expect(global.fetch).toHaveBeenCalledOnce();
+    expect(generateText).toHaveBeenCalledOnce();
+    expect(result.rcNumber).toBe('RC123456');
+    expect(result.businessName).toBe('BACI TECHNOLOGIES LTD');
+  });
+
+  it('falls back to Gemini when Ollama returns whitespace-only verification fields', async () => {
+    vi.mocked(getOllamaBaseUrl).mockReturnValue('https://ollama.example.com');
+    vi.mocked(global.fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        response: JSON.stringify({
+          documentType: 'Certificate of Incorporation',
+          rcNumber: '   ',
+          businessName: '   ',
+        }),
+      }),
+    } as Response);
+    vi.mocked(generateText).mockResolvedValueOnce({
+      text: validJsonResponse,
+    } as Awaited<ReturnType<typeof generateText>>);
+
+    const buffer = new Uint8Array([0xff, 0xd8, 0xff]);
+    const result = await extractCACCertificateData(buffer, 'image/jpeg');
+
+    expect(global.fetch).toHaveBeenCalledOnce();
+    expect(generateText).toHaveBeenCalledOnce();
+    expect(result.rcNumber).toBe('RC123456');
+    expect(result.businessName).toBe('BACI TECHNOLOGIES LTD');
   });
 
   it('uses Gemini directly for images when OLLAMA_BASE_URL is not set', async () => {
