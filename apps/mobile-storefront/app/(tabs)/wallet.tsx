@@ -5,6 +5,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useEffect } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -31,32 +32,20 @@ export default function WalletTabScreen() {
   // Auth gating handled by tab layout listener — this is a fallback for edge cases
   // e.g., user signs out while already viewing this tab (tabPress listener won't fire)
   const { isInitialized, user: authUser } = useAuthStatus();
+  const isUnauthenticated = isInitialized && !authUser;
 
-  if (!isInitialized) {
-    return (
-      <StorefrontScreenShell
-        style={[styles.container, { backgroundColor: colors.background }]}
-        edges={['top']}
-      >
-        <View style={styles.header}>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>
-            Wallet
-          </Text>
-        </View>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={BRAND.primary} />
-        </View>
-      </StorefrontScreenShell>
-    );
-  }
+  useEffect(() => {
+    if (isUnauthenticated) {
+      router.replace('/');
+    }
+  }, [isUnauthenticated]);
 
   // Defense-in-depth: if user signed out while on this tab, go to Home
-  if (!authUser) {
-    router.replace('/');
+  if (isUnauthenticated) {
     return null;
   }
 
-  if (isLoading) {
+  if (!isInitialized || isLoading) {
     return (
       <StorefrontScreenShell
         style={[styles.container, { backgroundColor: colors.background }]}

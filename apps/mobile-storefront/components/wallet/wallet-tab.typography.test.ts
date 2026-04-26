@@ -3,14 +3,16 @@ import { WALLET_TAB_TYPOGRAPHY } from './wallet-tab.typography';
 
 describe('WALLET_TAB_TYPOGRAPHY', () => {
   it('exports expected font families', () => {
-    expect(WALLET_TAB_TYPOGRAPHY.fontFamily).toHaveProperty('bold');
-    expect(WALLET_TAB_TYPOGRAPHY.fontFamily).toHaveProperty('medium');
-    expect(WALLET_TAB_TYPOGRAPHY.fontFamily).toHaveProperty('semiBold');
+    expect(WALLET_TAB_TYPOGRAPHY.fontFamily.bold).toBe('Inter_700Bold');
+    expect(WALLET_TAB_TYPOGRAPHY.fontFamily.medium).toBe('Inter_500Medium');
+    expect(WALLET_TAB_TYPOGRAPHY.fontFamily.semiBold).toBe('Inter_600SemiBold');
   });
 
-  it('exports expected wallet tab font sizes', () => {
-    expect(WALLET_TAB_TYPOGRAPHY.size).toHaveProperty('headerTitle');
-    expect(WALLET_TAB_TYPOGRAPHY.size).toHaveProperty('balanceAmount');
-    expect(WALLET_TAB_TYPOGRAPHY.size).toHaveProperty('pointsAmount');
+  it.each([
+    ['headerTitle', 28],
+    ['balanceAmount', 36],
+    ['pointsAmount', 32],
+  ] as const)('exports expected %s font size', (key, expected) => {
+    expect(WALLET_TAB_TYPOGRAPHY.size[key]).toBe(expected);
   });
 });

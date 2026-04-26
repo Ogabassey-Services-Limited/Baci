@@ -38,5 +38,6 @@ describe('getEliteHeaderTopPadding', () => {
   it('falls back to the minimum spacing for non-finite values', () => {
     expect(getEliteHeaderTopPadding(Number.NaN)).toBe(SPACING.xs);
     expect(getEliteHeaderTopPadding(Number.POSITIVE_INFINITY)).toBe(SPACING.xs);
+    expect(getEliteHeaderTopPadding(Number.NEGATIVE_INFINITY)).toBe(SPACING.xs);
   });
 });
