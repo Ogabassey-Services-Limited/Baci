@@ -158,9 +158,11 @@ describe('AddressesScreen', () => {
     const shellProps = mockStorefrontScreenShell.mock.calls[0]?.[0];
 
     expect(shellProps?.edges).toEqual(['bottom']);
-    expect(mockGetListContentStyle).toHaveBeenCalledWith({
-      includeBottomInset: false,
-      paddingBottom: ADDRESS_LIST_BOTTOM_PADDING,
+    await waitFor(() => {
+      expect(mockGetListContentStyle).toHaveBeenCalledWith({
+        includeBottomInset: false,
+        paddingBottom: ADDRESS_LIST_BOTTOM_PADDING,
+      });
     });
   });
 
