@@ -202,7 +202,7 @@ jobs:
 
           ## Suggested next steps
           Check the workflow logs for the Gemini CLI response.
-          EOF
+EOF
             )"
           fi
 
