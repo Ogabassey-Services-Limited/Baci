@@ -86,11 +86,16 @@ for line in lines:
 
     parts = line.split(maxsplit=5)
     command = parts[5] if len(parts) == 6 else ''
-    is_baci_worker_command = command.startswith(
-        f'flock -n {remote_dir}/locks/'
-    ) and (
-        f' {remote_dir}/jobs/' in command
-        or f' {remote_dir}/bin/' in command
+    uses_current_worker_paths = (
+        f'{remote_dir}/jobs/' in command
+        or f'{remote_dir}/bin/' in command
+    )
+    uses_legacy_relative_worker_paths = (
+        f'cd {remote_dir}' in command
+        and (' jobs/' in command or ' bin/' in command)
+    )
+    is_baci_worker_command = (
+        uses_current_worker_paths or uses_legacy_relative_worker_paths
     )
     if is_baci_worker_command:
         continue

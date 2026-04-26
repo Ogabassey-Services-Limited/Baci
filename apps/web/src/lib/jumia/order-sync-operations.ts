@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { notifyMerchant } from '@/lib/expo-push';
+import { type NotificationSendResult, notifyMerchant } from '@/lib/expo-push';
 import type { JumiaOrder, JumiaOrderItem } from '@/schemas/jumia';
 import type {
   ExistingJumiaOrderRow,
@@ -204,9 +204,9 @@ export async function notifySyncedJumiaOrder(
   merchantId: string,
   order: JumiaOrder,
   baciOrderId: string
-) {
+): Promise<NotificationSendResult> {
   const amount = getJumiaOrderAmount(order);
-  const result = await notifyMerchant(
+  return await notifyMerchant(
     merchantId,
     'Jumia Order',
     `Order #${order.number} from ${getCustomerName(order)} - ${formatJumiaOrderAmount(order)}`,
@@ -221,6 +221,4 @@ export async function notifySyncedJumiaOrder(
     },
     'orders'
   );
-
-  return typeof result?.sent === 'number' && result.sent > 0;
 }

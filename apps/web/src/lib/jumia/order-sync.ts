@@ -49,8 +49,9 @@ async function syncIntegration(
     integration.id
   );
   const orderErrorsBefore = result.orderErrors;
-  let lastSuccessfulSyncAt: string | null = null;
   let lastSuccessfulSyncMs: number | null = null;
+  let earliestFailedSyncAt: string | null = null;
+  let earliestFailedSyncMs: number | null = null;
   const attemptedNotificationKeys = new Set<string>();
   const syncStartedAt = new Date().toISOString();
   const orders = await getAllOrders(client, {
@@ -113,12 +114,12 @@ async function syncIntegration(
 
       if (shouldNotify) {
         attemptedNotificationKeys.add(notificationKey);
-        const notified = await notifySyncedJumiaOrder(
+        const notificationResult = await notifySyncedJumiaOrder(
           integration.merchant_id,
           order,
           canonicalOrder.id
         );
-        if (notified) {
+        if (notificationResult.sent > 0) {
           result.notified += 1;
           const notificationUpdateError = await markJumiaNotificationSent(
             supabase,
@@ -138,26 +139,46 @@ async function syncIntegration(
             );
           }
         }
+        if (
+          notificationResult.failed > 0 ||
+          notificationResult.errors.length > 0
+        ) {
+          const failureDetails = [
+            ...notificationResult.errors,
+            notificationResult.failed > 0 &&
+              `${notificationResult.failed} push notification(s) failed`,
+          ].filter(Boolean);
+          throw new Error(
+            `Failed to notify merchant for Jumia order: ${failureDetails.join('; ')}`
+          );
+        }
       }
 
       result.synced += 1;
       const parsedUpdatedAt = Date.parse(order.updatedAt);
-      const isValidUpdatedAt = Number.isFinite(parsedUpdatedAt);
-      const successfulSyncAt = isValidUpdatedAt
-        ? new Date(parsedUpdatedAt).toISOString()
-        : syncStartedAt;
-      const successfulSyncMs = isValidUpdatedAt
+      const successfulSyncMs = Number.isFinite(parsedUpdatedAt)
         ? parsedUpdatedAt
         : Date.parse(syncStartedAt);
       if (
         lastSuccessfulSyncMs === null ||
         successfulSyncMs > lastSuccessfulSyncMs
       ) {
-        lastSuccessfulSyncAt = successfulSyncAt;
         lastSuccessfulSyncMs = successfulSyncMs;
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
+      const parsedFailedUpdatedAt = Date.parse(order.updatedAt);
+      const failedSyncMs = Number.isFinite(parsedFailedUpdatedAt)
+        ? parsedFailedUpdatedAt
+        : Date.parse(syncStartedAt);
+      const failedSyncAt = new Date(failedSyncMs).toISOString();
+      if (
+        earliestFailedSyncMs === null ||
+        failedSyncMs < earliestFailedSyncMs
+      ) {
+        earliestFailedSyncAt = failedSyncAt;
+        earliestFailedSyncMs = failedSyncMs;
+      }
       result.orderErrors += 1;
       result.errors.push(`${integration.merchant_id}/${order.id}: ${message}`);
       logger.error({
@@ -178,10 +199,10 @@ async function syncIntegration(
       sync_error: null,
       sync_config: clearFullFailureState(integration.sync_config),
     };
-  } else if (lastSuccessfulSyncAt) {
+  } else if (lastSuccessfulSyncMs !== null) {
     syncUpdate = {
-      last_sync_at: lastSuccessfulSyncAt,
-      sync_error: `Processed with ${integrationOrderErrors} Jumia order error(s); last_sync_at advanced to ${lastSuccessfulSyncAt} to avoid blocking future syncs`,
+      last_sync_at: earliestFailedSyncAt ?? syncStartedAt,
+      sync_error: `Processed with ${integrationOrderErrors} Jumia order error(s); cursor parked at earliest failed order ${earliestFailedSyncAt ?? syncStartedAt} so failed orders remain retryable`,
       sync_config: clearFullFailureState(integration.sync_config),
     };
   } else {

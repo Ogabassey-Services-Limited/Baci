@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { NotificationSendResult } from '@/lib/expo-push';
 
 const mocks = vi.hoisted(() => ({
   notifyMerchant: vi.fn(),
@@ -265,20 +266,25 @@ describe('Jumia order sync operations', () => {
     ).toContain('0');
   });
 
-  it('returns false when notification delivery returns no sent count', async () => {
+  it('returns the notification result when delivery has no sent count', async () => {
     mocks.notifyMerchant.mockResolvedValue(undefined);
 
     await expect(
       notifySyncedJumiaOrder('merchant-1', order, 'baci-order-1')
-    ).resolves.toBe(false);
+    ).resolves.toBeUndefined();
   });
 
-  it('returns true when notification delivery sends at least one push', async () => {
-    mocks.notifyMerchant.mockResolvedValue({ sent: 1, failed: 0, errors: [] });
+  it('returns the notification result when delivery sends a push', async () => {
+    const notificationResult: NotificationSendResult = {
+      sent: 1,
+      failed: 0,
+      errors: [],
+    };
+    mocks.notifyMerchant.mockResolvedValue(notificationResult);
 
     await expect(
       notifySyncedJumiaOrder('merchant-1', order, 'baci-order-1')
-    ).resolves.toBe(true);
+    ).resolves.toEqual(notificationResult);
   });
 
   it('propagates notification delivery errors', async () => {

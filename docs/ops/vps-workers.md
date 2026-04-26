@@ -21,7 +21,7 @@ export NODE_ENV=production
 /home/bassey/baci-workers/bin/process-import-jobs.sh
 ```
 
-The import queue and Jumia order sync runners execute web-owned TypeScript entrypoints through `tsx` from a separate Baci repo checkout. `tsx` stays in `devDependencies` to avoid expanding the Next.js production dependency surface.
+The import queue and Jumia order sync runners execute web-owned TypeScript entrypoints through `tsx` from a separate Baci repo checkout. `tsx` stays in `devDependencies` to avoid expanding the Next.js production dependency surface, so this full checkout must install development dependencies until those entrypoints are compiled to JavaScript before deployment.
 
 That Baci checkout is separate from the `vps-workers` deployment directory installed by `deploy.sh`. `vps-workers/deploy.sh` always installs the worker directory with `pnpm install --frozen-lockfile --prod`.
 
@@ -41,7 +41,7 @@ cd /opt/baci/app
 pnpm install --frozen-lockfile
 ```
 
-Do not install this checkout with `--prod`; `tsx` and other devDependencies must remain available until these TypeScript entrypoints are compiled before deployment. Keep this checkout on the same deployed commit as the worker schedule when promoting VPS cron changes.
+Do not install this checkout with `--prod`; `tsx` and the workspace development toolchain must remain available until these TypeScript entrypoints are compiled before deployment. Keep this checkout on the same deployed commit as the worker schedule when promoting VPS cron changes.
 
 Some cron work intentionally remains in the web app because it needs web-only runtime integrations. The VPS schedule calls these CRON_SECRET-gated routes through `node jobs/run-web-cron.mjs <path>`:
 

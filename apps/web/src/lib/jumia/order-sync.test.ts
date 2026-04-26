@@ -209,4 +209,191 @@ describe('syncJumiaOrdersForActiveIntegrations', () => {
       })
     );
   });
+
+  it('parks the sync cursor at the earliest failed Jumia order', async () => {
+    const secondOrder = {
+      ...order,
+      id: 'jumia-order-2',
+      number: '23456',
+      updatedAt: '2026-04-25T08:03:00.000Z',
+    };
+    const marketplaceQuery = createQuery(
+      {
+        data: [
+          {
+            id: 'integration-1',
+            merchant_id: 'merchant-1',
+            shop_id: 'shop-1',
+            last_sync_at: '2026-04-25T07:00:00.000Z',
+            sync_config: { orders: true },
+          },
+        ],
+        error: null,
+      },
+      { terminalEqCall: 2 }
+    );
+    const existingJumiaQuery = createQuery({
+      data: [
+        {
+          jumia_order_id: order.id,
+          notification_sent: true,
+          baci_order_id: 'baci-order-1',
+        },
+        {
+          jumia_order_id: secondOrder.id,
+          notification_sent: true,
+          baci_order_id: null,
+        },
+      ],
+      error: null,
+    });
+    const existingCanonicalQuery = createQuery({
+      data: [
+        {
+          id: 'baci-order-1',
+          external_id: order.id,
+          tracking_token: 'tracking-token',
+        },
+      ],
+      error: null,
+    });
+    const updateOrderQuery = createQuery(
+      { error: null },
+      { terminalEqCall: 2 }
+    );
+    const cacheQuery = createQuery({ error: null }, { terminalUpsert: true });
+    const syncCursorQuery = createQuery({ error: null }, { terminalEqCall: 1 });
+    const supabase = createSupabaseMock(
+      {
+        marketplace_integrations: [marketplaceQuery, syncCursorQuery],
+        jumia_orders: [existingJumiaQuery, cacheQuery],
+        orders: [existingCanonicalQuery, updateOrderQuery],
+      },
+      {
+        replace_order_items: [{ error: null }],
+      }
+    );
+
+    mocks.forIntegration.mockResolvedValue({ client: true });
+    vi.mocked(getAllOrders).mockResolvedValue([order, secondOrder]);
+    vi.mocked(getOrderItems)
+      .mockResolvedValueOnce({
+        orderId: order.id,
+        orderNumber: order.number,
+        items: [item],
+      })
+      .mockRejectedValueOnce(new Error('item API timeout'));
+
+    const result = await syncJumiaOrdersForActiveIntegrations(supabase);
+
+    expect(result.synced).toBe(1);
+    expect(result.canonicalUpdated).toBe(1);
+    expect(result.orderErrors).toBe(1);
+    expect(result.errors).toEqual([
+      'merchant-1/jumia-order-2: item API timeout',
+    ]);
+    const updatePayload = syncCursorQuery.update.mock.calls[0]?.[0] as
+      | Record<string, unknown>
+      | undefined;
+    expect(updatePayload).toEqual(
+      expect.objectContaining({
+        last_sync_at: '2026-04-25T08:03:00.000Z',
+        sync_error: expect.stringContaining(
+          'cursor parked at earliest failed order'
+        ),
+      })
+    );
+  });
+
+  it('treats failed Jumia push notifications as sync errors', async () => {
+    const marketplaceQuery = createQuery(
+      {
+        data: [
+          {
+            id: 'integration-1',
+            merchant_id: 'merchant-1',
+            shop_id: 'shop-1',
+            last_sync_at: '2026-04-25T07:00:00.000Z',
+            sync_config: { orders: true },
+          },
+        ],
+        error: null,
+      },
+      { terminalEqCall: 2 }
+    );
+    const existingJumiaQuery = createQuery({
+      data: [
+        {
+          jumia_order_id: order.id,
+          notification_sent: false,
+          baci_order_id: null,
+        },
+      ],
+      error: null,
+    });
+    const existingCanonicalQuery = createQuery({ data: [], error: null });
+    const insertOrderQuery = createQuery({
+      data: {
+        id: 'baci-order-1',
+        external_id: order.id,
+        tracking_token: 'tracking-token',
+      },
+      error: null,
+    });
+    const cacheQuery = createQuery({ error: null }, { terminalUpsert: true });
+    const notifyUpdateQuery = createQuery({
+      data: { jumia_order_id: order.id },
+      error: null,
+    });
+    const syncCursorQuery = createQuery({ error: null }, { terminalEqCall: 1 });
+    const supabase = createSupabaseMock(
+      {
+        marketplace_integrations: [marketplaceQuery, syncCursorQuery],
+        jumia_orders: [existingJumiaQuery, cacheQuery, notifyUpdateQuery],
+        orders: [existingCanonicalQuery, insertOrderQuery],
+      },
+      {
+        replace_order_items: [{ error: null }],
+      }
+    );
+
+    mocks.forIntegration.mockResolvedValue({ client: true });
+    vi.mocked(getAllOrders).mockResolvedValue([order]);
+    vi.mocked(getOrderItems).mockResolvedValue({
+      orderId: order.id,
+      orderNumber: order.number,
+      items: [item],
+    });
+    vi.mocked(notifyMerchant).mockResolvedValue({
+      sent: 1,
+      failed: 1,
+      errors: ['Expo outage'],
+    });
+
+    const result = await syncJumiaOrdersForActiveIntegrations(supabase);
+
+    expect(result.synced).toBe(0);
+    expect(result.canonicalCreated).toBe(1);
+    expect(result.notified).toBe(1);
+    expect(result.orderErrors).toBe(1);
+    expect(notifyUpdateQuery.update).toHaveBeenCalledWith({
+      notification_sent: true,
+    });
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining(
+          'Failed to notify merchant for Jumia order: Expo outage'
+        ),
+      ])
+    );
+    const updatePayload = syncCursorQuery.update.mock.calls[0]?.[0] as
+      | Record<string, unknown>
+      | undefined;
+    expect(updatePayload).toEqual(
+      expect.objectContaining({
+        sync_error: expect.stringContaining('cursor not advanced'),
+      })
+    );
+    expect(updatePayload).not.toHaveProperty('last_sync_at');
+  });
 });

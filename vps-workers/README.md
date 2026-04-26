@@ -37,9 +37,12 @@ That full checkout must be installed with:
 pnpm install --frozen-lockfile
 ```
 
-Do not use `--prod` for the full checkout until the TypeScript worker
-entrypoints are compiled before deployment; `tsx` is intentionally available
-from the web app's development dependencies in that checkout.
+Do not use `--prod` for the full checkout. The VPS wrappers run
+`apps/web/src/scripts/process-import-jobs.ts` and
+`apps/web/src/scripts/sync-jumia-orders.ts` directly through the dev-only `tsx`
+dependency, with no prior compilation step. A production-only install is safe
+only after those entrypoints are compiled to JavaScript and the wrappers are
+updated to run the compiled files.
 
 `jobs/run-web-cron.mjs` calls the retained CRON_SECRET-gated web GET wrappers
 for web-owned scheduled work:
