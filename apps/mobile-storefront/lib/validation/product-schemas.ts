@@ -1,5 +1,33 @@
 import { z } from 'zod';
 
+function toFiniteNumber(value: unknown) {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : Number.NaN;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return value;
+    }
+
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : value;
+  }
+
+  return value;
+}
+
+const NumberLikeSchema = z.preprocess(toFiniteNumber, z.number());
+const NullableNumberLikeSchema = z.preprocess(
+  (value) => (value === null ? null : toFiniteNumber(value)),
+  z.number().nullable()
+);
+const NullableNonnegativeIntegerLikeSchema = z.preprocess(
+  (value) => (value === null ? null : toFiniteNumber(value)),
+  z.number().int().nonnegative().nullable()
+);
+
 export const MerchantRowSchema = z.object({
   id: z.string().uuid(),
   slug: z.string().optional(),
@@ -58,15 +86,15 @@ const ProductVariantSchema = z.object({
   name: z.string().optional(),
   condition: z.string().nullable().optional(),
   sku: z.string().nullable().optional(),
-  price: z.number().optional(),
-  compare_at_price: z.number().nullable().optional(),
-  price_override: z.number().nullable().optional(),
-  price_modifier: z.number().nullable().optional(),
+  price: NumberLikeSchema.optional(),
+  compare_at_price: NullableNumberLikeSchema.optional(),
+  price_override: NullableNumberLikeSchema.optional(),
+  price_modifier: NullableNumberLikeSchema.optional(),
   image: z.string().nullable().optional(),
   primary_image: z.string().nullable().optional(),
   images: z.array(ProductImageEntrySchema).nullable().optional(),
   in_stock: z.boolean().nullable().optional(),
-  stock_quantity: z.number().nullable().optional(),
+  stock_quantity: NullableNonnegativeIntegerLikeSchema.optional(),
   attributes: z.record(z.string(), z.string()).nullable().optional(),
 });
 
@@ -81,9 +109,9 @@ const ProductColorSchema = z.union([
 const ProductConditionOfferSchema = z.object({
   id: z.string(),
   condition: z.string(),
-  price: z.number(),
-  compare_at_price: z.number().nullable().optional(),
-  stock_quantity: z.number().nullable().optional(),
+  price: NumberLikeSchema,
+  compare_at_price: NullableNumberLikeSchema.optional(),
+  stock_quantity: NullableNonnegativeIntegerLikeSchema.optional(),
   images: z.array(ProductImageEntrySchema).nullable().optional(),
   condition_notes: z.string().nullable().optional(),
   grade: z.enum(['A', 'B', 'C', 'D']).nullable().optional(),
@@ -104,17 +132,20 @@ export const ProductRowSchema = z.object({
   name: z.string(),
   slug: z.string(),
   description: z.string().nullable().optional(),
-  price: z.number(),
-  compare_at_price: z.number().nullable().optional(),
+  price: NumberLikeSchema,
+  compare_at_price: NullableNumberLikeSchema.optional(),
   images: z.array(ProductImageEntrySchema).nullable().optional(),
   brand: z.string().nullable().optional(),
   color: z.string().nullable().optional(),
   condition: z.string().nullable().optional(),
-  average_rating: z.number().nullable().optional(),
-  review_count: z.number().int().nonnegative().nullable().optional(),
+  average_rating: NullableNumberLikeSchema.refine(
+    (value) => value == null || (value >= 0 && value <= 5),
+    { message: 'average_rating must be between 0 and 5' }
+  ).optional(),
+  review_count: NullableNonnegativeIntegerLikeSchema.optional(),
   manage_stock: z.boolean().nullable().optional(),
-  stock: z.number().nullable().optional(),
-  stock_quantity: z.number().nullable().optional(),
+  stock: NullableNonnegativeIntegerLikeSchema.optional(),
+  stock_quantity: NullableNonnegativeIntegerLikeSchema.optional(),
   status: z.string().optional(),
   specifications: z
     .union([

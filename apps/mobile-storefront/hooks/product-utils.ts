@@ -5,6 +5,7 @@ import {
   orderRecordsByIds,
 } from '@baci/shared';
 import type { QueryClient } from '@tanstack/react-query';
+import { hydrateRowsNeedingStorefrontVariants } from '@/hooks/product-hydration';
 import { withSupabaseRetry } from '@/lib/api';
 import { CONFIG } from '@/lib/config';
 import { createLogger } from '@/lib/logger';
@@ -17,6 +18,8 @@ import {
 } from '@/lib/product-normalization';
 import { removeProductSlugFromProductsCache } from '@/lib/product-query-cache';
 import { getProductSlugFallbackCandidates } from '@/lib/product-slug-fallback';
+import { resolveProductVariantMetadata } from '@/lib/product-variant-metadata';
+import { hydrateProductRowsWithStorefrontVariants } from '@/lib/storefront-product-variants';
 import { supabase } from '@/lib/supabase';
 import { ProductRowSchema } from '@/lib/validation';
 import {
@@ -64,6 +67,11 @@ function getMixedConditionLabel(availableConditions?: unknown) {
 
 export const MERCHANT_SLUG = CONFIG.MERCHANT_SLUG || 'ogabassey';
 export const CONSTANT_MERCHANT_ID = CONFIG.MERCHANT_ID;
+export const PRODUCT_QUERY_VERSION = 'variant-media-v1';
+
+export function buildProductQueryKey(slug: string, merchantId: string) {
+  return ['product', PRODUCT_QUERY_VERSION, slug, merchantId] as const;
+}
 
 export interface Category {
   id: string;
@@ -152,12 +160,20 @@ export function normalizeProductVariants(
   options: {
     basePrice: number;
     compareAtPrice?: number;
+    manageStock?: boolean;
   }
 ): ProductVariant[] {
   const parsedVariants = ProductRowSchema.shape.variants.safeParse(variants);
   if (!parsedVariants.success) {
     return [];
   }
+
+  // When the product disables inventory tracking (`manage_stock: false`),
+  // variant rows should mirror that semantic: a `stock_quantity` of 0 is not a
+  // sold-out signal, it is unmanaged. Treat such variants as in stock so PDP
+  // gating, cart adds, and storefront grid availability stay consistent with
+  // the product-level inventory rule.
+  const inventoryUnmanaged = options.manageStock === false;
 
   return (
     parsedVariants.data?.map((variant) => {
@@ -201,8 +217,9 @@ export function normalizeProductVariants(
         price_modifier: variant.price_modifier ?? undefined,
         image: primaryImage,
         images: images.length > 0 ? images : undefined,
-        in_stock:
-          typeof stockQuantity === 'number'
+        in_stock: inventoryUnmanaged
+          ? true
+          : typeof stockQuantity === 'number'
             ? stockQuantity > 0
             : (variant.in_stock ?? undefined),
         stock_quantity: stockQuantity,
@@ -240,7 +257,12 @@ export function fetchProductRow(
 export async function resolveProductRow(merchantId: string, slug: string) {
   const exact = await fetchProductRow(merchantId, slug, 'Product');
   if (exact.error) throw exact.error;
-  if (exact.data) return exact.data;
+  if (exact.data) {
+    const [hydratedProduct] = await hydrateProductRowsWithStorefrontVariants([
+      exact.data,
+    ]);
+    return hydratedProduct ?? exact.data;
+  }
   if (isUuid(slug)) return null;
 
   for (const fallbackSlug of getProductSlugFallbackCandidates(slug)) {
@@ -251,8 +273,11 @@ export async function resolveProductRow(merchantId: string, slug: string) {
     );
     if (fallback.error) throw fallback.error;
     if (fallback.data) {
+      const [hydratedFallback] = await hydrateProductRowsWithStorefrontVariants(
+        [fallback.data]
+      );
       log.warn(`Resolved legacy product slug "${slug}" to "${fallbackSlug}"`);
-      return fallback.data;
+      return hydratedFallback ?? fallback.data;
     }
   }
 
@@ -270,8 +295,15 @@ export async function resolveAndEvictProduct(
   }
 
   queryClient.removeQueries({
-    queryKey: ['product', slug, merchantId],
-    exact: true,
+    predicate: (query) => {
+      const key = query.queryKey;
+      return (
+        Array.isArray(key) &&
+        key[0] === 'product' &&
+        key[key.length - 2] === slug &&
+        key[key.length - 1] === merchantId
+      );
+    },
   });
 
   queryClient.setQueriesData(
@@ -457,26 +489,27 @@ export function transformProduct(item: unknown): Product | null {
           ])
         )
       : undefined;
-  const derivedColors = Array.from(
-    new Set([
-      ...(typeof product.color === 'string' && product.color.trim()
-        ? [product.color.trim()]
-        : []),
-      ...Object.keys(colorImages ?? {}),
-    ])
-  );
-  const colors = Array.isArray(product.colors)
-    ? product.colors.map((color) =>
-        typeof color === 'string'
-          ? color
-          : {
-              name: color.name,
-              value: color.value || color.name,
-            }
-      )
-    : derivedColors.length > 0
-      ? derivedColors
-      : undefined;
+  const variants = normalizeProductVariants(product.variants, {
+    basePrice: Number(product.price ?? 0),
+    compareAtPrice: product.compare_at_price ?? undefined,
+    manageStock: (product.manage_stock as boolean | undefined) ?? false,
+  });
+  const legacyScalarColor =
+    typeof product.color === 'string' ? product.color.trim() : '';
+  const colorsFromArray = Array.isArray(product.colors) ? product.colors : [];
+  const productColorsForMetadata =
+    colorsFromArray.length > 0
+      ? colorsFromArray
+      : legacyScalarColor
+        ? [legacyScalarColor]
+        : undefined;
+  const variantMetadata = resolveProductVariantMetadata({
+    colorImages,
+    productImages: images,
+    productColors: productColorsForMetadata,
+    sourceVariantAttributes: product.variant_attributes,
+    variants,
+  });
   const offers = Array.isArray(product.offers)
     ? product.offers.map((offer) => ({
         id: offer.id,
@@ -496,6 +529,10 @@ export function transformProduct(item: unknown): Product | null {
     stock_quantity: product.stock_quantity,
     manage_stock: product.manage_stock ?? false,
   });
+  const galleryImages =
+    variantMetadata.galleryImages && variantMetadata.galleryImages.length > 0
+      ? variantMetadata.galleryImages
+      : images;
 
   return {
     id: String(product.id ?? ''),
@@ -504,8 +541,8 @@ export function transformProduct(item: unknown): Product | null {
     description: product.description as string | undefined,
     price: Number(product.price ?? 0),
     compare_at_price: product.compare_at_price as number | undefined,
-    image: getPrimaryProductImage(product.images),
-    images,
+    image: galleryImages[0] ?? getPrimaryProductImage(product.images),
+    images: galleryImages,
     brand: product.brand as string | undefined,
     category: Array.isArray(product.categories)
       ? product.categories.length > 0
@@ -526,8 +563,8 @@ export function transformProduct(item: unknown): Product | null {
     review_count: reviewCount,
     manage_stock: (product.manage_stock as boolean) ?? false,
     stock_quantity: inventory.stock_quantity,
-    colors,
-    color_images: colorImages,
+    colors: variantMetadata.colors,
+    color_images: variantMetadata.colorImages,
     has_variants: product.has_variants ?? false,
     variant_model:
       product.variant_model === 'sku_matrix' ? 'sku_matrix' : 'legacy',
@@ -536,11 +573,8 @@ export function transformProduct(item: unknown): Product | null {
       product.available_conditions.every((value) => typeof value === 'string')
         ? (product.available_conditions as Product['available_conditions'])
         : undefined,
-    variant_attributes: normalizeVariantAttributes(product.variant_attributes),
-    variants: normalizeProductVariants(product.variants, {
-      basePrice: Number(product.price ?? 0),
-      compareAtPrice: product.compare_at_price ?? undefined,
-    }),
+    variant_attributes: variantMetadata.variantAttributes,
+    variants,
     has_condition_offers: product.has_condition_offers ?? false,
     offers,
     in_stock: inventory.manage_stock === false || inventory.stock_quantity > 0,
@@ -621,8 +655,12 @@ export async function fetchProductsPage(
       throw error;
     }
 
+    const hydratedRows = await hydrateRowsNeedingStorefrontVariants(
+      (data ?? []) as Record<string, unknown>[]
+    );
+
     const products = orderRecordsByIds(
-      (data ?? []) as { id: string }[],
+      hydratedRows as { id: string }[],
       productIds
     )
       .map(transformProduct)
@@ -684,7 +722,10 @@ export async function fetchProductsPage(
 
   if (result.error) throw result.error;
 
-  const products = (result.data || [])
+  const hydratedRows = await hydrateRowsNeedingStorefrontVariants(
+    (result.data || []) as Record<string, unknown>[]
+  );
+  const products = hydratedRows
     .map(transformProduct)
     .filter((product): product is Product => product !== null);
   const resultWithCount = result as typeof result & { count: number | null };
