@@ -189,7 +189,7 @@ export default function SavedItemsScreen() {
             ]}
             onPress={() => handleAddToCart(item)}
           >
-            <Ionicons name="cart-outline" size={18} color="#FFF" />
+            <Ionicons name="cart-outline" size={18} color={colors.primaryForeground} />
             <Text style={[styles.actionButtonText, { color: colors.primaryForeground }]}>
               Add to Cart
             </Text>
