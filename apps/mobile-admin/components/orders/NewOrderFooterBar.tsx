@@ -197,6 +197,7 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
         </View>
         <Pressable
           accessibilityRole="button"
+          accessibilityState={{ disabled: isSubmitting || orderItems.length === 0 }}
           disabled={isSubmitting || orderItems.length === 0}
           onPress={handleSubmit}
           style={[
