@@ -29,7 +29,6 @@ jobs:
     # `extract_review_context` before any secrets are inherited by the reusable
     # review workflow.
     if: |-
-      github.event.sender.type == 'User' &&
       (
         (
           github.event_name == 'pull_request' &&
@@ -37,6 +36,7 @@ jobs:
           github.event.pull_request.head.repo.full_name == github.repository
         ) ||
         (
+          github.event.sender.type == 'User' &&
           (
             contains(fromJSON('["pull_request_review_comment", "pull_request_review"]'), github.event_name) ||
             (github.event_name == 'issue_comment' && github.event.issue.pull_request)
@@ -44,6 +44,7 @@ jobs:
           startsWith(github.event.comment.body || github.event.review.body, '@gemini-cli /review') &&
           contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association || github.event.review.author_association)
         )
+      )
     runs-on: 'ubuntu-latest'
     permissions:
       contents: 'read'
