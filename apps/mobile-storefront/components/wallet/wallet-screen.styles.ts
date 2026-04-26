@@ -6,12 +6,10 @@ const BALANCE_DIVIDER_COLOR = 'rgba(255,255,255,0.2)';
 const BALANCE_TEXT_COLOR = 'rgba(255,255,255,0.8)';
 const COMPACT_PADDING_X = 10;
 const COMPACT_PADDING_Y = 6;
-const CONTROL_GAP = 6;
 const FIELD_PADDING_Y = 14;
 const ICON_SIZE = 40;
 const PANEL_GAP = 12;
 const PANEL_PADDING = 20;
-const SCREEN_GAP = 12;
 const SMALL_BUTTON_PADDING_Y = 10;
 const TIGHT_MARGIN = 2;
 const WHITE = '#FFFFFF';
@@ -119,7 +117,7 @@ export const styles = StyleSheet.create({
   redeemBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: CONTROL_GAP,
+    gap: SPACING.control,
     paddingHorizontal: SPACING.md,
     paddingVertical: SMALL_BUTTON_PADDING_Y,
     borderRadius: RADIUS.lg,
@@ -194,7 +192,7 @@ export const styles = StyleSheet.create({
     paddingVertical: SPACING.xl,
   },
   emptyText: {
-    marginTop: SCREEN_GAP,
+    marginTop: SPACING.baseGap,
     fontSize: TYPOGRAPHY.size.base,
   },
   transactionItem: {
@@ -212,7 +210,7 @@ export const styles = StyleSheet.create({
   },
   txDetails: {
     flex: 1,
-    marginLeft: SCREEN_GAP,
+    marginLeft: SPACING.baseGap,
   },
   txDescription: {
     fontSize: TYPOGRAPHY.size.base,

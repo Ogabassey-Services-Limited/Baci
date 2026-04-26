@@ -7,10 +7,7 @@ import {
   waitFor,
 } from '@testing-library/react-native';
 import { Alert, Linking } from 'react-native';
-
-type DeleteAccountResult =
-  | { success: true; usedApple: boolean }
-  | { error: string; success: false; usedApple: boolean };
+import type { DeleteAccountResult } from '@/lib/account-deletion';
 
 const mockDeleteAccount = jest.fn<() => Promise<DeleteAccountResult>>();
 const mockRouterReplace = jest.fn();
@@ -145,7 +142,6 @@ describe('DeleteAccountScreen', () => {
     mockDeleteAccount.mockResolvedValue({
       success: false,
       error: 'Unable to delete your account right now.',
-      usedApple: false,
     });
 
     render(<DeleteAccountScreen />);

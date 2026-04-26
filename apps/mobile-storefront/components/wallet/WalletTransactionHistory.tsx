@@ -15,7 +15,7 @@ const MONTH_LABELS = [
   'Jun',
   'Jul',
   'Aug',
-  'Sept',
+  'Sep',
   'Oct',
   'Nov',
   'Dec',
@@ -36,12 +36,19 @@ interface WalletTransactionHistoryProps {
 
 function hexToRgba(hexColor: string, alpha: number) {
   const normalizedHex = hexColor.replace('#', '');
+  const expandedHex =
+    normalizedHex.length === 3 && /^[\da-f]{3}$/i.test(normalizedHex)
+      ? normalizedHex
+          .split('')
+          .map((character) => `${character}${character}`)
+          .join('')
+      : normalizedHex;
 
-  if (!/^[\da-f]{6}$/i.test(normalizedHex)) {
+  if (!/^[\da-f]{6}$/i.test(expandedHex)) {
     return hexColor;
   }
 
-  const colorValue = Number.parseInt(normalizedHex, 16);
+  const colorValue = Number.parseInt(expandedHex, 16);
   const red = (colorValue >> 16) & 255;
   const green = (colorValue >> 8) & 255;
   const blue = colorValue & 255;

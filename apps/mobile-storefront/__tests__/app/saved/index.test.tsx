@@ -5,6 +5,7 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
+import SavedItemsScreen from '@/app/saved/index';
 import type { SavedItem } from '@/stores/saved-store';
 
 const mockPush = jest.fn();
@@ -120,8 +121,6 @@ jest.mock('@/types/product', () => ({
   formatPrice: (price: number) => `₦${price}`,
   getDiscountPercentage: () => null,
 }));
-
-import SavedItemsScreen from '@/app/saved/index';
 
 const makeSavedItem = (overrides: Partial<SavedItem> = {}): SavedItem => ({
   id: 'item-1',

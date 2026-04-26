@@ -9,10 +9,11 @@ const SUPPORT_MODULE_FILE_PATTERN =
 // them explicit to prevent regressions back into Expo Router's route tree.
 const DISALLOWED_SUPPORT_FILES = [
   'product/normalize-route-condition.ts',
-  'product/product-detail-screen.fixtures.ts',
   'product/product-selection.ts',
   'root-layout-nav.tsx',
 ];
+const ROUTE_TREE_REMEDIATION =
+  'Remove test/support files from app/ or move them to __tests__, components, lib, or a utilities folder.';
 
 function collectMatchingFiles(
   currentPath: string,
@@ -45,29 +46,39 @@ function collectDisallowedSupportFiles(currentPath: string): string[] {
   });
 }
 
+function expectNoAppTreeMatches(matches: string[], policy: string) {
+  if (matches.length > 0) {
+    throw new Error(
+      `Found banned files under app/: ${matches.join(', ')}. Policy: ${policy}. ${ROUTE_TREE_REMEDIATION}`
+    );
+  }
+
+  expect(matches).toEqual([]);
+}
+
 describe('app route tree safety', () => {
   it('does not keep test files inside the expo-router app directory', () => {
-    expect(
-      collectMatchingFiles(APP_ROOT, (fileName) =>
-        /\.test\.(ts|tsx)$/.test(fileName)
-      )
-    ).toEqual([]);
+    const matches = collectMatchingFiles(APP_ROOT, (fileName) =>
+      /\.test\.(ts|tsx)$/.test(fileName)
+    );
+
+    expectNoAppTreeMatches(matches, 'Route tests must not live in app/.');
   });
 
   it('does not keep test utility modules inside the expo-router app directory', () => {
-    expect(
-      collectMatchingFiles(APP_ROOT, (fileName) =>
-        /\.test-utils\.(ts|tsx)$/.test(fileName)
-      )
-    ).toEqual([]);
+    const matches = collectMatchingFiles(APP_ROOT, (fileName) =>
+      /\.test-utils\.(ts|tsx)$/.test(fileName)
+    );
+
+    expectNoAppTreeMatches(matches, 'Test utilities must not live in app/.');
   });
 
   it('does not keep support modules inside the expo-router app directory', () => {
-    expect(
-      collectMatchingFiles(APP_ROOT, (fileName) =>
-        SUPPORT_MODULE_FILE_PATTERN.test(fileName)
-      )
-    ).toEqual([]);
+    const matches = collectMatchingFiles(APP_ROOT, (fileName) =>
+      SUPPORT_MODULE_FILE_PATTERN.test(fileName)
+    );
+
+    expectNoAppTreeMatches(matches, 'Support modules must not live in app/.');
   });
 
   it('keeps support modules out of the expo-router app directory', () => {
