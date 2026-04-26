@@ -1,6 +1,12 @@
 name: '🔀 Gemini Dispatch'
 
 on:
+  pull_request:
+    types:
+      - 'opened'
+      - 'synchronize'
+      - 'reopened'
+      - 'ready_for_review'
   pull_request_review_comment:
     types:
       - 'created'
@@ -17,20 +23,27 @@ defaults:
 
 jobs:
   dispatch:
-    # Gemini review only runs on explicit `@gemini-cli /review` commands from
-    # maintainers on same-repo pull requests. Automatic `pull_request` events are
-    # intentionally ignored so unrelated PRs do not consume Gemini quota or fail
-    # the workflow when reviewers have not opted in. Forked-PR comments are
-    # rejected here and re-checked server-side in `extract_review_context` before
-    # any secrets are inherited by the reusable review workflow.
+    # Gemini review auto-runs for same-repo, non-draft pull requests and can be
+    # manually re-triggered with `@gemini-cli /review` by maintainers. Forked-PR
+    # comments are rejected here and re-checked server-side in
+    # `extract_review_context` before any secrets are inherited by the reusable
+    # review workflow.
     if: |-
       github.event.sender.type == 'User' &&
       (
-        contains(fromJSON('["pull_request_review_comment", "pull_request_review"]'), github.event_name) ||
-        (github.event_name == 'issue_comment' && github.event.issue.pull_request)
-      ) &&
-      startsWith(github.event.comment.body || github.event.review.body, '@gemini-cli /review') &&
-      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association || github.event.review.author_association)
+        (
+          github.event_name == 'pull_request' &&
+          !github.event.pull_request.draft &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        ) ||
+        (
+          (
+            contains(fromJSON('["pull_request_review_comment", "pull_request_review"]'), github.event_name) ||
+            (github.event_name == 'issue_comment' && github.event.issue.pull_request)
+          ) &&
+          startsWith(github.event.comment.body || github.event.review.body, '@gemini-cli /review') &&
+          contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association || github.event.review.author_association)
+        )
     runs-on: 'ubuntu-latest'
     permissions:
       contents: 'read'
@@ -84,7 +97,7 @@ jobs:
 
       - name: 'Acknowledge request'
         if: |-
-          ${{ steps.extract_review_context.outputs.should_review == 'true' }}
+          ${{ steps.extract_review_context.outputs.should_review == 'true' && github.event_name != 'pull_request' }}
         env:
           GITHUB_TOKEN: '${{ steps.mint_identity_token.outputs.token || secrets.GITHUB_TOKEN || github.token }}'
           ISSUE_NUMBER: '${{ github.event.pull_request.number || github.event.issue.number }}'
