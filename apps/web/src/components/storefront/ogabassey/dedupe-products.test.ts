@@ -120,6 +120,35 @@ describe('dedupeProductsByIdentity', () => {
     ]);
   });
 
+  it('tracks id aliases from skipped duplicate rows for later id-only matches', () => {
+    const result = dedupeProductsByIdentity([
+      { slug: 'shared-slug', name: 'Slug-only product' },
+      {
+        id: 'product-1',
+        slug: 'shared-slug',
+        name: 'ID and slug duplicate',
+      },
+      {
+        id: 'product-1',
+        name: 'ID-only duplicate',
+      },
+      {
+        id: 'product-2',
+        slug: 'different-slug',
+        name: 'Different product',
+      },
+    ]);
+
+    expect(result).toEqual([
+      { slug: 'shared-slug', name: 'Slug-only product' },
+      {
+        id: 'product-2',
+        slug: 'different-slug',
+        name: 'Different product',
+      },
+    ]);
+  });
+
   it('preserves products without an id or slug', () => {
     const products: { name: string }[] = [
       { name: 'Unknown 1' },

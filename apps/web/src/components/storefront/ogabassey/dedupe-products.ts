@@ -28,6 +28,13 @@ function hasStableIdIdentity(identities: readonly string[]): boolean {
   return identities.some((identity) => identity.startsWith('id:'));
 }
 
+function isInferredIdentityBlockingDuplicate(
+  identity: string,
+  identities: readonly string[]
+): boolean {
+  return identity.startsWith('id:') || !hasStableIdIdentity(identities);
+}
+
 /**
  * Returns products with duplicate identities removed.
  *
@@ -53,9 +60,11 @@ export function dedupeProductsByIdentity<T>(
     }
 
     const isSeenDuplicate = identities.some((identity) => seen.has(identity));
-    const isAliasOnlyDuplicate =
-      !hasStableIdIdentity(identities) &&
-      identities.some((identity) => inferredDuplicateAliases.has(identity));
+    const isInferredAliasDuplicate = identities.some(
+      (identity) =>
+        inferredDuplicateAliases.has(identity) &&
+        isInferredIdentityBlockingDuplicate(identity, identities)
+    );
 
     if (isSeenDuplicate) {
       for (const identity of identities) {
@@ -67,7 +76,7 @@ export function dedupeProductsByIdentity<T>(
       continue;
     }
 
-    if (isAliasOnlyDuplicate) {
+    if (isInferredAliasDuplicate) {
       continue;
     }
 
