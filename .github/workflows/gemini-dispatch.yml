@@ -17,6 +17,10 @@ on:
     types:
       - 'created'
 
+concurrency:
+  group: 'gemini-dispatch-${{ github.event.pull_request.number || github.event.issue.number }}'
+  cancel-in-progress: true
+
 defaults:
   run:
     shell: 'bash'
@@ -32,6 +36,7 @@ jobs:
       (
         (
           github.event_name == 'pull_request' &&
+          github.event.sender.type == 'User' &&
           !github.event.pull_request.draft &&
           github.event.pull_request.head.repo.full_name == github.repository
         ) ||
