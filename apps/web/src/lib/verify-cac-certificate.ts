@@ -33,7 +33,7 @@ function parseModelResponse(text: string): CACVerificationResult {
 }
 
 function hasRequiredVerificationFields(result: CACVerificationResult): boolean {
-  return Boolean(result.rcNumber && result.businessName);
+  return Boolean(result.rcNumber?.trim() && result.businessName?.trim());
 }
 
 async function extractViaOllama(

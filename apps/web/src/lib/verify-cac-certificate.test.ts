@@ -152,6 +152,31 @@ describe('extractCACCertificateData', () => {
     expect(result.businessName).toBe('BACI TECHNOLOGIES LTD');
   });
 
+  it('falls back to Gemini when Ollama returns whitespace-only verification fields', async () => {
+    vi.mocked(getOllamaBaseUrl).mockReturnValue('https://ollama.example.com');
+    vi.mocked(global.fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        response: JSON.stringify({
+          documentType: 'Certificate of Incorporation',
+          rcNumber: '   ',
+          businessName: '   ',
+        }),
+      }),
+    } as Response);
+    vi.mocked(generateText).mockResolvedValueOnce({
+      text: validJsonResponse,
+    } as Awaited<ReturnType<typeof generateText>>);
+
+    const buffer = new Uint8Array([0x25, 0x50, 0x44, 0x46]);
+    const result = await extractCACCertificateData(buffer, 'application/pdf');
+
+    expect(global.fetch).toHaveBeenCalledOnce();
+    expect(generateText).toHaveBeenCalledOnce();
+    expect(result.rcNumber).toBe('RC123456');
+    expect(result.businessName).toBe('BACI TECHNOLOGIES LTD');
+  });
+
   it('uses Gemini directly for images when OLLAMA_BASE_URL is not set', async () => {
     vi.mocked(getOllamaBaseUrl).mockReturnValue(undefined);
     vi.mocked(generateText).mockResolvedValueOnce({
