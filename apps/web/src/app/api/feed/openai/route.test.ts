@@ -282,6 +282,54 @@ describe('GET /api/feed/openai — stock and manage_stock', () => {
     expect(parsed.availability).toBe('in_stock');
   });
 
+  it('treats unmanaged variant stock quantities as non-authoritative', async () => {
+    mockGetCachedOpenAIFeedData.mockResolvedValue({
+      products: [
+        simpleProduct({
+          manage_stock: false,
+          variants: [
+            {
+              id: 'var-1',
+              attributes: { color: 'Red' },
+              stock_quantity: 0,
+              sku: 'SKU-RED',
+            },
+            {
+              id: 'var-2',
+              attributes: { color: 'Blue' },
+              stock_quantity: 2,
+              sku: 'SKU-BLUE',
+            },
+          ],
+        }),
+      ],
+    });
+    const { GET } = await import('./route');
+    const response = await GET(
+      makeRequest('/api/feed/openai?merchant_slug=ogabassey')
+    );
+    const items = (await response.text())
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => JSON.parse(line));
+
+    expect(items).toHaveLength(2);
+    expect(items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'SKU-RED',
+          availability: 'in_stock',
+          quantity: 9999,
+        }),
+        expect.objectContaining({
+          id: 'SKU-BLUE',
+          availability: 'in_stock',
+          quantity: 9999,
+        }),
+      ])
+    );
+  });
+
   it('uses variant stock_quantity when variant parent manages stock', async () => {
     mockGetCachedOpenAIFeedData.mockResolvedValue({
       products: [
