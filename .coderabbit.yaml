@@ -142,7 +142,8 @@ reviews:
 
     Review tone: Direct, surgical, and uncompromising on correctness,
     security, and accessibility. For each finding include severity (Critical,
-    Major, Minor, Trivial) and file path + line.
+    Major, Minor, Trivial) and file path + line. Do not invent findings when
+    there is no concrete, reviewable risk in the diff.
 
 chat:
   auto_reply: true
