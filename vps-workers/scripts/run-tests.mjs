@@ -35,20 +35,16 @@ if (testFiles.length === 0) {
   process.exit(1);
 }
 
-let failed = false;
-
-for (const testFile of testFiles) {
-  const result = spawnSync(process.execPath, ['--test', testFile], {
-    stdio: 'inherit',
-  });
-  if (result.error) {
-    console.error(`Failed to run test ${testFile}:`, result.error.message);
-    failed = true;
-    continue;
-  }
-  if (result.status !== 0) {
-    failed = true;
-  }
+const result = spawnSync(process.execPath, ['--test', ...testFiles], {
+  stdio: 'inherit',
+});
+if (result.error) {
+  console.error('Failed to run VPS worker tests:', result.error.message);
+  process.exit(1);
+}
+if (result.signal) {
+  console.error(`VPS worker tests terminated by signal: ${result.signal}`);
+  process.exit(1);
 }
 
-process.exit(failed ? 1 : 0);
+process.exit(result.status ?? 1);

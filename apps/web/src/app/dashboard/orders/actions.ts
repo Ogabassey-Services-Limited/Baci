@@ -156,6 +156,12 @@ const ORDER_CONFIRMATION_SELECT = [
 const NON_JUMIA_ORDERS_FILTER =
   'external_source.is.null,external_source.neq.jumia';
 
+function isActiveFilter<T extends string>(
+  value: T | 'All' | undefined
+): value is T {
+  return Boolean(value && value !== 'All');
+}
+
 function formatStatus(status: string): string {
   if (!status) return 'Pending';
   return status
@@ -170,6 +176,10 @@ export async function getOrders(
 ): Promise<Order[]> {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
+  const paymentStatusFilter = filters.paymentStatus;
+  const shippingStatusFilter = filters.shippingStatus;
+  const hasPaymentFilter = isActiveFilter(paymentStatusFilter);
+  const hasShippingFilter = isActiveFilter(shippingStatusFilter);
 
   let query = supabase
     .from('orders')
@@ -179,15 +189,15 @@ export async function getOrders(
     .order('created_at', { ascending: false });
 
   // Apply filters
-  if (filters.paymentStatus && filters.paymentStatus !== 'All') {
+  if (hasPaymentFilter) {
     query = query.eq(
       'payment_status',
-      filters.paymentStatus.toLowerCase().replace(/\s+/g, '_')
+      paymentStatusFilter.toLowerCase().replace(/\s+/g, '_')
     );
   }
 
-  if (filters.shippingStatus && filters.shippingStatus !== 'All') {
-    query = query.eq('shipping_status', filters.shippingStatus.toLowerCase());
+  if (hasShippingFilter) {
+    query = query.eq('shipping_status', shippingStatusFilter.toLowerCase());
   }
 
   // Search by customer name or order number
@@ -217,7 +227,7 @@ export async function getOrders(
   // Jumia orders don't have standard payment/shipping statuses in the same way,
   // but we map them.
   let jumiaOrders: JumiaOrder[] = [];
-  if (!filters.paymentStatus && !filters.shippingStatus) {
+  if (!hasPaymentFilter && !hasShippingFilter) {
     const { data: jOrders, error: jumiaOrdersError } = await supabase
       .from('jumia_orders')
       .select(
@@ -347,25 +357,21 @@ export async function getOrderStats(merchantId: string): Promise<OrderStats> {
     supabase
       .from('orders')
       .select('id', { count: 'exact', head: true })
-      .eq('merchant_id', merchantId)
-      .or(NON_JUMIA_ORDERS_FILTER),
+      .eq('merchant_id', merchantId),
     supabase
       .from('orders')
       .select('id', { count: 'exact', head: true })
       .eq('merchant_id', merchantId)
-      .or(NON_JUMIA_ORDERS_FILTER)
       .eq('shipping_status', 'delivered'),
     supabase
       .from('orders')
       .select('id', { count: 'exact', head: true })
       .eq('merchant_id', merchantId)
-      .or(NON_JUMIA_ORDERS_FILTER)
       .eq('payment_status', 'unpaid'),
     supabase
       .from('orders')
       .select('id', { count: 'exact', head: true })
       .eq('merchant_id', merchantId)
-      .or(NON_JUMIA_ORDERS_FILTER)
       .or('payment_status.eq.unpaid,shipping_status.eq.pending'),
   ]);
 

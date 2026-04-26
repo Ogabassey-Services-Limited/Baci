@@ -222,11 +222,11 @@ export function buildOrderItems(orderId: string, items: JumiaOrderItem[]) {
     order_id: orderId,
     product_id: null,
     name: sanitizeText(item.product.name, 300),
-    price: item.paidPrice || item.itemPrice,
+    price: item.paidPrice ?? item.itemPrice,
     quantity: 1,
     image_url: sanitizeHttpsUrl(item.product.imageUrl),
     line_id: index + 1,
-    line_extension_amount: item.paidPrice || item.itemPrice,
+    line_extension_amount: item.paidPrice ?? item.itemPrice,
     item_description: sanitizeText(item.product.name, 300),
     sellers_item_id: sanitizeText(item.product.sellerSku, 120),
     fulfillment_data: {

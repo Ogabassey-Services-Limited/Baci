@@ -152,6 +152,17 @@ describe('Jumia order sync mappers', () => {
     });
   });
 
+  it('preserves zero paid prices for fully discounted Jumia items', () => {
+    const orderItems = buildOrderItems('baci-order-id', [
+      { ...item, paidPrice: 0 },
+    ]);
+
+    expect(orderItems[0]).toMatchObject({
+      price: 0,
+      line_extension_amount: 0,
+    });
+  });
+
   it('keeps canonical Jumia order numbers unchanged', () => {
     expect(buildJumiaOrderNumber('JUMIA-12345')).toBe('JUMIA-12345');
   });

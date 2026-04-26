@@ -6,14 +6,6 @@ const mocks = vi.hoisted(() => ({
   processImportJobQueue: vi.fn(),
 }));
 
-vi.mock('../lib/supabase/service', () => ({
-  createServiceClient: mocks.createServiceClient,
-}));
-
-vi.mock('../lib/import-jobs/process-import-job', () => ({
-  processImportJobQueue: mocks.processImportJobQueue,
-}));
-
 vi.mock('@/lib/supabase/service', () => ({
   createServiceClient: mocks.createServiceClient,
 }));

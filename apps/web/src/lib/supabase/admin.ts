@@ -2,14 +2,10 @@ import { createClient } from '@supabase/supabase-js';
 import { getSupabaseServiceRoleKey, getSupabaseUrl } from '@/env';
 
 /**
- * Creates a Supabase client for server-side operations that don't require user authentication.
- * This uses the anon key but without cookie handling, suitable for:
- * - Sitemap generation
- * - Public data fetching
- * - Background jobs
+ * Creates a Supabase service-role client for trusted server-only admin work.
  *
- * Note: This client respects RLS policies. For operations requiring bypass of RLS,
- * use the service_role key (not included here for security).
+ * This bypasses RLS and must never be imported by client-side code or used for
+ * user-facing operations that should respect merchant/customer authorization.
  */
 export function createAdminClient() {
   const url = getSupabaseUrl();
