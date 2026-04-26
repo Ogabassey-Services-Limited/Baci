@@ -29,6 +29,20 @@ export interface QueryMock {
   single: Mock<() => Promise<unknown>>;
 }
 
+export interface MockCallSource {
+  mock: {
+    calls: unknown[][];
+  };
+}
+
+export function getMockCallArg<T>(
+  mock: MockCallSource,
+  callIndex: number,
+  argIndex: number
+) {
+  return mock.mock.calls[callIndex]?.[argIndex] as T | undefined;
+}
+
 export function createQuery(
   response: unknown,
   options: QueryOptions = {}
@@ -154,3 +168,89 @@ export const item: JumiaOrderItem = {
   voucherAmount: 5000,
   shippingAddress: { ...order.shippingAddress },
 };
+
+interface DuplicateNotificationSyncMockOptions {
+  jumiaOrder?: JumiaOrder;
+  markerQueries?: QueryMock[];
+}
+
+/**
+ * Creates a Supabase mock for duplicate-notification sync scenarios.
+ *
+ * @param options - See {@link DuplicateNotificationSyncMockOptions}.
+ * @param options.jumiaOrder - Jumia order fixture to use; defaults to `order`.
+ * @param options.markerQueries - Extra `jumia_orders` marker queries injected
+ * before the duplicate cache upsert.
+ */
+export function createDuplicateNotificationSyncMock({
+  jumiaOrder = order,
+  markerQueries = [],
+}: DuplicateNotificationSyncMockOptions = {}) {
+  const marketplaceQuery = createQuery(
+    {
+      data: [
+        {
+          id: 'integration-1',
+          merchant_id: 'merchant-1',
+          shop_id: 'shop-1',
+          last_sync_at: '2026-04-25T07:00:00.000Z',
+          sync_config: { orders: true },
+        },
+      ],
+      error: null,
+    },
+    { terminalEqCall: 2 }
+  );
+  const existingJumiaQuery = createQuery({
+    data: [
+      {
+        jumia_order_id: jumiaOrder.id,
+        notification_sent: false,
+        baci_order_id: null,
+      },
+    ],
+    error: null,
+  });
+  const existingCanonicalQuery = createQuery({ data: [], error: null });
+  const insertOrderQuery = createQuery({
+    data: {
+      id: 'baci-order-1',
+      external_id: jumiaOrder.id,
+      tracking_token: 'tracking-token',
+    },
+    error: null,
+  });
+  const updateOrderQuery = createQuery({
+    data: {
+      id: 'baci-order-1',
+      external_id: jumiaOrder.id,
+      tracking_token: 'tracking-token',
+    },
+    error: null,
+  });
+  const cacheQuery = createQuery({ error: null }, { terminalUpsert: true });
+  const duplicateCacheQuery = createQuery(
+    { error: null },
+    { terminalUpsert: true }
+  );
+  const syncCursorQuery = createQuery({ error: null }, { terminalEqCall: 1 });
+
+  return {
+    duplicateCacheQuery,
+    supabase: createSupabaseMock(
+      {
+        marketplace_integrations: [marketplaceQuery, syncCursorQuery],
+        jumia_orders: [
+          existingJumiaQuery,
+          cacheQuery,
+          ...markerQueries,
+          duplicateCacheQuery,
+        ],
+        orders: [existingCanonicalQuery, insertOrderQuery, updateOrderQuery],
+      },
+      {
+        replace_order_items: [{ error: null }, { error: null }],
+      }
+    ),
+  };
+}

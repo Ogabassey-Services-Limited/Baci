@@ -1,10 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { JUMIA_NOTIFICATION_MARKER_RETRY_CODES } from './order-sync-notification-retry-codes';
 
 const NOTIFICATION_SENT_UPDATE_ATTEMPTS = 3;
 const NOTIFICATION_SENT_UPDATE_RETRY_DELAY_MS = 25;
 
 interface SyncErrorLike {
   message: string;
+  code?: string;
 }
 
 interface MarkNotificationOptions {
@@ -14,6 +16,17 @@ interface MarkNotificationOptions {
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryableNotificationMarkerError(error: SyncErrorLike) {
+  const code = error.code;
+  if (!code) return true;
+
+  return (
+    JUMIA_NOTIFICATION_MARKER_RETRY_CODES.postgresPrefixes.some((prefix) =>
+      code.startsWith(prefix)
+    ) || JUMIA_NOTIFICATION_MARKER_RETRY_CODES.postgrestCodes.includes(code)
+  );
 }
 
 export function getJumiaNotificationAttemptKey(
@@ -49,6 +62,8 @@ export async function markJumiaNotificationSent(
       };
     }
     lastError = error;
+
+    if (!isRetryableNotificationMarkerError(error)) break;
 
     if (attempt < attempts && retryDelayMs > 0) {
       await sleep(retryDelayMs);

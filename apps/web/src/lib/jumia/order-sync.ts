@@ -36,6 +36,17 @@ type SyncUpdatePayload = Partial<{ last_sync_at: string }> & {
   sync_error: string | null;
 };
 
+class JumiaSyncCursorUpdateError extends Error {
+  constructor(
+    message: string,
+    readonly syncUpdate: SyncUpdatePayload
+  ) {
+    super(message);
+    this.name = 'JumiaSyncCursorUpdateError';
+    Object.setPrototypeOf(this, JumiaSyncCursorUpdateError.prototype);
+  }
+}
+
 async function syncIntegration(
   supabase: SupabaseClient,
   integration: MarketplaceIntegrationRow,
@@ -125,6 +136,12 @@ async function syncIntegration(
         );
         if (notificationResult.sent > 0) {
           result.notified += 1;
+          // The push provider accepted the notification. Keep duplicated Jumia
+          // pages in this run from rebuilding a stale cache row as unnotified.
+          existingJumiaOrders.set(
+            order.id,
+            cacheEntry(order.id, true, canonicalOrder.id)
+          );
           const notificationUpdateError = await markJumiaNotificationSent(
             supabase,
             integration.merchant_id,
@@ -140,11 +157,6 @@ async function syncIntegration(
             });
             result.errors.push(
               `${integration.merchant_id}/${order.id}: Failed to mark Jumia notification as sent: ${notificationUpdateError.message}`
-            );
-          } else {
-            existingJumiaOrders.set(
-              order.id,
-              cacheEntry(order.id, true, canonicalOrder.id)
             );
           }
         }
@@ -234,7 +246,10 @@ async function syncIntegration(
     .update(syncUpdate)
     .eq('id', integration.id);
   if (syncError) {
-    throw new Error(`Failed to update Jumia sync cursor: ${syncError.message}`);
+    throw new JumiaSyncCursorUpdateError(
+      `Failed to update Jumia sync cursor: ${syncError.message}`,
+      syncUpdate
+    );
   }
 }
 
@@ -277,9 +292,13 @@ export async function syncJumiaOrdersForActiveIntegrations(
         route: JUMIA_ORDER_SYNC_ROUTE,
         sync_error: message,
       });
+      const syncErrorPatch =
+        error instanceof JumiaSyncCursorUpdateError
+          ? { ...error.syncUpdate, sync_error: message }
+          : { sync_error: message };
       const { error: syncErrorUpdateError } = await supabase
         .from('marketplace_integrations')
-        .update({ sync_error: message })
+        .update(syncErrorPatch)
         .eq('id', integration.id);
       if (syncErrorUpdateError) {
         const syncErrorMessage = `Failed to persist Jumia sync error for ${integration.merchant_id}: ${syncErrorUpdateError.message}`;
