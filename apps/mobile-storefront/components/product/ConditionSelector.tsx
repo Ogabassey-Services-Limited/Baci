@@ -1,14 +1,15 @@
 /**
  * Condition Selector Component
- * Allows users to select product condition (New, Used, Refurbished, etc.)
- * Updates pricing based on selected condition offer
+ * Compact chip-style selector for product condition (Open Box, Used, New).
+ * Can optionally display per-condition pricing when price is driven by the
+ * condition axis itself.
  */
 
 import {
   type CanonicalProductCondition,
   normalizeCanonicalProductCondition,
+  sortCanonicalProductConditionsByPreference,
 } from '@baci/shared/lib';
-import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { RADIUS, SPACING } from '@/constants/Colors';
@@ -26,39 +27,8 @@ interface ConditionSelectorProps {
   selectedCondition: ProductCondition | null;
   onSelect: (condition: ProductCondition) => void;
   basePrice: number;
+  showPrices?: boolean;
 }
-
-const CONDITION_CONFIG: Record<
-  CanonicalProductCondition,
-  {
-    colorToken: 'primary' | 'success' | 'warning';
-    description: string;
-    icon: string;
-  }
-> = {
-  new: {
-    colorToken: 'success',
-    icon: 'sparkles',
-    description: 'Brand new, sealed',
-  },
-  used: {
-    colorToken: 'warning',
-    icon: 'refresh',
-    description: 'Pre-owned, tested',
-  },
-  open_box: {
-    colorToken: 'primary',
-    icon: 'cube-outline',
-    description: 'Certified open-box stock',
-  },
-};
-
-const GRADE_LABELS: Record<string, string> = {
-  A: 'Like New',
-  B: 'Good',
-  C: 'Fair',
-  D: 'Acceptable',
-};
 
 export function ConditionSelector({
   availableConditions,
@@ -67,182 +37,99 @@ export function ConditionSelector({
   selectedCondition,
   onSelect,
   basePrice,
+  showPrices = true,
 }: ConditionSelectorProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
-  // Normalize current condition to match our condition type
-  const normalizeCondition = (
-    cond: string | undefined
+  const normalize = (
+    value: string | undefined | null
   ): CanonicalProductCondition | null => {
-    const normalized = normalizeCanonicalProductCondition(cond);
+    const normalized = normalizeCanonicalProductCondition(value);
     return normalized || null;
   };
 
-  const baseCondition = normalizeCondition(currentCondition);
+  const baseCondition = normalize(currentCondition);
 
-  // Build available conditions from explicit list + offers + base condition
-  const renderedConditions: Array<{
-    condition: CanonicalProductCondition;
-    price: number;
-    comparePrice?: number;
-    stock?: number;
-    grade?: string;
-    notes?: string;
-  }> = [];
+  // sortCanonicalProductConditionsByPreference already normalizes each entry,
+  // filters out empty/null values, and dedupes — no need to wrap with another
+  // Set/filter pass here.
+  const conditionList = sortCanonicalProductConditionsByPreference([
+    baseCondition,
+    ...(availableConditions ?? []),
+    ...offers.map((offer) => offer.condition),
+  ]);
 
-  const conditionList = Array.from(
-    new Set([
-      ...(baseCondition ? [baseCondition] : []),
-      ...(availableConditions ?? []).map((condition) =>
-        normalizeCondition(condition)
-      ),
-      ...offers.map((offer) => normalizeCondition(offer.condition)),
-    ])
-  ).filter(
-    (condition): condition is CanonicalProductCondition =>
-      condition !== null && condition in CONDITION_CONFIG
-  );
-
-  for (const condition of conditionList) {
-    const offer = offers.find(
-      (candidate) => normalizeCondition(candidate.condition) === condition
-    );
-    renderedConditions.push({
-      condition,
-      price: offer?.price ?? basePrice,
-      comparePrice: offer?.compare_at_price,
-      stock: offer?.stock_quantity,
-      grade: offer?.grade,
-      notes: offer?.condition_notes,
-    });
-  }
-
-  // If only one condition available, don't show selector
-  if (renderedConditions.length <= 1) {
+  if (conditionList.length <= 1) {
     return null;
   }
 
   const effectiveSelected =
-    normalizeCondition(selectedCondition ?? undefined) ??
+    normalize(selectedCondition ?? undefined) ??
     baseCondition ??
-    renderedConditions[0]?.condition;
+    conditionList[0];
+
+  const priceForCondition = (condition: CanonicalProductCondition) => {
+    const offer = offers.find(
+      (candidate) => normalize(candidate.condition) === condition
+    );
+    return offer?.price ?? basePrice;
+  };
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.title, { color: colors.text }]}>Condition</Text>
-      <View style={styles.optionsContainer}>
-        {renderedConditions.map((item) => {
-          const config = CONDITION_CONFIG[item.condition];
-          const accentColor = colors[config.colorToken];
-          const displayLabel = formatProductConditionDisplay(item.condition);
-          const isSelected = effectiveSelected === item.condition;
-          const savings = basePrice - item.price;
-          const hasSavings = savings > 0 && item.condition !== baseCondition;
+      <Text style={[styles.label, { color: colors.text }]}>Condition</Text>
+      <View
+        style={styles.chipRow}
+        accessible
+        accessibilityRole="radiogroup"
+        accessibilityLabel="Condition"
+      >
+        {conditionList.map((condition) => {
+          const isSelected = effectiveSelected === condition;
+          const displayLabel = formatProductConditionDisplay(condition);
+          const price = priceForCondition(condition);
+          const accessibilityLabel = showPrices
+            ? `${displayLabel}, ${formatPrice(price)}`
+            : displayLabel;
 
           return (
             <Pressable
-              key={item.condition}
-              onPress={() => onSelect(item.condition)}
+              key={condition}
+              onPress={() => onSelect(condition)}
               style={[
-                styles.optionCard,
+                styles.chip,
                 {
                   backgroundColor: isSelected
-                    ? `${accentColor}15`
+                    ? `${colors.primary}15`
                     : colors.card,
-                  borderColor: isSelected ? accentColor : colors.border,
+                  borderColor: isSelected ? colors.primary : colors.border,
                 },
               ]}
               accessibilityRole="radio"
-              accessibilityLabel={`${displayLabel}${item.grade ? `, Grade ${item.grade}` : ''}${item.price ? `, ${formatPrice(item.price)}` : ''}`}
+              accessibilityLabel={accessibilityLabel}
               accessibilityState={{ checked: isSelected }}
             >
-              <View style={styles.optionHeader}>
-                <View
-                  style={[
-                    styles.iconContainer,
-                    { backgroundColor: `${accentColor}20` },
-                  ]}
-                >
-                  <Ionicons
-                    name={
-                      config.icon as React.ComponentProps<
-                        typeof Ionicons
-                      >['name']
-                    }
-                    size={16}
-                    color={accentColor}
-                  />
-                </View>
-                <View style={styles.labelContainer}>
-                  <Text
-                    style={[
-                      styles.conditionLabel,
-                      { color: isSelected ? accentColor : colors.text },
-                    ]}
-                  >
-                    {displayLabel}
-                  </Text>
-                  {item.grade && (
-                    <Text
-                      style={[
-                        styles.gradeText,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      Grade {item.grade} • {GRADE_LABELS[item.grade]}
-                    </Text>
-                  )}
-                </View>
-                {isSelected && (
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={20}
-                    color={accentColor}
-                  />
-                )}
-              </View>
-
-              <View style={styles.priceRow}>
+              <Text
+                style={[
+                  styles.chipLabel,
+                  { color: isSelected ? colors.primary : colors.text },
+                ]}
+              >
+                {displayLabel}
+              </Text>
+              {showPrices ? (
                 <Text
                   style={[
-                    styles.priceText,
-                    { color: isSelected ? accentColor : colors.text },
+                    styles.chipPrice,
+                    {
+                      color: isSelected ? colors.primary : colors.textSecondary,
+                    },
                   ]}
                 >
-                  {formatPrice(item.price)}
+                  {formatPrice(price)}
                 </Text>
-                {hasSavings && (
-                  <View
-                    style={[
-                      styles.savingsBadge,
-                      { backgroundColor: `${accentColor}20` },
-                    ]}
-                  >
-                    <Text style={[styles.savingsText, { color: accentColor }]}>
-                      Save {formatPrice(savings)}
-                    </Text>
-                  </View>
-                )}
-              </View>
-
-              {item.stock !== undefined &&
-                item.stock !== null &&
-                item.stock > 0 &&
-                item.stock <= 5 && (
-                  <Text style={[styles.stockWarning, { color: '#EF4444' }]}>
-                    Only {item.stock} left
-                  </Text>
-                )}
-
-              {item.notes && (
-                <Text
-                  style={[styles.notesText, { color: colors.textSecondary }]}
-                  numberOfLines={1}
-                >
-                  {item.notes}
-                </Text>
-              )}
+              ) : null}
             </Pressable>
           );
         })}
@@ -254,69 +141,34 @@ export function ConditionSelector({
 const styles = StyleSheet.create({
   container: {
     marginBottom: SPACING.lg,
+    gap: SPACING.sm,
   },
-  title: {
+  label: {
     fontSize: 16,
     fontWeight: '700',
-    marginBottom: SPACING.md,
   },
-  optionsContainer: {
-    gap: SPACING.sm,
-  },
-  optionCard: {
-    padding: SPACING.md,
-    borderRadius: RADIUS.lg,
-    borderWidth: 2,
-  },
-  optionHeader: {
+  chipRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    flexWrap: 'wrap',
     gap: SPACING.sm,
   },
-  iconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  chip: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    minHeight: 44,
     justifyContent: 'center',
     alignItems: 'center',
+    borderRadius: RADIUS.md,
+    borderWidth: 2,
+    minWidth: 96,
+    gap: 2,
   },
-  labelContainer: {
-    flex: 1,
-  },
-  conditionLabel: {
-    fontSize: 15,
+  chipLabel: {
+    fontSize: 14,
     fontWeight: '600',
   },
-  gradeText: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    marginTop: SPACING.sm,
-  },
-  priceText: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  savingsBadge: {
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 2,
-    borderRadius: RADIUS.sm,
-  },
-  savingsText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  stockWarning: {
+  chipPrice: {
     fontSize: 12,
     fontWeight: '500',
-    marginTop: SPACING.xs,
-  },
-  notesText: {
-    fontSize: 12,
-    marginTop: SPACING.xs,
   },
 });

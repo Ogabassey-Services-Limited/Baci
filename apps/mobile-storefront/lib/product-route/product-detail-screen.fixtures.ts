@@ -53,3 +53,196 @@ export const [primaryVariant, secondaryVariant] = variantFixtures as [
   (typeof variantFixtures)[number],
   (typeof variantFixtures)[number],
 ];
+
+const iphone11ProMaxColorConfig = {
+  Gold: {
+    colorHex: '#F5D4A3',
+    image: 'https://cdn.example.com/i11pm-gold.jpg',
+  },
+  'Midnight Green': {
+    colorHex: '#4F5C53',
+    image: 'https://cdn.example.com/i11pm-midnight-green.jpg',
+  },
+  Silver: {
+    colorHex: '#E5E5E5',
+    image: 'https://cdn.example.com/i11pm-silver.jpg',
+  },
+  'Space Gray': {
+    colorHex: '#54524F',
+    image: 'https://cdn.example.com/i11pm-space-gray.jpg',
+  },
+} as const;
+
+type IPhone11ProMaxVariantRow = {
+  color: keyof typeof iphone11ProMaxColorConfig;
+  condition: 'open_box' | 'used';
+  price: number;
+  storage: string;
+};
+
+const conditionLabels = {
+  open_box: 'Open Box',
+  used: 'Used',
+} as const;
+
+const conditionIdTokens = {
+  open_box: 'ob',
+  used: 'used',
+} as const;
+
+function toVariantIdToken(value: string) {
+  return value.toLowerCase().replace(/\s+/g, '-');
+}
+
+function createIPhone11ProMaxVariants(rows: IPhone11ProMaxVariantRow[]) {
+  return rows.map(({ color, condition, price, storage }) => {
+    const { colorHex, image } = iphone11ProMaxColorConfig[color];
+
+    return {
+      id: `${conditionIdTokens[condition]}-${toVariantIdToken(color)}-${storage.replace('GB', '')}`,
+      name: `${conditionLabels[condition]} ${color} ${storage}`,
+      condition,
+      stock_quantity: 0,
+      price,
+      price_override: price,
+      image,
+      images: [image],
+      attributes: {
+        color,
+        storage,
+        color_hex: colorHex,
+      },
+    };
+  });
+}
+
+export function iphone11ProMax(): Product {
+  return {
+    id: 'iphone-11-pro-max',
+    merchant_id: 'm-1',
+    name: 'iPhone 11 Pro Max',
+    slug: 'iphone-11-pro-max',
+    price: 520000,
+    image: 'https://cdn.example.com/i11pm.jpg',
+    images: [
+      iphone11ProMaxColorConfig['Midnight Green'].image,
+      iphone11ProMaxColorConfig.Silver.image,
+      iphone11ProMaxColorConfig['Space Gray'].image,
+      iphone11ProMaxColorConfig.Gold.image,
+    ],
+    condition: 'open_box',
+    has_variants: true,
+    manage_stock: false,
+    stock_quantity: 0,
+    variant_attributes: { storage: ['64GB', '256GB', '512GB'] },
+    // Populated color_images map mirrors the production catalog shape (each
+    // color points at its hero image), so this fixture exercises the
+    // image-driven color resolution path. Tests that need to suppress that
+    // behavior intentionally pass an empty map instead.
+    color_images: {
+      'Midnight Green': [iphone11ProMaxColorConfig['Midnight Green'].image],
+      Silver: [iphone11ProMaxColorConfig.Silver.image],
+      'Space Gray': [iphone11ProMaxColorConfig['Space Gray'].image],
+      Gold: [iphone11ProMaxColorConfig.Gold.image],
+    },
+    // Mix of plain strings and `{ name, value }` objects so the fixture
+    // exercises the explicit-hex path through `ProductColorSwatch` /
+    // `normalizeProductColors`, not just the generic name-only branch.
+    colors: [
+      {
+        name: 'Midnight Green',
+        value: iphone11ProMaxColorConfig['Midnight Green'].colorHex,
+      },
+      'Silver',
+      'Space Gray',
+      'Gold',
+    ],
+    offers: [],
+    variants: createIPhone11ProMaxVariants([
+      {
+        color: 'Midnight Green',
+        condition: 'open_box',
+        price: 520000,
+        storage: '64GB',
+      },
+      {
+        color: 'Midnight Green',
+        condition: 'open_box',
+        price: 600000,
+        storage: '256GB',
+      },
+      {
+        color: 'Midnight Green',
+        condition: 'open_box',
+        price: 700000,
+        storage: '512GB',
+      },
+      {
+        color: 'Midnight Green',
+        condition: 'used',
+        price: 470000,
+        storage: '64GB',
+      },
+      {
+        color: 'Midnight Green',
+        condition: 'used',
+        price: 550000,
+        storage: '256GB',
+      },
+      {
+        color: 'Midnight Green',
+        condition: 'used',
+        price: 650000,
+        storage: '512GB',
+      },
+      {
+        color: 'Gold',
+        condition: 'used',
+        price: 470000,
+        storage: '64GB',
+      },
+      {
+        color: 'Gold',
+        condition: 'open_box',
+        price: 520000,
+        storage: '64GB',
+      },
+      {
+        color: 'Gold',
+        condition: 'used',
+        price: 550000,
+        storage: '256GB',
+      },
+      {
+        color: 'Gold',
+        condition: 'open_box',
+        price: 600000,
+        storage: '256GB',
+      },
+      {
+        color: 'Gold',
+        condition: 'used',
+        price: 650000,
+        storage: '512GB',
+      },
+      {
+        color: 'Gold',
+        condition: 'open_box',
+        price: 700000,
+        storage: '512GB',
+      },
+      {
+        color: 'Space Gray',
+        condition: 'used',
+        price: 470000,
+        storage: '64GB',
+      },
+      {
+        color: 'Silver',
+        condition: 'used',
+        price: 470000,
+        storage: '64GB',
+      },
+    ]),
+  };
+}

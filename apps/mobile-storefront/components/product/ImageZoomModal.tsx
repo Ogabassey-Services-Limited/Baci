@@ -8,11 +8,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useState } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
-import { GestureDetector } from 'react-native-gesture-handler';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BLURHASH_VARIANTS } from '@/components/storefront/ProductCard';
 import { SPACING } from '@/constants/Colors';
+import { getOptionalGestureHandlerRuntime } from '@/lib/optional-gesture-handler';
 import { useImageZoom } from './hooks/useImageZoom';
 import styles from './ImageZoomModal.styles';
 
@@ -33,6 +33,7 @@ export function ImageZoomModal({
 }: ImageZoomModalProps) {
   const insets = useSafeAreaInsets();
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const { Gesture, GestureDetector } = getOptionalGestureHandlerRuntime();
 
   const handleIndexChange = (index: number) => {
     setCurrentIndex(index);
@@ -64,6 +65,7 @@ export function ImageZoomModal({
     goToNext,
     currentIndex,
     totalImages: images.length,
+    gestureRuntime: { Gesture },
   });
 
   // Reset transforms and restore initial index each time the modal is shown
@@ -71,6 +73,22 @@ export function ImageZoomModal({
     setCurrentIndex(initialIndex);
     resetTransformImmediate();
   };
+
+  const zoomableImage = (
+    <Animated.View style={styles.imageWrapper}>
+      <Animated.View style={[styles.imageContainer, animatedImageStyle]}>
+        <Image
+          source={{ uri: images[currentIndex] }}
+          style={styles.image}
+          contentFit="contain"
+          transition={200}
+          placeholder={{ blurhash: BLURHASH_VARIANTS.default }}
+          cachePolicy="memory-disk"
+          accessibilityLabel={`Product image ${currentIndex + 1} of ${images.length}`}
+        />
+      </Animated.View>
+    </Animated.View>
+  );
 
   return (
     <Modal
@@ -116,21 +134,13 @@ export function ImageZoomModal({
         </Animated.View>
 
         {/* Zoomable Image */}
-        <GestureDetector gesture={composedGesture}>
-          <Animated.View style={styles.imageWrapper}>
-            <Animated.View style={[styles.imageContainer, animatedImageStyle]}>
-              <Image
-                source={{ uri: images[currentIndex] }}
-                style={styles.image}
-                contentFit="contain"
-                transition={200}
-                placeholder={{ blurhash: BLURHASH_VARIANTS.default }}
-                cachePolicy="memory-disk"
-                accessibilityLabel={`Product image ${currentIndex + 1} of ${images.length}`}
-              />
-            </Animated.View>
-          </Animated.View>
-        </GestureDetector>
+        {GestureDetector && composedGesture ? (
+          <GestureDetector gesture={composedGesture}>
+            {zoomableImage}
+          </GestureDetector>
+        ) : (
+          zoomableImage
+        )}
 
         {/* Navigation Arrows */}
         {images.length > 1 && (
