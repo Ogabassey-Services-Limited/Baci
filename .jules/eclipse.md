@@ -8,3 +8,6 @@
 ## 2025-05-16 - Hardcoded White Text on Status Indicators
 **Learning:** Hardcoded white (`#FFFFFF`) colors inside `WelcomeHeader.tsx` for the notification badge text and edit avatar camera icon failed to adapt correctly, breaking the visual experience by hardcoding values into `StyleSheet.create` and component props instead of relying on the theme system.
 **Action:** Always replace hardcoded white (`#FFFFFF`) text and icons with the foreground token for the background they sit on. Use `colors.textOnPrimary` for primary-colored buttons and icon backgrounds, and `colors.textOnNotification` for notification badges instead of statically defined hex values or unrelated foreground tokens.
+## 2025-05-15 - Dynamic Colors for Interactive Elements
+**Learning:** Hardcoding `#FFF` or `#F3F4F6`, and using static `BRAND.primary` in component styles breaks dark mode support and ignores semantic theme mapping like `colors.price`.
+**Action:** Replace hardcoded colors with `colors.*` (like `colors.primaryForeground`, `colors.muted`, and `colors.primary`) to ensure components properly adapt to dark mode and respect the design system theme.
