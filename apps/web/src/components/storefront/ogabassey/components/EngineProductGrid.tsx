@@ -136,14 +136,14 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
   const allProductsHref = `${basePath}/products`;
 
   // All products from SSR
-  const allProducts = dedupeProductsByIdentity((() => {
-    if (useMockData) return mockProducts;
-    if (templateProducts) return templateProducts;
+  const allProducts = (() => {
+    if (useMockData) return dedupeProductsByIdentity(mockProducts);
+    if (templateProducts) return dedupeProductsByIdentity(templateProducts);
     if (externalProducts) {
       return toTemplateProducts(dedupeProductsByIdentity(externalProducts));
     }
     return [];
-  })());
+  })();
 
   // Filter state - always start with 'All' to avoid hydration mismatch
   const [selectedCategory, setSelectedCategory] = useState('All');

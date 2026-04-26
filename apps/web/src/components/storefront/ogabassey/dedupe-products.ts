@@ -1,9 +1,15 @@
-function getProductIdentity(product: object): string | null {
+function getProductIdentities(product: unknown): string[] {
+  if (typeof product !== 'object' || product === null) {
+    return [];
+  }
+
+  const identities: string[] = [];
+
   if ('id' in product && product.id !== undefined && product.id !== null) {
     const normalizedId = String(product.id).trim();
 
     if (normalizedId) {
-      return `id:${normalizedId}`;
+      identities.push(`id:${normalizedId}`);
     }
   }
 
@@ -11,11 +17,11 @@ function getProductIdentity(product: object): string | null {
     const normalizedSlug = product.slug.trim().toLowerCase();
 
     if (normalizedSlug) {
-      return `slug:${normalizedSlug}`;
+      identities.push(`slug:${normalizedSlug}`);
     }
   }
 
-  return null;
+  return identities;
 }
 
 /**
@@ -27,25 +33,28 @@ function getProductIdentity(product: object): string | null {
  * Products without an id or slug are always retained because they do not have
  * a stable identity key to compare.
  */
-export function dedupeProductsByIdentity<T extends object>(
+export function dedupeProductsByIdentity<T>(
   products: readonly T[]
 ): T[] {
   const seen = new Set<string>();
   const uniqueProducts: T[] = [];
 
   for (const product of products) {
-    const identity = getProductIdentity(product);
+    const identities = getProductIdentities(product);
 
-    if (!identity) {
+    if (identities.length === 0) {
       uniqueProducts.push(product);
       continue;
     }
 
-    if (seen.has(identity)) {
+    if (identities.some((identity) => seen.has(identity))) {
       continue;
     }
 
-    seen.add(identity);
+    for (const identity of identities) {
+      seen.add(identity);
+    }
+
     uniqueProducts.push(product);
   }
 

@@ -41,6 +41,31 @@ describe('dedupeProductsByIdentity', () => {
     ]);
   });
 
+  it('dedupes products that share a slug even when only one has an id', () => {
+    const result = dedupeProductsByIdentity([
+      { slug: 'samsung-galaxy-z-trifold', name: 'Slug-only product' },
+      {
+        id: 'product-1',
+        slug: 'Samsung-Galaxy-Z-TriFold',
+        name: 'ID-backed duplicate',
+      },
+      {
+        id: 'product-2',
+        slug: 'dell-alienware-m18-r3',
+        name: 'Different product',
+      },
+    ]);
+
+    expect(result).toEqual([
+      { slug: 'samsung-galaxy-z-trifold', name: 'Slug-only product' },
+      {
+        id: 'product-2',
+        slug: 'dell-alienware-m18-r3',
+        name: 'Different product',
+      },
+    ]);
+  });
+
   it('preserves products without an id or slug', () => {
     const products: { name: string }[] = [
       { name: 'Unknown 1' },
@@ -49,6 +74,24 @@ describe('dedupeProductsByIdentity', () => {
     const result = dedupeProductsByIdentity(products);
 
     expect(result).toEqual([{ name: 'Unknown 1' }, { name: 'Unknown 1' }]);
+  });
+
+  it('preserves malformed runtime entries without throwing', () => {
+    const result = dedupeProductsByIdentity([
+      null,
+      { id: 'product-1', name: 'Product' },
+      null,
+      undefined,
+      'not-a-product',
+    ]);
+
+    expect(result).toEqual([
+      null,
+      { id: 'product-1', name: 'Product' },
+      null,
+      undefined,
+      'not-a-product',
+    ]);
   });
 
   it('handles mixed identity types', () => {
