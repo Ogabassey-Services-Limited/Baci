@@ -20,7 +20,13 @@ on:
 concurrency:
   group: >-
     gemini-dispatch-${{ github.event.pull_request.number || github.event.issue.number }}-${{
-      github.event_name == 'pull_request' && 'review' ||
+      (
+        github.event_name == 'pull_request' &&
+        github.actor != 'dependabot[bot]' &&
+        !github.event.pull_request.draft &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        'review'
+      ) ||
       (
         github.event.sender.type == 'User' &&
         (
