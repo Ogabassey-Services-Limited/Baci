@@ -7,9 +7,9 @@ import {
 } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { Alert, View } from 'react-native';
-import { ADDRESS_LIST_BOTTOM_PADDING } from '@/app/addresses/constants';
+import { ADDRESS_LIST_BOTTOM_PADDING } from '@/components/addresses/constants';
 import AddressesScreen from '@/app/addresses/index';
-import type { Address } from '@/app/addresses/types';
+import type { Address } from '@/components/addresses/types';
 
 type MockStorefrontScreenShellProps = {
   children?: ReactNode;

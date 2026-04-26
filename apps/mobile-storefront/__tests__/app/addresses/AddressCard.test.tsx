@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 import { AddressCard } from '@/app/addresses/AddressCard';
-import type { Address } from '@/app/addresses/types';
+import type { Address } from '@/components/addresses/types';
 
 const colors = {
   background: '#FFFFFF',

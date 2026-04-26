@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { loadAddresses } from '@/app/addresses/load-addresses';
-import type { Address } from '@/app/addresses/types';
+import type { Address } from '@/components/addresses/types';
 
 const mockSingle =
   jest.fn<

@@ -3,7 +3,7 @@ import path from 'node:path';
 
 const APP_ROOT = path.resolve(__dirname, '../../app');
 const SUPPORT_MODULE_FILE_PATTERN =
-  /\.(constants|fixtures|helpers|styles|types)\.(ts|tsx)$/;
+  /(^|\.)(constants|fixtures|helpers|styles|types)\.(ts|tsx)$/;
 
 // These legacy support modules do not follow the suffix pattern above, so keep
 // them explicit to prevent regressions back into Expo Router's route tree.
