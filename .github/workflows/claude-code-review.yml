@@ -53,7 +53,18 @@ jobs:
           path_to_bun_executable: ${{ steps.bun.outputs.bun-path }}
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
           plugins: 'code-review@claude-code-plugins'
-          prompt: '/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.issue.number }}'
+          prompt: |-
+            /code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.issue.number }}
+
+            Review contract:
+            - Always post a PR review. If there are no meaningful issues, post a concise no-findings review.
+            - Prioritize correctness, security, data safety, auth/tenant isolation, payment safety, regressions, and missing tests.
+            - Enforce Baci rules: pnpm/Turborepo only, Biome not ESLint, React Compiler means no routine React.memo/useMemo/useCallback, Zod at API boundaries, auth first in protected routes, no select('*'), and append-only migrations.
+            - For Next.js 16 and React 19, prefer Server Components, avoid client-side data waterfalls, keep uncached data behind Suspense where required, use next/image and next/font, and preserve storefront Core Web Vitals.
+            - For Supabase changes, check RLS, scoped queries, explicit column selection, service-role isolation, and race conditions around read-modify-write flows.
+            - For public storefront changes, check semantic HTML, metadata, JSON-LD, accessible labels, keyboard behavior, focus states, and themed CSS variables instead of hardcoded storefront colors.
+            - Do not speculate beyond the PR diff and repository evidence. Do not produce broad style commentary when there is no concrete risk.
+            - Use these sections in the posted review: Verdict, Findings, Suggested next steps. Findings must be flat bullets with severity and file path when possible.
           # Set the repository variable CLAUDE_MODEL to pin a specific Claude model.
           claude_args: >-
             ${{ vars.CLAUDE_MODEL != '' && format('--model {0}', vars.CLAUDE_MODEL) || '' }}

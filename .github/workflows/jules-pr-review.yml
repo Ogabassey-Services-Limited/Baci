@@ -249,6 +249,7 @@ jobs:
               files_page=$((files_page + 1))
             done
 
+            # shellcheck disable=SC2016
             files_summary="$(
               jq -r \
                 '
@@ -349,6 +350,13 @@ jobs:
           If context is truncated or omitted, do not speculate.
           Do not modify code, do not create commits, and do not open a pull request.
           Do not ask follow-up questions.
+          Review contract:
+          - Prioritize correctness, security, data safety, auth/tenant isolation, payment safety, regressions, and missing tests.
+          - Enforce Baci rules: pnpm/Turborepo only, Biome not ESLint, React Compiler means no routine React.memo/useMemo/useCallback, Zod at API boundaries, auth first in protected routes, no select('*'), and append-only migrations.
+          - For Next.js 16 and React 19, prefer Server Components, avoid client-side data waterfalls, keep uncached data behind Suspense where required, use next/image and next/font, and preserve storefront Core Web Vitals.
+          - For Supabase changes, check RLS, scoped queries, explicit column selection, service-role isolation, and race conditions around read-modify-write flows.
+          - For public storefront changes, check semantic HTML, metadata, JSON-LD, accessible labels, keyboard behavior, focus states, and themed CSS variables instead of hardcoded storefront colors.
+          - Do not produce broad style commentary when there is no concrete risk.
           Return only concise Markdown with exactly these sections:
           ## Verdict
           ## Findings
@@ -478,6 +486,13 @@ jobs:
           Compare the head branch against the base branch and perform a deep code review.
           Do not modify code, do not create commits, and do not open a pull request.
           Do not ask follow-up questions.
+          Review contract:
+          - Prioritize correctness, security, data safety, auth/tenant isolation, payment safety, regressions, and missing tests.
+          - Enforce Baci rules: pnpm/Turborepo only, Biome not ESLint, React Compiler means no routine React.memo/useMemo/useCallback, Zod at API boundaries, auth first in protected routes, no select('*'), and append-only migrations.
+          - For Next.js 16 and React 19, prefer Server Components, avoid client-side data waterfalls, keep uncached data behind Suspense where required, use next/image and next/font, and preserve storefront Core Web Vitals.
+          - For Supabase changes, check RLS, scoped queries, explicit column selection, service-role isolation, and race conditions around read-modify-write flows.
+          - For public storefront changes, check semantic HTML, metadata, JSON-LD, accessible labels, keyboard behavior, focus states, and themed CSS variables instead of hardcoded storefront colors.
+          - Do not speculate beyond repository evidence or produce broad style commentary when there is no concrete risk.
           Return only concise Markdown with exactly these sections:
           ## Verdict
           ## Findings
