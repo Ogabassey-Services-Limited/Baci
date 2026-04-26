@@ -13,7 +13,7 @@ import Animated, { FadeIn, FadeOut, Layout } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BLURHASH_VARIANTS } from '@/components/storefront/ProductCard';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
+import Colors, { RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
 import { useCartStore } from '@/stores/cart-store';
 import { type SavedItem, useSavedStore } from '@/stores/saved-store';
 import { formatPrice, getDiscountPercentage } from '@/types/product';
@@ -106,7 +106,7 @@ export default function SavedItemsScreen() {
           style={styles.itemContent}
         >
           {/* Product Image */}
-          <View style={styles.imageContainer}>
+          <View style={[styles.imageContainer, { backgroundColor: colors.muted }]}>
             <Image
               source={{ uri: item.image }}
               style={styles.image}
@@ -116,8 +116,8 @@ export default function SavedItemsScreen() {
               cachePolicy="memory-disk"
             />
             {discountPercentage && (
-              <View style={styles.discountBadge}>
-                <Text style={styles.discountText}>-{discountPercentage}%</Text>
+              <View style={[styles.discountBadge, { backgroundColor: colors.primary }]}>
+                <Text style={[styles.discountText, { color: colors.primaryForeground }]}>-{discountPercentage}%</Text>
               </View>
             )}
           </View>
@@ -137,7 +137,7 @@ export default function SavedItemsScreen() {
             </Text>
 
             <View style={styles.priceRow}>
-              <Text style={[styles.priceText, { color: BRAND.primary }]}>
+              <Text style={[styles.priceText, { color: colors.price }]}>
                 {formatPrice(item.price)}
               </Text>
               {item.compare_at_price && (
@@ -185,12 +185,12 @@ export default function SavedItemsScreen() {
             style={[
               styles.actionButton,
               styles.cartButton,
-              { backgroundColor: BRAND.primary },
+              { backgroundColor: colors.primary },
             ]}
             onPress={() => handleAddToCart(item)}
           >
-            <Ionicons name="cart-outline" size={18} color="#FFF" />
-            <Text style={[styles.actionButtonText, { color: '#FFF' }]}>
+            <Ionicons name="cart-outline" size={18} color={colors.primaryForeground} />
+            <Text style={[styles.actionButtonText, { color: colors.primaryForeground }]}>
               Add to Cart
             </Text>
           </Pressable>
@@ -209,10 +209,10 @@ export default function SavedItemsScreen() {
         Tap the heart icon on products to save them for later
       </Text>
       <Pressable
-        style={[styles.shopButton, { backgroundColor: BRAND.primary }]}
+        style={[styles.shopButton, { backgroundColor: colors.primary }]}
         onPress={() => router.push('/')}
       >
-        <Text style={styles.shopButtonText}>Browse Products</Text>
+        <Text style={[styles.shopButtonText, { color: colors.primaryForeground }]}>Browse Products</Text>
       </Pressable>
     </View>
   );
@@ -226,7 +226,7 @@ export default function SavedItemsScreen() {
           {items.length} {items.length === 1 ? 'item' : 'items'} saved
         </Text>
         <Pressable onPress={handleClearAll}>
-          <Text style={[styles.clearAllText, { color: BRAND.primary }]}>
+          <Text style={[styles.clearAllText, { color: colors.primary }]}>
             Clear All
           </Text>
         </Pressable>
@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: RADIUS.md,
     overflow: 'hidden',
-    backgroundColor: '#F3F4F6',
+
   },
   image: {
     width: '100%',
@@ -317,13 +317,13 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: SPACING.xs,
     left: SPACING.xs,
-    backgroundColor: BRAND.primary,
+
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: RADIUS.sm,
   },
   discountText: {
-    color: '#FFF',
+
     fontSize: 10,
     fontWeight: '700',
   },
@@ -409,7 +409,7 @@ const styles = StyleSheet.create({
     marginTop: SPACING.xl,
   },
   shopButtonText: {
-    color: '#FFF',
+
     fontSize: 16,
     fontWeight: '600',
   },

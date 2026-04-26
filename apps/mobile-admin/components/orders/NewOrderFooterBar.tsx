@@ -44,6 +44,8 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
             const isSelected = paymentStatus === status;
             return (
               <Pressable
+                accessibilityRole="radio"
+                accessibilityState={{ checked: isSelected }}
                 key={status}
                 onPress={() => {
                   setPaymentStatus(status);
@@ -101,6 +103,8 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
           <View style={{ flexDirection: 'row', gap: 8 }}>
             {PAYMENT_METHODS.map((method) => (
               <Pressable
+                accessibilityRole="radio"
+                accessibilityState={{ checked: paymentMethod === method.id }}
                 key={method.id}
                 onPress={() => setPaymentMethod(method.id)}
                 style={{
@@ -192,6 +196,8 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
           </Text>
         </View>
         <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ disabled: isSubmitting || orderItems.length === 0 }}
           disabled={isSubmitting || orderItems.length === 0}
           onPress={handleSubmit}
           style={[

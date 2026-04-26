@@ -4,13 +4,12 @@ import { baseProduct } from '@/lib/product-route/product-detail-screen.fixtures'
 import {
   getLastMockProps,
   mockProductDetailsBody,
-  mockStickyBottomActions,
   mockUseEffectivePrice,
   mockUseLocalSearchParams,
   mockUseProduct,
   ProductDetailScreen,
   resetProductDetailScreenMocks,
-} from '../../test-support/product/product-detail-screen.test-utils';
+} from '../../../test-support/product/product-detail-screen.test-utils';
 
 describe('ProductDetailScreen condition offer stock gating', () => {
   beforeEach(() => {
@@ -31,7 +30,7 @@ describe('ProductDetailScreen condition offer stock gating', () => {
     render(<ProductDetailScreen />);
 
     expect(screen.getByText('Loading product...')).toBeTruthy();
-    expect(mockStickyBottomActions).not.toHaveBeenCalled();
+    expect(mockProductDetailsBody).not.toHaveBeenCalled();
   });
 
   it('renders the not-found state when the product request fails', () => {
@@ -49,7 +48,7 @@ describe('ProductDetailScreen condition offer stock gating', () => {
 
     expect(screen.getAllByText('Product not found').length).toBeGreaterThan(0);
     expect(screen.getByText('Go Back')).toBeTruthy();
-    expect(mockStickyBottomActions).not.toHaveBeenCalled();
+    expect(mockProductDetailsBody).not.toHaveBeenCalled();
   });
 
   it('blocks purchase when the selected legacy condition offer is out of stock', async () => {
@@ -85,12 +84,8 @@ describe('ProductDetailScreen condition offer stock gating', () => {
     await waitFor(() => {
       expect(getLastMockProps(mockProductDetailsBody)).toEqual(
         expect.objectContaining({
-          selectedCondition: 'used',
-        })
-      );
-      expect(getLastMockProps(mockStickyBottomActions)).toEqual(
-        expect.objectContaining({
           canPurchase: false,
+          selectedCondition: 'used',
         })
       );
     });
@@ -129,12 +124,8 @@ describe('ProductDetailScreen condition offer stock gating', () => {
     await waitFor(() => {
       expect(getLastMockProps(mockProductDetailsBody)).toEqual(
         expect.objectContaining({
-          selectedCondition: 'open_box',
-        })
-      );
-      expect(getLastMockProps(mockStickyBottomActions)).toEqual(
-        expect.objectContaining({
           canPurchase: true,
+          selectedCondition: 'open_box',
         })
       );
     });
@@ -172,12 +163,8 @@ describe('ProductDetailScreen condition offer stock gating', () => {
     await waitFor(() => {
       expect(getLastMockProps(mockProductDetailsBody)).toEqual(
         expect.objectContaining({
-          selectedCondition: 'open_box',
-        })
-      );
-      expect(getLastMockProps(mockStickyBottomActions)).toEqual(
-        expect.objectContaining({
           canPurchase: true,
+          selectedCondition: 'open_box',
         })
       );
     });
@@ -215,12 +202,8 @@ describe('ProductDetailScreen condition offer stock gating', () => {
     await waitFor(() => {
       expect(getLastMockProps(mockProductDetailsBody)).toEqual(
         expect.objectContaining({
-          selectedCondition: null,
-        })
-      );
-      expect(getLastMockProps(mockStickyBottomActions)).toEqual(
-        expect.objectContaining({
           canPurchase: true,
+          selectedCondition: null,
         })
       );
     });
@@ -265,12 +248,8 @@ describe('ProductDetailScreen condition offer stock gating', () => {
     await waitFor(() => {
       expect(getLastMockProps(mockProductDetailsBody)).toEqual(
         expect.objectContaining({
-          selectedCondition: 'open_box',
-        })
-      );
-      expect(getLastMockProps(mockStickyBottomActions)).toEqual(
-        expect.objectContaining({
           canPurchase: true,
+          selectedCondition: 'open_box',
         })
       );
     });

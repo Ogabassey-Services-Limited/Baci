@@ -1,0 +1,2 @@
+export const PRODUCT_SCROLL_BOTTOM_PADDING = 92;
+export const MIN_STICKY_BOTTOM_PADDING = 16;

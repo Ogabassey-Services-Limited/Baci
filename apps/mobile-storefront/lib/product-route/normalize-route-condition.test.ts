@@ -13,4 +13,10 @@ describe('normalizeRouteCondition', () => {
     expect(normalizeRouteCondition('')).toBeNull();
     expect(normalizeRouteCondition('premium_used')).toBeNull();
   });
+
+  it('returns canonical values unchanged', () => {
+    expect(normalizeRouteCondition('new')).toBe('new');
+    expect(normalizeRouteCondition('used')).toBe('used');
+    expect(normalizeRouteCondition('open_box')).toBe('open_box');
+  });
 });
