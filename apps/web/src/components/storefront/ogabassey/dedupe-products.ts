@@ -24,6 +24,10 @@ function getProductIdentities(product: unknown): string[] {
   return identities;
 }
 
+function hasStableIdIdentity(identities: readonly string[]): boolean {
+  return identities.some((identity) => identity.startsWith('id:'));
+}
+
 /**
  * Returns products with duplicate identities removed.
  *
@@ -37,6 +41,7 @@ export function dedupeProductsByIdentity<T>(
   products: readonly T[]
 ): T[] {
   const seen = new Set<string>();
+  const inferredDuplicateAliases = new Set<string>();
   const uniqueProducts: T[] = [];
 
   for (const product of products) {
@@ -47,14 +52,27 @@ export function dedupeProductsByIdentity<T>(
       continue;
     }
 
-    const isDuplicate = identities.some((identity) => seen.has(identity));
+    const isSeenDuplicate = identities.some((identity) => seen.has(identity));
+    const isAliasOnlyDuplicate =
+      !hasStableIdIdentity(identities) &&
+      identities.some((identity) => inferredDuplicateAliases.has(identity));
+
+    if (isSeenDuplicate) {
+      for (const identity of identities) {
+        if (!seen.has(identity)) {
+          inferredDuplicateAliases.add(identity);
+        }
+      }
+
+      continue;
+    }
+
+    if (isAliasOnlyDuplicate) {
+      continue;
+    }
 
     for (const identity of identities) {
       seen.add(identity);
-    }
-
-    if (isDuplicate) {
-      continue;
     }
 
     uniqueProducts.push(product);

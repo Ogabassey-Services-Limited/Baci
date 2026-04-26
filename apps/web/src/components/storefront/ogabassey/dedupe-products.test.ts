@@ -66,7 +66,7 @@ describe('dedupeProductsByIdentity', () => {
     ]);
   });
 
-  it('tracks aliases from skipped duplicate rows for later matches', () => {
+  it('tracks aliases from skipped duplicate rows for later slug-only matches', () => {
     const result = dedupeProductsByIdentity([
       { id: 'product-1', name: 'ID-only product' },
       {
@@ -91,6 +91,31 @@ describe('dedupeProductsByIdentity', () => {
         id: 'product-2',
         slug: 'dell-alienware-m18-r3',
         name: 'Different product',
+      },
+    ]);
+  });
+
+  it('does not let aliases from skipped duplicate rows hide a later product with its own id', () => {
+    const result = dedupeProductsByIdentity([
+      { id: 'product-1', name: 'ID-only product' },
+      {
+        id: 'product-1',
+        slug: 'shared-slug',
+        name: 'Dropped duplicate with a conflicting slug',
+      },
+      {
+        id: 'product-2',
+        slug: 'shared-slug',
+        name: 'Legitimate ID-backed product',
+      },
+    ]);
+
+    expect(result).toEqual([
+      { id: 'product-1', name: 'ID-only product' },
+      {
+        id: 'product-2',
+        slug: 'shared-slug',
+        name: 'Legitimate ID-backed product',
       },
     ]);
   });
