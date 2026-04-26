@@ -8,7 +8,9 @@
  * Reanimated worklets run on the UI thread and cannot be driven in Jest.
  */
 
+import { jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import * as imageZoomHook from './hooks/useImageZoom';
 import { ImageZoomModal } from './ImageZoomModal';
 
 // ---------------------------------------------------------------------------
@@ -20,7 +22,8 @@ import { ImageZoomModal } from './ImageZoomModal';
 // react-native-worklets which requires native bindings; it cannot run in Jest.
 // We mock only what ImageZoomModal actually imports.
 jest.mock('react-native-reanimated', () => {
-  const { View, ScrollView } = jest.requireActual('react-native');
+  const { View, ScrollView } =
+    jest.requireActual<typeof import('react-native')>('react-native');
 
   // Shared value: a simple object with .get()/.set() so worklet calls are no-ops
   const makeSharedValue = (init: number) => {
@@ -163,6 +166,22 @@ describe('ImageZoomModal', () => {
       expect(
         screen.queryByRole('button', { name: 'Close image viewer' })
       ).toBeNull();
+    });
+
+    it('renders without a gesture wrapper when no composed gesture is available', () => {
+      const spy = jest.spyOn(imageZoomHook, 'useImageZoom');
+      spy.mockReturnValue({
+        composedGesture: null,
+        animatedImageStyle: {},
+        resetTransform: jest.fn(),
+        resetTransformImmediate: jest.fn(),
+      });
+
+      renderModal({ visible: true });
+
+      expect(screen.getByLabelText('Product image 1 of 3')).toBeTruthy();
+
+      spy.mockRestore();
     });
   });
 

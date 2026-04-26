@@ -158,6 +158,14 @@ describe('product-utils', () => {
     });
     mockGetProductSlugFallbackCandidates.mockReturnValue([]);
     mockRpc.mockReset();
+    mockRpc.mockImplementation((...args: unknown[]) => {
+      const fn = args[0] as string;
+      if (fn === 'get_storefront_product_variants') {
+        return { data: [], error: null };
+      }
+
+      return { data: null, error: null };
+    });
   });
 
   it('fetchProductRow scopes product lookups by merchant, status, and slug', async () => {
@@ -209,6 +217,60 @@ describe('product-utils', () => {
     expect(result).toEqual(validProductRow);
   });
 
+  it('resolveProductRow hydrates public storefront variants through the rpc when nested rows are empty', async () => {
+    const query = createQueryChain({
+      data: {
+        ...validProductRow,
+        variants: [],
+      },
+      error: null,
+    });
+    mockFrom.mockReturnValue(query);
+    mockRpc.mockImplementation((...args: unknown[]) => {
+      const fn = args[0] as string;
+      if (fn === 'get_storefront_product_variants') {
+        return {
+          data: [
+            {
+              id: 'variant-used-256',
+              product_id: validProductRow.id,
+              condition: 'used',
+              sku: null,
+              price_override: '550000.00',
+              stock_quantity: 0,
+              attributes: {
+                color: 'Midnight Green',
+                storage: '256GB',
+              },
+              primary_image:
+                'https://cdn.example.com/iphone-11-pro-max-midnight-green.avif',
+            },
+          ],
+          error: null,
+        };
+      }
+
+      return { data: null, error: null };
+    });
+
+    const result = await resolveProductRow('merchant-1', 'iphone-13-pro');
+
+    expect(mockRpc).toHaveBeenCalledWith('get_storefront_product_variants', {
+      p_product_ids: [validProductRow.id],
+    });
+    expect(result).toMatchObject({
+      variants: [
+        expect.objectContaining({
+          condition: 'used',
+          price_override: '550000.00',
+          attributes: expect.objectContaining({
+            storage: '256GB',
+          }),
+        }),
+      ],
+    });
+  });
+
   it('resolveAndEvictProduct clears stale product caches when a product is gone', async () => {
     const queryClient = {
       removeQueries: jest.fn(),
@@ -224,9 +286,33 @@ describe('product-utils', () => {
     );
 
     expect(queryClient.removeQueries).toHaveBeenCalledWith({
-      queryKey: ['product', 'missing-slug', 'merchant-1'],
-      exact: true,
+      predicate: expect.any(Function),
     });
+    const removeQueriesArg = (queryClient.removeQueries as jest.Mock).mock
+      .calls[0][0] as {
+      predicate: (query: { queryKey: unknown[] }) => boolean;
+    };
+    const predicate = removeQueriesArg.predicate;
+    expect(
+      predicate({
+        queryKey: ['product', 'variant-media-v1', 'missing-slug', 'merchant-1'],
+      })
+    ).toBe(true);
+    expect(
+      predicate({
+        queryKey: ['product', 'missing-slug', 'merchant-1'],
+      })
+    ).toBe(true);
+    expect(
+      predicate({
+        queryKey: ['product', 'variant-media-v1', 'another-slug', 'merchant-1'],
+      })
+    ).toBe(false);
+    expect(
+      predicate({
+        queryKey: ['categories', 'missing-slug'],
+      })
+    ).toBe(false);
     expect(queryClient.setQueriesData).toHaveBeenCalledTimes(1);
 
     const updater = (queryClient.setQueriesData as jest.Mock).mock
@@ -246,7 +332,7 @@ describe('product-utils', () => {
       id: validProductRow.id,
       name: validProductRow.name,
       slug: validProductRow.slug,
-      image: validProductRow.images[0],
+      image: 'https://cdn.example.com/iphone-13-pro-blue.jpg',
       rating: validProductRow.average_rating,
       review_count: validProductRow.review_count,
       category: 'Phones',
@@ -276,8 +362,9 @@ describe('product-utils', () => {
         ],
       })
     ).toMatchObject({
-      image: 'https://cdn.example.com/iphone-13-pro-front.jpg',
+      image: 'https://cdn.example.com/iphone-13-pro-blue.jpg',
       images: [
+        'https://cdn.example.com/iphone-13-pro-blue.jpg',
         'https://cdn.example.com/iphone-13-pro-front.jpg',
         'https://cdn.example.com/iphone-13-pro-back.jpg',
       ],
@@ -348,6 +435,187 @@ describe('product-utils', () => {
     });
   });
 
+  it('transformProduct merges variant-derived axes into variant_attributes', () => {
+    expect(
+      transformProduct({
+        ...validProductRow,
+        variant_attributes: [{ param: 'Storage', options: ['256GB'] }],
+        variants: [
+          {
+            ...validProductRow.variants[0],
+            attributes: {
+              storage: '128GB',
+              ram: '8GB',
+            },
+          },
+          {
+            ...validProductRow.variants[0],
+            id: 'variant-512gb',
+            sku: 'IPHONE-13-PRO-512',
+            attributes: {
+              storage: '512GB',
+              ram: '12GB',
+            },
+          },
+        ],
+      })
+    ).toMatchObject({
+      variant_attributes: {
+        storage: ['256GB', '128GB', '512GB'],
+        ram: ['8GB', '12GB'],
+      },
+    });
+  });
+
+  it('transformProduct keeps image-backed product colors with exact variant colors', () => {
+    expect(
+      transformProduct({
+        ...validProductRow,
+        color: 'Blue',
+        colors: ['Blue'],
+        color_images: { Blue: ['https://cdn.example.com/generic-blue.jpg'] },
+        variant_attributes: [
+          { param: 'Color', options: ['Blue'] },
+          { param: 'Storage', options: ['128GB', '256GB'] },
+        ],
+        variants: [
+          {
+            ...validProductRow.variants[0],
+            attributes: {
+              color: 'Sapphire Blue',
+              color_hex: '#5A7B97',
+              storage: '128GB',
+            },
+          },
+          {
+            ...validProductRow.variants[0],
+            id: 'variant-black-256',
+            price_override: 680000,
+            attributes: {
+              color: 'Onyx Black',
+              color_hex: '#1C1C1C',
+              storage: '256GB',
+            },
+          },
+        ],
+      })
+    ).toMatchObject({
+      colors: ['Blue', 'Sapphire Blue', 'Onyx Black'],
+      variant_attributes: {
+        color: ['Blue', 'Sapphire Blue', 'Onyx Black'],
+        storage: ['128GB', '256GB'],
+      },
+      variants: expect.arrayContaining([
+        expect.objectContaining({
+          attributes: expect.objectContaining({
+            color: 'Sapphire Blue',
+          }),
+        }),
+      ]),
+    });
+  });
+
+  it('transformProduct preserves the legacy scalar color when the colors array is missing', () => {
+    const result = transformProduct({
+      ...validProductRow,
+      color: 'Crimson Red',
+      colors: null,
+      color_images: null,
+      variant_attributes: null,
+      variants: null,
+      has_variants: false,
+    });
+
+    expect(result).not.toBeNull();
+    expect(result?.colors).toEqual(['Crimson Red']);
+  });
+
+  it('transformProduct surfaces non-variant product colors and color_images', () => {
+    // Catalog item that does not use variants but still carries merchant-set
+    // color metadata: the resolver should preserve both the color list and the
+    // image map so the storefront swatches/gallery render correctly.
+    const result = transformProduct({
+      ...validProductRow,
+      color: 'Cobalt',
+      colors: ['Cobalt', 'Sand'],
+      color_images: {
+        Cobalt: ['https://cdn.example.com/non-variant-cobalt.jpg'],
+        Sand: ['https://cdn.example.com/non-variant-sand.jpg'],
+      },
+      variant_attributes: null,
+      variants: null,
+      has_variants: false,
+    });
+
+    expect(result).not.toBeNull();
+    expect(result?.colors).toEqual(['Cobalt', 'Sand']);
+    expect(result?.color_images).toEqual({
+      Cobalt: ['https://cdn.example.com/non-variant-cobalt.jpg'],
+      Sand: ['https://cdn.example.com/non-variant-sand.jpg'],
+    });
+    expect(result?.has_variants).toBe(false);
+  });
+
+  it('transformProduct keeps live variant rows when nested numeric fields arrive as strings', () => {
+    expect(
+      transformProduct({
+        ...validProductRow,
+        color: 'Blue',
+        colors: ['Blue'],
+        color_images: { Blue: ['https://cdn.example.com/generic-blue.jpg'] },
+        manage_stock: false,
+        variants: [
+          {
+            ...validProductRow.variants[0],
+            price_override: '600000.00',
+            stock_quantity: '0',
+            attributes: {
+              color: 'Sapphire Blue',
+              color_hex: '#5A7B97',
+              storage: '128GB',
+            },
+          },
+          {
+            ...validProductRow.variants[0],
+            id: 'variant-black-256',
+            price_override: '680000.00',
+            stock_quantity: '0',
+            attributes: {
+              color: 'Onyx Black',
+              color_hex: '#1C1C1C',
+              storage: '256GB',
+            },
+          },
+        ],
+      })
+    ).toMatchObject({
+      colors: ['Blue', 'Sapphire Blue', 'Onyx Black'],
+      manage_stock: false,
+      variants: [
+        expect.objectContaining({
+          attributes: expect.objectContaining({
+            color: 'Sapphire Blue',
+            storage: '128GB',
+          }),
+          price_override: 600000,
+          stock_quantity: 0,
+          // manage_stock: false flips inventoryUnmanaged on, so a stock of 0
+          // is not a sold-out signal and the variant must remain purchasable.
+          in_stock: true,
+        }),
+        expect.objectContaining({
+          attributes: expect.objectContaining({
+            color: 'Onyx Black',
+            storage: '256GB',
+          }),
+          price_override: 680000,
+          stock_quantity: 0,
+          in_stock: true,
+        }),
+      ],
+    });
+  });
+
   it('fetchProductsPage applies filters, paginates, and returns transformed products', async () => {
     const rankedResults = [
       {
@@ -371,10 +639,18 @@ describe('product-utils', () => {
       ],
       error: null,
     });
-    mockRpc.mockImplementation(async () => ({
-      data: rankedResults,
-      error: null,
-    }));
+    mockRpc.mockImplementation((...args: unknown[]) => {
+      const fn = args[0];
+
+      if (fn === 'get_storefront_product_variants') {
+        return { data: [], error: null };
+      }
+
+      return {
+        data: rankedResults,
+        error: null,
+      };
+    });
     mockFrom.mockReturnValue(query);
 
     const result = await fetchProductsPage(
