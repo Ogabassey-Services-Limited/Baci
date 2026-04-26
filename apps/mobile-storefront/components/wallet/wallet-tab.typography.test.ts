@@ -10,9 +10,11 @@ describe('WALLET_TAB_TYPOGRAPHY', () => {
 
   it.each([
     ['actionLabel', 12],
+    ['body', 14],
     ['headerTitle', 28],
     ['balanceAmount', 36],
     ['pointsAmount', 32],
+    ['sectionTitle', 18],
   ] as const)('exports expected %s font size', (key, expected) => {
     expect(WALLET_TAB_TYPOGRAPHY.size[key]).toBe(expected);
   });
