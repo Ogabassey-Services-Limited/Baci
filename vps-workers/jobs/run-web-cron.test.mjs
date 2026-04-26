@@ -111,7 +111,7 @@ describe('web cron worker', () => {
       AbortSignal.timeout = originalTimeout;
     }
 
-    assert.deepEqual(timeoutCalls, [900_000, 30_000, 1234]);
+    assert.deepEqual(timeoutCalls, [900_000, 600_000, 1234]);
   });
 
   it('supports POST cron endpoints with bearer authorization', async () => {

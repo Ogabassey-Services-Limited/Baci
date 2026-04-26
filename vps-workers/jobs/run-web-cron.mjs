@@ -17,7 +17,7 @@ const WEB_CRON_CONFIG = new Map([
     { method: 'GET', timeoutMs: 5 * 60_000 },
   ],
   ['/api/cron/wallet-payouts', { method: 'GET', timeoutMs: 5 * 60_000 }],
-  ['/api/inventory/push-alerts', { method: 'GET' }],
+  ['/api/inventory/push-alerts', { method: 'GET', timeoutMs: 10 * 60_000 }],
 ]);
 
 const RESPONSE_PREVIEW_LIMIT = 500;
