@@ -6,6 +6,8 @@
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { config } from 'dotenv';
 
+// These paths expose CRON_SECRET-gated GET wrappers that delegate to the
+// underlying scheduled work. The VPS worker must not call OAuth callbacks.
 const ALLOWED_WEB_CRON_PATHS = new Set([
   '/api/ai-jobs/worker',
   '/api/cron/publish-scheduled-posts',

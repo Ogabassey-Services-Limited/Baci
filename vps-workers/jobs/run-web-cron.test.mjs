@@ -154,6 +154,10 @@ describe('web cron worker', () => {
           },
           fetchFn: async (_url, init) => {
             await new Promise((_resolve, reject) => {
+              if (init.signal.aborted) {
+                reject(new DOMException('timeout', 'TimeoutError'));
+                return;
+              }
               init.signal.addEventListener('abort', () => {
                 reject(new DOMException('timeout', 'TimeoutError'));
               });
