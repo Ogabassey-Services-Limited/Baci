@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { logger } from '@/lib/logger';
 
 const mocks = vi.hoisted(() => ({
   from: vi.fn(),
@@ -173,6 +174,61 @@ describe('Jumia dashboard order data', () => {
     });
 
     await expect(getOrders(MERCHANT_ID)).resolves.toEqual([]);
+  });
+
+  it('applies dashboard search to legacy Jumia fallback rows', async () => {
+    const ordersQuery = createQuery({ data: [], error: null });
+    const jumiaQuery = createQuery({ data: [], error: null });
+    mocks.from.mockImplementation((table: string) => {
+      if (table === 'orders') return ordersQuery;
+      if (table === 'jumia_orders') return jumiaQuery;
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    await expect(
+      getOrders(MERCHANT_ID, {
+        paymentStatus: 'All',
+        shippingStatus: 'All',
+        search: 'Ada',
+      })
+    ).resolves.toEqual([]);
+
+    expect(ordersQuery.or).toHaveBeenCalledWith(
+      'customer_name.ilike.%Ada%,order_number.ilike.%Ada%'
+    );
+    expect(jumiaQuery.or).toHaveBeenCalledWith(
+      'customer_name.ilike.%Ada%,jumia_order_number.ilike.%Ada%'
+    );
+    expect(ordersQuery.eq).not.toHaveBeenCalledWith(
+      'payment_status',
+      expect.anything()
+    );
+    expect(ordersQuery.eq).not.toHaveBeenCalledWith(
+      'shipping_status',
+      expect.anything()
+    );
+  });
+
+  it('logs legacy Jumia fallback errors without failing canonical results', async () => {
+    const ordersQuery = createQuery({ data: [], error: null });
+    const jumiaQuery = createQuery({
+      data: null,
+      error: { message: 'legacy query failed' },
+    });
+    mocks.from.mockImplementation((table: string) => {
+      if (table === 'orders') return ordersQuery;
+      if (table === 'jumia_orders') return jumiaQuery;
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    await expect(getOrders(MERCHANT_ID)).resolves.toEqual([]);
+
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Error fetching legacy Jumia orders',
+        merchantId: MERCHANT_ID,
+      })
+    );
   });
 
   it('counts canonical Jumia orders in dashboard stats', async () => {

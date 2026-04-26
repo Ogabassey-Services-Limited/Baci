@@ -86,13 +86,13 @@ export function createSupabaseMock(
     }),
     rpc: vi.fn((fnName: string) => {
       const index = rpcResponseIndexes.get(fnName) ?? 0;
-      const response = rpcResponses[fnName]?.[index];
-      if (!response) {
-        const queuedCount = rpcResponses[fnName]?.length ?? 0;
+      const queuedCount = rpcResponses[fnName]?.length ?? 0;
+      if (index >= queuedCount) {
         throw new Error(
           `Unexpected RPC "${fnName}" at call ${index + 1} (${queuedCount} queued)`
         );
       }
+      const response = rpcResponses[fnName]?.[index];
       rpcResponseIndexes.set(fnName, index + 1);
       return Promise.resolve(response);
     }),

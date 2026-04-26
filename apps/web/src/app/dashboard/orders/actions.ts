@@ -177,6 +177,10 @@ export async function getOrders(
   const shippingStatusFilter = filters.shippingStatus;
   const hasPaymentFilter = isActiveFilter(paymentStatusFilter);
   const hasShippingFilter = isActiveFilter(shippingStatusFilter);
+  const searchTerm = filters.search?.trim();
+  const sanitizedSearch = searchTerm
+    ? sanitizeLikePattern(sanitizeSearchQuery(searchTerm))
+    : null;
 
   let query = supabase
     .from('orders')
@@ -197,10 +201,7 @@ export async function getOrders(
   }
 
   // Search by customer name or order number
-  if (filters.search?.trim()) {
-    const sanitizedSearch = sanitizeLikePattern(
-      sanitizeSearchQuery(filters.search)
-    );
+  if (sanitizedSearch) {
     query = query.or(
       `customer_name.ilike.%${sanitizedSearch}%,order_number.ilike.%${sanitizedSearch}%`
     );
@@ -224,14 +225,22 @@ export async function getOrders(
   // but we map them.
   let jumiaOrders: JumiaOrder[] = [];
   if (!hasPaymentFilter && !hasShippingFilter) {
-    const { data: jOrders, error: jumiaOrdersError } = await supabase
+    let jumiaQuery = supabase
       .from('jumia_orders')
       .select(
         'status, jumia_order_id, jumia_order_number, customer_name, total_amount, created_at_jumia, items'
       )
       .eq('merchant_id', merchantId)
-      .is('baci_order_id', null)
-      .order('created_at_jumia', { ascending: false });
+      .is('baci_order_id', null);
+    if (sanitizedSearch) {
+      jumiaQuery = jumiaQuery.or(
+        `customer_name.ilike.%${sanitizedSearch}%,jumia_order_number.ilike.%${sanitizedSearch}%`
+      );
+    }
+    const { data: jOrders, error: jumiaOrdersError } = await jumiaQuery.order(
+      'created_at_jumia',
+      { ascending: false }
+    );
     if (jumiaOrdersError) {
       logger.error({
         message: 'Error fetching legacy Jumia orders',

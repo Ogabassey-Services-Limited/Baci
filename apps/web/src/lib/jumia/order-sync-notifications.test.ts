@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { notifyMerchant } from '@/lib/expo-push';
 import { getAllOrders, getOrderItems } from '@/lib/jumia/orders';
 
@@ -43,6 +43,10 @@ import {
 } from './order-sync-notifications';
 
 describe('Jumia order sync notification markers', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('builds a stable notification attempt key', () => {
     expect(getJumiaNotificationAttemptKey('merchant:1', 'order/1')).toBe(
       'merchant%3A1:order%2F1'
@@ -134,10 +138,14 @@ describe('Jumia order sync notification markers', () => {
       },
       error: null,
     });
-    const updateOrderQuery = createQuery(
-      { error: null },
-      { terminalEqCall: 2 }
-    );
+    const updateOrderQuery = createQuery({
+      data: {
+        id: 'baci-order-1',
+        external_id: order.id,
+        tracking_token: 'tracking-token',
+      },
+      error: null,
+    });
     const cacheQuery = createQuery({ error: null }, { terminalUpsert: true });
     const duplicateCacheQuery = createQuery(
       { error: null },
@@ -193,5 +201,81 @@ describe('Jumia order sync notification markers', () => {
     expect(result.errors).toEqual([
       'merchant-1/jumia-order-1: Failed to mark Jumia notification as sent: write timeout',
     ]);
+  });
+
+  it('does not re-notify legacy cache rows already marked as notified', async () => {
+    const marketplaceQuery = createQuery(
+      {
+        data: [
+          {
+            id: 'integration-1',
+            merchant_id: 'merchant-1',
+            shop_id: 'shop-1',
+            last_sync_at: '2026-04-25T07:00:00.000Z',
+            sync_config: { orders: true },
+          },
+        ],
+        error: null,
+      },
+      { terminalEqCall: 2 }
+    );
+    const existingJumiaQuery = createQuery({
+      data: [
+        {
+          jumia_order_id: order.id,
+          notification_sent: true,
+          baci_order_id: null,
+        },
+      ],
+      error: null,
+    });
+    const existingCanonicalQuery = createQuery({ data: [], error: null });
+    const insertOrderQuery = createQuery({
+      data: {
+        id: 'baci-order-1',
+        external_id: order.id,
+        tracking_token: 'tracking-token',
+      },
+      error: null,
+    });
+    const cacheQuery = createQuery({ error: null }, { terminalUpsert: true });
+    const syncCursorQuery = createQuery({ error: null }, { terminalEqCall: 1 });
+    const supabase = createSupabaseMock(
+      {
+        marketplace_integrations: [marketplaceQuery, syncCursorQuery],
+        jumia_orders: [existingJumiaQuery, cacheQuery],
+        orders: [existingCanonicalQuery, insertOrderQuery],
+      },
+      {
+        replace_order_items: [{ error: null }],
+      }
+    );
+
+    mocks.forIntegration.mockResolvedValue({ client: true });
+    vi.mocked(getAllOrders).mockResolvedValue([order]);
+    vi.mocked(getOrderItems).mockResolvedValue({
+      orderId: order.id,
+      orderNumber: order.number,
+      items: [item],
+    });
+
+    const result = await syncJumiaOrdersForActiveIntegrations(supabase);
+
+    expect(notifyMerchant).not.toHaveBeenCalled();
+    expect(cacheQuery.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        notification_sent: true,
+        baci_order_id: 'baci-order-1',
+      }),
+      { onConflict: 'jumia_order_id' }
+    );
+    expect(result).toEqual(
+      expect.objectContaining({
+        synced: 1,
+        canonicalCreated: 1,
+        notified: 0,
+        orderErrors: 0,
+      })
+    );
   });
 });

@@ -43,13 +43,12 @@ export async function markJumiaNotificationSent(
       .select('jumia_order_id')
       .maybeSingle<{ jumia_order_id: string }>();
     if (!error) {
-      if (data?.jumia_order_id === jumiaOrderId) return null;
+      if (data) return null;
       return {
         message: `No Jumia order notification marker updated for ${jumiaOrderId}`,
       };
-    } else {
-      lastError = error;
     }
+    lastError = error;
 
     if (attempt < attempts && retryDelayMs > 0) {
       await sleep(retryDelayMs);

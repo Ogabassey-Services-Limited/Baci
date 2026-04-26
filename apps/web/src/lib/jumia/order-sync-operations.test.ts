@@ -223,6 +223,43 @@ describe('Jumia order sync operations', () => {
     expect(insertOrderQuery.insert).toHaveBeenCalled();
   });
 
+  it('returns the refreshed canonical order after updating an existing order', async () => {
+    const updateOrderQuery = createQuery({
+      data: {
+        id: 'existing-order-1',
+        external_id: order.id,
+        tracking_token: 'token-after-update',
+      },
+      error: null,
+    });
+    const supabase = createSupabaseMock(
+      { orders: [updateOrderQuery] },
+      { replace_order_items: [{ error: null }] }
+    );
+
+    const result = await upsertCanonicalOrder(
+      supabase,
+      integration,
+      order,
+      [item],
+      {
+        id: 'existing-order-1',
+        external_id: order.id,
+        tracking_token: 'token-before-update',
+      }
+    );
+
+    expect(result).toEqual({
+      id: 'existing-order-1',
+      external_id: order.id,
+      tracking_token: 'token-after-update',
+    });
+    expect(updateOrderQuery.update).toHaveBeenCalled();
+    expect(updateOrderQuery.select).toHaveBeenCalledWith(
+      'id, external_id, tracking_token'
+    );
+  });
+
   it('builds a synced Jumia cache row for the persisted Baci order', () => {
     const row = buildSyncedJumiaCacheRow(
       integration,

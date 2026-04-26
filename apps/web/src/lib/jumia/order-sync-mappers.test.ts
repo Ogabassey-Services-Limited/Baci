@@ -109,7 +109,9 @@ describe('Jumia order sync mappers', () => {
     const payload = buildCanonicalJumiaOrderPayload(
       integration,
       order,
-      'tracking-token'
+      'tracking-token',
+      [item],
+      '2026-04-25T08:03:00.000Z'
     );
 
     expect(payload).toMatchObject({
@@ -120,10 +122,59 @@ describe('Jumia order sync mappers', () => {
       shipping_status: 'shipped',
       payment_status: 'paid',
       source: 'jumia',
+      payment_method: 'jumia',
       external_source: 'jumia',
       external_id: 'JUMIA/ORDER 1',
       tracking_token: 'tracking-token',
+      subtotal: 255000,
+      shipping_fee: 0,
+      tax_amount: 0,
+      discount_amount: 5000,
+      original_total: 255000,
+      imported_at: '2026-04-25T08:03:00.000Z',
     });
+  });
+
+  it('marks canceled non-prepaid Jumia orders as unpaid', () => {
+    const payload = buildCanonicalJumiaOrderPayload(
+      integration,
+      {
+        ...order,
+        isPrepayment: false,
+        status: 'canceled',
+      },
+      'tracking-token',
+      [item]
+    );
+
+    expect(payload).toMatchObject({
+      shipping_status: 'cancelled',
+      payment_status: 'unpaid',
+    });
+  });
+
+  it('marks terminal prepaid Jumia orders as refunded', () => {
+    const payload = buildCanonicalJumiaOrderPayload(
+      integration,
+      {
+        ...order,
+        isPrepayment: true,
+        status: 'returned',
+      },
+      'tracking-token',
+      [item]
+    );
+
+    expect(payload).toMatchObject({
+      shipping_status: 'returned',
+      payment_status: 'refunded',
+    });
+  });
+
+  it('rejects canonical Jumia orders with no order items', () => {
+    expect(() =>
+      buildCanonicalJumiaOrderPayload(integration, order, 'tracking-token', [])
+    ).toThrow('without order items');
   });
 
   it('builds cache rows and order items without dropping notification state', () => {
@@ -165,6 +216,7 @@ describe('Jumia order sync mappers', () => {
 
   it('keeps canonical Jumia order numbers unchanged', () => {
     expect(buildJumiaOrderNumber('JUMIA-12345')).toBe('JUMIA-12345');
+    expect(buildJumiaOrderNumber('jumia-abc123')).toBe('JUMIA-ABC123');
   });
 
   it('handles empty item lists without dropping notification state', () => {

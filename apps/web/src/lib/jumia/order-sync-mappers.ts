@@ -1,8 +1,16 @@
 import { randomBytes } from 'node:crypto';
 import { sanitizeText } from '@/lib/sanitize-core';
 import type { JumiaOrder, JumiaOrderItem } from '@/schemas/jumia';
+import {
+  calculateJumiaOrderMoney,
+  mapJumiaPaymentStatus,
+} from './order-sync-money';
 
 export const JUMIA_EXTERNAL_SOURCE = 'jumia';
+const JUMIA_DEFAULT_SHOP_ID = 'oauth';
+const JUMIA_MARKETPLACE_EMAIL_DOMAIN = '@marketplace.usebaci.local';
+const JUMIA_MARKETPLACE_EMAIL_PREFIX = 'jumia-';
+const JUMIA_ORDER_NUMBER_PREFIX = 'JUMIA-';
 
 const DEFAULT_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
 const SYNC_OVERLAP_MS = 10 * 60 * 1000;
@@ -91,15 +99,15 @@ export function mapJumiaShippingStatus(
 }
 
 export function buildJumiaOrderNumber(orderNumber: string): string {
-  const normalized = sanitizeText(orderNumber, 120).trim();
-  return normalized.toUpperCase().startsWith('JUMIA-')
-    ? `JUMIA-${normalized.slice(6)}`
-    : `JUMIA-${normalized}`;
+  const normalized = sanitizeText(orderNumber, 120).trim().toUpperCase();
+  return normalized.startsWith(JUMIA_ORDER_NUMBER_PREFIX)
+    ? normalized
+    : `${JUMIA_ORDER_NUMBER_PREFIX}${normalized}`;
 }
 
 function buildMarketplaceEmail(orderId: string) {
   const safeId = orderId.replace(/[^a-zA-Z0-9._-]/g, '-').toLowerCase();
-  return `jumia-${safeId}@marketplace.usebaci.local`;
+  return `${JUMIA_MARKETPLACE_EMAIL_PREFIX}${safeId}${JUMIA_MARKETPLACE_EMAIL_DOMAIN}`;
 }
 
 function sanitizeShippingAddress(address: JumiaOrder['shippingAddress']) {
@@ -135,7 +143,7 @@ export function buildJumiaCacheRow(
     merchant_id: integration.merchant_id,
     jumia_order_id: order.id,
     jumia_order_number: sanitizeText(order.number, 120),
-    jumia_shop_id: integration.shop_id || 'oauth',
+    jumia_shop_id: integration.shop_id || JUMIA_DEFAULT_SHOP_ID,
     status: sanitizeText(order.status, 80),
     customer_name: getCustomerName(order),
     customer_phone: '',
@@ -164,12 +172,25 @@ export function buildJumiaCacheRow(
 export function buildCanonicalJumiaOrderPayload(
   integration: MarketplaceIntegrationRow,
   order: JumiaOrder,
-  trackingToken: string
+  trackingToken: string,
+  items: JumiaOrderItem[],
+  importedAt = new Date().toISOString()
 ) {
-  const total = order.totalAmount.value;
+  if (items.length === 0) {
+    throw new Error(
+      `Cannot build canonical Jumia order ${order.id} (${order.number}) without order items`
+    );
+  }
+
+  const money = calculateJumiaOrderMoney(
+    order.id,
+    order.totalAmount.value,
+    items
+  );
   const shippingAddress = sanitizeShippingAddress(order.shippingAddress);
   const orderNumber = sanitizeText(order.number, 120);
   const jumiaStatus = sanitizeText(order.status, 80);
+  const shippingStatus = mapJumiaShippingStatus(jumiaStatus);
 
   return {
     merchant_id: integration.merchant_id,
@@ -177,18 +198,18 @@ export function buildCanonicalJumiaOrderPayload(
     customer_name: getCustomerName(order),
     customer_email: buildMarketplaceEmail(order.id),
     customer_phone: '',
-    shipping_status: mapJumiaShippingStatus(jumiaStatus),
-    payment_status: 'paid',
-    total,
-    subtotal: total,
-    shipping_fee: 0,
-    tax_amount: 0,
-    discount_amount: 0,
+    shipping_status: shippingStatus,
+    payment_status: mapJumiaPaymentStatus(shippingStatus, order.isPrepayment),
+    total: money.total,
+    subtotal: money.subtotal,
+    shipping_fee: money.shippingFee,
+    tax_amount: money.taxAmount,
+    discount_amount: money.discountAmount,
     currency: order.totalAmount.currency,
     original_currency: order.totalAmount.currency,
-    original_total: total,
+    original_total: money.originalTotal,
     source: JUMIA_EXTERNAL_SOURCE,
-    payment_method: 'jumia',
+    payment_method: JUMIA_EXTERNAL_SOURCE,
     notes: `Imported from Jumia order ${orderNumber}`,
     shipping_address: {
       address: shippingAddress.address,
@@ -203,10 +224,10 @@ export function buildCanonicalJumiaOrderPayload(
     updated_at: order.updatedAt,
     external_source: JUMIA_EXTERNAL_SOURCE,
     external_id: order.id,
-    imported_at: new Date().toISOString(),
+    imported_at: importedAt,
     import_metadata: {
       platform: JUMIA_EXTERNAL_SOURCE,
-      shopId: integration.shop_id || 'oauth',
+      shopId: integration.shop_id || JUMIA_DEFAULT_SHOP_ID,
       jumiaOrderId: order.id,
       jumiaOrderNumber: orderNumber,
       jumiaStatus,
@@ -217,7 +238,11 @@ export function buildCanonicalJumiaOrderPayload(
 
 export type JumiaCacheRow = ReturnType<typeof buildJumiaCacheRow>;
 
-export function buildOrderItems(orderId: string, items: JumiaOrderItem[]) {
+export function buildOrderItems(
+  orderId: string,
+  items: JumiaOrderItem[],
+  importedAt = new Date().toISOString()
+) {
   return items.map((item, index) => ({
     order_id: orderId,
     product_id: null,
@@ -235,6 +260,6 @@ export function buildOrderItems(orderId: string, items: JumiaOrderItem[]) {
       seller_sku: sanitizeText(item.product.sellerSku, 120),
       status: item.status,
     },
-    created_at: new Date().toISOString(),
+    created_at: importedAt,
   }));
 }

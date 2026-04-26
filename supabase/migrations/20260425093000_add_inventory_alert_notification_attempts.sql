@@ -14,6 +14,3 @@ BEGIN
       CHECK (notification_attempts >= 0) NOT VALID;
   END IF;
 END $$;
-
-ALTER TABLE public.inventory_alerts
-  VALIDATE CONSTRAINT inventory_alerts_notification_attempts_nonnegative;

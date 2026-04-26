@@ -84,18 +84,18 @@ for line in lines:
     if inside_block:
         continue
 
-    parts = line.split(maxsplit=5)
-    command = parts[5] if len(parts) == 6 else ''
+    stripped_line = line.lstrip()
     uses_current_worker_paths = (
-        f'{remote_dir}/jobs/' in command
-        or f'{remote_dir}/bin/' in command
+        f'{remote_dir}/jobs/' in stripped_line
+        or f'{remote_dir}/bin/' in stripped_line
     )
     uses_legacy_relative_worker_paths = (
-        f'cd {remote_dir}' in command
-        and (' jobs/' in command or ' bin/' in command)
+        f'cd {remote_dir}' in stripped_line
+        and (' jobs/' in stripped_line or ' bin/' in stripped_line)
     )
     is_baci_worker_command = (
-        uses_current_worker_paths or uses_legacy_relative_worker_paths
+        f'flock -n {remote_dir}/locks/' in stripped_line
+        and (uses_current_worker_paths or uses_legacy_relative_worker_paths)
     )
     if is_baci_worker_command:
         continue
@@ -126,6 +126,7 @@ if ! grep -Fqx "$cron_block_end" "$tmp_file"; then
 fi
 
 crontab "$tmp_file"
+rm -f "$fragment_path"
 REMOTE_SH
 
 echo ""

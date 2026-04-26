@@ -15,6 +15,7 @@ import {
 } from './order-sync-notifications';
 import {
   buildSyncedJumiaCacheRow,
+  buildExistingJumiaCacheEntry as cacheEntry,
   loadExistingCanonicalOrders,
   loadExistingJumiaOrders,
   notifySyncedJumiaOrder,
@@ -30,11 +31,10 @@ import {
 const JUMIA_ORDER_SYNC_ROUTE = 'jumia/order-sync';
 const INITIAL_SYNC_CURSOR = 'initial-sync';
 
-interface SyncUpdatePayload {
-  last_sync_at?: string;
+type SyncUpdatePayload = Partial<{ last_sync_at: string }> & {
   sync_config: Record<string, unknown>;
   sync_error: string | null;
-}
+};
 
 async function syncIntegration(
   supabase: SupabaseClient,
@@ -49,7 +49,7 @@ async function syncIntegration(
     integration.id
   );
   const orderErrorsBefore = result.orderErrors;
-  let lastSuccessfulSyncMs: number | null = null;
+  let syncedAnyOrder = false;
   let earliestFailedSyncAt: string | null = null;
   let earliestFailedSyncMs: number | null = null;
   const attemptedNotificationKeys = new Set<string>();
@@ -80,9 +80,7 @@ async function syncIntegration(
         order.id
       );
       const shouldNotify =
-        (!existingJumia ||
-          existingJumia.notification_sent !== true ||
-          !existingJumia.baci_order_id) &&
+        (!existingJumia || existingJumia.notification_sent !== true) &&
         !attemptedNotificationKeys.has(notificationKey);
       const items = (await getOrderItems(client, order.id)).items;
 
@@ -108,6 +106,10 @@ async function syncIntegration(
       if (cacheError) {
         throw new Error(`Failed to cache Jumia order: ${cacheError.message}`);
       }
+      existingJumiaOrders.set(
+        order.id,
+        cacheEntry(order.id, cacheRow.notification_sent, canonicalOrder.id)
+      );
 
       if (existingCanonical) result.canonicalUpdated += 1;
       else result.canonicalCreated += 1;
@@ -137,6 +139,11 @@ async function syncIntegration(
             result.errors.push(
               `${integration.merchant_id}/${order.id}: Failed to mark Jumia notification as sent: ${notificationUpdateError.message}`
             );
+          } else {
+            existingJumiaOrders.set(
+              order.id,
+              cacheEntry(order.id, true, canonicalOrder.id)
+            );
           }
         }
         if (
@@ -155,16 +162,7 @@ async function syncIntegration(
       }
 
       result.synced += 1;
-      const parsedUpdatedAt = Date.parse(order.updatedAt);
-      const successfulSyncMs = Number.isFinite(parsedUpdatedAt)
-        ? parsedUpdatedAt
-        : Date.parse(syncStartedAt);
-      if (
-        lastSuccessfulSyncMs === null ||
-        successfulSyncMs > lastSuccessfulSyncMs
-      ) {
-        lastSuccessfulSyncMs = successfulSyncMs;
-      }
+      syncedAnyOrder = true;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       const parsedFailedUpdatedAt = Date.parse(order.updatedAt);
@@ -199,7 +197,7 @@ async function syncIntegration(
       sync_error: null,
       sync_config: clearFullFailureState(integration.sync_config),
     };
-  } else if (lastSuccessfulSyncMs !== null) {
+  } else if (syncedAnyOrder) {
     syncUpdate = {
       last_sync_at: earliestFailedSyncAt ?? syncStartedAt,
       sync_error: `Processed with ${integrationOrderErrors} Jumia order error(s); cursor parked at earliest failed order ${earliestFailedSyncAt ?? syncStartedAt} so failed orders remain retryable`,

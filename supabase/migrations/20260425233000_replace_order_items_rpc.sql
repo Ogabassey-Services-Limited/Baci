@@ -27,9 +27,10 @@ BEGIN
 
   FOR v_item IN
     SELECT
-      row_number() OVER () AS item_index,
+      source.item_index,
       item.*
-    FROM jsonb_to_recordset(v_items) AS item (
+    FROM jsonb_array_elements(v_items) WITH ORDINALITY AS source(item_json, item_index)
+    CROSS JOIN LATERAL jsonb_to_record(source.item_json) AS item (
       product_id UUID,
       name TEXT,
       price NUMERIC,
@@ -114,7 +115,8 @@ BEGIN
     item.item_description,
     item.sellers_item_id,
     item.image_url
-  FROM jsonb_to_recordset(v_items) AS item (
+  FROM jsonb_array_elements(v_items) WITH ORDINALITY AS source(item_json, item_index)
+  CROSS JOIN LATERAL jsonb_to_record(source.item_json) AS item (
     product_id UUID,
     name TEXT,
     price NUMERIC,
@@ -125,7 +127,8 @@ BEGIN
     item_description TEXT,
     sellers_item_id TEXT,
     image_url TEXT
-  );
+  )
+  ORDER BY source.item_index;
 END;
 $$;
 

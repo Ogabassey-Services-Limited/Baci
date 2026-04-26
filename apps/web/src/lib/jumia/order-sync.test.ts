@@ -257,10 +257,14 @@ describe('syncJumiaOrdersForActiveIntegrations', () => {
       ],
       error: null,
     });
-    const updateOrderQuery = createQuery(
-      { error: null },
-      { terminalEqCall: 2 }
-    );
+    const updateOrderQuery = createQuery({
+      data: {
+        id: 'baci-order-1',
+        external_id: order.id,
+        tracking_token: 'tracking-token',
+      },
+      error: null,
+    });
     const cacheQuery = createQuery({ error: null }, { terminalUpsert: true });
     const syncCursorQuery = createQuery({ error: null }, { terminalEqCall: 1 });
     const supabase = createSupabaseMock(

@@ -2,11 +2,6 @@ export const FULL_FAILURE_SYNC_CONFIG_KEY = 'jumia_full_failure';
 
 export const MAX_FULL_FAILURES_BEFORE_ADVANCE = 3;
 
-interface FullFailureStatePayload {
-  cursor?: unknown;
-  count?: unknown;
-}
-
 function cloneSyncConfig(syncConfig: unknown): Record<string, unknown> {
   if (
     !syncConfig ||
@@ -38,12 +33,16 @@ export function readFullFailureState(
   }
   const state = (syncConfig as Record<string, unknown>)[
     FULL_FAILURE_SYNC_CONFIG_KEY
-  ] as FullFailureStatePayload | null;
+  ];
   if (!state || typeof state !== 'object' || Array.isArray(state)) return null;
-  const cursor = typeof state.cursor === 'string' ? state.cursor : null;
-  if (typeof state.count !== 'number') return null;
-  const count = state.count;
-  if (!cursor?.trim() || !Number.isSafeInteger(count) || count < 0) {
+  const payload = state as Record<string, unknown>;
+  const cursor = payload.cursor;
+  const count = payload.count;
+  if (typeof cursor !== 'string' || !cursor.trim()) {
+    return null;
+  }
+  if (typeof count !== 'number') return null;
+  if (!Number.isSafeInteger(count) || count < 0) {
     return null;
   }
   return { cursor, count };

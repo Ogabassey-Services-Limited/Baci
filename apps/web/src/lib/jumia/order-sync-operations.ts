@@ -33,6 +33,18 @@ export function chunkOrderIds(orderIds: string[]) {
   return chunks;
 }
 
+export function buildExistingJumiaCacheEntry(
+  jumiaOrderId: string,
+  notificationSent: boolean | null,
+  baciOrderId: string
+) {
+  return {
+    jumia_order_id: jumiaOrderId,
+    notification_sent: notificationSent,
+    baci_order_id: baciOrderId,
+  };
+}
+
 export async function loadExistingJumiaOrders(
   supabase: SupabaseClient,
   merchantId: string,
@@ -104,18 +116,23 @@ export async function upsertCanonicalOrder(
   const payload = buildCanonicalJumiaOrderPayload(
     integration,
     order,
-    existing?.tracking_token || buildTrackingToken()
+    existing?.tracking_token || buildTrackingToken(),
+    items
   );
   let persistedOrder = existing;
   let createdOrderId: string | null = null;
 
   if (existing) {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('orders')
       .update(payload)
       .eq('id', existing.id)
-      .eq('merchant_id', integration.merchant_id);
+      .eq('merchant_id', integration.merchant_id)
+      .select('id, external_id, tracking_token')
+      .single<ExistingOrderRow>();
     if (error) throw new Error(`Failed to update Baci order: ${error.message}`);
+    if (!data) throw new Error('Failed to update Baci order');
+    persistedOrder = data;
   } else {
     const { data, error } = await supabase
       .from('orders')

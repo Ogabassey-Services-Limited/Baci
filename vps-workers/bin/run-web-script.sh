@@ -61,7 +61,7 @@ case "$ENV_FILE" in
     ENV_USER_PREFIX="~$ENV_USER"
     ENV_FILE="${ENV_USER_HOME}${ENV_FILE#"$ENV_USER_PREFIX"}"
     ;;
-  *) ENV_FILE="$PWD/$ENV_FILE" ;;
+  *) ENV_FILE="$REPO_DIR/$ENV_FILE" ;;
 esac
 
 if [ ! -d "$REPO_DIR/apps/web" ]; then
