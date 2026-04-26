@@ -2,6 +2,11 @@ import { readdirSync } from 'node:fs';
 import path from 'node:path';
 
 const APP_ROOT = path.resolve(__dirname, '../../app');
+const SUPPORT_MODULE_FILE_PATTERN =
+  /\.(constants|fixtures|helpers|styles|types)\.(ts|tsx)$/;
+
+// These legacy support modules do not follow the suffix pattern above, so keep
+// them explicit to prevent regressions back into Expo Router's route tree.
 const DISALLOWED_SUPPORT_FILES = [
   'product/normalize-route-condition.ts',
   'product/product-detail-screen.fixtures.ts',
@@ -60,7 +65,7 @@ describe('app route tree safety', () => {
   it('does not keep support modules inside the expo-router app directory', () => {
     expect(
       collectMatchingFiles(APP_ROOT, (fileName) =>
-        /\.(constants|helpers|styles|types)\.(ts|tsx)$/.test(fileName)
+        SUPPORT_MODULE_FILE_PATTERN.test(fileName)
       )
     ).toEqual([]);
   });

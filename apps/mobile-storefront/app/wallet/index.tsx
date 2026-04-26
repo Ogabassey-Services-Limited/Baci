@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Alert, Text, View } from 'react-native';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useColorScheme } from '@/components/useColorScheme';
+import { WalletContent } from '@/components/wallet/WalletContent';
 import { styles } from '@/components/wallet/wallet-screen.styles';
 import Colors, { BRAND, SPACING } from '@/constants/Colors';
 import { useRequireAuth } from '@/hooks/use-auth-guard';
@@ -13,7 +14,6 @@ import { createLogger } from '@/lib/logger';
 import { trackError, trackEvent } from '@/services/analytics';
 import { scheduleLocalNotification } from '@/services/push-notifications';
 import { useAuthStore } from '@/stores/auth-store';
-import { WalletContent } from './WalletContent';
 
 const log = createLogger('Wallet');
 

@@ -4,7 +4,7 @@ import Colors from '@/constants/Colors';
 import {
   type WalletTransaction,
   WalletTransactionHistory,
-} from '@/app/wallet/WalletTransactionHistory';
+} from '@/components/wallet/WalletTransactionHistory';
 
 jest.mock('react-native-reanimated', () => {
   const { View } = jest.requireActual(

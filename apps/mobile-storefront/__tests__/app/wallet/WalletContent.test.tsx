@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import Colors from '@/constants/Colors';
-import { WalletContent } from '@/app/wallet/WalletContent';
+import { WalletContent } from '@/components/wallet/WalletContent';
 
 jest.mock('react-native-reanimated', () => {
   const { View } = jest.requireActual(

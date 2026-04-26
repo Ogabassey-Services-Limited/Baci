@@ -6,6 +6,20 @@ import type Colors from '@/constants/Colors';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 
 type WalletColors = (typeof Colors)['light'];
+const MONTH_LABELS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sept',
+  'Oct',
+  'Nov',
+  'Dec',
+] as const;
 
 export interface WalletTransaction {
   amount: number;
@@ -20,13 +34,36 @@ interface WalletTransactionHistoryProps {
   transactions: WalletTransaction[];
 }
 
+function hexToRgba(hexColor: string, alpha: number) {
+  const normalizedHex = hexColor.replace('#', '');
+
+  if (!/^[\da-f]{6}$/i.test(normalizedHex)) {
+    return hexColor;
+  }
+
+  const colorValue = Number.parseInt(normalizedHex, 16);
+  const red = (colorValue >> 16) & 255;
+  const green = (colorValue >> 8) & 255;
+  const blue = colorValue & 255;
+
+  return `rgba(${red},${green},${blue},${alpha})`;
+}
+
 function formatWalletDate(dateString: string) {
-  return new Date(dateString).toLocaleString('en-NG', {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const date = new Date(dateString);
+
+  if (Number.isNaN(date.getTime())) {
+    return '-';
+  }
+
+  const hours = date.getHours();
+  const displayHour = hours % 12 || 12;
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  const meridiem = hours >= 12 ? 'PM' : 'AM';
+
+  return `${date.getDate()} ${
+    MONTH_LABELS[date.getMonth()]
+  } ${date.getFullYear()}, ${displayHour}:${minutes} ${meridiem}`;
 }
 
 export function WalletTransactionHistory({
@@ -58,12 +95,13 @@ export function WalletTransactionHistory({
       ) : (
         transactions.map((transaction) => {
           const isCredit = transaction.type === 'credit';
+          const amountPrefix = isCredit ? '+' : '-';
 
           return (
             <View
               accessible
               accessibilityRole="text"
-              accessibilityLabel={`${isCredit ? 'Credit' : 'Debit'} transaction. ${transaction.description}. ${formatNgnCurrency(transaction.amount)}. ${formatWalletDate(transaction.created_at)}.`}
+              accessibilityLabel={`${isCredit ? 'Credit' : 'Debit'} transaction. ${transaction.description}. ${amountPrefix}${formatNgnCurrency(transaction.amount)}. ${formatWalletDate(transaction.created_at)}.`}
               key={transaction.id}
               style={[
                 styles.transactionItem,
@@ -74,9 +112,10 @@ export function WalletTransactionHistory({
                 style={[
                   styles.txIcon,
                   {
-                    backgroundColor: isCredit
-                      ? 'rgba(16,185,129,0.12)'
-                      : 'rgba(239,68,68,0.12)',
+                    backgroundColor: hexToRgba(
+                      isCredit ? colors.success : colors.error,
+                      0.12
+                    ),
                   },
                 ]}
               >
@@ -102,7 +141,7 @@ export function WalletTransactionHistory({
                   { color: isCredit ? colors.success : colors.error },
                 ]}
               >
-                {isCredit ? '+' : '-'}
+                {amountPrefix}
                 {formatNgnCurrency(transaction.amount)}
               </Text>
             </View>
