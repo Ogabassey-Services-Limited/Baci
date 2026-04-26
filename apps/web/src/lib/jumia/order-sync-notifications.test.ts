@@ -150,10 +150,11 @@ describe('Jumia order sync notification markers', () => {
     }
     expect(result).toEqual(
       expect.objectContaining({
-        synced: 2,
+        synced: 1,
         canonicalCreated: 1,
         canonicalUpdated: 1,
         notified: 1,
+        orderErrors: 1,
       })
     );
     expect(duplicateCacheQuery.upsert).toHaveBeenCalledWith(

@@ -163,6 +163,7 @@ async function syncIntegration(
             order.id
           );
           if (notificationUpdateError) {
+            const markerErrorMessage = `Failed to mark Jumia notification as sent: ${notificationUpdateError.message}`;
             logger.error({
               message: 'Failed to mark Jumia order notification as sent',
               merchantId: integration.merchant_id,
@@ -170,9 +171,7 @@ async function syncIntegration(
               jumiaOrderId: order.id,
               error: notificationUpdateError,
             });
-            result.errors.push(
-              `${integration.merchant_id}/${order.id}: Failed to mark Jumia notification as sent: ${notificationUpdateError.message}`
-            );
+            throw new Error(markerErrorMessage);
           }
         }
         if (
