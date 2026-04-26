@@ -12,6 +12,7 @@ const CAC_EXTRACTION_PROMPT =
   'Extract from this CAC document: 1) document type (Certificate of Incorporation or Certificate of Registration), 2) the RC or BN number, 3) the registered business name. Reply in JSON: {"documentType": "...", "rcNumber": "...", "businessName": "..."}';
 
 const OLLAMA_TIMEOUT_MS = 30_000;
+const PDF_MIME_TYPE = 'application/pdf';
 
 function parseModelResponse(text: string): CACVerificationResult {
   try {
@@ -117,8 +118,14 @@ export async function extractCACCertificateData(
   fileBuffer: Uint8Array,
   mimeType: string
 ): Promise<CACVerificationResult> {
-  // Try the VPS-hosted Ollama/Gemma extractor first for every supported upload
-  // type, including PDFs. Gemini remains a fallback when Ollama is unavailable.
+  // Ollama's vision endpoint expects image payloads. PDFs stay on Gemini unless
+  // we add PDF page rasterization before sending them to the VPS extractor.
+  if (mimeType === PDF_MIME_TYPE) {
+    return extractViaGemini(fileBuffer, mimeType);
+  }
+
+  // Try the VPS-hosted Ollama/Gemma extractor first for image uploads. Gemini
+  // remains a fallback when Ollama is unavailable or returns incomplete data.
   const ollamaBaseUrl = getOllamaBaseUrl();
   if (ollamaBaseUrl) {
     try {

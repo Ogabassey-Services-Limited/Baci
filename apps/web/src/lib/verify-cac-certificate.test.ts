@@ -38,21 +38,17 @@ describe('extractCACCertificateData', () => {
     vi.unstubAllGlobals();
   });
 
-  it('uses Ollama for PDF files when OLLAMA_BASE_URL is configured', async () => {
+  it('uses Gemini directly for PDF files when OLLAMA_BASE_URL is configured', async () => {
     vi.mocked(getOllamaBaseUrl).mockReturnValue('https://ollama.example.com');
-    vi.mocked(global.fetch).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ response: validJsonResponse }),
-    } as Response);
+    vi.mocked(generateText).mockResolvedValueOnce({
+      text: validJsonResponse,
+    } as Awaited<ReturnType<typeof generateText>>);
 
-    const buffer = new Uint8Array([1, 2, 3]);
+    const buffer = new Uint8Array([0x25, 0x50, 0x44, 0x46]);
     const result = await extractCACCertificateData(buffer, 'application/pdf');
 
-    expect(global.fetch).toHaveBeenCalledOnce();
-    expect(generateText).not.toHaveBeenCalled();
-    expect(vi.mocked(global.fetch).mock.calls[0][0]).toContain(
-      'https://ollama.example.com'
-    );
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(generateText).toHaveBeenCalledOnce();
     expect(result.rcNumber).toBe('RC123456');
     expect(result.businessName).toBe('BACI TECHNOLOGIES LTD');
     expect(result.documentType).toBe('Certificate of Incorporation');
@@ -118,8 +114,8 @@ describe('extractCACCertificateData', () => {
       text: validJsonResponse,
     } as Awaited<ReturnType<typeof generateText>>);
 
-    const buffer = new Uint8Array([0x25, 0x50, 0x44, 0x46]);
-    const result = await extractCACCertificateData(buffer, 'application/pdf');
+    const buffer = new Uint8Array([0xff, 0xd8, 0xff]);
+    const result = await extractCACCertificateData(buffer, 'image/jpeg');
 
     expect(global.fetch).toHaveBeenCalledOnce();
     expect(generateText).toHaveBeenCalledOnce();
@@ -143,8 +139,8 @@ describe('extractCACCertificateData', () => {
       text: validJsonResponse,
     } as Awaited<ReturnType<typeof generateText>>);
 
-    const buffer = new Uint8Array([0x25, 0x50, 0x44, 0x46]);
-    const result = await extractCACCertificateData(buffer, 'application/pdf');
+    const buffer = new Uint8Array([0xff, 0xd8, 0xff]);
+    const result = await extractCACCertificateData(buffer, 'image/jpeg');
 
     expect(global.fetch).toHaveBeenCalledOnce();
     expect(generateText).toHaveBeenCalledOnce();
@@ -168,8 +164,8 @@ describe('extractCACCertificateData', () => {
       text: validJsonResponse,
     } as Awaited<ReturnType<typeof generateText>>);
 
-    const buffer = new Uint8Array([0x25, 0x50, 0x44, 0x46]);
-    const result = await extractCACCertificateData(buffer, 'application/pdf');
+    const buffer = new Uint8Array([0xff, 0xd8, 0xff]);
+    const result = await extractCACCertificateData(buffer, 'image/jpeg');
 
     expect(global.fetch).toHaveBeenCalledOnce();
     expect(generateText).toHaveBeenCalledOnce();
