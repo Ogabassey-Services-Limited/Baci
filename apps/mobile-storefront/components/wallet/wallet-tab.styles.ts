@@ -1,7 +1,10 @@
 import { StyleSheet } from 'react-native';
+import { WALLET_TAB_TYPOGRAPHY } from '@/components/wallet/wallet-tab.typography';
 import { RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
 
-export const walletStyles = StyleSheet.create({
+const { fontFamily, size } = WALLET_TAB_TYPOGRAPHY;
+
+export const walletTabStyles = StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -13,8 +16,8 @@ export const walletStyles = StyleSheet.create({
     paddingVertical: SPACING.md,
   },
   headerTitle: {
-    fontSize: 28,
-    fontFamily: 'Inter_700Bold',
+    fontSize: size.headerTitle,
+    fontFamily: fontFamily.bold,
   },
   historyButton: {
     padding: SPACING.sm,
@@ -37,13 +40,13 @@ export const walletStyles = StyleSheet.create({
     ...SHADOWS.lg,
   },
   balanceLabel: {
-    fontSize: 14,
-    fontFamily: 'Inter_500Medium',
+    fontSize: size.body,
+    fontFamily: fontFamily.medium,
     marginBottom: SPACING.xs,
   },
   balanceAmount: {
-    fontSize: 36,
-    fontFamily: 'Inter_700Bold',
+    fontSize: size.balanceAmount,
+    fontFamily: fontFamily.bold,
     marginBottom: SPACING.lg,
   },
   balanceActions: {
@@ -59,8 +62,8 @@ export const walletStyles = StyleSheet.create({
     borderRadius: RADIUS.md,
   },
   balanceActionText: {
-    fontSize: 14,
-    fontFamily: 'Inter_500Medium',
+    fontSize: size.body,
+    fontFamily: fontFamily.medium,
   },
   pointsCard: {
     padding: SPACING.xl,
@@ -73,12 +76,12 @@ export const walletStyles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   pointsLabel: {
-    fontSize: 14,
-    fontFamily: 'Inter_600SemiBold',
+    fontSize: size.body,
+    fontFamily: fontFamily.semiBold,
   },
   pointsAmount: {
-    fontSize: 32,
-    fontFamily: 'Inter_700Bold',
+    fontSize: size.pointsAmount,
+    fontFamily: fontFamily.bold,
     marginBottom: SPACING.md,
   },
   redeemButton: {
@@ -87,15 +90,15 @@ export const walletStyles = StyleSheet.create({
     alignItems: 'center',
   },
   redeemButtonText: {
-    fontSize: 14,
-    fontFamily: 'Inter_700Bold',
+    fontSize: size.body,
+    fontFamily: fontFamily.bold,
   },
   quickActionsSection: {
     marginTop: SPACING.sm,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontFamily: 'Inter_700Bold',
+    fontSize: size.sectionTitle,
+    fontFamily: fontFamily.bold,
     marginBottom: SPACING.md,
   },
   quickActionsGrid: {
@@ -111,7 +114,7 @@ export const walletStyles = StyleSheet.create({
     ...SHADOWS.sm,
   },
   quickActionLabel: {
-    fontSize: 12,
-    fontFamily: 'Inter_600SemiBold',
+    fontSize: size.actionLabel,
+    fontFamily: fontFamily.semiBold,
   },
 });
