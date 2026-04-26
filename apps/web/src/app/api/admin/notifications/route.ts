@@ -85,9 +85,13 @@ export async function GET(request: NextRequest) {
     const offset = Number.parseInt(searchParams.get('offset') || '0', 10) || 0;
 
     // Build query
+    // PERFORMANCE: Use explicit column selection instead of .select('*') to prevent overfetching full rows
     let query = supabase
       .from('notifications')
-      .select('*', { count: 'exact' })
+      .select(
+        'id, template_id, title, message, notification_type, priority, target_type, target_merchant_ids, target_segment, channels, action_url, action_label, scheduled_for, expires_at, created_by, created_at, sent_at, is_system',
+        { count: 'exact' }
+      )
       .order('created_at', { ascending: false });
 
     // Status filter
