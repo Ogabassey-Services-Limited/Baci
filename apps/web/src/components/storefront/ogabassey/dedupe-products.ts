@@ -35,6 +35,18 @@ function isInferredIdentityBlockingDuplicate(
   return identity.startsWith('id:') || !hasStableIdIdentity(identities);
 }
 
+function addInferredDuplicateAliases(
+  identities: readonly string[],
+  seen: ReadonlySet<string>,
+  inferredDuplicateAliases: Set<string>
+): void {
+  for (const identity of identities) {
+    if (!seen.has(identity)) {
+      inferredDuplicateAliases.add(identity);
+    }
+  }
+}
+
 /**
  * Returns products with duplicate identities removed.
  *
@@ -67,16 +79,12 @@ export function dedupeProductsByIdentity<T>(
     );
 
     if (isSeenDuplicate) {
-      for (const identity of identities) {
-        if (!seen.has(identity)) {
-          inferredDuplicateAliases.add(identity);
-        }
-      }
-
+      addInferredDuplicateAliases(identities, seen, inferredDuplicateAliases);
       continue;
     }
 
     if (isInferredAliasDuplicate) {
+      addInferredDuplicateAliases(identities, seen, inferredDuplicateAliases);
       continue;
     }
 

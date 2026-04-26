@@ -149,6 +149,29 @@ describe('dedupeProductsByIdentity', () => {
     ]);
   });
 
+  it('propagates aliases from inferred duplicate rows for later slug-only matches', () => {
+    const result = dedupeProductsByIdentity([
+      { slug: 'a', name: 'Original slug-only product' },
+      { id: 'product-1', slug: 'a', name: 'First inferred duplicate' },
+      { id: 'product-1', slug: 'b', name: 'Second inferred duplicate' },
+      { slug: 'b', name: 'Later slug-only duplicate' },
+      {
+        id: 'product-2',
+        slug: 'c',
+        name: 'Different product',
+      },
+    ]);
+
+    expect(result).toEqual([
+      { slug: 'a', name: 'Original slug-only product' },
+      {
+        id: 'product-2',
+        slug: 'c',
+        name: 'Different product',
+      },
+    ]);
+  });
+
   it('preserves products without an id or slug', () => {
     const products: { name: string }[] = [
       { name: 'Unknown 1' },
