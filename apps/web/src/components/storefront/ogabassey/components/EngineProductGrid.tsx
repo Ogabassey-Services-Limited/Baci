@@ -140,7 +140,7 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
     if (useMockData) return mockProducts;
     if (templateProducts) return templateProducts;
     if (externalProducts) {
-      return toTemplateProducts(externalProducts);
+      return toTemplateProducts(dedupeProductsByIdentity(externalProducts));
     }
     return [];
   })());
