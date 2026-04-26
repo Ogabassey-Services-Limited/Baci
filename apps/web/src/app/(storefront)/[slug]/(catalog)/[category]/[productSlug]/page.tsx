@@ -155,6 +155,7 @@ function toOgabasseyProduct(
             attributes: v.attributes,
             price_override: v.price_override,
             price_modifier: v.price_modifier,
+            // Keep legacy `stock` and canonical `stock_quantity` consumers in sync.
             stock: v.stock_quantity,
             stock_quantity: v.stock_quantity,
             images: v.images,

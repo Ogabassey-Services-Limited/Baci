@@ -44,7 +44,11 @@ vi.mock('@/hooks/use-toast', () => ({
   useToast: vi.fn(() => ({ toast: vi.fn() })),
 }));
 
-function VariantBuilderWithForm() {
+function VariantBuilderWithForm({
+  stockTrackingEnabled = false,
+}: {
+  stockTrackingEnabled?: boolean;
+}) {
   const form = useForm();
 
   return (
@@ -67,7 +71,7 @@ function VariantBuilderWithForm() {
           },
         ]}
         onVariantsChange={vi.fn()}
-        stockTrackingEnabled={false}
+        stockTrackingEnabled={stockTrackingEnabled}
       />
     </FormProvider>
   );
@@ -80,7 +84,7 @@ describe('VariantBuilder', () => {
   });
 
   it('hides variant stock controls when product unlimited stock is enabled', () => {
-    render(<VariantBuilderWithForm />);
+    render(<VariantBuilderWithForm stockTrackingEnabled={false} />);
 
     expect(
       screen.getByText(
@@ -91,5 +95,17 @@ describe('VariantBuilder', () => {
     expect(
       screen.queryByText('3. Set stock quantity per variant')
     ).not.toBeInTheDocument();
+  });
+
+  it('shows variant stock controls when product stock tracking is enabled', () => {
+    render(<VariantBuilderWithForm stockTrackingEnabled={true} />);
+
+    expect(screen.getByText('Track Inventory')).toBeInTheDocument();
+    expect(
+      screen.getByText('Manage stock levels for each variant.')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('3. Set stock quantity per variant')
+    ).toBeInTheDocument();
   });
 });

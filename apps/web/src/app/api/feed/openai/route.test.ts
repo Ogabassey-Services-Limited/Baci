@@ -255,11 +255,38 @@ describe('GET /api/feed/openai — stock and manage_stock', () => {
     expect(parsed.quantity).toBe(0);
   });
 
-  it('variant stock is unaffected by manage_stock (uses variant stock_quantity)', async () => {
+  it('emits unlimited quantity for variants when manage_stock is false', async () => {
     mockGetCachedOpenAIFeedData.mockResolvedValue({
       products: [
         simpleProduct({
           manage_stock: false,
+          variants: [
+            {
+              id: 'var-1',
+              attributes: { color: 'Red' },
+              stock_quantity: 0,
+              sku: 'SKU-RED',
+            },
+          ],
+        }),
+      ],
+    });
+    const { GET } = await import('./route');
+    const response = await GET(
+      makeRequest('/api/feed/openai?merchant_slug=ogabassey')
+    );
+    const text = await response.text();
+    const parsed = JSON.parse(text);
+
+    expect(parsed.quantity).toBe(9999);
+    expect(parsed.availability).toBe('in_stock');
+  });
+
+  it('uses variant stock_quantity when variant parent manages stock', async () => {
+    mockGetCachedOpenAIFeedData.mockResolvedValue({
+      products: [
+        simpleProduct({
+          manage_stock: true,
           variants: [
             {
               id: 'var-1',

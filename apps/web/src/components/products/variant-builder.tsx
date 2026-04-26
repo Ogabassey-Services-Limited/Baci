@@ -22,8 +22,6 @@ import type {
 } from '@/lib/category-configs';
 import { getCountryByCode } from '@/lib/countries';
 import type { ProductVariant } from '@/lib/products';
-import { FormDescription } from '../ui/form';
-import { Switch } from '../ui/switch';
 
 interface VariantBuilderProps {
   categoryConfig: CategoryConfig;
@@ -96,7 +94,6 @@ export function VariantBuilder({
   const [variants, setVariants] = useState<ProductVariant[]>(initialVariants);
   const variantsRef = useRef(variants);
   const [textInputs, setTextInputs] = useState<Record<string, string>>({});
-  const [trackStock, setTrackStock] = useState(stockTrackingEnabled);
   const [enhancingImages, setEnhancingImages] = useState<
     Record<string, boolean>
   >({});
@@ -114,10 +111,6 @@ export function VariantBuilder({
   useEffect(() => {
     variantsRef.current = variants;
   }, [variants]);
-
-  useEffect(() => {
-    setTrackStock(stockTrackingEnabled);
-  }, [stockTrackingEnabled]);
 
   // Effect to handle AI suggestions
   // Ref for timeout across effect runs
@@ -454,22 +447,14 @@ export function VariantBuilder({
         </Label>
 
         {stockTrackingEnabled ? (
-          <Label
-            htmlFor="variants-stock-switch"
-            className="flex flex-row items-center justify-between rounded-lg border p-3 cursor-pointer"
-          >
+          <div className="rounded-lg border p-3">
             <div className="space-y-0.5">
               <div className="font-medium">Track Inventory</div>
-              <FormDescription>
-                Enable to manage stock levels for each variant.
-              </FormDescription>
+              <p className="text-sm text-muted-foreground">
+                Manage stock levels for each variant.
+              </p>
             </div>
-            <Switch
-              id="variants-stock-switch"
-              checked={trackStock}
-              onCheckedChange={setTrackStock}
-            />
-          </Label>
+          </div>
         ) : (
           <div className="rounded-lg border p-3 text-sm text-muted-foreground">
             Unlimited stock is enabled for this product. Variant stock
@@ -619,7 +604,7 @@ export function VariantBuilder({
         )}
 
         {/* Section 3: Inventory per variant */}
-        {stockTrackingEnabled && trackStock && (
+        {stockTrackingEnabled && (
           <div className="space-y-3">
             <Label className="text-sm font-semibold">
               3. Set stock quantity per variant

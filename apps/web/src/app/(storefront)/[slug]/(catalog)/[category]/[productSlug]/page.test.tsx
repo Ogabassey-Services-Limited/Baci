@@ -261,6 +261,7 @@ describe('[category]/[productSlug] page metadata', () => {
     vi.clearAllMocks();
     mockGetEffectiveStock.mockReset();
     mockGetEffectiveStock.mockReturnValue(0);
+    mockOgabasseyProductDetailsPage.mockReset();
     mockProductDetailClient.mockReset();
     mockProductDetailClient.mockReturnValue(null);
     mockGenerateProductSchema.mockReset();

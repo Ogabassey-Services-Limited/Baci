@@ -572,6 +572,10 @@ export default function AddProductForm({
           .map((k) => k.trim())
           .filter(Boolean)
       : [];
+    const submittedVariants =
+      usesVariants && data.infinite_stock
+        ? variants.map((variant) => ({ ...variant, stock_quantity: 0 }))
+        : variants;
 
     const productData: Product = {
       id: initialData?.id || `prod_${Date.now()}`,
@@ -588,7 +592,10 @@ export default function AddProductForm({
       stock: data.infinite_stock
         ? 0
         : usesVariants
-          ? variants.reduce((sum, v) => sum + (v.stock_quantity || 0), 0)
+          ? submittedVariants.reduce(
+              (sum, v) => sum + (v.stock_quantity || 0),
+              0
+            )
           : data.stock || 0,
       low_stock_threshold: data.low_stock_threshold,
       minimum_order_quantity: data.minimum_order_quantity,
@@ -625,7 +632,7 @@ export default function AddProductForm({
 
       fulfillment_details: usesVariants ? [] : data.fulfillment_details,
       has_variants: usesVariants,
-      variants: usesVariants ? variants : [],
+      variants: usesVariants ? submittedVariants : [],
       color: data.color,
       material: data.material,
       size_attribute: data.size_attribute,
@@ -936,9 +943,16 @@ export default function AddProductForm({
                             {...field}
                             value={(field.value as number | string) ?? ''}
                             className="pl-8"
+                            disabled={usesVariants}
                           />
                         </div>
                       </FormControl>
+                      {usesVariants && (
+                        <FormDescription className="text-xs">
+                          Base price is unused when variants are enabled;
+                          pricing is controlled by variant overrides.
+                        </FormDescription>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}
@@ -1066,20 +1080,28 @@ export default function AddProductForm({
 
                 {categoryConfig.supportsVariants && (
                   <FormItem className="mb-4">
-                    <FormLabel className="flex flex-row items-center justify-between rounded-lg border p-3 cursor-pointer">
+                    <div className="flex flex-row items-center justify-between rounded-lg border p-3">
                       <div className="space-y-0.5">
-                        <div className="font-medium">Product Variants</div>
-                        <FormDescription>
+                        <label
+                          className="font-medium cursor-pointer"
+                          htmlFor="product-variants-switch"
+                        >
+                          Product Variants
+                        </label>
+                        <p
+                          className="text-sm text-muted-foreground"
+                          id="product-variants-description"
+                        >
                           Does this product have options like size, color?
-                        </FormDescription>
+                        </p>
                       </div>
-                      <FormControl>
-                        <Switch
-                          checked={hasVariants}
-                          onCheckedChange={setHasVariants}
-                        />
-                      </FormControl>
-                    </FormLabel>
+                      <Switch
+                        aria-describedby="product-variants-description"
+                        id="product-variants-switch"
+                        checked={hasVariants}
+                        onCheckedChange={setHasVariants}
+                      />
+                    </div>
                   </FormItem>
                 )}
 
@@ -1088,9 +1110,11 @@ export default function AddProductForm({
                   name="infinite_stock"
                   render={({ field }) => (
                     <FormItem className="mb-4">
-                      <FormLabel className="flex flex-row items-center justify-between rounded-lg border p-3 cursor-pointer">
+                      <div className="flex flex-row items-center justify-between rounded-lg border p-3">
                         <div className="space-y-0.5">
-                          <div className="font-medium">Set unlimited stock</div>
+                          <FormLabel className="font-medium cursor-pointer">
+                            Set unlimited stock
+                          </FormLabel>
                           <FormDescription>
                             Enable to allow orders without checking available
                             quantity.
@@ -1102,7 +1126,7 @@ export default function AddProductForm({
                             onCheckedChange={field.onChange}
                           />
                         </FormControl>
-                      </FormLabel>
+                      </div>
                     </FormItem>
                   )}
                 />

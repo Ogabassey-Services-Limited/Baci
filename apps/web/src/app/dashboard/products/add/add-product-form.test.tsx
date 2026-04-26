@@ -175,7 +175,7 @@ describe('AddProductForm', () => {
           merchant_id: 'm-1',
           price_override: 437000,
           product_id: 'prod-iphone-13',
-          stock_quantity: 0,
+          stock_quantity: 5,
         },
       ],
     };
@@ -191,6 +191,11 @@ describe('AddProductForm', () => {
     await user.click(screen.getByRole('tab', { name: 'Pricing' }));
 
     expect(await screen.findByText('Set unlimited stock')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Base price is unused when variants are enabled; pricing is controlled by variant overrides.'
+      )
+    ).toBeInTheDocument();
     expect(mockVariantBuilder).toHaveBeenCalledWith(
       expect.objectContaining({
         stockTrackingEnabled: false,
@@ -205,6 +210,7 @@ describe('AddProductForm', () => {
           has_variants: true,
           manage_stock: false,
           stock: 0,
+          variants: [expect.objectContaining({ stock_quantity: 0 })],
         })
       )
     );
