@@ -9,22 +9,23 @@ import { config } from 'dotenv';
 // These paths expose CRON_SECRET-gated wrappers that delegate to the underlying
 // scheduled work. The VPS worker must not call OAuth callbacks.
 const WEB_CRON_CONFIG = new Map([
-  ['/api/ai-jobs/worker', { method: 'GET' }],
-  ['/api/cron/cleanup-orders', { method: 'GET' }],
-  ['/api/cron/process-settlements', { method: 'POST' }],
-  ['/api/cron/publish-scheduled-posts', { method: 'GET' }],
-  ['/api/cron/wallet-payouts', { method: 'GET' }],
+  ['/api/ai-jobs/worker', { method: 'GET', timeoutMs: 15 * 60_000 }],
+  ['/api/cron/cleanup-orders', { method: 'GET', timeoutMs: 5 * 60_000 }],
+  ['/api/cron/process-settlements', { method: 'POST', timeoutMs: 5 * 60_000 }],
+  [
+    '/api/cron/publish-scheduled-posts',
+    { method: 'GET', timeoutMs: 5 * 60_000 },
+  ],
+  ['/api/cron/wallet-payouts', { method: 'GET', timeoutMs: 5 * 60_000 }],
   ['/api/inventory/push-alerts', { method: 'GET' }],
 ]);
 
 const RESPONSE_PREVIEW_LIMIT = 500;
 const DEFAULT_TIMEOUT_MS = 30_000;
 
-function readTimeoutMs(value) {
+function readTimeoutMs(value, fallbackMs = DEFAULT_TIMEOUT_MS) {
   const parsed = Number(value);
-  return Number.isSafeInteger(parsed) && parsed > 0
-    ? parsed
-    : DEFAULT_TIMEOUT_MS;
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallbackMs;
 }
 
 function formatBodyPreview(body) {
@@ -78,7 +79,6 @@ export async function runWebCron({
   logger = console,
 }) {
   const cronSecret = env.CRON_SECRET;
-  const timeoutMs = readTimeoutMs(env.BACI_WEB_CRON_TIMEOUT_MS);
   if (!cronSecret) {
     throw new Error('CRON_SECRET is required');
   }
@@ -90,6 +90,10 @@ export async function runWebCron({
     baseUrl: env.BACI_WEB_BASE_URL,
     path,
   });
+  const timeoutMs = readTimeoutMs(
+    env.BACI_WEB_CRON_TIMEOUT_MS,
+    webCronConfig.timeoutMs
+  );
   const headers = {
     Authorization: `Bearer ${cronSecret}`,
     'User-Agent': 'baci-vps-web-cron/1.0',

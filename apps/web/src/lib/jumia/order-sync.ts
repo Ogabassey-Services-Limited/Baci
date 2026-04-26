@@ -91,8 +91,9 @@ async function syncIntegration(
         order.id
       );
       const shouldNotify =
-        // Retry while notification_sent is not true; the per-run key prevents
-        // duplicate pushes from duplicated Jumia API pages.
+        // Legacy cache rows without a durable sent marker are intentionally
+        // retried. The per-run key and in-memory marker prevent duplicated
+        // Jumia API pages from sending duplicate pushes in the same run.
         (!existingJumia || existingJumia.notification_sent !== true) &&
         !attemptedNotificationKeys.has(notificationKey);
       const items = (await getOrderItems(client, order.id)).items;
@@ -129,11 +130,25 @@ async function syncIntegration(
 
       if (shouldNotify) {
         attemptedNotificationKeys.add(notificationKey);
-        const notificationResult = await notifySyncedJumiaOrder(
+        const rawNotificationResult = await notifySyncedJumiaOrder(
           integration.merchant_id,
           order,
           canonicalOrder.id
         );
+        if (!rawNotificationResult) {
+          logger.warn({
+            message: 'Jumia order notification returned no delivery result',
+            merchantId: integration.merchant_id,
+            integrationId: integration.id,
+            jumiaOrderId: order.id,
+            baciOrderId: canonicalOrder.id,
+          });
+        }
+        const notificationResult = rawNotificationResult ?? {
+          sent: 0,
+          failed: 0,
+          errors: [],
+        };
         if (notificationResult.sent > 0) {
           result.notified += 1;
           // The push provider accepted the notification. Keep duplicated Jumia

@@ -44,6 +44,7 @@ export function calculateJumiaOrderMoney(
     shippingFee: fromMoneyMinorUnits(shippingFeeMinor),
     taxAmount: fromMoneyMinorUnits(taxAmountMinor),
     discountAmount: fromMoneyMinorUnits(discountAmountMinor),
+    // Preserve the pre-discount total independently from the clamped subtotal.
     originalTotal: fromMoneyMinorUnits(totalMinor + discountAmountMinor),
   };
 }

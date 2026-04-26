@@ -82,6 +82,38 @@ describe('web cron worker', () => {
     assert.equal(signal instanceof AbortSignal, true);
   });
 
+  it('uses per-endpoint timeouts unless an env override is provided', async () => {
+    const originalTimeout = AbortSignal.timeout;
+    const timeoutCalls = [];
+    AbortSignal.timeout = (timeoutMs) => {
+      timeoutCalls.push(timeoutMs);
+      return originalTimeout(60_000);
+    };
+
+    try {
+      for (const [path, env] of [
+        ['/api/ai-jobs/worker', {}],
+        ['/api/inventory/push-alerts', {}],
+        ['/api/ai-jobs/worker', { BACI_WEB_CRON_TIMEOUT_MS: '1234' }],
+      ]) {
+        await runWebCron({
+          path,
+          env: {
+            BACI_WEB_BASE_URL: 'https://ogabassey.com',
+            CRON_SECRET: 'secret',
+            ...env,
+          },
+          fetchFn: () => new Response('ok', { status: 200 }),
+          logger: noopLogger,
+        });
+      }
+    } finally {
+      AbortSignal.timeout = originalTimeout;
+    }
+
+    assert.deepEqual(timeoutCalls, [900_000, 30_000, 1234]);
+  });
+
   it('supports POST cron endpoints with bearer authorization', async () => {
     const calls = [];
     const result = await runWebCron({
