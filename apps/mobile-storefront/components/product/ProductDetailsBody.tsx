@@ -14,6 +14,8 @@ import { HTMLRenderer } from '@/components/ui/HTMLRenderer';
 import type Colors from '@/constants/Colors';
 import { BRAND, RADIUS, TYPOGRAPHY } from '@/constants/Colors';
 import type { Review, ReviewStats } from '@/hooks/use-reviews';
+import { isInternalSelectionAxis } from '@/lib/product-internal-selection-axes';
+import { mergeVariantAttributes } from '@/lib/product-normalization';
 import type { Product, ProductCondition } from '@/types/product';
 import { formatPrice } from '@/types/product';
 
@@ -26,6 +28,7 @@ export interface ProductDetailsBodyProps {
   effectivePrice: number;
   effectiveComparePrice: number | undefined;
   negotiatedPrice: number | null;
+  canPurchase: boolean;
   selectedVariant: string | null;
   setSelectedVariant: (id: string) => void;
   selectedCondition: ProductCondition | null;
@@ -53,6 +56,7 @@ export function ProductDetailsBody({
   effectivePrice,
   effectiveComparePrice,
   negotiatedPrice,
+  canPurchase,
   selectedVariant,
   setSelectedVariant,
   selectedCondition,
@@ -72,18 +76,28 @@ export function ProductDetailsBody({
   onMarkHelpful,
   colors,
 }: ProductDetailsBodyProps) {
+  const mergedVariantAttributes = mergeVariantAttributes(
+    product.variant_attributes,
+    product.variants
+  );
   const showVariantSelector =
     Boolean(product.colors) ||
     Boolean(product.color_images) ||
     Boolean(
-      product.variant_attributes &&
-        Object.keys(product.variant_attributes).length > 0
+      mergedVariantAttributes && Object.keys(mergedVariantAttributes).length > 0
     ) ||
-    Boolean(product.variant_attributes?.storage) ||
+    Boolean(mergedVariantAttributes?.storage) ||
     Boolean(
       product.variants?.some(
         (v) => v.attributes && Object.keys(v.attributes).length > 0
       )
+    );
+  const hasPriceDrivingVariantAxes =
+    Boolean(mergedVariantAttributes?.storage) ||
+    Boolean(mergedVariantAttributes?.color) ||
+    Boolean(mergedVariantAttributes?.colour) ||
+    Object.keys(mergedVariantAttributes ?? {}).some(
+      (axis) => !isInternalSelectionAxis(axis)
     );
 
   return (
@@ -164,7 +178,19 @@ export function ProductDetailsBody({
       {/* Make an Offer Button */}
       {negotiatedPrice == null && (
         <Pressable
-          style={[styles.makeOfferButton, { borderColor: BRAND.primary }]}
+          accessibilityRole="button"
+          accessibilityHint={
+            canPurchase
+              ? 'Opens negotiation options for this product.'
+              : 'Select an available variant to make an offer.'
+          }
+          accessibilityState={{ disabled: !canPurchase }}
+          disabled={!canPurchase}
+          style={[
+            styles.makeOfferButton,
+            { borderColor: BRAND.primary },
+            !canPurchase && styles.disabledAction,
+          ]}
           onPress={onOpenNegotiation}
         >
           <Ionicons name="chatbubble-outline" size={16} color={BRAND.primary} />
@@ -185,6 +211,7 @@ export function ProductDetailsBody({
           selectedCondition={selectedCondition}
           onSelect={setSelectedCondition}
           basePrice={product.price}
+          showPrices={!product.has_variants || !hasPriceDrivingVariantAxes}
         />
       )}
 
@@ -192,15 +219,10 @@ export function ProductDetailsBody({
       {showVariantSelector && (
         <View style={styles.section}>
           <VariantSelector
-            attributes={product.variant_attributes}
+            attributes={mergedVariantAttributes}
             colors={product.colors}
             colorImages={product.color_images}
-            storage={
-              product.variant_attributes?.storage ||
-              product.variants
-                ?.map((v) => v.attributes?.storage)
-                .filter((s): s is string => !!s)
-            }
+            storage={mergedVariantAttributes?.storage}
             variants={product.variants}
             manageStock={product.manage_stock}
             selectedAttributes={selectedAttributes}
@@ -415,6 +437,9 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderRadius: RADIUS.lg,
     marginBottom: 16,
+  },
+  disabledAction: {
+    opacity: 0.45,
   },
   makeOfferText: {
     fontSize: 14,

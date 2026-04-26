@@ -113,7 +113,7 @@ export interface Product {
   images?: string[];
   brand?: string;
   category?: string;
-  condition?: ProductConditionDisplay;
+  condition?: ProductCondition | ProductConditionDisplay;
   rating?: number;
   review_count?: number;
   in_stock?: boolean;

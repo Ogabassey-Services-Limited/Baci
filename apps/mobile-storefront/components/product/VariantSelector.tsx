@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
+import { isInternalSelectionAxis } from '@/lib/product-internal-selection-axes';
 import { formatVariantAxisLabel, type ProductVariant } from '@/types/product';
 
 // Common color name to hex mapping
@@ -163,7 +164,7 @@ export function VariantSelector({
   const genericAttributeOptions = new Map<string, Set<string>>();
 
   for (const [axis, values] of Object.entries(attributes ?? {})) {
-    if (axis === 'color' || axis === 'storage') {
+    if (isInternalSelectionAxis(axis)) {
       continue;
     }
 
@@ -182,7 +183,7 @@ export function VariantSelector({
 
   for (const variant of variants ?? []) {
     for (const [axis, value] of Object.entries(variant.attributes ?? {})) {
-      if (axis === 'color' || axis === 'storage') {
+      if (isInternalSelectionAxis(axis)) {
         continue;
       }
 

@@ -7,6 +7,7 @@ const reactTestRendererPath = require.resolve('react-test-renderer');
 /** @type {import('jest').Config} */
 const config = {
   preset: 'jest-expo',
+  testPathIgnorePatterns: ['/node_modules/', '\\.test-utils\\.(t|j)sx?$'],
   transformIgnorePatterns: [
     'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@shopify/flash-list|@supabase/.*|zustand|nativewind)',
   ],
