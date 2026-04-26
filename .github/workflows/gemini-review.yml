@@ -130,4 +130,14 @@ jobs:
           prompt: |-
             /gemini-review
 
+            Review contract:
+            - Always submit a GitHub PR review. If there are no meaningful issues, submit a concise review that says no significant issues were found.
+            - Prioritize correctness, security, data safety, auth/tenant isolation, payment safety, regressions, and missing tests.
+            - Enforce Baci rules: pnpm/Turborepo only, Biome not ESLint, React Compiler means no routine React.memo/useMemo/useCallback, Zod at API boundaries, auth first in protected routes, no select('*'), and append-only migrations.
+            - For Next.js 16 and React 19, prefer Server Components, avoid client-side data waterfalls, keep uncached data behind Suspense where required, use next/image and next/font, and preserve storefront Core Web Vitals.
+            - For Supabase changes, check RLS, scoped queries, explicit column selection, service-role isolation, and race conditions around read-modify-write flows.
+            - For public storefront changes, check semantic HTML, metadata, JSON-LD, accessible labels, keyboard behavior, focus states, and themed CSS variables instead of hardcoded storefront colors.
+            - Do not speculate beyond the PR diff and repository evidence. Do not produce broad style commentary when there is no concrete risk.
+            - Use these sections in the posted review: Verdict, Findings, Suggested next steps. Findings must be flat bullets with severity and file path when possible.
+
             ${{ inputs.additional_context }}
