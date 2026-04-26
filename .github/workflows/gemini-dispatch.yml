@@ -18,7 +18,12 @@ on:
       - 'created'
 
 concurrency:
-  group: 'gemini-dispatch-${{ github.event.pull_request.number || github.event.issue.number }}'
+  group: >-
+    gemini-dispatch-${{ github.event.pull_request.number || github.event.issue.number }}-${{
+      github.event_name == 'pull_request' && 'review' ||
+      (startsWith(github.event.comment.body || github.event.review.body, '@gemini-cli /review') && 'review') ||
+      format('noop-{0}', github.event.comment.id || github.event.review.id || github.run_id)
+    }}
   cancel-in-progress: true
 
 defaults:
