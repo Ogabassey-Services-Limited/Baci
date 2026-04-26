@@ -32,6 +32,10 @@ function parseModelResponse(text: string): CACVerificationResult {
   }
 }
 
+function hasExtractedDocumentFields(result: CACVerificationResult): boolean {
+  return Boolean(result.documentType || result.rcNumber || result.businessName);
+}
+
 async function extractViaOllama(
   fileBuffer: Uint8Array
 ): Promise<CACVerificationResult> {
@@ -118,7 +122,13 @@ export async function extractCACCertificateData(
   const ollamaBaseUrl = getOllamaBaseUrl();
   if (ollamaBaseUrl) {
     try {
-      return await extractViaOllama(fileBuffer);
+      const extracted = await extractViaOllama(fileBuffer);
+      if (hasExtractedDocumentFields(extracted)) {
+        return extracted;
+      }
+      console.warn(
+        'Ollama extraction returned no document fields, falling back to Gemini.'
+      );
     } catch (error) {
       console.warn('Ollama extraction failed, falling back to Gemini:', error);
       // Fall through to Gemini
