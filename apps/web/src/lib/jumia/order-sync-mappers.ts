@@ -100,6 +100,9 @@ export function mapJumiaShippingStatus(
 
 export function buildJumiaOrderNumber(orderNumber: string): string {
   const normalized = sanitizeText(orderNumber, 120).trim().toUpperCase();
+  if (!normalized) {
+    throw new Error('Cannot build Jumia order number from empty input');
+  }
   return normalized.startsWith(JUMIA_ORDER_NUMBER_PREFIX)
     ? normalized
     : `${JUMIA_ORDER_NUMBER_PREFIX}${normalized}`;
@@ -156,7 +159,7 @@ export function buildJumiaCacheRow(
             sellerSku: sanitizeText(item.product.sellerSku, 120),
             imageUrl: sanitizeHttpsUrl(item.product.imageUrl),
           },
-          status: item.status,
+          status: sanitizeText(item.status, 80),
           itemPrice: item.itemPrice,
           paidPrice: item.paidPrice,
         }))
@@ -258,7 +261,7 @@ export function buildOrderItems(
       source_platform: JUMIA_EXTERNAL_SOURCE,
       jumia_order_item_id: item.id,
       seller_sku: sanitizeText(item.product.sellerSku, 120),
-      status: item.status,
+      status: sanitizeText(item.status, 80),
     },
     created_at: importedAt,
   }));

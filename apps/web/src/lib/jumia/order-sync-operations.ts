@@ -116,23 +116,29 @@ export async function upsertCanonicalOrder(
   const payload = buildCanonicalJumiaOrderPayload(
     integration,
     order,
-    existing?.tracking_token || buildTrackingToken(),
+    existing?.tracking_token && existing.tracking_token.trim().length > 0
+      ? existing.tracking_token
+      : buildTrackingToken(),
     items
   );
   let persistedOrder = existing;
   let createdOrderId: string | null = null;
 
   if (existing) {
-    const { data, error } = await supabase
-      .from('orders')
-      .update(payload)
-      .eq('id', existing.id)
-      .eq('merchant_id', integration.merchant_id)
-      .select('id, external_id, tracking_token')
-      .single<ExistingOrderRow>();
-    if (error) throw new Error(`Failed to update Baci order: ${error.message}`);
-    if (!data) throw new Error('Failed to update Baci order');
-    persistedOrder = data;
+    const orderItems = buildOrderItems(existing.id, items);
+    const { error } = await supabase.rpc('replace_order_items', {
+      p_order_id: existing.id,
+      p_items: orderItems,
+      p_merchant_id: integration.merchant_id,
+      p_is_import: true,
+      p_order_patch: payload,
+    });
+    if (error) {
+      throw new Error(`Failed to update Baci order: ${error.message}`);
+    }
+    // Downstream sync only needs these stable identifiers; the full row update
+    // happens inside the RPC transaction with the item replacement.
+    return existing;
   } else {
     const { data, error } = await supabase
       .from('orders')
@@ -154,6 +160,7 @@ export async function upsertCanonicalOrder(
     {
       p_order_id: persistedOrder.id,
       p_items: orderItems,
+      p_merchant_id: integration.merchant_id,
     }
   );
   if (replaceItemsError) {
@@ -223,7 +230,7 @@ export async function notifySyncedJumiaOrder(
   baciOrderId: string
 ): Promise<NotificationSendResult> {
   const amount = getJumiaOrderAmount(order);
-  return await notifyMerchant(
+  const result = await notifyMerchant(
     merchantId,
     'Jumia Order',
     `Order #${order.number} from ${getCustomerName(order)} - ${formatJumiaOrderAmount(order)}`,
@@ -238,4 +245,5 @@ export async function notifySyncedJumiaOrder(
     },
     'orders'
   );
+  return result ?? { sent: 0, failed: 0, errors: [] };
 }

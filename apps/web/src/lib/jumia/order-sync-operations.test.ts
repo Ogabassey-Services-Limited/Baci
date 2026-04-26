@@ -223,41 +223,38 @@ describe('Jumia order sync operations', () => {
     expect(insertOrderQuery.insert).toHaveBeenCalled();
   });
 
-  it('returns the refreshed canonical order after updating an existing order', async () => {
-    const updateOrderQuery = createQuery({
-      data: {
-        id: 'existing-order-1',
-        external_id: order.id,
-        tracking_token: 'token-after-update',
-      },
-      error: null,
-    });
+  it('updates an existing order atomically through the item replacement RPC', async () => {
     const supabase = createSupabaseMock(
-      { orders: [updateOrderQuery] },
+      {},
       { replace_order_items: [{ error: null }] }
     );
+    const existingOrder = {
+      id: 'existing-order-1',
+      external_id: order.id,
+      tracking_token: 'token-before-update',
+    };
 
     const result = await upsertCanonicalOrder(
       supabase,
       integration,
       order,
       [item],
-      {
-        id: 'existing-order-1',
-        external_id: order.id,
-        tracking_token: 'token-before-update',
-      }
+      existingOrder
     );
 
-    expect(result).toEqual({
-      id: 'existing-order-1',
-      external_id: order.id,
-      tracking_token: 'token-after-update',
+    expect(result).toEqual(existingOrder);
+    expect(supabase.rpc).toHaveBeenCalledWith('replace_order_items', {
+      p_order_id: 'existing-order-1',
+      p_items: expect.arrayContaining([
+        expect.objectContaining({ order_id: 'existing-order-1' }),
+      ]),
+      p_merchant_id: 'merchant-1',
+      p_is_import: true,
+      p_order_patch: expect.objectContaining({
+        external_id: order.id,
+        tracking_token: 'token-before-update',
+      }),
     });
-    expect(updateOrderQuery.update).toHaveBeenCalled();
-    expect(updateOrderQuery.select).toHaveBeenCalledWith(
-      'id, external_id, tracking_token'
-    );
   });
 
   it('builds a synced Jumia cache row for the persisted Baci order', () => {
@@ -287,20 +284,26 @@ describe('Jumia order sync operations', () => {
     });
   });
 
-  it('formats Jumia order amounts with locale fallback for invalid currency', () => {
-    expect(formatJumiaOrderAmount(order)).toContain('250,000');
+  it('formats Jumia order amounts with NGN locale formatting', () => {
+    expect(formatJumiaOrderAmount(order)).toBe('₦250,000.00');
+  });
+
+  it('formats Jumia order amounts with a plain fallback for invalid currency', () => {
     expect(
       formatJumiaOrderAmount({
         ...order,
         totalAmount: { currency: 'INVALID', value: 250000 },
       })
     ).toBe('INVALID 250,000');
+  });
+
+  it('formats missing Jumia order amounts as zero NGN', () => {
     expect(
       formatJumiaOrderAmount({
         ...order,
         totalAmount: undefined,
       } as unknown as typeof order)
-    ).toContain('0');
+    ).toBe('₦0.00');
   });
 
   it('returns the notification result when delivery has no sent count', async () => {
@@ -308,7 +311,7 @@ describe('Jumia order sync operations', () => {
 
     await expect(
       notifySyncedJumiaOrder('merchant-1', order, 'baci-order-1')
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({ sent: 0, failed: 0, errors: [] });
   });
 
   it('returns the notification result when delivery sends a push', async () => {

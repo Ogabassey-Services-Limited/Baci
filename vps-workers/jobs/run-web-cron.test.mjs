@@ -82,7 +82,7 @@ describe('web cron worker', () => {
     assert.equal(signal instanceof AbortSignal, true);
   });
 
-  it('supports POST cron endpoints that use x-cron-secret', async () => {
+  it('supports POST cron endpoints with bearer authorization', async () => {
     const calls = [];
     const result = await runWebCron({
       path: '/api/cron/process-settlements',
@@ -107,8 +107,8 @@ describe('web cron worker', () => {
     assert.deepEqual(initWithoutSignal, {
       method: 'POST',
       headers: {
+        Authorization: 'Bearer secret',
         'User-Agent': 'baci-vps-web-cron/1.0',
-        'x-cron-secret': 'secret',
       },
     });
     assert.equal(signal instanceof AbortSignal, true);

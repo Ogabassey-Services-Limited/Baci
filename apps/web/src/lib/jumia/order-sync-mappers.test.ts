@@ -214,9 +214,21 @@ describe('Jumia order sync mappers', () => {
     });
   });
 
-  it('keeps canonical Jumia order numbers unchanged', () => {
+  it('leaves canonical Jumia order numbers unchanged', () => {
     expect(buildJumiaOrderNumber('JUMIA-12345')).toBe('JUMIA-12345');
+  });
+
+  it('uppercases lowercase canonical Jumia order numbers', () => {
     expect(buildJumiaOrderNumber('jumia-abc123')).toBe('JUMIA-ABC123');
+  });
+
+  it('rejects empty Jumia order numbers', () => {
+    expect(() => buildJumiaOrderNumber('')).toThrow(
+      'Cannot build Jumia order number from empty input'
+    );
+    expect(() => buildJumiaOrderNumber('   ')).toThrow(
+      'Cannot build Jumia order number from empty input'
+    );
   });
 
   it('handles empty item lists without dropping notification state', () => {

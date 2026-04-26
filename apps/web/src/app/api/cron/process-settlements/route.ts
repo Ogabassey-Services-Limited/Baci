@@ -14,12 +14,15 @@ import { sendEmail } from '@/lib/zeptomail';
  * 1. Process settlements that have reached their expected date
  * 2. Send notifications to merchants about new settlements
  *
- * Security: Requires CRON_SECRET header
+ * Security: Requires Authorization: Bearer <CRON_SECRET>
  */
 export async function POST(request: Request) {
   try {
     // Verify cron secret
-    const cronSecret = request.headers.get('x-cron-secret');
+    const authHeader = request.headers.get('Authorization');
+    const cronSecret = authHeader?.startsWith('Bearer ')
+      ? authHeader.slice('Bearer '.length).trim()
+      : null;
     const expectedSecret = process.env.CRON_SECRET;
 
     if (
@@ -308,7 +311,7 @@ export function GET(request: Request) {
   const mockRequest = new Request(request.url, {
     method: 'POST',
     headers: {
-      'x-cron-secret': process.env.CRON_SECRET || 'dev-secret',
+      Authorization: `Bearer ${process.env.CRON_SECRET || 'dev-secret'}`,
     },
   });
 

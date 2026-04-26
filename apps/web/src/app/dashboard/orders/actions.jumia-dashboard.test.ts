@@ -79,6 +79,7 @@ function createQuery(result: QueryResult): MockSupabaseQuery {
 
 describe('Jumia dashboard order data', () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
     vi.clearAllMocks();
   });
 
@@ -296,7 +297,9 @@ describe('Jumia dashboard order data', () => {
     });
     expect(errorSpy).toHaveBeenCalledWith(
       'Error fetching order stats counts:',
-      { message: 'stats failed' }
+      {
+        message: 'stats failed',
+      }
     );
   });
 });

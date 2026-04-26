@@ -80,6 +80,8 @@ async function syncIntegration(
         order.id
       );
       const shouldNotify =
+        // Retry while notification_sent is not true; the per-run key prevents
+        // duplicate pushes from duplicated Jumia API pages.
         (!existingJumia || existingJumia.notification_sent !== true) &&
         !attemptedNotificationKeys.has(notificationKey);
       const items = (await getOrderItems(client, order.id)).items;
