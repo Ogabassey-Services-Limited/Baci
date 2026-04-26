@@ -25,10 +25,10 @@ import {
   ADDRESS_DELETE_PROMPT_TITLE,
   ADDRESS_EMPTY_ADD_ACTION_LABEL,
   ADDRESS_LIST_BOTTOM_PADDING,
-} from './constants';
+} from '@/components/addresses/constants';
 import { loadAddresses } from './load-addresses';
-import { styles } from './styles';
-import type { Address } from './types';
+import { styles } from '@/components/addresses/styles';
+import type { Address } from '@/components/addresses/types';
 
 const log = createLogger('Addresses');
 
