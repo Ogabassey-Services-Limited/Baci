@@ -17,9 +17,9 @@ describe('web cron worker', () => {
     assert.equal(
       buildWebCronUrl({
         baseUrl: 'https://ogabassey.com',
-        path: '/api/cron/wallet-payouts',
+        path: '/api/inventory/push-alerts',
       }),
-      'https://ogabassey.com/api/cron/wallet-payouts'
+      'https://ogabassey.com/api/inventory/push-alerts'
     );
   });
 
@@ -124,7 +124,7 @@ describe('web cron worker', () => {
     await assert.rejects(
       () =>
         runWebCron({
-          path: '/api/cron/wallet-payouts',
+          path: '/api/inventory/push-alerts',
           env: {
             BACI_WEB_BASE_URL: 'https://ogabassey.com',
             CRON_SECRET: 'secret',
@@ -169,7 +169,7 @@ describe('web cron worker', () => {
     await assert.rejects(
       () =>
         runWebCron({
-          path: '/api/cron/wallet-payouts',
+          path: '/api/inventory/push-alerts',
           env: { BACI_WEB_BASE_URL: 'https://ogabassey.com' },
           fetchFn: () => new Response('ok', { status: 200 }),
           logger: noopLogger,

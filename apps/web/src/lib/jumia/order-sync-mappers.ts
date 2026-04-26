@@ -17,7 +17,7 @@ export interface MarketplaceIntegrationRow {
 
 export interface ExistingJumiaOrderRow {
   jumia_order_id: string;
-  notification_sent: boolean;
+  notification_sent: boolean | null;
   baci_order_id: string | null;
 }
 
@@ -214,6 +214,8 @@ export function buildCanonicalJumiaOrderPayload(
     },
   };
 }
+
+export type JumiaCacheRow = ReturnType<typeof buildJumiaCacheRow>;
 
 export function buildOrderItems(orderId: string, items: JumiaOrderItem[]) {
   return items.map((item, index) => ({

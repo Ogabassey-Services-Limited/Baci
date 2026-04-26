@@ -10,6 +10,7 @@ const ALLOWED_WEB_CRON_PATHS = new Set([
   '/api/ai-jobs/worker',
   '/api/cron/publish-scheduled-posts',
   '/api/cron/wallet-payouts',
+  '/api/inventory/push-alerts',
 ]);
 
 const RESPONSE_PREVIEW_LIMIT = 500;

@@ -12,6 +12,16 @@ export interface JumiaOrderSyncResult {
   canonicalUpdated: number;
   /** Merchant push notifications successfully sent for synced Jumia orders. */
   notified: number;
-  /** Per-integration recoverable error messages captured without aborting the run. */
+  /**
+   * Order-level processing failures that did not abort the whole integration.
+   * Each increment should have a matching per-order entry in `errors`, for
+   * example `merchant-id/jumia-order-id: item API timeout`.
+   */
+  orderErrors: number;
+  /**
+   * Recoverable messages captured without aborting the run. This includes
+   * per-order failures counted by `orderErrors` and separate integration-level
+   * warnings such as notification marker update failures.
+   */
   errors: string[];
 }

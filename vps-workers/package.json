@@ -10,8 +10,8 @@
     "cleanup-push-tokens": "node jobs/cleanup-push-tokens.mjs",
     "cleanup-import-uploads": "node jobs/cleanup-import-uploads.mjs",
     "push-receipts": "node jobs/push-receipts.mjs",
-    "inventory-push-alerts": "node jobs/inventory-push-alerts.mjs",
-    "sync-jumia-orders": "node jobs/sync-jumia-orders.mjs",
+    "inventory-push-alerts": "node jobs/run-web-cron.mjs /api/inventory/push-alerts",
+    "sync-jumia-orders": "bash bin/sync-jumia-orders.sh",
     "run-web-cron": "node jobs/run-web-cron.mjs",
     "test": "node scripts/run-tests.mjs"
   },

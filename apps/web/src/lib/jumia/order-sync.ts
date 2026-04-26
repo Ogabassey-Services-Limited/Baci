@@ -1,150 +1,39 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { notifyMerchant } from '@/lib/expo-push';
 import { JumiaClient } from '@/lib/jumia/client';
 import type { JumiaOrderSyncResult } from '@/lib/jumia/order-sync-result';
 import { getAllOrders, getOrderItems } from '@/lib/jumia/orders';
 import { logger } from '@/lib/logger';
-import type { JumiaOrder, JumiaOrderItem } from '@/schemas/jumia';
 import {
-  buildCanonicalJumiaOrderPayload,
-  buildJumiaCacheRow,
-  buildJumiaOrderNumber,
-  buildOrderItems,
-  buildTrackingToken,
-  type ExistingJumiaOrderRow,
-  type ExistingOrderRow,
-  getCustomerName,
   getJumiaSyncLowerBound,
   JUMIA_EXTERNAL_SOURCE,
   type MarketplaceIntegrationRow,
   readOrderSyncEnabled,
 } from './order-sync-mappers';
+import {
+  getJumiaNotificationAttemptKey,
+  markJumiaNotificationSent,
+} from './order-sync-notifications';
+import {
+  buildSyncedJumiaCacheRow,
+  loadExistingCanonicalOrders,
+  loadExistingJumiaOrders,
+  notifySyncedJumiaOrder,
+  upsertCanonicalOrder,
+} from './order-sync-operations';
+import {
+  clearFullFailureState,
+  MAX_FULL_FAILURES_BEFORE_ADVANCE,
+  readFullFailureState,
+  withFullFailureState,
+} from './order-sync-state';
 
 const JUMIA_ORDER_SYNC_ROUTE = 'jumia/order-sync';
+const INITIAL_SYNC_CURSOR = 'initial-sync';
 
-async function loadExistingJumiaOrders(
-  supabase: SupabaseClient,
-  merchantId: string,
-  orderIds: string[]
-) {
-  if (orderIds.length === 0) return new Map<string, ExistingJumiaOrderRow>();
-  const { data, error } = await supabase
-    .from('jumia_orders')
-    .select('jumia_order_id, notification_sent, baci_order_id')
-    .eq('merchant_id', merchantId)
-    .in('jumia_order_id', orderIds);
-  if (error) throw new Error(`Failed to load Jumia orders: ${error.message}`);
-  return new Map(
-    ((data || []) as ExistingJumiaOrderRow[]).map((row) => [
-      row.jumia_order_id,
-      row,
-    ])
-  );
-}
-
-async function loadExistingCanonicalOrders(
-  supabase: SupabaseClient,
-  merchantId: string,
-  orderIds: string[]
-) {
-  if (orderIds.length === 0) return new Map<string, ExistingOrderRow>();
-  const { data, error } = await supabase
-    .from('orders')
-    .select('id, external_id, tracking_token')
-    .eq('merchant_id', merchantId)
-    .eq('external_source', JUMIA_EXTERNAL_SOURCE)
-    .in('external_id', orderIds);
-  if (error) throw new Error(`Failed to load Baci orders: ${error.message}`);
-  return new Map(
-    ((data || []) as ExistingOrderRow[])
-      .filter((row) => row.external_id)
-      .map((row) => [row.external_id as string, row])
-  );
-}
-
-async function upsertCanonicalOrder(
-  supabase: SupabaseClient,
-  integration: MarketplaceIntegrationRow,
-  order: JumiaOrder,
-  items: JumiaOrderItem[] | null,
-  existing: ExistingOrderRow | undefined
-) {
-  const payload = buildCanonicalJumiaOrderPayload(
-    integration,
-    order,
-    existing?.tracking_token || buildTrackingToken()
-  );
-  let persistedOrder = existing;
-
-  if (existing) {
-    const { error } = await supabase
-      .from('orders')
-      .update(payload)
-      .eq('id', existing.id);
-    if (error) throw new Error(`Failed to update Baci order: ${error.message}`);
-  } else {
-    const { data, error } = await supabase
-      .from('orders')
-      .insert(payload)
-      .select('id, external_id, tracking_token')
-      .single();
-    if (error || !data) {
-      throw new Error(`Failed to create Baci order: ${error?.message}`);
-    }
-    persistedOrder = data as ExistingOrderRow;
-  }
-
-  if (!persistedOrder) throw new Error('Failed to persist Baci order');
-
-  if (items) {
-    const { error: deleteError } = await supabase
-      .from('order_items')
-      .delete()
-      .eq('order_id', persistedOrder.id);
-    if (deleteError) {
-      throw new Error(
-        `Failed to reset Jumia order items: ${deleteError.message}`
-      );
-    }
-
-    const orderItems = buildOrderItems(persistedOrder.id, items);
-    if (orderItems.length > 0) {
-      const { error: insertError } = await supabase
-        .from('order_items')
-        .insert(orderItems);
-      if (insertError) {
-        throw new Error(
-          `Failed to insert Jumia order items: ${insertError.message}`
-        );
-      }
-    }
-  }
-
-  return persistedOrder;
-}
-
-async function notifySyncedJumiaOrder(
-  merchantId: string,
-  order: JumiaOrder,
-  baciOrderId: string
-) {
-  const result = await notifyMerchant(
-    merchantId,
-    'Jumia Order',
-    `Order #${order.number} from ${getCustomerName(order)} - ${order.totalAmount.currency} ${order.totalAmount.value.toLocaleString('en-NG')}`,
-    {
-      type: 'new_order',
-      source: JUMIA_EXTERNAL_SOURCE,
-      order_id: baciOrderId,
-      order_number: buildJumiaOrderNumber(order.number),
-      jumia_order_id: order.id,
-      amount: order.totalAmount.value,
-      currency: order.totalAmount.currency,
-    },
-    'orders'
-  );
-
-  return result.sent > 0;
+interface SyncUpdatePayload {
+  last_sync_at?: string;
+  sync_config: Record<string, unknown>;
+  sync_error: string | null;
 }
 
 async function syncIntegration(
@@ -159,6 +48,10 @@ async function syncIntegration(
     integration.merchant_id,
     integration.id
   );
+  const orderErrorsBefore = result.orderErrors;
+  let lastSuccessfulSyncAt: string | null = null;
+  let lastSuccessfulSyncMs: number | null = null;
+  const attemptedNotificationKeys = new Set<string>();
   const syncStartedAt = new Date().toISOString();
   const orders = await getAllOrders(client, {
     updatedAfter: getJumiaSyncLowerBound(integration.last_sync_at),
@@ -178,83 +71,146 @@ async function syncIntegration(
   );
 
   for (const order of orders) {
-    const existingJumia = existingJumiaOrders.get(order.id);
-    const existingCanonical = canonicalOrders.get(order.id);
-    const wasNew = !existingJumia;
-    const shouldNotify =
-      wasNew ||
-      existingJumia?.notification_sent === false ||
-      !existingJumia?.baci_order_id;
-    let items: JumiaOrderItem[] | null = null;
     try {
-      items = (await getOrderItems(client, order.id)).items;
+      const existingJumia = existingJumiaOrders.get(order.id);
+      const existingCanonical = canonicalOrders.get(order.id);
+      const notificationKey = getJumiaNotificationAttemptKey(
+        integration.merchant_id,
+        order.id
+      );
+      const shouldNotify =
+        (!existingJumia ||
+          existingJumia.notification_sent !== true ||
+          !existingJumia.baci_order_id) &&
+        !attemptedNotificationKeys.has(notificationKey);
+      const items = (await getOrderItems(client, order.id)).items;
+
+      const canonicalOrder = await upsertCanonicalOrder(
+        supabase,
+        integration,
+        order,
+        items,
+        existingCanonical
+      );
+      canonicalOrders.set(order.id, canonicalOrder);
+
+      const cacheRow = buildSyncedJumiaCacheRow(
+        integration,
+        order,
+        items,
+        existingJumia,
+        canonicalOrder.id
+      );
+      const { error: cacheError } = await supabase
+        .from('jumia_orders')
+        .upsert(cacheRow, { onConflict: 'jumia_order_id' });
+      if (cacheError) {
+        throw new Error(`Failed to cache Jumia order: ${cacheError.message}`);
+      }
+
+      if (existingCanonical) result.canonicalUpdated += 1;
+      else result.canonicalCreated += 1;
+
+      if (shouldNotify) {
+        attemptedNotificationKeys.add(notificationKey);
+        const notified = await notifySyncedJumiaOrder(
+          integration.merchant_id,
+          order,
+          canonicalOrder.id
+        );
+        if (notified) {
+          result.notified += 1;
+          const notificationUpdateError = await markJumiaNotificationSent(
+            supabase,
+            integration.merchant_id,
+            order.id
+          );
+          if (notificationUpdateError) {
+            logger.error({
+              message: 'Failed to mark Jumia order notification as sent',
+              merchantId: integration.merchant_id,
+              integrationId: integration.id,
+              jumiaOrderId: order.id,
+              error: notificationUpdateError,
+            });
+            result.errors.push(
+              `${integration.merchant_id}/${order.id}: Failed to mark Jumia notification as sent: ${notificationUpdateError.message}`
+            );
+          }
+        }
+      }
+
+      result.synced += 1;
+      const parsedUpdatedAt = Date.parse(order.updatedAt);
+      const isValidUpdatedAt = Number.isFinite(parsedUpdatedAt);
+      const successfulSyncAt = isValidUpdatedAt
+        ? new Date(parsedUpdatedAt).toISOString()
+        : syncStartedAt;
+      const successfulSyncMs = isValidUpdatedAt
+        ? parsedUpdatedAt
+        : Date.parse(syncStartedAt);
+      if (
+        lastSuccessfulSyncMs === null ||
+        successfulSyncMs > lastSuccessfulSyncMs
+      ) {
+        lastSuccessfulSyncAt = successfulSyncAt;
+        lastSuccessfulSyncMs = successfulSyncMs;
+      }
     } catch (error) {
-      logger.warn({
-        message: 'Failed to load Jumia order items during sync',
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      result.orderErrors += 1;
+      result.errors.push(`${integration.merchant_id}/${order.id}: ${message}`);
+      logger.error({
+        message: 'Failed to process Jumia order during sync',
         merchantId: integration.merchant_id,
         integrationId: integration.id,
         jumiaOrderId: order.id,
         error,
       });
-      items = null;
-    }
-
-    const canonicalOrder = await upsertCanonicalOrder(
-      supabase,
-      integration,
-      order,
-      items,
-      existingCanonical
-    );
-    canonicalOrders.set(order.id, canonicalOrder);
-
-    const cacheRow = buildJumiaCacheRow(
-      integration,
-      order,
-      items,
-      existingJumia,
-      canonicalOrder.id
-    );
-    const { error: cacheError } = await supabase
-      .from('jumia_orders')
-      .upsert(cacheRow, { onConflict: 'jumia_order_id' });
-    if (cacheError) {
-      throw new Error(`Failed to cache Jumia order: ${cacheError.message}`);
-    }
-
-    if (existingCanonical) result.canonicalUpdated += 1;
-    else result.canonicalCreated += 1;
-
-    if (shouldNotify) {
-      const notified = await notifySyncedJumiaOrder(
-        integration.merchant_id,
-        order,
-        canonicalOrder.id
-      );
-      if (notified) {
-        result.notified += 1;
-        const { error: notificationUpdateError } = await supabase
-          .from('jumia_orders')
-          .update({ notification_sent: true })
-          .eq('merchant_id', integration.merchant_id)
-          .eq('jumia_order_id', order.id);
-        if (notificationUpdateError) {
-          logger.error({
-            message: 'Failed to mark Jumia order notification as sent',
-            merchantId: integration.merchant_id,
-            integrationId: integration.id,
-            jumiaOrderId: order.id,
-            error: notificationUpdateError,
-          });
-        }
-      }
     }
   }
 
-  result.synced += orders.length;
+  const integrationOrderErrors = result.orderErrors - orderErrorsBefore;
+  let syncUpdate: SyncUpdatePayload;
+  if (integrationOrderErrors === 0) {
+    syncUpdate = {
+      last_sync_at: syncStartedAt,
+      sync_error: null,
+      sync_config: clearFullFailureState(integration.sync_config),
+    };
+  } else if (lastSuccessfulSyncAt) {
+    syncUpdate = {
+      last_sync_at: lastSuccessfulSyncAt,
+      sync_error: `Processed with ${integrationOrderErrors} Jumia order error(s); last_sync_at advanced to ${lastSuccessfulSyncAt} to avoid blocking future syncs`,
+      sync_config: clearFullFailureState(integration.sync_config),
+    };
+  } else {
+    const failureCursor = integration.last_sync_at ?? INITIAL_SYNC_CURSOR;
+    const previousFailureState = readFullFailureState(integration.sync_config);
+    const fullFailureCount =
+      previousFailureState?.cursor === failureCursor
+        ? previousFailureState.count + 1
+        : 1;
+    syncUpdate =
+      fullFailureCount >= MAX_FULL_FAILURES_BEFORE_ADVANCE
+        ? {
+            last_sync_at: syncStartedAt,
+            sync_error: `All ${integrationOrderErrors} Jumia order(s) failed ${fullFailureCount} consecutive time(s); cursor advanced to ${syncStartedAt} and operators should inspect the logged order errors`,
+            sync_config: clearFullFailureState(integration.sync_config),
+          }
+        : {
+            sync_error: `All ${integrationOrderErrors} Jumia order(s) failed; cursor not advanced before retry ${fullFailureCount}/${MAX_FULL_FAILURES_BEFORE_ADVANCE}`,
+            sync_config: withFullFailureState(
+              integration.sync_config,
+              failureCursor,
+              fullFailureCount
+            ),
+          };
+  }
+
   const { error: syncError } = await supabase
     .from('marketplace_integrations')
-    .update({ last_sync_at: syncStartedAt, sync_error: null })
+    .update(syncUpdate)
     .eq('id', integration.id);
   if (syncError) {
     throw new Error(`Failed to update Jumia sync cursor: ${syncError.message}`);
@@ -270,6 +226,7 @@ export async function syncJumiaOrdersForActiveIntegrations(
     canonicalCreated: 0,
     canonicalUpdated: 0,
     notified: 0,
+    orderErrors: 0,
     errors: [],
   };
 

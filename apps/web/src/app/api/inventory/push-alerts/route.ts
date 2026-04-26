@@ -8,7 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
  * GET /api/inventory/push-alerts
  *
  * Sends push notifications for new low stock alerts that haven't been notified yet.
- * Called by Vercel cron (every 6 hours).
+ * Called by the VPS web-cron wrapper every 6 hours. Keep CRON_SECRET gating intact.
  */
 export async function GET(request: NextRequest) {
   const cronSecret = getCronSecret();

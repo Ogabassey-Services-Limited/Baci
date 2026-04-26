@@ -2,4 +2,4 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-exec "$SCRIPT_DIR/run-web-script.sh" process-import-jobs src/scripts/process-import-jobs.ts
+exec "$SCRIPT_DIR/run-web-script.sh" sync-jumia-orders src/scripts/sync-jumia-orders.ts
