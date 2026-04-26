@@ -21,8 +21,6 @@ import {
   extractCACCertificateData,
 } from '@/lib/verify-cac-certificate';
 
-const CAC_PROMPT_EXCERPT = 'Extract from this CAC document';
-
 const validJsonResponse = JSON.stringify({
   documentType: 'Certificate of Incorporation',
   rcNumber: 'RC123456',
@@ -40,23 +38,20 @@ describe('extractCACCertificateData', () => {
     vi.unstubAllGlobals();
   });
 
-  it('uses Gemini for PDF files', async () => {
-    vi.mocked(generateText).mockResolvedValueOnce({
-      text: validJsonResponse,
-    } as Awaited<ReturnType<typeof generateText>>);
+  it('uses Ollama for PDF files when OLLAMA_BASE_URL is configured', async () => {
+    vi.mocked(getOllamaBaseUrl).mockReturnValue('https://ollama.example.com');
+    vi.mocked(global.fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ response: validJsonResponse }),
+    } as Response);
 
     const buffer = new Uint8Array([1, 2, 3]);
     const result = await extractCACCertificateData(buffer, 'application/pdf');
 
-    expect(generateText).toHaveBeenCalledOnce();
-    const call = vi.mocked(generateText).mock.calls[0][0];
-    const messages = call.messages ?? [];
-    const userMessage = messages.find((m) => m.role === 'user');
-    const textPart = Array.isArray(userMessage?.content)
-      ? userMessage.content.find((p) => p.type === 'text')
-      : null;
-    expect(textPart && 'text' in textPart ? textPart.text : '').toContain(
-      CAC_PROMPT_EXCERPT
+    expect(global.fetch).toHaveBeenCalledOnce();
+    expect(generateText).not.toHaveBeenCalled();
+    expect(vi.mocked(global.fetch).mock.calls[0][0]).toContain(
+      'https://ollama.example.com'
     );
     expect(result.rcNumber).toBe('RC123456');
     expect(result.businessName).toBe('BACI TECHNOLOGIES LTD');

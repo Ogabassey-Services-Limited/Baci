@@ -113,13 +113,8 @@ export async function extractCACCertificateData(
   fileBuffer: Uint8Array,
   mimeType: string
 ): Promise<CACVerificationResult> {
-  const isPdf = mimeType === 'application/pdf';
-
-  if (isPdf) {
-    return extractViaGemini(fileBuffer, mimeType);
-  }
-
-  // Image path: try Ollama first, fall back to Gemini
+  // Try the VPS-hosted Ollama/Gemma extractor first for every supported upload
+  // type, including PDFs. Gemini remains a fallback when Ollama is unavailable.
   const ollamaBaseUrl = getOllamaBaseUrl();
   if (ollamaBaseUrl) {
     try {
