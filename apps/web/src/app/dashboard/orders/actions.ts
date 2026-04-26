@@ -153,6 +153,11 @@ const ORDER_CONFIRMATION_SELECT = [
   'shipping_address',
   'order_items(id, image_url, name, quantity, price)',
 ].join(', ');
+function isActiveFilter<T extends string>(
+  value: T | 'All' | undefined
+): value is T {
+  return Boolean(value && value !== 'All');
+}
 
 function formatStatus(status: string): string {
   if (!status) return 'Pending';
@@ -168,6 +173,14 @@ export async function getOrders(
 ): Promise<Order[]> {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
+  const paymentStatusFilter = filters.paymentStatus;
+  const shippingStatusFilter = filters.shippingStatus;
+  const hasPaymentFilter = isActiveFilter(paymentStatusFilter);
+  const hasShippingFilter = isActiveFilter(shippingStatusFilter);
+  const searchTerm = filters.search?.trim();
+  const sanitizedSearch = searchTerm
+    ? sanitizeLikePattern(sanitizeSearchQuery(searchTerm))
+    : null;
 
   let query = supabase
     .from('orders')
@@ -176,22 +189,19 @@ export async function getOrders(
     .order('created_at', { ascending: false });
 
   // Apply filters
-  if (filters.paymentStatus && filters.paymentStatus !== 'All') {
+  if (hasPaymentFilter) {
     query = query.eq(
       'payment_status',
-      filters.paymentStatus.toLowerCase().replace(/\s+/g, '_')
+      paymentStatusFilter.toLowerCase().replace(/\s+/g, '_')
     );
   }
 
-  if (filters.shippingStatus && filters.shippingStatus !== 'All') {
-    query = query.eq('shipping_status', filters.shippingStatus.toLowerCase());
+  if (hasShippingFilter) {
+    query = query.eq('shipping_status', shippingStatusFilter.toLowerCase());
   }
 
   // Search by customer name or order number
-  if (filters.search?.trim()) {
-    const sanitizedSearch = sanitizeLikePattern(
-      sanitizeSearchQuery(filters.search)
-    );
+  if (sanitizedSearch) {
     query = query.or(
       `customer_name.ilike.%${sanitizedSearch}%,order_number.ilike.%${sanitizedSearch}%`
     );
@@ -214,15 +224,33 @@ export async function getOrders(
   // Jumia orders don't have standard payment/shipping statuses in the same way,
   // but we map them.
   let jumiaOrders: JumiaOrder[] = [];
-  if (!filters.paymentStatus && !filters.shippingStatus) {
-    const { data: jOrders } = await supabase
+  if (!hasPaymentFilter && !hasShippingFilter) {
+    let jumiaQuery = supabase
       .from('jumia_orders')
       .select(
         'status, jumia_order_id, jumia_order_number, customer_name, total_amount, created_at_jumia, items'
       )
       .eq('merchant_id', merchantId)
-      .order('created_at_jumia', { ascending: false });
-    jumiaOrders = jOrders || [];
+      .is('baci_order_id', null);
+    if (sanitizedSearch) {
+      jumiaQuery = jumiaQuery.or(
+        `customer_name.ilike.%${sanitizedSearch}%,jumia_order_number.ilike.%${sanitizedSearch}%`
+      );
+    }
+    const { data: jOrders, error: jumiaOrdersError } = await jumiaQuery.order(
+      'created_at_jumia',
+      { ascending: false }
+    );
+    if (jumiaOrdersError) {
+      logger.error({
+        message: 'Error fetching legacy Jumia orders',
+        error: jumiaOrdersError,
+        merchantId,
+        route: 'dashboard/orders/getOrders',
+      });
+    } else {
+      jumiaOrders = jOrders || [];
+    }
   }
 
   const orders = (ordersData || []) as unknown as DashboardOrderRecord[];

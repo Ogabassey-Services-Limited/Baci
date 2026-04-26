@@ -6,8 +6,8 @@ import { createServiceClient } from '@/lib/supabase/service';
 /**
  * POST /api/cron/wallet-payouts
  *
- * Weekly automated payout cron job.
- * Called by Vercel Cron or external scheduler.
+ * Manual fallback only - DO NOT re-enable Vercel Cron for this route.
+ * Scheduled execution lives in vps-workers; keep CRON_SECRET gating intact.
  *
  * Processes all merchant wallets where:
  * - auto_payout_enabled = true
@@ -226,7 +226,7 @@ export async function POST(request: Request) {
   }
 }
 
-// Support GET for Vercel Cron (sends Authorization: Bearer {CRON_SECRET})
+// Support GET for manual fallback invocation.
 export function GET(request: Request) {
   const authHeader = request.headers.get('Authorization');
   const secret = process.env.CRON_SECRET;

@@ -71,7 +71,8 @@ const PriceListResponseSchema = z.object({
     .optional(),
 });
 
-// GET /api/ai-jobs/worker - Vercel Cron entry point (sends Authorization: Bearer {CRON_SECRET})
+// GET /api/ai-jobs/worker - VPS web-cron/manual fallback entry point.
+// Scheduled execution lives in vps-workers; keep CRON_SECRET gating intact.
 export function GET(request: NextRequest) {
   const authHeader = request.headers.get('Authorization');
   const cronSecret = process.env.CRON_SECRET;

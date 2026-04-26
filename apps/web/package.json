@@ -19,6 +19,8 @@
     "seo:pagespeed": "tsx tools/seo/run-pagespeed.cli.ts",
     "seo:readiness": "tsx tools/seo/run-search-console-readiness.cli.ts",
     "capture-screenshots": "node scripts/capture-template-screenshots.mjs",
+    "process:import-jobs": "tsx src/scripts/process-import-jobs.ts",
+    "sync:jumia-orders": "tsx src/scripts/sync-jumia-orders.ts",
     "mcp": "tsx mcp-server/server.ts"
   },
   "dependencies": {
@@ -128,6 +130,7 @@
     "tailwind-merge": "^3.5.0",
     "tailwindcss-animate": "^1.0.7",
     "ts-pattern": "^5.9.0",
+    "tsx": "4.21.0",
     "use-debounce": "^10.1.0",
     "web-vitals": "^5.1.0",
     "whois-json": "^2.0.4",
@@ -174,7 +177,6 @@
     "schema-dts": "^1.1.5",
     "sharp": "^0.34.5",
     "tailwindcss": "^3.4.19",
-    "tsx": "^4.21.0",
     "typedoc": "^0.28.16",
     "typedoc-plugin-markdown": "^4.10.0",
     "typescript": "^5.9.3",

@@ -8,8 +8,8 @@ import { createServiceClient } from '@/lib/supabase/service';
 /**
  * POST /api/cron/publish-scheduled-posts
  *
- * Vercel Cron job to publish scheduled blog posts.
- * Runs every 5 minutes.
+ * Manual fallback only - DO NOT re-enable Vercel Cron for this route.
+ * Scheduled execution lives in vps-workers; keep CRON_SECRET gating intact.
  *
  * Security: Requires x-cron-secret header
  */
@@ -198,7 +198,7 @@ export async function POST(request: Request) {
   }
 }
 
-// Support GET for Vercel Cron (sends Authorization: Bearer {CRON_SECRET})
+// Support GET for manual fallback invocation.
 export async function GET(request: Request) {
   const authHeader = request.headers.get('Authorization');
   const secret = process.env.CRON_SECRET;

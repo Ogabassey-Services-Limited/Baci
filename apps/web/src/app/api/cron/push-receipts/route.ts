@@ -5,6 +5,8 @@ import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { logger } from '@/lib/logger';
 import { createAdminClient } from '@/lib/supabase/admin';
 
+// Manual fallback only - DO NOT re-enable Vercel Cron for this route.
+// Scheduled execution lives in vps-workers; keep CRON_SECRET gating intact.
 const expo = new Expo({ accessToken: getExpoAccessToken() });
 
 export async function GET(request: NextRequest) {

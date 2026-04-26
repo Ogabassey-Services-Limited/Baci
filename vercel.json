@@ -5,15 +5,8 @@
   "installCommand": "pnpm install",
   "framework": "nextjs",
   "ignoreCommand": "exit 0",
-  "crons": [
-    { "path": "/api/inventory/push-alerts", "schedule": "0 */6 * * *" },
-    { "path": "/api/cron/process-import-jobs", "schedule": "*/5 * * * *" },
-    { "path": "/api/ai-jobs/worker", "schedule": "0 2 * * *" },
-    { "path": "/api/cron/wallet-payouts", "schedule": "0 6 * * *" },
-    { "path": "/api/cron/publish-scheduled-posts", "schedule": "*/15 * * * *" }
-  ],
+  "crons": [],
   "functions": {
-    "apps/web/src/app/api/cron/process-import-jobs/route.ts": { "memory": 512 },
     "apps/web/src/app/api/import-jobs/worker/route.ts": { "memory": 512 },
     "apps/web/src/app/api/ai-jobs/worker/route.ts": { "memory": 1024 },
     "apps/web/src/app/api/ai/grade-device/route.ts": { "memory": 1024 },

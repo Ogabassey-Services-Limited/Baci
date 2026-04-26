@@ -9,7 +9,11 @@
   "scripts": {
     "cleanup-push-tokens": "node jobs/cleanup-push-tokens.mjs",
     "cleanup-import-uploads": "node jobs/cleanup-import-uploads.mjs",
-    "push-receipts": "node jobs/push-receipts.mjs"
+    "push-receipts": "node jobs/push-receipts.mjs",
+    "inventory-push-alerts": "node jobs/run-web-cron.mjs /api/inventory/push-alerts",
+    "sync-jumia-orders": "bash bin/sync-jumia-orders.sh",
+    "run-web-cron": "node jobs/run-web-cron.mjs",
+    "test": "node scripts/run-tests.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.103.0",

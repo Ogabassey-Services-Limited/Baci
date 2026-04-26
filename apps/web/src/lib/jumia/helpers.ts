@@ -168,7 +168,15 @@ export async function exchangeJumiaCode(config: {
       throw new JumiaApiError(response.status, 'Token exchange failed', body);
     }
 
-    return JumiaTokenResponseSchema.parse(await response.json());
+    const data = JumiaTokenResponseSchema.parse(await response.json());
+    if (!data.refresh_token) {
+      throw new JumiaApiError(
+        502,
+        'Token exchange response did not include a refresh token'
+      );
+    }
+
+    return data;
   } catch (error) {
     if (error instanceof JumiaApiError) throw error;
     if (
