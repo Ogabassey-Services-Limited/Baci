@@ -447,13 +447,11 @@ export function VariantBuilder({
         </Label>
 
         {stockTrackingEnabled ? (
-          <div className="rounded-lg border p-3">
-            <div className="space-y-0.5">
-              <div className="font-medium">Track Inventory</div>
-              <p className="text-sm text-muted-foreground">
-                Manage stock levels for each variant.
-              </p>
-            </div>
+          <div className="space-y-1">
+            <h3 className="text-sm font-semibold">Track Inventory</h3>
+            <p className="text-sm text-muted-foreground">
+              Manage stock levels for each variant.
+            </p>
           </div>
         ) : (
           <div className="rounded-lg border p-3 text-sm text-muted-foreground">
