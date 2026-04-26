@@ -10,6 +10,14 @@ import {
 } from 'react-native';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useColorScheme } from '@/components/useColorScheme';
+import {
+  UTILITY_HISTORY_FILTERS,
+  UTILITY_HISTORY_STATUS_COLORS,
+  UTILITY_HISTORY_STYLE_TOKENS,
+  UTILITY_HISTORY_TYPE_LABELS,
+} from '@/components/utilities/history.constants';
+import { utilityHistoryHelpers } from '@/components/utilities/history.helpers';
+import { styles } from '@/components/utilities/history.styles';
 import Colors, { BRAND, SPACING } from '@/constants/Colors';
 import { useRequireAuth } from '@/hooks/use-auth-guard';
 import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
@@ -17,14 +25,6 @@ import {
   type UtilityHistoryFilter,
   useVTUHistory,
 } from '@/hooks/use-vtu-history';
-import {
-  UTILITY_HISTORY_FILTERS,
-  UTILITY_HISTORY_STATUS_COLORS,
-  UTILITY_HISTORY_STYLE_TOKENS,
-  UTILITY_HISTORY_TYPE_LABELS,
-} from './history.constants';
-import { utilityHistoryHelpers } from './history.helpers';
-import { styles } from './history.styles';
 
 export default function UtilityHistoryScreen() {
   const { type } = useLocalSearchParams<{ type?: string }>();

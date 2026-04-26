@@ -9,17 +9,18 @@ const DISALLOWED_SUPPORT_FILES = [
   'root-layout-nav.tsx',
 ];
 
-function collectTestUtilsFiles(currentPath: string): string[] {
+function collectMatchingFiles(
+  currentPath: string,
+  matcher: (fileName: string) => boolean
+): string[] {
   return readdirSync(currentPath, { withFileTypes: true }).flatMap((entry) => {
     const entryPath = path.join(currentPath, entry.name);
 
     if (entry.isDirectory()) {
-      return collectTestUtilsFiles(entryPath);
+      return collectMatchingFiles(entryPath, matcher);
     }
 
-    return /\.test-utils\.(ts|tsx)$/.test(entry.name)
-      ? [path.relative(APP_ROOT, entryPath)]
-      : [];
+    return matcher(entry.name) ? [path.relative(APP_ROOT, entryPath)] : [];
   });
 }
 
@@ -33,13 +34,35 @@ function collectDisallowedSupportFiles(currentPath: string): string[] {
 
     const relativePath = path.relative(APP_ROOT, entryPath);
 
-    return DISALLOWED_SUPPORT_FILES.includes(relativePath) ? [relativePath] : [];
+    return DISALLOWED_SUPPORT_FILES.includes(relativePath)
+      ? [relativePath]
+      : [];
   });
 }
 
 describe('app route tree safety', () => {
+  it('does not keep test files inside the expo-router app directory', () => {
+    expect(
+      collectMatchingFiles(APP_ROOT, (fileName) =>
+        /\.test\.(ts|tsx)$/.test(fileName)
+      )
+    ).toEqual([]);
+  });
+
   it('does not keep test utility modules inside the expo-router app directory', () => {
-    expect(collectTestUtilsFiles(APP_ROOT)).toEqual([]);
+    expect(
+      collectMatchingFiles(APP_ROOT, (fileName) =>
+        /\.test-utils\.(ts|tsx)$/.test(fileName)
+      )
+    ).toEqual([]);
+  });
+
+  it('does not keep support modules inside the expo-router app directory', () => {
+    expect(
+      collectMatchingFiles(APP_ROOT, (fileName) =>
+        /\.(constants|helpers|styles|types)\.(ts|tsx)$/.test(fileName)
+      )
+    ).toEqual([]);
   });
 
   it('keeps support modules out of the expo-router app directory', () => {

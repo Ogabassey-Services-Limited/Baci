@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Text, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
+import { styles } from '@/components/wallet/wallet-screen.styles';
 import type Colors from '@/constants/Colors';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
-import { styles } from './wallet.styles';
 
 type WalletColors = (typeof Colors)['light'];
 

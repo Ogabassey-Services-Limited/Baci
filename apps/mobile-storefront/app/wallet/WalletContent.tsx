@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
+import { styles } from '@/components/wallet/wallet-screen.styles';
 import type Colors from '@/constants/Colors';
 import { BRAND, palette } from '@/constants/Colors';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
@@ -18,7 +19,6 @@ import {
   type WalletTransaction,
   WalletTransactionHistory,
 } from './WalletTransactionHistory';
-import { styles } from './wallet.styles';
 
 type WalletColors = (typeof Colors)['light'];
 type WalletIconName = ComponentProps<typeof Ionicons>['name'];
