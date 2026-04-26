@@ -64,9 +64,8 @@ jest.mock('@/stores/cart-store', () => ({
 }));
 
 jest.mock('@/stores/saved-store', () => ({
-  useSavedStore: (
-    selector: (state: { items: unknown[] }) => unknown
-  ) => selector({ items: [{ id: 'saved-1' }] }),
+  useSavedStore: (selector: (state: { items: unknown[] }) => unknown) =>
+    selector({ items: [{ id: 'saved-1' }] }),
 }));
 
 jest.mock('@/stores/auth-store', () => ({

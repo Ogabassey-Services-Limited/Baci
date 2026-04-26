@@ -219,39 +219,9 @@ export default function ProductGrid({
       void refetchCategories();
     }
   };
-
-  if (shouldShowFatalError) {
-    return (
-      <View style={styles.section}>
-        {block.props.title && (
-          <Text style={styles.sectionTitle}>{block.props.title}</Text>
-        )}
-        <View style={styles.emptyState} testID="product-grid-error">
-          <Text style={[styles.emptyText, { color: palette.gray[400] }]}>
-            Failed to load products. Please try again.
-          </Text>
-          <Pressable
-            style={styles.retryButton}
-            onPress={handleRetry}
-            disabled={isFetching || (isCategoriesError && isCategoriesFetching)}
-          >
-            <Text style={styles.retryButtonText}>
-              {isFetching || (isCategoriesError && isCategoriesFetching)
-                ? 'Retrying...'
-                : 'Try Again'}
-            </Text>
-          </Pressable>
-        </View>
-      </View>
-    );
-  }
-
-  if (isLoading || shouldShowInitialLoading) {
-    return <ProductGridSkeleton count={4} />;
-  }
-
-  return (
-    <View style={styles.section}>
+  const isRetrying = isFetching || (isCategoriesError && isCategoriesFetching);
+  const headerControls = (
+    <>
       {block.props.title && (
         <Text style={styles.sectionTitle}>{block.props.title}</Text>
       )}
@@ -273,6 +243,50 @@ export default function ProductGrid({
         viewMode={viewMode}
         onViewModeChange={setViewMode}
       />
+    </>
+  );
+
+  if (shouldShowFatalError) {
+    return (
+      <View style={styles.section}>
+        {headerControls}
+        <View style={styles.emptyState} testID="product-grid-error">
+          <Text style={[styles.emptyText, { color: palette.gray[400] }]}>
+            Failed to load products. Please try again.
+          </Text>
+          <Pressable
+            style={styles.retryButton}
+            onPress={handleRetry}
+            disabled={isRetrying}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: isRetrying }}
+            accessibilityLabel={
+              isRetrying
+                ? 'Retrying to load products'
+                : 'Retry loading products'
+            }
+          >
+            <Text style={styles.retryButtonText}>
+              {isRetrying ? 'Retrying...' : 'Try Again'}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  if (isLoading || shouldShowInitialLoading) {
+    return (
+      <View style={styles.section}>
+        {headerControls}
+        <ProductGridSkeleton count={4} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.section}>
+      {headerControls}
 
       <View style={currentVariant === 'list' ? styles.list : styles.grid}>
         {visibleProducts.length === 0 && !isFetching ? (
