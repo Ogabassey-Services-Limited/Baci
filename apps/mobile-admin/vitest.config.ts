@@ -41,6 +41,10 @@ const reactNativePhoneInputMockPath = path.resolve(
   __dirname,
   'test/mocks/react-native-phone-number-input.tsx'
 );
+const reactNativeGooglePlacesMockPath = path.resolve(
+  __dirname,
+  'test/mocks/react-native-google-places-autocomplete.tsx'
+);
 
 export default defineConfig({
   define: {
@@ -71,6 +75,10 @@ export default defineConfig({
       {
         find: /^react-native-phone-number-input$/,
         replacement: reactNativePhoneInputMockPath,
+      },
+      {
+        find: /^react-native-google-places-autocomplete$/,
+        replacement: reactNativeGooglePlacesMockPath,
       },
     ],
     dedupe: ['react', 'react-dom', 'react-native-web'],
