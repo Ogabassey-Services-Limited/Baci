@@ -19,7 +19,9 @@ describe('FAQStoreInfo', () => {
       />
     );
 
-    expect(screen.getByText('Store Hours')).toBeOnTheScreen();
+    expect(
+      screen.getByRole('header', { name: 'Store Hours' })
+    ).toBeOnTheScreen();
     expect(
       screen.getByText('Monday - Saturday: 9:00 AM - 7:00 PM')
     ).toBeOnTheScreen();

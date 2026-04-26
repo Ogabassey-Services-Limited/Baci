@@ -1,6 +1,7 @@
 import { SPACING, TYPOGRAPHY } from '@/constants/Colors';
 
 export const SAVED_ITEM_CARD_STYLE_TOKENS = {
+  imageSize: 100,
   microSpacing: SPACING.xs / 2,
   discountBadgePaddingHorizontal: SPACING.sm,
   discountBadgePaddingVertical: SPACING.xs / 2,

@@ -146,10 +146,10 @@ export default function ReceiptsScreen() {
       style={[styles.container, { backgroundColor: colors.background }]}
       edges={['bottom']}
     >
-      {!isOnline && hasReceipts && (
+      {!isOnline && (
         <OfflineNotice
           variant="banner"
-          showCachedDataNotice
+          showCachedDataNotice={hasReceipts}
           showRetry
           onRetry={() => refetch()}
           isRetrying={isRefreshing}

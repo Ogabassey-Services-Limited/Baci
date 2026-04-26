@@ -48,6 +48,11 @@ describe('FAQAccordion', () => {
         name: /How do I track my order\?.*Open the orders screen to track progress\./,
       })
     ).toHaveAccessibilityState({ expanded: true });
+    expect(
+      screen.getByRole('button', {
+        name: /How do I track my order\?.*Open the orders screen to track progress\./,
+      }).props.accessibilityHint
+    ).toBe('Tap to collapse');
   });
 
   it('keeps answers hidden when an item is collapsed', () => {
@@ -66,6 +71,10 @@ describe('FAQAccordion', () => {
     expect(
       screen.getByRole('button', { name: 'How do I track my order?' })
     ).toHaveAccessibilityState({ expanded: false });
+    expect(
+      screen.getByRole('button', { name: 'How do I track my order?' }).props
+        .accessibilityHint
+    ).toBe('Tap to expand');
     expect(
       screen.queryByText('Open the orders screen to track progress.')
     ).toBeNull();

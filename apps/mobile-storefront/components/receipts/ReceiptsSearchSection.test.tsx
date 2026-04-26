@@ -33,6 +33,9 @@ describe('ReceiptsSearchSection', () => {
     expect(onChangeSearchQuery).toHaveBeenCalledWith('receipt');
     expect(onClearSearch).toHaveBeenCalledTimes(1);
     expect(screen.getByText('1 receipt found')).toBeTruthy();
+    expect(
+      screen.getByText('1 receipt found').props.accessibilityLiveRegion
+    ).toBe('polite');
   });
 
   it('does not render when there are no receipts', () => {

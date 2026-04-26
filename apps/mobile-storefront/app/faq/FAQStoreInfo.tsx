@@ -20,7 +20,12 @@ export function FAQStoreInfo({
 }: FAQStoreInfoProps) {
   return (
     <View style={[styles.container, { backgroundColor: cardColor }]}>
-      <Text style={[styles.title, { color: textColor }]}>Store Hours</Text>
+      <Text
+        style={[styles.title, { color: textColor }]}
+        accessibilityRole="header"
+      >
+        Store Hours
+      </Text>
       {hours.map((hour) => (
         <Text
           key={hour.id}

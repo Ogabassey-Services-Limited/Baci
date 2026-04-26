@@ -6,7 +6,12 @@ import {
   waitFor,
 } from '@testing-library/react-native';
 import { Alert, View } from 'react-native';
-import { SUPPORT_EMAIL, SUPPORT_PHONE_E164 } from '@/constants/Support';
+import {
+  SUPPORT_EMAIL,
+  SUPPORT_PHONE_E164,
+  SUPPORT_WHATSAPP_PHONE,
+} from '@/constants/Support';
+import { faqItems } from './faq-data';
 import FAQScreen from './index';
 
 const mockStorefrontScreenShell = jest.fn(({ children, ...props }) => (
@@ -19,8 +24,17 @@ const mockUseStorefrontInsets = jest.fn();
 const mockUseMerchant = jest.fn();
 const mockOpenURL = jest.fn<(url: string) => Promise<void>>();
 const mockAlert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
-const trackingAnswer =
-  'Go to the Orders section in the app to view your latest order status, delivery progress, and any tracking details shared by the merchant.';
+const trackingAnswer = (() => {
+  const item = faqItems.find((faqItem) =>
+    faqItem.question.includes('track my order')
+  );
+
+  if (!item) {
+    throw new Error('Missing tracking FAQ item in faq-data');
+  }
+
+  return item.answer;
+})();
 
 jest.mock('expo-router', () => ({
   Stack: {
@@ -103,7 +117,7 @@ describe('FAQScreen', () => {
     expect(screen.queryByText(trackingAnswer)).toBeNull();
   });
 
-  it('opens the WhatsApp, call, and email support actions', () => {
+  it('opens the WhatsApp, call, and email support actions', async () => {
     render(<FAQScreen />);
 
     fireEvent.press(
@@ -118,11 +132,14 @@ describe('FAQScreen', () => {
       })
     );
 
-    expect(mockOpenURL).toHaveBeenCalledWith(
-      expect.stringContaining('https://wa.me/')
-    );
-    expect(mockOpenURL).toHaveBeenCalledWith(`tel:${SUPPORT_PHONE_E164}`);
-    expect(mockOpenURL).toHaveBeenCalledWith(`mailto:${SUPPORT_EMAIL}`);
+    await waitFor(() => {
+      expect(mockOpenURL).toHaveBeenCalledWith(
+        expect.stringContaining('https://wa.me/')
+      );
+      expect(mockOpenURL).toHaveBeenCalledWith(`tel:${SUPPORT_PHONE_E164}`);
+      expect(mockOpenURL).toHaveBeenCalledWith(`mailto:${SUPPORT_EMAIL}`);
+    });
+    expect(mockAlert).not.toHaveBeenCalled();
   });
 
   it('shows a fallback alert when a support action cannot be opened', async () => {
@@ -139,7 +156,7 @@ describe('FAQScreen', () => {
     await waitFor(() => {
       expect(mockAlert).toHaveBeenCalledWith(
         'Unable to open WhatsApp',
-        expect.stringContaining('2348146978921')
+        expect.stringContaining(SUPPORT_WHATSAPP_PHONE)
       );
     });
   });

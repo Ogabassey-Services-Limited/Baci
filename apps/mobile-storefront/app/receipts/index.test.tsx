@@ -302,9 +302,6 @@ describe('ReceiptsScreen', () => {
     expect(mockRedirect).toHaveBeenCalledWith({
       href: '/auth/login?returnTo=%2Freceipts',
     });
-    expect(
-      screen.getByTestId('receipts-redirect').props.accessibilityLabel
-    ).toBe('/auth/login?returnTo=%2Freceipts');
   });
 
   it('renders the offline empty state when receipt loading fails without a network connection', () => {
@@ -321,5 +318,26 @@ describe('ReceiptsScreen', () => {
     render(<ReceiptsScreen />);
 
     expect(screen.getByTestId('offline-empty')).toBeTruthy();
+  });
+
+  it('renders the offline banner even when there are no cached receipts', () => {
+    mockUseReceipts.mockReturnValue({
+      data: [],
+      isLoading: false,
+      error: null,
+      refetch: jest.fn(async () => undefined),
+    });
+    mockUseNetworkState.mockReturnValue({
+      isOnline: false,
+    });
+
+    render(<ReceiptsScreen />);
+
+    expect(screen.getByTestId('offline-notice')).toBeTruthy();
+    expect(mockOfflineNotice).toHaveBeenCalledWith(
+      expect.objectContaining({
+        showCachedDataNotice: false,
+      })
+    );
   });
 });

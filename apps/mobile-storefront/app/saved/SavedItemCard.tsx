@@ -175,8 +175,8 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
   },
   imageContainer: {
-    width: 100,
-    height: 100,
+    width: SAVED_ITEM_CARD_STYLE_TOKENS.imageSize,
+    height: SAVED_ITEM_CARD_STYLE_TOKENS.imageSize,
     borderRadius: RADIUS.md,
     overflow: 'hidden',
   },

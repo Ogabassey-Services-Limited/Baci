@@ -43,7 +43,7 @@ export function FAQAccordion({
             accessibilityLabel={
               isExpanded ? `${item.question}. ${item.answer}` : item.question
             }
-            accessibilityHint="Tap to expand or collapse this FAQ item"
+            accessibilityHint={isExpanded ? 'Tap to collapse' : 'Tap to expand'}
           >
             <View style={styles.header}>
               <Text

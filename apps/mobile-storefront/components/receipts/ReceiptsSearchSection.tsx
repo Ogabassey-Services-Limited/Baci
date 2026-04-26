@@ -75,7 +75,10 @@ export function ReceiptsSearchSection({
         )}
       </View>
       {searchQuery.length > 0 && (
-        <Text style={[styles.searchResults, { color: colors.textSecondary }]}>
+        <Text
+          style={[styles.searchResults, { color: colors.textSecondary }]}
+          accessibilityLiveRegion="polite"
+        >
           {filteredCount} {filteredCount === 1 ? 'receipt' : 'receipts'} found
         </Text>
       )}
