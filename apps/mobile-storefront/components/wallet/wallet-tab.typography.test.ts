@@ -9,6 +9,7 @@ describe('WALLET_TAB_TYPOGRAPHY', () => {
   });
 
   it.each([
+    ['actionLabel', 12],
     ['headerTitle', 28],
     ['balanceAmount', 36],
     ['pointsAmount', 32],

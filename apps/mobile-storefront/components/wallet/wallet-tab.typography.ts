@@ -8,7 +8,7 @@ export const WALLET_TAB_TYPOGRAPHY = {
     semiBold: 'Inter_600SemiBold',
   },
   size: {
-    actionLabel: 14,
+    actionLabel: 12,
     body: 14,
     balanceAmount: 36,
     headerTitle: 28,
