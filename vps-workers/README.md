@@ -45,8 +45,10 @@ from the web app's development dependencies in that checkout.
 for web-owned scheduled work:
 
 - `/api/ai-jobs/worker`
-- `/api/cron/wallet-payouts`
+- `/api/cron/cleanup-orders`
+- `/api/cron/process-settlements`
 - `/api/cron/publish-scheduled-posts`
+- `/api/cron/wallet-payouts`
 - `/api/inventory/push-alerts`
 
 `CRON_SECRET` must never be committed to source. Inject it through environment

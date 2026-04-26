@@ -45,7 +45,9 @@ Do not install this checkout with `--prod`; `tsx` and other devDependencies must
 
 Some cron work intentionally remains in the web app because it needs web-only runtime integrations. The VPS schedule calls these CRON_SECRET-gated routes through `node jobs/run-web-cron.mjs <path>`:
 
+- `/api/cron/cleanup-orders`, scheduled daily at 01:00.
 - `/api/ai-jobs/worker`, scheduled daily at 02:00.
+- `/api/cron/process-settlements`, scheduled daily at 05:00.
 - `/api/cron/wallet-payouts`, scheduled daily at 06:00.
 - `/api/cron/publish-scheduled-posts`, scheduled every 15 minutes.
 - `/api/inventory/push-alerts`, scheduled every 6 hours.

@@ -42,9 +42,6 @@ vi.mock('./order-item-images', () => ({
 const { getOrderStats, getOrders } = await import('./actions');
 
 const MERCHANT_ID = 'merchant-456';
-const NON_JUMIA_ORDERS_FILTER =
-  'external_source.is.null,external_source.neq.jumia';
-
 interface QueryResult {
   data?: unknown;
   error?: { message: string } | null;
@@ -58,6 +55,9 @@ interface MockSupabaseQuery extends Promise<QueryResult> {
   eq: ReturnType<
     typeof vi.fn<(_column: string, _value: unknown) => MockSupabaseQuery>
   >;
+  is: ReturnType<
+    typeof vi.fn<(_column: string, _value: unknown) => MockSupabaseQuery>
+  >;
   or: ReturnType<typeof vi.fn<(_filter: string) => MockSupabaseQuery>>;
   order: ReturnType<
     typeof vi.fn<(_column: string, _options?: unknown) => MockSupabaseQuery>
@@ -69,6 +69,7 @@ function createQuery(result: QueryResult): MockSupabaseQuery {
   query = Object.assign(Promise.resolve(result), {
     select: vi.fn((_columns?: string, _options?: unknown) => query),
     eq: vi.fn((_column: string, _value: unknown) => query),
+    is: vi.fn((_column: string, _value: unknown) => query),
     or: vi.fn((_filter: string) => query),
     order: vi.fn((_column: string, _options?: unknown) => query),
   });
@@ -80,19 +81,19 @@ describe('Jumia dashboard order data', () => {
     vi.clearAllMocks();
   });
 
-  it('keeps canonical Jumia rows out of the list and includes legacy Jumia rows for All filters', async () => {
+  it('includes canonical Jumia rows and only falls back to unlinked legacy Jumia rows for All filters', async () => {
     const ordersQuery = createQuery({
       data: [
         {
-          id: 'order-1',
-          order_number: '#ORD-001',
-          customer_name: 'ada lovelace',
+          id: 'order-canonical-jumia',
+          order_number: 'JUMIA-CANONICAL',
+          customer_name: 'jumia customer',
           total: '10000',
-          shipping_status: 'pending',
+          shipping_status: 'delivered',
           payment_status: 'paid',
-          payment_method: 'card',
+          payment_method: 'jumia',
           created_at: '2026-04-25T08:00:00.000Z',
-          source: 'online_store',
+          source: 'jumia',
           order_items: [],
         },
       ],
@@ -101,9 +102,9 @@ describe('Jumia dashboard order data', () => {
     const jumiaQuery = createQuery({
       data: [
         {
-          jumia_order_id: 'jumia-order-1',
-          jumia_order_number: 'JUMIA-001',
-          customer_name: 'Jumia Customer',
+          jumia_order_id: 'legacy-jumia-order-1',
+          jumia_order_number: 'JUMIA-LEGACY',
+          customer_name: 'Legacy Jumia Customer',
           total_amount: '25000',
           status: 'delivered',
           created_at_jumia: '2026-04-25T09:00:00.000Z',
@@ -123,12 +124,27 @@ describe('Jumia dashboard order data', () => {
       shippingStatus: 'All',
     });
 
-    expect(ordersQuery.or).toHaveBeenCalledWith(NON_JUMIA_ORDERS_FILTER);
+    expect(ordersQuery.or).not.toHaveBeenCalled();
+    expect(jumiaQuery.is).toHaveBeenCalledWith('baci_order_id', null);
     expect(mocks.from).toHaveBeenCalledWith('jumia_orders');
     expect(orders.map((order) => order.orderNumber)).toEqual([
-      'JUMIA-001',
-      '#ORD-001',
+      'JUMIA-LEGACY',
+      'JUMIA-CANONICAL',
     ]);
+  });
+
+  it('filters canonical Jumia orders natively without querying legacy Jumia rows', async () => {
+    const ordersQuery = createQuery({ data: [], error: null });
+    mocks.from.mockImplementation((table: string) => {
+      if (table === 'orders') return ordersQuery;
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    await getOrders(MERCHANT_ID, { paymentStatus: 'Paid' });
+
+    expect(mocks.from).not.toHaveBeenCalledWith('jumia_orders');
+    expect(ordersQuery.eq).toHaveBeenCalledWith('payment_status', 'paid');
+    expect(ordersQuery.or).not.toHaveBeenCalled();
   });
 
   it('throws a generic dashboard error when canonical order loading fails', async () => {
@@ -189,7 +205,6 @@ describe('Jumia dashboard order data', () => {
     const orCalls = statsQueries.flatMap((query) =>
       query.or.mock.calls.map(([filter]) => filter)
     );
-    expect(orCalls).not.toContain(NON_JUMIA_ORDERS_FILTER);
     expect(orCalls).toContain(
       'payment_status.eq.unpaid,shipping_status.eq.pending'
     );

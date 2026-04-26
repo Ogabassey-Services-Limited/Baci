@@ -153,9 +153,6 @@ const ORDER_CONFIRMATION_SELECT = [
   'shipping_address',
   'order_items(id, image_url, name, quantity, price)',
 ].join(', ');
-const NON_JUMIA_ORDERS_FILTER =
-  'external_source.is.null,external_source.neq.jumia';
-
 function isActiveFilter<T extends string>(
   value: T | 'All' | undefined
 ): value is T {
@@ -185,7 +182,6 @@ export async function getOrders(
     .from('orders')
     .select(ORDER_WITH_ITEMS_QUERY)
     .eq('merchant_id', merchantId)
-    .or(NON_JUMIA_ORDERS_FILTER)
     .order('created_at', { ascending: false });
 
   // Apply filters
@@ -234,6 +230,7 @@ export async function getOrders(
         'status, jumia_order_id, jumia_order_number, customer_name, total_amount, created_at_jumia, items'
       )
       .eq('merchant_id', merchantId)
+      .is('baci_order_id', null)
       .order('created_at_jumia', { ascending: false });
     if (jumiaOrdersError) {
       logger.error({

@@ -6,13 +6,21 @@
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { config } from 'dotenv';
 
-// These paths expose CRON_SECRET-gated GET wrappers that delegate to the
-// underlying scheduled work. The VPS worker must not call OAuth callbacks.
-const ALLOWED_WEB_CRON_PATHS = new Set([
-  '/api/ai-jobs/worker',
-  '/api/cron/publish-scheduled-posts',
-  '/api/cron/wallet-payouts',
-  '/api/inventory/push-alerts',
+// These paths expose CRON_SECRET-gated wrappers that delegate to the underlying
+// scheduled work. The VPS worker must not call OAuth callbacks.
+const WEB_CRON_CONFIG = new Map([
+  ['/api/ai-jobs/worker', { method: 'GET', secretHeader: 'Authorization' }],
+  ['/api/cron/cleanup-orders', { method: 'GET', secretHeader: 'Authorization' }],
+  [
+    '/api/cron/process-settlements',
+    { method: 'POST', secretHeader: 'x-cron-secret' },
+  ],
+  [
+    '/api/cron/publish-scheduled-posts',
+    { method: 'GET', secretHeader: 'Authorization' },
+  ],
+  ['/api/cron/wallet-payouts', { method: 'GET', secretHeader: 'Authorization' }],
+  ['/api/inventory/push-alerts', { method: 'GET', secretHeader: 'Authorization' }],
 ]);
 
 const RESPONSE_PREVIEW_LIMIT = 500;
@@ -40,13 +48,19 @@ function throwWebCronRequestError({ error, path, timeoutMs }) {
   throw new Error(`Web cron ${path} request failed: ${message}`);
 }
 
-export function buildWebCronUrl({ baseUrl, path }) {
+function getWebCronConfig(path) {
+  const webCronConfig = WEB_CRON_CONFIG.get(path);
+  if (!webCronConfig) {
+    throw new Error(`Unsupported web cron path: ${path || '(empty)'}`);
+  }
+  return webCronConfig;
+}
+
+function buildWebCronRequest({ baseUrl, path }) {
   if (!baseUrl) {
     throw new Error('BACI_WEB_BASE_URL is required');
   }
-  if (!ALLOWED_WEB_CRON_PATHS.has(path)) {
-    throw new Error(`Unsupported web cron path: ${path || '(empty)'}`);
-  }
+  const webCronConfig = getWebCronConfig(path);
 
   const url = new URL(path, baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`);
   if (url.protocol !== 'https:') {
@@ -56,7 +70,11 @@ export function buildWebCronUrl({ baseUrl, path }) {
     throw new Error('BACI_WEB_BASE_URL must not contain credentials');
   }
 
-  return url.toString();
+  return { url: url.toString(), webCronConfig };
+}
+
+export function buildWebCronUrl({ baseUrl, path }) {
+  return buildWebCronRequest({ baseUrl, path }).url;
 }
 
 export async function runWebCron({
@@ -74,15 +92,25 @@ export async function runWebCron({
     throw new Error('A fetch implementation is required');
   }
 
-  const url = buildWebCronUrl({ baseUrl: env.BACI_WEB_BASE_URL, path });
+  const { url, webCronConfig } = buildWebCronRequest({
+    baseUrl: env.BACI_WEB_BASE_URL,
+    path,
+  });
+  const headers = {
+    'User-Agent': 'baci-vps-web-cron/1.0',
+  };
+  // Authorization endpoints expect the standard Bearer scheme; legacy cron
+  // headers such as x-cron-secret expect the raw shared secret value.
+  if (webCronConfig.secretHeader === 'Authorization') {
+    headers.Authorization = `Bearer ${cronSecret}`;
+  } else {
+    headers[webCronConfig.secretHeader] = cronSecret;
+  }
   let response;
   try {
     response = await fetchFn(url, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${cronSecret}`,
-        'User-Agent': 'baci-vps-web-cron/1.0',
-      },
+      method: webCronConfig.method,
+      headers,
       signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (error) {
