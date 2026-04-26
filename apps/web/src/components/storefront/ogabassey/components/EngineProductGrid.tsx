@@ -21,6 +21,7 @@ import { useV2Saved } from '../providers/v2-saved-context';
 import type { Product } from '../types';
 import { AdUnit } from './AdUnit';
 import { useDeferredActivation } from './deferred-shell-feature';
+import { dedupeProductsByIdentity } from '../dedupe-products';
 import type { Particle } from './FloatingParticles';
 import { ProductGridItem } from './ProductGridItem';
 
@@ -135,14 +136,14 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
   const allProductsHref = `${basePath}/products`;
 
   // All products from SSR
-  const allProducts = (() => {
+  const allProducts = dedupeProductsByIdentity((() => {
     if (useMockData) return mockProducts;
     if (templateProducts) return templateProducts;
     if (externalProducts) {
       return toTemplateProducts(externalProducts);
     }
     return [];
-  })();
+  })());
 
   // Filter state - always start with 'All' to avoid hydration mismatch
   const [selectedCategory, setSelectedCategory] = useState('All');
