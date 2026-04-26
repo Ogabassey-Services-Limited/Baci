@@ -109,7 +109,7 @@ jobs:
             printf 'Additional requester context:\n%s\n\n' "${ADDITIONAL_CONTEXT:-"(none)"}"
             printf 'Changed files:\n%s\n\n' "${files_summary:-"- No changed-file metadata returned."}"
             printf 'Unified diff:\n```diff\n'
-            printf '%s\n' "${diff_text}" | head -c 180000
+            printf '%s\n' "${diff_text:0:180000}"
             if (( ${#diff_text} > 180000 )); then
               printf '\n[diff truncated at 180000 characters]\n'
             fi
