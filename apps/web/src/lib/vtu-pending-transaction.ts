@@ -20,8 +20,8 @@ export const VTU_TYPE_LABELS: Record<PurchaseInput['type'], string> = {
  * Commission rate semantics:
  *   - Values in (0, 1] are treated as fractional percentages
  *     (0.5 -> 50%, 1.0 -> 100%).
- *   - Values >1 (up to 100) are treated as direct percentages
- *     (1.5 -> 1.5%, 50 -> 50%, 100 -> 100%).
+ *   - Integer values >1 (and <=100) are treated as direct percentages
+ *     (50 -> 50%).
  *   - A literal value of 1 is therefore 100%, NOT 1%. If a merchant intends
  *     "1 = 1%", the row must be migrated to 0.01 before deploy.
  *
@@ -33,10 +33,7 @@ export const VTU_TYPE_LABELS: Record<PurchaseInput['type'], string> = {
  * If any merchant intends "1 = 1%", migrate that row to 0.01 before
  * deploying this change.
  */
-function normalizeCommissionPercentage(
-  value: number | null | undefined,
-  context?: { merchantId?: string }
-) {
+function normalizeCommissionPercentage(value: number | null | undefined) {
   if (value == null) {
     return 50;
   }
@@ -45,22 +42,8 @@ function normalizeCommissionPercentage(
     throw new Error('Invalid VTU merchant commission rate');
   }
 
-  // value === 1 is ambiguous: under our current convention it means "100%",
-  // but a merchant might have intended "1%". Surface this so we can audit
-  // affected rows. The function does not de-dupe — it is up to the caller
-  // (typically once per request) to decide how to handle repeated logs.
-  if (value === 1) {
-    console.warn(
-      'normalizeCommissionPercentage: value-1 case encountered (treating as 100%)',
-      {
-        rawValue: value,
-        merchantId: context?.merchantId,
-      }
-    );
-  }
-
-  // Values in (0, 1] are fractional (0.5 -> 50%, 1.0 -> 100%); values >1
-  // are direct percentages (1.5 -> 1.5%, 50 -> 50%).
+  // Values in (0, 1] are fractional (0.5 -> 50%, 1.0 -> 100%); integer
+  // values >1 are direct percentages.
   if (value > 0 && value <= 1) {
     return value * 100;
   }
@@ -224,8 +207,7 @@ export async function preparePendingVtuTransaction({
   }
 
   const merchantSplitPercentage = normalizeCommissionPercentage(
-    featureSettings.vtu_merchant_commission_rate,
-    { merchantId: merchant.id }
+    featureSettings.vtu_merchant_commission_rate
   );
   const purchaseType = input.type as keyof typeof COMMISSION_CATEGORY_MAP;
   const normalizedNetworkProvider =

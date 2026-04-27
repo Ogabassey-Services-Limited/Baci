@@ -116,39 +116,25 @@ export default function ProductGrid({
     condition: selectedCondition !== 'All' ? selectedCondition : undefined,
     minRating: minRating > 0 ? minRating : undefined,
   });
-  const merchantCategoryNames = normalizedCategories
-    .map((category) => category.name?.trim())
-    .filter((categoryName): categoryName is string => Boolean(categoryName));
-  const productCategoryNames = products
-    .map((product) => product.category?.trim())
-    .filter((categoryName): categoryName is string => Boolean(categoryName));
-  const mergedCategoryNames = Array.from(
-    new Set([...merchantCategoryNames, ...productCategoryNames])
+  const fallbackProductCategories = getProductGridCategories(
+    products
+      .map((product) => product.category?.trim())
+      .filter((categoryName): categoryName is string => Boolean(categoryName))
   );
-  const sortedCategories = getProductGridCategories(mergedCategoryNames);
-  const categoryNames =
-    sortedCategories.length > 0 ? ['All', ...sortedCategories] : ['All'];
+  const categoryNames = (() => {
+    if (normalizedCategories.length > 0) {
+      const allCats = normalizedCategories.map((category) => category.name);
+      const sorted = getProductGridCategories(allCats);
 
-  if (
-    __DEV__ &&
-    categoryNames.length === 1 &&
-    !isCategoriesLoading &&
-    !isCategoriesFetching &&
-    isCategoriesFetchedAfterMount &&
-    !isLoading &&
-    !isFetching &&
-    isFetchedAfterMount
-  ) {
-    console.warn(
-      '[ProductGrid] No category chips resolved. Sources empty:',
-      JSON.stringify({
-        merchantCategoryCount: merchantCategoryNames.length,
-        productCategoryCount: productCategoryNames.length,
-        productsLoaded: products.length,
-        isCategoriesError,
-      })
-    );
-  }
+      return ['All', ...sorted];
+    }
+
+    if (fallbackProductCategories.length > 0) {
+      return ['All', ...fallbackProductCategories];
+    }
+
+    return ['All'];
+  })();
   const matchedCategoryName =
     selectedCategorySlug === ALL_PRODUCT_FILTER_CATEGORY_SLUG
       ? 'All'

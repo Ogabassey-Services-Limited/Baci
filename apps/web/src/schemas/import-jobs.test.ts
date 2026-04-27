@@ -8,6 +8,7 @@ import {
   importJobStatusSchema,
   importJobUploadInitSchema,
   importJobUploadSchema,
+  importJobWorkerRequestSchema,
 } from '@/schemas/import-jobs';
 
 describe('importJobSourcePlatformSchema', () => {
@@ -206,6 +207,42 @@ describe('importJobFinalizeSchema', () => {
     const result = importJobFinalizeSchema.safeParse({
       clientUploadId: '550e8400-e29b-41d4-a716-446655440000',
       extra: 'nope',
+    });
+
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('importJobWorkerRequestSchema', () => {
+  it('accepts a valid optional UUID jobId', () => {
+    const result = importJobWorkerRequestSchema.safeParse({
+      jobId: '550e8400-e29b-41d4-a716-446655440000',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects invalid UUID formats', () => {
+    const invalidValues = ['not-a-uuid', '550e8400-e29b-41d4-a716-44665544'];
+
+    for (const jobId of invalidValues) {
+      const result = importJobWorkerRequestSchema.safeParse({ jobId });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.flatten().fieldErrors.jobId).toBeTruthy();
+      }
+    }
+  });
+
+  it('accepts an empty object because jobId is optional', () => {
+    const result = importJobWorkerRequestSchema.safeParse({});
+
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects unknown properties like jobID typos', () => {
+    const result = importJobWorkerRequestSchema.safeParse({
+      jobID: '550e8400-e29b-41d4-a716-446655440000',
     });
 
     expect(result.success).toBe(false);

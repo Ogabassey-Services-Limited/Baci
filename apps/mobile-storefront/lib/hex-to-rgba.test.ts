@@ -1,20 +1,8 @@
-import {
-  afterAll,
-  afterEach,
-  beforeAll,
-  describe,
-  expect,
-  it,
-  jest,
-} from '@jest/globals';
+import { afterAll, afterEach, describe, expect, it, jest } from '@jest/globals';
 import { hexToRgba } from './hex-to-rgba';
 
 describe('hexToRgba', () => {
-  let warnSpy: ReturnType<typeof jest.spyOn>;
-
-  beforeAll(() => {
-    warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-  });
+  const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
   afterEach(() => {
     warnSpy.mockClear();
