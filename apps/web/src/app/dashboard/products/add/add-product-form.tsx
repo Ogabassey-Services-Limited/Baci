@@ -257,7 +257,6 @@ export default function AddProductForm({
   const categoryConfig = !merchant?.business_type
     ? getCategoryConfigFromBusinessType('general')
     : getCategoryConfigFromBusinessType(merchant.business_type);
-  const usesVariants = hasVariants && categoryConfig.supportsVariants;
 
   const handleColorImageUpload = (
     color: string,
@@ -572,10 +571,6 @@ export default function AddProductForm({
           .map((k) => k.trim())
           .filter(Boolean)
       : [];
-    const submittedVariants =
-      usesVariants && data.infinite_stock
-        ? variants.map((variant) => ({ ...variant, stock_quantity: 0 }))
-        : variants;
 
     const productData: Product = {
       id: initialData?.id || `prod_${Date.now()}`,
@@ -584,18 +579,15 @@ export default function AddProductForm({
       category: data.category,
       brand: data.brand || '',
 
-      price: usesVariants ? 0 : data.price,
+      price: hasVariants ? 0 : data.price,
       compare_at_price: data.compare_at_price,
       cost_price: data.cost_price,
 
-      manage_stock: !data.infinite_stock,
-      stock: data.infinite_stock
-        ? 0
-        : usesVariants
-          ? submittedVariants.reduce(
-              (sum, v) => sum + (v.stock_quantity || 0),
-              0
-            )
+      manage_stock: hasVariants ? true : !data.infinite_stock,
+      stock: hasVariants
+        ? variants.reduce((sum, v) => sum + (v.stock_quantity || 0), 0)
+        : data.infinite_stock
+          ? 0
           : data.stock || 0,
       low_stock_threshold: data.low_stock_threshold,
       minimum_order_quantity: data.minimum_order_quantity,
@@ -630,9 +622,9 @@ export default function AddProductForm({
       taxable: data.taxable,
       tax_code: data.tax_code,
 
-      fulfillment_details: usesVariants ? [] : data.fulfillment_details,
-      has_variants: usesVariants,
-      variants: usesVariants ? submittedVariants : [],
+      fulfillment_details: hasVariants ? [] : data.fulfillment_details,
+      has_variants: hasVariants,
+      variants: hasVariants ? variants : [],
       color: data.color,
       material: data.material,
       size_attribute: data.size_attribute,
@@ -943,16 +935,9 @@ export default function AddProductForm({
                             {...field}
                             value={(field.value as number | string) ?? ''}
                             className="pl-8"
-                            disabled={usesVariants}
                           />
                         </div>
                       </FormControl>
-                      {usesVariants && (
-                        <FormDescription className="text-xs">
-                          Base price is unused when variants are enabled;
-                          pricing is controlled by variant overrides.
-                        </FormDescription>
-                      )}
                       <FormMessage />
                     </FormItem>
                   )}
@@ -1080,123 +1065,109 @@ export default function AddProductForm({
 
                 {categoryConfig.supportsVariants && (
                   <FormItem className="mb-4">
-                    <div className="flex flex-row items-center justify-between rounded-lg border p-3">
+                    <FormLabel className="flex flex-row items-center justify-between rounded-lg border p-3 cursor-pointer">
                       <div className="space-y-0.5">
-                        <label
-                          className="font-medium cursor-pointer"
-                          htmlFor="product-variants-switch"
-                        >
-                          Product Variants
-                        </label>
-                        <p
-                          className="text-sm text-muted-foreground"
-                          id="product-variants-description"
-                        >
+                        <div className="font-medium">Product Variants</div>
+                        <FormDescription>
                           Does this product have options like size, color?
-                        </p>
+                        </FormDescription>
                       </div>
-                      <Switch
-                        aria-describedby="product-variants-description"
-                        id="product-variants-switch"
-                        checked={hasVariants}
-                        onCheckedChange={setHasVariants}
-                      />
-                    </div>
+                      <FormControl>
+                        <Switch
+                          checked={hasVariants}
+                          onCheckedChange={setHasVariants}
+                        />
+                      </FormControl>
+                    </FormLabel>
                   </FormItem>
                 )}
 
-                <FormField
-                  control={form.control}
-                  name="infinite_stock"
-                  render={({ field }) => (
-                    <FormItem className="mb-4">
-                      <div className="flex flex-row items-center justify-between rounded-lg border p-3">
-                        <div className="space-y-0.5">
-                          <FormLabel className="font-medium cursor-pointer">
-                            Set unlimited stock
-                          </FormLabel>
-                          <FormDescription>
-                            Enable to allow orders without checking available
-                            quantity.
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={!!field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </div>
-                    </FormItem>
-                  )}
-                />
-
-                {usesVariants ? (
+                {hasVariants && categoryConfig.supportsVariants ? (
                   <VariantBuilder
                     key={variantBuilderKey}
                     categoryConfig={categoryConfig}
                     basePrice={Number(form.watch('price')) || 0}
                     initialVariants={variants}
                     onVariantsChange={setVariants}
-                    stockTrackingEnabled={!watchInfiniteStock}
                   />
                 ) : (
-                  !watchInfiniteStock && (
-                    <div className="grid grid-cols-3 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="stock"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Quantity</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                {...field}
-                                value={(field.value as number | string) ?? ''}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="low_stock_threshold"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Low Stock Alert</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                {...field}
-                                value={(field.value as number | string) ?? ''}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="minimum_order_quantity"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Min Order Qty</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                min="1"
-                                {...field}
-                                value={(field.value as number | string) ?? ''}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  )
+                  <>
+                    <FormItem className="mb-4">
+                      <FormLabel className="flex flex-row items-center justify-between rounded-lg border p-3 cursor-pointer">
+                        <div className="space-y-0.5">
+                          <div className="font-medium">Track Inventory</div>
+                          <FormDescription>
+                            Uncheck for unlimited stock (e.g. digital)
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={!watchInfiniteStock}
+                            onCheckedChange={(c) =>
+                              form.setValue('infinite_stock', !c)
+                            }
+                          />
+                        </FormControl>
+                      </FormLabel>
+                    </FormItem>
+
+                    {!watchInfiniteStock && (
+                      <div className="grid grid-cols-3 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="stock"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Quantity</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  {...field}
+                                  value={(field.value as number | string) ?? ''}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="low_stock_threshold"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Low Stock Alert</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  {...field}
+                                  value={(field.value as number | string) ?? ''}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="minimum_order_quantity"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Min Order Qty</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  {...field}
+                                  value={(field.value as number | string) ?? ''}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </TabsContent>

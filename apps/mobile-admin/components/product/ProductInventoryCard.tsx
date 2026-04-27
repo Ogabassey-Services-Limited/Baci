@@ -32,8 +32,6 @@ export function ProductInventoryCard({
   onToggleManageStock,
   stockQuantity,
 }: ProductInventoryCardProps) {
-  const unlimitedStockEnabled = !manageStock;
-
   return (
     <>
       <View
@@ -47,21 +45,19 @@ export function ProductInventoryCard({
       >
         <View style={styles.toggleTextBlock}>
           <Text style={[styles.title, { color: colors.text }]}>
-            Set unlimited stock
+            Track Inventory
           </Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            {unlimitedStockEnabled
-              ? 'Orders can be placed without checking stock quantity.'
-              : 'Turn on to allow orders without checking stock quantity.'}
+            Automatically manage stock levels and fulfillments.
           </Text>
         </View>
         <Switch
-          accessibilityLabel="Set unlimited stock"
+          accessibilityLabel="Track inventory"
           accessibilityRole="switch"
-          value={unlimitedStockEnabled}
-          onValueChange={(enabled) => onToggleManageStock(!enabled)}
+          value={manageStock}
+          onValueChange={onToggleManageStock}
           trackColor={{ false: colors.border, true: colors.primary }}
-          thumbColor={unlimitedStockEnabled ? colors.textOnPrimary : undefined}
+          thumbColor={manageStock ? colors.primary : undefined}
         />
       </View>
 

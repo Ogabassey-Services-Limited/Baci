@@ -7,22 +7,12 @@ const MERCHANT_NAME_HEADER =
 
 export type AgenticWebhookEvent = 'order.created' | 'order.updated';
 
-export interface AgenticBuyer {
-  email?: string;
-  first_name?: string;
-  last_name?: string;
-  phone_number?: string;
-}
-
 export interface AgenticOrderData {
   id: string;
   currency?: string;
-  // GPTTotal.amount is `number | string` per OpenAI Agentic Commerce spec
-  // (most values are numbers, but discount-style values may be string e.g. "0.30").
-  // We preserve the upstream union here rather than coercing at the boundary.
   total?: number | string;
   status?: string;
-  buyer?: AgenticBuyer;
+  [key: string]: unknown;
 }
 
 interface WebhookPayload {
@@ -42,7 +32,7 @@ export async function sendAgenticWebhook(
   }
 
   const payload: WebhookPayload = {
-    event,
+    event: event,
     order_id: orderData.id,
     payload: orderData,
     timestamp: new Date().toISOString(),
