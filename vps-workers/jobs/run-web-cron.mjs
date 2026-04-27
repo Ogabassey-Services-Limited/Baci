@@ -16,6 +16,10 @@ const WEB_CRON_CONFIG = new Map([
     '/api/cron/publish-scheduled-posts',
     { method: 'GET', timeoutMs: 5 * 60_000 },
   ],
+  [
+    '/api/cron/vtu-cashback-summaries',
+    { method: 'GET', timeoutMs: 5 * 60_000 },
+  ],
   ['/api/cron/wallet-payouts', { method: 'GET', timeoutMs: 5 * 60_000 }],
   ['/api/inventory/push-alerts', { method: 'GET', timeoutMs: 10 * 60_000 }],
 ]);

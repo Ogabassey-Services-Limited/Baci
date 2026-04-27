@@ -16,6 +16,14 @@ interface Biller {
   billerType: string;
   categoryId: string;
   categoryName: string;
+  billItems?: Array<{
+    itemCode: string;
+    itemName: string;
+    amount: number;
+    itemCurrencySymbol: string;
+    isAmountFixed: boolean;
+    itemFee: number;
+  }>;
 }
 
 let mockBillers: Biller[] = [];
@@ -48,6 +56,16 @@ describe('GET /api/vtu/billers', () => {
         billerType: 'prepaid',
         categoryId: 'cat-1',
         categoryName: 'Electricity',
+        billItems: [
+          {
+            itemCode: 'prepaid',
+            itemName: 'Prepaid',
+            amount: 0,
+            itemCurrencySymbol: 'NGN',
+            isAmountFixed: false,
+            itemFee: 0,
+          },
+        ],
       },
       {
         billerId: 'biller-2',
@@ -146,14 +164,14 @@ describe('GET /api/vtu/billers', () => {
     expect(data.error).toBe('Failed to fetch billers: Kuda API unavailable');
   });
 
-  it('response has Cache-Control header', async () => {
+  it('keeps biller submenu caching short-lived', async () => {
     const { GET } = await import('./route');
 
     const request = makeRequest({ type: 'data' });
     const response = await GET(request);
 
     expect(response.headers.get('Cache-Control')).toBe(
-      'public, s-maxage=3600, stale-while-revalidate=600'
+      'max-age=60, stale-while-revalidate=300'
     );
   });
 
