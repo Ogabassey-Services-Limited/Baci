@@ -14,13 +14,6 @@ const CLAIMED_STATUS_MAP = {
 const IMPORT_JOB_SELECT =
   'id, merchant_id, created_by, source_platform, entity_type, status, original_filename, storage_path, content_type, file_size_bytes, total_rows, processed_rows, summary, error, started_at, created_at, committed_at, notified_at, completed_at';
 
-function byCreatedAt(left: ImportJobRecord, right: ImportJobRecord) {
-  return (
-    new Date(left.created_at || 0).getTime() -
-    new Date(right.created_at || 0).getTime()
-  );
-}
-
 async function loadQueuedJobsForStatus(
   supabase: SupabaseClient,
   status: keyof typeof CLAIMED_STATUS_MAP,
@@ -123,9 +116,9 @@ export async function processImportJobQueue(
     addJob(commitJobs[0]);
   }
 
-  for (const job of [notifyJobs[0], uploadedJobs[0]]
-    .filter((job): job is ImportJobRecord => Boolean(job))
-    .sort(byCreatedAt)) {
+  for (const job of [notifyJobs[0], uploadedJobs[0]].filter(
+    (job): job is ImportJobRecord => Boolean(job)
+  )) {
     addJob(job);
   }
 

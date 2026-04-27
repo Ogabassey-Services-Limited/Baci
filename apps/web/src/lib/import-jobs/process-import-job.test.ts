@@ -562,7 +562,13 @@ describe('processImportJobQueue', () => {
     loadUploadedQuery.eq.mockReturnValue(loadUploadedQuery);
     loadUploadedQuery.order.mockReturnValue(loadUploadedQuery);
     loadUploadedQuery.limit.mockResolvedValue({
-      data: [{ ...createJob('uploaded'), id: 'uploaded-job-1' }],
+      data: [
+        {
+          ...createJob('uploaded'),
+          id: 'uploaded-job-1',
+          created_at: '2026-03-22T09:00:00.000Z',
+        },
+      ],
       error: null,
     });
 
@@ -637,6 +643,16 @@ describe('processImportJobQueue', () => {
     expect(loadCommitQuery.limit).toHaveBeenCalledWith(2);
     expect(loadNotifyQuery.limit).toHaveBeenCalledWith(1);
     expect(loadUploadedQuery.limit).toHaveBeenCalledWith(1);
+    expect(claimNotifyingQuery.eq).toHaveBeenNthCalledWith(
+      1,
+      'id',
+      'notify-job-1'
+    );
+    expect(claimNotifyingQuery.eq).toHaveBeenNthCalledWith(
+      2,
+      'status',
+      'notify_queued'
+    );
   });
 
   it('throws when a per-status queue load fails', async () => {
