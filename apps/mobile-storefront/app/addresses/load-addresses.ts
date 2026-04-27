@@ -1,7 +1,7 @@
 import { createLogger } from '@/lib/logger';
 import { normalizeSavedAddresses } from '@/lib/saved-addresses';
 import { supabase } from '@/lib/supabase';
-import type { Address } from './types';
+import type { Address } from '@/components/addresses/types';
 
 const log = createLogger('Addresses');
 

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { styles } from './styles';
+import { styles } from '@/components/settings/styles';
 
 type SettingsCardSectionProps = {
   cardBackgroundColor: string;
