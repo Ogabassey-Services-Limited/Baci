@@ -3,26 +3,22 @@
  * Displays user's saved/favorited products
  */
 
-import { Ionicons } from '@expo/vector-icons';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
-import { Image } from 'expo-image';
 import { router, Stack } from 'expo-router';
 import { useRef } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeIn, FadeOut, Layout } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BLURHASH_VARIANTS } from '@/components/storefront/ProductCard';
+import { SavedItemCard } from '@/components/saved/SavedItemCard';
+import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
+import Colors, { BRAND, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/Colors';
+import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
 import { useCartStore } from '@/stores/cart-store';
 import { type SavedItem, useSavedStore } from '@/stores/saved-store';
-import { formatPrice, getDiscountPercentage } from '@/types/product';
 
 export default function SavedItemsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const insets = useSafeAreaInsets();
-
+  const { getListContentStyle } = useStorefrontInsets();
   const items = useSavedStore((state) => state.items);
   const removeItem = useSavedStore((state) => state.removeItem);
   const clearSaved = useSavedStore((state) => state.clearSaved);
@@ -76,146 +72,21 @@ export default function SavedItemsScreen() {
   };
 
   const handleProductPress = (item: SavedItem) => {
-    if (!item.slug) return;
+    if (!item.slug) {
+      if (__DEV__) {
+        console.warn('Saved item is missing a product slug', {
+          id: item.id,
+          name: item.name,
+        });
+      }
+      Alert.alert(
+        'Product Unavailable',
+        'This saved item is no longer available.'
+      );
+      return;
+    }
     router.push(`/product/${item.slug}`);
   };
-
-  const formatDate = (timestamp: number) => {
-    const date = new Date(timestamp);
-    return date.toLocaleDateString('en-NG', {
-      day: 'numeric',
-      month: 'short',
-    });
-  };
-
-  const renderSavedItem = ({ item }: { item: SavedItem }) => {
-    const discountPercentage = getDiscountPercentage(
-      item.price,
-      item.compare_at_price
-    );
-
-    return (
-      <Animated.View
-        entering={FadeIn.duration(300)}
-        exiting={FadeOut.duration(200)}
-        layout={Layout.springify()}
-        style={[styles.itemCard, { backgroundColor: colors.card }]}
-      >
-        <Pressable
-          onPress={() => handleProductPress(item)}
-          style={styles.itemContent}
-        >
-          {/* Product Image */}
-          <View style={[styles.imageContainer, { backgroundColor: colors.muted }]}>
-            <Image
-              source={{ uri: item.image }}
-              style={styles.image}
-              contentFit="cover"
-              placeholder={{ blurhash: BLURHASH_VARIANTS.default }}
-              transition={200}
-              cachePolicy="memory-disk"
-            />
-            {discountPercentage && (
-              <View style={[styles.discountBadge, { backgroundColor: colors.primary }]}>
-                <Text style={[styles.discountText, { color: colors.primaryForeground }]}>-{discountPercentage}%</Text>
-              </View>
-            )}
-          </View>
-
-          {/* Product Info */}
-          <View style={styles.infoContainer}>
-            {item.brand && (
-              <Text style={[styles.brandText, { color: colors.textSecondary }]}>
-                {item.brand}
-              </Text>
-            )}
-            <Text
-              style={[styles.nameText, { color: colors.text }]}
-              numberOfLines={2}
-            >
-              {item.name}
-            </Text>
-
-            <View style={styles.priceRow}>
-              <Text style={[styles.priceText, { color: colors.price }]}>
-                {formatPrice(item.price)}
-              </Text>
-              {item.compare_at_price && (
-                <Text
-                  style={[
-                    styles.comparePriceText,
-                    { color: colors.textSecondary },
-                  ]}
-                >
-                  {formatPrice(item.compare_at_price)}
-                </Text>
-              )}
-            </View>
-
-            <Text
-              style={[styles.savedDateText, { color: colors.textSecondary }]}
-            >
-              Saved {formatDate(item.savedAt)}
-            </Text>
-          </View>
-        </Pressable>
-
-        {/* Action Buttons */}
-        <View style={styles.actionsRow}>
-          <Pressable
-            style={[
-              styles.actionButton,
-              styles.removeButton,
-              { borderColor: colors.border },
-            ]}
-            onPress={() => handleRemove(item)}
-          >
-            <Ionicons
-              name="heart-dislike-outline"
-              size={18}
-              color={colors.textSecondary}
-            />
-            <Text
-              style={[styles.actionButtonText, { color: colors.textSecondary }]}
-            >
-              Remove
-            </Text>
-          </Pressable>
-          <Pressable
-            style={[
-              styles.actionButton,
-              styles.cartButton,
-              { backgroundColor: colors.primary },
-            ]}
-            onPress={() => handleAddToCart(item)}
-          >
-            <Ionicons name="cart-outline" size={18} color={colors.primaryForeground} />
-            <Text style={[styles.actionButtonText, { color: colors.primaryForeground }]}>
-              Add to Cart
-            </Text>
-          </Pressable>
-        </View>
-      </Animated.View>
-    );
-  };
-
-  const renderEmptyState = () => (
-    <View style={styles.emptyState}>
-      <Ionicons name="heart-outline" size={80} color={colors.textSecondary} />
-      <Text style={[styles.emptyTitle, { color: colors.text }]}>
-        No saved items
-      </Text>
-      <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-        Tap the heart icon on products to save them for later
-      </Text>
-      <Pressable
-        style={[styles.shopButton, { backgroundColor: colors.primary }]}
-        onPress={() => router.push('/')}
-      >
-        <Text style={[styles.shopButtonText, { color: colors.primaryForeground }]}>Browse Products</Text>
-      </Pressable>
-    </View>
-  );
 
   const renderHeader = () => {
     if (items.length === 0) return null;
@@ -225,8 +96,12 @@ export default function SavedItemsScreen() {
         <Text style={[styles.itemCountText, { color: colors.textSecondary }]}>
           {items.length} {items.length === 1 ? 'item' : 'items'} saved
         </Text>
-        <Pressable onPress={handleClearAll}>
-          <Text style={[styles.clearAllText, { color: colors.primary }]}>
+        <Pressable
+          onPress={handleClearAll}
+          accessibilityRole="button"
+          accessibilityLabel="Clear all saved items"
+        >
+          <Text style={[styles.clearAllText, { color: BRAND.primary }]}>
             Clear All
           </Text>
         </Pressable>
@@ -234,10 +109,32 @@ export default function SavedItemsScreen() {
     );
   };
 
-  // Approximate height of saved item card:
-  // padding SPACING.md (16) * 2 = 32
+  const renderEmptyState = () => (
+    <View style={styles.emptyState}>
+      <Text style={[styles.emptyTitle, { color: colors.text }]}>
+        No saved items
+      </Text>
+      <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+        Tap the heart icon on products to save them for later
+      </Text>
+      <Pressable
+        style={[styles.shopButton, { backgroundColor: BRAND.primary }]}
+        onPress={() => router.push('/')}
+        accessibilityRole="button"
+        accessibilityLabel="Browse products"
+      >
+        <Text style={[styles.shopButtonText, { color: colors.white }]}>
+          Browse Products
+        </Text>
+      </Pressable>
+    </View>
+  );
+
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <StorefrontScreenShell
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={['bottom']}
+    >
       <Stack.Screen
         options={{
           title: 'Saved Items',
@@ -250,28 +147,36 @@ export default function SavedItemsScreen() {
       <FlashList
         ref={flashListRef}
         data={items}
-        renderItem={renderSavedItem}
+        renderItem={({ item }) => (
+          <SavedItemCard
+            colors={colors}
+            item={item}
+            onAddToCart={handleAddToCart}
+            onPress={handleProductPress}
+            onRemove={handleRemove}
+          />
+        )}
         keyExtractor={(item) => item.id}
         contentContainerStyle={[
-          styles.listContent,
+          getListContentStyle({
+            gap: SPACING.md,
+            includeBottomInset: false,
+            padding: SPACING.md,
+            paddingBottom: SPACING.lg,
+          }),
           items.length === 0 && styles.emptyListContent,
-          { paddingBottom: insets.bottom + SPACING.lg },
         ]}
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={renderEmptyState}
         showsVerticalScrollIndicator={false}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
       />
-    </View>
+    </StorefrontScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  listContent: {
-    padding: SPACING.md,
   },
   emptyListContent: {
     flex: 1,
@@ -280,109 +185,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.md,
   },
   itemCountText: {
-    fontSize: 14,
+    fontSize: TYPOGRAPHY.size.base,
     fontWeight: '500',
   },
   clearAllText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  separator: {
-    height: SPACING.md,
-  },
-  itemCard: {
-    borderRadius: RADIUS.lg,
-    overflow: 'hidden',
-    ...SHADOWS.sm,
-  },
-  itemContent: {
-    flexDirection: 'row',
-    padding: SPACING.md,
-  },
-  imageContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: RADIUS.md,
-    overflow: 'hidden',
-
-  },
-  image: {
-    width: '100%',
-    height: '100%',
-  },
-  discountBadge: {
-    position: 'absolute',
-    top: SPACING.xs,
-    left: SPACING.xs,
-
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: RADIUS.sm,
-  },
-  discountText: {
-
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  infoContainer: {
-    flex: 1,
-    marginLeft: SPACING.md,
-    justifyContent: 'center',
-  },
-  brandText: {
-    fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 2,
-  },
-  nameText: {
-    fontSize: 15,
-    fontWeight: '600',
-    lineHeight: 20,
-    marginBottom: SPACING.xs,
-  },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: SPACING.xs,
-    marginBottom: SPACING.xs,
-  },
-  priceText: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  comparePriceText: {
-    fontSize: 13,
-    textDecorationLine: 'line-through',
-  },
-  savedDateText: {
-    fontSize: 11,
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    paddingBottom: SPACING.md,
-  },
-  actionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.xs,
-    paddingVertical: SPACING.sm,
-    borderRadius: RADIUS.md,
-  },
-  removeButton: {
-    borderWidth: 1,
-  },
-  cartButton: {},
-  actionButtonText: {
-    fontSize: 13,
+    fontSize: TYPOGRAPHY.size.base,
     fontWeight: '600',
   },
   emptyState: {
@@ -392,25 +201,23 @@ const styles = StyleSheet.create({
     padding: SPACING.xl,
   },
   emptyTitle: {
-    fontSize: 20,
+    fontSize: TYPOGRAPHY.size.xl,
     fontWeight: '700',
-    marginTop: SPACING.lg,
   },
   emptySubtitle: {
-    fontSize: 15,
+    fontSize: TYPOGRAPHY.size.base,
     textAlign: 'center',
     marginTop: SPACING.sm,
     lineHeight: 22,
   },
   shopButton: {
-    paddingHorizontal: 32,
-    paddingVertical: 14,
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.baseGap,
     borderRadius: RADIUS.lg,
     marginTop: SPACING.xl,
   },
   shopButtonText: {
-
-    fontSize: 16,
+    fontSize: TYPOGRAPHY.size.lg,
     fontWeight: '600',
   },
 });
