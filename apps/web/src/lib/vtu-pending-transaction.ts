@@ -4,6 +4,7 @@ import {
   generateRequestRef,
   isValidPhoneNumber,
 } from '@/lib/kuda';
+import { normalizeVtuNetworkProvider } from '@/lib/normalize-vtu-network-provider';
 import { calculateCommerce } from '@/lib/supabase/client';
 import { COMMISSION_CATEGORY_MAP, type PurchaseInput } from '@/schemas/vtu';
 
@@ -14,6 +15,23 @@ export const VTU_TYPE_LABELS: Record<PurchaseInput['type'], string> = {
   cable_tv: 'TV Subscription',
   betting: 'Betting Top-up',
 };
+
+function normalizeCommissionPercentage(value: number | null | undefined) {
+  if (value == null) {
+    return 50;
+  }
+
+  if (value < 0 || value > 100) {
+    throw new Error('Invalid VTU merchant commission rate');
+  }
+
+  // Existing rows may store 0.5 as a 50% split; only values in (0, 1) are fractional.
+  if (value > 0 && value < 1) {
+    return value * 100;
+  }
+
+  return value;
+}
 
 interface CustomerRecord {
   id: string;
@@ -170,12 +188,20 @@ export async function preparePendingVtuTransaction({
     throw new Error('Customer account not found for this storefront');
   }
 
-  const merchantSplitPercentage = featureSettings.vtu_merchant_commission_rate
-    ? featureSettings.vtu_merchant_commission_rate * 100
-    : 50;
+  const merchantSplitPercentage = normalizeCommissionPercentage(
+    featureSettings.vtu_merchant_commission_rate
+  );
   const purchaseType = input.type as keyof typeof COMMISSION_CATEGORY_MAP;
+  const normalizedNetworkProvider =
+    isTelco && input.networkProvider
+      ? normalizeVtuNetworkProvider(input.networkProvider)
+      : undefined;
+  if (isTelco && !normalizedNetworkProvider) {
+    throw new Error(`Invalid network provider: ${input.networkProvider ?? ''}`);
+  }
+
   const commissionProvider = isTelco
-    ? (input.networkProvider ?? '')
+    ? normalizedNetworkProvider
     : (input.billerName ?? 'DEFAULT');
 
   const commissions = await calculateCommerce('calculate_vtu', {
@@ -206,7 +232,7 @@ export async function preparePendingVtuTransaction({
       order_id: input.orderId ?? null,
       type: input.type,
       network_provider: isTelco
-        ? input.networkProvider
+        ? normalizedNetworkProvider
         : (input.billerName ?? ''),
       phone_number: isTelco ? formattedPhone : (input.customerIdentifier ?? ''),
       amount: input.amount,

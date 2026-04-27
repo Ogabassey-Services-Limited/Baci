@@ -175,6 +175,14 @@ describe('getStorefrontNotificationNavigationTarget', () => {
       })
     ).toEqual({ screen: 'home' });
   });
+
+  it('routes VTU cashback monthly summaries to wallet', () => {
+    expect(
+      getStorefrontNotificationNavigationTarget({
+        type: 'vtu_cashback_monthly_summary',
+      })
+    ).toEqual({ screen: 'wallet' });
+  });
 });
 
 describe('getAdminNotificationNavigationTarget — edge cases', () => {

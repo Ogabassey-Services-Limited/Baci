@@ -96,6 +96,9 @@ export function usePushNotifications(): UsePushNotificationsReturn {
             `/category/${params?.slug}` as import('expo-router').Href
           );
           break;
+        case 'wallet':
+          router.push('/wallet');
+          break;
         default:
           router.push('/');
       }

@@ -30,7 +30,8 @@ export async function GET(request: NextRequest) {
       { billers },
       {
         headers: {
-          'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=600',
+          // Kuda can add or change nested bill items; keep this fresh without hammering the upstream API.
+          'Cache-Control': 'max-age=60, stale-while-revalidate=300',
         },
       }
     );

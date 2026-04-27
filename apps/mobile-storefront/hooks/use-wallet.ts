@@ -29,7 +29,14 @@ interface WalletData {
 
 interface Transaction {
   id: string;
-  type: 'credit' | 'debit';
+  type:
+    | 'credit'
+    | 'debit'
+    | 'cashback'
+    | 'redemption'
+    | 'bonus'
+    | 'adjustment'
+    | 'expiry';
   amount: number;
   description: string;
   created_at: string;
@@ -41,13 +48,15 @@ interface WalletQueryData {
 }
 
 const RedeemLoyaltyRpcResponseSchema = z.discriminatedUnion('success', [
-  z.object({
-    success: z.literal(true),
-    wallet_credited: z.number().finite(),
-    points_deducted: z.number().finite(),
-    new_points_balance: z.number().finite(),
-    new_wallet_balance: z.number().finite(),
-  }).strict(),
+  z
+    .object({
+      success: z.literal(true),
+      wallet_credited: z.number().finite(),
+      points_deducted: z.number().finite(),
+      new_points_balance: z.number().finite(),
+      new_wallet_balance: z.number().finite(),
+    })
+    .strict(),
   z.object({
     success: z.literal(false),
     error: z.string().optional(),
@@ -92,12 +101,11 @@ async function fetchWalletData(
   if (customerResult.error) throw customerResult.error;
   if (walletResult.error) throw walletResult.error;
 
-  // Step 2: Fetch transactions if wallet exists
-  // wallet_transactions uses wallet_id (FK to customer_wallets.id), not customer_id
+  // Step 2: Fetch customer wallet transactions if wallet exists.
   let transactionRows: Transaction[] = [];
   if (walletResult.data?.id) {
     const txResult = await supabase
-      .from('wallet_transactions')
+      .from('customer_wallet_transactions')
       .select('id, type, amount, description, created_at')
       .eq('wallet_id', walletResult.data.id)
       .order('created_at', { ascending: false })
@@ -148,10 +156,12 @@ async function fetchWalletData(
  */
 export function useWallet() {
   const queryClient = useQueryClient();
-  const { customer, merchantId } = useAuthStore(useShallow((state) => ({
-    customer: state.customer,
-    merchantId: state.merchantId,
-  })));
+  const { customer, merchantId } = useAuthStore(
+    useShallow((state) => ({
+      customer: state.customer,
+      merchantId: state.merchantId,
+    }))
+  );
   const channelRef = useRef<RealtimeChannel | null>(null);
 
   const query = useQuery({
@@ -233,10 +243,12 @@ export function useWallet() {
  */
 export function useRedeemPoints() {
   const queryClient = useQueryClient();
-  const { customer, merchantId } = useAuthStore(useShallow((state) => ({
-    customer: state.customer,
-    merchantId: state.merchantId,
-  })));
+  const { customer, merchantId } = useAuthStore(
+    useShallow((state) => ({
+      customer: state.customer,
+      merchantId: state.merchantId,
+    }))
+  );
 
   return useMutation({
     mutationFn: async (points: number) => {

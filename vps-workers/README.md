@@ -115,6 +115,7 @@ $CRON_SECRET`; `/api/cron/process-settlements` uses `POST` and the others use
 - `/api/cron/cleanup-orders`
 - `/api/cron/process-settlements`
 - `/api/cron/publish-scheduled-posts`
+- `/api/cron/vtu-cashback-summaries`
 - `/api/cron/wallet-payouts`
 - `/api/inventory/push-alerts`
 

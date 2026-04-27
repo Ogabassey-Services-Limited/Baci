@@ -1,8 +1,10 @@
+import { MOBILE_TO_KUDA_PROVIDER } from '@/lib/network-utils';
 import {
   chargeSavedVtuCard,
   confirmVtuCheckout,
   initializeVtuCheckout,
   listSavedVtuCards,
+  normalizeVtuCheckoutPayload,
 } from '@/lib/vtu-checkout';
 
 const mockFetchWithTimeout = jest.fn();
@@ -25,13 +27,43 @@ jest.mock('@/lib/supabase', () => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null });
+  mockGetUser.mockResolvedValue({
+    data: { user: { id: 'user-1' } },
+    error: null,
+  });
   mockGetSession.mockResolvedValue({
     data: { session: { access_token: 'token-123' } },
   });
 });
 
 describe('vtu-checkout service', () => {
+  it('normalizes known mobile network providers before checkout', () => {
+    expect(
+      normalizeVtuCheckoutPayload({
+        amount: 1000,
+        networkProvider: 'mtn',
+      })
+    ).toMatchObject({ networkProvider: MOBILE_TO_KUDA_PROVIDER.mtn });
+    expect(
+      normalizeVtuCheckoutPayload({
+        amount: 1000,
+        networkProvider: 'airtel',
+      })
+    ).toMatchObject({ networkProvider: MOBILE_TO_KUDA_PROVIDER.airtel });
+  });
+
+  it('keeps missing, empty, and unknown network providers unchanged', () => {
+    expect(normalizeVtuCheckoutPayload({ amount: 1000 })).not.toHaveProperty(
+      'networkProvider'
+    );
+    expect(
+      normalizeVtuCheckoutPayload({ amount: 1000, networkProvider: '' })
+    ).toMatchObject({ networkProvider: '' });
+    expect(
+      normalizeVtuCheckoutPayload({ amount: 1000, networkProvider: 'unknown' })
+    ).toMatchObject({ networkProvider: 'unknown' });
+  });
+
   it('initializes VTU checkout with the authenticated token', async () => {
     mockFetchWithTimeout.mockResolvedValue({
       ok: true,
@@ -62,6 +94,11 @@ describe('vtu-checkout service', () => {
         }),
       })
     );
+    expect(
+      JSON.parse(mockFetchWithTimeout.mock.calls[0][1].body)
+    ).toMatchObject({
+      networkProvider: MOBILE_TO_KUDA_PROVIDER.mtn,
+    });
   });
 
   it('confirms a successful VTU checkout', async () => {

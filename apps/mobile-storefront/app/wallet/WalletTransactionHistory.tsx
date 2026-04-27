@@ -12,12 +12,44 @@ export interface WalletTransaction {
   created_at: string;
   description: string;
   id: string;
-  type: 'credit' | 'debit';
+  type:
+    | 'credit'
+    | 'debit'
+    | 'cashback'
+    | 'redemption'
+    | 'bonus'
+    | 'adjustment'
+    | 'expiry';
 }
 
 interface WalletTransactionHistoryProps {
   colors: WalletColors;
   transactions: WalletTransaction[];
+}
+
+function hexToRgba(hexColor: string, alpha: number): string {
+  const normalizedHex = hexColor.replace('#', '');
+  const expandedHex =
+    normalizedHex.length === 3 && /^[\da-f]{3}$/i.test(normalizedHex)
+      ? normalizedHex
+          .split('')
+          .map((character) => `${character}${character}`)
+          .join('')
+      : normalizedHex;
+
+  if (!/^[\da-f]{6}$/i.test(expandedHex)) {
+    if (__DEV__) {
+      console.warn(`hexToRgba: invalid hex color received: ${hexColor}`);
+    }
+    return 'rgba(0,0,0,0)';
+  }
+
+  const colorValue = Number.parseInt(expandedHex, 16);
+  const red = (colorValue >> 16) & 255;
+  const green = (colorValue >> 8) & 255;
+  const blue = colorValue & 255;
+
+  return `rgba(${red},${green},${blue},${alpha})`;
 }
 
 function formatWalletDate(dateString: string) {
@@ -57,13 +89,35 @@ export function WalletTransactionHistory({
         </View>
       ) : (
         transactions.map((transaction) => {
-          const isCredit = transaction.type === 'credit';
+          const isCredit =
+            ['credit', 'cashback', 'bonus'].includes(transaction.type) ||
+            (transaction.type === 'adjustment' && transaction.amount > 0);
+          const isDebit =
+            ['debit', 'redemption', 'expiry'].includes(transaction.type) ||
+            (transaction.type === 'adjustment' && transaction.amount < 0);
+          // Adjustment rows are signed by amount because the backend type is neutral.
+          const amountPrefix = isCredit ? '+' : isDebit ? '-' : '';
+          const amountColor = isCredit
+            ? colors.success
+            : isDebit
+              ? colors.error
+              : colors.textSecondary;
+          const transactionLabel = isCredit
+            ? 'Credit'
+            : isDebit
+              ? 'Debit'
+              : 'Neutral';
+          const transactionIcon = isCredit
+            ? 'arrow-down'
+            : isDebit
+              ? 'arrow-up'
+              : 'remove';
 
           return (
             <View
               accessible
               accessibilityRole="text"
-              accessibilityLabel={`${isCredit ? 'Credit' : 'Debit'} transaction. ${transaction.description}. ${formatNgnCurrency(transaction.amount)}. ${formatWalletDate(transaction.created_at)}.`}
+              accessibilityLabel={`${transactionLabel} transaction. ${transaction.description}. ${amountPrefix}${formatNgnCurrency(Math.abs(transaction.amount))}. ${formatWalletDate(transaction.created_at)}.`}
               key={transaction.id}
               style={[
                 styles.transactionItem,
@@ -74,18 +128,16 @@ export function WalletTransactionHistory({
                 style={[
                   styles.txIcon,
                   {
-                    backgroundColor: isCredit
-                      ? 'rgba(16,185,129,0.12)'
-                      : 'rgba(239,68,68,0.12)',
+                    backgroundColor: hexToRgba(amountColor, 0.12),
                   },
                 ]}
               >
                 <Ionicons
                   accessible={false}
                   importantForAccessibility="no"
-                  name={isCredit ? 'arrow-down' : 'arrow-up'}
+                  name={transactionIcon}
                   size={18}
-                  color={isCredit ? colors.success : colors.error}
+                  color={amountColor}
                 />
               </View>
               <View style={styles.txDetails}>
@@ -96,14 +148,9 @@ export function WalletTransactionHistory({
                   {formatWalletDate(transaction.created_at)}
                 </Text>
               </View>
-              <Text
-                style={[
-                  styles.txAmount,
-                  { color: isCredit ? colors.success : colors.error },
-                ]}
-              >
-                {isCredit ? '+' : '-'}
-                {formatNgnCurrency(transaction.amount)}
+              <Text style={[styles.txAmount, { color: amountColor }]}>
+                {amountPrefix}
+                {formatNgnCurrency(Math.abs(transaction.amount))}
               </Text>
             </View>
           );

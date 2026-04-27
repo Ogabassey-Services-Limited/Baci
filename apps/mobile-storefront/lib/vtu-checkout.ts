@@ -2,6 +2,7 @@ import Constants from 'expo-constants';
 import { z } from 'zod';
 import { CONFIG } from '@/lib/config';
 import { DEFAULT_TIMEOUT, fetchWithTimeout } from '@/lib/fetch-with-timeout';
+import { MOBILE_TO_KUDA_PROVIDER } from '@/lib/network-utils';
 import { supabase } from '@/lib/supabase';
 
 const API_URL =
@@ -113,6 +114,23 @@ export interface VTUCheckoutPayload {
   type: 'airtime' | 'data' | 'electricity' | 'cable_tv' | 'betting';
 }
 
+export function normalizeVtuCheckoutPayload<T extends object>(payload: T): T {
+  if (!('networkProvider' in payload)) {
+    return payload;
+  }
+
+  const rawProvider = (payload as { networkProvider?: unknown })
+    .networkProvider;
+  if (typeof rawProvider !== 'string' || !rawProvider) {
+    return payload;
+  }
+
+  return {
+    ...payload,
+    networkProvider: MOBILE_TO_KUDA_PROVIDER[rawProvider] || rawProvider,
+  };
+}
+
 async function getAccessToken() {
   const {
     data: { user },
@@ -158,7 +176,7 @@ export async function initializeVtuCheckout(payload: VTUCheckoutPayload) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        ...payload,
+        ...normalizeVtuCheckoutPayload(payload),
         merchantSlug: CONFIG.MERCHANT_SLUG,
       }),
     }
@@ -176,19 +194,22 @@ export async function confirmVtuCheckout({
   reference: string;
 }) {
   const accessToken = await getAccessToken();
-  const response = await fetchWithTimeout(`${API_URL}/api/vtu/checkout/confirm`, {
-    method: 'POST',
-    timeout: DEFAULT_TIMEOUT,
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      gateway,
-      merchantSlug: CONFIG.MERCHANT_SLUG,
-      reference,
-    }),
-  });
+  const response = await fetchWithTimeout(
+    `${API_URL}/api/vtu/checkout/confirm`,
+    {
+      method: 'POST',
+      timeout: DEFAULT_TIMEOUT,
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        gateway,
+        merchantSlug: CONFIG.MERCHANT_SLUG,
+        reference,
+      }),
+    }
+  );
 
   const data = await parseJsonResponse(response);
   return ConfirmCheckoutResponseSchema.parse(data);
@@ -214,7 +235,9 @@ export async function waitForVtuConfirmation({
     });
   }
 
-  throw new Error('Payment is still processing. Check your utility history shortly.');
+  throw new Error(
+    'Payment is still processing. Check your utility history shortly.'
+  );
 }
 
 export function requiresSavedVtuCardAuthorization(
@@ -263,8 +286,10 @@ export async function chargeSavedVtuCard(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        ...payload,
-        gateway: 'paystack',
+        ...normalizeVtuCheckoutPayload({
+          ...payload,
+          gateway: 'paystack',
+        }),
         merchantSlug: CONFIG.MERCHANT_SLUG,
       }),
     }
