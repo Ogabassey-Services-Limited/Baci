@@ -36,6 +36,9 @@ jobs:
               - 'turbo.json'
               - 'tsconfig*.json'
               - 'biome.json'
+              - '.github/workflows/deploy.yml'
+              - '.github/scripts/deploy-with-retry.sh'
+              - '.github/scripts/pnpm-install-with-retry.sh'
 
   deploy-production:
     needs: [changes]
