@@ -20,6 +20,7 @@ interface AuthTelemetryEvent {
 }
 
 declare global {
+  // eslint-disable-next-line no-var
   var __BACI_AUTH_TELEMETRY__:
     | AuthTelemetryEvent[]
     | undefined;

@@ -243,8 +243,14 @@ export default function TrackOrderScreen() {
               {error || 'Order not found'}
             </Text>
             <Pressable
-              style={[styles.retryBtn, { backgroundColor: BRAND.primary }]}
+              style={({ pressed }) => [
+                styles.retryBtn,
+                { backgroundColor: BRAND.primary },
+                pressed && { opacity: 0.8 },
+              ]}
               onPress={() => router.replace('/')}
+              accessibilityRole="button"
+              accessibilityLabel="Return to home page"
             >
               <Text style={styles.retryBtnText}>Go Home</Text>
             </Pressable>
@@ -283,8 +289,13 @@ export default function TrackOrderScreen() {
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <Pressable
             onPress={() => router.back()}
-            style={styles.backBtn}
+            style={({ pressed }) => [
+              styles.backBtn,
+              pressed && { opacity: 0.7 },
+            ]}
+            accessibilityRole="button"
             accessibilityLabel="Go back"
+            hitSlop={12}
           >
             <Ionicons name="arrow-back" size={22} color={colors.text} />
           </Pressable>
@@ -470,10 +481,14 @@ export default function TrackOrderScreen() {
                         );
                       }
                     }}
-                    style={[
+                    style={({ pressed }) => [
                       styles.trackBtn,
                       { backgroundColor: BRAND.primaryLight },
+                      pressed && { opacity: 0.8 },
                     ]}
+                    accessibilityRole="link"
+                    accessibilityLabel="Track your order"
+                    accessibilityHint="Opens tracking link in browser"
                   >
                     <Text
                       style={[styles.trackBtnText, { color: BRAND.primary }]}
@@ -660,10 +675,17 @@ export default function TrackOrderScreen() {
               <View style={styles.contactRow}>
                 {merchant.support_email && (
                   <Pressable
-                    style={[styles.contactBtn, { borderColor: colors.border }]}
+                    style={({ pressed }) => [
+                      styles.contactBtn,
+                      { borderColor: colors.border },
+                      pressed && { opacity: 0.7, backgroundColor: colors.border + '20' },
+                    ]}
                     onPress={() =>
                       Linking.openURL(`mailto:${merchant.support_email}`)
                     }
+                    accessibilityRole="link"
+                    accessibilityLabel={`Email ${merchant.name} support`}
+                    accessibilityHint="Opens your email app"
                   >
                     <Ionicons
                       name="mail-outline"
@@ -679,10 +701,17 @@ export default function TrackOrderScreen() {
                 )}
                 {merchant.support_phone && (
                   <Pressable
-                    style={[styles.contactBtn, { borderColor: colors.border }]}
+                    style={({ pressed }) => [
+                      styles.contactBtn,
+                      { borderColor: colors.border },
+                      pressed && { opacity: 0.7, backgroundColor: colors.border + '20' },
+                    ]}
                     onPress={() =>
                       Linking.openURL(`tel:${merchant.support_phone}`)
                     }
+                    accessibilityRole="link"
+                    accessibilityLabel={`Call ${merchant.name} support`}
+                    accessibilityHint="Opens your phone dialer"
                   >
                     <Ionicons
                       name="call-outline"
@@ -711,8 +740,14 @@ export default function TrackOrderScreen() {
           ]}
         >
           <Pressable
-            style={[styles.homeBtn, { backgroundColor: BRAND.primary }]}
+            style={({ pressed }) => [
+              styles.homeBtn,
+              { backgroundColor: BRAND.primary },
+              pressed && { opacity: 0.8 },
+            ]}
             onPress={() => router.replace('/')}
+            accessibilityRole="button"
+            accessibilityLabel="Continue shopping"
           >
             <Text style={styles.homeBtnText}>Continue Shopping</Text>
           </Pressable>
