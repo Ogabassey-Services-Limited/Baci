@@ -678,7 +678,7 @@ export default function TrackOrderScreen() {
                     style={({ pressed }) => [
                       styles.contactBtn,
                       { borderColor: colors.border },
-                      pressed && { opacity: 0.7, backgroundColor: colors.border + '20' },
+                      pressed && { opacity: 0.7 },
                     ]}
                     onPress={() =>
                       Linking.openURL(`mailto:${merchant.support_email}`)
@@ -704,7 +704,7 @@ export default function TrackOrderScreen() {
                     style={({ pressed }) => [
                       styles.contactBtn,
                       { borderColor: colors.border },
-                      pressed && { opacity: 0.7, backgroundColor: colors.border + '20' },
+                      pressed && { opacity: 0.7 },
                     ]}
                     onPress={() =>
                       Linking.openURL(`tel:${merchant.support_phone}`)
