@@ -7,7 +7,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { Redirect, router, Stack } from 'expo-router';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
@@ -121,7 +121,7 @@ export default function OrdersScreen() {
   const [selectedFilter, setSelectedFilter] =
     useState<OrderListFilterKey>('all');
 
-  const fetchOrders = useCallback(async () => {
+  const fetchOrders = async () => {
     if (!customer?.id) {
       setIsLoading(false);
       return;
@@ -171,12 +171,12 @@ export default function OrdersScreen() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [customer?.id]);
+  };
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: fetchOrders used in multiple places; React Compiler handles memoization (ADR-004)
   useEffect(() => {
     fetchOrders();
-  }, [customer?.id, fetchOrders]);
+  }, [customer?.id]);
 
   // 2026 Best Practice: Auto-refetch when coming back online
   // biome-ignore lint/correctness/useExhaustiveDependencies: fetchOrders used in multiple places; React Compiler handles memoization (ADR-004)
@@ -184,7 +184,7 @@ export default function OrdersScreen() {
     return onReconnect(() => {
       fetchOrders();
     });
-  }, [onReconnect, fetchOrders]);
+  }, [onReconnect]);
 
   const handleRefresh = () => {
     setIsRefreshing(true);

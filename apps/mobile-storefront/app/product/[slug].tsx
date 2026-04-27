@@ -13,7 +13,7 @@ import {
 } from '@baci/shared/lib';
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -245,8 +245,8 @@ export default function ProductDetailScreen() {
       ? resolveVariantSelectionParamResolution(product, routeParams)
       : null;
   const routeSelectionInput = routeSelectionResolution?.selectionInput ?? {};
-  const routeSelectionAttributes = useMemo(() => (routeSelectionInput.attributes ??
-    {}) as Record<string, string>, [routeSelectionInput.attributes]);
+  const routeSelectionAttributes = (routeSelectionInput.attributes ??
+    {}) as Record<string, string>;
   const routeCondition = normalizeRouteCondition(
     routeSelectionInput.condition ??
       (!usesVariantRouteSelection ? routeConditionParam : undefined)
@@ -274,14 +274,14 @@ export default function ProductDetailScreen() {
         variants: product.variants,
       })
     : {};
-  const productGalleryImages = useMemo(() => productVariantMetadata.galleryImages?.length
+  const productGalleryImages = productVariantMetadata.galleryImages?.length
     ? productVariantMetadata.galleryImages
     : product?.images?.length
       ? product.images
       : product?.image
         ? [product.image]
-        : [PLACEHOLDER_IMAGE_URL], [productVariantMetadata.galleryImages, product?.images, product?.image]);
-  const productImageColorMap = useMemo(() => productVariantMetadata.imageColorMap ?? {}, [productVariantMetadata.imageColorMap]);
+        : [PLACEHOLDER_IMAGE_URL];
+  const productImageColorMap = productVariantMetadata.imageColorMap ?? {};
   const resolvedColorImages =
     productVariantMetadata.colorImages ?? product?.color_images;
   const displayProduct = product
