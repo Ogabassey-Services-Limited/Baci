@@ -206,6 +206,87 @@ describe('preparePendingVtuTransaction', () => {
     );
   });
 
+  it('warns when commission rate is exactly 1 (ambiguous value-1 case)', async () => {
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    mockCalculateCommerce.mockResolvedValueOnce({
+      merchantEarning: 10,
+      platformEarning: 5,
+    });
+    const { supabase } = createMockSupabase({
+      settings: { vtu_merchant_commission_rate: 1 },
+    });
+
+    await prepareAirtime(supabase);
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('value-1 case'),
+      expect.objectContaining({ rawValue: 1, merchantId: 'merchant-1' })
+    );
+    warnSpy.mockRestore();
+  });
+
+  it('throws when commission rate is in (1, 2) ambiguous band', async () => {
+    const errorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const { supabase } = createMockSupabase({
+      settings: { vtu_merchant_commission_rate: 1.5 },
+    });
+
+    await expect(prepareAirtime(supabase)).rejects.toThrow(
+      'Ambiguous commission rate: value in (1, 2)'
+    );
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('ambiguous commission rate'),
+      expect.objectContaining({ rawValue: 1.5, merchantId: 'merchant-1' })
+    );
+    errorSpy.mockRestore();
+  });
+
+  it('does not warn for fractional rate of 0.5', async () => {
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    mockCalculateCommerce.mockResolvedValueOnce({
+      merchantEarning: 10,
+      platformEarning: 5,
+    });
+    const { supabase } = createMockSupabase({
+      settings: { vtu_merchant_commission_rate: 0.5 },
+    });
+
+    await prepareAirtime(supabase);
+
+    expect(warnSpy).not.toHaveBeenCalledWith(
+      expect.stringContaining('value-1 case'),
+      expect.anything()
+    );
+    warnSpy.mockRestore();
+  });
+
+  it('does not warn for whole-number rate of 50', async () => {
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    mockCalculateCommerce.mockResolvedValueOnce({
+      merchantEarning: 10,
+      platformEarning: 5,
+    });
+    const { supabase } = createMockSupabase({
+      settings: { vtu_merchant_commission_rate: 50 },
+    });
+
+    await prepareAirtime(supabase);
+
+    expect(warnSpy).not.toHaveBeenCalledWith(
+      expect.stringContaining('value-1 case'),
+      expect.anything()
+    );
+    warnSpy.mockRestore();
+  });
+
   it('treats commission rate of 1 as 100% (not 1%)', async () => {
     // A stored merchant commission of `1` should mean "full commission"
     // (100%), matching how `100` is interpreted. Without the (0, 1] fix this

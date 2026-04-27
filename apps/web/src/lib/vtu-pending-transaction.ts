@@ -33,13 +33,44 @@ export const VTU_TYPE_LABELS: Record<PurchaseInput['type'], string> = {
  * If any merchant intends "1 = 1%", migrate that row to 0.01 before
  * deploying this change.
  */
-function normalizeCommissionPercentage(value: number | null | undefined) {
+function normalizeCommissionPercentage(
+  value: number | null | undefined,
+  context?: { merchantId?: string }
+) {
   if (value == null) {
     return 50;
   }
 
   if (value < 0 || value > 100) {
     throw new Error('Invalid VTU merchant commission rate');
+  }
+
+  // value === 1 is ambiguous: under our current convention it means "100%",
+  // but a merchant might have intended "1%". Surface this so we can audit
+  // affected rows. The function does not de-dupe — it is up to the caller
+  // (typically once per request) to decide how to handle repeated logs.
+  if (value === 1) {
+    console.warn(
+      'normalizeCommissionPercentage: value-1 case encountered (treating as 100%)',
+      {
+        rawValue: value,
+        merchantId: context?.merchantId,
+      }
+    );
+  }
+
+  // Values in (1, 2) are not a valid expression of either convention
+  // (fractional <=1 or whole-number >=2). Refuse to silently pick an
+  // interpretation — fail fast instead.
+  if (value > 1 && value < 2) {
+    console.error(
+      'normalizeCommissionPercentage: ambiguous commission rate in (1, 2)',
+      {
+        rawValue: value,
+        merchantId: context?.merchantId,
+      }
+    );
+    throw new Error('Ambiguous commission rate: value in (1, 2)');
   }
 
   // Values in (0, 1] are fractional (0.5 -> 50%, 1.0 -> 100%); integer
@@ -207,7 +238,8 @@ export async function preparePendingVtuTransaction({
   }
 
   const merchantSplitPercentage = normalizeCommissionPercentage(
-    featureSettings.vtu_merchant_commission_rate
+    featureSettings.vtu_merchant_commission_rate,
+    { merchantId: merchant.id }
   );
   const purchaseType = input.type as keyof typeof COMMISSION_CATEGORY_MAP;
   const normalizedNetworkProvider =
