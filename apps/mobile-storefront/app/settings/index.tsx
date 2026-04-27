@@ -22,10 +22,10 @@ import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
 import { queryClient } from '@/lib/query-client';
 import { removeStorageItems } from '@/lib/storage';
 import { type AppearanceMode, useSettingsStore } from '@/stores/settings-store';
-import { ABOUT_LINKS, APPEARANCE_OPTIONS } from '@/components/settings/constants';
+import { ABOUT_LINKS, APPEARANCE_OPTIONS } from './constants';
 import { SettingsCardSection } from './SettingsCardSection';
 import { SettingsSectionRow } from './SettingsSectionRow';
-import { styles } from '@/components/settings/styles';
+import { styles } from './styles';
 
 export default function SettingsScreen() {
   const colorScheme = useColorScheme();

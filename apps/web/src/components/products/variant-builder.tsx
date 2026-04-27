@@ -22,6 +22,8 @@ import type {
 } from '@/lib/category-configs';
 import { getCountryByCode } from '@/lib/countries';
 import type { ProductVariant } from '@/lib/products';
+import { FormDescription } from '../ui/form';
+import { Switch } from '../ui/switch';
 
 interface VariantBuilderProps {
   categoryConfig: CategoryConfig;
@@ -29,7 +31,6 @@ interface VariantBuilderProps {
   basePrice: number;
   initialVariants?: ProductVariant[];
   attributeOrder?: string[]; // Optional prop to configure attribute order
-  stockTrackingEnabled?: boolean;
 }
 
 interface AttributeSelection {
@@ -85,7 +86,6 @@ export function VariantBuilder({
   basePrice,
   initialVariants = [],
   attributeOrder = DEFAULT_ATTRIBUTE_ORDER,
-  stockTrackingEnabled = true,
 }: VariantBuilderProps) {
   const { merchant } = useMerchant();
   const { toast } = useToast();
@@ -94,6 +94,7 @@ export function VariantBuilder({
   const [variants, setVariants] = useState<ProductVariant[]>(initialVariants);
   const variantsRef = useRef(variants);
   const [textInputs, setTextInputs] = useState<Record<string, string>>({});
+  const [trackStock, setTrackStock] = useState(true);
   const [enhancingImages, setEnhancingImages] = useState<
     Record<string, boolean>
   >({});
@@ -446,19 +447,22 @@ export function VariantBuilder({
           Configure variants ({variants.length} total)
         </Label>
 
-        {stockTrackingEnabled ? (
-          <div className="space-y-1">
-            <h3 className="text-sm font-semibold">Track Inventory</h3>
-            <p className="text-sm text-muted-foreground">
-              Manage stock levels for each variant.
-            </p>
+        <Label
+          htmlFor="variants-stock-switch"
+          className="flex flex-row items-center justify-between rounded-lg border p-3 cursor-pointer"
+        >
+          <div className="space-y-0.5">
+            <div className="font-medium">Track Inventory</div>
+            <FormDescription>
+              Enable to manage stock levels for each variant.
+            </FormDescription>
           </div>
-        ) : (
-          <div className="rounded-lg border p-3 text-sm text-muted-foreground">
-            Unlimited stock is enabled for this product. Variant stock
-            quantities are not required.
-          </div>
-        )}
+          <Switch
+            id="variants-stock-switch"
+            checked={trackStock}
+            onCheckedChange={setTrackStock}
+          />
+        </Label>
 
         {/* Section 1: Color Images */}
         {colors.length > 0 &&
@@ -602,7 +606,7 @@ export function VariantBuilder({
         )}
 
         {/* Section 3: Inventory per variant */}
-        {stockTrackingEnabled && (
+        {trackStock && (
           <div className="space-y-3">
             <Label className="text-sm font-semibold">
               3. Set stock quantity per variant

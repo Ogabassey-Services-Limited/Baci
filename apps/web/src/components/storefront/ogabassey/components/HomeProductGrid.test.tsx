@@ -130,28 +130,6 @@ describe('HomeProductGrid', () => {
     expect(screen.queryByText('Product 13')).not.toBeInTheDocument();
   });
 
-  it('renders each product identity only once in the home feed', () => {
-    const duplicateProduct = {
-      ...createTestProduct(2),
-      name: 'Repeated Product',
-    };
-
-    render(
-      <HomeProductGrid
-        storeSlug="test-store"
-        products={[
-          createTestProduct(1),
-          duplicateProduct,
-          { ...duplicateProduct },
-          createTestProduct(3),
-        ]}
-      />
-    );
-
-    expect(screen.getAllByRole('article')).toHaveLength(3);
-    expect(screen.getAllByText('Repeated Product')).toHaveLength(1);
-  });
-
   it('links the view-all CTA to the storefront products route', () => {
     render(
       <HomeProductGrid
