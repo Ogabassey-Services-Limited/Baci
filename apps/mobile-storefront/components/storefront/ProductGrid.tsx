@@ -163,7 +163,7 @@ export default function ProductGrid({
       ? selectedCategorySlug
       : null;
   const shouldFilterProductsClientSide =
-    typeof selectedClientSideCategorySlug === 'string' &&
+    selectedClientSideCategorySlug !== null &&
     selectedClientSideCategorySlug.length > 0;
   const filteredProducts = shouldFilterProductsClientSide
     ? products.filter((product) => {
@@ -296,7 +296,6 @@ export default function ProductGrid({
             onPress={handleRetry}
             disabled={isRetrying}
             accessibilityRole="button"
-            accessibilityState={{ disabled: isRetrying }}
             accessibilityLabel={
               isRetrying
                 ? 'Retrying to load products'
