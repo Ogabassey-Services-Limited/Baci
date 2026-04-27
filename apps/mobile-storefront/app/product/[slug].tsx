@@ -13,7 +13,7 @@ import {
 } from '@baci/shared/lib';
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import {
   ActivityIndicator,
   Alert,
