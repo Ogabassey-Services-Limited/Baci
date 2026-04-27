@@ -43,7 +43,7 @@ jobs:
 
   deploy-production:
     needs: [changes]
-    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.web == 'true'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.web == 'true')
     runs-on: baci-deploy
     timeout-minutes: 20
     env:
