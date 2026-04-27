@@ -14,6 +14,7 @@ import {
   isDomainIdentifier,
   isValidMerchantIdentifier,
 } from '@/lib/validation';
+import type { MerchantAboutPage } from '@/types/about-page';
 import type { MerchantTrustProfileDraft } from '../../../../packages/shared/src/contracts/merchant-trust-profile';
 
 /**
@@ -211,10 +212,15 @@ export interface CachedMerchant {
     faq?: string;
     about?: string;
   };
-  // Structured about page data
-  about_page?: unknown;
+  // Structured about page data — extends MerchantAboutPage with the
+  // headline/image_url fields used by template-specific About pages
+  // (e.g. Ogabassey hero) which aren't part of the canonical schema.
+  about_page?: MerchantAboutPage & {
+    headline?: string;
+    image_url?: string;
+  };
   // FAQ items array
-  faq_items?: unknown[];
+  faq_items?: Array<{ question: string; answer: string }>;
   // Last update timestamp
   updated_at?: string;
 }

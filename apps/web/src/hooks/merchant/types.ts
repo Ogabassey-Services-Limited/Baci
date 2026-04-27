@@ -2,6 +2,7 @@ import type { RegisteredAddress } from '@baci/shared';
 import type { ReactNode } from 'react';
 import type { CategoryNavItem } from '@/lib/cached-categories';
 import type { HeroSlide } from '@/lib/cached-data';
+import type { MerchantAboutPage } from '@/types/about-page';
 import type { MerchantTrustProfileDraft } from '../../../../../packages/shared/src/contracts/merchant-trust-profile';
 
 export interface MerchantData {
@@ -104,6 +105,15 @@ export interface MerchantData {
   // Hero slides
   hero_slides?: HeroSlide[];
   mobile_hero_slides?: HeroSlide[];
+  // Structured About page content — extends MerchantAboutPage with the
+  // headline/image_url fields used by template-specific About pages
+  // (e.g. Ogabassey hero) which aren't part of the canonical schema.
+  about_page?: MerchantAboutPage & {
+    headline?: string;
+    image_url?: string;
+  };
+  // Structured FAQ items (used by storefront Help/Support template)
+  faq_items?: Array<{ question: string; answer: string }>;
 }
 
 export type StaffRole =
