@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { View } from 'react-native';
 import CategoryScreen from '@/app/category/[slug]';
+import { SPACING } from '@/constants/Colors';
 
 interface MockFlashListProps {
   children?: React.ReactNode;
@@ -18,7 +19,9 @@ interface MockCategoryFlashListProps extends MockFlashListProps {
 }
 
 type MockCategoryListStyleOptions = {
+  gap?: number;
   includeBottomInset?: boolean;
+  padding?: number;
   paddingBottom?: number;
   paddingTop?: number;
 };
@@ -36,6 +39,8 @@ const mockStorefrontScreenShell = jest.fn(({ children, ...props }) => (
 const mockGetListContentStyle =
   jest.fn<
     (options?: MockCategoryListStyleOptions) => {
+      gap: number;
+      padding: number;
       paddingTop: number;
       paddingBottom: number;
     }
@@ -177,6 +182,8 @@ describe('CategoryScreen', () => {
     jest.clearAllMocks();
     mockGetListContentStyle.mockImplementation(
       (options?: MockCategoryListStyleOptions) => ({
+        gap: options?.gap ?? 12,
+        padding: options?.padding ?? 16,
         paddingTop: options?.paddingTop ?? 16,
         paddingBottom:
           (options?.paddingBottom ?? 16) +
@@ -210,13 +217,15 @@ describe('CategoryScreen', () => {
     expect(shellProps?.edges).toEqual(['bottom']);
     expect(mockGetListContentStyle).toHaveBeenCalledWith({
       includeBottomInset: false,
-      paddingBottom: 24,
-      paddingTop: 16,
+      paddingBottom: SPACING.lg,
+      paddingTop: SPACING.md,
     });
-    expect(flashListProps?.contentContainerStyle).toEqual({
-      paddingTop: 16,
-      paddingBottom: 24,
-    });
+    expect(flashListProps?.contentContainerStyle).toEqual(
+      expect.objectContaining({
+        paddingTop: SPACING.md,
+        paddingBottom: SPACING.lg,
+      })
+    );
   });
 
   it('renders an invalid-category state when the slug is empty', () => {
