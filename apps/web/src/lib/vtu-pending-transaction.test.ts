@@ -1,4 +1,12 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type MockInstance,
+  vi,
+} from 'vitest';
 import { preparePendingVtuTransaction } from '@/lib/vtu-pending-transaction';
 
 const {
@@ -151,8 +159,20 @@ function prepareAirtime(supabase: PrepareSupabase, networkProvider = 'mtn') {
 }
 
 describe('preparePendingVtuTransaction', () => {
+  let warnSpy: MockInstance | null = null;
+
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    // Restore only the console spy created within individual tests; the
+    // hoisted vi.fn() mocks above are intentionally left alone (their default
+    // implementations are reused across tests via mockResolvedValueOnce).
+    if (warnSpy) {
+      warnSpy.mockRestore();
+      warnSpy = null;
+    }
   });
 
   it('creates a pending VTU row with computed commissions', async () => {
@@ -203,6 +223,77 @@ describe('preparePendingVtuTransaction', () => {
 
     await expect(prepareAirtime(supabase, 'MTN')).rejects.toThrow(
       'VTU is not enabled for this merchant'
+    );
+  });
+
+  it('warns when commission rate is exactly 1 (ambiguous value-1 case)', async () => {
+    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    mockCalculateCommerce.mockResolvedValueOnce({
+      merchantEarning: 10,
+      platformEarning: 5,
+    });
+    const { supabase } = createMockSupabase({
+      settings: { vtu_merchant_commission_rate: 1 },
+    });
+
+    await prepareAirtime(supabase);
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('value-1 case'),
+      expect.objectContaining({ rawValue: 1, merchantId: 'merchant-1' })
+    );
+  });
+
+  it('treats fractional commission rate of 1.5 as 1.5%', async () => {
+    mockCalculateCommerce.mockResolvedValueOnce({
+      merchantEarning: 10,
+      platformEarning: 5,
+    });
+    const { supabase } = createMockSupabase({
+      settings: { vtu_merchant_commission_rate: 1.5 },
+    });
+
+    await prepareAirtime(supabase);
+
+    expect(mockCalculateCommerce).toHaveBeenLastCalledWith(
+      'calculate_vtu',
+      expect.objectContaining({ merchantSplit: 1.5 })
+    );
+  });
+
+  it('does not warn for fractional rate of 0.5', async () => {
+    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    mockCalculateCommerce.mockResolvedValueOnce({
+      merchantEarning: 10,
+      platformEarning: 5,
+    });
+    const { supabase } = createMockSupabase({
+      settings: { vtu_merchant_commission_rate: 0.5 },
+    });
+
+    await prepareAirtime(supabase);
+
+    expect(warnSpy).not.toHaveBeenCalledWith(
+      expect.stringContaining('value-1 case'),
+      expect.anything()
+    );
+  });
+
+  it('does not warn for whole-number rate of 50', async () => {
+    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    mockCalculateCommerce.mockResolvedValueOnce({
+      merchantEarning: 10,
+      platformEarning: 5,
+    });
+    const { supabase } = createMockSupabase({
+      settings: { vtu_merchant_commission_rate: 50 },
+    });
+
+    await prepareAirtime(supabase);
+
+    expect(warnSpy).not.toHaveBeenCalledWith(
+      expect.stringContaining('value-1 case'),
+      expect.anything()
     );
   });
 
