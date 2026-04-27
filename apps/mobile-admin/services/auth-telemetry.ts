@@ -20,7 +20,6 @@ interface AuthTelemetryEvent {
 }
 
 declare global {
-
   var __BACI_AUTH_TELEMETRY__:
     | AuthTelemetryEvent[]
     | undefined;
