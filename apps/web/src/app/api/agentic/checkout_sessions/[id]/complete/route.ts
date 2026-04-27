@@ -170,7 +170,7 @@ export async function POST(
       total: sessionCalc.totals.find((t: GPTTotal) => t.type === 'total')
         ?.amount,
       status: 'pending',
-      ...buyer,
+      buyer,
     }).catch((err) =>
       logger.error({
         message: 'Webhook trigger failed',
