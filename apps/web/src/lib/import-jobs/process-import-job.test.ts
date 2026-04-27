@@ -36,7 +36,7 @@ describe('processImportJobQueue', () => {
     vi.clearAllMocks();
   });
 
-  it('prioritizes merchant-triggered commit jobs before uploaded validation backlog', async () => {
+  it('reserves an uploaded slot while prioritizing merchant-triggered commit jobs', async () => {
     const loadCommitQuery = {
       select: vi.fn(),
       eq: vi.fn(),
@@ -115,7 +115,6 @@ describe('processImportJobQueue', () => {
       from: vi
         .fn()
         .mockReturnValueOnce(loadCommitQuery)
-        .mockReturnValueOnce(loadNotifyQuery)
         .mockReturnValueOnce(loadUploadedQuery)
         .mockReturnValueOnce(claimCommittingQuery)
         .mockReturnValueOnce(claimValidatingQuery),
@@ -140,10 +139,10 @@ describe('processImportJobQueue', () => {
       { id: 'uploaded-job', status: 'preview_ready', processed: 1 },
     ]);
     expect(loadCommitQuery.eq).toHaveBeenCalledWith('status', 'commit_queued');
-    expect(loadNotifyQuery.eq).toHaveBeenCalledWith('status', 'notify_queued');
+    expect(loadNotifyQuery.eq).not.toHaveBeenCalled();
     expect(loadUploadedQuery.eq).toHaveBeenCalledWith('status', 'uploaded');
-    expect(loadCommitQuery.limit).toHaveBeenCalledWith(2);
-    expect(loadNotifyQuery.limit).toHaveBeenCalledWith(1);
+    expect(loadCommitQuery.limit).toHaveBeenCalledWith(1);
+    expect(loadNotifyQuery.limit).not.toHaveBeenCalled();
     expect(loadUploadedQuery.limit).toHaveBeenCalledWith(1);
     expect(runClaimedImportJob).toHaveBeenNthCalledWith(
       1,
