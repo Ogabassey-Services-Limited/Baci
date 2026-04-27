@@ -64,36 +64,6 @@ export default function ProductGrid({
     refetch: refetchCategories,
   } = useCategories();
   const normalizedCategories: Category[] = categoriesData;
-  const categoryNames = (() => {
-    if (normalizedCategories.length > 0) {
-      const allCats = normalizedCategories.map((category) => category.name);
-      const sorted = getProductGridCategories(allCats);
-
-      return ['All', ...sorted];
-    }
-    return ['All'];
-  })();
-  const matchedCategoryName =
-    selectedCategorySlug === ALL_PRODUCT_FILTER_CATEGORY_SLUG
-      ? 'All'
-      : categoryNames.find(
-          (categoryName) =>
-            normalizeSelectedCategorySlug(
-              categoryName,
-              normalizedCategories
-            ) === selectedCategorySlug
-        );
-  const selectedCategoryName = matchedCategoryName ?? 'All';
-
-  if (
-    __DEV__ &&
-    !matchedCategoryName &&
-    selectedCategorySlug !== ALL_PRODUCT_FILTER_CATEGORY_SLUG
-  ) {
-    console.warn(
-      `[ProductGrid] selectedCategorySlug "${selectedCategorySlug}" does not map to any known category; chip UI will show "All" while product query remains filtered by the stale slug.`
-    );
-  }
 
   const selectedCategoryIdFromFilter = resolveSelectedCategoryId(
     selectedCategorySlug,
@@ -118,7 +88,9 @@ export default function ProductGrid({
   })();
   const displayLimit = block.props.limit ?? 12;
   const shouldPrioritizeSmartphones =
-    !selectedCategoryIdFromFilter && !normalizedCategoryId;
+    !selectedCategoryIdFromFilter &&
+    !normalizedCategoryId &&
+    selectedCategorySlug === ALL_PRODUCT_FILTER_CATEGORY_SLUG;
   const fetchLimit = shouldPrioritizeSmartphones
     ? displayLimit * 4
     : displayLimit;
@@ -144,6 +116,71 @@ export default function ProductGrid({
     condition: selectedCondition !== 'All' ? selectedCondition : undefined,
     minRating: minRating > 0 ? minRating : undefined,
   });
+  const fallbackProductCategories = getProductGridCategories(
+    products
+      .map((product) => product.category?.trim())
+      .filter((categoryName): categoryName is string => Boolean(categoryName))
+  );
+  const categoryNames = (() => {
+    if (normalizedCategories.length > 0) {
+      const allCats = normalizedCategories.map((category) => category.name);
+      const sorted = getProductGridCategories(allCats);
+
+      return ['All', ...sorted];
+    }
+
+    if (fallbackProductCategories.length > 0) {
+      return ['All', ...fallbackProductCategories];
+    }
+
+    return ['All'];
+  })();
+  const matchedCategoryName =
+    selectedCategorySlug === ALL_PRODUCT_FILTER_CATEGORY_SLUG
+      ? 'All'
+      : categoryNames.find(
+          (categoryName) =>
+            normalizeSelectedCategorySlug(
+              categoryName,
+              normalizedCategories
+            ) === selectedCategorySlug
+        );
+  const selectedCategoryName = matchedCategoryName ?? 'All';
+
+  if (
+    __DEV__ &&
+    !matchedCategoryName &&
+    selectedCategorySlug !== ALL_PRODUCT_FILTER_CATEGORY_SLUG
+  ) {
+    console.warn(
+      `[ProductGrid] selectedCategorySlug "${selectedCategorySlug}" does not map to any known category; chip UI will show "All" while product query remains filtered by the stale slug.`
+    );
+  }
+
+  const selectedClientSideCategorySlug =
+    normalizedCategories.length === 0 &&
+    selectedCategorySlug !== ALL_PRODUCT_FILTER_CATEGORY_SLUG
+      ? selectedCategorySlug
+      : null;
+  const shouldFilterProductsClientSide =
+    selectedClientSideCategorySlug !== null &&
+    selectedClientSideCategorySlug.length > 0;
+  const filteredProducts = shouldFilterProductsClientSide
+    ? products.filter((product) => {
+        const productCategory = product.category?.trim();
+
+        if (!productCategory) {
+          return false;
+        }
+
+        return (
+          normalizeSelectedCategorySlug(
+            productCategory,
+            normalizedCategories
+          ) === selectedClientSideCategorySlug
+        );
+      })
+    : products;
   const { brands = [] } = useProductBrands({
     category: normalizedCategoryId,
     minPrice: minPrice > 0 ? minPrice : undefined,
@@ -188,8 +225,8 @@ export default function ProductGrid({
   };
 
   const orderedProducts = shouldPrioritizeSmartphones
-    ? prioritizeSmartphoneProducts(products)
-    : products;
+    ? prioritizeSmartphoneProducts(filteredProducts)
+    : filteredProducts;
   const { visibleProducts } = useProductGridPagination({
     displayLimit,
     hasMore,
@@ -219,39 +256,9 @@ export default function ProductGrid({
       void refetchCategories();
     }
   };
-
-  if (shouldShowFatalError) {
-    return (
-      <View style={styles.section}>
-        {block.props.title && (
-          <Text style={styles.sectionTitle}>{block.props.title}</Text>
-        )}
-        <View style={styles.emptyState} testID="product-grid-error">
-          <Text style={[styles.emptyText, { color: palette.gray[400] }]}>
-            Failed to load products. Please try again.
-          </Text>
-          <Pressable
-            style={styles.retryButton}
-            onPress={handleRetry}
-            disabled={isFetching || (isCategoriesError && isCategoriesFetching)}
-          >
-            <Text style={styles.retryButtonText}>
-              {isFetching || (isCategoriesError && isCategoriesFetching)
-                ? 'Retrying...'
-                : 'Try Again'}
-            </Text>
-          </Pressable>
-        </View>
-      </View>
-    );
-  }
-
-  if (isLoading || shouldShowInitialLoading) {
-    return <ProductGridSkeleton count={4} />;
-  }
-
-  return (
-    <View style={styles.section}>
+  const isRetrying = isFetching || (isCategoriesError && isCategoriesFetching);
+  const headerControls = (
+    <>
       {block.props.title && (
         <Text style={styles.sectionTitle}>{block.props.title}</Text>
       )}
@@ -273,6 +280,49 @@ export default function ProductGrid({
         viewMode={viewMode}
         onViewModeChange={setViewMode}
       />
+    </>
+  );
+
+  if (shouldShowFatalError) {
+    return (
+      <View style={styles.section}>
+        {headerControls}
+        <View style={styles.emptyState} testID="product-grid-error">
+          <Text style={[styles.emptyText, { color: palette.gray[400] }]}>
+            Failed to load products. Please try again.
+          </Text>
+          <Pressable
+            style={styles.retryButton}
+            onPress={handleRetry}
+            disabled={isRetrying}
+            accessibilityRole="button"
+            accessibilityLabel={
+              isRetrying
+                ? 'Retrying to load products'
+                : 'Retry loading products'
+            }
+          >
+            <Text style={styles.retryButtonText}>
+              {isRetrying ? 'Retrying...' : 'Try Again'}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  if (isLoading || shouldShowInitialLoading) {
+    return (
+      <View style={styles.section}>
+        {headerControls}
+        <ProductGridSkeleton count={4} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.section}>
+      {headerControls}
 
       <View style={currentVariant === 'list' ? styles.list : styles.grid}>
         {visibleProducts.length === 0 && !isFetching ? (

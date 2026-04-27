@@ -10,6 +10,7 @@ import { type Href, router } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getEliteHeaderTopPadding } from '@/components/storefront/header-layout';
 import { Logo } from '@/components/ui/Logo';
 import { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 import { useTheme } from '@/hooks/useTheme';
@@ -73,11 +74,13 @@ export function Header({
 
   // --- RENDER: Elite Merged Layout (Electronics/High-Tech) ---
   if (template.headerStyle === 'elite' || isSanta) {
+    const eliteTopPadding = getEliteHeaderTopPadding(insets.top);
+
     return (
       <View
         style={[
           styles.eliteContainer,
-          { paddingTop: insets.top + SPACING.sm },
+          { paddingTop: eliteTopPadding },
           isSanta && { backgroundColor: seasonalTokens.holidayBg },
         ]}
       >
