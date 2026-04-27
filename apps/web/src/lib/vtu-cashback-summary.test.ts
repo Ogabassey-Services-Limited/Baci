@@ -6,6 +6,7 @@ import {
   getVtuCashbackSummaryIdempotencyKey,
   groupVtuCashbackSummaryRows,
   markVtuCashbackTransactionsSummarized,
+  type VtuCashbackSummaryStatusUpdateClient,
 } from '@/lib/vtu-cashback-summary';
 
 describe('getPreviousCalendarMonthPeriod', () => {
@@ -217,6 +218,14 @@ describe('chunkVtuCashbackSummaryRows', () => {
   it('returns a single chunk when batch size exceeds length', () => {
     expect(chunkVtuCashbackSummaryRows([1, 2, 3], 5)).toEqual([[1, 2, 3]]);
   });
+
+  it('throws when size is zero, negative, or non-finite', () => {
+    expect(() => chunkVtuCashbackSummaryRows([1, 2], 0)).toThrow(RangeError);
+    expect(() => chunkVtuCashbackSummaryRows([1, 2], -3)).toThrow(RangeError);
+    expect(() => chunkVtuCashbackSummaryRows([1, 2], Number.NaN)).toThrow(
+      RangeError
+    );
+  });
 });
 
 describe('markVtuCashbackTransactionsSummarized', () => {
@@ -225,7 +234,7 @@ describe('markVtuCashbackTransactionsSummarized', () => {
     const update = vi.fn().mockReturnValue({ eq });
     const supabase = {
       from: vi.fn().mockReturnValue({ update }),
-    };
+    } as unknown as VtuCashbackSummaryStatusUpdateClient;
     const rows = [
       {
         amount: 500,

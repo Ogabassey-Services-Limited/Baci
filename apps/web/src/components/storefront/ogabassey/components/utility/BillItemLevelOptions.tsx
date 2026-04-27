@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, type KeyboardEvent } from 'react';
+import { useEffect, useId, useRef, type KeyboardEvent } from 'react';
 import { cn } from '@/lib/utils';
 import type { BillItem, BillItemSelectionLevel } from './bill-item-selection';
 
@@ -10,14 +10,19 @@ interface BillItemLevelOptionsProps {
   onSelect: (depth: number, billItem: BillItem) => void;
 }
 
-const currencyFormatter = new Intl.NumberFormat('en-NG');
+const currencyFormatter = new Intl.NumberFormat('en-NG', {
+  style: 'currency',
+  currency: 'NGN',
+  maximumFractionDigits: 0,
+});
 
 export function BillItemLevelOptions({
   level,
   label,
   onSelect,
 }: BillItemLevelOptionsProps) {
-  const labelId = `bill-item-level-${level.depth}-label`;
+  const baseId = useId();
+  const labelId = `${baseId}-bill-item-level-${level.depth}-label`;
   const buttonRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   useEffect(() => {
@@ -82,7 +87,7 @@ export function BillItemLevelOptions({
               onClick={() => onSelect(level.depth, billItem)}
               onKeyDown={(event) => handleKeyDown(event, index)}
               className={cn(
-                'text-left p-3 rounded-xl border-2 transition-all text-sm font-medium',
+                'text-left p-3 rounded-xl border-2 transition-all text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--store-primary,#ef4444)] focus-visible:ring-offset-2',
                 isSelected
                   ? 'border-[var(--store-primary,#ef4444)] bg-[var(--store-primary,#ef4444)]/10 text-[var(--store-primary,#ef4444)]'
                   : 'border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_12%,transparent)] text-[color:color-mix(in_srgb,var(--store-background-text,#111827)_72%,transparent)] hover:border-[color:color-mix(in_srgb,var(--store-primary,#ef4444)_35%,transparent)]'
@@ -91,7 +96,7 @@ export function BillItemLevelOptions({
               <span>{billItem.itemName}</span>
               {billItem.isAmountFixed && billItem.amount > 0 ? (
                 <span className="block text-xs opacity-75">
-                  ₦{currencyFormatter.format(billItem.amount)}
+                  {currencyFormatter.format(billItem.amount)}
                 </span>
               ) : null}
             </button>

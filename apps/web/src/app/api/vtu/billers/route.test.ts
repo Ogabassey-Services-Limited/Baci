@@ -171,7 +171,7 @@ describe('GET /api/vtu/billers', () => {
     const response = await GET(request);
 
     expect(response.headers.get('Cache-Control')).toBe(
-      'max-age=60, stale-while-revalidate=300'
+      'public, s-maxage=60, stale-while-revalidate=300'
     );
   });
 

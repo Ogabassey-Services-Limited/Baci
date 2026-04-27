@@ -31,7 +31,8 @@ export async function GET(request: NextRequest) {
       {
         headers: {
           // Kuda can add or change nested bill items; keep this fresh without hammering the upstream API.
-          'Cache-Control': 'max-age=60, stale-while-revalidate=300',
+          // `public, s-maxage=...` lets Vercel/CDN cache the response, not just the browser.
+          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
         },
       }
     );

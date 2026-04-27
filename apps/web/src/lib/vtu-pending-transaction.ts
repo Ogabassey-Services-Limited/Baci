@@ -25,8 +25,9 @@ function normalizeCommissionPercentage(value: number | null | undefined) {
     throw new Error('Invalid VTU merchant commission rate');
   }
 
-  // Existing rows may store 0.5 as a 50% split; only values in (0, 1) are fractional.
-  if (value > 0 && value < 1) {
+  // Existing rows may store 0.5 as a 50% split; treat (0, 1] as fractional so
+  // a stored value of `1` correctly maps to 100% rather than 1%.
+  if (value > 0 && value <= 1) {
     return value * 100;
   }
 

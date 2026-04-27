@@ -52,6 +52,15 @@ describe('vtu-checkout service', () => {
     ).toMatchObject({ networkProvider: MOBILE_TO_KUDA_PROVIDER.airtel });
   });
 
+  it('normalizes mixed-case network provider keys', () => {
+    expect(
+      normalizeVtuCheckoutPayload({ amount: 1000, networkProvider: 'MTN' })
+    ).toMatchObject({ networkProvider: MOBILE_TO_KUDA_PROVIDER.mtn });
+    expect(
+      normalizeVtuCheckoutPayload({ amount: 1000, networkProvider: 'AirTel' })
+    ).toMatchObject({ networkProvider: MOBILE_TO_KUDA_PROVIDER.airtel });
+  });
+
   it('keeps missing, empty, and unknown network providers unchanged', () => {
     expect(normalizeVtuCheckoutPayload({ amount: 1000 })).not.toHaveProperty(
       'networkProvider'
