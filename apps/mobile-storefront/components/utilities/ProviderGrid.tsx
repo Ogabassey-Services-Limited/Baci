@@ -2,14 +2,10 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const mtnImage = require('../../assets/images/mtn.jpeg');
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const airtelImage = require('../../assets/images/airtel.png');
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const gloImage = require('../../assets/images/glo.jpg');
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const t2Image = require('../../assets/images/t2.png');
+import airtelImage from '../../assets/images/airtel.png';
+import gloImage from '../../assets/images/glo.jpg';
+import mtnImage from '../../assets/images/mtn.jpeg';
+import t2Image from '../../assets/images/t2.png';
 
 const PROVIDERS = [
   { id: 'mtn', name: 'MTN', color: '#FFCC00', image: mtnImage },
