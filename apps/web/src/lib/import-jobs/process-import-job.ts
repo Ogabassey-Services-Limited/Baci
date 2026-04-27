@@ -81,7 +81,7 @@ export async function processImportJobQueue(
 ) {
   const jobs: ImportJobRecord[] = [];
   const uploadedReserve = limit > 1 ? UPLOADED_QUEUE_RESERVED_SLOTS : 0;
-  let highPriorityRemaining = Math.max(limit - uploadedReserve, 0);
+  let highPriorityRemaining = limit;
 
   for (const status of HIGH_PRIORITY_QUEUE_STATUSES) {
     if (highPriorityRemaining <= 0) {
@@ -97,14 +97,18 @@ export async function processImportJobQueue(
     highPriorityRemaining -= highPriorityJobs.length;
   }
 
-  // Keep preview generation moving even under sustained commit/notify backlog.
-  jobs.push(
-    ...(await loadQueuedJobsForStatus(
-      supabase,
-      'uploaded',
-      limit - jobs.length
-    ))
+  const uploadedJobs = await loadQueuedJobsForStatus(
+    supabase,
+    'uploaded',
+    uploadedReserve
   );
+
+  if (uploadedJobs.length > 0) {
+    // Reserve uploaded capacity only when uploaded work exists; otherwise keep
+    // the full batch available for commit/notify backlog.
+    jobs.splice(limit - uploadedJobs.length);
+    jobs.push(...uploadedJobs);
+  }
 
   if (jobs.length === 0) {
     return [];
