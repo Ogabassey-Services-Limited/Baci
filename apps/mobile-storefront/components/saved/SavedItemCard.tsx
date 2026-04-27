@@ -1,7 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeIn, FadeOut, Layout } from 'react-native-reanimated';
+import Animated, {
+  FadeIn,
+  FadeOut,
+  LinearTransition,
+} from 'react-native-reanimated';
 import { BLURHASH_VARIANTS } from '@/components/storefront/ProductCard';
 import type Colors from '@/constants/Colors';
 import {
@@ -39,23 +43,33 @@ export function SavedItemCard({
   onPress,
   onRemove,
 }: SavedItemCardProps) {
+  const formattedSavedDate = formatSavedDate(item.savedAt);
   const discountPercentage = getDiscountPercentage(
     item.price,
     item.compare_at_price
   );
+  const productAccessibilityLabel = [
+    `View ${item.name}`,
+    item.brand,
+    formatPrice(item.price),
+    formattedSavedDate ? `Saved ${formattedSavedDate}` : null,
+  ]
+    .filter(Boolean)
+    .join('. ');
 
   return (
     <Animated.View
       entering={FadeIn.duration(300)}
       exiting={FadeOut.duration(200)}
-      layout={Layout.springify()}
+      layout={LinearTransition.springify()}
       style={[styles.itemCard, { backgroundColor: colors.card }]}
     >
       <Pressable
         onPress={() => onPress(item)}
         style={styles.itemContent}
         accessibilityRole="button"
-        accessibilityLabel={`View ${item.name}`}
+        accessibilityLabel={productAccessibilityLabel}
+        accessibilityHint="Opens the product details screen"
       >
         <View
           style={[styles.imageContainer, { backgroundColor: colors.border }]}
@@ -107,7 +121,7 @@ export function SavedItemCard({
           </View>
 
           <Text style={[styles.savedDateText, { color: colors.textSecondary }]}>
-            Saved {formatSavedDate(item.savedAt)}
+            Saved {formattedSavedDate}
           </Text>
         </View>
       </Pressable>

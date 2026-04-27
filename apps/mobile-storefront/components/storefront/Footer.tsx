@@ -9,6 +9,7 @@ import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { Logo } from '@/components/ui/Logo';
 import { BRAND, SPACING } from '@/constants/Colors';
+import { SUPPORT_EMAIL } from '@/constants/Support';
 import { useMerchant } from '@/hooks';
 import { createLogger } from '@/lib/logger';
 import { normalizeSocialUrl, type SocialPlatform } from '@/lib/social';
@@ -88,7 +89,7 @@ export function Footer() {
   const contactInfo = {
     address: merchant?.business_address || '2 Olaide Tomori St, Ikeja, Lagos',
     phone: merchant?.phone || '+234 814 697 8921',
-    email: merchant?.email || 'support@ogabassey.com',
+    email: merchant?.email || SUPPORT_EMAIL,
   };
 
   const handleInternalLink = (route: string) => {

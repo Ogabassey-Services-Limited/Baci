@@ -19,7 +19,7 @@ jest.mock('react-native-reanimated', () => {
     FadeOut: {
       duration: () => ({}),
     },
-    Layout: {
+    LinearTransition: {
       springify: () => ({}),
     },
   };
@@ -60,7 +60,7 @@ describe('SavedItemCard', () => {
     );
 
     expect(screen.getByText('Test Product')).toBeTruthy();
-    fireEvent.press(screen.getByLabelText('View Test Product'));
+    fireEvent.press(screen.getByLabelText(/^View Test Product/));
     fireEvent.press(
       screen.getByLabelText('Remove Test Product from saved items')
     );

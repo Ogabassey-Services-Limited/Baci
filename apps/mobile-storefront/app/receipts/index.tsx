@@ -104,7 +104,7 @@ export default function ReceiptsScreen() {
             <OfflineEmptyState
               title="Receipts Unavailable"
               description="Connect to the internet to view your receipts"
-              onRetry={() => refetch()}
+              onRetry={handleRefresh}
               isRetrying={isRefreshing}
             />
           </View>
@@ -127,7 +127,7 @@ export default function ReceiptsScreen() {
             Failed to load receipts
           </Text>
           <TouchableOpacity
-            onPress={() => refetch()}
+            onPress={handleRefresh}
             accessibilityRole="button"
             accessibilityLabel="Retry loading receipts"
             accessibilityHint="Retries loading your receipts"
@@ -151,7 +151,7 @@ export default function ReceiptsScreen() {
           variant="banner"
           showCachedDataNotice={hasReceipts}
           showRetry
-          onRetry={() => refetch()}
+          onRetry={handleRefresh}
           isRetrying={isRefreshing}
         />
       )}

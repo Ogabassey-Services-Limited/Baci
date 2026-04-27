@@ -225,7 +225,7 @@ describe('SavedItemsScreen', () => {
       paddingBottom: SPACING.lg,
     });
 
-    fireEvent.press(screen.getByLabelText('View Test Product'));
+    fireEvent.press(screen.getByLabelText(/^View Test Product/));
 
     expect(mockRouterPush).toHaveBeenCalledWith('/product/test-product');
   });
@@ -254,7 +254,7 @@ describe('SavedItemsScreen', () => {
 
     render(<SavedItemsScreen />);
 
-    fireEvent.press(screen.getByLabelText('View Legacy Product'));
+    fireEvent.press(screen.getByLabelText(/^View Legacy Product/));
 
     expect(mockAlert).toHaveBeenCalledWith(
       'Product Unavailable',

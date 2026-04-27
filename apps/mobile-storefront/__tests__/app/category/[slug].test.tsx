@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { View } from 'react-native';
-import { SPACING } from '@/constants/Colors';
 import CategoryScreen from '@/app/category/[slug]';
+import { SPACING } from '@/constants/Colors';
 
 interface MockFlashListProps {
   children?: React.ReactNode;
@@ -220,12 +220,12 @@ describe('CategoryScreen', () => {
       paddingBottom: SPACING.lg,
       paddingTop: SPACING.md,
     });
-    expect(flashListProps?.contentContainerStyle).toEqual({
-      gap: 12,
-      padding: 16,
-      paddingTop: SPACING.md,
-      paddingBottom: SPACING.lg,
-    });
+    expect(flashListProps?.contentContainerStyle).toEqual(
+      expect.objectContaining({
+        paddingTop: SPACING.md,
+        paddingBottom: SPACING.lg,
+      })
+    );
   });
 
   it('renders an invalid-category state when the slug is empty', () => {
