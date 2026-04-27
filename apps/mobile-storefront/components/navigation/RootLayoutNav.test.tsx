@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { render, screen } from '@testing-library/react-native';
 import type React from 'react';
 import { Text, View } from 'react-native';
+import { CHAT_WIDGET_DEFAULT_BOTTOM_OFFSET } from '@/constants/layout';
 import { getTemplateConfig } from '@/lib/templates';
 import { RootLayoutNav } from './RootLayoutNav';
 
@@ -139,7 +140,9 @@ describe('RootLayoutNav', () => {
     expect(screen.getByText('(tabs)')).toBeTruthy();
     expect(screen.getByText('checkout')).toBeTruthy();
     expect(screen.getByText('connectivity-banner')).toBeTruthy();
-    expect(screen.getByText('chat-widget:140')).toBeTruthy();
+    expect(
+      screen.getByText(`chat-widget:${CHAT_WIDGET_DEFAULT_BOTTOM_OFFSET}`)
+    ).toBeTruthy();
     expect(screen.getByText('negotiation-modal')).toBeTruthy();
     expect(screen.getByText('drawer-menu')).toBeTruthy();
     expect(mockUseAuthGuard).toHaveBeenCalledTimes(1);

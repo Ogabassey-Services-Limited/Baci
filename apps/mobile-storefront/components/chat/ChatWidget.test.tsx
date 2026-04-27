@@ -84,6 +84,15 @@ jest.mock('expo-router', () => ({
   Link: 'Link',
 }));
 
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: jest.fn(() => ({
+    top: 0,
+    right: 0,
+    bottom: 34,
+    left: 0,
+  })),
+}));
+
 // Mock ChatModal as a simple component
 jest.mock('./ChatModal', () => ({
   ChatModal: jest.fn(() => null),

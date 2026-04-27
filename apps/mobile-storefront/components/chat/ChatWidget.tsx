@@ -17,8 +17,10 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { usePathname } from 'expo-router';
 import { Animated, Platform, Pressable, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
+import { getChatWidgetBottomOffset } from '@/constants/layout';
 import { useUIStore } from '@/stores/ui-store';
 import { ChatModal } from './ChatModal';
 import { HIDDEN_ROUTES } from './constants';
@@ -35,13 +37,18 @@ export function ChatWidget({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const pathname = usePathname();
+  const insets = useSafeAreaInsets();
+  const effectiveBottomOffset = getChatWidgetBottomOffset(
+    bottomOffset,
+    insets.bottom
+  );
 
   const isChatOpen = useUIStore((state) => state.isChatOpen);
   const openChat = useUIStore((state) => state.openChat);
   const closeChat = useUIStore((state) => state.closeChat);
 
   const { pan, panResponder, pulseAnim, isDragging, hasMoved, isOnRight } =
-    useDraggableFab(bottomOffset);
+    useDraggableFab(effectiveBottomOffset);
 
   const { proactiveMsg, nudgeFadeAnim, dismissNudge } =
     useProactiveNudge(isChatOpen);
