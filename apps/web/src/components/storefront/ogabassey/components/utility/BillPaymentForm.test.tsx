@@ -291,7 +291,8 @@ describe('BillPaymentForm', () => {
     });
 
     fireEvent.click(screen.getByText('Commercial'));
-    fireEvent.change(screen.getByPlaceholderText('Enter meter number'), {
+    const meterInput = await screen.findByPlaceholderText('Enter meter number');
+    fireEvent.change(meterInput, {
       target: { value: '1234567890' },
     });
     fireEvent.click(screen.getByRole('button', { name: /Verify/i }));

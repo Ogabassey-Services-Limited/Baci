@@ -6,9 +6,10 @@ import { logger } from '@/lib/logger';
 import { BILLER_GC_TIME, BILLER_STALE_TIME } from '@/lib/vtu-constants';
 import {
   type Biller,
-  type BillItem,
   BillerListSchema,
+  type BillItem,
 } from '@/lib/vtu-schemas';
+
 export type { Biller, BillItem };
 
 const API_URL =
@@ -104,6 +105,7 @@ export function usePrefetchBillers() {
         queryKey: vtuBillerKeys.byType(type),
         queryFn: () => fetchBillers(type),
         staleTime: BILLER_STALE_TIME,
+        gcTime: BILLER_GC_TIME,
       });
     }
   }, [queryClient]);

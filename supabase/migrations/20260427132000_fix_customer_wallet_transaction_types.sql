@@ -105,6 +105,15 @@ BEGIN
     RETURN;
   END IF;
 
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.customers c
+    WHERE c.id = p_customer_id AND c.merchant_id = p_merchant_id
+  ) THEN
+    RAISE EXCEPTION 'Customer does not belong to merchant'
+      USING ERRCODE = '42501';
+  END IF;
+
   SELECT id, available_balance INTO v_wallet_id, v_current_balance
   FROM public.customer_wallets
   WHERE customer_id = p_customer_id AND merchant_id = p_merchant_id
@@ -191,7 +200,7 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
-  IF auth.role() <> 'service_role' THEN
+  IF COALESCE(auth.role(), '') <> 'service_role' THEN
     IF auth.uid() IS NULL THEN
       RAISE EXCEPTION 'Authentication required to redeem wallet'
         USING ERRCODE = '42501';

@@ -35,7 +35,7 @@ function getAuthorizedCronResponse(request: NextRequest) {
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function isNullableString(value: unknown): value is string | null {
@@ -111,7 +111,15 @@ async function fetchCashbackRows(
     }
 
     if (Array.isArray(data)) {
-      rows.push(...data.filter(isVtuCashbackSummaryRow));
+      const validRows = data.filter(isVtuCashbackSummaryRow);
+      const invalidRows = data.filter((row) => !isVtuCashbackSummaryRow(row));
+      if (invalidRows.length > 0) {
+        console.warn(
+          `VTU cashback summary: dropped ${invalidRows.length} invalid row(s) from page (offset ${from})`,
+          { sample: invalidRows.slice(0, 3) }
+        );
+      }
+      rows.push(...validRows);
     }
 
     if (!data || data.length < PAGE_SIZE) {

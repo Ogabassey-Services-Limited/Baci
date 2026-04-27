@@ -205,6 +205,18 @@ describe('chunkVtuCashbackSummaryRows', () => {
       [5],
     ]);
   });
+
+  it('returns an empty array when given an empty input', () => {
+    expect(chunkVtuCashbackSummaryRows([], 5)).toEqual([]);
+  });
+
+  it('returns a single chunk when length equals the batch size', () => {
+    expect(chunkVtuCashbackSummaryRows([1, 2], 2)).toEqual([[1, 2]]);
+  });
+
+  it('returns a single chunk when batch size exceeds length', () => {
+    expect(chunkVtuCashbackSummaryRows([1, 2, 3], 5)).toEqual([[1, 2, 3]]);
+  });
 });
 
 describe('markVtuCashbackTransactionsSummarized', () => {

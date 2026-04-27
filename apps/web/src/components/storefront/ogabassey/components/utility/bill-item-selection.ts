@@ -121,6 +121,8 @@ export function resolveBillItemSelection(
     depth += 1;
   }
 
+  // Unreachable in normal control flow: the loop above always returns once it
+  // hits a leaf or an unselected level. Kept for TypeScript exhaustiveness.
   return {
     isComplete: true,
     leaf: selectedPath.at(-1) ?? null,

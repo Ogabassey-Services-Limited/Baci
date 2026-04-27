@@ -5,7 +5,9 @@ describe('vtuCashbackSummaryCronQuerySchema', () => {
   it('accepts a missing now parameter', () => {
     const result = vtuCashbackSummaryCronQuerySchema.safeParse({});
 
-    expect(result.success).toBe(true);
+    if (!result.success) {
+      throw new Error(result.error.message);
+    }
     expect(result.data).toEqual({});
   });
 
@@ -14,7 +16,9 @@ describe('vtuCashbackSummaryCronQuerySchema', () => {
       now: '2026-04-27T12:00:00.000Z',
     });
 
-    expect(result.success).toBe(true);
+    if (!result.success) {
+      throw new Error(result.error.message);
+    }
     expect(result.data).toEqual({ now: '2026-04-27T12:00:00.000Z' });
   });
 

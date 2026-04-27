@@ -27,7 +27,7 @@ interface WalletTransactionHistoryProps {
   transactions: WalletTransaction[];
 }
 
-function hexToRgba(hexColor: string, alpha: number) {
+function hexToRgba(hexColor: string, alpha: number): string {
   const normalizedHex = hexColor.replace('#', '');
   const expandedHex =
     normalizedHex.length === 3 && /^[\da-f]{3}$/i.test(normalizedHex)
@@ -38,7 +38,10 @@ function hexToRgba(hexColor: string, alpha: number) {
       : normalizedHex;
 
   if (!/^[\da-f]{6}$/i.test(expandedHex)) {
-    return hexColor;
+    if (__DEV__) {
+      console.warn(`hexToRgba: invalid hex color received: ${hexColor}`);
+    }
+    return 'rgba(0,0,0,0)';
   }
 
   const colorValue = Number.parseInt(expandedHex, 16);

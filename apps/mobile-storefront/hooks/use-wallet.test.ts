@@ -1,5 +1,5 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { notifyManager } from '@tanstack/query-core';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { createElement, type PropsWithChildren } from 'react';
 
@@ -31,7 +31,7 @@ jest.mock('@/stores/auth-store', () => {
   };
 });
 
-import { useRedeemPoints, useWallet, walletKeys } from './use-wallet';
+import { useRedeemPoints, useWallet, walletKeys } from '@/hooks/use-wallet';
 import { useAuthStore } from '@/stores/auth-store';
 
 type WalletQueryData = {

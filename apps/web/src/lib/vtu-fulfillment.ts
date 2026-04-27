@@ -46,6 +46,34 @@ function getCustomerFirstName(row: VtuTransactionRow, merchantName: string) {
   return merchantName || 'Customer';
 }
 
+type NormalizedProvider = NonNullable<
+  ReturnType<typeof normalizeVtuNetworkProvider>
+>;
+
+type ProviderNormalizationResult =
+  | { provider: NormalizedProvider }
+  | { failure: PurchaseResult };
+
+function normalizeVtuProviderOrError(
+  row: VtuTransactionRow
+): ProviderNormalizationResult {
+  const provider = normalizeVtuNetworkProvider(row.network_provider);
+  if (!provider) {
+    return {
+      failure: {
+        amount: row.amount,
+        message: `Invalid network provider: ${row.network_provider}`,
+        phoneNumber: row.phone_number,
+        provider: row.network_provider,
+        reference: row.request_reference,
+        status: 'failed',
+        success: false,
+      },
+    };
+  }
+  return { provider };
+}
+
 function executeVtuPurchase(
   row: VtuTransactionRow,
   merchantName: string
@@ -53,40 +81,24 @@ function executeVtuPurchase(
   const customerFirstName = getCustomerFirstName(row, merchantName);
 
   if (row.type === 'airtime') {
-    const networkProvider = normalizeVtuNetworkProvider(row.network_provider);
-    if (!networkProvider) {
-      return Promise.resolve({
-        amount: row.amount,
-        message: `Invalid network provider: ${row.network_provider}`,
-        phoneNumber: row.phone_number,
-        provider: row.network_provider,
-        reference: row.request_reference,
-        status: 'failed',
-        success: false,
-      });
+    const normalized = normalizeVtuProviderOrError(row);
+    if ('failure' in normalized) {
+      return Promise.resolve(normalized.failure);
     }
 
     return purchaseAirtime(
       row.phone_number,
       row.amount,
-      networkProvider,
+      normalized.provider,
       customerFirstName,
       row.request_reference
     );
   }
 
   if (row.type === 'data') {
-    const networkProvider = normalizeVtuNetworkProvider(row.network_provider);
-    if (!networkProvider) {
-      return Promise.resolve({
-        amount: row.amount,
-        message: `Invalid network provider: ${row.network_provider}`,
-        phoneNumber: row.phone_number,
-        provider: row.network_provider,
-        reference: row.request_reference,
-        status: 'failed',
-        success: false,
-      });
+    const normalized = normalizeVtuProviderOrError(row);
+    if ('failure' in normalized) {
+      return Promise.resolve(normalized.failure);
     }
 
     const dataPlanCode =
@@ -107,7 +119,7 @@ function executeVtuPurchase(
       row.phone_number,
       dataPlanCode,
       row.amount,
-      networkProvider,
+      normalized.provider,
       customerFirstName,
       row.request_reference
     );

@@ -1,3 +1,4 @@
+import { MOBILE_TO_KUDA_PROVIDER } from '@/lib/network-utils';
 import {
   chargeSavedVtuCard,
   confirmVtuCheckout,
@@ -5,7 +6,6 @@ import {
   listSavedVtuCards,
   normalizeVtuCheckoutPayload,
 } from '@/lib/vtu-checkout';
-import { MOBILE_TO_KUDA_PROVIDER } from '@/lib/network-utils';
 
 const mockFetchWithTimeout = jest.fn();
 const mockGetUser = jest.fn();
@@ -27,7 +27,10 @@ jest.mock('@/lib/supabase', () => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null });
+  mockGetUser.mockResolvedValue({
+    data: { user: { id: 'user-1' } },
+    error: null,
+  });
   mockGetSession.mockResolvedValue({
     data: { session: { access_token: 'token-123' } },
   });
@@ -94,7 +97,7 @@ describe('vtu-checkout service', () => {
     expect(
       JSON.parse(mockFetchWithTimeout.mock.calls[0][1].body)
     ).toMatchObject({
-      networkProvider: 'MTN',
+      networkProvider: MOBILE_TO_KUDA_PROVIDER.mtn,
     });
   });
 

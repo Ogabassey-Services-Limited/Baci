@@ -114,7 +114,7 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
-  IF auth.role() <> 'service_role' THEN
+  IF COALESCE(auth.role(), '') <> 'service_role' THEN
     IF auth.uid() IS NULL THEN
       RAISE EXCEPTION 'Authentication required to redeem wallet'
         USING ERRCODE = '42501';

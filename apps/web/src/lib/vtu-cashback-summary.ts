@@ -81,10 +81,6 @@ function toKobo(value: number | string) {
   return Number.isFinite(amount) ? Math.round(amount * KOBO_PER_NAIRA) : 0;
 }
 
-function addKoboAmounts(leftKobo: number, rightKobo: number) {
-  return leftKobo + rightKobo;
-}
-
 function getMetadataPeriod(metadata: Record<string, unknown> | null) {
   const value = metadata?.monthlySummaryPeriod;
   return typeof value === 'string' ? value : undefined;
@@ -150,7 +146,7 @@ export function groupVtuCashbackSummaryRows(
     const amountKobo = toKobo(row.amount);
 
     if (existing) {
-      const totalKobo = addKoboAmounts(amountTotals.get(key) ?? 0, amountKobo);
+      const totalKobo = (amountTotals.get(key) ?? 0) + amountKobo;
       amountTotals.set(key, totalKobo);
       existing.amount = totalKobo / KOBO_PER_NAIRA;
       existing.transactionCount += 1;
@@ -163,7 +159,7 @@ export function groupVtuCashbackSummaryRows(
       customerFirstName: customer.first_name,
       customerId: row.customer_id,
       merchantId: row.merchant_id,
-      merchantName: merchant?.business_name || DEFAULT_MERCHANT_NAME,
+      merchantName: merchant?.business_name ?? DEFAULT_MERCHANT_NAME,
       merchantSlug: merchant?.slug ?? null,
       transactionCount: 1,
       transactionIds: [row.id],

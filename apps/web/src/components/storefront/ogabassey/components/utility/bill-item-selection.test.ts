@@ -43,6 +43,37 @@ const nestedItems: BillItem[] = [
   },
 ];
 
+const deepItems: BillItem[] = [
+  {
+    itemCode: 'level-1',
+    itemName: 'Level 1',
+    amount: 0,
+    itemCurrencySymbol: 'NGN',
+    isAmountFixed: false,
+    itemFee: 0,
+    billItems: [
+      {
+        itemCode: 'level-2',
+        itemName: 'Level 2',
+        amount: 0,
+        itemCurrencySymbol: 'NGN',
+        isAmountFixed: false,
+        itemFee: 0,
+        billItems: [
+          {
+            itemCode: 'level-3',
+            itemName: 'Level 3',
+            amount: 100,
+            itemCurrencySymbol: 'NGN',
+            isAmountFixed: true,
+            itemFee: 0,
+          },
+        ],
+      },
+    ],
+  },
+];
+
 describe('bill-item-selection', () => {
   it('returns empty and incomplete state for missing bill items', () => {
     expect(getResolvedBillItemCodes(undefined)).toEqual([]);
@@ -128,37 +159,6 @@ describe('bill-item-selection', () => {
   });
 
   it('auto-resolves deeply nested single-path structures', () => {
-    const deepItems: BillItem[] = [
-      {
-        itemCode: 'level-1',
-        itemName: 'Level 1',
-        amount: 0,
-        itemCurrencySymbol: 'NGN',
-        isAmountFixed: false,
-        itemFee: 0,
-        billItems: [
-          {
-            itemCode: 'level-2',
-            itemName: 'Level 2',
-            amount: 0,
-            itemCurrencySymbol: 'NGN',
-            isAmountFixed: false,
-            itemFee: 0,
-            billItems: [
-              {
-                itemCode: 'level-3',
-                itemName: 'Level 3',
-                amount: 100,
-                itemCurrencySymbol: 'NGN',
-                isAmountFixed: true,
-                itemFee: 0,
-              },
-            ],
-          },
-        ],
-      },
-    ];
-
     expect(getResolvedBillItemCodes(deepItems)).toEqual([
       'level-1',
       'level-2',
@@ -167,37 +167,6 @@ describe('bill-item-selection', () => {
   });
 
   it('marks deeply nested full selection as complete', () => {
-    const deepItems: BillItem[] = [
-      {
-        itemCode: 'level-1',
-        itemName: 'Level 1',
-        amount: 0,
-        itemCurrencySymbol: 'NGN',
-        isAmountFixed: false,
-        itemFee: 0,
-        billItems: [
-          {
-            itemCode: 'level-2',
-            itemName: 'Level 2',
-            amount: 0,
-            itemCurrencySymbol: 'NGN',
-            isAmountFixed: false,
-            itemFee: 0,
-            billItems: [
-              {
-                itemCode: 'level-3',
-                itemName: 'Level 3',
-                amount: 100,
-                itemCurrencySymbol: 'NGN',
-                isAmountFixed: true,
-                itemFee: 0,
-              },
-            ],
-          },
-        ],
-      },
-    ];
-
     expect(
       resolveBillItemSelection(deepItems, ['level-1', 'level-2', 'level-3'])
         .isComplete

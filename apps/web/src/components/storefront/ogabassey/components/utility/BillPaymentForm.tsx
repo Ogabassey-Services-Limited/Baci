@@ -87,8 +87,12 @@ export function BillPaymentForm({
     setVerification(null);
     setBillersError(null);
 
+    const controller = new AbortController();
     const billType = TAB_TO_BILL_TYPE[type];
-    fetch(`/api/vtu/billers?type=${billType}`, { cache: 'no-store' })
+    fetch(`/api/vtu/billers?type=${billType}`, {
+      cache: 'no-store',
+      signal: controller.signal,
+    })
       .then((res) => {
         if (!res.ok) {
           throw new Error(`Failed to load billers: ${res.status}`);
@@ -97,15 +101,25 @@ export function BillPaymentForm({
       })
       .then((data) => {
         setBillers(data.billers || []);
-        setBillersError(null);
       })
       .catch((error) => {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          return;
+        }
         const message =
           error instanceof Error ? error.message : 'Failed to load billers';
         setBillers([]);
         setBillersError(message);
       })
-      .finally(() => setBillersLoading(false));
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setBillersLoading(false);
+        }
+      });
+
+    return () => {
+      controller.abort();
+    };
   }, [type]);
 
   const billItemSelection = resolveBillItemSelection(
@@ -283,11 +297,7 @@ export function BillPaymentForm({
               id="bill-amount"
               type="number"
               value={amount}
-              onChange={(e) => {
-                if (!isFixedAmount) {
-                  setAmount(e.target.value);
-                }
-              }}
+              onChange={(e) => setAmount(e.target.value)}
               placeholder="0.00"
               className="w-full pl-8 pr-4 py-3 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-1 focus:ring-red-600 outline-none transition-all"
               readOnly={isFixedAmount}

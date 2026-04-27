@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { preparePendingVtuTransaction } from '@/lib/vtu-pending-transaction';
 
 const {
@@ -133,7 +133,10 @@ function createMockSupabase({
 function prepareAirtime(supabase: PrepareSupabase, networkProvider = 'mtn') {
   return preparePendingVtuTransaction({
     supabase,
-    user: { id: 'user-1', email: 'customer@example.com' } as never,
+    user: {
+      id: 'user-1',
+      email: 'customer@example.com',
+    } as unknown as Parameters<typeof preparePendingVtuTransaction>[0]['user'],
     input: {
       merchantSlug: 'ogabassey',
       type: 'airtime',
@@ -148,6 +151,10 @@ function prepareAirtime(supabase: PrepareSupabase, networkProvider = 'mtn') {
 }
 
 describe('preparePendingVtuTransaction', () => {
+  beforeEach(() => {
+    mockCalculateCommerce.mockClear();
+  });
+
   it('creates a pending VTU row with computed commissions', async () => {
     const { insert, supabase } = createMockSupabase({
       settings: {

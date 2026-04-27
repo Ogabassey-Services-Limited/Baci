@@ -8,6 +8,25 @@ vi.mock('@/lib/utils', () => ({
 }));
 
 describe('BillItemLevelOptions', () => {
+  function createItem(overrides: Partial<{
+    itemCode: string;
+    itemName: string;
+    amount: number;
+    itemCurrencySymbol: string;
+    isAmountFixed: boolean;
+    itemFee: number;
+  }> = {}) {
+    return {
+      itemCode: 'compact',
+      itemName: 'Compact',
+      amount: 15_000,
+      itemCurrencySymbol: 'NGN',
+      isAmountFixed: true,
+      itemFee: 0,
+      ...overrides,
+    };
+  }
+
   it('renders only the level label when no options are available', () => {
     const onSelect = vi.fn();
 
@@ -27,14 +46,7 @@ describe('BillItemLevelOptions', () => {
   it('renders bill items and emits the selected depth and item', async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();
-    const item = {
-      itemCode: 'compact',
-      itemName: 'Compact',
-      amount: 15_000,
-      itemCurrencySymbol: 'NGN',
-      isAmountFixed: true,
-      itemFee: 0,
-    };
+    const item = createItem();
 
     render(
       <BillItemLevelOptions
@@ -54,22 +66,12 @@ describe('BillItemLevelOptions', () => {
 
   it('checks the pre-selected option on render', () => {
     const items = [
-      {
-        itemCode: 'compact',
-        itemName: 'Compact',
-        amount: 15_000,
-        itemCurrencySymbol: 'NGN',
-        isAmountFixed: true,
-        itemFee: 0,
-      },
-      {
+      createItem(),
+      createItem({
         itemCode: 'premium',
         itemName: 'Premium',
         amount: 20_000,
-        itemCurrencySymbol: 'NGN',
-        isAmountFixed: true,
-        itemFee: 0,
-      },
+      }),
     ];
 
     render(
@@ -84,28 +86,27 @@ describe('BillItemLevelOptions', () => {
       'aria-checked',
       'true'
     );
+    expect(screen.getByRole('radio', { name: /compact/i })).toHaveAttribute(
+      'aria-checked',
+      'false'
+    );
   });
 
   it('renders multiple fixed and variable options', async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();
     const items = [
-      {
+      createItem({
         itemCode: 'residential',
         itemName: 'Residential',
         amount: 0,
-        itemCurrencySymbol: 'NGN',
         isAmountFixed: false,
-        itemFee: 0,
-      },
-      {
+      }),
+      createItem({
         itemCode: 'commercial',
         itemName: 'Commercial',
         amount: 5_000,
-        itemCurrencySymbol: 'NGN',
-        isAmountFixed: true,
-        itemFee: 0,
-      },
+      }),
     ];
 
     render(

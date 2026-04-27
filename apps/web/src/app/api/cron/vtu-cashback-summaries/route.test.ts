@@ -158,6 +158,68 @@ describe('GET /api/cron/vtu-cashback-summaries', () => {
     expect(mockUpdateEq).toHaveBeenCalledWith('id', 'tx-2');
   });
 
+  it('sends a separate summary for each customer merchant pair', async () => {
+    mockRange.mockResolvedValueOnce({
+      data: [
+        {
+          amount: 500,
+          customer: { first_name: 'Ada', user_id: 'user-1' },
+          customer_id: 'customer-1',
+          id: 'tx-1',
+          merchant: { business_name: 'OgaBassey', slug: 'ogabassey' },
+          merchant_id: 'merchant-1',
+          metadata: {},
+        },
+        {
+          amount: 300,
+          customer: { first_name: 'Ben', user_id: 'user-2' },
+          customer_id: 'customer-2',
+          id: 'tx-2',
+          merchant: { business_name: 'Other Store', slug: 'other-store' },
+          merchant_id: 'merchant-2',
+          metadata: {},
+        },
+      ],
+      error: null,
+    });
+
+    const response = await GET(createRequest());
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data).toMatchObject({
+      groupsProcessed: 2,
+      period: '2026-03',
+      summariesSent: 2,
+      transactionsMarked: 2,
+    });
+    expect(mockNotifyCustomer).toHaveBeenCalledTimes(2);
+    expect(mockNotifyCustomer).toHaveBeenCalledWith(
+      'user-1',
+      expect.any(String),
+      expect.any(String),
+      expect.objectContaining({
+        idempotency_key: 'vtu-cashback-summary:2026-03:customer-1:merchant-1',
+        merchant_id: 'merchant-1',
+        period: '2026-03',
+      }),
+      'promotions'
+    );
+    expect(mockNotifyCustomer).toHaveBeenCalledWith(
+      'user-2',
+      expect.any(String),
+      expect.any(String),
+      expect.objectContaining({
+        idempotency_key: 'vtu-cashback-summary:2026-03:customer-2:merchant-2',
+        merchant_id: 'merchant-2',
+        period: '2026-03',
+      }),
+      'promotions'
+    );
+    expect(mockUpdateEq).toHaveBeenCalledWith('id', 'tx-1');
+    expect(mockUpdateEq).toHaveBeenCalledWith('id', 'tx-2');
+  });
+
   it('returns no-op response when there are no cashback rows', async () => {
     const response = await GET(createRequest());
     const data = await response.json();

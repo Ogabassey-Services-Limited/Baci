@@ -1,7 +1,7 @@
 'use client';
 
 import { Loader2 } from 'lucide-react';
-import { useEffect, useRef, type KeyboardEvent } from 'react';
+import { useEffect, useId, useRef, type KeyboardEvent } from 'react';
 import { cn } from '@/lib/utils';
 import type { BillItem } from './bill-item-selection';
 
@@ -31,8 +31,14 @@ export function BillPaymentBillerList({
   onSelect,
 }: BillPaymentBillerListProps) {
   const buttonRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const labelId = useId();
 
   useEffect(() => {
+    // Null out refs beyond the new length to drop references to unmounted nodes
+    // before truncating the array.
+    for (let index = billers.length; index < buttonRefs.current.length; index += 1) {
+      buttonRefs.current[index] = null;
+    }
     buttonRefs.current = buttonRefs.current.slice(0, billers.length);
   }, [billers.length]);
 
@@ -67,10 +73,7 @@ export function BillPaymentBillerList({
 
   return (
     <div className="space-y-1.5">
-      <span
-        id="biller-selection-label"
-        className="text-sm font-medium text-gray-700"
-      >
+      <span id={labelId} className="text-sm font-medium text-gray-700">
         Select {label} Provider
       </span>
       {isLoading ? (
@@ -90,7 +93,7 @@ export function BillPaymentBillerList({
         <div
           className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto"
           role="radiogroup"
-          aria-labelledby="biller-selection-label"
+          aria-labelledby={labelId}
         >
           {billers.map((biller, index) => {
             const isSelected = selectedBillerId === biller.billerId;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, type KeyboardEvent } from 'react';
+import { useEffect, useRef, type KeyboardEvent } from 'react';
 import { cn } from '@/lib/utils';
 import type { BillItem, BillItemSelectionLevel } from './bill-item-selection';
 
@@ -19,6 +19,10 @@ export function BillItemLevelOptions({
 }: BillItemLevelOptionsProps) {
   const labelId = `bill-item-level-${level.depth}-label`;
   const buttonRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  useEffect(() => {
+    buttonRefs.current = buttonRefs.current.slice(0, level.options.length);
+  }, [level.options.length]);
 
   const handleKeyDown = (
     event: KeyboardEvent<HTMLButtonElement>,
@@ -44,6 +48,10 @@ export function BillItemLevelOptions({
     }
   };
 
+  const selectedExists = level.options.some(
+    (option) => option.itemCode === level.selectedCode
+  );
+
   return (
     <div className="space-y-1.5">
       <span
@@ -59,13 +67,15 @@ export function BillItemLevelOptions({
       >
         {level.options.map((billItem, index) => {
           const isSelected = level.selectedCode === billItem.itemCode;
+          const fallbackToFirst =
+            (!level.selectedCode || !selectedExists) && index === 0;
           return (
             <button
               key={`${level.depth}-${billItem.itemCode}`}
               type="button"
               role="radio"
               aria-checked={isSelected}
-              tabIndex={isSelected || (!level.selectedCode && index === 0) ? 0 : -1}
+              tabIndex={isSelected || fallbackToFirst ? 0 : -1}
               ref={(button) => {
                 buttonRefs.current[index] = button;
               }}

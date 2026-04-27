@@ -115,19 +115,19 @@ export interface VTUCheckoutPayload {
 }
 
 export function normalizeVtuCheckoutPayload<T extends object>(payload: T): T {
-  const payloadWithNetwork = payload as T & { networkProvider?: string };
-  if (
-    !('networkProvider' in payloadWithNetwork) ||
-    !payloadWithNetwork.networkProvider
-  ) {
+  if (!('networkProvider' in payload)) {
+    return payload;
+  }
+
+  const rawProvider = (payload as { networkProvider?: unknown })
+    .networkProvider;
+  if (typeof rawProvider !== 'string' || !rawProvider) {
     return payload;
   }
 
   return {
     ...payload,
-    networkProvider:
-      MOBILE_TO_KUDA_PROVIDER[payloadWithNetwork.networkProvider] ||
-      payloadWithNetwork.networkProvider,
+    networkProvider: MOBILE_TO_KUDA_PROVIDER[rawProvider] || rawProvider,
   };
 }
 
@@ -194,19 +194,22 @@ export async function confirmVtuCheckout({
   reference: string;
 }) {
   const accessToken = await getAccessToken();
-  const response = await fetchWithTimeout(`${API_URL}/api/vtu/checkout/confirm`, {
-    method: 'POST',
-    timeout: DEFAULT_TIMEOUT,
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      gateway,
-      merchantSlug: CONFIG.MERCHANT_SLUG,
-      reference,
-    }),
-  });
+  const response = await fetchWithTimeout(
+    `${API_URL}/api/vtu/checkout/confirm`,
+    {
+      method: 'POST',
+      timeout: DEFAULT_TIMEOUT,
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        gateway,
+        merchantSlug: CONFIG.MERCHANT_SLUG,
+        reference,
+      }),
+    }
+  );
 
   const data = await parseJsonResponse(response);
   return ConfirmCheckoutResponseSchema.parse(data);
@@ -232,7 +235,9 @@ export async function waitForVtuConfirmation({
     });
   }
 
-  throw new Error('Payment is still processing. Check your utility history shortly.');
+  throw new Error(
+    'Payment is still processing. Check your utility history shortly.'
+  );
 }
 
 export function requiresSavedVtuCardAuthorization(
