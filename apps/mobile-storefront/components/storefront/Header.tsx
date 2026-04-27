@@ -19,7 +19,6 @@ import { getTemplateConfig } from '@/lib/templates';
 import { useCartStore } from '@/stores/cart-store';
 import { useDrawerStore } from '@/stores/drawer-store';
 import { useThemeStore } from '@/stores/theme-store';
-import { getEliteHeaderTopPadding } from './header-layout';
 
 interface HeaderProps {
   showSearch?: boolean;
@@ -74,13 +73,11 @@ export function Header({
 
   // --- RENDER: Elite Merged Layout (Electronics/High-Tech) ---
   if (template.headerStyle === 'elite' || isSanta) {
-    const eliteTopPadding = getEliteHeaderTopPadding(insets.top);
-
     return (
       <View
         style={[
           styles.eliteContainer,
-          { paddingTop: eliteTopPadding },
+          { paddingTop: insets.top + SPACING.sm },
           isSanta && { backgroundColor: seasonalTokens.holidayBg },
         ]}
       >

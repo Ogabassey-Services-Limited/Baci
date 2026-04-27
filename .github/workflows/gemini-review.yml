@@ -59,73 +59,17 @@ jobs:
           echo 'Configure GEMINI_API_KEY (Google AI Studio) or Vertex/GCA auth before running Gemini review.' >&2
           exit 1
 
-      - name: 'Build Gemini review context'
-        id: 'review_context'
-        env:
-          ADDITIONAL_CONTEXT: '${{ inputs.additional_context }}'
-          GITHUB_TOKEN: '${{ steps.mint_identity_token.outputs.token || secrets.GITHUB_TOKEN || github.token }}'
-          PR_NUMBER: '${{ github.event.pull_request.number || github.event.issue.number }}'
-          REPOSITORY: '${{ github.repository }}'
-        run: |-
-          set -euo pipefail
-
-          mkdir -p .gemini
-
-          pr_json="$(gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}")"
-          title="$(jq -r '.title' <<<"${pr_json}")"
-          body="$(jq -r '.body // ""' <<<"${pr_json}")"
-          base_ref="$(jq -r '.base.ref' <<<"${pr_json}")"
-          head_ref="$(jq -r '.head.ref' <<<"${pr_json}")"
-          head_sha="$(jq -r '.head.sha' <<<"${pr_json}")"
-
-          files_json="$(
-            gh api --paginate "repos/${REPOSITORY}/pulls/${PR_NUMBER}/files?per_page=100" \
-              --slurp
-          )"
-          diff_text="$(
-            gh api \
-              -H 'Accept: application/vnd.github.v3.diff' \
-              "repos/${REPOSITORY}/pulls/${PR_NUMBER}"
-          )"
-
-          files_summary="$(
-            jq -r \
-              '
-                flatten
-                | .[]
-                | "- \(.filename) [\(.status)] +\(.additions) / -\(.deletions)"
-              ' \
-              <<<"${files_json}"
-          )"
-
-          {
-            printf 'Review GitHub pull request #%s.\n' "${PR_NUMBER}"
-            printf 'Repository: %s\n' "${REPOSITORY}"
-            printf 'Base branch: %s\n' "${base_ref}"
-            printf 'Head branch: %s\n' "${head_ref}"
-            printf 'Head SHA: %s\n' "${head_sha}"
-            printf 'Title: %s\n\n' "${title}"
-            printf 'PR description:\n%s\n\n' "${body:-"(empty)"}"
-            printf 'Additional requester context:\n%s\n\n' "${ADDITIONAL_CONTEXT:-"(none)"}"
-            printf 'Changed files:\n%s\n\n' "${files_summary:-"- No changed-file metadata returned."}"
-            printf 'Unified diff:\n```diff\n'
-            printf '%s\n' "${diff_text:0:180000}"
-            if (( ${#diff_text} > 180000 )); then
-              printf '\n[diff truncated at 180000 characters]\n'
-            fi
-            printf '```\n'
-          } > .gemini/pr-review-context.md
-
-          {
-            printf 'head_sha=%s\n' "${head_sha}"
-            printf 'context_path=%s\n' ".gemini/pr-review-context.md"
-          } >> "${GITHUB_OUTPUT}"
-
       - name: 'Run Gemini pull request review'
         id: 'gemini_pr_review'
-        uses: 'google-github-actions/run-gemini-cli@9dbec29a20fab3f35017a40ad0eb798a257d4d51' # ratchet:exclude
+        uses: 'google-github-actions/run-gemini-cli@v1' # ratchet:exclude
         env:
           GEMINI_CLI_TRUST_WORKSPACE: 'true'
+          GITHUB_TOKEN: '${{ steps.mint_identity_token.outputs.token || secrets.GITHUB_TOKEN || github.token }}'
+          ISSUE_TITLE: '${{ github.event.pull_request.title || github.event.issue.title }}'
+          ISSUE_BODY: '${{ github.event.pull_request.body || github.event.issue.body }}'
+          PULL_REQUEST_NUMBER: '${{ github.event.pull_request.number || github.event.issue.number }}'
+          REPOSITORY: '${{ github.repository }}'
+          ADDITIONAL_CONTEXT: '${{ inputs.additional_context }}'
         with:
           gcp_location: '${{ vars.GOOGLE_CLOUD_LOCATION }}'
           gcp_project_id: '${{ vars.GOOGLE_CLOUD_PROJECT }}'
@@ -134,7 +78,7 @@ jobs:
           gemini_api_key: '${{ secrets.GEMINI_API_KEY }}'
           gemini_cli_version: '${{ vars.GEMINI_CLI_VERSION }}'
           gemini_debug: '${{ fromJSON(vars.GEMINI_DEBUG || vars.ACTIONS_STEP_DEBUG || false) }}'
-          gemini_model: "${{ vars.GEMINI_MODEL || 'gemini-3.1-flash-lite-preview' }}"
+          gemini_model: "${{ vars.GEMINI_MODEL || 'gemini-2.5-flash' }}"
           google_api_key: '${{ secrets.GOOGLE_API_KEY }}'
           use_gemini_code_assist: '${{ vars.GOOGLE_GENAI_USE_GCA }}'
           use_vertex_ai: '${{ vars.GOOGLE_GENAI_USE_VERTEXAI }}'
@@ -160,17 +104,34 @@ jobs:
                 "enabled": true,
                 "target": "local",
                 "outfile": ".gemini/telemetry.log"
+              },
+              "mcpServers": {
+                "github": {
+                  "command": "docker",
+                  "args": [
+                    "run",
+                    "-i",
+                    "--rm",
+                    "-e",
+                    "GITHUB_PERSONAL_ACCESS_TOKEN",
+                    "ghcr.io/github/github-mcp-server@sha256:a1d43076a36638ee24520fd6e83c3905ae41bc9850179081df1de2ba3a7afae0"
+                  ],
+                  "includeTools": [
+                    "add_comment_to_pending_review",
+                    "pull_request_read",
+                    "pull_request_review_write"
+                  ],
+                  "env": {
+                    "GITHUB_PERSONAL_ACCESS_TOKEN": "${{ steps.mint_identity_token.outputs.token || secrets.GITHUB_TOKEN || github.token }}"
+                  }
+                }
               }
             }
           prompt: |-
-            You are reviewing a GitHub pull request for the Baci repository.
-
-            First read the prepared review context from `${{ steps.review_context.outputs.context_path }}` using `cat`.
-
-            Return only concise Markdown for a GitHub PR review body. Do not call GitHub tools and do not modify files.
+            /gemini-review
 
             Review contract:
-            - Always return a review body. If there are no meaningful issues, say no significant issues were found.
+            - Always submit a GitHub PR review. If there are no meaningful issues, submit a concise review that says no significant issues were found.
             - Prioritize correctness, security, data safety, auth/tenant isolation, payment safety, regressions, and missing tests.
             - Enforce Baci rules: pnpm/Turborepo only, Biome not ESLint, React Compiler means no routine React.memo/useMemo/useCallback, Zod at API boundaries, auth first in protected routes, no select('*'), and append-only migrations.
             - For Next.js 16 and React 19, prefer Server Components, avoid client-side data waterfalls, keep uncached data behind Suspense where required, use next/image and next/font, and preserve storefront Core Web Vitals.
@@ -179,44 +140,4 @@ jobs:
             - Do not speculate beyond the PR diff and repository evidence. Do not produce broad style commentary when there is no concrete risk.
             - Use these sections in the posted review: Verdict, Findings, Suggested next steps. Findings must be flat bullets with severity and file path when possible.
 
-      - name: 'Submit Gemini review'
-        env:
-          GEMINI_RESPONSE: '${{ steps.gemini_pr_review.outputs.summary }}'
-          GITHUB_TOKEN: '${{ steps.mint_identity_token.outputs.token || secrets.GITHUB_TOKEN || github.token }}'
-          HEAD_SHA: '${{ steps.review_context.outputs.head_sha }}'
-          PR_NUMBER: '${{ github.event.pull_request.number || github.event.issue.number }}'
-          REPOSITORY: '${{ github.repository }}'
-        run: |-
-          set -euo pipefail
-
-          body="${GEMINI_RESPONSE}"
-
-          if [[ -z "${body//[[:space:]]/}" ]]; then
-            body="$(
-              cat <<'EOF'
-          ## Verdict
-          Gemini completed but did not return a review body.
-
-          ## Findings
-          - low: No review findings were returned by Gemini.
-
-          ## Suggested next steps
-          Check the workflow logs for the Gemini CLI response.
-          EOF
-            )"
-          fi
-
-          jq -n \
-            --arg body "${body}" \
-            --arg commit_id "${HEAD_SHA}" \
-            '{
-              event: "COMMENT",
-              body: $body,
-              commit_id: $commit_id
-            }' \
-            > "${RUNNER_TEMP}/gemini-review-submit.json"
-
-          gh api \
-            --method POST \
-            "repos/${REPOSITORY}/pulls/${PR_NUMBER}/reviews" \
-            --input "${RUNNER_TEMP}/gemini-review-submit.json"
+            ${{ inputs.additional_context }}

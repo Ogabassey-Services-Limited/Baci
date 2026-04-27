@@ -2,7 +2,7 @@ import type { PropsWithChildren } from 'react';
 import { type StyleProp, StyleSheet, type ViewStyle } from 'react-native';
 import { type Edge, SafeAreaView } from 'react-native-safe-area-context';
 
-export interface StorefrontScreenShellProps extends PropsWithChildren {
+interface StorefrontScreenShellProps extends PropsWithChildren {
   edges?: readonly Edge[];
   style?: StyleProp<ViewStyle>;
   testID?: string;

@@ -6,8 +6,8 @@ import {
   ADDRESS_EMPTY_ADD_ACTION_LABEL,
   ADDRESS_EMPTY_SUBTITLE,
   ADDRESS_EMPTY_TITLE,
-} from '@/components/addresses/constants';
-import { styles } from '@/components/addresses/styles';
+} from './constants';
+import { styles } from './styles';
 
 type AddressEmptyStateProps = {
   colors: ThemeColors;

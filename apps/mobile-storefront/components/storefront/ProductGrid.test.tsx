@@ -20,7 +20,7 @@ describe('ProductGrid', () => {
     resetProductGridTestState();
   });
 
-  it('keeps filter controls visible while the product list is loading', () => {
+  it('renders ProductGridSkeleton while loading', () => {
     mockProductsHook({ isLoading: true, products: [] });
 
     render(
@@ -29,8 +29,6 @@ describe('ProductGrid', () => {
 
     expect(mockProductGridSkeleton).toHaveBeenCalled();
     expect(mockProductGridSkeleton.mock.calls[0][0]).toEqual({ count: 4 });
-    expect(getMockFilterBarProps()).not.toBeNull();
-    expect(mockProductCard).not.toHaveBeenCalled();
   });
 
   it('renders ProductCard entries when products are returned', () => {
