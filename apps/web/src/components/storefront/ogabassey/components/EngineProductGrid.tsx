@@ -21,6 +21,7 @@ import { useV2Saved } from '../providers/v2-saved-context';
 import type { Product } from '../types';
 import { AdUnit } from './AdUnit';
 import { useDeferredActivation } from './deferred-shell-feature';
+import { dedupeProductsByIdentity } from '../dedupe-products';
 import type { Particle } from './FloatingParticles';
 import { ProductGridItem } from './ProductGridItem';
 
@@ -136,10 +137,10 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
 
   // All products from SSR
   const allProducts = (() => {
-    if (useMockData) return mockProducts;
-    if (templateProducts) return templateProducts;
+    if (useMockData) return dedupeProductsByIdentity(mockProducts);
+    if (templateProducts) return dedupeProductsByIdentity(templateProducts);
     if (externalProducts) {
-      return toTemplateProducts(externalProducts);
+      return toTemplateProducts(dedupeProductsByIdentity(externalProducts));
     }
     return [];
   })();
