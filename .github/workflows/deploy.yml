@@ -3,6 +3,7 @@ name: Deploy to Vercel
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -42,7 +43,7 @@ jobs:
 
   deploy-production:
     needs: [changes]
-    if: needs.changes.outputs.web == 'true'
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.web == 'true'
     runs-on: baci-deploy
     timeout-minutes: 20
     env:
@@ -174,7 +175,7 @@ jobs:
         run: node "${RUNNER_TEMP}/blog-smoke-check.mjs"
       - name: Invalidate storefront blog cache tag
         if: ${{ steps.storefront-blog-smoke.outcome == 'failure' }}
-        run: pnpm dlx vercel cache invalidate --tag "${{ env.BLOG_SMOKE_TAG }}" --token="${{ env.VERCEL_TOKEN }}" --yes
+        run: pnpm dlx --allow-build=esbuild vercel@52.0.0 cache invalidate --tag "${{ env.BLOG_SMOKE_TAG }}" --token="${{ env.VERCEL_TOKEN }}" --yes
       - name: Wait for cache invalidation to propagate
         if: ${{ steps.storefront-blog-smoke.outcome == 'failure' }}
         run: sleep 10
@@ -185,7 +186,7 @@ jobs:
         run: node "${RUNNER_TEMP}/blog-smoke-check.mjs"
       - name: Hard purge storefront blog cache tag
         if: ${{ steps.storefront-blog-smoke.outcome == 'failure' && steps.storefront-blog-smoke-after-invalidate.outcome == 'failure' }}
-        run: pnpm dlx vercel cache dangerously-delete --tag "${{ env.BLOG_SMOKE_TAG }}" --token="${{ env.VERCEL_TOKEN }}" --yes
+        run: pnpm dlx --allow-build=esbuild vercel@52.0.0 cache dangerously-delete --tag "${{ env.BLOG_SMOKE_TAG }}" --token="${{ env.VERCEL_TOKEN }}" --yes
       - name: Wait for cache purge to propagate
         if: ${{ steps.storefront-blog-smoke.outcome == 'failure' && steps.storefront-blog-smoke-after-invalidate.outcome == 'failure' }}
         run: sleep 10
