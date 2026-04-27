@@ -137,6 +137,7 @@ describe('GET /api/cron/vtu-cashback-summaries', () => {
       groupsProcessed: 1,
       period: '2026-03',
       summariesSent: 1,
+      summariesSkipped: 0,
       transactionsMarked: 2,
     });
     expect(mockNotifyCustomer).toHaveBeenCalledWith(
@@ -191,6 +192,7 @@ describe('GET /api/cron/vtu-cashback-summaries', () => {
       groupsProcessed: 2,
       period: '2026-03',
       summariesSent: 2,
+      summariesSkipped: 0,
       transactionsMarked: 2,
     });
     expect(mockNotifyCustomer).toHaveBeenCalledTimes(2);
@@ -234,6 +236,7 @@ describe('GET /api/cron/vtu-cashback-summaries', () => {
       period: '2026-03',
       summariesFailed: 0,
       summariesSent: 0,
+      summariesSkipped: 0,
       transactionsMarked: 0,
     });
     expect(mockNotifyCustomer).not.toHaveBeenCalled();
@@ -346,7 +349,8 @@ describe('GET /api/cron/vtu-cashback-summaries', () => {
     expect(response.status).toBe(200);
     expect(data).toMatchObject({
       summariesFailed: 0,
-      summariesSent: 1,
+      summariesSent: 0,
+      summariesSkipped: 1,
       transactionsMarked: 1,
     });
     expect(mockNotifyCustomer).not.toHaveBeenCalled();

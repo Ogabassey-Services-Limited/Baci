@@ -26,18 +26,22 @@ type SupabaseStub = Parameters<
 interface PendingTransactionMockOptions {
   transactionRow: Record<string, unknown>;
   rpcImpl?: (name: string) => Promise<{ data: unknown; error: unknown }>;
+  merchantData?: { business_name?: string };
+  claimData?: { id: string } | null;
 }
 
 function createPendingTransactionSupabaseMock({
   transactionRow,
   rpcImpl,
+  merchantData = { business_name: 'OgaBassey' },
+  claimData = { id: 'vtu-1' },
 }: PendingTransactionMockOptions): SupabaseStub {
   const claimMaybeSingle = vi.fn().mockResolvedValue({
-    data: { id: 'vtu-1' },
+    data: claimData,
     error: null,
   });
   const merchantSingle = vi.fn().mockResolvedValue({
-    data: { business_name: 'OgaBassey' },
+    data: merchantData,
     error: null,
   });
 

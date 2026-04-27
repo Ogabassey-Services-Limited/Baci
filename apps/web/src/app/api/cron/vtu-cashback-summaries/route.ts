@@ -212,6 +212,7 @@ export async function GET(request: NextRequest) {
   const groups = groupVtuCashbackSummaryRows(rows, period.period);
 
   let summariesSent = 0;
+  let summariesSkipped = 0;
   let summariesFailed = 0;
   let transactionsMarked = 0;
   const errors: string[] = [];
@@ -231,6 +232,7 @@ export async function GET(request: NextRequest) {
       transactionCount: group.transactionCount,
     });
 
+    let notificationSent = false;
     try {
       const alreadyNotified = await hasCompletedSummaryNotificationAttempt(
         supabase,
@@ -259,6 +261,8 @@ export async function GET(request: NextRequest) {
           errors.push(...result.errors);
           continue;
         }
+
+        notificationSent = true;
       }
     } catch (error) {
       summariesFailed += 1;
@@ -280,7 +284,11 @@ export async function GET(request: NextRequest) {
         group.transactionIds,
         period.period
       );
-      summariesSent += 1;
+      if (notificationSent) {
+        summariesSent += 1;
+      } else {
+        summariesSkipped += 1;
+      }
       transactionsMarked += markedCount;
     } catch (error) {
       summariesFailed += 1;
@@ -290,7 +298,8 @@ export async function GET(request: NextRequest) {
       console.error('Failed to mark VTU cashback summary rows:', {
         error: message,
         period: period.period,
-        transactionIds: group.transactionIds,
+        transactionCount: group.transactionIds.length,
+        transactionSample: group.transactionIds.slice(0, 5),
       });
     }
   }
@@ -301,6 +310,7 @@ export async function GET(request: NextRequest) {
     period: period.period,
     summariesFailed,
     summariesSent,
+    summariesSkipped,
     transactionsMarked,
   });
 }

@@ -205,4 +205,40 @@ describe('preparePendingVtuTransaction', () => {
       'VTU is not enabled for this merchant'
     );
   });
+
+  it('treats commission rate of 1 as 100% (not 1%)', async () => {
+    // A stored merchant commission of `1` should mean "full commission"
+    // (100%), matching how `100` is interpreted. Without the (0, 1] fix this
+    // would be treated as 1% and merchantSplit would land at 1.
+    mockCalculateCommerce.mockResolvedValueOnce({
+      merchantEarning: 10,
+      platformEarning: 5,
+    });
+    const { supabase: fractionalSupabase } = createMockSupabase({
+      settings: { vtu_merchant_commission_rate: 1 },
+    });
+    const fractionalResult = await prepareAirtime(fractionalSupabase);
+
+    expect(mockCalculateCommerce).toHaveBeenLastCalledWith(
+      'calculate_vtu',
+      expect.objectContaining({ merchantSplit: 100 })
+    );
+
+    mockCalculateCommerce.mockResolvedValueOnce({
+      merchantEarning: 10,
+      platformEarning: 5,
+    });
+    const { supabase: percentSupabase } = createMockSupabase({
+      settings: { vtu_merchant_commission_rate: 100 },
+    });
+    const percentResult = await prepareAirtime(percentSupabase);
+
+    expect(mockCalculateCommerce).toHaveBeenLastCalledWith(
+      'calculate_vtu',
+      expect.objectContaining({ merchantSplit: 100 })
+    );
+    expect(fractionalResult.effectiveMerchantEarning).toBe(
+      percentResult.effectiveMerchantEarning
+    );
+  });
 });

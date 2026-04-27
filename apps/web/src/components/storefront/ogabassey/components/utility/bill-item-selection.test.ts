@@ -75,8 +75,11 @@ const deepItems: BillItem[] = [
 ];
 
 describe('bill-item-selection', () => {
-  it('returns empty and incomplete state for missing bill items', () => {
+  it('getResolvedBillItemCodes returns empty for undefined input', () => {
     expect(getResolvedBillItemCodes(undefined)).toEqual([]);
+  });
+
+  it('resolveBillItemSelection returns empty/incomplete for missing bill items', () => {
     expect(resolveBillItemSelection([], [])).toEqual({
       isComplete: false,
       leaf: null,

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { BillPaymentForm } from './BillPaymentForm';
 
 vi.mock('@/env', () => ({
@@ -213,6 +214,7 @@ describe('BillPaymentForm', () => {
   });
 
   it('shows nested bill item submenus and verifies the selected leaf item', async () => {
+    const user = userEvent.setup();
     mockFetch
       .mockResolvedValueOnce({
         ok: true,
@@ -278,24 +280,22 @@ describe('BillPaymentForm', () => {
       expect(screen.getByText('Eko Electricity')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText('Eko Electricity'));
+    await user.click(screen.getByText('Eko Electricity'));
     await waitFor(() => {
       expect(screen.getByText('Meter Type')).toBeInTheDocument();
       expect(screen.queryByPlaceholderText('Enter meter number')).toBeNull();
     });
 
-    fireEvent.click(screen.getByText('Prepaid'));
+    await user.click(screen.getByText('Prepaid'));
     await waitFor(() => {
       expect(screen.getByText('Residential')).toBeInTheDocument();
       expect(screen.getByText('Commercial')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByText('Commercial'));
+    await user.click(screen.getByText('Commercial'));
     const meterInput = await screen.findByPlaceholderText('Enter meter number');
-    fireEvent.change(meterInput, {
-      target: { value: '1234567890' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /Verify/i }));
+    await user.type(meterInput, '1234567890');
+    await user.click(screen.getByRole('button', { name: /Verify/i }));
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(

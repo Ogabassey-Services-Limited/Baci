@@ -45,7 +45,7 @@ export interface VtuCashbackSummaryGroup {
   userId: string;
 }
 
-interface VtuCashbackSummaryStatusUpdateClient {
+export interface VtuCashbackSummaryStatusUpdateClient {
   from(table: 'customer_wallet_transactions'): {
     update(values: { metadata: Record<string, unknown> }): {
       eq(
@@ -99,6 +99,12 @@ export function getVtuCashbackSummaryIdempotencyKey({
 }
 
 export function chunkVtuCashbackSummaryRows<T>(rows: T[], size: number) {
+  if (!Number.isInteger(size) || size <= 0) {
+    throw new RangeError(
+      'chunkVtuCashbackSummaryRows: size must be a positive integer'
+    );
+  }
+
   const chunks: T[][] = [];
   for (let index = 0; index < rows.length; index += size) {
     chunks.push(rows.slice(index, index + size));

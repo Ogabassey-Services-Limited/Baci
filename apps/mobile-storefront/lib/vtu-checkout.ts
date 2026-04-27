@@ -125,9 +125,12 @@ export function normalizeVtuCheckoutPayload<T extends object>(payload: T): T {
     return payload;
   }
 
+  // MOBILE_TO_KUDA_PROVIDER keys are lowercase; lowercase the input so callers
+  // can pass MTN/Mtn/mtn interchangeably without missing the mapping.
+  const lookupKey = rawProvider.toLowerCase();
   return {
     ...payload,
-    networkProvider: MOBILE_TO_KUDA_PROVIDER[rawProvider] || rawProvider,
+    networkProvider: MOBILE_TO_KUDA_PROVIDER[lookupKey] ?? rawProvider,
   };
 }
 
