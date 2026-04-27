@@ -152,7 +152,7 @@ function prepareAirtime(supabase: PrepareSupabase, networkProvider = 'mtn') {
 
 describe('preparePendingVtuTransaction', () => {
   beforeEach(() => {
-    mockCalculateCommerce.mockClear();
+    vi.clearAllMocks();
   });
 
   it('creates a pending VTU row with computed commissions', async () => {

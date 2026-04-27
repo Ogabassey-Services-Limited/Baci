@@ -111,12 +111,29 @@ async function fetchCashbackRows(
     }
 
     if (Array.isArray(data)) {
-      const validRows = data.filter(isVtuCashbackSummaryRow);
-      const invalidRows = data.filter((row) => !isVtuCashbackSummaryRow(row));
+      const validRows: VtuCashbackSummaryRow[] = [];
+      const invalidRows: unknown[] = [];
+      for (const item of data) {
+        if (isVtuCashbackSummaryRow(item)) {
+          validRows.push(item);
+        } else {
+          invalidRows.push(item);
+        }
+      }
       if (invalidRows.length > 0) {
+        // Redact PII (first_name, user_id, business_name, slug) from the log
+        // sample. Only keep row id (when it's a string) and shape metadata.
+        const redactedSample = invalidRows.slice(0, 3).map((row) => {
+          if (!row || typeof row !== 'object') {
+            return { type: typeof row };
+          }
+          const record = row as Record<string, unknown>;
+          const id = typeof record.id === 'string' ? record.id : undefined;
+          return { id, keys: Object.keys(record) };
+        });
         console.warn(
           `VTU cashback summary: dropped ${invalidRows.length} invalid row(s) from page (offset ${from})`,
-          { sample: invalidRows.slice(0, 3) }
+          { sample: redactedSample }
         );
       }
       rows.push(...validRows);

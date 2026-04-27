@@ -196,23 +196,27 @@ describe('GET /api/cron/vtu-cashback-summaries', () => {
     expect(mockNotifyCustomer).toHaveBeenCalledTimes(2);
     expect(mockNotifyCustomer).toHaveBeenCalledWith(
       'user-1',
-      expect.any(String),
-      expect.any(String),
+      expect.stringContaining('OgaBassey'),
+      expect.stringMatching(/Ada.*OgaBassey.*₦500.*1 bill purchase/),
       expect.objectContaining({
         idempotency_key: 'vtu-cashback-summary:2026-03:customer-1:merchant-1',
         merchant_id: 'merchant-1',
         period: '2026-03',
+        transaction_count: 1,
+        type: 'vtu_cashback_monthly_summary',
       }),
       'promotions'
     );
     expect(mockNotifyCustomer).toHaveBeenCalledWith(
       'user-2',
-      expect.any(String),
-      expect.any(String),
+      expect.stringContaining('Other Store'),
+      expect.stringMatching(/Ben.*Other Store.*₦300.*1 bill purchase/),
       expect.objectContaining({
         idempotency_key: 'vtu-cashback-summary:2026-03:customer-2:merchant-2',
         merchant_id: 'merchant-2',
         period: '2026-03',
+        transaction_count: 1,
+        type: 'vtu_cashback_monthly_summary',
       }),
       'promotions'
     );
