@@ -62,7 +62,5 @@ export function toTemplateMerchantData(merchant: CachedMerchant): MerchantData {
     vat_rate: merchant.vat_rate,
     hero_slides: merchant.hero_slides,
     mobile_hero_slides: merchant.mobile_hero_slides,
-    about_page: merchant.about_page,
-    faq_items: merchant.faq_items,
   };
 }

@@ -188,47 +188,4 @@ describe('toTemplateMerchantData', () => {
     expect(result.plan_tier).toBeUndefined();
     expect(result.premium_features).toBeUndefined();
   });
-
-  it('forwards about_page when present so the About template renders structured content', () => {
-    const aboutPage = {
-      headline: 'Making Tech Accessible',
-      story: 'We started in a small Lagos shop in 2019.',
-      image_url: 'https://example.com/team.jpg',
-    };
-
-    const result = toTemplateMerchantData({
-      ...BASE_MERCHANT,
-      about_page: aboutPage,
-    });
-
-    expect(result.about_page).toEqual(aboutPage);
-  });
-
-  it('forwards faq_items when present so the Help/Support template renders merchant FAQs', () => {
-    const faqItems = [
-      {
-        question: 'How do I track my order?',
-        answer: 'Use the My Orders page.',
-      },
-      {
-        question: 'What is the return policy?',
-        answer: '7-day returns on defective items.',
-      },
-    ];
-
-    const result = toTemplateMerchantData({
-      ...BASE_MERCHANT,
-      faq_items: faqItems,
-    });
-
-    expect(result.faq_items).toEqual(faqItems);
-    expect(result.faq_items).toHaveLength(2);
-  });
-
-  it('omits about_page and faq_items when absent (returns undefined, not null)', () => {
-    const result = toTemplateMerchantData(BASE_MERCHANT);
-
-    expect(result.about_page).toBeUndefined();
-    expect(result.faq_items).toBeUndefined();
-  });
 });
