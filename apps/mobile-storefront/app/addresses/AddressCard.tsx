@@ -16,10 +16,10 @@ import {
   ADDRESS_MENU_CANCEL_ACTION_LABEL,
   ADDRESS_MENU_TITLE,
   ADDRESS_SET_DEFAULT_ACTION_LABEL,
-} from '@/components/addresses/constants';
+} from './constants';
 import { getAddressLabelIcon } from './get-address-label-icon';
-import { styles } from '@/components/addresses/styles';
-import type { Address } from '@/components/addresses/types';
+import { styles } from './styles';
+import type { Address } from './types';
 
 type AddressCardProps = {
   address: Address;

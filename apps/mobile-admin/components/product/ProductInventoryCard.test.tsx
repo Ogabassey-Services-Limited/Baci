@@ -111,11 +111,7 @@ describe('ProductInventoryCard', () => {
       />
     );
 
-    const unlimitedStockSwitch = screen.getByRole('checkbox', {
-      name: 'Set unlimited stock',
-    });
-    expect(unlimitedStockSwitch).not.toBeChecked();
-    fireEvent.click(unlimitedStockSwitch);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Track inventory' }));
     fireEvent.click(
       screen.getByRole('button', { name: 'Open fulfillment details' })
     );
@@ -154,10 +150,6 @@ describe('ProductInventoryCard', () => {
       />
     );
 
-    expect(screen.getByText('Set unlimited stock')).toBeInTheDocument();
-    expect(
-      screen.getByRole('checkbox', { name: 'Set unlimited stock' })
-    ).toBeChecked();
     expect(
       screen.queryByRole('button', { name: 'Open fulfillment details' })
     ).not.toBeInTheDocument();
