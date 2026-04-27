@@ -3,10 +3,7 @@ import type { ImportJobRecord } from '@/lib/import-jobs/import-job-service';
 import { runClaimedImportJob } from '@/lib/import-jobs/run-claimed-import-job';
 import { logger } from '@/lib/logger';
 
-const HIGH_PRIORITY_QUEUE_STATUSES = [
-  'commit_queued',
-  'notify_queued',
-] as const;
+const NOTIFY_QUEUE_RESERVED_SLOTS = 1;
 const UPLOADED_QUEUE_RESERVED_SLOTS = 1;
 const CLAIMED_STATUS_MAP = {
   uploaded: 'validating',
@@ -79,36 +76,40 @@ export async function processImportJobQueue(
   supabase: SupabaseClient,
   limit = 5
 ) {
-  const jobs: ImportJobRecord[] = [];
-  const uploadedReserve = limit > 1 ? UPLOADED_QUEUE_RESERVED_SLOTS : 0;
-  let highPriorityRemaining = limit;
-
-  for (const status of HIGH_PRIORITY_QUEUE_STATUSES) {
-    if (highPriorityRemaining <= 0) {
-      break;
-    }
-
-    const highPriorityJobs = await loadQueuedJobsForStatus(
-      supabase,
-      status,
-      highPriorityRemaining
-    );
-    jobs.push(...highPriorityJobs);
-    highPriorityRemaining -= highPriorityJobs.length;
-  }
-
+  const commitJobs = await loadQueuedJobsForStatus(
+    supabase,
+    'commit_queued',
+    limit
+  );
+  const notifyReserve =
+    limit > 1 ? Math.min(NOTIFY_QUEUE_RESERVED_SLOTS, limit) : 0;
+  const notifyLimit = Math.max(limit - commitJobs.length, notifyReserve);
+  const notifyJobs = await loadQueuedJobsForStatus(
+    supabase,
+    'notify_queued',
+    notifyLimit
+  );
+  const uploadedReserve =
+    limit > 0 ? Math.min(UPLOADED_QUEUE_RESERVED_SLOTS, limit) : 0;
   const uploadedJobs = await loadQueuedJobsForStatus(
     supabase,
     'uploaded',
     uploadedReserve
   );
 
-  if (uploadedJobs.length > 0) {
-    // Reserve uploaded capacity only when uploaded work exists; otherwise keep
-    // the full batch available for commit/notify backlog.
-    jobs.splice(limit - uploadedJobs.length);
-    jobs.push(...uploadedJobs);
-  }
+  const reservedNotifyCount =
+    limit > 1 && notifyJobs.length > 0 ? NOTIFY_QUEUE_RESERVED_SLOTS : 0;
+  const reservedUploadedCount = uploadedJobs.length > 0 ? uploadedReserve : 0;
+  const commitSlots = Math.max(
+    limit - reservedNotifyCount - reservedUploadedCount,
+    0
+  );
+  const jobs = commitJobs.slice(0, commitSlots);
+  const notifySlots = Math.max(limit - jobs.length - reservedUploadedCount, 0);
+  jobs.push(...notifyJobs.slice(0, notifySlots));
+  // Reserve uploaded capacity only when uploaded work exists; otherwise keep the
+  // full batch available for commit/notify backlog.
+  jobs.push(...uploadedJobs.slice(0, Math.max(limit - jobs.length, 0)));
 
   if (jobs.length === 0) {
     return [];
