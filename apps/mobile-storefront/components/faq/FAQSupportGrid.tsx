@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { BRAND, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/Colors';
+import { FAQ_SUPPORT_GRID_STYLE_TOKENS } from './faq-support-grid.constants';
 
 export interface FAQSupportOption {
   accessibilityHint?: string;
@@ -88,8 +89,8 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   iconContainer: {
-    width: 48,
-    height: 48,
+    width: FAQ_SUPPORT_GRID_STYLE_TOKENS.iconContainerSize,
+    height: FAQ_SUPPORT_GRID_STYLE_TOKENS.iconContainerSize,
     borderRadius: RADIUS.full,
     justifyContent: 'center',
     alignItems: 'center',
@@ -99,7 +100,7 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.size.sm,
     fontFamily: 'Inter_600SemiBold',
     textAlign: 'center',
-    marginBottom: 2,
+    marginBottom: FAQ_SUPPORT_GRID_STYLE_TOKENS.titleMarginBottom,
   },
   subtitle: {
     fontSize: TYPOGRAPHY.size.xs,

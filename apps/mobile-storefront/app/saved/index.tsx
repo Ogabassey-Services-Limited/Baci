@@ -10,7 +10,7 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SavedItemCard } from '@/components/saved/SavedItemCard';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
+import Colors, { BRAND, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/Colors';
 import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
 import { useCartStore } from '@/stores/cart-store';
 import { type SavedItem, useSavedStore } from '@/stores/saved-store';
@@ -123,7 +123,9 @@ export default function SavedItemsScreen() {
         accessibilityRole="button"
         accessibilityLabel="Browse products"
       >
-        <Text style={styles.shopButtonText}>Browse Products</Text>
+        <Text style={[styles.shopButtonText, { color: colors.white }]}>
+          Browse Products
+        </Text>
       </Pressable>
     </View>
   );
@@ -185,11 +187,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   itemCountText: {
-    fontSize: 14,
+    fontSize: TYPOGRAPHY.size.base,
     fontWeight: '500',
   },
   clearAllText: {
-    fontSize: 14,
+    fontSize: TYPOGRAPHY.size.base,
     fontWeight: '600',
   },
   emptyState: {
@@ -199,24 +201,23 @@ const styles = StyleSheet.create({
     padding: SPACING.xl,
   },
   emptyTitle: {
-    fontSize: 20,
+    fontSize: TYPOGRAPHY.size.xl,
     fontWeight: '700',
   },
   emptySubtitle: {
-    fontSize: 15,
+    fontSize: TYPOGRAPHY.size.base,
     textAlign: 'center',
     marginTop: SPACING.sm,
     lineHeight: 22,
   },
   shopButton: {
-    paddingHorizontal: 32,
-    paddingVertical: 14,
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.baseGap,
     borderRadius: RADIUS.lg,
     marginTop: SPACING.xl,
   },
   shopButtonText: {
-    color: '#FFF',
-    fontSize: 16,
+    fontSize: TYPOGRAPHY.size.lg,
     fontWeight: '600',
   },
 });

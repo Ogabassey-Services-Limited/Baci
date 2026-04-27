@@ -138,11 +138,7 @@ export function SavedItemCard({
           </Text>
         </Pressable>
         <Pressable
-          style={[
-            styles.actionButton,
-            styles.cartButton,
-            { backgroundColor: BRAND.primary },
-          ]}
+          style={[styles.actionButton, { backgroundColor: BRAND.primary }]}
           onPress={() => onAddToCart(item)}
           accessibilityRole="button"
           accessibilityLabel={`Add ${item.name} to cart`}
@@ -251,7 +247,6 @@ const styles = StyleSheet.create({
   removeButton: {
     borderWidth: 1,
   },
-  cartButton: {},
   actionButtonText: {
     fontSize: SAVED_ITEM_CARD_STYLE_TOKENS.secondaryTextSize,
     fontWeight: '600',
