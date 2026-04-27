@@ -9,11 +9,6 @@ import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { Logo } from '@/components/ui/Logo';
 import { BRAND, SPACING } from '@/constants/Colors';
-import {
-  SUPPORT_EMAIL,
-  SUPPORT_PHONE_DISPLAY,
-  SUPPORT_PHONE_E164,
-} from '@/constants/Support';
 import { useMerchant } from '@/hooks';
 import { createLogger } from '@/lib/logger';
 import { normalizeSocialUrl, type SocialPlatform } from '@/lib/social';
@@ -92,9 +87,8 @@ export function Footer() {
 
   const contactInfo = {
     address: merchant?.business_address || '2 Olaide Tomori St, Ikeja, Lagos',
-    phone: merchant?.phone || SUPPORT_PHONE_DISPLAY,
-    phoneHref: merchant?.phone?.replace(/\s/g, '') || SUPPORT_PHONE_E164,
-    email: merchant?.email || SUPPORT_EMAIL,
+    phone: merchant?.phone || '+234 814 697 8921',
+    email: merchant?.email || 'support@ogabassey.com',
   };
 
   const handleInternalLink = (route: string) => {
@@ -173,7 +167,9 @@ export function Footer() {
           </View>
           <Pressable
             style={styles.contactItem}
-            onPress={() => handleExternalLink(`tel:${contactInfo.phoneHref}`)}
+            onPress={() =>
+              handleExternalLink(`tel:${contactInfo.phone.replace(/\s/g, '')}`)
+            }
             accessibilityRole="link"
             accessibilityLabel={`Call us at ${contactInfo.phone}`}
           >

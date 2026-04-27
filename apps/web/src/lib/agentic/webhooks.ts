@@ -5,24 +5,34 @@ const MERCHANT_SIGNING_KEY = process.env.OPENAI_AGENTIC_SIGNING_KEY; // Provided
 const MERCHANT_NAME_HEADER =
   process.env.OPENAI_AGENTIC_MERCHANT_HEADER_NAME || 'Merchant-Signature'; // e.g., 'Ogabassey-Signature'
 
+export type AgenticWebhookEvent = 'order.created' | 'order.updated';
+
+export interface AgenticOrderData {
+  id: string;
+  currency?: string;
+  total?: number | string;
+  status?: string;
+  [key: string]: unknown;
+}
+
 interface WebhookPayload {
-  event: 'order.created' | 'order.updated';
+  event: AgenticWebhookEvent;
   order_id: string;
-  // biome-ignore lint/suspicious/noExplicitAny: Dynamic payload structure
-  payload: any;
+  payload: AgenticOrderData;
   timestamp: string;
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: Dynamic payload
-export async function sendAgenticWebhook(event: string, orderData: any) {
+export async function sendAgenticWebhook(
+  event: AgenticWebhookEvent,
+  orderData: AgenticOrderData
+) {
   if (!OPENAI_WEBHOOK_URL || !MERCHANT_SIGNING_KEY) {
     console.warn('OpenAI Webhook configuration missing. Skipping webhook.');
     return;
   }
 
   const payload: WebhookPayload = {
-    // biome-ignore lint/suspicious/noExplicitAny: Casting event string
-    event: event as any,
+    event: event,
     order_id: orderData.id,
     payload: orderData,
     timestamp: new Date().toISOString(),
@@ -52,7 +62,7 @@ export async function sendAgenticWebhook(event: string, orderData: any) {
         `Failed to send webhook to OpenAI: ${response.status} ${response.statusText}`
       );
     }
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error sending agentic webhook:', error);
   }
 }

@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { render, screen } from '@testing-library/react-native';
-import type { ReactNode } from 'react';
 import { StyleSheet, Text } from 'react-native';
 
 const mockUseSafeAreaInsets = jest.fn();
@@ -11,7 +10,7 @@ jest.mock('react-native-safe-area-context', () => ({
     testID,
     ...props
   }: {
-    children?: ReactNode;
+    children?: React.ReactNode;
     testID?: string;
   }) => {
     const React = jest.requireActual('react') as typeof import('react');

@@ -1,5 +1,4 @@
 import type { Product as StorefrontProduct } from '@/lib/products';
-import { dedupeProductsByIdentity } from './dedupe-products';
 import type { Product as OgabasseyProduct } from './types';
 
 type ConditionLabel = 'New' | 'Used' | 'Open Box' | 'New & Used';
@@ -39,7 +38,7 @@ const mapImage = (image: unknown): string => {
 export function mapStorefrontProductsToOgabasseyProducts(
   storefrontProducts: StorefrontProduct[]
 ): OgabasseyProduct[] {
-  return dedupeProductsByIdentity(storefrontProducts).map((product) => {
+  return storefrontProducts.map((product) => {
     const images: string[] = [];
 
     if (product.images) {

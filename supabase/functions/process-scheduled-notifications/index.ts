@@ -50,8 +50,7 @@ Deno.serve(async (req: Request) => {
     const now = new Date().toISOString();
     const { data: scheduledNotifications, error: fetchError } = await supabase
       .from('notifications')
-      // PERFORMANCE: Prevent overfetching large unused fields or internal metadata by selecting explicitly needed columns
-      .select('id, title, message, notification_type, priority, target_type, target_merchant_ids, target_segment, channels, action_url, action_label, scheduled_for, created_at')
+      .select('*')
       .is('sent_at', null)
       .not('scheduled_for', 'is', null)
       .lte('scheduled_for', now)

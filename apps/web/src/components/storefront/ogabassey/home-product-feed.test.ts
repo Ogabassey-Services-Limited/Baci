@@ -94,33 +94,4 @@ describe('mapStorefrontProductsToOgabasseyProducts', () => {
       })
     );
   });
-
-  it('removes duplicate storefront product identities before mapping cards', () => {
-    const result = mapStorefrontProductsToOgabasseyProducts([
-      createStorefrontProduct({
-        id: 'galaxy-z-trifold',
-        slug: 'samsung-galaxy-z-trifold',
-        name: 'Samsung Galaxy Z TriFold',
-        price: 7150000,
-      }),
-      createStorefrontProduct({
-        id: 'alienware-m18',
-        slug: 'dell-alienware-m18-r3',
-        name: 'Dell Alienware m18 R3',
-        price: 7098000,
-      }),
-      createStorefrontProduct({
-        id: 'galaxy-z-trifold',
-        slug: 'samsung-galaxy-z-trifold',
-        name: 'Samsung Galaxy Z TriFold duplicate',
-        price: 7150000,
-      }),
-    ]);
-
-    expect(result).toHaveLength(2);
-    expect(result.map((product) => product.name)).toEqual([
-      'Samsung Galaxy Z TriFold',
-      'Dell Alienware m18 R3',
-    ]);
-  });
 });
