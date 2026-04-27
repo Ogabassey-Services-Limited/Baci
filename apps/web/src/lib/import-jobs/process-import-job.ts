@@ -3,7 +3,11 @@ import type { ImportJobRecord } from '@/lib/import-jobs/import-job-service';
 import { runClaimedImportJob } from '@/lib/import-jobs/run-claimed-import-job';
 import { logger } from '@/lib/logger';
 
-const QUEUED_STATUSES = ['uploaded', 'commit_queued', 'notify_queued'] as const;
+const QUEUE_PROCESSING_PRIORITY = [
+  'commit_queued',
+  'notify_queued',
+  'uploaded',
+] as const;
 const CLAIMED_STATUS_MAP = {
   uploaded: 'validating',
   commit_queued: 'committing',
@@ -50,18 +54,30 @@ export async function processImportJobQueue(
   supabase: SupabaseClient,
   limit = 5
 ) {
-  const { data, error } = await supabase
-    .from('import_jobs')
-    .select(IMPORT_JOB_SELECT)
-    .in('status', [...QUEUED_STATUSES])
-    .order('created_at', { ascending: true })
-    .limit(limit);
+  const jobs: ImportJobRecord[] = [];
 
-  if (error) {
-    throw new Error(`Failed to load queued import jobs: ${error.message}`);
+  for (const status of QUEUE_PROCESSING_PRIORITY) {
+    const remaining = limit - jobs.length;
+    if (remaining <= 0) {
+      break;
+    }
+
+    const { data, error } = await supabase
+      .from('import_jobs')
+      .select(IMPORT_JOB_SELECT)
+      .eq('status', status)
+      .order('created_at', { ascending: true })
+      .limit(remaining);
+
+    if (error) {
+      throw new Error(
+        `Failed to load queued import jobs for status ${status}: ${error.message}`
+      );
+    }
+
+    jobs.push(...((data || []) as ImportJobRecord[]));
   }
 
-  const jobs = (data || []) as ImportJobRecord[];
   if (jobs.length === 0) {
     return [];
   }
