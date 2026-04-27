@@ -20,8 +20,8 @@ export const VTU_TYPE_LABELS: Record<PurchaseInput['type'], string> = {
  * Commission rate semantics:
  *   - Values in (0, 1] are treated as fractional percentages
  *     (0.5 -> 50%, 1.0 -> 100%).
- *   - Integer values >1 (and <=100) are treated as direct percentages
- *     (50 -> 50%).
+ *   - Values >1 (up to 100) are treated as direct percentages
+ *     (1.5 -> 1.5%, 50 -> 50%, 100 -> 100%).
  *   - A literal value of 1 is therefore 100%, NOT 1%. If a merchant intends
  *     "1 = 1%", the row must be migrated to 0.01 before deploy.
  *
@@ -59,24 +59,8 @@ function normalizeCommissionPercentage(
     );
   }
 
-  // Values in (1, 2) are not a valid expression of either convention
-  // (fractional <=1 or whole-number >=2). Refuse to silently pick an
-  // interpretation — fail fast instead.
-  if (value > 1 && value < 2) {
-    console.error(
-      'normalizeCommissionPercentage: ambiguous commission rate in (1, 2)',
-      {
-        rawValue: value,
-        merchantId: context?.merchantId,
-      }
-    );
-    throw new Error(
-      `Ambiguous commission rate ${value} for merchant ${context?.merchantId ?? '<unknown>'}: values in (1, 2) are neither fractional nor whole-number percentages`
-    );
-  }
-
-  // Values in (0, 1] are fractional (0.5 -> 50%, 1.0 -> 100%); integer
-  // values >1 are direct percentages.
+  // Values in (0, 1] are fractional (0.5 -> 50%, 1.0 -> 100%); values >1
+  // are direct percentages (1.5 -> 1.5%, 50 -> 50%).
   if (value > 0 && value <= 1) {
     return value * 100;
   }
