@@ -114,22 +114,7 @@ describe('startImportJob', () => {
 });
 
 describe('kickoffImportJob', () => {
-  it('uses the same production VPS queue behavior as startImportJob', async () => {
-    vi.mocked(isProduction).mockReturnValue(true);
-
-    await kickoffImportJob('job-1', 'https://usebaci.com');
-
-    expect(logger.info).toHaveBeenCalledWith(
-      expect.objectContaining({
-        message: 'Import job persisted; VPS worker will process',
-        jobId: 'job-1',
-        origin: 'https://usebaci.com',
-      })
-    );
-    expect(processImportJobById).not.toHaveBeenCalled();
-  });
-
-  it('uses the same non-production inline behavior as startImportJob', async () => {
+  it('is preserved as a backward-compatible alias for startImportJob', async () => {
     vi.mocked(processImportJobById).mockResolvedValue({
       id: 'job-1',
       processed: 1,
@@ -141,26 +126,6 @@ describe('kickoffImportJob', () => {
     expect(logger.info).toHaveBeenCalledWith(
       expect.objectContaining({
         message: 'Processing import job inline in non-production',
-        jobId: 'job-1',
-        origin: 'https://usebaci.com',
-      })
-    );
-    expect(processImportJobById).toHaveBeenCalledWith(
-      'service-client',
-      'job-1'
-    );
-    expect(createAdminClient).toHaveBeenCalledTimes(1);
-  });
-
-  it('uses the same non-production null-claim behavior as startImportJob', async () => {
-    vi.mocked(processImportJobById).mockResolvedValue(null);
-
-    await kickoffImportJob('job-1', 'https://usebaci.com');
-
-    expect(logger.warn).toHaveBeenCalledWith(
-      expect.objectContaining({
-        message:
-          'Non-production inline import processing did not claim the job',
         jobId: 'job-1',
         origin: 'https://usebaci.com',
       })

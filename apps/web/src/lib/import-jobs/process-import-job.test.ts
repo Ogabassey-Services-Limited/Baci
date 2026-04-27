@@ -61,7 +61,7 @@ describe('processImportJobQueue', () => {
     loadNotifyQuery.eq.mockReturnValue(loadNotifyQuery);
     loadNotifyQuery.order.mockReturnValue(loadNotifyQuery);
     loadNotifyQuery.limit.mockResolvedValue({
-      data: [],
+      data: [createJob('notify_queued')],
       error: null,
     });
 
@@ -95,6 +95,22 @@ describe('processImportJobQueue', () => {
       error: null,
     });
 
+    const claimNotifyingQuery = {
+      update: vi.fn(),
+      eq: vi.fn(),
+      select: vi.fn(),
+      single: vi.fn(),
+    };
+    claimNotifyingQuery.update.mockReturnValue(claimNotifyingQuery);
+    claimNotifyingQuery.eq
+      .mockReturnValueOnce(claimNotifyingQuery)
+      .mockReturnValueOnce(claimNotifyingQuery);
+    claimNotifyingQuery.select.mockReturnValue(claimNotifyingQuery);
+    claimNotifyingQuery.single.mockResolvedValue({
+      data: { ...createJob('notify_queued'), status: 'notifying' },
+      error: null,
+    });
+
     const claimValidatingQuery = {
       update: vi.fn(),
       eq: vi.fn(),
@@ -115,8 +131,10 @@ describe('processImportJobQueue', () => {
       from: vi
         .fn()
         .mockReturnValueOnce(loadCommitQuery)
+        .mockReturnValueOnce(loadNotifyQuery)
         .mockReturnValueOnce(loadUploadedQuery)
         .mockReturnValueOnce(claimCommittingQuery)
+        .mockReturnValueOnce(claimNotifyingQuery)
         .mockReturnValueOnce(claimValidatingQuery),
     } as unknown as SupabaseClient;
 
@@ -127,22 +145,37 @@ describe('processImportJobQueue', () => {
         processed: 1,
       })
       .mockResolvedValueOnce({
+        id: 'notify_queued-job',
+        status: 'notified',
+        processed: 1,
+      })
+      .mockResolvedValueOnce({
         id: 'uploaded-job',
         status: 'preview_ready',
         processed: 1,
       });
 
-    const result = await processImportJobQueue(supabase, 2);
+    const result = await processImportJobQueue(supabase, 3);
 
     expect(result).toEqual([
       { id: 'commit_queued-job', status: 'committed', processed: 1 },
+      { id: 'notify_queued-job', status: 'notified', processed: 1 },
       { id: 'uploaded-job', status: 'preview_ready', processed: 1 },
     ]);
     expect(loadCommitQuery.eq).toHaveBeenCalledWith('status', 'commit_queued');
-    expect(loadNotifyQuery.eq).not.toHaveBeenCalled();
+    expect(loadNotifyQuery.eq).toHaveBeenCalledWith('status', 'notify_queued');
     expect(loadUploadedQuery.eq).toHaveBeenCalledWith('status', 'uploaded');
-    expect(loadCommitQuery.limit).toHaveBeenCalledWith(1);
-    expect(loadNotifyQuery.limit).not.toHaveBeenCalled();
+    expect(loadCommitQuery.order).toHaveBeenCalledWith('created_at', {
+      ascending: true,
+    });
+    expect(loadNotifyQuery.order).toHaveBeenCalledWith('created_at', {
+      ascending: true,
+    });
+    expect(loadUploadedQuery.order).toHaveBeenCalledWith('created_at', {
+      ascending: true,
+    });
+    expect(loadCommitQuery.limit).toHaveBeenCalledWith(2);
+    expect(loadNotifyQuery.limit).toHaveBeenCalledWith(1);
     expect(loadUploadedQuery.limit).toHaveBeenCalledWith(1);
     expect(runClaimedImportJob).toHaveBeenNthCalledWith(
       1,
@@ -152,8 +185,38 @@ describe('processImportJobQueue', () => {
     expect(runClaimedImportJob).toHaveBeenNthCalledWith(
       2,
       supabase,
+      expect.objectContaining({ id: 'notify_queued-job', status: 'notifying' })
+    );
+    expect(runClaimedImportJob).toHaveBeenNthCalledWith(
+      3,
+      supabase,
       expect.objectContaining({ id: 'uploaded-job', status: 'validating' })
     );
+  });
+
+  it('throws when a per-status queue load fails', async () => {
+    const loadCommitQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      order: vi.fn(),
+      limit: vi.fn(),
+    };
+    loadCommitQuery.select.mockReturnValue(loadCommitQuery);
+    loadCommitQuery.eq.mockReturnValue(loadCommitQuery);
+    loadCommitQuery.order.mockReturnValue(loadCommitQuery);
+    loadCommitQuery.limit.mockResolvedValue({
+      data: null,
+      error: { message: 'db down' },
+    });
+
+    const supabase = {
+      from: vi.fn().mockReturnValueOnce(loadCommitQuery),
+    } as unknown as SupabaseClient;
+
+    await expect(processImportJobQueue(supabase, 5)).rejects.toThrow(
+      'Failed to load queued import jobs for status commit_queued: db down'
+    );
+    expect(runClaimedImportJob).not.toHaveBeenCalled();
   });
 
   it('skips jobs that cannot be claimed', async () => {
