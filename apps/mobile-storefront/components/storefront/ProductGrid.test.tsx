@@ -65,6 +65,68 @@ describe('ProductGrid', () => {
     );
   });
 
+  it('restores category chips from loaded products when the categories query is unavailable', () => {
+    mockUseCategoriesFactory.mockReturnValue({
+      data: [],
+      isFetchedAfterMount: true,
+      isFetching: false,
+      isError: true,
+      error: new Error('cats'),
+    });
+    mockGetProductGridCategoriesFactory.mockReturnValue(['Phones']);
+
+    render(
+      <ProductGrid block={block} selectedCategoryId={null} variant="grid" />
+    );
+
+    expect(getMockFilterBarProps()?.categories).toEqual(['All', 'Phones']);
+    expect(getMockFilterBarProps()?.selectedCategory).toBe('All');
+  });
+
+  it('filters visible products client-side when category ids are unavailable but category names exist', () => {
+    mockUseCategoriesFactory.mockReturnValue({
+      data: [],
+      isFetchedAfterMount: true,
+      isFetching: false,
+      isError: true,
+      error: new Error('cats'),
+    });
+    mockProductsHook({
+      products: [
+        ...sampleProducts,
+        {
+          id: '3',
+          name: 'MacBook Air',
+          slug: 'macbook-air',
+          description: 'Laptop',
+          price: 800000,
+          image: 'https://cdn.example.com/macbook-air.jpg',
+          images: ['https://cdn.example.com/macbook-air.jpg'],
+          category: 'Laptops',
+          rating: 4.7,
+          review_count: 12,
+          in_stock: true,
+        },
+      ],
+    });
+
+    render(
+      <ProductGrid block={block} selectedCategoryId={null} variant="grid" />
+    );
+
+    mockProductCard.mockClear();
+
+    act(() => {
+      getMockFilterBarProps()?.onSelectCategory('Laptops');
+    });
+
+    const renderedProductNames = mockProductCard.mock.calls.map(
+      ([props]) => props.product.name
+    );
+
+    expect(renderedProductNames).toEqual(['MacBook Air']);
+  });
+
   it('updates category filter from FilterBar interaction', () => {
     render(
       <ProductGrid block={block} selectedCategoryId={null} variant="grid" />
