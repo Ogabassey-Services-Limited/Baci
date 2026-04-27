@@ -36,7 +36,9 @@ const clamp = (min: number, max: number, baseWidth: number = 375) => {
 
 export const SPACING = {
   xs: 4,
+  control: 6,
   sm: 8,
+  baseGap: 12,
   md: 16,
   lg: 24,
   xl: 32,

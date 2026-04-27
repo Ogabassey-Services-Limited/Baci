@@ -5,6 +5,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useEffect } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -14,14 +15,14 @@ import {
   View,
 } from 'react-native';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
+import { WALLET_TAB_SCROLL_PADDING_BOTTOM } from '@/components/wallet/wallet-tab.constants';
+import { walletTabStyles as styles } from '@/components/wallet/wallet-tab.styles';
 import { BRAND, palette } from '@/constants/Colors';
 import { useAuthStatus } from '@/hooks/use-auth-guard';
 import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
 import { useWallet } from '@/hooks/use-wallet';
 import { useTheme } from '@/hooks/useTheme';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
-import { WALLET_TAB_SCROLL_PADDING_BOTTOM } from './wallet.constants';
-import { walletStyles as styles } from './wallet.styles';
 
 export default function WalletTabScreen() {
   const { colors, isDark } = useTheme();
@@ -31,32 +32,20 @@ export default function WalletTabScreen() {
   // Auth gating handled by tab layout listener — this is a fallback for edge cases
   // e.g., user signs out while already viewing this tab (tabPress listener won't fire)
   const { isInitialized, user: authUser } = useAuthStatus();
+  const isUnauthenticated = isInitialized && !authUser;
 
-  if (!isInitialized) {
-    return (
-      <StorefrontScreenShell
-        style={[styles.container, { backgroundColor: colors.background }]}
-        edges={['top']}
-      >
-        <View style={styles.header}>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>
-            Wallet
-          </Text>
-        </View>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={BRAND.primary} />
-        </View>
-      </StorefrontScreenShell>
-    );
-  }
+  useEffect(() => {
+    if (isUnauthenticated) {
+      router.replace('/');
+    }
+  }, [isUnauthenticated]);
 
   // Defense-in-depth: if user signed out while on this tab, go to Home
-  if (!authUser) {
-    router.replace('/');
+  if (isUnauthenticated) {
     return null;
   }
 
-  if (isLoading) {
+  if (!isInitialized || isLoading) {
     return (
       <StorefrontScreenShell
         style={[styles.container, { backgroundColor: colors.background }]}

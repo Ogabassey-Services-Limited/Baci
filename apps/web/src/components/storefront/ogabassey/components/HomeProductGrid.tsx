@@ -9,6 +9,7 @@ import { prioritizeSmartphoneProducts } from '@baci/shared';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { products as mockProducts } from '../data/products';
 import { useDeferredActivation } from './deferred-shell-feature';
+import { dedupeProductsByIdentity } from '../dedupe-products';
 import type {
   ProductGridInteractionBindingsValue,
   ProductGridParticle,
@@ -140,7 +141,9 @@ export function HomeProductGrid({
       ? `/${normalizedBasePath}`
       : normalizedBasePath;
   const allProductsHref = `${basePath}/products`;
-  const allProducts = products && products.length > 0 ? products : mockProducts;
+  const allProducts = dedupeProductsByIdentity(
+    products && products.length > 0 ? products : mockProducts
+  );
   const featuredProducts = prioritizeSmartphoneProducts(allProducts);
   const visibleProducts = featuredProducts.slice(0, displayCount);
   const hasMoreProducts = displayCount < featuredProducts.length;
