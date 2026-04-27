@@ -116,9 +116,9 @@ export default function ProductGrid({
     condition: selectedCondition !== 'All' ? selectedCondition : undefined,
     minRating: minRating > 0 ? minRating : undefined,
   });
-  const merchantCategoryNames = normalizedCategories.map(
-    (category) => category.name
-  );
+  const merchantCategoryNames = normalizedCategories
+    .map((category) => category.name?.trim())
+    .filter((categoryName): categoryName is string => Boolean(categoryName));
   const productCategoryNames = products
     .map((product) => product.category?.trim())
     .filter((categoryName): categoryName is string => Boolean(categoryName));
@@ -134,6 +134,7 @@ export default function ProductGrid({
     categoryNames.length === 1 &&
     !isCategoriesLoading &&
     !isCategoriesFetching &&
+    isCategoriesFetchedAfterMount &&
     !isLoading &&
     !isFetching &&
     isFetchedAfterMount

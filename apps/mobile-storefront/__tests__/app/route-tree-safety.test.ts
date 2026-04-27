@@ -49,13 +49,7 @@ const TAB_ROUTE_DIR = path.resolve(APP_ROOT, '(tabs)');
 //   - both segments are lowercase alphanumeric or hyphens,
 //   - the middle segment is NOT `test` or `test-utils` (those are real test files),
 //   - extension is ts/tsx/js/jsx.
-// Returns an empty list when the directory is missing so the test fails
-// loudly via the assertion below rather than throwing ENOENT.
 function collectLeakedTabHelpers(): string[] {
-  if (!existsSync(TAB_ROUTE_DIR)) {
-    return [];
-  }
-
   return readdirSync(TAB_ROUTE_DIR).filter((fileName) =>
     /^[a-z0-9-]+\.(?!test\.|test-utils\.)[a-z0-9-]+\.(ts|tsx|js|jsx)$/.test(
       fileName
@@ -73,6 +67,9 @@ describe('app route tree safety', () => {
   });
 
   it('keeps non-route helper modules out of the (tabs) directory', () => {
+    // Fail loudly if the (tabs) directory is missing or renamed — silently
+    // returning [] would let a structural regression slip through.
+    expect(existsSync(TAB_ROUTE_DIR)).toBe(true);
     expect(collectLeakedTabHelpers()).toEqual([]);
   });
 });
