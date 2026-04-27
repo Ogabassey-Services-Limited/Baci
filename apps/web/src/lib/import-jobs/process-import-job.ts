@@ -98,10 +98,14 @@ export async function processImportJobQueue(
   );
   const uploadedReserve =
     limit > 0 ? Math.min(UPLOADED_QUEUE_RESERVED_SLOTS, limit) : 0;
+  const uploadedLimit = Math.max(
+    limit - commitJobs.length - notifyJobs.length,
+    uploadedReserve
+  );
   const uploadedJobs = await loadQueuedJobsForStatus(
     supabase,
     'uploaded',
-    uploadedReserve
+    uploadedLimit
   );
 
   const jobs: ImportJobRecord[] = [];

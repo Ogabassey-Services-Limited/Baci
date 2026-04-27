@@ -302,6 +302,108 @@ describe('processImportJobQueue', () => {
     expect(runClaimedImportJob).toHaveBeenCalledTimes(3);
   });
 
+  it('backfills the batch with uploaded jobs when higher-priority queues are empty', async () => {
+    const uploadedJobs = Array.from({ length: 5 }, (_, index) => ({
+      ...createJob('uploaded'),
+      id: `uploaded-job-${index + 1}`,
+    }));
+    const loadCommitQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      order: vi.fn(),
+      limit: vi.fn(),
+    };
+    loadCommitQuery.select.mockReturnValue(loadCommitQuery);
+    loadCommitQuery.eq.mockReturnValue(loadCommitQuery);
+    loadCommitQuery.order.mockReturnValue(loadCommitQuery);
+    loadCommitQuery.limit.mockResolvedValue({
+      data: [],
+      error: null,
+    });
+
+    const loadNotifyQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      order: vi.fn(),
+      limit: vi.fn(),
+    };
+    loadNotifyQuery.select.mockReturnValue(loadNotifyQuery);
+    loadNotifyQuery.eq.mockReturnValue(loadNotifyQuery);
+    loadNotifyQuery.order.mockReturnValue(loadNotifyQuery);
+    loadNotifyQuery.limit.mockResolvedValue({
+      data: [],
+      error: null,
+    });
+
+    const loadUploadedQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      order: vi.fn(),
+      limit: vi.fn(),
+    };
+    loadUploadedQuery.select.mockReturnValue(loadUploadedQuery);
+    loadUploadedQuery.eq.mockReturnValue(loadUploadedQuery);
+    loadUploadedQuery.order.mockReturnValue(loadUploadedQuery);
+    loadUploadedQuery.limit.mockResolvedValue({
+      data: uploadedJobs,
+      error: null,
+    });
+
+    const claimQueries = uploadedJobs.map((job) => {
+      const claimQuery = {
+        update: vi.fn(),
+        eq: vi.fn(),
+        select: vi.fn(),
+        single: vi.fn(),
+      };
+      claimQuery.update.mockReturnValue(claimQuery);
+      claimQuery.eq
+        .mockReturnValueOnce(claimQuery)
+        .mockReturnValueOnce(claimQuery);
+      claimQuery.select.mockReturnValue(claimQuery);
+      claimQuery.single.mockResolvedValue({
+        data: { ...job, status: 'validating' },
+        error: null,
+      });
+      return claimQuery;
+    });
+
+    const supabase = {
+      from: vi
+        .fn()
+        .mockReturnValueOnce(loadCommitQuery)
+        .mockReturnValueOnce(loadNotifyQuery)
+        .mockReturnValueOnce(loadUploadedQuery)
+        .mockReturnValueOnce(claimQueries[0])
+        .mockReturnValueOnce(claimQueries[1])
+        .mockReturnValueOnce(claimQueries[2])
+        .mockReturnValueOnce(claimQueries[3])
+        .mockReturnValueOnce(claimQueries[4]),
+    } as unknown as SupabaseClient;
+
+    for (const job of uploadedJobs) {
+      vi.mocked(runClaimedImportJob).mockResolvedValueOnce({
+        id: job.id,
+        status: 'preview_ready',
+        processed: 1,
+      });
+    }
+
+    const result = await processImportJobQueue(supabase, 5);
+
+    expect(result).toEqual(
+      uploadedJobs.map((job) => ({
+        id: job.id,
+        status: 'preview_ready',
+        processed: 1,
+      }))
+    );
+    expect(loadCommitQuery.limit).toHaveBeenCalledWith(5);
+    expect(loadNotifyQuery.limit).toHaveBeenCalledWith(5);
+    expect(loadUploadedQuery.limit).toHaveBeenCalledWith(5);
+    expect(runClaimedImportJob).toHaveBeenCalledTimes(5);
+  });
+
   it('reserves a notify slot when commit jobs fill the batch', async () => {
     const commitJobs = [
       { ...createJob('commit_queued'), id: 'commit-job-1' },
