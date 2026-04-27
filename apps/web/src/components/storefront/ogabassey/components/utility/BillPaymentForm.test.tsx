@@ -212,6 +212,105 @@ describe('BillPaymentForm', () => {
     expect(screen.getByText('Meter Number')).toBeInTheDocument();
   });
 
+  it('shows nested bill item submenus and verifies the selected leaf item', async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            billers: [
+              {
+                billerId: 'EKEDC',
+                billerName: 'Eko Electricity',
+                billerType: 'electricity',
+                categoryId: '2',
+                categoryName: 'Power',
+                billItems: [
+                  {
+                    itemCode: 'prepaid',
+                    itemName: 'Prepaid',
+                    amount: 0,
+                    itemCurrencySymbol: 'NGN',
+                    isAmountFixed: false,
+                    itemFee: 0,
+                    billItems: [
+                      {
+                        itemCode: 'residential',
+                        itemName: 'Residential',
+                        amount: 0,
+                        itemCurrencySymbol: 'NGN',
+                        isAmountFixed: false,
+                        itemFee: 0,
+                      },
+                      {
+                        itemCode: 'commercial',
+                        itemName: 'Commercial',
+                        amount: 0,
+                        itemCurrencySymbol: 'NGN',
+                        isAmountFixed: false,
+                        itemFee: 0,
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            verified: true,
+            customerName: 'John Doe',
+          }),
+      });
+
+    render(
+      <BillPaymentForm
+        type="power"
+        loading={false}
+        onSubmit={mockOnSubmit}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Eko Electricity')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Eko Electricity'));
+    await waitFor(() => {
+      expect(screen.getByText('Meter Type')).toBeInTheDocument();
+      expect(screen.queryByPlaceholderText('Enter meter number')).toBeNull();
+    });
+
+    fireEvent.click(screen.getByText('Prepaid'));
+    await waitFor(() => {
+      expect(screen.getByText('Residential')).toBeInTheDocument();
+      expect(screen.getByText('Commercial')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Commercial'));
+    fireEvent.change(screen.getByPlaceholderText('Enter meter number'), {
+      target: { value: '1234567890' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Verify/i }));
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        '/api/vtu/verify',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            billItemIdentifier: 'commercial',
+            customerIdentifier: '1234567890',
+          }),
+        })
+      );
+    });
+  });
+
   it('Verify button calls /api/vtu/verify', async () => {
     mockFetch
       .mockResolvedValueOnce({

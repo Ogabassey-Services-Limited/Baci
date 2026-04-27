@@ -2,6 +2,7 @@ import Constants from 'expo-constants';
 import { z } from 'zod';
 import { CONFIG } from '@/lib/config';
 import { DEFAULT_TIMEOUT, fetchWithTimeout } from '@/lib/fetch-with-timeout';
+import { MOBILE_TO_KUDA_PROVIDER } from '@/lib/network-utils';
 import { supabase } from '@/lib/supabase';
 
 const API_URL =
@@ -113,6 +114,23 @@ export interface VTUCheckoutPayload {
   type: 'airtime' | 'data' | 'electricity' | 'cable_tv' | 'betting';
 }
 
+export function normalizeVtuCheckoutPayload<T extends object>(payload: T): T {
+  const payloadWithNetwork = payload as T & { networkProvider?: string };
+  if (
+    !('networkProvider' in payloadWithNetwork) ||
+    !payloadWithNetwork.networkProvider
+  ) {
+    return payload;
+  }
+
+  return {
+    ...payload,
+    networkProvider:
+      MOBILE_TO_KUDA_PROVIDER[payloadWithNetwork.networkProvider] ||
+      payloadWithNetwork.networkProvider,
+  };
+}
+
 async function getAccessToken() {
   const {
     data: { user },
@@ -158,7 +176,7 @@ export async function initializeVtuCheckout(payload: VTUCheckoutPayload) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        ...payload,
+        ...normalizeVtuCheckoutPayload(payload),
         merchantSlug: CONFIG.MERCHANT_SLUG,
       }),
     }
@@ -263,8 +281,10 @@ export async function chargeSavedVtuCard(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        ...payload,
-        gateway: 'paystack',
+        ...normalizeVtuCheckoutPayload({
+          ...payload,
+          gateway: 'paystack',
+        }),
         merchantSlug: CONFIG.MERCHANT_SLUG,
       }),
     }

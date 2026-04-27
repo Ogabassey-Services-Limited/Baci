@@ -1,0 +1,93 @@
+'use client';
+
+import { useRef, type KeyboardEvent } from 'react';
+import { cn } from '@/lib/utils';
+import type { BillItem, BillItemSelectionLevel } from './bill-item-selection';
+
+interface BillItemLevelOptionsProps {
+  level: BillItemSelectionLevel;
+  label: string;
+  onSelect: (depth: number, billItem: BillItem) => void;
+}
+
+const currencyFormatter = new Intl.NumberFormat('en-NG');
+
+export function BillItemLevelOptions({
+  level,
+  label,
+  onSelect,
+}: BillItemLevelOptionsProps) {
+  const labelId = `bill-item-level-${level.depth}-label`;
+  const buttonRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  const handleKeyDown = (
+    event: KeyboardEvent<HTMLButtonElement>,
+    currentIndex: number
+  ) => {
+    const isNextKey = event.key === 'ArrowRight' || event.key === 'ArrowDown';
+    const isPreviousKey = event.key === 'ArrowLeft' || event.key === 'ArrowUp';
+
+    if (!isNextKey && !isPreviousKey) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const direction = isNextKey ? 1 : -1;
+    const nextIndex =
+      (currentIndex + direction + level.options.length) % level.options.length;
+    const nextBillItem = level.options[nextIndex];
+
+    if (nextBillItem) {
+      onSelect(level.depth, nextBillItem);
+      buttonRefs.current[nextIndex]?.focus();
+    }
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <span
+        id={labelId}
+        className="text-sm font-medium text-[var(--store-background-text,#374151)]"
+      >
+        {label}
+      </span>
+      <div
+        className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto"
+        role="radiogroup"
+        aria-labelledby={labelId}
+      >
+        {level.options.map((billItem, index) => {
+          const isSelected = level.selectedCode === billItem.itemCode;
+          return (
+            <button
+              key={`${level.depth}-${billItem.itemCode}`}
+              type="button"
+              role="radio"
+              aria-checked={isSelected}
+              tabIndex={isSelected || (!level.selectedCode && index === 0) ? 0 : -1}
+              ref={(button) => {
+                buttonRefs.current[index] = button;
+              }}
+              onClick={() => onSelect(level.depth, billItem)}
+              onKeyDown={(event) => handleKeyDown(event, index)}
+              className={cn(
+                'text-left p-3 rounded-xl border-2 transition-all text-sm font-medium',
+                isSelected
+                  ? 'border-[var(--store-primary,#ef4444)] bg-[var(--store-primary,#ef4444)]/10 text-[var(--store-primary,#ef4444)]'
+                  : 'border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_12%,transparent)] text-[color:color-mix(in_srgb,var(--store-background-text,#111827)_72%,transparent)] hover:border-[color:color-mix(in_srgb,var(--store-primary,#ef4444)_35%,transparent)]'
+              )}
+            >
+              <span>{billItem.itemName}</span>
+              {billItem.isAmountFixed && billItem.amount > 0 ? (
+                <span className="block text-xs opacity-75">
+                  ₦{currencyFormatter.format(billItem.amount)}
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

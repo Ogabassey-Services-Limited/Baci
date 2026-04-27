@@ -11,6 +11,7 @@
     "cleanup-import-uploads": "node jobs/cleanup-import-uploads.mjs",
     "push-receipts": "node jobs/push-receipts.mjs",
     "inventory-push-alerts": "node jobs/run-web-cron.mjs /api/inventory/push-alerts",
+    "vtu-cashback-summaries": "node jobs/run-web-cron.mjs /api/cron/vtu-cashback-summaries",
     "sync-jumia-orders": "bash bin/sync-jumia-orders.sh",
     "run-web-cron": "node jobs/run-web-cron.mjs",
     "test": "node scripts/run-tests.mjs"

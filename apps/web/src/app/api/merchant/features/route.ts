@@ -36,6 +36,7 @@ export interface MerchantFeatureSettings {
   credit_direct_public_key: string | null;
   credit_direct_min_amount: number;
   credit_direct_max_amount: number;
+  credpal_enabled: boolean;
   preferred_local_gateway: 'paystack' | 'korapay';
   preferred_international_gateway: 'paystack' | 'korapay';
 
@@ -80,6 +81,7 @@ export interface MerchantFeatureSettings {
   // Notifications
   email_notifications_enabled: boolean;
   sms_notifications_enabled: boolean;
+  offline_conversions_enabled: boolean;
 
   // Blog settings
   blog_enabled: boolean;
@@ -91,10 +93,15 @@ export interface MerchantFeatureSettings {
   vtu_enabled: boolean;
   vtu_airtime_enabled: boolean;
   vtu_data_enabled: boolean;
+  vtu_electricity_enabled: boolean;
+  vtu_tv_enabled: boolean;
+  vtu_betting_enabled: boolean;
   vtu_checkout_addon_enabled: boolean;
   vtu_checkout_addon_amounts: number[];
   vtu_loyalty_reward_enabled: boolean;
   vtu_merchant_commission_rate: number;
+  vtu_customer_cashback_enabled: boolean;
+  vtu_customer_cashback_rate: number;
 
   // Custom
   custom_settings: Record<string, unknown>;
@@ -119,6 +126,7 @@ const DEFAULT_SETTINGS: Partial<MerchantFeatureSettings> = {
   credit_direct_public_key: null,
   credit_direct_min_amount: 10000,
   credit_direct_max_amount: 500000,
+  credpal_enabled: false,
   preferred_local_gateway: 'paystack',
   preferred_international_gateway: 'korapay',
   // Shipping
@@ -150,6 +158,7 @@ const DEFAULT_SETTINGS: Partial<MerchantFeatureSettings> = {
   custom_robots_txt: null,
   email_notifications_enabled: true,
   sms_notifications_enabled: false,
+  offline_conversions_enabled: false,
   // Blog defaults
   blog_enabled: false,
   auto_blog_enabled: false,
@@ -159,10 +168,15 @@ const DEFAULT_SETTINGS: Partial<MerchantFeatureSettings> = {
   vtu_enabled: false,
   vtu_airtime_enabled: true,
   vtu_data_enabled: true,
+  vtu_electricity_enabled: true,
+  vtu_tv_enabled: true,
+  vtu_betting_enabled: true,
   vtu_checkout_addon_enabled: false,
   vtu_checkout_addon_amounts: [100, 200, 500, 1000],
   vtu_loyalty_reward_enabled: false,
-  vtu_merchant_commission_rate: 0.5,
+  vtu_merchant_commission_rate: 50,
+  vtu_customer_cashback_enabled: false,
+  vtu_customer_cashback_rate: 50,
   custom_settings: {},
 };
 
@@ -196,7 +210,7 @@ export async function GET(request: NextRequest) {
     let { data: settings, error } = await auth.supabase
       .from('merchant_feature_settings')
       .select(
-        'id, merchant_id, loyalty_enabled, reviews_enabled, wishlist_enabled, order_tracking_enabled, discount_codes_enabled, guest_checkout_enabled, paystack_enabled, korapay_enabled, pay_on_delivery_enabled, credit_direct_enabled, credit_direct_public_key, credit_direct_min_amount, credit_direct_max_amount, credpal_enabled, preferred_local_gateway, preferred_international_gateway, shipping_providers, free_shipping_threshold, shipping_markup_percentage, checkout_collect_phone, checkout_require_account, checkout_show_order_notes, about_page_enabled, contact_page_enabled, faq_page_enabled, privacy_page_enabled, terms_page_enabled, rewards_page_enabled, show_recent_purchases, show_stock_levels, low_stock_threshold, google_analytics_id, ga4_api_secret, facebook_pixel_id, facebook_capi_token, tiktok_pixel_id, tiktok_access_token, snapchat_pixel_id, snapchat_capi_token, twitter_pixel_id, auto_generate_schema, custom_robots_txt, email_notifications_enabled, sms_notifications_enabled, blog_enabled, auto_blog_enabled, google_reviews_enabled, google_place_id, vtu_enabled, vtu_airtime_enabled, vtu_data_enabled, vtu_checkout_addon_enabled, vtu_checkout_addon_amounts, vtu_loyalty_reward_enabled, vtu_merchant_commission_rate, custom_settings, offline_conversions_enabled, created_at, updated_at'
+        'id, merchant_id, loyalty_enabled, reviews_enabled, wishlist_enabled, order_tracking_enabled, discount_codes_enabled, guest_checkout_enabled, paystack_enabled, korapay_enabled, pay_on_delivery_enabled, credit_direct_enabled, credit_direct_public_key, credit_direct_min_amount, credit_direct_max_amount, credpal_enabled, preferred_local_gateway, preferred_international_gateway, shipping_providers, free_shipping_threshold, shipping_markup_percentage, checkout_collect_phone, checkout_require_account, checkout_show_order_notes, about_page_enabled, contact_page_enabled, faq_page_enabled, privacy_page_enabled, terms_page_enabled, rewards_page_enabled, show_recent_purchases, show_stock_levels, low_stock_threshold, google_analytics_id, ga4_api_secret, facebook_pixel_id, facebook_capi_token, tiktok_pixel_id, tiktok_access_token, snapchat_pixel_id, snapchat_capi_token, twitter_pixel_id, auto_generate_schema, custom_robots_txt, email_notifications_enabled, sms_notifications_enabled, blog_enabled, auto_blog_enabled, google_reviews_enabled, google_place_id, vtu_enabled, vtu_airtime_enabled, vtu_data_enabled, vtu_electricity_enabled, vtu_tv_enabled, vtu_betting_enabled, vtu_checkout_addon_enabled, vtu_checkout_addon_amounts, vtu_loyalty_reward_enabled, vtu_merchant_commission_rate, vtu_customer_cashback_enabled, vtu_customer_cashback_rate, custom_settings, offline_conversions_enabled, created_at, updated_at'
       )
       .eq('merchant_id', access.merchantId)
       .single();

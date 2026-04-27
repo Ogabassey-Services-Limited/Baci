@@ -218,7 +218,15 @@ export type WalletRow = z.infer<typeof WalletRowSchema>;
 
 export const TransactionRowSchema = z.object({
   id: z.string().uuid(),
-  type: z.enum(['credit', 'debit']),
+  type: z.enum([
+    'credit',
+    'debit',
+    'cashback',
+    'redemption',
+    'bonus',
+    'adjustment',
+    'expiry',
+  ]),
   amount: z.number(),
   description: z.string().nullable().optional(),
   created_at: z.string(),

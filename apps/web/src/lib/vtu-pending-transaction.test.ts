@@ -19,6 +19,12 @@ const {
 }));
 
 vi.mock('@/lib/kuda', () => ({
+  NetworkProvider: {
+    MTN: 'MTN',
+    AIRTEL: 'AIRTEL',
+    GLO: 'GLO',
+    MOBILE_9: '9MOBILE',
+  },
   formatPhoneNumber: mockFormatPhoneNumber,
   isValidPhoneNumber: mockIsValidPhoneNumber,
   generateRequestRef: () => mockGenerateRequestRef(),
@@ -28,161 +34,168 @@ vi.mock('@/lib/supabase/client', () => ({
   calculateCommerce: mockCalculateCommerce,
 }));
 
-describe('preparePendingVtuTransaction', () => {
-  it('creates a pending VTU row with computed commissions', async () => {
-    const single = vi.fn().mockResolvedValue({
-      data: {
-        id: 'merchant-1',
-        slug: 'ogabassey',
-        business_name: 'OgaBassey',
-        paystack_subaccount_code: null,
-      },
-      error: null,
-    });
-    const settingsSingle = vi.fn().mockResolvedValue({
-      data: {
-        vtu_enabled: true,
-        vtu_airtime_enabled: true,
-        vtu_customer_cashback_enabled: true,
-        vtu_customer_cashback_rate: 50,
-        paystack_enabled: true,
-        korapay_enabled: true,
-      },
-      error: null,
-    });
-    const maybeSingle = vi.fn().mockResolvedValue({
-      data: {
-        id: 'customer-1',
-        email: 'customer@example.com',
-        first_name: 'Ada',
-        last_name: 'Lovelace',
-        phone: '08012345678',
-        user_id: 'user-1',
-      },
-      error: null,
-    });
-    const insertSingle = vi.fn().mockResolvedValue({
-      data: {
-        id: 'vtu-1',
-        amount: 1000,
-        customer_identifier: null,
-        metadata: {},
-        request_reference: 'VTU-REF-123',
-        status: 'pending',
-        type: 'airtime',
-      },
-      error: null,
-    });
+type PrepareSupabase = Parameters<
+  typeof preparePendingVtuTransaction
+>[0]['supabase'];
 
-    const supabase = {
-      from: vi.fn((table: string) => {
-        if (table === 'merchants') {
-          return {
-            select: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({ single }),
-            }),
-          };
-        }
+function createMockSupabase({
+  merchant = {},
+  settings = {},
+  customer = {},
+  insertRow = {},
+}: {
+  customer?: Record<string, unknown>;
+  insertRow?: Record<string, unknown>;
+  merchant?: Record<string, unknown>;
+  settings?: Record<string, unknown>;
+} = {}) {
+  const single = vi.fn().mockResolvedValue({
+    data: {
+      id: 'merchant-1',
+      slug: 'ogabassey',
+      business_name: 'OgaBassey',
+      paystack_subaccount_code: null,
+      ...merchant,
+    },
+    error: null,
+  });
+  const settingsSingle = vi.fn().mockResolvedValue({
+    data: {
+      vtu_enabled: true,
+      vtu_airtime_enabled: true,
+      paystack_enabled: true,
+      korapay_enabled: true,
+      ...settings,
+    },
+    error: null,
+  });
+  const maybeSingle = vi.fn().mockResolvedValue({
+    data: {
+      id: 'customer-1',
+      email: 'customer@example.com',
+      first_name: 'Ada',
+      last_name: 'Lovelace',
+      phone: '08012345678',
+      user_id: 'user-1',
+      ...customer,
+    },
+    error: null,
+  });
+  const insertSingle = vi.fn().mockResolvedValue({
+    data: {
+      id: 'vtu-1',
+      amount: 1000,
+      customer_identifier: null,
+      metadata: {},
+      request_reference: 'VTU-REF-123',
+      status: 'pending',
+      type: 'airtime',
+      ...insertRow,
+    },
+    error: null,
+  });
+  const insert = vi.fn().mockReturnValue({
+    select: vi.fn().mockReturnValue({ single: insertSingle }),
+  });
 
-        if (table === 'merchant_feature_settings') {
-          return {
-            select: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({ single: settingsSingle }),
-            }),
-          };
-        }
-
-        if (table === 'customers') {
-          return {
-            select: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({ maybeSingle }),
-              }),
-            }),
-          };
-        }
-
+  const supabase = {
+    from: vi.fn((table: string) => {
+      if (table === 'merchants') {
         return {
-          insert: vi.fn().mockReturnValue({
-            select: vi.fn().mockReturnValue({ single: insertSingle }),
+          select: vi
+            .fn()
+            .mockReturnValue({ eq: vi.fn().mockReturnValue({ single }) }),
+        };
+      }
+      if (table === 'merchant_feature_settings') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({ single: settingsSingle }),
           }),
         };
-      }),
-    } as unknown as Parameters<
-      typeof preparePendingVtuTransaction
-    >[0]['supabase'];
+      }
+      if (table === 'customers') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({ maybeSingle }),
+            }),
+          }),
+        };
+      }
+      return { insert };
+    }),
+  } as unknown as PrepareSupabase;
 
-    const result = await preparePendingVtuTransaction({
-      supabase,
-      user: { id: 'user-1', email: 'customer@example.com' } as never,
-      input: {
-        merchantSlug: 'ogabassey',
-        type: 'airtime',
-        amount: 1000,
-        phoneNumber: '08012345678',
-        networkProvider: 'MTN',
-        source: 'checkout',
-      },
+  return { insert, supabase };
+}
+
+function prepareAirtime(supabase: PrepareSupabase, networkProvider = 'mtn') {
+  return preparePendingVtuTransaction({
+    supabase,
+    user: { id: 'user-1', email: 'customer@example.com' } as never,
+    input: {
+      merchantSlug: 'ogabassey',
+      type: 'airtime',
+      amount: 1000,
+      phoneNumber: '08012345678',
+      networkProvider,
       source: 'checkout',
-      requireCustomer: true,
+    },
+    source: 'checkout',
+    requireCustomer: true,
+  });
+}
+
+describe('preparePendingVtuTransaction', () => {
+  it('creates a pending VTU row with computed commissions', async () => {
+    const { insert, supabase } = createMockSupabase({
+      settings: {
+        vtu_customer_cashback_enabled: true,
+        vtu_customer_cashback_rate: 50,
+      },
     });
+
+    const result = await prepareAirtime(supabase);
 
     expect(result.requestReference).toBe('VTU-REF-123');
     expect(result.customerCashback).toBe(5);
     expect(result.effectiveMerchantEarning).toBe(5);
-    expect(mockCalculateCommerce).toHaveBeenCalled();
+    expect(mockCalculateCommerce).toHaveBeenCalledWith('calculate_vtu', {
+      amount: 1000,
+      category: 'AIRTIME',
+      merchantSplit: 50,
+      provider: 'MTN',
+    });
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({ network_provider: 'MTN' })
+    );
+  });
+
+  it('uses percentage-based merchant commission rates without multiplying twice', async () => {
+    const { supabase } = createMockSupabase({
+      settings: { vtu_merchant_commission_rate: 50 },
+    });
+
+    const result = await prepareAirtime(supabase);
+
+    expect(result.customerCashback).toBe(0);
+    expect(result.effectiveMerchantEarning).toBe(10);
+    expect(mockCalculateCommerce).toHaveBeenLastCalledWith('calculate_vtu', {
+      amount: 1000,
+      category: 'AIRTIME',
+      merchantSplit: 50,
+      provider: 'MTN',
+    });
   });
 
   it('throws when VTU is disabled for the merchant', async () => {
-    const supabase = {
-      from: vi.fn((table: string) => {
-        if (table === 'merchants') {
-          return {
-            select: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                single: vi.fn().mockResolvedValue({
-                  data: {
-                    id: 'merchant-1',
-                    slug: 'ogabassey',
-                    business_name: 'OgaBassey',
-                    paystack_subaccount_code: null,
-                  },
-                  error: null,
-                }),
-              }),
-            }),
-          };
-        }
+    const { supabase } = createMockSupabase({
+      settings: { vtu_enabled: false },
+    });
 
-        return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              single: vi.fn().mockResolvedValue({
-                data: { vtu_enabled: false },
-                error: null,
-              }),
-            }),
-          }),
-        };
-      }),
-    } as unknown as Parameters<
-      typeof preparePendingVtuTransaction
-    >[0]['supabase'];
-
-    await expect(
-      preparePendingVtuTransaction({
-        supabase,
-        user: { id: 'user-1', email: 'customer@example.com' } as never,
-        input: {
-          merchantSlug: 'ogabassey',
-          type: 'airtime',
-          amount: 1000,
-          phoneNumber: '08012345678',
-          networkProvider: 'MTN',
-          source: 'checkout',
-        },
-        source: 'checkout',
-      })
-    ).rejects.toThrow('VTU is not enabled for this merchant');
+    await expect(prepareAirtime(supabase, 'MTN')).rejects.toThrow(
+      'VTU is not enabled for this merchant'
+    );
   });
 });

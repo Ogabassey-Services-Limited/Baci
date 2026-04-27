@@ -15,6 +15,7 @@ export type StorefrontNotificationNavigationTarget =
   | { screen: 'orders' }
   | { screen: 'product'; params: { slug: string } }
   | { screen: 'category'; params: { slug: string } }
+  | { screen: 'wallet' }
   | { screen: 'home' };
 
 function readString(
@@ -117,6 +118,8 @@ export function getStorefrontNotificationNavigationTarget(
         ? { screen: 'product', params: { slug: productSlug } }
         : { screen: 'home' };
     }
+    case 'vtu_cashback_monthly_summary':
+      return { screen: 'wallet' };
     default:
       return { screen: 'home' };
   }

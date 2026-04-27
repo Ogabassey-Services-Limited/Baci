@@ -1,14 +1,21 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { notifyManager } from '@tanstack/query-core';
-import { act, renderHook } from '@testing-library/react-native';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { createElement, type PropsWithChildren } from 'react';
 
 const mockCalculateCommerce = jest.fn();
 const mockRpc = jest.fn();
+const mockFrom = jest.fn();
 
 jest.mock('@/lib/supabase', () => ({
   calculateCommerce: (...args: unknown[]) => mockCalculateCommerce(...args),
   supabase: {
+    channel: jest.fn(() => ({
+      on: jest.fn().mockReturnThis(),
+      subscribe: jest.fn(),
+    })),
+    from: (...args: unknown[]) => mockFrom(...args),
+    removeChannel: jest.fn(),
     rpc: (...args: unknown[]) => mockRpc(...args),
   },
 }));
@@ -24,14 +31,21 @@ jest.mock('@/stores/auth-store', () => {
   };
 });
 
-import { useRedeemPoints, walletKeys } from './use-wallet';
+import { useRedeemPoints, useWallet, walletKeys } from './use-wallet';
 import { useAuthStore } from '@/stores/auth-store';
 
 type WalletQueryData = {
   wallet: { balance: number; loyalty_points: number };
   transactions: Array<{
     id: string;
-    type: 'credit' | 'debit';
+    type:
+      | 'credit'
+      | 'debit'
+      | 'cashback'
+      | 'redemption'
+      | 'bonus'
+      | 'adjustment'
+      | 'expiry';
     amount: number;
     description: string;
     created_at: string;
@@ -40,7 +54,11 @@ type WalletQueryData = {
 
 function createWrapper(queryClient: QueryClient) {
   return function Wrapper({ children }: PropsWithChildren) {
-    return createElement(QueryClientProvider, { client: queryClient }, children);
+    return createElement(
+      QueryClientProvider,
+      { client: queryClient },
+      children
+    );
   };
 }
 
@@ -82,6 +100,158 @@ beforeEach(() => {
     walletCredit: 900,
     pointsRedeemed: 90,
     remainingPoints: 910,
+  });
+});
+
+function createQueryResult(data: unknown, error: unknown = null) {
+  return { data, error };
+}
+
+function setupWalletTableMocks({
+  customerResult = createQueryResult({ loyalty_points: 1200 }),
+  transactionsResult = createQueryResult([
+    {
+      amount: 500,
+      created_at: '2026-04-01T00:00:00.000Z',
+      description: 'Cashback - Airtime MTN ₦1500',
+      id: 'wallet-tx-1',
+      type: 'cashback',
+    },
+  ]),
+  walletResult = createQueryResult({
+    available_balance: 750,
+    id: 'wallet-1',
+  }),
+}: {
+  customerResult?: ReturnType<typeof createQueryResult>;
+  transactionsResult?: ReturnType<typeof createQueryResult>;
+  walletResult?: ReturnType<typeof createQueryResult>;
+} = {}) {
+  const customerSingle = jest.fn().mockResolvedValue(customerResult);
+  const walletMaybeSingle = jest.fn().mockResolvedValue(walletResult);
+  const txLimit = jest.fn().mockResolvedValue(transactionsResult);
+  const tableCalls: string[] = [];
+
+  mockFrom.mockImplementation((table: string) => {
+    tableCalls.push(table);
+
+    if (table === 'customers') {
+      return {
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({ single: customerSingle }),
+        }),
+      };
+    }
+
+    if (table === 'customer_wallets') {
+      return {
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({ maybeSingle: walletMaybeSingle }),
+          }),
+        }),
+      };
+    }
+
+    if (table === 'customer_wallet_transactions') {
+      return {
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            order: jest.fn().mockReturnValue({ limit: txLimit }),
+          }),
+        }),
+      };
+    }
+
+    throw new Error(`Unexpected table: ${table}`);
+  });
+
+  return { tableCalls };
+}
+
+describe('useWallet', () => {
+  it('reads customer wallet transactions instead of merchant wallet transactions', async () => {
+    const { tableCalls } = setupWalletTableMocks();
+    const queryClient = createTestClient();
+
+    const { result, unmount } = renderHook(() => useWallet(), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    await waitFor(() => expect(result.current.data).toBeDefined());
+
+    expect(tableCalls).toContain('customer_wallet_transactions');
+    expect(tableCalls).not.toContain('wallet_transactions');
+    expect(result.current.data?.transactions).toEqual([
+      expect.objectContaining({
+        amount: 500,
+        description: 'Cashback - Airtime MTN ₦1500',
+        type: 'cashback',
+      }),
+    ]);
+
+    unmount();
+    queryClient.clear();
+  });
+
+  it('reports an error when the customer wallet query fails', async () => {
+    const { tableCalls } = setupWalletTableMocks({
+      walletResult: createQueryResult(null, { message: 'wallet query failed' }),
+    });
+    const queryClient = createTestClient();
+
+    const { result, unmount } = renderHook(() => useWallet(), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+
+    expect(result.current.error).toEqual({ message: 'wallet query failed' });
+    expect(tableCalls).toContain('customer_wallets');
+
+    unmount();
+    queryClient.clear();
+  });
+
+  it('returns an empty wallet when no wallet row exists yet', async () => {
+    const { tableCalls } = setupWalletTableMocks({
+      walletResult: createQueryResult(null),
+    });
+    const queryClient = createTestClient();
+
+    const { result, unmount } = renderHook(() => useWallet(), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    await waitFor(() => expect(result.current.data).toBeDefined());
+
+    expect(result.current.data?.wallet).toEqual({
+      balance: 0,
+      loyalty_points: 1200,
+    });
+    expect(result.current.data?.transactions).toEqual([]);
+    expect(tableCalls).not.toContain('customer_wallet_transactions');
+
+    unmount();
+    queryClient.clear();
+  });
+
+  it('returns an empty transaction list when the wallet has no transactions', async () => {
+    setupWalletTableMocks({
+      transactionsResult: createQueryResult([]),
+    });
+    const queryClient = createTestClient();
+
+    const { result, unmount } = renderHook(() => useWallet(), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    await waitFor(() => expect(result.current.data).toBeDefined());
+
+    expect(result.current.data?.transactions).toEqual([]);
+
+    unmount();
+    queryClient.clear();
   });
 });
 

@@ -3,7 +3,12 @@ import Constants from 'expo-constants';
 import { useEffect } from 'react';
 import { fetchWithRetry } from '@/lib/api';
 import { logger } from '@/lib/logger';
-import { type Biller, type BillItem, BillerListSchema } from '@/lib/vtu-schemas';
+import { BILLER_GC_TIME, BILLER_STALE_TIME } from '@/lib/vtu-constants';
+import {
+  type Biller,
+  type BillItem,
+  BillerListSchema,
+} from '@/lib/vtu-schemas';
 export type { Biller, BillItem };
 
 const API_URL =
@@ -29,7 +34,9 @@ async function fetchBillers(type: string): Promise<Biller[]> {
   try {
     const response = await fetchWithRetry(
       `${API_URL}/api/vtu/billers?type=${type}`,
-      {},
+      {
+        cache: 'no-store',
+      },
       {
         timeout: 10000,
         maxRetries: 2,
@@ -71,14 +78,15 @@ async function fetchBillers(type: string): Promise<Biller[]> {
 
 /**
  * Fetches available billers for a given bill type.
- * Uses shared fetchBillers with 1-hour stale time and 24-hour cache.
+ * Uses a short stale window because provider packages and nested bill items
+ * can change independently of the app release cycle.
  */
 export function useVTUBillers(type: string, enabled = true) {
   return useQuery<Biller[]>({
     queryKey: vtuBillerKeys.byType(type),
     queryFn: () => fetchBillers(type),
-    staleTime: 60 * 60 * 1000, // 1 hour
-    gcTime: 1000 * 60 * 60 * 24, // 24 hours (Flash-Load)
+    staleTime: BILLER_STALE_TIME,
+    gcTime: BILLER_GC_TIME,
     enabled,
   });
 }
@@ -95,7 +103,7 @@ export function usePrefetchBillers() {
       queryClient.prefetchQuery({
         queryKey: vtuBillerKeys.byType(type),
         queryFn: () => fetchBillers(type),
-        staleTime: 60 * 60 * 1000,
+        staleTime: BILLER_STALE_TIME,
       });
     }
   }, [queryClient]);

@@ -1,11 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import {
-  type NetworkProvider,
-  type PurchaseResult,
-  purchaseAirtime,
-  purchaseData,
-} from '@/lib/kuda';
+import { type PurchaseResult, purchaseAirtime, purchaseData } from '@/lib/kuda';
 import { purchaseBill } from '@/lib/kuda-bills';
+import { normalizeVtuNetworkProvider } from '@/lib/normalize-vtu-network-provider';
 import { VTU_TYPE_LABELS } from '@/lib/vtu-pending-transaction';
 
 interface VtuTransactionRow {
@@ -57,16 +53,42 @@ function executeVtuPurchase(
   const customerFirstName = getCustomerFirstName(row, merchantName);
 
   if (row.type === 'airtime') {
+    const networkProvider = normalizeVtuNetworkProvider(row.network_provider);
+    if (!networkProvider) {
+      return Promise.resolve({
+        amount: row.amount,
+        message: `Invalid network provider: ${row.network_provider}`,
+        phoneNumber: row.phone_number,
+        provider: row.network_provider,
+        reference: row.request_reference,
+        status: 'failed',
+        success: false,
+      });
+    }
+
     return purchaseAirtime(
       row.phone_number,
       row.amount,
-      row.network_provider as NetworkProvider,
+      networkProvider,
       customerFirstName,
       row.request_reference
     );
   }
 
   if (row.type === 'data') {
+    const networkProvider = normalizeVtuNetworkProvider(row.network_provider);
+    if (!networkProvider) {
+      return Promise.resolve({
+        amount: row.amount,
+        message: `Invalid network provider: ${row.network_provider}`,
+        phoneNumber: row.phone_number,
+        provider: row.network_provider,
+        reference: row.request_reference,
+        status: 'failed',
+        success: false,
+      });
+    }
+
     const dataPlanCode =
       typeof row.metadata?.dataPlanCode === 'string'
         ? row.metadata.dataPlanCode
@@ -85,7 +107,7 @@ function executeVtuPurchase(
       row.phone_number,
       dataPlanCode,
       row.amount,
-      row.network_provider as NetworkProvider,
+      networkProvider,
       customerFirstName,
       row.request_reference
     );

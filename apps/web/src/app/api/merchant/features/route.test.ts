@@ -73,25 +73,33 @@ let upsertData: unknown = null;
 let upsertError: unknown = null;
 let insertData: unknown = null;
 let insertError: unknown = null;
+let insertPayload: unknown = null;
+let selectColumns: string | null = null;
 
 function createMockSupabase() {
   return {
     from: vi.fn((table: string) => {
       if (table === 'merchant_feature_settings') {
         return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              single: vi.fn(() =>
-                Promise.resolve({ data: settingsData, error: settingsError })
-              ),
-            }),
+          select: vi.fn((columns: string) => {
+            selectColumns = columns;
+            return {
+              eq: vi.fn().mockReturnValue({
+                single: vi.fn(() =>
+                  Promise.resolve({ data: settingsData, error: settingsError })
+                ),
+              }),
+            };
           }),
-          insert: vi.fn().mockReturnValue({
-            select: vi.fn().mockReturnValue({
-              single: vi.fn(() =>
-                Promise.resolve({ data: insertData, error: insertError })
-              ),
-            }),
+          insert: vi.fn((payload: unknown) => {
+            insertPayload = payload;
+            return {
+              select: vi.fn().mockReturnValue({
+                single: vi.fn(() =>
+                  Promise.resolve({ data: insertData, error: insertError })
+                ),
+              }),
+            };
           }),
           upsert: vi.fn().mockReturnValue({
             select: vi.fn().mockReturnValue({
@@ -136,7 +144,36 @@ describe('GET /api/merchant/features', () => {
     settingsError = null;
     insertData = null;
     insertError = null;
+    insertPayload = null;
+    selectColumns = null;
     csrfValid = true;
+  });
+
+  it('selects all VTU category and customer cashback fields', async () => {
+    const { GET } = await import('./route');
+
+    const response = await GET(makeRequest('GET'));
+
+    expect(response.status).toBe(200);
+    expect(selectColumns).toContain('vtu_electricity_enabled');
+    expect(selectColumns).toContain('vtu_tv_enabled');
+    expect(selectColumns).toContain('vtu_betting_enabled');
+    expect(selectColumns).toContain('vtu_customer_cashback_enabled');
+    expect(selectColumns).toContain('vtu_customer_cashback_rate');
+  });
+
+  it('creates default settings with VTU customer cashback disabled by default', async () => {
+    const { GET } = await import('./route');
+    settingsError = { code: 'PGRST116', message: 'No rows found' };
+    insertData = { id: 'new-settings', merchant_id: MERCHANT_ID };
+
+    const response = await GET(makeRequest('GET'));
+
+    expect(response.status).toBe(200);
+    expect(insertPayload).toMatchObject({
+      vtu_customer_cashback_enabled: false,
+      vtu_customer_cashback_rate: 50,
+    });
   });
 
   it('returns 401 when not authenticated', async () => {
