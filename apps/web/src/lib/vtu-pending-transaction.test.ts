@@ -1,4 +1,12 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type MockInstance,
+  vi,
+} from 'vitest';
 import { preparePendingVtuTransaction } from '@/lib/vtu-pending-transaction';
 
 const {
@@ -151,8 +159,25 @@ function prepareAirtime(supabase: PrepareSupabase, networkProvider = 'mtn') {
 }
 
 describe('preparePendingVtuTransaction', () => {
+  let warnSpy: MockInstance | null = null;
+  let errorSpy: MockInstance | null = null;
+
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    // Restore only the console spies created within individual tests; the
+    // hoisted vi.fn() mocks above are intentionally left alone (their default
+    // implementations are reused across tests via mockResolvedValueOnce).
+    if (warnSpy) {
+      warnSpy.mockRestore();
+      warnSpy = null;
+    }
+    if (errorSpy) {
+      errorSpy.mockRestore();
+      errorSpy = null;
+    }
   });
 
   it('creates a pending VTU row with computed commissions', async () => {
@@ -207,9 +232,7 @@ describe('preparePendingVtuTransaction', () => {
   });
 
   it('warns when commission rate is exactly 1 (ambiguous value-1 case)', async () => {
-    const warnSpy = vi
-      .spyOn(console, 'warn')
-      .mockImplementation(() => undefined);
+    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     mockCalculateCommerce.mockResolvedValueOnce({
       merchantEarning: 10,
       platformEarning: 5,
@@ -224,31 +247,25 @@ describe('preparePendingVtuTransaction', () => {
       expect.stringContaining('value-1 case'),
       expect.objectContaining({ rawValue: 1, merchantId: 'merchant-1' })
     );
-    warnSpy.mockRestore();
   });
 
   it('throws when commission rate is in (1, 2) ambiguous band', async () => {
-    const errorSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => undefined);
+    errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const { supabase } = createMockSupabase({
       settings: { vtu_merchant_commission_rate: 1.5 },
     });
 
     await expect(prepareAirtime(supabase)).rejects.toThrow(
-      'Ambiguous commission rate: value in (1, 2)'
+      /Ambiguous commission rate 1\.5 for merchant merchant-1/
     );
     expect(errorSpy).toHaveBeenCalledWith(
       expect.stringContaining('ambiguous commission rate'),
       expect.objectContaining({ rawValue: 1.5, merchantId: 'merchant-1' })
     );
-    errorSpy.mockRestore();
   });
 
   it('does not warn for fractional rate of 0.5', async () => {
-    const warnSpy = vi
-      .spyOn(console, 'warn')
-      .mockImplementation(() => undefined);
+    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     mockCalculateCommerce.mockResolvedValueOnce({
       merchantEarning: 10,
       platformEarning: 5,
@@ -263,13 +280,10 @@ describe('preparePendingVtuTransaction', () => {
       expect.stringContaining('value-1 case'),
       expect.anything()
     );
-    warnSpy.mockRestore();
   });
 
   it('does not warn for whole-number rate of 50', async () => {
-    const warnSpy = vi
-      .spyOn(console, 'warn')
-      .mockImplementation(() => undefined);
+    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     mockCalculateCommerce.mockResolvedValueOnce({
       merchantEarning: 10,
       platformEarning: 5,
@@ -284,7 +298,6 @@ describe('preparePendingVtuTransaction', () => {
       expect.stringContaining('value-1 case'),
       expect.anything()
     );
-    warnSpy.mockRestore();
   });
 
   it('treats commission rate of 1 as 100% (not 1%)', async () => {

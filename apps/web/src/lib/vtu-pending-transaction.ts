@@ -70,7 +70,9 @@ function normalizeCommissionPercentage(
         merchantId: context?.merchantId,
       }
     );
-    throw new Error('Ambiguous commission rate: value in (1, 2)');
+    throw new Error(
+      `Ambiguous commission rate ${value} for merchant ${context?.merchantId ?? '<unknown>'}: values in (1, 2) are neither fractional nor whole-number percentages`
+    );
   }
 
   // Values in (0, 1] are fractional (0.5 -> 50%, 1.0 -> 100%); integer
