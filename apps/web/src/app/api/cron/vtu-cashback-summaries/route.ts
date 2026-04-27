@@ -132,7 +132,9 @@ async function fetchCashbackRows(
           return { id, keys: Object.keys(record) };
         });
         console.warn(
-          `VTU cashback summary: dropped ${invalidRows.length} invalid row(s) from page (offset ${from})`,
+          'VTU cashback summary: dropped %d invalid row(s) from page (offset %d)',
+          invalidRows.length,
+          from,
           { sample: redactedSample }
         );
       }
