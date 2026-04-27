@@ -87,7 +87,7 @@ jobs:
           Mode: \`${REVIEW_MODE}\`
 
           Jules skipped this run because the comment did not start with \`/jules deep review\`.
-          EOF
+EOF
               exit 0
             fi
           fi
@@ -192,7 +192,7 @@ jobs:
           Mode: \`${REVIEW_MODE}\`
 
           Jules did not run because the \`JULES_API_KEY\` secret is not configured for this repository.
-          EOF
+EOF
             exit 0
           fi
 
@@ -204,7 +204,7 @@ jobs:
           Mode: \`${REVIEW_MODE}\`
 
           Jules skipped this run because pull request #${PR_NUMBER} is no longer open.
-          EOF
+EOF
             exit 0
           fi
 
@@ -216,7 +216,7 @@ jobs:
           Mode: \`${REVIEW_MODE}\`
 
           Deep Jules reviews require a same-repository branch so the connected source can be checked out safely.
-          EOF
+EOF
             exit 0
           fi
 
@@ -379,7 +379,7 @@ jobs:
 
           ## Diff excerpts
           $(cat "${patch_sections_file}")
-          EOF
+EOF
 
             session_payload="$(
               jq -n \
@@ -443,7 +443,7 @@ jobs:
           Jules could not find a connected source for \`${GITHUB_REPOSITORY}\`.
 
           Install the Jules GitHub app for this repository in the Jules web UI, then rerun this workflow.
-          EOF
+EOF
               exit 0
             fi
 
@@ -468,7 +468,7 @@ jobs:
           Jules can only review branches that are visible on the connected repository source.
 
           The branch \`${head_ref}\` was not returned by the Jules Sources API for \`${GITHUB_REPOSITORY}\`, so this run was skipped.
-          EOF
+EOF
               exit 0
             fi
 
@@ -499,7 +499,7 @@ jobs:
           ## Suggested next steps
           In Findings, use flat bullets. For each issue include severity (high, medium, or low) and file paths when possible.
           If you find no meaningful issues, say so explicitly.
-          EOF
+EOF
 
             session_payload="$(
               jq -n \
@@ -535,7 +535,7 @@ jobs:
           Jules did not return a session ID, so the review could not be started.
 
           Workflow run: ${run_url}
-          EOF
+EOF
             exit 0
           fi
 
@@ -628,7 +628,7 @@ jobs:
           ## Suggested next steps
 
           Re-run the workflow or inspect the Jules session manually.
-          EOF
+EOF
                 )"
               fi
               ;;
@@ -646,7 +646,7 @@ jobs:
           ## Suggested next steps
 
           Re-run the workflow after checking the Jules integration and repository source setup.
-          EOF
+EOF
               )"
               ;;
             AWAITING_USER_FEEDBACK|AWAITING_PLAN_APPROVAL|PAUSED)
@@ -663,7 +663,7 @@ jobs:
           ## Suggested next steps
 
           Open the Jules session and complete the requested action, or adjust the prompt to avoid follow-up questions.
-          EOF
+EOF
               )"
               ;;
             *)
@@ -680,7 +680,7 @@ jobs:
           ## Suggested next steps
 
           Re-run the workflow later if the branch is still under review.
-          EOF
+EOF
               )"
               ;;
           esac
@@ -695,7 +695,7 @@ jobs:
           Workflow: ${run_url}
 
           ${review_markdown}
-          EOF
+EOF
 
       - name: Submit Jules review
         if: ${{ always() && !cancelled() }}
@@ -782,7 +782,7 @@ jobs:
           Mode: \`${REVIEW_MODE}\`
 
           The workflow did not produce a review body. Check the workflow logs for the failure point.
-          EOF
+EOF
           fi
 
           existing_review_id=""
