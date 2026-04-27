@@ -8,7 +8,11 @@ import {
 } from '@/lib/feed-identifier';
 import { getEffectiveStock } from '@/lib/product-stock';
 import { stripHtmlTags } from '@/lib/sanitize-core';
-import { getCachedOpenAIFeedData, type OpenAIFeedProduct } from './feed-data';
+import {
+  getCachedOpenAIFeedData,
+  type OpenAIFeedProduct,
+  type OpenAIFeedVariant,
+} from './feed-data';
 
 const _FeedQuerySchema = z
   .object({
@@ -24,6 +28,22 @@ const _FeedQuerySchema = z
   });
 
 const UNLIMITED_STOCK_QUANTITY = 9999;
+
+function getVariantStockCount(
+  product: Pick<OpenAIFeedProduct, 'manage_stock'>,
+  variant: OpenAIFeedVariant
+) {
+  if (product.manage_stock === false) {
+    // Product-level unmanaged stock is authoritative for the feed. Variant
+    // quantities are hidden/zeroed in this mode and there is no variant-level
+    // availability override in the product_variants feed contract.
+    return UNLIMITED_STOCK_QUANTITY;
+  }
+
+  return typeof variant.stock_quantity === 'number'
+    ? Math.max(0, variant.stock_quantity)
+    : 0;
+}
 
 /**
  * OpenAI Product Feed API
@@ -218,12 +238,7 @@ function generateOpenAIFeed(
 
         const imageUrl = variantImage || parentFirstImage;
 
-        // Stock: Variant Stock
-        // NOTE: api/products uses 'stock_quantity' for variants
-        const stockCount =
-          typeof variant.stock_quantity === 'number'
-            ? variant.stock_quantity
-            : 0;
+        const stockCount = getVariantStockCount(product, variant);
         const availability: OpenAIFeedItem['availability'] =
           stockCount > 0 ? 'in_stock' : 'out_of_stock';
 
