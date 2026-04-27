@@ -99,7 +99,7 @@ export function getVtuCashbackSummaryIdempotencyKey({
 }
 
 export function chunkVtuCashbackSummaryRows<T>(rows: T[], size: number) {
-  if (!Number.isFinite(size) || size <= 0) {
+  if (!Number.isInteger(size) || size <= 0) {
     throw new RangeError(
       'chunkVtuCashbackSummaryRows: size must be a positive integer'
     );

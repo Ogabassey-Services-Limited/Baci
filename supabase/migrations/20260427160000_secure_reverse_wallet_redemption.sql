@@ -45,7 +45,9 @@ BEGIN
   FOR UPDATE OF w;
 
   IF v_original_tx IS NULL THEN
-    RETURN QUERY SELECT false, 0::numeric, 0::numeric, NULL::uuid;
+    -- new_balance is NULL (not 0) so callers can distinguish "wallet has 0"
+    -- from "no original redemption tx for this order".
+    RETURN QUERY SELECT false, 0::numeric, NULL::numeric, NULL::uuid;
     RETURN;
   END IF;
 
@@ -53,8 +55,11 @@ BEGIN
   -- redemption that belongs to a different merchant. This is a defense in
   -- depth check on top of RLS so a service-role caller cannot accidentally
   -- (or maliciously) reverse another merchant's redemption by guessing an
-  -- order id.
-  IF p_merchant_id IS NOT NULL AND v_original_tx.merchant_id <> p_merchant_id THEN
+  -- order id. `IS DISTINCT FROM` is NULL-safe, so a NULL merchant_id on the
+  -- original tx still triggers the exception when an explicit p_merchant_id
+  -- was passed.
+  IF p_merchant_id IS NOT NULL
+    AND v_original_tx.merchant_id IS DISTINCT FROM p_merchant_id THEN
     RAISE EXCEPTION 'Merchant mismatch on wallet reversal'
       USING ERRCODE = '42501';
   END IF;

@@ -219,12 +219,19 @@ describe('chunkVtuCashbackSummaryRows', () => {
     expect(chunkVtuCashbackSummaryRows([1, 2, 3], 5)).toEqual([[1, 2, 3]]);
   });
 
-  it('throws when size is zero, negative, or non-finite', () => {
+  it('throws when size is zero, negative, non-finite, or non-integer', () => {
     expect(() => chunkVtuCashbackSummaryRows([1, 2], 0)).toThrow(RangeError);
     expect(() => chunkVtuCashbackSummaryRows([1, 2], -3)).toThrow(RangeError);
     expect(() => chunkVtuCashbackSummaryRows([1, 2], Number.NaN)).toThrow(
       RangeError
     );
+    expect(() =>
+      chunkVtuCashbackSummaryRows([1, 2], Number.POSITIVE_INFINITY)
+    ).toThrow(RangeError);
+    expect(() =>
+      chunkVtuCashbackSummaryRows([1, 2], Number.NEGATIVE_INFINITY)
+    ).toThrow(RangeError);
+    expect(() => chunkVtuCashbackSummaryRows([1, 2], 1.5)).toThrow(RangeError);
   });
 });
 

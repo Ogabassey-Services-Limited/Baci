@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, jest } from '@jest/globals';
+import { afterAll, afterEach, describe, expect, it, jest } from '@jest/globals';
 import { hexToRgba } from './hex-to-rgba';
 
 describe('hexToRgba', () => {
@@ -6,6 +6,10 @@ describe('hexToRgba', () => {
 
   afterEach(() => {
     warnSpy.mockClear();
+  });
+
+  afterAll(() => {
+    warnSpy.mockRestore();
   });
 
   it('converts a valid 6-digit hex with full alpha', () => {

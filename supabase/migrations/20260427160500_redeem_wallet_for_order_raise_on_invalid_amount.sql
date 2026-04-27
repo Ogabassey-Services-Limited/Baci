@@ -43,6 +43,16 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
+  IF p_customer_id IS NULL THEN
+    RAISE EXCEPTION 'redeem_wallet_for_order p_customer_id is required'
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF p_merchant_id IS NULL THEN
+    RAISE EXCEPTION 'redeem_wallet_for_order p_merchant_id is required'
+      USING ERRCODE = '22023';
+  END IF;
+
   IF COALESCE(auth.role(), '') <> 'service_role' THEN
     IF auth.uid() IS NULL THEN
       RAISE EXCEPTION 'Authentication required to redeem wallet'
