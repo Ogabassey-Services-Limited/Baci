@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
+import { toTemplateMerchantData } from '@/lib/merchant-template-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   generateMetaDescription,
@@ -135,8 +136,7 @@ async function AboutContent({ params }: PageProps) {
           const AboutComponent = components.About;
           return (
             <AboutComponent
-              // biome-ignore lint/suspicious/noExplicitAny: CachedMerchant is a superset of what template components need
-              merchant={merchant as any}
+              merchant={toTemplateMerchantData(merchant)}
               storeSlug={merchant.slug}
               isPreview={false}
             />
