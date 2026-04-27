@@ -44,15 +44,6 @@ dependency is not part of the standalone `/home/bassey/baci-workers`
 production-only install, so keep the separate `apps/web` checkout dependencies
 installed before enabling these cron entries.
 
-The web app only creates and updates Bumpa import job records in production.
-Scheduled processing is owned by the VPS cron entry for
-`bin/process-import-jobs.sh`; do not add a Vercel Function or Vercel Cron for
-`/api/import-jobs/worker`.
-
-Import processing can run longer and use more CPU or memory than a web request
-should. Keeping it on the VPS isolates Bumpa imports from storefront traffic and
-avoids Vercel Function execution limits.
-
 `tsx` intentionally remains an `apps/web` production dependency while these
 cron entrypoints execute TypeScript in production. Move it back to a
 development-only dependency only after these scripts are compiled to JavaScript

@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { WALLET_TAB_SCROLL_PADDING_BOTTOM } from '@/components/wallet/wallet-tab.constants';
 import Colors, { palette, SPACING } from '@/constants/Colors';
 import WalletTabScreen from './wallet';
+import { WALLET_TAB_SCROLL_PADDING_BOTTOM } from './wallet.constants';
 
 interface MockStorefrontScreenShellProps {
   children?: ReactNode;

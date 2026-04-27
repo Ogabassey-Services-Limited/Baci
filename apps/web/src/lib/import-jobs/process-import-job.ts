@@ -3,8 +3,7 @@ import type { ImportJobRecord } from '@/lib/import-jobs/import-job-service';
 import { runClaimedImportJob } from '@/lib/import-jobs/run-claimed-import-job';
 import { logger } from '@/lib/logger';
 
-const NOTIFY_QUEUE_RESERVED_SLOTS = 1;
-const UPLOADED_QUEUE_RESERVED_SLOTS = 1;
+const QUEUED_STATUSES = ['uploaded', 'commit_queued', 'notify_queued'] as const;
 const CLAIMED_STATUS_MAP = {
   uploaded: 'validating',
   commit_queued: 'committing',
@@ -13,31 +12,6 @@ const CLAIMED_STATUS_MAP = {
 
 const IMPORT_JOB_SELECT =
   'id, merchant_id, created_by, source_platform, entity_type, status, original_filename, storage_path, content_type, file_size_bytes, total_rows, processed_rows, summary, error, started_at, created_at, committed_at, notified_at, completed_at';
-
-async function loadQueuedJobsForStatus(
-  supabase: SupabaseClient,
-  status: keyof typeof CLAIMED_STATUS_MAP,
-  limit: number
-) {
-  if (limit <= 0) {
-    return [];
-  }
-
-  const { data, error } = await supabase
-    .from('import_jobs')
-    .select(IMPORT_JOB_SELECT)
-    .eq('status', status)
-    .order('created_at', { ascending: true })
-    .limit(limit);
-
-  if (error) {
-    throw new Error(
-      `Failed to load queued import jobs for status ${status}: ${error.message}`
-    );
-  }
-
-  return (data || []) as ImportJobRecord[];
-}
 
 async function claimQueuedJob(
   supabase: SupabaseClient,
@@ -76,57 +50,18 @@ export async function processImportJobQueue(
   supabase: SupabaseClient,
   limit = 5
 ) {
-  const commitJobs = await loadQueuedJobsForStatus(
-    supabase,
-    'commit_queued',
-    limit
-  );
-  const notifyReserve =
-    limit > 1 ? Math.min(NOTIFY_QUEUE_RESERVED_SLOTS, limit) : 0;
-  const notifyLimit = Math.max(limit - commitJobs.length, notifyReserve);
-  const notifyJobs = await loadQueuedJobsForStatus(
-    supabase,
-    'notify_queued',
-    notifyLimit
-  );
-  const uploadedReserve =
-    limit > 0 ? Math.min(UPLOADED_QUEUE_RESERVED_SLOTS, limit) : 0;
-  const uploadedLimit = Math.max(
-    limit - commitJobs.length - notifyJobs.length,
-    uploadedReserve
-  );
-  const uploadedJobs = await loadQueuedJobsForStatus(
-    supabase,
-    'uploaded',
-    uploadedLimit
-  );
+  const { data, error } = await supabase
+    .from('import_jobs')
+    .select(IMPORT_JOB_SELECT)
+    .in('status', [...QUEUED_STATUSES])
+    .order('created_at', { ascending: true })
+    .limit(limit);
 
-  const jobs: ImportJobRecord[] = [];
-  const selectedJobIds = new Set<string>();
-  const addJob = (job: ImportJobRecord) => {
-    if (jobs.length >= limit || selectedJobIds.has(job.id)) {
-      return;
-    }
-
-    jobs.push(job);
-    selectedJobIds.add(job.id);
-  };
-
-  if (commitJobs[0]) {
-    addJob(commitJobs[0]);
+  if (error) {
+    throw new Error(`Failed to load queued import jobs: ${error.message}`);
   }
 
-  for (const job of [notifyJobs[0], uploadedJobs[0]].filter(
-    (job): job is ImportJobRecord => Boolean(job)
-  )) {
-    addJob(job);
-  }
-
-  // Backfill any empty reserved capacity while preserving priority order.
-  for (const job of [...commitJobs, ...notifyJobs, ...uploadedJobs]) {
-    addJob(job);
-  }
-
+  const jobs = (data || []) as ImportJobRecord[];
   if (jobs.length === 0) {
     return [];
   }

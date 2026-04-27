@@ -3,7 +3,6 @@ name: Deploy to Vercel
 on:
   push:
     branches: [main]
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -18,7 +17,6 @@ env:
 
 jobs:
   changes:
-    if: github.event_name != 'workflow_dispatch'
     # Lightweight job (just git diff) — runs on GitHub-hosted to keep
     # fork/Dependabot PR code off the self-hosted VPS entirely.
     runs-on: ubuntu-24.04
@@ -38,13 +36,10 @@ jobs:
               - 'turbo.json'
               - 'tsconfig*.json'
               - 'biome.json'
-              - '.github/workflows/deploy.yml'
-              - '.github/scripts/deploy-with-retry.sh'
-              - '.github/scripts/pnpm-install-with-retry.sh'
 
   deploy-production:
     needs: [changes]
-    if: always() && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.web == 'true')
+    if: needs.changes.outputs.web == 'true'
     runs-on: baci-deploy
     timeout-minutes: 20
     env:
@@ -71,16 +66,12 @@ jobs:
           rm -rf "${PNPM_STORE_DIR}" || true
           pnpm config set store-dir "${PNPM_STORE_DIR}"
       - run: .github/scripts/pnpm-install-with-retry.sh --frozen-lockfile
-      # Pin vercel CLI + allow esbuild postinstall so pnpm 10's strict
-      # ERR_PNPM_IGNORED_BUILDS does not block the dlx tmp install. Bumping
-      # the pin requires re-checking that the new CLI's bundled esbuild
-      # version is still on the allow list.
-      - run: pnpm dlx --allow-build=esbuild vercel@52.0.0 pull --yes --environment=production --token="${{ env.VERCEL_TOKEN }}"
-      - run: pnpm dlx --allow-build=esbuild vercel@52.0.0 build --yes --prod --token="${{ env.VERCEL_TOKEN }}"
+      - run: pnpm dlx vercel pull --yes --environment=production --token="${{ env.VERCEL_TOKEN }}"
+      - run: pnpm dlx vercel build --yes --prod --token="${{ env.VERCEL_TOKEN }}"
       # IMPORTANT: --archive=tgz is required to prevent Vercel upload rate limiting.
       # Do NOT remove it — without it, each deploy uploads thousands of individual files.
       - name: Deploy to Vercel (with retry)
-        run: .github/scripts/deploy-with-retry.sh pnpm dlx --allow-build=esbuild vercel@52.0.0 deploy --yes --prebuilt --prod --archive=tgz --token="${{ env.VERCEL_TOKEN }}"
+        run: .github/scripts/deploy-with-retry.sh pnpm dlx vercel deploy --yes --prebuilt --prod --archive=tgz --token="${{ env.VERCEL_TOKEN }}"
       - name: Prepare storefront blog smoke checker
         run: |
           cat > "${RUNNER_TEMP}/blog-smoke-check.mjs" <<'NODE'
@@ -180,7 +171,7 @@ jobs:
         run: node "${RUNNER_TEMP}/blog-smoke-check.mjs"
       - name: Invalidate storefront blog cache tag
         if: ${{ steps.storefront-blog-smoke.outcome == 'failure' }}
-        run: pnpm dlx --allow-build=esbuild vercel@52.0.0 cache invalidate --tag "${{ env.BLOG_SMOKE_TAG }}" --token="${{ env.VERCEL_TOKEN }}" --yes
+        run: pnpm dlx vercel cache invalidate --tag "${{ env.BLOG_SMOKE_TAG }}" --token="${{ env.VERCEL_TOKEN }}" --yes
       - name: Wait for cache invalidation to propagate
         if: ${{ steps.storefront-blog-smoke.outcome == 'failure' }}
         run: sleep 10
@@ -191,7 +182,7 @@ jobs:
         run: node "${RUNNER_TEMP}/blog-smoke-check.mjs"
       - name: Hard purge storefront blog cache tag
         if: ${{ steps.storefront-blog-smoke.outcome == 'failure' && steps.storefront-blog-smoke-after-invalidate.outcome == 'failure' }}
-        run: pnpm dlx --allow-build=esbuild vercel@52.0.0 cache dangerously-delete --tag "${{ env.BLOG_SMOKE_TAG }}" --token="${{ env.VERCEL_TOKEN }}" --yes
+        run: pnpm dlx vercel cache dangerously-delete --tag "${{ env.BLOG_SMOKE_TAG }}" --token="${{ env.VERCEL_TOKEN }}" --yes
       - name: Wait for cache purge to propagate
         if: ${{ steps.storefront-blog-smoke.outcome == 'failure' && steps.storefront-blog-smoke-after-invalidate.outcome == 'failure' }}
         run: sleep 10
