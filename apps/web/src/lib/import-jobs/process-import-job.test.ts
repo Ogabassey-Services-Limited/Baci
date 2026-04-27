@@ -31,6 +31,34 @@ function createJob(status: 'uploaded' | 'commit_queued' | 'notify_queued') {
   };
 }
 
+function createLoadQuery(result: { data: unknown; error: unknown }) {
+  const query = {
+    select: vi.fn(),
+    eq: vi.fn(),
+    order: vi.fn(),
+    limit: vi.fn(),
+  };
+  query.select.mockReturnValue(query);
+  query.eq.mockReturnValue(query);
+  query.order.mockReturnValue(query);
+  query.limit.mockResolvedValue(result);
+  return query;
+}
+
+function createClaimQuery(result: { data: unknown; error: unknown }) {
+  const query = {
+    update: vi.fn(),
+    eq: vi.fn(),
+    select: vi.fn(),
+    single: vi.fn(),
+  };
+  query.update.mockReturnValue(query);
+  query.eq.mockReturnValueOnce(query).mockReturnValueOnce(query);
+  query.select.mockReturnValue(query);
+  query.single.mockResolvedValue(result);
+  return query;
+}
+
 describe('processImportJobQueue', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -410,75 +438,36 @@ describe('processImportJobQueue', () => {
       { ...createJob('commit_queued'), id: 'commit-job-2' },
       { ...createJob('commit_queued'), id: 'commit-job-3' },
     ];
-    const loadCommitQuery = {
-      select: vi.fn(),
-      eq: vi.fn(),
-      order: vi.fn(),
-      limit: vi.fn(),
-    };
-    loadCommitQuery.select.mockReturnValue(loadCommitQuery);
-    loadCommitQuery.eq.mockReturnValue(loadCommitQuery);
-    loadCommitQuery.order.mockReturnValue(loadCommitQuery);
-    loadCommitQuery.limit.mockResolvedValue({
+    const loadCommitQuery = createLoadQuery({
       data: commitJobs,
       error: null,
     });
 
-    const loadNotifyQuery = {
-      select: vi.fn(),
-      eq: vi.fn(),
-      order: vi.fn(),
-      limit: vi.fn(),
-    };
-    loadNotifyQuery.select.mockReturnValue(loadNotifyQuery);
-    loadNotifyQuery.eq.mockReturnValue(loadNotifyQuery);
-    loadNotifyQuery.order.mockReturnValue(loadNotifyQuery);
-    loadNotifyQuery.limit.mockResolvedValue({
+    const loadNotifyQuery = createLoadQuery({
       data: [{ ...createJob('notify_queued'), id: 'notify-job-1' }],
       error: null,
     });
 
-    const loadUploadedQuery = {
-      select: vi.fn(),
-      eq: vi.fn(),
-      order: vi.fn(),
-      limit: vi.fn(),
-    };
-    loadUploadedQuery.select.mockReturnValue(loadUploadedQuery);
-    loadUploadedQuery.eq.mockReturnValue(loadUploadedQuery);
-    loadUploadedQuery.order.mockReturnValue(loadUploadedQuery);
-    loadUploadedQuery.limit.mockResolvedValue({
+    const loadUploadedQuery = createLoadQuery({
       data: [],
       error: null,
     });
 
     const claimedJobs = [
       { ...commitJobs[0], status: 'committing' },
-      { ...commitJobs[1], status: 'committing' },
       {
         ...createJob('notify_queued'),
         id: 'notify-job-1',
         status: 'notifying',
       },
+      { ...commitJobs[1], status: 'committing' },
     ];
-    const claimQueries = claimedJobs.map((job) => {
-      const claimQuery = {
-        update: vi.fn(),
-        eq: vi.fn(),
-        select: vi.fn(),
-        single: vi.fn(),
-      };
-      claimQuery.update.mockReturnValue(claimQuery);
-      claimQuery.eq
-        .mockReturnValueOnce(claimQuery)
-        .mockReturnValueOnce(claimQuery);
-      claimQuery.select.mockReturnValue(claimQuery);
-      claimQuery.single.mockResolvedValue({
+    const claimQueries = claimedJobs.map((job) =>
+      createClaimQuery({
         data: job,
         error: null,
-      });
-      return claimQuery;
-    });
+      })
+    );
 
     const supabase = {
       from: vi
@@ -491,29 +480,38 @@ describe('processImportJobQueue', () => {
         .mockReturnValueOnce(claimQueries[2]),
     } as unknown as SupabaseClient;
 
-    vi.mocked(runClaimedImportJob)
-      .mockResolvedValueOnce({
-        id: 'commit-job-1',
-        status: 'committed',
-        processed: 1,
-      })
-      .mockResolvedValueOnce({
-        id: 'commit-job-2',
-        status: 'committed',
-        processed: 1,
-      })
-      .mockResolvedValueOnce({
-        id: 'notify-job-1',
-        status: 'notified',
-        processed: 1,
-      });
+    vi.mocked(runClaimedImportJob).mockImplementation((_supabase, job) => {
+      const resultByJobId = {
+        'commit-job-1': {
+          id: 'commit-job-1',
+          status: 'committed',
+          processed: 1,
+        },
+        'commit-job-2': {
+          id: 'commit-job-2',
+          status: 'committed',
+          processed: 1,
+        },
+        'notify-job-1': {
+          id: 'notify-job-1',
+          status: 'notified',
+          processed: 1,
+        },
+      } as const;
+
+      const result = resultByJobId[job.id as keyof typeof resultByJobId];
+      if (!result) {
+        throw new Error(`Unexpected claimed job ${job.id}`);
+      }
+      return Promise.resolve(result);
+    });
 
     const result = await processImportJobQueue(supabase, 3);
 
     expect(result).toEqual([
       { id: 'commit-job-1', status: 'committed', processed: 1 },
-      { id: 'commit-job-2', status: 'committed', processed: 1 },
       { id: 'notify-job-1', status: 'notified', processed: 1 },
+      { id: 'commit-job-2', status: 'committed', processed: 1 },
     ]);
     expect(loadCommitQuery.limit).toHaveBeenCalledWith(3);
     expect(loadNotifyQuery.limit).toHaveBeenCalledWith(1);
