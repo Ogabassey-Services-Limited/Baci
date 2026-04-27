@@ -14,14 +14,14 @@ import {
   View,
 } from 'react-native';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
+import { WALLET_TAB_SCROLL_PADDING_BOTTOM } from '@/components/wallet/wallet-tab.constants';
+import { walletStyles as styles } from '@/components/wallet/wallet-tab.styles';
 import { BRAND, palette } from '@/constants/Colors';
 import { useAuthStatus } from '@/hooks/use-auth-guard';
 import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
 import { useWallet } from '@/hooks/use-wallet';
 import { useTheme } from '@/hooks/useTheme';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
-import { WALLET_TAB_SCROLL_PADDING_BOTTOM } from './wallet.constants';
-import { walletStyles as styles } from './wallet.styles';
 
 export default function WalletTabScreen() {
   const { colors, isDark } = useTheme();
