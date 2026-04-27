@@ -18,6 +18,7 @@ env:
 
 jobs:
   changes:
+    if: github.event_name != 'workflow_dispatch'
     # Lightweight job (just git diff) — runs on GitHub-hosted to keep
     # fork/Dependabot PR code off the self-hosted VPS entirely.
     runs-on: ubuntu-24.04
@@ -43,7 +44,7 @@ jobs:
 
   deploy-production:
     needs: [changes]
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.web == 'true')
+    if: always() && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.web == 'true')
     runs-on: baci-deploy
     timeout-minutes: 20
     env:
