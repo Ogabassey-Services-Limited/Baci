@@ -30,7 +30,7 @@ interface SavedItemCardProps {
 function formatSavedDate(timestamp: number) {
   const date = new Date(timestamp);
 
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleDateString('en-NG', {
     day: 'numeric',
     month: 'short',
   });
@@ -105,7 +105,7 @@ export function SavedItemCard({
           </Text>
 
           <View style={styles.priceRow}>
-            <Text style={[styles.priceText, { color: BRAND.primary }]}>
+            <Text style={[styles.priceText, { color: colors.price }]}>
               {formatPrice(item.price)}
             </Text>
             {item.compare_at_price ? (
