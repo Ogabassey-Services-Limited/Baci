@@ -183,6 +183,26 @@ const MERCHANT_FEATURE_SELECT_FIELDS: readonly (keyof MerchantFeatureSettings)[]
     'updated_at',
   ];
 
+// Compile-time exhaustiveness check: ensure every key in MerchantFeatureSettings
+// is included in MERCHANT_FEATURE_SELECT_FIELDS. If keys are missing, the
+// computed type collapses to a tuple literal that is not assignable to `true`,
+// causing a TypeScript error here (revealing the missing keys in the diagnostic).
+type _MerchantFeatureSelectFieldsExhaustive =
+  Exclude<
+    keyof MerchantFeatureSettings,
+    (typeof MERCHANT_FEATURE_SELECT_FIELDS)[number]
+  > extends never
+    ? true
+    : [
+        'Missing keys in MERCHANT_FEATURE_SELECT_FIELDS:',
+        Exclude<
+          keyof MerchantFeatureSettings,
+          (typeof MERCHANT_FEATURE_SELECT_FIELDS)[number]
+        >,
+      ];
+const _merchantFeatureSelectCompletenessCheck: _MerchantFeatureSelectFieldsExhaustive = true;
+void _merchantFeatureSelectCompletenessCheck;
+
 // Default settings for new merchants
 const DEFAULT_SETTINGS: Partial<MerchantFeatureSettings> = {
   loyalty_enabled: false,

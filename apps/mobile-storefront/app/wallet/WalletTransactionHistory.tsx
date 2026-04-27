@@ -3,6 +3,7 @@ import { Text, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import type Colors from '@/constants/Colors';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
+import { hexToRgba } from '@/lib/hex-to-rgba';
 import { styles } from './wallet.styles';
 
 type WalletColors = (typeof Colors)['light'];
@@ -27,29 +28,18 @@ interface WalletTransactionHistoryProps {
   transactions: WalletTransaction[];
 }
 
-function hexToRgba(hexColor: string, alpha: number): string {
-  const normalizedHex = hexColor.replace('#', '');
-  const expandedHex =
-    normalizedHex.length === 3 && /^[\da-f]{3}$/i.test(normalizedHex)
-      ? normalizedHex
-          .split('')
-          .map((character) => `${character}${character}`)
-          .join('')
-      : normalizedHex;
+const TRANSACTION_TYPE_LABELS: Record<WalletTransaction['type'], string> = {
+  credit: 'Credit',
+  debit: 'Debit',
+  cashback: 'Cashback',
+  redemption: 'Redemption',
+  bonus: 'Bonus',
+  adjustment: 'Adjustment',
+  expiry: 'Expiry',
+};
 
-  if (!/^[\da-f]{6}$/i.test(expandedHex)) {
-    if (__DEV__) {
-      console.warn(`hexToRgba: invalid hex color received: ${hexColor}`);
-    }
-    return 'rgba(0,0,0,0)';
-  }
-
-  const colorValue = Number.parseInt(expandedHex, 16);
-  const red = (colorValue >> 16) & 255;
-  const green = (colorValue >> 8) & 255;
-  const blue = colorValue & 255;
-
-  return `rgba(${red},${green},${blue},${alpha})`;
+function humanizeTransactionType(type: WalletTransaction['type']): string {
+  return TRANSACTION_TYPE_LABELS[type];
 }
 
 function formatWalletDate(dateString: string) {
@@ -102,22 +92,20 @@ export function WalletTransactionHistory({
             : isDebit
               ? colors.error
               : colors.textSecondary;
-          const transactionLabel = isCredit
-            ? 'Credit'
-            : isDebit
-              ? 'Debit'
-              : 'Neutral';
+          // Visual icon decisions are based on credit/debit/neutral semantics;
+          // screen readers get the specific type (Cashback, Redemption, etc.).
           const transactionIcon = isCredit
             ? 'arrow-down'
             : isDebit
               ? 'arrow-up'
               : 'remove';
+          const accessibleType = humanizeTransactionType(transaction.type);
 
           return (
             <View
               accessible
               accessibilityRole="text"
-              accessibilityLabel={`${transactionLabel} transaction. ${transaction.description}. ${amountPrefix}${formatNgnCurrency(Math.abs(transaction.amount))}. ${formatWalletDate(transaction.created_at)}.`}
+              accessibilityLabel={`${accessibleType}. ${transaction.description}. ${amountPrefix}${formatNgnCurrency(Math.abs(transaction.amount))}. ${formatWalletDate(transaction.created_at)}.`}
               key={transaction.id}
               style={[
                 styles.transactionItem,

@@ -16,6 +16,23 @@ export const VTU_TYPE_LABELS: Record<PurchaseInput['type'], string> = {
   betting: 'Betting Top-up',
 };
 
+/**
+ * Commission rate semantics:
+ *   - Values in (0, 1] are treated as fractional percentages
+ *     (0.5 -> 50%, 1.0 -> 100%).
+ *   - Integer values >1 (and <=100) are treated as direct percentages
+ *     (50 -> 50%).
+ *   - A literal value of 1 is therefore 100%, NOT 1%. If a merchant intends
+ *     "1 = 1%", the row must be migrated to 0.01 before deploy.
+ *
+ * Audit before deploy (psql):
+ *   SELECT id, merchant_id, vtu_merchant_commission_rate
+ *   FROM public.merchant_feature_settings
+ *   WHERE vtu_merchant_commission_rate = 1;
+ *
+ * If any merchant intends "1 = 1%", migrate that row to 0.01 before
+ * deploying this change.
+ */
 function normalizeCommissionPercentage(value: number | null | undefined) {
   if (value == null) {
     return 50;
@@ -25,8 +42,9 @@ function normalizeCommissionPercentage(value: number | null | undefined) {
     throw new Error('Invalid VTU merchant commission rate');
   }
 
-  // Existing rows may store 0.5 as a 50% split; only values in (0, 1) are fractional.
-  if (value > 0 && value < 1) {
+  // Values in (0, 1] are fractional (0.5 -> 50%, 1.0 -> 100%); integer
+  // values >1 are direct percentages.
+  if (value > 0 && value <= 1) {
     return value * 100;
   }
 
