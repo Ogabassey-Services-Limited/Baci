@@ -116,25 +116,38 @@ export default function ProductGrid({
     condition: selectedCondition !== 'All' ? selectedCondition : undefined,
     minRating: minRating > 0 ? minRating : undefined,
   });
-  const fallbackProductCategories = getProductGridCategories(
-    products
-      .map((product) => product.category?.trim())
-      .filter((categoryName): categoryName is string => Boolean(categoryName))
+  const merchantCategoryNames = normalizedCategories.map(
+    (category) => category.name
   );
-  const categoryNames = (() => {
-    if (normalizedCategories.length > 0) {
-      const allCats = normalizedCategories.map((category) => category.name);
-      const sorted = getProductGridCategories(allCats);
+  const productCategoryNames = products
+    .map((product) => product.category?.trim())
+    .filter((categoryName): categoryName is string => Boolean(categoryName));
+  const mergedCategoryNames = Array.from(
+    new Set([...merchantCategoryNames, ...productCategoryNames])
+  );
+  const sortedCategories = getProductGridCategories(mergedCategoryNames);
+  const categoryNames =
+    sortedCategories.length > 0 ? ['All', ...sortedCategories] : ['All'];
 
-      return ['All', ...sorted];
-    }
-
-    if (fallbackProductCategories.length > 0) {
-      return ['All', ...fallbackProductCategories];
-    }
-
-    return ['All'];
-  })();
+  if (
+    __DEV__ &&
+    categoryNames.length === 1 &&
+    !isCategoriesLoading &&
+    !isCategoriesFetching &&
+    !isLoading &&
+    !isFetching &&
+    isFetchedAfterMount
+  ) {
+    console.warn(
+      '[ProductGrid] No category chips resolved. Sources empty:',
+      JSON.stringify({
+        merchantCategoryCount: merchantCategoryNames.length,
+        productCategoryCount: productCategoryNames.length,
+        productsLoaded: products.length,
+        isCategoriesError,
+      })
+    );
+  }
   const matchedCategoryName =
     selectedCategorySlug === ALL_PRODUCT_FILTER_CATEGORY_SLUG
       ? 'All'

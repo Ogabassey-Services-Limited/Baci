@@ -1,4 +1,4 @@
-import { readdirSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
 const APP_ROOT = path.resolve(__dirname, '../../app');
@@ -33,8 +33,34 @@ function collectDisallowedSupportFiles(currentPath: string): string[] {
 
     const relativePath = path.relative(APP_ROOT, entryPath);
 
-    return DISALLOWED_SUPPORT_FILES.includes(relativePath) ? [relativePath] : [];
+    return DISALLOWED_SUPPORT_FILES.includes(relativePath)
+      ? [relativePath]
+      : [];
   });
+}
+
+const TAB_ROUTE_DIR = path.resolve(APP_ROOT, '(tabs)');
+
+// Expo Router auto-registers any non-underscored module file as a route.
+// Helper modules that live next to a tab screen (e.g. `wallet.styles.ts`)
+// therefore leak as `wallet.styles` tabs in the bottom bar.
+//
+// Match files of the form `<segment>.<segment>.<ext>` where:
+//   - both segments are lowercase alphanumeric or hyphens,
+//   - the middle segment is NOT `test` or `test-utils` (those are real test files),
+//   - extension is ts/tsx/js/jsx.
+// Returns an empty list when the directory is missing so the test fails
+// loudly via the assertion below rather than throwing ENOENT.
+function collectLeakedTabHelpers(): string[] {
+  if (!existsSync(TAB_ROUTE_DIR)) {
+    return [];
+  }
+
+  return readdirSync(TAB_ROUTE_DIR).filter((fileName) =>
+    /^[a-z0-9-]+\.(?!test\.|test-utils\.)[a-z0-9-]+\.(ts|tsx|js|jsx)$/.test(
+      fileName
+    )
+  );
 }
 
 describe('app route tree safety', () => {
@@ -44,5 +70,9 @@ describe('app route tree safety', () => {
 
   it('keeps support modules out of the expo-router app directory', () => {
     expect(collectDisallowedSupportFiles(APP_ROOT)).toEqual([]);
+  });
+
+  it('keeps non-route helper modules out of the (tabs) directory', () => {
+    expect(collectLeakedTabHelpers()).toEqual([]);
   });
 });
