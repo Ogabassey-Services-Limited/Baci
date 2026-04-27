@@ -14,6 +14,13 @@ const CLAIMED_STATUS_MAP = {
 const IMPORT_JOB_SELECT =
   'id, merchant_id, created_by, source_platform, entity_type, status, original_filename, storage_path, content_type, file_size_bytes, total_rows, processed_rows, summary, error, started_at, created_at, committed_at, notified_at, completed_at';
 
+function byCreatedAt(left: ImportJobRecord, right: ImportJobRecord) {
+  return (
+    new Date(left.created_at || 0).getTime() -
+    new Date(right.created_at || 0).getTime()
+  );
+}
+
 async function loadQueuedJobsForStatus(
   supabase: SupabaseClient,
   status: keyof typeof CLAIMED_STATUS_MAP,
@@ -97,19 +104,31 @@ export async function processImportJobQueue(
     uploadedReserve
   );
 
-  const reservedNotifyCount =
-    limit > 1 && notifyJobs.length > 0 ? NOTIFY_QUEUE_RESERVED_SLOTS : 0;
-  const reservedUploadedCount = uploadedJobs.length > 0 ? uploadedReserve : 0;
-  const commitSlots = Math.max(
-    limit - reservedNotifyCount - reservedUploadedCount,
-    0
-  );
-  const jobs = commitJobs.slice(0, commitSlots);
-  const notifySlots = Math.max(limit - jobs.length - reservedUploadedCount, 0);
-  jobs.push(...notifyJobs.slice(0, notifySlots));
-  // Reserve uploaded capacity only when uploaded work exists; otherwise keep the
-  // full batch available for commit/notify backlog.
-  jobs.push(...uploadedJobs.slice(0, Math.max(limit - jobs.length, 0)));
+  const jobs: ImportJobRecord[] = [];
+  const selectedJobIds = new Set<string>();
+  const addJob = (job: ImportJobRecord) => {
+    if (jobs.length >= limit || selectedJobIds.has(job.id)) {
+      return;
+    }
+
+    jobs.push(job);
+    selectedJobIds.add(job.id);
+  };
+
+  if (commitJobs[0]) {
+    addJob(commitJobs[0]);
+  }
+
+  for (const job of [notifyJobs[0], uploadedJobs[0]]
+    .filter((job): job is ImportJobRecord => Boolean(job))
+    .sort(byCreatedAt)) {
+    addJob(job);
+  }
+
+  // Backfill any empty reserved capacity while preserving priority order.
+  for (const job of [...commitJobs, ...notifyJobs, ...uploadedJobs]) {
+    addJob(job);
+  }
 
   if (jobs.length === 0) {
     return [];
