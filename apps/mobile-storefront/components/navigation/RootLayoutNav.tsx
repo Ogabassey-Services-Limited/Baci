@@ -11,7 +11,6 @@ import { ConnectivityBanner } from '@/components/ConnectivityBanner';
 import { ChatWidget } from '@/components/chat/ChatWidget';
 import { GlobalErrorBoundary } from '@/components/ErrorBoundary';
 import { NegotiationModal } from '@/components/modals/NegotiationModal';
-import { CompactStackHeader } from '@/components/navigation/CompactStackHeader';
 import { DrawerMenu } from '@/components/navigation/DrawerMenu';
 import { RootStackScreens } from '@/components/navigation/RootStackScreens';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -58,7 +57,8 @@ export function RootLayoutNav({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme];
   const template = getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID);
-  const enableConnectivityBanner = template.features?.connectivityBanner ?? true;
+  const enableConnectivityBanner =
+    template.features?.connectivityBanner ?? true;
   const enableChatWidget = template.features?.chatWidget ?? true;
   const enableNegotiationModal = template.features?.negotiationModal ?? true;
   const enableDrawerMenu = template.features?.drawerMenu ?? true;
@@ -82,9 +82,23 @@ export function RootLayoutNav({
               style={[styles.appShell, { backgroundColor: colors.background }]}
             >
               <GlobalErrorBoundary context="RootNavigation">
+                {/*
+                 * No custom `header` function in screenOptions — that would
+                 * make react-native-screens NativeStack reserve a header zone
+                 * via additionalSafeAreaInsets on every screen, even ones
+                 * with `headerShown: false`, which combined with screens'
+                 * own `<SafeAreaView edges={['top']}>` produced ~120pt of
+                 * stacked blank padding above content. Mirrors apps/mobile-admin
+                 * which uses the native iOS UINavigationBar.
+                 *
+                 * Screens that need a custom JS header can opt in
+                 * per-Stack.Screen via `options.header`. Inner-content
+                 * customization (back button, title node, right action) is
+                 * available via `headerLeft`, `headerRight`, `headerTitle`
+                 * without triggering the inset reservation.
+                 */}
                 <Stack
                   screenOptions={{
-                    header: (props) => <CompactStackHeader {...props} />,
                     headerStyle: {
                       backgroundColor: colors.background,
                     },
