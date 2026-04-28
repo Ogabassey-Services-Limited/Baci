@@ -46,9 +46,14 @@ jobs:
               - 'supabase/migrations/**'
               - '.github/workflows/deploy.yml'
 
-  # Push any new Supabase migrations BEFORE the Vercel deploy so application
+  # Apply any new Supabase migrations BEFORE the Vercel deploy so application
   # code never lands ahead of the schema it depends on. Closes the gap that
   # let 12 Apr 2026 migrations sit unapplied on production for nearly a week.
+  #
+  # Uses Supabase Management API directly (no `supabase db push`, no
+  # SUPABASE_DB_PASSWORD required) — the script registers each migration's
+  # version+name to schema_migrations in the same transaction as the SQL run,
+  # so the registered version always matches the on-disk filename.
   db-migrations:
     needs: [changes]
     if: always() && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.migrations == 'true')
@@ -56,29 +61,11 @@ jobs:
     timeout-minutes: 10
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
-      - name: Link Supabase project
-        run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
-      - name: Detect migration drift
-        run: |
-          echo "Local vs remote migration list:"
-          supabase migration list --linked
-          if supabase migration list --linked 2>&1 | awk '
-            /^ *[0-9]+\|/ { local=$1; remote=$2; if (local != "" && remote == "") missing++; if (local == "" && remote != "") extra++ }
-            END { exit (missing > 0 || extra > 0) ? 1 : 0 }
-          '; then
-            echo "Migration history is in sync."
-          else
-            echo "::warning::Migration drift detected — db push will reconcile."
-          fi
-      - name: Push migrations to production
-        run: supabase db push --linked --include-all
+      - name: Apply pending migrations via Management API
+        run: .github/scripts/apply-pending-migrations.sh
 
   deploy-production:
     needs: [changes, db-migrations]
