@@ -16,6 +16,7 @@ import {
   type OrderConversionData,
   sendPurchaseConversion,
 } from '@/lib/offline-conversions';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
 
@@ -465,7 +466,14 @@ export async function POST(request: NextRequest) {
       const platformFee =
         Number(transaction.platform_fee) || grossAmount * 0.015;
 
-      const { error: settlementError } = await supabase.rpc(
+      // `record_merchant_settlement` is locked to service_role per the
+      // 20260428071421 advisor cleanup. Webhook callbacks have no user
+      // session (Juicyway calls us anonymously), so the SSR client runs
+      // as `anon` and would hit a function-permission error. Trust
+      // boundary is the IP whitelist + signature verification at the
+      // top of this handler; using the admin client here is safe.
+      const adminSupabase = createAdminClient();
+      const { error: settlementError } = await adminSupabase.rpc(
         'record_merchant_settlement',
         {
           p_merchant_id: transaction.merchant_id,
