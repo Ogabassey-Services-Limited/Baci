@@ -3524,7 +3524,7 @@ export default function CheckoutScreen() {
 
       <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
-        edges={['left', 'right']}
+        edges={['top', 'left', 'right']}
       >
         <View
           style={[
