@@ -46,17 +46,23 @@ jobs:
               - 'supabase/migrations/**'
               - '.github/workflows/deploy.yml'
 
-  # Apply any new Supabase migrations BEFORE the Vercel deploy so application
-  # code never lands ahead of the schema it depends on. Closes the gap that
-  # let 12 Apr 2026 migrations sit unapplied on production for nearly a week.
+  # Apply any pending Supabase migrations BEFORE the Vercel deploy so
+  # application code never lands ahead of the schema it depends on. Closes
+  # the gap that let 12 Apr 2026 migrations sit unapplied on production for
+  # nearly a week.
+  #
+  # Runs on every main-branch deploy (not just PRs that touch
+  # supabase/migrations/**) because previous failed pushes can leave drift
+  # that a web-only PR would otherwise deploy against. The script is
+  # idempotent — when remote is in sync it reports "0 applied, N skipped"
+  # in <5s, so unconditional execution costs essentially nothing.
   #
   # Uses Supabase Management API directly (no `supabase db push`, no
   # SUPABASE_DB_PASSWORD required) — the script registers each migration's
   # version+name to schema_migrations in the same transaction as the SQL run,
   # so the registered version always matches the on-disk filename.
   db-migrations:
-    needs: [changes]
-    if: always() && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.migrations == 'true')
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
@@ -69,7 +75,11 @@ jobs:
 
   deploy-production:
     needs: [changes, db-migrations]
-    if: always() && github.ref == 'refs/heads/main' && needs.db-migrations.result != 'failure' && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.web == 'true')
+    # Hard-require db-migrations success — `result == 'success'` excludes both
+    # 'skipped' and 'failure', so a skipped migrations job (e.g. if its `if`
+    # condition becomes false in a future change) cannot let a web deploy
+    # land against an out-of-date schema.
+    if: always() && github.ref == 'refs/heads/main' && needs.db-migrations.result == 'success' && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.web == 'true')
     runs-on: baci-deploy
     timeout-minutes: 20
     env:
