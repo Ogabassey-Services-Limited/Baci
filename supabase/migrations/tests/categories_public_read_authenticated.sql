@@ -11,6 +11,8 @@
 -- be wired into CI without separate test framework plumbing.
 -- =============================================
 
+BEGIN ISOLATION LEVEL REPEATABLE READ;
+
 DO $$
 DECLARE
   policy_roles text;
@@ -87,3 +89,5 @@ BEGIN
     anon_count;
 END;
 $$ LANGUAGE plpgsql;
+
+COMMIT;
