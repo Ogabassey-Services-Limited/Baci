@@ -37,10 +37,21 @@ export function useProductGridCategories({
   const productCategoryNames = products
     .map((product) => product.category?.trim())
     .filter((categoryName): categoryName is string => Boolean(categoryName));
-  const mergedCategoryNames = Array.from(
-    new Set([...merchantCategoryNames, ...productCategoryNames])
-  );
-  const sortedCategories = getProductGridCategories(mergedCategoryNames);
+  // Strict cascade: merchant categories are canonical when present.
+  //
+  // Merging product-derived names into a non-empty merchant list would
+  // surface chips that don't resolve to a category id — tapping such a chip
+  // sets selectedCategorySlug, but resolveSelectedCategoryId() returns
+  // undefined AND client-side filtering only runs when
+  // normalizedCategories.length === 0, so the grid stays unfiltered while
+  // the chip looks active. Falling back to product-derived names only when
+  // useCategories() returned nothing keeps the chip set consistent with the
+  // resolution logic in ProductGrid.tsx.
+  const sourceCategoryNames =
+    merchantCategoryNames.length > 0
+      ? merchantCategoryNames
+      : Array.from(new Set(productCategoryNames));
+  const sortedCategories = getProductGridCategories(sourceCategoryNames);
   const categoryNames =
     sortedCategories.length > 0 ? ['All', ...sortedCategories] : ['All'];
 

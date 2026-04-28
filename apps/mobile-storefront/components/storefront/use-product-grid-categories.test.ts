@@ -60,13 +60,17 @@ describe('useProductGridCategories', () => {
     warnSpy.mockRestore();
   });
 
-  it('merges merchant categories and product categories with dedup + curation', () => {
+  it('uses merchant categories as the canonical source when non-empty', () => {
     const { result } = renderHook(() =>
       useProductGridCategories({
         normalizedCategories: [
           makeCategory('Smartphones'),
           makeCategory('Laptops'),
         ],
+        // Audio is on products but NOT in merchant categories. It must NOT
+        // appear in the chip list — otherwise tapping the chip wouldn't
+        // resolve to a category id and the grid would stay unfiltered while
+        // the chip looks active. (Codex P1 review on PR #1391.)
         products: [{ category: 'Audio' }, { category: 'Smartphones' }],
         ...settled,
       })
@@ -75,11 +79,21 @@ describe('useProductGridCategories', () => {
     expect(result.current.categoryNames[0]).toBe('All');
     expect(result.current.categoryNames).toContain('Smartphones');
     expect(result.current.categoryNames).toContain('Laptops');
-    expect(result.current.categoryNames).toContain('Audio');
-    const smartphoneOccurrences = result.current.categoryNames.filter(
-      (name) => name === 'Smartphones'
+    expect(result.current.categoryNames).not.toContain('Audio');
+  });
+
+  it('falls back to product-derived categories only when merchant categories are empty', () => {
+    const { result } = renderHook(() =>
+      useProductGridCategories({
+        normalizedCategories: [],
+        products: [{ category: 'Audio' }, { category: 'Smartphones' }],
+        ...settled,
+      })
     );
-    expect(smartphoneOccurrences).toHaveLength(1);
+
+    expect(result.current.categoryNames[0]).toBe('All');
+    expect(result.current.categoryNames).toContain('Audio');
+    expect(result.current.categoryNames).toContain('Smartphones');
   });
 
   it('only emits the diagnostic warn once across re-renders', () => {
