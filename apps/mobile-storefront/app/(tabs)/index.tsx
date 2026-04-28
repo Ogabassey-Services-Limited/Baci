@@ -24,6 +24,7 @@ import { SnowEffect } from '@/components/ui/SnowEffect';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import {
+  ELITE_BACKDROP_HEIGHT,
   getHomeContentBottomPadding,
   HOME_LOAD_MORE_THRESHOLD_PX,
 } from '@/constants/layout';
@@ -333,12 +334,18 @@ export default function HomeScreen() {
 
       {/* Background Layer for Hero Overlap (Layer 1) */}
       {isElite && (
+        // Backdrop covers both the elite header AND the hero/carousel block,
+        // per the original electronics design. PR #1391 swapped this for
+        // `resolvedHeaderHeight`, which collapsed the backdrop to just the
+        // measured Header (~150pt) and exposed the white screen background
+        // behind the carousel in light mode. ELITE_BACKDROP_HEIGHT is the
+        // intentional fixed value (see constants/layout.ts).
         <View
           style={[
             styles.eliteBackground,
             {
               backgroundColor: colors.black,
-              height: resolvedHeaderHeight,
+              height: ELITE_BACKDROP_HEIGHT,
             },
           ]}
         >
