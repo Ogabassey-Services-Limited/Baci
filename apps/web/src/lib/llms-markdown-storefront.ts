@@ -1,6 +1,9 @@
 import type { CachedMerchant } from '@/lib/cached-data';
 import { normalizeProduct, type RawDbProduct } from '@/lib/normalize-product';
-import { getStorefrontAgentAvailability } from '@/lib/storefront-agent-availability';
+import {
+  coerceStorefrontManageStock,
+  getStorefrontAgentAvailability,
+} from '@/lib/storefront-agent-availability';
 import { buildAgentProductUrl } from '@/lib/storefront-agent-urls';
 import type { MerchantAboutPage } from '@/types/about-page';
 import type { FAQItem } from '@/types/faq';
@@ -225,7 +228,7 @@ export function buildProductMarkdown(
   const product = normalizeProduct(rawProduct);
   const productUrl = buildAgentProductUrl({ baseUrl: origin, product });
   const agentAvailability = getStorefrontAgentAvailability({
-    manage_stock: rawProduct.manage_stock ?? false,
+    manage_stock: coerceStorefrontManageStock(rawProduct.manage_stock),
     stock: rawProduct.stock,
     stock_quantity: rawProduct.stock_quantity,
     low_stock_threshold: rawProduct.low_stock_threshold,

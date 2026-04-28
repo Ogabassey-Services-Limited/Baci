@@ -1,6 +1,9 @@
 import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
 import { normalizeProduct, type RawDbProduct } from '@/lib/normalize-product';
-import { getStorefrontAgentAvailability } from '@/lib/storefront-agent-availability';
+import {
+  coerceStorefrontManageStock,
+  getStorefrontAgentAvailability,
+} from '@/lib/storefront-agent-availability';
 
 type RawStorefrontProductRow = Record<string, unknown>;
 type ImageInput = string | { url?: string; alt?: string; order?: number };
@@ -20,8 +23,9 @@ function normalizeLegacyColorList(value: unknown) {
 
 function mapProduct(product: RawStorefrontProductRow) {
   const normalized = normalizeProduct(product as RawDbProduct);
-  const manageStock =
-    typeof product.manage_stock === 'boolean' ? product.manage_stock : false;
+  const manageStock = coerceStorefrontManageStock(
+    product.manage_stock as boolean | null | undefined
+  );
   const agentAvailability = getStorefrontAgentAvailability({
     manage_stock: manageStock,
     stock: product.stock as number | string | null | undefined,

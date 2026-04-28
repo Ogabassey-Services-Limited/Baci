@@ -12,7 +12,10 @@
  */
 
 import { generateSlug } from '@/lib/seo-utils';
-import { getStorefrontAgentAvailability } from '@/lib/storefront-agent-availability';
+import {
+  coerceStorefrontManageStock,
+  getStorefrontAgentAvailability,
+} from '@/lib/storefront-agent-availability';
 
 const PLACEHOLDER_IMAGE =
   'https://placehold.co/400x400/f8fafc/94a3b8?text=No+Image';
@@ -217,7 +220,7 @@ export function normalizeProduct(
     (raw.category ? generateSlug(raw.category) : 'general');
 
   const agentAvailability = getStorefrontAgentAvailability({
-    manage_stock: raw.manage_stock ?? false,
+    manage_stock: coerceStorefrontManageStock(raw.manage_stock),
     stock: raw.stock,
     stock_quantity: raw.stock_quantity,
   });

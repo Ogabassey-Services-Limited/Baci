@@ -49,12 +49,24 @@ describe('storefront host helpers', () => {
         rootDomain: 'usebaci.com',
       })
     ).toBe('ogabassey.com');
+    expect(
+      resolveStorefrontRouteIdentifier({
+        request: new Request('https://www.ogabassey.com/agent-commerce.json'),
+        rootDomain: 'usebaci.com',
+      })
+    ).toBe('www.ogabassey.com');
   });
 
   it('returns an empty identifier for platform and localhost hosts', () => {
     expect(
       resolveStorefrontRouteIdentifier({
         request: new Request('https://usebaci.com/agent-commerce.json'),
+        rootDomain: 'usebaci.com',
+      })
+    ).toBe('');
+    expect(
+      resolveStorefrontRouteIdentifier({
+        request: new Request('https://www.usebaci.com/agent-commerce.json'),
         rootDomain: 'usebaci.com',
       })
     ).toBe('');

@@ -1,5 +1,8 @@
 import { normalizeProduct, type RawDbProduct } from '@/lib/normalize-product';
-import { getStorefrontAgentAvailability } from '@/lib/storefront-agent-availability';
+import {
+  coerceStorefrontManageStock,
+  getStorefrontAgentAvailability,
+} from '@/lib/storefront-agent-availability';
 
 export const STOREFRONT_PRODUCTS_FULL_SELECT = `
   id,
@@ -74,7 +77,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 
 export function mapStorefrontProduct(p: RawDbProduct) {
   const normalized = normalizeProduct(p);
-  const manageStock = p.manage_stock ?? false;
+  const manageStock = coerceStorefrontManageStock(p.manage_stock);
   const agentAvailability = getStorefrontAgentAvailability({
     manage_stock: manageStock,
     stock: p.stock,

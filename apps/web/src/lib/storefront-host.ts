@@ -33,10 +33,14 @@ export function resolveStorefrontRouteIdentifier({
   request: Request;
   rootDomain: string;
 }): string {
-  const hostname = stripPort(getRequestHost(request)).replace(/^www\./, '');
+  const hostname = stripPort(getRequestHost(request));
   const normalizedRootDomain = rootDomain.toLowerCase();
 
-  if (!hostname || hostname === normalizedRootDomain) {
+  if (
+    !hostname ||
+    hostname === normalizedRootDomain ||
+    hostname === `www.${normalizedRootDomain}`
+  ) {
     return '';
   }
 

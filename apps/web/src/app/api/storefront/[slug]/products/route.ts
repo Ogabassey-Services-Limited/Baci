@@ -4,7 +4,10 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { STOREFRONT_CACHE } from '@/config/storefront-cache';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { PRODUCT_COLUMNS } from '@/lib/product-queries';
-import { getStorefrontAgentAvailability } from '@/lib/storefront-agent-availability';
+import {
+  coerceStorefrontManageStock,
+  getStorefrontAgentAvailability,
+} from '@/lib/storefront-agent-availability';
 
 // Extract primary image URL from mixed format (string[] or {url}[])
 function extractPrimaryImage(images: unknown): string {
@@ -19,8 +22,9 @@ function extractPrimaryImage(images: unknown): string {
 // Map database product to API response format function
 function mapProduct(p: Record<string, unknown>) {
   const primaryImage = extractPrimaryImage(p.images);
-  const manageStock =
-    typeof p.manage_stock === 'boolean' ? p.manage_stock : false;
+  const manageStock = coerceStorefrontManageStock(
+    p.manage_stock as boolean | null | undefined
+  );
   const agentAvailability = getStorefrontAgentAvailability({
     manage_stock: manageStock,
     stock: p.stock as number | string | null | undefined,

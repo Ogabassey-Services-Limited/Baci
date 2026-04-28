@@ -8,10 +8,18 @@ export type StorefrontAgentAvailability = {
   stock: number;
 };
 
+export function coerceStorefrontManageStock(
+  value: ManagedStockLike['manage_stock']
+): boolean {
+  // Storefront read contract: null or missing stock tracking means unmanaged
+  // inventory, which is treated as available without a finite quantity.
+  return !(value === false || value == null);
+}
+
 export function isUnmanagedStock(
   product: Pick<ManagedStockLike, 'manage_stock'>
 ): boolean {
-  return product.manage_stock === false;
+  return coerceStorefrontManageStock(product.manage_stock) === false;
 }
 
 export function getStorefrontAgentAvailability(

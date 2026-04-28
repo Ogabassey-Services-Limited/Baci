@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  coerceStorefrontManageStock,
   getStorefrontAgentAvailability,
   isUnmanagedStock,
 } from '@/lib/storefront-agent-availability';
@@ -9,6 +10,26 @@ describe('storefront agent availability', () => {
     expect(
       getStorefrontAgentAvailability({
         manage_stock: false,
+        stock: 0,
+        stock_quantity: 0,
+      })
+    ).toMatchObject({
+      availability: 'in_stock',
+      inventory_policy: 'untracked',
+      is_purchasable: true,
+      quantity_available: null,
+      stock: 0,
+    });
+  });
+
+  it('coerces nullish manage_stock to unmanaged storefront inventory', () => {
+    expect(coerceStorefrontManageStock(null)).toBe(false);
+    expect(coerceStorefrontManageStock(undefined)).toBe(false);
+    expect(coerceStorefrontManageStock(false)).toBe(false);
+    expect(coerceStorefrontManageStock(true)).toBe(true);
+    expect(
+      getStorefrontAgentAvailability({
+        manage_stock: null,
         stock: 0,
         stock_quantity: 0,
       })
@@ -51,11 +72,9 @@ describe('storefront agent availability', () => {
     });
   });
 
-  it('does not infer untracked inventory from missing manage_stock', () => {
-    expect(isUnmanagedStock({ manage_stock: undefined })).toBe(false);
-    expect(isUnmanagedStock({ manage_stock: null as unknown as boolean })).toBe(
-      false
-    );
+  it('infers untracked inventory from nullish manage_stock on storefront reads', () => {
+    expect(isUnmanagedStock({ manage_stock: undefined })).toBe(true);
+    expect(isUnmanagedStock({ manage_stock: null })).toBe(true);
   });
 
   it.each([
