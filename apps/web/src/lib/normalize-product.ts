@@ -217,8 +217,7 @@ export function normalizeProduct(
     (raw.category ? generateSlug(raw.category) : 'general');
 
   const agentAvailability = getStorefrontAgentAvailability({
-    manage_stock:
-      typeof raw.manage_stock === 'boolean' ? raw.manage_stock : undefined,
+    manage_stock: raw.manage_stock ?? false,
     stock: raw.stock,
     stock_quantity: raw.stock_quantity,
   });

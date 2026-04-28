@@ -92,7 +92,7 @@ describe('GET /api/storefront/[slug]/products', () => {
           has_variants: false,
           slug: 'test-phone',
           sku: 'TP-123',
-          manage_stock: false,
+          manage_stock: null,
           low_stock_threshold: 2,
           color: 'Black',
           condition: 'new',
@@ -118,6 +118,7 @@ describe('GET /api/storefront/[slug]/products', () => {
         inventory_policy: 'untracked',
         is_purchasable: true,
         quantity_available: null,
+        manage_stock: false,
       }),
     ]);
     expect(response.headers.get('Cache-Control')).toBe(

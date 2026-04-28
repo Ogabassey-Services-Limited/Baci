@@ -169,6 +169,27 @@ describe('storefront markdown mirrors', () => {
       'Markdown mirror: https://ogabassey.com/smartwatches/riversong-motive-5t-smart-watch.md'
     );
     expect(result).toContain('- inventory_policy: untracked');
+    expect(result).toContain('- Availability: in_stock');
+    expect(result).toContain('- is_purchasable: true');
+    expect(result).toContain('- quantity_available: untracked');
+  });
+
+  it('builds product markdown using agent availability for nullable manage_stock', () => {
+    const result = buildProductMarkdown(merchant, 'https://ogabassey.com', {
+      id: 'p1',
+      name: 'Legacy Watch',
+      slug: 'legacy-watch',
+      description: 'Bluetooth smartwatch',
+      price: 30600,
+      category: 'Accessories',
+      stock: 0,
+      stock_quantity: 0,
+      manage_stock: null,
+      images: ['https://img.test/watch.jpg'],
+    });
+
+    expect(result).toContain('- Availability: in_stock');
+    expect(result).toContain('- inventory_policy: untracked');
     expect(result).toContain('- is_purchasable: true');
     expect(result).toContain('- quantity_available: untracked');
   });

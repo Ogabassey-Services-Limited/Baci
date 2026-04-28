@@ -316,10 +316,7 @@ export function buildProductMarkdown(
   const product = normalizeProduct(rawProduct);
   const productUrl = buildAgentProductUrl({ baseUrl: origin, product });
   const agentAvailability = getStorefrontAgentAvailability({
-    manage_stock:
-      typeof rawProduct.manage_stock === 'boolean'
-        ? rawProduct.manage_stock
-        : undefined,
+    manage_stock: rawProduct.manage_stock ?? false,
     stock: rawProduct.stock,
     stock_quantity: rawProduct.stock_quantity,
     low_stock_threshold: rawProduct.low_stock_threshold,
@@ -342,7 +339,7 @@ export function buildProductMarkdown(
     `- Price: ${product.price} ${merchant.payout_currency || 'NGN'}`,
     compareAt,
     `- Condition: ${product.condition}`,
-    `- Availability: ${product.availability}`,
+    `- Availability: ${agentAvailability.availability}`,
     `- inventory_policy: ${agentAvailability.inventory_policy}`,
     `- is_purchasable: ${String(agentAvailability.is_purchasable)}`,
     `- quantity_available: ${agentAvailability.quantity_available ?? 'untracked'}`,

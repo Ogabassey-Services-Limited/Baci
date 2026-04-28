@@ -100,7 +100,10 @@ describe('product-response', () => {
 
     const mapped = mapStorefrontProduct(rawProduct);
 
-    expect(mapped.manage_stock).toBe(true);
+    expect(mapped.manage_stock).toBe(false);
+    expect(mapped.inventory_policy).toBe('untracked');
+    expect(mapped.is_purchasable).toBe(true);
+    expect(mapped.quantity_available).toBeNull();
     expect(mapped.brand).toBe('');
     expect(mapped.category_id).toBe('cat-1');
     expect(mapped.categories).toEqual({
@@ -136,6 +139,26 @@ describe('product-response', () => {
       stock: 0,
       images: [],
       manage_stock: false,
+    };
+
+    const mapped = mapStorefrontProduct(rawProduct);
+
+    expect(mapped.manage_stock).toBe(false);
+    expect(mapped.availability).toBe('in_stock');
+    expect(mapped.inventory_policy).toBe('untracked');
+    expect(mapped.is_purchasable).toBe(true);
+    expect(mapped.quantity_available).toBeNull();
+  });
+
+  it('treats nullable manage_stock as unmanaged stock', () => {
+    const rawProduct: RawDbProduct = {
+      id: 'product-null-stock',
+      name: 'Legacy Infinite Stock Item',
+      price: 1000,
+      stock: 0,
+      stock_quantity: 0,
+      images: [],
+      manage_stock: null,
     };
 
     const mapped = mapStorefrontProduct(rawProduct);

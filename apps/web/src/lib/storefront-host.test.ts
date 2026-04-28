@@ -24,6 +24,7 @@ describe('storefront host helpers', () => {
     expect(stripPort('[::1]:3000')).toBe('[::1]');
     expect(stripPort('[::1]')).toBe('[::1]');
     expect(stripPort('ogabassey.com:443')).toBe('ogabassey.com');
+    expect(stripPort('ogabassey.com')).toBe('ogabassey.com');
   });
 
   it('identifies local development hosts', () => {

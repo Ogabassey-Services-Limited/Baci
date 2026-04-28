@@ -86,6 +86,17 @@ describe('normalizeProduct', () => {
     expect(result.availability).toBe('InStock');
   });
 
+  it('treats nullable manage_stock as unmanaged stock', () => {
+    const result = normalizeProduct({
+      ...baseRawProduct,
+      manage_stock: null,
+      stock: 0,
+      stock_quantity: 0,
+    });
+
+    expect(result.availability).toBe('InStock');
+  });
+
   it('treats managed stock with zero quantity as out of stock', () => {
     const result = normalizeProduct({
       ...baseRawProduct,

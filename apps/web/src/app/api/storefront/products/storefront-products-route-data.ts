@@ -20,11 +20,10 @@ function normalizeLegacyColorList(value: unknown) {
 
 function mapProduct(product: RawStorefrontProductRow) {
   const normalized = normalizeProduct(product as RawDbProduct);
+  const manageStock =
+    typeof product.manage_stock === 'boolean' ? product.manage_stock : false;
   const agentAvailability = getStorefrontAgentAvailability({
-    manage_stock:
-      typeof product.manage_stock === 'boolean'
-        ? product.manage_stock
-        : undefined,
+    manage_stock: manageStock,
     stock: product.stock as number | string | null | undefined,
     stock_quantity: product.stock_quantity as
       | number
@@ -81,7 +80,7 @@ function mapProduct(product: RawStorefrontProductRow) {
     images: processedImages,
     has_variants: product.has_variants,
     sku: product.sku,
-    manage_stock: product.manage_stock,
+    manage_stock: manageStock,
     low_stock_threshold: product.low_stock_threshold,
     specifications: product.specifications,
     has_condition_offers:

@@ -377,6 +377,7 @@ describe('GET /api/feed/openai', () => {
     const parsed = JSON.parse(line);
 
     expect(response.status).toBe(200);
+    expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
     expect(parsed).toMatchObject({
       id: 'product-1',
       title: 'Riversong Motive 5T Smart Watch',

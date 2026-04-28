@@ -19,9 +19,10 @@ function extractPrimaryImage(images: unknown): string {
 // Map database product to API response format function
 function mapProduct(p: Record<string, unknown>) {
   const primaryImage = extractPrimaryImage(p.images);
+  const manageStock =
+    typeof p.manage_stock === 'boolean' ? p.manage_stock : false;
   const agentAvailability = getStorefrontAgentAvailability({
-    manage_stock:
-      typeof p.manage_stock === 'boolean' ? p.manage_stock : undefined,
+    manage_stock: manageStock,
     stock: p.stock as number | string | null | undefined,
     stock_quantity: p.stock_quantity as number | string | null | undefined,
     low_stock_threshold: p.low_stock_threshold as
@@ -46,7 +47,7 @@ function mapProduct(p: Record<string, unknown>) {
     has_variants: p.has_variants,
     slug: p.slug,
     sku: p.sku,
-    manage_stock: p.manage_stock,
+    manage_stock: manageStock,
     availability: agentAvailability.availability,
     inventory_policy: agentAvailability.inventory_policy,
     is_purchasable: agentAvailability.is_purchasable,
