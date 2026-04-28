@@ -10,6 +10,7 @@ import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 import { createLogger } from '@/lib/logger';
+import { pickMerchantId } from '@/lib/pick-merchant-id';
 import {
   clearStoredPushToken,
   getStoredPushToken,
@@ -35,26 +36,10 @@ const log = createLogger('PushNotifications');
  * the auth store's relay (which is empty for guests / before merchant
  * context loads). Reads the value once at module load.
  */
-const STOREFRONT_MERCHANT_ID =
+const STOREFRONT_MERCHANT_ID = pickMerchantId(
   (Constants.expoConfig?.extra as { merchantId?: string } | undefined)
-    ?.merchantId ?? null;
-
-/**
- * Pick the first candidate that looks like a real merchant id. `??` is
- * not enough here: the auth store can return an empty string before
- * merchant context loads, which would skip the config fallback and let
- * an empty value reach the upsert.
- */
-function pickMerchantId(
-  ...candidates: Array<string | null | undefined>
-): string | null {
-  for (const value of candidates) {
-    if (typeof value === 'string' && value.trim().length > 0) {
-      return value.trim();
-    }
-  }
-  return null;
-}
+    ?.merchantId
+);
 
 // 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
 let Notifications: typeof import('expo-notifications') | null = null;
@@ -189,9 +174,21 @@ export function usePushNotifications(): UsePushNotificationsReturn {
           if (!saved) setError('Failed to register token with server');
         } else {
           // Token ready; login-sync effect will upsert when user signs in.
-          // Skipping silently when merchantId is unresolvable (e.g. config
-          // missing) — surfacing the failure here would noise the UI for
-          // a misconfiguration the user can't act on.
+          // Skip silently in the UI to avoid noise for a misconfig the
+          // customer can't fix, but emit a tracked error so the
+          // unresolvable-merchant case is observable in production.
+          if (resolvedUserId && !resolvedMerchantId) {
+            try {
+              const { trackError } = await import('@/services/analytics');
+              trackError(
+                'push_token_merchant_id_unresolvable',
+                'No merchant id from explicit arg, auth store, or expo config',
+                { has_storefront_constant: STOREFRONT_MERCHANT_ID !== null }
+              );
+            } catch (trackErr) {
+              log.warn('Failed to track unresolvable merchantId:', trackErr);
+            }
+          }
           setRegisteredUserId(null);
         }
       } else {
