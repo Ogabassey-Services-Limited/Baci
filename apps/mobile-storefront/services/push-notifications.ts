@@ -171,11 +171,21 @@ export async function savePushTokenToServer(
   userId: string,
   merchantId: string
 ): Promise<boolean> {
+  // The TS signature is non-optional, but a future caller could still pass
+  // an empty/whitespace string. Guard at the boundary so the upsert never
+  // sends a value that would round-trip into PostgREST as a NOT NULL
+  // violation (23502).
+  const trimmedMerchantId = merchantId.trim();
+  if (!trimmedMerchantId) {
+    log.error('Refusing to save push token: empty merchantId');
+    return false;
+  }
+
   try {
     const { error } = await supabase.from('push_tokens').upsert(
       {
         user_id: userId,
-        merchant_id: merchantId,
+        merchant_id: trimmedMerchantId,
         token: token,
         platform: Platform.OS,
         device_name: Device?.modelName || 'Unknown',

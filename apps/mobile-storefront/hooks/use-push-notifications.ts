@@ -39,6 +39,23 @@ const STOREFRONT_MERCHANT_ID =
   (Constants.expoConfig?.extra as { merchantId?: string } | undefined)
     ?.merchantId ?? null;
 
+/**
+ * Pick the first candidate that looks like a real merchant id. `??` is
+ * not enough here: the auth store can return an empty string before
+ * merchant context loads, which would skip the config fallback and let
+ * an empty value reach the upsert.
+ */
+function pickMerchantId(
+  ...candidates: Array<string | null | undefined>
+): string | null {
+  for (const value of candidates) {
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
 // 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
 let Notifications: typeof import('expo-notifications') | null = null;
 let _notificationsReady: Promise<void>;
@@ -132,8 +149,11 @@ export function usePushNotifications(): UsePushNotificationsReturn {
     if (isRegistered) return;
 
     const resolvedUserId = explicitUserId ?? user?.id;
-    const resolvedMerchantId =
-      explicitMerchantId ?? merchantId ?? STOREFRONT_MERCHANT_ID;
+    const resolvedMerchantId = pickMerchantId(
+      explicitMerchantId,
+      merchantId,
+      STOREFRONT_MERCHANT_ID
+    );
 
     // Per-user opt-out check. force: true (settings re-enable) clears it first.
     if (resolvedUserId) {
@@ -277,7 +297,10 @@ export function usePushNotifications(): UsePushNotificationsReturn {
 
   // Auto-register when user logs in (login-sync effect)
   useEffect(() => {
-    const effectiveMerchantId = merchantId ?? STOREFRONT_MERCHANT_ID;
+    const effectiveMerchantId = pickMerchantId(
+      merchantId,
+      STOREFRONT_MERCHANT_ID
+    );
     if (
       user?.id &&
       pushToken &&
