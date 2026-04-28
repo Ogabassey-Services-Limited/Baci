@@ -24,6 +24,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       web: ${{ steps.filter.outputs.web }}
+      migrations: ${{ steps.filter.outputs.migrations }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
@@ -41,10 +42,47 @@ jobs:
               - '.github/workflows/deploy.yml'
               - '.github/scripts/deploy-with-retry.sh'
               - '.github/scripts/pnpm-install-with-retry.sh'
+            migrations:
+              - 'supabase/migrations/**'
+              - '.github/workflows/deploy.yml'
+
+  # Push any new Supabase migrations BEFORE the Vercel deploy so application
+  # code never lands ahead of the schema it depends on. Closes the gap that
+  # let 12 Apr 2026 migrations sit unapplied on production for nearly a week.
+  db-migrations:
+    needs: [changes]
+    if: always() && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.migrations == 'true')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Link Supabase project
+        run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+      - name: Detect migration drift
+        run: |
+          echo "Local vs remote migration list:"
+          supabase migration list --linked
+          if supabase migration list --linked 2>&1 | awk '
+            /^ *[0-9]+\|/ { local=$1; remote=$2; if (local != "" && remote == "") missing++; if (local == "" && remote != "") extra++ }
+            END { exit (missing > 0 || extra > 0) ? 1 : 0 }
+          '; then
+            echo "Migration history is in sync."
+          else
+            echo "::warning::Migration drift detected — db push will reconcile."
+          fi
+      - name: Push migrations to production
+        run: supabase db push --linked --include-all
 
   deploy-production:
-    needs: [changes]
-    if: always() && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.web == 'true')
+    needs: [changes, db-migrations]
+    if: always() && github.ref == 'refs/heads/main' && needs.db-migrations.result != 'failure' && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.web == 'true')
     runs-on: baci-deploy
     timeout-minutes: 20
     env:
