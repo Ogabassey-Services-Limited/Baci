@@ -1,0 +1,33 @@
+# CODEOWNERS — auto-requests review from listed owners on PRs touching these paths.
+# Combined with branch protection's "Require review from Code Owners", this makes
+# silent reverts of these areas (PRs that delete/rename files at these paths
+# without your explicit approval) impossible to land via auto-merge.
+#
+# Background: PR #1383 silently reverted PR #1384's wallet/(tabs) cleanup via
+# a 3-way merge that resolved a rename/modify conflict by keeping the old
+# paths. Auto-merge then squash-merged the result. CODEOWNERS would have
+# required explicit review on the (tabs) edits before that could land.
+#
+# Syntax: <pattern> <owner1> <owner2>...
+# Patterns follow gitignore semantics. Order matters: later rules override earlier.
+
+# --- Storefront route tree (Expo Router auto-routes anything in here) ---
+/apps/mobile-storefront/app/(tabs)/         @ogabasseyy
+/apps/mobile-storefront/app/_layout.tsx     @ogabasseyy
+/apps/mobile-storefront/proxy.ts            @ogabasseyy
+
+# --- Web proxy / middleware (auth, CSRF, rate limiting, custom domains) ---
+/apps/web/src/proxy.ts                      @ogabasseyy
+/apps/web/src/middleware.ts                 @ogabasseyy
+
+# --- Database migrations (append-only, must not be re-ordered) ---
+/supabase/migrations/                       @ogabasseyy
+
+# --- Payments, webhooks (real money paths) ---
+/apps/web/src/app/api/payments/             @ogabasseyy
+/apps/web/src/app/api/webhooks/             @ogabasseyy
+
+# --- Build / CI / branch protection config ---
+/.github/                                   @ogabasseyy
+/turbo.json                                 @ogabasseyy
+/vercel.json                                @ogabasseyy
