@@ -81,6 +81,11 @@ for file in "${sorted_files[@]}"; do
   # The migration SQL goes in untouched (jq --rawfile reads it verbatim and
   # JSON-encodes for transport). The INSERT registers the same version+name
   # we parsed from the filename, so the row matches the file 1:1.
+  #
+  # Version and name must be SQL string literals (single-quoted), NOT JSON
+  # double-quoted (which Postgres parses as identifiers — `"20260428000000"`
+  # would error with `column "20260428000000" does not exist`). Wrap in
+  # single quotes and double any embedded single quote per SQL spec.
   body="$(jq -n \
     --rawfile sql "$file" \
     --arg version "$version" \
@@ -90,8 +95,8 @@ for file in "${sorted_files[@]}"; do
          $sql
          + "\n"
          + "INSERT INTO supabase_migrations.schema_migrations(version, name, statements) VALUES ("
-         + "\($version | @json), "
-         + "\($name | @json), "
+         + "'"'"'" + ($version | gsub("'"'"'"; "'"'"''"'"'")) + "'"'"', "
+         + "'"'"'" + ($name | gsub("'"'"'"; "'"'"''"'"'")) + "'"'"', "
          + "ARRAY[]::text[]);"
        )
      }'
