@@ -607,7 +607,7 @@ export default function OrdersScreen() {
       />
       <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
-        edges={['left', 'right']}
+        edges={['top', 'left', 'right']}
       >
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <TouchableOpacity

@@ -419,7 +419,7 @@ export default function OrderDetailsScreen() {
         <Stack.Screen options={{ headerShown: false }} />
         <SafeAreaView
           style={[styles.container, { backgroundColor: colors.background }]}
-          edges={['left', 'right']}
+          edges={['top', 'left', 'right']}
         >
           <View
             style={[
@@ -441,7 +441,7 @@ export default function OrderDetailsScreen() {
         <Stack.Screen options={{ headerShown: false }} />
         <SafeAreaView
           style={[styles.container, { backgroundColor: colors.background }]}
-          edges={['left', 'right']}
+          edges={['top', 'left', 'right']}
         >
           <View
             style={[
@@ -505,7 +505,7 @@ export default function OrderDetailsScreen() {
       />
       <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
-        edges={['left', 'right']}
+        edges={['top', 'left', 'right']}
       >
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <TouchableOpacity

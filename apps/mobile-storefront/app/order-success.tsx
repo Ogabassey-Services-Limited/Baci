@@ -127,7 +127,7 @@ export default function OrderSuccessScreen() {
 
       <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
-        edges={['left', 'right']}
+        edges={['top', 'left', 'right']}
       >
         <ScrollView
           contentContainerStyle={styles.scrollContent}

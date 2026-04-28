@@ -39,7 +39,10 @@ describe('StorefrontScreenShell', () => {
     });
   });
 
-  it('wraps children in a full-screen safe-area container by default', () => {
+  it('wraps children in a bottom-only safe-area container by default', () => {
+    // Default `edges` is ['bottom'] so we don't double-pad the safe-area-top
+    // already reserved by react-native-screens NativeStack. See the comment
+    // in StorefrontScreenShell.tsx for context.
     render(
       <StorefrontScreenShell>
         <Text>Content</Text>
@@ -48,7 +51,7 @@ describe('StorefrontScreenShell', () => {
 
     const shell = screen.getByTestId('storefront-screen-shell');
 
-    expect(shell.props.edges).toEqual(['top', 'bottom']);
+    expect(shell.props.edges).toEqual(['bottom']);
     expect(StyleSheet.flatten(shell.props.style)).toMatchObject({
       flex: 1,
     });
