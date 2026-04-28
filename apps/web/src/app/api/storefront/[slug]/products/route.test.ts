@@ -71,6 +71,23 @@ describe('GET /api/storefront/[slug]/products', () => {
     vi.clearAllMocks();
   });
 
+  it('returns 400 when the route slug is invalid', async () => {
+    const response = await GET(
+      new NextRequest('https://example.com/api/storefront//products'),
+      { params: Promise.resolve({ slug: '' }) }
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data.error).toBe('Invalid route parameters');
+    expect(data.code).toBe('INVALID_PARAMS');
+    expect(data.details.fieldErrors.slug).toEqual(
+      expect.arrayContaining([expect.any(String)])
+    );
+    expect(mockMerchantSingle).not.toHaveBeenCalled();
+    expect(mockProductOrder).not.toHaveBeenCalled();
+  });
+
   it('maps string array images to storefront image fields', async () => {
     mockMerchantSingle.mockResolvedValue({
       data: { id: 'merchant-123' },

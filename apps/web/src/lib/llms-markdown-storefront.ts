@@ -1,4 +1,9 @@
 import type { CachedMerchant } from '@/lib/cached-data';
+import { sanitizeMarkdownText } from '@/lib/llms-markdown-sanitize';
+import {
+  getStorefrontFaqItems,
+  type StorefrontFaqSource,
+} from '@/lib/llms-markdown-storefront-faq';
 import { normalizeProduct, type RawDbProduct } from '@/lib/normalize-product';
 import {
   coerceStorefrontManageStock,
@@ -6,57 +11,37 @@ import {
 } from '@/lib/storefront-agent-availability';
 import { buildAgentProductUrl } from '@/lib/storefront-agent-urls';
 import type { MerchantAboutPage } from '@/types/about-page';
-import type { FAQItem } from '@/types/faq';
-import { parseLegacyFAQ } from '@/types/faq';
 
 const MAX_PRODUCTS_IN_CATEGORY_MARKDOWN = 24;
 
 function buildMerchantIntro(
-  merchant: CachedMerchant,
+  merchant: StorefrontFaqSource,
   origin: string
 ): string[] {
   const description =
     merchant.site_description ||
     merchant.site_tagline ||
     `Storefront for ${merchant.business_name}.`;
+  const businessName = sanitizeMarkdownText(merchant.business_name);
+  const safeDescription = sanitizeMarkdownText(description);
+  const businessType = sanitizeMarkdownText(
+    merchant.business_type || 'Not specified'
+  );
+  const phone = sanitizeMarkdownText(merchant.phone);
+  const email = sanitizeMarkdownText(merchant.email);
 
   return [
-    `# ${merchant.business_name}`,
+    `# ${businessName}`,
     '',
-    `> ${description}`,
+    `> ${safeDescription}`,
     '',
     '## Storefront Summary',
-    `- Business type: ${merchant.business_type || 'Not specified'}`,
+    `- Business type: ${businessType}`,
     `- Canonical host: ${origin}`,
-    merchant.phone ? `- Phone: ${merchant.phone}` : '',
-    merchant.email ? `- Email: ${merchant.email}` : '',
+    phone ? `- Phone: ${phone}` : '',
+    email ? `- Email: ${email}` : '',
     '',
   ].filter(Boolean);
-}
-
-function getFaqItems(merchant: CachedMerchant): FAQItem[] {
-  if (
-    merchant.faq_items &&
-    Array.isArray(merchant.faq_items) &&
-    merchant.faq_items.length > 0
-  ) {
-    return merchant.faq_items.filter(isFaqItem);
-  }
-
-  if (merchant.pages?.faq) {
-    return parseLegacyFAQ(merchant.pages.faq);
-  }
-
-  return [];
-}
-
-function isFaqItem(item: unknown): item is FAQItem {
-  return (
-    item !== null &&
-    typeof item === 'object' &&
-    typeof (item as FAQItem).question === 'string' &&
-    typeof (item as FAQItem).answer === 'string'
-  );
 }
 
 function getProductMarkdownMirrorUrl(productUrl: string): string {
@@ -74,7 +59,7 @@ function isRawDbProduct(product: unknown): product is RawDbProduct {
 }
 
 export function buildStorefrontHomeMarkdown(
-  merchant: CachedMerchant,
+  merchant: StorefrontFaqSource,
   origin: string
 ): string {
   return [
@@ -88,7 +73,7 @@ export function buildStorefrontHomeMarkdown(
     merchant.pages?.contact || merchant.email || merchant.phone
       ? `- ${origin}/contact`
       : '',
-    getFaqItems(merchant).length > 0 ? `- ${origin}/faq` : '',
+    getStorefrontFaqItems(merchant).length > 0 ? `- ${origin}/faq` : '',
     '',
     '## Route Patterns',
     `- ${origin}/{category}`,
@@ -115,19 +100,25 @@ export function buildStorefrontAboutMarkdown(
   const aboutPage: Partial<MerchantAboutPage> = merchant.about_page || {};
   const values =
     aboutPage.values && aboutPage.values.length > 0
-      ? aboutPage.values.map((value) => `- ${value}`)
+      ? aboutPage.values.map((value) => `- ${sanitizeMarkdownText(value)}`)
       : [];
 
   return [
     ...buildMerchantIntro(merchant, origin),
     '# About',
     '',
-    aboutPage.story ||
-      merchant.pages?.about ||
-      `About ${merchant.business_name}`,
+    sanitizeMarkdownText(
+      aboutPage.story ||
+        merchant.pages?.about ||
+        `About ${merchant.business_name}`
+    ),
     '',
-    aboutPage.mission ? `## Mission\n${aboutPage.mission}\n` : '',
-    aboutPage.vision ? `## Vision\n${aboutPage.vision}\n` : '',
+    aboutPage.mission
+      ? `## Mission\n${sanitizeMarkdownText(aboutPage.mission)}\n`
+      : '',
+    aboutPage.vision
+      ? `## Vision\n${sanitizeMarkdownText(aboutPage.vision)}\n`
+      : '',
     values.length > 0 ? '## Values' : '',
     ...values,
     '',
@@ -140,16 +131,23 @@ export function buildStorefrontContactMarkdown(
   merchant: CachedMerchant,
   origin: string
 ): string {
+  const contactText = sanitizeMarkdownText(
+    merchant.pages?.contact || `Contact ${merchant.business_name}.`
+  );
+  const phone = sanitizeMarkdownText(merchant.phone);
+  const email = sanitizeMarkdownText(merchant.email);
+  const address = sanitizeMarkdownText(merchant.business_address);
+
   return [
     ...buildMerchantIntro(merchant, origin),
     '# Contact',
     '',
-    merchant.pages?.contact || `Contact ${merchant.business_name}.`,
+    contactText,
     '',
     '## Contact Details',
-    merchant.phone ? `- Phone: ${merchant.phone}` : '',
-    merchant.email ? `- Email: ${merchant.email}` : '',
-    merchant.business_address ? `- Address: ${merchant.business_address}` : '',
+    phone ? `- Phone: ${phone}` : '',
+    email ? `- Email: ${email}` : '',
+    address ? `- Address: ${address}` : '',
     '',
     `- Contact page: ${origin}/contact`,
     '',
@@ -159,16 +157,21 @@ export function buildStorefrontContactMarkdown(
 }
 
 export function buildStorefrontFaqMarkdown(
-  merchant: CachedMerchant,
+  merchant: StorefrontFaqSource,
   origin: string
 ): string {
-  const faqItems = getFaqItems(merchant);
+  const faqItems = getStorefrontFaqItems(merchant);
 
   return [
     ...buildMerchantIntro(merchant, origin),
     '# FAQ',
     '',
-    ...faqItems.flatMap((item) => [`## ${item.question}`, '', item.answer, '']),
+    ...faqItems.flatMap((item) => [
+      `## ${sanitizeMarkdownText(item.question)}`,
+      '',
+      sanitizeMarkdownText(item.answer),
+      '',
+    ]),
   ]
     .filter(Boolean)
     .join('\n');
@@ -192,16 +195,19 @@ export function buildCategoryMarkdown(
   const description =
     data.fallbackDescription ||
     `Browse ${title} from ${merchant.business_name}.`;
+  const safeTitle = sanitizeMarkdownText(title);
+  const safeDescription = sanitizeMarkdownText(description);
+  const businessName = sanitizeMarkdownText(merchant.business_name);
   const products = data.products
     .filter(isRawDbProduct)
     .map((product) => normalizeProduct(product));
 
   return [
-    `# ${title}`,
+    `# ${safeTitle}`,
     '',
-    `> ${description}`,
+    `> ${safeDescription}`,
     '',
-    `- Store: ${merchant.business_name}`,
+    `- Store: ${businessName}`,
     `- Canonical category URL: ${origin}/${categorySlug}`,
     `- Markdown mirror: ${origin}/${categorySlug}/index.html.md`,
     `- Product count in this view: ${products.length}`,
@@ -213,7 +219,7 @@ export function buildCategoryMarkdown(
         const productUrl = buildAgentProductUrl({ baseUrl: origin, product });
 
         return [
-          `- [${product.name}](${getProductMarkdownMirrorUrl(productUrl)}): ${product.price} ${merchant.payout_currency || 'NGN'}${product.brand ? `, ${product.brand}` : ''}`,
+          `- [${sanitizeMarkdownText(product.name)}](${getProductMarkdownMirrorUrl(productUrl)}): ${product.price} ${sanitizeMarkdownText(merchant.payout_currency || 'NGN')}${product.brand ? `, ${sanitizeMarkdownText(product.brand)}` : ''}`,
         ];
       }),
     '',
@@ -235,29 +241,39 @@ export function buildProductMarkdown(
   });
   const compareAt =
     product.compare_at_price && product.compare_at_price > product.price
-      ? `- Compare at price: ${product.compare_at_price} ${merchant.payout_currency || 'NGN'}`
+      ? `- Compare at price: ${product.compare_at_price} ${sanitizeMarkdownText(merchant.payout_currency || 'NGN')}`
       : '';
   const description = product.description || `Buy ${product.name}.`;
+  const productName = sanitizeMarkdownText(product.name);
+  const safeDescription = sanitizeMarkdownText(description);
+  const businessName = sanitizeMarkdownText(merchant.business_name);
+  const category = sanitizeMarkdownText(product.category);
+  const brand = sanitizeMarkdownText(product.brand);
+  const condition = sanitizeMarkdownText(product.condition);
+  const currency = sanitizeMarkdownText(merchant.payout_currency || 'NGN');
+  const primaryImage = product.images[0]
+    ? sanitizeMarkdownText(product.images[0])
+    : '';
 
   return [
-    `# ${product.name}`,
+    `# ${productName}`,
     '',
-    `> ${description}`,
+    `> ${safeDescription}`,
     '',
     '## Summary',
-    `- Store: ${merchant.business_name}`,
-    `- Category: ${product.category}`,
-    product.brand ? `- Brand: ${product.brand}` : '',
-    `- Price: ${product.price} ${merchant.payout_currency || 'NGN'}`,
+    `- Store: ${businessName}`,
+    `- Category: ${category}`,
+    brand ? `- Brand: ${brand}` : '',
+    `- Price: ${product.price} ${currency}`,
     compareAt,
-    `- Condition: ${product.condition}`,
+    `- Condition: ${condition}`,
     `- Availability: ${agentAvailability.availability}`,
     `- inventory_policy: ${agentAvailability.inventory_policy}`,
     `- is_purchasable: ${String(agentAvailability.is_purchasable)}`,
     `- quantity_available: ${agentAvailability.quantity_available ?? 'untracked'}`,
     `- Canonical product URL: ${productUrl}`,
     `- Markdown mirror: ${getProductMarkdownMirrorUrl(productUrl)}`,
-    product.images[0] ? `- Primary image: ${product.images[0]}` : '',
+    primaryImage ? `- Primary image: ${primaryImage}` : '',
     '',
   ]
     .filter(Boolean)

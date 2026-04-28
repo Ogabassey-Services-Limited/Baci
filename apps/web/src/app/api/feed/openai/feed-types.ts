@@ -1,4 +1,4 @@
-import type { OpenAIFeedProduct } from './feed-data';
+import type { OpenAIFeedProduct } from '@/app/api/feed/openai/feed-data';
 
 /**
  * Local alias for products after the OpenAI feed data query has normalized

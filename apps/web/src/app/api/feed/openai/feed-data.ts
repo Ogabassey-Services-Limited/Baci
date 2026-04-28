@@ -25,7 +25,7 @@ export interface OpenAIFeedProduct {
   sku?: string;
   stock: number;
   stock_quantity?: number;
-  manage_stock?: boolean;
+  manage_stock?: boolean | null;
   condition?: 'new' | 'used' | 'refurbished';
   google_product_category?: string;
   category?: string;

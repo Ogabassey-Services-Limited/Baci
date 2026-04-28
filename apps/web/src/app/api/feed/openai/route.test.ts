@@ -49,7 +49,7 @@ interface ProductFixture {
   compare_at_price?: number;
   stock: number;
   stock_quantity?: number;
-  manage_stock?: boolean;
+  manage_stock?: boolean | null;
   category?: string;
   category_slug?: string;
   canonical_url?: string;
@@ -250,6 +250,23 @@ describe('GET /api/feed/openai', () => {
 
     expect(response.status).toBe(400);
     expect(body.error).toBe('Merchant slug does not match storefront host');
+    expect(mockGetCachedOpenAIFeedData).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 when storefront host merchant lookup fails', async () => {
+    mockGetMerchantByIdentifier.mockRejectedValue(new Error('boom'));
+
+    const { GET } = await import('./route');
+    const response = await GET(
+      new NextRequest(
+        'https://other-store.usebaci.com/api/feed/openai?merchant_slug=ogabassey&format=current',
+        { headers: { host: 'other-store.usebaci.com' } }
+      )
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: 'Failed to generate feed' });
     expect(mockGetCachedOpenAIFeedData).not.toHaveBeenCalled();
   });
 

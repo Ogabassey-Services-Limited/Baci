@@ -1,5 +1,8 @@
 import { stripHtmlTags } from '@/lib/sanitize-core';
-import { getStorefrontAgentAvailability } from '@/lib/storefront-agent-availability';
+import {
+  coerceStorefrontManageStock,
+  getStorefrontAgentAvailability,
+} from '@/lib/storefront-agent-availability';
 import { buildAgentProductUrl } from '@/lib/storefront-agent-urls';
 import { PRODUCT_DESCRIPTION_MAX_LENGTH } from './feed-constants';
 import type { OpenAIFeedVariant } from './feed-data';
@@ -70,7 +73,7 @@ function buildCurrentFeedVariants(
     }
 
     const availability = getStorefrontAgentAvailability({
-      manage_stock: product.manage_stock,
+      manage_stock: coerceStorefrontManageStock(product.manage_stock),
       stock_quantity: variant.stock_quantity,
     });
 
@@ -129,7 +132,7 @@ export function generateCurrentOpenAIProductFeed(
     .map((product) => {
       const url = buildAgentProductUrl({ baseUrl, product });
       const availability = getStorefrontAgentAvailability({
-        manage_stock: product.manage_stock,
+        manage_stock: coerceStorefrontManageStock(product.manage_stock),
         stock: product.stock,
         stock_quantity: product.stock_quantity,
       });

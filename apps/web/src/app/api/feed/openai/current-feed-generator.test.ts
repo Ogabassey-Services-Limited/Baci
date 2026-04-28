@@ -56,6 +56,45 @@ describe('generateCurrentOpenAIProductFeed', () => {
     });
   });
 
+  it('treats null manage_stock as untracked availability', () => {
+    const [line] = generateCurrentOpenAIProductFeed(
+      [
+        product({
+          manage_stock: null,
+          stock: 0,
+          stock_quantity: 0,
+          variants: [
+            {
+              id: 'variant-red',
+              sku: 'TP-RED',
+              attributes: { color: 'Red' },
+              price_override: 50_000,
+              stock_quantity: 0,
+            },
+          ],
+        }),
+      ],
+      merchant,
+      'https://ogabassey.com'
+    );
+    const parsed = parseLine(line);
+
+    expect(parsed.variants[0]).toMatchObject({
+      id: 'TP-RED',
+      title: 'Test Phone - Red',
+      price: { amount: 50_000, currency: 'NGN' },
+      availability: {
+        available: true,
+        status: 'in_stock',
+        quantity: null,
+      },
+    });
+    expect(parsed.url).toBe('https://ogabassey.com/products/test-phone');
+    expect(parsed.media).toEqual([
+      { type: 'image', url: 'https://cdn.example.com/phone.jpg' },
+    ]);
+  });
+
   it('skips products when all variant offers have non-positive prices', () => {
     const lines = generateCurrentOpenAIProductFeed(
       [

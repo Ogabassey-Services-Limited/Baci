@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getBlogPostTextPreview } from './blog-utils';
+import { getBlogPostTextPreview } from '@/lib/blog-utils';
 
 describe('getBlogPostTextPreview', () => {
   it('extracts plain text from TipTap JSON strings', () => {

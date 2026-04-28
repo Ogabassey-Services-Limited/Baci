@@ -52,6 +52,44 @@ describe('llms markdown storefront builders', () => {
     expect(result).not.toContain('## Do you offer delivery?');
   });
 
+  it('falls back to legacy FAQ when structured FAQ items are invalid', () => {
+    const result = buildStorefrontFaqMarkdown(
+      {
+        ...merchant,
+        faq_items: [{ question: null, answer: 123 }],
+        pages: {
+          faq: 'Q: Legacy returns?\nA: Yes, within 7 days.',
+        },
+      },
+      'https://ogabassey.com'
+    );
+
+    expect(result).toContain('## Legacy returns?');
+    expect(result).toContain('Yes, within 7 days.');
+  });
+
+  it('sanitizes merchant-controlled storefront markdown fields', () => {
+    const result = buildStorefrontHomeMarkdown(
+      {
+        ...merchant,
+        business_name:
+          '<script>alert(1)</script>Bad [Store](javascript:alert(1))',
+        site_description: '<img src=x onerror=alert(1)> **unsafe**',
+        business_type: '<b>Retail</b>',
+        phone: '<script>bad</script>+2348000000000',
+        email: '<b>hello@ogabassey.com</b>',
+      },
+      'https://ogabassey.com'
+    );
+
+    expect(result).not.toContain('<script');
+    expect(result).not.toContain('[Store](javascript');
+    expect(result).not.toContain('**unsafe**');
+    expect(result).toContain('unsafe');
+    expect(result).toContain('Retail');
+    expect(result).toContain('hello@ogabassey.com');
+  });
+
   it('uses agent availability for nullable manage_stock product markdown', () => {
     const result = buildProductMarkdown(merchant, 'https://ogabassey.com', {
       id: 'p1',
@@ -91,6 +129,31 @@ describe('llms markdown storefront builders', () => {
     expect(result).toContain('- Availability: in_stock');
     expect(result).toContain('- quantity_available: untracked');
     expect(result).toContain('https://placehold.co/400x400');
+  });
+
+  it('sanitizes product-controlled markdown fields', () => {
+    const result = buildProductMarkdown(merchant, 'https://ogabassey.com', {
+      id: 'p5',
+      name: '<script>alert(1)</script>[Phone](javascript:alert(1))',
+      slug: 'unsafe-phone',
+      description: '<img src=x onerror=alert(1)> **unsafe** phone',
+      price: 180000,
+      category: '<b>Phones</b>',
+      brand: '[BadBrand](javascript:alert(1))',
+      condition: '<i>new</i>',
+      stock: 5,
+      stock_quantity: 5,
+      manage_stock: true,
+      images: ['https://img.test/phone.jpg'],
+    });
+
+    expect(result).not.toContain('<script');
+    expect(result).not.toContain('[Phone](javascript');
+    expect(result).not.toContain('[BadBrand](javascript');
+    expect(result).not.toContain('**unsafe**');
+    expect(result).toContain('unsafe');
+    expect(result).toContain('Phones');
+    expect(result).toContain('new');
   });
 
   it('renders tracked out-of-stock product metadata', () => {

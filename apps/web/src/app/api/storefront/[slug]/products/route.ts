@@ -8,6 +8,7 @@ import {
   coerceStorefrontManageStock,
   getStorefrontAgentAvailability,
 } from '@/lib/storefront-agent-availability';
+import { storefrontProductsRouteParamsSchema } from '@/schemas/storefront-products-route-params';
 
 // Extract primary image URL from mixed format (string[] or {url}[])
 function extractPrimaryImage(images: unknown): string {
@@ -88,14 +89,22 @@ export async function GET(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
-    const { slug } = await params;
+    const parsedParams = storefrontProductsRouteParamsSchema.safeParse(
+      await params
+    );
 
-    if (!slug) {
+    if (!parsedParams.success) {
       return NextResponse.json(
-        { error: 'Store slug is required' },
+        {
+          error: 'Invalid route parameters',
+          code: 'INVALID_PARAMS',
+          details: parsedParams.error.flatten(),
+        },
         { status: 400 }
       );
     }
+
+    const { slug } = parsedParams.data;
 
     // 1. Resolve slug to merchant_id
     const merchantId = await getMerchantIdBySlug(slug);

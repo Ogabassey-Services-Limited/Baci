@@ -1,4 +1,8 @@
+import { normalizeOrigin } from '@/lib/normalize-origin';
+
 export function buildPlatformHomeMarkdown(origin: string): string {
+  const baseUrl = normalizeOrigin(origin);
+
   return [
     '# Baci',
     '',
@@ -10,11 +14,11 @@ export function buildPlatformHomeMarkdown(origin: string): string {
     '- Public marketing pages are the best source for positioning and packaging details.',
     '',
     '## Primary Routes',
-    `- ${origin}/onboarding`,
-    `- ${origin}/pricing`,
-    `- ${origin}/features`,
-    `- ${origin}/login`,
-    `- ${origin}/dashboard`,
+    `- ${baseUrl}/onboarding`,
+    `- ${baseUrl}/pricing`,
+    `- ${baseUrl}/features`,
+    `- ${baseUrl}/login`,
+    `- ${baseUrl}/dashboard`,
     '',
     '## Notes',
     '- `/dashboard` and many `/api/*` routes are authenticated.',
@@ -24,6 +28,8 @@ export function buildPlatformHomeMarkdown(origin: string): string {
 }
 
 export function buildPlatformPricingMarkdown(origin: string): string {
+  const baseUrl = normalizeOrigin(origin);
+
   return [
     '# Baci Pricing',
     '',
@@ -35,13 +41,15 @@ export function buildPlatformPricingMarkdown(origin: string): string {
     '- Premium: NGN 15,000 per month. For scaling enterprises. Includes everything in Pro, multiple staff accounts, advanced reports, dedicated account management, API access, and wholesale features.',
     '',
     '## Related Routes',
-    `- ${origin}/onboarding`,
-    `- ${origin}/contact`,
+    `- ${baseUrl}/onboarding`,
+    `- ${baseUrl}/contact`,
     '',
   ].join('\n');
 }
 
 export function buildPlatformFeaturesMarkdown(origin: string): string {
+  const baseUrl = normalizeOrigin(origin);
+
   return [
     '# Baci Features',
     '',
@@ -56,13 +64,15 @@ export function buildPlatformFeaturesMarkdown(origin: string): string {
     '- Custom domains: connect merchant-owned domains or start with a platform subdomain.',
     '',
     '## Related Routes',
-    `- ${origin}/pricing`,
-    `- ${origin}/onboarding`,
+    `- ${baseUrl}/pricing`,
+    `- ${baseUrl}/onboarding`,
     '',
   ].join('\n');
 }
 
 export function buildPlatformOnboardingMarkdown(origin: string): string {
+  const baseUrl = normalizeOrigin(origin);
+
   return [
     '# Baci Onboarding',
     '',
@@ -74,9 +84,9 @@ export function buildPlatformOnboardingMarkdown(origin: string): string {
     '- Leads into authenticated setup and builder flows.',
     '',
     '## Related Routes',
-    `- ${origin}/pricing`,
-    `- ${origin}/login`,
-    `- ${origin}/dashboard`,
+    `- ${baseUrl}/pricing`,
+    `- ${baseUrl}/login`,
+    `- ${baseUrl}/dashboard`,
     '',
     '## Notes',
     '- This route leads to stateful account creation and setup actions.',
