@@ -11,6 +11,15 @@ export const CHAT_WIDGET_DEFAULT_BOTTOM_OFFSET =
   TAB_BAR_BASE_HEIGHT + CONTENT_OVERLAY_GAP;
 export const HOME_LOAD_MORE_THRESHOLD_PX = 240;
 
+/**
+ * Height of the elite-template black backdrop on the home screen. Sized
+ * to cover both the elite header (~150pt incl. safe-area top) AND the
+ * hero/carousel block that sits beneath it, so the carousel renders on
+ * the dark backdrop in light mode — part of the original electronics
+ * template design.
+ */
+export const ELITE_BACKDROP_HEIGHT = 260;
+
 export function getChatWidgetBottomOffset(
   baseBottomOffset: number,
   bottomInset: number

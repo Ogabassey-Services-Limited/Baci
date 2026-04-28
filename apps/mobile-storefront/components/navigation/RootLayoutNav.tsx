@@ -12,7 +12,7 @@ import { ChatWidget } from '@/components/chat/ChatWidget';
 import { GlobalErrorBoundary } from '@/components/ErrorBoundary';
 import { NegotiationModal } from '@/components/modals/NegotiationModal';
 import { DrawerMenu } from '@/components/navigation/DrawerMenu';
-import { RootStackScreens } from '@/components/navigation/RootStackScreens';
+import { renderRootStackScreens } from '@/components/navigation/RootStackScreens';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { CHAT_WIDGET_DEFAULT_BOTTOM_OFFSET } from '@/constants/layout';
@@ -116,9 +116,9 @@ export function RootLayoutNav({
                     headerBackTitle: '',
                   }}
                 >
-                  <RootStackScreens
-                    mutedContentBackgroundColor={colors.muted}
-                  />
+                  {renderRootStackScreens({
+                    mutedContentBackgroundColor: colors.muted,
+                  })}
                 </Stack>
               </GlobalErrorBoundary>
               {enableConnectivityBanner ? <ConnectivityBanner /> : null}
