@@ -14,7 +14,6 @@ import {
   useProductBrands,
   useProducts,
 } from '@/hooks';
-import { getProductGridCategories } from '@/lib/category-utils';
 import {
   ALL_PRODUCT_FILTER_CATEGORY_SLUG,
   normalizeSelectedCategorySlug,
@@ -24,6 +23,7 @@ import type { ProductGridBlock } from '@/types/blocks';
 import { FilterBar } from './FilterBar';
 import { ProductCard } from './ProductCard';
 import { styles } from './ProductGrid.styles';
+import { useProductGridCategories } from './use-product-grid-categories';
 import { useProductGridFilters } from './use-product-grid-filters';
 import { useProductGridPagination } from './use-product-grid-pagination';
 
@@ -116,25 +116,17 @@ export default function ProductGrid({
     condition: selectedCondition !== 'All' ? selectedCondition : undefined,
     minRating: minRating > 0 ? minRating : undefined,
   });
-  const fallbackProductCategories = getProductGridCategories(
-    products
-      .map((product) => product.category?.trim())
-      .filter((categoryName): categoryName is string => Boolean(categoryName))
-  );
-  const categoryNames = (() => {
-    if (normalizedCategories.length > 0) {
-      const allCats = normalizedCategories.map((category) => category.name);
-      const sorted = getProductGridCategories(allCats);
-
-      return ['All', ...sorted];
-    }
-
-    if (fallbackProductCategories.length > 0) {
-      return ['All', ...fallbackProductCategories];
-    }
-
-    return ['All'];
-  })();
+  const { categoryNames } = useProductGridCategories({
+    normalizedCategories,
+    products,
+    isCategoriesLoading,
+    isCategoriesFetching,
+    isCategoriesFetchedAfterMount,
+    isCategoriesError,
+    isProductsLoading: isLoading,
+    isProductsFetching: isFetching,
+    isProductsFetchedAfterMount: isFetchedAfterMount,
+  });
   const matchedCategoryName =
     selectedCategorySlug === ALL_PRODUCT_FILTER_CATEGORY_SLUG
       ? 'All'
