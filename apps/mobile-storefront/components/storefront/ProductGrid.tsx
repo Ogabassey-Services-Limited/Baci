@@ -14,7 +14,6 @@ import {
   useProductBrands,
   useProducts,
 } from '@/hooks';
-import { getProductGridCategories } from '@/lib/category-utils';
 import {
   ALL_PRODUCT_FILTER_CATEGORY_SLUG,
   normalizeSelectedCategorySlug,
@@ -24,6 +23,7 @@ import type { ProductGridBlock } from '@/types/blocks';
 import { FilterBar } from './FilterBar';
 import { ProductCard } from './ProductCard';
 import { styles } from './ProductGrid.styles';
+import { useProductGridCategories } from './use-product-grid-categories';
 import { useProductGridFilters } from './use-product-grid-filters';
 import { useProductGridPagination } from './use-product-grid-pagination';
 
@@ -116,39 +116,17 @@ export default function ProductGrid({
     condition: selectedCondition !== 'All' ? selectedCondition : undefined,
     minRating: minRating > 0 ? minRating : undefined,
   });
-  const merchantCategoryNames = normalizedCategories
-    .map((category) => category.name?.trim())
-    .filter((categoryName): categoryName is string => Boolean(categoryName));
-  const productCategoryNames = products
-    .map((product) => product.category?.trim())
-    .filter((categoryName): categoryName is string => Boolean(categoryName));
-  const mergedCategoryNames = Array.from(
-    new Set([...merchantCategoryNames, ...productCategoryNames])
-  );
-  const sortedCategories = getProductGridCategories(mergedCategoryNames);
-  const categoryNames =
-    sortedCategories.length > 0 ? ['All', ...sortedCategories] : ['All'];
-
-  if (
-    __DEV__ &&
-    categoryNames.length === 1 &&
-    !isCategoriesLoading &&
-    !isCategoriesFetching &&
-    isCategoriesFetchedAfterMount &&
-    !isLoading &&
-    !isFetching &&
-    isFetchedAfterMount
-  ) {
-    console.warn(
-      '[ProductGrid] No category chips resolved. Sources empty:',
-      JSON.stringify({
-        merchantCategoryCount: merchantCategoryNames.length,
-        productCategoryCount: productCategoryNames.length,
-        productsLoaded: products.length,
-        isCategoriesError,
-      })
-    );
-  }
+  const { categoryNames } = useProductGridCategories({
+    normalizedCategories,
+    products,
+    isCategoriesLoading,
+    isCategoriesFetching,
+    isCategoriesFetchedAfterMount,
+    isCategoriesError,
+    isProductsLoading: isLoading,
+    isProductsFetching: isFetching,
+    isProductsFetchedAfterMount: isFetchedAfterMount,
+  });
   const matchedCategoryName =
     selectedCategorySlug === ALL_PRODUCT_FILTER_CATEGORY_SLUG
       ? 'All'
