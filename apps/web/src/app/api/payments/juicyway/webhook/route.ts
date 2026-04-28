@@ -470,8 +470,9 @@ export async function POST(request: NextRequest) {
       // 20260428071421 advisor cleanup. Webhook callbacks have no user
       // session (Juicyway calls us anonymously), so the SSR client runs
       // as `anon` and would hit a function-permission error. Trust
-      // boundary is the IP whitelist + signature verification at the
-      // top of this handler; using the admin client here is safe.
+      // boundary is signature verification at the top of this handler.
+      // (The IP allowlist is currently audit-only / logging — see line 64.)
+      // Using the admin client here is safe.
       const adminSupabase = createAdminClient();
       const { error: settlementError } = await adminSupabase.rpc(
         'record_merchant_settlement',
