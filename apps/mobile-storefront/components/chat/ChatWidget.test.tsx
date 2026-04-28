@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { render, screen } from '@testing-library/react-native';
 import { ChatWidget } from './ChatWidget';
 
@@ -168,6 +169,20 @@ describe('ChatWidget', () => {
 
   it('returns null for /order-success route', () => {
     mockUsePathname.mockReturnValue('/order-success');
+    const { toJSON } = render(<ChatWidget />);
+
+    expect(toJSON()).toBeNull();
+  });
+
+  it('returns null for utility purchase routes', () => {
+    mockUsePathname.mockReturnValue('/utilities/power');
+    const { toJSON } = render(<ChatWidget />);
+
+    expect(toJSON()).toBeNull();
+  });
+
+  it('returns null for payment gateway routes', () => {
+    mockUsePathname.mockReturnValue('/payment-gateway');
     const { toJSON } = render(<ChatWidget />);
 
     expect(toJSON()).toBeNull();

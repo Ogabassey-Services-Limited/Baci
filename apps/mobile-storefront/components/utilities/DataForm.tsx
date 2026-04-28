@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -15,6 +15,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, SPACING } from '@/constants/Colors';
 import { useKeyboard } from '@/hooks/use-keyboard';
 import { useUtilityPayment } from '@/hooks/use-utility-payment';
+import type { Biller } from '@/hooks/use-vtu-billers';
 import { useVTUBillers } from '@/hooks/use-vtu-billers';
 import { detectNetwork } from '@/lib/network-utils';
 import {
@@ -25,40 +26,95 @@ import {
   waitForVtuConfirmation,
 } from '@/lib/vtu-checkout';
 import { useAuthStore } from '@/stores/auth-store';
+import { BillerList } from './BillerList';
 import { getUtilityFooterOffset } from './get-utility-footer-offset';
-import { ProviderGrid } from './ProviderGrid';
 import { UtilityPaymentOptions } from './UtilityPaymentOptions';
+import { formatUtilityAmountInput } from './utility-amount-format';
 
 /** Height reserved for the absolutely-positioned payment footer */
 const FOOTER_HEIGHT = 120;
 const FOOTER_ERROR_BUFFER = 36;
 
+function inferProviderFromDataBillerName(name: string) {
+  const normalizedName = name.toLowerCase();
+
+  if (normalizedName.includes('mtn')) {
+    return 'mtn';
+  }
+  if (normalizedName.includes('airtel')) {
+    return 'airtel';
+  }
+  if (normalizedName.includes('glo')) {
+    return 'glo';
+  }
+  if (
+    normalizedName.includes('9mobile') ||
+    normalizedName.includes('9 mobile') ||
+    normalizedName.includes('etisalat') ||
+    normalizedName.includes('t2')
+  ) {
+    return 't2';
+  }
+
+  return null;
+}
+
 interface DataFormProps {
   onSuccess: (data: {
     reference: string;
     amount: number;
+    voucherPin?: string;
     cashback?: { amount: number; newBalance: number };
   }) => void;
+  initialAmount?: string;
+  initialPhoneNumber?: string;
+  initialPlan?: string;
+  initialProvider?: string;
+  isRepeatPaymentReady?: boolean;
 }
 
-export function DataForm({ onSuccess }: DataFormProps) {
+export function DataForm({
+  initialAmount,
+  initialPhoneNumber,
+  initialPlan,
+  initialProvider,
+  isRepeatPaymentReady = false,
+  onSuccess,
+}: DataFormProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
-  const { isKeyboardVisible, keyboardHeight } = useKeyboard();
+  const { dismissKeyboard, isKeyboardVisible, keyboardHeight } = useKeyboard();
   const customer = useAuthStore((state) => state.customer);
   const payment = useUtilityPayment();
   const { data: dataPlans, isLoading: plansLoading } = useVTUBillers('data');
+  const scrollViewRef = useRef<ScrollView>(null);
 
-  const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
-  const [planAmount, setPlanAmount] = useState(0);
+  const [selectedProvider, setSelectedProvider] = useState<string | null>(
+    initialProvider ??
+      (initialPhoneNumber ? detectNetwork(initialPhoneNumber) : null)
+  );
+  const [phoneNumber, setPhoneNumber] = useState(initialPhoneNumber ?? '');
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(
+    initialPlan ?? null
+  );
+  const [selectedDataBiller, setSelectedDataBiller] = useState<Biller | null>(
+    null
+  );
+  const [isDataPickerExpanded, setIsDataPickerExpanded] = useState(
+    !initialPlan
+  );
+  const parsedInitialAmount = Number(initialAmount ?? 0);
+  const [planAmount, setPlanAmount] = useState(
+    Number.isFinite(parsedInitialAmount) ? parsedInitialAmount : 0
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [shouldScrollToPayment, setShouldScrollToPayment] = useState(
+    isRepeatPaymentReady
+  );
+  const formattedPlanAmount = formatUtilityAmountInput(planAmount);
   const footerSpacerHeight =
-    FOOTER_HEIGHT +
-    Math.max(insets.bottom - 26, 0) +
-    FOOTER_ERROR_BUFFER;
+    FOOTER_HEIGHT + Math.max(insets.bottom, SPACING.md) + FOOTER_ERROR_BUFFER;
   const footerBottomOffset = getUtilityFooterOffset({
     bottomInset: insets.bottom,
     isKeyboardVisible,
@@ -68,21 +124,66 @@ export function DataForm({ onSuccess }: DataFormProps) {
   // Bug #H18: Guard against double-tap with isSubmitting state (same pattern as AirtimeForm)
   const isBusy = isSubmitting;
 
+  useEffect(() => {
+    if (isRepeatPaymentReady) {
+      setShouldScrollToPayment(true);
+    }
+  }, [isRepeatPaymentReady]);
+
   const handlePhoneChange = (text: string) => {
     const digits = text.replace(/\D/g, '');
     setPhoneNumber(digits);
     const detected = detectNetwork(digits);
-    if (detected) setSelectedProvider(detected);
+    const selectedBundleProvider = selectedDataBiller
+      ? inferProviderFromDataBillerName(selectedDataBiller.billerName)
+      : null;
+    if (detected && !selectedBundleProvider) {
+      setSelectedProvider(detected);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedDataBiller || !initialPlan || !dataPlans?.length) {
+      return;
+    }
+
+    const matchedPlan =
+      dataPlans.find((plan) => plan.billerId === initialPlan) ?? null;
+    if (!matchedPlan) {
+      return;
+    }
+
+    setSelectedDataBiller(matchedPlan);
+    setSelectedPlan(matchedPlan.billerId);
+    setSelectedProvider(
+      inferProviderFromDataBillerName(matchedPlan.billerName) ??
+        initialProvider ??
+        null
+    );
+    setIsDataPickerExpanded(false);
+  }, [dataPlans, initialPlan, initialProvider, selectedDataBiller]);
+
+  const handleDataBillerSelect = (biller: Biller) => {
+    setSelectedDataBiller(biller);
+    setSelectedPlan(biller.billerId);
+    setSelectedProvider(
+      inferProviderFromDataBillerName(biller.billerName) ??
+        detectNetwork(phoneNumber) ??
+        selectedProvider
+    );
+    setIsDataPickerExpanded(false);
   };
 
   const handlePurchase = async () => {
+    dismissKeyboard();
+
     // Bug #H18: Prevent double-tap duplicate purchases
     if (isBusy) return;
 
     if (!selectedProvider || !phoneNumber || !selectedPlan) {
       Alert.alert(
         'Missing Information',
-        'Please select a provider, enter phone number, and choose a plan.'
+        'Please enter a phone number and choose a data bundle.'
       );
       return;
     }
@@ -150,6 +251,7 @@ export function DataForm({ onSuccess }: DataFormProps) {
                 }
               : undefined,
             reference: confirmed.reference,
+            voucherPin: confirmed.voucherPin,
           });
           return;
         }
@@ -163,6 +265,7 @@ export function DataForm({ onSuccess }: DataFormProps) {
               }
             : undefined,
           reference: result.reference,
+          voucherPin: result.voucherPin,
         });
         return;
       }
@@ -202,6 +305,7 @@ export function DataForm({ onSuccess }: DataFormProps) {
   return (
     <>
       <ScrollView
+        ref={scrollViewRef}
         style={styles.scrollView}
         contentContainerStyle={[
           styles.content,
@@ -211,16 +315,6 @@ export function DataForm({ onSuccess }: DataFormProps) {
         keyboardDismissMode="on-drag"
       >
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Select Provider
-        </Text>
-        <ProviderGrid
-          selectedProvider={selectedProvider}
-          onSelect={setSelectedProvider}
-        />
-
-        <Text
-          style={[styles.sectionTitle, { color: colors.text, marginTop: 24 }]}
-        >
           Phone Number
         </Text>
         <TextInput
@@ -242,51 +336,18 @@ export function DataForm({ onSuccess }: DataFormProps) {
         <Text
           style={[styles.sectionTitle, { color: colors.text, marginTop: 24 }]}
         >
-          Select Plan
+          Select Data Bundle
         </Text>
-        {plansLoading ? (
-          <ActivityIndicator
-            color={BRAND.primary}
-            style={{ marginVertical: 16 }}
-          />
-        ) : dataPlans && dataPlans.length > 0 ? (
-          <View style={styles.planGrid}>
-            {dataPlans.map((plan) => {
-              const isSelected = selectedPlan === plan.billerId;
-              return (
-                <Pressable
-                  key={plan.billerId}
-                  style={[
-                    styles.planCard,
-                    {
-                      backgroundColor: isSelected ? BRAND.primary : colors.card,
-                      borderColor: isSelected ? BRAND.primary : colors.border,
-                    },
-                  ]}
-                  onPress={() => {
-                    setSelectedPlan(plan.billerId);
-                    // Bug #H19: Don't reset amount to 0 on plan select.
-                    // Biller data has no price field, so keep the user's existing amount.
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.planName,
-                      { color: isSelected ? '#FFF' : colors.text },
-                    ]}
-                    numberOfLines={2}
-                  >
-                    {plan.billerName}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        ) : (
-          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            Select a provider to see available data plans
-          </Text>
-        )}
+        <BillerList
+          billers={dataPlans || []}
+          selectedBillerId={selectedDataBiller?.billerId ?? selectedPlan}
+          onSelect={handleDataBillerSelect}
+          isLoading={plansLoading}
+          isCollapsed={!!selectedDataBiller && !isDataPickerExpanded}
+          onChangeSelection={() => setIsDataPickerExpanded(true)}
+          selectedLabel="Data Bundle"
+          emptyMessage="No data bundles available"
+        />
 
         {/* Manual amount fallback */}
         <View style={[styles.inputGroup, { marginTop: 16 }]}>
@@ -305,21 +366,41 @@ export function DataForm({ onSuccess }: DataFormProps) {
             placeholder="Enter amount"
             placeholderTextColor={colors.placeholder}
             keyboardType="number-pad"
-            value={planAmount > 0 ? String(planAmount) : ''}
-            onChangeText={(t) => setPlanAmount(Number(t.replace(/\D/g, '')))}
+            value={formattedPlanAmount}
+            onChangeText={(text) => {
+              const digits = text.replace(/\D/g, '');
+              setPlanAmount(digits ? Number(digits) : 0);
+            }}
           />
         </View>
 
-        <UtilityPaymentOptions
-          amount={planAmount}
-          cards={payment.cards}
-          isLoadingCards={payment.isLoadingCards}
-          onSelectGateway={payment.selectGateway}
-          onSelectSavedCard={payment.selectSavedCard}
-          selectedGateway={payment.selectedGateway}
-          selectedSavedCardId={payment.selectedSavedCardId}
-          supportedGateways={payment.supportedGateways}
-        />
+        <View
+          onLayout={(event) => {
+            if (!shouldScrollToPayment) {
+              return;
+            }
+
+            const paymentY = event.nativeEvent.layout.y;
+            setShouldScrollToPayment(false);
+            requestAnimationFrame(() => {
+              scrollViewRef.current?.scrollTo({
+                animated: true,
+                y: Math.max(paymentY - SPACING.md, 0),
+              });
+            });
+          }}
+        >
+          <UtilityPaymentOptions
+            amount={planAmount}
+            cards={payment.cards}
+            isLoadingCards={payment.isLoadingCards}
+            onSelectGateway={payment.selectGateway}
+            onSelectSavedCard={payment.selectSavedCard}
+            selectedGateway={payment.selectedGateway}
+            selectedSavedCardId={payment.selectedSavedCardId}
+            supportedGateways={payment.supportedGateways}
+          />
+        </View>
       </ScrollView>
 
       <View
@@ -329,10 +410,9 @@ export function DataForm({ onSuccess }: DataFormProps) {
             borderTopColor: colors.border,
             backgroundColor: colors.muted,
             bottom: footerBottomOffset,
-            marginBottom: isKeyboardVisible ? 0 : -Math.max(insets.bottom - 4, 0),
             paddingBottom: isKeyboardVisible
               ? SPACING.sm
-              : Math.max(insets.bottom - 26, 0),
+              : Math.max(insets.bottom, SPACING.md),
           },
         ]}
       >
@@ -375,10 +455,6 @@ const styles = StyleSheet.create({
   },
   inputGroup: { marginBottom: 16 },
   label: { fontSize: 14, marginBottom: 8 },
-  planGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  planCard: { width: '48%', padding: 14, borderRadius: 12, borderWidth: 1 },
-  planName: { fontSize: 13, fontWeight: '500' },
-  emptyText: { fontSize: 14, textAlign: 'center', marginVertical: 16 },
   footer: {
     position: 'absolute',
     left: 0,

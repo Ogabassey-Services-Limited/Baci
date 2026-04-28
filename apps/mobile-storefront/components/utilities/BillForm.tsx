@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -12,11 +12,11 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, SPACING } from '@/constants/Colors';
-import type { BillItem, Biller } from '@/hooks/use-vtu-billers';
+import { useKeyboard } from '@/hooks/use-keyboard';
 import { useUtilityPayment } from '@/hooks/use-utility-payment';
+import type { Biller, BillItem } from '@/hooks/use-vtu-billers';
 import { useVTUBillers } from '@/hooks/use-vtu-billers';
 import { useVTUVerify } from '@/hooks/use-vtu-verify';
-import { useKeyboard } from '@/hooks/use-keyboard';
 import {
   chargeSavedVtuCard,
   initializeVtuCheckout,
@@ -26,14 +26,15 @@ import {
 } from '@/lib/vtu-checkout';
 import { useAuthStore } from '@/stores/auth-store';
 import { BillerList } from './BillerList';
+import { billFormStyles as styles } from './bill-form-styles';
 import {
   getResolvedBillItemCodes,
   resolveBillItemSelection,
   updateBillItemSelection,
 } from './bill-item-selection';
-import { billFormStyles as styles } from './bill-form-styles';
 import { getUtilityFooterOffset } from './get-utility-footer-offset';
 import { UtilityPaymentOptions } from './UtilityPaymentOptions';
+import { formatUtilityAmountInput } from './utility-amount-format';
 import { VerificationCard } from './VerificationCard';
 
 const BILL_TYPE_MAP: Record<string, string> = {
@@ -69,14 +70,17 @@ interface BillFormProps {
     reference: string;
     amount: number;
     customerIdentifier?: string;
+    voucherPin?: string;
     cashback?: { amount: number; newBalance: number };
   }) => void;
+  initialAmount?: string;
+  initialBillerName?: string;
+  initialBillItemIdentifier?: string;
+  initialCustomerIdentifier?: string;
+  isRepeatPaymentReady?: boolean;
 }
 
-function getBillItemLevelLabel(
-  type: BillFormProps['type'],
-  depth: number
-) {
+function getBillItemLevelLabel(type: BillFormProps['type'], depth: number) {
   return depth === 0 ? BILL_ITEM_LABELS[type] : `Additional Option ${depth}`;
 }
 
@@ -86,11 +90,77 @@ function getAmountForLeaf(billItem: BillItem | null) {
     : '';
 }
 
-export function BillForm({ type, onSuccess }: BillFormProps) {
+function findBillItemPath(
+  billItems: BillItem[] | undefined,
+  itemCode: string,
+  path: string[] = []
+): string[] | null {
+  for (const billItem of billItems ?? []) {
+    const nextPath = [...path, billItem.itemCode];
+    if (billItem.itemCode === itemCode) {
+      return nextPath;
+    }
+
+    const childPath = findBillItemPath(billItem.billItems, itemCode, nextPath);
+    if (childPath) {
+      return childPath;
+    }
+  }
+
+  return null;
+}
+
+function normalizeBillItemMatchText(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function findBillItemPathByName(
+  billItems: BillItem[] | undefined,
+  billerName: string,
+  path: string[] = []
+): string[] | null {
+  const normalizedBillerName = normalizeBillItemMatchText(billerName);
+
+  for (const billItem of billItems ?? []) {
+    const nextPath = [...path, billItem.itemCode];
+    const childPath = findBillItemPathByName(
+      billItem.billItems,
+      billerName,
+      nextPath
+    );
+
+    if (childPath) {
+      return childPath;
+    }
+
+    const normalizedItemName = normalizeBillItemMatchText(billItem.itemName);
+    if (
+      normalizedItemName &&
+      normalizedBillerName.includes(normalizedItemName)
+    ) {
+      return nextPath;
+    }
+  }
+
+  return null;
+}
+
+export function BillForm({
+  initialAmount,
+  initialBillerName,
+  initialBillItemIdentifier,
+  initialCustomerIdentifier,
+  isRepeatPaymentReady = false,
+  type,
+  onSuccess,
+}: BillFormProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
-  const { isKeyboardVisible, keyboardHeight } = useKeyboard();
+  const { dismissKeyboard, isKeyboardVisible, keyboardHeight } = useKeyboard();
   const billType = BILL_TYPE_MAP[type];
   const {
     data: billers,
@@ -105,9 +175,15 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
   const [selectedBillItemCodes, setSelectedBillItemCodes] = useState<string[]>(
     []
   );
-  const [customerId, setCustomerId] = useState('');
-  const [amount, setAmount] = useState('');
+  const [customerId, setCustomerId] = useState(initialCustomerIdentifier ?? '');
+  const [amount, setAmount] = useState(initialAmount ?? '');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isProviderPickerExpanded, setIsProviderPickerExpanded] =
+    useState(true);
+  const [isRepeatPaymentActive, setIsRepeatPaymentActive] = useState(false);
+  const [shouldScrollToNextStep, setShouldScrollToNextStep] = useState(false);
+  const [shouldScrollToPayment, setShouldScrollToPayment] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const billItemSelection = resolveBillItemSelection(
     selectedBiller?.billItems,
@@ -121,14 +197,14 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
   const isBillItemSelectionComplete =
     !requiresBillItemSelection || billItemSelection.isComplete;
   const selectedBillItemIdentifier = requiresBillItemSelection
-    ? selectedBillItem?.itemCode ?? null
-    : selectedBiller?.billerId ?? null;
+    ? (selectedBillItem?.itemCode ?? null)
+    : (selectedBiller?.billerId ?? null);
   const isFixedAmount = selectedBillItem?.isAmountFixed ?? false;
   const numericAmount = Number(amount.replace(/\D/g, ''));
-  const footerSpacerHeight = verify.data?.verified
-    ? FOOTER_HEIGHT +
-      Math.max(insets.bottom - 26, 0) +
-      FOOTER_ERROR_BUFFER
+  const formattedAmount = formatUtilityAmountInput(amount);
+  const canShowPayment = Boolean(verify.data?.verified || isRepeatPaymentActive);
+  const footerSpacerHeight = canShowPayment
+    ? FOOTER_HEIGHT + Math.max(insets.bottom, SPACING.md) + FOOTER_ERROR_BUFFER
     : SPACING.xl;
   const footerBottomOffset = getUtilityFooterOffset({
     bottomInset: insets.bottom,
@@ -136,6 +212,83 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
     keyboardHeight,
   });
   const isBusy = isSubmitting;
+
+  useEffect(() => {
+    if (selectedBiller || !billers?.length) {
+      return;
+    }
+
+    let matchedBiller: Biller | null = null;
+    let matchedCodes: string[] = [];
+    let matchedExactRepeatSelection = false;
+
+    if (initialBillItemIdentifier) {
+      for (const biller of billers) {
+        const path = findBillItemPath(
+          biller.billItems,
+          initialBillItemIdentifier
+        );
+        if (path) {
+          matchedBiller = biller;
+          matchedCodes = path;
+          matchedExactRepeatSelection = true;
+          break;
+        }
+      }
+    }
+
+    if (!matchedBiller && initialBillerName) {
+      const normalizedInitialName = initialBillerName.toLowerCase();
+      matchedBiller =
+        billers.find((biller) =>
+          normalizedInitialName.includes(biller.billerName.toLowerCase())
+        ) ?? null;
+      if (matchedBiller) {
+        const namePath = findBillItemPathByName(
+          matchedBiller.billItems,
+          initialBillerName
+        );
+        if (namePath) {
+          matchedCodes = namePath;
+          matchedExactRepeatSelection = true;
+        } else {
+          matchedCodes = getResolvedBillItemCodes(matchedBiller.billItems);
+        }
+      }
+    }
+
+    if (!matchedBiller) {
+      return;
+    }
+
+    const nextSelection = resolveBillItemSelection(
+      matchedBiller.billItems,
+      matchedCodes
+    );
+    setSelectedBiller(matchedBiller);
+    setSelectedBillItemCodes(matchedCodes);
+    setIsProviderPickerExpanded(false);
+    setAmount(initialAmount ?? getAmountForLeaf(nextSelection.leaf));
+    const hasExactBillItem =
+      nextSelection.levels.length === 0 || matchedExactRepeatSelection;
+    if (
+      isRepeatPaymentReady &&
+      initialCustomerIdentifier &&
+      hasExactBillItem &&
+      nextSelection.isComplete
+    ) {
+      setIsRepeatPaymentActive(true);
+      setShouldScrollToPayment(true);
+    }
+  }, [
+    billers,
+    initialAmount,
+    initialBillerName,
+    initialBillItemIdentifier,
+    initialCustomerIdentifier,
+    isRepeatPaymentReady,
+    selectedBiller,
+  ]);
 
   const resetVerification = () => {
     if (!verify.isPending) {
@@ -149,6 +302,9 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
 
     setSelectedBiller(biller);
     setSelectedBillItemCodes(nextCodes);
+    setIsProviderPickerExpanded(false);
+    setShouldScrollToNextStep(true);
+    setIsRepeatPaymentActive(false);
     setAmount(getAmountForLeaf(nextSelection.leaf));
     resetVerification();
   };
@@ -170,11 +326,15 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
     );
 
     setSelectedBillItemCodes(nextCodes);
+    setIsRepeatPaymentActive(false);
     setAmount(getAmountForLeaf(nextSelection.leaf));
+    setShouldScrollToNextStep(true);
     resetVerification();
   };
 
   const handleVerify = () => {
+    dismissKeyboard();
+
     if (
       !selectedBiller ||
       !selectedBillItemIdentifier ||
@@ -198,6 +358,8 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
   };
 
   const handlePurchase = async () => {
+    dismissKeyboard();
+
     if (isBusy) return;
 
     if (!selectedBiller) {
@@ -205,7 +367,7 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
       return;
     }
 
-    if (!verify.data?.verified) {
+    if (!canShowPayment) {
       Alert.alert(
         'Verification Required',
         `Please verify your ${IDENTIFIER_LABELS[type].toLowerCase()} before making a purchase.`
@@ -285,6 +447,7 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
               : undefined,
             customerIdentifier: customerId,
             reference: confirmed.reference,
+            voucherPin: confirmed.voucherPin,
           });
           return;
         }
@@ -299,6 +462,7 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
             : undefined,
           customerIdentifier: customerId,
           reference: result.reference,
+          voucherPin: result.voucherPin,
         });
         return;
       }
@@ -333,6 +497,7 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
   return (
     <>
       <ScrollView
+        ref={scrollViewRef}
         style={styles.scrollView}
         contentContainerStyle={[
           styles.content,
@@ -349,6 +514,11 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
           selectedBillerId={selectedBiller?.billerId ?? null}
           onSelect={handleBillerSelect}
           isLoading={billersLoading}
+          isCollapsed={!!selectedBiller && !isProviderPickerExpanded}
+          onChangeSelection={() => {
+            setIsRepeatPaymentActive(false);
+            setIsProviderPickerExpanded(true);
+          }}
           errorMessage={
             billersError
               ? billersErrorObj instanceof Error
@@ -359,7 +529,22 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
         />
 
         {selectedBiller ? (
-          <>
+          <View
+            onLayout={(event) => {
+              if (!shouldScrollToNextStep) {
+                return;
+              }
+
+              const nextStepY = event.nativeEvent.layout.y;
+              setShouldScrollToNextStep(false);
+              requestAnimationFrame(() => {
+                scrollViewRef.current?.scrollTo({
+                  animated: true,
+                  y: Math.max(nextStepY - SPACING.md, 0),
+                });
+              });
+            }}
+          >
             {billItemSelection.levels.map((level) => (
               <View
                 key={`${selectedBiller.billerId}-${level.depth}`}
@@ -447,37 +632,53 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
                     value={customerId}
                     onChangeText={(text) => {
                       setCustomerId(text);
+                      setIsRepeatPaymentActive(false);
                       resetVerification();
                     }}
                   />
-                  <Pressable
-                    style={[
-                      styles.verifyButton,
-                      {
-                        opacity:
-                          !customerId ||
-                          !selectedBillItemIdentifier ||
-                          verify.isPending
-                            ? 0.6
-                            : 1,
-                      },
-                    ]}
-                    onPress={handleVerify}
-                    disabled={
-                      !customerId ||
-                      !selectedBillItemIdentifier ||
-                      verify.isPending
-                    }
-                  >
-                    {verify.isPending ? (
-                      <ActivityIndicator color="#FFF" size="small" />
-                    ) : (
-                      <Text style={styles.verifyButtonText}>Verify</Text>
-                    )}
-                  </Pressable>
+                  {isRepeatPaymentActive ? (
+                    <View style={styles.verifiedPill}>
+                      <Text style={styles.verifiedPillText}>Verified</Text>
+                    </View>
+                  ) : (
+                    <Pressable
+                      style={[
+                        styles.verifyButton,
+                        {
+                          opacity:
+                            !customerId ||
+                            !selectedBillItemIdentifier ||
+                            verify.isPending
+                              ? 0.6
+                              : 1,
+                        },
+                      ]}
+                      onPress={handleVerify}
+                      disabled={
+                        !customerId ||
+                        !selectedBillItemIdentifier ||
+                        verify.isPending
+                      }
+                    >
+                      {verify.isPending ? (
+                        <ActivityIndicator color="#FFF" size="small" />
+                      ) : (
+                        <Text style={styles.verifyButtonText}>Verify</Text>
+                      )}
+                    </Pressable>
+                  )}
                 </View>
 
-                {(verify.data || verify.isPending || verify.error) ? (
+                {isRepeatPaymentActive ? (
+                  <Text
+                    style={[
+                      styles.repeatReadyText,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    Using details from your previous successful purchase.
+                  </Text>
+                ) : verify.data || verify.isPending || verify.error ? (
                   <View style={{ marginTop: 12 }}>
                     <VerificationCard
                       verified={verify.data?.verified ?? false}
@@ -489,11 +690,26 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
                 ) : null}
               </>
             ) : null}
-          </>
+          </View>
         ) : null}
 
-        {verify.data?.verified ? (
-          <>
+        {canShowPayment ? (
+          <View
+            onLayout={(event) => {
+              if (!shouldScrollToPayment) {
+                return;
+              }
+
+              const paymentY = event.nativeEvent.layout.y;
+              setShouldScrollToPayment(false);
+              requestAnimationFrame(() => {
+                scrollViewRef.current?.scrollTo({
+                  animated: true,
+                  y: Math.max(paymentY - SPACING.md, 0),
+                });
+              });
+            }}
+          >
             <View style={{ marginTop: 24 }}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>
                 Amount (₦)
@@ -513,7 +729,7 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
                 }
                 placeholderTextColor={colors.placeholder}
                 keyboardType="number-pad"
-                value={amount}
+                value={formattedAmount}
                 editable={!isFixedAmount}
                 onChangeText={(text) => setAmount(text.replace(/\D/g, ''))}
               />
@@ -529,11 +745,11 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
               selectedSavedCardId={payment.selectedSavedCardId}
               supportedGateways={payment.supportedGateways}
             />
-          </>
+          </View>
         ) : null}
       </ScrollView>
 
-      {verify.data?.verified ? (
+      {canShowPayment ? (
         <View
           style={[
             styles.footer,
@@ -541,12 +757,9 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
               borderTopColor: colors.border,
               backgroundColor: colors.muted,
               bottom: footerBottomOffset,
-              marginBottom: isKeyboardVisible
-                ? 0
-                : -Math.max(insets.bottom - 4, 0),
               paddingBottom: isKeyboardVisible
                 ? SPACING.sm
-                : Math.max(insets.bottom - 26, 0),
+                : Math.max(insets.bottom, SPACING.md),
             },
           ]}
         >

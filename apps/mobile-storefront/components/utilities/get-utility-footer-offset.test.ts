@@ -11,23 +11,23 @@ describe('getUtilityFooterOffset', () => {
     ).toBe(0);
   });
 
-  it('subtracts the bottom inset from the keyboard height', () => {
+  it('places the footer above the keyboard with a small gap', () => {
     expect(
       getUtilityFooterOffset({
         bottomInset: 34,
         isKeyboardVisible: true,
         keyboardHeight: 320,
       })
-    ).toBe(286);
+    ).toBe(328);
   });
 
-  it('never returns a negative offset', () => {
+  it('still keeps a small gap when the reported keyboard height is zero', () => {
     expect(
       getUtilityFooterOffset({
         bottomInset: 34,
         isKeyboardVisible: true,
-        keyboardHeight: 20,
+        keyboardHeight: 0,
       })
-    ).toBe(0);
+    ).toBe(8);
   });
 });

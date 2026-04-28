@@ -1,7 +1,14 @@
-import { Redirect, Stack, useLocalSearchParams } from 'expo-router';
+import {
+  type Href,
+  Redirect,
+  Stack,
+  useLocalSearchParams,
+  useRouter,
+} from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -10,13 +17,18 @@ import {
 } from 'react-native';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useColorScheme } from '@/components/useColorScheme';
+import { utilityRepeatHelpers } from '@/components/utilities/utility-repeat';
 import Colors, { BRAND, SPACING } from '@/constants/Colors';
 import { useRequireAuth } from '@/hooks/use-auth-guard';
 import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
 import {
   type UtilityHistoryFilter,
   useVTUHistory,
+  type VTUHistoryTransaction,
 } from '@/hooks/use-vtu-history';
+import { setClipboardString } from '@/lib/clipboard';
+import { shareUtilityReceipt } from '@/lib/utility-receipt';
+import { confirmVtuCheckout } from '@/lib/vtu-checkout';
 import {
   UTILITY_HISTORY_FILTERS,
   UTILITY_HISTORY_STATUS_COLORS,
@@ -28,6 +40,7 @@ import { styles } from './history.styles';
 
 export default function UtilityHistoryScreen() {
   const { type } = useLocalSearchParams<{ type?: string }>();
+  const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { getScrollContentStyle } = useStorefrontInsets();
@@ -35,6 +48,12 @@ export default function UtilityHistoryScreen() {
   const [selectedFilter, setSelectedFilter] = useState<UtilityHistoryFilter>(
     utilityHistoryHelpers.resolveFilter(type)
   );
+  const [sharingTransactionId, setSharingTransactionId] = useState<
+    string | null
+  >(null);
+  const [syncingTransactionId, setSyncingTransactionId] = useState<
+    string | null
+  >(null);
   const {
     data: transactions,
     error,
@@ -46,6 +65,84 @@ export default function UtilityHistoryScreen() {
   useEffect(() => {
     setSelectedFilter(utilityHistoryHelpers.resolveFilter(type));
   }, [type]);
+
+  const handleRepeatTransaction = (transaction: VTUHistoryTransaction) => {
+    router.push({
+      pathname: '/utilities/[type]',
+      params: utilityRepeatHelpers.getRouteParams(transaction),
+    } as Href);
+  };
+
+  const handleCopyVoucher = async (voucherPin: string) => {
+    const copied = await setClipboardString(voucherPin);
+    Alert.alert(
+      copied ? 'Copied' : 'Copy Failed',
+      copied ? 'Token copied to clipboard.' : 'Could not copy this token.'
+    );
+  };
+
+  const handleShareReceipt = async (transaction: VTUHistoryTransaction) => {
+    if (sharingTransactionId) {
+      return;
+    }
+
+    setSharingTransactionId(transaction.id);
+    try {
+      await shareUtilityReceipt({
+        amount: transaction.amount,
+        customerIdentifier:
+          transaction.customer_identifier ?? transaction.phone_number ?? '',
+        customerName: transaction.customer_name,
+        reference: transaction.request_reference,
+        status: transaction.status,
+        type: utilityRepeatHelpers.getRouteType(transaction.type),
+        voucherPin: transaction.voucher_pin,
+      });
+    } catch {
+      Alert.alert(
+        'Share Failed',
+        'Could not generate the receipt PDF. Please try again.'
+      );
+    } finally {
+      setSharingTransactionId(null);
+    }
+  };
+
+  const handleSyncPayment = async (transaction: VTUHistoryTransaction) => {
+    if (
+      syncingTransactionId ||
+      !transaction.payment_gateway ||
+      !transaction.payment_reference
+    ) {
+      return;
+    }
+
+    setSyncingTransactionId(transaction.id);
+    try {
+      const result = await confirmVtuCheckout({
+        gateway: transaction.payment_gateway,
+        reference: transaction.payment_reference,
+      });
+      await refetch();
+
+      Alert.alert(
+        result.status === 'successful' ? 'Payment Synced' : 'Still Processing',
+        result.status === 'successful'
+          ? 'This utility payment has been reconciled.'
+          : 'The payment is confirmed, but utility fulfillment is still processing.'
+      );
+    } catch (error) {
+      await refetch();
+      Alert.alert(
+        'Sync Failed',
+        error instanceof Error
+          ? error.message
+          : 'We could not reconcile this payment yet.'
+      );
+    } finally {
+      setSyncingTransactionId(null);
+    }
+  };
 
   const scrollContentStyle = getScrollContentStyle({
     includeBottomInset: false,
@@ -91,7 +188,12 @@ export default function UtilityHistoryScreen() {
           contentContainerStyle={[styles.content, scrollContentStyle]}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.filterRow}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterRow}
+            style={styles.filterScroller}
+          >
             {UTILITY_HISTORY_FILTERS.map((filter) => {
               const isSelected = filter.id === selectedFilter;
 
@@ -122,7 +224,7 @@ export default function UtilityHistoryScreen() {
                 </Pressable>
               );
             })}
-          </View>
+          </ScrollView>
 
           {isLoading ? (
             <View style={styles.centered}>
@@ -154,8 +256,11 @@ export default function UtilityHistoryScreen() {
             </View>
           ) : transactions && transactions.length > 0 ? (
             transactions.map((transaction) => {
-              const statusColor =
-                UTILITY_HISTORY_STATUS_COLORS[transaction.status];
+              const displayStatus =
+                utilityHistoryHelpers.getDisplayStatus(transaction);
+              const hasReceivedGatewayPayment =
+                transaction.status !== 'successful' &&
+                transaction.payment_status === 'completed';
 
               return (
                 <View
@@ -208,12 +313,17 @@ export default function UtilityHistoryScreen() {
                       style={[
                         styles.statusPill,
                         {
-                          backgroundColor: `${statusColor}${UTILITY_HISTORY_STYLE_TOKENS.statusTintSuffix}`,
+                          backgroundColor: `${displayStatus.color}${UTILITY_HISTORY_STYLE_TOKENS.statusTintSuffix}`,
                         },
                       ]}
                     >
-                      <Text style={[styles.statusText, { color: statusColor }]}>
-                        {transaction.status}
+                      <Text
+                        style={[
+                          styles.statusText,
+                          { color: displayStatus.color },
+                        ]}
+                      >
+                        {displayStatus.label}
                       </Text>
                     </View>
                   </View>
@@ -236,6 +346,69 @@ export default function UtilityHistoryScreen() {
                     >
                       Verified as {transaction.customer_name}
                     </Text>
+                  ) : null}
+
+                  {displayStatus.message ? (
+                    <Text
+                      style={[
+                        styles.paymentNoticeText,
+                        { color: displayStatus.color },
+                      ]}
+                    >
+                      {displayStatus.message}
+                    </Text>
+                  ) : null}
+
+                  {transaction.voucher_pin ? (
+                    <View
+                      style={[
+                        styles.voucherBox,
+                        {
+                          backgroundColor: colors.muted,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.voucherLabel,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        Voucher / Token
+                      </Text>
+                      <Text
+                        selectable
+                        style={[styles.voucherCode, { color: colors.text }]}
+                      >
+                        {transaction.voucher_pin}
+                      </Text>
+                      <Pressable
+                        style={[
+                          styles.tokenButton,
+                          {
+                            backgroundColor: colors.card,
+                            borderColor: colors.border,
+                          },
+                        ]}
+                        onPress={() =>
+                          transaction.voucher_pin
+                            ? handleCopyVoucher(transaction.voucher_pin)
+                            : undefined
+                        }
+                        accessibilityRole="button"
+                        accessibilityLabel="Copy voucher token"
+                      >
+                        <Text
+                          style={[
+                            styles.tokenButtonText,
+                            { color: BRAND.primary },
+                          ]}
+                        >
+                          Copy token
+                        </Text>
+                      </Pressable>
+                    </View>
                   ) : null}
 
                   {transaction.customer_cashback &&
@@ -265,6 +438,81 @@ export default function UtilityHistoryScreen() {
                       {transaction.error_message}
                     </Text>
                   ) : null}
+
+                  <View style={styles.actionRow}>
+                    {hasReceivedGatewayPayment ? null : (
+                      <Pressable
+                        style={[
+                          styles.repeatButton,
+                          {
+                            backgroundColor: colors.card,
+                            borderColor: colors.border,
+                          },
+                        ]}
+                        onPress={() => handleRepeatTransaction(transaction)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Repeat ${utilityHistoryHelpers.getTransactionTitle(transaction)}`}
+                      >
+                        <Text
+                          style={[styles.repeatText, { color: BRAND.primary }]}
+                        >
+                          Repeat
+                        </Text>
+                      </Pressable>
+                    )}
+                    {transaction.status === 'successful' ? (
+                      <Pressable
+                        style={[
+                          styles.repeatButton,
+                          {
+                            backgroundColor: colors.card,
+                            borderColor: colors.border,
+                            opacity:
+                              sharingTransactionId === transaction.id ? 0.6 : 1,
+                          },
+                        ]}
+                        onPress={() => handleShareReceipt(transaction)}
+                        disabled={sharingTransactionId === transaction.id}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Share receipt for ${utilityHistoryHelpers.getTransactionTitle(transaction)}`}
+                      >
+                        <Text
+                          style={[styles.repeatText, { color: BRAND.primary }]}
+                        >
+                          {sharingTransactionId === transaction.id
+                            ? 'Sharing...'
+                            : 'Share receipt'}
+                        </Text>
+                      </Pressable>
+                    ) : null}
+                    {transaction.status !== 'successful' &&
+                    transaction.payment_gateway &&
+                    transaction.payment_reference ? (
+                      <Pressable
+                        style={[
+                          styles.repeatButton,
+                          {
+                            backgroundColor: colors.card,
+                            borderColor: colors.border,
+                            opacity:
+                              syncingTransactionId === transaction.id ? 0.6 : 1,
+                          },
+                        ]}
+                        onPress={() => handleSyncPayment(transaction)}
+                        disabled={syncingTransactionId === transaction.id}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Sync payment for ${utilityHistoryHelpers.getTransactionTitle(transaction)}`}
+                      >
+                        <Text
+                          style={[styles.repeatText, { color: BRAND.primary }]}
+                        >
+                          {syncingTransactionId === transaction.id
+                            ? 'Syncing...'
+                            : 'Sync payment'}
+                        </Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
                 </View>
               );
             })

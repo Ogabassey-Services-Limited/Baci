@@ -1,5 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { type PurchaseResult, purchaseAirtime, purchaseData } from '@/lib/kuda';
+import {
+  checkTransactionStatus,
+  type PurchaseResult,
+  purchaseAirtime,
+  purchaseData,
+} from '@/lib/kuda';
 import { purchaseBill } from '@/lib/kuda-bills';
 import { normalizeVtuNetworkProvider } from '@/lib/normalize-vtu-network-provider';
 import { VTU_TYPE_LABELS } from '@/lib/vtu-pending-transaction';
@@ -31,6 +36,7 @@ export type FulfilledVtuResult =
       customerIdentifier?: string;
       reference: string;
       status: 'successful';
+      voucherPin?: string;
     }
   | { amount: number; error: string; reference: string; status: 'failed' }
   | { amount: number; reference: string; status: 'processing' };
@@ -44,6 +50,74 @@ function getCustomerFirstName(row: VtuTransactionRow, merchantName: string) {
   }
 
   return merchantName || 'Customer';
+}
+
+function getVoucherPinFromMetadata(metadata: Record<string, unknown> | null) {
+  return normalizeVoucherPin(metadata?.voucherPin);
+}
+
+function normalizeVoucherPin(value: unknown) {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed || undefined;
+}
+
+function canResolveBillVoucherPin(type: VtuTransactionRow['type']) {
+  return type === 'electricity' || type === 'cable_tv' || type === 'betting';
+}
+
+export async function backfillVtuVoucherPin({
+  billResponseReference,
+  billRequestRef,
+  metadata,
+  supabase,
+  transactionId,
+}: {
+  billRequestRef?: string | null;
+  billResponseReference?: string | null;
+  metadata: Record<string, unknown> | null;
+  supabase: SupabaseClient;
+  transactionId: string;
+}) {
+  const existingVoucherPin = getVoucherPinFromMetadata(metadata);
+  if (existingVoucherPin) {
+    return existingVoucherPin;
+  }
+
+  if (!billResponseReference && !billRequestRef) {
+    return undefined;
+  }
+
+  try {
+    const status = await checkTransactionStatus(
+      billResponseReference ?? undefined,
+      billRequestRef ?? undefined
+    );
+    const voucherPin = normalizeVoucherPin(status.pin);
+    if (!voucherPin) {
+      return undefined;
+    }
+
+    const { error } = await supabase
+      .from('vtu_transactions')
+      .update({ metadata: { ...(metadata ?? {}), voucherPin } })
+      .eq('id', transactionId);
+
+    if (error) {
+      console.error('Failed to persist VTU voucher pin:', {
+        error: error.message,
+        transactionId,
+      });
+    }
+
+    return voucherPin;
+  } catch (error) {
+    console.error('Failed to backfill VTU voucher pin from Kuda:', error);
+    return undefined;
+  }
 }
 
 type NormalizedProvider = NonNullable<
@@ -145,9 +219,11 @@ function executeVtuPurchase(
 }
 
 export async function fulfillPendingVtuTransaction({
+  retryFailed = false,
   supabase,
   transactionId,
 }: {
+  retryFailed?: boolean;
   supabase: SupabaseClient;
   transactionId: string;
 }): Promise<FulfilledVtuResult> {
@@ -170,6 +246,16 @@ export async function fulfillPendingVtuTransaction({
       typeof row.metadata?.customerNewBalance === 'number'
         ? row.metadata.customerNewBalance
         : 0;
+    const voucherPin = canResolveBillVoucherPin(row.type)
+      ? await backfillVtuVoucherPin({
+          billRequestRef: row.request_reference,
+          billResponseReference: row.transaction_id,
+          metadata: row.metadata,
+          supabase,
+          transactionId: row.id,
+        })
+      : getVoucherPinFromMetadata(row.metadata);
+
     return {
       amount: Number(row.amount) || 0,
       cashback:
@@ -183,10 +269,11 @@ export async function fulfillPendingVtuTransaction({
       customerIdentifier: row.customer_identifier ?? undefined,
       reference: row.request_reference,
       status: 'successful',
+      ...(voucherPin && { voucherPin }),
     };
   }
 
-  if (row.status === 'failed') {
+  if (row.status === 'failed' && !retryFailed) {
     return {
       amount: Number(row.amount) || 0,
       error: row.error_message || 'Purchase failed',
@@ -203,11 +290,13 @@ export async function fulfillPendingVtuTransaction({
     };
   }
 
+  const claimableStatus =
+    row.status === 'failed' && retryFailed ? 'failed' : 'pending';
   const { data: claimed } = await supabase
     .from('vtu_transactions')
-    .update({ status: 'processing' })
+    .update({ error_message: null, status: 'processing' })
     .eq('id', transactionId)
-    .eq('status', 'pending')
+    .eq('status', claimableStatus)
     .select('id')
     .maybeSingle();
 
@@ -230,10 +319,27 @@ export async function fulfillPendingVtuTransaction({
     merchant?.business_name || 'Customer'
   );
 
+  const voucherPin =
+    normalizeVoucherPin(result.pin) ||
+    (result.success && canResolveBillVoucherPin(row.type)
+      ? await backfillVtuVoucherPin({
+          billRequestRef: row.request_reference,
+          billResponseReference: result.transactionId ?? row.transaction_id,
+          metadata: row.metadata,
+          supabase,
+          transactionId: row.id,
+        })
+      : undefined);
+  const updatedMetadata = {
+    ...(row.metadata ?? {}),
+    ...(voucherPin && { voucherPin }),
+  };
+
   await supabase
     .from('vtu_transactions')
     .update({
       error_message: result.success ? null : result.message,
+      metadata: updatedMetadata,
       status: result.success ? 'successful' : 'failed',
       transaction_id: result.transactionId ?? null,
     })
@@ -286,7 +392,7 @@ export async function fulfillPendingVtuTransaction({
     .from('vtu_transactions')
     .update({
       metadata: {
-        ...(row.metadata ?? {}),
+        ...updatedMetadata,
         customerNewBalance,
         customerWalletCredited,
         merchantWalletCredited,
@@ -308,5 +414,6 @@ export async function fulfillPendingVtuTransaction({
     customerIdentifier: row.customer_identifier ?? undefined,
     reference: row.request_reference,
     status: 'successful',
+    ...(voucherPin && { voucherPin }),
   };
 }

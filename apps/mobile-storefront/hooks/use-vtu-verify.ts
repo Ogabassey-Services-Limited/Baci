@@ -2,6 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 import Constants from 'expo-constants';
 import { z } from 'zod';
 import { fetchWithTimeout, SHORT_TIMEOUT } from '@/lib/fetch-with-timeout';
+import { supabase } from '@/lib/supabase';
 
 const API_URL =
   process.env.EXPO_PUBLIC_API_URL ||
@@ -32,10 +33,25 @@ interface VerifyParams {
 export function useVTUVerify() {
   return useMutation<VerifyResult, Error, VerifyParams>({
     mutationFn: async (params) => {
+      const sessionResult = await supabase.auth.getSession();
+      if (sessionResult.error) {
+        throw new Error(
+          sessionResult.error.message || 'Session retrieval failed.'
+        );
+      }
+
+      const session = sessionResult.data?.session;
+      if (!session?.user || !session.access_token) {
+        throw new Error('Authentication required. Please sign in again.');
+      }
+
       const response = await fetchWithTimeout(`${API_URL}/api/vtu/verify`, {
         timeout: SHORT_TIMEOUT,
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(params),
       });
 

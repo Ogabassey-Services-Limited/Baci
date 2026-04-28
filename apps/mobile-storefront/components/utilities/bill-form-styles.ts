@@ -41,6 +41,19 @@ export const billFormStyles = StyleSheet.create({
     alignItems: 'center',
   },
   verifyButtonText: { color: '#FFF', fontSize: 14, fontWeight: '600' },
+  verifiedPill: {
+    alignItems: 'center',
+    backgroundColor: '#16A34A',
+    borderRadius: 12,
+    height: 50,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  verifiedPillText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
+  repeatReadyText: {
+    fontSize: 13,
+    marginTop: 10,
+  },
   footer: {
     position: 'absolute',
     left: 0,

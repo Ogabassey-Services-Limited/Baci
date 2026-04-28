@@ -6,7 +6,7 @@ import t2Image from '@/assets/images/t2.png';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 
-const PROVIDERS = [
+export const NETWORK_PROVIDERS = [
   { id: 'mtn', name: 'MTN', color: '#FFCC00', image: mtnImage },
   { id: 'airtel', name: 'Airtel', color: '#FF0000', image: airtelImage },
   { id: 'glo', name: 'Glo', color: '#00FF00', image: gloImage },
@@ -27,7 +27,7 @@ export function ProviderGrid({
 
   return (
     <View style={styles.grid}>
-      {PROVIDERS.map((provider) => (
+      {NETWORK_PROVIDERS.map((provider) => (
         <Pressable
           key={provider.id}
           style={[

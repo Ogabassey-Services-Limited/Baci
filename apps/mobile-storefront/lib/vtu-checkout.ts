@@ -28,6 +28,7 @@ const ConfirmCheckoutResponseSchema = z.object({
   reference: z.string(),
   amount: z.number().optional(),
   customerIdentifier: z.string().optional(),
+  voucherPin: z.string().optional(),
   cashback: z
     .object({
       amount: z.number(),
@@ -59,6 +60,7 @@ const ChargeSavedCardSuccessSchema = z.object({
   reference: z.string(),
   amount: z.number(),
   customerIdentifier: z.string().optional(),
+  voucherPin: z.string().optional(),
   cashback: z
     .object({
       amount: z.number(),
@@ -99,6 +101,29 @@ export type SavedVtuCardChargeResult =
   | SavedVtuCardChargeSuccess
   | SavedVtuCardChargeAuthorizationRequired
   | SavedVtuCardChargeProcessing;
+
+export class VtuPaymentStillProcessingError extends Error {
+  amount?: number;
+  customerIdentifier?: string;
+  reference: string;
+
+  constructor({
+    amount,
+    customerIdentifier,
+    reference,
+  }: {
+    amount?: number;
+    customerIdentifier?: string;
+    reference: string;
+  }) {
+    super('Payment is still processing. Check your utility history shortly.');
+    this.name = 'VtuPaymentStillProcessingError';
+    Object.setPrototypeOf(this, VtuPaymentStillProcessingError.prototype);
+    this.amount = amount;
+    this.customerIdentifier = customerIdentifier;
+    this.reference = reference;
+  }
+}
 
 export interface VTUCheckoutPayload {
   amount: number;
@@ -214,7 +239,38 @@ export async function confirmVtuCheckout({
     }
   );
 
-  const data = await parseJsonResponse(response);
+  const data = (await response.json()) as Record<string, unknown>;
+  if (!response.ok) {
+    const gatewayStatus =
+      typeof data.status === 'string' ? data.status.toLowerCase() : '';
+    if (
+      response.status === 409 &&
+      gatewayStatus !== 'failed' &&
+      gatewayStatus !== 'abandoned'
+    ) {
+      return {
+        reference,
+        status: 'processing' as const,
+      };
+    }
+
+    throw new Error(
+      typeof data.error === 'string'
+        ? data.error
+        : 'Request failed. Please try again.'
+    );
+  }
+
+  const normalizedStatus =
+    typeof data.status === 'string' ? data.status.toLowerCase() : '';
+
+  if (normalizedStatus === 'already_completed') {
+    return {
+      reference,
+      status: 'processing' as const,
+    };
+  }
+
   return ConfirmCheckoutResponseSchema.parse(data);
 }
 
@@ -227,20 +283,25 @@ export async function waitForVtuConfirmation({
   maxAttempts?: number;
   reference: string;
 }) {
+  let lastProcessingResult: VtuCheckoutConfirmation | null = null;
+
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     const result = await confirmVtuCheckout({ gateway, reference });
     if (result.status === 'successful') {
       return result;
     }
 
+    lastProcessingResult = result;
     await new Promise((resolve) => {
       setTimeout(resolve, 1200);
     });
   }
 
-  throw new Error(
-    'Payment is still processing. Check your utility history shortly.'
-  );
+  throw new VtuPaymentStillProcessingError({
+    amount: lastProcessingResult?.amount,
+    customerIdentifier: lastProcessingResult?.customerIdentifier,
+    reference: lastProcessingResult?.reference ?? reference,
+  });
 }
 
 export function requiresSavedVtuCardAuthorization(

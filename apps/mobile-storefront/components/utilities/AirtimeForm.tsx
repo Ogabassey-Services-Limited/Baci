@@ -1,8 +1,9 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -25,10 +26,17 @@ import {
 } from '@/lib/vtu-checkout';
 import { useAuthStore } from '@/stores/auth-store';
 import { getUtilityFooterOffset } from './get-utility-footer-offset';
-import { ProviderGrid } from './ProviderGrid';
+import { NETWORK_PROVIDERS, ProviderGrid } from './ProviderGrid';
 import { UtilityPaymentOptions } from './UtilityPaymentOptions';
+import { formatUtilityAmountInput } from './utility-amount-format';
 
 const QUICK_AMOUNTS = [100, 200, 500, 1000, 2000, 5000];
+const NETWORK_PROVIDER_LABELS: Record<string, string> = {
+  airtel: 'Airtel',
+  glo: 'Glo',
+  mtn: 'MTN',
+  t2: 'T2 (9mobile)',
+};
 
 /** Height reserved for the absolutely-positioned payment footer */
 const FOOTER_HEIGHT = 120;
@@ -38,35 +46,69 @@ interface AirtimeFormProps {
   onSuccess: (data: {
     reference: string;
     amount: number;
+    voucherPin?: string;
     cashback?: { amount: number; newBalance: number };
   }) => void;
+  initialAmount?: string;
+  initialPhoneNumber?: string;
+  initialProvider?: string;
+  isRepeatPaymentReady?: boolean;
 }
 
-export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
+export function AirtimeForm({
+  initialAmount,
+  initialPhoneNumber,
+  initialProvider,
+  isRepeatPaymentReady = false,
+  onSuccess,
+}: AirtimeFormProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
-  const { isKeyboardVisible, keyboardHeight } = useKeyboard();
+  const { dismissKeyboard, isKeyboardVisible, keyboardHeight } = useKeyboard();
   const customer = useAuthStore((state) => state.customer);
   const payment = useUtilityPayment();
+  const scrollViewRef = useRef<ScrollView>(null);
 
-  const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [amount, setAmount] = useState('');
+  const [selectedProvider, setSelectedProvider] = useState<string | null>(
+    initialProvider ??
+      (initialPhoneNumber ? detectNetwork(initialPhoneNumber) : null)
+  );
+  const [phoneNumber, setPhoneNumber] = useState(initialPhoneNumber ?? '');
+  const [amount, setAmount] = useState(initialAmount ?? '');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isNetworkPickerExpanded, setIsNetworkPickerExpanded] = useState(false);
+  const [shouldScrollToPayment, setShouldScrollToPayment] = useState(
+    isRepeatPaymentReady
+  );
 
   const handlePhoneChange = (text: string) => {
     const digits = text.replace(/\D/g, '');
     setPhoneNumber(digits);
     const detected = detectNetwork(digits);
-    if (detected) setSelectedProvider(detected);
+    if (detected) {
+      setSelectedProvider(detected);
+      setIsNetworkPickerExpanded(false);
+      return;
+    }
+
+    if (digits.length >= 4) {
+      setIsNetworkPickerExpanded(true);
+    }
+  };
+
+  const handleProviderSelect = (provider: string) => {
+    setSelectedProvider(provider);
+    setIsNetworkPickerExpanded(false);
   };
 
   const numericAmount = Number(amount.replace(/\D/g, ''));
+  const formattedAmount = formatUtilityAmountInput(amount);
+  const selectedProviderConfig =
+    NETWORK_PROVIDERS.find((provider) => provider.id === selectedProvider) ??
+    null;
   const footerSpacerHeight =
-    FOOTER_HEIGHT +
-    Math.max(insets.bottom - 26, 0) +
-    FOOTER_ERROR_BUFFER;
+    FOOTER_HEIGHT + Math.max(insets.bottom, SPACING.md) + FOOTER_ERROR_BUFFER;
   const footerBottomOffset = getUtilityFooterOffset({
     bottomInset: insets.bottom,
     isKeyboardVisible,
@@ -76,7 +118,15 @@ export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
   // Bug #61: Guard against double-tap with isSubmitting state
   const isBusy = isSubmitting;
 
+  useEffect(() => {
+    if (isRepeatPaymentReady) {
+      setShouldScrollToPayment(true);
+    }
+  }, [isRepeatPaymentReady]);
+
   const handlePurchase = async () => {
+    dismissKeyboard();
+
     if (isBusy) return;
     if (!selectedProvider || !phoneNumber || !amount) {
       Alert.alert('Missing Information', 'Please fill in all fields.');
@@ -141,6 +191,7 @@ export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
                 }
               : undefined,
             reference: confirmed.reference,
+            voucherPin: confirmed.voucherPin,
           });
           return;
         }
@@ -154,6 +205,7 @@ export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
               }
             : undefined,
           reference: result.reference,
+          voucherPin: result.voucherPin,
         });
         return;
       }
@@ -192,6 +244,7 @@ export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
   return (
     <>
       <ScrollView
+        ref={scrollViewRef}
         style={styles.scrollView}
         contentContainerStyle={[
           styles.content,
@@ -201,23 +254,10 @@ export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
         keyboardDismissMode="on-drag"
       >
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Select Provider
-        </Text>
-        <ProviderGrid
-          selectedProvider={selectedProvider}
-          onSelect={setSelectedProvider}
-        />
-
-        <Text
-          style={[styles.sectionTitle, { color: colors.text, marginTop: 24 }]}
-        >
-          Details
+          Phone Number
         </Text>
 
         <View style={styles.inputGroup}>
-          <Text style={[styles.label, { color: colors.textSecondary }]}>
-            Phone Number
-          </Text>
           <TextInput
             style={[
               styles.input,
@@ -235,8 +275,80 @@ export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
           />
         </View>
 
+        {selectedProvider && !isNetworkPickerExpanded ? (
+          <View
+            style={[
+              styles.selectedNetworkCard,
+              {
+                backgroundColor: `${BRAND.primary}10`,
+                borderColor: BRAND.primary,
+              },
+            ]}
+          >
+            {selectedProviderConfig ? (
+              <Image
+                source={selectedProviderConfig.image}
+                style={styles.selectedNetworkLogo}
+                resizeMode="contain"
+                accessibilityLabel={`${selectedProviderConfig.name} logo`}
+              />
+            ) : null}
+            <View style={styles.selectedNetworkCopy}>
+              <Text
+                style={[
+                  styles.selectedNetworkLabel,
+                  { color: colors.textSecondary },
+                ]}
+              >
+                Network
+              </Text>
+              <Text
+                style={[styles.selectedNetworkName, { color: colors.text }]}
+              >
+                {NETWORK_PROVIDER_LABELS[selectedProvider] ?? selectedProvider}
+              </Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Change selected network"
+              onPress={() => setIsNetworkPickerExpanded(true)}
+              style={[styles.changeButton, { borderColor: BRAND.primary }]}
+            >
+              <Text style={styles.changeButtonText}>Change</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <View style={styles.networkPicker}>
+            <View style={styles.networkPickerHeader}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                Select Network
+              </Text>
+              {!isNetworkPickerExpanded ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Choose network manually"
+                  onPress={() => setIsNetworkPickerExpanded(true)}
+                  style={[styles.inlineButton, { borderColor: colors.border }]}
+                >
+                  <Text
+                    style={[styles.inlineButtonText, { color: colors.text }]}
+                  >
+                    Choose manually
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
+            {isNetworkPickerExpanded ? (
+              <ProviderGrid
+                selectedProvider={selectedProvider}
+                onSelect={handleProviderSelect}
+              />
+            ) : null}
+          </View>
+        )}
+
         <View style={styles.inputGroup}>
-          <Text style={[styles.label, { color: colors.textSecondary }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
             Amount (₦)
           </Text>
           <TextInput
@@ -251,7 +363,7 @@ export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
             placeholder="1,000"
             placeholderTextColor={colors.placeholder}
             keyboardType="number-pad"
-            value={amount}
+            value={formattedAmount}
             onChangeText={(t) => setAmount(t.replace(/\D/g, ''))}
           />
           <View style={styles.quickAmounts}>
@@ -269,16 +381,33 @@ export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
           </View>
         </View>
 
-        <UtilityPaymentOptions
-          amount={numericAmount}
-          cards={payment.cards}
-          isLoadingCards={payment.isLoadingCards}
-          onSelectGateway={payment.selectGateway}
-          onSelectSavedCard={payment.selectSavedCard}
-          selectedGateway={payment.selectedGateway}
-          selectedSavedCardId={payment.selectedSavedCardId}
-          supportedGateways={payment.supportedGateways}
-        />
+        <View
+          onLayout={(event) => {
+            if (!shouldScrollToPayment) {
+              return;
+            }
+
+            const paymentY = event.nativeEvent.layout.y;
+            setShouldScrollToPayment(false);
+            requestAnimationFrame(() => {
+              scrollViewRef.current?.scrollTo({
+                animated: true,
+                y: Math.max(paymentY - SPACING.md, 0),
+              });
+            });
+          }}
+        >
+          <UtilityPaymentOptions
+            amount={numericAmount}
+            cards={payment.cards}
+            isLoadingCards={payment.isLoadingCards}
+            onSelectGateway={payment.selectGateway}
+            onSelectSavedCard={payment.selectSavedCard}
+            selectedGateway={payment.selectedGateway}
+            selectedSavedCardId={payment.selectedSavedCardId}
+            supportedGateways={payment.supportedGateways}
+          />
+        </View>
       </ScrollView>
 
       <View
@@ -288,10 +417,9 @@ export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
             borderTopColor: colors.border,
             backgroundColor: colors.muted,
             bottom: footerBottomOffset,
-            marginBottom: isKeyboardVisible ? 0 : -Math.max(insets.bottom - 4, 0),
             paddingBottom: isKeyboardVisible
               ? SPACING.sm
-              : Math.max(insets.bottom - 26, 0),
+              : Math.max(insets.bottom, SPACING.md),
           },
         ]}
       >
@@ -327,12 +455,46 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
   inputGroup: { marginBottom: 16 },
   label: { fontSize: 14, marginBottom: 8 },
+  changeButton: {
+    alignItems: 'center',
+    borderRadius: 999,
+    borderWidth: 1,
+    justifyContent: 'center',
+    minHeight: 34,
+    paddingHorizontal: 14,
+  },
+  changeButtonText: {
+    color: BRAND.primary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
   input: {
     height: 50,
     borderRadius: 12,
     paddingHorizontal: 16,
     fontSize: 16,
     borderWidth: 1,
+  },
+  inlineButton: {
+    alignItems: 'center',
+    borderRadius: 999,
+    borderWidth: 1,
+    justifyContent: 'center',
+    minHeight: 32,
+    paddingHorizontal: 12,
+  },
+  inlineButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  networkPicker: {
+    marginBottom: 16,
+  },
+  networkPickerHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
   },
   quickAmounts: {
     flexDirection: 'row',
@@ -347,6 +509,33 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   quickChipText: { fontSize: 13, fontWeight: '500' },
+  selectedNetworkCard: {
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    padding: 14,
+  },
+  selectedNetworkCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  selectedNetworkLogo: {
+    height: 34,
+    width: 52,
+  },
+  selectedNetworkLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  selectedNetworkName: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
   footer: {
     position: 'absolute',
     left: 0,

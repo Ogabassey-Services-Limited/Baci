@@ -87,6 +87,7 @@ describe('useVTUHistory', () => {
             customer_identifier: '1234567890',
             request_reference: 'VTU-123',
             customer_cashback: 0,
+            payment_status: 'completed',
           },
         ],
       }),
@@ -102,6 +103,7 @@ describe('useVTUHistory', () => {
       expect.objectContaining({
         type: 'electricity',
         biller_name: 'EKEDC NG',
+        payment_status: 'completed',
       }),
     ]);
     expect(mockFetchWithTimeout).toHaveBeenCalledWith(

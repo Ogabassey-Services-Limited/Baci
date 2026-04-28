@@ -30,6 +30,7 @@ const VTUPurchaseResultSchema = z.object({
   success: z.boolean(),
   reference: z.string(),
   transactionId: z.string().optional(),
+  voucherPin: z.string().optional(),
   amount: z.number(),
   cashback: z
     .object({

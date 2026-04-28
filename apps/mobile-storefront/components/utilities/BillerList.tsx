@@ -17,6 +17,9 @@ interface BillerListProps {
   isLoading: boolean;
   emptyMessage?: string;
   errorMessage?: string;
+  isCollapsed?: boolean;
+  onChangeSelection?: () => void;
+  selectedLabel?: string;
 }
 
 function BillerInitial({
@@ -42,9 +45,14 @@ export function BillerList({
   isLoading,
   emptyMessage = 'No providers available',
   errorMessage,
+  isCollapsed = false,
+  onChangeSelection,
+  selectedLabel = 'Provider',
 }: BillerListProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const selectedBiller =
+    billers.find((biller) => biller.billerId === selectedBillerId) ?? null;
 
   if (isLoading) {
     return (
@@ -71,6 +79,59 @@ export function BillerList({
         <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
           {emptyMessage}
         </Text>
+      </View>
+    );
+  }
+
+  if (isCollapsed && !selectedBiller) {
+    return null;
+  }
+
+  if (isCollapsed && selectedBiller) {
+    return (
+      <View
+        style={[
+          styles.selectedCard,
+          {
+            backgroundColor: `${BRAND.primary}10`,
+            borderColor: BRAND.primary,
+          },
+        ]}
+      >
+        <View style={styles.selectedCardMain}>
+          {selectedBiller.billerIconUrl ? (
+            <Image
+              source={{ uri: selectedBiller.billerIconUrl }}
+              style={styles.selectedLogo}
+              resizeMode="contain"
+            />
+          ) : (
+            <BillerInitial name={selectedBiller.billerName} colors={colors} />
+          )}
+          <View style={styles.selectedCopy}>
+            <Text
+              style={[styles.selectedLabel, { color: colors.textSecondary }]}
+            >
+              {selectedLabel}
+            </Text>
+            <Text
+              style={[styles.selectedName, { color: colors.text }]}
+              numberOfLines={1}
+            >
+              {selectedBiller.billerName}
+            </Text>
+          </View>
+        </View>
+        {onChangeSelection ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Change selected provider"
+            onPress={onChangeSelection}
+            style={[styles.changeButton, { borderColor: BRAND.primary }]}
+          >
+            <Text style={styles.changeButtonText}>Change</Text>
+          </Pressable>
+        ) : null}
       </View>
     );
   }
@@ -104,7 +165,7 @@ export function BillerList({
             <Text
               style={[
                 styles.billerName,
-                { color: isSelected ? '#FFF' : colors.text },
+                { color: isSelected ? BRAND.onPrimary : colors.text },
               ]}
               numberOfLines={2}
             >
@@ -152,6 +213,19 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
   },
+  changeButton: {
+    alignItems: 'center',
+    borderRadius: 999,
+    borderWidth: 1,
+    justifyContent: 'center',
+    minHeight: 34,
+    paddingHorizontal: 14,
+  },
+  changeButtonText: {
+    color: BRAND.primary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
   centered: {
     padding: SPACING.lg,
     alignItems: 'center',
@@ -168,5 +242,36 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center' as const,
     color: '#DC2626',
+  },
+  selectedCard: {
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'space-between',
+    padding: 14,
+  },
+  selectedCardMain: {
+    alignItems: 'center',
+    flex: 1,
+    flexDirection: 'row',
+    gap: 12,
+  },
+  selectedCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  selectedLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  selectedLogo: {
+    height: 32,
+    width: 48,
+  },
+  selectedName: {
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

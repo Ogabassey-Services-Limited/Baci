@@ -1,3 +1,4 @@
+import { withKudaElectricityBillItems } from '@baci/shared/lib';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Constants from 'expo-constants';
 import { useEffect } from 'react';
@@ -26,6 +27,12 @@ export const vtuBillerKeys = {
 
 /** All bill types that can be prefetched */
 const PREFETCH_TYPES = ['data', 'cable_tv', 'electricity', 'betting'] as const;
+
+function withBillItemsForType(type: string, billers: Biller[]): Biller[] {
+  return type === 'electricity'
+    ? withKudaElectricityBillItems(billers)
+    : billers;
+}
 
 /** Shared fetch function used by both useQuery and prefetch */
 async function fetchBillers(type: string): Promise<Biller[]> {
@@ -86,6 +93,7 @@ export function useVTUBillers(type: string, enabled = true) {
   return useQuery<Biller[]>({
     queryKey: vtuBillerKeys.byType(type),
     queryFn: () => fetchBillers(type),
+    select: (billers) => withBillItemsForType(type, billers),
     staleTime: BILLER_STALE_TIME,
     gcTime: BILLER_GC_TIME,
     enabled,

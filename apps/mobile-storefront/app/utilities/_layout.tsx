@@ -19,6 +19,8 @@ export default function UtilitiesLayout() {
       <Stack.Screen
         name="history"
         options={{
+          headerBackButtonDisplayMode: 'minimal',
+          headerBackTitle: '',
           headerShown: true,
           title: 'Utility History',
           contentStyle: {

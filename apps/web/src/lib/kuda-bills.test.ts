@@ -68,7 +68,7 @@ describe('getBillersByCategory', () => {
     expect(result).toEqual(mockBillers);
   });
 
-  it('maps "electricity" to Kuda "Electricity" category', async () => {
+  it('maps "electricity" to Kuda "Electricity" category and adds Kuda bill item codes', async () => {
     // Arrange
     const mockBillers: Biller[] = [
       {
@@ -86,7 +86,21 @@ describe('getBillersByCategory', () => {
 
     // Assert
     expect(getBillersByType).toHaveBeenCalledWith('Electricity');
-    expect(result).toEqual(mockBillers);
+    expect(result).toEqual([
+      {
+        ...mockBillers[0],
+        billItems: [
+          expect.objectContaining({
+            itemCode: 'KUD-ELE-EKED-002',
+            itemName: 'EKEDC PREPAID',
+          }),
+          expect.objectContaining({
+            itemCode: 'KUD-ELE-EKED-001',
+            itemName: 'EKEDC POSTPAID',
+          }),
+        ],
+      },
+    ]);
   });
 
   it('maps "cable_tv" to Kuda "CableTv" category', async () => {
@@ -131,20 +145,22 @@ describe('getBillersByCategory', () => {
     expect(result).toEqual(mockBillers);
   });
 
-  it('throws error for unknown category', () => {
+  it('throws error for unknown category', async () => {
     // Arrange
     const unknownCategory = 'invalid_category';
 
     // Act & Assert
-    expect(() => getBillersByCategory(unknownCategory)).toThrow(
+    await expect(getBillersByCategory(unknownCategory)).rejects.toThrow(
       'Unknown bill category: invalid_category'
     );
     expect(getBillersByType).not.toHaveBeenCalled();
   });
 
-  it('throws error for empty string category', () => {
+  it('throws error for empty string category', async () => {
     // Act & Assert
-    expect(() => getBillersByCategory('')).toThrow('Unknown bill category: ');
+    await expect(getBillersByCategory('')).rejects.toThrow(
+      'Unknown bill category: '
+    );
     expect(getBillersByType).not.toHaveBeenCalled();
   });
 });

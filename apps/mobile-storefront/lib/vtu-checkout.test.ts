@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { MOBILE_TO_KUDA_PROVIDER } from '@/lib/network-utils';
 import {
   chargeSavedVtuCard,
@@ -5,11 +6,29 @@ import {
   initializeVtuCheckout,
   listSavedVtuCards,
   normalizeVtuCheckoutPayload,
+  VtuPaymentStillProcessingError,
+  waitForVtuConfirmation,
 } from '@/lib/vtu-checkout';
 
-const mockFetchWithTimeout = jest.fn();
-const mockGetUser = jest.fn();
-const mockGetSession = jest.fn();
+type MockFetchResponse = {
+  ok: boolean;
+  status?: number;
+  json: () => Promise<Record<string, unknown>>;
+};
+
+type MockUserResult = {
+  data: { user: { id: string } | null };
+  error: Error | null;
+};
+
+type MockSessionResult = {
+  data: { session: { access_token: string } | null };
+};
+
+const mockFetchWithTimeout =
+  jest.fn<(...args: unknown[]) => Promise<MockFetchResponse>>();
+const mockGetUser = jest.fn<() => Promise<MockUserResult>>();
+const mockGetSession = jest.fn<() => Promise<MockSessionResult>>();
 
 jest.mock('@/lib/fetch-with-timeout', () => ({
   DEFAULT_TIMEOUT: 30000,
@@ -19,8 +38,8 @@ jest.mock('@/lib/fetch-with-timeout', () => ({
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     auth: {
-      getUser: (...args: unknown[]) => mockGetUser(...args),
-      getSession: (...args: unknown[]) => mockGetSession(...args),
+      getUser: () => mockGetUser(),
+      getSession: () => mockGetSession(),
     },
   },
 }));
@@ -103,8 +122,11 @@ describe('vtu-checkout service', () => {
         }),
       })
     );
+    const checkoutRequest = mockFetchWithTimeout.mock.calls[0]?.[1] as {
+      body: string;
+    };
     expect(
-      JSON.parse(mockFetchWithTimeout.mock.calls[0][1].body)
+      JSON.parse(checkoutRequest.body) as Record<string, unknown>
     ).toMatchObject({
       networkProvider: MOBILE_TO_KUDA_PROVIDER.mtn,
     });
@@ -127,6 +149,45 @@ describe('vtu-checkout service', () => {
     });
 
     expect(result.status).toBe('successful');
+  });
+
+  it('treats a not-yet-successful gateway confirmation as processing', async () => {
+    mockFetchWithTimeout.mockResolvedValue({
+      ok: false,
+      status: 409,
+      json: async () => ({
+        error: 'Payment is not yet successful',
+        status: 'pending',
+      }),
+    });
+
+    const result = await confirmVtuCheckout({
+      gateway: 'paystack',
+      reference: 'VTU-123',
+    });
+
+    expect(result).toMatchObject({
+      reference: 'VTU-123',
+      status: 'processing',
+    });
+  });
+
+  it('throws a typed processing error instead of a payment failure after polling', async () => {
+    mockFetchWithTimeout.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        reference: 'VTU-123',
+        status: 'processing',
+      }),
+    });
+
+    await expect(
+      waitForVtuConfirmation({
+        gateway: 'paystack',
+        maxAttempts: 1,
+        reference: 'VTU-123',
+      })
+    ).rejects.toBeInstanceOf(VtuPaymentStillProcessingError);
   });
 
   it('lists saved cards for the current storefront', async () => {

@@ -3,6 +3,7 @@ import { fulfillPendingVtuTransaction } from '@/lib/vtu-fulfillment';
 
 const mockPurchaseAirtime = vi.fn();
 const mockPurchaseData = vi.fn();
+const mockCheckTransactionStatus = vi.fn();
 
 vi.mock('@/lib/kuda', () => ({
   NetworkProvider: {
@@ -13,6 +14,8 @@ vi.mock('@/lib/kuda', () => ({
   },
   purchaseAirtime: (...args: unknown[]) => mockPurchaseAirtime(...args),
   purchaseData: (...args: unknown[]) => mockPurchaseData(...args),
+  checkTransactionStatus: (...args: unknown[]) =>
+    mockCheckTransactionStatus(...args),
 }));
 
 vi.mock('@/lib/kuda-bills', () => ({
@@ -81,6 +84,10 @@ function createPendingTransactionSupabaseMock({
 describe('fulfillPendingVtuTransaction', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockCheckTransactionStatus.mockResolvedValue({
+      message: 'No token',
+      status: 'successful',
+    });
   });
 
   it('returns the existing success payload without repurchasing', async () => {
@@ -239,6 +246,116 @@ describe('fulfillPendingVtuTransaction', () => {
       1000,
       'MTN',
       'OgaBassey',
+      'VTU-123'
+    );
+  });
+
+  it('retries a failed transaction only when gateway reconciliation allows it', async () => {
+    mockPurchaseAirtime.mockResolvedValue({
+      success: true,
+      message: 'ok',
+      transactionId: 'kuda-retry-1',
+      amount: 1000,
+      status: 'successful',
+    });
+
+    const supabase = createPendingTransactionSupabaseMock({
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: null,
+        type: 'airtime',
+        network_provider: 'MTN',
+        phone_number: '08012345678',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: null,
+        status: 'failed',
+        metadata: {
+          paymentReference: 'VTU-PAYSTACK-123',
+        },
+        error_message: 'Temporary biller error',
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: null,
+        biller_item_code: null,
+        customer_identifier: null,
+      },
+    });
+
+    const result = await fulfillPendingVtuTransaction({
+      retryFailed: true,
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(result).toMatchObject({
+      amount: 1000,
+      reference: 'VTU-123',
+      status: 'successful',
+    });
+    expect(mockPurchaseAirtime).toHaveBeenCalledWith(
+      '08012345678',
+      1000,
+      'MTN',
+      'OgaBassey',
+      'VTU-123'
+    );
+  });
+
+  it('backfills a missing electricity token from Kuda bill status', async () => {
+    const mockPurchaseBill = await import('@/lib/kuda-bills').then((module) =>
+      vi.mocked(module.purchaseBill)
+    );
+    mockPurchaseBill.mockResolvedValue({
+      success: true,
+      reference: 'VTU-123',
+      message: 'ok',
+      transactionId: 'kuda-bill-1',
+      amount: 500,
+      status: 'successful',
+    });
+    mockCheckTransactionStatus.mockResolvedValue({
+      message: 'ok',
+      pin: '1234-5678-9012',
+      status: 'successful',
+    });
+
+    const supabase = createPendingTransactionSupabaseMock({
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: null,
+        type: 'electricity',
+        network_provider: '',
+        phone_number: '',
+        amount: 500,
+        request_reference: 'VTU-123',
+        transaction_id: null,
+        status: 'pending',
+        metadata: {},
+        error_message: null,
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: 'EKEDC NG - EKEDC PREPAID',
+        biller_item_code: 'KUD-ELE-EKED-002',
+        customer_identifier: '43901766923',
+      },
+    });
+
+    const result = await fulfillPendingVtuTransaction({
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(result).toMatchObject({
+      amount: 500,
+      reference: 'VTU-123',
+      status: 'successful',
+      voucherPin: '1234-5678-9012',
+    });
+    expect(mockCheckTransactionStatus).toHaveBeenCalledWith(
+      'kuda-bill-1',
       'VTU-123'
     );
   });

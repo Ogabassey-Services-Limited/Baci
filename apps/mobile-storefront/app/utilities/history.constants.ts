@@ -26,8 +26,15 @@ export const UTILITY_HISTORY_TYPE_LABELS = {
 
 export const UTILITY_HISTORY_STATUS_COLORS = {
   failed: palette.red[700],
+  paymentReceived: palette.amber[800],
   pending: palette.amber[800],
+  processing: palette.amber[800],
   successful: palette.emerald[700],
+} as const;
+
+export const UTILITY_HISTORY_PAYMENT_RECEIVED_STATUS = {
+  label: 'payment received',
+  message: 'Payment received. Tap Sync payment to retry bill fulfillment.',
 } as const;
 
 export const UTILITY_HISTORY_STYLE_TOKENS = {

@@ -17,9 +17,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView, type WebViewNavigation } from 'react-native-webview';
 import { z } from 'zod';
+import { useToast } from '@/components/ui/Toast';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
-import { waitForVtuConfirmation } from '@/lib/vtu-checkout';
+import { setClipboardString } from '@/lib/clipboard';
+import {
+  VtuPaymentStillProcessingError,
+  waitForVtuConfirmation,
+} from '@/lib/vtu-checkout';
 import { useCartStore } from '@/stores/cart-store';
 
 const PaymentGatewayParamsSchema = z.object({
@@ -42,12 +47,234 @@ const GATEWAY_LABELS: Record<string, string> = {
   juicyway: 'Juicyway',
 };
 
+const PAYMENT_ACCOUNT_NUMBER_MESSAGE_TYPE = 'payment_account_number_detected';
+const PAYMENT_CLIPBOARD_MESSAGE_TYPE = 'payment_clipboard_copy';
+
+const PAYMENT_CLIPBOARD_BRIDGE_SCRIPT = `
+(function () {
+  if (window.__baciClipboardBridgeInstalled) {
+    return true;
+  }
+
+  window.__baciClipboardBridgeInstalled = true;
+
+  function sendMessage(payload) {
+    if (
+      window.ReactNativeWebView &&
+      typeof window.ReactNativeWebView.postMessage === 'function'
+    ) {
+      window.ReactNativeWebView.postMessage(payload);
+      return;
+    }
+
+    if (
+      window.webkit &&
+      window.webkit.messageHandlers &&
+      window.webkit.messageHandlers.ReactNativeWebView &&
+      typeof window.webkit.messageHandlers.ReactNativeWebView.postMessage === 'function'
+    ) {
+      window.webkit.messageHandlers.ReactNativeWebView.postMessage(payload);
+    }
+  }
+
+  function postCopy(text) {
+    if (typeof text !== 'string') {
+      return;
+    }
+
+    var normalized = text.trim();
+    if (!normalized) {
+      return;
+    }
+
+    sendMessage(JSON.stringify({
+      type: '${PAYMENT_CLIPBOARD_MESSAGE_TYPE}',
+      text: normalized
+    }));
+  }
+
+  var lastPostedAccountNumber = '';
+
+  function findAccountNumber(text) {
+    if (typeof text !== 'string') {
+      return '';
+    }
+
+    var accountNumber = text.match(/(?:^|\\D)(\\d(?:[\\s-]?\\d){9})(?:\\D|$)/);
+    return accountNumber ? accountNumber[1].replace(/\\D/g, '') : '';
+  }
+
+  function postAccountNumber(accountNumber) {
+    if (!accountNumber || accountNumber === lastPostedAccountNumber) {
+      return;
+    }
+
+    lastPostedAccountNumber = accountNumber;
+    sendMessage(JSON.stringify({
+      type: '${PAYMENT_ACCOUNT_NUMBER_MESSAGE_TYPE}',
+      text: accountNumber
+    }));
+  }
+
+  function scanForAccountNumber() {
+    if (!document.body) {
+      return;
+    }
+
+    postAccountNumber(findAccountNumber(
+      document.body.innerText || document.body.textContent || ''
+    ));
+  }
+
+  function postNearestAccountNumber(target) {
+    var node = target;
+    var depth = 0;
+
+    while (node && node !== document.body && depth < 6) {
+      var text = node.innerText || node.textContent || '';
+      var accountNumber = findAccountNumber(text);
+      if (accountNumber) {
+        postAccountNumber(accountNumber);
+        postCopy(accountNumber);
+        return;
+      }
+      node = node.parentElement;
+      depth += 1;
+    }
+
+    postCopy(findAccountNumber(document.body ? document.body.innerText : ''));
+  }
+
+  var existingClipboard = navigator.clipboard || {};
+  var originalWriteText =
+    typeof existingClipboard.writeText === 'function'
+      ? existingClipboard.writeText.bind(existingClipboard)
+      : null;
+
+  try {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: Object.assign({}, existingClipboard, {
+        writeText: function (text) {
+          postCopy(String(text));
+
+          if (!originalWriteText) {
+            return Promise.resolve();
+          }
+
+          var result = originalWriteText(text);
+          if (result && typeof result.catch === 'function') {
+            return result.catch(function () {
+              return undefined;
+            });
+          }
+
+          return Promise.resolve();
+        }
+      })
+    });
+  } catch (error) {
+    // Some gateway pages lock navigator.clipboard. The copy event fallback below
+    // still lets native receive copied text.
+  }
+
+  var originalExecCommand =
+    typeof document.execCommand === 'function'
+      ? document.execCommand.bind(document)
+      : null;
+
+  if (originalExecCommand) {
+    document.execCommand = function (command) {
+      var result = originalExecCommand.apply(document, arguments);
+
+      if (String(command).toLowerCase() === 'copy' && window.getSelection) {
+        postCopy(window.getSelection().toString());
+      }
+
+      return result;
+    };
+  }
+
+  document.addEventListener('copy', function (event) {
+    var clipboardText = '';
+
+    if (
+      event.clipboardData &&
+      typeof event.clipboardData.getData === 'function'
+    ) {
+      clipboardText = event.clipboardData.getData('text/plain');
+    }
+
+    if (!clipboardText && window.getSelection) {
+      clipboardText = window.getSelection().toString();
+    }
+
+    postCopy(clipboardText);
+  }, true);
+
+  document.addEventListener('click', function (event) {
+    var target = event.target;
+    if (!target) {
+      return;
+    }
+
+    var actionText = '';
+    if (target.innerText || target.textContent) {
+      actionText = target.innerText || target.textContent || '';
+    }
+    if (target.getAttribute) {
+      actionText += ' ' + (target.getAttribute('aria-label') || '');
+      actionText += ' ' + (target.getAttribute('title') || '');
+    }
+
+    if (/copy/i.test(actionText)) {
+      setTimeout(function () {
+        postNearestAccountNumber(target);
+      }, 0);
+    }
+  }, true);
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', scanForAccountNumber);
+  } else {
+    scanForAccountNumber();
+  }
+
+  if (window.MutationObserver && document.documentElement) {
+    var observer = new MutationObserver(scanForAccountNumber);
+    observer.observe(document.documentElement, {
+      characterData: true,
+      childList: true,
+      subtree: true
+    });
+  }
+
+  setTimeout(scanForAccountNumber, 500);
+  setTimeout(scanForAccountNumber, 1500);
+  setInterval(scanForAccountNumber, 3000);
+
+  return true;
+})();
+true;
+`;
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const isPaymentCompletionRedirect = (url: string) =>
+  url.includes('/checkout/success') ||
+  url.includes('/order-success') ||
+  url.includes('trxref=');
+
 export default function PaymentGatewayScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const params = useLocalSearchParams<Record<string, string>>();
   const webViewRef = useRef<WebView>(null);
+  const copiedGatewayAccountNumberRef = useRef<string | null>(null);
+  const paymentCompletionStartedRef = useRef(false);
   const clearCart = useCartStore((state) => state.clearCart);
+  const toast = useToast();
 
   const [status, setStatus] = useState<
     'loading' | 'ready' | 'processing' | 'success' | 'error'
@@ -79,6 +306,38 @@ export default function PaymentGatewayScreen() {
   } = validatedParams.data || {};
 
   const gatewayName = GATEWAY_LABELS[gateway || ''] || 'Payment';
+
+  const routeToUtilityResult = ({
+    resultAmount,
+    resultCustomerIdentifier,
+    resultReference,
+    resultStatus,
+    resultVoucherPin,
+  }: {
+    resultAmount?: number;
+    resultCustomerIdentifier?: string;
+    resultReference: string;
+    resultStatus: 'processing' | 'successful';
+    resultVoucherPin?: string;
+  }) => {
+    if (!utilityType) {
+      return;
+    }
+
+    router.replace({
+      pathname: '/utilities/[type]',
+      params: {
+        type: utilityType,
+        paymentStatus: resultStatus,
+        reference: resultReference,
+        amount: String(resultAmount ?? Number(amount || 0)),
+        ...((resultCustomerIdentifier || customerIdentifier) && {
+          customerIdentifier: resultCustomerIdentifier || customerIdentifier,
+        }),
+        ...(resultVoucherPin && { voucherPin: resultVoucherPin }),
+      },
+    });
+  };
 
   if (!validatedParams.isValid) {
     return (
@@ -127,20 +386,69 @@ export default function PaymentGatewayScreen() {
             paymentStatus: 'successful',
             reference: result.reference,
             amount: String(result.amount ?? Number(amount || 0)),
-            ...(customerIdentifier && { customerIdentifier }),
+            ...((result.customerIdentifier || customerIdentifier) && {
+              customerIdentifier:
+                result.customerIdentifier || customerIdentifier,
+            }),
             ...(result.cashback && {
               cashbackAmount: String(result.cashback.amount),
               cashbackNewBalance: String(result.cashback.newBalance),
+            }),
+            ...(result.voucherPin && {
+              voucherPin: result.voucherPin,
             }),
           },
         });
       }, 1500);
     } catch (error) {
+      if (error instanceof VtuPaymentStillProcessingError) {
+        setStatus('success');
+        routeToUtilityResult({
+          resultAmount: error.amount,
+          resultCustomerIdentifier: error.customerIdentifier,
+          resultReference: error.reference,
+          resultStatus: 'processing',
+        });
+        return;
+      }
+
       setStatus('error');
       setErrorMessage(
         error instanceof Error ? error.message : 'Payment confirmation failed.'
       );
     }
+  };
+
+  const beginPaymentCompletion = () => {
+    if (
+      paymentCompletionStartedRef.current ||
+      status === 'processing' ||
+      status === 'success'
+    ) {
+      return;
+    }
+
+    paymentCompletionStartedRef.current = true;
+
+    if (paymentKind === 'vtu') {
+      setStatus('processing');
+      void handleVtuConfirmation();
+      return;
+    }
+
+    setStatus('success');
+    clearCart();
+    setTimeout(() => {
+      router.replace({
+        pathname: '/order-success',
+        params: {
+          orderId,
+          orderNumber: orderNumber || '',
+          reference: reference || '',
+          paymentMethod: gateway,
+        },
+      });
+    }, 1500);
   };
 
   const handleNavigationChange = (navState: WebViewNavigation) => {
@@ -152,30 +460,9 @@ export default function PaymentGatewayScreen() {
 
     // Paystack/Korapay redirect to /checkout/success?reference=...
     // Crypto checkout redirects to /order-success?type=crypto&orderId=...
-    if (
-      url.includes('/checkout/success') ||
-      url.includes('/order-success') ||
-      url.includes('trxref=')
-    ) {
-      if (paymentKind === 'vtu') {
-        setStatus('processing');
-        void handleVtuConfirmation();
-        return;
-      }
-
-      setStatus('success');
-      clearCart();
-      setTimeout(() => {
-        router.replace({
-          pathname: '/order-success',
-          params: {
-            orderId,
-            orderNumber: orderNumber || '',
-            reference: reference || '',
-            paymentMethod: gateway,
-          },
-        });
-      }, 1500);
+    if (isPaymentCompletionRedirect(url)) {
+      beginPaymentCompletion();
+      return;
     }
 
     // Cancelled
@@ -185,17 +472,67 @@ export default function PaymentGatewayScreen() {
     }
   };
 
+  const handleShouldStartLoadWithRequest = (request: { url: string }) => {
+    if (
+      paymentKind === 'vtu' &&
+      isPaymentCompletionRedirect(request.url)
+    ) {
+      beginPaymentCompletion();
+      return false;
+    }
+
+    return true;
+  };
+
+  const copyGatewayText = async (text: string) => {
+    const copied = await setClipboardString(text);
+    if (copied) {
+      toast.success('Account number copied.');
+    } else {
+      toast.error('Unable to copy account number.');
+    }
+  };
+
   const handleWebViewMessage = (event: { nativeEvent: { data: string } }) => {
     try {
-      const data = JSON.parse(event.nativeEvent.data);
+      const data: unknown = JSON.parse(event.nativeEvent.data);
+      if (!isRecord(data)) {
+        return;
+      }
+
+      if (data.type === PAYMENT_CLIPBOARD_MESSAGE_TYPE) {
+        const copiedText =
+          typeof data.text === 'string' ? data.text.trim() : '';
+        if (copiedText) {
+          void copyGatewayText(copiedText);
+        }
+        return;
+      }
+
+      if (data.type === PAYMENT_ACCOUNT_NUMBER_MESSAGE_TYPE) {
+        const accountNumber =
+          typeof data.text === 'string' ? data.text.trim() : '';
+        if (
+          accountNumber &&
+          copiedGatewayAccountNumberRef.current !== accountNumber
+        ) {
+          copiedGatewayAccountNumberRef.current = accountNumber;
+          void copyGatewayText(accountNumber);
+        }
+        return;
+      }
+
       if (data.type === 'crypto_success') {
+        const cryptoOrderId =
+          typeof data.orderId === 'string' ? data.orderId : orderId;
+
         setStatus('success');
         clearCart();
         setTimeout(() => {
           router.replace({
             pathname: '/order-success',
             params: {
-              orderId: data.orderId || orderId,
+              orderId: cryptoOrderId,
               orderNumber: orderNumber || '',
               reference: reference || '',
               paymentMethod: gateway,
@@ -230,6 +567,26 @@ export default function PaymentGatewayScreen() {
     setErrorMessage(null);
     webViewRef.current?.reload();
   };
+
+  if (status === 'processing') {
+    return (
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+      >
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.statusContainer}>
+          <ActivityIndicator size="large" color={BRAND.primary} />
+          <Text style={[styles.statusTitle, { color: colors.text }]}>
+            Confirming Utility Purchase
+          </Text>
+          <Text style={[styles.statusMessage, { color: colors.textSecondary }]}>
+            We're confirming your token and receipt. This usually takes a few
+            seconds.
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (status === 'success') {
     return (
@@ -272,6 +629,7 @@ export default function PaymentGatewayScreen() {
     return (
       <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
+        edges={['bottom']}
       >
         <Stack.Screen
           options={{
@@ -325,7 +683,7 @@ export default function PaymentGatewayScreen() {
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
-      edges={['top']}
+      edges={['bottom']}
     >
       <Stack.Screen
         options={{
@@ -366,10 +724,27 @@ export default function PaymentGatewayScreen() {
         ref={webViewRef}
         source={{ uri: authorizationUrl || '' }}
         style={styles.webView}
-        onLoadStart={() => setStatus('loading')}
-        onLoadEnd={() => setStatus('ready')}
+        onLoadStart={() =>
+          setStatus((currentStatus) =>
+            currentStatus === 'processing' || currentStatus === 'success'
+              ? currentStatus
+              : 'loading'
+          )
+        }
+        onLoadEnd={() =>
+          setStatus((currentStatus) =>
+            currentStatus === 'processing' || currentStatus === 'success'
+              ? currentStatus
+              : 'ready'
+          )
+        }
         onNavigationStateChange={handleNavigationChange}
+        onShouldStartLoadWithRequest={handleShouldStartLoadWithRequest}
         onMessage={handleWebViewMessage}
+        injectedJavaScriptBeforeContentLoaded={PAYMENT_CLIPBOARD_BRIDGE_SCRIPT}
+        injectedJavaScript={PAYMENT_CLIPBOARD_BRIDGE_SCRIPT}
+        injectedJavaScriptBeforeContentLoadedForMainFrameOnly={false}
+        injectedJavaScriptForMainFrameOnly={false}
         javaScriptEnabled={true}
         domStorageEnabled={true}
         startInLoadingState={true}
@@ -377,6 +752,13 @@ export default function PaymentGatewayScreen() {
         mixedContentMode="compatibility"
         onError={(syntheticEvent) => {
           const { nativeEvent } = syntheticEvent;
+          if (
+            paymentCompletionStartedRef.current ||
+            nativeEvent.url?.startsWith('about:')
+          ) {
+            return;
+          }
+
           setStatus('error');
           setErrorMessage(
             nativeEvent.description || 'Failed to load payment page'
@@ -410,6 +792,8 @@ export default function PaymentGatewayScreen() {
           </Text>
         </View>
       )}
+
+      <toast.Toast />
     </SafeAreaView>
   );
 }

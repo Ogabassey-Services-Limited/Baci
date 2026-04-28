@@ -197,6 +197,79 @@ describe('POST /api/vtu/checkout/confirm', () => {
     });
     expect(mockUpsertPaystackAuthorization).toHaveBeenCalled();
     expect(mockFulfillPendingVtuTransaction).toHaveBeenCalledWith({
+      retryFailed: true,
+      supabase: expect.any(Object),
+      transactionId: 'vtu-1',
+    });
+  });
+
+  it('continues to VTU fulfillment when another process already claimed the payment', async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'merchants') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({
+                data: { id: 'merchant-1' },
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: {
+                id: 'txn-1',
+                amount: 1000,
+                currency: 'NGN',
+                status: 'pending',
+                merchant_id: 'merchant-1',
+                metadata: {
+                  transaction_type: 'vtu_purchase',
+                  vtu_transaction_id: 'vtu-1',
+                  customer_id: 'customer-1',
+                  customer_email: 'customer@example.com',
+                },
+              },
+              error: null,
+            }),
+          }),
+        }),
+        update: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            neq: vi.fn().mockReturnValue({
+              select: vi.fn().mockReturnValue({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: null,
+                  error: null,
+                }),
+              }),
+            }),
+          }),
+        }),
+      };
+    });
+
+    const response = await POST(
+      makeRequest({
+        merchantSlug: 'ogabassey',
+        gateway: 'paystack',
+        reference: 'VTU-123',
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data).toMatchObject({
+      status: 'successful',
+      reference: 'VTU-123',
+    });
+    expect(mockFulfillPendingVtuTransaction).toHaveBeenCalledWith({
+      retryFailed: true,
       supabase: expect.any(Object),
       transactionId: 'vtu-1',
     });

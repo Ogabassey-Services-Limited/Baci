@@ -19,6 +19,8 @@ let customerByUserIdData: { id: string; user_id: string | null } | null = null;
 let customerByEmailData: { id: string; user_id: string | null } | null = null;
 let transactionsData: Record<string, unknown>[] | null = null;
 let transactionsError: unknown = null;
+let paymentRowsData: Record<string, unknown>[] | null = null;
+let paymentRowsError: unknown = null;
 let transactionEqCalls: [string, unknown][] = [];
 const mockCustomerUpdateEq = vi.fn();
 
@@ -57,6 +59,14 @@ function createMockSupabase() {
     }),
   };
 
+  const paymentStatusQuery = {
+    eq: vi.fn(() => paymentStatusQuery),
+    in: vi.fn().mockResolvedValue({
+      data: paymentRowsData,
+      error: paymentRowsError,
+    }),
+  };
+
   return {
     from: vi.fn((table: string) => {
       if (table === 'merchants') {
@@ -84,6 +94,12 @@ function createMockSupabase() {
       if (table === 'vtu_transactions') {
         return {
           select: vi.fn(() => transactionQuery),
+        };
+      }
+
+      if (table === 'transactions') {
+        return {
+          select: vi.fn(() => paymentStatusQuery),
         };
       }
 
@@ -117,11 +133,24 @@ describe('GET /api/vtu/history', () => {
         status: 'successful',
         amount: '2500',
         biller_name: 'EKEDC NG',
+        metadata: {
+          dataPlanCode: 'KUD-DATA-001',
+          gateway: 'paystack',
+          paymentReference: 'VTU-PAYSTACK-123',
+          voucherPin: '1234-5678',
+        },
         request_reference: 'VTU-123',
         customer_cashback: '0',
       },
     ];
     transactionsError = null;
+    paymentRowsData = [
+      {
+        gateway_reference: 'VTU-PAYSTACK-123',
+        status: 'completed',
+      },
+    ];
+    paymentRowsError = null;
     transactionEqCalls = [];
     mockCustomerUpdateEq.mockResolvedValue({ data: null, error: null });
     mockAuthenticateApiRequest.mockResolvedValue({
@@ -162,6 +191,11 @@ describe('GET /api/vtu/history', () => {
         id: 'tx-1',
         amount: 2500,
         customer_cashback: 0,
+        payment_gateway: 'paystack',
+        payment_reference: 'VTU-PAYSTACK-123',
+        payment_status: 'completed',
+        repeat_data_plan_code: 'KUD-DATA-001',
+        voucher_pin: '1234-5678',
       }),
     ]);
     expect(transactionEqCalls).toContainEqual(['merchant_id', 'merchant-1']);

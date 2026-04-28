@@ -97,14 +97,20 @@ interface KudaRawBiller {
 interface KudaRawBillItem {
   ItemCode?: string;
   itemCode?: string;
+  KudaIdentifier?: string;
+  kudaIdentifier?: string;
   ItemName?: string;
   itemName?: string;
+  Name?: string;
+  name?: string;
   Amount?: number | string;
   amount?: number | string;
   ItemCurrencySymbol?: string;
   itemCurrencySymbol?: string;
   IsAmountFixed?: boolean;
   isAmountFixed?: boolean;
+  IsFixedPrice?: boolean;
+  isFixedPrice?: boolean;
   ItemFee?: number | string;
   itemFee?: number | string;
   BillItems?: unknown[];
@@ -130,8 +136,12 @@ function mapBillItem(raw: unknown): BillItem | null {
   }
 
   const item = raw as KudaRawBillItem;
-  const itemCode = item.ItemCode ?? item.itemCode;
-  const itemName = item.ItemName ?? item.itemName;
+  const itemCode =
+    item.ItemCode ??
+    item.itemCode ??
+    item.KudaIdentifier ??
+    item.kudaIdentifier;
+  const itemName = item.ItemName ?? item.itemName ?? item.Name ?? item.name;
 
   if (!itemCode || !itemName) {
     return null;
@@ -143,7 +153,12 @@ function mapBillItem(raw: unknown): BillItem | null {
     amount: toNumber(item.Amount ?? item.amount),
     itemCurrencySymbol:
       item.ItemCurrencySymbol ?? item.itemCurrencySymbol ?? 'NGN',
-    isAmountFixed: item.IsAmountFixed ?? item.isAmountFixed ?? false,
+    isAmountFixed:
+      item.IsAmountFixed ??
+      item.isAmountFixed ??
+      item.IsFixedPrice ??
+      item.isFixedPrice ??
+      false,
     itemFee: toNumber(item.ItemFee ?? item.itemFee),
     billItems: mapBillItems(item.BillItems ?? item.billItems),
   };
@@ -192,6 +207,7 @@ export interface PurchaseResult {
   success: boolean;
   reference: string;
   transactionId?: string;
+  pin?: string | null;
   message: string;
   status: 'pending' | 'successful' | 'failed';
   amount: number;
@@ -206,8 +222,89 @@ interface KudaApiResponse<T = unknown> {
   data?: T;
 }
 
+interface KudaTransactionStatusData {
+  finalStatus?: string;
+  FinalStatus?: string;
+  transactionStatus?: number | string;
+  TransactionStatus?: number | string;
+  postingStatus?: number | string;
+  PostingStatus?: number | string;
+  status?: number | string;
+  Status?: number | string;
+  message?: string;
+  Message?: string;
+  pin?: number | string | null;
+  Pin?: number | string | null;
+  PIN?: number | string | null;
+  token?: number | string | null;
+  Token?: number | string | null;
+  meterToken?: number | string | null;
+  MeterToken?: number | string | null;
+  vendCode?: number | string | null;
+  VendCode?: number | string | null;
+  voucher?: number | string | null;
+  Voucher?: number | string | null;
+}
+
+type KudaTransactionStatusResult = {
+  message: string;
+  pin?: string;
+  status: string;
+};
+
 // Token storage (in production, use Redis or database)
 let cachedToken: { token: string; expiresAt: number } | null = null;
+
+function normalizeKudaString(value: number | string | null | undefined) {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed || undefined;
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value);
+  }
+
+  return undefined;
+}
+
+function extractKudaVoucherPin(data: KudaTransactionStatusData | undefined) {
+  if (!data) {
+    return undefined;
+  }
+
+  return (
+    normalizeKudaString(data.pin) ??
+    normalizeKudaString(data.Pin) ??
+    normalizeKudaString(data.PIN) ??
+    normalizeKudaString(data.token) ??
+    normalizeKudaString(data.Token) ??
+    normalizeKudaString(data.meterToken) ??
+    normalizeKudaString(data.MeterToken) ??
+    normalizeKudaString(data.vendCode) ??
+    normalizeKudaString(data.VendCode) ??
+    normalizeKudaString(data.voucher) ??
+    normalizeKudaString(data.Voucher)
+  );
+}
+
+function extractKudaStatus(data: KudaTransactionStatusData | undefined) {
+  if (!data) {
+    return 'unknown';
+  }
+
+  return (
+    normalizeKudaString(data.finalStatus) ??
+    normalizeKudaString(data.FinalStatus) ??
+    normalizeKudaString(data.transactionStatus) ??
+    normalizeKudaString(data.TransactionStatus) ??
+    normalizeKudaString(data.postingStatus) ??
+    normalizeKudaString(data.PostingStatus) ??
+    normalizeKudaString(data.status) ??
+    normalizeKudaString(data.Status) ??
+    'unknown'
+  );
+}
 
 function createTimeoutSignal(timeoutMs: number) {
   const controller = new AbortController();
@@ -510,6 +607,8 @@ export async function purchaseAirtime(
   try {
     // Kuda purchase response: { reference: string; pin: string | null }
     const response = await kudaRequest<{
+      Reference?: string;
+      Pin?: string | null;
       reference: string;
       pin: string | null;
     }>(
@@ -525,10 +624,13 @@ export async function purchaseAirtime(
       reference
     );
 
+    const pin = extractKudaVoucherPin(response.data);
+
     return {
       success: response.status,
       reference,
-      transactionId: response.data?.reference,
+      transactionId: response.data?.reference ?? response.data?.Reference,
+      ...(pin && { pin }),
       message: response.message,
       status: response.status ? 'successful' : 'failed',
       amount,
@@ -565,6 +667,8 @@ export async function purchaseData(
   try {
     // Kuda purchase response: { reference: string; pin: string | null }
     const response = await kudaRequest<{
+      Reference?: string;
+      Pin?: string | null;
       reference: string;
       pin: string | null;
     }>(
@@ -580,10 +684,13 @@ export async function purchaseData(
       reference
     );
 
+    const pin = extractKudaVoucherPin(response.data);
+
     return {
       success: response.status,
       reference,
-      transactionId: response.data?.reference,
+      transactionId: response.data?.reference ?? response.data?.Reference,
+      ...(pin && { pin }),
       message: response.message,
       status: response.status ? 'successful' : 'failed',
       amount,
@@ -614,25 +721,57 @@ export async function purchaseData(
 export async function checkTransactionStatus(
   billResponseReference?: string,
   billRequestRef?: string
-): Promise<{ status: string; message: string }> {
+): Promise<KudaTransactionStatusResult> {
   if (!billResponseReference && !billRequestRef) {
     return { status: 'failed', message: 'No reference provided' };
   }
 
-  const data: Record<string, unknown> = billResponseReference
-    ? { BillResponseReference: billResponseReference }
-    : { BillRequestRef: billRequestRef };
+  const statusQueries: Record<string, unknown>[] = [];
+  if (billResponseReference) {
+    statusQueries.push({ BillResponseReference: billResponseReference });
+  }
+  if (billRequestRef) {
+    statusQueries.push({ BillRequestRef: billRequestRef });
+  }
 
-  const response = await kudaRequest<{
-    finalStatus?: string;
-    transactionStatus?: number;
-    postingStatus?: number;
-  }>(KudaServiceType.BILL_TSQ, data);
+  let message = '';
+  let status = 'unknown';
+  let lastError: unknown;
 
-  return {
-    status: response.data?.finalStatus || 'unknown',
-    message: response.message,
-  };
+  for (const data of statusQueries) {
+    let response: KudaApiResponse<KudaTransactionStatusData>;
+    try {
+      response = await kudaRequest<KudaTransactionStatusData>(
+        KudaServiceType.BILL_TSQ,
+        data
+      );
+    } catch (error) {
+      lastError = error;
+      continue;
+    }
+
+    message = response.message || message;
+
+    const nextStatus = extractKudaStatus(response.data);
+    if (status === 'unknown' && nextStatus !== 'unknown') {
+      status = nextStatus;
+    }
+
+    const pin = extractKudaVoucherPin(response.data);
+    if (pin) {
+      return {
+        message,
+        pin,
+        status: nextStatus === 'unknown' ? status : nextStatus,
+      };
+    }
+  }
+
+  if (!message && lastError) {
+    throw lastError;
+  }
+
+  return { status, message };
 }
 
 /**

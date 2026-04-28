@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { BillForm } from './BillForm';
 
@@ -13,7 +14,11 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 
 jest.mock('@/hooks/use-keyboard', () => ({
-  useKeyboard: () => ({ isKeyboardVisible: false, keyboardHeight: 0 }),
+  useKeyboard: () => ({
+    dismissKeyboard: jest.fn(),
+    isKeyboardVisible: false,
+    keyboardHeight: 0,
+  }),
 }));
 
 jest.mock('expo-router', () => ({
@@ -34,6 +39,15 @@ jest.mock('@/hooks/use-utility-payment', () => ({
     supportedGateways: ['paystack', 'korapay'],
   }),
 }));
+
+jest.mock('./UtilityPaymentOptions', () => {
+  const { Text } =
+    jest.requireActual<typeof import('react-native')>('react-native');
+
+  return {
+    UtilityPaymentOptions: () => <Text>Payment options</Text>,
+  };
+});
 
 jest.mock('@/lib/vtu-checkout', () => ({
   chargeSavedVtuCard: jest.fn(),
@@ -143,5 +157,40 @@ describe('BillForm', () => {
       billItemIdentifier: 'commercial',
       customerIdentifier: '1234567890',
     });
+  });
+
+  it('starts a verified repeat at the payment section for previous bill details', () => {
+    render(
+      <BillForm
+        type="power"
+        initialAmount="2500"
+        initialBillerName="EKEDC NG"
+        initialBillItemIdentifier="commercial"
+        initialCustomerIdentifier="1234567890"
+        isRepeatPaymentReady
+        onSuccess={jest.fn()}
+      />
+    );
+
+    expect(screen.getByText('Amount (₦)')).toBeOnTheScreen();
+    expect(screen.getByText('Payment options')).toBeOnTheScreen();
+    expect(mockVerifyMutate).not.toHaveBeenCalled();
+  });
+
+  it('infers a repeat bill item from saved biller name when item code is missing', () => {
+    render(
+      <BillForm
+        type="power"
+        initialAmount="2500"
+        initialBillerName="EKEDC NG - Postpaid"
+        initialCustomerIdentifier="1234567890"
+        isRepeatPaymentReady
+        onSuccess={jest.fn()}
+      />
+    );
+
+    expect(screen.getByText('Amount (₦)')).toBeOnTheScreen();
+    expect(screen.getByText('Payment options')).toBeOnTheScreen();
+    expect(mockVerifyMutate).not.toHaveBeenCalled();
   });
 });

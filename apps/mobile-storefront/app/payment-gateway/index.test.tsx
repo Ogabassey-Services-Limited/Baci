@@ -1,0 +1,298 @@
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react-native';
+import { router } from 'expo-router';
+import type React from 'react';
+import { setClipboardString } from '@/lib/clipboard';
+import {
+  VtuPaymentStillProcessingError,
+  waitForVtuConfirmation,
+} from '@/lib/vtu-checkout';
+import PaymentGatewayScreen from './index';
+
+const mockToastError = jest.fn();
+const mockToastSuccess = jest.fn();
+
+jest.mock('expo-router', () => ({
+  Stack: {
+    Screen: () => null,
+  },
+  router: {
+    back: jest.fn(),
+    replace: jest.fn(),
+  },
+  useLocalSearchParams: () => ({
+    amount: '1000',
+    authorizationUrl: 'https://checkout.paystack.com/test',
+    customerIdentifier: '43901766923',
+    gateway: 'paystack',
+    paymentKind: 'vtu',
+    reference: 'ref-123',
+    utilityType: 'power',
+  }),
+}));
+
+jest.mock('react-native-safe-area-context', () => ({
+  SafeAreaView: ({
+    children,
+    edges,
+  }: {
+    children?: React.ReactNode;
+    edges?: string[];
+  }) => {
+    const { View } =
+      jest.requireActual<typeof import('react-native')>('react-native');
+
+    return (
+      <View accessibilityLabel={`safe-area-edges:${edges?.join(',') ?? 'all'}`}>
+        {children}
+      </View>
+    );
+  },
+}));
+
+jest.mock('react-native-webview', () => ({
+  WebView: ({
+    injectedJavaScript,
+    injectedJavaScriptBeforeContentLoadedForMainFrameOnly,
+    injectedJavaScriptForMainFrameOnly,
+    onError,
+    onMessage,
+    onNavigationStateChange,
+    onShouldStartLoadWithRequest,
+    source,
+  }: {
+    injectedJavaScript?: string;
+    injectedJavaScriptBeforeContentLoadedForMainFrameOnly?: boolean;
+    injectedJavaScriptForMainFrameOnly?: boolean;
+    onError?: (event: {
+      nativeEvent: { description?: string; url?: string };
+    }) => void;
+    onMessage?: (event: { nativeEvent: { data: string } }) => void;
+    onNavigationStateChange?: (event: { url: string }) => void;
+    onShouldStartLoadWithRequest?: (event: { url: string }) => boolean;
+    source: { uri: string };
+  }) => {
+    const { Pressable, Text, View } =
+      jest.requireActual<typeof import('react-native')>('react-native');
+
+    return (
+      <View>
+        <Pressable
+          accessibilityLabel="mock-payment-webview"
+          onPress={() =>
+            onMessage?.({
+              nativeEvent: {
+                data: JSON.stringify({
+                  text: '1234567890',
+                  type: 'payment_clipboard_copy',
+                }),
+              },
+            })
+          }
+        >
+          <View>
+            <Text>{`webview:${source.uri}`}</Text>
+            <Text>{`clipboard-bridge:${
+              injectedJavaScript ? 'enabled' : 'missing'
+            }`}</Text>
+            <Text>{`clipboard-main-frame-only:${String(
+              injectedJavaScriptForMainFrameOnly
+            )}`}</Text>
+            <Text>{`clipboard-before-main-frame-only:${String(
+              injectedJavaScriptBeforeContentLoadedForMainFrameOnly
+            )}`}</Text>
+          </View>
+        </Pressable>
+        <Pressable
+          accessibilityLabel="mock-payment-account-detected"
+          onPress={() =>
+            onMessage?.({
+              nativeEvent: {
+                data: JSON.stringify({
+                  text: '1234567890',
+                  type: 'payment_account_number_detected',
+                }),
+              },
+            })
+          }
+        >
+          <Text>detect-account-number</Text>
+        </Pressable>
+        <Pressable
+          accessibilityLabel="mock-payment-success-navigation"
+          onPress={() =>
+            onShouldStartLoadWithRequest?.({
+              url: 'https://ogabassey.usebaci.com/checkout/success?reference=ref-123',
+            }) !== false &&
+            onNavigationStateChange?.({
+              url: 'https://ogabassey.usebaci.com/checkout/success?reference=ref-123',
+            })
+          }
+        >
+          <Text>success-navigation</Text>
+        </Pressable>
+        <Pressable
+          accessibilityLabel="mock-payment-about-error"
+          onPress={() =>
+            onError?.({
+              nativeEvent: {
+                description: 'Unable to open URL: about:srcdoc',
+                url: 'about:srcdoc',
+              },
+            })
+          }
+        >
+          <Text>about-error</Text>
+        </Pressable>
+      </View>
+    );
+  },
+}));
+
+jest.mock('@/lib/clipboard', () => ({
+  setClipboardString: jest.fn(() => Promise.resolve(true)),
+}));
+
+jest.mock('@/components/useColorScheme', () => ({
+  useColorScheme: () => 'light',
+}));
+
+jest.mock('@/components/ui/Toast', () => ({
+  useToast: () => ({
+    error: mockToastError,
+    success: mockToastSuccess,
+    Toast: () => {
+      const { View } =
+        jest.requireActual<typeof import('react-native')>('react-native');
+
+      return <View testID="toast-root" />;
+    },
+  }),
+}));
+
+jest.mock('@/lib/vtu-checkout', () => ({
+  VtuPaymentStillProcessingError: class VtuPaymentStillProcessingError extends Error {
+    amount?: number;
+    customerIdentifier?: string;
+    reference: string;
+
+    constructor({
+      amount,
+      customerIdentifier,
+      reference,
+    }: {
+      amount?: number;
+      customerIdentifier?: string;
+      reference: string;
+    }) {
+      super('Payment is still processing. Check your utility history shortly.');
+      this.name = 'VtuPaymentStillProcessingError';
+      this.amount = amount;
+      this.customerIdentifier = customerIdentifier;
+      this.reference = reference;
+    }
+  },
+  waitForVtuConfirmation: jest.fn(),
+}));
+
+jest.mock('@/stores/cart-store', () => ({
+  useCartStore: (selector: (state: { clearCart: () => void }) => unknown) =>
+    selector({ clearCart: jest.fn() }),
+}));
+
+describe('PaymentGatewayScreen', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('does not apply a top safe-area inset under the native stack header', () => {
+    render(<PaymentGatewayScreen />);
+
+    expect(screen.getByLabelText('safe-area-edges:bottom')).toBeTruthy();
+    expect(screen.getByText('Secure Paystack Checkout')).toBeTruthy();
+    expect(
+      screen.getByText('webview:https://checkout.paystack.com/test')
+    ).toBeTruthy();
+  });
+
+  it('copies gateway account numbers to the native clipboard from WebView messages', async () => {
+    render(<PaymentGatewayScreen />);
+
+    expect(screen.getByText('clipboard-bridge:enabled')).toBeTruthy();
+    expect(screen.getByText('clipboard-main-frame-only:false')).toBeTruthy();
+    expect(
+      screen.getByText('clipboard-before-main-frame-only:false')
+    ).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('mock-payment-webview'));
+
+    expect(setClipboardString).toHaveBeenCalledWith('1234567890');
+    await waitFor(() =>
+      expect(mockToastSuccess).toHaveBeenCalledWith('Account number copied.')
+    );
+  });
+
+  it('auto-copies a detected gateway account number without showing a second copy button', async () => {
+    render(<PaymentGatewayScreen />);
+
+    fireEvent.press(screen.getByLabelText('mock-payment-account-detected'));
+
+    await waitFor(() =>
+      expect(setClipboardString).toHaveBeenCalledWith('1234567890')
+    );
+    await waitFor(() =>
+      expect(mockToastSuccess).toHaveBeenCalledWith('Account number copied.')
+    );
+    expect(screen.queryByText('Paystack account')).toBeNull();
+  });
+
+  it('routes VTU payments that are still processing without showing payment failed', async () => {
+    let rejectConfirmation:
+      | ((error: VtuPaymentStillProcessingError) => void)
+      | undefined;
+    (
+      waitForVtuConfirmation as jest.MockedFunction<
+        typeof waitForVtuConfirmation
+      >
+    ).mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectConfirmation = reject;
+        })
+    );
+
+    render(<PaymentGatewayScreen />);
+
+    fireEvent.press(screen.getByLabelText('mock-payment-success-navigation'));
+
+    expect(screen.queryByText('Order Confirmed!')).toBeNull();
+    expect(screen.getByText('Confirming Utility Purchase')).toBeTruthy();
+
+    await act(async () => {
+      rejectConfirmation?.(
+        new VtuPaymentStillProcessingError({
+          reference: 'ref-123',
+        })
+      );
+    });
+
+    await waitFor(() =>
+      expect(router.replace).toHaveBeenCalledWith({
+        pathname: '/utilities/[type]',
+        params: expect.objectContaining({
+          customerIdentifier: '43901766923',
+          paymentStatus: 'processing',
+          reference: 'ref-123',
+          type: 'power',
+        }),
+      })
+    );
+    expect(screen.queryByText('Payment Failed')).toBeNull();
+  });
+});
