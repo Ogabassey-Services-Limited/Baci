@@ -1,5 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getImportJobWorkerSecret } from '@/env';
 import { buildBumpaOrderPreviewChunks } from '@/lib/imports/bumpa/build-bumpa-order-preview';
 import { buildBumpaProductPreviewChunks } from '@/lib/imports/bumpa/build-bumpa-product-preview';
 import type {
@@ -11,7 +10,6 @@ import type {
   NormalizedImportedProduct,
 } from '@/lib/imports/bumpa/bumpa-types';
 import { parseCsvText } from '@/lib/imports/csv/parse-csv';
-import { logger } from '@/lib/logger';
 import type {
   ImportJobEntityType,
   ImportJobStatus,
@@ -378,56 +376,6 @@ export function buildImportJobRowInserts(
       validation_errors: row.errors,
       meta: row.meta,
     })
-  );
-}
-
-export async function triggerImportWorker(origin: string, jobId?: string) {
-  const workerSecret = getImportJobWorkerSecret();
-
-  if (!workerSecret) {
-    logger.warn({
-      message:
-        'IMPORT_JOB_WORKER_SECRET is not set — import worker trigger skipped',
-      jobId: jobId ?? null,
-    });
-    return;
-  }
-
-  const response = await fetch(`${origin}/api/import-jobs/worker`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${workerSecret}`,
-      ...(jobId ? { 'Content-Type': 'application/json' } : {}),
-    },
-    ...(jobId ? { body: JSON.stringify({ jobId }) } : {}),
-    cache: 'no-store',
-  }).catch((error) => {
-    logger.error({
-      message: 'Failed to trigger import worker',
-      error,
-      origin,
-      jobId,
-    });
-
-    throw error;
-  });
-
-  if (response.ok) {
-    return;
-  }
-
-  const responseBody = await response.text().catch(() => null);
-  logger.error({
-    message: 'Import worker trigger returned non-OK response',
-    origin,
-    jobId,
-    status: response.status,
-    statusText: response.statusText,
-    body: responseBody,
-  });
-
-  throw new Error(
-    `Import worker trigger failed: ${response.status} ${response.statusText}`
   );
 }
 

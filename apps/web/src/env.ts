@@ -42,7 +42,6 @@ const serverSchema = z.object({
   MYCOVER_WEBHOOK_SECRET: z.string().optional(),
   CRON_SECRET: z.string().optional(),
   INTERNAL_API_SECRET: z.string().optional(),
-  IMPORT_JOB_WORKER_SECRET: z.string().optional(),
   IMPORT_JOB_WORKER_BATCH_SIZE: z.coerce.number().int().positive().default(3),
   IMPORT_JOB_DIRECT_UPLOAD_ENABLED: z.enum(['true', 'false']).optional(),
 
@@ -151,7 +150,6 @@ const getEnv = () => {
         JUICYWAY_BASE_URL: process.env.JUICYWAY_BASE_URL,
         MYCOVER_WEBHOOK_SECRET: process.env.MYCOVER_WEBHOOK_SECRET,
         CRON_SECRET: process.env.CRON_SECRET,
-        IMPORT_JOB_WORKER_SECRET: process.env.IMPORT_JOB_WORKER_SECRET,
         IMPORT_JOB_WORKER_BATCH_SIZE: process.env.IMPORT_JOB_WORKER_BATCH_SIZE,
         JUMIA_ENVIRONMENT: process.env.JUMIA_ENVIRONMENT,
         JUMIA_CLIENT_ID: process.env.JUMIA_CLIENT_ID,
@@ -309,8 +307,6 @@ export const getInternalApiSecret = () => {
     throw new Error('INTERNAL_API_SECRET cannot be accessed on the client');
   return env?.INTERNAL_API_SECRET;
 };
-
-export const getImportJobWorkerSecret = () => env?.IMPORT_JOB_WORKER_SECRET;
 
 export const getImportJobWorkerBatchSize = () =>
   env?.IMPORT_JOB_WORKER_BATCH_SIZE || 3;

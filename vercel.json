@@ -7,7 +7,6 @@
   "ignoreCommand": "exit 0",
   "crons": [],
   "functions": {
-    "src/app/api/import-jobs/worker/route.ts": { "memory": 512 },
     "src/app/api/ai-jobs/worker/route.ts": { "memory": 1024 },
     "src/app/api/ai/grade-device/route.ts": { "memory": 1024 },
     "src/app/api/feed/google-merchant/route.ts": { "memory": 512 },
