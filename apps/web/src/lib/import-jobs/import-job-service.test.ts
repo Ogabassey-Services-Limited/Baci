@@ -6,6 +6,10 @@ import type {
   NormalizedImportedProduct,
 } from '@/lib/imports/bumpa/bumpa-types';
 
+vi.mock('@/env', () => ({
+  getImportJobWorkerSecret: vi.fn(() => 'worker-secret'),
+}));
+
 vi.mock('@/lib/imports/csv/parse-csv', () => ({
   parseCsvText: vi.fn(),
 }));
@@ -20,9 +24,18 @@ vi.mock('@/lib/imports/bumpa/build-bumpa-product-preview', () => ({
   buildBumpaProductPreviewChunks: vi.fn(),
 }));
 
+vi.mock('@/lib/logger', () => ({
+  logger: {
+    error: vi.fn(),
+    warn: vi.fn(),
+  },
+}));
+
+import { getImportJobWorkerSecret } from '@/env';
 import { buildBumpaOrderPreviewChunks } from '@/lib/imports/bumpa/build-bumpa-order-preview';
 import { buildBumpaProductPreviewChunks } from '@/lib/imports/bumpa/build-bumpa-product-preview';
 import { parseCsvText } from '@/lib/imports/csv/parse-csv';
+import { logger } from '@/lib/logger';
 import {
   buildImportJobRowInserts,
   buildImportPreviewChunksForJob,
@@ -30,6 +43,7 @@ import {
   createImportStoragePath,
   mergeImportJobSummary,
   type PreviewBuildChunk,
+  triggerImportWorker,
   validateImportFile,
   validateImportFileMetadata,
 } from './import-job-service';
@@ -705,5 +719,71 @@ describe('import-job-service', () => {
       invalidRows: 2,
       createdOrders: 8,
     });
+  });
+
+  it('triggers the worker with a targeted job payload', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(null, {
+        status: 200,
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await triggerImportWorker('https://usebaci.com', 'job-123');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://usebaci.com/api/import-jobs/worker',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer worker-secret',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ jobId: 'job-123' }),
+        cache: 'no-store',
+      }
+    );
+  });
+
+  it('resolves silently when the worker secret is missing', async () => {
+    vi.mocked(getImportJobWorkerSecret).mockReturnValueOnce(undefined);
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await expect(
+      triggerImportWorker('https://usebaci.com', 'job-123')
+    ).resolves.toBeUndefined();
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message:
+          'IMPORT_JOB_WORKER_SECRET is not set — import worker trigger skipped',
+        jobId: 'job-123',
+      })
+    );
+  });
+
+  it('throws when the worker responds with a non-ok status', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response('Unauthorized', {
+        status: 401,
+        statusText: 'Unauthorized',
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      triggerImportWorker('https://usebaci.com', 'job-123')
+    ).rejects.toThrow('Import worker trigger failed: 401 Unauthorized');
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Import worker trigger returned non-OK response',
+        origin: 'https://usebaci.com',
+        jobId: 'job-123',
+        status: 401,
+        statusText: 'Unauthorized',
+        body: 'Unauthorized',
+      })
+    );
   });
 });

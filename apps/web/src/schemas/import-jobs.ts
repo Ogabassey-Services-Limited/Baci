@@ -46,6 +46,12 @@ export const importJobFinalizeSchema = z
   })
   .strict();
 
+export const importJobWorkerRequestSchema = z
+  .object({
+    jobId: z.string().uuid().optional(),
+  })
+  .strict();
+
 export type ImportJobEntityType = z.infer<typeof importJobEntityTypeSchema>;
 export type ImportJobRowsQuery = z.infer<typeof importJobRowsQuerySchema>;
 export type ImportJobSourcePlatform = z.infer<
@@ -57,3 +63,6 @@ export type ImportJobUploadInitInput = z.infer<
   typeof importJobUploadInitSchema
 >;
 export type ImportJobFinalizeInput = z.infer<typeof importJobFinalizeSchema>;
+export type ImportJobWorkerRequest = z.infer<
+  typeof importJobWorkerRequestSchema
+>;

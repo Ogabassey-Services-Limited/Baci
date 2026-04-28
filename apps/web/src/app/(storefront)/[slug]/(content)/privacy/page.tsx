@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
+import { toTemplateMerchantData } from '@/lib/merchant-template-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   generateMetaDescription,
@@ -109,8 +110,7 @@ export default async function PrivacyPage({ params }: PageProps) {
             <>
               {jsonLdScript}
               <PrivacyComponent
-                // biome-ignore lint/suspicious/noExplicitAny: CachedMerchant is a superset of what template components need
-                merchant={merchant as any}
+                merchant={toTemplateMerchantData(merchant)}
                 storeSlug={merchant.slug}
                 isPreview={false}
               />

@@ -271,7 +271,6 @@ export async function StorefrontContent({
         return (
           <>
             {homepageSchema}
-            {discoveryLinksSection}
             <AnalyticsProvider />
             <TemplateHome
               storeSlug={merchant.slug}
@@ -281,6 +280,7 @@ export async function StorefrontContent({
               isPreview={false}
               initialTheme={initialTheme}
             />
+            {discoveryLinksSection}
           </>
         );
       } catch (error) {
@@ -307,12 +307,12 @@ export async function StorefrontContent({
   return (
     <>
       {homepageSchema}
-      {discoveryLinksSection}
       <StorefrontWrapper
         products={merchantProducts}
         categories={categories || []}
         initialTheme={initialTheme}
       />
+      {discoveryLinksSection}
     </>
   );
 }
