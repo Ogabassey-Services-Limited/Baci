@@ -155,6 +155,15 @@ describe('GET /api/feed/openai', () => {
     const parsed = JSON.parse(text);
     expect(parsed.title).toBe('Test Phone');
     expect(parsed.merchant_name).toBe('Ogabassey');
+    expect(parsed.privacy_policy_url).toBe(
+      'https://ogabassey.usebaci.com/privacy'
+    );
+    expect(parsed.return_policy_url).toBe(
+      'https://ogabassey.usebaci.com/returns'
+    );
+    expect(parsed.terms_of_service_url).toBe(
+      'https://ogabassey.usebaci.com/terms'
+    );
   });
 
   it('passes resolved merchant UUID (not slug) to cached data fetcher', async () => {
@@ -690,11 +699,13 @@ describe('GET /api/feed/openai — stock and manage_stock', () => {
           id: 'SKU-RED',
           availability: 'in_stock',
           quantity: 9999,
+          return_policy_url: 'https://ogabassey.usebaci.com/returns',
         }),
         expect.objectContaining({
           id: 'SKU-BLUE',
           availability: 'in_stock',
           quantity: 9999,
+          return_policy_url: 'https://ogabassey.usebaci.com/returns',
         }),
       ])
     );

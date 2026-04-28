@@ -36,15 +36,8 @@ describe('GET /agent-commerce.json', () => {
       name: 'Ogabassey',
       canonical_origin: 'https://ogabassey.com',
     });
-    expect(body.capabilities).toEqual(
-      expect.arrayContaining([
-        'catalog.read',
-        'checkout.session.create',
-        'checkout.session.update',
-        'checkout.session.complete',
-        'order.read',
-      ])
-    );
+    expect(body.capabilities).toEqual(['catalog.read']);
+    expect(body.auth).toBeNull();
     expect(body.links.product_feed).toBe(
       'https://ogabassey.com/api/feed/openai?merchant_slug=ogabassey'
     );
@@ -52,9 +45,7 @@ describe('GET /agent-commerce.json', () => {
       agent_products:
         'https://ogabassey.com/api/feed/openai?merchant_slug=ogabassey&format=current',
     });
-    expect(body.links.checkout_sessions).toBe(
-      'https://ogabassey.com/api/agentic/checkout_sessions'
-    );
+    expect(body.links.checkout_sessions).toBeUndefined();
     expect(body.links).toMatchObject({
       privacy_policy_url: 'https://ogabassey.com/privacy',
       return_policy_url: 'https://ogabassey.com/returns',

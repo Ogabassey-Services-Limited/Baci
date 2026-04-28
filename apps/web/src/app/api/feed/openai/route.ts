@@ -12,7 +12,14 @@ import { getEffectiveStock } from '@/lib/product-stock';
 import { stripHtmlTags } from '@/lib/sanitize-core';
 import { buildStoreUrl } from '@/lib/store-url';
 import { getStorefrontAgentAvailability } from '@/lib/storefront-agent-availability';
-import { buildAgentProductUrl } from '@/lib/storefront-agent-urls';
+import {
+  buildAgentPolicyUrls,
+  buildAgentProductUrl,
+} from '@/lib/storefront-agent-urls';
+import {
+  buildRequestBaseUrl,
+  resolveStorefrontRouteIdentifier,
+} from '@/lib/storefront-host';
 import { RouteIdentifierSchema } from '@/schemas/route-identifier';
 import {
   getCachedOpenAIFeedData,
@@ -56,62 +63,14 @@ function getVariantStockCount(
     : 0;
 }
 
-function getRequestHost(request: Request): string {
-  const host = request.headers.get('host') || new URL(request.url).host || '';
-
-  return host
-    .split(',')[0]
-    .trim()
-    .replace(/^https?:\/\//i, '')
-    .replace(/\/.*$/, '')
-    .toLowerCase();
-}
-
-function stripPort(host: string): string {
-  if (host.startsWith('[')) {
-    const closingBracketIndex = host.indexOf(']');
-    return closingBracketIndex === -1
-      ? host
-      : host.slice(0, closingBracketIndex + 1);
-  }
-
-  return host.split(':')[0] || '';
-}
-
-function isLocalhostIdentifier(hostname: string): boolean {
-  return (
-    hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]'
-  );
-}
-
-function resolveFeedRouteIdentifier(request: Request): string {
-  const hostname = stripPort(getRequestHost(request)).replace(/^www\./, '');
-
-  if (!hostname || hostname === ROOT_DOMAIN) {
-    return '';
-  }
-
-  if (isLocalhostIdentifier(hostname)) {
-    return '';
-  }
-
-  if (hostname.endsWith(`.${ROOT_DOMAIN}`)) {
-    return hostname.slice(0, -(ROOT_DOMAIN.length + 1));
-  }
-
-  return hostname;
-}
-
-function buildFeedRequestBaseUrl(request: Request): string {
-  const requestUrl = new URL(request.url);
-  return `${requestUrl.protocol}//${getRequestHost(request)}`;
-}
-
 async function resolveVerifiedFeedBaseUrl(
   merchant: Merchant,
   request: Request
 ): Promise<VerifiedFeedBaseUrlResult> {
-  const routeIdentifier = resolveFeedRouteIdentifier(request);
+  const routeIdentifier = resolveStorefrontRouteIdentifier({
+    request,
+    rootDomain: ROOT_DOMAIN,
+  });
 
   if (!routeIdentifier) {
     return {
@@ -149,7 +108,7 @@ async function resolveVerifiedFeedBaseUrl(
 
   return {
     success: true,
-    baseUrl: buildFeedRequestBaseUrl(request),
+    baseUrl: buildRequestBaseUrl(request),
   };
 }
 
@@ -307,6 +266,7 @@ interface OpenAIFeedItem {
   merchant_name: string;
   merchant_url: string;
   privacy_policy_url?: string;
+  shipping_policy_url?: string;
   terms_of_service_url?: string;
 
   // Returns
@@ -350,6 +310,7 @@ function generateOpenAIFeed(
   baseUrl: string
 ): string[] {
   const currency = merchant.payout_currency || 'NGN';
+  const policyUrls = buildAgentPolicyUrls(baseUrl);
   const feedItems: string[] = [];
 
   // Filter out invalid products (kept parent validation just in case)
@@ -437,9 +398,7 @@ function generateOpenAIFeed(
 
           merchant_name: merchant.business_name,
           merchant_url: `${baseUrl}/${merchant.slug}`,
-          privacy_policy_url: `${baseUrl}/privacy`,
-          terms_of_service_url: `${baseUrl}/terms`,
-          return_policy_url: `${baseUrl}/pages/returns`,
+          ...policyUrls,
           return_days: 7,
         };
 
@@ -509,9 +468,7 @@ function generateOpenAIFeed(
         shipping_weight: shippingWeight,
         merchant_name: merchant.business_name,
         merchant_url: `${baseUrl}/${merchant.slug}`,
-        privacy_policy_url: `${baseUrl}/privacy`,
-        terms_of_service_url: `${baseUrl}/terms`,
-        return_policy_url: `${baseUrl}/pages/returns`,
+        ...policyUrls,
         return_days: 7,
       };
 
