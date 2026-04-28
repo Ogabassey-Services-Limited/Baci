@@ -1,6 +1,5 @@
 import { gzipSync } from 'node:zlib';
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 import { getRootDomain } from '@/env';
 import { CACHE_HEADERS } from '@/lib/cache-headers';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
@@ -13,24 +12,12 @@ import {
   buildRequestBaseUrl,
   resolveStorefrontRouteIdentifier,
 } from '@/lib/storefront-host';
+import { openAIFeedQuerySchema } from '@/schemas/openai-feed-query';
 import { RouteIdentifierSchema } from '@/schemas/route-identifier';
 import { generateCurrentOpenAIProductFeed } from './current-feed-generator';
 import { getCachedOpenAIFeedData } from './feed-data';
 import type { Merchant } from './feed-types';
 import { generateOpenAIFeed } from './legacy-feed-generator';
-
-const _FeedQuerySchema = z
-  .object({
-    merchant_id: z.string().uuid().optional(),
-    merchant_slug: z.string().min(1).optional(),
-    format: z.enum(['jsonl', 'plain', 'current']).optional(),
-  })
-  .refine((data) => data.merchant_id || data.merchant_slug, {
-    message: 'merchant_id or merchant_slug parameter is required',
-  })
-  .refine((data) => !(data.merchant_id && data.merchant_slug), {
-    message: 'Provide exactly one of merchant_id or merchant_slug, not both',
-  });
 
 const ROOT_DOMAIN = (getRootDomain() || 'usebaci.com').toLowerCase();
 
@@ -105,7 +92,7 @@ export async function GET(request: NextRequest) {
     format: searchParams.get('format') || undefined,
   };
 
-  const parsed = _FeedQuerySchema.safeParse(rawParams);
+  const parsed = openAIFeedQuerySchema.safeParse(rawParams);
   if (!parsed.success) {
     return NextResponse.json(
       {
