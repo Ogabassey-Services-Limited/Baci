@@ -2,6 +2,7 @@
 
 import { createContext, type ReactNode, useContext, useState } from 'react';
 import type { AIResponse, Change } from '@/app/dashboard/products/actions';
+import { useDebounce } from '@/hooks/use-debounce';
 import { useToast } from '@/hooks/use-toast';
 import { apiDelete, apiPost, apiPut } from '@/lib/api-client';
 import {
@@ -107,6 +108,9 @@ export const ProductProvider: React.FC<{
   const [searchTerm, setSearchTerm] = useState(
     initialData?.filters?.search ?? DEFAULT_PRODUCT_LIST_FILTERS.search
   );
+  // ⚡ Bolt: Debounce the searchTerm to prevent triggering a refetch on every keystroke,
+  // which reduces unnecessary server load and improves frontend responsiveness.
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const { toast } = useToast();
 
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
@@ -128,7 +132,7 @@ export const ProductProvider: React.FC<{
     initialData,
     pagination,
     migrationFilter,
-    searchTerm,
+    searchTerm: debouncedSearchTerm,
     statusFilter,
     stockFilter,
     setProducts,
