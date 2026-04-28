@@ -9,10 +9,16 @@ interface RootStackScreensProps {
 /**
  * Full `<Stack.Screen>` manifest for the storefront root stack. Extracted
  * from `RootLayoutNav.tsx` so that file stays under the 300-line limit
- * required by `CLAUDE.md`. Each entry mirrors the manifest Expo Router
- * reads for that route.
+ * required by `CLAUDE.md`.
+ *
+ * NOTE: This is intentionally NOT a React component — it's a plain function
+ * returning a fragment of `<Stack.Screen>` elements. Expo Router's `<Stack>`
+ * inspects its direct children for `Stack.Screen` and does not recurse into
+ * wrapper components (logs "Unknown child element passed to Stack"). Call
+ * this as `{renderRootStackScreens({...})}` so the fragment becomes the
+ * Stack's actual children.
  */
-export function RootStackScreens({
+export function renderRootStackScreens({
   mutedContentBackgroundColor,
 }: RootStackScreensProps) {
   return (
