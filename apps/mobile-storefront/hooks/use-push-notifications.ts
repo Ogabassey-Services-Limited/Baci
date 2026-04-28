@@ -3,6 +3,7 @@
  * Manages push notification registration and listeners
  */
 
+import Constants from 'expo-constants';
 import type { EventSubscription } from 'expo-modules-core';
 import { router } from 'expo-router';
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
@@ -26,6 +27,17 @@ import {
 import { useAuthStore } from '@/stores/auth-store';
 
 const log = createLogger('PushNotifications');
+
+/**
+ * The storefront app is single-tenant and bound to a known merchant at
+ * build time via `app.config.ts -> extra.merchantId`. Use this as the
+ * source of truth for push-token merchant attribution so we never race
+ * the auth store's relay (which is empty for guests / before merchant
+ * context loads). Reads the value once at module load.
+ */
+const STOREFRONT_MERCHANT_ID =
+  (Constants.expoConfig?.extra as { merchantId?: string } | undefined)
+    ?.merchantId ?? null;
 
 // 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
 let Notifications: typeof import('expo-notifications') | null = null;
@@ -120,7 +132,8 @@ export function usePushNotifications(): UsePushNotificationsReturn {
     if (isRegistered) return;
 
     const resolvedUserId = explicitUserId ?? user?.id;
-    const resolvedMerchantId = explicitMerchantId ?? merchantId;
+    const resolvedMerchantId =
+      explicitMerchantId ?? merchantId ?? STOREFRONT_MERCHANT_ID;
 
     // Per-user opt-out check. force: true (settings re-enable) clears it first.
     if (resolvedUserId) {
@@ -146,16 +159,19 @@ export function usePushNotifications(): UsePushNotificationsReturn {
         setPushToken(token);
         await storeLocalPushToken(token); // best-effort local persistence
 
-        if (resolvedUserId) {
+        if (resolvedUserId && resolvedMerchantId) {
           const saved = await savePushTokenToServer(
             token,
             resolvedUserId,
-            resolvedMerchantId || undefined
+            resolvedMerchantId
           );
           setRegisteredUserId(saved ? resolvedUserId : null);
           if (!saved) setError('Failed to register token with server');
         } else {
-          // Token ready; login-sync effect will upsert when user signs in
+          // Token ready; login-sync effect will upsert when user signs in.
+          // Skipping silently when merchantId is unresolvable (e.g. config
+          // missing) — surfacing the failure here would noise the UI for
+          // a misconfiguration the user can't act on.
           setRegisteredUserId(null);
         }
       } else {
@@ -261,8 +277,14 @@ export function usePushNotifications(): UsePushNotificationsReturn {
 
   // Auto-register when user logs in (login-sync effect)
   useEffect(() => {
-    if (user?.id && pushToken && registeredUserId !== user.id) {
-      savePushTokenToServer(pushToken, user.id, merchantId || undefined).then(
+    const effectiveMerchantId = merchantId ?? STOREFRONT_MERCHANT_ID;
+    if (
+      user?.id &&
+      pushToken &&
+      effectiveMerchantId &&
+      registeredUserId !== user.id
+    ) {
+      savePushTokenToServer(pushToken, user.id, effectiveMerchantId).then(
         (saved) => {
           setRegisteredUserId(saved ? user.id : null);
         }

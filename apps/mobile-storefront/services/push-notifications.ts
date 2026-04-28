@@ -169,13 +169,13 @@ async function setupAndroidChannels(): Promise<void> {
 export async function savePushTokenToServer(
   token: string,
   userId: string,
-  merchantId?: string
+  merchantId: string
 ): Promise<boolean> {
   try {
     const { error } = await supabase.from('push_tokens').upsert(
       {
         user_id: userId,
-        merchant_id: merchantId || null,
+        merchant_id: merchantId,
         token: token,
         platform: Platform.OS,
         device_name: Device?.modelName || 'Unknown',
