@@ -20,7 +20,6 @@ export interface ProductWithCategory {
   images: Array<string | { url: string }> | null;
   updated_at: string | null;
   category_id: string | null;
-  category_slug: string | null;
   categories: { slug: string | null } | null;
 }
 
@@ -108,7 +107,7 @@ export async function getProductSitemapEntries({
     const { data, error } = (await supabase
       .from('products')
       .select(
-        'id, slug, category, canonical_url, images, updated_at, category_id, category_slug, categories:category_id(slug)'
+        'id, slug, category, canonical_url, images, updated_at, category_id, categories:category_id(slug)'
       )
       .eq('merchant_id', merchant.id)
       .eq('status', 'active')
@@ -144,10 +143,6 @@ export async function getProductSitemapEntries({
       product.categories?.slug && product.categories.slug.trim().length > 0
         ? { slug: product.categories.slug.trim() }
         : null;
-    const normalizedCategorySlug =
-      product.category_slug && product.category_slug.trim().length > 0
-        ? product.category_slug.trim()
-        : undefined;
 
     const url = `${storeUrl}${getProductUrl({
       id: product.id,
@@ -155,7 +150,6 @@ export async function getProductSitemapEntries({
       name: product.slug || product.id,
       category: product.category,
       categories: normalizedJoinedCategory,
-      category_slug: normalizedCategorySlug,
       canonical_url: product.canonical_url,
     })}`;
 
@@ -319,6 +313,20 @@ export async function getCommercialSupportSitemapEntries(
 export async function getRootSitemapEntries(
   context: StorefrontSitemapContext
 ): Promise<MetadataRoute.Sitemap> {
+  const getSafeSitemapEntries = async (
+    label: string,
+    loader: () => Promise<MetadataRoute.Sitemap>
+  ): Promise<MetadataRoute.Sitemap> => {
+    try {
+      return await loader();
+    } catch (error) {
+      console.warn(`storefront sitemap: ${label} entries unavailable`, {
+        error,
+      });
+      return [];
+    }
+  };
+
   const [
     staticEntries,
     productEntries,
@@ -327,13 +335,14 @@ export async function getRootSitemapEntries(
     commercialSupportEntries,
   ] = await Promise.all([
     Promise.resolve(getStaticSitemapEntries(context.storeUrl)),
-    getProductSitemapEntries(context),
-    getCategorySitemapEntries(context),
-    // Blog entries require feature-flag + DB lookups that can throw on
-    // transient failures. Fail soft so the root sitemap stays available
-    // even when the blog data source is momentarily unreachable.
-    getBlogSitemapEntries(context).catch(() => [] as MetadataRoute.Sitemap),
-    getCommercialSupportSitemapEntries(context),
+    getSafeSitemapEntries('products', () => getProductSitemapEntries(context)),
+    getSafeSitemapEntries('categories', () =>
+      getCategorySitemapEntries(context)
+    ),
+    getSafeSitemapEntries('blog', () => getBlogSitemapEntries(context)),
+    getSafeSitemapEntries('commercial-support', () =>
+      getCommercialSupportSitemapEntries(context)
+    ),
   ]);
 
   return [

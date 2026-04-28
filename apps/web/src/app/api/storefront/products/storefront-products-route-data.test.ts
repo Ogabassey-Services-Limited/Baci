@@ -285,6 +285,31 @@ describe('storefrontProductsRouteData', () => {
     );
   });
 
+  it('maps unmanaged stock as purchasable for agents', () => {
+    const mapped = storefrontProductsRouteData.mapProduct({
+      id: 'product-3',
+      name: 'Riversong Watch',
+      description: 'Daily tracking smartwatch.',
+      price: 30600,
+      compare_at_price: null,
+      images: [],
+      image_hint: null,
+      category: 'Smartwatches',
+      category_id: null,
+      slug: 'riversong-watch',
+      stock: 0,
+      stock_quantity: 0,
+      manage_stock: false,
+      status: 'active',
+      condition: 'new',
+    });
+
+    expect(mapped.availability).toBe('in_stock');
+    expect(mapped.inventory_policy).toBe('untracked');
+    expect(mapped.is_purchasable).toBe(true);
+    expect(mapped.quantity_available).toBeNull();
+  });
+
   it('preserves explicit image order zero values', () => {
     expect(
       storefrontProductsRouteData.mapProduct({

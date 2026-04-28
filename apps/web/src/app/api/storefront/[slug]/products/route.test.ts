@@ -114,8 +114,15 @@ describe('GET /api/storefront/[slug]/products', () => {
         image: 'https://cdn.example.com/phone.jpg',
         imageLarge: 'https://cdn.example.com/phone.jpg',
         stock: 7,
+        availability: 'in_stock',
+        inventory_policy: 'untracked',
+        is_purchasable: true,
+        quantity_available: null,
       }),
     ]);
+    expect(response.headers.get('Cache-Control')).toBe(
+      'public, s-maxage=300, stale-while-revalidate=3600'
+    );
   });
 
   it('returns 404 when the merchant slug does not resolve', async () => {

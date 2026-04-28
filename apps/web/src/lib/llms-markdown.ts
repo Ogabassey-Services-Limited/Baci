@@ -1,6 +1,8 @@
 import { getBlogPostTextPreview } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/blog-post-content';
 import type { CachedMerchant } from '@/lib/cached-data';
 import { normalizeProduct, type RawDbProduct } from '@/lib/normalize-product';
+import { getStorefrontAgentAvailability } from '@/lib/storefront-agent-availability';
+import { buildAgentProductUrl } from '@/lib/storefront-agent-urls';
 import type { MerchantAboutPage } from '@/types/about-page';
 import { type FAQItem, parseLegacyFAQ } from '@/types/faq';
 
@@ -157,6 +159,10 @@ function getFaqItems(merchant: CachedMerchant): FAQItem[] {
   return [];
 }
 
+function getProductMarkdownMirrorUrl(productUrl: string): string {
+  return `${productUrl.replace(/\/+$/, '')}.md`;
+}
+
 export function buildStorefrontHomeMarkdown(
   merchant: CachedMerchant,
   origin: string
@@ -291,11 +297,13 @@ export function buildCategoryMarkdown(
     `- Product count in this view: ${products.length}`,
     '',
     '## Products',
-    ...products
-      .slice(0, 24)
-      .flatMap((product) => [
-        `- [${product.name}](${origin}/${product.category_slug}/${product.slug}.md): ${product.price} ${merchant.payout_currency || 'NGN'}${product.brand ? `, ${product.brand}` : ''}`,
-      ]),
+    ...products.slice(0, 24).flatMap((product) => {
+      const productUrl = buildAgentProductUrl({ baseUrl: origin, product });
+
+      return [
+        `- [${product.name}](${getProductMarkdownMirrorUrl(productUrl)}): ${product.price} ${merchant.payout_currency || 'NGN'}${product.brand ? `, ${product.brand}` : ''}`,
+      ];
+    }),
     '',
   ].join('\n');
 }
@@ -306,6 +314,16 @@ export function buildProductMarkdown(
   rawProduct: RawDbProduct
 ): string {
   const product = normalizeProduct(rawProduct);
+  const productUrl = buildAgentProductUrl({ baseUrl: origin, product });
+  const agentAvailability = getStorefrontAgentAvailability({
+    manage_stock:
+      typeof rawProduct.manage_stock === 'boolean'
+        ? rawProduct.manage_stock
+        : undefined,
+    stock: rawProduct.stock,
+    stock_quantity: rawProduct.stock_quantity,
+    low_stock_threshold: rawProduct.low_stock_threshold,
+  });
   const compareAt =
     product.compare_at_price && product.compare_at_price > product.price
       ? `- Compare at price: ${product.compare_at_price} ${merchant.payout_currency || 'NGN'}`
@@ -325,8 +343,11 @@ export function buildProductMarkdown(
     compareAt,
     `- Condition: ${product.condition}`,
     `- Availability: ${product.availability}`,
-    `- Canonical product URL: ${origin}/${product.category_slug}/${product.slug}`,
-    `- Markdown mirror: ${origin}/${product.category_slug}/${product.slug}.md`,
+    `- inventory_policy: ${agentAvailability.inventory_policy}`,
+    `- is_purchasable: ${String(agentAvailability.is_purchasable)}`,
+    `- quantity_available: ${agentAvailability.quantity_available ?? 'untracked'}`,
+    `- Canonical product URL: ${productUrl}`,
+    `- Markdown mirror: ${getProductMarkdownMirrorUrl(productUrl)}`,
     product.images[0] ? `- Primary image: ${product.images[0]}` : '',
     '',
   ]

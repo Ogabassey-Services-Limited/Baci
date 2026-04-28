@@ -756,7 +756,13 @@ export async function proxy(request: NextRequest) {
   // For root-domain paths like /ogabassey/about.md, rewrite to /api/llm/ogabassey/about
   // to avoid route collisions with dynamic [category] segments.
   // Custom domain and subdomain .md paths are handled in their respective sections below.
+  const isPlatformMarkdownHost =
+    isRootDomain(hostname, ROOT_DOMAIN) ||
+    isVercelPreview(hostname) ||
+    (isLocalhost(hostname) && extractLocalhostSubdomain(hostname) === null);
+
   if (
+    isPlatformMarkdownHost &&
     pathname.endsWith('.md') &&
     !pathname.startsWith('/api') &&
     !pathname.startsWith('/_next')

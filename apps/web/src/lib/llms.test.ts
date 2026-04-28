@@ -59,6 +59,21 @@ describe('buildLlmsText()', () => {
     expect(result).toContain('## Route Patterns');
   });
 
+  it('includes machine-readable commerce links for storefront hosts', () => {
+    const result = buildLlmsText(
+      'ogabassey.com',
+      'https://ogabassey.com',
+      true,
+      new Headers({ 'x-custom-domain': 'ogabassey.com' })
+    );
+
+    expect(result).toContain('## Machine-Readable Commerce');
+    expect(result).toContain('https://ogabassey.com/agent-commerce.json');
+    expect(result).toContain('Agent Commerce Manifest');
+    expect(result).not.toContain('/api/feed/openai?format=current');
+    expect(result).not.toContain('/feeds/google-merchant.xml');
+  });
+
   it('adds expanded guidance in the full variant', () => {
     const result = buildLlmsText(
       'ogabassey.com',

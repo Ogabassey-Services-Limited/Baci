@@ -1085,7 +1085,6 @@ describe('GET /agent-commerce.json', () => {
     expect(body.links.feeds).toMatchObject({
       agent_products:
         'https://ogabassey.com/api/feed/openai?merchant_slug=ogabassey&format=current',
-      google_merchant_xml: 'https://ogabassey.com/feeds/google-merchant.xml',
     });
     expect(body.links.checkout_sessions).toBe(
       'https://ogabassey.com/api/agentic/checkout_sessions'
@@ -1166,7 +1165,6 @@ export async function GET(request: Request) {
         product_feed: `${baseUrl}/api/feed/openai?merchant_slug=${slug}`,
         feeds: {
           agent_products: `${baseUrl}/api/feed/openai?merchant_slug=${slug}&format=current`,
-          google_merchant_xml: `${baseUrl}/feeds/google-merchant.xml`,
         },
         product_api: `${baseUrl}/api/storefront/${slug}/products`,
         checkout_sessions: `${baseUrl}/api/agentic/checkout_sessions`,

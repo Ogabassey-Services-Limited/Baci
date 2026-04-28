@@ -161,6 +161,39 @@ describe('Middleware Proxy', () => {
     );
   });
 
+  it.each([
+    ['/index.html.md', '/api/llm/ogabassey'],
+    ['/about.md', '/api/llm/ogabassey/about'],
+    [
+      '/laptops/hp-probook-440-g8.md',
+      '/api/llm/ogabassey/laptops/hp-probook-440-g8',
+    ],
+  ])('rewrites custom-domain markdown mirror %s to %s', async (path, expectedPath) => {
+    const req = new NextRequest(`https://ogabassey.com${path}`);
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+    const rewrite = res.headers.get('x-middleware-rewrite');
+
+    expect(rewrite).not.toBeNull();
+    expect(new URL(rewrite as string, 'https://ogabassey.com').pathname).toBe(
+      expectedPath
+    );
+  });
+
+  it('routes localhost subdomain markdown mirrors through the subdomain handler', async () => {
+    const req = new NextRequest('http://ogabassey.localhost:3000/about.md');
+    req.headers.set('host', 'ogabassey.localhost:3000');
+
+    const res = await proxy(req);
+    const rewrite = res.headers.get('x-middleware-rewrite');
+
+    expect(rewrite).not.toBeNull();
+    expect(
+      new URL(rewrite as string, 'http://ogabassey.localhost:3000').pathname
+    ).toBe('/api/llm/ogabassey/about');
+  });
+
   it('redirects custom-domain slug-prefixed products path to slugless canonical URL', async () => {
     const req = new NextRequest('https://ogabassey.com/ogabassey/products');
     req.headers.set('host', 'ogabassey.com');

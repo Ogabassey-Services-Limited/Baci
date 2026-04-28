@@ -97,6 +97,37 @@ describe('storefront markdown mirrors', () => {
     expect(result).toContain('https://ogabassey.com/phones/iphone-15.md');
   });
 
+  it('uses canonical product URLs in category markdown links', () => {
+    const result = buildCategoryMarkdown(
+      merchant,
+      'https://ogabassey.com',
+      'accessories',
+      {
+        isCollection: false,
+        fallbackName: 'Accessories',
+        fallbackDescription: 'Shop accessories.',
+        products: [
+          {
+            id: 'p1',
+            name: 'Riversong Motive 5T Smart Watch',
+            slug: 'riversong-motive-5t-smart-watch',
+            canonical_url: '/smartwatches/riversong-motive-5t-smart-watch',
+            price: 30600,
+            category: 'Accessories',
+            images: ['https://img.test/watch.jpg'],
+          },
+        ],
+      }
+    );
+
+    expect(result).toContain(
+      'https://ogabassey.com/smartwatches/riversong-motive-5t-smart-watch.md'
+    );
+    expect(result).not.toContain(
+      'https://ogabassey.com/accessories/riversong-motive-5t-smart-watch.md'
+    );
+  });
+
   it('builds product markdown with canonical details', () => {
     const result = buildProductMarkdown(merchant, 'https://ogabassey.com', {
       id: 'p1',
@@ -114,6 +145,70 @@ describe('storefront markdown mirrors', () => {
     expect(result).toContain(
       'Canonical product URL: https://ogabassey.com/phones/iphone-15'
     );
+  });
+
+  it('builds product markdown with agent-readable purchase metadata', () => {
+    const result = buildProductMarkdown(merchant, 'https://ogabassey.com', {
+      id: 'p1',
+      name: 'Riversong Motive 5T Smart Watch',
+      slug: 'riversong-motive-5t-smart-watch',
+      canonical_url: '/smartwatches/riversong-motive-5t-smart-watch',
+      description: 'Bluetooth smartwatch',
+      price: 30600,
+      category: 'Accessories',
+      stock: 0,
+      stock_quantity: 0,
+      manage_stock: false,
+      images: ['https://img.test/watch.jpg'],
+    });
+
+    expect(result).toContain(
+      'Canonical product URL: https://ogabassey.com/smartwatches/riversong-motive-5t-smart-watch'
+    );
+    expect(result).toContain(
+      'Markdown mirror: https://ogabassey.com/smartwatches/riversong-motive-5t-smart-watch.md'
+    );
+    expect(result).toContain('- inventory_policy: untracked');
+    expect(result).toContain('- is_purchasable: true');
+    expect(result).toContain('- quantity_available: untracked');
+  });
+
+  it('builds product markdown with tracked purchasable inventory', () => {
+    const result = buildProductMarkdown(merchant, 'https://ogabassey.com', {
+      id: 'p2',
+      name: 'ThinkPad T14',
+      slug: 'thinkpad-t14',
+      description: 'Business laptop',
+      price: 850000,
+      category: 'Laptops',
+      stock: 5,
+      stock_quantity: 5,
+      manage_stock: true,
+      images: ['https://img.test/thinkpad.jpg'],
+    });
+
+    expect(result).toContain('- inventory_policy: tracked');
+    expect(result).toContain('- is_purchasable: true');
+    expect(result).toContain('- quantity_available: 5');
+  });
+
+  it('builds product markdown with tracked out-of-stock inventory', () => {
+    const result = buildProductMarkdown(merchant, 'https://ogabassey.com', {
+      id: 'p3',
+      name: 'Galaxy Watch',
+      slug: 'galaxy-watch',
+      description: 'Smart watch',
+      price: 140000,
+      category: 'Smartwatches',
+      stock: 0,
+      stock_quantity: 0,
+      manage_stock: true,
+      images: ['https://img.test/watch.jpg'],
+    });
+
+    expect(result).toContain('- inventory_policy: tracked');
+    expect(result).toContain('- is_purchasable: false');
+    expect(result).toContain('- quantity_available: 0');
   });
 
   it('builds blog index markdown', () => {

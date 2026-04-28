@@ -13,6 +13,7 @@ const mockQueryResults = new Map<
   string,
   { data: unknown; error: Error | null }
 >();
+const mockSelectCalls: string[] = [];
 
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: (...args: unknown[]) =>
@@ -100,9 +101,15 @@ function createEq(table: string) {
 vi.mock('@/lib/supabase/anon', () => ({
   createAnonClient: vi.fn(() => ({
     from: (table: string) => ({
-      select: () => ({
-        eq: createEq(table),
-      }),
+      select: (columns?: string) => {
+        if (columns) {
+          mockSelectCalls.push(columns);
+        }
+
+        return {
+          eq: createEq(table),
+        };
+      },
     }),
   })),
 }));
@@ -128,6 +135,7 @@ describe('sitemap-data', () => {
     vi.clearAllMocks();
     mockHeaders = new Map();
     mockQueryResults.clear();
+    mockSelectCalls.length = 0;
     mockGetMerchantByIdentifier.mockResolvedValue({
       id: 'merchant-1',
       slug: 'ogabassey',
@@ -295,6 +303,59 @@ describe('sitemap-data', () => {
     expect(entries[0]).toMatchObject({
       url: 'https://ogabassey.com/products/macbook-pro-m4-max-36gb-1tb-16-inch',
     });
+  });
+
+  it('does not select missing products.category_slug directly', async () => {
+    mockProductsQuery([]);
+    const { getProductSitemapEntries } = await import('./sitemap-data');
+
+    await getProductSitemapEntries({
+      merchant: { id: 'merchant-1', slug: 'ogabassey' },
+      storeUrl: 'https://ogabassey.com',
+      supabase: {
+        from: (table: string) => ({
+          select: (columns: string) => {
+            mockSelectCalls.push(columns);
+            return { eq: createEq(table) };
+          },
+        }),
+      },
+    } as unknown as Parameters<typeof getProductSitemapEntries>[0]);
+
+    expect(mockSelectCalls.join('\n')).not.toMatch(/\bcategory_slug\b/);
+  });
+
+  it('keeps root sitemap available when product sitemap generation fails', async () => {
+    const { getRootSitemapEntries } = await import('./sitemap-data');
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+      return undefined;
+    });
+
+    try {
+      const entries = await getRootSitemapEntries({
+        merchant: {
+          id: 'merchant-1',
+          slug: 'ogabassey',
+          business_name: 'Ogabassey',
+        },
+        storeUrl: 'https://ogabassey.com',
+        supabase: {
+          from: () => {
+            throw new Error('catalog source unavailable');
+          },
+        },
+      } as unknown as Parameters<typeof getRootSitemapEntries>[0]);
+
+      expect(
+        entries.some((entry) => entry.url === 'https://ogabassey.com')
+      ).toBe(true);
+      expect(
+        entries.some((entry) => entry.url === 'https://ogabassey.com/faq')
+      ).toBe(true);
+      expect(warnSpy).toHaveBeenCalled();
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 
   it('includes blog entries in both root and dedicated blog sitemaps for full discoverability', async () => {

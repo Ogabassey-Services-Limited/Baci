@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockResolveFeedMerchant = vi.fn();
 const mockGetCachedOpenAIFeedData = vi.fn();
+const mockGetMerchantByIdentifier = vi.fn();
 
 vi.mock('@/lib/feed-identifier', () => {
   class _MerchantNotFoundError extends Error {
@@ -24,6 +25,11 @@ vi.mock('./feed-data', () => ({
     mockGetCachedOpenAIFeedData(...args),
 }));
 
+vi.mock('@/lib/cached-data', () => ({
+  getMerchantByIdentifier: (...args: unknown[]) =>
+    mockGetMerchantByIdentifier(...args),
+}));
+
 vi.mock('@/lib/cache-headers', () => ({
   CACHE_HEADERS: {
     LONG: {
@@ -40,22 +46,29 @@ interface ProductFixture {
   description: string;
   slug: string;
   price: number;
+  compare_at_price?: number;
   stock: number;
   stock_quantity?: number;
   manage_stock?: boolean;
+  category?: string;
+  category_slug?: string;
+  canonical_url?: string;
+  categories?: { name?: string | null; slug?: string | null } | null;
   images?: string[];
   updated_at: string;
   variants?: Array<{
     id: string;
     attributes: Record<string, string>;
+    price_override?: number;
     stock_quantity?: number;
     sku?: string;
+    primary_image?: string;
   }>;
 }
 
 function makeRequest(path: string) {
-  return new NextRequest(`https://example.com${path}`, {
-    headers: { host: 'ogabassey.baci.app' },
+  return new NextRequest(`https://ogabassey.usebaci.com${path}`, {
+    headers: { host: 'ogabassey.usebaci.com' },
   });
 }
 
@@ -85,6 +98,14 @@ beforeEach(() => {
     country: 'NG',
     payout_currency: 'NGN',
     slug: 'ogabassey',
+  });
+  mockGetMerchantByIdentifier.mockResolvedValue({
+    id: 'merchant-1',
+    business_name: 'Ogabassey',
+    country: 'NG',
+    payout_currency: 'NGN',
+    slug: 'ogabassey',
+    custom_domain: 'ogabassey.com',
   });
 
   mockGetCachedOpenAIFeedData.mockResolvedValue({
@@ -200,6 +221,355 @@ describe('GET /api/feed/openai', () => {
     const decompressed = gunzipSync(buffer).toString('utf-8');
     const parsed = JSON.parse(decompressed);
     expect(parsed.title).toBe('Test Phone');
+  });
+
+  it('rejects merchant_slug requests from mismatched storefront hosts', async () => {
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      id: 'merchant-other',
+      slug: 'other-store',
+      business_name: 'Other Store',
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(
+      new NextRequest(
+        'https://other-store.usebaci.com/api/feed/openai?merchant_slug=ogabassey',
+        { headers: { host: 'other-store.usebaci.com' } }
+      )
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('Merchant slug does not match storefront host');
+    expect(mockGetCachedOpenAIFeedData).not.toHaveBeenCalled();
+  });
+
+  it('does not trust spoofed storefront headers when verifying feed hosts', async () => {
+    mockGetMerchantByIdentifier.mockImplementation((identifier) => {
+      if (identifier === 'other-store') {
+        return {
+          id: 'merchant-other',
+          slug: 'other-store',
+          business_name: 'Other Store',
+        };
+      }
+
+      return {
+        id: 'merchant-1',
+        business_name: 'Ogabassey',
+        country: 'NG',
+        payout_currency: 'NGN',
+        slug: 'ogabassey',
+        custom_domain: 'ogabassey.com',
+      };
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(
+      new NextRequest(
+        'https://other-store.usebaci.com/api/feed/openai?merchant_slug=ogabassey&format=current',
+        {
+          headers: {
+            host: 'other-store.usebaci.com',
+            'x-custom-domain': 'ogabassey.com',
+            'x-merchant-slug': 'ogabassey',
+          },
+        }
+      )
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('Merchant slug does not match storefront host');
+    expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('other-store');
+    expect(mockGetMerchantByIdentifier).not.toHaveBeenCalledWith(
+      'ogabassey.com'
+    );
+    expect(mockGetCachedOpenAIFeedData).not.toHaveBeenCalled();
+  });
+
+  it('uses the canonical merchant URL when the request is not storefront scoped', async () => {
+    const { GET } = await import('./route');
+    const response = await GET(
+      new NextRequest(
+        'https://usebaci.com/api/feed/openai?merchant_slug=ogabassey&format=current',
+        { headers: { host: 'usebaci.com' } }
+      )
+    );
+    const line = (await response.text()).trim().split('\n')[0];
+    const parsed = JSON.parse(line);
+
+    expect(response.status).toBe(200);
+    expect(mockGetMerchantByIdentifier).not.toHaveBeenCalled();
+    expect(parsed.url).toBe(
+      'https://ogabassey.usebaci.com/products/test-phone'
+    );
+  });
+
+  it('treats IPv6 localhost with a port as not storefront scoped', async () => {
+    const { GET } = await import('./route');
+    const response = await GET(
+      new NextRequest(
+        'http://[::1]:3000/api/feed/openai?merchant_slug=ogabassey&format=current',
+        { headers: { host: '[::1]:3000' } }
+      )
+    );
+    const line = (await response.text()).trim().split('\n')[0];
+    const parsed = JSON.parse(line);
+
+    expect(response.status).toBe(200);
+    expect(mockGetMerchantByIdentifier).not.toHaveBeenCalled();
+    expect(parsed.url).toBe(
+      'https://ogabassey.usebaci.com/products/test-phone'
+    );
+  });
+
+  it('rejects storefront scoped requests when the host cannot be resolved', async () => {
+    mockGetMerchantByIdentifier.mockResolvedValue(null);
+
+    const { GET } = await import('./route');
+    const response = await GET(
+      new NextRequest(
+        'https://missing.usebaci.com/api/feed/openai?merchant_slug=ogabassey&format=current',
+        { headers: { host: 'missing.usebaci.com' } }
+      )
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('Merchant slug does not match storefront host');
+    expect(mockGetCachedOpenAIFeedData).not.toHaveBeenCalled();
+  });
+
+  it('emits current structured product objects when format=current', async () => {
+    mockGetCachedOpenAIFeedData.mockResolvedValue({
+      products: [
+        simpleProduct({
+          id: 'product-1',
+          name: 'Riversong Motive 5T Smart Watch',
+          slug: 'riversong-motive-5t-smart-watch',
+          category: 'Smartwatches',
+          categories: { name: 'Smartwatches', slug: 'smartwatches' },
+          price: 30600,
+          stock: 0,
+          manage_stock: false,
+        }),
+      ],
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(
+      new NextRequest(
+        'https://ogabassey.com/api/feed/openai?merchant_slug=ogabassey&format=current',
+        { headers: { host: 'ogabassey.com' } }
+      )
+    );
+    const line = (await response.text()).trim().split('\n')[0];
+    const parsed = JSON.parse(line);
+
+    expect(response.status).toBe(200);
+    expect(parsed).toMatchObject({
+      id: 'product-1',
+      title: 'Riversong Motive 5T Smart Watch',
+      url: 'https://ogabassey.com/smartwatches/riversong-motive-5t-smart-watch',
+    });
+    expect(parsed.variants[0]).toMatchObject({
+      id: 'product-1',
+      title: 'Riversong Motive 5T Smart Watch',
+      price: { amount: 30600, currency: 'NGN' },
+      availability: { available: true, status: 'in_stock' },
+    });
+  });
+
+  it('emits non-purchasable tracked availability in current feed', async () => {
+    mockGetCachedOpenAIFeedData.mockResolvedValue({
+      products: [
+        simpleProduct({
+          stock: 0,
+          stock_quantity: 0,
+          manage_stock: true,
+        }),
+      ],
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(
+      makeRequest('/api/feed/openai?merchant_slug=ogabassey&format=current')
+    );
+    const line = (await response.text()).trim().split('\n')[0];
+    const parsed = JSON.parse(line);
+
+    expect(response.status).toBe(200);
+    expect(parsed.variants[0].availability).toEqual({
+      available: false,
+      status: 'out_of_stock',
+      quantity: 0,
+    });
+  });
+
+  it('emits current feed variants from product variants', async () => {
+    mockGetCachedOpenAIFeedData.mockResolvedValue({
+      products: [
+        simpleProduct({
+          manage_stock: true,
+          compare_at_price: 60000,
+          category: 'Laptops',
+          variants: [
+            {
+              id: 'variant-red',
+              sku: 'SKU-RED',
+              attributes: { color: 'Red', storage: '256GB' },
+              price_override: 55000,
+              stock_quantity: 2,
+            },
+            {
+              id: 'variant-blue',
+              sku: 'SKU-BLUE',
+              attributes: { color: 'Blue' },
+              price_override: 53000,
+              stock_quantity: 0,
+            },
+          ],
+        }),
+      ],
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(
+      makeRequest('/api/feed/openai?merchant_slug=ogabassey&format=current')
+    );
+    const line = (await response.text()).trim().split('\n')[0];
+    const parsed = JSON.parse(line);
+
+    expect(response.status).toBe(200);
+    expect(parsed.variants).toEqual([
+      expect.objectContaining({
+        id: 'SKU-RED',
+        title: 'Test Phone - Red - 256GB',
+        price: { amount: 55000, currency: 'NGN' },
+        list_price: { amount: 60000, currency: 'NGN' },
+        availability: {
+          available: true,
+          status: 'in_stock',
+          quantity: 2,
+        },
+      }),
+      expect.objectContaining({
+        id: 'SKU-BLUE',
+        title: 'Test Phone - Blue',
+        price: { amount: 53000, currency: 'NGN' },
+        list_price: { amount: 60000, currency: 'NGN' },
+        availability: {
+          available: false,
+          status: 'out_of_stock',
+          quantity: 0,
+        },
+      }),
+    ]);
+  });
+
+  it('skips simple current feed products with non-positive prices', async () => {
+    mockGetCachedOpenAIFeedData.mockResolvedValue({
+      products: [simpleProduct({ price: 0 })],
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(
+      makeRequest('/api/feed/openai?merchant_slug=ogabassey&format=current')
+    );
+
+    expect(response.status).toBe(200);
+    expect((await response.text()).trim()).toBe('');
+  });
+
+  it('skips simple current feed products with negative prices', async () => {
+    mockGetCachedOpenAIFeedData.mockResolvedValue({
+      products: [simpleProduct({ price: -1 })],
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(
+      makeRequest('/api/feed/openai?merchant_slug=ogabassey&format=current')
+    );
+
+    expect(response.status).toBe(200);
+    expect((await response.text()).trim()).toBe('');
+  });
+
+  it('skips current feed variants with non-positive resolved prices', async () => {
+    mockGetCachedOpenAIFeedData.mockResolvedValue({
+      products: [
+        simpleProduct({
+          price: 60000,
+          manage_stock: true,
+          variants: [
+            {
+              id: 'variant-free',
+              sku: 'SKU-FREE',
+              attributes: { color: 'Free' },
+              price_override: 0,
+              stock_quantity: 2,
+            },
+            {
+              id: 'variant-paid',
+              sku: 'SKU-PAID',
+              attributes: { color: 'Paid' },
+              price_override: 12000,
+              stock_quantity: 4,
+            },
+          ],
+        }),
+      ],
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(
+      makeRequest('/api/feed/openai?merchant_slug=ogabassey&format=current')
+    );
+    const line = (await response.text()).trim().split('\n')[0];
+    const parsed = JSON.parse(line);
+
+    expect(response.status).toBe(200);
+    expect(parsed.variants).toEqual([
+      expect.objectContaining({
+        id: 'SKU-PAID',
+        price: { amount: 12000, currency: 'NGN' },
+      }),
+    ]);
+  });
+
+  it('skips current feed products when all variants have non-positive resolved prices', async () => {
+    mockGetCachedOpenAIFeedData.mockResolvedValue({
+      products: [
+        simpleProduct({
+          price: 60000,
+          variants: [
+            {
+              id: 'variant-free',
+              sku: 'SKU-FREE',
+              attributes: { color: 'Free' },
+              price_override: 0,
+              stock_quantity: 2,
+            },
+            {
+              id: 'variant-negative',
+              sku: 'SKU-NEGATIVE',
+              attributes: { color: 'Negative' },
+              price_override: -1,
+              stock_quantity: 2,
+            },
+          ],
+        }),
+      ],
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(
+      makeRequest('/api/feed/openai?merchant_slug=ogabassey&format=current')
+    );
+
+    expect(response.status).toBe(200);
+    expect((await response.text()).trim()).toBe('');
   });
 });
 
