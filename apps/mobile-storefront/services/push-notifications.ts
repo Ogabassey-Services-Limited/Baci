@@ -1,19 +1,5 @@
-/**
- * Push Notifications Service
- * Handles registration, permissions, and token management for Expo Push Notifications
- *
- * Requirements:
- * - Physical device (simulators don't support push)
- * - Development build (not Expo Go)
- * - Firebase project with google-services.json (Android)
- * - APNs configured via EAS (iOS - automatic)
- */
-
 import { getStorefrontNotificationNavigationTarget } from '@baci/shared/lib';
 import Constants from 'expo-constants';
-// M32 fix: Use type-only imports for expo-notifications types to avoid evaluation-time crashes.
-// Runtime values (AndroidImportance, SchedulableTriggerInputTypes) are accessed via the
-// dynamically imported `Notifications` module instead.
 import type {
   NotificationResponse,
   PermissionStatus,
@@ -24,7 +10,6 @@ import { supabase } from '@/lib/supabase';
 
 const log = createLogger('PushNotifications');
 
-// 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
 let Device: typeof import('expo-device') | null = null;
 let Notifications: typeof import('expo-notifications') | null = null;
 
@@ -38,7 +23,6 @@ const loadNativeModules = async () => {
     Device = dev;
     Notifications = notif;
 
-    // Configure notification behavior after successful load
     if (Notifications) {
       Notifications.setNotificationHandler({
         handleNotification: async () => ({
@@ -63,9 +47,6 @@ export interface PushNotificationState {
   permissionStatus: PermissionStatus | null;
 }
 
-/**
- * Request push notification permissions
- */
 export async function requestPermissions(): Promise<PermissionStatus | null> {
   if (!Notifications) return null;
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -78,12 +59,7 @@ export async function requestPermissions(): Promise<PermissionStatus | null> {
   return existingStatus;
 }
 
-/**
- * Register for push notifications and get the Expo Push Token
- * Returns null if registration fails or device doesn't support push
- */
 export async function registerForPushNotifications(): Promise<string | null> {
-  // Push notifications require a physical device and loaded modules
   if (!Device || !Notifications) {
     await loadNativeModules();
   }
@@ -95,7 +71,6 @@ export async function registerForPushNotifications(): Promise<string | null> {
     return null;
   }
 
-  // Check and request permissions
   const permissionStatus = await requestPermissions();
 
   if (permissionStatus !== 'granted') {
@@ -104,12 +79,10 @@ export async function registerForPushNotifications(): Promise<string | null> {
   }
 
   try {
-    // Get the Expo Push Token
     const projectId = Constants.expoConfig?.extra?.eas?.projectId;
 
     if (!projectId) {
       log.warn('EAS project ID not configured in app.json');
-      // Still try to get token without project ID for development
     }
 
     const tokenResponse = await Notifications.getExpoPushTokenAsync({
@@ -119,7 +92,6 @@ export async function registerForPushNotifications(): Promise<string | null> {
     const token = tokenResponse.data;
     log.debug('Expo Push Token:', token);
 
-    // Configure Android notification channel
     if (Platform.OS === 'android') {
       await setupAndroidChannels();
     }
@@ -131,12 +103,8 @@ export async function registerForPushNotifications(): Promise<string | null> {
   }
 }
 
-/**
- * Set up Android notification channels
- */
 async function setupAndroidChannels(): Promise<void> {
   if (!Notifications) return;
-  // Orders channel - high priority for order updates
   await Notifications.setNotificationChannelAsync('orders', {
     name: 'Order Updates',
     description: 'Notifications about your order status',
@@ -146,7 +114,6 @@ async function setupAndroidChannels(): Promise<void> {
     sound: 'default',
   });
 
-  // Promotions channel - default priority for deals
   await Notifications.setNotificationChannelAsync('promotions', {
     name: 'Deals & Promotions',
     description: 'Special offers and discounts',
@@ -154,7 +121,6 @@ async function setupAndroidChannels(): Promise<void> {
     sound: 'default',
   });
 
-  // General channel
   await Notifications.setNotificationChannelAsync('general', {
     name: 'General',
     description: 'General notifications',
@@ -162,21 +128,26 @@ async function setupAndroidChannels(): Promise<void> {
   });
 }
 
-/**
- * Save push token to Supabase for the current user
- * Includes merchant_id for the ogabassey store and is_active flag
- */
 export async function savePushTokenToServer(
   token: string,
   userId: string,
-  merchantId?: string
+  merchantId: string
 ): Promise<boolean> {
+  const trimmedToken = token.trim();
+  const trimmedUserId = userId.trim();
+  const trimmedMerchantId = merchantId.trim();
+
+  if (!trimmedToken || !trimmedUserId || !trimmedMerchantId) {
+    log.error('Refusing to save push token: empty token/userId/merchantId');
+    return false;
+  }
+
   try {
     const { error } = await supabase.from('push_tokens').upsert(
       {
-        user_id: userId,
-        merchant_id: merchantId || null,
-        token: token,
+        user_id: trimmedUserId,
+        merchant_id: trimmedMerchantId,
+        token: trimmedToken,
         platform: Platform.OS,
         device_name: Device?.modelName || 'Unknown',
         app_type: 'storefront',
@@ -201,9 +172,6 @@ export async function savePushTokenToServer(
   }
 }
 
-/**
- * Remove push token from server (on logout)
- */
 export async function removePushTokenFromServer(
   token: string
 ): Promise<boolean> {
@@ -225,9 +193,6 @@ export async function removePushTokenFromServer(
   }
 }
 
-/**
- * Handle notification tap - navigate to relevant screen
- */
 export function handleNotificationResponse(
   response: NotificationResponse,
   navigate: (screen: string, params?: Record<string, string>) => void
@@ -241,9 +206,6 @@ export function handleNotificationResponse(
   navigate(target.screen, 'params' in target ? target.params : undefined);
 }
 
-/**
- * Schedule a local notification (for testing or local reminders)
- */
 export async function scheduleLocalNotification(
   title: string,
   body: string,
@@ -267,9 +229,6 @@ export async function scheduleLocalNotification(
   return id;
 }
 
-/**
- * Cancel a scheduled notification
- */
 export async function cancelNotification(
   notificationId: string
 ): Promise<void> {
@@ -277,33 +236,21 @@ export async function cancelNotification(
   await Notifications.cancelScheduledNotificationAsync(notificationId);
 }
 
-/**
- * Cancel all scheduled notifications
- */
 export async function cancelAllNotifications(): Promise<void> {
   if (!Notifications) return;
   await Notifications.cancelAllScheduledNotificationsAsync();
 }
 
-/**
- * Get the current badge count
- */
 export async function getBadgeCount(): Promise<number> {
   if (!Notifications) return 0;
   return await Notifications.getBadgeCountAsync();
 }
 
-/**
- * Set the badge count
- */
 export async function setBadgeCount(count: number): Promise<void> {
   if (!Notifications) return;
   await Notifications.setBadgeCountAsync(count);
 }
 
-/**
- * Clear the badge
- */
 export async function clearBadge(): Promise<void> {
   if (!Notifications?.setBadgeCountAsync) return;
   try {

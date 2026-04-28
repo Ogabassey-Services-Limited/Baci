@@ -1,14 +1,12 @@
-/**
- * Push Notifications Hook
- * Manages push notification registration and listeners
- */
-
 import type { EventSubscription } from 'expo-modules-core';
 import { router } from 'expo-router';
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
+import { CONFIG } from '@/lib/config';
 import { createLogger } from '@/lib/logger';
+import { pickMerchantId } from '@/lib/pick-merchant-id';
+import { trackError } from '@/services/analytics';
 import {
   clearStoredPushToken,
   getStoredPushToken,
@@ -27,7 +25,8 @@ import { useAuthStore } from '@/stores/auth-store';
 
 const log = createLogger('PushNotifications');
 
-// 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
+const STOREFRONT_MERCHANT_ID = pickMerchantId(CONFIG.MERCHANT_ID);
+
 let Notifications: typeof import('expo-notifications') | null = null;
 let _notificationsReady: Promise<void>;
 
@@ -36,7 +35,6 @@ const loadNativeModules = async () => {
   try {
     Notifications = await import('expo-notifications');
   } catch (e) {
-    // BUG-4-005 FIX: Wrap console.debug with __DEV__ check
     if (__DEV__) {
       console.debug(
         '[PushHook] Notifications module ignored or failed to load:',
@@ -78,7 +76,6 @@ export function usePushNotifications(): UsePushNotificationsReturn {
   const responseListener = useRef<EventSubscription | null>(null);
   const isRegistered = Boolean(user?.id && registeredUserId === user.id);
 
-  // Navigation helper for notification taps
   const navigate = useEffectEvent(
     (screen: string, params?: Record<string, string>) => {
       switch (screen) {
@@ -105,24 +102,21 @@ export function usePushNotifications(): UsePushNotificationsReturn {
     }
   );
 
-  // Register for push notifications.
-  // Accepts explicit userId/merchantId so the caller's values are used
-  // instead of relying on closure state which may be stale due to
-  // React Compiler memoization.
-  // opts.force: true clears per-user opt-out (used by settings re-enable toggle).
   const register = async (
     explicitUserId?: string,
     explicitMerchantId?: string,
     opts?: { force?: boolean }
   ) => {
     if (isLoading) return;
-    // Idempotent: skip if already server-synced for current user
     if (isRegistered) return;
 
     const resolvedUserId = explicitUserId ?? user?.id;
-    const resolvedMerchantId = explicitMerchantId ?? merchantId;
+    const resolvedMerchantId = pickMerchantId(
+      explicitMerchantId,
+      merchantId,
+      STOREFRONT_MERCHANT_ID
+    );
 
-    // Per-user opt-out check. force: true (settings re-enable) clears it first.
     if (resolvedUserId) {
       if (opts?.force) {
         await setPushOptOut(resolvedUserId, false);
@@ -133,29 +127,34 @@ export function usePushNotifications(): UsePushNotificationsReturn {
     setError(null);
 
     try {
-      // 3-step token resolution — guarantees stored token is reused even if
-      // _layout.tsx fires before the hydration effect completes (race fix):
-      //   1. in-memory state (fastest, already hydrated)
-      //   2. AsyncStorage (cold start race — read directly here, not just in effect)
-      //   3. native Expo call (only if nothing stored)
       let token = pushToken;
       if (!token) token = await getStoredPushToken();
       if (!token) token = await registerForPushNotifications();
 
       if (token) {
         setPushToken(token);
-        await storeLocalPushToken(token); // best-effort local persistence
+        await storeLocalPushToken(token);
 
-        if (resolvedUserId) {
+        if (resolvedUserId && resolvedMerchantId) {
           const saved = await savePushTokenToServer(
             token,
             resolvedUserId,
-            resolvedMerchantId || undefined
+            resolvedMerchantId
           );
           setRegisteredUserId(saved ? resolvedUserId : null);
           if (!saved) setError('Failed to register token with server');
         } else {
-          // Token ready; login-sync effect will upsert when user signs in
+          if (resolvedUserId && !resolvedMerchantId) {
+            try {
+              trackError(
+                'push_token_merchant_id_unresolvable',
+                'No merchant id from explicit arg, auth store, or expo config',
+                { has_storefront_constant: STOREFRONT_MERCHANT_ID !== null }
+              );
+            } catch (trackErr) {
+              log.warn('Failed to track unresolvable merchantId:', trackErr);
+            }
+          }
           setRegisteredUserId(null);
         }
       } else {
@@ -170,16 +169,12 @@ export function usePushNotifications(): UsePushNotificationsReturn {
     }
   };
 
-  // Unregister push notifications (user-initiated disable from settings).
-  // Records user intent FIRST (clear local + opt-out), then awaits server
-  // deactivation so a fast re-enable cannot race a background disable request.
   const unregister = async () => {
     const token = pushToken || (await getStoredPushToken());
-    await clearStoredPushToken(); // always clear local
-    if (user?.id) await setPushOptOut(user.id, true); // always record opt-out
+    await clearStoredPushToken();
+    if (user?.id) await setPushOptOut(user.id, true);
     setPushToken(null);
     setRegisteredUserId(null);
-    // Await deactivation so disable → immediate re-enable can't race same token row
     if (token) {
       const removed = await removePushTokenFromServer(token);
       if (!removed) {
@@ -188,8 +183,6 @@ export function usePushNotifications(): UsePushNotificationsReturn {
     }
   };
 
-  // Hydrate token from AsyncStorage on mount — login-sync effect confirms server state.
-  // 2026: cancelled guard mirrors existing listener effect pattern below.
   useEffect(() => {
     let cancelled = false;
     getStoredPushToken().then((stored) => {
@@ -200,14 +193,12 @@ export function usePushNotifications(): UsePushNotificationsReturn {
     };
   }, []);
 
-  // Set up notification listeners on mount — wait for dynamic import to resolve
   useEffect(() => {
     const cancelledRef = { current: false };
 
     _notificationsReady.then(() => {
       if (cancelledRef.current || !Notifications) return;
 
-      // BUG-4-001 FIX: Remove old listeners before adding new ones to prevent memory leaks
       if (notificationListener.current) {
         notificationListener.current.remove();
         notificationListener.current = null;
@@ -217,7 +208,6 @@ export function usePushNotifications(): UsePushNotificationsReturn {
         responseListener.current = null;
       }
 
-      // Listener for notifications received while app is foregrounded
       notificationListener.current =
         Notifications.addNotificationReceivedListener(
           (notification: import('expo-notifications').Notification) => {
@@ -225,7 +215,6 @@ export function usePushNotifications(): UsePushNotificationsReturn {
           }
         );
 
-      // Listener for when user taps on a notification
       responseListener.current =
         Notifications.addNotificationResponseReceivedListener(
           (response: import('expo-notifications').NotificationResponse) => {
@@ -235,7 +224,6 @@ export function usePushNotifications(): UsePushNotificationsReturn {
           }
         );
 
-      // Check for notification that launched the app
       Notifications.getLastNotificationResponseAsync().then(
         (
           response: import('expo-notifications').NotificationResponse | null
@@ -259,10 +247,18 @@ export function usePushNotifications(): UsePushNotificationsReturn {
     };
   }, []);
 
-  // Auto-register when user logs in (login-sync effect)
   useEffect(() => {
-    if (user?.id && pushToken && registeredUserId !== user.id) {
-      savePushTokenToServer(pushToken, user.id, merchantId || undefined).then(
+    const effectiveMerchantId = pickMerchantId(
+      merchantId,
+      STOREFRONT_MERCHANT_ID
+    );
+    if (
+      user?.id &&
+      pushToken &&
+      effectiveMerchantId &&
+      registeredUserId !== user.id
+    ) {
+      savePushTokenToServer(pushToken, user.id, effectiveMerchantId).then(
         (saved) => {
           setRegisteredUserId(saved ? user.id : null);
         }
@@ -270,8 +266,6 @@ export function usePushNotifications(): UsePushNotificationsReturn {
     }
   }, [merchantId, pushToken, registeredUserId, user?.id]);
 
-  // Reset local React state on sign-out (non-null → null transition).
-  // Auth-store owns server cleanup; this effect only resets hook state.
   const prevUserRef = useRef(user);
   useEffect(() => {
     const wasSignedIn = prevUserRef.current !== null;
