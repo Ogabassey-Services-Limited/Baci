@@ -10,6 +10,7 @@ import { revalidateAnalytics } from '@/lib/cache-revalidation';
 import { getCachedPlatformAnalytics } from '@/lib/cached-data';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { adminAnalyticsQuerySchema } from '@/schemas/admin-analytics-query';
 import type { AdminMerchantHealthRow } from '@/types/admin-merchants';
@@ -591,7 +592,14 @@ export async function POST(request: NextRequest) {
         { status: 403 }
       );
     }
-    const { error } = await supabase.rpc('refresh_platform_analytics_views');
+    // `refresh_platform_analytics_views` is locked to service_role per the
+    // 20260428071421 advisor cleanup (no internal authz; refresh is
+    // expensive enough to be a DoS surface). Route-level admin gating
+    // above is the trust boundary; call via the admin client.
+    const adminSupabase = createAdminClient();
+    const { error } = await adminSupabase.rpc(
+      'refresh_platform_analytics_views'
+    );
 
     if (error) {
       console.error('Refresh error:', error);

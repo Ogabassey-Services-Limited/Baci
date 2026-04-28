@@ -54,8 +54,19 @@ const mockSupabase = {
   rpc: vi.fn(),
 };
 
+// `record_merchant_settlement` is called via the admin client (service role)
+// because Juicyway webhook callbacks have no user session and the function
+// is locked to service_role per the 20260428071421 advisor cleanup.
+const mockAdminSupabase = {
+  rpc: vi.fn().mockResolvedValue({ error: null }),
+};
+
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => mockSupabase),
+}));
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => mockAdminSupabase),
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -440,6 +451,7 @@ describe('POST /api/payments/juicyway/webhook', () => {
 
     (mockSupabase as Record<string, unknown>).from = fromMock;
     mockSupabase.rpc = vi.fn().mockResolvedValue({ error: null });
+    mockAdminSupabase.rpc = vi.fn().mockResolvedValue({ error: null });
 
     const payload = createSuccessPayload();
     const request = createWebhookRequest(payload);
@@ -455,8 +467,8 @@ describe('POST /api/payments/juicyway/webhook', () => {
     expect(transactionCallCount).toBe(2); // Should have been called twice (fetch + update)
     expect(orderUpdated).toBe(true);
 
-    // Verify RPC was called for settlement
-    expect(mockSupabase.rpc).toHaveBeenCalledWith(
+    // Verify settlement RPC was called via the admin (service-role) client.
+    expect(mockAdminSupabase.rpc).toHaveBeenCalledWith(
       'record_merchant_settlement',
       expect.objectContaining({
         p_merchant_id: 'merchant-123',

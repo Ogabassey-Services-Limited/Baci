@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -51,8 +52,12 @@ export async function GET() {
       );
     }
 
-    // Get health check summary
-    const { data: healthCheck, error: healthError } = await supabase.rpc(
+    // `check_database_health` is locked to the service_role per the
+    // 20260428071421 advisor cleanup (no internal authz inside the
+    // function). Call it through the admin client; route-level admin
+    // gating above (is_platform_admin check) is the trust boundary.
+    const adminSupabase = createAdminClient();
+    const { data: healthCheck, error: healthError } = await adminSupabase.rpc(
       'check_database_health'
     );
 

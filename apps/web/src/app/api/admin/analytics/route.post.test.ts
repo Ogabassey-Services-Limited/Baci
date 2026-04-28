@@ -6,6 +6,7 @@ const mockCheckCsrfProtection = vi.fn();
 const mockCookies = vi.fn();
 const mockGetMerchantForApiRequest = vi.fn();
 const mockCreateClient = vi.fn();
+const mockCreateAdminClient = vi.fn();
 const mockRevalidateAnalytics = vi.fn();
 
 vi.mock('next/headers', () => ({
@@ -31,6 +32,10 @@ vi.mock('@/lib/get-merchant-for-api-request', () => ({
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: (...args: unknown[]) => mockCreateClient(...args),
+}));
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: (...args: unknown[]) => mockCreateAdminClient(...args),
 }));
 
 function createQueryBuilder(result: { data?: unknown; error?: unknown }) {
@@ -68,6 +73,7 @@ function createRefreshRequest(init: RequestInit = {}): NextRequest {
 }
 
 let mockSupabase = createMockSupabase();
+let mockAdminRpc = vi.fn().mockResolvedValue({ error: null });
 
 import { POST } from './route';
 
@@ -77,6 +83,10 @@ describe('/api/admin/analytics route POST', () => {
     mockSupabase = createMockSupabase();
     mockCookies.mockReturnValue(new Map());
     mockCreateClient.mockReturnValue(mockSupabase);
+    // refresh_platform_analytics_views runs through the admin client
+    // (route uses createAdminClient() for that RPC call only).
+    mockAdminRpc = vi.fn().mockResolvedValue({ error: null });
+    mockCreateAdminClient.mockReturnValue({ rpc: mockAdminRpc });
     mockGetMerchantForApiRequest.mockResolvedValue({
       merchantId: 'merchant-1',
       staffAccess: { isStaff: false },
@@ -126,7 +136,7 @@ describe('/api/admin/analytics route POST', () => {
     },
     {
       arrange: () => {
-        mockSupabase.rpc.mockResolvedValueOnce({
+        mockAdminRpc.mockResolvedValueOnce({
           error: { message: 'refresh failed' },
         });
       },
@@ -150,7 +160,7 @@ describe('/api/admin/analytics route POST', () => {
 
     expect(response.status).toBe(200);
     expect(body.success).toBe(true);
-    expect(mockSupabase.rpc).toHaveBeenCalledWith(
+    expect(mockAdminRpc).toHaveBeenCalledWith(
       'refresh_platform_analytics_views'
     );
     expect(mockRevalidateAnalytics).toHaveBeenCalledTimes(1);
