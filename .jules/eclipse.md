@@ -11,3 +11,6 @@
 ## 2025-05-15 - Dynamic Colors for Interactive Elements
 **Learning:** Hardcoding `#FFF` or `#F3F4F6`, and using static `BRAND.primary` in component styles breaks dark mode support and ignores semantic theme mapping like `colors.price`.
 **Action:** Replace hardcoded colors with `colors.*` (like `colors.primaryForeground`, `colors.muted`, and `colors.primary`) to ensure components properly adapt to dark mode and respect the design system theme.
+## 2025-05-17 - Hardcoded Colors in Checkout Identity Modal
+**Learning:** Hardcoding `#FFF`, `#FFFFFF`, `#DC2626`, `#B91C1C`, `#FEE2E2` and using static `BRAND.primary` / `palette.gray` within component inline styles and `StyleSheet.create` breaks the modal's readability and integration with dark mode on mobile storefront.
+**Action:** Replace direct hex and static palette imports with dynamic values from `useTheme().colors` applied through inline style arrays, keeping static `StyleSheet.create` as a base style.
