@@ -125,9 +125,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: TAB_CONTENT_GAP,
   },
-  pressedTab: {
-    ...UTILITY_TYPE_TAB_PRESSED_STYLE,
-  },
+  pressedTab: UTILITY_TYPE_TAB_PRESSED_STYLE,
   label: {
     fontSize: LABEL_FONT_SIZE,
     fontWeight: '700',

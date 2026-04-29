@@ -15,6 +15,7 @@ import {
 import type { ReactNode } from 'react';
 import { Alert, View } from 'react-native';
 import Colors, { SPACING } from '@/constants/Colors';
+import type { VTUHistoryTransaction } from '@/hooks/use-vtu-history';
 import UtilityHistoryScreen from './history';
 
 interface MockStorefrontScreenShellProps {
@@ -32,8 +33,16 @@ const mockGetScrollContentStyle = jest.fn();
 const mockUseStorefrontInsets = jest.fn();
 const mockUseRequireAuth = jest.fn();
 const mockUseColorScheme = jest.fn(() => 'light');
-const mockUseVTUHistory = jest.fn();
 const mockRefetch = jest.fn(async () => undefined);
+type MockVTUHistoryResult = {
+  data: VTUHistoryTransaction[];
+  error: Error | null;
+  isLoading: boolean;
+  isRefetching: boolean;
+  refetch: typeof mockRefetch;
+};
+const mockUseVTUHistory =
+  jest.fn<(...args: unknown[]) => MockVTUHistoryResult>();
 const mockPush = jest.fn();
 const mockSetClipboardString = jest.fn<(text: string) => Promise<boolean>>();
 const mockShareUtilityReceipt = jest.fn<(input: unknown) => Promise<void>>();
@@ -103,9 +112,9 @@ function createFailedSyncHistoryData({
   history = {},
   transaction = {},
 }: {
-  history?: Record<string, unknown>;
-  transaction?: Record<string, unknown>;
-} = {}) {
+  history?: Partial<ReturnType<typeof mockUseVTUHistory>>;
+  transaction?: Partial<VTUHistoryTransaction>;
+} = {}): ReturnType<typeof mockUseVTUHistory> {
   return {
     data: [
       {
@@ -120,7 +129,6 @@ function createFailedSyncHistoryData({
         payment_reference: 'VTU-PAYSTACK-123',
         payment_status: 'completed',
         request_reference: 'VTU-123',
-        error: null,
         ...transaction,
       },
     ],

@@ -129,6 +129,7 @@ function setMetadataValue(
 export class VtuPersistenceError extends Error {
   constructor(message: string) {
     super(message);
+    Object.setPrototypeOf(this, VtuPersistenceError.prototype);
     this.name = 'VtuPersistenceError';
   }
 }

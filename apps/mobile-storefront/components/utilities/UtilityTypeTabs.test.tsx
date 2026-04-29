@@ -94,6 +94,10 @@ describe('UtilityTypeTabs', () => {
   });
 
   it('pressed style constant has reduced opacity', () => {
+    // React Native's unit renderer does not expose Pressable's transient
+    // pressed style without adding test-only props to UtilityTypeTabs. This pins
+    // the token used by styles.pressedTab while runtime feedback remains handled
+    // by Pressable.
     expect(UTILITY_TYPE_TAB_PRESSED_STYLE.opacity).toBeLessThan(1);
   });
 });

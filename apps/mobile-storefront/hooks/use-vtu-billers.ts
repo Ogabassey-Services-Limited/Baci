@@ -1,7 +1,7 @@
 import { withKudaElectricityBillItems } from '@baci/shared/lib';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import Constants from 'expo-constants';
 import { useEffect } from 'react';
+import { EXPO_PUBLIC_API_URL } from '@/env';
 import { fetchWithRetry } from '@/lib/api';
 import { logger } from '@/lib/logger';
 import { BILLER_GC_TIME, BILLER_STALE_TIME } from '@/lib/vtu-constants';
@@ -20,10 +20,7 @@ export const ALL_BILL_TYPES = [
 ] as const;
 export type BillType = (typeof ALL_BILL_TYPES)[number];
 
-const API_URL =
-  process.env.EXPO_PUBLIC_API_URL ||
-  Constants.expoConfig?.extra?.apiUrl ||
-  'https://ogabassey.usebaci.com';
+const API_URL = EXPO_PUBLIC_API_URL;
 
 const log = logger;
 

@@ -9,7 +9,6 @@ function extractIssuePaths(issues: z.ZodIssue[]) {
 describe('PaymentGatewayParamsSchema', () => {
   it('parses an order checkout payload with defaults', () => {
     const result = PaymentGatewayParamsSchema.parse({
-      amount: '1000',
       authorizationUrl: 'https://checkout.paystack.com/test',
       gateway: 'paystack',
       orderNumber: 'ORD-123',
@@ -19,6 +18,7 @@ describe('PaymentGatewayParamsSchema', () => {
     expect(result.authorizationUrl).toBe('https://checkout.paystack.com/test');
     expect(result.gateway).toBe('paystack');
     expect(result.reference).toBe('ref-123');
+    expect(result.amount).toBeUndefined();
     expect(result.paymentKind).toBe('order');
   });
 

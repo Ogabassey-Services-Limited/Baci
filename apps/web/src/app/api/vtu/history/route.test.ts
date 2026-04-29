@@ -316,11 +316,17 @@ describe('GET /api/vtu/history', () => {
       },
     ]);
     expect(vtuTransactionUpdateEqCalls).toContainEqual(['id', 'tx-1']);
-    expect(vtuTransactionUpdateFilters).toContainEqual([
-      'metadata',
-      'eq',
-      '{"alpha":"first","zeta":"last"}',
-    ]);
+    const metadataFilter = vtuTransactionUpdateFilters.find(
+      ([field, operator]) => field === 'metadata' && operator === 'eq'
+    );
+    expect(metadataFilter).toBeDefined();
+    if (!metadataFilter) {
+      throw new Error('Expected metadata optimistic-lock filter');
+    }
+    expect(JSON.parse(String(metadataFilter[2]))).toEqual({
+      alpha: 'first',
+      zeta: 'last',
+    });
     expect(mockBackfillVtuVoucherPin).not.toHaveBeenCalled();
 
     const scheduledBackfill = mockAfter.mock.calls[0]?.[0] as
@@ -345,6 +351,9 @@ describe('GET /api/vtu/history', () => {
 
   it('does not reschedule voucher-pin backfill when metadata already has a recent schedule marker', async () => {
     const { GET } = await import('./route');
+    const dateNowSpy = vi
+      .spyOn(Date, 'now')
+      .mockReturnValue(Date.parse('2026-04-29T12:00:01.000Z'));
     transactionsData = [
       {
         id: 'tx-1',
@@ -354,9 +363,7 @@ describe('GET /api/vtu/history', () => {
         amount: '2500',
         biller_name: 'EKEDC NG',
         metadata: {
-          voucherPinBackfillScheduledAt: new Date(
-            Date.now() - 1000
-          ).toISOString(),
+          voucherPinBackfillScheduledAt: '2026-04-29T12:00:00.000Z',
         },
         request_reference: 'VTU-123',
         transaction_id: 'kuda-bill-1',
@@ -365,21 +372,25 @@ describe('GET /api/vtu/history', () => {
     ];
     paymentRowsData = [];
 
-    const response = await GET(
-      makeRequest('?merchantSlug=ogabassey&type=electricity') as never
-    );
-    const data = await response.json();
+    try {
+      const response = await GET(
+        makeRequest('?merchantSlug=ogabassey&type=electricity') as never
+      );
+      const data = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(data.transactions).toEqual([
-      expect.objectContaining({
-        id: 'tx-1',
-        voucher_pin: null,
-      }),
-    ]);
-    expect(mockAfter).not.toHaveBeenCalled();
-    expect(mockBackfillVtuVoucherPin).not.toHaveBeenCalled();
-    expect(vtuTransactionUpdatePayloads).toEqual([]);
+      expect(response.status).toBe(200);
+      expect(data.transactions).toEqual([
+        expect.objectContaining({
+          id: 'tx-1',
+          voucher_pin: null,
+        }),
+      ]);
+      expect(mockAfter).not.toHaveBeenCalled();
+      expect(mockBackfillVtuVoucherPin).not.toHaveBeenCalled();
+      expect(vtuTransactionUpdatePayloads).toEqual([]);
+    } finally {
+      dateNowSpy.mockRestore();
+    }
   });
 
   it('returns 500 and does not schedule backfill when payment status lookup fails', async () => {
