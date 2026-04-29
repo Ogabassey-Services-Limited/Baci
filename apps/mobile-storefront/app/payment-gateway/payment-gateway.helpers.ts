@@ -11,10 +11,16 @@ export const PAYMENT_KINDS = {
 
 export type PaymentKind = (typeof PAYMENT_KINDS)[keyof typeof PAYMENT_KINDS];
 
-export const isPaymentGatewayRecord = (
+export const isPlainRecord = (
   value: unknown
-): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
+): value is Record<string, unknown> => {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+};
 
 export const isPaymentCompletionRedirect = (url: string): boolean => {
   try {

@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import Colors from '@/constants/Colors';
 import type { VTUHistoryTransaction } from '@/hooks/use-vtu-history';
+import { UTILITY_HISTORY_PAYMENT_RECEIVED_STATUS } from './history.constants';
 import UtilityTransactionCard from './UtilityTransactionCard';
 
 function createTransaction(
@@ -49,9 +50,9 @@ function renderCard(
     ...overrides,
   };
 
-  render(<UtilityTransactionCard {...props} />);
+  const renderResult = render(<UtilityTransactionCard {...props} />);
 
-  return props;
+  return { ...props, ...renderResult };
 }
 
 describe('UtilityTransactionCard', () => {
@@ -83,7 +84,9 @@ describe('UtilityTransactionCard', () => {
     const props = renderCard(transaction);
 
     expect(screen.queryByText('Repeat')).toBeNull();
-    expect(screen.getByText('Payment Received')).toBeOnTheScreen();
+    expect(screen.getByText('Payment Received')).toHaveStyle({
+      color: UTILITY_HISTORY_PAYMENT_RECEIVED_STATUS.color,
+    });
     expect(
       screen.getByText(
         'Payment received. Tap Sync payment to retry bill fulfillment.'
@@ -95,21 +98,28 @@ describe('UtilityTransactionCard', () => {
     expect(props.handleSyncPayment).toHaveBeenCalledWith(transaction);
   });
 
+  it('falls back when transaction type is unknown at runtime', () => {
+    renderCard(
+      createTransaction({
+        biller_name: null,
+        customer_identifier: null,
+        customer_name: null,
+        type: 'voucher' as unknown as VTUHistoryTransaction['type'],
+      })
+    );
+
+    expect(screen.getByText('Utility payment')).toBeOnTheScreen();
+    expect(
+      screen.getByText('Unknown transaction • Customer identifier unavailable')
+    ).toBeOnTheScreen();
+  });
+
   it('disables share and sync buttons while their actions are pending', () => {
     const transaction = createTransaction();
 
-    const { rerender } = render(
-      <UtilityTransactionCard
-        colors={Colors.light}
-        handleCopyVoucher={jest.fn()}
-        handleRepeatTransaction={jest.fn()}
-        handleShareReceipt={jest.fn()}
-        handleSyncPayment={jest.fn()}
-        sharingTransactionId="tx-1"
-        syncingTransactionId={null}
-        transaction={transaction}
-      />
-    );
+    const { rerender } = renderCard(transaction, {
+      sharingTransactionId: 'tx-1',
+    });
 
     expect(screen.getByText('Sharing...')).toBeOnTheScreen();
     expect(screen.getByLabelText('Share receipt for EKEDC NG')).toBeDisabled();

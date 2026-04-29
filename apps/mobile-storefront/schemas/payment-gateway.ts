@@ -6,6 +6,8 @@ const trimmedRequiredString = (message: string) =>
 const trimmedOptionalString = (message: string) =>
   trimmedRequiredString(message).optional();
 
+const optionalOrderIdentifier = z.string().trim().optional();
+
 const optionalPositiveAmount = z.preprocess(
   (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
   z.coerce.number().positive('Amount must be greater than 0').optional()
@@ -13,8 +15,8 @@ const optionalPositiveAmount = z.preprocess(
 
 export const PaymentGatewayParamsSchema = z
   .object({
-    orderId: trimmedOptionalString('Order ID cannot be empty'),
-    orderNumber: trimmedOptionalString('Order number cannot be empty'),
+    orderId: optionalOrderIdentifier,
+    orderNumber: optionalOrderIdentifier,
     gateway: z.enum(['paystack', 'korapay', 'juicyway'], {
       message: 'Invalid payment gateway',
     }),
@@ -51,7 +53,23 @@ export const PaymentGatewayParamsSchema = z
       return;
     }
 
-    if (!data.orderId && !data.orderNumber) {
+    if (data.orderId === '') {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Order ID cannot be empty',
+        path: ['orderId'],
+      });
+    }
+
+    if (data.orderNumber === '') {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Order number cannot be empty',
+        path: ['orderNumber'],
+      });
+    }
+
+    if (data.orderId === undefined && data.orderNumber === undefined) {
       ctx.addIssue({
         code: 'custom',
         message: 'Order ID or order number is required for order payments',

@@ -45,6 +45,7 @@ export function UtilityTypeTabs({
     <View
       accessibilityLabel="Utility service categories"
       accessibilityRole="tablist"
+      testID="utility-type-tabs"
       style={[
         styles.container,
         {
@@ -69,6 +70,7 @@ export function UtilityTypeTabs({
               accessibilityLabel={`${item.label} utility service`}
               accessibilityState={{ selected: isSelected }}
               accessibilityHint={`Switch to ${item.label} utility payments`}
+              testID={`utility-tab-${item.type}`}
               onPress={() => onSelect(item.type)}
               android_ripple={{
                 color: isSelected ? `${BRAND.onPrimary}24` : colors.border,

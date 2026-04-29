@@ -67,6 +67,20 @@ describe('utilityRepeatHelpers', () => {
     expect(params).not.toHaveProperty('repeatVerified');
   });
 
+  it('does not stringify a NaN history amount into route params', () => {
+    const params = utilityRepeatHelpers.getRouteParams({
+      id: 'tx-nan',
+      amount: Number.NaN,
+      created_at: '2026-04-28T12:00:00.000Z',
+      network_provider: null,
+      request_reference: 'ref-nan',
+      status: 'successful',
+      type: 'airtime',
+    });
+
+    expect(params).not.toHaveProperty('repeatAmount');
+  });
+
   it('normalizes Kuda telco provider names for mobile repeat forms', () => {
     const defaults = utilityRepeatHelpers.getDefaults({
       id: 'tx-2',

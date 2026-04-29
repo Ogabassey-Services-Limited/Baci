@@ -38,6 +38,15 @@ const FOOTER_HEIGHT = 120;
 const FOOTER_ERROR_BUFFER = 36;
 const SAVED_CARD_CONFIRMATION_GATEWAY: VTUPaymentGateway = 'paystack';
 
+function scrollToPayment(paymentY: number, scrollView: ScrollView | null) {
+  requestAnimationFrame(() => {
+    scrollView?.scrollTo({
+      animated: true,
+      y: Math.max(paymentY - SPACING.md, 0),
+    });
+  });
+}
+
 type DataProvider = 'mtn' | 'airtel' | 'glo' | 't2';
 
 function inferProviderFromDataBillerName(name: string): DataProvider | null {
@@ -140,19 +149,16 @@ export function DataForm({
 
   // Bug #H18: Guard against double-tap with isSubmitting state (same pattern as AirtimeForm)
   const isBusy = isSubmitting;
+  const scrollToPaymentY = (paymentY: number) => {
+    shouldScrollToPaymentRef.current = false;
+    scrollToPayment(paymentY, scrollViewRef.current);
+  };
 
   useEffect(() => {
     if (!wasRepeatPaymentReadyRef.current && isRepeatPaymentReady) {
       shouldScrollToPaymentRef.current = true;
       if (paymentYRef.current !== null) {
-        const paymentY = paymentYRef.current;
-        shouldScrollToPaymentRef.current = false;
-        requestAnimationFrame(() => {
-          scrollViewRef.current?.scrollTo({
-            animated: true,
-            y: Math.max(paymentY - SPACING.md, 0),
-          });
-        });
+        scrollToPaymentY(paymentYRef.current);
       }
     }
     wasRepeatPaymentReadyRef.current = isRepeatPaymentReady;
@@ -428,14 +434,7 @@ export function DataForm({
               return;
             }
 
-            const paymentY = paymentYRef.current;
-            shouldScrollToPaymentRef.current = false;
-            requestAnimationFrame(() => {
-              scrollViewRef.current?.scrollTo({
-                animated: true,
-                y: Math.max(paymentY - SPACING.md, 0),
-              });
-            });
+            scrollToPaymentY(paymentYRef.current);
           }}
         >
           <UtilityPaymentOptions

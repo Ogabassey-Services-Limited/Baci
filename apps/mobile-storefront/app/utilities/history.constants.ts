@@ -62,6 +62,7 @@ export const DEFAULT_UTILITY_HISTORY_STATUS_COLOR = palette.gray[700];
 export const DEFAULT_UTILITY_HISTORY_STATUS_LABEL = 'Unknown';
 
 export const UTILITY_HISTORY_PAYMENT_RECEIVED_STATUS = {
+  color: UTILITY_HISTORY_STATUS_COLORS.paymentReceived,
   label: 'Payment Received',
   message: 'Payment received. Tap Sync payment to retry bill fulfillment.',
 } as const;

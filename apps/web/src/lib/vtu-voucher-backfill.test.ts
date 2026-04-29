@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { createAdminClient } from '@/lib/supabase/admin';
 import {
   extractMetadataField,
@@ -226,6 +226,35 @@ describe('vtu-voucher-backfill', () => {
 
     expect(update).not.toHaveBeenCalled();
     expect(mocks.after).not.toHaveBeenCalled();
+  });
+
+  it('does not schedule backfill for transactions with invalid ids', async () => {
+    const updateQuery = createUpdateQueryMock();
+    const { supabase, update } = createSupabaseMock(updateQuery);
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    try {
+      await expect(
+        scheduleVoucherPinBackfill({
+          metadata: {},
+          originalMetadata: {},
+          supabase,
+          transaction: createTransaction({ id: { invalid: true } }),
+          voucherPin: null,
+        })
+      ).resolves.toBe(false);
+
+      expect(update).not.toHaveBeenCalled();
+      expect(mocks.after).not.toHaveBeenCalled();
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Cannot schedule VTU voucher-pin backfill without an id:',
+        expect.any(Object)
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it('does not enqueue backfill when the metadata claim updates no rows', async () => {

@@ -41,6 +41,10 @@ export function PaymentErrorView({
     const signal = retryControllerRef.current.signal;
     try {
       await onRetry(signal);
+    } catch (error) {
+      if (!signal.aborted) {
+        console.error('Payment retry failed:', error);
+      }
     } finally {
       if (!signal.aborted) {
         setIsRetrying(false);
@@ -67,7 +71,7 @@ export function PaymentErrorView({
           ),
         }}
       />
-      <View style={styles.statusContainer}>
+      <View style={styles.centeredContainer}>
         <View
           style={[
             styles.statusIcon,

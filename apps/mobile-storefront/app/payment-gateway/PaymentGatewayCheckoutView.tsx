@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { WebView, type WebViewNavigation } from 'react-native-webview';
+import { WebView } from 'react-native-webview';
 import { paymentGatewayStyles as styles } from '@/app/payment-gateway/payment-gateway.styles';
 import type Colors from '@/constants/Colors';
 import { BRAND, withAlpha } from '@/constants/Colors';
@@ -32,9 +32,13 @@ interface PaymentGatewayCheckoutViewProps {
   onError: NonNullable<ComponentProps<typeof WebView>['onError']>;
   onLoadEnd: () => void;
   onLoadStart: () => void;
-  onMessage: (event: { nativeEvent: { data: string } }) => void;
-  onNavigationStateChange: (navState: WebViewNavigation) => void;
-  onShouldStartLoadWithRequest: (request: { url: string }) => boolean;
+  onMessage: NonNullable<ComponentProps<typeof WebView>['onMessage']>;
+  onNavigationStateChange: NonNullable<
+    ComponentProps<typeof WebView>['onNavigationStateChange']
+  >;
+  onShouldStartLoadWithRequest: NonNullable<
+    ComponentProps<typeof WebView>['onShouldStartLoadWithRequest']
+  >;
   status: 'loading' | 'ready' | 'processing' | 'success' | 'error';
   ToastComponent: ComponentType;
   webViewRef: RefObject<WebView | null>;
@@ -135,7 +139,7 @@ export function PaymentGatewayCheckoutView({
           )}
         />
       ) : (
-        <View style={styles.statusContainer}>
+        <View style={styles.centeredContainer}>
           <Text style={[styles.statusMessage, { color: colors.textSecondary }]}>
             Checkout URL is missing.
           </Text>

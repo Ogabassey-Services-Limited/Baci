@@ -18,15 +18,20 @@ const mockShareUtilityReceipt = jest.mocked(shareUtilityReceipt);
 
 describe('ReceiptShareButton', () => {
   let alertSpy: jest.SpiedFunction<typeof Alert.alert>;
+  let consoleErrorSpy: jest.SpiedFunction<typeof console.error>;
 
   beforeEach(() => {
     jest.clearAllMocks();
     mockShareUtilityReceipt.mockResolvedValue(undefined);
     alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    consoleErrorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
   });
 
   afterEach(() => {
     alertSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
   });
 
   it('shares receipts when a transaction reference is available', async () => {
@@ -73,5 +78,33 @@ describe('ReceiptShareButton', () => {
     fireEvent.press(shareButton);
     expect(mockShareUtilityReceipt).not.toHaveBeenCalled();
     expect(alertSpy).not.toHaveBeenCalled();
+  });
+
+  it('reports share failures', async () => {
+    mockShareUtilityReceipt.mockRejectedValueOnce(new Error('Share failed'));
+
+    render(
+      <ReceiptShareButton
+        amount={1000}
+        colors={Colors.light}
+        identifier="08012345678"
+        status="successful"
+        txReference="VTU-123"
+        type="airtime"
+      />
+    );
+
+    fireEvent.press(screen.getByLabelText('Share utility receipt'));
+
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Share Failed',
+        'Could not generate the receipt PDF. Please try again.'
+      );
+    });
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Failed to share utility receipt:',
+      expect.any(Error)
+    );
   });
 });

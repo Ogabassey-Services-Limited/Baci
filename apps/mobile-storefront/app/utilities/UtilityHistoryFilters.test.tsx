@@ -15,16 +15,8 @@ describe('UtilityHistoryFilters', () => {
       />
     );
 
-    expect(
-      screen.getByLabelText('Show airtime history').props.accessibilityState
-    ).toMatchObject({
-      selected: true,
-    });
-    expect(
-      screen.getByLabelText('Show data history').props.accessibilityState
-    ).toMatchObject({
-      selected: false,
-    });
+    expect(screen.getByLabelText('Show airtime history')).toBeSelected();
+    expect(screen.getByLabelText('Show data history')).not.toBeSelected();
 
     fireEvent.press(screen.getByLabelText('Show data history'));
 

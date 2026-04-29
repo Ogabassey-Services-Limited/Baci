@@ -37,10 +37,10 @@ BEGIN
     ELSE 'bonus'
   END;
 
-  IF p_source_type = 'vtu_transaction' AND p_source_id IS NOT NULL THEN
+  IF p_source_id IS NOT NULL THEN
     PERFORM pg_catalog.pg_advisory_xact_lock(
       pg_catalog.hashtextextended(
-        'customer_wallet:vtu_transaction:' || p_source_id::text,
+        'customer_wallet:' || COALESCE(p_source_type, '<null-source-type>') || ':' || p_source_id::text,
         0
       )
     );
@@ -54,7 +54,7 @@ BEGIN
     WHERE
       cwt.customer_id = p_customer_id
       AND cwt.merchant_id = p_merchant_id
-      AND cwt.source_type = p_source_type
+      AND cwt.source_type IS NOT DISTINCT FROM p_source_type
       AND cwt.source_id = p_source_id
       AND cwt.type = v_transaction_type
     ORDER BY cwt.created_at DESC
@@ -129,10 +129,10 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
-  IF p_source_type = 'vtu_transaction' AND p_source_id IS NOT NULL THEN
+  IF p_source_id IS NOT NULL THEN
     PERFORM pg_catalog.pg_advisory_xact_lock(
       pg_catalog.hashtextextended(
-        'merchant_wallet:vtu_transaction:' || p_source_id::text,
+        'merchant_wallet:' || COALESCE(p_source_type, '<null-source-type>') || ':' || p_source_id::text,
         0
       )
     );
@@ -145,7 +145,7 @@ BEGIN
     FROM public.wallet_transactions wt
     WHERE
       wt.merchant_id = p_merchant_id
-      AND wt.source_type = p_source_type
+      AND wt.source_type IS NOT DISTINCT FROM p_source_type
       AND wt.source_id = p_source_id
       AND wt.type = 'credit'
     ORDER BY wt.created_at DESC
@@ -169,7 +169,7 @@ BEGIN
 
   IF NOT FOUND OR v_new_balance IS NULL THEN
     RAISE EXCEPTION 'Unable to credit merchant wallet % because it was not found', v_wallet_id
-      USING ERRCODE = '22023';
+      USING ERRCODE = 'P0002';
   END IF;
 
   INSERT INTO public.wallet_transactions (
@@ -191,7 +191,16 @@ BEGIN
     v_new_balance,
     p_source_type,
     p_source_id,
-    COALESCE(p_description, 'VTU Commission'),
+    COALESCE(
+      p_description,
+      pg_catalog.initcap(
+        pg_catalog.replace(
+          COALESCE(NULLIF(pg_catalog.btrim(p_source_type), ''), 'wallet'),
+          '_',
+          ' '
+        )
+      ) || ' Commission'
+    ),
     'completed'
   )
   RETURNING id INTO v_transaction_id;

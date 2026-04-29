@@ -8,6 +8,10 @@ import { BillForm } from '@/components/utilities/BillForm';
 import { DataForm } from '@/components/utilities/DataForm';
 import { UtilityTypeTabs } from '@/components/utilities/UtilityTypeTabs';
 import Colors from '@/constants/Colors';
+import {
+  NETWORK_PROVIDERS,
+  type NetworkProviderId,
+} from '@/constants/network-providers';
 import { useKeyboard } from '@/hooks/use-keyboard';
 import { RouteRepeatParamsSchema } from '@/schemas/utility-purchase';
 import { useAuthStore } from '@/stores/auth-store';
@@ -38,6 +42,39 @@ interface UtilityRouteParams extends RouteRepeatParams {
   voucherPin?: string;
 }
 
+type UtilityRouteSuccessData = Omit<UtilityPurchaseResult, 'voucherPin'> & {
+  voucherPin: string | null;
+};
+
+type UtilityRouteParamKey = keyof UtilityRouteParams;
+
+const UTILITY_ROUTE_PARAM_KEYS = [
+  'amount',
+  'cashbackAmount',
+  'cashbackNewBalance',
+  'customerIdentifier',
+  'paymentStatus',
+  'reference',
+  'repeatAmount',
+  'repeatBillerName',
+  'repeatBillItemIdentifier',
+  'repeatCustomerIdentifier',
+  'repeatDataPlanCode',
+  'repeatNetworkProvider',
+  'repeatPhoneNumber',
+  'repeatVerified',
+  'type',
+  'voucherPin',
+] as const satisfies readonly UtilityRouteParamKey[];
+
+const QUICK_REPEAT_BOTTOM_OFFSET = 92; // Keeps the prompt above fixed payment controls.
+
+function getNetworkProviderId(
+  value: string | undefined
+): NetworkProviderId | undefined {
+  return NETWORK_PROVIDERS.find((provider) => provider.id === value)?.id;
+}
+
 function safeParseNumber(value: string | undefined, fallback = 0) {
   if (typeof value !== 'string') {
     return fallback;
@@ -52,7 +89,7 @@ function getSearchParamValue(value: string | string[] | undefined) {
 
 function getParamSuccessData(
   params: UtilityRouteParams
-): UtilityPurchaseResult | null {
+): UtilityRouteSuccessData | null {
   const hasPaymentStatus =
     params.paymentStatus === 'successful' ||
     params.paymentStatus === 'processing';
@@ -72,34 +109,30 @@ function getParamSuccessData(
     customerIdentifier: params.customerIdentifier,
     reference: params.reference,
     status: params.paymentStatus as 'processing' | 'successful',
-    voucherPin: params.voucherPin,
+    voucherPin: params.voucherPin ?? null,
   };
 }
 
 export default function UtilityPurchaseScreen() {
-  const rawParams = useLocalSearchParams();
-  const params: UtilityRouteParams = {
-    amount: getSearchParamValue(rawParams.amount),
-    cashbackAmount: getSearchParamValue(rawParams.cashbackAmount),
-    cashbackNewBalance: getSearchParamValue(rawParams.cashbackNewBalance),
-    customerIdentifier: getSearchParamValue(rawParams.customerIdentifier),
-    paymentStatus: getSearchParamValue(rawParams.paymentStatus),
-    reference: getSearchParamValue(rawParams.reference),
-    repeatAmount: getSearchParamValue(rawParams.repeatAmount),
-    repeatBillerName: getSearchParamValue(rawParams.repeatBillerName),
-    repeatBillItemIdentifier: getSearchParamValue(
-      rawParams.repeatBillItemIdentifier
-    ),
-    repeatCustomerIdentifier: getSearchParamValue(
-      rawParams.repeatCustomerIdentifier
-    ),
-    repeatDataPlanCode: getSearchParamValue(rawParams.repeatDataPlanCode),
-    repeatNetworkProvider: getSearchParamValue(rawParams.repeatNetworkProvider),
-    repeatPhoneNumber: getSearchParamValue(rawParams.repeatPhoneNumber),
-    repeatVerified: getSearchParamValue(rawParams.repeatVerified),
-    type: getSearchParamValue(rawParams.type) ?? '',
-    voucherPin: getSearchParamValue(rawParams.voucherPin),
-  };
+  const rawParams =
+    useLocalSearchParams<
+      Partial<Record<UtilityRouteParamKey, string | string[]>>
+    >();
+  const params = UTILITY_ROUTE_PARAM_KEYS.reduce<UtilityRouteParams>(
+    (routeParams, key) => {
+      const value = getSearchParamValue(rawParams[key]);
+
+      if (key === 'type') {
+        routeParams.type = value ?? '';
+        return routeParams;
+      }
+
+      routeParams[key] = value;
+
+      return routeParams;
+    },
+    { type: '' }
+  );
   const repeatParamsResult = RouteRepeatParamsSchema.safeParse(params);
   const repeatParams = repeatParamsResult.success
     ? repeatParamsResult.data
@@ -195,7 +228,7 @@ export default function UtilityPurchaseScreen() {
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={headerOffset}
-        style={styles.flex}
+        style={styles.container}
       >
         <UtilityTypeTabs
           selectedType={currentType}
@@ -206,7 +239,9 @@ export default function UtilityPurchaseScreen() {
             key={`airtime-${quickRepeat.repeatRevision}`}
             initialAmount={quickRepeat.repeatDefaults.amount}
             initialPhoneNumber={quickRepeat.repeatDefaults.phoneNumber}
-            initialProvider={quickRepeat.repeatDefaults.networkProvider}
+            initialProvider={getNetworkProviderId(
+              quickRepeat.repeatDefaults.networkProvider
+            )}
             isRepeatPaymentReady={quickRepeat.isRepeatPaymentReady}
             onSuccess={setSuccessData}
           />
@@ -242,7 +277,7 @@ export default function UtilityPurchaseScreen() {
         ) : null}
       </KeyboardAvoidingView>
       <QuickRepeatPrompt
-        bottom={Math.max(insets.bottom, 12) + 92}
+        bottom={Math.max(insets.bottom, 12) + QUICK_REPEAT_BOTTOM_OFFSET}
         colors={colors}
         isLoading={quickRepeat.isRecentTransactionsLoading}
         lastTransaction={quickRepeat.lastTransaction}

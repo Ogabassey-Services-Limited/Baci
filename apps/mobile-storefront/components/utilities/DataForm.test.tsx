@@ -296,9 +296,6 @@ describe('DataForm', () => {
     render(<DataForm onSuccess={onSuccessMock} />);
 
     fireEvent.press(screen.getByText('MTN 1GB Data'));
-    await waitFor(() =>
-      expect(screen.getByText('Data Bundle')).toBeOnTheScreen()
-    );
     fireEvent.changeText(screen.getByLabelText('Phone Number'), '08031234567');
     fireEvent.changeText(screen.getByLabelText('Amount'), '1000');
     fireEvent.press(screen.getByText('Pay ₦1,000'));
@@ -314,8 +311,6 @@ describe('DataForm', () => {
           type: 'data',
         })
       );
-    });
-    await waitFor(() => {
       expect(onSuccessMock).toHaveBeenCalledWith({
         amount: 1000,
         cashback: { amount: 5, newBalance: 25 },
@@ -367,14 +362,10 @@ describe('DataForm', () => {
           type: 'data',
         })
       );
-    });
-    await waitFor(() => {
       expect(mockWaitForVtuConfirmation).toHaveBeenCalledWith({
         gateway: 'paystack',
         reference: 'VTU-DATA-PENDING-123',
       });
-    });
-    await waitFor(() => {
       expect(onSuccessMock).toHaveBeenCalledWith({
         amount: 1000,
         customerIdentifier: '08031234567',

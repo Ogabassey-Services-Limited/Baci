@@ -167,6 +167,7 @@ export const PAYMENT_CLIPBOARD_BRIDGE = {
     postCopy(String(text));
 
     if (!originalWriteText) {
+      console.warn('Baci clipboard bridge writeText unavailable; native write skipped');
       return Promise.resolve();
     }
 
@@ -260,12 +261,6 @@ export const PAYMENT_CLIPBOARD_BRIDGE = {
     }
   }, true);
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', scanForAccountNumber);
-  } else {
-    scanForAccountNumber();
-  }
-
   function hasAccountNumberCandidate(node) {
     if (!node) {
       return false;
@@ -273,19 +268,39 @@ export const PAYMENT_CLIPBOARD_BRIDGE = {
     return Boolean(findAccountNumber(node.innerText || node.textContent || ''));
   }
 
-  var preferredObserverTarget = document.querySelector('main, [role="main"], form');
-  var broadObserverTarget = document.body || document.documentElement;
-  var observerTarget =
-    preferredObserverTarget && hasAccountNumberCandidate(preferredObserverTarget)
-      ? preferredObserverTarget
-      : broadObserverTarget;
-  if (window.MutationObserver && observerTarget) {
-    var observer = new MutationObserver(scheduleAccountNumberScan);
+  function installAccountNumberObserver() {
+    var MutationObserverConstructor = window.MutationObserver;
+    if (typeof MutationObserverConstructor !== 'function') {
+      return;
+    }
+
+    var preferredObserverTarget = document.querySelector('main, [role="main"], form');
+    var broadObserverTarget = document.body || document.documentElement;
+    var observerTarget =
+      preferredObserverTarget && hasAccountNumberCandidate(preferredObserverTarget)
+        ? preferredObserverTarget
+        : broadObserverTarget;
+    if (!observerTarget) {
+      return;
+    }
+
+    var observer = new MutationObserverConstructor(scheduleAccountNumberScan);
     observer.observe(observerTarget, {
       characterData: true,
       childList: true,
       subtree: true
     });
+  }
+
+  function initializeAccountNumberScanning() {
+    scanForAccountNumber();
+    installAccountNumberObserver();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeAccountNumberScanning);
+  } else {
+    initializeAccountNumberScanning();
   }
 
   setTimeout(scheduleAccountNumberScan, 500);

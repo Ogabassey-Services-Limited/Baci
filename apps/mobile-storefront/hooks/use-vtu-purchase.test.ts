@@ -3,7 +3,10 @@ import { notifyManager } from '@tanstack/query-core';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook } from '@testing-library/react-native';
 import { createElement, type PropsWithChildren } from 'react';
-import { useVTUPurchase } from '@/hooks/use-vtu-purchase';
+import {
+  buildVtuPurchaseUrl,
+  useVTUPurchase,
+} from '@/hooks/use-vtu-purchase';
 
 type MockFetchResponse = {
   ok: boolean;
@@ -25,6 +28,7 @@ const mockScheduleLocalNotification =
   jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const mockGetUser = jest.fn<() => Promise<MockUserResult>>();
 const mockGetSession = jest.fn<() => Promise<MockSessionResult>>();
+let mockExpoPublicApiUrl = 'https://usebaci.com/';
 
 jest.mock('@/lib/fetch-with-timeout', () => ({
   DEFAULT_TIMEOUT: 30000,
@@ -32,7 +36,9 @@ jest.mock('@/lib/fetch-with-timeout', () => ({
 }));
 
 jest.mock('@/env', () => ({
-  EXPO_PUBLIC_API_URL: 'https://usebaci.com/',
+  get EXPO_PUBLIC_API_URL() {
+    return mockExpoPublicApiUrl;
+  },
 }));
 
 jest.mock('@/services/push-notifications', () => ({
@@ -94,6 +100,7 @@ afterAll(() => {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockExpoPublicApiUrl = 'https://usebaci.com/';
   mockGetUser.mockResolvedValue({
     data: { user: { id: 'auth-user-1' } },
     error: null,
@@ -104,6 +111,22 @@ beforeEach(() => {
 });
 
 describe('useVTUPurchase', () => {
+  describe('buildVtuPurchaseUrl', () => {
+    it('builds a purchase URL from a configured API base URL', () => {
+      expect(buildVtuPurchaseUrl()).toBe(
+        'https://usebaci.com/api/vtu/purchase'
+      );
+    });
+
+    it('fails fast when the API base URL is empty', () => {
+      mockExpoPublicApiUrl = '   ';
+
+      expect(() => buildVtuPurchaseUrl()).toThrow(
+        'EXPO_PUBLIC_API_URL is required for VTU purchases.'
+      );
+    });
+  });
+
   it('resolves purchase success without waiting for cashback notification scheduling', async () => {
     const queryClient = createTestClient();
     mockFetchWithTimeout.mockResolvedValue({

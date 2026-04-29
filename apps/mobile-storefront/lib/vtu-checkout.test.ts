@@ -24,6 +24,10 @@ type MockFetchResponse = {
   json: () => Promise<Record<string, unknown>>;
 };
 
+type JsonRequestInit = RequestInit & {
+  body: string;
+};
+
 type MockUserResult = {
   data: { user: { id: string } | null };
   error: Error | null;
@@ -37,6 +41,20 @@ const mockFetchWithTimeout =
   jest.fn<(...args: unknown[]) => Promise<MockFetchResponse>>();
 const mockGetUser = jest.fn<() => Promise<MockUserResult>>();
 const mockGetSession = jest.fn<() => Promise<MockSessionResult>>();
+
+function getMockRequestInit(callIndex = 0): JsonRequestInit {
+  const requestInit = mockFetchWithTimeout.mock.calls[callIndex]?.[1];
+  expect(requestInit).toHaveProperty('body');
+  if (!requestInit || typeof (requestInit as RequestInit).body !== 'string') {
+    throw new Error('Expected request body to be a JSON string');
+  }
+  return requestInit as JsonRequestInit;
+}
+
+function parseMockRequestBody(callIndex = 0): Record<string, unknown> {
+  const checkoutRequest = getMockRequestInit(callIndex);
+  return JSON.parse(checkoutRequest.body) as Record<string, unknown>;
+}
 
 jest.mock('expo-constants', () => ({
   __esModule: true,
@@ -143,13 +161,7 @@ describe('vtu-checkout service', () => {
         }),
       })
     );
-    const checkoutRequest = mockFetchWithTimeout.mock.calls[0]?.[1];
-    expect(checkoutRequest).toHaveProperty('body');
-    const checkoutRequestBody = (checkoutRequest as { body?: unknown }).body;
-    expect(typeof checkoutRequestBody).toBe('string');
-    expect(
-      JSON.parse(String(checkoutRequestBody)) as Record<string, unknown>
-    ).toMatchObject({
+    expect(parseMockRequestBody()).toMatchObject({
       networkProvider: MOBILE_TO_KUDA_PROVIDER.mtn,
     });
   });
@@ -171,6 +183,23 @@ describe('vtu-checkout service', () => {
     });
 
     expect(result.status).toBe('successful');
+  });
+
+  it('throws a validation error for non-string confirmation status', async () => {
+    mockFetchWithTimeout.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        reference: 'VTU-123',
+        status: 123,
+      }),
+    });
+
+    await expect(
+      confirmVtuCheckout({
+        gateway: 'paystack',
+        reference: 'VTU-123',
+      })
+    ).rejects.toThrow(/status[\s\S]*expected one of/i);
   });
 
   it('treats a not-yet-successful gateway confirmation as processing', async () => {

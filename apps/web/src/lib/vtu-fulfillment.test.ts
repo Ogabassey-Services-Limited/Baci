@@ -74,6 +74,32 @@ function selectUpdateError(
   return updateErrors.finalMetadata;
 }
 
+function isClaimOrErrorUpdate(payloadRecord: Record<string, unknown>): boolean {
+  return (
+    payloadRecord.status === 'processing' ||
+    ('error_message' in payloadRecord && !('metadata' in payloadRecord))
+  );
+}
+
+function findPayloadWithMetadata(
+  payloads: unknown[],
+  predicate: (metadata: Record<string, unknown>) => boolean
+): { metadata: Record<string, unknown> } | undefined {
+  return payloads.find(
+    (payload): payload is { metadata: Record<string, unknown> } => {
+      if (typeof payload !== 'object' || payload === null) {
+        return false;
+      }
+      const metadata = (payload as { metadata?: unknown }).metadata;
+      return (
+        typeof metadata === 'object' &&
+        metadata !== null &&
+        predicate(metadata as Record<string, unknown>)
+      );
+    }
+  );
+}
+
 function createPendingTransactionSupabaseMock({
   customerData = { user_id: 'user-1' },
   existingCustomerCashback = null,
@@ -159,13 +185,7 @@ function createPendingTransactionSupabaseMock({
               return notificationClaimChain;
             }
 
-            if (
-              payloadRecord.status !== 'processing' &&
-              !(
-                'error_message' in payloadRecord &&
-                !('metadata' in payloadRecord)
-              )
-            ) {
+            if (!isClaimOrErrorUpdate(payloadRecord)) {
               const updateError = selectUpdateError(
                 payloadRecord,
                 transactionRow,
@@ -319,8 +339,10 @@ describe('fulfillPendingVtuTransaction', () => {
       },
       rpcImpl: (name: string) => {
         if (name === 'credit_customer_wallet') {
+          // Regression coverage for Supabase clients that surface a single
+          // RPC row instead of an array of rows.
           return Promise.resolve({
-            data: [{ new_balance: 25.75 }],
+            data: { new_balance: 25.75 },
             error: null,
           });
         }
@@ -811,18 +833,9 @@ describe('fulfillPendingVtuTransaction', () => {
     });
 
     expect(mockNotifyCustomer).not.toHaveBeenCalled();
-    const finalMetadataPayload = updatePayloads.find(
-      (payload): payload is { metadata: Record<string, unknown> } => {
-        if (typeof payload !== 'object' || payload === null) {
-          return false;
-        }
-        const metadata = (payload as { metadata?: unknown }).metadata;
-        return (
-          typeof metadata === 'object' &&
-          metadata !== null &&
-          (metadata as Record<string, unknown>).paymentPending === false
-        );
-      }
+    const finalMetadataPayload = findPayloadWithMetadata(
+      updatePayloads,
+      (metadata) => metadata.paymentPending === false
     );
     expect(finalMetadataPayload).toEqual(
       expect.objectContaining({

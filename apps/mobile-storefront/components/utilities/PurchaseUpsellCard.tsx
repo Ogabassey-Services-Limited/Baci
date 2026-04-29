@@ -1,7 +1,7 @@
 import { Pressable, Text, View } from 'react-native';
+import { styles } from '@/components/utilities/purchase-success.styles';
 import type Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
-import { styles } from './purchase-success.styles';
 
 interface PurchaseUpsellCardProps {
   colors: typeof Colors.light;

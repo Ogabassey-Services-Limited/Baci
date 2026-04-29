@@ -108,12 +108,8 @@ export function useQuickRepeat({
         transaction.status === 'successful' &&
         utilityRepeatHelpers.getRouteType(transaction.type) === currentType
     ) ?? null;
-  const isLastTransactionForCurrentType = lastTransaction
-    ? utilityRepeatHelpers.getRouteType(lastTransaction.type) === currentType
-    : false;
   const showQuickRepeat = Boolean(
     lastTransaction &&
-      isLastTransactionForCurrentType &&
       !isRecentTransactionsLoading &&
       !recentTransactionsError &&
       !isKeyboardVisible &&
@@ -130,11 +126,7 @@ export function useQuickRepeat({
   }
 
   const handleQuickRepeat = () => {
-    if (
-      !lastTransaction ||
-      !isLastTransactionForCurrentType ||
-      lastTransaction.status !== 'successful'
-    ) {
+    if (!lastTransaction) {
       return;
     }
 

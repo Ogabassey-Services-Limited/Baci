@@ -1,9 +1,6 @@
 import { jest } from '@jest/globals';
 import { render, screen } from '@testing-library/react-native';
-import {
-  PAYMENT_KINDS,
-  type PaymentKind,
-} from '@/app/payment-gateway/payment-gateway.helpers';
+import { PAYMENT_KINDS } from '@/app/payment-gateway/payment-gateway.helpers';
 import Colors from '@/constants/Colors';
 import { PaymentSuccessView } from './PaymentSuccessView';
 
@@ -15,9 +12,20 @@ jest.mock('expo-router', () => ({
   },
 }));
 
-jest.mock('@expo/vector-icons', () => ({
-  Ionicons: () => null,
-}));
+jest.mock('@expo/vector-icons', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  const { View } =
+    jest.requireActual<typeof import('react-native')>('react-native');
+  return {
+    Ionicons: (props: Record<string, unknown>) =>
+      React.createElement(View, {
+        accessibilityLabel:
+          typeof props.accessibilityLabel === 'string'
+            ? props.accessibilityLabel
+            : undefined,
+      }),
+  };
+});
 
 describe('PaymentSuccessView', () => {
   beforeEach(() => {
@@ -31,13 +39,15 @@ describe('PaymentSuccessView', () => {
     expect(
       screen.getByText('Redirecting to your order confirmation...')
     ).toBeOnTheScreen();
+    expect(screen.getByLabelText('Payment successful')).toBeOnTheScreen();
+    expect(screen.getByRole('alert')).toBeOnTheScreen();
   });
 
   it('renders utility confirmation redirect copy for VTU payments', () => {
     render(
       <PaymentSuccessView
         colors={Colors.light}
-        paymentKind={PAYMENT_KINDS.VTU as PaymentKind}
+        paymentKind={PAYMENT_KINDS.VTU}
       />
     );
 
@@ -45,6 +55,8 @@ describe('PaymentSuccessView', () => {
     expect(
       screen.getByText('Redirecting to your utility confirmation...')
     ).toBeOnTheScreen();
+    expect(screen.getByLabelText('Payment successful')).toBeOnTheScreen();
+    expect(screen.getByRole('alert')).toBeOnTheScreen();
   });
 
   it('hides the route header after payment succeeds', () => {

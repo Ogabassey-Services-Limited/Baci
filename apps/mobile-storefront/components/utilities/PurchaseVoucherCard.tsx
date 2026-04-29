@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Alert, Pressable, Text, View } from 'react-native';
-import Colors, { BRAND } from '@/constants/Colors';
+import type Colors from '@/constants/Colors';
 import { setClipboardString } from '@/lib/clipboard';
 import { styles } from './purchase-success.styles';
 
@@ -13,6 +13,8 @@ export default function PurchaseVoucherCard({
   colors,
   voucherPin,
 }: PurchaseVoucherCardProps) {
+  const tokenActionColor = colors.tint;
+
   const handleCopyVoucher = async () => {
     try {
       const copied = await setClipboardString(voucherPin);
@@ -45,8 +47,10 @@ export default function PurchaseVoucherCard({
         accessibilityRole="button"
         accessibilityLabel="Copy voucher token"
       >
-        <Ionicons name="copy-outline" size={17} color={BRAND.primary} />
-        <Text style={styles.tokenButtonText}>Copy token</Text>
+        <Ionicons name="copy-outline" size={17} color={tokenActionColor} />
+        <Text style={[styles.tokenButtonText, { color: tokenActionColor }]}>
+          Copy token
+        </Text>
       </Pressable>
     </View>
   );

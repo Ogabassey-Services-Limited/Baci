@@ -87,10 +87,6 @@ describe('usePaymentGatewayController', () => {
     });
   });
 
-  afterEach(() => {
-    jest.useRealTimers();
-  });
-
   it('reports invalid route params without exposing checkout state as valid', () => {
     mockSearchParams = {
       gateway: 'paystack',
@@ -128,7 +124,7 @@ describe('usePaymentGatewayController', () => {
     expect(result.current.errorMessage).toBe('Payment was cancelled.');
   });
 
-  it('resets retry state, copied text dedupe, and reloads the checkout WebView', () => {
+  it('resets retry state and reloads the checkout WebView', () => {
     const reload = jest.fn();
     const { result } = renderHook(() => usePaymentGatewayController());
 
@@ -176,6 +172,30 @@ describe('usePaymentGatewayController', () => {
         paymentMethod: 'paystack',
         reference: 'ref-123',
       },
+    });
+  });
+
+  it('uses an empty order id when delayed order navigation has no orderId', () => {
+    jest.useFakeTimers();
+    mockSearchParams = {
+      ...orderParams,
+      orderId: undefined as unknown as string,
+      orderNumber: 'ORD-123',
+    };
+    const { result } = renderHook(() => usePaymentGatewayController());
+
+    act(() => {
+      result.current.handleNavigationChange(
+        navigation('https://usebaci.com/checkout/success?trxref=ref-123')
+      );
+    });
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+
+    expect(router.replace).toHaveBeenCalledWith({
+      pathname: '/order-success',
+      params: expect.objectContaining({ orderId: '' }),
     });
   });
 

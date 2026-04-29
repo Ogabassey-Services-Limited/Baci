@@ -8,9 +8,16 @@ import type {
   ValidUtilityType,
 } from './utility-purchase.types';
 
+type UtilityPurchaseSuccessData = Omit<
+  UtilityPurchaseResult,
+  'voucherPin'
+> & {
+  voucherPin?: string | null;
+};
+
 interface UtilityPurchaseSuccessViewProps {
   colors: typeof Colors.light | typeof Colors.dark;
-  data: UtilityPurchaseResult;
+  data: UtilityPurchaseSuccessData;
   headerOffset: number;
   isAuthenticated: boolean;
   onCreateAccount: () => void;
@@ -32,7 +39,7 @@ export function UtilityPurchaseSuccessView({
       <Stack.Screen options={{ headerShown: false }} />
       <View
         style={[
-          styles.successShell,
+          styles.container,
           {
             paddingBottom: bottomPadding,
             paddingTop: headerOffset,
@@ -48,7 +55,7 @@ export function UtilityPurchaseSuccessView({
           isAuthenticated={isAuthenticated}
           onCreateAccount={onCreateAccount}
           status={data.status}
-          voucherPin={data.voucherPin}
+          voucherPin={data.voucherPin ?? undefined}
         />
       </View>
     </View>

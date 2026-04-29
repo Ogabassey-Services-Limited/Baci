@@ -1,9 +1,13 @@
 import { describe, expect, it } from '@jest/globals';
-import type { z } from 'zod';
+import type { ZodIssue } from 'zod';
 import { PaymentGatewayParamsSchema } from '@/schemas/payment-gateway';
 
-function extractIssuePaths(issues: z.ZodIssue[]) {
+function extractIssuePaths(issues: ZodIssue[]) {
   return issues.map((issue) => issue.path.join('.'));
+}
+
+function extractIssueMessages(issues: ZodIssue[]) {
+  return issues.map((issue) => issue.message);
 }
 
 describe('PaymentGatewayParamsSchema', () => {
@@ -32,9 +36,14 @@ describe('PaymentGatewayParamsSchema', () => {
 
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(extractIssuePaths(result.error.issues)).toEqual(
-        expect.arrayContaining(['orderId', 'orderNumber'])
-      );
+      expect(extractIssuePaths(result.error.issues)).toEqual([
+        'orderId',
+        'orderNumber',
+      ]);
+      expect(extractIssueMessages(result.error.issues)).toEqual([
+        'Order ID or order number is required for order payments',
+        'Order ID or order number is required for order payments',
+      ]);
     }
   });
 
@@ -73,7 +82,12 @@ describe('PaymentGatewayParamsSchema', () => {
 
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(extractIssuePaths(result.error.issues)).toContain(field);
+      expect(extractIssuePaths(result.error.issues)).toEqual([field]);
+      expect(extractIssueMessages(result.error.issues)).toEqual([
+        field === 'orderId'
+          ? 'Order ID cannot be empty'
+          : 'Order number cannot be empty',
+      ]);
     }
   });
 
@@ -115,6 +129,20 @@ describe('PaymentGatewayParamsSchema', () => {
         expect.arrayContaining(['utilityType', 'customerIdentifier'])
       );
     }
+  });
+
+  it('does not validate order identifiers for VTU payments', () => {
+    const result = PaymentGatewayParamsSchema.safeParse({
+      authorizationUrl: 'https://checkout.paystack.com/test',
+      customerIdentifier: '08012345678',
+      gateway: 'paystack',
+      orderId: ' ',
+      paymentKind: 'vtu',
+      reference: 'ref-123',
+      utilityType: 'airtime',
+    });
+
+    expect(result.success).toBe(true);
   });
 
   it('parses a valid VTU checkout payload with a positive numeric amount', () => {

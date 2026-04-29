@@ -1,18 +1,20 @@
 import {
   isPaymentCancellationRedirect,
   isPaymentCompletionRedirect,
-  isPaymentGatewayRecord,
+  isPlainRecord,
   PAYMENT_GATEWAY_LABELS,
   PAYMENT_KINDS,
 } from './payment-gateway.helpers';
 
 describe('payment-gateway.helpers', () => {
   it('narrows plain records without accepting arrays or nullish values', () => {
-    expect(isPaymentGatewayRecord({ type: 'payment_clipboard_copy' })).toBe(
-      true
-    );
-    expect(isPaymentGatewayRecord([])).toBe(false);
-    expect(isPaymentGatewayRecord(null)).toBe(false);
+    expect(isPlainRecord({})).toBe(true);
+    expect(isPlainRecord({ type: 'payment_clipboard_copy' })).toBe(true);
+    expect(isPlainRecord([])).toBe(false);
+    expect(isPlainRecord(new Date())).toBe(false);
+    expect(isPlainRecord(() => undefined)).toBe(false);
+    expect(isPlainRecord(null)).toBe(false);
+    expect(isPlainRecord(undefined)).toBe(false);
   });
 
   it('exposes stable labels and payment kind constants', () => {

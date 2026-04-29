@@ -140,4 +140,24 @@ describe('useNextStepScroll', () => {
       y: 0,
     });
   });
+
+  it('does not report a scroll when the scroll view is unavailable', () => {
+    // Use a null ref directly to exercise the ref-unavailable edge case.
+    const scrollViewRef = {
+      current: null,
+    } as RefObject<ScrollView | null>;
+    const onScrolled = jest.fn();
+    const { result } = renderHook(() =>
+      useNextStepScroll(scrollViewRef, onScrolled)
+    );
+
+    result.current(100);
+    frameCallbacks.get(1)?.(0);
+    const interaction = mockRunAfterInteractions.mock.results[0]?.value as {
+      run: () => void;
+    };
+    interaction.run();
+
+    expect(onScrolled).not.toHaveBeenCalled();
+  });
 });

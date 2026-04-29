@@ -1,9 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
+import type React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { utilityPurchaseStyles as styles } from '@/app/utilities/utility-purchase.styles';
 
+type UtilityHeaderIconName = React.ComponentProps<typeof Ionicons>['name'];
+
 const TOP_INSET_OFFSET = 10;
 const MIN_PADDING_TOP = 12;
+const BACK_ICON_NAME: UtilityHeaderIconName = 'chevron-back';
+const BACK_ICON_SIZE = 31;
+const HISTORY_ICON_NAME: UtilityHeaderIconName = 'document-text-outline';
+const HISTORY_ICON_SIZE = 25;
 
 interface UtilityHeaderProps {
   title: string;
@@ -27,7 +34,7 @@ export function UtilityHeader({
   iconColor,
   topInset,
   surfaceColor,
-}: UtilityHeaderProps) {
+}: UtilityHeaderProps): React.ReactElement {
   return (
     <View
       style={[
@@ -52,7 +59,11 @@ export function UtilityHeader({
               { backgroundColor: iconBackgroundColor },
             ]}
           >
-            <Ionicons name="chevron-back" size={31} color={iconColor} />
+            <Ionicons
+              name={BACK_ICON_NAME}
+              size={BACK_ICON_SIZE}
+              color={iconColor}
+            />
           </View>
         </Pressable>
       </View>
@@ -81,8 +92,8 @@ export function UtilityHeader({
               ]}
             >
               <Ionicons
-                name="document-text-outline"
-                size={25}
+                name={HISTORY_ICON_NAME}
+                size={HISTORY_ICON_SIZE}
                 color={iconColor}
               />
             </View>

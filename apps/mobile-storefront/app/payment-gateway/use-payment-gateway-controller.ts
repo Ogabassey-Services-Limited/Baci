@@ -123,6 +123,8 @@ export function usePaymentGatewayController() {
   };
 
   const handleVtuConfirmation = async () => {
+    // Juicyway completes VTU fulfillment in its gateway flow, so local polling
+    // would report a false confirmation failure.
     if (!utilityType || !gateway || gateway === 'juicyway') {
       setStatus('error');
       setErrorMessage('Utility payment could not be confirmed.');
@@ -200,7 +202,7 @@ export function usePaymentGatewayController() {
       router.replace({
         pathname: '/order-success',
         params: {
-          orderId,
+          orderId: orderId || '',
           orderNumber: orderNumber || '',
           paymentMethod: gateway,
           reference: reference || '',

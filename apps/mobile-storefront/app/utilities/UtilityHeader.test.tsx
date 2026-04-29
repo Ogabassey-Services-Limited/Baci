@@ -6,7 +6,7 @@ import { UtilityHeader } from './UtilityHeader';
 function renderHeader(
   overrides: Partial<{
     onBack: () => void;
-    onHistory?: () => void;
+    onHistory: () => void;
     title: string;
   }> = {}
 ) {
@@ -38,11 +38,13 @@ describe('UtilityHeader', () => {
     expect(props.onBack).toHaveBeenCalledTimes(1);
   });
 
-  it('renders the history action only when a handler is provided', () => {
+  it('omits the history action when no handler is provided', () => {
     renderHeader();
 
     expect(screen.queryByLabelText('View utility history')).toBeNull();
+  });
 
+  it('renders the history action when a handler is provided', () => {
     const onHistory = jest.fn();
     renderHeader({ onHistory, title: 'Data' });
 

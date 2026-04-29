@@ -280,7 +280,11 @@ async function settleVtuWalletCredits({
 
       if (!error) {
         customerWalletCredited = true;
-        const nextBalance = Array.isArray(data) ? data[0]?.new_balance : null;
+        const nextBalance = Array.isArray(data)
+          ? data[0]?.new_balance
+          : data && typeof data === 'object'
+            ? (data as { new_balance?: unknown }).new_balance
+            : null;
         customerNewBalance = coerceNumber(nextBalance);
       } else {
         console.error('Failed to credit VTU customer wallet:', {

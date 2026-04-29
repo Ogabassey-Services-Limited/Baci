@@ -256,8 +256,11 @@ export async function confirmVtuCheckout({
     throw new Error(getResponseErrorMessage(data));
   }
 
-  const normalizedStatus =
-    typeof data.status === 'string' ? data.status.toLowerCase() : '';
+  if (typeof data.status !== 'string') {
+    return ConfirmCheckoutResponseSchema.parse(data);
+  }
+
+  const normalizedStatus = data.status.toLowerCase();
 
   if (normalizedStatus === 'already_completed') {
     return ConfirmCheckoutResponseSchema.parse({
@@ -267,12 +270,10 @@ export async function confirmVtuCheckout({
     });
   }
 
-  const normalizedData = {
+  return ConfirmCheckoutResponseSchema.parse({
     ...data,
     status: normalizedStatus,
-  };
-
-  return ConfirmCheckoutResponseSchema.parse(normalizedData);
+  });
 }
 
 export async function waitForVtuConfirmation({

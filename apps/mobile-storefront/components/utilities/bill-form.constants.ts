@@ -1,10 +1,13 @@
 import type { BillType } from '@/hooks/use-vtu-billers';
+import type { BillFormProps } from './bill-form.types';
+
+type BillFormUtilityType = BillFormProps['type'];
 
 export const BILL_TYPE_MAP = {
   tv: 'cable_tv',
   power: 'electricity',
   gaming: 'betting',
-} as const satisfies Record<'tv' | 'power' | 'gaming', BillType>;
+} as const satisfies Record<BillFormUtilityType, BillType>;
 
 export type BillCategory = keyof typeof BILL_TYPE_MAP;
 
@@ -26,6 +29,8 @@ export const BILL_ITEM_LABELS = {
   gaming: 'Service Type',
 } as const satisfies Record<BillCategory, string>;
 
+// TODO(design-tokens): replace these pixel fallbacks with footer/safe-area
+// layout tokens once the mobile design system exposes them.
 /** Height in pixels reserved for the fixed payment footer and safe-area padding. */
 export const BILL_FORM_FOOTER_HEIGHT = 120;
 /** Extra pixel buffer so validation errors do not sit under the fixed footer. */

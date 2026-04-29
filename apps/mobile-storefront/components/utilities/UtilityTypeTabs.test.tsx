@@ -26,15 +26,32 @@ describe('UtilityTypeTabs', () => {
     expect(screen.getAllByRole('tab')).toHaveLength(5);
   });
 
-  it('marks the selected type as selected', () => {
-    render(<UtilityTypeTabs selectedType="power" onSelect={jest.fn()} />);
+  it.each([
+    ['light', Colors.light, Colors.light.text],
+    ['dark', Colors.dark, Colors.dark.text],
+  ] as const)(
+    'marks the selected type and applies %s theme styling',
+    (colorScheme, expectedColors, expectedTextColor) => {
+      mockColorScheme = colorScheme;
 
-    expect(
-      screen.getByLabelText('Power utility service')
-    ).toHaveAccessibilityState({
-      selected: true,
-    });
-  });
+      render(<UtilityTypeTabs selectedType="data" onSelect={jest.fn()} />);
+
+      expect(
+        screen.getByLabelText('Data utility service')
+      ).toHaveAccessibilityState({
+        selected: true,
+      });
+      expect(
+        StyleSheet.flatten(screen.getByTestId('utility-type-tabs').props.style)
+      ).toMatchObject({
+        backgroundColor: expectedColors.background,
+        borderBottomColor: expectedColors.border,
+      });
+      expect(screen.getByText('Airtime')).toHaveStyle({
+        color: expectedTextColor,
+      });
+    }
+  );
 
   it('calls onSelect when a submenu is pressed', () => {
     const onSelect = jest.fn();
@@ -45,35 +62,4 @@ describe('UtilityTypeTabs', () => {
     expect(onSelect).toHaveBeenCalledWith('data');
   });
 
-  it('applies dark theme styling', () => {
-    mockColorScheme = 'dark';
-
-    render(<UtilityTypeTabs selectedType="data" onSelect={jest.fn()} />);
-
-    // React Native Testing Library does not expose this non-focusable tablist
-    // View through getByRole('tablist'), so UNSAFE_getByProps plus
-    // StyleSheet.flatten intentionally verifies the container style contract.
-    const tablist = screen.UNSAFE_getByProps({
-      accessibilityRole: 'tablist',
-    });
-    expect(StyleSheet.flatten(tablist.props.style)).toMatchObject({
-      backgroundColor: Colors.dark.background,
-      borderBottomColor: Colors.dark.border,
-    });
-    expect(screen.getByText('Airtime')).toHaveStyle({
-      color: Colors.dark.text,
-    });
-  });
-
-  it('marks the selected tab in dark mode', () => {
-    mockColorScheme = 'dark';
-
-    render(<UtilityTypeTabs selectedType="data" onSelect={jest.fn()} />);
-
-    expect(
-      screen.getByLabelText('Data utility service')
-    ).toHaveAccessibilityState({
-      selected: true,
-    });
-  });
 });

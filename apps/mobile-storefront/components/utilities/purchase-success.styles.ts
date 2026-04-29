@@ -92,6 +92,7 @@ export const styles = StyleSheet.create({
   },
   upsellText: { fontSize: TYPOGRAPHY.size.sm, marginBottom: SPACING.md },
   primaryButton: {
+    width: '100%',
     height: PURCHASE_SUCCESS_TOKENS.buttonHeight,
     borderRadius: RADIUS.xl,
     alignItems: 'center',
@@ -143,7 +144,6 @@ export const styles = StyleSheet.create({
     paddingHorizontal: PURCHASE_SUCCESS_TOKENS.voucherPadding,
   },
   tokenButtonText: {
-    color: BRAND.primary,
     fontSize: TYPOGRAPHY.size.sm,
     fontWeight: TYPOGRAPHY.weight.bold,
   },

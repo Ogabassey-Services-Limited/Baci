@@ -13,14 +13,18 @@ export function findBillItemPath(
   path: string[] = []
 ): string[] | null {
   for (const billItem of billItems ?? []) {
-    const nextPath = [...path, billItem.itemCode];
     if (billItem.itemCode === itemCode) {
-      return nextPath;
+      return [...path, billItem.itemCode];
     }
 
-    const childPath = findBillItemPath(billItem.billItems, itemCode, nextPath);
-    if (childPath) {
-      return childPath;
+    if (billItem.billItems?.length) {
+      const childPath = findBillItemPath(billItem.billItems, itemCode, [
+        ...path,
+        billItem.itemCode,
+      ]);
+      if (childPath) {
+        return childPath;
+      }
     }
   }
 
@@ -125,23 +129,24 @@ export function findBillItemPathByName(
   normalizedBillerName = normalizeBillItemMatchText(billerName)
 ): string[] | null {
   for (const billItem of billItems ?? []) {
-    const nextPath = [...path, billItem.itemCode];
-    const childPath = findBillItemPathByName(
-      billItem.billItems,
-      billerName,
-      nextPath,
-      normalizedBillerName
-    );
+    if (billItem.billItems?.length) {
+      const childPath = findBillItemPathByName(
+        billItem.billItems,
+        billerName,
+        [...path, billItem.itemCode],
+        normalizedBillerName
+      );
 
-    if (childPath) {
-      return childPath;
+      if (childPath) {
+        return childPath;
+      }
     }
 
     const normalizedItemName = normalizeBillItemMatchText(billItem.itemName);
     if (
       billerNameContainsBillItemName(normalizedBillerName, normalizedItemName)
     ) {
-      return nextPath;
+      return [...path, billItem.itemCode];
     }
   }
 

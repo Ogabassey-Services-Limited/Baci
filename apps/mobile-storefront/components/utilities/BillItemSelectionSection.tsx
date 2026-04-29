@@ -196,7 +196,6 @@ export function BillItemSelectionSection({
                 ]}
                 onPress={handleVerify}
                 disabled={isVerifyDisabled}
-                accessible={true}
                 accessibilityRole="button"
                 accessibilityLabel="Verify bill item"
                 accessibilityHint="Verifies the customer details for the selected bill item"

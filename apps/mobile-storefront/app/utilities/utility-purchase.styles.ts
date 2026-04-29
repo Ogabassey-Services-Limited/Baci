@@ -3,10 +3,6 @@ import { SHADOWS } from '@/constants/Colors';
 
 export const utilityPurchaseStyles = StyleSheet.create({
   container: { flex: 1 },
-  flex: { flex: 1 },
-  successShell: {
-    flex: 1,
-  },
   header: {
     paddingHorizontal: 24,
     paddingBottom: 12,

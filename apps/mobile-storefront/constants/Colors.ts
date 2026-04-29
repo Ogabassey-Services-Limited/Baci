@@ -218,7 +218,12 @@ export function withAlpha(color: string, alpha: number): string {
     /^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*[\d.]+)?\s*\)$/i
   );
   if (rgbMatch) {
-    return `rgba(${rgbMatch[1]}, ${rgbMatch[2]}, ${rgbMatch[3]}, ${normalizedAlpha})`;
+    const [r, g, b] = rgbMatch
+      .slice(1, 4)
+      .map((component) => Number.parseInt(component, 10));
+    if ([r, g, b].every((component) => component >= 0 && component <= 255)) {
+      return `rgba(${r}, ${g}, ${b}, ${normalizedAlpha})`;
+    }
   }
 
   return color;

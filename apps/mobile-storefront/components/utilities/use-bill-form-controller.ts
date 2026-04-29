@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { type RefObject, useEffect, useRef, useState } from 'react';
 import { Alert, type LayoutChangeEvent, type ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SPACING } from '@/constants/Colors';
@@ -32,14 +32,52 @@ import { formatUtilityAmountInput } from './utility-amount-format';
 
 function parseUtilityAmount(value: string): number {
   const withoutCommas = value.trim().replace(/,/g, '');
-  const isNegative = withoutCommas.startsWith('-');
+  if (withoutCommas.includes('-')) {
+    return 0;
+  }
   const digitsAndDecimals = withoutCommas.replace(/[^0-9.]/g, '');
   const [whole = '', ...decimalParts] = digitsAndDecimals.split('.');
-  const normalized = `${isNegative ? '-' : ''}${whole}${
+  const normalized = `${whole}${
     decimalParts.length ? `.${decimalParts.join('')}` : ''
   }`;
   const parsed = Number(normalized);
-  return Number.isFinite(parsed) ? parsed : 0;
+  return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+}
+
+export interface BillFormController {
+  amount: string;
+  billersQuery: ReturnType<typeof useVTUBillers>;
+  billItemSelection: ReturnType<typeof resolveBillItemSelection>;
+  canShowPayment: boolean;
+  customerId: string;
+  footerBottomOffset: number;
+  footerSpacerHeight: number;
+  formattedAmount: string;
+  handleBillItemSelect: (depth: number, billItem: BillItem) => void;
+  handleBillerSelect: (biller: Biller) => void;
+  handlePaymentLayout: (event: LayoutChangeEvent) => void;
+  handlePurchase: () => Promise<void>;
+  handleVerify: () => void;
+  insets: ReturnType<typeof useSafeAreaInsets>;
+  isBillItemSelectionComplete: boolean;
+  isBusy: boolean;
+  isFixedAmount: boolean;
+  isKeyboardVisible: boolean;
+  isProviderPickerExpanded: boolean;
+  isRepeatPaymentActive: boolean;
+  numericAmount: number;
+  payment: ReturnType<typeof useUtilityPayment>;
+  resetVerification: () => void;
+  scheduleNextStepScroll: (nextStepY: number) => void;
+  scrollViewRef: RefObject<ScrollView | null>;
+  selectedBiller: Biller | null;
+  selectedBillItemIdentifier: string | null;
+  setProviderPickerExpanded: (isExpanded: boolean) => void;
+  setRepeatPaymentActive: (isActive: boolean) => void;
+  shouldScrollToNextStep: boolean;
+  updateAmount: (value: string) => void;
+  updateCustomerId: (value: string) => void;
+  verify: ReturnType<typeof useVTUVerify>;
 }
 
 export function useBillFormController({
@@ -50,7 +88,7 @@ export function useBillFormController({
   isRepeatPaymentReady = false,
   type,
   onSuccess,
-}: BillFormProps) {
+}: BillFormProps): BillFormController {
   const insets = useSafeAreaInsets();
   const { dismissKeyboard, isKeyboardVisible, keyboardHeight } = useKeyboard();
   const billType = BILL_TYPE_MAP[type];
@@ -65,12 +103,14 @@ export function useBillFormController({
   const [customerId, setCustomerId] = useState(initialCustomerIdentifier ?? '');
   const [amount, setAmount] = useState(initialAmount ?? '');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
   const [isProviderPickerExpanded, setIsProviderPickerExpanded] =
     useState(true);
   const [isRepeatPaymentActive, setIsRepeatPaymentActive] = useState(false);
   const [shouldScrollToNextStep, setShouldScrollToNextStep] = useState(false);
   const [shouldScrollToPayment, setShouldScrollToPayment] = useState(false);
   const pendingVerificationKeyRef = useRef<string | null>(null);
+  const hasInitializedRef = useRef(false);
   const [verifiedSelectionKey, setVerifiedSelectionKey] = useState<
     string | null
   >(null);
@@ -109,7 +149,7 @@ export function useBillFormController({
   }, [verify.data?.verified]);
 
   useEffect(() => {
-    if (selectedBiller || !billersQuery.data?.length) {
+    if (hasInitializedRef.current || !billersQuery.data?.length) {
       return;
     }
     const match = findInitialBillerMatch({
@@ -125,6 +165,7 @@ export function useBillFormController({
       match.codes
     );
     setSelectedBiller(match.biller);
+    hasInitializedRef.current = true;
     if (!match.resolvedToSpecificBillItem || !nextSelection.isComplete) {
       return;
     }
@@ -143,7 +184,6 @@ export function useBillFormController({
     initialBillItemIdentifier,
     initialCustomerIdentifier,
     isRepeatPaymentReady,
-    selectedBiller,
   ]);
 
   const resetVerification = () => {
@@ -210,6 +250,11 @@ export function useBillFormController({
     });
   };
 
+  const updateSubmitting = (nextIsSubmitting: boolean) => {
+    isSubmittingRef.current = nextIsSubmitting;
+    setIsSubmitting(nextIsSubmitting);
+  };
+
   const handlePurchase = createBillFormPurchaseHandler({
     amount,
     billType,
@@ -217,14 +262,14 @@ export function useBillFormController({
     customer,
     customerId,
     dismissKeyboard,
-    isSubmitting,
+    getIsSubmitting: () => isSubmittingRef.current,
     numericAmount,
     onSuccess,
     payment,
     selectedBiller,
     selectedBillItemIdentifier,
     selectedBillItemPathLabel,
-    setIsSubmitting,
+    setIsSubmitting: updateSubmitting,
     type,
   });
 

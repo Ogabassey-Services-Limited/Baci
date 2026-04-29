@@ -84,7 +84,9 @@ describe('utility-receipt', () => {
     expect(mockIsAvailableAsync).toHaveBeenCalledTimes(1);
     expect(mockShare).toHaveBeenCalledWith(
       expect.objectContaining({
-        message: expect.stringContaining('Amount: ₦0'),
+        message: expect.stringMatching(
+          /Amount: ₦0[\s\S]*Customer ID: 08012345678/
+        ),
       })
     );
     expect(mockShareAsync).not.toHaveBeenCalled();
@@ -104,7 +106,9 @@ describe('utility-receipt', () => {
 
     expect(mockShare).toHaveBeenCalledWith(
       expect.objectContaining({
-        message: expect.stringContaining('Reference: ref-123'),
+        message: expect.stringMatching(
+          /Customer ID: 08012345678[\s\S]*Reference: ref-123/
+        ),
       })
     );
     expect(mockShareAsync).not.toHaveBeenCalled();
@@ -117,6 +121,7 @@ describe('utility-receipt', () => {
     await expect(
       shareUtilityReceipt({
         amount: 1000,
+        customerIdentifier: '43901766923',
         reference: 'ref-123',
         status: 'successful',
         type: 'power',
@@ -134,6 +139,7 @@ describe('utility-receipt', () => {
     await expect(
       shareUtilityReceipt({
         amount: 1000,
+        customerIdentifier: '43901766923',
         reference: 'ref-123',
         status: 'successful',
         type: 'power',

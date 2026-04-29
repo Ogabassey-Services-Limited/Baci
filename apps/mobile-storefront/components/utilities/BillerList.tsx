@@ -5,6 +5,9 @@ import {
   StyleSheet,
   Text,
   View,
+  type ImageStyle,
+  type StyleProp,
+  type ViewStyle,
 } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import { BillerInitial } from '@/components/utilities/BillerInitial';
@@ -21,6 +24,40 @@ interface BillerListProps {
   isCollapsed?: boolean;
   onChangeSelection?: () => void;
   selectedLabel?: string;
+}
+
+interface BillerLogoProps {
+  biller: Biller | null;
+  colors: typeof Colors.light;
+  imageStyle: StyleProp<ImageStyle>;
+  initialStyle?: StyleProp<ViewStyle>;
+}
+
+function BillerLogo({
+  biller,
+  colors,
+  imageStyle,
+  initialStyle,
+}: BillerLogoProps) {
+  if (biller?.billerIconUrl) {
+    return (
+      <Image
+        accessibilityLabel={`${biller.billerName} logo`}
+        accessibilityRole="image"
+        source={{ uri: biller.billerIconUrl }}
+        style={imageStyle}
+        resizeMode="contain"
+      />
+    );
+  }
+
+  return (
+    <BillerInitial
+      name={biller?.billerName ?? ''}
+      colors={colors}
+      style={initialStyle}
+    />
+  );
 }
 
 export function BillerList({
@@ -68,67 +105,32 @@ export function BillerList({
     );
   }
 
-  if (isCollapsed && !selectedBiller) {
-    return (
-      <View
-        style={[
-          styles.selectedCard,
-          {
-            backgroundColor: colors.card,
-            borderColor: colors.border,
-          },
-        ]}
-      >
-        <View style={styles.selectedCardMain}>
-          <BillerInitial name="" colors={colors} />
-          <View style={styles.selectedCopy}>
-            <Text
-              style={[styles.selectedLabel, { color: colors.textSecondary }]}
-            >
-              {selectedLabel}
-            </Text>
-            <Text style={[styles.selectedName, { color: colors.text }]}>
-              Select provider
-            </Text>
-          </View>
-        </View>
-        {onChangeSelection ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Select provider"
-            onPress={onChangeSelection}
-            style={[styles.changeButton, { borderColor: BRAND.primary }]}
-          >
-            <Text style={styles.changeButtonText}>Select</Text>
-          </Pressable>
-        ) : null}
-      </View>
-    );
-  }
+  if (isCollapsed) {
+    const hasSelectedBiller = Boolean(selectedBiller);
+    const selectedName = selectedBiller?.billerName ?? 'Select provider';
+    const actionLabel = hasSelectedBiller ? 'Change' : 'Select';
+    const actionAccessibilityLabel = hasSelectedBiller
+      ? 'Change selected provider'
+      : 'Select provider';
 
-  if (isCollapsed && selectedBiller) {
     return (
       <View
         style={[
           styles.selectedCard,
           {
-            backgroundColor: BRAND.primaryLight,
-            borderColor: BRAND.primary,
+            backgroundColor: hasSelectedBiller
+              ? BRAND.primaryLight
+              : colors.card,
+            borderColor: hasSelectedBiller ? BRAND.primary : colors.border,
           },
         ]}
       >
         <View style={styles.selectedCardMain}>
-          {selectedBiller.billerIconUrl ? (
-            <Image
-              accessibilityLabel={`${selectedBiller.billerName} logo`}
-              accessibilityRole="image"
-              source={{ uri: selectedBiller.billerIconUrl }}
-              style={styles.selectedLogo}
-              resizeMode="contain"
-            />
-          ) : (
-            <BillerInitial name={selectedBiller.billerName} colors={colors} />
-          )}
+          <BillerLogo
+            biller={selectedBiller}
+            colors={colors}
+            imageStyle={styles.selectedLogo}
+          />
           <View style={styles.selectedCopy}>
             <Text
               style={[styles.selectedLabel, { color: colors.textSecondary }]}
@@ -139,18 +141,18 @@ export function BillerList({
               style={[styles.selectedName, { color: colors.text }]}
               numberOfLines={1}
             >
-              {selectedBiller.billerName}
+              {selectedName}
             </Text>
           </View>
         </View>
         {onChangeSelection ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Change selected provider"
+            accessibilityLabel={actionAccessibilityLabel}
             onPress={onChangeSelection}
             style={[styles.changeButton, { borderColor: BRAND.primary }]}
           >
-            <Text style={styles.changeButtonText}>Change</Text>
+            <Text style={styles.changeButtonText}>{actionLabel}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -174,21 +176,12 @@ export function BillerList({
             ]}
             onPress={() => onSelect(biller)}
           >
-            {biller.billerIconUrl ? (
-              <Image
-                accessibilityLabel={`${biller.billerName} logo`}
-                accessibilityRole="image"
-                source={{ uri: biller.billerIconUrl }}
-                style={styles.logo}
-                resizeMode="contain"
-              />
-            ) : (
-              <BillerInitial
-                name={biller.billerName}
-                colors={colors}
-                style={styles.initialSpacing}
-              />
-            )}
+            <BillerLogo
+              biller={biller}
+              colors={colors}
+              imageStyle={styles.logo}
+              initialStyle={styles.initialSpacing}
+            />
             <Text
               style={[
                 styles.billerName,

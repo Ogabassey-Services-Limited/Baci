@@ -36,6 +36,8 @@ export const AIRTIME_FORM_TOKENS = {
   },
 } as const;
 
+// changeButton, input, inlineButton, quickChip and selectedNetworkCard receive
+// borderColor/backgroundColor dynamically from the active theme at render time.
 export const airtimeFormStyles = StyleSheet.create({
   scrollView: { flex: 1 },
   content: { padding: SPACING.md },

@@ -33,8 +33,11 @@ const mockInitializeVtuCheckout =
       reference: string;
     }>
   >();
+const mockRouterPush = jest.fn();
 const mockIsSavedVtuCardChargeProcessing = jest.fn();
 const mockRequiresSavedVtuCardAuthorization = jest.fn();
+// Exposed by the mocked keyboard hook so future interaction tests can assert dismissal.
+const mockDismissKeyboard = jest.fn();
 const mockWaitForVtuConfirmation =
   jest.fn<
     (...args: unknown[]) => Promise<{
@@ -52,7 +55,7 @@ const mockAuthStoreState = {
 
 jest.mock('expo-router', () => ({
   router: {
-    push: jest.fn(),
+    push: (...args: unknown[]) => mockRouterPush(...args),
   },
 }));
 
@@ -66,7 +69,7 @@ jest.mock('@/components/useColorScheme', () => ({
 
 jest.mock('@/hooks/use-keyboard', () => ({
   useKeyboard: () => ({
-    dismissKeyboard: jest.fn(),
+    dismissKeyboard: mockDismissKeyboard,
     isKeyboardVisible: false,
     keyboardHeight: 0,
   }),
@@ -241,7 +244,75 @@ describe('AirtimeForm', () => {
     );
   });
 
+  it('keeps the submitting state while navigating to checkout', async () => {
+    render(<AirtimeForm onSuccess={jest.fn()} />);
+
+    fireEvent.changeText(
+      screen.getByPlaceholderText('08012345678'),
+      '08031234567'
+    );
+    await waitFor(() => expect(screen.getByText('Network')).toBeOnTheScreen());
+    fireEvent.changeText(screen.getByPlaceholderText('1,000'), '1000');
+    fireEvent.press(screen.getByText('Continue to Payment'));
+
+    await waitFor(() => {
+      expect(mockInitializeVtuCheckout).toHaveBeenCalledWith(
+        expect.objectContaining({
+          amount: 1000,
+          phoneNumber: '08031234567',
+          type: 'airtime',
+        })
+      );
+    });
+    expect(mockRouterPush).toHaveBeenCalledWith({
+      pathname: '/payment-gateway',
+      params: expect.objectContaining({
+        amount: '1000',
+        customerIdentifier: '08031234567',
+        paymentKind: 'vtu',
+        reference: 'VTU-AIRTIME-123',
+        utilityType: 'airtime',
+      }),
+    });
+    expect(screen.queryByText('Continue to Payment')).toBeNull();
+  });
+
+  it('resets submitting state when checkout navigation throws', async () => {
+    const consoleErrorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    mockRouterPush.mockImplementationOnce(() => {
+      throw new Error('Navigation failed');
+    });
+    render(<AirtimeForm onSuccess={jest.fn()} />);
+
+    fireEvent.changeText(
+      screen.getByPlaceholderText('08012345678'),
+      '08031234567'
+    );
+    await waitFor(() => expect(screen.getByText('Network')).toBeOnTheScreen());
+    fireEvent.changeText(screen.getByPlaceholderText('1,000'), '1000');
+    fireEvent.press(screen.getByText('Continue to Payment'));
+
+    await waitFor(() => {
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Payment Failed',
+        'Navigation failed'
+      );
+    });
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Airtime purchase failed:',
+      expect.any(Error)
+    );
+    await waitFor(() => {
+      expect(screen.getByText('Continue to Payment')).toBeOnTheScreen();
+    });
+  });
+
   it('alerts and does not complete when a saved-card airtime charge rejects', async () => {
+    const consoleErrorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
     const onSuccessMock = jest.fn();
     mockUseUtilityPayment.mockReturnValue({
       cards: [],
@@ -283,5 +354,9 @@ describe('AirtimeForm', () => {
     });
     expect(mockWaitForVtuConfirmation).not.toHaveBeenCalled();
     expect(onSuccessMock).not.toHaveBeenCalled();
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Airtime purchase failed:',
+      expect.any(Error)
+    );
   });
 });

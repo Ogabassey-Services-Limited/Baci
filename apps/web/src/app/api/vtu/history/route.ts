@@ -3,10 +3,12 @@ import { authenticateApiRequest } from '@/lib/api-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   extractMetadataField,
+  hasRecentBackfillSchedule,
   isString,
   MAX_TOKEN_BACKFILL_SCHEDULES,
   normalizeMetadata,
   scheduleVoucherPinBackfill,
+  shouldBackfillForType,
 } from '@/lib/vtu-voucher-backfill';
 import { historyQuerySchema } from '@/schemas/vtu';
 
@@ -178,7 +180,6 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    let scheduledTokenBackfills = 0;
     const transactionsWithVoucherPins = (transactions ?? []).map(
       (transaction) => {
         const metadata = normalizeMetadata(transaction.metadata);
@@ -197,26 +198,43 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    for (const {
-      metadata,
-      originalMetadata,
-      transaction,
-      voucherPin,
-    } of transactionsWithVoucherPins) {
-      if (scheduledTokenBackfills >= MAX_TOKEN_BACKFILL_SCHEDULES) {
+    const tokenBackfillCandidates: typeof transactionsWithVoucherPins = [];
+    for (const candidate of transactionsWithVoucherPins) {
+      if (tokenBackfillCandidates.length >= MAX_TOKEN_BACKFILL_SCHEDULES) {
         break;
       }
 
-      const wasScheduled = await scheduleVoucherPinBackfill({
-        metadata,
-        originalMetadata,
-        supabase,
-        transaction,
-        voucherPin,
-      });
+      if (
+        candidate.voucherPin !== null ||
+        candidate.transaction.status !== 'successful' ||
+        !shouldBackfillForType(candidate.transaction.type) ||
+        hasRecentBackfillSchedule(candidate.metadata)
+      ) {
+        continue;
+      }
 
-      scheduledTokenBackfills += wasScheduled ? 1 : 0;
+      tokenBackfillCandidates.push(candidate);
     }
+
+    const tokenBackfillResults = await Promise.allSettled(
+      tokenBackfillCandidates.map((candidate) =>
+        scheduleVoucherPinBackfill({
+          metadata: candidate.metadata,
+          originalMetadata: candidate.originalMetadata,
+          supabase,
+          transaction: candidate.transaction,
+          voucherPin: candidate.voucherPin,
+        })
+      )
+    );
+    tokenBackfillResults.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        console.error('Failed to schedule VTU voucher-pin backfill:', {
+          error: result.reason,
+          transactionId: tokenBackfillCandidates[index]?.transaction.id,
+        });
+      }
+    });
 
     return NextResponse.json({
       transactions: transactionsWithVoucherPins.map(

@@ -2,13 +2,23 @@ import { Share } from 'react-native';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import { sanitizePlainTextForHtml } from '@/lib/sanitize-plain-text';
 
-const TYPE_LABELS: Record<string, string> = {
+type UtilityReceiptType = 'airtime' | 'data' | 'tv' | 'power' | 'gaming';
+
+const TYPE_LABELS = {
   airtime: 'Airtime',
   data: 'Data',
   tv: 'TV',
   power: 'Electricity',
   gaming: 'Betting',
-};
+} as const satisfies Record<UtilityReceiptType, string>;
+
+function hasTypeLabel(type: string): type is UtilityReceiptType {
+  return Object.hasOwn(TYPE_LABELS, type);
+}
+
+function getTypeLabel(type: UtilityReceiptData['type']): string {
+  return hasTypeLabel(type) ? TYPE_LABELS[type] : type;
+}
 
 export interface UtilityReceiptData {
   amount?: number;
@@ -16,13 +26,13 @@ export interface UtilityReceiptData {
   customerName?: string | null;
   reference?: string | null;
   status?: string;
-  type: string;
+  type: UtilityReceiptType | (string & {});
   voucherPin?: string | null;
 }
 
 function buildReceiptRows(data: UtilityReceiptData) {
   const rows = [
-    ['Service', TYPE_LABELS[data.type] ?? data.type],
+    ['Service', getTypeLabel(data.type)],
     data.amount !== undefined && data.amount !== null
       ? ['Amount', formatNgnCurrency(data.amount)]
       : null,
@@ -46,7 +56,7 @@ function buildReceiptRows(data: UtilityReceiptData) {
 
 function buildReceiptMessage(data: UtilityReceiptData) {
   return [
-    `${TYPE_LABELS[data.type] ?? data.type} receipt`,
+    `${getTypeLabel(data.type)} receipt`,
     data.amount !== undefined && data.amount !== null
       ? `Amount: ${formatNgnCurrency(data.amount)}`
       : null,
@@ -61,7 +71,7 @@ function buildReceiptMessage(data: UtilityReceiptData) {
 }
 
 export function buildUtilityReceiptHtml(data: UtilityReceiptData) {
-  const serviceLabel = TYPE_LABELS[data.type] ?? data.type;
+  const serviceLabel = getTypeLabel(data.type);
   const rows = buildReceiptRows(data);
 
   return `<!doctype html>

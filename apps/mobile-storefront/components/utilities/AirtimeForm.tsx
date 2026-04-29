@@ -192,13 +192,13 @@ export function AirtimeForm(props: AirtimeFormProps) {
             styles.payButton,
             {
               backgroundColor: BRAND.primary,
-              opacity: form.isBusy ? 0.7 : 1,
+              opacity: form.isSubmitting ? 0.7 : 1,
             },
           ]}
           onPress={form.handlePurchase}
-          disabled={form.isBusy}
+          disabled={form.isSubmitting}
         >
-          {form.isBusy ? (
+          {form.isSubmitting ? (
             <ActivityIndicator color={BRAND.onPrimary} />
           ) : (
             <Text style={styles.payButtonText}>

@@ -31,7 +31,7 @@ interface CreateBillFormPurchaseHandlerInput {
   customer: BillCustomer | null | undefined;
   customerId: string;
   dismissKeyboard: () => void;
-  isSubmitting: boolean;
+  getIsSubmitting: () => boolean;
   numericAmount: number;
   onSuccess: BillFormProps['onSuccess'];
   payment: PaymentState;
@@ -49,7 +49,7 @@ export function createBillFormPurchaseHandler({
   customer,
   customerId,
   dismissKeyboard,
-  isSubmitting,
+  getIsSubmitting,
   numericAmount,
   onSuccess,
   payment,
@@ -61,7 +61,7 @@ export function createBillFormPurchaseHandler({
 }: CreateBillFormPurchaseHandlerInput) {
   return async () => {
     dismissKeyboard();
-    if (isSubmitting) {
+    if (getIsSubmitting()) {
       return;
     }
     if (!selectedBiller) {
@@ -169,9 +169,20 @@ export function createBillFormPurchaseHandler({
         return;
       }
 
+      const selectedGateway = payment.selectedGateway;
+      // This guard is intentionally retained for runtime safety and
+      // TypeScript narrowing before selectedGateway is sent to checkout.
+      if (!selectedGateway) {
+        Alert.alert(
+          'Select Payment Method',
+          'Choose a payment method before continuing.'
+        );
+        return;
+      }
+
       const result = await initializeVtuCheckout({
         ...payload,
-        gateway: payment.selectedGateway,
+        gateway: selectedGateway,
       });
       router.push({
         pathname: '/payment-gateway',

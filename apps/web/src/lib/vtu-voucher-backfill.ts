@@ -65,7 +65,7 @@ export function extractMetadataField<T>(
   metadata: unknown,
   key: string,
   validator: (value: unknown) => value is T
-) {
+): T | null {
   if (!isMetadataRecord(metadata)) {
     return null;
   }
@@ -74,11 +74,11 @@ export function extractMetadataField<T>(
   return validator(value) ? value : null;
 }
 
-export function shouldBackfillForType(type: unknown) {
+export function shouldBackfillForType(type: unknown): boolean {
   return TOKEN_BACKFILL_TYPES.has(String(type));
 }
 
-export function hasRecentBackfillSchedule(metadata: MetadataRecord) {
+export function hasRecentBackfillSchedule(metadata: MetadataRecord): boolean {
   const scheduledAt = extractMetadataField(
     metadata,
     VOUCHER_PIN_BACKFILL_SCHEDULED_AT_KEY,
@@ -101,7 +101,7 @@ async function markVoucherPinBackfillScheduled({
   originalMetadata: unknown;
   supabase: ReturnType<typeof createAdminClient>;
   transactionId: string;
-}) {
+}): Promise<MetadataRecord | null> {
   const nextMetadata = {
     ...metadata,
     [VOUCHER_PIN_BACKFILL_SCHEDULED_AT_KEY]: new Date().toISOString(),
@@ -146,7 +146,7 @@ export async function scheduleVoucherPinBackfill({
   supabase: ReturnType<typeof createAdminClient>;
   transaction: VoucherPinBackfillTransaction;
   voucherPin: string | null;
-}) {
+}): Promise<boolean> {
   if (
     voucherPin !== null ||
     transaction.status !== 'successful' ||
@@ -156,14 +156,14 @@ export async function scheduleVoucherPinBackfill({
     return false;
   }
 
-  if (transaction.id == null) {
+  if (!isString(transaction.id)) {
     console.error('Cannot schedule VTU voucher-pin backfill without an id:', {
       transaction,
     });
     return false;
   }
 
-  const transactionId = String(transaction.id);
+  const transactionId = transaction.id;
   const scheduledMetadata = await markVoucherPinBackfillScheduled({
     metadata,
     originalMetadata,

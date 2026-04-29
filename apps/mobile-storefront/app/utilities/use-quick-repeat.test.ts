@@ -1,7 +1,8 @@
+import { jest } from '@jest/globals';
 import { renderHook } from '@testing-library/react-native';
+import { useQuickRepeat } from '@/app/utilities/use-quick-repeat';
 import type { VTUHistoryTransaction } from '@/hooks/use-vtu-history';
 import { useVTUHistory } from '@/hooks/use-vtu-history';
-import { useQuickRepeat } from './use-quick-repeat';
 
 jest.mock('@/hooks/use-vtu-history', () => ({
   useVTUHistory: jest.fn(),

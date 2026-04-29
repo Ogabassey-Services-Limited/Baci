@@ -120,13 +120,17 @@ function getPurchasePresentation(status: PurchaseStatus): {
         isProcessing: false,
         title: 'Payment Cancelled',
       };
-    default:
+    case 'successful':
       return {
         canShareReceipt: true,
         iconName: 'checkmark-circle',
         isProcessing: false,
         title: 'Purchase Successful!',
       };
+    default: {
+      const exhaustiveStatus: never = status;
+      throw new Error(`Unhandled purchase status: ${exhaustiveStatus}`);
+    }
   }
 }
 

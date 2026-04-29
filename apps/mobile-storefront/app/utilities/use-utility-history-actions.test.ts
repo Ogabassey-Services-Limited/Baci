@@ -54,6 +54,7 @@ function createTransaction(
     payment_gateway: 'paystack',
     payment_reference: 'PAY-123',
     payment_status: 'completed',
+    phone_number: '08012345678',
     request_reference: 'VTU-123',
     status: 'successful',
     type: 'electricity',
@@ -121,7 +122,7 @@ describe('useUtilityHistoryActions', () => {
     });
   });
 
-  it('copies trimmed voucher tokens and reports copy failures', async () => {
+  it('copies trimmed voucher tokens', async () => {
     const { result } = renderHook(() => useUtilityHistoryActions({ refetch }));
 
     await act(async () => {
@@ -129,21 +130,25 @@ describe('useUtilityHistoryActions', () => {
     });
 
     expect(mockSetClipboardString).toHaveBeenCalledWith('1234-5678');
-    expect(Alert.alert).toHaveBeenCalledWith(
+    expect(alertSpy).toHaveBeenCalledWith(
       'Copied',
       'Token copied to clipboard.'
     );
+  });
 
+  it('reports copy failures', async () => {
     mockSetClipboardString.mockRejectedValueOnce(new Error('copy failed'));
+    const { result } = renderHook(() => useUtilityHistoryActions({ refetch }));
+
     await act(async () => {
       await result.current.handleCopyVoucher('1234-5678');
     });
 
-    expect(console.error).toHaveBeenCalledWith(
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
       'Failed to copy utility voucher token:',
       expect.any(Error)
     );
-    expect(Alert.alert).toHaveBeenCalledWith(
+    expect(alertSpy).toHaveBeenCalledWith(
       'Copy Failed',
       'Could not copy this token.'
     );

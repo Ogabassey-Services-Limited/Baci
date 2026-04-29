@@ -76,7 +76,8 @@ afterAll(() => {
 });
 
 afterEach(() => {
-  for (const cleanup of hookCleanups.splice(0)) {
+  const cleanups = hookCleanups.splice(0);
+  for (const cleanup of cleanups) {
     cleanup();
   }
 });
@@ -173,7 +174,7 @@ describe('useVTUVerify', () => {
         });
       });
 
-      expect(console.warn).toHaveBeenCalledWith(
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
         'Continuing VTU verification without a local session:',
         { message: 'Session refresh failed' }
       );

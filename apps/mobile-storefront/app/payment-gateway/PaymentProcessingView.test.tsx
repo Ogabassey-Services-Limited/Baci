@@ -25,6 +25,9 @@ describe('PaymentProcessingView', () => {
         "We're confirming your token and receipt. This usually takes a few seconds."
       )
     ).toBeOnTheScreen();
+    expect(
+      screen.getByLabelText('Confirming utility purchase')
+    ).toBeOnTheScreen();
   });
 
   it('hides the route header while payment confirmation is pending', () => {

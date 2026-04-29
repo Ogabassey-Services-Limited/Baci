@@ -38,6 +38,8 @@ export default function UtilityTransactionCard({
   const customerCashback = transaction.customer_cashback ?? 0;
   const voucherPin = transaction.voucher_pin;
   const title = utilityHistoryHelpers.getTransactionTitle(transaction);
+  const typeLabel =
+    UTILITY_HISTORY_TYPE_LABELS[transaction.type] ?? 'Unknown transaction';
   const isSharing = sharingTransactionId === transaction.id;
   const isSyncing = syncingTransactionId === transaction.id;
 
@@ -59,7 +61,7 @@ export default function UtilityTransactionCard({
           <Text
             style={[styles.transactionDetail, { color: colors.textSecondary }]}
           >
-            {UTILITY_HISTORY_TYPE_LABELS[transaction.type]} •{' '}
+            {typeLabel} •{' '}
             {utilityHistoryHelpers.getTransactionDetail(transaction)}
           </Text>
         </View>
@@ -127,7 +129,7 @@ export default function UtilityTransactionCard({
             accessibilityRole="button"
             accessibilityLabel="Copy voucher token"
           >
-            <Text style={[styles.tokenButtonText, { color: BRAND.primary }]}>
+            <Text style={[styles.actionButtonText, { color: BRAND.primary }]}>
               Copy token
             </Text>
           </Pressable>

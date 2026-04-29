@@ -10,6 +10,7 @@ export const UTILITY_TYPE_TITLES: Record<ValidUtilityType, string> = {
   data: 'Data',
   tv: 'TV',
   power: 'Electricity',
+  // `gaming` is the internal Kuda bill category; storefront copy uses the domain label "Betting".
   gaming: 'Betting',
 };
 
@@ -21,12 +22,15 @@ export function getRouteRepeatDefaults(
   params: RouteRepeatParams
 ): UtilityRepeatDefaults {
   return {
-    amount: params.repeatAmount,
+    amount: params.repeatAmount == null ? undefined : String(params.repeatAmount),
     billerName: params.repeatBillerName,
     billItemIdentifier: params.repeatBillItemIdentifier,
     customerIdentifier: params.repeatCustomerIdentifier,
     dataPlanCode: params.repeatDataPlanCode,
-    isVerified: params.repeatVerified === '1',
+    isVerified:
+      params.repeatVerified === true ||
+      params.repeatVerified === '1' ||
+      params.repeatVerified === 'true',
     networkProvider: params.repeatNetworkProvider,
     phoneNumber: params.repeatPhoneNumber,
   };

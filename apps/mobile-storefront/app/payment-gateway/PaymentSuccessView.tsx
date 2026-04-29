@@ -24,14 +24,24 @@ export function PaymentSuccessView({
       style={[styles.container, { backgroundColor: colors.background }]}
     >
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.statusContainer}>
+      <View
+        accessible={true}
+        accessibilityLiveRegion="polite"
+        accessibilityRole="alert"
+        style={styles.centeredContainer}
+      >
         <View
           style={[
             styles.statusIcon,
             { backgroundColor: withAlpha(colors.success, 0.125) },
           ]}
         >
-          <Ionicons name="checkmark-circle" size={48} color={colors.success} />
+          <Ionicons
+            accessibilityLabel="Payment successful"
+            name="checkmark-circle"
+            size={48}
+            color={colors.success}
+          />
         </View>
         <Text style={[styles.statusTitle, { color: colors.text }]}>
           Payment Successful!

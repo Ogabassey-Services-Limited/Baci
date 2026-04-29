@@ -1,3 +1,5 @@
+-- SECURITY DEFINER is limited to service_role-only voucher repair; search_path
+-- is pinned to prevent injection through caller-controlled schemas.
 CREATE OR REPLACE FUNCTION public.set_vtu_transaction_voucher_pin(
   p_transaction_id uuid,
   p_voucher_pin text

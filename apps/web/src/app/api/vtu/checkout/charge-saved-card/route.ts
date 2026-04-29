@@ -238,7 +238,9 @@ export async function POST(request: NextRequest) {
       reference: fulfillment.reference,
       status: 'successful',
       success: true,
-      ...(fulfillment.voucherPin && { voucherPin: fulfillment.voucherPin }),
+      ...(fulfillment.voucherPin != null
+        ? { voucherPin: fulfillment.voucherPin }
+        : {}),
     });
   } catch (error) {
     return NextResponse.json(

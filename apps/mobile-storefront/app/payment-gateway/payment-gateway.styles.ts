@@ -7,10 +7,13 @@ import {
 } from '@/constants/Colors';
 
 const STATUS_ICON_SIZE = 80;
-const CENTERED_CONTAINER = {
-  flex: 1,
+const CENTERED_CONTENT = {
   justifyContent: 'center' as const,
   alignItems: 'center' as const,
+};
+const CENTERED_CONTAINER = {
+  flex: 1,
+  ...CENTERED_CONTENT,
   padding: SPACING.xl,
 };
 
@@ -37,14 +40,12 @@ export const paymentGatewayStyles = StyleSheet.create({
   },
   webViewLoading: {
     ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
+    ...CENTERED_CONTENT,
     backgroundColor: SEMANTIC_COLORS.white,
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
+    ...CENTERED_CONTENT,
     backgroundColor: SEMANTIC_COLORS.overlay,
     zIndex: 100,
   },
@@ -77,13 +78,11 @@ export const paymentGatewayStyles = StyleSheet.create({
     fontWeight: TYPOGRAPHY.weight.bold,
   },
   centeredContainer: CENTERED_CONTAINER,
-  statusContainer: CENTERED_CONTAINER,
   statusIcon: {
     width: STATUS_ICON_SIZE,
     height: STATUS_ICON_SIZE,
     borderRadius: STATUS_ICON_SIZE / 2,
-    justifyContent: 'center',
-    alignItems: 'center',
+    ...CENTERED_CONTENT,
     marginBottom: SPACING.lg,
   },
   statusTitle: {
@@ -119,7 +118,6 @@ export const paymentGatewayStyles = StyleSheet.create({
     fontSize: TYPOGRAPHY.size.base,
     fontWeight: TYPOGRAPHY.weight.medium,
   },
-  errorContainer: CENTERED_CONTAINER,
   errorTitle: {
     fontSize: TYPOGRAPHY.size.xl,
     fontWeight: TYPOGRAPHY.weight.bold,

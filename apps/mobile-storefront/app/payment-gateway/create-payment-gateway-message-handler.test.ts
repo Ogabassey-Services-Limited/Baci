@@ -118,6 +118,18 @@ describe('createPaymentGatewayMessageHandler', () => {
     });
   });
 
+  it('does not swallow handler errors after a valid message is parsed', () => {
+    const { handler, setSuccessStatus } = createHandler();
+    const failure = new Error('status failed');
+    setSuccessStatus.mockImplementationOnce(() => {
+      throw failure;
+    });
+
+    expect(() => sendMessage(handler, { type: 'crypto_success' })).toThrow(
+      failure
+    );
+  });
+
   it('ignores invalid JSON and non-record messages', () => {
     const { copyGatewayText, handler } = createHandler();
 

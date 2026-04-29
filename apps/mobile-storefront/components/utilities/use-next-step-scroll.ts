@@ -18,7 +18,6 @@ export function useNextStepScroll(
   }, [onScrolled]);
 
   useEffect(() => {
-    isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
       if (scrollFrameRef.current !== null) {
@@ -45,10 +44,11 @@ export function useNextStepScroll(
         const scrollY = pendingScrollYRef.current;
         pendingScrollYRef.current = null;
         isScrollScheduledRef.current = false;
-        if (!isMountedRef.current || scrollY === null) {
+        const scrollView = scrollViewRef.current;
+        if (!isMountedRef.current || scrollY === null || !scrollView) {
           return;
         }
-        scrollViewRef.current?.scrollTo({ animated: true, y: scrollY });
+        scrollView.scrollTo({ animated: true, y: scrollY });
         onScrolledRef.current();
       });
     });

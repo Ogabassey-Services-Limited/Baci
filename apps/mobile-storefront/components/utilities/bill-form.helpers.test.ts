@@ -18,7 +18,7 @@ function createBillItem(overrides: Partial<BillItem> = {}): BillItem {
 }
 
 describe('bill-form.helpers', () => {
-  it('returns utility-specific labels for the first bill item level', () => {
+  it('returns utility-specific labels for bill item levels', () => {
     expect(getBillItemLevelLabel('power', 0)).toBe('Meter Type');
     expect(getBillItemLevelLabel('tv', 1)).toBe('Additional Option 1');
   });
@@ -39,7 +39,7 @@ describe('bill-form.helpers', () => {
     expect(getAmountForLeaf(null)).toBe('');
   });
 
-  it('prefers fixed bill-item amounts over an initial amount', () => {
+  it('prefers positive fixed-price leaf amounts over an initial amount', () => {
     expect(
       getInitialAmountForSelection(
         createBillItem({ amount: 1500, isAmountFixed: true }),

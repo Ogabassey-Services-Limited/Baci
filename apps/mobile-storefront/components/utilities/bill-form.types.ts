@@ -8,6 +8,10 @@ export type BillFormStatus =
 export interface BillFormResultData {
   reference: string;
   amount: number;
+  /**
+   * customerIdentifier can contain sensitive PII such as phone, account, or
+   * meter identifiers. Avoid logging it raw, and mask it before telemetry.
+   */
   customerIdentifier?: string;
   status?: BillFormStatus;
   /**

@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react-native';
 import { createElement, type ReactNode } from 'react';
 import { fetchWithRetry } from '@/lib/api';
-import { useVTUBillers, vtuBillerKeys } from './use-vtu-billers';
+import { useVTUBillers, vtuBillerKeys } from '@/hooks/use-vtu-billers';
 
 jest.mock('@/lib/api', () => ({
   fetchWithRetry: jest.fn(),
@@ -61,9 +61,16 @@ function expectEKEDCKudaAugmentedBillItems(
   if (!billItems) {
     throw new Error('Expected Kuda bill items');
   }
-  expect(billItems).toHaveLength(2);
-  expect(billItems[0].itemCode).toBe('KUD-ELE-EKED-002');
-  expect(billItems[0].itemName).toBe('EKEDC PREPAID');
+  expect(billItems).toEqual([
+    expect.objectContaining({
+      itemCode: 'KUD-ELE-EKED-002',
+      itemName: 'EKEDC PREPAID',
+    }),
+    expect.objectContaining({
+      itemCode: 'KUD-ELE-EKED-001',
+      itemName: 'EKEDC POSTPAID',
+    }),
+  ]);
 }
 
 describe('useVTUBillers', () => {
@@ -86,9 +93,12 @@ describe('useVTUBillers', () => {
           billers: [mockEKEDCBiller],
         }),
     } as Awaited<ReturnType<typeof fetchWithRetry>>);
-    const { result, unmount } = renderHook(() => useVTUBillers('electricity'), {
-      wrapper: createWrapper(queryClient),
-    });
+    const { result, unmount } = renderHook(
+      () => useVTUBillers('electricity'),
+      {
+        wrapper: createWrapper(queryClient),
+      }
+    );
     unmountHook = unmount;
 
     await waitFor(() => {
@@ -101,9 +111,12 @@ describe('useVTUBillers', () => {
       mockEKEDCBiller,
     ]);
 
-    const { result, unmount } = renderHook(() => useVTUBillers('electricity'), {
-      wrapper: createWrapper(queryClient),
-    });
+    const { result, unmount } = renderHook(
+      () => useVTUBillers('electricity'),
+      {
+        wrapper: createWrapper(queryClient),
+      }
+    );
     unmountHook = unmount;
 
     await waitFor(() => {
@@ -117,9 +130,12 @@ describe('useVTUBillers', () => {
     const fetchError = new Error('Network unavailable');
     mockFetchWithRetry.mockRejectedValue(fetchError);
 
-    const { result, unmount } = renderHook(() => useVTUBillers('electricity'), {
-      wrapper: createWrapper(queryClient),
-    });
+    const { result, unmount } = renderHook(
+      () => useVTUBillers('electricity'),
+      {
+        wrapper: createWrapper(queryClient),
+      }
+    );
     unmountHook = unmount;
 
     await waitFor(() => {
@@ -135,9 +151,12 @@ describe('useVTUBillers', () => {
       status: 503,
     } as Awaited<ReturnType<typeof fetchWithRetry>>);
 
-    const { result, unmount } = renderHook(() => useVTUBillers('electricity'), {
-      wrapper: createWrapper(queryClient),
-    });
+    const { result, unmount } = renderHook(
+      () => useVTUBillers('electricity'),
+      {
+        wrapper: createWrapper(queryClient),
+      }
+    );
     unmountHook = unmount;
 
     await waitFor(() => {
@@ -159,9 +178,12 @@ describe('useVTUBillers', () => {
     );
     mockFetchWithRetry.mockRejectedValue(new Error('Network unavailable'));
 
-    const { result, unmount } = renderHook(() => useVTUBillers('electricity'), {
-      wrapper: createWrapper(queryClient),
-    });
+    const { result, unmount } = renderHook(
+      () => useVTUBillers('electricity'),
+      {
+        wrapper: createWrapper(queryClient),
+      }
+    );
     unmountHook = unmount;
 
     await waitFor(() => {

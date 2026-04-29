@@ -113,6 +113,8 @@ describe('PAYMENT_CLIPBOARD_BRIDGE', () => {
       'navigator',
       'MutationObserver',
       'setTimeout',
+      'setInterval',
+      'clearInterval',
       PAYMENT_CLIPBOARD_BRIDGE.script
     );
 
@@ -124,7 +126,9 @@ describe('PAYMENT_CLIPBOARD_BRIDGE', () => {
       (callback: () => void) => {
         callback();
         return 1;
-      }
+      },
+      jest.fn(),
+      jest.fn()
     );
 
     documentMock.body.innerText = 'Account number: 2222222222';
@@ -157,7 +161,7 @@ describe('PAYMENT_CLIPBOARD_BRIDGE', () => {
       'function scheduleAccountNumberScan()'
     );
     expect(PAYMENT_CLIPBOARD_BRIDGE.script).toContain(
-      'new MutationObserver(scheduleAccountNumberScan)'
+      'new MutationObserverConstructor(scheduleAccountNumberScan)'
     );
     expect(PAYMENT_CLIPBOARD_BRIDGE.script).toContain(
       'setTimeout(scheduleAccountNumberScan, 500)'
@@ -165,6 +169,85 @@ describe('PAYMENT_CLIPBOARD_BRIDGE', () => {
     expect(PAYMENT_CLIPBOARD_BRIDGE.script).toContain(
       'setTimeout(scheduleAccountNumberScan, 1500)'
     );
+  });
+
+  it('defers observer target selection until DOM ready and uses window MutationObserver', () => {
+    let domContentLoadedListener: (() => void) | null = null;
+    const preferredTarget = {
+      innerText: 'Account number: 1234567890',
+      textContent: 'Account number: 1234567890',
+    };
+    const observedTargets: Array<{
+      options: MutationObserverInit;
+      target: typeof preferredTarget;
+    }> = [];
+    const documentMock = {
+      addEventListener: jest.fn((event: string, listener: unknown) => {
+        if (event === 'DOMContentLoaded') {
+          domContentLoadedListener = listener as () => void;
+        }
+      }),
+      body: { innerText: '', textContent: '' },
+      documentElement: { innerText: '', textContent: '' },
+      execCommand: jest.fn(() => true),
+      querySelector: jest.fn<(_selector: string) => typeof preferredTarget>(
+        () => preferredTarget
+      ),
+      readyState: 'loading',
+    };
+    class WindowMutationObserverMock {
+      observe = jest.fn(
+        (target: typeof preferredTarget, options: MutationObserverInit) => {
+          observedTargets.push({ options, target });
+        }
+      );
+
+      constructor(_callback: () => void) {}
+    }
+    const windowMock = {
+      MutationObserver: WindowMutationObserverMock,
+      ReactNativeWebView: {
+        postMessage: jest.fn(),
+      },
+      getSelection: jest.fn(() => ({ toString: () => '' })),
+    };
+    const runBridge = new Function(
+      'window',
+      'document',
+      'navigator',
+      'MutationObserver',
+      'setTimeout',
+      'setInterval',
+      'clearInterval',
+      PAYMENT_CLIPBOARD_BRIDGE.script
+    );
+
+    runBridge(
+      windowMock,
+      documentMock,
+      { clipboard: {} },
+      undefined,
+      jest.fn(),
+      jest.fn(),
+      jest.fn()
+    );
+
+    expect(documentMock.querySelector).not.toHaveBeenCalled();
+    expect(domContentLoadedListener).not.toBeNull();
+    expect(() => domContentLoadedListener?.()).not.toThrow();
+    expect(documentMock.querySelector).toHaveBeenCalledWith(
+      'main, [role="main"], form'
+    );
+    expect(observedTargets).toEqual([
+      {
+        options: {
+          characterData: true,
+          childList: true,
+          subtree: true,
+        },
+        target: preferredTarget,
+      },
+    ]);
   });
 
   it('prefers contextual account-number detection before generic numbers', () => {

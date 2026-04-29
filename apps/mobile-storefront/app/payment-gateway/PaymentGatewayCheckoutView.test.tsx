@@ -1,5 +1,9 @@
 import { jest } from '@jest/globals';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import {
+  fireEvent,
+  render,
+  screen,
+} from '@testing-library/react-native';
 import type React from 'react';
 import { Text, View } from 'react-native';
 import Colors from '@/constants/Colors';
@@ -98,8 +102,10 @@ describe('PaymentGatewayCheckoutView', () => {
     };
     const headerLeft = stackOptions.options?.headerLeft?.();
     expect(headerLeft).toBeTruthy();
-    render(headerLeft as React.ReactElement);
-    fireEvent.press(screen.getByLabelText('Close payment checkout'));
+    const headerLeftRender = render(headerLeft as React.ReactElement);
+    fireEvent.press(
+      headerLeftRender.getByLabelText('Close payment checkout')
+    );
 
     expect(onClose).toHaveBeenCalledTimes(1);
   });

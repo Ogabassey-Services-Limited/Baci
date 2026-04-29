@@ -4,14 +4,16 @@ import Colors from '@/constants/Colors';
 import type { useUtilityPayment } from '@/hooks/use-utility-payment';
 import { BillPaymentSection } from './BillPaymentSection';
 
-jest.mock('./UtilityPaymentOptions', () => ({
-  UtilityPaymentOptions: () => {
-    const React = jest.requireActual<typeof import('react')>('react');
-    const { Text } =
-      jest.requireActual<typeof import('react-native')>('react-native');
-    return React.createElement(Text, null, 'Payment options');
-  },
-}));
+jest.mock('./UtilityPaymentOptions', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  const { Text } =
+    jest.requireActual<typeof import('react-native')>('react-native');
+
+  return {
+    UtilityPaymentOptions: () =>
+      React.createElement(Text, null, 'Payment options'),
+  };
+});
 
 type PaymentState = ReturnType<typeof useUtilityPayment>;
 
@@ -46,9 +48,14 @@ describe('BillPaymentSection', () => {
       />
     );
 
-    fireEvent.changeText(screen.getByLabelText('Payment amount'), '₦1,2.3a4');
+    fireEvent.changeText(
+      screen.getByLabelText('Payment amount'),
+      '₦1,2.3a456'
+    );
 
     expect(setAmount).toHaveBeenCalledWith('12.34');
+    fireEvent.changeText(screen.getByLabelText('Payment amount'), '.');
+    expect(setAmount).toHaveBeenLastCalledWith('');
     expect(screen.getByText('Payment options')).toBeOnTheScreen();
   });
 
@@ -65,8 +72,9 @@ describe('BillPaymentSection', () => {
       />
     );
 
-    expect(
-      screen.getByLabelText('Payment amount read-only').props.editable
-    ).toBe(false);
+    expect(screen.getByLabelText('Payment amount read-only')).toHaveProp(
+      'editable',
+      false
+    );
   });
 });

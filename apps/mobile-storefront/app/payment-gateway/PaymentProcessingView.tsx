@@ -14,8 +14,14 @@ export function PaymentProcessingView({ colors }: PaymentProcessingViewProps) {
       style={[styles.container, { backgroundColor: colors.background }]}
     >
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.statusContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={styles.centeredContainer}>
+        <ActivityIndicator
+          accessible={true}
+          accessibilityLabel="Confirming utility purchase"
+          accessibilityRole="progressbar"
+          size="large"
+          color={colors.primary}
+        />
         <Text style={[styles.statusTitle, { color: colors.text }]}>
           Confirming Utility Purchase
         </Text>

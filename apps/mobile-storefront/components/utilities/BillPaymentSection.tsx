@@ -9,7 +9,11 @@ type PaymentState = ReturnType<typeof useUtilityPayment>;
 function sanitizeAmountInput(value: string): string {
   const cleaned = value.replace(/[^\d.]/g, '');
   const [whole = '', ...decimalParts] = cleaned.split('.');
-  return `${whole}${decimalParts.length ? `.${decimalParts.join('')}` : ''}`;
+  const decimals = decimalParts.join('').slice(0, 2);
+  if (!whole && !decimals) {
+    return '';
+  }
+  return `${whole}${decimals ? `.${decimals}` : ''}`;
 }
 
 interface BillPaymentSectionProps {
@@ -51,7 +55,7 @@ export function BillPaymentSection({
             isFixedAmount ? 'Amount set by provider' : 'Enter amount'
           }
           placeholderTextColor={colors.placeholder}
-          keyboardType="number-pad"
+          keyboardType="decimal-pad"
           value={formattedAmount}
           editable={!isFixedAmount}
           accessibilityLabel={

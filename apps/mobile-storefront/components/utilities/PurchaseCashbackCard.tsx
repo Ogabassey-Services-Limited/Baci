@@ -22,20 +22,34 @@ export default function PurchaseCashbackCard({
   const formattedAmount = CASHBACK_AMOUNT_FORMATTER.format(
     Math.abs(cashback.amount)
   );
+  const balanceSign =
+    cashback.newBalance > 0 ? '' : cashback.newBalance < 0 ? '-' : '';
+  const formattedBalance = CASHBACK_AMOUNT_FORMATTER.format(
+    Math.abs(cashback.newBalance)
+  );
 
   return (
     <View style={styles.cashbackCard}>
       <Ionicons
+        accessible={true}
+        accessibilityLabel="Cashback wallet icon"
+        accessibilityRole="image"
         name="wallet-outline"
         size={20}
         color={palette.emerald[600]}
         style={styles.cashbackIcon}
       />
-      <Text style={styles.cashbackAmount}>
+      <Text
+        accessibilityLabel={`cashback amount: ${sign}${formattedAmount} naira`}
+        style={styles.cashbackAmount}
+      >
         {sign}₦{formattedAmount} cashback
       </Text>
-      <Text style={styles.cashbackBalance}>
-        Wallet balance: ₦{CASHBACK_AMOUNT_FORMATTER.format(cashback.newBalance)}
+      <Text
+        accessibilityLabel={`wallet balance: ${balanceSign}${formattedBalance} naira`}
+        style={styles.cashbackBalance}
+      >
+        Wallet balance: {balanceSign}₦{formattedBalance}
       </Text>
     </View>
   );

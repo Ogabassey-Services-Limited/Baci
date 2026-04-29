@@ -93,7 +93,9 @@ function getDefaults(
   transaction: VTUHistoryTransaction
 ): UtilityRepeatDefaults {
   const amount =
-    transaction.amount != null ? String(transaction.amount) : undefined;
+    transaction.amount != null && Number.isFinite(transaction.amount)
+      ? String(transaction.amount)
+      : undefined;
   const networkProvider = getRepeatProvider(transaction.network_provider);
 
   return {

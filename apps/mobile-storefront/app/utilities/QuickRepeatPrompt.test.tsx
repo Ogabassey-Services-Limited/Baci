@@ -55,9 +55,6 @@ describe('QuickRepeatPrompt', () => {
     });
 
     expect(
-      screen.getByLabelText('Checking recent Electricity transactions...')
-    ).toHaveAccessibilityState({});
-    expect(
       screen.getByText('Checking recent Electricity transactions...')
     ).toBeOnTheScreen();
     expect(

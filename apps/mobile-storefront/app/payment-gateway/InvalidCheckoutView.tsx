@@ -21,8 +21,10 @@ export function InvalidCheckoutView({
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
     >
-      <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.errorContainer}>
+      <Stack.Screen
+        options={{ headerShown: false, title: 'Invalid Checkout' }}
+      />
+      <View style={styles.centeredContainer}>
         <Ionicons name="alert-circle" size={64} color={BRAND.primary} />
         <Text style={[styles.errorTitle, { color: colors.text }]}>
           Invalid Checkout

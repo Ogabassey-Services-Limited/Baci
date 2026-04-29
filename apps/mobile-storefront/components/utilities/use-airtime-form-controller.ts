@@ -53,7 +53,6 @@ export function useAirtimeFormController({
   const selectedProviderConfig =
     NETWORK_PROVIDERS.find((provider) => provider.id === selectedProvider) ??
     null;
-  const isBusy = isSubmitting;
 
   useEffect(() => {
     if (!prevIsRepeatPaymentReadyRef.current && isRepeatPaymentReady) {
@@ -103,6 +102,7 @@ export function useAirtimeFormController({
     }
 
     setIsSubmitting(true);
+    let didNavigate = false;
     try {
       const customerName =
         [customer?.first_name, customer?.last_name].filter(Boolean).join(' ') ||
@@ -132,6 +132,7 @@ export function useAirtimeFormController({
               utilityType: 'airtime',
             },
           });
+          didNavigate = true;
           return;
         }
 
@@ -196,6 +197,7 @@ export function useAirtimeFormController({
           utilityType: 'airtime',
         },
       });
+      didNavigate = true;
     } catch (error) {
       console.error('Airtime purchase failed:', error);
       Alert.alert(
@@ -203,8 +205,10 @@ export function useAirtimeFormController({
         error instanceof Error ? error.message : 'Something went wrong.'
       );
     } finally {
-      isSubmittingRef.current = false;
-      setIsSubmitting(false);
+      if (!didNavigate) {
+        isSubmittingRef.current = false;
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -240,7 +244,7 @@ export function useAirtimeFormController({
     },
     handlePurchase,
     insets,
-    isBusy,
+    isSubmitting,
     isKeyboardVisible,
     isNetworkPickerExpanded,
     numericAmount,

@@ -130,10 +130,6 @@ export const styles = StyleSheet.create({
   tokenButton: {
     marginTop: SPACING.sm,
   },
-  tokenButtonText: {
-    fontSize: UTILITY_HISTORY_STYLE_TOKENS.labelTextSize,
-    fontWeight: TYPOGRAPHY.weight.bold,
-  },
   voucherBox: {
     borderRadius: RADIUS.md,
     borderWidth: 1,
@@ -142,7 +138,6 @@ export const styles = StyleSheet.create({
   voucherCode: {
     fontSize: TYPOGRAPHY.size.lg,
     fontWeight: TYPOGRAPHY.weight.bold,
-    letterSpacing: 0,
   },
   voucherLabel: {
     fontSize: UTILITY_HISTORY_STYLE_TOKENS.statusTextSize,
