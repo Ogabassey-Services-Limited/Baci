@@ -15,22 +15,19 @@ jest.mock('./UtilityPaymentOptions', () => ({
 
 type PaymentState = ReturnType<typeof useUtilityPayment>;
 
-function createPaymentState(): Partial<PaymentState> {
+function createPaymentState(): PaymentState {
   return {
     cards: [],
-    chargeSavedVtuCard: jest.fn(),
-    initializeVtuCheckout: jest.fn(),
-    isChargingSavedCard: false,
-    isInitializingCheckout: false,
     isLoadingCards: false,
-    requiresSavedVtuCardAuthorization: false,
-    savedCardsError: null,
+    refetchCards: jest.fn(() =>
+      Promise.resolve({} as Awaited<ReturnType<PaymentState['refetchCards']>>)
+    ) as PaymentState['refetchCards'],
     selectGateway: jest.fn(),
     selectSavedCard: jest.fn(),
     selectedGateway: 'paystack',
     selectedSavedCardId: null,
     supportedGateways: ['paystack'],
-  } as Partial<PaymentState>;
+  };
 }
 
 describe('BillPaymentSection', () => {
@@ -44,7 +41,7 @@ describe('BillPaymentSection', () => {
         handlePaymentLayout={jest.fn()}
         isFixedAmount={false}
         numericAmount={1000}
-        payment={createPaymentState() as PaymentState}
+        payment={createPaymentState()}
         setAmount={setAmount}
       />
     );
@@ -63,7 +60,7 @@ describe('BillPaymentSection', () => {
         handlePaymentLayout={jest.fn()}
         isFixedAmount={true}
         numericAmount={2500}
-        payment={createPaymentState() as PaymentState}
+        payment={createPaymentState()}
         setAmount={jest.fn()}
       />
     );

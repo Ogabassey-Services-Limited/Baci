@@ -31,7 +31,7 @@ describe('PaymentErrorView', () => {
 
   it('guards retry against repeated taps while retry is in flight', async () => {
     const retry = deferred();
-    const onRetry = jest.fn(() => retry.promise);
+    const onRetry = jest.fn((_signal: AbortSignal) => retry.promise);
 
     render(
       <PaymentErrorView
@@ -49,6 +49,7 @@ describe('PaymentErrorView', () => {
     fireEvent.press(retryButton);
 
     expect(onRetry).toHaveBeenCalledTimes(1);
+    expect(onRetry).toHaveBeenCalledWith(expect.any(AbortSignal));
     expect(retryButton.props.accessibilityState).toMatchObject({
       busy: true,
       disabled: true,
@@ -59,5 +60,28 @@ describe('PaymentErrorView', () => {
     await waitFor(() => {
       expect(screen.getByLabelText('Try payment again')).toBeEnabled();
     });
+  });
+
+  it('aborts an in-flight retry when unmounted', () => {
+    const retry = deferred();
+    const onRetry = jest.fn((_signal: AbortSignal) => retry.promise);
+    const { unmount } = render(
+      <PaymentErrorView
+        colors={Colors.light}
+        errorMessage="Gateway unavailable"
+        gatewayName="Paystack"
+        onBack={jest.fn()}
+        onRetry={onRetry}
+      />
+    );
+
+    fireEvent.press(screen.getByLabelText('Try payment again'));
+    const signal = onRetry.mock.calls[0]?.[0];
+
+    expect(signal?.aborted).toBe(false);
+
+    unmount();
+
+    expect(signal?.aborted).toBe(true);
   });
 });

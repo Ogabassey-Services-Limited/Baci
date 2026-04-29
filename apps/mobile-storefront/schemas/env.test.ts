@@ -15,15 +15,15 @@ describe('MobileEnvSchema', () => {
     ).toBe(false);
   });
 
-  it('uses the local default when the public API URL is missing or blank', () => {
+  it('uses the production default when the public API URL is missing or blank', () => {
     expect(MobileEnvSchema.parse({})).toEqual({
-      EXPO_PUBLIC_API_URL: 'http://localhost:3000',
+      EXPO_PUBLIC_API_URL: 'https://usebaci.com',
     });
     expect(MobileEnvSchema.parse({ EXPO_PUBLIC_API_URL: undefined })).toEqual({
-      EXPO_PUBLIC_API_URL: 'http://localhost:3000',
+      EXPO_PUBLIC_API_URL: 'https://usebaci.com',
     });
     expect(MobileEnvSchema.parse({ EXPO_PUBLIC_API_URL: '' })).toEqual({
-      EXPO_PUBLIC_API_URL: 'http://localhost:3000',
+      EXPO_PUBLIC_API_URL: 'https://usebaci.com',
     });
   });
 

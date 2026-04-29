@@ -168,7 +168,8 @@ BEGIN
   RETURNING available_balance INTO v_new_balance;
 
   IF NOT FOUND OR v_new_balance IS NULL THEN
-    RAISE EXCEPTION 'Unable to credit merchant wallet % because it was not found', v_wallet_id;
+    RAISE EXCEPTION 'Unable to credit merchant wallet % because it was not found', v_wallet_id
+      USING ERRCODE = '22023';
   END IF;
 
   INSERT INTO public.wallet_transactions (

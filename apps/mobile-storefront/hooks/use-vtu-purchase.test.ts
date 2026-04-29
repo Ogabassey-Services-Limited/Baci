@@ -31,6 +31,10 @@ jest.mock('@/lib/fetch-with-timeout', () => ({
   fetchWithTimeout: (...args: unknown[]) => mockFetchWithTimeout(...args),
 }));
 
+jest.mock('@/env', () => ({
+  EXPO_PUBLIC_API_URL: 'https://usebaci.com/',
+}));
+
 jest.mock('@/services/push-notifications', () => ({
   scheduleLocalNotification: (...args: unknown[]) =>
     mockScheduleLocalNotification(...args),
@@ -147,6 +151,10 @@ describe('useVTUPurchase', () => {
       amount: 1000,
       voucherPin: 'TOKEN-123',
     });
+    expect(mockFetchWithTimeout).toHaveBeenCalledWith(
+      'https://usebaci.com/api/vtu/purchase',
+      expect.any(Object)
+    );
     expect(result.current.isPending).toBe(false);
     expect(mockScheduleLocalNotification).toHaveBeenCalledWith(
       'Cashback Received! 🎉',

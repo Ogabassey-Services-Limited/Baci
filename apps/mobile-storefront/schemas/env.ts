@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const DEFAULT_MOBILE_API_URL = 'http://localhost:3000';
+const DEFAULT_MOBILE_API_URL = 'https://usebaci.com';
 
 function emptyStringToUndefined(value: unknown) {
   return typeof value === 'string' && value.trim().length === 0

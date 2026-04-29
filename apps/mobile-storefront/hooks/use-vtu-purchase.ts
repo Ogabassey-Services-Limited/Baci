@@ -38,6 +38,10 @@ const VTUPurchaseResultSchema = z.object({
 
 export type VTUPurchaseResult = z.infer<typeof VTUPurchaseResultSchema>;
 
+function buildVtuPurchaseUrl() {
+  return `${EXPO_PUBLIC_API_URL.replace(/\/+$/, '')}/api/vtu/purchase`;
+}
+
 export function useVTUPurchase() {
   const queryClient = useQueryClient();
   const customer = useAuthStore((state) => state.customer);
@@ -65,32 +69,29 @@ export function useVTUPurchase() {
         : undefined;
 
       // Bug #75: Explicit 30s timeout to prevent hanging requests
-      const response = await fetchWithTimeout(
-        `${EXPO_PUBLIC_API_URL}/api/vtu/purchase`,
-        {
-          method: 'POST',
-          timeout: DEFAULT_TIMEOUT,
-          headers: {
-            'Content-Type': 'application/json',
-            ...(session?.access_token && {
-              Authorization: `Bearer ${session.access_token}`,
-            }),
-          },
-          body: JSON.stringify({
-            merchantSlug: CONFIG.MERCHANT_SLUG,
-            source: 'direct',
-            type: params.type,
-            amount: params.amount,
-            phoneNumber: params.phoneNumber,
-            networkProvider,
-            dataPlanCode: params.dataPlanCode,
-            billItemIdentifier: params.billItemIdentifier,
-            customerIdentifier: params.customerIdentifier,
-            billerName: params.billerName,
-            customerId: customer?.id,
+      const response = await fetchWithTimeout(buildVtuPurchaseUrl(), {
+        method: 'POST',
+        timeout: DEFAULT_TIMEOUT,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token && {
+            Authorization: `Bearer ${session.access_token}`,
           }),
-        }
-      );
+        },
+        body: JSON.stringify({
+          merchantSlug: CONFIG.MERCHANT_SLUG,
+          source: 'direct',
+          type: params.type,
+          amount: params.amount,
+          phoneNumber: params.phoneNumber,
+          networkProvider,
+          dataPlanCode: params.dataPlanCode,
+          billItemIdentifier: params.billItemIdentifier,
+          customerIdentifier: params.customerIdentifier,
+          billerName: params.billerName,
+          customerId: customer?.id,
+        }),
+      });
 
       const data = await response.json();
 

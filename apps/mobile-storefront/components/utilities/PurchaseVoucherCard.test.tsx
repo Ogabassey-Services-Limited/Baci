@@ -41,13 +41,13 @@ describe('PurchaseVoucherCard', () => {
 
     fireEvent.press(screen.getByLabelText('Copy voucher token'));
 
-    await waitFor(() => {
-      expect(mockSetClipboardString).toHaveBeenCalledWith('1234-5678');
-      expect(alertSpy).toHaveBeenCalledWith(
-        'Copied',
-        'Token copied to clipboard.'
-      );
-    });
+    await waitFor(() =>
+      expect(mockSetClipboardString).toHaveBeenCalledWith('1234-5678')
+    );
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Copied',
+      'Token copied to clipboard.'
+    );
   });
 
   it('reports copy errors without exposing the token', async () => {
@@ -59,15 +59,14 @@ describe('PurchaseVoucherCard', () => {
 
     fireEvent.press(screen.getByLabelText('Copy voucher token'));
 
-    await waitFor(() => {
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Failed to copy utility voucher token:',
-        expect.any(Error)
-      );
-      expect(alertSpy).toHaveBeenCalledWith(
-        'Copy Failed',
-        'Could not copy this token.'
-      );
-    });
+    await waitFor(() => expect(consoleErrorSpy).toHaveBeenCalled());
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Failed to copy utility voucher token:',
+      expect.any(Error)
+    );
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Copy Failed',
+      'Could not copy this token.'
+    );
   });
 });

@@ -12,7 +12,7 @@ interface PaymentErrorViewProps {
   errorMessage: string | null;
   gatewayName: string;
   onBack: () => void;
-  onRetry: () => Promise<void> | void;
+  onRetry: (signal: AbortSignal) => Promise<void> | void;
 }
 
 export function PaymentErrorView({
@@ -23,11 +23,12 @@ export function PaymentErrorView({
   onRetry,
 }: PaymentErrorViewProps) {
   const [isRetrying, setIsRetrying] = useState(false);
-  const mountedRef = useRef(true);
+  const retryControllerRef = useRef(new AbortController());
 
   useEffect(() => {
+    const retryController = retryControllerRef.current;
     return () => {
-      mountedRef.current = false;
+      retryController.abort();
     };
   }, []);
 
@@ -37,10 +38,11 @@ export function PaymentErrorView({
     }
 
     setIsRetrying(true);
+    const signal = retryControllerRef.current.signal;
     try {
-      await onRetry();
+      await onRetry(signal);
     } finally {
-      if (mountedRef.current) {
+      if (!signal.aborted) {
         setIsRetrying(false);
       }
     }
