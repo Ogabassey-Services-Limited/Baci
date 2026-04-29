@@ -32,6 +32,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BRAND, palette, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
+import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 
 interface CheckoutIdentityModalProps {
@@ -45,6 +46,7 @@ export function CheckoutIdentityModal({
   isOpen,
   onClose,
 }: CheckoutIdentityModalProps) {
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<TabType>('new');
   const [email, setEmail] = useState('');
@@ -160,30 +162,33 @@ export function CheckoutIdentityModal({
           style={[
             styles.sheet,
             animatedSheet,
-            { paddingBottom: insets.bottom + 16 },
+            { paddingBottom: insets.bottom + 16, backgroundColor: colors.card },
           ]}
         >
           {/* Handle */}
           <View style={styles.handleContainer}>
-            <View style={styles.handle} />
+            <View style={[styles.handle, { backgroundColor: colors.border }]} />
           </View>
 
           {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.headerTitle}>Checkout</Text>
+          <View style={[styles.header, { backgroundColor: colors.muted, borderBottomColor: colors.border }]}>
+            <Text style={[styles.headerTitle, { color: colors.text }]}>Checkout</Text>
             <Pressable
               onPress={handleClose}
-              style={styles.closeButton}
+              style={[styles.closeButton, { backgroundColor: colors.muted }]}
               hitSlop={12}
             >
-              <Ionicons name="close" size={22} color={palette.gray[500]} />
+              <Ionicons name="close" size={22} color={colors.icon} />
             </Pressable>
           </View>
 
           {/* Tabs */}
-          <View style={styles.tabContainer}>
+          <View style={[styles.tabContainer, { borderBottomColor: colors.border }]}>
             <Pressable
-              style={[styles.tab, activeTab === 'new' && styles.tabActive]}
+              style={[
+                styles.tab,
+                activeTab === 'new' && [styles.tabActive, { borderBottomColor: colors.primary, backgroundColor: colors.promoBackground }],
+              ]}
               onPress={() => {
                 triggerHaptic();
                 setActiveTab('new');
@@ -192,19 +197,23 @@ export function CheckoutIdentityModal({
               <Ionicons
                 name="person-add-outline"
                 size={16}
-                color={activeTab === 'new' ? BRAND.primary : palette.gray[500]}
+                color={activeTab === 'new' ? colors.primary : colors.icon}
               />
               <Text
                 style={[
                   styles.tabText,
-                  activeTab === 'new' && styles.tabTextActive,
+                  { color: colors.textSecondary },
+                  activeTab === 'new' && [styles.tabTextActive, { color: colors.primary }],
                 ]}
               >
                 New Customer
               </Text>
             </Pressable>
             <Pressable
-              style={[styles.tab, activeTab === 'signin' && styles.tabActive]}
+              style={[
+                styles.tab,
+                activeTab === 'signin' && [styles.tabActive, { borderBottomColor: colors.primary, backgroundColor: colors.promoBackground }],
+              ]}
               onPress={() => {
                 triggerHaptic();
                 setActiveTab('signin');
@@ -213,14 +222,13 @@ export function CheckoutIdentityModal({
               <Ionicons
                 name="person-outline"
                 size={16}
-                color={
-                  activeTab === 'signin' ? BRAND.primary : palette.gray[500]
-                }
+                color={activeTab === 'signin' ? colors.primary : colors.icon}
               />
               <Text
                 style={[
                   styles.tabText,
-                  activeTab === 'signin' && styles.tabTextActive,
+                  { color: colors.textSecondary },
+                  activeTab === 'signin' && [styles.tabTextActive, { color: colors.primary }],
                 ]}
               >
                 Sign In
@@ -233,19 +241,19 @@ export function CheckoutIdentityModal({
             {activeTab === 'new' ? (
               <>
                 {/* Guest Checkout */}
-                <View style={styles.optionCard}>
+                <View style={[styles.optionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                   <View style={styles.optionHeader}>
-                    <Ionicons name="flash" size={16} color="#F59E0B" />
-                    <Text style={styles.optionTitle}>Guest Checkout</Text>
+                    <Ionicons name="flash" size={16} color={colors.warning} />
+                    <Text style={[styles.optionTitle, { color: colors.text }]}>Guest Checkout</Text>
                   </View>
-                  <Text style={styles.optionDescription}>
+                  <Text style={[styles.optionDescription, { color: colors.textSecondary }]}>
                     Fastest way to checkout. Create an account later if you
                     wish.
                   </Text>
                   <Pressable
                     style={({ pressed }) => [
                       styles.primaryButton,
-                      { backgroundColor: '#DC2626' }, // Explicit Red
+                      { backgroundColor: colors.primary },
                       pressed && styles.primaryButtonPressed,
                     ]}
                     onPress={handleGuestCheckout}
@@ -258,23 +266,24 @@ export function CheckoutIdentityModal({
 
                 {/* Divider */}
                 <View style={styles.divider}>
-                  <View style={styles.dividerLine} />
-                  <Text style={styles.dividerText}>or</Text>
-                  <View style={styles.dividerLine} />
+                  <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+                  <Text style={[styles.dividerText, { color: colors.textSecondary }]}>or</Text>
+                  <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
                 </View>
 
                 {/* Create Account */}
-                <View style={[styles.optionCard, styles.optionCardSecondary]}>
+                <View style={[styles.optionCard, styles.optionCardSecondary, { backgroundColor: colors.card, borderColor: isDark ? colors.border : BRAND.primaryLight }]}>
                   <View
                     style={[styles.optionHeader, styles.optionHeaderCentered]}
                   >
-                    <Ionicons name="person-add" size={16} color="#DC2626" />
-                    <Text style={styles.optionTitle}>Create Account</Text>
+                    <Ionicons name="person-add" size={16} color={colors.primary} />
+                    <Text style={[styles.optionTitle, { color: colors.text }]}>Create Account</Text>
                   </View>
                   <Text
                     style={[
                       styles.optionDescription,
                       styles.optionDescriptionCentered,
+                      { color: colors.textSecondary }
                     ]}
                   >
                     Save your details for faster checkout next time.
@@ -282,11 +291,12 @@ export function CheckoutIdentityModal({
                   <Pressable
                     style={({ pressed }) => [
                       styles.secondaryButton,
-                      pressed && styles.secondaryButtonPressed,
+                      { borderColor: colors.primary },
+                      pressed && [styles.secondaryButtonPressed, { backgroundColor: colors.promoBackground }],
                     ]}
                     onPress={handleRegister}
                   >
-                    <Text style={styles.secondaryButtonText}>Register Now</Text>
+                    <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Register Now</Text>
                   </Pressable>
                 </View>
               </>
@@ -294,22 +304,22 @@ export function CheckoutIdentityModal({
               <>
                 {/* Sign In Form */}
                 {error && (
-                  <View style={styles.errorContainer}>
+                  <View style={[styles.errorContainer, { backgroundColor: colors.promoBackground, borderColor: colors.border }]}>
                     <Ionicons
                       name="alert-circle"
                       size={16}
-                      color={BRAND.primary}
+                      color={colors.error}
                     />
-                    <Text style={styles.errorText}>{error}</Text>
+                    <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
                   </View>
                 )}
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Email Address</Text>
+                  <Text style={[styles.inputLabel, { color: colors.text }]}>Email Address</Text>
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text }]}
                     placeholder="name@example.com"
-                    placeholderTextColor={palette.gray[400]}
+                    placeholderTextColor={colors.placeholder}
                     value={email}
                     onChangeText={setEmail}
                     keyboardType="email-address"
@@ -320,18 +330,18 @@ export function CheckoutIdentityModal({
 
                 <View style={styles.inputGroup}>
                   <View style={styles.inputLabelRow}>
-                    <Text style={styles.inputLabel}>Password</Text>
+                    <Text style={[styles.inputLabel, { color: colors.text }]}>Password</Text>
                     <Pressable
                       onPress={() => router.push('/auth/login?mode=forgot')}
                     >
-                      <Text style={styles.forgotLink}>Forgot?</Text>
+                      <Text style={[styles.forgotLink, { color: colors.primary }]}>Forgot?</Text>
                     </Pressable>
                   </View>
-                  <View style={styles.passwordContainer}>
+                  <View style={[styles.passwordContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
                     <TextInput
-                      style={styles.passwordInput}
+                      style={[styles.passwordInput, { color: colors.text }]}
                       placeholder="Enter password"
-                      placeholderTextColor={palette.gray[400]}
+                      placeholderTextColor={colors.placeholder}
                       value={password}
                       onChangeText={setPassword}
                       secureTextEntry={!showPassword}
@@ -341,7 +351,7 @@ export function CheckoutIdentityModal({
                       style={styles.showPasswordButton}
                       onPress={() => setShowPassword(!showPassword)}
                     >
-                      <Text style={styles.showPasswordText}>
+                      <Text style={[styles.showPasswordText, { color: colors.textSecondary }]}>
                         {showPassword ? 'Hide' : 'Show'}
                       </Text>
                     </Pressable>
@@ -351,18 +361,18 @@ export function CheckoutIdentityModal({
                 <Pressable
                   style={({ pressed }) => [
                     styles.primaryButton,
-                    { backgroundColor: '#DC2626' }, // Explicit Red
-                    pressed && styles.primaryButtonPressed,
+                    { backgroundColor: colors.primary },
+                    pressed && [styles.primaryButtonPressed, { backgroundColor: BRAND.primaryDark }],
                     isLoading && styles.primaryButtonDisabled,
                   ]}
                   onPress={handleSignIn}
                   disabled={isLoading}
                 >
                   {isLoading ? (
-                    <ActivityIndicator color="#FFF" size="small" />
+                    <ActivityIndicator color={colors.primaryForeground} size="small" />
                   ) : (
                     <>
-                      <Ionicons name="person" size={16} color="#FFF" />
+                      <Ionicons name="person" size={16} color={colors.primaryForeground} />
                       <Text style={styles.primaryButtonText}>
                         Sign In & Checkout
                       </Text>
@@ -374,9 +384,9 @@ export function CheckoutIdentityModal({
           </View>
 
           {/* Footer */}
-          <View style={styles.footer}>
-            <Ionicons name="lock-closed" size={12} color={palette.gray[400]} />
-            <Text style={styles.footerText}>
+          <View style={[styles.footer, { backgroundColor: colors.muted, borderTopColor: colors.border }]}>
+            <Ionicons name="lock-closed" size={12} color={colors.icon} />
+            <Text style={[styles.footerText, { color: colors.textSecondary }]}>
               Your security is our priority. All transactions are encrypted.
             </Text>
           </View>
@@ -399,7 +409,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sheet: {
-    backgroundColor: '#FFF',
+    backgroundColor: palette.white,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     ...SHADOWS.xl,
@@ -471,15 +481,15 @@ const styles = StyleSheet.create({
   },
   optionCard: {
     padding: 20,
-    backgroundColor: '#FFFFFF', // Clean White
+    backgroundColor: palette.white, // Clean White
     borderRadius: 20,
     borderWidth: 1,
     borderColor: palette.gray[100],
     ...SHADOWS.sm,
   },
   optionCardSecondary: {
-    backgroundColor: '#FFFFFF', // Clean White to match web
-    borderColor: '#FEE2E2', // light red border
+    backgroundColor: palette.white, // Clean White to match web
+    borderColor: BRAND.primaryLight, // light red border
     alignItems: 'center',
   },
   optionHeader: {
@@ -510,14 +520,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#DC2626', // red-600
+    backgroundColor: BRAND.primary, // red-600
     paddingVertical: 16,
     borderRadius: 12, // rounded-xl
     ...SHADOWS.lg,
   },
   primaryButtonPressed: {
     transform: [{ scale: 0.98 }],
-    backgroundColor: '#B91C1C', // red-700
+    backgroundColor: BRAND.primaryDark, // red-700
   },
   primaryButtonDisabled: {
     opacity: 0.6,
@@ -525,7 +535,7 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#FFF',
+    color: palette.white,
   },
   secondaryButton: {
     flexDirection: 'row',
@@ -537,7 +547,7 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 100, // Pill style matches web register button better
     borderWidth: 1.5,
-    borderColor: '#DC2626',
+    borderColor: BRAND.primary,
   },
   secondaryButtonPressed: {
     backgroundColor: 'rgba(220, 38, 38, 0.05)',
@@ -545,7 +555,7 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#DC2626',
+    color: BRAND.primary,
   },
   divider: {
     flexDirection: 'row',
@@ -599,7 +609,7 @@ const styles = StyleSheet.create({
     color: BRAND.primary,
   },
   input: {
-    backgroundColor: '#FFF',
+    backgroundColor: palette.white,
     borderWidth: 1,
     borderColor: palette.gray[200],
     borderRadius: RADIUS.lg,
@@ -611,7 +621,7 @@ const styles = StyleSheet.create({
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF',
+    backgroundColor: palette.white,
     borderWidth: 1,
     borderColor: palette.gray[200],
     borderRadius: RADIUS.lg,
