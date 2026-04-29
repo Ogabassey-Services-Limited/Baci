@@ -1,0 +1,247 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { createAdminClient } from '@/lib/supabase/admin';
+import {
+  extractMetadataField,
+  hasRecentBackfillSchedule,
+  isString,
+  normalizeMetadata,
+  scheduleVoucherPinBackfill,
+  shouldBackfillForType,
+  TOKEN_BACKFILL_DEDUPE_WINDOW_MS,
+  VOUCHER_PIN_BACKFILL_SCHEDULED_AT_KEY,
+} from './vtu-voucher-backfill';
+
+const mocks = vi.hoisted(() => ({
+  after: vi.fn(),
+  backfillVtuVoucherPin: vi.fn(),
+}));
+
+vi.mock('next/server', () => ({
+  after: mocks.after,
+}));
+
+vi.mock('@/lib/vtu-fulfillment', () => ({
+  backfillVtuVoucherPin: mocks.backfillVtuVoucherPin,
+}));
+
+interface UpdateQueryMock {
+  eq: ReturnType<
+    typeof vi.fn<(_column: string, _value: unknown) => UpdateQueryMock>
+  >;
+  filter: ReturnType<
+    typeof vi.fn<
+      (_column: string, _operator: string, _value: unknown) => UpdateQueryMock
+    >
+  >;
+  is: ReturnType<
+    typeof vi.fn<(_column: string, _value: unknown) => UpdateQueryMock>
+  >;
+  select: ReturnType<
+    typeof vi.fn<() => Promise<{ data: Array<{ id: string }>; error: unknown }>>
+  >;
+}
+
+function createUpdateQueryMock({
+  data = [{ id: 'tx-1' }],
+  error = null,
+}: {
+  data?: Array<{ id: string }>;
+  error?: unknown;
+} = {}) {
+  let query: UpdateQueryMock;
+  query = {
+    eq: vi.fn((_column: string, _value: unknown) => query),
+    filter: vi.fn(
+      (_column: string, _operator: string, _value: unknown) => query
+    ),
+    is: vi.fn((_column: string, _value: unknown) => query),
+    select: vi.fn(() => Promise.resolve({ data, error })),
+  };
+
+  return query;
+}
+
+function createSupabaseMock(updateQuery: UpdateQueryMock) {
+  const update = vi.fn(() => updateQuery);
+  const from = vi.fn(() => ({
+    update,
+  }));
+
+  return {
+    from,
+    supabase: { from } as unknown as ReturnType<typeof createAdminClient>,
+    update,
+  };
+}
+
+function createTransaction(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'tx-1',
+    request_reference: 'REQ-123',
+    status: 'successful',
+    transaction_id: 'RESP-123',
+    type: 'electricity',
+    ...overrides,
+  };
+}
+
+describe('vtu-voucher-backfill', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-29T12:00:00.000Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('normalizes metadata and validates typed metadata fields', () => {
+    expect(normalizeMetadata(null)).toEqual({});
+    expect(normalizeMetadata(['not', 'metadata'])).toEqual({});
+    expect(normalizeMetadata({ alpha: 'first' })).toEqual({ alpha: 'first' });
+
+    expect(
+      extractMetadataField({ reference: 'REQ-123' }, 'reference', isString)
+    ).toBe('REQ-123');
+    expect(
+      extractMetadataField({ reference: 123 }, 'reference', isString)
+    ).toBe(null);
+  });
+
+  it('detects token-backed types and recent schedule windows', () => {
+    expect(shouldBackfillForType('electricity')).toBe(true);
+    expect(shouldBackfillForType('cable_tv')).toBe(true);
+    expect(shouldBackfillForType('airtime')).toBe(false);
+
+    expect(
+      hasRecentBackfillSchedule({
+        [VOUCHER_PIN_BACKFILL_SCHEDULED_AT_KEY]: new Date(
+          Date.now() - TOKEN_BACKFILL_DEDUPE_WINDOW_MS + 1000
+        ).toISOString(),
+      })
+    ).toBe(true);
+    expect(
+      hasRecentBackfillSchedule({
+        [VOUCHER_PIN_BACKFILL_SCHEDULED_AT_KEY]: new Date(
+          Date.now() - TOKEN_BACKFILL_DEDUPE_WINDOW_MS - 1000
+        ).toISOString(),
+      })
+    ).toBe(false);
+  });
+
+  it('marks metadata and defers voucher-pin backfill for eligible transactions', async () => {
+    const updateQuery = createUpdateQueryMock();
+    const { supabase, update } = createSupabaseMock(updateQuery);
+
+    const scheduled = await scheduleVoucherPinBackfill({
+      metadata: { alpha: 'first' },
+      originalMetadata: { zeta: 'last', alpha: 'first' },
+      supabase,
+      transaction: createTransaction(),
+      voucherPin: null,
+    });
+
+    expect(scheduled).toBe(true);
+    expect(update).toHaveBeenCalledWith({
+      metadata: {
+        alpha: 'first',
+        [VOUCHER_PIN_BACKFILL_SCHEDULED_AT_KEY]: '2026-04-29T12:00:00.000Z',
+      },
+    });
+    expect(updateQuery.eq).toHaveBeenCalledWith('id', 'tx-1');
+    expect(updateQuery.filter).toHaveBeenCalledWith(
+      'metadata',
+      'eq',
+      expect.any(String)
+    );
+
+    const serializedMetadata = String(
+      updateQuery.filter.mock.calls[0]?.[2]
+    ).replace(/::jsonb$/, '');
+    expect(JSON.parse(serializedMetadata)).toEqual({
+      alpha: 'first',
+      zeta: 'last',
+    });
+
+    expect(mocks.after).toHaveBeenCalledTimes(1);
+    const deferredBackfill = mocks.after.mock.calls[0]?.[0] as
+      | (() => Promise<void>)
+      | undefined;
+    expect(deferredBackfill).toBeDefined();
+
+    await deferredBackfill?.();
+
+    expect(mocks.backfillVtuVoucherPin).toHaveBeenCalledWith({
+      billRequestRef: 'REQ-123',
+      billResponseReference: 'RESP-123',
+      metadata: {
+        alpha: 'first',
+        [VOUCHER_PIN_BACKFILL_SCHEDULED_AT_KEY]: '2026-04-29T12:00:00.000Z',
+      },
+      supabase,
+      transactionId: 'tx-1',
+    });
+  });
+
+  it('uses a null metadata comparison when the original metadata is absent', async () => {
+    const updateQuery = createUpdateQueryMock();
+    const { supabase } = createSupabaseMock(updateQuery);
+
+    await scheduleVoucherPinBackfill({
+      metadata: {},
+      originalMetadata: null,
+      supabase,
+      transaction: createTransaction(),
+      voucherPin: null,
+    });
+
+    expect(updateQuery.is).toHaveBeenCalledWith('metadata', null);
+    expect(updateQuery.filter).not.toHaveBeenCalled();
+  });
+
+  it('skips ineligible transactions without scheduling deferred work', async () => {
+    const updateQuery = createUpdateQueryMock();
+    const { supabase, update } = createSupabaseMock(updateQuery);
+
+    await expect(
+      scheduleVoucherPinBackfill({
+        metadata: {},
+        originalMetadata: {},
+        supabase,
+        transaction: createTransaction({ type: 'airtime' }),
+        voucherPin: null,
+      })
+    ).resolves.toBe(false);
+
+    await expect(
+      scheduleVoucherPinBackfill({
+        metadata: {},
+        originalMetadata: {},
+        supabase,
+        transaction: createTransaction(),
+        voucherPin: '1234-5678',
+      })
+    ).resolves.toBe(false);
+
+    expect(update).not.toHaveBeenCalled();
+    expect(mocks.after).not.toHaveBeenCalled();
+  });
+
+  it('does not enqueue backfill when the metadata claim updates no rows', async () => {
+    const updateQuery = createUpdateQueryMock({ data: [] });
+    const { supabase } = createSupabaseMock(updateQuery);
+
+    await expect(
+      scheduleVoucherPinBackfill({
+        metadata: {},
+        originalMetadata: {},
+        supabase,
+        transaction: createTransaction(),
+        voucherPin: null,
+      })
+    ).resolves.toBe(false);
+
+    expect(mocks.after).not.toHaveBeenCalled();
+  });
+});
