@@ -1,15 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getRootDomain } from '@/env';
-import {
-  type CachedMerchant,
-  getMerchantByIdentifier,
-} from '@/lib/cached-data';
 import { buildAgentPolicyUrls } from '@/lib/storefront-agent-urls';
-import {
-  buildRequestBaseUrl,
-  resolveStorefrontRouteIdentifiers,
-} from '@/lib/storefront-host';
-import { RouteIdentifierSchema } from '@/schemas/route-identifier';
+import { buildRequestBaseUrl } from '@/lib/storefront-host';
+import { resolveStorefrontMerchantFromRequest } from '@/lib/storefront-merchant';
 
 const AGENT_COMMERCE_SCHEMA_VERSION = '2026-04-28';
 const PHASE_ONE_CAPABILITIES = ['catalog.read'] as const;
@@ -20,57 +13,26 @@ function buildUrl(baseUrl: string, path: string): string {
 }
 
 export async function GET(request: Request) {
-  const routeIdentifiers = resolveStorefrontRouteIdentifiers({
+  const merchantResolution = await resolveStorefrontMerchantFromRequest({
     request,
     rootDomain: ROOT_DOMAIN,
+    notFoundError:
+      'Agent commerce manifest is only available on storefront hosts',
+    lookupError: 'Failed to build agent commerce manifest',
   });
-  const parsedRouteIdentifiers: string[] = [];
 
-  // Identifier candidates are derived from the same host; reject malformed
-  // hosts instead of falling through to a lower-priority fallback.
-  for (const routeIdentifier of routeIdentifiers) {
-    const parsedRouteIdentifier =
-      RouteIdentifierSchema.safeParse(routeIdentifier);
-
-    if (!parsedRouteIdentifier.success) {
-      return NextResponse.json(
-        { error: 'Invalid storefront host' },
-        { status: 400 }
-      );
+  if (!merchantResolution.success) {
+    if (merchantResolution.status === 500) {
+      console.error('AGENT_COMMERCE_MANIFEST_ERROR:', merchantResolution.cause);
     }
 
-    parsedRouteIdentifiers.push(parsedRouteIdentifier.data);
-  }
-
-  let merchant: CachedMerchant | null = null;
-
-  try {
-    // Candidates are ordered by storefront-host priority. Non-www custom domains
-    // intentionally win before the exact www fallback to match proxy behavior.
-    for (const routeIdentifier of parsedRouteIdentifiers) {
-      merchant = await getMerchantByIdentifier(routeIdentifier);
-
-      if (merchant) {
-        break;
-      }
-    }
-  } catch (error) {
-    console.error('AGENT_COMMERCE_MANIFEST_ERROR:', error);
     return NextResponse.json(
-      { error: 'Failed to build agent commerce manifest' },
-      { status: 500 }
+      { error: merchantResolution.error },
+      { status: merchantResolution.status }
     );
   }
 
-  if (!merchant) {
-    return NextResponse.json(
-      {
-        error: 'Agent commerce manifest is only available on storefront hosts',
-      },
-      { status: 404 }
-    );
-  }
-
+  const { merchant } = merchantResolution;
   const baseUrl = buildRequestBaseUrl(request);
   const slug = merchant.slug;
   const productFeedUrl = new URL('/api/feed/openai', baseUrl);
@@ -96,6 +58,7 @@ export async function GET(request: Request) {
         product_feed: productFeedUrl.toString(),
         feeds: {
           agent_products: agentProductsUrl.toString(),
+          google_merchant_xml: buildUrl(baseUrl, '/feeds/google-merchant.xml'),
         },
         product_api: buildUrl(
           baseUrl,

@@ -1,165 +1,17 @@
 import { NextResponse } from 'next/server';
+import {
+  type LlmsLink,
+  PLATFORM_AUTH_LINKS,
+  PLATFORM_OPTIONAL_LINKS,
+  PLATFORM_PRIMARY_LINKS,
+  STOREFRONT_OPTIONAL_LINKS,
+  STOREFRONT_PRIMARY_LINKS,
+} from '@/config/llms-links';
 
 export type LlmsSurface = 'platform-admin' | 'merchant-storefront';
-type LlmsLink = { title: string; path: string; note: string };
 
 const DEFAULT_ROOT_DOMAIN = 'usebaci.com';
 const CACHE_CONTROL = 'public, max-age=3600, s-maxage=3600';
-
-const PLATFORM_PRIMARY_LINKS: LlmsLink[] = [
-  {
-    title: 'Home',
-    path: '/index.html.md',
-    note: 'Markdown mirror of the platform homepage and positioning',
-  },
-  {
-    title: 'Onboarding',
-    path: '/onboarding.md',
-    note: 'Markdown mirror of the AI-assisted store creation flow',
-  },
-  {
-    title: 'Login',
-    path: '/login',
-    note: 'Merchant authentication entry point',
-  },
-  {
-    title: 'Pricing',
-    path: '/pricing.md',
-    note: 'Markdown mirror of subscription plans and packaging',
-  },
-  {
-    title: 'Features',
-    path: '/features.md',
-    note: 'Markdown mirror of platform capabilities and channel support',
-  },
-  {
-    title: 'Developers',
-    path: '/developers/submit',
-    note: 'Integration and partner entry point',
-  },
-  {
-    title: 'OpenAPI',
-    path: '/openapi.json',
-    note: 'Machine-readable API schema',
-  },
-  {
-    title: 'Sitemap',
-    path: '/sitemap.xml',
-    note: 'Canonical platform URL inventory',
-  },
-];
-
-const PLATFORM_AUTH_LINKS: LlmsLink[] = [
-  {
-    title: 'Dashboard',
-    path: '/dashboard',
-    note: 'Authenticated merchant admin application',
-  },
-  {
-    title: 'Builder',
-    path: '/builder',
-    note: 'Authenticated visual builder experience',
-  },
-];
-
-const PLATFORM_OPTIONAL_LINKS: LlmsLink[] = [
-  {
-    title: 'Blog',
-    path: '/blog',
-    note: 'Editorial and announcement content',
-  },
-  {
-    title: 'Contact',
-    path: '/contact',
-    note: 'Sales and support contact points',
-  },
-  {
-    title: 'Terms',
-    path: '/terms',
-    note: 'Platform terms',
-  },
-  {
-    title: 'Privacy',
-    path: '/privacy',
-    note: 'Platform privacy notice',
-  },
-];
-
-const STOREFRONT_PRIMARY_LINKS: LlmsLink[] = [
-  {
-    title: 'Home',
-    path: '/index.html.md',
-    note: 'Markdown mirror of the storefront homepage and main shopping paths',
-  },
-  {
-    title: 'Sitemap',
-    path: '/sitemap.xml',
-    note: 'Canonical inventory of category, product, and supporting pages',
-  },
-  {
-    title: 'Cart',
-    path: '/cart',
-    note: 'Active shopping cart',
-  },
-  {
-    title: 'Checkout',
-    path: '/checkout',
-    note: 'Live checkout flow; treat as read-only unless explicitly asked to purchase',
-  },
-  {
-    title: 'Track Order',
-    path: '/track-order',
-    note: 'Order lookup and fulfillment tracking',
-  },
-  {
-    title: 'Account',
-    path: '/account',
-    note: 'Customer account entry point',
-  },
-  {
-    title: 'Wishlist',
-    path: '/wishlist',
-    note: 'Saved products',
-  },
-  {
-    title: 'Reviews',
-    path: '/reviews',
-    note: 'Customer review surface',
-  },
-  {
-    title: 'Blog',
-    path: '/blog',
-    note: 'Merchant editorial and content marketing',
-  },
-];
-
-const STOREFRONT_OPTIONAL_LINKS: LlmsLink[] = [
-  {
-    title: 'About',
-    path: '/about.md',
-    note: 'Markdown mirror of merchant background and trust content',
-  },
-  {
-    title: 'Contact',
-    path: '/contact.md',
-    note: 'Markdown mirror of contact and support details',
-  },
-  {
-    title: 'FAQ',
-    path: '/faq.md',
-    note: 'Markdown mirror of common customer questions',
-  },
-  {
-    title: 'Terms',
-    path: '/terms',
-    note: 'Store policies and terms',
-  },
-  {
-    title: 'Privacy',
-    path: '/privacy',
-    note: 'Store privacy notice',
-  },
-];
 
 function normalizeHostname(hostname: string): string {
   return hostname
@@ -195,7 +47,7 @@ export function detectLlmsSurface(
   return 'merchant-storefront';
 }
 
-function formatLinkList(baseUrl: string, links: LlmsLink[]): string[] {
+function formatLinkList(baseUrl: string, links: readonly LlmsLink[]): string[] {
   return links.map(
     ({ title, path, note }) => `- [${title}](${baseUrl}${path}): ${note}`
   );
@@ -277,6 +129,7 @@ function buildStorefrontLlms(baseUrl: string, full: boolean): string {
     '',
     '## Machine-Readable Commerce',
     `- [Agent Commerce Manifest](${baseUrl}/agent-commerce.json): Capabilities, API version, policy links, checkout base URL, and feed URLs`,
+    `- [Google Merchant XML Feed](${baseUrl}/feeds/google-merchant.xml): Public product feed for merchant catalog discovery`,
     '',
     '## Guidance',
     `- [Robots](${baseUrl}/robots.txt): Crawl policy for this storefront host`,

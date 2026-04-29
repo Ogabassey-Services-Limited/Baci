@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockResolveFeedMerchant = vi.fn();
 const mockGenerateGoogleMerchantFeed = vi.fn();
 const mockGetCachedGoogleMerchantFeedData = vi.fn();
+const mockLoggerError = vi.fn();
 
 vi.mock('@/lib/feed-identifier', () => {
   class _MerchantNotFoundError extends Error {
@@ -35,6 +36,12 @@ vi.mock('@/lib/cache-headers', () => ({
 vi.mock('./feed-builder', () => ({
   generateGoogleMerchantFeed: (...args: unknown[]) =>
     mockGenerateGoogleMerchantFeed(...args),
+}));
+
+vi.mock('@/lib/logger', () => ({
+  logger: {
+    error: (payload: unknown) => mockLoggerError(payload),
+  },
 }));
 
 import { MerchantNotFoundError } from '@/lib/feed-identifier';
@@ -132,6 +139,50 @@ describe('GET /api/feed/google-merchant', () => {
       }),
       'https://ogabassey.com',
       expect.any(Object)
+    );
+  });
+
+  it('returns valid Google Merchant XML with correct content-type for successful request', async () => {
+    mockResolveFeedMerchant.mockResolvedValue({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+      business_name: 'Ogabassey',
+      country: 'NG',
+      payout_currency: 'NGN',
+      gmc_variants_enabled: false,
+    });
+    mockGetCachedGoogleMerchantFeedData.mockResolvedValue({
+      custom_domain: 'ogabassey.com',
+      slug: 'ogabassey',
+      imageManifest: {},
+      products: [{ id: 'product-1', name: 'Watch', price: 30_600 }],
+    });
+    mockGenerateGoogleMerchantFeed.mockReturnValue(
+      '<?xml version="1.0" encoding="UTF-8"?><rss><channel><item><g:id>product-1</g:id></item></channel></rss>'
+    );
+    const { GET } = await import('./route');
+
+    const response = await GET(
+      new NextRequest(
+        'https://ogabassey.com/api/feed/google-merchant?merchant_slug=ogabassey',
+        { headers: { host: 'ogabassey.com' } }
+      )
+    );
+    const xml = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toContain('application/xml');
+    expect(xml).toContain('<rss');
+    expect(xml).toContain('<g:id>product-1</g:id>');
+    expect(mockGenerateGoogleMerchantFeed).toHaveBeenCalledWith(
+      [{ id: 'product-1', name: 'Watch', price: 30_600 }],
+      expect.objectContaining({
+        id: 'merchant-1',
+        slug: 'ogabassey',
+        custom_domain: 'ogabassey.com',
+      }),
+      'https://ogabassey.com',
+      {}
     );
   });
 

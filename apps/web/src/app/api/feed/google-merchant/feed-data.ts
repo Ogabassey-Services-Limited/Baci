@@ -47,7 +47,7 @@ function normalizeFeedProducts(products: RawFeedProductRow[]): FeedProduct[] {
     return {
       ...rest,
       categories: joinedCategory ?? null,
-      category_slug: rest.category_slug || joinedCategory?.slug,
+      category_slug: joinedCategory?.slug ?? rest.category_slug,
       category: rest.category || joinedCategory?.name,
     };
   });
