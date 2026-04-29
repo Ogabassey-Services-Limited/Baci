@@ -2,7 +2,6 @@
 
 import { createContext, type ReactNode, useContext, useState } from 'react';
 import type { AIResponse, Change } from '@/app/dashboard/products/actions';
-import { useDebounce } from '@/hooks/use-debounce';
 import { useToast } from '@/hooks/use-toast';
 import { apiDelete, apiPost, apiPut } from '@/lib/api-client';
 import {
@@ -13,6 +12,7 @@ import {
 } from '@/lib/product-list-filters';
 import type { Product } from '@/lib/products';
 import { useAuth } from './auth-context'; // Import the useAuth hook
+import { useEffectiveSearchTerm } from './use-effective-search-term';
 import { useProductFetch } from './use-product-fetch';
 
 export type WorkflowStep =
@@ -108,9 +108,23 @@ export const ProductProvider: React.FC<{
   const [searchTerm, setSearchTerm] = useState(
     initialData?.filters?.search ?? DEFAULT_PRODUCT_LIST_FILTERS.search
   );
-  // ⚡ Bolt: Debounce the searchTerm to prevent triggering a refetch on every keystroke,
-  // which reduces unnecessary server load and improves frontend responsiveness.
-  const debouncedSearchTerm = useDebounce(searchTerm, 500);
+  // ⚡ Bolt: Debounce the search-driven refetch to avoid hitting the server on every
+  // keystroke, while still flushing to the live search term whenever a non-search
+  // filter or pagination changes. This prevents stale search values from leaking
+  // into filter-driven refetches when the user types and immediately toggles a
+  // filter inside the 500ms debounce window.
+  const effectiveSearchTerm = useEffectiveSearchTerm({
+    searchTerm,
+    flushOn: [
+      migrationFilter,
+      statusFilter,
+      stockFilter,
+      pagination.page,
+      pagination.limit,
+    ],
+    delayMs: 500,
+  });
+
   const { toast } = useToast();
 
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
@@ -132,7 +146,7 @@ export const ProductProvider: React.FC<{
     initialData,
     pagination,
     migrationFilter,
-    searchTerm: debouncedSearchTerm,
+    searchTerm: effectiveSearchTerm,
     statusFilter,
     stockFilter,
     setProducts,
