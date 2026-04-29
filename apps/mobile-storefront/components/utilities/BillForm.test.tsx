@@ -402,11 +402,13 @@ describe('BillForm', () => {
         reference: 'VTU-BILL-PENDING-123',
       });
     });
-    expect(onSuccess).toHaveBeenCalledWith({
-      amount: 2500,
-      customerIdentifier: '1234567890',
-      reference: 'VTU-BILL-PENDING-123',
-      status: 'processing',
+    await waitFor(() => {
+      expect(onSuccess).toHaveBeenCalledWith({
+        amount: 2500,
+        customerIdentifier: '1234567890',
+        reference: 'VTU-BILL-PENDING-123',
+        status: 'processing',
+      });
     });
   });
 });

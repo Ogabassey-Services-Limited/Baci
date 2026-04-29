@@ -2,47 +2,29 @@ import { describe, expect, it } from '@jest/globals';
 import { render, screen } from '@testing-library/react-native';
 import { BillerInitial } from '@/components/utilities/BillerInitial';
 
+const DEFAULT_COLORS = { border: '#E5E7EB', textSecondary: '#6B7280' };
+
 describe('BillerInitial', () => {
   it('renders the uppercase first letter of the biller name', () => {
-    render(
-      <BillerInitial
-        colors={{ border: '#E5E7EB', textSecondary: '#6B7280' }}
-        name="ekedc"
-      />
-    );
+    render(<BillerInitial colors={DEFAULT_COLORS} name="ekedc" />);
 
     expect(screen.getByText('E')).toBeOnTheScreen();
   });
 
   it('renders a fallback initial for whitespace-only names', () => {
-    render(
-      <BillerInitial
-        colors={{ border: '#E5E7EB', textSecondary: '#6B7280' }}
-        name="   "
-      />
-    );
+    render(<BillerInitial colors={DEFAULT_COLORS} name="   " />);
 
     expect(screen.getByText('?')).toBeOnTheScreen();
   });
 
   it('renders a fallback initial for empty names', () => {
-    render(
-      <BillerInitial
-        colors={{ border: '#E5E7EB', textSecondary: '#6B7280' }}
-        name=""
-      />
-    );
+    render(<BillerInitial colors={DEFAULT_COLORS} name="" />);
 
     expect(screen.getByText('?')).toBeOnTheScreen();
   });
 
   it('renders the first input character when it is numeric or symbolic', () => {
-    render(
-      <BillerInitial
-        colors={{ border: '#E5E7EB', textSecondary: '#6B7280' }}
-        name="9mobile"
-      />
-    );
+    render(<BillerInitial colors={DEFAULT_COLORS} name="9mobile" />);
 
     expect(screen.getByText('9')).toBeOnTheScreen();
   });
@@ -66,7 +48,7 @@ describe('BillerInitial', () => {
   it('lets the parent control circle spacing through style', () => {
     render(
       <BillerInitial
-        colors={{ border: '#E5E7EB', textSecondary: '#6B7280' }}
+        colors={DEFAULT_COLORS}
         name="ekedc"
         style={{ marginBottom: 12 }}
       />

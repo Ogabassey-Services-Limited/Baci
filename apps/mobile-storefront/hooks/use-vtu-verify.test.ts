@@ -1,7 +1,7 @@
 import { jest } from '@jest/globals';
 import { notifyManager } from '@tanstack/query-core';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, renderHook } from '@testing-library/react-native';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { createElement, type PropsWithChildren } from 'react';
 import { useVTUVerify } from '@/hooks/use-vtu-verify';
 
@@ -117,6 +117,13 @@ describe('useVTUVerify', () => {
         }),
       })
     );
+    await waitFor(() => {
+      expect(result.current.data).toEqual({
+        verified: true,
+        customerName: 'Test Customer',
+        message: 'Customer verified',
+      });
+    });
   });
 
   it('fails before verification when the customer is not authenticated', async () => {

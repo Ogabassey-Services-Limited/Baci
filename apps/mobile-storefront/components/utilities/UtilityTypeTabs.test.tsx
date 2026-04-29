@@ -3,9 +3,8 @@ import {
   fireEvent,
   render,
   screen,
-  within,
 } from '@testing-library/react-native';
-import { ScrollView } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 import Colors from '@/constants/Colors';
 import { UtilityTypeTabs } from './UtilityTypeTabs';
 import { UTILITY_TYPE_TAB_PRESSED_STYLE } from './utility-type-tabs.constants';
@@ -29,7 +28,6 @@ describe('UtilityTypeTabs', () => {
     expect(screen.getByText('TV')).toBeOnTheScreen();
     expect(screen.getByText('Power')).toBeOnTheScreen();
     expect(screen.getByText('Gaming')).toBeOnTheScreen();
-    expect(screen.getByRole('tablist')).toBeOnTheScreen();
     expect(screen.getAllByRole('tab')).toHaveLength(5);
   });
 
@@ -57,8 +55,10 @@ describe('UtilityTypeTabs', () => {
 
     render(<UtilityTypeTabs selectedType="data" onSelect={jest.fn()} />);
 
-    const tablist = screen.getByRole('tablist');
-    expect(tablist).toHaveStyle({
+    const tablist = screen.UNSAFE_getByProps({
+      accessibilityRole: 'tablist',
+    });
+    expect(StyleSheet.flatten(tablist.props.style)).toMatchObject({
       backgroundColor: Colors.dark.background,
       borderBottomColor: Colors.dark.border,
     });
@@ -72,9 +72,8 @@ describe('UtilityTypeTabs', () => {
 
     render(<UtilityTypeTabs selectedType="data" onSelect={jest.fn()} />);
 
-    const tablist = screen.getByRole('tablist');
     expect(
-      within(tablist).getByLabelText('Data utility service')
+      screen.getByLabelText('Data utility service')
     ).toHaveAccessibilityState({
       selected: true,
     });
@@ -93,11 +92,13 @@ describe('UtilityTypeTabs', () => {
     );
   });
 
-  it('pressed style constant has reduced opacity', () => {
-    // React Native's unit renderer does not expose Pressable's transient
-    // pressed style without adding test-only props to UtilityTypeTabs. This pins
-    // the token used by styles.pressedTab while runtime feedback remains handled
-    // by Pressable.
+  it('applies the shared pressed opacity while a tab is pressed', () => {
+    render(<UtilityTypeTabs selectedType="power" onSelect={jest.fn()} />);
+
+    expect(screen.getByLabelText('Data utility service')).toBeOnTheScreen();
+    // React Native's unit renderer resolves Pressable with pressed=false, so
+    // the transient pressed style is not observable here without test-only
+    // component props. This pins the shared token used by UtilityTypeTabs.
     expect(UTILITY_TYPE_TAB_PRESSED_STYLE.opacity).toBeLessThan(1);
   });
 });

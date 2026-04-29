@@ -320,10 +320,11 @@ describe('GET /api/vtu/history', () => {
       ([field, operator]) => field === 'metadata' && operator === 'eq'
     );
     expect(metadataFilter).toBeDefined();
-    if (!metadataFilter) {
-      throw new Error('Expected metadata optimistic-lock filter');
-    }
-    expect(JSON.parse(String(metadataFilter[2]))).toEqual({
+    const serializedMetadata = String(metadataFilter?.[2]).replace(
+      /::jsonb$/,
+      ''
+    );
+    expect(JSON.parse(serializedMetadata)).toEqual({
       alpha: 'first',
       zeta: 'last',
     });

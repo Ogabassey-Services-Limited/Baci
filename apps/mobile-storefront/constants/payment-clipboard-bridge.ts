@@ -66,7 +66,7 @@ export const PAYMENT_CLIPBOARD_BRIDGE = {
       var after = text
         .slice(numberIndex + rawNumber.length, numberIndex + rawNumber.length + 32)
         .toLowerCase();
-      return /\\b(phone|tel|telephone|mobile|ref|reference)\\b/.test(
+      return /\\b(?:acct|account|routing|routingnumber|ssn|tin|ein|vat|postal|zip|zipcode|emp|employee|id|invoice|order|track|ref|refno|reference|phone|tel|telephone|mobile|ext|extension|fax)\\b|ss#/.test(
         before + ' ' + after
       );
     }
@@ -206,15 +206,16 @@ export const PAYMENT_CLIPBOARD_BRIDGE = {
   document.addEventListener('copy', function (event) {
     var clipboardText = '';
 
+    if (window.getSelection) {
+      clipboardText = window.getSelection().toString().trim();
+    }
+
     if (
+      !clipboardText &&
       event.clipboardData &&
       typeof event.clipboardData.getData === 'function'
     ) {
-      clipboardText = event.clipboardData.getData('text/plain');
-    }
-
-    if (!clipboardText && window.getSelection) {
-      clipboardText = window.getSelection().toString();
+      clipboardText = String(event.clipboardData.getData('text/plain') || '').trim();
     }
 
     postCopy(clipboardText);
@@ -248,10 +249,13 @@ export const PAYMENT_CLIPBOARD_BRIDGE = {
     scanForAccountNumber();
   }
 
-  if (window.MutationObserver && document.documentElement) {
+  var observerTarget =
+    document.querySelector('main, [role="main"], form') ||
+    document.body ||
+    document.documentElement;
+  if (window.MutationObserver && observerTarget) {
     var observer = new MutationObserver(scheduleAccountNumberScan);
-    observer.observe(document.documentElement, {
-      characterData: true,
+    observer.observe(observerTarget, {
       childList: true,
       subtree: true
     });

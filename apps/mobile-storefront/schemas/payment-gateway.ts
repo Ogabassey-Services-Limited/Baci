@@ -6,6 +6,11 @@ const trimmedRequiredString = (message: string) =>
 const trimmedOptionalString = (message: string) =>
   trimmedRequiredString(message).optional();
 
+const optionalPositiveAmount = z.preprocess(
+  (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+  z.coerce.number().positive('Amount must be greater than 0').optional()
+);
+
 export const PaymentGatewayParamsSchema = z
   .object({
     orderId: trimmedOptionalString('Order ID cannot be empty'),
@@ -17,10 +22,7 @@ export const PaymentGatewayParamsSchema = z
       'Authorization URL is required'
     ).url('Invalid authorization URL'),
     reference: trimmedRequiredString('Reference is required'),
-    amount: z.coerce
-      .number()
-      .positive('Amount must be greater than 0')
-      .optional(),
+    amount: optionalPositiveAmount,
     paymentKind: z.enum(['order', 'vtu']).default('order'),
     utilityType: z
       .enum(['airtime', 'data', 'tv', 'power', 'gaming'])
@@ -54,6 +56,11 @@ export const PaymentGatewayParamsSchema = z
         code: 'custom',
         message: 'Order ID or order number is required for order payments',
         path: ['orderId'],
+      });
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Order ID or order number is required for order payments',
+        path: ['orderNumber'],
       });
     }
   });

@@ -37,4 +37,14 @@ describe('formatUtilityAmountInput', () => {
     expect(formatUtilityAmountInput('+Infinity')).toBe('');
     expect(formatUtilityAmountInput('-Infinity')).toBe('');
   });
+
+  it('normalizes scientific notation, malformed decimals, and leading zeros', () => {
+    expect(formatUtilityAmountInput('1e6')).toBe('1,000,000');
+    expect(formatUtilityAmountInput('2.5e3')).toBe('2,500');
+    expect(formatUtilityAmountInput('.5')).toBe('0.5');
+    expect(formatUtilityAmountInput('5.')).toBe('5');
+    expect(formatUtilityAmountInput('1.2.3')).toBe('');
+    expect(formatUtilityAmountInput('007')).toBe('7');
+    expect(formatUtilityAmountInput('0123')).toBe('123');
+  });
 });

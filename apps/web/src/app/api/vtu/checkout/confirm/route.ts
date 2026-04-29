@@ -181,6 +181,11 @@ export async function POST(request: NextRequest) {
         // Another process already completed or claimed this payment between
         // the read and update. Continue to fulfillment so the client receives
         // the VTU status shape it already understands.
+        console.debug('VTU confirm transaction was already claimed', {
+          gateway: parsed.data.gateway,
+          paymentId: transaction.id,
+          reference: parsed.data.reference,
+        });
       }
     }
 

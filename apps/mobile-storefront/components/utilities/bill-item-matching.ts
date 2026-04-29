@@ -70,11 +70,19 @@ export function containsBillerNameTokenSequence(
     return false;
   }
 
-  return initialNameTokens.some((_, index) =>
-    billerNameTokens.every(
-      (token, tokenIndex) => initialNameTokens[index + tokenIndex] === token
-    )
-  );
+  const maxStart = initialNameTokens.length - billerNameTokens.length;
+
+  for (let index = 0; index <= maxStart; index += 1) {
+    if (
+      billerNameTokens.every(
+        (token, tokenIndex) => initialNameTokens[index + tokenIndex] === token
+      )
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 export function findBillerByInitialName(

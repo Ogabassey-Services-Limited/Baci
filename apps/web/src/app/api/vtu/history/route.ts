@@ -157,17 +157,17 @@ export async function GET(request: NextRequest) {
             { error: 'Failed to fetch payment statuses' },
             { status: 500 }
           );
-        } else {
-          for (const paymentRow of paymentRows ?? []) {
-            if (
-              typeof paymentRow.gateway_reference === 'string' &&
-              typeof paymentRow.status === 'string'
-            ) {
-              paymentStatusByReference.set(
-                paymentRow.gateway_reference,
-                paymentRow.status
-              );
-            }
+        }
+
+        for (const paymentRow of paymentRows ?? []) {
+          if (
+            typeof paymentRow.gateway_reference === 'string' &&
+            typeof paymentRow.status === 'string'
+          ) {
+            paymentStatusByReference.set(
+              paymentRow.gateway_reference,
+              paymentRow.status
+            );
           }
         }
       }

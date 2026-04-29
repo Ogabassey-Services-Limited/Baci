@@ -91,8 +91,8 @@ export async function purchaseBill(
     const response = await kudaRequest<{
       Reference?: string;
       Pin?: string | null;
-      reference: string;
-      pin: string | null;
+      reference?: string;
+      pin?: string | null;
     }>(
       KudaServiceType.ADMIN_PURCHASE_BILL,
       {

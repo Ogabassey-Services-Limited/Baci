@@ -17,6 +17,7 @@ type MockUserResult = {
 
 type MockSessionResult = {
   data: { session: { access_token: string } | null };
+  error: Error | null;
 };
 
 const mockFetchWithTimeout =
@@ -85,6 +86,7 @@ beforeEach(() => {
   });
   mockGetSession.mockResolvedValue({
     data: { session: { access_token: 'token-123' } },
+    error: null,
   });
 });
 
@@ -144,10 +146,12 @@ describe('useVTUHistory', () => {
         payment_status: 'completed',
       }),
       expect.objectContaining({
+        type: 'airtime',
         status: 'pending',
         payment_status: 'pending',
       }),
       expect.objectContaining({
+        type: 'data',
         status: 'failed',
         payment_status: 'failed',
       }),

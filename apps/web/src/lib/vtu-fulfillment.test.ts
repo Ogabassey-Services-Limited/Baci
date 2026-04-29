@@ -592,6 +592,46 @@ describe('fulfillPendingVtuTransaction', () => {
     );
   });
 
+  it('does not retry a failed transaction when retryFailed is false', async () => {
+    const supabase = createPendingTransactionSupabaseMock({
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: null,
+        type: 'airtime',
+        network_provider: 'MTN',
+        phone_number: '08012345678',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: null,
+        status: 'failed',
+        metadata: {
+          paymentReference: 'VTU-PAYSTACK-123',
+        },
+        error_message: 'Temporary biller error',
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: null,
+        biller_item_code: null,
+        customer_identifier: null,
+      },
+    });
+
+    const result = await fulfillPendingVtuTransaction({
+      retryFailed: false,
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(result).toMatchObject({
+      amount: 1000,
+      error: 'Temporary biller error',
+      reference: 'VTU-123',
+      status: 'failed',
+    });
+    expect(mockPurchaseAirtime).not.toHaveBeenCalled();
+  });
+
   it('preserves an existing transaction id when a successful purchase omits a new one', async () => {
     const updatePayloads: unknown[] = [];
     mockPurchaseAirtime.mockResolvedValue({

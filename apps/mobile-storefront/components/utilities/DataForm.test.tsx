@@ -279,6 +279,8 @@ describe('DataForm', () => {
     mockUseUtilityPayment.mockReturnValue({
       cards: [],
       isLoadingCards: false,
+      // Saved-card VTU charges are confirmed through Paystack even when the
+      // visible gateway picker is unset.
       selectedGateway: null,
       selectedSavedCardId: 'saved-card-1',
       selectGateway: jest.fn(),

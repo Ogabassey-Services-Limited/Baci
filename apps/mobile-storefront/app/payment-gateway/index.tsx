@@ -190,7 +190,7 @@ export default function PaymentGatewayScreen() {
       }, 1500);
     } catch (error) {
       if (error instanceof VtuPaymentStillProcessingError) {
-        setStatus('success');
+        setStatus('processing');
         routeToUtilityResult({
           resultAmount: error.amount,
           resultCustomerIdentifier: error.customerIdentifier,
@@ -355,6 +355,7 @@ export default function PaymentGatewayScreen() {
 
   const handleRetry = () => {
     paymentCompletionStartedRef.current = false;
+    copiedGatewayTextRef.current = null;
     setStatus('loading');
     setErrorMessage(null);
     webViewRef.current?.reload();

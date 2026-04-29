@@ -24,6 +24,14 @@ const mockFetchWithRetry = fetchWithRetry as jest.MockedFunction<
 let queryClient: QueryClient;
 let unmountHook: (() => void) | undefined;
 
+const mockEKEDCBiller = {
+  billerId: 'a3cacf1f-c1d6-410f-b11d-4dc9d7ea5dd0',
+  billerName: 'EKEDC NG',
+  billerType: 'Electricity',
+  categoryId: '8593f820-5854-491f-b24b-fa371a99a907',
+  categoryName: 'Electricity',
+};
+
 function createQueryClient() {
   return new QueryClient({
     defaultOptions: {
@@ -75,15 +83,7 @@ describe('useVTUBillers', () => {
       ok: true,
       json: () =>
         Promise.resolve({
-          billers: [
-            {
-              billerId: 'a3cacf1f-c1d6-410f-b11d-4dc9d7ea5dd0',
-              billerName: 'EKEDC NG',
-              billerType: 'Electricity',
-              categoryId: '8593f820-5854-491f-b24b-fa371a99a907',
-              categoryName: 'Electricity',
-            },
-          ],
+          billers: [mockEKEDCBiller],
         }),
     } as Awaited<ReturnType<typeof fetchWithRetry>>);
     const { result, unmount } = renderHook(() => useVTUBillers('electricity'), {
@@ -98,13 +98,7 @@ describe('useVTUBillers', () => {
 
   it('adds Kuda electricity bill item codes to cached providers', async () => {
     queryClient.setQueryData(vtuBillerKeys.byType('electricity'), [
-      {
-        billerId: 'a3cacf1f-c1d6-410f-b11d-4dc9d7ea5dd0',
-        billerName: 'EKEDC NG',
-        billerType: 'Electricity',
-        categoryId: '8593f820-5854-491f-b24b-fa371a99a907',
-        categoryName: 'Electricity',
-      },
+      mockEKEDCBiller,
     ]);
 
     const { result, unmount } = renderHook(() => useVTUBillers('electricity'), {
@@ -160,15 +154,7 @@ describe('useVTUBillers', () => {
   it('keeps cached Kuda-augmented electricity billers when a refresh fails', async () => {
     queryClient.setQueryData(
       vtuBillerKeys.byType('electricity'),
-      [
-        {
-          billerId: 'a3cacf1f-c1d6-410f-b11d-4dc9d7ea5dd0',
-          billerName: 'EKEDC NG',
-          billerType: 'Electricity',
-          categoryId: '8593f820-5854-491f-b24b-fa371a99a907',
-          categoryName: 'Electricity',
-        },
-      ],
+      [mockEKEDCBiller],
       { updatedAt: 0 }
     );
     mockFetchWithRetry.mockRejectedValue(new Error('Network unavailable'));

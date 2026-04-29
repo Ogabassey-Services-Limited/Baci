@@ -1,7 +1,15 @@
-const UTILITY_AMOUNT_FORMATTER = new Intl.NumberFormat('en-NG', {
-  maximumFractionDigits: 2,
-  minimumFractionDigits: 0,
-});
+const DEFAULT_UTILITY_AMOUNT_LOCALE = 'en-NG';
+
+export function createUtilityAmountFormatter(
+  locale = DEFAULT_UTILITY_AMOUNT_LOCALE
+): Intl.NumberFormat {
+  return new Intl.NumberFormat(locale, {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 0,
+  });
+}
+
+export const UTILITY_AMOUNT_FORMATTER = createUtilityAmountFormatter();
 
 export function formatUtilityAmountInput(
   amount: number | string | null | undefined

@@ -134,4 +134,25 @@ describe('BillerList', () => {
     expect(screen.getByText('EKEDC NG')).toBeTruthy();
     expect(screen.getByText('IKEDC NG')).toBeTruthy();
   });
+
+  it('calls onSelect with the selected biller', () => {
+    const onSelect = jest.fn();
+
+    render(
+      <BillerList
+        billers={billers}
+        selectedBillerId={null}
+        onSelect={onSelect}
+        isLoading={false}
+        isCollapsed={false}
+      />
+    );
+
+    fireEvent.press(screen.getByText('EKEDC NG'));
+
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({ billerId: 'ekedc' })
+    );
+  });
 });

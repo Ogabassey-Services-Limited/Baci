@@ -9,6 +9,7 @@ const API_URL =
   process.env.EXPO_PUBLIC_API_URL ||
   Constants.expoConfig?.extra?.apiUrl ||
   'https://usebaci.com';
+export const VTU_CHECKOUT_INITIALIZE_URL = `${API_URL}/api/vtu/checkout/initialize`;
 
 const GatewayEnum = z.enum(['paystack', 'korapay']);
 
@@ -196,21 +197,18 @@ async function parseJsonResponse(response: Response) {
 
 export async function initializeVtuCheckout(payload: VTUCheckoutPayload) {
   const accessToken = await getAccessToken();
-  const response = await fetchWithTimeout(
-    `${API_URL}/api/vtu/checkout/initialize`,
-    {
-      method: 'POST',
-      timeout: DEFAULT_TIMEOUT,
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        ...normalizeVtuCheckoutPayload(payload),
-        merchantSlug: CONFIG.MERCHANT_SLUG,
-      }),
-    }
-  );
+  const response = await fetchWithTimeout(VTU_CHECKOUT_INITIALIZE_URL, {
+    method: 'POST',
+    timeout: DEFAULT_TIMEOUT,
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      ...normalizeVtuCheckoutPayload(payload),
+      merchantSlug: CONFIG.MERCHANT_SLUG,
+    }),
+  });
 
   const data = await parseJsonResponse(response);
   return InitCheckoutResponseSchema.parse(data);
@@ -271,7 +269,12 @@ export async function confirmVtuCheckout({
     });
   }
 
-  return ConfirmCheckoutResponseSchema.parse(data);
+  const normalizedData = {
+    ...data,
+    status: normalizedStatus,
+  };
+
+  return ConfirmCheckoutResponseSchema.parse(normalizedData);
 }
 
 export async function waitForVtuConfirmation({

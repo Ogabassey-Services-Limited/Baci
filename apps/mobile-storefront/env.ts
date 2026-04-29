@@ -21,8 +21,21 @@ function readPublicApiUrl() {
   return value && value.length > 0 ? value : undefined;
 }
 
-const env = MobileEnvSchema.parse({
+const rawEnv = {
   EXPO_PUBLIC_API_URL: readPublicApiUrl() || readExpoExtraApiUrl(),
-});
+};
 
-export const { EXPO_PUBLIC_API_URL } = env;
+const parsedEnv = MobileEnvSchema.safeParse(rawEnv);
+
+if (!parsedEnv.success) {
+  const details = parsedEnv.error.issues
+    .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+    .join('; ');
+
+  throw new Error(
+    `Invalid mobile environment configuration (${details}). ` +
+      `Received EXPO_PUBLIC_API_URL=${JSON.stringify(rawEnv.EXPO_PUBLIC_API_URL)}.`
+  );
+}
+
+export const { EXPO_PUBLIC_API_URL } = parsedEnv.data;

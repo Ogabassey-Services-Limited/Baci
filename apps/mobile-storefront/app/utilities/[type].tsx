@@ -19,7 +19,7 @@ import { UtilityTypeTabs } from '@/components/utilities/UtilityTypeTabs';
 import {
   type UtilityRepeatDefaults,
   utilityRepeatHelpers,
-} from '@/components/utilities/utility-repeat';
+} from '@/lib/utility-repeat';
 import Colors from '@/constants/Colors';
 import { useKeyboard } from '@/hooks/use-keyboard';
 import { useVTUHistory } from '@/hooks/use-vtu-history';
@@ -213,7 +213,7 @@ export default function UtilityPurchaseScreen() {
   });
   const currentType = selectedType ?? routeType;
   const [repeatDefaults, setRepeatDefaults] = useState<UtilityRepeatDefaults>(
-    routeType && currentType === routeType ? routeRepeatDefaults : {}
+    routeType ? routeRepeatDefaults : {}
   );
   const [repeatRevision, setRepeatRevision] = useState(0);
   const [isQuickRepeatDismissed, setIsQuickRepeatDismissed] = useState(false);

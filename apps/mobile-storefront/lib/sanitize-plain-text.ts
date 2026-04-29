@@ -1,6 +1,6 @@
 const HTML_TEXT_ESCAPE_MAP: Record<string, string> = {
-  '"': '&quot;',
   '&': '&amp;',
+  '"': '&quot;',
   "'": '&#039;',
   '<': '&lt;',
   '>': '&gt;',

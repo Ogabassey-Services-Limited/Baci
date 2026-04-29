@@ -13,6 +13,7 @@ import {
   initializeVtuCheckout,
   listSavedVtuCards,
   normalizeVtuCheckoutPayload,
+  VTU_CHECKOUT_INITIALIZE_URL,
   VtuPaymentStillProcessingError,
   waitForVtuConfirmation,
 } from '@/lib/vtu-checkout';
@@ -135,7 +136,7 @@ describe('vtu-checkout service', () => {
 
     expect(result.reference).toBe('VTU-123');
     expect(mockFetchWithTimeout).toHaveBeenCalledWith(
-      'https://usebaci.com/api/vtu/checkout/initialize',
+      VTU_CHECKOUT_INITIALIZE_URL,
       expect.objectContaining({
         headers: expect.objectContaining({
           Authorization: 'Bearer token-123',
@@ -143,18 +144,11 @@ describe('vtu-checkout service', () => {
       })
     );
     const checkoutRequest = mockFetchWithTimeout.mock.calls[0]?.[1];
-    if (
-      typeof checkoutRequest !== 'object' ||
-      checkoutRequest === null ||
-      !('body' in checkoutRequest) ||
-      typeof checkoutRequest.body !== 'string'
-    ) {
-      throw new Error(
-        `Expected checkout request body to be captured; received ${JSON.stringify(checkoutRequest)}`
-      );
-    }
+    expect(checkoutRequest).toHaveProperty('body');
+    const checkoutRequestBody = (checkoutRequest as { body?: unknown }).body;
+    expect(typeof checkoutRequestBody).toBe('string');
     expect(
-      JSON.parse(checkoutRequest.body) as Record<string, unknown>
+      JSON.parse(String(checkoutRequestBody)) as Record<string, unknown>
     ).toMatchObject({
       networkProvider: MOBILE_TO_KUDA_PROVIDER.mtn,
     });
@@ -165,7 +159,7 @@ describe('vtu-checkout service', () => {
       ok: true,
       json: async () => ({
         success: true,
-        status: 'successful',
+        status: 'SUCCESSFUL',
         reference: 'VTU-123',
         amount: 1000,
       }),

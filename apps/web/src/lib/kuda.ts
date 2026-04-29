@@ -779,16 +779,21 @@ export async function checkTransactionStatus(
       continue;
     }
 
-    querySucceeded = true;
-    message = response.message || message;
-
     const nextStatus = extractKudaStatus(response.data);
-    status = getBestKudaStatus(status, nextStatus);
+    const bestStatus = getBestKudaStatus(status, nextStatus);
+    querySucceeded = true;
+    if (bestStatus !== status) {
+      status = bestStatus;
+      message = response.message || message;
+    } else if (!message) {
+      message = response.message || message;
+    }
 
     const pin = extractKudaVoucherPin(response.data);
     if (pin) {
       return {
-        message,
+        message:
+          bestStatus === nextStatus ? response.message || message : message,
         pin,
         status,
       };

@@ -1,7 +1,7 @@
 import { type Href, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert } from 'react-native';
-import { utilityRepeatHelpers } from '@/components/utilities/utility-repeat';
+import { utilityRepeatHelpers } from '@/lib/utility-repeat';
 import type { VTUHistoryTransaction } from '@/hooks/use-vtu-history';
 import { setClipboardString } from '@/lib/clipboard';
 import { shareUtilityReceipt } from '@/lib/utility-receipt';
@@ -40,8 +40,14 @@ export function useUtilityHistoryActions({
   };
 
   const handleCopyVoucher = async (voucherPin: string) => {
+    const trimmedVoucherPin = voucherPin.trim();
+    if (!trimmedVoucherPin) {
+      Alert.alert('Copy Failed', 'No token to copy.');
+      return;
+    }
+
     try {
-      const copied = await setClipboardString(voucherPin);
+      const copied = await setClipboardString(trimmedVoucherPin);
       Alert.alert(
         copied ? 'Copied' : 'Copy Failed',
         copied ? 'Token copied to clipboard.' : 'Could not copy this token.'
@@ -57,12 +63,21 @@ export function useUtilityHistoryActions({
       return;
     }
 
+    const customerIdentifier =
+      transaction.customer_identifier ?? transaction.phone_number;
+    if (!customerIdentifier) {
+      Alert.alert(
+        'Cannot Share',
+        'Customer identifier is missing for this transaction.'
+      );
+      return;
+    }
+
     setSharingTransactionId(transaction.id);
     try {
       await shareUtilityReceipt({
         amount: transaction.amount,
-        customerIdentifier:
-          transaction.customer_identifier ?? transaction.phone_number ?? '',
+        customerIdentifier,
         customerName: transaction.customer_name,
         reference: transaction.request_reference,
         status: transaction.status,
@@ -81,11 +96,19 @@ export function useUtilityHistoryActions({
   };
 
   const handleSyncPayment = async (transaction: VTUHistoryTransaction) => {
-    if (
-      syncingTransactionId ||
-      !transaction.payment_gateway ||
-      !transaction.payment_reference
-    ) {
+    if (syncingTransactionId) {
+      Alert.alert(
+        'Sync In Progress',
+        'Another payment sync is already running.'
+      );
+      return;
+    }
+
+    if (!transaction.payment_gateway || !transaction.payment_reference) {
+      Alert.alert(
+        'Cannot Sync',
+        'Cannot sync: missing payment information.'
+      );
       return;
     }
 

@@ -41,6 +41,28 @@ const TYPE_LABELS: Record<string, string> = {
   gaming: 'betting',
 };
 
+function getPurchaseMessage({
+  identifier,
+  isProcessing,
+  type,
+}: {
+  identifier: string;
+  isProcessing: boolean;
+  type: string;
+}) {
+  const typeLabel = TYPE_LABELS[type] || type;
+
+  if (isProcessing) {
+    return identifier
+      ? `Your ${typeLabel} payment for ${identifier} is processing. We will update your utility history shortly.`
+      : `Your ${typeLabel} payment is processing. We will update your utility history shortly.`;
+  }
+
+  return identifier
+    ? `Your ${typeLabel} purchase for ${identifier} was successful.`
+    : `Your ${typeLabel} purchase was successful.`;
+}
+
 export function PurchaseSuccess({
   type,
   amount,
@@ -58,6 +80,7 @@ export function PurchaseSuccess({
   const colors = Colors[colorScheme ?? 'light'];
   const identifier = phoneNumber || customerIdentifier || '';
   const isProcessing = status === 'processing';
+  const messageText = getPurchaseMessage({ identifier, isProcessing, type });
   const [isSharingReceipt, setIsSharingReceipt] = useState(false);
 
   const handleCopyVoucher = async () => {
@@ -116,13 +139,7 @@ export function PurchaseSuccess({
         {isProcessing ? 'Payment Received' : 'Purchase Successful!'}
       </Text>
       <Text style={[styles.message, { color: colors.textSecondary }]}>
-        {isProcessing
-          ? identifier
-            ? `Your ${TYPE_LABELS[type] || type} payment for ${identifier} is processing. We will update your utility history shortly.`
-            : `Your ${TYPE_LABELS[type] || type} payment is processing. We will update your utility history shortly.`
-          : identifier
-            ? `Your ${TYPE_LABELS[type] || type} purchase for ${identifier} was successful.`
-            : `Your ${TYPE_LABELS[type] || type} purchase was successful.`}
+        {messageText}
       </Text>
 
       {txReference && (

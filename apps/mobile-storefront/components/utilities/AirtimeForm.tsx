@@ -33,12 +33,6 @@ import { UtilityPaymentOptions } from './UtilityPaymentOptions';
 import { formatUtilityAmountInput } from './utility-amount-format';
 
 const QUICK_AMOUNTS = [100, 200, 500, 1000, 2000, 5000];
-const NETWORK_PROVIDER_LABELS: Record<string, string> = {
-  airtel: 'Airtel',
-  glo: 'Glo',
-  mtn: 'MTN',
-  t2: 'T2 (9mobile)',
-};
 
 /** Height reserved for the absolutely-positioned payment footer */
 const FOOTER_HEIGHT = 120;
@@ -326,7 +320,7 @@ export function AirtimeForm({
               <Text
                 style={[styles.selectedNetworkName, { color: colors.text }]}
               >
-                {NETWORK_PROVIDER_LABELS[selectedProvider] ?? selectedProvider}
+                {selectedProviderConfig?.name ?? selectedProvider}
               </Text>
             </View>
             <Pressable

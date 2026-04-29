@@ -24,9 +24,11 @@ export const UTILITY_HISTORY_TYPE_LABELS = {
   betting: 'Gaming',
 } as const satisfies Record<VTUHistoryTransaction['type'], string>;
 
-type UtilityHistoryStatusColorKey =
+export type UtilityHistoryStatusColorKey =
   | VTUHistoryTransaction['status']
   | 'paymentReceived';
+
+export type UtilityHistoryStatusMetaKey = UtilityHistoryStatusColorKey;
 
 export const UTILITY_HISTORY_STATUS_COLORS = {
   failed: palette.red[700],
@@ -36,8 +38,34 @@ export const UTILITY_HISTORY_STATUS_COLORS = {
   successful: palette.emerald[700],
 } as const satisfies Record<UtilityHistoryStatusColorKey, string>;
 
+export const UTILITY_HISTORY_STATUS_META = {
+  failed: {
+    color: UTILITY_HISTORY_STATUS_COLORS.failed,
+    label: 'Failed',
+  },
+  paymentReceived: {
+    color: UTILITY_HISTORY_STATUS_COLORS.paymentReceived,
+    label: 'Payment Received',
+  },
+  pending: {
+    color: UTILITY_HISTORY_STATUS_COLORS.pending,
+    label: 'Pending',
+  },
+  processing: {
+    color: UTILITY_HISTORY_STATUS_COLORS.processing,
+    label: 'Processing',
+  },
+  successful: {
+    color: UTILITY_HISTORY_STATUS_COLORS.successful,
+    label: 'Successful',
+  },
+} as const satisfies Record<
+  UtilityHistoryStatusMetaKey,
+  { color: string; label: string }
+>;
+
 export const DEFAULT_UTILITY_HISTORY_STATUS_COLOR = palette.gray[700];
-export const DEFAULT_UTILITY_HISTORY_STATUS_LABEL = 'unknown';
+export const DEFAULT_UTILITY_HISTORY_STATUS_LABEL = 'Unknown';
 
 export const UTILITY_HISTORY_PAYMENT_RECEIVED_STATUS = {
   label: 'Payment Received',

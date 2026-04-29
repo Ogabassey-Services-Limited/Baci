@@ -31,6 +31,8 @@ function expectBridgeMessageTypesToBeReferenced({
 }
 
 describe('PAYMENT_CLIPBOARD_BRIDGE', () => {
+  // These implementation-detail assertions are deliberate: the injected script
+  // is a contract between gateway web pages and the native WebView handler.
   it('posts the message types consumed by the native payment screen', () => {
     expect(PAYMENT_CLIPBOARD_BRIDGE.clipboardMessageType).toBeTruthy();
     expect(PAYMENT_CLIPBOARD_BRIDGE.accountNumberMessageType).toBeTruthy();
@@ -84,7 +86,10 @@ describe('PAYMENT_CLIPBOARD_BRIDGE', () => {
       'function hasExcludedNumberContext'
     );
     expect(PAYMENT_CLIPBOARD_BRIDGE.script).toContain(
-      'phone|tel|telephone|mobile|ref|reference'
+      'routing|routingnumber'
+    );
+    expect(PAYMENT_CLIPBOARD_BRIDGE.script).toContain(
+      'invoice|order|track'
     );
   });
 

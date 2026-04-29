@@ -166,7 +166,7 @@ async function findExistingCustomerCashback({
       error: error.message,
       transactionId: row.id,
     });
-    return null;
+    throwVtuPersistenceError('Failed to check existing VTU cashback ledger');
   }
 
   return data;
@@ -195,7 +195,9 @@ async function findExistingMerchantCommission({
       error: error.message,
       transactionId: row.id,
     });
-    return null;
+    throwVtuPersistenceError(
+      'Failed to check existing VTU merchant commission'
+    );
   }
 
   return data;
@@ -735,32 +737,42 @@ export async function fulfillPendingVtuTransaction({
     row,
     supabase,
   });
-  await notifyVtuCustomerSuccess({
+  const notificationSettlement = await notifyVtuCustomerSuccess({
     cashbackAmount,
     customerWalletCredited: walletSettlement.customerWalletCredited,
     metadata: finalMetadata,
     row,
     supabase,
   });
-  setMetadataValue(finalMetadata, 'paymentPending', false);
+  const paymentPendingMetadataChanged = setMetadataValue(
+    finalMetadata,
+    'paymentPending',
+    false
+  );
+  const metadataChanged =
+    walletSettlement.metadataChanged ||
+    notificationSettlement.metadataChanged ||
+    paymentPendingMetadataChanged;
 
-  const finalMetadataUpdatePayload = {
-    metadata: finalMetadata,
-  };
-  const { error: finalMetadataUpdateError } = await supabase
-    .from('vtu_transactions')
-    .update(finalMetadataUpdatePayload)
-    .eq('id', row.id);
+  if (metadataChanged) {
+    const finalMetadataUpdatePayload = {
+      metadata: finalMetadata,
+    };
+    const { error: finalMetadataUpdateError } = await supabase
+      .from('vtu_transactions')
+      .update(finalMetadataUpdatePayload)
+      .eq('id', row.id);
 
-  if (finalMetadataUpdateError) {
-    console.error('Failed to persist final VTU transaction metadata:', {
-      error: finalMetadataUpdateError.message,
-      metadata: getSafeMetadataDiagnostics(finalMetadata),
-      transactionId: row.id,
-    });
-    throwVtuPersistenceError(
-      'Failed to persist final VTU transaction metadata'
-    );
+    if (finalMetadataUpdateError) {
+      console.error('Failed to persist final VTU transaction metadata:', {
+        error: finalMetadataUpdateError.message,
+        metadata: getSafeMetadataDiagnostics(finalMetadata),
+        transactionId: row.id,
+      });
+      throwVtuPersistenceError(
+        'Failed to persist final VTU transaction metadata'
+      );
+    }
   }
 
   return {

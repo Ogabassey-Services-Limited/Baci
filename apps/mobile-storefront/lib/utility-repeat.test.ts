@@ -11,7 +11,7 @@ jest.mock('@/lib/logger', () => {
   };
 });
 
-import { utilityRepeatHelpers } from '@/components/utilities/utility-repeat';
+import { utilityRepeatHelpers } from '@/lib/utility-repeat';
 
 interface LoggerMockModule {
   __mockLoggerWarn: jest.Mock;

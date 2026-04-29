@@ -69,14 +69,10 @@ export const styles = StyleSheet.create({
     minHeight: UTILITY_HISTORY_STYLE_TOKENS.touchTargetHeight,
     paddingHorizontal: UTILITY_HISTORY_STYLE_TOKENS.chipHorizontalPadding,
   },
-  // Empty variants are intentionally composed with pillButtonBase at call sites.
-  repeatButton: {},
   repeatText: {
     fontSize: UTILITY_HISTORY_STYLE_TOKENS.labelTextSize,
     fontWeight: TYPOGRAPHY.weight.bold,
   },
-  // Empty variants are intentionally composed with pillButtonBase at call sites.
-  retryButton: {},
   retryText: {
     fontSize: UTILITY_HISTORY_STYLE_TOKENS.labelTextSize,
     fontWeight: TYPOGRAPHY.weight.semibold,

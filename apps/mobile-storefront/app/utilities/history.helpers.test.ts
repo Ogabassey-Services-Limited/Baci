@@ -4,6 +4,7 @@ import {
   DEFAULT_UTILITY_HISTORY_STATUS_LABEL,
   UTILITY_HISTORY_PAYMENT_RECEIVED_STATUS,
   UTILITY_HISTORY_STATUS_COLORS,
+  UTILITY_HISTORY_STATUS_META,
 } from './history.constants';
 import { utilityHistoryHelpers } from './history.helpers';
 
@@ -100,8 +101,7 @@ describe('history.helpers', () => {
       })
     ).toEqual({
       color: UTILITY_HISTORY_STATUS_COLORS.processing,
-      // Normal fulfillment statuses are intentionally shown as their raw API status.
-      label: 'processing',
+      label: UTILITY_HISTORY_STATUS_META.processing.label,
       message: null,
     });
   });

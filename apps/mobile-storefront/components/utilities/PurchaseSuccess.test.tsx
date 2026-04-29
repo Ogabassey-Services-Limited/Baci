@@ -163,6 +163,35 @@ describe('PurchaseSuccess', () => {
         'Could not copy this token.'
       );
     });
+    expect(console.error).toHaveBeenCalledWith(
+      'Failed to copy utility voucher token:',
+      expect.any(Error)
+    );
+  });
+
+  it('alerts when copying a returned electricity token is declined', async () => {
+    mockSetClipboardString.mockResolvedValueOnce(false);
+
+    render(
+      <PurchaseSuccess
+        type="power"
+        customerIdentifier="43901766923"
+        txReference="ref-123"
+        cashback={null}
+        isAuthenticated={true}
+        onCreateAccount={jest.fn()}
+        voucherPin="1234-5678-9012-3456"
+      />
+    );
+
+    fireEvent.press(screen.getByLabelText('Copy voucher token'));
+
+    await waitFor(() => {
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Copy Failed',
+        'Could not copy this token.'
+      );
+    });
   });
 
   it('alerts when sharing the utility receipt fails', async () => {
@@ -191,5 +220,61 @@ describe('PurchaseSuccess', () => {
         'Could not generate the receipt PDF. Please try again.'
       );
     });
+    expect(console.error).toHaveBeenCalledWith(
+      'Failed to share utility receipt:',
+      expect.any(Error)
+    );
+  });
+
+  it('shows account creation CTA for unauthenticated users', () => {
+    const onCreateAccount = jest.fn();
+
+    render(
+      <PurchaseSuccess
+        type="power"
+        customerIdentifier="43901766923"
+        txReference="ref-123"
+        cashback={null}
+        isAuthenticated={false}
+        onCreateAccount={onCreateAccount}
+      />
+    );
+
+    fireEvent.press(screen.getByText('Create Account'));
+
+    expect(onCreateAccount).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows cashback details when cashback is returned', () => {
+    render(
+      <PurchaseSuccess
+        type="power"
+        customerIdentifier="43901766923"
+        txReference="ref-123"
+        cashback={{ amount: 50, newBalance: 1200 }}
+        isAuthenticated={true}
+        onCreateAccount={jest.fn()}
+      />
+    );
+
+    expect(screen.getByText('+₦50 cashback')).toBeOnTheScreen();
+    expect(screen.getByText('Wallet balance: ₦1,200')).toBeOnTheScreen();
+  });
+
+  it('uses the provided utility type when no label mapping exists', () => {
+    render(
+      <PurchaseSuccess
+        type="water"
+        customerIdentifier="WATER-123"
+        txReference="ref-123"
+        cashback={null}
+        isAuthenticated={true}
+        onCreateAccount={jest.fn()}
+      />
+    );
+
+    expect(
+      screen.getByText('Your water purchase for WATER-123 was successful.')
+    ).toBeOnTheScreen();
   });
 });

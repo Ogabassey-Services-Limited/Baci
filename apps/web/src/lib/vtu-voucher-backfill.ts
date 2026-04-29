@@ -119,7 +119,7 @@ async function markVoucherPinBackfillScheduled({
           'eq',
           // Supabase filter() expects raw PostgREST syntax, so pass stable JSON
           // text instead of an object, which would become "[object Object]".
-          stableJsonStringify(originalMetadata)
+          `${stableJsonStringify(originalMetadata)}::jsonb`
         );
 
   const { data, error } = await updateQuery.select('id');
@@ -156,7 +156,7 @@ export async function scheduleVoucherPinBackfill({
     return false;
   }
 
-  if (transaction.id === null || typeof transaction.id === 'undefined') {
+  if (transaction.id == null) {
     console.error('Cannot schedule VTU voucher-pin backfill without an id:', {
       transaction,
     });

@@ -112,7 +112,7 @@ export function BillerList({
         style={[
           styles.selectedCard,
           {
-            backgroundColor: `${BRAND.primary}10`,
+            backgroundColor: BRAND.primaryLight,
             borderColor: BRAND.primary,
           },
         ]}

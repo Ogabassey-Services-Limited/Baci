@@ -9,6 +9,7 @@ import {
   UTILITY_HISTORY_PAYMENT_RECEIVED_STATUS,
   UTILITY_HISTORY_FILTERS,
   UTILITY_HISTORY_STATUS_COLORS,
+  UTILITY_HISTORY_STATUS_META,
   UTILITY_HISTORY_TYPE_LABELS,
 } from './history.constants';
 
@@ -88,18 +89,11 @@ export const utilityHistoryHelpers = {
       };
     }
 
-    const statusColor = UTILITY_HISTORY_STATUS_COLORS[transaction.status];
-    const hasStatusColor = statusColor !== undefined;
-    const color = hasStatusColor
-      ? statusColor
-      : DEFAULT_UTILITY_HISTORY_STATUS_COLOR;
-    const label = hasStatusColor
-      ? transaction.status
-      : DEFAULT_UTILITY_HISTORY_STATUS_LABEL;
+    const statusMeta = UTILITY_HISTORY_STATUS_META[transaction.status];
 
     return {
-      color,
-      label,
+      color: statusMeta?.color ?? DEFAULT_UTILITY_HISTORY_STATUS_COLOR,
+      label: statusMeta?.label ?? DEFAULT_UTILITY_HISTORY_STATUS_LABEL,
       message: null,
     };
   },
