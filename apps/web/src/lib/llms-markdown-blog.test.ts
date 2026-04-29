@@ -6,6 +6,14 @@ import {
 
 const LOCAL_BLOG_INDEX_LIMIT = 24;
 
+function expectBlankLineBetween(
+  markdown: string,
+  before: string,
+  after: string
+): void {
+  expect(markdown).toContain(`${before}\n\n${after}`);
+}
+
 describe('llms markdown blog builders', () => {
   it('builds a blog index with post markdown links', () => {
     const result = buildBlogIndexMarkdown(
@@ -23,6 +31,16 @@ describe('llms markdown blog builders', () => {
     );
 
     expect(result).toContain('# Ogabassey Blog');
+    expect(result).toContain('> Latest published articles');
+    expect(result).toContain('- Categories: Guides');
+    expect(result).toContain('## Posts');
+    expect(result).toContain('- [How to choose a phone]');
+    expectBlankLineBetween(
+      result,
+      '# Ogabassey Blog',
+      '> Latest published articles'
+    );
+    expectBlankLineBetween(result, '- Categories: Guides', '## Posts');
     expect(result).toContain('https://ogabassey.com/blog/choose-a-phone.md');
     expect(result).toContain('Guides');
   });
@@ -49,7 +67,9 @@ describe('llms markdown blog builders', () => {
     );
 
     expect(result).toContain('# How to choose a phone');
-    expect(result).toContain('Structured buying advice');
+    expect(result).toContain('> Structured buying advice');
+    expect(result).toContain('## Summary');
+    expectBlankLineBetween(result, '> Structured buying advice', '## Summary');
     expect(result).toContain('https://ogabassey.com/blog/choose-a-phone.md');
   });
 
@@ -62,6 +82,15 @@ describe('llms markdown blog builders', () => {
     );
 
     expect(result).toContain('# Ogabassey Blog');
+    expect(result).toContain(
+      '- Markdown mirror: https://ogabassey.com/blog/index.html.md'
+    );
+    expect(result).toContain('## Posts');
+    expectBlankLineBetween(
+      result,
+      '- Markdown mirror: https://ogabassey.com/blog/index.html.md',
+      '## Posts'
+    );
     expect(result).not.toContain('- Categories:');
     expect(result).not.toContain('.md):');
   });
@@ -102,6 +131,8 @@ describe('llms markdown blog builders', () => {
     );
 
     expect(result).toContain('> Read this post.');
+    expect(result).toContain('## Summary');
+    expectBlankLineBetween(result, '> Read this post.', '## Summary');
     expect(result).not.toContain('- Author:');
     expect(result).not.toContain('- Category:');
   });
