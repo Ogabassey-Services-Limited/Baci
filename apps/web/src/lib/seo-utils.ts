@@ -151,7 +151,7 @@ export function getProductUrl(product: {
   name: string;
   category?: string | null;
   categories?: { name?: string; slug?: string } | null;
-  category_slug?: string;
+  category_slug?: string | null;
   categorySlug?: string;
   canonical_url?: string | null;
   condition?: 'new' | 'used' | string;

@@ -35,9 +35,6 @@ interface ReadinessFeedProduct {
   gtin?: string;
   mpn?: string;
   google_product_category?: string;
-  category?: string;
-  category_slug?: string;
-  categories?: { name?: string; slug?: string } | null;
 }
 
 interface ReadinessFeedData {

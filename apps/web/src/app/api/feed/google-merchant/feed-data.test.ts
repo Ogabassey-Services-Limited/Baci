@@ -296,6 +296,32 @@ describe('getCachedGoogleMerchantFeedData', () => {
     });
   });
 
+  it('normalizes missing category_slug to null when no joined category exists', async () => {
+    productsResult = {
+      data: [
+        {
+          id: 'product-1',
+          name: 'Phone',
+        },
+      ],
+      error: null,
+    };
+
+    const { getCachedGoogleMerchantFeedData } = await import('./feed-data');
+    const result = await getCachedGoogleMerchantFeedData(
+      'merchant-1',
+      'ogabassey'
+    );
+
+    expect(result.products[0]).toMatchObject({
+      id: 'product-1',
+      name: 'Phone',
+      categories: null,
+      category: null,
+      category_slug: null,
+    });
+  });
+
   it('skips product_offers hydration for sku_matrix products', async () => {
     productsResult = {
       data: [
