@@ -1,44 +1,50 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockCreateStaticClient, mockMerchantSingle, mockProductOrder } =
-  vi.hoisted(() => {
-    const mockMerchantSingle = vi.fn();
-    const mockProductOrder = vi.fn();
-    const mockCreateStaticClient = vi.fn(() => ({
-      from: vi.fn((table: string) => {
-        if (table === 'merchants') {
-          return {
-            select: vi.fn(() => ({
+const {
+  mockCreateStaticClient,
+  mockProductLimit,
+  mockMerchantSingle,
+  mockProductOrder,
+} = vi.hoisted(() => {
+  const mockMerchantSingle = vi.fn();
+  const mockProductLimit = vi.fn();
+  const mockProductOrder = vi.fn();
+  const mockCreateStaticClient = vi.fn(() => ({
+    from: vi.fn((table: string) => {
+      if (table === 'merchants') {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              single: mockMerchantSingle,
+            })),
+          })),
+        };
+      }
+
+      if (table === 'products') {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
               eq: vi.fn(() => ({
-                single: mockMerchantSingle,
+                order: mockProductOrder,
               })),
             })),
-          };
-        }
+          })),
+        };
+      }
 
-        if (table === 'products') {
-          return {
-            select: vi.fn(() => ({
-              eq: vi.fn(() => ({
-                eq: vi.fn(() => ({
-                  order: mockProductOrder,
-                })),
-              })),
-            })),
-          };
-        }
+      throw new Error(`Unexpected table: ${table}`);
+    }),
+  }));
 
-        throw new Error(`Unexpected table: ${table}`);
-      }),
-    }));
-
-    return {
-      mockCreateStaticClient,
-      mockMerchantSingle,
-      mockProductOrder,
-    };
-  });
+  return {
+    mockCreateStaticClient,
+    mockProductLimit,
+    mockMerchantSingle,
+    mockProductOrder,
+  };
+});
 
 vi.mock('@supabase/supabase-js', () => ({
   createClient: mockCreateStaticClient,
@@ -141,6 +147,94 @@ describe('GET /api/storefront/[slug]/products', () => {
     expect(response.headers.get('Cache-Control')).toBe(
       'public, s-maxage=300, stale-while-revalidate=3600'
     );
+  });
+
+  it('applies the validated limit query to the products query', async () => {
+    mockMerchantSingle.mockResolvedValue({
+      data: { id: 'merchant-123' },
+      error: null,
+    });
+    mockProductOrder.mockReturnValue({
+      limit: mockProductLimit,
+    });
+    mockProductLimit.mockResolvedValue({
+      data: [
+        {
+          id: 'product-1',
+          name: 'First Phone',
+          description: 'First product description',
+          price: 1000,
+          compare_at_price: null,
+          images: ['https://cdn.example.com/first.jpg'],
+          image_hint: 'first phone',
+          category: 'Phones',
+          brand: 'Test',
+          status: 'active',
+          has_variants: false,
+          slug: 'first-phone',
+          sku: 'FIRST-1',
+          manage_stock: false,
+          stock: 0,
+          stock_quantity: 0,
+          low_stock_threshold: 2,
+          color: 'Black',
+          condition: 'new',
+        },
+        {
+          id: 'product-2',
+          name: 'Second Phone',
+          description: 'Second product description',
+          price: 2000,
+          compare_at_price: null,
+          images: ['https://cdn.example.com/second.jpg'],
+          image_hint: 'second phone',
+          category: 'Phones',
+          brand: 'Test',
+          status: 'active',
+          has_variants: false,
+          slug: 'second-phone',
+          sku: 'SECOND-2',
+          manage_stock: false,
+          stock: 0,
+          stock_quantity: 0,
+          low_stock_threshold: 2,
+          color: 'Blue',
+          condition: 'new',
+        },
+      ],
+      error: null,
+    });
+
+    const response = await GET(
+      new NextRequest(
+        'https://example.com/api/storefront/test-store/products?limit=2'
+      ),
+      { params: Promise.resolve({ slug: 'test-store' }) }
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mockProductLimit).toHaveBeenCalledWith(2);
+    expect(data.products).toHaveLength(2);
+  });
+
+  it('returns 400 when the limit query is invalid', async () => {
+    const response = await GET(
+      new NextRequest(
+        'https://example.com/api/storefront/test-store/products?limit=999'
+      ),
+      { params: Promise.resolve({ slug: 'test-store' }) }
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data.error).toBe('Invalid query parameters');
+    expect(data.code).toBe('INVALID_QUERY');
+    expect(data.details.fieldErrors.limit).toEqual(
+      expect.arrayContaining([expect.any(String)])
+    );
+    expect(mockMerchantSingle).not.toHaveBeenCalled();
+    expect(mockProductOrder).not.toHaveBeenCalled();
   });
 
   it('returns 404 when the merchant slug does not resolve', async () => {
