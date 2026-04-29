@@ -2467,41 +2467,61 @@ AS $$
   SELECT (auth.jwt() ->> 'agentic_context') = 'checkout'
 $$;
 
+-- IMPORTANT: PostgreSQL combines PERMISSIVE policies with OR. The baseline migration
+-- (20260418000000_baseline.sql) defines permissive policies on `checkout_sessions`
+-- such as `FOR SELECT USING (true)` and an open insert WITH CHECK. Adding a permissive
+-- "agentic merchant scoped" policy on top of those would NOT enforce tenant isolation
+-- (any agentic-authenticated request would still satisfy the open baseline).
+--
+-- Use RESTRICTIVE policies here. RESTRICTIVE policies are AND-combined with the existing
+-- permissive policies, so they tighten access without requiring edits to baseline migrations.
+-- The restrictive policies only "fire" when the request is in the agentic checkout context;
+-- non-agentic requests (no `agentic_context` claim) pass the restrictive check trivially via
+-- the `NOT public.is_agentic_checkout_context()` branch and continue to be governed by the
+-- existing permissive policies.
+
 CREATE POLICY "Agentic checkout sessions are merchant scoped"
   ON public.checkout_sessions
+  AS RESTRICTIVE
   FOR ALL
   TO authenticated
   USING (
-    public.is_agentic_checkout_context()
-    AND merchant_id = public.current_agentic_merchant_id()
+    NOT public.is_agentic_checkout_context()
+    OR merchant_id = public.current_agentic_merchant_id()
   )
   WITH CHECK (
-    public.is_agentic_checkout_context()
-    AND merchant_id = public.current_agentic_merchant_id()
+    NOT public.is_agentic_checkout_context()
+    OR merchant_id = public.current_agentic_merchant_id()
   );
 
 CREATE POLICY "Agentic orders are merchant scoped"
   ON public.orders
+  AS RESTRICTIVE
   FOR ALL
   TO authenticated
   USING (
-    public.is_agentic_checkout_context()
-    AND merchant_id = public.current_agentic_merchant_id()
-    AND source = 'agentic_ai'
+    NOT public.is_agentic_checkout_context()
+    OR (
+      merchant_id = public.current_agentic_merchant_id()
+      AND source = 'agentic_ai'
+    )
   )
   WITH CHECK (
-    public.is_agentic_checkout_context()
-    AND merchant_id = public.current_agentic_merchant_id()
-    AND source = 'agentic_ai'
+    NOT public.is_agentic_checkout_context()
+    OR (
+      merchant_id = public.current_agentic_merchant_id()
+      AND source = 'agentic_ai'
+    )
   );
 
 CREATE POLICY "Agentic order items follow merchant scoped orders"
   ON public.order_items
+  AS RESTRICTIVE
   FOR ALL
   TO authenticated
   USING (
-    public.is_agentic_checkout_context()
-    AND order_id IN (
+    NOT public.is_agentic_checkout_context()
+    OR order_id IN (
       SELECT id
       FROM public.orders
       WHERE merchant_id = public.current_agentic_merchant_id()
@@ -2509,8 +2529,8 @@ CREATE POLICY "Agentic order items follow merchant scoped orders"
     )
   )
   WITH CHECK (
-    public.is_agentic_checkout_context()
-    AND order_id IN (
+    NOT public.is_agentic_checkout_context()
+    OR order_id IN (
       SELECT id
       FROM public.orders
       WHERE merchant_id = public.current_agentic_merchant_id()
@@ -2991,14 +3011,25 @@ CREATE INDEX IF NOT EXISTS agentic_request_records_expires_at_idx
 
 ALTER TABLE public.agentic_request_records ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Merchants manage own agentic request records"
+-- The scoped JWT issued by `createAgenticScopedSupabaseClient()` does NOT set `sub`,
+-- so `auth.uid()` is null for agentic requests. Match on the `agentic_merchant_id`
+-- claim instead. Service-role clients bypass RLS and remain acceptable for payment
+-- webhooks / background cleanup jobs, but not for agent-facing checkout handlers.
+CREATE POLICY "Agentic clients manage own request records"
   ON public.agentic_request_records
   FOR ALL
-  USING (auth.uid() = merchant_id)
-  WITH CHECK (auth.uid() = merchant_id);
+  TO authenticated
+  USING (
+    public.is_agentic_checkout_context()
+    AND merchant_id = public.current_agentic_merchant_id()
+  )
+  WITH CHECK (
+    public.is_agentic_checkout_context()
+    AND merchant_id = public.current_agentic_merchant_id()
+  );
 ```
 
-RLS compatibility note: agentic checkout routes resolve bearer tokens to a merchant context, then use `createAgenticScopedSupabaseClient()` from Task 12A for request-record writes. The policies must read `auth.jwt() ->> 'agentic_merchant_id'`; do not assume bearer-token authentication automatically sets `auth.uid()`. Service-role clients remain acceptable for payment webhooks and background cleanup jobs, but not for agent-facing checkout/session/order API handlers.
+RLS compatibility note: agentic checkout routes resolve bearer tokens to a merchant context, then use `createAgenticScopedSupabaseClient()` from Task 12A for request-record writes. The policies must read `auth.jwt() ->> 'agentic_merchant_id'` (via the `current_agentic_merchant_id()` helper from Task 12A); do not assume bearer-token authentication automatically sets `auth.uid()`. Service-role clients remain acceptable for payment webhooks and background cleanup jobs, but not for agent-facing checkout/session/order API handlers.
 
 Retention: keep the opportunistic expired-row deletion in `reserveAgenticRequestId`, and add a scheduled cleanup path. Prefer `pg_cron` where available:
 
