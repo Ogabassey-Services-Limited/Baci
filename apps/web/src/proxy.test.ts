@@ -161,10 +161,12 @@ describe('Middleware Proxy', () => {
     );
   });
 
-  it('passes custom-domain Google Merchant XML feed to the app route', async () => {
-    const req = new NextRequest(
-      'https://ogabassey.com/feeds/google-merchant.xml'
-    );
+  it.each([
+    '/feeds/google-merchant.xml',
+    '/feeds/openai.jsonl',
+    '/feeds/agent-products.jsonl',
+  ])('passes custom-domain public machine feed %s to the app route', async (path) => {
+    const req = new NextRequest(`https://ogabassey.com${path}`);
     req.headers.set('host', 'ogabassey.com');
 
     const res = await proxy(req);
@@ -201,11 +203,13 @@ describe('Middleware Proxy', () => {
     );
   });
 
-  it('does not canonicalize the custom-domain XML feed when the merchant slug is feeds', async () => {
+  it.each([
+    '/feeds/google-merchant.xml',
+    '/feeds/openai.jsonl',
+    '/feeds/agent-products.jsonl',
+  ])('does not canonicalize custom-domain machine feed %s when the merchant slug is feeds', async (path) => {
     vi.mocked(getSlugForCustomDomain).mockResolvedValueOnce('feeds');
-    const req = new NextRequest(
-      'https://shop.example/feeds/google-merchant.xml'
-    );
+    const req = new NextRequest(`https://shop.example${path}`);
     req.headers.set('host', 'shop.example');
 
     const res = await proxy(req);
@@ -239,10 +243,12 @@ describe('Middleware Proxy', () => {
     ).toBeNull();
   });
 
-  it('passes subdomain Google Merchant XML feed to the app route', async () => {
-    const req = new NextRequest(
-      `https://ogabassey.${ROOT_DOMAIN}/feeds/google-merchant.xml`
-    );
+  it.each([
+    '/feeds/google-merchant.xml',
+    '/feeds/openai.jsonl',
+    '/feeds/agent-products.jsonl',
+  ])('passes subdomain public machine feed %s to the app route', async (path) => {
+    const req = new NextRequest(`https://ogabassey.${ROOT_DOMAIN}${path}`);
     req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
 
     const res = await proxy(req);

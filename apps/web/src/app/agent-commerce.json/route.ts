@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { STOREFRONT_FEED_ROUTES } from '@/config/storefront-feed-routes';
 import { getRootDomain } from '@/env';
 import { buildAgentPolicyUrls } from '@/lib/storefront-agent-urls';
 import { buildRequestBaseUrl } from '@/lib/storefront-host';
@@ -35,11 +36,6 @@ export async function GET(request: Request) {
   const { merchant } = merchantResolution;
   const baseUrl = buildRequestBaseUrl(request);
   const slug = merchant.slug;
-  const productFeedUrl = new URL('/api/feed/openai', baseUrl);
-  productFeedUrl.searchParams.set('merchant_slug', slug);
-  const agentProductsUrl = new URL('/api/feed/openai', baseUrl);
-  agentProductsUrl.searchParams.set('merchant_slug', slug);
-  agentProductsUrl.searchParams.set('format', 'current');
 
   return NextResponse.json(
     {
@@ -55,10 +51,19 @@ export async function GET(request: Request) {
       links: {
         llms: buildUrl(baseUrl, '/llms.txt'),
         llms_full: buildUrl(baseUrl, '/llms-full.txt'),
-        product_feed: productFeedUrl.toString(),
+        product_feed: buildUrl(
+          baseUrl,
+          STOREFRONT_FEED_ROUTES.openaiProductFeed
+        ),
         feeds: {
-          agent_products: agentProductsUrl.toString(),
-          google_merchant_xml: buildUrl(baseUrl, '/feeds/google-merchant.xml'),
+          agent_products: buildUrl(
+            baseUrl,
+            STOREFRONT_FEED_ROUTES.agentProducts
+          ),
+          google_merchant_xml: buildUrl(
+            baseUrl,
+            STOREFRONT_FEED_ROUTES.googleMerchantXml
+          ),
         },
         product_api: buildUrl(
           baseUrl,

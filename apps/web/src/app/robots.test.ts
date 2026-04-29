@@ -203,6 +203,8 @@ describe('robots()', () => {
     expect(agents).toContain('*');
     expect(agents).toContain('GPTBot');
     expect(agents).toContain('ClaudeBot');
+    expect(agents).toContain('Claude-User');
+    expect(agents).toContain('Claude-SearchBot');
     expect(agents).toContain('PerplexityBot');
     expect(agents).toContain('Google-Extended');
   });

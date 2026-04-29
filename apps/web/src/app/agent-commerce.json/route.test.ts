@@ -39,11 +39,10 @@ describe('GET /agent-commerce.json', () => {
     expect(body.capabilities).toEqual(['catalog.read']);
     expect(body.auth).toBeNull();
     expect(body.links.product_feed).toBe(
-      'https://ogabassey.com/api/feed/openai?merchant_slug=ogabassey'
+      'https://ogabassey.com/feeds/openai.jsonl'
     );
     expect(body.links.feeds).toMatchObject({
-      agent_products:
-        'https://ogabassey.com/api/feed/openai?merchant_slug=ogabassey&format=current',
+      agent_products: 'https://ogabassey.com/feeds/agent-products.jsonl',
       google_merchant_xml: 'https://ogabassey.com/feeds/google-merchant.xml',
     });
     expect(body.links.checkout_sessions).toBeUndefined();
