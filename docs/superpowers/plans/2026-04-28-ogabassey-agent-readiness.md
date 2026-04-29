@@ -3956,10 +3956,15 @@ export const agenticCheckoutCompleteSchema = z.object({
     token: z.string().min(1),
     billing_address: agenticFulfillmentAddressSchema.optional(),
   }),
-  completion_authorization: z.union([
-    humanConfirmationSchema,
-    paymentMandateSchema,
-  ]),
+  // Mark completion_authorization optional so requests WITHOUT a confirmation
+  // artifact still pass Zod validation and reach `verifyCheckoutCompletionAuthorization`,
+  // which returns the machine-readable `CONFIRMATION_REQUIRED` (428, retryable)
+  // challenge that ChatGPT/agentic clients use to prompt the buyer for consent.
+  // If we make this required, the request fails with a generic 400 and clients
+  // never see the explicit consent challenge, which breaks the checkout handshake.
+  completion_authorization: z
+    .union([humanConfirmationSchema, paymentMandateSchema])
+    .optional(),
 });
 ```
 
@@ -4577,17 +4582,24 @@ Create `apps/web/src/app/api/agentic/orders/[id]/route.ts`:
 ```typescript
 import { type NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { getRootDomain } from '@/env';
 import { resolveAgenticMerchantContext } from '@/lib/agentic/merchant-context';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
 import { createClient } from '@/lib/supabase/server';
 
+// Use the same env-driven root-domain resolution as `lib/store-url.ts` and
+// `lib/import-notifications/send-import-notification-campaign.ts` so non-prod
+// deployments and any env that overrides `getRootDomain()` produce correct
+// storefront URLs. Do NOT hardcode `usebaci.com`.
 function buildMerchantBaseUrl(merchant: {
   slug: string;
   custom_domain?: string | null;
 }) {
-  return merchant.custom_domain
-    ? `https://${merchant.custom_domain}`
-    : `https://${merchant.slug}.usebaci.com`;
+  if (merchant.custom_domain) {
+    return `https://${merchant.custom_domain}`;
+  }
+  const rootDomain = (getRootDomain() || 'usebaci.com').toLowerCase();
+  return `https://${merchant.slug}.${rootDomain}`;
 }
 
 export async function GET(
