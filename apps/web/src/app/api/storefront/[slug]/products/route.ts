@@ -107,7 +107,7 @@ export async function GET(
 
     const { slug } = parsedParams.data;
     const parsedQuery = storefrontProductsQuerySchema.safeParse({
-      limit: request.nextUrl.searchParams.get('limit') || undefined,
+      limit: request.nextUrl.searchParams.get('limit') ?? undefined,
     });
 
     if (!parsedQuery.success) {

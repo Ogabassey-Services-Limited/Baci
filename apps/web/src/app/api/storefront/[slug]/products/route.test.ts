@@ -72,9 +72,37 @@ vi.mock('@/lib/product-stock', () => ({
 
 import { GET } from './route';
 
+function product(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'product-123',
+    name: 'Test Phone',
+    description: 'Fast phone',
+    price: 1000,
+    compare_at_price: null,
+    images: ['https://cdn.example.com/phone.jpg'],
+    image_hint: 'phone',
+    category: 'Phones',
+    brand: 'Test',
+    status: 'active',
+    has_variants: false,
+    slug: 'test-phone',
+    sku: 'TP-123',
+    manage_stock: false,
+    stock: 0,
+    stock_quantity: 0,
+    low_stock_threshold: 2,
+    color: 'Black',
+    condition: 'new',
+    ...overrides,
+  };
+}
+
 describe('GET /api/storefront/[slug]/products', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockMerchantSingle.mockReset();
+    mockProductOrder.mockReset();
+    mockProductLimit.mockReset();
   });
 
   it('returns 400 when the route slug is invalid', async () => {
@@ -101,25 +129,9 @@ describe('GET /api/storefront/[slug]/products', () => {
     });
     mockProductOrder.mockResolvedValue({
       data: [
-        {
-          id: 'product-123',
-          name: 'Test Phone',
-          description: 'Fast phone',
-          price: 1000,
-          compare_at_price: null,
-          images: ['https://cdn.example.com/phone.jpg'],
-          image_hint: 'phone',
-          category: 'Phones',
-          brand: 'Test',
-          status: 'active',
-          has_variants: false,
-          slug: 'test-phone',
-          sku: 'TP-123',
+        product({
           manage_stock: null,
-          low_stock_threshold: 2,
-          color: 'Black',
-          condition: 'new',
-        },
+        }),
       ],
       error: null,
     });
@@ -154,53 +166,31 @@ describe('GET /api/storefront/[slug]/products', () => {
       data: { id: 'merchant-123' },
       error: null,
     });
-    mockProductOrder.mockReturnValue({
+    mockProductOrder.mockReturnValueOnce({
       limit: mockProductLimit,
     });
     mockProductLimit.mockResolvedValue({
       data: [
-        {
+        product({
           id: 'product-1',
           name: 'First Phone',
           description: 'First product description',
-          price: 1000,
-          compare_at_price: null,
           images: ['https://cdn.example.com/first.jpg'],
           image_hint: 'first phone',
-          category: 'Phones',
-          brand: 'Test',
-          status: 'active',
-          has_variants: false,
           slug: 'first-phone',
           sku: 'FIRST-1',
-          manage_stock: false,
-          stock: 0,
-          stock_quantity: 0,
-          low_stock_threshold: 2,
-          color: 'Black',
-          condition: 'new',
-        },
-        {
+        }),
+        product({
           id: 'product-2',
           name: 'Second Phone',
           description: 'Second product description',
           price: 2000,
-          compare_at_price: null,
           images: ['https://cdn.example.com/second.jpg'],
           image_hint: 'second phone',
-          category: 'Phones',
-          brand: 'Test',
-          status: 'active',
-          has_variants: false,
           slug: 'second-phone',
           sku: 'SECOND-2',
-          manage_stock: false,
-          stock: 0,
-          stock_quantity: 0,
-          low_stock_threshold: 2,
           color: 'Blue',
-          condition: 'new',
-        },
+        }),
       ],
       error: null,
     });
@@ -218,13 +208,16 @@ describe('GET /api/storefront/[slug]/products', () => {
     expect(data.products).toHaveLength(2);
   });
 
-  it('returns 400 when the limit query is invalid', async () => {
-    const response = await GET(
-      new NextRequest(
-        'https://example.com/api/storefront/test-store/products?limit=999'
-      ),
-      { params: Promise.resolve({ slug: 'test-store' }) }
-    );
+  it.each([
+    [
+      'invalid',
+      'https://example.com/api/storefront/test-store/products?limit=999',
+    ],
+    ['empty', 'https://example.com/api/storefront/test-store/products?limit='],
+  ])('returns 400 when the limit query is %s', async (_label, url) => {
+    const response = await GET(new NextRequest(url), {
+      params: Promise.resolve({ slug: 'test-store' }),
+    });
     const data = await response.json();
 
     expect(response.status).toBe(400);
@@ -235,6 +228,54 @@ describe('GET /api/storefront/[slug]/products', () => {
     );
     expect(mockMerchantSingle).not.toHaveBeenCalled();
     expect(mockProductOrder).not.toHaveBeenCalled();
+  });
+
+  it('does not leak the limit-chain mock into a later no-limit request', async () => {
+    mockMerchantSingle.mockResolvedValue({
+      data: { id: 'merchant-123' },
+      error: null,
+    });
+    mockProductOrder.mockReturnValueOnce({
+      limit: mockProductLimit,
+    });
+    mockProductLimit.mockResolvedValue({
+      data: [],
+      error: null,
+    });
+
+    const limitedResponse = await GET(
+      new NextRequest(
+        'https://example.com/api/storefront/test-store/products?limit=2'
+      ),
+      { params: Promise.resolve({ slug: 'test-store' }) }
+    );
+
+    mockProductOrder.mockResolvedValue({
+      data: [
+        product({
+          id: 'product-after-limit',
+          name: 'Fresh Product',
+          description: 'Fresh product description',
+          images: ['https://cdn.example.com/fresh.jpg'],
+          image_hint: 'fresh phone',
+          slug: 'fresh-product',
+          sku: 'FRESH-1',
+        }),
+      ],
+      error: null,
+    });
+
+    const noLimitResponse = await GET(
+      new NextRequest('https://example.com/api/storefront/test-store/products'),
+      { params: Promise.resolve({ slug: 'test-store' }) }
+    );
+    const data = await noLimitResponse.json();
+
+    expect(limitedResponse.status).toBe(200);
+    expect(noLimitResponse.status).toBe(200);
+    expect(data.products).toEqual([
+      expect.objectContaining({ id: 'product-after-limit' }),
+    ]);
   });
 
   it('returns 404 when the merchant slug does not resolve', async () => {
