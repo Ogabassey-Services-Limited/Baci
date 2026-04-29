@@ -2467,20 +2467,30 @@ AS $$
   SELECT (auth.jwt() ->> 'agentic_context') = 'checkout'
 $$;
 
--- IMPORTANT: PostgreSQL combines PERMISSIVE policies with OR. The baseline migration
--- (20260418000000_baseline.sql) defines permissive policies on `checkout_sessions`
--- such as `FOR SELECT USING (true)` and an open insert WITH CHECK. Adding a permissive
--- "agentic merchant scoped" policy on top of those would NOT enforce tenant isolation
--- (any agentic-authenticated request would still satisfy the open baseline).
+-- IMPORTANT: PostgreSQL combines PERMISSIVE policies with OR and AND-combines
+-- RESTRICTIVE policies on top. The baseline migration (20260418000000_baseline.sql)
+-- has DIFFERENT shapes per table, and we must compose accordingly:
 --
--- Use RESTRICTIVE policies here. RESTRICTIVE policies are AND-combined with the existing
--- permissive policies, so they tighten access without requiring edits to baseline migrations.
--- The restrictive policies only "fire" when the request is in the agentic checkout context;
--- non-agentic requests (no `agentic_context` claim) pass the restrictive check trivially via
--- the `NOT public.is_agentic_checkout_context()` branch and continue to be governed by the
--- existing permissive policies.
+--   checkout_sessions: baseline is permissively OPEN (`FOR SELECT USING (true)`,
+--     an open INSERT WITH CHECK). A new permissive "merchant-scoped" policy here
+--     would NOT enforce isolation (any agentic-authenticated request still passes
+--     the open baseline via OR). We add a RESTRICTIVE policy that ANDs on top:
+--     when in agentic context, the row's merchant_id must match the JWT claim;
+--     non-agentic traffic passes the restrictive check trivially.
+--
+--   orders / order_items: baseline is permissively TIGHT (e.g. orders_select_policy
+--     requires `customer_id = auth.uid() OR has_merchant_access(merchant_id)`).
+--     Because the scoped JWT has no `sub`, `auth.uid()` is null AND
+--     `has_merchant_access` won't match for an agentic request, so agentic traffic
+--     fails every permissive baseline gate. We need an ADDITIONAL PERMISSIVE
+--     policy that grants OR-access when in agentic context with a matching
+--     merchant claim, and we also add a RESTRICTIVE policy so that agentic
+--     requests cannot read/write rows belonging to other merchants even if a
+--     future permissive policy is added.
 
-CREATE POLICY "Agentic checkout sessions are merchant scoped"
+-- 1) checkout_sessions: tighten an overly open baseline.
+
+CREATE POLICY "Agentic checkout sessions are merchant scoped (restrictive)"
   ON public.checkout_sessions
   AS RESTRICTIVE
   FOR ALL
@@ -2494,7 +2504,26 @@ CREATE POLICY "Agentic checkout sessions are merchant scoped"
     OR merchant_id = public.current_agentic_merchant_id()
   );
 
-CREATE POLICY "Agentic orders are merchant scoped"
+-- 2) orders: grant agentic access (permissive OR-gate) AND tighten so an agentic
+--    request can never read/write another merchant's order (restrictive AND-gate).
+
+CREATE POLICY "Agentic orders are accessible to scoped client"
+  ON public.orders
+  AS PERMISSIVE
+  FOR ALL
+  TO authenticated
+  USING (
+    public.is_agentic_checkout_context()
+    AND merchant_id = public.current_agentic_merchant_id()
+    AND source = 'agentic_ai'
+  )
+  WITH CHECK (
+    public.is_agentic_checkout_context()
+    AND merchant_id = public.current_agentic_merchant_id()
+    AND source = 'agentic_ai'
+  );
+
+CREATE POLICY "Agentic orders are merchant scoped (restrictive)"
   ON public.orders
   AS RESTRICTIVE
   FOR ALL
@@ -2514,7 +2543,33 @@ CREATE POLICY "Agentic orders are merchant scoped"
     )
   );
 
-CREATE POLICY "Agentic order items follow merchant scoped orders"
+-- 3) order_items: same pattern as orders — grant agentic access + restrict scope.
+
+CREATE POLICY "Agentic order items are accessible to scoped client"
+  ON public.order_items
+  AS PERMISSIVE
+  FOR ALL
+  TO authenticated
+  USING (
+    public.is_agentic_checkout_context()
+    AND order_id IN (
+      SELECT id
+      FROM public.orders
+      WHERE merchant_id = public.current_agentic_merchant_id()
+        AND source = 'agentic_ai'
+    )
+  )
+  WITH CHECK (
+    public.is_agentic_checkout_context()
+    AND order_id IN (
+      SELECT id
+      FROM public.orders
+      WHERE merchant_id = public.current_agentic_merchant_id()
+        AND source = 'agentic_ai'
+    )
+  );
+
+CREATE POLICY "Agentic order items follow merchant scoped orders (restrictive)"
   ON public.order_items
   AS RESTRICTIVE
   FOR ALL
