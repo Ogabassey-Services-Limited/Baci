@@ -48,8 +48,8 @@ function normalizeFeedProducts(products: RawFeedProductRow[]): FeedProduct[] {
       ...rest,
       categories: joinedCategory ?? null,
       // The legacy products.category_slug column is absent in production.
-      category_slug: joinedCategory?.slug,
-      category: rest.category || joinedCategory?.name,
+      category_slug: joinedCategory?.slug ?? null,
+      category: rest.category ?? joinedCategory?.name ?? null,
     };
   });
 }

@@ -180,6 +180,27 @@ describe('Middleware Proxy', () => {
     );
   });
 
+  it('strips spoofed merchant slug headers from unresolved custom-domain XML feed requests', async () => {
+    vi.mocked(getSlugForCustomDomain).mockResolvedValueOnce(null);
+    const req = new NextRequest(
+      'https://unknown.example/feeds/google-merchant.xml'
+    );
+    req.headers.set('host', 'unknown.example');
+    req.headers.set('x-merchant-slug', 'target-store');
+
+    const res = await proxy(req);
+
+    expect(getSlugForCustomDomain).toHaveBeenCalledWith('unknown.example');
+    expect(res.headers.get('x-middleware-next')).toBe('1');
+    expect(res.headers.get('x-middleware-request-x-merchant-slug')).toBeNull();
+    expect(res.headers.get('x-middleware-request-x-custom-domain')).toBe(
+      'unknown.example'
+    );
+    expect(res.headers.get('x-middleware-request-x-merchant-domain')).toBe(
+      'unknown.example'
+    );
+  });
+
   it('does not canonicalize the custom-domain XML feed when the merchant slug is feeds', async () => {
     vi.mocked(getSlugForCustomDomain).mockResolvedValueOnce('feeds');
     const req = new NextRequest(
@@ -196,6 +217,26 @@ describe('Middleware Proxy', () => {
     expect(res.headers.get('x-middleware-request-x-merchant-slug')).toBe(
       'feeds'
     );
+  });
+
+  it('strips spoofed custom-domain headers from subdomain XML feed requests', async () => {
+    const req = new NextRequest(
+      `https://ogabassey.${ROOT_DOMAIN}/feeds/google-merchant.xml`
+    );
+    req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+    req.headers.set('x-custom-domain', 'target-store.example');
+    req.headers.set('x-merchant-domain', 'target-store.example');
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('x-middleware-next')).toBe('1');
+    expect(res.headers.get('x-middleware-request-x-merchant-slug')).toBe(
+      'ogabassey'
+    );
+    expect(res.headers.get('x-middleware-request-x-custom-domain')).toBeNull();
+    expect(
+      res.headers.get('x-middleware-request-x-merchant-domain')
+    ).toBeNull();
   });
 
   it('passes subdomain Google Merchant XML feed to the app route', async () => {

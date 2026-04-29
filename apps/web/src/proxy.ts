@@ -52,6 +52,21 @@ const VALID_SUBDOMAIN_REGEX = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
 // the proxy intercepting and bypassing their storefront rewrite.
 const INDEXNOW_KEY_PATH = '/0751d5c882ab3d7c013ecbfe9e624d71.txt';
 const GOOGLE_MERCHANT_XML_FEED_PATH = '/feeds/google-merchant.xml';
+const MERCHANT_CONTEXT_HEADERS = [
+  'x-custom-domain',
+  'x-merchant-domain',
+  'x-merchant-slug',
+] as const;
+
+function cloneRequestHeadersWithoutMerchantContext(
+  request: NextRequest
+): Headers {
+  const headers = new Headers(request.headers);
+  for (const header of MERCHANT_CONTEXT_HEADERS) {
+    headers.delete(header);
+  }
+  return headers;
+}
 
 // Pre-compiled regex patterns for performance (avoids recompilation on every request)
 const STATIC_FILES_REGEX =
@@ -403,7 +418,8 @@ function buildMerchantFeedPassThroughResponse({
   customDomain?: string;
   merchantSlug?: string | null;
 }): NextResponse {
-  const feedHeaders = new Headers(request.headers);
+  const feedHeaders = cloneRequestHeadersWithoutMerchantContext(request);
+
   if (customDomain) {
     feedHeaders.set('x-custom-domain', customDomain);
     feedHeaders.set('x-merchant-domain', customDomain);
@@ -1081,7 +1097,7 @@ export async function proxy(request: NextRequest) {
         const apiUrl = request.nextUrl.clone();
         apiUrl.pathname = strippedApiPathname;
 
-        const apiHeaders = new Headers(request.headers);
+        const apiHeaders = cloneRequestHeadersWithoutMerchantContext(request);
         apiHeaders.set('x-custom-domain', domain);
         apiHeaders.set('x-merchant-domain', domain);
 
@@ -1110,7 +1126,8 @@ export async function proxy(request: NextRequest) {
       // API routes should NOT be rewritten - they exist at /api/*, not /domain/api/*
       // This fixes 405 errors when calling APIs from custom domains
       if (pathname.startsWith('/api')) {
-        const requestHeaders = new Headers(request.headers);
+        const requestHeaders =
+          cloneRequestHeadersWithoutMerchantContext(request);
         requestHeaders.set('x-custom-domain', domain);
         requestHeaders.set('x-merchant-domain', domain);
 
@@ -1143,7 +1160,8 @@ export async function proxy(request: NextRequest) {
 
       if (isAlreadyRewritten) {
         // Already rewritten, just pass through with headers set
-        const requestHeaders = new Headers(request.headers);
+        const requestHeaders =
+          cloneRequestHeadersWithoutMerchantContext(request);
         requestHeaders.set('x-custom-domain', domain);
         requestHeaders.set('x-merchant-domain', domain);
 
@@ -1178,7 +1196,8 @@ export async function proxy(request: NextRequest) {
         // Use merchant slug if found, otherwise fall through to domain-based rewrite
         sitemapUrl.pathname = `/${domainMerchantSlug ?? domain}${pathname}`;
 
-        const sitemapHeaders = new Headers(request.headers);
+        const sitemapHeaders =
+          cloneRequestHeadersWithoutMerchantContext(request);
         sitemapHeaders.set('x-custom-domain', domain);
         sitemapHeaders.set('x-merchant-domain', domain);
 
@@ -1210,7 +1229,7 @@ export async function proxy(request: NextRequest) {
           const mdUrl = request.nextUrl.clone();
           mdUrl.pathname = toLlmApiPath(pathname, domainMerchantSlug);
 
-          const mdHeaders = new Headers(request.headers);
+          const mdHeaders = cloneRequestHeadersWithoutMerchantContext(request);
           mdHeaders.set('x-custom-domain', domain);
           mdHeaders.set('x-merchant-domain', domain);
 
@@ -1225,7 +1244,7 @@ export async function proxy(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = `/${domain}${pathname}`;
 
-      const requestHeaders = new Headers(request.headers);
+      const requestHeaders = cloneRequestHeadersWithoutMerchantContext(request);
       requestHeaders.set('x-custom-domain', domain);
       requestHeaders.set('x-merchant-domain', domain);
 
@@ -1296,7 +1315,7 @@ export async function proxy(request: NextRequest) {
     // Do NOT rewrite API routes to /[subdomain]/api/...
     // Instead, pass them through with headers
     if (pathname.startsWith('/api')) {
-      const requestHeaders = new Headers(request.headers);
+      const requestHeaders = cloneRequestHeadersWithoutMerchantContext(request);
       requestHeaders.set('x-merchant-slug', subdomain as string);
 
       // Pass through without rewriting path
@@ -1337,7 +1356,7 @@ export async function proxy(request: NextRequest) {
       const mdUrl = request.nextUrl.clone();
       mdUrl.pathname = toLlmApiPath(pathname, subdomain as string);
 
-      const mdHeaders = new Headers(request.headers);
+      const mdHeaders = cloneRequestHeadersWithoutMerchantContext(request);
       mdHeaders.set('x-merchant-slug', subdomain as string);
 
       return NextResponse.rewrite(mdUrl, {
@@ -1348,7 +1367,7 @@ export async function proxy(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = `/${subdomain}${pathname}`;
 
-    const requestHeaders = new Headers(request.headers);
+    const requestHeaders = cloneRequestHeadersWithoutMerchantContext(request);
     requestHeaders.set('x-merchant-slug', subdomain as string);
 
     const response = NextResponse.rewrite(url, {

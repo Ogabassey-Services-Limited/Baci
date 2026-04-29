@@ -40,8 +40,8 @@ export interface FeedProduct {
   condition_detail?: string;
   variant_model?: 'legacy' | 'sku_matrix';
   google_product_category?: string;
-  category?: string;
-  category_slug?: string;
+  category?: string | null;
+  category_slug?: string | null;
   color?: string;
   categories?: {
     name?: string;
