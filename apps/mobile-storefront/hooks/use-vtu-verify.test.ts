@@ -46,6 +46,20 @@ type NotifyFunction = Parameters<typeof notifyManager.setNotifyFunction>[0];
 const defaultNotifyFunction: NotifyFunction = (callback) => {
   callback();
 };
+const hookCleanups: Array<() => void> = [];
+
+function renderUseVTUVerify() {
+  const queryClient = createTestClient();
+  const rendered = renderHook(() => useVTUVerify(), {
+    wrapper: createWrapper(queryClient),
+  });
+  hookCleanups.push(() => {
+    rendered.unmount();
+    queryClient.clear();
+  });
+
+  return rendered;
+}
 
 beforeAll(() => {
   notifyManager.setNotifyFunction((callback) => {
@@ -56,7 +70,15 @@ beforeAll(() => {
 });
 
 afterAll(() => {
+  // TanStack Query exposes a setter but no getter, so restore its documented
+  // default notification behavior after wrapping notifications in act().
   notifyManager.setNotifyFunction(defaultNotifyFunction);
+});
+
+afterEach(() => {
+  for (const cleanup of hookCleanups.splice(0)) {
+    cleanup();
+  }
 });
 
 beforeEach(() => {
@@ -77,10 +99,7 @@ beforeEach(() => {
 
 describe('useVTUVerify', () => {
   it('verifies bill customers with the authenticated mobile bearer token', async () => {
-    const queryClient = createTestClient();
-    const { result, unmount } = renderHook(() => useVTUVerify(), {
-      wrapper: createWrapper(queryClient),
-    });
+    const { result } = renderUseVTUVerify();
 
     await act(async () => {
       await result.current.mutateAsync({
@@ -98,20 +117,14 @@ describe('useVTUVerify', () => {
         }),
       })
     );
-
-    unmount();
-    queryClient.clear();
   });
 
   it('fails before verification when the customer is not authenticated', async () => {
-    const queryClient = createTestClient();
     mockGetSession.mockResolvedValue({
       data: { session: null },
       error: null,
     });
-    const { result, unmount } = renderHook(() => useVTUVerify(), {
-      wrapper: createWrapper(queryClient),
-    });
+    const { result } = renderUseVTUVerify();
 
     await act(async () => {
       await expect(
@@ -122,20 +135,14 @@ describe('useVTUVerify', () => {
       ).rejects.toThrow('Authentication required. Please sign in again.');
     });
     expect(mockFetchWithTimeout).not.toHaveBeenCalled();
-
-    unmount();
-    queryClient.clear();
   });
 
   it('surfaces session retrieval errors before verification', async () => {
-    const queryClient = createTestClient();
     mockGetSession.mockResolvedValue({
       data: { session: null },
       error: { message: 'Session refresh failed' },
     });
-    const { result, unmount } = renderHook(() => useVTUVerify(), {
-      wrapper: createWrapper(queryClient),
-    });
+    const { result } = renderUseVTUVerify();
 
     await act(async () => {
       await expect(
@@ -146,8 +153,5 @@ describe('useVTUVerify', () => {
       ).rejects.toThrow('Session refresh failed');
     });
     expect(mockFetchWithTimeout).not.toHaveBeenCalled();
-
-    unmount();
-    queryClient.clear();
   });
 });

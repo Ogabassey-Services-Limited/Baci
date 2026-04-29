@@ -23,6 +23,7 @@ import {
   initializeVtuCheckout,
   isSavedVtuCardChargeProcessing,
   requiresSavedVtuCardAuthorization,
+  VtuPaymentStillProcessingError,
   waitForVtuConfirmation,
 } from '@/lib/vtu-checkout';
 import { useAuthStore } from '@/stores/auth-store';
@@ -65,6 +66,8 @@ interface DataFormProps {
   onSuccess: (data: {
     reference: string;
     amount: number;
+    customerIdentifier?: string;
+    status?: 'processing' | 'successful';
     voucherPin?: string;
     cashback?: { amount: number; newBalance: number };
   }) => void;
@@ -89,7 +92,12 @@ export function DataForm({
   const { dismissKeyboard, isKeyboardVisible, keyboardHeight } = useKeyboard();
   const customer = useAuthStore((state) => state.customer);
   const payment = useUtilityPayment();
-  const { data: dataPlans, isLoading: plansLoading } = useVTUBillers('data');
+  const {
+    data: dataPlans,
+    error: plansError,
+    isError: hasPlansError,
+    isLoading: plansLoading,
+  } = useVTUBillers('data');
   const scrollViewRef = useRef<ScrollView>(null);
 
   const [selectedProvider, setSelectedProvider] = useState<string | null>(
@@ -122,6 +130,11 @@ export function DataForm({
     isKeyboardVisible,
     keyboardHeight,
   });
+  const plansErrorMessage = hasPlansError
+    ? plansError instanceof Error
+      ? plansError.message
+      : 'Could not load data bundles. Please try again.'
+    : undefined;
 
   // Bug #H18: Guard against double-tap with isSubmitting state (same pattern as AirtimeForm)
   const isBusy = isSubmitting;
@@ -241,21 +254,35 @@ export function DataForm({
         }
 
         if (isSavedVtuCardChargeProcessing(result)) {
-          const confirmed = await waitForVtuConfirmation({
-            gateway: 'paystack',
-            reference: result.reference,
-          });
-          onSuccess({
-            amount: confirmed.amount ?? planAmount,
-            cashback: confirmed.cashback
-              ? {
-                  amount: confirmed.cashback.amount,
-                  newBalance: confirmed.cashback.newBalance,
-                }
-              : undefined,
-            reference: confirmed.reference,
-            voucherPin: confirmed.voucherPin,
-          });
+          try {
+            const confirmed = await waitForVtuConfirmation({
+              gateway: 'paystack',
+              reference: result.reference,
+            });
+            onSuccess({
+              amount: confirmed.amount ?? planAmount,
+              cashback: confirmed.cashback
+                ? {
+                    amount: confirmed.cashback.amount,
+                    newBalance: confirmed.cashback.newBalance,
+                  }
+                : undefined,
+              reference: confirmed.reference,
+              voucherPin: confirmed.voucherPin,
+            });
+          } catch (error) {
+            if (error instanceof VtuPaymentStillProcessingError) {
+              onSuccess({
+                amount: error.amount ?? planAmount,
+                customerIdentifier: error.customerIdentifier ?? phoneNumber,
+                reference: error.reference,
+                status: 'processing',
+              });
+              return;
+            }
+
+            throw error;
+          }
           return;
         }
 
@@ -351,6 +378,7 @@ export function DataForm({
           onChangeSelection={() => setIsDataPickerExpanded(true)}
           selectedLabel="Data Bundle"
           emptyMessage="No data bundles available"
+          errorMessage={plansErrorMessage}
         />
 
         {/* Manual amount fallback */}

@@ -179,14 +179,16 @@ async function getAccessToken() {
   return session.access_token;
 }
 
+function getResponseErrorMessage(data: Record<string, unknown>) {
+  return typeof data.error === 'string'
+    ? data.error
+    : 'Request failed. Please try again.';
+}
+
 async function parseJsonResponse(response: Response) {
   const data = (await response.json()) as Record<string, unknown>;
   if (!response.ok) {
-    throw new Error(
-      typeof data.error === 'string'
-        ? data.error
-        : 'Request failed. Please try again.'
-    );
+    throw new Error(getResponseErrorMessage(data));
   }
 
   return data;
@@ -255,11 +257,7 @@ export async function confirmVtuCheckout({
       });
     }
 
-    throw new Error(
-      typeof data.error === 'string'
-        ? data.error
-        : 'Request failed. Please try again.'
-    );
+    throw new Error(getResponseErrorMessage(data));
   }
 
   const normalizedStatus =
@@ -294,9 +292,11 @@ export async function waitForVtuConfirmation({
     }
 
     lastProcessingResult = result;
-    await new Promise((resolve) => {
-      setTimeout(resolve, 1200);
-    });
+    if (attempt < maxAttempts - 1) {
+      await new Promise((resolve) => {
+        setTimeout(resolve, 1200);
+      });
+    }
   }
 
   throw new VtuPaymentStillProcessingError({

@@ -20,7 +20,6 @@ export default function UtilitiesLayout() {
         name="history"
         options={{
           headerBackButtonDisplayMode: 'minimal',
-          headerBackTitle: '',
           headerShown: true,
           title: 'Utility History',
           contentStyle: {

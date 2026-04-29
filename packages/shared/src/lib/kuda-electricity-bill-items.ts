@@ -5,7 +5,6 @@ export interface KudaBillItemLike {
   itemCurrencySymbol: string;
   isAmountFixed: boolean;
   itemFee: number;
-  billItems?: KudaBillItemLike[];
 }
 
 export interface KudaElectricityBillerLike {
@@ -23,8 +22,8 @@ const AEDC_ITEMS = [
   { itemCode: 'KUD-ELE-AEDC-001', itemName: 'AEDC POSTPAID' },
 ] as const;
 const APLE_ITEMS = [
-  { itemCode: 'KUD-ELE-APLE-002', itemName: 'APLE POSTPAID' },
   { itemCode: 'KUD-ELE-APLE-001', itemName: 'APLE PREPAID' },
+  { itemCode: 'KUD-ELE-APLE-002', itemName: 'APLE POSTPAID' },
 ] as const;
 const BEDC_ITEMS = [
   { itemCode: 'KUD-ELE-BEDC-002', itemName: 'BEDC PREPAID' },
@@ -47,8 +46,8 @@ const IKED_ITEMS = [
   { itemCode: 'KUD-ELE-IKED-001', itemName: 'IKEDC POSTPAID' },
 ] as const;
 const JEDC_ITEMS = [
-  { itemCode: 'KUD-ELE-JEDC-002', itemName: 'JEDC POSTPAID' },
   { itemCode: 'KUD-ELE-JEDC-001', itemName: 'JEDC PREPAID' },
+  { itemCode: 'KUD-ELE-JEDC-002', itemName: 'JEDC POSTPAID' },
 ] as const;
 const KAED_ITEMS = [
   { itemCode: 'KUD-ELE-KAED-002', itemName: 'KAEDCO PREPAID' },
@@ -63,8 +62,8 @@ const PHED_ITEMS = [
   { itemCode: 'KUD-ELE-PHED-001', itemName: 'PHED POSTPAID' },
 ] as const;
 const YEDC_ITEMS = [
-  { itemCode: 'KUD-ELE-YEDC-002', itemName: 'YEDC POSTPAID' },
   { itemCode: 'KUD-ELE-YEDC-001', itemName: 'YEDC PREPAID' },
+  { itemCode: 'KUD-ELE-YEDC-002', itemName: 'YEDC POSTPAID' },
 ] as const;
 
 const ELECTRICITY_BILL_ITEMS_BY_PROVIDER: Record<
@@ -95,8 +94,8 @@ function normalizeElectricityBillerName(billerName: string) {
   return billerName
     .trim()
     .toUpperCase()
-    .replace(/\s+NG$/, '')
-    .replace(/[^A-Z0-9]/g, '');
+    .replace(/[^A-Z0-9]/g, '')
+    .replace(/NG$/, '');
 }
 
 function createElectricityBillItem(

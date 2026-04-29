@@ -116,7 +116,11 @@ export function useVTUPurchase() {
         void scheduleLocalNotification(
           'Cashback Received! 🎉',
           `₦${data.cashback.amount.toLocaleString()} cashback added to your wallet.`,
-          { type: 'wallet_cashback', amount: data.cashback.amount },
+          {
+            type: 'wallet_cashback',
+            amount: data.cashback.amount,
+            ...(data.voucherPin ? { voucherPin: data.voucherPin } : {}),
+          },
           1
         ).catch((err) => {
           // Notification delivery should not keep VTU purchases pending.

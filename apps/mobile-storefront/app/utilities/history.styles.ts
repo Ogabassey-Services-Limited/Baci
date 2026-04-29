@@ -69,11 +69,13 @@ export const styles = StyleSheet.create({
     minHeight: UTILITY_HISTORY_STYLE_TOKENS.touchTargetHeight,
     paddingHorizontal: UTILITY_HISTORY_STYLE_TOKENS.chipHorizontalPadding,
   },
+  // Empty variants are intentionally composed with pillButtonBase at call sites.
   repeatButton: {},
   repeatText: {
     fontSize: UTILITY_HISTORY_STYLE_TOKENS.labelTextSize,
     fontWeight: TYPOGRAPHY.weight.bold,
   },
+  // Empty variants are intentionally composed with pillButtonBase at call sites.
   retryButton: {},
   retryText: {
     fontSize: UTILITY_HISTORY_STYLE_TOKENS.labelTextSize,
@@ -130,13 +132,7 @@ export const styles = StyleSheet.create({
     fontWeight: TYPOGRAPHY.weight.bold,
   },
   tokenButton: {
-    alignItems: 'center',
-    borderRadius: RADIUS.full,
-    borderWidth: 1,
-    justifyContent: 'center',
     marginTop: SPACING.sm,
-    minHeight: UTILITY_HISTORY_STYLE_TOKENS.touchTargetHeight,
-    paddingHorizontal: UTILITY_HISTORY_STYLE_TOKENS.chipHorizontalPadding,
   },
   tokenButtonText: {
     fontSize: UTILITY_HISTORY_STYLE_TOKENS.labelTextSize,

@@ -1,5 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 import { render, screen } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import { BillerInitial } from '@/components/utilities/BillerInitial';
 
 describe('BillerInitial', () => {
@@ -61,5 +62,21 @@ describe('BillerInitial', () => {
     expect(screen.getByText('E')).toHaveStyle({
       color: '#F9FAFB',
     });
+  });
+
+  it('lets the parent control circle spacing through style', () => {
+    render(
+      <BillerInitial
+        colors={{ border: '#E5E7EB', textSecondary: '#6B7280' }}
+        name="ekedc"
+        style={{ marginBottom: 12 }}
+      />
+    );
+
+    const circleStyle = StyleSheet.flatten(
+      screen.getByLabelText('Biller: ekedc').props.style
+    );
+
+    expect(circleStyle.marginBottom).toBe(12);
   });
 });

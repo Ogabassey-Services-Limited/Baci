@@ -52,11 +52,32 @@ describe('PAYMENT_CLIPBOARD_BRIDGE', () => {
     }).not.toThrow();
   });
 
+  it('uses debounced account-number scanning for observers and retry timers', () => {
+    expect(PAYMENT_CLIPBOARD_BRIDGE.script).toContain(
+      'function scheduleAccountNumberScan()'
+    );
+    expect(PAYMENT_CLIPBOARD_BRIDGE.script).toContain(
+      'new MutationObserver(scheduleAccountNumberScan)'
+    );
+    expect(PAYMENT_CLIPBOARD_BRIDGE.script).toContain(
+      'setTimeout(scheduleAccountNumberScan, 500)'
+    );
+    expect(PAYMENT_CLIPBOARD_BRIDGE.script).toContain(
+      'setTimeout(scheduleAccountNumberScan, 1500)'
+    );
+  });
+
   it('uses bounded account-number retry scanning and standalone copy matching', () => {
     // Native should not keep polling forever, and "copy" detection must not
     // match unrelated labels such as "copyright" or "photocopy".
     expect(PAYMENT_CLIPBOARD_BRIDGE.script).toContain('scanRetryCount >= 5');
     expect(PAYMENT_CLIPBOARD_BRIDGE.script).toContain('/\\bcopy\\b/i');
-    expect(PAYMENT_CLIPBOARD_BRIDGE.script).not.toContain('/copy/i.test');
+    expect(PAYMENT_CLIPBOARD_BRIDGE.script).not.toMatch(/\/copy\/i/);
+  });
+
+  it('does not append a standalone trailing true after the bridge IIFE', () => {
+    expect(PAYMENT_CLIPBOARD_BRIDGE.script).not.toMatch(
+      /\}\)\(\);\s*true;\s*$/
+    );
   });
 });

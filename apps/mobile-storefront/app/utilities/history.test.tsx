@@ -1,4 +1,11 @@
-import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  jest,
+} from '@jest/globals';
 import {
   fireEvent,
   render,
@@ -6,7 +13,7 @@ import {
   waitFor,
 } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
-import { View } from 'react-native';
+import { Alert, View } from 'react-native';
 import Colors, { SPACING } from '@/constants/Colors';
 import UtilityHistoryScreen from './history';
 
@@ -93,6 +100,10 @@ jest.mock('expo-router', () => ({
 }));
 
 describe('UtilityHistoryScreen', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseColorScheme.mockReturnValue('light');
@@ -108,6 +119,7 @@ describe('UtilityHistoryScreen', () => {
       isLoading: false,
       redirectTo: null,
     });
+    mockRefetch.mockResolvedValue(undefined);
     mockSetClipboardString.mockResolvedValue(true);
     mockShareUtilityReceipt.mockResolvedValue(undefined);
     mockConfirmVtuCheckout.mockResolvedValue({
@@ -174,7 +186,7 @@ describe('UtilityHistoryScreen', () => {
     });
   });
 
-  it('copies voucher tokens and shares utility receipts from history', async () => {
+  it('copies voucher tokens from history', async () => {
     render(<UtilityHistoryScreen />);
 
     fireEvent.press(screen.getByLabelText('Copy voucher token'));
@@ -183,6 +195,10 @@ describe('UtilityHistoryScreen', () => {
         '1234-5678-9012-3456'
       );
     });
+  });
+
+  it('shares utility receipts from history', async () => {
+    render(<UtilityHistoryScreen />);
 
     fireEvent.press(screen.getByLabelText('Share receipt for EKEDC NG'));
     await waitFor(() => {
@@ -223,7 +239,7 @@ describe('UtilityHistoryScreen', () => {
 
     render(<UtilityHistoryScreen />);
 
-    expect(screen.getByText('payment received')).toBeTruthy();
+    expect(screen.getByText('Payment Received')).toBeTruthy();
     expect(
       screen.getByText(/Payment received\. Tap Sync payment/)
     ).toBeTruthy();
@@ -241,6 +257,102 @@ describe('UtilityHistoryScreen', () => {
     await waitFor(() => {
       expect(mockRefetch).toHaveBeenCalled();
     });
+  });
+
+  it('alerts that sync is still processing when fulfillment has not completed', async () => {
+    const alertSpy = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation(() => undefined);
+    mockConfirmVtuCheckout.mockResolvedValue({
+      reference: 'VTU-PAYSTACK-123',
+      status: 'processing',
+    });
+    mockUseVTUHistory.mockReturnValue({
+      data: [
+        {
+          id: 'tx-2',
+          created_at: '2026-04-08T12:00:00.000Z',
+          type: 'electricity',
+          status: 'failed',
+          amount: 2500,
+          biller_name: 'EKEDC NG',
+          customer_identifier: '1234567890',
+          payment_gateway: 'paystack',
+          payment_reference: 'VTU-PAYSTACK-123',
+          payment_status: 'completed',
+          request_reference: 'VTU-123',
+        },
+      ],
+      error: null,
+      isLoading: false,
+      isRefetching: false,
+      refetch: mockRefetch,
+    });
+
+    render(<UtilityHistoryScreen />);
+
+    fireEvent.press(screen.getByLabelText('Sync payment for EKEDC NG'));
+
+    await waitFor(() => {
+      expect(mockConfirmVtuCheckout).toHaveBeenCalledWith({
+        gateway: 'paystack',
+        reference: 'VTU-PAYSTACK-123',
+      });
+    });
+    await waitFor(() => {
+      expect(mockRefetch).toHaveBeenCalled();
+    });
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Still Processing',
+      'The payment is confirmed, but utility fulfillment is still processing.'
+    );
+  });
+
+  it('alerts when sync payment fails even if history refetch fails', async () => {
+    const alertSpy = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation(() => undefined);
+    mockConfirmVtuCheckout.mockRejectedValue(new Error('Gateway not settled.'));
+    mockRefetch.mockRejectedValueOnce(new Error('History refetch failed.'));
+    mockUseVTUHistory.mockReturnValue({
+      data: [
+        {
+          id: 'tx-2',
+          created_at: '2026-04-08T12:00:00.000Z',
+          type: 'electricity',
+          status: 'failed',
+          amount: 2500,
+          biller_name: 'EKEDC NG',
+          customer_identifier: '1234567890',
+          payment_gateway: 'paystack',
+          payment_reference: 'VTU-PAYSTACK-123',
+          payment_status: 'completed',
+          request_reference: 'VTU-123',
+        },
+      ],
+      error: null,
+      isLoading: false,
+      isRefetching: false,
+      refetch: mockRefetch,
+    });
+
+    render(<UtilityHistoryScreen />);
+
+    fireEvent.press(screen.getByLabelText('Sync payment for EKEDC NG'));
+
+    await waitFor(() => {
+      expect(mockConfirmVtuCheckout).toHaveBeenCalledWith({
+        gateway: 'paystack',
+        reference: 'VTU-PAYSTACK-123',
+      });
+    });
+    await waitFor(() => {
+      expect(mockRefetch).toHaveBeenCalled();
+    });
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Sync Failed',
+      'Gateway not settled.'
+    );
   });
 
   it('redirects unauthenticated users to login', () => {

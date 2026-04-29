@@ -1,9 +1,68 @@
 import { jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import type { Biller, BillItem } from '@/hooks/use-vtu-billers';
 import { BillForm } from './BillForm';
 
 const mockVerifyMutate = jest.fn();
 const mockVerifyReset = jest.fn();
+
+function mockBillItem(overrides: Partial<BillItem>): BillItem {
+  return {
+    amount: 0,
+    isAmountFixed: false,
+    itemCode: 'item',
+    itemCurrencySymbol: 'NGN',
+    itemFee: 0,
+    itemName: 'Item',
+    ...overrides,
+  };
+}
+
+function mockBiller(overrides: Partial<Biller>): Biller {
+  return {
+    billerId: 'biller',
+    billerName: 'Biller',
+    billerType: 'Utility',
+    categoryId: 'utility',
+    categoryName: 'Utility',
+    billItems: [],
+    ...overrides,
+  };
+}
+
+function mockPowerBillers(): Biller[] {
+  return [
+    mockBiller({
+      billerId: 'ekedc',
+      billerName: 'EKEDC NG',
+      billerType: 'Electricity',
+      categoryId: 'electricity',
+      categoryName: 'Electricity',
+      billItems: [
+        mockBillItem({
+          itemCode: 'prepaid',
+          itemName: 'Prepaid',
+          billItems: [
+            mockBillItem({
+              itemCode: 'residential',
+              itemName: 'Residential',
+            }),
+            mockBillItem({
+              itemCode: 'commercial',
+              itemName: 'Commercial',
+            }),
+          ],
+        }),
+        mockBillItem({
+          itemCode: 'postpaid',
+          itemName: 'Postpaid',
+        }),
+      ],
+    }),
+  ];
+}
+
+let mockBillers = mockPowerBillers();
 
 jest.mock('@/components/useColorScheme', () => ({
   useColorScheme: jest.fn(() => 'light'),
@@ -72,51 +131,7 @@ jest.mock('@/hooks/use-vtu-verify', () => ({
 
 jest.mock('@/hooks/use-vtu-billers', () => ({
   useVTUBillers: () => ({
-    data: [
-      {
-        billerId: 'ekedc',
-        billerName: 'EKEDC NG',
-        billerType: 'Electricity',
-        categoryId: 'electricity',
-        categoryName: 'Electricity',
-        billItems: [
-          {
-            itemCode: 'prepaid',
-            itemName: 'Prepaid',
-            amount: 0,
-            itemCurrencySymbol: 'NGN',
-            isAmountFixed: false,
-            itemFee: 0,
-            billItems: [
-              {
-                itemCode: 'residential',
-                itemName: 'Residential',
-                amount: 0,
-                itemCurrencySymbol: 'NGN',
-                isAmountFixed: false,
-                itemFee: 0,
-              },
-              {
-                itemCode: 'commercial',
-                itemName: 'Commercial',
-                amount: 0,
-                itemCurrencySymbol: 'NGN',
-                isAmountFixed: false,
-                itemFee: 0,
-              },
-            ],
-          },
-          {
-            itemCode: 'postpaid',
-            itemName: 'Postpaid',
-            amount: 0,
-            itemCurrencySymbol: 'NGN',
-            isAmountFixed: false,
-            itemFee: 0,
-          },
-        ],
-      },
-    ],
+    data: mockBillers,
     isLoading: false,
     isError: false,
     error: null,
@@ -126,6 +141,7 @@ jest.mock('@/hooks/use-vtu-billers', () => ({
 describe('BillForm', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockBillers = mockPowerBillers();
   });
 
   it('waits for the full bill-item path before showing the identifier input', () => {
@@ -192,5 +208,72 @@ describe('BillForm', () => {
     expect(screen.getByText('Amount (₦)')).toBeOnTheScreen();
     expect(screen.getByText('Payment options')).toBeOnTheScreen();
     expect(mockVerifyMutate).not.toHaveBeenCalled();
+  });
+
+  it('matches a saved biller name by exact or token-boundary text before shorter substrings', () => {
+    mockBillers = [
+      mockBiller({
+        billerId: 'generic-tv',
+        billerName: 'TV',
+        billItems: [],
+      }),
+      mockBiller({
+        billerId: 'dstv',
+        billerName: 'DSTV',
+        billItems: [
+          mockBillItem({
+            amount: 0,
+            itemCode: 'compact',
+            itemName: 'Compact',
+          }),
+        ],
+      }),
+    ];
+
+    render(
+      <BillForm
+        type="tv"
+        initialAmount="2500"
+        initialBillerName="DSTV Compact"
+        initialCustomerIdentifier="1234567890"
+        isRepeatPaymentReady
+        onSuccess={jest.fn()}
+      />
+    );
+
+    expect(screen.getByText('DSTV')).toBeOnTheScreen();
+    expect(screen.getByText('Compact')).toBeOnTheScreen();
+    expect(screen.getByText('Amount (₦)')).toBeOnTheScreen();
+  });
+
+  it('prefers a fixed leaf amount over the saved repeat amount', () => {
+    mockBillers = [
+      mockBiller({
+        billerId: 'dstv',
+        billerName: 'DSTV',
+        billItems: [
+          mockBillItem({
+            amount: 7000,
+            isAmountFixed: true,
+            itemCode: 'compact',
+            itemName: 'Compact',
+          }),
+        ],
+      }),
+    ];
+
+    render(
+      <BillForm
+        type="tv"
+        initialAmount="2500"
+        initialBillerName="DSTV"
+        initialBillItemIdentifier="compact"
+        initialCustomerIdentifier="1234567890"
+        isRepeatPaymentReady
+        onSuccess={jest.fn()}
+      />
+    );
+
+    expect(screen.getByDisplayValue('7,000')).toBeOnTheScreen();
   });
 });

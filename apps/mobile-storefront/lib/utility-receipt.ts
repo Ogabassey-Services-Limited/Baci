@@ -23,7 +23,9 @@ export interface UtilityReceiptData {
 function buildReceiptRows(data: UtilityReceiptData) {
   const rows = [
     ['Service', TYPE_LABELS[data.type] ?? data.type],
-    data.amount ? ['Amount', formatNgnCurrency(data.amount)] : null,
+    data.amount !== undefined && data.amount !== null
+      ? ['Amount', formatNgnCurrency(data.amount)]
+      : null,
     data.customerIdentifier ? ['Customer ID', data.customerIdentifier] : null,
     data.customerName ? ['Customer Name', data.customerName] : null,
     data.reference ? ['Reference', data.reference] : null,
@@ -45,7 +47,9 @@ function buildReceiptRows(data: UtilityReceiptData) {
 function buildReceiptMessage(data: UtilityReceiptData) {
   return [
     `${TYPE_LABELS[data.type] ?? data.type} receipt`,
-    data.amount ? `Amount: ${formatNgnCurrency(data.amount)}` : null,
+    data.amount !== undefined && data.amount !== null
+      ? `Amount: ${formatNgnCurrency(data.amount)}`
+      : null,
     data.customerIdentifier ? `Customer ID: ${data.customerIdentifier}` : null,
     data.customerName ? `Customer: ${data.customerName}` : null,
     data.reference ? `Reference: ${data.reference}` : null,
@@ -123,10 +127,7 @@ export async function shareUtilityReceipt(data: UtilityReceiptData) {
     const { uri } = await Print.printToFileAsync({ html });
     pdfUri = uri;
 
-    if (
-      typeof Sharing.isAvailableAsync === 'function' &&
-      !(await Sharing.isAvailableAsync())
-    ) {
+    if (!(await Sharing.isAvailableAsync())) {
       await Share.share({ message: buildReceiptMessage(data) });
       return;
     }

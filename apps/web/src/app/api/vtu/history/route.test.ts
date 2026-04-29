@@ -38,6 +38,12 @@ let transactionsError: unknown = null;
 let paymentRowsData: Record<string, unknown>[] | null = null;
 let paymentRowsError: unknown = null;
 let transactionEqCalls: [string, unknown][] = [];
+let vtuTransactionUpdateEqCalls: [string, unknown][] = [];
+let vtuTransactionUpdateFilters: [string, string, unknown][] = [];
+let vtuTransactionUpdateIsCalls: [string, unknown][] = [];
+let vtuTransactionUpdatePayloads: Record<string, unknown>[] = [];
+let vtuTransactionUpdateRows: Record<string, unknown>[] | null = null;
+let vtuTransactionUpdateError: unknown = null;
 const mockCustomerUpdateEq = vi.fn();
 
 function createMockSupabase() {
@@ -75,6 +81,28 @@ function createMockSupabase() {
     }),
   };
 
+  const createVtuTransactionUpdateQuery = () => {
+    const builder = {
+      eq: vi.fn((field: string, value: unknown) => {
+        vtuTransactionUpdateEqCalls.push([field, value]);
+        return builder;
+      }),
+      filter: vi.fn((field: string, operator: string, value: unknown) => {
+        vtuTransactionUpdateFilters.push([field, operator, value]);
+        return builder;
+      }),
+      is: vi.fn((field: string, value: unknown) => {
+        vtuTransactionUpdateIsCalls.push([field, value]);
+        return builder;
+      }),
+      select: vi.fn().mockResolvedValue({
+        data: vtuTransactionUpdateRows,
+        error: vtuTransactionUpdateError,
+      }),
+    };
+    return builder;
+  };
+
   const paymentStatusQuery = {
     eq: vi.fn(() => paymentStatusQuery),
     in: vi.fn().mockResolvedValue({
@@ -110,6 +138,10 @@ function createMockSupabase() {
       if (table === 'vtu_transactions') {
         return {
           select: vi.fn(() => transactionQuery),
+          update: vi.fn((payload: Record<string, unknown>) => {
+            vtuTransactionUpdatePayloads.push(payload);
+            return createVtuTransactionUpdateQuery();
+          }),
         };
       }
 
@@ -170,6 +202,12 @@ describe('GET /api/vtu/history', () => {
     ];
     paymentRowsError = null;
     transactionEqCalls = [];
+    vtuTransactionUpdateEqCalls = [];
+    vtuTransactionUpdateFilters = [];
+    vtuTransactionUpdateIsCalls = [];
+    vtuTransactionUpdatePayloads = [];
+    vtuTransactionUpdateRows = [{ id: 'tx-1' }];
+    vtuTransactionUpdateError = null;
     mockCustomerUpdateEq.mockResolvedValue({ data: null, error: null });
     mockAuthenticateApiRequest.mockResolvedValue({
       user: { id: 'user-1', email: 'customer@example.com' },
@@ -191,6 +229,19 @@ describe('GET /api/vtu/history', () => {
 
     expect(response.status).toBe(401);
     expect(data.error).toBe('Unauthorized');
+  });
+
+  it('returns 400 when the query is invalid', async () => {
+    const { GET } = await import('./route');
+
+    const response = await GET(
+      makeRequest('?merchantSlug=ogabassey&type=invalid') as never
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data.error).toBe('Invalid query');
+    expect(data.details.fieldErrors.type).toBeDefined();
   });
 
   it('returns transactions for the resolved customer and applies the type filter', async () => {
@@ -254,6 +305,19 @@ describe('GET /api/vtu/history', () => {
       }),
     ]);
     expect(mockAfter).toHaveBeenCalledTimes(1);
+    expect(vtuTransactionUpdatePayloads).toEqual([
+      {
+        metadata: expect.objectContaining({
+          voucherPinBackfillScheduledAt: expect.any(String),
+        }),
+      },
+    ]);
+    expect(vtuTransactionUpdateEqCalls).toContainEqual(['id', 'tx-1']);
+    expect(vtuTransactionUpdateFilters).toContainEqual([
+      'metadata',
+      'eq',
+      JSON.stringify({}),
+    ]);
     expect(mockBackfillVtuVoucherPin).not.toHaveBeenCalled();
 
     const scheduledBackfill = mockAfter.mock.calls[0]?.[0] as
@@ -268,10 +332,81 @@ describe('GET /api/vtu/history', () => {
     expect(mockBackfillVtuVoucherPin).toHaveBeenCalledWith({
       billRequestRef: 'VTU-123',
       billResponseReference: 'kuda-bill-1',
-      metadata: {},
+      metadata: expect.objectContaining({
+        voucherPinBackfillScheduledAt: expect.any(String),
+      }),
       supabase: expect.any(Object),
       transactionId: 'tx-1',
     });
+  });
+
+  it('does not reschedule voucher-pin backfill when metadata already has a recent schedule marker', async () => {
+    const { GET } = await import('./route');
+    transactionsData = [
+      {
+        id: 'tx-1',
+        created_at: '2026-04-08T12:00:00.000Z',
+        type: 'electricity',
+        status: 'successful',
+        amount: '2500',
+        biller_name: 'EKEDC NG',
+        metadata: {
+          voucherPinBackfillScheduledAt: new Date().toISOString(),
+        },
+        request_reference: 'VTU-123',
+        transaction_id: 'kuda-bill-1',
+        customer_cashback: '0',
+      },
+    ];
+    paymentRowsData = [];
+
+    const response = await GET(
+      makeRequest('?merchantSlug=ogabassey&type=electricity') as never
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.transactions).toEqual([
+      expect.objectContaining({
+        id: 'tx-1',
+        voucher_pin: null,
+      }),
+    ]);
+    expect(mockAfter).not.toHaveBeenCalled();
+    expect(mockBackfillVtuVoucherPin).not.toHaveBeenCalled();
+    expect(vtuTransactionUpdatePayloads).toEqual([]);
+  });
+
+  it('returns 500 and does not schedule backfill when payment status lookup fails', async () => {
+    const { GET } = await import('./route');
+    transactionsData = [
+      {
+        id: 'tx-1',
+        created_at: '2026-04-08T12:00:00.000Z',
+        type: 'electricity',
+        status: 'successful',
+        amount: '2500',
+        biller_name: 'EKEDC NG',
+        metadata: {
+          paymentReference: 'VTU-PAYSTACK-123',
+        },
+        request_reference: 'VTU-123',
+        transaction_id: 'kuda-bill-1',
+        customer_cashback: '0',
+      },
+    ];
+    paymentRowsError = { message: 'lookup failed' };
+
+    const response = await GET(
+      makeRequest('?merchantSlug=ogabassey&type=electricity') as never
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(data.error).toBe('Failed to fetch payment statuses');
+    expect(mockAfter).not.toHaveBeenCalled();
+    expect(mockBackfillVtuVoucherPin).not.toHaveBeenCalled();
+    expect(vtuTransactionUpdatePayloads).toEqual([]);
   });
 
   it('returns an empty list when no customer exists for the authenticated user', async () => {

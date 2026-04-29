@@ -322,6 +322,7 @@ export const BRAND = {
   name: 'Ogabassey',
   primary: palette.red[600],
   onPrimary: palette.white,
+  onSecondary: palette.black,
   primaryLight: palette.red[100],
   primaryDark: palette.red[700],
   secondary: palette.amber[500],

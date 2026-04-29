@@ -19,11 +19,36 @@ const HISTORY_FILTER_TO_API_TYPE = {
   gaming: 'betting',
 } as const;
 
+const VTU_HISTORY_TRANSACTION_TYPES = [
+  'airtime',
+  'data',
+  'electricity',
+  'cable_tv',
+  'betting',
+] as const;
+
+const VTU_HISTORY_TRANSACTION_STATUSES = [
+  'pending',
+  'processing',
+  'successful',
+  'failed',
+] as const;
+
+const VTU_HISTORY_PAYMENT_GATEWAYS = ['paystack', 'korapay'] as const;
+
+const VTU_HISTORY_PAYMENT_STATUSES = [
+  'pending',
+  'processing',
+  'completed',
+  'failed',
+  'cancelled',
+] as const;
+
 const VTUHistoryTransactionSchema = z.object({
   id: z.string(),
   created_at: z.string(),
-  type: z.enum(['airtime', 'data', 'electricity', 'cable_tv', 'betting']),
-  status: z.enum(['pending', 'processing', 'successful', 'failed']),
+  type: z.enum(VTU_HISTORY_TRANSACTION_TYPES),
+  status: z.enum(VTU_HISTORY_TRANSACTION_STATUSES),
   amount: z.number(),
   network_provider: z.string().nullable().optional(),
   phone_number: z.string().nullable().optional(),
@@ -34,12 +59,9 @@ const VTUHistoryTransactionSchema = z.object({
   request_reference: z.string(),
   error_message: z.string().nullable().optional(),
   customer_cashback: z.number().nullable().optional(),
-  payment_gateway: z.enum(['paystack', 'korapay']).nullable().optional(),
+  payment_gateway: z.enum(VTU_HISTORY_PAYMENT_GATEWAYS).nullable().optional(),
   payment_reference: z.string().nullable().optional(),
-  payment_status: z
-    .enum(['pending', 'processing', 'completed', 'failed', 'cancelled'])
-    .nullable()
-    .optional(),
+  payment_status: z.enum(VTU_HISTORY_PAYMENT_STATUSES).nullable().optional(),
   repeat_data_plan_code: z.string().nullable().optional(),
   voucher_pin: z.string().nullable().optional(),
 });

@@ -1,6 +1,31 @@
+import { jest } from '@jest/globals';
+
+jest.mock('@/lib/logger', () => {
+  const mockWarn = jest.fn();
+
+  return {
+    __mockLoggerWarn: mockWarn,
+    createLogger: () => ({
+      warn: mockWarn,
+    }),
+  };
+});
+
 import { utilityRepeatHelpers } from '@/components/utilities/utility-repeat';
 
+interface LoggerMockModule {
+  __mockLoggerWarn: jest.Mock;
+}
+
+const { __mockLoggerWarn: mockLoggerWarn } = jest.requireMock(
+  '@/lib/logger'
+) as LoggerMockModule;
+
 describe('utilityRepeatHelpers', () => {
+  beforeEach(() => {
+    mockLoggerWarn.mockClear();
+  });
+
   it('maps utility history transactions into repeat route params', () => {
     const params = utilityRepeatHelpers.getRouteParams({
       id: 'tx-1',
@@ -61,5 +86,42 @@ describe('utilityRepeatHelpers', () => {
       networkProvider: 't2',
       phoneNumber: '08091234567',
     });
+  });
+
+  it('preserves already-normalized mobile provider slugs for repeats', () => {
+    const defaults = utilityRepeatHelpers.getDefaults({
+      id: 'tx-3',
+      amount: 1000,
+      created_at: '2026-04-28T12:00:00.000Z',
+      network_provider: 't2',
+      phone_number: '08091234567',
+      request_reference: 'ref-789',
+      status: 'successful',
+      type: 'airtime',
+    });
+
+    expect(defaults.networkProvider).toBe('t2');
+  });
+
+  it('falls back to a slug and logs when repeat provider is unknown', () => {
+    const defaults = utilityRepeatHelpers.getDefaults({
+      id: 'tx-4',
+      amount: 1000,
+      created_at: '2026-04-28T12:00:00.000Z',
+      network_provider: 'My Telco',
+      phone_number: '08091234567',
+      request_reference: 'ref-999',
+      status: 'successful',
+      type: 'airtime',
+    });
+
+    expect(defaults.networkProvider).toBe('my-telco');
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      'Unknown repeat provider received',
+      {
+        fallbackProvider: 'my-telco',
+        networkProvider: 'My Telco',
+      }
+    );
   });
 });

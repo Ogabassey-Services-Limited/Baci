@@ -1,6 +1,19 @@
 import type { VTUHistoryTransaction } from '@/hooks/use-vtu-history';
+import { createLogger } from '@/lib/logger';
 
 export type UtilityRouteType = 'airtime' | 'data' | 'tv' | 'power' | 'gaming';
+
+export interface UtilityRepeatRouteParams {
+  repeatAmount?: string;
+  repeatBillerName?: string;
+  repeatBillItemIdentifier?: string;
+  repeatCustomerIdentifier?: string;
+  repeatDataPlanCode?: string;
+  repeatNetworkProvider?: string;
+  repeatPhoneNumber?: string;
+  repeatVerified?: '1';
+  type: UtilityRouteType;
+}
 
 export interface UtilityRepeatDefaults {
   amount?: string;
@@ -28,15 +41,51 @@ const KUDA_TO_MOBILE_PROVIDER: Record<string, string> = {
   MTN: 'mtn',
 };
 
-function getRepeatProvider(networkProvider?: string | null) {
+const NORMALIZED_MOBILE_PROVIDER_SLUGS = new Set(['airtel', 'glo', 'mtn', 't2']);
+
+const log = createLogger('UtilityRepeat');
+
+function toProviderSlug(networkProvider: string): string {
+  return networkProvider
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function getRepeatProvider(networkProvider?: string | null): string | undefined {
   if (!networkProvider) {
     return undefined;
   }
 
-  return KUDA_TO_MOBILE_PROVIDER[networkProvider.toUpperCase()];
+  const trimmedProvider = networkProvider.trim();
+  if (!trimmedProvider) {
+    return undefined;
+  }
+
+  const mappedProvider = KUDA_TO_MOBILE_PROVIDER[trimmedProvider.toUpperCase()];
+  if (mappedProvider) {
+    return mappedProvider;
+  }
+
+  const fallbackProvider = toProviderSlug(trimmedProvider);
+  if (!fallbackProvider) {
+    return undefined;
+  }
+
+  if (!NORMALIZED_MOBILE_PROVIDER_SLUGS.has(fallbackProvider)) {
+    log.warn('Unknown repeat provider received', {
+      fallbackProvider,
+      networkProvider: trimmedProvider,
+    });
+  }
+
+  return fallbackProvider;
 }
 
-function getRouteType(type: VTUHistoryTransaction['type']) {
+function getRouteType(
+  type: VTUHistoryTransaction['type']
+): UtilityRouteType {
   return HISTORY_TYPE_TO_UTILITY_ROUTE[type];
 }
 
@@ -69,7 +118,9 @@ function getDefaults(
   };
 }
 
-function getRouteParams(transaction: VTUHistoryTransaction) {
+function getRouteParams(
+  transaction: VTUHistoryTransaction
+): UtilityRepeatRouteParams {
   const defaults = getDefaults(transaction);
 
   return {

@@ -106,12 +106,17 @@ export async function purchaseBill(
       reference
     );
 
-    const pin = normalizeKudaString(response.data?.pin ?? response.data?.Pin);
+    const pin =
+      normalizeKudaString(response.data?.pin) ??
+      normalizeKudaString(response.data?.Pin);
+    const transactionId =
+      normalizeKudaString(response.data?.reference) ??
+      normalizeKudaString(response.data?.Reference);
 
     return {
       success: response.status,
       reference,
-      transactionId: response.data?.reference ?? response.data?.Reference,
+      transactionId,
       ...(pin && { pin }),
       message: response.message,
       status: response.status ? 'successful' : 'failed',

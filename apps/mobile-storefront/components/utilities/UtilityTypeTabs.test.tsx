@@ -5,6 +5,7 @@ import {
   screen,
   within,
 } from '@testing-library/react-native';
+import { ScrollView } from 'react-native';
 import Colors from '@/constants/Colors';
 import { UtilityTypeTabs } from './UtilityTypeTabs';
 
@@ -29,6 +30,11 @@ describe('UtilityTypeTabs', () => {
     expect(screen.getByText('Gaming')).toBeOnTheScreen();
     expect(screen.getByRole('tablist')).toBeOnTheScreen();
     expect(screen.getAllByRole('tab')).toHaveLength(5);
+  });
+
+  it('marks the selected type as selected', () => {
+    render(<UtilityTypeTabs selectedType="power" onSelect={jest.fn()} />);
+
     expect(
       screen.getByLabelText('Power utility service')
     ).toHaveAccessibilityState({
@@ -45,7 +51,7 @@ describe('UtilityTypeTabs', () => {
     expect(onSelect).toHaveBeenCalledWith('data');
   });
 
-  it('renders the tablist in dark mode', () => {
+  it('applies dark theme styling', () => {
     mockColorScheme = 'dark';
 
     render(<UtilityTypeTabs selectedType="data" onSelect={jest.fn()} />);
@@ -58,10 +64,39 @@ describe('UtilityTypeTabs', () => {
     expect(screen.getByText('Airtime')).toHaveStyle({
       color: Colors.dark.text,
     });
+  });
+
+  it('marks the selected tab in dark mode', () => {
+    mockColorScheme = 'dark';
+
+    render(<UtilityTypeTabs selectedType="data" onSelect={jest.fn()} />);
+
+    const tablist = screen.getByRole('tablist');
     expect(
       within(tablist).getByLabelText('Data utility service')
     ).toHaveAccessibilityState({
       selected: true,
+    });
+  });
+
+  it('keeps taps handled while horizontally scrolling tabs', () => {
+    const { UNSAFE_getByType } = render(
+      <UtilityTypeTabs selectedType="power" onSelect={jest.fn()} />
+    );
+
+    expect(UNSAFE_getByType(ScrollView).props.keyboardShouldPersistTaps).toBe(
+      'handled'
+    );
+  });
+
+  it('applies visual feedback while a tab is pressed', () => {
+    render(<UtilityTypeTabs selectedType="power" onSelect={jest.fn()} />);
+
+    const tab = screen.getByLabelText('Data utility service');
+    fireEvent(tab, 'pressIn');
+
+    expect(screen.getByLabelText('Data utility service')).toHaveStyle({
+      opacity: 0.88,
     });
   });
 });

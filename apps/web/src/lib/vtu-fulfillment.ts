@@ -126,6 +126,10 @@ function setMetadataValue(
   return true;
 }
 
+function throwVtuPersistenceError(message: string): never {
+  throw new Error(message);
+}
+
 async function findExistingCustomerCashback({
   row,
   supabase,
@@ -205,6 +209,7 @@ async function settleVtuWalletCredits({
   let customerWalletCredited = metadata.customerWalletCredited === true;
   let customerNewBalance = coerceNumber(metadata.customerNewBalance);
 
+  // Ledger lookups are the idempotency guard when successful fulfillment is re-entered.
   if (merchantCommission > 0 && !merchantWalletCredited) {
     const existingCommission = await findExistingMerchantCommission({
       row,
@@ -339,6 +344,12 @@ async function notifyVtuCustomerSuccess({
       ? ` ${formatNaira(cashbackAmount)} cashback was credited to your wallet.`
       : '';
 
+  let metadataChanged = setMetadataValue(
+    metadata,
+    'customerNotificationAttempted',
+    true
+  );
+
   try {
     const result = await notifyCustomer(
       customer.user_id,
@@ -355,11 +366,6 @@ async function notifyVtuCustomerSuccess({
       'orders'
     );
 
-    let metadataChanged = setMetadataValue(
-      metadata,
-      'customerNotificationAttempted',
-      true
-    );
     metadataChanged =
       setMetadataValue(metadata, 'customerNotificationSent', result.sent > 0) ||
       metadataChanged;
@@ -369,7 +375,10 @@ async function notifyVtuCustomerSuccess({
       error: error instanceof Error ? error.message : String(error),
       transactionId: row.id,
     });
-    return { metadataChanged: false };
+    metadataChanged =
+      setMetadataValue(metadata, 'customerNotificationSent', false) ||
+      metadataChanged;
+    return { metadataChanged };
   }
 }
 
@@ -588,6 +597,7 @@ export async function fulfillPendingVtuTransaction({
           metadata: getSafeMetadataDiagnostics(metadata),
           transactionId: row.id,
         });
+        throwVtuPersistenceError('Failed to persist VTU transaction metadata');
       }
     }
 
@@ -682,7 +692,7 @@ export async function fulfillPendingVtuTransaction({
     error_message: result.success ? null : result.message,
     metadata: updatedMetadata,
     status: result.success ? 'successful' : 'failed',
-    transaction_id: result.transactionId ?? null,
+    transaction_id: result.transactionId ?? row.transaction_id,
   };
   const { error: purchaseUpdateError } = await supabase
     .from('vtu_transactions')
@@ -698,6 +708,7 @@ export async function fulfillPendingVtuTransaction({
       transactionId: row.id,
       transactionReference: purchaseUpdatePayload.transaction_id,
     });
+    throwVtuPersistenceError('Failed to persist VTU purchase result');
   }
 
   if (!result.success) {
@@ -739,6 +750,9 @@ export async function fulfillPendingVtuTransaction({
       metadata: getSafeMetadataDiagnostics(finalMetadata),
       transactionId: row.id,
     });
+    throwVtuPersistenceError(
+      'Failed to persist final VTU transaction metadata'
+    );
   }
 
   return {

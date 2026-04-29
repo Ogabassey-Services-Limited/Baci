@@ -129,10 +129,10 @@ jest.mock('react-native-webview', () => ({
           accessibilityLabel="mock-payment-success-navigation"
           onPress={() =>
             onShouldStartLoadWithRequest?.({
-              url: 'https://ogabassey.usebaci.com/checkout/success?reference=ref-123',
+              url: 'https://usebaci.com/checkout/success?reference=ref-123',
             }) !== false &&
             onNavigationStateChange?.({
-              url: 'https://ogabassey.usebaci.com/checkout/success?reference=ref-123',
+              url: 'https://usebaci.com/checkout/success?reference=ref-123',
             })
           }
         >
@@ -160,6 +160,10 @@ jest.mock('@/lib/clipboard', () => ({
   setClipboardString: jest.fn(() => Promise.resolve(true)),
 }));
 
+jest.mock('@/lib/supabase', () => ({
+  supabase: {},
+}));
+
 jest.mock('@/components/useColorScheme', () => ({
   useColorScheme: () => 'light',
 }));
@@ -177,30 +181,17 @@ jest.mock('@/components/ui/Toast', () => ({
   }),
 }));
 
-jest.mock('@/lib/vtu-checkout', () => ({
-  VtuPaymentStillProcessingError: class VtuPaymentStillProcessingError extends Error {
-    amount?: number;
-    customerIdentifier?: string;
-    reference: string;
+jest.mock('@/lib/vtu-checkout', () => {
+  const actual =
+    jest.requireActual<typeof import('@/lib/vtu-checkout')>(
+      '@/lib/vtu-checkout'
+    );
 
-    constructor({
-      amount,
-      customerIdentifier,
-      reference,
-    }: {
-      amount?: number;
-      customerIdentifier?: string;
-      reference: string;
-    }) {
-      super('Payment is still processing. Check your utility history shortly.');
-      this.name = 'VtuPaymentStillProcessingError';
-      this.amount = amount;
-      this.customerIdentifier = customerIdentifier;
-      this.reference = reference;
-    }
-  },
-  waitForVtuConfirmation: jest.fn(),
-}));
+  return {
+    ...actual,
+    waitForVtuConfirmation: jest.fn(),
+  };
+});
 
 jest.mock('@/stores/cart-store', () => ({
   useCartStore: (selector: (state: { clearCart: () => void }) => unknown) =>
@@ -231,7 +222,7 @@ describe('PaymentGatewayScreen', () => {
     ).toBeTruthy();
   });
 
-  it('copies gateway account numbers to the native clipboard from WebView messages', async () => {
+  it('copies generic gateway text once from WebView clipboard messages', async () => {
     render(<PaymentGatewayScreen />);
 
     expect(screen.getByText('clipboard-bridge:enabled')).toBeTruthy();
@@ -244,8 +235,13 @@ describe('PaymentGatewayScreen', () => {
 
     expect(setClipboardString).toHaveBeenCalledWith('1234567890');
     await waitFor(() =>
-      expect(mockToastSuccess).toHaveBeenCalledWith('Account number copied.')
+      expect(mockToastSuccess).toHaveBeenCalledWith('Text copied.')
     );
+
+    fireEvent.press(screen.getByLabelText('mock-payment-webview'));
+
+    expect(setClipboardString).toHaveBeenCalledTimes(1);
+    expect(mockToastSuccess).toHaveBeenCalledTimes(1);
   });
 
   it('keeps decimal precision in the amount banner', () => {
@@ -298,6 +294,7 @@ describe('PaymentGatewayScreen', () => {
           reference: 'ref-123',
         })
       );
+      await Promise.resolve();
     });
 
     await waitFor(() =>
@@ -348,6 +345,19 @@ describe('PaymentGatewayScreen', () => {
     );
     await waitFor(() =>
       expect(screen.getByText('Payment Successful!')).toBeTruthy()
+    );
+    await waitFor(
+      () =>
+        expect(router.replace).toHaveBeenCalledWith({
+          pathname: '/utilities/[type]',
+          params: expect.objectContaining({
+            customerIdentifier: '43901766923',
+            paymentStatus: 'successful',
+            reference: 'ref-123',
+            type: 'power',
+          }),
+        }),
+      { timeout: 2500 }
     );
   });
 });

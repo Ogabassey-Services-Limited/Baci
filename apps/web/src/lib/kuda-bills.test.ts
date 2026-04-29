@@ -211,6 +211,30 @@ describe('purchaseBill', () => {
     });
   });
 
+  it('uses the first meaningful pin and transaction reference after normalizing response casing variants', async () => {
+    // Arrange
+    const mockResponse = {
+      status: true,
+      message: 'Bill purchase successful',
+      data: {
+        reference: '   ',
+        Reference: 'TXN-UPPER-123',
+        pin: '   ',
+        Pin: '1234-5678-9012',
+      },
+    };
+    vi.mocked(kudaRequest).mockResolvedValue(mockResponse);
+
+    // Act
+    const result = await purchaseBill('EKEDC-PREPAID', '1234567890', 5000);
+
+    // Assert
+    expect(result).toMatchObject<Partial<PurchaseResult>>({
+      pin: '1234-5678-9012',
+      transactionId: 'TXN-UPPER-123',
+    });
+  });
+
   it('returns failed result when Kuda API returns status false', async () => {
     // Arrange
     const mockResponse = {

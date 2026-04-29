@@ -37,6 +37,49 @@ describe('withKudaElectricityBillItems', () => {
     ]);
   });
 
+  it('normalizes EKEDC names with hyphen and underscore NG suffixes', () => {
+    const billers: TestBiller[] = [
+      {
+        billerId: 'hyphen-id',
+        billerName: 'EKEDC-NG',
+      },
+      {
+        billerId: 'underscore-id',
+        billerName: 'EKEDC_NG',
+      },
+    ];
+
+    const result = withKudaElectricityBillItems(billers);
+
+    expect(result[0].billItems).toEqual([
+      expect.objectContaining({ itemCode: 'KUD-ELE-EKED-002' }),
+      expect.objectContaining({ itemCode: 'KUD-ELE-EKED-001' }),
+    ]);
+    expect(result[1].billItems).toEqual([
+      expect.objectContaining({ itemCode: 'KUD-ELE-EKED-002' }),
+      expect.objectContaining({ itemCode: 'KUD-ELE-EKED-001' }),
+    ]);
+  });
+
+  it.each([
+    ['APLE NG', 'KUD-ELE-APLE-001', 'KUD-ELE-APLE-002'],
+    ['JEDC NG', 'KUD-ELE-JEDC-001', 'KUD-ELE-JEDC-002'],
+    ['YEDC NG', 'KUD-ELE-YEDC-001', 'KUD-ELE-YEDC-002'],
+  ])('orders %s prepaid item before postpaid', (billerName, prepaid, postpaid) => {
+    const billers: TestBiller[] = [
+      {
+        billerId: 'provider-id',
+        billerName,
+      },
+    ];
+    const [biller] = withKudaElectricityBillItems(billers);
+
+    expect(biller.billItems?.map((item) => item.itemCode)).toEqual([
+      prepaid,
+      postpaid,
+    ]);
+  });
+
   it('preserves billers that already include bill items', () => {
     const billItems: KudaBillItemLike[] = [
       {

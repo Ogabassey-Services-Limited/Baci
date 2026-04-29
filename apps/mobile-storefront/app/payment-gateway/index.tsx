@@ -50,11 +50,8 @@ const PAYMENT_AMOUNT_FORMATTER = new Intl.NumberFormat('en-NG', {
   style: 'currency',
 });
 
-function formatPaymentAmount(amount: string) {
-  const numericAmount = Number(amount);
-  return Number.isFinite(numericAmount)
-    ? PAYMENT_AMOUNT_FORMATTER.format(numericAmount)
-    : amount;
+function formatPaymentAmount(amount: number) {
+  return PAYMENT_AMOUNT_FORMATTER.format(amount);
 }
 
 export default function PaymentGatewayScreen() {
@@ -121,7 +118,7 @@ export default function PaymentGatewayScreen() {
         type: utilityType,
         paymentStatus: resultStatus,
         reference: resultReference,
-        amount: String(resultAmount ?? Number(amount || 0)),
+        amount: String(resultAmount ?? amount ?? 0),
         ...((resultCustomerIdentifier || customerIdentifier) && {
           customerIdentifier: resultCustomerIdentifier || customerIdentifier,
         }),
@@ -176,7 +173,7 @@ export default function PaymentGatewayScreen() {
             type: utilityType,
             paymentStatus: 'successful',
             reference: result.reference,
-            amount: String(result.amount ?? Number(amount || 0)),
+            amount: String(result.amount ?? amount ?? 0),
             ...((result.customerIdentifier || customerIdentifier) && {
               customerIdentifier:
                 result.customerIdentifier || customerIdentifier,
@@ -272,12 +269,16 @@ export default function PaymentGatewayScreen() {
     return true;
   };
 
-  const copyGatewayText = async (text: string) => {
+  const copyGatewayText = async (
+    text: string,
+    successMessage: string,
+    failureMessage = 'Unable to copy text.'
+  ) => {
     const copied = await setClipboardString(text);
     if (copied) {
-      toast.success('Account number copied.');
+      toast.success(successMessage);
     } else {
-      toast.error('Unable to copy account number.');
+      toast.error(failureMessage);
     }
   };
 
@@ -291,8 +292,12 @@ export default function PaymentGatewayScreen() {
       if (data.type === PAYMENT_CLIPBOARD_BRIDGE.clipboardMessageType) {
         const copiedText =
           typeof data.text === 'string' ? data.text.trim() : '';
-        if (copiedText) {
-          void copyGatewayText(copiedText);
+        if (
+          copiedText &&
+          copiedGatewayAccountNumberRef.current !== copiedText
+        ) {
+          copiedGatewayAccountNumberRef.current = copiedText;
+          void copyGatewayText(copiedText, 'Text copied.');
         }
         return;
       }
@@ -305,7 +310,11 @@ export default function PaymentGatewayScreen() {
           copiedGatewayAccountNumberRef.current !== accountNumber
         ) {
           copiedGatewayAccountNumberRef.current = accountNumber;
-          void copyGatewayText(accountNumber);
+          void copyGatewayText(
+            accountNumber,
+            'Account number copied.',
+            'Unable to copy account number.'
+          );
         }
         return;
       }

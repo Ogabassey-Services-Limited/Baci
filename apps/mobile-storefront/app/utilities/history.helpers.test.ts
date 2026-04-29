@@ -1,4 +1,10 @@
 import { describe, expect, it } from '@jest/globals';
+import {
+  DEFAULT_UTILITY_HISTORY_STATUS_COLOR,
+  DEFAULT_UTILITY_HISTORY_STATUS_LABEL,
+  UTILITY_HISTORY_PAYMENT_RECEIVED_STATUS,
+  UTILITY_HISTORY_STATUS_COLORS,
+} from './history.constants';
 import { utilityHistoryHelpers } from './history.helpers';
 
 describe('history.helpers', () => {
@@ -71,5 +77,44 @@ describe('history.helpers', () => {
 
   it('returns a safe fallback for invalid dates', () => {
     expect(utilityHistoryHelpers.formatDate('not-a-date')).toBe('-');
+  });
+
+  it('reports completed gateway payments as payment received when fulfillment did not succeed', () => {
+    expect(
+      utilityHistoryHelpers.getDisplayStatus({
+        payment_status: 'completed',
+        status: 'failed',
+      })
+    ).toEqual({
+      color: UTILITY_HISTORY_STATUS_COLORS.paymentReceived,
+      label: UTILITY_HISTORY_PAYMENT_RECEIVED_STATUS.label,
+      message: UTILITY_HISTORY_PAYMENT_RECEIVED_STATUS.message,
+    });
+  });
+
+  it('uses the transaction status color and label for normal statuses', () => {
+    expect(
+      utilityHistoryHelpers.getDisplayStatus({
+        payment_status: 'pending',
+        status: 'processing',
+      })
+    ).toEqual({
+      color: UTILITY_HISTORY_STATUS_COLORS.processing,
+      label: 'processing',
+      message: null,
+    });
+  });
+
+  it('falls back safely for unknown utility statuses', () => {
+    expect(
+      utilityHistoryHelpers.getDisplayStatus({
+        payment_status: 'pending',
+        status: 'unknown' as never,
+      })
+    ).toEqual({
+      color: DEFAULT_UTILITY_HISTORY_STATUS_COLOR,
+      label: DEFAULT_UTILITY_HISTORY_STATUS_LABEL,
+      message: null,
+    });
   });
 });

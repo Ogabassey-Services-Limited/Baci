@@ -88,13 +88,11 @@ export const utilityHistoryHelpers = {
       };
     }
 
-    const color =
-      UTILITY_HISTORY_STATUS_COLORS[transaction.status] ??
-      DEFAULT_UTILITY_HISTORY_STATUS_COLOR;
-    const label =
-      transaction.status in UTILITY_HISTORY_STATUS_COLORS
-        ? transaction.status
-        : DEFAULT_UTILITY_HISTORY_STATUS_LABEL;
+    const statusColor = UTILITY_HISTORY_STATUS_COLORS[transaction.status];
+    const color = statusColor ?? DEFAULT_UTILITY_HISTORY_STATUS_COLOR;
+    const label = statusColor !== undefined
+      ? transaction.status
+      : DEFAULT_UTILITY_HISTORY_STATUS_LABEL;
 
     return {
       color,

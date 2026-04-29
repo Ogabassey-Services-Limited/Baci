@@ -12,6 +12,7 @@ import {
 } from '@/lib/vtu-schemas';
 
 export type { Biller, BillItem };
+export type BillType = 'data' | 'cable_tv' | 'electricity' | 'betting';
 
 const API_URL =
   process.env.EXPO_PUBLIC_API_URL ||
@@ -22,20 +23,25 @@ const log = logger;
 
 export const vtuBillerKeys = {
   all: ['vtu', 'billers'] as const,
-  byType: (type: string) => ['vtu', 'billers', type] as const,
+  byType: (type: BillType) => ['vtu', 'billers', type] as const,
 };
 
 /** All bill types that can be prefetched */
-const PREFETCH_TYPES = ['data', 'cable_tv', 'electricity', 'betting'] as const;
+const PREFETCH_TYPES: readonly BillType[] = [
+  'data',
+  'cable_tv',
+  'electricity',
+  'betting',
+];
 
-function withBillItemsForType(type: string, billers: Biller[]): Biller[] {
+function withBillItemsForType(type: BillType, billers: Biller[]): Biller[] {
   return type === 'electricity'
     ? withKudaElectricityBillItems(billers)
     : billers;
 }
 
 /** Shared fetch function used by both useQuery and prefetch */
-async function fetchBillers(type: string): Promise<Biller[]> {
+async function fetchBillers(type: BillType): Promise<Biller[]> {
   const startTime = Date.now();
   log.info('VTU', `Fetching billers for type: ${type}`);
 
@@ -89,7 +95,7 @@ async function fetchBillers(type: string): Promise<Biller[]> {
  * Uses a short stale window because provider packages and nested bill items
  * can change independently of the app release cycle.
  */
-export function useVTUBillers(type: string, enabled = true) {
+export function useVTUBillers(type: BillType, enabled = true) {
   return useQuery<Biller[]>({
     queryKey: vtuBillerKeys.byType(type),
     queryFn: () => fetchBillers(type),

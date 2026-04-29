@@ -214,8 +214,10 @@ describe('POST /api/vtu/checkout/confirm', () => {
 
     expect(response.status).toBe(200);
     expect(data).toMatchObject({
+      success: true,
       status: 'successful',
       reference: 'VTU-123',
+      amount: 1000,
     });
     expect(mockFulfillPendingVtuTransaction).toHaveBeenCalledWith({
       retryFailed: true,

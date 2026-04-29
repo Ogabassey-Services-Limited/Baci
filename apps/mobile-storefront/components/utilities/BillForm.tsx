@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  InteractionManager,
   Pressable,
   ScrollView,
   Text,
@@ -14,7 +15,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, SPACING } from '@/constants/Colors';
 import { useKeyboard } from '@/hooks/use-keyboard';
 import { useUtilityPayment } from '@/hooks/use-utility-payment';
-import type { Biller, BillItem } from '@/hooks/use-vtu-billers';
+import type { Biller, BillItem, BillType } from '@/hooks/use-vtu-billers';
 import { useVTUBillers } from '@/hooks/use-vtu-billers';
 import { useVTUVerify } from '@/hooks/use-vtu-verify';
 import {
@@ -37,11 +38,11 @@ import { UtilityPaymentOptions } from './UtilityPaymentOptions';
 import { formatUtilityAmountInput } from './utility-amount-format';
 import { VerificationCard } from './VerificationCard';
 
-const BILL_TYPE_MAP: Record<string, string> = {
+const BILL_TYPE_MAP = {
   tv: 'cable_tv',
   power: 'electricity',
   gaming: 'betting',
-};
+} as const satisfies Record<'tv' | 'power' | 'gaming', BillType>;
 
 const IDENTIFIER_LABELS: Record<string, string> = {
   tv: 'Smart Card Number',
@@ -90,6 +91,14 @@ function getAmountForLeaf(billItem: BillItem | null) {
     : '';
 }
 
+function getInitialAmountForSelection(
+  billItem: BillItem | null,
+  initialAmount?: string
+) {
+  const fixedAmount = getAmountForLeaf(billItem);
+  return fixedAmount || initialAmount || '';
+}
+
 function findBillItemPath(
   billItems: BillItem[] | undefined,
   itemCode: string,
@@ -118,12 +127,77 @@ function normalizeBillItemMatchText(value: string) {
 }
 
 function billerNameContainsBillItemName(
-  normalizedItemName: string,
+  normalizedBillerName: string,
+  normalizedBillItemName: string
+) {
+  return (
+    normalizedBillItemName.length >= 3 &&
+    normalizedBillerName.includes(normalizedBillItemName)
+  );
+}
+
+function getBillerMatchTokens(value: string) {
+  const normalizedValue = normalizeBillItemMatchText(value);
+  return normalizedValue ? normalizedValue.split(' ') : [];
+}
+
+function startsWithCompleteBillerName(
+  normalizedInitialName: string,
   normalizedBillerName: string
 ) {
   return (
-    normalizedItemName.length >= 3 &&
-    normalizedBillerName.includes(normalizedItemName)
+    normalizedInitialName === normalizedBillerName ||
+    normalizedInitialName.startsWith(`${normalizedBillerName} `)
+  );
+}
+
+function containsBillerNameTokenSequence(
+  initialNameTokens: string[],
+  billerNameTokens: string[]
+) {
+  if (billerNameTokens.length === 0) {
+    return false;
+  }
+
+  return initialNameTokens.some((_, index) =>
+    billerNameTokens.every(
+      (token, tokenIndex) => initialNameTokens[index + tokenIndex] === token
+    )
+  );
+}
+
+function findBillerByInitialName(
+  billers: Biller[],
+  initialBillerName: string
+) {
+  const normalizedInitialName = normalizeBillItemMatchText(initialBillerName);
+  if (!normalizedInitialName) {
+    return null;
+  }
+
+  const billerCandidates = billers.map((biller) => ({
+    biller,
+    normalizedName: normalizeBillItemMatchText(biller.billerName),
+    tokens: getBillerMatchTokens(biller.billerName),
+  }));
+
+  return (
+    billerCandidates.find(
+      (candidate) => candidate.normalizedName === normalizedInitialName
+    )?.biller ??
+    billerCandidates.find((candidate) =>
+      startsWithCompleteBillerName(
+        normalizedInitialName,
+        candidate.normalizedName
+      )
+    )?.biller ??
+    billerCandidates.find((candidate) =>
+      containsBillerNameTokenSequence(
+        getBillerMatchTokens(initialBillerName),
+        candidate.tokens
+      )
+    )?.biller ??
+    null
   );
 }
 
@@ -148,7 +222,7 @@ function findBillItemPathByName(
 
     const normalizedItemName = normalizeBillItemMatchText(billItem.itemName);
     if (
-      billerNameContainsBillItemName(normalizedItemName, normalizedBillerName)
+      billerNameContainsBillItemName(normalizedBillerName, normalizedItemName)
     ) {
       return nextPath;
     }
@@ -192,11 +266,7 @@ function findInitialBillerMatch({
     return null;
   }
 
-  const normalizedInitialName = initialBillerName.toLowerCase();
-  const biller =
-    billers.find((candidate) =>
-      normalizedInitialName.includes(candidate.billerName.toLowerCase())
-    ) ?? null;
+  const biller = findBillerByInitialName(billers, initialBillerName);
 
   if (!biller) {
     return null;
@@ -254,6 +324,8 @@ export function BillForm({
   const [shouldScrollToNextStep, setShouldScrollToNextStep] = useState(false);
   const [shouldScrollToPayment, setShouldScrollToPayment] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
+  const pendingNextStepScrollYRef = useRef<number | null>(null);
+  const isNextStepScrollScheduledRef = useRef(false);
 
   const billItemSelection = resolveBillItemSelection(
     selectedBiller?.billItems,
@@ -307,7 +379,7 @@ export function BillForm({
     setSelectedBiller(match.biller);
     setSelectedBillItemCodes(match.codes);
     setIsProviderPickerExpanded(false);
-    setAmount(initialAmount ?? getAmountForLeaf(nextSelection.leaf));
+    setAmount(getInitialAmountForSelection(nextSelection.leaf, initialAmount));
     const hasExactBillItem =
       nextSelection.levels.length === 0 || match.resolvedToSpecificBillItem;
     if (
@@ -369,6 +441,33 @@ export function BillForm({
     setAmount(getAmountForLeaf(nextSelection.leaf));
     setShouldScrollToNextStep(true);
     resetVerification();
+  };
+
+  const scheduleNextStepScroll = (nextStepY: number) => {
+    pendingNextStepScrollYRef.current = Math.max(nextStepY - SPACING.md, 0);
+
+    if (isNextStepScrollScheduledRef.current) {
+      return;
+    }
+
+    isNextStepScrollScheduledRef.current = true;
+    requestAnimationFrame(() => {
+      InteractionManager.runAfterInteractions(() => {
+        const scrollY = pendingNextStepScrollYRef.current;
+        pendingNextStepScrollYRef.current = null;
+        isNextStepScrollScheduledRef.current = false;
+
+        if (scrollY === null) {
+          return;
+        }
+
+        scrollViewRef.current?.scrollTo({
+          animated: true,
+          y: scrollY,
+        });
+        setShouldScrollToNextStep(false);
+      });
+    });
   };
 
   const handleVerify = () => {
@@ -575,13 +674,7 @@ export function BillForm({
               }
 
               const nextStepY = event.nativeEvent.layout.y;
-              setShouldScrollToNextStep(false);
-              requestAnimationFrame(() => {
-                scrollViewRef.current?.scrollTo({
-                  animated: true,
-                  y: Math.max(nextStepY - SPACING.md, 0),
-                });
-              });
+              scheduleNextStepScroll(nextStepY);
             }}
           >
             {billItemSelection.levels.map((level) => (
@@ -676,8 +769,20 @@ export function BillForm({
                     }}
                   />
                   {isRepeatPaymentActive ? (
-                    <View style={styles.verifiedPill}>
-                      <Text style={styles.verifiedPillText}>Verified</Text>
+                    <View
+                      style={[
+                        styles.verifiedPill,
+                        { backgroundColor: colors.success },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.verifiedPillText,
+                          { color: colors.black },
+                        ]}
+                      >
+                        Verified
+                      </Text>
                     </View>
                   ) : (
                     <Pressable

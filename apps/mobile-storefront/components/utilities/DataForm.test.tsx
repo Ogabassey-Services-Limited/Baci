@@ -6,16 +6,23 @@ import {
   waitFor,
 } from '@testing-library/react-native';
 import { Alert } from 'react-native';
+import type { ExtractState } from 'zustand/vanilla';
+import { VtuPaymentStillProcessingError } from '@/lib/vtu-checkout';
+import type { useAuthStore as useAuthStoreType } from '@/stores/auth-store';
 import { DataForm } from './DataForm';
+
+type AuthStoreState = ExtractState<typeof useAuthStoreType>;
+type AuthStorePartial = Partial<AuthStoreState>;
 
 const mockRouterPush = jest.fn();
 const mockUseVTUBillers = jest.fn();
 const mockChargeSavedVtuCard =
   jest.fn<
     (...args: unknown[]) => Promise<{
-      amount: number;
+      amount?: number;
       cashback?: { amount: number; newBalance: number };
       reference: string;
+      status?: 'processing';
       voucherPin?: string;
     }>
   >();
@@ -30,6 +37,20 @@ const mockInitializeVtuCheckout =
 const mockIsSavedVtuCardChargeProcessing = jest.fn();
 const mockRequiresSavedVtuCardAuthorization = jest.fn();
 const mockUseUtilityPayment = jest.fn();
+const mockWaitForVtuConfirmation =
+  jest.fn<
+    (...args: unknown[]) => Promise<{
+      amount?: number;
+      cashback?: { amount: number; newBalance: number };
+      reference: string;
+      voucherPin?: string;
+    }>
+  >();
+const mockAuthStoreState = {
+  customer: null,
+  session: null,
+  user: null,
+} satisfies AuthStorePartial;
 
 jest.mock('expo-router', () => ({
   router: {
@@ -62,24 +83,29 @@ jest.mock('@/hooks/use-vtu-billers', () => ({
 }));
 
 jest.mock('@/stores/auth-store', () => ({
-  useAuthStore: (selector: (state: Record<string, unknown>) => unknown) =>
-    selector({
-      customer: null,
-      session: null,
-      user: null,
-    }),
+  useAuthStore: <Selected,>(selector: (state: AuthStorePartial) => Selected) =>
+    selector(mockAuthStoreState),
 }));
 
-jest.mock('@/lib/vtu-checkout', () => ({
-  chargeSavedVtuCard: (...args: unknown[]) => mockChargeSavedVtuCard(...args),
-  initializeVtuCheckout: (...args: unknown[]) =>
-    mockInitializeVtuCheckout(...args),
-  isSavedVtuCardChargeProcessing: (...args: unknown[]) =>
-    mockIsSavedVtuCardChargeProcessing(...args),
-  requiresSavedVtuCardAuthorization: (...args: unknown[]) =>
-    mockRequiresSavedVtuCardAuthorization(...args),
-  waitForVtuConfirmation: jest.fn(),
-}));
+jest.mock('@/lib/vtu-checkout', () => {
+  const actual =
+    jest.requireActual<typeof import('@/lib/vtu-checkout')>(
+      '@/lib/vtu-checkout'
+    );
+
+  return {
+    ...actual,
+    chargeSavedVtuCard: (...args: unknown[]) => mockChargeSavedVtuCard(...args),
+    initializeVtuCheckout: (...args: unknown[]) =>
+      mockInitializeVtuCheckout(...args),
+    isSavedVtuCardChargeProcessing: (...args: unknown[]) =>
+      mockIsSavedVtuCardChargeProcessing(...args),
+    requiresSavedVtuCardAuthorization: (...args: unknown[]) =>
+      mockRequiresSavedVtuCardAuthorization(...args),
+    waitForVtuConfirmation: (...args: unknown[]) =>
+      mockWaitForVtuConfirmation(...args),
+  };
+});
 
 jest.mock('./UtilityPaymentOptions', () => {
   const { Text } =
@@ -110,6 +136,8 @@ describe('DataForm', () => {
           categoryName: 'Internet Data',
         },
       ],
+      error: null,
+      isError: false,
       isLoading: false,
     });
     mockInitializeVtuCheckout.mockResolvedValue({
@@ -124,6 +152,11 @@ describe('DataForm', () => {
     });
     mockIsSavedVtuCardChargeProcessing.mockReturnValue(false);
     mockRequiresSavedVtuCardAuthorization.mockReturnValue(false);
+    mockWaitForVtuConfirmation.mockResolvedValue({
+      amount: 1000,
+      reference: 'VTU-CARD-123',
+      voucherPin: 'token-123',
+    });
     mockUseUtilityPayment.mockReturnValue({
       cards: [],
       isLoadingCards: false,
@@ -172,6 +205,8 @@ describe('DataForm', () => {
   it('shows loading state from the biller fetch', () => {
     mockUseVTUBillers.mockReturnValueOnce({
       data: undefined,
+      error: null,
+      isError: false,
       isLoading: true,
     });
     render(<DataForm onSuccess={jest.fn()} />);
@@ -183,11 +218,26 @@ describe('DataForm', () => {
   it('shows empty data bundle state from the biller fetch', () => {
     mockUseVTUBillers.mockReturnValueOnce({
       data: [],
+      error: null,
+      isError: false,
       isLoading: false,
     });
     render(<DataForm onSuccess={jest.fn()} />);
 
     expect(screen.getByText('No data bundles available')).toBeOnTheScreen();
+  });
+
+  it('shows error state from the biller fetch', () => {
+    mockUseVTUBillers.mockReturnValueOnce({
+      data: undefined,
+      error: new Error('Could not load data bundles.'),
+      isError: true,
+      isLoading: false,
+    });
+    render(<DataForm onSuccess={jest.fn()} />);
+
+    expect(screen.getByText('Could not load data bundles.')).toBeOnTheScreen();
+    expect(screen.queryByText('No data bundles available')).toBeNull();
   });
 
   it('submits selected data bundle details to checkout', async () => {
@@ -243,8 +293,11 @@ describe('DataForm', () => {
     });
     render(<DataForm onSuccess={onSuccessMock} />);
 
-    fireEvent.changeText(screen.getByLabelText('Phone Number'), '08031234567');
     fireEvent.press(screen.getByText('MTN 1GB Data'));
+    await waitFor(() =>
+      expect(screen.getByText('Data Bundle')).toBeOnTheScreen()
+    );
+    fireEvent.changeText(screen.getByLabelText('Phone Number'), '08031234567');
     fireEvent.changeText(screen.getByLabelText('Amount'), '1000');
     fireEvent.press(screen.getByText('Pay ₦1,000'));
 
@@ -268,5 +321,64 @@ describe('DataForm', () => {
         voucherPin: 'token-123',
       });
     });
+  });
+
+  it('surfaces saved-card data purchases that are still processing', async () => {
+    const onSuccessMock = jest.fn();
+    mockUseUtilityPayment.mockReturnValue({
+      cards: [],
+      isLoadingCards: false,
+      selectedGateway: null,
+      selectedSavedCardId: 'saved-card-1',
+      selectGateway: jest.fn(),
+      selectSavedCard: jest.fn(),
+      supportedGateways: ['paystack', 'korapay'],
+    });
+    mockChargeSavedVtuCard.mockResolvedValueOnce({
+      reference: 'VTU-DATA-PENDING-123',
+      status: 'processing',
+    });
+    mockIsSavedVtuCardChargeProcessing.mockReturnValueOnce(true);
+    mockWaitForVtuConfirmation.mockRejectedValueOnce(
+      new VtuPaymentStillProcessingError({
+        amount: 1000,
+        customerIdentifier: '08031234567',
+        reference: 'VTU-DATA-PENDING-123',
+      })
+    );
+    render(<DataForm onSuccess={onSuccessMock} />);
+
+    fireEvent.changeText(screen.getByLabelText('Phone Number'), '08031234567');
+    fireEvent.press(screen.getByText('MTN 1GB Data'));
+    fireEvent.changeText(screen.getByLabelText('Amount'), '1000');
+    fireEvent.press(screen.getByText('Pay ₦1,000'));
+
+    await waitFor(() => {
+      expect(mockChargeSavedVtuCard).toHaveBeenCalledWith(
+        expect.objectContaining({
+          amount: 1000,
+          dataPlanCode: 'mtn-1gb',
+          phoneNumber: '08031234567',
+          savedPaymentMethodId: 'saved-card-1',
+          type: 'data',
+        })
+      );
+    });
+    expect(mockWaitForVtuConfirmation).toHaveBeenCalledWith({
+      gateway: 'paystack',
+      reference: 'VTU-DATA-PENDING-123',
+    });
+    await waitFor(() => {
+      expect(onSuccessMock).toHaveBeenCalledWith({
+        amount: 1000,
+        customerIdentifier: '08031234567',
+        reference: 'VTU-DATA-PENDING-123',
+        status: 'processing',
+      });
+    });
+    expect(Alert.alert).not.toHaveBeenCalledWith(
+      'Payment Failed',
+      expect.any(String)
+    );
   });
 });

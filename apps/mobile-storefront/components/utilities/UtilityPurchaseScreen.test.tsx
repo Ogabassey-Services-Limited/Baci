@@ -1,6 +1,15 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react-native';
 import UtilityPurchaseScreen from '@/app/utilities/[type]';
+import type {
+  UtilityHistoryFilter,
+  VTUHistoryTransaction,
+} from '@/hooks/use-vtu-history';
 
 const mockPush = jest.fn();
 const mockReplace = jest.fn();
@@ -27,7 +36,44 @@ type UtilityRouteParams = {
 const mockUseLocalSearchParams = jest.fn<() => UtilityRouteParams>(() => ({
   type: 'power',
 }));
-const mockUseVTUHistory = jest.fn();
+type MockVTUHistoryResult = {
+  data: VTUHistoryTransaction[];
+  error: Error | null;
+  isLoading: boolean;
+};
+type MockUseVTUHistory = (
+  filter: UtilityHistoryFilter,
+  limit: number
+) => MockVTUHistoryResult;
+const mockUseVTUHistory = jest.fn<MockUseVTUHistory>();
+
+function createHistoryResult(
+  overrides: Partial<MockVTUHistoryResult> = {}
+): MockVTUHistoryResult {
+  return {
+    data: [],
+    error: null,
+    isLoading: false,
+    ...overrides,
+  };
+}
+
+function createHistoryTransaction(
+  overrides: Partial<VTUHistoryTransaction> = {}
+): VTUHistoryTransaction {
+  return {
+    amount: 2500,
+    biller_item_code: 'KUD-ELE-EKED-002',
+    biller_name: 'EKEDC NG',
+    created_at: '2026-04-08T12:00:00.000Z',
+    customer_identifier: '43901766923',
+    id: 'tx-1',
+    request_reference: 'ref-1',
+    status: 'successful',
+    type: 'electricity',
+    ...overrides,
+  };
+}
 
 jest.mock('expo-router', () => ({
   Stack: {
@@ -127,7 +173,8 @@ jest.mock('@/hooks/use-keyboard', () => ({
 }));
 
 jest.mock('@/hooks/use-vtu-history', () => ({
-  useVTUHistory: (...args: unknown[]) => mockUseVTUHistory(...args),
+  useVTUHistory: (filter: UtilityHistoryFilter, limit: number) =>
+    mockUseVTUHistory(filter, limit),
 }));
 
 describe('UtilityPurchaseScreen', () => {
@@ -135,7 +182,7 @@ describe('UtilityPurchaseScreen', () => {
     jest.clearAllMocks();
     mockCanGoBack.mockReturnValue(true);
     mockUseLocalSearchParams.mockReturnValue({ type: 'power' });
-    mockUseVTUHistory.mockReturnValue({ data: [] });
+    mockUseVTUHistory.mockReturnValue(createHistoryResult());
   });
 
   it('shows utility submenus and switches between utility types locally', () => {
@@ -191,17 +238,8 @@ describe('UtilityPurchaseScreen', () => {
 
   it('prefills the current form from the last successful transaction quick action', () => {
     mockUseVTUHistory.mockReturnValue({
-      data: [
-        {
-          id: 'tx-1',
-          amount: 2500,
-          biller_name: 'EKEDC NG',
-          customer_identifier: '43901766923',
-          request_reference: 'ref-1',
-          status: 'successful',
-          type: 'electricity',
-        },
-      ],
+      ...createHistoryResult(),
+      data: [createHistoryTransaction()],
     });
 
     render(<UtilityPurchaseScreen />);
@@ -212,6 +250,110 @@ describe('UtilityPurchaseScreen', () => {
 
     expect(
       screen.getByText('Bill form power 43901766923 2500 repeat-ready')
+    ).toBeOnTheScreen();
+  });
+
+  it('does not show quick repeat for the latest failed transaction', () => {
+    mockUseVTUHistory.mockReturnValue(
+      createHistoryResult({
+        data: [createHistoryTransaction({ status: 'failed' })],
+      })
+    );
+
+    render(<UtilityPurchaseScreen />);
+
+    expect(
+      screen.queryByLabelText('Repeat last Electricity transaction')
+    ).toBeNull();
+  });
+
+  it('does not show quick repeat when history is empty', () => {
+    mockUseVTUHistory.mockReturnValue(createHistoryResult({ data: [] }));
+
+    render(<UtilityPurchaseScreen />);
+
+    expect(
+      screen.queryByLabelText('Repeat last Electricity transaction')
+    ).toBeNull();
+  });
+
+  it('does not show quick repeat for a transaction outside the current utility type', () => {
+    mockUseVTUHistory.mockReturnValue(
+      createHistoryResult({
+        data: [
+          createHistoryTransaction({
+            biller_name: null,
+            customer_identifier: null,
+            phone_number: '08031234567',
+            type: 'airtime',
+          }),
+        ],
+      })
+    );
+
+    render(<UtilityPurchaseScreen />);
+
+    expect(
+      screen.queryByLabelText('Repeat last Electricity transaction')
+    ).toBeNull();
+  });
+
+  it('clears quick-repeat defaults when switching utility types', async () => {
+    mockUseVTUHistory.mockReturnValue(
+      createHistoryResult({
+        data: [createHistoryTransaction()],
+      })
+    );
+
+    render(<UtilityPurchaseScreen />);
+
+    fireEvent.press(
+      screen.getByLabelText('Repeat last Electricity transaction')
+    );
+    expect(
+      screen.getByText('Bill form power 43901766923 2500 repeat-ready')
+    ).toBeOnTheScreen();
+
+    fireEvent.press(screen.getByLabelText('TV utility service'));
+
+    await waitFor(() => {
+      expect(screen.queryByText(/repeat-ready/)).toBeNull();
+    });
+  });
+
+  it('shows a quiet loading state instead of quick repeat while history loads', () => {
+    mockUseVTUHistory.mockReturnValue(
+      createHistoryResult({
+        data: [createHistoryTransaction()],
+        isLoading: true,
+      })
+    );
+
+    render(<UtilityPurchaseScreen />);
+
+    expect(
+      screen.queryByLabelText('Repeat last Electricity transaction')
+    ).toBeNull();
+    expect(
+      screen.getByText('Checking recent Electricity transactions...')
+    ).toBeOnTheScreen();
+  });
+
+  it('shows a quiet error state instead of quick repeat when history fails', () => {
+    mockUseVTUHistory.mockReturnValue(
+      createHistoryResult({
+        data: [createHistoryTransaction()],
+        error: new Error('History failed'),
+      })
+    );
+
+    render(<UtilityPurchaseScreen />);
+
+    expect(
+      screen.queryByLabelText('Repeat last Electricity transaction')
+    ).toBeNull();
+    expect(
+      screen.getByText('Recent Electricity transactions unavailable.')
     ).toBeOnTheScreen();
   });
 
@@ -230,5 +372,29 @@ describe('UtilityPurchaseScreen', () => {
     expect(
       screen.getByText('Bill form power 43901766923 1000 repeat-ready')
     ).toBeOnTheScreen();
+  });
+
+  it('does not carry route repeat params into another utility tab', async () => {
+    mockUseLocalSearchParams.mockReturnValue({
+      repeatAmount: '1000',
+      repeatBillerName: 'EKEDC NG',
+      repeatBillItemIdentifier: 'KUD-ELE-EKED-002',
+      repeatCustomerIdentifier: '43901766923',
+      repeatVerified: '1',
+      type: 'power',
+    });
+
+    render(<UtilityPurchaseScreen />);
+
+    expect(
+      screen.getByText('Bill form power 43901766923 1000 repeat-ready')
+    ).toBeOnTheScreen();
+
+    fireEvent.press(screen.getByLabelText('TV utility service'));
+
+    await waitFor(() => {
+      expect(screen.getByText(/^Bill form tv\s*$/)).toBeOnTheScreen();
+    });
+    expect(screen.queryByText(/repeat-ready/)).toBeNull();
   });
 });

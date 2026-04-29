@@ -15,11 +15,24 @@ describe('formatUtilityAmountInput', () => {
     expect(formatUtilityAmountInput('1,000')).toBe('1,000');
   });
 
+  it('formats mixed whitespace and comma input consistently', () => {
+    expect(formatUtilityAmountInput(' 1,234.50 ')).toBe('1,234.5');
+    expect(formatUtilityAmountInput('\t2,500\n')).toBe('2,500');
+  });
+
   it('formats zero explicitly and returns empty string for unset input', () => {
     expect(formatUtilityAmountInput('')).toBe('');
     expect(formatUtilityAmountInput(0)).toBe('0');
     expect(formatUtilityAmountInput('abc')).toBe('');
     expect(formatUtilityAmountInput(null as unknown as string)).toBe('');
     expect(formatUtilityAmountInput(undefined as unknown as string)).toBe('');
+  });
+
+  it('returns empty string for NaN and infinite input', () => {
+    expect(formatUtilityAmountInput(Number.NaN)).toBe('');
+    expect(formatUtilityAmountInput(Number.POSITIVE_INFINITY)).toBe('');
+    expect(formatUtilityAmountInput(Number.NEGATIVE_INFINITY)).toBe('');
+    expect(formatUtilityAmountInput('NaN')).toBe('');
+    expect(formatUtilityAmountInput('Infinity')).toBe('');
   });
 });

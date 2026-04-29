@@ -69,7 +69,41 @@ export function BillerList({
   }
 
   if (isCollapsed && !selectedBiller) {
-    return null;
+    return (
+      <View
+        style={[
+          styles.selectedCard,
+          {
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+          },
+        ]}
+      >
+        <View style={styles.selectedCardMain}>
+          <BillerInitial name="" colors={colors} />
+          <View style={styles.selectedCopy}>
+            <Text
+              style={[styles.selectedLabel, { color: colors.textSecondary }]}
+            >
+              {selectedLabel}
+            </Text>
+            <Text style={[styles.selectedName, { color: colors.text }]}>
+              Select provider
+            </Text>
+          </View>
+        </View>
+        {onChangeSelection ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Select provider"
+            onPress={onChangeSelection}
+            style={[styles.changeButton, { borderColor: BRAND.primary }]}
+          >
+            <Text style={styles.changeButtonText}>Select</Text>
+          </Pressable>
+        ) : null}
+      </View>
+    );
   }
 
   if (isCollapsed && selectedBiller) {
@@ -86,6 +120,8 @@ export function BillerList({
         <View style={styles.selectedCardMain}>
           {selectedBiller.billerIconUrl ? (
             <Image
+              accessibilityLabel={`${selectedBiller.billerName} logo`}
+              accessibilityRole="image"
               source={{ uri: selectedBiller.billerIconUrl }}
               style={styles.selectedLogo}
               resizeMode="contain"
@@ -140,12 +176,18 @@ export function BillerList({
           >
             {biller.billerIconUrl ? (
               <Image
+                accessibilityLabel={`${biller.billerName} logo`}
+                accessibilityRole="image"
                 source={{ uri: biller.billerIconUrl }}
                 style={styles.logo}
                 resizeMode="contain"
               />
             ) : (
-              <BillerInitial name={biller.billerName} colors={colors} />
+              <BillerInitial
+                name={biller.billerName}
+                colors={colors}
+                style={styles.initialSpacing}
+              />
             )}
             <Text
               style={[
@@ -179,6 +221,9 @@ const styles = StyleSheet.create({
   logo: {
     width: 60,
     height: 40,
+    marginBottom: 8,
+  },
+  initialSpacing: {
     marginBottom: 8,
   },
   billerName: {

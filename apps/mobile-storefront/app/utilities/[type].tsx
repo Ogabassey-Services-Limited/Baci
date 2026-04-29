@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { type Href, Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -211,12 +211,18 @@ export default function UtilityPurchaseScreen() {
     repeatPhoneNumber,
     repeatVerified,
   });
+  const currentType = selectedType ?? routeType;
   const [repeatDefaults, setRepeatDefaults] =
-    useState<UtilityRepeatDefaults>(routeRepeatDefaults);
+    useState<UtilityRepeatDefaults>(
+      routeType && currentType === routeType ? routeRepeatDefaults : {}
+    );
   const [repeatRevision, setRepeatRevision] = useState(0);
   const [isQuickRepeatDismissed, setIsQuickRepeatDismissed] = useState(false);
-  const hasMountedRepeatDefaultsRef = useRef(false);
-  const { data: recentTransactions } = useVTUHistory(historyFilter, 1);
+  const {
+    data: recentTransactions,
+    error: recentTransactionsError,
+    isLoading: isRecentTransactionsLoading,
+  } = useVTUHistory(historyFilter, 1);
 
   useEffect(() => {
     if (routeType) {
@@ -225,25 +231,25 @@ export default function UtilityPurchaseScreen() {
   }, [routeType]);
 
   useEffect(() => {
-    if (!hasMountedRepeatDefaultsRef.current) {
-      hasMountedRepeatDefaultsRef.current = true;
-      return;
-    }
-
     setRepeatDefaults(
-      getRouteRepeatDefaults({
-        repeatAmount,
-        repeatBillerName,
-        repeatBillItemIdentifier,
-        repeatCustomerIdentifier,
-        repeatDataPlanCode,
-        repeatNetworkProvider,
-        repeatPhoneNumber,
-        repeatVerified,
-      })
+      routeType && currentType === routeType
+        ? getRouteRepeatDefaults({
+            repeatAmount,
+            repeatBillerName,
+            repeatBillItemIdentifier,
+            repeatCustomerIdentifier,
+            repeatDataPlanCode,
+            repeatNetworkProvider,
+            repeatPhoneNumber,
+            repeatVerified,
+          })
+        : {}
     );
-    setRepeatRevision((current) => current + 1);
+    setRepeatRevision(0);
+    setIsQuickRepeatDismissed(false);
   }, [
+    currentType,
+    routeType,
     repeatAmount,
     repeatBillerName,
     repeatBillItemIdentifier,
@@ -253,10 +259,6 @@ export default function UtilityPurchaseScreen() {
     repeatPhoneNumber,
     repeatVerified,
   ]);
-
-  useEffect(() => {
-    setIsQuickRepeatDismissed(false);
-  }, [historyFilter]);
 
   const handleGoBack = () => {
     if (router.canGoBack()) {
@@ -304,7 +306,7 @@ export default function UtilityPurchaseScreen() {
     );
   }
 
-  const validType = selectedType ?? routeType;
+  const validType: ValidType = selectedType ?? routeType;
   const title = TYPE_TITLES[validType];
 
   const handleSuccess = (data: SuccessData) => {
@@ -320,13 +322,31 @@ export default function UtilityPurchaseScreen() {
   };
 
   const lastTransaction = recentTransactions?.[0] ?? null;
+  const isLastTransactionForCurrentType = lastTransaction
+    ? utilityRepeatHelpers.getRouteType(lastTransaction.type) === validType
+    : false;
   const showQuickRepeat =
     lastTransaction &&
+    isLastTransactionForCurrentType &&
     lastTransaction.status === 'successful' &&
+    !isRecentTransactionsLoading &&
+    !recentTransactionsError &&
     !isKeyboardVisible &&
     !isQuickRepeatDismissed;
+  const quickRepeatNotice =
+    !isKeyboardVisible && !isQuickRepeatDismissed
+      ? isRecentTransactionsLoading
+        ? `Checking recent ${title} transactions...`
+        : recentTransactionsError
+          ? `Recent ${title} transactions unavailable.`
+          : null
+      : null;
   const handleQuickRepeat = () => {
-    if (!lastTransaction) {
+    if (
+      !lastTransaction ||
+      !isLastTransactionForCurrentType ||
+      lastTransaction.status !== 'successful'
+    ) {
       return;
     }
 
@@ -448,6 +468,36 @@ export default function UtilityPurchaseScreen() {
           />
         )}
       </KeyboardAvoidingView>
+      {quickRepeatNotice ? (
+        <View
+          style={[
+            styles.quickRepeatNotice,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              bottom: Math.max(insets.bottom, 12) + 92,
+            },
+          ]}
+        >
+          <Ionicons
+            name={
+              isRecentTransactionsLoading
+                ? 'time-outline'
+                : 'alert-circle-outline'
+            }
+            size={18}
+            color={colors.textSecondary}
+          />
+          <Text
+            style={[
+              styles.quickRepeatNoticeText,
+              { color: colors.textSecondary },
+            ]}
+          >
+            {quickRepeatNotice}
+          </Text>
+        </View>
+      ) : null}
       {showQuickRepeat && lastTransaction ? (
         <Pressable
           style={[
@@ -568,6 +618,18 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 14,
   },
+  quickRepeatNotice: {
+    alignItems: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 10,
+    left: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    position: 'absolute',
+    right: 16,
+  },
   quickRepeatCopy: {
     flex: 1,
   },
@@ -578,5 +640,10 @@ const styles = StyleSheet.create({
   quickRepeatLabel: {
     fontSize: 14,
     fontWeight: '700',
+  },
+  quickRepeatNoticeText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

@@ -292,6 +292,34 @@ describe('Kuda API Client', () => {
         }),
       ]);
     });
+
+    it('returns the highest-priority observed status when no token is found', async () => {
+      const { checkTransactionStatus } = await import('./kuda');
+
+      const fetchMock = vi.fn().mockImplementation((url, options) => {
+        if (url.toString().includes('GetToken')) {
+          return Promise.resolve({
+            ok: true,
+            text: () => Promise.resolve('token'),
+          } as Response);
+        }
+
+        const payload = JSON.parse(String(options?.body));
+        if (payload.Data.BillResponseReference) {
+          return mockKudaResponse({ finalStatus: 'failed' }, 'Failed');
+        }
+
+        return mockKudaResponse({ FinalStatus: 'processing' }, 'Processing');
+      });
+      globalThis.fetch = fetchMock;
+
+      const result = await checkTransactionStatus('kuda-bill-1', 'VTU-123');
+
+      expect(result).toEqual({
+        message: 'Processing',
+        status: 'processing',
+      });
+    });
   });
 
   describe('getBillersByType', () => {

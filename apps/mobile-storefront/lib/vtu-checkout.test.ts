@@ -1,4 +1,11 @@
-import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  jest,
+} from '@jest/globals';
 import { MOBILE_TO_KUDA_PROVIDER } from '@/lib/network-utils';
 import {
   chargeSavedVtuCard,
@@ -62,6 +69,10 @@ beforeEach(() => {
   mockGetSession.mockResolvedValue({
     data: { session: { access_token: 'token-123' } },
   });
+});
+
+afterEach(() => {
+  jest.useRealTimers();
 });
 
 describe('vtu-checkout service', () => {
@@ -131,9 +142,15 @@ describe('vtu-checkout service', () => {
         }),
       })
     );
-    const checkoutRequest = mockFetchWithTimeout.mock.calls[0]?.[1] as {
-      body: string;
-    };
+    const checkoutRequest = mockFetchWithTimeout.mock.calls[0]?.[1];
+    if (
+      typeof checkoutRequest !== 'object' ||
+      checkoutRequest === null ||
+      !('body' in checkoutRequest) ||
+      typeof checkoutRequest.body !== 'string'
+    ) {
+      throw new Error('Expected checkout request body to be captured');
+    }
     expect(
       JSON.parse(checkoutRequest.body) as Record<string, unknown>
     ).toMatchObject({
@@ -197,6 +214,35 @@ describe('vtu-checkout service', () => {
         reference: 'VTU-123',
       })
     ).rejects.toBeInstanceOf(VtuPaymentStillProcessingError);
+  });
+
+  it('does not wait after the final polling attempt', async () => {
+    jest.useFakeTimers();
+    const setTimeoutSpy = jest.spyOn(global, 'setTimeout');
+    mockFetchWithTimeout.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        reference: 'VTU-123',
+        status: 'processing',
+      }),
+    });
+
+    try {
+      const confirmation = waitForVtuConfirmation({
+        gateway: 'paystack',
+        maxAttempts: 1,
+        reference: 'VTU-123',
+      }).catch((error: unknown) => error);
+
+      await jest.runOnlyPendingTimersAsync();
+
+      await expect(confirmation).resolves.toBeInstanceOf(
+        VtuPaymentStillProcessingError
+      );
+      expect(setTimeoutSpy).not.toHaveBeenCalled();
+    } finally {
+      setTimeoutSpy.mockRestore();
+    }
   });
 
   it('lists saved cards for the current storefront', async () => {

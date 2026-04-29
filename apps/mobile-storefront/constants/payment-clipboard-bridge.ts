@@ -80,6 +80,19 @@ export const PAYMENT_CLIPBOARD_BRIDGE = {
     ));
   }
 
+  var accountNumberScanTimer = null;
+
+  function scheduleAccountNumberScan() {
+    if (accountNumberScanTimer) {
+      return;
+    }
+
+    accountNumberScanTimer = setTimeout(function () {
+      accountNumberScanTimer = null;
+      scanForAccountNumber();
+    }, 100);
+  }
+
   function postNearestAccountNumber(target) {
     var node = target;
     var depth = 0;
@@ -202,7 +215,7 @@ export const PAYMENT_CLIPBOARD_BRIDGE = {
   }
 
   if (window.MutationObserver && document.documentElement) {
-    var observer = new MutationObserver(scanForAccountNumber);
+    var observer = new MutationObserver(scheduleAccountNumberScan);
     observer.observe(document.documentElement, {
       characterData: true,
       childList: true,
@@ -210,12 +223,12 @@ export const PAYMENT_CLIPBOARD_BRIDGE = {
     });
   }
 
-  setTimeout(scanForAccountNumber, 500);
-  setTimeout(scanForAccountNumber, 1500);
+  setTimeout(scheduleAccountNumberScan, 500);
+  setTimeout(scheduleAccountNumberScan, 1500);
   var scanRetryCount = 0;
   var scanRetryInterval = setInterval(function () {
     scanRetryCount += 1;
-    scanForAccountNumber();
+    scheduleAccountNumberScan();
     if (scanRetryCount >= 5) {
       clearInterval(scanRetryInterval);
     }
@@ -223,6 +236,5 @@ export const PAYMENT_CLIPBOARD_BRIDGE = {
 
   return true;
 })();
-true;
 `,
 } as const;

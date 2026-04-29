@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, SPACING } from '@/constants/Colors';
@@ -39,6 +40,7 @@ export function UtilityTypeTabs({
 }: UtilityTypeTabsProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const [pressedType, setPressedType] = useState<UtilityType | null>(null);
 
   return (
     <View
@@ -55,6 +57,7 @@ export function UtilityTypeTabs({
     >
       <ScrollView
         horizontal
+        keyboardShouldPersistTaps="handled"
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.content}
       >
@@ -69,12 +72,18 @@ export function UtilityTypeTabs({
               accessibilityState={{ selected: isSelected }}
               accessibilityHint={`Switch to ${item.label} utility payments`}
               onPress={() => onSelect(item.type)}
-              style={[
+              onPressIn={() => setPressedType(item.type)}
+              onPressOut={() => setPressedType(null)}
+              android_ripple={{
+                color: isSelected ? `${BRAND.onPrimary}24` : colors.border,
+              }}
+              style={({ pressed }) => [
                 styles.tab,
                 {
                   backgroundColor: isSelected ? BRAND.primary : colors.muted,
                   borderColor: isSelected ? BRAND.primary : colors.border,
                 },
+                (pressed || pressedType === item.type) && styles.pressedTab,
               ]}
             >
               <Ionicons
@@ -118,6 +127,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: TAB_CONTENT_GAP,
+  },
+  pressedTab: {
+    opacity: 0.88,
   },
   label: {
     fontSize: LABEL_FONT_SIZE,

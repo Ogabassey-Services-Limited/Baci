@@ -207,7 +207,7 @@ export interface PurchaseResult {
   success: boolean;
   reference: string;
   transactionId?: string;
-  pin?: string | null;
+  pin?: string;
   message: string;
   status: 'pending' | 'successful' | 'failed';
   amount: number;
@@ -304,6 +304,34 @@ function extractKudaStatus(data: KudaTransactionStatusData | undefined) {
     normalizeKudaString(data.Status) ??
     'unknown'
   );
+}
+
+const KUDA_STATUS_PRIORITY: Record<string, number> = {
+  completed: 3,
+  complete: 3,
+  success: 3,
+  successful: 3,
+  inprogress: 2,
+  pending: 2,
+  processing: 2,
+  failed: 1,
+  failure: 1,
+  unsuccessful: 1,
+};
+
+function getKudaStatusPriority(status: string) {
+  const normalized = status
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+  return KUDA_STATUS_PRIORITY[normalized] ?? 0;
+}
+
+function getBestKudaStatus(currentStatus: string, nextStatus: string) {
+  return getKudaStatusPriority(nextStatus) >
+    getKudaStatusPriority(currentStatus)
+    ? nextStatus
+    : currentStatus;
 }
 
 function createTimeoutSignal(timeoutMs: number) {
@@ -755,16 +783,14 @@ export async function checkTransactionStatus(
     message = response.message || message;
 
     const nextStatus = extractKudaStatus(response.data);
-    if (status === 'unknown' && nextStatus !== 'unknown') {
-      status = nextStatus;
-    }
+    status = getBestKudaStatus(status, nextStatus);
 
     const pin = extractKudaVoucherPin(response.data);
     if (pin) {
       return {
         message,
         pin,
-        status: nextStatus === 'unknown' ? status : nextStatus,
+        status,
       };
     }
   }

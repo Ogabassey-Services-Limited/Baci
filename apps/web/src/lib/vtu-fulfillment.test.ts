@@ -40,6 +40,11 @@ interface PendingTransactionMockOptions {
   rpcImpl?: (name: string) => Promise<{ data: unknown; error: unknown }>;
   merchantData?: { business_name?: string };
   claimData?: { id: string } | null;
+  updateErrors?: {
+    finalMetadata?: { message: string };
+    purchase?: { message: string };
+    successMetadata?: { message: string };
+  };
   updatePayloads?: unknown[];
 }
 
@@ -51,6 +56,7 @@ function createPendingTransactionSupabaseMock({
   rpcImpl,
   merchantData = { business_name: 'OgaBassey' },
   claimData = { id: 'vtu-1' },
+  updateErrors = {},
   updatePayloads = [],
 }: PendingTransactionMockOptions): SupabaseStub {
   const claimMaybeSingle = vi.fn().mockResolvedValue({
@@ -97,6 +103,33 @@ function createPendingTransactionSupabaseMock({
           }),
           update: vi.fn((payload: unknown) => {
             updatePayloads.push(payload);
+            const payloadRecord =
+              payload && typeof payload === 'object'
+                ? (payload as Record<string, unknown>)
+                : {};
+            if (
+              payloadRecord.status !== 'processing' &&
+              !(
+                'error_message' in payloadRecord &&
+                !('metadata' in payloadRecord)
+              )
+            ) {
+              const updateError =
+                payloadRecord.status === 'successful' ||
+                payloadRecord.status === 'failed'
+                  ? updateErrors.purchase
+                  : transactionRow.status === 'successful'
+                    ? updateErrors.successMetadata
+                    : updateErrors.finalMetadata;
+
+              return {
+                eq: vi.fn().mockResolvedValue({
+                  data: null,
+                  error: updateError ?? null,
+                }),
+              };
+            }
+
             return {
               eq: vi.fn().mockReturnValue({
                 eq: vi.fn().mockReturnValue({
@@ -147,6 +180,8 @@ function createPendingTransactionSupabaseMock({
 describe('fulfillPendingVtuTransaction', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPurchaseAirtime.mockReset();
+    mockPurchaseData.mockReset();
     mockPurchaseBill.mockReset();
     mockCheckTransactionStatus.mockResolvedValue({
       message: 'No token',
@@ -283,6 +318,50 @@ describe('fulfillPendingVtuTransaction', () => {
       },
       'orders'
     );
+  });
+
+  it('throws when successful-transaction metadata cannot be persisted', async () => {
+    const supabase = createPendingTransactionSupabaseMock({
+      claimData: null,
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: 'customer-1',
+        type: 'airtime',
+        network_provider: 'MTN',
+        phone_number: '08012345678',
+        amount: 1500,
+        request_reference: 'VTU-123',
+        transaction_id: 'kuda-1',
+        status: 'successful',
+        metadata: {},
+        error_message: null,
+        merchant_commission: 0,
+        customer_cashback: 11.25,
+        biller_name: null,
+        biller_item_code: null,
+        customer_identifier: null,
+      },
+      rpcImpl: (name: string) => {
+        if (name === 'credit_customer_wallet') {
+          return Promise.resolve({
+            data: [{ new_balance: 25.75 }],
+            error: null,
+          });
+        }
+        return Promise.resolve({ data: null, error: null });
+      },
+      updateErrors: {
+        successMetadata: { message: 'metadata write failed' },
+      },
+    });
+
+    await expect(
+      fulfillPendingVtuTransaction({
+        supabase,
+        transactionId: 'vtu-1',
+      })
+    ).rejects.toThrow('Failed to persist VTU transaction metadata');
   });
 
   it('reuses an existing cashback ledger when success metadata was not updated', async () => {
@@ -488,6 +567,183 @@ describe('fulfillPendingVtuTransaction', () => {
       'OgaBassey',
       'VTU-123'
     );
+  });
+
+  it('preserves an existing transaction id when a successful purchase omits a new one', async () => {
+    const updatePayloads: unknown[] = [];
+    mockPurchaseAirtime.mockResolvedValue({
+      success: true,
+      message: 'ok',
+      amount: 1000,
+      status: 'successful',
+    });
+
+    const supabase = createPendingTransactionSupabaseMock({
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: null,
+        type: 'airtime',
+        network_provider: 'MTN',
+        phone_number: '08012345678',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: 'existing-kuda-1',
+        status: 'pending',
+        metadata: {},
+        error_message: null,
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: null,
+        biller_item_code: null,
+        customer_identifier: null,
+      },
+      updatePayloads,
+    });
+
+    await fulfillPendingVtuTransaction({
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(updatePayloads).toContainEqual(
+      expect.objectContaining({
+        status: 'successful',
+        transaction_id: 'existing-kuda-1',
+      })
+    );
+  });
+
+  it('persists customer notification attempt metadata when notification sending fails', async () => {
+    const updatePayloads: unknown[] = [];
+    mockPurchaseAirtime.mockResolvedValue({
+      success: true,
+      message: 'ok',
+      transactionId: 'kuda-1',
+      amount: 1000,
+      status: 'successful',
+    });
+    mockNotifyCustomer.mockRejectedValueOnce(new Error('push failed'));
+
+    const supabase = createPendingTransactionSupabaseMock({
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: 'customer-1',
+        type: 'airtime',
+        network_provider: 'MTN',
+        phone_number: '08012345678',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: null,
+        status: 'pending',
+        metadata: {},
+        error_message: null,
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: null,
+        biller_item_code: null,
+        customer_identifier: null,
+      },
+      updatePayloads,
+    });
+
+    await fulfillPendingVtuTransaction({
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(updatePayloads).toContainEqual({
+      metadata: expect.objectContaining({
+        customerNotificationAttempted: true,
+        customerNotificationSent: false,
+        paymentPending: false,
+      }),
+    });
+  });
+
+  it('throws when the purchase result cannot be persisted', async () => {
+    mockPurchaseAirtime.mockResolvedValue({
+      success: true,
+      message: 'ok',
+      transactionId: 'kuda-1',
+      amount: 1000,
+      status: 'successful',
+    });
+
+    const supabase = createPendingTransactionSupabaseMock({
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: null,
+        type: 'airtime',
+        network_provider: 'MTN',
+        phone_number: '08012345678',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: null,
+        status: 'pending',
+        metadata: {},
+        error_message: null,
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: null,
+        biller_item_code: null,
+        customer_identifier: null,
+      },
+      updateErrors: {
+        purchase: { message: 'purchase write failed' },
+      },
+    });
+
+    await expect(
+      fulfillPendingVtuTransaction({
+        supabase,
+        transactionId: 'vtu-1',
+      })
+    ).rejects.toThrow('Failed to persist VTU purchase result');
+  });
+
+  it('throws when final success metadata cannot be persisted', async () => {
+    mockPurchaseAirtime.mockResolvedValue({
+      success: true,
+      message: 'ok',
+      transactionId: 'kuda-1',
+      amount: 1000,
+      status: 'successful',
+    });
+
+    const supabase = createPendingTransactionSupabaseMock({
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: null,
+        type: 'airtime',
+        network_provider: 'MTN',
+        phone_number: '08012345678',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: null,
+        status: 'pending',
+        metadata: {},
+        error_message: null,
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: null,
+        biller_item_code: null,
+        customer_identifier: null,
+      },
+      updateErrors: {
+        finalMetadata: { message: 'final metadata write failed' },
+      },
+    });
+
+    await expect(
+      fulfillPendingVtuTransaction({
+        supabase,
+        transactionId: 'vtu-1',
+      })
+    ).rejects.toThrow('Failed to persist final VTU transaction metadata');
   });
 
   it('backfills a missing electricity token from Kuda bill status', async () => {

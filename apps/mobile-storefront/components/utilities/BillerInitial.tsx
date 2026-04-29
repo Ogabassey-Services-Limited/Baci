@@ -1,11 +1,13 @@
+import type { StyleProp, ViewStyle } from 'react-native';
 import { StyleSheet, Text, View } from 'react-native';
 
 interface BillerInitialProps {
   colors: { border: string; textSecondary: string };
   name: string;
+  style?: StyleProp<ViewStyle>;
 }
 
-export function BillerInitial({ colors, name }: BillerInitialProps) {
+export function BillerInitial({ colors, name, style }: BillerInitialProps) {
   const trimmedName = name.trim();
   const safeInitial = (trimmedName.charAt(0) || '?').toUpperCase();
   const accessibilityLabel = trimmedName
@@ -16,7 +18,7 @@ export function BillerInitial({ colors, name }: BillerInitialProps) {
     <View
       accessible={true}
       accessibilityLabel={accessibilityLabel}
-      style={[styles.initialsCircle, { backgroundColor: colors.border }]}
+      style={[styles.initialsCircle, { backgroundColor: colors.border }, style]}
     >
       <Text style={[styles.initialsText, { color: colors.textSecondary }]}>
         {safeInitial}
@@ -31,7 +33,6 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     height: 48,
     justifyContent: 'center',
-    marginBottom: 8,
     width: 48,
   },
   initialsText: {

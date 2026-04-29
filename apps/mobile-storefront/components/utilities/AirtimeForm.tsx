@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, SPACING } from '@/constants/Colors';
+import { NETWORK_PROVIDERS } from '@/constants/network-providers';
 import { useKeyboard } from '@/hooks/use-keyboard';
 import { useUtilityPayment } from '@/hooks/use-utility-payment';
 import { detectNetwork } from '@/lib/network-utils';
@@ -22,11 +23,12 @@ import {
   initializeVtuCheckout,
   isSavedVtuCardChargeProcessing,
   requiresSavedVtuCardAuthorization,
+  VtuPaymentStillProcessingError,
   waitForVtuConfirmation,
 } from '@/lib/vtu-checkout';
 import { useAuthStore } from '@/stores/auth-store';
 import { getUtilityFooterOffset } from './get-utility-footer-offset';
-import { NETWORK_PROVIDERS, ProviderGrid } from './ProviderGrid';
+import { ProviderGrid } from './ProviderGrid';
 import { UtilityPaymentOptions } from './UtilityPaymentOptions';
 import { formatUtilityAmountInput } from './utility-amount-format';
 
@@ -46,6 +48,8 @@ interface AirtimeFormProps {
   onSuccess: (data: {
     reference: string;
     amount: number;
+    customerIdentifier?: string;
+    status?: 'processing' | 'successful';
     voucherPin?: string;
     cashback?: { amount: number; newBalance: number };
   }) => void;
@@ -177,21 +181,35 @@ export function AirtimeForm({
         }
 
         if (isSavedVtuCardChargeProcessing(result)) {
-          const confirmed = await waitForVtuConfirmation({
-            gateway: 'paystack',
-            reference: result.reference,
-          });
-          onSuccess({
-            amount: confirmed.amount ?? numericAmount,
-            cashback: confirmed.cashback
-              ? {
-                  amount: confirmed.cashback.amount,
-                  newBalance: confirmed.cashback.newBalance,
-                }
-              : undefined,
-            reference: confirmed.reference,
-            voucherPin: confirmed.voucherPin,
-          });
+          try {
+            const confirmed = await waitForVtuConfirmation({
+              gateway: 'paystack',
+              reference: result.reference,
+            });
+            onSuccess({
+              amount: confirmed.amount ?? numericAmount,
+              cashback: confirmed.cashback
+                ? {
+                    amount: confirmed.cashback.amount,
+                    newBalance: confirmed.cashback.newBalance,
+                  }
+                : undefined,
+              reference: confirmed.reference,
+              voucherPin: confirmed.voucherPin,
+            });
+          } catch (error) {
+            if (error instanceof VtuPaymentStillProcessingError) {
+              onSuccess({
+                amount: error.amount ?? numericAmount,
+                customerIdentifier: error.customerIdentifier ?? phoneNumber,
+                reference: error.reference,
+                status: 'processing',
+              });
+              return;
+            }
+
+            throw error;
+          }
           return;
         }
 
@@ -337,12 +355,10 @@ export function AirtimeForm({
                 </Pressable>
               ) : null}
             </View>
-            {!selectedProvider || isNetworkPickerExpanded ? (
-              <ProviderGrid
-                selectedProvider={selectedProvider}
-                onSelect={handleProviderSelect}
-              />
-            ) : null}
+            <ProviderGrid
+              selectedProvider={selectedProvider}
+              onSelect={handleProviderSelect}
+            />
           </View>
         )}
 

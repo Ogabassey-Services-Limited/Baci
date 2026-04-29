@@ -139,7 +139,14 @@ export default function UtilityHistoryScreen() {
       );
     } catch (syncError) {
       console.error('Failed to sync VTU payment:', syncError);
-      await refetch();
+      try {
+        await refetch();
+      } catch (refetchError) {
+        console.error(
+          'Failed to refetch VTU history after sync failure:',
+          refetchError
+        );
+      }
       Alert.alert(
         'Sync Failed',
         syncError instanceof Error
@@ -394,6 +401,7 @@ export default function UtilityHistoryScreen() {
                       </Text>
                       <Pressable
                         style={[
+                          styles.pillButtonBase,
                           styles.tokenButton,
                           {
                             backgroundColor: colors.card,
