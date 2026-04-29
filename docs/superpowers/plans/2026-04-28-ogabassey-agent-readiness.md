@@ -3556,6 +3556,30 @@ describe('verifyCheckoutCompletionAuthorization', () => {
     ).toEqual({ ok: true, mode: 'payment_mandate' });
   });
 
+  it('rejects future-dated human confirmation artifacts', () => {
+    // confirmed_at is 2 minutes after `now` — must NOT slip through the max-age check.
+    const confirmedAt = '2026-04-28T12:02:00.000Z';
+    const payload = 'human_confirmation.session-1.2500.NGN.2026-04-28T12:02:00.000Z';
+
+    expect(
+      verifyCheckoutCompletionAuthorization({
+        authorization: {
+          type: 'human_confirmation',
+          session_id: 'session-1',
+          amount: 2500,
+          currency: 'NGN',
+          confirmed_at: confirmedAt,
+          signature: sign(payload),
+        },
+        sessionId: 'session-1',
+        amount: 2500,
+        currency: 'NGN',
+        secrets: [secret],
+        now,
+      })
+    ).toEqual({ ok: false, code: 'AUTHORIZATION_EXPIRED' });
+  });
+
   it('fails closed when authorization is missing or expired', () => {
     expect(
       verifyCheckoutCompletionAuthorization({
@@ -3701,7 +3725,9 @@ export function verifyCheckoutCompletionAuthorization({
     if (!Number.isFinite(confirmedAt)) {
       return { ok: false, code: 'AUTHORIZATION_INVALID' };
     }
-    if (now.getTime() - confirmedAt > HUMAN_CONFIRMATION_MAX_AGE_MS) {
+    const ageMs = now.getTime() - confirmedAt;
+    // Reject future-dated artifacts (clock skew or bad signer) and stale ones.
+    if (ageMs < 0 || ageMs > HUMAN_CONFIRMATION_MAX_AGE_MS) {
       return { ok: false, code: 'AUTHORIZATION_EXPIRED' };
     }
     if (
