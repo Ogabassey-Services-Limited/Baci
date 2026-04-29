@@ -7,7 +7,7 @@ import {
   buildStorefrontContactMarkdown,
   buildStorefrontFaqMarkdown,
   buildStorefrontHomeMarkdown,
-} from './llms-markdown-storefront';
+} from '@/lib/llms-markdown-storefront';
 
 const merchant: CachedMerchant = {
   id: 'merchant-1',

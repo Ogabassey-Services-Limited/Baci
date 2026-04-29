@@ -6,7 +6,7 @@ import {
   resolveStorefrontRouteIdentifier,
   resolveStorefrontRouteIdentifiers,
   stripPort,
-} from './storefront-host';
+} from '@/lib/storefront-host';
 
 describe('storefront host helpers', () => {
   it('normalizes the host header before request URL fallback', () => {

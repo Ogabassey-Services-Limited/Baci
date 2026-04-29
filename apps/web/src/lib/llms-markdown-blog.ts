@@ -14,6 +14,23 @@ function joinMarkdownLines(lines: MarkdownLine[]): string {
     .join('\n');
 }
 
+function formatReadingTime(
+  minutes: number | null | undefined,
+  label: 'short' | 'long'
+): string | false {
+  if (
+    typeof minutes !== 'number' ||
+    !Number.isFinite(minutes) ||
+    minutes <= 0
+  ) {
+    return false;
+  }
+
+  return label === 'short'
+    ? ` (${minutes} min read)`
+    : `- Reading time: ${minutes} minutes`;
+}
+
 interface BlogListPost {
   title: string;
   slug: string;
@@ -49,12 +66,12 @@ export function buildBlogIndexMarkdown(
     '## Posts',
     ...posts.slice(0, MAX_BLOG_INDEX_POSTS).map((post) => {
       const title = sanitizeMarkdownText(post.title);
-      const excerpt = sanitizeMarkdownText(
-        post.excerpt || BLOG_INDEX_EXCERPT_FALLBACK
-      );
+      const excerpt =
+        sanitizeMarkdownText(post.excerpt) || BLOG_INDEX_EXCERPT_FALLBACK;
+      const readingTime = formatReadingTime(post.reading_time_minutes, 'short');
       const slug = encodeURIComponent(post.slug);
 
-      return `- [${title}](${origin}/blog/${slug}.md): ${excerpt}${post.reading_time_minutes ? ` (${post.reading_time_minutes} min read)` : ''}`;
+      return `- [${title}](${origin}/blog/${slug}.md): ${excerpt}${readingTime || ''}`;
     }),
     '',
   ]);
@@ -86,7 +103,7 @@ export function buildBlogPostMarkdown(
     );
   const businessName = sanitizeMarkdownText(merchant.business_name);
   const title = sanitizeMarkdownText(post.title);
-  const safePreview = sanitizeMarkdownText(preview);
+  const safePreview = sanitizeMarkdownText(preview) || BLOG_POST_FALLBACK_TEXT;
   const authorName = sanitizeMarkdownText(post.author_name);
   const category = sanitizeMarkdownText(post.category);
   const publishedAt = sanitizeMarkdownText(post.published_at);
@@ -105,9 +122,7 @@ export function buildBlogPostMarkdown(
     authorName ? `- Author: ${authorName}` : false,
     category ? `- Category: ${category}` : false,
     publishedAt ? `- Published: ${publishedAt}` : false,
-    post.reading_time_minutes
-      ? `- Reading time: ${post.reading_time_minutes} minutes`
-      : false,
+    formatReadingTime(post.reading_time_minutes, 'long'),
     tags && tags.length > 0 ? `- Tags: ${tags.join(', ')}` : false,
     `- Canonical blog URL: ${origin}/blog/${slug}`,
     `- Markdown mirror: ${origin}/blog/${slug}.md`,

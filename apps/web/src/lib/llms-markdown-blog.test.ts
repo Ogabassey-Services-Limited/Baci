@@ -237,4 +237,107 @@ describe('llms markdown blog builders', () => {
     expect(result).toContain('text');
     expect(result).toContain('structured%20safety%20%2B');
   });
+
+  it('uses fallbacks when sanitized blog preview text is empty', () => {
+    const index = buildBlogIndexMarkdown(
+      { business_name: 'Ogabassey', slug: 'ogabassey' },
+      'https://ogabassey.com',
+      [
+        {
+          title: 'Empty excerpt',
+          slug: 'empty-excerpt',
+          excerpt: '<b></b>',
+        },
+      ],
+      []
+    );
+    const post = buildBlogPostMarkdown(
+      { business_name: 'Ogabassey' },
+      'https://ogabassey.com',
+      {
+        title: 'Empty preview',
+        slug: 'empty-preview',
+        excerpt: '<b></b>',
+      }
+    );
+
+    expect(index).toContain(
+      '- [Empty excerpt](https://ogabassey.com/blog/empty-excerpt.md): Published blog post'
+    );
+    expect(post).toContain('> Read this post.');
+  });
+
+  it('only renders positive finite reading-time metadata', () => {
+    const index = buildBlogIndexMarkdown(
+      { business_name: 'Ogabassey', slug: 'ogabassey' },
+      'https://ogabassey.com',
+      [
+        {
+          title: 'Negative read',
+          slug: 'negative-read',
+          reading_time_minutes: -3,
+        },
+        {
+          title: 'Zero read',
+          slug: 'zero-read',
+          reading_time_minutes: 0,
+        },
+        {
+          title: 'NaN read',
+          slug: 'nan-read',
+          reading_time_minutes: Number.NaN,
+        },
+        {
+          title: 'Infinite read',
+          slug: 'infinite-read',
+          reading_time_minutes: Number.POSITIVE_INFINITY,
+        },
+        {
+          title: 'Valid read',
+          slug: 'valid-read',
+          reading_time_minutes: 5,
+        },
+      ],
+      []
+    );
+    const post = buildBlogPostMarkdown(
+      { business_name: 'Ogabassey' },
+      'https://ogabassey.com',
+      {
+        title: 'Invalid reading time',
+        slug: 'invalid-reading-time',
+        content: 'Readable content',
+        reading_time_minutes: -3,
+      }
+    );
+    const zeroReadingTimePost = buildBlogPostMarkdown(
+      { business_name: 'Ogabassey' },
+      'https://ogabassey.com',
+      {
+        title: 'Zero reading time',
+        slug: 'zero-reading-time',
+        content: 'Readable content',
+        reading_time_minutes: 0,
+      }
+    );
+    const postWithReadingTime = buildBlogPostMarkdown(
+      { business_name: 'Ogabassey' },
+      'https://ogabassey.com',
+      {
+        title: 'Valid reading time',
+        slug: 'valid-reading-time',
+        content: 'Readable content',
+        reading_time_minutes: 5,
+      }
+    );
+
+    expect(index).not.toContain('-3 min read');
+    expect(index).not.toContain('0 min read');
+    expect(index).not.toContain('NaN min read');
+    expect(index).not.toContain('Infinity min read');
+    expect(index).toContain('(5 min read)');
+    expect(post).not.toContain('- Reading time:');
+    expect(zeroReadingTimePost).not.toContain('- Reading time:');
+    expect(postWithReadingTime).toContain('- Reading time: 5 minutes');
+  });
 });
