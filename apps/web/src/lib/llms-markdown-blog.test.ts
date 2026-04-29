@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildBlogIndexMarkdown,
   buildBlogPostMarkdown,
-} from './llms-markdown-blog';
+} from '@/lib/llms-markdown-blog';
 
 const LOCAL_BLOG_INDEX_LIMIT = 24;
 
@@ -135,5 +135,106 @@ describe('llms markdown blog builders', () => {
     expectBlankLineBetween(result, '> Read this post.', '## Summary');
     expect(result).not.toContain('- Author:');
     expect(result).not.toContain('- Category:');
+  });
+
+  it('sanitizes merchant and blog-controlled markdown fields', () => {
+    const index = buildBlogIndexMarkdown(
+      { business_name: '<script>alert(1)</script>Bad **Store**', slug: 'bad' },
+      'https://ogabassey.com',
+      [
+        {
+          title: '[Injected](javascript:alert(1)) **Title**',
+          slug: 'unsafe post +',
+          excerpt: '<img src=x onerror=alert(1)> **Excerpt**',
+        },
+      ],
+      ['[Guides](javascript:alert(1))']
+    );
+    const post = buildBlogPostMarkdown(
+      { business_name: '<script>alert(1)</script>Bad **Store**' },
+      'https://ogabassey.com',
+      {
+        title: '[Post](javascript:alert(1))',
+        slug: 'post slug +',
+        excerpt: '<b>Unsafe</b> **summary**',
+        author_name: '[Editor](javascript:alert(1))',
+        category: '<i>Guides</i>',
+        tags: ['**Deals**', '[Phones](javascript:alert(1))'],
+      }
+    );
+
+    expect(index).not.toContain('<script');
+    expect(index).not.toContain('</script>');
+    expect(index).not.toContain('<img');
+    expect(index).not.toContain('<b>');
+    expect(index).not.toContain('</b>');
+    expect(index).not.toContain('<i>');
+    expect(index).not.toContain('</i>');
+    expect(index).not.toContain('javascript:');
+    expect(index).not.toContain('**Store**');
+    expect(index).not.toContain('**Title**');
+    expect(index).not.toContain('**Excerpt**');
+    expect(index).toContain('Bad');
+    expect(index).toContain('Guides');
+
+    expect(post).not.toContain('<script');
+    expect(post).not.toContain('</script>');
+    expect(post).not.toContain('<img');
+    expect(post).not.toContain('<b>');
+    expect(post).not.toContain('</b>');
+    expect(post).not.toContain('<i>');
+    expect(post).not.toContain('</i>');
+    expect(post).not.toContain('javascript:');
+    expect(post).not.toContain('**Store**');
+    expect(post).not.toContain('**summary**');
+    expect(post).not.toContain('**Deals**');
+    expect(post).toContain('Bad');
+    expect(post).toContain('Guides');
+
+    expect(index).toContain('Title');
+    expect(index).toContain('unsafe%20post%20%2B');
+    expect(post).toContain('Unsafe');
+    expect(post).toContain('post%20slug%20%2B');
+  });
+
+  it('sanitizes structured content previews before rendering markdown', () => {
+    const result = buildBlogPostMarkdown(
+      { business_name: 'Ogabassey' },
+      'https://ogabassey.com',
+      {
+        title: 'Structured Safety',
+        slug: 'structured safety +',
+        content: {
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [
+                {
+                  type: 'text',
+                  text: '<script>alert(1)</script> Safe **summary** javascript:alert(1)',
+                },
+              ],
+            },
+            {
+              type: 'paragraph',
+              content: [
+                { type: 'text', text: '<img src=x onerror=alert(1)> text' },
+              ],
+            },
+          ],
+        },
+      }
+    );
+
+    expect(result).not.toContain('<script');
+    expect(result).not.toContain('</script>');
+    expect(result).not.toContain('<img');
+    expect(result).not.toContain('javascript:');
+    expect(result).not.toContain('**summary**');
+    expect(result).toContain('Safe');
+    expect(result).toContain('summary');
+    expect(result).toContain('text');
+    expect(result).toContain('structured%20safety%20%2B');
   });
 });

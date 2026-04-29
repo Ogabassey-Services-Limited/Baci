@@ -33,6 +33,18 @@ describe('getBlogPostTextPreview', () => {
     expect(preview).toBe('Read this blog post');
   });
 
+  it('uses a custom fallback when content is not extractable', () => {
+    const preview = getBlogPostTextPreview({ foo: 'bar' }, 160, 'Keep reading');
+
+    expect(preview).toBe('Keep reading');
+  });
+
+  it('treats malformed JSON strings as plain text', () => {
+    const preview = getBlogPostTextPreview('{bad: json');
+
+    expect(preview).toBe('{bad: json');
+  });
+
   it('falls back for empty strings and nullish content', () => {
     expect(getBlogPostTextPreview('')).toBe('Read this blog post');
     expect(getBlogPostTextPreview(null)).toBe('Read this blog post');

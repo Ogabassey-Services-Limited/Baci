@@ -56,6 +56,80 @@ describe('GET /agent-commerce.json', () => {
     expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
   });
 
+  it('normalizes www custom domains before merchant lookup', async () => {
+    mockGetMerchantByIdentifier.mockImplementation((identifier) => {
+      if (identifier === 'ogabassey.com') {
+        return Promise.resolve({
+          id: 'merchant-1',
+          slug: 'ogabassey',
+          business_name: 'Ogabassey',
+          custom_domain: 'ogabassey.com',
+        });
+      }
+
+      return Promise.resolve(null);
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(
+      new Request('https://www.ogabassey.com/agent-commerce.json', {
+        headers: { host: 'www.ogabassey.com' },
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.store).toMatchObject({
+      slug: 'ogabassey',
+      name: 'Ogabassey',
+      canonical_origin: 'https://www.ogabassey.com',
+    });
+    expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
+    expect(mockGetMerchantByIdentifier).toHaveBeenCalledTimes(1);
+    expect(mockGetMerchantByIdentifier).not.toHaveBeenCalledWith(
+      'www.ogabassey.com'
+    );
+  });
+
+  it('falls back to exact www custom-domain lookup when the normalized domain is absent', async () => {
+    mockGetMerchantByIdentifier.mockImplementation((identifier) => {
+      if (identifier === 'www.ogabassey.com') {
+        return Promise.resolve({
+          id: 'merchant-1',
+          slug: 'ogabassey',
+          business_name: 'Ogabassey',
+          custom_domain: 'www.ogabassey.com',
+        });
+      }
+
+      return Promise.resolve(null);
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(
+      new Request('https://www.ogabassey.com/agent-commerce.json', {
+        headers: { host: 'www.ogabassey.com' },
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.store).toMatchObject({
+      slug: 'ogabassey',
+      name: 'Ogabassey',
+      canonical_origin: 'https://www.ogabassey.com',
+    });
+    expect(mockGetMerchantByIdentifier).toHaveBeenCalledTimes(2);
+    expect(mockGetMerchantByIdentifier).toHaveBeenNthCalledWith(
+      1,
+      'ogabassey.com'
+    );
+    expect(mockGetMerchantByIdentifier).toHaveBeenNthCalledWith(
+      2,
+      'www.ogabassey.com'
+    );
+  });
+
   it('returns 404 when the request host does not resolve to a storefront', async () => {
     const { GET } = await import('./route');
     const response = await GET(

@@ -35,6 +35,9 @@ vi.mock('@/lib/cache-headers', () => ({
     LONG: {
       'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
     },
+    SHORT: {
+      'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+    },
   },
 }));
 
@@ -164,6 +167,9 @@ describe('GET /api/feed/openai', () => {
     expect(parsed.terms_of_service_url).toBe(
       'https://ogabassey.usebaci.com/terms'
     );
+    expect(response.headers.get('cache-control')).toBe(
+      'public, s-maxage=60, stale-while-revalidate=300'
+    );
   });
 
   it('passes resolved merchant UUID (not slug) to cached data fetcher', async () => {
@@ -225,6 +231,9 @@ describe('GET /api/feed/openai', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toBe('application/gzip');
+    expect(response.headers.get('cache-control')).toBe(
+      'public, s-maxage=60, stale-while-revalidate=300'
+    );
 
     const buffer = Buffer.from(await response.arrayBuffer());
     const decompressed = gunzipSync(buffer).toString('utf-8');
@@ -314,6 +323,39 @@ describe('GET /api/feed/openai', () => {
     expect(mockGetCachedOpenAIFeedData).not.toHaveBeenCalled();
   });
 
+  it('normalizes www custom domains before verifying feed hosts', async () => {
+    mockGetMerchantByIdentifier.mockImplementation((identifier) =>
+      identifier === 'ogabassey.com'
+        ? {
+            id: 'merchant-1',
+            business_name: 'Ogabassey',
+            country: 'NG',
+            payout_currency: 'NGN',
+            slug: 'ogabassey',
+            custom_domain: 'ogabassey.com',
+          }
+        : null
+    );
+
+    const { GET } = await import('./route');
+    const response = await GET(
+      new NextRequest(
+        'https://www.ogabassey.com/api/feed/openai?merchant_slug=ogabassey&format=current',
+        { headers: { host: 'www.ogabassey.com' } }
+      )
+    );
+    expect(response.status).toBe(200);
+    const line = (await response.text()).trim().split('\n')[0];
+    const parsed = JSON.parse(line);
+
+    expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
+    expect(mockGetMerchantByIdentifier).not.toHaveBeenCalledWith(
+      'www.ogabassey.com'
+    );
+    expect(mockGetCachedOpenAIFeedData).toHaveBeenCalledWith('merchant-1');
+    expect(parsed.url).toBe('https://www.ogabassey.com/products/test-phone');
+  });
+
   it('uses the canonical merchant URL when the request is not storefront scoped', async () => {
     const { GET } = await import('./route');
     const response = await GET(
@@ -326,6 +368,9 @@ describe('GET /api/feed/openai', () => {
     const parsed = JSON.parse(line);
 
     expect(response.status).toBe(200);
+    expect(response.headers.get('cache-control')).toBe(
+      'public, s-maxage=3600, stale-while-revalidate=86400'
+    );
     expect(mockGetMerchantByIdentifier).not.toHaveBeenCalled();
     expect(parsed.url).toBe(
       'https://ogabassey.usebaci.com/products/test-phone'
@@ -363,7 +408,7 @@ describe('GET /api/feed/openai', () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body.error).toBe('Merchant slug does not match storefront host');
+    expect(body.error).toBe('No storefront found for the given host');
     expect(mockGetCachedOpenAIFeedData).not.toHaveBeenCalled();
   });
 

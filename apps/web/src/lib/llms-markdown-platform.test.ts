@@ -4,7 +4,7 @@ import {
   buildPlatformHomeMarkdown,
   buildPlatformOnboardingMarkdown,
   buildPlatformPricingMarkdown,
-} from './llms-markdown-platform';
+} from '@/lib/llms-markdown-platform';
 
 describe('llms markdown platform builders', () => {
   it('builds the platform home mirror with canonical routes', () => {

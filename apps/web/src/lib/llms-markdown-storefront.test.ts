@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { CachedMerchant } from '@/lib/cached-data';
 import {
+  buildCategoryMarkdown,
   buildProductMarkdown,
+  buildStorefrontAboutMarkdown,
+  buildStorefrontContactMarkdown,
   buildStorefrontFaqMarkdown,
   buildStorefrontHomeMarkdown,
 } from './llms-markdown-storefront';
@@ -34,6 +37,70 @@ describe('llms markdown storefront builders', () => {
 
     expect(home).toContain('https://ogabassey.com/sitemap.xml');
     expect(home).toContain('https://ogabassey.com/{category}/{productSlug}');
+  });
+
+  it('normalizes trailing slashes in storefront home routes', () => {
+    const home = buildStorefrontHomeMarkdown(
+      merchant,
+      'https://ogabassey.com/'
+    );
+
+    expect(home).toContain('https://ogabassey.com/sitemap.xml');
+    expect(home).toContain('https://ogabassey.com/{category}/{productSlug}');
+    expect(home).not.toContain('https://ogabassey.com//');
+  });
+
+  it('normalizes trailing slashes across storefront markdown builders', () => {
+    const origin = 'https://ogabassey.com/';
+    const product = {
+      id: 'p6',
+      name: 'USB Cable',
+      slug: 'usb-cable',
+      description: 'Braided cable.',
+      price: 6000,
+      category: 'Accessories',
+      stock: 2,
+      stock_quantity: 2,
+      manage_stock: true,
+      images: [],
+    };
+
+    const [
+      aboutMarkdown,
+      contactMarkdown,
+      faqMarkdown,
+      categoryMarkdown,
+      productMarkdown,
+    ] = [
+      buildStorefrontAboutMarkdown(merchant, origin),
+      buildStorefrontContactMarkdown(merchant, origin),
+      buildStorefrontFaqMarkdown(merchant, origin),
+      buildCategoryMarkdown(merchant, origin, 'accessories', {
+        isCollection: true,
+        name: 'Accessories',
+        products: [product],
+      }),
+      buildProductMarkdown(merchant, origin, product),
+    ];
+
+    for (const result of [
+      aboutMarkdown,
+      contactMarkdown,
+      faqMarkdown,
+      categoryMarkdown,
+      productMarkdown,
+    ]) {
+      expect(result).not.toContain('https://ogabassey.com//');
+    }
+
+    expect(aboutMarkdown).toContain('Canonical host: https://ogabassey.com');
+    expect(contactMarkdown).toContain('Canonical host: https://ogabassey.com');
+    expect(faqMarkdown).toContain('Canonical host: https://ogabassey.com');
+    expect(contactMarkdown).toContain('https://ogabassey.com/contact');
+    expect(categoryMarkdown).toContain('https://ogabassey.com/accessories');
+    expect(productMarkdown).toContain(
+      'https://ogabassey.com/accessories/usb-cable'
+    );
   });
 
   it('builds the storefront FAQ mirror', () => {

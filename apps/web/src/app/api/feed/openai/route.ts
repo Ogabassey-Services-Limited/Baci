@@ -10,7 +10,7 @@ import {
 import { buildStoreUrl } from '@/lib/store-url';
 import {
   buildRequestBaseUrl,
-  resolveStorefrontRouteIdentifier,
+  resolveStorefrontRouteIdentifiers,
 } from '@/lib/storefront-host';
 import { openAIFeedQuerySchema } from '@/schemas/openai-feed-query';
 import { RouteIdentifierSchema } from '@/schemas/route-identifier';
@@ -22,55 +22,83 @@ import { generateOpenAIFeed } from './legacy-feed-generator';
 const ROOT_DOMAIN = (getRootDomain() || 'usebaci.com').toLowerCase();
 
 type VerifiedFeedBaseUrlResult =
-  | { success: true; baseUrl: string }
+  | { success: true; baseUrl: string; isStorefrontScoped: boolean }
   | { success: false; response: NextResponse };
 
 async function resolveVerifiedFeedBaseUrl(
   merchant: Merchant,
   request: Request
 ): Promise<VerifiedFeedBaseUrlResult> {
-  const routeIdentifier = resolveStorefrontRouteIdentifier({
+  const routeIdentifiers = resolveStorefrontRouteIdentifiers({
     request,
     rootDomain: ROOT_DOMAIN,
   });
 
-  if (!routeIdentifier) {
+  if (routeIdentifiers.length === 0) {
     return {
       success: true,
       baseUrl: buildStoreUrl(merchant),
+      isStorefrontScoped: false,
     };
   }
 
-  const parsedRouteIdentifier =
-    RouteIdentifierSchema.safeParse(routeIdentifier);
+  const parsedRouteIdentifiers: string[] = [];
 
-  if (!parsedRouteIdentifier.success) {
-    return {
-      success: false,
-      response: NextResponse.json(
-        { error: 'Invalid storefront host' },
-        { status: 400 }
-      ),
-    };
+  // Identifier candidates are derived from the same host; reject malformed
+  // hosts instead of falling through to a lower-priority fallback.
+  for (const routeIdentifier of routeIdentifiers) {
+    const parsedRouteIdentifier =
+      RouteIdentifierSchema.safeParse(routeIdentifier);
+
+    if (!parsedRouteIdentifier.success) {
+      return {
+        success: false,
+        response: NextResponse.json(
+          { error: 'Invalid storefront host' },
+          { status: 400 }
+        ),
+      };
+    }
+
+    parsedRouteIdentifiers.push(parsedRouteIdentifier.data);
   }
 
-  const storefrontMerchant = await getMerchantByIdentifier(
-    parsedRouteIdentifier.data
-  );
+  // Candidates are ordered by storefront-host priority. Non-www custom domains
+  // intentionally win before the exact www fallback to match proxy behavior.
+  // The candidate set is bounded to one or two identifiers, so sequential
+  // lookup keeps the priority contract explicit without adding a bulk API.
+  for (const routeIdentifier of parsedRouteIdentifiers) {
+    const storefrontMerchant = await getMerchantByIdentifier(routeIdentifier);
 
-  if (!storefrontMerchant || storefrontMerchant.id !== merchant.id) {
+    if (!storefrontMerchant) {
+      continue;
+    }
+
+    if (storefrontMerchant.id !== merchant.id) {
+      // A higher-priority identifier resolving to a different merchant is a
+      // genuine host mismatch, not a fallback case.
+      return {
+        success: false,
+        response: NextResponse.json(
+          { error: 'Merchant slug does not match storefront host' },
+          { status: 400 }
+        ),
+      };
+    }
+
     return {
-      success: false,
-      response: NextResponse.json(
-        { error: 'Merchant slug does not match storefront host' },
-        { status: 400 }
-      ),
+      success: true,
+      baseUrl: buildRequestBaseUrl(request),
+      isStorefrontScoped: true,
     };
   }
 
   return {
-    success: true,
-    baseUrl: buildRequestBaseUrl(request),
+    success: false,
+    response: NextResponse.json(
+      { error: 'No storefront found for the given host' },
+      { status: 400 }
+    ),
   };
 }
 
@@ -121,6 +149,9 @@ export async function GET(request: NextRequest) {
     }
 
     const { products } = await getCachedOpenAIFeedData(merchant.id);
+    const cacheHeaders = baseUrlResult.isStorefrontScoped
+      ? CACHE_HEADERS.SHORT
+      : CACHE_HEADERS.LONG;
 
     // Generate JSONL feed
     const feedLines =
@@ -142,7 +173,7 @@ export async function GET(request: NextRequest) {
           'Content-Type': 'application/gzip',
           'Content-Disposition': `attachment; filename="${merchant.slug}-openai-feed.jsonl.gz"`,
           'Content-Encoding': 'gzip',
-          ...CACHE_HEADERS.LONG,
+          ...cacheHeaders,
         },
       });
     }
@@ -152,7 +183,7 @@ export async function GET(request: NextRequest) {
       status: 200,
       headers: {
         'Content-Type': 'application/x-ndjson; charset=utf-8',
-        ...CACHE_HEADERS.LONG,
+        ...cacheHeaders,
       },
     });
   } catch (error) {

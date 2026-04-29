@@ -4,6 +4,7 @@ import {
   getRequestHost,
   isLocalhostIdentifier,
   resolveStorefrontRouteIdentifier,
+  resolveStorefrontRouteIdentifiers,
   stripPort,
 } from './storefront-host';
 
@@ -57,6 +58,71 @@ describe('storefront host helpers', () => {
     ).toBe('www.ogabassey.com');
   });
 
+  it('returns appropriate lookup candidates for various host types', () => {
+    expect(
+      resolveStorefrontRouteIdentifiers({
+        request: new Request('https://www.ogabassey.com/agent-commerce.json'),
+        rootDomain: 'usebaci.com',
+      })
+    ).toEqual(['ogabassey.com', 'www.ogabassey.com']);
+    expect(
+      resolveStorefrontRouteIdentifiers({
+        request: new Request('https://ogabassey.com/agent-commerce.json'),
+        rootDomain: 'usebaci.com',
+      })
+    ).toEqual(['ogabassey.com']);
+    expect(
+      resolveStorefrontRouteIdentifiers({
+        request: new Request(
+          'https://ogabassey.usebaci.com/agent-commerce.json'
+        ),
+        rootDomain: 'usebaci.com',
+      })
+    ).toEqual(['ogabassey']);
+    expect(
+      resolveStorefrontRouteIdentifiers({
+        request: new Request(
+          'https://shop.ogabassey.usebaci.com/agent-commerce.json'
+        ),
+        rootDomain: 'usebaci.com',
+      })
+    ).toEqual(['shop.ogabassey']);
+    expect(
+      resolveStorefrontRouteIdentifiers({
+        request: new Request('https://ogabassey.localhost/agent-commerce.json'),
+        rootDomain: 'usebaci.com',
+      })
+    ).toEqual(['ogabassey.localhost']);
+    expect(
+      resolveStorefrontRouteIdentifiers({
+        request: new Request('https://usebaci.com/agent-commerce.json'),
+        rootDomain: 'usebaci.com',
+      })
+    ).toEqual([]);
+    expect(
+      resolveStorefrontRouteIdentifiers({
+        request: new Request('https://www.usebaci.com/agent-commerce.json'),
+        rootDomain: 'usebaci.com',
+      })
+    ).toEqual([]);
+    expect(
+      resolveStorefrontRouteIdentifiers({
+        request: new Request(
+          'https://shop.ogabassey.co.uk/agent-commerce.json'
+        ),
+        rootDomain: 'usebaci.com',
+      })
+    ).toEqual(['shop.ogabassey.co.uk']);
+    expect(
+      resolveStorefrontRouteIdentifiers({
+        request: new Request(
+          'https://www.shop.ogabassey.co.uk/agent-commerce.json'
+        ),
+        rootDomain: 'usebaci.com',
+      })
+    ).toEqual(['shop.ogabassey.co.uk', 'www.shop.ogabassey.co.uk']);
+  });
+
   it('returns an empty identifier for platform and localhost hosts', () => {
     expect(
       resolveStorefrontRouteIdentifier({
@@ -78,5 +144,29 @@ describe('storefront host helpers', () => {
         rootDomain: 'usebaci.com',
       })
     ).toBe('');
+  });
+
+  it('throws for invalid request inputs outside the Request contract', () => {
+    expect(() =>
+      resolveStorefrontRouteIdentifiers({
+        request: null as unknown as Request,
+        rootDomain: 'usebaci.com',
+      })
+    ).toThrow(TypeError);
+    expect(() =>
+      resolveStorefrontRouteIdentifiers({
+        request: {
+          headers: new Headers(),
+          url: 'not a valid url',
+        } as unknown as Request,
+        rootDomain: 'usebaci.com',
+      })
+    ).toThrow(TypeError);
+    expect(() =>
+      resolveStorefrontRouteIdentifiers({
+        request: { url: 'https://ogabassey.com' } as unknown as Request,
+        rootDomain: 'usebaci.com',
+      })
+    ).toThrow(TypeError);
   });
 });

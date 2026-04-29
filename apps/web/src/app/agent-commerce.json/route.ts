@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getRootDomain } from '@/env';
-import { getMerchantByIdentifier } from '@/lib/cached-data';
+import {
+  type CachedMerchant,
+  getMerchantByIdentifier,
+} from '@/lib/cached-data';
 import { buildAgentPolicyUrls } from '@/lib/storefront-agent-urls';
 import {
   buildRequestBaseUrl,
-  resolveStorefrontRouteIdentifier,
+  resolveStorefrontRouteIdentifiers,
 } from '@/lib/storefront-host';
 import { RouteIdentifierSchema } from '@/schemas/route-identifier';
 
@@ -17,27 +20,40 @@ function buildUrl(baseUrl: string, path: string): string {
 }
 
 export async function GET(request: Request) {
-  const routeIdentifier = resolveStorefrontRouteIdentifier({
+  const routeIdentifiers = resolveStorefrontRouteIdentifiers({
     request,
     rootDomain: ROOT_DOMAIN,
   });
-  const parsedRouteIdentifier = routeIdentifier
-    ? RouteIdentifierSchema.safeParse(routeIdentifier)
-    : null;
+  const parsedRouteIdentifiers: string[] = [];
 
-  if (routeIdentifier && !parsedRouteIdentifier?.success) {
-    return NextResponse.json(
-      { error: 'Invalid storefront host' },
-      { status: 400 }
-    );
+  // Identifier candidates are derived from the same host; reject malformed
+  // hosts instead of falling through to a lower-priority fallback.
+  for (const routeIdentifier of routeIdentifiers) {
+    const parsedRouteIdentifier =
+      RouteIdentifierSchema.safeParse(routeIdentifier);
+
+    if (!parsedRouteIdentifier.success) {
+      return NextResponse.json(
+        { error: 'Invalid storefront host' },
+        { status: 400 }
+      );
+    }
+
+    parsedRouteIdentifiers.push(parsedRouteIdentifier.data);
   }
 
-  let merchant = null;
+  let merchant: CachedMerchant | null = null;
 
   try {
-    merchant = parsedRouteIdentifier?.success
-      ? await getMerchantByIdentifier(parsedRouteIdentifier.data)
-      : null;
+    // Candidates are ordered by storefront-host priority. Non-www custom domains
+    // intentionally win before the exact www fallback to match proxy behavior.
+    for (const routeIdentifier of parsedRouteIdentifiers) {
+      merchant = await getMerchantByIdentifier(routeIdentifier);
+
+      if (merchant) {
+        break;
+      }
+    }
   } catch (error) {
     console.error('AGENT_COMMERCE_MANIFEST_ERROR:', error);
     return NextResponse.json(

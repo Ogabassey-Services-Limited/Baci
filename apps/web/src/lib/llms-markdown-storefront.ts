@@ -4,6 +4,7 @@ import {
   getStorefrontFaqItems,
   type StorefrontFaqSource,
 } from '@/lib/llms-markdown-storefront-faq';
+import { normalizeOrigin } from '@/lib/normalize-origin';
 import { normalizeProduct, type RawDbProduct } from '@/lib/normalize-product';
 import {
   coerceStorefrontManageStock,
@@ -62,27 +63,33 @@ export function buildStorefrontHomeMarkdown(
   merchant: StorefrontFaqSource,
   origin: string
 ): string {
+  const normalizedOrigin = normalizeOrigin(origin);
+
   return [
-    ...buildMerchantIntro(merchant, origin),
+    ...buildMerchantIntro(merchant, normalizedOrigin),
     '## Primary Routes',
-    `- ${origin}/sitemap.xml`,
-    `- ${origin}/cart`,
-    `- ${origin}/checkout`,
-    `- ${origin}/track-order`,
-    merchant.pages?.about || merchant.about_page ? `- ${origin}/about` : '',
-    merchant.pages?.contact || merchant.email || merchant.phone
-      ? `- ${origin}/contact`
+    `- ${normalizedOrigin}/sitemap.xml`,
+    `- ${normalizedOrigin}/cart`,
+    `- ${normalizedOrigin}/checkout`,
+    `- ${normalizedOrigin}/track-order`,
+    merchant.pages?.about || merchant.about_page
+      ? `- ${normalizedOrigin}/about`
       : '',
-    getStorefrontFaqItems(merchant).length > 0 ? `- ${origin}/faq` : '',
+    merchant.pages?.contact || merchant.email || merchant.phone
+      ? `- ${normalizedOrigin}/contact`
+      : '',
+    getStorefrontFaqItems(merchant).length > 0
+      ? `- ${normalizedOrigin}/faq`
+      : '',
     '',
     '## Route Patterns',
-    `- ${origin}/{category}`,
-    `- ${origin}/{category}/index.html.md`,
-    `- ${origin}/{category}/{productSlug}`,
-    `- ${origin}/{category}/{productSlug}.md`,
-    `- ${origin}/products/{productSlug}`,
-    `- ${origin}/blog/index.html.md`,
-    `- ${origin}/blog/{postSlug}.md`,
+    `- ${normalizedOrigin}/{category}`,
+    `- ${normalizedOrigin}/{category}/index.html.md`,
+    `- ${normalizedOrigin}/{category}/{productSlug}`,
+    `- ${normalizedOrigin}/{category}/{productSlug}.md`,
+    `- ${normalizedOrigin}/products/{productSlug}`,
+    `- ${normalizedOrigin}/blog/index.html.md`,
+    `- ${normalizedOrigin}/blog/{postSlug}.md`,
     '',
     '## Notes',
     '- `/checkout`, `/account`, and wallet or payment flows are stateful.',
@@ -97,6 +104,7 @@ export function buildStorefrontAboutMarkdown(
   merchant: CachedMerchant,
   origin: string
 ): string {
+  const normalizedOrigin = normalizeOrigin(origin);
   const aboutPage: Partial<MerchantAboutPage> = merchant.about_page || {};
   const values =
     aboutPage.values && aboutPage.values.length > 0
@@ -104,7 +112,7 @@ export function buildStorefrontAboutMarkdown(
       : [];
 
   return [
-    ...buildMerchantIntro(merchant, origin),
+    ...buildMerchantIntro(merchant, normalizedOrigin),
     '# About',
     '',
     sanitizeMarkdownText(
@@ -131,6 +139,7 @@ export function buildStorefrontContactMarkdown(
   merchant: CachedMerchant,
   origin: string
 ): string {
+  const normalizedOrigin = normalizeOrigin(origin);
   const contactText = sanitizeMarkdownText(
     merchant.pages?.contact || `Contact ${merchant.business_name}.`
   );
@@ -139,7 +148,7 @@ export function buildStorefrontContactMarkdown(
   const address = sanitizeMarkdownText(merchant.business_address);
 
   return [
-    ...buildMerchantIntro(merchant, origin),
+    ...buildMerchantIntro(merchant, normalizedOrigin),
     '# Contact',
     '',
     contactText,
@@ -149,7 +158,7 @@ export function buildStorefrontContactMarkdown(
     email ? `- Email: ${email}` : '',
     address ? `- Address: ${address}` : '',
     '',
-    `- Contact page: ${origin}/contact`,
+    `- Contact page: ${normalizedOrigin}/contact`,
     '',
   ]
     .filter(Boolean)
@@ -160,10 +169,11 @@ export function buildStorefrontFaqMarkdown(
   merchant: StorefrontFaqSource,
   origin: string
 ): string {
+  const normalizedOrigin = normalizeOrigin(origin);
   const faqItems = getStorefrontFaqItems(merchant);
 
   return [
-    ...buildMerchantIntro(merchant, origin),
+    ...buildMerchantIntro(merchant, normalizedOrigin),
     '# FAQ',
     '',
     ...faqItems.flatMap((item) => [
@@ -189,6 +199,7 @@ export function buildCategoryMarkdown(
     products: unknown[];
   }
 ): string {
+  const normalizedOrigin = normalizeOrigin(origin);
   const title = data.isCollection
     ? data.name || categorySlug
     : data.fallbackName || categorySlug;
@@ -208,15 +219,18 @@ export function buildCategoryMarkdown(
     `> ${safeDescription}`,
     '',
     `- Store: ${businessName}`,
-    `- Canonical category URL: ${origin}/${categorySlug}`,
-    `- Markdown mirror: ${origin}/${categorySlug}/index.html.md`,
+    `- Canonical category URL: ${normalizedOrigin}/${categorySlug}`,
+    `- Markdown mirror: ${normalizedOrigin}/${categorySlug}/index.html.md`,
     `- Product count in this view: ${products.length}`,
     '',
     '## Products',
     ...products
       .slice(0, MAX_PRODUCTS_IN_CATEGORY_MARKDOWN)
       .flatMap((product) => {
-        const productUrl = buildAgentProductUrl({ baseUrl: origin, product });
+        const productUrl = buildAgentProductUrl({
+          baseUrl: normalizedOrigin,
+          product,
+        });
 
         return [
           `- [${sanitizeMarkdownText(product.name)}](${getProductMarkdownMirrorUrl(productUrl)}): ${product.price} ${sanitizeMarkdownText(merchant.payout_currency || 'NGN')}${product.brand ? `, ${sanitizeMarkdownText(product.brand)}` : ''}`,
@@ -231,8 +245,12 @@ export function buildProductMarkdown(
   origin: string,
   rawProduct: RawDbProduct
 ): string {
+  const normalizedOrigin = normalizeOrigin(origin);
   const product = normalizeProduct(rawProduct);
-  const productUrl = buildAgentProductUrl({ baseUrl: origin, product });
+  const productUrl = buildAgentProductUrl({
+    baseUrl: normalizedOrigin,
+    product,
+  });
   const agentAvailability = getStorefrontAgentAvailability({
     manage_stock: coerceStorefrontManageStock(rawProduct.manage_stock),
     stock: rawProduct.stock,

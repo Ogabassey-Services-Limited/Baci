@@ -1,7 +1,9 @@
 import { getBlogPostTextPreview } from '@/lib/blog-utils';
+import { sanitizeMarkdownText } from '@/lib/llms-markdown-sanitize';
 
 const BLOG_POST_PREVIEW_LENGTH = 600;
 const BLOG_POST_FALLBACK_TEXT = 'Read this post.';
+const BLOG_INDEX_EXCERPT_FALLBACK = 'Published blog post';
 const MAX_BLOG_INDEX_POSTS = 24;
 
 type MarkdownLine = string | false | null | undefined;
@@ -28,21 +30,32 @@ export function buildBlogIndexMarkdown(
   posts: BlogListPost[],
   categories: string[]
 ): string {
+  const businessName = sanitizeMarkdownText(merchant.business_name);
+  const safeCategories = categories
+    .map((category) => sanitizeMarkdownText(category))
+    .filter(Boolean);
+
   return joinMarkdownLines([
-    `# ${merchant.business_name} Blog`,
+    `# ${businessName} Blog`,
     '',
-    `> Latest published articles and editorial content from ${merchant.business_name}.`,
+    `> Latest published articles and editorial content from ${businessName}.`,
     '',
     `- Blog URL: ${origin}/blog`,
     `- Markdown mirror: ${origin}/blog/index.html.md`,
-    categories.length > 0 ? `- Categories: ${categories.join(', ')}` : false,
+    safeCategories.length > 0
+      ? `- Categories: ${safeCategories.join(', ')}`
+      : false,
     '',
     '## Posts',
-    ...posts
-      .slice(0, MAX_BLOG_INDEX_POSTS)
-      .flatMap((post) => [
-        `- [${post.title}](${origin}/blog/${post.slug}.md): ${post.excerpt || 'Published blog post'}${post.reading_time_minutes ? ` (${post.reading_time_minutes} min read)` : ''}`,
-      ]),
+    ...posts.slice(0, MAX_BLOG_INDEX_POSTS).map((post) => {
+      const title = sanitizeMarkdownText(post.title);
+      const excerpt = sanitizeMarkdownText(
+        post.excerpt || BLOG_INDEX_EXCERPT_FALLBACK
+      );
+      const slug = encodeURIComponent(post.slug);
+
+      return `- [${title}](${origin}/blog/${slug}.md): ${excerpt}${post.reading_time_minutes ? ` (${post.reading_time_minutes} min read)` : ''}`;
+    }),
     '',
   ]);
 }
@@ -71,25 +84,33 @@ export function buildBlogPostMarkdown(
       BLOG_POST_PREVIEW_LENGTH,
       BLOG_POST_FALLBACK_TEXT
     );
+  const businessName = sanitizeMarkdownText(merchant.business_name);
+  const title = sanitizeMarkdownText(post.title);
+  const safePreview = sanitizeMarkdownText(preview);
+  const authorName = sanitizeMarkdownText(post.author_name);
+  const category = sanitizeMarkdownText(post.category);
+  const publishedAt = sanitizeMarkdownText(post.published_at);
+  const tags = post.tags
+    ?.map((tag) => sanitizeMarkdownText(tag))
+    .filter(Boolean);
+  const slug = encodeURIComponent(post.slug);
 
   return joinMarkdownLines([
-    `# ${post.title}`,
+    `# ${title}`,
     '',
-    `> ${preview}`,
+    `> ${safePreview}`,
     '',
     '## Summary',
-    `- Publisher: ${merchant.business_name}`,
-    post.author_name ? `- Author: ${post.author_name}` : false,
-    post.category ? `- Category: ${post.category}` : false,
-    post.published_at ? `- Published: ${post.published_at}` : false,
+    `- Publisher: ${businessName}`,
+    authorName ? `- Author: ${authorName}` : false,
+    category ? `- Category: ${category}` : false,
+    publishedAt ? `- Published: ${publishedAt}` : false,
     post.reading_time_minutes
       ? `- Reading time: ${post.reading_time_minutes} minutes`
       : false,
-    post.tags && post.tags.length > 0
-      ? `- Tags: ${post.tags.join(', ')}`
-      : false,
-    `- Canonical blog URL: ${origin}/blog/${post.slug}`,
-    `- Markdown mirror: ${origin}/blog/${post.slug}.md`,
+    tags && tags.length > 0 ? `- Tags: ${tags.join(', ')}` : false,
+    `- Canonical blog URL: ${origin}/blog/${slug}`,
+    `- Markdown mirror: ${origin}/blog/${slug}.md`,
     '',
   ]);
 }
