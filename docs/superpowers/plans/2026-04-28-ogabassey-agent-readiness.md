@@ -2488,7 +2488,39 @@ $$;
 --     requests cannot read/write rows belonging to other merchants even if a
 --     future permissive policy is added.
 
--- 1) checkout_sessions: tighten an overly open baseline.
+-- 1) checkout_sessions:
+--    a) Baseline only has permissive INSERT and SELECT policies (lines 13780/13784
+--       of the baseline migration). UPDATE and DELETE have NO permissive grant
+--       today, so once agentic routes switch off the service-role client, an
+--       UPDATE / cancel / DELETE on a checkout_sessions row would be denied by
+--       RLS. Add a permissive policy granting UPDATE/DELETE for the scoped JWT.
+--    b) The baseline SELECT policy is overly open (`USING (true)`). Tighten it
+--       with a RESTRICTIVE policy so an agentic SELECT can only read rows that
+--       belong to the JWT's merchant.
+
+CREATE POLICY "Agentic checkout sessions are writable by scoped client"
+  ON public.checkout_sessions
+  AS PERMISSIVE
+  FOR UPDATE
+  TO authenticated
+  USING (
+    public.is_agentic_checkout_context()
+    AND merchant_id = public.current_agentic_merchant_id()
+  )
+  WITH CHECK (
+    public.is_agentic_checkout_context()
+    AND merchant_id = public.current_agentic_merchant_id()
+  );
+
+CREATE POLICY "Agentic checkout sessions are deletable by scoped client"
+  ON public.checkout_sessions
+  AS PERMISSIVE
+  FOR DELETE
+  TO authenticated
+  USING (
+    public.is_agentic_checkout_context()
+    AND merchant_id = public.current_agentic_merchant_id()
+  );
 
 CREATE POLICY "Agentic checkout sessions are merchant scoped (restrictive)"
   ON public.checkout_sessions
@@ -3666,6 +3698,31 @@ describe('verifyCheckoutCompletionAuthorization', () => {
     ).toEqual({ ok: false, code: 'AUTHORIZATION_EXPIRED' });
   });
 
+  it('returns SERVER_CONFIGURATION_ERROR when no signing secrets are configured', () => {
+    // Missing OPENAI_AGENTIC_CONFIRMATION_KEY* is an operator misconfiguration, not
+    // missing buyer consent — must NOT be reported as retryable CONFIRMATION_REQUIRED.
+    const confirmedAt = '2026-04-28T11:59:30.000Z';
+    const payload = 'human_confirmation.session-1.2500.NGN.2026-04-28T11:59:30.000Z';
+
+    expect(
+      verifyCheckoutCompletionAuthorization({
+        authorization: {
+          type: 'human_confirmation',
+          session_id: 'session-1',
+          amount: 2500,
+          currency: 'NGN',
+          confirmed_at: confirmedAt,
+          signature: sign(payload),
+        },
+        sessionId: 'session-1',
+        amount: 2500,
+        currency: 'NGN',
+        secrets: [],
+        now,
+      })
+    ).toEqual({ ok: false, code: 'SERVER_CONFIGURATION_ERROR' });
+  });
+
   it('fails closed when authorization is missing or expired', () => {
     expect(
       verifyCheckoutCompletionAuthorization({
@@ -3752,7 +3809,8 @@ export type CheckoutAuthorizationResult =
         | 'CONFIRMATION_REQUIRED'
         | 'CONFIRMATION_MISMATCH'
         | 'AUTHORIZATION_EXPIRED'
-        | 'AUTHORIZATION_INVALID';
+        | 'AUTHORIZATION_INVALID'
+        | 'SERVER_CONFIGURATION_ERROR';
     };
 
 function signedHumanPayload(value: HumanConfirmation) {
@@ -3800,7 +3858,12 @@ export function verifyCheckoutCompletionAuthorization({
   secrets: string[];
   now?: Date;
 }): CheckoutAuthorizationResult {
-  if (!authorization || secrets.length === 0) {
+  // Distinguish missing buyer consent (retryable, surface to caller) from missing
+  // server signing keys (non-retryable, server misconfiguration that callers cannot fix).
+  if (secrets.length === 0) {
+    return { ok: false, code: 'SERVER_CONFIGURATION_ERROR' };
+  }
+  if (!authorization) {
     return { ok: false, code: 'CONFIRMATION_REQUIRED' };
   }
 
@@ -3920,16 +3983,53 @@ const authorization = verifyCheckoutCompletionAuthorization({
 });
 
 if (!authorization.ok) {
-  return NextResponse.json(
-    {
-      error:
-        authorization.code === 'CONFIRMATION_REQUIRED'
-          ? 'Human confirmation required'
-          : 'Checkout authorization invalid',
-      code: authorization.code,
-      retryable: authorization.code === 'CONFIRMATION_REQUIRED',
+  const code = authorization.code;
+  // Map result codes to user-facing message + HTTP status + retryable hint.
+  // SERVER_CONFIGURATION_ERROR is non-retryable and signals an operator-fix issue
+  // (e.g. unset OPENAI_AGENTIC_CONFIRMATION_KEY*); do not encourage client retries
+  // because retrying will not change the outcome until the server is reconfigured.
+  const errorPayload: Record<
+    Exclude<typeof code, never>,
+    { error: string; status: number; retryable: boolean }
+  > = {
+    CONFIRMATION_REQUIRED: {
+      error: 'Human confirmation required',
+      status: 428,
+      retryable: true,
     },
-    { status: authorization.code === 'CONFIRMATION_REQUIRED' ? 428 : 403 }
+    CONFIRMATION_MISMATCH: {
+      error: 'Checkout authorization invalid',
+      status: 403,
+      retryable: false,
+    },
+    AUTHORIZATION_EXPIRED: {
+      error: 'Checkout authorization invalid',
+      status: 403,
+      retryable: false,
+    },
+    AUTHORIZATION_INVALID: {
+      error: 'Checkout authorization invalid',
+      status: 403,
+      retryable: false,
+    },
+    SERVER_CONFIGURATION_ERROR: {
+      error: 'Checkout authorization is temporarily unavailable',
+      status: 503,
+      retryable: false,
+    },
+  };
+
+  const mapped = errorPayload[code];
+  // Log SERVER_CONFIGURATION_ERROR with high severity so missing signing keys are
+  // surfaced in observability dashboards instead of being hidden behind 4xx noise.
+  if (code === 'SERVER_CONFIGURATION_ERROR') {
+    console.error(
+      '[agentic-checkout] Missing OPENAI_AGENTIC_CONFIRMATION_KEY*; rejecting completion'
+    );
+  }
+  return NextResponse.json(
+    { error: mapped.error, code, retryable: mapped.retryable },
+    { status: mapped.status }
   );
 }
 ```
@@ -3944,7 +4044,7 @@ Run:
 pnpm --filter web test src/lib/agentic/checkout-authorization.test.ts 'src/app/api/agentic/checkout_sessions/[id]/route.test.ts'
 ```
 
-Expected: PASS after route tests cover missing authorization (`428`), mismatched amount (`403`), valid human confirmation, and valid mandate.
+Expected: PASS after route tests cover missing authorization (`428`), mismatched amount (`403`), missing server signing keys (`503`, non-retryable), valid human confirmation, and valid mandate.
 
 - [ ] **Step 7: Stage For Phase Review**
 
