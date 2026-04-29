@@ -294,4 +294,25 @@ describe('GET /api/storefront/[slug]/products', () => {
     expect(data.error).toBe('Store not found for slug: missing-store');
     expect(mockProductOrder).not.toHaveBeenCalled();
   });
+
+  it('returns 500 when the products query fails', async () => {
+    mockMerchantSingle.mockResolvedValue({
+      data: { id: 'merchant-123' },
+      error: null,
+    });
+    mockProductOrder.mockResolvedValue({
+      data: null,
+      error: { message: 'database exploded' },
+    });
+
+    const response = await requestProducts(
+      'https://example.com/api/storefront/test-store/products'
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(data.error).toBe('Internal server error');
+    expect(mockMerchantSingle).toHaveBeenCalled();
+    expect(mockProductOrder).toHaveBeenCalled();
+  });
 });
