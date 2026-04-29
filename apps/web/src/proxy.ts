@@ -51,6 +51,7 @@ const VALID_SUBDOMAIN_REGEX = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
 // remain free to publish their own `/<key>.txt` file on custom domains without
 // the proxy intercepting and bypassing their storefront rewrite.
 const INDEXNOW_KEY_PATH = '/0751d5c882ab3d7c013ecbfe9e624d71.txt';
+const GOOGLE_MERCHANT_XML_FEED_PATH = '/feeds/google-merchant.xml';
 
 // Pre-compiled regex patterns for performance (avoids recompilation on every request)
 const STATIC_FILES_REGEX =
@@ -385,6 +386,50 @@ function getRouteType(
   }
 
   return 'storefront';
+}
+
+function buildMerchantFeedPassThroughResponse({
+  request,
+  pathname,
+  userAgent,
+  hostname,
+  customDomain,
+  merchantSlug,
+}: {
+  request: NextRequest;
+  pathname: string;
+  userAgent: string;
+  hostname: string;
+  customDomain?: string;
+  merchantSlug?: string | null;
+}): NextResponse {
+  const feedHeaders = new Headers(request.headers);
+  if (customDomain) {
+    feedHeaders.set('x-custom-domain', customDomain);
+    feedHeaders.set('x-merchant-domain', customDomain);
+  }
+  if (merchantSlug) {
+    feedHeaders.set('x-merchant-slug', merchantSlug);
+  }
+
+  const response = NextResponse.next({
+    request: {
+      headers: feedHeaders,
+    },
+  });
+
+  const routeType = getRouteType(pathname);
+  const isLocal = isLocalhost(hostname);
+  return applySecurityHeaders(
+    response,
+    pathname,
+    userAgent,
+    routeType,
+    isLocal,
+    undefined,
+    request,
+    hostname
+  );
 }
 
 /**
@@ -1074,6 +1119,20 @@ export async function proxy(request: NextRequest) {
         );
       }
 
+      // Public machine feeds are App Router routes, not storefront pages.
+      // Keep them host-scoped for merchant resolution while bypassing the
+      // custom-domain storefront catch-all rewrite.
+      if (pathname === GOOGLE_MERCHANT_XML_FEED_PATH) {
+        return buildMerchantFeedPassThroughResponse({
+          request,
+          pathname,
+          userAgent,
+          hostname,
+          customDomain: domain,
+          merchantSlug: domainMerchantSlug,
+        });
+      }
+
       // Prevent redirect loop: if the path already starts with the domain,
       // it means we've already rewritten. Just let it pass through.
       // Use segment boundary check to avoid false positives (e.g., /shop.common matching /shop.com)
@@ -1257,6 +1316,17 @@ export async function proxy(request: NextRequest) {
         request,
         hostname
       );
+    }
+
+    // Public machine feeds are App Router routes, not storefront pages.
+    if (pathname === GOOGLE_MERCHANT_XML_FEED_PATH) {
+      return buildMerchantFeedPassThroughResponse({
+        request,
+        pathname,
+        userAgent,
+        hostname,
+        merchantSlug: subdomain,
+      });
     }
 
     // LLM markdown mirrors: rewrite .md paths to /api/llm/ to avoid

@@ -161,6 +161,37 @@ describe('Middleware Proxy', () => {
     );
   });
 
+  it('passes custom-domain Google Merchant XML feed to the app route', async () => {
+    const req = new NextRequest(
+      'https://ogabassey.com/feeds/google-merchant.xml'
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(getSlugForCustomDomain).toHaveBeenCalledWith('ogabassey.com');
+    expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+    expect(res.headers.get('x-middleware-next')).toBe('1');
+    expect(res.headers.get('x-middleware-request-x-custom-domain')).toBe(
+      'ogabassey.com'
+    );
+  });
+
+  it('passes subdomain Google Merchant XML feed to the app route', async () => {
+    const req = new NextRequest(
+      `https://ogabassey.${ROOT_DOMAIN}/feeds/google-merchant.xml`
+    );
+    req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+    expect(res.headers.get('x-middleware-next')).toBe('1');
+    expect(res.headers.get('x-middleware-request-x-merchant-slug')).toBe(
+      'ogabassey'
+    );
+  });
+
   it.each([
     ['/index.html.md', '/api/llm/ogabassey'],
     ['/about.md', '/api/llm/ogabassey/about'],

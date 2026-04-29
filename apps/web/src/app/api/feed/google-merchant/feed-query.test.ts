@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { FEED_PRODUCTS_SELECT } from './feed-query';
 
 describe('FEED_PRODUCTS_SELECT', () => {
-  it('includes category and spec fields required for enriched feed descriptions', () => {
+  it('does not select the legacy products.category_slug column', () => {
+    expect(FEED_PRODUCTS_SELECT).not.toMatch(/(^|[\s,])category_slug([\s,]|$)/);
+  });
+
+  it('includes category joins and spec fields required for enriched feed descriptions', () => {
     expect(FEED_PRODUCTS_SELECT).toMatch(/(^|[\s,])category([\s,]|$)/);
-    expect(FEED_PRODUCTS_SELECT).toMatch(/(^|[\s,])category_slug([\s,]|$)/);
     expect(FEED_PRODUCTS_SELECT).toContain('color');
     expect(FEED_PRODUCTS_SELECT).toContain(
       'product_categories(categories(name, slug))'

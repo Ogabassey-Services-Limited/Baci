@@ -47,7 +47,8 @@ function normalizeFeedProducts(products: RawFeedProductRow[]): FeedProduct[] {
     return {
       ...rest,
       categories: joinedCategory ?? null,
-      category_slug: joinedCategory?.slug ?? rest.category_slug,
+      // The legacy products.category_slug column is absent in production.
+      category_slug: joinedCategory?.slug,
       category: rest.category || joinedCategory?.name,
     };
   });
