@@ -14,6 +14,8 @@ const LandingPage = () => {
   // const handleSubmit = (e: React.FormEvent) => {
   //     // Function body for handleSubmit
   // };
+  // Demo page — cart is static. When wired to useCart(), replace with live count.
+  const cartItemCount: number = 0;
   return (
     <div className="min-h-screen bg-white font-sans">
       {/* --- HEADER SECTION --- */}
@@ -59,16 +61,19 @@ const LandingPage = () => {
               className="hover:text-red-400 transition"
               aria-label="Notifications"
             >
-              <Bell size={20} />
+              <Bell size={20} aria-hidden="true" />
             </button>
             <button
               type="button"
               className="relative hover:text-red-400 transition"
-              aria-label="Shopping Cart"
+              aria-label={`Shopping Cart, ${cartItemCount} ${cartItemCount === 1 ? 'item' : 'items'}`}
             >
-              <ShoppingCart size={20} />
-              <span className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full">
-                0
+              <ShoppingCart size={20} aria-hidden="true" />
+              <span
+                aria-hidden="true"
+                className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full"
+              >
+                {cartItemCount}
               </span>
             </button>
             <button
@@ -76,7 +81,7 @@ const LandingPage = () => {
               className="hover:text-red-400 transition"
               aria-label="User Account"
             >
-              <User size={20} />
+              <User size={20} aria-hidden="true" />
             </button>
           </div>
         </div>
