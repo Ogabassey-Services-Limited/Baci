@@ -654,7 +654,6 @@ export async function fulfillPendingVtuTransaction({
           metadata: getSafeMetadataDiagnostics(metadata),
           transactionId: row.id,
         });
-        throwVtuPersistenceError('Failed to persist VTU transaction metadata');
       }
     }
 
@@ -819,9 +818,6 @@ export async function fulfillPendingVtuTransaction({
         metadata: getSafeMetadataDiagnostics(finalMetadata),
         transactionId: row.id,
       });
-      throwVtuPersistenceError(
-        'Failed to persist final VTU transaction metadata'
-      );
     }
   }
 

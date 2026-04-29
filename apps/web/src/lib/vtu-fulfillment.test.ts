@@ -370,7 +370,10 @@ describe('fulfillPendingVtuTransaction', () => {
     );
   });
 
-  it('throws when successful-transaction metadata cannot be persisted', async () => {
+  it('returns success when successful-transaction metadata cannot be persisted', async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
     const supabase = createPendingTransactionSupabaseMock({
       claimData: null,
       transactionRow: {
@@ -406,12 +409,28 @@ describe('fulfillPendingVtuTransaction', () => {
       },
     });
 
-    await expect(
-      fulfillPendingVtuTransaction({
+    try {
+      const result = await fulfillPendingVtuTransaction({
         supabase,
         transactionId: 'vtu-1',
-      })
-    ).rejects.toThrow('Failed to persist VTU transaction metadata');
+      });
+
+      expect(result).toMatchObject({
+        amount: 1500,
+        cashback: { amount: 11.25, credited: true, newBalance: 25.75 },
+        reference: 'VTU-123',
+        status: 'successful',
+      });
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Failed to persist VTU transaction metadata:',
+        expect.objectContaining({
+          error: 'metadata write failed',
+          transactionId: 'vtu-1',
+        })
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it('reuses an existing cashback ledger when success metadata was not updated', async () => {
@@ -856,7 +875,10 @@ describe('fulfillPendingVtuTransaction', () => {
     ).rejects.toThrow('Failed to persist VTU purchase result');
   });
 
-  it('throws when final success metadata cannot be persisted', async () => {
+  it('returns success when final success metadata cannot be persisted', async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
     mockPurchaseAirtime.mockResolvedValue({
       success: true,
       message: 'ok',
@@ -890,12 +912,27 @@ describe('fulfillPendingVtuTransaction', () => {
       },
     });
 
-    await expect(
-      fulfillPendingVtuTransaction({
+    try {
+      const result = await fulfillPendingVtuTransaction({
         supabase,
         transactionId: 'vtu-1',
-      })
-    ).rejects.toThrow('Failed to persist final VTU transaction metadata');
+      });
+
+      expect(result).toMatchObject({
+        amount: 1000,
+        reference: 'VTU-123',
+        status: 'successful',
+      });
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Failed to persist final VTU transaction metadata:',
+        expect.objectContaining({
+          error: 'final metadata write failed',
+          transactionId: 'vtu-1',
+        })
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it('backfills a missing electricity token from Kuda bill status', async () => {
