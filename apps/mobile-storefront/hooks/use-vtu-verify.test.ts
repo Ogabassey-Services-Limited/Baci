@@ -142,10 +142,16 @@ describe('useVTUVerify', () => {
     expect(mockFetchWithTimeout).toHaveBeenCalledWith(
       expect.stringContaining('/api/vtu/verify'),
       expect.objectContaining({
-        headers: {
+        headers: expect.objectContaining({
           'Content-Type': 'application/json',
-        },
+        }),
       })
+    );
+    const requestOptions = mockFetchWithTimeout.mock.calls[0]?.[1] as {
+      headers?: Record<string, string>;
+    };
+    expect(requestOptions.headers).toEqual(
+      expect.not.objectContaining({ Authorization: expect.any(String) })
     );
   });
 

@@ -19,10 +19,10 @@ function expectBridgeMessageTypesToBeReferenced({
   }
 
   expect(script).toMatch(
-      new RegExp(
-        `type: '${escapeRegex(clipboardMessageType)}'[\\s\\S]*text: accountNumber`
-      )
-    );
+    new RegExp(
+      `type: '${escapeRegex(clipboardMessageType)}'[\\s\\S]*text: accountNumber`
+    )
+  );
   expect(script).toMatch(
     new RegExp(
       `type: '${escapeRegex(accountNumberMessageType)}'[\\s\\S]*text: accountNumber`
@@ -85,8 +85,20 @@ describe('PAYMENT_CLIPBOARD_BRIDGE', () => {
         ),
       },
     };
+    const mutationObservers: Array<{ trigger: (records?: unknown[]) => void }> =
+      [];
     class MutationObserverMock {
+      callback: (records: unknown[]) => void;
       observe = jest.fn();
+
+      constructor(callback: (records: unknown[]) => void) {
+        this.callback = callback;
+        mutationObservers.push(this);
+      }
+
+      trigger(records: unknown[] = []) {
+        this.callback(records);
+      }
     }
     const windowMock = {
       MutationObserver: MutationObserverMock,
@@ -115,6 +127,8 @@ describe('PAYMENT_CLIPBOARD_BRIDGE', () => {
       }
     );
 
+    documentMock.body.innerText = 'Account number: 2222222222';
+    mutationObservers[0]?.trigger([{ type: 'childList' }]);
     await navigatorMock.clipboard.writeText('Reference REF 1234567890');
     await navigatorMock.clipboard.writeText('Account number: 1234567890');
     copyListener({
@@ -154,21 +168,13 @@ describe('PAYMENT_CLIPBOARD_BRIDGE', () => {
   });
 
   it('prefers contextual account-number detection before generic numbers', () => {
-    expect(PAYMENT_CLIPBOARD_BRIDGE.script).toContain(
-      'var contextualPattern'
-    );
-    expect(PAYMENT_CLIPBOARD_BRIDGE.script).toContain(
-      'var genericPattern'
-    );
+    expect(PAYMENT_CLIPBOARD_BRIDGE.script).toContain('var contextualPattern');
+    expect(PAYMENT_CLIPBOARD_BRIDGE.script).toContain('var genericPattern');
     expect(PAYMENT_CLIPBOARD_BRIDGE.script).toContain(
       'function hasExcludedNumberContext'
     );
-    expect(PAYMENT_CLIPBOARD_BRIDGE.script).toContain(
-      'routing|routingnumber'
-    );
-    expect(PAYMENT_CLIPBOARD_BRIDGE.script).toContain(
-      'invoice|order|track'
-    );
+    expect(PAYMENT_CLIPBOARD_BRIDGE.script).toContain('routing|routingnumber');
+    expect(PAYMENT_CLIPBOARD_BRIDGE.script).toContain('invoice|order|track');
   });
 
   it('uses bounded account-number retry scanning and standalone copy matching', () => {

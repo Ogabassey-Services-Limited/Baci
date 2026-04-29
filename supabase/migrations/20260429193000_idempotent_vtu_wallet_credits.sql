@@ -167,6 +167,10 @@ BEGIN
   WHERE id = v_wallet_id
   RETURNING available_balance INTO v_new_balance;
 
+  IF NOT FOUND OR v_new_balance IS NULL THEN
+    RAISE EXCEPTION 'Unable to credit merchant wallet % because it was not found', v_wallet_id;
+  END IF;
+
   INSERT INTO public.wallet_transactions (
     wallet_id,
     merchant_id,

@@ -34,17 +34,11 @@ export default function ReceiptShareButton({
   voucherPin,
 }: ReceiptShareButtonProps) {
   const [isSharingReceipt, setIsSharingReceipt] = useState(false);
+  const isShareDisabled = isSharingReceipt || !txReference;
 
   const handleShareReceipt = async () => {
-    if (isSharingReceipt) {
-      return;
-    }
-
-    if (!txReference) {
-      Alert.alert(
-        'Receipt Unavailable',
-        'A transaction reference is required before sharing this receipt.'
-      );
+    const reference = txReference;
+    if (isSharingReceipt || !reference) {
       return;
     }
 
@@ -53,7 +47,7 @@ export default function ReceiptShareButton({
       await shareUtilityReceipt({
         amount,
         customerIdentifier: identifier,
-        reference: txReference,
+        reference,
         status,
         type,
         voucherPin,
@@ -75,14 +69,14 @@ export default function ReceiptShareButton({
         styles.shareButton,
         {
           borderColor: colors.border,
-          opacity: isSharingReceipt ? 0.7 : 1,
+          opacity: !txReference ? 0.45 : isSharingReceipt ? 0.7 : 1,
         },
       ]}
       onPress={handleShareReceipt}
-      disabled={isSharingReceipt}
+      disabled={isShareDisabled}
       accessibilityRole="button"
       accessibilityLabel="Share utility receipt"
-      accessibilityState={{ busy: isSharingReceipt }}
+      accessibilityState={{ busy: isSharingReceipt, disabled: isShareDisabled }}
     >
       {isSharingReceipt ? (
         <ActivityIndicator size="small" color={BRAND.primary} />

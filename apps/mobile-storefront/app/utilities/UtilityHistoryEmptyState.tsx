@@ -29,7 +29,11 @@ export default function UtilityHistoryEmptyState({
   if (isLoading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color={BRAND.primary} />
+        <ActivityIndicator
+          testID="utility-history-loading"
+          size="large"
+          color={BRAND.primary}
+        />
       </View>
     );
   }

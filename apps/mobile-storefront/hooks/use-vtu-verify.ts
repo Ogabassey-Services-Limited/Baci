@@ -38,6 +38,8 @@ export function useVTUVerify() {
         );
       }
 
+      // Guest utility verification is intentional: the backend accepts public
+      // verify requests and applies merchant-side validation/rate controls.
       const accessToken = sessionResult.data?.session?.access_token;
 
       const response = await fetchWithTimeout(`${API_URL}/api/vtu/verify`, {

@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { ActivityIndicator } from 'react-native';
+import { jest } from '@jest/globals';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import Colors from '@/constants/Colors';
 import UtilityHistoryEmptyState from './UtilityHistoryEmptyState';
 
@@ -17,7 +17,7 @@ describe('UtilityHistoryEmptyState', () => {
   });
 
   it('shows a loading indicator while history is loading', () => {
-    const { UNSAFE_getByType } = render(
+    render(
       <UtilityHistoryEmptyState
         colors={Colors.light}
         error={null}
@@ -26,10 +26,10 @@ describe('UtilityHistoryEmptyState', () => {
       />
     );
 
-    expect(UNSAFE_getByType(ActivityIndicator)).toBeTruthy();
+    expect(screen.getByTestId('utility-history-loading')).toBeOnTheScreen();
   });
 
-  it('logs the real error and renders a safe retry message', async () => {
+  it('logs the real error and renders a safe retry message', () => {
     const refetch = jest.fn();
     const error = new Error('database credentials leaked');
 
@@ -48,12 +48,10 @@ describe('UtilityHistoryEmptyState', () => {
     ).toBeOnTheScreen();
     expect(screen.queryByText('database credentials leaked')).toBeNull();
 
-    await waitFor(() => {
-      expect(mockLogError).toHaveBeenCalledWith(
-        'Failed to load utility history',
-        error
-      );
-    });
+    expect(mockLogError).toHaveBeenCalledWith(
+      'Failed to load utility history',
+      error
+    );
 
     fireEvent.press(screen.getByLabelText('Retry loading utility history'));
 

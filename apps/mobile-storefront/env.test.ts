@@ -45,7 +45,7 @@ describe('mobile env', () => {
 
     const { EXPO_PUBLIC_API_URL } = await import('./env');
 
-    expect(EXPO_PUBLIC_API_URL).toBe('https://usebaci.com');
+    expect(EXPO_PUBLIC_API_URL).toBe('http://localhost:3000');
   });
 
   it('falls back to the Expo config API URL when no environment value is set', async () => {

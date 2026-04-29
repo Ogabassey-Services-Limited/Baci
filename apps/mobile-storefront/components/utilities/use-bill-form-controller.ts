@@ -93,9 +93,10 @@ export function useBillFormController({
     ? (selectedBillItem?.itemCode ?? null)
     : (selectedBiller?.billerId ?? null);
   const numericAmount = parseUtilityAmount(amount);
+  const normalizedCustomerId = customerId.trim();
   const currentVerificationKey = `${selectedBiller?.billerId ?? ''}:${
     selectedBillItemIdentifier ?? ''
-  }:${customerId.trim()}`;
+  }:${normalizedCustomerId}`;
   const canShowPayment = Boolean(
     isRepeatPaymentActive || verifiedSelectionKey === currentVerificationKey
   );
@@ -191,7 +192,7 @@ export function useBillFormController({
     if (
       !selectedBiller ||
       !selectedBillItemIdentifier ||
-      !customerId ||
+      !normalizedCustomerId ||
       !isBillItemSelectionComplete
     ) {
       const steps = ['select a provider'];
@@ -205,7 +206,7 @@ export function useBillFormController({
     pendingVerificationKeyRef.current = currentVerificationKey;
     verify.mutate({
       billItemIdentifier: selectedBillItemIdentifier,
-      customerIdentifier: customerId,
+      customerIdentifier: normalizedCustomerId,
     });
   };
 

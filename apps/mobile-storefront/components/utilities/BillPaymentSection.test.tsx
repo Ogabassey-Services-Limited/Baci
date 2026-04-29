@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import Colors from '@/constants/Colors';
 import type { useUtilityPayment } from '@/hooks/use-utility-payment';
@@ -14,7 +15,7 @@ jest.mock('./UtilityPaymentOptions', () => ({
 
 type PaymentState = ReturnType<typeof useUtilityPayment>;
 
-function createPaymentState(): PaymentState {
+function createPaymentState(): Partial<PaymentState> {
   return {
     cards: [],
     chargeSavedVtuCard: jest.fn(),
@@ -29,7 +30,7 @@ function createPaymentState(): PaymentState {
     selectedGateway: 'paystack',
     selectedSavedCardId: null,
     supportedGateways: ['paystack'],
-  } as unknown as PaymentState;
+  } as Partial<PaymentState>;
 }
 
 describe('BillPaymentSection', () => {
@@ -43,7 +44,7 @@ describe('BillPaymentSection', () => {
         handlePaymentLayout={jest.fn()}
         isFixedAmount={false}
         numericAmount={1000}
-        payment={createPaymentState()}
+        payment={createPaymentState() as PaymentState}
         setAmount={setAmount}
       />
     );
@@ -62,13 +63,13 @@ describe('BillPaymentSection', () => {
         handlePaymentLayout={jest.fn()}
         isFixedAmount={true}
         numericAmount={2500}
-        payment={createPaymentState()}
+        payment={createPaymentState() as PaymentState}
         setAmount={jest.fn()}
       />
     );
 
-    expect(screen.getByLabelText('Payment amount read-only').props.editable).toBe(
-      false
-    );
+    expect(
+      screen.getByLabelText('Payment amount read-only').props.editable
+    ).toBe(false);
   });
 });

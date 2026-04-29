@@ -6,8 +6,6 @@ import { fetchWithTimeout, SHORT_TIMEOUT } from '@/lib/fetch-with-timeout';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth-store';
 
-const API_URL = EXPO_PUBLIC_API_URL;
-
 const HISTORY_FILTER_TO_API_TYPE = {
   airtime: 'airtime',
   data: 'data',
@@ -117,7 +115,7 @@ export function useVTUHistory(filter: UtilityHistoryFilter, limit = 20) {
       }
 
       const response = await fetchWithTimeout(
-        `${API_URL}/api/vtu/history?${query.toString()}`,
+        `${EXPO_PUBLIC_API_URL}/api/vtu/history?${query.toString()}`,
         {
           method: 'GET',
           timeout: SHORT_TIMEOUT,

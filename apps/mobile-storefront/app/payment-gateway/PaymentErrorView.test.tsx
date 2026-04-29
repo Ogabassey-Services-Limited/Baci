@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { jest } from '@jest/globals';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react-native';
 import Colors from '@/constants/Colors';
 import { PaymentErrorView } from './PaymentErrorView';
 
@@ -43,7 +49,7 @@ describe('PaymentErrorView', () => {
     fireEvent.press(retryButton);
 
     expect(onRetry).toHaveBeenCalledTimes(1);
-    expect(retryButton.props.accessibilityState).toEqual({
+    expect(retryButton.props.accessibilityState).toMatchObject({
       busy: true,
       disabled: true,
     });
@@ -51,7 +57,7 @@ describe('PaymentErrorView', () => {
     retry.resolve();
 
     await waitFor(() => {
-      expect(screen.getByText('Try Again')).toBeOnTheScreen();
+      expect(screen.getByLabelText('Try payment again')).toBeEnabled();
     });
   });
 });

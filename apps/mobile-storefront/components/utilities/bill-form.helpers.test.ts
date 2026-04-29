@@ -30,6 +30,12 @@ describe('bill-form.helpers', () => {
     expect(
       getAmountForLeaf(createBillItem({ amount: 2500, isAmountFixed: false }))
     ).toBe('');
+    expect(
+      getAmountForLeaf(createBillItem({ amount: 0, isAmountFixed: true }))
+    ).toBe('');
+    expect(
+      getAmountForLeaf(createBillItem({ amount: -100, isAmountFixed: true }))
+    ).toBe('');
     expect(getAmountForLeaf(null)).toBe('');
   });
 

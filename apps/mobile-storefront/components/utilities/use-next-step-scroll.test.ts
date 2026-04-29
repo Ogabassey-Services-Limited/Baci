@@ -125,8 +125,10 @@ describe('useNextStepScroll', () => {
     const { result } = renderHook(() =>
       useNextStepScroll(scrollViewRef, jest.fn())
     );
+    // Use a value just below the top offset so the scroll target must clamp to 0.
+    const testInput = SPACING.md - 1;
 
-    result.current(4);
+    result.current(testInput);
     frameCallbacks.get(1)?.(0);
     const interaction = mockRunAfterInteractions.mock.results[0]?.value as {
       run: () => void;

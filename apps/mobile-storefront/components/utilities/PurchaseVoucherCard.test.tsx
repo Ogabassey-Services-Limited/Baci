@@ -1,5 +1,10 @@
 import { jest } from '@jest/globals';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react-native';
 import { Alert } from 'react-native';
 import Colors from '@/constants/Colors';
 import { setClipboardString } from '@/lib/clipboard';
@@ -30,33 +35,39 @@ describe('PurchaseVoucherCard', () => {
   });
 
   it('copies voucher tokens from the card', async () => {
-    render(<PurchaseVoucherCard colors={Colors.light} voucherPin="1234-5678" />);
+    render(
+      <PurchaseVoucherCard colors={Colors.light} voucherPin="1234-5678" />
+    );
 
     fireEvent.press(screen.getByLabelText('Copy voucher token'));
 
-    expect(mockSetClipboardString).toHaveBeenCalledWith('1234-5678');
-    await screen.findByText('Voucher / Token');
-    expect(Alert.alert).toHaveBeenCalledWith(
-      'Copied',
-      'Token copied to clipboard.'
-    );
+    await waitFor(() => {
+      expect(mockSetClipboardString).toHaveBeenCalledWith('1234-5678');
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Copied',
+        'Token copied to clipboard.'
+      );
+    });
   });
 
   it('reports copy errors without exposing the token', async () => {
     mockSetClipboardString.mockRejectedValueOnce(new Error('copy failed'));
 
-    render(<PurchaseVoucherCard colors={Colors.light} voucherPin="1234-5678" />);
+    render(
+      <PurchaseVoucherCard colors={Colors.light} voucherPin="1234-5678" />
+    );
 
     fireEvent.press(screen.getByLabelText('Copy voucher token'));
 
-    await screen.findByText('Voucher / Token');
-    expect(console.error).toHaveBeenCalledWith(
-      'Failed to copy utility voucher token:',
-      expect.any(Error)
-    );
-    expect(Alert.alert).toHaveBeenCalledWith(
-      'Copy Failed',
-      'Could not copy this token.'
-    );
+    await waitFor(() => {
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Failed to copy utility voucher token:',
+        expect.any(Error)
+      );
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Copy Failed',
+        'Could not copy this token.'
+      );
+    });
   });
 });

@@ -1,5 +1,10 @@
 import { jest } from '@jest/globals';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react-native';
 import { Alert } from 'react-native';
 import Colors from '@/constants/Colors';
 import { shareUtilityReceipt } from '@/lib/utility-receipt';
@@ -50,7 +55,7 @@ describe('ReceiptShareButton', () => {
     });
   });
 
-  it('does not share receipts without a transaction reference', async () => {
+  it('does not share receipts without a transaction reference', () => {
     render(
       <ReceiptShareButton
         amount={1000}
@@ -62,12 +67,11 @@ describe('ReceiptShareButton', () => {
       />
     );
 
-    fireEvent.press(screen.getByLabelText('Share utility receipt'));
+    const shareButton = screen.getByLabelText('Share utility receipt');
 
+    expect(shareButton).toBeDisabled();
+    fireEvent.press(shareButton);
     expect(mockShareUtilityReceipt).not.toHaveBeenCalled();
-    expect(Alert.alert).toHaveBeenCalledWith(
-      'Receipt Unavailable',
-      'A transaction reference is required before sharing this receipt.'
-    );
+    expect(alertSpy).not.toHaveBeenCalled();
   });
 });

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { paymentGatewayStyles as styles } from '@/app/payment-gateway/payment-gateway.styles';
@@ -23,6 +23,13 @@ export function PaymentErrorView({
   onRetry,
 }: PaymentErrorViewProps) {
   const [isRetrying, setIsRetrying] = useState(false);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const handleRetry = async () => {
     if (isRetrying) {
@@ -33,7 +40,9 @@ export function PaymentErrorView({
     try {
       await onRetry();
     } finally {
-      setIsRetrying(false);
+      if (mountedRef.current) {
+        setIsRetrying(false);
+      }
     }
   };
 
@@ -81,7 +90,10 @@ export function PaymentErrorView({
             disabled={isRetrying}
             style={[
               styles.baseButton,
-              { backgroundColor: BRAND.primary, opacity: isRetrying ? 0.75 : 1 },
+              {
+                backgroundColor: BRAND.primary,
+                opacity: isRetrying ? 0.75 : 1,
+              },
             ]}
             onPress={handleRetry}
           >
