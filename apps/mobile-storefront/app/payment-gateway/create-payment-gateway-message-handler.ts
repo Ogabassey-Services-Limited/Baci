@@ -3,8 +3,6 @@ import type { MutableRefObject } from 'react';
 import { PAYMENT_CLIPBOARD_BRIDGE } from '@/constants/payment-clipboard-bridge';
 import { isPaymentGatewayRecord } from './payment-gateway.helpers';
 
-const PAYMENT_SUCCESS_NAV_DELAY = 1500;
-
 const getTrimmedString = (value: unknown) =>
   typeof value === 'string' ? value.trim() : '';
 
@@ -21,6 +19,7 @@ interface CreatePaymentGatewayMessageHandlerInput {
   orderNumber?: string;
   reference?: string;
   markPaymentCompletionStarted: () => void;
+  scheduleDelayedNavigation: (navigate: () => void) => void;
   setSuccessStatus: () => void;
 }
 
@@ -33,6 +32,7 @@ export function createPaymentGatewayMessageHandler({
   orderNumber,
   reference,
   markPaymentCompletionStarted,
+  scheduleDelayedNavigation,
   setSuccessStatus,
 }: CreatePaymentGatewayMessageHandlerInput) {
   return (event: { nativeEvent: { data: string } }) => {
@@ -70,7 +70,7 @@ export function createPaymentGatewayMessageHandler({
         markPaymentCompletionStarted();
         setSuccessStatus();
         clearCart();
-        setTimeout(() => {
+        scheduleDelayedNavigation(() => {
           router.replace({
             pathname: '/order-success',
             params: {
@@ -80,7 +80,7 @@ export function createPaymentGatewayMessageHandler({
               reference: getTrimmedString(reference),
             },
           });
-        }, PAYMENT_SUCCESS_NAV_DELAY);
+        });
       }
     } catch {
       // Ignore non-JSON messages from gateway pages.

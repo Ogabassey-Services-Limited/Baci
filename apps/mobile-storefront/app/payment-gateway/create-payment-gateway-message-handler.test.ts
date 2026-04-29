@@ -16,6 +16,7 @@ function createHandler() {
     (text: string, success: string, failure?: string) => Promise<void>
   >(() => Promise.resolve());
   const markPaymentCompletionStarted = jest.fn();
+  const scheduleDelayedNavigation = jest.fn<(navigate: () => void) => void>();
   const setSuccessStatus = jest.fn();
   const handler = createPaymentGatewayMessageHandler({
     clearCart,
@@ -26,6 +27,7 @@ function createHandler() {
     orderNumber: ' ORD-123 ',
     reference: ' ref-123 ',
     markPaymentCompletionStarted,
+    scheduleDelayedNavigation,
     setSuccessStatus,
   });
 
@@ -35,6 +37,7 @@ function createHandler() {
     copyGatewayText,
     handler,
     markPaymentCompletionStarted,
+    scheduleDelayedNavigation,
     setSuccessStatus,
   };
 }
@@ -85,11 +88,11 @@ describe('createPaymentGatewayMessageHandler', () => {
   });
 
   it('routes crypto success with sanitized fallback params', () => {
-    jest.useFakeTimers();
     const {
       clearCart,
       handler,
       markPaymentCompletionStarted,
+      scheduleDelayedNavigation,
       setSuccessStatus,
     } = createHandler();
 
@@ -98,9 +101,12 @@ describe('createPaymentGatewayMessageHandler', () => {
     expect(markPaymentCompletionStarted).toHaveBeenCalledTimes(1);
     expect(setSuccessStatus).toHaveBeenCalledTimes(1);
     expect(clearCart).toHaveBeenCalledTimes(1);
+    expect(scheduleDelayedNavigation).toHaveBeenCalledTimes(1);
+    expect(router.replace).not.toHaveBeenCalled();
 
-    jest.runOnlyPendingTimers();
-
+    const scheduledNavigation = scheduleDelayedNavigation.mock.calls[0]?.[0];
+    expect(scheduledNavigation).toBeDefined();
+    scheduledNavigation?.();
     expect(router.replace).toHaveBeenCalledWith({
       pathname: '/order-success',
       params: {

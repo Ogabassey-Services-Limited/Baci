@@ -233,6 +233,7 @@ export function usePaymentGatewayController() {
     markPaymentCompletionStarted: () => {
       paymentCompletionStartedRef.current = true;
     },
+    scheduleDelayedNavigation,
     setSuccessStatus: () => setStatus('success'),
   });
 

@@ -1,5 +1,3 @@
-import { z } from 'zod';
-
 export interface CashbackInfo {
   amount: number;
   newBalance: number;
@@ -47,14 +45,3 @@ export interface RouteRepeatParams {
   repeatPhoneNumber?: string;
   repeatVerified?: string;
 }
-
-export const RouteRepeatParamsSchema = z.object({
-  repeatAmount: z.string().optional(),
-  repeatBillerName: z.string().optional(),
-  repeatBillItemIdentifier: z.string().optional(),
-  repeatCustomerIdentifier: z.string().optional(),
-  repeatDataPlanCode: z.string().optional(),
-  repeatNetworkProvider: z.string().optional(),
-  repeatPhoneNumber: z.string().optional(),
-  repeatVerified: z.string().optional(),
-});

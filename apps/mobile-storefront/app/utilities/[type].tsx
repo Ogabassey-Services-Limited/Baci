@@ -9,6 +9,7 @@ import { DataForm } from '@/components/utilities/DataForm';
 import { UtilityTypeTabs } from '@/components/utilities/UtilityTypeTabs';
 import Colors from '@/constants/Colors';
 import { useKeyboard } from '@/hooks/use-keyboard';
+import { RouteRepeatParamsSchema } from '@/schemas/utility-purchase';
 import { useAuthStore } from '@/stores/auth-store';
 import { InvalidUtilityServiceView } from './InvalidUtilityServiceView';
 import { QuickRepeatPrompt } from './QuickRepeatPrompt';
@@ -25,7 +26,6 @@ import type {
   UtilityPurchaseResult,
   ValidUtilityType,
 } from './utility-purchase.types';
-import { RouteRepeatParamsSchema } from './utility-purchase.types';
 
 interface UtilityRouteParams extends RouteRepeatParams {
   type: string;
