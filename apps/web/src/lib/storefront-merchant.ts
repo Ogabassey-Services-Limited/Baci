@@ -62,8 +62,9 @@ export async function resolveStorefrontMerchantFromRequest({
     parsedRouteIdentifiers.push(parsedRouteIdentifier.data);
   }
 
-  try {
-    for (const routeIdentifier of parsedRouteIdentifiers) {
+  let lastLookupError: unknown;
+  for (const routeIdentifier of parsedRouteIdentifiers) {
+    try {
       const merchant = await getMerchantByIdentifier(routeIdentifier);
 
       if (merchant) {
@@ -73,13 +74,17 @@ export async function resolveStorefrontMerchantFromRequest({
           merchant,
         };
       }
+    } catch (error) {
+      lastLookupError = error;
     }
-  } catch (error) {
+  }
+
+  if (lastLookupError) {
     return {
       success: false,
       status: 500,
       error: lookupError,
-      cause: error,
+      cause: lastLookupError,
     };
   }
 

@@ -132,10 +132,12 @@ describe('GET /feeds/google-merchant.xml integration', () => {
         headers: { host: 'ogabassey.com' },
       })
     );
-    const body = await response.json();
+    const xml = await response.text();
 
     expect(response.status).toBe(404);
-    expect(body.error).toBe('Merchant not found');
+    expect(response.headers.get('content-type')).toContain('application/xml');
+    expect(xml).toContain('<error>');
+    expect(xml).toContain('<message>Merchant not found</message>');
     expect(mockGetCachedGoogleMerchantFeedData).not.toHaveBeenCalled();
   });
 
@@ -150,10 +152,12 @@ describe('GET /feeds/google-merchant.xml integration', () => {
         headers: { host: 'ogabassey.com' },
       })
     );
-    const body = await response.json();
+    const xml = await response.text();
 
     expect(response.status).toBe(500);
-    expect(body.error).toBe('Failed to generate feed');
+    expect(response.headers.get('content-type')).toContain('application/xml');
+    expect(xml).toContain('<error>');
+    expect(xml).toContain('<message>Failed to generate feed</message>');
   });
 
   it('returns 400 when storefront host validation fails before delegation', async () => {

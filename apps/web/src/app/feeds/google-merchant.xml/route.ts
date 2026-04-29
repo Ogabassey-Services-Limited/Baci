@@ -29,6 +29,40 @@ function buildXmlErrorResponse(error: string, status: number): NextResponse {
   );
 }
 
+function getDelegatedErrorMessage(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+
+  const error = 'error' in payload ? payload.error : null;
+  if (typeof error === 'string') {
+    return error;
+  }
+
+  const message = 'message' in payload ? payload.message : null;
+  return typeof message === 'string' ? message : null;
+}
+
+async function toXmlErrorResponse(response: Response): Promise<Response> {
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.includes('application/xml')) {
+    return response;
+  }
+
+  let error = response.statusText || 'Failed to generate feed';
+  try {
+    if (contentType.includes('application/json')) {
+      error = getDelegatedErrorMessage(await response.clone().json()) || error;
+    } else {
+      error = (await response.clone().text()).trim() || error;
+    }
+  } catch {
+    // Fall back to the HTTP status text when the delegated body is unreadable.
+  }
+
+  return buildXmlErrorResponse(error, response.status);
+}
+
 export async function GET(request: NextRequest) {
   const resolution = await resolveStorefrontMerchantFromRequest({
     request,
@@ -48,9 +82,15 @@ export async function GET(request: NextRequest) {
   const feedUrl = new URL('/api/feed/google-merchant', request.url);
   feedUrl.searchParams.set('merchant_slug', resolution.merchant.slug);
 
-  return getGoogleMerchantFeed(
+  const response = await getGoogleMerchantFeed(
     new NextRequest(feedUrl, {
       headers: request.headers,
     })
   );
+
+  if (response.ok) {
+    return response;
+  }
+
+  return toXmlErrorResponse(response);
 }

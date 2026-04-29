@@ -95,6 +95,54 @@ describe('resolveStorefrontMerchantFromRequest', () => {
     );
   });
 
+  it('continues to fallback candidates when a merchant lookup throws', async () => {
+    const failure = new Error('normalized domain unavailable');
+    mockGetMerchantByIdentifier.mockImplementation((identifier) => {
+      if (identifier === 'ogabassey.com') {
+        return Promise.reject(failure);
+      }
+
+      if (identifier === 'www.ogabassey.com') {
+        return Promise.resolve({
+          id: 'merchant-1',
+          slug: 'ogabassey',
+          business_name: 'Ogabassey',
+        });
+      }
+
+      return Promise.resolve(null);
+    });
+    const { resolveStorefrontMerchantFromRequest } = await import(
+      '@/lib/storefront-merchant'
+    );
+
+    const result = await resolveStorefrontMerchantFromRequest({
+      request: new Request(
+        'https://www.ogabassey.com/feeds/google-merchant.xml'
+      ),
+      rootDomain: 'usebaci.com',
+      notFoundError: 'Storefront not found',
+      lookupError: 'Lookup failed',
+    });
+
+    expect(result).toMatchObject({
+      success: true,
+      merchant: {
+        id: 'merchant-1',
+        slug: 'ogabassey',
+      },
+      identifier: 'www.ogabassey.com',
+    });
+    expect(mockGetMerchantByIdentifier).toHaveBeenNthCalledWith(
+      1,
+      'ogabassey.com'
+    );
+    expect(mockGetMerchantByIdentifier).toHaveBeenNthCalledWith(
+      2,
+      'www.ogabassey.com'
+    );
+  });
+
   it('returns 404 when the request is not storefront-scoped', async () => {
     const { resolveStorefrontMerchantFromRequest } = await import(
       '@/lib/storefront-merchant'
@@ -177,6 +225,41 @@ describe('resolveStorefrontMerchantFromRequest', () => {
       status: 500,
       error: 'Lookup failed',
       cause: failure,
+    });
+  });
+
+  it('returns the last lookup error when all fallback lookups fail', async () => {
+    const firstFailure = new Error('normalized domain unavailable');
+    const lastFailure = new Error('exact domain unavailable');
+    mockGetMerchantByIdentifier.mockImplementation((identifier) => {
+      if (identifier === 'ogabassey.com') {
+        return Promise.reject(firstFailure);
+      }
+
+      if (identifier === 'www.ogabassey.com') {
+        return Promise.reject(lastFailure);
+      }
+
+      return Promise.resolve(null);
+    });
+    const { resolveStorefrontMerchantFromRequest } = await import(
+      '@/lib/storefront-merchant'
+    );
+
+    const result = await resolveStorefrontMerchantFromRequest({
+      request: new Request(
+        'https://www.ogabassey.com/feeds/google-merchant.xml'
+      ),
+      rootDomain: 'usebaci.com',
+      notFoundError: 'Storefront not found',
+      lookupError: 'Lookup failed',
+    });
+
+    expect(result).toEqual({
+      success: false,
+      status: 500,
+      error: 'Lookup failed',
+      cause: lastFailure,
     });
   });
 });

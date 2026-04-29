@@ -26,6 +26,14 @@ describe('googleMerchantFeedQuerySchema', () => {
     }
   });
 
+  it('accepts a 255-character merchant slug', () => {
+    const result = googleMerchantFeedQuerySchema.safeParse({
+      merchant_slug: 'a'.repeat(255),
+    });
+
+    expect(result.success).toBe(true);
+  });
+
   it('fails when no merchant identifier is provided', () => {
     expect(googleMerchantFeedQuerySchema.safeParse({}).success).toBe(false);
   });
