@@ -254,11 +254,16 @@ export function CheckoutIdentityModal({
                     style={({ pressed }) => [
                       styles.primaryButton,
                       { backgroundColor: colors.primary },
-                      pressed && styles.primaryButtonPressed,
+                      pressed && [styles.primaryButtonPressed, { opacity: 0.85 }],
                     ]}
                     onPress={handleGuestCheckout}
                   >
-                    <Text style={styles.primaryButtonText}>
+                    <Text
+                      style={[
+                        styles.primaryButtonText,
+                        { color: colors.primaryForeground },
+                      ]}
+                    >
                       Continue as Guest
                     </Text>
                   </Pressable>
@@ -272,7 +277,19 @@ export function CheckoutIdentityModal({
                 </View>
 
                 {/* Create Account */}
-                <View style={[styles.optionCard, styles.optionCardSecondary, { backgroundColor: colors.card, borderColor: isDark ? colors.border : BRAND.primaryLight }]}>
+                <View
+                  style={[
+                    styles.optionCard,
+                    styles.optionCardSecondary,
+                    {
+                      backgroundColor: colors.card,
+                      // Soft brand-tinted border in both modes:
+                      // primary + ~20% alpha keeps the "light brand" feel
+                      // while adapting to amber in dark mode.
+                      borderColor: isDark ? colors.border : `${colors.primary}33`,
+                    },
+                  ]}
+                >
                   <View
                     style={[styles.optionHeader, styles.optionHeaderCentered]}
                   >
@@ -362,7 +379,7 @@ export function CheckoutIdentityModal({
                   style={({ pressed }) => [
                     styles.primaryButton,
                     { backgroundColor: colors.primary },
-                    pressed && [styles.primaryButtonPressed, { backgroundColor: BRAND.primaryDark }],
+                    pressed && [styles.primaryButtonPressed, { opacity: 0.85 }],
                     isLoading && styles.primaryButtonDisabled,
                   ]}
                   onPress={handleSignIn}
@@ -373,7 +390,12 @@ export function CheckoutIdentityModal({
                   ) : (
                     <>
                       <Ionicons name="person" size={16} color={colors.primaryForeground} />
-                      <Text style={styles.primaryButtonText}>
+                      <Text
+                        style={[
+                          styles.primaryButtonText,
+                          { color: colors.primaryForeground },
+                        ]}
+                      >
                         Sign In & Checkout
                       </Text>
                     </>
