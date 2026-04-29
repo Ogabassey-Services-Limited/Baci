@@ -176,7 +176,9 @@ function getOfferStockCount(
     return UNLIMITED_STOCK_QUANTITY;
   }
 
-  return Math.max(0, offer.stock_quantity);
+  return typeof offer.stock_quantity === 'number'
+    ? Math.max(0, offer.stock_quantity)
+    : 0;
 }
 
 function normalizeCondition(condition?: string | null) {

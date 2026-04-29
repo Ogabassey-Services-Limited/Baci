@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { FeedImageManifestEntry } from '@/lib/gmc-feed-images';
 import {
   type FeedMerchant,
+  type FeedOffer,
   type FeedProduct,
   generateGoogleMerchantFeed,
 } from './feed-builder';
@@ -717,6 +718,30 @@ describe('generateGoogleMerchantFeed — multi-condition offers', () => {
     expect(xml).toContain(
       '<g:canonical_link>https://ogabassey.com/products/test-product</g:canonical_link>'
     );
+  });
+
+  it('emits quantity 0 instead of NaN when an offer stock quantity is missing', () => {
+    const offerWithoutStockQuantity: Omit<FeedOffer, 'stock_quantity'> = {
+      id: 'offer-missing-stock',
+      condition: 'used',
+      price: 710000,
+    };
+
+    const xml = generateGoogleMerchantFeed(
+      [
+        product({
+          has_condition_offers: true,
+          offers: [offerWithoutStockQuantity as FeedOffer],
+        }),
+      ],
+      merchant(),
+      BASE_URL,
+      defaultManifest
+    );
+
+    expect(xml).toContain('<g:id>offer-missing-stock</g:id>');
+    expect(xml).toContain('<g:quantity>0</g:quantity>');
+    expect(xml).not.toContain('NaN');
   });
 
   it('maps open_box condition to "refurbished" in GMC output', () => {
