@@ -44,6 +44,7 @@ describe('GET /agent-commerce.json', () => {
     expect(body.links.feeds).toMatchObject({
       agent_products:
         'https://ogabassey.com/api/feed/openai?merchant_slug=ogabassey&format=current',
+      google_merchant_xml: 'https://ogabassey.com/feeds/google-merchant.xml',
     });
     expect(body.links.checkout_sessions).toBeUndefined();
     expect(body.links).toMatchObject({
@@ -84,6 +85,9 @@ describe('GET /agent-commerce.json', () => {
       name: 'Ogabassey',
       canonical_origin: 'https://www.ogabassey.com',
     });
+    expect(body.links.feeds.google_merchant_xml).toBe(
+      'https://www.ogabassey.com/feeds/google-merchant.xml'
+    );
     expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
     expect(mockGetMerchantByIdentifier).toHaveBeenCalledTimes(1);
     expect(mockGetMerchantByIdentifier).not.toHaveBeenCalledWith(
@@ -119,6 +123,9 @@ describe('GET /agent-commerce.json', () => {
       name: 'Ogabassey',
       canonical_origin: 'https://www.ogabassey.com',
     });
+    expect(body.links.feeds.google_merchant_xml).toBe(
+      'https://www.ogabassey.com/feeds/google-merchant.xml'
+    );
     expect(mockGetMerchantByIdentifier).toHaveBeenCalledTimes(2);
     expect(mockGetMerchantByIdentifier).toHaveBeenNthCalledWith(
       1,
@@ -145,6 +152,9 @@ describe('GET /agent-commerce.json', () => {
       name: 'Ogabassey',
       canonical_origin: 'http://ogabassey.localhost:3000',
     });
+    expect(body.links.feeds.google_merchant_xml).toBe(
+      'http://ogabassey.localhost:3000/feeds/google-merchant.xml'
+    );
     expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey');
     expect(mockGetMerchantByIdentifier).not.toHaveBeenCalledWith(
       'ogabassey.localhost'

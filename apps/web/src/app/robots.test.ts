@@ -153,6 +153,21 @@ describe('robots()', () => {
     ]);
   });
 
+  it('does not block public machine feed URLs on storefront domains', async () => {
+    const { default: robots } = await import('./robots');
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
+    mockHost = 'ogabassey.com';
+
+    const result = await robots();
+    const defaultRule = Array.isArray(result.rules)
+      ? result.rules[0]
+      : result.rules;
+    const disallows = defaultRule.disallow as string[];
+
+    expect(disallows).not.toContain('/feeds/');
+    expect(disallows).not.toContain('/feeds/google-merchant.xml');
+  });
+
   it('treats localhost as platform domain', async () => {
     const { default: robots } = await import('./robots');
     mockHost = 'localhost:3000';

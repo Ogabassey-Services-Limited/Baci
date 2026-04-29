@@ -35,7 +35,7 @@ export interface FeedProduct {
   sku?: string;
   stock: number;
   stock_quantity?: number;
-  manage_stock?: boolean;
+  manage_stock?: boolean | null;
   condition?: 'new' | 'used' | 'refurbished' | 'open_box' | 'uk_used';
   condition_detail?: string;
   variant_model?: 'legacy' | 'sku_matrix';
@@ -127,11 +127,17 @@ function escapeXml(unsafe: string): string {
 }
 
 function getFeedStockCount(product: FeedProduct): number {
-  if (product.manage_stock === false) {
+  if (isUnmanagedFeedStock(product.manage_stock)) {
     return UNLIMITED_STOCK_QUANTITY;
   }
 
   return getEffectiveStock(product);
+}
+
+function isUnmanagedFeedStock(
+  manageStock: boolean | null | undefined
+): boolean {
+  return manageStock === false || manageStock == null;
 }
 
 function getProductType(product: FeedProduct): string | undefined {
@@ -150,16 +156,27 @@ function getProductType(product: FeedProduct): string | undefined {
 }
 
 function getVariantStockCount(
-  manageStock: boolean | undefined,
+  manageStock: boolean | null | undefined,
   variant: FeedVariant
 ): number {
-  if (manageStock === false) {
+  if (isUnmanagedFeedStock(manageStock)) {
     return UNLIMITED_STOCK_QUANTITY;
   }
 
   return typeof variant.stock_quantity === 'number'
     ? Math.max(0, variant.stock_quantity)
     : 0;
+}
+
+function getOfferStockCount(
+  manageStock: boolean | null | undefined,
+  offer: FeedOffer
+): number {
+  if (isUnmanagedFeedStock(manageStock)) {
+    return UNLIMITED_STOCK_QUANTITY;
+  }
+
+  return Math.max(0, offer.stock_quantity);
 }
 
 function normalizeCondition(condition?: string | null) {
@@ -516,8 +533,7 @@ export function generateGoogleMerchantFeed(
       const offerItems = product.offers
         .filter((offer) => offer.id && offer.price > 0)
         .map((offer) => {
-          const offerStock =
-            offer.stock_quantity > 0 ? offer.stock_quantity : 0;
+          const offerStock = getOfferStockCount(product.manage_stock, offer);
           const offerAvailability =
             offerStock > 0 ? 'in_stock' : 'out_of_stock';
 

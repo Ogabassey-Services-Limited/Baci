@@ -15,6 +15,7 @@ function product(overrides: Partial<FeedProduct> = {}): FeedProduct {
     slug: 'test-product',
     price: 100,
     stock: 10,
+    manage_stock: true,
     ...overrides,
   };
 }
@@ -560,6 +561,66 @@ describe('generateGoogleMerchantFeed — stock and availability', () => {
     expect(xml).toContain('<g:quantity>9999</g:quantity>');
   });
 
+  it('emits canonical custom-domain links and unmanaged stock availability', () => {
+    const xml = generateGoogleMerchantFeed(
+      [
+        product({
+          id: 'product-1',
+          name: 'Riversong Motive 5T Smart Watch',
+          slug: 'riversong-motive-5t-smart-watch',
+          category: 'Smartwatches',
+          categories: { name: 'Smartwatches', slug: 'smartwatches' },
+          price: 30_600,
+          stock: 0,
+          stock_quantity: 0,
+          manage_stock: false,
+        }),
+      ],
+      merchant({
+        business_name: 'Ogabassey',
+        slug: 'ogabassey',
+        payout_currency: 'NGN',
+      }),
+      'https://ogabassey.com',
+      {
+        'product-1': [
+          manifestEntry({
+            verified_url: 'https://cdn.ogabassey.com/products/watch.jpg',
+            is_primary: true,
+          }),
+        ],
+      }
+    );
+
+    expect(xml).toContain(
+      '<g:link>https://ogabassey.com/smartwatches/riversong-motive-5t-smart-watch</g:link>'
+    );
+    expect(xml).not.toContain('https://ogabassey.com/ogabassey/');
+    expect(xml).toContain('<g:availability>in_stock</g:availability>');
+    expect(xml).toContain('<g:quantity>9999</g:quantity>');
+  });
+
+  it.each([
+    ['null', null],
+    ['undefined', undefined],
+  ] as const)('emits in_stock with quantity 9999 when manage_stock is %s', (_label, manageStock) => {
+    const xml = generateGoogleMerchantFeed(
+      [
+        product({
+          stock: 0,
+          stock_quantity: 0,
+          manage_stock: manageStock,
+        }),
+      ],
+      merchant(),
+      BASE_URL,
+      defaultManifest
+    );
+
+    expect(xml).toContain('<g:availability>in_stock</g:availability>');
+    expect(xml).toContain('<g:quantity>9999</g:quantity>');
+  });
+
   it('uses stock_quantity over legacy stock when both are present', () => {
     const xml = generateGoogleMerchantFeed(
       [product({ stock: 0, stock_quantity: 50 })],
@@ -571,13 +632,13 @@ describe('generateGoogleMerchantFeed — stock and availability', () => {
     expect(xml).toContain('<g:quantity>50</g:quantity>');
   });
 
-  it('emits out_of_stock when stock is 0 and stock_quantity is undefined', () => {
+  it('emits out_of_stock when tracked stock is 0 and stock_quantity is undefined', () => {
     const xml = generateGoogleMerchantFeed(
       [
         product({
           stock: 0,
           stock_quantity: undefined,
-          manage_stock: undefined,
+          manage_stock: true,
         }),
       ],
       merchant(),
