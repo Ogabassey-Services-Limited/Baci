@@ -418,6 +418,8 @@ function buildMerchantFeedPassThroughResponse({
     },
   });
 
+  // Public XML feeds use the storefront security profile: relaxed CSP is
+  // appropriate for machine-readable storefront content.
   const routeType = getRouteType(pathname);
   const isLocal = isLocalhost(hostname);
   return applySecurityHeaders(

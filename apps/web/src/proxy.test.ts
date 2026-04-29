@@ -175,6 +175,9 @@ describe('Middleware Proxy', () => {
     expect(res.headers.get('x-middleware-request-x-custom-domain')).toBe(
       'ogabassey.com'
     );
+    expect(res.headers.get('x-middleware-request-x-merchant-domain')).toBe(
+      'ogabassey.com'
+    );
   });
 
   it('passes subdomain Google Merchant XML feed to the app route', async () => {
