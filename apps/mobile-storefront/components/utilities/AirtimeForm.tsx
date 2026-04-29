@@ -73,6 +73,7 @@ export function AirtimeForm({
   const customer = useAuthStore((state) => state.customer);
   const payment = useUtilityPayment();
   const scrollViewRef = useRef<ScrollView>(null);
+  const prevIsRepeatPaymentReadyRef = useRef(isRepeatPaymentReady);
 
   const [selectedProvider, setSelectedProvider] = useState<string | null>(
     initialProvider ??
@@ -122,9 +123,10 @@ export function AirtimeForm({
   const isBusy = isSubmitting;
 
   useEffect(() => {
-    if (isRepeatPaymentReady) {
+    if (!prevIsRepeatPaymentReadyRef.current && isRepeatPaymentReady) {
       setShouldScrollToPayment(true);
     }
+    prevIsRepeatPaymentReadyRef.current = isRepeatPaymentReady;
   }, [isRepeatPaymentReady]);
 
   const handlePurchase = async () => {

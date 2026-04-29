@@ -1,125 +1,21 @@
-import { after, type NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { backfillVtuVoucherPin } from '@/lib/vtu-fulfillment';
+import {
+  extractMetadataField,
+  isString,
+  MAX_TOKEN_BACKFILL_SCHEDULES,
+  normalizeMetadata,
+  scheduleVoucherPinBackfill,
+} from '@/lib/vtu-voucher-backfill';
 import { historyQuerySchema } from '@/schemas/vtu';
 
-const TOKEN_BACKFILL_TYPES = new Set(['electricity', 'cable_tv', 'betting']);
-const MAX_TOKEN_BACKFILL_SCHEDULES = 3;
 const PAYMENT_STATUS_BATCH_SIZE = 250;
-const VOUCHER_PIN_BACKFILL_SCHEDULED_AT_KEY = 'voucherPinBackfillScheduledAt';
-const TOKEN_BACKFILL_DEDUPE_WINDOW_MS = 15 * 60 * 1000;
 
-type MetadataRecord = Record<string, unknown>;
 type PaymentGateway = 'paystack' | 'korapay';
-
-function isMetadataRecord(metadata: unknown): metadata is MetadataRecord {
-  return (
-    typeof metadata === 'object' &&
-    metadata !== null &&
-    !Array.isArray(metadata)
-  );
-}
-
-function normalizeMetadata(metadata: unknown): MetadataRecord {
-  return isMetadataRecord(metadata) ? metadata : {};
-}
-
-function toStableJsonValue(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.map((item) => toStableJsonValue(item));
-  }
-
-  if (isMetadataRecord(value)) {
-    return Object.keys(value)
-      .sort()
-      .reduce<Record<string, unknown>>((accumulator, key) => {
-        accumulator[key] = toStableJsonValue(value[key]);
-        return accumulator;
-      }, {});
-  }
-
-  return value;
-}
-
-function stableJsonStringify(value: unknown): string {
-  return JSON.stringify(toStableJsonValue(value)) ?? 'null';
-}
-
-function isString(value: unknown): value is string {
-  return typeof value === 'string';
-}
 
 function isPaymentGateway(value: unknown): value is PaymentGateway {
   return value === 'paystack' || value === 'korapay';
-}
-
-function extractMetadataField<T>(
-  metadata: unknown,
-  key: string,
-  validator: (value: unknown) => value is T
-) {
-  if (!isMetadataRecord(metadata)) {
-    return null;
-  }
-
-  const value = metadata[key];
-  return validator(value) ? value : null;
-}
-
-function hasRecentBackfillSchedule(metadata: MetadataRecord) {
-  const scheduledAt = extractMetadataField(
-    metadata,
-    VOUCHER_PIN_BACKFILL_SCHEDULED_AT_KEY,
-    isString
-  );
-  const scheduledAtMs = scheduledAt ? Date.parse(scheduledAt) : Number.NaN;
-  return (
-    Number.isFinite(scheduledAtMs) &&
-    Date.now() - scheduledAtMs < TOKEN_BACKFILL_DEDUPE_WINDOW_MS
-  );
-}
-
-async function markVoucherPinBackfillScheduled({
-  metadata,
-  originalMetadata,
-  supabase,
-  transactionId,
-}: {
-  metadata: MetadataRecord;
-  originalMetadata: unknown;
-  supabase: ReturnType<typeof createAdminClient>;
-  transactionId: string;
-}) {
-  const nextMetadata = {
-    ...metadata,
-    [VOUCHER_PIN_BACKFILL_SCHEDULED_AT_KEY]: new Date().toISOString(),
-  };
-  let updateQuery = supabase
-    .from('vtu_transactions')
-    .update({ metadata: nextMetadata })
-    .eq('id', transactionId);
-
-  updateQuery = isMetadataRecord(originalMetadata)
-    ? updateQuery.filter(
-        'metadata',
-        'eq',
-        // Supabase filter() expects raw PostgREST syntax, so pass stable JSON
-        // text instead of an object, which would become "[object Object]".
-        stableJsonStringify(originalMetadata)
-      )
-    : updateQuery.is('metadata', null);
-
-  const { data, error } = await updateQuery.select('id');
-  if (error) {
-    console.error('Failed to mark VTU voucher-pin backfill as scheduled:', {
-      error,
-      transactionId,
-    });
-    return null;
-  }
-
-  return Array.isArray(data) && data.length > 0 ? nextMetadata : null;
 }
 
 export async function GET(request: NextRequest) {
@@ -302,51 +198,19 @@ export async function GET(request: NextRequest) {
       transaction,
       voucherPin,
     } of transactionsWithVoucherPins) {
-      if (
-        voucherPin !== null ||
-        transaction.status !== 'successful' ||
-        !TOKEN_BACKFILL_TYPES.has(String(transaction.type)) ||
-        hasRecentBackfillSchedule(metadata) ||
-        scheduledTokenBackfills >= MAX_TOKEN_BACKFILL_SCHEDULES
-      ) {
-        continue;
+      if (scheduledTokenBackfills >= MAX_TOKEN_BACKFILL_SCHEDULES) {
+        break;
       }
 
-      const scheduledMetadata = await markVoucherPinBackfillScheduled({
+      const wasScheduled = await scheduleVoucherPinBackfill({
         metadata,
         originalMetadata,
         supabase,
-        transactionId: String(transaction.id),
+        transaction,
+        voucherPin,
       });
 
-      if (!scheduledMetadata) {
-        continue;
-      }
-
-      scheduledTokenBackfills += 1;
-      after(async () => {
-        try {
-          await backfillVtuVoucherPin({
-            billRequestRef:
-              typeof transaction.request_reference === 'string'
-                ? transaction.request_reference
-                : null,
-            billResponseReference:
-              typeof transaction.transaction_id === 'string'
-                ? transaction.transaction_id
-                : null,
-            metadata: scheduledMetadata,
-            supabase,
-            transactionId: String(transaction.id),
-          });
-        } catch (error) {
-          console.error('Failed to backfill VTU voucher pin from history:', {
-            error,
-            transactionId: transaction.id,
-            transactionReference: transaction.transaction_id,
-          });
-        }
-      });
+      scheduledTokenBackfills += wasScheduled ? 1 : 0;
     }
 
     return NextResponse.json({

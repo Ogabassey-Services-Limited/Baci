@@ -54,8 +54,42 @@ export const PAYMENT_CLIPBOARD_BRIDGE = {
       return '';
     }
 
-    var accountNumber = text.match(/(?:^|\\D)(\\d(?:[\\s-]?\\d){9})(?:\\D|$)/);
-    return accountNumber ? accountNumber[1].replace(/\\D/g, '') : '';
+    function normalizeAccountNumber(value) {
+      return value ? value.replace(/\\D/g, '') : '';
+    }
+
+    function hasExcludedNumberContext(matchText, matchIndex, rawNumber) {
+      var numberIndex = matchIndex + matchText.indexOf(rawNumber);
+      var before = text
+        .slice(Math.max(0, numberIndex - 32), numberIndex)
+        .toLowerCase();
+      var after = text
+        .slice(numberIndex + rawNumber.length, numberIndex + rawNumber.length + 32)
+        .toLowerCase();
+      return /\\b(phone|tel|telephone|mobile|ref|reference)\\b/.test(
+        before + ' ' + after
+      );
+    }
+
+    var contextualPattern =
+      /\\b(?:account(?:\\s*(?:number|no\\.?|details)?)?|acct\\.?|acc\\.?)(?:\\s*(?:number|no\\.?)?)?\\b[^\\d]{0,40}(\\d(?:[\\s-]?\\d){9})(?:\\D|$)/gi;
+    var contextualMatch;
+    while ((contextualMatch = contextualPattern.exec(text)) !== null) {
+      var contextualAccountNumber = normalizeAccountNumber(contextualMatch[1]);
+      if (contextualAccountNumber) {
+        return contextualAccountNumber;
+      }
+    }
+
+    var genericPattern = /(?:^|\\D)(\\d(?:[\\s-]?\\d){9})(?:\\D|$)/g;
+    var genericMatch;
+    while ((genericMatch = genericPattern.exec(text)) !== null) {
+      if (!hasExcludedNumberContext(genericMatch[0], genericMatch.index, genericMatch[1])) {
+        return normalizeAccountNumber(genericMatch[1]);
+      }
+    }
+
+    return '';
   }
 
   function postAccountNumber(accountNumber) {

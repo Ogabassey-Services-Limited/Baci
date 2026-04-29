@@ -1,14 +1,22 @@
 import { z } from 'zod';
 
+const trimmedRequiredString = (message: string) =>
+  z.string().trim().min(1, message);
+
+const trimmedOptionalString = (message: string) =>
+  trimmedRequiredString(message).optional();
+
 export const PaymentGatewayParamsSchema = z
   .object({
-    orderId: z.string().optional(),
-    orderNumber: z.string().optional(),
+    orderId: trimmedOptionalString('Order ID cannot be empty'),
+    orderNumber: trimmedOptionalString('Order number cannot be empty'),
     gateway: z.enum(['paystack', 'korapay', 'juicyway'], {
       message: 'Invalid payment gateway',
     }),
-    authorizationUrl: z.string().url('Invalid authorization URL'),
-    reference: z.string().min(1, 'Reference is required'),
+    authorizationUrl: trimmedRequiredString(
+      'Authorization URL is required'
+    ).url('Invalid authorization URL'),
+    reference: trimmedRequiredString('Reference is required'),
     amount: z.coerce
       .number()
       .positive('Amount must be greater than 0')
@@ -17,7 +25,9 @@ export const PaymentGatewayParamsSchema = z
     utilityType: z
       .enum(['airtime', 'data', 'tv', 'power', 'gaming'])
       .optional(),
-    customerIdentifier: z.string().optional(),
+    customerIdentifier: trimmedOptionalString(
+      'Customer identifier cannot be empty'
+    ),
   })
   .superRefine((data, ctx) => {
     if (data.paymentKind === 'vtu') {

@@ -9,10 +9,11 @@ const MobileEnvSchema = z.object({
 });
 
 function readExpoExtraApiUrl() {
-  const value = Constants.expoConfig?.extra?.apiUrl;
-  return typeof value === 'string' && value.trim().length > 0
-    ? value
-    : undefined;
+  const value =
+    typeof Constants.expoConfig?.extra?.apiUrl === 'string'
+      ? Constants.expoConfig.extra.apiUrl.trim()
+      : undefined;
+  return value && value.length > 0 ? value : undefined;
 }
 
 function readPublicApiUrl() {

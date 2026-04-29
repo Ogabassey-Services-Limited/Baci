@@ -1,10 +1,50 @@
 import { jest } from '@jest/globals';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react-native';
 import type { Biller, BillItem } from '@/hooks/use-vtu-billers';
+import { VtuPaymentStillProcessingError } from '@/lib/vtu-checkout';
 import { BillForm } from './BillForm';
 
 const mockVerifyMutate = jest.fn();
 const mockVerifyReset = jest.fn();
+const mockUseUtilityPayment = jest.fn();
+const mockChargeSavedVtuCard =
+  jest.fn<
+    (...args: unknown[]) => Promise<{
+      amount?: number;
+      authorization_url?: string;
+      cashback?: { amount: number; newBalance: number };
+      gateway?: 'paystack';
+      reference: string;
+      status?: 'processing';
+      voucherPin?: string;
+    }>
+  >();
+const mockInitializeVtuCheckout =
+  jest.fn<
+    (...args: unknown[]) => Promise<{
+      authorization_url: string;
+      gateway: 'paystack';
+      reference: string;
+    }>
+  >();
+const mockIsSavedVtuCardChargeProcessing =
+  jest.fn<(...args: unknown[]) => boolean>();
+const mockRequiresSavedVtuCardAuthorization =
+  jest.fn<(...args: unknown[]) => boolean>();
+const mockWaitForVtuConfirmation =
+  jest.fn<
+    (...args: unknown[]) => Promise<{
+      amount?: number;
+      cashback?: { amount: number; newBalance: number };
+      reference: string;
+      voucherPin?: string;
+    }>
+  >();
 
 function mockBillItem(overrides: Partial<BillItem>): BillItem {
   return {
@@ -87,16 +127,7 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('@/hooks/use-utility-payment', () => ({
-  useUtilityPayment: () => ({
-    cards: [],
-    isLoadingCards: false,
-    refetchCards: jest.fn(),
-    selectedGateway: 'paystack',
-    selectedSavedCardId: null,
-    selectGateway: jest.fn(),
-    selectSavedCard: jest.fn(),
-    supportedGateways: ['paystack', 'korapay'],
-  }),
+  useUtilityPayment: () => mockUseUtilityPayment(),
 }));
 
 jest.mock('./UtilityPaymentOptions', () => {
@@ -108,11 +139,25 @@ jest.mock('./UtilityPaymentOptions', () => {
   };
 });
 
-jest.mock('@/lib/vtu-checkout', () => ({
-  chargeSavedVtuCard: jest.fn(),
-  initializeVtuCheckout: jest.fn(),
-  waitForVtuConfirmation: jest.fn(),
-}));
+jest.mock('@/lib/vtu-checkout', () => {
+  const actual =
+    jest.requireActual<typeof import('@/lib/vtu-checkout')>(
+      '@/lib/vtu-checkout'
+    );
+
+  return {
+    ...actual,
+    chargeSavedVtuCard: (...args: unknown[]) => mockChargeSavedVtuCard(...args),
+    initializeVtuCheckout: (...args: unknown[]) =>
+      mockInitializeVtuCheckout(...args),
+    isSavedVtuCardChargeProcessing: (...args: unknown[]) =>
+      mockIsSavedVtuCardChargeProcessing(...args),
+    requiresSavedVtuCardAuthorization: (...args: unknown[]) =>
+      mockRequiresSavedVtuCardAuthorization(...args),
+    waitForVtuConfirmation: (...args: unknown[]) =>
+      mockWaitForVtuConfirmation(...args),
+  };
+});
 
 jest.mock('@/stores/auth-store', () => ({
   useAuthStore: (selector: (state: { customer: null }) => unknown) =>
@@ -142,6 +187,31 @@ describe('BillForm', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockBillers = mockPowerBillers();
+    mockUseUtilityPayment.mockReturnValue({
+      cards: [],
+      isLoadingCards: false,
+      refetchCards: jest.fn(),
+      selectedGateway: 'paystack',
+      selectedSavedCardId: null,
+      selectGateway: jest.fn(),
+      selectSavedCard: jest.fn(),
+      supportedGateways: ['paystack', 'korapay'],
+    });
+    mockChargeSavedVtuCard.mockResolvedValue({
+      amount: 1000,
+      reference: 'VTU-BILL-123',
+    });
+    mockInitializeVtuCheckout.mockResolvedValue({
+      authorization_url: 'https://checkout.paystack.com/test',
+      gateway: 'paystack',
+      reference: 'VTU-BILL-123',
+    });
+    mockIsSavedVtuCardChargeProcessing.mockReturnValue(false);
+    mockRequiresSavedVtuCardAuthorization.mockReturnValue(false);
+    mockWaitForVtuConfirmation.mockResolvedValue({
+      amount: 1000,
+      reference: 'VTU-BILL-123',
+    });
   });
 
   it('waits for the full bill-item path before showing the identifier input', () => {
@@ -275,5 +345,68 @@ describe('BillForm', () => {
     );
 
     expect(screen.getByDisplayValue('7,000')).toBeOnTheScreen();
+  });
+
+  it('surfaces saved-card bill payments that are still processing', async () => {
+    const onSuccess = jest.fn();
+    mockUseUtilityPayment.mockReturnValue({
+      cards: [],
+      isLoadingCards: false,
+      refetchCards: jest.fn(),
+      selectedGateway: null,
+      selectedSavedCardId: 'saved-card-1',
+      selectGateway: jest.fn(),
+      selectSavedCard: jest.fn(),
+      supportedGateways: ['paystack', 'korapay'],
+    });
+    mockChargeSavedVtuCard.mockResolvedValueOnce({
+      reference: 'VTU-BILL-PENDING-123',
+      status: 'processing',
+    });
+    mockIsSavedVtuCardChargeProcessing.mockReturnValueOnce(true);
+    mockWaitForVtuConfirmation.mockRejectedValueOnce(
+      new VtuPaymentStillProcessingError({
+        amount: 2500,
+        customerIdentifier: '1234567890',
+        reference: 'VTU-BILL-PENDING-123',
+      })
+    );
+
+    render(
+      <BillForm
+        type="power"
+        initialAmount="2500"
+        initialBillerName="EKEDC NG"
+        initialBillItemIdentifier="postpaid"
+        initialCustomerIdentifier="1234567890"
+        isRepeatPaymentReady
+        onSuccess={onSuccess}
+      />
+    );
+
+    fireEvent.press(screen.getByText('Pay ₦2,500'));
+
+    await waitFor(() => {
+      expect(mockChargeSavedVtuCard).toHaveBeenCalledWith(
+        expect.objectContaining({
+          amount: 2500,
+          customerIdentifier: '1234567890',
+          savedPaymentMethodId: 'saved-card-1',
+          type: 'electricity',
+        })
+      );
+    });
+    await waitFor(() => {
+      expect(mockWaitForVtuConfirmation).toHaveBeenCalledWith({
+        gateway: 'paystack',
+        reference: 'VTU-BILL-PENDING-123',
+      });
+    });
+    expect(onSuccess).toHaveBeenCalledWith({
+      amount: 2500,
+      customerIdentifier: '1234567890',
+      reference: 'VTU-BILL-PENDING-123',
+      status: 'processing',
+    });
   });
 });

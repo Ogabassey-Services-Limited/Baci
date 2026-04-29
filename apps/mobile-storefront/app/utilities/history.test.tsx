@@ -332,7 +332,7 @@ describe('UtilityHistoryScreen', () => {
     });
     expect(alertSpy).toHaveBeenCalledWith(
       'Sync Failed',
-      'Gateway not settled.'
+      'We could not reconcile this payment yet.'
     );
   });
 

@@ -240,4 +240,48 @@ describe('AirtimeForm', () => {
       expect.any(String)
     );
   });
+
+  it('alerts and does not complete when a saved-card airtime charge rejects', async () => {
+    const onSuccessMock = jest.fn();
+    mockUseUtilityPayment.mockReturnValue({
+      cards: [],
+      isLoadingCards: false,
+      selectedGateway: null,
+      selectedSavedCardId: 'saved-card-1',
+      selectGateway: jest.fn(),
+      selectSavedCard: jest.fn(),
+      supportedGateways: ['paystack', 'korapay'],
+    });
+    mockChargeSavedVtuCard.mockRejectedValueOnce(
+      new Error('Saved card charge failed')
+    );
+    render(<AirtimeForm onSuccess={onSuccessMock} />);
+
+    fireEvent.changeText(
+      screen.getByPlaceholderText('08012345678'),
+      '08031234567'
+    );
+    await waitFor(() => expect(screen.getByText('Network')).toBeOnTheScreen());
+    fireEvent.changeText(screen.getByPlaceholderText('1,000'), '1000');
+    fireEvent.press(screen.getByText('Pay ₦1,000'));
+
+    await waitFor(() => {
+      expect(mockChargeSavedVtuCard).toHaveBeenCalledWith(
+        expect.objectContaining({
+          amount: 1000,
+          phoneNumber: '08031234567',
+          savedPaymentMethodId: 'saved-card-1',
+          type: 'airtime',
+        })
+      );
+    });
+    await waitFor(() => {
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Payment Failed',
+        'Saved card charge failed'
+      );
+    });
+    expect(mockWaitForVtuConfirmation).not.toHaveBeenCalled();
+    expect(onSuccessMock).not.toHaveBeenCalled();
+  });
 });

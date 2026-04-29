@@ -1,6 +1,10 @@
 import { describe, expect, it } from '@jest/globals';
 import { PAYMENT_CLIPBOARD_BRIDGE } from '@/constants/payment-clipboard-bridge';
 
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function expectBridgeMessageTypesToBeReferenced({
   accountNumberMessageType,
   clipboardMessageType,
@@ -15,11 +19,13 @@ function expectBridgeMessageTypesToBeReferenced({
   }
 
   expect(script).toMatch(
-    new RegExp(`type: '${clipboardMessageType}'[\\s\\S]*text: normalized`)
+    new RegExp(
+      `type: '${escapeRegex(clipboardMessageType)}'[\\s\\S]*text: normalized`
+    )
   );
   expect(script).toMatch(
     new RegExp(
-      `type: '${accountNumberMessageType}'[\\s\\S]*text: accountNumber`
+      `type: '${escapeRegex(accountNumberMessageType)}'[\\s\\S]*text: accountNumber`
     )
   );
 }
@@ -64,6 +70,21 @@ describe('PAYMENT_CLIPBOARD_BRIDGE', () => {
     );
     expect(PAYMENT_CLIPBOARD_BRIDGE.script).toContain(
       'setTimeout(scheduleAccountNumberScan, 1500)'
+    );
+  });
+
+  it('prefers contextual account-number detection before generic numbers', () => {
+    expect(PAYMENT_CLIPBOARD_BRIDGE.script).toContain(
+      'var contextualPattern'
+    );
+    expect(PAYMENT_CLIPBOARD_BRIDGE.script).toContain(
+      'var genericPattern'
+    );
+    expect(PAYMENT_CLIPBOARD_BRIDGE.script).toContain(
+      'function hasExcludedNumberContext'
+    );
+    expect(PAYMENT_CLIPBOARD_BRIDGE.script).toContain(
+      'phone|tel|telephone|mobile|ref|reference'
     );
   });
 

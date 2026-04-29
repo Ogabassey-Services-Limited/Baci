@@ -1,5 +1,6 @@
 import type { StyleProp, ViewStyle } from 'react-native';
 import { StyleSheet, Text, View } from 'react-native';
+import { BILLER_INITIAL_TOKENS } from '@/constants/biller-initial';
 
 interface BillerInitialProps {
   colors: { border: string; textSecondary: string };
@@ -30,13 +31,13 @@ export function BillerInitial({ colors, name, style }: BillerInitialProps) {
 const styles = StyleSheet.create({
   initialsCircle: {
     alignItems: 'center',
-    borderRadius: 24,
-    height: 48,
+    borderRadius: BILLER_INITIAL_TOKENS.avatarRadius,
+    height: BILLER_INITIAL_TOKENS.avatarSize,
     justifyContent: 'center',
-    width: 48,
+    width: BILLER_INITIAL_TOKENS.avatarSize,
   },
   initialsText: {
-    fontSize: 20,
+    fontSize: BILLER_INITIAL_TOKENS.avatarFontSize,
     fontWeight: '700',
   },
 });

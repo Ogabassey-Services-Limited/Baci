@@ -22,6 +22,81 @@ describe('PaymentGatewayParamsSchema', () => {
     expect(result.paymentKind).toBe('order');
   });
 
+  it('requires order ID or order number for order payments', () => {
+    const result = PaymentGatewayParamsSchema.safeParse({
+      authorizationUrl: 'https://checkout.paystack.com/test',
+      gateway: 'paystack',
+      paymentKind: 'order',
+      reference: 'ref-123',
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(extractIssuePaths(result.error.issues)).toContain('orderId');
+    }
+  });
+
+  it('parses order payments with either order identifier', () => {
+    expect(
+      PaymentGatewayParamsSchema.safeParse({
+        authorizationUrl: 'https://checkout.paystack.com/test',
+        gateway: 'paystack',
+        orderId: 'order-id-123',
+        paymentKind: 'order',
+        reference: 'ref-123',
+      }).success
+    ).toBe(true);
+    expect(
+      PaymentGatewayParamsSchema.safeParse({
+        authorizationUrl: 'https://checkout.paystack.com/test',
+        gateway: 'paystack',
+        orderNumber: 'ORD-123',
+        paymentKind: 'order',
+        reference: 'ref-123',
+      }).success
+    ).toBe(true);
+  });
+
+  it.each([
+    ['orderId', { orderId: '   ' }],
+    ['orderNumber', { orderNumber: '\t' }],
+  ])('rejects whitespace-only %s values', (field, identifier) => {
+    const result = PaymentGatewayParamsSchema.safeParse({
+      authorizationUrl: 'https://checkout.paystack.com/test',
+      gateway: 'paystack',
+      paymentKind: 'order',
+      reference: 'ref-123',
+      ...identifier,
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(extractIssuePaths(result.error.issues)).toContain(field);
+    }
+  });
+
+  it('rejects whitespace-only URL, reference, and VTU customer identifier', () => {
+    const result = PaymentGatewayParamsSchema.safeParse({
+      authorizationUrl: '   ',
+      customerIdentifier: ' ',
+      gateway: 'paystack',
+      paymentKind: 'vtu',
+      reference: '\t',
+      utilityType: 'power',
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(extractIssuePaths(result.error.issues)).toEqual(
+        expect.arrayContaining([
+          'authorizationUrl',
+          'customerIdentifier',
+          'reference',
+        ])
+      );
+    }
+  });
+
   it('requires VTU customer and service context for VTU payments', () => {
     const result = PaymentGatewayParamsSchema.safeParse({
       amount: '1000',
