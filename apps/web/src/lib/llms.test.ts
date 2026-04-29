@@ -70,9 +70,15 @@ describe('buildLlmsText()', () => {
     expect(result).toContain('## Machine-Readable Commerce');
     expect(result).toContain('https://ogabassey.com/agent-commerce.json');
     expect(result).toContain('Agent Commerce Manifest');
+    expect(result).toContain('https://ogabassey.com/feeds/openai.jsonl');
+    expect(result).toContain('OpenAI Product Feed');
+    expect(result).toContain(
+      'https://ogabassey.com/feeds/agent-products.jsonl'
+    );
+    expect(result).toContain('Current Agent Product Feed');
     expect(result).toContain('https://ogabassey.com/feeds/google-merchant.xml');
     expect(result).toContain('Google Merchant XML Feed');
-    expect(result).not.toContain('/api/feed/openai?format=current');
+    expect(result).not.toContain('/api/feed/openai');
   });
 
   it('adds expanded guidance in the full variant', () => {

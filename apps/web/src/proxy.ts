@@ -15,6 +15,7 @@
 
 import { trace } from '@opentelemetry/api';
 import { NextRequest, NextResponse } from 'next/server';
+import { STOREFRONT_FEED_ROUTES } from '@/config/storefront-feed-routes';
 import {
   CLICK_ID_PARAMS,
   extractClickIdsFromUrl,
@@ -51,7 +52,9 @@ const VALID_SUBDOMAIN_REGEX = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
 // remain free to publish their own `/<key>.txt` file on custom domains without
 // the proxy intercepting and bypassing their storefront rewrite.
 const INDEXNOW_KEY_PATH = '/0751d5c882ab3d7c013ecbfe9e624d71.txt';
-const GOOGLE_MERCHANT_XML_FEED_PATH = '/feeds/google-merchant.xml';
+const PUBLIC_MACHINE_FEED_PATHS = new Set<string>(
+  Object.values(STOREFRONT_FEED_ROUTES)
+);
 const MERCHANT_CONTEXT_HEADERS = [
   'x-custom-domain',
   'x-merchant-domain',
@@ -66,6 +69,10 @@ function cloneRequestHeadersWithoutMerchantContext(
     headers.delete(header);
   }
   return headers;
+}
+
+function isPublicMachineFeedPath(pathname: string): boolean {
+  return PUBLIC_MACHINE_FEED_PATHS.has(pathname);
 }
 
 // Pre-compiled regex patterns for performance (avoids recompilation on every request)
@@ -1030,7 +1037,7 @@ export async function proxy(request: NextRequest) {
       // Public machine feeds are App Router routes, not storefront pages.
       // Run before slug-prefix canonicalization so a merchant slug named
       // "feeds" cannot shadow the canonical XML feed endpoint.
-      if (pathname === GOOGLE_MERCHANT_XML_FEED_PATH) {
+      if (isPublicMachineFeedPath(pathname)) {
         return buildMerchantFeedPassThroughResponse({
           request,
           pathname,
@@ -1340,7 +1347,7 @@ export async function proxy(request: NextRequest) {
     }
 
     // Public machine feeds are App Router routes, not storefront pages.
-    if (pathname === GOOGLE_MERCHANT_XML_FEED_PATH) {
+    if (isPublicMachineFeedPath(pathname)) {
       return buildMerchantFeedPassThroughResponse({
         request,
         pathname,

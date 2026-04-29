@@ -107,6 +107,18 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
         allow: '/',
         disallow: disallowedPaths,
       },
+      // Anthropic Claude user-requested browsing
+      {
+        userAgent: 'Claude-User',
+        allow: '/',
+        disallow: disallowedPaths,
+      },
+      // Anthropic Claude search indexing
+      {
+        userAgent: 'Claude-SearchBot',
+        allow: '/',
+        disallow: disallowedPaths,
+      },
       // Anthropic Claude Web
       {
         userAgent: 'anthropic-ai',

@@ -22,6 +22,12 @@
 - Vercel production logs on 2026-04-28 show the Google Merchant feed failure is `DB_PRODUCTS_ERROR` with Postgres code `42703`: `column products.category_slug does not exist`. Public feed and sitemap work must not select `products.category_slug` directly unless a new migration adds and backfills that column.
 - User approval to edit `apps/web/src/proxy.ts` for the scoped custom-domain `.md` mirror fix was granted on 2026-04-28 with: "you can edit. proceed".
 
+## Layer Coverage
+
+- **Discovery Layer:** Phases 1 and 2 make Ogabassey discoverable to crawlers and agents through `robots.txt`, `sitemap.xml`, `llms.txt`, `agent-commerce.json`, markdown mirrors, and public non-`/api` feed aliases.
+- **Trust Layer:** Phases 2 and 4 must verify agents can trust the catalog before recommending it. Required checks include page/feed/API parity, Product/Offer JSON-LD audits, review and trust-profile schema coverage, image URL validation, crawler user-agent monitoring, and automated feed health alerts.
+- **Action Layer:** Phase 3 covers safe shopping actions: merchant-scoped checkout sessions, cart/update/complete/cancel operations, payment handoff, idempotency keys, HMAC/request-integrity headers, replay protection, order-status reads, and human-confirmation boundaries.
+
 ## Mandatory Phase Review Gates
 
 Every phase below must stop at a review gate before the next phase starts. A phase is not complete until local tests pass, a fresh review sub-agent approves the phase diff, CodeRabbit raises no critical/high issues, and any accepted review feedback has been fixed and re-reviewed.
@@ -118,6 +124,14 @@ coderabbit review --agent --base-commit "$PHASE_BASE" -c AGENTS.md
   - Preserve valid Merchant Center XML while handling sparse product rows.
 - Modify tests under `apps/web/src/app/api/feed/google-merchant/**`
   - Add Ogabassey regression coverage for feed generation, canonical URLs, images, variants, and unmanaged stock.
+- Create: `apps/web/src/app/feeds/openai.jsonl/route.ts`
+  - Public non-`/api` storefront alias for the legacy OpenAI JSONL product feed.
+- Create: `apps/web/src/app/feeds/agent-products.jsonl/route.ts`
+  - Public non-`/api` storefront alias for the current structured agent product feed.
+- Create: `apps/web/src/app/feeds/openai-feed-response.ts`
+  - Shared public OpenAI feed response builder used by both aliases.
+- Create: `apps/web/src/config/storefront-feed-routes.ts`
+  - Single source of truth for storefront public machine-feed paths.
 - Create: `apps/web/src/app/feeds/google-merchant.xml/route.ts`
   - Public non-`/api` storefront alias for the Google Merchant XML feed.
 - Create: `apps/web/src/app/feeds/google-merchant.xml/route.test.ts`
@@ -1594,24 +1608,28 @@ Update `apps/web/src/lib/llms.ts` storefront guidance to include:
 
 ```markdown
 ## Machine Feeds
-- [Agent Product Feed]({baseUrl}/api/feed/openai?merchant_slug={slug}&format=current): Current structured product feed for shopping agents
+- [OpenAI Product Feed]({baseUrl}/feeds/openai.jsonl): Public JSONL catalog feed for crawler-friendly product discovery
+- [Current Agent Product Feed]({baseUrl}/feeds/agent-products.jsonl): Current JSONL product feed with structured variant availability
 - [Google Merchant XML Feed]({baseUrl}/feeds/google-merchant.xml): Public XML product feed aligned with Merchant Center
 ```
 
-If `llms.ts` does not have merchant slug available, link only `/agent-commerce.json` from `llms.txt`, and expose the concrete feed URLs from the manifest.
+These links must stay outside `/api/` so compliant crawler bots can fetch the machine-readable feeds while broad `/api/` crawling remains disallowed.
 
 Update `apps/web/src/app/agent-commerce.json/route.ts` links:
 
 ```typescript
+product_feed: `${baseUrl}/feeds/openai.jsonl`,
 feeds: {
-  agent_products: `${baseUrl}/api/feed/openai?merchant_slug=${slug}&format=current`,
+  agent_products: `${baseUrl}/feeds/agent-products.jsonl`,
   google_merchant_xml: `${baseUrl}/feeds/google-merchant.xml`,
 }
 ```
 
 - [ ] **Step 6: Keep robots safe**
 
-Keep `/api/` disallowed for broad crawlers, but ensure `/feeds/google-merchant.xml` is not blocked.
+Keep `/api/` disallowed for broad crawlers, but ensure `/feeds/google-merchant.xml`, `/feeds/openai.jsonl`, and `/feeds/agent-products.jsonl` are not blocked.
+
+Explicitly allow current Claude crawler agents (`ClaudeBot`, `Claude-User`, and `Claude-SearchBot`) while preserving the default wildcard policy for future compliant agents.
 
 Add a robots test asserting storefront robots output includes `Disallow: /api/` and does not include `Disallow: /feeds/`.
 
@@ -3615,8 +3633,10 @@ Expected:
 
 Configure or verify alerts for:
 
-- HTTP 500 rates on `/llms.txt`, `/index.html.md`, `/agent-commerce.json`, `/api/feed/openai`, `/api/feed/google-merchant`, `/feeds/google-merchant.xml`, and `/api/agentic/checkout_sessions`.
+- HTTP 500 rates on `/llms.txt`, `/index.html.md`, `/agent-commerce.json`, `/api/feed/openai`, `/api/feed/google-merchant`, `/feeds/openai.jsonl`, `/feeds/agent-products.jsonl`, `/feeds/google-merchant.xml`, and `/api/agentic/checkout_sessions`.
 - Feed generation failures and Google Merchant XML generation latency above the expected production threshold.
+- Page/feed/API parity failures where a product URL, price, availability, image, or policy differs across the PDP, Product/Offer JSON-LD, public OpenAI feed, Google Merchant XML, and storefront product API.
+- Product/Offer JSON-LD validation failures, missing review/trust-profile schema, invalid image URLs, and crawler fetch failures for `OAI-SearchBot`, `ChatGPT-User`, `ClaudeBot`, `Claude-User`, `Claude-SearchBot`, `Googlebot`, `Google-Extended`, and `PerplexityBot`.
 - Checkout session creation, update, completion, cancellation, DVA-generation failure, and webhook-confirmation failure rates.
 - Request-integrity failures that spike above normal agent retry noise.
 - Idempotency hard-limit `429` responses, which should be treated as abuse, extreme concurrency, or pruning failure.
@@ -3670,9 +3690,12 @@ git add docs/
 - `https://ogabassey.com/sitemap.xml` returns HTTP 200 even if one catalog data source fails.
 - Product feed URLs are canonical and do not include `/ogabassey/` on the custom domain.
 - Current structured product feed includes required product and variant records.
+- `https://ogabassey.com/feeds/openai.jsonl` and `https://ogabassey.com/feeds/agent-products.jsonl` return HTTP 200 JSONL through non-`/api` agent-discoverable URLs.
 - `https://ogabassey.com/api/feed/google-merchant?merchant_slug=ogabassey` returns HTTP 200 XML.
 - `https://ogabassey.com/feeds/google-merchant.xml` returns the same healthy Merchant Center XML through a non-`/api` agent-discoverable URL.
 - `llms.txt` or `agent-commerce.json` exposes the agent product feed and Google Merchant XML feed URLs.
+- Product page HTML, Product/Offer JSON-LD, public feeds, and storefront product APIs agree on URL, title, price, image, availability, and policy fields.
+- Trust-profile and review schema are present where source merchant data exists, and feed image URLs pass validation before they are exposed to agents.
 - Public product APIs expose `availability`, `inventory_policy`, `is_purchasable`, and `quantity_available`.
 - `manage_stock=false` is exposed as `inventory_policy: "untracked"`, `availability: "in_stock"`, `is_purchasable: true`.
 - Agent checkout storage uses existing `checkout_sessions` columns, adds only append-only `metadata`, and never writes invalid status values to the database.
