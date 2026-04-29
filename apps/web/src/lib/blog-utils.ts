@@ -35,29 +35,104 @@ export function stripHtml(html: string): string {
     .trim();
 }
 
+interface TipTapNode {
+  content?: TipTapNode[];
+  text?: string;
+  type?: string;
+}
+
+const DEFAULT_BLOG_PREVIEW = 'Read this blog post';
+const MAX_TIPTAP_DEPTH = 75;
+
+function tryParseJson(content: unknown): unknown | null {
+  if (typeof content !== 'string') {
+    return content ?? null;
+  }
+
+  try {
+    return JSON.parse(content.trim());
+  } catch {
+    return null;
+  }
+}
+
+function extractTipTapText(
+  node: TipTapNode,
+  depth = 0,
+  maxDepth = MAX_TIPTAP_DEPTH
+): string {
+  if (depth >= maxDepth) {
+    return node.text?.trim() || '';
+  }
+
+  const childText =
+    node.content
+      ?.map((childNode) => extractTipTapText(childNode, depth + 1, maxDepth))
+      .join(' ') || '';
+  return [node.text, childText].filter(Boolean).join(' ').trim();
+}
+
+function isTipTapDoc(value: unknown): value is TipTapNode {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    'type' in value &&
+    (value as Record<string, unknown>).type === 'doc'
+  );
+}
+
+function truncateText(text: string, maxLength: number): string {
+  if (text.length <= maxLength) {
+    return text;
+  }
+
+  const truncated = text.slice(0, maxLength);
+  const lastSpace = truncated.lastIndexOf(' ');
+
+  return lastSpace > 0
+    ? `${truncated.slice(0, lastSpace)}...`
+    : `${truncated.trimEnd()}...`;
+}
+
+/** Extract plain preview text from HTML, plain text, or TipTap JSON content. */
+export function getBlogPostTextPreview(
+  content: unknown,
+  maxLength = 160,
+  fallback = DEFAULT_BLOG_PREVIEW
+): string {
+  const parsedJson = tryParseJson(content);
+
+  if (parsedJson && typeof parsedJson === 'object') {
+    if (isTipTapDoc(parsedJson)) {
+      const text = extractTipTapText(parsedJson).replace(/\s+/g, ' ').trim();
+
+      return text ? truncateText(text, maxLength) : fallback;
+    }
+
+    return fallback;
+  }
+
+  if (typeof content === 'string') {
+    const text = stripHtml(content).replace(/\s+/g, ' ').trim();
+    return text ? truncateText(text, maxLength) : fallback;
+  }
+
+  return fallback;
+}
+
 /** Auto-generate a meta description from HTML content. */
 export function generateSeoDescription(
   content: string,
   maxLength = 155
 ): string {
   const plainText = stripHtml(content);
-  if (plainText.length <= maxLength) return plainText;
-  const truncated = plainText.substring(0, maxLength);
-  const lastSpace = truncated.lastIndexOf(' ');
-  return lastSpace > 0
-    ? `${truncated.substring(0, lastSpace)}...`
-    : `${truncated}...`;
+  return truncateText(plainText, maxLength);
 }
 
 /** Auto-generate an excerpt from HTML content. */
 export function generateExcerpt(content: string, maxLength = 300): string {
   const plainText = stripHtml(content);
-  if (plainText.length <= maxLength) return plainText;
-  const truncated = plainText.substring(0, maxLength);
-  const lastSpace = truncated.lastIndexOf(' ');
-  return lastSpace > 0
-    ? `${truncated.substring(0, lastSpace)}...`
-    : `${truncated}...`;
+  return truncateText(plainText, maxLength);
 }
 
 const STOP_WORDS = new Set([

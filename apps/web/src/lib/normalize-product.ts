@@ -11,8 +11,11 @@
  * - Predictable structures improve SEO signal quality
  */
 
-import { getEffectiveStock } from '@/lib/product-stock';
 import { generateSlug } from '@/lib/seo-utils';
+import {
+  coerceStorefrontManageStock,
+  getStorefrontAgentAvailability,
+} from '@/lib/storefront-agent-availability';
 
 const PLACEHOLDER_IMAGE =
   'https://placehold.co/400x400/f8fafc/94a3b8?text=No+Image';
@@ -44,8 +47,10 @@ export interface RawDbProduct {
   price: number;
   compare_at_price?: number;
   condition?: string;
-  stock?: number;
-  stock_quantity?: number;
+  stock?: number | string | null;
+  stock_quantity?: number | string | null;
+  manage_stock?: boolean | null;
+  low_stock_threshold?: number | string | null;
   rating?: number;
   product_key_specs?: unknown;
   merchant_id?: string;
@@ -214,10 +219,14 @@ export function normalizeProduct(
     joinedCategory?.slug ||
     (raw.category ? generateSlug(raw.category) : 'general');
 
-  // Determine stock availability
-  const stock = getEffectiveStock(raw);
+  const agentAvailability = getStorefrontAgentAvailability({
+    manage_stock: coerceStorefrontManageStock(raw.manage_stock),
+    stock: raw.stock,
+    stock_quantity: raw.stock_quantity,
+  });
+  const stock = agentAvailability.stock;
   const availability: 'InStock' | 'OutOfStock' =
-    stock > 0 ? 'InStock' : 'OutOfStock';
+    agentAvailability.availability === 'in_stock' ? 'InStock' : 'OutOfStock';
 
   return {
     id: raw.id,

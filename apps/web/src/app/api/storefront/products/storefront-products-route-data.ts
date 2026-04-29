@@ -1,5 +1,9 @@
 import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
 import { normalizeProduct, type RawDbProduct } from '@/lib/normalize-product';
+import {
+  coerceStorefrontManageStock,
+  getStorefrontAgentAvailability,
+} from '@/lib/storefront-agent-availability';
 
 type RawStorefrontProductRow = Record<string, unknown>;
 type ImageInput = string | { url?: string; alt?: string; order?: number };
@@ -19,6 +23,23 @@ function normalizeLegacyColorList(value: unknown) {
 
 function mapProduct(product: RawStorefrontProductRow) {
   const normalized = normalizeProduct(product as RawDbProduct);
+  const manageStock = coerceStorefrontManageStock(
+    product.manage_stock as boolean | null | undefined
+  );
+  const agentAvailability = getStorefrontAgentAvailability({
+    manage_stock: manageStock,
+    stock: product.stock as number | string | null | undefined,
+    stock_quantity: product.stock_quantity as
+      | number
+      | string
+      | null
+      | undefined,
+    low_stock_threshold: product.low_stock_threshold as
+      | number
+      | string
+      | null
+      | undefined,
+  });
   const rawImages = (product.images as ImageInput[]) || [];
   const colorImageKeys =
     typeof product.color_images === 'object' &&
@@ -51,6 +72,10 @@ function mapProduct(product: RawStorefrontProductRow) {
     category: normalized.category,
     category_slug: normalized.category_slug,
     brand: normalized.brand,
+    availability: agentAvailability.availability,
+    inventory_policy: agentAvailability.inventory_policy,
+    is_purchasable: agentAvailability.is_purchasable,
+    quantity_available: agentAvailability.quantity_available,
     stock: normalized.stock,
     slug: normalized.slug,
     status: normalized.status || 'active',
@@ -59,7 +84,7 @@ function mapProduct(product: RawStorefrontProductRow) {
     images: processedImages,
     has_variants: product.has_variants,
     sku: product.sku,
-    manage_stock: product.manage_stock,
+    manage_stock: manageStock,
     low_stock_threshold: product.low_stock_threshold,
     specifications: product.specifications,
     has_condition_offers:

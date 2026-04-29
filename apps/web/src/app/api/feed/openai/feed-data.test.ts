@@ -20,6 +20,8 @@ interface ProductFixture {
   stock: number;
   stock_quantity: number;
   manage_stock: boolean;
+  canonical_url?: string | null;
+  categories?: { name?: string | null; slug?: string | null } | null;
   variants: Array<{
     id: string;
     attributes: Record<string, string>;
@@ -112,6 +114,21 @@ describe('getCachedOpenAIFeedData', () => {
         'variants:product_variants!product_variants_product_id_fkey('
       )
     );
+  });
+
+  it('selects canonical URL fields without reading a missing category_slug column', async () => {
+    const { getCachedOpenAIFeedData } = await import('./feed-data');
+
+    await getCachedOpenAIFeedData('merchant-1');
+
+    const selectFragment = mockProductSelect.mock.calls[0]?.[0];
+    expect(typeof selectFragment).toBe('string');
+    if (typeof selectFragment !== 'string') {
+      throw new Error('Expected products select fragment to be a string');
+    }
+    expect(selectFragment).toContain('canonical_url');
+    expect(selectFragment).toContain('categories:category_id(name, slug)');
+    expect(selectFragment).not.toContain('category_slug');
   });
 
   it('returns empty products array when no products exist', async () => {

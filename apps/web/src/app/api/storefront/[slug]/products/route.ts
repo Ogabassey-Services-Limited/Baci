@@ -1,9 +1,14 @@
 import { createClient as createStaticClient } from '@supabase/supabase-js';
 import { unstable_cache } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
+import { STOREFRONT_CACHE } from '@/config/storefront-cache';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { PRODUCT_COLUMNS } from '@/lib/product-queries';
-import { getEffectiveStock } from '@/lib/product-stock';
+import {
+  coerceStorefrontManageStock,
+  getStorefrontAgentAvailability,
+} from '@/lib/storefront-agent-availability';
+import { storefrontProductsRouteParamsSchema } from '@/schemas/storefront-products-route-params';
 
 // Extract primary image URL from mixed format (string[] or {url}[])
 function extractPrimaryImage(images: unknown): string {
@@ -18,6 +23,20 @@ function extractPrimaryImage(images: unknown): string {
 // Map database product to API response format function
 function mapProduct(p: Record<string, unknown>) {
   const primaryImage = extractPrimaryImage(p.images);
+  const manageStock = coerceStorefrontManageStock(
+    p.manage_stock as boolean | null | undefined
+  );
+  const agentAvailability = getStorefrontAgentAvailability({
+    manage_stock: manageStock,
+    stock: p.stock as number | string | null | undefined,
+    stock_quantity: p.stock_quantity as number | string | null | undefined,
+    low_stock_threshold: p.low_stock_threshold as
+      | number
+      | string
+      | null
+      | undefined,
+  });
+
   return {
     id: p.id,
     name: p.name,
@@ -33,8 +52,12 @@ function mapProduct(p: Record<string, unknown>) {
     has_variants: p.has_variants,
     slug: p.slug,
     sku: p.sku,
-    manage_stock: p.manage_stock,
-    stock: getEffectiveStock(p),
+    manage_stock: manageStock,
+    availability: agentAvailability.availability,
+    inventory_policy: agentAvailability.inventory_policy,
+    is_purchasable: agentAvailability.is_purchasable,
+    quantity_available: agentAvailability.quantity_available,
+    stock: agentAvailability.stock,
     low_stock_threshold: p.low_stock_threshold,
     color: p.color || '',
     condition: p.condition || 'new',
@@ -44,7 +67,6 @@ function mapProduct(p: Record<string, unknown>) {
 // Cached function to get merchant ID from slug
 const getMerchantIdBySlug = unstable_cache(
   async (slug: string) => {
-    console.log('[API] Looking up merchant ID for slug:', slug);
     const supabase = createStaticClient(getSupabaseUrl(), getSupabaseAnonKey());
 
     const { data, error } = await supabase
@@ -54,10 +76,8 @@ const getMerchantIdBySlug = unstable_cache(
       .single();
 
     if (error) {
-      console.error('[API] Merchant lookup error for slug:', slug, error);
       return null;
     }
-    console.log('[API] Found merchant ID:', data?.id);
     return data?.id;
   },
   ['merchant-slug-id-lookup'], // Changed key to force cache invalidation
@@ -69,14 +89,22 @@ export async function GET(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
-    const { slug } = await params;
+    const parsedParams = storefrontProductsRouteParamsSchema.safeParse(
+      await params
+    );
 
-    if (!slug) {
+    if (!parsedParams.success) {
       return NextResponse.json(
-        { error: 'Store slug is required' },
+        {
+          error: 'Invalid route parameters',
+          code: 'INVALID_PARAMS',
+          details: parsedParams.error.flatten(),
+        },
         { status: 400 }
       );
     }
+
+    const { slug } = parsedParams.data;
 
     // 1. Resolve slug to merchant_id
     const merchantId = await getMerchantIdBySlug(slug);
@@ -92,7 +120,6 @@ export async function GET(
     // We use a fresh client here to ensure we get latest data if cache is stale
     const supabase = createStaticClient(getSupabaseUrl(), getSupabaseAnonKey());
 
-    console.log('[API] Fetching products for merchant:', merchantId);
     const { data: products, error } = await supabase
       .from('products')
       .select(PRODUCT_COLUMNS)
@@ -109,15 +136,13 @@ export async function GET(
       throw error;
     }
 
-    console.log('[API] Found products:', products?.length || 0);
-
     const mappedProducts = (products || []).map(mapProduct);
 
     return NextResponse.json(
       { products: mappedProducts },
       {
         headers: {
-          'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30', // Low cache for debugging
+          'Cache-Control': `public, s-maxage=${STOREFRONT_CACHE.productsSMaxAge}, stale-while-revalidate=${STOREFRONT_CACHE.productsStaleWhileRevalidate}`,
         },
       }
     );

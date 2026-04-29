@@ -15,6 +15,7 @@ export interface OpenAIFeedProduct {
   name: string;
   description: string;
   slug?: string;
+  canonical_url?: string | null;
   price: number;
   compare_at_price?: number;
   images?: string[] | Array<{ url: string; alt?: string }>;
@@ -24,10 +25,11 @@ export interface OpenAIFeedProduct {
   sku?: string;
   stock: number;
   stock_quantity?: number;
-  manage_stock?: boolean;
+  manage_stock?: boolean | null;
   condition?: 'new' | 'used' | 'refurbished';
   google_product_category?: string;
   category?: string;
+  categories?: { name?: string | null; slug?: string | null } | null;
   weight_value?: number;
   weight_unit?: 'kg' | 'lb' | 'g' | 'oz';
   updated_at?: string;
@@ -57,9 +59,10 @@ export async function getCachedOpenAIFeedData(
   const { data: products, error: productsError } = await supabase
     .from('products')
     .select(
-      `id, name, description, slug, price, compare_at_price, images,
+      `id, name, description, slug, canonical_url, price, compare_at_price, images,
        brand, gtin, mpn, sku, stock, stock_quantity, manage_stock, condition, google_product_category, category,
        weight_value, weight_unit, updated_at,
+       categories:category_id(name, slug),
        variants:product_variants!product_variants_product_id_fkey(id, attributes, price_override, stock_quantity, sku, primary_image)`
     )
     .eq('merchant_id', merchantId)

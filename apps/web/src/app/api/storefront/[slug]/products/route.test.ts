@@ -71,6 +71,23 @@ describe('GET /api/storefront/[slug]/products', () => {
     vi.clearAllMocks();
   });
 
+  it('returns 400 when the route slug is invalid', async () => {
+    const response = await GET(
+      new NextRequest('https://example.com/api/storefront//products'),
+      { params: Promise.resolve({ slug: '' }) }
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data.error).toBe('Invalid route parameters');
+    expect(data.code).toBe('INVALID_PARAMS');
+    expect(data.details.fieldErrors.slug).toEqual(
+      expect.arrayContaining([expect.any(String)])
+    );
+    expect(mockMerchantSingle).not.toHaveBeenCalled();
+    expect(mockProductOrder).not.toHaveBeenCalled();
+  });
+
   it('maps string array images to storefront image fields', async () => {
     mockMerchantSingle.mockResolvedValue({
       data: { id: 'merchant-123' },
@@ -92,7 +109,7 @@ describe('GET /api/storefront/[slug]/products', () => {
           has_variants: false,
           slug: 'test-phone',
           sku: 'TP-123',
-          manage_stock: false,
+          manage_stock: null,
           low_stock_threshold: 2,
           color: 'Black',
           condition: 'new',
@@ -114,8 +131,16 @@ describe('GET /api/storefront/[slug]/products', () => {
         image: 'https://cdn.example.com/phone.jpg',
         imageLarge: 'https://cdn.example.com/phone.jpg',
         stock: 7,
+        availability: 'in_stock',
+        inventory_policy: 'untracked',
+        is_purchasable: true,
+        quantity_available: null,
+        manage_stock: false,
       }),
     ]);
+    expect(response.headers.get('Cache-Control')).toBe(
+      'public, s-maxage=300, stale-while-revalidate=3600'
+    );
   });
 
   it('returns 404 when the merchant slug does not resolve', async () => {

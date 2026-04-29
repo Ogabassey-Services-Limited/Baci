@@ -75,6 +75,50 @@ describe('normalizeProduct', () => {
     expect(result.condition).toBe('New');
   });
 
+  it('treats unmanaged stock as available', () => {
+    const result = normalizeProduct({
+      ...baseRawProduct,
+      manage_stock: false,
+      stock: 0,
+      stock_quantity: 0,
+    });
+
+    expect(result.availability).toBe('InStock');
+  });
+
+  it('treats nullable manage_stock as unmanaged stock', () => {
+    const result = normalizeProduct({
+      ...baseRawProduct,
+      manage_stock: null,
+      stock: 0,
+      stock_quantity: 0,
+    });
+
+    expect(result.availability).toBe('InStock');
+  });
+
+  it('treats managed stock with zero quantity as out of stock', () => {
+    const result = normalizeProduct({
+      ...baseRawProduct,
+      manage_stock: true,
+      stock: 0,
+      stock_quantity: 0,
+    });
+
+    expect(result.availability).toBe('OutOfStock');
+  });
+
+  it('treats managed stock with positive quantity as in stock', () => {
+    const result = normalizeProduct({
+      ...baseRawProduct,
+      manage_stock: true,
+      stock: 10,
+      stock_quantity: 10,
+    });
+
+    expect(result.availability).toBe('InStock');
+  });
+
   it('preserves product_key_specs when present', () => {
     const result = normalizeProduct(baseRawProduct);
 

@@ -58,6 +58,8 @@ describe('product-response', () => {
     const fullTokens = parseSelectTokens(STOREFRONT_PRODUCTS_FULL_SELECT);
     const compactTokens = parseSelectTokens(STOREFRONT_PRODUCTS_COMPACT_SELECT);
 
+    expect(fullTokens).not.toContain('*');
+    expect(fullTokens).not.toContain('colors');
     expect(fullTokens).toContain('category_id');
     // `product_categories` is an aliased relation like
     // `product_categories:product_categories(...)` — strip the alias if present.
@@ -98,7 +100,10 @@ describe('product-response', () => {
 
     const mapped = mapStorefrontProduct(rawProduct);
 
-    expect(mapped.manage_stock).toBe(true);
+    expect(mapped.manage_stock).toBe(false);
+    expect(mapped.inventory_policy).toBe('untracked');
+    expect(mapped.is_purchasable).toBe(true);
+    expect(mapped.quantity_available).toBeNull();
     expect(mapped.brand).toBe('');
     expect(mapped.category_id).toBe('cat-1');
     expect(mapped.categories).toEqual({
@@ -139,9 +144,33 @@ describe('product-response', () => {
     const mapped = mapStorefrontProduct(rawProduct);
 
     expect(mapped.manage_stock).toBe(false);
+    expect(mapped.availability).toBe('in_stock');
+    expect(mapped.inventory_policy).toBe('untracked');
+    expect(mapped.is_purchasable).toBe(true);
+    expect(mapped.quantity_available).toBeNull();
   });
 
-  it('prefers explicit colors over color_images keys', () => {
+  it('treats nullable manage_stock as unmanaged stock', () => {
+    const rawProduct: RawDbProduct = {
+      id: 'product-null-stock',
+      name: 'Legacy Infinite Stock Item',
+      price: 1000,
+      stock: 0,
+      stock_quantity: 0,
+      images: [],
+      manage_stock: null,
+    };
+
+    const mapped = mapStorefrontProduct(rawProduct);
+
+    expect(mapped.manage_stock).toBe(false);
+    expect(mapped.availability).toBe('in_stock');
+    expect(mapped.inventory_policy).toBe('untracked');
+    expect(mapped.is_purchasable).toBe(true);
+    expect(mapped.quantity_available).toBeNull();
+  });
+
+  it('derives colors from color_images keys', () => {
     const rawProduct: RawDbProduct = {
       id: 'product-2',
       name: 'MacBook Pro',
@@ -149,14 +178,61 @@ describe('product-response', () => {
       stock: 3,
       category: 'Laptops',
       images: ['https://cdn.example.com/macbook.png'],
-      colors: ['Space Black', 'Silver'],
       color_images: {
         Midnight: 'https://cdn.example.com/midnight.png',
+        Silver: 'https://cdn.example.com/silver.png',
       },
     };
 
     const mapped = mapStorefrontProduct(rawProduct);
 
-    expect(mapped.colors).toEqual(['Space Black', 'Silver']);
+    expect(mapped.colors).toEqual(['Midnight', 'Silver']);
+  });
+
+  it('ignores non-object color_images values', () => {
+    const rawProduct: RawDbProduct = {
+      id: 'product-color-array',
+      name: 'Invalid Color Images',
+      price: 150000,
+      stock: 3,
+      category: 'Accessories',
+      images: ['https://cdn.example.com/accessory.png'],
+      color_images: ['Red'] as unknown as RawDbProduct['color_images'],
+    };
+
+    const mapped = mapStorefrontProduct(rawProduct);
+
+    expect(mapped.colors).toEqual([]);
+  });
+
+  it('derives colors from the supported single color column', () => {
+    const rawProduct: RawDbProduct = {
+      id: 'product-3',
+      name: 'iPhone 15',
+      price: 1200000,
+      stock: 2,
+      category: 'Smartphones',
+      images: ['https://cdn.example.com/iphone.png'],
+      color: 'Blue',
+    };
+
+    const mapped = mapStorefrontProduct(rawProduct);
+
+    expect(mapped.colors).toEqual(['Blue']);
+  });
+
+  it('returns an empty color list when no color sources exist', () => {
+    const rawProduct: RawDbProduct = {
+      id: 'product-4',
+      name: 'USB-C Charger',
+      price: 35000,
+      stock: 4,
+      category: 'Accessories',
+      images: ['https://cdn.example.com/charger.png'],
+    };
+
+    const mapped = mapStorefrontProduct(rawProduct);
+
+    expect(mapped.colors).toEqual([]);
   });
 });

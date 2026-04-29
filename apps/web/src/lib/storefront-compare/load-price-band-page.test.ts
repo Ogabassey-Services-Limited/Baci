@@ -131,7 +131,7 @@ describe('loadPriceBandPage', () => {
       expect.arrayContaining([
         expect.objectContaining({
           slug: 'iphone-16e',
-          availability: 'OutOfStock',
+          availability: 'InStock',
           stock: 0,
           condition: 'New',
           has_condition_offers: true,
