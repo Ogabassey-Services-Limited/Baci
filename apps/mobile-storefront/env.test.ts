@@ -45,7 +45,7 @@ describe('mobile env', () => {
 
     const { EXPO_PUBLIC_API_URL } = await import('./env');
 
-    expect(EXPO_PUBLIC_API_URL).toBe('https://ogabassey.usebaci.com');
+    expect(EXPO_PUBLIC_API_URL).toBe('https://usebaci.com');
   });
 
   it('falls back to the Expo config API URL when no environment value is set', async () => {
@@ -62,5 +62,17 @@ describe('mobile env', () => {
     const { EXPO_PUBLIC_API_URL } = await import('./env');
 
     expect(EXPO_PUBLIC_API_URL).toBe('https://some-expo-fallback.test');
+  });
+
+  it('throws when the runtime API URL is malformed', async () => {
+    process.env.EXPO_PUBLIC_API_URL = 'not-a-url';
+    jest.doMock('expo-constants', () => ({
+      __esModule: true,
+      default: { expoConfig: { extra: {} } },
+    }));
+
+    await expect(import('./env')).rejects.toThrow(
+      'Invalid mobile environment configuration'
+    );
   });
 });

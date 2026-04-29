@@ -176,8 +176,11 @@ const palette = {
   },
   // Semantic colors
   emerald: {
+    50: '#ECFDF5',
+    200: '#A7F3D0',
     400: '#34D399',
     500: '#10B981',
+    600: '#059669',
     700: '#15803D',
   },
   white: '#FFFFFF',

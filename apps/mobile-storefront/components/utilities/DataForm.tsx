@@ -119,9 +119,9 @@ export function DataForm({
     Number.isFinite(parsedInitialAmount) ? parsedInitialAmount : 0
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [, setShouldScrollToPayment] = useState(isRepeatPaymentReady);
   const shouldScrollToPaymentRef = useRef(isRepeatPaymentReady);
   const wasRepeatPaymentReadyRef = useRef(isRepeatPaymentReady);
+  const paymentYRef = useRef<number | null>(null);
   const formattedPlanAmount = formatUtilityAmountInput(planAmount);
   const footerSpacerHeight =
     FOOTER_HEIGHT + Math.max(insets.bottom, SPACING.md) + FOOTER_ERROR_BUFFER;
@@ -142,7 +142,16 @@ export function DataForm({
   useEffect(() => {
     if (!wasRepeatPaymentReadyRef.current && isRepeatPaymentReady) {
       shouldScrollToPaymentRef.current = true;
-      setShouldScrollToPayment(true);
+      if (paymentYRef.current !== null) {
+        const paymentY = paymentYRef.current;
+        shouldScrollToPaymentRef.current = false;
+        requestAnimationFrame(() => {
+          scrollViewRef.current?.scrollTo({
+            animated: true,
+            y: Math.max(paymentY - SPACING.md, 0),
+          });
+        });
+      }
     }
     wasRepeatPaymentReadyRef.current = isRepeatPaymentReady;
   }, [isRepeatPaymentReady]);
@@ -410,13 +419,13 @@ export function DataForm({
 
         <View
           onLayout={(event) => {
+            paymentYRef.current = event.nativeEvent.layout.y;
             if (!shouldScrollToPaymentRef.current) {
               return;
             }
 
-            const paymentY = event.nativeEvent.layout.y;
+            const paymentY = paymentYRef.current;
             shouldScrollToPaymentRef.current = false;
-            setShouldScrollToPayment(false);
             requestAnimationFrame(() => {
               scrollViewRef.current?.scrollTo({
                 animated: true,

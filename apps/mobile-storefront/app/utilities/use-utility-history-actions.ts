@@ -1,5 +1,5 @@
 import { type Href, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Alert } from 'react-native';
 import { utilityRepeatHelpers } from '@/lib/utility-repeat';
 import type { VTUHistoryTransaction } from '@/hooks/use-vtu-history';
@@ -12,7 +12,10 @@ interface UseUtilityHistoryActionsInput {
 }
 
 function getFriendlySyncErrorMessage(error: unknown) {
-  if (error instanceof Error && /already completed|processing/i.test(error.message)) {
+  if (
+    error instanceof Error &&
+    /already completed|processing/i.test(error.message)
+  ) {
     return 'This payment is already being reconciled. Please check again shortly.';
   }
 
@@ -29,6 +32,8 @@ export function useUtilityHistoryActions({
   const [syncingTransactionId, setSyncingTransactionId] = useState<
     string | null
   >(null);
+  const isSharingRef = useRef(false);
+  const isSyncingRef = useRef(false);
 
   const handleRepeatTransaction = (transaction: VTUHistoryTransaction) => {
     router.push({
@@ -59,12 +64,12 @@ export function useUtilityHistoryActions({
   };
 
   const handleShareReceipt = async (transaction: VTUHistoryTransaction) => {
-    if (sharingTransactionId) {
+    if (isSharingRef.current || sharingTransactionId) {
       return;
     }
 
     const customerIdentifier =
-      transaction.customer_identifier ?? transaction.phone_number;
+      transaction.customer_identifier || transaction.phone_number;
     if (!customerIdentifier) {
       Alert.alert(
         'Cannot Share',
@@ -73,6 +78,7 @@ export function useUtilityHistoryActions({
       return;
     }
 
+    isSharingRef.current = true;
     setSharingTransactionId(transaction.id);
     try {
       await shareUtilityReceipt({
@@ -91,12 +97,13 @@ export function useUtilityHistoryActions({
         'Could not generate the receipt PDF. Please try again.'
       );
     } finally {
+      isSharingRef.current = false;
       setSharingTransactionId(null);
     }
   };
 
   const handleSyncPayment = async (transaction: VTUHistoryTransaction) => {
-    if (syncingTransactionId) {
+    if (isSyncingRef.current || syncingTransactionId) {
       Alert.alert(
         'Sync In Progress',
         'Another payment sync is already running.'
@@ -105,13 +112,11 @@ export function useUtilityHistoryActions({
     }
 
     if (!transaction.payment_gateway || !transaction.payment_reference) {
-      Alert.alert(
-        'Cannot Sync',
-        'Cannot sync: missing payment information.'
-      );
+      Alert.alert('Cannot Sync', 'Cannot sync: missing payment information.');
       return;
     }
 
+    isSyncingRef.current = true;
     setSyncingTransactionId(transaction.id);
     try {
       const result = await confirmVtuCheckout({
@@ -134,11 +139,9 @@ export function useUtilityHistoryActions({
           refetchError
         );
       });
-      Alert.alert(
-        'Sync Failed',
-        getFriendlySyncErrorMessage(syncError)
-      );
+      Alert.alert('Sync Failed', getFriendlySyncErrorMessage(syncError));
     } finally {
+      isSyncingRef.current = false;
       setSyncingTransactionId(null);
     }
   };

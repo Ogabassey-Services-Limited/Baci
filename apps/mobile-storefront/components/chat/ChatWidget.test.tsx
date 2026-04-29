@@ -188,6 +188,20 @@ describe('ChatWidget', () => {
     expect(toJSON()).toBeNull();
   });
 
+  it('returns null for bank transfer routes', () => {
+    mockUsePathname.mockReturnValue('/bank-transfer');
+    const { toJSON } = render(<ChatWidget />);
+
+    expect(toJSON()).toBeNull();
+  });
+
+  it('returns null for crypto payment routes', () => {
+    mockUsePathname.mockReturnValue('/crypto-payment');
+    const { toJSON } = render(<ChatWidget />);
+
+    expect(toJSON()).toBeNull();
+  });
+
   it('renders the FAB when on a non-hidden route', () => {
     mockUsePathname.mockReturnValue('/home');
     render(<ChatWidget />);

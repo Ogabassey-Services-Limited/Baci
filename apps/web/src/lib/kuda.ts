@@ -653,11 +653,14 @@ export async function purchaseAirtime(
     );
 
     const pin = extractKudaVoucherPin(response.data);
+    const transactionId =
+      normalizeKudaString(response.data?.reference) ??
+      normalizeKudaString(response.data?.Reference);
 
     return {
       success: response.status,
       reference,
-      transactionId: response.data?.reference ?? response.data?.Reference,
+      transactionId,
       ...(pin && { pin }),
       message: response.message,
       status: response.status ? 'successful' : 'failed',
@@ -713,11 +716,14 @@ export async function purchaseData(
     );
 
     const pin = extractKudaVoucherPin(response.data);
+    const transactionId =
+      normalizeKudaString(response.data?.reference) ??
+      normalizeKudaString(response.data?.Reference);
 
     return {
       success: response.status,
       reference,
-      transactionId: response.data?.reference ?? response.data?.Reference,
+      transactionId,
       ...(pin && { pin }),
       message: response.message,
       status: response.status ? 'successful' : 'failed',
@@ -791,9 +797,9 @@ export async function checkTransactionStatus(
 
     const pin = extractKudaVoucherPin(response.data);
     if (pin) {
+      status = 'successful';
       return {
-        message:
-          bestStatus === nextStatus ? response.message || message : message,
+        message: response.message || message,
         pin,
         status,
       };

@@ -1,5 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { SPACING } from '@/constants/Colors';
+import { BILL_FORM_TOKENS } from './bill-form.tokens';
 
 export const billFormStyles = StyleSheet.create({
   scrollView: { flex: 1 },
@@ -43,18 +44,18 @@ export const billFormStyles = StyleSheet.create({
   verifyButtonText: { color: '#FFF', fontSize: 14, fontWeight: '600' },
   verifiedPill: {
     alignItems: 'center',
-    borderRadius: 12,
-    height: 50,
+    borderRadius: BILL_FORM_TOKENS.pillBorderRadius,
+    height: BILL_FORM_TOKENS.pillHeight,
     justifyContent: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: BILL_FORM_TOKENS.pillPaddingHorizontal,
   },
   verifiedPillText: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: BILL_FORM_TOKENS.fontSizePill,
+    fontWeight: BILL_FORM_TOKENS.fontWeightBold,
   },
   repeatReadyText: {
-    fontSize: 13,
-    marginTop: 10,
+    fontSize: BILL_FORM_TOKENS.fontSizeSmall,
+    marginTop: BILL_FORM_TOKENS.marginTopSmall,
   },
   footer: {
     position: 'absolute',

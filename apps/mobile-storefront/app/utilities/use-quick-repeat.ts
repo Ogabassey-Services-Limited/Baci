@@ -1,0 +1,135 @@
+import { useEffect, useState } from 'react';
+import { useVTUHistory } from '@/hooks/use-vtu-history';
+import {
+  type UtilityRepeatDefaults,
+  utilityRepeatHelpers,
+} from '@/lib/utility-repeat';
+import { getRouteRepeatDefaults } from './utility-purchase.config';
+import type {
+  RouteRepeatParams,
+  ValidUtilityType,
+} from './utility-purchase.types';
+
+interface UseQuickRepeatInput extends RouteRepeatParams {
+  currentType: ValidUtilityType | null;
+  historyFilter: ValidUtilityType;
+  isKeyboardVisible: boolean;
+  routeType: ValidUtilityType | null;
+  title: string;
+}
+
+export function useQuickRepeat({
+  currentType,
+  historyFilter,
+  isKeyboardVisible,
+  repeatAmount,
+  repeatBillerName,
+  repeatBillItemIdentifier,
+  repeatCustomerIdentifier,
+  repeatDataPlanCode,
+  repeatNetworkProvider,
+  repeatPhoneNumber,
+  repeatVerified,
+  routeType,
+  title,
+}: UseQuickRepeatInput) {
+  const repeatParams = {
+    repeatAmount,
+    repeatBillerName,
+    repeatBillItemIdentifier,
+    repeatCustomerIdentifier,
+    repeatDataPlanCode,
+    repeatNetworkProvider,
+    repeatPhoneNumber,
+    repeatVerified,
+  };
+  const routeRepeatDefaults = getRouteRepeatDefaults(repeatParams);
+  const [repeatDefaults, setRepeatDefaults] = useState<UtilityRepeatDefaults>(
+    routeType ? routeRepeatDefaults : {}
+  );
+  const [repeatRevision, setRepeatRevision] = useState(0);
+  const [isQuickRepeatDismissed, setIsQuickRepeatDismissed] = useState(false);
+  const {
+    data: recentTransactions,
+    error: recentTransactionsError,
+    isLoading: isRecentTransactionsLoading,
+  } = useVTUHistory(historyFilter, 1);
+
+  useEffect(() => {
+    setRepeatDefaults(
+      routeType && currentType === routeType
+        ? getRouteRepeatDefaults({
+            repeatAmount,
+            repeatBillerName,
+            repeatBillItemIdentifier,
+            repeatCustomerIdentifier,
+            repeatDataPlanCode,
+            repeatNetworkProvider,
+            repeatPhoneNumber,
+            repeatVerified,
+          })
+        : {}
+    );
+    setRepeatRevision(0);
+    setIsQuickRepeatDismissed(false);
+  }, [
+    currentType,
+    routeType,
+    repeatAmount,
+    repeatBillerName,
+    repeatBillItemIdentifier,
+    repeatCustomerIdentifier,
+    repeatDataPlanCode,
+    repeatNetworkProvider,
+    repeatPhoneNumber,
+    repeatVerified,
+  ]);
+
+  const lastTransaction = recentTransactions?.[0] ?? null;
+  const isLastTransactionForCurrentType = lastTransaction
+    ? utilityRepeatHelpers.getRouteType(lastTransaction.type) === currentType
+    : false;
+  const showQuickRepeat = Boolean(
+    lastTransaction &&
+      isLastTransactionForCurrentType &&
+      lastTransaction.status === 'successful' &&
+      !isRecentTransactionsLoading &&
+      !recentTransactionsError &&
+      !isKeyboardVisible &&
+      !isQuickRepeatDismissed
+  );
+
+  let quickRepeatNotice: string | null = null;
+  if (!isKeyboardVisible && !isQuickRepeatDismissed) {
+    if (isRecentTransactionsLoading) {
+      quickRepeatNotice = `Checking recent ${title} transactions...`;
+    } else if (recentTransactionsError) {
+      quickRepeatNotice = `Recent ${title} transactions unavailable.`;
+    }
+  }
+
+  const handleQuickRepeat = () => {
+    if (
+      !lastTransaction ||
+      !isLastTransactionForCurrentType ||
+      lastTransaction.status !== 'successful'
+    ) {
+      return;
+    }
+
+    setRepeatDefaults(utilityRepeatHelpers.getDefaults(lastTransaction));
+    setRepeatRevision((current) => current + 1);
+    setIsQuickRepeatDismissed(true);
+  };
+
+  return {
+    handleQuickRepeat,
+    isRecentTransactionsLoading,
+    isRepeatPaymentReady: Boolean(repeatDefaults.isVerified),
+    lastTransaction,
+    quickRepeatNotice,
+    repeatDefaults,
+    repeatRevision,
+    showQuickRepeat,
+  };
+}

@@ -313,6 +313,48 @@ async function settleVtuWalletCredits({
   };
 }
 
+async function claimCustomerNotificationAttempt({
+  metadata,
+  row,
+  supabase,
+}: {
+  metadata: Record<string, unknown>;
+  row: VtuTransactionRow;
+  supabase: SupabaseClient;
+}) {
+  if (metadata.customerNotificationAttempted === true) {
+    return false;
+  }
+
+  const claimedMetadata = { ...metadata };
+  setMetadataValue(claimedMetadata, 'customerNotificationAttempted', true);
+
+  const { data, error } = await supabase
+    .from('vtu_transactions')
+    .update({ metadata: claimedMetadata })
+    .eq('id', row.id)
+    .or(
+      'metadata->>customerNotificationAttempted.is.null,metadata->>customerNotificationAttempted.neq.true'
+    )
+    .select('id')
+    .maybeSingle();
+
+  if (error) {
+    console.error('Failed to claim VTU customer notification attempt:', {
+      error: error.message,
+      transactionId: row.id,
+    });
+    return false;
+  }
+
+  if (!data) {
+    return false;
+  }
+
+  Object.assign(metadata, claimedMetadata);
+  return true;
+}
+
 async function notifyVtuCustomerSuccess({
   cashbackAmount,
   customerWalletCredited,
@@ -346,6 +388,15 @@ async function notifyVtuCustomerSuccess({
     return { metadataChanged: false };
   }
 
+  const claimedNotification = await claimCustomerNotificationAttempt({
+    metadata,
+    row,
+    supabase,
+  });
+  if (!claimedNotification) {
+    return { metadataChanged: false };
+  }
+
   const label = VTU_TYPE_LABELS[row.type];
   const provider = getVtuProviderLabel(row);
   const baseBody = `Your ${provider} ${label.toLowerCase()} purchase of ${formatNaira(Number(row.amount) || 0)} was successful.`;
@@ -354,11 +405,7 @@ async function notifyVtuCustomerSuccess({
       ? ` ${formatNaira(cashbackAmount)} cashback was credited to your wallet.`
       : '';
 
-  let metadataChanged = setMetadataValue(
-    metadata,
-    'customerNotificationAttempted',
-    true
-  );
+  let metadataChanged = true;
 
   try {
     const result = await notifyCustomer(
@@ -661,6 +708,9 @@ export async function fulfillPendingVtuTransaction({
       payload: { error_message: null, status: 'processing' },
       transactionId,
     });
+    throw new VtuPersistenceError(
+      `Failed to claim VTU transaction ${transactionId}: ${claimUpdateError.message}`
+    );
   }
 
   if (!claimed) {

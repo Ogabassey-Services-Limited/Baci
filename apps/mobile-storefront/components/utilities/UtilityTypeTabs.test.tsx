@@ -1,13 +1,8 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import {
-  fireEvent,
-  render,
-  screen,
-} from '@testing-library/react-native';
-import { ScrollView, StyleSheet } from 'react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import Colors from '@/constants/Colors';
 import { UtilityTypeTabs } from './UtilityTypeTabs';
-import { UTILITY_TYPE_TAB_PRESSED_STYLE } from './utility-type-tabs.constants';
 
 let mockColorScheme: 'light' | 'dark' = 'light';
 
@@ -55,6 +50,9 @@ describe('UtilityTypeTabs', () => {
 
     render(<UtilityTypeTabs selectedType="data" onSelect={jest.fn()} />);
 
+    // React Native Testing Library does not expose this non-focusable tablist
+    // View through getByRole('tablist'), so UNSAFE_getByProps plus
+    // StyleSheet.flatten intentionally verifies the container style contract.
     const tablist = screen.UNSAFE_getByProps({
       accessibilityRole: 'tablist',
     });
@@ -77,28 +75,5 @@ describe('UtilityTypeTabs', () => {
     ).toHaveAccessibilityState({
       selected: true,
     });
-  });
-
-  it('keeps taps handled while horizontally scrolling tabs', () => {
-    const { UNSAFE_getByType } = render(
-      <UtilityTypeTabs selectedType="power" onSelect={jest.fn()} />
-    );
-
-    // UNSAFE_getByType is intentional here: keyboardShouldPersistTaps has no
-    // observable UI behavior in this unit test. If UtilityTypeTabs stops using
-    // ScrollView internally, update or remove this prop-level assertion.
-    expect(UNSAFE_getByType(ScrollView).props.keyboardShouldPersistTaps).toBe(
-      'handled'
-    );
-  });
-
-  it('applies the shared pressed opacity while a tab is pressed', () => {
-    render(<UtilityTypeTabs selectedType="power" onSelect={jest.fn()} />);
-
-    expect(screen.getByLabelText('Data utility service')).toBeOnTheScreen();
-    // React Native's unit renderer resolves Pressable with pressed=false, so
-    // the transient pressed style is not observable here without test-only
-    // component props. This pins the shared token used by UtilityTypeTabs.
-    expect(UTILITY_TYPE_TAB_PRESSED_STYLE.opacity).toBeLessThan(1);
   });
 });

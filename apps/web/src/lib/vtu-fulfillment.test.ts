@@ -40,6 +40,7 @@ interface PendingTransactionMockOptions {
   rpcImpl?: (name: string) => Promise<{ data: unknown; error: unknown }>;
   merchantData?: { business_name?: string };
   claimData?: { id: string } | null;
+  notificationClaimData?: { id: string } | null;
   updateErrors?: {
     finalMetadata?: { message: string };
     purchase?: { message: string };
@@ -81,6 +82,7 @@ function createPendingTransactionSupabaseMock({
   rpcImpl,
   merchantData = { business_name: 'OgaBassey' },
   claimData = { id: 'vtu-1' },
+  notificationClaimData = { id: 'vtu-1' },
   updateErrors = {},
   updatePayloads = [],
 }: PendingTransactionMockOptions): SupabaseStub {
@@ -102,6 +104,10 @@ function createPendingTransactionSupabaseMock({
   });
   const existingMerchantCommissionMaybeSingle = vi.fn().mockResolvedValue({
     data: existingMerchantCommission,
+    error: null,
+  });
+  const notificationClaimMaybeSingle = vi.fn().mockResolvedValue({
+    data: notificationClaimData,
     error: null,
   });
   const makeMaybeSingleChain = (maybeSingle: ReturnType<typeof vi.fn>) => {
@@ -132,6 +138,27 @@ function createPendingTransactionSupabaseMock({
               payload && typeof payload === 'object'
                 ? (payload as Record<string, unknown>)
                 : {};
+            const metadataPayload =
+              payloadRecord.metadata &&
+              typeof payloadRecord.metadata === 'object'
+                ? (payloadRecord.metadata as Record<string, unknown>)
+                : null;
+            const isNotificationClaim =
+              metadataPayload?.customerNotificationAttempted === true &&
+              !('customerNotificationSent' in metadataPayload) &&
+              !('paymentPending' in metadataPayload) &&
+              !('status' in payloadRecord);
+
+            if (isNotificationClaim) {
+              const notificationClaimChain = {
+                eq: vi.fn(() => notificationClaimChain),
+                maybeSingle: notificationClaimMaybeSingle,
+                or: vi.fn(() => notificationClaimChain),
+                select: vi.fn(() => notificationClaimChain),
+              };
+              return notificationClaimChain;
+            }
+
             if (
               payloadRecord.status !== 'processing' &&
               !(
@@ -720,6 +747,53 @@ describe('fulfillPendingVtuTransaction', () => {
       metadata: expect.objectContaining({
         customerNotificationAttempted: true,
         customerNotificationSent: false,
+        paymentPending: false,
+      }),
+    });
+  });
+
+  it('does not notify when another worker claimed customer notification', async () => {
+    const updatePayloads: unknown[] = [];
+    mockPurchaseAirtime.mockResolvedValue({
+      success: true,
+      message: 'ok',
+      transactionId: 'kuda-1',
+      amount: 1000,
+      status: 'successful',
+    });
+
+    const supabase = createPendingTransactionSupabaseMock({
+      notificationClaimData: null,
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: 'customer-1',
+        type: 'airtime',
+        network_provider: 'MTN',
+        phone_number: '08012345678',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: null,
+        status: 'pending',
+        metadata: {},
+        error_message: null,
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: null,
+        biller_item_code: null,
+        customer_identifier: null,
+      },
+      updatePayloads,
+    });
+
+    await fulfillPendingVtuTransaction({
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(mockNotifyCustomer).not.toHaveBeenCalled();
+    expect(updatePayloads).toContainEqual({
+      metadata: expect.objectContaining({
         paymentPending: false,
       }),
     });

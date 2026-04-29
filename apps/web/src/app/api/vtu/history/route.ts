@@ -153,10 +153,7 @@ export async function GET(request: NextRequest) {
             error: paymentRowsError,
             paymentReferenceBatchSize: paymentReferenceBatch.length,
           });
-          return NextResponse.json(
-            { error: 'Failed to fetch payment statuses' },
-            { status: 500 }
-          );
+          continue;
         }
 
         for (const paymentRow of paymentRows ?? []) {

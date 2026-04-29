@@ -28,8 +28,6 @@ export type UtilityHistoryStatusColorKey =
   | VTUHistoryTransaction['status']
   | 'paymentReceived';
 
-export type UtilityHistoryStatusMetaKey = UtilityHistoryStatusColorKey;
-
 export const UTILITY_HISTORY_STATUS_COLORS = {
   failed: palette.red[700],
   paymentReceived: palette.amber[800],
@@ -42,10 +40,6 @@ export const UTILITY_HISTORY_STATUS_META = {
   failed: {
     color: UTILITY_HISTORY_STATUS_COLORS.failed,
     label: 'Failed',
-  },
-  paymentReceived: {
-    color: UTILITY_HISTORY_STATUS_COLORS.paymentReceived,
-    label: 'Payment Received',
   },
   pending: {
     color: UTILITY_HISTORY_STATUS_COLORS.pending,
@@ -60,7 +54,7 @@ export const UTILITY_HISTORY_STATUS_META = {
     label: 'Successful',
   },
 } as const satisfies Record<
-  UtilityHistoryStatusMetaKey,
+  VTUHistoryTransaction['status'],
   { color: string; label: string }
 >;
 

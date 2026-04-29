@@ -124,15 +124,21 @@ export async function shareUtilityReceipt(data: UtilityReceiptData) {
   try {
     const Print = await import('expo-print');
     const Sharing = await import('expo-sharing');
-    const { uri } = await Print.printToFileAsync({ html });
-    pdfUri = uri;
 
     if (!(await Sharing.isAvailableAsync())) {
       await Share.share({ message: buildReceiptMessage(data) });
       return;
     }
 
-    await Sharing.shareAsync(uri, {
+    try {
+      const { uri } = await Print.printToFileAsync({ html });
+      pdfUri = uri;
+    } catch {
+      await Share.share({ message: buildReceiptMessage(data) });
+      return;
+    }
+
+    await Sharing.shareAsync(pdfUri, {
       dialogTitle: 'Share Utility Receipt',
       mimeType: 'application/pdf',
       UTI: 'com.adobe.pdf',

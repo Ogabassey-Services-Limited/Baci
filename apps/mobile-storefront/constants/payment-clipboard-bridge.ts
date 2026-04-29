@@ -158,29 +158,41 @@ export const PAYMENT_CLIPBOARD_BRIDGE = {
       ? existingClipboard.writeText.bind(existingClipboard)
       : null;
 
+  function bridgedWriteText(text) {
+    postCopy(String(text));
+
+    if (!originalWriteText) {
+      return Promise.resolve();
+    }
+
+    var result = originalWriteText(text);
+    if (result && typeof result.catch === 'function') {
+      return result.catch(function (error) {
+        console.error('Baci clipboard bridge writeText failed', error);
+        return Promise.reject(error);
+      });
+    }
+
+    return Promise.resolve();
+  }
+
   try {
-    Object.defineProperty(navigator, 'clipboard', {
-      configurable: true,
-      value: Object.assign({}, existingClipboard, {
-        writeText: function (text) {
-          postCopy(String(text));
-
-          if (!originalWriteText) {
-            return Promise.resolve();
+    if (existingClipboard && typeof Proxy === 'function') {
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: new Proxy(existingClipboard, {
+          get: function (target, property) {
+            if (property === 'writeText') {
+              return bridgedWriteText;
+            }
+            var value = target[property];
+            return typeof value === 'function' ? value.bind(target) : value;
           }
-
-          var result = originalWriteText(text);
-          if (result && typeof result.catch === 'function') {
-            return result.catch(function (error) {
-              console.error('Baci clipboard bridge writeText failed', error);
-              return Promise.reject(error);
-            });
-          }
-
-          return Promise.resolve();
-        }
-      })
-    });
+        })
+      });
+    } else if (existingClipboard) {
+      existingClipboard.writeText = bridgedWriteText;
+    }
   } catch (error) {
     // Some gateway pages lock navigator.clipboard. The copy event fallback below
     // still lets native receive copied text.
@@ -249,13 +261,23 @@ export const PAYMENT_CLIPBOARD_BRIDGE = {
     scanForAccountNumber();
   }
 
+  function hasAccountNumberCandidate(node) {
+    if (!node) {
+      return false;
+    }
+    return Boolean(findAccountNumber(node.innerText || node.textContent || ''));
+  }
+
+  var preferredObserverTarget = document.querySelector('main, [role="main"], form');
+  var broadObserverTarget = document.body || document.documentElement;
   var observerTarget =
-    document.querySelector('main, [role="main"], form') ||
-    document.body ||
-    document.documentElement;
+    preferredObserverTarget && hasAccountNumberCandidate(preferredObserverTarget)
+      ? preferredObserverTarget
+      : broadObserverTarget;
   if (window.MutationObserver && observerTarget) {
     var observer = new MutationObserver(scheduleAccountNumberScan);
     observer.observe(observerTarget, {
+      characterData: true,
       childList: true,
       subtree: true
     });

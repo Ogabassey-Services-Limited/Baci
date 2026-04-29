@@ -88,9 +88,27 @@ describe('utility-receipt', () => {
       })
     );
     expect(mockShareAsync).not.toHaveBeenCalled();
-    expect(mockDeleteAsync).toHaveBeenCalledWith('file:///tmp/receipt.pdf', {
-      idempotent: true,
+    expect(mockDeleteAsync).not.toHaveBeenCalled();
+  });
+
+  it('falls back to native share when PDF generation fails', async () => {
+    mockPrintToFileAsync.mockRejectedValue(new Error('print failed'));
+
+    await shareUtilityReceipt({
+      amount: 1000,
+      customerIdentifier: '08012345678',
+      reference: 'ref-123',
+      status: 'successful',
+      type: 'airtime',
     });
+
+    expect(mockShare).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: expect.stringContaining('Reference: ref-123'),
+      })
+    );
+    expect(mockShareAsync).not.toHaveBeenCalled();
+    expect(mockDeleteAsync).not.toHaveBeenCalled();
   });
 
   it('suppresses cancelled share errors and still cleans up the temporary PDF', async () => {
