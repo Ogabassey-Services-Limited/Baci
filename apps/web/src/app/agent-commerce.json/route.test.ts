@@ -130,6 +130,28 @@ describe('GET /agent-commerce.json', () => {
     );
   });
 
+  it('resolves localhost subdomains as slug identifiers', async () => {
+    const { GET } = await import('./route');
+    const response = await GET(
+      new Request('http://ogabassey.localhost:3000/agent-commerce.json', {
+        headers: { host: 'ogabassey.localhost:3000' },
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.store).toMatchObject({
+      slug: 'ogabassey',
+      name: 'Ogabassey',
+      canonical_origin: 'http://ogabassey.localhost:3000',
+    });
+    expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey');
+    expect(mockGetMerchantByIdentifier).not.toHaveBeenCalledWith(
+      'ogabassey.localhost'
+    );
+    expect(mockGetMerchantByIdentifier).toHaveBeenCalledTimes(1);
+  });
+
   it('returns 404 when the request host does not resolve to a storefront', async () => {
     const { GET } = await import('./route');
     const response = await GET(

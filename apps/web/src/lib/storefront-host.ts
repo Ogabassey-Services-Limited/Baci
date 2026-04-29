@@ -1,4 +1,5 @@
 const WWW_PREFIX = 'www.';
+const LOCALHOST_SUFFIX = '.localhost';
 
 export function getRequestHost(request: Request): string {
   const host = request.headers.get('host') || new URL(request.url).host || '';
@@ -24,7 +25,10 @@ export function stripPort(host: string): string {
 
 export function isLocalhostIdentifier(hostname: string): boolean {
   return (
-    hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]'
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname === '[::1]' ||
+    hostname.endsWith(LOCALHOST_SUFFIX)
   );
 }
 
@@ -87,6 +91,15 @@ function resolveStorefrontRouteIdentifierContext({
     hostname === `${WWW_PREFIX}${normalizedRootDomain}`
   ) {
     return { identifier: '', kind: 'none' };
+  }
+
+  if (hostname.endsWith(LOCALHOST_SUFFIX)) {
+    const identifier = hostname.slice(0, -LOCALHOST_SUFFIX.length);
+
+    return {
+      identifier,
+      kind: identifier ? 'subdomain' : 'none',
+    };
   }
 
   if (isLocalhostIdentifier(hostname)) {

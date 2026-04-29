@@ -234,7 +234,7 @@ describe('storefront markdown mirrors', () => {
 
   it('builds blog index markdown', () => {
     const result = buildBlogIndexMarkdown(
-      { business_name: 'Ogabassey', slug: 'ogabassey' },
+      { business_name: 'Ogabassey' },
       'https://ogabassey.com',
       [
         {

@@ -395,6 +395,30 @@ describe('GET /api/feed/openai', () => {
     );
   });
 
+  it('resolves localhost subdomains as storefront slug hosts', async () => {
+    const { GET } = await import('./route');
+    const response = await GET(
+      new NextRequest(
+        'http://ogabassey.localhost:3000/api/feed/openai?merchant_slug=ogabassey&format=current',
+        { headers: { host: 'ogabassey.localhost:3000' } }
+      )
+    );
+    const line = (await response.text()).trim().split('\n')[0];
+    const parsed = JSON.parse(line);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('cache-control')).toBe(
+      'public, s-maxage=60, stale-while-revalidate=300'
+    );
+    expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey');
+    expect(mockGetMerchantByIdentifier).not.toHaveBeenCalledWith(
+      'ogabassey.localhost'
+    );
+    expect(parsed.url).toBe(
+      'http://ogabassey.localhost:3000/products/test-phone'
+    );
+  });
+
   it('rejects storefront scoped requests when the host cannot be resolved', async () => {
     mockGetMerchantByIdentifier.mockResolvedValue(null);
 

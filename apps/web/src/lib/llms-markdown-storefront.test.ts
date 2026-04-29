@@ -223,41 +223,56 @@ describe('llms markdown storefront builders', () => {
     expect(result).toContain('new');
   });
 
-  it('renders tracked out-of-stock product metadata', () => {
-    const result = buildProductMarkdown(merchant, 'https://ogabassey.com', {
-      id: 'p3',
-      name: 'Sold Out Watch',
-      slug: 'sold-out-watch',
-      description: 'Tracked inventory item.',
-      price: 95000,
-      category: 'Accessories',
-      stock: 0,
-      stock_quantity: 0,
-      manage_stock: true,
-      images: [],
-    });
+  it.each([
+    {
+      label: 'tracked out-of-stock',
+      product: {
+        id: 'p3',
+        name: 'Sold Out Watch',
+        slug: 'sold-out-watch',
+        description: 'Tracked inventory item.',
+        price: 95000,
+        category: 'Accessories',
+        stock: 0,
+        stock_quantity: 0,
+        manage_stock: true,
+        images: [],
+      },
+      expected: [
+        '- Availability: out_of_stock',
+        '- is_purchasable: false',
+        '- quantity_available: 0',
+      ],
+    },
+    {
+      label: 'tracked in-stock',
+      product: {
+        id: 'p4',
+        name: 'Available Watch',
+        slug: 'available-watch',
+        description: 'Tracked inventory item.',
+        price: 125000,
+        category: 'Accessories',
+        stock: 4,
+        stock_quantity: 4,
+        manage_stock: true,
+        images: [],
+      },
+      expected: [
+        '- Availability: in_stock',
+        '- is_purchasable: true',
+        '- quantity_available: 4',
+      ],
+    },
+  ])('renders $label product metadata', ({ product, expected }) => {
+    const result = buildProductMarkdown(
+      merchant,
+      'https://ogabassey.com',
+      product
+    );
 
-    expect(result).toContain('- Availability: out_of_stock');
-    expect(result).toContain('- is_purchasable: false');
-    expect(result).toContain('- quantity_available: 0');
-  });
-
-  it('renders tracked in-stock product metadata', () => {
-    const result = buildProductMarkdown(merchant, 'https://ogabassey.com', {
-      id: 'p4',
-      name: 'Available Watch',
-      slug: 'available-watch',
-      description: 'Tracked inventory item.',
-      price: 125000,
-      category: 'Accessories',
-      stock: 4,
-      stock_quantity: 4,
-      manage_stock: true,
-      images: [],
-    });
-
-    expect(result).toContain('- Availability: in_stock');
-    expect(result).toContain('- is_purchasable: true');
-    expect(result).toContain('- quantity_available: 4');
+    for (const expectedLine of expected) {
+      expect(result).toContain(expectedLine);
+    }
   });
 });

@@ -32,7 +32,7 @@ describe('storefront host helpers', () => {
     expect(isLocalhostIdentifier('localhost')).toBe(true);
     expect(isLocalhostIdentifier('127.0.0.1')).toBe(true);
     expect(isLocalhostIdentifier('[::1]')).toBe(true);
-    expect(isLocalhostIdentifier('ogabassey.localhost')).toBe(false);
+    expect(isLocalhostIdentifier('ogabassey.localhost')).toBe(true);
   });
 
   it('resolves route identifiers from root-domain subdomains and custom domains', () => {
@@ -92,7 +92,7 @@ describe('storefront host helpers', () => {
         request: new Request('https://ogabassey.localhost/agent-commerce.json'),
         rootDomain: 'usebaci.com',
       })
-    ).toEqual(['ogabassey.localhost']);
+    ).toEqual(['ogabassey']);
     expect(
       resolveStorefrontRouteIdentifiers({
         request: new Request('https://usebaci.com/agent-commerce.json'),

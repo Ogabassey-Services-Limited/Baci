@@ -17,7 +17,7 @@ function expectBlankLineBetween(
 describe('llms markdown blog builders', () => {
   it('builds a blog index with post markdown links', () => {
     const result = buildBlogIndexMarkdown(
-      { business_name: 'Ogabassey', slug: 'ogabassey' },
+      { business_name: 'Ogabassey' },
       'https://ogabassey.com',
       [
         {
@@ -75,7 +75,7 @@ describe('llms markdown blog builders', () => {
 
   it('handles empty blog indexes without category output', () => {
     const result = buildBlogIndexMarkdown(
-      { business_name: 'Ogabassey', slug: 'ogabassey' },
+      { business_name: 'Ogabassey' },
       'https://ogabassey.com',
       [],
       []
@@ -105,7 +105,7 @@ describe('llms markdown blog builders', () => {
     );
 
     const result = buildBlogIndexMarkdown(
-      { business_name: 'Ogabassey', slug: 'ogabassey' },
+      { business_name: 'Ogabassey' },
       'https://ogabassey.com',
       posts,
       []
@@ -139,7 +139,7 @@ describe('llms markdown blog builders', () => {
 
   it('sanitizes merchant and blog-controlled markdown fields', () => {
     const index = buildBlogIndexMarkdown(
-      { business_name: '<script>alert(1)</script>Bad **Store**', slug: 'bad' },
+      { business_name: '<script>alert(1)</script>Bad **Store**' },
       'https://ogabassey.com',
       [
         {
@@ -240,7 +240,7 @@ describe('llms markdown blog builders', () => {
 
   it('uses fallbacks when sanitized blog preview text is empty', () => {
     const index = buildBlogIndexMarkdown(
-      { business_name: 'Ogabassey', slug: 'ogabassey' },
+      { business_name: 'Ogabassey' },
       'https://ogabassey.com',
       [
         {
@@ -269,7 +269,7 @@ describe('llms markdown blog builders', () => {
 
   it('only renders positive finite reading-time metadata', () => {
     const index = buildBlogIndexMarkdown(
-      { business_name: 'Ogabassey', slug: 'ogabassey' },
+      { business_name: 'Ogabassey' },
       'https://ogabassey.com',
       [
         {
