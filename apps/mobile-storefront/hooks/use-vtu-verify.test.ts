@@ -126,7 +126,7 @@ describe('useVTUVerify', () => {
     });
   });
 
-  it('fails before verification when the customer is not authenticated', async () => {
+  it('verifies bill customers without a local session', async () => {
     mockGetSession.mockResolvedValue({
       data: { session: null },
       error: null,
@@ -134,31 +134,46 @@ describe('useVTUVerify', () => {
     const { result } = renderUseVTUVerify();
 
     await act(async () => {
-      await expect(
-        result.current.mutateAsync({
-          billItemIdentifier: 'ekedc-prepaid',
-          customerIdentifier: '43901766923',
-        })
-      ).rejects.toThrow('Authentication required. Please sign in again.');
+      await result.current.mutateAsync({
+        billItemIdentifier: 'ekedc-prepaid',
+        customerIdentifier: '43901766923',
+      });
     });
-    expect(mockFetchWithTimeout).not.toHaveBeenCalled();
+    expect(mockFetchWithTimeout).toHaveBeenCalledWith(
+      expect.stringContaining('/api/vtu/verify'),
+      expect.objectContaining({
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+    );
   });
 
-  it('surfaces session retrieval errors before verification', async () => {
+  it('continues verification when session retrieval fails', async () => {
+    const consoleWarnSpy = jest
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
     mockGetSession.mockResolvedValue({
       data: { session: null },
       error: { message: 'Session refresh failed' },
     });
     const { result } = renderUseVTUVerify();
 
-    await act(async () => {
-      await expect(
-        result.current.mutateAsync({
+    try {
+      await act(async () => {
+        await result.current.mutateAsync({
           billItemIdentifier: 'ekedc-prepaid',
           customerIdentifier: '43901766923',
-        })
-      ).rejects.toThrow('Session refresh failed');
-    });
-    expect(mockFetchWithTimeout).not.toHaveBeenCalled();
+        });
+      });
+
+      expect(console.warn).toHaveBeenCalledWith(
+        'Continuing VTU verification without a local session:',
+        { message: 'Session refresh failed' }
+      );
+      expect(mockFetchWithTimeout).toHaveBeenCalled();
+    } finally {
+      consoleWarnSpy.mockRestore();
+    }
   });
 });

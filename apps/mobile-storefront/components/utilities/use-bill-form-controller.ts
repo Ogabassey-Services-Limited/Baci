@@ -70,6 +70,10 @@ export function useBillFormController({
   const [isRepeatPaymentActive, setIsRepeatPaymentActive] = useState(false);
   const [shouldScrollToNextStep, setShouldScrollToNextStep] = useState(false);
   const [shouldScrollToPayment, setShouldScrollToPayment] = useState(false);
+  const pendingVerificationKeyRef = useRef<string | null>(null);
+  const [verifiedSelectionKey, setVerifiedSelectionKey] = useState<
+    string | null
+  >(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const scheduleNextStepScroll = useNextStepScroll(scrollViewRef, () => {
     setShouldScrollToNextStep(false);
@@ -89,9 +93,19 @@ export function useBillFormController({
     ? (selectedBillItem?.itemCode ?? null)
     : (selectedBiller?.billerId ?? null);
   const numericAmount = parseUtilityAmount(amount);
+  const currentVerificationKey = `${selectedBiller?.billerId ?? ''}:${
+    selectedBillItemIdentifier ?? ''
+  }:${customerId.trim()}`;
   const canShowPayment = Boolean(
-    verify.data?.verified || isRepeatPaymentActive
+    isRepeatPaymentActive || verifiedSelectionKey === currentVerificationKey
   );
+
+  useEffect(() => {
+    if (verify.data?.verified && pendingVerificationKeyRef.current) {
+      setVerifiedSelectionKey(pendingVerificationKeyRef.current);
+      pendingVerificationKeyRef.current = null;
+    }
+  }, [verify.data?.verified]);
 
   useEffect(() => {
     if (selectedBiller || !billersQuery.data?.length) {
@@ -132,6 +146,8 @@ export function useBillFormController({
   ]);
 
   const resetVerification = () => {
+    pendingVerificationKeyRef.current = null;
+    setVerifiedSelectionKey(null);
     if (!verify.isPending) {
       verify.reset();
     }
@@ -186,6 +202,7 @@ export function useBillFormController({
       Alert.alert('Missing Information', `Please ${steps.join(', ')}.`);
       return;
     }
+    pendingVerificationKeyRef.current = currentVerificationKey;
     verify.mutate({
       billItemIdentifier: selectedBillItemIdentifier,
       customerIdentifier: customerId,

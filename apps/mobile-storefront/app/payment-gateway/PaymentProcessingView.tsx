@@ -3,7 +3,6 @@ import { ActivityIndicator, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { paymentGatewayStyles as styles } from '@/app/payment-gateway/payment-gateway.styles';
 import type Colors from '@/constants/Colors';
-import { BRAND } from '@/constants/Colors';
 
 interface PaymentProcessingViewProps {
   colors: typeof Colors.light;
@@ -16,7 +15,7 @@ export function PaymentProcessingView({ colors }: PaymentProcessingViewProps) {
     >
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.statusContainer}>
-        <ActivityIndicator size="large" color={BRAND.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={[styles.statusTitle, { color: colors.text }]}>
           Confirming Utility Purchase
         </Text>

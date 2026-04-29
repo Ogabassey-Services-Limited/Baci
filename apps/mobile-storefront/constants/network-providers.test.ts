@@ -30,5 +30,14 @@ describe('NETWORK_PROVIDERS', () => {
         name: 'T2 (9mobile)',
       }),
     ]);
+    expect(providers).toHaveLength(4);
+  });
+
+  it('keeps provider ids unique and image references present', () => {
+    const providers: readonly NetworkProvider[] = NETWORK_PROVIDERS;
+    const ids = providers.map((provider) => provider.id);
+
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(providers.every((provider) => provider.image != null)).toBe(true);
   });
 });

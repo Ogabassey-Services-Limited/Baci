@@ -1,9 +1,5 @@
 import Constants from 'expo-constants';
-import { z } from 'zod';
-
-const MobileEnvSchema = z.object({
-  EXPO_PUBLIC_API_URL: z.string().url().default('https://usebaci.com'),
-});
+import { MobileEnvSchema } from '@/schemas/env';
 
 function readExpoExtraApiUrl() {
   const value =

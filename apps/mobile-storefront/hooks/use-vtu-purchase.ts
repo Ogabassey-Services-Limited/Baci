@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import Constants from 'expo-constants';
 import { z } from 'zod';
+import { EXPO_PUBLIC_API_URL } from '@/env';
 import { CONFIG } from '@/lib/config';
 import { DEFAULT_TIMEOUT, fetchWithTimeout } from '@/lib/fetch-with-timeout';
 import { MOBILE_TO_KUDA_PROVIDER } from '@/lib/network-utils';
@@ -9,10 +9,7 @@ import { scheduleLocalNotification } from '@/services/push-notifications';
 import { useAuthStore } from '@/stores/auth-store';
 import { walletKeys } from './use-wallet';
 
-const API_URL =
-  process.env.EXPO_PUBLIC_API_URL ||
-  Constants.expoConfig?.extra?.apiUrl ||
-  'https://ogabassey.usebaci.com';
+const API_URL = EXPO_PUBLIC_API_URL;
 
 export interface VTUPurchaseParams {
   type: 'airtime' | 'data' | 'electricity' | 'cable_tv' | 'betting';

@@ -1,13 +1,10 @@
 import { useMutation } from '@tanstack/react-query';
-import Constants from 'expo-constants';
 import { z } from 'zod';
+import { EXPO_PUBLIC_API_URL } from '@/env';
 import { fetchWithTimeout, SHORT_TIMEOUT } from '@/lib/fetch-with-timeout';
 import { supabase } from '@/lib/supabase';
 
-const API_URL =
-  process.env.EXPO_PUBLIC_API_URL ||
-  Constants.expoConfig?.extra?.apiUrl ||
-  'https://ogabassey.usebaci.com';
+const API_URL = EXPO_PUBLIC_API_URL;
 
 export interface VerifyResult {
   verified: boolean;
@@ -35,21 +32,19 @@ export function useVTUVerify() {
     mutationFn: async (params) => {
       const sessionResult = await supabase.auth.getSession();
       if (sessionResult.error) {
-        throw new Error(
-          sessionResult.error.message || 'Session retrieval failed.'
+        console.warn(
+          'Continuing VTU verification without a local session:',
+          sessionResult.error
         );
       }
 
-      const session = sessionResult.data?.session;
-      if (!session?.user || !session.access_token) {
-        throw new Error('Authentication required. Please sign in again.');
-      }
+      const accessToken = sessionResult.data?.session?.access_token;
 
       const response = await fetchWithTimeout(`${API_URL}/api/vtu/verify`, {
         timeout: SHORT_TIMEOUT,
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(params),

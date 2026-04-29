@@ -31,21 +31,26 @@ export const PAYMENT_CLIPBOARD_BRIDGE = {
     }
   }
 
-  function postCopy(text) {
-    if (typeof text !== 'string') {
-      return;
-    }
+	  function postCopy(text) {
+	    if (typeof text !== 'string') {
+	      return;
+	    }
 
-    var normalized = text.trim();
-    if (!normalized) {
-      return;
-    }
+	    var normalized = text.trim();
+	    if (!normalized) {
+	      return;
+	    }
 
-    sendMessage(JSON.stringify({
-      type: '${PAYMENT_CLIPBOARD_MESSAGE_TYPE}',
-      text: normalized
-    }));
-  }
+	    var accountNumber = findAccountNumber(normalized);
+	    if (!accountNumber) {
+	      return;
+	    }
+
+	    sendMessage(JSON.stringify({
+	      type: '${PAYMENT_CLIPBOARD_MESSAGE_TYPE}',
+	      text: accountNumber
+	    }));
+	  }
 
   var lastPostedAccountNumber = '';
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 import { PAYMENT_CLIPBOARD_BRIDGE } from '@/constants/payment-clipboard-bridge';
 
 function escapeRegex(value: string) {
@@ -19,10 +19,10 @@ function expectBridgeMessageTypesToBeReferenced({
   }
 
   expect(script).toMatch(
-    new RegExp(
-      `type: '${escapeRegex(clipboardMessageType)}'[\\s\\S]*text: normalized`
-    )
-  );
+      new RegExp(
+        `type: '${escapeRegex(clipboardMessageType)}'[\\s\\S]*text: accountNumber`
+      )
+    );
   expect(script).toMatch(
     new RegExp(
       `type: '${escapeRegex(accountNumberMessageType)}'[\\s\\S]*text: accountNumber`
@@ -58,6 +58,84 @@ describe('PAYMENT_CLIPBOARD_BRIDGE', () => {
     expect(() => {
       new Function(PAYMENT_CLIPBOARD_BRIDGE.script);
     }).not.toThrow();
+  });
+
+  it('forwards copied account numbers and ignores non-account clipboard text', async () => {
+    const postedMessages: string[] = [];
+    type CopyListener = (event: {
+      clipboardData?: { getData: () => string };
+    }) => void;
+    let copyListener: CopyListener = () => undefined;
+    const documentMock = {
+      addEventListener: jest.fn((event: string, listener: unknown) => {
+        if (event === 'copy') {
+          copyListener = listener as CopyListener;
+        }
+      }),
+      body: { innerText: '', textContent: '' },
+      documentElement: { innerText: '', textContent: '' },
+      execCommand: jest.fn(() => true),
+      querySelector: jest.fn(() => null),
+      readyState: 'complete',
+    };
+    const navigatorMock = {
+      clipboard: {
+        writeText: jest.fn<(_text: string) => Promise<void>>(() =>
+          Promise.resolve()
+        ),
+      },
+    };
+    class MutationObserverMock {
+      observe = jest.fn();
+    }
+    const windowMock = {
+      MutationObserver: MutationObserverMock,
+      ReactNativeWebView: {
+        postMessage: jest.fn((message: string) => postedMessages.push(message)),
+      },
+      getSelection: jest.fn(() => ({ toString: () => '' })),
+    };
+    const runBridge = new Function(
+      'window',
+      'document',
+      'navigator',
+      'MutationObserver',
+      'setTimeout',
+      PAYMENT_CLIPBOARD_BRIDGE.script
+    );
+
+    runBridge(
+      windowMock,
+      documentMock,
+      navigatorMock,
+      MutationObserverMock,
+      (callback: () => void) => {
+        callback();
+        return 1;
+      }
+    );
+
+    await navigatorMock.clipboard.writeText('Reference REF 1234567890');
+    await navigatorMock.clipboard.writeText('Account number: 1234567890');
+    copyListener({
+      clipboardData: {
+        getData: () => 'OTP 123456',
+      },
+    });
+
+    const clipboardMessages = postedMessages
+      .map((message) => JSON.parse(message))
+      .filter(
+        (message) =>
+          message.type === PAYMENT_CLIPBOARD_BRIDGE.clipboardMessageType
+      );
+
+    expect(clipboardMessages).toEqual([
+      {
+        text: '1234567890',
+        type: PAYMENT_CLIPBOARD_BRIDGE.clipboardMessageType,
+      },
+    ]);
   });
 
   it('uses debounced account-number scanning for observers and retry timers', () => {

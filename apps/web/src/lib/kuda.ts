@@ -137,11 +137,15 @@ function mapBillItem(raw: unknown): BillItem | null {
 
   const item = raw as KudaRawBillItem;
   const itemCode =
-    item.ItemCode ??
-    item.itemCode ??
-    item.KudaIdentifier ??
-    item.kudaIdentifier;
-  const itemName = item.ItemName ?? item.itemName ?? item.Name ?? item.name;
+    normalizeKudaString(item.ItemCode) ??
+    normalizeKudaString(item.itemCode) ??
+    normalizeKudaString(item.KudaIdentifier) ??
+    normalizeKudaString(item.kudaIdentifier);
+  const itemName =
+    normalizeKudaString(item.ItemName) ??
+    normalizeKudaString(item.itemName) ??
+    normalizeKudaString(item.Name) ??
+    normalizeKudaString(item.name);
 
   if (!itemCode || !itemName) {
     return null;

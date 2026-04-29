@@ -18,6 +18,10 @@ function isPaymentGateway(value: unknown): value is PaymentGateway {
   return value === 'paystack' || value === 'korapay';
 }
 
+function getPaymentStatusKey(gateway: string, reference: string): string {
+  return `${gateway}:${reference}`;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const auth = await authenticateApiRequest(request);
@@ -144,7 +148,7 @@ export async function GET(request: NextRequest) {
         );
         const { data: paymentRows, error: paymentRowsError } = await supabase
           .from('transactions')
-          .select('gateway_reference, status')
+          .select('gateway, gateway_reference, status')
           .eq('merchant_id', merchant.id)
           .in('gateway_reference', paymentReferenceBatch);
 
@@ -158,11 +162,15 @@ export async function GET(request: NextRequest) {
 
         for (const paymentRow of paymentRows ?? []) {
           if (
+            typeof paymentRow.gateway === 'string' &&
             typeof paymentRow.gateway_reference === 'string' &&
             typeof paymentRow.status === 'string'
           ) {
             paymentStatusByReference.set(
-              paymentRow.gateway_reference,
+              getPaymentStatusKey(
+                paymentRow.gateway,
+                paymentRow.gateway_reference
+              ),
               paymentRow.status
             );
           }
@@ -243,9 +251,12 @@ export async function GET(request: NextRequest) {
                 : null,
             payment_gateway: paymentGateway,
             payment_reference: paymentReference,
-            payment_status: paymentReference
-              ? (paymentStatusByReference.get(paymentReference) ?? null)
-              : null,
+            payment_status:
+              paymentGateway && paymentReference
+                ? (paymentStatusByReference.get(
+                    getPaymentStatusKey(paymentGateway, paymentReference)
+                  ) ?? null)
+                : null,
             repeat_data_plan_code: dataPlanCode,
             voucher_pin: voucherPin,
           };

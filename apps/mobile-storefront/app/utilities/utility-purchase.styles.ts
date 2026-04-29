@@ -1,4 +1,5 @@
 import { StyleSheet } from 'react-native';
+import { SHADOWS } from '@/constants/Colors';
 
 export const utilityPurchaseStyles = StyleSheet.create({
   container: { flex: 1 },
@@ -40,14 +41,10 @@ export const utilityPurchaseStyles = StyleSheet.create({
   headerIconCircle: {
     alignItems: 'center',
     borderRadius: 26,
-    elevation: 5,
     height: 52,
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
     width: 52,
+    ...SHADOWS.xl,
   },
   errorContainer: {
     flex: 1,
@@ -81,11 +78,7 @@ export const utilityPurchaseStyles = StyleSheet.create({
     right: 16,
   },
   quickRepeatButton: {
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 14,
+    ...SHADOWS.lg,
   },
   quickRepeatCopy: {
     flex: 1,

@@ -29,6 +29,12 @@ describe('BillerInitial', () => {
     expect(screen.getByText('9')).toBeOnTheScreen();
   });
 
+  it('uses the first Unicode grapheme as the visible initial', () => {
+    render(<BillerInitial colors={DEFAULT_COLORS} name="🇳🇬 Power" />);
+
+    expect(screen.getByText('🇳🇬')).toBeOnTheScreen();
+  });
+
   it('applies controlled circle and text colors', () => {
     render(
       <BillerInitial

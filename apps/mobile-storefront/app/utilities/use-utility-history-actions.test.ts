@@ -149,6 +149,21 @@ describe('useUtilityHistoryActions', () => {
     );
   });
 
+  it('reports non-throwing clipboard failures', async () => {
+    mockSetClipboardString.mockResolvedValueOnce(false);
+    const { result } = renderHook(() => useUtilityHistoryActions({ refetch }));
+
+    await act(async () => {
+      await result.current.handleCopyVoucher('  1234-5678  ');
+    });
+
+    expect(mockSetClipboardString).toHaveBeenCalledWith('1234-5678');
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Copy Failed',
+      'Could not copy this token.'
+    );
+  });
+
   it('shares receipts, blocks concurrent shares, and clears sharing state', async () => {
     const share = deferred<void>();
     mockShareUtilityReceipt.mockReturnValueOnce(share.promise);
@@ -257,6 +272,25 @@ describe('useUtilityHistoryActions', () => {
     expect(Alert.alert).toHaveBeenCalledWith(
       'Sync Failed',
       'This payment is already being reconciled. Please check again shortly.'
+    );
+  });
+
+  it('shows a processing alert when payment sync is not yet fulfilled', async () => {
+    mockConfirmVtuCheckout.mockResolvedValueOnce({
+      amount: 2500,
+      reference: 'PAY-123',
+      status: 'processing',
+    });
+    const { result } = renderHook(() => useUtilityHistoryActions({ refetch }));
+
+    await act(async () => {
+      await result.current.handleSyncPayment(createTransaction());
+    });
+
+    expect(refetch).toHaveBeenCalledTimes(1);
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Still Processing',
+      'The payment is confirmed, but utility fulfillment is still processing.'
     );
   });
 

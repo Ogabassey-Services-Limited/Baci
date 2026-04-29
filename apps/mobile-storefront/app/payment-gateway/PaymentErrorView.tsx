@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
-import { Pressable, Text, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { paymentGatewayStyles as styles } from '@/app/payment-gateway/payment-gateway.styles';
 import type Colors from '@/constants/Colors';
@@ -11,7 +12,7 @@ interface PaymentErrorViewProps {
   errorMessage: string | null;
   gatewayName: string;
   onBack: () => void;
-  onRetry: () => void;
+  onRetry: () => Promise<void> | void;
 }
 
 export function PaymentErrorView({
@@ -21,6 +22,21 @@ export function PaymentErrorView({
   onBack,
   onRetry,
 }: PaymentErrorViewProps) {
+  const [isRetrying, setIsRetrying] = useState(false);
+
+  const handleRetry = async () => {
+    if (isRetrying) {
+      return;
+    }
+
+    setIsRetrying(true);
+    try {
+      await onRetry();
+    } finally {
+      setIsRetrying(false);
+    }
+  };
+
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -61,10 +77,19 @@ export function PaymentErrorView({
           <Pressable
             accessibilityLabel="Try payment again"
             accessibilityRole="button"
-            style={[styles.baseButton, { backgroundColor: BRAND.primary }]}
-            onPress={onRetry}
+            accessibilityState={{ busy: isRetrying, disabled: isRetrying }}
+            disabled={isRetrying}
+            style={[
+              styles.baseButton,
+              { backgroundColor: BRAND.primary, opacity: isRetrying ? 0.75 : 1 },
+            ]}
+            onPress={handleRetry}
           >
-            <Text style={styles.actionButtonText}>Try Again</Text>
+            {isRetrying ? (
+              <ActivityIndicator color={BRAND.onPrimary} />
+            ) : (
+              <Text style={styles.actionButtonText}>Try Again</Text>
+            )}
           </Pressable>
           <Pressable
             accessibilityLabel="Go back"

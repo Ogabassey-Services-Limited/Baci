@@ -119,7 +119,7 @@ async function markVoucherPinBackfillScheduled({
           'eq',
           // Supabase filter() expects raw PostgREST syntax, so pass stable JSON
           // text instead of an object, which would become "[object Object]".
-          `${stableJsonStringify(originalMetadata)}::jsonb`
+          stableJsonStringify(originalMetadata)
         );
 
   const { data, error } = await updateQuery.select('id');

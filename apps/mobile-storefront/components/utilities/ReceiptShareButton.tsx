@@ -40,6 +40,14 @@ export default function ReceiptShareButton({
       return;
     }
 
+    if (!txReference) {
+      Alert.alert(
+        'Receipt Unavailable',
+        'A transaction reference is required before sharing this receipt.'
+      );
+      return;
+    }
+
     setIsSharingReceipt(true);
     try {
       await shareUtilityReceipt({

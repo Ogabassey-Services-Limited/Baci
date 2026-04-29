@@ -197,6 +197,7 @@ describe('GET /api/vtu/history', () => {
     transactionsError = null;
     paymentRowsData = [
       {
+        gateway: 'paystack',
         gateway_reference: 'VTU-PAYSTACK-123',
         status: 'completed',
       },
@@ -321,11 +322,7 @@ describe('GET /api/vtu/history', () => {
       ([field, operator]) => field === 'metadata' && operator === 'eq'
     );
     expect(metadataFilter).toBeDefined();
-    const serializedMetadata = String(metadataFilter?.[2]).replace(
-      /::jsonb$/,
-      ''
-    );
-    expect(JSON.parse(serializedMetadata)).toEqual({
+    expect(JSON.parse(String(metadataFilter?.[2]))).toEqual({
       alpha: 'first',
       zeta: 'last',
     });
@@ -430,6 +427,73 @@ describe('GET /api/vtu/history', () => {
     expect(mockAfter).not.toHaveBeenCalled();
     expect(mockBackfillVtuVoucherPin).not.toHaveBeenCalled();
     expect(vtuTransactionUpdatePayloads).toEqual([]);
+  });
+
+  it('matches payment statuses by gateway and reference', async () => {
+    const { GET } = await import('./route');
+    transactionsData = [
+      {
+        id: 'tx-paystack',
+        created_at: '2026-04-08T12:00:00.000Z',
+        type: 'airtime',
+        status: 'successful',
+        amount: '2500',
+        biller_name: 'MTN',
+        metadata: {
+          gateway: 'paystack',
+          paymentReference: 'SHARED-REF',
+        },
+        request_reference: 'VTU-PAYSTACK',
+        transaction_id: null,
+        customer_cashback: '0',
+      },
+      {
+        id: 'tx-korapay',
+        created_at: '2026-04-08T12:01:00.000Z',
+        type: 'airtime',
+        status: 'successful',
+        amount: '2500',
+        biller_name: 'MTN',
+        metadata: {
+          gateway: 'korapay',
+          paymentReference: 'SHARED-REF',
+        },
+        request_reference: 'VTU-KORAPAY',
+        transaction_id: null,
+        customer_cashback: '0',
+      },
+    ];
+    paymentRowsData = [
+      {
+        gateway: 'paystack',
+        gateway_reference: 'SHARED-REF',
+        status: 'completed',
+      },
+      {
+        gateway: 'korapay',
+        gateway_reference: 'SHARED-REF',
+        status: 'failed',
+      },
+    ];
+
+    const response = await GET(makeRequest('?merchantSlug=ogabassey'));
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.transactions).toEqual([
+      expect.objectContaining({
+        id: 'tx-paystack',
+        payment_gateway: 'paystack',
+        payment_reference: 'SHARED-REF',
+        payment_status: 'completed',
+      }),
+      expect.objectContaining({
+        id: 'tx-korapay',
+        payment_gateway: 'korapay',
+        payment_reference: 'SHARED-REF',
+        payment_status: 'failed',
+      }),
+    ]);
   });
 
   it('returns an empty list when no customer exists for the authenticated user', async () => {

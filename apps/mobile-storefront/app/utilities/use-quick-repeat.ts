@@ -68,7 +68,7 @@ export function useQuickRepeat({
     data: recentTransactions,
     error: recentTransactionsError,
     isLoading: isRecentTransactionsLoading,
-  } = useVTUHistory(historyFilter, 1);
+  } = useVTUHistory(historyFilter, 5);
 
   useEffect(() => {
     setRepeatDefaults(
@@ -102,14 +102,18 @@ export function useQuickRepeat({
     repeatVerified,
   ]);
 
-  const lastTransaction = recentTransactions?.[0] ?? null;
+  const lastTransaction =
+    recentTransactions?.find(
+      (transaction) =>
+        transaction.status === 'successful' &&
+        utilityRepeatHelpers.getRouteType(transaction.type) === currentType
+    ) ?? null;
   const isLastTransactionForCurrentType = lastTransaction
     ? utilityRepeatHelpers.getRouteType(lastTransaction.type) === currentType
     : false;
   const showQuickRepeat = Boolean(
     lastTransaction &&
       isLastTransactionForCurrentType &&
-      lastTransaction.status === 'successful' &&
       !isRecentTransactionsLoading &&
       !recentTransactionsError &&
       !isKeyboardVisible &&
