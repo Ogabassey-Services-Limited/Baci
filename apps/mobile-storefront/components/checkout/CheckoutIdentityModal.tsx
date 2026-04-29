@@ -548,8 +548,9 @@ const styles = StyleSheet.create({
     ...SHADOWS.lg,
   },
   primaryButtonPressed: {
+    // Background color intentionally omitted: pressed feedback comes from
+    // scale + opacity overrides applied inline (themed-color-safe).
     transform: [{ scale: 0.98 }],
-    backgroundColor: BRAND.primaryDark, // red-700
   },
   primaryButtonDisabled: {
     opacity: 0.6,
