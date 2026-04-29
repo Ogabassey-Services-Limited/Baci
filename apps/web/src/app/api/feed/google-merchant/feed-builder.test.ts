@@ -731,7 +731,7 @@ describe('generateGoogleMerchantFeed — multi-condition offers', () => {
       [
         product({
           has_condition_offers: true,
-          offers: [offerWithoutStockQuantity as FeedOffer],
+          offers: [offerWithoutStockQuantity],
         }),
       ],
       merchant(),

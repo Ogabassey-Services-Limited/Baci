@@ -60,7 +60,7 @@ export interface FeedOffer {
   id: string;
   condition: 'new' | 'used' | 'refurbished' | 'open_box' | 'uk_used';
   price: number;
-  stock_quantity: number;
+  stock_quantity?: number | null;
 }
 
 export interface FeedVariant {

@@ -48,7 +48,6 @@ vi.mock('@/lib/logger', () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.resetModules();
 
   mockResolveStorefrontMerchantFromRequest.mockResolvedValue({
     success: true,
