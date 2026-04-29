@@ -34,6 +34,23 @@ describe('googleMerchantFeedQuerySchema', () => {
     expect(result.success).toBe(true);
   });
 
+  it.each([
+    'legacy_store',
+    'legacy_store_name',
+    'store__name',
+    '_store',
+    'store_',
+  ])('accepts legacy merchant slug "%s"', (merchantSlug) => {
+    const result = googleMerchantFeedQuerySchema.safeParse({
+      merchant_slug: merchantSlug,
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toEqual({ merchant_slug: merchantSlug });
+    }
+  });
+
   it('fails when no merchant identifier is provided', () => {
     expect(googleMerchantFeedQuerySchema.safeParse({}).success).toBe(false);
   });

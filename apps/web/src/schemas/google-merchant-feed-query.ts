@@ -5,7 +5,7 @@ const MerchantSlugSchema = z
   .trim()
   .min(1)
   .max(255)
-  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+  .regex(/^[A-Za-z0-9_-]+$/);
 
 export const googleMerchantFeedQuerySchema = z
   .object({
