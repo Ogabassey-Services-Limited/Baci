@@ -9,6 +9,7 @@ import {
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, SPACING } from '@/constants/Colors';
 import type { Biller } from '@/hooks/use-vtu-billers';
+import { BillerInitial } from './BillerInitial';
 
 interface BillerListProps {
   billers: Biller[];
@@ -20,22 +21,6 @@ interface BillerListProps {
   isCollapsed?: boolean;
   onChangeSelection?: () => void;
   selectedLabel?: string;
-}
-
-function BillerInitial({
-  name,
-  colors,
-}: {
-  name: string;
-  colors: { textSecondary: string; border: string };
-}) {
-  return (
-    <View style={[styles.initialsCircle, { backgroundColor: colors.border }]}>
-      <Text style={[styles.initialsText, { color: colors.textSecondary }]}>
-        {name.charAt(0).toUpperCase()}
-      </Text>
-    </View>
-  );
 }
 
 export function BillerList({
@@ -195,18 +180,6 @@ const styles = StyleSheet.create({
     width: 60,
     height: 40,
     marginBottom: 8,
-  },
-  initialsCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  initialsText: {
-    fontSize: 20,
-    fontWeight: '700',
   },
   billerName: {
     fontSize: 13,

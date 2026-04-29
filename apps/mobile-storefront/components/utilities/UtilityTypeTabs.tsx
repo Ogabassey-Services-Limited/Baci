@@ -42,6 +42,8 @@ export function UtilityTypeTabs({
 
   return (
     <View
+      accessible={true}
+      accessibilityLabel="Utility service categories"
       accessibilityRole="tablist"
       style={[
         styles.container,

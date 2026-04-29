@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   voucherCard: {
-    width: '100%' as unknown as number,
+    width: '100%',
     padding: 14,
     borderRadius: 12,
     borderWidth: 1,
@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0,
   },
   cashbackCard: {
-    width: '100%' as unknown as number,
+    width: '100%',
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
   },
   cashbackBalance: { fontSize: 13, color: '#6B7280', marginTop: 2 },
   upsellCard: {
-    width: '100%' as unknown as number,
+    width: '100%',
     padding: 20,
     borderRadius: 16,
     borderWidth: 1,
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: { color: '#FFF', fontSize: 16, fontWeight: '600' },
   secondaryButton: {
-    width: '100%' as unknown as number,
+    width: '100%',
     height: 50,
     borderRadius: 12,
     alignItems: 'center',
@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: { fontSize: 16, fontWeight: '600' },
   shareButton: {
-    width: '100%' as unknown as number,
+    width: '100%',
     height: 50,
     borderRadius: 12,
     alignItems: 'center',

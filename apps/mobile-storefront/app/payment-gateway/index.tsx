@@ -16,247 +16,23 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView, type WebViewNavigation } from 'react-native-webview';
-import { z } from 'zod';
 import { useToast } from '@/components/ui/Toast';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
+import { PAYMENT_CLIPBOARD_BRIDGE } from '@/constants/payment-clipboard-bridge';
 import { setClipboardString } from '@/lib/clipboard';
 import {
   VtuPaymentStillProcessingError,
   waitForVtuConfirmation,
 } from '@/lib/vtu-checkout';
+import { PaymentGatewayParamsSchema } from '@/schemas/payment-gateway';
 import { useCartStore } from '@/stores/cart-store';
-
-const PaymentGatewayParamsSchema = z.object({
-  orderId: z.string().optional(),
-  orderNumber: z.string().optional(),
-  gateway: z.enum(['paystack', 'korapay', 'juicyway'] as const, {
-    message: 'Invalid payment gateway',
-  }),
-  authorizationUrl: z.string().url('Invalid authorization URL'),
-  reference: z.string().min(1, 'Reference is required'),
-  amount: z.string().optional(),
-  paymentKind: z.enum(['order', 'vtu']).default('order'),
-  utilityType: z.enum(['airtime', 'data', 'tv', 'power', 'gaming']).optional(),
-  customerIdentifier: z.string().optional(),
-});
 
 const GATEWAY_LABELS: Record<string, string> = {
   paystack: 'Paystack',
   korapay: 'Korapay',
   juicyway: 'Juicyway',
 };
-
-const PAYMENT_ACCOUNT_NUMBER_MESSAGE_TYPE = 'payment_account_number_detected';
-const PAYMENT_CLIPBOARD_MESSAGE_TYPE = 'payment_clipboard_copy';
-
-const PAYMENT_CLIPBOARD_BRIDGE_SCRIPT = `
-(function () {
-  if (window.__baciClipboardBridgeInstalled) {
-    return true;
-  }
-
-  window.__baciClipboardBridgeInstalled = true;
-
-  function sendMessage(payload) {
-    if (
-      window.ReactNativeWebView &&
-      typeof window.ReactNativeWebView.postMessage === 'function'
-    ) {
-      window.ReactNativeWebView.postMessage(payload);
-      return;
-    }
-
-    if (
-      window.webkit &&
-      window.webkit.messageHandlers &&
-      window.webkit.messageHandlers.ReactNativeWebView &&
-      typeof window.webkit.messageHandlers.ReactNativeWebView.postMessage === 'function'
-    ) {
-      window.webkit.messageHandlers.ReactNativeWebView.postMessage(payload);
-    }
-  }
-
-  function postCopy(text) {
-    if (typeof text !== 'string') {
-      return;
-    }
-
-    var normalized = text.trim();
-    if (!normalized) {
-      return;
-    }
-
-    sendMessage(JSON.stringify({
-      type: '${PAYMENT_CLIPBOARD_MESSAGE_TYPE}',
-      text: normalized
-    }));
-  }
-
-  var lastPostedAccountNumber = '';
-
-  function findAccountNumber(text) {
-    if (typeof text !== 'string') {
-      return '';
-    }
-
-    var accountNumber = text.match(/(?:^|\\D)(\\d(?:[\\s-]?\\d){9})(?:\\D|$)/);
-    return accountNumber ? accountNumber[1].replace(/\\D/g, '') : '';
-  }
-
-  function postAccountNumber(accountNumber) {
-    if (!accountNumber || accountNumber === lastPostedAccountNumber) {
-      return;
-    }
-
-    lastPostedAccountNumber = accountNumber;
-    sendMessage(JSON.stringify({
-      type: '${PAYMENT_ACCOUNT_NUMBER_MESSAGE_TYPE}',
-      text: accountNumber
-    }));
-  }
-
-  function scanForAccountNumber() {
-    if (!document.body) {
-      return;
-    }
-
-    postAccountNumber(findAccountNumber(
-      document.body.innerText || document.body.textContent || ''
-    ));
-  }
-
-  function postNearestAccountNumber(target) {
-    var node = target;
-    var depth = 0;
-
-    while (node && node !== document.body && depth < 6) {
-      var text = node.innerText || node.textContent || '';
-      var accountNumber = findAccountNumber(text);
-      if (accountNumber) {
-        postAccountNumber(accountNumber);
-        postCopy(accountNumber);
-        return;
-      }
-      node = node.parentElement;
-      depth += 1;
-    }
-
-    postCopy(findAccountNumber(document.body ? document.body.innerText : ''));
-  }
-
-  var existingClipboard = navigator.clipboard || {};
-  var originalWriteText =
-    typeof existingClipboard.writeText === 'function'
-      ? existingClipboard.writeText.bind(existingClipboard)
-      : null;
-
-  try {
-    Object.defineProperty(navigator, 'clipboard', {
-      configurable: true,
-      value: Object.assign({}, existingClipboard, {
-        writeText: function (text) {
-          postCopy(String(text));
-
-          if (!originalWriteText) {
-            return Promise.resolve();
-          }
-
-          var result = originalWriteText(text);
-          if (result && typeof result.catch === 'function') {
-            return result.catch(function () {
-              return undefined;
-            });
-          }
-
-          return Promise.resolve();
-        }
-      })
-    });
-  } catch (error) {
-    // Some gateway pages lock navigator.clipboard. The copy event fallback below
-    // still lets native receive copied text.
-  }
-
-  var originalExecCommand =
-    typeof document.execCommand === 'function'
-      ? document.execCommand.bind(document)
-      : null;
-
-  if (originalExecCommand) {
-    document.execCommand = function (command) {
-      var result = originalExecCommand.apply(document, arguments);
-
-      if (String(command).toLowerCase() === 'copy' && window.getSelection) {
-        postCopy(window.getSelection().toString());
-      }
-
-      return result;
-    };
-  }
-
-  document.addEventListener('copy', function (event) {
-    var clipboardText = '';
-
-    if (
-      event.clipboardData &&
-      typeof event.clipboardData.getData === 'function'
-    ) {
-      clipboardText = event.clipboardData.getData('text/plain');
-    }
-
-    if (!clipboardText && window.getSelection) {
-      clipboardText = window.getSelection().toString();
-    }
-
-    postCopy(clipboardText);
-  }, true);
-
-  document.addEventListener('click', function (event) {
-    var target = event.target;
-    if (!target) {
-      return;
-    }
-
-    var actionText = '';
-    if (target.innerText || target.textContent) {
-      actionText = target.innerText || target.textContent || '';
-    }
-    if (target.getAttribute) {
-      actionText += ' ' + (target.getAttribute('aria-label') || '');
-      actionText += ' ' + (target.getAttribute('title') || '');
-    }
-
-    if (/copy/i.test(actionText)) {
-      setTimeout(function () {
-        postNearestAccountNumber(target);
-      }, 0);
-    }
-  }, true);
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', scanForAccountNumber);
-  } else {
-    scanForAccountNumber();
-  }
-
-  if (window.MutationObserver && document.documentElement) {
-    var observer = new MutationObserver(scanForAccountNumber);
-    observer.observe(document.documentElement, {
-      characterData: true,
-      childList: true,
-      subtree: true
-    });
-  }
-
-  setTimeout(scanForAccountNumber, 500);
-  setTimeout(scanForAccountNumber, 1500);
-  setInterval(scanForAccountNumber, 3000);
-
-  return true;
-})();
-true;
-`;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
@@ -265,6 +41,13 @@ const isPaymentCompletionRedirect = (url: string) =>
   url.includes('/checkout/success') ||
   url.includes('/order-success') ||
   url.includes('trxref=');
+
+function formatPaymentAmount(amount: string) {
+  const numericAmount = Number(amount);
+  return Number.isFinite(numericAmount)
+    ? numericAmount.toLocaleString()
+    : amount;
+}
 
 export default function PaymentGatewayScreen() {
   const colorScheme = useColorScheme();
@@ -473,10 +256,7 @@ export default function PaymentGatewayScreen() {
   };
 
   const handleShouldStartLoadWithRequest = (request: { url: string }) => {
-    if (
-      paymentKind === 'vtu' &&
-      isPaymentCompletionRedirect(request.url)
-    ) {
+    if (paymentKind === 'vtu' && isPaymentCompletionRedirect(request.url)) {
       beginPaymentCompletion();
       return false;
     }
@@ -500,7 +280,7 @@ export default function PaymentGatewayScreen() {
         return;
       }
 
-      if (data.type === PAYMENT_CLIPBOARD_MESSAGE_TYPE) {
+      if (data.type === PAYMENT_CLIPBOARD_BRIDGE.clipboardMessageType) {
         const copiedText =
           typeof data.text === 'string' ? data.text.trim() : '';
         if (copiedText) {
@@ -509,7 +289,7 @@ export default function PaymentGatewayScreen() {
         return;
       }
 
-      if (data.type === PAYMENT_ACCOUNT_NUMBER_MESSAGE_TYPE) {
+      if (data.type === PAYMENT_CLIPBOARD_BRIDGE.accountNumberMessageType) {
         const accountNumber =
           typeof data.text === 'string' ? data.text.trim() : '';
         if (
@@ -742,8 +522,8 @@ export default function PaymentGatewayScreen() {
         onNavigationStateChange={handleNavigationChange}
         onShouldStartLoadWithRequest={handleShouldStartLoadWithRequest}
         onMessage={handleWebViewMessage}
-        injectedJavaScriptBeforeContentLoaded={PAYMENT_CLIPBOARD_BRIDGE_SCRIPT}
-        injectedJavaScript={PAYMENT_CLIPBOARD_BRIDGE_SCRIPT}
+        injectedJavaScriptBeforeContentLoaded={PAYMENT_CLIPBOARD_BRIDGE.script}
+        injectedJavaScript={PAYMENT_CLIPBOARD_BRIDGE.script}
         injectedJavaScriptBeforeContentLoadedForMainFrameOnly={false}
         injectedJavaScriptForMainFrameOnly={false}
         javaScriptEnabled={true}
@@ -788,8 +568,7 @@ export default function PaymentGatewayScreen() {
             Total Amount
           </Text>
           <Text style={[styles.amountValue, { color: BRAND.primary }]}>
-            {'\u20A6'}
-            {Number.parseInt(amount, 10).toLocaleString()}
+            {`\u20A6${formatPaymentAmount(amount)}`}
           </Text>
         </View>
       )}

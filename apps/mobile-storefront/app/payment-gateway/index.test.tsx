@@ -17,6 +17,15 @@ import PaymentGatewayScreen from './index';
 
 const mockToastError = jest.fn();
 const mockToastSuccess = jest.fn();
+let mockSearchParams = {
+  amount: '1000',
+  authorizationUrl: 'https://checkout.paystack.com/test',
+  customerIdentifier: '43901766923',
+  gateway: 'paystack',
+  paymentKind: 'vtu',
+  reference: 'ref-123',
+  utilityType: 'power',
+};
 
 jest.mock('expo-router', () => ({
   Stack: {
@@ -26,15 +35,7 @@ jest.mock('expo-router', () => ({
     back: jest.fn(),
     replace: jest.fn(),
   },
-  useLocalSearchParams: () => ({
-    amount: '1000',
-    authorizationUrl: 'https://checkout.paystack.com/test',
-    customerIdentifier: '43901766923',
-    gateway: 'paystack',
-    paymentKind: 'vtu',
-    reference: 'ref-123',
-    utilityType: 'power',
-  }),
+  useLocalSearchParams: () => mockSearchParams,
 }));
 
 jest.mock('react-native-safe-area-context', () => ({
@@ -209,6 +210,15 @@ jest.mock('@/stores/cart-store', () => ({
 describe('PaymentGatewayScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSearchParams = {
+      amount: '1000',
+      authorizationUrl: 'https://checkout.paystack.com/test',
+      customerIdentifier: '43901766923',
+      gateway: 'paystack',
+      paymentKind: 'vtu',
+      reference: 'ref-123',
+      utilityType: 'power',
+    };
   });
 
   it('does not apply a top safe-area inset under the native stack header', () => {
@@ -236,6 +246,14 @@ describe('PaymentGatewayScreen', () => {
     await waitFor(() =>
       expect(mockToastSuccess).toHaveBeenCalledWith('Account number copied.')
     );
+  });
+
+  it('keeps decimal precision in the amount banner', () => {
+    mockSearchParams = { ...mockSearchParams, amount: '1500.50' };
+
+    render(<PaymentGatewayScreen />);
+
+    expect(screen.getByText('₦1,500.5')).toBeTruthy();
   });
 
   it('auto-copies a detected gateway account number without showing a second copy button', async () => {
@@ -314,7 +332,9 @@ describe('PaymentGatewayScreen', () => {
 
     fireEvent.press(screen.getByLabelText('mock-payment-success-navigation'));
 
-    await waitFor(() => expect(screen.getByText('Payment Failed')).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByText('Payment Failed')).toBeTruthy()
+    );
 
     fireEvent.press(screen.getByText('Try Again'));
 
