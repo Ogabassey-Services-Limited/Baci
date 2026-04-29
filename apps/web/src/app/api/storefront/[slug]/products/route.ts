@@ -11,6 +11,9 @@ import {
 import { storefrontProductsQuerySchema } from '@/schemas/storefront-products-query';
 import { storefrontProductsRouteParamsSchema } from '@/schemas/storefront-products-route-params';
 
+const storefrontProductsQueryParamKeys =
+  storefrontProductsQuerySchema.keyof().options;
+
 // Extract primary image URL from mixed format (string[] or {url}[])
 function extractPrimaryImage(images: unknown): string {
   if (!Array.isArray(images) || images.length === 0) return '';
@@ -19,6 +22,15 @@ function extractPrimaryImage(images: unknown): string {
   if (first && typeof first === 'object' && 'url' in first)
     return (first as { url: string }).url || '';
   return '';
+}
+
+function getStorefrontProductsQueryParams(searchParams: URLSearchParams) {
+  return Object.fromEntries(
+    storefrontProductsQueryParamKeys.map((key) => [
+      key,
+      searchParams.get(key) ?? undefined,
+    ])
+  );
 }
 
 // Map database product to API response format function
@@ -106,9 +118,9 @@ export async function GET(
     }
 
     const { slug } = parsedParams.data;
-    const parsedQuery = storefrontProductsQuerySchema.safeParse({
-      limit: request.nextUrl.searchParams.get('limit') ?? undefined,
-    });
+    const parsedQuery = storefrontProductsQuerySchema.safeParse(
+      getStorefrontProductsQueryParams(request.nextUrl.searchParams)
+    );
 
     if (!parsedQuery.success) {
       return NextResponse.json(

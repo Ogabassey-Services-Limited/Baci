@@ -97,6 +97,10 @@ function product(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function requestProducts(url: string, slug = 'test-store') {
+  return GET(new NextRequest(url), { params: Promise.resolve({ slug }) });
+}
+
 describe('GET /api/storefront/[slug]/products', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -106,9 +110,9 @@ describe('GET /api/storefront/[slug]/products', () => {
   });
 
   it('returns 400 when the route slug is invalid', async () => {
-    const response = await GET(
-      new NextRequest('https://example.com/api/storefront//products'),
-      { params: Promise.resolve({ slug: '' }) }
+    const response = await requestProducts(
+      'https://example.com/api/storefront//products',
+      ''
     );
     const data = await response.json();
 
@@ -128,17 +132,12 @@ describe('GET /api/storefront/[slug]/products', () => {
       error: null,
     });
     mockProductOrder.mockResolvedValue({
-      data: [
-        product({
-          manage_stock: null,
-        }),
-      ],
+      data: [product({ manage_stock: null })],
       error: null,
     });
 
-    const response = await GET(
-      new NextRequest('https://example.com/api/storefront/test-store/products'),
-      { params: Promise.resolve({ slug: 'test-store' }) }
+    const response = await requestProducts(
+      'https://example.com/api/storefront/test-store/products'
     );
     const data = await response.json();
 
@@ -195,11 +194,8 @@ describe('GET /api/storefront/[slug]/products', () => {
       error: null,
     });
 
-    const response = await GET(
-      new NextRequest(
-        'https://example.com/api/storefront/test-store/products?limit=2'
-      ),
-      { params: Promise.resolve({ slug: 'test-store' }) }
+    const response = await requestProducts(
+      'https://example.com/api/storefront/test-store/products?limit=2'
     );
     const data = await response.json();
 
@@ -212,18 +208,26 @@ describe('GET /api/storefront/[slug]/products', () => {
     [
       'invalid',
       'https://example.com/api/storefront/test-store/products?limit=999',
+      'limit',
     ],
-    ['empty', 'https://example.com/api/storefront/test-store/products?limit='],
-  ])('returns 400 when the limit query is %s', async (_label, url) => {
-    const response = await GET(new NextRequest(url), {
-      params: Promise.resolve({ slug: 'test-store' }),
-    });
+    [
+      'empty',
+      'https://example.com/api/storefront/test-store/products?limit=',
+      'limit',
+    ],
+    [
+      'invalid compact flag',
+      'https://example.com/api/storefront/test-store/products?compact=maybe',
+      'compact',
+    ],
+  ])('returns 400 when the %s query is invalid', async (_label, url, field) => {
+    const response = await requestProducts(url);
     const data = await response.json();
 
     expect(response.status).toBe(400);
     expect(data.error).toBe('Invalid query parameters');
     expect(data.code).toBe('INVALID_QUERY');
-    expect(data.details.fieldErrors.limit).toEqual(
+    expect(data.details.fieldErrors[field]).toEqual(
       expect.arrayContaining([expect.any(String)])
     );
     expect(mockMerchantSingle).not.toHaveBeenCalled();
@@ -243,11 +247,8 @@ describe('GET /api/storefront/[slug]/products', () => {
       error: null,
     });
 
-    const limitedResponse = await GET(
-      new NextRequest(
-        'https://example.com/api/storefront/test-store/products?limit=2'
-      ),
-      { params: Promise.resolve({ slug: 'test-store' }) }
+    const limitedResponse = await requestProducts(
+      'https://example.com/api/storefront/test-store/products?limit=2'
     );
 
     mockProductOrder.mockResolvedValue({
@@ -265,9 +266,8 @@ describe('GET /api/storefront/[slug]/products', () => {
       error: null,
     });
 
-    const noLimitResponse = await GET(
-      new NextRequest('https://example.com/api/storefront/test-store/products'),
-      { params: Promise.resolve({ slug: 'test-store' }) }
+    const noLimitResponse = await requestProducts(
+      'https://example.com/api/storefront/test-store/products'
     );
     const data = await noLimitResponse.json();
 
@@ -284,11 +284,9 @@ describe('GET /api/storefront/[slug]/products', () => {
       error: { message: 'Not found' },
     });
 
-    const response = await GET(
-      new NextRequest(
-        'https://example.com/api/storefront/missing-store/products'
-      ),
-      { params: Promise.resolve({ slug: 'missing-store' }) }
+    const response = await requestProducts(
+      'https://example.com/api/storefront/missing-store/products',
+      'missing-store'
     );
     const data = await response.json();
 
