@@ -737,6 +737,7 @@ export async function checkTransactionStatus(
   let message = '';
   let status = 'unknown';
   let lastError: unknown;
+  let querySucceeded = false;
 
   for (const data of statusQueries) {
     let response: KudaApiResponse<KudaTransactionStatusData>;
@@ -750,6 +751,7 @@ export async function checkTransactionStatus(
       continue;
     }
 
+    querySucceeded = true;
     message = response.message || message;
 
     const nextStatus = extractKudaStatus(response.data);
@@ -767,7 +769,7 @@ export async function checkTransactionStatus(
     }
   }
 
-  if (!message && lastError) {
+  if (!querySucceeded && lastError) {
     throw lastError;
   }
 

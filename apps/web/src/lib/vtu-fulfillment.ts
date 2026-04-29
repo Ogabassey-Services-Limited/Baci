@@ -57,6 +57,34 @@ function getVoucherPinFromMetadata(metadata: Record<string, unknown> | null) {
   return normalizeVoucherPin(metadata?.voucherPin);
 }
 
+function getSafeMetadataDiagnostics(metadata: Record<string, unknown>) {
+  const safeKeys = [
+    'customerNewBalance',
+    'customerWalletCredited',
+    'dataPlanCode',
+    'gateway',
+    'merchantWalletCredited',
+    'paymentPending',
+    'paymentReference',
+  ] as const;
+  const diagnostics: Record<string, unknown> = {};
+
+  for (const key of safeKeys) {
+    if (key in metadata) {
+      diagnostics[key] = metadata[key];
+    }
+  }
+
+  if ('voucherPin' in metadata) {
+    diagnostics.voucherPin = '[REDACTED]';
+  }
+  if ('customerName' in metadata) {
+    diagnostics.customerName = '[REDACTED]';
+  }
+
+  return diagnostics;
+}
+
 function normalizeVoucherPin(value: unknown) {
   if (typeof value !== 'string') {
     return undefined;
@@ -193,6 +221,18 @@ async function settleVtuWalletCredits({
         p_source_id: row.id,
         p_description: `VTU Commission - ${VTU_TYPE_LABELS[row.type]} ${getVtuProviderLabel(row)} ₦${row.amount}`,
       });
+      if (error) {
+        console.error('Failed to credit VTU merchant wallet:', {
+          amount: row.amount,
+          error: error.message,
+          merchantCommission,
+          merchantId: row.merchant_id,
+          provider: getVtuProviderLabel(row),
+          rpc: 'credit_merchant_wallet',
+          transactionId: row.id,
+          type: row.type,
+        });
+      }
       merchantWalletCredited = !error;
     }
 
@@ -227,6 +267,15 @@ async function settleVtuWalletCredits({
         customerWalletCredited = true;
         const nextBalance = Array.isArray(data) ? data[0]?.new_balance : null;
         customerNewBalance = coerceNumber(nextBalance);
+      } else {
+        console.error('Failed to credit VTU customer wallet:', {
+          cashbackAmount,
+          customerId: row.customer_id,
+          error: error.message,
+          merchantId: row.merchant_id,
+          rpc: 'credit_customer_wallet',
+          transactionId: row.id,
+        });
       }
     }
 
@@ -528,10 +577,18 @@ export async function fulfillPendingVtuTransaction({
     metadataChanged = notificationSettlement.metadataChanged || metadataChanged;
 
     if (metadataChanged) {
-      await supabase
+      const { error: metadataUpdateError } = await supabase
         .from('vtu_transactions')
         .update({ metadata })
         .eq('id', row.id);
+
+      if (metadataUpdateError) {
+        console.error('Failed to persist VTU transaction metadata:', {
+          error: metadataUpdateError.message,
+          metadata: getSafeMetadataDiagnostics(metadata),
+          transactionId: row.id,
+        });
+      }
     }
 
     return {
@@ -570,13 +627,21 @@ export async function fulfillPendingVtuTransaction({
 
   const claimableStatus =
     row.status === 'failed' && retryFailed ? 'failed' : 'pending';
-  const { data: claimed } = await supabase
+  const { data: claimed, error: claimUpdateError } = await supabase
     .from('vtu_transactions')
     .update({ error_message: null, status: 'processing' })
     .eq('id', transactionId)
     .eq('status', claimableStatus)
     .select('id')
     .maybeSingle();
+
+  if (claimUpdateError) {
+    console.error('Failed to claim VTU transaction for fulfillment:', {
+      error: claimUpdateError.message,
+      payload: { error_message: null, status: 'processing' },
+      transactionId,
+    });
+  }
 
   if (!claimed) {
     return {
@@ -613,15 +678,27 @@ export async function fulfillPendingVtuTransaction({
     ...(voucherPin && { voucherPin }),
   };
 
-  await supabase
+  const purchaseUpdatePayload = {
+    error_message: result.success ? null : result.message,
+    metadata: updatedMetadata,
+    status: result.success ? 'successful' : 'failed',
+    transaction_id: result.transactionId ?? null,
+  };
+  const { error: purchaseUpdateError } = await supabase
     .from('vtu_transactions')
-    .update({
-      error_message: result.success ? null : result.message,
-      metadata: updatedMetadata,
-      status: result.success ? 'successful' : 'failed',
-      transaction_id: result.transactionId ?? null,
-    })
+    .update(purchaseUpdatePayload)
     .eq('id', row.id);
+
+  if (purchaseUpdateError) {
+    console.error('Failed to persist VTU purchase result:', {
+      errorMessage: purchaseUpdatePayload.error_message,
+      error: purchaseUpdateError.message,
+      metadata: getSafeMetadataDiagnostics(updatedMetadata),
+      status: purchaseUpdatePayload.status,
+      transactionId: row.id,
+      transactionReference: purchaseUpdatePayload.transaction_id,
+    });
+  }
 
   if (!result.success) {
     return {
@@ -648,12 +725,21 @@ export async function fulfillPendingVtuTransaction({
   });
   setMetadataValue(finalMetadata, 'paymentPending', false);
 
-  await supabase
+  const finalMetadataUpdatePayload = {
+    metadata: finalMetadata,
+  };
+  const { error: finalMetadataUpdateError } = await supabase
     .from('vtu_transactions')
-    .update({
-      metadata: finalMetadata,
-    })
+    .update(finalMetadataUpdatePayload)
     .eq('id', row.id);
+
+  if (finalMetadataUpdateError) {
+    console.error('Failed to persist final VTU transaction metadata:', {
+      error: finalMetadataUpdateError.message,
+      metadata: getSafeMetadataDiagnostics(finalMetadata),
+      transactionId: row.id,
+    });
+  }
 
   return {
     amount: Number(row.amount) || 0,

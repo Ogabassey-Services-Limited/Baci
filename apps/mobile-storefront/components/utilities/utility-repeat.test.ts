@@ -1,4 +1,4 @@
-import { utilityRepeatHelpers } from './utility-repeat';
+import { utilityRepeatHelpers } from '@/components/utilities/utility-repeat';
 
 describe('utilityRepeatHelpers', () => {
   it('maps utility history transactions into repeat route params', () => {

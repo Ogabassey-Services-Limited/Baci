@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { SPACING } from '@/constants/Colors';
+import Colors, { SPACING } from '@/constants/Colors';
 
 export const billFormStyles = StyleSheet.create({
   scrollView: { flex: 1 },
@@ -43,13 +43,17 @@ export const billFormStyles = StyleSheet.create({
   verifyButtonText: { color: '#FFF', fontSize: 14, fontWeight: '600' },
   verifiedPill: {
     alignItems: 'center',
-    backgroundColor: '#16A34A',
+    backgroundColor: Colors.light.success,
     borderRadius: 12,
     height: 50,
     justifyContent: 'center',
     paddingHorizontal: 16,
   },
-  verifiedPillText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
+  verifiedPillText: {
+    color: Colors.light.white,
+    fontSize: 14,
+    fontWeight: '700',
+  },
   repeatReadyText: {
     fontSize: 13,
     marginTop: 10,

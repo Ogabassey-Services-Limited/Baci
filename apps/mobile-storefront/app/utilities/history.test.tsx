@@ -236,6 +236,9 @@ describe('UtilityHistoryScreen', () => {
         gateway: 'paystack',
         reference: 'VTU-PAYSTACK-123',
       });
+    });
+
+    await waitFor(() => {
       expect(mockRefetch).toHaveBeenCalled();
     });
   });

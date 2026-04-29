@@ -5,6 +5,7 @@ const mockPurchaseAirtime = vi.fn();
 const mockPurchaseData = vi.fn();
 const mockCheckTransactionStatus = vi.fn();
 const mockNotifyCustomer = vi.fn();
+const mockPurchaseBill = vi.fn();
 
 vi.mock('@/lib/kuda', () => ({
   NetworkProvider: {
@@ -20,7 +21,7 @@ vi.mock('@/lib/kuda', () => ({
 }));
 
 vi.mock('@/lib/kuda-bills', () => ({
-  purchaseBill: vi.fn(),
+  purchaseBill: (...args: unknown[]) => mockPurchaseBill(...args),
 }));
 
 vi.mock('@/lib/expo-push', () => ({
@@ -146,6 +147,7 @@ function createPendingTransactionSupabaseMock({
 describe('fulfillPendingVtuTransaction', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPurchaseBill.mockReset();
     mockCheckTransactionStatus.mockResolvedValue({
       message: 'No token',
       status: 'successful',
@@ -489,9 +491,6 @@ describe('fulfillPendingVtuTransaction', () => {
   });
 
   it('backfills a missing electricity token from Kuda bill status', async () => {
-    const mockPurchaseBill = await import('@/lib/kuda-bills').then((module) =>
-      vi.mocked(module.purchaseBill)
-    );
     mockPurchaseBill.mockResolvedValue({
       success: true,
       reference: 'VTU-123',

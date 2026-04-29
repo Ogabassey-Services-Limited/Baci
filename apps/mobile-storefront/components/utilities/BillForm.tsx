@@ -117,6 +117,16 @@ function normalizeBillItemMatchText(value: string) {
     .trim();
 }
 
+function billerNameContainsBillItemName(
+  normalizedItemName: string,
+  normalizedBillerName: string
+) {
+  return (
+    normalizedItemName.length >= 3 &&
+    normalizedBillerName.includes(normalizedItemName)
+  );
+}
+
 function findBillItemPathByName(
   billItems: BillItem[] | undefined,
   billerName: string,
@@ -138,14 +148,74 @@ function findBillItemPathByName(
 
     const normalizedItemName = normalizeBillItemMatchText(billItem.itemName);
     if (
-      normalizedItemName &&
-      normalizedBillerName.includes(normalizedItemName)
+      billerNameContainsBillItemName(normalizedItemName, normalizedBillerName)
     ) {
       return nextPath;
     }
   }
 
   return null;
+}
+
+interface InitialBillerMatch {
+  biller: Biller;
+  codes: string[];
+  resolvedToSpecificBillItem: boolean;
+}
+
+function findInitialBillerMatch({
+  billers,
+  initialBillerName,
+  initialBillItemIdentifier,
+}: {
+  billers: Biller[];
+  initialBillerName?: string;
+  initialBillItemIdentifier?: string;
+}): InitialBillerMatch | null {
+  if (initialBillItemIdentifier) {
+    for (const biller of billers) {
+      const path = findBillItemPath(
+        biller.billItems,
+        initialBillItemIdentifier
+      );
+      if (path) {
+        return {
+          biller,
+          codes: path,
+          resolvedToSpecificBillItem: true,
+        };
+      }
+    }
+  }
+
+  if (!initialBillerName) {
+    return null;
+  }
+
+  const normalizedInitialName = initialBillerName.toLowerCase();
+  const biller =
+    billers.find((candidate) =>
+      normalizedInitialName.includes(candidate.billerName.toLowerCase())
+    ) ?? null;
+
+  if (!biller) {
+    return null;
+  }
+
+  const namePath = findBillItemPathByName(biller.billItems, initialBillerName);
+  if (namePath) {
+    return {
+      biller,
+      codes: namePath,
+      resolvedToSpecificBillItem: true,
+    };
+  }
+
+  return {
+    biller,
+    codes: getResolvedBillItemCodes(biller.billItems),
+    resolvedToSpecificBillItem: false,
+  };
 }
 
 export function BillForm({
@@ -202,7 +272,9 @@ export function BillForm({
   const isFixedAmount = selectedBillItem?.isAmountFixed ?? false;
   const numericAmount = Number(amount.replace(/\D/g, ''));
   const formattedAmount = formatUtilityAmountInput(amount);
-  const canShowPayment = Boolean(verify.data?.verified || isRepeatPaymentActive);
+  const canShowPayment = Boolean(
+    verify.data?.verified || isRepeatPaymentActive
+  );
   const footerSpacerHeight = canShowPayment
     ? FOOTER_HEIGHT + Math.max(insets.bottom, SPACING.md) + FOOTER_ERROR_BUFFER
     : SPACING.xl;
@@ -218,59 +290,26 @@ export function BillForm({
       return;
     }
 
-    let matchedBiller: Biller | null = null;
-    let matchedCodes: string[] = [];
-    let matchedExactRepeatSelection = false;
+    const match = findInitialBillerMatch({
+      billers,
+      initialBillerName,
+      initialBillItemIdentifier,
+    });
 
-    if (initialBillItemIdentifier) {
-      for (const biller of billers) {
-        const path = findBillItemPath(
-          biller.billItems,
-          initialBillItemIdentifier
-        );
-        if (path) {
-          matchedBiller = biller;
-          matchedCodes = path;
-          matchedExactRepeatSelection = true;
-          break;
-        }
-      }
-    }
-
-    if (!matchedBiller && initialBillerName) {
-      const normalizedInitialName = initialBillerName.toLowerCase();
-      matchedBiller =
-        billers.find((biller) =>
-          normalizedInitialName.includes(biller.billerName.toLowerCase())
-        ) ?? null;
-      if (matchedBiller) {
-        const namePath = findBillItemPathByName(
-          matchedBiller.billItems,
-          initialBillerName
-        );
-        if (namePath) {
-          matchedCodes = namePath;
-          matchedExactRepeatSelection = true;
-        } else {
-          matchedCodes = getResolvedBillItemCodes(matchedBiller.billItems);
-        }
-      }
-    }
-
-    if (!matchedBiller) {
+    if (!match) {
       return;
     }
 
     const nextSelection = resolveBillItemSelection(
-      matchedBiller.billItems,
-      matchedCodes
+      match.biller.billItems,
+      match.codes
     );
-    setSelectedBiller(matchedBiller);
-    setSelectedBillItemCodes(matchedCodes);
+    setSelectedBiller(match.biller);
+    setSelectedBillItemCodes(match.codes);
     setIsProviderPickerExpanded(false);
     setAmount(initialAmount ?? getAmountForLeaf(nextSelection.leaf));
     const hasExactBillItem =
-      nextSelection.levels.length === 0 || matchedExactRepeatSelection;
+      nextSelection.levels.length === 0 || match.resolvedToSpecificBillItem;
     if (
       isRepeatPaymentReady &&
       initialCustomerIdentifier &&

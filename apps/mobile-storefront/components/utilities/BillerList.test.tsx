@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { BillerList } from './BillerList';
+import { BillerList } from '@/components/utilities/BillerList';
 
 jest.mock('@/components/useColorScheme', () => ({
   useColorScheme: () => 'light',

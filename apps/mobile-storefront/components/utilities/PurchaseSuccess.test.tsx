@@ -1,4 +1,11 @@
-import { afterEach, jest } from '@jest/globals';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  jest,
+} from '@jest/globals';
 import {
   fireEvent,
   render,
@@ -51,6 +58,7 @@ describe('PurchaseSuccess', () => {
     mockSetClipboardString.mockResolvedValue(true);
     mockShareUtilityReceipt.mockResolvedValue(undefined);
     jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
@@ -128,6 +136,59 @@ describe('PurchaseSuccess', () => {
           type: 'power',
           voucherPin: '1234-5678-9012-3456',
         })
+      );
+    });
+  });
+
+  it('alerts when copying a returned electricity token fails', async () => {
+    mockSetClipboardString.mockRejectedValueOnce(new Error('Clipboard denied'));
+
+    render(
+      <PurchaseSuccess
+        type="power"
+        customerIdentifier="43901766923"
+        txReference="ref-123"
+        cashback={null}
+        isAuthenticated={true}
+        onCreateAccount={jest.fn()}
+        voucherPin="1234-5678-9012-3456"
+      />
+    );
+
+    fireEvent.press(screen.getByLabelText('Copy voucher token'));
+
+    await waitFor(() => {
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Copy Failed',
+        'Could not copy this token.'
+      );
+    });
+  });
+
+  it('alerts when sharing the utility receipt fails', async () => {
+    mockShareUtilityReceipt.mockRejectedValueOnce(
+      new Error('PDF generation failed')
+    );
+
+    render(
+      <PurchaseSuccess
+        type="power"
+        amount={1000}
+        customerIdentifier="43901766923"
+        txReference="ref-123"
+        cashback={null}
+        isAuthenticated={true}
+        onCreateAccount={jest.fn()}
+        voucherPin="1234-5678-9012-3456"
+      />
+    );
+
+    fireEvent.press(screen.getByLabelText('Share utility receipt'));
+
+    await waitFor(() => {
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Share Failed',
+        'Could not generate the receipt PDF. Please try again.'
       );
     });
   });

@@ -7,9 +7,9 @@ import {
   View,
 } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
+import { BillerInitial } from '@/components/utilities/BillerInitial';
 import Colors, { BRAND, SPACING } from '@/constants/Colors';
 import type { Biller } from '@/hooks/use-vtu-billers';
-import { BillerInitial } from './BillerInitial';
 
 interface BillerListProps {
   billers: Biller[];

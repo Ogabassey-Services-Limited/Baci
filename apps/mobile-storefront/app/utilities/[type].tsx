@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { type Href, Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -178,7 +178,17 @@ export default function UtilityPurchaseScreen() {
     repeatVerified?: string;
     voucherPin?: string;
   }>();
-  const { type } = params;
+  const {
+    repeatAmount,
+    repeatBillerName,
+    repeatBillItemIdentifier,
+    repeatCustomerIdentifier,
+    repeatDataPlanCode,
+    repeatNetworkProvider,
+    repeatPhoneNumber,
+    repeatVerified,
+    type,
+  } = params;
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -191,11 +201,21 @@ export default function UtilityPurchaseScreen() {
   const [successData, setSuccessData] = useState<SuccessData | null>(null);
   const [selectedType, setSelectedType] = useState<ValidType | null>(routeType);
   const historyFilter = selectedType ?? routeType ?? 'airtime';
-  const routeRepeatDefaults = getRouteRepeatDefaults(params);
+  const routeRepeatDefaults = getRouteRepeatDefaults({
+    repeatAmount,
+    repeatBillerName,
+    repeatBillItemIdentifier,
+    repeatCustomerIdentifier,
+    repeatDataPlanCode,
+    repeatNetworkProvider,
+    repeatPhoneNumber,
+    repeatVerified,
+  });
   const [repeatDefaults, setRepeatDefaults] =
     useState<UtilityRepeatDefaults>(routeRepeatDefaults);
   const [repeatRevision, setRepeatRevision] = useState(0);
   const [isQuickRepeatDismissed, setIsQuickRepeatDismissed] = useState(false);
+  const hasMountedRepeatDefaultsRef = useRef(false);
   const { data: recentTransactions } = useVTUHistory(historyFilter, 1);
 
   useEffect(() => {
@@ -205,26 +225,33 @@ export default function UtilityPurchaseScreen() {
   }, [routeType]);
 
   useEffect(() => {
-    setRepeatDefaults({
-      amount: params.repeatAmount,
-      billerName: params.repeatBillerName,
-      billItemIdentifier: params.repeatBillItemIdentifier,
-      customerIdentifier: params.repeatCustomerIdentifier,
-      dataPlanCode: params.repeatDataPlanCode,
-      isVerified: params.repeatVerified === '1',
-      networkProvider: params.repeatNetworkProvider,
-      phoneNumber: params.repeatPhoneNumber,
-    });
+    if (!hasMountedRepeatDefaultsRef.current) {
+      hasMountedRepeatDefaultsRef.current = true;
+      return;
+    }
+
+    setRepeatDefaults(
+      getRouteRepeatDefaults({
+        repeatAmount,
+        repeatBillerName,
+        repeatBillItemIdentifier,
+        repeatCustomerIdentifier,
+        repeatDataPlanCode,
+        repeatNetworkProvider,
+        repeatPhoneNumber,
+        repeatVerified,
+      })
+    );
     setRepeatRevision((current) => current + 1);
   }, [
-    params.repeatAmount,
-    params.repeatBillerName,
-    params.repeatBillItemIdentifier,
-    params.repeatCustomerIdentifier,
-    params.repeatDataPlanCode,
-    params.repeatNetworkProvider,
-    params.repeatPhoneNumber,
-    params.repeatVerified,
+    repeatAmount,
+    repeatBillerName,
+    repeatBillItemIdentifier,
+    repeatCustomerIdentifier,
+    repeatDataPlanCode,
+    repeatNetworkProvider,
+    repeatPhoneNumber,
+    repeatVerified,
   ]);
 
   useEffect(() => {

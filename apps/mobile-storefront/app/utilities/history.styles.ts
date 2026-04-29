@@ -61,24 +61,20 @@ export const styles = StyleSheet.create({
   referenceText: {
     fontSize: UTILITY_HISTORY_STYLE_TOKENS.referenceTextSize,
   },
-  repeatButton: {
+  pillButtonBase: {
+    alignItems: 'center',
     borderRadius: RADIUS.full,
     borderWidth: 1,
     justifyContent: 'center',
     minHeight: UTILITY_HISTORY_STYLE_TOKENS.touchTargetHeight,
     paddingHorizontal: UTILITY_HISTORY_STYLE_TOKENS.chipHorizontalPadding,
   },
+  repeatButton: {},
   repeatText: {
     fontSize: UTILITY_HISTORY_STYLE_TOKENS.labelTextSize,
     fontWeight: TYPOGRAPHY.weight.bold,
   },
-  retryButton: {
-    borderRadius: RADIUS.full,
-    borderWidth: 1,
-    justifyContent: 'center',
-    minHeight: UTILITY_HISTORY_STYLE_TOKENS.touchTargetHeight,
-    paddingHorizontal: UTILITY_HISTORY_STYLE_TOKENS.chipHorizontalPadding,
-  },
+  retryButton: {},
   retryText: {
     fontSize: UTILITY_HISTORY_STYLE_TOKENS.labelTextSize,
     fontWeight: TYPOGRAPHY.weight.semibold,
@@ -159,7 +155,7 @@ export const styles = StyleSheet.create({
   voucherLabel: {
     fontSize: UTILITY_HISTORY_STYLE_TOKENS.statusTextSize,
     fontWeight: TYPOGRAPHY.weight.semibold,
-    marginBottom: 4,
+    marginBottom: UTILITY_HISTORY_STYLE_TOKENS.smallGap,
     textTransform: 'uppercase',
   },
 });

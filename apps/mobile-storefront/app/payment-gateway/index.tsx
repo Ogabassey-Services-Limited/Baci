@@ -42,10 +42,18 @@ const isPaymentCompletionRedirect = (url: string) =>
   url.includes('/order-success') ||
   url.includes('trxref=');
 
+const PAYMENT_AMOUNT_FORMATTER = new Intl.NumberFormat('en-NG', {
+  currency: 'NGN',
+  currencyDisplay: 'narrowSymbol',
+  maximumFractionDigits: 2,
+  minimumFractionDigits: 2,
+  style: 'currency',
+});
+
 function formatPaymentAmount(amount: string) {
   const numericAmount = Number(amount);
   return Number.isFinite(numericAmount)
-    ? numericAmount.toLocaleString()
+    ? PAYMENT_AMOUNT_FORMATTER.format(numericAmount)
     : amount;
 }
 
@@ -568,7 +576,7 @@ export default function PaymentGatewayScreen() {
             Total Amount
           </Text>
           <Text style={[styles.amountValue, { color: BRAND.primary }]}>
-            {`\u20A6${formatPaymentAmount(amount)}`}
+            {formatPaymentAmount(amount)}
           </Text>
         </View>
       )}

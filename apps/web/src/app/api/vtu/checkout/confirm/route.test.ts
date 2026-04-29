@@ -58,6 +58,71 @@ function makeRequest(body: Record<string, unknown>) {
   });
 }
 
+const defaultPaymentTransaction = {
+  id: 'txn-1',
+  amount: 1000,
+  currency: 'NGN',
+  status: 'pending',
+  merchant_id: 'merchant-1',
+  metadata: {
+    transaction_type: 'vtu_purchase',
+    vtu_transaction_id: 'vtu-1',
+    customer_id: 'customer-1',
+    customer_email: 'customer@example.com',
+  },
+};
+
+type PaymentTransaction = typeof defaultPaymentTransaction;
+type PaymentUpdateResult = {
+  data: Pick<PaymentTransaction, 'id'> | null;
+  error: unknown;
+};
+
+function createMockFrom({
+  transactionError = null,
+  transactionData = defaultPaymentTransaction,
+  updateResult = { data: { id: 'txn-1' }, error: null },
+}: {
+  transactionError?: unknown;
+  transactionData?: PaymentTransaction | null;
+  updateResult?: PaymentUpdateResult;
+} = {}) {
+  return (table: string) => {
+    if (table === 'merchants') {
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
+              data: { id: 'merchant-1' },
+              error: null,
+            }),
+          }),
+        }),
+      };
+    }
+
+    return {
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          maybeSingle: vi.fn().mockResolvedValue({
+            data: transactionData,
+            error: transactionError,
+          }),
+        }),
+      }),
+      update: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          neq: vi.fn().mockReturnValue({
+            select: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue(updateResult),
+            }),
+          }),
+        }),
+      }),
+    };
+  };
+}
+
 describe('POST /api/vtu/checkout/confirm', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -91,81 +156,11 @@ describe('POST /api/vtu/checkout/confirm', () => {
       reference: 'VTU-123',
     });
     mockResolveVtuCustomer.mockResolvedValue({ id: 'customer-1' });
-
-    mockFrom.mockImplementation((table: string) => {
-      if (table === 'merchants') {
-        return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              single: vi.fn().mockResolvedValue({
-                data: { id: 'merchant-1' },
-                error: null,
-              }),
-            }),
-          }),
-        };
-      }
-
-      return {
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            maybeSingle: vi.fn().mockResolvedValue({
-              data: {
-                id: 'txn-1',
-                amount: 1000,
-                currency: 'NGN',
-                status: 'pending',
-                merchant_id: 'merchant-1',
-                metadata: {
-                  transaction_type: 'vtu_purchase',
-                  vtu_transaction_id: 'vtu-1',
-                  customer_id: 'customer-1',
-                  customer_email: 'customer@example.com',
-                },
-              },
-              error: null,
-            }),
-          }),
-        }),
-        update: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            neq: vi.fn().mockReturnValue({
-              select: vi.fn().mockReturnValue({
-                maybeSingle: vi.fn().mockResolvedValue({
-                  data: { id: 'txn-1' },
-                  error: null,
-                }),
-              }),
-            }),
-          }),
-        }),
-      };
-    });
+    mockFrom.mockImplementation(createMockFrom());
   });
 
   it('returns 404 when the payment transaction does not exist', async () => {
-    mockFrom.mockImplementation((table: string) => {
-      if (table === 'merchants') {
-        return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              single: vi.fn().mockResolvedValue({
-                data: { id: 'merchant-1' },
-                error: null,
-              }),
-            }),
-          }),
-        };
-      }
-
-      return {
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-          }),
-        }),
-      };
-    });
+    mockFrom.mockImplementation(createMockFrom({ transactionData: null }));
 
     const response = await POST(
       makeRequest({
@@ -204,55 +199,9 @@ describe('POST /api/vtu/checkout/confirm', () => {
   });
 
   it('continues to VTU fulfillment when another process already claimed the payment', async () => {
-    mockFrom.mockImplementation((table: string) => {
-      if (table === 'merchants') {
-        return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              single: vi.fn().mockResolvedValue({
-                data: { id: 'merchant-1' },
-                error: null,
-              }),
-            }),
-          }),
-        };
-      }
-
-      return {
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            maybeSingle: vi.fn().mockResolvedValue({
-              data: {
-                id: 'txn-1',
-                amount: 1000,
-                currency: 'NGN',
-                status: 'pending',
-                merchant_id: 'merchant-1',
-                metadata: {
-                  transaction_type: 'vtu_purchase',
-                  vtu_transaction_id: 'vtu-1',
-                  customer_id: 'customer-1',
-                  customer_email: 'customer@example.com',
-                },
-              },
-              error: null,
-            }),
-          }),
-        }),
-        update: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            neq: vi.fn().mockReturnValue({
-              select: vi.fn().mockReturnValue({
-                maybeSingle: vi.fn().mockResolvedValue({
-                  data: null,
-                  error: null,
-                }),
-              }),
-            }),
-          }),
-        }),
-      };
-    });
+    mockFrom.mockImplementation(
+      createMockFrom({ updateResult: { data: null, error: null } })
+    );
 
     const response = await POST(
       makeRequest({

@@ -253,7 +253,7 @@ describe('PaymentGatewayScreen', () => {
 
     render(<PaymentGatewayScreen />);
 
-    expect(screen.getByText('₦1,500.5')).toBeTruthy();
+    expect(screen.getByText('₦1,500.50')).toBeTruthy();
   });
 
   it('auto-copies a detected gateway account number without showing a second copy button', async () => {

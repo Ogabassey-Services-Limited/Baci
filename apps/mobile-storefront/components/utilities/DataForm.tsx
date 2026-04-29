@@ -35,7 +35,9 @@ import { formatUtilityAmountInput } from './utility-amount-format';
 const FOOTER_HEIGHT = 120;
 const FOOTER_ERROR_BUFFER = 36;
 
-function inferProviderFromDataBillerName(name: string) {
+type DataProvider = 'mtn' | 'airtel' | 'glo' | 't2';
+
+function inferProviderFromDataBillerName(name: string): DataProvider | null {
   const normalizedName = name.toLowerCase();
 
   if (normalizedName.includes('mtn')) {
@@ -109,9 +111,9 @@ export function DataForm({
     Number.isFinite(parsedInitialAmount) ? parsedInitialAmount : 0
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [shouldScrollToPayment, setShouldScrollToPayment] = useState(
-    isRepeatPaymentReady
-  );
+  const [shouldScrollToPayment, setShouldScrollToPayment] =
+    useState(isRepeatPaymentReady);
+  const wasRepeatPaymentReadyRef = useRef(isRepeatPaymentReady);
   const formattedPlanAmount = formatUtilityAmountInput(planAmount);
   const footerSpacerHeight =
     FOOTER_HEIGHT + Math.max(insets.bottom, SPACING.md) + FOOTER_ERROR_BUFFER;
@@ -125,9 +127,10 @@ export function DataForm({
   const isBusy = isSubmitting;
 
   useEffect(() => {
-    if (isRepeatPaymentReady) {
+    if (!wasRepeatPaymentReadyRef.current && isRepeatPaymentReady) {
       setShouldScrollToPayment(true);
     }
+    wasRepeatPaymentReadyRef.current = isRepeatPaymentReady;
   }, [isRepeatPaymentReady]);
 
   const handlePhoneChange = (text: string) => {
@@ -329,6 +332,7 @@ export function DataForm({
           placeholder="08012345678"
           placeholderTextColor={colors.placeholder}
           keyboardType="phone-pad"
+          accessibilityLabel="Phone Number"
           value={phoneNumber}
           onChangeText={handlePhoneChange}
         />
@@ -366,6 +370,7 @@ export function DataForm({
             placeholder="Enter amount"
             placeholderTextColor={colors.placeholder}
             keyboardType="number-pad"
+            accessibilityLabel="Amount"
             value={formattedPlanAmount}
             onChangeText={(text) => {
               const digits = text.replace(/\D/g, '');

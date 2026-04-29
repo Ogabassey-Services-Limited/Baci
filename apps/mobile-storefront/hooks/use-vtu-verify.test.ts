@@ -41,6 +41,12 @@ function createTestClient() {
   });
 }
 
+type NotifyFunction = Parameters<typeof notifyManager.setNotifyFunction>[0];
+
+const defaultNotifyFunction: NotifyFunction = (callback) => {
+  callback();
+};
+
 beforeAll(() => {
   notifyManager.setNotifyFunction((callback) => {
     act(() => {
@@ -50,9 +56,7 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-  notifyManager.setNotifyFunction((callback) => {
-    callback();
-  });
+  notifyManager.setNotifyFunction(defaultNotifyFunction);
 });
 
 beforeEach(() => {

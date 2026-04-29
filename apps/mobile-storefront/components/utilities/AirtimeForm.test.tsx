@@ -1,5 +1,10 @@
 import { jest } from '@jest/globals';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react-native';
 import { AirtimeForm } from './AirtimeForm';
 
 jest.mock('expo-router', () => ({
@@ -59,7 +64,7 @@ jest.mock('./UtilityPaymentOptions', () => {
 });
 
 describe('AirtimeForm', () => {
-  it('starts with the phone number and collapses the detected network', () => {
+  it('initializes with phone number, collapses detected network, and allows expanding network selection', async () => {
     render(<AirtimeForm onSuccess={jest.fn()} />);
 
     expect(screen.getByText('Phone Number')).toBeOnTheScreen();
@@ -71,13 +76,15 @@ describe('AirtimeForm', () => {
       '08031234567'
     );
 
+    await waitFor(() => expect(screen.getByText('MTN')).toBeOnTheScreen());
     expect(screen.getByText('Network')).toBeOnTheScreen();
-    expect(screen.getByText('MTN')).toBeOnTheScreen();
     expect(screen.getByLabelText('MTN logo')).toBeOnTheScreen();
     expect(screen.queryByText('Airtel')).toBeNull();
 
     fireEvent.press(screen.getByLabelText('Change selected network'));
 
-    expect(screen.getByText('Airtel')).toBeOnTheScreen();
+    await waitFor(() => {
+      expect(screen.getByText('Airtel')).toBeOnTheScreen();
+    });
   });
 });

@@ -1,5 +1,6 @@
 import { Share } from 'react-native';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
+import { sanitizePlainTextForHtml } from '@/lib/sanitize-plain-text';
 
 const TYPE_LABELS: Record<string, string> = {
   airtime: 'Airtime',
@@ -19,15 +20,6 @@ export interface UtilityReceiptData {
   voucherPin?: string | null;
 }
 
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
 function buildReceiptRows(data: UtilityReceiptData) {
   const rows = [
     ['Service', TYPE_LABELS[data.type] ?? data.type],
@@ -43,8 +35,8 @@ function buildReceiptRows(data: UtilityReceiptData) {
     .map(
       ([label, value]) => `
         <div class="row">
-          <span>${escapeHtml(label)}</span>
-          <strong>${escapeHtml(value)}</strong>
+          <span>${sanitizePlainTextForHtml(label)}</span>
+          <strong>${sanitizePlainTextForHtml(value)}</strong>
         </div>`
     )
     .join('');
@@ -113,7 +105,7 @@ export function buildUtilityReceiptHtml(data: UtilityReceiptData) {
   </head>
   <body>
     <section class="receipt">
-      <h1>${escapeHtml(serviceLabel)} Receipt</h1>
+      <h1>${sanitizePlainTextForHtml(serviceLabel)} Receipt</h1>
       <div class="subtitle">Generated from your Baci utility purchase</div>
       ${rows}
     </section>

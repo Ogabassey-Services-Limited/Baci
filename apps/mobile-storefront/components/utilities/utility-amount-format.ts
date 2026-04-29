@@ -1,6 +1,22 @@
-export function formatUtilityAmountInput(amount: number | string) {
-  const digits = String(amount).replace(/\D/g, '');
-  const numericAmount = Number(digits);
+const UTILITY_AMOUNT_FORMATTER = new Intl.NumberFormat('en-NG', {
+  maximumFractionDigits: 2,
+  minimumFractionDigits: 0,
+});
 
-  return numericAmount ? numericAmount.toLocaleString() : '';
+export function formatUtilityAmountInput(
+  amount: number | string | null | undefined
+): string {
+  if (amount === null || amount === undefined) {
+    return '';
+  }
+
+  const normalizedAmount = String(amount).replace(/,/g, '').trim();
+  if (!normalizedAmount) {
+    return '';
+  }
+
+  const numericAmount = Number(normalizedAmount);
+  return Number.isFinite(numericAmount)
+    ? UTILITY_AMOUNT_FORMATTER.format(numericAmount)
+    : '';
 }

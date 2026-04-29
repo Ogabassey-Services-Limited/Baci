@@ -24,13 +24,20 @@ export const UTILITY_HISTORY_TYPE_LABELS = {
   betting: 'Gaming',
 } as const satisfies Record<VTUHistoryTransaction['type'], string>;
 
+type UtilityHistoryStatusColorKey =
+  | VTUHistoryTransaction['status']
+  | 'paymentReceived';
+
 export const UTILITY_HISTORY_STATUS_COLORS = {
   failed: palette.red[700],
   paymentReceived: palette.amber[800],
   pending: palette.amber[800],
   processing: palette.amber[800],
   successful: palette.emerald[700],
-} as const;
+} as const satisfies Record<UtilityHistoryStatusColorKey, string>;
+
+export const DEFAULT_UTILITY_HISTORY_STATUS_COLOR = palette.gray[700];
+export const DEFAULT_UTILITY_HISTORY_STATUS_LABEL = 'unknown';
 
 export const UTILITY_HISTORY_PAYMENT_RECEIVED_STATUS = {
   label: 'payment received',

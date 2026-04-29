@@ -6,10 +6,20 @@ interface BillerInitialProps {
 }
 
 export function BillerInitial({ colors, name }: BillerInitialProps) {
+  const trimmedName = name.trim();
+  const safeInitial = (trimmedName.charAt(0) || '?').toUpperCase();
+  const accessibilityLabel = trimmedName
+    ? `Biller: ${trimmedName}`
+    : 'Unknown biller';
+
   return (
-    <View style={[styles.initialsCircle, { backgroundColor: colors.border }]}>
+    <View
+      accessible={true}
+      accessibilityLabel={accessibilityLabel}
+      style={[styles.initialsCircle, { backgroundColor: colors.border }]}
+    >
       <Text style={[styles.initialsText, { color: colors.textSecondary }]}>
-        {name.charAt(0).toUpperCase()}
+        {safeInitial}
       </Text>
     </View>
   );

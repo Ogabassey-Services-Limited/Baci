@@ -74,11 +74,16 @@ export default function UtilityHistoryScreen() {
   };
 
   const handleCopyVoucher = async (voucherPin: string) => {
-    const copied = await setClipboardString(voucherPin);
-    Alert.alert(
-      copied ? 'Copied' : 'Copy Failed',
-      copied ? 'Token copied to clipboard.' : 'Could not copy this token.'
-    );
+    try {
+      const copied = await setClipboardString(voucherPin);
+      Alert.alert(
+        copied ? 'Copied' : 'Copy Failed',
+        copied ? 'Token copied to clipboard.' : 'Could not copy this token.'
+      );
+    } catch (copyError) {
+      console.error('Failed to copy utility voucher token:', copyError);
+      Alert.alert('Copy Failed', 'Could not copy this token.');
+    }
   };
 
   const handleShareReceipt = async (transaction: VTUHistoryTransaction) => {
@@ -98,7 +103,8 @@ export default function UtilityHistoryScreen() {
         type: utilityRepeatHelpers.getRouteType(transaction.type),
         voucherPin: transaction.voucher_pin,
       });
-    } catch {
+    } catch (shareError) {
+      console.error('Failed to share utility receipt:', shareError);
       Alert.alert(
         'Share Failed',
         'Could not generate the receipt PDF. Please try again.'
@@ -131,12 +137,13 @@ export default function UtilityHistoryScreen() {
           ? 'This utility payment has been reconciled.'
           : 'The payment is confirmed, but utility fulfillment is still processing.'
       );
-    } catch (error) {
+    } catch (syncError) {
+      console.error('Failed to sync VTU payment:', syncError);
       await refetch();
       Alert.alert(
         'Sync Failed',
-        error instanceof Error
-          ? error.message
+        syncError instanceof Error
+          ? syncError.message
           : 'We could not reconcile this payment yet.'
       );
     } finally {
@@ -242,6 +249,7 @@ export default function UtilityHistoryScreen() {
               </Text>
               <Pressable
                 style={[
+                  styles.pillButtonBase,
                   styles.retryButton,
                   { backgroundColor: colors.card, borderColor: colors.border },
                 ]}
@@ -261,6 +269,7 @@ export default function UtilityHistoryScreen() {
               const hasReceivedGatewayPayment =
                 transaction.status !== 'successful' &&
                 transaction.payment_status === 'completed';
+              const voucherPin = transaction.voucher_pin;
 
               return (
                 <View
@@ -359,7 +368,7 @@ export default function UtilityHistoryScreen() {
                     </Text>
                   ) : null}
 
-                  {transaction.voucher_pin ? (
+                  {voucherPin ? (
                     <View
                       style={[
                         styles.voucherBox,
@@ -381,7 +390,7 @@ export default function UtilityHistoryScreen() {
                         selectable
                         style={[styles.voucherCode, { color: colors.text }]}
                       >
-                        {transaction.voucher_pin}
+                        {voucherPin}
                       </Text>
                       <Pressable
                         style={[
@@ -391,11 +400,7 @@ export default function UtilityHistoryScreen() {
                             borderColor: colors.border,
                           },
                         ]}
-                        onPress={() =>
-                          transaction.voucher_pin
-                            ? handleCopyVoucher(transaction.voucher_pin)
-                            : undefined
-                        }
+                        onPress={() => handleCopyVoucher(voucherPin)}
                         accessibilityRole="button"
                         accessibilityLabel="Copy voucher token"
                       >
@@ -443,6 +448,7 @@ export default function UtilityHistoryScreen() {
                     {hasReceivedGatewayPayment ? null : (
                       <Pressable
                         style={[
+                          styles.pillButtonBase,
                           styles.repeatButton,
                           {
                             backgroundColor: colors.card,
@@ -463,6 +469,7 @@ export default function UtilityHistoryScreen() {
                     {transaction.status === 'successful' ? (
                       <Pressable
                         style={[
+                          styles.pillButtonBase,
                           styles.repeatButton,
                           {
                             backgroundColor: colors.card,
@@ -490,6 +497,7 @@ export default function UtilityHistoryScreen() {
                     transaction.payment_reference ? (
                       <Pressable
                         style={[
+                          styles.pillButtonBase,
                           styles.repeatButton,
                           {
                             backgroundColor: colors.card,

@@ -65,11 +65,16 @@ export function PurchaseSuccess({
       return;
     }
 
-    const copied = await setClipboardString(voucherPin);
-    Alert.alert(
-      copied ? 'Copied' : 'Copy Failed',
-      copied ? 'Token copied to clipboard.' : 'Could not copy this token.'
-    );
+    try {
+      const copied = await setClipboardString(voucherPin);
+      Alert.alert(
+        copied ? 'Copied' : 'Copy Failed',
+        copied ? 'Token copied to clipboard.' : 'Could not copy this token.'
+      );
+    } catch (copyError) {
+      console.error('Failed to copy utility voucher token:', copyError);
+      Alert.alert('Copy Failed', 'Could not copy this token.');
+    }
   };
 
   const handleShareReceipt = async () => {
@@ -87,7 +92,8 @@ export function PurchaseSuccess({
         type,
         voucherPin,
       });
-    } catch {
+    } catch (shareError) {
+      console.error('Failed to share utility receipt:', shareError);
       Alert.alert(
         'Share Failed',
         'Could not generate the receipt PDF. Please try again.'

@@ -78,9 +78,8 @@ export function AirtimeForm({
   const [amount, setAmount] = useState(initialAmount ?? '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isNetworkPickerExpanded, setIsNetworkPickerExpanded] = useState(false);
-  const [shouldScrollToPayment, setShouldScrollToPayment] = useState(
-    isRepeatPaymentReady
-  );
+  const [shouldScrollToPayment, setShouldScrollToPayment] =
+    useState(isRepeatPaymentReady);
 
   const handlePhoneChange = (text: string) => {
     const digits = text.replace(/\D/g, '');
@@ -338,7 +337,7 @@ export function AirtimeForm({
                 </Pressable>
               ) : null}
             </View>
-            {isNetworkPickerExpanded ? (
+            {!selectedProvider || isNetworkPickerExpanded ? (
               <ProviderGrid
                 selectedProvider={selectedProvider}
                 onSelect={handleProviderSelect}

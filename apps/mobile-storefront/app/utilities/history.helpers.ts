@@ -4,6 +4,8 @@ import type {
 } from '@/hooks/use-vtu-history';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import {
+  DEFAULT_UTILITY_HISTORY_STATUS_COLOR,
+  DEFAULT_UTILITY_HISTORY_STATUS_LABEL,
   UTILITY_HISTORY_PAYMENT_RECEIVED_STATUS,
   UTILITY_HISTORY_FILTERS,
   UTILITY_HISTORY_STATUS_COLORS,
@@ -24,6 +26,12 @@ type UtilityHistoryStatusData = Pick<
   VTUHistoryTransaction,
   'payment_status' | 'status'
 >;
+
+export interface UtilityHistoryDisplayStatus {
+  color: string;
+  label: string;
+  message: string | null;
+}
 
 export const utilityHistoryHelpers = {
   formatAmount(amount: number): string {
@@ -66,7 +74,9 @@ export const utilityHistoryHelpers = {
     );
   },
 
-  getDisplayStatus(transaction: UtilityHistoryStatusData) {
+  getDisplayStatus(
+    transaction: UtilityHistoryStatusData
+  ): UtilityHistoryDisplayStatus {
     if (
       transaction.status !== 'successful' &&
       transaction.payment_status === 'completed'
@@ -78,9 +88,17 @@ export const utilityHistoryHelpers = {
       };
     }
 
+    const color =
+      UTILITY_HISTORY_STATUS_COLORS[transaction.status] ??
+      DEFAULT_UTILITY_HISTORY_STATUS_COLOR;
+    const label =
+      transaction.status in UTILITY_HISTORY_STATUS_COLORS
+        ? transaction.status
+        : DEFAULT_UTILITY_HISTORY_STATUS_LABEL;
+
     return {
-      color: UTILITY_HISTORY_STATUS_COLORS[transaction.status],
-      label: transaction.status,
+      color,
+      label,
       message: null,
     };
   },

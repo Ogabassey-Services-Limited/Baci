@@ -6,6 +6,7 @@ import { historyQuerySchema } from '@/schemas/vtu';
 
 const TOKEN_BACKFILL_TYPES = new Set(['electricity', 'cable_tv', 'betting']);
 const MAX_TOKEN_BACKFILL_SCHEDULES = 3;
+const PAYMENT_STATUS_BATCH_SIZE = 250;
 
 export async function GET(request: NextRequest) {
   try {
@@ -122,29 +123,41 @@ export async function GET(request: NextRequest) {
       )
     );
     const paymentStatusByReference = new Map<string, string>();
+    let paymentStatusPartialFailure = false;
 
     if (paymentReferences.length > 0) {
-      const { data: paymentRows, error: paymentRowsError } = await supabase
-        .from('transactions')
-        .select('gateway_reference, status')
-        .eq('merchant_id', merchant.id)
-        .in('gateway_reference', paymentReferences);
-
-      if (paymentRowsError) {
-        console.error(
-          'Failed to fetch VTU payment statuses:',
-          paymentRowsError
+      for (
+        let index = 0;
+        index < paymentReferences.length;
+        index += PAYMENT_STATUS_BATCH_SIZE
+      ) {
+        const paymentReferenceBatch = paymentReferences.slice(
+          index,
+          index + PAYMENT_STATUS_BATCH_SIZE
         );
-      } else {
-        for (const paymentRow of paymentRows ?? []) {
-          if (
-            typeof paymentRow.gateway_reference === 'string' &&
-            typeof paymentRow.status === 'string'
-          ) {
-            paymentStatusByReference.set(
-              paymentRow.gateway_reference,
-              paymentRow.status
-            );
+        const { data: paymentRows, error: paymentRowsError } = await supabase
+          .from('transactions')
+          .select('gateway_reference, status')
+          .eq('merchant_id', merchant.id)
+          .in('gateway_reference', paymentReferenceBatch);
+
+        if (paymentRowsError) {
+          paymentStatusPartialFailure = true;
+          console.error('Failed to fetch VTU payment statuses:', {
+            error: paymentRowsError,
+            paymentReferenceBatchSize: paymentReferenceBatch.length,
+          });
+        } else {
+          for (const paymentRow of paymentRows ?? []) {
+            if (
+              typeof paymentRow.gateway_reference === 'string' &&
+              typeof paymentRow.status === 'string'
+            ) {
+              paymentStatusByReference.set(
+                paymentRow.gateway_reference,
+                paymentRow.status
+              );
+            }
           }
         }
       }
@@ -160,35 +173,52 @@ export async function GET(request: NextRequest) {
         const voucherPin =
           typeof metadata.voucherPin === 'string' ? metadata.voucherPin : null;
 
-        if (
-          !voucherPin &&
-          transaction.status === 'successful' &&
-          TOKEN_BACKFILL_TYPES.has(String(transaction.type)) &&
-          scheduledTokenBackfills < MAX_TOKEN_BACKFILL_SCHEDULES
-        ) {
-          scheduledTokenBackfills += 1;
-          after(async () => {
-            await backfillVtuVoucherPin({
-              billRequestRef:
-                typeof transaction.request_reference === 'string'
-                  ? transaction.request_reference
-                  : null,
-              billResponseReference:
-                typeof transaction.transaction_id === 'string'
-                  ? transaction.transaction_id
-                  : null,
-              metadata,
-              supabase,
-              transactionId: String(transaction.id),
-            });
-          });
-        }
-
-        return { transaction, voucherPin };
+        return { metadata, transaction, voucherPin };
       }
     );
 
+    for (const {
+      metadata,
+      transaction,
+      voucherPin,
+    } of transactionsWithVoucherPins) {
+      if (
+        voucherPin !== null ||
+        transaction.status !== 'successful' ||
+        !TOKEN_BACKFILL_TYPES.has(String(transaction.type)) ||
+        scheduledTokenBackfills >= MAX_TOKEN_BACKFILL_SCHEDULES
+      ) {
+        continue;
+      }
+
+      scheduledTokenBackfills += 1;
+      after(async () => {
+        try {
+          await backfillVtuVoucherPin({
+            billRequestRef:
+              typeof transaction.request_reference === 'string'
+                ? transaction.request_reference
+                : null,
+            billResponseReference:
+              typeof transaction.transaction_id === 'string'
+                ? transaction.transaction_id
+                : null,
+            metadata,
+            supabase,
+            transactionId: String(transaction.id),
+          });
+        } catch (error) {
+          console.error('Failed to backfill VTU voucher pin from history:', {
+            error,
+            transactionId: transaction.id,
+            transactionReference: transaction.transaction_id,
+          });
+        }
+      });
+    }
+
     return NextResponse.json({
+      payment_status_partial_failure: paymentStatusPartialFailure,
       transactions: transactionsWithVoucherPins.map(
         ({ transaction, voucherPin }) => {
           const {
@@ -220,7 +250,6 @@ export async function GET(request: NextRequest) {
               transaction.customer_cashback != null
                 ? Number(transaction.customer_cashback)
                 : null,
-            metadata: undefined,
             payment_gateway: paymentGateway,
             payment_reference: paymentReference,
             payment_status: paymentReference

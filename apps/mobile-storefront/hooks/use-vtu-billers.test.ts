@@ -40,6 +40,24 @@ function createWrapper(queryClient: QueryClient) {
     createElement(QueryClientProvider, { client: queryClient }, children);
 }
 
+function expectKudaElectricityBillItems(
+  data: ReturnType<typeof useVTUBillers>['data']
+) {
+  expect(data).toBeDefined();
+  if (!data) {
+    throw new Error('Expected biller data');
+  }
+  expect(data).toHaveLength(1);
+  const billItems = data[0].billItems;
+  expect(billItems).toBeDefined();
+  if (!billItems) {
+    throw new Error('Expected Kuda bill items');
+  }
+  expect(billItems).toHaveLength(2);
+  expect(billItems[0].itemCode).toBe('KUD-ELE-EKED-002');
+  expect(billItems[0].itemName).toBe('EKEDC PREPAID');
+}
+
 describe('useVTUBillers', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -74,12 +92,7 @@ describe('useVTUBillers', () => {
     unmountHook = unmount;
 
     await waitFor(() => {
-      expect(result.current.data?.[0]?.billItems?.[0]?.itemCode).toBe(
-        'KUD-ELE-EKED-002'
-      );
-      expect(result.current.data?.[0]?.billItems?.[0]?.itemName).toBe(
-        'EKEDC PREPAID'
-      );
+      expectKudaElectricityBillItems(result.current.data);
     });
   });
 
@@ -100,12 +113,7 @@ describe('useVTUBillers', () => {
     unmountHook = unmount;
 
     await waitFor(() => {
-      expect(result.current.data?.[0]?.billItems?.[0]?.itemCode).toBe(
-        'KUD-ELE-EKED-002'
-      );
-      expect(result.current.data?.[0]?.billItems?.[0]?.itemName).toBe(
-        'EKEDC PREPAID'
-      );
+      expectKudaElectricityBillItems(result.current.data);
     });
     expect(mockFetchWithRetry).not.toHaveBeenCalled();
   });

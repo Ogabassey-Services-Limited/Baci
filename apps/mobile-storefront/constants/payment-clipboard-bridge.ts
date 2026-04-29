@@ -96,7 +96,13 @@ export const PAYMENT_CLIPBOARD_BRIDGE = {
       depth += 1;
     }
 
-    postCopy(findAccountNumber(document.body ? document.body.innerText : ''));
+    var fallbackAccountNumber = findAccountNumber(
+      document.body ? document.body.innerText || document.body.textContent || '' : ''
+    );
+    if (fallbackAccountNumber) {
+      postAccountNumber(fallbackAccountNumber);
+      postCopy(fallbackAccountNumber);
+    }
   }
 
   var existingClipboard = navigator.clipboard || {};
@@ -118,8 +124,9 @@ export const PAYMENT_CLIPBOARD_BRIDGE = {
 
           var result = originalWriteText(text);
           if (result && typeof result.catch === 'function') {
-            return result.catch(function () {
-              return undefined;
+            return result.catch(function (error) {
+              console.error('Baci clipboard bridge writeText failed', error);
+              return Promise.reject(error);
             });
           }
 
@@ -181,7 +188,7 @@ export const PAYMENT_CLIPBOARD_BRIDGE = {
       actionText += ' ' + (target.getAttribute('title') || '');
     }
 
-    if (/copy/i.test(actionText)) {
+    if (/\\bcopy\\b/i.test(actionText)) {
       setTimeout(function () {
         postNearestAccountNumber(target);
       }, 0);
@@ -205,7 +212,14 @@ export const PAYMENT_CLIPBOARD_BRIDGE = {
 
   setTimeout(scanForAccountNumber, 500);
   setTimeout(scanForAccountNumber, 1500);
-  setInterval(scanForAccountNumber, 3000);
+  var scanRetryCount = 0;
+  var scanRetryInterval = setInterval(function () {
+    scanRetryCount += 1;
+    scanForAccountNumber();
+    if (scanRetryCount >= 5) {
+      clearInterval(scanRetryInterval);
+    }
+  }, 3000);
 
   return true;
 })();

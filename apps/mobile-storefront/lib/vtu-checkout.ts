@@ -248,10 +248,11 @@ export async function confirmVtuCheckout({
       gatewayStatus !== 'failed' &&
       gatewayStatus !== 'abandoned'
     ) {
-      return {
+      return ConfirmCheckoutResponseSchema.parse({
+        ...data,
         reference,
         status: 'processing' as const,
-      };
+      });
     }
 
     throw new Error(
@@ -265,10 +266,11 @@ export async function confirmVtuCheckout({
     typeof data.status === 'string' ? data.status.toLowerCase() : '';
 
   if (normalizedStatus === 'already_completed') {
-    return {
+    return ConfirmCheckoutResponseSchema.parse({
+      ...data,
       reference,
       status: 'processing' as const,
-    };
+    });
   }
 
   return ConfirmCheckoutResponseSchema.parse(data);

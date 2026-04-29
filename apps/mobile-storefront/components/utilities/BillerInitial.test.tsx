@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 import { render, screen } from '@testing-library/react-native';
-import { BillerInitial } from './BillerInitial';
+import { BillerInitial } from '@/components/utilities/BillerInitial';
 
 describe('BillerInitial', () => {
   it('renders the uppercase first letter of the biller name', () => {
@@ -12,5 +12,54 @@ describe('BillerInitial', () => {
     );
 
     expect(screen.getByText('E')).toBeOnTheScreen();
+  });
+
+  it('renders a fallback initial for whitespace-only names', () => {
+    render(
+      <BillerInitial
+        colors={{ border: '#E5E7EB', textSecondary: '#6B7280' }}
+        name="   "
+      />
+    );
+
+    expect(screen.getByText('?')).toBeOnTheScreen();
+  });
+
+  it('renders a fallback initial for empty names', () => {
+    render(
+      <BillerInitial
+        colors={{ border: '#E5E7EB', textSecondary: '#6B7280' }}
+        name=""
+      />
+    );
+
+    expect(screen.getByText('?')).toBeOnTheScreen();
+  });
+
+  it('renders the first input character when it is numeric or symbolic', () => {
+    render(
+      <BillerInitial
+        colors={{ border: '#E5E7EB', textSecondary: '#6B7280' }}
+        name="9mobile"
+      />
+    );
+
+    expect(screen.getByText('9')).toBeOnTheScreen();
+  });
+
+  it('applies controlled circle and text colors', () => {
+    render(
+      <BillerInitial
+        colors={{ border: '#111827', textSecondary: '#F9FAFB' }}
+        name="ekedc"
+      />
+    );
+
+    expect(screen.getByLabelText('Biller: ekedc')).toHaveStyle({
+      backgroundColor: '#111827',
+    });
+    expect(screen.getByText('E')).toHaveStyle({
+      color: '#F9FAFB',
+    });
   });
 });
