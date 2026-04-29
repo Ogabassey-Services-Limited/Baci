@@ -5,6 +5,7 @@ import { MerchantNotFoundError } from '@/lib/feed-identifier';
 const mockResolveStorefrontMerchantFromRequest = vi.fn();
 const mockResolveFeedMerchant = vi.fn();
 const mockGetCachedGoogleMerchantFeedData = vi.fn();
+const mockLoggerError = vi.fn();
 
 vi.mock('@/lib/storefront-merchant', () => ({
   resolveStorefrontMerchantFromRequest: (...args: unknown[]) =>
@@ -37,6 +38,12 @@ vi.mock('@/lib/cache-headers', () => ({
 vi.mock('@/app/api/feed/google-merchant/feed-data', () => ({
   getCachedGoogleMerchantFeedData: (...args: unknown[]) =>
     mockGetCachedGoogleMerchantFeedData(...args),
+}));
+
+vi.mock('@/lib/logger', () => ({
+  logger: {
+    error: (payload: unknown) => mockLoggerError(payload),
+  },
 }));
 
 beforeEach(() => {
@@ -96,7 +103,7 @@ beforeEach(() => {
 });
 
 describe('GET /feeds/google-merchant.xml integration', () => {
-  it('delegates to the real Google Merchant route and returns generated XML', async () => {
+  it('uses the shared Google Merchant feed service and returns generated XML', async () => {
     const { GET } = await import('./route');
 
     const response = await GET(
@@ -121,7 +128,7 @@ describe('GET /feeds/google-merchant.xml integration', () => {
     );
   });
 
-  it('returns 404 when delegated merchant resolution fails', async () => {
+  it('returns 404 when feed merchant resolution fails', async () => {
     mockResolveFeedMerchant.mockRejectedValue(
       new MerchantNotFoundError('unknown-merchant')
     );
@@ -141,7 +148,7 @@ describe('GET /feeds/google-merchant.xml integration', () => {
     expect(mockGetCachedGoogleMerchantFeedData).not.toHaveBeenCalled();
   });
 
-  it('returns 500 when delegated feed data loading fails', async () => {
+  it('returns 500 when feed data loading fails', async () => {
     mockGetCachedGoogleMerchantFeedData.mockRejectedValue(
       new Error('feed data failed')
     );
@@ -160,7 +167,7 @@ describe('GET /feeds/google-merchant.xml integration', () => {
     expect(xml).toContain('<message>Failed to generate feed</message>');
   });
 
-  it('returns 400 when storefront host validation fails before delegation', async () => {
+  it('returns 400 when storefront host validation fails before feed generation', async () => {
     mockResolveStorefrontMerchantFromRequest.mockResolvedValue({
       success: false,
       status: 400,

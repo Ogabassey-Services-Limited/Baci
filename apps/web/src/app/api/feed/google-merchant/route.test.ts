@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockResolveFeedMerchant = vi.fn();
 const mockGenerateGoogleMerchantFeed = vi.fn();
 const mockGetCachedGoogleMerchantFeedData = vi.fn();
+const mockLoggerError = vi.fn();
 
 vi.mock('@/lib/feed-identifier', () => {
   class _MerchantNotFoundError extends Error {
@@ -35,6 +36,12 @@ vi.mock('@/lib/cache-headers', () => ({
 vi.mock('./feed-builder', () => ({
   generateGoogleMerchantFeed: (...args: unknown[]) =>
     mockGenerateGoogleMerchantFeed(...args),
+}));
+
+vi.mock('@/lib/logger', () => ({
+  logger: {
+    error: (payload: unknown) => mockLoggerError(payload),
+  },
 }));
 
 import { MerchantNotFoundError } from '@/lib/feed-identifier';

@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { GET as getGoogleMerchantFeed } from '@/app/api/feed/google-merchant/route';
+import { type NextRequest, NextResponse } from 'next/server';
+import { generateGoogleMerchantFeedForIdentifier } from '@/app/api/feed/google-merchant/feed-service';
 import { getRootDomain } from '@/env';
+import { CACHE_HEADERS } from '@/lib/cache-headers';
 import { resolveStorefrontMerchantFromRequest } from '@/lib/storefront-merchant';
 
 const ROOT_DOMAIN = (getRootDomain() || 'usebaci.com').toLowerCase();
@@ -29,40 +30,6 @@ function buildXmlErrorResponse(error: string, status: number): NextResponse {
   );
 }
 
-function getDelegatedErrorMessage(payload: unknown): string | null {
-  if (!payload || typeof payload !== 'object') {
-    return null;
-  }
-
-  const error = 'error' in payload ? payload.error : null;
-  if (typeof error === 'string') {
-    return error;
-  }
-
-  const message = 'message' in payload ? payload.message : null;
-  return typeof message === 'string' ? message : null;
-}
-
-async function toXmlErrorResponse(response: Response): Promise<Response> {
-  const contentType = response.headers.get('content-type') || '';
-  if (contentType.includes('application/xml')) {
-    return response;
-  }
-
-  let error = response.statusText || 'Failed to generate feed';
-  try {
-    if (contentType.includes('application/json')) {
-      error = getDelegatedErrorMessage(await response.clone().json()) || error;
-    } else {
-      error = (await response.clone().text()).trim() || error;
-    }
-  } catch {
-    // Fall back to the HTTP status text when the delegated body is unreadable.
-  }
-
-  return buildXmlErrorResponse(error, response.status);
-}
-
 export async function GET(request: NextRequest) {
   const resolution = await resolveStorefrontMerchantFromRequest({
     request,
@@ -79,18 +46,20 @@ export async function GET(request: NextRequest) {
     return buildXmlErrorResponse(resolution.error, resolution.status);
   }
 
-  const feedUrl = new URL('/api/feed/google-merchant', request.url);
-  feedUrl.searchParams.set('merchant_slug', resolution.merchant.slug);
+  const result = await generateGoogleMerchantFeedForIdentifier({
+    identifier: resolution.merchant.slug,
+    isBySlug: true,
+  });
 
-  const response = await getGoogleMerchantFeed(
-    new NextRequest(feedUrl, {
-      headers: request.headers,
-    })
-  );
-
-  if (response.ok) {
-    return response;
+  if (!result.success) {
+    return buildXmlErrorResponse(result.error, result.status);
   }
 
-  return toXmlErrorResponse(response);
+  return new NextResponse(result.xml, {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/xml; charset=utf-8',
+      ...CACHE_HEADERS.LONG,
+    },
+  });
 }

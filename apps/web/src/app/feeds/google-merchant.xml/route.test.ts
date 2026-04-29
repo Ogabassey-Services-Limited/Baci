@@ -1,16 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockResolveStorefrontMerchantFromRequest = vi.fn();
-const mockGoogleMerchantFeedGET = vi.fn();
+const mockGenerateGoogleMerchantFeedForIdentifier = vi.fn();
 
 vi.mock('@/lib/storefront-merchant', () => ({
   resolveStorefrontMerchantFromRequest: (...args: unknown[]) =>
     mockResolveStorefrontMerchantFromRequest(...args),
 }));
 
-vi.mock('@/app/api/feed/google-merchant/route', () => ({
-  GET: (...args: unknown[]) => mockGoogleMerchantFeedGET(...args),
+vi.mock('@/app/api/feed/google-merchant/feed-service', () => ({
+  generateGoogleMerchantFeedForIdentifier: (...args: unknown[]) =>
+    mockGenerateGoogleMerchantFeedForIdentifier(...args),
 }));
 
 beforeEach(() => {
@@ -27,14 +28,10 @@ beforeEach(() => {
     },
   });
 
-  mockGoogleMerchantFeedGET.mockResolvedValue(
-    new NextResponse('<rss />', {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/xml; charset=utf-8',
-      },
-    })
-  );
+  mockGenerateGoogleMerchantFeedForIdentifier.mockResolvedValue({
+    success: true,
+    xml: '<rss />',
+  });
 });
 
 describe('GET /feeds/google-merchant.xml', () => {
@@ -49,6 +46,7 @@ describe('GET /feeds/google-merchant.xml', () => {
     const body = await response.text();
 
     expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toContain('application/xml');
     expect(body).toBe('<rss />');
     expect(mockResolveStorefrontMerchantFromRequest).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -56,16 +54,10 @@ describe('GET /feeds/google-merchant.xml', () => {
         rootDomain: expect.any(String),
       })
     );
-    expect(mockGoogleMerchantFeedGET).toHaveBeenCalledTimes(1);
-
-    const delegatedCall = mockGoogleMerchantFeedGET.mock.calls[0];
-    expect(delegatedCall).toBeDefined();
-    const delegatedRequest = delegatedCall?.[0] as NextRequest;
-    expect(delegatedRequest.nextUrl.pathname).toBe('/api/feed/google-merchant');
-    expect(delegatedRequest.nextUrl.searchParams.get('merchant_slug')).toBe(
-      'ogabassey'
-    );
-    expect(delegatedRequest.headers.get('host')).toBe('ogabassey.com');
+    expect(mockGenerateGoogleMerchantFeedForIdentifier).toHaveBeenCalledWith({
+      identifier: 'ogabassey',
+      isBySlug: true,
+    });
   });
 
   it('returns the storefront resolution error without querying feed data', async () => {
@@ -88,7 +80,7 @@ describe('GET /feeds/google-merchant.xml', () => {
     expect(body).toContain(
       '<message>Google Merchant feed is only available on storefront hosts</message>'
     );
-    expect(mockGoogleMerchantFeedGET).not.toHaveBeenCalled();
+    expect(mockGenerateGoogleMerchantFeedForIdentifier).not.toHaveBeenCalled();
   });
 
   it('returns invalid-host storefront resolution errors without querying feed data', async () => {
@@ -109,7 +101,7 @@ describe('GET /feeds/google-merchant.xml', () => {
     expect(response.status).toBe(400);
     expect(response.headers.get('content-type')).toContain('application/xml');
     expect(body).toContain('<message>Invalid storefront host</message>');
-    expect(mockGoogleMerchantFeedGET).not.toHaveBeenCalled();
+    expect(mockGenerateGoogleMerchantFeedForIdentifier).not.toHaveBeenCalled();
   });
 
   it('logs and returns the storefront resolution error when lookup fails', async () => {
@@ -142,9 +134,33 @@ describe('GET /feeds/google-merchant.xml', () => {
         'GOOGLE_MERCHANT_PUBLIC_FEED_ERROR:',
         cause
       );
-      expect(mockGoogleMerchantFeedGET).not.toHaveBeenCalled();
+      expect(
+        mockGenerateGoogleMerchantFeedForIdentifier
+      ).not.toHaveBeenCalled();
     } finally {
       errorSpy.mockRestore();
     }
+  });
+
+  it('returns feed generation errors as XML without delegating to another route handler', async () => {
+    const cause = new Error('feed failed');
+    mockGenerateGoogleMerchantFeedForIdentifier.mockResolvedValue({
+      success: false,
+      status: 500,
+      error: 'Failed to generate feed',
+      cause,
+    });
+    const { GET } = await import('./route');
+
+    const response = await GET(
+      new NextRequest('https://ogabassey.com/feeds/google-merchant.xml', {
+        headers: { host: 'ogabassey.com' },
+      })
+    );
+    const body = await response.text();
+
+    expect(response.status).toBe(500);
+    expect(response.headers.get('content-type')).toContain('application/xml');
+    expect(body).toContain('<message>Failed to generate feed</message>');
   });
 });
