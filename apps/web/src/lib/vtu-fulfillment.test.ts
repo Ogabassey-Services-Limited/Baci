@@ -174,6 +174,11 @@ function createPendingTransactionSupabaseMock({
               !('customerNotificationSent' in metadataPayload) &&
               !('paymentPending' in metadataPayload) &&
               !('status' in payloadRecord);
+            const isRetryReconciliation =
+              payloadRecord.status === 'successful' &&
+              payloadRecord.error_message === null &&
+              !('metadata' in payloadRecord) &&
+              !('transaction_id' in payloadRecord);
 
             if (isNotificationClaim) {
               const notificationClaimChain = {
@@ -183,6 +188,15 @@ function createPendingTransactionSupabaseMock({
                 select: vi.fn(() => notificationClaimChain),
               };
               return notificationClaimChain;
+            }
+
+            if (isRetryReconciliation) {
+              const retryReconciliationChain = {
+                eq: vi.fn(() => retryReconciliationChain),
+                maybeSingle: claimMaybeSingle,
+                select: vi.fn(() => retryReconciliationChain),
+              };
+              return retryReconciliationChain;
             }
 
             if (!isClaimOrErrorUpdate(payloadRecord)) {
@@ -608,6 +622,10 @@ describe('fulfillPendingVtuTransaction', () => {
   });
 
   it('retries a failed transaction only when gateway reconciliation allows it', async () => {
+    mockCheckTransactionStatus.mockResolvedValueOnce({
+      message: 'Original attempt failed',
+      status: 'failed',
+    });
     mockPurchaseAirtime.mockResolvedValue({
       success: true,
       message: 'ok',
@@ -651,6 +669,10 @@ describe('fulfillPendingVtuTransaction', () => {
       reference: 'VTU-123',
       status: 'successful',
     });
+    expect(mockCheckTransactionStatus).toHaveBeenCalledWith(
+      undefined,
+      'VTU-123'
+    );
     expect(mockPurchaseAirtime).toHaveBeenCalledWith(
       '08012345678',
       1000,
@@ -658,6 +680,60 @@ describe('fulfillPendingVtuTransaction', () => {
       'OgaBassey',
       'VTU-123'
     );
+  });
+
+  it('does not retry a failed transaction when gateway reconciliation finds success', async () => {
+    const updatePayloads: unknown[] = [];
+    mockCheckTransactionStatus.mockResolvedValueOnce({
+      message: 'Original attempt succeeded',
+      status: 'successful',
+    });
+
+    const supabase = createPendingTransactionSupabaseMock({
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: null,
+        type: 'airtime',
+        network_provider: 'MTN',
+        phone_number: '08012345678',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: null,
+        status: 'failed',
+        metadata: {
+          paymentReference: 'VTU-PAYSTACK-123',
+        },
+        error_message: 'Temporary biller error',
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: null,
+        biller_item_code: null,
+        customer_identifier: null,
+      },
+      updatePayloads,
+    });
+
+    const result = await fulfillPendingVtuTransaction({
+      retryFailed: true,
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(result).toMatchObject({
+      amount: 1000,
+      reference: 'VTU-123',
+      status: 'successful',
+    });
+    expect(mockCheckTransactionStatus).toHaveBeenCalledWith(
+      undefined,
+      'VTU-123'
+    );
+    expect(mockPurchaseAirtime).not.toHaveBeenCalled();
+    expect(updatePayloads).toContainEqual({
+      error_message: null,
+      status: 'successful',
+    });
   });
 
   it('does not retry a failed transaction when retryFailed is false', async () => {

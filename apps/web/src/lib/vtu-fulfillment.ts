@@ -103,6 +103,40 @@ function coerceNumber(value: unknown) {
   return Number.isFinite(numeric) ? numeric : 0;
 }
 
+function normalizeProviderStatus(status: string) {
+  const normalized = status
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+
+  if (
+    normalized === 'completed' ||
+    normalized === 'complete' ||
+    normalized === 'success' ||
+    normalized === 'successful'
+  ) {
+    return 'successful';
+  }
+
+  if (
+    normalized === 'inprogress' ||
+    normalized === 'pending' ||
+    normalized === 'processing'
+  ) {
+    return 'processing';
+  }
+
+  if (
+    normalized === 'failed' ||
+    normalized === 'failure' ||
+    normalized === 'unsuccessful'
+  ) {
+    return 'failed';
+  }
+
+  return 'unknown';
+}
+
 function formatNaira(amount: number) {
   return `₦${new Intl.NumberFormat('en-NG', {
     maximumFractionDigits: 2,
@@ -494,6 +528,200 @@ export async function backfillVtuVoucherPin({
   }
 }
 
+async function resolveSuccessfulVtuTransaction({
+  reconciledVoucherPin,
+  row,
+  supabase,
+}: {
+  reconciledVoucherPin?: string;
+  row: VtuTransactionRow;
+  supabase: SupabaseClient;
+}): Promise<FulfilledVtuResult> {
+  const metadata = { ...(row.metadata ?? {}) };
+  let metadataChanged = false;
+  const cashbackAmount = Number(row.customer_cashback ?? 0);
+  const voucherPin =
+    normalizeVoucherPin(reconciledVoucherPin) ??
+    (canResolveBillVoucherPin(row.type)
+      ? await backfillVtuVoucherPin({
+          billRequestRef: row.request_reference,
+          billResponseReference: row.transaction_id,
+          metadata: row.metadata,
+          supabase,
+          transactionId: row.id,
+        })
+      : getVoucherPinFromMetadata(row.metadata));
+  if (voucherPin) {
+    metadataChanged =
+      setMetadataValue(metadata, 'voucherPin', voucherPin) || metadataChanged;
+  }
+  const walletSettlement = await settleVtuWalletCredits({
+    metadata,
+    row,
+    supabase,
+  });
+  metadataChanged = walletSettlement.metadataChanged || metadataChanged;
+  const notificationSettlement = await notifyVtuCustomerSuccess({
+    cashbackAmount,
+    customerWalletCredited: walletSettlement.customerWalletCredited,
+    metadata,
+    row,
+    supabase,
+  });
+  metadataChanged = notificationSettlement.metadataChanged || metadataChanged;
+
+  if (metadataChanged) {
+    const { error: metadataUpdateError } = await supabase
+      .from('vtu_transactions')
+      .update({ metadata })
+      .eq('id', row.id);
+
+    if (metadataUpdateError) {
+      console.error('Failed to persist VTU transaction metadata:', {
+        error: metadataUpdateError.message,
+        metadata: getSafeMetadataDiagnostics(metadata),
+        transactionId: row.id,
+      });
+    }
+  }
+
+  return {
+    amount: Number(row.amount) || 0,
+    cashback:
+      cashbackAmount > 0
+        ? {
+            amount: cashbackAmount,
+            credited: walletSettlement.customerWalletCredited,
+            newBalance: walletSettlement.customerNewBalance,
+          }
+        : undefined,
+    customerIdentifier: row.customer_identifier ?? undefined,
+    reference: row.request_reference,
+    status: 'successful',
+    ...(voucherPin && { voucherPin }),
+  };
+}
+
+async function reconcileFailedVtuRetry({
+  row,
+  supabase,
+}: {
+  row: VtuTransactionRow;
+  supabase: SupabaseClient;
+}): Promise<
+  { action: 'retry' } | { action: 'return'; result: FulfilledVtuResult }
+> {
+  try {
+    const providerStatus = await checkTransactionStatus(
+      row.transaction_id ?? undefined,
+      row.request_reference || undefined
+    );
+    const reconciledStatus = normalizeProviderStatus(providerStatus.status);
+
+    if (reconciledStatus === 'failed') {
+      return { action: 'retry' };
+    }
+
+    if (reconciledStatus === 'successful') {
+      const { data: reconciled, error } = await supabase
+        .from('vtu_transactions')
+        .update({ error_message: null, status: 'successful' })
+        .eq('id', row.id)
+        .eq('status', 'failed')
+        .select('id')
+        .maybeSingle();
+
+      if (error) {
+        throw new VtuPersistenceError(
+          `Failed to reconcile VTU transaction ${row.id}: ${error.message}`
+        );
+      }
+
+      if (!reconciled) {
+        const { data: current } = await supabase
+          .from('vtu_transactions')
+          .select('error_message, status')
+          .eq('id', row.id)
+          .single();
+        const currentStatus =
+          typeof current?.status === 'string'
+            ? normalizeProviderStatus(current.status)
+            : 'processing';
+        if (currentStatus === 'successful') {
+          return {
+            action: 'return',
+            result: await resolveSuccessfulVtuTransaction({
+              reconciledVoucherPin: providerStatus.pin,
+              row: { ...row, error_message: null, status: 'successful' },
+              supabase,
+            }),
+          };
+        }
+
+        if (currentStatus === 'failed') {
+          return {
+            action: 'return',
+            result: {
+              amount: Number(row.amount) || 0,
+              error:
+                typeof current?.error_message === 'string'
+                  ? current.error_message
+                  : row.error_message || 'Purchase failed',
+              reference: row.request_reference,
+              status: 'failed',
+            },
+          };
+        }
+
+        return {
+          action: 'return',
+          result: {
+            amount: Number(row.amount) || 0,
+            reference: row.request_reference,
+            status: 'processing',
+          },
+        };
+      }
+
+      return {
+        action: 'return',
+        result: await resolveSuccessfulVtuTransaction({
+          reconciledVoucherPin: providerStatus.pin,
+          row: { ...row, error_message: null, status: 'successful' },
+          supabase,
+        }),
+      };
+    }
+
+    return {
+      action: 'return',
+      result: {
+        amount: Number(row.amount) || 0,
+        error:
+          reconciledStatus === 'processing'
+            ? 'Original utility purchase is still processing with the provider'
+            : 'Unable to reconcile failed utility purchase with the provider',
+        reference: row.request_reference,
+        status: 'failed',
+      },
+    };
+  } catch (error) {
+    console.error('Failed to reconcile failed VTU transaction before retry:', {
+      error: error instanceof Error ? error.message : String(error),
+      transactionId: row.id,
+    });
+    return {
+      action: 'return',
+      result: {
+        amount: Number(row.amount) || 0,
+        error: 'Unable to reconcile failed utility purchase with the provider',
+        reference: row.request_reference,
+        status: 'failed',
+      },
+    };
+  }
+}
+
 type NormalizedProvider = NonNullable<
   ReturnType<typeof normalizeVtuNetworkProvider>
 >;
@@ -615,67 +843,7 @@ export async function fulfillPendingVtuTransaction({
 
   const row = existing as VtuTransactionRow;
   if (row.status === 'successful') {
-    const metadata = { ...(row.metadata ?? {}) };
-    let metadataChanged = false;
-    const cashbackAmount = Number(row.customer_cashback ?? 0);
-    const voucherPin = canResolveBillVoucherPin(row.type)
-      ? await backfillVtuVoucherPin({
-          billRequestRef: row.request_reference,
-          billResponseReference: row.transaction_id,
-          metadata: row.metadata,
-          supabase,
-          transactionId: row.id,
-        })
-      : getVoucherPinFromMetadata(row.metadata);
-    if (voucherPin) {
-      metadataChanged =
-        setMetadataValue(metadata, 'voucherPin', voucherPin) || metadataChanged;
-    }
-    const walletSettlement = await settleVtuWalletCredits({
-      metadata,
-      row,
-      supabase,
-    });
-    metadataChanged = walletSettlement.metadataChanged || metadataChanged;
-    const notificationSettlement = await notifyVtuCustomerSuccess({
-      cashbackAmount,
-      customerWalletCredited: walletSettlement.customerWalletCredited,
-      metadata,
-      row,
-      supabase,
-    });
-    metadataChanged = notificationSettlement.metadataChanged || metadataChanged;
-
-    if (metadataChanged) {
-      const { error: metadataUpdateError } = await supabase
-        .from('vtu_transactions')
-        .update({ metadata })
-        .eq('id', row.id);
-
-      if (metadataUpdateError) {
-        console.error('Failed to persist VTU transaction metadata:', {
-          error: metadataUpdateError.message,
-          metadata: getSafeMetadataDiagnostics(metadata),
-          transactionId: row.id,
-        });
-      }
-    }
-
-    return {
-      amount: Number(row.amount) || 0,
-      cashback:
-        cashbackAmount > 0
-          ? {
-              amount: cashbackAmount,
-              credited: walletSettlement.customerWalletCredited,
-              newBalance: walletSettlement.customerNewBalance,
-            }
-          : undefined,
-      customerIdentifier: row.customer_identifier ?? undefined,
-      reference: row.request_reference,
-      status: 'successful',
-      ...(voucherPin && { voucherPin }),
-    };
+    return resolveSuccessfulVtuTransaction({ row, supabase });
   }
 
   if (row.status === 'failed' && !retryFailed) {
@@ -693,6 +861,13 @@ export async function fulfillPendingVtuTransaction({
       reference: row.request_reference,
       status: 'processing',
     };
+  }
+
+  if (row.status === 'failed' && retryFailed) {
+    const reconciliation = await reconcileFailedVtuRetry({ row, supabase });
+    if (reconciliation.action === 'return') {
+      return reconciliation.result;
+    }
   }
 
   const claimableStatus =
