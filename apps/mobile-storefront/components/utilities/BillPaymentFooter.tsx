@@ -1,9 +1,18 @@
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
-import Colors, { BRAND, SPACING } from '@/constants/Colors';
+import { billFormStyles as styles } from '@/components/utilities/bill-form-styles';
+import type Colors from '@/constants/Colors';
+import { BRAND, SPACING } from '@/constants/Colors';
 import type { useUtilityPayment } from '@/hooks/use-utility-payment';
-import { billFormStyles as styles } from './bill-form-styles';
 
 type PaymentState = ReturnType<typeof useUtilityPayment>;
+
+const BILL_PAYMENT_AMOUNT_FORMATTER = new Intl.NumberFormat('en-NG', {
+  currency: 'NGN',
+  currencyDisplay: 'narrowSymbol',
+  maximumFractionDigits: 0,
+  minimumFractionDigits: 0,
+  style: 'currency',
+});
 
 interface BillPaymentFooterProps {
   colors: typeof Colors.light;
@@ -26,6 +35,10 @@ export function BillPaymentFooter({
   onPurchase,
   payment,
 }: BillPaymentFooterProps) {
+  const paymentLabel = payment.selectedSavedCardId
+    ? `Pay ${BILL_PAYMENT_AMOUNT_FORMATTER.format(numericAmount || 0)}`
+    : 'Continue to Payment';
+
   return (
     <View
       style={[
@@ -50,15 +63,14 @@ export function BillPaymentFooter({
         ]}
         onPress={onPurchase}
         disabled={isBusy}
+        accessibilityRole="button"
+        accessibilityLabel={paymentLabel}
+        accessibilityState={{ busy: isBusy, disabled: isBusy }}
       >
         {isBusy ? (
-          <ActivityIndicator color="#FFF" />
+          <ActivityIndicator color={colors.primaryForeground} />
         ) : (
-          <Text style={styles.payButtonText}>
-            {payment.selectedSavedCardId
-              ? `Pay ₦${numericAmount ? numericAmount.toLocaleString() : '0'}`
-              : 'Continue to Payment'}
-          </Text>
+          <Text style={styles.payButtonText}>{paymentLabel}</Text>
         )}
       </Pressable>
     </View>

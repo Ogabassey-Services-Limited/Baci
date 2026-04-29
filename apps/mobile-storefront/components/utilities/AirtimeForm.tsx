@@ -9,10 +9,10 @@ import {
 } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, SPACING } from '@/constants/Colors';
-import { ProviderGrid } from './ProviderGrid';
-import { UtilityPaymentOptions } from './UtilityPaymentOptions';
 import { airtimeFormStyles as styles } from './airtime-form.styles';
 import type { AirtimeFormProps } from './airtime-form.types';
+import { ProviderGrid } from './ProviderGrid';
+import { UtilityPaymentOptions } from './UtilityPaymentOptions';
 import { useAirtimeFormController } from './use-airtime-form-controller';
 
 const QUICK_AMOUNTS = [100, 200, 500, 1000, 2000, 5000];
@@ -199,7 +199,7 @@ export function AirtimeForm(props: AirtimeFormProps) {
           disabled={form.isBusy}
         >
           {form.isBusy ? (
-            <ActivityIndicator color="#FFF" />
+            <ActivityIndicator color={BRAND.onPrimary} />
           ) : (
             <Text style={styles.payButtonText}>
               {form.payment.selectedSavedCardId

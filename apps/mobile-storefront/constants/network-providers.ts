@@ -17,3 +17,7 @@ export const NETWORK_PROVIDERS = [
   { id: 'glo', name: 'Glo', color: '#00FF00', image: gloImage },
   { id: 't2', name: 'T2 (9mobile)', color: '#006400', image: t2Image },
 ] as const satisfies readonly NetworkProvider[];
+
+export type NetworkProviderId =
+  | (typeof NETWORK_PROVIDERS)[number]['id']
+  | (string & {});

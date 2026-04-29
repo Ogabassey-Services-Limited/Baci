@@ -177,15 +177,52 @@ const palette = {
   // Semantic colors
   emerald: {
     50: '#ECFDF5',
+    100: '#D1FAE5',
     200: '#A7F3D0',
+    300: '#6EE7B7',
     400: '#34D399',
     500: '#10B981',
     600: '#059669',
     700: '#15803D',
+    800: '#065F46',
+    900: '#064E3B',
   },
   white: '#FFFFFF',
   black: '#000000',
 };
+
+export const SEMANTIC_COLORS = {
+  overlay: 'rgba(0, 0, 0, 0.5)',
+  white: palette.white,
+} as const;
+
+export function withAlpha(color: string, alpha: number): string {
+  const normalizedAlpha = Math.min(Math.max(alpha, 0), 1);
+  const hex = color.trim().replace(/^#/, '');
+
+  if (/^[0-9a-f]{3}$/i.test(hex)) {
+    const [r, g, b] = hex
+      .split('')
+      .map((value) => Number.parseInt(value + value, 16));
+    return `rgba(${r}, ${g}, ${b}, ${normalizedAlpha})`;
+  }
+
+  if (/^[0-9a-f]{6}$/i.test(hex) || /^[0-9a-f]{8}$/i.test(hex)) {
+    const r = Number.parseInt(hex.slice(0, 2), 16);
+    const g = Number.parseInt(hex.slice(2, 4), 16);
+    const b = Number.parseInt(hex.slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${normalizedAlpha})`;
+  }
+
+  const rgbMatch = color.match(
+    /^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*[\d.]+)?\s*\)$/i
+  );
+  if (rgbMatch) {
+    return `rgba(${rgbMatch[1]}, ${rgbMatch[2]}, ${rgbMatch[3]}, ${normalizedAlpha})`;
+  }
+
+  return color;
+}
 
 // ============================================
 // THEME COLORS (matching web app HSL structure)

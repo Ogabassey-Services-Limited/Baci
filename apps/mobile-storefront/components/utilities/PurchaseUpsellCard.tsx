@@ -1,5 +1,6 @@
 import { Pressable, Text, View } from 'react-native';
-import Colors, { BRAND } from '@/constants/Colors';
+import type Colors from '@/constants/Colors';
+import { BRAND } from '@/constants/Colors';
 import { styles } from './purchase-success.styles';
 
 interface PurchaseUpsellCardProps {
@@ -28,6 +29,8 @@ export default function PurchaseUpsellCard({
       <Pressable
         style={[styles.primaryButton, { backgroundColor: BRAND.primary }]}
         onPress={onCreateAccount}
+        accessibilityRole="button"
+        accessibilityLabel="Create account"
       >
         <Text style={styles.primaryButtonText}>Create Account</Text>
       </Pressable>

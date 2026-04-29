@@ -7,6 +7,7 @@ import {
   initializeVtuCheckout,
   isSavedVtuCardChargeProcessing,
   requiresSavedVtuCardAuthorization,
+  type VTUPaymentGateway,
   VtuPaymentStillProcessingError,
   waitForVtuConfirmation,
 } from '@/lib/vtu-checkout';
@@ -14,6 +15,7 @@ import { IDENTIFIER_LABELS } from './bill-form.constants';
 import type { BillFormProps } from './bill-form.types';
 
 type PaymentState = ReturnType<typeof useUtilityPayment>;
+const SAVED_CARD_CONFIRMATION_GATEWAY: VTUPaymentGateway = 'paystack';
 
 interface BillCustomer {
   first_name?: string | null;
@@ -128,8 +130,10 @@ export function createBillFormPurchaseHandler({
         }
         if (isSavedVtuCardChargeProcessing(result)) {
           try {
+            const confirmationGateway =
+              result.gateway ?? SAVED_CARD_CONFIRMATION_GATEWAY;
             const confirmed = await waitForVtuConfirmation({
-              gateway: 'paystack',
+              gateway: confirmationGateway,
               reference: result.reference,
             });
             onSuccess({
@@ -159,6 +163,7 @@ export function createBillFormPurchaseHandler({
           cashback: result.cashback,
           customerIdentifier: customerId,
           reference: result.reference,
+          status: 'successful',
           voucherPin: result.voucherPin,
         });
         return;

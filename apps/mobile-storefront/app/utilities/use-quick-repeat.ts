@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useState } from 'react';
 import { useVTUHistory } from '@/hooks/use-vtu-history';
 import {
@@ -18,6 +20,19 @@ interface UseQuickRepeatInput extends RouteRepeatParams {
   title: string;
 }
 
+function buildRouteRepeatParams(params: RouteRepeatParams): RouteRepeatParams {
+  return {
+    repeatAmount: params.repeatAmount,
+    repeatBillerName: params.repeatBillerName,
+    repeatBillItemIdentifier: params.repeatBillItemIdentifier,
+    repeatCustomerIdentifier: params.repeatCustomerIdentifier,
+    repeatDataPlanCode: params.repeatDataPlanCode,
+    repeatNetworkProvider: params.repeatNetworkProvider,
+    repeatPhoneNumber: params.repeatPhoneNumber,
+    repeatVerified: params.repeatVerified,
+  };
+}
+
 export function useQuickRepeat({
   currentType,
   historyFilter,
@@ -33,7 +48,7 @@ export function useQuickRepeat({
   routeType,
   title,
 }: UseQuickRepeatInput) {
-  const repeatParams = {
+  const repeatParams = buildRouteRepeatParams({
     repeatAmount,
     repeatBillerName,
     repeatBillItemIdentifier,
@@ -42,10 +57,10 @@ export function useQuickRepeat({
     repeatNetworkProvider,
     repeatPhoneNumber,
     repeatVerified,
-  };
+  });
   const routeRepeatDefaults = getRouteRepeatDefaults(repeatParams);
   const [repeatDefaults, setRepeatDefaults] = useState<UtilityRepeatDefaults>(
-    routeType ? routeRepeatDefaults : {}
+    routeType && currentType === routeType ? routeRepeatDefaults : {}
   );
   const [repeatRevision, setRepeatRevision] = useState(0);
   const [isQuickRepeatDismissed, setIsQuickRepeatDismissed] = useState(false);
@@ -58,16 +73,18 @@ export function useQuickRepeat({
   useEffect(() => {
     setRepeatDefaults(
       routeType && currentType === routeType
-        ? getRouteRepeatDefaults({
-            repeatAmount,
-            repeatBillerName,
-            repeatBillItemIdentifier,
-            repeatCustomerIdentifier,
-            repeatDataPlanCode,
-            repeatNetworkProvider,
-            repeatPhoneNumber,
-            repeatVerified,
-          })
+        ? getRouteRepeatDefaults(
+            buildRouteRepeatParams({
+              repeatAmount,
+              repeatBillerName,
+              repeatBillItemIdentifier,
+              repeatCustomerIdentifier,
+              repeatDataPlanCode,
+              repeatNetworkProvider,
+              repeatPhoneNumber,
+              repeatVerified,
+            })
+          )
         : {}
     );
     setRepeatRevision(0);

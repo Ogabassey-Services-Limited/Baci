@@ -1,6 +1,6 @@
 import { Stack } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
-import Colors from '@/constants/Colors';
+import type Colors from '@/constants/Colors';
 import { UtilityHeader } from './UtilityHeader';
 import { utilityPurchaseStyles as styles } from './utility-purchase.styles';
 
@@ -21,7 +21,7 @@ export function InvalidUtilityServiceView({
       <UtilityHeader
         title="Invalid Service"
         onBack={onBack}
-        color={colors.text}
+        titleColor={colors.text}
         dividerColor={colors.border}
         iconBackgroundColor={colors.card}
         iconColor={colors.text}

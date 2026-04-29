@@ -1,12 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, Text, View } from 'react-native';
-import { utilityPurchaseStyles as styles } from './utility-purchase.styles';
+import { utilityPurchaseStyles as styles } from '@/app/utilities/utility-purchase.styles';
+
+const TOP_INSET_OFFSET = 10;
+const MIN_PADDING_TOP = 12;
 
 interface UtilityHeaderProps {
   title: string;
   onBack: () => void;
   onHistory?: () => void;
-  color: string;
+  titleColor: string;
   dividerColor: string;
   iconBackgroundColor: string;
   iconColor: string;
@@ -18,7 +21,7 @@ export function UtilityHeader({
   title,
   onBack,
   onHistory,
-  color,
+  titleColor,
   dividerColor,
   iconBackgroundColor,
   iconColor,
@@ -32,7 +35,7 @@ export function UtilityHeader({
         {
           backgroundColor: surfaceColor,
           borderBottomColor: dividerColor,
-          paddingTop: Math.max(topInset - 10, 12),
+          paddingTop: Math.max(topInset - TOP_INSET_OFFSET, MIN_PADDING_TOP),
         },
       ]}
     >
@@ -55,7 +58,10 @@ export function UtilityHeader({
       </View>
 
       <View style={styles.headerTitleWrap}>
-        <Text style={[styles.headerTitle, { color }]} numberOfLines={1}>
+        <Text
+          style={[styles.headerTitle, { color: titleColor }]}
+          numberOfLines={1}
+        >
           {title}
         </Text>
       </View>

@@ -2,8 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Colors, { BRAND } from '@/constants/Colors';
-import { paymentGatewayStyles as styles } from './payment-gateway.styles';
+import { paymentGatewayStyles as styles } from '@/app/payment-gateway/payment-gateway.styles';
+import type Colors from '@/constants/Colors';
+import { BRAND } from '@/constants/Colors';
 
 interface InvalidCheckoutViewProps {
   colors: typeof Colors.light;
@@ -35,7 +36,7 @@ export function InvalidCheckoutView({
           accessibilityHint="Navigate to the previous screen"
           accessibilityLabel="Go back"
           accessibilityRole="button"
-          style={[styles.actionButton, { backgroundColor: BRAND.primary }]}
+          style={[styles.baseButton, { backgroundColor: BRAND.primary }]}
           onPress={onBack}
         >
           <Text style={styles.actionButtonText}>Go Back</Text>

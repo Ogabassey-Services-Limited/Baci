@@ -68,11 +68,10 @@ export const utilityPurchaseStyles = StyleSheet.create({
     gap: 4,
   },
   backButtonText: { fontSize: 14, fontWeight: '600' },
-  quickRepeatButton: {
+  quickRepeatBase: {
     alignItems: 'center',
     borderRadius: 16,
     borderWidth: 1,
-    elevation: 4,
     flexDirection: 'row',
     gap: 10,
     left: 16,
@@ -80,22 +79,13 @@ export const utilityPurchaseStyles = StyleSheet.create({
     paddingVertical: 12,
     position: 'absolute',
     right: 16,
+  },
+  quickRepeatButton: {
+    elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.12,
     shadowRadius: 14,
-  },
-  quickRepeatNotice: {
-    alignItems: 'center',
-    borderRadius: 16,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 10,
-    left: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    position: 'absolute',
-    right: 16,
   },
   quickRepeatCopy: {
     flex: 1,

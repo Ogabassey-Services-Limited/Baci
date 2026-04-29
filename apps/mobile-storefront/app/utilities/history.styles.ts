@@ -69,7 +69,7 @@ export const styles = StyleSheet.create({
     minHeight: UTILITY_HISTORY_STYLE_TOKENS.touchTargetHeight,
     paddingHorizontal: UTILITY_HISTORY_STYLE_TOKENS.chipHorizontalPadding,
   },
-  repeatText: {
+  actionButtonText: {
     fontSize: UTILITY_HISTORY_STYLE_TOKENS.labelTextSize,
     fontWeight: TYPOGRAPHY.weight.bold,
   },

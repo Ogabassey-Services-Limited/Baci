@@ -23,6 +23,7 @@ import {
   initializeVtuCheckout,
   isSavedVtuCardChargeProcessing,
   requiresSavedVtuCardAuthorization,
+  type VTUPaymentGateway,
   VtuPaymentStillProcessingError,
   waitForVtuConfirmation,
 } from '@/lib/vtu-checkout';
@@ -35,6 +36,7 @@ import { formatUtilityAmountInput } from './utility-amount-format';
 /** Height reserved for the absolutely-positioned payment footer */
 const FOOTER_HEIGHT = 120;
 const FOOTER_ERROR_BUFFER = 36;
+const SAVED_CARD_CONFIRMATION_GATEWAY: VTUPaymentGateway = 'paystack';
 
 type DataProvider = 'mtn' | 'airtel' | 'glo' | 't2';
 
@@ -265,8 +267,10 @@ export function DataForm({
 
         if (isSavedVtuCardChargeProcessing(result)) {
           try {
+            const confirmationGateway =
+              result.gateway ?? SAVED_CARD_CONFIRMATION_GATEWAY;
             const confirmed = await waitForVtuConfirmation({
-              gateway: 'paystack',
+              gateway: confirmationGateway,
               reference: result.reference,
             });
             onSuccess({

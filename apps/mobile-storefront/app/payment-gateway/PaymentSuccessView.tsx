@@ -2,12 +2,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
 import { ActivityIndicator, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Colors, { BRAND, SPACING } from '@/constants/Colors';
-import { paymentGatewayStyles as styles } from './payment-gateway.styles';
+import {
+  PAYMENT_KINDS,
+  type PaymentKind,
+} from '@/app/payment-gateway/payment-gateway.helpers';
+import { paymentGatewayStyles as styles } from '@/app/payment-gateway/payment-gateway.styles';
+import type Colors from '@/constants/Colors';
+import { BRAND, withAlpha } from '@/constants/Colors';
 
 interface PaymentSuccessViewProps {
   colors: typeof Colors.light;
-  paymentKind?: string;
+  paymentKind?: PaymentKind;
 }
 
 export function PaymentSuccessView({
@@ -23,7 +28,7 @@ export function PaymentSuccessView({
         <View
           style={[
             styles.statusIcon,
-            { backgroundColor: `${colors.success}20` },
+            { backgroundColor: withAlpha(colors.success, 0.125) },
           ]}
         >
           <Ionicons name="checkmark-circle" size={48} color={colors.success} />
@@ -32,14 +37,14 @@ export function PaymentSuccessView({
           Payment Successful!
         </Text>
         <Text style={[styles.statusMessage, { color: colors.textSecondary }]}>
-          {paymentKind === 'vtu'
+          {paymentKind === PAYMENT_KINDS.VTU
             ? 'Redirecting to your utility confirmation...'
             : 'Redirecting to your order confirmation...'}
         </Text>
         <ActivityIndicator
           size="small"
           color={BRAND.primary}
-          style={{ marginTop: SPACING.lg }}
+          style={styles.activityIndicator}
         />
       </View>
     </SafeAreaView>

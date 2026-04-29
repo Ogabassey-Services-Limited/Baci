@@ -1,4 +1,4 @@
-import type { NextRequest } from 'next/server';
+import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/env', () => ({
@@ -163,8 +163,8 @@ vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: vi.fn(() => createMockSupabase()),
 }));
 
-function makeRequest(search = '') {
-  return new Request(`http://localhost:3000/api/vtu/history${search}`);
+function makeRequest(search = ''): NextRequest {
+  return new NextRequest(`http://localhost:3000/api/vtu/history${search}`);
 }
 
 describe('GET /api/vtu/history', () => {
@@ -225,9 +225,7 @@ describe('GET /api/vtu/history', () => {
       supabase: null,
     });
 
-    const response = await GET(
-      makeRequest('?merchantSlug=ogabassey') as unknown as NextRequest
-    );
+    const response = await GET(makeRequest('?merchantSlug=ogabassey'));
     const data = await response.json();
 
     expect(response.status).toBe(401);
@@ -238,9 +236,7 @@ describe('GET /api/vtu/history', () => {
     const { GET } = await import('./route');
 
     const response = await GET(
-      makeRequest(
-        '?merchantSlug=ogabassey&type=invalid'
-      ) as unknown as NextRequest
+      makeRequest('?merchantSlug=ogabassey&type=invalid')
     );
     const data = await response.json();
 
@@ -255,9 +251,7 @@ describe('GET /api/vtu/history', () => {
     customerByEmailData = { id: 'customer-1', user_id: null };
 
     const response = await GET(
-      makeRequest(
-        '?merchantSlug=ogabassey&type=electricity&limit=5'
-      ) as unknown as NextRequest
+      makeRequest('?merchantSlug=ogabassey&type=electricity&limit=5')
     );
     const data = await response.json();
 
@@ -303,9 +297,7 @@ describe('GET /api/vtu/history', () => {
     mockBackfillVtuVoucherPin.mockResolvedValue('1234-5678');
 
     const response = await GET(
-      makeRequest(
-        '?merchantSlug=ogabassey&type=electricity'
-      ) as unknown as NextRequest
+      makeRequest('?merchantSlug=ogabassey&type=electricity')
     );
     const data = await response.json();
 
@@ -384,9 +376,7 @@ describe('GET /api/vtu/history', () => {
 
     try {
       const response = await GET(
-        makeRequest(
-          '?merchantSlug=ogabassey&type=electricity'
-        ) as unknown as NextRequest
+        makeRequest('?merchantSlug=ogabassey&type=electricity')
       );
       const data = await response.json();
 
@@ -426,9 +416,7 @@ describe('GET /api/vtu/history', () => {
     paymentRowsError = { message: 'lookup failed' };
 
     const response = await GET(
-      makeRequest(
-        '?merchantSlug=ogabassey&type=airtime'
-      ) as unknown as NextRequest
+      makeRequest('?merchantSlug=ogabassey&type=airtime')
     );
     const data = await response.json();
 
@@ -449,9 +437,7 @@ describe('GET /api/vtu/history', () => {
     customerByUserIdData = null;
     customerByEmailData = null;
 
-    const response = await GET(
-      makeRequest('?merchantSlug=ogabassey') as unknown as NextRequest
-    );
+    const response = await GET(makeRequest('?merchantSlug=ogabassey'));
     const data = await response.json();
 
     expect(response.status).toBe(200);

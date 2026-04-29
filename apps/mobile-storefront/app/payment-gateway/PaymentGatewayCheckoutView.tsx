@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
-import { type ComponentProps, type ComponentType, type RefObject } from 'react';
+import type { ComponentProps, ComponentType, RefObject } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -10,9 +10,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView, type WebViewNavigation } from 'react-native-webview';
-import Colors, { BRAND } from '@/constants/Colors';
+import { paymentGatewayStyles as styles } from '@/app/payment-gateway/payment-gateway.styles';
+import type Colors from '@/constants/Colors';
+import { BRAND, withAlpha } from '@/constants/Colors';
 import { PAYMENT_CLIPBOARD_BRIDGE } from '@/constants/payment-clipboard-bridge';
-import { paymentGatewayStyles as styles } from './payment-gateway.styles';
 
 const PAYMENT_AMOUNT_FORMATTER = new Intl.NumberFormat('en-NG', {
   currency: 'NGN',
@@ -91,7 +92,7 @@ export function PaymentGatewayCheckoutView({
       <View
         style={[
           styles.securityBadge,
-          { backgroundColor: `${BRAND.primary}10` },
+          { backgroundColor: withAlpha(BRAND.primary, 0.063) },
         ]}
       >
         <Ionicons name="shield-checkmark" size={16} color={BRAND.primary} />
@@ -141,7 +142,7 @@ export function PaymentGatewayCheckoutView({
         </View>
       )}
 
-      {amount ? (
+      {amount != null ? (
         <View
           style={[
             styles.amountBanner,

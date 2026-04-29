@@ -637,8 +637,8 @@ export async function purchaseAirtime(
     const response = await kudaRequest<{
       Reference?: string;
       Pin?: string | null;
-      reference: string;
-      pin: string | null;
+      reference?: string;
+      pin?: string | null;
     }>(
       KudaServiceType.ADMIN_PURCHASE_BILL,
       {
@@ -653,9 +653,11 @@ export async function purchaseAirtime(
     );
 
     const pin = extractKudaVoucherPin(response.data);
+    const normalizedReference = normalizeKudaString(reference);
     const transactionId =
       normalizeKudaString(response.data?.reference) ??
-      normalizeKudaString(response.data?.Reference);
+      normalizeKudaString(response.data?.Reference) ??
+      normalizedReference;
 
     return {
       success: response.status,
@@ -700,8 +702,8 @@ export async function purchaseData(
     const response = await kudaRequest<{
       Reference?: string;
       Pin?: string | null;
-      reference: string;
-      pin: string | null;
+      reference?: string;
+      pin?: string | null;
     }>(
       KudaServiceType.ADMIN_PURCHASE_BILL,
       {
@@ -716,9 +718,11 @@ export async function purchaseData(
     );
 
     const pin = extractKudaVoucherPin(response.data);
+    const normalizedReference = normalizeKudaString(reference);
     const transactionId =
       normalizeKudaString(response.data?.reference) ??
-      normalizeKudaString(response.data?.Reference);
+      normalizeKudaString(response.data?.Reference) ??
+      normalizedReference;
 
     return {
       success: response.status,

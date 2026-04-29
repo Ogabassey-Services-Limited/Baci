@@ -14,6 +14,7 @@ import { InvalidUtilityServiceView } from './InvalidUtilityServiceView';
 import { QuickRepeatPrompt } from './QuickRepeatPrompt';
 import { UtilityHeader } from './UtilityHeader';
 import { UtilityPurchaseSuccessView } from './UtilityPurchaseSuccessView';
+import { useQuickRepeat } from './use-quick-repeat';
 import {
   isValidUtilityType,
   UTILITY_TYPE_TITLES,
@@ -21,10 +22,10 @@ import {
 import { utilityPurchaseStyles as styles } from './utility-purchase.styles';
 import type {
   RouteRepeatParams,
-  SuccessData,
+  UtilityPurchaseResult,
   ValidUtilityType,
 } from './utility-purchase.types';
-import { useQuickRepeat } from './use-quick-repeat';
+import { RouteRepeatParamsSchema } from './utility-purchase.types';
 
 interface UtilityRouteParams extends RouteRepeatParams {
   type: string;
@@ -37,7 +38,21 @@ interface UtilityRouteParams extends RouteRepeatParams {
   voucherPin?: string;
 }
 
-function getParamSuccessData(params: UtilityRouteParams): SuccessData | null {
+function safeParseNumber(value: string | undefined, fallback = 0) {
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function getSearchParamValue(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function getParamSuccessData(
+  params: UtilityRouteParams
+): UtilityPurchaseResult | null {
   const hasPaymentStatus =
     params.paymentStatus === 'successful' ||
     params.paymentStatus === 'processing';
@@ -46,12 +61,12 @@ function getParamSuccessData(params: UtilityRouteParams): SuccessData | null {
   }
 
   return {
-    amount: Number(params.amount ?? 0),
+    amount: safeParseNumber(params.amount),
     cashback:
       params.cashbackAmount && params.cashbackNewBalance
         ? {
-            amount: Number(params.cashbackAmount),
-            newBalance: Number(params.cashbackNewBalance),
+            amount: safeParseNumber(params.cashbackAmount),
+            newBalance: safeParseNumber(params.cashbackNewBalance),
           }
         : undefined,
     customerIdentifier: params.customerIdentifier,
@@ -62,9 +77,33 @@ function getParamSuccessData(params: UtilityRouteParams): SuccessData | null {
 }
 
 export default function UtilityPurchaseScreen() {
-  const params = useLocalSearchParams<
-    Record<string, string>
-  >() as unknown as UtilityRouteParams;
+  const rawParams = useLocalSearchParams();
+  const params: UtilityRouteParams = {
+    amount: getSearchParamValue(rawParams.amount),
+    cashbackAmount: getSearchParamValue(rawParams.cashbackAmount),
+    cashbackNewBalance: getSearchParamValue(rawParams.cashbackNewBalance),
+    customerIdentifier: getSearchParamValue(rawParams.customerIdentifier),
+    paymentStatus: getSearchParamValue(rawParams.paymentStatus),
+    reference: getSearchParamValue(rawParams.reference),
+    repeatAmount: getSearchParamValue(rawParams.repeatAmount),
+    repeatBillerName: getSearchParamValue(rawParams.repeatBillerName),
+    repeatBillItemIdentifier: getSearchParamValue(
+      rawParams.repeatBillItemIdentifier
+    ),
+    repeatCustomerIdentifier: getSearchParamValue(
+      rawParams.repeatCustomerIdentifier
+    ),
+    repeatDataPlanCode: getSearchParamValue(rawParams.repeatDataPlanCode),
+    repeatNetworkProvider: getSearchParamValue(rawParams.repeatNetworkProvider),
+    repeatPhoneNumber: getSearchParamValue(rawParams.repeatPhoneNumber),
+    repeatVerified: getSearchParamValue(rawParams.repeatVerified),
+    type: getSearchParamValue(rawParams.type) ?? '',
+    voucherPin: getSearchParamValue(rawParams.voucherPin),
+  };
+  const repeatParamsResult = RouteRepeatParamsSchema.safeParse(params);
+  const repeatParams = repeatParamsResult.success
+    ? repeatParamsResult.data
+    : {};
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -74,7 +113,9 @@ export default function UtilityPurchaseScreen() {
   const isAuthenticated = useAuthStore((state) => !!state.session);
   const routeType =
     params.type && isValidUtilityType(params.type) ? params.type : null;
-  const [successData, setSuccessData] = useState<SuccessData | null>(null);
+  const [successData, setSuccessData] = useState<UtilityPurchaseResult | null>(
+    null
+  );
   const [selectedType, setSelectedType] = useState<ValidUtilityType | null>(
     routeType
   );
@@ -85,14 +126,7 @@ export default function UtilityPurchaseScreen() {
     currentType,
     historyFilter,
     isKeyboardVisible,
-    repeatAmount: params.repeatAmount,
-    repeatBillerName: params.repeatBillerName,
-    repeatBillItemIdentifier: params.repeatBillItemIdentifier,
-    repeatCustomerIdentifier: params.repeatCustomerIdentifier,
-    repeatDataPlanCode: params.repeatDataPlanCode,
-    repeatNetworkProvider: params.repeatNetworkProvider,
-    repeatPhoneNumber: params.repeatPhoneNumber,
-    repeatVerified: params.repeatVerified,
+    ...repeatParams,
     routeType,
     title,
   });
@@ -109,6 +143,12 @@ export default function UtilityPurchaseScreen() {
       return;
     }
     router.replace('/' as Href);
+  };
+
+  const handleUtilityTypeChange = (nextType: ValidUtilityType) => {
+    if (nextType !== currentType) {
+      setSelectedType(nextType);
+    }
   };
 
   if (!routeType || !currentType) {
@@ -136,12 +176,6 @@ export default function UtilityPurchaseScreen() {
     );
   }
 
-  const handleUtilityTypeChange = (nextType: ValidUtilityType) => {
-    if (nextType !== currentType) {
-      setSelectedType(nextType);
-    }
-  };
-
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -151,7 +185,7 @@ export default function UtilityPurchaseScreen() {
         onHistory={() =>
           router.push(`/utilities/history?type=${currentType}` as Href)
         }
-        color={colors.text}
+        titleColor={colors.text}
         dividerColor={colors.border}
         iconBackgroundColor={colors.card}
         iconColor={colors.text}

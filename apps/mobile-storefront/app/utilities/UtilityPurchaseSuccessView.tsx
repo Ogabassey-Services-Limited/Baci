@@ -1,13 +1,16 @@
 import { Stack } from 'expo-router';
 import { View } from 'react-native';
-import Colors from '@/constants/Colors';
 import { PurchaseSuccess } from '@/components/utilities/PurchaseSuccess';
-import type { SuccessData, ValidUtilityType } from './utility-purchase.types';
+import type Colors from '@/constants/Colors';
 import { utilityPurchaseStyles as styles } from './utility-purchase.styles';
+import type {
+  UtilityPurchaseResult,
+  ValidUtilityType,
+} from './utility-purchase.types';
 
 interface UtilityPurchaseSuccessViewProps {
-  colors: typeof Colors.light;
-  data: SuccessData;
+  colors: typeof Colors.light | typeof Colors.dark;
+  data: UtilityPurchaseResult;
   headerOffset: number;
   isAuthenticated: boolean;
   onCreateAccount: () => void;

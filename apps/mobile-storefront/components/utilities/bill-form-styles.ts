@@ -1,10 +1,11 @@
 import { StyleSheet } from 'react-native';
-import { SPACING } from '@/constants/Colors';
+import { BRAND, SPACING } from '@/constants/Colors';
 import { BILL_FORM_TOKENS } from './bill-form.tokens';
 
 export const billFormStyles = StyleSheet.create({
   scrollView: { flex: 1 },
   content: { padding: SPACING.md },
+  amountSection: { marginTop: SPACING.lg },
   sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
   input: {
     height: 50,
@@ -41,7 +42,11 @@ export const billFormStyles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  verifyButtonText: { color: '#FFF', fontSize: 14, fontWeight: '600' },
+  verifyButtonText: {
+    color: BRAND.onPrimary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
   verifiedPill: {
     alignItems: 'center',
     borderRadius: BILL_FORM_TOKENS.pillBorderRadius,
@@ -73,7 +78,7 @@ export const billFormStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  payButtonText: { color: '#FFF', fontSize: 16, fontWeight: '600' },
+  payButtonText: { color: BRAND.onPrimary, fontSize: 16, fontWeight: '600' },
   errorText: {
     fontSize: 13,
     color: '#DC2626',

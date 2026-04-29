@@ -1,11 +1,12 @@
+import { jest } from '@jest/globals';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { Alert } from 'react-native';
-import { useUtilityHistoryActions } from './use-utility-history-actions';
 import type { VTUHistoryTransaction } from '@/hooks/use-vtu-history';
 import { setClipboardString } from '@/lib/clipboard';
 import { shareUtilityReceipt } from '@/lib/utility-receipt';
-import { confirmVtuCheckout } from '@/lib/vtu-checkout';
 import { utilityRepeatHelpers } from '@/lib/utility-repeat';
+import { confirmVtuCheckout } from '@/lib/vtu-checkout';
+import { useUtilityHistoryActions } from './use-utility-history-actions';
 
 const mockRouterPush = jest.fn();
 
@@ -72,7 +73,7 @@ function deferred<T>() {
 }
 
 describe('useUtilityHistoryActions', () => {
-  const refetch = jest.fn<Promise<unknown>, []>();
+  const refetch = jest.fn<() => Promise<unknown>>();
   let alertSpy: jest.SpiedFunction<typeof Alert.alert>;
   let consoleErrorSpy: jest.SpiedFunction<typeof console.error>;
 
@@ -223,6 +224,10 @@ describe('useUtilityHistoryActions', () => {
     });
 
     expect(mockConfirmVtuCheckout).toHaveBeenCalledTimes(1);
+    expect(mockConfirmVtuCheckout).toHaveBeenCalledWith({
+      gateway: 'paystack',
+      reference: 'PAY-123',
+    });
     await waitFor(() =>
       expect(result.current.syncingTransactionId).toBe('tx-1')
     );

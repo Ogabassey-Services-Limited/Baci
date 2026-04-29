@@ -32,7 +32,9 @@ describe('PaymentGatewayParamsSchema', () => {
 
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(extractIssuePaths(result.error.issues)).toContain('orderId');
+      expect(extractIssuePaths(result.error.issues)).toEqual(
+        expect.arrayContaining(['orderId', 'orderNumber'])
+      );
     }
   });
 

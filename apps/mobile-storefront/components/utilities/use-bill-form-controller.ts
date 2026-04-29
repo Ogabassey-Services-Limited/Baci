@@ -25,10 +25,22 @@ import {
   resolveBillItemSelection,
   updateBillItemSelection,
 } from './bill-item-selection';
-import { getUtilityFooterOffset } from './get-utility-footer-offset';
-import { formatUtilityAmountInput } from './utility-amount-format';
 import { createBillFormPurchaseHandler } from './create-bill-form-purchase-handler';
+import { getUtilityFooterOffset } from './get-utility-footer-offset';
 import { useNextStepScroll } from './use-next-step-scroll';
+import { formatUtilityAmountInput } from './utility-amount-format';
+
+function parseUtilityAmount(value: string): number {
+  const withoutCommas = value.trim().replace(/,/g, '');
+  const isNegative = withoutCommas.startsWith('-');
+  const digitsAndDecimals = withoutCommas.replace(/[^0-9.]/g, '');
+  const [whole = '', ...decimalParts] = digitsAndDecimals.split('.');
+  const normalized = `${isNegative ? '-' : ''}${whole}${
+    decimalParts.length ? `.${decimalParts.join('')}` : ''
+  }`;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
 
 export function useBillFormController({
   initialAmount,
@@ -76,7 +88,7 @@ export function useBillFormController({
   const selectedBillItemIdentifier = requiresBillItemSelection
     ? (selectedBillItem?.itemCode ?? null)
     : (selectedBiller?.billerId ?? null);
-  const numericAmount = Number(amount.replace(/\D/g, ''));
+  const numericAmount = parseUtilityAmount(amount);
   const canShowPayment = Boolean(
     verify.data?.verified || isRepeatPaymentActive
   );
@@ -182,7 +194,7 @@ export function useBillFormController({
 
   const handlePurchase = createBillFormPurchaseHandler({
     amount,
-    billType: billType as 'electricity' | 'cable_tv' | 'betting',
+    billType,
     canShowPayment,
     customer,
     customerId,
@@ -210,6 +222,23 @@ export function useBillFormController({
         y: Math.max(paymentY - SPACING.md, 0),
       });
     });
+  };
+
+  const updateAmount = (value: string) => {
+    setAmount(value);
+  };
+
+  const updateCustomerId = (value: string) => {
+    setCustomerId(value);
+    resetVerification();
+  };
+
+  const setProviderPickerExpanded = (isExpanded: boolean) => {
+    setIsProviderPickerExpanded(isExpanded);
+  };
+
+  const setRepeatPaymentActive = (isActive: boolean) => {
+    setIsRepeatPaymentActive(isActive);
   };
 
   return {
@@ -247,11 +276,11 @@ export function useBillFormController({
     scrollViewRef,
     selectedBiller,
     selectedBillItemIdentifier,
-    setAmount,
-    setCustomerId,
-    setIsProviderPickerExpanded,
-    setIsRepeatPaymentActive,
+    setRepeatPaymentActive,
+    setProviderPickerExpanded,
     shouldScrollToNextStep,
+    updateAmount,
+    updateCustomerId,
     verify,
     insets,
   };

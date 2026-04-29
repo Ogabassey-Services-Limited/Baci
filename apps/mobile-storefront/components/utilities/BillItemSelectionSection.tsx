@@ -5,7 +5,8 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import Colors, { BRAND } from '@/constants/Colors';
+import type Colors from '@/constants/Colors';
+import { BRAND } from '@/constants/Colors';
 import type { BillItem } from '@/hooks/use-vtu-billers';
 import type { useVTUVerify } from '@/hooks/use-vtu-verify';
 import {
@@ -13,12 +14,32 @@ import {
   IDENTIFIER_PLACEHOLDERS,
 } from './bill-form.constants';
 import { getBillItemLevelLabel } from './bill-form.helpers';
-import { billFormStyles as styles } from './bill-form-styles';
 import type { BillFormProps } from './bill-form.types';
+import { billFormStyles as styles } from './bill-form-styles';
 import type { BillItemSelectionState } from './bill-item-selection';
 import { VerificationCard } from './VerificationCard';
 
 type VerifyState = ReturnType<typeof useVTUVerify>;
+
+const BILL_ITEM_AMOUNT_FORMATTER = new Intl.NumberFormat('en-NG', {
+  currency: 'NGN',
+  currencyDisplay: 'narrowSymbol',
+  maximumFractionDigits: 2,
+  style: 'currency',
+});
+
+function getVerifyErrorMessage(error: unknown): string | undefined {
+  if (!error) {
+    return undefined;
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
+}
 
 interface BillItemSelectionSectionProps {
   billItemSelection: BillItemSelectionState;
@@ -28,7 +49,6 @@ interface BillItemSelectionSectionProps {
   handleVerify: () => void;
   isBillItemSelectionComplete: boolean;
   isRepeatPaymentActive: boolean;
-  resetVerification: () => void;
   selectedBillItemIdentifier: string | null;
   selectedBillerId: string;
   setCustomerId: (value: string) => void;
@@ -45,7 +65,6 @@ export function BillItemSelectionSection({
   handleVerify,
   isBillItemSelectionComplete,
   isRepeatPaymentActive,
-  resetVerification,
   selectedBillItemIdentifier,
   selectedBillerId,
   setCustomerId,
@@ -53,6 +72,10 @@ export function BillItemSelectionSection({
   type,
   verify,
 }: BillItemSelectionSectionProps) {
+  const trimmedCustomerId = customerId.trim();
+  const isVerifyDisabled =
+    !trimmedCustomerId || !selectedBillItemIdentifier || verify.isPending;
+
   return (
     <>
       {billItemSelection.levels.map((level) => (
@@ -66,6 +89,13 @@ export function BillItemSelectionSection({
           <View style={styles.optionGrid}>
             {level.options.map((billItem) => {
               const isSelected = level.selectedCode === billItem.itemCode;
+              const formattedAmount =
+                billItem.isAmountFixed && billItem.amount > 0
+                  ? BILL_ITEM_AMOUNT_FORMATTER.format(billItem.amount)
+                  : null;
+              const accessibilityLabel = formattedAmount
+                ? `${billItem.itemName} - ${formattedAmount}`
+                : billItem.itemName;
               return (
                 <Pressable
                   key={`${level.depth}-${billItem.itemCode}`}
@@ -77,28 +107,35 @@ export function BillItemSelectionSection({
                     },
                   ]}
                   onPress={() => handleBillItemSelect(level.depth, billItem)}
+                  accessibilityRole="button"
+                  accessibilityLabel={accessibilityLabel}
+                  accessibilityState={{ selected: isSelected }}
                 >
                   <Text
                     style={[
                       styles.optionName,
-                      { color: isSelected ? '#FFF' : colors.text },
+                      {
+                        color: isSelected
+                          ? colors.primaryForeground
+                          : colors.text,
+                      },
                     ]}
                     numberOfLines={2}
                   >
                     {billItem.itemName}
                   </Text>
-                  {billItem.isAmountFixed && billItem.amount > 0 ? (
+                  {formattedAmount ? (
                     <Text
                       style={[
                         styles.optionMeta,
                         {
                           color: isSelected
-                            ? 'rgba(255,255,255,0.85)'
+                            ? colors.primaryForeground
                             : colors.textSecondary,
                         },
                       ]}
                     >
-                      ₦{billItem.amount.toLocaleString()}
+                      {formattedAmount}
                     </Text>
                   ) : null}
                 </Pressable>
@@ -130,10 +167,10 @@ export function BillItemSelectionSection({
               placeholderTextColor={colors.placeholder}
               keyboardType="number-pad"
               value={customerId}
+              accessibilityLabel={IDENTIFIER_LABELS[type]}
               onChangeText={(text) => {
                 setCustomerId(text);
                 setIsRepeatPaymentActive(false);
-                resetVerification();
               }}
             />
             {isRepeatPaymentActive ? (
@@ -154,23 +191,34 @@ export function BillItemSelectionSection({
                 style={[
                   styles.verifyButton,
                   {
-                    opacity:
-                      !customerId ||
-                      !selectedBillItemIdentifier ||
-                      verify.isPending
-                        ? 0.6
-                        : 1,
+                    opacity: isVerifyDisabled ? 0.6 : 1,
                   },
                 ]}
                 onPress={handleVerify}
-                disabled={
-                  !customerId || !selectedBillItemIdentifier || verify.isPending
-                }
+                disabled={isVerifyDisabled}
+                accessible={true}
+                accessibilityRole="button"
+                accessibilityLabel="Verify bill item"
+                accessibilityHint="Verifies the customer details for the selected bill item"
+                accessibilityState={{
+                  busy: verify.isPending,
+                  disabled: isVerifyDisabled,
+                }}
               >
                 {verify.isPending ? (
-                  <ActivityIndicator color="#FFF" size="small" />
+                  <ActivityIndicator
+                    color={colors.primaryForeground}
+                    size="small"
+                  />
                 ) : (
-                  <Text style={styles.verifyButtonText}>Verify</Text>
+                  <Text
+                    style={[
+                      styles.verifyButtonText,
+                      { color: colors.primaryForeground },
+                    ]}
+                  >
+                    Verify
+                  </Text>
                 )}
               </Pressable>
             )}
@@ -187,7 +235,9 @@ export function BillItemSelectionSection({
               <VerificationCard
                 verified={verify.data?.verified ?? false}
                 customerName={verify.data?.customerName}
-                message={verify.data?.message ?? verify.error?.message}
+                message={
+                  verify.data?.message ?? getVerifyErrorMessage(verify.error)
+                }
                 isLoading={verify.isPending}
               />
             </View>

@@ -1,8 +1,9 @@
 import { Stack } from 'expo-router';
 import { ActivityIndicator, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Colors, { BRAND } from '@/constants/Colors';
-import { paymentGatewayStyles as styles } from './payment-gateway.styles';
+import { paymentGatewayStyles as styles } from '@/app/payment-gateway/payment-gateway.styles';
+import type Colors from '@/constants/Colors';
+import { BRAND } from '@/constants/Colors';
 
 interface PaymentProcessingViewProps {
   colors: typeof Colors.light;

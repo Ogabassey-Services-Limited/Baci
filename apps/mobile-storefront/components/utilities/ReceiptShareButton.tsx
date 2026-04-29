@@ -1,9 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, Text } from 'react-native';
-import Colors, { BRAND } from '@/constants/Colors';
+import type Colors from '@/constants/Colors';
+import { BRAND } from '@/constants/Colors';
 import { shareUtilityReceipt } from '@/lib/utility-receipt';
 import { styles } from './purchase-success.styles';
+
+export type UtilityReceiptType =
+  | 'airtime'
+  | 'data'
+  | 'tv'
+  | 'power'
+  | 'gaming'
+  | (string & {});
 
 interface ReceiptShareButtonProps {
   amount?: number;
@@ -11,7 +20,7 @@ interface ReceiptShareButtonProps {
   identifier: string;
   status: 'processing' | 'successful';
   txReference: string | null;
-  type: string;
+  type: UtilityReceiptType;
   voucherPin?: string;
 }
 
@@ -65,6 +74,7 @@ export default function ReceiptShareButton({
       disabled={isSharingReceipt}
       accessibilityRole="button"
       accessibilityLabel="Share utility receipt"
+      accessibilityState={{ busy: isSharingReceipt }}
     >
       {isSharingReceipt ? (
         <ActivityIndicator size="small" color={BRAND.primary} />

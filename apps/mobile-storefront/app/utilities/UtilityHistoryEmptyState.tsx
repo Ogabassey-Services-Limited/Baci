@@ -1,12 +1,17 @@
+import { useEffect } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
-import Colors, { BRAND } from '@/constants/Colors';
+import type Colors from '@/constants/Colors';
+import { BRAND } from '@/constants/Colors';
+import { createLogger } from '@/lib/logger';
 import { styles } from './history.styles';
+
+const log = createLogger('UtilityHistory');
 
 interface UtilityHistoryEmptyStateProps {
   colors: typeof Colors.light;
   error: Error | null;
   isLoading: boolean;
-  refetch: () => unknown;
+  refetch: () => void;
 }
 
 export default function UtilityHistoryEmptyState({
@@ -15,6 +20,12 @@ export default function UtilityHistoryEmptyState({
   isLoading,
   refetch,
 }: UtilityHistoryEmptyStateProps) {
+  useEffect(() => {
+    if (error) {
+      log.error('Failed to load utility history', error);
+    }
+  }, [error]);
+
   if (isLoading) {
     return (
       <View style={styles.centered}>
@@ -30,14 +41,14 @@ export default function UtilityHistoryEmptyState({
           Unable to load history
         </Text>
         <Text style={[styles.stateMessage, { color: colors.textSecondary }]}>
-          {error.message}
+          Something went wrong. Please try again.
         </Text>
         <Pressable
           style={[
             styles.pillButtonBase,
             { backgroundColor: colors.card, borderColor: colors.border },
           ]}
-          onPress={() => refetch()}
+          onPress={refetch}
           accessibilityRole="button"
           accessibilityLabel="Retry loading utility history"
         >

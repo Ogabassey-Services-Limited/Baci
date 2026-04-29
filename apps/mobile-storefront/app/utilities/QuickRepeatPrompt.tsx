@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, Text, View } from 'react-native';
-import Colors from '@/constants/Colors';
+import type Colors from '@/constants/Colors';
 import type { VTUHistoryTransaction } from '@/hooks/use-vtu-history';
 import { utilityPurchaseStyles as styles } from './utility-purchase.styles';
+
+const QUICK_REPEAT_AMOUNT_FORMATTER = new Intl.NumberFormat('en-NG');
 
 interface QuickRepeatPromptProps {
   bottom: number;
@@ -32,7 +34,7 @@ export function QuickRepeatPrompt({
         accessibilityRole="alert"
         accessibilityLabel={notice}
         style={[
-          styles.quickRepeatNotice,
+          styles.quickRepeatBase,
           {
             backgroundColor: colors.card,
             borderColor: colors.border,
@@ -64,6 +66,7 @@ export function QuickRepeatPrompt({
   return (
     <Pressable
       style={[
+        styles.quickRepeatBase,
         styles.quickRepeatButton,
         {
           backgroundColor: colors.card,
@@ -84,7 +87,7 @@ export function QuickRepeatPrompt({
           style={[styles.quickRepeatDetail, { color: colors.textSecondary }]}
           numberOfLines={1}
         >
-          ₦{lastTransaction.amount.toLocaleString()}
+          ₦{QUICK_REPEAT_AMOUNT_FORMATTER.format(lastTransaction.amount)}
         </Text>
       </View>
     </Pressable>

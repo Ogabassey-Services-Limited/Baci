@@ -792,11 +792,26 @@ describe('fulfillPendingVtuTransaction', () => {
     });
 
     expect(mockNotifyCustomer).not.toHaveBeenCalled();
-    expect(updatePayloads).toContainEqual({
-      metadata: expect.objectContaining({
-        paymentPending: false,
-      }),
-    });
+    const finalMetadataPayload = updatePayloads.find(
+      (payload): payload is { metadata: Record<string, unknown> } => {
+        if (typeof payload !== 'object' || payload === null) {
+          return false;
+        }
+        const metadata = (payload as { metadata?: unknown }).metadata;
+        return (
+          typeof metadata === 'object' &&
+          metadata !== null &&
+          (metadata as Record<string, unknown>).paymentPending === false
+        );
+      }
+    );
+    expect(finalMetadataPayload).toEqual(
+      expect.objectContaining({
+        metadata: expect.not.objectContaining({
+          customerNotificationSent: expect.anything(),
+        }),
+      })
+    );
   });
 
   it('throws when the purchase result cannot be persisted', async () => {

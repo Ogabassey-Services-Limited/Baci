@@ -1,7 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { type ComponentProps, useRef, useState } from 'react';
+import { type ComponentProps, useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
-import { WebView, type WebViewNavigation } from 'react-native-webview';
+import type { WebView, WebViewNavigation } from 'react-native-webview';
 import { useToast } from '@/components/ui/Toast';
 import { setClipboardString } from '@/lib/clipboard';
 import {
@@ -12,6 +12,7 @@ import { PaymentGatewayParamsSchema } from '@/schemas/payment-gateway';
 import { useCartStore } from '@/stores/cart-store';
 import { createPaymentGatewayMessageHandler } from './create-payment-gateway-message-handler';
 import {
+  isPaymentCancellationRedirect,
   isPaymentCompletionRedirect,
   PAYMENT_GATEWAY_LABELS,
 } from './payment-gateway.helpers';
@@ -20,17 +21,49 @@ type WebViewErrorEvent = Parameters<
   NonNullable<ComponentProps<typeof WebView>['onError']>
 >[0];
 
+const PAYMENT_SUCCESS_NAV_DELAY_MS = 1500;
+
 export function usePaymentGatewayController() {
   const params = useLocalSearchParams<Record<string, string>>();
   const webViewRef = useRef<WebView>(null);
   const copiedGatewayTextRef = useRef<string | null>(null);
   const paymentCompletionStartedRef = useRef(false);
+  const isMountedRef = useRef(true);
+  const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
   const clearCart = useCartStore((state) => state.clearCart);
   const toast = useToast();
   const [status, setStatus] = useState<
     'loading' | 'ready' | 'processing' | 'success' | 'error'
   >('loading');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(
+    () => () => {
+      isMountedRef.current = false;
+      if (navigationTimeoutRef.current) {
+        clearTimeout(navigationTimeoutRef.current);
+        navigationTimeoutRef.current = null;
+      }
+    },
+    []
+  );
+
+  const scheduleDelayedNavigation = (navigate: () => void) => {
+    if (!isMountedRef.current) {
+      return;
+    }
+    if (navigationTimeoutRef.current) {
+      clearTimeout(navigationTimeoutRef.current);
+    }
+    navigationTimeoutRef.current = setTimeout(() => {
+      navigationTimeoutRef.current = null;
+      if (isMountedRef.current) {
+        navigate();
+      }
+    }, PAYMENT_SUCCESS_NAV_DELAY_MS);
+  };
 
   const validatedParams = (() => {
     const result = PaymentGatewayParamsSchema.safeParse(params);
@@ -106,7 +139,7 @@ export function usePaymentGatewayController() {
         reference,
       });
       setStatus('success');
-      setTimeout(() => {
+      scheduleDelayedNavigation(() => {
         router.replace({
           pathname: '/utilities/[type]',
           params: {
@@ -125,7 +158,7 @@ export function usePaymentGatewayController() {
             ...(result.voucherPin && { voucherPin: result.voucherPin }),
           },
         });
-      }, 1500);
+      });
     } catch (error) {
       if (error instanceof VtuPaymentStillProcessingError) {
         setStatus('processing');
@@ -163,7 +196,7 @@ export function usePaymentGatewayController() {
 
     setStatus('success');
     clearCart();
-    setTimeout(() => {
+    scheduleDelayedNavigation(() => {
       router.replace({
         pathname: '/order-success',
         params: {
@@ -173,7 +206,7 @@ export function usePaymentGatewayController() {
           reference: reference || '',
         },
       });
-    }, 1500);
+    });
   };
 
   const copyGatewayText = async (
@@ -245,10 +278,7 @@ export function usePaymentGatewayController() {
         beginPaymentCompletion();
         return;
       }
-      if (
-        navState.url.includes('cancelled=true') ||
-        navState.url.includes('cancel')
-      ) {
+      if (isPaymentCancellationRedirect(navState.url)) {
         setStatus('error');
         setErrorMessage('Payment was cancelled.');
       }

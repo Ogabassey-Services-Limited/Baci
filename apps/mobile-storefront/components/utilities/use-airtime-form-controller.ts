@@ -2,8 +2,8 @@ import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, type LayoutChangeEvent, type ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { NETWORK_PROVIDERS } from '@/constants/network-providers';
 import { SPACING } from '@/constants/Colors';
+import { NETWORK_PROVIDERS } from '@/constants/network-providers';
 import { useKeyboard } from '@/hooks/use-keyboard';
 import { useUtilityPayment } from '@/hooks/use-utility-payment';
 import { detectNetwork } from '@/lib/network-utils';
@@ -12,16 +12,18 @@ import {
   initializeVtuCheckout,
   isSavedVtuCardChargeProcessing,
   requiresSavedVtuCardAuthorization,
+  type VTUPaymentGateway,
   VtuPaymentStillProcessingError,
   waitForVtuConfirmation,
 } from '@/lib/vtu-checkout';
 import { useAuthStore } from '@/stores/auth-store';
-import { getUtilityFooterOffset } from './get-utility-footer-offset';
 import type { AirtimeFormProps } from './airtime-form.types';
+import { getUtilityFooterOffset } from './get-utility-footer-offset';
 import { formatUtilityAmountInput } from './utility-amount-format';
 
 const FOOTER_HEIGHT = 120;
 const FOOTER_ERROR_BUFFER = 36;
+const SAVED_CARD_CONFIRMATION_GATEWAY: VTUPaymentGateway = 'paystack';
 
 export function useAirtimeFormController({
   initialAmount,
@@ -104,7 +106,8 @@ export function useAirtimeFormController({
     try {
       const customerName =
         [customer?.first_name, customer?.last_name].filter(Boolean).join(' ') ||
-        customer?.email;
+        customer?.email ||
+        'Customer';
       if (payment.selectedSavedCardId) {
         const result = await chargeSavedVtuCard({
           amount: numericAmount,
@@ -134,8 +137,10 @@ export function useAirtimeFormController({
 
         if (isSavedVtuCardChargeProcessing(result)) {
           try {
+            const confirmationGateway =
+              result.gateway ?? SAVED_CARD_CONFIRMATION_GATEWAY;
             const confirmed = await waitForVtuConfirmation({
-              gateway: 'paystack',
+              gateway: confirmationGateway,
               reference: result.reference,
             });
             onSuccess({
@@ -192,6 +197,7 @@ export function useAirtimeFormController({
         },
       });
     } catch (error) {
+      console.error('Airtime purchase failed:', error);
       Alert.alert(
         'Payment Failed',
         error instanceof Error ? error.message : 'Something went wrong.'

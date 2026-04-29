@@ -1,10 +1,16 @@
 import { type LayoutChangeEvent, Text, TextInput, View } from 'react-native';
-import Colors from '@/constants/Colors';
+import { billFormStyles as styles } from '@/components/utilities/bill-form-styles';
+import type Colors from '@/constants/Colors';
 import type { useUtilityPayment } from '@/hooks/use-utility-payment';
-import { billFormStyles as styles } from './bill-form-styles';
 import { UtilityPaymentOptions } from './UtilityPaymentOptions';
 
 type PaymentState = ReturnType<typeof useUtilityPayment>;
+
+function sanitizeAmountInput(value: string): string {
+  const cleaned = value.replace(/[^\d.]/g, '');
+  const [whole = '', ...decimalParts] = cleaned.split('.');
+  return `${whole}${decimalParts.length ? `.${decimalParts.join('')}` : ''}`;
+}
 
 interface BillPaymentSectionProps {
   colors: typeof Colors.light;
@@ -27,7 +33,7 @@ export function BillPaymentSection({
 }: BillPaymentSectionProps) {
   return (
     <View onLayout={handlePaymentLayout}>
-      <View style={{ marginTop: 24 }}>
+      <View style={styles.amountSection}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
           Amount (₦)
         </Text>
@@ -48,7 +54,11 @@ export function BillPaymentSection({
           keyboardType="number-pad"
           value={formattedAmount}
           editable={!isFixedAmount}
-          onChangeText={(text) => setAmount(text.replace(/\D/g, ''))}
+          accessibilityLabel={
+            isFixedAmount ? 'Payment amount read-only' : 'Payment amount'
+          }
+          maxLength={10}
+          onChangeText={(text) => setAmount(sanitizeAmountInput(text))}
         />
       </View>
 

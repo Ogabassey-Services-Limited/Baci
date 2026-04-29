@@ -1,5 +1,6 @@
 import { Pressable, Text, View } from 'react-native';
-import Colors, { BRAND } from '@/constants/Colors';
+import type Colors from '@/constants/Colors';
+import { BRAND } from '@/constants/Colors';
 import type { VTUHistoryTransaction } from '@/hooks/use-vtu-history';
 import {
   UTILITY_HISTORY_STATUS_COLORS,
@@ -37,6 +38,8 @@ export default function UtilityTransactionCard({
   const customerCashback = transaction.customer_cashback ?? 0;
   const voucherPin = transaction.voucher_pin;
   const title = utilityHistoryHelpers.getTransactionTitle(transaction);
+  const isSharing = sharingTransactionId === transaction.id;
+  const isSyncing = syncingTransactionId === transaction.id;
 
   return (
     <View
@@ -164,7 +167,7 @@ export default function UtilityTransactionCard({
             accessibilityRole="button"
             accessibilityLabel={`Repeat ${title}`}
           >
-            <Text style={[styles.repeatText, { color: BRAND.primary }]}>
+            <Text style={[styles.actionButtonText, { color: BRAND.primary }]}>
               Repeat
             </Text>
           </Pressable>
@@ -176,18 +179,16 @@ export default function UtilityTransactionCard({
               {
                 backgroundColor: colors.card,
                 borderColor: colors.border,
-                opacity: sharingTransactionId === transaction.id ? 0.6 : 1,
+                opacity: isSharing ? 0.6 : 1,
               },
             ]}
             onPress={() => handleShareReceipt(transaction)}
-            disabled={sharingTransactionId === transaction.id}
+            disabled={isSharing}
             accessibilityRole="button"
             accessibilityLabel={`Share receipt for ${title}`}
           >
-            <Text style={[styles.repeatText, { color: BRAND.primary }]}>
-              {sharingTransactionId === transaction.id
-                ? 'Sharing...'
-                : 'Share receipt'}
+            <Text style={[styles.actionButtonText, { color: BRAND.primary }]}>
+              {isSharing ? 'Sharing...' : 'Share receipt'}
             </Text>
           </Pressable>
         ) : null}
@@ -200,18 +201,16 @@ export default function UtilityTransactionCard({
               {
                 backgroundColor: colors.card,
                 borderColor: colors.border,
-                opacity: syncingTransactionId === transaction.id ? 0.6 : 1,
+                opacity: isSyncing ? 0.6 : 1,
               },
             ]}
             onPress={() => handleSyncPayment(transaction)}
-            disabled={syncingTransactionId === transaction.id}
+            disabled={isSyncing}
             accessibilityRole="button"
             accessibilityLabel={`Sync payment for ${title}`}
           >
-            <Text style={[styles.repeatText, { color: BRAND.primary }]}>
-              {syncingTransactionId === transaction.id
-                ? 'Syncing...'
-                : 'Sync payment'}
+            <Text style={[styles.actionButtonText, { color: BRAND.primary }]}>
+              {isSyncing ? 'Syncing...' : 'Sync payment'}
             </Text>
           </Pressable>
         ) : null}

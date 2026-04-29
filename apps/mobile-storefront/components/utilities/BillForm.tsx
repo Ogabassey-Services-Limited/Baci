@@ -1,13 +1,13 @@
+import { ScrollView, View } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { BillerList } from './BillerList';
 import { BillItemSelectionSection } from './BillItemSelectionSection';
 import { BillPaymentFooter } from './BillPaymentFooter';
 import { BillPaymentSection } from './BillPaymentSection';
-import { billFormStyles as styles } from './bill-form-styles';
 import type { BillFormProps } from './bill-form.types';
+import { billFormStyles as styles } from './bill-form-styles';
 import { useBillFormController } from './use-bill-form-controller';
-import { ScrollView, View } from 'react-native';
 
 export function BillForm(props: BillFormProps) {
   const colorScheme = useColorScheme();
@@ -27,14 +27,14 @@ export function BillForm(props: BillFormProps) {
         keyboardDismissMode="on-drag"
       >
         <BillerList
-          billers={form.billersQuery.data || []}
+          billers={form.billersQuery.data ?? []}
           selectedBillerId={form.selectedBiller?.billerId ?? null}
           onSelect={form.handleBillerSelect}
           isLoading={form.billersQuery.isLoading}
           isCollapsed={!!form.selectedBiller && !form.isProviderPickerExpanded}
           onChangeSelection={() => {
-            form.setIsRepeatPaymentActive(false);
-            form.setIsProviderPickerExpanded(true);
+            form.setRepeatPaymentActive(false);
+            form.setProviderPickerExpanded(true);
           }}
           errorMessage={
             form.billersQuery.isError
@@ -61,11 +61,10 @@ export function BillForm(props: BillFormProps) {
               handleVerify={form.handleVerify}
               isBillItemSelectionComplete={form.isBillItemSelectionComplete}
               isRepeatPaymentActive={form.isRepeatPaymentActive}
-              resetVerification={form.resetVerification}
               selectedBillItemIdentifier={form.selectedBillItemIdentifier}
               selectedBillerId={form.selectedBiller.billerId}
-              setCustomerId={form.setCustomerId}
-              setIsRepeatPaymentActive={form.setIsRepeatPaymentActive}
+              setCustomerId={form.updateCustomerId}
+              setIsRepeatPaymentActive={form.setRepeatPaymentActive}
               type={props.type}
               verify={form.verify}
             />
@@ -80,7 +79,7 @@ export function BillForm(props: BillFormProps) {
             isFixedAmount={form.isFixedAmount}
             numericAmount={form.numericAmount}
             payment={form.payment}
-            setAmount={form.setAmount}
+            setAmount={form.updateAmount}
           />
         ) : null}
       </ScrollView>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from 'react';
+import { type RefObject, useEffect, useRef } from 'react';
 import { InteractionManager, type ScrollView } from 'react-native';
 import { SPACING } from '@/constants/Colors';
 
@@ -9,8 +9,13 @@ export function useNextStepScroll(
   const pendingScrollYRef = useRef<number | null>(null);
   const isScrollScheduledRef = useRef(false);
   const isMountedRef = useRef(true);
+  const onScrolledRef = useRef(onScrolled);
   const scrollFrameRef = useRef<number | null>(null);
   const interactionRef = useRef<{ cancel?: () => void } | null>(null);
+
+  useEffect(() => {
+    onScrolledRef.current = onScrolled;
+  }, [onScrolled]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -44,7 +49,7 @@ export function useNextStepScroll(
           return;
         }
         scrollViewRef.current?.scrollTo({ animated: true, y: scrollY });
-        onScrolled();
+        onScrolledRef.current();
       });
     });
   };

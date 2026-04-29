@@ -3,6 +3,11 @@ import type { MutableRefObject } from 'react';
 import { PAYMENT_CLIPBOARD_BRIDGE } from '@/constants/payment-clipboard-bridge';
 import { isPaymentGatewayRecord } from './payment-gateway.helpers';
 
+const PAYMENT_SUCCESS_NAV_DELAY = 1500;
+
+const getTrimmedString = (value: unknown) =>
+  typeof value === 'string' ? value.trim() : '';
+
 interface CreatePaymentGatewayMessageHandlerInput {
   clearCart: () => void;
   copiedGatewayTextRef: MutableRefObject<string | null>;
@@ -38,8 +43,7 @@ export function createPaymentGatewayMessageHandler({
       }
 
       if (data.type === PAYMENT_CLIPBOARD_BRIDGE.clipboardMessageType) {
-        const copiedText =
-          typeof data.text === 'string' ? data.text.trim() : '';
+        const copiedText = getTrimmedString(data.text);
         if (copiedText && copiedGatewayTextRef.current !== copiedText) {
           copiedGatewayTextRef.current = copiedText;
           void copyGatewayText(copiedText, 'Text copied.');
@@ -48,8 +52,7 @@ export function createPaymentGatewayMessageHandler({
       }
 
       if (data.type === PAYMENT_CLIPBOARD_BRIDGE.accountNumberMessageType) {
-        const accountNumber =
-          typeof data.text === 'string' ? data.text.trim() : '';
+        const accountNumber = getTrimmedString(data.text);
         if (accountNumber && copiedGatewayTextRef.current !== accountNumber) {
           copiedGatewayTextRef.current = accountNumber;
           void copyGatewayText(
@@ -63,7 +66,7 @@ export function createPaymentGatewayMessageHandler({
 
       if (data.type === 'crypto_success') {
         const cryptoOrderId =
-          typeof data.orderId === 'string' ? data.orderId : orderId;
+          getTrimmedString(data.orderId) || getTrimmedString(orderId);
         markPaymentCompletionStarted();
         setSuccessStatus();
         clearCart();
@@ -72,12 +75,12 @@ export function createPaymentGatewayMessageHandler({
             pathname: '/order-success',
             params: {
               orderId: cryptoOrderId,
-              orderNumber: orderNumber || '',
-              paymentMethod: gateway,
-              reference: reference || '',
+              orderNumber: getTrimmedString(orderNumber),
+              paymentMethod: getTrimmedString(gateway) || 'crypto',
+              reference: getTrimmedString(reference),
             },
           });
-        }, 1500);
+        }, PAYMENT_SUCCESS_NAV_DELAY);
       }
     } catch {
       // Ignore non-JSON messages from gateway pages.

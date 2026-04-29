@@ -18,6 +18,11 @@ interface PurchaseCashbackCardProps {
 export default function PurchaseCashbackCard({
   cashback,
 }: PurchaseCashbackCardProps) {
+  const sign = cashback.amount > 0 ? '+' : cashback.amount < 0 ? '-' : '';
+  const formattedAmount = CASHBACK_AMOUNT_FORMATTER.format(
+    Math.abs(cashback.amount)
+  );
+
   return (
     <View style={styles.cashbackCard}>
       <Ionicons
@@ -27,7 +32,7 @@ export default function PurchaseCashbackCard({
         style={styles.cashbackIcon}
       />
       <Text style={styles.cashbackAmount}>
-        +₦{CASHBACK_AMOUNT_FORMATTER.format(cashback.amount)} cashback
+        {sign}₦{formattedAmount} cashback
       </Text>
       <Text style={styles.cashbackBalance}>
         Wallet balance: ₦{CASHBACK_AMOUNT_FORMATTER.format(cashback.newBalance)}

@@ -82,6 +82,7 @@ const ChargeSavedCardGatewaySchema = z.object({
 const ChargeSavedCardProcessingSchema = z.object({
   status: z.literal('processing'),
   reference: z.string(),
+  gateway: GatewayEnum.optional(),
 });
 
 export type VTUPaymentGateway = z.infer<typeof GatewayEnum>;

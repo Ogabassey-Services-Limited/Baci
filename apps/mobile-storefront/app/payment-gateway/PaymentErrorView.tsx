@@ -2,8 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Colors, { BRAND } from '@/constants/Colors';
-import { paymentGatewayStyles as styles } from './payment-gateway.styles';
+import { paymentGatewayStyles as styles } from '@/app/payment-gateway/payment-gateway.styles';
+import type Colors from '@/constants/Colors';
+import { BRAND, withAlpha } from '@/constants/Colors';
 
 interface PaymentErrorViewProps {
   colors: typeof Colors.light;
@@ -41,7 +42,10 @@ export function PaymentErrorView({
       />
       <View style={styles.statusContainer}>
         <View
-          style={[styles.statusIcon, { backgroundColor: `${colors.error}20` }]}
+          style={[
+            styles.statusIcon,
+            { backgroundColor: withAlpha(colors.error, 0.125) },
+          ]}
         >
           <Ionicons name="alert-circle" size={48} color={colors.error} />
         </View>
@@ -55,15 +59,21 @@ export function PaymentErrorView({
         ) : null}
         <View style={styles.errorActions}>
           <Pressable
+            accessibilityLabel="Try payment again"
             accessibilityRole="button"
-            style={[styles.actionButton, { backgroundColor: BRAND.primary }]}
+            style={[styles.baseButton, { backgroundColor: BRAND.primary }]}
             onPress={onRetry}
           >
             <Text style={styles.actionButtonText}>Try Again</Text>
           </Pressable>
           <Pressable
+            accessibilityLabel="Go back"
             accessibilityRole="button"
-            style={[styles.secondaryButton, { borderColor: colors.border }]}
+            style={[
+              styles.baseButton,
+              styles.secondaryButton,
+              { borderColor: colors.border },
+            ]}
             onPress={onBack}
           >
             <Text style={[styles.secondaryButtonText, { color: colors.text }]}>

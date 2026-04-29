@@ -1,12 +1,25 @@
 import { StyleSheet } from 'react-native';
-import { RADIUS, SPACING } from '@/constants/Colors';
+import {
+  RADIUS,
+  SEMANTIC_COLORS,
+  SPACING,
+  TYPOGRAPHY,
+} from '@/constants/Colors';
+
+const STATUS_ICON_SIZE = 80;
+const CENTERED_CONTAINER = {
+  flex: 1,
+  justifyContent: 'center' as const,
+  alignItems: 'center' as const,
+  padding: SPACING.xl,
+};
 
 export const paymentGatewayStyles = StyleSheet.create({
   container: {
     flex: 1,
   },
   closeButton: {
-    padding: 8,
+    padding: SPACING.sm,
   },
   securityBadge: {
     flexDirection: 'row',
@@ -16,8 +29,8 @@ export const paymentGatewayStyles = StyleSheet.create({
     paddingVertical: SPACING.sm,
   },
   securityText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: TYPOGRAPHY.size.sm,
+    fontWeight: TYPOGRAPHY.weight.semibold,
   },
   webView: {
     flex: 1,
@@ -26,13 +39,13 @@ export const paymentGatewayStyles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: SEMANTIC_COLORS.white,
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: SEMANTIC_COLORS.overlay,
     zIndex: 100,
   },
   loadingCard: {
@@ -43,8 +56,8 @@ export const paymentGatewayStyles = StyleSheet.create({
     maxWidth: 300,
   },
   loadingText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: TYPOGRAPHY.size.base,
+    fontWeight: TYPOGRAPHY.weight.semibold,
     marginTop: SPACING.md,
     textAlign: 'center',
   },
@@ -57,79 +70,70 @@ export const paymentGatewayStyles = StyleSheet.create({
     borderTopWidth: 1,
   },
   amountLabel: {
-    fontSize: 14,
+    fontSize: TYPOGRAPHY.size.sm,
   },
   amountValue: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: TYPOGRAPHY.size.lg,
+    fontWeight: TYPOGRAPHY.weight.bold,
   },
-  statusContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SPACING.xl,
-  },
+  centeredContainer: CENTERED_CONTAINER,
+  statusContainer: CENTERED_CONTAINER,
   statusIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: STATUS_ICON_SIZE,
+    height: STATUS_ICON_SIZE,
+    borderRadius: STATUS_ICON_SIZE / 2,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: SPACING.lg,
   },
   statusTitle: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: TYPOGRAPHY.size.xl,
+    fontWeight: TYPOGRAPHY.weight.bold,
     marginBottom: SPACING.sm,
     textAlign: 'center',
   },
   statusMessage: {
-    fontSize: 14,
+    fontSize: TYPOGRAPHY.size.sm,
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: TYPOGRAPHY.size.sm * TYPOGRAPHY.lineHeight.relaxed,
   },
   errorActions: {
     marginTop: SPACING.xl,
     gap: SPACING.sm,
     width: '100%',
   },
-  actionButton: {
+  baseButton: {
     paddingVertical: SPACING.md,
     borderRadius: RADIUS.md,
     alignItems: 'center',
   },
   actionButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    color: SEMANTIC_COLORS.white,
+    fontSize: TYPOGRAPHY.size.base,
+    fontWeight: TYPOGRAPHY.weight.semibold,
   },
   secondaryButton: {
-    paddingVertical: SPACING.md,
-    borderRadius: RADIUS.md,
-    alignItems: 'center',
     borderWidth: 1,
   },
   secondaryButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: TYPOGRAPHY.size.base,
+    fontWeight: TYPOGRAPHY.weight.medium,
   },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SPACING.xl,
-  },
+  errorContainer: CENTERED_CONTAINER,
   errorTitle: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: TYPOGRAPHY.size.xl,
+    fontWeight: TYPOGRAPHY.weight.bold,
     marginTop: SPACING.lg,
     textAlign: 'center',
   },
   errorMessage: {
-    fontSize: 14,
+    fontSize: TYPOGRAPHY.size.sm,
     marginTop: SPACING.sm,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: TYPOGRAPHY.size.sm * TYPOGRAPHY.lineHeight.normal,
     marginBottom: SPACING.lg,
+  },
+  activityIndicator: {
+    marginTop: SPACING.lg,
   },
 });
