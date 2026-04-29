@@ -19,7 +19,7 @@ const HISTORY_FILTER_TO_API_TYPE = {
   gaming: 'betting',
 } as const;
 
-const VTU_HISTORY_TRANSACTION_TYPES = [
+export const VTU_HISTORY_TRANSACTION_TYPES = [
   'airtime',
   'data',
   'electricity',
@@ -27,16 +27,16 @@ const VTU_HISTORY_TRANSACTION_TYPES = [
   'betting',
 ] as const;
 
-const VTU_HISTORY_TRANSACTION_STATUSES = [
+export const VTU_HISTORY_TRANSACTION_STATUSES = [
   'pending',
   'processing',
   'successful',
   'failed',
 ] as const;
 
-const VTU_HISTORY_PAYMENT_GATEWAYS = ['paystack', 'korapay'] as const;
+export const VTU_HISTORY_PAYMENT_GATEWAYS = ['paystack', 'korapay'] as const;
 
-const VTU_HISTORY_PAYMENT_STATUSES = [
+export const VTU_HISTORY_PAYMENT_STATUSES = [
   'pending',
   'processing',
   'completed',

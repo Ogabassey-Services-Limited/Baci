@@ -48,6 +48,31 @@ interface PendingTransactionMockOptions {
   updatePayloads?: unknown[];
 }
 
+type PendingTransactionUpdateErrors = NonNullable<
+  PendingTransactionMockOptions['updateErrors']
+>;
+type PendingTransactionUpdateError =
+  PendingTransactionUpdateErrors[keyof PendingTransactionUpdateErrors];
+
+function selectUpdateError(
+  payloadRecord: Record<string, unknown>,
+  transactionRow: Record<string, unknown>,
+  updateErrors: NonNullable<PendingTransactionMockOptions['updateErrors']>
+): PendingTransactionUpdateError {
+  if (
+    payloadRecord.status === 'successful' ||
+    payloadRecord.status === 'failed'
+  ) {
+    return updateErrors.purchase;
+  }
+
+  if (transactionRow.status === 'successful') {
+    return updateErrors.successMetadata;
+  }
+
+  return updateErrors.finalMetadata;
+}
+
 function createPendingTransactionSupabaseMock({
   customerData = { user_id: 'user-1' },
   existingCustomerCashback = null,
@@ -114,13 +139,11 @@ function createPendingTransactionSupabaseMock({
                 !('metadata' in payloadRecord)
               )
             ) {
-              const updateError =
-                payloadRecord.status === 'successful' ||
-                payloadRecord.status === 'failed'
-                  ? updateErrors.purchase
-                  : transactionRow.status === 'successful'
-                    ? updateErrors.successMetadata
-                    : updateErrors.finalMetadata;
+              const updateError = selectUpdateError(
+                payloadRecord,
+                transactionRow,
+                updateErrors
+              );
 
               return {
                 eq: vi.fn().mockResolvedValue({

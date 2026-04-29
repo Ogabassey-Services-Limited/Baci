@@ -30,16 +30,16 @@ jest.mock('expo-file-system', () => ({
   deleteAsync: (...args: unknown[]) => mockDeleteAsync(...args),
 }));
 
-beforeEach(() => {
-  jest.clearAllMocks();
-  mockPrintToFileAsync.mockResolvedValue({ uri: 'file:///tmp/receipt.pdf' });
-  mockIsAvailableAsync.mockResolvedValue(true);
-  mockShare.mockResolvedValue({ action: 'sharedAction' });
-  mockShareAsync.mockResolvedValue(undefined);
-  mockDeleteAsync.mockResolvedValue(undefined);
-});
-
 describe('utility-receipt', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPrintToFileAsync.mockResolvedValue({ uri: 'file:///tmp/receipt.pdf' });
+    mockIsAvailableAsync.mockResolvedValue(true);
+    mockShare.mockResolvedValue({ action: 'sharedAction' });
+    mockShareAsync.mockResolvedValue(undefined);
+    mockDeleteAsync.mockResolvedValue(undefined);
+  });
+
   it('builds an escaped receipt with the electricity token', () => {
     const html = buildUtilityReceiptHtml({
       amount: 1000,

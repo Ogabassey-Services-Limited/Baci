@@ -9,6 +9,7 @@ function extractIssuePaths(issues: z.ZodIssue[]) {
 describe('PaymentGatewayParamsSchema', () => {
   it('parses an order checkout payload with defaults', () => {
     const result = PaymentGatewayParamsSchema.parse({
+      amount: '1000',
       authorizationUrl: 'https://checkout.paystack.com/test',
       gateway: 'paystack',
       orderNumber: 'ORD-123',
@@ -23,6 +24,7 @@ describe('PaymentGatewayParamsSchema', () => {
 
   it('requires VTU customer and service context for VTU payments', () => {
     const result = PaymentGatewayParamsSchema.safeParse({
+      amount: '1000',
       authorizationUrl: 'https://checkout.paystack.com/test',
       gateway: 'paystack',
       paymentKind: 'vtu',
@@ -55,25 +57,28 @@ describe('PaymentGatewayParamsSchema', () => {
     expect(result.utilityType).toBe('power');
   });
 
-  it('rejects non-positive and non-numeric amounts', () => {
-    for (const amount of ['0', '-1', 'not-a-number']) {
-      const result = PaymentGatewayParamsSchema.safeParse({
-        amount,
-        authorizationUrl: 'https://checkout.paystack.com/test',
-        gateway: 'paystack',
-        orderNumber: 'ORD-123',
-        reference: 'ref-123',
-      });
+  it.each([
+    ['amount "0"', '0'],
+    ['amount "-1"', '-1'],
+    ['non-numeric amount', 'not-a-number'],
+  ])('%s is rejected', (_label, amount) => {
+    const result = PaymentGatewayParamsSchema.safeParse({
+      amount,
+      authorizationUrl: 'https://checkout.paystack.com/test',
+      gateway: 'paystack',
+      orderNumber: 'ORD-123',
+      reference: 'ref-123',
+    });
 
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(extractIssuePaths(result.error.issues)).toContain('amount');
-      }
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(extractIssuePaths(result.error.issues)).toContain('amount');
     }
   });
 
   it('rejects invalid gateway params', () => {
     const result = PaymentGatewayParamsSchema.safeParse({
+      amount: '1000',
       authorizationUrl: 'not-a-url',
       gateway: 'invalid',
       reference: '',

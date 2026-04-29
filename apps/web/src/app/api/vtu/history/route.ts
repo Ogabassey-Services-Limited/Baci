@@ -25,6 +25,27 @@ function normalizeMetadata(metadata: unknown): MetadataRecord {
   return isMetadataRecord(metadata) ? metadata : {};
 }
 
+function toStableJsonValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => toStableJsonValue(item));
+  }
+
+  if (isMetadataRecord(value)) {
+    return Object.keys(value)
+      .sort()
+      .reduce<Record<string, unknown>>((accumulator, key) => {
+        accumulator[key] = toStableJsonValue(value[key]);
+        return accumulator;
+      }, {});
+  }
+
+  return value;
+}
+
+function stableJsonStringify(value: unknown): string {
+  return JSON.stringify(toStableJsonValue(value)) ?? 'null';
+}
+
 function isString(value: unknown): value is string {
   return typeof value === 'string';
 }
@@ -80,7 +101,13 @@ async function markVoucherPinBackfillScheduled({
     .eq('id', transactionId);
 
   updateQuery = isMetadataRecord(originalMetadata)
-    ? updateQuery.filter('metadata', 'eq', JSON.stringify(originalMetadata))
+    ? updateQuery.filter(
+        'metadata',
+        'eq',
+        // Supabase filter() expects raw PostgREST syntax, so pass stable JSON
+        // text instead of an object, which would become "[object Object]".
+        stableJsonStringify(originalMetadata)
+      )
     : updateQuery.is('metadata', null);
 
   const { data, error } = await updateQuery.select('id');
@@ -323,7 +350,6 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({
-      payment_status_partial_failure: false,
       transactions: transactionsWithVoucherPins.map(
         ({ transaction, voucherPin }) => {
           const {

@@ -149,7 +149,9 @@ describe('vtu-checkout service', () => {
       !('body' in checkoutRequest) ||
       typeof checkoutRequest.body !== 'string'
     ) {
-      throw new Error('Expected checkout request body to be captured');
+      throw new Error(
+        `Expected checkout request body to be captured; received ${JSON.stringify(checkoutRequest)}`
+      );
     }
     expect(
       JSON.parse(checkoutRequest.body) as Record<string, unknown>

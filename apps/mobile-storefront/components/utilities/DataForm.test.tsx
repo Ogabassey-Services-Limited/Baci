@@ -364,9 +364,11 @@ describe('DataForm', () => {
         })
       );
     });
-    expect(mockWaitForVtuConfirmation).toHaveBeenCalledWith({
-      gateway: 'paystack',
-      reference: 'VTU-DATA-PENDING-123',
+    await waitFor(() => {
+      expect(mockWaitForVtuConfirmation).toHaveBeenCalledWith({
+        gateway: 'paystack',
+        reference: 'VTU-DATA-PENDING-123',
+      });
     });
     await waitFor(() => {
       expect(onSuccessMock).toHaveBeenCalledWith({

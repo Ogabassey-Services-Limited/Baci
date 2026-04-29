@@ -34,5 +34,7 @@ describe('formatUtilityAmountInput', () => {
     expect(formatUtilityAmountInput(Number.NEGATIVE_INFINITY)).toBe('');
     expect(formatUtilityAmountInput('NaN')).toBe('');
     expect(formatUtilityAmountInput('Infinity')).toBe('');
+    expect(formatUtilityAmountInput('+Infinity')).toBe('');
+    expect(formatUtilityAmountInput('-Infinity')).toBe('');
   });
 });

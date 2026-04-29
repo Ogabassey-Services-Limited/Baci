@@ -221,9 +221,11 @@ describe('AirtimeForm', () => {
         })
       );
     });
-    expect(mockWaitForVtuConfirmation).toHaveBeenCalledWith({
-      gateway: 'paystack',
-      reference: 'VTU-CARD-PENDING-123',
+    await waitFor(() => {
+      expect(mockWaitForVtuConfirmation).toHaveBeenCalledWith({
+        gateway: 'paystack',
+        reference: 'VTU-CARD-PENDING-123',
+      });
     });
     await waitFor(() => {
       expect(onSuccessMock).toHaveBeenCalledWith({

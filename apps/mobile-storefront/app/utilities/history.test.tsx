@@ -99,6 +99,39 @@ jest.mock('expo-router', () => ({
   }),
 }));
 
+function createFailedSyncHistoryData({
+  history = {},
+  transaction = {},
+}: {
+  history?: Record<string, unknown>;
+  transaction?: Record<string, unknown>;
+} = {}) {
+  return {
+    data: [
+      {
+        id: 'tx-2',
+        created_at: '2026-04-08T12:00:00.000Z',
+        type: 'electricity',
+        status: 'failed',
+        amount: 2500,
+        biller_name: 'EKEDC NG',
+        customer_identifier: '1234567890',
+        payment_gateway: 'paystack',
+        payment_reference: 'VTU-PAYSTACK-123',
+        payment_status: 'completed',
+        request_reference: 'VTU-123',
+        error: null,
+        ...transaction,
+      },
+    ],
+    error: null,
+    isLoading: false,
+    isRefetching: false,
+    refetch: mockRefetch,
+    ...history,
+  };
+}
+
 describe('UtilityHistoryScreen', () => {
   afterEach(() => {
     jest.restoreAllMocks();
@@ -215,27 +248,7 @@ describe('UtilityHistoryScreen', () => {
   });
 
   it('syncs a failed utility row when the gateway payment reference is available', async () => {
-    mockUseVTUHistory.mockReturnValue({
-      data: [
-        {
-          id: 'tx-2',
-          created_at: '2026-04-08T12:00:00.000Z',
-          type: 'electricity',
-          status: 'failed',
-          amount: 2500,
-          biller_name: 'EKEDC NG',
-          customer_identifier: '1234567890',
-          payment_gateway: 'paystack',
-          payment_reference: 'VTU-PAYSTACK-123',
-          payment_status: 'completed',
-          request_reference: 'VTU-123',
-        },
-      ],
-      error: null,
-      isLoading: false,
-      isRefetching: false,
-      refetch: mockRefetch,
-    });
+    mockUseVTUHistory.mockReturnValue(createFailedSyncHistoryData());
 
     render(<UtilityHistoryScreen />);
 
@@ -267,27 +280,7 @@ describe('UtilityHistoryScreen', () => {
       reference: 'VTU-PAYSTACK-123',
       status: 'processing',
     });
-    mockUseVTUHistory.mockReturnValue({
-      data: [
-        {
-          id: 'tx-2',
-          created_at: '2026-04-08T12:00:00.000Z',
-          type: 'electricity',
-          status: 'failed',
-          amount: 2500,
-          biller_name: 'EKEDC NG',
-          customer_identifier: '1234567890',
-          payment_gateway: 'paystack',
-          payment_reference: 'VTU-PAYSTACK-123',
-          payment_status: 'completed',
-          request_reference: 'VTU-123',
-        },
-      ],
-      error: null,
-      isLoading: false,
-      isRefetching: false,
-      refetch: mockRefetch,
-    });
+    mockUseVTUHistory.mockReturnValue(createFailedSyncHistoryData());
 
     render(<UtilityHistoryScreen />);
 
@@ -314,27 +307,7 @@ describe('UtilityHistoryScreen', () => {
       .mockImplementation(() => undefined);
     mockConfirmVtuCheckout.mockRejectedValue(new Error('Gateway not settled.'));
     mockRefetch.mockRejectedValueOnce(new Error('History refetch failed.'));
-    mockUseVTUHistory.mockReturnValue({
-      data: [
-        {
-          id: 'tx-2',
-          created_at: '2026-04-08T12:00:00.000Z',
-          type: 'electricity',
-          status: 'failed',
-          amount: 2500,
-          biller_name: 'EKEDC NG',
-          customer_identifier: '1234567890',
-          payment_gateway: 'paystack',
-          payment_reference: 'VTU-PAYSTACK-123',
-          payment_status: 'completed',
-          request_reference: 'VTU-123',
-        },
-      ],
-      error: null,
-      isLoading: false,
-      isRefetching: false,
-      refetch: mockRefetch,
-    });
+    mockUseVTUHistory.mockReturnValue(createFailedSyncHistoryData());
 
     render(<UtilityHistoryScreen />);
 

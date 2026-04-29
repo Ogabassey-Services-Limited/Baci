@@ -12,7 +12,13 @@ import {
 } from '@/lib/vtu-schemas';
 
 export type { Biller, BillItem };
-export type BillType = 'data' | 'cable_tv' | 'electricity' | 'betting';
+export const ALL_BILL_TYPES = [
+  'data',
+  'cable_tv',
+  'electricity',
+  'betting',
+] as const;
+export type BillType = (typeof ALL_BILL_TYPES)[number];
 
 const API_URL =
   process.env.EXPO_PUBLIC_API_URL ||
@@ -27,12 +33,7 @@ export const vtuBillerKeys = {
 };
 
 /** All bill types that can be prefetched */
-const PREFETCH_TYPES: readonly BillType[] = [
-  'data',
-  'cable_tv',
-  'electricity',
-  'betting',
-];
+const PREFETCH_TYPES = ALL_BILL_TYPES;
 
 function withBillItemsForType(type: BillType, billers: Biller[]): Biller[] {
   return type === 'electricity'

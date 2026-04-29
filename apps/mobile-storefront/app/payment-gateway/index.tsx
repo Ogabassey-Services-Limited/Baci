@@ -59,7 +59,7 @@ export default function PaymentGatewayScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const params = useLocalSearchParams<Record<string, string>>();
   const webViewRef = useRef<WebView>(null);
-  const copiedGatewayAccountNumberRef = useRef<string | null>(null);
+  const copiedGatewayTextRef = useRef<string | null>(null);
   const paymentCompletionStartedRef = useRef(false);
   const clearCart = useCartStore((state) => state.clearCart);
   const toast = useToast();
@@ -292,11 +292,8 @@ export default function PaymentGatewayScreen() {
       if (data.type === PAYMENT_CLIPBOARD_BRIDGE.clipboardMessageType) {
         const copiedText =
           typeof data.text === 'string' ? data.text.trim() : '';
-        if (
-          copiedText &&
-          copiedGatewayAccountNumberRef.current !== copiedText
-        ) {
-          copiedGatewayAccountNumberRef.current = copiedText;
+        if (copiedText && copiedGatewayTextRef.current !== copiedText) {
+          copiedGatewayTextRef.current = copiedText;
           void copyGatewayText(copiedText, 'Text copied.');
         }
         return;
@@ -305,11 +302,8 @@ export default function PaymentGatewayScreen() {
       if (data.type === PAYMENT_CLIPBOARD_BRIDGE.accountNumberMessageType) {
         const accountNumber =
           typeof data.text === 'string' ? data.text.trim() : '';
-        if (
-          accountNumber &&
-          copiedGatewayAccountNumberRef.current !== accountNumber
-        ) {
-          copiedGatewayAccountNumberRef.current = accountNumber;
+        if (accountNumber && copiedGatewayTextRef.current !== accountNumber) {
+          copiedGatewayTextRef.current = accountNumber;
           void copyGatewayText(
             accountNumber,
             'Account number copied.',

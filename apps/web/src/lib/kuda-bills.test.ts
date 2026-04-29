@@ -235,6 +235,74 @@ describe('purchaseBill', () => {
     });
   });
 
+  it('prefers lowercase response fields when both casing variants are populated', async () => {
+    // Arrange
+    vi.mocked(kudaRequest).mockResolvedValue({
+      status: true,
+      message: 'Bill purchase successful',
+      data: {
+        reference: 'TXN-LOWER-123',
+        Reference: 'TXN-UPPER-123',
+        pin: 'LOWER-PIN-123',
+        Pin: 'UPPER-PIN-123',
+      },
+    });
+
+    // Act
+    const result = await purchaseBill('EKEDC-PREPAID', '1234567890', 5000);
+
+    // Assert
+    expect(result).toMatchObject<Partial<PurchaseResult>>({
+      pin: 'LOWER-PIN-123',
+      transactionId: 'TXN-LOWER-123',
+    });
+  });
+
+  it('uses lowercase response fields when upper-case variants are absent', async () => {
+    // Arrange
+    vi.mocked(kudaRequest).mockResolvedValue({
+      status: true,
+      message: 'Bill purchase successful',
+      data: {
+        reference: 'TXN-LOWER-ONLY',
+        Reference: null,
+        pin: 'LOWER-PIN-ONLY',
+        Pin: null,
+      },
+    });
+
+    // Act
+    const result = await purchaseBill('EKEDC-PREPAID', '1234567890', 5000);
+
+    // Assert
+    expect(result).toMatchObject<Partial<PurchaseResult>>({
+      pin: 'LOWER-PIN-ONLY',
+      transactionId: 'TXN-LOWER-ONLY',
+    });
+  });
+
+  it('omits pin and transaction id when all response field variants are empty', async () => {
+    // Arrange
+    vi.mocked(kudaRequest).mockResolvedValue({
+      status: true,
+      message: 'Bill purchase successful',
+      data: {
+        reference: '   ',
+        Reference: null,
+        pin: '   ',
+        Pin: null,
+      },
+    });
+
+    // Act
+    const result = await purchaseBill('EKEDC-PREPAID', '1234567890', 5000);
+
+    // Assert
+    expect(result.transactionId).toBeUndefined();
+    expect(result.pin).toBeUndefined();
+    expect(result.success).toBe(true);
+  });
+
   it('returns failed result when Kuda API returns status false', async () => {
     // Arrange
     const mockResponse = {

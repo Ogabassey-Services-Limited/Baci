@@ -195,6 +195,7 @@ export function AirtimeForm({
                   }
                 : undefined,
               reference: confirmed.reference,
+              status: 'successful',
               voucherPin: confirmed.voucherPin,
             });
           } catch (error) {
@@ -222,6 +223,7 @@ export function AirtimeForm({
               }
             : undefined,
           reference: result.reference,
+          status: 'successful',
           voucherPin: result.voucherPin,
         });
         return;

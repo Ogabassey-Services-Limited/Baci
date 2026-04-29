@@ -283,7 +283,10 @@ describe('GET /api/vtu/history', () => {
         status: 'successful',
         amount: '2500',
         biller_name: 'EKEDC NG',
-        metadata: {},
+        metadata: {
+          alpha: 'first',
+          zeta: 'last',
+        },
         request_reference: 'VTU-123',
         transaction_id: 'kuda-bill-1',
         customer_cashback: '0',
@@ -316,7 +319,7 @@ describe('GET /api/vtu/history', () => {
     expect(vtuTransactionUpdateFilters).toContainEqual([
       'metadata',
       'eq',
-      JSON.stringify({}),
+      '{"alpha":"first","zeta":"last"}',
     ]);
     expect(mockBackfillVtuVoucherPin).not.toHaveBeenCalled();
 
@@ -351,7 +354,9 @@ describe('GET /api/vtu/history', () => {
         amount: '2500',
         biller_name: 'EKEDC NG',
         metadata: {
-          voucherPinBackfillScheduledAt: new Date().toISOString(),
+          voucherPinBackfillScheduledAt: new Date(
+            Date.now() - 1000
+          ).toISOString(),
         },
         request_reference: 'VTU-123',
         transaction_id: 'kuda-bill-1',

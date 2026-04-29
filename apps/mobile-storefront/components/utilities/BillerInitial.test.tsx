@@ -1,6 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
 import { render, screen } from '@testing-library/react-native';
-import { StyleSheet } from 'react-native';
 import { BillerInitial } from '@/components/utilities/BillerInitial';
 
 describe('BillerInitial', () => {
@@ -73,10 +72,8 @@ describe('BillerInitial', () => {
       />
     );
 
-    const circleStyle = StyleSheet.flatten(
-      screen.getByLabelText('Biller: ekedc').props.style
-    );
-
-    expect(circleStyle.marginBottom).toBe(12);
+    expect(screen.getByLabelText('Biller: ekedc')).toHaveStyle({
+      marginBottom: 12,
+    });
   });
 });

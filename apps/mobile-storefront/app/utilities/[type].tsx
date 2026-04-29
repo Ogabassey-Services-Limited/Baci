@@ -212,10 +212,9 @@ export default function UtilityPurchaseScreen() {
     repeatVerified,
   });
   const currentType = selectedType ?? routeType;
-  const [repeatDefaults, setRepeatDefaults] =
-    useState<UtilityRepeatDefaults>(
-      routeType && currentType === routeType ? routeRepeatDefaults : {}
-    );
+  const [repeatDefaults, setRepeatDefaults] = useState<UtilityRepeatDefaults>(
+    routeType && currentType === routeType ? routeRepeatDefaults : {}
+  );
   const [repeatRevision, setRepeatRevision] = useState(0);
   const [isQuickRepeatDismissed, setIsQuickRepeatDismissed] = useState(false);
   const {
@@ -333,14 +332,14 @@ export default function UtilityPurchaseScreen() {
     !recentTransactionsError &&
     !isKeyboardVisible &&
     !isQuickRepeatDismissed;
-  const quickRepeatNotice =
-    !isKeyboardVisible && !isQuickRepeatDismissed
-      ? isRecentTransactionsLoading
-        ? `Checking recent ${title} transactions...`
-        : recentTransactionsError
-          ? `Recent ${title} transactions unavailable.`
-          : null
-      : null;
+  let quickRepeatNotice: string | null = null;
+  if (!isKeyboardVisible && !isQuickRepeatDismissed) {
+    if (isRecentTransactionsLoading) {
+      quickRepeatNotice = `Checking recent ${title} transactions...`;
+    } else if (recentTransactionsError) {
+      quickRepeatNotice = `Recent ${title} transactions unavailable.`;
+    }
+  }
   const handleQuickRepeat = () => {
     if (
       !lastTransaction ||
@@ -470,6 +469,9 @@ export default function UtilityPurchaseScreen() {
       </KeyboardAvoidingView>
       {quickRepeatNotice ? (
         <View
+          accessible={true}
+          accessibilityRole="alert"
+          accessibilityLabel={quickRepeatNotice}
           style={[
             styles.quickRepeatNotice,
             {

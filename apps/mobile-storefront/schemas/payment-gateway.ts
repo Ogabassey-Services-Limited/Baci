@@ -9,10 +9,7 @@ export const PaymentGatewayParamsSchema = z
     }),
     authorizationUrl: z.string().url('Invalid authorization URL'),
     reference: z.string().min(1, 'Reference is required'),
-    amount: z.coerce
-      .number()
-      .positive('Amount must be greater than 0')
-      .optional(),
+    amount: z.coerce.number().positive('Amount must be greater than 0'),
     paymentKind: z.enum(['order', 'vtu']).default('order'),
     utilityType: z
       .enum(['airtime', 'data', 'tv', 'power', 'gaming'])

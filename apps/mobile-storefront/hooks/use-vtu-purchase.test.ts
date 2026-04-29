@@ -154,10 +154,12 @@ describe('useVTUPurchase', () => {
       expect.objectContaining({
         amount: 50,
         type: 'wallet_cashback',
-        voucherPin: 'TOKEN-123',
       }),
       1
     );
+    const notificationPayload =
+      mockScheduleLocalNotification.mock.calls[0]?.[2];
+    expect(notificationPayload).not.toHaveProperty('voucherPin');
 
     unmount();
     queryClient.clear();

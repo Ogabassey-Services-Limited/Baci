@@ -357,6 +357,8 @@ describe('PaymentGatewayScreen', () => {
             type: 'power',
           }),
         }),
+      // PaymentGatewayScreen intentionally holds the success state for 1.5s
+      // before routing so users can see the confirmation screen.
       { timeout: 2500 }
     );
   });

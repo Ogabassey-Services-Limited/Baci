@@ -100,6 +100,7 @@ describe('history.helpers', () => {
       })
     ).toEqual({
       color: UTILITY_HISTORY_STATUS_COLORS.processing,
+      // Normal fulfillment statuses are intentionally shown as their raw API status.
       label: 'processing',
       message: null,
     });

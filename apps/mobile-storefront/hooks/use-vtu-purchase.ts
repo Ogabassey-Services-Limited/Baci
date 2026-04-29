@@ -119,7 +119,6 @@ export function useVTUPurchase() {
           {
             type: 'wallet_cashback',
             amount: data.cashback.amount,
-            ...(data.voucherPin ? { voucherPin: data.voucherPin } : {}),
           },
           1
         ).catch((err) => {

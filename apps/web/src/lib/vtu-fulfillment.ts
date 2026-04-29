@@ -126,8 +126,15 @@ function setMetadataValue(
   return true;
 }
 
+export class VtuPersistenceError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'VtuPersistenceError';
+  }
+}
+
 function throwVtuPersistenceError(message: string): never {
-  throw new Error(message);
+  throw new VtuPersistenceError(message);
 }
 
 async function findExistingCustomerCashback({

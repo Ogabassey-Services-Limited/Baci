@@ -150,8 +150,10 @@ describe('useVTUBillers', () => {
       expect(result.current.isError).toBe(true);
     });
     expect(result.current.data).toBeUndefined();
-    expect(result.current.error).toEqual(
-      new Error('Failed to fetch providers (HTTP 503)')
+    expect(result.current.error).toBeInstanceOf(Error);
+    expect(result.current.error).toHaveProperty(
+      'message',
+      'Failed to fetch providers (HTTP 503)'
     );
   });
 

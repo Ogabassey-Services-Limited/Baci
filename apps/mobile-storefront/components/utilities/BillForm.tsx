@@ -166,10 +166,7 @@ function containsBillerNameTokenSequence(
   );
 }
 
-function findBillerByInitialName(
-  billers: Biller[],
-  initialBillerName: string
-) {
+function findBillerByInitialName(billers: Biller[], initialBillerName: string) {
   const normalizedInitialName = normalizeBillItemMatchText(initialBillerName);
   if (!normalizedInitialName) {
     return null;
@@ -326,6 +323,9 @@ export function BillForm({
   const scrollViewRef = useRef<ScrollView>(null);
   const pendingNextStepScrollYRef = useRef<number | null>(null);
   const isNextStepScrollScheduledRef = useRef(false);
+  const isMountedRef = useRef(true);
+  const nextStepScrollFrameRef = useRef<number | null>(null);
+  const nextStepInteractionRef = useRef<{ cancel?: () => void } | null>(null);
 
   const billItemSelection = resolveBillItemSelection(
     selectedBiller?.billItems,
@@ -356,6 +356,22 @@ export function BillForm({
     keyboardHeight,
   });
   const isBusy = isSubmitting;
+
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+      if (nextStepScrollFrameRef.current !== null) {
+        cancelAnimationFrame(nextStepScrollFrameRef.current);
+        nextStepScrollFrameRef.current = null;
+      }
+      nextStepInteractionRef.current?.cancel?.();
+      nextStepInteractionRef.current = null;
+      pendingNextStepScrollYRef.current = null;
+      isNextStepScrollScheduledRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (selectedBiller || !billers?.length) {
@@ -451,22 +467,26 @@ export function BillForm({
     }
 
     isNextStepScrollScheduledRef.current = true;
-    requestAnimationFrame(() => {
-      InteractionManager.runAfterInteractions(() => {
-        const scrollY = pendingNextStepScrollYRef.current;
-        pendingNextStepScrollYRef.current = null;
-        isNextStepScrollScheduledRef.current = false;
+    nextStepScrollFrameRef.current = requestAnimationFrame(() => {
+      nextStepScrollFrameRef.current = null;
+      nextStepInteractionRef.current = InteractionManager.runAfterInteractions(
+        () => {
+          nextStepInteractionRef.current = null;
+          const scrollY = pendingNextStepScrollYRef.current;
+          pendingNextStepScrollYRef.current = null;
+          isNextStepScrollScheduledRef.current = false;
 
-        if (scrollY === null) {
-          return;
+          if (!isMountedRef.current || scrollY === null) {
+            return;
+          }
+
+          scrollViewRef.current?.scrollTo({
+            animated: true,
+            y: scrollY,
+          });
+          setShouldScrollToNextStep(false);
         }
-
-        scrollViewRef.current?.scrollTo({
-          animated: true,
-          y: scrollY,
-        });
-        setShouldScrollToNextStep(false);
-      });
+      );
     });
   };
 
