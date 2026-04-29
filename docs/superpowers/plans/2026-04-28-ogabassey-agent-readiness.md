@@ -2420,7 +2420,7 @@ describe('createAgenticScopedSupabaseClient', () => {
       agentic_merchant_id: '00000000-0000-4000-8000-000000000001',
       agentic_merchant_slug: 'ogabassey',
     });
-    expect(claims.exp).toBe(1_777_377_100);
+    expect(claims.exp).toBe(1_777_377_900);
   });
 
   it('fails closed when SUPABASE_JWT_SECRET is missing', () => {
