@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { notifyCustomer } from '@/lib/expo-push';
 import {
   checkTransactionStatus,
   type PurchaseResult,
@@ -67,6 +68,260 @@ function normalizeVoucherPin(value: unknown) {
 
 function canResolveBillVoucherPin(type: VtuTransactionRow['type']) {
   return type === 'electricity' || type === 'cable_tv' || type === 'betting';
+}
+
+function coerceNumber(value: unknown) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : 0;
+}
+
+function formatNaira(amount: number) {
+  return `₦${new Intl.NumberFormat('en-NG', {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
+  }).format(amount)}`;
+}
+
+function getVtuProviderLabel(row: VtuTransactionRow) {
+  return row.network_provider || row.biller_name || VTU_TYPE_LABELS[row.type];
+}
+
+function setMetadataValue(
+  metadata: Record<string, unknown>,
+  key: string,
+  value: unknown
+) {
+  if (metadata[key] === value) {
+    return false;
+  }
+  metadata[key] = value;
+  return true;
+}
+
+async function findExistingCustomerCashback({
+  row,
+  supabase,
+}: {
+  row: VtuTransactionRow;
+  supabase: SupabaseClient;
+}) {
+  if (!row.customer_id) {
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from('customer_wallet_transactions')
+    .select('balance_after')
+    .eq('customer_id', row.customer_id)
+    .eq('merchant_id', row.merchant_id)
+    .eq('source_type', 'vtu_transaction')
+    .eq('source_id', row.id)
+    .eq('type', 'cashback')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Failed to check existing VTU cashback ledger:', {
+      error: error.message,
+      transactionId: row.id,
+    });
+    return null;
+  }
+
+  return data;
+}
+
+async function findExistingMerchantCommission({
+  row,
+  supabase,
+}: {
+  row: VtuTransactionRow;
+  supabase: SupabaseClient;
+}) {
+  const { data, error } = await supabase
+    .from('wallet_transactions')
+    .select('id')
+    .eq('merchant_id', row.merchant_id)
+    .eq('source_type', 'vtu_transaction')
+    .eq('source_id', row.id)
+    .eq('type', 'credit')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Failed to check existing VTU merchant commission:', {
+      error: error.message,
+      transactionId: row.id,
+    });
+    return null;
+  }
+
+  return data;
+}
+
+async function settleVtuWalletCredits({
+  metadata,
+  row,
+  supabase,
+}: {
+  metadata: Record<string, unknown>;
+  row: VtuTransactionRow;
+  supabase: SupabaseClient;
+}) {
+  const merchantCommission = Number(row.merchant_commission ?? 0);
+  const cashbackAmount = Number(row.customer_cashback ?? 0);
+  let metadataChanged = false;
+  let merchantWalletCredited = metadata.merchantWalletCredited === true;
+  let customerWalletCredited = metadata.customerWalletCredited === true;
+  let customerNewBalance = coerceNumber(metadata.customerNewBalance);
+
+  if (merchantCommission > 0 && !merchantWalletCredited) {
+    const existingCommission = await findExistingMerchantCommission({
+      row,
+      supabase,
+    });
+
+    if (existingCommission) {
+      merchantWalletCredited = true;
+    } else {
+      const { error } = await supabase.rpc('credit_merchant_wallet', {
+        p_merchant_id: row.merchant_id,
+        p_amount: merchantCommission,
+        p_source_type: 'vtu_transaction',
+        p_source_id: row.id,
+        p_description: `VTU Commission - ${VTU_TYPE_LABELS[row.type]} ${getVtuProviderLabel(row)} ₦${row.amount}`,
+      });
+      merchantWalletCredited = !error;
+    }
+
+    metadataChanged =
+      setMetadataValue(
+        metadata,
+        'merchantWalletCredited',
+        merchantWalletCredited
+      ) || metadataChanged;
+  }
+
+  if (cashbackAmount > 0 && row.customer_id && !customerWalletCredited) {
+    const existingCashback = await findExistingCustomerCashback({
+      row,
+      supabase,
+    });
+
+    if (existingCashback) {
+      customerWalletCredited = true;
+      customerNewBalance = coerceNumber(existingCashback.balance_after);
+    } else {
+      const { data, error } = await supabase.rpc('credit_customer_wallet', {
+        p_customer_id: row.customer_id,
+        p_merchant_id: row.merchant_id,
+        p_amount: cashbackAmount,
+        p_source_type: 'vtu_transaction',
+        p_source_id: row.id,
+        p_description: `Cashback - ${VTU_TYPE_LABELS[row.type]} ${getVtuProviderLabel(row)} ₦${row.amount}`,
+      });
+
+      if (!error) {
+        customerWalletCredited = true;
+        const nextBalance = Array.isArray(data) ? data[0]?.new_balance : null;
+        customerNewBalance = coerceNumber(nextBalance);
+      }
+    }
+
+    metadataChanged =
+      setMetadataValue(
+        metadata,
+        'customerWalletCredited',
+        customerWalletCredited
+      ) || metadataChanged;
+    metadataChanged =
+      setMetadataValue(metadata, 'customerNewBalance', customerNewBalance) ||
+      metadataChanged;
+  }
+
+  return {
+    customerNewBalance,
+    customerWalletCredited,
+    merchantWalletCredited,
+    metadataChanged,
+  };
+}
+
+async function notifyVtuCustomerSuccess({
+  cashbackAmount,
+  customerWalletCredited,
+  metadata,
+  row,
+  supabase,
+}: {
+  cashbackAmount: number;
+  customerWalletCredited: boolean;
+  metadata: Record<string, unknown>;
+  row: VtuTransactionRow;
+  supabase: SupabaseClient;
+}) {
+  if (!row.customer_id || metadata.customerNotificationAttempted === true) {
+    return { metadataChanged: false };
+  }
+
+  const { data: customer, error } = await supabase
+    .from('customers')
+    .select('user_id')
+    .eq('id', row.customer_id)
+    .maybeSingle();
+
+  if (error || !customer?.user_id) {
+    if (error) {
+      console.error('Failed to resolve VTU customer notification user:', {
+        error: error.message,
+        transactionId: row.id,
+      });
+    }
+    return { metadataChanged: false };
+  }
+
+  const label = VTU_TYPE_LABELS[row.type];
+  const provider = getVtuProviderLabel(row);
+  const baseBody = `Your ${provider} ${label.toLowerCase()} purchase of ${formatNaira(Number(row.amount) || 0)} was successful.`;
+  const cashbackBody =
+    cashbackAmount > 0 && customerWalletCredited
+      ? ` ${formatNaira(cashbackAmount)} cashback was credited to your wallet.`
+      : '';
+
+  try {
+    const result = await notifyCustomer(
+      customer.user_id,
+      `${label} purchase successful`,
+      `${baseBody}${cashbackBody}`,
+      {
+        amount: Number(row.amount) || 0,
+        cashbackAmount,
+        reference: row.request_reference,
+        transactionId: row.id,
+        type: 'vtu_purchase_success',
+        vtuType: row.type,
+      },
+      'orders'
+    );
+
+    let metadataChanged = setMetadataValue(
+      metadata,
+      'customerNotificationAttempted',
+      true
+    );
+    metadataChanged =
+      setMetadataValue(metadata, 'customerNotificationSent', result.sent > 0) ||
+      metadataChanged;
+    return { metadataChanged };
+  } catch (error) {
+    console.error('Failed to send VTU success notification:', {
+      error: error instanceof Error ? error.message : String(error),
+      transactionId: row.id,
+    });
+    return { metadataChanged: false };
+  }
 }
 
 export async function backfillVtuVoucherPin({
@@ -241,11 +496,9 @@ export async function fulfillPendingVtuTransaction({
 
   const row = existing as VtuTransactionRow;
   if (row.status === 'successful') {
+    const metadata = { ...(row.metadata ?? {}) };
+    let metadataChanged = false;
     const cashbackAmount = Number(row.customer_cashback ?? 0);
-    const newBalance =
-      typeof row.metadata?.customerNewBalance === 'number'
-        ? row.metadata.customerNewBalance
-        : 0;
     const voucherPin = canResolveBillVoucherPin(row.type)
       ? await backfillVtuVoucherPin({
           billRequestRef: row.request_reference,
@@ -255,6 +508,31 @@ export async function fulfillPendingVtuTransaction({
           transactionId: row.id,
         })
       : getVoucherPinFromMetadata(row.metadata);
+    if (voucherPin) {
+      metadataChanged =
+        setMetadataValue(metadata, 'voucherPin', voucherPin) || metadataChanged;
+    }
+    const walletSettlement = await settleVtuWalletCredits({
+      metadata,
+      row,
+      supabase,
+    });
+    metadataChanged = walletSettlement.metadataChanged || metadataChanged;
+    const notificationSettlement = await notifyVtuCustomerSuccess({
+      cashbackAmount,
+      customerWalletCredited: walletSettlement.customerWalletCredited,
+      metadata,
+      row,
+      supabase,
+    });
+    metadataChanged = notificationSettlement.metadataChanged || metadataChanged;
+
+    if (metadataChanged) {
+      await supabase
+        .from('vtu_transactions')
+        .update({ metadata })
+        .eq('id', row.id);
+    }
 
     return {
       amount: Number(row.amount) || 0,
@@ -262,8 +540,8 @@ export async function fulfillPendingVtuTransaction({
         cashbackAmount > 0
           ? {
               amount: cashbackAmount,
-              credited: Boolean(row.metadata?.customerWalletCredited),
-              newBalance,
+              credited: walletSettlement.customerWalletCredited,
+              newBalance: walletSettlement.customerNewBalance,
             }
           : undefined,
       customerIdentifier: row.customer_identifier ?? undefined,
@@ -354,50 +632,26 @@ export async function fulfillPendingVtuTransaction({
     };
   }
 
-  const merchantCommission = Number(row.merchant_commission ?? 0);
   const cashbackAmount = Number(row.customer_cashback ?? 0);
-  let merchantWalletCredited = false;
-  let customerWalletCredited = false;
-  let customerNewBalance = 0;
-
-  if (merchantCommission > 0) {
-    const { error } = await supabase.rpc('credit_merchant_wallet', {
-      p_merchant_id: row.merchant_id,
-      p_amount: merchantCommission,
-      p_source_type: 'vtu_transaction',
-      p_source_id: row.id,
-      p_description: `VTU Commission - ${VTU_TYPE_LABELS[row.type]} ${row.network_provider || row.biller_name || ''} ₦${row.amount}`,
-    });
-    merchantWalletCredited = !error;
-  }
-
-  if (cashbackAmount > 0 && row.customer_id) {
-    const { data, error } = await supabase.rpc('credit_customer_wallet', {
-      p_customer_id: row.customer_id,
-      p_merchant_id: row.merchant_id,
-      p_amount: cashbackAmount,
-      p_source_type: 'vtu_transaction',
-      p_source_id: row.id,
-      p_description: `Cashback - ${VTU_TYPE_LABELS[row.type]} ${row.network_provider || row.biller_name || ''} ₦${row.amount}`,
-    });
-
-    if (!error) {
-      customerWalletCredited = true;
-      const nextBalance = Array.isArray(data) ? data[0]?.new_balance : null;
-      customerNewBalance = typeof nextBalance === 'number' ? nextBalance : 0;
-    }
-  }
+  const finalMetadata = { ...updatedMetadata };
+  const walletSettlement = await settleVtuWalletCredits({
+    metadata: finalMetadata,
+    row,
+    supabase,
+  });
+  await notifyVtuCustomerSuccess({
+    cashbackAmount,
+    customerWalletCredited: walletSettlement.customerWalletCredited,
+    metadata: finalMetadata,
+    row,
+    supabase,
+  });
+  setMetadataValue(finalMetadata, 'paymentPending', false);
 
   await supabase
     .from('vtu_transactions')
     .update({
-      metadata: {
-        ...updatedMetadata,
-        customerNewBalance,
-        customerWalletCredited,
-        merchantWalletCredited,
-        paymentPending: false,
-      },
+      metadata: finalMetadata,
     })
     .eq('id', row.id);
 
@@ -407,8 +661,8 @@ export async function fulfillPendingVtuTransaction({
       cashbackAmount > 0
         ? {
             amount: cashbackAmount,
-            credited: customerWalletCredited,
-            newBalance: customerNewBalance,
+            credited: walletSettlement.customerWalletCredited,
+            newBalance: walletSettlement.customerNewBalance,
           }
         : undefined,
     customerIdentifier: row.customer_identifier ?? undefined,
