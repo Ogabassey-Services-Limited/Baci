@@ -4,6 +4,7 @@ import { fulfillPendingVtuTransaction } from '@/lib/vtu-fulfillment';
 const mockPurchaseAirtime = vi.fn();
 const mockPurchaseData = vi.fn();
 const mockCheckTransactionStatus = vi.fn();
+const mockNotifyCustomer = vi.fn();
 
 vi.mock('@/lib/kuda', () => ({
   NetworkProvider: {
@@ -22,22 +23,34 @@ vi.mock('@/lib/kuda-bills', () => ({
   purchaseBill: vi.fn(),
 }));
 
+vi.mock('@/lib/expo-push', () => ({
+  notifyCustomer: (...args: unknown[]) => mockNotifyCustomer(...args),
+}));
+
 type SupabaseStub = Parameters<
   typeof fulfillPendingVtuTransaction
 >[0]['supabase'];
 
 interface PendingTransactionMockOptions {
+  customerData?: { user_id: string | null } | null;
+  existingCustomerCashback?: { balance_after: number } | null;
+  existingMerchantCommission?: { id: string } | null;
   transactionRow: Record<string, unknown>;
   rpcImpl?: (name: string) => Promise<{ data: unknown; error: unknown }>;
   merchantData?: { business_name?: string };
   claimData?: { id: string } | null;
+  updatePayloads?: unknown[];
 }
 
 function createPendingTransactionSupabaseMock({
+  customerData = { user_id: 'user-1' },
+  existingCustomerCashback = null,
+  existingMerchantCommission = null,
   transactionRow,
   rpcImpl,
   merchantData = { business_name: 'OgaBassey' },
   claimData = { id: 'vtu-1' },
+  updatePayloads = [],
 }: PendingTransactionMockOptions): SupabaseStub {
   const claimMaybeSingle = vi.fn().mockResolvedValue({
     data: claimData,
@@ -47,6 +60,28 @@ function createPendingTransactionSupabaseMock({
     data: merchantData,
     error: null,
   });
+  const customerMaybeSingle = vi.fn().mockResolvedValue({
+    data: customerData,
+    error: null,
+  });
+  const existingCustomerCashbackMaybeSingle = vi.fn().mockResolvedValue({
+    data: existingCustomerCashback,
+    error: null,
+  });
+  const existingMerchantCommissionMaybeSingle = vi.fn().mockResolvedValue({
+    data: existingMerchantCommission,
+    error: null,
+  });
+  const makeMaybeSingleChain = (maybeSingle: ReturnType<typeof vi.fn>) => {
+    const chain = {
+      eq: vi.fn(() => chain),
+      limit: vi.fn(() => chain),
+      maybeSingle,
+      order: vi.fn(() => chain),
+      select: vi.fn(() => chain),
+    };
+    return chain;
+  };
 
   return {
     from: vi.fn((table: string) => {
@@ -59,14 +94,41 @@ function createPendingTransactionSupabaseMock({
                 .mockResolvedValue({ data: transactionRow, error: null }),
             }),
           }),
-          update: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
+          update: vi.fn((payload: unknown) => {
+            updatePayloads.push(payload);
+            return {
               eq: vi.fn().mockReturnValue({
-                select: vi.fn().mockReturnValue({
-                  maybeSingle: claimMaybeSingle,
+                eq: vi.fn().mockReturnValue({
+                  select: vi.fn().mockReturnValue({
+                    maybeSingle: claimMaybeSingle,
+                  }),
                 }),
               }),
-            }),
+            };
+          }),
+        };
+      }
+
+      if (table === 'customer_wallet_transactions') {
+        const chain = makeMaybeSingleChain(existingCustomerCashbackMaybeSingle);
+        return {
+          select: vi.fn(() => chain),
+        };
+      }
+
+      if (table === 'wallet_transactions') {
+        const chain = makeMaybeSingleChain(
+          existingMerchantCommissionMaybeSingle
+        );
+        return {
+          select: vi.fn(() => chain),
+        };
+      }
+
+      if (table === 'customers') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({ maybeSingle: customerMaybeSingle }),
           }),
         };
       }
@@ -88,6 +150,7 @@ describe('fulfillPendingVtuTransaction', () => {
       message: 'No token',
       status: 'successful',
     });
+    mockNotifyCustomer.mockResolvedValue({ errors: [], failed: 0, sent: 1 });
   });
 
   it('returns the existing success payload without repurchasing', async () => {
@@ -104,8 +167,10 @@ describe('fulfillPendingVtuTransaction', () => {
         transaction_id: 'kuda-1',
         status: 'successful',
         metadata: {
+          customerNotificationAttempted: true,
           customerWalletCredited: true,
           customerNewBalance: 500,
+          merchantWalletCredited: true,
         },
         error_message: null,
         merchant_commission: 10,
@@ -142,6 +207,124 @@ describe('fulfillPendingVtuTransaction', () => {
     expect(mockPurchaseAirtime).not.toHaveBeenCalled();
   });
 
+  it('backfills missing customer cashback for an already successful transaction', async () => {
+    const updatePayloads: unknown[] = [];
+    const supabase = createPendingTransactionSupabaseMock({
+      claimData: null,
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: 'customer-1',
+        type: 'airtime',
+        network_provider: 'MTN',
+        phone_number: '08012345678',
+        amount: 1500,
+        request_reference: 'VTU-123',
+        transaction_id: 'kuda-1',
+        status: 'successful',
+        metadata: {},
+        error_message: null,
+        merchant_commission: 0,
+        customer_cashback: 11.25,
+        biller_name: null,
+        biller_item_code: null,
+        customer_identifier: null,
+      },
+      rpcImpl: (name: string) => {
+        if (name === 'credit_customer_wallet') {
+          return Promise.resolve({
+            data: [{ new_balance: 25.75 }],
+            error: null,
+          });
+        }
+        return Promise.resolve({ data: null, error: null });
+      },
+      updatePayloads,
+    });
+
+    const result = await fulfillPendingVtuTransaction({
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith('credit_customer_wallet', {
+      p_amount: 11.25,
+      p_customer_id: 'customer-1',
+      p_description: 'Cashback - Airtime MTN ₦1500',
+      p_merchant_id: 'merchant-1',
+      p_source_id: 'vtu-1',
+      p_source_type: 'vtu_transaction',
+    });
+    expect(result).toMatchObject({
+      cashback: { amount: 11.25, credited: true, newBalance: 25.75 },
+      status: 'successful',
+    });
+    expect(updatePayloads).toContainEqual({
+      metadata: expect.objectContaining({
+        customerNewBalance: 25.75,
+        customerNotificationAttempted: true,
+        customerNotificationSent: true,
+        customerWalletCredited: true,
+      }),
+    });
+    expect(mockNotifyCustomer).toHaveBeenCalledWith(
+      'user-1',
+      'Airtime purchase successful',
+      'Your MTN airtime purchase of ₦1,500 was successful. ₦11.25 cashback was credited to your wallet.',
+      {
+        amount: 1500,
+        cashbackAmount: 11.25,
+        reference: 'VTU-123',
+        transactionId: 'vtu-1',
+        type: 'vtu_purchase_success',
+        vtuType: 'airtime',
+      },
+      'orders'
+    );
+  });
+
+  it('reuses an existing cashback ledger when success metadata was not updated', async () => {
+    const supabase = createPendingTransactionSupabaseMock({
+      claimData: null,
+      existingCustomerCashback: { balance_after: 11.25 },
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: 'customer-1',
+        type: 'airtime',
+        network_provider: 'MTN',
+        phone_number: '08012345678',
+        amount: 1500,
+        request_reference: 'VTU-123',
+        transaction_id: 'kuda-1',
+        status: 'successful',
+        metadata: {
+          customerNotificationAttempted: true,
+        },
+        error_message: null,
+        merchant_commission: 0,
+        customer_cashback: 11.25,
+        biller_name: null,
+        biller_item_code: null,
+        customer_identifier: null,
+      },
+    });
+
+    const result = await fulfillPendingVtuTransaction({
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(supabase.rpc).not.toHaveBeenCalledWith(
+      'credit_customer_wallet',
+      expect.anything()
+    );
+    expect(result).toMatchObject({
+      cashback: { amount: 11.25, credited: true, newBalance: 11.25 },
+      status: 'successful',
+    });
+  });
+
   it('claims a pending transaction, purchases airtime, and credits wallets', async () => {
     mockPurchaseAirtime.mockResolvedValue({
       success: true,
@@ -163,7 +346,9 @@ describe('fulfillPendingVtuTransaction', () => {
         request_reference: 'VTU-123',
         transaction_id: null,
         status: 'pending',
-        metadata: {},
+        metadata: {
+          customerNotificationAttempted: true,
+        },
         error_message: null,
         merchant_commission: 10,
         customer_cashback: 5,
