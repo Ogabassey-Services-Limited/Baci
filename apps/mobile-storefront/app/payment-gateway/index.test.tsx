@@ -295,4 +295,39 @@ describe('PaymentGatewayScreen', () => {
     );
     expect(screen.queryByText('Payment Failed')).toBeNull();
   });
+
+  it('allows VTU confirmation to retry after a transient failure', async () => {
+    (
+      waitForVtuConfirmation as jest.MockedFunction<
+        typeof waitForVtuConfirmation
+      >
+    )
+      .mockRejectedValueOnce(new Error('Temporary confirmation error'))
+      .mockResolvedValueOnce({
+        amount: 1000,
+        customerIdentifier: '43901766923',
+        reference: 'ref-123',
+        status: 'successful',
+      });
+
+    render(<PaymentGatewayScreen />);
+
+    fireEvent.press(screen.getByLabelText('mock-payment-success-navigation'));
+
+    await waitFor(() => expect(screen.getByText('Payment Failed')).toBeTruthy());
+
+    fireEvent.press(screen.getByText('Try Again'));
+
+    await waitFor(() =>
+      expect(screen.getByText('Secure Paystack Checkout')).toBeTruthy()
+    );
+    fireEvent.press(screen.getByLabelText('mock-payment-success-navigation'));
+
+    await waitFor(() =>
+      expect(waitForVtuConfirmation).toHaveBeenCalledTimes(2)
+    );
+    await waitFor(() =>
+      expect(screen.getByText('Payment Successful!')).toBeTruthy()
+    );
+  });
 });

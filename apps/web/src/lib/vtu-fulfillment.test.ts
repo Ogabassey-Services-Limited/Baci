@@ -543,5 +543,12 @@ describe('fulfillPendingVtuTransaction', () => {
       'kuda-bill-1',
       'VTU-123'
     );
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'set_vtu_transaction_voucher_pin',
+      {
+        p_transaction_id: 'vtu-1',
+        p_voucher_pin: '1234-5678-9012',
+      }
+    );
   });
 });

@@ -356,10 +356,10 @@ export async function backfillVtuVoucherPin({
       return undefined;
     }
 
-    const { error } = await supabase
-      .from('vtu_transactions')
-      .update({ metadata: { ...(metadata ?? {}), voucherPin } })
-      .eq('id', transactionId);
+    const { error } = await supabase.rpc('set_vtu_transaction_voucher_pin', {
+      p_transaction_id: transactionId,
+      p_voucher_pin: voucherPin,
+    });
 
     if (error) {
       console.error('Failed to persist VTU voucher pin:', {

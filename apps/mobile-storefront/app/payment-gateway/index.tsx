@@ -563,6 +563,7 @@ export default function PaymentGatewayScreen() {
   };
 
   const handleRetry = () => {
+    paymentCompletionStartedRef.current = false;
     setStatus('loading');
     setErrorMessage(null);
     webViewRef.current?.reload();

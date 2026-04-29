@@ -15,6 +15,7 @@ describe('UtilityTypeTabs', () => {
     expect(screen.getByText('TV')).toBeOnTheScreen();
     expect(screen.getByText('Power')).toBeOnTheScreen();
     expect(screen.getByText('Gaming')).toBeOnTheScreen();
+    expect(screen.getAllByRole('tab')).toHaveLength(5);
     expect(
       screen.getByLabelText('Power utility service')
     ).toHaveAccessibilityState({

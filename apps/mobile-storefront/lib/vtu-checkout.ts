@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase';
 const API_URL =
   process.env.EXPO_PUBLIC_API_URL ||
   Constants.expoConfig?.extra?.apiUrl ||
-  'https://ogabassey.usebaci.com';
+  'https://usebaci.com';
 
 const GatewayEnum = z.enum(['paystack', 'korapay']);
 

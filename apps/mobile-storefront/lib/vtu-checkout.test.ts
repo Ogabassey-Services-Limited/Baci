@@ -30,6 +30,15 @@ const mockFetchWithTimeout =
 const mockGetUser = jest.fn<() => Promise<MockUserResult>>();
 const mockGetSession = jest.fn<() => Promise<MockSessionResult>>();
 
+jest.mock('expo-constants', () => ({
+  __esModule: true,
+  default: {
+    expoConfig: {
+      extra: {},
+    },
+  },
+}));
+
 jest.mock('@/lib/fetch-with-timeout', () => ({
   DEFAULT_TIMEOUT: 30000,
   fetchWithTimeout: (...args: unknown[]) => mockFetchWithTimeout(...args),
@@ -115,7 +124,7 @@ describe('vtu-checkout service', () => {
 
     expect(result.reference).toBe('VTU-123');
     expect(mockFetchWithTimeout).toHaveBeenCalledWith(
-      expect.stringContaining('/api/vtu/checkout/initialize'),
+      'https://usebaci.com/api/vtu/checkout/initialize',
       expect.objectContaining({
         headers: expect.objectContaining({
           Authorization: 'Bearer token-123',

@@ -13,6 +13,22 @@ vi.mock('@/lib/api-auth', () => ({
     mockAuthenticateApiRequest(...args),
 }));
 
+const mockAfter = vi.fn();
+vi.mock('next/server', async () => {
+  const actual =
+    await vi.importActual<typeof import('next/server')>('next/server');
+  return {
+    ...actual,
+    after: (callback: () => unknown) => mockAfter(callback),
+  };
+});
+
+const mockBackfillVtuVoucherPin = vi.fn();
+vi.mock('@/lib/vtu-fulfillment', () => ({
+  backfillVtuVoucherPin: (...args: unknown[]) =>
+    mockBackfillVtuVoucherPin(...args),
+}));
+
 let merchantData: { id: string } | null = null;
 let merchantError: unknown = null;
 let customerByUserIdData: { id: string; user_id: string | null } | null = null;
@@ -121,6 +137,8 @@ function makeRequest(search = '') {
 describe('GET /api/vtu/history', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockAfter.mockReset();
+    mockBackfillVtuVoucherPin.mockReset();
     merchantData = { id: 'merchant-1' };
     merchantError = null;
     customerByUserIdData = { id: 'customer-1', user_id: 'user-1' };
@@ -202,6 +220,58 @@ describe('GET /api/vtu/history', () => {
     expect(transactionEqCalls).toContainEqual(['customer_id', 'customer-1']);
     expect(transactionEqCalls).toContainEqual(['type', 'electricity']);
     expect(mockCustomerUpdateEq).toHaveBeenCalledWith('id', 'customer-1');
+  });
+
+  it('returns history immediately and schedules missing voucher-pin backfill after response', async () => {
+    const { GET } = await import('./route');
+    transactionsData = [
+      {
+        id: 'tx-1',
+        created_at: '2026-04-08T12:00:00.000Z',
+        type: 'electricity',
+        status: 'successful',
+        amount: '2500',
+        biller_name: 'EKEDC NG',
+        metadata: {},
+        request_reference: 'VTU-123',
+        transaction_id: 'kuda-bill-1',
+        customer_cashback: '0',
+      },
+    ];
+    paymentRowsData = [];
+    mockBackfillVtuVoucherPin.mockResolvedValue('1234-5678');
+
+    const response = await GET(
+      makeRequest('?merchantSlug=ogabassey&type=electricity') as never
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.transactions).toEqual([
+      expect.objectContaining({
+        id: 'tx-1',
+        voucher_pin: null,
+      }),
+    ]);
+    expect(mockAfter).toHaveBeenCalledTimes(1);
+    expect(mockBackfillVtuVoucherPin).not.toHaveBeenCalled();
+
+    const scheduledBackfill = mockAfter.mock.calls[0]?.[0] as
+      | (() => Promise<void>)
+      | undefined;
+    expect(scheduledBackfill).toBeDefined();
+    if (!scheduledBackfill) {
+      throw new Error('Expected voucher-pin backfill to be scheduled');
+    }
+    await scheduledBackfill();
+
+    expect(mockBackfillVtuVoucherPin).toHaveBeenCalledWith({
+      billRequestRef: 'VTU-123',
+      billResponseReference: 'kuda-bill-1',
+      metadata: {},
+      supabase: expect.any(Object),
+      transactionId: 'tx-1',
+    });
   });
 
   it('returns an empty list when no customer exists for the authenticated user', async () => {

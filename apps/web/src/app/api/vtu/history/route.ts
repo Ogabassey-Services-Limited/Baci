@@ -1,33 +1,11 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import { after, type NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { backfillVtuVoucherPin } from '@/lib/vtu-fulfillment';
 import { historyQuerySchema } from '@/schemas/vtu';
 
 const TOKEN_BACKFILL_TYPES = new Set(['electricity', 'cable_tv', 'betting']);
-const TOKEN_BACKFILL_CONCURRENCY = 3;
-
-async function mapWithConcurrency<T, U>(
-  items: T[],
-  limit: number,
-  mapper: (item: T) => Promise<U>
-) {
-  const results = new Array<U>(items.length);
-  let nextIndex = 0;
-
-  async function worker() {
-    while (nextIndex < items.length) {
-      const currentIndex = nextIndex;
-      nextIndex += 1;
-      results[currentIndex] = await mapper(items[currentIndex]);
-    }
-  }
-
-  await Promise.all(
-    Array.from({ length: Math.min(limit, items.length) }, () => worker())
-  );
-  return results;
-}
+const MAX_TOKEN_BACKFILL_SCHEDULES = 3;
 
 export async function GET(request: NextRequest) {
   try {
@@ -172,24 +150,25 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const transactionsWithVoucherPins = await mapWithConcurrency(
-      transactions ?? [],
-      TOKEN_BACKFILL_CONCURRENCY,
-      async (transaction) => {
+    let scheduledTokenBackfills = 0;
+    const transactionsWithVoucherPins = (transactions ?? []).map(
+      (transaction) => {
         const metadata = (transaction.metadata ?? {}) as Record<
           string,
           unknown
         >;
-        let voucherPin =
+        const voucherPin =
           typeof metadata.voucherPin === 'string' ? metadata.voucherPin : null;
 
         if (
           !voucherPin &&
           transaction.status === 'successful' &&
-          TOKEN_BACKFILL_TYPES.has(String(transaction.type))
+          TOKEN_BACKFILL_TYPES.has(String(transaction.type)) &&
+          scheduledTokenBackfills < MAX_TOKEN_BACKFILL_SCHEDULES
         ) {
-          voucherPin =
-            (await backfillVtuVoucherPin({
+          scheduledTokenBackfills += 1;
+          after(async () => {
+            await backfillVtuVoucherPin({
               billRequestRef:
                 typeof transaction.request_reference === 'string'
                   ? transaction.request_reference
@@ -201,7 +180,8 @@ export async function GET(request: NextRequest) {
               metadata,
               supabase,
               transactionId: String(transaction.id),
-            })) ?? null;
+            });
+          });
         }
 
         return { transaction, voucherPin };
