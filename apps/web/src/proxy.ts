@@ -1011,6 +1011,20 @@ export async function proxy(request: NextRequest) {
       const domainPathSegments = pathname.split('/').filter(Boolean);
       const domainMerchantSlug = await getSlugForCustomDomain(domain);
 
+      // Public machine feeds are App Router routes, not storefront pages.
+      // Run before slug-prefix canonicalization so a merchant slug named
+      // "feeds" cannot shadow the canonical XML feed endpoint.
+      if (pathname === GOOGLE_MERCHANT_XML_FEED_PATH) {
+        return buildMerchantFeedPassThroughResponse({
+          request,
+          pathname,
+          userAgent,
+          hostname,
+          customDomain: domain,
+          merchantSlug: domainMerchantSlug,
+        });
+      }
+
       if (
         domainMerchantSlug &&
         domainPathSegments[0]?.toLowerCase() ===
@@ -1119,20 +1133,6 @@ export async function proxy(request: NextRequest) {
           request,
           hostname
         );
-      }
-
-      // Public machine feeds are App Router routes, not storefront pages.
-      // Keep them host-scoped for merchant resolution while bypassing the
-      // custom-domain storefront catch-all rewrite.
-      if (pathname === GOOGLE_MERCHANT_XML_FEED_PATH) {
-        return buildMerchantFeedPassThroughResponse({
-          request,
-          pathname,
-          userAgent,
-          hostname,
-          customDomain: domain,
-          merchantSlug: domainMerchantSlug,
-        });
       }
 
       // Prevent redirect loop: if the path already starts with the domain,

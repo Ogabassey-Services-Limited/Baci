@@ -180,6 +180,24 @@ describe('Middleware Proxy', () => {
     );
   });
 
+  it('does not canonicalize the custom-domain XML feed when the merchant slug is feeds', async () => {
+    vi.mocked(getSlugForCustomDomain).mockResolvedValueOnce('feeds');
+    const req = new NextRequest(
+      'https://shop.example/feeds/google-merchant.xml'
+    );
+    req.headers.set('host', 'shop.example');
+
+    const res = await proxy(req);
+
+    expect(getSlugForCustomDomain).toHaveBeenCalledWith('shop.example');
+    expect(res.headers.get('location')).toBeNull();
+    expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+    expect(res.headers.get('x-middleware-next')).toBe('1');
+    expect(res.headers.get('x-middleware-request-x-merchant-slug')).toBe(
+      'feeds'
+    );
+  });
+
   it('passes subdomain Google Merchant XML feed to the app route', async () => {
     const req = new NextRequest(
       `https://ogabassey.${ROOT_DOMAIN}/feeds/google-merchant.xml`
