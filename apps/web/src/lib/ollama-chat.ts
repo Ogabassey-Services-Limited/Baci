@@ -22,7 +22,7 @@ interface OllamaChatChunk {
   error?: string;
 }
 
-const OLLAMA_CHAT_TIMEOUT_MS = 120_000;
+const OLLAMA_CHAT_TIMEOUT_MS = 90_000;
 const MODEL_NAME_LINE_BREAK_PATTERN = /\\n|\r?\n|\r/g;
 
 function normalizeOllamaBaseUrl(baseUrl: string): string {
@@ -189,11 +189,14 @@ export async function createOllamaChatResponse({
   }
 
   if (!response.ok) {
-    cleanup();
-    const errorText = await response.text().catch(() => '');
-    throw new Error(
-      `Ollama chat returned ${response.status}${errorText ? `: ${errorText}` : ''}`
-    );
+    try {
+      const errorText = await response.text().catch(() => '');
+      throw new Error(
+        `Ollama chat returned ${response.status}${errorText ? `: ${errorText}` : ''}`
+      );
+    } finally {
+      cleanup();
+    }
   }
 
   if (!response.body) {

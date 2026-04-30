@@ -108,7 +108,7 @@ describe('createOllamaChatResponse', () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it('uses the full 120-second chat timeout by default', async () => {
+  it('uses a 90-second chat timeout by default to leave fallback budget', async () => {
     vi.useFakeTimers();
     let status: 'pending' | 'fulfilled' | 'rejected' = 'pending';
     let rejection: unknown;
@@ -141,7 +141,7 @@ describe('createOllamaChatResponse', () => {
       }
     );
 
-    await vi.advanceTimersByTimeAsync(119_999);
+    await vi.advanceTimersByTimeAsync(89_999);
     expect(status).toBe('pending');
 
     await vi.advanceTimersByTimeAsync(1);
@@ -172,6 +172,46 @@ describe('createOllamaChatResponse', () => {
       'https://ollama.example.com/api/chat',
       expect.anything()
     );
+  });
+
+  it('keeps the timeout active while reading non-ok response bodies', async () => {
+    vi.useFakeTimers();
+    let responseSignal: AbortSignal | undefined;
+    const mockResponse = {
+      ok: false,
+      status: 502,
+      text: vi.fn(
+        () =>
+          new Promise<string>((_resolve, reject) => {
+            responseSignal?.addEventListener(
+              'abort',
+              () => reject(new Error('body read aborted')),
+              { once: true }
+            );
+          })
+      ),
+    } as unknown as Response;
+    const mockFetch = vi.fn((_input: unknown, init?: RequestInit) => {
+      responseSignal = init?.signal ?? undefined;
+      return Promise.resolve(mockResponse);
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const request = createOllamaChatResponse({
+      baseUrl: 'https://ollama.example.com',
+      model: 'gemma4:e4b',
+      messages: [{ role: 'user', content: 'Hi' }],
+      timeoutMs: 10,
+    });
+    const expectation = expect(request).rejects.toThrow(
+      'Ollama chat returned 502'
+    );
+
+    await vi.advanceTimersByTimeAsync(10);
+
+    await expectation;
+    expect(responseSignal?.aborted).toBe(true);
+    expect(mockResponse.text).toHaveBeenCalledOnce();
   });
 
   it('surfaces invalid streaming JSON without leaking chunk content', async () => {

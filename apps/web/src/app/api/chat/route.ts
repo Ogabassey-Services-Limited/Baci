@@ -167,6 +167,9 @@ function getSafeOllamaErrorMessage(error: unknown): string {
 async function bufferOllamaTextResponse(response: Response): Promise<Response> {
   // Read the Ollama stream before returning so parse/disconnect failures can still use Gemini fallback.
   const text = await response.text();
+  if (!text.trim()) {
+    throw new Error('Ollama chat returned an empty completion');
+  }
 
   return new Response(text, {
     status: response.status,

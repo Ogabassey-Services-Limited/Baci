@@ -9,6 +9,7 @@ let ollamaBaseUrl: string | undefined;
 let ollamaBasicAuth: string | undefined;
 let ollamaError: Error | null = null;
 let ollamaStreamError: Error | null = null;
+let ollamaResponseText = 'Gemma response';
 
 // ---- Mocks ----
 
@@ -68,7 +69,7 @@ vi.mock('@/lib/ollama-chat', () => ({
     }
 
     return Promise.resolve(
-      new Response('Gemma response', {
+      new Response(ollamaResponseText, {
         headers: { 'Content-Type': 'text/plain; charset=utf-8' },
       })
     );
@@ -154,6 +155,7 @@ describe('POST /api/chat', () => {
     ollamaBasicAuth = undefined;
     ollamaError = null;
     ollamaStreamError = null;
+    ollamaResponseText = 'Gemma response';
   });
 
   it('returns 429 when rate limited', async () => {
@@ -334,6 +336,34 @@ describe('POST /api/chat', () => {
     expect(warnSpy).toHaveBeenCalledWith(
       '[Agentic Chat] Ollama request failed; falling back to Gemini:',
       'Invalid Ollama chat chunk JSON: Unexpected end of JSON input; payloadLength=42'
+    );
+    warnSpy.mockRestore();
+  });
+
+  it('falls back to Gemini when Ollama returns an empty completion', async () => {
+    // Arrange
+    ollamaBaseUrl = 'https://ollama.example.com';
+    ollamaResponseText = '   ';
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    // Act
+    const response = await POST(
+      makeRequest({
+        messages: [{ role: 'user', content: 'Show me phones' }],
+      })
+    );
+    const text = await response.text();
+
+    // Assert
+    expect(response.status).toBe(200);
+    expect(text).toBe('AI response');
+    expect(createOllamaChatResponse).toHaveBeenCalledOnce();
+    expect(generateText).toHaveBeenCalledOnce();
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[Agentic Chat] Ollama request failed; falling back to Gemini:',
+      'Ollama chat returned an empty completion'
     );
     warnSpy.mockRestore();
   });
