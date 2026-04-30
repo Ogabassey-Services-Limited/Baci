@@ -159,6 +159,121 @@ describe('DeferredGoogleStoreWidget', () => {
     expect(screen.getByText('Widget ogabassey.com true')).toBeInTheDocument();
   });
 
+  it('keeps interaction retry triggers after all fire during a pending failed import', async () => {
+    let rejectWidgetModule: ((error: Error) => void) | undefined;
+    const loadWidgetModule = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise<TestWidgetModule>((_resolve, reject) => {
+            rejectWidgetModule = reject;
+          })
+      )
+      .mockResolvedValueOnce(createTestWidgetModule());
+
+    render(
+      <DeferredGoogleStoreWidget
+        merchantCustomDomain="ogabassey.com"
+        enabled
+        loadWidgetModule={loadWidgetModule}
+      />
+    );
+
+    fireEvent.scroll(window);
+    fireEvent.pointerDown(window);
+    fireEvent.keyDown(window);
+
+    expect(loadWidgetModule).toHaveBeenCalledOnce();
+
+    await act(async () => {
+      rejectWidgetModule?.(new Error('Chunk failed'));
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByText(/Widget ogabassey.com/)).not.toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.pointerDown(window);
+      await Promise.resolve();
+    });
+
+    expect(loadWidgetModule).toHaveBeenCalledTimes(2);
+    expect(screen.getByText('Widget ogabassey.com true')).toBeInTheDocument();
+  });
+
+  it('re-arms the defer timeout after a failed widget import', async () => {
+    const loadWidgetModule = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('Chunk failed'))
+      .mockResolvedValueOnce(createTestWidgetModule());
+
+    render(
+      <DeferredGoogleStoreWidget
+        merchantCustomDomain="ogabassey.com"
+        enabled
+        loadWidgetModule={loadWidgetModule}
+      />
+    );
+
+    await act(async () => {
+      fireEvent.scroll(window);
+      await Promise.resolve();
+    });
+
+    expect(loadWidgetModule).toHaveBeenCalledOnce();
+
+    await act(async () => {
+      vi.advanceTimersByTime(20000);
+      await Promise.resolve();
+    });
+
+    expect(loadWidgetModule).toHaveBeenCalledTimes(2);
+    expect(screen.getByText('Widget ogabassey.com true')).toBeInTheDocument();
+  });
+
+  it('stops automatic defer retries but allows later user-triggered retry', async () => {
+    const loadWidgetModule = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('Chunk failed'))
+      .mockRejectedValueOnce(new Error('Chunk failed'))
+      .mockRejectedValueOnce(new Error('Chunk failed'))
+      .mockResolvedValueOnce(createTestWidgetModule());
+
+    render(
+      <DeferredGoogleStoreWidget
+        merchantCustomDomain="ogabassey.com"
+        enabled
+        loadWidgetModule={loadWidgetModule}
+      />
+    );
+
+    await act(async () => {
+      fireEvent.scroll(window);
+      await Promise.resolve();
+    });
+
+    expect(loadWidgetModule).toHaveBeenCalledOnce();
+
+    // Two timer advances consume the automatic retries; the third confirms the retry limit holds.
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await act(async () => {
+        vi.advanceTimersByTime(20000);
+        await Promise.resolve();
+      });
+    }
+
+    expect(loadWidgetModule).toHaveBeenCalledTimes(3);
+    expect(screen.queryByText(/Widget ogabassey.com/)).not.toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.keyDown(window);
+      await Promise.resolve();
+    });
+
+    expect(loadWidgetModule).toHaveBeenCalledTimes(4);
+    expect(screen.getByText('Widget ogabassey.com true')).toBeInTheDocument();
+  });
+
   it('stays disabled when the widget is turned off', async () => {
     const loadWidgetModule = vi.fn();
 

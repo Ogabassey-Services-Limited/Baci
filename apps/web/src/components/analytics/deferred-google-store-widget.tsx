@@ -19,6 +19,7 @@ interface GoogleStoreWidgetModule {
 }
 
 const GOOGLE_STORE_WIDGET_DELAY_MS = 20000;
+const MAX_DEFERRED_WIDGET_LOAD_RETRIES = 2;
 
 export function DeferredGoogleStoreWidget(
   props: DeferredGoogleStoreWidgetProps
@@ -34,17 +35,38 @@ export function DeferredGoogleStoreWidget(
 
     let cancelled = false;
     let loading = false;
+    let deferredLoadRetryCount = 0;
     let timeoutId: number | undefined;
 
-    const loadWidget = () => {
+    function clearLoadTimeout() {
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+        timeoutId = undefined;
+      }
+    }
+
+    function scheduleDeferredLoad() {
+      clearLoadTimeout();
+      timeoutId = window.setTimeout(loadWidget, GOOGLE_STORE_WIDGET_DELAY_MS);
+    }
+
+    function removeDeferredWidgetListeners() {
+      window.removeEventListener('pointerdown', loadWidget);
+      window.removeEventListener('keydown', loadWidget);
+      window.removeEventListener('scroll', loadWidget);
+    }
+
+    function loadWidget(event?: Event) {
       if (cancelled || loading) {
         return;
       }
 
-      loading = true;
-      if (timeoutId !== undefined) {
-        window.clearTimeout(timeoutId);
+      if (event) {
+        deferredLoadRetryCount = 0;
       }
+
+      loading = true;
+      clearLoadTimeout();
 
       const widgetModule =
         props.loadWidgetModule?.() ?? import('./google-store-widget');
@@ -52,33 +74,35 @@ export function DeferredGoogleStoreWidget(
       void widgetModule
         .then((module) => {
           if (!cancelled) {
+            deferredLoadRetryCount = 0;
+            removeDeferredWidgetListeners();
             setWidget(() => module.GoogleStoreWidget);
           }
         })
         .catch(() => {
           if (!cancelled) {
             loading = false;
+            if (deferredLoadRetryCount < MAX_DEFERRED_WIDGET_LOAD_RETRIES) {
+              deferredLoadRetryCount += 1;
+              scheduleDeferredLoad();
+            }
           }
         });
-    };
+    }
 
-    timeoutId = window.setTimeout(loadWidget, GOOGLE_STORE_WIDGET_DELAY_MS);
+    scheduleDeferredLoad();
     window.addEventListener('pointerdown', loadWidget, {
-      once: true,
       passive: true,
     });
-    window.addEventListener('keydown', loadWidget, { once: true });
+    window.addEventListener('keydown', loadWidget);
     window.addEventListener('scroll', loadWidget, {
-      once: true,
       passive: true,
     });
 
     return () => {
       cancelled = true;
-      window.clearTimeout(timeoutId);
-      window.removeEventListener('pointerdown', loadWidget);
-      window.removeEventListener('keydown', loadWidget);
-      window.removeEventListener('scroll', loadWidget);
+      clearLoadTimeout();
+      removeDeferredWidgetListeners();
     };
   }, [Widget, props.enabled, props.loadWidgetModule]);
 
