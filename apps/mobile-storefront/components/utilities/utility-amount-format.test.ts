@@ -67,4 +67,26 @@ describe('formatUtilityAmountInput', () => {
   it('returns empty string for English-formatted input when locale is de-DE', () => {
     expect(formatUtilityAmountInput('1,234.5', 'de-DE')).toBe('');
   });
+
+  it('formats input when the runtime does not support formatToParts', () => {
+    const originalFormatToParts = Intl.NumberFormat.prototype.formatToParts;
+    Object.defineProperty(Intl.NumberFormat.prototype, 'formatToParts', {
+      configurable: true,
+      value: undefined,
+    });
+
+    try {
+      expect(formatUtilityAmountInput('1000')).toBe('1,000');
+      expect(formatUtilityAmountInput('1,000')).toBe('1,000');
+      expect(formatUtilityAmountInput('1234.5', 'de-DE')).toBe('1.234,5');
+      expect(formatUtilityAmountInput('1.234,56', 'de-DE')).toBe('1.234,56');
+      expect(formatUtilityAmountInput('1234.5', 'ja-JP')).toBe('1,234.5');
+      expect(formatUtilityAmountInput('1234.5', 'zh-CN')).toBe('1,234.5');
+    } finally {
+      Object.defineProperty(Intl.NumberFormat.prototype, 'formatToParts', {
+        configurable: true,
+        value: originalFormatToParts,
+      });
+    }
+  });
 });

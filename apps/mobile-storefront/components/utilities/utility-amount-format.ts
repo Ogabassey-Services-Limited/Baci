@@ -32,15 +32,58 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+const DOT_DECIMAL_SEPARATORS = { decimal: '.', group: ',' } as const;
+const COMMA_DECIMAL_SEPARATORS = { decimal: ',', group: '.' } as const;
+const FALLBACK_LOCALE_SEPARATORS: Record<
+  string,
+  typeof DOT_DECIMAL_SEPARATORS | typeof COMMA_DECIMAL_SEPARATORS
+> = {
+  bg: COMMA_DECIMAL_SEPARATORS,
+  cs: COMMA_DECIMAL_SEPARATORS,
+  da: COMMA_DECIMAL_SEPARATORS,
+  de: COMMA_DECIMAL_SEPARATORS,
+  el: COMMA_DECIMAL_SEPARATORS,
+  en: DOT_DECIMAL_SEPARATORS,
+  es: COMMA_DECIMAL_SEPARATORS,
+  fi: COMMA_DECIMAL_SEPARATORS,
+  fr: COMMA_DECIMAL_SEPARATORS,
+  hu: COMMA_DECIMAL_SEPARATORS,
+  it: COMMA_DECIMAL_SEPARATORS,
+  ja: DOT_DECIMAL_SEPARATORS,
+  ko: DOT_DECIMAL_SEPARATORS,
+  nl: COMMA_DECIMAL_SEPARATORS,
+  no: COMMA_DECIMAL_SEPARATORS,
+  pl: COMMA_DECIMAL_SEPARATORS,
+  pt: COMMA_DECIMAL_SEPARATORS,
+  ro: COMMA_DECIMAL_SEPARATORS,
+  ru: COMMA_DECIMAL_SEPARATORS,
+  sk: COMMA_DECIMAL_SEPARATORS,
+  sv: COMMA_DECIMAL_SEPARATORS,
+  tr: COMMA_DECIMAL_SEPARATORS,
+  uk: COMMA_DECIMAL_SEPARATORS,
+  zh: DOT_DECIMAL_SEPARATORS,
+};
+
+function getFallbackLocaleSeparators(locale: string) {
+  const language = locale.split(/[-_]/)[0]?.toLowerCase() ?? '';
+  return FALLBACK_LOCALE_SEPARATORS[language] ?? DOT_DECIMAL_SEPARATORS;
+}
+
 function getLocaleSeparators(locale: string) {
-  const parts = getUtilityAmountFormatter(locale).formatToParts(12_345.6);
+  const formatter = getUtilityAmountFormatter(locale);
+  if (typeof formatter.formatToParts !== 'function') {
+    return getFallbackLocaleSeparators(locale);
+  }
+
+  const parts = formatter.formatToParts(12_345.6);
+  const fallbackSeparators = getFallbackLocaleSeparators(locale);
   return {
     decimal:
       parts.find((part) => part.type === 'decimal')?.value ??
-      (locale.startsWith('en-') ? '.' : ','),
+      fallbackSeparators.decimal,
     group:
       parts.find((part) => part.type === 'group')?.value ??
-      (locale.startsWith('en-') ? ',' : '.'),
+      fallbackSeparators.group,
   };
 }
 
