@@ -150,6 +150,18 @@ describe('formatUtilityAmountInput', () => {
       expect(
         formatUtilityAmountInput('1’234.56', 'de-CH-u-nu-latn')
       ).toBe(expectFor('de-CH', 1234.56));
+      // Unmapped comma-decimal locales (id-ID, vi-VN) must default to
+      // comma-decimal/dot-group instead of regressing to dot-decimal.
+      expect(formatUtilityAmountInput('1.234,56', 'id-ID')).toBe(
+        expectFor('id-ID', 1234.56)
+      );
+      expect(formatUtilityAmountInput('1.234,56', 'vi-VN')).toBe(
+        expectFor('vi-VN', 1234.56)
+      );
+      // Unmapped dot-decimal locales (hi-IN) must keep dot-decimal.
+      expect(formatUtilityAmountInput('1,234.56', 'hi-IN')).toBe(
+        expectFor('hi-IN', 1234.56)
+      );
     } finally {
       Object.defineProperty(Intl.NumberFormat.prototype, 'formatToParts', {
         configurable: true,

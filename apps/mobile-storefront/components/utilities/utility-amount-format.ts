@@ -101,6 +101,27 @@ const FALLBACK_LOCALE_SEPARATORS: Record<string, FallbackSeparators> = {
   zh: DOT_DECIMAL_SEPARATORS,
 };
 
+// Languages that use dot-decimal / comma-group by default. For unmapped
+// locales we fall back to comma-decimal / dot-group, matching the
+// majority of European and SE Asian (id, vi) locales. Arabic / Persian
+// use Arabic-Indic separators which the fallback path cannot model
+// exactly; comma-decimal default is a best-effort.
+const DOT_DECIMAL_LANGUAGES = new Set([
+  'en',
+  'ja',
+  'ko',
+  'zh',
+  'th',
+  'hi',
+  'he',
+  'bn',
+  'sw',
+  'ms',
+  'km',
+  'lo',
+  'my',
+]);
+
 function getFallbackLocaleSeparators(locale: string): FallbackSeparators {
   // Strip BCP-47 extension subtags (e.g. `-u-nu-latn`) and case-normalize so
   // region overrides match regardless of how the caller wrote the tag.
@@ -113,7 +134,16 @@ function getFallbackLocaleSeparators(locale: string): FallbackSeparators {
     return regionOverride;
   }
   const language = normalized.split('-')[0] ?? '';
-  return FALLBACK_LOCALE_SEPARATORS[language] ?? DOT_DECIMAL_SEPARATORS;
+  const mapped = FALLBACK_LOCALE_SEPARATORS[language];
+  if (mapped) {
+    return mapped;
+  }
+  // For unmapped locales, default to comma-decimal/dot-group unless the
+  // language is known to use dot-decimal. This matches Intl behavior for
+  // the majority of real-world locales (id-ID, vi-VN, ar-*, hi-IN, etc.).
+  return DOT_DECIMAL_LANGUAGES.has(language)
+    ? DOT_DECIMAL_SEPARATORS
+    : COMMA_DECIMAL_SEPARATORS;
 }
 
 function getLocaleSeparators(locale: string) {
