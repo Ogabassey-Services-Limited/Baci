@@ -1,4 +1,4 @@
-import { type RefObject, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, type LayoutChangeEvent, type ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SPACING } from '@/constants/Colors';
@@ -17,8 +17,10 @@ import {
 import {
   getAmountForLeaf,
   getInitialAmountForSelection,
+  parseUtilityAmount,
 } from './bill-form.helpers';
 import type { BillFormProps } from './bill-form.types';
+import type { BillFormController } from './bill-form-controller.types';
 import { findInitialBillerMatch } from './bill-item-matching';
 import {
   getResolvedBillItemCodes,
@@ -30,57 +32,7 @@ import { getUtilityFooterOffset } from './get-utility-footer-offset';
 import { useNextStepScroll } from './use-next-step-scroll';
 import { formatUtilityAmountInput } from './utility-amount-format';
 
-function parseUtilityAmount(value: string): number {
-  const withoutCommas = value.trim().replace(/,/g, '');
-  if (withoutCommas.includes('-')) {
-    return 0;
-  }
-  const digitsAndDecimals = withoutCommas.replace(/[^0-9.]/g, '');
-  // Multiple decimal separators are collapsed into one fractional value so
-  // pasted values like "1.2.3" parse as 1.23 instead of failing mid-entry.
-  const [whole = '', ...decimalParts] = digitsAndDecimals.split('.');
-  const normalized = `${whole}${
-    decimalParts.length ? `.${decimalParts.join('')}` : ''
-  }`;
-  const parsed = Number(normalized);
-  return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
-}
-
-export interface BillFormController {
-  amount: string;
-  billersQuery: ReturnType<typeof useVTUBillers>;
-  billItemSelection: ReturnType<typeof resolveBillItemSelection>;
-  canShowPayment: boolean;
-  customerId: string;
-  footerBottomOffset: number;
-  footerSpacerHeight: number;
-  formattedAmount: string;
-  handleBillItemSelect: (depth: number, billItem: BillItem) => void;
-  handleBillerSelect: (biller: Biller) => void;
-  handlePaymentLayout: (event: LayoutChangeEvent) => void;
-  handlePurchase: () => Promise<void>;
-  handleVerify: () => void;
-  insets: ReturnType<typeof useSafeAreaInsets>;
-  isBillItemSelectionComplete: boolean;
-  isBusy: boolean;
-  isFixedAmount: boolean;
-  isKeyboardVisible: boolean;
-  isProviderPickerExpanded: boolean;
-  isRepeatPaymentActive: boolean;
-  numericAmount: number;
-  payment: ReturnType<typeof useUtilityPayment>;
-  resetVerification: () => void;
-  scheduleNextStepScroll: (nextStepY: number) => void;
-  scrollViewRef: RefObject<ScrollView | null>;
-  selectedBiller: Biller | null;
-  selectedBillItemIdentifier: string | null;
-  setProviderPickerExpanded: (isExpanded: boolean) => void;
-  setRepeatPaymentActive: (isActive: boolean) => void;
-  shouldScrollToNextStep: boolean;
-  updateAmount: (value: string) => void;
-  updateCustomerId: (value: string) => void;
-  verify: ReturnType<typeof useVTUVerify>;
-}
+export type { BillFormController };
 
 export function useBillFormController({
   initialAmount,
@@ -289,23 +241,6 @@ export function useBillFormController({
     });
   };
 
-  const updateAmount = (value: string) => {
-    setAmount(value);
-  };
-
-  const updateCustomerId = (value: string) => {
-    setCustomerId(value);
-    resetVerification();
-  };
-
-  const setProviderPickerExpanded = (isExpanded: boolean) => {
-    setIsProviderPickerExpanded(isExpanded);
-  };
-
-  const setRepeatPaymentActive = (isActive: boolean) => {
-    setIsRepeatPaymentActive(isActive);
-  };
-
   return {
     amount,
     billersQuery,
@@ -341,11 +276,14 @@ export function useBillFormController({
     scrollViewRef,
     selectedBiller,
     selectedBillItemIdentifier,
-    setRepeatPaymentActive,
-    setProviderPickerExpanded,
+    setProviderPickerExpanded: setIsProviderPickerExpanded,
+    setRepeatPaymentActive: setIsRepeatPaymentActive,
     shouldScrollToNextStep,
-    updateAmount,
-    updateCustomerId,
+    updateAmount: setAmount,
+    updateCustomerId: (value: string) => {
+      setCustomerId(value);
+      resetVerification();
+    },
     verify,
     insets,
   };

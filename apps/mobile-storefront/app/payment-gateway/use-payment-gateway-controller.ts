@@ -4,27 +4,23 @@ import { Alert } from 'react-native';
 import type { WebView, WebViewNavigation } from 'react-native-webview';
 import { useToast } from '@/components/ui/Toast';
 import { setClipboardString } from '@/lib/clipboard';
-import {
-  VtuPaymentStillProcessingError,
-  waitForVtuConfirmation,
-} from '@/lib/vtu-checkout';
 import { PaymentGatewayParamsSchema } from '@/schemas/payment-gateway';
 import { useCartStore } from '@/stores/cart-store';
 import { createPaymentGatewayMessageHandler } from './create-payment-gateway-message-handler';
 import {
-  isPaymentGateway,
   isPaymentCancellationRedirect,
   isPaymentCompletionRedirect,
+  isPaymentGateway,
   PAYMENT_GATEWAY_LABELS,
   PAYMENT_KINDS,
 } from './payment-gateway.helpers';
+import { handleVtuConfirmation } from './use-vtu-payment-completion';
 
 type WebViewErrorEvent = Parameters<
   NonNullable<ComponentProps<typeof WebView>['onError']>
 >[0];
 
 const PAYMENT_SUCCESS_NAV_DELAY_MS = 1500;
-const JUICYWAY_GATEWAY = 'juicyway';
 
 export function usePaymentGatewayController() {
   const params = useLocalSearchParams<Record<string, string>>();
@@ -106,135 +102,6 @@ export function usePaymentGatewayController() {
     isMountedRef.current &&
     vtuConfirmationTokenRef.current === confirmationToken;
 
-  const routeToUtilityResult = ({
-    resultAmount,
-    resultCashback,
-    resultCustomerIdentifier,
-    resultReference,
-    resultStatus,
-    resultVoucherPin,
-  }: {
-    resultAmount?: number;
-    resultCashback?: {
-      amount: number;
-      newBalance: number;
-    };
-    resultCustomerIdentifier?: string;
-    resultReference: string;
-    resultStatus: 'processing' | 'successful';
-    resultVoucherPin?: string;
-  }) => {
-    if (!isMountedRef.current || !utilityType) {
-      return;
-    }
-
-    router.replace({
-      pathname: '/utilities/[type]',
-      params: {
-        amount: String(resultAmount ?? amount ?? 0),
-        paymentStatus: resultStatus,
-        reference: resultReference,
-        type: utilityType,
-        ...((resultCustomerIdentifier || customerIdentifier) && {
-          customerIdentifier: resultCustomerIdentifier || customerIdentifier,
-        }),
-        ...(resultCashback && {
-          cashbackAmount: String(resultCashback.amount),
-          cashbackNewBalance: String(resultCashback.newBalance),
-        }),
-        ...(resultVoucherPin && { voucherPin: resultVoucherPin }),
-      },
-    });
-  };
-
-  const handleVtuConfirmation = async ({
-    fallbackAmount = amount,
-    fallbackCustomerIdentifier = customerIdentifier,
-    nextReference = reference,
-  }: {
-    fallbackAmount?: number;
-    fallbackCustomerIdentifier?: string;
-    nextReference?: string;
-  } = {}) => {
-    const confirmationToken = vtuConfirmationTokenRef.current;
-    if (!utilityType || !gateway) {
-      if (!isCurrentVtuConfirmation(confirmationToken)) {
-        return;
-      }
-      setStatus('error');
-      setErrorMessage('Utility payment could not be confirmed.');
-      return;
-    }
-
-    try {
-      if (!nextReference) {
-        throw new Error('Payment reference is missing.');
-      }
-
-      if (gateway === JUICYWAY_GATEWAY) {
-        if (!isCurrentVtuConfirmation(confirmationToken)) {
-          return;
-        }
-        setStatus('success');
-        scheduleDelayedNavigation(() => {
-          if (!isCurrentVtuConfirmation(confirmationToken)) {
-            return;
-          }
-          routeToUtilityResult({
-            resultAmount: fallbackAmount,
-            resultCustomerIdentifier: fallbackCustomerIdentifier,
-            resultReference: nextReference,
-            resultStatus: 'successful',
-          });
-        });
-        return;
-      }
-
-      const result = await waitForVtuConfirmation({
-        gateway,
-        reference: nextReference,
-      });
-      if (!isCurrentVtuConfirmation(confirmationToken)) {
-        return;
-      }
-      setStatus('success');
-      scheduleDelayedNavigation(() => {
-        if (!isCurrentVtuConfirmation(confirmationToken)) {
-          return;
-        }
-        routeToUtilityResult({
-          resultAmount: result.amount,
-          resultCashback: result.cashback,
-          resultCustomerIdentifier:
-            result.customerIdentifier ?? fallbackCustomerIdentifier,
-          resultReference: result.reference,
-          resultStatus: 'successful',
-          resultVoucherPin: result.voucherPin,
-        });
-      });
-    } catch (error) {
-      if (!isCurrentVtuConfirmation(confirmationToken)) {
-        return;
-      }
-      if (error instanceof VtuPaymentStillProcessingError) {
-        setStatus('processing');
-        routeToUtilityResult({
-          resultAmount: error.amount ?? fallbackAmount,
-          resultCustomerIdentifier:
-            error.customerIdentifier ?? fallbackCustomerIdentifier,
-          resultReference: error.reference,
-          resultStatus: 'processing',
-        });
-        return;
-      }
-
-      setStatus('error');
-      setErrorMessage(
-        error instanceof Error ? error.message : 'Payment confirmation failed.'
-      );
-    }
-  };
-
   const beginVtuPaymentCompletion = (input?: {
     amount?: number;
     customerIdentifier?: string;
@@ -251,9 +118,19 @@ export function usePaymentGatewayController() {
     paymentCompletionStartedRef.current = true;
     setStatus('processing');
     void handleVtuConfirmation({
+      amount,
+      customerIdentifier,
       fallbackAmount: input?.amount,
       fallbackCustomerIdentifier: input?.customerIdentifier,
-      nextReference: input?.reference,
+      gateway,
+      isMountedRef,
+      isCurrentVtuConfirmation,
+      nextReference: input?.reference ?? reference,
+      scheduleDelayedNavigation,
+      setErrorMessage,
+      setStatus,
+      utilityType,
+      vtuConfirmationTokenRef,
     });
   };
 
