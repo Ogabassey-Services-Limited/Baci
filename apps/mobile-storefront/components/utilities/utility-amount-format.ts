@@ -38,14 +38,27 @@ const COMMA_DECIMAL_SPACE_GROUP_SEPARATORS = {
   decimal: ',',
   group: ' ',
 } as const;
-const FALLBACK_LOCALE_SEPARATORS: Record<
-  string,
+const DOT_DECIMAL_APOSTROPHE_GROUP_SEPARATORS = {
+  decimal: '.',
+  group: '’',
+} as const;
+type FallbackSeparators =
   | typeof DOT_DECIMAL_SEPARATORS
   | typeof COMMA_DECIMAL_SEPARATORS
   | typeof COMMA_DECIMAL_SPACE_GROUP_SEPARATORS
-> = {
+  | typeof DOT_DECIMAL_APOSTROPHE_GROUP_SEPARATORS;
+
+// Region-specific overrides take precedence over the language-only map.
+// Swiss German/Italian use apostrophe grouping; Swiss French uses NNBSP grouping.
+const FALLBACK_REGION_SEPARATORS: Record<string, FallbackSeparators> = {
+  'de-ch': DOT_DECIMAL_APOSTROPHE_GROUP_SEPARATORS,
+  'it-ch': DOT_DECIMAL_APOSTROPHE_GROUP_SEPARATORS,
+  'fr-ch': COMMA_DECIMAL_SPACE_GROUP_SEPARATORS,
+};
+
+const FALLBACK_LOCALE_SEPARATORS: Record<string, FallbackSeparators> = {
   bg: COMMA_DECIMAL_SPACE_GROUP_SEPARATORS,
-  cs: COMMA_DECIMAL_SEPARATORS,
+  cs: COMMA_DECIMAL_SPACE_GROUP_SEPARATORS,
   da: COMMA_DECIMAL_SEPARATORS,
   de: COMMA_DECIMAL_SEPARATORS,
   el: COMMA_DECIMAL_SEPARATORS,
@@ -53,25 +66,30 @@ const FALLBACK_LOCALE_SEPARATORS: Record<
   es: COMMA_DECIMAL_SEPARATORS,
   fi: COMMA_DECIMAL_SPACE_GROUP_SEPARATORS,
   fr: COMMA_DECIMAL_SPACE_GROUP_SEPARATORS,
-  hu: COMMA_DECIMAL_SEPARATORS,
+  hu: COMMA_DECIMAL_SPACE_GROUP_SEPARATORS,
   it: COMMA_DECIMAL_SEPARATORS,
   ja: DOT_DECIMAL_SEPARATORS,
   ko: DOT_DECIMAL_SEPARATORS,
   nl: COMMA_DECIMAL_SEPARATORS,
-  no: COMMA_DECIMAL_SEPARATORS,
-  pl: COMMA_DECIMAL_SEPARATORS,
-  pt: COMMA_DECIMAL_SEPARATORS,
+  no: COMMA_DECIMAL_SPACE_GROUP_SEPARATORS,
+  pl: COMMA_DECIMAL_SPACE_GROUP_SEPARATORS,
+  pt: COMMA_DECIMAL_SPACE_GROUP_SEPARATORS,
   ro: COMMA_DECIMAL_SEPARATORS,
   ru: COMMA_DECIMAL_SPACE_GROUP_SEPARATORS,
-  sk: COMMA_DECIMAL_SEPARATORS,
+  sk: COMMA_DECIMAL_SPACE_GROUP_SEPARATORS,
   sv: COMMA_DECIMAL_SPACE_GROUP_SEPARATORS,
   tr: COMMA_DECIMAL_SEPARATORS,
-  uk: COMMA_DECIMAL_SEPARATORS,
+  uk: COMMA_DECIMAL_SPACE_GROUP_SEPARATORS,
   zh: DOT_DECIMAL_SEPARATORS,
 };
 
-function getFallbackLocaleSeparators(locale: string) {
-  const language = locale.split(/[-_]/)[0]?.toLowerCase() ?? '';
+function getFallbackLocaleSeparators(locale: string): FallbackSeparators {
+  const normalized = locale.replace(/_/g, '-').toLowerCase();
+  const regionOverride = FALLBACK_REGION_SEPARATORS[normalized];
+  if (regionOverride) {
+    return regionOverride;
+  }
+  const language = normalized.split('-')[0] ?? '';
   return FALLBACK_LOCALE_SEPARATORS[language] ?? DOT_DECIMAL_SEPARATORS;
 }
 

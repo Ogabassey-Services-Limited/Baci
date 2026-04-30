@@ -99,6 +99,39 @@ describe('formatUtilityAmountInput', () => {
           1234.56
         )
       );
+      // Czech, Polish, Slovak, Hungarian, Norwegian, Portuguese, Ukrainian
+      // also use non-breaking space as group separator under Intl.
+      const expectFor = (loc: string, value: number) =>
+        new Intl.NumberFormat(loc, { maximumFractionDigits: 2 }).format(value);
+      expect(formatUtilityAmountInput('1 234,56', 'cs-CZ')).toBe(
+        expectFor('cs-CZ', 1234.56)
+      );
+      expect(formatUtilityAmountInput('1 234,56', 'pl-PL')).toBe(
+        expectFor('pl-PL', 1234.56)
+      );
+      expect(formatUtilityAmountInput('1 234,56', 'sk-SK')).toBe(
+        expectFor('sk-SK', 1234.56)
+      );
+      expect(formatUtilityAmountInput('1 234,56', 'hu-HU')).toBe(
+        expectFor('hu-HU', 1234.56)
+      );
+      expect(formatUtilityAmountInput('1 234,56', 'no-NO')).toBe(
+        expectFor('no-NO', 1234.56)
+      );
+      expect(formatUtilityAmountInput('1 234,56', 'pt-PT')).toBe(
+        expectFor('pt-PT', 1234.56)
+      );
+      expect(formatUtilityAmountInput('1 234,56', 'uk-UA')).toBe(
+        expectFor('uk-UA', 1234.56)
+      );
+      // Swiss region-specific overrides: de-CH and it-CH use apostrophe
+      // grouping under Intl, which the language-only key cannot capture.
+      expect(formatUtilityAmountInput('1’234.56', 'de-CH')).toBe(
+        expectFor('de-CH', 1234.56)
+      );
+      expect(formatUtilityAmountInput('1’234.56', 'it-CH')).toBe(
+        expectFor('it-CH', 1234.56)
+      );
     } finally {
       Object.defineProperty(Intl.NumberFormat.prototype, 'formatToParts', {
         configurable: true,
