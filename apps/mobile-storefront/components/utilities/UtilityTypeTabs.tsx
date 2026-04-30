@@ -1,7 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  type LayoutChangeEvent,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, SPACING, withAlpha } from '@/constants/Colors';
 import { UTILITY_TYPE_TAB_PRESSED_STYLE } from './utility-type-tabs.constants';
@@ -23,14 +30,7 @@ const UTILITY_TYPES = [
 ] as const satisfies readonly UtilityTypeDefinition[];
 
 const TAB_MIN_HEIGHT = 38;
-const TAB_WIDTHS: Record<UtilityType, number> = {
-  airtime: 96,
-  data: 78,
-  tv: 78,
-  power: 92,
-  gaming: 112,
-};
-const TAB_HORIZONTAL_PADDING = 12;
+const TAB_HORIZONTAL_PADDING = 14;
 const TAB_ICON_MARGIN_END = 6;
 const LABEL_FONT_SIZE = 13;
 const TAB_SIDE_INSET = SPACING.md;
@@ -50,8 +50,13 @@ export function UtilityTypeTabs({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const scrollRef = useRef<ScrollView>(null);
+  const measuredWidthsRef = useRef<Partial<Record<UtilityType, number>>>({});
   const [viewportWidth, setViewportWidth] = useState(0);
+  // Bumped whenever a tab's measured width changes so the scroll effect can
+  // recompute using the latest layout-driven measurements.
+  const [measurementVersion, setMeasurementVersion] = useState(0);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: measurementVersion is a deliberate re-run trigger; widths are read via measuredWidthsRef (a ref).
   useEffect(() => {
     if (viewportWidth <= 0) {
       return;
@@ -64,18 +69,46 @@ export function UtilityTypeTabs({
       return;
     }
 
-    const selectedOffset = UTILITY_TYPES.slice(0, selectedIndex).reduce<number>(
-      (offset, item) => offset + TAB_WIDTHS[item.type] + TAB_ITEM_GAP,
-      TAB_SIDE_INSET
-    );
+    const measuredWidths = measuredWidthsRef.current;
+    const selectedWidth = measuredWidths[selectedType];
+    if (selectedWidth === undefined) {
+      // Defer scrolling until the selected tab has reported a layout width;
+      // the effect re-runs once measurementVersion bumps.
+      return;
+    }
+
+    let selectedOffset = TAB_SIDE_INSET;
+    for (let i = 0; i < selectedIndex; i += 1) {
+      const itemType = UTILITY_TYPES[i].type;
+      const itemWidth = measuredWidths[itemType];
+      if (itemWidth === undefined) {
+        // Wait until every preceding tab is measured for an accurate offset.
+        return;
+      }
+      selectedOffset += itemWidth + TAB_ITEM_GAP;
+    }
+
     const selectedCenter =
-      selectedOffset + TAB_WIDTHS[selectedType] / 2 - viewportWidth / 2;
+      selectedOffset + selectedWidth / 2 - viewportWidth / 2;
 
     scrollRef.current?.scrollTo({
       animated: true,
       x: Math.max(0, selectedCenter),
     });
-  }, [selectedType, viewportWidth]);
+  }, [selectedType, viewportWidth, measurementVersion]);
+
+  const handleTabLayout = (type: UtilityType) => (event: LayoutChangeEvent) => {
+    const nextWidth = event.nativeEvent.layout.width;
+    if (nextWidth <= 0) {
+      return;
+    }
+    const previousWidth = measuredWidthsRef.current[type];
+    if (previousWidth === nextWidth) {
+      return;
+    }
+    measuredWidthsRef.current[type] = nextWidth;
+    setMeasurementVersion((version) => version + 1);
+  };
 
   return (
     <View
@@ -111,6 +144,7 @@ export function UtilityTypeTabs({
               accessibilityHint={`Switch to ${item.label} utility payments`}
               testID={`utility-tab-${item.type}`}
               onPress={() => onSelect(item.type)}
+              onLayout={handleTabLayout(item.type)}
               android_ripple={{
                 color: isSelected
                   ? withAlpha(BRAND.onPrimary, 0.14)
@@ -118,7 +152,6 @@ export function UtilityTypeTabs({
               }}
               style={({ pressed }) => [
                 styles.tab,
-                { width: TAB_WIDTHS[item.type] },
                 {
                   backgroundColor: isSelected ? BRAND.primary : colors.muted,
                   borderColor: isSelected ? BRAND.primary : colors.border,
