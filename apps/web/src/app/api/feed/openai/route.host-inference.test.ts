@@ -63,7 +63,7 @@ beforeEach(() => {
   vi.resetModules();
 
   mockGetMerchantByIdentifier.mockResolvedValue({
-    id: 'merchant-1',
+    id: '11111111-1111-4111-8111-111111111111',
     business_name: 'Ogabassey',
     country: 'NG',
     payout_currency: 'NGN',
@@ -71,7 +71,7 @@ beforeEach(() => {
     custom_domain: 'ogabassey.com',
   });
   mockResolveFeedMerchant.mockResolvedValue({
-    id: 'merchant-1',
+    id: '11111111-1111-4111-8111-111111111111',
     business_name: 'Ogabassey',
     country: 'NG',
     payout_currency: 'NGN',
@@ -109,9 +109,16 @@ describe('GET /api/feed/openai host-scoped merchant inference', () => {
     );
     expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
     // Host-inferred requests are still gated through resolveFeedMerchant so
-    // unpublished storefronts cannot be served via host inference.
-    expect(mockResolveFeedMerchant).toHaveBeenCalledWith('ogabassey', true);
-    expect(mockGetCachedOpenAIFeedData).toHaveBeenCalledWith('merchant-1');
+    // unpublished storefronts cannot be served via host inference. Lookup is
+    // by stable UUID to avoid stale cached host->slug mappings resolving the
+    // wrong merchant after a slug is recycled.
+    expect(mockResolveFeedMerchant).toHaveBeenCalledWith(
+      '11111111-1111-4111-8111-111111111111',
+      false
+    );
+    expect(mockGetCachedOpenAIFeedData).toHaveBeenCalledWith(
+      '11111111-1111-4111-8111-111111111111'
+    );
     expect(parsed.url).toBe('https://ogabassey.com/products/test-phone');
   });
 
@@ -121,7 +128,7 @@ describe('GET /api/feed/openai host-scoped merchant inference', () => {
     // RPC enforces is_published/is_platform_admin and returns no rows for an
     // unpublished storefront, which surfaces as MerchantNotFoundError.
     mockResolveFeedMerchant.mockRejectedValue(
-      new MerchantNotFoundError('ogabassey')
+      new MerchantNotFoundError('11111111-1111-4111-8111-111111111111')
     );
 
     const { GET } = await import('./route');
@@ -134,7 +141,10 @@ describe('GET /api/feed/openai host-scoped merchant inference', () => {
     expect(response.status).toBe(404);
     expect(body.error).toBe('Merchant not found');
     expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
-    expect(mockResolveFeedMerchant).toHaveBeenCalledWith('ogabassey', true);
+    expect(mockResolveFeedMerchant).toHaveBeenCalledWith(
+      '11111111-1111-4111-8111-111111111111',
+      false
+    );
     expect(mockGetCachedOpenAIFeedData).not.toHaveBeenCalled();
   });
 

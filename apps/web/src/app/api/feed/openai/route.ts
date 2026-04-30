@@ -167,15 +167,18 @@ export async function GET(request: NextRequest) {
         case 'failure':
           return storefrontResult.response;
         case 'success':
-          // Host inference only supplies the slug; publishability gating is
-          // still enforced by resolveFeedMerchant below. This prevents serving
-          // feeds for unpublished merchants when the request omits identifiers
-          // and falls back to host inference.
+          // Host inference only supplies the merchant id; publishability gating
+          // is still enforced by resolveFeedMerchant below. This prevents
+          // serving feeds for unpublished merchants when the request omits
+          // identifiers and falls back to host inference. Using the inferred
+          // merchant's stable UUID — rather than its slug — avoids a stale
+          // cache race where a recycled slug could resolve a different merchant
+          // through the cached host->slug mapping.
           inferredStorefrontBaseUrl = storefrontResult.baseUrl;
           isHostInferred = true;
           parsed = openAIFeedQuerySchema.safeParse({
             ...rawParams,
-            merchant_slug: storefrontResult.merchant.slug,
+            merchant_id: storefrontResult.merchant.id,
           });
           break;
         case 'none':
