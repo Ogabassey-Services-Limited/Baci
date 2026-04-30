@@ -20,11 +20,14 @@ import {
 import { SmartQuoteLoader } from '../components/SmartQuoteLoader';
 import { PaystackLogo, CredPalLogo, CreditDirectLogo, JuicywayLogo, BankTransferLogo } from '../components/PaymentLogos';
 import { MobileOrderSummary } from '../components/MobileCheckoutComponents';
+import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type React from 'react';
 import { useEffect, useState, useRef } from 'react';
 import { useCart } from '@/hooks/cart';
+import type { CartItem } from '@/hooks/cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
+import type { ResumedOrder } from './checkout/types';
 import {
   usePersistedForm,
   usePersistedState,
@@ -52,6 +55,16 @@ import {
   resolvePendingCheckoutOrder,
   type PendingCheckoutOrderSnapshot,
 } from './checkout/pending-checkout-order';
+
+/**
+ * Discriminated union for checkout item rendering. The `kind` tag is set at
+ * construction time when we unify the cart and resumed-order item arrays into
+ * a single `displayItems` list, so consumers narrow with `item.kind === 'cart'`
+ * instead of the fragile `'cartItemId' in item` shape check.
+ */
+type CheckoutItem =
+  | ({ kind: 'cart' } & CartItem)
+  | ({ kind: 'resumed' } & ResumedOrder['items'][number]);
 
 interface SavedAddress {
   id: number;
@@ -297,6 +310,17 @@ export const CheckoutPage: React.FC = () => {
   } | null>(null);
   const [isLoadingResumedOrder, setIsLoadingResumedOrder] = useState(!!resumeOrderId);
   const [resumeOrderError, setResumeOrderError] = useState<string | null>(null);
+
+  // Tag each item at construction time so downstream rendering narrows on
+  // `item.kind` (a literal discriminator) rather than `'cartItemId' in item`,
+  // which would silently break if either type ever gained an optional
+  // `cartItemId` field. Active cart wins when populated; otherwise fall back
+  // to the resumed order's items.
+  const displayItems: CheckoutItem[] =
+    cart.length > 0
+      ? cart.map((item) => ({ kind: 'cart' as const, ...item }))
+      : (resumedOrder?.items ?? []).map((item) => ({ kind: 'resumed' as const, ...item }));
+
   const autoTriggerRef = useRef(false);
   // Double-submit protection: prevents race conditions from rapid clicks
   const isOrderInFlightRef = useRef(false);
@@ -1463,9 +1487,9 @@ export const CheckoutPage: React.FC = () => {
           customerPhone,
           customerName: `${firstName} ${lastName}`.trim(),
 
-          items: (cart.length > 0 ? cart : resumedOrder?.items || []).map((item: any) => ({
-            id: String(item.id || item.product_id), // Handle both cart items and resumed order items
-            name: item.name || item.product_name,
+          items: displayItems.map((item) => ({
+            id: String(item.kind === 'cart' ? item.id : item.product_id),
+            name: item.kind === 'cart' ? item.name : item.product_name,
             price: item.price,
             quantity: item.quantity,
           })),
@@ -3236,35 +3260,43 @@ export const CheckoutPage: React.FC = () => {
 
               {/* Items List (Collapsed View) */}
               <div className="space-y-4 mb-6 max-h-[200px] overflow-y-auto pr-1">
-                {(cart.length > 0 ? cart : (resumedOrder?.items || [])).map((item: any) => (
-                  <div key={item.cartItemId || item.id} className="flex gap-3">
-                    <div className="w-12 h-12 bg-gray-50 rounded-lg border border-gray-100 p-1 flex-shrink-0">
-                      <img
-                        src={item.image || item.image_url || '/placeholder.png'}
-                        alt={item.name || item.product_name}
-                        className="w-full h-full object-contain mix-blend-multiply"
-                        onError={(e) => {
-                          e.currentTarget.onerror = null;
-                          e.currentTarget.src = '/placeholder.png';
-                        }}
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-gray-900 line-clamp-1">
-                        {item.name || item.product_name}
-                      </p>
-                      <div className="flex justify-between items-center text-xs text-gray-500 mt-0.5">
-                        <span>Qty: {item.quantity}</span>
-                        <span>
-                          ₦
-                          {(
-                            item.negotiatedPrice || item.price
-                          ).toLocaleString()}
-                        </span>
+                {displayItems.map((item) => {
+                  // Legacy persisted carts can lack `cartItemId` until the
+                  // provider's upgrade path (storefront-cart-provider.tsx
+                  // `!item.cartItemId` branch) backfills it. Fall back to
+                  // `item.id` so React keys never collapse to `undefined`.
+                  const itemKey =
+                    item.kind === 'cart'
+                      ? item.cartItemId || item.id
+                      : item.id;
+                  const itemName = item.kind === 'cart' ? item.name : item.product_name;
+                  const itemImage =
+                    (item.kind === 'cart' ? item.image : item.image_url) || '/placeholder.png';
+                  const itemPrice =
+                    item.kind === 'cart' ? (item.negotiatedPrice || item.price) : item.price;
+                  return (
+                    <div key={itemKey} className="flex gap-3">
+                      <div className="relative w-12 h-12 bg-gray-50 rounded-lg border border-gray-100 p-1 flex-shrink-0">
+                        <Image
+                          src={itemImage}
+                          alt={itemName}
+                          fill
+                          sizes="48px"
+                          className="object-contain mix-blend-multiply"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-gray-900 line-clamp-1">
+                          {itemName}
+                        </p>
+                        <div className="flex justify-between items-center text-xs text-gray-500 mt-0.5">
+                          <span>Qty: {item.quantity}</span>
+                          <span>₦{itemPrice.toLocaleString()}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div className="border-t border-dashed border-gray-200 my-4" />
