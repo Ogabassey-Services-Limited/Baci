@@ -118,7 +118,6 @@ const DOT_DECIMAL_LANGUAGES = new Set([
   'sw',
   'ms',
   'km',
-  'lo',
   'my',
 ]);
 

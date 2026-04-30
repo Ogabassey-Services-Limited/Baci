@@ -162,6 +162,10 @@ describe('formatUtilityAmountInput', () => {
       expect(formatUtilityAmountInput('1,234.56', 'hi-IN')).toBe(
         expectFor('hi-IN', 1234.56)
       );
+      // lo-LA uses comma-decimal/dot-group despite SE Asian language.
+      expect(formatUtilityAmountInput('1.234,56', 'lo-LA')).toBe(
+        expectFor('lo-LA', 1234.56)
+      );
     } finally {
       Object.defineProperty(Intl.NumberFormat.prototype, 'formatToParts', {
         configurable: true,
