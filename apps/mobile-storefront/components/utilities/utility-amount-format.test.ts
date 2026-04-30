@@ -82,6 +82,23 @@ describe('formatUtilityAmountInput', () => {
       expect(formatUtilityAmountInput('1.234,56', 'de-DE')).toBe('1.234,56');
       expect(formatUtilityAmountInput('1234.5', 'ja-JP')).toBe('1,234.5');
       expect(formatUtilityAmountInput('1234.5', 'zh-CN')).toBe('1,234.5');
+      // Space-group locales: Intl uses non-breaking space as group separator.
+      // The fallback map must treat these as space-group, not dot-group.
+      expect(formatUtilityAmountInput('1234,5', 'fi-FI')).toBe(
+        new Intl.NumberFormat('fi-FI', { maximumFractionDigits: 2 }).format(
+          1234.5
+        )
+      );
+      expect(formatUtilityAmountInput('1 234,56', 'fr-FR')).toBe(
+        new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(
+          1234.56
+        )
+      );
+      expect(formatUtilityAmountInput('1 234,56', 'ru-RU')).toBe(
+        new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(
+          1234.56
+        )
+      );
     } finally {
       Object.defineProperty(Intl.NumberFormat.prototype, 'formatToParts', {
         configurable: true,
