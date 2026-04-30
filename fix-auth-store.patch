@@ -1,0 +1,10 @@
+--- apps/mobile-admin/stores/auth-store.ts
++++ apps/mobile-admin/stores/auth-store.ts
+@@ -107,6 +107,10 @@
+
+       // Single listener for the entire app
+       const {
+         data: { subscription },
+       } = supabase.auth.onAuthStateChange((event, session) => {
+         // Don't update state from the listener until after the initial getUser() completes.
+         // This prevents INITIAL_SESSION from setting auth state before server validation.
