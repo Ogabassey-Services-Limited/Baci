@@ -104,6 +104,9 @@ export async function POST(request: NextRequest) {
       ...(result.cashback && {
         cashback: result.cashback,
       }),
+      ...(result.voucherPin && {
+        voucherPin: result.voucherPin,
+      }),
     });
   } catch (error) {
     const message =

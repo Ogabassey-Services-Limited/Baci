@@ -1,14 +1,12 @@
-import Constants from 'expo-constants';
 import { z } from 'zod';
+import { EXPO_PUBLIC_API_URL } from '@/env';
 import { CONFIG } from '@/lib/config';
 import { DEFAULT_TIMEOUT, fetchWithTimeout } from '@/lib/fetch-with-timeout';
 import { MOBILE_TO_KUDA_PROVIDER } from '@/lib/network-utils';
 import { supabase } from '@/lib/supabase';
 
-const API_URL =
-  process.env.EXPO_PUBLIC_API_URL ||
-  Constants.expoConfig?.extra?.apiUrl ||
-  'https://ogabassey.usebaci.com';
+const API_URL = EXPO_PUBLIC_API_URL;
+export const VTU_CHECKOUT_INITIALIZE_URL = `${API_URL}/api/vtu/checkout/initialize`;
 
 const GatewayEnum = z.enum(['paystack', 'korapay']);
 
@@ -28,6 +26,7 @@ const ConfirmCheckoutResponseSchema = z.object({
   reference: z.string(),
   amount: z.number().optional(),
   customerIdentifier: z.string().optional(),
+  voucherPin: z.string().optional(),
   cashback: z
     .object({
       amount: z.number(),
@@ -36,6 +35,33 @@ const ConfirmCheckoutResponseSchema = z.object({
     })
     .optional(),
 });
+
+const ALLOWED_CONFIRM_CHECKOUT_STATUSES = ['successful', 'processing'] as const;
+
+function isAllowedConfirmCheckoutStatus(
+  status: string
+): status is (typeof ALLOWED_CONFIRM_CHECKOUT_STATUSES)[number] {
+  return ALLOWED_CONFIRM_CHECKOUT_STATUSES.some(
+    (allowedStatus) => allowedStatus === status
+  );
+}
+
+function normalizeConfirmCheckoutStatus(status: unknown) {
+  if (typeof status !== 'string') {
+    throw new Error(`Unexpected VTU checkout status: ${String(status)}`);
+  }
+
+  const normalizedStatus = status.toLowerCase();
+  if (normalizedStatus === 'already_completed') {
+    return 'processing' as const;
+  }
+
+  if (isAllowedConfirmCheckoutStatus(normalizedStatus)) {
+    return normalizedStatus;
+  }
+
+  throw new Error(`Unexpected VTU checkout status: ${status}`);
+}
 
 const SavedCardSchema = z.object({
   id: z.string(),
@@ -59,6 +85,7 @@ const ChargeSavedCardSuccessSchema = z.object({
   reference: z.string(),
   amount: z.number(),
   customerIdentifier: z.string().optional(),
+  voucherPin: z.string().optional(),
   cashback: z
     .object({
       amount: z.number(),
@@ -79,6 +106,7 @@ const ChargeSavedCardGatewaySchema = z.object({
 const ChargeSavedCardProcessingSchema = z.object({
   status: z.literal('processing'),
   reference: z.string(),
+  gateway: GatewayEnum.optional(),
 });
 
 export type VTUPaymentGateway = z.infer<typeof GatewayEnum>;
@@ -99,6 +127,29 @@ export type SavedVtuCardChargeResult =
   | SavedVtuCardChargeSuccess
   | SavedVtuCardChargeAuthorizationRequired
   | SavedVtuCardChargeProcessing;
+
+export class VtuPaymentStillProcessingError extends Error {
+  amount?: number;
+  customerIdentifier?: string;
+  reference: string;
+
+  constructor({
+    amount,
+    customerIdentifier,
+    reference,
+  }: {
+    amount?: number;
+    customerIdentifier?: string;
+    reference: string;
+  }) {
+    super('Payment is still processing. Check your utility history shortly.');
+    this.name = 'VtuPaymentStillProcessingError';
+    Object.setPrototypeOf(this, VtuPaymentStillProcessingError.prototype);
+    this.amount = amount;
+    this.customerIdentifier = customerIdentifier;
+    this.reference = reference;
+  }
+}
 
 export interface VTUCheckoutPayload {
   amount: number;
@@ -154,14 +205,16 @@ async function getAccessToken() {
   return session.access_token;
 }
 
+function getResponseErrorMessage(data: Record<string, unknown>) {
+  return typeof data.error === 'string'
+    ? data.error
+    : 'Request failed. Please try again.';
+}
+
 async function parseJsonResponse(response: Response) {
   const data = (await response.json()) as Record<string, unknown>;
   if (!response.ok) {
-    throw new Error(
-      typeof data.error === 'string'
-        ? data.error
-        : 'Request failed. Please try again.'
-    );
+    throw new Error(getResponseErrorMessage(data));
   }
 
   return data;
@@ -169,21 +222,18 @@ async function parseJsonResponse(response: Response) {
 
 export async function initializeVtuCheckout(payload: VTUCheckoutPayload) {
   const accessToken = await getAccessToken();
-  const response = await fetchWithTimeout(
-    `${API_URL}/api/vtu/checkout/initialize`,
-    {
-      method: 'POST',
-      timeout: DEFAULT_TIMEOUT,
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        ...normalizeVtuCheckoutPayload(payload),
-        merchantSlug: CONFIG.MERCHANT_SLUG,
-      }),
-    }
-  );
+  const response = await fetchWithTimeout(VTU_CHECKOUT_INITIALIZE_URL, {
+    method: 'POST',
+    timeout: DEFAULT_TIMEOUT,
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      ...normalizeVtuCheckoutPayload(payload),
+      merchantSlug: CONFIG.MERCHANT_SLUG,
+    }),
+  });
 
   const data = await parseJsonResponse(response);
   return InitCheckoutResponseSchema.parse(data);
@@ -214,8 +264,29 @@ export async function confirmVtuCheckout({
     }
   );
 
-  const data = await parseJsonResponse(response);
-  return ConfirmCheckoutResponseSchema.parse(data);
+  const data = (await response.json()) as Record<string, unknown>;
+  if (!response.ok) {
+    const gatewayStatus =
+      typeof data.status === 'string' ? data.status.toLowerCase() : '';
+    if (
+      response.status === 409 &&
+      gatewayStatus !== 'failed' &&
+      gatewayStatus !== 'abandoned'
+    ) {
+      return ConfirmCheckoutResponseSchema.parse({
+        ...data,
+        reference,
+        status: 'processing' as const,
+      });
+    }
+
+    throw new Error(getResponseErrorMessage(data));
+  }
+
+  return ConfirmCheckoutResponseSchema.parse({
+    ...data,
+    status: normalizeConfirmCheckoutStatus(data.status),
+  });
 }
 
 export async function waitForVtuConfirmation({
@@ -227,20 +298,27 @@ export async function waitForVtuConfirmation({
   maxAttempts?: number;
   reference: string;
 }) {
+  let lastProcessingResult: VtuCheckoutConfirmation | null = null;
+
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     const result = await confirmVtuCheckout({ gateway, reference });
     if (result.status === 'successful') {
       return result;
     }
 
-    await new Promise((resolve) => {
-      setTimeout(resolve, 1200);
-    });
+    lastProcessingResult = result;
+    if (attempt < maxAttempts - 1) {
+      await new Promise((resolve) => {
+        setTimeout(resolve, 1200);
+      });
+    }
   }
 
-  throw new Error(
-    'Payment is still processing. Check your utility history shortly.'
-  );
+  throw new VtuPaymentStillProcessingError({
+    amount: lastProcessingResult?.amount,
+    customerIdentifier: lastProcessingResult?.customerIdentifier,
+    reference: lastProcessingResult?.reference ?? reference,
+  });
 }
 
 export function requiresSavedVtuCardAuthorization(

@@ -1,0 +1,43 @@
+import type { RefObject } from 'react';
+import type { LayoutChangeEvent, ScrollView } from 'react-native';
+import type { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { useUtilityPayment } from '@/hooks/use-utility-payment';
+import type { Biller, BillItem, useVTUBillers } from '@/hooks/use-vtu-billers';
+import type { useVTUVerify } from '@/hooks/use-vtu-verify';
+import type { resolveBillItemSelection } from './bill-item-selection';
+
+export interface BillFormController {
+  amount: string;
+  billersQuery: ReturnType<typeof useVTUBillers>;
+  billItemSelection: ReturnType<typeof resolveBillItemSelection>;
+  canShowPayment: boolean;
+  customerId: string;
+  footerBottomOffset: number;
+  footerSpacerHeight: number;
+  formattedAmount: string;
+  handleBillItemSelect: (depth: number, billItem: BillItem) => void;
+  handleBillerSelect: (biller: Biller) => void;
+  handlePaymentLayout: (event: LayoutChangeEvent) => void;
+  handlePurchase: () => Promise<void>;
+  handleVerify: () => void;
+  insets: ReturnType<typeof useSafeAreaInsets>;
+  isBillItemSelectionComplete: boolean;
+  isBusy: boolean;
+  isFixedAmount: boolean;
+  isKeyboardVisible: boolean;
+  isProviderPickerExpanded: boolean;
+  isRepeatPaymentActive: boolean;
+  numericAmount: number;
+  payment: ReturnType<typeof useUtilityPayment>;
+  resetVerification: () => void;
+  scheduleNextStepScroll: (nextStepY: number) => void;
+  scrollViewRef: RefObject<ScrollView | null>;
+  selectedBiller: Biller | null;
+  selectedBillItemIdentifier: string | null;
+  setProviderPickerExpanded: (isExpanded: boolean) => void;
+  setRepeatPaymentActive: (isActive: boolean) => void;
+  shouldScrollToNextStep: boolean;
+  updateAmount: (value: string) => void;
+  updateCustomerId: (value: string) => void;
+  verify: ReturnType<typeof useVTUVerify>;
+}

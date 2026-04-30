@@ -3,6 +3,12 @@ import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/Colors';
 import { UTILITY_HISTORY_STYLE_TOKENS } from './history.constants';
 
 export const styles = StyleSheet.create({
+  actionRow: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+  },
   cashbackText: {
     fontSize: UTILITY_HISTORY_STYLE_TOKENS.referenceTextSize,
     fontWeight: TYPOGRAPHY.weight.semibold,
@@ -22,6 +28,10 @@ export const styles = StyleSheet.create({
   errorText: {
     fontSize: UTILITY_HISTORY_STYLE_TOKENS.referenceTextSize,
   },
+  paymentNoticeText: {
+    fontSize: UTILITY_HISTORY_STYLE_TOKENS.referenceTextSize,
+    fontWeight: TYPOGRAPHY.weight.semibold,
+  },
   filterChip: {
     borderRadius: RADIUS.full,
     borderWidth: 1,
@@ -34,8 +44,11 @@ export const styles = StyleSheet.create({
   },
   filterRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: SPACING.sm,
+    paddingRight: SPACING.md,
+  },
+  filterScroller: {
+    marginRight: -SPACING.md,
   },
   metaRow: {
     alignItems: 'center',
@@ -48,12 +61,17 @@ export const styles = StyleSheet.create({
   referenceText: {
     fontSize: UTILITY_HISTORY_STYLE_TOKENS.referenceTextSize,
   },
-  retryButton: {
+  pillButtonBase: {
+    alignItems: 'center',
     borderRadius: RADIUS.full,
     borderWidth: 1,
     justifyContent: 'center',
     minHeight: UTILITY_HISTORY_STYLE_TOKENS.touchTargetHeight,
     paddingHorizontal: UTILITY_HISTORY_STYLE_TOKENS.chipHorizontalPadding,
+  },
+  actionButtonText: {
+    fontSize: UTILITY_HISTORY_STYLE_TOKENS.labelTextSize,
+    fontWeight: TYPOGRAPHY.weight.bold,
   },
   retryText: {
     fontSize: UTILITY_HISTORY_STYLE_TOKENS.labelTextSize,
@@ -108,5 +126,23 @@ export const styles = StyleSheet.create({
   transactionTitle: {
     fontSize: TYPOGRAPHY.size.lg,
     fontWeight: TYPOGRAPHY.weight.bold,
+  },
+  tokenButton: {
+    marginTop: SPACING.sm,
+  },
+  voucherBox: {
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    padding: SPACING.sm,
+  },
+  voucherCode: {
+    fontSize: TYPOGRAPHY.size.lg,
+    fontWeight: TYPOGRAPHY.weight.bold,
+  },
+  voucherLabel: {
+    fontSize: UTILITY_HISTORY_STYLE_TOKENS.statusTextSize,
+    fontWeight: TYPOGRAPHY.weight.semibold,
+    marginBottom: UTILITY_HISTORY_STYLE_TOKENS.smallGap,
+    textTransform: 'uppercase',
   },
 });

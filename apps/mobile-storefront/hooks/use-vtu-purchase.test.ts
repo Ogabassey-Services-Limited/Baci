@@ -1,17 +1,41 @@
+import { jest } from '@jest/globals';
 import { notifyManager } from '@tanstack/query-core';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook } from '@testing-library/react-native';
 import { createElement, type PropsWithChildren } from 'react';
 import { useVTUPurchase } from '@/hooks/use-vtu-purchase';
 
-const mockFetchWithTimeout = jest.fn();
-const mockScheduleLocalNotification = jest.fn();
-const mockGetUser = jest.fn();
-const mockGetSession = jest.fn();
+type MockFetchResponse = {
+  ok: boolean;
+  json: () => Promise<Record<string, unknown>>;
+};
+
+type MockUserResult = {
+  data: { user: { id: string } | null };
+  error: Error | null;
+};
+
+type MockSessionResult = {
+  data: { session: { access_token: string } | null };
+};
+
+const mockFetchWithTimeout =
+  jest.fn<(...args: unknown[]) => Promise<MockFetchResponse>>();
+const mockScheduleLocalNotification =
+  jest.fn<(...args: unknown[]) => Promise<unknown>>();
+const mockGetUser = jest.fn<() => Promise<MockUserResult>>();
+const mockGetSession = jest.fn<() => Promise<MockSessionResult>>();
+let mockExpoPublicApiUrl = 'https://usebaci.com/';
 
 jest.mock('@/lib/fetch-with-timeout', () => ({
   DEFAULT_TIMEOUT: 30000,
   fetchWithTimeout: (...args: unknown[]) => mockFetchWithTimeout(...args),
+}));
+
+jest.mock('@/env', () => ({
+  get EXPO_PUBLIC_API_URL() {
+    return mockExpoPublicApiUrl;
+  },
 }));
 
 jest.mock('@/services/push-notifications', () => ({
@@ -22,8 +46,8 @@ jest.mock('@/services/push-notifications', () => ({
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     auth: {
-      getUser: (...args: unknown[]) => mockGetUser(...args),
-      getSession: (...args: unknown[]) => mockGetSession(...args),
+      getUser: () => mockGetUser(),
+      getSession: () => mockGetSession(),
     },
   },
 }));
@@ -73,7 +97,11 @@ afterAll(() => {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockGetUser.mockResolvedValue({ data: { user: { id: 'auth-user-1' } }, error: null });
+  mockExpoPublicApiUrl = 'https://usebaci.com/';
+  mockGetUser.mockResolvedValue({
+    data: { user: { id: 'auth-user-1' } },
+    error: null,
+  });
   mockGetSession.mockResolvedValue({
     data: { session: { access_token: 'token-123' } },
   });
@@ -88,6 +116,7 @@ describe('useVTUPurchase', () => {
         success: true,
         reference: 'VTU-123',
         amount: 1000,
+        voucherPin: 'TOKEN-123',
         cashback: {
           amount: 50,
           credited: true,
@@ -106,6 +135,7 @@ describe('useVTUPurchase', () => {
           success: boolean;
           reference: string;
           amount: number;
+          voucherPin?: string;
           cashback?: { amount: number; credited: boolean; newBalance: number };
         }
       | undefined;
@@ -123,9 +153,25 @@ describe('useVTUPurchase', () => {
       success: true,
       reference: 'VTU-123',
       amount: 1000,
+      voucherPin: 'TOKEN-123',
     });
+    expect(mockFetchWithTimeout).toHaveBeenCalledWith(
+      'https://usebaci.com/api/vtu/purchase',
+      expect.any(Object)
+    );
     expect(result.current.isPending).toBe(false);
-    expect(mockScheduleLocalNotification).toHaveBeenCalledTimes(1);
+    expect(mockScheduleLocalNotification).toHaveBeenCalledWith(
+      'Cashback Received! 🎉',
+      '₦50 cashback added to your wallet.',
+      expect.objectContaining({
+        amount: 50,
+        type: 'wallet_cashback',
+      }),
+      1
+    );
+    const notificationPayload =
+      mockScheduleLocalNotification.mock.calls[0]?.[2];
+    expect(notificationPayload).not.toHaveProperty('voucherPin');
 
     unmount();
     queryClient.clear();

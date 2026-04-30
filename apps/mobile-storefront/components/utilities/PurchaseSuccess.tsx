@@ -1,23 +1,40 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { type Href, useRouter } from 'expo-router';
+import type { ComponentProps } from 'react';
+import { Pressable, Text, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND, SPACING } from '@/constants/Colors';
+import Colors, { BRAND } from '@/constants/Colors';
+import PurchaseCashbackCard from './PurchaseCashbackCard';
+import PurchaseUpsellCard from './PurchaseUpsellCard';
+import PurchaseVoucherCard from './PurchaseVoucherCard';
+import { styles } from './purchase-success.styles';
+import ReceiptShareButton from './ReceiptShareButton';
 
 interface CashbackInfo {
   amount: number;
   newBalance: number;
 }
 
+type PurchaseStatus =
+  | 'processing'
+  | 'successful'
+  | 'failed'
+  | 'error'
+  | 'cancelled';
+type IoniconsName = ComponentProps<typeof Ionicons>['name'];
+
 interface PurchaseSuccessProps {
   type: string;
+  amount?: number;
   phoneNumber?: string;
   customerIdentifier?: string;
   txReference: string | null;
   cashback: CashbackInfo | null;
   isAuthenticated: boolean;
   onCreateAccount: () => void;
+  status?: PurchaseStatus;
+  voucherPin?: string | null;
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -28,32 +45,145 @@ const TYPE_LABELS: Record<string, string> = {
   gaming: 'betting',
 };
 
+function getPurchaseMessage({
+  identifier,
+  status,
+  type,
+}: {
+  identifier: string;
+  status: PurchaseStatus;
+  type: string;
+}) {
+  const typeLabel = TYPE_LABELS[type] || type;
+
+  switch (status) {
+    case 'processing':
+      return identifier
+        ? `Your ${typeLabel} payment for ${identifier} is processing. We will update your utility history shortly.`
+        : `Your ${typeLabel} payment is processing. We will update your utility history shortly.`;
+    case 'failed':
+      return identifier
+        ? `Your ${typeLabel} purchase for ${identifier} failed. Please try again or use another payment method.`
+        : `Your ${typeLabel} purchase failed. Please try again or use another payment method.`;
+    case 'cancelled':
+      return identifier
+        ? `Your ${typeLabel} payment for ${identifier} was cancelled.`
+        : `Your ${typeLabel} payment was cancelled.`;
+    case 'error':
+      return identifier
+        ? `We could not complete your ${typeLabel} purchase for ${identifier}. Please try again.`
+        : `We could not complete your ${typeLabel} purchase. Please try again.`;
+    case 'successful':
+      return identifier
+        ? `Your ${typeLabel} purchase for ${identifier} was successful.`
+        : `Your ${typeLabel} purchase was successful.`;
+    default:
+      return assertNever(status);
+  }
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unhandled purchase status: ${value}`);
+}
+
+function getReceiptStatus(
+  status: PurchaseStatus
+): 'processing' | 'successful' | null {
+  switch (status) {
+    case 'processing':
+      return 'processing';
+    case 'successful':
+      return 'successful';
+    case 'failed':
+    case 'error':
+    case 'cancelled':
+      return null;
+    default:
+      return assertNever(status);
+  }
+}
+
+function getPurchasePresentation(status: PurchaseStatus): {
+  canShareReceipt: boolean;
+  iconName: IoniconsName;
+  isProcessing: boolean;
+  title: string;
+} {
+  switch (status) {
+    case 'processing':
+      return {
+        canShareReceipt: true,
+        iconName: 'time-outline',
+        isProcessing: true,
+        title: 'Payment Received',
+      };
+    case 'failed':
+      return {
+        canShareReceipt: false,
+        iconName: 'alert-circle',
+        isProcessing: false,
+        title: 'Purchase Failed',
+      };
+    case 'error':
+      return {
+        canShareReceipt: false,
+        iconName: 'alert-circle',
+        isProcessing: false,
+        title: 'Purchase Error',
+      };
+    case 'cancelled':
+      return {
+        canShareReceipt: false,
+        iconName: 'close-circle',
+        isProcessing: false,
+        title: 'Payment Cancelled',
+      };
+    case 'successful':
+      return {
+        canShareReceipt: true,
+        iconName: 'checkmark-circle',
+        isProcessing: false,
+        title: 'Purchase Successful!',
+      };
+    default:
+      return assertNever(status);
+  }
+}
+
 export function PurchaseSuccess({
   type,
+  amount,
   phoneNumber,
   customerIdentifier,
   txReference,
   cashback,
   isAuthenticated,
   onCreateAccount,
+  status = 'successful',
+  voucherPin,
 }: PurchaseSuccessProps) {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const identifier = phoneNumber || customerIdentifier || '';
+  const presentation = getPurchasePresentation(status);
+  const receiptStatus = getReceiptStatus(status);
+  const messageText = getPurchaseMessage({ identifier, status, type });
 
   return (
     <Animated.View entering={FadeIn} style={styles.container}>
       <View style={styles.iconContainer}>
-        <Ionicons name="checkmark-circle" size={80} color={BRAND.primary} />
+        <Ionicons
+          name={presentation.iconName}
+          size={80}
+          color={BRAND.primary}
+        />
       </View>
       <Text style={[styles.title, { color: colors.text }]}>
-        Purchase Successful!
+        {presentation.title}
       </Text>
       <Text style={[styles.message, { color: colors.textSecondary }]}>
-        {identifier
-          ? `Your ${TYPE_LABELS[type] || type} purchase for ${identifier} was successful.`
-          : `Your ${TYPE_LABELS[type] || type} purchase was successful.`}
+        {messageText}
       </Text>
 
       {txReference && (
@@ -62,49 +192,31 @@ export function PurchaseSuccess({
         </Text>
       )}
 
-      {cashback && (
-        <View style={styles.cashbackCard}>
-          <Ionicons
-            name="wallet-outline"
-            size={20}
-            color="#059669"
-            style={{ marginBottom: 4 }}
-          />
-          <Text style={styles.cashbackAmount}>
-            +₦{cashback.amount.toLocaleString()} cashback
-          </Text>
-          <Text style={styles.cashbackBalance}>
-            Wallet balance: ₦{cashback.newBalance.toLocaleString()}
-          </Text>
-        </View>
-      )}
+      {voucherPin ? (
+        <PurchaseVoucherCard colors={colors} voucherPin={voucherPin} />
+      ) : null}
 
-      {!isAuthenticated && (
-        <View
-          style={[
-            styles.upsellCard,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <Text style={[styles.upsellTitle, { color: colors.text }]}>
-            Save this beneficiary?
-          </Text>
-          <Text style={[styles.upsellText, { color: colors.textSecondary }]}>
-            Create an account to save this number, view transaction history, and
-            earn loyalty points!
-          </Text>
-          <Pressable
-            style={[styles.primaryButton, { backgroundColor: BRAND.primary }]}
-            onPress={onCreateAccount}
-          >
-            <Text style={styles.primaryButtonText}>Create Account</Text>
-          </Pressable>
-        </View>
-      )}
+      {cashback ? <PurchaseCashbackCard cashback={cashback} /> : null}
+
+      {!isAuthenticated ? (
+        <PurchaseUpsellCard colors={colors} onCreateAccount={onCreateAccount} />
+      ) : null}
+
+      {presentation.canShareReceipt && receiptStatus ? (
+        <ReceiptShareButton
+          amount={amount}
+          colors={colors}
+          identifier={identifier}
+          status={receiptStatus}
+          txReference={txReference}
+          type={type}
+          voucherPin={voucherPin ?? undefined}
+        />
+      ) : null}
 
       <Pressable
         style={[styles.secondaryButton, { borderColor: colors.border }]}
-        onPress={() => router.push('/')}
+        onPress={() => router.push('/' as Href)}
       >
         <Text style={[styles.secondaryButtonText, { color: colors.text }]}>
           Back to Home
@@ -113,61 +225,3 @@ export function PurchaseSuccess({
     </Animated.View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: SPACING.lg,
-  },
-  iconContainer: { marginBottom: 24 },
-  title: { fontSize: 24, fontWeight: '700', marginBottom: 8 },
-  message: { fontSize: 16, textAlign: 'center', marginBottom: 32 },
-  referenceText: {
-    fontSize: 13,
-    textAlign: 'center' as const,
-    marginBottom: 24,
-  },
-  cashbackCard: {
-    width: '100%' as unknown as number,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center' as const,
-    marginBottom: 24,
-    backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
-  },
-  cashbackAmount: {
-    fontSize: 16,
-    fontWeight: '700' as const,
-    color: '#059669',
-  },
-  cashbackBalance: { fontSize: 13, color: '#6B7280', marginTop: 2 },
-  upsellCard: {
-    width: '100%' as unknown as number,
-    padding: 20,
-    borderRadius: 16,
-    borderWidth: 1,
-    marginBottom: 24,
-  },
-  upsellTitle: { fontSize: 18, fontWeight: '600', marginBottom: 8 },
-  upsellText: { fontSize: 14, marginBottom: 16 },
-  primaryButton: {
-    height: 50,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryButtonText: { color: '#FFF', fontSize: 16, fontWeight: '600' },
-  secondaryButton: {
-    width: '100%' as unknown as number,
-    height: 50,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-  },
-  secondaryButtonText: { fontSize: 16, fontWeight: '600' },
-});

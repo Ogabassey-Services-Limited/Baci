@@ -178,10 +178,13 @@ export async function POST(request: NextRequest) {
       }
 
       if (!claimed) {
-        // Another process already completed this transaction
-        return NextResponse.json({
-          status: 'already_completed',
-          message: 'Payment already processed',
+        // Another process already completed or claimed this payment between
+        // the read and update. Continue to fulfillment so the client receives
+        // the VTU status shape it already understands.
+        console.debug('VTU confirm transaction was already claimed', {
+          gateway: parsed.data.gateway,
+          paymentId: transaction.id,
+          reference: parsed.data.reference,
         });
       }
     }
@@ -225,6 +228,7 @@ export async function POST(request: NextRequest) {
     }
 
     const fulfillment = await fulfillPendingVtuTransaction({
+      retryFailed: true,
       supabase,
       transactionId: vtuTransactionId,
     });
@@ -250,6 +254,7 @@ export async function POST(request: NextRequest) {
       reference: fulfillment.reference,
       status: 'successful',
       success: true,
+      ...(fulfillment.voucherPin && { voucherPin: fulfillment.voucherPin }),
     });
   } catch (error) {
     return NextResponse.json(

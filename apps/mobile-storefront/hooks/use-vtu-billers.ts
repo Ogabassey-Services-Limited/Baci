@@ -1,6 +1,7 @@
+import { withKudaElectricityBillItems } from '@baci/shared/lib';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import Constants from 'expo-constants';
 import { useEffect } from 'react';
+import { EXPO_PUBLIC_API_URL } from '@/env';
 import { fetchWithRetry } from '@/lib/api';
 import { logger } from '@/lib/logger';
 import { BILLER_GC_TIME, BILLER_STALE_TIME } from '@/lib/vtu-constants';
@@ -11,30 +12,38 @@ import {
 } from '@/lib/vtu-schemas';
 
 export type { Biller, BillItem };
-
-const API_URL =
-  process.env.EXPO_PUBLIC_API_URL ||
-  Constants.expoConfig?.extra?.apiUrl ||
-  'https://ogabassey.usebaci.com';
+export const ALL_BILL_TYPES = [
+  'data',
+  'cable_tv',
+  'electricity',
+  'betting',
+] as const;
+export type BillType = (typeof ALL_BILL_TYPES)[number];
 
 const log = logger;
 
 export const vtuBillerKeys = {
   all: ['vtu', 'billers'] as const,
-  byType: (type: string) => ['vtu', 'billers', type] as const,
+  byType: (type: BillType) => ['vtu', 'billers', type] as const,
 };
 
 /** All bill types that can be prefetched */
-const PREFETCH_TYPES = ['data', 'cable_tv', 'electricity', 'betting'] as const;
+const PREFETCH_TYPES = ALL_BILL_TYPES;
+
+function withBillItemsForType(type: BillType, billers: Biller[]): Biller[] {
+  return type === 'electricity'
+    ? withKudaElectricityBillItems(billers)
+    : billers;
+}
 
 /** Shared fetch function used by both useQuery and prefetch */
-async function fetchBillers(type: string): Promise<Biller[]> {
+async function fetchBillers(type: BillType): Promise<Biller[]> {
   const startTime = Date.now();
   log.info('VTU', `Fetching billers for type: ${type}`);
 
   try {
     const response = await fetchWithRetry(
-      `${API_URL}/api/vtu/billers?type=${type}`,
+      `${EXPO_PUBLIC_API_URL}/api/vtu/billers?type=${type}`,
       {
         cache: 'no-store',
       },
@@ -82,10 +91,11 @@ async function fetchBillers(type: string): Promise<Biller[]> {
  * Uses a short stale window because provider packages and nested bill items
  * can change independently of the app release cycle.
  */
-export function useVTUBillers(type: string, enabled = true) {
+export function useVTUBillers(type: BillType, enabled = true) {
   return useQuery<Biller[]>({
     queryKey: vtuBillerKeys.byType(type),
     queryFn: () => fetchBillers(type),
+    select: (billers) => withBillItemsForType(type, billers),
     staleTime: BILLER_STALE_TIME,
     gcTime: BILLER_GC_TIME,
     enabled,

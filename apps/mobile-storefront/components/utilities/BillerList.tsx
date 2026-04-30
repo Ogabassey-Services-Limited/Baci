@@ -5,8 +5,12 @@ import {
   StyleSheet,
   Text,
   View,
+  type ImageStyle,
+  type StyleProp,
+  type ViewStyle,
 } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
+import { BillerInitial } from '@/components/utilities/BillerInitial';
 import Colors, { BRAND, SPACING } from '@/constants/Colors';
 import type { Biller } from '@/hooks/use-vtu-billers';
 
@@ -17,21 +21,46 @@ interface BillerListProps {
   isLoading: boolean;
   emptyMessage?: string;
   errorMessage?: string;
+  isCollapsed?: boolean;
+  onChangeSelection?: () => void;
+  selectedLabel?: string;
 }
 
-function BillerInitial({
-  name,
+interface BillerLogoProps {
+  biller: Biller | null;
+  colors: typeof Colors.light;
+  imageStyle: StyleProp<ImageStyle>;
+  initialStyle?: StyleProp<ViewStyle>;
+}
+
+function BillerLogo({
+  biller,
   colors,
-}: {
-  name: string;
-  colors: { textSecondary: string; border: string };
-}) {
+  imageStyle,
+  initialStyle,
+}: BillerLogoProps) {
+  if (!biller) {
+    return null;
+  }
+
+  if (biller?.billerIconUrl) {
+    return (
+      <Image
+        accessibilityLabel={`${biller.billerName} logo`}
+        accessibilityRole="image"
+        source={{ uri: biller.billerIconUrl }}
+        style={imageStyle}
+        resizeMode="contain"
+      />
+    );
+  }
+
   return (
-    <View style={[styles.initialsCircle, { backgroundColor: colors.border }]}>
-      <Text style={[styles.initialsText, { color: colors.textSecondary }]}>
-        {name.charAt(0).toUpperCase()}
-      </Text>
-    </View>
+    <BillerInitial
+      name={biller?.billerName ?? ''}
+      colors={colors}
+      style={initialStyle}
+    />
   );
 }
 
@@ -42,9 +71,14 @@ export function BillerList({
   isLoading,
   emptyMessage = 'No providers available',
   errorMessage,
+  isCollapsed = false,
+  onChangeSelection,
+  selectedLabel = 'Provider',
 }: BillerListProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const selectedBiller =
+    billers.find((biller) => biller.billerId === selectedBillerId) ?? null;
 
   if (isLoading) {
     return (
@@ -75,6 +109,61 @@ export function BillerList({
     );
   }
 
+  if (isCollapsed) {
+    const hasSelectedBiller = Boolean(selectedBiller);
+    const selectedName = selectedBiller?.billerName ?? 'Select provider';
+    const actionLabel = hasSelectedBiller ? 'Change' : 'Select';
+    const actionAccessibilityLabel = hasSelectedBiller
+      ? 'Change selected provider'
+      : 'Select provider';
+
+    return (
+      <View
+        style={[
+          styles.selectedCard,
+          {
+            backgroundColor: hasSelectedBiller
+              ? BRAND.primaryLight
+              : colors.card,
+            borderColor: hasSelectedBiller ? BRAND.primary : colors.border,
+          },
+        ]}
+      >
+        <View style={styles.selectedCardMain}>
+          <BillerLogo
+            biller={selectedBiller}
+            colors={colors}
+            imageStyle={styles.selectedLogo}
+            initialStyle={styles.selectedInitial}
+          />
+          <View style={styles.selectedCopy}>
+            <Text
+              style={[styles.selectedLabel, { color: colors.textSecondary }]}
+            >
+              {selectedLabel}
+            </Text>
+            <Text
+              style={[styles.selectedName, { color: colors.text }]}
+              numberOfLines={1}
+            >
+              {selectedName}
+            </Text>
+          </View>
+        </View>
+        {onChangeSelection ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={actionAccessibilityLabel}
+            onPress={onChangeSelection}
+            style={[styles.changeButton, { borderColor: BRAND.primary }]}
+          >
+            <Text style={styles.changeButtonText}>{actionLabel}</Text>
+          </Pressable>
+        ) : null}
+      </View>
+    );
+  }
+
   return (
     <View style={styles.grid}>
       {billers.map((biller) => {
@@ -92,19 +181,16 @@ export function BillerList({
             ]}
             onPress={() => onSelect(biller)}
           >
-            {biller.billerIconUrl ? (
-              <Image
-                source={{ uri: biller.billerIconUrl }}
-                style={styles.logo}
-                resizeMode="contain"
-              />
-            ) : (
-              <BillerInitial name={biller.billerName} colors={colors} />
-            )}
+            <BillerLogo
+              biller={biller}
+              colors={colors}
+              imageStyle={styles.logo}
+              initialStyle={styles.initialSpacing}
+            />
             <Text
               style={[
                 styles.billerName,
-                { color: isSelected ? '#FFF' : colors.text },
+                { color: isSelected ? BRAND.onPrimary : colors.text },
               ]}
               numberOfLines={2}
             >
@@ -135,22 +221,26 @@ const styles = StyleSheet.create({
     height: 40,
     marginBottom: 8,
   },
-  initialsCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
+  initialSpacing: {
     marginBottom: 8,
-  },
-  initialsText: {
-    fontSize: 20,
-    fontWeight: '700',
   },
   billerName: {
     fontSize: 13,
     fontWeight: '500',
     textAlign: 'center',
+  },
+  changeButton: {
+    alignItems: 'center',
+    borderRadius: 999,
+    borderWidth: 1,
+    justifyContent: 'center',
+    minHeight: 34,
+    paddingHorizontal: 14,
+  },
+  changeButtonText: {
+    color: BRAND.primary,
+    fontSize: 13,
+    fontWeight: '700',
   },
   centered: {
     padding: SPACING.lg,
@@ -168,5 +258,40 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center' as const,
     color: '#DC2626',
+  },
+  selectedCard: {
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'space-between',
+    padding: 14,
+  },
+  selectedCardMain: {
+    alignItems: 'center',
+    flex: 1,
+    flexDirection: 'row',
+    gap: 12,
+  },
+  selectedCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  selectedLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  selectedLogo: {
+    height: 32,
+    width: 48,
+  },
+  selectedInitial: {
+    height: 32,
+    width: 32,
+  },
+  selectedName: {
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

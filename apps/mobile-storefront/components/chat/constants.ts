@@ -8,6 +8,7 @@ import { resolveApiBaseUrl } from '@/lib/api-url';
 /**
  * Screens where the chat widget should be hidden:
  * - Checkout flows (form interference, payment focus)
+ * - Utility flows (keyboard and sticky payment controls need clear space)
  * - Auth screens (user not yet engaged)
  * - Order success (celebration screen, CTAs prominent)
  * - Modal screens (overlay stacking issues)
@@ -15,9 +16,13 @@ import { resolveApiBaseUrl } from '@/lib/api-url';
 export const HIDDEN_ROUTES = [
   '/checkout',
   '/bnpl-checkout',
+  '/payment-gateway',
+  '/bank-transfer',
+  '/crypto-payment',
   '/order-success',
   '/auth/login',
   '/cart',
+  '/utilities',
   '/modal',
   '/orders',
   '/search',

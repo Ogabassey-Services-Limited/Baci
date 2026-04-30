@@ -24,10 +24,47 @@ export const UTILITY_HISTORY_TYPE_LABELS = {
   betting: 'Gaming',
 } as const satisfies Record<VTUHistoryTransaction['type'], string>;
 
+export type UtilityHistoryStatusColorKey =
+  | VTUHistoryTransaction['status']
+  | 'paymentReceived';
+
 export const UTILITY_HISTORY_STATUS_COLORS = {
   failed: palette.red[700],
+  paymentReceived: palette.amber[800],
   pending: palette.amber[800],
+  processing: palette.amber[800],
   successful: palette.emerald[700],
+} as const satisfies Record<UtilityHistoryStatusColorKey, string>;
+
+export const UTILITY_HISTORY_STATUS_META = {
+  failed: {
+    color: UTILITY_HISTORY_STATUS_COLORS.failed,
+    label: 'Failed',
+  },
+  pending: {
+    color: UTILITY_HISTORY_STATUS_COLORS.pending,
+    label: 'Pending',
+  },
+  processing: {
+    color: UTILITY_HISTORY_STATUS_COLORS.processing,
+    label: 'Processing',
+  },
+  successful: {
+    color: UTILITY_HISTORY_STATUS_COLORS.successful,
+    label: 'Successful',
+  },
+} as const satisfies Record<
+  VTUHistoryTransaction['status'],
+  { color: string; label: string }
+>;
+
+export const DEFAULT_UTILITY_HISTORY_STATUS_COLOR = palette.gray[700];
+export const DEFAULT_UTILITY_HISTORY_STATUS_LABEL = 'Unknown';
+
+export const UTILITY_HISTORY_PAYMENT_RECEIVED_STATUS = {
+  color: UTILITY_HISTORY_STATUS_COLORS.paymentReceived,
+  label: 'Payment Received',
+  message: 'Payment received. Tap Sync payment to retry bill fulfillment.',
 } as const;
 
 export const UTILITY_HISTORY_STYLE_TOKENS = {
@@ -47,6 +84,6 @@ export const UTILITY_HISTORY_STYLE_TOKENS = {
   statePadding: 20,
   stateTitleSize: 18,
   statusTextSize: 11,
-  statusTintSuffix: '18',
+  statusTintOpacity: 0.094,
   touchTargetHeight: 40,
 } as const;

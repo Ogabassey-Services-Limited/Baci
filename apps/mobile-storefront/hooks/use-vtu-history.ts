@@ -1,15 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import Constants from 'expo-constants';
 import { z } from 'zod';
+import { EXPO_PUBLIC_API_URL } from '@/env';
 import { CONFIG } from '@/lib/config';
 import { fetchWithTimeout, SHORT_TIMEOUT } from '@/lib/fetch-with-timeout';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth-store';
-
-const API_URL =
-  process.env.EXPO_PUBLIC_API_URL ||
-  Constants.expoConfig?.extra?.apiUrl ||
-  'https://ogabassey.usebaci.com';
 
 const HISTORY_FILTER_TO_API_TYPE = {
   airtime: 'airtime',
@@ -19,11 +14,36 @@ const HISTORY_FILTER_TO_API_TYPE = {
   gaming: 'betting',
 } as const;
 
+export const VTU_HISTORY_TRANSACTION_TYPES = [
+  'airtime',
+  'data',
+  'electricity',
+  'cable_tv',
+  'betting',
+] as const;
+
+export const VTU_HISTORY_TRANSACTION_STATUSES = [
+  'pending',
+  'processing',
+  'successful',
+  'failed',
+] as const;
+
+export const VTU_HISTORY_PAYMENT_GATEWAYS = ['paystack', 'korapay'] as const;
+
+export const VTU_HISTORY_PAYMENT_STATUSES = [
+  'pending',
+  'processing',
+  'completed',
+  'failed',
+  'cancelled',
+] as const;
+
 const VTUHistoryTransactionSchema = z.object({
   id: z.string(),
   created_at: z.string(),
-  type: z.enum(['airtime', 'data', 'electricity', 'cable_tv', 'betting']),
-  status: z.enum(['pending', 'successful', 'failed']),
+  type: z.enum(VTU_HISTORY_TRANSACTION_TYPES),
+  status: z.enum(VTU_HISTORY_TRANSACTION_STATUSES),
   amount: z.number(),
   network_provider: z.string().nullable().optional(),
   phone_number: z.string().nullable().optional(),
@@ -34,6 +54,11 @@ const VTUHistoryTransactionSchema = z.object({
   request_reference: z.string(),
   error_message: z.string().nullable().optional(),
   customer_cashback: z.number().nullable().optional(),
+  payment_gateway: z.enum(VTU_HISTORY_PAYMENT_GATEWAYS).nullable().optional(),
+  payment_reference: z.string().nullable().optional(),
+  payment_status: z.enum(VTU_HISTORY_PAYMENT_STATUSES).nullable().optional(),
+  repeat_data_plan_code: z.string().nullable().optional(),
+  voucher_pin: z.string().nullable().optional(),
 });
 
 const VTUHistoryResponseSchema = z.object({
@@ -90,7 +115,7 @@ export function useVTUHistory(filter: UtilityHistoryFilter, limit = 20) {
       }
 
       const response = await fetchWithTimeout(
-        `${API_URL}/api/vtu/history?${query.toString()}`,
+        `${EXPO_PUBLIC_API_URL}/api/vtu/history?${query.toString()}`,
         {
           method: 'GET',
           timeout: SHORT_TIMEOUT,

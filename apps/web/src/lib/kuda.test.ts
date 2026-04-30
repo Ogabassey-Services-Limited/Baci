@@ -246,9 +246,182 @@ describe('Kuda API Client', () => {
     });
   });
 
+  describe('checkTransactionStatus', () => {
+    it('queries bill status by response ref, then request ref, and returns the token', async () => {
+      const { checkTransactionStatus } = await import('@/lib/kuda');
+
+      const fetchMock = vi.fn().mockImplementation((url, options) => {
+        if (url.toString().includes('GetToken')) {
+          return Promise.resolve({
+            ok: true,
+            text: () => Promise.resolve('token'),
+          } as Response);
+        }
+
+        const payload = JSON.parse(String(options?.body));
+        if (payload.Data.BillResponseReference) {
+          return mockKudaResponse({ finalStatus: 'successful' }, 'No token');
+        }
+
+        return mockKudaResponse(
+          { FinalStatus: 'successful', Pin: '1234-5678-9012' },
+          'Token found'
+        );
+      });
+      globalThis.fetch = fetchMock;
+
+      const result = await checkTransactionStatus('kuda-bill-1', 'VTU-123');
+
+      expect(result).toEqual({
+        message: 'Token found',
+        pin: '1234-5678-9012',
+        status: 'successful',
+      });
+
+      const statusPayloads = fetchMock.mock.calls
+        .filter((call) => call[0] === MOCK_API_BASE)
+        .map((call) => JSON.parse(String(call[1]?.body)));
+      expect(statusPayloads).toEqual([
+        expect.objectContaining({
+          Data: { BillResponseReference: 'kuda-bill-1' },
+          serviceType: KudaServiceType.BILL_TSQ,
+        }),
+        expect.objectContaining({
+          Data: { BillRequestRef: 'VTU-123' },
+          serviceType: KudaServiceType.BILL_TSQ,
+        }),
+      ]);
+    });
+
+    it('returns the highest-priority observed status when no token is found', async () => {
+      const { checkTransactionStatus } = await import('@/lib/kuda');
+
+      const fetchMock = vi.fn().mockImplementation((url, options) => {
+        if (url.toString().includes('GetToken')) {
+          return Promise.resolve({
+            ok: true,
+            text: () => Promise.resolve('token'),
+          } as Response);
+        }
+
+        const payload = JSON.parse(String(options?.body));
+        if (payload.Data.BillResponseReference) {
+          return mockKudaResponse({ finalStatus: 'failed' }, 'Failed');
+        }
+
+        return mockKudaResponse({ FinalStatus: 'processing' }, 'Processing');
+      });
+      globalThis.fetch = fetchMock;
+
+      const result = await checkTransactionStatus('kuda-bill-1', 'VTU-123');
+
+      expect(result).toEqual({
+        message: 'Processing',
+        status: 'processing',
+      });
+    });
+
+    it('throws all reference query errors when every status query fails', async () => {
+      const { checkTransactionStatus } = await import('@/lib/kuda');
+
+      const responseRefError = new Error('response reference failed');
+      const requestRefError = new Error('request reference failed');
+      const fetchMock = vi.fn().mockImplementation((url, options) => {
+        if (url.toString().includes('GetToken')) {
+          return Promise.resolve({
+            ok: true,
+            text: () => Promise.resolve('token'),
+          } as Response);
+        }
+
+        const payload = JSON.parse(String(options?.body));
+        if (payload.Data.BillResponseReference) {
+          return Promise.reject(responseRefError);
+        }
+
+        return Promise.reject(requestRefError);
+      });
+      globalThis.fetch = fetchMock;
+
+      await expect(
+        checkTransactionStatus('kuda-bill-1', 'VTU-123')
+      ).rejects.toMatchObject({
+        errors: [responseRefError, requestRefError],
+        message: 'All Kuda transaction status queries failed',
+      });
+    });
+  });
+
   describe('getBillersByType', () => {
+    it('maps Kuda electricity bill items that use kudaIdentifier and name fields', async () => {
+      const { getBillersByType } = await import('@/lib/kuda');
+
+      const fetchMock = vi.fn().mockImplementation((url) => {
+        if (url.toString().includes('GetToken')) {
+          return Promise.resolve({
+            ok: true,
+            text: () => Promise.resolve('token'),
+          } as Response);
+        }
+
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              status: true,
+              message: 'Operation successful',
+              data: {
+                billers: [
+                  {
+                    id: 'ekedc',
+                    name: 'EKEDC NG',
+                    description: 'Electricity',
+                    billTypeId: 'electricity',
+                    billItems: [
+                      {
+                        id: '2e38a937-842c-4f92-aaaa-3e2f16919060',
+                        name: 'EKEDC PREPAID',
+                        kudaIdentifier: 'KUD-ELE-EKED-002',
+                        amount: 0,
+                        isFixedPrice: false,
+                        billerId: 'ekedc',
+                      },
+                      {
+                        id: '9daaa91b-0177-4de4-ba3b-9c86f14848ed',
+                        name: 'EKEDC POSTPAID',
+                        kudaIdentifier: 'KUD-ELE-EKED-001',
+                        amount: 0,
+                        isFixedPrice: false,
+                        billerId: 'ekedc',
+                      },
+                    ],
+                  },
+                ],
+              },
+            }),
+        } as Response);
+      });
+
+      globalThis.fetch = fetchMock;
+
+      const result = await getBillersByType('Electricity');
+
+      expect(result[0].billItems).toEqual([
+        expect.objectContaining({
+          itemCode: 'KUD-ELE-EKED-002',
+          itemName: 'EKEDC PREPAID',
+          isAmountFixed: false,
+        }),
+        expect.objectContaining({
+          itemCode: 'KUD-ELE-EKED-001',
+          itemName: 'EKEDC POSTPAID',
+          isAmountFixed: false,
+        }),
+      ]);
+    });
+
     it('preserves nested bill items from the provider response', async () => {
-      const { getBillersByType } = await import('./kuda');
+      const { getBillersByType } = await import('@/lib/kuda');
 
       const fetchMock = vi.fn().mockImplementation((url) => {
         if (url.toString().includes('GetToken')) {

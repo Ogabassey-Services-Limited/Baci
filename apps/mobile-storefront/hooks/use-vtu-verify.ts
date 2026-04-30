@@ -1,12 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
-import Constants from 'expo-constants';
 import { z } from 'zod';
+import { EXPO_PUBLIC_API_URL } from '@/env';
 import { fetchWithTimeout, SHORT_TIMEOUT } from '@/lib/fetch-with-timeout';
-
-const API_URL =
-  process.env.EXPO_PUBLIC_API_URL ||
-  Constants.expoConfig?.extra?.apiUrl ||
-  'https://ogabassey.usebaci.com';
+import { supabase } from '@/lib/supabase';
 
 export interface VerifyResult {
   verified: boolean;
@@ -32,12 +28,30 @@ interface VerifyParams {
 export function useVTUVerify() {
   return useMutation<VerifyResult, Error, VerifyParams>({
     mutationFn: async (params) => {
-      const response = await fetchWithTimeout(`${API_URL}/api/vtu/verify`, {
-        timeout: SHORT_TIMEOUT,
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params),
-      });
+      const sessionResult = await supabase.auth.getSession();
+      if (sessionResult.error && typeof __DEV__ !== 'undefined' && __DEV__) {
+        console.warn(
+          'Continuing VTU verification without a local session:',
+          sessionResult.error
+        );
+      }
+
+      // Guest utility verification is intentional: the backend accepts public
+      // verify requests and applies merchant-side validation/rate controls.
+      const accessToken = sessionResult.data?.session?.access_token;
+
+      const response = await fetchWithTimeout(
+        `${EXPO_PUBLIC_API_URL}/api/vtu/verify`,
+        {
+          timeout: SHORT_TIMEOUT,
+          method: 'POST',
+          headers: {
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(params),
+        }
+      );
 
       if (!response.ok) {
         let errorMsg = 'Verification failed';

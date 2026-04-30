@@ -5,6 +5,7 @@
  * Extends the core kuda.ts library for electricity, cable TV, and betting.
  */
 
+import { withKudaElectricityBillItems } from '@baci/shared/lib';
 import {
   type Biller,
   generateRequestRef,
@@ -36,16 +37,36 @@ const KUDA_CATEGORY_NAMES: Record<string, string> = {
   betting: 'Betting',
 };
 
+function normalizeKudaString(value: number | string | null | undefined) {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed || undefined;
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value);
+  }
+
+  return undefined;
+}
+
 /**
  * Get billers for a bill category using our enum.
  * Convenience wrapper that maps API bill type strings to Kuda category names.
  */
-export function getBillersByCategory(category: string): Promise<Biller[]> {
+export async function getBillersByCategory(
+  category: string
+): Promise<Biller[]> {
   const kudaName = KUDA_CATEGORY_NAMES[category];
   if (!kudaName) {
     throw new Error(`Unknown bill category: ${category}`);
   }
-  return getBillersByType(kudaName);
+
+  const billers = await getBillersByType(kudaName);
+
+  return category === 'electricity'
+    ? withKudaElectricityBillItems(billers)
+    : billers;
 }
 
 /**
@@ -68,8 +89,10 @@ export async function purchaseBill(
   try {
     // Kuda purchase response: { reference: string; pin: string | null }
     const response = await kudaRequest<{
-      reference: string;
-      pin: string | null;
+      Reference?: string;
+      Pin?: string | null;
+      reference?: string;
+      pin?: string | null;
     }>(
       KudaServiceType.ADMIN_PURCHASE_BILL,
       {
@@ -83,10 +106,18 @@ export async function purchaseBill(
       reference
     );
 
+    const pin =
+      normalizeKudaString(response.data?.pin) ??
+      normalizeKudaString(response.data?.Pin);
+    const transactionId =
+      normalizeKudaString(response.data?.reference) ??
+      normalizeKudaString(response.data?.Reference);
+
     return {
       success: response.status,
       reference,
-      transactionId: response.data?.reference,
+      transactionId,
+      ...(pin && { pin }),
       message: response.message,
       status: response.status ? 'successful' : 'failed',
       amount,

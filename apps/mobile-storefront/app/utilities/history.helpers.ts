@@ -4,7 +4,12 @@ import type {
 } from '@/hooks/use-vtu-history';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import {
+  DEFAULT_UTILITY_HISTORY_STATUS_COLOR,
+  DEFAULT_UTILITY_HISTORY_STATUS_LABEL,
+  UTILITY_HISTORY_PAYMENT_RECEIVED_STATUS,
   UTILITY_HISTORY_FILTERS,
+  UTILITY_HISTORY_STATUS_COLORS,
+  UTILITY_HISTORY_STATUS_META,
   UTILITY_HISTORY_TYPE_LABELS,
 } from './history.constants';
 
@@ -17,6 +22,17 @@ type UtilityHistoryDetailData = Pick<
   VTUHistoryTransaction,
   'customer_identifier' | 'customer_name' | 'phone_number' | 'type'
 >;
+
+type UtilityHistoryStatusData = Pick<
+  VTUHistoryTransaction,
+  'payment_status' | 'status'
+>;
+
+export interface UtilityHistoryDisplayStatus {
+  color: string;
+  label: string;
+  message: string | null;
+}
 
 export const utilityHistoryHelpers = {
   formatAmount(amount: number): string {
@@ -57,6 +73,29 @@ export const utilityHistoryHelpers = {
       UTILITY_HISTORY_TYPE_LABELS[transaction.type] ||
       'Utility payment'
     );
+  },
+
+  getDisplayStatus(
+    transaction: UtilityHistoryStatusData
+  ): UtilityHistoryDisplayStatus {
+    if (
+      transaction.status !== 'successful' &&
+      transaction.payment_status === 'completed'
+    ) {
+      return {
+        color: UTILITY_HISTORY_STATUS_COLORS.paymentReceived,
+        label: UTILITY_HISTORY_PAYMENT_RECEIVED_STATUS.label,
+        message: UTILITY_HISTORY_PAYMENT_RECEIVED_STATUS.message,
+      };
+    }
+
+    const statusMeta = UTILITY_HISTORY_STATUS_META[transaction.status];
+
+    return {
+      color: statusMeta?.color ?? DEFAULT_UTILITY_HISTORY_STATUS_COLOR,
+      label: statusMeta?.label ?? DEFAULT_UTILITY_HISTORY_STATUS_LABEL,
+      message: null,
+    };
   },
 
   resolveFilter(type?: string): UtilityHistoryFilter {

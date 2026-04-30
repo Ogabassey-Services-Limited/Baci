@@ -1,0 +1,371 @@
+const PAYMENT_ACCOUNT_NUMBER_MESSAGE_TYPE = 'payment_account_number_detected';
+const PAYMENT_CLIPBOARD_MESSAGE_TYPE = 'payment_clipboard_copy';
+
+export const PAYMENT_CLIPBOARD_BRIDGE = {
+  accountNumberMessageType: PAYMENT_ACCOUNT_NUMBER_MESSAGE_TYPE,
+  clipboardMessageType: PAYMENT_CLIPBOARD_MESSAGE_TYPE,
+  script: `
+(function () {
+  if (window.__baciClipboardBridgeInstalled) {
+    return true;
+  }
+
+  window.__baciClipboardBridgeInstalled = true;
+
+  function sendMessage(payload) {
+    if (
+      window.ReactNativeWebView &&
+      typeof window.ReactNativeWebView.postMessage === 'function'
+    ) {
+      window.ReactNativeWebView.postMessage(payload);
+      return;
+    }
+
+    if (
+      window.webkit &&
+      window.webkit.messageHandlers &&
+      window.webkit.messageHandlers.ReactNativeWebView &&
+      typeof window.webkit.messageHandlers.ReactNativeWebView.postMessage === 'function'
+    ) {
+      window.webkit.messageHandlers.ReactNativeWebView.postMessage(payload);
+      return;
+    }
+
+    console.warn('Baci clipboard bridge native postMessage unavailable', {
+      payloadLength: String(payload || '').length,
+      payloadType: typeof payload
+    });
+  }
+
+  function postClipboardAccountNumber(accountNumber) {
+    if (!accountNumber) {
+      return;
+    }
+
+    sendMessage(JSON.stringify({
+      type: '${PAYMENT_CLIPBOARD_MESSAGE_TYPE}',
+      text: accountNumber
+    }));
+  }
+
+  function postCopy(text) {
+    if (typeof text !== 'string') {
+      return;
+    }
+
+    var accountNumber = findAccountNumber(text.trim());
+    if (!accountNumber) {
+      return;
+    }
+
+    postClipboardAccountNumber(accountNumber);
+  }
+
+  var lastPostedAccountNumber = '';
+
+  function findAccountNumber(text) {
+    if (typeof text !== 'string') {
+      return '';
+    }
+
+    function normalizeAccountNumber(value) {
+      return value ? value.replace(/\\D/g, '') : '';
+    }
+
+    function hasExcludedNumberContext(matchText, matchIndex, rawNumber) {
+      var numberIndex = matchIndex + matchText.indexOf(rawNumber);
+      var before = text
+        .slice(Math.max(0, numberIndex - 32), numberIndex)
+        .toLowerCase();
+      var after = text
+        .slice(numberIndex + rawNumber.length, numberIndex + rawNumber.length + 32)
+        .toLowerCase();
+      return /\\b(?:acct|account|routing|routingnumber|ssn|tin|ein|vat|postal|zip|zipcode|emp|employee|id|invoice|order|track|ref|refno|reference|phone|tel|telephone|mobile|ext|extension|fax)\\b|ss#/.test(
+        before + ' ' + after
+      );
+    }
+
+    var contextualPattern =
+      /\\b(?:account(?:\\s*(?:number|no\\.?|details)?)?|acct\\.?|acc\\.?)(?:\\s*(?:number|no\\.?)?)?\\b[^\\d]{0,40}(\\d(?:[\\s-]?\\d){9})(?:\\D|$)/gi;
+    var contextualMatch;
+    while ((contextualMatch = contextualPattern.exec(text)) !== null) {
+      var contextualAccountNumber = normalizeAccountNumber(contextualMatch[1]);
+      if (contextualAccountNumber) {
+        return contextualAccountNumber;
+      }
+    }
+
+    var genericPattern = /(?:^|\\D)(\\d(?:[\\s-]?\\d){9})(?:\\D|$)/g;
+    var genericMatch;
+    while ((genericMatch = genericPattern.exec(text)) !== null) {
+      if (!hasExcludedNumberContext(genericMatch[0], genericMatch.index, genericMatch[1])) {
+        return normalizeAccountNumber(genericMatch[1]);
+      }
+    }
+
+    return '';
+  }
+
+  function postAccountNumber(accountNumber) {
+    if (!accountNumber || accountNumber === lastPostedAccountNumber) {
+      return;
+    }
+
+    lastPostedAccountNumber = accountNumber;
+    sendMessage(JSON.stringify({
+      type: '${PAYMENT_ACCOUNT_NUMBER_MESSAGE_TYPE}',
+      text: accountNumber
+    }));
+  }
+
+  function scanForAccountNumber() {
+    if (!document.body) {
+      return;
+    }
+
+    postAccountNumber(findAccountNumber(
+      document.body.innerText || document.body.textContent || ''
+    ));
+  }
+
+  var accountNumberScanTimer = null;
+
+  function scheduleAccountNumberScan() {
+    if (accountNumberScanTimer) {
+      return;
+    }
+
+    accountNumberScanTimer = setTimeout(function () {
+      accountNumberScanTimer = null;
+      scanForAccountNumber();
+    }, 100);
+  }
+
+  function postNearestAccountNumber(target) {
+    var node = target;
+    var depth = 0;
+
+    while (node && node !== document.body && depth < 6) {
+      var text = node.innerText || node.textContent || '';
+      var accountNumber = findAccountNumber(text);
+      if (accountNumber) {
+        postAccountNumber(accountNumber);
+        postClipboardAccountNumber(accountNumber);
+        return;
+      }
+      node = node.parentElement;
+      depth += 1;
+    }
+
+    var fallbackAccountNumber = findAccountNumber(
+      document.body ? document.body.innerText || document.body.textContent || '' : ''
+    );
+    if (fallbackAccountNumber) {
+      postAccountNumber(fallbackAccountNumber);
+      postClipboardAccountNumber(fallbackAccountNumber);
+    }
+  }
+
+  var originalClipboard = navigator.clipboard;
+  var existingClipboard = originalClipboard || {};
+  var originalClipboardWriteText = existingClipboard.writeText;
+  var originalWriteText =
+    typeof existingClipboard.writeText === 'function'
+      ? existingClipboard.writeText.bind(existingClipboard)
+      : null;
+
+  function bridgedWriteText(text) {
+    postCopy(String(text));
+
+    if (!originalWriteText) {
+      var missingWriteTextError = new Error('Baci clipboard bridge writeText unavailable');
+      console.warn('Baci clipboard bridge writeText unavailable; native write skipped');
+      return Promise.reject(missingWriteTextError);
+    }
+
+    var result = originalWriteText(text);
+    if (result && typeof result.catch === 'function') {
+      return result.catch(function (error) {
+        console.error('Baci clipboard bridge writeText failed', error);
+        return Promise.reject(error);
+      });
+    }
+
+    return Promise.resolve();
+  }
+
+  try {
+    if (existingClipboard && typeof Proxy === 'function') {
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: new Proxy(existingClipboard, {
+          get: function (target, property) {
+            if (property === 'writeText') {
+              return bridgedWriteText;
+            }
+            var value = target[property];
+            return typeof value === 'function' ? value.bind(target) : value;
+          }
+        })
+      });
+    } else if (existingClipboard) {
+      existingClipboard.writeText = bridgedWriteText;
+    }
+  } catch (error) {
+    // Some gateway pages lock navigator.clipboard. The copy event fallback below
+    // still lets native receive copied text.
+  }
+
+  var originalExecCommand =
+    typeof document.execCommand === 'function'
+      ? document.execCommand.bind(document)
+      : null;
+
+  if (originalExecCommand) {
+    document.execCommand = function (command) {
+      var result = originalExecCommand.apply(document, arguments);
+
+      if (String(command).toLowerCase() === 'copy' && window.getSelection) {
+        postCopy(window.getSelection().toString());
+      }
+
+      return result;
+    };
+  }
+
+  var copyListener = function (event) {
+    var clipboardText = '';
+
+    if (window.getSelection) {
+      clipboardText = window.getSelection().toString().trim();
+    }
+
+    postCopy(clipboardText);
+  };
+
+  document.addEventListener('copy', copyListener, true);
+
+  var clickListener = function (event) {
+    var target = event.target;
+    if (!target) {
+      return;
+    }
+
+    var actionText = target.innerText || target.textContent || '';
+    if (target.getAttribute) {
+      actionText += ' ' + (target.getAttribute('aria-label') || '');
+      actionText += ' ' + (target.getAttribute('title') || '');
+    }
+
+    if (/\\bcopy\\b/i.test(actionText)) {
+      setTimeout(function () {
+        postNearestAccountNumber(target);
+      }, 0);
+    }
+  };
+
+  document.addEventListener('click', clickListener, true);
+
+  function hasAccountNumberCandidate(node) {
+    if (!node) {
+      return false;
+    }
+    return Boolean(findAccountNumber(node.innerText || node.textContent || ''));
+  }
+
+  var accountNumberObserver = null;
+
+  function installAccountNumberObserver() {
+    var MutationObserverConstructor = window.MutationObserver;
+    if (typeof MutationObserverConstructor !== 'function') {
+      return;
+    }
+
+    var preferredObserverTarget = document.querySelector('main, [role="main"], form');
+    var broadObserverTarget = document.body || document.documentElement;
+    var observerTarget =
+      preferredObserverTarget && hasAccountNumberCandidate(preferredObserverTarget)
+        ? preferredObserverTarget
+        : broadObserverTarget;
+    if (!observerTarget) {
+      return;
+    }
+
+    if (
+      accountNumberObserver &&
+      typeof accountNumberObserver.disconnect === 'function'
+    ) {
+      accountNumberObserver.disconnect();
+    }
+
+    accountNumberObserver = new MutationObserverConstructor(scheduleAccountNumberScan);
+    accountNumberObserver.observe(observerTarget, {
+      characterData: true,
+      childList: true,
+      subtree: true
+    });
+  }
+
+  window.__baciClipboardBridgeUninstall = function () {
+    if (
+      accountNumberObserver &&
+      typeof accountNumberObserver.disconnect === 'function'
+    ) {
+      accountNumberObserver.disconnect();
+    }
+    accountNumberObserver = null;
+    if (accountNumberScanTimer) {
+      clearTimeout(accountNumberScanTimer);
+      accountNumberScanTimer = null;
+    }
+    if (typeof document.removeEventListener === 'function') {
+      document.removeEventListener('copy', copyListener, true);
+      document.removeEventListener('click', clickListener, true);
+    }
+    if (originalExecCommand) {
+      document.execCommand = originalExecCommand;
+    }
+    try {
+      if (originalClipboard === undefined) {
+        delete navigator.clipboard;
+      } else {
+        Object.defineProperty(navigator, 'clipboard', {
+          configurable: true,
+          value: originalClipboard
+        });
+        if (existingClipboard) {
+          existingClipboard.writeText = originalClipboardWriteText;
+        }
+      }
+    } catch (error) {
+      // Clipboard restoration is best-effort because some WebViews lock this property.
+    }
+    window.__baciClipboardBridgeInstalled = false;
+  };
+
+  function initializeAccountNumberScanning() {
+    scanForAccountNumber();
+    installAccountNumberObserver();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeAccountNumberScanning);
+  } else {
+    initializeAccountNumberScanning();
+  }
+
+  setTimeout(scheduleAccountNumberScan, 500);
+  setTimeout(scheduleAccountNumberScan, 1500);
+  var scanRetryCount = 0;
+  var scanRetryInterval = setInterval(function () {
+    scanRetryCount += 1;
+    scheduleAccountNumberScan();
+    if (scanRetryCount >= 5) {
+      clearInterval(scanRetryInterval);
+    }
+  }, 3000);
+
+  return true;
+})();
+`,
+} as const;

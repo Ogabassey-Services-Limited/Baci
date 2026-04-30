@@ -1,11 +1,8 @@
-import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -15,217 +12,167 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, SPACING } from '@/constants/Colors';
 import { useKeyboard } from '@/hooks/use-keyboard';
 import { useUtilityPayment } from '@/hooks/use-utility-payment';
+import type { Biller } from '@/hooks/use-vtu-billers';
 import { useVTUBillers } from '@/hooks/use-vtu-billers';
 import { detectNetwork } from '@/lib/network-utils';
-import {
-  chargeSavedVtuCard,
-  initializeVtuCheckout,
-  isSavedVtuCardChargeProcessing,
-  requiresSavedVtuCardAuthorization,
-  waitForVtuConfirmation,
-} from '@/lib/vtu-checkout';
 import { useAuthStore } from '@/stores/auth-store';
+import { BillerList } from './BillerList';
+import { createDataFormPurchaseHandler } from './create-data-form-purchase-handler';
+import {
+  inferProviderFromDataBillerName,
+  scrollToDataPayment,
+} from './data-form.helpers';
+import {
+  DATA_FOOTER_ERROR_BUFFER,
+  DATA_FOOTER_HEIGHT,
+  dataFormStyles,
+} from './data-form.styles';
+import type { DataFormProps } from './data-form.types';
 import { getUtilityFooterOffset } from './get-utility-footer-offset';
-import { ProviderGrid } from './ProviderGrid';
 import { UtilityPaymentOptions } from './UtilityPaymentOptions';
+import { useDataBillerInitialization } from './use-data-biller-initialization';
+import { formatUtilityAmountInput } from './utility-amount-format';
 
-/** Height reserved for the absolutely-positioned payment footer */
-const FOOTER_HEIGHT = 120;
-const FOOTER_ERROR_BUFFER = 36;
-
-interface DataFormProps {
-  onSuccess: (data: {
-    reference: string;
-    amount: number;
-    cashback?: { amount: number; newBalance: number };
-  }) => void;
-}
-
-export function DataForm({ onSuccess }: DataFormProps) {
+export function DataForm({
+  initialAmount,
+  initialPhoneNumber,
+  initialPlan,
+  initialProvider,
+  isRepeatPaymentReady = false,
+  onSuccess,
+}: DataFormProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
-  const { isKeyboardVisible, keyboardHeight } = useKeyboard();
+  const { dismissKeyboard, isKeyboardVisible, keyboardHeight } = useKeyboard();
   const customer = useAuthStore((state) => state.customer);
   const payment = useUtilityPayment();
-  const { data: dataPlans, isLoading: plansLoading } = useVTUBillers('data');
+  const {
+    data: dataPlans,
+    error: plansError,
+    isError: hasPlansError,
+    isLoading: plansLoading,
+  } = useVTUBillers('data');
+  const scrollViewRef = useRef<ScrollView>(null);
 
-  const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
-  const [planAmount, setPlanAmount] = useState(0);
+  const [selectedProvider, setSelectedProvider] = useState<string | null>(
+    initialProvider ??
+      (initialPhoneNumber ? detectNetwork(initialPhoneNumber) : null)
+  );
+  const [phoneNumber, setPhoneNumber] = useState(initialPhoneNumber ?? '');
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(
+    initialPlan ?? null
+  );
+  const [selectedDataBiller, setSelectedDataBiller] = useState<Biller | null>(
+    null
+  );
+  const [isDataPickerExpanded, setIsDataPickerExpanded] = useState(
+    !initialPlan
+  );
+  const parsedInitialAmount = Number(initialAmount ?? 0);
+  const [planAmount, setPlanAmount] = useState(
+    Number.isFinite(parsedInitialAmount) ? parsedInitialAmount : 0
+  );
+  // Bug #H18: Guard against double-tap with isSubmitting state (same pattern as AirtimeForm)
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
+  const shouldScrollToPaymentRef = useRef(isRepeatPaymentReady);
+  const wasRepeatPaymentReadyRef = useRef(isRepeatPaymentReady);
+  const paymentYRef = useRef<number | null>(null);
+  const formattedPlanAmount = formatUtilityAmountInput(planAmount);
   const footerSpacerHeight =
-    FOOTER_HEIGHT +
-    Math.max(insets.bottom - 26, 0) +
-    FOOTER_ERROR_BUFFER;
+    DATA_FOOTER_HEIGHT +
+    Math.max(insets.bottom, SPACING.md) +
+    DATA_FOOTER_ERROR_BUFFER;
   const footerBottomOffset = getUtilityFooterOffset({
     bottomInset: insets.bottom,
     isKeyboardVisible,
     keyboardHeight,
   });
+  const plansErrorMessage = hasPlansError
+    ? plansError instanceof Error
+      ? plansError.message
+      : 'Could not load data bundles. Please try again.'
+    : undefined;
 
-  // Bug #H18: Guard against double-tap with isSubmitting state (same pattern as AirtimeForm)
-  const isBusy = isSubmitting;
+  useEffect(() => {
+    if (!wasRepeatPaymentReadyRef.current && isRepeatPaymentReady) {
+      shouldScrollToPaymentRef.current = true;
+      if (paymentYRef.current !== null) {
+        shouldScrollToPaymentRef.current = false;
+        scrollToDataPayment(paymentYRef.current, scrollViewRef.current);
+      }
+    }
+    wasRepeatPaymentReadyRef.current = isRepeatPaymentReady;
+  }, [isRepeatPaymentReady]);
+
+  useDataBillerInitialization({
+    dataPlans,
+    initialPlan,
+    initialProvider,
+    setIsDataPickerExpanded,
+    setSelectedDataBiller,
+    setSelectedPlan,
+    setSelectedProvider,
+  });
 
   const handlePhoneChange = (text: string) => {
     const digits = text.replace(/\D/g, '');
     setPhoneNumber(digits);
     const detected = detectNetwork(digits);
-    if (detected) setSelectedProvider(detected);
-  };
-
-  const handlePurchase = async () => {
-    // Bug #H18: Prevent double-tap duplicate purchases
-    if (isBusy) return;
-
-    if (!selectedProvider || !phoneNumber || !selectedPlan) {
-      Alert.alert(
-        'Missing Information',
-        'Please select a provider, enter phone number, and choose a plan.'
-      );
-      return;
-    }
-    // Bug #64: Prevent submission when planAmount is 0 or not set
-    if (planAmount <= 0) {
-      Alert.alert(
-        'Invalid Amount',
-        'Please enter a valid amount before proceeding.'
-      );
-      return;
-    }
-    if (!payment.selectedSavedCardId && !payment.selectedGateway) {
-      Alert.alert(
-        'Select Payment Method',
-        'Choose a payment method before continuing.'
-      );
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const customerName =
-        [customer?.first_name, customer?.last_name].filter(Boolean).join(' ') ||
-        customer?.email;
-
-      if (payment.selectedSavedCardId) {
-        const result = await chargeSavedVtuCard({
-          amount: planAmount,
-          customerName,
-          customerPhone: customer?.phone,
-          dataPlanCode: selectedPlan,
-          networkProvider: selectedProvider,
-          phoneNumber,
-          savedPaymentMethodId: payment.selectedSavedCardId,
-          type: 'data',
-        });
-
-        if (requiresSavedVtuCardAuthorization(result)) {
-          router.push({
-            pathname: '/payment-gateway',
-            params: {
-              amount: String(planAmount),
-              authorizationUrl: result.authorization_url,
-              customerIdentifier: phoneNumber,
-              gateway: result.gateway,
-              paymentKind: 'vtu',
-              reference: result.reference,
-              utilityType: 'data',
-            },
-          });
-          return;
-        }
-
-        if (isSavedVtuCardChargeProcessing(result)) {
-          const confirmed = await waitForVtuConfirmation({
-            gateway: 'paystack',
-            reference: result.reference,
-          });
-          onSuccess({
-            amount: confirmed.amount ?? planAmount,
-            cashback: confirmed.cashback
-              ? {
-                  amount: confirmed.cashback.amount,
-                  newBalance: confirmed.cashback.newBalance,
-                }
-              : undefined,
-            reference: confirmed.reference,
-          });
-          return;
-        }
-
-        onSuccess({
-          amount: result.amount,
-          cashback: result.cashback
-            ? {
-                amount: result.cashback.amount,
-                newBalance: result.cashback.newBalance,
-              }
-            : undefined,
-          reference: result.reference,
-        });
-        return;
-      }
-
-      const result = await initializeVtuCheckout({
-        amount: planAmount,
-        customerName,
-        customerPhone: customer?.phone,
-        dataPlanCode: selectedPlan,
-        gateway: payment.selectedGateway,
-        networkProvider: selectedProvider,
-        phoneNumber,
-        type: 'data',
-      });
-      router.push({
-        pathname: '/payment-gateway',
-        params: {
-          amount: String(planAmount),
-          authorizationUrl: result.authorization_url,
-          customerIdentifier: phoneNumber,
-          gateway: result.gateway,
-          paymentKind: 'vtu',
-          reference: result.reference,
-          utilityType: 'data',
-        },
-      });
-    } catch (error) {
-      Alert.alert(
-        'Payment Failed',
-        error instanceof Error ? error.message : 'Something went wrong.'
-      );
-    } finally {
-      setIsSubmitting(false);
+    const selectedBundleProvider = selectedDataBiller
+      ? inferProviderFromDataBillerName(selectedDataBiller.billerName)
+      : null;
+    if (detected && !selectedBundleProvider) {
+      setSelectedProvider(detected);
     }
   };
+
+  const handleDataBillerSelect = (biller: Biller) => {
+    setSelectedDataBiller(biller);
+    setSelectedPlan(biller.billerId);
+    setSelectedProvider(
+      inferProviderFromDataBillerName(biller.billerName) ??
+        detectNetwork(phoneNumber) ??
+        selectedProvider
+    );
+    setIsDataPickerExpanded(false);
+  };
+
+  const handlePurchase = createDataFormPurchaseHandler({
+    customer,
+    dismissKeyboard,
+    getIsSubmitting: () => isSubmittingRef.current,
+    onSuccess,
+    payment,
+    phoneNumber,
+    planAmount,
+    selectedPlan,
+    selectedProvider,
+    setIsSubmitting: (next) => {
+      isSubmittingRef.current = next;
+      setIsSubmitting(next);
+    },
+  });
 
   return (
     <>
       <ScrollView
-        style={styles.scrollView}
+        ref={scrollViewRef}
+        style={dataFormStyles.scrollView}
         contentContainerStyle={[
-          styles.content,
+          dataFormStyles.content,
           { paddingBottom: footerSpacerHeight },
         ]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          Select Provider
-        </Text>
-        <ProviderGrid
-          selectedProvider={selectedProvider}
-          onSelect={setSelectedProvider}
-        />
-
-        <Text
-          style={[styles.sectionTitle, { color: colors.text, marginTop: 24 }]}
-        >
+        <Text style={[dataFormStyles.sectionTitle, { color: colors.text }]}>
           Phone Number
         </Text>
         <TextInput
           style={[
-            styles.input,
+            dataFormStyles.input,
             {
               backgroundColor: colors.muted,
               color: colors.text,
@@ -235,67 +182,39 @@ export function DataForm({ onSuccess }: DataFormProps) {
           placeholder="08012345678"
           placeholderTextColor={colors.placeholder}
           keyboardType="phone-pad"
+          accessibilityLabel="Phone Number"
           value={phoneNumber}
           onChangeText={handlePhoneChange}
         />
 
         <Text
-          style={[styles.sectionTitle, { color: colors.text, marginTop: 24 }]}
+          style={[
+            dataFormStyles.sectionTitle,
+            { color: colors.text, marginTop: 24 },
+          ]}
         >
-          Select Plan
+          Select Data Bundle
         </Text>
-        {plansLoading ? (
-          <ActivityIndicator
-            color={BRAND.primary}
-            style={{ marginVertical: 16 }}
-          />
-        ) : dataPlans && dataPlans.length > 0 ? (
-          <View style={styles.planGrid}>
-            {dataPlans.map((plan) => {
-              const isSelected = selectedPlan === plan.billerId;
-              return (
-                <Pressable
-                  key={plan.billerId}
-                  style={[
-                    styles.planCard,
-                    {
-                      backgroundColor: isSelected ? BRAND.primary : colors.card,
-                      borderColor: isSelected ? BRAND.primary : colors.border,
-                    },
-                  ]}
-                  onPress={() => {
-                    setSelectedPlan(plan.billerId);
-                    // Bug #H19: Don't reset amount to 0 on plan select.
-                    // Biller data has no price field, so keep the user's existing amount.
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.planName,
-                      { color: isSelected ? '#FFF' : colors.text },
-                    ]}
-                    numberOfLines={2}
-                  >
-                    {plan.billerName}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        ) : (
-          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            Select a provider to see available data plans
-          </Text>
-        )}
+        <BillerList
+          billers={dataPlans || []}
+          selectedBillerId={selectedDataBiller?.billerId ?? selectedPlan}
+          onSelect={handleDataBillerSelect}
+          isLoading={plansLoading}
+          isCollapsed={!!selectedDataBiller && !isDataPickerExpanded}
+          onChangeSelection={() => setIsDataPickerExpanded(true)}
+          selectedLabel="Data Bundle"
+          emptyMessage="No data bundles available"
+          errorMessage={plansErrorMessage}
+        />
 
         {/* Manual amount fallback */}
-        <View style={[styles.inputGroup, { marginTop: 16 }]}>
-          <Text style={[styles.label, { color: colors.textSecondary }]}>
+        <View style={[dataFormStyles.inputGroup, { marginTop: 16 }]}>
+          <Text style={[dataFormStyles.label, { color: colors.textSecondary }]}>
             Amount (₦)
           </Text>
           <TextInput
             style={[
-              styles.input,
+              dataFormStyles.input,
               {
                 backgroundColor: colors.muted,
                 color: colors.text,
@@ -305,52 +224,67 @@ export function DataForm({ onSuccess }: DataFormProps) {
             placeholder="Enter amount"
             placeholderTextColor={colors.placeholder}
             keyboardType="number-pad"
-            value={planAmount > 0 ? String(planAmount) : ''}
-            onChangeText={(t) => setPlanAmount(Number(t.replace(/\D/g, '')))}
+            accessibilityLabel="Amount"
+            value={formattedPlanAmount}
+            onChangeText={(text) => {
+              const digits = text.replace(/\D/g, '');
+              setPlanAmount(digits ? Number(digits) : 0);
+            }}
           />
         </View>
 
-        <UtilityPaymentOptions
-          amount={planAmount}
-          cards={payment.cards}
-          isLoadingCards={payment.isLoadingCards}
-          onSelectGateway={payment.selectGateway}
-          onSelectSavedCard={payment.selectSavedCard}
-          selectedGateway={payment.selectedGateway}
-          selectedSavedCardId={payment.selectedSavedCardId}
-          supportedGateways={payment.supportedGateways}
-        />
+        <View
+          onLayout={(event) => {
+            paymentYRef.current = event.nativeEvent.layout.y;
+            if (!shouldScrollToPaymentRef.current) {
+              return;
+            }
+
+            shouldScrollToPaymentRef.current = false;
+            scrollToDataPayment(paymentYRef.current, scrollViewRef.current);
+          }}
+        >
+          <UtilityPaymentOptions
+            amount={planAmount}
+            cards={payment.cards}
+            isLoadingCards={payment.isLoadingCards}
+            onSelectGateway={payment.selectGateway}
+            onSelectSavedCard={payment.selectSavedCard}
+            selectedGateway={payment.selectedGateway}
+            selectedSavedCardId={payment.selectedSavedCardId}
+            supportedGateways={payment.supportedGateways}
+          />
+        </View>
       </ScrollView>
 
       <View
         style={[
-          styles.footer,
+          dataFormStyles.footer,
           {
             borderTopColor: colors.border,
             backgroundColor: colors.muted,
             bottom: footerBottomOffset,
-            marginBottom: isKeyboardVisible ? 0 : -Math.max(insets.bottom - 4, 0),
             paddingBottom: isKeyboardVisible
               ? SPACING.sm
-              : Math.max(insets.bottom - 26, 0),
+              : Math.max(insets.bottom, SPACING.md),
           },
         ]}
       >
         <Pressable
           style={[
-            styles.payButton,
+            dataFormStyles.payButton,
             {
               backgroundColor: BRAND.primary,
-              opacity: isBusy ? 0.7 : 1,
+              opacity: isSubmitting ? 0.7 : 1,
             },
           ]}
           onPress={handlePurchase}
-          disabled={isBusy}
+          disabled={isSubmitting}
         >
-          {isBusy ? (
+          {isSubmitting ? (
             <ActivityIndicator color="#FFF" />
           ) : (
-            <Text style={styles.payButtonText}>
+            <Text style={dataFormStyles.payButtonText}>
               {payment.selectedSavedCardId
                 ? `Pay ₦${planAmount ? planAmount.toLocaleString() : '0'}`
                 : 'Continue to Payment'}
@@ -361,39 +295,3 @@ export function DataForm({ onSuccess }: DataFormProps) {
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  scrollView: { flex: 1 },
-  content: { padding: SPACING.md },
-  sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
-  input: {
-    height: 50,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    borderWidth: 1,
-  },
-  inputGroup: { marginBottom: 16 },
-  label: { fontSize: 14, marginBottom: 8 },
-  planGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  planCard: { width: '48%', padding: 14, borderRadius: 12, borderWidth: 1 },
-  planName: { fontSize: 13, fontWeight: '500' },
-  emptyText: { fontSize: 14, textAlign: 'center', marginVertical: 16 },
-  footer: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingTop: SPACING.md,
-    paddingHorizontal: SPACING.md,
-    paddingBottom: SPACING.sm,
-    borderTopWidth: 1,
-  },
-  payButton: {
-    height: 50,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  payButtonText: { color: '#FFF', fontSize: 16, fontWeight: '600' },
-});

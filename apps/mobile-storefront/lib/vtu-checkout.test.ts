@@ -1,3 +1,11 @@
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  jest,
+} from '@jest/globals';
 import { MOBILE_TO_KUDA_PROVIDER } from '@/lib/network-utils';
 import {
   chargeSavedVtuCard,
@@ -5,11 +13,57 @@ import {
   initializeVtuCheckout,
   listSavedVtuCards,
   normalizeVtuCheckoutPayload,
+  VTU_CHECKOUT_INITIALIZE_URL,
+  VtuPaymentStillProcessingError,
+  waitForVtuConfirmation,
 } from '@/lib/vtu-checkout';
 
-const mockFetchWithTimeout = jest.fn();
-const mockGetUser = jest.fn();
-const mockGetSession = jest.fn();
+type MockFetchResponse = {
+  ok: boolean;
+  status?: number;
+  json: () => Promise<Record<string, unknown>>;
+};
+
+type JsonRequestInit = RequestInit & {
+  body: string;
+};
+
+type MockUserResult = {
+  data: { user: { id: string } | null };
+  error: Error | null;
+};
+
+type MockSessionResult = {
+  data: { session: { access_token: string } | null };
+};
+
+const mockFetchWithTimeout =
+  jest.fn<(...args: unknown[]) => Promise<MockFetchResponse>>();
+const mockGetUser = jest.fn<() => Promise<MockUserResult>>();
+const mockGetSession = jest.fn<() => Promise<MockSessionResult>>();
+
+function getMockRequestInit(callIndex = 0): JsonRequestInit {
+  const requestInit = mockFetchWithTimeout.mock.calls[callIndex]?.[1];
+  expect(requestInit).toHaveProperty('body');
+  if (!requestInit || typeof (requestInit as RequestInit).body !== 'string') {
+    throw new Error('Expected request body to be a JSON string');
+  }
+  return requestInit as JsonRequestInit;
+}
+
+function parseMockRequestBody(callIndex = 0): Record<string, unknown> {
+  const checkoutRequest = getMockRequestInit(callIndex);
+  return JSON.parse(checkoutRequest.body) as Record<string, unknown>;
+}
+
+jest.mock('expo-constants', () => ({
+  __esModule: true,
+  default: {
+    expoConfig: {
+      extra: {},
+    },
+  },
+}));
 
 jest.mock('@/lib/fetch-with-timeout', () => ({
   DEFAULT_TIMEOUT: 30000,
@@ -19,8 +73,8 @@ jest.mock('@/lib/fetch-with-timeout', () => ({
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     auth: {
-      getUser: (...args: unknown[]) => mockGetUser(...args),
-      getSession: (...args: unknown[]) => mockGetSession(...args),
+      getUser: () => mockGetUser(),
+      getSession: () => mockGetSession(),
     },
   },
 }));
@@ -34,6 +88,10 @@ beforeEach(() => {
   mockGetSession.mockResolvedValue({
     data: { session: { access_token: 'token-123' } },
   });
+});
+
+afterEach(() => {
+  jest.useRealTimers();
 });
 
 describe('vtu-checkout service', () => {
@@ -96,16 +154,14 @@ describe('vtu-checkout service', () => {
 
     expect(result.reference).toBe('VTU-123');
     expect(mockFetchWithTimeout).toHaveBeenCalledWith(
-      expect.stringContaining('/api/vtu/checkout/initialize'),
+      VTU_CHECKOUT_INITIALIZE_URL,
       expect.objectContaining({
         headers: expect.objectContaining({
           Authorization: 'Bearer token-123',
         }),
       })
     );
-    expect(
-      JSON.parse(mockFetchWithTimeout.mock.calls[0][1].body)
-    ).toMatchObject({
+    expect(parseMockRequestBody()).toMatchObject({
       networkProvider: MOBILE_TO_KUDA_PROVIDER.mtn,
     });
   });
@@ -115,7 +171,7 @@ describe('vtu-checkout service', () => {
       ok: true,
       json: async () => ({
         success: true,
-        status: 'successful',
+        status: 'SUCCESSFUL',
         reference: 'VTU-123',
         amount: 1000,
       }),
@@ -127,6 +183,108 @@ describe('vtu-checkout service', () => {
     });
 
     expect(result.status).toBe('successful');
+  });
+
+  it('throws a clear error for non-string confirmation status', async () => {
+    mockFetchWithTimeout.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        reference: 'VTU-123',
+        status: 123,
+      }),
+    });
+
+    await expect(
+      confirmVtuCheckout({
+        gateway: 'paystack',
+        reference: 'VTU-123',
+      })
+    ).rejects.toThrow('Unexpected VTU checkout status: 123');
+  });
+
+  it('throws a clear error for unexpected checkout statuses', async () => {
+    mockFetchWithTimeout.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        reference: 'VTU-123',
+        status: 'failed',
+      }),
+    });
+
+    await expect(
+      confirmVtuCheckout({
+        gateway: 'paystack',
+        reference: 'VTU-123',
+      })
+    ).rejects.toThrow('Unexpected VTU checkout status: failed');
+  });
+
+  it('treats a not-yet-successful gateway confirmation as processing', async () => {
+    mockFetchWithTimeout.mockResolvedValue({
+      ok: false,
+      status: 409,
+      json: async () => ({
+        error: 'Payment is not yet successful',
+        status: 'pending',
+      }),
+    });
+
+    const result = await confirmVtuCheckout({
+      gateway: 'paystack',
+      reference: 'VTU-123',
+    });
+
+    expect(result).toMatchObject({
+      reference: 'VTU-123',
+      status: 'processing',
+    });
+  });
+
+  it('throws a typed processing error instead of a payment failure after polling', async () => {
+    mockFetchWithTimeout.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        reference: 'VTU-123',
+        status: 'processing',
+      }),
+    });
+
+    await expect(
+      waitForVtuConfirmation({
+        gateway: 'paystack',
+        maxAttempts: 1,
+        reference: 'VTU-123',
+      })
+    ).rejects.toBeInstanceOf(VtuPaymentStillProcessingError);
+  });
+
+  it('does not wait after the final polling attempt', async () => {
+    jest.useFakeTimers();
+    const setTimeoutSpy = jest.spyOn(global, 'setTimeout');
+    mockFetchWithTimeout.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        reference: 'VTU-123',
+        status: 'processing',
+      }),
+    });
+
+    try {
+      const confirmation = expect(
+        waitForVtuConfirmation({
+        gateway: 'paystack',
+        maxAttempts: 1,
+        reference: 'VTU-123',
+        })
+      ).rejects.toBeInstanceOf(VtuPaymentStillProcessingError);
+
+      await jest.runOnlyPendingTimersAsync();
+
+      await confirmation;
+      expect(setTimeoutSpy).not.toHaveBeenCalled();
+    } finally {
+      setTimeoutSpy.mockRestore();
+    }
   });
 
   it('lists saved cards for the current storefront', async () => {

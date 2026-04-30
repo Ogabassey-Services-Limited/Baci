@@ -1,4 +1,5 @@
 export * from './cac-registration';
+export * from './kuda-electricity-bill-items';
 export * from './product-condition';
 export * from './product-default-variant';
 export * from './product-inventory';

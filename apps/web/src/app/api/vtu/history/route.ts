@@ -1,7 +1,69 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import { after, type NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  extractMetadataField,
+  hasRecentBackfillSchedule,
+  isString,
+  MAX_TOKEN_BACKFILL_SCHEDULES,
+  normalizeMetadata,
+  scheduleVoucherPinBackfill,
+  shouldBackfillForType,
+} from '@/lib/vtu-voucher-backfill';
 import { historyQuerySchema } from '@/schemas/vtu';
+
+const PAYMENT_STATUS_BATCH_SIZE = 250;
+
+type PaymentGateway = 'paystack' | 'korapay';
+
+function isPaymentGateway(value: unknown): value is PaymentGateway {
+  return value === 'paystack' || value === 'korapay';
+}
+
+function getPaymentStatusKey(gateway: string, reference: string): string {
+  return `${gateway}:${reference}`;
+}
+
+function parseHistoryNumber({
+  field,
+  invalidMessage,
+  transactionId,
+  value,
+}: {
+  field: string;
+  invalidMessage: string;
+  transactionId: unknown;
+  value: unknown;
+}) {
+  const amount = Number(value);
+  if (Number.isFinite(amount)) {
+    return amount;
+  }
+
+  console.error(invalidMessage, {
+    [field]: value,
+    transactionId,
+  });
+  return 0;
+}
+
+function parseHistoryAmount(value: unknown, transactionId: unknown) {
+  return parseHistoryNumber({
+    field: 'amount',
+    invalidMessage: 'Invalid VTU transaction amount in history response:',
+    transactionId,
+    value,
+  });
+}
+
+function parseHistoryCashback(value: unknown, transactionId: unknown) {
+  return parseHistoryNumber({
+    field: 'customerCashback',
+    invalidMessage: 'Invalid VTU customer cashback amount in history response:',
+    transactionId,
+    value,
+  });
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -81,7 +143,7 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from('vtu_transactions')
       .select(
-        'id, created_at, type, status, amount, network_provider, phone_number, biller_name, biller_item_code, customer_identifier, customer_name, request_reference, error_message, customer_cashback'
+        'id, created_at, type, status, amount, network_provider, phone_number, biller_name, biller_item_code, customer_identifier, customer_name, request_reference, transaction_id, error_message, customer_cashback, metadata'
       )
       .eq('merchant_id', merchant.id)
       .eq('customer_id', customer.id);
@@ -102,15 +164,180 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const paymentReferences = Array.from(
+      new Set(
+        (transactions ?? [])
+          .map((transaction) =>
+            extractMetadataField(
+              transaction.metadata,
+              'paymentReference',
+              isString
+            )
+          )
+          .filter((reference): reference is string => Boolean(reference))
+      )
+    );
+    const paymentStatusByReference = new Map<string, string>();
+
+    if (paymentReferences.length > 0) {
+      for (
+        let index = 0;
+        index < paymentReferences.length;
+        index += PAYMENT_STATUS_BATCH_SIZE
+      ) {
+        const paymentReferenceBatch = paymentReferences.slice(
+          index,
+          index + PAYMENT_STATUS_BATCH_SIZE
+        );
+        const { data: paymentRows, error: paymentRowsError } = await supabase
+          .from('transactions')
+          .select('gateway, gateway_reference, status')
+          .eq('merchant_id', merchant.id)
+          .in('gateway_reference', paymentReferenceBatch);
+
+        if (paymentRowsError) {
+          console.error('Failed to fetch VTU payment statuses:', {
+            error: paymentRowsError,
+            paymentReferenceBatchSize: paymentReferenceBatch.length,
+          });
+          continue;
+        }
+
+        for (const paymentRow of paymentRows ?? []) {
+          if (
+            typeof paymentRow.gateway === 'string' &&
+            typeof paymentRow.gateway_reference === 'string' &&
+            typeof paymentRow.status === 'string'
+          ) {
+            paymentStatusByReference.set(
+              getPaymentStatusKey(
+                paymentRow.gateway,
+                paymentRow.gateway_reference
+              ),
+              paymentRow.status
+            );
+          }
+        }
+      }
+    }
+
+    const transactionsWithVoucherPins = (transactions ?? []).map(
+      (transaction) => {
+        const metadata = normalizeMetadata(transaction.metadata);
+        const voucherPin = extractMetadataField(
+          metadata,
+          'voucherPin',
+          isString
+        );
+
+        return {
+          metadata,
+          originalMetadata: transaction.metadata,
+          transaction,
+          voucherPin,
+        };
+      }
+    );
+
+    const tokenBackfillCandidates: typeof transactionsWithVoucherPins = [];
+    for (const candidate of transactionsWithVoucherPins) {
+      if (tokenBackfillCandidates.length >= MAX_TOKEN_BACKFILL_SCHEDULES) {
+        break;
+      }
+
+      if (
+        candidate.voucherPin !== null ||
+        candidate.transaction.status !== 'successful' ||
+        !shouldBackfillForType(candidate.transaction.type) ||
+        hasRecentBackfillSchedule(candidate.metadata)
+      ) {
+        continue;
+      }
+
+      tokenBackfillCandidates.push(candidate);
+    }
+
+    if (tokenBackfillCandidates.length > 0) {
+      after(async () => {
+        try {
+          const tokenBackfillResults = await Promise.allSettled(
+            tokenBackfillCandidates.map((candidate) =>
+              scheduleVoucherPinBackfill({
+                metadata: candidate.metadata,
+                originalMetadata: candidate.originalMetadata,
+                supabase,
+                transaction: candidate.transaction,
+                voucherPin: candidate.voucherPin,
+              })
+            )
+          );
+
+          tokenBackfillResults.forEach((result, index) => {
+            if (result.status === 'rejected') {
+              console.error('Failed to schedule VTU voucher-pin backfill:', {
+                error: result.reason,
+                transactionId: tokenBackfillCandidates[index]?.transaction.id,
+              });
+            }
+          });
+        } catch (error) {
+          console.error('Failed to process VTU voucher-pin backfill queue:', {
+            error,
+            transactionIds: tokenBackfillCandidates.map(
+              (candidate) => candidate.transaction.id
+            ),
+          });
+        }
+      });
+    }
+
     return NextResponse.json({
-      transactions: (transactions ?? []).map((transaction) => ({
-        ...transaction,
-        amount: Number(transaction.amount) || 0,
-        customer_cashback:
-          transaction.customer_cashback != null
-            ? Number(transaction.customer_cashback)
-            : null,
-      })),
+      transactions: transactionsWithVoucherPins.map(
+        ({ transaction, voucherPin }) => {
+          const {
+            metadata: transactionMetadata,
+            transaction_id: _transactionId,
+            ...publicTransaction
+          } = transaction;
+          const dataPlanCode = extractMetadataField(
+            transactionMetadata,
+            'dataPlanCode',
+            isString
+          );
+          const paymentGateway = extractMetadataField(
+            transactionMetadata,
+            'gateway',
+            isPaymentGateway
+          );
+          const paymentReference = extractMetadataField(
+            transactionMetadata,
+            'paymentReference',
+            isString
+          );
+
+          return {
+            ...publicTransaction,
+            amount: parseHistoryAmount(transaction.amount, transaction.id),
+            customer_cashback:
+              transaction.customer_cashback != null
+                ? parseHistoryCashback(
+                    transaction.customer_cashback,
+                    transaction.id
+                  )
+                : null,
+            payment_gateway: paymentGateway,
+            payment_reference: paymentReference,
+            payment_status:
+              paymentGateway && paymentReference
+                ? (paymentStatusByReference.get(
+                    getPaymentStatusKey(paymentGateway, paymentReference)
+                  ) ?? null)
+                : null,
+            repeat_data_plan_code: dataPlanCode,
+            voucher_pin: voucherPin,
+          };
+        }
+      ),
     });
   } catch (error) {
     console.error('Customer VTU history error:', error);

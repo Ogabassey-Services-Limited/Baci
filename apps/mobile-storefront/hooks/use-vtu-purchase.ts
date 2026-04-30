@@ -1,18 +1,13 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import Constants from 'expo-constants';
 import { z } from 'zod';
 import { CONFIG } from '@/lib/config';
 import { DEFAULT_TIMEOUT, fetchWithTimeout } from '@/lib/fetch-with-timeout';
 import { MOBILE_TO_KUDA_PROVIDER } from '@/lib/network-utils';
 import { supabase } from '@/lib/supabase';
+import { buildVtuPurchaseUrl } from '@/lib/vtu-purchase-url';
 import { scheduleLocalNotification } from '@/services/push-notifications';
 import { useAuthStore } from '@/stores/auth-store';
 import { walletKeys } from './use-wallet';
-
-const API_URL =
-  process.env.EXPO_PUBLIC_API_URL ||
-  Constants.expoConfig?.extra?.apiUrl ||
-  'https://ogabassey.usebaci.com';
 
 export interface VTUPurchaseParams {
   type: 'airtime' | 'data' | 'electricity' | 'cable_tv' | 'betting';
@@ -30,6 +25,7 @@ const VTUPurchaseResultSchema = z.object({
   success: z.boolean(),
   reference: z.string(),
   transactionId: z.string().optional(),
+  voucherPin: z.string().optional(),
   amount: z.number(),
   cashback: z
     .object({
@@ -69,7 +65,7 @@ export function useVTUPurchase() {
         : undefined;
 
       // Bug #75: Explicit 30s timeout to prevent hanging requests
-      const response = await fetchWithTimeout(`${API_URL}/api/vtu/purchase`, {
+      const response = await fetchWithTimeout(buildVtuPurchaseUrl(), {
         method: 'POST',
         timeout: DEFAULT_TIMEOUT,
         headers: {
@@ -115,7 +111,10 @@ export function useVTUPurchase() {
         void scheduleLocalNotification(
           'Cashback Received! 🎉',
           `₦${data.cashback.amount.toLocaleString()} cashback added to your wallet.`,
-          { type: 'wallet_cashback', amount: data.cashback.amount },
+          {
+            type: 'wallet_cashback',
+            amount: data.cashback.amount,
+          },
           1
         ).catch((err) => {
           // Notification delivery should not keep VTU purchases pending.

@@ -1,0 +1,152 @@
+import { StyleSheet } from 'react-native';
+import {
+  BRAND,
+  palette,
+  RADIUS,
+  SPACING,
+  TYPOGRAPHY,
+} from '@/constants/Colors';
+
+const PURCHASE_SUCCESS_TOKENS = {
+  buttonHeight: 50,
+  compactGap: 6,
+  compactSpacing: 12,
+  tokenMinHeight: 36,
+  voucherMarginBottom: 20,
+  voucherPadding: 14,
+  balanceMarginTop: 2,
+} as const;
+
+export const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: SPACING.lg,
+  },
+  iconContainer: { marginBottom: SPACING.lg },
+  title: {
+    fontSize: TYPOGRAPHY.size['2xl'],
+    fontWeight: TYPOGRAPHY.weight.bold,
+    marginBottom: SPACING.sm,
+  },
+  message: {
+    fontSize: TYPOGRAPHY.size.base,
+    textAlign: 'center',
+    marginBottom: SPACING.xl,
+  },
+  referenceText: {
+    fontSize: TYPOGRAPHY.size.sm,
+    textAlign: 'center',
+    marginBottom: SPACING.lg,
+  },
+  voucherCard: {
+    width: '100%',
+    padding: PURCHASE_SUCCESS_TOKENS.voucherPadding,
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    marginBottom: PURCHASE_SUCCESS_TOKENS.voucherMarginBottom,
+  },
+  voucherLabel: {
+    fontSize: TYPOGRAPHY.size.xs,
+    fontWeight: TYPOGRAPHY.weight.semibold,
+    marginBottom: PURCHASE_SUCCESS_TOKENS.compactGap,
+    textTransform: 'uppercase',
+  },
+  voucherCode: {
+    fontSize: TYPOGRAPHY.size.lg,
+    fontWeight: TYPOGRAPHY.weight.black,
+  },
+  cashbackCard: {
+    width: '100%',
+    padding: SPACING.md,
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
+    backgroundColor: palette.emerald[50],
+    borderColor: palette.emerald[200],
+  },
+  cashbackAmount: {
+    fontSize: TYPOGRAPHY.size.base,
+    fontWeight: TYPOGRAPHY.weight.bold,
+    color: palette.emerald[600],
+  },
+  cashbackBalance: {
+    fontSize: TYPOGRAPHY.size.sm,
+    color: palette.gray[500],
+    marginTop: PURCHASE_SUCCESS_TOKENS.balanceMarginTop,
+  },
+  cashbackIcon: { marginBottom: SPACING.xs },
+  upsellCard: {
+    width: '100%',
+    padding: SPACING.md,
+    borderRadius: RADIUS['2xl'],
+    borderWidth: 1,
+    marginBottom: SPACING.lg,
+  },
+  upsellTitle: {
+    fontSize: TYPOGRAPHY.size.lg,
+    fontWeight: TYPOGRAPHY.weight.semibold,
+    marginBottom: SPACING.sm,
+  },
+  upsellText: { fontSize: TYPOGRAPHY.size.sm, marginBottom: SPACING.md },
+  primaryButton: {
+    width: '100%',
+    height: PURCHASE_SUCCESS_TOKENS.buttonHeight,
+    borderRadius: RADIUS.xl,
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    justifyContent: 'center',
+  },
+  primaryButtonText: {
+    color: palette.white,
+    fontSize: TYPOGRAPHY.size.base,
+    fontWeight: TYPOGRAPHY.weight.semibold,
+  },
+  secondaryButton: {
+    width: '100%',
+    height: PURCHASE_SUCCESS_TOKENS.buttonHeight,
+    borderRadius: RADIUS.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  secondaryButtonText: {
+    fontSize: TYPOGRAPHY.size.base,
+    fontWeight: TYPOGRAPHY.weight.semibold,
+  },
+  shareButton: {
+    width: '100%',
+    height: PURCHASE_SUCCESS_TOKENS.buttonHeight,
+    borderRadius: RADIUS.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginBottom: PURCHASE_SUCCESS_TOKENS.compactSpacing,
+  },
+  shareButtonText: {
+    color: BRAND.primary,
+    fontSize: TYPOGRAPHY.size.base,
+    fontWeight: TYPOGRAPHY.weight.bold,
+  },
+  tokenButton: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: PURCHASE_SUCCESS_TOKENS.compactGap,
+    justifyContent: 'center',
+    marginTop: PURCHASE_SUCCESS_TOKENS.compactSpacing,
+    minHeight: PURCHASE_SUCCESS_TOKENS.tokenMinHeight,
+    paddingHorizontal: PURCHASE_SUCCESS_TOKENS.voucherPadding,
+  },
+  tokenButtonText: {
+    fontSize: TYPOGRAPHY.size.sm,
+    fontWeight: TYPOGRAPHY.weight.bold,
+  },
+});

@@ -1,9 +1,13 @@
 import { StyleSheet } from 'react-native';
-import { SPACING } from '@/constants/Colors';
+import { BRAND, SPACING } from '@/constants/Colors';
+import { BILL_FORM_TOKENS } from './bill-form.tokens';
 
 export const billFormStyles = StyleSheet.create({
   scrollView: { flex: 1 },
   content: { padding: SPACING.md },
+  amountSection: { marginTop: SPACING.lg },
+  selectionLevel: { marginTop: SPACING.lg },
+  identifierTitle: { marginTop: SPACING.lg },
   sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
   input: {
     height: 50,
@@ -33,14 +37,36 @@ export const billFormStyles = StyleSheet.create({
   verifyRow: { flexDirection: 'row', gap: 10 },
   verifyInput: { flex: 1 },
   verifyButton: {
-    backgroundColor: '#1F2937',
+    backgroundColor: BRAND.primary,
     height: 50,
     paddingHorizontal: 20,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  verifyButtonText: { color: '#FFF', fontSize: 14, fontWeight: '600' },
+  verifyButtonText: {
+    color: BRAND.onPrimary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  verifiedPill: {
+    alignItems: 'center',
+    borderRadius: BILL_FORM_TOKENS.pillBorderRadius,
+    height: BILL_FORM_TOKENS.pillHeight,
+    justifyContent: 'center',
+    paddingHorizontal: BILL_FORM_TOKENS.pillPaddingHorizontal,
+  },
+  verifiedPillText: {
+    fontSize: BILL_FORM_TOKENS.fontSizePill,
+    fontWeight: BILL_FORM_TOKENS.fontWeightBold,
+  },
+  repeatReadyText: {
+    fontSize: BILL_FORM_TOKENS.fontSizeSmall,
+    marginTop: BILL_FORM_TOKENS.marginTopSmall,
+  },
+  verificationCardSpacing: {
+    marginTop: BILL_FORM_TOKENS.marginTopSmall,
+  },
   footer: {
     position: 'absolute',
     left: 0,
@@ -57,7 +83,7 @@ export const billFormStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  payButtonText: { color: '#FFF', fontSize: 16, fontWeight: '600' },
+  payButtonText: { color: BRAND.onPrimary, fontSize: 16, fontWeight: '600' },
   errorText: {
     fontSize: 13,
     color: '#DC2626',

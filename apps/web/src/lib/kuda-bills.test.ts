@@ -68,7 +68,7 @@ describe('getBillersByCategory', () => {
     expect(result).toEqual(mockBillers);
   });
 
-  it('maps "electricity" to Kuda "Electricity" category', async () => {
+  it('maps "electricity" to Kuda "Electricity" category and adds Kuda bill item codes', async () => {
     // Arrange
     const mockBillers: Biller[] = [
       {
@@ -86,7 +86,21 @@ describe('getBillersByCategory', () => {
 
     // Assert
     expect(getBillersByType).toHaveBeenCalledWith('Electricity');
-    expect(result).toEqual(mockBillers);
+    expect(result).toEqual([
+      {
+        ...mockBillers[0],
+        billItems: [
+          expect.objectContaining({
+            itemCode: 'KUD-ELE-EKED-002',
+            itemName: 'EKEDC PREPAID',
+          }),
+          expect.objectContaining({
+            itemCode: 'KUD-ELE-EKED-001',
+            itemName: 'EKEDC POSTPAID',
+          }),
+        ],
+      },
+    ]);
   });
 
   it('maps "cable_tv" to Kuda "CableTv" category', async () => {
@@ -131,20 +145,22 @@ describe('getBillersByCategory', () => {
     expect(result).toEqual(mockBillers);
   });
 
-  it('throws error for unknown category', () => {
+  it('throws error for unknown category', async () => {
     // Arrange
     const unknownCategory = 'invalid_category';
 
     // Act & Assert
-    expect(() => getBillersByCategory(unknownCategory)).toThrow(
+    await expect(getBillersByCategory(unknownCategory)).rejects.toThrow(
       'Unknown bill category: invalid_category'
     );
     expect(getBillersByType).not.toHaveBeenCalled();
   });
 
-  it('throws error for empty string category', () => {
+  it('throws error for empty string category', async () => {
     // Act & Assert
-    expect(() => getBillersByCategory('')).toThrow('Unknown bill category: ');
+    await expect(getBillersByCategory('')).rejects.toThrow(
+      'Unknown bill category: '
+    );
     expect(getBillersByType).not.toHaveBeenCalled();
   });
 });
@@ -193,6 +209,98 @@ describe('purchaseBill', () => {
       status: 'successful',
       amount: 5000,
     });
+  });
+
+  it('uses the first meaningful pin and transaction reference after normalizing response casing variants', async () => {
+    // Arrange
+    const mockResponse = {
+      status: true,
+      message: 'Bill purchase successful',
+      data: {
+        reference: '   ',
+        Reference: 'TXN-UPPER-123',
+        pin: '   ',
+        Pin: '1234-5678-9012',
+      },
+    };
+    vi.mocked(kudaRequest).mockResolvedValue(mockResponse);
+
+    // Act
+    const result = await purchaseBill('EKEDC-PREPAID', '1234567890', 5000);
+
+    // Assert
+    expect(result).toMatchObject<Partial<PurchaseResult>>({
+      pin: '1234-5678-9012',
+      transactionId: 'TXN-UPPER-123',
+    });
+  });
+
+  it('prefers lowercase response fields when both casing variants are populated', async () => {
+    // Arrange
+    vi.mocked(kudaRequest).mockResolvedValue({
+      status: true,
+      message: 'Bill purchase successful',
+      data: {
+        reference: 'TXN-LOWER-123',
+        Reference: 'TXN-UPPER-123',
+        pin: 'LOWER-PIN-123',
+        Pin: 'UPPER-PIN-123',
+      },
+    });
+
+    // Act
+    const result = await purchaseBill('EKEDC-PREPAID', '1234567890', 5000);
+
+    // Assert
+    expect(result).toMatchObject<Partial<PurchaseResult>>({
+      pin: 'LOWER-PIN-123',
+      transactionId: 'TXN-LOWER-123',
+    });
+  });
+
+  it('uses lowercase response fields when upper-case variants are absent', async () => {
+    // Arrange
+    vi.mocked(kudaRequest).mockResolvedValue({
+      status: true,
+      message: 'Bill purchase successful',
+      data: {
+        reference: 'TXN-LOWER-ONLY',
+        Reference: null,
+        pin: 'LOWER-PIN-ONLY',
+        Pin: null,
+      },
+    });
+
+    // Act
+    const result = await purchaseBill('EKEDC-PREPAID', '1234567890', 5000);
+
+    // Assert
+    expect(result).toMatchObject<Partial<PurchaseResult>>({
+      pin: 'LOWER-PIN-ONLY',
+      transactionId: 'TXN-LOWER-ONLY',
+    });
+  });
+
+  it('omits pin and transaction id when all response field variants are empty', async () => {
+    // Arrange
+    vi.mocked(kudaRequest).mockResolvedValue({
+      status: true,
+      message: 'Bill purchase successful',
+      data: {
+        reference: '   ',
+        Reference: null,
+        pin: '   ',
+        Pin: null,
+      },
+    });
+
+    // Act
+    const result = await purchaseBill('EKEDC-PREPAID', '1234567890', 5000);
+
+    // Assert
+    expect(result.transactionId).toBeUndefined();
+    expect(result.pin).toBeUndefined();
+    expect(result.success).toBe(true);
   });
 
   it('returns failed result when Kuda API returns status false', async () => {

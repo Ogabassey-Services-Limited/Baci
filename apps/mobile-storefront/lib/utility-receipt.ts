@@ -1,0 +1,182 @@
+import { Share } from 'react-native';
+import { formatNgnCurrency } from '@/lib/format-ngn-currency';
+import { sanitizePlainTextForHtml } from '@/lib/sanitize-plain-text';
+
+type UtilityReceiptType = 'airtime' | 'data' | 'tv' | 'power' | 'gaming';
+
+const TYPE_LABELS = {
+  airtime: 'Airtime',
+  data: 'Data',
+  tv: 'TV',
+  power: 'Electricity',
+  gaming: 'Betting',
+} as const satisfies Record<UtilityReceiptType, string>;
+
+function hasTypeLabel(type: string): type is UtilityReceiptType {
+  return Object.hasOwn(TYPE_LABELS, type);
+}
+
+function getTypeLabel(type: UtilityReceiptData['type']): string {
+  return hasTypeLabel(type) ? TYPE_LABELS[type] : type;
+}
+
+export interface UtilityReceiptData {
+  amount?: number;
+  customerIdentifier?: string;
+  customerName?: string | null;
+  reference?: string | null;
+  status?: string;
+  type: UtilityReceiptType | (string & {});
+  voucherPin?: string | null;
+}
+
+function buildReceiptRows(data: UtilityReceiptData) {
+  const rows = [
+    ['Service', getTypeLabel(data.type)],
+    data.amount !== undefined && data.amount !== null
+      ? ['Amount', formatNgnCurrency(data.amount)]
+      : null,
+    data.customerIdentifier ? ['Customer ID', data.customerIdentifier] : null,
+    data.customerName ? ['Customer Name', data.customerName] : null,
+    data.reference ? ['Reference', data.reference] : null,
+    data.status ? ['Status', data.status] : null,
+    data.voucherPin ? ['Voucher / Token', data.voucherPin] : null,
+  ].filter((row): row is [string, string] => Boolean(row));
+
+  return rows
+    .map(
+      ([label, value]) => `
+        <div class="row">
+          <span>${sanitizePlainTextForHtml(label)}</span>
+          <strong>${sanitizePlainTextForHtml(value)}</strong>
+        </div>`
+    )
+    .join('');
+}
+
+function buildReceiptMessage(data: UtilityReceiptData) {
+  return [
+    `${getTypeLabel(data.type)} receipt`,
+    data.amount !== undefined && data.amount !== null
+      ? `Amount: ${formatNgnCurrency(data.amount)}`
+      : null,
+    data.customerIdentifier ? `Customer ID: ${data.customerIdentifier}` : null,
+    data.customerName ? `Customer: ${data.customerName}` : null,
+    data.reference ? `Reference: ${data.reference}` : null,
+    data.status ? `Status: ${data.status}` : null,
+    data.voucherPin ? `Voucher / Token: ${data.voucherPin}` : null,
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+function isCancellationError(error: unknown) {
+  const message = error instanceof Error ? error.message.toLowerCase() : '';
+  return (
+    error instanceof Error &&
+    // Expo Sharing reports user cancellation through localized native error
+    // strings rather than a stable cancellation code.
+    (message.includes('cancelled') || message.includes('canceled'))
+  );
+}
+
+export function buildUtilityReceiptHtml(data: UtilityReceiptData) {
+  const serviceLabel = getTypeLabel(data.type);
+  const rows = buildReceiptRows(data);
+
+  return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body {
+        color: #111827;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        margin: 0;
+        padding: 32px;
+      }
+      .receipt {
+        border: 1px solid #e5e7eb;
+        border-radius: 18px;
+        padding: 28px;
+      }
+      h1 {
+        font-size: 24px;
+        margin: 0 0 4px;
+      }
+      .subtitle {
+        color: #6b7280;
+        font-size: 14px;
+        margin-bottom: 24px;
+      }
+      .row {
+        border-top: 1px solid #f3f4f6;
+        display: flex;
+        gap: 16px;
+        justify-content: space-between;
+        padding: 14px 0;
+      }
+      .row span {
+        color: #6b7280;
+      }
+      .row strong {
+        max-width: 58%;
+        text-align: right;
+        word-break: break-word;
+      }
+    </style>
+  </head>
+  <body>
+    <section class="receipt">
+      <h1>${sanitizePlainTextForHtml(serviceLabel)} Receipt</h1>
+      <div class="subtitle">Generated from your Baci utility purchase</div>
+      ${rows}
+    </section>
+  </body>
+</html>`;
+}
+
+export async function shareUtilityReceipt(data: UtilityReceiptData) {
+  const html = buildUtilityReceiptHtml(data);
+  let pdfUri: string | null = null;
+
+  try {
+    const Print = await import('expo-print');
+    const Sharing = await import('expo-sharing');
+
+    if (!(await Sharing.isAvailableAsync())) {
+      await Share.share({ message: buildReceiptMessage(data) });
+      return;
+    }
+
+    try {
+      const { uri } = await Print.printToFileAsync({ html });
+      pdfUri = uri;
+    } catch {
+      await Share.share({ message: buildReceiptMessage(data) });
+      return;
+    }
+
+    await Sharing.shareAsync(pdfUri, {
+      dialogTitle: 'Share Utility Receipt',
+      mimeType: 'application/pdf',
+      UTI: 'com.adobe.pdf',
+    });
+  } catch (error) {
+    if (isCancellationError(error)) {
+      return;
+    }
+
+    throw error;
+  } finally {
+    if (pdfUri) {
+      try {
+        const FileSystem = await import('expo-file-system');
+        await FileSystem.deleteAsync(pdfUri, { idempotent: true });
+      } catch {
+        // Receipt sharing should not fail because a temporary PDF cleanup failed.
+      }
+    }
+  }
+}
