@@ -63,6 +63,7 @@ function buildOgabasseyCdnTransformUrl({
   if (
     url.hostname !== OGABASSEY_CDN_HOSTNAME ||
     url.search ||
+    url.pathname.startsWith('/image/') ||
     !TRANSFORMABLE_IMAGE_EXTENSION_PATTERN.test(url.pathname)
   ) {
     return null;

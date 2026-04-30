@@ -59,6 +59,12 @@ describe('imageLoader', () => {
     expect(imageLoader({ src: url, width: 1200, quality: 90 })).toBe(url);
   });
 
+  it('leaves already transformed OgaBassey CDN URLs unchanged', () => {
+    const url =
+      'https://cdn.ogabassey.com/image/width=229,quality=75,format=webp/core-assets/products/iphone.avif';
+    expect(imageLoader({ src: url, width: 1200, quality: 90 })).toBe(url);
+  });
+
   it('returns local public asset paths directly in development', () => {
     vi.stubEnv('NODE_ENV', 'development');
 
