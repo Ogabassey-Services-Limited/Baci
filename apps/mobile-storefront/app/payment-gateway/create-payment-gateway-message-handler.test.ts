@@ -18,6 +18,13 @@ function createHandler(
 ) {
   const copiedGatewayTextRef = { current: null as string | null };
   const clearCart = jest.fn();
+  const confirmVtuPaymentSuccess = jest.fn<
+    (input: {
+      amount: number;
+      customerIdentifier?: string;
+      reference: string;
+    }) => void
+  >();
   const copyGatewayText = jest.fn<
     (text: string, success: string, failure?: string) => Promise<void>
   >(() => Promise.resolve());
@@ -26,6 +33,7 @@ function createHandler(
   const setSuccessStatus = jest.fn();
   const handler = createPaymentGatewayMessageHandler({
     clearCart,
+    confirmVtuPaymentSuccess,
     copiedGatewayTextRef,
     copyGatewayText,
     gateway: undefined,
@@ -40,6 +48,7 @@ function createHandler(
 
   return {
     clearCart,
+    confirmVtuPaymentSuccess,
     copiedGatewayTextRef,
     copyGatewayText,
     handler,
@@ -156,9 +165,10 @@ describe('createPaymentGatewayMessageHandler', () => {
     });
   });
 
-  it('routes VTU crypto success back to the utility result screen', () => {
+  it('confirms VTU crypto success before routing to the utility result screen', () => {
     const {
       clearCart,
+      confirmVtuPaymentSuccess,
       handler,
       markPaymentCompletionStarted,
       scheduleDelayedNavigation,
@@ -179,23 +189,64 @@ describe('createPaymentGatewayMessageHandler', () => {
       type: 'crypto_success',
     });
 
-    expect(markPaymentCompletionStarted).toHaveBeenCalledTimes(1);
-    expect(setSuccessStatus).toHaveBeenCalledTimes(1);
+    expect(markPaymentCompletionStarted).not.toHaveBeenCalled();
+    expect(setSuccessStatus).not.toHaveBeenCalled();
     expect(clearCart).not.toHaveBeenCalled();
-    expect(scheduleDelayedNavigation).toHaveBeenCalledTimes(1);
-
-    const scheduledNavigation = scheduleDelayedNavigation.mock.calls[0]?.[0];
-    scheduledNavigation?.();
-    expect(router.replace).toHaveBeenCalledWith({
-      pathname: '/utilities/[type]',
-      params: {
-        amount: '2750',
-        customerIdentifier: '1234567890',
-        paymentStatus: 'successful',
-        reference: 'crypto-ref',
-        type: 'power',
-      },
+    expect(scheduleDelayedNavigation).not.toHaveBeenCalled();
+    expect(router.replace).not.toHaveBeenCalled();
+    expect(confirmVtuPaymentSuccess).toHaveBeenCalledWith({
+      amount: 2750,
+      customerIdentifier: '1234567890',
+      reference: 'crypto-ref',
     });
+  });
+
+  it('falls back to route params when confirming VTU crypto success', () => {
+    const { confirmVtuPaymentSuccess, handler } = createHandler({
+      amount: 2500,
+      customerIdentifier: ' 43901766923 ',
+      paymentKind: PAYMENT_KINDS.VTU,
+      reference: ' VTU-123 ',
+      utilityType: 'power',
+    });
+
+    sendMessage(handler, {
+      type: 'crypto_success',
+    });
+
+    expect(confirmVtuPaymentSuccess).toHaveBeenCalledWith({
+      amount: 2500,
+      customerIdentifier: '43901766923',
+      reference: 'VTU-123',
+    });
+  });
+
+  it('does not mark VTU crypto success as confirmed before backend confirmation', () => {
+    const {
+      clearCart,
+      confirmVtuPaymentSuccess,
+      handler,
+      markPaymentCompletionStarted,
+      scheduleDelayedNavigation,
+      setSuccessStatus,
+    } = createHandler({
+      amount: 2500,
+      customerIdentifier: ' 43901766923 ',
+      paymentKind: PAYMENT_KINDS.VTU,
+      reference: ' VTU-123 ',
+      utilityType: 'power',
+    });
+
+    sendMessage(handler, {
+      type: 'crypto_success',
+    });
+
+    expect(confirmVtuPaymentSuccess).toHaveBeenCalledTimes(1);
+    expect(markPaymentCompletionStarted).not.toHaveBeenCalled();
+    expect(setSuccessStatus).not.toHaveBeenCalled();
+    expect(clearCart).not.toHaveBeenCalled();
+    expect(scheduleDelayedNavigation).not.toHaveBeenCalled();
+    expect(router.replace).not.toHaveBeenCalled();
   });
 
   it('does not route VTU crypto success without required route context', () => {
@@ -204,6 +255,7 @@ describe('createPaymentGatewayMessageHandler', () => {
       .mockImplementation(() => undefined);
     const {
       clearCart,
+      confirmVtuPaymentSuccess,
       handler,
       markPaymentCompletionStarted,
       scheduleDelayedNavigation,
@@ -219,6 +271,7 @@ describe('createPaymentGatewayMessageHandler', () => {
       sendMessage(handler, { type: 'crypto_success' });
 
       expect(markPaymentCompletionStarted).not.toHaveBeenCalled();
+      expect(confirmVtuPaymentSuccess).not.toHaveBeenCalled();
       expect(setSuccessStatus).not.toHaveBeenCalled();
       expect(clearCart).not.toHaveBeenCalled();
       expect(scheduleDelayedNavigation).not.toHaveBeenCalled();

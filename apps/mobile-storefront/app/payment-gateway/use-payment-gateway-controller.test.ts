@@ -344,6 +344,57 @@ describe('usePaymentGatewayController', () => {
     expect(router.replace).not.toHaveBeenCalled();
   });
 
+  it('confirms VTU crypto success messages before routing to success', async () => {
+    jest.useFakeTimers({ advanceTimers: true });
+    mockSearchParams = { ...vtuParams };
+    mockWaitForVtuConfirmation.mockResolvedValueOnce({
+      amount: 2750,
+      customerIdentifier: '1234567890',
+      reference: 'crypto-ref',
+      status: 'successful',
+    });
+    const { result } = renderHook(() => usePaymentGatewayController());
+
+    act(() => {
+      result.current.handleWebViewMessage({
+        nativeEvent: {
+          data: JSON.stringify({
+            amount: '2750',
+            customerIdentifier: ' 1234567890 ',
+            reference: ' crypto-ref ',
+            type: 'crypto_success',
+          }),
+        },
+      });
+    });
+
+    await waitFor(() =>
+      expect(mockWaitForVtuConfirmation).toHaveBeenCalledWith({
+        gateway: 'paystack',
+        reference: 'crypto-ref',
+      })
+    );
+    expect(router.replace).not.toHaveBeenCalled();
+
+    await waitFor(() => expect(result.current.status).toBe('success'));
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+
+    await waitFor(() =>
+      expect(router.replace).toHaveBeenCalledWith({
+        pathname: '/utilities/[type]',
+        params: expect.objectContaining({
+          amount: '2750',
+          customerIdentifier: '1234567890',
+          paymentStatus: 'successful',
+          reference: 'crypto-ref',
+          type: 'power',
+        }),
+      })
+    );
+  });
+
   it('does not route VTU confirmations after unmount', async () => {
     mockSearchParams = { ...vtuParams };
     const confirmation =

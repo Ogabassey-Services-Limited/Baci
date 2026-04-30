@@ -147,7 +147,15 @@ export function usePaymentGatewayController() {
     });
   };
 
-  const handleVtuConfirmation = async () => {
+  const handleVtuConfirmation = async ({
+    fallbackAmount = amount,
+    fallbackCustomerIdentifier = customerIdentifier,
+    nextReference = reference,
+  }: {
+    fallbackAmount?: number;
+    fallbackCustomerIdentifier?: string;
+    nextReference?: string;
+  } = {}) => {
     const confirmationToken = vtuConfirmationTokenRef.current;
     if (!utilityType || !gateway) {
       if (!isCurrentVtuConfirmation(confirmationToken)) {
@@ -159,7 +167,7 @@ export function usePaymentGatewayController() {
     }
 
     try {
-      if (!reference) {
+      if (!nextReference) {
         throw new Error('Payment reference is missing.');
       }
 
@@ -173,9 +181,9 @@ export function usePaymentGatewayController() {
             return;
           }
           routeToUtilityResult({
-            resultAmount: amount,
-            resultCustomerIdentifier: customerIdentifier,
-            resultReference: reference,
+            resultAmount: fallbackAmount,
+            resultCustomerIdentifier: fallbackCustomerIdentifier,
+            resultReference: nextReference,
             resultStatus: 'successful',
           });
         });
@@ -184,7 +192,7 @@ export function usePaymentGatewayController() {
 
       const result = await waitForVtuConfirmation({
         gateway,
-        reference,
+        reference: nextReference,
       });
       if (!isCurrentVtuConfirmation(confirmationToken)) {
         return;
@@ -197,7 +205,8 @@ export function usePaymentGatewayController() {
         routeToUtilityResult({
           resultAmount: result.amount,
           resultCashback: result.cashback,
-          resultCustomerIdentifier: result.customerIdentifier,
+          resultCustomerIdentifier:
+            result.customerIdentifier ?? fallbackCustomerIdentifier,
           resultReference: result.reference,
           resultStatus: 'successful',
           resultVoucherPin: result.voucherPin,
@@ -210,8 +219,9 @@ export function usePaymentGatewayController() {
       if (error instanceof VtuPaymentStillProcessingError) {
         setStatus('processing');
         routeToUtilityResult({
-          resultAmount: error.amount,
-          resultCustomerIdentifier: error.customerIdentifier,
+          resultAmount: error.amount ?? fallbackAmount,
+          resultCustomerIdentifier:
+            error.customerIdentifier ?? fallbackCustomerIdentifier,
           resultReference: error.reference,
           resultStatus: 'processing',
         });
@@ -225,7 +235,11 @@ export function usePaymentGatewayController() {
     }
   };
 
-  const beginPaymentCompletion = () => {
+  const beginVtuPaymentCompletion = (input?: {
+    amount?: number;
+    customerIdentifier?: string;
+    reference?: string;
+  }) => {
     if (
       paymentCompletionStartedRef.current ||
       status === 'processing' ||
@@ -235,12 +249,29 @@ export function usePaymentGatewayController() {
     }
 
     paymentCompletionStartedRef.current = true;
-    if (paymentKind === PAYMENT_KINDS.VTU) {
-      setStatus('processing');
-      void handleVtuConfirmation();
+    setStatus('processing');
+    void handleVtuConfirmation({
+      fallbackAmount: input?.amount,
+      fallbackCustomerIdentifier: input?.customerIdentifier,
+      nextReference: input?.reference,
+    });
+  };
+
+  const beginPaymentCompletion = () => {
+    if (
+      paymentCompletionStartedRef.current ||
+      status === 'processing' ||
+      status === 'success'
+    ) {
       return;
     }
 
+    if (paymentKind === PAYMENT_KINDS.VTU) {
+      beginVtuPaymentCompletion();
+      return;
+    }
+
+    paymentCompletionStartedRef.current = true;
     setStatus('success');
     clearCart();
     scheduleDelayedNavigation(() => {
@@ -272,6 +303,7 @@ export function usePaymentGatewayController() {
   const handleWebViewMessage = createPaymentGatewayMessageHandler({
     amount,
     clearCart,
+    confirmVtuPaymentSuccess: beginVtuPaymentCompletion,
     copiedGatewayTextRef,
     copyGatewayText,
     customerIdentifier,

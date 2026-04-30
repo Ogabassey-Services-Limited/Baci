@@ -13,6 +13,11 @@ const getTrimmedString = (value: unknown) =>
 interface CreatePaymentGatewayMessageHandlerInput {
   amount?: number;
   clearCart: () => void;
+  confirmVtuPaymentSuccess: (input: {
+    amount: number;
+    customerIdentifier?: string;
+    reference: string;
+  }) => void;
   copiedGatewayTextRef: MutableRefObject<string | null>;
   copyGatewayText: (
     text: string,
@@ -98,6 +103,7 @@ function handleClipboardText({
 export function createPaymentGatewayMessageHandler({
   amount,
   clearCart,
+  confirmVtuPaymentSuccess,
   copiedGatewayTextRef,
   copyGatewayText,
   customerIdentifier,
@@ -170,21 +176,12 @@ export function createPaymentGatewayMessageHandler({
           return;
         }
 
-        markPaymentCompletionStarted();
-        setSuccessStatus();
-        scheduleDelayedNavigation(() => {
-          router.replace({
-            pathname: '/utilities/[type]',
-            params: {
-              amount: String(cryptoAmount),
-              paymentStatus: 'successful',
-              reference: cryptoReference,
-              type: utilityType,
-              ...(cryptoCustomerIdentifier && {
-                customerIdentifier: cryptoCustomerIdentifier,
-              }),
-            },
-          });
+        confirmVtuPaymentSuccess({
+          amount: cryptoAmount,
+          ...(cryptoCustomerIdentifier && {
+            customerIdentifier: cryptoCustomerIdentifier,
+          }),
+          reference: cryptoReference,
         });
         return;
       }
