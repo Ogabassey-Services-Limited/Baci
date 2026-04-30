@@ -181,6 +181,46 @@ test('handleImageRequest rejects source symlinks that resolve outside the public
   assert.equal(ensureTransformCalls, 0);
 });
 
+test('handleImageRequest rejects symlinks that resolve to unsupported image types', async () => {
+  const linkedSourcePath = path.join(PUBLIC_ROOT, 'core-assets/link.avif');
+  const realSourcePath = path.join(PUBLIC_ROOT, 'core-assets/source.svg');
+  let statCalls = 0;
+  let ensureTransformCalls = 0;
+
+  await assert.rejects(
+    handleImageRequest(
+      { headers: {}, method: 'GET' },
+      {},
+      {
+        absoluteSourcePath: linkedSourcePath,
+        extension: '.avif',
+        options: { fit: 'inside', format: 'webp', quality: 75, width: 229 },
+        sourcePath: 'core-assets/link.avif',
+      },
+      {
+        buildCachePath: () => '/cache/source.webp',
+        ensureTransformed: () => {
+          ensureTransformCalls += 1;
+        },
+        pickFormat: () => 'webp',
+        sendImageHead: () => undefined,
+        serveFile: () => undefined,
+        lstat: () => ({ isSymbolicLink: () => true }),
+        realpath: (filePath) =>
+          filePath === PUBLIC_ROOT ? PUBLIC_ROOT : realSourcePath,
+        stat: () => {
+          statCalls += 1;
+          return { isFile: () => true, mtimeMs: 1, size: 1024 };
+        },
+      }
+    ),
+    { message: 'Unsupported image type', statusCode: 415 }
+  );
+
+  assert.equal(statCalls, 0);
+  assert.equal(ensureTransformCalls, 0);
+});
+
 test('handleImageRequest rejects source paths under symlinked parents outside the public root', async () => {
   const linkedParentSourcePath = path.join(
     PUBLIC_ROOT,

@@ -2,7 +2,7 @@ import { realpath, stat } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import path from 'node:path';
 import process from 'node:process';
-import { HOST, PORT, PUBLIC_ROOT } from './config.mjs';
+import { ALLOWED_EXTENSIONS, HOST, PORT, PUBLIC_ROOT } from './config.mjs';
 import {
   sendImageHead,
   sendOptions,
@@ -60,8 +60,14 @@ async function resolveSourceFile(parsedRequest, deps) {
     throw createHttpError(404, 'Not found');
   }
 
+  const realExtension = path.extname(realSourcePath).toLowerCase();
+  if (!ALLOWED_EXTENSIONS.has(realExtension)) {
+    throw createHttpError(415, 'Unsupported image type');
+  }
+
   return {
     absoluteSourcePath: realSourcePath,
+    extension: realExtension,
     sourcePath: toPublicSourcePath(realSourcePath, realPublicRoot),
   };
 }
@@ -82,7 +88,7 @@ export async function handleImageRequest(
   const outputFormat = deps.pickFormat(
     parsedRequest.options.format,
     request.headers.accept || '',
-    parsedRequest.extension
+    verifiedSource.extension
   );
   const cachePath = deps.buildCachePath({
     options: parsedRequest.options,
