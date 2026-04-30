@@ -164,6 +164,17 @@ function getSafeOllamaErrorMessage(error: unknown): string {
   return message.replace(/https?:\/\/\S+/g, '[url]').slice(0, 300);
 }
 
+async function bufferOllamaTextResponse(response: Response): Promise<Response> {
+  // Read the Ollama stream before returning so parse/disconnect failures can still use Gemini fallback.
+  const text = await response.text();
+
+  return new Response(text, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: new Headers(response.headers),
+  });
+}
+
 export async function POST(req: Request) {
   try {
     // 1. Get client IP for rate limiting
@@ -225,13 +236,14 @@ export async function POST(req: Request) {
     if (ollamaBaseUrl) {
       try {
         const chatModel = getAiChatModel();
-        return await createOllamaChatResponse({
+        const ollamaResponse = await createOllamaChatResponse({
           baseUrl: ollamaBaseUrl,
           model: chatModel,
           basicAuth: getOllamaBasicAuth(),
           messages: buildOllamaMessages(sanitizedMessages, chatModel),
           signal: req.signal,
         });
+        return await bufferOllamaTextResponse(ollamaResponse);
       } catch (error) {
         console.warn(
           '[Agentic Chat] Ollama request failed; falling back to Gemini:',

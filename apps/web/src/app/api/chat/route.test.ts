@@ -8,6 +8,7 @@ let generateTextError: Error | null = null;
 let ollamaBaseUrl: string | undefined;
 let ollamaBasicAuth: string | undefined;
 let ollamaError: Error | null = null;
+let ollamaStreamError: Error | null = null;
 
 // ---- Mocks ----
 
@@ -47,6 +48,23 @@ vi.mock('@/lib/ollama-chat', () => ({
   createOllamaChatResponse: vi.fn(() => {
     if (ollamaError) {
       return Promise.reject(ollamaError);
+    }
+
+    if (ollamaStreamError) {
+      const streamError = ollamaStreamError;
+
+      return Promise.resolve(
+        new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.error(streamError);
+            },
+          }),
+          {
+            headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+          }
+        )
+      );
     }
 
     return Promise.resolve(
@@ -123,6 +141,7 @@ describe('POST /api/chat', () => {
     ollamaBaseUrl = undefined;
     ollamaBasicAuth = undefined;
     ollamaError = null;
+    ollamaStreamError = null;
   });
 
   it('returns 429 when rate limited', async () => {
@@ -248,6 +267,36 @@ describe('POST /api/chat', () => {
     expect(warnSpy).toHaveBeenCalledWith(
       '[Agentic Chat] Ollama request failed; falling back to Gemini:',
       'Ollama unavailable'
+    );
+    warnSpy.mockRestore();
+  });
+
+  it('falls back to Gemini when the Ollama stream fails before completion', async () => {
+    // Arrange
+    ollamaBaseUrl = 'https://ollama.example.com';
+    ollamaStreamError = new Error(
+      'Invalid Ollama chat chunk JSON: Unexpected end of JSON input; payloadLength=42'
+    );
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    // Act
+    const response = await POST(
+      makeRequest({
+        messages: [{ role: 'user', content: 'Show me phones' }],
+      })
+    );
+    const text = await response.text();
+
+    // Assert
+    expect(response.status).toBe(200);
+    expect(text).toBe('AI response');
+    expect(createOllamaChatResponse).toHaveBeenCalledOnce();
+    expect(generateText).toHaveBeenCalledOnce();
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[Agentic Chat] Ollama request failed; falling back to Gemini:',
+      'Invalid Ollama chat chunk JSON: Unexpected end of JSON input; payloadLength=42'
     );
     warnSpy.mockRestore();
   });
