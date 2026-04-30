@@ -2,6 +2,11 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
+import {
+  confirmAgenticPaystackDvaPayment,
+  getPaystackDvaReceiverAccountNumber,
+  markAgenticPaystackDvaSessionPaid,
+} from '@/lib/agentic/paystack-dva-webhook';
 import { upsertPaystackAuthorization } from '@/lib/customer-saved-payment-methods';
 import {
   creditWalletTopUp,
@@ -391,6 +396,21 @@ export async function POST(request: NextRequest) {
     }
 
     const verifiedAmount = getVerifiedAmount(gateway, gatewayResponse);
+
+    if (gateway === 'paystack') {
+      const agenticDvaPayment = await confirmAgenticPaystackDvaPayment({
+        accountNumber: getPaystackDvaReceiverAccountNumber(body),
+        gatewayReference: reference,
+        supabase,
+        verifiedAmount,
+      });
+
+      if (agenticDvaPayment.handled) {
+        return NextResponse.json(agenticDvaPayment.body, {
+          status: agenticDvaPayment.status,
+        });
+      }
+    }
 
     // ============================================
     // CHAT ORDER HANDLING (Virtual Account Payments)
@@ -1007,6 +1027,24 @@ export async function POST(request: NextRequest) {
       }
 
       logger.info({ message: 'Transaction already processed', reference });
+      if (gateway === 'paystack') {
+        const agenticSessionPayment = await markAgenticPaystackDvaSessionPaid({
+          gatewayReference: reference,
+          supabase,
+          transaction: {
+            merchant_id: transaction.merchant_id,
+            metadata,
+            order_id: transaction.order_id,
+          },
+        });
+        if (!agenticSessionPayment.ok) {
+          logger.warn({
+            message: 'Agentic checkout session reconciliation failed',
+            reference,
+            error: agenticSessionPayment.error,
+          });
+        }
+      }
       return NextResponse.json({ message: 'Already processed' });
     }
 
@@ -1654,6 +1692,25 @@ export async function POST(request: NextRequest) {
         message: 'Settlement recording error',
         error: settlementError,
       });
+    }
+
+    if (gateway === 'paystack') {
+      const agenticSessionPayment = await markAgenticPaystackDvaSessionPaid({
+        gatewayReference: reference,
+        supabase,
+        transaction: {
+          merchant_id: transaction.merchant_id,
+          metadata,
+          order_id: transaction.order_id,
+        },
+      });
+      if (!agenticSessionPayment.ok) {
+        logger.warn({
+          message: 'Agentic checkout session reconciliation failed',
+          reference,
+          error: agenticSessionPayment.error,
+        });
+      }
     }
 
     logger.info({

@@ -13,6 +13,7 @@ const serverSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z
     .string()
     .min(1, 'SUPABASE_SERVICE_ROLE_KEY is required'),
+  SUPABASE_JWT_SECRET: z.string().optional(),
 
   // Blog
   BLOG_PREVIEW_SECRET: z.string().default('dev-preview-secret'), // Fallback for dev
@@ -154,6 +155,7 @@ const getEnv = () => {
   const serverEnv = isServer
     ? {
         SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+        SUPABASE_JWT_SECRET: process.env.SUPABASE_JWT_SECRET,
         BLOG_PREVIEW_SECRET: process.env.BLOG_PREVIEW_SECRET,
         KORAPAY_SECRET_KEY: process.env.KORAPAY_SECRET_KEY,
         JUICYWAY_SECRET_KEY: process.env.JUICYWAY_SECRET_KEY,
@@ -256,6 +258,14 @@ export const getSupabaseServiceRoleKey = (): string => {
   if (!env?.SUPABASE_SERVICE_ROLE_KEY)
     throw new Error('SUPABASE_SERVICE_ROLE_KEY is not defined');
   return env.SUPABASE_SERVICE_ROLE_KEY;
+};
+
+export const getSupabaseJwtSecret = (): string => {
+  if (typeof window !== 'undefined')
+    throw new Error('SUPABASE_JWT_SECRET cannot be accessed on the client');
+  if (!env?.SUPABASE_JWT_SECRET)
+    throw new Error('SUPABASE_JWT_SECRET is not defined');
+  return env.SUPABASE_JWT_SECRET;
 };
 
 // Optional Getters

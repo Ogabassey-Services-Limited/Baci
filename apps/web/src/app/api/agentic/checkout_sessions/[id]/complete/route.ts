@@ -1,14 +1,43 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { POST as createOrder } from '@/app/api/orders/route'; // Reuse existing logic
+import { type NextRequest, NextResponse } from 'next/server';
 import { verifyAgenticApiKey } from '@/lib/agentic/auth';
+import { calculateCheckoutSession } from '@/lib/agentic/checkout';
+import { verifyCheckoutCompletionAuthorization } from '@/lib/agentic/checkout-authorization';
 import {
-  type CheckoutItem,
-  calculateCheckoutSession,
-  type GPTTotal,
-} from '@/lib/agentic/checkout';
+  buildAuthorizationErrorBody,
+  getAuthorizationErrorStatus,
+  getCheckoutCompletionAuthorizationSecrets,
+  getCheckoutGrandTotal,
+  withCompletionAuthorizationMetadata,
+} from '@/lib/agentic/checkout-completion-authorization-response';
+import { finalizeAgenticCheckoutPayment } from '@/lib/agentic/checkout-completion-finalize';
+import {
+  getAgenticPaymentState,
+  getStoredDvaAccount,
+  resolveExistingPaymentState,
+} from '@/lib/agentic/checkout-completion-response';
+import { prepareAgenticCheckoutPayment } from '@/lib/agentic/checkout-payment-setup';
+import { getAgenticCheckoutSession } from '@/lib/agentic/checkout-session-record';
+import {
+  type AgenticMetadata,
+  buildAgenticMetadata,
+  mapCheckoutSessionStatus,
+} from '@/lib/agentic/checkout-storage';
+import {
+  reserveAgenticIdempotencyKey,
+  storeAgenticIdempotencyResponse,
+} from '@/lib/agentic/idempotency';
+import { resolveAgenticMerchantContext } from '@/lib/agentic/merchant-context';
+import { readAgenticMutationRequest } from '@/lib/agentic/mutation-request';
+import { reserveAgenticRequestId } from '@/lib/agentic/request-replay';
+import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
 import { logger } from '@/lib/logger';
-import { sanitizeForLog } from '@/lib/sanitize-core';
 import { createServiceClient } from '@/lib/supabase/service';
+import {
+  agenticCheckoutCompleteSchema,
+  agenticCheckoutItemsSchema,
+} from '@/schemas/agentic-checkout';
+
+const COMPLETE_IDEMPOTENCY_ROUTE = 'checkout_sessions.complete';
 
 export async function POST(
   request: NextRequest,
@@ -18,27 +47,90 @@ export async function POST(
   if (!verifyAgenticApiKey(request))
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  try {
-    const body = await request.json();
-    const { payment_data, buyer } = body;
+  const mutation = await readAgenticMutationRequest({ request });
+  if (!mutation.ok) {
+    return mutation.response;
+  }
 
-    if (!payment_data?.token) {
+  try {
+    const parsed = agenticCheckoutCompleteSchema.safeParse(mutation.body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Payment token required' },
+        {
+          error: 'Invalid request body',
+          details: parsed.error.flatten(),
+        },
         { status: 400 }
       );
     }
+    const { buyer, completion_authorization } = parsed.data;
 
-    const supabase = createServiceClient();
-    const { data: session, error } = await supabase
-      .from('checkout_sessions')
-      .select(
-        'id, merchant_id, items, fulfillment_option_id, fulfillment_address, currency, status, metadata'
-      )
-      .eq('id', params.id)
-      .single();
+    const bootstrap = createServiceClient();
+    const merchant = await resolveAgenticMerchantContext(bootstrap);
+    if (!merchant) {
+      return NextResponse.json(
+        { error: 'Agentic merchant not found' },
+        { status: 500 }
+      );
+    }
+    const supabase = createAgenticScopedSupabaseClient({
+      merchantId: merchant.id,
+      merchantSlug: merchant.slug,
+    });
+    const replayReservation = await reserveAgenticRequestId({
+      apiVersion: mutation.apiVersion,
+      idempotencyKey: mutation.idempotencyKey,
+      merchantId: merchant.id,
+      requestId: mutation.requestId,
+      supabase,
+    });
+    if (!replayReservation.ok) {
+      return NextResponse.json(
+        { error: replayReservation.error },
+        { status: replayReservation.error === 'Replay request id' ? 409 : 503 }
+      );
+    }
+    const idempotency = await reserveAgenticIdempotencyKey({
+      apiVersion: mutation.apiVersion,
+      body: mutation.rawBody,
+      key: mutation.idempotencyKey,
+      merchantId: merchant.id,
+      method: mutation.method,
+      pathname: mutation.pathname,
+      route: COMPLETE_IDEMPOTENCY_ROUTE,
+      supabase,
+    });
+    if (!idempotency.ok) {
+      return NextResponse.json(
+        { error: idempotency.error },
+        { status: idempotency.error === 'Idempotency conflict' ? 409 : 425 }
+      );
+    }
+    if (idempotency.state === 'replay') {
+      return NextResponse.json(idempotency.response, {
+        status: idempotency.status,
+        headers: {
+          'idempotency-key': mutation.idempotencyKey,
+          'request-id': mutation.requestId,
+        },
+      });
+    }
 
-    if (error || !session)
+    const { data: session, error } = await getAgenticCheckoutSession({
+      merchantId: merchant.id,
+      sessionId: params.id,
+      supabase,
+    });
+
+    if (error) {
+      logger.error({
+        message: 'Agentic checkout session read failed',
+        error,
+        sessionId: params.id,
+      });
+      return NextResponse.json({ error: 'Database error' }, { status: 500 });
+    }
+    if (!session)
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     if (session.status === 'completed')
       return NextResponse.json(
@@ -46,16 +138,42 @@ export async function POST(
         { status: 409 }
       );
 
+    const parsedCartItems = agenticCheckoutItemsSchema.safeParse(
+      session.cart_items
+    );
+    if (!parsedCartItems.success) {
+      logger.error({
+        message: 'Agentic checkout session has invalid cart items',
+        error: parsedCartItems.error.flatten(),
+        sessionId: params.id,
+      });
+      return NextResponse.json(
+        { error: 'Invalid session cart items' },
+        { status: 500 }
+      );
+    }
+
     // 1. Recalculate final totals to ensure accuracy
     const sessionCalc = await calculateCheckoutSession(
       supabase,
-      session.items as unknown as CheckoutItem[],
-      session.fulfillment_option_id,
-      session.currency
+      parsedCartItems.data,
+      session.shipping_method,
+      session.currency,
+      merchant.id
     );
-    const grandTotal = sessionCalc.totals.find(
-      (t: GPTTotal) => t.type === 'total'
-    )?.amount;
+    const calculationErrors = sessionCalc.messages.filter(
+      (message) => message.type === 'error'
+    );
+    if (calculationErrors.length > 0) {
+      return NextResponse.json(
+        {
+          error: 'Checkout calculation has errors',
+          messages: calculationErrors,
+        },
+        { status: 409 }
+      );
+    }
+    const grandTotal = getCheckoutGrandTotal(sessionCalc.totals);
 
     if (!grandTotal)
       return NextResponse.json(
@@ -63,148 +181,114 @@ export async function POST(
         { status: 500 }
       );
 
-    // 2. Generate Paystack DVA (User Request: "Let the agentic payment module b our paystack dvas")
-    // Instead of charging a card immediately, we generate a virtual account for the user to transfer to.
-
-    // Check if we already have DVA details in metadata or similar?
-    // For now, generate new one or retrieve existing.
-    const { createDedicatedVirtualAccount } = await import(
-      '@/lib/agentic/paystack'
-    );
-
-    let dvaResult: Awaited<ReturnType<typeof createDedicatedVirtualAccount>>;
-    try {
-      dvaResult = await createDedicatedVirtualAccount({
-        email: buyer.email,
-        first_name: buyer.first_name,
-        last_name: buyer.last_name,
-        phone: buyer.phone_number,
-      });
-    } catch (dvaError: unknown) {
-      logger.error({
-        message: 'DVA Creation Failed',
-        error: dvaError,
-        sessionId: sanitizeForLog(params.id),
-      });
-      const errorMessage =
-        dvaError instanceof Error ? dvaError.message : 'Unknown error';
+    const status = mapCheckoutSessionStatus({
+      status: session.status,
+      hasFulfillmentAddress: !!session.shipping_address,
+      hasLineItems: sessionCalc.lineItems.length > 0,
+    });
+    if (status !== 'ready_for_payment') {
       return NextResponse.json(
         {
-          error: 'Failed to generate payment account',
-          details: errorMessage,
+          error: 'Session is not ready for payment',
+          status,
         },
-        { status: 502 }
+        { status: 409 }
       );
     }
 
-    // 3. Create Order via internal API call (Reuse Logic) - Status: Pending Payment
-    const orderPayload = {
-      merchant_id: session.merchant_id,
-      customer_email: buyer.email,
-      customer_name: `${buyer.first_name} ${buyer.last_name}`,
-      customer_phone: buyer.phone_number,
-      items: sessionCalc.lineItems.map((li) => ({
-        product_id: li.item.id,
-        quantity: li.item.quantity,
-        price: li.base_amount,
-      })),
-      subtotal:
-        sessionCalc.totals.find((t) => t.type === 'subtotal')?.amount || 0,
-      shipping_fee:
-        sessionCalc.totals.find((t) => t.type === 'fulfillment')?.amount || 0,
-      payment_method: 'bank_transfer', // Paystack DVA
-      payment_status: 'pending', // Waiting for transfer
-      payment_provider_reference: dvaResult.account_number, // Store Account Number as Ref
-      shipping_status: 'pending',
-      shipping_address: session.fulfillment_address,
-      source: 'agentic_ai',
-      notes: `Agentic Checkout Session: ${session.id} | DVA: ${dvaResult.bank_name} - ${dvaResult.account_number}`,
-    };
-
-    const internalReq = new NextRequest('http://localhost:3000/api/orders', {
-      method: 'POST',
-      body: JSON.stringify(orderPayload),
-      headers: {
-        'content-type': 'application/json',
-        'x-agentic-internal': 'true',
-      },
-    });
-
-    const orderRes = await createOrder(internalReq);
-    const orderData = await orderRes.json();
-
-    if (orderRes.status !== 200 && orderRes.status !== 201) {
-      logger.error({
-        message: 'Order creation failed',
-        status: orderRes.status,
-        statusText: orderRes.statusText,
-        sessionId: sanitizeForLog(params.id),
-      });
-      return NextResponse.json(
-        { error: 'Order creation failed', details: orderData.error },
-        { status: 500 }
-      );
-    }
-
-    // 4. Update Session
-    const orderId = orderData.order?.id || orderData.id;
-
-    await supabase
-      .from('checkout_sessions')
-      .update({
-        status: 'payment_pending', // New status for DVA flow
-        order_id: orderId,
-        buyer: buyer,
-        metadata: {
-          ...session.metadata,
-          dva_account: dvaResult,
-        },
-      })
-      .eq('id', params.id);
-
-    // 5. Send Webhook (Async)
-    const { sendAgenticWebhook } = await import('@/lib/agentic/webhooks');
-    sendAgenticWebhook('order.created', {
-      id: orderId,
+    const authorization = verifyCheckoutCompletionAuthorization({
+      amount: grandTotal,
+      authorization: completion_authorization,
       currency: session.currency,
-      total: sessionCalc.totals.find((t: GPTTotal) => t.type === 'total')
-        ?.amount,
-      status: 'pending',
-      ...buyer,
-    }).catch((err) =>
-      logger.error({
-        message: 'Webhook trigger failed',
-        error: err,
-        sessionId: params.id,
-      })
-    );
-
-    // 6. Success Response
-    return NextResponse.json({
-      id: session.id,
-      buyer,
-      status: 'payment_pending',
-      currency: session.currency.toLowerCase(),
-      line_items: sessionCalc.lineItems,
-      shipping_address: session.fulfillment_address,
-      fulfillment_option_id: session.fulfillment_option_id,
-      totals: sessionCalc.totals,
-      order_id: orderId, // Extra field helpful for debugging
-      payment_details: {
-        type: 'bank_transfer',
-        bank_name: dvaResult.bank_name,
-        account_number: dvaResult.account_number,
-        account_name: dvaResult.account_name,
-        message:
-          'Please transfer the exact total to this account to complete your order.',
-      },
-      messages: [],
-      links: [],
+      secrets: getCheckoutCompletionAuthorizationSecrets(),
+      sessionId: session.session_id,
     });
-  } catch (err: unknown) {
+    if (!authorization.ok) {
+      return NextResponse.json(
+        buildAuthorizationErrorBody(authorization.code),
+        { status: getAuthorizationErrorStatus(authorization.code) }
+      );
+    }
+
+    const storedDvaAccount = getStoredDvaAccount(session);
+    const paymentState = getAgenticPaymentState(session.metadata);
+    const canResumePaymentAccount =
+      paymentState === 'payment_account_ready' &&
+      !!storedDvaAccount &&
+      !session.order_id;
+
+    if (!canResumePaymentAccount) {
+      const existingPaymentState = resolveExistingPaymentState({
+        buyer,
+        session,
+        sessionCalc,
+      });
+      if (existingPaymentState) {
+        await storeAgenticIdempotencyResponse({
+          key: mutation.idempotencyKey,
+          merchantId: merchant.id,
+          response: existingPaymentState.body,
+          route: COMPLETE_IDEMPOTENCY_ROUTE,
+          status: existingPaymentState.status,
+          supabase,
+        });
+        return NextResponse.json(existingPaymentState.body, {
+          status: existingPaymentState.status,
+          headers: {
+            'idempotency-key': mutation.idempotencyKey,
+            'request-id': mutation.requestId,
+          },
+        });
+      }
+    }
+
+    const metadata = withCompletionAuthorizationMetadata(
+      buildAgenticMetadata({
+        existingMetadata: session.metadata as AgenticMetadata | null,
+        lineItems: sessionCalc.lineItems,
+        totals: sessionCalc.totals,
+        fulfillmentOptions: sessionCalc.fulfillmentOptions,
+        messages: [],
+      }),
+      authorization.mode
+    );
+    const preparedPayment = await prepareAgenticCheckoutPayment({
+      authorizationSecrets: getCheckoutCompletionAuthorizationSecrets(),
+      buyer,
+      canResumePaymentAccount,
+      completionAuthorization: completion_authorization,
+      merchantId: merchant.id,
+      metadata,
+      paystackSubaccountCode: merchant.paystack_subaccount_code,
+      session,
+      sessionCalc,
+      sessionId: params.id,
+      storedDvaAccount,
+      supabase,
+    });
+    if (!preparedPayment.ok) {
+      return NextResponse.json(preparedPayment.body, {
+        status: preparedPayment.status,
+      });
+    }
+
+    return finalizeAgenticCheckoutPayment({
+      buyer,
+      dvaAccount: preparedPayment.payment.dvaAccount,
+      idempotencyKey: mutation.idempotencyKey,
+      merchantId: merchant.id,
+      metadata: preparedPayment.payment.metadata,
+      orderSession: preparedPayment.payment.session,
+      orderSessionCalc: preparedPayment.payment.sessionCalc,
+      requestId: mutation.requestId,
+      route: COMPLETE_IDEMPOTENCY_ROUTE,
+      sessionId: params.id,
+      supabase,
+    });
+  } catch (error: unknown) {
     logger.error({
-      message: 'Agentic Checkout Complete Error',
-      error: err,
+      message: 'Agentic checkout complete failed',
+      error,
       sessionId: params.id,
     });
     return NextResponse.json(

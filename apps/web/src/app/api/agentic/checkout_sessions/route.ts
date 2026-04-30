@@ -1,27 +1,38 @@
+import { randomUUID } from 'node:crypto';
 import { type NextRequest, NextResponse } from 'next/server';
-import { getIdempotencyKey, verifyAgenticApiKey } from '@/lib/agentic/auth';
+import { verifyAgenticApiKey } from '@/lib/agentic/auth';
 import { calculateCheckoutSession } from '@/lib/agentic/checkout';
+import { buildCheckoutSessionStateResponse } from '@/lib/agentic/checkout-session-response';
+import {
+  buildCheckoutSessionInsert,
+  mapCheckoutSessionStatus,
+} from '@/lib/agentic/checkout-storage';
+import {
+  reserveAgenticIdempotencyKey,
+  storeAgenticIdempotencyResponse,
+} from '@/lib/agentic/idempotency';
+import { resolveAgenticMerchantContext } from '@/lib/agentic/merchant-context';
+import { readAgenticMutationRequest } from '@/lib/agentic/mutation-request';
+import { reserveAgenticRequestId } from '@/lib/agentic/request-replay';
+import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
+import { buildStoreUrl } from '@/lib/store-url';
 import { createServiceClient } from '@/lib/supabase/service';
 import { checkoutSessionSchema } from '@/schemas/agentic-checkout';
 
+const CREATE_IDEMPOTENCY_ROUTE = 'checkout_sessions.create';
+
 export async function POST(request: NextRequest) {
-  // 1. Auth & Idempotency
   if (!verifyAgenticApiKey(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  const idempotencyKey = getIdempotencyKey(request); // ToDo: Implement idempotent checks if needed
 
-  let body: Awaited<ReturnType<NextRequest['json']>>;
-
-  try {
-    body = await request.json();
-  } catch (err) {
-    console.error('Agentic Checkout Create JSON Parse Error:', err);
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  const mutation = await readAgenticMutationRequest({ request });
+  if (!mutation.ok) {
+    return mutation.response;
   }
 
   try {
-    const parsed = checkoutSessionSchema.safeParse(body);
+    const parsed = checkoutSessionSchema.safeParse(mutation.body);
     if (!parsed.success) {
       return NextResponse.json(
         {
@@ -34,50 +45,88 @@ export async function POST(request: NextRequest) {
     const { items, shipping_address, currency } = parsed.data;
 
     // 2. Calculate Cart State
-    const supabase = createServiceClient();
-
-    // Default merchant: We need to know WHICH merchant this is for.
-    // Spec doesn't pass merchant_id in body usually (it's tied to the API key or domain).
-    // However, our system is multi-tenant.
-    // Option A: API Key is unique per merchant? (Complex to manage)
-    // Option B: API Key is platform-wide (Agentic -> Platform)?
-    // Option C: We hardcode a default merchant for now (Ogabassey)?
-    // Since `verifyAgenticApiKey` uses a single strict env var, this implies ONE merchant context for now.
-    // Let's look up Ogabassey merchant ID or similar default.
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id, business_name')
-      .eq('slug', 'ogabassey') // Hardcoded for this implementation
-      .single();
+    const bootstrap = createServiceClient();
+    const merchant = await resolveAgenticMerchantContext(bootstrap);
 
     if (!merchant) {
       return NextResponse.json(
-        { error: 'Default merchant not found' },
+        { error: 'Agentic merchant not found' },
         { status: 500 }
       );
+    }
+
+    const supabase = createAgenticScopedSupabaseClient({
+      merchantId: merchant.id,
+      merchantSlug: merchant.slug,
+    });
+    const replayReservation = await reserveAgenticRequestId({
+      apiVersion: mutation.apiVersion,
+      idempotencyKey: mutation.idempotencyKey,
+      merchantId: merchant.id,
+      requestId: mutation.requestId,
+      supabase,
+    });
+    if (!replayReservation.ok) {
+      return NextResponse.json(
+        { error: replayReservation.error },
+        { status: replayReservation.error === 'Replay request id' ? 409 : 503 }
+      );
+    }
+
+    const idempotency = await reserveAgenticIdempotencyKey({
+      apiVersion: mutation.apiVersion,
+      body: mutation.rawBody,
+      key: mutation.idempotencyKey,
+      merchantId: merchant.id,
+      method: mutation.method,
+      pathname: mutation.pathname,
+      route: CREATE_IDEMPOTENCY_ROUTE,
+      supabase,
+    });
+    if (!idempotency.ok) {
+      return NextResponse.json(
+        { error: idempotency.error },
+        { status: idempotency.error === 'Idempotency conflict' ? 409 : 425 }
+      );
+    }
+    if (idempotency.state === 'replay') {
+      return NextResponse.json(idempotency.response, {
+        status: idempotency.status,
+        headers: {
+          'idempotency-key': mutation.idempotencyKey,
+          'request-id': mutation.requestId,
+        },
+      });
     }
 
     const sessionCalc = await calculateCheckoutSession(
       supabase,
       items,
       null,
-      currency
+      currency,
+      merchant.id
     );
 
     // 3. Create Session in DB
+    const sessionId = `agentic_${randomUUID()}`;
+    const fulfillmentOptionId = sessionCalc.selectedOptionId ?? null;
+    const insertPayload = buildCheckoutSessionInsert({
+      sessionId,
+      merchantId: merchant.id,
+      items,
+      currency,
+      fulfillmentAddress: shipping_address ?? null,
+      fulfillmentOptionId,
+      lineItems: sessionCalc.lineItems,
+      fulfillmentOptions: sessionCalc.fulfillmentOptions,
+      totals: sessionCalc.totals,
+      messages: sessionCalc.messages,
+    });
+
     const { data: session, error } = await supabase
       .from('checkout_sessions')
-      .insert({
-        merchant_id: merchant.id,
-        items: items, // Raw input
-        line_items: sessionCalc.lineItems,
-        totals: sessionCalc.totals,
-        fulfillment_options: sessionCalc.fulfillmentOptions,
-        currency,
-        fulfillment_address: shipping_address, // Persist address
-        status: 'not_ready_for_payment', // Default
-      })
-      .select('id')
+      .insert(insertPayload)
+      .select('id, session_id')
       .single();
 
     if (error) {
@@ -86,24 +135,57 @@ export async function POST(request: NextRequest) {
     }
 
     // 4. Response
-    const responsePayload = {
-      id: session.id,
-      status: 'not_ready_for_payment',
-      currency: currency.toLowerCase(),
-      line_items: sessionCalc.lineItems,
-      totals: sessionCalc.totals,
-      fulfillment_options: sessionCalc.fulfillmentOptions,
+    const status = mapCheckoutSessionStatus({
+      status: insertPayload.status,
+      hasFulfillmentAddress: !!shipping_address,
+      hasLineItems: sessionCalc.lineItems.length > 0,
+    });
+    const responseSessionId = session.session_id ?? sessionId;
+    const responsePayload = buildCheckoutSessionStateResponse({
+      currency,
+      fulfillmentOptionId,
+      fulfillmentOptions: sessionCalc.fulfillmentOptions,
+      lineItems: sessionCalc.lineItems,
       messages: sessionCalc.messages,
-      links: [
-        { type: 'terms_of_use', url: 'https://ogabassey.com/terms' },
-        { type: 'privacy_policy', url: 'https://ogabassey.com/privacy' },
-      ],
-    };
+      policyBaseUrl: buildStoreUrl(merchant),
+      sessionId: responseSessionId,
+      shippingAddress: shipping_address ?? null,
+      status,
+      totals: sessionCalc.totals,
+    });
+
+    const idempotencyStore = await storeAgenticIdempotencyResponse({
+      key: mutation.idempotencyKey,
+      merchantId: merchant.id,
+      response: responsePayload,
+      route: CREATE_IDEMPOTENCY_ROUTE,
+      status: 201,
+      supabase,
+    });
+    if (!idempotencyStore.ok) {
+      console.error('Failed to store agentic checkout idempotency response:', {
+        error: idempotencyStore.error,
+        idempotencyKey: mutation.idempotencyKey,
+        merchantId: merchant.id,
+        route: CREATE_IDEMPOTENCY_ROUTE,
+        sessionId: responseSessionId,
+      });
+      return NextResponse.json(
+        {
+          error: 'Idempotency response storage failed',
+          idempotency_key: mutation.idempotencyKey,
+          recovery_action: 'read_checkout_session',
+          session_id: responseSessionId,
+        },
+        { status: 503 }
+      );
+    }
 
     return NextResponse.json(responsePayload, {
       status: 201,
       headers: {
-        'idempotency-key': idempotencyKey || '',
+        'idempotency-key': mutation.idempotencyKey,
+        'request-id': mutation.requestId,
       },
     });
   } catch (err) {

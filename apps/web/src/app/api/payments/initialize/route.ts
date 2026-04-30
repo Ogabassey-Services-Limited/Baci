@@ -969,12 +969,15 @@ export async function POST(request: NextRequest) {
               data.customer_name
             );
 
-            const dvaResult = await createDedicatedVirtualAccount({
-              email: data.customer_email,
-              first_name: firstName,
-              last_name: lastName,
-              phone: data.customer_phone || '',
-            });
+            const dvaResult = await createDedicatedVirtualAccount(
+              {
+                email: data.customer_email,
+                first_name: firstName,
+                last_name: lastName,
+                phone: data.customer_phone || '',
+              },
+              { subaccount: merchant.paystack_subaccount_code }
+            );
 
             const fees = calculatePaystackFee(Math.round(data.amount * 100));
             paymentResult = {

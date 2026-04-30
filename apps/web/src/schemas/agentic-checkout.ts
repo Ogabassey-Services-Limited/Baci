@@ -5,6 +5,10 @@ export const agenticCheckoutItemSchema = z.object({
   quantity: z.number().int().positive('Quantity must be a positive integer'),
 });
 
+export const agenticCheckoutItemsSchema = z
+  .array(agenticCheckoutItemSchema)
+  .min(1, 'At least one item is required');
+
 export const agenticFulfillmentAddressSchema = z.object({
   name: z.string().trim().min(1).optional(),
   email: z.string().email().optional(),
@@ -19,9 +23,7 @@ export const agenticFulfillmentAddressSchema = z.object({
 });
 
 export const checkoutSessionSchema = z.object({
-  items: z
-    .array(agenticCheckoutItemSchema)
-    .min(1, 'At least one item is required'),
+  items: agenticCheckoutItemsSchema,
   shipping_address: agenticFulfillmentAddressSchema.nullable().optional(),
   currency: z
     .string()
@@ -49,7 +51,52 @@ export const agenticCheckoutUpdateSchema = z
     }
   );
 
+export const agenticCheckoutBuyerSchema = z.object({
+  email: z.string().email(),
+  first_name: z.string().trim().min(1),
+  last_name: z.string().trim().min(1),
+  phone_number: z.string().trim().min(7),
+});
+
+const humanConfirmationSchema = z.object({
+  amount: z.number().int().nonnegative(),
+  confirmed_at: z.string().datetime(),
+  currency: z.string().trim().length(3).transform(toUppercaseCurrency),
+  session_id: z.string().trim().min(1),
+  signature: z.string().trim().min(32),
+  type: z.literal('human_confirmation'),
+});
+
+const paymentMandateSchema = z.object({
+  currency: z.string().trim().length(3).transform(toUppercaseCurrency),
+  expires_at: z.string().datetime(),
+  mandate_id: z.string().trim().min(1),
+  max_amount: z.number().int().nonnegative(),
+  session_id: z.string().trim().min(1).optional(),
+  signature: z.string().trim().min(32),
+  type: z.literal('payment_mandate'),
+});
+
+export const agenticCheckoutCompleteSchema = z.object({
+  buyer: agenticCheckoutBuyerSchema,
+  payment_data: z.object({
+    billing_address: agenticFulfillmentAddressSchema.optional(),
+    provider: z.literal('paystack'),
+    token: z.string().trim().min(1),
+  }),
+  completion_authorization: z
+    .union([humanConfirmationSchema, paymentMandateSchema])
+    .nullish(),
+});
+
 export type CheckoutSessionInput = z.infer<typeof checkoutSessionSchema>;
 export type AgenticCheckoutUpdateInput = z.infer<
   typeof agenticCheckoutUpdateSchema
 >;
+export type AgenticCheckoutCompleteInput = z.infer<
+  typeof agenticCheckoutCompleteSchema
+>;
+
+function toUppercaseCurrency(value: string) {
+  return value.toUpperCase();
+}

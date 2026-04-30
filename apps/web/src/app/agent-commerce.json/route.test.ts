@@ -13,12 +13,12 @@ beforeEach(() => {
 
   mockGetMerchantByIdentifier.mockResolvedValue({
     id: 'merchant-1',
+    paystack_subaccount_code: 'ACCT_test123',
     slug: 'ogabassey',
     business_name: 'Ogabassey',
     custom_domain: 'ogabassey.com',
   });
 });
-
 describe('GET /agent-commerce.json', () => {
   it('returns Ogabassey agent commerce capabilities for the custom domain', async () => {
     const { GET } = await import('./route');
@@ -30,14 +30,14 @@ describe('GET /agent-commerce.json', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.schema_version).toBe('2026-04-28');
+    expect(body.schema_version).toBe('2026-04-30');
     expect(body.store).toMatchObject({
       slug: 'ogabassey',
       name: 'Ogabassey',
       canonical_origin: 'https://ogabassey.com',
     });
-    expect(body.capabilities).toEqual(['catalog.read']);
-    expect(body.auth).toBeNull();
+    expect(body.capabilities).toContain('checkout.session.complete');
+    expect(body.auth?.type).toBe('bearer_hmac');
     expect(body.links.product_feed).toBe(
       'https://ogabassey.com/feeds/openai.jsonl'
     );
@@ -45,7 +45,9 @@ describe('GET /agent-commerce.json', () => {
       agent_products: 'https://ogabassey.com/feeds/agent-products.jsonl',
       google_merchant_xml: 'https://ogabassey.com/feeds/google-merchant.xml',
     });
-    expect(body.links.checkout_sessions).toBeUndefined();
+    expect(body.links.checkout_sessions).toBe(
+      'https://ogabassey.com/api/agentic/checkout_sessions'
+    );
     expect(body.links).toMatchObject({
       privacy_policy_url: 'https://ogabassey.com/privacy',
       return_policy_url: 'https://ogabassey.com/returns',
@@ -61,6 +63,7 @@ describe('GET /agent-commerce.json', () => {
       if (identifier === 'ogabassey.com') {
         return Promise.resolve({
           id: 'merchant-1',
+          paystack_subaccount_code: 'ACCT_test123',
           slug: 'ogabassey',
           business_name: 'Ogabassey',
           custom_domain: 'ogabassey.com',
@@ -99,6 +102,7 @@ describe('GET /agent-commerce.json', () => {
       if (identifier === 'www.ogabassey.com') {
         return Promise.resolve({
           id: 'merchant-1',
+          paystack_subaccount_code: 'ACCT_test123',
           slug: 'ogabassey',
           business_name: 'Ogabassey',
           custom_domain: 'www.ogabassey.com',
