@@ -18,6 +18,8 @@
 - Existing migrations are append-only. This plan does not require editing existing migrations.
 - Use `pnpm turbo lint && pnpm turbo typecheck` after code changes, plus targeted tests per task.
 - Keep the storefront normal. The agentic layer is an additional machine contract, not a replacement for the UI.
+- Agent checkout completion is a financial/order boundary. It must require either a verified human-confirmation artifact for the exact session/amount/currency or a pre-authorized payment mandate with explicit limits. A valid bearer token, HMAC signature, or idempotency key only authenticates the agent request; it is not buyer consent.
+- Agents may create and update checkout sessions without a fresh human prompt, but Baci must not create an order, reserve/generate payment account details, start payment collection, or expose payment instructions until the completion request includes verified consent or a valid mandate. If consent is missing, expired, mismatched, or over limit, fail closed with a machine-readable `CONFIRMATION_REQUIRED` or `AUTHORIZATION_INVALID` response.
 - Production check on 2026-04-28: `https://ogabassey.com/api/feed/google-merchant?merchant_slug=ogabassey` returns HTTP 500 with `{"error":"Failed to generate feed"}`. Treat this as confirmed broken until logs or local reproduction prove the deployed error has been fixed.
 - Vercel production logs on 2026-04-28 show the Google Merchant feed failure is `DB_PRODUCTS_ERROR` with Postgres code `42703`: `column products.category_slug does not exist`. Public feed and sitemap work must not select `products.category_slug` directly unless a new migration adds and backfills that column.
 - User approval to edit `apps/web/src/proxy.ts` for the scoped custom-domain `.md` mirror fix was granted on 2026-04-28 with: "you can edit. proceed".
@@ -26,7 +28,7 @@
 
 - **Discovery Layer:** Phases 1 and 2 make Ogabassey discoverable to crawlers and agents through `robots.txt`, `sitemap.xml`, `llms.txt`, `agent-commerce.json`, markdown mirrors, and public non-`/api` feed aliases.
 - **Trust Layer:** Phases 2 and 4 must verify agents can trust the catalog before recommending it. Required checks include page/feed/API parity, Product/Offer JSON-LD audits, review and trust-profile schema coverage, image URL validation, crawler user-agent monitoring, and automated feed health alerts.
-- **Action Layer:** Phase 3 covers safe shopping actions: merchant-scoped checkout sessions, cart/update/complete/cancel operations, payment handoff, idempotency keys, HMAC/request-integrity headers, replay protection, order-status reads, and human-confirmation boundaries.
+- **Action Layer:** Phase 3 covers safe shopping actions: merchant-scoped checkout sessions, cart/update/complete/cancel operations, payment handoff, idempotency keys, HMAC/request-integrity headers, replay protection, order-status reads, and explicit human-confirmation or pre-authorized mandate boundaries before any order/payment side effect.
 
 ## Mandatory Phase Review Gates
 
@@ -44,7 +46,7 @@ Every phase below must stop at a review gate before the next phase starts. A pha
   - Tasks: 9
   - Gate name: `phase-2-merchant-feeds`
 - **Phase 3: Agentic Checkout Contract**
-  - Tasks: 10, 11, 12, 13, 14, 15, 16, 16A
+  - Tasks: 10, 11, 12, 12A, 13, 14, 15, 15A, 16, 16A, 16B
   - Gate name: `phase-3-agentic-checkout`
 - **Phase 4: Post-Purchase And Final Verification**
   - Tasks: 17, 18
@@ -162,6 +164,10 @@ coderabbit review --agent --base-commit "$PHASE_BASE" -c AGENTS.md
   - Resolve the merchant associated with an agentic API key without hardcoding Ogabassey in checkout routes.
 - Create: `apps/web/src/lib/agentic/merchant-context.test.ts`
   - Tests for per-merchant keys and legacy Ogabassey fallback key.
+- Create: `apps/web/src/lib/agentic/scoped-supabase.ts`
+  - Build a merchant-scoped Supabase client for agentic routes using an internal short-lived JWT, so agent-facing routes do not use generic service-role clients for user data.
+- Create: `apps/web/src/lib/agentic/scoped-supabase.test.ts`
+  - Tests that the generated client is scoped to the resolved merchant and never exposes the service-role key.
 - Create: `apps/web/src/lib/agentic/request-integrity.ts`
   - Verify agent request signatures, timestamps, request IDs, and API versions for mutating checkout calls.
 - Create: `apps/web/src/lib/agentic/request-integrity.test.ts`
@@ -180,6 +186,10 @@ coderabbit review --agent --base-commit "$PHASE_BASE" -c AGENTS.md
   - Shared response builder for checkout create, get, update, complete, and cancel routes.
 - Create: `apps/web/src/lib/agentic/checkout-response.test.ts`
   - Tests for spec-shaped payment provider, links, status, and fulfillment fields.
+- Create: `apps/web/src/lib/agentic/checkout-authorization.ts`
+  - Verify human-confirmation artifacts and pre-authorized payment mandates before order/payment side effects.
+- Create: `apps/web/src/lib/agentic/checkout-authorization.test.ts`
+  - Tests for exact session/amount/currency matching, mandate limits, expiry, and fail-closed behavior.
 - Create: `apps/web/src/lib/agentic/checkout-storage.ts`
   - Map agentic checkout requests/responses onto the existing `checkout_sessions` table columns.
 - Create: `apps/web/src/lib/agentic/checkout-storage.test.ts`
@@ -191,7 +201,7 @@ coderabbit review --agent --base-commit "$PHASE_BASE" -c AGENTS.md
 - Modify: `apps/web/src/app/api/agentic/checkout_sessions/[id]/route.ts`
   - Use shared response builder for GET and update responses.
 - Modify: `apps/web/src/app/api/agentic/checkout_sessions/[id]/complete/route.ts`
-  - Validate body with Zod, keep completion idempotent, and return agent-safe payment pending state.
+  - Validate body with Zod, require verified confirmation or mandate, keep completion idempotent, and return agent-safe payment pending state.
 - Modify: `apps/web/src/app/api/agentic/checkout_sessions/[id]/cancel/route.ts`
   - Return full cart state on cancellation.
 - Modify: `apps/web/src/app/api/payments/webhook/route.ts`
@@ -206,6 +216,10 @@ coderabbit review --agent --base-commit "$PHASE_BASE" -c AGENTS.md
   - Accept spec names like `fulfillment_address`; retain backwards-compatible `shipping_address` during migration.
 - Modify tests under `apps/web/src/app/api/agentic/checkout_sessions/**`
   - Add conformance tests for stock, auth, idempotency, and response shape.
+- Modify: `apps/web/src/app/agent-commerce.json/route.ts`
+  - After Phase 3 endpoints pass, advertise action-layer capabilities and auth headers behind an explicit readiness flag.
+- Modify: `apps/web/src/app/agent-commerce.json/route.test.ts`
+  - Cover catalog-only mode and action-ready mode so the manifest never advertises unavailable checkout endpoints.
 
 ---
 
@@ -1084,25 +1098,16 @@ describe('GET /agent-commerce.json', () => {
 
     expect(response.status).toBe(200);
     expect(body.store.slug).toBe('ogabassey');
-    expect(body.capabilities).toEqual(
-      expect.arrayContaining([
-        'catalog.read',
-        'checkout.session.create',
-        'checkout.session.update',
-        'checkout.session.complete',
-        'order.read',
-      ])
-    );
+    expect(body.capabilities).toEqual(['catalog.read']);
+    expect(body.auth).toBeNull();
     expect(body.links.product_feed).toBe(
-      'https://ogabassey.com/api/feed/openai?merchant_slug=ogabassey'
+      'https://ogabassey.com/feeds/openai.jsonl'
     );
     expect(body.links.feeds).toMatchObject({
-      agent_products:
-        'https://ogabassey.com/api/feed/openai?merchant_slug=ogabassey&format=current',
-    });
-    expect(body.links.checkout_sessions).toBe(
-      'https://ogabassey.com/api/agentic/checkout_sessions'
+      agent_products: 'https://ogabassey.com/feeds/agent-products.jsonl',
+      google_merchant_xml: 'https://ogabassey.com/feeds/google-merchant.xml',
     );
+    expect(body.links.checkout_sessions).toBeUndefined();
   });
 });
 ```
@@ -1154,34 +1159,17 @@ export async function GET(request: Request) {
         name: merchant.business_name,
         canonical_origin: baseUrl,
       },
-      capabilities: [
-        'catalog.read',
-        'checkout.session.create',
-        'checkout.session.update',
-        'checkout.session.complete',
-        'checkout.session.cancel',
-        'order.read',
-      ],
-      auth: {
-        type: 'bearer_hmac',
-        required_headers: [
-          'authorization',
-          'idempotency-key',
-          'request-id',
-          'signature',
-          'timestamp',
-          'api-version',
-        ],
-      },
+      capabilities: ['catalog.read'],
+      auth: null,
       links: {
         llms: `${baseUrl}/llms.txt`,
         llms_full: `${baseUrl}/llms-full.txt`,
-        product_feed: `${baseUrl}/api/feed/openai?merchant_slug=${slug}`,
+        product_feed: `${baseUrl}/feeds/openai.jsonl`,
         feeds: {
-          agent_products: `${baseUrl}/api/feed/openai?merchant_slug=${slug}&format=current`,
+          agent_products: `${baseUrl}/feeds/agent-products.jsonl`,
+          google_merchant_xml: `${baseUrl}/feeds/google-merchant.xml`,
         },
         product_api: `${baseUrl}/api/storefront/${slug}/products`,
-        checkout_sessions: `${baseUrl}/api/agentic/checkout_sessions`,
         ...buildAgentPolicyUrls(baseUrl),
       },
     },
@@ -1193,6 +1181,8 @@ export async function GET(request: Request) {
   );
 }
 ```
+
+Phase 1 must not advertise checkout/session/order capabilities until Phase 3 endpoints are implemented, authenticated, and verified. Phase 3 should update this manifest to add `checkout.session.*`, `order.read`, `auth.required_headers`, and `links.checkout_sessions` only after the phase gate passes.
 
 - [ ] **Step 4: Run manifest tests**
 
@@ -2351,6 +2341,445 @@ git add apps/web/src/lib/agentic/merchant-context.ts apps/web/src/lib/agentic/me
 
 ---
 
+### Task 12A: Add Merchant-Scoped Agentic Supabase Access
+
+**Files:**
+- Create: `apps/web/src/lib/agentic/scoped-supabase.ts`
+- Create: `apps/web/src/lib/agentic/scoped-supabase.test.ts`
+- Create: `supabase/migrations/20260428170500_add_agentic_scoped_access_policies.sql`
+- Modify: `apps/web/src/app/api/agentic/checkout_sessions/route.ts`
+- Modify: `apps/web/src/app/api/agentic/checkout_sessions/[id]/route.ts`
+- Modify: `apps/web/src/app/api/agentic/checkout_sessions/[id]/complete/route.ts`
+- Modify: `apps/web/src/app/api/agentic/checkout_sessions/[id]/cancel/route.ts`
+
+Purpose: agent-facing routes are user-facing operations. Do not keep using `createServiceClient()` or `createAdminClient()` for checkout/session/order reads and writes. Use a short-lived internal Supabase JWT with merchant-scoped claims, plus RLS policies that only permit agentic rows for the resolved merchant.
+
+- [ ] **Step 1: Write failing scoped-client tests**
+
+Create `apps/web/src/lib/agentic/scoped-supabase.test.ts`:
+
+```typescript
+import { Buffer } from 'node:buffer';
+import { describe, expect, it, vi } from 'vitest';
+import { createAgenticScopedSupabaseClient } from './scoped-supabase';
+
+const mockCreateClient = vi.fn(() => ({ from: vi.fn() }));
+
+vi.mock('@supabase/supabase-js', () => ({
+  createClient: (...args: unknown[]) => mockCreateClient(...args),
+}));
+
+const mockGetSupabaseJwtSecret = vi.fn(() => 'test-supabase-jwt-secret');
+
+vi.mock('@/env', () => ({
+  getSupabaseAnonKey: () => 'anon-key',
+  getSupabaseUrl: () => 'https://example.supabase.co',
+  getSupabaseJwtSecret: () => mockGetSupabaseJwtSecret(),
+}));
+
+function decodeJwtPayload(token: string) {
+  const payload = token.split('.')[1];
+  if (!payload) {
+    throw new Error('Missing JWT payload');
+  }
+  return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as {
+    role: string;
+    agentic_context: string;
+    agentic_merchant_id: string;
+    agentic_merchant_slug: string;
+    exp: number;
+  };
+}
+
+describe('createAgenticScopedSupabaseClient', () => {
+  it('creates an anon-key client with merchant-scoped Authorization claims', () => {
+    mockGetSupabaseJwtSecret.mockReturnValue('test-supabase-jwt-secret');
+
+    createAgenticScopedSupabaseClient({
+      merchantId: '00000000-0000-4000-8000-000000000001',
+      merchantSlug: 'ogabassey',
+      now: new Date('2026-04-28T12:00:00.000Z'),
+    });
+
+    expect(mockCreateClient).toHaveBeenCalledWith(
+      'https://example.supabase.co',
+      'anon-key',
+      expect.objectContaining({
+        global: {
+          headers: {
+            Authorization: expect.stringMatching(/^Bearer /),
+          },
+        },
+      })
+    );
+
+    const authHeader = mockCreateClient.mock.calls[0]?.[2]?.global.headers
+      .Authorization as string;
+    const claims = decodeJwtPayload(authHeader.replace('Bearer ', ''));
+
+    expect(claims).toMatchObject({
+      role: 'authenticated',
+      agentic_context: 'checkout',
+      agentic_merchant_id: '00000000-0000-4000-8000-000000000001',
+      agentic_merchant_slug: 'ogabassey',
+    });
+    expect(claims.exp).toBe(1_777_377_900);
+  });
+
+  it('fails closed when SUPABASE_JWT_SECRET is missing', () => {
+    // The validated env getter throws when the secret is unset; the helper must
+    // propagate that error rather than silently signing with an empty secret.
+    mockGetSupabaseJwtSecret.mockImplementation(() => {
+      throw new Error('SUPABASE_JWT_SECRET is not defined');
+    });
+
+    expect(() =>
+      createAgenticScopedSupabaseClient({
+        merchantId: '00000000-0000-4000-8000-000000000001',
+        merchantSlug: 'ogabassey',
+      })
+    ).toThrow('SUPABASE_JWT_SECRET is not defined');
+  });
+});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run:
+
+```bash
+pnpm --filter web test src/lib/agentic/scoped-supabase.test.ts
+```
+
+Expected: FAIL because `scoped-supabase.ts` does not exist.
+
+- [ ] **Step 3: Add merchant-scoped RLS policies**
+
+Create `supabase/migrations/20260428170500_add_agentic_scoped_access_policies.sql`:
+
+```sql
+CREATE OR REPLACE FUNCTION public.current_agentic_merchant_id()
+RETURNS uuid
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT NULLIF(auth.jwt() ->> 'agentic_merchant_id', '')::uuid
+$$;
+
+CREATE OR REPLACE FUNCTION public.is_agentic_checkout_context()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT (auth.jwt() ->> 'agentic_context') = 'checkout'
+$$;
+
+-- IMPORTANT: PostgreSQL combines PERMISSIVE policies with OR and AND-combines
+-- RESTRICTIVE policies on top. The baseline migration (20260418000000_baseline.sql)
+-- has DIFFERENT shapes per table, and we must compose accordingly:
+--
+--   checkout_sessions: baseline is permissively OPEN (`FOR SELECT USING (true)`,
+--     an open INSERT WITH CHECK). A new permissive "merchant-scoped" policy here
+--     would NOT enforce isolation (any agentic-authenticated request still passes
+--     the open baseline via OR). We add a RESTRICTIVE policy that ANDs on top:
+--     when in agentic context, the row's merchant_id must match the JWT claim;
+--     non-agentic traffic passes the restrictive check trivially.
+--
+--   orders / order_items: baseline is permissively TIGHT (e.g. orders_select_policy
+--     requires `customer_id = auth.uid() OR has_merchant_access(merchant_id)`).
+--     Because the scoped JWT has no `sub`, `auth.uid()` is null AND
+--     `has_merchant_access` won't match for an agentic request, so agentic traffic
+--     fails every permissive baseline gate. We need an ADDITIONAL PERMISSIVE
+--     policy that grants OR-access when in agentic context with a matching
+--     merchant claim, and we also add a RESTRICTIVE policy so that agentic
+--     requests cannot read/write rows belonging to other merchants even if a
+--     future permissive policy is added.
+
+-- 1) checkout_sessions:
+--    a) Baseline only has permissive INSERT and SELECT policies (lines 13780/13784
+--       of the baseline migration). UPDATE and DELETE have NO permissive grant
+--       today, so once agentic routes switch off the service-role client, an
+--       UPDATE / cancel / DELETE on a checkout_sessions row would be denied by
+--       RLS. Add a permissive policy granting UPDATE/DELETE for the scoped JWT.
+--    b) The baseline SELECT policy is overly open (`USING (true)`). Tighten it
+--       with a RESTRICTIVE policy so an agentic SELECT can only read rows that
+--       belong to the JWT's merchant.
+
+CREATE POLICY "Agentic checkout sessions are writable by scoped client"
+  ON public.checkout_sessions
+  AS PERMISSIVE
+  FOR UPDATE
+  TO authenticated
+  USING (
+    public.is_agentic_checkout_context()
+    AND merchant_id = public.current_agentic_merchant_id()
+  )
+  WITH CHECK (
+    public.is_agentic_checkout_context()
+    AND merchant_id = public.current_agentic_merchant_id()
+  );
+
+CREATE POLICY "Agentic checkout sessions are deletable by scoped client"
+  ON public.checkout_sessions
+  AS PERMISSIVE
+  FOR DELETE
+  TO authenticated
+  USING (
+    public.is_agentic_checkout_context()
+    AND merchant_id = public.current_agentic_merchant_id()
+  );
+
+CREATE POLICY "Agentic checkout sessions are merchant scoped (restrictive)"
+  ON public.checkout_sessions
+  AS RESTRICTIVE
+  FOR ALL
+  TO authenticated
+  USING (
+    NOT public.is_agentic_checkout_context()
+    OR merchant_id = public.current_agentic_merchant_id()
+  )
+  WITH CHECK (
+    NOT public.is_agentic_checkout_context()
+    OR merchant_id = public.current_agentic_merchant_id()
+  );
+
+-- 2) orders: grant agentic access (permissive OR-gate) AND tighten so an agentic
+--    request can never read/write another merchant's order (restrictive AND-gate).
+
+CREATE POLICY "Agentic orders are accessible to scoped client"
+  ON public.orders
+  AS PERMISSIVE
+  FOR ALL
+  TO authenticated
+  USING (
+    public.is_agentic_checkout_context()
+    AND merchant_id = public.current_agentic_merchant_id()
+    AND source = 'agentic_ai'
+  )
+  WITH CHECK (
+    public.is_agentic_checkout_context()
+    AND merchant_id = public.current_agentic_merchant_id()
+    AND source = 'agentic_ai'
+  );
+
+CREATE POLICY "Agentic orders are merchant scoped (restrictive)"
+  ON public.orders
+  AS RESTRICTIVE
+  FOR ALL
+  TO authenticated
+  USING (
+    NOT public.is_agentic_checkout_context()
+    OR (
+      merchant_id = public.current_agentic_merchant_id()
+      AND source = 'agentic_ai'
+    )
+  )
+  WITH CHECK (
+    NOT public.is_agentic_checkout_context()
+    OR (
+      merchant_id = public.current_agentic_merchant_id()
+      AND source = 'agentic_ai'
+    )
+  );
+
+-- 3) order_items: same pattern as orders — grant agentic access + restrict scope.
+
+CREATE POLICY "Agentic order items are accessible to scoped client"
+  ON public.order_items
+  AS PERMISSIVE
+  FOR ALL
+  TO authenticated
+  USING (
+    public.is_agentic_checkout_context()
+    AND order_id IN (
+      SELECT id
+      FROM public.orders
+      WHERE merchant_id = public.current_agentic_merchant_id()
+        AND source = 'agentic_ai'
+    )
+  )
+  WITH CHECK (
+    public.is_agentic_checkout_context()
+    AND order_id IN (
+      SELECT id
+      FROM public.orders
+      WHERE merchant_id = public.current_agentic_merchant_id()
+        AND source = 'agentic_ai'
+    )
+  );
+
+CREATE POLICY "Agentic order items follow merchant scoped orders (restrictive)"
+  ON public.order_items
+  AS RESTRICTIVE
+  FOR ALL
+  TO authenticated
+  USING (
+    NOT public.is_agentic_checkout_context()
+    OR order_id IN (
+      SELECT id
+      FROM public.orders
+      WHERE merchant_id = public.current_agentic_merchant_id()
+        AND source = 'agentic_ai'
+    )
+  )
+  WITH CHECK (
+    NOT public.is_agentic_checkout_context()
+    OR order_id IN (
+      SELECT id
+      FROM public.orders
+      WHERE merchant_id = public.current_agentic_merchant_id()
+        AND source = 'agentic_ai'
+    )
+  );
+```
+
+If an affected table already has a policy with the same name in the target database, use `DROP POLICY IF EXISTS ... ON public.<table>;` immediately before `CREATE POLICY`. Do not edit baseline migrations.
+
+- [ ] **Step 4: Add `SUPABASE_JWT_SECRET` to the validated env schema**
+
+Routing JWT secret access through `apps/web/src/env.ts` keeps the centralized
+Zod-validated schema as the single source of truth and surfaces missing
+configuration at startup (when `getEnv()` parses) instead of at request time
+inside checkout. Add the field to `serverSchema` and expose a server-only
+getter alongside `getSupabaseServiceRoleKey`:
+
+```typescript
+// apps/web/src/env.ts — inside serverSchema
+SUPABASE_JWT_SECRET: z
+  .string()
+  .min(32, 'SUPABASE_JWT_SECRET is required (Supabase project JWT signing secret)'),
+
+// apps/web/src/env.ts — alongside other Supabase getters
+export const getSupabaseJwtSecret = (): string => {
+  if (typeof window !== 'undefined')
+    throw new Error('SUPABASE_JWT_SECRET cannot be accessed on the client');
+  if (!env?.SUPABASE_JWT_SECRET)
+    throw new Error('SUPABASE_JWT_SECRET is not defined');
+  return env.SUPABASE_JWT_SECRET;
+};
+```
+
+This fails closed at deploy/startup if the secret is missing, instead of letting
+checkout requests trip an uncaught throw mid-request and degrading into 5xxs.
+
+- [ ] **Step 5: Implement scoped client helper**
+
+Create `apps/web/src/lib/agentic/scoped-supabase.ts`:
+
+```typescript
+import { createHmac } from 'node:crypto';
+import { createClient } from '@supabase/supabase-js';
+import {
+  getSupabaseAnonKey,
+  getSupabaseJwtSecret,
+  getSupabaseUrl,
+} from '@/env';
+
+const TOKEN_TTL_SECONDS = 5 * 60;
+
+function base64Url(value: string) {
+  return Buffer.from(value).toString('base64url');
+}
+
+function signJwt(payload: Record<string, unknown>, secret: string): string {
+  const header = base64Url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const body = base64Url(JSON.stringify(payload));
+  const signature = createHmac('sha256', secret)
+    .update(`${header}.${body}`)
+    .digest('base64url');
+  return `${header}.${body}.${signature}`;
+}
+
+export function createAgenticScopedSupabaseClient({
+  merchantId,
+  merchantSlug,
+  now = new Date(),
+}: {
+  merchantId: string;
+  merchantSlug: string;
+  now?: Date;
+}) {
+  // Read through the validated env getter so missing config is caught at
+  // startup by the Zod schema, not as a runtime throw inside the checkout path.
+  const jwtSecret = getSupabaseJwtSecret();
+
+  const issuedAt = Math.floor(now.getTime() / 1000);
+  const token = signJwt(
+    {
+      aud: 'authenticated',
+      role: 'authenticated',
+      iat: issuedAt,
+      exp: issuedAt + TOKEN_TTL_SECONDS,
+      agentic_context: 'checkout',
+      agentic_merchant_id: merchantId,
+      agentic_merchant_slug: merchantSlug,
+    },
+    jwtSecret
+  );
+
+  return createClient(getSupabaseUrl(), getSupabaseAnonKey(), {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+    global: {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  });
+}
+```
+
+- [ ] **Step 6: Replace service clients in agentic checkout routes**
+
+In all agentic checkout routes, resolve the merchant context and merchant row first, then create the scoped client:
+
+```typescript
+const agenticContext = resolveAgenticMerchantContext(request);
+if (!agenticContext) {
+  return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+}
+
+const bootstrap = createClient(await cookies());
+const { data: merchant, error: merchantError } = await bootstrap
+  .from('merchants')
+  .select('id, slug, business_name, custom_domain')
+  .eq('slug', agenticContext.merchantSlug)
+  .single();
+
+if (merchantError || !merchant) {
+  return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+}
+
+const supabase = createAgenticScopedSupabaseClient({
+  merchantId: merchant.id,
+  merchantSlug: merchant.slug,
+});
+```
+
+The bootstrap read is public merchant metadata only. All checkout-session, order, order-item, idempotency, and request-record reads/writes must use the scoped client or a dedicated merchant-scoped RPC with equivalent RLS checks. Do not call another API route handler directly for order creation; extract order creation into a shared server utility that accepts the scoped client.
+
+- [ ] **Step 7: Run scoped access tests**
+
+Run:
+
+```bash
+pnpm --filter web test src/lib/agentic/scoped-supabase.test.ts src/lib/agentic/merchant-context.test.ts src/app/api/agentic/checkout_sessions/route.test.ts 'src/app/api/agentic/checkout_sessions/[id]/route.test.ts'
+```
+
+Expected: PASS after route tests assert `createServiceClient` and `createAdminClient` are not imported by agentic checkout routes.
+
+- [ ] **Step 8: Stage For Phase Review**
+
+Run:
+
+```bash
+git add apps/web/src/env.ts apps/web/src/lib/agentic/scoped-supabase.ts apps/web/src/lib/agentic/scoped-supabase.test.ts supabase/migrations/20260428170500_add_agentic_scoped_access_policies.sql apps/web/src/app/api/agentic/checkout_sessions/route.ts 'apps/web/src/app/api/agentic/checkout_sessions/[id]/route.ts' 'apps/web/src/app/api/agentic/checkout_sessions/[id]/complete/route.ts' 'apps/web/src/app/api/agentic/checkout_sessions/[id]/cancel/route.ts' apps/web/src/app/api/agentic/checkout_sessions/route.test.ts 'apps/web/src/app/api/agentic/checkout_sessions/[id]/route.test.ts'
+```
+
+---
+
 ### Task 13: Add Agentic Request Integrity Checks
 
 **Files:**
@@ -2706,14 +3135,25 @@ CREATE INDEX IF NOT EXISTS agentic_request_records_expires_at_idx
 
 ALTER TABLE public.agentic_request_records ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Merchants manage own agentic request records"
+-- The scoped JWT issued by `createAgenticScopedSupabaseClient()` does NOT set `sub`,
+-- so `auth.uid()` is null for agentic requests. Match on the `agentic_merchant_id`
+-- claim instead. Service-role clients bypass RLS and remain acceptable for payment
+-- webhooks / background cleanup jobs, but not for agent-facing checkout handlers.
+CREATE POLICY "Agentic clients manage own request records"
   ON public.agentic_request_records
   FOR ALL
-  USING (auth.uid() = merchant_id)
-  WITH CHECK (auth.uid() = merchant_id);
+  TO authenticated
+  USING (
+    public.is_agentic_checkout_context()
+    AND merchant_id = public.current_agentic_merchant_id()
+  )
+  WITH CHECK (
+    public.is_agentic_checkout_context()
+    AND merchant_id = public.current_agentic_merchant_id()
+  );
 ```
 
-RLS compatibility note: agentic checkout routes resolve bearer tokens to a merchant context and use the server/service Supabase client for request-record writes, so those writes bypass RLS intentionally after server-side merchant authentication. The RLS policy exists for authenticated merchant/admin inspection and cleanup paths where `auth.uid()` maps to the merchant id. If an implementation changes these writes to a non-service client, it must either set a verified merchant id claim in the Supabase auth context and update the policy to read that claim, or keep writes behind a service-only RPC; do not assume bearer-token authentication automatically sets `auth.uid()`.
+RLS compatibility note: agentic checkout routes resolve bearer tokens to a merchant context, then use `createAgenticScopedSupabaseClient()` from Task 12A for request-record writes. The policies must read `auth.jwt() ->> 'agentic_merchant_id'` (via the `current_agentic_merchant_id()` helper from Task 12A); do not assume bearer-token authentication automatically sets `auth.uid()`. Service-role clients remain acceptable for payment webhooks and background cleanup jobs, but not for agent-facing checkout/session/order API handlers.
 
 Retention: keep the opportunistic expired-row deletion in `reserveAgenticRequestId`, and add a scheduled cleanup path. Prefer `pg_cron` where available:
 
@@ -3176,6 +3616,491 @@ git add apps/web/src/lib/agentic/checkout-response.ts apps/web/src/lib/agentic/c
 
 ---
 
+### Task 15A: Require Buyer Confirmation Or Mandate Before Completion
+
+**Files:**
+- Create: `apps/web/src/lib/agentic/checkout-authorization.ts`
+- Create: `apps/web/src/lib/agentic/checkout-authorization.test.ts`
+- Modify: `apps/web/src/schemas/agentic-checkout.ts`
+- Modify: `apps/web/src/app/api/agentic/checkout_sessions/[id]/complete/route.ts`
+- Modify: `apps/web/src/app/api/agentic/checkout_sessions/[id]/route.test.ts`
+
+- [ ] **Step 1: Write failing authorization tests**
+
+Create `apps/web/src/lib/agentic/checkout-authorization.test.ts`:
+
+```typescript
+import { createHmac } from 'node:crypto';
+import { describe, expect, it } from 'vitest';
+import { verifyCheckoutCompletionAuthorization } from './checkout-authorization';
+
+const secret = 'confirmation-secret';
+const now = new Date('2026-04-28T12:00:00.000Z');
+
+function sign(payload: string) {
+  return createHmac('sha256', secret).update(payload).digest('hex');
+}
+
+describe('verifyCheckoutCompletionAuthorization', () => {
+  it('accepts an exact human confirmation artifact', () => {
+    const confirmedAt = '2026-04-28T11:59:30.000Z';
+    const payload = 'human_confirmation.session-1.2500.NGN.2026-04-28T11:59:30.000Z';
+
+    expect(
+      verifyCheckoutCompletionAuthorization({
+        authorization: {
+          type: 'human_confirmation',
+          session_id: 'session-1',
+          amount: 2500,
+          currency: 'NGN',
+          confirmed_at: confirmedAt,
+          signature: sign(payload),
+        },
+        sessionId: 'session-1',
+        amount: 2500,
+        currency: 'NGN',
+        secrets: [secret],
+        now,
+      })
+    ).toEqual({ ok: true, mode: 'human_confirmation' });
+  });
+
+  it('rejects confirmation artifacts for a different amount', () => {
+    const confirmedAt = '2026-04-28T11:59:30.000Z';
+    const payload = 'human_confirmation.session-1.3000.NGN.2026-04-28T11:59:30.000Z';
+
+    expect(
+      verifyCheckoutCompletionAuthorization({
+        authorization: {
+          type: 'human_confirmation',
+          session_id: 'session-1',
+          amount: 3000,
+          currency: 'NGN',
+          confirmed_at: confirmedAt,
+          signature: sign(payload),
+        },
+        sessionId: 'session-1',
+        amount: 2500,
+        currency: 'NGN',
+        secrets: [secret],
+        now,
+      })
+    ).toEqual({ ok: false, code: 'CONFIRMATION_MISMATCH' });
+  });
+
+  it('accepts a mandate only when amount and currency are inside limits', () => {
+    const payload = 'payment_mandate.mandate-1.session-1.5000.NGN.2026-04-28T13:00:00.000Z';
+
+    expect(
+      verifyCheckoutCompletionAuthorization({
+        authorization: {
+          type: 'payment_mandate',
+          mandate_id: 'mandate-1',
+          session_id: 'session-1',
+          max_amount: 5000,
+          currency: 'NGN',
+          expires_at: '2026-04-28T13:00:00.000Z',
+          signature: sign(payload),
+        },
+        sessionId: 'session-1',
+        amount: 2500,
+        currency: 'NGN',
+        secrets: [secret],
+        now,
+      })
+    ).toEqual({ ok: true, mode: 'payment_mandate' });
+  });
+
+  it('rejects future-dated human confirmation artifacts', () => {
+    // confirmed_at is 2 minutes after `now` — must NOT slip through the max-age check.
+    const confirmedAt = '2026-04-28T12:02:00.000Z';
+    const payload = 'human_confirmation.session-1.2500.NGN.2026-04-28T12:02:00.000Z';
+
+    expect(
+      verifyCheckoutCompletionAuthorization({
+        authorization: {
+          type: 'human_confirmation',
+          session_id: 'session-1',
+          amount: 2500,
+          currency: 'NGN',
+          confirmed_at: confirmedAt,
+          signature: sign(payload),
+        },
+        sessionId: 'session-1',
+        amount: 2500,
+        currency: 'NGN',
+        secrets: [secret],
+        now,
+      })
+    ).toEqual({ ok: false, code: 'AUTHORIZATION_EXPIRED' });
+  });
+
+  it('returns SERVER_CONFIGURATION_ERROR when no signing secrets are configured', () => {
+    // Missing OPENAI_AGENTIC_CONFIRMATION_KEY* is an operator misconfiguration, not
+    // missing buyer consent — must NOT be reported as retryable CONFIRMATION_REQUIRED.
+    const confirmedAt = '2026-04-28T11:59:30.000Z';
+    const payload = 'human_confirmation.session-1.2500.NGN.2026-04-28T11:59:30.000Z';
+
+    expect(
+      verifyCheckoutCompletionAuthorization({
+        authorization: {
+          type: 'human_confirmation',
+          session_id: 'session-1',
+          amount: 2500,
+          currency: 'NGN',
+          confirmed_at: confirmedAt,
+          signature: sign(payload),
+        },
+        sessionId: 'session-1',
+        amount: 2500,
+        currency: 'NGN',
+        secrets: [],
+        now,
+      })
+    ).toEqual({ ok: false, code: 'SERVER_CONFIGURATION_ERROR' });
+  });
+
+  it('fails closed when authorization is missing or expired', () => {
+    expect(
+      verifyCheckoutCompletionAuthorization({
+        authorization: null,
+        sessionId: 'session-1',
+        amount: 2500,
+        currency: 'NGN',
+        secrets: [secret],
+        now,
+      })
+    ).toEqual({ ok: false, code: 'CONFIRMATION_REQUIRED' });
+
+    const payload = 'payment_mandate.mandate-1.session-1.5000.NGN.2026-04-28T11:00:00.000Z';
+    expect(
+      verifyCheckoutCompletionAuthorization({
+        authorization: {
+          type: 'payment_mandate',
+          mandate_id: 'mandate-1',
+          session_id: 'session-1',
+          max_amount: 5000,
+          currency: 'NGN',
+          expires_at: '2026-04-28T11:00:00.000Z',
+          signature: sign(payload),
+        },
+        sessionId: 'session-1',
+        amount: 2500,
+        currency: 'NGN',
+        secrets: [secret],
+        now,
+      })
+    ).toEqual({ ok: false, code: 'AUTHORIZATION_EXPIRED' });
+  });
+});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run:
+
+```bash
+pnpm --filter web test src/lib/agentic/checkout-authorization.test.ts
+```
+
+Expected: FAIL because `checkout-authorization.ts` does not exist.
+
+- [ ] **Step 3: Implement authorization verifier**
+
+Create `apps/web/src/lib/agentic/checkout-authorization.ts`:
+
+```typescript
+import { createHmac } from 'node:crypto';
+import { constantTimeEqual } from '@/lib/constant-time-equal';
+
+const HUMAN_CONFIRMATION_MAX_AGE_MS = 5 * 60 * 1000;
+
+type HumanConfirmation = {
+  type: 'human_confirmation';
+  session_id: string;
+  amount: number;
+  currency: string;
+  confirmed_at: string;
+  signature: string;
+};
+
+type PaymentMandate = {
+  type: 'payment_mandate';
+  mandate_id: string;
+  session_id?: string;
+  max_amount: number;
+  currency: string;
+  expires_at: string;
+  signature: string;
+};
+
+export type CheckoutCompletionAuthorization =
+  | HumanConfirmation
+  | PaymentMandate;
+
+export type CheckoutAuthorizationResult =
+  | { ok: true; mode: CheckoutCompletionAuthorization['type'] }
+  | {
+      ok: false;
+      code:
+        | 'CONFIRMATION_REQUIRED'
+        | 'CONFIRMATION_MISMATCH'
+        | 'AUTHORIZATION_EXPIRED'
+        | 'AUTHORIZATION_INVALID'
+        | 'SERVER_CONFIGURATION_ERROR';
+    };
+
+function signedHumanPayload(value: HumanConfirmation) {
+  return [
+    value.type,
+    value.session_id,
+    value.amount,
+    value.currency.toUpperCase(),
+    value.confirmed_at,
+  ].join('.');
+}
+
+function signedMandatePayload(value: PaymentMandate) {
+  return [
+    value.type,
+    value.mandate_id,
+    value.session_id ?? '*',
+    value.max_amount,
+    value.currency.toUpperCase(),
+    value.expires_at,
+  ].join('.');
+}
+
+function hasValidSignature(payload: string, signature: string, secrets: string[]) {
+  return secrets.some((secret) =>
+    constantTimeEqual(
+      signature,
+      createHmac('sha256', secret).update(payload).digest('hex')
+    )
+  );
+}
+
+export function verifyCheckoutCompletionAuthorization({
+  authorization,
+  sessionId,
+  amount,
+  currency,
+  secrets,
+  now = new Date(),
+}: {
+  authorization: CheckoutCompletionAuthorization | null | undefined;
+  sessionId: string;
+  amount: number;
+  currency: string;
+  secrets: string[];
+  now?: Date;
+}): CheckoutAuthorizationResult {
+  // Distinguish missing buyer consent (retryable, surface to caller) from missing
+  // server signing keys (non-retryable, server misconfiguration that callers cannot fix).
+  if (secrets.length === 0) {
+    return { ok: false, code: 'SERVER_CONFIGURATION_ERROR' };
+  }
+  if (!authorization) {
+    return { ok: false, code: 'CONFIRMATION_REQUIRED' };
+  }
+
+  const normalizedCurrency = currency.toUpperCase();
+
+  if (authorization.type === 'human_confirmation') {
+    const confirmedAt = Date.parse(authorization.confirmed_at);
+    if (!Number.isFinite(confirmedAt)) {
+      return { ok: false, code: 'AUTHORIZATION_INVALID' };
+    }
+    const ageMs = now.getTime() - confirmedAt;
+    // Reject future-dated artifacts (clock skew or bad signer) and stale ones.
+    if (ageMs < 0 || ageMs > HUMAN_CONFIRMATION_MAX_AGE_MS) {
+      return { ok: false, code: 'AUTHORIZATION_EXPIRED' };
+    }
+    if (
+      authorization.session_id !== sessionId ||
+      authorization.amount !== amount ||
+      authorization.currency.toUpperCase() !== normalizedCurrency
+    ) {
+      return { ok: false, code: 'CONFIRMATION_MISMATCH' };
+    }
+    return hasValidSignature(
+      signedHumanPayload(authorization),
+      authorization.signature,
+      secrets
+    )
+      ? { ok: true, mode: 'human_confirmation' }
+      : { ok: false, code: 'AUTHORIZATION_INVALID' };
+  }
+
+  const expiresAt = Date.parse(authorization.expires_at);
+  if (!Number.isFinite(expiresAt)) {
+    return { ok: false, code: 'AUTHORIZATION_INVALID' };
+  }
+  if (expiresAt <= now.getTime()) {
+    return { ok: false, code: 'AUTHORIZATION_EXPIRED' };
+  }
+  if (
+    (authorization.session_id && authorization.session_id !== sessionId) ||
+    authorization.max_amount < amount ||
+    authorization.currency.toUpperCase() !== normalizedCurrency
+  ) {
+    return { ok: false, code: 'CONFIRMATION_MISMATCH' };
+  }
+
+  return hasValidSignature(
+    signedMandatePayload(authorization),
+    authorization.signature,
+    secrets
+  )
+    ? { ok: true, mode: 'payment_mandate' }
+    : { ok: false, code: 'AUTHORIZATION_INVALID' };
+}
+```
+
+- [ ] **Step 4: Add schema fields for completion authorization**
+
+Modify `apps/web/src/schemas/agentic-checkout.ts` so `agenticCheckoutCompleteSchema` requires either confirmation or mandate data in addition to buyer/payment handoff details:
+
+```typescript
+const humanConfirmationSchema = z.object({
+  type: z.literal('human_confirmation'),
+  session_id: z.string().min(1),
+  amount: z.number().int().nonnegative(),
+  currency: z.string().min(3).max(3),
+  confirmed_at: z.string().datetime(),
+  signature: z.string().min(32),
+});
+
+const paymentMandateSchema = z.object({
+  type: z.literal('payment_mandate'),
+  mandate_id: z.string().min(1),
+  session_id: z.string().min(1).optional(),
+  max_amount: z.number().int().nonnegative(),
+  currency: z.string().min(3).max(3),
+  expires_at: z.string().datetime(),
+  signature: z.string().min(32),
+});
+
+export const agenticCheckoutCompleteSchema = z.object({
+  buyer: z.object({
+    first_name: z.string().min(1),
+    last_name: z.string().min(1),
+    email: z.string().email(),
+    phone_number: z.string().min(7),
+  }),
+  payment_data: z.object({
+    provider: z.literal('paystack'),
+    token: z.string().min(1),
+    billing_address: agenticFulfillmentAddressSchema.optional(),
+  }),
+  // Mark completion_authorization nullish so requests WITHOUT a confirmation
+  // artifact — whether the field is omitted (`undefined`) OR explicitly sent as
+  // `null` by agentic clients — still pass Zod validation and reach
+  // `verifyCheckoutCompletionAuthorization`, which accepts `null | undefined`
+  // and returns the machine-readable `CONFIRMATION_REQUIRED` (428, retryable)
+  // challenge that ChatGPT/agentic clients use to prompt the buyer for consent.
+  // Using `.optional()` alone would reject `null` at Zod parsing with a generic
+  // 400, so clients never see the explicit consent challenge and the checkout
+  // handshake breaks.
+  completion_authorization: z
+    .union([humanConfirmationSchema, paymentMandateSchema])
+    .nullish(),
+});
+```
+
+- [ ] **Step 5: Wire authorization into complete route before payment side effects**
+
+In `complete/route.ts`, recalculate final totals first, then call `verifyCheckoutCompletionAuthorization` before creating an order, reserving/generating a DVA, sending payment instructions, or changing session/order status:
+
+```typescript
+const finalTotal =
+  sessionCalc.totals.find((total) => total.type === 'total')?.amount ?? 0;
+
+const authorization = verifyCheckoutCompletionAuthorization({
+  authorization: parsed.data.completion_authorization,
+  sessionId: session.id,
+  amount: finalTotal,
+  currency: session.currency,
+  secrets: [
+    process.env.OPENAI_AGENTIC_CONFIRMATION_KEY,
+    process.env.OPENAI_AGENTIC_CONFIRMATION_KEY_PREVIOUS,
+  ].filter((value): value is string => Boolean(value)),
+});
+
+if (!authorization.ok) {
+  const code = authorization.code;
+  // Map result codes to user-facing message + HTTP status + retryable hint.
+  // SERVER_CONFIGURATION_ERROR is non-retryable and signals an operator-fix issue
+  // (e.g. unset OPENAI_AGENTIC_CONFIRMATION_KEY*); do not encourage client retries
+  // because retrying will not change the outcome until the server is reconfigured.
+  const errorPayload: Record<
+    Exclude<typeof code, never>,
+    { error: string; status: number; retryable: boolean }
+  > = {
+    CONFIRMATION_REQUIRED: {
+      error: 'Human confirmation required',
+      status: 428,
+      retryable: true,
+    },
+    CONFIRMATION_MISMATCH: {
+      error: 'Checkout authorization invalid',
+      status: 403,
+      retryable: false,
+    },
+    AUTHORIZATION_EXPIRED: {
+      error: 'Checkout authorization invalid',
+      status: 403,
+      retryable: false,
+    },
+    AUTHORIZATION_INVALID: {
+      error: 'Checkout authorization invalid',
+      status: 403,
+      retryable: false,
+    },
+    SERVER_CONFIGURATION_ERROR: {
+      error: 'Checkout authorization is temporarily unavailable',
+      status: 503,
+      retryable: false,
+    },
+  };
+
+  const mapped = errorPayload[code];
+  // Log SERVER_CONFIGURATION_ERROR with high severity so missing signing keys are
+  // surfaced in observability dashboards instead of being hidden behind 4xx noise.
+  if (code === 'SERVER_CONFIGURATION_ERROR') {
+    console.error(
+      '[agentic-checkout] Missing OPENAI_AGENTIC_CONFIRMATION_KEY*; rejecting completion'
+    );
+  }
+  return NextResponse.json(
+    { error: mapped.error, code, retryable: mapped.retryable },
+    { status: mapped.status }
+  );
+}
+```
+
+Store `{ authorization_mode: authorization.mode }` under `metadata.agentic.completion` after the mutation succeeds. Never log the confirmation signature or mandate signature.
+
+- [ ] **Step 6: Run authorization and route tests**
+
+Run:
+
+```bash
+pnpm --filter web test src/lib/agentic/checkout-authorization.test.ts 'src/app/api/agentic/checkout_sessions/[id]/route.test.ts'
+```
+
+Expected: PASS after route tests cover missing authorization (`428`), mismatched amount (`403`), missing server signing keys (`503`, non-retryable), valid human confirmation, and valid mandate.
+
+- [ ] **Step 7: Stage For Phase Review**
+
+Run:
+
+```bash
+git add apps/web/src/lib/agentic/checkout-authorization.ts apps/web/src/lib/agentic/checkout-authorization.test.ts apps/web/src/schemas/agentic-checkout.ts 'apps/web/src/app/api/agentic/checkout_sessions/[id]/complete/route.ts' 'apps/web/src/app/api/agentic/checkout_sessions/[id]/route.test.ts'
+```
+
+---
+
 ### Task 16: Complete And Cancel Checkout Sessions Safely
 
 **Files:**
@@ -3189,6 +4114,25 @@ git add apps/web/src/lib/agentic/checkout-response.ts apps/web/src/lib/agentic/c
 Add to `apps/web/src/app/api/agentic/checkout_sessions/[id]/route.test.ts`:
 
 ```typescript
+function validHumanConfirmationFor({
+  sessionId,
+  amount,
+  currency,
+}: {
+  sessionId: string;
+  amount: number;
+  currency: string;
+}) {
+  return {
+    type: 'human_confirmation' as const,
+    session_id: sessionId,
+    amount,
+    currency,
+    confirmed_at: '2026-04-28T11:59:30.000Z',
+    signature: 'valid-confirmation-signature',
+  };
+}
+
 it('returns an agent-safe pending-payment response after bank-transfer completion', async () => {
   const response = await completeCheckoutSessionForTest({
     id: 'session-1',
@@ -3199,6 +4143,11 @@ it('returns an agent-safe pending-payment response after bank-transfer completio
       phone_number: '+2348000000000',
     },
     payment_data: { provider: 'paystack', token: 'bank-transfer-intent' },
+    completion_authorization: validHumanConfirmationFor({
+      sessionId: 'session-1',
+      amount: 2500,
+      currency: 'NGN',
+    }),
   });
   const body = await response.json();
 
@@ -3237,31 +4186,25 @@ Run:
 pnpm --filter web test 'src/app/api/agentic/checkout_sessions/[id]/route.test.ts'
 ```
 
-Expected: FAIL because completion returns nonstandard `payment_pending` as top-level status and cancel returns only `{ id, status }`.
+Expected: FAIL because completion returns nonstandard `payment_pending` as top-level status, does not enforce the confirmation/mandate contract, and cancel returns only `{ id, status }`.
 
-- [ ] **Step 3: Validate completion body with Zod**
+- [ ] **Step 3: Use the completion schema from Task 15A**
 
-Modify `apps/web/src/schemas/agentic-checkout.ts`:
+Ensure `complete/route.ts` parses with `agenticCheckoutCompleteSchema` from Task 15A before reading buyer, payment, or authorization fields:
 
 ```typescript
-export const agenticCheckoutCompleteSchema = z.object({
-  buyer: z.object({
-    first_name: z.string().min(1),
-    last_name: z.string().min(1),
-    email: z.string().email(),
-    phone_number: z.string().min(7),
-  }),
-  payment_data: z.object({
-    provider: z.string().min(1),
-    token: z.string().min(1),
-    billing_address: agenticFulfillmentAddressSchema.optional(),
-  }),
-});
+const parsed = agenticCheckoutCompleteSchema.safeParse(body);
+if (!parsed.success) {
+  return NextResponse.json(
+    { error: 'Invalid request body', details: parsed.error.flatten() },
+    { status: 400 }
+  );
+}
 ```
 
 - [ ] **Step 4: Return agent-safe completion status**
 
-In `complete/route.ts`, keep the internal order state as `payment_pending`, keep the `checkout_sessions.status` value as an allowed internal value (`processing` while waiting for the DVA transfer), and return an agent checkout status that belongs to the checkout contract:
+In `complete/route.ts`, only after Task 15A authorization succeeds, keep the internal order state as `payment_pending`, keep the `checkout_sessions.status` value as an allowed internal value (`processing` while waiting for the DVA transfer), and return an agent checkout status that belongs to the checkout contract:
 
 ```typescript
 const responsePayload = {
@@ -3390,12 +4333,172 @@ git add 'apps/web/src/app/api/agentic/checkout_sessions/[id]/complete/route.ts' 
 
 ---
 
+### Task 16B: Advertise Action Capabilities Only After They Are Safe
+
+**Files:**
+- Modify: `apps/web/src/app/agent-commerce.json/route.ts`
+- Modify: `apps/web/src/app/agent-commerce.json/route.test.ts`
+- Modify: `apps/web/src/lib/llms.ts`
+- Modify: `apps/web/src/lib/llms.test.ts`
+
+- [ ] **Step 1: Write failing manifest readiness tests**
+
+Add to `apps/web/src/app/agent-commerce.json/route.test.ts`:
+
+```typescript
+it('stays catalog-only when agentic checkout is not enabled', async () => {
+  process.env.AGENTIC_CHECKOUT_READY = 'false';
+
+  const response = await GET(
+    new Request('https://ogabassey.com/agent-commerce.json', {
+      headers: { host: 'ogabassey.com' },
+    })
+  );
+  const body = await response.json();
+
+  expect(body.capabilities).toEqual(['catalog.read']);
+  expect(body.auth).toBeNull();
+  expect(body.links.checkout_sessions).toBeUndefined();
+});
+
+it('advertises checkout capabilities only when action layer is ready', async () => {
+  process.env.AGENTIC_CHECKOUT_READY = 'true';
+
+  const response = await GET(
+    new Request('https://ogabassey.com/agent-commerce.json', {
+      headers: { host: 'ogabassey.com' },
+    })
+  );
+  const body = await response.json();
+
+  expect(body.capabilities).toEqual(
+    expect.arrayContaining([
+      'catalog.read',
+      'checkout.session.create',
+      'checkout.session.update',
+      'checkout.session.complete',
+      'checkout.session.cancel',
+      'order.read',
+    ])
+  );
+  expect(body.auth).toMatchObject({
+    type: 'bearer_hmac',
+    required_headers: [
+      'authorization',
+      'idempotency-key',
+      'request-id',
+      'signature',
+      'timestamp',
+      'api-version',
+    ],
+  });
+  expect(body.links.checkout_sessions).toBe(
+    'https://ogabassey.com/api/agentic/checkout_sessions'
+  );
+});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run:
+
+```bash
+pnpm --filter web test src/app/agent-commerce.json/route.test.ts
+```
+
+Expected: FAIL because the manifest does not yet switch capabilities based on Phase 3 readiness.
+
+- [ ] **Step 3: Implement readiness-gated capabilities**
+
+Modify `apps/web/src/app/agent-commerce.json/route.ts`:
+
+```typescript
+const CATALOG_CAPABILITIES = ['catalog.read'] as const;
+const ACTION_CAPABILITIES = [
+  'checkout.session.create',
+  'checkout.session.update',
+  'checkout.session.complete',
+  'checkout.session.cancel',
+  'order.read',
+] as const;
+
+function isAgenticCheckoutReady() {
+  return process.env.AGENTIC_CHECKOUT_READY === 'true';
+}
+
+function buildAgenticAuth() {
+  return {
+    type: 'bearer_hmac',
+    required_headers: [
+      'authorization',
+      'idempotency-key',
+      'request-id',
+      'signature',
+      'timestamp',
+      'api-version',
+    ],
+  };
+}
+```
+
+Then build the response with:
+
+```typescript
+const actionReady = isAgenticCheckoutReady();
+
+capabilities: actionReady
+  ? [...CATALOG_CAPABILITIES, ...ACTION_CAPABILITIES]
+  : [...CATALOG_CAPABILITIES],
+auth: actionReady ? buildAgenticAuth() : null,
+links: {
+  ...
+  ...(actionReady
+    ? { checkout_sessions: buildUrl(baseUrl, '/api/agentic/checkout_sessions') }
+    : {}),
+}
+```
+
+- [ ] **Step 4: Add llms action endpoint only when ready**
+
+Modify `apps/web/src/lib/llms.ts` so checkout action links are only emitted when `AGENTIC_CHECKOUT_READY=true`. Keep public catalog/feed links always visible.
+
+```typescript
+if (process.env.AGENTIC_CHECKOUT_READY === 'true') {
+  lines.push(
+    `- [Agentic Checkout Sessions](${baseUrl}/api/agentic/checkout_sessions): Authenticated checkout session API for approved shopping agents`
+  );
+}
+```
+
+Add tests in `apps/web/src/lib/llms.test.ts` for ready and not-ready modes.
+
+- [ ] **Step 5: Run manifest and llms tests**
+
+Run:
+
+```bash
+pnpm --filter web test src/app/agent-commerce.json/route.test.ts src/lib/llms.test.ts
+```
+
+Expected: PASS.
+
+- [ ] **Step 6: Stage For Phase Review**
+
+Run:
+
+```bash
+git add apps/web/src/app/agent-commerce.json/route.ts apps/web/src/app/agent-commerce.json/route.test.ts apps/web/src/lib/llms.ts apps/web/src/lib/llms.test.ts
+```
+
+---
+
 ### Task 17: Add Post-Purchase Agent Read APIs
 
 **Files:**
 - Create: `apps/web/src/app/api/agentic/orders/[id]/route.ts`
 - Create: `apps/web/src/app/api/agentic/orders/[id]/route.test.ts`
-- Reuse: `apps/web/src/lib/agentic/auth.ts`
+- Reuse: `apps/web/src/lib/agentic/merchant-context.ts`
+- Reuse: `apps/web/src/lib/agentic/scoped-supabase.ts`
 
 - [ ] **Step 1: Write failing order read test**
 
@@ -3405,12 +4508,76 @@ Create `apps/web/src/app/api/agentic/orders/[id]/route.test.ts`:
 import { describe, expect, it, vi } from 'vitest';
 import { GET } from './route';
 
-vi.mock('@/lib/agentic/auth', () => ({
-  verifyAgenticApiKey: vi.fn(() => true),
+vi.mock('@/lib/agentic/merchant-context', () => ({
+  resolveAgenticMerchantContext: vi.fn(() => ({
+    merchantSlug: 'ogabassey',
+    keySource: 'merchant_keys',
+  })),
+}));
+
+const mockMaybeSingle = vi.fn();
+const mockSingle = vi.fn(() =>
+  Promise.resolve({
+    data: {
+      id: 'merchant-1',
+      slug: 'ogabassey',
+      custom_domain: 'ogabassey.com',
+    },
+    error: null,
+  })
+);
+
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: vi.fn(() => ({
+    from: (table: string) => {
+      if (table === 'merchants') {
+        return {
+          select: () => ({
+            eq: () => ({
+              single: mockSingle,
+            }),
+          }),
+        };
+      }
+      throw new Error(`Unexpected bootstrap table ${table}`);
+    },
+  })),
+}));
+
+vi.mock('@/lib/agentic/scoped-supabase', () => ({
+  createAgenticScopedSupabaseClient: vi.fn(() => ({
+    from: (table: string) => {
+      if (table === 'orders') {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                maybeSingle: mockMaybeSingle,
+              }),
+            }),
+          }),
+        };
+      }
+      throw new Error(`Unexpected scoped table ${table}`);
+    },
+  })),
 }));
 
 describe('GET /api/agentic/orders/[id]', () => {
   it('returns public post-purchase order state for an agentic order', async () => {
+    mockMaybeSingle.mockResolvedValue({
+      data: {
+        id: 'order-1',
+        status: 'pending',
+        payment_status: 'pending',
+        shipping_status: 'pending',
+        tracking_number: null,
+        created_at: '2026-04-28T12:00:00.000Z',
+        updated_at: '2026-04-28T12:00:00.000Z',
+      },
+      error: null,
+    });
+
     const response = await GET(
       new Request('https://ogabassey.com/api/agentic/orders/order-1', {
         headers: { authorization: 'Bearer test' },
@@ -3418,25 +4585,25 @@ describe('GET /api/agentic/orders/[id]', () => {
       { params: Promise.resolve({ id: 'order-1' }) }
     );
 
-    expect([200, 404]).toContain(response.status);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      id: 'order-1',
+      status: 'pending',
+      payment_status: 'pending',
+      shipping_status: 'pending',
+      tracking_number: null,
+      created_at: '2026-04-28T12:00:00.000Z',
+      updated_at: '2026-04-28T12:00:00.000Z',
+      links: {
+        track_order: 'https://ogabassey.com/track-order',
+        support: 'https://ogabassey.com/contact',
+      },
+    });
   });
 });
 ```
 
-Replace the Supabase client with the same mocking pattern used by existing route tests so the final assertion can be exact:
-
-```typescript
-expect(await response.json()).toEqual({
-  id: 'order-1',
-  status: 'pending',
-  payment_status: 'pending',
-  shipping_status: 'pending',
-  links: {
-    track_order: 'https://ogabassey.com/track-order',
-    support: 'https://ogabassey.com/contact',
-  },
-});
-```
+Also add tests for unauthorized requests, unknown merchant, non-agentic order not found, and scoped-client query errors. Add an import guard test that scans `route.ts` and fails if it contains `createServiceClient` or `createAdminClient`.
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -3454,23 +4621,58 @@ Create `apps/web/src/app/api/agentic/orders/[id]/route.ts`:
 
 ```typescript
 import { type NextRequest, NextResponse } from 'next/server';
-import { verifyAgenticApiKey } from '@/lib/agentic/auth';
-import { createServiceClient } from '@/lib/supabase/service';
+import { cookies } from 'next/headers';
+import { getRootDomain } from '@/env';
+import { resolveAgenticMerchantContext } from '@/lib/agentic/merchant-context';
+import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
+import { createClient } from '@/lib/supabase/server';
+
+// Use the same env-driven root-domain resolution as `lib/store-url.ts` and
+// `lib/import-notifications/send-import-notification-campaign.ts` so non-prod
+// deployments and any env that overrides `getRootDomain()` produce correct
+// storefront URLs. Do NOT hardcode `usebaci.com`.
+function buildMerchantBaseUrl(merchant: {
+  slug: string;
+  custom_domain?: string | null;
+}) {
+  if (merchant.custom_domain) {
+    return `https://${merchant.custom_domain}`;
+  }
+  const rootDomain = (getRootDomain() || 'usebaci.com').toLowerCase();
+  return `https://${merchant.slug}.${rootDomain}`;
+}
 
 export async function GET(
   request: NextRequest,
   props: { params: Promise<{ id: string }> }
 ) {
-  if (!verifyAgenticApiKey(request)) {
+  const agenticContext = resolveAgenticMerchantContext(request);
+  if (!agenticContext) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const { id } = await props.params;
-  const supabase = createServiceClient();
+  const bootstrap = createClient(await cookies());
+  const { data: merchant, error: merchantError } = await bootstrap
+    .from('merchants')
+    .select('id, slug, custom_domain')
+    .eq('slug', agenticContext.merchantSlug)
+    .single();
+
+  if (merchantError || !merchant) {
+    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+  }
+
+  const supabase = createAgenticScopedSupabaseClient({
+    merchantId: merchant.id,
+    merchantSlug: merchant.slug,
+  });
+
   const { data: order, error } = await supabase
     .from('orders')
     .select('id, status, payment_status, shipping_status, tracking_number, created_at, updated_at')
     .eq('id', id)
+    .eq('merchant_id', merchant.id)
     .eq('source', 'agentic_ai')
     .maybeSingle();
 
@@ -3491,12 +4693,14 @@ export async function GET(
     created_at: order.created_at,
     updated_at: order.updated_at,
     links: {
-      track_order: 'https://ogabassey.com/track-order',
-      support: 'https://ogabassey.com/contact',
+      track_order: `${buildMerchantBaseUrl(merchant)}/track-order`,
+      support: `${buildMerchantBaseUrl(merchant)}/contact`,
     },
   });
 }
 ```
+
+This route is read-only and scoped to `source = 'agentic_ai'` plus the merchant resolved from the API key. It must not expose arbitrary customer/order rows to a platform-wide bearer token.
 
 - [ ] **Step 4: Run order tests**
 
@@ -3534,10 +4738,12 @@ pnpm --filter web test \
   src/lib/llms.test.ts \
   src/lib/agentic/checkout.test.ts \
   src/lib/agentic/merchant-context.test.ts \
+  src/lib/agentic/scoped-supabase.test.ts \
   src/lib/agentic/request-integrity.test.ts \
   src/lib/agentic/request-replay.test.ts \
   src/lib/agentic/idempotency.test.ts \
   src/lib/agentic/checkout-response.test.ts \
+  src/lib/agentic/checkout-authorization.test.ts \
   src/lib/agentic/checkout-storage.test.ts \
   src/app/api/feed/openai/route.test.ts \
   src/app/api/feed/google-merchant/feed-query.test.ts \
@@ -3638,6 +4844,7 @@ Configure or verify alerts for:
 - Page/feed/API parity failures where a product URL, price, availability, image, or policy differs across the PDP, Product/Offer JSON-LD, public OpenAI feed, Google Merchant XML, and storefront product API.
 - Product/Offer JSON-LD validation failures, missing review/trust-profile schema, invalid image URLs, and crawler fetch failures for `OAI-SearchBot`, `ChatGPT-User`, `ClaudeBot`, `Claude-User`, `Claude-SearchBot`, `Googlebot`, `Google-Extended`, and `PerplexityBot`.
 - Checkout session creation, update, completion, cancellation, DVA-generation failure, and webhook-confirmation failure rates.
+- Checkout completion authorization failures by code (`CONFIRMATION_REQUIRED`, `CONFIRMATION_MISMATCH`, `AUTHORIZATION_EXPIRED`, `AUTHORIZATION_INVALID`) and any completion request that reaches payment side effects without an authorization audit record.
 - Request-integrity failures that spike above normal agent retry noise.
 - Idempotency hard-limit `429` responses, which should be treated as abuse, extreme concurrency, or pruning failure.
 
@@ -3646,6 +4853,7 @@ Deployment blockers:
 - Any verified 500 on `/agent-commerce.json`, `/feeds/google-merchant.xml`, or checkout create/complete.
 - Any feed URL containing `https://ogabassey.com/ogabassey/`.
 - Any unmanaged-stock product exposed as out of stock.
+- Any checkout completion that can create an order, reserve a DVA, or expose payment instructions without a verified confirmation artifact or valid mandate.
 - Any payment webhook test or live smoke check that can double-confirm or skip confirmation.
 
 Warnings that can ship only with a follow-up issue:
@@ -3700,14 +4908,17 @@ git add docs/
 - `manage_stock=false` is exposed as `inventory_policy: "untracked"`, `availability: "in_stock"`, `is_purchasable: true`.
 - Agent checkout storage uses existing `checkout_sessions` columns, adds only append-only `metadata`, and never writes invalid status values to the database.
 - Agent checkout resolves merchant-scoped API keys while preserving the legacy Ogabassey fallback key.
+- Agent-facing checkout/session/order routes do not use generic service-role Supabase clients; they use merchant-scoped RLS claims or equivalent merchant-scoped RPCs.
 - Mutating agent checkout routes verify request signature, timestamp freshness, request id, and API version headers.
 - Mutating agent checkout routes reject replayed request IDs and document API-version migration/deprecation behavior.
 - Agent checkout idempotency replays the same key/body response and rejects the same key with a different body.
 - Agent checkout idempotency records are bounded by TTL and count limits.
 - Agent checkout create/update/get/complete/cancel responses include payment provider, fulfillment address, totals, messages, links, request id, and idempotency behavior.
 - Agent checkout does not reject unmanaged stock products as out of stock.
+- Agent checkout completion requires verified human confirmation or a valid pre-authorized mandate for the exact session/amount/currency before order creation, DVA reservation, or payment instructions.
 - Agent checkout completion returns an agent-safe payment-ready state while internal orders remain `payment_pending` until webhook confirmation.
 - Agent checkout bank-transfer/DVA generation is retryable and idempotent, and Paystack/payment webhook confirmation transitions agentic orders out of `payment_pending` idempotently.
+- `agent-commerce.json` advertises checkout/session/order capabilities only when `AGENTIC_CHECKOUT_READY=true`; catalog-only mode remains the default until Phase 3 passes.
 - Post-purchase order status is available via read-only authenticated agent API.
 - `pnpm turbo lint`, `pnpm turbo typecheck`, `pnpm turbo test`, and CodeRabbit review pass.
 
@@ -3728,14 +4939,17 @@ git add docs/
 13. Checkout stock semantics.
 14. Checkout storage schema alignment.
 15. Merchant-scoped agentic auth context.
-16. Request integrity checks.
-17. Shared idempotency.
-18. Checkout response shape.
-19. Complete and cancel checkout behavior.
-20. Agentic payment webhook confirmation and DVA failure hardening.
-21. Phase 3 gate: agentic checkout contract sub-agent review plus CodeRabbit review.
-22. Order read API.
-23. Verification.
-24. Phase 4 gate: post-purchase and final verification sub-agent review plus CodeRabbit review.
+16. Merchant-scoped Supabase/RLS access.
+17. Request integrity checks.
+18. Shared idempotency.
+19. Checkout response shape.
+20. Buyer confirmation or payment mandate enforcement.
+21. Complete and cancel checkout behavior.
+22. Agentic payment webhook confirmation and DVA failure hardening.
+23. Readiness-gated action capability advertising.
+24. Phase 3 gate: agentic checkout contract sub-agent review plus CodeRabbit review.
+25. Order read API.
+26. Verification.
+27. Phase 4 gate: post-purchase and final verification sub-agent review plus CodeRabbit review.
 
 This order keeps each change testable and prevents later tasks from building on broken discovery or inconsistent availability semantics.
