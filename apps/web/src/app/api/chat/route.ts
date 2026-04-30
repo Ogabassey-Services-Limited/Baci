@@ -153,6 +153,17 @@ You are currently powered by VPS-hosted ${model}. Tool/function calling is not a
   ];
 }
 
+function getSafeOllamaErrorMessage(error: unknown): string {
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'string'
+        ? error
+        : 'Unknown error';
+
+  return message.replace(/https?:\/\/\S+/g, '[url]').slice(0, 300);
+}
+
 export async function POST(req: Request) {
   try {
     // 1. Get client IP for rate limiting
@@ -212,14 +223,21 @@ export async function POST(req: Request) {
 
     const ollamaBaseUrl = getOllamaBaseUrl();
     if (ollamaBaseUrl) {
-      const chatModel = getAiChatModel();
-      return await createOllamaChatResponse({
-        baseUrl: ollamaBaseUrl,
-        model: chatModel,
-        basicAuth: getOllamaBasicAuth(),
-        messages: buildOllamaMessages(sanitizedMessages, chatModel),
-        signal: req.signal,
-      });
+      try {
+        const chatModel = getAiChatModel();
+        return await createOllamaChatResponse({
+          baseUrl: ollamaBaseUrl,
+          model: chatModel,
+          basicAuth: getOllamaBasicAuth(),
+          messages: buildOllamaMessages(sanitizedMessages, chatModel),
+          signal: req.signal,
+        });
+      } catch (error) {
+        console.warn(
+          '[Agentic Chat] Ollama request failed; falling back to Gemini:',
+          getSafeOllamaErrorMessage(error)
+        );
+      }
     }
 
     // 5. Run agentic generation with tools

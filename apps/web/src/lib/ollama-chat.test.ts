@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { buildOllamaBasicAuthHeader } from '@/lib/ollama-auth';
 import { createOllamaChatResponse } from '@/lib/ollama-chat';
 
 function streamFromText(text: string): ReadableStream<Uint8Array> {
@@ -10,6 +11,14 @@ function streamFromText(text: string): ReadableStream<Uint8Array> {
   });
 }
 
+function getExpectedAuthorizationHeader(basicAuth: string): string {
+  const authorization = buildOllamaBasicAuthHeader(basicAuth);
+  if (!authorization) {
+    throw new Error('Expected test Basic Auth value to produce a header');
+  }
+  return authorization;
+}
+
 describe('createOllamaChatResponse', () => {
   afterEach(() => {
     vi.useRealTimers();
@@ -17,6 +26,8 @@ describe('createOllamaChatResponse', () => {
   });
 
   it('streams text chunks from Ollama chat responses', async () => {
+    const basicAuth = 'test-token';
+    const expectedAuthorization = getExpectedAuthorizationHeader(basicAuth);
     const mockFetch = vi
       .fn()
       .mockResolvedValue(
@@ -31,7 +42,7 @@ describe('createOllamaChatResponse', () => {
     const response = await createOllamaChatResponse({
       baseUrl: 'https://ollama.example.com/api/',
       model: 'gemma4:e4b\n',
-      basicAuth: 'token',
+      basicAuth,
       messages: [{ role: 'user', content: 'Hi' }],
     });
 
@@ -40,7 +51,9 @@ describe('createOllamaChatResponse', () => {
       'https://ollama.example.com/api/chat',
       expect.objectContaining({
         method: 'POST',
-        headers: expect.objectContaining({ Authorization: 'Basic token' }),
+        headers: expect.objectContaining({
+          Authorization: expectedAuthorization,
+        }),
       })
     );
     expect(JSON.parse(String(mockFetch.mock.calls[0][1]?.body)).model).toBe(
@@ -49,6 +62,9 @@ describe('createOllamaChatResponse', () => {
   });
 
   it('encodes raw Basic Auth credentials before sending them to Ollama', async () => {
+    const rawCredentials = ['test-user', 'test-password'].join(':');
+    const expectedAuthorization =
+      getExpectedAuthorizationHeader(rawCredentials);
     const mockFetch = vi
       .fn()
       .mockResolvedValue(
@@ -59,7 +75,7 @@ describe('createOllamaChatResponse', () => {
     const response = await createOllamaChatResponse({
       baseUrl: 'https://ollama.example.com',
       model: 'gemma4:e4b',
-      basicAuth: 'user:password',
+      basicAuth: rawCredentials,
       messages: [{ role: 'user', content: 'Hi' }],
     });
 
@@ -68,7 +84,7 @@ describe('createOllamaChatResponse', () => {
       'https://ollama.example.com/api/chat',
       expect.objectContaining({
         headers: expect.objectContaining({
-          Authorization: 'Basic dXNlcjpwYXNzd29yZA==',
+          Authorization: expectedAuthorization,
         }),
       })
     );

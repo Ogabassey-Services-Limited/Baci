@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { buildOllamaBasicAuthHeader } from '@/lib/ollama-auth';
 
+function expectedBasicHeader(credentials: string): string {
+  return `Basic ${Buffer.from(credentials, 'utf8').toString('base64')}`;
+}
+
 describe('buildOllamaBasicAuthHeader', () => {
   it('returns null for empty credentials', () => {
     expect(buildOllamaBasicAuthHeader('')).toBeNull();
@@ -8,25 +12,40 @@ describe('buildOllamaBasicAuthHeader', () => {
   });
 
   it('base64-encodes raw username and password credentials', () => {
-    expect(buildOllamaBasicAuthHeader('user:password')).toBe(
-      'Basic dXNlcjpwYXNzd29yZA=='
+    const credentials = ['test-user', 'test-password'].join(':');
+
+    expect(buildOllamaBasicAuthHeader(credentials)).toBe(
+      expectedBasicHeader(credentials)
     );
   });
 
   it('base64-encodes raw UTF-8 credentials', () => {
-    expect(buildOllamaBasicAuthHeader('usér:päss!')).toBe(
-      'Basic dXPDqXI6cMOkc3Mh'
+    const credentials = 'usér:päss!';
+
+    expect(buildOllamaBasicAuthHeader(credentials)).toBe(
+      expectedBasicHeader(credentials)
     );
   });
 
-  it('base64-encodes RFC-valid raw credentials', () => {
-    expect(buildOllamaBasicAuthHeader('user:')).toBe('Basic dXNlcjo=');
-    expect(buildOllamaBasicAuthHeader(':password')).toBe('Basic OnBhc3N3b3Jk');
-    expect(buildOllamaBasicAuthHeader('user:pass:extra')).toBe(
-      'Basic dXNlcjpwYXNzOmV4dHJh'
+  it.each([
+    'test-user:',
+    ':test-password',
+    'test-user:test-password:extra',
+    'test user:test-password',
+  ])('base64-encodes RFC-valid raw credentials: %s', (credential) => {
+    expect(buildOllamaBasicAuthHeader(credential)).toBe(
+      expectedBasicHeader(credential)
     );
-    expect(buildOllamaBasicAuthHeader('user name:password')).toBe(
-      'Basic dXNlciBuYW1lOnBhc3N3b3Jk'
+  });
+
+  it('prefixes already base64-encoded payload with Basic without re-encoding the payload', () => {
+    const credentials = ['test-user', 'test-password'].join(':');
+    const encodedCredentials = Buffer.from(credentials, 'utf8').toString(
+      'base64'
+    );
+
+    expect(buildOllamaBasicAuthHeader(encodedCredentials)).toBe(
+      `Basic ${encodedCredentials}`
     );
   });
 
@@ -34,15 +53,14 @@ describe('buildOllamaBasicAuthHeader', () => {
     expect(buildOllamaBasicAuthHeader('user:\npassword')).toBeNull();
   });
 
-  it('keeps an already encoded Basic payload unchanged', () => {
-    expect(buildOllamaBasicAuthHeader('dXNlcjpwYXNzd29yZA==')).toBe(
-      'Basic dXNlcjpwYXNzd29yZA=='
-    );
-  });
-
   it('normalizes a full Basic authorization header', () => {
-    expect(buildOllamaBasicAuthHeader('basic dXNlcjpwYXNzd29yZA==')).toBe(
-      'Basic dXNlcjpwYXNzd29yZA=='
+    const credentials = ['test-user', 'test-password'].join(':');
+    const encodedCredentials = Buffer.from(credentials, 'utf8').toString(
+      'base64'
+    );
+
+    expect(buildOllamaBasicAuthHeader(`basic ${encodedCredentials}`)).toBe(
+      `Basic ${encodedCredentials}`
     );
   });
 

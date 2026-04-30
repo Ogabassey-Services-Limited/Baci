@@ -224,10 +224,13 @@ describe('POST /api/chat', () => {
     expect(generateText).not.toHaveBeenCalled();
   });
 
-  it('returns 500 when the Ollama request fails', async () => {
+  it('falls back to Gemini when the Ollama request fails', async () => {
     // Arrange
     ollamaBaseUrl = 'https://ollama.example.com';
     ollamaError = new Error('Ollama unavailable');
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
 
     // Act
     const response = await POST(
@@ -235,11 +238,18 @@ describe('POST /api/chat', () => {
         messages: [{ role: 'user', content: 'Show me phones' }],
       })
     );
-    const json = await response.json();
+    const text = await response.text();
 
     // Assert
-    expect(response.status).toBe(500);
-    expect(json.error).toBe('Internal server error');
+    expect(response.status).toBe(200);
+    expect(text).toBe('AI response');
+    expect(createOllamaChatResponse).toHaveBeenCalledOnce();
+    expect(generateText).toHaveBeenCalledOnce();
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[Agentic Chat] Ollama request failed; falling back to Gemini:',
+      'Ollama unavailable'
+    );
+    warnSpy.mockRestore();
   });
 
   it('forwards Ollama Basic Auth when configured', async () => {

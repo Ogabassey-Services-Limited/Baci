@@ -16,6 +16,7 @@ vi.mock('ai', () => ({
 
 import { generateText } from 'ai';
 import { getOllamaBaseUrl, getOllamaBasicAuth } from '@/env';
+import { buildOllamaBasicAuthHeader } from '@/lib/ollama-auth';
 import {
   compareCACData,
   extractCACCertificateData,
@@ -26,6 +27,14 @@ const validJsonResponse = JSON.stringify({
   rcNumber: 'RC123456',
   businessName: 'BACI TECHNOLOGIES LTD',
 });
+
+function getExpectedAuthorizationHeader(basicAuth: string): string {
+  const authorization = buildOllamaBasicAuthHeader(basicAuth);
+  if (!authorization) {
+    throw new Error('Expected test Basic Auth value to produce a header');
+  }
+  return authorization;
+}
 
 describe('extractCACCertificateData', () => {
   beforeEach(() => {
@@ -73,8 +82,11 @@ describe('extractCACCertificateData', () => {
   });
 
   it('encodes raw Ollama Basic Auth credentials for image extraction', async () => {
+    const rawCredentials = ['test-user', 'test-password'].join(':');
+    const expectedAuthorization =
+      getExpectedAuthorizationHeader(rawCredentials);
     vi.mocked(getOllamaBaseUrl).mockReturnValue('https://ollama.example.com');
-    vi.mocked(getOllamaBasicAuth).mockReturnValue('user:password');
+    vi.mocked(getOllamaBasicAuth).mockReturnValue(rawCredentials);
     vi.mocked(global.fetch).mockResolvedValueOnce({
       ok: true,
       json: async () => ({ response: validJsonResponse }),
@@ -86,7 +98,7 @@ describe('extractCACCertificateData', () => {
     const [, options] = vi.mocked(global.fetch).mock.calls[0];
     expect(options?.headers).toEqual(
       expect.objectContaining({
-        Authorization: 'Basic dXNlcjpwYXNzd29yZA==',
+        Authorization: expectedAuthorization,
       })
     );
   });
