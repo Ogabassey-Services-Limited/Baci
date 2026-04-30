@@ -49,11 +49,29 @@ type FallbackSeparators =
   | typeof DOT_DECIMAL_APOSTROPHE_GROUP_SEPARATORS;
 
 // Region-specific overrides take precedence over the language-only map.
-// Swiss German/Italian use apostrophe grouping; Swiss French uses NNBSP grouping.
+// Several locales diverge from their language defaults (e.g. pt-BR uses
+// dot grouping while pt-PT uses NBSP), so we keep an explicit override
+// table for the regions most likely to be encountered.
 const FALLBACK_REGION_SEPARATORS: Record<string, FallbackSeparators> = {
+  // Swiss German/Italian use apostrophe; Swiss French uses NNBSP.
   'de-ch': DOT_DECIMAL_APOSTROPHE_GROUP_SEPARATORS,
   'it-ch': DOT_DECIMAL_APOSTROPHE_GROUP_SEPARATORS,
   'fr-ch': COMMA_DECIMAL_SPACE_GROUP_SEPARATORS,
+  // Brazilian Portuguese uses dot grouping unlike European Portuguese.
+  'pt-br': COMMA_DECIMAL_SEPARATORS,
+  // Austrian German uses NBSP grouping unlike de-DE / de-LU.
+  'de-at': COMMA_DECIMAL_SPACE_GROUP_SEPARATORS,
+  // Latin American Spanish uses dot decimal / comma group.
+  'es-419': DOT_DECIMAL_SEPARATORS,
+  'es-mx': DOT_DECIMAL_SEPARATORS,
+  'es-pe': DOT_DECIMAL_SEPARATORS,
+  // Canadian French uses NBSP grouping (vs fr-FR NNBSP, but both treated as
+  // generic space groups by normalizeLocaleNumberInput).
+  'fr-ca': COMMA_DECIMAL_SPACE_GROUP_SEPARATORS,
+  // Luxembourgish French uses dot grouping (Belgian Dutch convention).
+  'fr-lu': COMMA_DECIMAL_SEPARATORS,
+  // South African English uses NBSP groups and comma decimal.
+  'en-za': COMMA_DECIMAL_SPACE_GROUP_SEPARATORS,
 };
 
 const FALLBACK_LOCALE_SEPARATORS: Record<string, FallbackSeparators> = {
@@ -84,7 +102,12 @@ const FALLBACK_LOCALE_SEPARATORS: Record<string, FallbackSeparators> = {
 };
 
 function getFallbackLocaleSeparators(locale: string): FallbackSeparators {
-  const normalized = locale.replace(/_/g, '-').toLowerCase();
+  // Strip BCP-47 extension subtags (e.g. `-u-nu-latn`) and case-normalize so
+  // region overrides match regardless of how the caller wrote the tag.
+  const normalized = locale
+    .replace(/_/g, '-')
+    .replace(/-[a-z]-.+$/i, '')
+    .toLowerCase();
   const regionOverride = FALLBACK_REGION_SEPARATORS[normalized];
   if (regionOverride) {
     return regionOverride;

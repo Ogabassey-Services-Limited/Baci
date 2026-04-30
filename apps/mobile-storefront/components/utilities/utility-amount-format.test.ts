@@ -132,6 +132,24 @@ describe('formatUtilityAmountInput', () => {
       expect(formatUtilityAmountInput('1’234.56', 'it-CH')).toBe(
         expectFor('it-CH', 1234.56)
       );
+      // Region-specific overrides for diverging variants.
+      // pt-BR uses dot grouping (unlike pt-PT NBSP).
+      expect(formatUtilityAmountInput('1.234,56', 'pt-BR')).toBe(
+        expectFor('pt-BR', 1234.56)
+      );
+      // de-AT uses NBSP grouping (unlike de-DE dot).
+      expect(formatUtilityAmountInput('1 234,56', 'de-AT')).toBe(
+        expectFor('de-AT', 1234.56)
+      );
+      // es-MX uses dot decimal / comma group (unlike es-ES).
+      expect(formatUtilityAmountInput('1,234.56', 'es-MX')).toBe(
+        expectFor('es-MX', 1234.56)
+      );
+      // BCP-47 unicode extension subtags should be stripped before
+      // region lookup so de-CH-u-nu-latn still hits the apostrophe override.
+      expect(
+        formatUtilityAmountInput('1’234.56', 'de-CH-u-nu-latn')
+      ).toBe(expectFor('de-CH', 1234.56));
     } finally {
       Object.defineProperty(Intl.NumberFormat.prototype, 'formatToParts', {
         configurable: true,
