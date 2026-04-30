@@ -2369,9 +2369,12 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: (...args: unknown[]) => mockCreateClient(...args),
 }));
 
+const mockGetSupabaseJwtSecret = vi.fn(() => 'test-supabase-jwt-secret');
+
 vi.mock('@/env', () => ({
   getSupabaseAnonKey: () => 'anon-key',
   getSupabaseUrl: () => 'https://example.supabase.co',
+  getSupabaseJwtSecret: () => mockGetSupabaseJwtSecret(),
 }));
 
 function decodeJwtPayload(token: string) {
@@ -2390,7 +2393,7 @@ function decodeJwtPayload(token: string) {
 
 describe('createAgenticScopedSupabaseClient', () => {
   it('creates an anon-key client with merchant-scoped Authorization claims', () => {
-    process.env.SUPABASE_JWT_SECRET = 'test-supabase-jwt-secret';
+    mockGetSupabaseJwtSecret.mockReturnValue('test-supabase-jwt-secret');
 
     createAgenticScopedSupabaseClient({
       merchantId: '00000000-0000-4000-8000-000000000001',
@@ -2424,14 +2427,18 @@ describe('createAgenticScopedSupabaseClient', () => {
   });
 
   it('fails closed when SUPABASE_JWT_SECRET is missing', () => {
-    delete process.env.SUPABASE_JWT_SECRET;
+    // The validated env getter throws when the secret is unset; the helper must
+    // propagate that error rather than silently signing with an empty secret.
+    mockGetSupabaseJwtSecret.mockImplementation(() => {
+      throw new Error('SUPABASE_JWT_SECRET is not defined');
+    });
 
     expect(() =>
       createAgenticScopedSupabaseClient({
         merchantId: '00000000-0000-4000-8000-000000000001',
         merchantSlug: 'ogabassey',
       })
-    ).toThrow('SUPABASE_JWT_SECRET is required');
+    ).toThrow('SUPABASE_JWT_SECRET is not defined');
   });
 });
 ```
@@ -2628,14 +2635,45 @@ CREATE POLICY "Agentic order items follow merchant scoped orders (restrictive)"
 
 If an affected table already has a policy with the same name in the target database, use `DROP POLICY IF EXISTS ... ON public.<table>;` immediately before `CREATE POLICY`. Do not edit baseline migrations.
 
-- [ ] **Step 4: Implement scoped client helper**
+- [ ] **Step 4: Add `SUPABASE_JWT_SECRET` to the validated env schema**
+
+Routing JWT secret access through `apps/web/src/env.ts` keeps the centralized
+Zod-validated schema as the single source of truth and surfaces missing
+configuration at startup (when `getEnv()` parses) instead of at request time
+inside checkout. Add the field to `serverSchema` and expose a server-only
+getter alongside `getSupabaseServiceRoleKey`:
+
+```typescript
+// apps/web/src/env.ts — inside serverSchema
+SUPABASE_JWT_SECRET: z
+  .string()
+  .min(32, 'SUPABASE_JWT_SECRET is required (Supabase project JWT signing secret)'),
+
+// apps/web/src/env.ts — alongside other Supabase getters
+export const getSupabaseJwtSecret = (): string => {
+  if (typeof window !== 'undefined')
+    throw new Error('SUPABASE_JWT_SECRET cannot be accessed on the client');
+  if (!env?.SUPABASE_JWT_SECRET)
+    throw new Error('SUPABASE_JWT_SECRET is not defined');
+  return env.SUPABASE_JWT_SECRET;
+};
+```
+
+This fails closed at deploy/startup if the secret is missing, instead of letting
+checkout requests trip an uncaught throw mid-request and degrading into 5xxs.
+
+- [ ] **Step 5: Implement scoped client helper**
 
 Create `apps/web/src/lib/agentic/scoped-supabase.ts`:
 
 ```typescript
 import { createHmac } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
-import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
+import {
+  getSupabaseAnonKey,
+  getSupabaseJwtSecret,
+  getSupabaseUrl,
+} from '@/env';
 
 const TOKEN_TTL_SECONDS = 5 * 60;
 
@@ -2661,10 +2699,9 @@ export function createAgenticScopedSupabaseClient({
   merchantSlug: string;
   now?: Date;
 }) {
-  const jwtSecret = process.env.SUPABASE_JWT_SECRET;
-  if (!jwtSecret) {
-    throw new Error('SUPABASE_JWT_SECRET is required for agentic scoped access');
-  }
+  // Read through the validated env getter so missing config is caught at
+  // startup by the Zod schema, not as a runtime throw inside the checkout path.
+  const jwtSecret = getSupabaseJwtSecret();
 
   const issuedAt = Math.floor(now.getTime() / 1000);
   const token = signJwt(
@@ -2694,7 +2731,7 @@ export function createAgenticScopedSupabaseClient({
 }
 ```
 
-- [ ] **Step 5: Replace service clients in agentic checkout routes**
+- [ ] **Step 6: Replace service clients in agentic checkout routes**
 
 In all agentic checkout routes, resolve the merchant context and merchant row first, then create the scoped client:
 
@@ -2723,7 +2760,7 @@ const supabase = createAgenticScopedSupabaseClient({
 
 The bootstrap read is public merchant metadata only. All checkout-session, order, order-item, idempotency, and request-record reads/writes must use the scoped client or a dedicated merchant-scoped RPC with equivalent RLS checks. Do not call another API route handler directly for order creation; extract order creation into a shared server utility that accepts the scoped client.
 
-- [ ] **Step 6: Run scoped access tests**
+- [ ] **Step 7: Run scoped access tests**
 
 Run:
 
@@ -2733,12 +2770,12 @@ pnpm --filter web test src/lib/agentic/scoped-supabase.test.ts src/lib/agentic/m
 
 Expected: PASS after route tests assert `createServiceClient` and `createAdminClient` are not imported by agentic checkout routes.
 
-- [ ] **Step 7: Stage For Phase Review**
+- [ ] **Step 8: Stage For Phase Review**
 
 Run:
 
 ```bash
-git add apps/web/src/lib/agentic/scoped-supabase.ts apps/web/src/lib/agentic/scoped-supabase.test.ts supabase/migrations/20260428170500_add_agentic_scoped_access_policies.sql apps/web/src/app/api/agentic/checkout_sessions/route.ts 'apps/web/src/app/api/agentic/checkout_sessions/[id]/route.ts' 'apps/web/src/app/api/agentic/checkout_sessions/[id]/complete/route.ts' 'apps/web/src/app/api/agentic/checkout_sessions/[id]/cancel/route.ts' apps/web/src/app/api/agentic/checkout_sessions/route.test.ts 'apps/web/src/app/api/agentic/checkout_sessions/[id]/route.test.ts'
+git add apps/web/src/env.ts apps/web/src/lib/agentic/scoped-supabase.ts apps/web/src/lib/agentic/scoped-supabase.test.ts supabase/migrations/20260428170500_add_agentic_scoped_access_policies.sql apps/web/src/app/api/agentic/checkout_sessions/route.ts 'apps/web/src/app/api/agentic/checkout_sessions/[id]/route.ts' 'apps/web/src/app/api/agentic/checkout_sessions/[id]/complete/route.ts' 'apps/web/src/app/api/agentic/checkout_sessions/[id]/cancel/route.ts' apps/web/src/app/api/agentic/checkout_sessions/route.test.ts 'apps/web/src/app/api/agentic/checkout_sessions/[id]/route.test.ts'
 ```
 
 ---
