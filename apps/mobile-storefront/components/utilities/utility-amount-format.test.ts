@@ -67,4 +67,110 @@ describe('formatUtilityAmountInput', () => {
   it('returns empty string for English-formatted input when locale is de-DE', () => {
     expect(formatUtilityAmountInput('1,234.5', 'de-DE')).toBe('');
   });
+
+  it('formats input when the runtime does not support formatToParts', () => {
+    const originalFormatToParts = Intl.NumberFormat.prototype.formatToParts;
+    Object.defineProperty(Intl.NumberFormat.prototype, 'formatToParts', {
+      configurable: true,
+      value: undefined,
+    });
+
+    try {
+      expect(formatUtilityAmountInput('1000')).toBe('1,000');
+      expect(formatUtilityAmountInput('1,000')).toBe('1,000');
+      expect(formatUtilityAmountInput('1234.5', 'de-DE')).toBe('1.234,5');
+      expect(formatUtilityAmountInput('1.234,56', 'de-DE')).toBe('1.234,56');
+      expect(formatUtilityAmountInput('1234.5', 'ja-JP')).toBe('1,234.5');
+      expect(formatUtilityAmountInput('1234.5', 'zh-CN')).toBe('1,234.5');
+      // Space-group locales: Intl uses non-breaking space as group separator.
+      // The fallback map must treat these as space-group, not dot-group.
+      expect(formatUtilityAmountInput('1234,5', 'fi-FI')).toBe(
+        new Intl.NumberFormat('fi-FI', { maximumFractionDigits: 2 }).format(
+          1234.5
+        )
+      );
+      expect(formatUtilityAmountInput('1 234,56', 'fr-FR')).toBe(
+        new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(
+          1234.56
+        )
+      );
+      expect(formatUtilityAmountInput('1 234,56', 'ru-RU')).toBe(
+        new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(
+          1234.56
+        )
+      );
+      // Czech, Polish, Slovak, Hungarian, Norwegian, Portuguese, Ukrainian
+      // also use non-breaking space as group separator under Intl.
+      const expectFor = (loc: string, value: number) =>
+        new Intl.NumberFormat(loc, { maximumFractionDigits: 2 }).format(value);
+      expect(formatUtilityAmountInput('1 234,56', 'cs-CZ')).toBe(
+        expectFor('cs-CZ', 1234.56)
+      );
+      expect(formatUtilityAmountInput('1 234,56', 'pl-PL')).toBe(
+        expectFor('pl-PL', 1234.56)
+      );
+      expect(formatUtilityAmountInput('1 234,56', 'sk-SK')).toBe(
+        expectFor('sk-SK', 1234.56)
+      );
+      expect(formatUtilityAmountInput('1 234,56', 'hu-HU')).toBe(
+        expectFor('hu-HU', 1234.56)
+      );
+      expect(formatUtilityAmountInput('1 234,56', 'no-NO')).toBe(
+        expectFor('no-NO', 1234.56)
+      );
+      expect(formatUtilityAmountInput('1 234,56', 'pt-PT')).toBe(
+        expectFor('pt-PT', 1234.56)
+      );
+      expect(formatUtilityAmountInput('1 234,56', 'uk-UA')).toBe(
+        expectFor('uk-UA', 1234.56)
+      );
+      // Swiss region-specific overrides: de-CH and it-CH use apostrophe
+      // grouping under Intl, which the language-only key cannot capture.
+      expect(formatUtilityAmountInput('1’234.56', 'de-CH')).toBe(
+        expectFor('de-CH', 1234.56)
+      );
+      expect(formatUtilityAmountInput('1’234.56', 'it-CH')).toBe(
+        expectFor('it-CH', 1234.56)
+      );
+      // Region-specific overrides for diverging variants.
+      // pt-BR uses dot grouping (unlike pt-PT NBSP).
+      expect(formatUtilityAmountInput('1.234,56', 'pt-BR')).toBe(
+        expectFor('pt-BR', 1234.56)
+      );
+      // de-AT uses NBSP grouping (unlike de-DE dot).
+      expect(formatUtilityAmountInput('1 234,56', 'de-AT')).toBe(
+        expectFor('de-AT', 1234.56)
+      );
+      // es-MX uses dot decimal / comma group (unlike es-ES).
+      expect(formatUtilityAmountInput('1,234.56', 'es-MX')).toBe(
+        expectFor('es-MX', 1234.56)
+      );
+      // BCP-47 unicode extension subtags should be stripped before
+      // region lookup so de-CH-u-nu-latn still hits the apostrophe override.
+      expect(
+        formatUtilityAmountInput('1’234.56', 'de-CH-u-nu-latn')
+      ).toBe(expectFor('de-CH', 1234.56));
+      // Unmapped comma-decimal locales (id-ID, vi-VN) must default to
+      // comma-decimal/dot-group instead of regressing to dot-decimal.
+      expect(formatUtilityAmountInput('1.234,56', 'id-ID')).toBe(
+        expectFor('id-ID', 1234.56)
+      );
+      expect(formatUtilityAmountInput('1.234,56', 'vi-VN')).toBe(
+        expectFor('vi-VN', 1234.56)
+      );
+      // Unmapped dot-decimal locales (hi-IN) must keep dot-decimal.
+      expect(formatUtilityAmountInput('1,234.56', 'hi-IN')).toBe(
+        expectFor('hi-IN', 1234.56)
+      );
+      // lo-LA uses comma-decimal/dot-group despite SE Asian language.
+      expect(formatUtilityAmountInput('1.234,56', 'lo-LA')).toBe(
+        expectFor('lo-LA', 1234.56)
+      );
+    } finally {
+      Object.defineProperty(Intl.NumberFormat.prototype, 'formatToParts', {
+        configurable: true,
+        value: originalFormatToParts,
+      });
+    }
+  });
 });

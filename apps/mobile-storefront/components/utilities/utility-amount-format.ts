@@ -32,15 +32,134 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+const DOT_DECIMAL_SEPARATORS = { decimal: '.', group: ',' } as const;
+const COMMA_DECIMAL_SEPARATORS = { decimal: ',', group: '.' } as const;
+const COMMA_DECIMAL_SPACE_GROUP_SEPARATORS = {
+  decimal: ',',
+  group: ' ',
+} as const;
+const DOT_DECIMAL_APOSTROPHE_GROUP_SEPARATORS = {
+  decimal: '.',
+  group: '’',
+} as const;
+type FallbackSeparators =
+  | typeof DOT_DECIMAL_SEPARATORS
+  | typeof COMMA_DECIMAL_SEPARATORS
+  | typeof COMMA_DECIMAL_SPACE_GROUP_SEPARATORS
+  | typeof DOT_DECIMAL_APOSTROPHE_GROUP_SEPARATORS;
+
+// Region-specific overrides take precedence over the language-only map.
+// Several locales diverge from their language defaults (e.g. pt-BR uses
+// dot grouping while pt-PT uses NBSP), so we keep an explicit override
+// table for the regions most likely to be encountered.
+const FALLBACK_REGION_SEPARATORS: Record<string, FallbackSeparators> = {
+  // Swiss German/Italian use apostrophe; Swiss French uses NNBSP.
+  'de-ch': DOT_DECIMAL_APOSTROPHE_GROUP_SEPARATORS,
+  'it-ch': DOT_DECIMAL_APOSTROPHE_GROUP_SEPARATORS,
+  'fr-ch': COMMA_DECIMAL_SPACE_GROUP_SEPARATORS,
+  // Brazilian Portuguese uses dot grouping unlike European Portuguese.
+  'pt-br': COMMA_DECIMAL_SEPARATORS,
+  // Austrian German uses NBSP grouping unlike de-DE / de-LU.
+  'de-at': COMMA_DECIMAL_SPACE_GROUP_SEPARATORS,
+  // Latin American Spanish uses dot decimal / comma group.
+  'es-419': DOT_DECIMAL_SEPARATORS,
+  'es-mx': DOT_DECIMAL_SEPARATORS,
+  'es-pe': DOT_DECIMAL_SEPARATORS,
+  // Canadian French uses NBSP grouping (vs fr-FR NNBSP, but both treated as
+  // generic space groups by normalizeLocaleNumberInput).
+  'fr-ca': COMMA_DECIMAL_SPACE_GROUP_SEPARATORS,
+  // Luxembourgish French uses dot grouping (Belgian Dutch convention).
+  'fr-lu': COMMA_DECIMAL_SEPARATORS,
+  // South African English uses NBSP groups and comma decimal.
+  'en-za': COMMA_DECIMAL_SPACE_GROUP_SEPARATORS,
+};
+
+const FALLBACK_LOCALE_SEPARATORS: Record<string, FallbackSeparators> = {
+  bg: COMMA_DECIMAL_SPACE_GROUP_SEPARATORS,
+  cs: COMMA_DECIMAL_SPACE_GROUP_SEPARATORS,
+  da: COMMA_DECIMAL_SEPARATORS,
+  de: COMMA_DECIMAL_SEPARATORS,
+  el: COMMA_DECIMAL_SEPARATORS,
+  en: DOT_DECIMAL_SEPARATORS,
+  es: COMMA_DECIMAL_SEPARATORS,
+  fi: COMMA_DECIMAL_SPACE_GROUP_SEPARATORS,
+  fr: COMMA_DECIMAL_SPACE_GROUP_SEPARATORS,
+  hu: COMMA_DECIMAL_SPACE_GROUP_SEPARATORS,
+  it: COMMA_DECIMAL_SEPARATORS,
+  ja: DOT_DECIMAL_SEPARATORS,
+  ko: DOT_DECIMAL_SEPARATORS,
+  nl: COMMA_DECIMAL_SEPARATORS,
+  no: COMMA_DECIMAL_SPACE_GROUP_SEPARATORS,
+  pl: COMMA_DECIMAL_SPACE_GROUP_SEPARATORS,
+  pt: COMMA_DECIMAL_SPACE_GROUP_SEPARATORS,
+  ro: COMMA_DECIMAL_SEPARATORS,
+  ru: COMMA_DECIMAL_SPACE_GROUP_SEPARATORS,
+  sk: COMMA_DECIMAL_SPACE_GROUP_SEPARATORS,
+  sv: COMMA_DECIMAL_SPACE_GROUP_SEPARATORS,
+  tr: COMMA_DECIMAL_SEPARATORS,
+  uk: COMMA_DECIMAL_SPACE_GROUP_SEPARATORS,
+  zh: DOT_DECIMAL_SEPARATORS,
+};
+
+// Languages that use dot-decimal / comma-group by default. For unmapped
+// locales we fall back to comma-decimal / dot-group, matching the
+// majority of European and SE Asian (id, vi) locales. Arabic / Persian
+// use Arabic-Indic separators which the fallback path cannot model
+// exactly; comma-decimal default is a best-effort.
+const DOT_DECIMAL_LANGUAGES = new Set([
+  'en',
+  'ja',
+  'ko',
+  'zh',
+  'th',
+  'hi',
+  'he',
+  'bn',
+  'sw',
+  'ms',
+  'km',
+  'my',
+]);
+
+function getFallbackLocaleSeparators(locale: string): FallbackSeparators {
+  // Strip BCP-47 extension subtags (e.g. `-u-nu-latn`) and case-normalize so
+  // region overrides match regardless of how the caller wrote the tag.
+  const normalized = locale
+    .replace(/_/g, '-')
+    .replace(/-[a-z]-.+$/i, '')
+    .toLowerCase();
+  const regionOverride = FALLBACK_REGION_SEPARATORS[normalized];
+  if (regionOverride) {
+    return regionOverride;
+  }
+  const language = normalized.split('-')[0] ?? '';
+  const mapped = FALLBACK_LOCALE_SEPARATORS[language];
+  if (mapped) {
+    return mapped;
+  }
+  // For unmapped locales, default to comma-decimal/dot-group unless the
+  // language is known to use dot-decimal. This matches Intl behavior for
+  // the majority of real-world locales (id-ID, vi-VN, ar-*, hi-IN, etc.).
+  return DOT_DECIMAL_LANGUAGES.has(language)
+    ? DOT_DECIMAL_SEPARATORS
+    : COMMA_DECIMAL_SEPARATORS;
+}
+
 function getLocaleSeparators(locale: string) {
-  const parts = getUtilityAmountFormatter(locale).formatToParts(12_345.6);
+  const formatter = getUtilityAmountFormatter(locale);
+  if (typeof formatter.formatToParts !== 'function') {
+    return getFallbackLocaleSeparators(locale);
+  }
+
+  const parts = formatter.formatToParts(12_345.6);
+  const fallbackSeparators = getFallbackLocaleSeparators(locale);
   return {
     decimal:
       parts.find((part) => part.type === 'decimal')?.value ??
-      (locale.startsWith('en-') ? '.' : ','),
+      fallbackSeparators.decimal,
     group:
       parts.find((part) => part.type === 'group')?.value ??
-      (locale.startsWith('en-') ? ',' : '.'),
+      fallbackSeparators.group,
   };
 }
 
