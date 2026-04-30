@@ -181,6 +181,51 @@ test('ensureTransformed rejects timed-out image work with 504', async () => {
   assert.equal(destroyedStatusCode, 504);
 });
 
+test('ensureTransformed reports timeout before slow transform cleanup settles', async () => {
+  let destroyedStatusCode;
+  let rejectTransform;
+  const slowTransformCleanup = new Promise((_, reject) => {
+    rejectTransform = reject;
+  });
+  const deps = createTransformDeps({
+    sharpFactory: () =>
+      createFakeImage(slowTransformCleanup, (error) => {
+        destroyedStatusCode = error?.statusCode;
+      }),
+    transformTimeoutMs: 10,
+  });
+  const transformRequest = ensureTransformed(
+    'slow-source.png',
+    'slow-cache.webp',
+    options,
+    'webp',
+    deps
+  ).then(
+    () => ({ status: 'fulfilled' }),
+    (error) => ({ error, status: 'rejected' })
+  );
+
+  const earlyOutcome = await Promise.race([
+    transformRequest,
+    new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({ status: 'still-pending' });
+      }, 60);
+    }),
+  ]);
+
+  rejectTransform(new Error('late transform cleanup'));
+  await transformRequest;
+
+  assert.equal(earlyOutcome.status, 'rejected');
+  assert.equal(earlyOutcome.error?.statusCode, 504);
+  assert.equal(
+    earlyOutcome.error?.message,
+    'Image transform timed out after 10ms'
+  );
+  assert.equal(destroyedStatusCode, 504);
+});
+
 test('ensureTransformed shares one in-flight transform for the same cache key', async () => {
   let transformStarts = 0;
   let resolveTransform;

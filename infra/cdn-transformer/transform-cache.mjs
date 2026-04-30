@@ -63,8 +63,7 @@ function acquireTransformSlot() {
   });
 }
 
-async function writeImageWithTimeout(image, tempPath, timeoutMs) {
-  let timedOut = false;
+function writeImageWithTimeout(image, tempPath, timeoutMs) {
   let timeoutId;
   const timeoutError = new Error(
     `Image transform timed out after ${timeoutMs}ms`
@@ -73,7 +72,6 @@ async function writeImageWithTimeout(image, tempPath, timeoutMs) {
   const transform = image.toFile(tempPath);
   const timeout = new Promise((_, reject) => {
     timeoutId = setTimeout(() => {
-      timedOut = true;
       try {
         image.destroy(timeoutError);
       } catch (error) {
@@ -83,18 +81,14 @@ async function writeImageWithTimeout(image, tempPath, timeoutMs) {
     }, timeoutMs);
   });
 
-  try {
-    return await Promise.race([transform, timeout]);
-  } catch (error) {
-    if (timedOut) {
-      await transform.catch(() => undefined);
-      throw timeoutError;
-    }
-
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
-  }
+  return {
+    completion: transform.catch(() => undefined).finally(() => {
+      clearTimeout(timeoutId);
+    }),
+    result: Promise.race([transform, timeout]).finally(() => {
+      clearTimeout(timeoutId);
+    }),
+  };
 }
 
 export function buildCachePath({
@@ -118,60 +112,126 @@ export function buildCachePath({
   return path.join(CACHE_ROOT, `${hash}.${outputFormat}`);
 }
 
-async function transformImage(
+function startTransformImage(
   sourcePath,
   cachePath,
   options,
   outputFormat,
   deps = defaultTransformDeps
 ) {
-  const sourceStat = await deps.stat(sourcePath);
-  if (sourceStat.size > deps.maxTransformSizeBytes) {
-    const error = new Error('Source image is too large to transform');
-    error.statusCode = 413;
-    throw error;
-  }
-
-  const release = await acquireTransformSlot();
-  const tempPath = `${cachePath}.${process.pid}.${Date.now()}.tmp`;
-  try {
-    await deps.mkdir(path.dirname(cachePath), { recursive: true });
-
-    // GIF is not a supported source extension; preserve animation for WebP inputs.
-    const shouldPreserveAnimation =
-      outputFormat === 'webp' &&
-      path.extname(sourcePath).toLowerCase() === '.webp';
-    const image = deps
-      .sharpFactory(sourcePath, {
-        animated: shouldPreserveAnimation,
-      })
-      .rotate()
-      .resize({
-        fit: options.fit,
-        height: options.height,
-        kernel: sharp.kernel.lanczos3,
-        withoutEnlargement: true,
-        width: options.width,
-      });
-
-    if (outputFormat === 'avif') {
-      image.avif({ effort: 4, quality: options.quality });
-    } else if (outputFormat === 'webp') {
-      image.webp({ effort: 4, quality: options.quality });
-    } else if (outputFormat === 'png') {
-      image.png({ compressionLevel: 9 });
-    } else {
-      image.jpeg({ mozjpeg: true, quality: options.quality });
+  let markComplete;
+  const completionPromise = new Promise((resolve) => {
+    markComplete = resolve;
+  });
+  let completed = false;
+  function completeOnce() {
+    if (completed) {
+      return;
     }
 
-    await writeImageWithTimeout(image, tempPath, deps.transformTimeoutMs);
-    await deps.rename(tempPath, cachePath);
-  } catch (error) {
-    await deps.unlink(tempPath).catch(logCleanupError);
-    throw error;
-  } finally {
-    release();
+    completed = true;
+    markComplete();
   }
+
+  const clientPromise = (async () => {
+    let release;
+    let releaseInFinally = true;
+    let tempPath;
+    let writeCompletion = Promise.resolve();
+    try {
+      const sourceStat = await deps.stat(sourcePath);
+      if (sourceStat.size > deps.maxTransformSizeBytes) {
+        const error = new Error('Source image is too large to transform');
+        error.statusCode = 413;
+        throw error;
+      }
+
+      release = await acquireTransformSlot();
+      tempPath = `${cachePath}.${process.pid}.${Date.now()}.tmp`;
+      await deps.mkdir(path.dirname(cachePath), { recursive: true });
+
+      // GIF is not a supported source extension; preserve animation for WebP inputs.
+      const shouldPreserveAnimation =
+        outputFormat === 'webp' &&
+        path.extname(sourcePath).toLowerCase() === '.webp';
+      const image = deps
+        .sharpFactory(sourcePath, {
+          animated: shouldPreserveAnimation,
+        })
+        .rotate()
+        .resize({
+          fit: options.fit,
+          height: options.height,
+          kernel: sharp.kernel.lanczos3,
+          withoutEnlargement: true,
+          width: options.width,
+        });
+
+      if (outputFormat === 'avif') {
+        image.avif({ effort: 4, quality: options.quality });
+      } else if (outputFormat === 'webp') {
+        image.webp({ effort: 4, quality: options.quality });
+      } else if (outputFormat === 'png') {
+        image.png({ compressionLevel: 9 });
+      } else {
+        image.jpeg({ mozjpeg: true, quality: options.quality });
+      }
+
+      const write = writeImageWithTimeout(
+        image,
+        tempPath,
+        deps.transformTimeoutMs
+      );
+      writeCompletion = write.completion;
+
+      await write.result;
+      await deps.rename(tempPath, cachePath);
+    } catch (error) {
+      if (error?.statusCode === 504 && release) {
+        releaseInFinally = false;
+        void writeCompletion
+          .finally(() => deps.unlink(tempPath).catch(logCleanupError))
+          .finally(() => {
+            release();
+            completeOnce();
+          });
+        throw error;
+      }
+
+      if (tempPath) {
+        await deps.unlink(tempPath).catch(logCleanupError);
+      }
+      throw error;
+    } finally {
+      if (releaseInFinally) {
+        release?.();
+        completeOnce();
+      }
+    }
+  })();
+
+  return { clientPromise, completionPromise };
+}
+
+function createPendingTransformEntry() {
+  let resolveClient;
+  let rejectClient;
+  let resolveCompletion;
+  const clientPromise = new Promise((resolve, reject) => {
+    resolveClient = resolve;
+    rejectClient = reject;
+  });
+  const completionPromise = new Promise((resolve) => {
+    resolveCompletion = resolve;
+  });
+
+  return {
+    clientPromise,
+    completionPromise,
+    rejectClient,
+    resolveClient,
+    resolveCompletion,
+  };
 }
 
 export async function ensureTransformed(
@@ -183,20 +243,39 @@ export async function ensureTransformed(
 ) {
   const existingTransform = transformInProgress.get(cachePath);
   if (existingTransform) {
-    await existingTransform;
+    await existingTransform.clientPromise;
     return;
   }
 
-  const transform = transformImage(
-    sourcePath,
-    cachePath,
-    options,
-    outputFormat,
-    deps
-  ).finally(() => {
-    transformInProgress.delete(cachePath);
+  const pendingTransform = createPendingTransformEntry();
+  transformInProgress.set(cachePath, pendingTransform);
+  void pendingTransform.completionPromise.finally(() => {
+    if (transformInProgress.get(cachePath) === pendingTransform) {
+      transformInProgress.delete(cachePath);
+    }
   });
 
-  transformInProgress.set(cachePath, transform);
-  await transform;
+  try {
+    const transform = startTransformImage(
+      sourcePath,
+      cachePath,
+      options,
+      outputFormat,
+      deps
+    );
+    void transform.clientPromise.then(
+      pendingTransform.resolveClient,
+      pendingTransform.rejectClient
+    );
+    void transform.completionPromise.finally(
+      pendingTransform.resolveCompletion
+    );
+  } catch (error) {
+    // Defensive path for future synchronous startTransformImage setup failures.
+    // Current async failures flow through clientPromise/completionPromise above.
+    pendingTransform.rejectClient(error);
+    pendingTransform.resolveCompletion();
+  }
+
+  await pendingTransform.clientPromise;
 }
