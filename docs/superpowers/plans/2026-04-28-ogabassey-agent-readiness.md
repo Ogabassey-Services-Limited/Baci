@@ -3956,15 +3956,18 @@ export const agenticCheckoutCompleteSchema = z.object({
     token: z.string().min(1),
     billing_address: agenticFulfillmentAddressSchema.optional(),
   }),
-  // Mark completion_authorization optional so requests WITHOUT a confirmation
-  // artifact still pass Zod validation and reach `verifyCheckoutCompletionAuthorization`,
-  // which returns the machine-readable `CONFIRMATION_REQUIRED` (428, retryable)
+  // Mark completion_authorization nullish so requests WITHOUT a confirmation
+  // artifact — whether the field is omitted (`undefined`) OR explicitly sent as
+  // `null` by agentic clients — still pass Zod validation and reach
+  // `verifyCheckoutCompletionAuthorization`, which accepts `null | undefined`
+  // and returns the machine-readable `CONFIRMATION_REQUIRED` (428, retryable)
   // challenge that ChatGPT/agentic clients use to prompt the buyer for consent.
-  // If we make this required, the request fails with a generic 400 and clients
-  // never see the explicit consent challenge, which breaks the checkout handshake.
+  // Using `.optional()` alone would reject `null` at Zod parsing with a generic
+  // 400, so clients never see the explicit consent challenge and the checkout
+  // handshake breaks.
   completion_authorization: z
     .union([humanConfirmationSchema, paymentMandateSchema])
-    .optional(),
+    .nullish(),
 });
 ```
 
