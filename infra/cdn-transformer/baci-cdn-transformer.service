@@ -1,0 +1,39 @@
+[Unit]
+Description=Baci CDN image transformer
+After=network.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=bassey
+Group=bassey
+WorkingDirectory=/home/bassey/baci-cdn-transformer
+Environment=NODE_ENV=production
+Environment=CDN_TRANSFORMER_HOST=127.0.0.1
+Environment=CDN_TRANSFORMER_PORT=8095
+Environment=CDN_PUBLIC_ROOT=/home/bassey/baci-cdn/public
+Environment=CDN_TRANSFORMER_CACHE_ROOT=/home/bassey/baci-cdn/cache/image-transform
+ExecStart=/usr/bin/node /home/bassey/baci-cdn-transformer/server.mjs
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=10
+TimeoutStopSec=15
+LimitNOFILE=4096
+LimitNPROC=128
+MemoryAccounting=yes
+CPUAccounting=yes
+MemoryMax=512M
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+SystemCallFilter=~@raw-io
+ReadWritePaths=/home/bassey/baci-cdn/cache
+
+[Install]
+WantedBy=multi-user.target

@@ -36,6 +36,9 @@ export function hexToRgb(
     const [r, g, b] = cleanHex
       .split('')
       .map((char) => Number.parseInt(char + char, 16));
+    if (![r, g, b].every(Number.isFinite)) {
+      return null;
+    }
     return { r, g, b };
   }
 
@@ -44,10 +47,30 @@ export function hexToRgb(
     const r = Number.parseInt(cleanHex.substring(0, 2), 16);
     const g = Number.parseInt(cleanHex.substring(2, 4), 16);
     const b = Number.parseInt(cleanHex.substring(4, 6), 16);
+    if (![r, g, b].every(Number.isFinite)) {
+      return null;
+    }
     return { r, g, b };
   }
 
   return null;
+}
+
+/**
+ * Convert a hex color to rgba() with a clamped alpha channel.
+ * @param hex - Hex color string
+ * @param alpha - Opacity value, clamped to 0-1
+ * @returns CSS rgba() string, or the original value when parsing fails
+ */
+export function hexToRgba(hex: string, alpha: number): string {
+  const rgb = hexToRgb(hex);
+  if (!rgb) {
+    return hex;
+  }
+
+  const finiteAlpha = Number.isFinite(alpha) ? alpha : 1;
+  const clampedAlpha = Math.max(0, Math.min(1, finiteAlpha));
+  return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${clampedAlpha})`;
 }
 
 /**
