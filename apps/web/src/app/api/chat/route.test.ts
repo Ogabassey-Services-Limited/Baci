@@ -121,6 +121,18 @@ function makeRequest(body: unknown): Request {
   });
 }
 
+function makeAbortedRequest(body: unknown): Request {
+  const controller = new AbortController();
+  const request = new Request('http://localhost:3000/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: controller.signal,
+  });
+  controller.abort();
+  return request;
+}
+
 function makeInvalidJsonRequest(): Request {
   return new Request('http://localhost:3000/api/chat', {
     method: 'POST',
@@ -268,6 +280,31 @@ describe('POST /api/chat', () => {
       '[Agentic Chat] Ollama request failed; falling back to Gemini:',
       'Ollama unavailable'
     );
+    warnSpy.mockRestore();
+  });
+
+  it('does not fall back to Gemini when the client aborts the Ollama request', async () => {
+    // Arrange
+    ollamaBaseUrl = 'https://ollama.example.com';
+    ollamaError = new Error('Ollama chat request aborted');
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    // Act
+    const response = await POST(
+      makeAbortedRequest({
+        messages: [{ role: 'user', content: 'Show me phones' }],
+      })
+    );
+    const json = await response.json();
+
+    // Assert
+    expect(response.status).toBe(499);
+    expect(json.error).toBe('Client Closed Request');
+    expect(createOllamaChatResponse).toHaveBeenCalledOnce();
+    expect(generateText).not.toHaveBeenCalled();
+    expect(warnSpy).not.toHaveBeenCalled();
     warnSpy.mockRestore();
   });
 

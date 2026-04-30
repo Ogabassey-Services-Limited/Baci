@@ -245,6 +245,16 @@ export async function POST(req: Request) {
         });
         return await bufferOllamaTextResponse(ollamaResponse);
       } catch (error) {
+        if (req.signal.aborted) {
+          return new Response(
+            JSON.stringify({ error: 'Client Closed Request' }),
+            {
+              status: 499,
+              headers: { 'Content-Type': 'application/json' },
+            }
+          );
+        }
+
         console.warn(
           '[Agentic Chat] Ollama request failed; falling back to Gemini:',
           getSafeOllamaErrorMessage(error)
