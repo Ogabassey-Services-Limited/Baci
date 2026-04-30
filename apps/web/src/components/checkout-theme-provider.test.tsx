@@ -39,6 +39,9 @@ describe('CheckoutThemeProvider', () => {
         document.documentElement.style.getPropertyValue('--store-on-primary')
       ).toBe('#000000');
       expect(
+        document.documentElement.style.getPropertyValue('--store-primary-text')
+      ).toBe('#000000');
+      expect(
         document.documentElement.style.getPropertyValue('--store-border')
       ).toBe('rgba(255, 255, 255, 0.24)');
     });
@@ -50,6 +53,9 @@ describe('CheckoutThemeProvider', () => {
     ).toBe('');
     expect(
       document.documentElement.style.getPropertyValue('--store-on-primary')
+    ).toBe('');
+    expect(
+      document.documentElement.style.getPropertyValue('--store-primary-text')
     ).toBe('');
     expect(
       document.documentElement.style.getPropertyValue('--store-border')
@@ -76,8 +82,42 @@ describe('CheckoutThemeProvider', () => {
         document.documentElement.style.getPropertyValue('--store-on-primary')
       ).toBe('#FFFFFF');
       expect(
+        document.documentElement.style.getPropertyValue('--store-primary-text')
+      ).toBe('#FFFFFF');
+      expect(
         document.documentElement.style.getPropertyValue('--store-border')
       ).toBe('rgba(17, 17, 17, 0.24)');
+    });
+  });
+
+  it('sets white on-primary text for mid-tone primary colors', async () => {
+    mocks.useMerchant.mockReturnValue({
+      merchant: {
+        brand_colors: {
+          primary: '#4d4dff',
+        },
+      },
+    });
+
+    render(
+      <CheckoutThemeProvider>
+        <div>Checkout</div>
+      </CheckoutThemeProvider>
+    );
+
+    await waitFor(() => {
+      expect(
+        document.documentElement.style.getPropertyValue('--store-primary')
+      ).toBe('#4d4dff');
+      expect(
+        document.documentElement.style.getPropertyValue('--store-on-primary')
+      ).toBe('#FFFFFF');
+      expect(
+        document.documentElement.style.getPropertyValue('--store-primary-text')
+      ).toBe('#FFFFFF');
+      expect(
+        document.documentElement.style.getPropertyValue('--store-border')
+      ).toBe('rgba(77, 77, 255, 0.24)');
     });
   });
 

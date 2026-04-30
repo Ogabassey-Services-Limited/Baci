@@ -11,5 +11,6 @@ describe('hexToRgba', () => {
 
   it('returns the original value when a color cannot be parsed', () => {
     expect(hexToRgba('not-a-color', 0.24)).toBe('not-a-color');
+    expect(hexToRgba('#gggggg', 0.24)).toBe('#gggggg');
   });
 });

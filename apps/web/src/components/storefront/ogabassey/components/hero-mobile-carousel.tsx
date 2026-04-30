@@ -16,14 +16,18 @@ interface HeroMobileCarouselProps {
   isDesktopViewport: boolean;
 }
 
+const STORE_PRIMARY_FALLBACK = 'var(--store-primary, #d62027)';
+const STORE_BORDER_FALLBACK = 'var(--store-border, rgba(214, 32, 39, 0.24))';
+const STORE_ON_PRIMARY_FALLBACK = 'var(--store-on-primary, #ffffff)';
+
 const HERO_CTA_STYLE: CSSProperties = {
-  backgroundColor: 'var(--store-primary)',
-  borderColor: 'var(--store-border)',
-  color: 'var(--store-on-primary)',
+  backgroundColor: STORE_PRIMARY_FALLBACK,
+  borderColor: STORE_BORDER_FALLBACK,
+  color: STORE_ON_PRIMARY_FALLBACK,
 };
 
 const getIndicatorStyle = (isActive: boolean): CSSProperties => ({
-  backgroundColor: isActive ? 'var(--store-primary)' : 'var(--store-border)',
+  backgroundColor: isActive ? STORE_PRIMARY_FALLBACK : STORE_BORDER_FALLBACK,
   opacity: isActive ? 1 : 0.65,
 });
 

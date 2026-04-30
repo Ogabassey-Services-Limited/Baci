@@ -36,6 +36,9 @@ export function hexToRgb(
     const [r, g, b] = cleanHex
       .split('')
       .map((char) => Number.parseInt(char + char, 16));
+    if (![r, g, b].every(Number.isFinite)) {
+      return null;
+    }
     return { r, g, b };
   }
 
@@ -44,6 +47,9 @@ export function hexToRgb(
     const r = Number.parseInt(cleanHex.substring(0, 2), 16);
     const g = Number.parseInt(cleanHex.substring(2, 4), 16);
     const b = Number.parseInt(cleanHex.substring(4, 6), 16);
+    if (![r, g, b].every(Number.isFinite)) {
+      return null;
+    }
     return { r, g, b };
   }
 

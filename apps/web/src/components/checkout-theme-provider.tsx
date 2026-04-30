@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useMerchant } from '@/hooks/use-merchant';
-import { hexToRgba } from '@/lib/color-utils';
+import { getContrastingTextColor, hexToRgba } from '@/lib/color-utils';
 
 const STORE_BORDER_ALPHA = 0.24;
 
@@ -99,10 +99,7 @@ export function CheckoutThemeProvider({
       // Set Store variables - for ThemedButton
       root.style.setProperty('--store-primary', primaryHex);
 
-      // Calculate contrast text color
-      // Simple logic: if L > 0.5 use black, else white
-      const l = Number.parseInt(primaryHsl.split(' ')[2], 10);
-      const textColor = l > 60 ? '#000000' : '#FFFFFF';
+      const textColor = getContrastingTextColor(primaryHex);
       root.style.setProperty('--store-primary-text', textColor);
       root.style.setProperty('--store-on-primary', textColor);
       root.style.setProperty(

@@ -1,4 +1,4 @@
-import { lstat, realpath, stat } from 'node:fs/promises';
+import { realpath, stat } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import path from 'node:path';
 import process from 'node:process';
@@ -18,13 +18,12 @@ const defaultImageRequestDeps = {
   pickFormat,
   sendImageHead,
   serveFile,
-  lstat,
   stat,
   realpath,
 };
 
-function isPathInsidePublicRoot(filePath) {
-  const resolvedRoot = path.resolve(PUBLIC_ROOT);
+function isPathInsideRoot(filePath, rootPath) {
+  const resolvedRoot = path.resolve(rootPath);
   const resolvedPath = path.resolve(filePath);
 
   return (
@@ -39,38 +38,31 @@ function createHttpError(statusCode, message) {
   return error;
 }
 
-function toPublicSourcePath(filePath) {
+function toPublicSourcePath(filePath, rootPath = PUBLIC_ROOT) {
   return path
-    .relative(path.resolve(PUBLIC_ROOT), path.resolve(filePath))
+    .relative(path.resolve(rootPath), path.resolve(filePath))
     .split(path.sep)
     .join('/');
 }
 
 async function resolveSourceFile(parsedRequest, deps) {
+  const normalizedPublicRoot = path.resolve(PUBLIC_ROOT);
   const normalizedSourcePath = path.resolve(parsedRequest.absoluteSourcePath);
-  if (!isPathInsidePublicRoot(normalizedSourcePath)) {
+  if (!isPathInsideRoot(normalizedSourcePath, normalizedPublicRoot)) {
     throw createHttpError(404, 'Not found');
   }
 
-  const sourceLinkStat = await deps.lstat(normalizedSourcePath);
-
-  if (!sourceLinkStat.isSymbolicLink()) {
-    return {
-      absoluteSourcePath: normalizedSourcePath,
-      sourcePath: toPublicSourcePath(normalizedSourcePath),
-    };
-  }
-
+  const realPublicRoot = path.resolve(await deps.realpath(PUBLIC_ROOT));
   const realSourcePath = path.resolve(
     await deps.realpath(normalizedSourcePath)
   );
-  if (!isPathInsidePublicRoot(realSourcePath)) {
+  if (!isPathInsideRoot(realSourcePath, realPublicRoot)) {
     throw createHttpError(404, 'Not found');
   }
 
   return {
     absoluteSourcePath: realSourcePath,
-    sourcePath: toPublicSourcePath(realSourcePath),
+    sourcePath: toPublicSourcePath(realSourcePath, realPublicRoot),
   };
 }
 

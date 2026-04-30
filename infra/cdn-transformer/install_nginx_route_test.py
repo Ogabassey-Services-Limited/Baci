@@ -122,6 +122,31 @@ class InstallNginxRouteTest(unittest.TestCase):
                 '[::1]:9090',
             )
 
+    def test_transformer_upstream_rejects_invalid_port_values(self):
+        invalid_ports = [
+            '',
+            ' ',
+            '0',
+            '65536',
+            '-1',
+            'abc',
+            '80\nproxy_pass http://evil;',
+        ]
+
+        for port in invalid_ports:
+            with self.subTest(port=port):
+                with patch.dict(
+                    self.module.os.environ,
+                    {
+                        'CDN_TRANSFORMER_HOST': '127.0.0.1',
+                        'CDN_TRANSFORMER_PORT': port,
+                    },
+                ):
+                    with self.assertRaises(SystemExit) as raised:
+                        self.module.get_transformer_upstream()
+
+                self.assertIn('Invalid CDN_TRANSFORMER_PORT', str(raised.exception))
+
     def test_validate_nginx_or_restore_restores_original_config_on_timeout(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             config = Path(temp_dir) / 'cdn.ogabassey.com'
@@ -147,6 +172,31 @@ class InstallNginxRouteTest(unittest.TestCase):
             self.assertIn('nginx -t timed out', message)
             self.assertIn('partial stdout', message)
             self.assertIn('partial stderr', message)
+            self.assertEqual(config.read_text(encoding='utf-8'), original_text)
+
+    def test_validate_nginx_or_restore_restores_original_config_on_os_error(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config = Path(temp_dir) / 'cdn.ogabassey.com'
+            original_text = 'server {\n    # Images - auto-serve WebP if supported\n}\n'
+            config.write_text('server {\n    location ^~ /image/ {}\n}\n', encoding='utf-8')
+            file_stat = config.stat()
+
+            with patch.object(
+                self.module.subprocess,
+                'run',
+                side_effect=FileNotFoundError('nginx executable not found'),
+            ):
+                with self.assertRaises(SystemExit) as raised:
+                    self.module.validate_nginx_or_restore(
+                        config,
+                        original_text,
+                        file_stat,
+                    )
+
+            message = str(raised.exception)
+            self.assertIn('nginx -t could not run', message)
+            self.assertIn('nginx executable not found', message)
+            self.assertIn('restored original config', message)
             self.assertEqual(config.read_text(encoding='utf-8'), original_text)
 
 

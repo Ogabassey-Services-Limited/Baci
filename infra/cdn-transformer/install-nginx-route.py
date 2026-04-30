@@ -147,6 +147,12 @@ def validate_nginx_or_restore(path, original_text, file_stat):
             f'stdout:\n{stdout}\n'
             f'stderr:\n{stderr}'
         ) from error
+    except OSError as error:
+        atomic_write(path, original_text, file_stat)
+        raise SystemExit(
+            f'{path}: nginx -t could not run; restored original config\n'
+            f'error:\n{error}'
+        ) from error
 
     if result.returncode == 0:
         return

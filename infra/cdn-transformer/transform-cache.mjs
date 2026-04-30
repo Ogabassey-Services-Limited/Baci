@@ -10,9 +10,28 @@ import {
   TRANSFORM_TIMEOUT_MS,
 } from './config.mjs';
 
+export { MAX_CONCURRENT_TRANSFORMS } from './config.mjs';
+
 const transformInProgress = new Map();
 const transformQueue = [];
+export const MAX_PENDING_TRANSFORMS = MAX_CONCURRENT_TRANSFORMS * 4;
 let activeTransforms = 0;
+
+const defaultTransformDeps = {
+  maxTransformSizeBytes: MAX_TRANSFORM_SIZE_BYTES,
+  mkdir,
+  rename,
+  sharpFactory: sharp,
+  stat,
+  transformTimeoutMs: TRANSFORM_TIMEOUT_MS,
+  unlink,
+};
+
+function createTransformQueueFullError() {
+  const error = new Error('Image transform queue is full');
+  error.statusCode = 503;
+  return error;
+}
 
 function releaseTransformSlot() {
   activeTransforms = Math.max(0, activeTransforms - 1);
@@ -30,6 +49,10 @@ function acquireTransformSlot() {
   if (activeTransforms < MAX_CONCURRENT_TRANSFORMS) {
     activeTransforms += 1;
     return releaseTransformSlot;
+  }
+
+  if (transformQueue.length >= MAX_PENDING_TRANSFORMS) {
+    return Promise.reject(createTransformQueueFullError());
   }
 
   return new Promise((resolve) => {
@@ -95,26 +118,33 @@ export function buildCachePath({
   return path.join(CACHE_ROOT, `${hash}.${outputFormat}`);
 }
 
-async function transformImage(sourcePath, cachePath, options, outputFormat) {
-  const sourceStat = await stat(sourcePath);
-  if (sourceStat.size > MAX_TRANSFORM_SIZE_BYTES) {
+async function transformImage(
+  sourcePath,
+  cachePath,
+  options,
+  outputFormat,
+  deps = defaultTransformDeps
+) {
+  const sourceStat = await deps.stat(sourcePath);
+  if (sourceStat.size > deps.maxTransformSizeBytes) {
     const error = new Error('Source image is too large to transform');
     error.statusCode = 413;
     throw error;
   }
 
   const release = await acquireTransformSlot();
-  await mkdir(path.dirname(cachePath), { recursive: true });
-
   const tempPath = `${cachePath}.${process.pid}.${Date.now()}.tmp`;
   try {
+    await deps.mkdir(path.dirname(cachePath), { recursive: true });
+
     // GIF is not a supported source extension; preserve animation for WebP inputs.
     const shouldPreserveAnimation =
       outputFormat === 'webp' &&
       path.extname(sourcePath).toLowerCase() === '.webp';
-    const image = sharp(sourcePath, {
-      animated: shouldPreserveAnimation,
-    })
+    const image = deps
+      .sharpFactory(sourcePath, {
+        animated: shouldPreserveAnimation,
+      })
       .rotate()
       .resize({
         fit: options.fit,
@@ -134,10 +164,10 @@ async function transformImage(sourcePath, cachePath, options, outputFormat) {
       image.jpeg({ mozjpeg: true, quality: options.quality });
     }
 
-    await writeImageWithTimeout(image, tempPath, TRANSFORM_TIMEOUT_MS);
-    await rename(tempPath, cachePath);
+    await writeImageWithTimeout(image, tempPath, deps.transformTimeoutMs);
+    await deps.rename(tempPath, cachePath);
   } catch (error) {
-    await unlink(tempPath).catch(logCleanupError);
+    await deps.unlink(tempPath).catch(logCleanupError);
     throw error;
   } finally {
     release();
@@ -148,7 +178,8 @@ export async function ensureTransformed(
   sourcePath,
   cachePath,
   options,
-  outputFormat
+  outputFormat,
+  deps = defaultTransformDeps
 ) {
   const existingTransform = transformInProgress.get(cachePath);
   if (existingTransform) {
@@ -160,7 +191,8 @@ export async function ensureTransformed(
     sourcePath,
     cachePath,
     options,
-    outputFormat
+    outputFormat,
+    deps
   ).finally(() => {
     transformInProgress.delete(cachePath);
   });

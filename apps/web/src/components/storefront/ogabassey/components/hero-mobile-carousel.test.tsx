@@ -40,6 +40,30 @@ vi.mock('./AdUnit', () => ({
 
 import { HeroMobileCarousel } from './hero-mobile-carousel';
 
+const STORE_FALLBACK_PRIMARY = '#d62027';
+const STORE_FALLBACK_BORDER = 'rgba(214, 32, 39, 0.24)';
+const STORE_FALLBACK_ON_PRIMARY = '#ffffff';
+const HERO_CTA_EXPECTED_DECLARATIONS = [
+  `background-color: var(--store-primary, ${STORE_FALLBACK_PRIMARY});`,
+  `border-color: var(--store-border, ${STORE_FALLBACK_BORDER});`,
+  `color: var(--store-on-primary, ${STORE_FALLBACK_ON_PRIMARY});`,
+];
+
+/**
+ * Asserts that a serialized style string contains the expected declarations.
+ * A missing style is treated as an empty string, so it still fails normally.
+ * Matching remains sensitive to CSS whitespace and semicolon formatting.
+ */
+function expectStyleDeclarations(
+  style: string | null,
+  declarations: string[]
+) {
+  const serializedStyle = style ?? '';
+  for (const declaration of declarations) {
+    expect(serializedStyle).toContain(declaration);
+  }
+}
+
 describe('HeroMobileCarousel', () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -108,24 +132,25 @@ describe('HeroMobileCarousel', () => {
       />
     );
 
-    expect(
-      screen.getAllByRole('link', { name: /shop now/i })[0].getAttribute('style')
-    ).toContain(
-      'background-color: var(--store-primary); border-color: var(--store-border); color: var(--store-on-primary);'
+    expectStyleDeclarations(
+      screen.getAllByRole('link', { name: /shop now/i })[0].getAttribute('style'),
+      HERO_CTA_EXPECTED_DECLARATIONS
     );
-    expect(
-      screen.getByRole('button', { name: /watch video demo/i }).getAttribute('style')
-    ).toContain(
-      'background-color: var(--store-primary); border-color: var(--store-border); color: var(--store-on-primary);'
+    expectStyleDeclarations(
+      screen
+        .getByRole('button', { name: /watch video demo/i })
+        .getAttribute('style'),
+      HERO_CTA_EXPECTED_DECLARATIONS
     );
 
     const activeIndicator = screen
       .getByRole('button', { name: /go to hero slide 1/i })
       .querySelector('span');
     expect(activeIndicator).toHaveClass('w-5');
-    expect(activeIndicator?.getAttribute('style')).toContain(
-      'background-color: var(--store-primary); opacity: 1;'
-    );
+    expectStyleDeclarations(activeIndicator?.getAttribute('style') ?? null, [
+      `background-color: var(--store-primary, ${STORE_FALLBACK_PRIMARY});`,
+      'opacity: 1;',
+    ]);
   });
 
   it('disables prefetch on hero product calls to action', () => {
