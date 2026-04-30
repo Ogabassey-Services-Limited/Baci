@@ -84,6 +84,6 @@ export const UTILITY_HISTORY_STYLE_TOKENS = {
   statePadding: 20,
   stateTitleSize: 18,
   statusTextSize: 11,
-  statusTintSuffix: '18',
+  statusTintOpacity: 0.094,
   touchTargetHeight: 40,
 } as const;

@@ -1,6 +1,6 @@
 import { Pressable, Text, View } from 'react-native';
 import type Colors from '@/constants/Colors';
-import { BRAND } from '@/constants/Colors';
+import { BRAND, withAlpha } from '@/constants/Colors';
 import type { VTUHistoryTransaction } from '@/hooks/use-vtu-history';
 import {
   UTILITY_HISTORY_STATUS_COLORS,
@@ -75,10 +75,15 @@ export default function UtilityTransactionCard({
           {utilityHistoryHelpers.formatDate(transaction.created_at)}
         </Text>
         <View
+          accessibilityLabel={`${displayStatus.label} status`}
+          accessibilityRole="text"
           style={[
             styles.statusPill,
             {
-              backgroundColor: `${displayStatus.color}${UTILITY_HISTORY_STYLE_TOKENS.statusTintSuffix}`,
+              backgroundColor: withAlpha(
+                displayStatus.color,
+                UTILITY_HISTORY_STYLE_TOKENS.statusTintOpacity
+              ),
             },
           ]}
         >

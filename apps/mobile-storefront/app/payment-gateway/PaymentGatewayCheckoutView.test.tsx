@@ -96,6 +96,9 @@ describe('PaymentGatewayCheckoutView', () => {
     );
 
     expect(screen.getByText('Loading Paystack...')).toBeOnTheScreen();
+    expect(
+      screen.getByRole('progressbar', { name: 'Loading Paystack checkout' })
+    ).toBeOnTheScreen();
 
     const stackOptions = mockStackScreen.mock.calls[0]?.[0] as {
       options?: { headerLeft?: () => React.ReactNode };

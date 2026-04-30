@@ -235,4 +235,38 @@ describe('usePaymentGatewayController', () => {
       },
     });
   });
+
+  it('routes Juicyway VTU completions without polling confirmation', async () => {
+    jest.useFakeTimers();
+    mockSearchParams = {
+      ...vtuParams,
+      gateway: 'juicyway',
+      reference: 'JW-123',
+    };
+    const { result } = renderHook(() => usePaymentGatewayController());
+
+    act(() => {
+      result.current.handleNavigationChange(
+        navigation('https://usebaci.com/checkout/success?reference=JW-123')
+      );
+    });
+
+    await waitFor(() => expect(result.current.status).toBe('success'));
+    expect(mockWaitForVtuConfirmation).not.toHaveBeenCalled();
+
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+
+    expect(router.replace).toHaveBeenCalledWith({
+      pathname: '/utilities/[type]',
+      params: {
+        amount: '2500',
+        customerIdentifier: '43901766923',
+        paymentStatus: 'successful',
+        reference: 'JW-123',
+        type: 'power',
+      },
+    });
+  });
 });

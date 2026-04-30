@@ -15,6 +15,7 @@ import {
   isPaymentCancellationRedirect,
   isPaymentCompletionRedirect,
   PAYMENT_GATEWAY_LABELS,
+  PAYMENT_KINDS,
 } from './payment-gateway.helpers';
 
 type WebViewErrorEvent = Parameters<
@@ -123,9 +124,7 @@ export function usePaymentGatewayController() {
   };
 
   const handleVtuConfirmation = async () => {
-    // Juicyway completes VTU fulfillment in its gateway flow, so local polling
-    // would report a false confirmation failure.
-    if (!utilityType || !gateway || gateway === 'juicyway') {
+    if (!utilityType || !gateway) {
       setStatus('error');
       setErrorMessage('Utility payment could not be confirmed.');
       return;
@@ -134,6 +133,19 @@ export function usePaymentGatewayController() {
     try {
       if (!reference) {
         throw new Error('Payment reference is missing.');
+      }
+
+      if (gateway === 'juicyway') {
+        setStatus('success');
+        scheduleDelayedNavigation(() => {
+          routeToUtilityResult({
+            resultAmount: amount,
+            resultCustomerIdentifier: customerIdentifier,
+            resultReference: reference,
+            resultStatus: 'successful',
+          });
+        });
+        return;
       }
 
       const result = await waitForVtuConfirmation({
@@ -190,7 +202,7 @@ export function usePaymentGatewayController() {
     }
 
     paymentCompletionStartedRef.current = true;
-    if (paymentKind === 'vtu') {
+    if (paymentKind === PAYMENT_KINDS.VTU) {
       setStatus('processing');
       void handleVtuConfirmation();
       return;
@@ -225,13 +237,17 @@ export function usePaymentGatewayController() {
   };
 
   const handleWebViewMessage = createPaymentGatewayMessageHandler({
+    amount,
     clearCart,
     copiedGatewayTextRef,
     copyGatewayText,
+    customerIdentifier,
     gateway,
     orderId,
     orderNumber,
+    paymentKind,
     reference,
+    utilityType,
     markPaymentCompletionStarted: () => {
       paymentCompletionStartedRef.current = true;
     },
@@ -248,7 +264,7 @@ export function usePaymentGatewayController() {
     handleClose: () => {
       Alert.alert(
         'Cancel Payment?',
-        paymentKind === 'vtu'
+        paymentKind === PAYMENT_KINDS.VTU
           ? 'If you leave now, this utility payment may remain incomplete until you retry it.'
           : 'Your order has been created. If you leave, you can complete payment later from your orders page.',
         [
@@ -294,7 +310,10 @@ export function usePaymentGatewayController() {
       webViewRef.current?.reload();
     },
     handleShouldStartLoadWithRequest: (request: { url: string }) => {
-      if (paymentKind === 'vtu' && isPaymentCompletionRedirect(request.url)) {
+      if (
+        paymentKind === PAYMENT_KINDS.VTU &&
+        isPaymentCompletionRedirect(request.url)
+      ) {
         beginPaymentCompletion();
         return false;
       }

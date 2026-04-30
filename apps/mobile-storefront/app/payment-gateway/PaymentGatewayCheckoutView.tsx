@@ -85,7 +85,13 @@ export function PaymentGatewayCheckoutView({
       {status === 'loading' ? (
         <View style={styles.loadingOverlay}>
           <View style={[styles.loadingCard, { backgroundColor: colors.card }]}>
-            <ActivityIndicator size="large" color={BRAND.primary} />
+            <ActivityIndicator
+              accessible={true}
+              accessibilityLabel={`Loading ${gatewayName} checkout`}
+              accessibilityRole="progressbar"
+              size="large"
+              color={BRAND.primary}
+            />
             <Text style={[styles.loadingText, { color: colors.text }]}>
               Loading {gatewayName}...
             </Text>
@@ -134,7 +140,13 @@ export function PaymentGatewayCheckoutView({
                 { backgroundColor: colors.background },
               ]}
             >
-              <ActivityIndicator size="large" color={BRAND.primary} />
+              <ActivityIndicator
+                accessible={true}
+                accessibilityLabel={`Loading ${gatewayName} checkout`}
+                accessibilityRole="progressbar"
+                size="large"
+                color={BRAND.primary}
+              />
             </View>
           )}
         />

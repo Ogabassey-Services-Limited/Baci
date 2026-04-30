@@ -1,12 +1,17 @@
 import { router } from 'expo-router';
 import type { MutableRefObject } from 'react';
 import { PAYMENT_CLIPBOARD_BRIDGE } from '@/constants/payment-clipboard-bridge';
-import { isPlainRecord } from './payment-gateway.helpers';
+import {
+  isPlainRecord,
+  PAYMENT_KINDS,
+  type PaymentKind,
+} from './payment-gateway.helpers';
 
 const getTrimmedString = (value: unknown) =>
   typeof value === 'string' ? value.trim() : '';
 
 interface CreatePaymentGatewayMessageHandlerInput {
+  amount?: number;
   clearCart: () => void;
   copiedGatewayTextRef: MutableRefObject<string | null>;
   copyGatewayText: (
@@ -15,13 +20,27 @@ interface CreatePaymentGatewayMessageHandlerInput {
     failureMessage?: string
   ) => Promise<void>;
   gateway?: string;
+  customerIdentifier?: string;
   orderId?: string;
   orderNumber?: string;
+  paymentKind?: PaymentKind;
   reference?: string;
+  utilityType?: string;
   markPaymentCompletionStarted: () => void;
   scheduleDelayedNavigation: (navigate: () => void) => void;
   setSuccessStatus: () => void;
 }
+
+const getFiniteNumber = (value: unknown) => {
+  const trimmedValue = typeof value === 'string' ? value.trim() : '';
+  const numberValue =
+    typeof value === 'number'
+      ? value
+      : trimmedValue
+        ? Number(trimmedValue)
+        : Number.NaN;
+  return Number.isFinite(numberValue) ? numberValue : undefined;
+};
 
 function handleClipboardText({
   copiedGatewayTextRef,
@@ -54,13 +73,17 @@ function handleClipboardText({
 }
 
 export function createPaymentGatewayMessageHandler({
+  amount,
   clearCart,
   copiedGatewayTextRef,
   copyGatewayText,
+  customerIdentifier,
   gateway,
   orderId,
   orderNumber,
+  paymentKind,
   reference,
+  utilityType,
   markPaymentCompletionStarted,
   scheduleDelayedNavigation,
   setSuccessStatus,
@@ -104,6 +127,42 @@ export function createPaymentGatewayMessageHandler({
     if (data.type === 'crypto_success') {
       const cryptoOrderId =
         getTrimmedString(data.orderId) || getTrimmedString(orderId);
+      const cryptoReference =
+        getTrimmedString(data.reference) || getTrimmedString(reference);
+
+      if (paymentKind === PAYMENT_KINDS.VTU) {
+        const cryptoAmount = getFiniteNumber(data.amount) ?? amount ?? 0;
+        const cryptoCustomerIdentifier =
+          getTrimmedString(data.customerIdentifier) ||
+          getTrimmedString(customerIdentifier);
+        if (!utilityType || !cryptoReference || cryptoAmount <= 0) {
+          console.error('Unable to route VTU crypto payment success:', {
+            amount: cryptoAmount,
+            hasReference: Boolean(cryptoReference),
+            hasUtilityType: Boolean(utilityType),
+          });
+          return;
+        }
+
+        markPaymentCompletionStarted();
+        setSuccessStatus();
+        scheduleDelayedNavigation(() => {
+          router.replace({
+            pathname: '/utilities/[type]',
+            params: {
+              amount: String(cryptoAmount),
+              paymentStatus: 'successful',
+              reference: cryptoReference,
+              type: utilityType || '',
+              ...(cryptoCustomerIdentifier && {
+                customerIdentifier: cryptoCustomerIdentifier,
+              }),
+            },
+          });
+        });
+        return;
+      }
+
       markPaymentCompletionStarted();
       setSuccessStatus();
       clearCart();
@@ -114,7 +173,7 @@ export function createPaymentGatewayMessageHandler({
             orderId: cryptoOrderId,
             orderNumber: getTrimmedString(orderNumber),
             paymentMethod: getTrimmedString(gateway) || 'crypto',
-            reference: getTrimmedString(reference),
+            reference: cryptoReference,
           },
         });
       });

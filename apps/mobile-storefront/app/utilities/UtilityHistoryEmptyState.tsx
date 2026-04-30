@@ -30,7 +30,9 @@ export default function UtilityHistoryEmptyState({
     return (
       <View style={styles.centered}>
         <ActivityIndicator
-          testID="utility-history-loading"
+          accessible={true}
+          accessibilityLabel="Loading utility history"
+          accessibilityRole="progressbar"
           size="large"
           color={BRAND.primary}
         />

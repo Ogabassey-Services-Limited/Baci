@@ -1,8 +1,11 @@
 import { jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import Colors from '@/constants/Colors';
+import Colors, { withAlpha } from '@/constants/Colors';
 import type { VTUHistoryTransaction } from '@/hooks/use-vtu-history';
-import { UTILITY_HISTORY_PAYMENT_RECEIVED_STATUS } from './history.constants';
+import {
+  UTILITY_HISTORY_PAYMENT_RECEIVED_STATUS,
+  UTILITY_HISTORY_STYLE_TOKENS,
+} from './history.constants';
 import UtilityTransactionCard from './UtilityTransactionCard';
 
 function createTransaction(
@@ -86,6 +89,12 @@ describe('UtilityTransactionCard', () => {
     expect(screen.queryByText('Repeat')).toBeNull();
     expect(screen.getByText('Payment Received')).toHaveStyle({
       color: UTILITY_HISTORY_PAYMENT_RECEIVED_STATUS.color,
+    });
+    expect(screen.getByLabelText('Payment Received status')).toHaveStyle({
+      backgroundColor: withAlpha(
+        UTILITY_HISTORY_PAYMENT_RECEIVED_STATUS.color,
+        UTILITY_HISTORY_STYLE_TOKENS.statusTintOpacity
+      ),
     });
     expect(
       screen.getByText(

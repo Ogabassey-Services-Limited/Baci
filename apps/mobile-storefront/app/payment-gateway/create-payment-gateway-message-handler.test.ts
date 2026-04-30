@@ -1,6 +1,7 @@
 import { jest } from '@jest/globals';
 import { router } from 'expo-router';
 import { PAYMENT_CLIPBOARD_BRIDGE } from '@/constants/payment-clipboard-bridge';
+import { PAYMENT_KINDS } from './payment-gateway.helpers';
 import { createPaymentGatewayMessageHandler } from './create-payment-gateway-message-handler';
 
 jest.mock('expo-router', () => ({
@@ -9,7 +10,11 @@ jest.mock('expo-router', () => ({
   },
 }));
 
-function createHandler() {
+function createHandler(
+  overrides: Partial<
+    Parameters<typeof createPaymentGatewayMessageHandler>[0]
+  > = {}
+) {
   const copiedGatewayTextRef = { current: null as string | null };
   const clearCart = jest.fn();
   const copyGatewayText = jest.fn<
@@ -29,6 +34,7 @@ function createHandler() {
     markPaymentCompletionStarted,
     scheduleDelayedNavigation,
     setSuccessStatus,
+    ...overrides,
   });
 
   return {
@@ -116,6 +122,86 @@ describe('createPaymentGatewayMessageHandler', () => {
         reference: 'ref-123',
       },
     });
+  });
+
+  it('routes VTU crypto success back to the utility result screen', () => {
+    const {
+      clearCart,
+      handler,
+      markPaymentCompletionStarted,
+      scheduleDelayedNavigation,
+      setSuccessStatus,
+    } = createHandler({
+      amount: 2500,
+      customerIdentifier: ' 43901766923 ',
+      gateway: 'juicyway',
+      paymentKind: PAYMENT_KINDS.VTU,
+      reference: ' VTU-123 ',
+      utilityType: 'power',
+    });
+
+    sendMessage(handler, {
+      amount: '2750',
+      customerIdentifier: ' 1234567890 ',
+      reference: ' crypto-ref ',
+      type: 'crypto_success',
+    });
+
+    expect(markPaymentCompletionStarted).toHaveBeenCalledTimes(1);
+    expect(setSuccessStatus).toHaveBeenCalledTimes(1);
+    expect(clearCart).not.toHaveBeenCalled();
+    expect(scheduleDelayedNavigation).toHaveBeenCalledTimes(1);
+
+    const scheduledNavigation = scheduleDelayedNavigation.mock.calls[0]?.[0];
+    scheduledNavigation?.();
+    expect(router.replace).toHaveBeenCalledWith({
+      pathname: '/utilities/[type]',
+      params: {
+        amount: '2750',
+        customerIdentifier: '1234567890',
+        paymentStatus: 'successful',
+        reference: 'crypto-ref',
+        type: 'power',
+      },
+    });
+  });
+
+  it('does not route VTU crypto success without required route context', () => {
+    const consoleErrorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const {
+      clearCart,
+      handler,
+      markPaymentCompletionStarted,
+      scheduleDelayedNavigation,
+      setSuccessStatus,
+    } = createHandler({
+      amount: 0,
+      paymentKind: PAYMENT_KINDS.VTU,
+      reference: undefined,
+      utilityType: undefined,
+    });
+
+    try {
+      sendMessage(handler, { type: 'crypto_success' });
+
+      expect(markPaymentCompletionStarted).not.toHaveBeenCalled();
+      expect(setSuccessStatus).not.toHaveBeenCalled();
+      expect(clearCart).not.toHaveBeenCalled();
+      expect(scheduleDelayedNavigation).not.toHaveBeenCalled();
+      expect(router.replace).not.toHaveBeenCalled();
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Unable to route VTU crypto payment success:',
+        {
+          amount: 0,
+          hasReference: false,
+          hasUtilityType: false,
+        }
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it('does not swallow handler errors after a valid message is parsed', () => {
