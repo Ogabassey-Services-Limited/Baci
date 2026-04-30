@@ -4,6 +4,12 @@ interface ImageLoaderParams {
   quality?: number;
 }
 
+const OGABASSEY_CDN_HOSTNAME = 'cdn.ogabassey.com';
+const DEFAULT_IMAGE_QUALITY = 75;
+const MIN_TRANSFORM_WIDTH = 16;
+const MAX_TRANSFORM_WIDTH = 3840;
+const TRANSFORMABLE_IMAGE_EXTENSION_PATTERN = /\.(avif|jpe?g|png|webp)$/i;
+
 /**
  * Custom image loader for next/image.
  *
@@ -17,9 +23,22 @@ interface ImageLoaderParams {
  * delegating back to /_next/image, which is reserved for Next's default
  * optimizer pipeline.
  */
-export default function imageLoader({ src }: ImageLoaderParams): string {
+export default function imageLoader({
+  src,
+  width,
+  quality,
+}: ImageLoaderParams): string {
   // External URLs — serve directly from their CDN
   if (src.startsWith('https://') || src.startsWith('http://')) {
+    const cdnTransformUrl = buildOgabasseyCdnTransformUrl({
+      quality,
+      src,
+      width,
+    });
+    if (cdnTransformUrl) {
+      return cdnTransformUrl;
+    }
+
     return src;
   }
 
@@ -27,4 +46,49 @@ export default function imageLoader({ src }: ImageLoaderParams): string {
   // custom loader is configured. Returning /_next/image here would send them to
   // a route owned by the default loader, which this app intentionally bypasses.
   return src;
+}
+
+function buildOgabasseyCdnTransformUrl({
+  src,
+  width,
+  quality,
+}: ImageLoaderParams): string | null {
+  let url: URL;
+  try {
+    url = new URL(src);
+  } catch {
+    return null;
+  }
+
+  if (
+    url.hostname !== OGABASSEY_CDN_HOSTNAME ||
+    url.search ||
+    !TRANSFORMABLE_IMAGE_EXTENSION_PATTERN.test(url.pathname)
+  ) {
+    return null;
+  }
+
+  const transformWidth = clampDimension(width);
+  const transformQuality = clampQuality(quality);
+
+  return `${url.origin}/image/width=${transformWidth},quality=${transformQuality},format=webp${url.pathname}`;
+}
+
+function clampDimension(width: number): number {
+  if (!Number.isFinite(width)) {
+    return MAX_TRANSFORM_WIDTH;
+  }
+
+  return Math.max(
+    MIN_TRANSFORM_WIDTH,
+    Math.min(MAX_TRANSFORM_WIDTH, Math.round(width))
+  );
+}
+
+function clampQuality(quality?: number): number {
+  if (quality === undefined || !Number.isFinite(quality)) {
+    return DEFAULT_IMAGE_QUALITY;
+  }
+
+  return Math.max(1, Math.min(100, Math.round(quality)));
 }

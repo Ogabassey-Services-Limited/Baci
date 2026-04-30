@@ -6,8 +6,36 @@ describe('imageLoader', () => {
     vi.unstubAllEnvs();
   });
 
-  it('returns https URLs directly without modification', () => {
-    const url = 'https://cdn.ogabassey.com/products/iphone.avif';
+  it('rewrites OgaBassey CDN image URLs to the CDN transformer', () => {
+    const url = 'https://cdn.ogabassey.com/core-assets/products/iphone.avif';
+    expect(imageLoader({ src: url, width: 800 })).toBe(
+      'https://cdn.ogabassey.com/image/width=800,quality=75,format=webp/core-assets/products/iphone.avif'
+    );
+  });
+
+  it('passes custom quality to the OgaBassey CDN transformer', () => {
+    const url = 'https://cdn.ogabassey.com/core-assets/products/iphone.avif';
+    expect(imageLoader({ src: url, width: 1200, quality: 90 })).toBe(
+      'https://cdn.ogabassey.com/image/width=1200,quality=90,format=webp/core-assets/products/iphone.avif'
+    );
+  });
+
+  it('clamps OgaBassey CDN transformer dimensions and quality', () => {
+    const url = 'https://cdn.ogabassey.com/core-assets/products/iphone.avif';
+    expect(imageLoader({ src: url, width: 9000, quality: 0 })).toBe(
+      'https://cdn.ogabassey.com/image/width=3840,quality=1,format=webp/core-assets/products/iphone.avif'
+    );
+  });
+
+  it('clamps high OgaBassey CDN transformer quality values', () => {
+    const url = 'https://cdn.ogabassey.com/core-assets/products/iphone.avif';
+    expect(imageLoader({ src: url, width: 9000, quality: 999 })).toBe(
+      'https://cdn.ogabassey.com/image/width=3840,quality=100,format=webp/core-assets/products/iphone.avif'
+    );
+  });
+
+  it('returns non-OgaBassey https URLs directly without modification', () => {
+    const url = 'https://example.com/products/iphone.avif';
     expect(imageLoader({ src: url, width: 800 })).toBe(url);
   });
 
@@ -21,8 +49,13 @@ describe('imageLoader', () => {
     expect(imageLoader({ src: url, width: 64 })).toBe(url);
   });
 
-  it('ignores width and quality for external URLs', () => {
-    const url = 'https://cdn.ogabassey.com/img.avif';
+  it('ignores width and quality for non-OgaBassey external URLs', () => {
+    const url = 'https://cdn.example.com/img.avif';
+    expect(imageLoader({ src: url, width: 1200, quality: 90 })).toBe(url);
+  });
+
+  it('leaves OgaBassey CDN URLs with query strings unchanged', () => {
+    const url = 'https://cdn.ogabassey.com/img.avif?v=1';
     expect(imageLoader({ src: url, width: 1200, quality: 90 })).toBe(url);
   });
 

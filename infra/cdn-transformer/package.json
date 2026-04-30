@@ -1,0 +1,13 @@
+{
+  "name": "baci-cdn-transformer",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --check server.mjs && node --check config.mjs && node --check http-helpers.mjs && node --check request-parser.mjs && node --check transform-cache.mjs && python3 -m py_compile install-nginx-route.py",
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "sharp": "0.34.5"
+  }
+}
