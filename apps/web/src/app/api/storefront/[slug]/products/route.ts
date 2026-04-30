@@ -8,7 +8,11 @@ import {
   coerceStorefrontManageStock,
   getStorefrontAgentAvailability,
 } from '@/lib/storefront-agent-availability';
+import { storefrontProductsQuerySchema } from '@/schemas/storefront-products-query';
 import { storefrontProductsRouteParamsSchema } from '@/schemas/storefront-products-route-params';
+
+const storefrontProductsQueryParamKeys =
+  storefrontProductsQuerySchema.keyof().options;
 
 // Extract primary image URL from mixed format (string[] or {url}[])
 function extractPrimaryImage(images: unknown): string {
@@ -18,6 +22,15 @@ function extractPrimaryImage(images: unknown): string {
   if (first && typeof first === 'object' && 'url' in first)
     return (first as { url: string }).url || '';
   return '';
+}
+
+function getStorefrontProductsQueryParams(searchParams: URLSearchParams) {
+  return Object.fromEntries(
+    storefrontProductsQueryParamKeys.map((key) => [
+      key,
+      searchParams.get(key) ?? undefined,
+    ])
+  );
 }
 
 // Map database product to API response format function
@@ -85,7 +98,7 @@ const getMerchantIdBySlug = unstable_cache(
 );
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
@@ -105,6 +118,20 @@ export async function GET(
     }
 
     const { slug } = parsedParams.data;
+    const parsedQuery = storefrontProductsQuerySchema.safeParse(
+      getStorefrontProductsQueryParams(request.nextUrl.searchParams)
+    );
+
+    if (!parsedQuery.success) {
+      return NextResponse.json(
+        {
+          error: 'Invalid query parameters',
+          code: 'INVALID_QUERY',
+          details: parsedQuery.error.flatten(),
+        },
+        { status: 400 }
+      );
+    }
 
     // 1. Resolve slug to merchant_id
     const merchantId = await getMerchantIdBySlug(slug);
@@ -119,13 +146,18 @@ export async function GET(
     // 2. Fetch products for this merchant
     // We use a fresh client here to ensure we get latest data if cache is stale
     const supabase = createStaticClient(getSupabaseUrl(), getSupabaseAnonKey());
-
-    const { data: products, error } = await supabase
+    let productQuery = supabase
       .from('products')
       .select(PRODUCT_COLUMNS)
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
       .order('created_at', { ascending: false });
+
+    if (parsedQuery.data.limit !== undefined) {
+      productQuery = productQuery.limit(parsedQuery.data.limit);
+    }
+
+    const { data: products, error } = await productQuery;
 
     if (error) {
       console.error(
