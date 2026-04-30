@@ -18,7 +18,7 @@ interface GoogleStoreWidgetModule {
   >;
 }
 
-const GOOGLE_STORE_WIDGET_DELAY_MS = 1800;
+const GOOGLE_STORE_WIDGET_DELAY_MS = 20000;
 
 export function DeferredGoogleStoreWidget(
   props: DeferredGoogleStoreWidgetProps

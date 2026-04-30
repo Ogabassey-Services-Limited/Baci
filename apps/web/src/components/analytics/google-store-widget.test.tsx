@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MerchantData } from '@/hooks/use-merchant';
 import {
   GoogleStoreWidget,
+  MERCHANT_WIDGET_IFRAME_TITLE,
   resolveGoogleStoreWidgetPreference,
 } from './google-store-widget';
 
@@ -35,14 +36,22 @@ const baseMerchant: MerchantData = {
 };
 
 const originalMerchantWidget = window.merchantwidget;
+let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
   vi.useFakeTimers();
+  consoleWarnSpy = vi
+    .spyOn(console, 'warn')
+    .mockImplementation(() => undefined);
 });
 
 afterEach(() => {
   vi.runOnlyPendingTimers();
   vi.useRealTimers();
+  consoleWarnSpy.mockRestore();
+  document.querySelectorAll('iframe').forEach((frame) => {
+    frame.remove();
+  });
 
   if (originalMerchantWidget) {
     window.merchantwidget = originalMerchantWidget;
@@ -66,7 +75,15 @@ describe('GoogleStoreWidget', () => {
     ).not.toBeInTheDocument();
 
     act(() => {
-      vi.advanceTimersByTime(3500);
+      vi.advanceTimersByTime(19999);
+    });
+
+    expect(
+      screen.queryByTestId('google-store-widget-script')
+    ).not.toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(1);
     });
 
     expect(
@@ -98,7 +115,7 @@ describe('GoogleStoreWidget', () => {
     );
 
     act(() => {
-      vi.advanceTimersByTime(3500);
+      vi.advanceTimersByTime(20000);
     });
 
     expect(
@@ -177,7 +194,7 @@ describe('GoogleStoreWidget', () => {
     );
 
     act(() => {
-      vi.advanceTimersByTime(3500);
+      vi.advanceTimersByTime(20000);
     });
 
     expect(
@@ -208,6 +225,53 @@ describe('GoogleStoreWidget', () => {
     expect(start).toHaveBeenCalledOnce();
   });
 
+  it('adds an accessible title to the iframe inserted by the merchant widget', () => {
+    window.merchantwidget = {
+      start: () => {
+        const iframe = document.createElement('iframe');
+        iframe.id = 'merchantwidgetiframe';
+        document.body.appendChild(iframe);
+      },
+    };
+
+    render(
+      <GoogleStoreWidget merchant={baseMerchant} hostname="ogabassey.com" />
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(20000);
+    });
+
+    expect(document.getElementById('merchantwidgetiframe')).toHaveAttribute(
+      'title',
+      MERCHANT_WIDGET_IFRAME_TITLE
+    );
+  });
+
+  it('falls back to a Google iframe src when the widget iframe id changes', async () => {
+    window.merchantwidget = {
+      start: () => {
+        const iframe = document.createElement('iframe');
+        iframe.src = 'https://www.google.com/shopping/merchantverse/';
+        document.body.appendChild(iframe);
+      },
+    };
+
+    render(
+      <GoogleStoreWidget merchant={baseMerchant} hostname="ogabassey.com" />
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(20000);
+      await Promise.resolve();
+    });
+
+    expect(document.querySelector('iframe[src*="google.com"]')).toHaveAttribute(
+      'title',
+      MERCHANT_WIDGET_IFRAME_TITLE
+    );
+  });
+
   it('does not throw when merchantwidget API is unavailable after script load', () => {
     delete window.merchantwidget;
 
@@ -218,7 +282,7 @@ describe('GoogleStoreWidget', () => {
     ).not.toThrow();
 
     act(() => {
-      vi.advanceTimersByTime(3500);
+      vi.advanceTimersByTime(20000);
     });
 
     expect(

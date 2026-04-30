@@ -162,6 +162,15 @@ describe('OgabasseyNavbar', () => {
     expect(mocks.push).toHaveBeenCalledWith('/ogabassey/products/iphone%2015');
   });
 
+  it('names the mobile menu button for assistive technology', () => {
+    render(<OgabasseyNavbar storeSlug="/ogabassey" />);
+
+    const menuButton = screen.getByRole('button', { name: /open menu/i });
+
+    expect(menuButton).toHaveAttribute('type', 'button');
+    expect(menuButton).toHaveAttribute('aria-expanded', 'false');
+  });
+
   it('pushes store-prefixed blog search routes on the blog page', () => {
     mocks.pathname = '/ogabassey/blog';
 

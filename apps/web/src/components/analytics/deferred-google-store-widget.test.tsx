@@ -39,7 +39,7 @@ describe('DeferredGoogleStoreWidget', () => {
     expect(loadWidgetModule).not.toHaveBeenCalled();
 
     act(() => {
-      vi.advanceTimersByTime(1799);
+      vi.advanceTimersByTime(19999);
     });
 
     expect(screen.queryByText(/Widget ogabassey.com/)).not.toBeInTheDocument();

@@ -78,6 +78,21 @@ describe('HeroMobileCarousel', () => {
     expect(container.querySelector('video')).not.toBeNull();
   });
 
+  it('marks the first mobile hero image as the high-priority LCP candidate', () => {
+    render(
+      <HeroMobileCarousel
+        getHref={(path) => `/ogabassey${path}`}
+        hasResolvedViewport={true}
+        isDesktopViewport={false}
+      />
+    );
+
+    expect(screen.getByAltText('iPhone 17 Pro Max')).toHaveAttribute(
+      'fetchPriority',
+      'high'
+    );
+  });
+
   it('disables prefetch on hero product calls to action', () => {
     render(
       <HeroMobileCarousel
@@ -91,5 +106,22 @@ describe('HeroMobileCarousel', () => {
       expect(link).toHaveAttribute('data-prefetch', 'false');
     }
   });
-});
 
+  it('uses mobile-friendly touch targets for the hero CTA and slide controls', () => {
+    render(
+      <HeroMobileCarousel
+        getHref={(path) => `/ogabassey${path}`}
+        hasResolvedViewport={true}
+        isDesktopViewport={false}
+      />
+    );
+
+    for (const link of screen.getAllByRole('link', { name: /shop now/i })) {
+      expect(link).toHaveClass('min-h-11');
+    }
+
+    expect(
+      screen.getByRole('button', { name: /go to hero slide 1/i })
+    ).toHaveClass('h-8', 'min-w-8');
+  });
+});

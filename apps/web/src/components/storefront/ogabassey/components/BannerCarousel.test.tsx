@@ -2,7 +2,17 @@ import { render } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/image', () => ({
-  default: (props: Record<string, unknown>) => <img {...props} alt={props.alt as string} />,
+  default: (props: Record<string, unknown>) => (
+    <img
+      {...Object.fromEntries(
+        Object.entries(props).filter(
+          ([key]) => key !== 'fill' && key !== 'priority'
+        )
+      )}
+      alt={String(props.alt ?? '')}
+      data-priority={String(Boolean(props.priority))}
+    />
+  ),
 }));
 vi.mock('next/link', () => ({
   default: ({ children, ...props }: { children: React.ReactNode; href: string }) => (
@@ -26,5 +36,21 @@ describe('BannerCarousel', () => {
   it('renders without crashing', () => {
     const { container } = render(<BannerCarousel />);
     expect(container).toBeDefined();
+  });
+
+  it('does not request removed CDN banner assets or preload below-fold banners', () => {
+    const { container } = render(<BannerCarousel />);
+    const images = Array.from(container.querySelectorAll('img'));
+
+    expect(images.map((image) => image.getAttribute('src'))).toEqual(
+      expect.not.arrayContaining([
+        'https://cdn.ogabassey.com/products/flash-sale-banner.avif',
+        'https://cdn.ogabassey.com/products/new-arrivals-banner.avif',
+      ])
+    );
+
+    for (const image of images) {
+      expect(image).toHaveAttribute('data-priority', 'false');
+    }
   });
 });
