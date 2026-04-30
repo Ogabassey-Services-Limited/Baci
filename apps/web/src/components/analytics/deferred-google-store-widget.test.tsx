@@ -127,6 +127,37 @@ describe('DeferredGoogleStoreWidget', () => {
     expect(screen.getByText('Widget ogabassey.com true')).toBeInTheDocument();
   });
 
+  it('allows a later interaction to retry after a failed widget import', async () => {
+    const loadWidgetModule = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('Chunk failed'))
+      .mockResolvedValueOnce(createTestWidgetModule());
+
+    render(
+      <DeferredGoogleStoreWidget
+        merchantCustomDomain="ogabassey.com"
+        enabled
+        loadWidgetModule={loadWidgetModule}
+      />
+    );
+
+    await act(async () => {
+      fireEvent.scroll(window);
+      await Promise.resolve();
+    });
+
+    expect(loadWidgetModule).toHaveBeenCalledOnce();
+    expect(screen.queryByText(/Widget ogabassey.com/)).not.toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.keyDown(window);
+      await Promise.resolve();
+    });
+
+    expect(loadWidgetModule).toHaveBeenCalledTimes(2);
+    expect(screen.getByText('Widget ogabassey.com true')).toBeInTheDocument();
+  });
+
   it('stays disabled when the widget is turned off', async () => {
     const loadWidgetModule = vi.fn();
 

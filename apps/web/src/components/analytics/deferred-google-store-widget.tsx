@@ -49,11 +49,17 @@ export function DeferredGoogleStoreWidget(
       const widgetModule =
         props.loadWidgetModule?.() ?? import('./google-store-widget');
 
-      void widgetModule.then((module) => {
-        if (!cancelled) {
-          setWidget(() => module.GoogleStoreWidget);
-        }
-      });
+      void widgetModule
+        .then((module) => {
+          if (!cancelled) {
+            setWidget(() => module.GoogleStoreWidget);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            loading = false;
+          }
+        });
     };
 
     timeoutId = window.setTimeout(loadWidget, GOOGLE_STORE_WIDGET_DELAY_MS);

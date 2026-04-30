@@ -221,6 +221,8 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
         {slides.map((slide, idx) => (
           <button
             key={idx}
+            type="button"
+            aria-label={`Go to banner slide ${idx + 1}`}
             onClick={() => setCurrentSlide(idx)}
             className={`h-1.5 rounded-full transition-all duration-300 shadow-sm ${idx === currentSlide
               ? 'w-6 bg-white'

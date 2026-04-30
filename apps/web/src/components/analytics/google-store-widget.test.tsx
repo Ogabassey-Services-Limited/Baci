@@ -280,6 +280,33 @@ describe('GoogleStoreWidget', () => {
     );
   });
 
+  it('keeps observing until a deferred merchant iframe is inserted', async () => {
+    window.merchantwidget = {
+      start: vi.fn(),
+    };
+
+    render(
+      <GoogleStoreWidget merchant={baseMerchant} hostname="ogabassey.com" />
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(20000);
+      await Promise.resolve();
+    });
+
+    const iframe = document.createElement('iframe');
+    iframe.src = 'https://www.google.com/shopping/merchantverse/';
+
+    await act(async () => {
+      vi.advanceTimersByTime(25000);
+      document.body.appendChild(iframe);
+      await Promise.resolve();
+    });
+
+    expect(iframe).toHaveAttribute('title', MERCHANT_WIDGET_IFRAME_TITLE);
+    expect(consoleWarnSpy).not.toHaveBeenCalled();
+  });
+
   it('does not throw when merchantwidget API is unavailable after script load', () => {
     delete window.merchantwidget;
 

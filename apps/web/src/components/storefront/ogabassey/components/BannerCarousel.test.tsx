@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/image', () => ({
@@ -68,6 +68,16 @@ describe('BannerCarousel', () => {
     for (const image of images.slice(1)) {
       expect(image).toHaveAttribute('data-priority', 'false');
       expect(image).toHaveAttribute('fetchpriority', 'low');
+    }
+  });
+
+  it('labels banner slide controls as non-submit buttons', () => {
+    render(<BannerCarousel />);
+
+    for (const button of screen.getAllByRole('button', {
+      name: /go to banner slide/i,
+    })) {
+      expect(button).toHaveAttribute('type', 'button');
     }
   });
 });
