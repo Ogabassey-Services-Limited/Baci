@@ -43,17 +43,16 @@ jest.mock('@/components/useColorScheme', () => ({
   useColorScheme: () => 'light',
 }));
 
-jest.mock('@/stores/auth-store', () => ({
-  useAuthStore: (selector: (state: { session: null }) => unknown) =>
-    selector({ session: null }),
-}));
-
 jest.mock('@/lib/clipboard', () => ({
   setClipboardString: (text: string) => mockSetClipboardString(text),
 }));
 
 jest.mock('@/lib/utility-receipt', () => ({
   shareUtilityReceipt: (input: unknown) => mockShareUtilityReceipt(input),
+}));
+
+jest.mock('@/services/analytics', () => ({
+  trackError: jest.fn(),
 }));
 
 describe('PurchaseSuccess', () => {
@@ -107,7 +106,7 @@ describe('PurchaseSuccess', () => {
     expect(screen.getByText('1234-5678-9012-3456')).toBeOnTheScreen();
   });
 
-  it('copies a returned electricity token and shares the receipt', async () => {
+  it('copies a returned electricity token', async () => {
     render(
       <PurchaseSuccess
         type="power"
@@ -128,6 +127,21 @@ describe('PurchaseSuccess', () => {
         '1234-5678-9012-3456'
       );
     });
+  });
+
+  it('shares a utility receipt with returned voucher details', async () => {
+    render(
+      <PurchaseSuccess
+        type="power"
+        amount={1000}
+        customerIdentifier="43901766923"
+        txReference="ref-123"
+        cashback={null}
+        isAuthenticated={true}
+        onCreateAccount={jest.fn()}
+        voucherPin="1234-5678-9012-3456"
+      />
+    );
 
     fireEvent.press(screen.getByLabelText('Share utility receipt'));
 
@@ -261,8 +275,8 @@ describe('PurchaseSuccess', () => {
       />
     );
 
-    expect(screen.getByText('+₦50 cashback')).toBeOnTheScreen();
-    expect(screen.getByText('Wallet balance: ₦1,200')).toBeOnTheScreen();
+    expect(screen.getByText('+₦50.00 cashback')).toBeOnTheScreen();
+    expect(screen.getByText('Wallet balance: ₦1,200.00')).toBeOnTheScreen();
   });
 
   it('uses the provided utility type when no label mapping exists', () => {

@@ -8,13 +8,19 @@ import {
 import { Alert } from 'react-native';
 import Colors from '@/constants/Colors';
 import { setClipboardString } from '@/lib/clipboard';
+import { trackError } from '@/services/analytics';
 import PurchaseVoucherCard from './PurchaseVoucherCard';
 
 jest.mock('@/lib/clipboard', () => ({
   setClipboardString: jest.fn(),
 }));
 
+jest.mock('@/services/analytics', () => ({
+  trackError: jest.fn(),
+}));
+
 const mockSetClipboardString = jest.mocked(setClipboardString);
+const mockTrackError = jest.mocked(trackError);
 
 describe('PurchaseVoucherCard', () => {
   let alertSpy: jest.SpiedFunction<typeof Alert.alert>;
@@ -63,6 +69,11 @@ describe('PurchaseVoucherCard', () => {
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       'Failed to copy utility voucher token:',
       expect.any(Error)
+    );
+    expect(mockTrackError).toHaveBeenCalledWith(
+      'utility_voucher_copy_failed',
+      'copy failed',
+      { component: 'PurchaseVoucherCard' }
     );
     expect(alertSpy).toHaveBeenCalledWith(
       'Copy Failed',

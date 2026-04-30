@@ -36,12 +36,8 @@ describe('PaymentGatewayParamsSchema', () => {
 
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(extractIssuePaths(result.error.issues)).toEqual([
-        'orderId',
-        'orderNumber',
-      ]);
+      expect(extractIssuePaths(result.error.issues)).toEqual(['orderId']);
       expect(extractIssueMessages(result.error.issues)).toEqual([
-        'Order ID or order number is required for order payments',
         'Order ID or order number is required for order payments',
       ]);
     }

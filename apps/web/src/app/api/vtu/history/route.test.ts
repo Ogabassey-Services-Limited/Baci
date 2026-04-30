@@ -327,6 +327,49 @@ describe('GET /api/vtu/history', () => {
     }
   });
 
+  it('logs and falls back when customer cashback is not finite', async () => {
+    const { GET } = await import('./route');
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    transactionsData = [
+      {
+        id: 'tx-invalid-cashback',
+        created_at: '2026-04-08T12:00:00.000Z',
+        type: 'airtime',
+        status: 'successful',
+        amount: '2500',
+        biller_name: 'MTN',
+        metadata: {},
+        request_reference: 'VTU-INVALID-CASHBACK',
+        transaction_id: null,
+        customer_cashback: 'not-a-number',
+      },
+    ];
+
+    try {
+      const response = await GET(makeRequest('?merchantSlug=ogabassey'));
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.transactions).toEqual([
+        expect.objectContaining({
+          customer_cashback: 0,
+          id: 'tx-invalid-cashback',
+        }),
+      ]);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Invalid VTU customer cashback amount in history response:',
+        expect.objectContaining({
+          customerCashback: 'not-a-number',
+          transactionId: 'tx-invalid-cashback',
+        })
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
   it('returns history immediately and schedules missing voucher-pin backfill after response', async () => {
     const { GET } = await import('./route');
     transactionsData = [
@@ -362,6 +405,19 @@ describe('GET /api/vtu/history', () => {
       }),
     ]);
     expect(mockAfter).toHaveBeenCalledTimes(1);
+    expect(vtuTransactionUpdatePayloads).toEqual([]);
+    expect(mockBackfillVtuVoucherPin).not.toHaveBeenCalled();
+
+    const scheduledBackfillClaim = mockAfter.mock.calls[0]?.[0] as
+      | (() => Promise<void>)
+      | undefined;
+    expect(scheduledBackfillClaim).toBeDefined();
+    if (!scheduledBackfillClaim) {
+      throw new Error('Expected voucher-pin backfill claim to be scheduled');
+    }
+
+    await scheduledBackfillClaim();
+
     expect(vtuTransactionUpdatePayloads).toEqual([
       {
         metadata: expect.objectContaining({
@@ -380,7 +436,8 @@ describe('GET /api/vtu/history', () => {
     });
     expect(mockBackfillVtuVoucherPin).not.toHaveBeenCalled();
 
-    const scheduledBackfill = mockAfter.mock.calls[0]?.[0] as
+    expect(mockAfter).toHaveBeenCalledTimes(2);
+    const scheduledBackfill = mockAfter.mock.calls[1]?.[0] as
       | (() => Promise<void>)
       | undefined;
     expect(scheduledBackfill).toBeDefined();
@@ -427,13 +484,48 @@ describe('GET /api/vtu/history', () => {
     const responsePromise = GET(
       makeRequest('?merchantSlug=ogabassey&type=electricity')
     );
+    // The race checks that the response is not coupled to the mocked
+    // backfill-claim promise; the explicit after/backfill assertions below
+    // verify that the deferred work was queued instead of dropped.
     const raceResult = await Promise.race([
       responsePromise.then(() => 'response'),
       new Promise((resolve) => setTimeout(() => resolve('blocked'), 0)),
     ]);
 
     expect(raceResult).toBe('response');
+    expect(mockAfter).toHaveBeenCalledTimes(1);
+    expect(vtuTransactionUpdatePayloads).toEqual([]);
+    expect(mockBackfillVtuVoucherPin).not.toHaveBeenCalled();
+
+    const scheduledBackfillClaim = mockAfter.mock.calls[0]?.[0] as
+      | (() => Promise<void>)
+      | undefined;
+    expect(scheduledBackfillClaim).toBeDefined();
+    if (!scheduledBackfillClaim) {
+      throw new Error('Expected voucher-pin backfill claim to be scheduled');
+    }
+
+    const scheduledBackfillClaimPromise = scheduledBackfillClaim();
+    // The scheduled callback reaches the mocked update builder before its
+    // first awaited branch, so one microtask tick is enough to observe the
+    // claim payload while scheduledBackfillClaimPromise is still pending.
+    await Promise.resolve();
+
+    expect(vtuTransactionUpdatePayloads).toEqual([
+      {
+        metadata: expect.objectContaining({
+          voucherPinBackfillScheduledAt: expect.any(String),
+        }),
+      },
+    ]);
+    expect(mockAfter).toHaveBeenCalledTimes(1);
+    expect(mockBackfillVtuVoucherPin).not.toHaveBeenCalled();
+
     resolveBackfillClaim?.({ data: [{ id: 'tx-1' }], error: null });
+    await scheduledBackfillClaimPromise;
+    expect(mockAfter).toHaveBeenCalledTimes(2);
+    expect(mockBackfillVtuVoucherPin).not.toHaveBeenCalled();
+
     const response = await responsePromise;
     const data = await response.json();
 

@@ -37,17 +37,7 @@ export const PAYMENT_CLIPBOARD_BRIDGE = {
     });
   }
 
-  function postCopy(text) {
-    if (typeof text !== 'string') {
-      return;
-    }
-
-    var normalized = text.trim();
-    if (!normalized) {
-      return;
-    }
-
-    var accountNumber = findAccountNumber(normalized);
+  function postClipboardAccountNumber(accountNumber) {
     if (!accountNumber) {
       return;
     }
@@ -56,6 +46,19 @@ export const PAYMENT_CLIPBOARD_BRIDGE = {
       type: '${PAYMENT_CLIPBOARD_MESSAGE_TYPE}',
       text: accountNumber
     }));
+  }
+
+  function postCopy(text) {
+    if (typeof text !== 'string') {
+      return;
+    }
+
+    var accountNumber = findAccountNumber(text.trim());
+    if (!accountNumber) {
+      return;
+    }
+
+    postClipboardAccountNumber(accountNumber);
   }
 
   var lastPostedAccountNumber = '';
@@ -147,7 +150,7 @@ export const PAYMENT_CLIPBOARD_BRIDGE = {
       var accountNumber = findAccountNumber(text);
       if (accountNumber) {
         postAccountNumber(accountNumber);
-        postCopy(accountNumber);
+        postClipboardAccountNumber(accountNumber);
         return;
       }
       node = node.parentElement;
@@ -159,11 +162,13 @@ export const PAYMENT_CLIPBOARD_BRIDGE = {
     );
     if (fallbackAccountNumber) {
       postAccountNumber(fallbackAccountNumber);
-      postCopy(fallbackAccountNumber);
+      postClipboardAccountNumber(fallbackAccountNumber);
     }
   }
 
-  var existingClipboard = navigator.clipboard || {};
+  var originalClipboard = navigator.clipboard;
+  var existingClipboard = originalClipboard || {};
+  var originalClipboardWriteText = existingClipboard.writeText;
   var originalWriteText =
     typeof existingClipboard.writeText === 'function'
       ? existingClipboard.writeText.bind(existingClipboard)
@@ -173,8 +178,9 @@ export const PAYMENT_CLIPBOARD_BRIDGE = {
     postCopy(String(text));
 
     if (!originalWriteText) {
+      var missingWriteTextError = new Error('Baci clipboard bridge writeText unavailable');
       console.warn('Baci clipboard bridge writeText unavailable; native write skipped');
-      return Promise.resolve();
+      return Promise.reject(missingWriteTextError);
     }
 
     var result = originalWriteText(text);
@@ -227,7 +233,7 @@ export const PAYMENT_CLIPBOARD_BRIDGE = {
     };
   }
 
-  document.addEventListener('copy', function (event) {
+  var copyListener = function (event) {
     var clipboardText = '';
 
     if (window.getSelection) {
@@ -235,9 +241,11 @@ export const PAYMENT_CLIPBOARD_BRIDGE = {
     }
 
     postCopy(clipboardText);
-  }, true);
+  };
 
-  document.addEventListener('click', function (event) {
+  document.addEventListener('copy', copyListener, true);
+
+  var clickListener = function (event) {
     var target = event.target;
     if (!target) {
       return;
@@ -254,7 +262,9 @@ export const PAYMENT_CLIPBOARD_BRIDGE = {
         postNearestAccountNumber(target);
       }, 0);
     }
-  }, true);
+  };
+
+  document.addEventListener('click', clickListener, true);
 
   function hasAccountNumberCandidate(node) {
     if (!node) {
@@ -262,6 +272,8 @@ export const PAYMENT_CLIPBOARD_BRIDGE = {
     }
     return Boolean(findAccountNumber(node.innerText || node.textContent || ''));
   }
+
+  var accountNumberObserver = null;
 
   function installAccountNumberObserver() {
     var MutationObserverConstructor = window.MutationObserver;
@@ -279,13 +291,57 @@ export const PAYMENT_CLIPBOARD_BRIDGE = {
       return;
     }
 
-    var observer = new MutationObserverConstructor(scheduleAccountNumberScan);
-    observer.observe(observerTarget, {
+    if (
+      accountNumberObserver &&
+      typeof accountNumberObserver.disconnect === 'function'
+    ) {
+      accountNumberObserver.disconnect();
+    }
+
+    accountNumberObserver = new MutationObserverConstructor(scheduleAccountNumberScan);
+    accountNumberObserver.observe(observerTarget, {
       characterData: true,
       childList: true,
       subtree: true
     });
   }
+
+  window.__baciClipboardBridgeUninstall = function () {
+    if (
+      accountNumberObserver &&
+      typeof accountNumberObserver.disconnect === 'function'
+    ) {
+      accountNumberObserver.disconnect();
+    }
+    accountNumberObserver = null;
+    if (accountNumberScanTimer) {
+      clearTimeout(accountNumberScanTimer);
+      accountNumberScanTimer = null;
+    }
+    if (typeof document.removeEventListener === 'function') {
+      document.removeEventListener('copy', copyListener, true);
+      document.removeEventListener('click', clickListener, true);
+    }
+    if (originalExecCommand) {
+      document.execCommand = originalExecCommand;
+    }
+    try {
+      if (originalClipboard === undefined) {
+        delete navigator.clipboard;
+      } else {
+        Object.defineProperty(navigator, 'clipboard', {
+          configurable: true,
+          value: originalClipboard
+        });
+        if (existingClipboard) {
+          existingClipboard.writeText = originalClipboardWriteText;
+        }
+      }
+    } catch (error) {
+      // Clipboard restoration is best-effort because some WebViews lock this property.
+    }
+    window.__baciClipboardBridgeInstalled = false;
+  };
 
   function initializeAccountNumberScanning() {
     scanForAccountNumber();

@@ -79,11 +79,6 @@ export const PaymentGatewayParamsSchema = z
         message: 'Order ID or order number is required for order payments',
         path: ['orderId'],
       });
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Order ID or order number is required for order payments',
-        path: ['orderNumber'],
-      });
     }
   });
 

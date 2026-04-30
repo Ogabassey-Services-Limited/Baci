@@ -169,7 +169,7 @@ describe('useUtilityHistoryActions', () => {
     );
   });
 
-  it('shares receipts, blocks concurrent shares, and clears sharing state', async () => {
+  it('blocks concurrent receipt shares and shows feedback', async () => {
     const share = deferred<void>();
     mockShareUtilityReceipt.mockReturnValueOnce(share.promise);
     const transaction = createTransaction();
@@ -181,6 +181,25 @@ describe('useUtilityHistoryActions', () => {
     });
 
     expect(mockShareUtilityReceipt).toHaveBeenCalledTimes(1);
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Share In Progress',
+      'Another receipt share is already running.'
+    );
+
+    await act(async () => {
+      share.resolve(undefined);
+      await share.promise;
+    });
+  });
+
+  it('composes receipt share payload from transaction details', async () => {
+    const transaction = createTransaction();
+    const { result } = renderHook(() => useUtilityHistoryActions({ refetch }));
+
+    await act(async () => {
+      await result.current.handleShareReceipt(transaction);
+    });
+
     expect(mockShareUtilityReceipt).toHaveBeenCalledWith({
       amount: 2500,
       customerIdentifier: '43901766923',
@@ -190,6 +209,18 @@ describe('useUtilityHistoryActions', () => {
       type: 'power',
       voucherPin: '1234-5678',
     });
+  });
+
+  it('sets and clears sharing state while receipt sharing is pending', async () => {
+    const share = deferred<void>();
+    mockShareUtilityReceipt.mockReturnValueOnce(share.promise);
+    const transaction = createTransaction();
+    const { result } = renderHook(() => useUtilityHistoryActions({ refetch }));
+
+    act(() => {
+      void result.current.handleShareReceipt(transaction);
+    });
+
     await waitFor(() =>
       expect(result.current.sharingTransactionId).toBe('tx-1')
     );
@@ -273,7 +304,7 @@ describe('useUtilityHistoryActions', () => {
     await waitFor(() => expect(result.current.syncingTransactionId).toBeNull());
   });
 
-  it('handles sync failures and refetches history for recovery', async () => {
+  it('handles rejected VTU sync/processing failures and refetches history for recovery', async () => {
     const transaction = createTransaction({ status: 'failed' });
     const { result } = renderHook(() => useUtilityHistoryActions({ refetch }));
     mockConfirmVtuCheckout.mockRejectedValueOnce(new Error('processing'));

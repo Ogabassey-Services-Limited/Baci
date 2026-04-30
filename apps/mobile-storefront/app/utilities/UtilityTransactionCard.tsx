@@ -93,9 +93,11 @@ export default function UtilityTransactionCard({
         </View>
       </View>
 
-      <Text style={[styles.referenceText, { color: colors.textSecondary }]}>
-        Ref: {transaction.request_reference}
-      </Text>
+      {transaction.request_reference ? (
+        <Text style={[styles.referenceText, { color: colors.textSecondary }]}>
+          Ref: {transaction.request_reference}
+        </Text>
+      ) : null}
 
       {transaction.customer_name ? (
         <Text style={[styles.referenceText, { color: colors.textSecondary }]}>

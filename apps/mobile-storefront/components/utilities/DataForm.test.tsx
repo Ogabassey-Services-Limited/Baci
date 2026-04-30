@@ -20,7 +20,10 @@ const mockChargeSavedVtuCard =
   jest.fn<
     (...args: unknown[]) => Promise<{
       amount?: number;
+      authorization_url?: string;
       cashback?: { amount: number; newBalance: number };
+      gateway?: 'paystack';
+      requires_authorization?: true;
       reference: string;
       status?: 'processing';
       voucherPin?: string;
@@ -316,6 +319,46 @@ describe('DataForm', () => {
         cashback: { amount: 5, newBalance: 25 },
         reference: 'VTU-CARD-123',
         voucherPin: 'token-123',
+      });
+    });
+  });
+
+  it('routes saved-card data purchases through authorization when required', async () => {
+    mockUseUtilityPayment.mockReturnValue({
+      cards: [],
+      isLoadingCards: false,
+      selectedGateway: null,
+      selectedSavedCardId: 'saved-card-1',
+      selectGateway: jest.fn(),
+      selectSavedCard: jest.fn(),
+      supportedGateways: ['paystack', 'korapay'],
+    });
+    mockRequiresSavedVtuCardAuthorization.mockReturnValueOnce(true);
+    mockChargeSavedVtuCard.mockResolvedValueOnce({
+      authorization_url: 'https://checkout.paystack.com/authorize-card',
+      gateway: 'paystack',
+      reference: 'VTU-CARD-AUTH-123',
+      requires_authorization: true,
+    });
+    render(<DataForm onSuccess={jest.fn()} />);
+
+    fireEvent.press(screen.getByText('MTN 1GB Data'));
+    fireEvent.changeText(screen.getByLabelText('Phone Number'), '08031234567');
+    fireEvent.changeText(screen.getByLabelText('Amount'), '1000');
+    fireEvent.press(screen.getByText('Pay ₦1,000'));
+
+    await waitFor(() => {
+      expect(mockRouterPush).toHaveBeenCalledWith({
+        pathname: '/payment-gateway',
+        params: expect.objectContaining({
+          amount: '1000',
+          authorizationUrl: 'https://checkout.paystack.com/authorize-card',
+          customerIdentifier: '08031234567',
+          gateway: 'paystack',
+          paymentKind: 'vtu',
+          reference: 'VTU-CARD-AUTH-123',
+          utilityType: 'data',
+        }),
       });
     });
   });

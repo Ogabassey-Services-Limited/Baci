@@ -21,9 +21,7 @@ function createPaymentState(): PaymentState {
   return {
     cards: [],
     isLoadingCards: false,
-    refetchCards: jest.fn(() =>
-      Promise.resolve({} as Awaited<ReturnType<PaymentState['refetchCards']>>)
-    ) as PaymentState['refetchCards'],
+    refetchCards: jest.fn<PaymentState['refetchCards']>(),
     selectGateway: jest.fn(),
     selectSavedCard: jest.fn(),
     selectedGateway: 'paystack',

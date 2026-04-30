@@ -55,6 +55,36 @@ describe('RouteRepeatParamsSchema', () => {
     });
   });
 
+  it('returns undefined for empty optional repeat strings', () => {
+    const result = RouteRepeatParamsSchema.parse({
+      repeatBillerName: ' ',
+      repeatBillItemIdentifier: '',
+      repeatCustomerIdentifier: '\t',
+      repeatDataPlanCode: '   ',
+      repeatNetworkProvider: '',
+    });
+
+    expect(result.repeatBillerName).toBeUndefined();
+    expect(result.repeatBillItemIdentifier).toBeUndefined();
+    expect(result.repeatCustomerIdentifier).toBeUndefined();
+    expect(result.repeatDataPlanCode).toBeUndefined();
+    expect(result.repeatNetworkProvider).toBeUndefined();
+  });
+
+  it('rejects an empty repeat phone number before Nigerian phone parsing', () => {
+    const result = RouteRepeatParamsSchema.safeParse({
+      repeatPhoneNumber: ' ',
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.path).toEqual(['repeatPhoneNumber']);
+      expect(result.error.issues[0]?.message).toBe(
+        'Repeat phone number cannot be empty'
+      );
+    }
+  });
+
   it('rejects unsupported repeat flags', () => {
     const result = RouteRepeatParamsSchema.safeParse({
       repeatVerified: 'yes',

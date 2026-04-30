@@ -1,4 +1,5 @@
 import { jest } from '@jest/globals';
+import { waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { PAYMENT_CLIPBOARD_BRIDGE } from '@/constants/payment-clipboard-bridge';
 import { PAYMENT_KINDS } from './payment-gateway.helpers';
@@ -58,10 +59,9 @@ function sendMessage(
 describe('createPaymentGatewayMessageHandler', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.useRealTimers();
   });
 
-  it('copies clipboard text once and trims the payload', () => {
+  it('copies clipboard text once and trims the payload', async () => {
     const { copiedGatewayTextRef, copyGatewayText, handler } = createHandler();
 
     sendMessage(handler, {
@@ -73,13 +73,41 @@ describe('createPaymentGatewayMessageHandler', () => {
       type: PAYMENT_CLIPBOARD_BRIDGE.clipboardMessageType,
     });
 
-    expect(copiedGatewayTextRef.current).toBe('1234567890');
     expect(copyGatewayText).toHaveBeenCalledTimes(1);
     expect(copyGatewayText).toHaveBeenCalledWith(
       '1234567890',
       'Text copied.',
       undefined
     );
+    await waitFor(() => {
+      expect(copiedGatewayTextRef.current).toBe('1234567890');
+    });
+  });
+
+  it('does not dedupe future clipboard messages when copy fails', async () => {
+    const { copiedGatewayTextRef, copyGatewayText, handler } = createHandler();
+    copyGatewayText
+      .mockRejectedValueOnce(new Error('copy failed'))
+      .mockResolvedValueOnce(undefined);
+
+    sendMessage(handler, {
+      text: '1234567890',
+      type: PAYMENT_CLIPBOARD_BRIDGE.clipboardMessageType,
+    });
+
+    const firstCopy = copyGatewayText.mock.results[0]?.value;
+    await expect(firstCopy).rejects.toThrow('copy failed');
+    expect(copiedGatewayTextRef.current).toBeNull();
+
+    sendMessage(handler, {
+      text: '1234567890',
+      type: PAYMENT_CLIPBOARD_BRIDGE.clipboardMessageType,
+    });
+
+    expect(copyGatewayText).toHaveBeenCalledTimes(2);
+    await waitFor(() => {
+      expect(copiedGatewayTextRef.current).toBe('1234567890');
+    });
   });
 
   it('uses account-number specific copy messages', () => {

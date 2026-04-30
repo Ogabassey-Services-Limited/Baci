@@ -38,6 +38,14 @@ function getVerifyErrorMessage(error: unknown): string | undefined {
   if (error instanceof Error) {
     return error.message;
   }
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    typeof error.message === 'string'
+  ) {
+    return error.message;
+  }
   return String(error);
 }
 
@@ -81,7 +89,7 @@ export function BillItemSelectionSection({
       {billItemSelection.levels.map((level) => (
         <View
           key={`${selectedBillerId}-${level.depth}`}
-          style={{ marginTop: 24 }}
+          style={styles.selectionLevel}
         >
           <Text style={[styles.sectionTitle, { color: colors.text }]}>
             {getBillItemLevelLabel(type, level.depth)}
@@ -148,7 +156,11 @@ export function BillItemSelectionSection({
       {isBillItemSelectionComplete ? (
         <>
           <Text
-            style={[styles.sectionTitle, { color: colors.text, marginTop: 24 }]}
+            style={[
+              styles.sectionTitle,
+              styles.identifierTitle,
+              { color: colors.text },
+            ]}
           >
             {IDENTIFIER_LABELS[type]}
           </Text>
@@ -230,7 +242,7 @@ export function BillItemSelectionSection({
               Using details from your previous successful purchase.
             </Text>
           ) : verify.data || verify.isPending || verify.error ? (
-            <View style={{ marginTop: 12 }}>
+            <View style={styles.verificationCardSpacing}>
               <VerificationCard
                 verified={verify.data?.verified ?? false}
                 customerName={verify.data?.customerName}

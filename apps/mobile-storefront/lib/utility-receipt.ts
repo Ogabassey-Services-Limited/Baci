@@ -70,6 +70,16 @@ function buildReceiptMessage(data: UtilityReceiptData) {
     .join('\n');
 }
 
+function isCancellationError(error: unknown) {
+  const message = error instanceof Error ? error.message.toLowerCase() : '';
+  return (
+    error instanceof Error &&
+    // Expo Sharing reports user cancellation through localized native error
+    // strings rather than a stable cancellation code.
+    (message.includes('cancelled') || message.includes('canceled'))
+  );
+}
+
 export function buildUtilityReceiptHtml(data: UtilityReceiptData) {
   const serviceLabel = getTypeLabel(data.type);
   const rows = buildReceiptRows(data);
@@ -154,13 +164,7 @@ export async function shareUtilityReceipt(data: UtilityReceiptData) {
       UTI: 'com.adobe.pdf',
     });
   } catch (error) {
-    if (
-      error instanceof Error &&
-      // Expo Sharing reports user cancellation through localized native error
-      // strings rather than a stable cancellation code.
-      (error.message.includes('cancelled') ||
-        error.message.includes('canceled'))
-    ) {
+    if (isCancellationError(error)) {
       return;
     }
 

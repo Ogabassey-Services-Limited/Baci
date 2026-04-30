@@ -32,6 +32,7 @@ export function usePaymentGatewayController() {
   const copiedGatewayTextRef = useRef<string | null>(null);
   const paymentCompletionStartedRef = useRef(false);
   const isMountedRef = useRef(true);
+  const vtuConfirmationTokenRef = useRef(0);
   const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
@@ -53,13 +54,18 @@ export function usePaymentGatewayController() {
     []
   );
 
+  const clearPendingNavigation = () => {
+    if (navigationTimeoutRef.current) {
+      clearTimeout(navigationTimeoutRef.current);
+      navigationTimeoutRef.current = null;
+    }
+  };
+
   const scheduleDelayedNavigation = (navigate: () => void) => {
     if (!isMountedRef.current) {
       return;
     }
-    if (navigationTimeoutRef.current) {
-      clearTimeout(navigationTimeoutRef.current);
-    }
+    clearPendingNavigation();
     navigationTimeoutRef.current = setTimeout(() => {
       navigationTimeoutRef.current = null;
       if (isMountedRef.current) {
@@ -96,6 +102,10 @@ export function usePaymentGatewayController() {
       ? PAYMENT_GATEWAY_LABELS[gateway]
       : 'Payment';
 
+  const isCurrentVtuConfirmation = (confirmationToken: number) =>
+    isMountedRef.current &&
+    vtuConfirmationTokenRef.current === confirmationToken;
+
   const routeToUtilityResult = ({
     resultAmount,
     resultCashback,
@@ -114,7 +124,7 @@ export function usePaymentGatewayController() {
     resultStatus: 'processing' | 'successful';
     resultVoucherPin?: string;
   }) => {
-    if (!utilityType) {
+    if (!isMountedRef.current || !utilityType) {
       return;
     }
 
@@ -138,7 +148,11 @@ export function usePaymentGatewayController() {
   };
 
   const handleVtuConfirmation = async () => {
+    const confirmationToken = vtuConfirmationTokenRef.current;
     if (!utilityType || !gateway) {
+      if (!isCurrentVtuConfirmation(confirmationToken)) {
+        return;
+      }
       setStatus('error');
       setErrorMessage('Utility payment could not be confirmed.');
       return;
@@ -150,8 +164,14 @@ export function usePaymentGatewayController() {
       }
 
       if (gateway === JUICYWAY_GATEWAY) {
+        if (!isCurrentVtuConfirmation(confirmationToken)) {
+          return;
+        }
         setStatus('success');
         scheduleDelayedNavigation(() => {
+          if (!isCurrentVtuConfirmation(confirmationToken)) {
+            return;
+          }
           routeToUtilityResult({
             resultAmount: amount,
             resultCustomerIdentifier: customerIdentifier,
@@ -166,8 +186,14 @@ export function usePaymentGatewayController() {
         gateway,
         reference,
       });
+      if (!isCurrentVtuConfirmation(confirmationToken)) {
+        return;
+      }
       setStatus('success');
       scheduleDelayedNavigation(() => {
+        if (!isCurrentVtuConfirmation(confirmationToken)) {
+          return;
+        }
         routeToUtilityResult({
           resultAmount: result.amount,
           resultCashback: result.cashback,
@@ -178,6 +204,9 @@ export function usePaymentGatewayController() {
         });
       });
     } catch (error) {
+      if (!isCurrentVtuConfirmation(confirmationToken)) {
+        return;
+      }
       if (error instanceof VtuPaymentStillProcessingError) {
         setStatus('processing');
         routeToUtilityResult({
@@ -310,8 +339,10 @@ export function usePaymentGatewayController() {
       }
     },
     handleRetry: () => {
+      vtuConfirmationTokenRef.current += 1;
       paymentCompletionStartedRef.current = false;
       copiedGatewayTextRef.current = null;
+      clearPendingNavigation();
       setStatus('loading');
       setErrorMessage(null);
       webViewRef.current?.reload();

@@ -39,6 +39,10 @@ function BillerLogo({
   imageStyle,
   initialStyle,
 }: BillerLogoProps) {
+  if (!biller) {
+    return null;
+  }
+
   if (biller?.billerIconUrl) {
     return (
       <Image
@@ -130,6 +134,7 @@ export function BillerList({
             biller={selectedBiller}
             colors={colors}
             imageStyle={styles.selectedLogo}
+            initialStyle={styles.selectedInitial}
           />
           <View style={styles.selectedCopy}>
             <Text
@@ -280,6 +285,10 @@ const styles = StyleSheet.create({
   selectedLogo: {
     height: 32,
     width: 48,
+  },
+  selectedInitial: {
+    height: 32,
+    width: 32,
   },
   selectedName: {
     fontSize: 15,

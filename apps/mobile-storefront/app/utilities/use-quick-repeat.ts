@@ -20,26 +20,8 @@ interface UseQuickRepeatInput extends RouteRepeatParams {
   title: string;
 }
 
-function buildRouteRepeatParams({
-  repeatAmount,
-  repeatBillerName,
-  repeatBillItemIdentifier,
-  repeatCustomerIdentifier,
-  repeatDataPlanCode,
-  repeatNetworkProvider,
-  repeatPhoneNumber,
-  repeatVerified,
-}: RouteRepeatParams): RouteRepeatParams {
-  return {
-    repeatAmount,
-    repeatBillerName,
-    repeatBillItemIdentifier,
-    repeatCustomerIdentifier,
-    repeatDataPlanCode,
-    repeatNetworkProvider,
-    repeatPhoneNumber,
-    repeatVerified,
-  };
+function buildRouteRepeatParams(params: RouteRepeatParams): RouteRepeatParams {
+  return { ...params };
 }
 
 export function useQuickRepeat({
@@ -57,20 +39,23 @@ export function useQuickRepeat({
   routeType,
   title,
 }: UseQuickRepeatInput) {
-  const repeatParams = buildRouteRepeatParams({
-    repeatAmount,
-    repeatBillerName,
-    repeatBillItemIdentifier,
-    repeatCustomerIdentifier,
-    repeatDataPlanCode,
-    repeatNetworkProvider,
-    repeatPhoneNumber,
-    repeatVerified,
-  });
-  const routeRepeatDefaults = getRouteRepeatDefaults(repeatParams);
-  const [repeatDefaults, setRepeatDefaults] = useState<UtilityRepeatDefaults>(
-    routeType && currentType === routeType ? routeRepeatDefaults : {}
-  );
+  const [repeatDefaults, setRepeatDefaults] =
+    useState<UtilityRepeatDefaults>(() =>
+      routeType && currentType === routeType
+        ? getRouteRepeatDefaults(
+            buildRouteRepeatParams({
+              repeatAmount,
+              repeatBillerName,
+              repeatBillItemIdentifier,
+              repeatCustomerIdentifier,
+              repeatDataPlanCode,
+              repeatNetworkProvider,
+              repeatPhoneNumber,
+              repeatVerified,
+            })
+          )
+        : {}
+    );
   const [repeatRevision, setRepeatRevision] = useState(0);
   const [isQuickRepeatDismissed, setIsQuickRepeatDismissed] = useState(false);
   const didInitializeRef = useRef(false);

@@ -37,6 +37,12 @@ export function normalizeMetadata(metadata: unknown): MetadataRecord {
 }
 
 function toStableJsonValue(value: unknown): unknown {
+  if (typeof value === 'undefined') {
+    throw new TypeError(
+      'Cannot stable JSON stringify metadata containing undefined'
+    );
+  }
+
   if (Array.isArray(value)) {
     return value.map((item) => toStableJsonValue(item));
   }
@@ -53,6 +59,11 @@ function toStableJsonValue(value: unknown): unknown {
   return value;
 }
 
+/**
+ * Serializes metadata for PostgREST JSON equality filters with deterministic
+ * object key order. Undefined is rejected because JSON.stringify would either
+ * omit it or convert it to null, which can corrupt compare-and-set semantics.
+ */
 function stableJsonStringify(value: unknown): string {
   return JSON.stringify(toStableJsonValue(value)) ?? 'null';
 }
@@ -112,7 +123,7 @@ async function markVoucherPinBackfillScheduled({
     .eq('id', transactionId);
 
   updateQuery =
-    originalMetadata === null || typeof originalMetadata === 'undefined'
+    originalMetadata === null
       ? updateQuery.is('metadata', null)
       : updateQuery.filter(
           'metadata',

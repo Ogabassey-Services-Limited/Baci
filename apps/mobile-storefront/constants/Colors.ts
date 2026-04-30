@@ -197,8 +197,18 @@ export const SEMANTIC_COLORS = {
 } as const;
 
 /**
- * Applies alpha to hex, rgb(), or rgba() colors. Alpha is clamped to 0..1,
- * and unsupported color formats are returned unchanged.
+ * Applies alpha to supported color literals and returns `rgba(...)`.
+ *
+ * Supported inputs:
+ * - 3-, 6-, or 8-digit hex strings, with or without a leading `#`
+ * - comma-separated `rgb(r, g, b)` and `rgba(r, g, b, a)` values with integer
+ *   RGB components from 0 to 255
+ *
+ * Limitations:
+ * - Source alpha in 8-digit hex or `rgba()` is replaced by the provided alpha
+ * - CSS named colors, HSL, percent RGB, and CSS Color 4 space/slash syntax are
+ *   returned unchanged
+ * - Alpha is clamped to the 0..1 range
  */
 export function withAlpha(color: string, alpha: number): string {
   const normalizedAlpha = Math.min(Math.max(alpha, 0), 1);

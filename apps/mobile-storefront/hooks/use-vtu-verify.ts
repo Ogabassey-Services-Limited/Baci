@@ -4,8 +4,6 @@ import { EXPO_PUBLIC_API_URL } from '@/env';
 import { fetchWithTimeout, SHORT_TIMEOUT } from '@/lib/fetch-with-timeout';
 import { supabase } from '@/lib/supabase';
 
-const API_URL = EXPO_PUBLIC_API_URL;
-
 export interface VerifyResult {
   verified: boolean;
   customerName?: string;
@@ -42,15 +40,18 @@ export function useVTUVerify() {
       // verify requests and applies merchant-side validation/rate controls.
       const accessToken = sessionResult.data?.session?.access_token;
 
-      const response = await fetchWithTimeout(`${API_URL}/api/vtu/verify`, {
-        timeout: SHORT_TIMEOUT,
-        method: 'POST',
-        headers: {
-          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(params),
-      });
+      const response = await fetchWithTimeout(
+        `${EXPO_PUBLIC_API_URL}/api/vtu/verify`,
+        {
+          timeout: SHORT_TIMEOUT,
+          method: 'POST',
+          headers: {
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(params),
+        }
+      );
 
       if (!response.ok) {
         let errorMsg = 'Verification failed';

@@ -15,22 +15,22 @@ import {
 import { useKeyboard } from '@/hooks/use-keyboard';
 import { RouteRepeatParamsSchema } from '@/schemas/utility-purchase';
 import { useAuthStore } from '@/stores/auth-store';
-import { InvalidUtilityServiceView } from './InvalidUtilityServiceView';
-import { QuickRepeatPrompt } from './QuickRepeatPrompt';
-import { UtilityHeader } from './UtilityHeader';
-import { UtilityPurchaseSuccessView } from './UtilityPurchaseSuccessView';
-import { useQuickRepeat } from './use-quick-repeat';
+import { InvalidUtilityServiceView } from '@/app/utilities/InvalidUtilityServiceView';
+import { QuickRepeatPrompt } from '@/app/utilities/QuickRepeatPrompt';
+import { UtilityHeader } from '@/app/utilities/UtilityHeader';
+import { UtilityPurchaseSuccessView } from '@/app/utilities/UtilityPurchaseSuccessView';
+import { useQuickRepeat } from '@/app/utilities/use-quick-repeat';
 import {
   isBillUtilityType,
   isValidUtilityType,
   UTILITY_TYPE_TITLES,
-} from './utility-purchase.config';
-import { utilityPurchaseStyles as styles } from './utility-purchase.styles';
+} from '@/app/utilities/utility-purchase.config';
+import { utilityPurchaseStyles as styles } from '@/app/utilities/utility-purchase.styles';
 import type {
   RawRouteRepeatParams,
   UtilityPurchaseResult,
   ValidUtilityType,
-} from './utility-purchase.types';
+} from '@/app/utilities/utility-purchase.types';
 
 interface UtilityRouteParams extends RawRouteRepeatParams {
   type: string;

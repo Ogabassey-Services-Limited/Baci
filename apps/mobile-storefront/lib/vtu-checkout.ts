@@ -36,6 +36,33 @@ const ConfirmCheckoutResponseSchema = z.object({
     .optional(),
 });
 
+const ALLOWED_CONFIRM_CHECKOUT_STATUSES = ['successful', 'processing'] as const;
+
+function isAllowedConfirmCheckoutStatus(
+  status: string
+): status is (typeof ALLOWED_CONFIRM_CHECKOUT_STATUSES)[number] {
+  return ALLOWED_CONFIRM_CHECKOUT_STATUSES.some(
+    (allowedStatus) => allowedStatus === status
+  );
+}
+
+function normalizeConfirmCheckoutStatus(status: unknown) {
+  if (typeof status !== 'string') {
+    throw new Error(`Unexpected VTU checkout status: ${String(status)}`);
+  }
+
+  const normalizedStatus = status.toLowerCase();
+  if (normalizedStatus === 'already_completed') {
+    return 'processing' as const;
+  }
+
+  if (isAllowedConfirmCheckoutStatus(normalizedStatus)) {
+    return normalizedStatus;
+  }
+
+  throw new Error(`Unexpected VTU checkout status: ${status}`);
+}
+
 const SavedCardSchema = z.object({
   id: z.string(),
   provider: z.literal('paystack'),
@@ -256,23 +283,9 @@ export async function confirmVtuCheckout({
     throw new Error(getResponseErrorMessage(data));
   }
 
-  if (typeof data.status !== 'string') {
-    return ConfirmCheckoutResponseSchema.parse(data);
-  }
-
-  const normalizedStatus = data.status.toLowerCase();
-
-  if (normalizedStatus === 'already_completed') {
-    return ConfirmCheckoutResponseSchema.parse({
-      ...data,
-      reference,
-      status: 'processing' as const,
-    });
-  }
-
   return ConfirmCheckoutResponseSchema.parse({
     ...data,
-    status: normalizedStatus,
+    status: normalizeConfirmCheckoutStatus(data.status),
   });
 }
 

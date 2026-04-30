@@ -35,7 +35,7 @@ describe('BillerList', () => {
       />
     );
 
-    expect(screen.getByText('Loading providers...')).toBeTruthy();
+    expect(screen.getByText('Loading providers...')).toBeOnTheScreen();
   });
 
   it('shows an error message when provider loading fails', () => {
@@ -49,7 +49,7 @@ describe('BillerList', () => {
       />
     );
 
-    expect(screen.getByText('Unable to load providers')).toBeTruthy();
+    expect(screen.getByText('Unable to load providers')).toBeOnTheScreen();
   });
 
   it('shows an empty message when no providers are available', () => {
@@ -63,7 +63,9 @@ describe('BillerList', () => {
       />
     );
 
-    expect(screen.getByText('No electricity providers available')).toBeTruthy();
+    expect(
+      screen.getByText('No electricity providers available')
+    ).toBeOnTheScreen();
   });
 
   it('collapses to the selected provider and exposes a change action', () => {
@@ -87,9 +89,9 @@ describe('BillerList', () => {
       />
     );
 
-    expect(screen.getByText('EKEDC NG')).toBeTruthy();
+    expect(screen.getByText('EKEDC NG')).toBeOnTheScreen();
     expect(screen.queryByText('IKEDC NG')).toBeNull();
-    expect(screen.getByLabelText('EKEDC NG logo')).toBeTruthy();
+    expect(screen.getByLabelText('EKEDC NG logo')).toBeOnTheScreen();
 
     fireEvent.press(screen.getByLabelText('Change selected provider'));
 
@@ -110,8 +112,8 @@ describe('BillerList', () => {
       />
     );
 
-    expect(screen.getByText('Provider')).toBeTruthy();
-    expect(screen.getByText('Select provider')).toBeTruthy();
+    expect(screen.getByText('Provider')).toBeOnTheScreen();
+    expect(screen.getByText('Select provider')).toBeOnTheScreen();
     expect(screen.queryByText('EKEDC NG')).toBeNull();
     expect(screen.queryByText('IKEDC NG')).toBeNull();
 
@@ -131,8 +133,8 @@ describe('BillerList', () => {
       />
     );
 
-    expect(screen.getByText('EKEDC NG')).toBeTruthy();
-    expect(screen.getByText('IKEDC NG')).toBeTruthy();
+    expect(screen.getByText('EKEDC NG')).toBeOnTheScreen();
+    expect(screen.getByText('IKEDC NG')).toBeOnTheScreen();
   });
 
   it('calls onSelect with the selected biller', () => {
@@ -154,5 +156,22 @@ describe('BillerList', () => {
     expect(onSelect).toHaveBeenCalledWith(
       expect.objectContaining({ billerId: 'ekedc' })
     );
+  });
+
+  it('uses compact initial styling for collapsed providers without logos', () => {
+    render(
+      <BillerList
+        billers={billers}
+        selectedBillerId="ekedc"
+        onSelect={jest.fn()}
+        isLoading={false}
+        isCollapsed={true}
+      />
+    );
+
+    expect(screen.getByLabelText('Biller: EKEDC NG')).toHaveStyle({
+      height: 32,
+      width: 32,
+    });
   });
 });

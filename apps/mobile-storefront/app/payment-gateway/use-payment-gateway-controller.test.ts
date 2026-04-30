@@ -3,7 +3,10 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { Alert } from 'react-native';
 import type { WebViewNavigation } from 'react-native-webview';
-import { waitForVtuConfirmation } from '@/lib/vtu-checkout';
+import {
+  VtuPaymentStillProcessingError,
+  waitForVtuConfirmation,
+} from '@/lib/vtu-checkout';
 import { usePaymentGatewayController } from './use-payment-gateway-controller';
 
 const mockClearCart = jest.fn();
@@ -74,6 +77,16 @@ const vtuParams = {
 
 function navigation(url: string) {
   return { url } as WebViewNavigation;
+}
+
+function deferred<T>() {
+  let reject!: (reason?: unknown) => void;
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+  return { promise, reject, resolve };
 }
 
 describe('usePaymentGatewayController', () => {
@@ -257,6 +270,112 @@ describe('usePaymentGatewayController', () => {
     });
   });
 
+  it('ignores stale successful VTU confirmations after retry', async () => {
+    jest.useFakeTimers({ advanceTimers: true });
+    mockSearchParams = { ...vtuParams };
+    const confirmation =
+      deferred<Awaited<ReturnType<typeof waitForVtuConfirmation>>>();
+    mockWaitForVtuConfirmation.mockImplementationOnce(
+      () => confirmation.promise
+    );
+    const { result } = renderHook(() => usePaymentGatewayController());
+
+    act(() => {
+      result.current.handleNavigationChange(
+        navigation('https://usebaci.com/checkout/success?reference=VTU-123')
+      );
+    });
+
+    await waitFor(() =>
+      expect(mockWaitForVtuConfirmation).toHaveBeenCalledTimes(1)
+    );
+
+    act(() => {
+      result.current.handleRetry();
+    });
+
+    await act(async () => {
+      confirmation.resolve({
+        amount: 2500,
+        reference: 'VTU-123',
+        status: 'successful',
+      });
+    });
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+
+    expect(result.current.status).toBe('loading');
+    expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  it('ignores stale still-processing VTU confirmations after retry', async () => {
+    mockSearchParams = { ...vtuParams };
+    const confirmation =
+      deferred<Awaited<ReturnType<typeof waitForVtuConfirmation>>>();
+    mockWaitForVtuConfirmation.mockImplementationOnce(
+      () => confirmation.promise
+    );
+    const { result } = renderHook(() => usePaymentGatewayController());
+
+    act(() => {
+      result.current.handleNavigationChange(
+        navigation('https://usebaci.com/checkout/success?reference=VTU-123')
+      );
+    });
+
+    await waitFor(() =>
+      expect(mockWaitForVtuConfirmation).toHaveBeenCalledTimes(1)
+    );
+
+    act(() => {
+      result.current.handleRetry();
+    });
+
+    await act(async () => {
+      confirmation.reject(
+        new VtuPaymentStillProcessingError({
+          reference: 'VTU-123',
+        })
+      );
+    });
+
+    expect(result.current.status).toBe('loading');
+    expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  it('does not route VTU confirmations after unmount', async () => {
+    mockSearchParams = { ...vtuParams };
+    const confirmation =
+      deferred<Awaited<ReturnType<typeof waitForVtuConfirmation>>>();
+    mockWaitForVtuConfirmation.mockImplementationOnce(
+      () => confirmation.promise
+    );
+    const { result, unmount } = renderHook(() => usePaymentGatewayController());
+
+    act(() => {
+      result.current.handleNavigationChange(
+        navigation('https://usebaci.com/checkout/success?reference=VTU-123')
+      );
+    });
+
+    await waitFor(() =>
+      expect(mockWaitForVtuConfirmation).toHaveBeenCalledTimes(1)
+    );
+
+    unmount();
+
+    await act(async () => {
+      confirmation.reject(
+        new VtuPaymentStillProcessingError({
+          reference: 'VTU-123',
+        })
+      );
+    });
+
+    expect(router.replace).not.toHaveBeenCalled();
+  });
+
   it('preserves VTU cashback params when routing successful utility payments', async () => {
     jest.useFakeTimers({ advanceTimers: true });
     mockSearchParams = { ...vtuParams };
@@ -327,5 +446,31 @@ describe('usePaymentGatewayController', () => {
         type: 'power',
       },
     });
+  });
+
+  it('cancels pending Juicyway VTU navigation when retrying', async () => {
+    jest.useFakeTimers({ advanceTimers: true });
+    mockSearchParams = {
+      ...vtuParams,
+      gateway: 'juicyway',
+      reference: 'JW-123',
+    };
+    const { result } = renderHook(() => usePaymentGatewayController());
+
+    act(() => {
+      result.current.handleNavigationChange(
+        navigation('https://usebaci.com/checkout/success?reference=JW-123')
+      );
+    });
+
+    await waitFor(() => expect(result.current.status).toBe('success'));
+
+    act(() => {
+      result.current.handleRetry();
+      jest.runOnlyPendingTimers();
+    });
+
+    expect(result.current.status).toBe('loading');
+    expect(router.replace).not.toHaveBeenCalled();
   });
 });

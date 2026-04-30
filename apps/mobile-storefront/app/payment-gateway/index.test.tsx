@@ -62,7 +62,6 @@ jest.mock('react-native-webview', () => ({
     injectedJavaScript,
     injectedJavaScriptBeforeContentLoadedForMainFrameOnly,
     injectedJavaScriptForMainFrameOnly,
-    onError,
     onMessage,
     onNavigationStateChange,
     onShouldStartLoadWithRequest,
@@ -71,9 +70,6 @@ jest.mock('react-native-webview', () => ({
     injectedJavaScript?: string;
     injectedJavaScriptBeforeContentLoadedForMainFrameOnly?: boolean;
     injectedJavaScriptForMainFrameOnly?: boolean;
-    onError?: (event: {
-      nativeEvent: { description?: string; url?: string };
-    }) => void;
     onMessage?: (event: { nativeEvent: { data: string } }) => void;
     onNavigationStateChange?: (event: { url: string }) => void;
     onShouldStartLoadWithRequest?: (event: { url: string }) => boolean;
@@ -137,19 +133,6 @@ jest.mock('react-native-webview', () => ({
           }
         >
           <Text>success-navigation</Text>
-        </Pressable>
-        <Pressable
-          accessibilityLabel="mock-payment-about-error"
-          onPress={() =>
-            onError?.({
-              nativeEvent: {
-                description: 'Unable to open URL: about:srcdoc',
-                url: 'about:srcdoc',
-              },
-            })
-          }
-        >
-          <Text>about-error</Text>
         </Pressable>
       </View>
     );
@@ -295,7 +278,6 @@ describe('PaymentGatewayScreen', () => {
           reference: 'ref-123',
         })
       );
-      await Promise.resolve();
     });
 
     await waitFor(() =>
@@ -351,14 +333,16 @@ describe('PaymentGatewayScreen', () => {
     act(() => {
       jest.runOnlyPendingTimers();
     });
-    expect(router.replace).toHaveBeenCalledWith({
-      pathname: '/utilities/[type]',
-      params: expect.objectContaining({
-        customerIdentifier: '43901766923',
-        paymentStatus: 'successful',
-        reference: 'ref-123',
-        type: 'power',
-      }),
-    });
+    await waitFor(() =>
+      expect(router.replace).toHaveBeenCalledWith({
+        pathname: '/utilities/[type]',
+        params: expect.objectContaining({
+          customerIdentifier: '43901766923',
+          paymentStatus: 'successful',
+          reference: 'ref-123',
+          type: 'power',
+        }),
+      })
+    );
   });
 });

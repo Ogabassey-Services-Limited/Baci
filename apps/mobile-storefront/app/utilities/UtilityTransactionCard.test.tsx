@@ -1,5 +1,6 @@
 import { jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import type { ComponentProps } from 'react';
 import Colors, { withAlpha } from '@/constants/Colors';
 import type { VTUHistoryTransaction } from '@/hooks/use-vtu-history';
 import {
@@ -7,6 +8,13 @@ import {
   UTILITY_HISTORY_STYLE_TOKENS,
 } from './history.constants';
 import UtilityTransactionCard from './UtilityTransactionCard';
+
+type UtilityTransactionCardProps = ComponentProps<
+  typeof UtilityTransactionCard
+>;
+type UtilityTransactionCardOverrides = Partial<
+  Omit<UtilityTransactionCardProps, 'transaction'>
+>;
 
 function createTransaction(
   overrides: Partial<VTUHistoryTransaction> = {}
@@ -32,16 +40,20 @@ function createTransaction(
 
 function renderCard(
   transaction: VTUHistoryTransaction,
-  overrides: Partial<{
-    handleCopyVoucher: (voucherPin: string) => void;
-    handleRepeatTransaction: (transaction: VTUHistoryTransaction) => void;
-    handleShareReceipt: (transaction: VTUHistoryTransaction) => void;
-    handleSyncPayment: (transaction: VTUHistoryTransaction) => void;
-    sharingTransactionId: string | null;
-    syncingTransactionId: string | null;
-  }> = {}
+  overrides: UtilityTransactionCardOverrides = {}
 ) {
-  const props = {
+  const props = getDefaultUtilityCardProps(transaction, overrides);
+
+  const renderResult = render(<UtilityTransactionCard {...props} />);
+
+  return { ...props, ...renderResult };
+}
+
+function getDefaultUtilityCardProps(
+  transaction: VTUHistoryTransaction,
+  overrides: UtilityTransactionCardOverrides = {}
+): UtilityTransactionCardProps {
+  return {
     colors: Colors.light,
     handleCopyVoucher: jest.fn(),
     handleRepeatTransaction: jest.fn(),
@@ -52,34 +64,15 @@ function renderCard(
     transaction,
     ...overrides,
   };
-
-  const renderResult = render(<UtilityTransactionCard {...props} />);
-
-  return { ...props, ...renderResult };
 }
 
 function createCardElement(
   transaction: VTUHistoryTransaction,
-  overrides: Partial<{
-    handleCopyVoucher: (voucherPin: string) => void;
-    handleRepeatTransaction: (transaction: VTUHistoryTransaction) => void;
-    handleShareReceipt: (transaction: VTUHistoryTransaction) => void;
-    handleSyncPayment: (transaction: VTUHistoryTransaction) => void;
-    sharingTransactionId: string | null;
-    syncingTransactionId: string | null;
-  }> = {}
+  overrides: UtilityTransactionCardOverrides = {}
 ) {
   return (
     <UtilityTransactionCard
-      colors={Colors.light}
-      handleCopyVoucher={jest.fn()}
-      handleRepeatTransaction={jest.fn()}
-      handleShareReceipt={jest.fn()}
-      handleSyncPayment={jest.fn()}
-      sharingTransactionId={null}
-      syncingTransactionId={null}
-      transaction={transaction}
-      {...overrides}
+      {...getDefaultUtilityCardProps(transaction, overrides)}
     />
   );
 }
@@ -147,6 +140,12 @@ describe('UtilityTransactionCard', () => {
     expect(
       screen.getByText('Unknown transaction • Customer identifier unavailable')
     ).toBeOnTheScreen();
+  });
+
+  it('omits the reference row when the request reference is missing', () => {
+    renderCard(createTransaction({ request_reference: '' }));
+
+    expect(screen.queryByText(/^Ref:/)).toBeNull();
   });
 
   it('disables share and sync buttons while their actions are pending', () => {

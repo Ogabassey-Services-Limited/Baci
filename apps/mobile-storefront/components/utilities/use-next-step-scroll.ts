@@ -2,6 +2,13 @@ import { type RefObject, useEffect, useRef } from 'react';
 import { InteractionManager, type ScrollView } from 'react-native';
 import { SPACING } from '@/constants/Colors';
 
+/**
+ * Schedules a next-step scroll after current interactions settle.
+ *
+ * Calls made while a scroll is already scheduled use last-write-wins semantics:
+ * the pending scroll target is overwritten, but only one animation frame and
+ * InteractionManager task are queued.
+ */
 export function useNextStepScroll(
   scrollViewRef: RefObject<ScrollView | null>,
   onScrollInitiated: () => void

@@ -101,10 +101,10 @@ describe('ReceiptShareButton', () => {
         'Share Failed',
         'Could not generate the receipt PDF. Please try again.'
       );
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Failed to share utility receipt:',
+        expect.any(Error)
+      );
     });
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      'Failed to share utility receipt:',
-      expect.any(Error)
-    );
   });
 });

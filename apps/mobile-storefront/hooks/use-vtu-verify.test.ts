@@ -1,7 +1,7 @@
 import { jest } from '@jest/globals';
 import { notifyManager } from '@tanstack/query-core';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, renderHook, waitFor } from '@testing-library/react-native';
+import { act, renderHook } from '@testing-library/react-native';
 import { createElement, type PropsWithChildren } from 'react';
 import { useVTUVerify } from '@/hooks/use-vtu-verify';
 
@@ -101,9 +101,10 @@ beforeEach(() => {
 describe('useVTUVerify', () => {
   it('verifies bill customers with the authenticated mobile bearer token', async () => {
     const { result } = renderUseVTUVerify();
+    let verifiedResult: unknown;
 
     await act(async () => {
-      await result.current.mutateAsync({
+      verifiedResult = await result.current.mutateAsync({
         billItemIdentifier: 'ekedc-prepaid',
         customerIdentifier: '43901766923',
       });
@@ -118,12 +119,10 @@ describe('useVTUVerify', () => {
         }),
       })
     );
-    await waitFor(() => {
-      expect(result.current.data).toEqual({
-        verified: true,
-        customerName: 'Test Customer',
-        message: 'Customer verified',
-      });
+    expect(verifiedResult).toEqual({
+      verified: true,
+      customerName: 'Test Customer',
+      message: 'Customer verified',
     });
   });
 
@@ -182,5 +181,58 @@ describe('useVTUVerify', () => {
     } finally {
       consoleWarnSpy.mockRestore();
     }
+  });
+
+  it('rejects when the verification request fails before a response', async () => {
+    const fetchError = new Error('Network unavailable');
+    mockFetchWithTimeout.mockRejectedValue(fetchError);
+    const { result } = renderUseVTUVerify();
+
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync({
+          billItemIdentifier: 'ekedc-prepaid',
+          customerIdentifier: '43901766923',
+        })
+      ).rejects.toThrow('Network unavailable');
+    });
+  });
+
+  it('rejects with the server message when verification returns a non-ok response', async () => {
+    mockFetchWithTimeout.mockResolvedValue({
+      ok: false,
+      json: async () => ({
+        message: 'Customer meter number was not found',
+      }),
+    });
+    const { result } = renderUseVTUVerify();
+
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync({
+          billItemIdentifier: 'ekedc-prepaid',
+          customerIdentifier: '43901766923',
+        })
+      ).rejects.toThrow('Customer meter number was not found');
+    });
+  });
+
+  it('rejects when verification JSON parsing fails', async () => {
+    mockFetchWithTimeout.mockResolvedValue({
+      ok: true,
+      json: async () => {
+        throw new SyntaxError('Unexpected token < in JSON');
+      },
+    });
+    const { result } = renderUseVTUVerify();
+
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync({
+          billItemIdentifier: 'ekedc-prepaid',
+          customerIdentifier: '43901766923',
+        })
+      ).rejects.toThrow('Unexpected token < in JSON');
+    });
   });
 });

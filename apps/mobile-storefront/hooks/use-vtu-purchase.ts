@@ -1,10 +1,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
-import { EXPO_PUBLIC_API_URL } from '@/env';
 import { CONFIG } from '@/lib/config';
 import { DEFAULT_TIMEOUT, fetchWithTimeout } from '@/lib/fetch-with-timeout';
 import { MOBILE_TO_KUDA_PROVIDER } from '@/lib/network-utils';
 import { supabase } from '@/lib/supabase';
+import { buildVtuPurchaseUrl } from '@/lib/vtu-purchase-url';
 import { scheduleLocalNotification } from '@/services/push-notifications';
 import { useAuthStore } from '@/stores/auth-store';
 import { walletKeys } from './use-wallet';
@@ -37,21 +37,6 @@ const VTUPurchaseResultSchema = z.object({
 });
 
 export type VTUPurchaseResult = z.infer<typeof VTUPurchaseResultSchema>;
-
-export function buildVtuPurchaseUrl() {
-  const baseUrl = (EXPO_PUBLIC_API_URL ?? '').trim();
-  if (!baseUrl) {
-    throw new Error('EXPO_PUBLIC_API_URL is required for VTU purchases.');
-  }
-
-  try {
-    new URL(baseUrl);
-  } catch {
-    throw new Error('EXPO_PUBLIC_API_URL must be a valid URL.');
-  }
-
-  return `${baseUrl.replace(/\/+$/, '')}/api/vtu/purchase`;
-}
 
 export function useVTUPurchase() {
   const queryClient = useQueryClient();

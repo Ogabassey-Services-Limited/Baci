@@ -1,5 +1,5 @@
 import { StyleSheet, type ViewStyle } from 'react-native';
-import {
+import Colors, {
   RADIUS,
   SEMANTIC_COLORS,
   SPACING,
@@ -68,7 +68,7 @@ export const paymentGatewayStyles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.lg,
-    borderColor: 'transparent',
+    borderTopColor: Colors.light.border,
     borderTopWidth: 1,
   },
   amountLabel: {
@@ -113,7 +113,7 @@ export const paymentGatewayStyles = StyleSheet.create({
     fontWeight: TYPOGRAPHY.weight.semibold,
   },
   secondaryButton: {
-    borderColor: 'transparent',
+    borderColor: Colors.light.border,
     borderWidth: 1,
   },
   secondaryButtonText: {

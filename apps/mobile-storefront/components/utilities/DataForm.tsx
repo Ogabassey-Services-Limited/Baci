@@ -133,6 +133,7 @@ export function DataForm({
   const shouldScrollToPaymentRef = useRef(isRepeatPaymentReady);
   const wasRepeatPaymentReadyRef = useRef(isRepeatPaymentReady);
   const paymentYRef = useRef<number | null>(null);
+  const selectedDataBillerRef = useRef<Biller | null>(null);
   const formattedPlanAmount = formatUtilityAmountInput(planAmount);
   const footerSpacerHeight =
     FOOTER_HEIGHT + Math.max(insets.bottom, SPACING.md) + FOOTER_ERROR_BUFFER;
@@ -173,7 +174,11 @@ export function DataForm({
   };
 
   useEffect(() => {
-    if (selectedDataBiller || !initialPlan || !dataPlans?.length) {
+    selectedDataBillerRef.current = selectedDataBiller;
+  }, [selectedDataBiller]);
+
+  useEffect(() => {
+    if (selectedDataBillerRef.current || !initialPlan || !dataPlans?.length) {
       return;
     }
 
@@ -191,7 +196,7 @@ export function DataForm({
         null
     );
     setIsDataPickerExpanded(false);
-  }, [dataPlans, initialPlan, initialProvider, selectedDataBiller]);
+  }, [dataPlans, initialPlan, initialProvider]);
 
   const handleDataBillerSelect = (biller: Biller) => {
     setSelectedDataBiller(biller);

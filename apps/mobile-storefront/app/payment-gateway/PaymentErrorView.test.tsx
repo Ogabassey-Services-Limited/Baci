@@ -82,11 +82,15 @@ describe('PaymentErrorView', () => {
     fireEvent.press(screen.getByLabelText('Try payment again'));
     const signal = onRetry.mock.calls[0]?.[0];
 
-    expect(signal?.aborted).toBe(false);
+    expect(signal).toBeDefined();
+    if (!signal) {
+      throw new Error('Expected retry signal to be provided');
+    }
+    expect(signal.aborted).toBe(false);
 
     unmount();
 
-    expect(signal?.aborted).toBe(true);
+    expect(signal.aborted).toBe(true);
   });
 
   it('logs retry failures and restores the retry button', async () => {

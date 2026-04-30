@@ -75,23 +75,14 @@ describe('QuickRepeatPrompt', () => {
     expect(props.onQuickRepeat).toHaveBeenCalledTimes(1);
   });
 
-  it('renders nothing when quick repeat is hidden or missing a transaction', () => {
+  it('renders nothing when quick repeat is hidden', () => {
     const hidden = renderPrompt({ showQuickRepeat: false });
 
     expect(hidden.toJSON()).toBeNull();
+  });
 
-    hidden.rerender(
-      <QuickRepeatPrompt
-        bottom={16}
-        colors={Colors.light}
-        isLoading={false}
-        lastTransaction={null}
-        notice={null}
-        onQuickRepeat={jest.fn()}
-        showQuickRepeat={true}
-        title="Electricity"
-      />
-    );
+  it('renders nothing when quick repeat is missing a transaction', () => {
+    const hidden = renderPrompt({ lastTransaction: null });
 
     expect(hidden.toJSON()).toBeNull();
   });

@@ -36,6 +36,7 @@ export default function ReceiptShareButton({
 }: ReceiptShareButtonProps) {
   const [isSharingReceipt, setIsSharingReceipt] = useState(false);
   const isShareDisabled = isSharingReceipt || !txReference;
+  const actionColor = colors.primary ?? BRAND.primary;
 
   const handleShareReceipt = async () => {
     const reference = txReference;
@@ -80,9 +81,9 @@ export default function ReceiptShareButton({
       accessibilityState={{ busy: isSharingReceipt, disabled: isShareDisabled }}
     >
       {isSharingReceipt ? (
-        <ActivityIndicator size="small" color={BRAND.primary} />
+        <ActivityIndicator size="small" color={actionColor} />
       ) : (
-        <Ionicons name="share-outline" size={18} color={BRAND.primary} />
+        <Ionicons name="share-outline" size={18} color={actionColor} />
       )}
       <Text style={styles.shareButtonText}>
         {isSharingReceipt ? 'Generating receipt...' : 'Share receipt'}

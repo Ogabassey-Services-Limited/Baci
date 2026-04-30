@@ -98,59 +98,69 @@ export function findBillerByInitialName(
     return null;
   }
 
-  const billerCandidates = billers.map((biller) => ({
-    biller,
-    normalizedName: normalizeBillItemMatchText(biller.billerName),
-    tokens: getBillerMatchTokens(biller.billerName),
-  }));
   const initialNameTokens = getBillerMatchTokens(initialBillerName);
+  let prefixMatch: Biller | null = null;
+  let tokenMatch: Biller | null = null;
 
-  return (
-    billerCandidates.find(
-      (candidate) => candidate.normalizedName === normalizedInitialName
-    )?.biller ??
-    billerCandidates.find((candidate) =>
-      startsWithCompleteBillerName(
-        normalizedInitialName,
-        candidate.normalizedName
+  for (const biller of billers) {
+    const normalizedName = normalizeBillItemMatchText(biller.billerName);
+    if (normalizedName === normalizedInitialName) {
+      return biller;
+    }
+
+    if (
+      !prefixMatch &&
+      startsWithCompleteBillerName(normalizedInitialName, normalizedName)
+    ) {
+      prefixMatch = biller;
+    }
+
+    if (
+      !tokenMatch &&
+      containsBillerNameTokenSequence(
+        initialNameTokens,
+        getBillerMatchTokens(biller.billerName)
       )
-    )?.biller ??
-    billerCandidates.find((candidate) =>
-      containsBillerNameTokenSequence(initialNameTokens, candidate.tokens)
-    )?.biller ??
-    null
-  );
+    ) {
+      tokenMatch = biller;
+    }
+  }
+
+  return prefixMatch ?? tokenMatch;
 }
 
 export function findBillItemPathByName(
   billItems: BillItem[] | undefined,
-  billerName: string,
-  path: string[] = [],
-  normalizedBillerName = normalizeBillItemMatchText(billerName)
+  billerName: string
 ): string[] | null {
-  for (const billItem of billItems ?? []) {
-    if (billItem.billItems?.length) {
-      const childPath = findBillItemPathByName(
-        billItem.billItems,
-        billerName,
-        [...path, billItem.itemCode],
-        normalizedBillerName
-      );
+  const normalizedBillerName = normalizeBillItemMatchText(billerName);
 
-      if (childPath) {
-        return childPath;
+  function search(
+    items: BillItem[] | undefined,
+    path: string[] = []
+  ): string[] | null {
+    for (const billItem of items ?? []) {
+      const currentPath = [...path, billItem.itemCode];
+      if (billItem.billItems?.length) {
+        const childPath = search(billItem.billItems, currentPath);
+
+        if (childPath) {
+          return childPath;
+        }
+      }
+
+      const normalizedItemName = normalizeBillItemMatchText(billItem.itemName);
+      if (
+        billerNameContainsBillItemName(normalizedBillerName, normalizedItemName)
+      ) {
+        return currentPath;
       }
     }
 
-    const normalizedItemName = normalizeBillItemMatchText(billItem.itemName);
-    if (
-      billerNameContainsBillItemName(normalizedBillerName, normalizedItemName)
-    ) {
-      return [...path, billItem.itemCode];
-    }
+    return null;
   }
 
-  return null;
+  return search(billItems);
 }
 
 export function findInitialBillerMatch({

@@ -36,6 +36,8 @@ function parseUtilityAmount(value: string): number {
     return 0;
   }
   const digitsAndDecimals = withoutCommas.replace(/[^0-9.]/g, '');
+  // Multiple decimal separators are collapsed into one fractional value so
+  // pasted values like "1.2.3" parse as 1.23 instead of failing mid-entry.
   const [whole = '', ...decimalParts] = digitsAndDecimals.split('.');
   const normalized = `${whole}${
     decimalParts.length ? `.${decimalParts.join('')}` : ''

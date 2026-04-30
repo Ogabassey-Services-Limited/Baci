@@ -57,4 +57,14 @@ describe('formatUtilityAmountInput', () => {
     expect(formatUtilityAmountInput('007')).toBe('7');
     expect(formatUtilityAmountInput('0123')).toBe('123');
   });
+
+  it('accepts an explicit locale for display formatting', () => {
+    expect(formatUtilityAmountInput('1234.5', 'de-DE')).toBe('1.234,5');
+    expect(formatUtilityAmountInput('1.234,56', 'de-DE')).toBe('1.234,56');
+    expect(formatUtilityAmountInput('1,5', 'de-DE')).toBe('1,5');
+  });
+
+  it('returns empty string for English-formatted input when locale is de-DE', () => {
+    expect(formatUtilityAmountInput('1,234.5', 'de-DE')).toBe('');
+  });
 });

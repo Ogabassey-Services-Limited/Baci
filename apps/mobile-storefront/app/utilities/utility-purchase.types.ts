@@ -1,3 +1,6 @@
+/**
+ * Cashback credit granted to the customer after a qualifying utility purchase.
+ */
 export interface CashbackInfo {
   amount: number;
   newBalance: number;
@@ -16,6 +19,10 @@ export type UtilityPurchaseStatus =
   | 'error'
   | 'cancelled';
 
+/**
+ * Normalized result returned to the utility purchase flow after checkout or
+ * payment reconciliation.
+ */
 export interface UtilityPurchaseResult {
   reference: string;
   amount: number;

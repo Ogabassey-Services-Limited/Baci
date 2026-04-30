@@ -32,6 +32,16 @@ const mockEKEDCBiller = {
   categoryName: 'Electricity',
 };
 
+function assertDefined<T>(
+  value: T,
+  message: string
+): asserts value is NonNullable<T> {
+  expect(value).toBeDefined();
+  if (value === undefined || value === null) {
+    throw new Error(message);
+  }
+}
+
 function createQueryClient() {
   return new QueryClient({
     defaultOptions: {
@@ -51,16 +61,10 @@ function createWrapper(queryClient: QueryClient) {
 function expectEKEDCKudaAugmentedBillItems(
   data: ReturnType<typeof useVTUBillers>['data']
 ) {
-  expect(data).toBeDefined();
-  if (!data) {
-    throw new Error('Expected biller data');
-  }
+  assertDefined(data, 'Expected biller data');
   expect(data).toHaveLength(1);
   const billItems = data[0].billItems;
-  expect(billItems).toBeDefined();
-  if (!billItems) {
-    throw new Error('Expected Kuda bill items');
-  }
+  assertDefined(billItems, 'Expected Kuda bill items');
   expect(billItems).toEqual([
     expect.objectContaining({
       itemCode: 'KUD-ELE-EKED-002',

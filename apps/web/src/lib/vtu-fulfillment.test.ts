@@ -42,6 +42,7 @@ interface PendingTransactionMockOptions {
   merchantData?: { business_name?: string };
   claimData?: { id: string } | null;
   notificationClaimData?: { id: string } | null;
+  purchaseUpdateErrors?: Array<{ message: string } | null>;
   updateErrors?: {
     finalMetadata?: { message: string };
     purchase?: { message: string };
@@ -111,9 +112,11 @@ function createPendingTransactionSupabaseMock({
   merchantData = { business_name: 'OgaBassey' },
   claimData = { id: 'vtu-1' },
   notificationClaimData = { id: 'vtu-1' },
+  purchaseUpdateErrors,
   updateErrors = {},
   updatePayloads = [],
 }: PendingTransactionMockOptions): SupabaseStub {
+  let purchaseUpdateAttempt = 0;
   const claimMaybeSingle = vi.fn().mockResolvedValue({
     data: claimData,
     error: null,
@@ -206,11 +209,24 @@ function createPendingTransactionSupabaseMock({
             }
 
             if (!isClaimOrErrorUpdate(payloadRecord)) {
-              const updateError = selectUpdateError(
+              let updateError = selectUpdateError(
                 payloadRecord,
                 transactionRow,
                 updateErrors
               );
+              if (
+                (payloadRecord.status === 'successful' ||
+                  payloadRecord.status === 'failed') &&
+                purchaseUpdateErrors &&
+                purchaseUpdateErrors.length > 0
+              ) {
+                const errorIndex = Math.min(
+                  purchaseUpdateAttempt,
+                  purchaseUpdateErrors.length - 1
+                );
+                updateError = purchaseUpdateErrors[errorIndex] ?? undefined;
+                purchaseUpdateAttempt += 1;
+              }
 
               return {
                 eq: vi.fn().mockResolvedValue({
@@ -1067,6 +1083,83 @@ describe('fulfillPendingVtuTransaction', () => {
         transactionId: 'vtu-1',
       })
     ).rejects.toThrow('Failed to persist VTU purchase result');
+  });
+
+  it('retries provider result persistence when the first update fails', async () => {
+    vi.useFakeTimers();
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    const updatePayloads: unknown[] = [];
+    mockPurchaseAirtime.mockResolvedValue({
+      success: true,
+      message: 'ok',
+      transactionId: 'kuda-1',
+      amount: 1000,
+      status: 'successful',
+    });
+
+    const supabase = createPendingTransactionSupabaseMock({
+      purchaseUpdateErrors: [
+        { message: 'transient purchase write failed' },
+        null,
+      ],
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: null,
+        type: 'airtime',
+        network_provider: 'MTN',
+        phone_number: '08012345678',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: null,
+        status: 'pending',
+        metadata: {},
+        error_message: null,
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: null,
+        biller_item_code: null,
+        customer_identifier: null,
+      },
+      updatePayloads,
+    });
+
+    try {
+      const resultPromise = fulfillPendingVtuTransaction({
+        supabase,
+        transactionId: 'vtu-1',
+      });
+      await vi.runAllTimersAsync();
+      const result = await resultPromise;
+
+      expect(result).toMatchObject({
+        amount: 1000,
+        reference: 'VTU-123',
+        status: 'successful',
+      });
+      const purchasePayloads = updatePayloads.filter(
+        (payload): payload is Record<string, unknown> =>
+          typeof payload === 'object' &&
+          payload !== null &&
+          (payload as Record<string, unknown>).status === 'successful' &&
+          'transaction_id' in payload
+      );
+      expect(purchasePayloads).toHaveLength(2);
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        'Retrying VTU purchase result persistence after failed update:',
+        expect.objectContaining({
+          attempt: 1,
+          error: 'transient purchase write failed',
+          maxAttempts: 3,
+          transactionId: 'vtu-1',
+        })
+      );
+    } finally {
+      consoleWarnSpy.mockRestore();
+      vi.useRealTimers();
+    }
   });
 
   it('returns success when final success metadata cannot be persisted', async () => {

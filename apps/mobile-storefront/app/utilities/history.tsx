@@ -23,6 +23,8 @@ import UtilityHistoryFilters from './UtilityHistoryFilters';
 import UtilityTransactionCard from './UtilityTransactionCard';
 import { useUtilityHistoryActions } from './use-utility-history-actions';
 
+const EMPTY_TRANSACTIONS: VTUHistoryTransaction[] = [];
+
 export default function UtilityHistoryScreen() {
   const { type } = useLocalSearchParams<{ type?: string }>();
   const colorScheme = useColorScheme();
@@ -86,7 +88,7 @@ export default function UtilityHistoryScreen() {
         edges={['bottom']}
       >
         <FlatList<VTUHistoryTransaction>
-          data={transactions ?? []}
+          data={transactions ?? EMPTY_TRANSACTIONS}
           renderItem={({ item }) => (
             <UtilityTransactionCard
               colors={colors}

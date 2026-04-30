@@ -2,9 +2,6 @@ import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { billFormStyles as styles } from '@/components/utilities/bill-form-styles';
 import type Colors from '@/constants/Colors';
 import { BRAND, SPACING } from '@/constants/Colors';
-import type { useUtilityPayment } from '@/hooks/use-utility-payment';
-
-type PaymentState = ReturnType<typeof useUtilityPayment>;
 
 const BILL_PAYMENT_AMOUNT_FORMATTER = new Intl.NumberFormat('en-NG', {
   currency: 'NGN',
@@ -22,7 +19,7 @@ interface BillPaymentFooterProps {
   isKeyboardVisible: boolean;
   numericAmount: number;
   onPurchase: () => void;
-  payment: PaymentState;
+  selectedSavedCardId: string | null;
 }
 
 export function BillPaymentFooter({
@@ -33,10 +30,10 @@ export function BillPaymentFooter({
   isKeyboardVisible,
   numericAmount,
   onPurchase,
-  payment,
+  selectedSavedCardId,
 }: BillPaymentFooterProps) {
-  const paymentLabel = payment.selectedSavedCardId
-    ? `Pay ${BILL_PAYMENT_AMOUNT_FORMATTER.format(numericAmount || 0)}`
+  const paymentLabel = selectedSavedCardId
+    ? `Pay ${BILL_PAYMENT_AMOUNT_FORMATTER.format(numericAmount)}`
     : 'Continue to Payment';
 
   return (

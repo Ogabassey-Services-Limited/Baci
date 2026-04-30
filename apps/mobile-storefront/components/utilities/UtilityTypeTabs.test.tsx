@@ -27,11 +27,11 @@ describe('UtilityTypeTabs', () => {
   });
 
   it.each([
-    ['light', Colors.light, Colors.light.text],
-    ['dark', Colors.dark, Colors.dark.text],
+    ['light', Colors.light],
+    ['dark', Colors.dark],
   ] as const)(
     'marks the selected type and applies %s theme styling',
-    (colorScheme, expectedColors, expectedTextColor) => {
+    (colorScheme, expectedColors) => {
       mockColorScheme = colorScheme;
 
       render(<UtilityTypeTabs selectedType="data" onSelect={jest.fn()} />);
@@ -48,7 +48,7 @@ describe('UtilityTypeTabs', () => {
         borderBottomColor: expectedColors.border,
       });
       expect(screen.getByText('Airtime')).toHaveStyle({
-        color: expectedTextColor,
+        color: expectedColors.text,
       });
     }
   );

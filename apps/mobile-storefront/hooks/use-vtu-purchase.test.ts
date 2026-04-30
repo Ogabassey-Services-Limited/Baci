@@ -3,10 +3,7 @@ import { notifyManager } from '@tanstack/query-core';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook } from '@testing-library/react-native';
 import { createElement, type PropsWithChildren } from 'react';
-import {
-  buildVtuPurchaseUrl,
-  useVTUPurchase,
-} from '@/hooks/use-vtu-purchase';
+import { useVTUPurchase } from '@/hooks/use-vtu-purchase';
 
 type MockFetchResponse = {
   ok: boolean;
@@ -111,22 +108,6 @@ beforeEach(() => {
 });
 
 describe('useVTUPurchase', () => {
-  describe('buildVtuPurchaseUrl', () => {
-    it('builds a purchase URL from a configured API base URL', () => {
-      expect(buildVtuPurchaseUrl()).toBe(
-        'https://usebaci.com/api/vtu/purchase'
-      );
-    });
-
-    it('fails fast when the API base URL is empty', () => {
-      mockExpoPublicApiUrl = '   ';
-
-      expect(() => buildVtuPurchaseUrl()).toThrow(
-        'EXPO_PUBLIC_API_URL is required for VTU purchases.'
-      );
-    });
-  });
-
   it('resolves purchase success without waiting for cashback notification scheduling', async () => {
     const queryClient = createTestClient();
     mockFetchWithTimeout.mockResolvedValue({

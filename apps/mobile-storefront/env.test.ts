@@ -24,7 +24,7 @@ describe('mobile env', () => {
     jest.resetModules();
   });
 
-  it('uses the validated EXPO_PUBLIC_API_URL value', async () => {
+  it('reads a valid public API URL from process env', async () => {
     process.env.EXPO_PUBLIC_API_URL = 'https://usebaci.com';
     jest.doMock('expo-constants', () => ({
       __esModule: true,
@@ -36,7 +36,7 @@ describe('mobile env', () => {
     expect(EXPO_PUBLIC_API_URL).toBe('https://usebaci.com');
   });
 
-  it('falls back to the default API URL when no runtime value is set', async () => {
+  it('uses the default API URL when process env and Expo extra are unset', async () => {
     delete process.env.EXPO_PUBLIC_API_URL;
     jest.doMock('expo-constants', () => ({
       __esModule: true,
@@ -48,7 +48,7 @@ describe('mobile env', () => {
     expect(EXPO_PUBLIC_API_URL).toBe('https://usebaci.com');
   });
 
-  it('falls back to the Expo config API URL when no environment value is set', async () => {
+  it('reads and normalizes the Expo extra API URL when process env is unset', async () => {
     delete process.env.EXPO_PUBLIC_API_URL;
     jest.doMock('expo-constants', () => ({
       __esModule: true,
@@ -73,6 +73,18 @@ describe('mobile env', () => {
 
     await expect(import('./env')).rejects.toThrow(
       'Invalid mobile environment configuration'
+    );
+  });
+
+  it('reports the raw public API URL when schema validation fails', async () => {
+    process.env.EXPO_PUBLIC_API_URL = ' not-a-url ';
+    jest.doMock('expo-constants', () => ({
+      __esModule: true,
+      default: { expoConfig: { extra: {} } },
+    }));
+
+    await expect(import('./env')).rejects.toThrow(
+      'Received EXPO_PUBLIC_API_URL=" not-a-url "'
     );
   });
 });

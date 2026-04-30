@@ -101,25 +101,29 @@ function createMockFrom({
       };
     }
 
-    return {
-      select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          maybeSingle: vi.fn().mockResolvedValue({
-            data: transactionData,
-            error: transactionError,
-          }),
-        }),
-      }),
-      update: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          neq: vi.fn().mockReturnValue({
-            select: vi.fn().mockReturnValue({
-              maybeSingle: vi.fn().mockResolvedValue(updateResult),
+    if (table === 'transactions') {
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: transactionData,
+              error: transactionError,
             }),
           }),
         }),
-      }),
-    };
+        update: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            neq: vi.fn().mockReturnValue({
+              select: vi.fn().mockReturnValue({
+                maybeSingle: vi.fn().mockResolvedValue(updateResult),
+              }),
+            }),
+          }),
+        }),
+      };
+    }
+
+    throw new Error(`Unexpected table in checkout confirm test: ${table}`);
   };
 }
 

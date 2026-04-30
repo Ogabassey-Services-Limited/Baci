@@ -16,6 +16,10 @@ import type { BillFormProps } from './bill-form.types';
 
 type PaymentState = ReturnType<typeof useUtilityPayment>;
 const SAVED_CARD_CONFIRMATION_GATEWAY: VTUPaymentGateway = 'paystack';
+const MIN_BILL_PAYMENT_AMOUNT = 50;
+const MAX_BILL_PAYMENT_AMOUNT = 500_000;
+const GENERIC_PAYMENT_ERROR_MESSAGE = 'Payment failed. Please try again.';
+const AMOUNT_DISPLAY_LOCALE = 'en-NG';
 
 interface BillCustomer {
   first_name?: string | null;
@@ -42,6 +46,12 @@ interface CreateBillFormPurchaseHandlerInput {
   type: BillFormProps['type'];
 }
 
+function getSafePaymentErrorMessage(error: unknown): string {
+  return error instanceof VtuPaymentStillProcessingError
+    ? 'Payment is still processing. Please check your history shortly.'
+    : GENERIC_PAYMENT_ERROR_MESSAGE;
+}
+
 export function createBillFormPurchaseHandler({
   amount,
   billType,
@@ -59,52 +69,47 @@ export function createBillFormPurchaseHandler({
   setIsSubmitting,
   type,
 }: CreateBillFormPurchaseHandlerInput) {
-  let isSubmissionLocked = false;
-
   return async () => {
     dismissKeyboard();
-    if (isSubmissionLocked || getIsSubmitting()) {
-      return;
-    }
-    isSubmissionLocked = true;
-    const releaseSubmissionLock = () => {
-      isSubmissionLocked = false;
-    };
-
-    if (!selectedBiller) {
-      Alert.alert('Missing Provider', 'Please select a provider.');
-      releaseSubmissionLock();
-      return;
-    }
-    if (!canShowPayment) {
-      Alert.alert(
-        'Verification Required',
-        `Please verify your ${IDENTIFIER_LABELS[type].toLowerCase()} before making a purchase.`
-      );
-      releaseSubmissionLock();
-      return;
-    }
-    if (!amount) {
-      Alert.alert('Missing Amount', 'Please enter an amount.');
-      releaseSubmissionLock();
-      return;
-    }
-    if (numericAmount < 50 || numericAmount > 500_000) {
-      Alert.alert('Invalid Amount', 'Amount must be between ₦50 and ₦500,000.');
-      releaseSubmissionLock();
-      return;
-    }
-    if (!payment.selectedSavedCardId && !payment.selectedGateway) {
-      Alert.alert(
-        'Select Payment Method',
-        'Choose a payment method before continuing.'
-      );
-      releaseSubmissionLock();
+    if (getIsSubmitting()) {
       return;
     }
 
     setIsSubmitting(true);
     try {
+      if (!selectedBiller) {
+        Alert.alert('Missing Provider', 'Please select a provider.');
+        return;
+      }
+      if (!canShowPayment) {
+        Alert.alert(
+          'Verification Required',
+          `Please verify your ${IDENTIFIER_LABELS[type].toLowerCase()} before making a purchase.`
+        );
+        return;
+      }
+      if (!amount) {
+        Alert.alert('Missing Amount', 'Please enter an amount.');
+        return;
+      }
+      if (
+        numericAmount < MIN_BILL_PAYMENT_AMOUNT ||
+        numericAmount > MAX_BILL_PAYMENT_AMOUNT
+      ) {
+        Alert.alert(
+          'Invalid Amount',
+          `Amount must be between ₦${MIN_BILL_PAYMENT_AMOUNT.toLocaleString(AMOUNT_DISPLAY_LOCALE)} and ₦${MAX_BILL_PAYMENT_AMOUNT.toLocaleString(AMOUNT_DISPLAY_LOCALE)}.`
+        );
+        return;
+      }
+      if (!payment.selectedSavedCardId && !payment.selectedGateway) {
+        Alert.alert(
+          'Select Payment Method',
+          'Choose a payment method before continuing.'
+        );
+        return;
+      }
+
       const customerName =
         [customer?.first_name, customer?.last_name].filter(Boolean).join(' ') ||
         customer?.email ||
@@ -211,11 +216,10 @@ export function createBillFormPurchaseHandler({
     } catch (error) {
       Alert.alert(
         'Payment Failed',
-        error instanceof Error ? error.message : 'Something went wrong.'
+        getSafePaymentErrorMessage(error)
       );
     } finally {
       setIsSubmitting(false);
-      releaseSubmissionLock();
     }
   };
 }

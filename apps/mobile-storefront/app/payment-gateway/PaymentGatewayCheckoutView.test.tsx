@@ -11,16 +11,24 @@ import { PAYMENT_CLIPBOARD_BRIDGE } from '@/constants/payment-clipboard-bridge';
 import { PaymentGatewayCheckoutView } from './PaymentGatewayCheckoutView';
 
 const mockStackScreen = jest.fn((_props: unknown) => null);
+type MockWebViewProps = {
+  injectedJavaScript?: string;
+  injectedJavaScriptBeforeContentLoaded?: string;
+  onError?: (event: {
+    nativeEvent: { description?: string; url?: string };
+  }) => void;
+  onLoadEnd?: () => void;
+  onLoadStart?: () => void;
+  onMessage?: (event: { nativeEvent: { data: string } }) => void;
+  onNavigationStateChange?: (event: { url: string }) => void;
+  source: { uri: string };
+};
 const mockWebView = jest.fn(
   ({
     injectedJavaScript,
     injectedJavaScriptBeforeContentLoaded,
     source,
-  }: {
-    injectedJavaScript?: string;
-    injectedJavaScriptBeforeContentLoaded?: string;
-    source: { uri: string };
-  }) => (
+  }: MockWebViewProps) => (
     <View accessibilityLabel="mock checkout webview">
       <Text>{`webview:${source.uri}`}</Text>
       <Text>{`injected:${injectedJavaScript === PAYMENT_CLIPBOARD_BRIDGE.script}`}</Text>
@@ -28,7 +36,6 @@ const mockWebView = jest.fn(
     </View>
   )
 );
-type MockWebViewProps = Parameters<typeof mockWebView>[0];
 
 jest.mock('expo-router', () => ({
   Stack: {
@@ -44,15 +51,37 @@ function ToastComponent() {
   return <View testID="toast-root" />;
 }
 
+function getStackOptions(): { headerLeft?: () => React.ReactNode } {
+  const stackScreenCall = mockStackScreen.mock.calls[0];
+  if (!stackScreenCall) {
+    throw new Error('Stack.Screen was not rendered');
+  }
+  const stackScreenProps = stackScreenCall[0] as
+    | {
+        options?: { headerLeft?: () => React.ReactNode };
+      }
+    | undefined;
+  if (!stackScreenProps?.options) {
+    throw new Error('Stack.Screen options were not configured');
+  }
+  return stackScreenProps.options;
+}
+
 function renderHeaderLeft() {
-  const stackOptions = mockStackScreen.mock.calls[0]?.[0] as {
-    options?: { headerLeft?: () => React.ReactNode };
-  };
-  const headerLeft = stackOptions.options?.headerLeft?.();
+  const stackOptions = getStackOptions();
+  const headerLeft = stackOptions.headerLeft?.();
   if (!headerLeft) {
     throw new Error('Stack.Screen headerLeft was not configured');
   }
   return render(headerLeft as React.ReactElement);
+}
+
+function getWebViewProps() {
+  const webViewCall = mockWebView.mock.calls[0];
+  if (!webViewCall) {
+    throw new Error('WebView was not rendered');
+  }
+  return webViewCall[0];
 }
 
 const baseProps = {
@@ -87,6 +116,36 @@ describe('PaymentGatewayCheckoutView', () => {
     expect(screen.getByText('before:true')).toBeOnTheScreen();
     expect(screen.getByText('₦0.00')).toBeOnTheScreen();
     expect(screen.getByTestId('toast-root')).toBeOnTheScreen();
+  });
+
+  it('forwards checkout WebView event handlers', () => {
+    render(<PaymentGatewayCheckoutView {...baseProps} />);
+
+    const webViewProps = getWebViewProps();
+    const errorEvent = {
+      nativeEvent: {
+        description: 'Gateway unavailable',
+        url: 'https://checkout.paystack.com/test',
+      },
+    };
+    const messageEvent = { nativeEvent: { data: '{"type":"ready"}' } };
+    const navigationState = {
+      url: 'https://usebaci.com/checkout/success',
+    };
+
+    webViewProps.onLoadStart?.();
+    webViewProps.onLoadEnd?.();
+    webViewProps.onMessage?.(messageEvent);
+    webViewProps.onNavigationStateChange?.(navigationState);
+    webViewProps.onError?.(errorEvent);
+
+    expect(baseProps.onLoadStart).toHaveBeenCalledTimes(1);
+    expect(baseProps.onLoadEnd).toHaveBeenCalledTimes(1);
+    expect(baseProps.onMessage).toHaveBeenCalledWith(messageEvent);
+    expect(baseProps.onNavigationStateChange).toHaveBeenCalledWith(
+      navigationState
+    );
+    expect(baseProps.onError).toHaveBeenCalledWith(errorEvent);
   });
 
   it('shows a loading overlay and forwards close presses', () => {

@@ -20,8 +20,6 @@ export const ALL_BILL_TYPES = [
 ] as const;
 export type BillType = (typeof ALL_BILL_TYPES)[number];
 
-const API_URL = EXPO_PUBLIC_API_URL;
-
 const log = logger;
 
 export const vtuBillerKeys = {
@@ -45,7 +43,7 @@ async function fetchBillers(type: BillType): Promise<Biller[]> {
 
   try {
     const response = await fetchWithRetry(
-      `${API_URL}/api/vtu/billers?type=${type}`,
+      `${EXPO_PUBLIC_API_URL}/api/vtu/billers?type=${type}`,
       {
         cache: 'no-store',
       },

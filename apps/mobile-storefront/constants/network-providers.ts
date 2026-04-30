@@ -18,6 +18,6 @@ export interface NetworkProvider {
 export const NETWORK_PROVIDERS = [
   { id: 'mtn', name: 'MTN', color: '#FFCC00', image: mtnImage },
   { id: 'airtel', name: 'Airtel', color: '#FF0000', image: airtelImage },
-  { id: 'glo', name: 'Glo', color: '#00FF00', image: gloImage },
+  { id: 'glo', name: 'Glo', color: '#15803D', image: gloImage },
   { id: 't2', name: 'T2 (9mobile)', color: '#006400', image: t2Image },
 ] as const satisfies readonly NetworkProvider[];

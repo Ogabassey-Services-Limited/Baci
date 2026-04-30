@@ -185,7 +185,7 @@ describe('vtu-checkout service', () => {
     expect(result.status).toBe('successful');
   });
 
-  it('throws a validation error for non-string confirmation status', async () => {
+  it('throws a clear error for non-string confirmation status', async () => {
     mockFetchWithTimeout.mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -199,7 +199,24 @@ describe('vtu-checkout service', () => {
         gateway: 'paystack',
         reference: 'VTU-123',
       })
-    ).rejects.toThrow(/status[\s\S]*expected one of/i);
+    ).rejects.toThrow('Unexpected VTU checkout status: 123');
+  });
+
+  it('throws a clear error for unexpected checkout statuses', async () => {
+    mockFetchWithTimeout.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        reference: 'VTU-123',
+        status: 'failed',
+      }),
+    });
+
+    await expect(
+      confirmVtuCheckout({
+        gateway: 'paystack',
+        reference: 'VTU-123',
+      })
+    ).rejects.toThrow('Unexpected VTU checkout status: failed');
   });
 
   it('treats a not-yet-successful gateway confirmation as processing', async () => {
@@ -253,17 +270,17 @@ describe('vtu-checkout service', () => {
     });
 
     try {
-      const confirmation = waitForVtuConfirmation({
+      const confirmation = expect(
+        waitForVtuConfirmation({
         gateway: 'paystack',
         maxAttempts: 1,
         reference: 'VTU-123',
-      }).catch((error: unknown) => error);
+        })
+      ).rejects.toBeInstanceOf(VtuPaymentStillProcessingError);
 
       await jest.runOnlyPendingTimersAsync();
 
-      await expect(confirmation).resolves.toBeInstanceOf(
-        VtuPaymentStillProcessingError
-      );
+      await confirmation;
       expect(setTimeoutSpy).not.toHaveBeenCalled();
     } finally {
       setTimeoutSpy.mockRestore();

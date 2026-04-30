@@ -93,7 +93,7 @@ export function BillForm(props: BillFormProps) {
           isKeyboardVisible={form.isKeyboardVisible}
           numericAmount={form.numericAmount}
           onPurchase={form.handlePurchase}
-          payment={form.payment}
+          selectedSavedCardId={form.payment.selectedSavedCardId}
         />
       ) : null}
     </>

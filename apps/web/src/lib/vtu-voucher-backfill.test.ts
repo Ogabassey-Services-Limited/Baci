@@ -200,6 +200,28 @@ describe('vtu-voucher-backfill', () => {
     expect(updateQuery.filter).not.toHaveBeenCalled();
   });
 
+  it('throws instead of treating undefined original metadata as null', async () => {
+    const updateQuery = createUpdateQueryMock();
+    const { supabase } = createSupabaseMock(updateQuery);
+
+    await expect(
+      scheduleVoucherPinBackfill({
+        metadata: {},
+        originalMetadata: undefined,
+        supabase,
+        transaction: createTransaction(),
+        voucherPin: null,
+      })
+    ).rejects.toThrow(
+      'Cannot stable JSON stringify metadata containing undefined'
+    );
+
+    expect(updateQuery.is).not.toHaveBeenCalled();
+    expect(updateQuery.filter).not.toHaveBeenCalled();
+    expect(updateQuery.select).not.toHaveBeenCalled();
+    expect(mocks.after).not.toHaveBeenCalled();
+  });
+
   it('skips ineligible transactions without scheduling deferred work', async () => {
     const updateQuery = createUpdateQueryMock();
     const { supabase, update } = createSupabaseMock(updateQuery);

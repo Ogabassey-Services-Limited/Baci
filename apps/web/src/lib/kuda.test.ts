@@ -294,7 +294,7 @@ describe('Kuda API Client', () => {
     });
 
     it('returns the highest-priority observed status when no token is found', async () => {
-      const { checkTransactionStatus } = await import('./kuda');
+      const { checkTransactionStatus } = await import('@/lib/kuda');
 
       const fetchMock = vi.fn().mockImplementation((url, options) => {
         if (url.toString().includes('GetToken')) {
@@ -322,7 +322,7 @@ describe('Kuda API Client', () => {
     });
 
     it('throws all reference query errors when every status query fails', async () => {
-      const { checkTransactionStatus } = await import('./kuda');
+      const { checkTransactionStatus } = await import('@/lib/kuda');
 
       const responseRefError = new Error('response reference failed');
       const requestRefError = new Error('request reference failed');
@@ -354,7 +354,7 @@ describe('Kuda API Client', () => {
 
   describe('getBillersByType', () => {
     it('maps Kuda electricity bill items that use kudaIdentifier and name fields', async () => {
-      const { getBillersByType } = await import('./kuda');
+      const { getBillersByType } = await import('@/lib/kuda');
 
       const fetchMock = vi.fn().mockImplementation((url) => {
         if (url.toString().includes('GetToken')) {
@@ -421,7 +421,7 @@ describe('Kuda API Client', () => {
     });
 
     it('preserves nested bill items from the provider response', async () => {
-      const { getBillersByType } = await import('./kuda');
+      const { getBillersByType } = await import('@/lib/kuda');
 
       const fetchMock = vi.fn().mockImplementation((url) => {
         if (url.toString().includes('GetToken')) {

@@ -182,12 +182,21 @@ export function useAirtimeFormController({
         return;
       }
 
+      const selectedGateway = payment.selectedGateway;
+      if (!selectedGateway) {
+        Alert.alert(
+          'Select Payment Method',
+          'Choose a payment method before continuing.'
+        );
+        return;
+      }
+
       const result = await initializeVtuCheckout({
         type: 'airtime',
         amount: numericAmount,
         customerName,
         customerPhone: customer?.phone,
-        gateway: payment.selectedGateway,
+        gateway: selectedGateway,
         networkProvider: selectedProvider,
         phoneNumber,
       });

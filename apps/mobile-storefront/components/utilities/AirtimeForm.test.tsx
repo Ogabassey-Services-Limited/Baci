@@ -53,6 +53,10 @@ const mockAuthStoreState = {
   user: null,
 } satisfies AuthStorePartial;
 
+function spyOnConsoleError() {
+  return jest.spyOn(console, 'error').mockImplementation(() => undefined);
+}
+
 jest.mock('expo-router', () => ({
   router: {
     push: (...args: unknown[]) => mockRouterPush(...args),
@@ -278,9 +282,7 @@ describe('AirtimeForm', () => {
   });
 
   it('resets submitting state when checkout navigation throws', async () => {
-    const consoleErrorSpy = jest
-      .spyOn(console, 'error')
-      .mockImplementation(() => undefined);
+    const consoleErrorSpy = spyOnConsoleError();
     mockRouterPush.mockImplementationOnce(() => {
       throw new Error('Navigation failed');
     });
@@ -310,9 +312,7 @@ describe('AirtimeForm', () => {
   });
 
   it('alerts and does not complete when a saved-card airtime charge rejects', async () => {
-    const consoleErrorSpy = jest
-      .spyOn(console, 'error')
-      .mockImplementation(() => undefined);
+    const consoleErrorSpy = spyOnConsoleError();
     const onSuccessMock = jest.fn();
     mockUseUtilityPayment.mockReturnValue({
       cards: [],

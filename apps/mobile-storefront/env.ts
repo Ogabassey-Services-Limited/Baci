@@ -35,20 +35,17 @@ export function parseMobileEnv(rawEnv: unknown): MobileEnv {
 }
 
 function readExpoExtraApiUrl() {
-  const value =
-    typeof Constants.expoConfig?.extra?.apiUrl === 'string'
-      ? Constants.expoConfig.extra.apiUrl.trim()
-      : undefined;
-  return value && value.length > 0 ? value : undefined;
+  return typeof Constants.expoConfig?.extra?.apiUrl === 'string'
+    ? Constants.expoConfig.extra.apiUrl
+    : undefined;
 }
 
 function readPublicApiUrl() {
-  const value = process.env.EXPO_PUBLIC_API_URL?.trim();
-  return value && value.length > 0 ? value : undefined;
+  return process.env.EXPO_PUBLIC_API_URL;
 }
 
 const rawEnv = {
-  EXPO_PUBLIC_API_URL: readPublicApiUrl() || readExpoExtraApiUrl(),
+  EXPO_PUBLIC_API_URL: readPublicApiUrl() ?? readExpoExtraApiUrl(),
 };
 
 let parsedEnv: MobileEnv;

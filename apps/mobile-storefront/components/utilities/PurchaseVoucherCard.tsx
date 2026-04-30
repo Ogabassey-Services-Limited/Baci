@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Alert, Pressable, Text, View } from 'react-native';
 import type Colors from '@/constants/Colors';
 import { setClipboardString } from '@/lib/clipboard';
+import { trackError } from '@/services/analytics';
 import { styles } from './purchase-success.styles';
 
 interface PurchaseVoucherCardProps {
@@ -23,6 +24,11 @@ export default function PurchaseVoucherCard({
         copied ? 'Token copied to clipboard.' : 'Could not copy this token.'
       );
     } catch (copyError) {
+      trackError(
+        'utility_voucher_copy_failed',
+        copyError instanceof Error ? copyError.message : 'Unknown copy error',
+        { component: 'PurchaseVoucherCard' }
+      );
       console.error('Failed to copy utility voucher token:', copyError);
       Alert.alert('Copy Failed', 'Could not copy this token.');
     }

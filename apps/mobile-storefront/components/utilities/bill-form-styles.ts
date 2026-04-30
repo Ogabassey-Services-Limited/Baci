@@ -6,6 +6,8 @@ export const billFormStyles = StyleSheet.create({
   scrollView: { flex: 1 },
   content: { padding: SPACING.md },
   amountSection: { marginTop: SPACING.lg },
+  selectionLevel: { marginTop: SPACING.lg },
+  identifierTitle: { marginTop: SPACING.lg },
   sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
   input: {
     height: 50,
@@ -60,6 +62,9 @@ export const billFormStyles = StyleSheet.create({
   },
   repeatReadyText: {
     fontSize: BILL_FORM_TOKENS.fontSizeSmall,
+    marginTop: BILL_FORM_TOKENS.marginTopSmall,
+  },
+  verificationCardSpacing: {
     marginTop: BILL_FORM_TOKENS.marginTopSmall,
   },
   footer: {

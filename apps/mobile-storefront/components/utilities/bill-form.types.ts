@@ -5,21 +5,26 @@ export type BillFormStatus =
   | 'error'
   | 'cancelled';
 
+export interface Cashback {
+  readonly amount: number;
+  readonly newBalance: number;
+}
+
 export interface BillFormResultData {
-  reference: string;
-  amount: number;
+  readonly reference: string;
+  readonly amount: number;
   /**
    * customerIdentifier can contain sensitive PII such as phone, account, or
    * meter identifiers. Avoid logging it raw, and mask it before telemetry.
    */
-  customerIdentifier?: string;
-  status?: BillFormStatus;
+  readonly customerIdentifier?: string;
+  readonly status?: BillFormStatus;
   /**
    * Sensitive voucher/token data. Do not log, persist in plaintext, or include
    * in generic serializations.
    */
-  voucherPin?: string;
-  cashback?: { amount: number; newBalance: number };
+  readonly voucherPin?: string;
+  readonly cashback?: Cashback;
 }
 
 export interface BillFormProps {

@@ -8,7 +8,7 @@ import {
 } from '@/app/payment-gateway/payment-gateway.helpers';
 import { paymentGatewayStyles as styles } from '@/app/payment-gateway/payment-gateway.styles';
 import type Colors from '@/constants/Colors';
-import { BRAND, withAlpha } from '@/constants/Colors';
+import { withAlpha } from '@/constants/Colors';
 
 interface PaymentSuccessViewProps {
   colors: typeof Colors.light;
@@ -51,8 +51,9 @@ export function PaymentSuccessView({
             : 'Redirecting to your order confirmation...'}
         </Text>
         <ActivityIndicator
+          accessibilityLabel="Redirecting after payment success"
           size="small"
-          color={BRAND.primary}
+          color={colors.primary}
           style={styles.activityIndicator}
         />
       </View>

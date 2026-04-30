@@ -4,7 +4,7 @@ import {
   type RouteRepeatParams,
   VALID_UTILITY_TYPES,
   type ValidUtilityType,
-} from './utility-purchase.types';
+} from '@/app/utilities/utility-purchase.types';
 
 export const UTILITY_TYPE_TITLES: Record<ValidUtilityType, string> = {
   airtime: 'Airtime',

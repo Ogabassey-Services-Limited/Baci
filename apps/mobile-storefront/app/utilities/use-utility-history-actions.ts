@@ -65,6 +65,10 @@ export function useUtilityHistoryActions({
 
   const handleShareReceipt = async (transaction: VTUHistoryTransaction) => {
     if (isSharingRef.current || sharingTransactionId) {
+      Alert.alert(
+        'Share In Progress',
+        'Another receipt share is already running.'
+      );
       return;
     }
 

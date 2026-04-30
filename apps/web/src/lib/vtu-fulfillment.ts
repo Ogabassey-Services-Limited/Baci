@@ -30,6 +30,10 @@ interface VtuTransactionRow {
   type: 'airtime' | 'data' | 'electricity' | 'cable_tv' | 'betting';
 }
 
+interface CreditWalletResult {
+  new_balance: unknown;
+}
+
 export type FulfilledVtuResult =
   | {
       amount: number;
@@ -101,6 +105,18 @@ function canResolveBillVoucherPin(type: VtuTransactionRow['type']) {
 function coerceNumber(value: unknown) {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : 0;
+}
+
+function isCreditWalletResult(value: unknown): value is CreditWalletResult {
+  return typeof value === 'object' && value !== null && 'new_balance' in value;
+}
+
+function getCreditWalletNewBalance(data: unknown) {
+  const result = Array.isArray(data)
+    ? data.find((item) => isCreditWalletResult(item))
+    : data;
+
+  return isCreditWalletResult(result) ? result.new_balance : null;
 }
 
 function normalizeProviderStatus(status: string) {
@@ -189,6 +205,87 @@ export class VtuPersistenceError extends Error {
 
 function throwVtuPersistenceError(message: string): never {
   throw new VtuPersistenceError(message);
+}
+
+const PURCHASE_RESULT_UPDATE_MAX_ATTEMPTS = 3;
+const PURCHASE_RESULT_UPDATE_BACKOFF_MS = [100, 250] as const;
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    typeof error.message === 'string'
+  ) {
+    return error.message;
+  }
+
+  return String(error);
+}
+
+function waitForRetryBackoff(delayMs: number) {
+  return new Promise((resolve) => setTimeout(resolve, delayMs));
+}
+
+async function updateVtuPurchaseResultWithRetry({
+  payload,
+  row,
+  supabase,
+}: {
+  payload: {
+    error_message: string | null;
+    metadata: Record<string, unknown>;
+    status: 'successful' | 'failed';
+    transaction_id: string | null;
+  };
+  row: VtuTransactionRow;
+  supabase: SupabaseClient;
+}) {
+  let lastError: unknown = null;
+
+  for (
+    let attempt = 1;
+    attempt <= PURCHASE_RESULT_UPDATE_MAX_ATTEMPTS;
+    attempt += 1
+  ) {
+    const { error } = await supabase
+      .from('vtu_transactions')
+      .update(payload)
+      .eq('id', row.id);
+
+    if (!error) {
+      return null;
+    }
+
+    lastError = error;
+    if (attempt >= PURCHASE_RESULT_UPDATE_MAX_ATTEMPTS) {
+      break;
+    }
+
+    const delayMs =
+      PURCHASE_RESULT_UPDATE_BACKOFF_MS[
+        Math.min(attempt - 1, PURCHASE_RESULT_UPDATE_BACKOFF_MS.length - 1)
+      ];
+    console.warn(
+      'Retrying VTU purchase result persistence after failed update:',
+      {
+        attempt,
+        delayMs,
+        error: getErrorMessage(error),
+        maxAttempts: PURCHASE_RESULT_UPDATE_MAX_ATTEMPTS,
+        status: payload.status,
+        transactionId: row.id,
+        transactionReference: payload.transaction_id,
+      }
+    );
+    await waitForRetryBackoff(delayMs);
+  }
+
+  return lastError;
 }
 
 async function findExistingCustomerCashback({
@@ -333,11 +430,7 @@ async function settleVtuWalletCredits({
 
       if (!error) {
         customerWalletCredited = true;
-        const nextBalance = Array.isArray(data)
-          ? data[0]?.new_balance
-          : data && typeof data === 'object'
-            ? (data as { new_balance?: unknown }).new_balance
-            : null;
+        const nextBalance = getCreditWalletNewBalance(data);
         customerNewBalance = coerceNumber(nextBalance);
       } else {
         console.error('Failed to credit VTU customer wallet:', {
@@ -942,22 +1035,30 @@ export async function fulfillPendingVtuTransaction({
     ...(voucherPin && { voucherPin }),
   };
 
-  const purchaseUpdatePayload = {
+  const purchaseUpdatePayload: {
+    error_message: string | null;
+    metadata: Record<string, unknown>;
+    status: 'successful' | 'failed';
+    transaction_id: string | null;
+  } = {
     error_message: result.success ? null : result.message,
     metadata: updatedMetadata,
     status: result.success ? 'successful' : 'failed',
     transaction_id: result.transactionId ?? row.transaction_id,
   };
-  const { error: purchaseUpdateError } = await supabase
-    .from('vtu_transactions')
-    .update(purchaseUpdatePayload)
-    .eq('id', row.id);
+  const purchaseUpdateError = await updateVtuPurchaseResultWithRetry({
+    payload: purchaseUpdatePayload,
+    row,
+    supabase,
+  });
 
   if (purchaseUpdateError) {
     console.error('Failed to persist VTU purchase result:', {
+      attempts: PURCHASE_RESULT_UPDATE_MAX_ATTEMPTS,
       errorMessage: purchaseUpdatePayload.error_message,
-      error: purchaseUpdateError.message,
+      error: getErrorMessage(purchaseUpdateError),
       metadata: getSafeMetadataDiagnostics(updatedMetadata),
+      persistenceRetryExhausted: true,
       status: purchaseUpdatePayload.status,
       transactionId: row.id,
       transactionReference: purchaseUpdatePayload.transaction_id,

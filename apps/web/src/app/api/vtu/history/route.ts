@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import { after, type NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -24,17 +24,45 @@ function getPaymentStatusKey(gateway: string, reference: string): string {
   return `${gateway}:${reference}`;
 }
 
-function parseHistoryAmount(value: unknown, transactionId: unknown) {
+function parseHistoryNumber({
+  field,
+  invalidMessage,
+  transactionId,
+  value,
+}: {
+  field: string;
+  invalidMessage: string;
+  transactionId: unknown;
+  value: unknown;
+}) {
   const amount = Number(value);
   if (Number.isFinite(amount)) {
     return amount;
   }
 
-  console.error('Invalid VTU transaction amount in history response:', {
-    amount: value,
+  console.error(invalidMessage, {
+    [field]: value,
     transactionId,
   });
   return 0;
+}
+
+function parseHistoryAmount(value: unknown, transactionId: unknown) {
+  return parseHistoryNumber({
+    field: 'amount',
+    invalidMessage: 'Invalid VTU transaction amount in history response:',
+    transactionId,
+    value,
+  });
+}
+
+function parseHistoryCashback(value: unknown, transactionId: unknown) {
+  return parseHistoryNumber({
+    field: 'customerCashback',
+    invalidMessage: 'Invalid VTU customer cashback amount in history response:',
+    transactionId,
+    value,
+  });
 }
 
 export async function GET(request: NextRequest) {
@@ -229,26 +257,39 @@ export async function GET(request: NextRequest) {
       tokenBackfillCandidates.push(candidate);
     }
 
-    void Promise.allSettled(
-      tokenBackfillCandidates.map((candidate) =>
-        scheduleVoucherPinBackfill({
-          metadata: candidate.metadata,
-          originalMetadata: candidate.originalMetadata,
-          supabase,
-          transaction: candidate.transaction,
-          voucherPin: candidate.voucherPin,
-        })
-      )
-    ).then((tokenBackfillResults) => {
-      tokenBackfillResults.forEach((result, index) => {
-        if (result.status === 'rejected') {
-          console.error('Failed to schedule VTU voucher-pin backfill:', {
-            error: result.reason,
-            transactionId: tokenBackfillCandidates[index]?.transaction.id,
+    if (tokenBackfillCandidates.length > 0) {
+      after(async () => {
+        try {
+          const tokenBackfillResults = await Promise.allSettled(
+            tokenBackfillCandidates.map((candidate) =>
+              scheduleVoucherPinBackfill({
+                metadata: candidate.metadata,
+                originalMetadata: candidate.originalMetadata,
+                supabase,
+                transaction: candidate.transaction,
+                voucherPin: candidate.voucherPin,
+              })
+            )
+          );
+
+          tokenBackfillResults.forEach((result, index) => {
+            if (result.status === 'rejected') {
+              console.error('Failed to schedule VTU voucher-pin backfill:', {
+                error: result.reason,
+                transactionId: tokenBackfillCandidates[index]?.transaction.id,
+              });
+            }
+          });
+        } catch (error) {
+          console.error('Failed to process VTU voucher-pin backfill queue:', {
+            error,
+            transactionIds: tokenBackfillCandidates.map(
+              (candidate) => candidate.transaction.id
+            ),
           });
         }
       });
-    });
+    }
 
     return NextResponse.json({
       transactions: transactionsWithVoucherPins.map(
@@ -279,7 +320,10 @@ export async function GET(request: NextRequest) {
             amount: parseHistoryAmount(transaction.amount, transaction.id),
             customer_cashback:
               transaction.customer_cashback != null
-                ? Number(transaction.customer_cashback)
+                ? parseHistoryCashback(
+                    transaction.customer_cashback,
+                    transaction.id
+                  )
                 : null,
             payment_gateway: paymentGateway,
             payment_reference: paymentReference,

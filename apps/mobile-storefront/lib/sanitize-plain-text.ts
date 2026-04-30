@@ -19,6 +19,6 @@ export function sanitizePlainTextForHtml(
 
   return input.replace(
     /[&"'<>]/g,
-    (character) => HTML_TEXT_ESCAPE_MAP[character] ?? character
+    (character) => HTML_TEXT_ESCAPE_MAP[character]
   );
 }

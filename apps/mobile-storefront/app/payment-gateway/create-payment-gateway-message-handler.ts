@@ -46,6 +46,7 @@ function handleClipboardText({
   copiedGatewayTextRef,
   copyGatewayText,
   failureMessage,
+  pendingGatewayTextRef,
   successMessage,
   text,
 }: {
@@ -56,16 +57,42 @@ function handleClipboardText({
     failureMessage?: string
   ) => Promise<void>;
   failureMessage?: string;
+  pendingGatewayTextRef: MutableRefObject<string | null>;
   successMessage: string;
   text: unknown;
 }) {
   const copiedText = getTrimmedString(text);
-  if (!copiedText || copiedGatewayTextRef.current === copiedText) {
+  if (
+    !copiedText ||
+    copiedGatewayTextRef.current === copiedText ||
+    pendingGatewayTextRef.current === copiedText
+  ) {
     return;
   }
 
-  copiedGatewayTextRef.current = copiedText;
-  void copyGatewayText(copiedText, successMessage, failureMessage);
+  pendingGatewayTextRef.current = copiedText;
+  try {
+    void copyGatewayText(copiedText, successMessage, failureMessage).then(
+      () => {
+        copiedGatewayTextRef.current = copiedText;
+        if (pendingGatewayTextRef.current === copiedText) {
+          pendingGatewayTextRef.current = null;
+        }
+      },
+      () => {
+        if (copiedGatewayTextRef.current === copiedText) {
+          copiedGatewayTextRef.current = null;
+        }
+        if (pendingGatewayTextRef.current === copiedText) {
+          pendingGatewayTextRef.current = null;
+        }
+      }
+    );
+  } catch {
+    if (pendingGatewayTextRef.current === copiedText) {
+      pendingGatewayTextRef.current = null;
+    }
+  }
 }
 
 export function createPaymentGatewayMessageHandler({
@@ -84,15 +111,16 @@ export function createPaymentGatewayMessageHandler({
   scheduleDelayedNavigation,
   setSuccessStatus,
 }: CreatePaymentGatewayMessageHandlerInput) {
+  const pendingGatewayTextRef: MutableRefObject<string | null> = {
+    current: null,
+  };
+
   return (event: { nativeEvent: { data: string } }) => {
     let data: unknown;
     try {
       data = JSON.parse(event.nativeEvent.data);
-    } catch (error) {
-      if (error instanceof SyntaxError) {
-        return;
-      }
-      throw error;
+    } catch {
+      return;
     }
 
     if (!isPlainRecord(data)) {
@@ -103,6 +131,7 @@ export function createPaymentGatewayMessageHandler({
       handleClipboardText({
         copiedGatewayTextRef,
         copyGatewayText,
+        pendingGatewayTextRef,
         successMessage: 'Text copied.',
         text: data.text,
       });
@@ -114,6 +143,7 @@ export function createPaymentGatewayMessageHandler({
         copiedGatewayTextRef,
         copyGatewayText,
         failureMessage: 'Unable to copy account number.',
+        pendingGatewayTextRef,
         successMessage: 'Account number copied.',
         text: data.text,
       });

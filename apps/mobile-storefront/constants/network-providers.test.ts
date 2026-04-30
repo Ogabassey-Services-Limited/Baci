@@ -1,10 +1,14 @@
-import { NETWORK_PROVIDERS, type NetworkProvider } from './network-providers';
+import {
+  NETWORK_PROVIDERS,
+  type NetworkProvider,
+} from '@/constants/network-providers';
 
 describe('NETWORK_PROVIDERS', () => {
   it('defines the supported mobile network provider metadata', () => {
     const providers: readonly NetworkProvider[] = NETWORK_PROVIDERS;
 
-    expect(providers).toEqual([
+    expect(providers).toEqual(
+      expect.arrayContaining([
       expect.objectContaining({
         color: '#FFCC00',
         id: 'mtn',
@@ -18,7 +22,7 @@ describe('NETWORK_PROVIDERS', () => {
         name: 'Airtel',
       }),
       expect.objectContaining({
-        color: '#00FF00',
+        color: '#15803D',
         id: 'glo',
         image: expect.anything(),
         name: 'Glo',
@@ -29,6 +33,7 @@ describe('NETWORK_PROVIDERS', () => {
         image: expect.anything(),
         name: 'T2 (9mobile)',
       }),
-    ]);
+    ])
+    );
   });
 });

@@ -3,19 +3,9 @@ import { billFormStyles as styles } from '@/components/utilities/bill-form-style
 import type Colors from '@/constants/Colors';
 import type { useUtilityPayment } from '@/hooks/use-utility-payment';
 import { UtilityPaymentOptions } from './UtilityPaymentOptions';
+import { sanitizeAmountInput } from './utility-amount-sanitize';
 
 type PaymentState = ReturnType<typeof useUtilityPayment>;
-
-function sanitizeAmountInput(value: string): string {
-  const cleaned = value.replace(/[^\d.]/g, '');
-  const [whole = '', ...decimalParts] = cleaned.split('.');
-  const decimals = decimalParts.join('').slice(0, 2);
-  const hasTrailingDecimal = cleaned.endsWith('.') && !decimals;
-  if (!whole && !decimals) {
-    return '';
-  }
-  return `${whole}${decimals || hasTrailingDecimal ? `.${decimals}` : ''}`;
-}
 
 interface BillPaymentSectionProps {
   colors: typeof Colors.light;

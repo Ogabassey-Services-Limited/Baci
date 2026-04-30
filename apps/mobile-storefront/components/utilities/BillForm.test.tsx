@@ -353,6 +353,8 @@ describe('BillForm', () => {
       cards: [],
       isLoadingCards: false,
       refetchCards: jest.fn(),
+      // Saved-card VTU confirmation falls back to Paystack even when no manual
+      // gateway is selected in payment context.
       selectedGateway: null,
       selectedSavedCardId: 'saved-card-1',
       selectGateway: jest.fn(),

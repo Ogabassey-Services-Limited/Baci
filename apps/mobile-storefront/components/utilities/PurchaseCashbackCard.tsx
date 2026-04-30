@@ -5,7 +5,7 @@ import { styles } from './purchase-success.styles';
 
 const CASHBACK_AMOUNT_FORMATTER = new Intl.NumberFormat('en-NG', {
   maximumFractionDigits: 2,
-  minimumFractionDigits: 0,
+  minimumFractionDigits: 2,
 });
 
 interface PurchaseCashbackCardProps {

@@ -60,8 +60,18 @@ describe('PaymentSuccessView', () => {
   it('hides the route header after payment succeeds', () => {
     render(<PaymentSuccessView colors={Colors.light} />);
 
-    expect(mockStackScreen).toHaveBeenCalledWith({
-      options: { headerShown: false },
-    });
+    expect(mockStackScreen).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: expect.objectContaining({ headerShown: false }),
+      })
+    );
+  });
+
+  it('uses the active theme primary color for the redirect spinner', () => {
+    render(<PaymentSuccessView colors={Colors.dark} />);
+
+    expect(
+      screen.getByLabelText('Redirecting after payment success')
+    ).toHaveProp('color', Colors.dark.primary);
   });
 });

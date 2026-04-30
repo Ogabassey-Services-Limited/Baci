@@ -33,7 +33,6 @@ export function QuickRepeatPrompt({
   if (notice) {
     return (
       <View
-        accessible={true}
         accessibilityRole="alert"
         accessibilityLabel={notice}
         style={[

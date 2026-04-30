@@ -76,6 +76,54 @@ describe('useQuickRepeat', () => {
     expect(result.current.showQuickRepeat).toBe(true);
   });
 
+  it('suppresses quick repeat while the keyboard is visible', () => {
+    mockVTUHistoryReturn({
+      data: [createTransaction({ id: 'tx-success' })],
+      error: null,
+      isLoading: false,
+    });
+
+    const { result } = renderHook(() =>
+      useQuickRepeat({
+        currentType: 'airtime',
+        historyFilter: 'airtime',
+        isKeyboardVisible: true,
+        routeType: null,
+        title: 'airtime',
+      })
+    );
+
+    expect(result.current.lastTransaction?.id).toBe('tx-success');
+    expect(result.current.quickRepeatNotice).toBeNull();
+    expect(result.current.showQuickRepeat).toBe(false);
+  });
+
+  it('uses route repeat defaults when a non-null route type matches the current type', () => {
+    const { result } = renderHook(() =>
+      useQuickRepeat({
+        currentType: 'data',
+        historyFilter: 'data',
+        isKeyboardVisible: false,
+        repeatAmount: 1500,
+        repeatDataPlanCode: 'daily-1gb',
+        repeatNetworkProvider: 'mtn',
+        repeatPhoneNumber: '08012345678',
+        repeatVerified: true,
+        routeType: 'data',
+        title: 'data',
+      })
+    );
+
+    expect(result.current.repeatDefaults).toEqual({
+      amount: '1500',
+      dataPlanCode: 'daily-1gb',
+      isVerified: true,
+      networkProvider: 'mtn',
+      phoneNumber: '08012345678',
+    });
+    expect(result.current.isRepeatPaymentReady).toBe(true);
+  });
+
   it('returns a loading notice while recent transactions are loading', () => {
     mockVTUHistoryReturn({
       data: undefined,

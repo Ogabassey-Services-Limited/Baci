@@ -76,11 +76,16 @@ describe('PAYMENT_CLIPBOARD_BRIDGE', () => {
       querySelector: jest.fn(() => null),
       readyState: 'complete',
     };
+    let clipboardText = '';
     const navigatorMock = {
       clipboard: {
-        writeText: jest.fn<(_text: string) => Promise<void>>(() =>
-          Promise.resolve()
+        readText: jest.fn<() => Promise<string>>(() =>
+          Promise.resolve(clipboardText)
         ),
+        writeText: jest.fn<(text: string) => Promise<void>>((text) => {
+          clipboardText = text;
+          return Promise.resolve();
+        }),
       },
     };
     const mutationObservers: Array<{ trigger: (records?: unknown[]) => void }> =
@@ -133,7 +138,13 @@ describe('PAYMENT_CLIPBOARD_BRIDGE', () => {
     expect(mutationObservers).toHaveLength(1);
     mutationObservers[0].trigger([{ type: 'childList' }]);
     await navigatorMock.clipboard.writeText('Reference REF 1234567890');
+    await expect(navigatorMock.clipboard.readText()).resolves.toBe(
+      'Reference REF 1234567890'
+    );
     await navigatorMock.clipboard.writeText('Account number: 1234567890');
+    await expect(navigatorMock.clipboard.readText()).resolves.toBe(
+      'Account number: 1234567890'
+    );
     copyListener();
 
     const clipboardMessages = postedMessages
@@ -149,6 +160,63 @@ describe('PAYMENT_CLIPBOARD_BRIDGE', () => {
         type: PAYMENT_CLIPBOARD_BRIDGE.clipboardMessageType,
       },
     ]);
+  });
+
+  it('rejects clipboard writes when no original writeText is available', async () => {
+    const postedMessages: string[] = [];
+    const documentMock = {
+      addEventListener: jest.fn(),
+      body: { innerText: '', textContent: '' },
+      documentElement: { innerText: '', textContent: '' },
+      execCommand: jest.fn(() => true),
+      querySelector: jest.fn(() => null),
+      readyState: 'complete',
+    };
+    const navigatorMock: {
+      clipboard: { writeText?: (text: string) => Promise<void> };
+    } = {
+      clipboard: {},
+    };
+    const windowMock = {
+      ReactNativeWebView: {
+        postMessage: jest.fn((message: string) => postedMessages.push(message)),
+      },
+      getSelection: jest.fn(() => ({ toString: () => '' })),
+    };
+    const runBridge = new Function(
+      'window',
+      'document',
+      'navigator',
+      'MutationObserver',
+      'setTimeout',
+      'setInterval',
+      'clearInterval',
+      PAYMENT_CLIPBOARD_BRIDGE.script
+    );
+
+    runBridge(
+      windowMock,
+      documentMock,
+      navigatorMock,
+      undefined,
+      jest.fn(),
+      jest.fn(),
+      jest.fn()
+    );
+
+    if (typeof navigatorMock.clipboard.writeText !== 'function') {
+      throw new Error('Expected bridge to install clipboard.writeText');
+    }
+
+    await expect(
+      navigatorMock.clipboard.writeText('Account number: 1234567890')
+    ).rejects.toThrow('Baci clipboard bridge writeText unavailable');
+    expect(postedMessages.map((message) => JSON.parse(message))).toContainEqual(
+      {
+        text: '1234567890',
+        type: PAYMENT_CLIPBOARD_BRIDGE.clipboardMessageType,
+      }
+    );
   });
 
   it('uses debounced account-number scanning for observers and retry timers', () => {
@@ -243,6 +311,69 @@ describe('PAYMENT_CLIPBOARD_BRIDGE', () => {
         target: preferredTarget,
       },
     ]);
+  });
+
+  it('exposes an uninstall hook that disconnects account-number observers', () => {
+    const disconnectMock = jest.fn();
+    const documentMock = {
+      addEventListener: jest.fn(),
+      body: { innerText: 'Account number: 1234567890', textContent: '' },
+      documentElement: { innerText: '', textContent: '' },
+      execCommand: jest.fn(() => true),
+      querySelector: jest.fn(() => null),
+      readyState: 'complete',
+    };
+    const observers: Array<{ disconnect: jest.Mock; observe: jest.Mock }> = [];
+    class WindowMutationObserverMock {
+      disconnect = disconnectMock;
+      observe = jest.fn();
+
+      constructor(_callback: () => void) {
+        observers.push(this);
+      }
+    }
+    const windowMock: {
+      MutationObserver: typeof WindowMutationObserverMock;
+      ReactNativeWebView: { postMessage: jest.Mock };
+      __baciClipboardBridgeUninstall?: () => void;
+      getSelection: jest.Mock;
+    } = {
+      MutationObserver: WindowMutationObserverMock,
+      ReactNativeWebView: {
+        postMessage: jest.fn(),
+      },
+      getSelection: jest.fn(() => ({ toString: () => '' })),
+    };
+    const runBridge = new Function(
+      'window',
+      'document',
+      'navigator',
+      'MutationObserver',
+      'setTimeout',
+      'setInterval',
+      'clearInterval',
+      PAYMENT_CLIPBOARD_BRIDGE.script
+    );
+
+    runBridge(
+      windowMock,
+      documentMock,
+      { clipboard: {} },
+      undefined,
+      (callback: () => void) => {
+        callback();
+        return 1;
+      },
+      jest.fn(() => 2),
+      jest.fn()
+    );
+
+    expect(observers).toHaveLength(1);
+    expect(typeof windowMock.__baciClipboardBridgeUninstall).toBe('function');
+
+    windowMock.__baciClipboardBridgeUninstall?.();
+
+    expect(disconnectMock).toHaveBeenCalledTimes(1);
   });
 
   it('prefers contextual account-number detection before generic numbers', () => {

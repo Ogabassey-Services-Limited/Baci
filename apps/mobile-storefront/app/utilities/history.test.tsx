@@ -141,10 +141,6 @@ function createFailedSyncHistoryData({
 }
 
 describe('UtilityHistoryScreen', () => {
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
-
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseColorScheme.mockReturnValue('light');
@@ -187,6 +183,10 @@ describe('UtilityHistoryScreen', () => {
       isRefetching: false,
       refetch: mockRefetch,
     });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('uses the storefront shell and scroll inset helper for the history layout', () => {
