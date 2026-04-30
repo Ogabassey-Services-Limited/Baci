@@ -18,19 +18,20 @@ import {
   reserveAgenticIdempotencyKey,
   storeAgenticIdempotencyResponse,
 } from '@/lib/agentic/idempotency';
+import { getAgenticIdempotencyErrorStatus } from '@/lib/agentic/idempotency-response';
 import { resolveAgenticMerchantContext } from '@/lib/agentic/merchant-context';
 import { readAgenticMutationRequest } from '@/lib/agentic/mutation-request';
 import { reserveAgenticRequestId } from '@/lib/agentic/request-replay';
+import { getAgenticReplayErrorStatus } from '@/lib/agentic/request-replay-response';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
 import { buildStoreUrl } from '@/lib/store-url';
 import { createServiceClient } from '@/lib/supabase/service';
 import { agenticCheckoutUpdateSchema } from '@/schemas/agentic-checkout';
 
 const UPDATE_IDEMPOTENCY_ROUTE = 'checkout_sessions.update';
-export async function GET(
-  request: NextRequest,
-  props: { params: Promise<{ id: string }> }
-) {
+type SessionRouteProps = { params: Promise<{ id: string }> };
+
+export async function GET(request: NextRequest, props: SessionRouteProps) {
   const params = await props.params;
   if (!verifyAgenticApiKey(request))
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -99,10 +100,7 @@ export async function GET(
   );
 }
 
-export async function POST(
-  request: NextRequest,
-  props: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: NextRequest, props: SessionRouteProps) {
   const params = await props.params;
   if (!verifyAgenticApiKey(request))
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -144,7 +142,7 @@ export async function POST(
     if (!replayReservation.ok) {
       return NextResponse.json(
         { error: replayReservation.error },
-        { status: replayReservation.error === 'Replay request id' ? 409 : 503 }
+        { status: getAgenticReplayErrorStatus(replayReservation.error) }
       );
     }
     const idempotency = await reserveAgenticIdempotencyKey({
@@ -160,7 +158,7 @@ export async function POST(
     if (!idempotency.ok) {
       return NextResponse.json(
         { error: idempotency.error },
-        { status: idempotency.error === 'Idempotency conflict' ? 409 : 425 }
+        { status: getAgenticIdempotencyErrorStatus(idempotency.error) }
       );
     }
     if (idempotency.state === 'replay') {

@@ -1,53 +1,38 @@
-import { createHash } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { hashIdempotencyRequest } from '@/lib/agentic/idempotency-hash';
 import { logger } from '@/lib/logger';
 
 const IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
+const IDEMPOTENCY_IN_PROGRESS_TTL_MS = 2 * 60 * 1000;
 const POSTGRES_UNIQUE_VIOLATION = '23505';
+export const IDEMPOTENCY_PARAMETER_MISMATCH_ERROR =
+  'Idempotency key reused with different request parameters';
+export const IDEMPOTENCY_REQUEST_IN_PROGRESS_ERROR =
+  'Idempotency request in progress';
+export const IDEMPOTENCY_RESERVATION_FAILED_ERROR =
+  'Idempotency reservation failed';
 
-type IdempotencyRecord = {
-  request_hash?: unknown;
-  response_body?: unknown;
-  status_code?: unknown;
-};
+type IdempotencyRecord = Partial<
+  Record<
+    'request_hash' | 'response_body' | 'status_code' | 'updated_at',
+    unknown
+  >
+>;
 
 type ExistingIdempotencyRecordResult =
   | { ok: true; record: IdempotencyRecord | null }
   | { error: unknown; ok: false };
 
-type IdempotencyRequestFingerprint = {
-  apiVersion: string;
-  body: string;
-  method: string;
-  pathname: string;
-};
-
 export type IdempotencyReservationResult =
   | { ok: true; state: 'reserved' }
   | { ok: true; response: unknown; state: 'replay'; status: number }
   | {
-      error: 'Idempotency conflict' | 'Idempotency request in progress';
+      error:
+        | typeof IDEMPOTENCY_PARAMETER_MISMATCH_ERROR
+        | typeof IDEMPOTENCY_REQUEST_IN_PROGRESS_ERROR;
       ok: false;
     }
-  | { error: 'Idempotency reservation failed'; ok: false };
-
-export function hashIdempotencyRequest({
-  apiVersion,
-  body,
-  method,
-  pathname,
-}: IdempotencyRequestFingerprint): string {
-  return createHash('sha256')
-    .update(
-      JSON.stringify({
-        api_version: apiVersion,
-        body,
-        method: method.toUpperCase(),
-        pathname,
-      })
-    )
-    .digest('hex');
-}
+  | { error: typeof IDEMPOTENCY_RESERVATION_FAILED_ERROR; ok: false };
 
 export async function reserveAgenticIdempotencyKey({
   apiVersion,
@@ -108,7 +93,7 @@ export async function reserveAgenticIdempotencyKey({
     return { ok: true, state: 'reserved' };
   }
   if (error.code !== POSTGRES_UNIQUE_VIOLATION) {
-    return { error: 'Idempotency reservation failed', ok: false };
+    return { error: IDEMPOTENCY_RESERVATION_FAILED_ERROR, ok: false };
   }
 
   const existing = await getExistingIdempotencyRecord({
@@ -125,13 +110,27 @@ export async function reserveAgenticIdempotencyKey({
       merchantId,
       route,
     });
-    return { error: 'Idempotency reservation failed', ok: false };
+    return { error: IDEMPOTENCY_RESERVATION_FAILED_ERROR, ok: false };
   }
   if (!existing.record || existing.record.request_hash !== requestHash) {
-    return { error: 'Idempotency conflict', ok: false };
+    return { error: IDEMPOTENCY_PARAMETER_MISMATCH_ERROR, ok: false };
   }
   if (typeof existing.record.status_code !== 'number') {
-    return { error: 'Idempotency request in progress', ok: false };
+    const reclaimed = await reclaimStaleIdempotencyReservation({
+      expiresAt,
+      key,
+      merchantId,
+      now,
+      record: existing.record,
+      requestHash,
+      route,
+      supabase,
+    });
+    if (reclaimed.ok) {
+      return { ok: true, state: 'reserved' };
+    }
+
+    return { error: IDEMPOTENCY_REQUEST_IN_PROGRESS_ERROR, ok: false };
   }
 
   return {
@@ -140,6 +139,79 @@ export async function reserveAgenticIdempotencyKey({
     state: 'replay',
     status: existing.record.status_code,
   };
+}
+
+async function reclaimStaleIdempotencyReservation({
+  expiresAt,
+  key,
+  merchantId,
+  now,
+  record,
+  requestHash,
+  route,
+  supabase,
+}: {
+  expiresAt: string;
+  key: string;
+  merchantId: string;
+  now: Date;
+  record: IdempotencyRecord;
+  requestHash: string;
+  route: string;
+  supabase: SupabaseClient;
+}): Promise<{ ok: boolean }> {
+  if (!isStaleInProgressReservation(record, now)) {
+    return { ok: false };
+  }
+
+  const staleBefore = new Date(
+    now.getTime() - IDEMPOTENCY_IN_PROGRESS_TTL_MS
+  ).toISOString();
+  const { data, error } = await supabase
+    .from('agentic_idempotency_records')
+    .update({
+      expires_at: expiresAt,
+      request_hash: requestHash,
+      response_body: null,
+      status_code: null,
+      updated_at: now.toISOString(),
+    })
+    .eq('route', route)
+    .eq('idempotency_key', key)
+    .eq('merchant_id', merchantId)
+    .eq('request_hash', requestHash)
+    .is('status_code', null)
+    .lt('updated_at', staleBefore)
+    .select('id')
+    .maybeSingle();
+
+  if (error) {
+    logger.warn({
+      message: 'Failed to reclaim stale agentic idempotency reservation',
+      error,
+      merchantId,
+      route,
+    });
+    return { ok: false };
+  }
+
+  return { ok: !!data };
+}
+
+function isStaleInProgressReservation(
+  record: IdempotencyRecord,
+  now: Date
+): boolean {
+  if (typeof record.updated_at !== 'string') {
+    return false;
+  }
+
+  const updatedAt = new Date(record.updated_at);
+  if (!Number.isFinite(updatedAt.getTime())) {
+    return false;
+  }
+
+  return now.getTime() - updatedAt.getTime() >= IDEMPOTENCY_IN_PROGRESS_TTL_MS;
 }
 
 export async function storeAgenticIdempotencyResponse({
@@ -196,7 +268,7 @@ async function getExistingIdempotencyRecord({
 }): Promise<ExistingIdempotencyRecordResult> {
   const { data, error } = await supabase
     .from('agentic_idempotency_records')
-    .select('request_hash, response_body, status_code')
+    .select('request_hash, response_body, status_code, updated_at')
     .eq('route', route)
     .eq('idempotency_key', key)
     .eq('merchant_id', merchantId)
@@ -204,6 +276,5 @@ async function getExistingIdempotencyRecord({
   if (error) {
     return { error, ok: false };
   }
-
   return { ok: true, record: data as IdempotencyRecord | null };
 }

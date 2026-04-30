@@ -1,13 +1,18 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
 
-const REQUEST_RECORD_TTL_MS = 24 * 60 * 60 * 1000;
+const REQUEST_RECORD_TTL_MS = 15 * 60 * 1000;
 const POSTGRES_UNIQUE_VIOLATION = '23505';
+export const AGENTIC_REPLAY_REQUEST_ID_ERROR = 'Replay request id';
+export const AGENTIC_REPLAY_RESERVATION_FAILED_ERROR =
+  'Request replay reservation failed';
 
 export type RequestReplayResult =
   | { ok: true }
   | {
-      error: 'Replay request id' | 'Request replay reservation failed';
+      error:
+        | typeof AGENTIC_REPLAY_REQUEST_ID_ERROR
+        | typeof AGENTIC_REPLAY_RESERVATION_FAILED_ERROR;
       ok: false;
     };
 
@@ -59,7 +64,7 @@ export async function reserveAgenticRequestId({
   }
 
   if (error.code === POSTGRES_UNIQUE_VIOLATION) {
-    return { error: 'Replay request id', ok: false };
+    return { error: AGENTIC_REPLAY_REQUEST_ID_ERROR, ok: false };
   }
 
   logger.error({
@@ -69,5 +74,5 @@ export async function reserveAgenticRequestId({
     requestId,
   });
 
-  return { error: 'Request replay reservation failed', ok: false };
+  return { error: AGENTIC_REPLAY_RESERVATION_FAILED_ERROR, ok: false };
 }

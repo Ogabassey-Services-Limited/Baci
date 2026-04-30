@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   AgenticCheckoutBuyer,
@@ -16,7 +17,17 @@ export function buildOrderFinalizationClaim({
   requestId: string;
   sessionId: string;
 }): string {
-  return `agentic_order_${sessionId}_${idempotencyKey}_${requestId}`;
+  const digest = createHash('sha256')
+    .update(
+      JSON.stringify({
+        session_id: sessionId,
+        idempotency_key: idempotencyKey,
+        request_id: requestId,
+      })
+    )
+    .digest('hex');
+
+  return `agentic_order_${digest}`;
 }
 
 export async function claimAgenticOrderFinalization({

@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
-  hashIdempotencyRequest,
+  IDEMPOTENCY_PARAMETER_MISMATCH_ERROR,
+  IDEMPOTENCY_RESERVATION_FAILED_ERROR,
   reserveAgenticIdempotencyKey,
   storeAgenticIdempotencyResponse,
 } from '@/lib/agentic/idempotency';
+import { hashIdempotencyRequest } from '@/lib/agentic/idempotency-hash';
 
 const defaultFingerprint = {
   apiVersion: '2026-04-30',
@@ -14,12 +16,16 @@ const defaultFingerprint = {
 function createSupabaseMock({
   existingRecord = null,
   insertError = null,
+  staleReservationUpdateData = null,
+  staleReservationUpdateError = null,
   selectError = null,
   updateData = { id: 'idem-record-1' },
   updateError = null,
 }: {
   existingRecord?: Record<string, unknown> | null;
   insertError?: { code?: string; message?: string } | null;
+  staleReservationUpdateData?: Record<string, unknown> | null;
+  staleReservationUpdateError?: { code?: string; message?: string } | null;
   selectError?: { code?: string; message?: string } | null;
   updateData?: Record<string, unknown> | null;
   updateError?: { code?: string; message?: string } | null;
@@ -48,8 +54,12 @@ function createSupabaseMock({
     }),
   }));
   const updateEq = vi.fn();
+  const updateIs = vi.fn();
+  const updateLt = vi.fn();
   const updateChain = {
     eq: updateEq,
+    is: updateIs,
+    lt: updateLt,
     maybeSingle: vi.fn().mockResolvedValue({
       data: updateError ? null : updateData,
       error: updateError,
@@ -57,12 +67,33 @@ function createSupabaseMock({
     select: vi.fn(),
   };
   updateEq.mockReturnValue(updateChain);
+  updateIs.mockReturnValue(updateChain);
+  updateLt.mockReturnValue(updateChain);
   updateChain.select.mockReturnValue(updateChain);
+  const staleReservationUpdateChain = {
+    eq: vi.fn(),
+    is: vi.fn(),
+    lt: vi.fn(),
+    maybeSingle: vi.fn().mockResolvedValue({
+      data: staleReservationUpdateError ? null : staleReservationUpdateData,
+      error: staleReservationUpdateError,
+    }),
+    select: vi.fn(),
+  };
+  staleReservationUpdateChain.eq.mockReturnValue(staleReservationUpdateChain);
+  staleReservationUpdateChain.is.mockReturnValue(staleReservationUpdateChain);
+  staleReservationUpdateChain.lt.mockReturnValue(staleReservationUpdateChain);
+  staleReservationUpdateChain.select.mockReturnValue(
+    staleReservationUpdateChain
+  );
+  const update = vi.fn((payload: Record<string, unknown>) =>
+    'expires_at' in payload ? staleReservationUpdateChain : updateChain
+  );
   const from = vi.fn(() => ({
     delete: vi.fn(() => deleteChain),
     insert: vi.fn(() => ({ select: insertSelect })),
     select: vi.fn(() => selectChain),
-    update: vi.fn(() => updateChain),
+    update,
   }));
 
   return {
@@ -71,6 +102,8 @@ function createSupabaseMock({
     deleteLt,
     maybeSingle,
     supabase: { from },
+    staleReservationUpdateChain,
+    update,
     updateChain,
     updateEq,
   };
@@ -147,7 +180,10 @@ describe('agentic idempotency', () => {
       supabase: mock.supabase as never,
     });
 
-    expect(result).toEqual({ ok: false, error: 'Idempotency conflict' });
+    expect(result).toEqual({
+      ok: false,
+      error: IDEMPOTENCY_PARAMETER_MISMATCH_ERROR,
+    });
   });
 
   it('returns conflict when the key is reused for a different session path', async () => {
@@ -177,7 +213,49 @@ describe('agentic idempotency', () => {
       supabase: mock.supabase as never,
     });
 
-    expect(result).toEqual({ ok: false, error: 'Idempotency conflict' });
+    expect(result).toEqual({
+      ok: false,
+      error: IDEMPOTENCY_PARAMETER_MISMATCH_ERROR,
+    });
+  });
+
+  it('reclaims a stale in-progress reservation for the same request', async () => {
+    const body = '{"items":[]}';
+    const now = new Date('2026-04-30T12:00:00.000Z');
+    const mock = createSupabaseMock({
+      existingRecord: {
+        request_hash: hashIdempotencyRequest({
+          ...defaultFingerprint,
+          body,
+        }),
+        response_body: null,
+        status_code: null,
+        updated_at: '2026-04-30T11:55:00.000Z',
+      },
+      insertError: { code: '23505', message: 'duplicate key' },
+      staleReservationUpdateData: { id: 'idem-record-1' },
+    });
+
+    const result = await reserveAgenticIdempotencyKey({
+      ...defaultFingerprint,
+      body,
+      key: 'idem-1',
+      merchantId: 'merchant-1',
+      now,
+      route: 'checkout_sessions.create',
+      supabase: mock.supabase as never,
+    });
+
+    expect(result).toEqual({ ok: true, state: 'reserved' });
+    expect(mock.staleReservationUpdateChain.lt).toHaveBeenCalledWith(
+      'updated_at',
+      '2026-04-30T11:58:00.000Z'
+    );
+    expect(mock.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        updated_at: '2026-04-30T12:00:00.000Z',
+      })
+    );
   });
 
   it('returns reservation failure when the existing record lookup fails', async () => {
@@ -197,7 +275,7 @@ describe('agentic idempotency', () => {
 
     expect(result).toEqual({
       ok: false,
-      error: 'Idempotency reservation failed',
+      error: IDEMPOTENCY_RESERVATION_FAILED_ERROR,
     });
   });
 

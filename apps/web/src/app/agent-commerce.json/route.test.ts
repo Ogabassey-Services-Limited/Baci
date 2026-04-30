@@ -54,7 +54,7 @@ describe('GET /agent-commerce.json', () => {
       shipping_policy_url: 'https://ogabassey.com/shipping',
       terms_of_service_url: 'https://ogabassey.com/terms',
     });
-    expect(response.headers.get('cache-control')).toBe('public, max-age=3600');
+    expect(response.headers.get('cache-control')).toBe('public, max-age=300');
     expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
   });
 

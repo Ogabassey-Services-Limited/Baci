@@ -7,6 +7,7 @@ import {
 } from '@/lib/agentic/idempotency';
 import { reserveAgenticRequestId } from '@/lib/agentic/request-replay';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
+import { logger } from '@/lib/logger';
 import { createServiceClient } from '@/lib/supabase/service';
 
 const mockGetIdempotencyKey = vi.fn(() => 'idem-1');
@@ -228,7 +229,7 @@ describe('POST /api/agentic/checkout_sessions', () => {
 
   it('returns a recoverable error when idempotency response storage fails', async () => {
     const errorSpy = vi
-      .spyOn(console, 'error')
+      .spyOn(logger, 'error')
       .mockImplementation(() => undefined);
     const insertSpy = vi.fn(() => ({
       select: vi.fn(() => ({
@@ -286,8 +287,8 @@ describe('POST /api/agentic/checkout_sessions', () => {
       session_id: 'agentic_session_1',
     });
     expect(errorSpy).toHaveBeenCalledWith(
-      'Failed to store agentic checkout idempotency response:',
       expect.objectContaining({
+        message: 'Failed to store agentic checkout idempotency response',
         idempotencyKey: 'idem-1',
         merchantId: 'merchant-1',
         route: 'checkout_sessions.create',

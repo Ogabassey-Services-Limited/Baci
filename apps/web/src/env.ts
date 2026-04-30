@@ -8,82 +8,102 @@ import z from 'zod';
  * 2026 Best Practice: Schema-based validation using Zod.
  */
 
-const serverSchema = z.object({
-  // Supabase (Server Admin)
-  SUPABASE_SERVICE_ROLE_KEY: z
-    .string()
-    .min(1, 'SUPABASE_SERVICE_ROLE_KEY is required'),
-  SUPABASE_JWT_SECRET: z.string().optional(),
+const booleanStringSchema = z
+  .enum(['true', 'false'])
+  .transform((value) => value === 'true');
 
-  // Blog
-  BLOG_PREVIEW_SECRET: z.string().default('dev-preview-secret'), // Fallback for dev
+const serverSchema = z
+  .object({
+    // Supabase (Server Admin)
+    SUPABASE_SERVICE_ROLE_KEY: z
+      .string()
+      .min(1, 'SUPABASE_SERVICE_ROLE_KEY is required'),
+    SUPABASE_JWT_SECRET: z
+      .string()
+      .trim()
+      .min(1, 'SUPABASE_JWT_SECRET cannot be empty')
+      .optional(),
 
-  // Payments (Server keys)
-  KORAPAY_SECRET_KEY: z.string().optional(),
-  JUICYWAY_SECRET_KEY: z.string().optional(),
-  PAYSTACK_SECRET_KEY: z.string().optional(),
+    // Blog
+    BLOG_PREVIEW_SECRET: z.string().default('dev-preview-secret'), // Fallback for dev
 
-  // Email
-  ZEPTOMAIL_TOKEN: z.string().optional(),
+    // Payments (Server keys)
+    KORAPAY_SECRET_KEY: z.string().optional(),
+    JUICYWAY_SECRET_KEY: z.string().optional(),
+    PAYSTACK_SECRET_KEY: z.string().optional(),
 
-  // AI
-  GOOGLE_GENAI_API_KEY: z.string().optional(),
-  GEMINI_API_KEY: z.string().optional(),
-  AI_CHAT_MODEL: z.string().default('gemma4:e4b'),
+    // Email
+    ZEPTOMAIL_TOKEN: z.string().optional(),
 
-  // BNPL
-  CREDIT_DIRECT_PRIVATE_KEY: z.string().optional(),
+    // AI
+    GOOGLE_GENAI_API_KEY: z.string().optional(),
+    GEMINI_API_KEY: z.string().optional(),
+    AI_CHAT_MODEL: z.string().default('gemma4:e4b'),
 
-  // Node Env
-  NODE_ENV: z
-    .enum(['development', 'test', 'production'])
-    .default('development'),
+    // BNPL
+    CREDIT_DIRECT_PRIVATE_KEY: z.string().optional(),
 
-  // Internal
-  JUICYWAY_BASE_URL: z.string().default('https://api.spendjuice.com'),
-  MYCOVER_WEBHOOK_SECRET: z.string().optional(),
-  CRON_SECRET: z.string().optional(),
-  INTERNAL_API_SECRET: z.string().optional(),
-  IMPORT_JOB_WORKER_BATCH_SIZE: z.coerce.number().int().positive().default(3),
-  IMPORT_JOB_DIRECT_UPLOAD_ENABLED: z.enum(['true', 'false']).optional(),
+    // Node Env
+    NODE_ENV: z
+      .enum(['development', 'test', 'production'])
+      .default('development'),
 
-  // Push Notifications
-  EXPO_ACCESS_TOKEN: z.string().optional(),
+    // Internal
+    JUICYWAY_BASE_URL: z.string().default('https://api.spendjuice.com'),
+    MYCOVER_WEBHOOK_SECRET: z.string().optional(),
+    CRON_SECRET: z.string().optional(),
+    INTERNAL_API_SECRET: z.string().optional(),
+    IMPORT_JOB_WORKER_BATCH_SIZE: z.coerce.number().int().positive().default(3),
+    IMPORT_JOB_DIRECT_UPLOAD_ENABLED: booleanStringSchema.optional(),
 
-  // Monnify (Identity verification)
-  MONNIFY_API_KEY: z.string().optional(),
-  MONNIFY_SECRET_KEY: z.string().optional(),
-  MONNIFY_BASE_URL: z.string().url().default('https://api.monnify.com'),
-  CAC_API_URL: z
-    .string()
-    .url()
-    .default(
-      'https://icrp.cac.gov.ng/name_similarity_app/api/public_search/search'
-    ),
-  // Ollama (CAC certificate OCR — Gemma 4 on VPS)
-  OLLAMA_BASE_URL: z
-    .string()
-    .url()
-    .refine(
-      (u) => {
-        const url = new URL(u);
-        const isLocal =
-          url.hostname === 'localhost' ||
-          url.hostname.startsWith('127.') ||
-          url.hostname === '::1';
-        return u.startsWith('https://') || isLocal;
-      },
-      { message: 'OLLAMA_BASE_URL must use HTTPS (except for localhost)' }
-    )
-    .optional(),
-  OLLAMA_CAC_MODEL: z.string().default('gemma4:e4b'),
-  OLLAMA_BASIC_AUTH: z.string().optional(),
+    // Push Notifications
+    EXPO_ACCESS_TOKEN: z.string().optional(),
 
-  // Jumia Marketplace
-  JUMIA_ENVIRONMENT: z.enum(['staging', 'production']).default('staging'),
-  JUMIA_CLIENT_ID: z.string().optional(),
-  JUMIA_CLIENT_SECRET: z.string().optional(),
-});
+    // Monnify (Identity verification)
+    MONNIFY_API_KEY: z.string().optional(),
+    MONNIFY_SECRET_KEY: z.string().optional(),
+    MONNIFY_BASE_URL: z.string().url().default('https://api.monnify.com'),
+    CAC_API_URL: z
+      .string()
+      .url()
+      .default(
+        'https://icrp.cac.gov.ng/name_similarity_app/api/public_search/search'
+      ),
+    // Ollama (CAC certificate OCR — Gemma 4 on VPS)
+    OLLAMA_BASE_URL: z
+      .string()
+      .url()
+      .refine(
+        (u) => {
+          const url = new URL(u);
+          const isLocal =
+            url.hostname === 'localhost' ||
+            url.hostname.startsWith('127.') ||
+            url.hostname === '::1';
+          return u.startsWith('https://') || isLocal;
+        },
+        { message: 'OLLAMA_BASE_URL must use HTTPS (except for localhost)' }
+      )
+      .optional(),
+    OLLAMA_CAC_MODEL: z.string().default('gemma4:e4b'),
+    OLLAMA_BASIC_AUTH: z.string().optional(),
+
+    // Jumia Marketplace
+    JUMIA_ENVIRONMENT: z.enum(['staging', 'production']).default('staging'),
+    JUMIA_CLIENT_ID: z.string().optional(),
+    JUMIA_CLIENT_SECRET: z.string().optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.NODE_ENV !== 'production' || value.SUPABASE_JWT_SECRET) {
+      return;
+    }
+
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'SUPABASE_JWT_SECRET is required in production',
+      path: ['SUPABASE_JWT_SECRET'],
+    });
+  });
 
 const clientSchema = z.object({
   // Supabase (Public)
@@ -348,9 +368,7 @@ export const isImportJobDirectUploadEnabled = () => {
     return false;
   }
 
-  return env?.IMPORT_JOB_DIRECT_UPLOAD_ENABLED
-    ? env.IMPORT_JOB_DIRECT_UPLOAD_ENABLED === 'true'
-    : true;
+  return env?.IMPORT_JOB_DIRECT_UPLOAD_ENABLED ?? true;
 };
 
 export const isProduction = () => env?.NODE_ENV === 'production';

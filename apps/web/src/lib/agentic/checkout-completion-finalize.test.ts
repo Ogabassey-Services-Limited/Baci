@@ -5,6 +5,7 @@ import {
   markAgenticCheckoutOrderCanceled,
   sendAgenticOrderCreatedWebhook,
 } from '@/lib/agentic/checkout-order-dispatch';
+import { buildOrderFinalizationClaim } from '@/lib/agentic/checkout-order-finalization-claim';
 import { storeAgenticIdempotencyResponse } from '@/lib/agentic/idempotency';
 
 vi.mock('@/lib/agentic/checkout-order-dispatch', () => ({
@@ -181,9 +182,14 @@ describe('finalizeAgenticCheckoutPayment', () => {
 
     expect(response.status).toBe(200);
     expect(finalChain.is).toHaveBeenCalledWith('order_id', null);
+    const expectedFinalizationClaim = buildOrderFinalizationClaim({
+      idempotencyKey: 'idem-1',
+      requestId: 'req_123',
+      sessionId: 'agentic_session_1',
+    });
     expect(finalChain.contains).toHaveBeenCalledWith('metadata', {
       agentic: {
-        finalization_claim: 'agentic_order_agentic_session_1_idem-1_req_123',
+        finalization_claim: expectedFinalizationClaim,
         payment_state: 'order_finalizing',
       },
     });

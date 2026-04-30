@@ -11,10 +11,13 @@ import {
   reserveAgenticIdempotencyKey,
   storeAgenticIdempotencyResponse,
 } from '@/lib/agentic/idempotency';
+import { getAgenticIdempotencyErrorStatus } from '@/lib/agentic/idempotency-response';
 import { resolveAgenticMerchantContext } from '@/lib/agentic/merchant-context';
 import { readAgenticMutationRequest } from '@/lib/agentic/mutation-request';
 import { reserveAgenticRequestId } from '@/lib/agentic/request-replay';
+import { getAgenticReplayErrorStatus } from '@/lib/agentic/request-replay-response';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
+import { logger } from '@/lib/logger';
 import { buildStoreUrl } from '@/lib/store-url';
 import { createServiceClient } from '@/lib/supabase/service';
 import { checkoutSessionSchema } from '@/schemas/agentic-checkout';
@@ -69,7 +72,7 @@ export async function POST(request: NextRequest) {
     if (!replayReservation.ok) {
       return NextResponse.json(
         { error: replayReservation.error },
-        { status: replayReservation.error === 'Replay request id' ? 409 : 503 }
+        { status: getAgenticReplayErrorStatus(replayReservation.error) }
       );
     }
 
@@ -86,7 +89,7 @@ export async function POST(request: NextRequest) {
     if (!idempotency.ok) {
       return NextResponse.json(
         { error: idempotency.error },
-        { status: idempotency.error === 'Idempotency conflict' ? 409 : 425 }
+        { status: getAgenticIdempotencyErrorStatus(idempotency.error) }
       );
     }
     if (idempotency.state === 'replay') {
@@ -130,7 +133,12 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('Failed to create checkout session:', error);
+      logger.error({
+        message: 'Failed to create agentic checkout session',
+        error,
+        idempotencyKey: mutation.idempotencyKey,
+        merchantId: merchant.id,
+      });
       return NextResponse.json({ error: 'Database error' }, { status: 500 });
     }
 
@@ -163,7 +171,8 @@ export async function POST(request: NextRequest) {
       supabase,
     });
     if (!idempotencyStore.ok) {
-      console.error('Failed to store agentic checkout idempotency response:', {
+      logger.error({
+        message: 'Failed to store agentic checkout idempotency response',
         error: idempotencyStore.error,
         idempotencyKey: mutation.idempotencyKey,
         merchantId: merchant.id,
@@ -189,7 +198,12 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (err) {
-    console.error('Agentic Checkout Create Error:', err);
+    logger.error({
+      message: 'Agentic checkout session create error',
+      error: err,
+      idempotencyKey: mutation.idempotencyKey,
+      requestId: mutation.requestId,
+    });
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }

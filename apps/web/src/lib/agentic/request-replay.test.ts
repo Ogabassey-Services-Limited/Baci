@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { reserveAgenticRequestId } from '@/lib/agentic/request-replay';
+import {
+  AGENTIC_REPLAY_REQUEST_ID_ERROR,
+  reserveAgenticRequestId,
+} from '@/lib/agentic/request-replay';
 
 function createSupabaseMock({
   insertError = null,
@@ -56,6 +59,7 @@ describe('reserveAgenticRequestId', () => {
     expect(mock.insert).toHaveBeenCalledWith(
       expect.objectContaining({
         api_version: '2026-04-30',
+        expires_at: '2026-04-30T12:15:00.000Z',
         idempotency_key: 'idem-1',
         merchant_id: 'merchant-1',
         request_id: 'req_123',
@@ -75,6 +79,9 @@ describe('reserveAgenticRequestId', () => {
       supabase: mock.supabase as never,
     });
 
-    expect(result).toEqual({ error: 'Replay request id', ok: false });
+    expect(result).toEqual({
+      error: AGENTIC_REPLAY_REQUEST_ID_ERROR,
+      ok: false,
+    });
   });
 });

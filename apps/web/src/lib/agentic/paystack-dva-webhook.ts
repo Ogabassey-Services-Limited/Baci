@@ -10,7 +10,6 @@ type AgenticDvaPaymentResult =
 
 const PAYSTACK_ACCOUNT_PATTERN = /^\d{6,20}$/;
 const POSTGRES_UNIQUE_VIOLATION = '23505';
-const AMOUNT_TOLERANCE = 0.01;
 const DEFAULT_CURRENCY = 'NGN';
 
 export function getPaystackDvaReceiverAccountNumber(
@@ -148,7 +147,8 @@ export async function confirmAgenticPaystackDvaPayment({
     };
   }
   if (
-    Math.abs(verifiedAmount.amount - expectedAmount) > AMOUNT_TOLERANCE ||
+    toMinorCurrencyUnit(verifiedAmount.amount) !==
+      toMinorCurrencyUnit(expectedAmount) ||
     (verifiedAmount.currency &&
       checkoutSession.currency &&
       verifiedAmount.currency.toUpperCase() !==
@@ -198,7 +198,14 @@ export async function confirmAgenticPaystackDvaPayment({
       status: 500,
     };
   }
+  // Return to the standard Paystack webhook path after reserving the pending
+  // transaction. That path owns gateway verification and atomically claims
+  // `.neq('status', 'completed')` before settlement side effects.
   return { handled: false };
+}
+
+function toMinorCurrencyUnit(amount: number): number {
+  return Math.round(amount * 100);
 }
 
 export async function markAgenticPaystackDvaSessionPaid({

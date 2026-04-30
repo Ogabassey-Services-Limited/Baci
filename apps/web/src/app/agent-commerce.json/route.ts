@@ -12,6 +12,9 @@ import { buildRequestBaseUrl } from '@/lib/storefront-host';
 import { resolveStorefrontMerchantFromRequest } from '@/lib/storefront-merchant';
 
 const AGENT_COMMERCE_SCHEMA_VERSION = '2026-04-30';
+// Keep capability discovery fresh enough for incident response because
+// checkout availability depends on merchant/payment environment state.
+const AGENT_COMMERCE_CACHE_CONTROL = 'public, max-age=300';
 const AGENT_COMMERCE_CAPABILITIES = [
   'catalog.read',
   'checkout.session.create',
@@ -109,7 +112,7 @@ export async function GET(request: Request) {
     },
     {
       headers: {
-        'Cache-Control': 'public, max-age=3600',
+        'Cache-Control': AGENT_COMMERCE_CACHE_CONTROL,
       },
     }
   );

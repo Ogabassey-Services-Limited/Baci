@@ -192,6 +192,53 @@ describe('agentic Paystack DVA webhook handling', () => {
     expect(insertTransaction).not.toHaveBeenCalled();
   });
 
+  it('rejects payments that differ by one minor currency unit', async () => {
+    const insertTransaction = vi.fn().mockResolvedValue({ error: null });
+    const existingTransactionChain = {
+      eq: vi.fn(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    };
+    existingTransactionChain.eq.mockReturnValue(existingTransactionChain);
+    const readChain = createSessionLookup([
+      {
+        currency: 'NGN',
+        id: 'checkout-row-1',
+        merchant_id: 'merchant-1',
+        metadata: pendingAgenticMetadata,
+        order_id: 'order-1',
+        session_id: 'agentic_session_1',
+        status: 'processing',
+        total_amount: 500000,
+      },
+    ]);
+    const from = vi.fn((table: string) => {
+      if (table === 'checkout_sessions') {
+        return { select: vi.fn(() => readChain) };
+      }
+      if (table === 'transactions') {
+        return {
+          insert: insertTransaction,
+          select: vi.fn(() => existingTransactionChain),
+        };
+      }
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    const result = await confirmAgenticPaystackDvaPayment({
+      accountNumber: '9930000902',
+      gatewayReference: 'paystack-ref-1',
+      supabase: { from } as never,
+      verifiedAmount: { amount: 499999.99, currency: 'NGN' },
+    });
+
+    expect(result).toEqual({
+      body: { error: 'Payment amount mismatch' },
+      handled: true,
+      status: 400,
+    });
+    expect(insertTransaction).not.toHaveBeenCalled();
+  });
+
   it('acknowledges completed sessions without creating a new transaction', async () => {
     const insertTransaction = vi.fn().mockResolvedValue({ error: null });
     const existingTransactionChain = {

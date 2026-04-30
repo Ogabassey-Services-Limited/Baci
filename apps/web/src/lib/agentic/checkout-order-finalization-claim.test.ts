@@ -47,7 +47,9 @@ describe('agentic checkout order finalization claim', () => {
         requestId: 'req_123',
         sessionId: 'agentic_session_1',
       })
-    ).toBe('agentic_order_agentic_session_1_idem-1_req_123');
+    ).toBe(
+      'agentic_order_09f22d18903e07480c6b63d1a4209fcdb0e324d93eb208db54c902c0a64df6aa'
+    );
   });
 
   it('only claims sessions that are payment-account-ready and have no order', async () => {
