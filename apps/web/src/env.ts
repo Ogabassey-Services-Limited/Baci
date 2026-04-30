@@ -115,6 +115,21 @@ const formatErrors = (
     })
     .filter(Boolean);
 
+const MODEL_NAME_LINE_BREAK_PATTERN = /\\n|\r?\n|\r/g;
+
+const validateSanitizedModel = (
+  value: string | undefined,
+  name: string
+): string => {
+  const model = value?.replace(MODEL_NAME_LINE_BREAK_PATTERN, '').trim() ?? '';
+
+  if (!model) {
+    throw new Error(`${name} must resolve to a non-empty model name`);
+  }
+
+  return model;
+};
+
 /**
  * Validates and returns the environment variables.
  * Throws an error in non-production environments if validation fails.
@@ -254,7 +269,7 @@ export const getGeminiApiKey = () =>
 export const getAiChatModel = () => {
   if (typeof window !== 'undefined')
     throw new Error('AI_CHAT_MODEL cannot be accessed on the client');
-  return env.AI_CHAT_MODEL.replace(/\\n|\r?\n|\r/g, '').trim();
+  return validateSanitizedModel(env.AI_CHAT_MODEL, 'AI_CHAT_MODEL');
 };
 export const getCreditDirectPublicKey = () => env?.CREDIT_DIRECT_PUBLIC_KEY;
 export const getCreditDirectPrivateKey = () => env?.CREDIT_DIRECT_PRIVATE_KEY;
@@ -370,7 +385,7 @@ export const getOllamaBaseUrl = () => {
 export const getOllamaCacModel = () => {
   if (typeof window !== 'undefined')
     throw new Error('OLLAMA_CAC_MODEL cannot be accessed on the client');
-  return env.OLLAMA_CAC_MODEL.replace(/\\n|\r?\n|\r/g, '').trim();
+  return validateSanitizedModel(env.OLLAMA_CAC_MODEL, 'OLLAMA_CAC_MODEL');
 };
 export const getOllamaBasicAuth = () => {
   if (typeof window !== 'undefined')

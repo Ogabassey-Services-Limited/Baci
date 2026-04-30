@@ -36,7 +36,9 @@ function parseOllamaChunk(line: string): OllamaChatChunk {
     return JSON.parse(line) as OllamaChatChunk;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Invalid Ollama chat chunk JSON: ${message}; line=${line}`);
+    throw new Error(
+      `Invalid Ollama chat chunk JSON: ${message}; payloadLength=${line.length}`
+    );
   }
 }
 
