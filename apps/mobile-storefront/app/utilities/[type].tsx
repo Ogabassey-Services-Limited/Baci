@@ -181,6 +181,10 @@ export default function UtilityPurchaseScreen() {
 
   const handleUtilityTypeChange = (nextType: ValidUtilityType) => {
     if (nextType !== currentType) {
+      if (nextType === 'airtime') {
+        router.replace('/utilities/airtime' as Href);
+        return;
+      }
       setSelectedType(nextType);
     }
   };
@@ -210,6 +214,8 @@ export default function UtilityPurchaseScreen() {
     );
   }
 
+  const shouldShowUtilityTypeTabs = currentType !== 'airtime';
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -231,10 +237,12 @@ export default function UtilityPurchaseScreen() {
         keyboardVerticalOffset={headerOffset}
         style={styles.container}
       >
-        <UtilityTypeTabs
-          selectedType={currentType}
-          onSelect={handleUtilityTypeChange}
-        />
+        {shouldShowUtilityTypeTabs ? (
+          <UtilityTypeTabs
+            selectedType={currentType}
+            onSelect={handleUtilityTypeChange}
+          />
+        ) : null}
         {currentType === 'airtime' ? (
           <AirtimeForm
             key={`airtime-${quickRepeat.repeatRevision}`}
