@@ -38,6 +38,8 @@ export const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } =
 
 // API base URL - uses the web app's API
 export const API_BASE_URL = resolveApiBaseUrl(process.env.EXPO_PUBLIC_API_URL);
+export const CHAT_REQUEST_TIMEOUT_MS = 120_000;
+export const CHAT_POWERED_BY_LABEL = 'Powered by VPS Gemma 4';
 
 // FAB dimensions and margins
 export const FAB_SIZE = CHAT_WIDGET_FAB_SIZE;

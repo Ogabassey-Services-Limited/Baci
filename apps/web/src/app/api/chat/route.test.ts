@@ -5,6 +5,9 @@ let rateLimitAllowed = true;
 let rateLimitResetIn = 0;
 let generateTextResult = { text: 'AI response' };
 let generateTextError: Error | null = null;
+let ollamaBaseUrl: string | undefined;
+let ollamaBasicAuth: string | undefined;
+let ollamaError: Error | null = null;
 
 // ---- Mocks ----
 
@@ -32,6 +35,26 @@ vi.mock('@/ai/provider', () => ({
       : { allowed: false, resetIn: rateLimitResetIn }
   ),
   activeTextModel: 'mock-model',
+}));
+
+vi.mock('@/env', () => ({
+  getAiChatModel: vi.fn(() => 'gemma4:e4b'),
+  getOllamaBaseUrl: vi.fn(() => ollamaBaseUrl),
+  getOllamaBasicAuth: vi.fn(() => ollamaBasicAuth),
+}));
+
+vi.mock('@/lib/ollama-chat', () => ({
+  createOllamaChatResponse: vi.fn(() => {
+    if (ollamaError) {
+      return Promise.reject(ollamaError);
+    }
+
+    return Promise.resolve(
+      new Response('Gemma response', {
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      })
+    );
+  }),
 }));
 
 vi.mock('@/ai/chat-tool-handlers', () => ({
@@ -66,6 +89,7 @@ vi.mock('@/lib/sanitize', () => ({
 
 // ---- Import handler AFTER mocks ----
 import { generateText } from 'ai';
+import { createOllamaChatResponse } from '@/lib/ollama-chat';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { POST } from './route';
 
@@ -96,6 +120,9 @@ describe('POST /api/chat', () => {
     rateLimitResetIn = 0;
     generateTextResult = { text: 'AI response' };
     generateTextError = null;
+    ollamaBaseUrl = undefined;
+    ollamaBasicAuth = undefined;
+    ollamaError = null;
   });
 
   it('returns 429 when rate limited', async () => {
@@ -162,6 +189,78 @@ describe('POST /api/chat', () => {
     );
     const text = await response.text();
     expect(text).toBe('AI response');
+  });
+
+  it('uses VPS Gemma through Ollama when configured', async () => {
+    // Arrange
+    ollamaBaseUrl = 'https://ollama.example.com';
+
+    // Act
+    const response = await POST(
+      makeRequest({
+        messages: [{ role: 'user', content: 'Show me phones' }],
+      })
+    );
+
+    // Assert
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe('Gemma response');
+    expect(createOllamaChatResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseUrl: 'https://ollama.example.com',
+        model: 'gemma4:e4b',
+        messages: expect.arrayContaining([
+          expect.objectContaining({
+            role: 'system',
+            content: expect.stringContaining('VPS-hosted gemma4:e4b'),
+          }),
+          expect.objectContaining({
+            role: 'user',
+            content: 'Show me phones',
+          }),
+        ]),
+      })
+    );
+    expect(generateText).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 when the Ollama request fails', async () => {
+    // Arrange
+    ollamaBaseUrl = 'https://ollama.example.com';
+    ollamaError = new Error('Ollama unavailable');
+
+    // Act
+    const response = await POST(
+      makeRequest({
+        messages: [{ role: 'user', content: 'Show me phones' }],
+      })
+    );
+    const json = await response.json();
+
+    // Assert
+    expect(response.status).toBe(500);
+    expect(json.error).toBe('Internal server error');
+  });
+
+  it('forwards Ollama Basic Auth when configured', async () => {
+    // Arrange
+    ollamaBaseUrl = 'https://ollama.example.com';
+    ollamaBasicAuth = 'user:password';
+
+    // Act
+    const response = await POST(
+      makeRequest({
+        messages: [{ role: 'user', content: 'Show me phones' }],
+      })
+    );
+
+    // Assert
+    expect(response.status).toBe(200);
+    expect(createOllamaChatResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        basicAuth: 'user:password',
+      })
+    );
   });
 
   it('sanitizes user messages', async () => {
