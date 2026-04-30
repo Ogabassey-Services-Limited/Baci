@@ -3,6 +3,7 @@
 import { Play } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import type { CSSProperties } from 'react';
 import { useEffect, useState } from 'react';
 import { asRoute } from '@/lib/routes';
 import { AdUnit } from './AdUnit';
@@ -14,6 +15,17 @@ interface HeroMobileCarouselProps {
   hasResolvedViewport: boolean;
   isDesktopViewport: boolean;
 }
+
+const HERO_CTA_STYLE: CSSProperties = {
+  backgroundColor: 'var(--store-primary)',
+  borderColor: 'var(--store-border)',
+  color: 'var(--store-on-primary)',
+};
+
+const getIndicatorStyle = (isActive: boolean): CSSProperties => ({
+  backgroundColor: isActive ? 'var(--store-primary)' : 'var(--store-border)',
+  opacity: isActive ? 1 : 0.65,
+});
 
 export function HeroMobileCarousel({
   getHref,
@@ -68,7 +80,8 @@ export function HeroMobileCarousel({
                   <Link
                     href={asRoute(getHref('/products'))}
                     prefetch={false}
-                    className={`mt-3 inline-flex min-h-12 items-center justify-center text-xs font-bold px-5 py-2 rounded-full shadow-sm transition-all border ${slide.textColor === 'text-white' ? 'bg-white/20 hover:bg-white/30 border-white/30 text-white' : 'bg-black/5 hover:bg-black/10 border-black/10 text-gray-900'}`}
+                    className="mt-3 inline-flex min-h-12 items-center justify-center text-xs font-bold px-5 py-2 rounded-full shadow-sm transition-opacity hover:opacity-90 border"
+                    style={HERO_CTA_STYLE}
                   >
                     Shop Now
                   </Link>
@@ -89,9 +102,9 @@ export function HeroMobileCarousel({
                           ? 'object-contain object-right'
                           : 'object-cover'
                       }
-                      priority={slide.id === 1}
+                      priority={index === 0}
                       // Lighthouse did not see a high fetch priority from priority alone with the custom loader.
-                      fetchPriority={slide.id === 1 ? 'high' : undefined}
+                      fetchPriority={index === 0 ? 'high' : undefined}
                       quality={70}
                     />
                   </div>
@@ -175,8 +188,6 @@ export function HeroMobileCarousel({
       <div className="absolute bottom-3 left-6 flex gap-1.5 z-20">
         {MOBILE_SLIDES.map((slide, idx) => {
           const isActive = currentSlide === idx;
-          const isWhiteText =
-            slide.type !== 'ad' && slide.textColor === 'text-white';
 
           return (
             <button
@@ -187,14 +198,8 @@ export function HeroMobileCarousel({
               aria-label={`Go to hero slide ${idx + 1}`}
             >
               <span
-                className={`block h-1 rounded-full transition-[width,background-color] duration-300 ${isActive
-                  ? isWhiteText
-                    ? 'w-5 bg-white'
-                    : 'w-5 bg-gray-900'
-                  : isWhiteText
-                    ? 'w-1.5 bg-white/40'
-                    : 'w-1.5 bg-gray-900/20'
-                  }`}
+                className={`block h-1 rounded-full transition-[width,background-color,opacity] duration-300 ${isActive ? 'w-5' : 'w-1.5'}`}
+                style={getIndicatorStyle(isActive)}
               />
             </button>
           );

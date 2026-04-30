@@ -78,7 +78,7 @@ describe('HeroMobileCarousel', () => {
     expect(container.querySelector('video')).not.toBeNull();
   });
 
-  it('marks the first mobile hero image as the high-priority LCP candidate', () => {
+  it('marks only the first mobile hero image as the high-priority LCP candidate', () => {
     render(
       <HeroMobileCarousel
         getHref={(path) => `/ogabassey${path}`}
@@ -87,9 +87,39 @@ describe('HeroMobileCarousel', () => {
       />
     );
 
-    expect(screen.getByAltText('iPhone 17 Pro Max')).toHaveAttribute(
-      'fetchPriority',
-      'high'
+    const highPriorityImages = screen
+      .getAllByRole('img')
+      .filter(
+        (image) =>
+          image.getAttribute('fetchPriority') === 'high' ||
+          image.getAttribute('fetchpriority') === 'high'
+      );
+
+    expect(highPriorityImages).toHaveLength(1);
+    expect(highPriorityImages[0]).toHaveAccessibleName('iPhone 17 Pro Max');
+  });
+
+  it('uses theme variables for the hero CTA and slide controls', () => {
+    render(
+      <HeroMobileCarousel
+        getHref={(path) => `/ogabassey${path}`}
+        hasResolvedViewport={true}
+        isDesktopViewport={false}
+      />
+    );
+
+    expect(
+      screen.getAllByRole('link', { name: /shop now/i })[0].getAttribute('style')
+    ).toContain(
+      'background-color: var(--store-primary); border-color: var(--store-border); color: var(--store-on-primary);'
+    );
+
+    const activeIndicator = screen
+      .getByRole('button', { name: /go to hero slide 1/i })
+      .querySelector('span');
+    expect(activeIndicator).toHaveClass('w-5');
+    expect(activeIndicator?.getAttribute('style')).toContain(
+      'background-color: var(--store-primary); opacity: 1;'
     );
   });
 

@@ -6,13 +6,13 @@ import Link from 'next/link';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import type { AD_CONFIG } from '../config/ads';
-import { AdUnit } from './AdUnit';
-import { useMerchantSafe } from '@/hooks/use-merchant';
-import { asRoute } from '@/lib/routes';
 import {
   FLASH_SALE_PROMO_IMAGE,
   NEW_ARRIVALS_PROMO_IMAGE,
-} from './hero-data';
+} from '@/components/storefront/ogabassey/components/hero-data';
+import { useMerchantSafe } from '@/hooks/use-merchant';
+import { asRoute } from '@/lib/routes';
+import { AdUnit } from './AdUnit';
 
 interface BannerSlide {
   id: number;

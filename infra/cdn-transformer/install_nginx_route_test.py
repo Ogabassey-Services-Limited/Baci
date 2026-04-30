@@ -1,5 +1,6 @@
 import importlib.util
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -58,6 +59,33 @@ class InstallNginxRouteTest(unittest.TestCase):
             self.assertIn('location ^~ /image/', updated_text)
             self.assertIn('# Images - auto-serve WebP if supported', updated_text)
             self.assertEqual(len(list(backup.iterdir())), 1)
+
+    def test_validate_nginx_or_restore_restores_original_config_on_timeout(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config = Path(temp_dir) / 'cdn.ogabassey.com'
+            original_text = 'server {\n    # Images - auto-serve WebP if supported\n}\n'
+            config.write_text('server {\n    location ^~ /image/ {}\n}\n', encoding='utf-8')
+            file_stat = config.stat()
+            timeout = subprocess.TimeoutExpired(
+                cmd=['nginx', '-t'],
+                timeout=self.module.nginx_test_timeout_seconds,
+                output='partial stdout',
+                stderr='partial stderr',
+            )
+
+            with patch.object(self.module.subprocess, 'run', side_effect=timeout):
+                with self.assertRaises(SystemExit) as raised:
+                    self.module.validate_nginx_or_restore(
+                        config,
+                        original_text,
+                        file_stat,
+                    )
+
+            message = str(raised.exception)
+            self.assertIn('nginx -t timed out', message)
+            self.assertIn('partial stdout', message)
+            self.assertIn('partial stderr', message)
+            self.assertEqual(config.read_text(encoding='utf-8'), original_text)
 
 
 if __name__ == '__main__':

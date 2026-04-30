@@ -116,6 +116,7 @@ describe('DeferredGoogleStoreWidget', () => {
     act(() => {
       vi.advanceTimersByTime(20000);
     });
+    fireEvent.scroll(window);
 
     expect(loadWidgetModule).toHaveBeenCalledOnce();
 

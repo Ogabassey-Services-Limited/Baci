@@ -6,7 +6,7 @@ import {
   clampInteger,
   DEFAULT_QUALITY,
   MAX_DIMENSION,
-  NORMALIZED_PUBLIC_ROOT,
+  PUBLIC_ROOT,
 } from './config.mjs';
 
 const transformOptionsSchema = z.object({
@@ -151,10 +151,10 @@ export function parseRequestPath(requestUrl) {
     return { error: 'Invalid source path', statusCode: 400 };
   }
 
-  const absoluteSourcePath = path.resolve(NORMALIZED_PUBLIC_ROOT, sourcePath);
+  const absoluteSourcePath = path.resolve(PUBLIC_ROOT, sourcePath);
   if (
-    absoluteSourcePath !== NORMALIZED_PUBLIC_ROOT &&
-    !absoluteSourcePath.startsWith(`${NORMALIZED_PUBLIC_ROOT}${path.sep}`)
+    absoluteSourcePath !== PUBLIC_ROOT &&
+    !absoluteSourcePath.startsWith(`${PUBLIC_ROOT}${path.sep}`)
   ) {
     return { error: 'Invalid source path', statusCode: 400 };
   }

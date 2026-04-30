@@ -22,7 +22,6 @@ export const CACHE_ROOT = path.resolve(
   process.env.CDN_TRANSFORMER_CACHE_ROOT ||
     path.join(os.tmpdir(), 'baci-cdn-transformer', 'image-transform')
 );
-export const NORMALIZED_PUBLIC_ROOT = path.resolve(PUBLIC_ROOT);
 export const MAX_DIMENSION = 3840;
 export const DEFAULT_QUALITY = 75;
 export const MAX_TRANSFORM_SIZE_BYTES = clampInteger(

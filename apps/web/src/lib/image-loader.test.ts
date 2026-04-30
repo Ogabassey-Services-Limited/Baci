@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import imageLoader from './image-loader';
+import imageLoader from '@/lib/image-loader';
 
 describe('imageLoader', () => {
   afterEach(() => {

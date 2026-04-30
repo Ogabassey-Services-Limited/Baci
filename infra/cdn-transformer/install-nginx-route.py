@@ -9,6 +9,7 @@ paths = [
 ]
 backup_dir = Path('/etc/nginx/backup/cdn-transformer')
 marker_text = '# Images - auto-serve WebP if supported'
+nginx_test_timeout_seconds = 10
 
 block = """
     # Responsive image transformer for Next.js srcset variants.
@@ -70,7 +71,25 @@ def atomic_write(path, text, file_stat):
 
 
 def validate_nginx_or_restore(path, original_text, file_stat):
-    result = subprocess.run(['nginx', '-t'], capture_output=True, text=True, check=False)
+    try:
+        result = subprocess.run(
+            ['nginx', '-t'],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=nginx_test_timeout_seconds,
+        )
+    except subprocess.TimeoutExpired as error:
+        atomic_write(path, original_text, file_stat)
+        stdout = error.stdout or ''
+        stderr = error.stderr or ''
+        raise SystemExit(
+            f'{path}: nginx -t timed out after {error.timeout}s; '
+            'restored original config\n'
+            f'stdout:\n{stdout}\n'
+            f'stderr:\n{stderr}'
+        ) from error
+
     if result.returncode == 0:
         return
 
