@@ -112,6 +112,9 @@ describe('DeferredGoogleStoreWidget', () => {
     );
 
     fireEvent.scroll(window);
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     act(() => {
       vi.advanceTimersByTime(20000);
@@ -159,6 +162,39 @@ describe('DeferredGoogleStoreWidget', () => {
     expect(screen.getByText('Widget ogabassey.com true')).toBeInTheDocument();
   });
 
+  it('treats synchronous loader failures as retryable import failures', async () => {
+    const loadWidgetModule = vi
+      .fn()
+      .mockImplementationOnce(() => {
+        throw new Error('Chunk failed before promise creation');
+      })
+      .mockResolvedValueOnce(createTestWidgetModule());
+
+    render(
+      <DeferredGoogleStoreWidget
+        merchantCustomDomain="ogabassey.com"
+        enabled
+        loadWidgetModule={loadWidgetModule}
+      />
+    );
+
+    await act(async () => {
+      fireEvent.scroll(window);
+      await Promise.resolve();
+    });
+
+    expect(loadWidgetModule).toHaveBeenCalledOnce();
+    expect(screen.queryByText(/Widget ogabassey.com/)).not.toBeInTheDocument();
+
+    await act(async () => {
+      vi.advanceTimersByTime(20000);
+      await Promise.resolve();
+    });
+
+    expect(loadWidgetModule).toHaveBeenCalledTimes(2);
+    expect(screen.getByText('Widget ogabassey.com true')).toBeInTheDocument();
+  });
+
   it('keeps interaction retry triggers after all fire during a pending failed import', async () => {
     let rejectWidgetModule: ((error: Error) => void) | undefined;
     const loadWidgetModule = vi
@@ -182,6 +218,9 @@ describe('DeferredGoogleStoreWidget', () => {
     fireEvent.scroll(window);
     fireEvent.pointerDown(window);
     fireEvent.keyDown(window);
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     expect(loadWidgetModule).toHaveBeenCalledOnce();
 

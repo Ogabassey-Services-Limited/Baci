@@ -10,9 +10,9 @@ import {
   FLASH_SALE_PROMO_IMAGE,
   NEW_ARRIVALS_PROMO_IMAGE,
 } from '@/components/storefront/ogabassey/components/hero-data';
+import { AdUnit } from '@/components/storefront/ogabassey/components/AdUnit';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
-import { AdUnit } from './AdUnit';
 
 interface BannerSlide {
   id: number;

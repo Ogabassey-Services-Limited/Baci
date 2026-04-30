@@ -2,6 +2,9 @@
 
 import { useEffect } from 'react';
 import { useMerchant } from '@/hooks/use-merchant';
+import { hexToRgba } from '@/lib/color-utils';
+
+const STORE_BORDER_ALPHA = 0.24;
 
 function hexToHsl(hexInput: string): string {
   // Remove hash if present
@@ -65,11 +68,26 @@ export function CheckoutThemeProvider({
   children: React.ReactNode;
 }) {
   const { merchant } = useMerchant();
+  const primaryColor = merchant?.brand_colors?.primary;
 
   useEffect(() => {
-    if (merchant?.brand_colors?.primary) {
+    if (primaryColor) {
       const root = document.documentElement;
-      const primaryHex = merchant.brand_colors.primary;
+      const themeProperties = [
+        '--primary',
+        '--theme-primary',
+        '--store-primary',
+        '--store-primary-text',
+        '--store-on-primary',
+        '--store-border',
+      ];
+      const previousValues = new Map(
+        themeProperties.map((property) => [
+          property,
+          root.style.getPropertyValue(property),
+        ])
+      );
+      const primaryHex = primaryColor;
       const primaryHsl = hexToHsl(primaryHex);
 
       // Set Tailwind CSS variable (HSL)
@@ -86,8 +104,23 @@ export function CheckoutThemeProvider({
       const l = Number.parseInt(primaryHsl.split(' ')[2], 10);
       const textColor = l > 60 ? '#000000' : '#FFFFFF';
       root.style.setProperty('--store-primary-text', textColor);
+      root.style.setProperty('--store-on-primary', textColor);
+      root.style.setProperty(
+        '--store-border',
+        hexToRgba(primaryHex, STORE_BORDER_ALPHA)
+      );
+
+      return () => {
+        for (const [property, previousValue] of previousValues) {
+          if (previousValue) {
+            root.style.setProperty(property, previousValue);
+          } else {
+            root.style.removeProperty(property);
+          }
+        }
+      };
     }
-  }, [merchant]);
+  }, [primaryColor]);
 
   return <>{children}</>;
 }

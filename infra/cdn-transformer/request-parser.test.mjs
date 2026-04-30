@@ -15,6 +15,8 @@ test('pickFormat prefers accepted modern image formats by q value', () => {
   );
   assert.equal(pickFormat('jpg', '', '.png'), 'jpeg');
   assert.equal(pickFormat('auto', '', '.png'), 'png');
+  assert.equal(pickFormat('auto', undefined, '.png'), 'png');
+  assert.equal(pickFormat('auto', null, '.png'), 'png');
   assert.equal(pickFormat('auto', '', '.webp'), 'jpeg');
 });
 

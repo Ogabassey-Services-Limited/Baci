@@ -113,6 +113,11 @@ describe('HeroMobileCarousel', () => {
     ).toContain(
       'background-color: var(--store-primary); border-color: var(--store-border); color: var(--store-on-primary);'
     );
+    expect(
+      screen.getByRole('button', { name: /watch video demo/i }).getAttribute('style')
+    ).toContain(
+      'background-color: var(--store-primary); border-color: var(--store-border); color: var(--store-on-primary);'
+    );
 
     const activeIndicator = screen
       .getByRole('button', { name: /go to hero slide 1/i })

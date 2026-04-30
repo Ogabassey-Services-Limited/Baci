@@ -1,7 +1,8 @@
-import { stat } from 'node:fs/promises';
+import { lstat, realpath, stat } from 'node:fs/promises';
 import { createServer } from 'node:http';
+import path from 'node:path';
 import process from 'node:process';
-import { HOST, PORT } from './config.mjs';
+import { HOST, PORT, PUBLIC_ROOT } from './config.mjs';
 import {
   sendImageHead,
   sendOptions,
@@ -17,8 +18,61 @@ const defaultImageRequestDeps = {
   pickFormat,
   sendImageHead,
   serveFile,
+  lstat,
   stat,
+  realpath,
 };
+
+function isPathInsidePublicRoot(filePath) {
+  const resolvedRoot = path.resolve(PUBLIC_ROOT);
+  const resolvedPath = path.resolve(filePath);
+
+  return (
+    resolvedPath === resolvedRoot ||
+    resolvedPath.startsWith(`${resolvedRoot}${path.sep}`)
+  );
+}
+
+function createHttpError(statusCode, message) {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+}
+
+function toPublicSourcePath(filePath) {
+  return path
+    .relative(path.resolve(PUBLIC_ROOT), path.resolve(filePath))
+    .split(path.sep)
+    .join('/');
+}
+
+async function resolveSourceFile(parsedRequest, deps) {
+  const normalizedSourcePath = path.resolve(parsedRequest.absoluteSourcePath);
+  if (!isPathInsidePublicRoot(normalizedSourcePath)) {
+    throw createHttpError(404, 'Not found');
+  }
+
+  const sourceLinkStat = await deps.lstat(normalizedSourcePath);
+
+  if (!sourceLinkStat.isSymbolicLink()) {
+    return {
+      absoluteSourcePath: normalizedSourcePath,
+      sourcePath: toPublicSourcePath(normalizedSourcePath),
+    };
+  }
+
+  const realSourcePath = path.resolve(
+    await deps.realpath(normalizedSourcePath)
+  );
+  if (!isPathInsidePublicRoot(realSourcePath)) {
+    throw createHttpError(404, 'Not found');
+  }
+
+  return {
+    absoluteSourcePath: realSourcePath,
+    sourcePath: toPublicSourcePath(realSourcePath),
+  };
+}
 
 export async function handleImageRequest(
   request,
@@ -26,7 +80,8 @@ export async function handleImageRequest(
   parsedRequest,
   deps = defaultImageRequestDeps
 ) {
-  const sourceStat = await deps.stat(parsedRequest.absoluteSourcePath);
+  const verifiedSource = await resolveSourceFile(parsedRequest, deps);
+  const sourceStat = await deps.stat(verifiedSource.absoluteSourcePath);
   if (!sourceStat.isFile()) {
     sendText(response, 404, 'Not found');
     return;
@@ -40,7 +95,7 @@ export async function handleImageRequest(
   const cachePath = deps.buildCachePath({
     options: parsedRequest.options,
     outputFormat,
-    sourcePath: parsedRequest.sourcePath,
+    sourcePath: verifiedSource.sourcePath,
     sourceStat,
   });
 
@@ -52,7 +107,7 @@ export async function handleImageRequest(
     }
 
     await deps.ensureTransformed(
-      parsedRequest.absoluteSourcePath,
+      verifiedSource.absoluteSourcePath,
       cachePath,
       parsedRequest.options,
       outputFormat

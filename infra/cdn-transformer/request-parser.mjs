@@ -17,8 +17,8 @@ const transformOptionsSchema = z.object({
   width: z.number().int().min(16).max(MAX_DIMENSION).optional(),
 });
 
-function parseAcceptedImageFormats(acceptHeader) {
-  return acceptHeader
+function parseAcceptedImageFormats(acceptHeader = '') {
+  return String(acceptHeader ?? '')
     .split(',')
     .map((entry, index) => {
       const [rawType, ...parameters] = entry.split(';');
@@ -88,10 +88,7 @@ function parseOptions(rawOptions) {
 }
 
 function hasEncodedTraversalBypass(sourcePath) {
-  return (
-    sourcePath.includes('\\') ||
-    /%(?:2e|2f|5c)/i.test(sourcePath)
-  );
+  return sourcePath.includes('\\') || /%(?:2e|2f|5c)/i.test(sourcePath);
 }
 
 function normalizeSourcePathSeparators(sourcePath) {

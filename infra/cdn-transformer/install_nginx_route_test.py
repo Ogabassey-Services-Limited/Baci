@@ -60,6 +60,68 @@ class InstallNginxRouteTest(unittest.TestCase):
             self.assertIn('# Images - auto-serve WebP if supported', updated_text)
             self.assertEqual(len(list(backup.iterdir())), 1)
 
+    def test_configure_paths_uses_transformer_upstream_environment(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            backup = root / 'backup'
+            config = root / 'cdn.ogabassey.com'
+            config.write_text(
+                'server {\n'
+                '    listen 443 ssl;\n'
+                '    # Images - auto-serve WebP if supported\n'
+                '}\n',
+                encoding='utf-8',
+            )
+
+            with patch.dict(
+                self.module.os.environ,
+                {
+                    'CDN_TRANSFORMER_HOST': '127.0.0.2',
+                    'CDN_TRANSFORMER_PORT': '9090',
+                },
+            ):
+                with patch.object(self.module, 'validate_nginx_or_restore'):
+                    self.module.configure_paths([config], backup)
+
+            updated_text = config.read_text(encoding='utf-8')
+            self.assertIn('proxy_pass http://127.0.0.2:9090;', updated_text)
+
+    def test_transformer_upstream_rejects_unsafe_host_values(self):
+        unsafe_hosts = [
+            '127.0.0.1; include /tmp/bad.conf',
+            '127.0.0.1\nproxy_pass http://evil;',
+            'localhost`whoami`',
+            'localhost$(whoami)',
+            'localhost { proxy_pass http://evil; }',
+        ]
+
+        for host in unsafe_hosts:
+            with self.subTest(host=host):
+                with patch.dict(
+                    self.module.os.environ,
+                    {
+                        'CDN_TRANSFORMER_HOST': host,
+                        'CDN_TRANSFORMER_PORT': '9090',
+                    },
+                ):
+                    with self.assertRaises(SystemExit) as raised:
+                        self.module.get_transformer_upstream()
+
+                self.assertIn('Invalid CDN_TRANSFORMER_HOST', str(raised.exception))
+
+    def test_transformer_upstream_formats_ipv6_hosts_for_nginx(self):
+        with patch.dict(
+            self.module.os.environ,
+            {
+                'CDN_TRANSFORMER_HOST': '::1',
+                'CDN_TRANSFORMER_PORT': '9090',
+            },
+        ):
+            self.assertEqual(
+                self.module.get_transformer_upstream(),
+                '[::1]:9090',
+            )
+
     def test_validate_nginx_or_restore_restores_original_config_on_timeout(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             config = Path(temp_dir) / 'cdn.ogabassey.com'

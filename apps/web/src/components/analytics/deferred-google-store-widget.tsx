@@ -68,8 +68,9 @@ export function DeferredGoogleStoreWidget(
       loading = true;
       clearLoadTimeout();
 
-      const widgetModule =
-        props.loadWidgetModule?.() ?? import('./google-store-widget');
+      const widgetModule = Promise.resolve().then(
+        () => props.loadWidgetModule?.() ?? import('./google-store-widget')
+      );
 
       void widgetModule
         .then((module) => {

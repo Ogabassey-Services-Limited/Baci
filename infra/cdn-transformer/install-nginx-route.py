@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
+import ipaddress
 import os
 from pathlib import Path
+import re
 import subprocess
 
 paths = [
@@ -10,14 +12,70 @@ paths = [
 backup_dir = Path('/etc/nginx/backup/cdn-transformer')
 marker_text = '# Images - auto-serve WebP if supported'
 nginx_test_timeout_seconds = 10
+default_transformer_host = '127.0.0.1'
+default_transformer_port = '8095'
+hostname_pattern = re.compile(
+    r'^(?:localhost|[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?'
+    r'(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*)$'
+)
 
-block = """
+
+def normalize_transformer_host(raw_host):
+    host = raw_host.strip()
+
+    if not host:
+        raise SystemExit('CDN_TRANSFORMER_HOST must not be empty')
+
+    if any(character in host for character in ';\r\n\t {}'):
+        raise SystemExit(f'Invalid CDN_TRANSFORMER_HOST "{host}"')
+
+    if host.startswith('[') and host.endswith(']'):
+        host = host[1:-1]
+
+    try:
+        ip_address = ipaddress.ip_address(host)
+    except ValueError:
+        if hostname_pattern.fullmatch(host):
+            return host
+        raise SystemExit(f'Invalid CDN_TRANSFORMER_HOST "{host}"') from None
+
+    if ip_address.version == 6:
+        return f'[{ip_address.compressed}]'
+
+    return ip_address.compressed
+
+
+def get_transformer_upstream():
+    host = normalize_transformer_host(
+        os.environ.get('CDN_TRANSFORMER_HOST', default_transformer_host)
+    )
+    raw_port = os.environ.get('CDN_TRANSFORMER_PORT', default_transformer_port)
+
+    if not re.fullmatch(r'[0-9]+', raw_port):
+        raise SystemExit(
+            f'Invalid CDN_TRANSFORMER_PORT "{raw_port}": expected an integer from 1 to 65535'
+        )
+
+    port = int(raw_port)
+    if port < 1 or port > 65535:
+        raise SystemExit(
+            f'Invalid CDN_TRANSFORMER_PORT "{raw_port}": expected an integer from 1 to 65535'
+        )
+
+    return f'{host}:{port}'
+
+
+def build_transformer_block(upstream=None):
+    if upstream is None:
+        upstream = get_transformer_upstream()
+
+    return f"""
     # Responsive image transformer for Next.js srcset variants.
     # Cloudflare reserves /cdn-cgi/image unless Image Transformations are enabled,
     # so app-generated responsive URLs use this origin-owned path instead.
-    location ^~ /image/ {
+    location ^~ /image/ {{
         limit_req zone=cdn_limit burst=50 nodelay;
-        proxy_pass http://127.0.0.1:8095;
+        proxy_pass http://{upstream};
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -26,7 +84,7 @@ block = """
         proxy_buffering on;
         proxy_buffer_size 16k;
         proxy_buffers 8 32k;
-    }
+    }}
 
 """
 
@@ -131,7 +189,7 @@ def configure_paths(config_paths=None, config_backup_dir=None):
         file_stat = target_path.stat()
         backup = config_backup_dir / f'{path.parent.name}-{path.name}.bak-{stamp}'
         backup.write_text(text, encoding='utf-8')
-        updated_text = f'{text[:marker_index]}{block}{text[marker_index:]}'
+        updated_text = f'{text[:marker_index]}{build_transformer_block()}{text[marker_index:]}'
         atomic_write(target_path, updated_text, file_stat)
         validate_nginx_or_restore(target_path, text, file_stat)
         processed_targets.add(target_path)

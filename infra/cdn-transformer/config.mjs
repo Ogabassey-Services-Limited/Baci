@@ -10,11 +10,25 @@ export function clampInteger(value, fallback, min, max) {
   return Math.max(min, Math.min(max, parsed));
 }
 
+export function parsePort(rawPort = '8095') {
+  if (!/^\d+$/.test(rawPort)) {
+    throw new Error(
+      `Invalid CDN_TRANSFORMER_PORT "${rawPort}": expected an integer from 1 to 65535`
+    );
+  }
+
+  const port = Number.parseInt(rawPort, 10);
+  if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+    throw new Error(
+      `Invalid CDN_TRANSFORMER_PORT "${rawPort}": expected an integer from 1 to 65535`
+    );
+  }
+
+  return port;
+}
+
 export const HOST = process.env.CDN_TRANSFORMER_HOST || '127.0.0.1';
-export const PORT = Number.parseInt(
-  process.env.CDN_TRANSFORMER_PORT || '8095',
-  10
-);
+export const PORT = parsePort(process.env.CDN_TRANSFORMER_PORT ?? '8095');
 export const PUBLIC_ROOT = path.resolve(
   process.env.CDN_PUBLIC_ROOT || path.join(process.cwd(), 'public')
 );

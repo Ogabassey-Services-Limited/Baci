@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
+import path from 'node:path';
 import test from 'node:test';
 
 process.env.CDN_TRANSFORMER_AUTOSTART = 'false';
 
+const { PUBLIC_ROOT } = await import('./config.mjs');
 const { handleImageRequest } = await import('./server.mjs');
 
 test('handleImageRequest only treats missing cache files as transform misses', async () => {
+  const absoluteSourcePath = path.join(PUBLIC_ROOT, 'source.avif');
   const sourceStat = {
     isFile: () => true,
     mtimeMs: 1,
@@ -14,6 +17,7 @@ test('handleImageRequest only treats missing cache files as transform misses', a
   const cacheError = Object.assign(new Error('Permission denied'), {
     code: 'EACCES',
   });
+  let cacheSourcePath;
   let ensureTransformCalls = 0;
 
   await assert.rejects(
@@ -21,21 +25,26 @@ test('handleImageRequest only treats missing cache files as transform misses', a
       { headers: {}, method: 'GET' },
       {},
       {
-        absoluteSourcePath: '/public/source.avif',
+        absoluteSourcePath,
         extension: '.avif',
         options: { fit: 'inside', format: 'webp', quality: 75, width: 229 },
         sourcePath: 'source.avif',
       },
       {
-        buildCachePath: () => '/cache/source.webp',
-        ensureTransformed: async () => {
+        buildCachePath: ({ sourcePath }) => {
+          cacheSourcePath = sourcePath;
+          return '/cache/source.webp';
+        },
+        ensureTransformed: () => {
           ensureTransformCalls += 1;
         },
         pickFormat: () => 'webp',
-        sendImageHead: async () => {},
-        serveFile: async () => {},
-        stat: async (filePath) => {
-          if (filePath === '/public/source.avif') {
+        sendImageHead: () => undefined,
+        serveFile: () => undefined,
+        lstat: () => ({ isSymbolicLink: () => false }),
+        realpath: (filePath) => filePath,
+        stat: (filePath) => {
+          if (filePath === absoluteSourcePath) {
             return sourceStat;
           }
 
@@ -46,5 +55,125 @@ test('handleImageRequest only treats missing cache files as transform misses', a
     cacheError
   );
 
+  assert.equal(cacheSourcePath, 'source.avif');
+  assert.equal(ensureTransformCalls, 0);
+});
+
+test('handleImageRequest rejects normalized source paths outside the public root', async () => {
+  let lstatCalls = 0;
+
+  await assert.rejects(
+    handleImageRequest(
+      { headers: {}, method: 'GET' },
+      {},
+      {
+        absoluteSourcePath: path.resolve(PUBLIC_ROOT, '..', 'secret.avif'),
+        extension: '.avif',
+        options: { fit: 'inside', format: 'webp', quality: 75, width: 229 },
+        sourcePath: '../secret.avif',
+      },
+      {
+        buildCachePath: () => '/cache/source.webp',
+        ensureTransformed: () => undefined,
+        pickFormat: () => 'webp',
+        sendImageHead: () => undefined,
+        serveFile: () => undefined,
+        lstat: () => {
+          lstatCalls += 1;
+          return { isSymbolicLink: () => false };
+        },
+        realpath: (filePath) => filePath,
+        stat: () => ({ isFile: () => true, mtimeMs: 1, size: 1024 }),
+      }
+    ),
+    { message: 'Not found', statusCode: 404 }
+  );
+
+  assert.equal(lstatCalls, 0);
+});
+
+test('handleImageRequest resolves source symlinks inside the public root before transforming', async () => {
+  const linkedSourcePath = path.join(PUBLIC_ROOT, 'core-assets/link.avif');
+  const realSourcePath = path.join(PUBLIC_ROOT, 'core-assets/source.avif');
+  const sourceStat = {
+    isFile: () => true,
+    mtimeMs: 1,
+    size: 1024,
+  };
+  const cacheMiss = Object.assign(new Error('Cache miss'), { code: 'ENOENT' });
+  let cacheSourcePath;
+  let transformedSourcePath;
+
+  await handleImageRequest(
+    { headers: {}, method: 'GET' },
+    {},
+    {
+      absoluteSourcePath: linkedSourcePath,
+      extension: '.avif',
+      options: { fit: 'inside', format: 'webp', quality: 75, width: 229 },
+      sourcePath: 'core-assets/link.avif',
+    },
+    {
+      buildCachePath: ({ sourcePath }) => {
+        cacheSourcePath = sourcePath;
+        return '/cache/source.webp';
+      },
+      ensureTransformed: (sourcePath) => {
+        transformedSourcePath = sourcePath;
+      },
+      pickFormat: () => 'webp',
+      sendImageHead: () => undefined,
+      serveFile: () => undefined,
+      lstat: () => ({ isSymbolicLink: () => true }),
+      realpath: () => realSourcePath,
+      stat: (filePath) => {
+        if (filePath === realSourcePath) {
+          return sourceStat;
+        }
+
+        throw cacheMiss;
+      },
+    }
+  );
+
+  assert.equal(cacheSourcePath, 'core-assets/source.avif');
+  assert.equal(transformedSourcePath, realSourcePath);
+});
+
+test('handleImageRequest rejects source symlinks that resolve outside the public root', async () => {
+  const linkedSourcePath = path.join(PUBLIC_ROOT, 'core-assets/link.avif');
+  let statCalls = 0;
+  let ensureTransformCalls = 0;
+
+  await assert.rejects(
+    handleImageRequest(
+      { headers: {}, method: 'GET' },
+      {},
+      {
+        absoluteSourcePath: linkedSourcePath,
+        extension: '.avif',
+        options: { fit: 'inside', format: 'webp', quality: 75, width: 229 },
+        sourcePath: 'core-assets/link.avif',
+      },
+      {
+        buildCachePath: () => '/cache/source.webp',
+        ensureTransformed: () => {
+          ensureTransformCalls += 1;
+        },
+        pickFormat: () => 'webp',
+        sendImageHead: () => undefined,
+        serveFile: () => undefined,
+        lstat: () => ({ isSymbolicLink: () => true }),
+        realpath: () => path.resolve(PUBLIC_ROOT, '..', 'secret.avif'),
+        stat: () => {
+          statCalls += 1;
+          return { isFile: () => true, mtimeMs: 1, size: 1024 };
+        },
+      }
+    ),
+    { message: 'Not found', statusCode: 404 }
+  );
+
+  assert.equal(statCalls, 0);
   assert.equal(ensureTransformCalls, 0);
 });

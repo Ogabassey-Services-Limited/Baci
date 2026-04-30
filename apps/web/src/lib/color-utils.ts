@@ -51,6 +51,23 @@ export function hexToRgb(
 }
 
 /**
+ * Convert a hex color to rgba() with a clamped alpha channel.
+ * @param hex - Hex color string
+ * @param alpha - Opacity value, clamped to 0-1
+ * @returns CSS rgba() string, or the original value when parsing fails
+ */
+export function hexToRgba(hex: string, alpha: number): string {
+  const rgb = hexToRgb(hex);
+  if (!rgb) {
+    return hex;
+  }
+
+  const finiteAlpha = Number.isFinite(alpha) ? alpha : 1;
+  const clampedAlpha = Math.max(0, Math.min(1, finiteAlpha));
+  return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${clampedAlpha})`;
+}
+
+/**
  * Find the darkest color from a list of hex colors.
  * @param colors - An array of hex color strings.
  * @returns The darkest hex color string from the array.
