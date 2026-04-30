@@ -90,6 +90,26 @@ describe('Middleware Proxy', () => {
     expect(csp).toContain("frame-ancestors 'self'");
   });
 
+  it('does not allow unsafe-eval on production storefront routes', async () => {
+    const req = new NextRequest(`https://ogabassey.${ROOT_DOMAIN}/products`);
+    req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+    const res = await proxy(req);
+    const csp = res.headers.get('Content-Security-Policy') || '';
+
+    expect(csp).not.toContain("'unsafe-eval'");
+  });
+
+  it('allows unsafe-eval on localhost storefront routes for dev tooling', async () => {
+    const req = new NextRequest('http://localhost:3001/products');
+    req.headers.set('host', 'localhost:3001');
+
+    const res = await proxy(req);
+    const csp = res.headers.get('Content-Security-Policy') || '';
+
+    expect(csp).toContain("'unsafe-eval'");
+  });
+
   it('allows unsafe-eval on localhost dashboard routes for dev React tooling', async () => {
     const req = new NextRequest('http://localhost:3001/dashboard/orders');
     req.headers.set('host', 'localhost:3001');
