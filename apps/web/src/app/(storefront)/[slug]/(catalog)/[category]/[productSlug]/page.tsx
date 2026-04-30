@@ -498,16 +498,19 @@ export async function generateMetadata({
     notFound();
   }
 
+  // Don't redirect from generateMetadata — Next.js can't change HTTP status
+  // from here and falls back to an HTML <meta refresh>, which Google indexes
+  // as "Excluded by 'noindex' tag". The page component below runs the same
+  // permanentRedirect() before any HTML streams, producing a real HTTP 308.
+  // Return bare, noindex metadata here as a safety net for the race.
   if (!('product' in result)) {
-    permanentRedirect(getRedirectTargetPath(slug, result.legacyRedirectTarget));
+    return { robots: { index: false, follow: false } };
   }
 
   const { product, merchant, categoryMismatch, needsValuesRedirect } = result;
 
-  // Redirect before metadata is emitted so crawlers receive a real HTTP 308
-  // instead of Next.js's streamed meta-refresh fallback.
   if (categoryMismatch || needsValuesRedirect) {
-    permanentRedirect(getRedirectTargetPath(slug, product));
+    return { robots: { index: false, follow: false } };
   }
 
   const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
