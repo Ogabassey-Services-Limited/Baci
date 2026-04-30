@@ -119,7 +119,11 @@ beforeEach(() => {
 describe('GET /api/feed/openai', () => {
   it('returns 400 when merchant identifier is missing', async () => {
     const { GET } = await import('./route');
-    const response = await GET(makeRequest('/api/feed/openai'));
+    const response = await GET(
+      new NextRequest('https://usebaci.com/api/feed/openai', {
+        headers: { host: 'usebaci.com' },
+      })
+    );
     const body = await response.json();
 
     expect(response.status).toBe(400);

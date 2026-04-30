@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { openAIFeedQuerySchema } from './openai-feed-query';
+import type { OpenAIFeedQueryParseResult } from './openai-feed-query';
+import {
+  isMissingMerchantIdentifierError,
+  OPENAI_FEED_MERCHANT_IDENTIFIER_PATH,
+  openAIFeedQuerySchema,
+} from './openai-feed-query';
 
 describe('openAIFeedQuerySchema', () => {
   it.each([
@@ -49,16 +54,28 @@ describe('openAIFeedQuerySchema', () => {
   });
 
   it('rejects missing merchant identifiers', () => {
-    expect(openAIFeedQuerySchema.safeParse({}).success).toBe(false);
+    const result = openAIFeedQuerySchema.safeParse({});
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues).toHaveLength(1);
+
+      const [issue] = result.error.issues;
+
+      expect(issue?.code).toBe('custom');
+      expect(issue?.path).toEqual([OPENAI_FEED_MERCHANT_IDENTIFIER_PATH]);
+      expect(isMissingMerchantIdentifierError(result)).toBe(true);
+    }
   });
 
   it('rejects conflicting merchant identifiers', () => {
-    expect(
-      openAIFeedQuerySchema.safeParse({
-        merchant_id: '00000000-0000-4000-8000-000000000001',
-        merchant_slug: 'ogabassey',
-      }).success
-    ).toBe(false);
+    const result = openAIFeedQuerySchema.safeParse({
+      merchant_id: '00000000-0000-4000-8000-000000000001',
+      merchant_slug: 'ogabassey',
+    });
+
+    expect(result.success).toBe(false);
+    expect(isMissingMerchantIdentifierError(result)).toBe(false);
   });
 
   it('rejects malformed merchant UUIDs', () => {
@@ -92,5 +109,47 @@ describe('openAIFeedQuerySchema', () => {
         merchant_slug: null,
       }).success
     ).toBe(false);
+  });
+});
+
+describe('isMissingMerchantIdentifierError', () => {
+  it('returns false for successful parse results', () => {
+    const result: OpenAIFeedQueryParseResult = openAIFeedQuerySchema.safeParse({
+      merchant_slug: 'ogabassey',
+    });
+
+    expect(isMissingMerchantIdentifierError(result)).toBe(false);
+  });
+
+  it('returns true for the missing merchant identifier refinement', () => {
+    const result: OpenAIFeedQueryParseResult = openAIFeedQuerySchema.safeParse(
+      {}
+    );
+
+    expect(isMissingMerchantIdentifierError(result)).toBe(true);
+    if (!result.success) {
+      expect(result.error.issues).toHaveLength(1);
+      expect(result.error.issues[0]?.code).toBe('custom');
+      expect(result.error.issues[0]?.path).toEqual([
+        OPENAI_FEED_MERCHANT_IDENTIFIER_PATH,
+      ]);
+    }
+  });
+
+  it('returns false for malformed merchant UUID failures', () => {
+    const result: OpenAIFeedQueryParseResult = openAIFeedQuerySchema.safeParse({
+      merchant_id: 'not-a-uuid',
+    });
+
+    expect(isMissingMerchantIdentifierError(result)).toBe(false);
+  });
+
+  it('returns false for conflicting merchant identifier failures', () => {
+    const result: OpenAIFeedQueryParseResult = openAIFeedQuerySchema.safeParse({
+      merchant_id: '00000000-0000-4000-8000-000000000001',
+      merchant_slug: 'ogabassey',
+    });
+
+    expect(isMissingMerchantIdentifierError(result)).toBe(false);
   });
 });

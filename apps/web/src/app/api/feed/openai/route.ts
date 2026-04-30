@@ -12,7 +12,10 @@ import {
   buildRequestBaseUrl,
   resolveStorefrontRouteIdentifiers,
 } from '@/lib/storefront-host';
-import { openAIFeedQuerySchema } from '@/schemas/openai-feed-query';
+import {
+  isMissingMerchantIdentifierError,
+  openAIFeedQuerySchema,
+} from '@/schemas/openai-feed-query';
 import { RouteIdentifierSchema } from '@/schemas/route-identifier';
 import { generateCurrentOpenAIProductFeed } from './current-feed-generator';
 import { getCachedOpenAIFeedData } from './feed-data';
@@ -25,21 +28,21 @@ type VerifiedFeedBaseUrlResult =
   | { success: true; baseUrl: string; isStorefrontScoped: boolean }
   | { success: false; response: NextResponse };
 
-async function resolveVerifiedFeedBaseUrl(
-  merchant: Merchant,
+type StorefrontScopedMerchantResult =
+  | { kind: 'none' }
+  | { kind: 'success'; baseUrl: string; merchant: Merchant }
+  | { kind: 'failure'; response: NextResponse };
+
+async function resolveStorefrontScopedMerchant(
   request: Request
-): Promise<VerifiedFeedBaseUrlResult> {
+): Promise<StorefrontScopedMerchantResult> {
   const routeIdentifiers = resolveStorefrontRouteIdentifiers({
     request,
     rootDomain: ROOT_DOMAIN,
   });
 
   if (routeIdentifiers.length === 0) {
-    return {
-      success: true,
-      baseUrl: buildStoreUrl(merchant),
-      isStorefrontScoped: false,
-    };
+    return { kind: 'none' };
   }
 
   const parsedRouteIdentifiers: string[] = [];
@@ -52,7 +55,7 @@ async function resolveVerifiedFeedBaseUrl(
 
     if (!parsedRouteIdentifier.success) {
       return {
-        success: false,
+        kind: 'failure',
         response: NextResponse.json(
           { error: 'Invalid storefront host' },
           { status: 400 }
@@ -74,31 +77,59 @@ async function resolveVerifiedFeedBaseUrl(
       continue;
     }
 
-    if (storefrontMerchant.id !== merchant.id) {
-      // A higher-priority identifier resolving to a different merchant is a
-      // genuine host mismatch, not a fallback case.
-      return {
-        success: false,
-        response: NextResponse.json(
-          { error: 'Merchant slug does not match storefront host' },
-          { status: 400 }
-        ),
-      };
-    }
-
     return {
-      success: true,
+      kind: 'success',
       baseUrl: buildRequestBaseUrl(request),
-      isStorefrontScoped: true,
+      merchant: storefrontMerchant,
     };
   }
 
   return {
-    success: false,
+    kind: 'failure',
     response: NextResponse.json(
       { error: 'No storefront found for the given host' },
       { status: 400 }
     ),
+  };
+}
+
+async function resolveVerifiedFeedBaseUrl(
+  merchant: Merchant,
+  request: Request
+): Promise<VerifiedFeedBaseUrlResult> {
+  const storefrontResult = await resolveStorefrontScopedMerchant(request);
+
+  if (storefrontResult.kind === 'none') {
+    return {
+      success: true,
+      baseUrl: buildStoreUrl(merchant),
+      isStorefrontScoped: false,
+    };
+  }
+
+  if (storefrontResult.kind === 'failure') {
+    return {
+      success: false,
+      response: storefrontResult.response,
+    };
+  }
+
+  if (storefrontResult.merchant.id !== merchant.id) {
+    // A higher-priority identifier resolving to a different merchant is a
+    // genuine host mismatch, not a fallback case.
+    return {
+      success: false,
+      response: NextResponse.json(
+        { error: 'Merchant slug does not match storefront host' },
+        { status: 400 }
+      ),
+    };
+  }
+
+  return {
+    success: true,
+    baseUrl: storefrontResult.baseUrl,
+    isStorefrontScoped: true,
   };
 }
 
@@ -120,29 +151,71 @@ export async function GET(request: NextRequest) {
     format: searchParams.get('format') || undefined,
   };
 
-  const parsed = openAIFeedQuerySchema.safeParse(rawParams);
-  if (!parsed.success) {
-    return NextResponse.json(
-      {
-        error: parsed.error.issues[0]?.message || 'Invalid query parameters',
-      },
-      { status: 400 }
-    );
-  }
-
-  const {
-    merchant_id: merchantIdParam,
-    merchant_slug: merchantSlug,
-    format,
-  } = parsed.data;
+  let parsed = openAIFeedQuerySchema.safeParse(rawParams);
+  let inferredStorefrontBaseUrl = '';
+  let isHostInferred = false;
 
   try {
-    // Resolve merchant outside cache so tags use canonical UUID
+    if (
+      !rawParams.merchant_id &&
+      !rawParams.merchant_slug &&
+      isMissingMerchantIdentifierError(parsed)
+    ) {
+      const storefrontResult = await resolveStorefrontScopedMerchant(request);
+
+      switch (storefrontResult.kind) {
+        case 'failure':
+          return storefrontResult.response;
+        case 'success':
+          // Host inference only supplies the merchant id; publishability gating
+          // is still enforced by resolveFeedMerchant below. This prevents
+          // serving feeds for unpublished merchants when the request omits
+          // identifiers and falls back to host inference. Using the inferred
+          // merchant's stable UUID — rather than its slug — avoids a stale
+          // cache race where a recycled slug could resolve a different merchant
+          // through the cached host->slug mapping.
+          inferredStorefrontBaseUrl = storefrontResult.baseUrl;
+          isHostInferred = true;
+          parsed = openAIFeedQuerySchema.safeParse({
+            ...rawParams,
+            merchant_id: storefrontResult.merchant.id,
+          });
+          break;
+        case 'none':
+          // Platform/root-host requests still require an explicit identifier.
+          break;
+      }
+    }
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          error: parsed.error.issues[0]?.message || 'Invalid query parameters',
+        },
+        { status: 400 }
+      );
+    }
+
+    const {
+      merchant_id: merchantIdParam,
+      merchant_slug: merchantSlug,
+      format,
+    } = parsed.data;
+    // Resolve merchant outside cache so tags use canonical UUID.
+    // resolveFeedMerchant is the single source of truth for feed
+    // publishability gating (requires is_published or is_platform_admin)
+    // and is invoked uniformly for explicit and host-inferred merchants.
     const identifier = merchantIdParam || merchantSlug || '';
     const isBySlug = !merchantIdParam && !!merchantSlug;
     const merchant = await resolveFeedMerchant(identifier, isBySlug);
 
-    const baseUrlResult = await resolveVerifiedFeedBaseUrl(merchant, request);
+    const baseUrlResult = isHostInferred
+      ? {
+          success: true as const,
+          baseUrl: inferredStorefrontBaseUrl,
+          isStorefrontScoped: true,
+        }
+      : await resolveVerifiedFeedBaseUrl(merchant, request);
 
     if (!baseUrlResult.success) {
       return baseUrlResult.response;
