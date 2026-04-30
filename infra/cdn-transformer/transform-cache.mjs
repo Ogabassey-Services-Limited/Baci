@@ -108,13 +108,21 @@ async function transformImage(sourcePath, cachePath, options, outputFormat) {
 
   const tempPath = `${cachePath}.${process.pid}.${Date.now()}.tmp`;
   try {
-    const image = sharp(sourcePath, { animated: false }).rotate().resize({
-      fit: options.fit,
-      height: options.height,
-      kernel: sharp.kernel.lanczos3,
-      withoutEnlargement: true,
-      width: options.width,
-    });
+    // GIF is not a supported source extension; preserve animation for WebP inputs.
+    const shouldPreserveAnimation =
+      outputFormat === 'webp' &&
+      path.extname(sourcePath).toLowerCase() === '.webp';
+    const image = sharp(sourcePath, {
+      animated: shouldPreserveAnimation,
+    })
+      .rotate()
+      .resize({
+        fit: options.fit,
+        height: options.height,
+        kernel: sharp.kernel.lanczos3,
+        withoutEnlargement: true,
+        width: options.width,
+      });
 
     if (outputFormat === 'avif') {
       image.avif({ effort: 4, quality: options.quality });
