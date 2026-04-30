@@ -16,16 +16,19 @@ vi.mock('react-native', async () => {
     Pressable: ({
       accessibilityLabel,
       children,
+      hitSlop,
       onPress,
     }: {
       accessibilityLabel?: string;
       children?: React.ReactNode;
+      hitSlop?: { top?: number; right?: number; bottom?: number; left?: number };
       onPress?: () => void;
     }) =>
       React.createElement(
         'button',
         {
           'aria-label': accessibilityLabel,
+          'data-hit-slop': hitSlop ? JSON.stringify(hitSlop) : undefined,
           onClick: () => onPress?.(),
           type: 'button',
         },
@@ -148,6 +151,79 @@ describe('NewOrderSummarySection', () => {
     expect(controller.setFinancialValue).toHaveBeenCalledWith('125');
     expect(controller.setShowFinancialModal).toHaveBeenCalledWith({
       type: 'tax',
+      visible: true,
+    });
+  });
+
+  it('includes the formatted amount in each editable row accessibility label', () => {
+    const controller = makeController({
+      discount: 500,
+      isVatApplied: true,
+      shippingFee: 1200,
+      taxesToUse: 750,
+    });
+
+    render(<NewOrderSummarySection controller={controller} />);
+
+    expect(
+      screen.getByRole('button', { name: 'Edit Discount, currently - ₦500' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: 'Edit Shipping Fee, currently ₦1200',
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Edit VAT (7.5%), currently ₦750' })
+    ).toBeInTheDocument();
+  });
+
+  it('uses zero-currency in the discount aria-label when no discount is applied', () => {
+    const controller = makeController({ discount: 0 });
+
+    render(<NewOrderSummarySection controller={controller} />);
+
+    expect(
+      screen.getByRole('button', { name: 'Edit Discount, currently ₦0' })
+    ).toBeInTheDocument();
+  });
+
+  it('uses asymmetric hitSlop with no vertical extension to prevent touch overlap between stacked rows', () => {
+    const controller = makeController();
+
+    render(<NewOrderSummarySection controller={controller} />);
+
+    const rows = [
+      screen.getByText('Discount').closest('button'),
+      screen.getByText('Shipping Fee').closest('button'),
+      screen.getByText('Taxes').closest('button'),
+    ];
+
+    for (const row of rows) {
+      expect(row).not.toBeNull();
+      const hitSlop = JSON.parse(row?.getAttribute('data-hit-slop') ?? '{}');
+      // Vertical extension must be 0 — rows are flush with no gap, so any
+      // vertical hitSlop would bleed into adjacent rows.
+      expect(hitSlop.top).toBe(0);
+      expect(hitSlop.bottom).toBe(0);
+      // Horizontal extension is preserved for accessible target size.
+      expect(hitSlop.left).toBeGreaterThan(0);
+      expect(hitSlop.right).toBeGreaterThan(0);
+    }
+  });
+
+  it('triggers the correct row when its press is dispatched (no cross-talk between adjacent rows)', () => {
+    const controller = makeController();
+
+    render(<NewOrderSummarySection controller={controller} />);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /Edit Shipping Fee/ })
+    );
+
+    expect(controller.setShowFinancialModal).toHaveBeenCalledTimes(1);
+    expect(controller.setShowFinancialModal).toHaveBeenCalledWith({
+      type: 'shipping',
       visible: true,
     });
   });
