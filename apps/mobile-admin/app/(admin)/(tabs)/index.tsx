@@ -238,7 +238,7 @@ export default function HomeScreen() {
   const { setInsightDismissed, showInsight } = useSettingsStore(
     useShallow((s) => ({
       setInsightDismissed: s.setInsightDismissed,
-      showInsight: s.insightDismissedDate !== new Date().toDateString(),
+      showInsight: s.shouldShowInsight(),
     }))
   );
 
