@@ -1,4 +1,4 @@
-import { createHmac } from 'node:crypto';
+import { createHmac, randomBytes } from 'node:crypto';
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST as createOrder } from '@/app/api/orders/route';
@@ -55,7 +55,7 @@ vi.mock('@/lib/agentic/scoped-supabase', () => ({
 vi.mock('@/app/api/orders/route', () => ({ POST: vi.fn() }));
 vi.mock('@/lib/supabase/service', () => ({ createServiceClient: vi.fn() }));
 
-const confirmationSecret = 'test-confirmation-secret';
+const confirmationSecret = randomBytes(32).toString('hex');
 const readySession = {
   id: 'row-1',
   session_id: 'agentic_session_1',

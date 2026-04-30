@@ -1,6 +1,6 @@
-import { createHmac } from 'node:crypto';
+import { createHmac, randomBytes } from 'node:crypto';
 
-export const completionConfirmationSecret = 'test-confirmation-secret';
+export const completionConfirmationSecret = randomBytes(32).toString('hex');
 
 export function validHumanConfirmation() {
   const confirmedAt = new Date().toISOString();

@@ -1,8 +1,8 @@
-import { createHmac } from 'node:crypto';
+import { createHmac, randomBytes } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { verifyCheckoutCompletionAuthorization } from '@/lib/agentic/checkout-authorization';
 
-const secret = 'test-agentic-confirmation-secret';
+const secret = randomBytes(32).toString('hex');
 const now = new Date('2026-04-28T12:00:00.000Z');
 
 function sign(payload: string) {
