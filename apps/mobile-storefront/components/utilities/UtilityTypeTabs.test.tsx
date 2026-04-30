@@ -1,7 +1,7 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
-import Colors from '@/constants/Colors';
+import Colors, { BRAND, SPACING } from '@/constants/Colors';
 import { UtilityTypeTabs } from './UtilityTypeTabs';
 
 let mockColorScheme: 'light' | 'dark' = 'light';
@@ -9,6 +9,13 @@ let mockColorScheme: 'light' | 'dark' = 'light';
 jest.mock('@/components/useColorScheme', () => ({
   useColorScheme: () => mockColorScheme,
 }));
+
+function getTabStyle(testID: string) {
+  const style = screen.getByTestId(testID).props.style;
+  return StyleSheet.flatten(
+    typeof style === 'function' ? style({ pressed: false }) : style
+  );
+}
 
 describe('UtilityTypeTabs', () => {
   beforeEach(() => {
@@ -52,6 +59,35 @@ describe('UtilityTypeTabs', () => {
       });
     }
   );
+
+  it('keeps utility submenus rendered as horizontal pills', () => {
+    render(<UtilityTypeTabs selectedType="power" onSelect={jest.fn()} />);
+
+    expect(getTabStyle('utility-tab-power')).toMatchObject({
+      backgroundColor: BRAND.primary,
+      borderColor: BRAND.primary,
+      borderRadius: 999,
+      borderWidth: 1,
+      flexDirection: 'row',
+      flexShrink: 0,
+      width: 92,
+    });
+    expect(getTabStyle('utility-tab-airtime')).toMatchObject({
+      backgroundColor: Colors.light.muted,
+      borderColor: Colors.light.border,
+      marginRight: SPACING.sm,
+      width: 96,
+    });
+    expect(
+      StyleSheet.flatten(
+        screen.getByTestId('utility-type-tabs-scroll').props
+          .contentContainerStyle
+      )
+    ).toMatchObject({
+      alignItems: 'center',
+      paddingHorizontal: SPACING.md,
+    });
+  });
 
   it('calls onSelect when a submenu is pressed', () => {
     const onSelect = jest.fn();

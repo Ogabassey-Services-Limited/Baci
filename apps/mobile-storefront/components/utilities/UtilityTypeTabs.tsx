@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, SPACING, withAlpha } from '@/constants/Colors';
@@ -22,10 +23,18 @@ const UTILITY_TYPES = [
 ] as const satisfies readonly UtilityTypeDefinition[];
 
 const TAB_MIN_HEIGHT = 38;
-const TAB_MIN_WIDTH = 78;
+const TAB_WIDTHS: Record<UtilityType, number> = {
+  airtime: 96,
+  data: 78,
+  tv: 78,
+  power: 92,
+  gaming: 112,
+};
 const TAB_HORIZONTAL_PADDING = 12;
-const TAB_CONTENT_GAP = 6;
+const TAB_ICON_MARGIN_END = 6;
 const LABEL_FONT_SIZE = 13;
+const TAB_SIDE_INSET = SPACING.md;
+const TAB_ITEM_GAP = SPACING.sm;
 
 export type UtilityType = (typeof UTILITY_TYPES)[number]['type'];
 
@@ -40,6 +49,33 @@ export function UtilityTypeTabs({
 }: UtilityTypeTabsProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const scrollRef = useRef<ScrollView>(null);
+  const [viewportWidth, setViewportWidth] = useState(0);
+
+  useEffect(() => {
+    if (viewportWidth <= 0) {
+      return;
+    }
+
+    const selectedIndex = UTILITY_TYPES.findIndex(
+      (item) => item.type === selectedType
+    );
+    if (selectedIndex < 0) {
+      return;
+    }
+
+    const selectedOffset = UTILITY_TYPES.slice(0, selectedIndex).reduce<number>(
+      (offset, item) => offset + TAB_WIDTHS[item.type] + TAB_ITEM_GAP,
+      TAB_SIDE_INSET
+    );
+    const selectedCenter =
+      selectedOffset + TAB_WIDTHS[selectedType] / 2 - viewportWidth / 2;
+
+    scrollRef.current?.scrollTo({
+      animated: true,
+      x: Math.max(0, selectedCenter),
+    });
+  }, [selectedType, viewportWidth]);
 
   return (
     <View
@@ -55,12 +91,15 @@ export function UtilityTypeTabs({
       ]}
     >
       <ScrollView
+        ref={scrollRef}
         horizontal
         keyboardShouldPersistTaps="handled"
+        onLayout={(event) => setViewportWidth(event.nativeEvent.layout.width)}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.content}
+        testID="utility-type-tabs-scroll"
       >
-        {UTILITY_TYPES.map((item) => {
+        {UTILITY_TYPES.map((item, index) => {
           const isSelected = item.type === selectedType;
 
           return (
@@ -79,10 +118,12 @@ export function UtilityTypeTabs({
               }}
               style={({ pressed }) => [
                 styles.tab,
+                { width: TAB_WIDTHS[item.type] },
                 {
                   backgroundColor: isSelected ? BRAND.primary : colors.muted,
                   borderColor: isSelected ? BRAND.primary : colors.border,
                 },
+                index < UTILITY_TYPES.length - 1 && styles.tabSpacing,
                 pressed && styles.pressedTab,
               ]}
             >
@@ -90,6 +131,7 @@ export function UtilityTypeTabs({
                 name={item.icon}
                 size={17}
                 color={isSelected ? BRAND.onPrimary : colors.icon}
+                style={styles.icon}
               />
               <Text
                 numberOfLines={1}
@@ -114,21 +156,26 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
   },
   content: {
-    gap: SPACING.sm,
-    paddingHorizontal: SPACING.md,
+    alignItems: 'center',
+    paddingHorizontal: TAB_SIDE_INSET,
   },
   tab: {
     minHeight: TAB_MIN_HEIGHT,
-    minWidth: TAB_MIN_WIDTH,
     borderRadius: 999,
     borderWidth: 1,
     paddingHorizontal: TAB_HORIZONTAL_PADDING,
     flexDirection: 'row',
+    flexShrink: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: TAB_CONTENT_GAP,
+  },
+  tabSpacing: {
+    marginRight: TAB_ITEM_GAP,
   },
   pressedTab: UTILITY_TYPE_TAB_PRESSED_STYLE,
+  icon: {
+    marginRight: TAB_ICON_MARGIN_END,
+  },
   label: {
     fontSize: LABEL_FONT_SIZE,
     fontWeight: '700',
