@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { z } from 'zod';
 import {
   ALLOWED_EXTENSIONS,
   AUTO_FORMATS,
@@ -7,6 +8,14 @@ import {
   MAX_DIMENSION,
   NORMALIZED_PUBLIC_ROOT,
 } from './config.mjs';
+
+const transformOptionsSchema = z.object({
+  fit: z.enum(['inside', 'cover']),
+  format: z.enum(['auto', 'avif', 'jpeg', 'jpg', 'png', 'webp']),
+  height: z.number().int().min(16).max(MAX_DIMENSION).optional(),
+  quality: z.number().int().min(1).max(100),
+  width: z.number().int().min(16).max(MAX_DIMENSION).optional(),
+});
 
 function parseAcceptedImageFormats(acceptHeader) {
   return acceptHeader
@@ -50,7 +59,7 @@ function parseOptions(rawOptions) {
   }
 
   const requestedFormat = options.get('format') || options.get('f') || 'auto';
-  return {
+  return transformOptionsSchema.parse({
     fit: options.get('fit') === 'cover' ? 'cover' : 'inside',
     format: ['auto', 'avif', 'jpeg', 'jpg', 'png', 'webp'].includes(
       requestedFormat
@@ -75,7 +84,15 @@ function parseOptions(rawOptions) {
       16,
       MAX_DIMENSION
     ),
-  };
+  });
+}
+
+function hasEncodedTraversalBypass(sourcePath) {
+  return (
+    sourcePath.includes('\\') ||
+    sourcePath.includes('//') ||
+    /%(?:2e|2f|5c)/i.test(sourcePath)
+  );
 }
 
 export function pickFormat(requestedFormat, acceptHeader, sourceExtension) {
@@ -125,7 +142,12 @@ export function parseRequestPath(requestUrl) {
     return { error: 'Invalid source path', statusCode: 400 };
   }
 
-  if (!sourcePath || sourcePath.includes('\0') || sourcePath.startsWith('/')) {
+  if (
+    !sourcePath ||
+    sourcePath.includes('\0') ||
+    sourcePath.startsWith('/') ||
+    hasEncodedTraversalBypass(sourcePath)
+  ) {
     return { error: 'Invalid source path', statusCode: 400 };
   }
 

@@ -53,4 +53,21 @@ describe('BannerCarousel', () => {
       expect(image).toHaveAttribute('data-priority', 'false');
     }
   });
+
+  it('prioritizes only the custom category image when one is provided', () => {
+    const { container } = render(
+      <BannerCarousel categoryImage="/category-banner.avif" />
+    );
+    const images = Array.from(container.querySelectorAll('img'));
+
+    expect(images.length).toBeGreaterThan(0);
+    expect(images[0]).toHaveAttribute('src', '/category-banner.avif');
+    expect(images[0]).toHaveAttribute('data-priority', 'true');
+    expect(images[0]).toHaveAttribute('fetchpriority', 'high');
+
+    for (const image of images.slice(1)) {
+      expect(image).toHaveAttribute('data-priority', 'false');
+      expect(image).toHaveAttribute('fetchpriority', 'low');
+    }
+  });
 });

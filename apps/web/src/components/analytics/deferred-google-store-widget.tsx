@@ -33,8 +33,19 @@ export function DeferredGoogleStoreWidget(
     }
 
     let cancelled = false;
+    let loading = false;
+    let timeoutId: number | undefined;
 
     const loadWidget = () => {
+      if (cancelled || loading) {
+        return;
+      }
+
+      loading = true;
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+      }
+
       const widgetModule =
         props.loadWidgetModule?.() ?? import('./google-store-widget');
 
@@ -45,10 +56,7 @@ export function DeferredGoogleStoreWidget(
       });
     };
 
-    const timeoutId = window.setTimeout(
-      loadWidget,
-      GOOGLE_STORE_WIDGET_DELAY_MS
-    );
+    timeoutId = window.setTimeout(loadWidget, GOOGLE_STORE_WIDGET_DELAY_MS);
     window.addEventListener('pointerdown', loadWidget, {
       once: true,
       passive: true,

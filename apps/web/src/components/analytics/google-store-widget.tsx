@@ -36,7 +36,10 @@ declare global {
 
 const WIDGET_SCRIPT_SRC =
   'https://www.gstatic.com/shopping/merchant/merchantwidget.js';
+// Keep these aligned so deferred external script and iframe labelling both
+// tolerate slow third-party injection on throttled mobile connections.
 const WIDGET_DEFER_TIMEOUT_MS = 20000;
+const WIDGET_IFRAME_TITLE_TIMEOUT_MS = 20000;
 const MERCHANT_WIDGET_IFRAME_ID = 'merchantwidgetiframe';
 export const MERCHANT_WIDGET_IFRAME_TITLE =
   'Google Store badge and merchant quality widget';
@@ -49,7 +52,10 @@ function resolveMerchantWidgetFrame() {
   }
 
   return document.querySelector<HTMLIFrameElement>(
-    'iframe[src*="google.com"], iframe[src*="googleusercontent.com"]'
+    [
+      'iframe[src*="google.com/shopping/merchantverse"]',
+      'iframe[src*="googleusercontent.com/shopping/merchantverse"]',
+    ].join(', ')
   );
 }
 
@@ -196,7 +202,7 @@ export function GoogleStoreWidget({
       }
 
       observer.disconnect();
-    }, 5000);
+    }, WIDGET_IFRAME_TITLE_TIMEOUT_MS);
 
     return () => {
       window.clearTimeout(timeoutId);

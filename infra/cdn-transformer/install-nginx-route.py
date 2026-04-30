@@ -39,6 +39,12 @@ def read_config(path):
         raise SystemExit(f'{path}: permission denied reading config') from error
 
 
+def resolve_write_path(path):
+    if path.is_symlink():
+        return path.resolve()
+    return path
+
+
 def find_marker_index(text):
     offset = 0
     for line in text.splitlines(keepends=True):
@@ -77,23 +83,45 @@ def validate_nginx_or_restore(path, original_text, file_stat):
     raise SystemExit(message)
 
 
-stamp = datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')
-backup_dir.mkdir(parents=True, exist_ok=True)
+def configure_paths(config_paths=None, config_backup_dir=None):
+    if config_paths is None:
+        config_paths = paths
+    if config_backup_dir is None:
+        config_backup_dir = backup_dir
 
-for path in paths:
-    text = read_config(path)
-    if 'location ^~ /image/' in text:
-        print(f'{path}: already configured')
-        continue
+    processed_targets = set()
+    stamp = datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')
+    config_backup_dir.mkdir(parents=True, exist_ok=True)
 
-    marker_index = find_marker_index(text)
-    if marker_index == -1:
-        raise SystemExit(f'{path}: marker not found: {marker_text}')
+    for path in config_paths:
+        target_path = resolve_write_path(path)
+        if target_path in processed_targets:
+            print(f'{path}: already handled via {target_path}')
+            continue
 
-    file_stat = path.stat()
-    backup = backup_dir / f'{path.parent.name}-{path.name}.bak-{stamp}'
-    backup.write_text(text, encoding='utf-8')
-    updated_text = f'{text[:marker_index]}{block}{text[marker_index:]}'
-    atomic_write(path, updated_text, file_stat)
-    validate_nginx_or_restore(path, text, file_stat)
-    print(f'{path}: configured, backup={backup}')
+        text = read_config(target_path)
+        if 'location ^~ /image/' in text:
+            print(f'{path}: already configured target={target_path}')
+            processed_targets.add(target_path)
+            continue
+
+        marker_index = find_marker_index(text)
+        if marker_index == -1:
+            raise SystemExit(f'{path}: marker not found: {marker_text}')
+
+        file_stat = target_path.stat()
+        backup = config_backup_dir / f'{path.parent.name}-{path.name}.bak-{stamp}'
+        backup.write_text(text, encoding='utf-8')
+        updated_text = f'{text[:marker_index]}{block}{text[marker_index:]}'
+        atomic_write(target_path, updated_text, file_stat)
+        validate_nginx_or_restore(target_path, text, file_stat)
+        processed_targets.add(target_path)
+        print(f'{path}: configured target={target_path}, backup={backup}')
+
+
+def main():
+    configure_paths()
+
+
+if __name__ == '__main__':
+    main()

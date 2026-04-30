@@ -251,6 +251,11 @@ describe('GoogleStoreWidget', () => {
   it('falls back to a Google iframe src when the widget iframe id changes', async () => {
     window.merchantwidget = {
       start: () => {
+        const unrelatedIframe = document.createElement('iframe');
+        unrelatedIframe.id = 'google-maps-frame';
+        unrelatedIframe.src = 'https://www.google.com/maps/embed';
+        document.body.appendChild(unrelatedIframe);
+
         const iframe = document.createElement('iframe');
         iframe.src = 'https://www.google.com/shopping/merchantverse/';
         document.body.appendChild(iframe);
@@ -266,7 +271,10 @@ describe('GoogleStoreWidget', () => {
       await Promise.resolve();
     });
 
-    expect(document.querySelector('iframe[src*="google.com"]')).toHaveAttribute(
+    expect(
+      document.querySelector('iframe[src*="google.com/shopping/merchantverse"]')
+    ).toHaveAttribute('title', MERCHANT_WIDGET_IFRAME_TITLE);
+    expect(document.getElementById('google-maps-frame')).not.toHaveAttribute(
       'title',
       MERCHANT_WIDGET_IFRAME_TITLE
     );

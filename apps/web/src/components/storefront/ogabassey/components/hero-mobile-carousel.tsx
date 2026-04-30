@@ -68,7 +68,7 @@ export function HeroMobileCarousel({
                   <Link
                     href={asRoute(getHref('/products'))}
                     prefetch={false}
-                    className={`mt-3 inline-flex min-h-11 items-center justify-center text-xs font-bold px-5 py-2 rounded-full shadow-sm transition-all border ${slide.textColor === 'text-white' ? 'bg-white/20 hover:bg-white/30 border-white/30 text-white' : 'bg-black/5 hover:bg-black/10 border-black/10 text-gray-900'}`}
+                    className={`mt-3 inline-flex min-h-12 items-center justify-center text-xs font-bold px-5 py-2 rounded-full shadow-sm transition-all border ${slide.textColor === 'text-white' ? 'bg-white/20 hover:bg-white/30 border-white/30 text-white' : 'bg-black/5 hover:bg-black/10 border-black/10 text-gray-900'}`}
                   >
                     Shop Now
                   </Link>
@@ -144,7 +144,7 @@ export function HeroMobileCarousel({
                 </h2>
                 <p className="text-xs opacity-90 mb-3">{slide.subtitle}</p>
                 <button
-                  className="text-xs font-bold px-4 py-2 rounded-full bg-white text-black flex min-h-10 items-center gap-1 w-fit"
+                  className="text-xs font-bold px-4 py-2 rounded-full bg-white text-black flex min-h-12 items-center gap-1 w-fit"
                   aria-label="Watch video demo"
                 >
                   <Play size={10} fill="currentColor" aria-hidden="true" />
@@ -183,7 +183,7 @@ export function HeroMobileCarousel({
               key={slide.id}
               type="button"
               onClick={() => setCurrentSlide(idx)}
-              className="flex h-8 min-w-8 items-center justify-center rounded-full cursor-pointer"
+              className="flex h-12 min-w-12 items-center justify-center rounded-full cursor-pointer"
               aria-label={`Go to hero slide ${idx + 1}`}
             >
               <span

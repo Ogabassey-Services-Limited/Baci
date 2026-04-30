@@ -1,6 +1,27 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import type React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DeferredGoogleStoreWidget } from './deferred-google-store-widget';
+
+type TestWidgetModule = {
+  GoogleStoreWidget: ({
+    merchantCustomDomain,
+    skipActivationDelay,
+  }: {
+    merchantCustomDomain?: string | null;
+    skipActivationDelay?: boolean;
+  }) => React.ReactElement;
+};
+
+function createTestWidgetModule(): TestWidgetModule {
+  return {
+    GoogleStoreWidget: ({ merchantCustomDomain, skipActivationDelay }) => (
+      <div>
+        Widget {merchantCustomDomain} {String(skipActivationDelay)}
+      </div>
+    ),
+  };
+}
 
 describe('DeferredGoogleStoreWidget', () => {
   beforeEach(() => {
@@ -13,19 +34,9 @@ describe('DeferredGoogleStoreWidget', () => {
   });
 
   it('waits for the defer window before importing the widget module', async () => {
-    const loadWidgetModule = vi.fn().mockResolvedValue({
-      GoogleStoreWidget: ({
-        merchantCustomDomain,
-        skipActivationDelay,
-      }: {
-        merchantCustomDomain?: string | null;
-        skipActivationDelay?: boolean;
-      }) => (
-        <div>
-          Widget {merchantCustomDomain} {String(skipActivationDelay)}
-        </div>
-      ),
-    });
+    const loadWidgetModule = vi
+      .fn()
+      .mockResolvedValue(createTestWidgetModule());
 
     render(
       <DeferredGoogleStoreWidget
@@ -52,22 +63,18 @@ describe('DeferredGoogleStoreWidget', () => {
 
     expect(loadWidgetModule).toHaveBeenCalledOnce();
     expect(screen.getByText('Widget ogabassey.com true')).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(20000);
+    });
+
+    expect(loadWidgetModule).toHaveBeenCalledOnce();
   });
 
   it('imports the widget immediately after interaction', async () => {
-    const loadWidgetModule = vi.fn().mockResolvedValue({
-      GoogleStoreWidget: ({
-        merchantCustomDomain,
-        skipActivationDelay,
-      }: {
-        merchantCustomDomain?: string | null;
-        skipActivationDelay?: boolean;
-      }) => (
-        <div>
-          Widget {merchantCustomDomain} {String(skipActivationDelay)}
-        </div>
-      ),
-    });
+    const loadWidgetModule = vi
+      .fn()
+      .mockResolvedValue(createTestWidgetModule());
 
     render(
       <DeferredGoogleStoreWidget
@@ -84,6 +91,39 @@ describe('DeferredGoogleStoreWidget', () => {
     });
 
     expect(loadWidgetModule).toHaveBeenCalledOnce();
+    expect(screen.getByText('Widget ogabassey.com true')).toBeInTheDocument();
+  });
+
+  it('does not start a second widget import while the first import is pending', async () => {
+    let resolveWidgetModule: ((module: TestWidgetModule) => void) | undefined;
+    const loadWidgetModule = vi.fn(
+      () =>
+        new Promise<TestWidgetModule>((resolve) => {
+          resolveWidgetModule = resolve;
+        })
+    );
+
+    render(
+      <DeferredGoogleStoreWidget
+        merchantCustomDomain="ogabassey.com"
+        enabled
+        loadWidgetModule={loadWidgetModule}
+      />
+    );
+
+    fireEvent.scroll(window);
+
+    act(() => {
+      vi.advanceTimersByTime(20000);
+    });
+
+    expect(loadWidgetModule).toHaveBeenCalledOnce();
+
+    await act(async () => {
+      resolveWidgetModule?.(createTestWidgetModule());
+      await Promise.resolve();
+    });
+
     expect(screen.getByText('Widget ogabassey.com true')).toBeInTheDocument();
   });
 

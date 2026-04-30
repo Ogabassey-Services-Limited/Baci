@@ -56,7 +56,7 @@ describe('HeroDesktopGrid', () => {
     expect(screen.getByRole('button', { name: /go to slide 2/i })).toBeInTheDocument();
   });
 
-  it('uses valid local assets for the secondary promo panels', () => {
+  it('uses valid CDN product assets for the secondary promo panels', () => {
     const { container } = render(
       <HeroDesktopGrid getHref={(path) => `/ogabassey${path}`} />
     );
@@ -68,6 +68,8 @@ describe('HeroDesktopGrid', () => {
       expect.not.arrayContaining([
         'https://cdn.ogabassey.com/products/flash-sale-banner.avif',
         'https://cdn.ogabassey.com/products/new-arrivals-banner.avif',
+        '/website%20designs/Macbooks/macbook%20pro.avif',
+        '/website%20designs/GAMES/PS5%20SLIM%20CONSOLE%201TB.avif',
       ])
     );
     expect(sources).toEqual(

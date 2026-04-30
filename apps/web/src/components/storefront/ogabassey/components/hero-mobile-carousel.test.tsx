@@ -117,11 +117,11 @@ describe('HeroMobileCarousel', () => {
     );
 
     for (const link of screen.getAllByRole('link', { name: /shop now/i })) {
-      expect(link).toHaveClass('min-h-11');
+      expect(link).toHaveClass('min-h-12');
     }
 
     expect(
       screen.getByRole('button', { name: /go to hero slide 1/i })
-    ).toHaveClass('h-8', 'min-w-8');
+    ).toHaveClass('h-12', 'min-w-12');
   });
 });

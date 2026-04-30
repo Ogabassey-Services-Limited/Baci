@@ -40,18 +40,35 @@ function acquireTransformSlot() {
   });
 }
 
-async function runWithTimeout(promise, timeoutMs) {
+async function writeImageWithTimeout(image, tempPath, timeoutMs) {
+  let timedOut = false;
   let timeoutId;
+  const timeoutError = new Error(
+    `Image transform timed out after ${timeoutMs}ms`
+  );
+  timeoutError.statusCode = 504;
+  const transform = image.toFile(tempPath);
   const timeout = new Promise((_, reject) => {
     timeoutId = setTimeout(() => {
-      const error = new Error(`Image transform timed out after ${timeoutMs}ms`);
-      error.statusCode = 504;
-      reject(error);
+      timedOut = true;
+      try {
+        image.destroy(timeoutError);
+      } catch (error) {
+        console.warn('Failed to abort timed-out transform', error);
+      }
+      reject(timeoutError);
     }, timeoutMs);
   });
 
   try {
-    return await Promise.race([promise, timeout]);
+    return await Promise.race([transform, timeout]);
+  } catch (error) {
+    if (timedOut) {
+      await transform.catch(() => undefined);
+      throw timeoutError;
+    }
+
+    throw error;
   } finally {
     clearTimeout(timeoutId);
   }
@@ -90,7 +107,6 @@ async function transformImage(sourcePath, cachePath, options, outputFormat) {
   await mkdir(path.dirname(cachePath), { recursive: true });
 
   const tempPath = `${cachePath}.${process.pid}.${Date.now()}.tmp`;
-  let transform;
   try {
     const image = sharp(sourcePath, { animated: false }).rotate().resize({
       fit: options.fit,
@@ -110,13 +126,9 @@ async function transformImage(sourcePath, cachePath, options, outputFormat) {
       image.jpeg({ mozjpeg: true, quality: options.quality });
     }
 
-    transform = image.toFile(tempPath);
-    await runWithTimeout(transform, TRANSFORM_TIMEOUT_MS);
+    await writeImageWithTimeout(image, tempPath, TRANSFORM_TIMEOUT_MS);
     await rename(tempPath, cachePath);
   } catch (error) {
-    transform
-      ?.finally(() => unlink(tempPath).catch(logCleanupError))
-      .catch(logCleanupError);
     await unlink(tempPath).catch(logCleanupError);
     throw error;
   } finally {

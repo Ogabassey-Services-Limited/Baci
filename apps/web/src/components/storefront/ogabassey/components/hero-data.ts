@@ -1,5 +1,3 @@
-'use client';
-
 import iphoneHeroDesktopAsset from './assets/iphone-17-pro-max-desktop.avif';
 import iphoneHeroMobileAsset from './assets/iphone-17-pro-max-mobile.avif';
 
@@ -33,12 +31,10 @@ type ImportedImageAsset = { src: string } | string;
 const getImportedImageSrc = (asset: ImportedImageAsset) =>
   typeof asset === 'string' ? asset : asset.src;
 
-export const NEW_ARRIVALS_PROMO_IMAGE = encodeURI(
-  '/website designs/Macbooks/macbook pro.avif'
-);
-export const FLASH_SALE_PROMO_IMAGE = encodeURI(
-  '/website designs/GAMES/PS5 SLIM CONSOLE 1TB.avif'
-);
+export const NEW_ARRIVALS_PROMO_IMAGE =
+  'https://cdn.ogabassey.com/core-assets/products/macbook-pro.avif';
+export const FLASH_SALE_PROMO_IMAGE =
+  'https://cdn.ogabassey.com/core-assets/products/ps5-digital-slim-console-1tb.avif';
 
 export const MOBILE_SLIDES: HeroSlideData[] = [
   {
