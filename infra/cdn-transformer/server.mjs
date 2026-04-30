@@ -59,12 +59,21 @@ export async function handleImageRequest(
     );
   }
 
+  const imageHeaderOptions = {
+    varyAccept: parsedRequest.options.format === 'auto',
+  };
+
   if (request.method === 'HEAD') {
-    await deps.sendImageHead(response, cachePath, outputFormat);
+    await deps.sendImageHead(
+      response,
+      cachePath,
+      outputFormat,
+      imageHeaderOptions
+    );
     return;
   }
 
-  await deps.serveFile(response, cachePath, outputFormat);
+  await deps.serveFile(response, cachePath, outputFormat, imageHeaderOptions);
 }
 
 export function createTransformerServer() {

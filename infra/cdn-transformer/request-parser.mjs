@@ -90,9 +90,12 @@ function parseOptions(rawOptions) {
 function hasEncodedTraversalBypass(sourcePath) {
   return (
     sourcePath.includes('\\') ||
-    sourcePath.includes('//') ||
     /%(?:2e|2f|5c)/i.test(sourcePath)
   );
+}
+
+function normalizeSourcePathSeparators(sourcePath) {
+  return sourcePath.replace(/\/{2,}/g, '/').replace(/^\/+/, '');
 }
 
 export function pickFormat(requestedFormat, acceptHeader, sourceExtension) {
@@ -141,6 +144,7 @@ export function parseRequestPath(requestUrl) {
   } catch {
     return { error: 'Invalid source path', statusCode: 400 };
   }
+  sourcePath = normalizeSourcePathSeparators(sourcePath);
 
   if (
     !sourcePath ||

@@ -46,12 +46,31 @@ test('parseRequestPath parses and clamps transform options through validation', 
   );
 });
 
+test('parseRequestPath normalizes doubled source path slashes before resolving', () => {
+  const parsed = parseRequestPath(
+    '/image/width=229,quality=75,format=webp//core-assets//products/z-fold-7-jet-black.avif'
+  );
+
+  assert.equal(parsed.error, undefined);
+  assert.equal(
+    parsed.sourcePath,
+    'core-assets/products/z-fold-7-jet-black.avif'
+  );
+  assert.equal(
+    parsed.absoluteSourcePath,
+    path.resolve(testDir, 'public/core-assets/products/z-fold-7-jet-black.avif')
+  );
+});
+
 test('parseRequestPath rejects traversal and unsupported source types', () => {
   for (const requestPath of [
     '/image/width=229/%2e%2e%2fsecret.avif',
+    '/image/width=229//..%2f/secret.avif',
+    '/image/width=229/..%2f/secret.avif',
+    '/image/width=229//core-assets//%2e%2e%2f%2e%2e%2fsecret.avif',
     '/image/width=229/%252e%252e%252fsecret.avif',
+    '/image/width=229/%252e%252e%252f/secret.avif',
     '/image/width=229/..%5csecret.avif',
-    '/image/width=229/....//secret.avif',
     '/image/width=229/core-assets%00/products/z-fold-7-jet-black.avif',
   ]) {
     assert.deepEqual(parseRequestPath(requestPath), {
