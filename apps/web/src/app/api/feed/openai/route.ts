@@ -152,8 +152,8 @@ export async function GET(request: NextRequest) {
   };
 
   let parsed = openAIFeedQuerySchema.safeParse(rawParams);
-  let inferredStorefrontMerchant: Merchant | null = null;
   let inferredStorefrontBaseUrl = '';
+  let isHostInferred = false;
 
   try {
     if (
@@ -167,8 +167,12 @@ export async function GET(request: NextRequest) {
         case 'failure':
           return storefrontResult.response;
         case 'success':
-          inferredStorefrontMerchant = storefrontResult.merchant;
+          // Host inference only supplies the slug; publishability gating is
+          // still enforced by resolveFeedMerchant below. This prevents serving
+          // feeds for unpublished merchants when the request omits identifiers
+          // and falls back to host inference.
           inferredStorefrontBaseUrl = storefrontResult.baseUrl;
+          isHostInferred = true;
           parsed = openAIFeedQuerySchema.safeParse({
             ...rawParams,
             merchant_slug: storefrontResult.merchant.slug,
@@ -194,14 +198,15 @@ export async function GET(request: NextRequest) {
       merchant_slug: merchantSlug,
       format,
     } = parsed.data;
-    // Resolve merchant outside cache so tags use canonical UUID
+    // Resolve merchant outside cache so tags use canonical UUID.
+    // resolveFeedMerchant is the single source of truth for feed
+    // publishability gating (requires is_published or is_platform_admin)
+    // and is invoked uniformly for explicit and host-inferred merchants.
     const identifier = merchantIdParam || merchantSlug || '';
     const isBySlug = !merchantIdParam && !!merchantSlug;
-    const merchant =
-      inferredStorefrontMerchant ??
-      (await resolveFeedMerchant(identifier, isBySlug));
+    const merchant = await resolveFeedMerchant(identifier, isBySlug);
 
-    const baseUrlResult = inferredStorefrontMerchant
+    const baseUrlResult = isHostInferred
       ? {
           success: true as const,
           baseUrl: inferredStorefrontBaseUrl,

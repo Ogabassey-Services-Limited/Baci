@@ -108,9 +108,34 @@ describe('GET /api/feed/openai host-scoped merchant inference', () => {
       'public, s-maxage=60, stale-while-revalidate=300'
     );
     expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
-    expect(mockResolveFeedMerchant).not.toHaveBeenCalled();
+    // Host-inferred requests are still gated through resolveFeedMerchant so
+    // unpublished storefronts cannot be served via host inference.
+    expect(mockResolveFeedMerchant).toHaveBeenCalledWith('ogabassey', true);
     expect(mockGetCachedOpenAIFeedData).toHaveBeenCalledWith('merchant-1');
     expect(parsed.url).toBe('https://ogabassey.com/products/test-phone');
+  });
+
+  it('returns 404 when the host-inferred merchant is unpublished', async () => {
+    // Host inference resolves a merchant record (cached_data does not gate on
+    // is_published — it serves "Coming Soon" pages), but resolveFeedMerchant's
+    // RPC enforces is_published/is_platform_admin and returns no rows for an
+    // unpublished storefront, which surfaces as MerchantNotFoundError.
+    mockResolveFeedMerchant.mockRejectedValue(
+      new MerchantNotFoundError('ogabassey')
+    );
+
+    const { GET } = await import('./route');
+
+    const response = await GET(
+      storefrontRequest('/api/feed/openai?format=current')
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body.error).toBe('Merchant not found');
+    expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
+    expect(mockResolveFeedMerchant).toHaveBeenCalledWith('ogabassey', true);
+    expect(mockGetCachedOpenAIFeedData).not.toHaveBeenCalled();
   });
 
   it('still requires a merchant identifier on the platform host', async () => {
