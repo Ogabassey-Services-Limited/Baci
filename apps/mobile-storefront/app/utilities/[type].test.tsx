@@ -218,6 +218,31 @@ describe('UtilityPurchaseScreen', () => {
     });
   });
 
+  it('does not render utility submenus on the airtime screen', () => {
+    mockUseLocalSearchParams.mockReturnValue({ type: 'airtime' });
+
+    render(<UtilityPurchaseScreen />);
+
+    expect(screen.getByText('Airtime form')).toBeOnTheScreen();
+    expect(screen.queryByTestId('utility-type-tabs')).toBeNull();
+    expect(screen.queryByLabelText('Data utility service')).toBeNull();
+  });
+
+  it('routes to the airtime screen before hiding utility submenus', async () => {
+    const { rerender } = render(<UtilityPurchaseScreen />);
+
+    fireEvent.press(screen.getByLabelText('Airtime utility service'));
+
+    expect(mockReplace).toHaveBeenCalledWith('/utilities/airtime');
+    mockUseLocalSearchParams.mockReturnValue({ type: 'airtime' });
+    rerender(<UtilityPurchaseScreen />);
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('utility-type-tabs')).toBeNull();
+    });
+    expect(screen.getByText('Airtime form')).toBeOnTheScreen();
+  });
+
   it('uses the header back button for utility screens', () => {
     render(<UtilityPurchaseScreen />);
 
