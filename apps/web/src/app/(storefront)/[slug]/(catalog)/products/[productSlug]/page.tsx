@@ -194,25 +194,30 @@ async function getProductCached(
   };
 }
 
-function redirectLegacyProductRouteIfCategorized(
+// Returns the canonical redirect target if the URL is categorized but lives
+// under /products/, else null. Pure — caller decides whether to throw a real
+// redirect (page component) or emit noindex metadata (generateMetadata).
+function getCategorizedRedirectTarget(
   storeSlug: string,
   product: Product
-) {
+): string | null {
   const productPath = getProductUrl(product);
   if (productPath.startsWith('/products/')) {
-    return;
+    return null;
   }
-  const targetPath = buildProductRedirectPath(storeSlug, productPath);
-  permanentRedirect(targetPath);
+  return buildProductRedirectPath(storeSlug, productPath);
 }
 
-function redirectInvalidVariantSelectionParams(
+// Returns the canonical redirect target when the URL's variant params are
+// inconsistent (attribute-only, ambiguous, invalid id, zero-match). Pure —
+// see getCategorizedRedirectTarget above for the rationale.
+function getInvalidVariantSelectionRedirectTarget(
   storeSlug: string,
   product: Product,
   searchParams: ResolvedSearchParams
-) {
+): string | null {
   if (!product.variants || product.variants.length === 0) {
-    return;
+    return null;
   }
 
   const selectionResolution = resolveVariantSelectionParamResolution(
@@ -226,14 +231,15 @@ function redirectInvalidVariantSelectionParams(
     selectionResolution.type === 'invalid_variant_id' ||
     selectionResolution.type === 'zero_match'
   ) {
-    const targetPath = buildSelectionSafeRedirectPath(
+    return buildSelectionSafeRedirectPath(
       storeSlug,
       product,
       searchParams,
       selectionResolution.extracted.recognizedParamKeys
     );
-    redirect(asRoute(targetPath));
   }
+
+  return null;
 }
 
 async function redirectLegacyVariantProductRoute(
@@ -298,11 +304,27 @@ export async function generateMetadata(
   }
   const { merchant, product } = productResult;
   if (!product) {
-    await redirectLegacyVariantProductRoute(slug, productSlug, merchant);
-    notFound();
+    // Don't issue a redirect from generateMetadata — Next.js can't change
+    // HTTP status from here and falls back to an HTML <meta refresh>, which
+    // Google indexes as a soft redirect / "noindex" page. The default page
+    // component handler runs in parallel and throws permanentRedirect at the
+    // pre-render stage, which produces a real HTTP 308. Returning bare,
+    // noindex metadata here is a safety net for that race.
+    void merchant;
+    return { robots: { index: false, follow: false } };
   }
-  redirectLegacyProductRouteIfCategorized(slug, product);
-  redirectInvalidVariantSelectionParams(slug, product, resolvedSearchParams);
+  // Mirror the page-component redirect checks so we can emit noindex metadata
+  // (real HTTP 308 issues from the page render — see comment above).
+  if (
+    getCategorizedRedirectTarget(slug, product) ||
+    getInvalidVariantSelectionRedirectTarget(
+      slug,
+      product,
+      resolvedSearchParams
+    )
+  ) {
+    return { robots: { index: false, follow: false } };
+  }
   const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
   let canonicalUrl = normalizeStorefrontCanonicalUrl(
     product.canonical_url,
@@ -392,8 +414,18 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
     await redirectLegacyVariantProductRoute(slug, productSlug, merchant);
     notFound();
   }
-  redirectLegacyProductRouteIfCategorized(slug, product);
-  redirectInvalidVariantSelectionParams(slug, product, resolvedSearchParams);
+  const categorizedTarget = getCategorizedRedirectTarget(slug, product);
+  if (categorizedTarget) {
+    permanentRedirect(asRoute(categorizedTarget));
+  }
+  const invalidVariantTarget = getInvalidVariantSelectionRedirectTarget(
+    slug,
+    product,
+    resolvedSearchParams
+  );
+  if (invalidVariantTarget) {
+    redirect(asRoute(invalidVariantTarget));
+  }
   const [reviewStats, recentReviews] = await Promise.all([
     getCachedProductRatingStats(product.id),
     getCachedProductReviews(product.id, { limit: 10 }),
