@@ -276,7 +276,7 @@ describe('[category]/[productSlug] page metadata', () => {
     mockGetPublishedClusterPosts.mockResolvedValue([]);
   });
 
-  it('redirects legacy archived variant slugs to the active parent product', async () => {
+  it('returns noindex metadata for legacy archived variant slugs (real HTTP 308 happens during page render)', async () => {
     mockGetCachedLegacyProductRedirectTarget.mockResolvedValue({
       id: 'parent-1',
       name: 'iPhone 13 Pro Max',
@@ -285,24 +285,21 @@ describe('[category]/[productSlug] page metadata', () => {
       categories: { id: 'cat-1', name: 'Phones', slug: 'phones' },
     });
 
-    await expect(
-      generateMetadata({
-        params: Promise.resolve({
-          slug: 'teststore',
-          category: 'smartphones',
-          productSlug: 'iphone-13-pro-max-6gb-128gb',
-        }),
-        searchParams: Promise.resolve({}),
-      })
-    ).rejects.toThrow('NEXT_REDIRECT');
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'smartphones',
+        productSlug: 'iphone-13-pro-max-6gb-128gb',
+      }),
+      searchParams: Promise.resolve({}),
+    });
 
+    expect(metadata.robots).toMatchObject({ index: false, follow: false });
     expect(mockGetCachedLegacyProductRedirectTarget).toHaveBeenCalledWith(
       'merchant-1',
       'iphone-13-pro-max-6gb-128gb'
     );
-    expect(mockPermanentRedirect).toHaveBeenCalledWith(
-      '/phones/iphone-13-pro-max'
-    );
+    expect(mockPermanentRedirect).not.toHaveBeenCalled();
   });
 
   it('calls notFound when the product is missing and no legacy redirect exists', async () => {
@@ -320,43 +317,39 @@ describe('[category]/[productSlug] page metadata', () => {
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
   });
 
-  it('redirects category mismatch URLs during metadata generation', async () => {
+  it('returns noindex metadata for category-mismatch URLs (real HTTP 308 happens during page render)', async () => {
     mockGetCachedProductWithDetails.mockResolvedValue(
       categorizedDetailedProduct
     );
 
-    await expect(
-      generateMetadata({
-        params: Promise.resolve({
-          slug: 'teststore',
-          category: 'hp',
-          productSlug: 'hp-laptop-14-ep0063nia',
-        }),
-        searchParams: Promise.resolve({}),
-      })
-    ).rejects.toThrow('NEXT_REDIRECT');
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'hp',
+        productSlug: 'hp-laptop-14-ep0063nia',
+      }),
+      searchParams: Promise.resolve({}),
+    });
 
-    expect(mockPermanentRedirect).toHaveBeenCalledWith(
-      '/laptops/hp-laptop-14-ep0063nia'
-    );
+    expect(metadata.robots).toMatchObject({ index: false, follow: false });
+    expect(mockPermanentRedirect).not.toHaveBeenCalled();
   });
 
-  it('redirects mixed-case product slugs during metadata generation', async () => {
+  it('returns noindex metadata for mixed-case product slugs (real HTTP 308 happens during page render)', async () => {
     mockGetCachedProductWithDetails
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce(categorizedDetailedProduct);
 
-    await expect(
-      generateMetadata({
-        params: Promise.resolve({
-          slug: 'teststore',
-          category: 'laptops',
-          productSlug: 'HP-LAPTOP-14-EP0063NIA',
-        }),
-        searchParams: Promise.resolve({}),
-      })
-    ).rejects.toThrow('NEXT_REDIRECT');
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'laptops',
+        productSlug: 'HP-LAPTOP-14-EP0063NIA',
+      }),
+      searchParams: Promise.resolve({}),
+    });
 
+    expect(metadata.robots).toMatchObject({ index: false, follow: false });
     expect(mockGetCachedProductWithDetails).toHaveBeenNthCalledWith(
       1,
       'merchant-1',
@@ -367,9 +360,7 @@ describe('[category]/[productSlug] page metadata', () => {
       'merchant-1',
       'hp-laptop-14-ep0063nia'
     );
-    expect(mockPermanentRedirect).toHaveBeenCalledWith(
-      '/laptops/hp-laptop-14-ep0063nia'
-    );
+    expect(mockPermanentRedirect).not.toHaveBeenCalled();
   });
 
   it('strips HTML from category product metadata descriptions', async () => {
