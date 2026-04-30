@@ -196,6 +196,10 @@ export const SEMANTIC_COLORS = {
   white: palette.white,
 } as const;
 
+/**
+ * Applies alpha to hex, rgb(), or rgba() colors. Alpha is clamped to 0..1,
+ * and unsupported color formats are returned unchanged.
+ */
 export function withAlpha(color: string, alpha: number): string {
   const normalizedAlpha = Math.min(Math.max(alpha, 0), 1);
   const hex = color.trim().replace(/^#/, '');

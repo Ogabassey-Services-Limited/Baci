@@ -1,8 +1,16 @@
-export const PAYMENT_GATEWAY_LABELS: Record<string, string> = {
+export const PAYMENT_GATEWAYS = ['paystack', 'korapay', 'juicyway'] as const;
+
+export type PaymentGateway = (typeof PAYMENT_GATEWAYS)[number];
+
+export const PAYMENT_GATEWAY_LABELS = {
   paystack: 'Paystack',
   korapay: 'Korapay',
   juicyway: 'Juicyway',
-};
+} satisfies Record<PaymentGateway, string>;
+
+export const isPaymentGateway = (value: unknown): value is PaymentGateway =>
+  typeof value === 'string' &&
+  PAYMENT_GATEWAYS.includes(value as PaymentGateway);
 
 export const PAYMENT_KINDS = {
   ORDER: 'order',

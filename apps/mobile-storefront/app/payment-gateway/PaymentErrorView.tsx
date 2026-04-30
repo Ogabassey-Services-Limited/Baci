@@ -23,12 +23,21 @@ export function PaymentErrorView({
   onRetry,
 }: PaymentErrorViewProps) {
   const [isRetrying, setIsRetrying] = useState(false);
-  const retryControllerRef = useRef(new AbortController());
+  const retryControllerRef = useRef<AbortController | null>(null);
+
+  const getRetryController = () => {
+    if (
+      !retryControllerRef.current ||
+      retryControllerRef.current.signal.aborted
+    ) {
+      retryControllerRef.current = new AbortController();
+    }
+    return retryControllerRef.current;
+  };
 
   useEffect(() => {
-    const retryController = retryControllerRef.current;
     return () => {
-      retryController.abort();
+      retryControllerRef.current?.abort();
     };
   }, []);
 
@@ -38,7 +47,7 @@ export function PaymentErrorView({
     }
 
     setIsRetrying(true);
-    const signal = retryControllerRef.current.signal;
+    const signal = getRetryController().signal;
     try {
       await onRetry(signal);
     } catch (error) {

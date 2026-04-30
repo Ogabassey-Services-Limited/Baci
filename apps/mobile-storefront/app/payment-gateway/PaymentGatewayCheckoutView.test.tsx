@@ -15,22 +15,16 @@ const mockWebView = jest.fn(
   ({
     injectedJavaScript,
     injectedJavaScriptBeforeContentLoaded,
-    onLoadEnd,
-    onLoadStart,
     source,
   }: {
     injectedJavaScript?: string;
     injectedJavaScriptBeforeContentLoaded?: string;
-    onLoadEnd?: () => void;
-    onLoadStart?: () => void;
     source: { uri: string };
   }) => (
     <View accessibilityLabel="mock checkout webview">
       <Text>{`webview:${source.uri}`}</Text>
       <Text>{`injected:${injectedJavaScript === PAYMENT_CLIPBOARD_BRIDGE.script}`}</Text>
       <Text>{`before:${injectedJavaScriptBeforeContentLoaded === PAYMENT_CLIPBOARD_BRIDGE.script}`}</Text>
-      <Text onPress={onLoadStart}>load-start</Text>
-      <Text onPress={onLoadEnd}>load-end</Text>
     </View>
   )
 );
@@ -48,6 +42,17 @@ jest.mock('react-native-webview', () => ({
 
 function ToastComponent() {
   return <View testID="toast-root" />;
+}
+
+function renderHeaderLeft() {
+  const stackOptions = mockStackScreen.mock.calls[0]?.[0] as {
+    options?: { headerLeft?: () => React.ReactNode };
+  };
+  const headerLeft = stackOptions.options?.headerLeft?.();
+  if (!headerLeft) {
+    throw new Error('Stack.Screen headerLeft was not configured');
+  }
+  return render(headerLeft as React.ReactElement);
 }
 
 const baseProps = {
@@ -100,15 +105,8 @@ describe('PaymentGatewayCheckoutView', () => {
       screen.getByRole('progressbar', { name: 'Loading Paystack checkout' })
     ).toBeOnTheScreen();
 
-    const stackOptions = mockStackScreen.mock.calls[0]?.[0] as {
-      options?: { headerLeft?: () => React.ReactNode };
-    };
-    const headerLeft = stackOptions.options?.headerLeft?.();
-    expect(headerLeft).toBeTruthy();
-    const headerLeftRender = render(headerLeft as React.ReactElement);
-    fireEvent.press(
-      headerLeftRender.getByLabelText('Close payment checkout')
-    );
+    const headerLeftRender = renderHeaderLeft();
+    fireEvent.press(headerLeftRender.getByLabelText('Close payment checkout'));
 
     expect(onClose).toHaveBeenCalledTimes(1);
   });

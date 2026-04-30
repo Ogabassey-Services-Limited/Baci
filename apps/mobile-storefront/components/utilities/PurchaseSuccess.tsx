@@ -34,7 +34,7 @@ interface PurchaseSuccessProps {
   isAuthenticated: boolean;
   onCreateAccount: () => void;
   status?: PurchaseStatus;
-  voucherPin?: string;
+  voucherPin?: string | null;
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -56,33 +56,51 @@ function getPurchaseMessage({
 }) {
   const typeLabel = TYPE_LABELS[type] || type;
 
-  if (status === 'processing') {
-    return identifier
-      ? `Your ${typeLabel} payment for ${identifier} is processing. We will update your utility history shortly.`
-      : `Your ${typeLabel} payment is processing. We will update your utility history shortly.`;
+  switch (status) {
+    case 'processing':
+      return identifier
+        ? `Your ${typeLabel} payment for ${identifier} is processing. We will update your utility history shortly.`
+        : `Your ${typeLabel} payment is processing. We will update your utility history shortly.`;
+    case 'failed':
+      return identifier
+        ? `Your ${typeLabel} purchase for ${identifier} failed. Please try again or use another payment method.`
+        : `Your ${typeLabel} purchase failed. Please try again or use another payment method.`;
+    case 'cancelled':
+      return identifier
+        ? `Your ${typeLabel} payment for ${identifier} was cancelled.`
+        : `Your ${typeLabel} payment was cancelled.`;
+    case 'error':
+      return identifier
+        ? `We could not complete your ${typeLabel} purchase for ${identifier}. Please try again.`
+        : `We could not complete your ${typeLabel} purchase. Please try again.`;
+    case 'successful':
+      return identifier
+        ? `Your ${typeLabel} purchase for ${identifier} was successful.`
+        : `Your ${typeLabel} purchase was successful.`;
+    default:
+      return assertNever(status);
   }
+}
 
-  if (status === 'failed') {
-    return identifier
-      ? `Your ${typeLabel} purchase for ${identifier} failed. Please try again or use another payment method.`
-      : `Your ${typeLabel} purchase failed. Please try again or use another payment method.`;
+function assertNever(value: never): never {
+  throw new Error(`Unhandled purchase status: ${value}`);
+}
+
+function getReceiptStatus(
+  status: PurchaseStatus
+): 'processing' | 'successful' | null {
+  switch (status) {
+    case 'processing':
+      return 'processing';
+    case 'successful':
+      return 'successful';
+    case 'failed':
+    case 'error':
+    case 'cancelled':
+      return null;
+    default:
+      return assertNever(status);
   }
-
-  if (status === 'cancelled') {
-    return identifier
-      ? `Your ${typeLabel} payment for ${identifier} was cancelled.`
-      : `Your ${typeLabel} payment was cancelled.`;
-  }
-
-  if (status === 'error') {
-    return identifier
-      ? `We could not complete your ${typeLabel} purchase for ${identifier}. Please try again.`
-      : `We could not complete your ${typeLabel} purchase. Please try again.`;
-  }
-
-  return identifier
-    ? `Your ${typeLabel} purchase for ${identifier} was successful.`
-    : `Your ${typeLabel} purchase was successful.`;
 }
 
 function getPurchasePresentation(status: PurchaseStatus): {
@@ -127,10 +145,8 @@ function getPurchasePresentation(status: PurchaseStatus): {
         isProcessing: false,
         title: 'Purchase Successful!',
       };
-    default: {
-      const exhaustiveStatus: never = status;
-      throw new Error(`Unhandled purchase status: ${exhaustiveStatus}`);
-    }
+    default:
+      return assertNever(status);
   }
 }
 
@@ -151,7 +167,7 @@ export function PurchaseSuccess({
   const colors = Colors[colorScheme ?? 'light'];
   const identifier = phoneNumber || customerIdentifier || '';
   const presentation = getPurchasePresentation(status);
-  const receiptStatus = presentation.isProcessing ? 'processing' : 'successful';
+  const receiptStatus = getReceiptStatus(status);
   const messageText = getPurchaseMessage({ identifier, status, type });
 
   return (
@@ -186,7 +202,7 @@ export function PurchaseSuccess({
         <PurchaseUpsellCard colors={colors} onCreateAccount={onCreateAccount} />
       ) : null}
 
-      {presentation.canShareReceipt ? (
+      {presentation.canShareReceipt && receiptStatus ? (
         <ReceiptShareButton
           amount={amount}
           colors={colors}
@@ -194,7 +210,7 @@ export function PurchaseSuccess({
           status={receiptStatus}
           txReference={txReference}
           type={type}
-          voucherPin={voucherPin}
+          voucherPin={voucherPin ?? undefined}
         />
       ) : null}
 

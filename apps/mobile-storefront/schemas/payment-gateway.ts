@@ -10,7 +10,11 @@ const optionalOrderIdentifier = z.string().trim().optional();
 
 const optionalPositiveAmount = z.preprocess(
   (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
-  z.coerce.number().positive('Amount must be greater than 0').optional()
+  z.coerce
+    .number({ message: 'Amount must be a valid number' })
+    .finite('Amount cannot be Infinity or NaN')
+    .positive('Amount must be greater than 0')
+    .optional()
 );
 
 export const PaymentGatewayParamsSchema = z

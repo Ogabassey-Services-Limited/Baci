@@ -1,4 +1,4 @@
-import { MobileEnvSchema } from '@/schemas/env';
+import { MobileEnvSchema } from '@/env';
 
 describe('MobileEnvSchema', () => {
   it('parses a valid public API URL', () => {

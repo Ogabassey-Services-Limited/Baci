@@ -29,8 +29,8 @@ export const BILL_ITEM_LABELS = {
   gaming: 'Service Type',
 } as const satisfies Record<BillCategory, string>;
 
-// TODO(design-tokens): replace these pixel fallbacks with footer/safe-area
-// layout tokens once the mobile design system exposes them.
+// TODO(BACI-UTIL-FOOTER-TOKENS): replace these pixel fallbacks with footer/safe-area
+// layout tokens once the mobile design system backlog adds them.
 /** Height in pixels reserved for the fixed payment footer and safe-area padding. */
 export const BILL_FORM_FOOTER_HEIGHT = 120;
 /** Extra pixel buffer so validation errors do not sit under the fixed footer. */

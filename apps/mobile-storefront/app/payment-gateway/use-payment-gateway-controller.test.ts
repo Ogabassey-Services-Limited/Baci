@@ -1,6 +1,7 @@
 import { jest } from '@jest/globals';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
+import { Alert } from 'react-native';
 import type { WebViewNavigation } from 'react-native-webview';
 import { waitForVtuConfirmation } from '@/lib/vtu-checkout';
 import { usePaymentGatewayController } from './use-payment-gateway-controller';
@@ -175,6 +176,26 @@ describe('usePaymentGatewayController', () => {
     });
   });
 
+  it('uses the close confirmation flow for back actions', () => {
+    const alertSpy = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation(() => undefined);
+    const { result } = renderHook(() => usePaymentGatewayController());
+
+    act(() => {
+      result.current.handleBack();
+    });
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Cancel Payment?',
+      'Your order has been created. If you leave, you can complete payment later from your orders page.',
+      expect.any(Array)
+    );
+    expect(router.back).not.toHaveBeenCalled();
+
+    alertSpy.mockRestore();
+  });
+
   it('uses an empty order id when delayed order navigation has no orderId', () => {
     jest.useFakeTimers();
     mockSearchParams = {
@@ -200,7 +221,7 @@ describe('usePaymentGatewayController', () => {
   });
 
   it('polls VTU confirmations and routes successful utility payments', async () => {
-    jest.useFakeTimers();
+    jest.useFakeTimers({ advanceTimers: true });
     mockSearchParams = { ...vtuParams };
     const { result } = renderHook(() => usePaymentGatewayController());
 
@@ -236,8 +257,46 @@ describe('usePaymentGatewayController', () => {
     });
   });
 
+  it('preserves VTU cashback params when routing successful utility payments', async () => {
+    jest.useFakeTimers({ advanceTimers: true });
+    mockSearchParams = { ...vtuParams };
+    mockWaitForVtuConfirmation.mockResolvedValue({
+      amount: 2500,
+      cashback: {
+        amount: 50,
+        credited: true,
+        newBalance: 1050,
+      },
+      reference: 'VTU-123',
+      status: 'successful',
+    });
+    const { result } = renderHook(() => usePaymentGatewayController());
+
+    act(() => {
+      result.current.handleNavigationChange(
+        navigation('https://usebaci.com/checkout/success?reference=VTU-123')
+      );
+    });
+
+    await waitFor(() => expect(result.current.status).toBe('success'));
+
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+
+    expect(router.replace).toHaveBeenCalledWith({
+      pathname: '/utilities/[type]',
+      params: expect.objectContaining({
+        cashbackAmount: '50',
+        cashbackNewBalance: '1050',
+        paymentStatus: 'successful',
+        reference: 'VTU-123',
+      }),
+    });
+  });
+
   it('routes Juicyway VTU completions without polling confirmation', async () => {
-    jest.useFakeTimers();
+    jest.useFakeTimers({ advanceTimers: true });
     mockSearchParams = {
       ...vtuParams,
       gateway: 'juicyway',

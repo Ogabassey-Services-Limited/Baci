@@ -75,7 +75,11 @@ describe('createPaymentGatewayMessageHandler', () => {
 
     expect(copiedGatewayTextRef.current).toBe('1234567890');
     expect(copyGatewayText).toHaveBeenCalledTimes(1);
-    expect(copyGatewayText).toHaveBeenCalledWith('1234567890', 'Text copied.');
+    expect(copyGatewayText).toHaveBeenCalledWith(
+      '1234567890',
+      'Text copied.',
+      undefined
+    );
   });
 
   it('uses account-number specific copy messages', () => {
@@ -197,6 +201,45 @@ describe('createPaymentGatewayMessageHandler', () => {
           amount: 0,
           hasReference: false,
           hasUtilityType: false,
+        }
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it('does not route order crypto success without order id or reference', () => {
+    const consoleErrorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const {
+      clearCart,
+      handler,
+      markPaymentCompletionStarted,
+      scheduleDelayedNavigation,
+      setSuccessStatus,
+    } = createHandler({
+      orderId: undefined,
+      reference: undefined,
+    });
+
+    try {
+      sendMessage(handler, {
+        orderId: ' ',
+        reference: ' ',
+        type: 'crypto_success',
+      });
+
+      expect(markPaymentCompletionStarted).not.toHaveBeenCalled();
+      expect(setSuccessStatus).not.toHaveBeenCalled();
+      expect(clearCart).not.toHaveBeenCalled();
+      expect(scheduleDelayedNavigation).not.toHaveBeenCalled();
+      expect(router.replace).not.toHaveBeenCalled();
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Unable to route crypto payment success:',
+        {
+          hasOrderId: false,
+          hasReference: false,
         }
       );
     } finally {

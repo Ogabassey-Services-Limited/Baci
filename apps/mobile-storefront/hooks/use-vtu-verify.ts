@@ -31,7 +31,7 @@ export function useVTUVerify() {
   return useMutation<VerifyResult, Error, VerifyParams>({
     mutationFn: async (params) => {
       const sessionResult = await supabase.auth.getSession();
-      if (sessionResult.error) {
+      if (sessionResult.error && typeof __DEV__ !== 'undefined' && __DEV__) {
         console.warn(
           'Continuing VTU verification without a local session:',
           sessionResult.error

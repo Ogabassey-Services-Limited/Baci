@@ -21,7 +21,7 @@ describe('sanitizePlainTextForHtml', () => {
 
   it('returns an empty string for unset input', () => {
     expect(sanitizePlainTextForHtml('')).toBe('');
-    expect(sanitizePlainTextForHtml(null as unknown as string)).toBe('');
-    expect(sanitizePlainTextForHtml(undefined as unknown as string)).toBe('');
+    expect(sanitizePlainTextForHtml(null)).toBe('');
+    expect(sanitizePlainTextForHtml(undefined)).toBe('');
   });
 });

@@ -10,10 +10,7 @@ const repeatAmountSchema = z
 const repeatPhoneNumberSchema = z
   .string()
   .trim()
-  .refine(
-    (value) => NigerianPhoneSchema.safeParse(value).success,
-    'Repeat phone number must be a valid Nigerian phone number'
-  )
+  .pipe(NigerianPhoneSchema)
   .optional();
 
 const repeatVerifiedSchema = z
@@ -23,11 +20,11 @@ const repeatVerifiedSchema = z
 
 export const RouteRepeatParamsSchema = z.object({
   repeatAmount: repeatAmountSchema,
-  repeatBillerName: z.string().optional(),
-  repeatBillItemIdentifier: z.string().optional(),
-  repeatCustomerIdentifier: z.string().optional(),
-  repeatDataPlanCode: z.string().optional(),
-  repeatNetworkProvider: z.string().optional(),
+  repeatBillerName: z.string().trim().optional(),
+  repeatBillItemIdentifier: z.string().trim().optional(),
+  repeatCustomerIdentifier: z.string().trim().optional(),
+  repeatDataPlanCode: z.string().trim().optional(),
+  repeatNetworkProvider: z.string().trim().optional(),
   repeatPhoneNumber: repeatPhoneNumberSchema,
   repeatVerified: repeatVerifiedSchema,
 });

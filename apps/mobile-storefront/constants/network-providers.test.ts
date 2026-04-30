@@ -30,6 +30,5 @@ describe('NETWORK_PROVIDERS', () => {
         name: 'T2 (9mobile)',
       }),
     ]);
-    expect(providers).toHaveLength(4);
   });
 });

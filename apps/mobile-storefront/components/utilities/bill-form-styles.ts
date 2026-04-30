@@ -35,7 +35,7 @@ export const billFormStyles = StyleSheet.create({
   verifyRow: { flexDirection: 'row', gap: 10 },
   verifyInput: { flex: 1 },
   verifyButton: {
-    backgroundColor: '#1F2937',
+    backgroundColor: BRAND.primary,
     height: 50,
     paddingHorizontal: 20,
     borderRadius: 12,

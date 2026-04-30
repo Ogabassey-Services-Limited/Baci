@@ -61,5 +61,4 @@ describe('UtilityTypeTabs', () => {
 
     expect(onSelect).toHaveBeenCalledWith('data');
   });
-
 });

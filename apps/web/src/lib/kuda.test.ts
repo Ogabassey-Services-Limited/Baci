@@ -248,7 +248,7 @@ describe('Kuda API Client', () => {
 
   describe('checkTransactionStatus', () => {
     it('queries bill status by response ref, then request ref, and returns the token', async () => {
-      const { checkTransactionStatus } = await import('./kuda');
+      const { checkTransactionStatus } = await import('@/lib/kuda');
 
       const fetchMock = vi.fn().mockImplementation((url, options) => {
         if (url.toString().includes('GetToken')) {
@@ -318,6 +318,36 @@ describe('Kuda API Client', () => {
       expect(result).toEqual({
         message: 'Processing',
         status: 'processing',
+      });
+    });
+
+    it('throws all reference query errors when every status query fails', async () => {
+      const { checkTransactionStatus } = await import('./kuda');
+
+      const responseRefError = new Error('response reference failed');
+      const requestRefError = new Error('request reference failed');
+      const fetchMock = vi.fn().mockImplementation((url, options) => {
+        if (url.toString().includes('GetToken')) {
+          return Promise.resolve({
+            ok: true,
+            text: () => Promise.resolve('token'),
+          } as Response);
+        }
+
+        const payload = JSON.parse(String(options?.body));
+        if (payload.Data.BillResponseReference) {
+          return Promise.reject(responseRefError);
+        }
+
+        return Promise.reject(requestRefError);
+      });
+      globalThis.fetch = fetchMock;
+
+      await expect(
+        checkTransactionStatus('kuda-bill-1', 'VTU-123')
+      ).rejects.toMatchObject({
+        errors: [responseRefError, requestRefError],
+        message: 'All Kuda transaction status queries failed',
       });
     });
   });

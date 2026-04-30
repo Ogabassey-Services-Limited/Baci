@@ -28,6 +28,10 @@ export interface BillFormProps {
   initialAmount?: string;
   initialBillerName?: string;
   initialBillItemIdentifier?: string;
+  /**
+   * Sensitive PII such as a meter number, smart card number, or betting
+   * account identifier. Mask before logging or analytics.
+   */
   initialCustomerIdentifier?: string;
   isRepeatPaymentReady?: boolean;
 }

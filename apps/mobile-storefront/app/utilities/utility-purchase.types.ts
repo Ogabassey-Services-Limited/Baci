@@ -35,13 +35,21 @@ export const VALID_UTILITY_TYPES = [
 
 export type ValidUtilityType = (typeof VALID_UTILITY_TYPES)[number];
 
-export interface RouteRepeatParams {
-  repeatAmount?: number | string;
+interface BaseRouteRepeatParams {
   repeatBillerName?: string;
   repeatBillItemIdentifier?: string;
   repeatCustomerIdentifier?: string;
   repeatDataPlanCode?: string;
   repeatNetworkProvider?: string;
   repeatPhoneNumber?: string;
-  repeatVerified?: boolean | string;
+}
+
+export interface RawRouteRepeatParams extends BaseRouteRepeatParams {
+  repeatAmount?: string;
+  repeatVerified?: boolean | number | string;
+}
+
+export interface RouteRepeatParams extends BaseRouteRepeatParams {
+  repeatAmount?: number;
+  repeatVerified?: boolean;
 }

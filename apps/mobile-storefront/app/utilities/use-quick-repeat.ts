@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useVTUHistory } from '@/hooks/use-vtu-history';
 import {
   type UtilityRepeatDefaults,
@@ -20,16 +20,25 @@ interface UseQuickRepeatInput extends RouteRepeatParams {
   title: string;
 }
 
-function buildRouteRepeatParams(params: RouteRepeatParams): RouteRepeatParams {
+function buildRouteRepeatParams({
+  repeatAmount,
+  repeatBillerName,
+  repeatBillItemIdentifier,
+  repeatCustomerIdentifier,
+  repeatDataPlanCode,
+  repeatNetworkProvider,
+  repeatPhoneNumber,
+  repeatVerified,
+}: RouteRepeatParams): RouteRepeatParams {
   return {
-    repeatAmount: params.repeatAmount,
-    repeatBillerName: params.repeatBillerName,
-    repeatBillItemIdentifier: params.repeatBillItemIdentifier,
-    repeatCustomerIdentifier: params.repeatCustomerIdentifier,
-    repeatDataPlanCode: params.repeatDataPlanCode,
-    repeatNetworkProvider: params.repeatNetworkProvider,
-    repeatPhoneNumber: params.repeatPhoneNumber,
-    repeatVerified: params.repeatVerified,
+    repeatAmount,
+    repeatBillerName,
+    repeatBillItemIdentifier,
+    repeatCustomerIdentifier,
+    repeatDataPlanCode,
+    repeatNetworkProvider,
+    repeatPhoneNumber,
+    repeatVerified,
   };
 }
 
@@ -64,6 +73,7 @@ export function useQuickRepeat({
   );
   const [repeatRevision, setRepeatRevision] = useState(0);
   const [isQuickRepeatDismissed, setIsQuickRepeatDismissed] = useState(false);
+  const didInitializeRef = useRef(false);
   const {
     data: recentTransactions,
     error: recentTransactionsError,
@@ -71,6 +81,11 @@ export function useQuickRepeat({
   } = useVTUHistory(historyFilter, 5);
 
   useEffect(() => {
+    if (!didInitializeRef.current) {
+      didInitializeRef.current = true;
+      return;
+    }
+
     setRepeatDefaults(
       routeType && currentType === routeType
         ? getRouteRepeatDefaults(

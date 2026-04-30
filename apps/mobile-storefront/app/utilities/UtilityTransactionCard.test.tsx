@@ -58,6 +58,32 @@ function renderCard(
   return { ...props, ...renderResult };
 }
 
+function createCardElement(
+  transaction: VTUHistoryTransaction,
+  overrides: Partial<{
+    handleCopyVoucher: (voucherPin: string) => void;
+    handleRepeatTransaction: (transaction: VTUHistoryTransaction) => void;
+    handleShareReceipt: (transaction: VTUHistoryTransaction) => void;
+    handleSyncPayment: (transaction: VTUHistoryTransaction) => void;
+    sharingTransactionId: string | null;
+    syncingTransactionId: string | null;
+  }> = {}
+) {
+  return (
+    <UtilityTransactionCard
+      colors={Colors.light}
+      handleCopyVoucher={jest.fn()}
+      handleRepeatTransaction={jest.fn()}
+      handleShareReceipt={jest.fn()}
+      handleSyncPayment={jest.fn()}
+      sharingTransactionId={null}
+      syncingTransactionId={null}
+      transaction={transaction}
+      {...overrides}
+    />
+  );
+}
+
 describe('UtilityTransactionCard', () => {
   it('renders a successful token purchase and wires card actions', () => {
     const transaction = createTransaction();
@@ -134,19 +160,13 @@ describe('UtilityTransactionCard', () => {
     expect(screen.getByLabelText('Share receipt for EKEDC NG')).toBeDisabled();
 
     rerender(
-      <UtilityTransactionCard
-        colors={Colors.light}
-        handleCopyVoucher={jest.fn()}
-        handleRepeatTransaction={jest.fn()}
-        handleShareReceipt={jest.fn()}
-        handleSyncPayment={jest.fn()}
-        sharingTransactionId={null}
-        syncingTransactionId="tx-1"
-        transaction={createTransaction({
+      createCardElement(
+        createTransaction({
           status: 'failed',
           voucher_pin: null,
-        })}
-      />
+        }),
+        { syncingTransactionId: 'tx-1' }
+      )
     );
 
     expect(screen.getByText('Syncing...')).toBeOnTheScreen();

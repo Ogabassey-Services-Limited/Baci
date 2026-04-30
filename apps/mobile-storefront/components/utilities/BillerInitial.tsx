@@ -39,6 +39,7 @@ export function BillerInitial({ colors, name, style }: BillerInitialProps) {
     <View
       accessible={true}
       accessibilityLabel={accessibilityLabel}
+      accessibilityRole="image"
       style={[styles.initialsCircle, { backgroundColor: colors.border }, style]}
     >
       <Text style={[styles.initialsText, { color: colors.textSecondary }]}>

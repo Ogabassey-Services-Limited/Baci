@@ -201,6 +201,7 @@ jest.mock('@/stores/cart-store', () => ({
 describe('PaymentGatewayScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.useRealTimers();
     mockSearchParams = {
       amount: '1000',
       authorizationUrl: 'https://checkout.paystack.com/test',
@@ -312,6 +313,7 @@ describe('PaymentGatewayScreen', () => {
   });
 
   it('allows VTU confirmation to retry after a transient failure', async () => {
+    jest.useFakeTimers({ advanceTimers: true });
     (
       waitForVtuConfirmation as jest.MockedFunction<
         typeof waitForVtuConfirmation
@@ -346,20 +348,17 @@ describe('PaymentGatewayScreen', () => {
     await waitFor(() =>
       expect(screen.getByText('Payment Successful!')).toBeTruthy()
     );
-    await waitFor(
-      () =>
-        expect(router.replace).toHaveBeenCalledWith({
-          pathname: '/utilities/[type]',
-          params: expect.objectContaining({
-            customerIdentifier: '43901766923',
-            paymentStatus: 'successful',
-            reference: 'ref-123',
-            type: 'power',
-          }),
-        }),
-      // PaymentGatewayScreen intentionally holds the success state for 1.5s
-      // before routing so users can see the confirmation screen.
-      { timeout: 2500 }
-    );
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    expect(router.replace).toHaveBeenCalledWith({
+      pathname: '/utilities/[type]',
+      params: expect.objectContaining({
+        customerIdentifier: '43901766923',
+        paymentStatus: 'successful',
+        reference: 'ref-123',
+        type: 'power',
+      }),
+    });
   });
 });

@@ -12,7 +12,9 @@ const HTML_TEXT_ESCAPE_MAP: Record<string, string> = {
  * @param input Plain user-facing text, not markup.
  * @returns An HTML-safe string with reserved characters escaped.
  */
-export function sanitizePlainTextForHtml(input: string): string {
+export function sanitizePlainTextForHtml(
+  input: string | null | undefined
+): string {
   if (!input) return '';
 
   return input.replace(

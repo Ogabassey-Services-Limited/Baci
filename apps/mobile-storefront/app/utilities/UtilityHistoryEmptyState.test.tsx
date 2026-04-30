@@ -26,9 +26,10 @@ describe('UtilityHistoryEmptyState', () => {
       />
     );
 
-    expect(
-      screen.getByRole('progressbar', { name: 'Loading utility history' })
-    ).toBeOnTheScreen();
+    const loader = screen.getByLabelText('Loading utility history');
+
+    expect(loader).toBeOnTheScreen();
+    expect(loader).toHaveProp('accessibilityRole', 'progressbar');
   });
 
   it('logs the real error and renders a safe retry message', () => {

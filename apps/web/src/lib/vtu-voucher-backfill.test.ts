@@ -9,7 +9,7 @@ import {
   shouldBackfillForType,
   TOKEN_BACKFILL_DEDUPE_WINDOW_MS,
   VOUCHER_PIN_BACKFILL_SCHEDULED_AT_KEY,
-} from './vtu-voucher-backfill';
+} from '@/lib/vtu-voucher-backfill';
 
 const mocks = vi.hoisted(() => ({
   after: vi.fn(),

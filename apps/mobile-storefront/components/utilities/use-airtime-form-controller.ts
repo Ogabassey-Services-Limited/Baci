@@ -75,8 +75,13 @@ export function useAirtimeFormController({
     }
   };
 
+  const updateAmount = (value: string) => {
+    setAmount(value.replace(/\D/g, ''));
+  };
+
   const handlePurchase = async () => {
     dismissKeyboard();
+    // isSubmittingRef blocks duplicate taps synchronously; isSubmitting drives UI state.
     if (isSubmittingRef.current) {
       return;
     }
@@ -106,6 +111,7 @@ export function useAirtimeFormController({
     try {
       const customerName =
         [customer?.first_name, customer?.last_name].filter(Boolean).join(' ') ||
+        // Email is the best available customer label when names are incomplete.
         customer?.email ||
         'Customer';
       if (payment.selectedSavedCardId) {
@@ -253,7 +259,7 @@ export function useAirtimeFormController({
     scrollViewRef,
     selectedProvider,
     selectedProviderConfig,
-    setAmount,
+    setAmount: updateAmount,
     setIsNetworkPickerExpanded,
   };
 }

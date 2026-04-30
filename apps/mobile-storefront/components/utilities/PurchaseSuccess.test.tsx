@@ -27,11 +27,15 @@ jest.mock('expo-router', () => ({
 jest.mock('react-native-reanimated', () => {
   const { View } =
     jest.requireActual<typeof import('react-native')>('react-native');
+  const FadeIn = {
+    delay: jest.fn(() => FadeIn),
+    duration: jest.fn(() => FadeIn),
+  };
 
   return {
     __esModule: true,
     default: { View },
-    FadeIn: {},
+    FadeIn,
   };
 });
 

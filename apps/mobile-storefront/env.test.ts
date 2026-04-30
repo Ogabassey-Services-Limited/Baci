@@ -20,7 +20,7 @@ describe('mobile env', () => {
     } else {
       process.env.EXPO_PUBLIC_API_URL = originalApiUrl;
     }
-    jest.dontMock('expo-constants');
+    jest.unmock('expo-constants');
     jest.resetModules();
   });
 

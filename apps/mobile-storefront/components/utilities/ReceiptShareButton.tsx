@@ -6,6 +6,7 @@ import { BRAND } from '@/constants/Colors';
 import { shareUtilityReceipt } from '@/lib/utility-receipt';
 import { styles } from './purchase-success.styles';
 
+// Keeps known receipt types autocomplete-friendly while still accepting backend-added string types.
 export type UtilityReceiptType =
   | 'airtime'
   | 'data'

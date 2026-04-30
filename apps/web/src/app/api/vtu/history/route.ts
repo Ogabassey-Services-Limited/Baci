@@ -24,6 +24,19 @@ function getPaymentStatusKey(gateway: string, reference: string): string {
   return `${gateway}:${reference}`;
 }
 
+function parseHistoryAmount(value: unknown, transactionId: unknown) {
+  const amount = Number(value);
+  if (Number.isFinite(amount)) {
+    return amount;
+  }
+
+  console.error('Invalid VTU transaction amount in history response:', {
+    amount: value,
+    transactionId,
+  });
+  return 0;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const auth = await authenticateApiRequest(request);
@@ -216,7 +229,7 @@ export async function GET(request: NextRequest) {
       tokenBackfillCandidates.push(candidate);
     }
 
-    const tokenBackfillResults = await Promise.allSettled(
+    void Promise.allSettled(
       tokenBackfillCandidates.map((candidate) =>
         scheduleVoucherPinBackfill({
           metadata: candidate.metadata,
@@ -226,14 +239,15 @@ export async function GET(request: NextRequest) {
           voucherPin: candidate.voucherPin,
         })
       )
-    );
-    tokenBackfillResults.forEach((result, index) => {
-      if (result.status === 'rejected') {
-        console.error('Failed to schedule VTU voucher-pin backfill:', {
-          error: result.reason,
-          transactionId: tokenBackfillCandidates[index]?.transaction.id,
-        });
-      }
+    ).then((tokenBackfillResults) => {
+      tokenBackfillResults.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          console.error('Failed to schedule VTU voucher-pin backfill:', {
+            error: result.reason,
+            transactionId: tokenBackfillCandidates[index]?.transaction.id,
+          });
+        }
+      });
     });
 
     return NextResponse.json({
@@ -262,7 +276,7 @@ export async function GET(request: NextRequest) {
 
           return {
             ...publicTransaction,
-            amount: Number(transaction.amount) || 0,
+            amount: parseHistoryAmount(transaction.amount, transaction.id),
             customer_cashback:
               transaction.customer_cashback != null
                 ? Number(transaction.customer_cashback)

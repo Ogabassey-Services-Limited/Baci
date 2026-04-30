@@ -1,6 +1,6 @@
 import type { BillItem } from '@/hooks/use-vtu-billers';
-import { BILL_ITEM_LABELS } from './bill-form.constants';
-import type { BillFormProps } from './bill-form.types';
+import { BILL_ITEM_LABELS } from '@/components/utilities/bill-form.constants';
+import type { BillFormProps } from '@/components/utilities/bill-form.types';
 
 export function getBillItemLevelLabel(
   type: BillFormProps['type'],

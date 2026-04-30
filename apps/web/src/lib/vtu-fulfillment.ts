@@ -137,6 +137,25 @@ function normalizeProviderStatus(status: string) {
   return 'unknown';
 }
 
+function normalizeDbVtuStatus(status: unknown): VtuTransactionRow['status'] {
+  if (
+    status === 'pending' ||
+    status === 'processing' ||
+    status === 'successful' ||
+    status === 'failed'
+  ) {
+    return status;
+  }
+
+  console.warn(
+    'Unexpected VTU transaction DB status; using processing fallback:',
+    {
+      status,
+    }
+  );
+  return 'processing';
+}
+
 function formatNaira(amount: number) {
   return `₦${new Intl.NumberFormat('en-NG', {
     maximumFractionDigits: 2,
@@ -643,10 +662,7 @@ async function reconcileFailedVtuRetry({
           .select('error_message, status')
           .eq('id', row.id)
           .single();
-        const currentStatus =
-          typeof current?.status === 'string'
-            ? normalizeProviderStatus(current.status)
-            : 'processing';
+        const currentStatus = normalizeDbVtuStatus(current?.status);
         if (currentStatus === 'successful') {
           return {
             action: 'return',

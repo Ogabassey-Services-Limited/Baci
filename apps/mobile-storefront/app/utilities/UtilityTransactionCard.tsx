@@ -32,7 +32,7 @@ export default function UtilityTransactionCard({
   transaction,
 }: UtilityTransactionCardProps) {
   const displayStatus = utilityHistoryHelpers.getDisplayStatus(transaction);
-  const hasReceivedGatewayPayment =
+  const isPendingSync =
     transaction.status !== 'successful' &&
     transaction.payment_status === 'completed';
   const customerCashback = transaction.customer_cashback ?? 0;
@@ -164,7 +164,7 @@ export default function UtilityTransactionCard({
       ) : null}
 
       <View style={styles.actionRow}>
-        {hasReceivedGatewayPayment ? null : (
+        {isPendingSync ? null : (
           <Pressable
             style={[
               styles.pillButtonBase,

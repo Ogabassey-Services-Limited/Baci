@@ -65,11 +65,7 @@ function handleClipboardText({
   }
 
   copiedGatewayTextRef.current = copiedText;
-  if (failureMessage) {
-    void copyGatewayText(copiedText, successMessage, failureMessage);
-    return;
-  }
-  void copyGatewayText(copiedText, successMessage);
+  void copyGatewayText(copiedText, successMessage, failureMessage);
 }
 
 export function createPaymentGatewayMessageHandler({
@@ -153,12 +149,20 @@ export function createPaymentGatewayMessageHandler({
               amount: String(cryptoAmount),
               paymentStatus: 'successful',
               reference: cryptoReference,
-              type: utilityType || '',
+              type: utilityType,
               ...(cryptoCustomerIdentifier && {
                 customerIdentifier: cryptoCustomerIdentifier,
               }),
             },
           });
+        });
+        return;
+      }
+
+      if (!cryptoOrderId || !cryptoReference) {
+        console.error('Unable to route crypto payment success:', {
+          hasOrderId: Boolean(cryptoOrderId),
+          hasReference: Boolean(cryptoReference),
         });
         return;
       }

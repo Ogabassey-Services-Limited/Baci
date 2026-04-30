@@ -347,8 +347,8 @@ describe('DataForm', () => {
     );
     render(<DataForm onSuccess={onSuccessMock} />);
 
-    fireEvent.changeText(screen.getByLabelText('Phone Number'), '08031234567');
     fireEvent.press(screen.getByText('MTN 1GB Data'));
+    fireEvent.changeText(screen.getByLabelText('Phone Number'), '08031234567');
     fireEvent.changeText(screen.getByLabelText('Amount'), '1000');
     fireEvent.press(screen.getByText('Pay ₦1,000'));
 

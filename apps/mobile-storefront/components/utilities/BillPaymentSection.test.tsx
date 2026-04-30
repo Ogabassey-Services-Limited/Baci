@@ -33,7 +33,7 @@ function createPaymentState(): PaymentState {
 }
 
 describe('BillPaymentSection', () => {
-  it('sanitizes editable amount input and renders payment options', () => {
+  it('sanitizes editable amount input', () => {
     const setAmount = jest.fn();
 
     render(
@@ -56,6 +56,23 @@ describe('BillPaymentSection', () => {
     expect(setAmount).toHaveBeenCalledWith('12.34');
     fireEvent.changeText(screen.getByLabelText('Payment amount'), '.');
     expect(setAmount).toHaveBeenLastCalledWith('');
+    fireEvent.changeText(screen.getByLabelText('Payment amount'), '12.');
+    expect(setAmount).toHaveBeenLastCalledWith('12.');
+  });
+
+  it('renders payment options', () => {
+    render(
+      <BillPaymentSection
+        colors={Colors.light}
+        formattedAmount="1,000"
+        handlePaymentLayout={jest.fn()}
+        isFixedAmount={false}
+        numericAmount={1000}
+        payment={createPaymentState()}
+        setAmount={jest.fn()}
+      />
+    );
+
     expect(screen.getByText('Payment options')).toBeOnTheScreen();
   });
 

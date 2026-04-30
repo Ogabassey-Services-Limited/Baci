@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { BRAND, SPACING } from '@/constants/Colors';
+import { BRAND, SPACING, TYPOGRAPHY } from '@/constants/Colors';
 
 export const AIRTIME_FORM_TOKENS = {
   fontSize: {
@@ -10,9 +10,9 @@ export const AIRTIME_FORM_TOKENS = {
     xl: 16,
   },
   fontWeight: {
-    medium: '500',
-    semibold: '600',
-    bold: '700',
+    medium: TYPOGRAPHY.weight.medium,
+    semibold: TYPOGRAPHY.weight.semibold,
+    bold: TYPOGRAPHY.weight.bold,
   },
   radius: {
     sm: 8,
@@ -21,11 +21,11 @@ export const AIRTIME_FORM_TOKENS = {
   },
   space: {
     xxs: 2,
-    xs: 6,
-    sm: 8,
-    md: 12,
-    lg: 14,
-    xl: 16,
+    xs: SPACING.xs,
+    sm: SPACING.sm,
+    md: SPACING.md,
+    lg: SPACING.lg,
+    xl: SPACING.xl,
   },
   size: {
     changeButtonHeight: 34,
@@ -40,7 +40,7 @@ export const AIRTIME_FORM_TOKENS = {
 // borderColor/backgroundColor dynamically from the active theme at render time.
 export const airtimeFormStyles = StyleSheet.create({
   scrollView: { flex: 1 },
-  content: { padding: SPACING.md },
+  content: { padding: AIRTIME_FORM_TOKENS.space.md },
   sectionTitle: {
     fontSize: AIRTIME_FORM_TOKENS.fontSize.xl,
     fontWeight: AIRTIME_FORM_TOKENS.fontWeight.semibold,
@@ -140,9 +140,9 @@ export const airtimeFormStyles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    paddingTop: SPACING.md,
-    paddingHorizontal: SPACING.md,
-    paddingBottom: SPACING.sm,
+    paddingTop: AIRTIME_FORM_TOKENS.space.md,
+    paddingHorizontal: AIRTIME_FORM_TOKENS.space.md,
+    paddingBottom: AIRTIME_FORM_TOKENS.space.sm,
     borderTopWidth: 1,
   },
   payButton: {

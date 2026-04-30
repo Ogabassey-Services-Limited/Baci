@@ -96,6 +96,8 @@ export const styles = StyleSheet.create({
     height: PURCHASE_SUCCESS_TOKENS.buttonHeight,
     borderRadius: RADIUS.xl,
     alignItems: 'center',
+    flexDirection: 'row',
+    gap: SPACING.sm,
     justifyContent: 'center',
   },
   primaryButtonText: {

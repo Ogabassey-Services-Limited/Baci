@@ -59,13 +59,21 @@ export function createBillFormPurchaseHandler({
   setIsSubmitting,
   type,
 }: CreateBillFormPurchaseHandlerInput) {
+  let isSubmissionLocked = false;
+
   return async () => {
     dismissKeyboard();
-    if (getIsSubmitting()) {
+    if (isSubmissionLocked || getIsSubmitting()) {
       return;
     }
+    isSubmissionLocked = true;
+    const releaseSubmissionLock = () => {
+      isSubmissionLocked = false;
+    };
+
     if (!selectedBiller) {
       Alert.alert('Missing Provider', 'Please select a provider.');
+      releaseSubmissionLock();
       return;
     }
     if (!canShowPayment) {
@@ -73,14 +81,17 @@ export function createBillFormPurchaseHandler({
         'Verification Required',
         `Please verify your ${IDENTIFIER_LABELS[type].toLowerCase()} before making a purchase.`
       );
+      releaseSubmissionLock();
       return;
     }
     if (!amount) {
       Alert.alert('Missing Amount', 'Please enter an amount.');
+      releaseSubmissionLock();
       return;
     }
     if (numericAmount < 50 || numericAmount > 500_000) {
       Alert.alert('Invalid Amount', 'Amount must be between ₦50 and ₦500,000.');
+      releaseSubmissionLock();
       return;
     }
     if (!payment.selectedSavedCardId && !payment.selectedGateway) {
@@ -88,6 +99,7 @@ export function createBillFormPurchaseHandler({
         'Select Payment Method',
         'Choose a payment method before continuing.'
       );
+      releaseSubmissionLock();
       return;
     }
 
@@ -203,6 +215,7 @@ export function createBillFormPurchaseHandler({
       );
     } finally {
       setIsSubmitting(false);
+      releaseSubmissionLock();
     }
   };
 }

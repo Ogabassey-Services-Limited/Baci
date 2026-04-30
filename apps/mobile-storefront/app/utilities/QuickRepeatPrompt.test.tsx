@@ -66,7 +66,7 @@ describe('QuickRepeatPrompt', () => {
     const { props } = renderPrompt();
 
     expect(screen.getByText('Repeat last Electricity')).toBeOnTheScreen();
-    expect(screen.getByText('₦2,500')).toBeOnTheScreen();
+    expect(screen.getByText('₦2,500.00')).toBeOnTheScreen();
 
     fireEvent.press(
       screen.getByLabelText('Repeat last Electricity transaction')

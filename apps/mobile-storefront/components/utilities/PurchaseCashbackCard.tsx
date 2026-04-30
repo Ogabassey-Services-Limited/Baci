@@ -22,8 +22,7 @@ export default function PurchaseCashbackCard({
   const formattedAmount = CASHBACK_AMOUNT_FORMATTER.format(
     Math.abs(cashback.amount)
   );
-  const balanceSign =
-    cashback.newBalance > 0 ? '' : cashback.newBalance < 0 ? '-' : '';
+  const balanceSign = cashback.newBalance < 0 ? '-' : '';
   const formattedBalance = CASHBACK_AMOUNT_FORMATTER.format(
     Math.abs(cashback.newBalance)
   );
@@ -31,9 +30,7 @@ export default function PurchaseCashbackCard({
   return (
     <View style={styles.cashbackCard}>
       <Ionicons
-        accessible={true}
-        accessibilityLabel="Cashback wallet icon"
-        accessibilityRole="image"
+        accessible={false}
         name="wallet-outline"
         size={20}
         color={palette.emerald[600]}

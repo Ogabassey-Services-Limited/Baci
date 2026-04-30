@@ -47,23 +47,17 @@ describe('PaymentGatewayParamsSchema', () => {
     }
   });
 
-  it('parses order payments with either order identifier', () => {
+  it.each([
+    ['orderId', { orderId: 'order-id-123' }],
+    ['orderNumber', { orderNumber: 'ORD-123' }],
+  ])('parses order payments with %s', (_field, identifier) => {
     expect(
       PaymentGatewayParamsSchema.safeParse({
         authorizationUrl: 'https://checkout.paystack.com/test',
         gateway: 'paystack',
-        orderId: 'order-id-123',
         paymentKind: 'order',
         reference: 'ref-123',
-      }).success
-    ).toBe(true);
-    expect(
-      PaymentGatewayParamsSchema.safeParse({
-        authorizationUrl: 'https://checkout.paystack.com/test',
-        gateway: 'paystack',
-        orderNumber: 'ORD-123',
-        paymentKind: 'order',
-        reference: 'ref-123',
+        ...identifier,
       }).success
     ).toBe(true);
   });
@@ -163,10 +157,10 @@ describe('PaymentGatewayParamsSchema', () => {
   });
 
   it.each([
-    ['amount "0"', '0'],
-    ['amount "-1"', '-1'],
-    ['non-numeric amount', 'not-a-number'],
-  ])('%s is rejected', (_label, amount) => {
+    ['amount "0"', '0', 'Amount must be greater than 0'],
+    ['amount "-1"', '-1', 'Amount must be greater than 0'],
+    ['non-numeric amount', 'not-a-number', 'Amount must be a valid number'],
+  ])('%s is rejected', (_label, amount, message) => {
     const result = PaymentGatewayParamsSchema.safeParse({
       amount,
       authorizationUrl: 'https://checkout.paystack.com/test',
@@ -178,6 +172,7 @@ describe('PaymentGatewayParamsSchema', () => {
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(extractIssuePaths(result.error.issues)).toContain('amount');
+      expect(extractIssueMessages(result.error.issues)).toContain(message);
     }
   });
 

@@ -28,7 +28,13 @@ export const PAYMENT_CLIPBOARD_BRIDGE = {
       typeof window.webkit.messageHandlers.ReactNativeWebView.postMessage === 'function'
     ) {
       window.webkit.messageHandlers.ReactNativeWebView.postMessage(payload);
+      return;
     }
+
+    console.warn('Baci clipboard bridge native postMessage unavailable', {
+      payloadLength: String(payload || '').length,
+      payloadType: typeof payload
+    });
   }
 
   function postCopy(text) {
@@ -228,14 +234,6 @@ export const PAYMENT_CLIPBOARD_BRIDGE = {
       clipboardText = window.getSelection().toString().trim();
     }
 
-    if (
-      !clipboardText &&
-      event.clipboardData &&
-      typeof event.clipboardData.getData === 'function'
-    ) {
-      clipboardText = String(event.clipboardData.getData('text/plain') || '').trim();
-    }
-
     postCopy(clipboardText);
   }, true);
 
@@ -245,10 +243,7 @@ export const PAYMENT_CLIPBOARD_BRIDGE = {
       return;
     }
 
-    var actionText = '';
-    if (target.innerText || target.textContent) {
-      actionText = target.innerText || target.textContent || '';
-    }
+    var actionText = target.innerText || target.textContent || '';
     if (target.getAttribute) {
       actionText += ' ' + (target.getAttribute('aria-label') || '');
       actionText += ' ' + (target.getAttribute('title') || '');

@@ -41,7 +41,9 @@ describe('UtilityHeader', () => {
   it('omits the history action when no handler is provided', () => {
     renderHeader();
 
-    expect(screen.queryByLabelText('View utility history')).toBeNull();
+    expect(
+      screen.queryByLabelText('View utility history')
+    ).not.toBeOnTheScreen();
   });
 
   it('renders the history action when a handler is provided', () => {

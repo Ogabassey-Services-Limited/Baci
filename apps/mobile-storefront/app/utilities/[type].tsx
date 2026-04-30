@@ -21,17 +21,18 @@ import { UtilityHeader } from './UtilityHeader';
 import { UtilityPurchaseSuccessView } from './UtilityPurchaseSuccessView';
 import { useQuickRepeat } from './use-quick-repeat';
 import {
+  isBillUtilityType,
   isValidUtilityType,
   UTILITY_TYPE_TITLES,
 } from './utility-purchase.config';
 import { utilityPurchaseStyles as styles } from './utility-purchase.styles';
 import type {
-  RouteRepeatParams,
+  RawRouteRepeatParams,
   UtilityPurchaseResult,
   ValidUtilityType,
 } from './utility-purchase.types';
 
-interface UtilityRouteParams extends RouteRepeatParams {
+interface UtilityRouteParams extends RawRouteRepeatParams {
   type: string;
   paymentStatus?: string;
   reference?: string;
@@ -257,9 +258,7 @@ export default function UtilityPurchaseScreen() {
             onSuccess={setSuccessData}
           />
         ) : null}
-        {currentType === 'tv' ||
-        currentType === 'power' ||
-        currentType === 'gaming' ? (
+        {isBillUtilityType(currentType) ? (
           <BillForm
             key={`${currentType}-${quickRepeat.repeatRevision}`}
             initialAmount={quickRepeat.repeatDefaults.amount}
@@ -271,7 +270,7 @@ export default function UtilityPurchaseScreen() {
               quickRepeat.repeatDefaults.customerIdentifier
             }
             isRepeatPaymentReady={quickRepeat.isRepeatPaymentReady}
-            type={currentType as 'tv' | 'power' | 'gaming'}
+            type={currentType}
             onSuccess={setSuccessData}
           />
         ) : null}

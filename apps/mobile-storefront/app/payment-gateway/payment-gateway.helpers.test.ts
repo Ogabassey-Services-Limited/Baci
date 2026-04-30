@@ -48,4 +48,27 @@ describe('payment-gateway.helpers', () => {
       )
     ).toBe(false);
   });
+
+  it('keeps completion and cancellation redirect matches mutually exclusive', () => {
+    const completionUrls = [
+      'https://usebaci.com/checkout/success',
+      'https://usebaci.com/order-success',
+      'https://usebaci.com/orders?trxref=ref-123',
+    ];
+    const cancellationUrls = [
+      'https://checkout.example.com/pay?cancelled=true',
+      'https://checkout.example.com/pay?cancel=true',
+      'https://checkout.example.com/cancel',
+    ];
+
+    for (const url of completionUrls) {
+      expect(isPaymentCompletionRedirect(url)).toBe(true);
+      expect(isPaymentCancellationRedirect(url)).toBe(false);
+    }
+
+    for (const url of cancellationUrls) {
+      expect(isPaymentCancellationRedirect(url)).toBe(true);
+      expect(isPaymentCompletionRedirect(url)).toBe(false);
+    }
+  });
 });

@@ -62,9 +62,7 @@ describe('PAYMENT_CLIPBOARD_BRIDGE', () => {
 
   it('forwards copied account numbers and ignores non-account clipboard text', async () => {
     const postedMessages: string[] = [];
-    type CopyListener = (event: {
-      clipboardData?: { getData: () => string };
-    }) => void;
+    type CopyListener = (event?: unknown) => void;
     let copyListener: CopyListener = () => undefined;
     const documentMock = {
       addEventListener: jest.fn((event: string, listener: unknown) => {
@@ -132,14 +130,11 @@ describe('PAYMENT_CLIPBOARD_BRIDGE', () => {
     );
 
     documentMock.body.innerText = 'Account number: 2222222222';
-    mutationObservers[0]?.trigger([{ type: 'childList' }]);
+    expect(mutationObservers).toHaveLength(1);
+    mutationObservers[0].trigger([{ type: 'childList' }]);
     await navigatorMock.clipboard.writeText('Reference REF 1234567890');
     await navigatorMock.clipboard.writeText('Account number: 1234567890');
-    copyListener({
-      clipboardData: {
-        getData: () => 'OTP 123456',
-      },
-    });
+    copyListener();
 
     const clipboardMessages = postedMessages
       .map((message) => JSON.parse(message))
@@ -266,6 +261,18 @@ describe('PAYMENT_CLIPBOARD_BRIDGE', () => {
     expect(PAYMENT_CLIPBOARD_BRIDGE.script).toContain('scanRetryCount >= 5');
     expect(PAYMENT_CLIPBOARD_BRIDGE.script).toContain('/\\bcopy\\b/i');
     expect(PAYMENT_CLIPBOARD_BRIDGE.script).not.toMatch(/\/copy\/i/);
+  });
+
+  it('warns when no native bridge is available and avoids clipboardData reads', () => {
+    expect(PAYMENT_CLIPBOARD_BRIDGE.script).toContain(
+      "console.warn('Baci clipboard bridge native postMessage unavailable',"
+    );
+    expect(PAYMENT_CLIPBOARD_BRIDGE.script).toContain(
+      'payloadLength: String(payload || \'\').length'
+    );
+    expect(PAYMENT_CLIPBOARD_BRIDGE.script).not.toContain(
+      'clipboardData.getData'
+    );
   });
 
   it('does not append a standalone trailing true after the bridge IIFE', () => {

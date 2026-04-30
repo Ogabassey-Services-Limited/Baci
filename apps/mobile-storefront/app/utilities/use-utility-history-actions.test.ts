@@ -163,7 +163,7 @@ describe('useUtilityHistoryActions', () => {
     });
 
     expect(mockSetClipboardString).toHaveBeenCalledWith('1234-5678');
-    expect(Alert.alert).toHaveBeenCalledWith(
+    expect(alertSpy).toHaveBeenCalledWith(
       'Copy Failed',
       'Could not copy this token.'
     );
@@ -202,7 +202,7 @@ describe('useUtilityHistoryActions', () => {
     await waitFor(() => expect(result.current.sharingTransactionId).toBeNull());
   });
 
-  it('alerts when receipt sharing lacks an identifier or fails', async () => {
+  it('alerts when receipt sharing lacks an identifier', async () => {
     const { result } = renderHook(() => useUtilityHistoryActions({ refetch }));
 
     await act(async () => {
@@ -212,27 +212,31 @@ describe('useUtilityHistoryActions', () => {
     });
 
     expect(mockShareUtilityReceipt).not.toHaveBeenCalled();
-    expect(Alert.alert).toHaveBeenCalledWith(
+    expect(alertSpy).toHaveBeenCalledWith(
       'Cannot Share',
       'Customer identifier is missing for this transaction.'
     );
+  });
+
+  it('alerts when receipt sharing fails', async () => {
+    const { result } = renderHook(() => useUtilityHistoryActions({ refetch }));
 
     mockShareUtilityReceipt.mockRejectedValueOnce(new Error('share failed'));
     await act(async () => {
       await result.current.handleShareReceipt(createTransaction());
     });
 
-    expect(console.error).toHaveBeenCalledWith(
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
       'Failed to share utility receipt:',
       expect.any(Error)
     );
-    expect(Alert.alert).toHaveBeenCalledWith(
+    expect(alertSpy).toHaveBeenCalledWith(
       'Share Failed',
       'Could not generate the receipt PDF. Please try again.'
     );
   });
 
-  it('syncs payments, blocks concurrent syncs, and handles failure refetches', async () => {
+  it('syncs payments and blocks concurrent syncs', async () => {
     const sync = deferred<Awaited<ReturnType<typeof confirmVtuCheckout>>>();
     mockConfirmVtuCheckout.mockReturnValueOnce(sync.promise);
     const transaction = createTransaction({ status: 'failed' });
@@ -262,19 +266,28 @@ describe('useUtilityHistoryActions', () => {
     });
 
     expect(refetch).toHaveBeenCalledTimes(1);
-    expect(Alert.alert).toHaveBeenCalledWith(
+    expect(alertSpy).toHaveBeenCalledWith(
       'Payment Synced',
       'This utility payment has been reconciled.'
     );
     await waitFor(() => expect(result.current.syncingTransactionId).toBeNull());
+  });
 
+  it('handles sync failures and refetches history for recovery', async () => {
+    const transaction = createTransaction({ status: 'failed' });
+    const { result } = renderHook(() => useUtilityHistoryActions({ refetch }));
     mockConfirmVtuCheckout.mockRejectedValueOnce(new Error('processing'));
+
     await act(async () => {
       await result.current.handleSyncPayment(transaction);
     });
 
-    expect(refetch).toHaveBeenCalledTimes(2);
-    expect(Alert.alert).toHaveBeenCalledWith(
+    expect(refetch).toHaveBeenCalledTimes(1);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Failed to sync VTU payment:',
+      expect.any(Error)
+    );
+    expect(alertSpy).toHaveBeenCalledWith(
       'Sync Failed',
       'This payment is already being reconciled. Please check again shortly.'
     );
@@ -293,7 +306,7 @@ describe('useUtilityHistoryActions', () => {
     });
 
     expect(refetch).toHaveBeenCalledTimes(1);
-    expect(Alert.alert).toHaveBeenCalledWith(
+    expect(alertSpy).toHaveBeenCalledWith(
       'Still Processing',
       'The payment is confirmed, but utility fulfillment is still processing.'
     );
@@ -309,7 +322,7 @@ describe('useUtilityHistoryActions', () => {
     });
 
     expect(mockConfirmVtuCheckout).not.toHaveBeenCalled();
-    expect(Alert.alert).toHaveBeenCalledWith(
+    expect(alertSpy).toHaveBeenCalledWith(
       'Cannot Sync',
       'Cannot sync: missing payment information.'
     );

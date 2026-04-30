@@ -4,18 +4,18 @@ import { SPACING } from '@/constants/Colors';
 
 export function useNextStepScroll(
   scrollViewRef: RefObject<ScrollView | null>,
-  onScrolled: () => void
+  onScrollInitiated: () => void
 ) {
   const pendingScrollYRef = useRef<number | null>(null);
   const isScrollScheduledRef = useRef(false);
   const isMountedRef = useRef(true);
-  const onScrolledRef = useRef(onScrolled);
+  const onScrollInitiatedRef = useRef(onScrollInitiated);
   const scrollFrameRef = useRef<number | null>(null);
   const interactionRef = useRef<{ cancel?: () => void } | null>(null);
 
   useEffect(() => {
-    onScrolledRef.current = onScrolled;
-  }, [onScrolled]);
+    onScrollInitiatedRef.current = onScrollInitiated;
+  }, [onScrollInitiated]);
 
   useEffect(() => {
     return () => {
@@ -49,7 +49,7 @@ export function useNextStepScroll(
           return;
         }
         scrollView.scrollTo({ animated: true, y: scrollY });
-        onScrolledRef.current();
+        onScrollInitiatedRef.current();
       });
     });
   };

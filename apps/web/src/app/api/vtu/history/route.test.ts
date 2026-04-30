@@ -45,6 +45,10 @@ let vtuTransactionUpdateIsCalls: [string, unknown][] = [];
 let vtuTransactionUpdatePayloads: Record<string, unknown>[] = [];
 let vtuTransactionUpdateRows: Record<string, unknown>[] | null = null;
 let vtuTransactionUpdateError: unknown = null;
+let vtuTransactionUpdateSelectPromise: Promise<{
+  data: Record<string, unknown>[] | null;
+  error: unknown;
+}> | null = null;
 const mockCustomerUpdateEq = vi.fn();
 
 function createMockSupabase() {
@@ -96,10 +100,14 @@ function createMockSupabase() {
         vtuTransactionUpdateIsCalls.push([field, value]);
         return builder;
       }),
-      select: vi.fn().mockResolvedValue({
-        data: vtuTransactionUpdateRows,
-        error: vtuTransactionUpdateError,
-      }),
+      select: vi.fn(() =>
+        vtuTransactionUpdateSelectPromise
+          ? vtuTransactionUpdateSelectPromise
+          : Promise.resolve({
+              data: vtuTransactionUpdateRows,
+              error: vtuTransactionUpdateError,
+            })
+      ),
     };
     return builder;
   };
@@ -210,6 +218,7 @@ describe('GET /api/vtu/history', () => {
     vtuTransactionUpdatePayloads = [];
     vtuTransactionUpdateRows = [{ id: 'tx-1' }];
     vtuTransactionUpdateError = null;
+    vtuTransactionUpdateSelectPromise = null;
     mockCustomerUpdateEq.mockResolvedValue({ data: null, error: null });
     mockAuthenticateApiRequest.mockResolvedValue({
       user: { id: 'user-1', email: 'customer@example.com' },
@@ -273,6 +282,49 @@ describe('GET /api/vtu/history', () => {
     expect(transactionEqCalls).toContainEqual(['customer_id', 'customer-1']);
     expect(transactionEqCalls).toContainEqual(['type', 'electricity']);
     expect(mockCustomerUpdateEq).toHaveBeenCalledWith('id', 'customer-1');
+  });
+
+  it('logs and falls back when a transaction amount is not finite', async () => {
+    const { GET } = await import('./route');
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    transactionsData = [
+      {
+        id: 'tx-invalid-amount',
+        created_at: '2026-04-08T12:00:00.000Z',
+        type: 'airtime',
+        status: 'successful',
+        amount: 'not-a-number',
+        biller_name: 'MTN',
+        metadata: {},
+        request_reference: 'VTU-INVALID-AMOUNT',
+        transaction_id: null,
+        customer_cashback: '0',
+      },
+    ];
+
+    try {
+      const response = await GET(makeRequest('?merchantSlug=ogabassey'));
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.transactions).toEqual([
+        expect.objectContaining({
+          amount: 0,
+          id: 'tx-invalid-amount',
+        }),
+      ]);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Invalid VTU transaction amount in history response:',
+        expect.objectContaining({
+          amount: 'not-a-number',
+          transactionId: 'tx-invalid-amount',
+        })
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it('returns history immediately and schedules missing voucher-pin backfill after response', async () => {
@@ -346,6 +398,52 @@ describe('GET /api/vtu/history', () => {
       supabase: expect.any(Object),
       transactionId: 'tx-1',
     });
+  });
+
+  it('does not wait for voucher-pin backfill scheduling before returning history', async () => {
+    const { GET } = await import('./route');
+    let resolveBackfillClaim:
+      | ((value: { data: Record<string, unknown>[]; error: unknown }) => void)
+      | undefined;
+    vtuTransactionUpdateSelectPromise = new Promise((resolve) => {
+      resolveBackfillClaim = resolve;
+    });
+    transactionsData = [
+      {
+        id: 'tx-1',
+        created_at: '2026-04-08T12:00:00.000Z',
+        type: 'electricity',
+        status: 'successful',
+        amount: '2500',
+        biller_name: 'EKEDC NG',
+        metadata: {},
+        request_reference: 'VTU-123',
+        transaction_id: 'kuda-bill-1',
+        customer_cashback: '0',
+      },
+    ];
+    paymentRowsData = [];
+
+    const responsePromise = GET(
+      makeRequest('?merchantSlug=ogabassey&type=electricity')
+    );
+    const raceResult = await Promise.race([
+      responsePromise.then(() => 'response'),
+      new Promise((resolve) => setTimeout(() => resolve('blocked'), 0)),
+    ]);
+
+    expect(raceResult).toBe('response');
+    resolveBackfillClaim?.({ data: [{ id: 'tx-1' }], error: null });
+    const response = await responsePromise;
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.transactions).toEqual([
+      expect.objectContaining({
+        id: 'tx-1',
+        voucher_pin: null,
+      }),
+    ]);
   });
 
   it('does not reschedule voucher-pin backfill when metadata already has a recent schedule marker', async () => {

@@ -1,4 +1,4 @@
-const DEFAULT_UTILITY_AMOUNT_LOCALE = 'en-NG';
+export const DEFAULT_UTILITY_AMOUNT_LOCALE = 'en-NG';
 
 export function createUtilityAmountFormatter(
   locale = DEFAULT_UTILITY_AMOUNT_LOCALE

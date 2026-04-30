@@ -25,7 +25,6 @@ export function PaymentSuccessView({
     >
       <Stack.Screen options={{ headerShown: false }} />
       <View
-        accessible={true}
         accessibilityLiveRegion="polite"
         accessibilityRole="alert"
         style={styles.centeredContainer}

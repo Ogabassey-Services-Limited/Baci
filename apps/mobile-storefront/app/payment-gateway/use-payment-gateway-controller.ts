@@ -12,6 +12,7 @@ import { PaymentGatewayParamsSchema } from '@/schemas/payment-gateway';
 import { useCartStore } from '@/stores/cart-store';
 import { createPaymentGatewayMessageHandler } from './create-payment-gateway-message-handler';
 import {
+  isPaymentGateway,
   isPaymentCancellationRedirect,
   isPaymentCompletionRedirect,
   PAYMENT_GATEWAY_LABELS,
@@ -23,6 +24,7 @@ type WebViewErrorEvent = Parameters<
 >[0];
 
 const PAYMENT_SUCCESS_NAV_DELAY_MS = 1500;
+const JUICYWAY_GATEWAY = 'juicyway';
 
 export function usePaymentGatewayController() {
   const params = useLocalSearchParams<Record<string, string>>();
@@ -89,16 +91,24 @@ export function usePaymentGatewayController() {
     reference,
     utilityType,
   } = validatedParams.data || {};
-  const gatewayName = PAYMENT_GATEWAY_LABELS[gateway || ''] || 'Payment';
+  const gatewayName =
+    gateway && isPaymentGateway(gateway)
+      ? PAYMENT_GATEWAY_LABELS[gateway]
+      : 'Payment';
 
   const routeToUtilityResult = ({
     resultAmount,
+    resultCashback,
     resultCustomerIdentifier,
     resultReference,
     resultStatus,
     resultVoucherPin,
   }: {
     resultAmount?: number;
+    resultCashback?: {
+      amount: number;
+      newBalance: number;
+    };
     resultCustomerIdentifier?: string;
     resultReference: string;
     resultStatus: 'processing' | 'successful';
@@ -118,6 +128,10 @@ export function usePaymentGatewayController() {
         ...((resultCustomerIdentifier || customerIdentifier) && {
           customerIdentifier: resultCustomerIdentifier || customerIdentifier,
         }),
+        ...(resultCashback && {
+          cashbackAmount: String(resultCashback.amount),
+          cashbackNewBalance: String(resultCashback.newBalance),
+        }),
         ...(resultVoucherPin && { voucherPin: resultVoucherPin }),
       },
     });
@@ -135,7 +149,7 @@ export function usePaymentGatewayController() {
         throw new Error('Payment reference is missing.');
       }
 
-      if (gateway === 'juicyway') {
+      if (gateway === JUICYWAY_GATEWAY) {
         setStatus('success');
         scheduleDelayedNavigation(() => {
           routeToUtilityResult({
@@ -154,23 +168,13 @@ export function usePaymentGatewayController() {
       });
       setStatus('success');
       scheduleDelayedNavigation(() => {
-        router.replace({
-          pathname: '/utilities/[type]',
-          params: {
-            amount: String(result.amount ?? amount ?? 0),
-            paymentStatus: 'successful',
-            reference: result.reference,
-            type: utilityType,
-            ...((result.customerIdentifier || customerIdentifier) && {
-              customerIdentifier:
-                result.customerIdentifier || customerIdentifier,
-            }),
-            ...(result.cashback && {
-              cashbackAmount: String(result.cashback.amount),
-              cashbackNewBalance: String(result.cashback.newBalance),
-            }),
-            ...(result.voucherPin && { voucherPin: result.voucherPin }),
-          },
+        routeToUtilityResult({
+          resultAmount: result.amount,
+          resultCashback: result.cashback,
+          resultCustomerIdentifier: result.customerIdentifier,
+          resultReference: result.reference,
+          resultStatus: 'successful',
+          resultVoucherPin: result.voucherPin,
         });
       });
     } catch (error) {
@@ -255,24 +259,27 @@ export function usePaymentGatewayController() {
     setSuccessStatus: () => setStatus('success'),
   });
 
+  const handleClose = () => {
+    Alert.alert(
+      'Cancel Payment?',
+      paymentKind === PAYMENT_KINDS.VTU
+        ? 'If you leave now, this utility payment may remain incomplete until you retry it.'
+        : 'Your order has been created. If you leave, you can complete payment later from your orders page.',
+      [
+        { text: 'Continue Payment', style: 'cancel' },
+        { text: 'Leave', style: 'destructive', onPress: () => router.back() },
+      ]
+    );
+  };
+
   return {
     amount,
     authorizationUrl,
     errorMessage,
     gatewayName,
-    handleBack: () => router.back(),
-    handleClose: () => {
-      Alert.alert(
-        'Cancel Payment?',
-        paymentKind === PAYMENT_KINDS.VTU
-          ? 'If you leave now, this utility payment may remain incomplete until you retry it.'
-          : 'Your order has been created. If you leave, you can complete payment later from your orders page.',
-        [
-          { text: 'Continue Payment', style: 'cancel' },
-          { text: 'Leave', style: 'destructive', onPress: () => router.back() },
-        ]
-      );
-    },
+    // Alias retained for checkout back-button consumers; both paths confirm cancellation.
+    handleBack: handleClose,
+    handleClose,
     handleLoadEnd: () =>
       setStatus((currentStatus) =>
         currentStatus === 'error' ||

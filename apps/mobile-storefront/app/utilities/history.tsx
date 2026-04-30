@@ -85,9 +85,9 @@ export default function UtilityHistoryScreen() {
         style={[styles.container, { backgroundColor: colors.background }]}
         edges={['bottom']}
       >
-        <FlatList
+        <FlatList<VTUHistoryTransaction>
           data={transactions ?? []}
-          renderItem={({ item }: { item: VTUHistoryTransaction }) => (
+          renderItem={({ item }) => (
             <UtilityTransactionCard
               colors={colors}
               handleCopyVoucher={handleCopyVoucher}

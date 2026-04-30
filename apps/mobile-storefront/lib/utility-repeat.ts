@@ -86,7 +86,11 @@ function getRepeatProvider(networkProvider?: string | null): string | undefined 
 function getRouteType(
   type: VTUHistoryTransaction['type']
 ): UtilityRouteType {
-  return HISTORY_TYPE_TO_UTILITY_ROUTE[type];
+  const routeType = HISTORY_TYPE_TO_UTILITY_ROUTE[type];
+  if (!routeType) {
+    throw new Error(`Unsupported utility history transaction type: ${type}`);
+  }
+  return routeType;
 }
 
 function getDefaults(

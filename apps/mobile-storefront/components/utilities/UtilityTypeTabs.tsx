@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND, SPACING } from '@/constants/Colors';
+import Colors, { BRAND, SPACING, withAlpha } from '@/constants/Colors';
 import { UTILITY_TYPE_TAB_PRESSED_STYLE } from './utility-type-tabs.constants';
 
 type IoniconsName = ComponentProps<typeof Ionicons>['name'];
@@ -73,7 +73,9 @@ export function UtilityTypeTabs({
               testID={`utility-tab-${item.type}`}
               onPress={() => onSelect(item.type)}
               android_ripple={{
-                color: isSelected ? `${BRAND.onPrimary}24` : colors.border,
+                color: isSelected
+                  ? withAlpha(BRAND.onPrimary, 0.14)
+                  : colors.border,
               }}
               style={({ pressed }) => [
                 styles.tab,

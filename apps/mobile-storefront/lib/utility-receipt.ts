@@ -156,6 +156,8 @@ export async function shareUtilityReceipt(data: UtilityReceiptData) {
   } catch (error) {
     if (
       error instanceof Error &&
+      // Expo Sharing reports user cancellation through localized native error
+      // strings rather than a stable cancellation code.
       (error.message.includes('cancelled') ||
         error.message.includes('canceled'))
     ) {

@@ -34,6 +34,7 @@ type SupabaseStub = Parameters<
 
 interface PendingTransactionMockOptions {
   customerData?: { user_id: string | null } | null;
+  currentTransactionData?: Record<string, unknown> | null;
   existingCustomerCashback?: { balance_after: number } | null;
   existingMerchantCommission?: { id: string } | null;
   transactionRow: Record<string, unknown>;
@@ -102,6 +103,7 @@ function findPayloadWithMetadata(
 
 function createPendingTransactionSupabaseMock({
   customerData = { user_id: 'user-1' },
+  currentTransactionData,
   existingCustomerCashback = null,
   existingMerchantCommission = null,
   transactionRow,
@@ -151,13 +153,17 @@ function createPendingTransactionSupabaseMock({
     from: vi.fn((table: string) => {
       if (table === 'vtu_transactions') {
         return {
-          select: vi.fn().mockReturnValue({
+          select: vi.fn((columns?: string) => ({
             eq: vi.fn().mockReturnValue({
-              single: vi
-                .fn()
-                .mockResolvedValue({ data: transactionRow, error: null }),
+              single: vi.fn().mockResolvedValue({
+                data:
+                  columns === 'error_message, status'
+                    ? (currentTransactionData ?? transactionRow)
+                    : transactionRow,
+                error: null,
+              }),
             }),
-          }),
+          })),
           update: vi.fn((payload: unknown) => {
             updatePayloads.push(payload);
             const payloadRecord =
@@ -734,6 +740,53 @@ describe('fulfillPendingVtuTransaction', () => {
       error_message: null,
       status: 'successful',
     });
+  });
+
+  it('does not treat non-enum database statuses as provider statuses during retry reconciliation', async () => {
+    mockCheckTransactionStatus.mockResolvedValueOnce({
+      message: 'Original attempt succeeded',
+      status: 'successful',
+    });
+
+    const supabase = createPendingTransactionSupabaseMock({
+      claimData: null,
+      currentTransactionData: {
+        error_message: 'Concurrent status is not claimable',
+        status: 'completed',
+      },
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: null,
+        type: 'airtime',
+        network_provider: 'MTN',
+        phone_number: '08012345678',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: null,
+        status: 'failed',
+        metadata: {},
+        error_message: 'Temporary biller error',
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: null,
+        biller_item_code: null,
+        customer_identifier: null,
+      },
+    });
+
+    const result = await fulfillPendingVtuTransaction({
+      retryFailed: true,
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(result).toEqual({
+      amount: 1000,
+      reference: 'VTU-123',
+      status: 'processing',
+    });
+    expect(mockPurchaseAirtime).not.toHaveBeenCalled();
   });
 
   it('does not retry a failed transaction while gateway reconciliation is still processing', async () => {

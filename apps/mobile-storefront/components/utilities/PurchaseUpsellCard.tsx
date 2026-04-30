@@ -1,17 +1,23 @@
-import { Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { styles } from '@/components/utilities/purchase-success.styles';
 import type Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
 
-interface PurchaseUpsellCardProps {
+export interface PurchaseUpsellCardProps {
   colors: typeof Colors.light;
+  disabled?: boolean;
+  isLoading?: boolean;
   onCreateAccount: () => void;
 }
 
 export default function PurchaseUpsellCard({
   colors,
+  disabled = false,
+  isLoading = false,
   onCreateAccount,
 }: PurchaseUpsellCardProps) {
+  const isActionDisabled = disabled || isLoading;
+
   return (
     <View
       style={[
@@ -27,12 +33,28 @@ export default function PurchaseUpsellCard({
         earn loyalty points!
       </Text>
       <Pressable
-        style={[styles.primaryButton, { backgroundColor: BRAND.primary }]}
+        style={[
+          styles.primaryButton,
+          {
+            backgroundColor: BRAND.primary,
+            opacity: isActionDisabled ? 0.65 : 1,
+          },
+        ]}
         onPress={onCreateAccount}
+        disabled={isActionDisabled}
         accessibilityRole="button"
         accessibilityLabel="Create account"
+        accessibilityState={{
+          busy: isLoading,
+          disabled: isActionDisabled,
+        }}
       >
-        <Text style={styles.primaryButtonText}>Create Account</Text>
+        {isLoading ? (
+          <ActivityIndicator color={BRAND.onPrimary} />
+        ) : null}
+        <Text style={styles.primaryButtonText}>
+          {isLoading ? 'Creating Account...' : 'Create Account'}
+        </Text>
       </Pressable>
     </View>
   );

@@ -107,11 +107,14 @@ describe('history.helpers', () => {
   });
 
   it('falls back safely for unknown utility statuses', () => {
+    const invalidStatusInput = {
+      payment_status: 'pending',
+      status: 'unknown',
+    };
+
     expect(
-      utilityHistoryHelpers.getDisplayStatus({
-        payment_status: 'pending',
-        status: 'unknown' as never,
-      })
+      // @ts-expect-error testing invalid input
+      utilityHistoryHelpers.getDisplayStatus(invalidStatusInput)
     ).toEqual({
       color: DEFAULT_UTILITY_HISTORY_STATUS_COLOR,
       label: DEFAULT_UTILITY_HISTORY_STATUS_LABEL,

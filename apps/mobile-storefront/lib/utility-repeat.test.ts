@@ -138,4 +138,12 @@ describe('utilityRepeatHelpers', () => {
       }
     );
   });
+
+  it('throws a clear error when a repeat route type mapping is missing', () => {
+    expect(() =>
+      utilityRepeatHelpers.getRouteType(
+        'unknown-type' as Parameters<typeof utilityRepeatHelpers.getRouteType>[0]
+      )
+    ).toThrow('Unsupported utility history transaction type: unknown-type');
+  });
 });

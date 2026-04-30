@@ -303,10 +303,12 @@ describe('UtilityHistoryScreen', () => {
     await waitFor(() => {
       expect(mockRefetch).toHaveBeenCalled();
     });
-    expect(alertSpy).toHaveBeenCalledWith(
-      'Still Processing',
-      'The payment is confirmed, but utility fulfillment is still processing.'
-    );
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Still Processing',
+        'The payment is confirmed, but utility fulfillment is still processing.'
+      );
+    });
   });
 
   it('alerts when sync payment fails even if history refetch fails', async () => {
@@ -330,10 +332,12 @@ describe('UtilityHistoryScreen', () => {
     await waitFor(() => {
       expect(mockRefetch).toHaveBeenCalled();
     });
-    expect(alertSpy).toHaveBeenCalledWith(
-      'Sync Failed',
-      'We could not reconcile this payment yet.'
-    );
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Sync Failed',
+        'We could not reconcile this payment yet.'
+      );
+    });
   });
 
   it('redirects unauthenticated users to login', () => {

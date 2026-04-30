@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, type ViewStyle } from 'react-native';
 import {
   RADIUS,
   SEMANTIC_COLORS,
@@ -8,9 +8,9 @@ import {
 
 const STATUS_ICON_SIZE = 80;
 const CENTERED_CONTENT = {
-  justifyContent: 'center' as const,
-  alignItems: 'center' as const,
-};
+  justifyContent: 'center',
+  alignItems: 'center',
+} satisfies Pick<ViewStyle, 'alignItems' | 'justifyContent'>;
 const CENTERED_CONTAINER = {
   flex: 1,
   ...CENTERED_CONTENT,
@@ -68,6 +68,7 @@ export const paymentGatewayStyles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.lg,
+    borderColor: 'transparent',
     borderTopWidth: 1,
   },
   amountLabel: {
@@ -112,6 +113,7 @@ export const paymentGatewayStyles = StyleSheet.create({
     fontWeight: TYPOGRAPHY.weight.semibold,
   },
   secondaryButton: {
+    borderColor: 'transparent',
     borderWidth: 1,
   },
   secondaryButtonText: {

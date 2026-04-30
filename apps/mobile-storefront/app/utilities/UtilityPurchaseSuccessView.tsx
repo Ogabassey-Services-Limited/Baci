@@ -10,8 +10,9 @@ import type {
 
 type UtilityPurchaseSuccessData = Omit<
   UtilityPurchaseResult,
-  'voucherPin'
+  'cashback' | 'voucherPin'
 > & {
+  cashback?: UtilityPurchaseResult['cashback'] | null;
   voucherPin?: string | null;
 };
 
@@ -35,29 +36,28 @@ export function UtilityPurchaseSuccessView({
   bottomPadding,
 }: UtilityPurchaseSuccessViewProps) {
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.background,
+          paddingBottom: bottomPadding,
+          paddingTop: headerOffset,
+        },
+      ]}
+    >
       <Stack.Screen options={{ headerShown: false }} />
-      <View
-        style={[
-          styles.container,
-          {
-            paddingBottom: bottomPadding,
-            paddingTop: headerOffset,
-          },
-        ]}
-      >
-        <PurchaseSuccess
-          type={type}
-          amount={data.amount}
-          customerIdentifier={data.customerIdentifier}
-          txReference={data.reference}
-          cashback={data.cashback ?? null}
-          isAuthenticated={isAuthenticated}
-          onCreateAccount={onCreateAccount}
-          status={data.status}
-          voucherPin={data.voucherPin ?? undefined}
-        />
-      </View>
+      <PurchaseSuccess
+        type={type}
+        amount={data.amount}
+        customerIdentifier={data.customerIdentifier}
+        txReference={data.reference}
+        cashback={data.cashback ?? null}
+        isAuthenticated={isAuthenticated}
+        onCreateAccount={onCreateAccount}
+        status={data.status}
+        voucherPin={data.voucherPin ?? null}
+      />
     </View>
   );
 }

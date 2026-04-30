@@ -174,29 +174,13 @@ describe('ChatWidget', () => {
     expect(toJSON()).toBeNull();
   });
 
-  it('returns null for utility purchase routes', () => {
-    mockUsePathname.mockReturnValue('/utilities/power');
-    const { toJSON } = render(<ChatWidget />);
-
-    expect(toJSON()).toBeNull();
-  });
-
-  it('returns null for payment gateway routes', () => {
-    mockUsePathname.mockReturnValue('/payment-gateway');
-    const { toJSON } = render(<ChatWidget />);
-
-    expect(toJSON()).toBeNull();
-  });
-
-  it('returns null for bank transfer routes', () => {
-    mockUsePathname.mockReturnValue('/bank-transfer');
-    const { toJSON } = render(<ChatWidget />);
-
-    expect(toJSON()).toBeNull();
-  });
-
-  it('returns null for crypto payment routes', () => {
-    mockUsePathname.mockReturnValue('/crypto-payment');
+  it.each([
+    '/utilities/power',
+    '/payment-gateway',
+    '/bank-transfer',
+    '/crypto-payment',
+  ])('returns null for hidden payment route %s', (pathname) => {
+    mockUsePathname.mockReturnValue(pathname);
     const { toJSON } = render(<ChatWidget />);
 
     expect(toJSON()).toBeNull();

@@ -15,12 +15,27 @@ export interface Cashback {
   newBalance: number;
 }
 
+/**
+ * Payload emitted after an airtime purchase reaches a successful or processing
+ * terminal screen. Raw values are kept unformatted so receipt and success UI can
+ * apply locale-specific presentation; sensitive fields must be masked before
+ * logs, analytics, or generic serialization.
+ */
 export interface AirtimePurchaseSuccessData {
+  /** Gateway or VTU transaction reference used for support and receipt sharing. */
   reference: string;
+  /** Whole-naira amount charged or confirmed for the airtime purchase. */
   amount: AirtimeAmount;
+  /** Sensitive customer phone/account identifier. Mask before logging or analytics. */
   customerIdentifier?: string;
+  /** Final or interim payment status returned by the VTU purchase flow. */
   status?: 'processing' | 'successful';
+  /**
+   * Sensitive voucher/token data. Do not log, persist in plaintext, or include
+   * in generic serializations.
+   */
   voucherPin?: string;
+  /** Optional cashback credit returned after a successful purchase. */
   cashback?: Cashback;
 }
 

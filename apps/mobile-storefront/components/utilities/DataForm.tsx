@@ -149,16 +149,12 @@ export function DataForm({
 
   // Bug #H18: Guard against double-tap with isSubmitting state (same pattern as AirtimeForm)
   const isBusy = isSubmitting;
-  const scrollToPaymentY = (paymentY: number) => {
-    shouldScrollToPaymentRef.current = false;
-    scrollToPayment(paymentY, scrollViewRef.current);
-  };
-
   useEffect(() => {
     if (!wasRepeatPaymentReadyRef.current && isRepeatPaymentReady) {
       shouldScrollToPaymentRef.current = true;
       if (paymentYRef.current !== null) {
-        scrollToPaymentY(paymentYRef.current);
+        shouldScrollToPaymentRef.current = false;
+        scrollToPayment(paymentYRef.current, scrollViewRef.current);
       }
     }
     wasRepeatPaymentReadyRef.current = isRepeatPaymentReady;
@@ -434,7 +430,8 @@ export function DataForm({
               return;
             }
 
-            scrollToPaymentY(paymentYRef.current);
+            shouldScrollToPaymentRef.current = false;
+            scrollToPayment(paymentYRef.current, scrollViewRef.current);
           }}
         >
           <UtilityPaymentOptions

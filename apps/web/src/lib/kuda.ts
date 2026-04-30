@@ -778,7 +778,7 @@ export async function checkTransactionStatus(
 
   let message = '';
   let status = 'unknown';
-  let lastError: unknown;
+  const queryErrors: unknown[] = [];
   let querySucceeded = false;
 
   for (const data of statusQueries) {
@@ -789,7 +789,7 @@ export async function checkTransactionStatus(
         data
       );
     } catch (error) {
-      lastError = error;
+      queryErrors.push(error);
       continue;
     }
 
@@ -814,8 +814,11 @@ export async function checkTransactionStatus(
     }
   }
 
-  if (!querySucceeded && lastError) {
-    throw lastError;
+  if (!querySucceeded && queryErrors.length > 0) {
+    throw new AggregateError(
+      queryErrors,
+      'All Kuda transaction status queries failed'
+    );
   }
 
   return { status, message };

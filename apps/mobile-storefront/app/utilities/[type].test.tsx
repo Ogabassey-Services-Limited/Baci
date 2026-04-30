@@ -122,13 +122,19 @@ jest.mock('@/components/utilities/BillForm', () => {
       initialCustomerIdentifier?: string;
       isRepeatPaymentReady?: boolean;
       type: string;
-    }) => (
-      <Text>
-        {`Bill form ${type} ${initialCustomerIdentifier ?? ''} ${
-          initialAmount ?? ''
-        }${isRepeatPaymentReady ? ' repeat-ready' : ''}`}
-      </Text>
-    ),
+    }) => {
+      const formText = [
+        'Bill form',
+        type,
+        initialCustomerIdentifier,
+        initialAmount,
+        isRepeatPaymentReady ? 'repeat-ready' : undefined,
+      ]
+        .filter(Boolean)
+        .join(' ');
+
+      return <Text>{formText}</Text>;
+    },
   };
 });
 
@@ -393,7 +399,7 @@ describe('UtilityPurchaseScreen', () => {
     fireEvent.press(screen.getByLabelText('TV utility service'));
 
     await waitFor(() => {
-      expect(screen.getByText(/^Bill form tv\s*$/)).toBeOnTheScreen();
+      expect(screen.getByText('Bill form tv')).toBeOnTheScreen();
     });
     expect(screen.queryByText(/repeat-ready/)).toBeNull();
   });

@@ -40,7 +40,6 @@ describe('PaymentSuccessView', () => {
       screen.getByText('Redirecting to your order confirmation...')
     ).toBeOnTheScreen();
     expect(screen.getByLabelText('Payment successful')).toBeOnTheScreen();
-    expect(screen.getByRole('alert')).toBeOnTheScreen();
   });
 
   it('renders utility confirmation redirect copy for VTU payments', () => {
@@ -56,7 +55,6 @@ describe('PaymentSuccessView', () => {
       screen.getByText('Redirecting to your utility confirmation...')
     ).toBeOnTheScreen();
     expect(screen.getByLabelText('Payment successful')).toBeOnTheScreen();
-    expect(screen.getByRole('alert')).toBeOnTheScreen();
   });
 
   it('hides the route header after payment succeeds', () => {

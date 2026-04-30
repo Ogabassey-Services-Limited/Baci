@@ -9,6 +9,18 @@ jest.mock('@/hooks/use-vtu-history', () => ({
 }));
 
 const mockUseVTUHistory = jest.mocked(useVTUHistory);
+type MockVTUHistoryReturn = ReturnType<typeof useVTUHistory>;
+
+function mockVTUHistoryReturn(
+  overrides: Partial<MockVTUHistoryReturn> = {}
+) {
+  mockUseVTUHistory.mockReturnValue({
+    data: [],
+    error: null,
+    isLoading: false,
+    ...overrides,
+  } as MockVTUHistoryReturn);
+}
 
 function createTransaction(
   overrides: Partial<VTUHistoryTransaction> = {}
@@ -31,11 +43,7 @@ function createTransaction(
 describe('useQuickRepeat', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockUseVTUHistory.mockReturnValue({
-      data: [],
-      error: null,
-      isLoading: false,
-    } as unknown as ReturnType<typeof useVTUHistory>);
+    mockVTUHistoryReturn();
   });
 
   it('selects the most recent successful matching transaction from recent history', () => {
@@ -47,11 +55,11 @@ describe('useQuickRepeat', () => {
       id: 'tx-success',
       status: 'successful',
     });
-    mockUseVTUHistory.mockReturnValue({
+    mockVTUHistoryReturn({
       data: [failedLatest, successfulPrevious],
       error: null,
       isLoading: false,
-    } as unknown as ReturnType<typeof useVTUHistory>);
+    });
 
     const { result } = renderHook(() =>
       useQuickRepeat({
@@ -69,11 +77,11 @@ describe('useQuickRepeat', () => {
   });
 
   it('returns a loading notice while recent transactions are loading', () => {
-    mockUseVTUHistory.mockReturnValue({
+    mockVTUHistoryReturn({
       data: undefined,
       error: null,
       isLoading: true,
-    } as unknown as ReturnType<typeof useVTUHistory>);
+    });
 
     const { result } = renderHook(() =>
       useQuickRepeat({
@@ -88,6 +96,71 @@ describe('useQuickRepeat', () => {
     expect(result.current.quickRepeatNotice).toBe(
       'Checking recent data transactions...'
     );
+    expect(result.current.showQuickRepeat).toBe(false);
+  });
+
+  it('returns an error notice when recent transactions fail to load', () => {
+    mockVTUHistoryReturn({
+      data: [createTransaction()],
+      error: new Error('history failed'),
+      isLoading: false,
+    });
+
+    const { result } = renderHook(() =>
+      useQuickRepeat({
+        currentType: 'airtime',
+        historyFilter: 'airtime',
+        isKeyboardVisible: false,
+        routeType: null,
+        title: 'airtime',
+      })
+    );
+
+    expect(result.current.quickRepeatNotice).toBe(
+      'Recent airtime transactions unavailable.'
+    );
+    expect(result.current.lastTransaction?.id).toBe('tx-1');
+    expect(result.current.showQuickRepeat).toBe(false);
+  });
+
+  it('does not show quick repeat when recent history is empty', () => {
+    mockVTUHistoryReturn({ data: [] });
+
+    const { result } = renderHook(() =>
+      useQuickRepeat({
+        currentType: 'airtime',
+        historyFilter: 'airtime',
+        isKeyboardVisible: false,
+        routeType: null,
+        title: 'airtime',
+      })
+    );
+
+    expect(result.current.lastTransaction).toBeNull();
+    expect(result.current.quickRepeatNotice).toBeNull();
+    expect(result.current.showQuickRepeat).toBe(false);
+  });
+
+  it('does not show quick repeat when every recent transaction failed', () => {
+    mockVTUHistoryReturn({
+      data: [
+        createTransaction({ id: 'tx-failed-1', status: 'failed' }),
+        createTransaction({ id: 'tx-failed-2', status: 'failed' }),
+      ],
+    });
+
+    const { result } = renderHook(() =>
+      useQuickRepeat({
+        currentType: 'airtime',
+        historyFilter: 'airtime',
+        isKeyboardVisible: false,
+        routeType: null,
+        title: 'airtime',
+      })
+    );
+
+    expect(result.current.lastTransaction).toBeNull();
+    expect(result.current.quickRepeatNotice).toBeNull();
     expect(result.current.showQuickRepeat).toBe(false);
   });
 });
