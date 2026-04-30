@@ -1,3 +1,5 @@
+import { buildOllamaBasicAuthHeader } from '@/lib/ollama-auth';
+
 interface OllamaChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
@@ -20,7 +22,7 @@ interface OllamaChatChunk {
   error?: string;
 }
 
-const OLLAMA_CHAT_TIMEOUT_MS = 100_000;
+const OLLAMA_CHAT_TIMEOUT_MS = 120_000;
 const MODEL_NAME_LINE_BREAK_PATTERN = /\\n|\r?\n|\r/g;
 
 function normalizeOllamaBaseUrl(baseUrl: string): string {
@@ -138,17 +140,24 @@ export async function createOllamaChatResponse({
   signal,
   timeoutMs = OLLAMA_CHAT_TIMEOUT_MS,
 }: CreateOllamaChatResponseOptions): Promise<Response> {
-  const { signal: ollamaSignal, cleanup } = createAbortSignal(
-    signal,
-    timeoutMs
-  );
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
 
   if (basicAuth) {
-    headers.Authorization = `Basic ${basicAuth}`;
+    const authorization = buildOllamaBasicAuthHeader(basicAuth);
+    if (!authorization) {
+      throw new Error(
+        'failed to build Basic Authorization header from basicAuth'
+      );
+    }
+    headers.Authorization = authorization;
   }
+
+  const { signal: ollamaSignal, cleanup } = createAbortSignal(
+    signal,
+    timeoutMs
+  );
 
   let response: Response;
   try {

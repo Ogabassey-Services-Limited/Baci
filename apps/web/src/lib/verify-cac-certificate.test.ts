@@ -15,7 +15,7 @@ vi.mock('ai', () => ({
 }));
 
 import { generateText } from 'ai';
-import { getOllamaBaseUrl } from '@/env';
+import { getOllamaBaseUrl, getOllamaBasicAuth } from '@/env';
 import {
   compareCACData,
   extractCACCertificateData,
@@ -31,6 +31,7 @@ describe('extractCACCertificateData', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.mocked(getOllamaBaseUrl).mockReturnValue(undefined);
+    vi.mocked(getOllamaBasicAuth).mockReturnValue(undefined);
     vi.stubGlobal('fetch', vi.fn());
   });
 
@@ -68,6 +69,41 @@ describe('extractCACCertificateData', () => {
     expect(vi.mocked(global.fetch).mock.calls[0][0]).toContain(
       'https://ollama.example.com'
     );
+    expect(result.rcNumber).toBe('RC123456');
+  });
+
+  it('encodes raw Ollama Basic Auth credentials for image extraction', async () => {
+    vi.mocked(getOllamaBaseUrl).mockReturnValue('https://ollama.example.com');
+    vi.mocked(getOllamaBasicAuth).mockReturnValue('user:password');
+    vi.mocked(global.fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ response: validJsonResponse }),
+    } as Response);
+
+    const buffer = new Uint8Array([0xff, 0xd8, 0xff]);
+    await extractCACCertificateData(buffer, 'image/jpeg');
+
+    const [, options] = vi.mocked(global.fetch).mock.calls[0];
+    expect(options?.headers).toEqual(
+      expect.objectContaining({
+        Authorization: 'Basic dXNlcjpwYXNzd29yZA==',
+      })
+    );
+  });
+
+  it('does not call Ollama with malformed Basic Auth credentials', async () => {
+    vi.mocked(getOllamaBaseUrl).mockReturnValue('https://ollama.example.com');
+    // Already-prefixed but empty Basic header; raw credentials use user:password.
+    vi.mocked(getOllamaBasicAuth).mockReturnValue('Basic   ');
+    vi.mocked(generateText).mockResolvedValueOnce({
+      text: validJsonResponse,
+    } as Awaited<ReturnType<typeof generateText>>);
+
+    const buffer = new Uint8Array([0xff, 0xd8, 0xff]);
+    const result = await extractCACCertificateData(buffer, 'image/jpeg');
+
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(generateText).toHaveBeenCalledOnce();
     expect(result.rcNumber).toBe('RC123456');
   });
 

@@ -12,6 +12,7 @@ function streamFromText(text: string): ReadableStream<Uint8Array> {
 
 describe('createOllamaChatResponse', () => {
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
@@ -45,6 +46,97 @@ describe('createOllamaChatResponse', () => {
     expect(JSON.parse(String(mockFetch.mock.calls[0][1]?.body)).model).toBe(
       'gemma4:e4b'
     );
+  });
+
+  it('encodes raw Basic Auth credentials before sending them to Ollama', async () => {
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(streamFromText('{"message":{"content":"ok"}}\n'))
+      );
+    vi.stubGlobal('fetch', mockFetch);
+
+    const response = await createOllamaChatResponse({
+      baseUrl: 'https://ollama.example.com',
+      model: 'gemma4:e4b',
+      basicAuth: 'user:password',
+      messages: [{ role: 'user', content: 'Hi' }],
+    });
+
+    expect(await response.text()).toBe('ok');
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://ollama.example.com/api/chat',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Basic dXNlcjpwYXNzd29yZA==',
+        }),
+      })
+    );
+  });
+
+  it('rejects malformed Basic Auth before calling Ollama', async () => {
+    const mockFetch = vi.fn();
+    vi.stubGlobal('fetch', mockFetch);
+
+    await expect(
+      createOllamaChatResponse({
+        baseUrl: 'https://ollama.example.com',
+        model: 'gemma4:e4b',
+        basicAuth: 'Basic   ',
+        messages: [{ role: 'user', content: 'Hi' }],
+      })
+    ).rejects.toThrow(
+      'failed to build Basic Authorization header from basicAuth'
+    );
+
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('uses the full 120-second chat timeout by default', async () => {
+    vi.useFakeTimers();
+    let status: 'pending' | 'fulfilled' | 'rejected' = 'pending';
+    let rejection: unknown;
+    const mockFetch = vi.fn((_input: unknown, init?: RequestInit) => {
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener(
+          'abort',
+          () => {
+            const error = new Error('Aborted');
+            error.name = 'AbortError';
+            reject(error);
+          },
+          { once: true }
+        );
+      });
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const request = createOllamaChatResponse({
+      baseUrl: 'https://ollama.example.com',
+      model: 'gemma4:e4b',
+      messages: [{ role: 'user', content: 'Hi' }],
+    }).then(
+      () => {
+        status = 'fulfilled';
+      },
+      (error: unknown) => {
+        status = 'rejected';
+        rejection = error;
+      }
+    );
+
+    await vi.advanceTimersByTimeAsync(119_999);
+    expect(status).toBe('pending');
+
+    await vi.advanceTimersByTimeAsync(1);
+    await request;
+
+    expect(status).toBe('rejected');
+    expect(rejection).toBeInstanceOf(Error);
+    if (!(rejection instanceof Error)) {
+      throw new Error('Expected timeout rejection to be an Error');
+    }
+    expect(rejection.message).toBe('Ollama chat request timed out');
   });
 
   it('throws when Ollama returns a non-ok response', async () => {
