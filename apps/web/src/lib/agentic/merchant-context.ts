@@ -25,12 +25,10 @@ export function isAgenticCheckoutRuntimeConfigured(): boolean {
 
   return Boolean(
     getConfiguredAgenticMerchantSlug() &&
-      getAgenticApiKey()?.trim() &&
+      getAgenticApiKey() &&
       confirmationKeys.length > 0 &&
-      confirmationKeys.every((key) => key.trim().length > 0) &&
       signingKeys.length > 0 &&
-      signingKeys.every((key) => key.trim().length > 0) &&
-      getPaystackSecretKey()?.trim()
+      getPaystackSecretKey()
   );
 }
 

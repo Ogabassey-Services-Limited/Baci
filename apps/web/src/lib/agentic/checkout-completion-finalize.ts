@@ -232,21 +232,26 @@ export async function finalizeAgenticCheckoutPayment({
       sessionId,
       supabase,
     });
+    const cancellationSucceeded = !cancellation.error && cancellation.updated;
     let releaseError: unknown = null;
-    releaseError = await releaseFinalizationClaimSafely({
-      finalizationClaim,
-      merchantId,
-      metadata,
-      orderError: updateError ?? 'No checkout session row updated',
-      sessionId,
-      supabase,
-    });
+    if (cancellationSucceeded) {
+      releaseError = await releaseFinalizationClaimSafely({
+        finalizationClaim,
+        merchantId,
+        metadata,
+        orderError: updateError ?? 'No checkout session row updated',
+        sessionId,
+        supabase,
+      });
+    }
     logger.error({
       error: {
         cancellationError: cancellation.error
           ? sanitizeForLog(cancellation.error)
           : null,
+        cancellationUpdated: cancellation.updated,
         releaseError: releaseError ? sanitizeForLog(releaseError) : null,
+        releaseSkipped: !cancellationSucceeded,
         updateError: updateError ? sanitizeForLog(updateError) : null,
       },
       message: 'Checkout session payment state update failed',

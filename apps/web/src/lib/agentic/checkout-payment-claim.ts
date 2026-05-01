@@ -91,10 +91,10 @@ export async function markCheckoutPaymentAccountReady({
     .from('checkout_sessions')
     .update({
       metadata: buildClaimMetadata({
-        buyer,
-        failureDetails: {
+        agenticUpdates: {
           dva_account: dvaAccount,
         },
+        buyer,
         metadata,
         paymentState: 'payment_account_ready',
       }),
@@ -130,8 +130,10 @@ export async function releaseCheckoutPaymentClaim({
     .from('checkout_sessions')
     .update({
       metadata: buildClaimMetadata({
+        // Failure details are stored as agentic metadata updates while keeping
+        // the release API name explicit for payment setup callers.
+        agenticUpdates: failureDetails,
         buyer,
-        failureDetails,
         metadata,
         paymentState: 'payment_setup_failed',
       }),
@@ -147,13 +149,13 @@ export async function releaseCheckoutPaymentClaim({
 }
 
 function buildClaimMetadata({
+  agenticUpdates,
   buyer,
-  failureDetails,
   metadata,
   paymentState,
 }: {
+  agenticUpdates?: Record<string, unknown>;
   buyer: AgenticCheckoutBuyer;
-  failureDetails?: Record<string, unknown>;
   metadata: AgenticMetadata;
   paymentState:
     | 'claiming_payment'
@@ -164,7 +166,7 @@ function buildClaimMetadata({
     ...metadata,
     agentic: {
       ...(metadata.agentic ?? {}),
-      ...(failureDetails ?? {}),
+      ...(agenticUpdates ?? {}),
       buyer,
       payment_state: paymentState,
     },

@@ -8,6 +8,19 @@ export const SUPPORTED_AGENTIC_API_VERSIONS = [
   AGENTIC_API_VERSION,
   PREVIOUS_AGENTIC_API_VERSION,
 ] as const;
+export const AGENTIC_REQUEST_INTEGRITY_ERRORS = {
+  INVALID_REQUEST_ID_FORMAT: 'Invalid request ID format',
+  INVALID_SIGNATURE: 'Invalid signature',
+  INVALID_TIMESTAMP: 'Invalid timestamp',
+  MISSING_API_VERSION: 'Missing api version',
+  MISSING_REQUEST_ID: 'Missing request id',
+  MISSING_SIGNATURE: 'Missing signature',
+  MISSING_SIGNING_SECRET: 'Missing signing secret',
+  MISSING_TIMESTAMP: 'Missing timestamp',
+  REQUEST_ID_TOO_LONG: 'Request ID too long',
+  STALE_TIMESTAMP: 'Stale timestamp',
+  UNSUPPORTED_API_VERSION: 'Unsupported api version',
+} as const;
 
 type AgenticApiVersion = (typeof SUPPORTED_AGENTIC_API_VERSIONS)[number];
 
@@ -41,38 +54,68 @@ export function verifyAgenticRequestIntegrity({
   const timestamp = headers.get('timestamp')?.trim();
 
   if (secrets.length === 0) {
-    return { error: 'Missing signing secret', ok: false };
+    return {
+      error: AGENTIC_REQUEST_INTEGRITY_ERRORS.MISSING_SIGNING_SECRET,
+      ok: false,
+    };
   }
   if (!requestId) {
-    return { error: 'Missing request id', ok: false };
+    return {
+      error: AGENTIC_REQUEST_INTEGRITY_ERRORS.MISSING_REQUEST_ID,
+      ok: false,
+    };
   }
   if (requestId.length > MAX_REQUEST_ID_LENGTH) {
-    return { error: 'Request ID too long', ok: false };
+    return {
+      error: AGENTIC_REQUEST_INTEGRITY_ERRORS.REQUEST_ID_TOO_LONG,
+      ok: false,
+    };
   }
   if (!REQUEST_ID_PATTERN.test(requestId)) {
-    return { error: 'Invalid request ID format', ok: false };
+    return {
+      error: AGENTIC_REQUEST_INTEGRITY_ERRORS.INVALID_REQUEST_ID_FORMAT,
+      ok: false,
+    };
   }
   if (!apiVersion) {
-    return { error: 'Missing api version', ok: false };
+    return {
+      error: AGENTIC_REQUEST_INTEGRITY_ERRORS.MISSING_API_VERSION,
+      ok: false,
+    };
   }
   if (
     !SUPPORTED_AGENTIC_API_VERSIONS.includes(apiVersion as AgenticApiVersion)
   ) {
-    return { error: 'Unsupported api version', ok: false };
+    return {
+      error: AGENTIC_REQUEST_INTEGRITY_ERRORS.UNSUPPORTED_API_VERSION,
+      ok: false,
+    };
   }
   if (!signature) {
-    return { error: 'Missing signature', ok: false };
+    return {
+      error: AGENTIC_REQUEST_INTEGRITY_ERRORS.MISSING_SIGNATURE,
+      ok: false,
+    };
   }
   if (!timestamp) {
-    return { error: 'Missing timestamp', ok: false };
+    return {
+      error: AGENTIC_REQUEST_INTEGRITY_ERRORS.MISSING_TIMESTAMP,
+      ok: false,
+    };
   }
 
   const timestampMs = Date.parse(timestamp);
   if (!Number.isFinite(timestampMs)) {
-    return { error: 'Invalid timestamp', ok: false };
+    return {
+      error: AGENTIC_REQUEST_INTEGRITY_ERRORS.INVALID_TIMESTAMP,
+      ok: false,
+    };
   }
   if (Math.abs(now.getTime() - timestampMs) > MAX_TIMESTAMP_SKEW_MS) {
-    return { error: 'Stale timestamp', ok: false };
+    return {
+      error: AGENTIC_REQUEST_INTEGRITY_ERRORS.STALE_TIMESTAMP,
+      ok: false,
+    };
   }
 
   const payload = canonicalRequestSignaturePayload({
@@ -92,7 +135,10 @@ export function verifyAgenticRequestIntegrity({
   }
 
   if (!hasValidSignature) {
-    return { error: 'Invalid signature', ok: false };
+    return {
+      error: AGENTIC_REQUEST_INTEGRITY_ERRORS.INVALID_SIGNATURE,
+      ok: false,
+    };
   }
 
   return {

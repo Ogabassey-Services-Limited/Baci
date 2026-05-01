@@ -1,8 +1,17 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import {
+  AGENTIC_REQUEST_INTEGRITY_ERRORS,
   getAgenticSigningSecrets,
   verifyAgenticRequestIntegrity,
 } from '@/lib/agentic/request-integrity';
+
+const BAD_INTEGRITY_REQUEST_ERRORS: ReadonlySet<string> = new Set([
+  AGENTIC_REQUEST_INTEGRITY_ERRORS.INVALID_REQUEST_ID_FORMAT,
+  AGENTIC_REQUEST_INTEGRITY_ERRORS.INVALID_TIMESTAMP,
+  AGENTIC_REQUEST_INTEGRITY_ERRORS.REQUEST_ID_TOO_LONG,
+  AGENTIC_REQUEST_INTEGRITY_ERRORS.STALE_TIMESTAMP,
+  AGENTIC_REQUEST_INTEGRITY_ERRORS.UNSUPPORTED_API_VERSION,
+]);
 
 export type AgenticMutationRequest =
   | {
@@ -74,13 +83,16 @@ export async function readAgenticMutationRequest({
 }
 
 function buildIntegrityErrorResponse(error: string) {
-  if (error === 'Missing signing secret') {
+  if (error === AGENTIC_REQUEST_INTEGRITY_ERRORS.MISSING_SIGNING_SECRET) {
     return NextResponse.json(
       { error: 'Agentic request signing is not configured' },
       { status: 503 }
     );
   }
 
-  const status = error.startsWith('Missing') ? 400 : 401;
+  const status =
+    error.startsWith('Missing') || BAD_INTEGRITY_REQUEST_ERRORS.has(error)
+      ? 400
+      : 401;
   return NextResponse.json({ error }, { status });
 }

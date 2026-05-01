@@ -35,6 +35,14 @@ vi.mock('@/lib/agentic/merchant-context', () => ({
 }));
 
 vi.mock('@/lib/agentic/request-integrity', () => ({
+  AGENTIC_REQUEST_INTEGRITY_ERRORS: {
+    INVALID_REQUEST_ID_FORMAT: 'Invalid request ID format',
+    INVALID_TIMESTAMP: 'Invalid timestamp',
+    MISSING_SIGNING_SECRET: 'Missing signing secret',
+    REQUEST_ID_TOO_LONG: 'Request ID too long',
+    STALE_TIMESTAMP: 'Stale timestamp',
+    UNSUPPORTED_API_VERSION: 'Unsupported api version',
+  },
   getAgenticSigningSecrets: vi.fn(() => ['signing-secret']),
   verifyAgenticRequestIntegrity: vi.fn(() => ({
     apiVersion: '2026-04-30',

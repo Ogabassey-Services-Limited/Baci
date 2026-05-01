@@ -97,4 +97,34 @@ describe('GET /api/agentic/checkout_sessions/[id]', () => {
     expect(createServiceClient).not.toHaveBeenCalled();
     expect(calculateCheckoutSession).not.toHaveBeenCalled();
   });
+
+  it('returns 500 when checkout calculation fails', async () => {
+    mockCheckoutSessionRead({
+      session_id: 'agentic_session_1',
+      status: 'processing',
+      cart_items: [{ id: 'product-1', quantity: 1 }],
+      currency: 'NGN',
+      shipping_method: 'pickup_store_1',
+      shipping_address: { city: 'Lagos' },
+      order_id: null,
+      payment_reference: null,
+      virtual_account_number: null,
+      metadata: null,
+    });
+    vi.mocked(calculateCheckoutSession).mockRejectedValue(
+      new Error('calculation failed')
+    );
+
+    const request = new NextRequest(
+      'http://localhost/api/agentic/checkout_sessions/agentic_session_1'
+    );
+
+    const { GET } = await import('./route');
+    const response = await GET(request, routeParams());
+    const body = await response.json();
+
+    expect(calculateCheckoutSession).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: 'Checkout calculation failed' });
+  });
 });

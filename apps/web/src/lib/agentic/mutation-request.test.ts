@@ -4,6 +4,14 @@ import { readAgenticMutationRequest } from '@/lib/agentic/mutation-request';
 import { verifyAgenticRequestIntegrity } from '@/lib/agentic/request-integrity';
 
 vi.mock('@/lib/agentic/request-integrity', () => ({
+  AGENTIC_REQUEST_INTEGRITY_ERRORS: {
+    INVALID_REQUEST_ID_FORMAT: 'Invalid request ID format',
+    INVALID_TIMESTAMP: 'Invalid timestamp',
+    MISSING_SIGNING_SECRET: 'Missing signing secret',
+    REQUEST_ID_TOO_LONG: 'Request ID too long',
+    STALE_TIMESTAMP: 'Stale timestamp',
+    UNSUPPORTED_API_VERSION: 'Unsupported api version',
+  },
   getAgenticSigningSecrets: vi.fn(() => ['signing-secret']),
   verifyAgenticRequestIntegrity: vi.fn(),
 }));
@@ -118,6 +126,25 @@ describe('readAgenticMutationRequest', () => {
     expect(invalidSignature.ok).toBe(false);
     if (!invalidSignature.ok) {
       expect(invalidSignature.response.status).toBe(401);
+    }
+  });
+
+  it('returns 400 for malformed signed request metadata', async () => {
+    vi.mocked(verifyAgenticRequestIntegrity).mockReturnValueOnce({
+      error: 'Invalid request ID format',
+      ok: false,
+    });
+
+    const result = await readAgenticMutationRequest({
+      request: request('{}'),
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.response.status).toBe(400);
+      await expect(result.response.json()).resolves.toEqual({
+        error: 'Invalid request ID format',
+      });
     }
   });
 
