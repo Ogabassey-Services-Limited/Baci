@@ -34,6 +34,35 @@ describe('isAgenticDvaSessionMetadata', () => {
         accountNumber: '9930000902',
         metadata: {
           agentic: {
+            dva_account: '9930000902',
+            payment_state: 'payment_pending',
+          },
+        },
+      })
+    ).toBe(false);
+    expect(
+      isAgenticDvaSessionMetadata({
+        accountNumber: '9930000902',
+        metadata: { agentic: {} },
+      })
+    ).toBe(false);
+    expect(
+      isAgenticDvaSessionMetadata({
+        accountNumber: '9930000902',
+        metadata: [],
+      })
+    ).toBe(false);
+    expect(
+      isAgenticDvaSessionMetadata({
+        accountNumber: '9930000902',
+        metadata: 'not-metadata',
+      })
+    ).toBe(false);
+    expect(
+      isAgenticDvaSessionMetadata({
+        accountNumber: '9930000902',
+        metadata: {
+          agentic: {
             dva_account: { account_number: '1111111111' },
             payment_state: 'payment_pending',
           },

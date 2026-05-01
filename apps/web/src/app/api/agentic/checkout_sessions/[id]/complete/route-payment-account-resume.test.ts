@@ -14,7 +14,7 @@ const mockVerifyAgenticApiKey = vi.fn(() => true);
 const mockResolveAgenticMerchantContext = vi.fn(() =>
   Promise.resolve({
     id: 'merchant-1',
-    paystack_subaccount_code: 'ACCT_test123',
+    paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
     slug: 'ogabassey',
   })
 );
@@ -146,6 +146,7 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete payment-account resu
 
     expect(response.status).toBe(200);
     expect(calculateCheckoutSession).not.toHaveBeenCalled();
+    // Resume uses the stored DVA snapshot; the subaccount is only needed for fresh account creation.
     expect(createDedicatedVirtualAccount).not.toHaveBeenCalled();
     expect(createAgenticCheckoutOrder).toHaveBeenCalledOnce();
     const writtenPaymentStates = updateSpy.mock.calls.map(

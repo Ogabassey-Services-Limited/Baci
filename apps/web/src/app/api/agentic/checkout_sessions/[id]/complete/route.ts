@@ -160,6 +160,7 @@ export async function POST(
 
     const paymentState = getAgenticPaymentState(session.metadata);
     const existingPaymentState =
+      paymentState === 'claiming_payment' ||
       paymentState === 'payment_account_ready' ||
       paymentState === 'order_finalizing'
         ? null

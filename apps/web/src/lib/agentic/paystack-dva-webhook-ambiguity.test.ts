@@ -16,8 +16,7 @@ describe('agentic Paystack DVA webhook ambiguity handling', () => {
     };
     existingTransactionChain.eq.mockReturnValue(existingTransactionChain);
     const readChain = {
-      in: vi.fn(),
-      limit: vi.fn().mockResolvedValue({
+      in: vi.fn().mockResolvedValue({
         data: [
           {
             currency: 'NGN',
@@ -42,7 +41,6 @@ describe('agentic Paystack DVA webhook ambiguity handling', () => {
       }),
       or: vi.fn(),
     };
-    readChain.in.mockReturnValue(readChain);
     readChain.or.mockReturnValue(readChain);
     const insertTransaction = vi.fn();
     const from = vi.fn((table: string) =>

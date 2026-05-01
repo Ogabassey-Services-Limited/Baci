@@ -52,4 +52,34 @@ describe('buildCheckoutSessionStateResponse', () => {
       status: 'ready_for_payment',
     });
   });
+
+  it('normalizes sparse edge-case state responses', () => {
+    const response = buildCheckoutSessionStateResponse({
+      currency: 'NgN',
+      fulfillmentOptionId: undefined,
+      fulfillmentOptions: [],
+      lineItems: [],
+      messages: [],
+      policyBaseUrl: 'https://shop.example',
+      sessionId: 'agentic_session_empty',
+      shippingAddress: null,
+      status: 'not_ready_for_payment',
+      totals: [],
+    });
+
+    expect(response).toMatchObject({
+      currency: 'ngn',
+      fulfillment_option_id: null,
+      fulfillment_options: [],
+      id: 'agentic_session_empty',
+      line_items: [],
+      shipping_address: null,
+      status: 'not_ready_for_payment',
+      totals: [],
+    });
+    expect(response.links).toEqual([
+      { type: 'terms_of_use', url: 'https://shop.example/terms' },
+      { type: 'privacy_policy', url: 'https://shop.example/privacy' },
+    ]);
+  });
 });

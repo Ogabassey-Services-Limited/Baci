@@ -165,7 +165,7 @@ export async function prepareAgenticCheckoutPayment({
     await releaseClaim({ payment_error: 'claimed_session_total_invalid' });
     logger.error({
       message: 'Claimed checkout total is invalid',
-      error,
+      error: sanitizeForLog(error),
       sessionId: sanitizeForLog(sessionId),
     });
     return {

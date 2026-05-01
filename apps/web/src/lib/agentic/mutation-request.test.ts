@@ -16,11 +16,17 @@ vi.mock('@/lib/agentic/request-integrity', () => ({
   verifyAgenticRequestIntegrity: vi.fn(),
 }));
 
-function request(body: string, headers: Record<string, string> = {}) {
+function request(
+  body: string,
+  {
+    headers = {},
+    includeIdempotency = true,
+  }: { headers?: Record<string, string>; includeIdempotency?: boolean } = {}
+) {
   return new NextRequest('http://localhost/api/agentic/checkout_sessions', {
     body,
     headers: {
-      'idempotency-key': 'idem-1',
+      ...(includeIdempotency ? { 'idempotency-key': 'idem-1' } : {}),
       ...headers,
     },
     method: 'POST',
@@ -56,7 +62,9 @@ describe('readAgenticMutationRequest', () => {
 
   it('trims the idempotency key before reservation use', async () => {
     const result = await readAgenticMutationRequest({
-      request: request('{"items":[]}', { 'idempotency-key': '  idem-1  ' }),
+      request: request('{"items":[]}', {
+        headers: { 'idempotency-key': '  idem-1  ' },
+      }),
     });
 
     expect(result).toMatchObject({
@@ -73,7 +81,7 @@ describe('readAgenticMutationRequest', () => {
 
   it('rejects missing required idempotency keys', async () => {
     const result = await readAgenticMutationRequest({
-      request: request('{}', { 'idempotency-key': '' }),
+      request: request('{}', { includeIdempotency: false }),
     });
 
     expect(result.ok).toBe(false);
@@ -87,7 +95,7 @@ describe('readAgenticMutationRequest', () => {
 
   it('rejects whitespace-only required idempotency keys', async () => {
     const result = await readAgenticMutationRequest({
-      request: request('{}', { 'idempotency-key': '   ' }),
+      request: request('{}', { headers: { 'idempotency-key': '   ' } }),
     });
 
     expect(result.ok).toBe(false);

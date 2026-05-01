@@ -187,7 +187,6 @@ export function sendAgenticOrderCreatedWebhook({
 export async function markAgenticCheckoutOrderCanceled({
   merchantId,
   orderId,
-  sessionId,
   supabase,
 }: {
   merchantId: string;
@@ -200,10 +199,11 @@ export async function markAgenticCheckoutOrderCanceled({
     .update({
       payment_status: 'cancelled',
       shipping_status: 'cancelled',
-      notes: `Agentic checkout session ${sessionId} failed before payment state finalization.`,
     })
     .eq('id', orderId)
     .eq('merchant_id', merchantId)
+    .in('payment_status', ['pending', 'unpaid'])
+    .in('shipping_status', ['pending'])
     .select('id')
     .maybeSingle();
 

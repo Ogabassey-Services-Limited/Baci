@@ -117,6 +117,25 @@ describe('verifyCheckoutCompletionAuthorization', () => {
     ).toEqual({ ok: false, code: 'CONFIRMATION_MISMATCH' });
   });
 
+  it('rejects tampered human confirmation signatures', () => {
+    const confirmedAt = '2026-04-28T11:59:30.000Z';
+    const authorization = {
+      ...humanAuthorization({ amount: 2500, confirmedAt }),
+      signature: 'a'.repeat(64),
+    };
+
+    expect(
+      verifyCheckoutCompletionAuthorization({
+        amount: 2500,
+        authorization,
+        currency: 'NGN',
+        now,
+        secrets: [secret],
+        sessionId: 'session-1',
+      })
+    ).toEqual({ ok: false, code: 'AUTHORIZATION_INVALID' });
+  });
+
   it('compares authorization amounts using normalized minor units', () => {
     const confirmedAt = '2026-04-28T11:59:30.000Z';
 
@@ -207,6 +226,27 @@ describe('verifyCheckoutCompletionAuthorization', () => {
         sessionId: 'session-1',
       })
     ).toEqual({ ok: true, mode: 'payment_mandate' });
+  });
+
+  it('rejects tampered payment mandate signatures', () => {
+    const authorization = {
+      ...mandateAuthorization({
+        expiresAt: '2026-04-28T13:00:00.000Z',
+        maxAmount: 5000,
+      }),
+      signature: 'a'.repeat(64),
+    };
+
+    expect(
+      verifyCheckoutCompletionAuthorization({
+        amount: 2500,
+        authorization,
+        currency: 'NGN',
+        now,
+        secrets: [secret],
+        sessionId: 'session-1',
+      })
+    ).toEqual({ ok: false, code: 'AUTHORIZATION_INVALID' });
   });
 
   it('rejects future-dated human confirmation artifacts', () => {

@@ -82,7 +82,7 @@ function prepareInput(overrides: Record<string, unknown> = {}) {
     },
     merchantId: 'merchant-1',
     metadata: { agentic: { line_items: [] } },
-    paystackSubaccountCode: 'ACCT_test123',
+    paystackSubaccountCode: 'ACCT_TESTMOCK1234567',
     session,
     sessionCalc: baseCalculation,
     sessionId: 'agentic_session_1',

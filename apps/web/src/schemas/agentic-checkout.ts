@@ -36,7 +36,7 @@ export const checkoutSessionSchema = z.object({
 
 export const agenticCheckoutUpdateSchema = z
   .object({
-    items: z.array(agenticCheckoutItemSchema).min(1).optional(),
+    items: agenticCheckoutItemsSchema.optional(),
     shipping_address: agenticFulfillmentAddressSchema.nullable().optional(),
     fulfillment_option_id: z.string().trim().min(1).nullable().optional(),
   })

@@ -25,7 +25,7 @@ beforeEach(() => {
 
   mockGetMerchantByIdentifier.mockResolvedValue({
     id: 'merchant-1',
-    paystack_subaccount_code: 'ACCT_test123',
+    paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
     slug: 'ogabassey',
     business_name: 'Ogabassey',
     custom_domain: 'ogabassey.com',
@@ -80,7 +80,7 @@ describe('GET /agent-commerce.json', () => {
       if (identifier === 'ogabassey.com') {
         return Promise.resolve({
           id: 'merchant-1',
-          paystack_subaccount_code: 'ACCT_test123',
+          paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
           slug: 'ogabassey',
           business_name: 'Ogabassey',
           custom_domain: 'ogabassey.com',
@@ -119,7 +119,7 @@ describe('GET /agent-commerce.json', () => {
       if (identifier === 'www.ogabassey.com') {
         return Promise.resolve({
           id: 'merchant-1',
-          paystack_subaccount_code: 'ACCT_test123',
+          paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
           slug: 'ogabassey',
           business_name: 'Ogabassey',
           custom_domain: 'www.ogabassey.com',

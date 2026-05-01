@@ -69,7 +69,7 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete database errors', ()
     vi.clearAllMocks();
     mockResolveAgenticMerchantContext.mockResolvedValue({
       id: 'merchant-1',
-      paystack_subaccount_code: 'ACCT_test123',
+      paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
       slug: 'ogabassey',
     });
     vi.mocked(reserveAgenticRequestId).mockResolvedValue({ ok: true });

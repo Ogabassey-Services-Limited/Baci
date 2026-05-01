@@ -49,7 +49,7 @@ describe('GET /agent-commerce.json checkout capabilities', () => {
       business_name: 'Another Store',
       custom_domain: 'another.example',
       id: 'merchant-2',
-      paystack_subaccount_code: 'ACCT_test123',
+      paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
       slug: 'another-store',
     });
 
@@ -77,7 +77,7 @@ describe('GET /agent-commerce.json checkout capabilities', () => {
       business_name: 'Another Store',
       custom_domain: 'another.example',
       id: 'merchant-2',
-      paystack_subaccount_code: 'ACCT_test123',
+      paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
       slug: 'another-store',
     });
 
@@ -154,7 +154,7 @@ describe('GET /agent-commerce.json checkout capabilities', () => {
       business_name: 'Another Store',
       custom_domain: 'another.example',
       id: 'merchant-2',
-      paystack_subaccount_code: 'ACCT_test123',
+      paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
       slug: 'another-store',
     });
 

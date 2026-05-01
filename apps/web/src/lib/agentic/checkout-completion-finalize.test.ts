@@ -257,6 +257,61 @@ describe('finalizeAgenticCheckoutPayment', () => {
     expect(sendAgenticOrderCreatedWebhook).not.toHaveBeenCalled();
   });
 
+  it('preserves the claim when order cancellation fails after session finalization failure', async () => {
+    const claimChain = createUpdateChain({ session_id: 'agentic_session_1' });
+    const finalChain = createUpdateChain(null, { message: 'update failed' });
+    const releaseChain = createUpdateChain({ session_id: 'agentic_session_1' });
+    const supabase = createSupabaseWithUpdateChains([
+      claimChain,
+      finalChain,
+      releaseChain,
+    ]);
+    vi.mocked(createAgenticCheckoutOrder).mockResolvedValue({
+      data: { order: { id: 'order-1' } },
+      error: undefined,
+      ok: true,
+      orderId: 'order-1',
+      status: 201,
+      statusText: 'Created',
+    });
+    vi.mocked(markAgenticCheckoutOrderCanceled).mockResolvedValueOnce({
+      error: {
+        code: 'TEST_ERROR',
+        details: '',
+        hint: '',
+        message: 'cancellation failed',
+        name: 'PostgrestError',
+        toJSON: () => ({
+          code: 'TEST_ERROR',
+          details: '',
+          hint: '',
+          message: 'cancellation failed',
+          name: 'PostgrestError',
+        }),
+      },
+      updated: false,
+    });
+
+    const response = await finalizeAgenticCheckoutPayment(
+      finalizeInput(supabase)
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: 'Database error' });
+    expect(markAgenticCheckoutOrderCanceled).toHaveBeenCalled();
+    expect(releaseChain.contains).not.toHaveBeenCalled();
+    expect(storeAgenticIdempotencyResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: 'idem-1',
+        response: { error: 'Database error' },
+        route: 'checkout_sessions.complete',
+        status: 500,
+      })
+    );
+    expect(sendAgenticOrderCreatedWebhook).not.toHaveBeenCalled();
+  });
+
   it('guards final order persistence with an order_id null claim', async () => {
     const claimChain = createUpdateChain({ session_id: 'agentic_session_1' });
     const finalChain = createUpdateChain({ session_id: 'agentic_session_1' });

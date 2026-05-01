@@ -124,7 +124,7 @@ export async function resolveCheckoutCompletionSessionState({
   } catch (error) {
     logger.error({
       message: 'Agentic checkout calculation failed',
-      error,
+      error: sanitizeForLog(error),
       sessionId,
     });
     return {
@@ -154,9 +154,9 @@ export async function resolveCheckoutCompletionSessionState({
   } catch (error) {
     logger.error({
       message: 'Agentic checkout total calculation failed',
-      error,
+      error: sanitizeForLog(error),
       sessionId,
-      totals: sessionCalc.totals,
+      totalsPresent: sessionCalc.totals.length > 0,
     });
     return {
       body: { error: 'Could not calculate total' },

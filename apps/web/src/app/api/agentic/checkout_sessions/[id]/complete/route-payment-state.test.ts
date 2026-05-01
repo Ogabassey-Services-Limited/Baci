@@ -14,7 +14,7 @@ const mockVerifyAgenticApiKey = vi.fn(() => true);
 const mockResolveAgenticMerchantContext = vi.fn(() =>
   Promise.resolve({
     id: 'merchant-1',
-    paystack_subaccount_code: 'ACCT_test123',
+    paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
     slug: 'ogabassey',
   })
 );
@@ -99,7 +99,7 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete payment state', () =
     mockVerifyAgenticApiKey.mockReturnValue(true);
     mockResolveAgenticMerchantContext.mockResolvedValue({
       id: 'merchant-1',
-      paystack_subaccount_code: 'ACCT_test123',
+      paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
       slug: 'ogabassey',
     });
     vi.mocked(reserveAgenticIdempotencyKey).mockResolvedValue({

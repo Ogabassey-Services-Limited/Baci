@@ -10,7 +10,6 @@ import { sanitizeForLog } from '@/lib/sanitize-core';
 
 export function buildOrderFinalizationClaim({
   idempotencyKey,
-  requestId,
   sessionId,
 }: {
   idempotencyKey: string;
@@ -22,7 +21,6 @@ export function buildOrderFinalizationClaim({
       JSON.stringify({
         session_id: sessionId,
         idempotency_key: idempotencyKey,
-        request_id: requestId,
       })
     )
     .digest('hex');

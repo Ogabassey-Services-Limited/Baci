@@ -42,7 +42,7 @@ function createUpdateChain(
 }
 
 describe('agentic checkout order finalization claim', () => {
-  it('builds a deterministic claim id from request identifiers', () => {
+  it('builds a deterministic claim id from retry-stable identifiers', () => {
     expect(
       buildOrderFinalizationClaim({
         idempotencyKey: 'idem-1',
@@ -50,7 +50,16 @@ describe('agentic checkout order finalization claim', () => {
         sessionId: 'agentic_session_1',
       })
     ).toBe(
-      'agentic_order_09f22d18903e07480c6b63d1a4209fcdb0e324d93eb208db54c902c0a64df6aa'
+      'agentic_order_e403dbfb1fb1cf57ecde53f42ed6c1dfdb84955aaf8db72c0f06ed1b972fdafa'
+    );
+    expect(
+      buildOrderFinalizationClaim({
+        idempotencyKey: 'idem-1',
+        requestId: 'req_456',
+        sessionId: 'agentic_session_1',
+      })
+    ).toBe(
+      'agentic_order_e403dbfb1fb1cf57ecde53f42ed6c1dfdb84955aaf8db72c0f06ed1b972fdafa'
     );
   });
 

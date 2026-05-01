@@ -77,6 +77,12 @@ vi.mock('@/lib/paystack', () => ({
   }),
 }));
 
+const mockCreateDedicatedVirtualAccount = vi.fn();
+vi.mock('@/lib/agentic/paystack', () => ({
+  createDedicatedVirtualAccount: (...args: unknown[]) =>
+    mockCreateDedicatedVirtualAccount(...args),
+}));
+
 // Supabase mocks
 const MERCHANT_ID = '6b5cb8a4-5575-456c-b936-8cdfae30db74';
 const ORDER_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
@@ -187,7 +193,7 @@ function setupDefaults() {
       id: MERCHANT_ID,
       business_name: 'Test Store',
       slug: 'test-store',
-      paystack_subaccount_code: 'ACCT_test123',
+      paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
     },
     error: null,
   };
@@ -200,6 +206,11 @@ describe('POST /api/payments/initialize', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubEnv('JUICYWAY_SECRET_KEY', 'test-juicyway-key');
+    mockCreateDedicatedVirtualAccount.mockResolvedValue({
+      account_name: 'Test Store / John Doe',
+      account_number: '1234567890',
+      bank_name: 'Wema Bank',
+    });
     setupDefaults();
   });
 
@@ -333,6 +344,30 @@ describe('POST /api/payments/initialize', () => {
       const json = await res.json();
       expect(res.status).toBe(400);
       expect(json.code).toBe('GATEWAY_NOT_CONFIGURED');
+    });
+
+    it('creates dedicated virtual accounts with the merchant subaccount', async () => {
+      const res = await POST(
+        makeRequest({ ...validBody, gateway: 'paystack', payment_type: 'dva' })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(json.dva).toEqual({
+        account_name: 'Test Store / John Doe',
+        account_number: '1234567890',
+        bank_name: 'Wema Bank',
+      });
+      expect(mockCreateDedicatedVirtualAccount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: 'customer@example.com',
+          first_name: 'John',
+          last_name: 'Doe',
+          phone: '08012345678',
+        }),
+        { subaccount: 'ACCT_TESTMOCK1234567' }
+      );
     });
   });
 

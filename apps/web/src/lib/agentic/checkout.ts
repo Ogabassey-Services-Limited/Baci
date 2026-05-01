@@ -142,7 +142,7 @@ export async function calculateCheckoutSession(
   let itemsBaseAmount = 0;
   let _shippingWeightTotal = 0; // In kg presumably
 
-  for (const requestedItem of items) {
+  for (const [index, requestedItem] of items.entries()) {
     const product = foundProducts.find((p) => p.id === requestedItem.id);
     const variant = foundVariants.find((v) => v.id === requestedItem.id);
 
@@ -159,7 +159,18 @@ export async function calculateCheckoutSession(
       productId = variant.product_id;
       variantId = variant.id;
       variantAttributes = variant.attributes;
-      price = variant.price_override ?? variant.product?.price ?? 0;
+      const variantPrice = variant.price_override ?? variant.product?.price;
+      if (variantPrice == null || !Number.isFinite(Number(variantPrice))) {
+        messages.push({
+          type: 'error',
+          code: 'missing_price',
+          path: `$.items[${index}]`,
+          content: `Variant ${variant.id} is missing a valid price.`,
+          content_type: 'plain',
+        });
+        continue;
+      }
+      price = Number(variantPrice);
       title = `${variant.product?.name || 'Item'} - ${Object.values(variant.attributes || {}).join('/')}`;
       stock = coerceStorefrontManageStock(variant.product?.manage_stock)
         ? (variant.stock_quantity ?? 0)

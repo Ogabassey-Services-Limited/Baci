@@ -13,7 +13,7 @@ const mockVerifyAgenticApiKey = vi.fn(() => true);
 const mockResolveAgenticMerchantContext = vi.fn(() =>
   Promise.resolve({
     id: 'merchant-1',
-    paystack_subaccount_code: 'ACCT_test123',
+    paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
     slug: 'ogabassey',
   })
 );
@@ -78,7 +78,7 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete', () => {
     mockVerifyAgenticApiKey.mockReturnValue(true);
     mockResolveAgenticMerchantContext.mockResolvedValue({
       id: 'merchant-1',
-      paystack_subaccount_code: 'ACCT_test123',
+      paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
       slug: 'ogabassey',
     });
     vi.mocked(reserveAgenticIdempotencyKey).mockResolvedValue({
@@ -128,7 +128,7 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete', () => {
     );
     expect(createDedicatedVirtualAccount).toHaveBeenCalledWith(
       expect.any(Object),
-      { subaccount: 'ACCT_test123' }
+      { subaccount: 'ACCT_TESTMOCK1234567' }
     );
     expect(readChain.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
     expect(updateSpy).toHaveBeenCalledWith(

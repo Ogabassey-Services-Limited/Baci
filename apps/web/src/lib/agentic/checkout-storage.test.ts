@@ -61,6 +61,9 @@ describe('agentic checkout storage', () => {
         hasLineItems: true,
       })
     ).toBe('ready_for_payment');
+    expect(mapCheckoutSessionStatus({ status: 'processing' })).toBe(
+      'not_ready_for_payment'
+    );
     expect(mapCheckoutSessionStatus({ status: 'abandoned' })).toBe('canceled');
     expect(mapCheckoutSessionStatus({ status: 'failed' })).toBe('canceled');
     expect(mapCheckoutSessionStatus({ status: 'completed' })).toBe('completed');
@@ -108,5 +111,30 @@ describe('agentic checkout storage', () => {
     });
 
     expect(payload.subtotal).toBe(2000);
+  });
+
+  it('preserves an explicit zero subtotal instead of falling back', () => {
+    const payload = buildCheckoutSessionInsert({
+      sessionId: 'agentic_session_1',
+      merchantId: 'merchant-1',
+      items: [{ id: 'product-1', quantity: 1 }],
+      currency: 'NGN',
+      fulfillmentAddress: null,
+      fulfillmentOptionId: null,
+      lineItems: [],
+      fulfillmentOptions: [],
+      totals: [
+        { type: 'subtotal', display_text: 'Subtotal', amount: 0 },
+        {
+          type: 'items_base_amount',
+          display_text: 'Items Subtotal',
+          amount: 2000,
+        },
+        { type: 'total', display_text: 'Total', amount: 0 },
+      ],
+      messages: [],
+    });
+
+    expect(payload.subtotal).toBe(0);
   });
 });

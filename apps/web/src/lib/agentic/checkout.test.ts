@@ -113,6 +113,40 @@ describe('calculateCheckoutSession', () => {
     });
   });
 
+  it('returns an error message instead of adding unpriced variants', async () => {
+    const productQuery = createQueryChain([]);
+    const variantQuery = createQueryChain([
+      {
+        attributes: { color: 'Black' },
+        id: 'variant-1',
+        merchant_id: 'merchant-1',
+        price_override: null,
+        product: { manage_stock: false, name: 'Phone', price: null },
+        product_id: 'product-1',
+        stock_quantity: 0,
+      },
+    ]);
+    const supabase = createCheckoutSupabase(productQuery, variantQuery);
+
+    const result = await calculateCheckoutSession(
+      supabase as never,
+      [{ id: 'variant-1', quantity: 2 }],
+      null,
+      'NGN',
+      'merchant-1'
+    );
+
+    expect(result.lineItems).toEqual([]);
+    expect(result.messages).toContainEqual(
+      expect.objectContaining({
+        code: 'missing_price',
+        content: expect.stringContaining('variant-1'),
+        path: '$.items[0]',
+        type: 'error',
+      })
+    );
+  });
+
   it('fails when product lookup returns a database error', async () => {
     const productQuery = createQueryChain([], { message: 'query failed' });
     const variantQuery = createQueryChain([]);

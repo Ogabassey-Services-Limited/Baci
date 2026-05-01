@@ -43,6 +43,41 @@ interface PaymentTransactionRecord {
   metadata: Record<string, unknown> | null;
 }
 
+async function reconcileAgenticPaystackDvaSession({
+  metadata,
+  reference,
+  supabase,
+  transaction,
+}: {
+  metadata: Record<string, unknown> | null;
+  reference: string;
+  supabase: SupabaseClient;
+  transaction: { merchant_id: string; order_id?: string | null };
+}) {
+  const agenticSessionPayment = await markAgenticPaystackDvaSessionPaid({
+    gatewayReference: reference,
+    supabase,
+    transaction: {
+      merchant_id: transaction.merchant_id,
+      metadata,
+      order_id: transaction.order_id ?? null,
+    },
+  });
+  if (agenticSessionPayment.ok) {
+    return null;
+  }
+
+  logger.error({
+    message: 'Agentic checkout session reconciliation failed',
+    reference,
+    error: sanitizeForLog(agenticSessionPayment.error),
+  });
+  return NextResponse.json(
+    { error: 'Agentic checkout session reconciliation failed' },
+    { status: 500 }
+  );
+}
+
 /**
  * Detect which payment gateway sent the webhook
  */
@@ -397,7 +432,7 @@ export async function POST(request: NextRequest) {
 
     const verifiedAmount = getVerifiedAmount(gateway, gatewayResponse);
 
-    if (gateway === 'paystack') {
+    if (gateway === 'paystack' && verifiedAmount != null) {
       const agenticDvaPayment = await confirmAgenticPaystackDvaPayment({
         accountNumber: getPaystackDvaReceiverAccountNumber(body),
         gatewayReference: reference,
@@ -1028,25 +1063,17 @@ export async function POST(request: NextRequest) {
 
       logger.info({ message: 'Transaction already processed', reference });
       if (gateway === 'paystack') {
-        const agenticSessionPayment = await markAgenticPaystackDvaSessionPaid({
-          gatewayReference: reference,
+        const reconciliationFailure = await reconcileAgenticPaystackDvaSession({
+          metadata,
+          reference,
           supabase,
           transaction: {
             merchant_id: transaction.merchant_id,
-            metadata,
             order_id: transaction.order_id,
           },
         });
-        if (!agenticSessionPayment.ok) {
-          logger.error({
-            message: 'Agentic checkout session reconciliation failed',
-            reference,
-            error: sanitizeForLog(agenticSessionPayment.error),
-          });
-          return NextResponse.json(
-            { error: 'Agentic checkout session reconciliation failed' },
-            { status: 500 }
-          );
+        if (reconciliationFailure) {
+          return reconciliationFailure;
         }
       }
       return NextResponse.json({ message: 'Already processed' });
@@ -1699,25 +1726,17 @@ export async function POST(request: NextRequest) {
     }
 
     if (gateway === 'paystack') {
-      const agenticSessionPayment = await markAgenticPaystackDvaSessionPaid({
-        gatewayReference: reference,
+      const reconciliationFailure = await reconcileAgenticPaystackDvaSession({
+        metadata,
+        reference,
         supabase,
         transaction: {
           merchant_id: transaction.merchant_id,
-          metadata,
           order_id: transaction.order_id,
         },
       });
-      if (!agenticSessionPayment.ok) {
-        logger.error({
-          message: 'Agentic checkout session reconciliation failed',
-          reference,
-          error: sanitizeForLog(agenticSessionPayment.error),
-        });
-        return NextResponse.json(
-          { error: 'Agentic checkout session reconciliation failed' },
-          { status: 500 }
-        );
+      if (reconciliationFailure) {
+        return reconciliationFailure;
       }
     }
 

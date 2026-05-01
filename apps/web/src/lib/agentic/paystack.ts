@@ -68,7 +68,7 @@ export interface DVAResponse {
   assigned: boolean;
 }
 
-const PAYSTACK_SUBACCOUNT_PATTERN = /^ACCT_[A-Za-z0-9]+$/;
+const PAYSTACK_SUBACCOUNT_PATTERN = /^ACCT_[A-Za-z0-9]{15}$/;
 
 export function isValidPaystackSubaccountCode(
   value: string | null | undefined

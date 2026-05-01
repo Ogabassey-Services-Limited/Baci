@@ -95,7 +95,7 @@ function paymentInput(overrides: Record<string, unknown> = {}) {
     canResumePaymentAccount: false,
     merchantId: 'merchant-1',
     metadata: { agentic: { line_items: [] } },
-    paystackSubaccountCode: 'ACCT_test123',
+    paystackSubaccountCode: 'ACCT_TESTMOCK1234567',
     session,
     sessionCalc,
     sessionId: 'agentic_session_1',
@@ -181,7 +181,7 @@ describe('prepareAgenticCheckoutPayment', () => {
     );
     expect(createAgenticCheckoutPaymentAccount).toHaveBeenCalledWith({
       buyer,
-      paystackSubaccountCode: 'ACCT_test123',
+      paystackSubaccountCode: 'ACCT_TESTMOCK1234567',
     });
   });
 

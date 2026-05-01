@@ -51,10 +51,9 @@ export function getTotalAmount(totals: GPTTotal[]): number {
 }
 
 export function getSubtotalAmount(totals: GPTTotal[]): number {
-  return (
-    getAmountForTotalType(totals, 'subtotal') ||
-    getAmountForTotalType(totals, 'items_base_amount')
-  );
+  return getAmountForTotalType(totals, 'subtotal', {
+    fallbackTo: 'items_base_amount',
+  });
 }
 
 export function getFulfillmentAmount(totals: GPTTotal[]): number {
@@ -167,9 +166,16 @@ function getInternalCheckoutStatus({
 
 function getAmountForTotalType(
   totals: GPTTotal[],
-  type: GPTTotal['type']
+  type: GPTTotal['type'],
+  options: { fallbackTo?: GPTTotal['type'] } = {}
 ): number {
-  const amount = totals.find((total) => total.type === type)?.amount;
+  const total = totals.find((candidate) => candidate.type === type);
+  const amount =
+    total?.amount ??
+    (options.fallbackTo
+      ? totals.find((candidate) => candidate.type === options.fallbackTo)
+          ?.amount
+      : undefined);
 
   if (typeof amount === 'number') {
     return amount;

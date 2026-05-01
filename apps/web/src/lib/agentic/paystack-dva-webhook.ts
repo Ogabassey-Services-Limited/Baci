@@ -85,8 +85,7 @@ export async function confirmAgenticPaystackDvaPayment({
     .or(
       `payment_reference.eq.${accountNumber},virtual_account_number.eq.${accountNumber}`
     )
-    .in('status', ['processing', 'completed'])
-    .limit(2);
+    .in('status', ['processing', 'completed']);
   if (sessionError) {
     return {
       body: { error: 'Agentic checkout session lookup failed' },

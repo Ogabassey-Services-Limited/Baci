@@ -34,7 +34,7 @@ describe('createAgenticCheckoutPaymentAccount', () => {
 
     const result = await createAgenticCheckoutPaymentAccount({
       buyer,
-      paystackSubaccountCode: 'ACCT_test123',
+      paystackSubaccountCode: 'ACCT_TESTMOCK1234567',
     });
 
     expect(result).toEqual({ account, ok: true });
@@ -45,7 +45,7 @@ describe('createAgenticCheckoutPaymentAccount', () => {
         last_name: buyer.last_name,
         phone: buyer.phone_number,
       },
-      { subaccount: 'ACCT_test123' }
+      { subaccount: 'ACCT_TESTMOCK1234567' }
     );
   });
 
@@ -55,7 +55,7 @@ describe('createAgenticCheckoutPaymentAccount', () => {
 
     const result = await createAgenticCheckoutPaymentAccount({
       buyer,
-      paystackSubaccountCode: 'ACCT_test123',
+      paystackSubaccountCode: 'ACCT_TESTMOCK1234567',
     });
 
     expect(result).toEqual({
@@ -98,7 +98,7 @@ describe('createAgenticCheckoutPaymentAccount', () => {
 
     const result = await createAgenticCheckoutPaymentAccount({
       buyer,
-      paystackSubaccountCode: 'ACCT_test123',
+      paystackSubaccountCode: 'ACCT_TESTMOCK1234567',
     });
 
     expect(result).toEqual({

@@ -8,7 +8,9 @@ describe('markAgenticCheckoutOrderCanceled', () => {
       .fn()
       .mockResolvedValue({ data: { id: 'order-1' }, error: null });
     const select = vi.fn(() => ({ maybeSingle }));
-    const secondEq = vi.fn(() => ({ select }));
+    const shippingStatusIn = vi.fn(() => ({ select }));
+    const paymentStatusIn = vi.fn(() => ({ in: shippingStatusIn }));
+    const secondEq = vi.fn(() => ({ in: paymentStatusIn }));
     const firstEq = vi.fn(() => ({ eq: secondEq }));
     const update = vi.fn(() => ({ eq: firstEq }));
     const from = vi.fn(() => ({ update }));
@@ -31,13 +33,22 @@ describe('markAgenticCheckoutOrderCanceled', () => {
     );
     expect(firstEq).toHaveBeenCalledWith('id', 'order-1');
     expect(secondEq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
+    expect(paymentStatusIn).toHaveBeenCalledWith('payment_status', [
+      'pending',
+      'unpaid',
+    ]);
+    expect(shippingStatusIn).toHaveBeenCalledWith('shipping_status', [
+      'pending',
+    ]);
     expect(select).toHaveBeenCalledWith('id');
   });
 
   it('reports when canceling an order matched no rows', async () => {
     const maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
     const select = vi.fn(() => ({ maybeSingle }));
-    const secondEq = vi.fn(() => ({ select }));
+    const shippingStatusIn = vi.fn(() => ({ select }));
+    const paymentStatusIn = vi.fn(() => ({ in: shippingStatusIn }));
+    const secondEq = vi.fn(() => ({ in: paymentStatusIn }));
     const firstEq = vi.fn(() => ({ eq: secondEq }));
     const update = vi.fn(() => ({ eq: firstEq }));
     const from = vi.fn(() => ({ update }));
@@ -58,7 +69,9 @@ describe('markAgenticCheckoutOrderCanceled', () => {
       .fn()
       .mockResolvedValue({ data: null, error: cancelError });
     const select = vi.fn(() => ({ maybeSingle }));
-    const secondEq = vi.fn(() => ({ select }));
+    const shippingStatusIn = vi.fn(() => ({ select }));
+    const paymentStatusIn = vi.fn(() => ({ in: shippingStatusIn }));
+    const secondEq = vi.fn(() => ({ in: paymentStatusIn }));
     const firstEq = vi.fn(() => ({ eq: secondEq }));
     const update = vi.fn(() => ({ eq: firstEq }));
     const from = vi.fn(() => ({ update }));

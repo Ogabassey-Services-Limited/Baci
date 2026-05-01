@@ -13,11 +13,9 @@ const pendingAgenticMetadata = {
 
 function createSessionLookup(data: unknown, error: unknown = null) {
   const chain = {
-    in: vi.fn(),
-    limit: vi.fn().mockResolvedValue({ data, error }),
+    in: vi.fn().mockResolvedValue({ data, error }),
     or: vi.fn(),
   };
-  chain.in.mockReturnValue(chain);
   chain.or.mockReturnValue(chain);
   return chain;
 }
@@ -228,7 +226,7 @@ describe('agentic Paystack DVA webhook handling', () => {
       accountNumber: '9930000902',
       gatewayReference: 'paystack-ref-1',
       supabase: { from } as never,
-      verifiedAmount: { amount: 499999.99, currency: 'NGN' },
+      verifiedAmount: { amount: 499999, currency: 'NGN' },
     });
 
     expect(result).toEqual({
