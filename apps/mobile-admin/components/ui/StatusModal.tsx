@@ -66,7 +66,7 @@ export function StatusModal({ status, onClose }: StatusModalProps) {
               backgroundColor:
                 status.type === 'success' ? colors.primary : colors.error,
             },
-            pressed && { opacity: 0.7 }
+            pressed && { opacity: 0.7 },
           ]}
           onPress={onClose}
           accessibilityRole="button"

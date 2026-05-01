@@ -70,7 +70,10 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
           <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
           <Pressable
             onPress={onClose}
-            style={({ pressed }) => [styles.closeButton, pressed && { opacity: 0.7 }]}
+            style={({ pressed }) => [
+              styles.closeButton,
+              pressed && { opacity: 0.7 },
+            ]}
             hitSlop={16}
             accessibilityRole="button"
             accessibilityLabel="Close scanner"
@@ -92,7 +95,11 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
               Camera permission is required to scan barcodes.
             </Text>
             <Pressable
-              style={({ pressed }) => [styles.button, { backgroundColor: colors.primary }, pressed && { opacity: 0.7 }]}
+              style={({ pressed }) => [
+                styles.button,
+                { backgroundColor: colors.primary },
+                pressed && { opacity: 0.7 },
+              ]}
               onPress={requestPermission}
               accessibilityRole="button"
               accessibilityLabel="Grant camera permission"

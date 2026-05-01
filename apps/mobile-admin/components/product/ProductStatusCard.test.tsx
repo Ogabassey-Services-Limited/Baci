@@ -60,7 +60,9 @@ describe('ProductStatusCard', () => {
       />
     );
 
-    expect(screen.getByText('Product is visible to customers.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Product is visible to customers.')
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('checkbox'));
 
@@ -84,7 +86,9 @@ describe('ProductStatusCard', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('Archived')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Reactivate product' }));
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: 'Reactivate product' })
+    );
 
     expect(onValueChange).toHaveBeenCalledWith(true);
   });

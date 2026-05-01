@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { useMerchant } from '@/hooks/useMerchant';
 import type { SelectedParentProduct } from '@/components/orders/new-order.types';
+import { useMerchant } from '@/hooks/useMerchant';
 import {
   type AdminProductVariant,
   buildStructuredVariantPickerItems,

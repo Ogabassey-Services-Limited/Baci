@@ -1,8 +1,8 @@
 import { MOBILE_ADMIN_PRODUCT_COLUMNS as PRODUCT_COLUMNS } from '@baci/shared';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import type { AnalyticsDateRange } from '@/lib/analytics-period';
 import { useMerchant } from '@/hooks/useMerchant';
 import type { Product } from '@/hooks/useProducts';
+import type { AnalyticsDateRange } from '@/lib/analytics-period';
 import { normalizeProductInventory } from '@/lib/product-inventory';
 import { supabase } from '@/lib/supabase';
 
@@ -62,7 +62,9 @@ export function useTopSellingProducts(
 
       if (productsError) throw productsError;
 
-      const productsMap = new Map(productsData?.map((product) => [product.id, product]));
+      const productsMap = new Map(
+        productsData?.map((product) => [product.id, product])
+      );
 
       return rpcData
         .map((item) => {

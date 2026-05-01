@@ -3,20 +3,10 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
-      "@/*": [
-        "./*"
-      ],
-      "@baci/shared": [
-        "../../packages/shared/src/index.ts"
-      ],
-      "@baci/shared/*": [
-        "../../packages/shared/src/*"
-      ]
+      "@/*": ["./*"],
+      "@baci/shared": ["../../packages/shared/src/index.ts"],
+      "@baci/shared/*": ["../../packages/shared/src/*"]
     }
   },
-  "include": [
-    "**/*.ts",
-    "**/*.tsx",
-    "**/*.d.ts"
-  ]
+  "include": ["**/*.ts", "**/*.tsx", "**/*.d.ts"]
 }

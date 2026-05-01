@@ -60,7 +60,7 @@ export function LoginSecondaryActions({
           style={({ pressed }) => [
             loginStyles.socialButton,
             { backgroundColor: colors.card, borderColor: colors.border },
-            pressed && { opacity: 0.7 }
+            pressed && { opacity: 0.7 },
           ]}
           onPress={onGoogleSignIn}
           disabled={isAnyLoading}
@@ -89,7 +89,7 @@ export function LoginSecondaryActions({
             style={({ pressed }) => [
               loginStyles.socialButton,
               { backgroundColor: '#000', borderColor: '#000' },
-              pressed && { opacity: 0.7 }
+              pressed && { opacity: 0.7 },
             ]}
             onPress={onAppleSignIn}
             disabled={isAnyLoading}

@@ -168,7 +168,9 @@ describe('ShipOnCreditDialog', () => {
       />
     );
 
-    expect(screen.getByLabelText('Credit note')).toHaveValue('Trusted customer');
+    expect(screen.getByLabelText('Credit note')).toHaveValue(
+      'Trusted customer'
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Close dialog' }));
 
     expect(onClose).toHaveBeenCalledTimes(1);

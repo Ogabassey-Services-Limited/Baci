@@ -2,13 +2,13 @@ import { SHIPPING_STATUS_ACTIONS, SHIPPING_STATUS_CONFIG } from '@baci/shared';
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppSheetModal } from '@/components/ui/AppSheetModal';
-import { normalizeOrderDetailsShippingStatus } from './order-details.helpers';
 import {
   RADIUS,
   SPACING,
   type ThemeColors,
   TYPOGRAPHY,
 } from '@/constants/theme';
+import { normalizeOrderDetailsShippingStatus } from './order-details.helpers';
 
 type ShippingStatusKey = keyof typeof SHIPPING_STATUS_CONFIG;
 

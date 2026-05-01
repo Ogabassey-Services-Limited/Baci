@@ -123,9 +123,9 @@ export function formatPhoneNumberForCountry(
     country.callingCode.length > 1 &&
     internationalDigits.startsWith(country.callingCode);
   const nationalDigits =
-    ((hasExplicitInternationalPrefix &&
+    (hasExplicitInternationalPrefix &&
       internationalDigits.startsWith(country.callingCode)) ||
-      hasBareInternationalCallingCode)
+    hasBareInternationalCallingCode
       ? internationalDigits.slice(country.callingCode.length)
       : digits.startsWith('0')
         ? digits.slice(1)

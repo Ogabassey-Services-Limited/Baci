@@ -180,7 +180,9 @@ describe('OrderStatusSheet', () => {
       />
     );
 
-    expect(screen.getByRole('button', { name: 'Delivered' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Delivered' })
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Process Return' }));
 

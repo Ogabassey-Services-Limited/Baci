@@ -1,5 +1,8 @@
 import { useState } from 'react';
-import type { FinancialModalState, OrderItem } from '@/components/orders/new-order.types';
+import type {
+  FinancialModalState,
+  OrderItem,
+} from '@/components/orders/new-order.types';
 
 export function useNewOrderUiState() {
   const [showProductModal, setShowProductModal] = useState(false);
@@ -13,10 +16,11 @@ export function useNewOrderUiState() {
   const [editPriceValue, setEditPriceValue] = useState('');
   const [editQtyValue, setEditQtyValue] = useState('');
   const [editDetails, setEditDetails] = useState('');
-  const [showFinancialModal, setShowFinancialModal] = useState<FinancialModalState>({
-    type: 'discount',
-    visible: false,
-  });
+  const [showFinancialModal, setShowFinancialModal] =
+    useState<FinancialModalState>({
+      type: 'discount',
+      visible: false,
+    });
   const [financialValue, setFinancialValue] = useState('');
 
   return {

@@ -3,8 +3,8 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ThemeColors } from '@/constants/theme';
-import type { OrderDetailsItem } from './order-details.types';
 import { OrderDetailsItemsCard } from './OrderDetailsItemsCard';
+import type { OrderDetailsItem } from './order-details.types';
 
 const mocks = vi.hoisted(() => ({
   safeImage: vi.fn(),

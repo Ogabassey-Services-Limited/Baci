@@ -1,5 +1,5 @@
-import { BackHandler, Platform } from 'react-native';
 import { useEffect } from 'react';
+import { BackHandler, Platform } from 'react-native';
 import type { ShipmentFlowStep } from '@/lib/order-shipment';
 
 export function useOrderDetailsBackHandler({
@@ -49,43 +49,46 @@ export function useOrderDetailsBackHandler({
       selectedOrderItemOpen;
     if (!anyModalOpen) return;
 
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (showRecordPaymentModal) {
-        setShowRecordPaymentModal(false);
-        return true;
-      }
-      if (selectedOrderItemOpen) {
-        setSelectedOrderItemOpen(false);
-        return true;
-      }
-      if (showPaymentOptionModal) {
-        setShowPaymentOptionModal(false);
-        return true;
-      }
-      if (showShipmentFlow) {
-        if (shipmentFlowStep === 'rider') {
-          setShipmentFlowStep('method');
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        if (showRecordPaymentModal) {
+          setShowRecordPaymentModal(false);
           return true;
         }
-        if (shipmentFlowStep === 'method' && requiresShipmentDetails) {
+        if (selectedOrderItemOpen) {
+          setSelectedOrderItemOpen(false);
+          return true;
+        }
+        if (showPaymentOptionModal) {
+          setShowPaymentOptionModal(false);
+          return true;
+        }
+        if (showShipmentFlow) {
+          if (shipmentFlowStep === 'rider') {
+            setShipmentFlowStep('method');
+            return true;
+          }
+          if (shipmentFlowStep === 'method' && requiresShipmentDetails) {
+            setShipmentFlowStep('details');
+            return true;
+          }
+          setShowShipmentFlow(false);
           setShipmentFlowStep('details');
+          setIsShipmentSubmitting(false);
           return true;
         }
-        setShowShipmentFlow(false);
-        setShipmentFlowStep('details');
-        setIsShipmentSubmitting(false);
-        return true;
+        if (showCreditModal) {
+          setShowCreditModal(false);
+          return true;
+        }
+        if (showStatusModal) {
+          setShowStatusModal(false);
+          return true;
+        }
+        return false;
       }
-      if (showCreditModal) {
-        setShowCreditModal(false);
-        return true;
-      }
-      if (showStatusModal) {
-        setShowStatusModal(false);
-        return true;
-      }
-      return false;
-    });
+    );
 
     return () => backHandler.remove();
   }, [

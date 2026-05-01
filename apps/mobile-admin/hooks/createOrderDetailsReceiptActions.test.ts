@@ -51,7 +51,9 @@ vi.mock('expo-file-system', () => ({
 
     move(destination: { uri?: string } | string) {
       this.uri =
-        typeof destination === 'string' ? destination : (destination.uri ?? this.uri);
+        typeof destination === 'string'
+          ? destination
+          : (destination.uri ?? this.uri);
     }
 
     static async downloadFileAsync() {
@@ -75,7 +77,9 @@ describe('createOrderDetailsReceiptActions', () => {
         }),
       }),
     });
-    mocks.printToFileAsync.mockResolvedValue({ uri: 'file:///tmp/receipt.pdf' });
+    mocks.printToFileAsync.mockResolvedValue({
+      uri: 'file:///tmp/receipt.pdf',
+    });
     mocks.shareAsync.mockResolvedValue(undefined);
   });
 

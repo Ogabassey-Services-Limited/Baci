@@ -36,11 +36,11 @@ import {
   useInventoryStats,
   useProducts,
 } from '@/hooks/useProducts';
+import { useTheme } from '@/hooks/useTheme';
 import {
   type TopSellingProduct,
   useTopSellingProducts,
 } from '@/hooks/useTopSellingProducts';
-import { useTheme } from '@/hooks/useTheme';
 import {
   getEffectiveProductStock,
   getProductStockBucket,
