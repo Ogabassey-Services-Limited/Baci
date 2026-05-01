@@ -141,6 +141,8 @@ export const useAuthStore = create<AuthStore>((set, get) => {
           if (nextUserId && currentUserId !== nextUserId) {
             void resetUserStores();
           }
+        } else if (event === 'SIGNED_OUT') {
+          void resetUserStores();
         }
 
         // 2026 Critical Fix: On SIGNED_OUT (session expiry), reset stores to prevent stale data
