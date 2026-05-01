@@ -162,6 +162,10 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
             key={slide.id}
             className="w-full h-full flex-shrink-0 relative"
             aria-hidden={idx !== currentSlide}
+            // `inert` removes the entire subtree from the accessibility tree,
+            // tab order, and click/pointer events while the slide is hidden.
+            // React 19 forwards this attribute to the DOM as a boolean.
+            inert={idx !== currentSlide}
             role="group"
             aria-roledescription="slide"
             aria-label={`Slide ${idx + 1}: ${slide.title ?? 'Sponsored placement'}`}

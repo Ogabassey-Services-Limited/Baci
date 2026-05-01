@@ -297,6 +297,8 @@ describe('Storefront homepage structured data', () => {
     );
 
     expect(preloads).toHaveLength(2);
+    // Order-insensitive: the browser picks at HTML-parse time via `media`,
+    // so insertion order is not part of the contract.
     expect(
       preloads.map((preloadLink) => ({
         as: preloadLink.getAttribute('as'),
@@ -304,20 +306,22 @@ describe('Storefront homepage structured data', () => {
         href: preloadLink.getAttribute('href'),
         media: preloadLink.getAttribute('media'),
       }))
-    ).toEqual([
-      {
-        as: 'image',
-        fetchPriority: 'high',
-        href: HERO_DESKTOP_LCP_SRC,
-        media: '(min-width: 768px)',
-      },
-      {
-        as: 'image',
-        fetchPriority: 'high',
-        href: HERO_MOBILE_LCP_SRC,
-        media: '(max-width: 767px)',
-      },
-    ]);
+    ).toEqual(
+      expect.arrayContaining([
+        {
+          as: 'image',
+          fetchPriority: 'high',
+          href: HERO_DESKTOP_LCP_SRC,
+          media: '(min-width: 768px)',
+        },
+        {
+          as: 'image',
+          fetchPriority: 'high',
+          href: HERO_MOBILE_LCP_SRC,
+          media: '(max-width: 767px)',
+        },
+      ])
+    );
   });
 
   it('emits preconnect + dns-prefetch hints for the OgaBassey LCP origins', async () => {
@@ -325,11 +329,13 @@ describe('Storefront homepage structured data', () => {
       await StorefrontPage({ params: Promise.resolve({ slug: 'ogabassey' }) })
     );
 
+    const expectedOrigins = Array.from(OGABASSEY_HERO_PRECONNECT_ORIGINS);
+
     const preconnects = Array.from(
       document.querySelectorAll<HTMLLinkElement>('link[rel="preconnect"]')
     );
-    expect(preconnects.map((l) => l.getAttribute('href'))).toEqual(
-      Array.from(OGABASSEY_HERO_PRECONNECT_ORIGINS)
+    expect(preconnects.map((l) => l.getAttribute('href')).sort()).toEqual(
+      [...expectedOrigins].sort()
     );
     for (const link of preconnects) {
       expect(link).toHaveAttribute('crossorigin', 'anonymous');
@@ -338,8 +344,8 @@ describe('Storefront homepage structured data', () => {
     const dnsHints = Array.from(
       document.querySelectorAll<HTMLLinkElement>('link[rel="dns-prefetch"]')
     );
-    expect(dnsHints.map((l) => l.getAttribute('href'))).toEqual(
-      Array.from(OGABASSEY_HERO_PRECONNECT_ORIGINS)
+    expect(dnsHints.map((l) => l.getAttribute('href')).sort()).toEqual(
+      [...expectedOrigins].sort()
     );
   });
 

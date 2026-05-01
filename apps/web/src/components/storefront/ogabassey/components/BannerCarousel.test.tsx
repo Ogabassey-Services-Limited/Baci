@@ -117,4 +117,27 @@ describe('BannerCarousel', () => {
       }
     }
   });
+
+  it('marks non-active slides inert so their focusable descendants are not tabbable', () => {
+    const { container } = render(<BannerCarousel />);
+    const slides = Array.from(
+      container.querySelectorAll<HTMLElement>(
+        '[aria-roledescription="slide"]'
+      )
+    );
+
+    const inertSlides = slides.filter((slide) => slide.hasAttribute('inert'));
+    const interactiveSlides = slides.filter(
+      (slide) => !slide.hasAttribute('inert')
+    );
+
+    // Exactly one slide is interactive at a time; the rest are inert so links
+    // like "Shop Now" inside hidden slides cannot receive keyboard focus.
+    expect(interactiveSlides).toHaveLength(1);
+    expect(inertSlides).toHaveLength(slides.length - 1);
+    expect(interactiveSlides[0]).toHaveAttribute('aria-hidden', 'false');
+    for (const slide of inertSlides) {
+      expect(slide).toHaveAttribute('aria-hidden', 'true');
+    }
+  });
 });
