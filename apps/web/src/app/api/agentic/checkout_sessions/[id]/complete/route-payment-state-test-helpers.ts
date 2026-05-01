@@ -127,23 +127,27 @@ function createFinalUpdateChain() {
   return chain;
 }
 
-function createSessionReadChain() {
+function createSessionReadChain(
+  session: Record<string, unknown> = readySession
+) {
   const chain = {} as Record<'eq' | 'maybeSingle', ReturnType<typeof vi.fn>>;
   chain.eq = vi.fn(() => chain);
   chain.maybeSingle = vi.fn().mockResolvedValue({
-    data: readySession,
+    data: session,
     error: null,
   });
   return chain;
 }
 
-function mockSuccessfulPaymentSessionSupabase() {
+function mockSuccessfulPaymentSessionSupabase(
+  session: Record<string, unknown> = readySession
+) {
   const updateSpy = vi.fn((payload: Record<string, unknown>) =>
     getPaymentState(payload) === 'claiming_payment'
       ? createClaimUpdateChain()
       : createFinalUpdateChain()
   );
-  const readChain = createSessionReadChain();
+  const readChain = createSessionReadChain(session);
 
   const supabase = {
     from: vi.fn((table: string) => {

@@ -1,28 +1,14 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { verifyAgenticApiKey } from '@/lib/agentic/auth';
-import { calculateCheckoutSession } from '@/lib/agentic/checkout';
-import { verifyCheckoutCompletionAuthorization } from '@/lib/agentic/checkout-authorization';
-import {
-  buildAuthorizationErrorBody,
-  getAuthorizationErrorStatus,
-  getCheckoutCompletionAuthorizationSecrets,
-  getCheckoutGrandTotal,
-  withCompletionAuthorizationMetadata,
-} from '@/lib/agentic/checkout-completion-authorization-response';
+import { getCheckoutCompletionAuthorizationSecrets } from '@/lib/agentic/checkout-completion-authorization-response';
 import { finalizeAgenticCheckoutPayment } from '@/lib/agentic/checkout-completion-finalize';
 import {
   getAgenticPaymentState,
-  getStoredDvaAccount,
   resolveExistingPaymentState,
 } from '@/lib/agentic/checkout-completion-response';
-import { buildPaymentAccountConflictResponse } from '@/lib/agentic/checkout-payment-account-conflict';
+import { resolveCheckoutCompletionSessionState } from '@/lib/agentic/checkout-completion-session-state';
 import { prepareAgenticCheckoutPayment } from '@/lib/agentic/checkout-payment-setup';
 import { getAgenticCheckoutSession } from '@/lib/agentic/checkout-session-record';
-import {
-  type AgenticMetadata,
-  buildAgenticMetadata,
-  mapCheckoutSessionStatus,
-} from '@/lib/agentic/checkout-storage';
 import { reserveAgenticIdempotencyKey } from '@/lib/agentic/idempotency';
 import { getAgenticIdempotencyErrorStatus } from '@/lib/agentic/idempotency-response';
 import { buildStoredAgenticIdempotencyResponse } from '@/lib/agentic/idempotency-response-storage';
@@ -33,10 +19,7 @@ import { getAgenticReplayErrorStatus } from '@/lib/agentic/request-replay-respon
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
 import { logger } from '@/lib/logger';
 import { createServiceClient } from '@/lib/supabase/service';
-import {
-  agenticCheckoutCompleteSchema,
-  agenticCheckoutItemsSchema,
-} from '@/schemas/agentic-checkout';
+import { agenticCheckoutCompleteSchema } from '@/schemas/agentic-checkout';
 
 const COMPLETE_IDEMPOTENCY_ROUTE = 'checkout_sessions.complete';
 
@@ -158,115 +141,31 @@ export async function POST(
       );
     }
 
-    const parsedCartItems = agenticCheckoutItemsSchema.safeParse(
-      session.cart_items
-    );
-    if (!parsedCartItems.success) {
-      logger.error({
-        message: 'Agentic checkout session has invalid cart items',
-        error: parsedCartItems.error.flatten(),
-        sessionId: params.id,
-      });
-      return await respond({ error: 'Invalid session cart items' }, 500);
-    }
-
-    let sessionCalc: Awaited<ReturnType<typeof calculateCheckoutSession>>;
-    try {
-      sessionCalc = await calculateCheckoutSession(
-        supabase,
-        parsedCartItems.data,
-        session.shipping_method,
-        session.currency,
-        merchant.id
-      );
-    } catch (error) {
-      logger.error({
-        message: 'Agentic checkout calculation failed',
-        error,
-        sessionId: params.id,
-      });
-      return await respond({ error: 'Checkout calculation failed' }, 500);
-    }
-    const calculationErrors = sessionCalc.messages.filter(
-      (message) => message.type === 'error'
-    );
-    if (calculationErrors.length > 0) {
-      return await respond(
-        {
-          error: 'Checkout calculation has errors',
-          messages: calculationErrors,
-        },
-        409
-      );
-    }
-    const storedDvaAccount = getStoredDvaAccount(session);
-    const canResumePaymentAccount =
-      paymentState === 'payment_account_ready' &&
-      !!storedDvaAccount &&
-      !session.order_id;
-    if (!canResumePaymentAccount && paymentState === 'payment_account_ready') {
-      return await respond(
-        buildPaymentAccountConflictResponse({ orderId: session.order_id }),
-        409
-      );
-    }
-
-    const grandTotal = getCheckoutGrandTotal(sessionCalc.totals);
-
-    if (!Number.isFinite(grandTotal))
-      return await respond({ error: 'Could not calculate total' }, 500);
-
-    const status = mapCheckoutSessionStatus({
-      status: session.status,
-      hasFulfillmentAddress: !!session.shipping_address,
-      hasLineItems: sessionCalc.lineItems.length > 0,
-    });
-    if (status !== 'ready_for_payment') {
-      return await respond(
-        {
-          error: 'Session is not ready for payment',
-          status,
-        },
-        409
-      );
-    }
-
-    const authorization = verifyCheckoutCompletionAuthorization({
-      amount: grandTotal,
-      authorization: completion_authorization,
-      currency: session.currency,
-      secrets: getCheckoutCompletionAuthorizationSecrets(),
-      sessionId: session.session_id,
-    });
-    if (!authorization.ok) {
-      return await respond(
-        buildAuthorizationErrorBody(authorization.code),
-        getAuthorizationErrorStatus(authorization.code)
-      );
-    }
-
-    const metadata = withCompletionAuthorizationMetadata(
-      buildAgenticMetadata({
-        existingMetadata: session.metadata as AgenticMetadata | null,
-        lineItems: sessionCalc.lineItems,
-        totals: sessionCalc.totals,
-        fulfillmentOptions: sessionCalc.fulfillmentOptions,
-        messages: [],
-      }),
-      authorization.mode
-    );
-    const preparedPayment = await prepareAgenticCheckoutPayment({
-      authorizationSecrets: getCheckoutCompletionAuthorizationSecrets(),
-      buyer,
-      canResumePaymentAccount,
+    const authorizationSecrets = getCheckoutCompletionAuthorizationSecrets();
+    const completionState = await resolveCheckoutCompletionSessionState({
+      authorizationSecrets,
       completionAuthorization: completion_authorization,
       merchantId: merchant.id,
-      metadata,
+      session,
+      sessionId: params.id,
+      supabase,
+    });
+    if (!completionState.ok) {
+      return await respond(completionState.body, completionState.status);
+    }
+
+    const preparedPayment = await prepareAgenticCheckoutPayment({
+      authorizationSecrets,
+      buyer,
+      canResumePaymentAccount: completionState.canResumePaymentAccount,
+      completionAuthorization: completion_authorization,
+      merchantId: merchant.id,
+      metadata: completionState.metadata,
       paystackSubaccountCode: merchant.paystack_subaccount_code,
       session,
-      sessionCalc,
+      sessionCalc: completionState.sessionCalc,
       sessionId: params.id,
-      storedDvaAccount,
+      storedDvaAccount: completionState.storedDvaAccount,
       supabase,
     });
     if (!preparedPayment.ok) {

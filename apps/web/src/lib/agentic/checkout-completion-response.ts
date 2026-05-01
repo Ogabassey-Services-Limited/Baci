@@ -217,7 +217,7 @@ function getAgenticMetadataValue(metadata: unknown, key: string) {
   return (agentic as Record<string, unknown>)[key];
 }
 
-function getStoredCheckoutPaymentSnapshot(
+export function getStoredCheckoutPaymentSnapshot(
   metadata: unknown
 ): CheckoutPaymentSnapshot | null {
   const lineItems = getAgenticMetadataValue(metadata, 'line_items');
