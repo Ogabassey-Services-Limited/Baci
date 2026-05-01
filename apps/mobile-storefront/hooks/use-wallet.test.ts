@@ -74,7 +74,8 @@ type WalletQueryData = {
       | 'redemption'
       | 'bonus'
       | 'adjustment'
-      | 'expiry';
+      | 'expiry'
+      | 'refund';
     amount: number;
     description: string;
     created_at: string;
@@ -286,6 +287,38 @@ describe('useWallet', () => {
         amount: 0.75,
         description: 'Cashback - Airtime MTN ₦100',
         type: 'cashback',
+      }),
+    ]);
+
+    unmount();
+    queryClient.clear();
+  });
+
+  it('preserves refund rows in wallet transaction history', async () => {
+    setupWalletTableMocks({
+      transactionsResult: createQueryResult([
+        {
+          amount: '1200',
+          created_at: '2026-05-01T09:00:00.000Z',
+          description: 'Refund - Wallet top-up',
+          id: 'wallet-refund-1',
+          type: 'refund',
+        },
+      ]),
+    });
+    const queryClient = createTestClient();
+
+    const { result, unmount } = renderHook(() => useWallet(), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    await waitFor(() => expect(result.current.data).toBeDefined());
+
+    expect(result.current.data?.transactions).toEqual([
+      expect.objectContaining({
+        amount: 1200,
+        description: 'Refund - Wallet top-up',
+        type: 'refund',
       }),
     ]);
 

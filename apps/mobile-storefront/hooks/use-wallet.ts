@@ -26,7 +26,8 @@ interface Transaction {
     | 'redemption'
     | 'bonus'
     | 'adjustment'
-    | 'expiry';
+    | 'expiry'
+    | 'refund';
   amount: number;
   description: string;
   created_at: string;
