@@ -1,14 +1,29 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { POST as createOrder } from '@/app/api/orders/route'; // Reuse existing logic
+import { type NextRequest, NextResponse } from 'next/server';
 import { verifyAgenticApiKey } from '@/lib/agentic/auth';
+import { getCheckoutCompletionAuthorizationSecrets } from '@/lib/agentic/checkout-completion-authorization-response';
+import { finalizeAgenticCheckoutPayment } from '@/lib/agentic/checkout-completion-finalize';
 import {
-  type CheckoutItem,
-  calculateCheckoutSession,
-  type GPTTotal,
-} from '@/lib/agentic/checkout';
+  getAgenticPaymentState,
+  resolveExistingPaymentState,
+} from '@/lib/agentic/checkout-completion-response';
+import { resolveCheckoutCompletionSessionState } from '@/lib/agentic/checkout-completion-session-state';
+import { prepareAgenticCheckoutPayment } from '@/lib/agentic/checkout-payment-setup';
+import { getAgenticCheckoutSession } from '@/lib/agentic/checkout-session-record';
+import { reserveAgenticIdempotencyKey } from '@/lib/agentic/idempotency';
+import { getAgenticIdempotencyErrorStatus } from '@/lib/agentic/idempotency-response';
+import { buildStoredAgenticIdempotencyResponse } from '@/lib/agentic/idempotency-response-storage';
+import { resolveAgenticMerchantContext } from '@/lib/agentic/merchant-context';
+import { readAgenticMutationRequest } from '@/lib/agentic/mutation-request';
+import { reserveAgenticRequestId } from '@/lib/agentic/request-replay';
+import { getAgenticReplayErrorStatus } from '@/lib/agentic/request-replay-response';
+import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
 import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
-import { createServiceClient } from '@/lib/supabase/service';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { agenticCheckoutCompleteSchema } from '@/schemas/agentic-checkout';
+import { agenticCheckoutSessionRouteParamsSchema } from '@/schemas/agentic-checkout-session-route-params';
+
+const COMPLETE_IDEMPOTENCY_ROUTE = 'checkout_sessions.complete';
 
 export async function POST(
   request: NextRequest,
@@ -18,198 +33,201 @@ export async function POST(
   if (!verifyAgenticApiKey(request))
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  try {
-    const body = await request.json();
-    const { payment_data, buyer } = body;
+  const parsedParams =
+    agenticCheckoutSessionRouteParamsSchema.safeParse(params);
+  if (!parsedParams.success) {
+    return NextResponse.json(
+      {
+        error: 'Invalid route params',
+        details: parsedParams.error.flatten(),
+      },
+      { status: 400 }
+    );
+  }
+  const { id: sessionId } = parsedParams.data;
 
-    if (!payment_data?.token) {
+  const mutation = await readAgenticMutationRequest({ request });
+  if (!mutation.ok) {
+    return mutation.response;
+  }
+
+  let respondWithIdempotency:
+    | ((response: unknown, status: number) => Promise<NextResponse>)
+    | null = null;
+
+  try {
+    const parsed = agenticCheckoutCompleteSchema.safeParse(mutation.body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Payment token required' },
+        {
+          error: 'Invalid request body',
+          details: parsed.error.flatten(),
+        },
         { status: 400 }
       );
     }
+    const { buyer, completion_authorization } = parsed.data;
 
-    const supabase = createServiceClient();
-    const { data: session, error } = await supabase
-      .from('checkout_sessions')
-      .select(
-        'id, merchant_id, items, fulfillment_option_id, fulfillment_address, currency, status, metadata'
-      )
-      .eq('id', params.id)
-      .single();
-
-    if (error || !session)
-      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
-    if (session.status === 'completed')
+    const bootstrap = createAdminClient();
+    const merchant = await resolveAgenticMerchantContext(bootstrap);
+    if (!merchant) {
       return NextResponse.json(
-        { error: 'Session already completed' },
-        { status: 409 }
+        { error: 'Agentic merchant not found' },
+        { status: 500 }
       );
-
-    // 1. Recalculate final totals to ensure accuracy
-    const sessionCalc = await calculateCheckoutSession(
+    }
+    const supabase = createAgenticScopedSupabaseClient({
+      merchantId: merchant.id,
+      merchantSlug: merchant.slug,
+    });
+    const idempotency = await reserveAgenticIdempotencyKey({
+      apiVersion: mutation.apiVersion,
+      body: mutation.rawBody,
+      key: mutation.idempotencyKey,
+      merchantId: merchant.id,
+      method: mutation.method,
+      pathname: mutation.pathname,
+      route: COMPLETE_IDEMPOTENCY_ROUTE,
       supabase,
-      session.items as unknown as CheckoutItem[],
-      session.fulfillment_option_id,
-      session.currency
-    );
-    const grandTotal = sessionCalc.totals.find(
-      (t: GPTTotal) => t.type === 'total'
-    )?.amount;
-
-    if (!grandTotal)
+    });
+    if (!idempotency.ok) {
       return NextResponse.json(
-        { error: 'Could not calculate total' },
-        { status: 500 }
-      );
-
-    // 2. Generate Paystack DVA (User Request: "Let the agentic payment module b our paystack dvas")
-    // Instead of charging a card immediately, we generate a virtual account for the user to transfer to.
-
-    // Check if we already have DVA details in metadata or similar?
-    // For now, generate new one or retrieve existing.
-    const { createDedicatedVirtualAccount } = await import(
-      '@/lib/agentic/paystack'
-    );
-
-    let dvaResult: Awaited<ReturnType<typeof createDedicatedVirtualAccount>>;
-    try {
-      dvaResult = await createDedicatedVirtualAccount({
-        email: buyer.email,
-        first_name: buyer.first_name,
-        last_name: buyer.last_name,
-        phone: buyer.phone_number,
-      });
-    } catch (dvaError: unknown) {
-      logger.error({
-        message: 'DVA Creation Failed',
-        error: dvaError,
-        sessionId: sanitizeForLog(params.id),
-      });
-      const errorMessage =
-        dvaError instanceof Error ? dvaError.message : 'Unknown error';
-      return NextResponse.json(
-        {
-          error: 'Failed to generate payment account',
-          details: errorMessage,
-        },
-        { status: 502 }
+        { error: idempotency.error },
+        { status: getAgenticIdempotencyErrorStatus(idempotency.error) }
       );
     }
+    if (idempotency.state === 'replay') {
+      return NextResponse.json(idempotency.response, {
+        status: idempotency.status,
+        headers: {
+          'idempotency-key': mutation.idempotencyKey,
+          'request-id': mutation.requestId,
+        },
+      });
+    }
+    respondWithIdempotency = async (response: unknown, status: number) =>
+      buildStoredAgenticIdempotencyResponse({
+        idempotencyKey: mutation.idempotencyKey,
+        merchantId: merchant.id,
+        requestId: mutation.requestId,
+        response,
+        route: COMPLETE_IDEMPOTENCY_ROUTE,
+        status,
+        supabase,
+      });
+    const replayReservation = await reserveAgenticRequestId({
+      apiVersion: mutation.apiVersion,
+      idempotencyKey: mutation.idempotencyKey,
+      merchantId: merchant.id,
+      requestId: mutation.requestId,
+      supabase,
+    });
+    if (!replayReservation.ok) {
+      return await respondWithIdempotency(
+        { error: replayReservation.error },
+        getAgenticReplayErrorStatus(replayReservation.error)
+      );
+    }
+    const storeResponse = respondWithIdempotency;
+    if (!storeResponse) {
+      return NextResponse.json(
+        { error: 'Internal Server Error' },
+        { status: 500 }
+      );
+    }
+    const respond = async (response: unknown, status: number) =>
+      storeResponse(response, status);
 
-    // 3. Create Order via internal API call (Reuse Logic) - Status: Pending Payment
-    const orderPayload = {
-      merchant_id: session.merchant_id,
-      customer_email: buyer.email,
-      customer_name: `${buyer.first_name} ${buyer.last_name}`,
-      customer_phone: buyer.phone_number,
-      items: sessionCalc.lineItems.map((li) => ({
-        product_id: li.item.id,
-        quantity: li.item.quantity,
-        price: li.base_amount,
-      })),
-      subtotal:
-        sessionCalc.totals.find((t) => t.type === 'subtotal')?.amount || 0,
-      shipping_fee:
-        sessionCalc.totals.find((t) => t.type === 'fulfillment')?.amount || 0,
-      payment_method: 'bank_transfer', // Paystack DVA
-      payment_status: 'pending', // Waiting for transfer
-      payment_provider_reference: dvaResult.account_number, // Store Account Number as Ref
-      shipping_status: 'pending',
-      shipping_address: session.fulfillment_address,
-      source: 'agentic_ai',
-      notes: `Agentic Checkout Session: ${session.id} | DVA: ${dvaResult.bank_name} - ${dvaResult.account_number}`,
-    };
-
-    const internalReq = new NextRequest('http://localhost:3000/api/orders', {
-      method: 'POST',
-      body: JSON.stringify(orderPayload),
-      headers: {
-        'content-type': 'application/json',
-        'x-agentic-internal': 'true',
-      },
+    const { data: session, error } = await getAgenticCheckoutSession({
+      merchantId: merchant.id,
+      sessionId,
+      supabase,
     });
 
-    const orderRes = await createOrder(internalReq);
-    const orderData = await orderRes.json();
-
-    if (orderRes.status !== 200 && orderRes.status !== 201) {
+    if (error) {
       logger.error({
-        message: 'Order creation failed',
-        status: orderRes.status,
-        statusText: orderRes.statusText,
-        sessionId: sanitizeForLog(params.id),
+        message: 'Agentic checkout session read failed',
+        error: sanitizeForLog(error),
+        sessionId,
       });
-      return NextResponse.json(
-        { error: 'Order creation failed', details: orderData.error },
-        { status: 500 }
+      return await respond({ error: 'Database error' }, 500);
+    }
+    if (!session) return await respond({ error: 'Session not found' }, 404);
+    if (session.status === 'completed')
+      return await respond({ error: 'Session already completed' }, 409);
+
+    const paymentState = getAgenticPaymentState(session.metadata);
+    const existingPaymentState =
+      paymentState === 'claiming_payment' ||
+      paymentState === 'payment_account_ready' ||
+      paymentState === 'order_finalizing'
+        ? null
+        : resolveExistingPaymentState({ buyer, session });
+    if (existingPaymentState) {
+      return await respond(
+        existingPaymentState.body,
+        existingPaymentState.status
       );
     }
 
-    // 4. Update Session
-    const orderId = orderData.order?.id || orderData.id;
+    const authorizationSecrets = getCheckoutCompletionAuthorizationSecrets();
+    const completionState = await resolveCheckoutCompletionSessionState({
+      authorizationSecrets,
+      completionAuthorization: completion_authorization,
+      merchantId: merchant.id,
+      session,
+      sessionId,
+      supabase,
+    });
+    if (!completionState.ok) {
+      return await respond(completionState.body, completionState.status);
+    }
 
-    await supabase
-      .from('checkout_sessions')
-      .update({
-        status: 'payment_pending', // New status for DVA flow
-        order_id: orderId,
-        buyer: buyer,
-        metadata: {
-          ...session.metadata,
-          dva_account: dvaResult,
-        },
-      })
-      .eq('id', params.id);
-
-    // 5. Send Webhook (Async)
-    const { sendAgenticWebhook } = await import('@/lib/agentic/webhooks');
-    sendAgenticWebhook('order.created', {
-      id: orderId,
-      currency: session.currency,
-      total: sessionCalc.totals.find((t: GPTTotal) => t.type === 'total')
-        ?.amount,
-      status: 'pending',
-      ...buyer,
-    }).catch((err) =>
-      logger.error({
-        message: 'Webhook trigger failed',
-        error: err,
-        sessionId: params.id,
-      })
-    );
-
-    // 6. Success Response
-    return NextResponse.json({
-      id: session.id,
+    const preparedPayment = await prepareAgenticCheckoutPayment({
+      authorizationSecrets,
       buyer,
-      status: 'payment_pending',
-      currency: session.currency.toLowerCase(),
-      line_items: sessionCalc.lineItems,
-      shipping_address: session.fulfillment_address,
-      fulfillment_option_id: session.fulfillment_option_id,
-      totals: sessionCalc.totals,
-      order_id: orderId, // Extra field helpful for debugging
-      payment_details: {
-        type: 'bank_transfer',
-        bank_name: dvaResult.bank_name,
-        account_number: dvaResult.account_number,
-        account_name: dvaResult.account_name,
-        message:
-          'Please transfer the exact total to this account to complete your order.',
-      },
-      messages: [],
-      links: [],
+      canResumePaymentAccount: completionState.canResumePaymentAccount,
+      completionAuthorization: completion_authorization,
+      merchantId: merchant.id,
+      metadata: completionState.metadata,
+      paystackSubaccountCode: merchant.paystack_subaccount_code,
+      session,
+      sessionCalc: completionState.sessionCalc,
+      sessionId,
+      storedDvaAccount: completionState.storedDvaAccount,
+      supabase,
     });
-  } catch (err: unknown) {
+    if (!preparedPayment.ok) {
+      return await respond(preparedPayment.body, preparedPayment.status);
+    }
+
+    return await finalizeAgenticCheckoutPayment({
+      buyer,
+      dvaAccount: preparedPayment.payment.dvaAccount,
+      idempotencyKey: mutation.idempotencyKey,
+      merchantId: merchant.id,
+      metadata: preparedPayment.payment.metadata,
+      orderSession: preparedPayment.payment.session,
+      orderSessionCalc: preparedPayment.payment.sessionCalc,
+      requestId: mutation.requestId,
+      route: COMPLETE_IDEMPOTENCY_ROUTE,
+      sessionId,
+      supabase,
+    });
+  } catch (error: unknown) {
+    const body = { error: 'Internal Server Error' };
     logger.error({
-      message: 'Agentic Checkout Complete Error',
-      error: err,
-      sessionId: params.id,
+      message: 'Agentic checkout complete failed',
+      error: sanitizeForLog(error),
+      sessionId,
     });
-    return NextResponse.json(
-      { error: 'Internal Server Error' },
-      { status: 500 }
-    );
+    if (respondWithIdempotency) {
+      try {
+        return await respondWithIdempotency(body, 500);
+      } catch {
+        return NextResponse.json(body, { status: 500 });
+      }
+    }
+    return NextResponse.json(body, { status: 500 });
   }
 }

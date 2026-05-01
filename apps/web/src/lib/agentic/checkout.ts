@@ -1,29 +1,20 @@
 // --- Interfaces based on Spec ---
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getEffectiveStock } from '@/lib/product-stock';
+import { coerceStorefrontManageStock } from '@/lib/storefront-agent-availability';
 
 export interface GPTLineItem {
   id: string; // "line_item_123"
   item: {
     id: string; // product_id or variant_id
+    product_id: string;
+    variant_id?: string;
+    variant_attributes?: Record<string, string>;
     quantity: number;
     title?: string;
     description?: string;
   };
   base_amount: number; // In smallest currency unit (e.g. kobo/cents) or standard?
-  // Spec examples show "300" for $3.00 if currency is USD? Or is it 300 cents?
-  // OpenAI spec examples: amount: 300 for $300.00? No, usually in minor units like Stripe.
-  // Wait, spec example says: "amount": 300, and "total": 330 for items + tax.
-  // If text is "3.30", then 330 is minor units.
-  // We'll assume minor units (cents/kobo) effectively to be safe, OR standard units if the spec says "79.99 USD" string elsewhere.
-  // Re-reading spec: "price": "79.99 USD" string in Product Feed.
-  // But in Checkout API, "amount": 300 (integer) suggests minor units.
-  // Let's assume standard units (Naira) for now but use integers to avoid float math?
-  // No, `number` in JSON. Let's stick to standard Baci usage: Baci uses floats for price (e.g. 1000.00).
-  // Example in spec: "amount": 300. "display_text": "Item(s) total".
-  // If item price is 50, and qty 6, total 300.
-  // We will assume MAJOR units (e.g. 300 Naira) because spec says "currency": "usd".
-
   discount: number;
   subtotal: number;
   tax: number;
@@ -77,18 +68,24 @@ interface AgenticProduct {
   price: number;
   stock: number;
   stock_quantity?: number;
+  manage_stock?: boolean | null;
   weight_value?: number;
   weight_unit?: string;
 }
 
 interface AgenticVariant {
   id: string;
+  merchant_id: string;
   product_id: string;
   price_override?: number;
   stock_quantity: number;
   attributes?: Record<string, string>;
   product?: {
+    manage_stock?: boolean | null;
     name: string;
+    price?: number;
+    weight_unit?: string;
+    weight_value?: number;
   };
 }
 
@@ -97,8 +94,9 @@ interface AgenticVariant {
 export async function calculateCheckoutSession(
   supabase: SupabaseClient,
   items: CheckoutItem[],
-  fulfillmentOptionId?: string | null,
-  _currency: string = 'NGN'
+  fulfillmentOptionId: string | null | undefined,
+  _currency: string,
+  merchantId: string
 ) {
   // 1. Fetch products
   // We need to handle both Product IDs and Variant IDs.
@@ -110,20 +108,30 @@ export async function calculateCheckoutSession(
   const productIds = items.map((i) => i.id);
 
   // Try fetching from products first (parents)
-  const { data: products } = await supabase
+  const { data: products, error: productsError } = await supabase
     .from('products')
-    .select('id, name, price, stock, stock_quantity, weight_value, weight_unit')
-    .in('id', productIds)
-    .returns<AgenticProduct[]>();
-
-  // Try fetching from variants
-  const { data: variants } = await supabase
-    .from('product_variants')
     .select(
-      'id, product_id, price_override, stock_quantity, attributes, product:products(name)'
+      'id, name, price, stock, stock_quantity, manage_stock, weight_value, weight_unit'
     )
     .in('id', productIds)
+    .eq('merchant_id', merchantId)
+    .returns<AgenticProduct[]>();
+  if (productsError) {
+    throw new Error('Failed to load checkout products');
+  }
+
+  // Try fetching from variants
+  const { data: variants, error: variantsError } = await supabase
+    .from('product_variants')
+    .select(
+      'id, merchant_id, product_id, price_override, stock_quantity, attributes, product:products(name, price, manage_stock, weight_value, weight_unit)'
+    )
+    .in('id', productIds)
+    .eq('merchant_id', merchantId)
     .returns<AgenticVariant[]>();
+  if (variantsError) {
+    throw new Error('Failed to load checkout product variants');
+  }
 
   const foundProducts = products || [];
   const foundVariants = variants || [];
@@ -134,27 +142,47 @@ export async function calculateCheckoutSession(
   let itemsBaseAmount = 0;
   let _shippingWeightTotal = 0; // In kg presumably
 
-  for (const requestedItem of items) {
+  for (const [index, requestedItem] of items.entries()) {
     const product = foundProducts.find((p) => p.id === requestedItem.id);
     const variant = foundVariants.find((v) => v.id === requestedItem.id);
 
     let price = 0;
     let title = '';
-    let stock = 0;
+    let stock: number | null = 0;
     let weight = 0;
+    let productId = requestedItem.id;
+    let variantAttributes: Record<string, string> | undefined;
+    let variantId: string | undefined;
 
     if (variant) {
       // It's a variant
-      price = variant.price_override || 0; // Fallback? Need parent fetch if 0?
-      // For now assume price_override is populated or handled in variant view
+      productId = variant.product_id;
+      variantId = variant.id;
+      variantAttributes = variant.attributes;
+      const variantPrice = variant.price_override ?? variant.product?.price;
+      if (variantPrice == null || !Number.isFinite(Number(variantPrice))) {
+        messages.push({
+          type: 'error',
+          code: 'missing_price',
+          path: `$.items[${index}]`,
+          content: `Variant ${variant.id} is missing a valid price.`,
+          content_type: 'plain',
+        });
+        continue;
+      }
+      price = Number(variantPrice);
       title = `${variant.product?.name || 'Item'} - ${Object.values(variant.attributes || {}).join('/')}`;
-      stock = variant.stock_quantity ?? 0;
+      stock = coerceStorefrontManageStock(variant.product?.manage_stock)
+        ? (variant.stock_quantity ?? 0)
+        : null;
       // Variant weight? Assume parent weight (complex logic, skip for MVP)
     } else if (product) {
       // It's a parent
       price = product.price;
       title = product.name;
-      stock = getEffectiveStock(product);
+      stock = coerceStorefrontManageStock(product.manage_stock)
+        ? getEffectiveStock(product)
+        : null;
       weight = product.weight_unit === 'kg' ? product.weight_value || 0 : 0; // Simplified
       _shippingWeightTotal += weight * requestedItem.quantity;
     } else {
@@ -170,7 +198,7 @@ export async function calculateCheckoutSession(
     }
 
     // Check Stock
-    if (stock < requestedItem.quantity) {
+    if (stock !== null && stock < requestedItem.quantity) {
       messages.push({
         type: 'error',
         code: 'out_of_stock',
@@ -187,6 +215,9 @@ export async function calculateCheckoutSession(
       id: `line_${requestedItem.id}`,
       item: {
         id: requestedItem.id,
+        product_id: productId,
+        ...(variantId ? { variant_id: variantId } : {}),
+        ...(variantAttributes ? { variant_attributes: variantAttributes } : {}),
         quantity: requestedItem.quantity,
         title,
       },

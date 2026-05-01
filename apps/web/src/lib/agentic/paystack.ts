@@ -68,6 +68,14 @@ export interface DVAResponse {
   assigned: boolean;
 }
 
+const PAYSTACK_SUBACCOUNT_PATTERN = /^ACCT_[A-Za-z0-9]{15}$/;
+
+export function isValidPaystackSubaccountCode(
+  value: string | null | undefined
+): value is string {
+  return typeof value === 'string' && PAYSTACK_SUBACCOUNT_PATTERN.test(value);
+}
+
 async function paystackRequest(
   endpoint: string,
   method: string,
@@ -146,18 +154,15 @@ export async function getOrCreatePaystackCustomer(
 }
 
 export async function createDedicatedVirtualAccount(
-  customer: PaystackCustomer
+  customer: PaystackCustomer,
+  options: { subaccount: string }
 ): Promise<DVAResponse> {
   const secretKey = PAYSTACK_SECRET_KEY;
   if (!secretKey) {
-    // Mock for build/dev without keys
-    return {
-      account_number: '0000000000',
-      account_name: 'Mock Agentic Account (Dev)',
-      bank_name: 'Mock Bank',
-      currency: 'NGN',
-      assigned: true,
-    };
+    throw new Error('PAYSTACK_SECRET_KEY is not configured');
+  }
+  if (!isValidPaystackSubaccountCode(options.subaccount)) {
+    throw new Error('Paystack subaccount is not configured');
   }
 
   const customerCode = await getOrCreatePaystackCustomer(customer);
@@ -168,6 +173,7 @@ export async function createDedicatedVirtualAccount(
     first_name: customer.first_name || 'Customer',
     last_name: customer.last_name || 'User',
     phone: customer.phone || '00000000000',
+    subaccount: options.subaccount,
   };
 
   const tryCreateDva = (bank: string) =>

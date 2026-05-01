@@ -25,23 +25,41 @@ describe('agentic/paystack', () => {
     vi.unstubAllEnvs();
   });
 
+  describe('isValidPaystackSubaccountCode', () => {
+    it('requires ACCT_ followed by exactly 15 alphanumeric characters', async () => {
+      vi.resetModules();
+      const { isValidPaystackSubaccountCode } = await import('./paystack');
+
+      expect(isValidPaystackSubaccountCode('ACCT_TESTMOCK1234567')).toBe(true);
+      expect(isValidPaystackSubaccountCode('ACCT_abc')).toBe(false);
+      expect(isValidPaystackSubaccountCode('ACCT_1234567890123456')).toBe(
+        false
+      );
+      expect(isValidPaystackSubaccountCode('ACCT_TESTMOCK123456!')).toBe(false);
+      expect(isValidPaystackSubaccountCode('ACCT_TESTMOCKABCDEFG')).toBe(true);
+      expect(isValidPaystackSubaccountCode('SUB_6uujpqtzmnufzkw')).toBe(false);
+    });
+  });
+
   describe('createDedicatedVirtualAccount', () => {
-    it('returns mock data when PAYSTACK_SECRET_KEY is not set', async () => {
+    it('fails closed when PAYSTACK_SECRET_KEY is not set', async () => {
       vi.stubEnv('PAYSTACK_SECRET_KEY', '');
 
       // Re-import to pick up the env change
       vi.resetModules();
       const { createDedicatedVirtualAccount } = await import('./paystack');
 
-      const result = await createDedicatedVirtualAccount({
-        email: 'test@example.com',
-        first_name: 'John',
-        last_name: 'Doe',
-        phone: '+2348012345678',
-      });
-
-      expect(result.account_number).toBe('0000000000');
-      expect(result.bank_name).toBe('Mock Bank');
+      await expect(
+        createDedicatedVirtualAccount(
+          {
+            email: 'test@example.com',
+            first_name: 'John',
+            last_name: 'Doe',
+            phone: '+2348012345678',
+          },
+          { subaccount: 'ACCT_TESTMOCK1234567' }
+        )
+      ).rejects.toThrow('PAYSTACK_SECRET_KEY is not configured');
       expect(mockFetch).not.toHaveBeenCalled();
     });
 
@@ -71,12 +89,15 @@ describe('agentic/paystack', () => {
           })
         );
 
-      const result = await createDedicatedVirtualAccount({
-        email: 'john@test.com',
-        first_name: 'John',
-        last_name: 'Doe',
-        phone: '+2348012345678',
-      });
+      const result = await createDedicatedVirtualAccount(
+        {
+          email: 'john@test.com',
+          first_name: 'John',
+          last_name: 'Doe',
+          phone: '+2348012345678',
+        },
+        { subaccount: 'ACCT_TESTMOCK1234567' }
+      );
 
       expect(result.account_number).toBe('1234567890');
       expect(result.bank_name).toBe('Wema Bank');
@@ -86,6 +107,7 @@ describe('agentic/paystack', () => {
       const dvaCall = mockFetch.mock.calls[1];
       const dvaBody = JSON.parse(dvaCall[1].body);
       expect(dvaBody.preferred_bank).toBe('wema-bank');
+      expect(dvaBody.subaccount).toBe('ACCT_TESTMOCK1234567');
     });
 
     it('falls back to titan-paycom when wema-bank fails', async () => {
@@ -118,12 +140,15 @@ describe('agentic/paystack', () => {
           })
         );
 
-      const result = await createDedicatedVirtualAccount({
-        email: 'john@test.com',
-        first_name: 'John',
-        last_name: 'Doe',
-        phone: '',
-      });
+      const result = await createDedicatedVirtualAccount(
+        {
+          email: 'john@test.com',
+          first_name: 'John',
+          last_name: 'Doe',
+          phone: '',
+        },
+        { subaccount: 'ACCT_TESTMOCK1234567' }
+      );
 
       expect(result.account_number).toBe('9876543210');
       expect(result.bank_name).toBe('Titan Paycom');
@@ -132,6 +157,7 @@ describe('agentic/paystack', () => {
       // Verify fallback: third call is titan-paycom
       const fallbackBody = JSON.parse(mockFetch.mock.calls[2][1].body);
       expect(fallbackBody.preferred_bank).toBe('titan-paycom');
+      expect(fallbackBody.subaccount).toBe('ACCT_TESTMOCK1234567');
     });
 
     it('throws when both banks fail', async () => {
@@ -155,12 +181,15 @@ describe('agentic/paystack', () => {
         );
 
       await expect(
-        createDedicatedVirtualAccount({
-          email: 'john@test.com',
-          first_name: 'John',
-          last_name: 'Doe',
-          phone: '',
-        })
+        createDedicatedVirtualAccount(
+          {
+            email: 'john@test.com',
+            first_name: 'John',
+            last_name: 'Doe',
+            phone: '',
+          },
+          { subaccount: 'ACCT_TESTMOCK1234567' }
+        )
       ).rejects.toThrow('Paystack API Error 400');
     });
 
@@ -188,14 +217,36 @@ describe('agentic/paystack', () => {
           })
         );
 
-      const result = await createDedicatedVirtualAccount({
-        email: 'alt@test.com',
-        first_name: 'Alt',
-        last_name: 'Customer',
-        phone: '',
-      });
+      const result = await createDedicatedVirtualAccount(
+        {
+          email: 'alt@test.com',
+          first_name: 'Alt',
+          last_name: 'Customer',
+          phone: '',
+        },
+        { subaccount: 'ACCT_TESTMOCK1234567' }
+      );
 
       expect(result.bank_name).toBe('Titan Trust');
+    });
+
+    it('fails closed when the merchant Paystack subaccount is invalid', async () => {
+      vi.stubEnv('PAYSTACK_SECRET_KEY', 'sk_test_123');
+      vi.resetModules();
+      const { createDedicatedVirtualAccount } = await import('./paystack');
+
+      await expect(
+        createDedicatedVirtualAccount(
+          {
+            email: 'john@test.com',
+            first_name: 'John',
+            last_name: 'Doe',
+            phone: '+2348012345678',
+          },
+          { subaccount: '' }
+        )
+      ).rejects.toThrow('Paystack subaccount is not configured');
+      expect(mockFetch).not.toHaveBeenCalled();
     });
   });
 

@@ -58,7 +58,7 @@ describe('MerchantBankForm', () => {
         return Promise.resolve({
           success: true,
           accountName: 'Jane Doe',
-          subaccountCode: 'ACCT_test123',
+          subaccountCode: 'ACCT_TESTMOCK1234567',
         });
       }
 
@@ -209,7 +209,7 @@ describe('MerchantBankForm', () => {
         return Promise.resolve({
           success: true,
           accountName: 'Jane Doe',
-          subaccountCode: 'ACCT_test123',
+          subaccountCode: 'ACCT_TESTMOCK1234567',
         });
       }
 

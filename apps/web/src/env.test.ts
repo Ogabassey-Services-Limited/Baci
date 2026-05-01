@@ -4,9 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 function stubBaseEnv() {
   vi.stubEnv('NODE_ENV', 'test');
+  vi.stubEnv('GITHUB_ACTIONS', 'false');
+  vi.stubEnv('GITHUB_REPOSITORY', '');
+  vi.stubEnv('GITHUB_RUN_ID', '');
   vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'service-role-key');
   vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://supabase.example.com');
   vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'anon-key');
+  delete process.env.SUPABASE_JWT_SECRET;
 }
 
 function loadEnvModule() {
@@ -14,15 +18,149 @@ function loadEnvModule() {
   return import('@/env');
 }
 
-describe('env model getters', () => {
+describe('env validation', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
     stubBaseEnv();
   });
 
   afterEach(() => {
     vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    vi.resetModules();
+  });
+
+  it('rejects production boot when SUPABASE_JWT_SECRET is missing outside GitHub Actions', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('GITHUB_ACTIONS', 'false');
+    delete process.env.SUPABASE_JWT_SECRET;
+
+    await expect(loadEnvModule()).rejects.toThrow('SUPABASE_JWT_SECRET');
+  });
+
+  it('allows GitHub Actions production builds without runtime-only SUPABASE_JWT_SECRET', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('GITHUB_ACTIONS', 'true');
+    vi.stubEnv('GITHUB_REPOSITORY', 'ogabasseyy/Baci');
+    vi.stubEnv('GITHUB_RUN_ID', '123456789');
+    delete process.env.SUPABASE_JWT_SECRET;
+
+    await expect(loadEnvModule()).resolves.toBeDefined();
+  });
+
+  it('rejects spoofed GitHub Actions builds without GitHub run context', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('GITHUB_ACTIONS', 'true');
+    vi.stubEnv('GITHUB_REPOSITORY', '');
+    vi.stubEnv('GITHUB_RUN_ID', '');
+    delete process.env.SUPABASE_JWT_SECRET;
+
+    await expect(loadEnvModule()).rejects.toThrow('SUPABASE_JWT_SECRET');
+  });
+
+  it('rejects server boot when the service role key is missing', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('SUPABASE_JWT_SECRET', 'jwt-secret');
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    await expect(loadEnvModule()).rejects.toThrow('SUPABASE_SERVICE_ROLE_KEY');
+  });
+
+  it('loads server env when required production secrets are present', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('SUPABASE_JWT_SECRET', 'jwt-secret');
+
+    await expect(loadEnvModule()).resolves.toBeDefined();
+  });
+
+  it('loads client env without requiring server-only secrets', async () => {
+    vi.stubGlobal('window', {});
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    delete process.env.SUPABASE_JWT_SECRET;
+
+    await expect(loadEnvModule()).resolves.toBeDefined();
+  });
+
+  it('trims agentic runtime secrets and filters blank rotations', async () => {
+    vi.stubEnv('OPENAI_AGENTIC_API_KEY', '  agent-api-key  ');
+    vi.stubEnv('OPENAI_AGENTIC_CONFIRMATION_KEY', '  confirmation-key  ');
+    vi.stubEnv('OPENAI_AGENTIC_CONFIRMATION_KEY_PREVIOUS', '   ');
+    vi.stubEnv('OPENAI_AGENTIC_SIGNING_KEY', '  signing-key  ');
+    vi.stubEnv('OPENAI_AGENTIC_SIGNING_KEY_PREVIOUS', '   ');
+    vi.stubEnv('PAYSTACK_SECRET_KEY', '  paystack-secret  ');
+    const {
+      getAgenticApiKey,
+      getAgenticConfirmationKeys,
+      getAgenticSigningKeys,
+      getPaystackSecretKey,
+    } = await loadEnvModule();
+
+    expect(getAgenticApiKey()).toBe('agent-api-key');
+    expect(getAgenticConfirmationKeys()).toEqual(['confirmation-key']);
+    expect(getAgenticSigningKeys()).toEqual(['signing-key']);
+    expect(getPaystackSecretKey()).toBe('paystack-secret');
+  });
+
+  it('treats empty agentic runtime secrets as unset', async () => {
+    vi.stubEnv('OPENAI_AGENTIC_API_KEY', '');
+    vi.stubEnv('OPENAI_AGENTIC_CONFIRMATION_KEY', '');
+    vi.stubEnv('OPENAI_AGENTIC_CONFIRMATION_KEY_PREVIOUS', '');
+    vi.stubEnv('OPENAI_AGENTIC_SIGNING_KEY', '');
+    vi.stubEnv('OPENAI_AGENTIC_SIGNING_KEY_PREVIOUS', '');
+    vi.stubEnv('PAYSTACK_SECRET_KEY', '');
+    const {
+      getAgenticApiKey,
+      getAgenticConfirmationKeys,
+      getAgenticSigningKeys,
+      getPaystackSecretKey,
+    } = await loadEnvModule();
+
+    expect(getAgenticApiKey()).toBeUndefined();
+    expect(getAgenticConfirmationKeys()).toEqual([]);
+    expect(getAgenticSigningKeys()).toEqual([]);
+    expect(getPaystackSecretKey()).toBeUndefined();
+  });
+
+  it('includes current and previous agentic rotation keys after trimming', async () => {
+    vi.stubEnv('OPENAI_AGENTIC_CONFIRMATION_KEY', ' current-confirmation ');
+    vi.stubEnv(
+      'OPENAI_AGENTIC_CONFIRMATION_KEY_PREVIOUS',
+      ' previous-confirmation '
+    );
+    vi.stubEnv('OPENAI_AGENTIC_SIGNING_KEY', ' current-signing ');
+    vi.stubEnv('OPENAI_AGENTIC_SIGNING_KEY_PREVIOUS', ' previous-signing ');
+    const { getAgenticConfirmationKeys, getAgenticSigningKeys } =
+      await loadEnvModule();
+
+    expect(getAgenticConfirmationKeys()).toEqual([
+      'current-confirmation',
+      'previous-confirmation',
+    ]);
+    expect(getAgenticSigningKeys()).toEqual([
+      'current-signing',
+      'previous-signing',
+    ]);
+  });
+});
+
+describe('env model getters', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    stubBaseEnv();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
     vi.resetModules();
   });
 

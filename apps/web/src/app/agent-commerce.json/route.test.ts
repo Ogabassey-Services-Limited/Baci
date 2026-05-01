@@ -1,4 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+// @vitest-environment node
+
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockGetMerchantByIdentifier = vi.fn();
 
@@ -10,13 +12,28 @@ vi.mock('@/lib/cached-data', () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   vi.resetModules();
+  vi.stubEnv('NODE_ENV', 'test');
+  vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'service-role-key');
+  vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://supabase.example.com');
+  vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'anon-key');
+  vi.stubEnv('OPENAI_AGENTIC_MERCHANT_SLUG', 'ogabassey');
+  vi.stubEnv('OPENAI_AGENTIC_API_KEY', 'agent-api-key');
+  vi.stubEnv('OPENAI_AGENTIC_CONFIRMATION_KEY', 'confirmation-key');
+  vi.stubEnv('OPENAI_AGENTIC_SIGNING_KEY', 'signing-key');
+  vi.stubEnv('PAYSTACK_SECRET_KEY', 'paystack-secret');
+  vi.stubEnv('SUPABASE_JWT_SECRET', 'supabase-jwt-secret');
 
   mockGetMerchantByIdentifier.mockResolvedValue({
     id: 'merchant-1',
+    paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
     slug: 'ogabassey',
     business_name: 'Ogabassey',
     custom_domain: 'ogabassey.com',
   });
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 describe('GET /agent-commerce.json', () => {
@@ -30,14 +47,14 @@ describe('GET /agent-commerce.json', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.schema_version).toBe('2026-04-28');
+    expect(body.schema_version).toBe('2026-04-30');
     expect(body.store).toMatchObject({
       slug: 'ogabassey',
       name: 'Ogabassey',
       canonical_origin: 'https://ogabassey.com',
     });
-    expect(body.capabilities).toEqual(['catalog.read']);
-    expect(body.auth).toBeNull();
+    expect(body.capabilities).toContain('checkout.session.complete');
+    expect(body.auth?.type).toBe('bearer_hmac');
     expect(body.links.product_feed).toBe(
       'https://ogabassey.com/feeds/openai.jsonl'
     );
@@ -45,14 +62,16 @@ describe('GET /agent-commerce.json', () => {
       agent_products: 'https://ogabassey.com/feeds/agent-products.jsonl',
       google_merchant_xml: 'https://ogabassey.com/feeds/google-merchant.xml',
     });
-    expect(body.links.checkout_sessions).toBeUndefined();
+    expect(body.links.checkout_sessions).toBe(
+      'https://ogabassey.com/api/agentic/checkout_sessions'
+    );
     expect(body.links).toMatchObject({
       privacy_policy_url: 'https://ogabassey.com/privacy',
       return_policy_url: 'https://ogabassey.com/returns',
       shipping_policy_url: 'https://ogabassey.com/shipping',
       terms_of_service_url: 'https://ogabassey.com/terms',
     });
-    expect(response.headers.get('cache-control')).toBe('public, max-age=3600');
+    expect(response.headers.get('cache-control')).toBe('public, max-age=300');
     expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
   });
 
@@ -61,6 +80,7 @@ describe('GET /agent-commerce.json', () => {
       if (identifier === 'ogabassey.com') {
         return Promise.resolve({
           id: 'merchant-1',
+          paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
           slug: 'ogabassey',
           business_name: 'Ogabassey',
           custom_domain: 'ogabassey.com',
@@ -99,6 +119,7 @@ describe('GET /agent-commerce.json', () => {
       if (identifier === 'www.ogabassey.com') {
         return Promise.resolve({
           id: 'merchant-1',
+          paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
           slug: 'ogabassey',
           business_name: 'Ogabassey',
           custom_domain: 'www.ogabassey.com',

@@ -1,94 +1,66 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
 import { verifyAgenticApiKey } from '@/lib/agentic/auth';
+import { calculateCheckoutSession } from '@/lib/agentic/checkout';
+import { hasCheckoutPaymentSideEffect } from '@/lib/agentic/checkout-completion-response';
 import {
-  type CheckoutItem,
-  calculateCheckoutSession,
-} from '@/lib/agentic/checkout';
-import { createServiceClient } from '@/lib/supabase/service';
+  CHECKOUT_SESSION_MUTABLE_STATUSES,
+  getAgenticCheckoutSession,
+} from '@/lib/agentic/checkout-session-record';
+import { buildCheckoutSessionStateResponse } from '@/lib/agentic/checkout-session-response';
+import {
+  buildCheckoutSessionUpdate,
+  mapCheckoutSessionStatus,
+} from '@/lib/agentic/checkout-storage';
+import { reserveAgenticIdempotencyKey } from '@/lib/agentic/idempotency';
+import { getAgenticIdempotencyErrorStatus } from '@/lib/agentic/idempotency-response';
+import { buildStoredAgenticIdempotencyResponse } from '@/lib/agentic/idempotency-response-storage';
+import { resolveAgenticMerchantContext } from '@/lib/agentic/merchant-context';
+import { readAgenticMutationRequest } from '@/lib/agentic/mutation-request';
+import { reserveAgenticRequestId } from '@/lib/agentic/request-replay';
+import { getAgenticReplayErrorStatus } from '@/lib/agentic/request-replay-response';
+import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
+import { logger } from '@/lib/logger';
+import { sanitizeForLog } from '@/lib/sanitize-core';
+import { buildStoreUrl } from '@/lib/store-url';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { agenticCheckoutUpdateSchema } from '@/schemas/agentic-checkout';
+import { agenticCheckoutSessionRouteParamsSchema } from '@/schemas/agentic-checkout-session-route-params';
+import { handleAgenticCheckoutSessionGet } from './route-get-handler';
 
-// Helper to get session from DB
-async function getSession(supabase: SupabaseClient, id: string) {
-  const { data, error } = await supabase
-    .from('checkout_sessions')
-    .select(
-      'id, merchant_id, items, fulfillment_option_id, fulfillment_address, currency, status, metadata'
-    )
-    .eq('id', id)
-    .single();
-  return { data, error };
+const UPDATE_IDEMPOTENCY_ROUTE = 'checkout_sessions.update';
+type SessionRouteProps = { params: Promise<{ id: string }> };
+
+export function GET(request: NextRequest, props: SessionRouteProps) {
+  return handleAgenticCheckoutSessionGet(request, props);
 }
 
-export async function GET(
-  request: NextRequest,
-  props: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: NextRequest, props: SessionRouteProps) {
   const params = await props.params;
   if (!verifyAgenticApiKey(request))
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const supabase = createServiceClient();
-  const { data: session, error } = await getSession(supabase, params.id);
-
-  if (error || !session) {
-    return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+  const parsedParams =
+    agenticCheckoutSessionRouteParamsSchema.safeParse(params);
+  if (!parsedParams.success) {
+    return NextResponse.json(
+      {
+        error: 'Invalid route params',
+        details: parsedParams.error.flatten(),
+      },
+      { status: 400 }
+    );
   }
+  const { id: sessionId } = parsedParams.data;
 
-  // Construct response from stored data
-  // NOTE: Should we re-calculate?
-  // Spec says: "GET /checkout_sessions/{id} ... returns full cart state".
-  // If we store the *calculated* totals in DB, we can just return them.
-  // But if products update, stored totals might be stale.
-  // Ideally, re-calculate on GET to be safe.
-
-  const items = session.items; // Raw items
-  const fulfillmentOptionId = session.fulfillment_option_id;
-  const currency = session.currency;
-
-  const sessionCalc = await calculateCheckoutSession(
-    supabase,
-    items as CheckoutItem[],
-    fulfillmentOptionId,
-    currency
-  );
-
-  return NextResponse.json({
-    id: session.id,
-    status: session.status,
-    currency: currency.toLowerCase(),
-    line_items: sessionCalc.lineItems,
-    totals: sessionCalc.totals,
-    fulfillment_options: sessionCalc.fulfillmentOptions,
-    fulfillment_option_id: fulfillmentOptionId, // Selected
-    shipping_address: session.fulfillment_address,
-    messages: sessionCalc.messages,
-    links: [
-      { type: 'terms_of_use', url: 'https://ogabassey.com/terms' },
-      { type: 'privacy_policy', url: 'https://ogabassey.com/privacy' },
-    ],
-  });
-}
-
-export async function POST(
-  request: NextRequest,
-  props: { params: Promise<{ id: string }> }
-) {
-  const params = await props.params;
-  if (!verifyAgenticApiKey(request))
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  let body: Awaited<ReturnType<NextRequest['json']>>;
+  const mutation = await readAgenticMutationRequest({ request });
+  if (!mutation.ok) {
+    return mutation.response;
+  }
+  let respondWithIdempotency:
+    | ((response: unknown, status: number) => Promise<NextResponse>)
+    | null = null;
 
   try {
-    body = await request.json();
-  } catch (err) {
-    console.error('Agentic Checkout Update JSON Parse Error:', err);
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
-  }
-
-  try {
-    const parsed = agenticCheckoutUpdateSchema.safeParse(body);
+    const parsed = agenticCheckoutUpdateSchema.safeParse(mutation.body);
     if (!parsed.success) {
       return NextResponse.json(
         {
@@ -98,80 +70,209 @@ export async function POST(
         { status: 400 }
       );
     }
-
     const { items, shipping_address, fulfillment_option_id } = parsed.data;
-    // Note: Spec allows updating items, address, or option.
-
-    const supabase = createServiceClient();
-    const { data: session, error } = await getSession(supabase, params.id);
-
-    if (error || !session) {
-      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+    const bootstrap = createAdminClient();
+    const merchant = await resolveAgenticMerchantContext(bootstrap);
+    if (!merchant) {
+      return NextResponse.json(
+        { error: 'Agentic merchant not found' },
+        { status: 500 }
+      );
     }
+    const supabase = createAgenticScopedSupabaseClient({
+      merchantId: merchant.id,
+      merchantSlug: merchant.slug,
+    });
+    const idempotency = await reserveAgenticIdempotencyKey({
+      apiVersion: mutation.apiVersion,
+      body: mutation.rawBody,
+      key: mutation.idempotencyKey,
+      merchantId: merchant.id,
+      method: mutation.method,
+      pathname: mutation.pathname,
+      route: UPDATE_IDEMPOTENCY_ROUTE,
+      supabase,
+    });
+    if (!idempotency.ok) {
+      return NextResponse.json(
+        { error: idempotency.error },
+        { status: getAgenticIdempotencyErrorStatus(idempotency.error) }
+      );
+    }
+    if (idempotency.state === 'replay') {
+      return NextResponse.json(idempotency.response, {
+        status: idempotency.status,
+        headers: {
+          'idempotency-key': mutation.idempotencyKey,
+          'request-id': mutation.requestId,
+        },
+      });
+    }
+    respondWithIdempotency = (response: unknown, status: number) =>
+      buildStoredAgenticIdempotencyResponse({
+        idempotencyKey: mutation.idempotencyKey,
+        merchantId: merchant.id,
+        requestId: mutation.requestId,
+        response,
+        route: UPDATE_IDEMPOTENCY_ROUTE,
+        status,
+        storageFailureResponse: { error: 'Internal Server Error' },
+        supabase,
+      });
+    const replayReservation = await reserveAgenticRequestId({
+      apiVersion: mutation.apiVersion,
+      idempotencyKey: mutation.idempotencyKey,
+      merchantId: merchant.id,
+      requestId: mutation.requestId,
+      supabase,
+    });
+    if (!replayReservation.ok) {
+      return await respondWithIdempotency(
+        { error: replayReservation.error },
+        getAgenticReplayErrorStatus(replayReservation.error)
+      );
+    }
+    const storeResponse = respondWithIdempotency;
+    if (!storeResponse) {
+      return NextResponse.json(
+        { error: 'Internal Server Error' },
+        { status: 500 }
+      );
+    }
+    const respond = (response: unknown, status: number) =>
+      storeResponse(response, status);
 
-    // Merge updates
-    const newItems = items ?? session.items;
+    const { data: session, error } = await getAgenticCheckoutSession({
+      merchantId: merchant.id,
+      sessionId,
+      supabase,
+    });
+    if (error) {
+      logger.error({
+        message: 'Failed to fetch checkout session',
+        error: sanitizeForLog(error),
+        sessionId,
+      });
+      return await respond({ error: 'Database error' }, 500);
+    }
+    if (!session) {
+      return await respond({ error: 'Session not found' }, 404);
+    }
+    if (
+      !(CHECKOUT_SESSION_MUTABLE_STATUSES as readonly string[]).includes(
+        session.status
+      )
+    ) {
+      return await respond(
+        {
+          error: 'Session cannot be updated',
+          status: mapCheckoutSessionStatus({
+            status: session.status,
+            hasFulfillmentAddress: !!session.shipping_address,
+            hasLineItems: session.cart_items.length > 0,
+          }),
+        },
+        409
+      );
+    }
+    if (hasCheckoutPaymentSideEffect(session)) {
+      return await respond(
+        {
+          error: 'Session already has pending payment',
+          status: 'payment_pending',
+        },
+        409
+      );
+    }
+    const newItems = items ?? session.cart_items;
     const newAddress =
       shipping_address !== undefined
         ? shipping_address
-        : session.fulfillment_address;
+        : session.shipping_address;
     const newOptionId =
       fulfillment_option_id !== undefined
         ? fulfillment_option_id
-        : session.fulfillment_option_id;
-
-    // Recalculate
+        : session.shipping_method;
     const sessionCalc = await calculateCheckoutSession(
       supabase,
-      newItems as CheckoutItem[],
+      newItems,
       newOptionId,
-      session.currency
+      session.currency,
+      merchant.id
     );
-
-    // Determine status
-    // If we have address and option and items, are we ready?
-    let newStatus = 'in_progress';
-    if (newAddress && sessionCalc.lineItems.length > 0) {
-      // Simple logic: if address provided, we can populate taxes/shipping properly (mocked in checkout.ts).
-      // If we have a selected option (or default), we are ready.
-      newStatus = 'ready_for_payment';
-    }
-
-    // Update DB
-    await supabase
-      .from('checkout_sessions')
-      .update({
-        items: newItems,
-        fulfillment_address: newAddress,
-        fulfillment_option_id: newOptionId,
-        line_items: sessionCalc.lineItems,
-        totals: sessionCalc.totals,
-        fulfillment_options: sessionCalc.fulfillmentOptions,
-        status: newStatus,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', params.id);
-
-    return NextResponse.json({
-      id: session.id,
-      status: newStatus,
-      currency: session.currency.toLowerCase(),
-      line_items: sessionCalc.lineItems,
+    const selectedOptionId =
+      newOptionId ?? sessionCalc.selectedOptionId ?? null;
+    const updatePayload = buildCheckoutSessionUpdate({
+      items: newItems,
+      currency: session.currency,
+      fulfillmentAddress: newAddress ?? null,
+      fulfillmentOptionId: selectedOptionId,
+      lineItems: sessionCalc.lineItems,
+      fulfillmentOptions: sessionCalc.fulfillmentOptions,
       totals: sessionCalc.totals,
-      fulfillment_options: sessionCalc.fulfillmentOptions,
-      fulfillment_option_id: newOptionId,
-      shipping_address: newAddress,
       messages: sessionCalc.messages,
-      links: [
-        { type: 'terms_of_use', url: 'https://ogabassey.com/terms' },
-        { type: 'privacy_policy', url: 'https://ogabassey.com/privacy' },
-      ],
+      existingMetadata: session.metadata,
     });
-  } catch (err) {
-    console.error('Agentic Checkout Update Error:', err);
-    return NextResponse.json(
-      { error: 'Internal Server Error' },
-      { status: 500 }
-    );
+    const status = mapCheckoutSessionStatus({
+      status: updatePayload.status,
+      hasFulfillmentAddress: !!newAddress,
+      hasLineItems: sessionCalc.lineItems.length > 0,
+    });
+    const { data: updatedSession, error: updateError } = await supabase
+      .from('checkout_sessions')
+      .update(updatePayload)
+      .eq('session_id', sessionId)
+      .eq('merchant_id', merchant.id)
+      .is('order_id', null)
+      .is('payment_reference', null)
+      .is('virtual_account_number', null)
+      .in('status', CHECKOUT_SESSION_MUTABLE_STATUSES)
+      .select('session_id')
+      .maybeSingle();
+    if (updateError) {
+      logger.error({
+        message: 'Failed to update checkout session',
+        error: sanitizeForLog(updateError),
+        sessionId,
+      });
+      return await respond({ error: 'Database error' }, 500);
+    }
+    if (!updatedSession) {
+      return await respond(
+        {
+          error: 'Session already has pending payment',
+          status: 'payment_pending',
+        },
+        409
+      );
+    }
+    const responsePayload = buildCheckoutSessionStateResponse({
+      currency: session.currency,
+      fulfillmentOptionId: selectedOptionId,
+      fulfillmentOptions: sessionCalc.fulfillmentOptions,
+      lineItems: sessionCalc.lineItems,
+      messages: sessionCalc.messages,
+      policyBaseUrl: buildStoreUrl(merchant),
+      sessionId: session.session_id,
+      shippingAddress: newAddress,
+      status,
+      totals: sessionCalc.totals,
+    });
+    return await respond(responsePayload, 200);
+  } catch (err: unknown) {
+    const body = { error: 'Internal Server Error' };
+    logger.error({
+      message: 'Agentic checkout update error',
+      error: sanitizeForLog(err),
+      sessionId,
+    });
+    if (respondWithIdempotency) {
+      try {
+        return await respondWithIdempotency(body, 500);
+      } catch {
+        return NextResponse.json(body, { status: 500 });
+      }
+    }
+    return NextResponse.json(body, { status: 500 });
   }
 }

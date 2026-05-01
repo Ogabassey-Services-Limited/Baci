@@ -22,6 +22,7 @@
 - Agents may create and update checkout sessions without a fresh human prompt, but Baci must not create an order, reserve/generate payment account details, start payment collection, or expose payment instructions until the completion request includes verified consent or a valid mandate. If consent is missing, expired, mismatched, or over limit, fail closed with a machine-readable `CONFIRMATION_REQUIRED` or `AUTHORIZATION_INVALID` response.
 - Production check on 2026-04-28: `https://ogabassey.com/api/feed/google-merchant?merchant_slug=ogabassey` returns HTTP 500 with `{"error":"Failed to generate feed"}`. Treat this as confirmed broken until logs or local reproduction prove the deployed error has been fixed.
 - Vercel production logs on 2026-04-28 show the Google Merchant feed failure is `DB_PRODUCTS_ERROR` with Postgres code `42703`: `column products.category_slug does not exist`. Public feed and sitemap work must not select `products.category_slug` directly unless a new migration adds and backfills that column.
+- Production check on 2026-04-30: the TestFlight Ogabassey AI chat fallback ("I'm having trouble connecting right now") is caused by `https://usebaci.com/api/chat` returning HTTP 500. Vercel logs show Google Generative Language API error `API_KEY_INVALID`: "API key expired. Please renew the API key." The provider key is read from `GOOGLE_GENAI_API_KEY`, `GEMINI_API_KEY`, or `GOOGLE_GENERATIVE_AI_API_KEY` in `apps/web/src/ai/provider.ts`; rotate the expired production Vercel env value and redeploy. Treat this as an operational key-rotation/supportability gate, not a Phase 3 checkout-code requirement, unless a Phase 3 change directly modifies `/api/chat` or the mobile chat client.
 - User approval to edit `apps/web/src/proxy.ts` for the scoped custom-domain `.md` mirror fix was granted on 2026-04-28 with: "you can edit. proceed".
 
 ## Layer Coverage
@@ -29,6 +30,7 @@
 - **Discovery Layer:** Phases 1 and 2 make Ogabassey discoverable to crawlers and agents through `robots.txt`, `sitemap.xml`, `llms.txt`, `agent-commerce.json`, markdown mirrors, and public non-`/api` feed aliases.
 - **Trust Layer:** Phases 2 and 4 must verify agents can trust the catalog before recommending it. Required checks include page/feed/API parity, Product/Offer JSON-LD audits, review and trust-profile schema coverage, image URL validation, crawler user-agent monitoring, and automated feed health alerts.
 - **Action Layer:** Phase 3 covers safe shopping actions: merchant-scoped checkout sessions, cart/update/complete/cancel operations, payment handoff, idempotency keys, HMAC/request-integrity headers, replay protection, order-status reads, and explicit human-confirmation or pre-authorized mandate boundaries before any order/payment side effect.
+- **Support Layer:** Customer-support chat health is a parallel operational track, not an agentic checkout gate. Phase 4 should still smoke-test `/api/chat` because a broken Ogabassey AI assistant lowers merchant trust, but agent commerce promotion can proceed when discovery, feeds, trust checks, checkout, payment handoff, and post-purchase reads are healthy. If `/api/chat` fails from provider-key issues, open a P1 support incident and rotate the Google/Gemini production key; only block agent-commerce release when the phase changes `/api/chat` or the mobile/web support client directly.
 
 ## Mandatory Phase Review Gates
 
@@ -4823,6 +4825,12 @@ curl -sS -L -D - https://ogabassey.com/agent-commerce.json -o /tmp/ogabassey-age
 curl -sS -L -D - 'https://ogabassey.com/api/feed/openai?merchant_slug=ogabassey&format=current' -o /tmp/ogabassey-openai-current.ndjson
 curl -sS -L -D - 'https://ogabassey.com/api/feed/google-merchant?merchant_slug=ogabassey' -o /tmp/ogabassey-gmc-api.xml
 curl -sS -L -D - 'https://ogabassey.com/feeds/google-merchant.xml' -o /tmp/ogabassey-gmc-public.xml
+curl -sS -L -D - https://usebaci.com/api/chat \
+  --max-time 10 \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: text/plain' \
+  --data '{"messages":[{"role":"user","content":"Best gaming phones"}]}' \
+  -o /tmp/usebaci-chat-smoke.txt
 ```
 
 Expected:
@@ -4834,10 +4842,11 @@ Expected:
 - `/agent-commerce.json` returns HTTP 200 and contains `catalog.read`.
 - Feed product URLs do not contain `https://ogabassey.com/ogabassey/`.
 - Google Merchant API feed and `/feeds/google-merchant.xml` return HTTP 200 XML with at least one `<item>`.
+- `/api/chat` returns HTTP 200 text after the production Google/Gemini API key is rotated. If it returns HTTP 500 with `API_KEY_INVALID`, open a P1 support incident and rotate the key in Vercel; this does not block agent-commerce promotion unless this release modified `/api/chat` or the mobile/web support assistant.
 
 - [ ] **Step 6: Post-deployment monitoring and rollback**
 
-Configure or verify alerts for:
+Configure or verify agent commerce alerts for:
 
 - HTTP 500 rates on `/llms.txt`, `/index.html.md`, `/agent-commerce.json`, `/api/feed/openai`, `/api/feed/google-merchant`, `/feeds/openai.jsonl`, `/feeds/agent-products.jsonl`, `/feeds/google-merchant.xml`, and `/api/agentic/checkout_sessions`.
 - Feed generation failures and Google Merchant XML generation latency above the expected production threshold.
@@ -4847,6 +4856,7 @@ Configure or verify alerts for:
 - Checkout completion authorization failures by code (`CONFIRMATION_REQUIRED`, `CONFIRMATION_MISMATCH`, `AUTHORIZATION_EXPIRED`, `AUTHORIZATION_INVALID`) and any completion request that reaches payment side effects without an authorization audit record.
 - Request-integrity failures that spike above normal agent retry noise.
 - Idempotency hard-limit `429` responses, which should be treated as abuse, extreme concurrency, or pruning failure.
+- Customer-support monitoring remains separate: alert on `/api/chat` provider failures, especially Google `API_KEY_INVALID`, `UNAUTHENTICATED`, quota exhaustion, model-not-found errors, chat latency, and generic fallback-message rate. Owner: support/AI operations. SLA: P1 during business hours for production support assistant outages; escalation is key rotation or temporary UI disablement through the support-assistant release path.
 
 Deployment blockers:
 
@@ -4855,11 +4865,11 @@ Deployment blockers:
 - Any unmanaged-stock product exposed as out of stock.
 - Any checkout completion that can create an order, reserve a DVA, or expose payment instructions without a verified confirmation artifact or valid mandate.
 - Any payment webhook test or live smoke check that can double-confirm or skip confirmation.
-
 Warnings that can ship only with a follow-up issue:
 
 - `/about.md` unavailable when `llms.txt` does not advertise it.
 - Non-critical feed latency that remains below crawler timeout thresholds.
+- Verified production `/api/chat` 500 caused by an expired or invalid Google/Gemini API key, when this release does not change support-chat code. Open a P1 support incident and rotate the key, but do not block agent-commerce promotion on this alone.
 
 Rollback procedure:
 

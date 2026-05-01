@@ -2,6 +2,11 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
+import {
+  confirmAgenticPaystackDvaPayment,
+  getPaystackDvaReceiverAccountNumber,
+  markAgenticPaystackDvaSessionPaid,
+} from '@/lib/agentic/paystack-dva-webhook';
 import { upsertPaystackAuthorization } from '@/lib/customer-saved-payment-methods';
 import {
   creditWalletTopUp,
@@ -21,7 +26,7 @@ import {
   calculatePlatformFee,
   verifyTransaction as verifyPaystackPayment,
 } from '@/lib/paystack';
-import { isValidUuid } from '@/lib/sanitize-core';
+import { isValidUuid, sanitizeForLog } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { triggerPurchaseConversion } from '@/lib/trigger-purchase-conversion';
@@ -36,6 +41,41 @@ interface PaymentTransactionRecord {
   id: string;
   merchant_id: string;
   metadata: Record<string, unknown> | null;
+}
+
+async function reconcileAgenticPaystackDvaSession({
+  metadata,
+  reference,
+  supabase,
+  transaction,
+}: {
+  metadata: Record<string, unknown> | null;
+  reference: string;
+  supabase: SupabaseClient;
+  transaction: { merchant_id: string; order_id?: string | null };
+}) {
+  const agenticSessionPayment = await markAgenticPaystackDvaSessionPaid({
+    gatewayReference: reference,
+    supabase,
+    transaction: {
+      merchant_id: transaction.merchant_id,
+      metadata,
+      order_id: transaction.order_id ?? null,
+    },
+  });
+  if (agenticSessionPayment.ok) {
+    return null;
+  }
+
+  logger.error({
+    message: 'Agentic checkout session reconciliation failed',
+    reference,
+    error: sanitizeForLog(agenticSessionPayment.error),
+  });
+  return NextResponse.json(
+    { error: 'Agentic checkout session reconciliation failed' },
+    { status: 500 }
+  );
 }
 
 /**
@@ -391,6 +431,36 @@ export async function POST(request: NextRequest) {
     }
 
     const verifiedAmount = getVerifiedAmount(gateway, gatewayResponse);
+
+    if (
+      (gateway === 'paystack' || gateway === 'korapay') &&
+      verifiedAmount === null
+    ) {
+      logger.error({
+        gateway,
+        message: 'Payment webhook missing verified amount',
+        reference,
+      });
+      return NextResponse.json(
+        { error: 'Payment amount verification failed' },
+        { status: 422 }
+      );
+    }
+
+    if (gateway === 'paystack') {
+      const agenticDvaPayment = await confirmAgenticPaystackDvaPayment({
+        accountNumber: getPaystackDvaReceiverAccountNumber(body),
+        gatewayReference: reference,
+        supabase,
+        verifiedAmount,
+      });
+
+      if (agenticDvaPayment.handled) {
+        return NextResponse.json(agenticDvaPayment.body, {
+          status: agenticDvaPayment.status,
+        });
+      }
+    }
 
     // ============================================
     // CHAT ORDER HANDLING (Virtual Account Payments)
@@ -1007,6 +1077,20 @@ export async function POST(request: NextRequest) {
       }
 
       logger.info({ message: 'Transaction already processed', reference });
+      if (gateway === 'paystack') {
+        const reconciliationFailure = await reconcileAgenticPaystackDvaSession({
+          metadata,
+          reference,
+          supabase,
+          transaction: {
+            merchant_id: transaction.merchant_id,
+            order_id: transaction.order_id,
+          },
+        });
+        if (reconciliationFailure) {
+          return reconciliationFailure;
+        }
+      }
       return NextResponse.json({ message: 'Already processed' });
     }
 
@@ -1654,6 +1738,21 @@ export async function POST(request: NextRequest) {
         message: 'Settlement recording error',
         error: settlementError,
       });
+    }
+
+    if (gateway === 'paystack') {
+      const reconciliationFailure = await reconcileAgenticPaystackDvaSession({
+        metadata,
+        reference,
+        supabase,
+        transaction: {
+          merchant_id: transaction.merchant_id,
+          order_id: transaction.order_id,
+        },
+      });
+      if (reconciliationFailure) {
+        return reconciliationFailure;
+      }
     }
 
     logger.info({

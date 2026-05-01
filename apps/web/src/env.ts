@@ -8,81 +8,117 @@ import z from 'zod';
  * 2026 Best Practice: Schema-based validation using Zod.
  */
 
-const serverSchema = z.object({
-  // Supabase (Server Admin)
-  SUPABASE_SERVICE_ROLE_KEY: z
-    .string()
-    .min(1, 'SUPABASE_SERVICE_ROLE_KEY is required'),
+const booleanStringSchema = z
+  .enum(['true', 'false'])
+  .transform((value) => value === 'true');
 
-  // Blog
-  BLOG_PREVIEW_SECRET: z.string().default('dev-preview-secret'), // Fallback for dev
+const serverSchema = z
+  .object({
+    // Supabase (Server Admin)
+    SUPABASE_SERVICE_ROLE_KEY: z
+      .string()
+      .min(1, 'SUPABASE_SERVICE_ROLE_KEY is required'),
+    SUPABASE_JWT_SECRET: z
+      .string()
+      .trim()
+      .min(1, 'SUPABASE_JWT_SECRET cannot be empty')
+      .optional(),
 
-  // Payments (Server keys)
-  KORAPAY_SECRET_KEY: z.string().optional(),
-  JUICYWAY_SECRET_KEY: z.string().optional(),
-  PAYSTACK_SECRET_KEY: z.string().optional(),
+    // Blog
+    BLOG_PREVIEW_SECRET: z.string().default('dev-preview-secret'), // Fallback for dev
 
-  // Email
-  ZEPTOMAIL_TOKEN: z.string().optional(),
+    // Payments (Server keys)
+    KORAPAY_SECRET_KEY: z.string().optional(),
+    JUICYWAY_SECRET_KEY: z.string().optional(),
+    PAYSTACK_SECRET_KEY: z.string().optional(),
+    OPENAI_AGENTIC_API_KEY: z.string().optional(),
+    OPENAI_AGENTIC_CONFIRMATION_KEY: z.string().optional(),
+    OPENAI_AGENTIC_CONFIRMATION_KEY_PREVIOUS: z.string().optional(),
+    OPENAI_AGENTIC_MERCHANT_SLUG: z.string().optional(),
+    OPENAI_AGENTIC_SIGNING_KEY: z.string().optional(),
+    OPENAI_AGENTIC_SIGNING_KEY_PREVIOUS: z.string().optional(),
 
-  // AI
-  GOOGLE_GENAI_API_KEY: z.string().optional(),
-  GEMINI_API_KEY: z.string().optional(),
-  AI_CHAT_MODEL: z.string().default('gemma4:e4b'),
+    // Email
+    ZEPTOMAIL_TOKEN: z.string().optional(),
 
-  // BNPL
-  CREDIT_DIRECT_PRIVATE_KEY: z.string().optional(),
+    // AI
+    GOOGLE_GENAI_API_KEY: z.string().optional(),
+    GEMINI_API_KEY: z.string().optional(),
+    AI_CHAT_MODEL: z.string().default('gemma4:e4b'),
 
-  // Node Env
-  NODE_ENV: z
-    .enum(['development', 'test', 'production'])
-    .default('development'),
+    // BNPL
+    CREDIT_DIRECT_PRIVATE_KEY: z.string().optional(),
 
-  // Internal
-  JUICYWAY_BASE_URL: z.string().default('https://api.spendjuice.com'),
-  MYCOVER_WEBHOOK_SECRET: z.string().optional(),
-  CRON_SECRET: z.string().optional(),
-  INTERNAL_API_SECRET: z.string().optional(),
-  IMPORT_JOB_WORKER_BATCH_SIZE: z.coerce.number().int().positive().default(3),
-  IMPORT_JOB_DIRECT_UPLOAD_ENABLED: z.enum(['true', 'false']).optional(),
+    // Node Env
+    NODE_ENV: z
+      .enum(['development', 'test', 'production'])
+      .default('development'),
 
-  // Push Notifications
-  EXPO_ACCESS_TOKEN: z.string().optional(),
+    // Internal
+    JUICYWAY_BASE_URL: z.string().default('https://api.spendjuice.com'),
+    MYCOVER_WEBHOOK_SECRET: z.string().optional(),
+    CRON_SECRET: z.string().optional(),
+    INTERNAL_API_SECRET: z.string().optional(),
+    IMPORT_JOB_WORKER_BATCH_SIZE: z.coerce.number().int().positive().default(3),
+    IMPORT_JOB_DIRECT_UPLOAD_ENABLED: booleanStringSchema.optional(),
 
-  // Monnify (Identity verification)
-  MONNIFY_API_KEY: z.string().optional(),
-  MONNIFY_SECRET_KEY: z.string().optional(),
-  MONNIFY_BASE_URL: z.string().url().default('https://api.monnify.com'),
-  CAC_API_URL: z
-    .string()
-    .url()
-    .default(
-      'https://icrp.cac.gov.ng/name_similarity_app/api/public_search/search'
-    ),
-  // Ollama (CAC certificate OCR — Gemma 4 on VPS)
-  OLLAMA_BASE_URL: z
-    .string()
-    .url()
-    .refine(
-      (u) => {
-        const url = new URL(u);
-        const isLocal =
-          url.hostname === 'localhost' ||
-          url.hostname.startsWith('127.') ||
-          url.hostname === '::1';
-        return u.startsWith('https://') || isLocal;
-      },
-      { message: 'OLLAMA_BASE_URL must use HTTPS (except for localhost)' }
-    )
-    .optional(),
-  OLLAMA_CAC_MODEL: z.string().default('gemma4:e4b'),
-  OLLAMA_BASIC_AUTH: z.string().optional(),
+    // Push Notifications
+    EXPO_ACCESS_TOKEN: z.string().optional(),
 
-  // Jumia Marketplace
-  JUMIA_ENVIRONMENT: z.enum(['staging', 'production']).default('staging'),
-  JUMIA_CLIENT_ID: z.string().optional(),
-  JUMIA_CLIENT_SECRET: z.string().optional(),
-});
+    // Monnify (Identity verification)
+    MONNIFY_API_KEY: z.string().optional(),
+    MONNIFY_SECRET_KEY: z.string().optional(),
+    MONNIFY_BASE_URL: z.string().url().default('https://api.monnify.com'),
+    CAC_API_URL: z
+      .string()
+      .url()
+      .default(
+        'https://icrp.cac.gov.ng/name_similarity_app/api/public_search/search'
+      ),
+    // Ollama (CAC certificate OCR — Gemma 4 on VPS)
+    OLLAMA_BASE_URL: z
+      .string()
+      .url()
+      .refine(
+        (u) => {
+          const url = new URL(u);
+          const isLocal =
+            url.hostname === 'localhost' ||
+            url.hostname.startsWith('127.') ||
+            url.hostname === '::1';
+          return u.startsWith('https://') || isLocal;
+        },
+        { message: 'OLLAMA_BASE_URL must use HTTPS (except for localhost)' }
+      )
+      .optional(),
+    OLLAMA_CAC_MODEL: z.string().default('gemma4:e4b'),
+    OLLAMA_BASIC_AUTH: z.string().optional(),
+
+    // Jumia Marketplace
+    JUMIA_ENVIRONMENT: z.enum(['staging', 'production']).default('staging'),
+    JUMIA_CLIENT_ID: z.string().optional(),
+    JUMIA_CLIENT_SECRET: z.string().optional(),
+  })
+  .superRefine((value, ctx) => {
+    const isGitHubActionsBuild =
+      process.env.GITHUB_ACTIONS === 'true' &&
+      Boolean(process.env.GITHUB_RUN_ID) &&
+      Boolean(process.env.GITHUB_REPOSITORY);
+
+    if (
+      value.NODE_ENV !== 'production' ||
+      isGitHubActionsBuild ||
+      value.SUPABASE_JWT_SECRET
+    ) {
+      return;
+    }
+
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'SUPABASE_JWT_SECRET is required in production',
+      path: ['SUPABASE_JWT_SECRET'],
+    });
+  });
 
 const clientSchema = z.object({
   // Supabase (Public)
@@ -154,10 +190,20 @@ const getEnv = () => {
   const serverEnv = isServer
     ? {
         SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+        SUPABASE_JWT_SECRET: process.env.SUPABASE_JWT_SECRET,
         BLOG_PREVIEW_SECRET: process.env.BLOG_PREVIEW_SECRET,
         KORAPAY_SECRET_KEY: process.env.KORAPAY_SECRET_KEY,
         JUICYWAY_SECRET_KEY: process.env.JUICYWAY_SECRET_KEY,
         PAYSTACK_SECRET_KEY: process.env.PAYSTACK_SECRET_KEY,
+        OPENAI_AGENTIC_API_KEY: process.env.OPENAI_AGENTIC_API_KEY,
+        OPENAI_AGENTIC_CONFIRMATION_KEY:
+          process.env.OPENAI_AGENTIC_CONFIRMATION_KEY,
+        OPENAI_AGENTIC_CONFIRMATION_KEY_PREVIOUS:
+          process.env.OPENAI_AGENTIC_CONFIRMATION_KEY_PREVIOUS,
+        OPENAI_AGENTIC_MERCHANT_SLUG: process.env.OPENAI_AGENTIC_MERCHANT_SLUG,
+        OPENAI_AGENTIC_SIGNING_KEY: process.env.OPENAI_AGENTIC_SIGNING_KEY,
+        OPENAI_AGENTIC_SIGNING_KEY_PREVIOUS:
+          process.env.OPENAI_AGENTIC_SIGNING_KEY_PREVIOUS,
         ZEPTOMAIL_TOKEN: process.env.ZEPTOMAIL_TOKEN,
         GOOGLE_GENAI_API_KEY: process.env.GOOGLE_GENAI_API_KEY,
         GEMINI_API_KEY: process.env.GEMINI_API_KEY,
@@ -258,11 +304,70 @@ export const getSupabaseServiceRoleKey = (): string => {
   return env.SUPABASE_SERVICE_ROLE_KEY;
 };
 
+export const getSupabaseJwtSecret = (): string => {
+  if (typeof window !== 'undefined')
+    throw new Error('SUPABASE_JWT_SECRET cannot be accessed on the client');
+  if (!env?.SUPABASE_JWT_SECRET)
+    throw new Error('SUPABASE_JWT_SECRET is not defined');
+  return env.SUPABASE_JWT_SECRET;
+};
+
 // Optional Getters
 export const getKorapaySecretKey = () => env?.KORAPAY_SECRET_KEY;
 export const getKorapayPublicKey = () => env?.KORAPAY_PUBLIC_KEY;
 export const getJuicywaySecretKey = () => env?.JUICYWAY_SECRET_KEY;
 export const getJuicywayBaseUrl = () => env?.JUICYWAY_BASE_URL;
+const isBrowserRuntime = () =>
+  // Server-route tests run in jsdom, so agentic server-only getters use this
+  // helper to avoid treating Vitest's window shim as a real browser runtime.
+  typeof window !== 'undefined' && process.env.NODE_ENV !== 'test';
+const trimSecret = (value: string | undefined): string => value?.trim() ?? '';
+
+// Agentic runtime secrets are read at call time so serverless env rotations and
+// tests that stub process.env after module load use the current secret values.
+export const getAgenticApiKey = () => {
+  if (isBrowserRuntime()) return undefined;
+  const apiKey = trimSecret(
+    process.env.OPENAI_AGENTIC_API_KEY ?? env?.OPENAI_AGENTIC_API_KEY
+  );
+  return apiKey || undefined;
+};
+export const getAgenticConfirmationKeys = () => {
+  if (isBrowserRuntime()) return [];
+  return [
+    process.env.OPENAI_AGENTIC_CONFIRMATION_KEY ??
+      env?.OPENAI_AGENTIC_CONFIRMATION_KEY,
+    process.env.OPENAI_AGENTIC_CONFIRMATION_KEY_PREVIOUS ??
+      env?.OPENAI_AGENTIC_CONFIRMATION_KEY_PREVIOUS,
+  ]
+    .map(trimSecret)
+    .filter((value) => value.length > 0);
+};
+export const getAgenticMerchantSlug = () => {
+  if (isBrowserRuntime()) return undefined;
+  const slug = trimSecret(
+    process.env.OPENAI_AGENTIC_MERCHANT_SLUG ??
+      env?.OPENAI_AGENTIC_MERCHANT_SLUG
+  );
+  return slug || undefined;
+};
+export const getAgenticSigningKeys = () => {
+  if (isBrowserRuntime()) return [];
+  return [
+    process.env.OPENAI_AGENTIC_SIGNING_KEY ?? env?.OPENAI_AGENTIC_SIGNING_KEY,
+    process.env.OPENAI_AGENTIC_SIGNING_KEY_PREVIOUS ??
+      env?.OPENAI_AGENTIC_SIGNING_KEY_PREVIOUS,
+  ]
+    .map(trimSecret)
+    .filter((value) => value.length > 0);
+};
+export const getPaystackSecretKey = () => {
+  if (isBrowserRuntime()) return undefined;
+  const secret = trimSecret(
+    process.env.PAYSTACK_SECRET_KEY ?? env?.PAYSTACK_SECRET_KEY
+  );
+  return secret || undefined;
+};
 export const getZeptoMailToken = () => env?.ZEPTOMAIL_TOKEN;
 export const getGeminiApiKey = () =>
   env?.GOOGLE_GENAI_API_KEY || env?.GEMINI_API_KEY;
@@ -338,9 +443,7 @@ export const isImportJobDirectUploadEnabled = () => {
     return false;
   }
 
-  return env?.IMPORT_JOB_DIRECT_UPLOAD_ENABLED
-    ? env.IMPORT_JOB_DIRECT_UPLOAD_ENABLED === 'true'
-    : true;
+  return env?.IMPORT_JOB_DIRECT_UPLOAD_ENABLED ?? true;
 };
 
 export const isProduction = () => env?.NODE_ENV === 'production';
