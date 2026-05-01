@@ -136,7 +136,10 @@ export default function ScanScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom']}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={['bottom']}
+    >
       <CameraView
         style={styles.camera}
         onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
@@ -173,20 +176,39 @@ export default function ScanScreen() {
           {/* Actions */}
           <View style={styles.actions}>
             <Pressable
-              style={[styles.actionButton, { backgroundColor: colors.cardHover }]}
+              style={[
+                styles.actionButton,
+                { backgroundColor: colors.cardHover },
+              ]}
               onPress={() => router.back()}
             >
               <Ionicons name="close" size={24} color={colors.text} />
-              <Text style={[styles.actionButtonText, { color: colors.text }]}>Cancel</Text>
+              <Text style={[styles.actionButtonText, { color: colors.text }]}>
+                Cancel
+              </Text>
             </Pressable>
 
             {scanned && (
               <Pressable
-                style={[styles.actionButton, { backgroundColor: colors.primary }]}
+                style={[
+                  styles.actionButton,
+                  { backgroundColor: colors.primary },
+                ]}
                 onPress={() => setScanned(false)}
               >
-                <Ionicons name="refresh" size={24} color={colors.textOnPrimary} />
-                <Text style={[styles.actionButtonText, { color: colors.textOnPrimary }]}>Scan Again</Text>
+                <Ionicons
+                  name="refresh"
+                  size={24}
+                  color={colors.textOnPrimary}
+                />
+                <Text
+                  style={[
+                    styles.actionButtonText,
+                    { color: colors.textOnPrimary },
+                  ]}
+                >
+                  Scan Again
+                </Text>
               </Pressable>
             )}
           </View>

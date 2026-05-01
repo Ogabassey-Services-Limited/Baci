@@ -63,8 +63,9 @@ vi.mock('react-native-google-places-autocomplete', async () => {
 
 vi.mock('./new-order.styles', () => ({ styles: {} }));
 
-type AddressInputController =
-  React.ComponentProps<typeof NewOrderAddressInput>['controller'];
+type AddressInputController = React.ComponentProps<
+  typeof NewOrderAddressInput
+>['controller'];
 
 function makeController(
   overrides: Partial<AddressInputController> = {}
@@ -169,10 +170,7 @@ describe('NewOrderAddressInput', () => {
         ) => void)
       | undefined;
 
-    onPress?.(
-      { description: '42 Marina, Lagos' },
-      { address_components: [] }
-    );
+    onPress?.({ description: '42 Marina, Lagos' }, { address_components: [] });
 
     const updater = setDeliveryInfo.mock.calls[0][0] as (
       previous: AddressInputController['deliveryInfo']

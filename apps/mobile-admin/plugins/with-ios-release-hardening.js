@@ -1,7 +1,4 @@
-const {
-  withInfoPlist,
-  withXcodeProject,
-} = require('expo/config-plugins');
+const { withInfoPlist, withXcodeProject } = require('expo/config-plugins');
 
 const withIosReleaseHardening = (config, options = {}) => {
   const {

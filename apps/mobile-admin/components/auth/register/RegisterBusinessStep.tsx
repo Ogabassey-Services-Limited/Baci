@@ -7,10 +7,9 @@ import {
   View,
 } from 'react-native';
 import type { BusinessTypeId } from '@/constants/business-types';
-
+import { useTheme } from '@/hooks/useTheme';
 import { BusinessTypeSelector } from '../BusinessTypeSelector';
 import { RegisterLegalText } from './RegisterLegalText';
-import { useTheme } from '@/hooks/useTheme';
 import { getStyles } from './register.styles';
 
 interface RegisterFormData {
@@ -106,12 +105,12 @@ export function RegisterBusinessStep({
         style={({ pressed }) => [
           styles.button,
           isLoading && { opacity: 0.7 },
-          pressed && !isLoading && { opacity: 0.7 }
+          pressed && !isLoading && { opacity: 0.7 },
         ]}
         onPress={onLaunchStore}
         disabled={isLoading}
         accessibilityRole="button"
-        accessibilityLabel={isLoading ? "Launching store..." : "Launch Store"}
+        accessibilityLabel={isLoading ? 'Launching store...' : 'Launch Store'}
         accessibilityState={{ disabled: isLoading, busy: isLoading }}
       >
         {isLoading ? (
@@ -119,7 +118,11 @@ export function RegisterBusinessStep({
         ) : (
           <>
             <Text style={styles.buttonText}>Launch Store</Text>
-            <Ionicons name="rocket-outline" size={20} color={colors.textOnPrimary} />
+            <Ionicons
+              name="rocket-outline"
+              size={20}
+              color={colors.textOnPrimary}
+            />
           </>
         )}
       </Pressable>

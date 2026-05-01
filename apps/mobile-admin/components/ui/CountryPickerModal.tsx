@@ -112,7 +112,7 @@ export function CountryPickerModal({
                       : colors.card,
                     borderColor: colors.border,
                   },
-                  pressed && { opacity: 0.7 }
+                  pressed && { opacity: 0.7 },
                 ]}
                 onPress={() => onSelect(item)}
                 accessibilityRole="button"

@@ -273,7 +273,11 @@ export default function InventoryScreen() {
           accessibilityRole="button"
           accessibilityHint="Opens barcode scanner to find products"
         >
-          <Ionicons name="barcode-outline" size={24} color={colors.textOnPrimary} />
+          <Ionicons
+            name="barcode-outline"
+            size={24}
+            color={colors.textOnPrimary}
+          />
         </Pressable>
       </View>
 

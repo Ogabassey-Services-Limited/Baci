@@ -61,4 +61,3 @@ export function createUploadFile(file: RNFile): RNFile {
     type: file.type,
   };
 }
-

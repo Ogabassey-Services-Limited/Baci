@@ -41,7 +41,9 @@ vi.mock('react-native', () => ({
     spring: () => ({
       start: () => undefined,
     }),
-    View: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+    View: ({ children }: { children?: React.ReactNode }) => (
+      <div>{children}</div>
+    ),
   },
   Pressable: ({
     accessibilityLabel,

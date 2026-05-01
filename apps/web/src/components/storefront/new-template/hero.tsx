@@ -37,10 +37,10 @@ export const Hero: React.FC = () => {
                 virtual reality technology.
               </p>
               <div className="flex gap-4 animate-in fade-in slide-in-from-left-4 duration-700 delay-300">
-                <button className="px-8 py-3 bg-white text-gray-900 font-bold rounded-full hover:bg-gray-100 transition-colors shadow-lg active:scale-95">
+                <button type="button" className="px-8 py-3 bg-white text-gray-900 font-bold rounded-full hover:bg-gray-100 transition-colors shadow-lg active:scale-95">
                   Shop Now
                 </button>
-                <button className="px-8 py-3 bg-white/10 backdrop-blur-md text-white font-bold rounded-full hover:bg-white/20 transition-colors border border-white/30 active:scale-95">
+                <button type="button" className="px-8 py-3 bg-white/10 backdrop-blur-md text-white font-bold rounded-full hover:bg-white/20 transition-colors border border-white/30 active:scale-95">
                   Learn More
                 </button>
               </div>

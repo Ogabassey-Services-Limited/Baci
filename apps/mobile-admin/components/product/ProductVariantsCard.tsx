@@ -18,7 +18,10 @@ interface ProductVariantsCardProps {
   onDefaultCostPriceChange: (value: number) => void;
   onDefaultPriceChange: (value: number) => void;
   onRemoveVariant: (variantIndex: number) => void;
-  onRemoveVariantAttribute: (variantIndex: number, attributeIndex: number) => void;
+  onRemoveVariantAttribute: (
+    variantIndex: number,
+    attributeIndex: number
+  ) => void;
   onUpdateVariant: (
     variantIndex: number,
     updates: Partial<EditableProductVariant>

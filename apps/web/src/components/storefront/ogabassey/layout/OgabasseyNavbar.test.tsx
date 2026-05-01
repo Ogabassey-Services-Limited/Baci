@@ -214,6 +214,15 @@ describe('OgabasseyNavbar', () => {
     expect(mocks.push).toHaveBeenCalledWith('/ogabassey/wallet');
   });
 
+  it('gives the account link an explicit accessible name', () => {
+    render(<OgabasseyNavbar storeSlug="/ogabassey" />);
+
+    expect(screen.getByRole('link', { name: /view account/i })).toHaveAttribute(
+      'href',
+      '/ogabassey/account'
+    );
+  });
+
   it('emits root-relative first-render links for domain-routed storefronts', async () => {
     mocks.pathname = '/blog';
 

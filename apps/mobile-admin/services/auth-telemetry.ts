@@ -21,9 +21,7 @@ interface AuthTelemetryEvent {
 
 declare global {
   // eslint-disable-next-line no-var
-  var __BACI_AUTH_TELEMETRY__:
-    | AuthTelemetryEvent[]
-    | undefined;
+  var __BACI_AUTH_TELEMETRY__: AuthTelemetryEvent[] | undefined;
 }
 
 const MAX_AUTH_EVENTS = 40;

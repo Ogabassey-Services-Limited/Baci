@@ -3,8 +3,8 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { LIGHT_COLORS } from '@/constants/theme';
-import type { SelectableCustomer } from './new-order.types';
 import { DuplicateCustomerBanner } from './DuplicateCustomerBanner';
+import type { SelectableCustomer } from './new-order.types';
 
 vi.mock('react-native', async () => {
   const React = await import('react');

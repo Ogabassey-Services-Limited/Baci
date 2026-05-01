@@ -8,15 +8,11 @@ import {
 
 describe('product inventory helpers', () => {
   it('prefers legacy stock when stock_quantity is zero but legacy stock is positive', () => {
-    expect(
-      getEffectiveProductStock({ stock: 12, stock_quantity: 0 })
-    ).toBe(12);
+    expect(getEffectiveProductStock({ stock: 12, stock_quantity: 0 })).toBe(12);
   });
 
   it('prefers stock_quantity when it contains the current positive stock', () => {
-    expect(
-      getEffectiveProductStock({ stock: 0, stock_quantity: 7 })
-    ).toBe(7);
+    expect(getEffectiveProductStock({ stock: 0, stock_quantity: 7 })).toBe(7);
   });
 
   it('falls back to the default low-stock threshold when none is configured', () => {

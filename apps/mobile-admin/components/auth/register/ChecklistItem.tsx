@@ -21,7 +21,11 @@ export function ChecklistItem({
     : isError
       ? 'alert-circle-outline'
       : 'ellipse-outline';
-  const iconColor = isValid ? colors.success : isError ? colors.error : colors.textSecondary;
+  const iconColor = isValid
+    ? colors.success
+    : isError
+      ? colors.error
+      : colors.textSecondary;
   const textStyle = isValid
     ? styles.checkTextValid
     : isError

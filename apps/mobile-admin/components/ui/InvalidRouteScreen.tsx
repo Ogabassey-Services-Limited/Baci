@@ -43,7 +43,11 @@ export function InvalidRouteScreen({
             { backgroundColor: `${colors.warning}20` },
           ]}
         >
-          <Ionicons name="alert-circle-outline" size={48} color={colors.warning} />
+          <Ionicons
+            name="alert-circle-outline"
+            size={48}
+            color={colors.warning}
+          />
         </View>
 
         <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
@@ -57,7 +61,7 @@ export function InvalidRouteScreen({
             style={({ pressed }) => [
               styles.button,
               { backgroundColor: colors.primary },
-              pressed && { opacity: 0.7 }
+              pressed && { opacity: 0.7 },
             ]}
             accessibilityRole="button"
             accessibilityLabel="Go Back"

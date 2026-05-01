@@ -14,3 +14,7 @@
 ## 2025-05-17 - Hardcoded Colors in Checkout Identity Modal
 **Learning:** Hardcoding `#FFF`, `#FFFFFF`, `#DC2626`, `#B91C1C`, `#FEE2E2` and using static `BRAND.primary` / `palette.gray` within component inline styles and `StyleSheet.create` breaks the modal's readability and integration with dark mode on mobile storefront.
 **Action:** Replace direct hex and static palette imports with dynamic values from `useTheme().colors` applied through inline style arrays, keeping static `StyleSheet.create` as a base style.
+
+## 2025-05-18 - [Fix Hardcoded Notification Colors]
+**Learning:** Hardcoded specific background (`#F0F9FF`), border (`#BAE6FD`), and text (`#DC2626`, `#0369A1`, `#0C4A6E`) colors used in notification and checklist cards break visibility in dark mode, making them difficult to read against dark backgrounds.
+**Action:** Replace hardcoded status/notification colors with their respective semantic theme tokens (e.g. `colors.infoLight`, `colors.info`, `colors.errorLight`, `colors.error`) using the `useTheme()` hook, to ensure proper contrast adjustments in dark mode automatically.

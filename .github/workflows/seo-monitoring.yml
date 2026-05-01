@@ -32,7 +32,7 @@ jobs:
         run: pnpm --dir apps/web seo:readiness
         env:
           SEO_PLATFORM_ORIGIN: ${{ vars.SEO_PLATFORM_ORIGIN || 'https://usebaci.com' }}
-          SEO_MERCHANT_ORIGINS: ${{ vars.SEO_MERCHANT_ORIGINS || '' }}
+          SEO_MERCHANT_ORIGINS: ${{ vars.SEO_MERCHANT_ORIGINS || 'https://ogabassey.com' }}
 
   pagespeed-insights:
     name: PageSpeed Insights
@@ -53,7 +53,63 @@ jobs:
         run: pnpm --dir apps/web seo:pagespeed
         env:
           SEO_PLATFORM_ORIGIN: ${{ vars.SEO_PLATFORM_ORIGIN || 'https://usebaci.com' }}
-          PAGESPEED_EXTRA_URLS: ${{ vars.PAGESPEED_EXTRA_URLS || vars.SEO_MERCHANT_ORIGINS || '' }}
+          PAGESPEED_EXTRA_URLS: ${{ vars.PAGESPEED_EXTRA_URLS || vars.SEO_MERCHANT_ORIGINS || 'https://ogabassey.com' }}
           PAGESPEED_STRATEGIES: ${{ vars.PAGESPEED_STRATEGIES || 'mobile,desktop' }}
           PAGE_SPEED_TIMEOUT_MS: ${{ vars.PAGE_SPEED_TIMEOUT_MS || '' }}
           PAGESPEED_INSIGHTS_API_KEY: ${{ secrets.PAGESPEED_INSIGHTS_API_KEY }}
+
+  notify-slack:
+    name: Notify SEO Monitoring Failure
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    needs:
+      - search-console-readiness
+      - pagespeed-insights
+    if: failure()
+    steps:
+      - name: Post failure summary to Slack
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SEO_MONITORING_SLACK_WEBHOOK_URL }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "SEO_MONITORING_SLACK_WEBHOOK_URL is not configured; skipping Slack notification."
+            exit 0
+          fi
+
+          node <<'NODE'
+          async function main() {
+            const webhookUrl = process.env.SLACK_WEBHOOK_URL;
+            const workflowUrl = process.env.WORKFLOW_URL;
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 10_000);
+
+            let response;
+            try {
+              response = await fetch(webhookUrl, {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({
+                  text: `SEO monitoring failed for Baci. Review the workflow run: ${workflowUrl}`,
+                }),
+                signal: controller.signal,
+              });
+            } catch (error) {
+              if (error?.name === 'AbortError') {
+                throw new Error('Slack notification timed out after 10000ms');
+              }
+              throw error;
+            } finally {
+              clearTimeout(timeout);
+            }
+
+            if (!response.ok) {
+              throw new Error(`Slack notification failed with ${response.status}`);
+            }
+          }
+
+          main().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE

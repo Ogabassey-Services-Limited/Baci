@@ -5,7 +5,7 @@
  */
 
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
-import { QueryClient, type MutationMeta } from '@tanstack/react-query';
+import { type MutationMeta, QueryClient } from '@tanstack/react-query';
 import { createMMKV } from 'react-native-mmkv';
 
 // Dedicated MMKV instance for admin query cache
