@@ -13,14 +13,17 @@ import {
   type StoredDvaAccount,
 } from '@/lib/agentic/checkout-completion-response';
 import {
+  compensateCreatedOrderAfterFinalizationFailure,
+  releaseFinalizationClaimSafely,
+} from '@/lib/agentic/checkout-finalization-compensation';
+import {
   createAgenticCheckoutOrder,
-  markAgenticCheckoutOrderCanceled,
   sendAgenticOrderCreatedWebhook,
 } from '@/lib/agentic/checkout-order-dispatch';
 import {
   buildOrderFinalizationClaim,
   claimAgenticOrderFinalization,
-  releaseAgenticOrderFinalizationClaim,
+  recordAgenticOrderFinalizationOrderCreated,
 } from '@/lib/agentic/checkout-order-finalization-claim';
 import type { AgenticMetadata } from '@/lib/agentic/checkout-storage';
 import { buildStoredAgenticIdempotencyResponse } from '@/lib/agentic/idempotency-response-storage';
@@ -28,41 +31,6 @@ import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
 
 type CheckoutCalculation = Awaited<ReturnType<typeof calculateCheckoutSession>>;
-
-async function releaseFinalizationClaimSafely({
-  finalizationClaim,
-  merchantId,
-  metadata,
-  orderError,
-  sessionId,
-  supabase,
-}: {
-  finalizationClaim: string;
-  merchantId: string;
-  metadata: AgenticMetadata;
-  orderError: unknown;
-  sessionId: string;
-  supabase: SupabaseClient;
-}) {
-  try {
-    await releaseAgenticOrderFinalizationClaim({
-      finalizationClaim,
-      merchantId,
-      metadata,
-      orderError,
-      sessionId,
-      supabase,
-    });
-    return null;
-  } catch (error) {
-    logger.error({
-      error: sanitizeForLog(error),
-      message: 'Agentic checkout order finalization claim release threw',
-      sessionId: sanitizeForLog(sessionId),
-    });
-    return error;
-  }
-}
 
 export async function finalizeAgenticCheckoutPayment({
   buyer,
@@ -140,66 +108,99 @@ export async function finalizeAgenticCheckoutPayment({
     );
   }
 
-  const orderPayload = buildAgenticCheckoutOrderPayload({
-    buyer,
-    dvaAccount,
-    session: orderSession,
-    sessionCalc: orderSessionCalc,
-  });
-  let orderResult: Awaited<ReturnType<typeof createAgenticCheckoutOrder>>;
-  try {
-    orderResult = await createAgenticCheckoutOrder(orderPayload, supabase);
-  } catch (error) {
-    await releaseFinalizationClaimSafely({
-      finalizationClaim,
-      merchantId,
-      metadata,
-      orderError: error,
-      sessionId,
-      supabase,
-    });
-    logger.error({
-      error: sanitizeForLog(error),
-      message: 'Order creation threw',
-      sessionId: sanitizeForLog(sessionId),
-    });
-    return respond({ error: 'Order creation failed' }, 500);
-  }
-
-  if (!orderResult.ok) {
-    await releaseFinalizationClaimSafely({
-      finalizationClaim,
-      merchantId,
-      metadata,
-      orderError: orderResult.error ?? orderResult.statusText,
-      sessionId,
-      supabase,
-    });
-    logger.error({
-      error: sanitizeForLog(orderResult.error ?? orderResult.statusText),
-      message: 'Order creation failed',
-      sessionId: sanitizeForLog(sessionId),
-      status: orderResult.status,
-      statusText: orderResult.statusText,
-    });
-    return respond({ error: 'Order creation failed' }, 500);
-  }
-
-  const orderId = orderResult.orderId;
+  let orderId = getMarkedFinalizationOrderId(metadata);
   if (!orderId) {
-    await releaseFinalizationClaimSafely({
+    const orderPayload = buildAgenticCheckoutOrderPayload({
+      buyer,
+      dvaAccount,
+      session: orderSession,
+      sessionCalc: orderSessionCalc,
+    });
+    let orderResult: Awaited<ReturnType<typeof createAgenticCheckoutOrder>>;
+    try {
+      orderResult = await createAgenticCheckoutOrder(orderPayload, supabase);
+    } catch (error) {
+      await releaseFinalizationClaimSafely({
+        finalizationClaim,
+        merchantId,
+        metadata,
+        orderError: error,
+        sessionId,
+        supabase,
+      });
+      logger.error({
+        error: sanitizeForLog(error),
+        message: 'Order creation threw',
+        sessionId: sanitizeForLog(sessionId),
+      });
+      return respond({ error: 'Order creation failed' }, 500);
+    }
+
+    if (!orderResult.ok) {
+      await releaseFinalizationClaimSafely({
+        finalizationClaim,
+        merchantId,
+        metadata,
+        orderError: orderResult.error ?? orderResult.statusText,
+        sessionId,
+        supabase,
+      });
+      logger.error({
+        error: sanitizeForLog(orderResult.error ?? orderResult.statusText),
+        message: 'Order creation failed',
+        sessionId: sanitizeForLog(sessionId),
+        status: orderResult.status,
+        statusText: orderResult.statusText,
+      });
+      return respond({ error: 'Order creation failed' }, 500);
+    }
+
+    const createdOrderId = orderResult.orderId;
+    if (!createdOrderId) {
+      await releaseFinalizationClaimSafely({
+        finalizationClaim,
+        merchantId,
+        metadata,
+        orderError: 'Missing order id',
+        sessionId,
+        supabase,
+      });
+      logger.error({
+        message: 'Order creation response omitted order id',
+        sessionId: sanitizeForLog(sessionId),
+      });
+      return respond({ error: 'Order creation failed' }, 500);
+    }
+    orderId = createdOrderId;
+
+    const marker = await recordAgenticOrderFinalizationOrderCreated({
       finalizationClaim,
       merchantId,
       metadata,
-      orderError: 'Missing order id',
+      orderId,
       sessionId,
       supabase,
     });
-    logger.error({
-      message: 'Order creation response omitted order id',
-      sessionId: sanitizeForLog(sessionId),
-    });
-    return respond({ error: 'Order creation failed' }, 500);
+    if (!marker.recorded) {
+      logger.error({
+        error: sanitizeForLog(
+          marker.error ?? 'Order finalization marker failed'
+        ),
+        message: 'Agentic order finalization marker failed',
+        orderId: sanitizeForLog(orderId),
+        sessionId: sanitizeForLog(sessionId),
+      });
+      await compensateCreatedOrderAfterFinalizationFailure({
+        finalizationClaim,
+        merchantId,
+        metadata,
+        orderError: marker.error ?? 'Order finalization marker failed',
+        orderId,
+        sessionId,
+        supabase,
+      });
+      return respond({ error: 'Database error' }, 500);
+    }
   }
 
   const updatePayload = buildPaymentPendingSessionUpdate({
@@ -226,36 +227,20 @@ export async function finalizeAgenticCheckoutPayment({
     .maybeSingle();
 
   if (updateError || !updatedSession) {
-    const cancellation = await markAgenticCheckoutOrderCanceled({
+    logger.error({
+      error: sanitizeForLog(updateError ?? 'No checkout session row updated'),
+      message: 'Agentic checkout session payment state update failed',
+      orderId: sanitizeForLog(orderId),
+      sessionId: sanitizeForLog(sessionId),
+    });
+    await compensateCreatedOrderAfterFinalizationFailure({
+      finalizationClaim,
       merchantId,
+      metadata,
+      orderError: updateError ?? 'No checkout session row updated',
       orderId,
       sessionId,
       supabase,
-    });
-    const cancellationSucceeded = !cancellation.error && cancellation.updated;
-    let releaseError: unknown = null;
-    if (cancellationSucceeded) {
-      releaseError = await releaseFinalizationClaimSafely({
-        finalizationClaim,
-        merchantId,
-        metadata,
-        orderError: updateError ?? 'No checkout session row updated',
-        sessionId,
-        supabase,
-      });
-    }
-    logger.error({
-      error: {
-        cancellationError: cancellation.error
-          ? sanitizeForLog(cancellation.error)
-          : null,
-        cancellationUpdated: cancellation.updated,
-        releaseError: releaseError ? sanitizeForLog(releaseError) : null,
-        releaseSkipped: !cancellationSucceeded,
-        updateError: updateError ? sanitizeForLog(updateError) : null,
-      },
-      message: 'Checkout session payment state update failed',
-      sessionId: sanitizeForLog(sessionId),
     });
     return respond({ error: 'Database error' }, 500);
   }
@@ -278,4 +263,13 @@ export async function finalizeAgenticCheckoutPayment({
     sessionCalc: orderSessionCalc,
   });
   return respond(responsePayload, 200);
+}
+
+function getMarkedFinalizationOrderId(
+  metadata: AgenticMetadata
+): string | null {
+  const orderId = metadata.agentic?.finalization_order_id;
+  return typeof orderId === 'string' && orderId.trim().length > 0
+    ? orderId.trim()
+    : null;
 }

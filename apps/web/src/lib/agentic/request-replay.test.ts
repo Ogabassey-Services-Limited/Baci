@@ -1,15 +1,18 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   AGENTIC_REPLAY_REQUEST_ID_ERROR,
+  AGENTIC_REPLAY_RESERVATION_FAILED_ERROR,
   reserveAgenticRequestId,
 } from '@/lib/agentic/request-replay';
 
 function createSupabaseMock({
+  deleteError = null,
   insertError = null,
 }: {
+  deleteError?: { code?: string; message?: string } | null;
   insertError?: { code?: string; message?: string } | null;
 } = {}) {
-  const deleteLt = vi.fn().mockResolvedValue({ error: null });
+  const deleteLt = vi.fn().mockResolvedValue({ error: deleteError });
   const deleteChain = {
     eq: vi.fn(),
     lt: deleteLt,
@@ -83,5 +86,24 @@ describe('reserveAgenticRequestId', () => {
       error: AGENTIC_REPLAY_REQUEST_ID_ERROR,
       ok: false,
     });
+  });
+
+  it('fails closed when expired request record purge fails', async () => {
+    const mock = createSupabaseMock({
+      deleteError: { code: 'PGRST000', message: 'database unavailable' },
+    });
+
+    const result = await reserveAgenticRequestId({
+      apiVersion: '2026-04-30',
+      merchantId: 'merchant-1',
+      requestId: 'req_123',
+      supabase: mock.supabase as never,
+    });
+
+    expect(result).toEqual({
+      error: AGENTIC_REPLAY_RESERVATION_FAILED_ERROR,
+      ok: false,
+    });
+    expect(mock.insert).not.toHaveBeenCalled();
   });
 });

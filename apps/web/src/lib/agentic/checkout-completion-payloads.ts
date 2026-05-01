@@ -59,7 +59,7 @@ export function buildAgenticCheckoutOrderPayload({
     shipping_status: PENDING_STATUS,
     shipping_address: session.shipping_address,
     source: AGENTIC_ORDER_SOURCE,
-    notes: `Agentic Checkout Session: ${session.session_id} | DVA: ${dvaAccount.bank_name} - ${dvaAccount.account_number}`,
+    notes: `Agentic Checkout Session: ${session.session_id} | DVA: ${dvaAccount.bank_name} - ****${getAccountLast4(dvaAccount.account_number)}`,
   };
 }
 
@@ -103,4 +103,9 @@ function buildBuyerDisplayName(buyer: AgenticCheckoutBuyer): string {
     .map((part) => part?.trim())
     .filter(Boolean)
     .join(' ');
+}
+
+function getAccountLast4(accountNumber: string | null | undefined): string {
+  const value = String(accountNumber ?? '');
+  return value.slice(-4);
 }

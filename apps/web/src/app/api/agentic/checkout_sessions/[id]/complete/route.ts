@@ -19,7 +19,7 @@ import { getAgenticReplayErrorStatus } from '@/lib/agentic/request-replay-respon
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
 import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
-import { createServiceClient } from '@/lib/supabase/service';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { agenticCheckoutCompleteSchema } from '@/schemas/agentic-checkout';
 import { agenticCheckoutSessionRouteParamsSchema } from '@/schemas/agentic-checkout-session-route-params';
 
@@ -68,7 +68,7 @@ export async function POST(
     }
     const { buyer, completion_authorization } = parsed.data;
 
-    const bootstrap = createServiceClient();
+    const bootstrap = createAdminClient();
     const merchant = await resolveAgenticMerchantContext(bootstrap);
     if (!merchant) {
       return NextResponse.json(
@@ -128,17 +128,15 @@ export async function POST(
         getAgenticReplayErrorStatus(replayReservation.error)
       );
     }
+    const storeResponse = respondWithIdempotency;
+    if (!storeResponse) {
+      return NextResponse.json(
+        { error: 'Internal Server Error' },
+        { status: 500 }
+      );
+    }
     const respond = async (response: unknown, status: number) =>
-      respondWithIdempotency?.(response, status) ??
-      buildStoredAgenticIdempotencyResponse({
-        idempotencyKey: mutation.idempotencyKey,
-        merchantId: merchant.id,
-        requestId: mutation.requestId,
-        response,
-        route: COMPLETE_IDEMPOTENCY_ROUTE,
-        status,
-        supabase,
-      });
+      storeResponse(response, status);
 
     const { data: session, error } = await getAgenticCheckoutSession({
       merchantId: merchant.id,

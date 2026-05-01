@@ -19,16 +19,18 @@ export type CheckoutAuthorizationErrorBody = {
 export function getCheckoutGrandTotal(totals: GPTTotal[]): number {
   const amount = totals.find((t) => t.type === 'total')?.amount;
   if (typeof amount === 'number') {
-    if (!Number.isFinite(amount)) {
+    if (!Number.isFinite(amount) || amount < 0) {
       throw new Error('Missing or invalid total amount');
     }
     return amount;
   }
 
   if (typeof amount === 'string') {
-    const parsed = Number.parseFloat(amount);
-    if (Number.isFinite(parsed)) {
-      return parsed;
+    if (/^\d+(?:\.\d+)?$/.test(amount)) {
+      const parsed = Number(amount);
+      if (Number.isFinite(parsed) && parsed >= 0) {
+        return parsed;
+      }
     }
   }
 

@@ -5,6 +5,7 @@ import {
   markAgenticCheckoutOrderCanceled,
   sendAgenticOrderCreatedWebhook,
 } from '@/lib/agentic/checkout-order-dispatch';
+import { buildOrderFinalizationClaim } from '@/lib/agentic/checkout-order-finalization-claim';
 import { storeAgenticIdempotencyResponse } from '@/lib/agentic/idempotency';
 
 vi.mock('@/lib/agentic/checkout-order-dispatch', () => ({
@@ -124,10 +125,13 @@ describe('finalizeAgenticCheckoutPayment compensation', () => {
 
   it('does not release the finalization claim when compensating order cancellation fails', async () => {
     const claimChain = createUpdateChain({ session_id: 'agentic_session_1' });
+    // Marker write records the created order before final session persistence.
+    const markerChain = createUpdateChain({ session_id: 'agentic_session_1' });
     const finalChain = createUpdateChain(null, { message: 'update failed' });
     const releaseChain = createUpdateChain({ session_id: 'agentic_session_1' });
     const supabase = createSupabaseWithUpdateChains([
       claimChain,
+      markerChain,
       finalChain,
       releaseChain,
     ]);
@@ -158,16 +162,28 @@ describe('finalizeAgenticCheckoutPayment compensation', () => {
         sessionId: 'agentic_session_1',
       })
     );
+    expect(markerChain.contains).toHaveBeenCalledWith('metadata', {
+      agentic: {
+        finalization_claim: buildOrderFinalizationClaim({
+          idempotencyKey: 'idem-1',
+          requestId: 'req_123',
+          sessionId: 'agentic_session_1',
+        }),
+        payment_state: 'order_finalizing',
+      },
+    });
     expect(releaseChain.contains).not.toHaveBeenCalled();
     expect(sendAgenticOrderCreatedWebhook).not.toHaveBeenCalled();
   });
 
   it('returns 503 when compensation completes but idempotency storage fails', async () => {
     const claimChain = createUpdateChain({ session_id: 'agentic_session_1' });
+    const markerChain = createUpdateChain({ session_id: 'agentic_session_1' });
     const finalChain = createUpdateChain(null, { message: 'update failed' });
     const releaseChain = createUpdateChain({ session_id: 'agentic_session_1' });
     const supabase = createSupabaseWithUpdateChains([
       claimChain,
+      markerChain,
       finalChain,
       releaseChain,
     ]);

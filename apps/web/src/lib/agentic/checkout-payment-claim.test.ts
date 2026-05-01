@@ -113,6 +113,23 @@ describe('agentic checkout payment claim', () => {
     expect(mock.chain.not).toHaveBeenCalledWith('shipping_address', 'is', null);
   });
 
+  it('returns the database error when payment setup claim fails', async () => {
+    const error = new Error('db error');
+    const mock = createClaimSupabaseMock({ data: null, error });
+
+    const result = await claimCheckoutPaymentSetup({
+      buyer,
+      claimReference: 'agentic_claim_1',
+      merchantId: 'merchant-1',
+      metadata: { agentic: { line_items: [] } },
+      sessionId: 'agentic_session_1',
+      supabase: mock.supabase as never,
+    });
+
+    expect(result).toMatchObject({ claimed: false, error });
+    expect(mock.update).toHaveBeenCalled();
+  });
+
   it('releases a claim when setup fails before payment side effects exist', async () => {
     const mock = createReleaseSupabaseMock();
 
@@ -189,6 +206,23 @@ describe('agentic checkout payment claim', () => {
     expect(result).toEqual({ error: null, released: false });
   });
 
+  it('returns the database error when claim release fails', async () => {
+    const error = new Error('db error');
+    const mock = createReleaseSupabaseMock(error);
+
+    const result = await releaseCheckoutPaymentClaim({
+      buyer,
+      claimReference: 'agentic_claim_1',
+      merchantId: 'merchant-1',
+      metadata: { agentic: { line_items: [] } },
+      sessionId: 'agentic_session_1',
+      supabase: mock.supabase as never,
+    });
+
+    expect(result).toEqual({ error, released: false });
+    expect(mock.update).toHaveBeenCalled();
+  });
+
   it('stores generated payment account details as a recoverable state', async () => {
     const mock = createClaimSupabaseMock({});
 
@@ -223,5 +257,27 @@ describe('agentic checkout payment claim', () => {
       'payment_reference',
       'agentic_claim_1'
     );
+  });
+
+  it('returns the database error when marking the payment account ready fails', async () => {
+    const error = new Error('db error');
+    const mock = createClaimSupabaseMock({ data: null, error });
+
+    const result = await markCheckoutPaymentAccountReady({
+      buyer,
+      claimReference: 'agentic_claim_1',
+      dvaAccount: {
+        account_name: 'Baci Test',
+        account_number: '1234567890',
+        bank_name: 'Paystack-Titan',
+      },
+      merchantId: 'merchant-1',
+      metadata: { agentic: { line_items: [] } },
+      sessionId: 'agentic_session_1',
+      supabase: mock.supabase as never,
+    });
+
+    expect(result).toEqual({ error, stored: false });
+    expect(mock.update).toHaveBeenCalled();
   });
 });

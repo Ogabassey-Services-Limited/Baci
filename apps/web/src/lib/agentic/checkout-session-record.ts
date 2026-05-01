@@ -5,10 +5,10 @@ import type {
   StoredCheckoutStatus,
 } from '@/lib/agentic/checkout-storage';
 
-export const MUTABLE_CHECKOUT_SESSION_STATUSES: StoredCheckoutStatus[] = [
+export const CHECKOUT_SESSION_MUTABLE_STATUSES = [
   'pending',
   'processing',
-];
+] as const satisfies readonly StoredCheckoutStatus[];
 
 export interface AgenticCheckoutSessionRecord {
   cart_items: CheckoutItem[];

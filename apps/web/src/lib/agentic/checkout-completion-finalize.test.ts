@@ -206,10 +206,12 @@ describe('finalizeAgenticCheckoutPayment', () => {
 
   it('cancels the created order and releases the claim when session finalization fails', async () => {
     const claimChain = createUpdateChain({ session_id: 'agentic_session_1' });
+    const markerChain = createUpdateChain({ session_id: 'agentic_session_1' });
     const finalChain = createUpdateChain(null, { message: 'update failed' });
     const releaseChain = createUpdateChain({ session_id: 'agentic_session_1' });
     const supabase = createSupabaseWithUpdateChains([
       claimChain,
+      markerChain,
       finalChain,
       releaseChain,
     ]);
@@ -236,6 +238,16 @@ describe('finalizeAgenticCheckoutPayment', () => {
         sessionId: 'agentic_session_1',
       })
     );
+    expect(markerChain.contains).toHaveBeenCalledWith('metadata', {
+      agentic: {
+        finalization_claim: buildOrderFinalizationClaim({
+          idempotencyKey: 'idem-1',
+          requestId: 'req_123',
+          sessionId: 'agentic_session_1',
+        }),
+        payment_state: 'order_finalizing',
+      },
+    });
     expect(releaseChain.contains).toHaveBeenCalledWith('metadata', {
       agentic: {
         finalization_claim: buildOrderFinalizationClaim({
@@ -259,10 +271,12 @@ describe('finalizeAgenticCheckoutPayment', () => {
 
   it('preserves the claim when order cancellation fails after session finalization failure', async () => {
     const claimChain = createUpdateChain({ session_id: 'agentic_session_1' });
+    const markerChain = createUpdateChain({ session_id: 'agentic_session_1' });
     const finalChain = createUpdateChain(null, { message: 'update failed' });
     const releaseChain = createUpdateChain({ session_id: 'agentic_session_1' });
     const supabase = createSupabaseWithUpdateChains([
       claimChain,
+      markerChain,
       finalChain,
       releaseChain,
     ]);
@@ -314,8 +328,13 @@ describe('finalizeAgenticCheckoutPayment', () => {
 
   it('guards final order persistence with an order_id null claim', async () => {
     const claimChain = createUpdateChain({ session_id: 'agentic_session_1' });
+    const markerChain = createUpdateChain({ session_id: 'agentic_session_1' });
     const finalChain = createUpdateChain({ session_id: 'agentic_session_1' });
-    const supabase = createSupabaseWithUpdateChains([claimChain, finalChain]);
+    const supabase = createSupabaseWithUpdateChains([
+      claimChain,
+      markerChain,
+      finalChain,
+    ]);
     vi.mocked(createAgenticCheckoutOrder).mockResolvedValue({
       data: { order: { id: 'order-1' } },
       error: undefined,

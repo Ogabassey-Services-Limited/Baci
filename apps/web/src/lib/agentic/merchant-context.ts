@@ -33,12 +33,16 @@ export function isAgenticCheckoutRuntimeConfigured(): boolean {
   return Boolean(
     getConfiguredAgenticMerchantSlug() &&
       getAgenticApiKey() &&
-      confirmationKeys.length > 0 &&
-      signingKeys.length > 0 &&
+      hasOnlyNonBlankEntries(confirmationKeys) &&
+      hasOnlyNonBlankEntries(signingKeys) &&
       // Optional Paystack getter trims runtime env and returns undefined when absent.
       getPaystackSecretKey() &&
       supabaseJwtSecret
   );
+}
+
+function hasOnlyNonBlankEntries(values: readonly string[]): boolean {
+  return values.length > 0 && values.every((value) => value.trim().length > 0);
 }
 
 export async function resolveAgenticMerchantContext(

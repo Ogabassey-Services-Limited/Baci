@@ -7,7 +7,7 @@ import {
 } from '@/lib/agentic/idempotency';
 import { reserveAgenticRequestId } from '@/lib/agentic/request-replay';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
-import { createServiceClient } from '@/lib/supabase/service';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 const mockVerifyAgenticApiKey = vi.fn(() => true);
 const mockResolveAgenticMerchantContext = vi.fn(() =>
@@ -56,8 +56,8 @@ vi.mock('@/lib/agentic/scoped-supabase', () => ({
   createAgenticScopedSupabaseClient: vi.fn(),
 }));
 
-vi.mock('@/lib/supabase/service', () => ({
-  createServiceClient: vi.fn(),
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(),
 }));
 
 describe('POST /api/agentic/checkout_sessions/[id] payment state', () => {
@@ -117,7 +117,11 @@ describe('POST /api/agentic/checkout_sessions/[id] payment state', () => {
         throw new Error(`Unexpected table ${table}`);
       }),
     };
-    vi.mocked(createServiceClient).mockReturnValue(supabase as never);
+    vi.mocked(createAdminClient).mockReturnValue({
+      from: vi.fn(() => {
+        throw new Error('Admin client should not read checkout_sessions');
+      }),
+    } as never);
     vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue(
       supabase as never
     );
@@ -209,7 +213,11 @@ describe('POST /api/agentic/checkout_sessions/[id] payment state', () => {
         throw new Error(`Unexpected table ${table}`);
       }),
     };
-    vi.mocked(createServiceClient).mockReturnValue(supabase as never);
+    vi.mocked(createAdminClient).mockReturnValue({
+      from: vi.fn(() => {
+        throw new Error('Admin client should not read checkout_sessions');
+      }),
+    } as never);
     vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue(
       supabase as never
     );

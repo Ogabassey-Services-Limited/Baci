@@ -1,11 +1,12 @@
-import { createHmac, randomBytes } from 'node:crypto';
+import { createHmac } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
   AGENTIC_API_VERSION,
   verifyAgenticRequestIntegrity,
 } from '@/lib/agentic/request-integrity';
 
-const secret = randomBytes(32).toString('hex');
+const secret =
+  '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 const now = new Date('2026-04-30T12:00:00.000Z');
 
 function sign({

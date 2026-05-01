@@ -42,7 +42,7 @@ describe('buildStoredAgenticIdempotencyResponse', () => {
     await expect(response.json()).resolves.toEqual({ ok: true });
   });
 
-  it('returns the original non-server-error response with a warning when replay persistence fails', async () => {
+  it('fails closed when replay persistence fails for a non-server-error response', async () => {
     const supabase = {} as never;
     vi.mocked(storeAgenticIdempotencyResponse).mockResolvedValue({
       error: new Error('write failed'),
@@ -67,13 +67,15 @@ describe('buildStoredAgenticIdempotencyResponse', () => {
       status: 200,
       supabase,
     });
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(503);
     expect(response.headers.get('idempotency-key')).toBe('idem-1');
     expect(response.headers.get('request-id')).toBe('req-1');
     expect(response.headers.get('x-idempotency-warning')).toBe(
       'response-not-stored'
     );
-    await expect(response.json()).resolves.toEqual({ ok: true });
+    await expect(response.json()).resolves.toEqual({
+      error: 'Idempotency response storage failed',
+    });
   });
 
   it('returns the default storage failure response when a server-error response cannot be stored', async () => {

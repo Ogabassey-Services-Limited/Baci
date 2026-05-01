@@ -129,7 +129,7 @@ describe('agentic checkout order dispatch', () => {
     );
   });
 
-  it('falls back to zero when the order total is not numeric', async () => {
+  it('rejects an order response when the order total is not numeric', async () => {
     const rpc = vi.fn().mockResolvedValue({
       data: [{ id: 'order-1', total: 'not-a-number' }],
       error: null,
@@ -139,10 +139,13 @@ describe('agentic checkout order dispatch', () => {
       rpc,
     } as unknown as SupabaseClient);
 
-    expect(result.ok).toBe(true);
-    expect(result.data).toMatchObject({
-      amountDueToGateway: 0,
-      order: { id: 'order-1' },
+    expect(result).toMatchObject({
+      data: { error: 'Invalid order total' },
+      error: 'Invalid order total',
+      ok: false,
+      orderId: undefined,
+      status: 422,
+      statusText: 'Unprocessable Entity',
     });
     expect(logger.error).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -236,7 +239,7 @@ describe('agentic checkout order dispatch', () => {
 
     expect(logger.error).toHaveBeenCalledWith(
       expect.objectContaining({
-        error,
+        error: '{}',
         message: 'Webhook trigger failed',
         sessionId: 'agentic_session_1',
       })

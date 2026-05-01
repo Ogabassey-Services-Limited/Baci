@@ -63,13 +63,13 @@ vi.mock('@/lib/agentic/checkout-order-dispatch', () => ({
   markAgenticCheckoutOrderCanceled: vi.fn(),
   sendAgenticOrderCreatedWebhook: vi.fn(),
 }));
-vi.mock('@/lib/supabase/service', () => ({ createServiceClient: vi.fn() }));
+vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: vi.fn() }));
 
 const {
   buildCompleteRequest,
   mockCalculatedSession,
   mockSession,
-  readySession,
+  makeReadySession,
 } = paymentStateTestHelpers;
 
 const storedCheckoutSnapshot = {
@@ -131,7 +131,7 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete payment state', () =
   });
 
   it('requires completion authorization before payment side effects', async () => {
-    const { updateSpy } = mockSession(readySession);
+    const { updateSpy } = mockSession(makeReadySession());
     mockCalculatedSession();
 
     const params = { params: Promise.resolve({ id: 'agentic_session_1' }) };
@@ -155,7 +155,7 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete payment state', () =
 
   it('returns existing payment details without creating duplicate DVA or order', async () => {
     const { updateSpy } = mockSession({
-      ...readySession,
+      ...makeReadySession(),
       status: 'processing',
       order_id: 'order-1',
       payment_reference: '1234567890',
@@ -199,7 +199,7 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete payment state', () =
 
   it('returns existing payment details without requiring fresh authorization', async () => {
     const { updateSpy } = mockSession({
-      ...readySession,
+      ...makeReadySession(),
       status: 'processing',
       order_id: 'order-1',
       payment_reference: '1234567890',
@@ -246,7 +246,7 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete payment state', () =
 
   it('rejects completion before the session is ready for payment side effects', async () => {
     const { updateSpy } = mockSession({
-      ...readySession,
+      ...makeReadySession(),
       shipping_address: null,
       status: 'pending',
     });
@@ -268,7 +268,7 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete payment state', () =
   });
 
   it('does not treat a zero grand total as a missing total', async () => {
-    const { updateSpy } = mockSession(readySession);
+    const { updateSpy } = mockSession(makeReadySession());
     mockCalculatedSession({ total: 0 });
 
     const params = { params: Promise.resolve({ id: 'agentic_session_1' }) };

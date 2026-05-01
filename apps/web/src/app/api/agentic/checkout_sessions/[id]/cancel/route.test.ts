@@ -7,7 +7,7 @@ import {
 } from '@/lib/agentic/idempotency';
 import { reserveAgenticRequestId } from '@/lib/agentic/request-replay';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
-import { createServiceClient } from '@/lib/supabase/service';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 const mockVerifyAgenticApiKey = vi.fn(() => true);
 const mockResolveAgenticMerchantContext = vi.fn(() =>
@@ -56,8 +56,8 @@ vi.mock('@/lib/agentic/scoped-supabase', () => ({
   createAgenticScopedSupabaseClient: vi.fn(),
 }));
 
-vi.mock('@/lib/supabase/service', () => ({
-  createServiceClient: vi.fn(),
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(),
 }));
 
 function buildSession(overrides: Record<string, unknown> = {}) {
@@ -120,7 +120,7 @@ function mockCheckoutSessionLookup({
     }),
   };
 
-  vi.mocked(createServiceClient).mockReturnValue(mockSupabase as never);
+  vi.mocked(createAdminClient).mockReturnValue(mockSupabase as never);
   vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue(
     mockSupabase as never
   );
@@ -214,7 +214,7 @@ describe('POST /api/agentic/checkout_sessions/[id]/cancel', () => {
     const response = await POST(request, params);
 
     expect(response.status).toBe(401);
-    expect(createServiceClient).not.toHaveBeenCalled();
+    expect(createAdminClient).not.toHaveBeenCalled();
   });
 
   it('returns 400 when the session id route param is invalid', async () => {
@@ -231,7 +231,7 @@ describe('POST /api/agentic/checkout_sessions/[id]/cancel', () => {
 
     expect(response.status).toBe(400);
     expect(body).toMatchObject({ error: 'Invalid route params' });
-    expect(createServiceClient).not.toHaveBeenCalled();
+    expect(createAdminClient).not.toHaveBeenCalled();
     expect(calculateCheckoutSession).not.toHaveBeenCalled();
   });
 

@@ -8,7 +8,7 @@ import {
 import { reserveAgenticRequestId } from '@/lib/agentic/request-replay';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
 import { logger } from '@/lib/logger';
-import { createServiceClient } from '@/lib/supabase/service';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 const mockGetIdempotencyKey = vi.fn(() => 'idem-1');
 const mockResolveAgenticMerchantContext = vi.fn(() =>
@@ -59,8 +59,8 @@ vi.mock('@/lib/agentic/scoped-supabase', () => ({
   createAgenticScopedSupabaseClient: vi.fn(),
 }));
 
-vi.mock('@/lib/supabase/service', () => ({
-  createServiceClient: vi.fn(),
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(),
 }));
 
 describe('POST /api/agentic/checkout_sessions', () => {
@@ -122,7 +122,7 @@ describe('POST /api/agentic/checkout_sessions', () => {
 
     expect(response.status).toBe(401);
     expect(body).toEqual({ error: 'Unauthorized' });
-    expect(createServiceClient).not.toHaveBeenCalled();
+    expect(createAdminClient).not.toHaveBeenCalled();
     expect(calculateCheckoutSession).not.toHaveBeenCalled();
   });
 
@@ -147,7 +147,7 @@ describe('POST /api/agentic/checkout_sessions', () => {
       }),
     };
 
-    vi.mocked(createServiceClient).mockReturnValue(mockSupabase as never);
+    vi.mocked(createAdminClient).mockReturnValue(mockSupabase as never);
     vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue(
       mockSupabase as never
     );
@@ -255,7 +255,7 @@ describe('POST /api/agentic/checkout_sessions', () => {
         throw new Error(`Unexpected table ${table}`);
       }),
     };
-    vi.mocked(createServiceClient).mockReturnValue(mockSupabase as never);
+    vi.mocked(createAdminClient).mockReturnValue(mockSupabase as never);
     vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue(
       mockSupabase as never
     );

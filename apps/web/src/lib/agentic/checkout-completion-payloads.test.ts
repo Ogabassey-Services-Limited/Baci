@@ -76,6 +76,8 @@ describe('agentic checkout completion payloads', () => {
       shipping_fee: 2500,
       payment_provider_reference: '1234567890',
     });
+    expect(payload.notes).toContain('****7890');
+    expect(payload.notes).not.toContain('1234567890');
   });
 
   it('builds a checkout_sessions update using real payment columns', () => {

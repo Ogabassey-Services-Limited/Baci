@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   IDEMPOTENCY_PARAMETER_MISMATCH_ERROR,
   IDEMPOTENCY_RESERVATION_FAILED_ERROR,
+  IDEMPOTENCY_TRANSIENT_LOOKUP_ERROR,
   reserveAgenticIdempotencyKey,
   storeAgenticIdempotencyResponse,
 } from '@/lib/agentic/idempotency';
@@ -312,6 +313,27 @@ describe('agentic idempotency', () => {
     expect(result).toEqual({
       ok: false,
       error: IDEMPOTENCY_RESERVATION_FAILED_ERROR,
+    });
+  });
+
+  it('returns a transient lookup error when a duplicate key record disappears', async () => {
+    const mock = createSupabaseMock({
+      existingRecord: null,
+      insertError: { code: '23505', message: 'duplicate key' },
+    });
+
+    const result = await reserveAgenticIdempotencyKey({
+      ...defaultFingerprint,
+      body: '{"items":[]}',
+      key: 'idem-1',
+      merchantId: 'merchant-1',
+      route: 'checkout_sessions.create',
+      supabase: mock.supabase as never,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: IDEMPOTENCY_TRANSIENT_LOOKUP_ERROR,
     });
   });
 

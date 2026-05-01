@@ -4,7 +4,7 @@ import { calculateCheckoutSession } from '@/lib/agentic/checkout';
 import { reserveAgenticIdempotencyKey } from '@/lib/agentic/idempotency';
 import { reserveAgenticRequestId } from '@/lib/agentic/request-replay';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
-import { createServiceClient } from '@/lib/supabase/service';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 const mockResolveAgenticMerchantContext = vi.fn(() =>
   Promise.resolve({ id: 'merchant-1', slug: 'ogabassey' })
@@ -51,7 +51,7 @@ vi.mock('@/lib/agentic/scoped-supabase', () => ({
   createAgenticScopedSupabaseClient: vi.fn(),
 }));
 
-vi.mock('@/lib/supabase/service', () => ({ createServiceClient: vi.fn() }));
+vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: vi.fn() }));
 
 describe('POST /api/agentic/checkout_sessions idempotency replay ordering', () => {
   beforeEach(() => {
@@ -60,7 +60,7 @@ describe('POST /api/agentic/checkout_sessions idempotency replay ordering', () =
       id: 'merchant-1',
       slug: 'ogabassey',
     });
-    vi.mocked(createServiceClient).mockReturnValue({} as never);
+    vi.mocked(createAdminClient).mockReturnValue({} as never);
     vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue({} as never);
   });
 

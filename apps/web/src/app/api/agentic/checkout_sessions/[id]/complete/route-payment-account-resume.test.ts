@@ -63,12 +63,12 @@ vi.mock('@/lib/agentic/checkout-order-dispatch', () => ({
   markAgenticCheckoutOrderCanceled: vi.fn(),
   sendAgenticOrderCreatedWebhook: vi.fn(),
 }));
-vi.mock('@/lib/supabase/service', () => ({ createServiceClient: vi.fn() }));
+vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: vi.fn() }));
 
 const {
   buildCompleteRequest,
   mockSuccessfulPaymentSessionSupabase,
-  readySession,
+  makeReadySession,
 } = paymentStateTestHelpers;
 
 describe('POST /api/agentic/checkout_sessions/[id]/complete payment-account resume', () => {
@@ -92,7 +92,7 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete payment-account resu
 
   it('resumes stored payment-account state without fresh calculation or authorization', async () => {
     const { updateSpy } = mockSuccessfulPaymentSessionSupabase({
-      ...readySession,
+      ...makeReadySession(),
       cart_items: [{ invalid: true }],
       metadata: {
         agentic: {

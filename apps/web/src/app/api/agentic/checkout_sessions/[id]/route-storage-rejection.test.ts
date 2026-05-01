@@ -5,7 +5,7 @@ import { reserveAgenticIdempotencyKey } from '@/lib/agentic/idempotency';
 import { readAgenticMutationRequest } from '@/lib/agentic/mutation-request';
 import { reserveAgenticRequestId } from '@/lib/agentic/request-replay';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
-import { createServiceClient } from '@/lib/supabase/service';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 const mockBuildStoredAgenticIdempotencyResponse = vi.hoisted(() => vi.fn());
 const mockLoggerError = vi.hoisted(() => vi.fn());
@@ -44,7 +44,7 @@ vi.mock('@/lib/logger', () => ({
   logger: { error: mockLoggerError },
 }));
 
-vi.mock('@/lib/supabase/service', () => ({ createServiceClient: vi.fn() }));
+vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: vi.fn() }));
 
 function mockMissingSessionSupabase() {
   const readChain = {
@@ -93,7 +93,7 @@ describe('agentic checkout idempotency storage rejection handling', () => {
     );
 
     const supabase = mockMissingSessionSupabase();
-    vi.mocked(createServiceClient).mockReturnValue(supabase);
+    vi.mocked(createAdminClient).mockReturnValue(supabase);
     vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue(supabase);
   });
 

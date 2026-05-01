@@ -20,10 +20,11 @@ export function buildPaymentAccountConflictResponse({
 }: {
   orderId?: string | null;
 }): PaymentAccountConflictResponse {
-  if (orderId) {
+  const trimmedOrderId = typeof orderId === 'string' ? orderId.trim() : '';
+  if (trimmedOrderId) {
     return {
       error: ERROR_SESSION_PENDING_PAYMENT,
-      order_id: orderId,
+      order_id: trimmedOrderId,
       status: PAYMENT_STATUS_PAYMENT_PENDING,
     };
   }

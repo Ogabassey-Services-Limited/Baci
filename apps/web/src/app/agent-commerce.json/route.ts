@@ -43,8 +43,14 @@ function buildUrl(baseUrl: string, path: string): string {
   return new URL(path, baseUrl).toString();
 }
 
+/**
+ * buildTemplateUrl preserves placeholders like {session_id}; buildUrl uses URL
+ * for concrete paths where braces should not be string-concatenated.
+ */
 function buildTemplateUrl(baseUrl: string, path: string): string {
-  return `${baseUrl}${path}`;
+  const normalizedBaseUrl = baseUrl.replace(/\/+$/, '');
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  return `${normalizedBaseUrl}${normalizedPath}`;
 }
 
 export async function GET(request: Request) {

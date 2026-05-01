@@ -2,6 +2,7 @@ import {
   IDEMPOTENCY_PARAMETER_MISMATCH_ERROR,
   IDEMPOTENCY_REQUEST_IN_PROGRESS_ERROR,
   IDEMPOTENCY_RESERVATION_FAILED_ERROR,
+  IDEMPOTENCY_TRANSIENT_LOOKUP_ERROR,
   type IdempotencyReservationResult,
 } from '@/lib/agentic/idempotency';
 
@@ -25,7 +26,10 @@ export function getAgenticIdempotencyErrorStatus(
   if (error === IDEMPOTENCY_REQUEST_IN_PROGRESS_ERROR) {
     return 425;
   }
-  if (error === IDEMPOTENCY_RESERVATION_FAILED_ERROR) {
+  if (
+    error === IDEMPOTENCY_RESERVATION_FAILED_ERROR ||
+    error === IDEMPOTENCY_TRANSIENT_LOOKUP_ERROR
+  ) {
     return 503;
   }
 

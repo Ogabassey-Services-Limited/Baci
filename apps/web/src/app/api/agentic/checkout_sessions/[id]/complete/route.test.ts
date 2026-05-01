@@ -4,14 +4,21 @@ import {
   reserveAgenticIdempotencyKey,
   storeAgenticIdempotencyResponse,
 } from '@/lib/agentic/idempotency';
-import { createDedicatedVirtualAccount } from '@/lib/agentic/paystack';
+import {
+  createDedicatedVirtualAccount,
+  isValidPaystackSubaccountCode,
+} from '@/lib/agentic/paystack';
 import { reserveAgenticRequestId } from '@/lib/agentic/request-replay';
 import { completionConfirmationSecret } from './route-complete-test-helpers';
 import { paymentStateTestHelpers } from './route-payment-state-test-helpers';
 
 const mockVerifyAgenticApiKey = vi.fn(() => true);
 const mockResolveAgenticMerchantContext = vi.fn(() =>
-  Promise.resolve({
+  Promise.resolve<{
+    id: string;
+    paystack_subaccount_code: string | null;
+    slug: string;
+  }>({
     id: 'merchant-1',
     paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
     slug: 'ogabassey',
@@ -62,7 +69,7 @@ vi.mock('@/lib/agentic/checkout-order-dispatch', () => ({
   sendAgenticOrderCreatedWebhook: vi.fn(),
 }));
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn() } }));
-vi.mock('@/lib/supabase/service', () => ({ createServiceClient: vi.fn() }));
+vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: vi.fn() }));
 
 const {
   buildCompleteRequest,
@@ -81,6 +88,7 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete', () => {
       paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
       slug: 'ogabassey',
     });
+    vi.mocked(isValidPaystackSubaccountCode).mockReturnValue(true);
     vi.mocked(reserveAgenticIdempotencyKey).mockResolvedValue({
       ok: true,
       state: 'reserved',
@@ -95,6 +103,30 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete', () => {
   afterEach(() => {
     vi.unstubAllEnvs();
   });
+
+  it('rejects checkout completion when the merchant subaccount is missing', async () => {
+    mockResolveAgenticMerchantContext.mockResolvedValue({
+      id: 'merchant-1',
+      paystack_subaccount_code: null,
+      slug: 'ogabassey',
+    });
+    vi.mocked(isValidPaystackSubaccountCode).mockReturnValue(false);
+    mockSuccessfulPaymentSessionSupabase();
+    mockCalculatedSession();
+
+    const { POST } = await import('./route');
+    const response = await POST(buildCompleteRequest(), {
+      params: Promise.resolve({ id: 'agentic_session_1' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(424);
+    expect(body).toEqual({
+      error: 'Merchant Paystack subaccount is not configured',
+    });
+    expect(createDedicatedVirtualAccount).not.toHaveBeenCalled();
+  });
+
   it('stores DVA payment state without writing agent-only checkout statuses', async () => {
     const {
       readChain,

@@ -11,7 +11,7 @@ import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase
 import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
 import { buildStoreUrl } from '@/lib/store-url';
-import { createServiceClient } from '@/lib/supabase/service';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { agenticCheckoutItemsSchema } from '@/schemas/agentic-checkout';
 import { agenticCheckoutSessionRouteParamsSchema } from '@/schemas/agentic-checkout-session-route-params';
 
@@ -38,7 +38,7 @@ export async function handleAgenticCheckoutSessionGet(
     requireIdempotency: false,
   });
   if (!signedRead.ok) return signedRead.response;
-  const bootstrap = createServiceClient();
+  const bootstrap = createAdminClient();
   const merchant = await resolveAgenticMerchantContext(bootstrap);
   if (!merchant) {
     return NextResponse.json(

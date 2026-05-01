@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { calculateCheckoutSession } from '@/lib/agentic/checkout';
 import { readAgenticMutationRequest } from '@/lib/agentic/mutation-request';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
-import { createServiceClient } from '@/lib/supabase/service';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 const {
   mockReadAgenticMutationRequest,
@@ -31,7 +31,7 @@ vi.mock('@/lib/agentic/mutation-request', () => ({
 vi.mock('@/lib/agentic/scoped-supabase', () => ({
   createAgenticScopedSupabaseClient: vi.fn(),
 }));
-vi.mock('@/lib/supabase/service', () => ({ createServiceClient: vi.fn() }));
+vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: vi.fn() }));
 
 function routeParams() {
   return { params: Promise.resolve({ id: 'agentic_session_1' }) };
@@ -50,7 +50,7 @@ function mockCheckoutSessionRead(session: Record<string, unknown> | null) {
       throw new Error(`Unexpected table ${table}`);
     }),
   };
-  vi.mocked(createServiceClient).mockReturnValue(supabase as never);
+  vi.mocked(createAdminClient).mockReturnValue(supabase as never);
   vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue(
     supabase as never
   );
@@ -110,7 +110,7 @@ describe('GET /api/agentic/checkout_sessions/[id]', () => {
     expect(response.status).toBe(401);
     expect(body).toEqual({ error: 'Unauthorized' });
     expect(readAgenticMutationRequest).not.toHaveBeenCalled();
-    expect(createServiceClient).not.toHaveBeenCalled();
+    expect(createAdminClient).not.toHaveBeenCalled();
     expect(calculateCheckoutSession).not.toHaveBeenCalled();
   });
 
@@ -137,7 +137,7 @@ describe('GET /api/agentic/checkout_sessions/[id]', () => {
       request,
       requireIdempotency: false,
     });
-    expect(createServiceClient).not.toHaveBeenCalled();
+    expect(createAdminClient).not.toHaveBeenCalled();
     expect(calculateCheckoutSession).not.toHaveBeenCalled();
   });
 
@@ -155,7 +155,7 @@ describe('GET /api/agentic/checkout_sessions/[id]', () => {
     expect(response.status).toBe(400);
     expect(body).toMatchObject({ error: 'Invalid route params' });
     expect(readAgenticMutationRequest).not.toHaveBeenCalled();
-    expect(createServiceClient).not.toHaveBeenCalled();
+    expect(createAdminClient).not.toHaveBeenCalled();
     expect(calculateCheckoutSession).not.toHaveBeenCalled();
   });
 

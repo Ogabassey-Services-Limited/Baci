@@ -3,6 +3,7 @@ import {
   IDEMPOTENCY_PARAMETER_MISMATCH_ERROR,
   IDEMPOTENCY_REQUEST_IN_PROGRESS_ERROR,
   IDEMPOTENCY_RESERVATION_FAILED_ERROR,
+  IDEMPOTENCY_TRANSIENT_LOOKUP_ERROR,
 } from '@/lib/agentic/idempotency';
 import { getAgenticIdempotencyErrorStatus } from '@/lib/agentic/idempotency-response';
 
@@ -22,6 +23,9 @@ describe('getAgenticIdempotencyErrorStatus', () => {
   it('maps reservation infrastructure failures to service unavailable', () => {
     expect(
       getAgenticIdempotencyErrorStatus(IDEMPOTENCY_RESERVATION_FAILED_ERROR)
+    ).toBe(503);
+    expect(
+      getAgenticIdempotencyErrorStatus(IDEMPOTENCY_TRANSIENT_LOOKUP_ERROR)
     ).toBe(503);
     expect(getAgenticIdempotencyErrorStatus('some unknown error')).toBe(503);
   });

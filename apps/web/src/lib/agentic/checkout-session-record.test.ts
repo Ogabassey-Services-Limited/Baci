@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  CHECKOUT_SESSION_MUTABLE_STATUSES,
   getAgenticCheckoutSession,
-  MUTABLE_CHECKOUT_SESSION_STATUSES,
 } from '@/lib/agentic/checkout-session-record';
 
 describe('agentic checkout session record', () => {
@@ -46,7 +46,7 @@ describe('agentic checkout session record', () => {
   });
 
   it('limits mutable session writes to pending and processing states', () => {
-    expect(MUTABLE_CHECKOUT_SESSION_STATUSES).toEqual([
+    expect(CHECKOUT_SESSION_MUTABLE_STATUSES).toEqual([
       'pending',
       'processing',
     ]);

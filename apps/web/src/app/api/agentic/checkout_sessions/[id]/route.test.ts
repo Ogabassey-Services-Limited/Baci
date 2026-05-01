@@ -8,7 +8,7 @@ import {
 } from '@/lib/agentic/idempotency';
 import { reserveAgenticRequestId } from '@/lib/agentic/request-replay';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
-import { createServiceClient } from '@/lib/supabase/service';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 const mockResolveAgenticMerchantContext = vi.fn(() =>
   Promise.resolve({ id: 'merchant-1', slug: 'ogabassey' })
@@ -50,21 +50,15 @@ vi.mock('@/lib/agentic/request-replay', () => ({
 vi.mock('@/lib/agentic/scoped-supabase', () => ({
   createAgenticScopedSupabaseClient: vi.fn(),
 }));
-vi.mock('@/lib/supabase/service', () => ({ createServiceClient: vi.fn() }));
+vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: vi.fn() }));
 
 const session = {
-  id: 'session-row-1',
   session_id: 'agentic_session_1',
-  merchant_id: 'merchant-1',
   status: 'pending',
   cart_items: [{ id: 'product-1', quantity: 1 }],
   currency: 'NGN',
   shipping_method: 'pickup_store_1',
   shipping_address: null,
-  order_id: null,
-  payment_reference: null,
-  virtual_account_number: null,
-  metadata: null,
 };
 
 const sessionCalc = {
@@ -92,7 +86,6 @@ const sessionCalc = {
       type: 'shipping' as const,
       id: 'shipping_standard',
       title: 'Standard Delivery',
-      subtitle: 'Delivery within Lagos',
       subtotal: 2500,
       tax: 0,
       total: 2500,
@@ -140,13 +133,16 @@ function createCheckoutSupabaseMock({
   const select = vi.fn(() => readChain);
   const update = vi.fn(() => updateChain);
   const from = vi.fn(() => ({ select, update }));
+  const serviceFrom = vi.fn();
 
   return {
     from,
     maybeSingle,
     readChain,
+    scopedSupabase: { from } as unknown as SupabaseClient,
     select,
-    supabase: { from } as unknown as SupabaseClient,
+    serviceSupabase: { from: serviceFrom } as unknown as SupabaseClient,
+    serviceFrom,
     update,
     updateChain,
   };
@@ -168,6 +164,15 @@ function createRequest(body: unknown) {
 
 function routeParams() {
   return { params: Promise.resolve({ id: 'agentic_session_1' }) };
+}
+
+function useCheckoutSupabaseMock(
+  mock: ReturnType<typeof createCheckoutSupabaseMock>
+) {
+  vi.mocked(createAdminClient).mockReturnValue(mock.serviceSupabase);
+  vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue(
+    mock.scopedSupabase
+  );
 }
 
 describe('POST /api/agentic/checkout_sessions/[id]', () => {
@@ -208,7 +213,7 @@ describe('POST /api/agentic/checkout_sessions/[id]', () => {
 
     expect(response.status).toBe(401);
     expect(body).toEqual({ error: 'Unauthorized' });
-    expect(createServiceClient).not.toHaveBeenCalled();
+    expect(createAdminClient).not.toHaveBeenCalled();
     expect(calculateCheckoutSession).not.toHaveBeenCalled();
   });
 
@@ -221,14 +226,13 @@ describe('POST /api/agentic/checkout_sessions/[id]', () => {
 
     expect(response.status).toBe(400);
     expect(body).toMatchObject({ error: 'Invalid route params' });
-    expect(createServiceClient).not.toHaveBeenCalled();
+    expect(createAdminClient).not.toHaveBeenCalled();
     expect(calculateCheckoutSession).not.toHaveBeenCalled();
   });
 
   it('updates an existing checkout session with merchant-scoped guards', async () => {
     const mock = createCheckoutSupabaseMock();
-    vi.mocked(createServiceClient).mockReturnValue(mock.supabase);
-    vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue(mock.supabase);
+    useCheckoutSupabaseMock(mock);
 
     const { POST } = await import('./route');
     const response = await POST(
@@ -252,6 +256,7 @@ describe('POST /api/agentic/checkout_sessions/[id]', () => {
       'agentic_session_1'
     );
     expect(mock.readChain.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
+    expect(mock.serviceFrom).not.toHaveBeenCalledWith('checkout_sessions');
     expect(mock.update).toHaveBeenCalledWith(
       expect.objectContaining({
         cart_items: [{ id: 'product-1', quantity: 1 }],
@@ -280,8 +285,7 @@ describe('POST /api/agentic/checkout_sessions/[id]', () => {
       updateData: null,
       updateError: { message: 'write failed' },
     });
-    vi.mocked(createServiceClient).mockReturnValue(mock.supabase);
-    vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue(mock.supabase);
+    useCheckoutSupabaseMock(mock);
 
     const { POST } = await import('./route');
     const response = await POST(

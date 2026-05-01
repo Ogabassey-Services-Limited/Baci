@@ -432,7 +432,22 @@ export async function POST(request: NextRequest) {
 
     const verifiedAmount = getVerifiedAmount(gateway, gatewayResponse);
 
-    if (gateway === 'paystack' && verifiedAmount != null) {
+    if (
+      (gateway === 'paystack' || gateway === 'korapay') &&
+      verifiedAmount === null
+    ) {
+      logger.error({
+        gateway,
+        message: 'Payment webhook missing verified amount',
+        reference,
+      });
+      return NextResponse.json(
+        { error: 'Payment amount verification failed' },
+        { status: 422 }
+      );
+    }
+
+    if (gateway === 'paystack') {
       const agenticDvaPayment = await confirmAgenticPaystackDvaPayment({
         accountNumber: getPaystackDvaReceiverAccountNumber(body),
         gatewayReference: reference,

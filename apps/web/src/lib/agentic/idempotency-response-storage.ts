@@ -87,17 +87,6 @@ export async function buildStoredAgenticIdempotencyResponse({
       ...headers,
       'x-idempotency-warning': 'response-not-stored',
     };
-    if (validatedStatus < 500 && !storageFailureResponse) {
-      return jsonResponse(
-        response,
-        {
-          headers: warningHeaders,
-          status: validatedStatus,
-        },
-        logContext
-      );
-    }
-
     return jsonResponse(
       storageFailureResponse ?? {
         error: 'Idempotency response storage failed',

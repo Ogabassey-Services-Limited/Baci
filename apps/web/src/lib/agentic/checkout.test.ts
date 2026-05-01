@@ -162,4 +162,20 @@ describe('calculateCheckoutSession', () => {
       )
     ).rejects.toThrow('Failed to load checkout products');
   });
+
+  it('fails when variant lookup returns a database error', async () => {
+    const productQuery = createQueryChain([]);
+    const variantQuery = createQueryChain([], { message: 'query failed' });
+    const supabase = createCheckoutSupabase(productQuery, variantQuery);
+
+    await expect(
+      calculateCheckoutSession(
+        supabase as never,
+        [{ id: 'variant-1', quantity: 1 }],
+        null,
+        'NGN',
+        'merchant-1'
+      )
+    ).rejects.toThrow('Failed to load checkout product variants');
+  });
 });

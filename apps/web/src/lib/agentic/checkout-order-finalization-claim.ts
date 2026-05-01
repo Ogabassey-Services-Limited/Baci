@@ -146,6 +146,53 @@ export async function releaseAgenticOrderFinalizationClaim({
   }
 }
 
+export async function recordAgenticOrderFinalizationOrderCreated({
+  finalizationClaim,
+  merchantId,
+  metadata,
+  orderId,
+  sessionId,
+  supabase,
+}: {
+  finalizationClaim: string;
+  merchantId: string;
+  metadata: AgenticMetadata;
+  orderId: string;
+  sessionId: string;
+  supabase: SupabaseClient;
+}) {
+  const { data, error } = await supabase
+    .from('checkout_sessions')
+    .update({
+      metadata: buildOrderFinalizationMetadata({
+        finalizationClaim,
+        metadata,
+        orderId,
+        paymentState: 'order_finalizing',
+      }),
+    })
+    .eq('session_id', sessionId)
+    .eq('merchant_id', merchantId)
+    .contains('metadata', {
+      agentic: {
+        finalization_claim: finalizationClaim,
+        payment_state: 'order_finalizing',
+      },
+    })
+    .select('session_id')
+    .maybeSingle();
+
+  if (error || !data) {
+    logger.error({
+      error: sanitizeForLog(error ?? 'No checkout session row matched'),
+      message: 'Agentic checkout order finalization marker failed',
+      sessionId: sanitizeForLog(sessionId),
+    });
+  }
+
+  return { error, recorded: !error && !!data };
+}
+
 async function reclaimExistingOrderFinalizationClaim({
   buyer,
   dvaAccount,
@@ -204,6 +251,7 @@ function buildOrderFinalizationMetadata({
   dvaAccount,
   finalizationClaim,
   metadata,
+  orderId,
   orderError,
   paymentState,
 }: {
@@ -211,6 +259,7 @@ function buildOrderFinalizationMetadata({
   dvaAccount?: StoredDvaAccount;
   finalizationClaim: string;
   metadata: AgenticMetadata;
+  orderId?: string;
   orderError?: unknown;
   paymentState: 'order_finalizing' | 'payment_account_ready';
 }) {
@@ -220,6 +269,7 @@ function buildOrderFinalizationMetadata({
       ...(metadata.agentic ?? {}),
       ...(buyer ? { buyer } : {}),
       ...(dvaAccount ? { dva_account: dvaAccount } : {}),
+      ...(orderId ? { finalization_order_id: orderId } : {}),
       ...(orderError === undefined
         ? {}
         : { finalization_error: sanitizeForLog(orderError) }),

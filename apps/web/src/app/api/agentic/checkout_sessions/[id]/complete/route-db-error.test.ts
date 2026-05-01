@@ -8,7 +8,7 @@ import {
 } from '@/lib/agentic/idempotency';
 import { reserveAgenticRequestId } from '@/lib/agentic/request-replay';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
-import { createServiceClient } from '@/lib/supabase/service';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 const mockResolveAgenticMerchantContext = vi.hoisted(() => vi.fn());
 
@@ -60,8 +60,8 @@ vi.mock('@/lib/agentic/scoped-supabase', () => ({
   createAgenticScopedSupabaseClient: vi.fn(),
 }));
 
-vi.mock('@/lib/supabase/service', () => ({
-  createServiceClient: vi.fn(),
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(),
 }));
 
 describe('POST /api/agentic/checkout_sessions/[id]/complete database errors', () => {
@@ -100,7 +100,7 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete database errors', ()
         return { select: vi.fn(() => readChain) };
       }),
     };
-    vi.mocked(createServiceClient).mockReturnValue(supabase as never);
+    vi.mocked(createAdminClient).mockReturnValue(supabase as never);
     vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue(
       supabase as never
     );
@@ -160,7 +160,7 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete database errors', ()
         return { select: vi.fn(() => readChain) };
       }),
     };
-    vi.mocked(createServiceClient).mockReturnValue(supabase as never);
+    vi.mocked(createAdminClient).mockReturnValue(supabase as never);
     vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue(
       supabase as never
     );
@@ -220,7 +220,7 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete database errors', ()
         return { select: vi.fn(() => readChain) };
       }),
     };
-    vi.mocked(createServiceClient).mockReturnValue(supabase as never);
+    vi.mocked(createAdminClient).mockReturnValue(supabase as never);
     vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue(
       supabase as never
     );

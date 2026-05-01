@@ -17,7 +17,7 @@ import { getAgenticReplayErrorStatus } from '@/lib/agentic/request-replay-respon
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
 import { logger } from '@/lib/logger';
 import { buildStoreUrl } from '@/lib/store-url';
-import { createServiceClient } from '@/lib/supabase/service';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { checkoutSessionSchema } from '@/schemas/agentic-checkout';
 
 const CREATE_IDEMPOTENCY_ROUTE = 'checkout_sessions.create';
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     const { items, shipping_address, currency } = parsed.data;
 
     // 2. Calculate Cart State
-    const bootstrap = createServiceClient();
+    const bootstrap = createAdminClient();
     const merchant = await resolveAgenticMerchantContext(bootstrap);
 
     if (!merchant) {
@@ -122,22 +122,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const storeResponse = respondWithIdempotency;
+    if (!storeResponse) {
+      return NextResponse.json(
+        { error: 'Internal Server Error' },
+        { status: 500 }
+      );
+    }
     const respond = (
       response: unknown,
       status: number,
       storageFailureResponse?: Record<string, unknown>
     ): Promise<NextResponse> =>
-      respondWithIdempotency?.(response, status, storageFailureResponse) ??
-      buildStoredAgenticIdempotencyResponse({
-        idempotencyKey: mutation.idempotencyKey,
-        merchantId: merchant.id,
-        requestId: mutation.requestId,
-        response,
-        route: CREATE_IDEMPOTENCY_ROUTE,
-        status,
-        storageFailureResponse,
-        supabase,
-      });
+      storeResponse(response, status, storageFailureResponse);
 
     let sessionCalc: Awaited<ReturnType<typeof calculateCheckoutSession>>;
     try {

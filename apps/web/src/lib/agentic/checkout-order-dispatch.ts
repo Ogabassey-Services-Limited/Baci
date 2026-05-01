@@ -132,14 +132,22 @@ export async function createAgenticCheckoutOrder(
   }
 
   const orderId = typeof order.id === 'string' ? order.id : undefined;
-  const amountDueToGateway = toFiniteAmount(order.total);
   if (!isFiniteAmountLike(order.total)) {
     logger.error({
       message: 'Agentic checkout order returned invalid total',
       orderId,
       total: sanitizeForLog(order.total),
     });
+    return {
+      data: { error: 'Invalid order total' },
+      error: 'Invalid order total',
+      ok: false,
+      orderId: undefined,
+      status: 422,
+      statusText: 'Unprocessable Entity',
+    };
   }
+  const amountDueToGateway = toFiniteAmount(order.total);
   const data = {
     amountDueToGateway,
     order,
@@ -178,7 +186,7 @@ export function sendAgenticOrderCreatedWebhook({
   }).catch((err) =>
     logger.error({
       message: 'Webhook trigger failed',
-      error: err,
+      error: sanitizeForLog(err),
       sessionId,
     })
   );

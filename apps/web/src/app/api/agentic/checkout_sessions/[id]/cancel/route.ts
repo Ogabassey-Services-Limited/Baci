@@ -3,8 +3,8 @@ import { verifyAgenticApiKey } from '@/lib/agentic/auth';
 import { calculateCheckoutSession } from '@/lib/agentic/checkout';
 import { hasCheckoutPaymentSideEffect } from '@/lib/agentic/checkout-completion-response';
 import {
+  CHECKOUT_SESSION_MUTABLE_STATUSES,
   getAgenticCheckoutSession,
-  MUTABLE_CHECKOUT_SESSION_STATUSES,
 } from '@/lib/agentic/checkout-session-record';
 import { mapCheckoutSessionStatus } from '@/lib/agentic/checkout-storage';
 import { reserveAgenticIdempotencyKey } from '@/lib/agentic/idempotency';
@@ -17,7 +17,7 @@ import { getAgenticReplayErrorStatus } from '@/lib/agentic/request-replay-respon
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
 import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
-import { createServiceClient } from '@/lib/supabase/service';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { agenticCheckoutItemsSchema } from '@/schemas/agentic-checkout';
 import { agenticCheckoutSessionRouteParamsSchema } from '@/schemas/agentic-checkout-session-route-params';
 
@@ -54,7 +54,7 @@ export async function POST(
     | null = null;
 
   try {
-    const bootstrap = createServiceClient();
+    const bootstrap = createAdminClient();
     const merchant = await resolveAgenticMerchantContext(bootstrap);
     if (!merchant) {
       return NextResponse.json(
@@ -114,17 +114,15 @@ export async function POST(
         getAgenticReplayErrorStatus(replayReservation.error)
       );
     }
+    const storeResponse = respondWithIdempotency;
+    if (!storeResponse) {
+      return NextResponse.json(
+        { error: 'Internal Server Error' },
+        { status: 500 }
+      );
+    }
     const respond = (response: unknown, status: number) =>
-      respondWithIdempotency?.(response, status) ??
-      buildStoredAgenticIdempotencyResponse({
-        idempotencyKey: mutation.idempotencyKey,
-        merchantId: merchant.id,
-        requestId: mutation.requestId,
-        response,
-        route: CANCEL_IDEMPOTENCY_ROUTE,
-        status,
-        supabase,
-      });
+      storeResponse(response, status);
 
     // Check if exists
     const { data: session, error: fetchError } =
@@ -145,7 +143,11 @@ export async function POST(
     if (!session) return await respond({ error: 'Session not found' }, 404);
     if (session.status === 'completed')
       return await respond({ error: 'Cannot cancel completed session' }, 409);
-    if (!MUTABLE_CHECKOUT_SESSION_STATUSES.includes(session.status))
+    if (
+      !(CHECKOUT_SESSION_MUTABLE_STATUSES as readonly string[]).includes(
+        session.status
+      )
+    )
       return await respond({ error: 'Session cannot be canceled' }, 409);
     if (hasCheckoutPaymentSideEffect(session))
       return await respond(
@@ -165,7 +167,7 @@ export async function POST(
       .is('order_id', null)
       .is('payment_reference', null)
       .is('virtual_account_number', null)
-      .in('status', MUTABLE_CHECKOUT_SESSION_STATUSES)
+      .in('status', CHECKOUT_SESSION_MUTABLE_STATUSES)
       .select('session_id')
       .maybeSingle();
 

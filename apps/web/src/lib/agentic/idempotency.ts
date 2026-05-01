@@ -11,6 +11,8 @@ export const IDEMPOTENCY_REQUEST_IN_PROGRESS_ERROR =
   'Idempotency request in progress';
 export const IDEMPOTENCY_RESERVATION_FAILED_ERROR =
   'Idempotency reservation failed';
+export const IDEMPOTENCY_TRANSIENT_LOOKUP_ERROR =
+  'Idempotency transient lookup error';
 
 type IdempotencyRecord = Partial<
   Record<
@@ -29,7 +31,8 @@ export type IdempotencyReservationResult =
   | {
       error:
         | typeof IDEMPOTENCY_PARAMETER_MISMATCH_ERROR
-        | typeof IDEMPOTENCY_REQUEST_IN_PROGRESS_ERROR;
+        | typeof IDEMPOTENCY_REQUEST_IN_PROGRESS_ERROR
+        | typeof IDEMPOTENCY_TRANSIENT_LOOKUP_ERROR;
       ok: false;
     }
   | { error: typeof IDEMPOTENCY_RESERVATION_FAILED_ERROR; ok: false };
@@ -112,7 +115,10 @@ export async function reserveAgenticIdempotencyKey({
     });
     return { error: IDEMPOTENCY_RESERVATION_FAILED_ERROR, ok: false };
   }
-  if (!existing.record || existing.record.request_hash !== requestHash) {
+  if (!existing.record) {
+    return { error: IDEMPOTENCY_TRANSIENT_LOOKUP_ERROR, ok: false };
+  }
+  if (existing.record.request_hash !== requestHash) {
     return { error: IDEMPOTENCY_PARAMETER_MISMATCH_ERROR, ok: false };
   }
   if (typeof existing.record.status_code !== 'number') {

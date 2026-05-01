@@ -42,6 +42,7 @@ export async function reserveAgenticRequestId({
       error: purgeError,
       merchantId,
     });
+    return { error: AGENTIC_REPLAY_RESERVATION_FAILED_ERROR, ok: false };
   }
 
   const expiresAt = new Date(

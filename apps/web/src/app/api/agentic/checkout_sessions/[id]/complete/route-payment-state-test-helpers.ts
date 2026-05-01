@@ -2,25 +2,27 @@ import { NextRequest } from 'next/server';
 import { vi } from 'vitest';
 import { calculateCheckoutSession } from '@/lib/agentic/checkout';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
-import { createServiceClient } from '@/lib/supabase/service';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { validHumanConfirmation } from './route-complete-test-helpers';
 
-const readySession = {
-  id: 'row-1',
-  session_id: 'agentic_session_1',
-  merchant_id: 'merchant-1',
-  cart_items: [{ id: 'product-1', quantity: 1 }],
-  shipping_method: 'pickup_store_1',
-  shipping_address: { city: 'Lagos' },
-  currency: 'NGN',
-  status: 'processing',
-  order_id: null,
-  payment_reference: null,
-  virtual_account_bank: null,
-  virtual_account_name: null,
-  virtual_account_number: null,
-  metadata: { agentic: { existing: true } },
-};
+function makeReadySession() {
+  return {
+    id: 'row-1',
+    session_id: 'agentic_session_1',
+    merchant_id: 'merchant-1',
+    cart_items: [{ id: 'product-1', quantity: 1 }],
+    shipping_method: 'pickup_store_1',
+    shipping_address: { city: 'Lagos' },
+    currency: 'NGN',
+    status: 'processing',
+    order_id: null,
+    payment_reference: null,
+    virtual_account_bank: null,
+    virtual_account_name: null,
+    virtual_account_number: null,
+    metadata: { agentic: { existing: true } },
+  };
+}
 
 function buildCompleteRequest({
   confirmationAmount = 500000,
@@ -64,7 +66,7 @@ function mockSession(session: Record<string, unknown>) {
   };
   readChain.eq.mockReturnValue(readChain);
 
-  const supabase = {
+  const scopedSupabase = {
     from: vi.fn((table: string) => {
       if (table === 'checkout_sessions') {
         return {
@@ -76,10 +78,15 @@ function mockSession(session: Record<string, unknown>) {
       throw new Error(`Unexpected table ${table}`);
     }),
   };
+  const serviceSupabase = {
+    from: vi.fn((table: string) => {
+      throw new Error(`Unexpected service-role table ${table}`);
+    }),
+  };
 
-  vi.mocked(createServiceClient).mockReturnValue(supabase as never);
+  vi.mocked(createAdminClient).mockReturnValue(serviceSupabase as never);
   vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue(
-    supabase as never
+    scopedSupabase as never
   );
 
   return { updateSpy };
@@ -100,7 +107,7 @@ function createClaimUpdateChain() {
     ReturnType<typeof vi.fn>
   >;
   const maybeSingle = vi.fn().mockResolvedValue({
-    data: readySession,
+    data: makeReadySession(),
     error: null,
   });
   chain.eq = vi.fn(() => chain);
@@ -128,7 +135,7 @@ function createFinalUpdateChain() {
 }
 
 function createSessionReadChain(
-  session: Record<string, unknown> = readySession
+  session: Record<string, unknown> = makeReadySession()
 ) {
   const chain = {} as Record<'eq' | 'maybeSingle', ReturnType<typeof vi.fn>>;
   chain.eq = vi.fn(() => chain);
@@ -140,7 +147,7 @@ function createSessionReadChain(
 }
 
 function mockSuccessfulPaymentSessionSupabase(
-  session: Record<string, unknown> = readySession
+  session: Record<string, unknown> = makeReadySession()
 ) {
   const updateSpy = vi.fn((payload: Record<string, unknown>) =>
     getPaymentState(payload) === 'claiming_payment'
@@ -149,7 +156,7 @@ function mockSuccessfulPaymentSessionSupabase(
   );
   const readChain = createSessionReadChain(session);
 
-  const supabase = {
+  const scopedSupabase = {
     from: vi.fn((table: string) => {
       if (table === 'checkout_sessions') {
         return {
@@ -161,13 +168,24 @@ function mockSuccessfulPaymentSessionSupabase(
       throw new Error(`Unexpected table ${table}`);
     }),
   };
+  const serviceSupabase = {
+    from: vi.fn((table: string) => {
+      throw new Error(`Unexpected service-role table ${table}`);
+    }),
+  };
 
-  vi.mocked(createServiceClient).mockReturnValue(supabase as never);
+  vi.mocked(createAdminClient).mockReturnValue(serviceSupabase as never);
   vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue(
-    supabase as never
+    scopedSupabase as never
   );
 
-  return { readChain, supabase, updateSpy };
+  return {
+    readChain,
+    scopedSupabase,
+    serviceSupabase,
+    supabase: scopedSupabase,
+    updateSpy,
+  };
 }
 
 function mockCalculatedSession({ total = 500000 }: { total?: number } = {}) {
@@ -201,5 +219,5 @@ export const paymentStateTestHelpers = {
   mockCalculatedSession,
   mockSuccessfulPaymentSessionSupabase,
   mockSession,
-  readySession,
+  makeReadySession,
 };

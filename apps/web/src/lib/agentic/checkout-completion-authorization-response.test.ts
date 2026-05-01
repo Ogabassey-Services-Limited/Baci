@@ -29,6 +29,31 @@ describe('checkout completion authorization response helpers', () => {
         { type: 'total', display_text: 'Total', amount: Number.NaN },
       ])
     ).toThrow('Missing or invalid total amount');
+    for (const amount of [
+      '',
+      ' ',
+      '  100  ',
+      '1000NGN',
+      '1,000',
+      '-5',
+      '1.2.3',
+      '1e10',
+      '1.5e-3',
+      'Infinity',
+      '-Infinity',
+      'NaN',
+    ]) {
+      expect(() =>
+        getCheckoutGrandTotal([
+          { type: 'total', display_text: 'Total', amount },
+        ])
+      ).toThrow('Missing or invalid total amount');
+    }
+    expect(() =>
+      getCheckoutGrandTotal([
+        { type: 'total', display_text: 'Total', amount: -5 },
+      ])
+    ).toThrow('Missing or invalid total amount');
   });
 
   it('maps authorization error bodies and statuses', () => {

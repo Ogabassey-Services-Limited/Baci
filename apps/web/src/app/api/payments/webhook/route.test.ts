@@ -827,6 +827,103 @@ describe('POST /api/payments/webhook', () => {
         })
       );
     });
+
+    it('acknowledges already-processed payments when agentic reconciliation succeeds', async () => {
+      const body = {
+        event: 'charge.success',
+        data: { reference: 'REF123' },
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-paystack-secret');
+      const request = createMockRequest(body, {
+        'x-paystack-signature': signature,
+      });
+
+      const { logger } = await import('@/lib/logger');
+      const { verifyTransaction } = await import('@/lib/paystack');
+      vi.mocked(verifyTransaction).mockResolvedValue({
+        success: true,
+        data: {
+          id: 1,
+          status: 'success',
+          amount: 100000,
+          reference: 'REF123',
+          currency: 'NGN',
+          channel: 'bank_transfer',
+          paid_at: '2026-01-01T00:00:00Z',
+          created_at: '2026-01-01T00:00:00Z',
+          customer: {
+            customer_code: 'CUS_test',
+            email: 'test@example.com',
+            first_name: 'Test',
+            id: 1,
+            last_name: null,
+            phone: null,
+          },
+          metadata: null,
+          fees: 0,
+          fees_split: null,
+        },
+      });
+      mockMarkAgenticPaystackDvaSessionPaid.mockResolvedValueOnce({
+        ok: true,
+      });
+
+      let callCount = 0;
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'transactions') {
+          callCount++;
+          if (callCount === 1) {
+            return {
+              select: vi.fn().mockReturnThis(),
+              eq: vi.fn().mockReturnThis(),
+              single: vi.fn().mockResolvedValue({
+                data: {
+                  id: 'txn-123',
+                  merchant_id: 'merchant-123',
+                  order_id: 'order-123',
+                  amount: '1000',
+                  currency: 'NGN',
+                  gateway_reference: 'REF123',
+                  metadata: {
+                    transaction_type: 'agentic_checkout_payment',
+                  },
+                  status: 'completed',
+                },
+                error: null,
+              }),
+            } as any;
+          }
+          return {
+            update: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            neq: vi.fn().mockReturnThis(),
+            select: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: null,
+              error: null,
+            }),
+          } as any;
+        }
+        return {
+          select: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as any;
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toEqual({ message: 'Already processed' });
+      expect(mockMarkAgenticPaystackDvaSessionPaid).toHaveBeenCalled();
+      expect(logger.info).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Transaction already processed',
+          reference: 'REF123',
+        })
+      );
+    });
   });
 
   describe('Success Path', () => {
