@@ -189,6 +189,7 @@ export function NewOrderItemsSection({
                   } quantity for ${item.name}, current ${item.quantity}`}
                   accessibilityRole="button"
                   accessible
+                  hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
                   onPress={() => handleQuantityChange(item.id, -1)}
                   style={[styles.qtyBtn, { backgroundColor: colors.backgroundLight }]}
                 >
@@ -212,6 +213,7 @@ export function NewOrderItemsSection({
                   accessibilityLabel={`Increase quantity for ${item.name}, current ${item.quantity}`}
                   accessibilityRole="button"
                   accessible
+                  hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
                   onPress={() => handleQuantityChange(item.id, 1)}
                   style={[styles.qtyBtn, { backgroundColor: colors.backgroundLight }]}
                 >
