@@ -10,6 +10,10 @@ import type {
   UtilityHistoryFilter,
   VTUHistoryTransaction,
 } from '@/hooks/use-vtu-history';
+import { walletKeys } from '@/hooks/use-wallet';
+
+// Test constants
+const EXPECTED_UTILITY_TAB_COUNT = 5;
 
 const mockPush = jest.fn();
 const mockReplace = jest.fn();
@@ -238,7 +242,7 @@ describe('UtilityPurchaseScreen', () => {
     render(<UtilityPurchaseScreen />);
 
     expect(screen.getByText('Airtime form')).toBeOnTheScreen();
-    expect(screen.getByTestId('utility-type-tabs')).toBeOnTheScreen();
+    expect(screen.getAllByRole('tab')).toHaveLength(EXPECTED_UTILITY_TAB_COUNT);
     expect(screen.getByLabelText('Data utility service')).toBeOnTheScreen();
     expect(
       screen.getByLabelText('Airtime utility service')
@@ -253,7 +257,7 @@ describe('UtilityPurchaseScreen', () => {
     fireEvent.press(screen.getByLabelText('Airtime utility service'));
 
     expect(mockReplace).not.toHaveBeenCalledWith('/utilities/airtime');
-    expect(screen.getByTestId('utility-type-tabs')).toBeOnTheScreen();
+    expect(screen.getAllByRole('tab')).toHaveLength(EXPECTED_UTILITY_TAB_COUNT);
     expect(screen.getByText('Airtime form')).toBeOnTheScreen();
     expect(
       screen.getByLabelText('Airtime utility service')
@@ -301,7 +305,7 @@ describe('UtilityPurchaseScreen', () => {
 
     await waitFor(() => {
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
-        queryKey: ['wallet', 'data', 'customer-1'],
+        queryKey: walletKeys.data('customer-1'),
       });
     });
   });

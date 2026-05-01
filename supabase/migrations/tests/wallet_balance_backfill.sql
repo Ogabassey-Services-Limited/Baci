@@ -73,7 +73,7 @@ BEGIN
       cwt.id,
       SUM(
         CASE
-          WHEN cwt.type IN ('cashback', 'bonus', 'adjustment') THEN cwt.amount
+          WHEN cwt.type IN ('credit', 'cashback', 'bonus', 'adjustment') THEN cwt.amount
           WHEN cwt.type IN ('redemption', 'expiry') THEN -cwt.amount
           ELSE 0
         END
@@ -106,7 +106,7 @@ BEGIN
         SUM(
           CASE
             WHEN cwt.status = 'completed'
-              AND cwt.type IN ('cashback', 'bonus', 'adjustment')
+              AND cwt.type IN ('credit', 'cashback', 'bonus', 'adjustment')
               THEN cwt.amount
             WHEN cwt.status = 'completed'
               AND cwt.type IN ('redemption', 'expiry')
@@ -122,7 +122,7 @@ BEGIN
         SUM(
           CASE
             WHEN cwt.status = 'completed'
-              AND cwt.type IN ('cashback', 'bonus')
+              AND cwt.type IN ('credit', 'cashback', 'bonus')
               THEN cwt.amount
             ELSE 0
           END

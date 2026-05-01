@@ -135,10 +135,11 @@ export function normalizeVtuCommissionCategory(
 }
 
 function resolveProviderRateKey(
-  provider: string,
+  provider: unknown,
   category: VtuCommissionCategory
 ) {
-  const compactProvider = compactLookupText(provider);
+  const compactProvider =
+    typeof provider === 'string' ? compactLookupText(provider) : '';
   const aliases = VTU_COMMISSION_PROVIDER_ALIASES[category];
 
   for (const [providerKey, providerAliases] of aliases) {
@@ -155,13 +156,14 @@ function resolveProviderRateKey(
 }
 
 export function getVtuCommissionRate(
-  provider: string,
-  category: VtuCommissionCategory = 'AIRTIME'
+  provider: unknown,
+  category: unknown = 'AIRTIME'
 ): VtuCommissionRate {
-  const providerKey = resolveProviderRateKey(provider, category);
+  const normalizedCategory = normalizeVtuCommissionCategory(category);
+  const providerKey = resolveProviderRateKey(provider, normalizedCategory);
 
   return (
-    VTU_COMMISSION_RATES[`${providerKey}_${category}`] ??
+    VTU_COMMISSION_RATES[`${providerKey}_${normalizedCategory}`] ??
     VTU_COMMISSION_RATES[providerKey] ??
     VTU_COMMISSION_RATES.DEFAULT
   );

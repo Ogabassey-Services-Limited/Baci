@@ -207,6 +207,25 @@ describe('AirtimeForm', () => {
     expect(screen.getByText('Choose manually')).toBeOnTheScreen();
   });
 
+  it('clears a stale detected network when phone edits become an unknown prefix', async () => {
+    render(<AirtimeForm onSuccess={jest.fn()} />);
+
+    fireEvent.changeText(
+      screen.getByPlaceholderText('08012345678'),
+      '08031234567'
+    );
+    await waitFor(() => expect(screen.getByText('Network')).toBeOnTheScreen());
+
+    fireEvent.changeText(
+      screen.getByPlaceholderText('08012345678'),
+      '08001234567'
+    );
+
+    expect(screen.queryByText('Network')).toBeNull();
+    expect(screen.queryByText('MTN')).toBeNull();
+    expect(screen.getByText('Choose manually')).toBeOnTheScreen();
+  });
+
   it('expands network options from the selected network card', async () => {
     render(<AirtimeForm initialProvider="mtn" onSuccess={jest.fn()} />);
 

@@ -184,15 +184,10 @@ export async function POST(request: NextRequest) {
     }
 
     if (!claimedTransaction?.id) {
-      console.warn('Wallet top-up transaction was already claimed', {
+      console.info('Transaction already completed, retrying wallet credit', {
         reference: parsed.data.reference,
-        status: transaction.status,
         transactionId: transaction.id,
       });
-      return NextResponse.json(
-        { error: 'Wallet top-up is already being processed' },
-        { status: 409 }
-      );
     }
 
     const walletCredit = await creditWalletTopUp({

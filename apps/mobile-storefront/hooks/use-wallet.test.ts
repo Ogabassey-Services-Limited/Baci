@@ -94,8 +94,8 @@ function createWrapper(queryClient: QueryClient) {
 function createTestClient() {
   return new QueryClient({
     defaultOptions: {
-      queries: { retry: false, gcTime: 0 },
-      mutations: { retry: false, gcTime: 0 },
+      queries: { retry: false, gcTime: Number.POSITIVE_INFINITY },
+      mutations: { retry: false, gcTime: Number.POSITIVE_INFINITY },
     },
   });
 }
@@ -141,7 +141,9 @@ function createQueryResult(data: unknown, error: unknown = null) {
 }
 
 function setupWalletTableMocks({
-  customerResult = createQueryResult({ loyalty_points: 1200 }),
+  customerResult = createQueryResult([
+    { id: 'customer-1', loyalty_points: 1200 },
+  ]),
   transactionsResult = createQueryResult([
     {
       amount: 500,
@@ -160,9 +162,15 @@ function setupWalletTableMocks({
   transactionsResult?: ReturnType<typeof createQueryResult>;
   walletResult?: ReturnType<typeof createQueryResult>;
 } = {}) {
-  const customerMaybeSingle = jest
+  const normalizedCustomerResult = Array.isArray(customerResult.data)
+    ? customerResult
+    : createQueryResult(
+        customerResult.data ? [customerResult.data] : [],
+        customerResult.error
+      );
+  const customerLimit = jest
     .fn<() => Promise<ReturnType<typeof createQueryResult>>>()
-    .mockResolvedValue(customerResult);
+    .mockResolvedValue(normalizedCustomerResult);
   const walletMaybeSingle = jest
     .fn<() => Promise<ReturnType<typeof createQueryResult>>>()
     .mockResolvedValue(walletResult);
@@ -181,7 +189,7 @@ function setupWalletTableMocks({
           customerFilters.push([column, value]);
           return customerEqChain;
         }),
-        maybeSingle: customerMaybeSingle,
+        limit: customerLimit,
       };
 
       return {
@@ -321,6 +329,65 @@ describe('useWallet', () => {
     queryClient.clear();
   });
 
+  it('returns an empty wallet when customer lookup has no rows', async () => {
+    const { tableCalls } = setupWalletTableMocks({
+      customerResult: createQueryResult([]),
+    });
+    const queryClient = createTestClient();
+
+    const { result, unmount } = renderHook(() => useWallet(), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    await waitFor(() => expect(result.current.data).toBeDefined());
+
+    expect(result.current.data).toEqual({
+      wallet: { balance: 0, loyalty_points: 0 },
+      transactions: [],
+    });
+    expect(tableCalls).not.toContain('customer_wallets');
+
+    unmount();
+    queryClient.clear();
+  });
+
+  it('returns an empty wallet and warns when customer lookup has multiple rows', async () => {
+    const warnSpy = jest
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    const { tableCalls } = setupWalletTableMocks({
+      customerResult: createQueryResult([
+        { id: 'customer-1', loyalty_points: 1200 },
+        { id: 'customer-2', loyalty_points: 900 },
+      ]),
+    });
+    const queryClient = createTestClient();
+
+    const { result, unmount } = renderHook(() => useWallet(), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    await waitFor(() => expect(result.current.data).toBeDefined());
+
+    expect(result.current.data).toEqual({
+      wallet: { balance: 0, loyalty_points: 0 },
+      transactions: [],
+    });
+    expect(warnSpy).toHaveBeenCalledWith(
+      'Expected one customer wallet owner, received multiple rows',
+      {
+        customerId: 'customer-1',
+        merchantId: 'merchant-1',
+        userId: 'user-1',
+      }
+    );
+    expect(tableCalls).not.toContain('customer_wallets');
+
+    warnSpy.mockRestore();
+    unmount();
+    queryClient.clear();
+  });
+
   it('uses the configured merchant when auth merchant hydration is still pending', async () => {
     setupWalletTableMocks({
       customerResult: createQueryResult({
@@ -408,6 +475,28 @@ describe('useWallet', () => {
     await waitFor(() => expect(result.current.data).toBeDefined());
 
     expect(result.current.data?.transactions).toEqual([]);
+
+    unmount();
+    queryClient.clear();
+  });
+
+  it('reports an error when the wallet transactions query fails', async () => {
+    setupWalletTableMocks({
+      transactionsResult: createQueryResult(null, {
+        message: 'transactions query failed',
+      }),
+    });
+    const queryClient = createTestClient();
+
+    const { result, unmount } = renderHook(() => useWallet(), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+
+    expect(result.current.error).toEqual({
+      message: 'transactions query failed',
+    });
 
     unmount();
     queryClient.clear();
@@ -512,6 +601,63 @@ describe('useRedeemPoints', () => {
       p_points: 120,
       p_wallet_credit: 111,
     });
+    unmount();
+    queryClient.clear();
+  });
+
+  it('rolls back and invalidates the query key captured before auth changes', async () => {
+    let rejectCommerce: ((reason?: Error) => void) | undefined;
+    mockCalculateCommerce.mockReturnValue(
+      new Promise((_resolve, reject) => {
+        rejectCommerce = reject;
+      })
+    );
+    const { result, unmount, queryClient } = setupHook();
+    const originalQueryKey = walletKeys.data('customer-1', 'merchant-1');
+    const changedQueryKey = walletKeys.data('customer-2', 'merchant-2');
+    queryClient.setQueryData<WalletQueryData>(originalQueryKey, {
+      wallet: { balance: 0, loyalty_points: 1000 },
+      transactions: [],
+    });
+    const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
+
+    let mutationPromise!: Promise<unknown>;
+    act(() => {
+      mutationPromise = result.current.mutateAsync(100);
+    });
+
+    await waitFor(() =>
+      expect(
+        queryClient.getQueryData<WalletQueryData>(originalQueryKey)?.wallet
+          .loyalty_points
+      ).toBe(900)
+    );
+
+    act(() => {
+      useAuthStore.setState({
+        customer: { id: 'customer-2', email: 'changed@example.com' },
+        merchantId: 'merchant-2',
+        user: createMockUser('user-2'),
+      });
+    });
+
+    await act(async () => {
+      rejectCommerce?.(new Error('commerce failed'));
+      await expect(mutationPromise).rejects.toThrow('commerce failed');
+    });
+
+    expect(queryClient.getQueryData<WalletQueryData>(originalQueryKey)).toEqual(
+      {
+        wallet: { balance: 0, loyalty_points: 1000 },
+        transactions: [],
+      }
+    );
+    expect(queryClient.getQueryData(changedQueryKey)).toBeUndefined();
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: originalQueryKey,
+    });
+
+    invalidateSpy.mockRestore();
     unmount();
     queryClient.clear();
   });

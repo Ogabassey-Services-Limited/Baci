@@ -51,6 +51,74 @@ function makeRequest(body: Record<string, unknown>) {
   );
 }
 
+interface MockMerchant {
+  business_name: string;
+  id: string;
+  paystack_subaccount_code: string | null;
+  slug: string;
+}
+
+interface MockSettings {
+  korapay_enabled: boolean;
+  paystack_enabled: boolean;
+  preferred_local_gateway: string;
+}
+
+const defaultMerchant: MockMerchant = {
+  business_name: 'Baci',
+  id: 'merchant-1',
+  paystack_subaccount_code: 'ACCT_123',
+  slug: 'ogabassey',
+};
+
+const defaultSettings: MockSettings = {
+  korapay_enabled: true,
+  paystack_enabled: true,
+  preferred_local_gateway: 'paystack',
+};
+
+function mockSupabaseTables({
+  merchant = defaultMerchant,
+  settings = defaultSettings,
+  transactionError = null,
+}: {
+  merchant?: MockMerchant;
+  settings?: MockSettings;
+  transactionError?: { message: string } | null;
+} = {}) {
+  mockFrom.mockImplementation((table: string) => {
+    if (table === 'merchants') {
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: merchant, error: null }),
+          }),
+        }),
+      };
+    }
+
+    if (table === 'merchant_feature_settings') {
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            maybeSingle: vi
+              .fn()
+              .mockResolvedValue({ data: settings, error: null }),
+          }),
+        }),
+      };
+    }
+
+    if (table === 'transactions') {
+      return {
+        insert: vi.fn().mockResolvedValue({ error: transactionError }),
+      };
+    }
+
+    throw new Error(`Unexpected table: ${table}`);
+  });
+}
+
 describe('POST /api/storefront/customer/wallet/top-up/initialize', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -73,50 +141,7 @@ describe('POST /api/storefront/customer/wallet/top-up/initialize', () => {
       authorization_url: 'https://korapay.com/pay/wallet',
       checkout_url: 'https://korapay.com/pay/wallet',
     });
-    mockFrom.mockImplementation((table: string) => {
-      if (table === 'merchants') {
-        return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              single: vi.fn().mockResolvedValue({
-                data: {
-                  business_name: 'Baci',
-                  id: 'merchant-1',
-                  paystack_subaccount_code: 'ACCT_123',
-                  slug: 'ogabassey',
-                },
-                error: null,
-              }),
-            }),
-          }),
-        };
-      }
-
-      if (table === 'merchant_feature_settings') {
-        return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              maybeSingle: vi.fn().mockResolvedValue({
-                data: {
-                  korapay_enabled: true,
-                  paystack_enabled: true,
-                  preferred_local_gateway: 'paystack',
-                },
-                error: null,
-              }),
-            }),
-          }),
-        };
-      }
-
-      if (table === 'transactions') {
-        return {
-          insert: vi.fn().mockResolvedValue({ error: null }),
-        };
-      }
-
-      throw new Error(`Unexpected table: ${table}`);
-    });
+    mockSupabaseTables();
   });
 
   it('returns 401 when unauthenticated', async () => {
@@ -131,6 +156,86 @@ describe('POST /api/storefront/customer/wallet/top-up/initialize', () => {
     );
 
     expect(response.status).toBe(401);
+  });
+
+  it('returns 400 when initialize payload validation fails', async () => {
+    const response = await POST(
+      makeRequest({ amount: 'invalid', merchantSlug: 'ogabassey' })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data).toMatchObject({
+      error: 'Invalid input',
+    });
+    expect(data).toHaveProperty('details.fieldErrors.amount');
+    expect(data.details.fieldErrors.amount).toEqual(
+      expect.arrayContaining([expect.any(String)])
+    );
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 for deliberate gateway-selection failures', async () => {
+    mockSupabaseTables({
+      merchant: { ...defaultMerchant, paystack_subaccount_code: null },
+      settings: { ...defaultSettings, korapay_enabled: false },
+    });
+
+    const response = await POST(
+      makeRequest({
+        amount: 2500,
+        gateway: 'korapay',
+        merchantSlug: 'ogabassey',
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data).toEqual({
+      error: 'korapay is not enabled for wallet top-ups',
+    });
+    expect(mockInitializeKorapayPayment).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 without exposing upstream payment errors', async () => {
+    mockInitializePaystackTransaction.mockRejectedValue(
+      new Error('upstream secret failure')
+    );
+
+    const response = await POST(
+      makeRequest({
+        amount: 2500,
+        gateway: 'paystack',
+        merchantSlug: 'ogabassey',
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(data).toEqual({
+      error: 'Failed to initialize wallet top-up',
+    });
+  });
+
+  it('returns 500 when transaction insert fails', async () => {
+    mockSupabaseTables({
+      merchant: { ...defaultMerchant, paystack_subaccount_code: null },
+      transactionError: { message: 'insert failed' },
+    });
+
+    const response = await POST(
+      makeRequest({
+        amount: 2500,
+        gateway: 'paystack',
+        merchantSlug: 'ogabassey',
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(data).toEqual({
+      error: 'Failed to initialize wallet top-up',
+    });
   });
 
   it('returns a wallet checkout payload for paystack', async () => {

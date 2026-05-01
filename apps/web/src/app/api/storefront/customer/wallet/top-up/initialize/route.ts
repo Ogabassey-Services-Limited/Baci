@@ -18,6 +18,14 @@ interface GatewaySettings {
   preferred_local_gateway: string | null;
 }
 
+class WalletTopUpClientError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'WalletTopUpClientError';
+    Object.setPrototypeOf(this, WalletTopUpClientError.prototype);
+  }
+}
+
 function createErrorResponse(error: string, status = 400) {
   return NextResponse.json({ error }, { status });
 }
@@ -39,7 +47,9 @@ function selectWalletTopUpGateway({
   if (requestedGateway) {
     if (requestedGateway === 'paystack' && paystackEnabled) return 'paystack';
     if (requestedGateway === 'korapay' && korapayEnabled) return 'korapay';
-    throw new Error(`${requestedGateway} is not enabled for wallet top-ups`);
+    throw new WalletTopUpClientError(
+      `${requestedGateway} is not enabled for wallet top-ups`
+    );
   }
 
   if (
@@ -53,7 +63,9 @@ function selectWalletTopUpGateway({
   if (paystackEnabled) return 'paystack';
   if (korapayEnabled) return 'korapay';
 
-  throw new Error('No wallet top-up gateway is enabled for this merchant');
+  throw new WalletTopUpClientError(
+    'No wallet top-up gateway is enabled for this merchant'
+  );
 }
 
 export async function POST(request: NextRequest) {
@@ -224,11 +236,11 @@ export async function POST(request: NextRequest) {
       success: true,
     });
   } catch (error) {
-    return createErrorResponse(
-      error instanceof Error
-        ? error.message
-        : 'Failed to initialize wallet top-up',
-      400
-    );
+    if (error instanceof WalletTopUpClientError) {
+      return createErrorResponse(error.message, 400);
+    }
+
+    console.error('Unexpected wallet top-up initialization error', { error });
+    return createErrorResponse('Failed to initialize wallet top-up', 500);
   }
 }

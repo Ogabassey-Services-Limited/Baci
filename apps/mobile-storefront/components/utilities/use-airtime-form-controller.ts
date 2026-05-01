@@ -76,6 +76,9 @@ export function useAirtimeFormController({
       setIsNetworkPickerExpanded(false);
       return;
     }
+
+    setSelectedProvider(null);
+    setIsNetworkPickerExpanded(false);
   };
 
   const updateAmount = (value: string) => {

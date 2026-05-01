@@ -55,6 +55,7 @@ describe('wallet top-up schemas', () => {
 
   it.each([
     'not-a-number',
+    Number.NaN,
     Number.POSITIVE_INFINITY,
   ])('rejects invalid amount value %s', (amount) => {
     expect(

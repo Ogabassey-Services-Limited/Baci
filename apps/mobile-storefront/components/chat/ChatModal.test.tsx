@@ -122,4 +122,14 @@ describe('ChatModal', () => {
     });
     expect(screen.getByLabelText('Chat message input')).toBeOnTheScreen();
   });
+
+  it('does not add keyboard padding when the keyboard is hidden', () => {
+    renderChatModal();
+
+    expect(
+      StyleSheet.flatten(screen.getByTestId('chat-input-container').props.style)
+        .paddingBottom
+    ).toBeUndefined();
+    expect(screen.getByLabelText('Chat message input')).toBeOnTheScreen();
+  });
 });

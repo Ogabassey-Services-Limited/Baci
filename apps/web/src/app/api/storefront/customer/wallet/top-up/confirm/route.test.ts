@@ -131,6 +131,60 @@ describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
     });
   });
 
+  it('returns 401 when the request is not authenticated', async () => {
+    mockAuthenticateApiRequest.mockResolvedValueOnce({
+      error: 'Unauthorized',
+      supabase: null,
+      user: null,
+    });
+
+    const response = await POST(
+      makeRequest({
+        gateway: 'paystack',
+        merchantSlug: 'ogabassey',
+        reference: 'WAL-123',
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(data).toEqual({ error: 'Unauthorized' });
+    expect(mockCreditWalletTopUp).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 for invalid confirmation input', async () => {
+    const response = await POST(
+      makeRequest({
+        gateway: 'paystack',
+        merchantSlug: 'ogabassey',
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data).toMatchObject({ error: 'Invalid input' });
+    expect(mockCreditWalletTopUp).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 when gateway verification throws unexpectedly', async () => {
+    mockVerifyPaystackTransaction.mockRejectedValueOnce(
+      new Error('gateway unavailable')
+    );
+
+    const response = await POST(
+      makeRequest({
+        gateway: 'paystack',
+        merchantSlug: 'ogabassey',
+        reference: 'WAL-123',
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(data).toEqual({ error: 'gateway unavailable' });
+    expect(mockCreditWalletTopUp).not.toHaveBeenCalled();
+  });
+
   it('returns 404 when the wallet top-up payment does not exist', async () => {
     mockFrom.mockImplementation((table: string) => {
       if (table === 'merchants') {
@@ -191,6 +245,7 @@ describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
         balance: 7500,
       },
     });
+    expect(mockCreditWalletTopUp).toHaveBeenCalledTimes(1);
     expect(mockCreditWalletTopUp).toHaveBeenCalledWith({
       amount: 2500,
       customerId: 'customer-1',
@@ -202,7 +257,7 @@ describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
     });
   });
 
-  it('does not credit the wallet when another request already claimed the transaction', async () => {
+  it('retries the idempotent wallet credit when another request already completed the transaction', async () => {
     mockFrom.mockImplementation((table: string) => {
       if (table === 'merchants') {
         return {
@@ -252,12 +307,31 @@ describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
         reference: 'WAL-123',
       })
     );
+    const data = await response.json();
 
-    expect(response.status).toBe(409);
-    expect(mockCreditWalletTopUp).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(data).toEqual({
+      amount: 2500,
+      reference: 'WAL-123',
+      status: 'successful',
+      success: true,
+      wallet: {
+        balance: 7500,
+      },
+    });
+    expect(mockCreditWalletTopUp).toHaveBeenCalledTimes(1);
+    expect(mockCreditWalletTopUp).toHaveBeenCalledWith({
+      amount: 2500,
+      customerId: 'customer-1',
+      gateway: 'paystack',
+      merchantId: 'merchant-1',
+      reference: 'WAL-123',
+      supabase: expect.any(Object),
+      transactionId: 'txn-1',
+    });
   });
 
-  it('does not credit the wallet when the transaction was already completed', async () => {
+  it('retries the idempotent wallet credit when the transaction was already completed', async () => {
     mockFrom.mockImplementation((table: string) => {
       if (table === 'merchants') {
         return {
@@ -307,9 +381,28 @@ describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
         reference: 'WAL-123',
       })
     );
+    const data = await response.json();
 
-    expect(response.status).toBe(409);
-    expect(mockCreditWalletTopUp).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(data).toEqual({
+      amount: 2500,
+      reference: 'WAL-123',
+      status: 'successful',
+      success: true,
+      wallet: {
+        balance: 7500,
+      },
+    });
+    expect(mockCreditWalletTopUp).toHaveBeenCalledTimes(1);
+    expect(mockCreditWalletTopUp).toHaveBeenCalledWith({
+      amount: 2500,
+      customerId: 'customer-1',
+      gateway: 'paystack',
+      merchantId: 'merchant-1',
+      reference: 'WAL-123',
+      supabase: expect.any(Object),
+      transactionId: 'txn-1',
+    });
   });
 
   it('rejects successful gateway responses without a verified amount', async () => {
