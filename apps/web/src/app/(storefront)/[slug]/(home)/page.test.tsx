@@ -110,7 +110,9 @@ const actualStorefrontPageContentModule = await vi.importActual<
 describe('Storefront homepage structured data', () => {
   beforeEach(() => {
     document
-      .querySelectorAll('link[rel="preload"][as="image"]')
+      .querySelectorAll(
+        'link[rel="preload"][as="image"], link[rel="preconnect"], link[rel="dns-prefetch"]'
+      )
       .forEach((link) => {
         link.remove();
       });
@@ -317,6 +319,34 @@ describe('Storefront homepage structured data', () => {
     ]);
   });
 
+  it('emits preconnect + dns-prefetch hints for the OgaBassey LCP origins', async () => {
+    render(
+      await StorefrontPage({ params: Promise.resolve({ slug: 'ogabassey' }) })
+    );
+
+    const expectedOrigins = [
+      'https://cdn.ogabassey.com',
+      'https://store.storeimages.cdn-apple.com',
+    ];
+
+    const preconnects = Array.from(
+      document.querySelectorAll<HTMLLinkElement>('link[rel="preconnect"]')
+    );
+    expect(preconnects.map((l) => l.getAttribute('href'))).toEqual(
+      expectedOrigins
+    );
+    for (const link of preconnects) {
+      expect(link).toHaveAttribute('crossorigin', 'anonymous');
+    }
+
+    const dnsHints = Array.from(
+      document.querySelectorAll<HTMLLinkElement>('link[rel="dns-prefetch"]')
+    );
+    expect(dnsHints.map((l) => l.getAttribute('href'))).toEqual(
+      expectedOrigins
+    );
+  });
+
   it('does not preload OgaBassey hero images for other storefronts', async () => {
     render(
       await StorefrontPage({
@@ -326,6 +356,12 @@ describe('Storefront homepage structured data', () => {
 
     expect(
       document.querySelector('link[rel="preload"][as="image"]')
+    ).not.toBeInTheDocument();
+    expect(
+      document.querySelector('link[rel="preconnect"]')
+    ).not.toBeInTheDocument();
+    expect(
+      document.querySelector('link[rel="dns-prefetch"]')
     ).not.toBeInTheDocument();
   });
 });

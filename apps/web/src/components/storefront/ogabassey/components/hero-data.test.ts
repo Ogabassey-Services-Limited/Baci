@@ -71,5 +71,10 @@ describe('hero-data exports', () => {
     expect(OGABASSEY_HERO_PRELOAD_IDENTIFIERS.has('ogabassey')).toBe(true);
     expect(OGABASSEY_HERO_PRELOAD_IDENTIFIERS.has('ogabassey.com')).toBe(true);
     expect(OGABASSEY_HERO_PRELOAD_IDENTIFIERS.has('another-shop')).toBe(false);
+    // proxy.ts normalises 'www.ogabassey.com' down to 'ogabassey.com' before
+    // the storefront [slug] route runs, so the www form should not be in the Set.
+    expect(OGABASSEY_HERO_PRELOAD_IDENTIFIERS.has('www.ogabassey.com')).toBe(
+      false
+    );
   });
 });

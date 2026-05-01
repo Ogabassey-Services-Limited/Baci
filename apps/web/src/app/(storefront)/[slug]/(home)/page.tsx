@@ -10,9 +10,28 @@ import { buildStoreUrl } from '@/lib/store-url';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 import { StorefrontPageContent } from '../storefront-page-content';
 
+// Origins the OgaBassey storefront fetches above-the-fold from.
+// React 19 hoists these <link> tags to <head> automatically; warming the
+// connection before the LCP image request is queued cuts handshake time.
+const OGABASSEY_HERO_PRECONNECT_ORIGINS = [
+  'https://cdn.ogabassey.com',
+  'https://store.storeimages.cdn-apple.com',
+] as const;
+
 function OgabasseyHeroPreloads() {
   return (
     <>
+      {OGABASSEY_HERO_PRECONNECT_ORIGINS.map((origin) => (
+        <link key={`dns-${origin}`} rel="dns-prefetch" href={origin} />
+      ))}
+      {OGABASSEY_HERO_PRECONNECT_ORIGINS.map((origin) => (
+        <link
+          key={`preconnect-${origin}`}
+          rel="preconnect"
+          href={origin}
+          crossOrigin="anonymous"
+        />
+      ))}
       <link
         rel="preload"
         as="image"

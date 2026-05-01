@@ -81,14 +81,36 @@ describe('BannerCarousel', () => {
     }
   });
 
-  it('changes slides from accessible banner slide controls', () => {
-    render(<BannerCarousel />);
+  it('marks the active control with aria-current and shifts the carousel track on click', () => {
+    const { container } = render(<BannerCarousel />);
+    const slideControls = screen.getAllByRole('button', {
+      name: /go to banner slide/i,
+    });
     const newArrivalsControl = screen.getByRole('button', {
       name: /new arrivals/i,
     });
+    const initialActive = slideControls.find(
+      (btn) => btn.getAttribute('aria-current') === 'true'
+    );
+
+    expect(initialActive).toBeDefined();
+    expect(initialActive).not.toBe(newArrivalsControl);
+
+    const track = container.querySelector<HTMLElement>(
+      'div.flex.h-full.transition-transform'
+    );
+    expect(track).toBeTruthy();
+    const initialTransform = track?.style.transform;
 
     fireEvent.click(newArrivalsControl);
 
-    expect(screen.getByAltText('New Arrivals')).toBeInTheDocument();
+    expect(newArrivalsControl).toHaveAttribute('aria-current', 'true');
+    for (const btn of slideControls) {
+      if (btn !== newArrivalsControl) {
+        expect(btn).not.toHaveAttribute('aria-current');
+      }
+    }
+    expect(track?.style.transform).not.toBe(initialTransform);
+    expect(track?.style.transform).toMatch(/translateX\(-\d+/);
   });
 });

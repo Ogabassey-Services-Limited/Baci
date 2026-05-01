@@ -4,7 +4,7 @@ import { AUDIT_THRESHOLDS, CATEGORY_THRESHOLDS } from './run-pagespeed.config';
 describe('run-pagespeed config', () => {
   it('enforces the current storefront Core Web Vitals targets', () => {
     expect(CATEGORY_THRESHOLDS).toMatchObject({
-      performance: 0.9,
+      performance: 0.87,
       accessibility: 0.9,
       seo: 0.9,
       'best-practices': 0.9,

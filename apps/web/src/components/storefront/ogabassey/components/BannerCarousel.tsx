@@ -227,6 +227,7 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
               key={idx}
               type="button"
               aria-label={`Go to banner slide ${idx + 1}: ${slide.title ?? 'Sponsored placement'}`}
+              aria-current={isCurrentSlide ? 'true' : undefined}
               onClick={() => setCurrentSlide(idx)}
               className="group flex h-11 min-w-11 items-center justify-center rounded-full"
             >
