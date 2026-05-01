@@ -6,6 +6,7 @@ const mockResolveVtuCustomer = vi.fn();
 const mockInitializePaystackTransaction = vi.fn();
 const mockInitializeKorapayPayment = vi.fn();
 const mockFrom = vi.fn();
+const mockTransactionInsert = vi.fn();
 
 vi.mock('@/env', () => ({
   env: {
@@ -118,7 +119,7 @@ function mockSupabaseTables({
 
     if (table === 'transactions') {
       return {
-        insert: vi.fn().mockReturnValue({
+        insert: mockTransactionInsert.mockReturnValue({
           select: vi.fn().mockReturnValue({
             single: vi.fn().mockResolvedValue({
               data: transactionError ? null : { id: 'txn-1' },
@@ -332,6 +333,14 @@ describe('POST /api/storefront/customer/wallet/top-up/initialize', () => {
           transaction_type: 'wallet_topup',
         }),
         subaccount: 'ACCT_123',
+      })
+    );
+    expect(mockTransactionInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        amount: 2500,
+        merchant_amount: 0,
+        platform_fee: 0,
+        transaction_type: 'payment',
       })
     );
   });

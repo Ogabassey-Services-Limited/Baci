@@ -175,7 +175,7 @@ export async function POST(request: NextRequest) {
           description: 'Customer wallet top-up',
           gateway,
           gateway_reference: paymentReference,
-          merchant_amount: parsed.data.amount,
+          merchant_amount: 0,
           merchant_id: merchant.id,
           metadata,
           order_id: null,
