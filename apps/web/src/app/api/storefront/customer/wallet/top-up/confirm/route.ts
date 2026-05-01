@@ -28,6 +28,20 @@ function getVerifiedCurrency(payload: Record<string, unknown>) {
   return typeof payload.currency === 'string' ? payload.currency : null;
 }
 
+const TERMINAL_PAYMENT_STATUSES = new Set([
+  'abandoned',
+  'cancelled',
+  'canceled',
+  'declined',
+  'expired',
+  'failed',
+  'reversed',
+]);
+
+function isTerminalPaymentStatus(status: string) {
+  return TERMINAL_PAYMENT_STATUSES.has(status.trim().toLowerCase());
+}
+
 export async function POST(request: NextRequest) {
   try {
     const auth = await authenticateApiRequest(request);
@@ -172,6 +186,16 @@ export async function POST(request: NextRequest) {
         ? verification.data.status
         : '';
     if (paymentStatus !== 'success') {
+      if (isTerminalPaymentStatus(paymentStatus)) {
+        return NextResponse.json(
+          {
+            error: 'Payment was not successful',
+            status: paymentStatus,
+          },
+          { status: 400 }
+        );
+      }
+
       return NextResponse.json(
         { error: 'Payment is not yet successful', status: paymentStatus },
         { status: 409 }

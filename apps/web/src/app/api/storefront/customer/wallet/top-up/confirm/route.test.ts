@@ -460,4 +460,61 @@ describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
     expect(data).toEqual({ error: 'Payment currency mismatch' });
     expect(mockCreditWalletTopUp).not.toHaveBeenCalled();
   });
+
+  it.each([
+    'failed',
+    'abandoned',
+  ])('returns a terminal error when gateway status is %s', async (status) => {
+    mockVerifyPaystackTransaction.mockResolvedValueOnce({
+      data: {
+        amount: 250_000,
+        currency: 'NGN',
+        status,
+      },
+      success: true,
+    });
+
+    const response = await POST(
+      makeRequest({
+        gateway: 'paystack',
+        merchantSlug: 'ogabassey',
+        reference: 'WAL-123',
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data).toEqual({
+      error: 'Payment was not successful',
+      status,
+    });
+    expect(mockCreditWalletTopUp).not.toHaveBeenCalled();
+  });
+
+  it('keeps pending gateway statuses retryable', async () => {
+    mockVerifyPaystackTransaction.mockResolvedValueOnce({
+      data: {
+        amount: 250_000,
+        currency: 'NGN',
+        status: 'pending',
+      },
+      success: true,
+    });
+
+    const response = await POST(
+      makeRequest({
+        gateway: 'paystack',
+        merchantSlug: 'ogabassey',
+        reference: 'WAL-123',
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(data).toEqual({
+      error: 'Payment is not yet successful',
+      status: 'pending',
+    });
+    expect(mockCreditWalletTopUp).not.toHaveBeenCalled();
+  });
 });
