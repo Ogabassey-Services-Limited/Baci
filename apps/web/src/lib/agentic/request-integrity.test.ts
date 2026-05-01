@@ -5,8 +5,9 @@ import {
   verifyAgenticRequestIntegrity,
 } from '@/lib/agentic/request-integrity';
 
-const secret =
-  '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+const secret = Array.from({ length: 32 }, (_, index) =>
+  index.toString(16).padStart(2, '0')
+).join('');
 const now = new Date('2026-04-30T12:00:00.000Z');
 
 function sign({
