@@ -13,13 +13,16 @@ describe('getAgenticIdempotencyErrorStatus', () => {
     ).toBe(409);
   });
 
-  it('maps in-progress or failed reservations to retry-later responses', () => {
+  it('maps in-progress reservations to retry-later responses', () => {
     expect(
       getAgenticIdempotencyErrorStatus(IDEMPOTENCY_REQUEST_IN_PROGRESS_ERROR)
     ).toBe(425);
+  });
+
+  it('maps reservation infrastructure failures to service unavailable', () => {
     expect(
       getAgenticIdempotencyErrorStatus(IDEMPOTENCY_RESERVATION_FAILED_ERROR)
-    ).toBe(425);
-    expect(getAgenticIdempotencyErrorStatus('some unknown error')).toBe(425);
+    ).toBe(503);
+    expect(getAgenticIdempotencyErrorStatus('some unknown error')).toBe(503);
   });
 });

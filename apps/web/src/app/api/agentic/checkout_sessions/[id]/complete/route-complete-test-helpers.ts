@@ -2,17 +2,17 @@ import { createHmac, randomBytes } from 'node:crypto';
 
 export const completionConfirmationSecret = randomBytes(32).toString('hex');
 
-export function validHumanConfirmation() {
+export function validHumanConfirmation(amount = 500000) {
   const confirmedAt = new Date().toISOString();
   const payload = JSON.stringify({
-    amount: 500000,
+    amount,
     confirmed_at: confirmedAt,
     currency: 'NGN',
     session_id: 'agentic_session_1',
     type: 'human_confirmation',
   });
   return {
-    amount: 500000,
+    amount,
     confirmed_at: confirmedAt,
     currency: 'NGN',
     session_id: 'agentic_session_1',

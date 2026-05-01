@@ -186,6 +186,26 @@ export async function POST(
         409
       );
     }
+    const storedDvaAccount = getStoredDvaAccount(session);
+    const paymentState = getAgenticPaymentState(session.metadata);
+    const canResumePaymentAccount =
+      paymentState === 'payment_account_ready' &&
+      !!storedDvaAccount &&
+      !session.order_id;
+    if (!canResumePaymentAccount) {
+      const existingPaymentState = resolveExistingPaymentState({
+        buyer,
+        session,
+        sessionCalc,
+      });
+      if (existingPaymentState) {
+        return await respond(
+          existingPaymentState.body,
+          existingPaymentState.status
+        );
+      }
+    }
+
     const grandTotal = getCheckoutGrandTotal(sessionCalc.totals);
 
     if (!Number.isFinite(grandTotal))
@@ -218,27 +238,6 @@ export async function POST(
         buildAuthorizationErrorBody(authorization.code),
         getAuthorizationErrorStatus(authorization.code)
       );
-    }
-
-    const storedDvaAccount = getStoredDvaAccount(session);
-    const paymentState = getAgenticPaymentState(session.metadata);
-    const canResumePaymentAccount =
-      paymentState === 'payment_account_ready' &&
-      !!storedDvaAccount &&
-      !session.order_id;
-
-    if (!canResumePaymentAccount) {
-      const existingPaymentState = resolveExistingPaymentState({
-        buyer,
-        session,
-        sessionCalc,
-      });
-      if (existingPaymentState) {
-        return await respond(
-          existingPaymentState.body,
-          existingPaymentState.status
-        );
-      }
     }
 
     const metadata = withCompletionAuthorizationMetadata(

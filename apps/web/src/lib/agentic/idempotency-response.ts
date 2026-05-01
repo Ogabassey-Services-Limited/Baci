@@ -1,5 +1,7 @@
 import {
   IDEMPOTENCY_PARAMETER_MISMATCH_ERROR,
+  IDEMPOTENCY_REQUEST_IN_PROGRESS_ERROR,
+  IDEMPOTENCY_RESERVATION_FAILED_ERROR,
   type IdempotencyReservationResult,
 } from '@/lib/agentic/idempotency';
 
@@ -11,11 +13,21 @@ type IdempotencyReservationError = Extract<
 /**
  * Maps IdempotencyReservationError values to agent-facing HTTP statuses.
  * IDEMPOTENCY_PARAMETER_MISMATCH_ERROR means a client reused a key with
- * different request parameters and gets 409; all other reservation errors use
- * 425 so the caller can retry or queue the operation.
+ * different request parameters and gets 409. True in-progress reservations use
+ * 425; reservation infrastructure failures return 503.
  */
 export function getAgenticIdempotencyErrorStatus(
   error: IdempotencyReservationError | string
-): 409 | 425 {
-  return error === IDEMPOTENCY_PARAMETER_MISMATCH_ERROR ? 409 : 425;
+): 409 | 425 | 503 {
+  if (error === IDEMPOTENCY_PARAMETER_MISMATCH_ERROR) {
+    return 409;
+  }
+  if (error === IDEMPOTENCY_REQUEST_IN_PROGRESS_ERROR) {
+    return 425;
+  }
+  if (error === IDEMPOTENCY_RESERVATION_FAILED_ERROR) {
+    return 503;
+  }
+
+  return 503;
 }
