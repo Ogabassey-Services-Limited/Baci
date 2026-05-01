@@ -1,6 +1,7 @@
 import { generateText } from 'ai';
 import { activeTextModel } from '@/ai/provider';
 import { getOllamaBaseUrl, getOllamaBasicAuth, getOllamaCacModel } from '@/env';
+import { buildOllamaBasicAuthHeader } from '@/lib/ollama-auth';
 
 export interface CACVerificationResult {
   documentType: string | null;
@@ -50,7 +51,13 @@ async function extractViaOllama(
     'Content-Type': 'application/json',
   };
   if (basicAuth) {
-    headers.Authorization = `Basic ${basicAuth}`;
+    const authorization = buildOllamaBasicAuthHeader(basicAuth);
+    if (!authorization) {
+      throw new Error(
+        'Invalid OLLAMA_BASIC_AUTH: failed to construct Basic auth header'
+      );
+    }
+    headers.Authorization = authorization;
   }
 
   // Normalize baseUrl: strip trailing slashes and trailing "/api" to prevent

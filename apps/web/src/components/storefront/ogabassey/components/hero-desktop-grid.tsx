@@ -4,7 +4,11 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { asRoute } from '@/lib/routes';
-import { DESKTOP_IPHONE_SLIDES } from './hero-data';
+import {
+  DESKTOP_IPHONE_SLIDES,
+  FLASH_SALE_PROMO_IMAGE,
+  NEW_ARRIVALS_PROMO_IMAGE,
+} from './hero-data';
 
 interface HeroDesktopGridProps {
   getHref: (path: string) => string;
@@ -107,7 +111,7 @@ export function HeroDesktopGrid({ getHref }: HeroDesktopGridProps) {
       <div className="flex flex-col gap-4 h-full lg:col-span-1">
         <div className="flex-1 relative overflow-hidden rounded-2xl group cursor-pointer shadow-lg hover:shadow-xl transition-all duration-300 bg-black">
           <Image
-            src="https://cdn.ogabassey.com/products/new-arrivals-banner.avif"
+            src={NEW_ARRIVALS_PROMO_IMAGE}
             alt="MacBook Pro"
             fill
             sizes="(max-width: 1024px) 100vw, 25vw"
@@ -145,7 +149,7 @@ export function HeroDesktopGrid({ getHref }: HeroDesktopGridProps) {
 
         <div className="flex-1 relative overflow-hidden rounded-2xl group cursor-pointer shadow-lg hover:shadow-xl transition-all duration-300 bg-[#2D0C7E]">
           <Image
-            src="https://cdn.ogabassey.com/products/flash-sale-banner.avif"
+            src={FLASH_SALE_PROMO_IMAGE}
             alt="PS5 Controller"
             fill
             sizes="(max-width: 1024px) 100vw, 25vw"

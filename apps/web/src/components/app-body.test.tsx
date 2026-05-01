@@ -53,6 +53,8 @@ describe('AppBody', () => {
     // Brand accent/primary tokens stay available for merchant UI accents.
     expect(wrapper.style.getPropertyValue('--primary')).not.toBe('');
     expect(wrapper.style.getPropertyValue('--store-primary')).not.toBe('');
+    expect(wrapper.style.getPropertyValue('--store-on-primary')).not.toBe('');
+    expect(wrapper.style.getPropertyValue('--store-border')).not.toBe('');
   });
 
   it('renders cookie consent by default when newsletter widget is disabled', () => {

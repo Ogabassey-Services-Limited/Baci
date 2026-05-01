@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { useKeyboard } from '@/hooks/use-keyboard';
+import { CHAT_POWERED_BY_LABEL } from './constants';
 import { styles } from './styles';
 import { TypingIndicator } from './TypingIndicator';
 import { type ChatMessage, SUGGESTIONS } from './types';
@@ -143,7 +144,6 @@ export function ChatModal({
       <SafeAreaView
         style={[styles.modalContainer, { backgroundColor: colors.background }]}
       >
-        {/* Header */}
         <View
           style={[
             styles.header,
@@ -212,7 +212,6 @@ export function ChatModal({
           </Pressable>
         </View>
 
-        {/* Messages */}
         <KeyboardAvoidingView
           style={styles.messagesWrapper}
           behavior={Platform.OS === 'ios' ? undefined : 'height'}
@@ -248,7 +247,6 @@ export function ChatModal({
             }
           />
 
-          {/* Input Area */}
           <View
             style={[
               styles.inputContainer,
@@ -305,7 +303,7 @@ export function ChatModal({
               </Pressable>
             </View>
             <Text style={[styles.poweredBy, { color: colors.textSecondary }]}>
-              Powered by Google Gemini
+              {CHAT_POWERED_BY_LABEL}
             </Text>
           </View>
         </KeyboardAvoidingView>

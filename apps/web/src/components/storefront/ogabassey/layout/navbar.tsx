@@ -67,10 +67,13 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                 {/* Left: Menu & Logo */}
                 <div className="flex items-center gap-4 shrink-0">
                   <button
+                    type="button"
+                    aria-label="Open menu"
+                    aria-expanded={isMenuOpen}
                     onClick={() => setIsMenuOpen(true)}
-                    className="text-white transition-colors active:text-white"
+                    className="flex h-11 w-11 items-center justify-center text-white transition-colors active:text-white"
                   >
-                    <Menu className="h-6 w-6" />
+                    <Menu className="h-6 w-6" aria-hidden="true" />
                   </button>
 
                   <Link
