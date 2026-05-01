@@ -1,3 +1,4 @@
+import type { PaymentStatus, ShippingStatus } from '@baci/shared';
 import { after, type NextRequest, NextResponse } from 'next/server';
 import {
   authenticateApiRequest,
@@ -289,8 +290,10 @@ export async function POST(
     }
 
     // 5. Update Order Status
-    // biome-ignore lint/suspicious/noExplicitAny: Dynamic update object
-    const updates: any = {};
+    const updates: {
+      payment_status?: PaymentStatus;
+      shipping_status?: ShippingStatus;
+    } = {};
 
     // Payment Status Logic
     if (newPaid >= orderTotal) {
